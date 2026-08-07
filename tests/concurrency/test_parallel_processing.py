@@ -724,46 +724,6 @@ class TestResourceContention:
         # Most writes should succeed (some may fail due to contention)
         assert len(write_count) >= 8
 
-    @pytest.mark.xfail(reason="Cache API compatibility (see #4269)", strict=True)
-    def test_cache_lock_contention(self):
-        """Test cache lock performance under contention."""
-        from auralis.library.cache import LibraryCache
-
-        cache = LibraryCache(max_size=100)
-
-        # Pre-populate cache
-        for i in range(50):
-            cache.set(f"key_{i}", f"value_{i}")
-
-        operations = []
-        lock = threading.Lock()
-
-        def cache_operations(thread_id):
-            for i in range(100):
-                # Mix of reads and writes
-                if i % 3 == 0:
-                    cache.set(f"key_{thread_id}_{i}", f"value_{i}")
-                else:
-                    cache.get(f"key_{i % 50}")
-
-                with lock:
-                    operations.append(thread_id)
-
-        threads = [threading.Thread(target=cache_operations, args=(i,))
-                  for i in range(10)]
-
-        start = time.time()
-        for t in threads:
-            t.start()
-        for t in threads:
-            t.join(timeout=10)
-        duration = time.time() - start
-
-        # Should complete quickly despite contention
-        assert duration < 5
-        # All operations should complete
-        assert len(operations) == 1000  # 10 threads * 100 ops
-
     def test_deadlock_prevention(self):
         """Test that no deadlocks occur under load."""
         lock_a = threading.Lock()

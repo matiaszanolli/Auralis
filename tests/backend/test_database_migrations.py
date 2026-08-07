@@ -14,14 +14,15 @@ Philosophy:
 These tests ensure that database migrations work correctly
 and preserve user data during upgrades.
 
-NOTE: Tests use LibraryManager.close() which doesn't exist in current implementation.
-Requires refactoring to match current LibraryManager API.
+NOTE: Tests use a close() method that LibraryDatabase does not have (its lifecycle
+method is shutdown()), and reach for album_repo/artist_repo instead of the
+.albums/.artists repository properties. Requires refactoring.
 """
 
 import pytest
 
-# Skip - API incompatibility with LibraryManager
-pytestmark = pytest.mark.skip(reason="Tests use LibraryManager.close() which doesn't exist. Requires refactoring to match current API.")
+# Skip - API incompatibility with LibraryDatabase
+pytestmark = pytest.mark.skip(reason="Tests use a close() method LibraryDatabase does not have (lifecycle method is shutdown()). Requires refactoring to match current API.")
 import shutil
 import sqlite3
 import tempfile
@@ -29,7 +30,7 @@ from pathlib import Path
 
 from sqlalchemy.exc import SQLAlchemyError
 
-from auralis.library.manager import LibraryManager
+from auralis.library.database import LibraryDatabase
 
 # ============================================================================
 # Fixtures
@@ -44,11 +45,11 @@ def temp_db_dir():
 
 
 @pytest.fixture
-def library_manager_file(temp_db_dir):
-    """Create a file-based library manager for migration testing."""
+def library_db_file(temp_db_dir):
+    """Create a file-based library db for migration testing."""
     db_path = temp_db_dir / "library.db"
-    manager = LibraryManager(database_path=str(db_path))
-    yield manager
+    db = LibraryDatabase(database_path=str(db_path))
+    yield db
     
 
 
@@ -64,7 +65,7 @@ def test_migration_new_database_has_current_schema(temp_db_dir):
     Tests that newly created databases use latest schema.
     """
     db_path = temp_db_dir / "new.db"
-    manager = LibraryManager(database_path=str(db_path))
+    db = LibraryDatabase(database_path=str(db_path))
 
     # Database should be created with current schema
     assert db_path.exists()
@@ -73,7 +74,7 @@ def test_migration_new_database_has_current_schema(temp_db_dir):
 
 
 @pytest.mark.integration
-def test_migration_schema_version_table_exists(library_manager_file):
+def test_migration_schema_version_table_exists(library_db_file):
     """
     MIGRATION: Schema version table exists.
 
@@ -83,7 +84,7 @@ def test_migration_schema_version_table_exists(library_manager_file):
     # (Implementation-specific - may use alembic_version or custom table)
 
     # This validates the database was initialized
-    tracks, total = library_manager_file.tracks.get_all(limit=1, offset=0)
+    tracks, total = library_db_file.tracks.get_all(limit=1, offset=0)
     assert isinstance(tracks, list)
 
 
@@ -101,7 +102,7 @@ def test_migration_preserves_existing_tracks(temp_db_dir):
     db_path = temp_db_dir / "preserve.db"
 
     # Create database with some data
-    manager1 = LibraryManager(database_path=str(db_path))
+    db1 = LibraryDatabase(database_path=str(db_path))
     track_info = {
         "filepath": "/test/track.wav",
         "title": "Test Track",
@@ -112,19 +113,19 @@ def test_migration_preserves_existing_tracks(temp_db_dir):
         "channels": 2,
         "bitrate": 1411200,
     }
-    track = manager1.tracks.add(track_info)
+    track = db1.tracks.add(track_info)
     track_id = track.id
-    manager1.close()
+    db1.close()
 
     # Reopen database (simulates migration on app restart)
-    manager2 = LibraryManager(database_path=str(db_path))
-    retrieved = manager2.tracks.get_by_id(track_id)
+    db2 = LibraryDatabase(database_path=str(db_path))
+    retrieved = db2.tracks.get_by_id(track_id)
 
     assert retrieved is not None
     assert retrieved.title == "Test Track"
     assert retrieved.artist == "Test Artist"
 
-    manager2.close()
+    db2.close()
 
 
 @pytest.mark.integration
@@ -137,7 +138,7 @@ def test_migration_preserves_track_count(temp_db_dir):
     db_path = temp_db_dir / "count.db"
 
     # Create database with 10 tracks
-    manager1 = LibraryManager(database_path=str(db_path))
+    db1 = LibraryDatabase(database_path=str(db_path))
     for i in range(10):
         track_info = {
             "filepath": f"/test/track_{i}.wav",
@@ -149,19 +150,19 @@ def test_migration_preserves_track_count(temp_db_dir):
             "channels": 2,
             "bitrate": 1411200,
         }
-        manager1.tracks.add(track_info)
+        db1.tracks.add(track_info)
 
-    tracks1, total1 = manager1.tracks.get_all(limit=100, offset=0)
-    manager1.close()
+    tracks1, total1 = db1.tracks.get_all(limit=100, offset=0)
+    db1.close()
 
     # Reopen and verify count
-    manager2 = LibraryManager(database_path=str(db_path))
-    tracks2, total2 = manager2.tracks.get_all(limit=100, offset=0)
+    db2 = LibraryDatabase(database_path=str(db_path))
+    tracks2, total2 = db2.tracks.get_all(limit=100, offset=0)
 
     assert total2 == total1
     assert total2 == 10
 
-    manager2.close()
+    db2.close()
 
 
 # ============================================================================
@@ -169,7 +170,7 @@ def test_migration_preserves_track_count(temp_db_dir):
 # ============================================================================
 
 @pytest.mark.integration
-def test_migration_tracks_table_has_required_columns(library_manager_file):
+def test_migration_tracks_table_has_required_columns(library_db_file):
     """
     MIGRATION: Tracks table has all required columns.
 
@@ -186,7 +187,7 @@ def test_migration_tracks_table_has_required_columns(library_manager_file):
         "channels": 2,
         "bitrate": 1411200,
     }
-    track = library_manager_file.tracks.add(track_info)
+    track = library_db_file.tracks.add(track_info)
 
     # Verify track has expected attributes
     assert hasattr(track, 'id')
@@ -198,28 +199,28 @@ def test_migration_tracks_table_has_required_columns(library_manager_file):
 
 
 @pytest.mark.integration
-def test_migration_albums_table_exists(library_manager_file):
+def test_migration_albums_table_exists(library_db_file):
     """
     MIGRATION: Albums table exists after migration.
 
     Tests that all required tables are created.
     """
     # Try to query albums table
-    albums, total = library_manager_file.album_repo.get_all(limit=10, offset=0)
+    albums, total = library_db_file.album_repo.get_all(limit=10, offset=0)
 
     assert isinstance(albums, list)
     assert isinstance(total, int)
 
 
 @pytest.mark.integration
-def test_migration_artists_table_exists(library_manager_file):
+def test_migration_artists_table_exists(library_db_file):
     """
     MIGRATION: Artists table exists after migration.
 
     Tests that all required tables are created.
     """
     # Try to query artists table
-    artists, total = library_manager_file.artist_repo.get_all(limit=10, offset=0)
+    artists, total = library_db_file.artist_repo.get_all(limit=10, offset=0)
 
     assert isinstance(artists, list)
     assert isinstance(total, int)
@@ -237,7 +238,7 @@ def test_migration_creates_performance_indexes(temp_db_dir):
     Tests that schema v3 indexes are created.
     """
     db_path = temp_db_dir / "indexes.db"
-    manager = LibraryManager(database_path=str(db_path))
+    db = LibraryDatabase(database_path=str(db_path))
 
     # Add a track to ensure tables exist
     track_info = {
@@ -250,7 +251,7 @@ def test_migration_creates_performance_indexes(temp_db_dir):
         "channels": 2,
         "bitrate": 1411200,
     }
-    manager.tracks.add(track_info)
+    db.tracks.add(track_info)
 
     
 
@@ -300,9 +301,9 @@ def test_migration_handles_old_schema_gracefully(temp_db_dir):
     conn.commit()
     conn.close()
 
-    # Try to open with LibraryManager (should migrate or handle gracefully)
+    # Try to open with LibraryDatabase (should migrate or handle gracefully)
     try:
-        manager = LibraryManager(database_path=str(db_path))
+        db = LibraryDatabase(database_path=str(db_path))
         # Should not crash
 
     # narrowed from bare Exception, #5023. TODO(#5023): LibraryDatabase.__init__

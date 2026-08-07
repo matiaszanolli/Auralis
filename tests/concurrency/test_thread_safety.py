@@ -27,110 +27,6 @@ class TestSharedResourceAccess:
 
     @pytest.mark.concurrency
     @pytest.mark.thread_safety
-    def test_concurrent_cache_access(self, thread_pool):
-        """
-        Test concurrent cache read access.
-
-        Validates that multiple threads can safely read from cache simultaneously.
-        """
-        from auralis.library.cache import QueryCache
-
-        cache = QueryCache(max_size=100)
-
-        # Populate cache
-        for i in range(50):
-            cache.set(f"key_{i}", f"value_{i}")
-
-        # Concurrent reads
-        def read_from_cache(key_num):
-            return cache.get(f"key_{key_num % 50}")
-
-        futures = [thread_pool.submit(read_from_cache, i) for i in range(100)]
-        results = [f.result() for f in futures]
-
-        # All reads should succeed
-        assert len(results) == 100
-        assert all(r is not None for r in results)
-
-    @pytest.mark.concurrency
-    @pytest.mark.thread_safety
-    def test_concurrent_cache_writes(self, thread_pool):
-        """
-        Test concurrent cache write access.
-
-        Validates that cache correctly handles concurrent writes.
-        """
-        from auralis.library.cache import QueryCache
-
-        cache = QueryCache(max_size=200)
-
-        # Concurrent writes
-        def write_to_cache(i):
-            cache.set(f"concurrent_key_{i}", f"concurrent_value_{i}")
-            return True
-
-        futures = [thread_pool.submit(write_to_cache, i) for i in range(100)]
-        results = [f.result() for f in futures]
-
-        # All writes should succeed
-        assert len(results) == 100
-        assert all(r for r in results)
-
-        # Verify data integrity
-        for i in range(100):
-            value = cache.get(f"concurrent_key_{i}")
-            assert value == f"concurrent_value_{i}", f"Cache corruption detected for key {i}"
-
-    @pytest.mark.concurrency
-    @pytest.mark.thread_safety
-    def test_cache_invalidation_race_condition(self, thread_pool):
-        """
-        Test cache invalidation during concurrent reads.
-
-        Ensures cache invalidation doesn't cause errors in concurrent readers.
-        """
-        from auralis.library.cache import QueryCache
-
-        cache = QueryCache(max_size=100)
-
-        # Populate cache
-        for i in range(50):
-            cache.set(f"race_key_{i}", f"race_value_{i}")
-
-        results = []
-        errors = []
-
-        def reader():
-            try:
-                for i in range(10):
-                    cache.get(f"race_key_{i % 50}")
-                results.append(True)
-            except Exception as e:
-                errors.append(e)
-
-        def invalidator():
-            time.sleep(0.01)  # Let readers start
-            # #4548: QueryCache exposes invalidate() (no args = full flush),
-            # not clear(). The stale call was the whole "API compatibility"
-            # blocker for this test.
-            cache.invalidate()
-
-        # Start readers
-        reader_futures = [thread_pool.submit(reader) for _ in range(5)]
-
-        # Start invalidator
-        invalidator_future = thread_pool.submit(invalidator)
-
-        # Wait for all to complete
-        for f in reader_futures + [invalidator_future]:
-            f.result(timeout=10)
-
-        # No errors should occur
-        assert len(errors) == 0, f"Errors during concurrent access: {errors}"
-
-
-    @pytest.mark.concurrency
-    @pytest.mark.thread_safety
     def test_database_connection_pool(self, temp_db, thread_pool):
         """
         Test database connection pool under concurrent load.
@@ -261,24 +157,24 @@ class TestSharedResourceAccess:
 
     @pytest.mark.concurrency
     @pytest.mark.thread_safety
-    def test_library_manager_concurrent_access(self, tmp_path, thread_pool):
+    def test_library_database_concurrent_access(self, tmp_path, thread_pool):
         """
-        Test LibraryManager thread-safety.
+        Test LibraryDatabase thread-safety.
 
-        Validates that LibraryManager can be safely accessed from multiple threads.
+        Validates that LibraryDatabase can be safely accessed from multiple threads.
         """
         import numpy as np
         import soundfile as sf
 
-        from auralis.library.manager import LibraryManager
+        from auralis.library.database import LibraryDatabase
 
         db_path = str(tmp_path / "concurrent_test.db")
-        manager = LibraryManager(database_path=db_path)
+        db = LibraryDatabase(database_path=db_path)
 
-        # #4548: LibraryManager.add_track validates that the file exists, so
-        # the previous hardcoded '/tmp/lib_concurrent_{i}.flac' paths made
-        # every addition raise FileNotFoundError. Write real (tiny) audio
-        # files instead — the fixture gap this test was xfailed for.
+        # #4548: the previous hardcoded '/tmp/lib_concurrent_{i}.flac' paths
+        # pointed at files that did not exist — the fixture gap this test was
+        # xfailed for. Write real (tiny) audio files instead so the rows
+        # correspond to actual on-disk tracks.
         audio = np.zeros(1024, dtype=np.float32)
         paths = []
         for i in range(30):
@@ -296,7 +192,7 @@ class TestSharedResourceAccess:
                 'sample_rate': 44100,
                 'channels': 2
             }
-            return manager.add_track(track_info)
+            return db.tracks.add(track_info)
 
         futures = [thread_pool.submit(add_track_to_library, i) for i in range(30)]
         results = [f.result() for f in futures]
@@ -306,7 +202,7 @@ class TestSharedResourceAccess:
         assert all(r is not None for r in results)
 
         # Verify total count
-        all_tracks, total = manager.get_all_tracks(limit=100)
+        all_tracks, total = db.tracks.get_all(limit=100)
         assert len(all_tracks) == 30
 
     @pytest.mark.xfail(reason="Asserts no lost updates across concurrent read-modify-write increments, which neither this test's hand-rolled increment nor TrackRepository.record_play provides — both do SELECT then play_count+1 in Python. Needs an atomic UPDATE (see #4548)", strict=True)

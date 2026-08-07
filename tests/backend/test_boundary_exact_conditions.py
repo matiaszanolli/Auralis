@@ -38,7 +38,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from auralis.io.saver import save as save_audio
-from auralis.library.manager import LibraryManager
+from auralis.library.database import LibraryDatabase
 
 # ============================================================================
 # Fixtures
@@ -48,7 +48,7 @@ from auralis.library.manager import LibraryManager
 def library_with_100_tracks(tmp_path):
     """Create library with exactly 100 tracks for boundary testing."""
     db_path = tmp_path / "boundary_library.db"
-    manager = LibraryManager(database_path=str(db_path))
+    db = LibraryDatabase(database_path=str(db_path))
 
     audio_dir = tmp_path / "music"
     audio_dir.mkdir()
@@ -65,10 +65,10 @@ def library_with_100_tracks(tmp_path):
             'artists': [f'Artist {i % 10}'],
             'album': f'Album {i % 20}',
         }
-        track = manager.add_track(track_info)
+        track = db.tracks.add(track_info)
         track_ids.append(track.id)
 
-    yield manager, track_ids, tmp_path
+    yield db, track_ids, tmp_path
 
 
 # ============================================================================
@@ -83,12 +83,12 @@ def test_pagination_offset_equals_total(library_with_100_tracks):
 
     Common bug: Returns last item instead of empty list.
     """
-    manager, track_ids, _ = library_with_100_tracks
+    db, track_ids, _ = library_with_100_tracks
 
-    _, total = manager.get_all_tracks(limit=1)
+    _, total = db.tracks.get_all(limit=1)
 
     # Request with offset = total (should return empty)
-    tracks, returned_total = manager.get_all_tracks(limit=10, offset=total)
+    tracks, returned_total = db.tracks.get_all(limit=10, offset=total)
 
     assert len(tracks) == 0, (
         f"offset={total} should return empty list, got {len(tracks)} tracks"
@@ -102,12 +102,12 @@ def test_pagination_offset_one_before_total(library_with_100_tracks):
     """
     BOUNDARY: offset = total - 1 (last item).
     """
-    manager, track_ids, _ = library_with_100_tracks
+    db, track_ids, _ = library_with_100_tracks
 
-    _, total = manager.get_all_tracks(limit=1)
+    _, total = db.tracks.get_all(limit=1)
 
     # Request last item
-    tracks, returned_total = manager.get_all_tracks(limit=10, offset=total - 1)
+    tracks, returned_total = db.tracks.get_all(limit=10, offset=total - 1)
 
     assert len(tracks) == 1, (
         f"offset={total-1} should return 1 track, got {len(tracks)}"
@@ -120,12 +120,12 @@ def test_pagination_limit_equals_total(library_with_100_tracks):
     """
     BOUNDARY: limit exactly equals total count.
     """
-    manager, track_ids, _ = library_with_100_tracks
+    db, track_ids, _ = library_with_100_tracks
 
-    _, total = manager.get_all_tracks(limit=1)
+    _, total = db.tracks.get_all(limit=1)
 
     # Request exactly total items
-    tracks, returned_total = manager.get_all_tracks(limit=total, offset=0)
+    tracks, returned_total = db.tracks.get_all(limit=total, offset=0)
 
     assert len(tracks) == total, (
         f"limit={total} should return all {total} tracks, got {len(tracks)}"
@@ -138,9 +138,9 @@ def test_pagination_limit_one(library_with_100_tracks):
     """
     BOUNDARY: limit=1 (minimum useful page size).
     """
-    manager, track_ids, _ = library_with_100_tracks
+    db, track_ids, _ = library_with_100_tracks
 
-    tracks, total = manager.get_all_tracks(limit=1, offset=0)
+    tracks, total = db.tracks.get_all(limit=1, offset=0)
 
     assert len(tracks) == 1, f"limit=1 should return 1 track, got {len(tracks)}"
     assert total > 1, "Total should be full count"
@@ -154,9 +154,9 @@ def test_pagination_limit_zero(library_with_100_tracks):
 
     Should return empty list or reject request.
     """
-    manager, track_ids, _ = library_with_100_tracks
+    db, track_ids, _ = library_with_100_tracks
 
-    tracks, total = manager.get_all_tracks(limit=0, offset=0)
+    tracks, total = db.tracks.get_all(limit=0, offset=0)
 
     assert len(tracks) == 0, "limit=0 should return empty list"
     assert total > 0, "Total count should still be reported"
@@ -170,14 +170,14 @@ def test_pagination_offset_zero(library_with_100_tracks):
 
     Verify returns first items in correct order.
     """
-    manager, track_ids, _ = library_with_100_tracks
+    db, track_ids, _ = library_with_100_tracks
 
-    tracks, total = manager.get_all_tracks(limit=10, offset=0, order_by='id')
+    tracks, total = db.tracks.get_all(limit=10, offset=0, order_by='id')
 
     assert len(tracks) == 10, "Should return 10 tracks"
 
     # Should be first 10 tracks in order
-    all_tracks, _ = manager.get_all_tracks(limit=100, offset=0, order_by='id')
+    all_tracks, _ = db.tracks.get_all(limit=100, offset=0, order_by='id')
     expected_ids = [t.id for t in all_tracks[:10]]
     actual_ids = [t.id for t in tracks]
 
@@ -190,15 +190,15 @@ def test_pagination_last_page_partial(library_with_100_tracks):
     """
     BOUNDARY: Last page with partial results (total not divisible by limit).
     """
-    manager, track_ids, _ = library_with_100_tracks
+    db, track_ids, _ = library_with_100_tracks
 
-    _, total = manager.get_all_tracks(limit=1)
+    _, total = db.tracks.get_all(limit=1)
 
     # Use page size that doesn't divide evenly (e.g., 7 for 100 tracks)
     page_size = 7
     last_page_offset = (total // page_size) * page_size
 
-    tracks, returned_total = manager.get_all_tracks(limit=page_size, offset=last_page_offset)
+    tracks, returned_total = db.tracks.get_all(limit=page_size, offset=last_page_offset)
 
     expected_last_page_size = total % page_size
     assert len(tracks) == expected_last_page_size, (
@@ -423,7 +423,7 @@ def test_track_id_boundary_values(library_with_100_tracks):
     """
     BOUNDARY: Track IDs at boundaries (1, MAX_INT).
     """
-    manager, track_ids, _ = library_with_100_tracks
+    db, track_ids, _ = library_with_100_tracks
 
     # IDs should be positive
     for track_id in track_ids:
@@ -483,9 +483,9 @@ def test_search_single_character(library_with_100_tracks):
     """
     BOUNDARY: Search with single character.
     """
-    manager, track_ids, _ = library_with_100_tracks
+    db, track_ids, _ = library_with_100_tracks
 
-    results, total = manager.search_tracks("T")
+    results, total = db.tracks.search("T")
 
     # Should not crash
     assert results is not None, "Should return list"
@@ -499,7 +499,7 @@ def test_track_title_max_length(tmp_path):
     BOUNDARY: Track title at maximum reasonable length.
     """
     db_path = tmp_path / "test.db"
-    manager = LibraryManager(database_path=str(db_path))
+    db = LibraryDatabase(database_path=str(db_path))
 
     audio_dir = tmp_path / "audio"
     audio_dir.mkdir()
@@ -519,7 +519,7 @@ def test_track_title_max_length(tmp_path):
     }
 
     try:
-        track = manager.add_track(track_info)
+        track = db.tracks.add(track_info)
         assert track.title == long_title, "Should preserve long title"
     except Exception as e:
         # If rejected, document the limit

@@ -81,17 +81,17 @@ except Exception as e:
     exit(1)
 
 # Test 4: Library Manager integration
-print("\n5️⃣  Testing LibraryManager integration...")
+print("\n5️⃣  Testing LibraryDatabase integration...")
 try:
-    from auralis.library import LibraryManager
+    from auralis.library import LibraryDatabase
 
     temp_dir = tempfile.mkdtemp()
     db_path = Path(temp_dir) / "library.db"
 
-    # Initialize library manager (should trigger migration)
-    print("   🔄 Initializing LibraryManager (will trigger migration)...")
-    manager = LibraryManager(str(db_path))
-    print("   ✅ LibraryManager initialized successfully")
+    # Initialize library database (should trigger migration)
+    print("   🔄 Initializing LibraryDatabase (will trigger migration)...")
+    db = LibraryDatabase(str(db_path))
+    print("   ✅ LibraryDatabase initialized successfully")
 
     # Verify database version
     from auralis.library.migrations import MigrationManager
@@ -106,7 +106,7 @@ try:
     print("   ✅ Integration test complete")
 
 except Exception as e:
-    print(f"   ❌ LibraryManager integration failed: {e}")
+    print(f"   ❌ LibraryDatabase integration failed: {e}")
     import traceback
     traceback.print_exc()
     exit(1)
@@ -119,5 +119,5 @@ print(f"✅ Package version: {__version__}")
 print(f"✅ DB schema version: {__db_schema_version__}")
 print("✅ Migration system: Operational")
 print("✅ Backup system: Operational")
-print("✅ LibraryManager integration: Complete")
+print("✅ LibraryDatabase integration: Complete")
 print("\n🚀 Auralis is ready for production launch!")

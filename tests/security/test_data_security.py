@@ -90,10 +90,10 @@ class TestFilePermissions:
         if os.name == 'nt':
             pytest.skip("POSIX permission bits not applicable on Windows")
 
-        from auralis.library.manager import LibraryManager
+        from auralis.library.database import LibraryDatabase
 
         db_path = tmp_path / "library.db"
-        manager = LibraryManager(database_path=str(db_path))
+        db = LibraryDatabase(database_path=str(db_path))
         try:
             found = False
             for suffix in ("-wal", "-shm"):
@@ -104,7 +104,7 @@ class TestFilePermissions:
                     assert perms == 0o600, f"{suffix} is {oct(perms)}, expected 0o600"
             assert found, "expected a WAL sidecar (-wal/-shm) after opening in WAL mode"
         finally:
-            manager.engine.dispose()
+            db.engine.dispose()
 
 
 @pytest.mark.security

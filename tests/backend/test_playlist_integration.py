@@ -24,8 +24,8 @@ Test Philosophy:
 
 See docs/development/TESTING_GUIDELINES.md for complete testing philosophy.
 
-NOTE: Tests use APIs that are incompatible with current LibraryManager implementation.
-Requires refactoring to match current API.
+NOTE: Tests use APIs that are incompatible with the current repository layer
+(PlaylistRepository has no playlist search). Requires refactoring.
 """
 
 import pytest
@@ -44,7 +44,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from auralis.io.saver import save as save_audio
-from auralis.library.manager import LibraryManager
+from auralis.library.database import LibraryDatabase
 
 # ============================================================================
 # Fixtures
@@ -54,7 +54,7 @@ from auralis.library.manager import LibraryManager
 def library_with_playlists(tmp_path):
     """Create library with tracks and playlists."""
     db_path = tmp_path / "test_library.db"
-    manager = LibraryManager(database_path=str(db_path))
+    db = LibraryDatabase(database_path=str(db_path))
 
     # Create audio directory
     audio_dir = tmp_path / "music"
@@ -73,14 +73,14 @@ def library_with_playlists(tmp_path):
             'artists': [f'Artist {i % 3}'],
             'album': f'Album {i % 5}',
         }
-        track = manager.add_track(track_info)
+        track = db.tracks.add(track_info)
         track_ids.append(track.id)
 
     # Create 2 test playlists
-    playlist1 = manager.create_playlist("Playlist 1", "Test playlist 1")
-    playlist2 = manager.create_playlist("Playlist 2", "Test playlist 2")
+    playlist1 = db.playlists.create("Playlist 1", "Test playlist 1")
+    playlist2 = db.playlists.create("Playlist 2", "Test playlist 2")
 
-    yield manager, [playlist1.id, playlist2.id], track_ids, tmp_path
+    yield db, [playlist1.id, playlist2.id], track_ids, tmp_path
 
     # Cleanup handled by tmp_path
 
@@ -101,17 +101,17 @@ def test_create_playlist(library_with_playlists):
     3. Verify playlist appears in list
     4. Verify playlist has correct name
     """
-    manager, existing_playlist_ids, track_ids, _ = library_with_playlists
+    db, existing_playlist_ids, track_ids, _ = library_with_playlists
 
     # Create new playlist
-    new_playlist = manager.create_playlist("New Playlist", "Integration test")
+    new_playlist = db.playlists.create("New Playlist", "Integration test")
 
     # Verify has ID
     assert new_playlist.id is not None, "Playlist should have ID"
     assert new_playlist.id not in existing_playlist_ids, "Playlist should have unique ID"
 
     # Verify appears in list
-    all_playlists = manager.get_all_playlists()
+    all_playlists, _total = db.playlists.get_all(limit=200)
     playlist_ids = {p.id for p in all_playlists}
     assert new_playlist.id in playlist_ids, "New playlist should appear in list"
 
@@ -130,10 +130,10 @@ def test_read_playlist(library_with_playlists):
     2. Verify correct playlist returned
     3. Verify all properties present
     """
-    manager, playlist_ids, track_ids, _ = library_with_playlists
+    db, playlist_ids, track_ids, _ = library_with_playlists
 
     # Get first playlist
-    playlist = manager.get_playlist(playlist_ids[0])
+    playlist = db.playlists.get_by_id(playlist_ids[0])
 
     # Verify correct playlist
     assert playlist is not None, "Playlist should exist"
@@ -158,18 +158,18 @@ def test_update_playlist(library_with_playlists):
     3. Update description
     4. Verify change persists
     """
-    manager, playlist_ids, track_ids, _ = library_with_playlists
+    db, playlist_ids, track_ids, _ = library_with_playlists
 
     # Get playlist
-    playlist = manager.get_playlist(playlist_ids[0])
+    playlist = db.playlists.get_by_id(playlist_ids[0])
     original_name = playlist.name
 
     # Update name
     new_name = "Updated Playlist Name"
-    manager.update_playlist(playlist.id, name=new_name)
+    db.playlists.update(playlist.id, {"name": new_name})
 
     # Verify change persists
-    updated_playlist = manager.get_playlist(playlist.id)
+    updated_playlist = db.playlists.get_by_id(playlist.id)
     assert updated_playlist.name == new_name, (
         f"Name should be updated: expected '{new_name}', got '{updated_playlist.name}'"
     )
@@ -188,17 +188,17 @@ def test_delete_playlist(library_with_playlists):
     3. Verify get by ID returns None
     4. Verify tracks still exist (not cascade deleted)
     """
-    manager, playlist_ids, track_ids, _ = library_with_playlists
+    db, playlist_ids, track_ids, _ = library_with_playlists
 
     # Get initial count
-    initial_playlists = manager.get_all_playlists()
+    initial_playlists, _total = db.playlists.get_all(limit=200)
     initial_count = len(initial_playlists)
 
     # Delete playlist
-    manager.delete_playlist(playlist_ids[0])
+    db.playlists.delete(playlist_ids[0])
 
     # Verify removed from list
-    remaining_playlists = manager.get_all_playlists()
+    remaining_playlists, _total = db.playlists.get_all(limit=200)
     assert len(remaining_playlists) == initial_count - 1, (
         f"Playlist count should decrease: {initial_count} → {len(remaining_playlists)}"
     )
@@ -207,7 +207,7 @@ def test_delete_playlist(library_with_playlists):
     assert playlist_ids[0] not in remaining_ids, "Deleted playlist should not appear"
 
     # Verify tracks still exist
-    tracks, total = manager.get_all_tracks(limit=100)
+    tracks, total = db.tracks.get_all(limit=100)
     assert len(tracks) == len(track_ids), "Tracks should not be deleted with playlist"
 
 
@@ -226,17 +226,17 @@ def test_add_track_to_playlist(library_with_playlists):
     2. Verify track count increases
     3. Verify track appears in playlist
     """
-    manager, playlist_ids, track_ids, _ = library_with_playlists
+    db, playlist_ids, track_ids, _ = library_with_playlists
 
     # Get initial playlist state
-    playlist = manager.get_playlist(playlist_ids[0])
+    playlist = db.playlists.get_by_id(playlist_ids[0])
     initial_track_count = len(playlist.tracks) if hasattr(playlist, 'tracks') else 0
 
     # Add track
-    manager.add_track_to_playlist(playlist_ids[0], track_ids[0])
+    db.playlists.add_track(playlist_ids[0], track_ids[0])
 
     # Verify track count increased
-    updated_playlist = manager.get_playlist(playlist_ids[0])
+    updated_playlist = db.playlists.get_by_id(playlist_ids[0])
     new_track_count = len(updated_playlist.tracks) if hasattr(updated_playlist, 'tracks') else 0
 
     assert new_track_count == initial_track_count + 1, (
@@ -262,20 +262,20 @@ def test_remove_track_from_playlist(library_with_playlists):
     4. Verify track removed from playlist
     5. Verify track still exists in library
     """
-    manager, playlist_ids, track_ids, _ = library_with_playlists
+    db, playlist_ids, track_ids, _ = library_with_playlists
 
     # Add track first
-    manager.add_track_to_playlist(playlist_ids[0], track_ids[0])
+    db.playlists.add_track(playlist_ids[0], track_ids[0])
 
     # Get state after add
-    playlist_after_add = manager.get_playlist(playlist_ids[0])
+    playlist_after_add = db.playlists.get_by_id(playlist_ids[0])
     count_after_add = len(playlist_after_add.tracks) if hasattr(playlist_after_add, 'tracks') else 0
 
     # Remove track
-    manager.remove_track_from_playlist(playlist_ids[0], track_ids[0])
+    db.playlists.remove_track(playlist_ids[0], track_ids[0])
 
     # Verify track count decreased
-    playlist_after_remove = manager.get_playlist(playlist_ids[0])
+    playlist_after_remove = db.playlists.get_by_id(playlist_ids[0])
     count_after_remove = len(playlist_after_remove.tracks) if hasattr(playlist_after_remove, 'tracks') else 0
 
     assert count_after_remove == count_after_add - 1, (
@@ -283,7 +283,7 @@ def test_remove_track_from_playlist(library_with_playlists):
     )
 
     # Verify track still in library
-    tracks, _ = manager.get_all_tracks(limit=1000)
+    tracks, _ = db.tracks.get_all(limit=1000)
     library_track_ids = {t.id for t in tracks}
     assert track_ids[0] in library_track_ids, "Track should still exist in library"
 
@@ -299,23 +299,26 @@ def test_reorder_tracks_in_playlist(library_with_playlists):
     2. Reorder tracks
     3. Verify new order persists
     """
-    manager, playlist_ids, track_ids, _ = library_with_playlists
+    db, playlist_ids, track_ids, _ = library_with_playlists
 
     # Add 3 tracks
     for i in range(3):
-        manager.add_track_to_playlist(playlist_ids[0], track_ids[i])
+        db.playlists.add_track(playlist_ids[0], track_ids[i])
 
     # Get current order
-    playlist = manager.get_playlist(playlist_ids[0])
+    playlist = db.playlists.get_by_id(playlist_ids[0])
     if hasattr(playlist, 'tracks'):
         original_order = [t.id for t in playlist.tracks]
 
-        # Reorder (move last to first)
+        # Reorder (move last to first). The deprecated library facade never had
+        # a reorder_playlist_tracks() either — PlaylistRepository.reorder_track()
+        # is a single from_index -> to_index move, and moving index 2 to index 0
+        # produces exactly the order asserted below.
         new_order = [original_order[2], original_order[0], original_order[1]]
-        manager.reorder_playlist_tracks(playlist_ids[0], new_order)
+        db.playlists.reorder_track(playlist_ids[0], 2, 0)
 
         # Verify new order
-        updated_playlist = manager.get_playlist(playlist_ids[0])
+        updated_playlist = db.playlists.get_by_id(playlist_ids[0])
         actual_order = [t.id for t in updated_playlist.tracks]
 
         assert actual_order == new_order, (
@@ -338,10 +341,10 @@ def test_get_all_playlists(library_with_playlists):
     - Each has required properties
     - No duplicates
     """
-    manager, playlist_ids, track_ids, _ = library_with_playlists
+    db, playlist_ids, track_ids, _ = library_with_playlists
 
     # Get all playlists
-    playlists = manager.get_all_playlists()
+    playlists, _total = db.playlists.get_all(limit=200)
 
     # Should have at least the test playlists
     assert len(playlists) >= 2, f"Should have at least 2 playlists, got {len(playlists)}"
@@ -368,10 +371,15 @@ def test_search_playlists(library_with_playlists):
     2. Verify matching playlists returned
     3. Verify non-matching playlists excluded
     """
-    manager, playlist_ids, track_ids, _ = library_with_playlists
+    db, playlist_ids, track_ids, _ = library_with_playlists
 
     # Search for "Playlist 1"
-    results = manager.search_playlists("Playlist 1")
+    # TODO(#4915): playlist search was never implemented — neither on the
+    # deprecated library facade nor on PlaylistRepository — so this call was
+    # already an AttributeError before the migration (the module is skipped).
+    # Left in repository shape so the intent survives for whoever adds
+    # PlaylistRepository.search().
+    results = db.playlists.search("Playlist 1")
 
     # Should return at least one result
     assert len(results) >= 1, "Search should return results"
@@ -397,16 +405,16 @@ def test_duplicate_track_in_playlist(library_with_playlists):
     - Same track can be added multiple times OR
     - Duplicate is rejected
     """
-    manager, playlist_ids, track_ids, _ = library_with_playlists
+    db, playlist_ids, track_ids, _ = library_with_playlists
 
     # Add track once
-    manager.add_track_to_playlist(playlist_ids[0], track_ids[0])
+    db.playlists.add_track(playlist_ids[0], track_ids[0])
 
     # Try to add same track again
-    manager.add_track_to_playlist(playlist_ids[0], track_ids[0])
+    db.playlists.add_track(playlist_ids[0], track_ids[0])
 
     # Get playlist
-    playlist = manager.get_playlist(playlist_ids[0])
+    playlist = db.playlists.get_by_id(playlist_ids[0])
     if hasattr(playlist, 'tracks'):
         track_occurrences = [t.id for t in playlist.tracks].count(track_ids[0])
 
@@ -427,22 +435,22 @@ def test_delete_track_from_playlist_cascade(library_with_playlists):
     3. Verify track removed from playlist
     4. Verify playlist still exists
     """
-    manager, playlist_ids, track_ids, _ = library_with_playlists
+    db, playlist_ids, track_ids, _ = library_with_playlists
 
     # Add track to playlist
-    manager.add_track_to_playlist(playlist_ids[0], track_ids[0])
+    db.playlists.add_track(playlist_ids[0], track_ids[0])
 
     # Verify in playlist
-    playlist_before = manager.get_playlist(playlist_ids[0])
+    playlist_before = db.playlists.get_by_id(playlist_ids[0])
     if hasattr(playlist_before, 'tracks'):
         track_ids_before = {t.id for t in playlist_before.tracks}
         assert track_ids[0] in track_ids_before, "Track should be in playlist"
 
     # Delete track from library
-    manager.delete_track(track_ids[0])
+    db.tracks.delete(track_ids[0])
 
     # Verify removed from playlist
-    playlist_after = manager.get_playlist(playlist_ids[0])
+    playlist_after = db.playlists.get_by_id(playlist_ids[0])
     if hasattr(playlist_after, 'tracks'):
         track_ids_after = {t.id for t in playlist_after.tracks}
         assert track_ids[0] not in track_ids_after, (

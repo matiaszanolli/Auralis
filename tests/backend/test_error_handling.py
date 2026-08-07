@@ -32,7 +32,7 @@ from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.config import UnifiedConfig
 from auralis.io.saver import save as save_audio
 from auralis.io.unified_loader import load_audio
-from auralis.library.manager import LibraryManager
+from auralis.library.database import LibraryDatabase
 from auralis.library.repositories.track_repository import TrackRepository
 
 # ============================================================================
@@ -280,7 +280,7 @@ def test_error_cleanup_on_exception(temp_audio_dir):
 
     Tests that file handles and connections are closed on error.
     """
-    manager = LibraryManager(database_path=":memory:")
+    db = LibraryDatabase(database_path=":memory:")
 
     try:
         # Force an error by trying to add invalid data
@@ -296,7 +296,7 @@ def test_error_cleanup_on_exception(temp_audio_dir):
         }
 
         try:
-            manager.tracks.add(invalid_track_info)
+            db.tracks.add(invalid_track_info)
         except Exception:
             pass  # Expected
 
@@ -312,7 +312,7 @@ def test_error_cleanup_on_exception(temp_audio_dir):
             "bitrate": 1411200,
         }
 
-        track = manager.tracks.add(valid_track_info)
+        track = db.tracks.add(valid_track_info)
         assert track is not None
 
     finally:
@@ -336,8 +336,8 @@ def test_error_database_locked_handling():
     db_path = temp_dir / "test.db"
 
     try:
-        manager1 = LibraryManager(database_path=str(db_path))
-        manager2 = LibraryManager(database_path=str(db_path))
+        db1 = LibraryDatabase(database_path=str(db_path))
+        db2 = LibraryDatabase(database_path=str(db_path))
 
         # Try concurrent writes (may or may not cause lock)
         track_info = {
@@ -353,8 +353,8 @@ def test_error_database_locked_handling():
 
         # Should handle gracefully (either succeed or raise predictable error)
         try:
-            track1 = manager1.tracks.add(track_info)
-            track2 = manager2.tracks.add(track_info)
+            track1 = db1.tracks.add(track_info)
+            track2 = db2.tracks.add(track_info)
         # narrowed from bare Exception, #5023: the two outcomes this test
         # tolerates are exactly a lock timeout (OperationalError, "database is
         # locked") and a UNIQUE-filepath violation (IntegrityError).
@@ -362,8 +362,8 @@ def test_error_database_locked_handling():
             # Database lock or constraint violation is acceptable
             pass
 
-        manager1.close()
-        manager2.close()
+        db1.close()
+        db2.close()
 
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)

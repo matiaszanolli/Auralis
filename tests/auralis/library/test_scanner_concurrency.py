@@ -6,7 +6,6 @@ without raising IntegrityError or leaving the slot counter in a broken state.
 """
 
 import threading
-import warnings
 
 import numpy as np
 import pytest
@@ -18,17 +17,15 @@ pytestmark = [pytest.mark.integration, pytest.mark.concurrency]
 @pytest.fixture
 def scan_env(tmp_path):
     """
-    Return (LibraryManager, music_dir) with a real 5-second audio file.
+    Return (LibraryDatabase, music_dir) with a real 5-second audio file.
 
     The audio file is long enough that the scan slot stays occupied while
     the other threads call try_acquire_scan_slot(), making the race
     deterministic.
     """
-    from auralis.library.manager import LibraryManager
+    from auralis.library.database import LibraryDatabase
 
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", DeprecationWarning)
-        lm = LibraryManager(database_path=str(tmp_path / "test.db"))
+    db = LibraryDatabase(database_path=str(tmp_path / "test.db"))
 
     music_dir = tmp_path / "music"
     music_dir.mkdir()
@@ -36,7 +33,7 @@ def scan_env(tmp_path):
     data = np.zeros((44100 * 5, 2), dtype=np.float32)  # 5 s stereo silence
     sf.write(str(music_dir / "track.wav"), data, 44100)
 
-    yield lm, music_dir
+    yield db, music_dir
 
 
 class TestScanConcurrencyGuard:
@@ -48,8 +45,8 @@ class TestScanConcurrencyGuard:
         """
         from auralis.library.scanner import LibraryScanner
 
-        lm, music_dir = scan_env
-        lm.settings.update_settings({"max_concurrent_scans": 1})
+        db, music_dir = scan_env
+        db.settings.update_settings({"max_concurrent_scans": 1})
 
         results = []
         errors = []
@@ -57,9 +54,7 @@ class TestScanConcurrencyGuard:
 
         def do_scan():
             try:
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore", DeprecationWarning)
-                    scanner = LibraryScanner(lm)
+                scanner = LibraryScanner(db)
                 barrier.wait()  # All three threads start at the same instant
                 r = scanner.scan_directories([str(music_dir)])
                 results.append(r)
@@ -87,12 +82,10 @@ class TestScanConcurrencyGuard:
         """A lone scan must never be rejected (slot is available)."""
         from auralis.library.scanner import LibraryScanner
 
-        lm, music_dir = scan_env
-        lm.settings.update_settings({"max_concurrent_scans": 1})
+        db, music_dir = scan_env
+        db.settings.update_settings({"max_concurrent_scans": 1})
 
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            scanner = LibraryScanner(lm)
+        scanner = LibraryScanner(db)
 
         result = scanner.scan_directories([str(music_dir)])
         assert not result.rejected
@@ -102,13 +95,11 @@ class TestScanConcurrencyGuard:
         """Sequential scans must both succeed — slot is released after the first."""
         from auralis.library.scanner import LibraryScanner
 
-        lm, music_dir = scan_env
-        lm.settings.update_settings({"max_concurrent_scans": 1})
+        db, music_dir = scan_env
+        db.settings.update_settings({"max_concurrent_scans": 1})
 
         for i in range(2):
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", DeprecationWarning)
-                scanner = LibraryScanner(lm)
+            scanner = LibraryScanner(db)
             result = scanner.scan_directories([str(music_dir)])
             assert not result.rejected, f"Sequential scan {i + 1} was incorrectly rejected"
 
@@ -117,8 +108,8 @@ class TestScanConcurrencyGuard:
         from auralis.library.scanner import LibraryScanner
         from auralis.library.scanner import scanner as scanner_module
 
-        lm, music_dir = scan_env
-        lm.settings.update_settings({"max_concurrent_scans": 1})
+        db, music_dir = scan_env
+        db.settings.update_settings({"max_concurrent_scans": 1})
 
         # Force an error at the end of the scan (after slot is held)
         monkeypatch.setattr(
@@ -127,17 +118,13 @@ class TestScanConcurrencyGuard:
             lambda self, r: (_ for _ in ()).throw(RuntimeError("injected error")),
         )
 
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            scanner = LibraryScanner(lm)
+        scanner = LibraryScanner(db)
 
         # Should not propagate the RuntimeError
         result = scanner.scan_directories([str(music_dir)])
         assert not result.rejected, "Scan that errored internally must not be marked rejected"
 
         # Slot must have been released — a second scan must succeed
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            scanner2 = LibraryScanner(lm)
+        scanner2 = LibraryScanner(db)
         result2 = scanner2.scan_directories([str(music_dir)])
         assert not result2.rejected, "Slot was not released after errored scan"

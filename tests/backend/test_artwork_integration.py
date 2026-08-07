@@ -39,7 +39,7 @@ from PIL import Image
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from auralis.io.saver import save as save_audio
-from auralis.library.manager import LibraryManager
+from auralis.library.database import LibraryDatabase
 
 # ============================================================================
 # Fixtures
@@ -75,7 +75,7 @@ def test_artwork_dir():
 def library_with_artwork(tmp_path):
     """Create library with tracks that have embedded artwork."""
     db_path = tmp_path / "test_library.db"
-    manager = LibraryManager(database_path=str(db_path))
+    db = LibraryDatabase(database_path=str(db_path))
 
     # Create audio directory
     audio_dir = tmp_path / "music"
@@ -93,9 +93,9 @@ def library_with_artwork(tmp_path):
         'artists': ['Test Artist'],
         'album': 'Test Album',
     }
-    track = manager.add_track(track_info)
+    track = db.tracks.add(track_info)
 
-    yield manager, track, tmp_path
+    yield db, track, tmp_path
 
     # Cleanup handled by tmp_path
 
@@ -116,7 +116,7 @@ def test_extract_embedded_artwork(library_with_artwork):
     3. Verify artwork file created
     4. Verify artwork is valid image
     """
-    manager, track, tmp_path = library_with_artwork
+    db, track, tmp_path = library_with_artwork
 
     # Check if track has artwork path
     # Note: This test documents expected behavior
@@ -164,7 +164,7 @@ def test_artwork_extraction_creates_cache(library_with_artwork):
     2. Verify cache file created
     3. Verify cache file is valid image
     """
-    manager, track, tmp_path = library_with_artwork
+    db, track, tmp_path = library_with_artwork
 
     # Expected cache location (usually ~/.auralis/artwork/)
     # Test would verify cache file exists and is valid

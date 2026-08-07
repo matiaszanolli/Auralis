@@ -29,7 +29,7 @@ class TestDatabasePerformanceUnderLoad:
 
     def test_library_scan_1k_files(self, tmp_path, memory_monitor):
         """Test library scan performance with 1,000 files."""
-        from auralis.library.manager import LibraryManager
+        from auralis.library.database import LibraryDatabase
         from auralis.library.scanner import LibraryScanner
 
         # Create 1,000 small audio files
@@ -42,8 +42,8 @@ class TestDatabasePerformanceUnderLoad:
             sf.write(str(filepath), audio, 44100)
 
         # Scan library
-        manager = LibraryManager(database_path=str(tmp_path / "library.db"))
-        scanner = LibraryScanner(manager)
+        db = LibraryDatabase(database_path=str(tmp_path / "library.db"))
+        scanner = LibraryScanner(db)
 
         start_time = time.time()
         results = scanner.scan_folder(str(audio_dir))
@@ -55,7 +55,7 @@ class TestDatabasePerformanceUnderLoad:
         assert scan_time < 30.0, f"Scan took {scan_time:.2f}s (expected < 30s)"
 
         # Verify all tracks in database
-        session = manager.Session()
+        session = db.get_session()
         try:
             from auralis.library.models import Track
             track_count = session.query(Track).count()
@@ -219,36 +219,6 @@ class TestDatabasePerformanceUnderLoad:
                 assert current_artist <= next_artist
         finally:
             session.close()
-    def test_cache_hit_rate_under_load(self, large_library_db):
-        """Test cache efficiency with repeated queries."""
-        import tempfile
-
-        from auralis.library.manager import LibraryManager
-
-        with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
-            db_path = f.name
-
-        manager = LibraryManager(database_path=db_path)
-
-        # Warm up cache
-        manager.get_recent_tracks(limit=50)
-        manager.get_popular_tracks(limit=50)
-
-        # Clear statistics
-        manager.cache.hits = 0
-        manager.cache.misses = 0
-
-        # Perform repeated queries (should hit cache)
-        for _ in range(10):
-            manager.get_recent_tracks(limit=50)
-            manager.get_popular_tracks(limit=50)
-
-        # Check cache hit rate
-        stats = manager.get_cache_stats()
-        hit_rate = stats['hit_rate']
-
-        assert hit_rate > 0.8, f"Cache hit rate {hit_rate:.1%} too low (expected > 80%)"
-
     def test_concurrent_queries_large_library(self, very_large_library_db, thread_pool):
         """Test concurrent database queries on large library."""
         from concurrent.futures import as_completed
@@ -331,24 +301,6 @@ class TestMemoryManagement:
 
         # Should not leak more than 50MB over 100 cycles
         assert increase < 50, f"Potential memory leak: {increase:.1f}MB increase"
-    def test_cache_memory_limit(self, large_library_db):
-        """Test that cache respects memory limits."""
-        from auralis.library.cache import QueryCache
-
-        # Create cache with size limit
-        cache = QueryCache(max_size=100)
-
-        # Fill cache beyond limit
-        for i in range(200):
-            cache.set(f"key_{i}", {"data": "x" * 1000})  # ~1KB per entry
-
-        # Verify cache size doesn't exceed limit
-        assert cache.get_stats()['size'] <= 100, f"Cache size {cache.get_stats()['size']} exceeds limit 100"
-
-        # Verify LRU eviction works
-        assert cache.get("key_0") is None, "Oldest entry should be evicted"
-        assert cache.get("key_199") is not None, "Newest entry should be present"
-
     def test_bulk_operation_memory(self, tmp_path, memory_monitor):
         """Test memory during bulk database operations."""
         from sqlalchemy import create_engine
@@ -432,41 +384,6 @@ class TestMemoryManagement:
         del audio
         gc.collect()
 
-    def test_thumbnail_cache_memory(self, tmp_path):
-        """Test album artwork cache memory management."""
-        from auralis.library.manager import LibraryManager
-
-        manager = LibraryManager(database_path=str(tmp_path / "test.db"))
-
-        # Simulate loading many album artworks
-        # (In real implementation, would test actual artwork cache)
-
-        # For now, test that cache can be cleared
-        manager.clear_cache()
-        stats = manager.get_cache_stats()
-
-        assert stats['size'] == 0, "Cache should be empty after clear"
-
-    def test_metadata_cache_memory(self, large_library_db):
-        """Test metadata cache memory usage."""
-        import tempfile
-
-        from auralis.library.manager import LibraryManager
-
-        with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
-            db_path = f.name
-
-        manager = LibraryManager(database_path=db_path)
-
-        # Fill metadata cache
-        for i in range(100):
-            manager.get_recent_tracks(limit=50)
-
-        stats = manager.get_cache_stats()
-
-        # Cache should not exceed max size
-        assert stats['size'] <= stats['max_size']
-
     def test_gc_performance(self, very_large_library_db):
         """Test garbage collection impact with large datasets."""
         import gc
@@ -496,22 +413,6 @@ class TestMemoryManagement:
 
         finally:
             gc.enable()
-    def test_memory_pressure_handling(self, memory_monitor):
-        """Test behavior under memory pressure."""
-        from auralis.library.cache import QueryCache
-
-        cache = QueryCache(max_size=1000)
-
-        # Fill cache with large objects
-        large_data = "x" * 100000  # 100KB
-
-        for i in range(500):
-            cache.set(f"key_{i}", {"data": large_data, "id": i})
-
-        # Verify cache handles pressure gracefully
-        assert cache.get_stats()['size'] <= 1000
-        assert cache.get("key_499") is not None  # Recent entries preserved
-
     def test_memory_recovery_after_peak(self, large_library_db, memory_monitor):
         """Test memory cleanup after heavy operations."""
         import gc
@@ -598,7 +499,7 @@ class TestLongRunningOperations:
 
     def test_library_rescan_durability(self, tmp_path, large_library_db):
         """Test multiple rescans without degradation."""
-        from auralis.library.manager import LibraryManager
+        from auralis.library.database import LibraryDatabase
         from auralis.library.scanner import LibraryScanner
 
         # Create audio directory
@@ -610,8 +511,8 @@ class TestLongRunningOperations:
             filepath = audio_dir / f"track_{i:03d}.wav"
             sf.write(str(filepath), audio, 44100)
 
-        manager = LibraryManager(database_path=str(tmp_path / "test.db"))
-        scanner = LibraryScanner(manager)
+        db = LibraryDatabase(database_path=str(tmp_path / "test.db"))
+        scanner = LibraryScanner(db)
 
         # Perform 5 rescans
         scan_times = []
@@ -654,28 +555,3 @@ class TestLongRunningOperations:
         for track in all_tracks:
             assert track.filepath is not None
             assert track.title is not None
-    def test_cache_invalidation_large_scale(self, large_library_db):
-        """Test cache invalidation with 1,000+ entries."""
-        import tempfile
-
-        from auralis.library.manager import LibraryManager
-
-        with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
-            db_path = f.name
-
-        manager = LibraryManager(database_path=db_path)
-
-        # Fill cache with many entries
-        for i in range(100):
-            manager.get_recent_tracks(limit=10)
-            manager.get_popular_tracks(limit=10)
-
-        initial_size = manager.get_cache_stats()['size']
-
-        # Invalidate cache
-        manager.invalidate_track_caches()
-
-        final_size = manager.get_cache_stats()['size']
-
-        # Cache should be cleared or significantly reduced
-        assert final_size < initial_size / 2, "Cache invalidation ineffective"

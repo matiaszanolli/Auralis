@@ -6,18 +6,17 @@ Focus on real working modules to boost coverage meaningfully.
 import os
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
 
 import numpy as np
 import pytest
 
-from auralis.library.manager import LibraryManager
+from auralis.library.database import LibraryDatabase
 from auralis.library.models import Album, Artist, Playlist, Track
 from auralis.library.scanner import LibraryScanner
 
 
-class TestLibraryManagerAdvanced:
-    """Advanced tests for LibraryManager to boost coverage."""
+class TestLibraryDatabaseAdvanced:
+    """Advanced tests for LibraryDatabase to boost coverage."""
 
     @pytest.fixture
     def temp_db(self):
@@ -29,19 +28,13 @@ class TestLibraryManagerAdvanced:
             os.unlink(db_path)
 
     @pytest.fixture
-    def manager(self, temp_db):
-        """Create LibraryManager instance."""
-        return LibraryManager(temp_db)
+    def db(self, temp_db):
+        """Create LibraryDatabase instance."""
+        return LibraryDatabase(temp_db)
 
-    @pytest.fixture(autouse=True)
-    def mock_file_exists(self):
-        """Mock Path.exists() to allow fake file paths in tests."""
-        with patch('pathlib.Path.exists', return_value=True):
-            yield
-
-    def test_session_management(self, manager):
+    def test_session_management(self, db):
         """Test database session management."""
-        session = manager.get_session()
+        session = db.get_session()
         assert session is not None
 
         # Test session is working
@@ -51,7 +44,7 @@ class TestLibraryManagerAdvanced:
 
         session.close()
 
-    def test_track_operations_comprehensive(self, manager):
+    def test_track_operations_comprehensive(self, db):
         """Test comprehensive track operations."""
         # Test add track with full metadata
         track_info = {
@@ -67,18 +60,18 @@ class TestLibraryManagerAdvanced:
             'sample_rate': 44100
         }
 
-        track = manager.add_track(track_info)
+        track = db.tracks.add(track_info)
         assert track is not None
         assert track.title == 'Test Song'
 
         # Get fresh track with relationships loaded
-        session = manager.get_session()
+        session = db.get_session()
         fresh_track = session.query(Track).filter(Track.id == track.id).first()
         assert len(fresh_track.artists) == 1
         assert fresh_track.artists[0].name == 'Test Artist'
         session.close()
 
-    def test_search_functionality(self, manager):
+    def test_search_functionality(self, db):
         """Test search functionality comprehensively."""
         # Add test tracks first
         tracks_data = [
@@ -106,20 +99,20 @@ class TestLibraryManagerAdvanced:
         ]
 
         for track_data in tracks_data:
-            manager.add_track(track_data)
+            db.tracks.add(track_data)
 
         # Test different search patterns
-        rock_results = manager.search_tracks('rock')
+        rock_results, _ = db.tracks.search('rock')
         assert len(rock_results) >= 2
 
-        band_results = manager.search_tracks('Rock Band')
+        band_results, _ = db.tracks.search('Rock Band')
         assert len(band_results) >= 2
 
         # Test case insensitive search
-        case_results = manager.search_tracks('ROCK')
+        case_results, _ = db.tracks.search('ROCK')
         assert len(case_results) >= 2
 
-    def test_genre_and_artist_queries(self, manager):
+    def test_genre_and_artist_queries(self, db):
         """Test genre and artist-specific queries."""
         # Add test data
         track_info = {
@@ -128,20 +121,20 @@ class TestLibraryManagerAdvanced:
             'artists': ['Metal Band'],
             'genres': ['Metal']
         }
-        manager.add_track(track_info)
+        db.tracks.add(track_info)
 
         # Test genre queries
-        metal_tracks = manager.get_tracks_by_genre('Metal')
+        metal_tracks = db.tracks.get_by_genre('Metal')
         assert len(metal_tracks) >= 1
 
         # Test artist queries
-        artist_tracks = manager.get_tracks_by_artist('Metal Band')
+        artist_tracks = db.tracks.get_by_artist('Metal Band')
         assert len(artist_tracks) >= 1
 
-    def test_playlist_operations_comprehensive(self, manager):
+    def test_playlist_operations_comprehensive(self, db):
         """Test comprehensive playlist operations."""
         # Create playlist
-        playlist = manager.create_playlist(
+        playlist = db.playlists.create(
             name='Test Playlist',
             description='A test playlist for coverage'
         )
@@ -150,30 +143,30 @@ class TestLibraryManagerAdvanced:
 
         # Add track to playlist
         track_info = {'filepath': '/test/playlist_track.mp3', 'title': 'Playlist Track'}
-        track = manager.add_track(track_info)
+        track = db.tracks.add(track_info)
 
-        success = manager.add_track_to_playlist(playlist.id, track.id)
+        success = db.playlists.add_track(playlist.id, track.id)
         assert success is True
 
         # Get playlist
-        retrieved_playlist = manager.get_playlist(playlist.id)
+        retrieved_playlist = db.playlists.get_by_id(playlist.id)
         assert retrieved_playlist is not None
         assert retrieved_playlist.name == 'Test Playlist'
 
-    def test_track_interaction_methods(self, manager):
+    def test_track_interaction_methods(self, db):
         """Test track interaction methods."""
         # Add a track
         track_info = {'filepath': '/test/interactive.mp3', 'title': 'Interactive Track'}
-        track = manager.add_track(track_info)
+        track = db.tracks.add(track_info)
 
         # Test play recording
-        manager.record_track_play(track.id)
+        db.tracks.record_play(track.id)
 
         # Test favoriting
-        manager.set_track_favorite(track.id, True)
-        manager.set_track_favorite(track.id, False)
+        db.tracks.set_favorite(track.id, True)
+        db.tracks.set_favorite(track.id, False)
 
-    def test_library_stats_comprehensive(self, manager):
+    def test_library_stats_comprehensive(self, db):
         """Test comprehensive library statistics."""
         # Add diverse test data
         test_tracks = [
@@ -196,9 +189,9 @@ class TestLibraryManagerAdvanced:
         ]
 
         for track_data in test_tracks:
-            manager.add_track(track_data)
+            db.tracks.add(track_data)
 
-        stats = manager.get_library_stats()
+        stats = db.stats.get_library_stats()
         assert isinstance(stats, dict)
 
         # Should have multiple tracks now
@@ -208,25 +201,25 @@ class TestLibraryManagerAdvanced:
         if 'total_duration' in stats:
             assert stats['total_duration'] > 0
 
-    def test_recent_and_popular_tracks(self, manager):
+    def test_recent_and_popular_tracks(self, db):
         """Test recent and popular track queries."""
         # Add and play tracks
         track_info = {'filepath': '/test/recent.mp3', 'title': 'Recent Track'}
-        track = manager.add_track(track_info)
-        manager.record_track_play(track.id)
+        track = db.tracks.add(track_info)
+        db.tracks.record_play(track.id)
 
         # Test recent tracks
-        recent, recent_count = manager.get_recent_tracks(limit=10)
+        recent, recent_count = db.tracks.get_recent(limit=10)
         assert isinstance(recent, list)
         assert isinstance(recent_count, int)
 
         # Test popular tracks
-        popular, popular_count = manager.get_popular_tracks(limit=10)
+        popular, popular_count = db.tracks.get_popular(limit=10)
         assert isinstance(popular, list)
         assert isinstance(popular_count, int)
 
         # Test favorite tracks
-        favorites, favorites_count = manager.get_favorite_tracks(limit=10)
+        favorites, favorites_count = db.tracks.get_favorites(limit=10)
         assert isinstance(favorites, list)
         assert isinstance(favorites_count, int)
 
@@ -244,22 +237,24 @@ class TestLibraryScannerAdvanced:
             os.unlink(db_path)
 
     @pytest.fixture
-    def manager_and_scanner(self, temp_db):
-        """Create manager and scanner."""
-        manager = LibraryManager(temp_db)
-        scanner = LibraryScanner(manager)
-        return manager, scanner
+    def db_and_scanner(self, temp_db):
+        """Create library database and scanner."""
+        db = LibraryDatabase(temp_db)
+        scanner = LibraryScanner(db)
+        return db, scanner
 
-    def test_scanner_initialization(self, manager_and_scanner):
+    def test_scanner_initialization(self, db_and_scanner):
         """Test scanner initialization and attributes."""
-        manager, scanner = manager_and_scanner
+        db, scanner = db_and_scanner
 
-        assert scanner.library_manager is manager
+        # LibraryScanner still names its constructor argument `library_manager`,
+        # but the object it holds is a LibraryDatabase.
+        assert scanner.library_manager is db
         assert hasattr(scanner, 'library_manager')
 
-    def test_scanner_methods_coverage(self, manager_and_scanner):
+    def test_scanner_methods_coverage(self, db_and_scanner):
         """Test scanner methods for coverage."""
-        manager, scanner = manager_and_scanner
+        db, scanner = db_and_scanner
 
         # Test methods that should exist
         scanner_methods = dir(scanner)
@@ -280,9 +275,9 @@ class TestLibraryScannerAdvanced:
 
             yield temp_dir, audio_files
 
-    def test_scanner_with_files(self, manager_and_scanner, temp_audio_files):
+    def test_scanner_with_files(self, db_and_scanner, temp_audio_files):
         """Test scanner with actual files."""
-        manager, scanner = manager_and_scanner
+        db, scanner = db_and_scanner
         temp_dir, audio_files = temp_audio_files
 
         # Test that scanner can be used with file paths
@@ -510,16 +505,10 @@ class TestModelRelationships:
         if os.path.exists(db_path):
             os.unlink(db_path)
 
-    @pytest.fixture(autouse=True)
-    def mock_file_exists(self):
-        """Mock Path.exists() to allow fake file paths in tests."""
-        with patch('pathlib.Path.exists', return_value=True):
-            yield
-
     def test_track_album_artist_relationships(self, temp_db):
         """Test relationships between Track, Album, and Artist models."""
-        manager = LibraryManager(temp_db)
-        session = manager.get_session()
+        db = LibraryDatabase(temp_db)
+        session = db.get_session()
 
         # Add track with artist and album information
         track_info = {
@@ -530,11 +519,11 @@ class TestModelRelationships:
             'genres': ['Test Genre']
         }
 
-        track = manager.add_track(track_info)
+        track = db.tracks.add(track_info)
         assert track is not None
 
         # Test that the track was properly added
-        retrieved_track = manager.get_track(track.id)
+        retrieved_track = db.tracks.get_by_id(track.id)
         assert retrieved_track is not None
         assert retrieved_track.title == 'Relationship Test'
 
@@ -542,25 +531,25 @@ class TestModelRelationships:
 
     def test_playlist_track_relationships(self, temp_db):
         """Test playlist-track relationships."""
-        manager = LibraryManager(temp_db)
+        db = LibraryDatabase(temp_db)
 
         # Create playlist
-        playlist = manager.create_playlist('Relationship Test Playlist')
+        playlist = db.playlists.create('Relationship Test Playlist')
         assert playlist is not None
 
         # Add tracks
         track1_info = {'filepath': '/test/rel1.mp3', 'title': 'Rel Track 1'}
         track2_info = {'filepath': '/test/rel2.mp3', 'title': 'Rel Track 2'}
 
-        track1 = manager.add_track(track1_info)
-        track2 = manager.add_track(track2_info)
+        track1 = db.tracks.add(track1_info)
+        track2 = db.tracks.add(track2_info)
 
         # Add tracks to playlist
-        manager.add_track_to_playlist(playlist.id, track1.id)
-        manager.add_track_to_playlist(playlist.id, track2.id)
+        db.playlists.add_track(playlist.id, track1.id)
+        db.playlists.add_track(playlist.id, track2.id)
 
         # Verify playlist contents
-        retrieved_playlist = manager.get_playlist(playlist.id)
+        retrieved_playlist = db.playlists.get_by_id(playlist.id)
         assert retrieved_playlist is not None
 
 
@@ -576,47 +565,41 @@ class TestErrorHandlingAndEdgeCases:
         if os.path.exists(db_path):
             os.unlink(db_path)
 
-    @pytest.fixture(autouse=True)
-    def mock_file_exists(self):
-        """Mock Path.exists() to allow fake file paths in tests."""
-        with patch('pathlib.Path.exists', return_value=True):
-            yield
-
     def test_invalid_operations(self, temp_db):
         """Test invalid operations are handled gracefully."""
-        manager = LibraryManager(temp_db)
+        db = LibraryDatabase(temp_db)
 
         # Test getting non-existent items
-        assert manager.get_track(99999) is None
-        assert manager.get_playlist(99999) is None
+        assert db.tracks.get_by_id(99999) is None
+        assert db.playlists.get_by_id(99999) is None
 
         # Test operations with invalid IDs
-        result = manager.add_track_to_playlist(99999, 99999)
+        result = db.playlists.add_track(99999, 99999)
         assert result is False
 
     def test_duplicate_handling(self, temp_db):
         """Test handling of duplicate entries."""
-        manager = LibraryManager(temp_db)
+        db = LibraryDatabase(temp_db)
 
         # Add same track twice
         track_info = {'filepath': '/test/duplicate.mp3', 'title': 'Duplicate Track'}
 
-        track1 = manager.add_track(track_info)
-        track2 = manager.add_track(track_info)  # Should handle gracefully
+        track1 = db.tracks.add(track_info)
+        track2 = db.tracks.add(track_info)  # Should handle gracefully
 
         assert track1 is not None
 
     def test_empty_searches(self, temp_db):
         """Test empty and invalid searches."""
-        manager = LibraryManager(temp_db)
+        db = LibraryDatabase(temp_db)
 
         # Test empty search
-        results, count = manager.search_tracks('')
+        results, count = db.tracks.search('')
         assert isinstance(results, list)
         assert isinstance(count, int)
 
         # Test search with no matches
-        results, count = manager.search_tracks('nonexistent_query_12345')
+        results, count = db.tracks.search('nonexistent_query_12345')
         assert isinstance(results, list)
         assert len(results) == 0
         assert count == 0

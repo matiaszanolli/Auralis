@@ -29,8 +29,9 @@ from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.config import UnifiedConfig
 from auralis.io.saver import save
 from auralis.io.unified_loader import load_audio
-from auralis.library.manager import LibraryManager
+from auralis.library.database import LibraryDatabase
 from auralis.library.repositories import PlaylistRepository, TrackRepository
+from auralis.library.scanner import LibraryScanner
 
 # ============================================================================
 # COMPLETE WORKFLOW TESTS (5 tests)
@@ -60,8 +61,8 @@ class TestCompleteWorkflows:
         # Complete workflow
         with timer() as t:
             # 1. Import to library
-            manager = LibraryManager(database_path=':memory:')
-            manager.scan_folder(temp_audio_dir)
+            db = LibraryDatabase(database_path=':memory:')
+            LibraryScanner(db).scan_single_directory(temp_audio_dir)
 
             # 2. Process all tracks
             processed = []
@@ -95,10 +96,11 @@ class TestCompleteWorkflows:
                 filepath = os.path.join(tmpdir, f'import_{i:04d}.wav')
                 save(filepath, audio, 44100, subtype='PCM_16')
 
-            manager = LibraryManager(database_path=':memory:')
+            db = LibraryDatabase(database_path=':memory:')
+            scanner = LibraryScanner(db)
 
             with timer() as t:
-                manager.scan_folder(tmpdir)
+                scanner.scan_single_directory(tmpdir)
 
             import_time = t.elapsed
 
@@ -186,14 +188,15 @@ class TestCompleteWorkflows:
             filepath = os.path.join(temp_audio_dir, f'rebuild_{i:03d}.wav')
             save(filepath, audio, 44100, subtype='PCM_16')
 
-        manager = LibraryManager(database_path=':memory:')
+        db = LibraryDatabase(database_path=':memory:')
+        scanner = LibraryScanner(db)
 
         # Initial scan
-        manager.scan_folder(temp_audio_dir)
+        scanner.scan_single_directory(temp_audio_dir)
 
         # Rebuild (rescan all)
         with timer() as t:
-            manager.scan_folder(temp_audio_dir)
+            scanner.scan_single_directory(temp_audio_dir)
 
         rebuild_time = t.elapsed
 

@@ -41,7 +41,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from auralis.io.saver import save as save_audio
-from auralis.library.manager import LibraryManager
+from auralis.library.database import LibraryDatabase
 from auralis.library.scanner import LibraryScanner
 
 # ============================================================================
@@ -69,13 +69,13 @@ def test_audio_dir():
 
 
 @pytest.fixture
-def library_manager():
-    """Create temporary LibraryManager instance."""
+def library_db():
+    """Create temporary LibraryDatabase instance."""
     temp_dir = tempfile.mkdtemp()
     db_path = os.path.join(temp_dir, "test_library.db")
-    manager = LibraryManager(database_path=db_path)
+    db = LibraryDatabase(database_path=db_path)
 
-    yield manager
+    yield db
 
     # Cleanup
     import shutil
@@ -83,9 +83,9 @@ def library_manager():
 
 
 @pytest.fixture
-def scanner(library_manager):
+def scanner(library_db):
     """Create LibraryScanner instance."""
-    return LibraryScanner(library_manager)
+    return LibraryScanner(library_db)
 
 
 # ============================================================================
@@ -301,7 +301,7 @@ def test_scanner_returns_readable_files(test_audio_dir, scanner):
 # ============================================================================
 
 @pytest.mark.integration
-def test_scanner_finds_files_in_subdirectories(library_manager):
+def test_scanner_finds_files_in_subdirectories(library_db):
     """
     INVARIANT: Scanner should find files in subdirectories (recursive scan).
     """
@@ -329,7 +329,7 @@ def test_scanner_finds_files_in_subdirectories(library_manager):
         save_audio(file2, audio, 44100, subtype='PCM_16')
 
         # Scan root directory
-        scanner = LibraryScanner(library_manager)
+        scanner = LibraryScanner(library_db)
         found_files = scanner.scan_folder(temp_dir)
 
         # Should find both files
@@ -347,13 +347,13 @@ def test_scanner_finds_files_in_subdirectories(library_manager):
 # ============================================================================
 
 @pytest.mark.integration
-def test_scanner_handles_empty_directory(library_manager):
+def test_scanner_handles_empty_directory(library_db):
     """
     INVARIANT: Scanner should handle empty directory (return empty list, not crash).
     """
     temp_dir = tempfile.mkdtemp()
     try:
-        scanner = LibraryScanner(library_manager)
+        scanner = LibraryScanner(library_db)
         found_files = scanner.scan_folder(temp_dir)
 
         assert found_files == [] or len(found_files) == 0, (
@@ -366,11 +366,11 @@ def test_scanner_handles_empty_directory(library_manager):
 
 
 @pytest.mark.integration
-def test_scanner_handles_nonexistent_directory(library_manager):
+def test_scanner_handles_nonexistent_directory(library_db):
     """
     INVARIANT: Scanner should handle non-existent directory gracefully.
     """
-    scanner = LibraryScanner(library_manager)
+    scanner = LibraryScanner(library_db)
     nonexistent_dir = "/tmp/this_directory_does_not_exist_12345"
 
     # Should not crash, should return empty or raise appropriate exception
@@ -385,7 +385,7 @@ def test_scanner_handles_nonexistent_directory(library_manager):
 
 
 @pytest.mark.integration
-def test_scanner_ignores_non_audio_files(library_manager):
+def test_scanner_ignores_non_audio_files(library_db):
     """
     INVARIANT: Scanner should ignore non-audio files (.txt, .jpg, etc.).
     """
@@ -406,7 +406,7 @@ def test_scanner_ignores_non_audio_files(library_manager):
             f.write(b'\x00\x01\x02\x03')  # Fake image data
 
         # Scan directory
-        scanner = LibraryScanner(library_manager)
+        scanner = LibraryScanner(library_db)
         found_files = scanner.scan_folder(temp_dir)
 
         # Should only find audio file

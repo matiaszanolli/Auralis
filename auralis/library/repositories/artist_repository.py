@@ -15,6 +15,34 @@ from ..models import Album, Artist, Track, track_artist
 from .base import BaseRepository
 
 
+# Named eager-load constants (#5028), mirroring track_repository.py's
+# _track_eager_options() / genre_repository.py's _GENRE_LOAD_OPTIONS /
+# album_repository.py's _ALBUM_DETAIL_OPTIONS convention. #4236 fixed a
+# DetachedInstanceError caused by exactly this duplication (one method's
+# inline tuple fixed, its sibling's copy left stale) and its own proposed fix
+# recommended this extraction — done here so a future read path can't
+# silently omit it again.
+
+# Single-artist detail reads: get_by_id/get_by_name hand the artist straight
+# to to_dict(), which walks tracks->genres, tracks->album, and albums->tracks.
+_ARTIST_DETAIL_OPTIONS = (
+    selectinload(Artist.tracks).selectinload(Track.genres),
+    selectinload(Artist.tracks).selectinload(Track.album),
+    selectinload(Artist.albums).selectinload(Album.tracks),
+)
+
+# Paginated/listing reads (#4553): routers/artists.py walks
+# artist.tracks -> track.genres and calls len() on artist.tracks/artist.albums
+# — it never touches track.album or album.tracks, so those two chains are
+# left out here (unlike _ARTIST_DETAIL_OPTIONS) to avoid pulling the full
+# Track+Album row set for every artist on the page twice over (fixes #2516's
+# N×M row explosion via selectinload instead of nested joinedload).
+_ARTIST_LIST_OPTIONS = (
+    selectinload(Artist.tracks).selectinload(Track.genres),
+    selectinload(Artist.albums),
+)
+
+
 class ArtistRepository(BaseRepository):
     """Repository for artist database operations"""
 
@@ -25,11 +53,7 @@ class ArtistRepository(BaseRepository):
             artist = (
                 session.execute(
                     select(Artist)
-                    .options(
-                        selectinload(Artist.tracks).selectinload(Track.genres),
-                        selectinload(Artist.tracks).selectinload(Track.album),
-                        selectinload(Artist.albums).selectinload(Album.tracks)
-                    )
+                    .options(*_ARTIST_DETAIL_OPTIONS)
                     .where(Artist.id == artist_id)
                 ).scalars().first()
             )
@@ -46,11 +70,7 @@ class ArtistRepository(BaseRepository):
             artist = (
                 session.execute(
                     select(Artist)
-                    .options(
-                        selectinload(Artist.tracks).selectinload(Track.genres),
-                        selectinload(Artist.tracks).selectinload(Track.album),
-                        selectinload(Artist.albums).selectinload(Album.tracks)
-                    )
+                    .options(*_ARTIST_DETAIL_OPTIONS)
                     .where(Artist.name == name)
                 ).scalars().first()
             )
@@ -100,28 +120,11 @@ class ArtistRepository(BaseRepository):
                 order_column = Artist.name.asc()
 
             # Eager-load exactly what the serializer reads, and nothing more
-            # (#4553).  routers/artists.py walks `artist.tracks -> track.genres`
-            # to build the genre set and calls len() on `artist.tracks` and
-            # `artist.albums`; it never touches `track.album` or `album.tracks`.
-            # Those two chains used to be loaded here and discarded, which meant
-            # every page pulled the full Track+Album row set for all artists on
-            # the page twice over — once via Artist.tracks -> Track.album, once
-            # via Artist.albums -> Album.tracks.  Cost therefore scaled with
-            # tracks-per-artist rather than with page size.
-            #
-            # The counts stay as len(): Artist.tracks must be loaded anyway for
-            # the genre set, so track_count is free, and Artist.albums is now a
-            # shallow load (one bounded IN query, no nested track rows).
-            #
-            # Use selectinload (separate IN queries) instead of nested joinedload
-            # to avoid the N×M Cartesian-product row explosion (fixes #2516).
+            # (#4553) — see _ARTIST_LIST_OPTIONS' docstring for what/why.
             artists = (
                 session.execute(
                     select(Artist)
-                    .options(
-                        selectinload(Artist.tracks).selectinload(Track.genres),
-                        selectinload(Artist.albums)
-                    )
+                    .options(*_ARTIST_LIST_OPTIONS)
                     .order_by(order_column)
                     .limit(limit)
                     .offset(offset)
@@ -158,17 +161,12 @@ class ArtistRepository(BaseRepository):
                 .where(Artist.name.ilike(search_term, escape='\\'))
             ).scalar_one()
 
-            # Get paginated results.
-            # Load only what routers/artists.py reads — see get_all() (#4553).
-            # Use selectinload (separate IN queries) instead of nested joinedload
-            # to avoid the N×M Cartesian-product row explosion (mirrors get_all() fix #2516).
+            # Get paginated results. Same eager-load set as get_all() — see
+            # _ARTIST_LIST_OPTIONS' docstring for what/why (#4553).
             artists = (
                 session.execute(
                     select(Artist)
-                    .options(
-                        selectinload(Artist.tracks).selectinload(Track.genres),
-                        selectinload(Artist.albums)
-                    )
+                    .options(*_ARTIST_LIST_OPTIONS)
                     .where(Artist.name.ilike(search_term, escape='\\'))
                     .order_by(Artist.name)
                     .limit(limit)
@@ -197,6 +195,11 @@ class ArtistRepository(BaseRepository):
             artists = (
                 session.execute(
                     select(Artist)
+                    # Deliberately distinct from both _ARTIST_DETAIL_OPTIONS and
+                    # _ARTIST_LIST_OPTIONS (#5028 CONSISTENCY check): this batch
+                    # export path skips Track.genres (neither constant's tracks
+                    # chain is reusable here) and, unlike _ARTIST_LIST_OPTIONS,
+                    # does need Artist.albums -> Album.tracks.
                     .options(
                         selectinload(Artist.tracks).selectinload(Track.album),
                         selectinload(Artist.tracks),

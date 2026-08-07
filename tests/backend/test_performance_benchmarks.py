@@ -30,7 +30,7 @@ import numpy as np
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.config import UnifiedConfig
 from auralis.io.saver import save as save_audio
-from auralis.library.manager import LibraryManager
+from auralis.library.database import LibraryDatabase
 from auralis.library.repositories.track_repository import TrackRepository
 from auralis.library.scanner import LibraryScanner
 
@@ -141,8 +141,8 @@ def test_perf_library_scan_10_tracks(temp_audio_dir):
         filepath = temp_audio_dir / f"track_{i:02d}.wav"
         create_test_audio_file(filepath, duration=1.0)
 
-    manager = LibraryManager(database_path=":memory:")
-    scanner = LibraryScanner(manager)
+    db = LibraryDatabase(database_path=":memory:")
+    scanner = LibraryScanner(db)
 
     start_time = time.time()
     added, skipped, errors = scanner.scan_folder(str(temp_audio_dir))
@@ -172,8 +172,8 @@ def test_perf_library_scan_100_tracks(temp_audio_dir):
         filepath = temp_audio_dir / f"track_{i:03d}.wav"
         create_test_audio_file(filepath, duration=0.5)
 
-    manager = LibraryManager(database_path=":memory:")
-    scanner = LibraryScanner(manager)
+    db = LibraryDatabase(database_path=":memory:")
+    scanner = LibraryScanner(db)
 
     start_time = time.time()
     added, skipped, errors = scanner.scan_folder(str(temp_audio_dir))
@@ -276,11 +276,16 @@ def test_perf_search_query_1000_tracks(temp_audio_dir):
 @pytest.mark.performance
 def test_perf_cache_hit_improvement():
     """
-    PERFORMANCE: Cache hit should be significantly faster.
+    PERFORMANCE: A repeated query should not be slower than the first one.
 
-    Baseline: Cache hit should be >10x faster than cache miss.
+    Baseline: the second identical query is at most as slow as the first.
+
+    Note (#4915): this never exercised ``auralis.library.cache``'s QueryCache —
+    that decorator only ever wrapped the deprecated LibraryManager facade, not
+    ``TrackRepository.get_all``. What is measured is SQLite page-cache /
+    SQLAlchemy warm-up, which is why the assertion is a weak ordering check.
     """
-    manager = LibraryManager(database_path=":memory:")
+    db = LibraryDatabase(database_path=":memory:")
 
     # Add some tracks
     for i in range(10):
@@ -294,16 +299,16 @@ def test_perf_cache_hit_improvement():
             "channels": 2,
             "bitrate": 1411200,
         }
-        manager.tracks.add(track_info)
+        db.tracks.add(track_info)
 
     # First query (cache miss)
     start_time = time.time()
-    tracks1, total1 = manager.tracks.get_all(limit=50, offset=0)
+    tracks1, total1 = db.tracks.get_all(limit=50, offset=0)
     miss_time = time.time() - start_time
 
     # Second query (cache hit)
     start_time = time.time()
-    tracks2, total2 = manager.tracks.get_all(limit=50, offset=0)
+    tracks2, total2 = db.tracks.get_all(limit=50, offset=0)
     hit_time = time.time() - start_time
 
     speedup = miss_time / hit_time if hit_time > 0 else float('inf')

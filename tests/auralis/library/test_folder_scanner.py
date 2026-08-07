@@ -89,14 +89,14 @@ def create_test_music_library(tmpdir):
 
 def test_basic_scanning():
     """A recursive scan discovers every file, and a re-scan skips them all."""
-    from auralis.library import LibraryManager, LibraryScanner
+    from auralis.library import LibraryDatabase, LibraryScanner
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
         test_files = create_test_music_library(tmpdir)
 
-        library = LibraryManager(str(tmpdir / "scan_test.db"))
+        library = LibraryDatabase(str(tmpdir / "scan_test.db"))
         scanner = LibraryScanner(library)
 
         result = scanner.scan_single_directory(str(tmpdir), recursive=True)
@@ -109,7 +109,7 @@ def test_basic_scanning():
         )
 
         # Library stats reflect the added tracks.
-        stats = library.get_library_stats()
+        stats = library.stats.get_library_stats()
         assert stats['total_tracks'] == result.files_added
 
         # Re-scan must skip all previously-added files.
@@ -123,7 +123,7 @@ def test_basic_scanning():
 
 def test_metadata_extraction():
     """_extract_audio_info returns correct metadata and converts to track info."""
-    from auralis.library import LibraryManager, LibraryScanner
+    from auralis.library import LibraryDatabase, LibraryScanner
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -139,7 +139,7 @@ def test_metadata_extraction():
         ]).astype(np.float32)
         sf.write(test_file, audio, sample_rate)
 
-        library = LibraryManager(str(tmpdir / "metadata_test.db"))
+        library = LibraryDatabase(str(tmpdir / "metadata_test.db"))
         scanner = LibraryScanner(library)
 
         # #4247: the old test called scanner._extract_audio_info /
@@ -162,7 +162,7 @@ def test_metadata_extraction():
 def test_scanning_performance():
     """A larger scan processes every file. Throughput is measured but NOT
     asserted — a slow CI box must not fail the suite."""
-    from auralis.library import LibraryManager, LibraryScanner
+    from auralis.library import LibraryDatabase, LibraryScanner
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -192,7 +192,7 @@ def test_scanning_performance():
                     sf.write(track_path, audio, sample_rate)
                     test_files.append(track_path)
 
-        library = LibraryManager(str(tmpdir / "perf_test.db"))
+        library = LibraryDatabase(str(tmpdir / "perf_test.db"))
         scanner = LibraryScanner(library)
 
         start_time = time.time()
@@ -207,8 +207,8 @@ def test_scanning_performance():
 
 
 def test_scanner_integration():
-    """LibraryManager.scan_directories / scan_single_directory add the file."""
-    from auralis.library import LibraryManager
+    """LibraryScanner.scan_directories / scan_single_directory add the file."""
+    from auralis.library import LibraryDatabase, LibraryScanner
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -227,14 +227,16 @@ def test_scanner_integration():
         ]).astype(np.float32)
         sf.write(test_file, audio, sample_rate)
 
-        library = LibraryManager(str(tmpdir / "integration_test.db"))
+        library = LibraryDatabase(str(tmpdir / "integration_test.db"))
 
-        result = library.scan_directories([str(test_dir)])
+        scanner = LibraryScanner(library)
+
+        result = scanner.scan_directories([str(test_dir)])
         assert result is not None
         assert result.files_found >= 1
 
-        result2 = library.scan_single_directory(str(test_dir))
+        result2 = scanner.scan_single_directory(str(test_dir))
         assert result2 is not None
 
-        stats = library.get_library_stats()
+        stats = library.stats.get_library_stats()
         assert stats['total_tracks'] >= 1

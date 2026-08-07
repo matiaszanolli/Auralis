@@ -27,7 +27,7 @@ if _BACKEND not in sys.path:
 from routers.library_scan import create_library_scan_router  # noqa: E402
 
 
-class _FakeLibraryManager:
+class _FakeLibraryDatabase:
     def __init__(self, scanning: bool) -> None:
         self._scanning = scanning
 
@@ -43,14 +43,14 @@ def _make_app(get_library_manager) -> TestClient:
 
 
 def test_reports_not_scanning_when_no_scan_active():
-    client = _make_app(lambda: _FakeLibraryManager(scanning=False))
+    client = _make_app(lambda: _FakeLibraryDatabase(scanning=False))
     response = client.get("/api/library/scan/status")
     assert response.status_code == 200
     assert response.json() == {"is_scanning": False}
 
 
 def test_reports_scanning_when_a_scan_is_active():
-    client = _make_app(lambda: _FakeLibraryManager(scanning=True))
+    client = _make_app(lambda: _FakeLibraryDatabase(scanning=True))
     response = client.get("/api/library/scan/status")
     assert response.status_code == 200
     assert response.json() == {"is_scanning": True}
@@ -72,7 +72,7 @@ def test_reflects_a_crashed_scan_that_never_broadcast_a_terminal_frame():
     """The core self-healing property: this is a live read of the scan-slot
     counter, not a cached/replayed broadcast frame, so it can't go stale from
     a missed WebSocket send."""
-    manager = _FakeLibraryManager(scanning=True)
+    manager = _FakeLibraryDatabase(scanning=True)
     client = _make_app(lambda: manager)
 
     assert client.get("/api/library/scan/status").json() == {"is_scanning": True}

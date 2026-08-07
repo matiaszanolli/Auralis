@@ -62,18 +62,15 @@ class TestPoolConfiguration:
 
     def test_pool_size_within_bounds(self):
         """Engine pool_size + max_overflow should not exceed 10 for SQLite"""
-        from auralis.library.manager import LibraryManager
+        from auralis.library.database import LibraryDatabase
 
         temp_dir = tempfile.mkdtemp(prefix="auralis_pool_check_")
         db_path = os.path.join(temp_dir, "check.db")
 
         try:
-            import warnings
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", DeprecationWarning)
-                manager = LibraryManager(database_path=db_path)
+            db = LibraryDatabase(database_path=db_path)
 
-            pool = manager.engine.pool
+            pool = db.engine.pool
             # pool_size + max_overflow should be <= 10 for SQLite
             assert pool.size() <= 10, (
                 f"pool_size={pool.size()} too large for SQLite"
@@ -82,7 +79,7 @@ class TestPoolConfiguration:
                 f"Total connections ({pool.size() + pool._max_overflow}) "
                 "too many for SQLite"
             )
-            manager.shutdown()
+            db.shutdown()
         finally:
             shutil.rmtree(temp_dir, ignore_errors=True)
 
@@ -94,22 +91,19 @@ class TestPoolConfiguration:
         per-connection cache * (pool_size + max_overflow). That aggregate must
         stay within a reasonable ceiling for a desktop app.
         """
-        from auralis.library.manager import LibraryManager
+        from auralis.library.database import LibraryDatabase
 
         temp_dir = tempfile.mkdtemp(prefix="auralis_cache_size_check_")
         db_path = os.path.join(temp_dir, "check.db")
         AGGREGATE_CEILING_MB = 100
 
         try:
-            import warnings
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", DeprecationWarning)
-                manager = LibraryManager(database_path=db_path)
+            db = LibraryDatabase(database_path=db_path)
 
-            pool = manager.engine.pool
+            pool = db.engine.pool
             max_connections = pool.size() + pool._max_overflow
 
-            with manager.engine.connect() as conn:
+            with db.engine.connect() as conn:
                 cache_size_pages_or_kb = conn.exec_driver_sql(
                     "PRAGMA cache_size"
                 ).scalar()
@@ -128,7 +122,7 @@ class TestPoolConfiguration:
                 f"exceeding the {AGGREGATE_CEILING_MB}MB ceiling for a desktop app"
             )
 
-            manager.shutdown()
+            db.shutdown()
         finally:
             shutil.rmtree(temp_dir, ignore_errors=True)
 

@@ -62,7 +62,7 @@ class TestPlaybackState:
 class TestQueueManager:
     """Test QueueManager functionality.
 
-    NOTE: Skipped due to database migration issues when initializing LibraryManager
+    NOTE: Skipped due to database migration issues when initializing LibraryDatabase
     through AudioPlayer constructor. Needs proper pytest fixture setup.
     """
 
@@ -157,7 +157,7 @@ class TestQueueManager:
 class TestAudioPlayerCore:
     """Test AudioPlayer core functionality.
 
-    NOTE: Skipped due to database migration issues when initializing LibraryManager.
+    NOTE: Skipped due to database migration issues when initializing LibraryDatabase.
     Needs proper pytest fixture setup in conftest.py.
     """
 
@@ -454,10 +454,10 @@ class TestEnhancedPlayerLibraryIntegration:
     def test_library_integration(self, mock_config, temp_db):
         """Test library integration."""
         try:
-            from auralis.library.manager import LibraryManager
+            from auralis.library.database import LibraryDatabase
             from auralis.player.enhanced_audio_player import AudioPlayer
 
-            library = LibraryManager(temp_db)
+            library = LibraryDatabase(temp_db)
 
             try:
                 player = AudioPlayer(mock_config, library)

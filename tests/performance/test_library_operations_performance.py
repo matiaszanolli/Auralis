@@ -27,7 +27,7 @@ import numpy as np
 import pytest
 
 from auralis.io.saver import save
-from auralis.library.manager import LibraryManager
+from auralis.library.database import LibraryDatabase
 from auralis.library.repositories import (
     AlbumRepository,
     ArtistRepository,
@@ -54,8 +54,8 @@ class TestFolderScanningPerformance:
             filepath = os.path.join(temp_audio_dir, f'track_{i:03d}.wav')
             save(filepath, audio, 44100, subtype='PCM_16')
 
-        manager = LibraryManager(database_path=':memory:')
-        scanner = LibraryScanner(manager)
+        db = LibraryDatabase(database_path=':memory:')
+        scanner = LibraryScanner(db)
 
         with timer() as t:
             results = scanner.scan_single_directory(temp_audio_dir)
@@ -80,8 +80,8 @@ class TestFolderScanningPerformance:
                 filepath = os.path.join(tmpdir, f'track_{i:04d}.wav')
                 save(filepath, audio, 44100, subtype='PCM_16')
 
-            manager = LibraryManager(database_path=':memory:')
-            scanner = LibraryScanner(manager)
+            db = LibraryDatabase(database_path=':memory:')
+            scanner = LibraryScanner(db)
 
             with timer() as t:
                 results = scanner.scan_single_directory(tmpdir)
@@ -118,8 +118,8 @@ class TestFolderScanningPerformance:
                     filepath = os.path.join(folder_path, f'track_{i:02d}.wav')
                     save(filepath, audio, 44100, subtype='PCM_16')
 
-            manager = LibraryManager(database_path=':memory:')
-            scanner = LibraryScanner(manager)
+            db = LibraryDatabase(database_path=':memory:')
+            scanner = LibraryScanner(db)
 
             # Scan flat
             with timer() as t_flat:
@@ -149,8 +149,8 @@ class TestFolderScanningPerformance:
             filepath = os.path.join(temp_audio_dir, f'track_{i:03d}.wav')
             save(filepath, audio, 44100, subtype='PCM_16')
 
-        manager = LibraryManager(database_path=':memory:')
-        scanner = LibraryScanner(manager)
+        db = LibraryDatabase(database_path=':memory:')
+        scanner = LibraryScanner(db)
 
         # Initial scan
         with timer() as t_initial:
@@ -187,8 +187,8 @@ class TestFolderScanningPerformance:
             import shutil
             shutil.copy(src, dst)
 
-        manager = LibraryManager(database_path=':memory:')
-        scanner = LibraryScanner(manager)
+        db = LibraryDatabase(database_path=':memory:')
+        scanner = LibraryScanner(db)
 
         with timer() as t:
             results = scanner.scan_single_directory(temp_audio_dir)
@@ -597,42 +597,13 @@ class TestCachePerformance:
 
         benchmark_results['cache_speedup'] = speedup
 
-    def test_cache_invalidation_performance(self, temp_db, timer):
-        """
-        BENCHMARK: Cache invalidation should be <5ms.
-        """
-        from auralis.library.manager import LibraryManager
-
-        manager = LibraryManager(database_path=':memory:')
-
-        # Populate cache
-        for i in range(100):
-            manager.add_track({
-                'filepath': f'/tmp/cache_inv_{i}.flac',
-                'title': f'Track {i}',
-                'artists': ['Artist'],
-                'format': 'FLAC',
-                'sample_rate': 44100,
-                'channels': 2
-            })
-
-        # Prime cache
-        manager.get_all_tracks(limit=50, offset=0)
-
-        # Measure invalidation
-        with timer() as t:
-            manager.invalidate_track_caches()
-
-        latency_ms = t.elapsed_ms
-
-        # BENCHMARK: Should be < 5ms
-        assert latency_ms < 10, f"Cache invalidation {latency_ms:.1f}ms exceeds 10ms"
-
-        print(f"\n✓ Cache invalidation: {latency_ms:.1f}ms")
-
     def test_cache_memory_overhead(self):
         """
-        BENCHMARK: Cache should use <50MB for 10k query results.
+        BENCHMARK: Paginated queries should use <50MB for 10k query results.
+
+        #4915: the legacy library-manager query cache this measured was dead
+        code and has been removed; the benchmark now bounds the memory held by
+        repeated paginated repository reads.
         """
         try:
             import psutil
@@ -641,14 +612,12 @@ class TestCachePerformance:
 
         import gc
 
-        from auralis.library.manager import LibraryManager
-
-        manager = LibraryManager(database_path=':memory:')
+        db = LibraryDatabase(database_path=':memory:')
         process = psutil.Process()
 
         # Populate library
         for i in range(10000):
-            manager.add_track({
+            db.tracks.add({
                 'filepath': f'/tmp/cache_mem_{i}.flac',
                 'title': f'Track {i}',
                 'artists': ['Artist'],
@@ -660,57 +629,35 @@ class TestCachePerformance:
         gc.collect()
         mem_before = process.memory_info().rss / (1024 * 1024)
 
-        # Fill cache with diverse queries
+        # Issue diverse paginated queries
         for offset in range(0, 10000, 50):
-            manager.get_all_tracks(limit=50, offset=offset)
+            db.tracks.get_all(limit=50, offset=offset)
 
         gc.collect()
         mem_after = process.memory_info().rss / (1024 * 1024)
 
         cache_memory = mem_after - mem_before
 
-        # BENCHMARK: Cache should use < 50MB
-        assert cache_memory < 100, f"Cache memory {cache_memory:.1f}MB exceeds 100MB"
+        # BENCHMARK: Paginated reads should use < 50MB
+        assert cache_memory < 100, f"Query memory {cache_memory:.1f}MB exceeds 100MB"
 
-        print(f"\n✓ Cache memory: {cache_memory:.1f}MB")
-
-    def test_cache_statistics_performance(self, temp_db, timer):
-        """
-        BENCHMARK: Getting cache statistics should be <1ms.
-        """
-        from auralis.library.manager import LibraryManager
-
-        manager = LibraryManager(database_path=':memory:')
-
-        # Generate some cache activity
-        for i in range(10):
-            manager.get_all_tracks(limit=50, offset=i * 50)
-
-        # Measure
-        with timer() as t:
-            stats = manager.get_cache_stats()
-
-        latency_ms = t.elapsed_ms
-
-        # BENCHMARK: Should be < 1ms
-        assert latency_ms < 1, f"Cache stats {latency_ms:.1f}ms exceeds 1ms"
-
-        print(f"\n✓ Cache statistics: {latency_ms:.2f}ms")
+        print(f"\n✓ Query memory: {cache_memory:.1f}MB")
 
     def test_concurrent_cache_access(self):
         """
-        BENCHMARK: Concurrent cache access should not degrade performance significantly.
+        BENCHMARK: Concurrent query access should not degrade performance significantly.
+
+        #4915: was routed through the (now removed) legacy query cache;
+        it now measures concurrent repository reads directly.
         """
         import time
         from concurrent.futures import ThreadPoolExecutor
 
-        from auralis.library.manager import LibraryManager
-
-        manager = LibraryManager(database_path=':memory:')
+        db = LibraryDatabase(database_path=':memory:')
 
         # Populate
         for i in range(1000):
-            manager.add_track({
+            db.tracks.add({
                 'filepath': f'/tmp/concurrent_cache_{i}.flac',
                 'title': f'Track {i}',
                 'artists': ['Artist'],
@@ -720,7 +667,7 @@ class TestCachePerformance:
             })
 
         def query_tracks(offset):
-            return manager.get_all_tracks(limit=50, offset=offset)
+            return db.tracks.get_all(limit=50, offset=offset)
 
         # Sequential
         start = time.perf_counter()
@@ -737,7 +684,7 @@ class TestCachePerformance:
         # BENCHMARK: Concurrent should be at least 2x faster (or similar if limited by GIL)
         speedup = sequential_time / concurrent_time if concurrent_time > 0 else 1
 
-        print(f"\n✓ Concurrent cache speedup: {speedup:.1f}x")
+        print(f"\n✓ Concurrent query speedup: {speedup:.1f}x")
 
 
 # ============================================================================
@@ -758,11 +705,8 @@ class TestMetadataOperations:
             filepath = os.path.join(temp_audio_dir, f'meta_{i:03d}.wav')
             save(filepath, audio, 44100, subtype='PCM_16')
 
-        from auralis.library.manager import LibraryManager
-        from auralis.library.scanner import LibraryScanner
-
-        manager = LibraryManager(database_path=':memory:')
-        scanner = LibraryScanner(manager)
+        db = LibraryDatabase(database_path=':memory:')
+        scanner = LibraryScanner(db)
 
         with timer() as t:
             scanner.scan_single_directory(temp_audio_dir)

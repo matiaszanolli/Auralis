@@ -22,7 +22,6 @@ from pathlib import Path
 import pytest
 from sqlalchemy import create_engine, text
 
-from auralis.library.manager import LibraryManager
 from auralis.library.models import Album, Artist, Base, Playlist, Track
 
 
@@ -359,9 +358,9 @@ class TestArtworkMigration:
         REGRESSION: Artwork cache directory should be created.
         Test: ~/.auralis/artwork/ exists.
         """
-        from auralis.library.manager import LibraryManager
+        from auralis.library.database import LibraryDatabase
 
-        manager = LibraryManager()
+        db = LibraryDatabase()
 
         # Artwork directory should exist or be creatable
         artwork_dir = Path.home() / '.auralis' / 'artwork'

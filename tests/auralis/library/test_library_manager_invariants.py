@@ -2,23 +2,23 @@
 # -*- coding: utf-8 -*-
 
 """
-Library Manager Invariant Tests
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Library Database Invariant Tests
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Critical invariant tests for LibraryManager that validate caching, consistency,
-and data integrity properties.
+Critical invariant tests for LibraryDatabase (and the repositories it exposes)
+that validate read-after-write consistency and data integrity properties.
 
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3
 
-CONTEXT: Library manager bugs can cause:
-- Stale cache data (showing old metadata after updates)
+CONTEXT: Library database bugs can cause:
+- Stale reads (showing old metadata after updates)
 - Inconsistent counts (total ≠ actual count)
 - Lost playlists or favorites
 - Duplicate tracks or albums
 - Database corruption
 
-These tests validate properties that MUST always hold for the library manager.
+These tests validate properties that MUST always hold for the library database.
 
 Test Philosophy:
 - Test invariants (properties that must always hold)
@@ -42,9 +42,8 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from auralis.io.saver import save as save_audio
-from auralis.library.manager import LibraryManager
+from auralis.library.database import LibraryDatabase
 from auralis.library.models import Album, Artist, Track
-from auralis.library.repositories.factory import RepositoryFactory
 
 # ============================================================================
 # Fixtures
@@ -55,9 +54,9 @@ def test_db():
     """Create temporary database for testing."""
     temp_dir = tempfile.mkdtemp()
     db_path = os.path.join(temp_dir, "test_library.db")
-    manager = LibraryManager(database_path=db_path)
+    db = LibraryDatabase(database_path=db_path)
 
-    yield manager, temp_dir
+    yield db, temp_dir
 
     # Cleanup
     import shutil
@@ -65,9 +64,9 @@ def test_db():
 
 
 @pytest.fixture
-def populated_manager(test_db):
-    """Create library manager populated with test tracks."""
-    manager, temp_dir = test_db
+def populated_db(test_db):
+    """Create a library database populated with test tracks."""
+    db, temp_dir = test_db
 
     # Create test audio directory
     audio_dir = os.path.join(temp_dir, "audio")
@@ -93,116 +92,30 @@ def populated_manager(test_db):
             'track_number': (i % 10) + 1,
             'year': 2020 + (i % 3),
         }
-        manager.add_track(track_info)
+        db.tracks.add(track_info)
 
-    return manager, temp_dir
-
-
-# ============================================================================
-# Phase 5B: Dual-Mode Fixtures (Repository Factory Support)
-# ============================================================================
-
-@pytest.fixture
-def repository_factory_with_test_db():
-    """Create RepositoryFactory with test database for Phase 5B dual-mode testing."""
-    import shutil
-
-    from sqlalchemy import create_engine
-    from sqlalchemy.exc import SQLAlchemyError
-    from sqlalchemy.orm import sessionmaker
-
-    temp_dir = tempfile.mkdtemp()
-    db_path = os.path.join(temp_dir, "test_repository.db")
-
-    from auralis.library.models import Base
-    engine = create_engine(f'sqlite:///{db_path}', connect_args={'check_same_thread': False})
-    Base.metadata.create_all(engine)
-
-    SessionLocal = sessionmaker(bind=engine)
-    factory = RepositoryFactory(SessionLocal)
-
-    yield factory, temp_dir
-
-    # Cleanup
-    # narrowed from bare Exception, #5023: dispose() can only surface a
-    # SQLAlchemyError, and rmtree(ignore_errors=True) an OSError at worst.
-    try:
-        engine.dispose()
-        shutil.rmtree(temp_dir, ignore_errors=True)
-    except (SQLAlchemyError, OSError):
-        pass
-
-
-@pytest.fixture
-def populated_repository_factory(repository_factory_with_test_db):
-    """Create repository factory populated with test tracks for Phase 5B."""
-    factory, temp_dir = repository_factory_with_test_db
-    track_repo = factory.tracks
-
-    # Create test audio directory
-    audio_dir = os.path.join(temp_dir, "audio")
-    os.makedirs(audio_dir, exist_ok=True)
-
-    # Create 20 test tracks
-    for i in range(20):
-        # Create minimal audio file
-        audio = np.random.randn(44100, 2)  # 1 second stereo
-        filepath = os.path.join(audio_dir, f"track_{i:02d}.wav")
-        save_audio(filepath, audio, 44100, subtype='PCM_16')
-
-        # Add to database
-        track_info = {
-            'filepath': filepath,
-            'title': f'Track {i:02d}',
-            'artists': [f'Artist {i % 5}'],  # 5 artists total
-            'album': f'Album {i % 10}',      # 10 albums total
-            'duration': 1.0,
-            'sample_rate': 44100,
-            'channels': 2,
-            'format': 'WAV',
-            'track_number': (i % 10) + 1,
-            'year': 2020 + (i % 3),
-        }
-        track_repo.create(track_info)
-
-    return factory, temp_dir
-
-
-@pytest.fixture(params=["library_manager", "repository_factory"])
-def dual_mode_populated_source(request, populated_manager, populated_repository_factory):
-    """
-    Phase 5B: Dual-mode fixture for invariant tests.
-
-    Automatically parametrizes tests to run with both LibraryManager and
-    RepositoryFactory patterns, validating that invariants hold for both.
-    """
-    if request.param == "library_manager":
-        manager, temp_dir = populated_manager
-        return ("library_manager", manager, temp_dir)
-    else:
-        factory, temp_dir = populated_repository_factory
-        return ("repository_factory", factory, temp_dir)
+    return db, temp_dir
 
 
 # ============================================================================
-# Cache Consistency Invariants (P0 Priority)
+# Read-After-Write Consistency Invariants (P0 Priority)
 # ============================================================================
 
 @pytest.mark.invariant
 @pytest.mark.integration
 @pytest.mark.fast
 @pytest.mark.library
-def test_cache_invalidation_after_add_track(populated_manager):
+def test_track_list_reflects_added_track(populated_db):
     """
-    CRITICAL INVARIANT: Adding a track must invalidate relevant caches.
+    CRITICAL INVARIANT: Adding a track must be visible to subsequent reads.
 
-    After adding a track, cached queries must return fresh data including
+    After adding a track, list queries must return fresh data including
     the new track.
     """
-    manager, temp_dir = populated_manager
+    db, temp_dir = populated_db
 
-    # Get initial count (populates cache)
-    initial_tracks, initial_count = manager.get_all_tracks(limit=100)
+    # Get initial count
+    initial_tracks, initial_count = db.tracks.get_all(limit=100)
 
     # Add new track
     audio_dir = os.path.join(temp_dir, "audio")
@@ -216,99 +129,99 @@ def test_cache_invalidation_after_add_track(populated_manager):
         'artists': ['New Artist'],
         'album': 'New Album',
     }
-    manager.add_track(track_info)
+    db.tracks.add(track_info)
 
     # Get count again (should reflect new track)
-    new_tracks, new_count = manager.get_all_tracks(limit=100)
+    new_tracks, new_count = db.tracks.get_all(limit=100)
 
     assert new_count == initial_count + 1, (
-        f"Cache not invalidated after add_track: "
+        f"Added track not visible to a later read: "
         f"expected {initial_count + 1} tracks, got {new_count}"
     )
     assert len(new_tracks) == len(initial_tracks) + 1, (
-        "Cached track list not updated after add_track"
+        "Track list not updated after add"
     )
 
 
 @pytest.mark.integration
-def test_cache_invalidation_after_delete_track(populated_manager):
+def test_track_list_reflects_deleted_track(populated_db):
     """
-    INVARIANT: Deleting a track must invalidate relevant caches.
+    INVARIANT: Deleting a track must be visible to subsequent reads.
     """
-    manager, _ = populated_manager
+    db, _ = populated_db
 
     # Get initial tracks
-    initial_tracks, initial_count = manager.get_all_tracks(limit=100)
+    initial_tracks, initial_count = db.tracks.get_all(limit=100)
     first_track_id = initial_tracks[0].id
 
     # Delete first track
-    manager.delete_track(first_track_id)
+    db.tracks.delete(first_track_id)
 
     # Get tracks again (should reflect deletion)
-    new_tracks, new_count = manager.get_all_tracks(limit=100)
+    new_tracks, new_count = db.tracks.get_all(limit=100)
 
     assert new_count == initial_count - 1, (
-        f"Cache not invalidated after delete_track: "
+        f"Deleted track still counted by a later read: "
         f"expected {initial_count - 1} tracks, got {new_count}"
     )
 
     # Deleted track should not appear in results
     track_ids = {t.id for t in new_tracks}
     assert first_track_id not in track_ids, (
-        "Deleted track still appears in cached results"
+        "Deleted track still appears in query results"
     )
 
 
 @pytest.mark.integration
-def test_cache_invalidation_after_update_metadata(populated_manager):
+def test_track_list_reflects_updated_metadata(populated_db):
     """
-    INVARIANT: Updating track metadata must invalidate relevant caches.
+    INVARIANT: Updating track metadata must be visible to subsequent reads.
     """
-    manager, _ = populated_manager
+    db, _ = populated_db
 
     # Get initial tracks
-    tracks, _ = manager.get_all_tracks(limit=100)
+    tracks, _ = db.tracks.get_all(limit=100)
     first_track = tracks[0]
     original_title = first_track.title
 
     # Update metadata
     new_title = "Updated Title"
-    manager.update_track(first_track.id, {'title': new_title})
+    db.tracks.update(first_track.id, {'title': new_title})
 
     # Get track again (should have new title)
-    updated_tracks, _ = manager.get_all_tracks(limit=100)
+    updated_tracks, _ = db.tracks.get_all(limit=100)
     updated_track = next(t for t in updated_tracks if t.id == first_track.id)
 
     assert updated_track.title == new_title, (
-        f"Cache not invalidated after metadata update: "
+        f"Metadata update not visible to a later read: "
         f"expected '{new_title}', got '{updated_track.title}'"
     )
     assert updated_track.title != original_title, (
-        "Metadata update not reflected in cached results"
+        "Metadata update not reflected in query results"
     )
 
 
 @pytest.mark.integration
-def test_cache_invalidation_after_toggle_favorite(populated_manager):
+def test_favorites_reflect_toggled_favorite(populated_db):
     """
-    INVARIANT: Toggling favorite status must invalidate favorites cache.
+    INVARIANT: Toggling favorite status must be visible in the favorites list.
     """
-    manager, _ = populated_manager
+    db, _ = populated_db
 
     # Get initial favorites count
-    initial_favorites, initial_fav_count = manager.get_favorite_tracks(limit=100)
+    initial_favorites, initial_fav_count = db.tracks.get_favorites(limit=100)
 
     # Get first track and toggle favorite
-    tracks, _ = manager.get_all_tracks(limit=1)
+    tracks, _ = db.tracks.get_all(limit=1)
     track_id = tracks[0].id
 
-    manager.set_track_favorite(track_id, True)
+    db.tracks.set_favorite(track_id, True)
 
     # Get favorites again
-    new_favorites, new_fav_count = manager.get_favorite_tracks(limit=100)
+    new_favorites, new_fav_count = db.tracks.get_favorites(limit=100)
 
     assert new_fav_count == initial_fav_count + 1, (
-        f"Favorites cache not invalidated: "
+        f"Favorite toggle not visible in favorites list: "
         f"expected {initial_fav_count + 1}, got {new_fav_count}"
     )
 
@@ -318,20 +231,20 @@ def test_cache_invalidation_after_toggle_favorite(populated_manager):
 # ============================================================================
 
 @pytest.mark.integration
-def test_track_count_matches_actual_tracks(populated_manager):
+def test_track_count_matches_actual_tracks(populated_db):
     """
     CRITICAL INVARIANT: get_library_stats() count must match actual track count.
 
     COUNT(*) must equal the number of tracks you can actually retrieve.
     """
-    manager, _ = populated_manager
+    db, _ = populated_db
 
     # Get stats
-    stats = manager.get_library_stats()
+    stats = db.stats.get_library_stats()
     reported_count = stats['total_tracks']
 
     # Get all tracks
-    all_tracks, actual_count = manager.get_all_tracks(limit=1000)
+    all_tracks, actual_count = db.tracks.get_all(limit=1000)
 
     assert reported_count == actual_count, (
         f"Stats count mismatch: stats reports {reported_count}, "
@@ -344,18 +257,18 @@ def test_track_count_matches_actual_tracks(populated_manager):
 
 
 @pytest.mark.integration
-def test_album_count_matches_actual_albums(populated_manager):
+def test_album_count_matches_actual_albums(populated_db):
     """
     INVARIANT: Album count in stats must match actual album count.
     """
-    manager, _ = populated_manager
+    db, _ = populated_db
 
     # Get stats
-    stats = manager.get_library_stats()
+    stats = db.stats.get_library_stats()
     reported_count = stats['total_albums']
 
     # Get all albums
-    all_albums, actual_count = manager.albums.get_all(limit=1000)
+    all_albums, actual_count = db.albums.get_all(limit=1000)
 
     assert reported_count == actual_count, (
         f"Album count mismatch: stats={reported_count}, actual={actual_count}"
@@ -366,18 +279,18 @@ def test_album_count_matches_actual_albums(populated_manager):
 
 
 @pytest.mark.integration
-def test_artist_count_matches_actual_artists(populated_manager):
+def test_artist_count_matches_actual_artists(populated_db):
     """
     INVARIANT: Artist count in stats must match actual artist count.
     """
-    manager, _ = populated_manager
+    db, _ = populated_db
 
     # Get stats
-    stats = manager.get_library_stats()
+    stats = db.stats.get_library_stats()
     reported_count = stats['total_artists']
 
     # Get all artists
-    all_artists, actual_count = manager.artists.get_all(limit=1000)
+    all_artists, actual_count = db.artists.get_all(limit=1000)
 
     assert reported_count == actual_count, (
         f"Artist count mismatch: stats={reported_count}, actual={actual_count}"
@@ -389,16 +302,16 @@ def test_artist_count_matches_actual_artists(populated_manager):
 # ============================================================================
 
 @pytest.mark.integration
-def test_tracks_have_unique_ids(populated_manager):
+def test_tracks_have_unique_ids(populated_db):
     """
     INVARIANT: All tracks must have unique IDs.
 
     Duplicate IDs would cause data corruption and retrieval errors.
     """
-    manager, _ = populated_manager
+    db, _ = populated_db
 
     # Get all tracks
-    tracks, _ = manager.get_all_tracks(limit=1000)
+    tracks, _ = db.tracks.get_all(limit=1000)
 
     track_ids = [t.id for t in tracks]
     unique_ids = set(track_ids)
@@ -411,16 +324,16 @@ def test_tracks_have_unique_ids(populated_manager):
 
 
 @pytest.mark.integration
-def test_tracks_have_unique_filepaths(populated_manager):
+def test_tracks_have_unique_filepaths(populated_db):
     """
     INVARIANT: All tracks must have unique filepaths.
 
     Same file should not be added twice to the library.
     """
-    manager, _ = populated_manager
+    db, _ = populated_db
 
     # Get all tracks
-    tracks, _ = manager.get_all_tracks(limit=1000)
+    tracks, _ = db.tracks.get_all(limit=1000)
 
     filepaths = [t.filepath for t in tracks]
     unique_paths = set(filepaths)
@@ -437,22 +350,22 @@ def test_tracks_have_unique_filepaths(populated_manager):
 # ============================================================================
 
 @pytest.mark.integration
-def test_favorites_are_subset_of_all_tracks(populated_manager):
+def test_favorites_are_subset_of_all_tracks(populated_db):
     """
     INVARIANT: Favorite tracks must be a subset of all tracks.
 
     Can't have a favorite that doesn't exist in the library.
     """
-    manager, _ = populated_manager
+    db, _ = populated_db
 
     # Mark some tracks as favorites
-    tracks, _ = manager.get_all_tracks(limit=5)
+    tracks, _ = db.tracks.get_all(limit=5)
     for track in tracks:
-        manager.set_track_favorite(track.id, True)
+        db.tracks.set_favorite(track.id, True)
 
     # Get all tracks and favorites
-    all_tracks, _ = manager.get_all_tracks(limit=1000)
-    favorites, _ = manager.get_favorite_tracks(limit=1000)
+    all_tracks, _ = db.tracks.get_all(limit=1000)
+    favorites, _ = db.tracks.get_favorites(limit=1000)
 
     all_track_ids = {t.id for t in all_tracks}
     favorite_ids = {t.id for t in favorites}
@@ -463,24 +376,24 @@ def test_favorites_are_subset_of_all_tracks(populated_manager):
 
 
 @pytest.mark.integration
-def test_favorite_toggle_is_idempotent(populated_manager):
+def test_favorite_toggle_is_idempotent(populated_db):
     """
     INVARIANT: Setting favorite=True twice should result in same state.
 
     Idempotent operations are essential for reliability.
     """
-    manager, _ = populated_manager
+    db, _ = populated_db
 
     # Get a track
-    tracks, _ = manager.get_all_tracks(limit=1)
+    tracks, _ = db.tracks.get_all(limit=1)
     track_id = tracks[0].id
 
     # Set favorite twice
-    manager.set_track_favorite(track_id, True)
-    favorites_after_first, count1 = manager.get_favorite_tracks(limit=1000)
+    db.tracks.set_favorite(track_id, True)
+    favorites_after_first, count1 = db.tracks.get_favorites(limit=1000)
 
-    manager.set_track_favorite(track_id, True)
-    favorites_after_second, count2 = manager.get_favorite_tracks(limit=1000)
+    db.tracks.set_favorite(track_id, True)
+    favorites_after_second, count2 = db.tracks.get_favorites(limit=1000)
 
     assert count1 == count2, (
         f"Favorite count changed after second set_favorite(True): "
@@ -489,22 +402,22 @@ def test_favorite_toggle_is_idempotent(populated_manager):
 
 
 @pytest.mark.integration
-def test_unfavorite_removes_from_favorites_list(populated_manager):
+def test_unfavorite_removes_from_favorites_list(populated_db):
     """
     INVARIANT: Setting favorite=False must remove track from favorites.
     """
-    manager, _ = populated_manager
+    db, _ = populated_db
 
     # Get a track and favorite it
-    tracks, _ = manager.get_all_tracks(limit=1)
+    tracks, _ = db.tracks.get_all(limit=1)
     track_id = tracks[0].id
 
-    manager.set_track_favorite(track_id, True)
-    favorites_after_add, count_after_add = manager.get_favorite_tracks(limit=1000)
+    db.tracks.set_favorite(track_id, True)
+    favorites_after_add, count_after_add = db.tracks.get_favorites(limit=1000)
 
     # Unfavorite it
-    manager.set_track_favorite(track_id, False)
-    favorites_after_remove, count_after_remove = manager.get_favorite_tracks(limit=1000)
+    db.tracks.set_favorite(track_id, False)
+    favorites_after_remove, count_after_remove = db.tracks.get_favorites(limit=1000)
 
     assert count_after_remove == count_after_add - 1, (
         f"Unfavorite didn't reduce count: {count_after_add} → {count_after_remove}"
@@ -521,22 +434,22 @@ def test_unfavorite_removes_from_favorites_list(populated_manager):
 # ============================================================================
 
 @pytest.mark.integration
-def test_play_count_increments_correctly(populated_manager):
+def test_play_count_increments_correctly(populated_db):
     """
     INVARIANT: record_play() must increment play count by exactly 1.
     """
-    manager, _ = populated_manager
+    db, _ = populated_db
 
     # Get a track
-    tracks, _ = manager.get_all_tracks(limit=1)
+    tracks, _ = db.tracks.get_all(limit=1)
     track = tracks[0]
     initial_play_count = track.play_count or 0
 
     # Record a play
-    manager.record_track_play(track.id)
+    db.tracks.record_play(track.id)
 
     # Get track again
-    updated_tracks, _ = manager.get_all_tracks(limit=1000)
+    updated_tracks, _ = db.tracks.get_all(limit=1000)
     updated_track = next(t for t in updated_tracks if t.id == track.id)
 
     assert updated_track.play_count == initial_play_count + 1, (
@@ -545,14 +458,14 @@ def test_play_count_increments_correctly(populated_manager):
 
 
 @pytest.mark.integration
-def test_play_count_is_non_negative(populated_manager):
+def test_play_count_is_non_negative(populated_db):
     """
     INVARIANT: Play count must always be >= 0.
     """
-    manager, _ = populated_manager
+    db, _ = populated_db
 
     # Get all tracks
-    tracks, _ = manager.get_all_tracks(limit=1000)
+    tracks, _ = db.tracks.get_all(limit=1000)
 
     for track in tracks:
         play_count = track.play_count or 0
@@ -562,21 +475,21 @@ def test_play_count_is_non_negative(populated_manager):
 
 
 @pytest.mark.integration
-def test_recent_tracks_ordered_by_last_played(populated_manager):
+def test_recent_tracks_ordered_by_last_played(populated_db):
     """
     INVARIANT: get_recent() must return tracks ordered by last_played DESC.
     """
-    manager, _ = populated_manager
+    db, _ = populated_db
 
     # Play some tracks in order
-    tracks, _ = manager.get_all_tracks(limit=5)
+    tracks, _ = db.tracks.get_all(limit=5)
     for track in tracks:
-        manager.record_track_play(track.id)
+        db.tracks.record_play(track.id)
         import time
         time.sleep(0.01)  # Ensure different timestamps
 
     # Get recent tracks
-    recent, _ = manager.get_recent_tracks(limit=100)
+    recent, _ = db.tracks.get_recent(limit=100)
 
     # Filter out tracks without last_played timestamps (shouldn't happen, but be safe)
     recent_with_timestamps = [t for t in recent if t.last_played is not None]
@@ -598,18 +511,18 @@ def test_recent_tracks_ordered_by_last_played(populated_manager):
 # ============================================================================
 
 @pytest.mark.integration
-def test_search_results_are_subset_of_all_tracks(populated_manager):
+def test_search_results_are_subset_of_all_tracks(populated_db):
     """
     INVARIANT: Search results must be a subset of all tracks.
     """
-    manager, _ = populated_manager
+    db, _ = populated_db
 
     # Get all tracks
-    all_tracks, _ = manager.get_all_tracks(limit=1000)
+    all_tracks, _ = db.tracks.get_all(limit=1000)
     all_track_ids = {t.id for t in all_tracks}
 
     # Search for something
-    search_results, _ = manager.search_tracks("Track")
+    search_results, _ = db.tracks.search("Track")
     search_ids = {t.id for t in search_results}
 
     assert search_ids.issubset(all_track_ids), (
@@ -618,15 +531,15 @@ def test_search_results_are_subset_of_all_tracks(populated_manager):
 
 
 @pytest.mark.integration
-def test_search_returns_only_matching_tracks(populated_manager):
+def test_search_returns_only_matching_tracks(populated_db):
     """
     INVARIANT: Search results must all match the query string.
     """
-    manager, _ = populated_manager
+    db, _ = populated_db
 
     query = "Track 0"  # Should match "Track 00", "Track 01", ... "Track 09"
 
-    results, _ = manager.search_tracks(query)
+    results, _ = db.tracks.search(query)
 
     for track in results:
         # At least one field should contain the query (case-insensitive)
@@ -646,26 +559,26 @@ def test_search_returns_only_matching_tracks(populated_manager):
 # ============================================================================
 
 @pytest.mark.integration
-def test_deleting_track_removes_from_favorites(populated_manager):
+def test_deleting_track_removes_from_favorites(populated_db):
     """
     INVARIANT: Deleting a track must remove it from favorites.
     """
-    manager, _ = populated_manager
+    db, _ = populated_db
 
     # Favorite a track
-    tracks, _ = manager.get_all_tracks(limit=1)
+    tracks, _ = db.tracks.get_all(limit=1)
     track_id = tracks[0].id
-    manager.set_track_favorite(track_id, True)
+    db.tracks.set_favorite(track_id, True)
 
     # Verify it's in favorites
-    favorites, fav_count_before = manager.get_favorite_tracks(limit=1000)
+    favorites, fav_count_before = db.tracks.get_favorites(limit=1000)
     assert any(t.id == track_id for t in favorites), "Track not in favorites after set_favorite"
 
     # Delete the track
-    manager.delete_track(track_id)
+    db.tracks.delete(track_id)
 
     # Verify it's removed from favorites
-    favorites_after, fav_count_after = manager.get_favorite_tracks(limit=1000)
+    favorites_after, fav_count_after = db.tracks.get_favorites(limit=1000)
     assert not any(t.id == track_id for t in favorites_after), (
         "Deleted track still appears in favorites"
     )
@@ -675,26 +588,26 @@ def test_deleting_track_removes_from_favorites(populated_manager):
 
 
 @pytest.mark.integration
-def test_deleting_track_removes_from_recent(populated_manager):
+def test_deleting_track_removes_from_recent(populated_db):
     """
     INVARIANT: Deleting a track must remove it from recent tracks.
     """
-    manager, _ = populated_manager
+    db, _ = populated_db
 
     # Play a track
-    tracks, _ = manager.get_all_tracks(limit=1)
+    tracks, _ = db.tracks.get_all(limit=1)
     track_id = tracks[0].id
-    manager.record_track_play(track_id)
+    db.tracks.record_play(track_id)
 
     # Verify it's in recent
-    recent, _ = manager.get_recent_tracks(limit=1000)
+    recent, _ = db.tracks.get_recent(limit=1000)
     assert any(t.id == track_id for t in recent), "Track not in recent after play"
 
     # Delete the track
-    manager.delete_track(track_id)
+    db.tracks.delete(track_id)
 
     # Verify it's removed from recent
-    recent_after, _ = manager.get_recent_tracks(limit=1000)
+    recent_after, _ = db.tracks.get_recent(limit=1000)
     assert not any(t.id == track_id for t in recent_after), (
         "Deleted track still appears in recent tracks"
     )
@@ -709,46 +622,46 @@ def test_operations_on_empty_library(test_db):
     """
     INVARIANT: All operations should work on empty library (not crash).
     """
-    manager, _ = test_db
+    db, _ = test_db
 
     # Get operations
-    tracks, count = manager.get_all_tracks(limit=10)
+    tracks, count = db.tracks.get_all(limit=10)
     assert len(tracks) == 0
     assert count == 0
 
-    favorites, fav_count = manager.get_favorite_tracks(limit=10)
+    favorites, fav_count = db.tracks.get_favorites(limit=10)
     assert len(favorites) == 0
     assert fav_count == 0
 
-    recent, recent_count = manager.get_recent_tracks(limit=10)
+    recent, recent_count = db.tracks.get_recent(limit=10)
     assert len(recent) == 0
     assert recent_count == 0
 
-    search, search_count = manager.search_tracks("test")
+    search, search_count = db.tracks.search("test")
     assert len(search) == 0
     assert search_count == 0
 
     # Stats should return zeros
-    stats = manager.get_library_stats()
+    stats = db.stats.get_library_stats()
     assert stats['total_tracks'] == 0
     assert stats['total_albums'] == 0
     assert stats['total_artists'] == 0
 
 
 @pytest.mark.integration
-def test_operations_on_nonexistent_track_id(populated_manager):
+def test_operations_on_nonexistent_track_id(populated_db):
     """
     INVARIANT: Operations on non-existent ID should handle gracefully.
     """
-    manager, _ = populated_manager
+    db, _ = populated_db
 
     nonexistent_id = 999999
 
     # Should not crash, should return None or False
     try:
-        manager.set_track_favorite(nonexistent_id, True)
-        manager.record_track_play(nonexistent_id)
-        manager.delete_track(nonexistent_id)
+        db.tracks.set_favorite(nonexistent_id, True)
+        db.tracks.record_play(nonexistent_id)
+        db.tracks.delete(nonexistent_id)
         # If we get here, operations handled gracefully
     except Exception as e:
         pytest.fail(f"Operation on nonexistent ID should not raise exception: {e}")

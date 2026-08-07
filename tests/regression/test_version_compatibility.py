@@ -23,7 +23,6 @@ import pytest
 from sqlalchemy import create_engine, text
 
 from auralis.core.config import UnifiedConfig
-from auralis.library.manager import LibraryManager
 from auralis.library.models import Album, Artist, Base, Track
 
 
@@ -491,12 +490,12 @@ class TestBackwardCompatibility:
         REGRESSION: Library database location should be stable.
         Test: Default location is ~/.auralis/library.db.
         """
-        from auralis.library.manager import LibraryManager
+        from auralis.library.database import LibraryDatabase
 
-        manager = LibraryManager()
+        db = LibraryDatabase()
 
         # Default database path should be in ~/.auralis/
-        db_path = manager.db_path
+        db_path = db.database_path
         assert '.auralis' in db_path or 'auralis' in db_path.lower(), \
             "Database should be in .auralis directory"
 

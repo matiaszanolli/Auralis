@@ -44,7 +44,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.config import UnifiedConfig
 from auralis.io.saver import save as save_audio
-from auralis.library.manager import LibraryManager
+from auralis.library.database import LibraryDatabase
 
 # ============================================================================
 # Very Long Audio Boundary Tests (P1 Priority)
@@ -161,7 +161,7 @@ def test_very_long_track_in_library(tmp_path):
     BOUNDARY: Adding very long track to library.
     """
     db_path = tmp_path / "test.db"
-    manager = LibraryManager(database_path=str(db_path))
+    db = LibraryDatabase(database_path=str(db_path))
 
     audio_dir = tmp_path / "audio"
     audio_dir.mkdir()
@@ -184,7 +184,7 @@ def test_very_long_track_in_library(tmp_path):
     }
 
     try:
-        track = manager.add_track(track_info)
+        track = db.tracks.add(track_info)
         assert track.duration == duration, "Duration should be preserved"
     except Exception as e:
         pytest.skip(f"Very long track not supported: {e}")
@@ -443,7 +443,7 @@ def test_library_with_thousand_tracks(tmp_path):
     the filepath deduplication behavior.
     """
     db_path = tmp_path / "large.db"
-    manager = LibraryManager(database_path=str(db_path))
+    db = LibraryDatabase(database_path=str(db_path))
 
     audio_dir = tmp_path / "audio"
     audio_dir.mkdir()
@@ -462,7 +462,7 @@ def test_library_with_thousand_tracks(tmp_path):
             'artists': [f'Artist {i % 100}'],
             'album': f'Album {i % 200}',
         }
-        manager.add_track(track_info)
+        db.tracks.add(track_info)
 
     add_time = time.time() - start_time
 
@@ -471,7 +471,7 @@ def test_library_with_thousand_tracks(tmp_path):
 
     # Query all tracks
     start_time = time.time()
-    tracks, total = manager.get_all_tracks(limit=1000)
+    tracks, total = db.tracks.get_all(limit=1000)
     query_time = time.time() - start_time
 
     assert total == 1000, f"Should have 1000 tracks, got {total}"
@@ -514,7 +514,7 @@ def test_many_albums_query_performance(tmp_path):
     To properly test would require creating unique audio files for each track.
     """
     db_path = tmp_path / "many_albums.db"
-    manager = LibraryManager(database_path=str(db_path))
+    db = LibraryDatabase(database_path=str(db_path))
 
     audio_dir = tmp_path / "audio"
     audio_dir.mkdir()
@@ -532,11 +532,11 @@ def test_many_albums_query_performance(tmp_path):
             'artists': [f'Artist {i % 50}'],
             'album': f'Album {i // 2}',  # 500 unique albums
         }
-        manager.add_track(track_info)
+        db.tracks.add(track_info)
 
     # Query albums
     start_time = time.time()
-    albums, total = manager.albums.get_all(limit=500)
+    albums, total = db.albums.get_all(limit=500)
     query_time = time.time() - start_time
 
     assert total == 500, f"Should have 500 albums, got {total}"
@@ -554,7 +554,7 @@ def test_very_long_track_title(tmp_path):
     BOUNDARY: Track title with 1000 characters.
     """
     db_path = tmp_path / "test.db"
-    manager = LibraryManager(database_path=str(db_path))
+    db = LibraryDatabase(database_path=str(db_path))
 
     audio_dir = tmp_path / "audio"
     audio_dir.mkdir()
@@ -573,8 +573,8 @@ def test_very_long_track_title(tmp_path):
     }
 
     try:
-        track = manager.add_track(track_info)
-        retrieved_tracks, _ = manager.get_all_tracks(limit=1)
+        track = db.tracks.add(track_info)
+        retrieved_tracks, _ = db.tracks.get_all(limit=1)
         assert len(retrieved_tracks[0].title) == 1000, "Should preserve long title"
     except Exception as e:
         # Database may have column limit
@@ -588,7 +588,7 @@ def test_unicode_emoji_in_title(tmp_path):
     BOUNDARY: Unicode emojis in track title.
     """
     db_path = tmp_path / "test.db"
-    manager = LibraryManager(database_path=str(db_path))
+    db = LibraryDatabase(database_path=str(db_path))
 
     audio_dir = tmp_path / "audio"
     audio_dir.mkdir()
@@ -606,8 +606,8 @@ def test_unicode_emoji_in_title(tmp_path):
         'artists': ['Artist'],
     }
 
-    track = manager.add_track(track_info)
-    retrieved_tracks, _ = manager.get_all_tracks(limit=1)
+    track = db.tracks.add(track_info)
+    retrieved_tracks, _ = db.tracks.get_all(limit=1)
     assert retrieved_tracks[0].title == emoji_title, "Should preserve emojis"
 
 
@@ -620,7 +620,7 @@ def test_special_sql_characters_in_title(tmp_path):
     Tests SQL injection prevention.
     """
     db_path = tmp_path / "test.db"
-    manager = LibraryManager(database_path=str(db_path))
+    db = LibraryDatabase(database_path=str(db_path))
 
     audio_dir = tmp_path / "audio"
     audio_dir.mkdir()
@@ -638,8 +638,8 @@ def test_special_sql_characters_in_title(tmp_path):
         'artists': ['Artist'],
     }
 
-    track = manager.add_track(track_info)
-    retrieved_tracks, _ = manager.get_all_tracks(limit=1)
+    track = db.tracks.add(track_info)
+    retrieved_tracks, _ = db.tracks.get_all(limit=1)
     assert retrieved_tracks[0].title == sql_title, "Should handle SQL special chars"
 
 
@@ -653,13 +653,13 @@ def test_sql_injection_attempt_in_search(tmp_path):
     Security test - should be sanitized.
     """
     db_path = tmp_path / "test.db"
-    manager = LibraryManager(database_path=str(db_path))
+    db = LibraryDatabase(database_path=str(db_path))
 
     # Attempt SQL injection
     malicious_query = "'; DROP TABLE tracks; --"
 
     try:
-        results, total = manager.search_tracks(malicious_query)
+        results, total = db.tracks.search(malicious_query)
         # Should not crash or execute malicious SQL
         # Should return empty results or sanitized search
     # narrowed from bare Exception, #5023: TrackRepository.search() does not
@@ -670,7 +670,7 @@ def test_sql_injection_attempt_in_search(tmp_path):
         pass
 
     # Verify database still intact
-    tracks, total = manager.get_all_tracks(limit=10)
+    tracks, total = db.tracks.get_all(limit=10)
     # Should not raise "no such table" error
 
 
@@ -683,7 +683,7 @@ def test_null_byte_in_string(tmp_path):
     Can cause truncation in C APIs.
     """
     db_path = tmp_path / "test.db"
-    manager = LibraryManager(database_path=str(db_path))
+    db = LibraryDatabase(database_path=str(db_path))
 
     audio_dir = tmp_path / "audio"
     audio_dir.mkdir()
@@ -702,7 +702,7 @@ def test_null_byte_in_string(tmp_path):
     }
 
     try:
-        track = manager.add_track(track_info)
+        track = db.tracks.add(track_info)
         # Should handle or reject null byte
     except ValueError:
         # Rejecting null byte is acceptable
@@ -716,7 +716,7 @@ def test_control_characters_in_string(tmp_path):
     BOUNDARY: Control characters (tabs, newlines) in title.
     """
     db_path = tmp_path / "test.db"
-    manager = LibraryManager(database_path=str(db_path))
+    db = LibraryDatabase(database_path=str(db_path))
 
     audio_dir = tmp_path / "audio"
     audio_dir.mkdir()
@@ -734,7 +734,7 @@ def test_control_characters_in_string(tmp_path):
         'artists': ['Artist'],
     }
 
-    track = manager.add_track(track_info)
+    track = db.tracks.add(track_info)
     # Should preserve or sanitize control chars
 
 
@@ -745,7 +745,7 @@ def test_mixed_rtl_ltr_text(tmp_path):
     BOUNDARY: Mixed right-to-left and left-to-right text (Arabic + English).
     """
     db_path = tmp_path / "test.db"
-    manager = LibraryManager(database_path=str(db_path))
+    db = LibraryDatabase(database_path=str(db_path))
 
     audio_dir = tmp_path / "audio"
     audio_dir.mkdir()
@@ -763,8 +763,8 @@ def test_mixed_rtl_ltr_text(tmp_path):
         'artists': ['Artist'],
     }
 
-    track = manager.add_track(track_info)
-    retrieved_tracks, _ = manager.get_all_tracks(limit=1)
+    track = db.tracks.add(track_info)
+    retrieved_tracks, _ = db.tracks.get_all(limit=1)
     assert retrieved_tracks[0].title == mixed_title, "Should preserve mixed text"
 
 

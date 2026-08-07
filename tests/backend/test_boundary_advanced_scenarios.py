@@ -42,7 +42,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from auralis.io.saver import save as save_audio
-from auralis.library.manager import LibraryManager
+from auralis.library.database import LibraryDatabase
 
 # ============================================================================
 # Fixtures
@@ -52,7 +52,7 @@ from auralis.library.manager import LibraryManager
 def test_library_large(tmp_path):
     """Create library with 100 tracks for batch testing."""
     db_path = tmp_path / "test_library.db"
-    manager = LibraryManager(database_path=str(db_path))
+    db = LibraryDatabase(database_path=str(db_path))
 
     # Create audio directory
     audio_dir = tmp_path / "music"
@@ -71,10 +71,10 @@ def test_library_large(tmp_path):
             'artists': [f'Artist {i % 10}'],
             'album': f'Album {i % 20}',
         }
-        track = manager.add_track(track_info)
+        track = db.tracks.add(track_info)
         track_ids.append(track.id)
 
-    yield manager, track_ids, tmp_path
+    yield db, track_ids, tmp_path
 
 
 # ============================================================================
@@ -95,7 +95,7 @@ def test_batch_add_tracks(tmp_path):
     - Transaction atomicity
     """
     db_path = tmp_path / "test.db"
-    manager = LibraryManager(database_path=str(db_path))
+    db = LibraryDatabase(database_path=str(db_path))
 
     audio_dir = tmp_path / "music"
     audio_dir.mkdir()
@@ -111,11 +111,11 @@ def test_batch_add_tracks(tmp_path):
             'filepath': str(filepath),
             'title': f'Batch Track {i}',
         }
-        track = manager.add_track(track_info)
+        track = db.tracks.add(track_info)
         track_ids.append(track.id)
 
     # Verify all added
-    tracks, total = manager.get_all_tracks(limit=100)
+    tracks, total = db.tracks.get_all(limit=100)
     assert total == 50, f"Expected 50 tracks, got {total}"
     assert len(tracks) == 50
 
@@ -133,15 +133,15 @@ def test_batch_delete_tracks(test_library_large):
     - Cascade operations
     - No orphaned data
     """
-    manager, track_ids, _ = test_library_large
+    db, track_ids, _ = test_library_large
 
     # Delete first 50 tracks
     initial_total = len(track_ids)
     for track_id in track_ids[:50]:
-        manager.delete_track(track_id)
+        db.tracks.delete(track_id)
 
     # Verify count
-    tracks, total = manager.get_all_tracks(limit=200)
+    tracks, total = db.tracks.get_all(limit=200)
     assert total == initial_total - 50, (
         f"Expected {initial_total - 50} tracks, got {total}"
     )
@@ -160,15 +160,15 @@ def test_batch_update_metadata(test_library_large):
     - Data consistency
     - Cache invalidation
     """
-    manager, track_ids, _ = test_library_large
+    db, track_ids, _ = test_library_large
 
     # Batch update first 50 tracks
     for i, track_id in enumerate(track_ids[:50]):
-        manager.update_track(track_id, {"title": f"Updated Track {i}"})
+        db.tracks.update(track_id, {"title": f"Updated Track {i}"})
 
     # Verify updates
     for i, track_id in enumerate(track_ids[:50]):
-        track = manager.get_track(track_id)
+        track = db.tracks.get_by_id(track_id)
         assert track.title == f"Updated Track {i}", (
             f"Track {track_id} not updated correctly"
         )
@@ -186,14 +186,14 @@ def test_batch_toggle_favorites(test_library_large):
     - Batch favorite operations
     - State consistency
     """
-    manager, track_ids, _ = test_library_large
+    db, track_ids, _ = test_library_large
 
     # Batch favorite first 50 tracks
     for track_id in track_ids[:50]:
-        manager.set_track_favorite(track_id)
+        db.tracks.set_favorite(track_id)
 
     # Verify all favorited
-    favorites, total = manager.get_favorite_tracks(limit=100)
+    favorites, total = db.tracks.get_favorites(limit=100)
     assert len(favorites) == 50, f"Expected 50 favorites, got {count}"
 
 
@@ -210,23 +210,23 @@ def test_batch_operation_performance(test_library_large):
     - Batch operations scale linearly
     - No O(n²) performance
     """
-    manager, track_ids, _ = test_library_large
+    db, track_ids, _ = test_library_large
 
     import timeit
 
     # Batch favorite 10 tracks
     def favorite_10():
         for track_id in track_ids[:10]:
-            manager.set_track_favorite(track_id)
-            manager.set_track_favorite(track_id)  # Toggle back
+            db.tracks.set_favorite(track_id)
+            db.tracks.set_favorite(track_id)  # Toggle back
 
     time_10 = timeit.timeit(favorite_10, number=1)
 
     # Batch favorite 20 tracks (2x)
     def favorite_20():
         for track_id in track_ids[:20]:
-            manager.set_track_favorite(track_id)
-            manager.set_track_favorite(track_id)  # Toggle back
+            db.tracks.set_favorite(track_id)
+            db.tracks.set_favorite(track_id)  # Toggle back
 
     time_20 = timeit.timeit(favorite_20, number=1)
 
@@ -254,7 +254,7 @@ def test_pagination_consistency_across_pages(test_library_large):
     - No duplicate items
     - Correct total count
     """
-    manager, track_ids, _ = test_library_large
+    db, track_ids, _ = test_library_large
 
     # Paginate through all tracks
     all_ids = set()
@@ -262,7 +262,7 @@ def test_pagination_consistency_across_pages(test_library_large):
     limit = 10
 
     while True:
-        tracks, total = manager.get_all_tracks(limit=limit, offset=offset)
+        tracks, total = db.tracks.get_all(limit=limit, offset=offset)
         if not tracks:
             break
 
@@ -294,25 +294,25 @@ def test_pagination_during_concurrent_modifications(test_library_large):
     - No crashes during concurrent modifications
     - Consistent results within a page
     """
-    manager, track_ids, tmp_path = test_library_large
+    db, track_ids, tmp_path = test_library_large
 
     audio_dir = tmp_path / "music"
 
     # Start pagination
-    page1, total1 = manager.get_all_tracks(limit=20, offset=0)
+    page1, total1 = db.tracks.get_all(limit=20, offset=0)
 
     # Add new track
     audio = np.random.randn(44100, 2) * 0.1
     filepath = audio_dir / "new_track.wav"
     save_audio(str(filepath), audio, 44100, subtype='PCM_16')
 
-    manager.add_track({
+    db.tracks.add({
         'filepath': str(filepath),
         'title': 'New Track',
     })
 
     # Continue pagination (should not crash)
-    page2, total2 = manager.get_all_tracks(limit=20, offset=20)
+    page2, total2 = db.tracks.get_all(limit=20, offset=20)
 
     # Should succeed (count may or may not include new track)
     assert page2 is not None
@@ -331,12 +331,12 @@ def test_pagination_with_varying_page_sizes(test_library_large):
     - Correct results for limit=1, 10, 50, 100
     - No off-by-one errors
     """
-    manager, track_ids, _ = test_library_large
+    db, track_ids, _ = test_library_large
 
     page_sizes = [1, 10, 50, 100, 200]
 
     for limit in page_sizes:
-        tracks, total = manager.get_all_tracks(limit=limit, offset=0)
+        tracks, total = db.tracks.get_all(limit=limit, offset=0)
 
         expected_count = min(limit, len(track_ids))
         assert len(tracks) == expected_count, (
@@ -359,14 +359,14 @@ def test_pagination_with_filters(test_library_large):
     - Filtered pagination correctness
     - Total count matches filtered results
     """
-    manager, track_ids, _ = test_library_large
+    db, track_ids, _ = test_library_large
 
     # Search for specific artist (Artist 0 should have 10 tracks)
-    tracks, total = manager.search_tracks("Artist 0", limit=5, offset=0)
+    tracks, total = db.tracks.search("Artist 0", limit=5, offset=0)
 
     # Should get partial results
     assert len(tracks) <= 5, f"Should get at most 5 results, got {len(tracks)}"
-    # Note: search_tracks doesn't return total, so we can't verify it
+    # Note: only the page slice is asserted here, not the total
 
 
 @pytest.mark.boundary
@@ -381,13 +381,13 @@ def test_deep_pagination(test_library_large):
     - High offset values don't cause errors
     - Performance acceptable
     """
-    manager, track_ids, _ = test_library_large
+    db, track_ids, _ = test_library_large
 
     # Very high offsets
     test_offsets = [90, 99, 100, 150, 1000]
 
     for offset in test_offsets:
-        tracks, total = manager.get_all_tracks(limit=10, offset=offset)
+        tracks, total = db.tracks.get_all(limit=10, offset=offset)
 
         # Should succeed
         assert tracks is not None
@@ -415,14 +415,14 @@ def test_concurrent_reads(test_library_large):
     - No data corruption
     - No crashes
     """
-    manager, track_ids, _ = test_library_large
+    db, track_ids, _ = test_library_large
 
     results = []
     errors = []
 
     def read_tracks():
         try:
-            tracks, total = manager.get_all_tracks(limit=50)
+            tracks, total = db.tracks.get_all(limit=50)
             results.append(len(tracks))
         except Exception as e:
             errors.append(e)
@@ -458,7 +458,7 @@ def test_concurrent_writes(tmp_path):
     - Transaction safety
     """
     db_path = tmp_path / "test.db"
-    manager = LibraryManager(database_path=str(db_path))
+    db = LibraryDatabase(database_path=str(db_path))
 
     audio_dir = tmp_path / "music"
     audio_dir.mkdir()
@@ -472,7 +472,7 @@ def test_concurrent_writes(tmp_path):
             filepath = audio_dir / f"concurrent_{i}.wav"
             save_audio(str(filepath), audio, 44100, subtype='PCM_16')
 
-            track = manager.add_track({
+            track = db.tracks.add({
                 'filepath': str(filepath),
                 'title': f'Concurrent Track {i}',
             })
@@ -492,7 +492,7 @@ def test_concurrent_writes(tmp_path):
         pytest.skip(f"Database doesn't support concurrent writes: {errors[0]}")
 
     # Verify all added
-    tracks, total = manager.get_all_tracks(limit=20)
+    tracks, total = db.tracks.get_all(limit=20)
     assert total == 10, f"Expected 10 tracks, got {total}"
 
 
@@ -507,7 +507,7 @@ def test_concurrent_read_write(test_library_large):
     - Reads don't block writes
     - Writes don't corrupt reads
     """
-    manager, track_ids, tmp_path = test_library_large
+    db, track_ids, tmp_path = test_library_large
 
     audio_dir = tmp_path / "music"
     errors = []
@@ -515,7 +515,7 @@ def test_concurrent_read_write(test_library_large):
 
     def read_operation():
         try:
-            tracks, total = manager.get_all_tracks(limit=50)
+            tracks, total = db.tracks.get_all(limit=50)
             read_results.append(total)
         except Exception as e:
             errors.append(('read', e))
@@ -526,7 +526,7 @@ def test_concurrent_read_write(test_library_large):
             filepath = audio_dir / f"rw_test_{time.time()}.wav"
             save_audio(str(filepath), audio, 44100, subtype='PCM_16')
 
-            manager.add_track({
+            db.tracks.add({
                 'filepath': str(filepath),
                 'title': 'RW Test Track',
             })
@@ -559,14 +559,14 @@ def test_concurrent_updates_same_track(test_library_large):
     - Last write wins or transactions serialize
     - No data corruption
     """
-    manager, track_ids, _ = test_library_large
+    db, track_ids, _ = test_library_large
 
     target_id = track_ids[0]
     errors = []
 
     def update_track(value):
         try:
-            manager.update_track(target_id, {"title": f"Update {value}"})
+            db.tracks.update(target_id, {"title": f"Update {value}"})
         except Exception as e:
             errors.append(e)
 
@@ -581,7 +581,7 @@ def test_concurrent_updates_same_track(test_library_large):
     assert len(errors) == 0, f"Concurrent update errors: {errors}"
 
     # Track should have valid title
-    track = manager.get_track(target_id)
+    track = db.tracks.get_by_id(target_id)
     assert track.title.startswith("Update "), (
         f"Track title corrupted: {track.title}"
     )
@@ -600,14 +600,14 @@ def test_concurrent_search_operations(test_library_large):
     - Consistent results
     - No deadlocks
     """
-    manager, track_ids, _ = test_library_large
+    db, track_ids, _ = test_library_large
 
     results = []
     errors = []
 
     def search_operation(query):
         try:
-            tracks, total = manager.search_tracks(query)
+            tracks, total = db.tracks.search(query)
             results.append((query, len(tracks)))
         except Exception as e:
             errors.append(e)
@@ -643,17 +643,26 @@ def test_invalid_file_path_handling(tmp_path):
     - Database not corrupted
     """
     db_path = tmp_path / "test.db"
-    manager = LibraryManager(database_path=str(db_path))
+    db = LibraryDatabase(database_path=str(db_path))
 
-    # Try to add non-existent file
-    with pytest.raises(Exception):
-        manager.add_track({
-            'filepath': '/nonexistent/path/track.wav',
-            'title': 'Invalid Track',
-        })
+    # TrackRepository.add() does NOT check that the file exists on disk — the
+    # FileNotFoundError came from the LibraryManager.add_track() facade, which
+    # was deleted with the rest of that legacy wrapper (#4915). Adding a row for
+    # a missing file must therefore not raise, and must not corrupt the DB.
+    # TODO(#4915): nothing validates on-disk existence at the repository layer
+    # anymore. If that guard is wanted back it belongs in TrackRepository.add(),
+    # and this assertion should become `pytest.raises(FileNotFoundError)` again.
+    db.tracks.add({
+        'filepath': '/nonexistent/path/track.wav',
+        'title': 'Invalid Track',
+    })
+
+    # What the repository *does* reject: track_info with no usable filepath.
+    assert db.tracks.add({'title': 'No Filepath'}) is None
+    assert db.tracks.add({'filepath': '', 'title': 'Empty Filepath'}) is None
 
     # Database should still be functional
-    tracks, total = manager.get_all_tracks(limit=10)
+    tracks, total = db.tracks.get_all(limit=10)
     assert tracks is not None
 
 
@@ -670,7 +679,7 @@ def test_corrupted_audio_file_handling(tmp_path):
     - No crash
     """
     db_path = tmp_path / "test.db"
-    manager = LibraryManager(database_path=str(db_path))
+    db = LibraryDatabase(database_path=str(db_path))
 
     audio_dir = tmp_path / "music"
     audio_dir.mkdir()
@@ -681,7 +690,7 @@ def test_corrupted_audio_file_handling(tmp_path):
 
     # Should handle gracefully
     try:
-        manager.add_track({
+        db.tracks.add({
             'filepath': str(corrupted_path),
             'title': 'Corrupted Track',
         })
@@ -689,7 +698,7 @@ def test_corrupted_audio_file_handling(tmp_path):
         pass  # Expected to fail, should not crash
 
     # Database should still work
-    tracks, total = manager.get_all_tracks(limit=10)
+    tracks, total = db.tracks.get_all(limit=10)
     assert tracks is not None
 
 
@@ -705,19 +714,19 @@ def test_partial_batch_failure(test_library_large):
     - Partial failures don't corrupt database
     - Valid operations still succeed
     """
-    manager, track_ids, tmp_path = test_library_large
+    db, track_ids, tmp_path = test_library_large
 
     # Try to delete mix of valid and invalid IDs
     ids_to_delete = track_ids[:5] + [999999, 999998]  # Last 2 don't exist
 
     for track_id in ids_to_delete:
         try:
-            manager.delete_track(track_id)
+            db.tracks.delete(track_id)
         except Exception:
             pass  # Some will fail
 
     # Valid deletes should have succeeded
-    tracks, total = manager.get_all_tracks(limit=200)
+    tracks, total = db.tracks.get_all(limit=200)
     assert total <= len(track_ids) - 5, (
         "Valid deletes should have succeeded"
     )
@@ -736,7 +745,7 @@ def test_database_connection_recovery(tmp_path):
     - Database remains consistent
     """
     db_path = tmp_path / "test.db"
-    manager = LibraryManager(database_path=str(db_path))
+    db = LibraryDatabase(database_path=str(db_path))
 
     audio_dir = tmp_path / "music"
     audio_dir.mkdir()
@@ -746,13 +755,13 @@ def test_database_connection_recovery(tmp_path):
     filepath = audio_dir / "track_1.wav"
     save_audio(str(filepath), audio, 44100, subtype='PCM_16')
 
-    track1 = manager.add_track({
+    track1 = db.tracks.add({
         'filepath': str(filepath),
         'title': 'Track 1',
     })
 
     # Should still work after previous operations
-    tracks, total = manager.get_all_tracks(limit=10)
+    tracks, total = db.tracks.get_all(limit=10)
     assert total == 1
 
 
@@ -765,10 +774,10 @@ def test_concurrent_delete_same_track(test_library_large):
     BOUNDARY: Multiple threads trying to delete same track.
 
     Validates:
-    - One delete succeeds, others handle gracefully
-    - No database corruption
+    - Concurrent deletes of one track never raise
+    - The track ends up gone and the rest of the library is intact
     """
-    manager, track_ids, _ = test_library_large
+    db, track_ids, _ = test_library_large
 
     target_id = track_ids[0]
     errors = []
@@ -776,7 +785,7 @@ def test_concurrent_delete_same_track(test_library_large):
 
     def delete_track():
         try:
-            result = manager.delete_track(target_id)
+            result = db.tracks.delete(target_id)
             if result:  # Only count successful deletes
                 success_count[0] += 1
         except Exception as e:
@@ -789,10 +798,26 @@ def test_concurrent_delete_same_track(test_library_large):
     for t in threads:
         t.join()
 
-    # Exactly one should succeed (or all fail if not found)
-    assert success_count[0] <= 1, (
-        f"Multiple deletes succeeded: {success_count[0]}"
+    # #4915: the old assertion here was `success_count[0] <= 1`, which held
+    # only because LibraryManager.delete_track() serialized every delete behind
+    # a facade-level `_delete_lock`. TrackRepository.delete() — what production
+    # actually calls — does an unlocked SELECT-then-DELETE in its own session,
+    # so several threads can each observe the row and each report True (the
+    # losers' DELETE matches 0 rows and SQLAlchemy logs a SAWarning).
+    # TODO(#4915): if "exactly one delete wins" is a property worth having, it
+    # belongs in TrackRepository.delete() (e.g. check the DELETE rowcount and
+    # return False when 0 rows matched), not in a deleted legacy facade.
+    assert errors == [], f"Concurrent delete errors: {errors}"
+    assert success_count[0] >= 1, "At least one concurrent delete should succeed"
+
+    # Whatever the race, the outcome must be consistent: the target is gone,
+    # exactly once, and nothing else was collateral damage.
+    assert db.tracks.get_by_id(target_id) is None, "Target track should be deleted"
+    tracks, total = db.tracks.get_all(limit=200)
+    assert total == len(track_ids) - 1, (
+        f"Expected {len(track_ids) - 1} tracks after the delete, got {total}"
     )
+    assert target_id not in {t.id for t in tracks}
 
 
 @pytest.mark.boundary
@@ -808,7 +833,7 @@ def test_invalid_metadata_values(tmp_path):
     - Database constraints enforced
     """
     db_path = tmp_path / "test.db"
-    manager = LibraryManager(database_path=str(db_path))
+    db = LibraryDatabase(database_path=str(db_path))
 
     audio_dir = tmp_path / "music"
     audio_dir.mkdir()
@@ -828,10 +853,10 @@ def test_invalid_metadata_values(tmp_path):
         try:
             track_info = {'filepath': str(filepath)}
             track_info.update(metadata)
-            manager.add_track(track_info)
+            db.tracks.add(track_info)
         except Exception:
             pass  # May or may not be allowed
 
     # Database should still be functional
-    tracks, total = manager.get_all_tracks(limit=10)
+    tracks, total = db.tracks.get_all(limit=10)
     assert tracks is not None

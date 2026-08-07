@@ -44,6 +44,26 @@ def _total_duration_subquery() -> Any:
     )
 
 
+# Named eager-load constants (#5028), mirroring track_repository.py's
+# _track_eager_options() / genre_repository.py's _GENRE_LOAD_OPTIONS
+# convention. #4236 fixed a DetachedInstanceError caused by exactly this
+# duplication (one method's inline tuple fixed, its sibling's copy left
+# stale) and its own proposed fix recommended this extraction — done here so
+# a future read path can't silently omit it again.
+
+# Single-album detail reads: get_by_id/get_by_title hand the album straight
+# to to_dict(), which reads both album.artist and album.tracks.
+_ALBUM_DETAIL_OPTIONS = (joinedload(Album.artist), selectinload(Album.tracks))
+
+# Paginated/listing reads: track_count_expr/total_duration_expr cover what
+# the list serializer needs — no eager Album.tracks (fixes #4777's N+1).
+_ALBUM_LIST_OPTIONS = (
+    joinedload(Album.artist),
+    with_expression(Album.track_count_expr, _track_count_subquery()),
+    with_expression(Album.total_duration_expr, _total_duration_subquery()),
+)
+
+
 class AlbumRepository(BaseRepository):
     """Repository for album database operations"""
 
@@ -60,7 +80,7 @@ class AlbumRepository(BaseRepository):
         try:
             album = session.execute(
                 select(Album)
-                .options(joinedload(Album.artist), selectinload(Album.tracks))
+                .options(*_ALBUM_DETAIL_OPTIONS)
                 .where(Album.id == album_id)
             ).scalars().unique().first()
             if album:
@@ -78,7 +98,7 @@ class AlbumRepository(BaseRepository):
         try:
             album = session.execute(
                 select(Album)
-                .options(joinedload(Album.artist), selectinload(Album.tracks))
+                .options(*_ALBUM_DETAIL_OPTIONS)
                 .where(Album.title == title)
             ).scalars().unique().first()
             if album:
@@ -116,11 +136,7 @@ class AlbumRepository(BaseRepository):
             order_column = getattr(Album, order_by, Album.title)
             albums = session.execute(
                 select(Album)
-                .options(
-                    joinedload(Album.artist),
-                    with_expression(Album.track_count_expr, _track_count_subquery()),
-                    with_expression(Album.total_duration_expr, _total_duration_subquery()),
-                )
+                .options(*_ALBUM_LIST_OPTIONS)
                 .order_by(order_column.asc())
                 .limit(limit)
                 .offset(offset)
@@ -144,11 +160,7 @@ class AlbumRepository(BaseRepository):
         try:
             albums = session.execute(
                 select(Album)
-                .options(
-                    joinedload(Album.artist),
-                    with_expression(Album.track_count_expr, _track_count_subquery()),
-                    with_expression(Album.total_duration_expr, _total_duration_subquery()),
-                )
+                .options(*_ALBUM_LIST_OPTIONS)
                 .order_by(Album.created_at.desc())
                 .limit(limit)
                 .offset(offset)
@@ -200,6 +212,12 @@ class AlbumRepository(BaseRepository):
                 select(Album)
                 .join(Album.artist, isouter=True)
                 .where(search_filter)
+                # Deliberately not _ALBUM_LIST_OPTIONS (#5028 CONSISTENCY check):
+                # this query already JOINs Album.artist explicitly for the WHERE
+                # filter above, so joinedload(Album.artist) on the same
+                # relationship would attach a second, conflicting join.
+                # selectinload sidesteps that with its own separate query — the
+                # other two expressions are identical to _ALBUM_LIST_OPTIONS.
                 .options(
                     selectinload(Album.artist),
                     with_expression(Album.track_count_expr, _track_count_subquery()),
@@ -230,6 +248,9 @@ class AlbumRepository(BaseRepository):
         try:
             album = session.execute(
                 select(Album)
+                # Deliberately narrower than _ALBUM_DETAIL_OPTIONS (#5028
+                # CONSISTENCY check): only album.tracks is read below, never
+                # album.artist, so there's no reason to pay for the join.
                 .options(selectinload(Album.tracks))
                 .where(Album.id == album_id)
             ).scalars().first()

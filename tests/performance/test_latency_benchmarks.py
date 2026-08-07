@@ -21,7 +21,6 @@ import pytest
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.config import UnifiedConfig
 from auralis.io.unified_loader import load_audio
-from auralis.library.manager import LibraryManager
 from auralis.library.repositories import (
     AlbumRepository,
     ArtistRepository,
@@ -273,11 +272,9 @@ class TestCacheLatency:
         """
         BENCHMARK: Cache hits should be < 1ms (100x faster than DB).
         """
-        from auralis.library.manager import LibraryManager
-
-        manager = LibraryManager(database_path=':memory:')
-
-        # Populate
+        # #4915: this test only ever exercised TrackRepository directly; the
+        # legacy library-manager instance built here was never used, and the query
+        # cache it wrapped was dead code. Both are gone.
         track_repo = TrackRepository(temp_db)
         for i in range(10):
             track_repo.add({

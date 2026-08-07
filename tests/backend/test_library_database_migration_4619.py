@@ -9,8 +9,9 @@ drive the migration reached nobody.
 
 `LibraryDatabase` now owns the bootstrap that made the class load-bearing:
 migration, engine + pragmas, session factory, scan-slot accounting, WAL
-checkpoint on shutdown. `LibraryManager` is a legacy query facade over it,
-kept alive only for the test call sites that still use its convenience methods.
+checkpoint on shutdown. `LibraryManager` was a legacy query facade over it and
+has since been deleted (#4915), so the tests below assert only that nothing
+constructs it and that `LibraryDatabase` carries the whole bootstrap.
 """
 
 import sys
@@ -24,7 +25,7 @@ _BACKEND = str(_REPO_ROOT / "auralis-web" / "backend")
 if _BACKEND not in sys.path:
     sys.path.insert(0, _BACKEND)
 
-from auralis.library import LibraryDatabase, LibraryManager  # noqa: E402
+from auralis.library import LibraryDatabase  # noqa: E402
 
 
 @pytest.fixture
@@ -79,20 +80,6 @@ class TestLibraryDatabaseIsWarningFree:
             assert offending == [], f"unexpected deprecation warnings: {offending}"
         finally:
             db.shutdown()
-
-    def test_library_manager_still_warns(self, db_path):
-        """The deprecation must stay loud for the remaining legacy callers."""
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            manager = LibraryManager(database_path=db_path)
-        try:
-            assert any(
-                issubclass(w.category, DeprecationWarning)
-                and "LibraryManager is deprecated" in str(w.message)
-                for w in caught
-            )
-        finally:
-            manager.shutdown()
 
 
 class TestLibraryDatabaseCarriesTheBootstrap:
@@ -155,22 +142,3 @@ class TestLibraryDatabaseCarriesTheBootstrap:
             assert mode == 0o600, f"expected 0o600, got {oct(mode)}"
         finally:
             db.shutdown()
-
-
-class TestLibraryManagerIsNowOnlyAFacade:
-    def test_it_subclasses_the_database(self):
-        assert issubclass(LibraryManager, LibraryDatabase)
-
-    def test_legacy_methods_still_work(self, db_path):
-        """37 test files still call these; the facade must keep working."""
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            manager = LibraryManager(database_path=db_path)
-        try:
-            tracks, total = manager.get_all_tracks()
-            assert tracks == []
-            assert total == 0
-            assert manager.get_library_stats() is not None
-            manager.clear_cache()  # query cache lives only on the facade
-        finally:
-            manager.shutdown()

@@ -82,7 +82,7 @@ def fingerprint_repository_mock():
 @pytest.fixture
 def library_manager_mock():
     """Mock library manager for testing"""
-    class MockLibraryManager:
+    class MockLibraryDatabase:
         def __init__(self):
             self.tracks = {}
 
@@ -101,7 +101,7 @@ def library_manager_mock():
             self.tracks[track_info.get('filepath', '')] = track
             return track
 
-    return MockLibraryManager()
+    return MockLibraryDatabase()
 
 
 @pytest.fixture

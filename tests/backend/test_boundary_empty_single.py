@@ -41,7 +41,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from auralis.io.saver import save as save_audio
-from auralis.library.manager import LibraryManager
+from auralis.library.database import LibraryDatabase
 
 # ============================================================================
 # Fixtures
@@ -51,15 +51,15 @@ from auralis.library.manager import LibraryManager
 def empty_library(tmp_path):
     """Create completely empty library."""
     db_path = tmp_path / "empty_library.db"
-    manager = LibraryManager(database_path=str(db_path))
-    yield manager, tmp_path
+    db = LibraryDatabase(database_path=str(db_path))
+    yield db, tmp_path
 
 
 @pytest.fixture
 def single_track_library(tmp_path):
     """Create library with exactly one track."""
     db_path = tmp_path / "single_library.db"
-    manager = LibraryManager(database_path=str(db_path))
+    db = LibraryDatabase(database_path=str(db_path))
 
     # Create single audio file
     audio_dir = tmp_path / "music"
@@ -76,9 +76,9 @@ def single_track_library(tmp_path):
         'artists': ['Single Artist'],
         'album': 'Single Album',
     }
-    track = manager.add_track(track_info)
+    track = db.tracks.add(track_info)
 
-    yield manager, track.id, tmp_path
+    yield db, track.id, tmp_path
 
 
 # ============================================================================
@@ -89,13 +89,13 @@ def single_track_library(tmp_path):
 @pytest.mark.empty
 def test_empty_library_get_all_tracks(empty_library):
     """
-    BOUNDARY: get_all_tracks() on empty library returns empty list.
+    BOUNDARY: tracks.get_all() on empty library returns empty list.
 
     Common bug: Returns None instead of empty list, causing iteration errors.
     """
-    manager, _ = empty_library
+    db, _ = empty_library
 
-    tracks, total = manager.get_all_tracks(limit=10)
+    tracks, total = db.tracks.get_all(limit=10)
 
     assert tracks is not None, "Should return list, not None"
     assert isinstance(tracks, list), "Should return list type"
@@ -107,11 +107,11 @@ def test_empty_library_get_all_tracks(empty_library):
 @pytest.mark.empty
 def test_empty_library_get_albums(empty_library):
     """
-    BOUNDARY: get_all_albums() on empty library.
+    BOUNDARY: albums.get_all() on empty library.
     """
-    manager, _ = empty_library
+    db, _ = empty_library
 
-    albums, total = manager.albums.get_all(limit=10)
+    albums, total = db.albums.get_all(limit=10)
 
     assert albums is not None, "Should return list, not None"
     assert len(albums) == 0, "Should return empty list"
@@ -122,11 +122,11 @@ def test_empty_library_get_albums(empty_library):
 @pytest.mark.empty
 def test_empty_library_get_artists(empty_library):
     """
-    BOUNDARY: get_all_artists() on empty library.
+    BOUNDARY: artists.get_all() on empty library.
     """
-    manager, _ = empty_library
+    db, _ = empty_library
 
-    artists, total = manager.artists.get_all(limit=10)
+    artists, total = db.artists.get_all(limit=10)
 
     assert artists is not None, "Should return list, not None"
     assert len(artists) == 0, "Should return empty list"
@@ -139,9 +139,9 @@ def test_empty_library_search_returns_empty(empty_library):
     """
     BOUNDARY: Search on empty library returns empty results.
     """
-    manager, _ = empty_library
+    db, _ = empty_library
 
-    results, total = manager.search_tracks("test query")
+    results, total = db.tracks.search("test query")
 
     assert results is not None, "Should return list, not None"
     assert len(results) == 0, "Should return empty results"
@@ -153,9 +153,9 @@ def test_empty_library_get_favorites_returns_empty(empty_library):
     """
     BOUNDARY: Favorites list on empty library.
     """
-    manager, _ = empty_library
+    db, _ = empty_library
 
-    favorites, total = manager.get_favorite_tracks(limit=10)
+    favorites, total = db.tracks.get_favorites(limit=10)
 
     assert favorites is not None, "Should return list, not None"
     assert len(favorites) == 0, "Should return empty list"
@@ -167,9 +167,9 @@ def test_empty_library_get_recent_returns_empty(empty_library):
     """
     BOUNDARY: Recent tracks on empty library.
     """
-    manager, _ = empty_library
+    db, _ = empty_library
 
-    recent, total = manager.get_recent_tracks(limit=10)
+    recent, total = db.tracks.get_recent(limit=10)
 
     assert recent is not None, "Should return list, not None"
     assert len(recent) == 0, "Should return empty list"
@@ -181,9 +181,9 @@ def test_empty_library_stats_all_zeros(empty_library):
     """
     BOUNDARY: Library stats on empty library should be all zeros.
     """
-    manager, _ = empty_library
+    db, _ = empty_library
 
-    stats = manager.get_library_stats()
+    stats = db.stats.get_library_stats()
 
     assert stats is not None, "Should return stats dict"
     assert stats['total_tracks'] == 0, "Track count should be 0"
@@ -199,9 +199,9 @@ def test_empty_library_pagination_offset_beyond_empty(empty_library):
 
     Common bug: Crashes or returns None instead of empty list.
     """
-    manager, _ = empty_library
+    db, _ = empty_library
 
-    tracks, total = manager.get_all_tracks(limit=10, offset=100)
+    tracks, total = db.tracks.get_all(limit=10, offset=100)
 
     assert tracks is not None, "Should return list, not None"
     assert len(tracks) == 0, "Should return empty list"
@@ -214,9 +214,9 @@ def test_empty_library_get_nonexistent_track(empty_library):
     """
     BOUNDARY: Get track by ID that doesn't exist.
     """
-    manager, _ = empty_library
+    db, _ = empty_library
 
-    track = manager.get_track(999999)
+    track = db.tracks.get_by_id(999999)
 
     assert track is None, "Should return None for nonexistent track"
 
@@ -227,11 +227,11 @@ def test_empty_library_delete_nonexistent_track(empty_library):
     """
     BOUNDARY: Delete nonexistent track should not crash.
     """
-    manager, _ = empty_library
+    db, _ = empty_library
 
     # Should not raise exception
     try:
-        manager.delete_track(999999)
+        db.tracks.delete(999999)
     except Exception as e:
         pytest.fail(f"Delete nonexistent track should not crash: {e}")
 
@@ -244,11 +244,11 @@ def test_empty_library_delete_nonexistent_track(empty_library):
 @pytest.mark.single
 def test_single_track_library_get_all_returns_one(single_track_library):
     """
-    BOUNDARY: get_all_tracks() with single track.
+    BOUNDARY: tracks.get_all() with single track.
     """
-    manager, track_id, _ = single_track_library
+    db, track_id, _ = single_track_library
 
-    tracks, total = manager.get_all_tracks(limit=10)
+    tracks, total = db.tracks.get_all(limit=10)
 
     assert len(tracks) == 1, "Should return exactly 1 track"
     assert total == 1, "Total should be 1"
@@ -261,9 +261,9 @@ def test_single_track_pagination_first_page(single_track_library):
     """
     BOUNDARY: First page of pagination with single track.
     """
-    manager, track_id, _ = single_track_library
+    db, track_id, _ = single_track_library
 
-    tracks, total = manager.get_all_tracks(limit=10, offset=0)
+    tracks, total = db.tracks.get_all(limit=10, offset=0)
 
     assert len(tracks) == 1, "First page should have 1 track"
     assert total == 1, "Total should be 1"
@@ -275,9 +275,9 @@ def test_single_track_pagination_second_page_empty(single_track_library):
     """
     BOUNDARY: Second page should be empty with single track.
     """
-    manager, track_id, _ = single_track_library
+    db, track_id, _ = single_track_library
 
-    tracks, total = manager.get_all_tracks(limit=10, offset=10)
+    tracks, total = db.tracks.get_all(limit=10, offset=10)
 
     assert len(tracks) == 0, "Second page should be empty"
     assert total == 1, "Total should still be 1"
@@ -289,9 +289,9 @@ def test_single_track_limit_one_returns_one(single_track_library):
     """
     BOUNDARY: limit=1 with single track.
     """
-    manager, track_id, _ = single_track_library
+    db, track_id, _ = single_track_library
 
-    tracks, total = manager.get_all_tracks(limit=1, offset=0)
+    tracks, total = db.tracks.get_all(limit=1, offset=0)
 
     assert len(tracks) == 1, "Should return 1 track"
     assert total == 1, "Total should be 1"
@@ -303,9 +303,9 @@ def test_single_track_search_match_returns_one(single_track_library):
     """
     BOUNDARY: Search matching single track.
     """
-    manager, track_id, _ = single_track_library
+    db, track_id, _ = single_track_library
 
-    results, total = manager.search_tracks("Single")
+    results, total = db.tracks.search("Single")
 
     assert len(results) == 1, "Should return 1 result"
     assert results[0].id == track_id, "Should return correct track"
@@ -317,9 +317,9 @@ def test_single_track_search_no_match_returns_empty(single_track_library):
     """
     BOUNDARY: Search not matching single track.
     """
-    manager, track_id, _ = single_track_library
+    db, track_id, _ = single_track_library
 
-    results, total = manager.search_tracks("Nonexistent")
+    results, total = db.tracks.search("Nonexistent")
 
     assert len(results) == 0, "Should return empty list"
 
@@ -330,19 +330,19 @@ def test_single_track_favorite_toggle(single_track_library):
     """
     BOUNDARY: Favorite toggle with single track.
     """
-    manager, track_id, _ = single_track_library
+    db, track_id, _ = single_track_library
 
     # Set favorite
-    manager.set_track_favorite(track_id, True)
+    db.tracks.set_favorite(track_id, True)
 
-    favorites, total = manager.get_favorite_tracks(limit=10)
+    favorites, total = db.tracks.get_favorites(limit=10)
     assert len(favorites) == 1, "Should have 1 favorite"
     assert len(favorites) == 1, "Should return 1 favorite"
 
     # Unset favorite
-    manager.set_track_favorite(track_id, False)
+    db.tracks.set_favorite(track_id, False)
 
-    favorites, total = manager.get_favorite_tracks(limit=10)
+    favorites, total = db.tracks.get_favorites(limit=10)
     assert len(favorites) == 0, "Should have 0 favorites"
     assert len(favorites) == 0, "Should return empty list"
 
@@ -353,17 +353,17 @@ def test_single_track_play_count(single_track_library):
     """
     BOUNDARY: Play count with single track.
     """
-    manager, track_id, _ = single_track_library
+    db, track_id, _ = single_track_library
 
     # Initial play count
-    tracks, _ = manager.get_all_tracks(limit=1)
+    tracks, _ = db.tracks.get_all(limit=1)
     initial_count = tracks[0].play_count or 0
 
     # Record play
-    manager.record_track_play(track_id)
+    db.tracks.record_play(track_id)
 
     # Check updated count
-    tracks, _ = manager.get_all_tracks(limit=1)
+    tracks, _ = db.tracks.get_all(limit=1)
     new_count = tracks[0].play_count
 
     assert new_count == initial_count + 1, (
@@ -377,17 +377,17 @@ def test_single_track_delete_returns_to_empty(single_track_library):
     """
     BOUNDARY: Deleting single track returns library to empty state.
     """
-    manager, track_id, _ = single_track_library
+    db, track_id, _ = single_track_library
 
     # Verify single track exists
-    tracks_before, count_before = manager.get_all_tracks(limit=10)
+    tracks_before, count_before = db.tracks.get_all(limit=10)
     assert count_before == 1, "Should start with 1 track"
 
     # Delete track
-    manager.delete_track(track_id)
+    db.tracks.delete(track_id)
 
     # Verify empty
-    tracks_after, count_after = manager.get_all_tracks(limit=10)
+    tracks_after, count_after = db.tracks.get_all(limit=10)
     assert count_after == 0, "Should return to empty state"
     assert len(tracks_after) == 0, "Should return empty list"
 
@@ -398,14 +398,14 @@ def test_single_track_metadata_update(single_track_library):
     """
     BOUNDARY: Update metadata on single track.
     """
-    manager, track_id, _ = single_track_library
+    db, track_id, _ = single_track_library
 
     # Update title
     new_title = "Updated Single Track"
-    manager.update_track(track_id, {'title': new_title})
+    db.tracks.update(track_id, {'title': new_title})
 
     # Verify update
-    tracks, _ = manager.get_all_tracks(limit=1)
+    tracks, _ = db.tracks.get_all(limit=1)
     assert tracks[0].title == new_title, "Title should be updated"
 
 
@@ -419,10 +419,10 @@ def test_empty_to_single_to_empty_transition(empty_library):
     """
     BOUNDARY: Full cycle empty → add track → delete track → empty.
     """
-    manager, tmp_path = empty_library
+    db, tmp_path = empty_library
 
     # Start empty
-    tracks, count = manager.get_all_tracks(limit=10)
+    tracks, count = db.tracks.get_all(limit=10)
     assert count == 0, "Should start empty"
 
     # Add track
@@ -438,17 +438,17 @@ def test_empty_to_single_to_empty_transition(empty_library):
         'title': 'Test Track',
         'artists': ['Test Artist'],
     }
-    track = manager.add_track(track_info)
+    track = db.tracks.add(track_info)
 
     # Verify single track
-    tracks, count = manager.get_all_tracks(limit=10)
+    tracks, count = db.tracks.get_all(limit=10)
     assert count == 1, "Should have 1 track after add"
 
     # Delete track
-    manager.delete_track(track.id)
+    db.tracks.delete(track.id)
 
     # Verify empty again
-    tracks, count = manager.get_all_tracks(limit=10)
+    tracks, count = db.tracks.get_all(limit=10)
     assert count == 0, "Should return to empty state"
 
 
@@ -462,10 +462,10 @@ def test_empty_playlist_get_tracks_returns_empty(empty_library):
     """
     BOUNDARY: Empty playlist returns empty track list.
     """
-    manager, _ = empty_library
+    db, _ = empty_library
 
     # Create empty playlist
-    playlist = manager.create_playlist("Empty Playlist", "Test")
+    playlist = db.playlists.create("Empty Playlist", "Test")
 
     # Get tracks
     if hasattr(playlist, 'tracks'):
@@ -478,16 +478,16 @@ def test_single_track_playlist(single_track_library):
     """
     BOUNDARY: Playlist with exactly one track.
     """
-    manager, track_id, _ = single_track_library
+    db, track_id, _ = single_track_library
 
     # Create playlist
-    playlist = manager.create_playlist("Single Track Playlist", "Test")
+    playlist = db.playlists.create("Single Track Playlist", "Test")
 
     # Add track
-    manager.add_track_to_playlist(playlist.id, track_id)
+    db.playlists.add_track(playlist.id, track_id)
 
     # Verify
-    updated_playlist = manager.get_playlist(playlist.id)
+    updated_playlist = db.playlists.get_by_id(playlist.id)
     if hasattr(updated_playlist, 'tracks'):
         assert len(updated_playlist.tracks) == 1, "Should have exactly 1 track"
 
@@ -498,17 +498,17 @@ def test_remove_only_track_from_playlist(single_track_library):
     """
     BOUNDARY: Removing only track returns playlist to empty state.
     """
-    manager, track_id, _ = single_track_library
+    db, track_id, _ = single_track_library
 
     # Create playlist with track
-    playlist = manager.create_playlist("Test Playlist", "Test")
-    manager.add_track_to_playlist(playlist.id, track_id)
+    playlist = db.playlists.create("Test Playlist", "Test")
+    db.playlists.add_track(playlist.id, track_id)
 
     # Remove track
-    manager.remove_track_from_playlist(playlist.id, track_id)
+    db.playlists.remove_track(playlist.id, track_id)
 
     # Verify empty
-    updated_playlist = manager.get_playlist(playlist.id)
+    updated_playlist = db.playlists.get_by_id(playlist.id)
     if hasattr(updated_playlist, 'tracks'):
         assert len(updated_playlist.tracks) == 0, (
             "Playlist should be empty after removing only track"
@@ -557,9 +557,9 @@ def test_search_empty_string(single_track_library):
 
     Should return all tracks or empty results, not crash.
     """
-    manager, track_id, _ = single_track_library
+    db, track_id, _ = single_track_library
 
-    results, total = manager.search_tracks("")
+    results, total = db.tracks.search("")
 
     # Should not crash
     assert results is not None, "Should return list, not None"
@@ -574,10 +574,10 @@ def test_create_playlist_empty_name(empty_library):
 
     Should either accept or reject gracefully.
     """
-    manager, _ = empty_library
+    db, _ = empty_library
 
     try:
-        playlist = manager.create_playlist("", "Description")
+        playlist = db.playlists.create("", "Description")
         # If accepted, verify playlist exists
         assert playlist is not None, "Should create playlist"
     except ValueError:

@@ -32,12 +32,12 @@ class TestLibraryScannerComprehensive:
         """Set up test fixtures"""
         self.temp_dir = tempfile.mkdtemp()
 
-        # Create a LibraryManager for the scanner
-        from auralis.library.manager import LibraryManager
+        # Create a LibraryDatabase for the scanner
+        from auralis.library.database import LibraryDatabase
         self.db_path = os.path.join(self.temp_dir, "test.db")
-        self.library_manager = LibraryManager(database_path=self.db_path)
-        # LibraryScanner now requires library_manager parameter
-        self.scanner = LibraryScanner(self.library_manager)
+        self.library_db = LibraryDatabase(database_path=self.db_path)
+        # LibraryScanner requires the library database as its first argument
+        self.scanner = LibraryScanner(self.library_db)
 
         # Create nested directory structure
         self.audio_dir = os.path.join(self.temp_dir, "music")
@@ -51,7 +51,7 @@ class TestLibraryScannerComprehensive:
 
     def tearDown(self):
         """Clean up test fixtures"""
-        # LibraryManager no longer has close() method
+        # LibraryDatabase manages its sessions internally; nothing to close here
         if os.path.exists(self.temp_dir):
             shutil.rmtree(self.temp_dir)
 
@@ -115,10 +115,10 @@ class TestLibraryScannerComprehensive:
         """Test scanner initialization and configuration"""
         self.setUp()
 
-        # Test initialization with library_manager (required)
-        from auralis.library.manager import LibraryManager
-        manager = LibraryManager(database_path=os.path.join(self.temp_dir, "test2.db"))
-        scanner = LibraryScanner(manager)
+        # Test initialization with the library database (required)
+        from auralis.library.database import LibraryDatabase
+        library_db = LibraryDatabase(database_path=os.path.join(self.temp_dir, "test2.db"))
+        scanner = LibraryScanner(library_db)
         assert scanner is not None
         # LibraryScanner has scan_directories(), not scan_directory() or scan_file()
         assert hasattr(scanner, 'scan_directories')
@@ -192,7 +192,7 @@ class TestLibraryScannerComprehensive:
         assert result.files_processed > 0
 
         # Verify tracks were added to library
-        stats = self.library_manager.get_library_stats()
+        stats = self.library_db.stats.get_library_stats()
         assert stats['total_tracks'] > 0
 
         self.tearDown()
@@ -330,11 +330,11 @@ class TestLibraryScannerComprehensive:
 
         def scan_worker(dir_path):
             try:
-                # Each thread needs its own LibraryManager instance
-                from auralis.library.manager import LibraryManager
+                # Each thread needs its own LibraryDatabase instance
+                from auralis.library.database import LibraryDatabase
                 temp_db = os.path.join(self.temp_dir, f"thread_{threading.current_thread().ident}.db")
-                manager = LibraryManager(database_path=temp_db)
-                scanner = LibraryScanner(manager)
+                library_db = LibraryDatabase(database_path=temp_db)
+                scanner = LibraryScanner(library_db)
                 result = scanner.scan_directories([dir_path])
                 results.append(result)
             except Exception as e:

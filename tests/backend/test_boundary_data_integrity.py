@@ -39,7 +39,7 @@ from sqlalchemy.exc import DataError, IntegrityError
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from auralis.io.saver import save as save_audio
-from auralis.library.manager import LibraryManager
+from auralis.library.database import LibraryDatabase
 
 # ============================================================================
 # Fixtures
@@ -49,7 +49,7 @@ from auralis.library.manager import LibraryManager
 def integrity_library(tmp_path):
     """Create library for data integrity testing."""
     db_path = tmp_path / "integrity.db"
-    manager = LibraryManager(database_path=str(db_path))
+    db = LibraryDatabase(database_path=str(db_path))
 
     audio_dir = tmp_path / "music"
     audio_dir.mkdir()
@@ -61,7 +61,7 @@ def integrity_library(tmp_path):
         filepath = audio_dir / f"integrity_{i:03d}.wav"
         save_audio(str(filepath), audio, 44100, subtype='PCM_16')
 
-        track = manager.add_track({
+        track = db.tracks.add({
             'filepath': str(filepath),
             'title': f'Integrity Track {i:03d}',
             'artists': [f'Artist {i % 5}'],  # 5 artists total
@@ -69,7 +69,7 @@ def integrity_library(tmp_path):
         })
         track_ids.append(track.id)
 
-    yield manager, track_ids, tmp_path
+    yield db, track_ids, tmp_path
 
 
 # ============================================================================
@@ -88,21 +88,21 @@ def test_referential_integrity_on_delete(integrity_library):
     - No orphaned records
     - Cascade deletes work correctly
     """
-    manager, track_ids, _ = integrity_library
+    db, track_ids, _ = integrity_library
 
     # Get initial artist count
-    initial_tracks, _ = manager.get_all_tracks(limit=100)
+    initial_tracks, _ = db.tracks.get_all(limit=100)
 
     # Delete track
     deleted_id = track_ids[0]
-    manager.delete_track(deleted_id)
+    db.tracks.delete(deleted_id)
 
     # Verify track gone
-    track = manager.get_track(deleted_id)
+    track = db.tracks.get_by_id(deleted_id)
     assert track is None, "Deleted track should not be retrievable"
 
     # Database should still be consistent
-    remaining_tracks, total = manager.get_all_tracks(limit=100)
+    remaining_tracks, total = db.tracks.get_all(limit=100)
     assert total == len(track_ids) - 1
 
 
@@ -117,14 +117,14 @@ def test_unique_filepath_constraint(integrity_library):
     - Unique constraints enforced
     - Duplicate adds rejected or handled
     """
-    manager, track_ids, tmp_path = integrity_library
+    db, track_ids, tmp_path = integrity_library
 
     # Get existing track
-    existing_track = manager.get_track(track_ids[0])
+    existing_track = db.tracks.get_by_id(track_ids[0])
 
     # Try to add track with same filepath
     try:
-        duplicate_track = manager.add_track({
+        duplicate_track = db.tracks.add({
             'filepath': existing_track.filepath,
             'title': 'Duplicate Filepath',
         })
@@ -132,19 +132,20 @@ def test_unique_filepath_constraint(integrity_library):
         if duplicate_track is not None:
             # Some implementations might return existing track
             pass
-    # narrowed from bare Exception, #5023: LibraryManager.add_track() raises
-    # ValueError for a malformed track_info, and a duplicate-filepath rejection
-    # would surface as the UNIQUE-constraint IntegrityError. Anything else
-    # (DetachedInstanceError, AttributeError, ...) is a real bug and must fail.
+    # narrowed from bare Exception, #5023 (re-pointed at the repository by
+    # #4915): a malformed track_info surfaces as ValueError, and a
+    # duplicate-filepath rejection would surface as the UNIQUE-constraint
+    # IntegrityError. Anything else (DetachedInstanceError, AttributeError,
+    # ...) is a real bug and must fail.
     except (ValueError, IntegrityError):
         # Duplicate rejected - this is acceptable
         pass
 
     # Library should remain consistent — the duplicate-add attempt must not
     # have dropped or corrupted the pre-existing tracks (#4257: `tracks is
-    # not None` alone is trivially true since get_all_tracks() always
+    # not None` alone is trivially true since tracks.get_all() always
     # returns a list, never None).
-    tracks, total = manager.get_all_tracks(limit=100)
+    tracks, total = db.tracks.get_all(limit=100)
     assert len(tracks) >= len(track_ids)
 
 
@@ -160,10 +161,10 @@ def test_data_consistency_across_tables(integrity_library):
     - Album/artist relationships correct
     - No orphaned records
     """
-    manager, track_ids, _ = integrity_library
+    db, track_ids, _ = integrity_library
 
     # Get all tracks
-    tracks, track_count = manager.get_all_tracks(limit=100)
+    tracks, track_count = db.tracks.get_all(limit=100)
 
     # Verify count matches
     assert track_count == len(track_ids)
@@ -187,17 +188,17 @@ def test_metadata_update_atomicity(integrity_library):
     - Update succeeds completely or fails completely
     - No partial updates
     """
-    manager, track_ids, _ = integrity_library
+    db, track_ids, _ = integrity_library
 
     target_id = track_ids[0]
-    original_track = manager.get_track(target_id)
+    original_track = db.tracks.get_by_id(target_id)
 
     # Update metadata
     new_title = "Updated Atomic Title"
-    manager.update_track(target_id, {"title": new_title})
+    db.tracks.update(target_id, {"title": new_title})
 
     # Verify update
-    updated_track = manager.get_track(target_id)
+    updated_track = db.tracks.get_by_id(target_id)
     assert updated_track.title == new_title, (
         "Title not updated"
     )
@@ -218,28 +219,28 @@ def test_favorite_state_consistency(integrity_library):
     - Track appears in favorites when favorited
     - Track removed from favorites when unfavorited
     """
-    manager, track_ids, _ = integrity_library
+    db, track_ids, _ = integrity_library
 
     target_id = track_ids[0]
 
     # Initially not favorited
-    favorites, total = manager.get_favorite_tracks(limit=100)
+    favorites, total = db.tracks.get_favorites(limit=100)
     initial_favorite_ids = {f.id for f in favorites}
     assert target_id not in initial_favorite_ids
 
     # Favorite track
-    manager.set_track_favorite(target_id, True)
+    db.tracks.set_favorite(target_id, True)
 
     # Should appear in favorites
-    favorites, total = manager.get_favorite_tracks(limit=100)
+    favorites, total = db.tracks.get_favorites(limit=100)
     favorite_ids = {f.id for f in favorites}
     assert target_id in favorite_ids, "Track should be in favorites"
 
     # Unfavorite track
-    manager.set_track_favorite(target_id, False)
+    db.tracks.set_favorite(target_id, False)
 
     # Should not appear in favorites
-    favorites, total = manager.get_favorite_tracks(limit=100)
+    favorites, total = db.tracks.get_favorites(limit=100)
     favorite_ids = {f.id for f in favorites}
     assert target_id not in favorite_ids, "Track should not be in favorites"
 
@@ -255,18 +256,18 @@ def test_no_orphaned_records_after_delete(integrity_library):
     - Related records cleaned up
     - No dangling references
     """
-    manager, track_ids, _ = integrity_library
+    db, track_ids, _ = integrity_library
 
     # Favorite some tracks
     for track_id in track_ids[:5]:
-        manager.set_track_favorite(track_id)
+        db.tracks.set_favorite(track_id)
 
     # Delete favorited track
     deleted_id = track_ids[0]
-    manager.delete_track(deleted_id)
+    db.tracks.delete(deleted_id)
 
     # Track should not appear in favorites
-    favorites, total = manager.get_favorite_tracks(limit=100)
+    favorites, total = db.tracks.get_favorites(limit=100)
     favorite_ids = {f.id for f in favorites}
     assert deleted_id not in favorite_ids, (
         "Deleted track should not appear in favorites"
@@ -284,12 +285,12 @@ def test_pagination_count_consistency(integrity_library):
     - Total count same for all pages
     - Total matches actual item count
     """
-    manager, track_ids, _ = integrity_library
+    db, track_ids, _ = integrity_library
 
     # Get totals from different pages
-    _, total1 = manager.get_all_tracks(limit=10, offset=0)
-    _, total2 = manager.get_all_tracks(limit=10, offset=10)
-    _, total3 = manager.get_all_tracks(limit=10, offset=20)
+    _, total1 = db.tracks.get_all(limit=10, offset=0)
+    _, total2 = db.tracks.get_all(limit=10, offset=10)
+    _, total3 = db.tracks.get_all(limit=10, offset=20)
 
     # All should report same total
     assert total1 == total2 == total3, (
@@ -313,7 +314,7 @@ def test_invalid_track_id_handling(integrity_library):
     - Non-existent IDs return None or error
     - No database corruption
     """
-    manager, track_ids, _ = integrity_library
+    db, track_ids, _ = integrity_library
 
     invalid_ids = [0, -1, 999999, None]
 
@@ -321,7 +322,7 @@ def test_invalid_track_id_handling(integrity_library):
         if invalid_id is None:
             continue
 
-        track = manager.get_track(invalid_id)
+        track = db.tracks.get_by_id(invalid_id)
         # Should return None or handle gracefully
         if track is not None:
             # Some implementations might not validate
@@ -340,7 +341,7 @@ def test_empty_string_metadata(tmp_path):
     - Not confused with None
     """
     db_path = tmp_path / "empty_test.db"
-    manager = LibraryManager(database_path=str(db_path))
+    db = LibraryDatabase(database_path=str(db_path))
 
     audio_dir = tmp_path / "music"
     audio_dir.mkdir()
@@ -350,7 +351,7 @@ def test_empty_string_metadata(tmp_path):
     save_audio(str(filepath), audio, 44100, subtype='PCM_16')
 
     # Add track with empty string title
-    track = manager.add_track({
+    track = db.tracks.add({
         'filepath': str(filepath),
         'title': '',  # Empty string
     })
@@ -358,7 +359,7 @@ def test_empty_string_metadata(tmp_path):
     # Should be stored as empty string or have default — #4257: the prior
     # `retrieved is not None` check never actually verified the empty
     # string round-tripped, which was this test's whole stated purpose.
-    retrieved = manager.get_track(track.id)
+    retrieved = db.tracks.get_by_id(track.id)
     assert retrieved is not None
     assert retrieved.title == ''
 
@@ -375,7 +376,7 @@ def test_very_long_metadata_values(tmp_path):
     - No buffer overflow
     """
     db_path = tmp_path / "long_test.db"
-    manager = LibraryManager(database_path=str(db_path))
+    db = LibraryDatabase(database_path=str(db_path))
 
     audio_dir = tmp_path / "music"
     audio_dir.mkdir()
@@ -388,14 +389,14 @@ def test_very_long_metadata_values(tmp_path):
     long_title = "X" * 1000
 
     try:
-        track = manager.add_track({
+        track = db.tracks.add({
             'filepath': str(filepath),
             'title': long_title,
         })
 
         # Should succeed or fail gracefully
         if track is not None:
-            retrieved = manager.get_track(track.id)
+            retrieved = db.tracks.get_by_id(track.id)
             assert retrieved is not None
             # #4257: verify the actual stored value, not just presence.
             # TrackRepository truncates title to 500 chars (#2073) rather
@@ -423,7 +424,7 @@ def test_special_characters_in_metadata(tmp_path):
     - Special chars stored correctly
     """
     db_path = tmp_path / "special_test.db"
-    manager = LibraryManager(database_path=str(db_path))
+    db = LibraryDatabase(database_path=str(db_path))
 
     audio_dir = tmp_path / "music"
     audio_dir.mkdir()
@@ -436,7 +437,7 @@ def test_special_characters_in_metadata(tmp_path):
 
     for special in special_chars:
         try:
-            track = manager.add_track({
+            track = db.tracks.add({
                 'filepath': str(filepath),
                 'title': special,
             })
@@ -447,16 +448,16 @@ def test_special_characters_in_metadata(tmp_path):
                 # unmangled (i.e. it was parameterized, not concatenated
                 # into SQL), which the prior `is not None` check never
                 # verified.
-                retrieved = manager.get_track(track.id)
+                retrieved = db.tracks.get_by_id(track.id)
                 assert retrieved is not None
                 assert retrieved.title == special
 
                 # Database should still exist
-                tracks, _ = manager.get_all_tracks(limit=10)
+                tracks, _ = db.tracks.get_all(limit=10)
                 assert len(tracks) >= 1
 
                 # Clean up for next iteration
-                manager.delete_track(track.id)
+                db.tracks.delete(track.id)
         # narrowed from bare Exception, #5023: a rejection of hostile metadata
         # is a ValueError (validation) or IntegrityError (constraint); the
         # round-trip assertions above must not be swallowed.
@@ -477,7 +478,7 @@ def test_unicode_metadata_handling(tmp_path):
     - Multi-byte chars work
     """
     db_path = tmp_path / "unicode_test.db"
-    manager = LibraryManager(database_path=str(db_path))
+    db = LibraryDatabase(database_path=str(db_path))
 
     audio_dir = tmp_path / "music"
     audio_dir.mkdir()
@@ -495,19 +496,19 @@ def test_unicode_metadata_handling(tmp_path):
 
     for unicode_str in unicode_strings:
         try:
-            track = manager.add_track({
+            track = db.tracks.add({
                 'filepath': str(filepath),
                 'title': unicode_str,
             })
 
             if track is not None:
-                retrieved = manager.get_track(track.id)
+                retrieved = db.tracks.get_by_id(track.id)
                 # Should retrieve successfully, with the unicode string
                 # round-tripping intact (#4257: previously unverified).
                 assert retrieved is not None
                 assert retrieved.title == unicode_str
 
-                manager.delete_track(track.id)
+                db.tracks.delete(track.id)
         # narrowed from bare Exception, #5023: an encoding rejection raises
         # UnicodeEncodeError/UnicodeDecodeError, both subclasses of ValueError.
         except ValueError:
@@ -531,7 +532,7 @@ def test_failed_add_doesnt_corrupt_database(tmp_path):
     - Database remains consistent
     """
     db_path = tmp_path / "rollback_test.db"
-    manager = LibraryManager(database_path=str(db_path))
+    db = LibraryDatabase(database_path=str(db_path))
 
     audio_dir = tmp_path / "music"
     audio_dir.mkdir()
@@ -541,24 +542,24 @@ def test_failed_add_doesnt_corrupt_database(tmp_path):
     filepath = audio_dir / "success.wav"
     save_audio(str(filepath), audio, 44100, subtype='PCM_16')
 
-    track1 = manager.add_track({
+    track1 = db.tracks.add({
         'filepath': str(filepath),
         'title': 'Success',
     })
 
-    # Try to add invalid track
-    try:
-        manager.add_track({
-            'filepath': '/nonexistent/file.wav',
-            'title': 'Invalid',
-        })
-    # narrowed from bare Exception, #5023: add_track() raises FileNotFoundError
-    # for a missing audio file and ValueError when 'filepath' is absent.
-    except (FileNotFoundError, ValueError):
-        pass
+    # Try to add an invalid track. TrackRepository.add() rejects a track_info
+    # with no usable 'filepath' by returning None; it does NOT raise, and
+    # (unlike the deleted LibraryManager.add_track() facade) it does not check
+    # that the file exists on disk (#4915), so the missing-filepath case is the
+    # one the repository layer actually refuses.
+    # TODO(#4915): the '/nonexistent/file.wav' rejection this test used to
+    # exercise no longer exists anywhere; restore it in TrackRepository.add()
+    # if on-disk validation is still wanted.
+    assert db.tracks.add({'title': 'Invalid'}) is None
 
-    # Database should still have exactly 1 track
-    tracks, total = manager.get_all_tracks(limit=10)
+    # Database should still have exactly 1 track — the rejected add must not
+    # have written a partial row.
+    tracks, total = db.tracks.get_all(limit=10)
     assert total == 1
     assert tracks[0].id == track1.id
 
@@ -574,15 +575,15 @@ def test_failed_update_preserves_original_data(integrity_library):
     - Original data intact after failed update
     - No partial updates
     """
-    manager, track_ids, _ = integrity_library
+    db, track_ids, _ = integrity_library
 
     target_id = track_ids[0]
-    original_track = manager.get_track(target_id)
+    original_track = db.tracks.get_by_id(target_id)
     original_title = original_track.title
 
     # Try invalid update (assuming None title might fail)
     try:
-        manager.update_track(target_id, {"title": None})
+        db.tracks.update(target_id, {"title": None})
     # narrowed from bare Exception, #5023: a rejected update surfaces as a
     # ValueError (validation) or IntegrityError (NOT NULL constraint).
     except (ValueError, IntegrityError):
@@ -592,7 +593,7 @@ def test_failed_update_preserves_original_data(integrity_library):
     # documented invariant (unchanged-or-validly-updated) instead of just
     # that *some* row still exists, which would pass even if the failed
     # update partially corrupted the title.
-    current_track = manager.get_track(target_id)
+    current_track = db.tracks.get_by_id(target_id)
     assert current_track is not None
     # The attempted update was {"title": None}; either it was rejected
     # (title unchanged) or applied (title is now None) — anything else
@@ -615,16 +616,16 @@ def test_consistency_under_rapid_operations(integrity_library):
     - Rapid operations maintain consistency
     - No race conditions
     """
-    manager, track_ids, _ = integrity_library
+    db, track_ids, _ = integrity_library
 
     # Rapid operations
     for i in range(50):
-        manager.set_track_favorite(track_ids[i % len(track_ids)])
-        manager.get_all_tracks(limit=10, offset=i % 30)
-        manager.search_tracks(f"Track {i:03d}")
+        db.tracks.set_favorite(track_ids[i % len(track_ids)])
+        db.tracks.get_all(limit=10, offset=i % 30)
+        db.tracks.search(f"Track {i:03d}")
 
     # Final state should be consistent
-    tracks, total = manager.get_all_tracks(limit=100)
+    tracks, total = db.tracks.get_all(limit=100)
     assert total == len(track_ids)
 
 
@@ -639,20 +640,20 @@ def test_cascading_deletes_consistency(integrity_library):
     - Related records properly cleaned up
     - No orphaned data
     """
-    manager, track_ids, _ = integrity_library
+    db, track_ids, _ = integrity_library
 
     # Favorite and play some tracks
     target_id = track_ids[0]
-    manager.set_track_favorite(target_id)
+    db.tracks.set_favorite(target_id)
 
     # Delete track
-    manager.delete_track(target_id)
+    db.tracks.delete(target_id)
 
     # Should not appear anywhere
-    track = manager.get_track(target_id)
+    track = db.tracks.get_by_id(target_id)
     assert track is None
 
-    favorites, total = manager.get_favorite_tracks(limit=100)
+    favorites, total = db.tracks.get_favorites(limit=100)
     favorite_ids = {f.id for f in favorites}
     assert target_id not in favorite_ids
 
@@ -668,18 +669,18 @@ def test_relationship_integrity_after_operations(integrity_library):
     - Album/artist relationships intact
     - No broken references
     """
-    manager, track_ids, _ = integrity_library
+    db, track_ids, _ = integrity_library
 
     # Perform various operations
-    manager.set_track_favorite(track_ids[0])
-    manager.update_track(track_ids[1], {"title": "Updated"})
-    manager.delete_track(track_ids[2])
+    db.tracks.set_favorite(track_ids[0])
+    db.tracks.update(track_ids[1], {"title": "Updated"})
+    db.tracks.delete(track_ids[2])
 
     # All remaining tracks should have valid relationships — #4257: the
     # docstring's actual claim ("Album/artist relationships intact") was
     # previously never exercised; access them so a DetachedInstanceError
     # or a broken relationship load would fail this test.
-    tracks, _ = manager.get_all_tracks(limit=100)
+    tracks, _ = db.tracks.get_all(limit=100)
     for track in tracks:
         assert track.id is not None
         assert track.filepath is not None
@@ -700,25 +701,25 @@ def test_count_consistency_after_modifications(integrity_library):
     - Favorite counts accurate
     - No counting errors
     """
-    manager, track_ids, _ = integrity_library
+    db, track_ids, _ = integrity_library
 
     # Initial counts
-    _, initial_total = manager.get_all_tracks(limit=1)
+    _, initial_total = db.tracks.get_all(limit=1)
 
     # Add favorites
     for i in range(10):
-        manager.set_track_favorite(track_ids[i])
+        db.tracks.set_favorite(track_ids[i])
 
-    favorites, total = manager.get_favorite_tracks(limit=100)
+    favorites, total = db.tracks.get_favorites(limit=100)
     assert len(favorites) == 10
 
     # Delete some tracks
     for i in range(5):
-        manager.delete_track(track_ids[i])
+        db.tracks.delete(track_ids[i])
 
-    _, final_total = manager.get_all_tracks(limit=1)
+    _, final_total = db.tracks.get_all(limit=1)
     assert final_total == initial_total - 5
 
     # Favorites should reflect deletes
-    final_favorites, total = manager.get_favorite_tracks(limit=100)
+    final_favorites, total = db.tracks.get_favorites(limit=100)
     assert len(final_favorites) == 5  # 5 deleted, 5 remaining
