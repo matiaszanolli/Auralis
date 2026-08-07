@@ -31,6 +31,7 @@ import librosa
 import numpy as np
 
 from .fingerprint.metrics import AudioMetrics
+from ..io.formats import FFMPEG_FORMATS
 from ..utils.logging import warning
 
 
@@ -99,7 +100,38 @@ class MasteringFingerprint:
             # desktop process. Matches the cap used by every other fingerprint
             # path (FingerprintService._compute_fingerprint). analyze_album()
             # delegates here, so it is bounded by the same cap.
-            y, sr_loaded = librosa.load(file_path, sr=sr, mono=False, duration=90.0)
+            #
+            # librosa.load() can't decode M4A/AAC/WMA via soundfile (0.14.0's
+            # available_formats() has no entry for any of them) and silently
+            # falls through to the audioread backend instead — slower, a
+            # UserWarning per track, 16-bit precision truncation, and a
+            # backend librosa marks for hard removal in 1.0 (#4890). Route
+            # those extensions through the same FFmpeg loader
+            # windowed_compute.py's fingerprint path already uses.
+            audio_path = Path(file_path)
+            if audio_path.suffix.lower() in FFMPEG_FORMATS:
+                import tempfile
+
+                from auralis.io.loaders import load_with_ffmpeg
+                with tempfile.TemporaryDirectory() as tmp:
+                    raw_audio, raw_sr = load_with_ffmpeg(audio_path, tmp)
+                # (samples, channels) or (samples,) -> (channels, samples),
+                # matching librosa.load(mono=False)'s convention.
+                if raw_audio.ndim == 2:
+                    raw_audio = raw_audio.T
+                if raw_sr != sr:
+                    if raw_audio.ndim == 2:
+                        raw_audio = np.stack([
+                            librosa.resample(raw_audio[ch].astype(np.float32), orig_sr=raw_sr, target_sr=sr)
+                            for ch in range(raw_audio.shape[0])
+                        ])
+                    else:
+                        raw_audio = librosa.resample(raw_audio.astype(np.float32), orig_sr=raw_sr, target_sr=sr)
+                y = raw_audio[..., :int(sr * 90.0)]
+                sr_loaded = sr
+            else:
+                y, _loaded_sr = librosa.load(file_path, sr=sr, mono=False, duration=90.0)
+                sr_loaded = int(_loaded_sr)
 
             # Convert to mono if stereo
             if len(y.shape) == 1:
