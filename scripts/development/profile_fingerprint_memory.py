@@ -48,7 +48,7 @@ async def main():
     import gc
 
     from auralis.services.fingerprint_extractor import FingerprintExtractor
-    from auralis.library.manager import LibraryManager
+    from auralis.library.database import LibraryDatabase
 
     print("🔍 Fingerprint Memory Profiling")
     print("="*70)
@@ -57,12 +57,12 @@ async def main():
     baseline = get_memory_usage()
     print(f"\nBaseline memory: {baseline['rss_mb']:.1f} MB")
 
-    # Initialize LibraryManager
-    print("\n[1] Initializing LibraryManager...")
+    # Initialize LibraryDatabase (#4915: LibraryManager is deprecated/removed)
+    print("\n[1] Initializing LibraryDatabase...")
     before = get_memory_usage()
-    library_manager = LibraryManager()
+    library_manager = LibraryDatabase()
     after = get_memory_usage()
-    profile_section("LibraryManager init", before, after)
+    profile_section("LibraryDatabase init", before, after)
 
     # Initialize FingerprintExtractor
     print("\n[2] Initializing FingerprintExtractor...")
@@ -75,7 +75,7 @@ async def main():
 
     # Get first unfingerprinted track
     print("\n[3] Getting first track...")
-    all_tracks, _ = library_manager.get_all_tracks(limit=1)
+    all_tracks, _ = library_manager.tracks.get_all(limit=1)
     if not all_tracks:
         print("❌ No tracks found!")
         return
@@ -104,7 +104,7 @@ async def main():
 
     # Extract another fingerprint
     print("\n[6] Getting and extracting SECOND track...")
-    all_tracks, _ = library_manager.get_all_tracks(limit=2)
+    all_tracks, _ = library_manager.tracks.get_all(limit=2)
     track2 = all_tracks[1] if len(all_tracks) > 1 else all_tracks[0]
 
     gc.collect()
