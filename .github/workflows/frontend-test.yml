@@ -37,7 +37,7 @@ jobs:
       run:
         working-directory: auralis-web/frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # No `version:` key on purpose. Every package.json in the repo carries
       # `packageManager: pnpm@10.20.0`, and action-setup hard-errors with
@@ -45,9 +45,9 @@ jobs:
       # as well — which is what made every run of this workflow fail in ~13 s,
       # before it ever installed anything or ran a test. Letting the action read
       # `packageManager` keeps CI and local pnpm on one pinned version.
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: '24'
           cache: 'pnpm'
@@ -70,7 +70,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: vitest-results
           path: auralis-web/frontend/test-results/

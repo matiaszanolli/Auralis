@@ -60,7 +60,7 @@ jobs:
     # the runner fails the job instead of burning the whole allowance.
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # Must match `.python-version` (3.14) and pyproject's
       # `requires-python = ">=3.14"`. On 3.13 the whole suite fails to
@@ -70,7 +70,7 @@ jobs:
       # raises `NameError: name 'FingerprintUnpacker' is not defined` on
       # 3.13 without `from __future__ import annotations`. Pinning 3.13 here
       # produced 13 collection errors and 0 tests run on every push.
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.14'
           cache: 'pip'
@@ -107,7 +107,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pytest-results
           path: pytest-results.xml

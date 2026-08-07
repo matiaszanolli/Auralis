@@ -31,14 +31,14 @@ jobs:
       run:
         working-directory: auralis-web/frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # No `version:` key — see frontend-test.yml. Specifying one alongside the
       # `packageManager` field in package.json makes action-setup hard-error,
       # which had silently disabled this gate too.
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: '24'
           cache: 'pnpm'
