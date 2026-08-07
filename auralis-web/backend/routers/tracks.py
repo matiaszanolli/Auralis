@@ -158,7 +158,7 @@ def create_tracks_router(
                 from security.path_security import validate_file_path
                 validate_file_path(str(track.filepath))
                 import mutagen
-                audio_file = await asyncio.to_thread(mutagen.File, track.filepath)  # type: ignore[attr-defined]
+                audio_file = await asyncio.to_thread(mutagen.File, track.filepath)
                 lyrics_text = None
 
                 if audio_file:

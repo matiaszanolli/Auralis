@@ -13,7 +13,7 @@ from typing import Any
 from .tag_mappings import TAG_MAPPINGS
 
 try:
-    from mutagen.id3 import (  # type: ignore[attr-defined]
+    from mutagen.id3 import (
         COMM,
         TALB,
         TCON,

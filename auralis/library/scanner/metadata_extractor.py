@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 try:
-    from mutagen import File as MutagenFile  # type: ignore[attr-defined]
+    from mutagen import File as MutagenFile
     MUTAGEN_AVAILABLE = True
 except ImportError:
     MUTAGEN_AVAILABLE = False

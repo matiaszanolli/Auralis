@@ -13,7 +13,7 @@ from .metadata_editor import MUTAGEN_AVAILABLE, MetadataEditor
 from .models import MetadataUpdate
 
 try:
-    from mutagen import File as MutagenFile  # type: ignore[attr-defined]
+    from mutagen import File as MutagenFile
 except ImportError:
     MutagenFile = None
 

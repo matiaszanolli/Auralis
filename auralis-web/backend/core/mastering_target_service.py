@@ -28,7 +28,7 @@ import numpy as np
 from auralis.analysis.fingerprint import AudioFingerprintAnalyzer, FingerprintStorage
 from auralis.analysis.mastering_fingerprint import MasteringFingerprint
 from auralis.io.unified_loader import load_audio
-from mutagen import File as MutagenFile  # type: ignore[attr-defined]
+from mutagen import File as MutagenFile
 
 logger = logging.getLogger(__name__)
 
