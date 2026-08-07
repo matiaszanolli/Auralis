@@ -147,12 +147,23 @@ def create_enhancement_router(
         """
         try:
             # Import here to avoid circular dependencies
-            import soundfile as sf
+            from auralis.io.unified_loader import get_audio_info
             from core.chunked_processor import ChunkedAudioProcessor
 
-            # Get audio duration to avoid processing non-existent chunks
-            info = await asyncio.to_thread(sf.info, filepath)
-            total_duration = info.duration
+            # Get audio duration to avoid processing non-existent chunks.
+            # #5052: bare sf.info()/soundfile.SoundFile() cannot open
+            # .m4a/.aac/.wma — get_audio_info() routes FFmpeg-only formats
+            # through ffprobe instead (same fix pattern as #4497's
+            # _load_metadata()). It doesn't raise on a probe failure; it
+            # sets info_dict['error'] and omits 'duration_seconds', so check
+            # explicitly rather than trusting the key is present.
+            audio_info = await asyncio.to_thread(get_audio_info, filepath)
+            total_duration = audio_info.get('duration_seconds')
+            if not total_duration:
+                raise ValueError(
+                    f"Could not determine duration for {filepath}: "
+                    f"{audio_info.get('error', 'no duration_seconds in probe result')}"
+                )
             # Match ChunkedAudioProcessor's content-chunk count so we don't
             # pre-process a spurious trailing chunk (#4124).
             total_chunks = content_chunk_count(total_duration)
@@ -169,7 +180,11 @@ def create_enhancement_router(
 
             logger.info(f"🎯 Pre-processing chunks {chunks_to_process} for track {track_id} (current chunk: {current_chunk_idx})")
 
-            # Create processor (may perform file I/O — run in thread)
+            # Create processor (may perform file I/O — run in thread).
+            # #5052: for any format sf.info() can't open, ChunkedAudioProcessor's
+            # SeekableSource decodes the whole track to a temp-dir WAV that only
+            # processor.close() releases — every other construction site in the
+            # backend closes explicitly, this one must too (try/finally below).
             processor = await asyncio.to_thread(
                 ChunkedAudioProcessor,
                 track_id=track_id,
@@ -178,30 +193,32 @@ def create_enhancement_router(
                 intensity=intensity,
                 chunk_cache={},
             )
+            try:
+                # Process each chunk
+                processed_count = 0
+                for chunk_idx in chunks_to_process:
+                    if chunk_idx >= total_chunks:
+                        break  # Don't process chunks beyond the track
 
-            # Process each chunk
-            processed_count = 0
-            for chunk_idx in chunks_to_process:
-                if chunk_idx >= total_chunks:
-                    break  # Don't process chunks beyond the track
+                    try:
+                        # Process chunk (this will cache the WAV file).
+                        # get_wav_chunk_path does CPU-bound audio processing; run in a
+                        # thread pool to avoid blocking the event loop (fixes #2330).
+                        wav_chunk_path = await asyncio.to_thread(processor.get_wav_chunk_path, chunk_idx)
 
-                try:
-                    # Process chunk (this will cache the WAV file).
-                    # get_wav_chunk_path does CPU-bound audio processing; run in a
-                    # thread pool to avoid blocking the event loop (fixes #2330).
-                    wav_chunk_path = await asyncio.to_thread(processor.get_wav_chunk_path, chunk_idx)
+                        if os.path.exists(wav_chunk_path):
+                            processed_count += 1
+                            logger.info(f"✅ Pre-processed chunk {chunk_idx} ({processed_count}/{len(chunks_to_process)})")
+                        else:
+                            logger.warning(f"⚠️ Pre-processing failed for chunk {chunk_idx}: output file not found")
 
-                    if os.path.exists(wav_chunk_path):
-                        processed_count += 1
-                        logger.info(f"✅ Pre-processed chunk {chunk_idx} ({processed_count}/{len(chunks_to_process)})")
-                    else:
-                        logger.warning(f"⚠️ Pre-processing failed for chunk {chunk_idx}: output file not found")
+                    except Exception as e:
+                        logger.error(f"❌ Pre-processing failed for chunk {chunk_idx}: {e}")
+                        continue
 
-                except Exception as e:
-                    logger.error(f"❌ Pre-processing failed for chunk {chunk_idx}: {e}")
-                    continue
-
-            logger.info(f"🎯 Pre-processing complete: {processed_count} chunks ready")
+                logger.info(f"🎯 Pre-processing complete: {processed_count} chunks ready")
+            finally:
+                await asyncio.to_thread(processor.close)
 
         except Exception as e:
             logger.error(f"❌ Background chunk pre-processing failed: {e}")
