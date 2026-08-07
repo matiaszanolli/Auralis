@@ -103,3 +103,41 @@ async def test_same_key_concurrent_leases_remain_exclusive_and_reclaim_replaceme
     assert list(pool.processors.values()) == [second]
     first.close.assert_called_once()
     second.close.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_close_all_closes_every_cached_processor_and_empties_the_pool():
+    """#5061: shutdown must drain this pool the same way ProcessorFactory's
+    cache is drained (#3746) — nothing did before close_all() existed."""
+    async def create(_config_value):
+        raise AssertionError("create_processor should not be called by this test")
+
+    pool = ProcessorPool(create)
+    for name in ("a", "b", "c"):
+        pool.processors[name] = MagicMock(name=f"processor-{name}")
+    processors = list(pool.processors.values())
+
+    await pool.close_all()
+
+    for processor in processors:
+        processor.close.assert_called_once()
+    assert pool.processors == {}
+
+
+@pytest.mark.asyncio
+async def test_close_all_tolerates_individual_close_failures():
+    async def create(_config_value):
+        raise AssertionError("create_processor should not be called by this test")
+
+    pool = ProcessorPool(create)
+    exploding = MagicMock(name="exploding")
+    exploding.close.side_effect = OSError("already gone")
+    fine = MagicMock(name="fine")
+    pool.processors["bad"] = exploding
+    pool.processors["good"] = fine
+
+    await pool.close_all()
+
+    exploding.close.assert_called_once()
+    fine.close.assert_called_once()
+    assert pool.processors == {}

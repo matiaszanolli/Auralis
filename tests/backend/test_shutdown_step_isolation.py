@@ -36,7 +36,7 @@ def _globals(**overrides):
     """A globals_dict with every shutdown participant present and healthy."""
     base = {key: Mock(stop=AsyncMock()) for key in BACKGROUND_WORKER_KEYS}
     base['streamlined_worker'] = Mock(stop=AsyncMock())
-    base['processing_engine'] = Mock(stop_worker=AsyncMock())
+    base['processing_engine'] = Mock(stop_worker=AsyncMock(), close_processor_pool=AsyncMock())
     base['audio_player'] = Mock(stop=Mock(), cleanup=Mock())
     base['library_manager'] = Mock(shutdown=Mock())
     base.update(overrides)
@@ -89,6 +89,17 @@ class TestOneFailingStepDoesNotSkipTheRest:
         g['audio_player'].stop.assert_called_once()
         g['library_manager'].shutdown.assert_called_once()
 
+    async def test_failing_processor_pool_drain_does_not_skip_library_shutdown(self):
+        """#5061: close_processor_pool sits right after stop_worker/before the
+        library shutdown; it must be as isolated as every other step."""
+        g = _globals()
+        g['processing_engine'].close_processor_pool = AsyncMock(side_effect=RuntimeError("boom"))
+
+        await _run(g)
+
+        g['audio_player'].stop.assert_called_once()
+        g['library_manager'].shutdown.assert_called_once()
+
     async def test_every_step_failing_still_reaches_the_last_one(self):
         g = _globals()
         for key in BACKGROUND_WORKER_KEYS:
@@ -118,6 +129,9 @@ class TestHappyPath:
             g[key].stop.assert_awaited_once()
         g['streamlined_worker'].stop.assert_awaited_once()
         g['processing_engine'].stop_worker.assert_awaited_once()
+        # #5061 WIRING check: close_processor_pool must actually be invoked
+        # from the shutdown path, not just exist as a dead method.
+        g['processing_engine'].close_processor_pool.assert_awaited_once()
         g['audio_player'].stop.assert_called_once()
         g['audio_player'].cleanup.assert_called_once()
         g['library_manager'].shutdown.assert_called_once()

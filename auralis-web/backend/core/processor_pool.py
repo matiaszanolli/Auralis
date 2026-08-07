@@ -155,6 +155,25 @@ class ProcessorPool:
             except Exception as close_err:  # pragma: no cover - defensive
                 logger.warning("Failed to close evicted processor: %s", close_err)
 
+    async def close_all(self) -> None:
+        """Drain and close every cached processor (#5061).
+
+        Mirrors ProcessorFactory's shutdown-time cache clear (#3746) — this
+        pool had no equivalent, so its cached instances were never released on
+        backend shutdown. Pops everything out under the lock, then closes
+        outside it (matching return_to_cache's existing pattern), tolerating
+        individual close() failures so one bad instance can't abort the drain.
+        """
+        async with self._lock:
+            to_close = list(self.processors.values())
+            self.processors.clear()
+
+        for stale_processor in to_close:
+            try:
+                stale_processor.close()
+            except Exception as close_err:  # pragma: no cover - defensive
+                logger.warning("Failed to close pooled processor during drain: %s", close_err)
+
     async def discard(self, processor: HybridProcessor) -> None:
         """Close a processor without caching it (#4727).
 

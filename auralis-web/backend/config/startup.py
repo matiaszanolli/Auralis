@@ -177,6 +177,16 @@ async def _shutdown_components(globals_dict: dict[str, Any]) -> None:
         except Exception as factory_err:
             logger.warning(f"⚠️  Processor factory shutdown error: {factory_err}")
 
+        # Drain the ProcessingEngine's own ProcessorPool too (fixes #5061) —
+        # a separate cache from ProcessorFactory's, previously never closed
+        # on shutdown.
+        if globals_dict.get('processing_engine'):
+            try:
+                await globals_dict['processing_engine'].close_processor_pool()
+                logger.info("✅ Processing engine processor pool drained")
+            except Exception as pool_err:
+                logger.warning(f"⚠️  Processing engine pool shutdown error: {pool_err}")
+
         # Close the artwork downloader's shared aiohttp session, if one
         # was ever created (fixes #3915).
         try:

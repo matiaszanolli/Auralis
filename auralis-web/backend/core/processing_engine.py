@@ -318,6 +318,16 @@ class ProcessingEngine:
         """Close and drop a processor without returning it to the pool (#4727)."""
         await self._pool.discard(processor)
 
+    async def close_processor_pool(self) -> None:
+        """Drain and close every cached HybridProcessor on shutdown (#5061).
+
+        Thin wrapper over self._pool.close_all() — the engine's own processor
+        cache had no equivalent to ProcessorFactory's shutdown-time
+        clear_cache() (#3746), so up to _max_cached instances leaked on every
+        restart. Called from startup.py's shutdown handler.
+        """
+        await self._pool.close_all()
+
     async def _cleanup_processor(
         self,
         job: ProcessingJob,
