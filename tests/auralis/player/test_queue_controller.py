@@ -274,6 +274,34 @@ class TestShuffleMode:
         ctrl.set_shuffle(True)
         assert ctrl.get_track_count() == 5
 
+    def test_set_shuffle_true_actually_reorders_queue(self):
+        """#4986: set_shuffle(True) used to only flip shuffle_enabled without
+        ever calling QueueManager.shuffle() — the queue order stayed
+        untouched while the flag reported True. Assert the underlying
+        QueueManager snapshot proves an actual reorder happened, matching
+        what QueueService.shuffle_queue() does via queue_manager.shuffle()."""
+        ctrl = _loaded_controller(5)
+        assert ctrl.queue._pre_shuffle_tracks is None
+
+        ctrl.set_shuffle(True)
+
+        # shuffle() snapshots the pre-shuffle order — only populated by an
+        # actual reorder call, never by writing the flag alone.
+        assert ctrl.queue._pre_shuffle_tracks is not None
+        assert ctrl.get_track_count() == 5
+
+    def test_set_shuffle_false_restores_original_order(self):
+        """#4986: set_shuffle(False) must call QueueManager.unshuffle() and
+        restore the pre-shuffle order, matching QueueService.unshuffle_queue()."""
+        ctrl = _loaded_controller(5)
+        original_order = [t['id'] for t in ctrl.get_queue()]
+
+        ctrl.set_shuffle(True)
+        ctrl.set_shuffle(False)
+
+        assert [t['id'] for t in ctrl.get_queue()] == original_order
+        assert ctrl.queue._pre_shuffle_tracks is None
+
 
 # ---------------------------------------------------------------------------
 # reorder_tracks

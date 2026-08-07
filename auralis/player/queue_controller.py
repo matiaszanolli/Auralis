@@ -283,11 +283,25 @@ class QueueController:
         return self.queue.get_queue_info()
 
     def set_shuffle(self, enabled: bool) -> None:
-        """Enable/disable shuffle mode"""
+        """Enable/disable shuffle mode.
+
+        Unlike repeat_enabled (consulted live by next_track()/peek_next()),
+        shuffle order is baked into the queue's track list at shuffle()-call
+        time and never re-derived from the flag — so actually reorder the
+        queue here too, matching what the REST endpoint
+        (POST /api/player/queue/shuffle -> QueueService.shuffle_queue()/
+        unshuffle_queue()) already does by calling QueueManager.shuffle()/
+        unshuffle() directly. A flag-only write left set_shuffle() reporting
+        shuffle_enabled: True while the queue order stayed untouched (#4986).
+        """
         # Route through the locked property setter (#4096) — writing
         # self.queue.shuffle_enabled directly bypassed QueueManager._lock that
-        # the shuffle_enabled reader (used by peek_next/next_track) holds.
+        # the shuffle_enabled reader holds.
         self.shuffle_enabled = enabled
+        if enabled:
+            self.queue.shuffle()
+        else:
+            self.queue.unshuffle()
         info(f"Shuffle {'enabled' if enabled else 'disabled'}")
 
     def set_repeat(self, enabled: bool) -> None:
