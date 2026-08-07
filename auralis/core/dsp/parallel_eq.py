@@ -110,9 +110,13 @@ class ParallelEQUtilities:
         boost_diff = boost_linear - 1.0
 
         # Add boosted band to original (parallel processing).
-        # Final astype() preserves dtype across NumPy versions: in NumPy ≥ 2.0
-        # (NEP-50) Python float scalars are treated as float64, so the multiply
-        # would otherwise promote band back to float64 before the add.
+        # `band` is already audio.dtype (cast above, right after sosfiltfilt).
+        # boost_diff is a Python float, which NEP 50 treats as a "weak" scalar
+        # that never promotes an array's dtype — band * boost_diff and the
+        # subsequent add both stay audio.dtype without this cast. It is kept
+        # as a redundant no-op guard, not because scalar multiply promotes;
+        # the real (and only) float64 source in this method is sosfiltfilt()
+        # above (#2158), already handled by the earlier .astype(audio.dtype).
         return (audio + band * boost_diff).astype(audio.dtype)
 
     @staticmethod

@@ -32,10 +32,12 @@ def normalize(audio: np.ndarray, target_level: float = 1.0) -> np.ndarray:
     """
     peak = np.max(np.abs(audio))
     if peak > 0:
-        # #3687: explicit astype(audio.dtype) so the dtype contract doesn't
-        # depend on NEP-50 behaviour. Under NumPy < 2.0, multiplying float32
-        # by a Python float silently promotes to float64; explicit cast
-        # protects against future NumPy compat shims.
+        # #3687: explicit astype(audio.dtype) so the dtype contract is
+        # asserted explicitly rather than relied upon. Under NEP 50 (NumPy
+        # >= 2.0), a Python float scalar is "weak" and never promotes a
+        # float32 array — `audio * float(...)` already stays float32 (and
+        # did under NumPy < 2.0's value-based casting too). This cast is a
+        # no-op guard, not a fix for a real promotion; kept for explicitness.
         scaled = audio * float(target_level / peak)
         return np.asarray(scaled, dtype=audio.dtype)
     return audio.copy()
