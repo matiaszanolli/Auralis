@@ -55,9 +55,9 @@ from core.seekable_source import SeekableSource
 from core.encoding import WAVEncoder
 from core.encoding.atomic_io import (
     atomic_save_audio,
-    atomic_write_bytes,
     is_wav_complete,
 )
+from encoding.wav_encoder import WAVEncoderError
 from core.file_signature import FileSignatureService  # Phase 5.1: File signature generation
 from core.level_manager import LevelManager
 from core.mastering_target_service import (
@@ -859,16 +859,21 @@ class ChunkedAudioProcessor:
                 total_duration=self.total_duration
             )
 
-            # Encode directly to WAV (Web Audio API compatible)
+            # Encode directly to WAV (Web Audio API compatible). Routed through
+            # the same WAVEncoder.encode_and_save() primitive process_chunk()
+            # uses (#4895) — this applies the isfinite/empty-array guard the
+            # standalone encode_to_wav() lacked, and its own stage+os.replace
+            # atomic write (#4576) replaces the manual encode_to_wav() +
+            # atomic_write_bytes() pair, leaving exactly one atomic-write
+            # implementation (atomic_save_audio) for this pipeline.
             try:
-                from encoding.wav_encoder import WAVEncoderError, encode_to_wav
-
-                wav_bytes = encode_to_wav(extracted_chunk, self.sample_rate)
-
-                # Stage + os.replace so a crash mid-write can never leave a
-                # partial file at the canonical cache path (#4576).
-                atomic_write_bytes(wav_chunk_path, wav_bytes)
-                logger.info(f"Chunk {chunk_index} encoded to WAV: {len(wav_bytes)} bytes")
+                self._wav_encoder.encode_and_save(
+                    audio=extracted_chunk,
+                    sample_rate=self.sample_rate,
+                    chunk_path=wav_chunk_path,
+                    subtype='PCM_16'
+                )
+                logger.info(f"Chunk {chunk_index} encoded to WAV: {wav_chunk_path.name}")
 
             except WAVEncoderError as e:
                 logger.error(f"WAV encoding failed for chunk {chunk_index}: {e}")
