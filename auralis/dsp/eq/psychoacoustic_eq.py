@@ -43,6 +43,20 @@ class EQSettings:
     masking_threshold_db: float = -60.0
     adaptation_speed: float = 0.2
 
+    def __post_init__(self) -> None:
+        # #4985: the Hermitian-mirror step shared by apply_eq_mono,
+        # _apply_eq_mono_vectorized, and _apply_eq_mono_parallel/_sequential
+        # (spectrum[num_bins:] *= gain_curve[1:-1][::-1]) is length-consistent
+        # only for an even fft_size — for odd fft_size the two sides of the
+        # multiply have mismatched lengths and raise a broadcast ValueError.
+        # Fail loud and clear at construction time instead of a confusing
+        # broadcast error deep in the FFT chain.
+        if self.fft_size % 2 != 0:
+            raise ValueError(
+                f"EQSettings.fft_size must be even for Hermitian-symmetric "
+                f"FFT mirroring; got {self.fft_size}."
+            )
+
 
 class PsychoacousticEQ:
     """
