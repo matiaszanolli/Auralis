@@ -18,14 +18,15 @@ from config.globals import build_ws_origins  # noqa: E402
 
 
 def _prod(monkeypatch):
-    # is_dev_mode() reads sys.argv + DEV_MODE fresh on each call.
+    # is_dev_mode() reads sys.argv + AURALIS_DEV_MODE fresh on each call
+    # (#4802 — renamed from the unnamespaced DEV_MODE).
     monkeypatch.setattr(sys, "argv", ["pytest"])
-    monkeypatch.delenv("DEV_MODE", raising=False)
+    monkeypatch.delenv("AURALIS_DEV_MODE", raising=False)
 
 
 def _dev(monkeypatch):
     monkeypatch.setattr(sys, "argv", ["pytest"])
-    monkeypatch.setenv("DEV_MODE", "1")
+    monkeypatch.setenv("AURALIS_DEV_MODE", "1")
 
 
 def test_cors_excludes_dev_ports_in_production(monkeypatch):

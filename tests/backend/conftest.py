@@ -154,7 +154,7 @@ def client():
             # is_dev_mode() is true (#4350) -- and ALLOWED_WS_ORIGINS is
             # frozen once at config.globals import time, so no per-test env
             # var/monkeypatch can fix it up after the fact. Since pytest never
-            # runs with --dev/DEV_MODE, every WebSocket-connecting test using
+            # runs with --dev/AURALIS_DEV_MODE (#4802), every WebSocket-connecting test using
             # this fixture was rejected with "untrusted origin", not hanging
             # as such but failing before any real assertion ran. Port 8765
             # (the backend's own origin) is unconditionally allowlisted

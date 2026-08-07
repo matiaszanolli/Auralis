@@ -23,8 +23,30 @@ logger = logging.getLogger(__name__)
 
 
 def is_dev_mode() -> bool:
-    """Return True when running in development mode (--dev flag or DEV_MODE env var)."""
-    return "--dev" in sys.argv or os.environ.get("DEV_MODE", "").lower() in ("1", "true", "yes")
+    """Return True when running in development mode (--dev flag or AURALIS_DEV_MODE env var).
+
+    #4802: the env var is namespaced (AURALIS_DEV_MODE, not bare DEV_MODE) —
+    Electron launches the backend as a child process inheriting the user's
+    full environment, so a bare DEV_MODE left exported for an unrelated
+    project would silently re-enable Swagger/ReDoc/OpenAPI and widen the
+    CORS/WebSocket origin allowlists in a packaged build. Deliberately no
+    backward-compatible alias for the old bare name: keeping one would
+    reintroduce exactly the collision this rename exists to close.
+    """
+    if "--dev" in sys.argv:
+        return True
+
+    env_dev = os.environ.get("AURALIS_DEV_MODE", "").lower() in ("1", "true", "yes")
+    if env_dev:
+        # Env-var activation is the silent case (#4802) — `--dev` is already
+        # visible in the launching command line, so only warn here.
+        logger.warning(
+            "Dev mode activated via AURALIS_DEV_MODE environment variable — "
+            "Swagger UI, ReDoc, the raw OpenAPI schema, and widened CORS/"
+            "WebSocket origin allowlists are enabled. Unset AURALIS_DEV_MODE "
+            "if this was not intended."
+        )
+    return env_dev
 
 
 def create_app(lifespan: Any = None) -> FastAPI:

@@ -64,9 +64,11 @@ def start_backend(port=8765, dev_mode=False):
     env["PYTHONPATH"] = str(Path(__file__).parent)
 
     # Pass dev mode to backend via environment variable
-    # (since sys.argv won't work reliably through subprocess)
+    # (since sys.argv won't work reliably through subprocess).
+    # Namespaced AURALIS_DEV_MODE (#4802) — must stay in sync with
+    # config/app.py::is_dev_mode(), which reads this same name.
     if dev_mode:
-        env["DEV_MODE"] = "1"
+        env["AURALIS_DEV_MODE"] = "1"
 
     process = subprocess.Popen(
         [sys.executable, "main.py"],

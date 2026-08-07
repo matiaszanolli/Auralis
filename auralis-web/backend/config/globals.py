@@ -48,7 +48,7 @@ def build_ws_origins() -> frozenset[str]:
 
 
 # Frozen at import time: dev/prod mode is fixed for the process lifetime (set by
-# the launcher via --dev / DEV_MODE), so the runtime WS origin check reads this.
+# the launcher via --dev / AURALIS_DEV_MODE, #4802), so the runtime WS origin check reads this.
 ALLOWED_WS_ORIGINS = build_ws_origins()
 
 # Hosts considered loopback — empty-Origin connections are allowed only from
