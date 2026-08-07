@@ -11,6 +11,23 @@ Configuration classes for dynamics processing
 from dataclasses import dataclass
 from enum import Enum
 
+# Bound pairs shared by more than one field below. Promoted to named
+# constants (#5022) after two pairs were independently re-typed as identical
+# bare literals months apart with no cross-reference: CompressorSettings.ratio
+# / DynamicsSettings.gate_ratio, CompressorSettings.lookahead_ms /
+# LimiterSettings.lookahead_ms, and CompressorSettings.threshold_db /
+# DynamicsSettings.gate_threshold_db. Fields whose valid range is not shared
+# with another field keep their own inline bounds.
+THRESHOLD_DB_BOUNDS: tuple[float, float] = (-80.0, 0.0)
+RATIO_BOUNDS: tuple[float, float] = (1.0, 100.0)
+LOOKAHEAD_MS_BOUNDS: tuple[float, float] = (0.0, 50.0)
+
+
+def _clamp(value: float, bounds: tuple[float, float]) -> float:
+    """Clamp ``value`` to the closed interval ``(lo, hi)``."""
+    lo, hi = bounds
+    return max(lo, min(hi, value))
+
 
 class DynamicsMode(Enum):
     """Dynamics processing modes"""
@@ -34,12 +51,12 @@ class CompressorSettings:
     lookahead_ms: float = 5.0
 
     def __post_init__(self) -> None:
-        self.threshold_db = max(-80.0, min(0.0, self.threshold_db))
-        self.ratio = max(1.0, min(100.0, self.ratio))
-        self.attack_ms = max(0.01, min(500.0, self.attack_ms))
-        self.release_ms = max(1.0, min(5000.0, self.release_ms))
-        self.knee_db = max(0.0, min(24.0, self.knee_db))
-        self.lookahead_ms = max(0.0, min(50.0, self.lookahead_ms))
+        self.threshold_db = _clamp(self.threshold_db, THRESHOLD_DB_BOUNDS)
+        self.ratio = _clamp(self.ratio, RATIO_BOUNDS)
+        self.attack_ms = _clamp(self.attack_ms, (0.01, 500.0))
+        self.release_ms = _clamp(self.release_ms, (1.0, 5000.0))
+        self.knee_db = _clamp(self.knee_db, (0.0, 24.0))
+        self.lookahead_ms = _clamp(self.lookahead_ms, LOOKAHEAD_MS_BOUNDS)
 
 
 @dataclass
@@ -52,9 +69,9 @@ class LimiterSettings:
     oversampling: int = 4
 
     def __post_init__(self) -> None:
-        self.threshold_db = max(-40.0, min(0.0, self.threshold_db))
-        self.release_ms = max(1.0, min(2000.0, self.release_ms))
-        self.lookahead_ms = max(0.0, min(50.0, self.lookahead_ms))
+        self.threshold_db = _clamp(self.threshold_db, (-40.0, 0.0))
+        self.release_ms = _clamp(self.release_ms, (1.0, 2000.0))
+        self.lookahead_ms = _clamp(self.lookahead_ms, LOOKAHEAD_MS_BOUNDS)
         # Oversampling must be a power of 2 in [1, 8]
         valid_oversampling = {1, 2, 4, 8}
         if self.oversampling not in valid_oversampling:
@@ -84,11 +101,11 @@ class DynamicsSettings:
     target_lra: float = 7.0  # Loudness Range
 
     def __post_init__(self) -> None:
-        self.gate_threshold_db = max(-80.0, min(0.0, self.gate_threshold_db))
-        self.gate_ratio = max(1.0, min(100.0, self.gate_ratio))
-        self.adaptation_speed = max(0.0, min(1.0, self.adaptation_speed))
-        self.target_lufs = max(-70.0, min(0.0, self.target_lufs))
-        self.target_lra = max(0.0, min(25.0, self.target_lra))
+        self.gate_threshold_db = _clamp(self.gate_threshold_db, THRESHOLD_DB_BOUNDS)
+        self.gate_ratio = _clamp(self.gate_ratio, RATIO_BOUNDS)
+        self.adaptation_speed = _clamp(self.adaptation_speed, (0.0, 1.0))
+        self.target_lufs = _clamp(self.target_lufs, (-70.0, 0.0))
+        self.target_lra = _clamp(self.target_lra, (0.0, 25.0))
 
         if self.compressor is None:
             self.compressor = CompressorSettings()
