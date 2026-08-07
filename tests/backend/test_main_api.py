@@ -1380,6 +1380,20 @@ class TestVersionEndpoint:
         assert "api_version" in data
         assert "db_schema_version" in data
 
+    def test_get_version_import_error_fallback_uses_live_db_schema_version(self, client):
+        """#5072 (regression of #4053): the degraded-build fallback (hit when
+        `auralis.version` fails to import) must source db_schema_version from
+        auralis.__version__ rather than a hardcoded literal, so it can't drift
+        from the live schema version again."""
+        from auralis.__version__ import __db_schema_version__
+
+        with patch.dict(sys.modules, {"auralis.version": None}):
+            response = client.get("/api/version")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["db_schema_version"] == __db_schema_version__
+
 
 class TestPlaylistEndpoints:
     """Test playlist management endpoints"""

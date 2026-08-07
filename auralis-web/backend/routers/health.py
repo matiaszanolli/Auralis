@@ -46,8 +46,11 @@ def create_health_router(
             logger.warning("auralis.version not available, using fallback")
             # Derived fallback for degraded builds that cannot import the core.
             # sync_version.py keeps this aligned with auralis/version.py.
-            # db_schema_version is independent and mirrors
-            # auralis/__version__.__db_schema_version__ (live = 16).
+            # db_schema_version is sourced directly from auralis/__version__.py
+            # (which has no heavy transitive deps) rather than hardcoded, so this
+            # can never drift from the live value again (#4053, #5072).
+            from auralis.__version__ import __db_schema_version__
+
             return VersionInfoResponse(
                 version="1.5.1",
                 major=1,
@@ -58,7 +61,7 @@ def create_health_router(
                 build_date="2026-07-24",
                 git_commit="",
                 api_version="v1",
-                db_schema_version=16,
+                db_schema_version=__db_schema_version__,
                 display="Auralis v1.5.1",
             )
 
