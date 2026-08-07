@@ -134,6 +134,47 @@ def test_all_routers_register_when_nothing_is_broken():
     assert any(p == "/api/albums" for p in paths)
 
 
+def test_processing_parameters_is_gated_with_its_processing_api_siblings():
+    """#5073: GET /api/processing/parameters moved from the always-registered
+    enhancement router onto processing_api's HAS_PROCESSING-gated router, so
+    it now shares fate with the other 8 /api/processing/* routes instead of
+    being present when they're absent."""
+    from fastapi import FastAPI
+
+    from config.routes import setup_routers
+
+    deps = _base_deps()
+    deps['HAS_PROCESSING'] = False
+
+    app = FastAPI()
+    setup_routers(app, deps)
+
+    pairs = _path_method_pairs(app)
+    # None of the /api/processing/* routes should be registered, including
+    # the one that used to be unconditional.
+    assert not any(p.startswith("/api/processing") for p, _m in pairs)
+
+
+def test_processing_parameters_is_registered_when_processing_api_is_available():
+    """Sanity check for the test above: with HAS_PROCESSING=True, /api/processing/parameters
+    is actually present (guards against the gating test passing vacuously)."""
+    from fastapi import FastAPI
+
+    from config.routes import setup_routers
+
+    deps = _base_deps()
+    deps['HAS_PROCESSING'] = True
+
+    app = FastAPI()
+    setup_routers(app, deps)
+
+    pairs = _path_method_pairs(app)
+    assert ('/api/processing/parameters', 'GET') in pairs
+    # Confirm it's on processing_api's router, not still duplicated onto
+    # enhancement — exactly one GET registration for this path.
+    assert sum(1 for p, m in pairs if p == '/api/processing/parameters' and m == 'GET') == 1
+
+
 # ============================================================================
 # #4717: the composed-app surface for the #4270 three-router similarity split.
 #

@@ -503,107 +503,12 @@ def create_enhancement_router(
             logger.error(f"Failed to generate mastering recommendation for track {track_id}: {e}", exc_info=True)
             raise HTTPException(status_code=500, detail="Analysis failed")
 
-    @router.get("/api/processing/parameters")
-    async def get_processing_parameters() -> dict[str, Any]:
-        """
-        Get current processing parameters from the continuous space system.
-        This shows what the auto-mastering engine is doing in real-time.
-
-        Reads from the global content profile cache populated by ChunkedAudioProcessor
-        during streaming playback.
-
-        Returns:
-            dict: Processing parameters including coordinates, targets, and adjustments
-        """
-        try:
-            from core.chunked_processor import get_last_content_profile
-
-            # Get current preset
-            preset = get_enhancement_settings().get("preset", "adaptive")
-
-            # Try to get profile from ChunkedAudioProcessor global cache
-            profile = get_last_content_profile(preset)
-
-            if profile is None:
-                # No processing data yet - return default values.
-                # #3779: include `is_default: True` so clients can
-                # distinguish "no data yet" from "real measurements
-                # that coincidentally landed at the default values".
-                logger.debug(f"No processing profile found for preset '{preset}' - returning defaults")
-                return {
-                    "is_default": True,
-                    "spectral_balance": 0.5,
-                    "dynamic_range": 0.5,
-                    "energy_level": 0.5,
-                    "target_lufs": -14.0,
-                    "peak_target_db": -1.0,
-                    "bass_boost": 0.0,
-                    "air_boost": 0.0,
-                    "compression_amount": 0.0,
-                    "expansion_amount": 0.0,
-                    "stereo_width": 0.75
-                }
-
-            # Extract coordinates (ProcessingCoordinates dataclass or dict)
-            coords = profile.get('coordinates')
-            params = profile.get('parameters')
-
-            if coords is None or params is None:
-                # Legacy mode or no continuous space data.
-                # #3779: same is_default marker as the no-profile branch.
-                logger.debug(f"Profile for preset '{preset}' missing coordinates or parameters")
-                return {
-                    "is_default": True,
-                    "spectral_balance": 0.5,
-                    "dynamic_range": 0.5,
-                    "energy_level": 0.5,
-                    "target_lufs": -14.0,
-                    "peak_target_db": -1.0,
-                    "bass_boost": 0.0,
-                    "air_boost": 0.0,
-                    "compression_amount": 0.0,
-                    "expansion_amount": 0.0,
-                    "stereo_width": 0.75
-                }
-
-            # Extract values (handle both dataclass and dict formats)
-            def get_attr(obj: Any, attr: str, default: Any = 0.0) -> Any:
-                """Get attribute from dataclass or dict"""
-                if isinstance(obj, dict):
-                    return obj.get(attr, default)
-                return getattr(obj, attr, default)
-
-            # Convert ProcessingCoordinates and ProcessingParameters to dict
-            # #3779: `is_default: False` confirms these are measured values
-            # from a live ChunkedAudioProcessor profile, not the defaults.
-            result = {
-                "is_default": False,
-                "spectral_balance": get_attr(coords, 'spectral_balance', 0.5),
-                "dynamic_range": get_attr(coords, 'dynamic_range', 0.5),
-                "energy_level": get_attr(coords, 'energy_level', 0.5),
-                "target_lufs": get_attr(params, 'target_lufs', -14.0),
-                "peak_target_db": get_attr(params, 'peak_target_db', -1.0),
-                "bass_boost": get_attr(params, 'eq_curve', {}).get('low_shelf_gain', 0.0),
-                "air_boost": get_attr(params, 'eq_curve', {}).get('high_shelf_gain', 0.0),
-                "compression_amount": get_attr(params, 'compression_params', {}).get('amount', 0.0),
-                "expansion_amount": get_attr(params, 'expansion_params', {}).get('amount', 0.0),
-                "stereo_width": get_attr(params, 'stereo_width_target', 0.75)
-            }
-
-            logger.debug(f"📊 Returning processing parameters for preset '{preset}': {result}")
-            return result
-
-        except Exception:
-            # Don't silently mask the failure as 'all-systems-nominal' —
-            # surface it as 500 so operators see a real error count
-            # increment and clients can decide whether to retry (#3562 /
-            # BE-NEW-104). The legitimate empty-profile case still falls
-            # through the normal 200-OK path above.
-            logger.exception("Failed to get processing parameters")
-            raise HTTPException(
-                status_code=500,
-                detail="Failed to get processing parameters",
-            )
+    # Moved to routers/processing_api.py (#5073): GET /api/processing/parameters
+    # was owned by this router but registered unconditionally, unlike its 8
+    # HAS_PROCESSING-gated siblings under the same /api/processing prefix. It
+    # now lives on create_processing_router() so ownership, gating, and the
+    # OpenAPI "audio-processing" tag are consistent with the rest of that
+    # namespace.
 
     # Removed: POST /api/player/enhancement/cache/clear (fixes #3835 / BE-PE-2).
     # It operated on `processing_cache`, a dict declared in main.py/globals.py

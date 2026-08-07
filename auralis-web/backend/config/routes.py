@@ -79,7 +79,8 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
         try:
             from routers.processing_api import create_processing_router
             processing_router = create_processing_router(
-                get_component('processing_engine')
+                get_component('processing_engine'),
+                get_enhancement_settings=lambda: enhancement_settings,
             )
             app.include_router(processing_router)
             logger.debug("✅ Processing API router included")
