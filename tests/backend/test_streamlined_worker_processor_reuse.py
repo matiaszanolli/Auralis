@@ -151,9 +151,14 @@ class TestProcessorReuse:
 
             mock_path.return_value.exists.return_value = True
 
-            MockProcessor.side_effect = lambda **kw: Mock(
-                process_chunk_safe=AsyncMock(return_value=("/tmp/chunk.wav", None))
-            )
+            created = []
+
+            def track_creation(**kw):
+                inst = Mock(process_chunk_safe=AsyncMock(return_value=("/tmp/chunk.wav", None)))
+                created.append(inst)
+                return inst
+
+            MockProcessor.side_effect = track_creation
 
             track = Mock()
             track.filepath = "/tmp/test.wav"
@@ -164,6 +169,7 @@ class TestProcessorReuse:
                 preset="balanced", intensity=0.5, tier="tier2"
             )
             assert (1, "balanced", 0.5) in worker._processor_cache
+            old_processor = worker._processor_cache[(1, "balanced", 0.5)]
 
             # Simulate track change via _build_tier2_cache state reset
             worker._building_track_id = 1  # was building track 1
@@ -180,6 +186,49 @@ class TestProcessorReuse:
 
             # Old track's processor should be evicted
             assert (1, "balanced", 0.5) not in worker._processor_cache
+            # #5062: dropping it must close it too — this is the second
+            # removal path from _processor_cache (alongside LRU eviction in
+            # _remember_processor, #4737), and it leaked a temp WAV per
+            # M4A/AAC/WMA track change before the shared close-and-drop
+            # helper covered it.
+            old_processor.close.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_track_change_prune_tolerates_close_failure(self, worker):
+        """A single bad close() must not stop the prune from completing
+        (#5062) — matches the eviction path's existing tolerance (#4737)."""
+        with patch("core.streamlined_worker.Path") as mock_path, \
+             patch("core.chunked_processor.ChunkedAudioProcessor") as MockProcessor:
+
+            mock_path.return_value.exists.return_value = True
+
+            exploding = Mock(process_chunk_safe=AsyncMock(return_value=("/tmp/chunk.wav", None)))
+            exploding.close.side_effect = OSError("temp dir vanished")
+            MockProcessor.return_value = exploding
+
+            track = Mock()
+            track.filepath = "/tmp/test.wav"
+
+            await worker._process_chunk(
+                track, track_id=1, chunk_idx=0,
+                preset="balanced", intensity=0.5, tier="tier2"
+            )
+            assert (1, "balanced", 0.5) in worker._processor_cache
+
+            worker._building_track_id = 1
+            status = Mock()
+            status.total_chunks = 0
+            status.cached_chunks_original = set()
+            status.cached_chunks_processed = set()
+            worker.cache_manager.get_track_cache_status = Mock(return_value=status)
+            worker.cache_manager.is_track_fully_cached = Mock(return_value=False)
+
+            # Must not raise despite the failing close().
+            await worker._build_tier2_cache(track, track_id=2, current_chunk=0,
+                                            preset="balanced", intensity=0.5)
+
+            assert (1, "balanced", 0.5) not in worker._processor_cache
+            exploding.close.assert_called_once()
 
 
 class TestProcessorConstructionOffload:

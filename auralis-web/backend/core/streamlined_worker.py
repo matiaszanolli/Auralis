@@ -125,19 +125,32 @@ class StreamlinedCacheWorker:
 
         while len(self._processor_cache) > _PROCESSOR_CACHE_MAX:
             evicted_key, evicted = self._processor_cache.popitem(last=False)
-            # Release the evicted processor's temp WAV, if it made one (#4737).
-            # Never allowed to break eviction: a cleanup failure here would
-            # otherwise leave the cache over its bound.
-            try:
-                evicted.close()
-            except Exception as exc:
-                logger.warning(f"Failed to close evicted processor {evicted_key}: {exc}")
+            self._close_dropped_processor(evicted_key, evicted)
             # Drop the matching build lock in lockstep (#4369 inherits the same
             # unbounded growth). A lock held by an in-flight build keeps working
             # — the holder retains its own reference — and a later miss for the
             # same key simply creates a fresh one.
             self._processor_build_locks.pop(evicted_key, None)
             logger.debug(f"LRU-evicted cached processor for {evicted_key}")
+
+    def _close_dropped_processor(
+        self,
+        cache_key: tuple[int, str | None, float],
+        processor: Any,
+    ) -> None:
+        """Release a dropped processor's temp WAV, if it made one (#4737).
+
+        The single close-on-drop point for every path that removes an entry
+        from ``_processor_cache`` — LRU eviction here and the track-change
+        prune in ``_build_tier2_cache`` (#5062) — so a future third removal
+        path can't reintroduce the leak by forgetting to close. Never allowed
+        to raise: a cleanup failure here would otherwise break the caller's
+        eviction/prune loop.
+        """
+        try:
+            processor.close()
+        except Exception as exc:
+            logger.warning(f"Failed to close dropped processor {cache_key}: {exc}")
 
     async def start(self) -> None:
         """Start the background worker."""
@@ -360,12 +373,20 @@ class StreamlinedCacheWorker:
         if self._building_track_id != track_id:
             self._building_track_id = track_id
             self._building_chunk_idx = 0
-            # Evict processors for the old track so they can be GC'd. This is an
-            # *early* release on top of the LRU cap (#4521), not the bound itself
-            # — it is unreachable once the track is fully cached.
-            self._processor_cache = OrderedDict(
-                (k, v) for k, v in self._processor_cache.items() if k[0] == track_id
-            )
+            # Evict processors for the old track so they can be GC'd, closing
+            # each to release its temp WAV if it made one (#5062) — via the
+            # same _close_dropped_processor helper LRU eviction uses, so this
+            # second removal path can't omit the cleanup #4737 added to the
+            # first. This is an *early* release on top of the LRU cap (#4521),
+            # not the bound itself — it is unreachable once the track is fully
+            # cached.
+            kept_cache: OrderedDict[tuple[int, str | None, float], Any] = OrderedDict()
+            for k, v in self._processor_cache.items():
+                if k[0] == track_id:
+                    kept_cache[k] = v
+                else:
+                    self._close_dropped_processor(k, v)
+            self._processor_cache = kept_cache
             # Prune build locks for evicted keys too (#4369) so they don't
             # accumulate. Keys with an in-flight build are kept (#4521): dropping
             # a lock someone is still queued on lets a later caller mint a second
