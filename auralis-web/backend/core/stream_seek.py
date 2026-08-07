@@ -307,6 +307,44 @@ async def stream_enhanced_audio_from_position(
                 stopped_early = True
                 break
 
+            except TimeoutError:
+                # #4999/#5074: a chunk DSP timeout (stream_chunk_ops.CHUNK_PROCESS_TIMEOUT)
+                # means asyncio.wait_for gave up on the wrapper future, but the
+                # underlying OS thread may still be running inside
+                # processor.process_chunk_safe() — holding `processor`'s
+                # threading.RLock (_processor_lock) for however long the hung
+                # DSP call takes, unbounded. Unlike a plain processing error
+                # (#3190's skip-and-continue), the #3190 recovery path is unsafe
+                # here: the NEXT chunk's process_chunk_safe() call would block
+                # trying to acquire that same still-held lock, itself time out
+                # 30s later, and so on — cascading every remaining chunk into a
+                # serial pileup of timeouts instead of one clean failure.
+                # `processor` (this stream's ChunkedAudioProcessor, analogous to
+                # #4727's pooled HybridProcessor) must never be touched again —
+                # end the stream rather than continuing to reuse it. Lifted from
+                # stream_enhanced.py's #4999 fix, which never reached this
+                # structurally identical seek-path loop (#5074).
+                await controller._drain_cancelled_task(lookahead_task)
+                lookahead_task = None
+                logger.error(
+                    f"Chunk {chunk_idx} DSP timed out for track {track_id}; "
+                    f"ending seek stream rather than reusing a processor an "
+                    f"orphaned thread may still be running inside"
+                )
+                recovery_position = (
+                    effective_position
+                    if chunk_idx == start_chunk_idx
+                    else emitted_chunk_start(chunk_idx)
+                )
+                await controller._send_error(
+                    websocket,
+                    track_id,
+                    f"Audio processing timed out on chunk {chunk_idx}; stream stopped",
+                    recovery_position=recovery_position,
+                )
+                stopped_early = True
+                break
+
             except Exception as chunk_error:
                 # Drain the cancelled look-ahead (#3493) so the next
                 # iteration doesn't trip on its CancelledError.
