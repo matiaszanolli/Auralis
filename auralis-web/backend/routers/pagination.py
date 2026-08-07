@@ -1,5 +1,5 @@
 """
-Shared pagination utilities and response models for routers.
+Shared pagination utilities for routers.
 
 This module consolidates pagination logic that appears across multiple routers,
 reducing boilerplate and ensuring consistency.
@@ -10,12 +10,6 @@ reducing boilerplate and ensuring consistency.
 
 from __future__ import annotations
 
-from typing import Generic, TypeVar
-
-from pydantic import BaseModel, Field
-
-T = TypeVar('T')
-
 
 def compute_has_more(offset: int, item_count: int, total: int) -> bool:
     """
@@ -24,94 +18,19 @@ def compute_has_more(offset: int, item_count: int, total: int) -> bool:
     The single source of truth for this formula (#4902) — every paginated
     router previously recomputed ``(offset + len(items)) < total`` inline
     (5 call sites across albums.py, artists.py, tracks.py x2, playlists.py),
-    with no shared code to keep them in sync. ``PaginatedResponse.create()``
-    below uses this too, so there is exactly one implementation regardless of
-    whether a route can adopt the full response model or only needs the
-    boolean (most of these routers can't: their response shape is keyed by
-    domain name — "albums"/"artists"/"tracks"/"playlists" — not the generic
-    "items" ``PaginatedResponse`` uses, so switching the whole response would
-    be a breaking frontend contract change, not a refactor).
+    with no shared code to keep them in sync. All 5 now call this one
+    function directly; each router's response is keyed by its own domain
+    name ("albums"/"artists"/"tracks"/"playlists"), not a generic "items"
+    field, so a shared generic response *model* (deleted here — #5054,
+    residual scope of #4902 — see ``artists.py::ArtistsListResponse`` for
+    the per-router-model pattern the other 4 endpoints should eventually
+    adopt) would have been a breaking frontend contract change, not a
+    refactor.
 
     Using ``item_count`` (the actual page length) rather than ``limit``
     handles partial last pages correctly.
     """
     return (offset + item_count) < total
-
-
-class PaginatedResponse(BaseModel, Generic[T]):
-    """
-    Generic paginated response model with consistent structure.
-
-    This eliminates the duplication of pagination fields and has_more calculation
-    that appears in 6+ router response models.
-
-    Type Parameters:
-        T: The type of items in the paginated list
-
-    Attributes:
-        items: List of items for the current page
-        total: Total number of items across all pages
-        offset: Number of items skipped (pagination offset)
-        limit: Maximum number of items per page
-        has_more: Whether more items are available beyond current page
-
-    Example:
-        ```python
-        class ArtistResponse(BaseModel):
-            id: int
-            name: str
-
-        @router.get("/api/artists")
-        async def get_artists(limit: int = 50, offset: int = 0):
-            artists, total = repos.artists.get_all(limit=limit, offset=offset)
-            return PaginatedResponse.create(
-                items=artists,
-                total=total,
-                limit=limit,
-                offset=offset
-            )
-        ```
-    """
-    items: list[T] = Field(..., description="List of items for current page")
-    total: int = Field(..., description="Total number of items across all pages", ge=0)
-    offset: int = Field(..., description="Number of items skipped", ge=0)
-    limit: int = Field(..., description="Maximum items per page", ge=1)
-    has_more: bool = Field(..., description="Whether more items are available")
-
-    @classmethod
-    def create(
-        cls,
-        items: list[T],
-        total: int,
-        limit: int,
-        offset: int
-    ) -> PaginatedResponse[T]:
-        """
-        Create a paginated response with automatic has_more calculation.
-
-        This factory method ensures consistent has_more logic across all endpoints.
-
-        Args:
-            items: List of items for the current page
-            total: Total count of items across all pages
-            limit: Maximum items per page
-            offset: Number of items skipped
-
-        Returns:
-            PaginatedResponse instance with has_more calculated
-
-        Note:
-            has_more is calculated via compute_has_more() — see that function
-            for why routers that can't adopt this response model still share
-            the same formula.
-        """
-        return cls(
-            items=items,
-            total=total,
-            offset=offset,
-            limit=limit,
-            has_more=compute_has_more(offset, len(items), total)
-        )
 
 
 class PaginationParams:

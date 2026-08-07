@@ -1,8 +1,10 @@
 """
 Tests for shared pagination utilities.
 
-Covers PaginatedResponse (factory method, has_more logic, field constraints)
-and PaginationParams constants.
+Covers compute_has_more() and PaginationParams constants. PaginatedResponse
+(the generic response model this file used to also cover) was deleted in
+#5054 — zero routers ever imported it (the residual, never-adopted half of
+#4902); see routers/pagination.py::compute_has_more's docstring for why.
 """
 
 import sys
@@ -22,17 +24,16 @@ if 'routers' not in sys.modules:
     _stub.__package__ = 'routers'
     sys.modules['routers'] = _stub
 
-from routers.pagination import PaginatedResponse, PaginationParams, compute_has_more
+from routers.pagination import PaginationParams, compute_has_more
 
 
 # ---------------------------------------------------------------------------
 # compute_has_more — the shared formula (#4902)
 #
 # Previously duplicated inline at 5 call sites (albums.py, artists.py,
-# tracks.py x2, playlists.py); routers/pagination.py::PaginatedResponse was
-# never imported by any of them despite its own docstring claiming it
-# eliminated exactly this duplication. All 5 routers, plus
-# PaginatedResponse.create() itself, now call this one function.
+# tracks.py x2, playlists.py); all 5 now call this one function directly.
+# The generic PaginatedResponse model this file used to also cover was
+# deleted (#5054) — zero routers ever imported it.
 # ---------------------------------------------------------------------------
 
 class TestComputeHasMore:
@@ -64,100 +65,8 @@ class TestComputeHasMore:
             (0, 0, 0, False),
         ],
     )
-    def test_matches_paginated_response_create(self, offset, item_count, total, expected):
-        """compute_has_more() and PaginatedResponse.create() must agree —
-        the latter delegates to the former (#4902), so this is a regression
-        guard against them drifting apart again."""
-        items = list(range(item_count))
-        resp = PaginatedResponse.create(items=items, total=total, limit=50, offset=offset)
+    def test_has_more_matrix(self, offset, item_count, total, expected):
         assert compute_has_more(offset, item_count, total) == expected
-        assert resp.has_more == expected
-
-
-# ---------------------------------------------------------------------------
-# PaginatedResponse.create — has_more logic
-# ---------------------------------------------------------------------------
-
-class TestPaginatedResponseCreate:
-    def test_has_more_true_when_more_items_remain(self):
-        resp = PaginatedResponse.create(items=list(range(10)), total=25, limit=10, offset=0)
-        assert resp.has_more is True
-
-    def test_has_more_false_on_last_page(self):
-        # offset=15, limit=10 → offset+limit=25 == total → no more
-        resp = PaginatedResponse.create(items=list(range(10)), total=25, limit=10, offset=15)
-        assert resp.has_more is False
-
-    def test_has_more_false_when_past_total(self):
-        resp = PaginatedResponse.create(items=[], total=5, limit=10, offset=10)
-        assert resp.has_more is False
-
-    def test_has_more_boundary_one_before_end(self):
-        # offset=14, limit=10 → 24 < 25 → True
-        resp = PaginatedResponse.create(items=list(range(10)), total=25, limit=10, offset=14)
-        assert resp.has_more is True
-
-    def test_has_more_false_empty_collection(self):
-        resp = PaginatedResponse.create(items=[], total=0, limit=50, offset=0)
-        assert resp.has_more is False
-
-    def test_fields_round_trip(self):
-        items = [{"id": 1}, {"id": 2}]
-        resp = PaginatedResponse.create(items=items, total=100, limit=2, offset=10)
-        assert resp.items == items
-        assert resp.total == 100
-        assert resp.limit == 2
-        assert resp.offset == 10
-
-    def test_single_item_total(self):
-        resp = PaginatedResponse.create(items=["a"], total=1, limit=50, offset=0)
-        assert resp.has_more is False
-        assert resp.total == 1
-
-    def test_first_page_of_many(self):
-        resp = PaginatedResponse.create(items=list(range(50)), total=500, limit=50, offset=0)
-        assert resp.has_more is True
-
-    def test_exact_full_page_no_remainder(self):
-        # 200 items, limit=50, offset=150 → offset+limit=200 == total → no more
-        resp = PaginatedResponse.create(items=list(range(50)), total=200, limit=50, offset=150)
-        assert resp.has_more is False
-
-    def test_items_can_be_arbitrary_types(self):
-        resp = PaginatedResponse.create(items=["x", "y"], total=2, limit=10, offset=0)
-        assert resp.items == ["x", "y"]
-
-
-# ---------------------------------------------------------------------------
-# PaginatedResponse field validation (Pydantic ge= constraints)
-# ---------------------------------------------------------------------------
-
-class TestPaginatedResponseValidation:
-    def test_total_cannot_be_negative(self):
-        from pydantic import ValidationError
-        with pytest.raises(ValidationError):
-            PaginatedResponse(items=[], total=-1, offset=0, limit=10, has_more=False)
-
-    def test_offset_cannot_be_negative(self):
-        from pydantic import ValidationError
-        with pytest.raises(ValidationError):
-            PaginatedResponse(items=[], total=0, offset=-1, limit=10, has_more=False)
-
-    def test_limit_cannot_be_zero(self):
-        from pydantic import ValidationError
-        with pytest.raises(ValidationError):
-            PaginatedResponse(items=[], total=0, offset=0, limit=0, has_more=False)
-
-    def test_limit_cannot_be_negative(self):
-        from pydantic import ValidationError
-        with pytest.raises(ValidationError):
-            PaginatedResponse(items=[], total=0, offset=0, limit=-5, has_more=False)
-
-    def test_valid_minimum_values_accepted(self):
-        resp = PaginatedResponse(items=[], total=0, offset=0, limit=1, has_more=False)
-        assert resp.limit == 1
-        assert resp.offset == 0
-        assert resp.total == 0
 
 
 # ---------------------------------------------------------------------------
