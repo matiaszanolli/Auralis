@@ -360,11 +360,18 @@ async def handle_seek(
         "data": {"track_id": track_id, "position": position},
     })
 
-    # Same per-connection-first resolution as preset/intensity above (#4742).
+    # #5075 (regression of #4742): unlike preset/intensity above, `enabled`
+    # must always come from the LIVE enhancement_settings dict, not this
+    # connection's stream_settings snapshot. The enhanced loop selected below
+    # re-checks the live global on every chunk (the #2866 guard in
+    # stream_seek.py) — resolving a stale `enabled=True` snapshot here while
+    # the live global has since been toggled False starts an enhanced
+    # stream that breaks on chunk 0 and delivers silent zero-length audio.
+    # preset/intensity don't have this problem: nothing re-checks them
+    # mid-stream, so the per-connection snapshot from #4742 stays correct
+    # and is left unchanged for those two fields.
     enhancement_enabled = True
-    if stream_settings is not None and "enabled" in stream_settings:
-        enhancement_enabled = stream_settings["enabled"]
-    elif deps.get_enhancement_settings is not None:
+    if deps.get_enhancement_settings is not None:
         enhancement_enabled = deps.get_enhancement_settings().get("enabled", True)
 
     # Reset pause/flow-control events AND register the new seek task

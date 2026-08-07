@@ -173,3 +173,80 @@ async def test_seek_falls_back_to_global_when_no_prior_play_enhanced_on_this_con
     assert len(seek_calls) == 1
     assert seek_calls[0]["preset"] == "bright"
     assert seek_calls[0]["intensity"] == 0.9
+
+
+async def test_seek_after_disabling_mastering_routes_with_enabled_false_not_a_stale_snapshot():
+    """#5075 (regression of #4742): `enabled` must always be resolved from the
+    LIVE enhancement_settings dict, unlike preset/intensity which correctly
+    prefer this connection's #4742 snapshot. play_enhanced records
+    enabled=True into the snapshot; if the live global is toggled off
+    afterward, a subsequent seek must NOT route with the stale
+    enabled=True — the enhanced loop it would select re-checks the live
+    global on every chunk and breaks on chunk 0, delivering silent
+    zero-length audio.
+    """
+    global_settings = {"enabled": True, "preset": "adaptive", "intensity": 1.0}
+    state = _state()
+
+    seek_calls: list[dict] = []
+
+    async def stream_from_position(*_args, **kwargs):
+        seek_calls.append(kwargs)
+
+    deps = _deps(global_settings, stream_from_position=stream_from_position)
+    websocket = _ws()
+
+    # play_enhanced records enabled=True into this connection's snapshot.
+    await handle_play_enhanced(
+        websocket,
+        {"type": "play_enhanced", "data": {"track_id": 1, "preset": "adaptive", "intensity": 1.0}},
+        state,
+        deps,
+    )
+
+    # Mastering toggled off — mutates the shared LIVE global in place, the
+    # same way POST /api/player/enhancement/toggle does.
+    global_settings["enabled"] = False
+
+    # Seek must route with the live enabled=False, not the stale snapshot.
+    await _seek_and_await(
+        websocket,
+        {"type": "seek", "data": {"track_id": 1, "position": 20.0}},
+        state,
+        deps,
+    )
+
+    assert len(seek_calls) == 1
+    assert seek_calls[0]["enhancement_enabled"] is False, (
+        "handle_seek routed on the stale per-connection 'enabled' snapshot "
+        "instead of the live enhancement_settings global"
+    )
+    # preset/intensity (the actual subject of #4742) must remain unaffected
+    # by this fix — still resolved snapshot-first.
+    assert seek_calls[0]["preset"] == "adaptive"
+    assert seek_calls[0]["intensity"] == 1.0
+
+
+async def test_seek_before_any_play_enhanced_still_reads_enabled_from_the_live_global():
+    """Sibling of test_seek_falls_back_to_global_when_no_prior_play_enhanced_on_this_connection,
+    covering the `enabled` field specifically after #5075's fix."""
+    global_settings = {"enabled": False, "preset": "bright", "intensity": 0.9}
+    state = _state()
+
+    seek_calls: list[dict] = []
+
+    async def stream_from_position(*_args, **kwargs):
+        seek_calls.append(kwargs)
+
+    deps = _deps(global_settings, stream_from_position=stream_from_position)
+    websocket = _ws()
+
+    await _seek_and_await(
+        websocket,
+        {"type": "seek", "data": {"track_id": 9, "position": 3.0}},
+        state,
+        deps,
+    )
+
+    assert len(seek_calls) == 1
+    assert seek_calls[0]["enhancement_enabled"] is False
