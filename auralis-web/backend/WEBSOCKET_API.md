@@ -1,6 +1,6 @@
 # WebSocket API Documentation
 
-**Last Updated**: October 24, 2025
+**Last Updated**: July 26, 2026
 **Status**: Phase 0.2 Complete - `playback_started` and `playback_paused` messages added
 
 ## Overview
@@ -418,8 +418,8 @@ Sent once at the beginning of every stream (including seeks/resumes).
     "intensity": number,       // 0.0 – 1.0
     "sample_rate": number,     // e.g. 44100
     "channels": number,        // 1 (mono) or 2 (stereo)
-    "total_chunks": number,    // Total 30-second chunks in the stream
-    "chunk_duration": number,  // Seconds per chunk (typically 30)
+    "total_chunks": number,    // Total 15-second chunks in the stream (10s new-content interval, 5s crossfade overlap)
+    "chunk_duration": number,  // Seconds per chunk (15.0 — see backend/core/chunk_boundaries.py CHUNK_DURATION, the source of truth)
     "total_duration": number,  // Track duration in seconds
     "stream_type"?: "enhanced" | "normal",
     // Seek/resume fields — only present when is_seek is true:
@@ -449,7 +449,7 @@ Sent as a **text JSON frame** immediately before each binary PCM frame. The clie
   "data": {
     "seq": number,              // Monotonic per-stream counter (0-based). Increments by 1 per frame.
                                 // Clients can detect dropped/reordered frames when seq jumps.
-    "chunk_index": number,      // Which 30-second chunk this frame belongs to (0-based)
+    "chunk_index": number,      // Which 15-second chunk this frame belongs to (0-based)
     "chunk_count": number,      // Total chunks in stream (same as audio_stream_start.total_chunks)
     "frame_index": number,      // Frame index within the current chunk (0-based)
     "frame_count": number,      // Total frames in the current chunk
