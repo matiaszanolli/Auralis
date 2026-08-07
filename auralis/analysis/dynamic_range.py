@@ -143,7 +143,7 @@ class DynamicRangeAnalyzer:
 
         dr_value = peak_95th - rms_average
 
-        return max(0.0, dr_value)  # type: ignore[return-value]  # DR cannot be negative
+        return max(0.0, dr_value)  # DR cannot be negative
 
     def _calculate_plr(self, audio: np.ndarray) -> float:
         """Calculate Peak-to-Loudness Ratio"""
