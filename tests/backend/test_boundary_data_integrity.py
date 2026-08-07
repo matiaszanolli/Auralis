@@ -34,6 +34,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from sqlalchemy.exc import DataError, IntegrityError
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
@@ -131,7 +132,11 @@ def test_unique_filepath_constraint(integrity_library):
         if duplicate_track is not None:
             # Some implementations might return existing track
             pass
-    except Exception:
+    # narrowed from bare Exception, #5023: LibraryManager.add_track() raises
+    # ValueError for a malformed track_info, and a duplicate-filepath rejection
+    # would surface as the UNIQUE-constraint IntegrityError. Anything else
+    # (DetachedInstanceError, AttributeError, ...) is a real bug and must fail.
+    except (ValueError, IntegrityError):
         # Duplicate rejected - this is acceptable
         pass
 
@@ -396,7 +401,11 @@ def test_very_long_metadata_values(tmp_path):
             # TrackRepository truncates title to 500 chars (#2073) rather
             # than storing it unbounded or rejecting it.
             assert retrieved.title == long_title[:500]
-    except Exception:
+    # narrowed from bare Exception, #5023: a bare `except` here swallowed the
+    # AssertionError above, so the #4257 truncation check could never fail.
+    # A genuine "reject long strings" implementation raises ValueError
+    # (app-level validation) or sqlalchemy DataError (column length).
+    except (ValueError, DataError):
         # Some implementations might reject long strings
         pass
 
@@ -448,7 +457,10 @@ def test_special_characters_in_metadata(tmp_path):
 
                 # Clean up for next iteration
                 manager.delete_track(track.id)
-        except Exception:
+        # narrowed from bare Exception, #5023: a rejection of hostile metadata
+        # is a ValueError (validation) or IntegrityError (constraint); the
+        # round-trip assertions above must not be swallowed.
+        except (ValueError, IntegrityError):
             pass
 
 
@@ -496,7 +508,9 @@ def test_unicode_metadata_handling(tmp_path):
                 assert retrieved.title == unicode_str
 
                 manager.delete_track(track.id)
-        except Exception:
+        # narrowed from bare Exception, #5023: an encoding rejection raises
+        # UnicodeEncodeError/UnicodeDecodeError, both subclasses of ValueError.
+        except ValueError:
             # Some implementations might not support full Unicode
             pass
 
@@ -538,7 +552,9 @@ def test_failed_add_doesnt_corrupt_database(tmp_path):
             'filepath': '/nonexistent/file.wav',
             'title': 'Invalid',
         })
-    except Exception:
+    # narrowed from bare Exception, #5023: add_track() raises FileNotFoundError
+    # for a missing audio file and ValueError when 'filepath' is absent.
+    except (FileNotFoundError, ValueError):
         pass
 
     # Database should still have exactly 1 track
@@ -567,7 +583,9 @@ def test_failed_update_preserves_original_data(integrity_library):
     # Try invalid update (assuming None title might fail)
     try:
         manager.update_track(target_id, {"title": None})
-    except Exception:
+    # narrowed from bare Exception, #5023: a rejected update surfaces as a
+    # ValueError (validation) or IntegrityError (NOT NULL constraint).
+    except (ValueError, IntegrityError):
         pass
 
     # Original data should be preserved — #4257: assert the actual

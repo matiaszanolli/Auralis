@@ -659,7 +659,9 @@ class TestResourceContention:
 
                 with lock:
                     write_count.append(thread_id)
-            except Exception as e:
+            except OSError:
+                # narrowed from bare Exception, #5023: open()/flock()/write()
+                # only fail with OSError here; anything else is a real bug.
                 pass
 
         threads = [threading.Thread(target=write_with_lock, args=(i,))
@@ -684,6 +686,8 @@ class TestResourceContention:
     # pass into a suite failure, so the marker had to go.
     def test_database_lock_contention(self, temp_db):
         """Test database locking behavior."""
+        from sqlalchemy.exc import SQLAlchemyError
+
         from auralis.library.models import Track
 
         write_count = []
@@ -704,7 +708,10 @@ class TestResourceContention:
 
                 with lock:
                     write_count.append(track_id)
-            except Exception as e:
+            except SQLAlchemyError:
+                # narrowed from bare Exception, #5023: the anticipated failure
+                # is write contention (OperationalError 'database is locked' /
+                # IntegrityError), both SQLAlchemyError subclasses.
                 pass
 
         threads = [threading.Thread(target=write_to_db, args=(i,))

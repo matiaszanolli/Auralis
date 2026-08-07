@@ -1,6 +1,30 @@
 """
 Enhanced Audio Player Detailed Tests
 Comprehensive testing for enhanced audio player components and functionality.
+
+Exception-handling policy (#5023)
+---------------------------------
+Many tests here probe an introspected, ``hasattr``-guarded method surface
+("call it if it exists; tolerate a graceful rejection"). Those blocks used to
+be bare ``except Exception:``, which also swallowed unrelated crashes and made
+real regressions look like passes. Each is now narrowed to the exception
+family the call can legitimately produce:
+
+* ``ValueError`` / ``RuntimeError`` around ``AudioPlayer(...)`` construction —
+  ``AudioPlayer.__init__`` raises ``ValueError("get_repository_factory is
+  required")`` when the factory is omitted (#4141), and component/device setup
+  failures surface as ``RuntimeError``.
+* ``TypeError`` around introspective ``method(param)`` calls — the test guesses
+  the arity/signature, so a mismatch is an anticipated outcome.
+* ``IndexError`` / ``RuntimeError`` around queue navigation —
+  ``QueueController._get_repos()`` raises ``RuntimeError`` when no repository
+  factory is available; index math on the queue can raise ``IndexError``.
+* ``OSError`` / ``ValueError`` around file loading.
+
+``AttributeError`` is deliberately NOT tolerated anywhere: every call site is
+already ``hasattr``-guarded, so an ``AttributeError`` means a real refactor
+drift or typo and must fail the test. ``AssertionError`` is likewise no longer
+swallowed.
 """
 
 import os
@@ -104,7 +128,7 @@ class TestQueueManager:
                         elif method_name == 'set_current_index':
                             result = method(1)
                         # Method executed successfully
-                    except Exception:
+                    except (IndexError, RuntimeError, TypeError):
                         # Method might need specific setup
                         pass
 
@@ -211,7 +235,7 @@ class TestAudioPlayerCore:
                             try:
                                 method()
                                 # State should change appropriately
-                            except Exception:
+                            except (RuntimeError, ValueError):
                                 # Method might need loaded audio
                                 pass
 
@@ -220,7 +244,7 @@ class TestAudioPlayerCore:
                     state = player.get_state()
                     assert isinstance(state, PlaybackState)
 
-            except Exception:
+            except (ValueError, RuntimeError):
                 # Player creation failed
                 pass
 
@@ -253,7 +277,7 @@ class TestAudioPlayerCore:
                                 else:
                                     result = method()
                                 # Method executed successfully
-                            except Exception:
+                            except (TypeError, ValueError, RuntimeError):
                                 # Method might need specific setup
                                 pass
 
@@ -273,10 +297,10 @@ class TestAudioPlayerCore:
                                     result = method(param)
                                 else:
                                     result = method()
-                            except Exception:
+                            except (TypeError, ValueError, RuntimeError):
                                 pass
 
-            except Exception:
+            except (ValueError, RuntimeError):
                 pass
 
         except ImportError:
@@ -332,7 +356,7 @@ class TestEnhancedPlayerProcessing:
                     # Should be boolean
                     assert isinstance(player.enhancement_enabled, bool)
 
-            except Exception:
+            except (ValueError, RuntimeError):
                 pass
 
         except ImportError:
@@ -367,10 +391,10 @@ class TestEnhancedPlayerProcessing:
                                 else:
                                     result = method()
                                 print(f"Processing method {method_name} executed")
-                            except Exception:
+                            except (TypeError, ValueError, RuntimeError):
                                 pass
 
-            except Exception:
+            except (ValueError, RuntimeError):
                 pass
 
         except ImportError:
@@ -397,10 +421,10 @@ class TestEnhancedPlayerProcessing:
                                 if callable(method):
                                     try:
                                         result = method()
-                                    except Exception:
+                                    except (TypeError, ValueError, RuntimeError):
                                         pass
 
-            except Exception:
+            except (ValueError, RuntimeError):
                 pass
 
         except ImportError:
@@ -460,11 +484,11 @@ class TestEnhancedPlayerLibraryIntegration:
                                     result = method(param)
                                 else:
                                     result = method()
-                            except Exception:
+                            except (TypeError, ValueError, KeyError, RuntimeError):
                                 # Method might need actual track data
                                 pass
 
-            except Exception:
+            except (ValueError, RuntimeError):
                 pass
 
         except ImportError:
@@ -500,7 +524,7 @@ class TestEnhancedPlayerLibraryIntegration:
                                 if callable(method):
                                     try:
                                         result = method()
-                                    except Exception:
+                                    except (IndexError, RuntimeError, TypeError):
                                         pass
 
                 # Test player queue methods
@@ -520,10 +544,10 @@ class TestEnhancedPlayerLibraryIntegration:
                                     result = method(param)
                                 else:
                                     result = method()
-                            except Exception:
+                            except (TypeError, ValueError, RuntimeError):
                                 pass
 
-            except Exception:
+            except (ValueError, RuntimeError):
                 pass
 
         except ImportError:
@@ -569,7 +593,7 @@ class TestEnhancedPlayerAdvanced:
                                 else:
                                     result = method()
                                 print(f"Monitoring method {method_name} executed")
-                            except Exception:
+                            except (TypeError, ValueError, RuntimeError):
                                 pass
 
                 # Test performance attributes
@@ -579,7 +603,7 @@ class TestEnhancedPlayerAdvanced:
                         value = getattr(player, attr)
                         # Attribute exists
 
-            except Exception:
+            except (ValueError, RuntimeError):
                 pass
 
         except ImportError:
@@ -608,7 +632,7 @@ class TestEnhancedPlayerAdvanced:
                             try:
                                 method(callback)
                                 print(f"Callback {method_name} set successfully")
-                            except Exception:
+                            except (TypeError, ValueError):
                                 pass
 
                 # Test callback removal
@@ -625,10 +649,10 @@ class TestEnhancedPlayerAdvanced:
                         if callable(method):
                             try:
                                 method()
-                            except Exception:
+                            except (TypeError, ValueError, KeyError):
                                 pass
 
-            except Exception:
+            except (ValueError, RuntimeError):
                 pass
 
         except ImportError:
@@ -658,18 +682,18 @@ class TestEnhancedPlayerAdvanced:
                                     result = method(param)
                                 else:
                                     result = method()
-                            except Exception:
+                            except (TypeError, ValueError, RuntimeError):
                                 pass
 
                 # Test loading invalid file
                 if hasattr(player, 'load_file'):
                     try:
                         player.load_file('/nonexistent/file.mp3')
-                    except Exception:
+                    except (OSError, ValueError):
                         # Expected error for invalid file
                         pass
 
-            except Exception:
+            except (ValueError, RuntimeError):
                 pass
 
         except ImportError:

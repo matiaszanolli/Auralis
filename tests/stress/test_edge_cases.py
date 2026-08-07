@@ -326,6 +326,7 @@ class TestInvalidInputs:
             f.write(b'\x00\xFF' * 100)
 
         from auralis.io.unified_loader import load_audio
+        from auralis.utils.logging import ModuleError
 
         # Should either load audio or fail gracefully
         try:
@@ -334,7 +335,7 @@ class TestInvalidInputs:
             # a non-None placeholder (#4257).
             assert audio_data is not None
             assert len(audio_data) > 0
-        except Exception:
+        except ModuleError:
             # Expected - corrupted file
             pass
 
@@ -488,6 +489,7 @@ class TestInvalidInputs:
         """Test SQL injection prevention."""
         from auralis.library.manager import LibraryManager
         from auralis.library.repositories import TrackRepository
+        from sqlalchemy.exc import SQLAlchemyError
 
         manager = LibraryManager(database_path=str(tmp_path / "injection.db"))
 
@@ -512,7 +514,7 @@ class TestInvalidInputs:
             count = test_session.query(Track).count()
             test_session.close()
             assert count == 0  # no tracks were added in this test
-        except Exception:
+        except SQLAlchemyError:
             # Expected - handled gracefully
             pass
 
@@ -637,7 +639,9 @@ class TestErrorRecovery:
         try:
             invalid_audio = np.array([], dtype=np.float32).reshape(0, 2)
             processor.process(invalid_audio)
-        except Exception:
+        except ValueError:
+            # narrowed from bare Exception, #5023: HybridProcessor.process()
+            # rejects invalid input shapes/lengths with ValueError.
             # Expected crash
             pass
 
@@ -684,7 +688,10 @@ class TestErrorRecovery:
             for future in futures:
                 try:
                     future.result(timeout=2.0)
-                except Exception:
+                except TimeoutError:
+                    # narrowed from bare Exception, #5023: query_loop swallows
+                    # its own errors, so a slow worker (Future.result timeout)
+                    # is the only anticipated failure.
                     # May timeout, that's ok
                     pass
 

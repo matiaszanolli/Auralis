@@ -13,6 +13,7 @@ import os
 
 import numpy as np
 import pytest
+from sqlalchemy.exc import SQLAlchemyError
 
 from auralis.io.saver import save
 
@@ -67,7 +68,12 @@ class TestQueryPerformanceDualMode:
         try:
             track = source.tracks.add(track_data)
             track_id = track.id if track else 1
-        except Exception:
+        # narrowed from bare Exception, #5023: TrackRepository.add() already
+        # catches its own internal failures and returns None; the only
+        # escape path left is get_session()/session_factory() raising a
+        # SQLAlchemy-level error before the internal try starts.
+        # TODO(#5023): could not fully confirm no other type can escape, needs follow-up
+        except SQLAlchemyError:
             # Skip if add fails
             pass
 
@@ -122,7 +128,10 @@ class TestQueryPerformanceDualMode:
             }
             try:
                 source.tracks.add(track_data)
-            except Exception:
+            # narrowed from bare Exception, #5023: same reasoning as
+            # test_query_by_id_performance above — add() only leaks a
+            # SQLAlchemy-level error from session creation.
+            except SQLAlchemyError:
                 # Skip if add fails
                 pass
 

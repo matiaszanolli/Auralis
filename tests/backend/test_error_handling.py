@@ -26,6 +26,8 @@ from pathlib import Path
 
 import numpy as np
 
+from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
+
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.config import UnifiedConfig
 from auralis.io.saver import save as save_audio
@@ -218,7 +220,10 @@ def test_error_delete_nonexistent_track(track_repo):
     # Should not raise error, just do nothing
     try:
         track_repo.delete(nonexistent_id)
-    except Exception as e:
+    # narrowed from bare Exception, #5023: delete() returns False for a missing
+    # row; an implementation that rejects instead raises a lookup error
+    # (KeyError), a validation error (ValueError) or a DB error.
+    except (KeyError, ValueError, SQLAlchemyError):
         # Some implementations may raise, that's ok
         pass
 
@@ -350,7 +355,10 @@ def test_error_database_locked_handling():
         try:
             track1 = manager1.tracks.add(track_info)
             track2 = manager2.tracks.add(track_info)
-        except Exception as e:
+        # narrowed from bare Exception, #5023: the two outcomes this test
+        # tolerates are exactly a lock timeout (OperationalError, "database is
+        # locked") and a UNIQUE-filepath violation (IntegrityError).
+        except (OperationalError, IntegrityError):
             # Database lock or constraint violation is acceptable
             pass
 

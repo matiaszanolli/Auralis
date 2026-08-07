@@ -664,7 +664,10 @@ def test_state_consistency_after_errors(tmp_path):
     # Try invalid operation
     try:
         manager.delete_track(999999)  # Non-existent ID
-    except Exception:
+    # narrowed from bare Exception, #5023: delete_track() returns False for an
+    # unknown ID; an implementation that rejects instead would raise a lookup
+    # error (KeyError) or a validation error (ValueError).
+    except (KeyError, ValueError):
         pass
 
     # State should be consistent

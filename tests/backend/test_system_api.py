@@ -26,6 +26,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+from starlette.websockets import WebSocketDisconnect
 
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
@@ -403,7 +404,11 @@ class TestWebSocketPlayback:
                 # May be error or may attempt processing
                 # Just verify response is valid JSON
                 assert isinstance(data, dict)
-            except Exception:
+            # narrowed from bare Exception, #5023: the server may close the
+            # socket instead of answering (WebSocketDisconnect); a non-JSON
+            # frame raises json.JSONDecodeError. The isinstance assertion above
+            # must no longer be swallowed.
+            except (WebSocketDisconnect, json.JSONDecodeError):
                 pass
 
     @staticmethod

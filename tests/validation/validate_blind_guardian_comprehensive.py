@@ -142,7 +142,14 @@ def analyze_album_pair(album_name: str, original_dir: Path, remaster_dir: Path) 
 
             results['songs_analyzed'] += 1
 
-        except Exception as e:
+        # narrowed from bare Exception, #5023: from_audio_file() already
+        # swallows decode/IO failures internally and returns None (filtered
+        # above), and rank_profiles()/similarity_score() only ever perform
+        # guarded arithmetic (no raise sites found) — so this loop-body
+        # tolerance is for numeric edge cases surfacing as ValueError/
+        # RuntimeError out of librosa/numpy on unusual real-world audio.
+        # TODO(#5023): could not fully rule out other exception types, needs follow-up
+        except (ValueError, RuntimeError) as e:
             pass
 
     return results if results['songs_analyzed'] > 0 else None

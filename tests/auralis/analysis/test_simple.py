@@ -351,7 +351,15 @@ class TestQualityMetricsSimple:
                 self.sine, self.stereo, sample_rate=44100
             )
             assert isinstance(result, dict)
-        except Exception:
+        # narrowed from bare Exception, #5023: `calculate_comprehensive_quality`
+        # is not a method of QualityMetrics (verified against
+        # auralis/analysis/quality/quality_metrics.py, which only defines
+        # assess_quality/compare_quality/_categorize_quality/
+        # _identify_quality_issues) — this call always raises AttributeError
+        # before the assertion runs. That is the "not fully implemented" case
+        # the original comment anticipated, so it's kept as the tolerated
+        # outcome rather than restructured into pytest.raises.
+        except AttributeError:
             # Method might not be fully implemented, that's ok for coverage
             pass
 
@@ -360,7 +368,11 @@ class TestQualityMetricsSimple:
         try:
             thd = self.metrics._calculate_thd(self.sine, 44100)
             assert isinstance(thd, float)
-        except Exception:
+        # narrowed from bare Exception, #5023: `_calculate_thd` is not a
+        # method of QualityMetrics (verified against
+        # auralis/analysis/quality/quality_metrics.py) — always raises
+        # AttributeError, the "not implemented" case this test tolerates.
+        except AttributeError:
             pass
 
     def test_calculate_snr(self):
@@ -368,7 +380,10 @@ class TestQualityMetricsSimple:
         try:
             snr = self.metrics._calculate_snr(self.sine)
             assert isinstance(snr, float)
-        except Exception:
+        # narrowed from bare Exception, #5023: `_calculate_snr` is not a
+        # method of QualityMetrics — always raises AttributeError, the
+        # "not implemented" case this test tolerates.
+        except AttributeError:
             pass
 
     def test_analyze_frequency_response(self):
@@ -376,7 +391,11 @@ class TestQualityMetricsSimple:
         try:
             response = self.metrics._analyze_frequency_response(self.sine, 44100)
             assert isinstance(response, dict)
-        except Exception:
+        # narrowed from bare Exception, #5023: `_analyze_frequency_response`
+        # exists on ReferenceAnalyzer (auralis/learning/reference_analyzer.py),
+        # not on QualityMetrics — always raises AttributeError here, the
+        # "not implemented" case this test tolerates.
+        except AttributeError:
             pass
 
     def test_detect_clipping(self):
@@ -384,7 +403,10 @@ class TestQualityMetricsSimple:
         try:
             clipping = self.metrics._detect_clipping(self.sine)
             assert isinstance(clipping, dict)
-        except Exception:
+        # narrowed from bare Exception, #5023: `_detect_clipping` is not a
+        # method of QualityMetrics — always raises AttributeError, the
+        # "not implemented" case this test tolerates.
+        except AttributeError:
             pass
 
 

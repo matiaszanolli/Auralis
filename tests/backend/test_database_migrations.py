@@ -27,6 +27,8 @@ import sqlite3
 import tempfile
 from pathlib import Path
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from auralis.library.manager import LibraryManager
 
 # ============================================================================
@@ -302,8 +304,16 @@ def test_migration_handles_old_schema_gracefully(temp_db_dir):
     try:
         manager = LibraryManager(database_path=str(db_path))
         # Should not crash
-        
-    except Exception as e:
+
+    # narrowed from bare Exception, #5023. TODO(#5023): LibraryDatabase.__init__
+    # signals a failed migration by raising a *bare* ``Exception`` (see
+    # auralis/library/database.py: `raise Exception("Failed to migrate database
+    # to current version")`), which cannot be caught more narrowly than
+    # `Exception` itself. Catching the plausible family instead: the migration
+    # lock raises TimeoutError, an unreadable/foreign schema raises
+    # sqlite3.DatabaseError, and engine/schema work raises SQLAlchemyError. If
+    # database.py is ever given a dedicated MigrationError, add it here.
+    except (TimeoutError, sqlite3.DatabaseError, SQLAlchemyError):
         # Some implementations may not support automatic migration
         # That's acceptable as long as it doesn't crash silently
         pass

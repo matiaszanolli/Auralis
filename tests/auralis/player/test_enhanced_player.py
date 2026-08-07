@@ -419,7 +419,9 @@ class TestAudioPlayerComprehensive:
         try:
             enhanced_player.add_callback(None)
             # Should handle gracefully
-        except Exception:
+        # narrowed from bare Exception, #5023: add_callback() currently accepts any
+        # object, but a validating implementation would reject None with TypeError.
+        except (TypeError, ValueError):
             pass
 
     def test_threading_and_concurrency(self, enhanced_player, test_audio_files):

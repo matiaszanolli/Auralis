@@ -367,6 +367,7 @@ class TestAudioProcessingLimits:
         from auralis.core.hybrid_processor import HybridProcessor
         from auralis.core.config import UnifiedConfig
         from auralis.io.unified_loader import load_audio
+        from auralis.utils.logging import ModuleError
 
         try:
             audio, sr = load_audio(zero_length_audio)
@@ -376,7 +377,7 @@ class TestAudioProcessingLimits:
                 processor = HybridProcessor(config)
                 processed = processor.process(audio)
                 assert processed is not None
-        except Exception:
+        except (ModuleError, ValueError):
             # Expected - zero length not processable
             pass
 
@@ -390,6 +391,7 @@ class TestAudioProcessingLimits:
         from auralis.core.hybrid_processor import HybridProcessor
         from auralis.core.config import UnifiedConfig
         from auralis.io.unified_loader import load_audio
+        from auralis.utils.logging import ModuleError
 
         try:
             audio_data, sr = load_audio(str(filepath))
@@ -397,7 +399,7 @@ class TestAudioProcessingLimits:
             processor = HybridProcessor(config)
             processed = processor.process(audio_data)
             # May fail or return minimal output
-        except Exception:
+        except (ModuleError, ValueError):
             # Expected - too short to process
             pass
 
@@ -576,7 +578,7 @@ class TestResourceLimits:
         except socket.timeout:
             # Expected timeout
             pass
-        except Exception:
+        except OSError:
             # Other error (connection refused, etc.)
             pass
         finally:

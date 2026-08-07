@@ -31,6 +31,7 @@ from pathlib import Path
 
 import pytest
 from sqlalchemy import create_engine
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'auralis'))
@@ -446,7 +447,10 @@ def test_update_filepath(track_repo):
             all_tracks, total = track_repo.get_all(limit=100, offset=0)
             filepaths = [t.filepath for t in all_tracks]
             assert len(filepaths) == len(set(filepaths)), "No duplicate filepaths"
-    except Exception:
+    # narrowed from bare Exception, #5023: a duplicate filepath is rejected by the
+    # UNIQUE constraint (IntegrityError -> SQLAlchemyError). Bare Exception also
+    # swallowed the AssertionError above, which is the whole point of the test.
+    except (ValueError, TypeError, SQLAlchemyError):
         # Expected if duplicate prevention is enforced
         pass
 
@@ -538,10 +542,17 @@ def test_search_special_characters(track_repo):
 
     for query in malicious_queries:
         try:
-            results = track_repo.search(query, limit=100, offset=0)
+            result = track_repo.search(query, limit=100, offset=0)
+            # search() returns a (list, total) tuple, like the sibling tests
+            # above assume. The old `assert isinstance(result, list)` here was
+            # unconditionally False and was silently eaten by the bare
+            # `except Exception` (#5023).
+            results, total = result
             # Should not crash or expose all data
             assert isinstance(results, list), "Should return a list"
-        except Exception:
+        # narrowed from bare Exception, #5023: search() does not catch internally,
+        # so rejection surfaces as a SQLAlchemy/driver error or ValueError/TypeError.
+        except (ValueError, TypeError, SQLAlchemyError):
             # Query may be rejected, which is fine
             pass
 
@@ -560,9 +571,13 @@ def test_search_very_long_query(track_repo):
     long_query = 'x' * 10000
 
     try:
-        results = track_repo.search(long_query, limit=100, offset=0)
+        result = track_repo.search(long_query, limit=100, offset=0)
+        # search() returns a (list, total) tuple; the old flat isinstance check
+        # was unconditionally False and masked by the bare except (#5023).
+        results, total = result
         assert isinstance(results, list), "Should return a list"
-    except Exception:
+    # narrowed from bare Exception, #5023
+    except (ValueError, TypeError, SQLAlchemyError):
         # May reject very long queries
         pass
 
@@ -687,7 +702,9 @@ def test_transaction_rollback_on_error(track_repo, temp_db):
     try:
         invalid_track = {'filepath': None}  # Invalid
         track_repo.add(invalid_track)
-    except Exception:
+    # narrowed from bare Exception, #5023: add() returns None for a falsy filepath
+    # rather than raising, so only a validation or DB-layer error can escape here.
+    except (ValueError, TypeError, SQLAlchemyError):
         # Expected to fail
         pass
 

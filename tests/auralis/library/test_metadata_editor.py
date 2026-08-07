@@ -27,6 +27,12 @@ from auralis.library.metadata_editor import (
     create_metadata_editor,
 )
 
+if MUTAGEN_AVAILABLE:
+    from mutagen import MutagenError
+else:  # pragma: no cover - the tests below are skipped without mutagen
+    class MutagenError(Exception):  # type: ignore[no-redef]
+        """Placeholder so narrowed except clauses still resolve (#5023)."""
+
 
 class TestMetadataUpdate:
     """Tests for MetadataUpdate dataclass"""
@@ -221,7 +227,10 @@ class TestWriteMetadata:
                         editor.write_metadata(str(temp_file), {'title': 'New Title'}, backup=True)
                         # Verify backup was called (either with exact path or any call)
                         assert mock_backup.called or True
-                    except Exception:
+                    # narrowed from bare Exception, #5023: write_metadata() re-raises
+                    # only ValueError (unsupported file), OSError/FileNotFoundError
+                    # (save failure) or a mutagen tag error.
+                    except (ValueError, OSError, MutagenError):
                         # If writing fails, that's ok - we just test the interface
                         pass
 
@@ -261,7 +270,8 @@ class TestWriteMetadata:
                     try:
                         result = editor.write_metadata(str(temp_file), {'title': 'New Title'})
                         assert result is True or result is False  # Just verify it returns a bool
-                    except Exception:
+                    # narrowed from bare Exception, #5023
+                    except (ValueError, OSError, MutagenError):
                         # Metadata writing might fail, just verify we get here
                         pass
 

@@ -893,6 +893,7 @@ class TestThreadPoolManagement:
         from concurrent.futures import ThreadPoolExecutor
 
         from auralis.io.unified_loader import load_audio
+        from auralis.utils.logging import ModuleError
 
         completed = []
         lock = threading.Lock()
@@ -924,7 +925,10 @@ class TestThreadPoolManagement:
                 try:
                     f.result()
                     completed_count += 1
-                except Exception:
+                except ModuleError:
+                    # narrowed from bare Exception, #5023: load_audio() wraps
+                    # every decode failure in ModuleError, so that is the only
+                    # task failure this loop should tolerate.
                     pass
             elif f.cancelled():
                 cancelled_count += 1

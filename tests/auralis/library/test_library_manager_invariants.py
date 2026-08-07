@@ -108,6 +108,7 @@ def repository_factory_with_test_db():
     import shutil
 
     from sqlalchemy import create_engine
+    from sqlalchemy.exc import SQLAlchemyError
     from sqlalchemy.orm import sessionmaker
 
     temp_dir = tempfile.mkdtemp()
@@ -123,10 +124,12 @@ def repository_factory_with_test_db():
     yield factory, temp_dir
 
     # Cleanup
+    # narrowed from bare Exception, #5023: dispose() can only surface a
+    # SQLAlchemyError, and rmtree(ignore_errors=True) an OSError at worst.
     try:
         engine.dispose()
         shutil.rmtree(temp_dir, ignore_errors=True)
-    except Exception:
+    except (SQLAlchemyError, OSError):
         pass
 
 

@@ -496,7 +496,11 @@ class TestErrorRecovery:
         # Try invalid operation
         try:
             backend.post("/api/player/load?track_path=/nonexistent/path.mp3&track_id=999999")
-        except Exception:
+        # narrowed from bare Exception, #5023: BackendClient.post() calls
+        # response.raise_for_status(), which raises httpx.HTTPStatusError for
+        # the router's 404 (track not found) / 400 / 503 responses — the
+        # graceful-rejection path this test anticipates.
+        except httpx.HTTPStatusError:
             pass
 
         # State should still be valid

@@ -37,6 +37,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from sqlalchemy.exc import SQLAlchemyError
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
@@ -661,7 +662,10 @@ def test_sql_injection_attempt_in_search(tmp_path):
         results, total = manager.search_tracks(malicious_query)
         # Should not crash or execute malicious SQL
         # Should return empty results or sanitized search
-    except Exception as e:
+    # narrowed from bare Exception, #5023: TrackRepository.search() does not
+    # swallow DB errors, so a rejected/failed query surfaces as a
+    # SQLAlchemyError; app-level rejection would be a ValueError.
+    except (ValueError, SQLAlchemyError):
         # If it raises exception, that's also acceptable
         pass
 

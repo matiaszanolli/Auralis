@@ -34,6 +34,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'auralis'))
 
 from sqlalchemy import create_engine
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 
 from auralis.library.models import Base
@@ -149,7 +150,11 @@ def test_path_traversal_attempt(track_repo):
             # If accepted, verify it's stored as-is (for auditing)
             if track is not None:
                 assert isinstance(track.filepath, str)
-        except Exception:
+        # narrowed from bare Exception, #5023: TrackRepository.add() swallows its
+        # own errors and returns None, so only pre-session validation (ValueError /
+        # TypeError from _validate_and_normalize_track_info) or a driver-level
+        # rejection of the path string can escape.
+        except (ValueError, TypeError, SQLAlchemyError):
             # May reject suspicious paths
             pass
 
@@ -176,7 +181,8 @@ def test_very_long_filepath(track_repo):
         if track is not None:
             # Should store or truncate
             assert len(track.filepath) > 0
-    except Exception:
+    # narrowed from bare Exception, #5023
+    except (ValueError, TypeError, SQLAlchemyError):
         # May reject very long paths
         pass
 
@@ -455,7 +461,10 @@ def test_search_sql_injection_patterns(track_repo):
                 results, total = result
                 # Should not return all tracks (SQL injection would)
                 assert isinstance(results, list)
-        except Exception:
+        # narrowed from bare Exception, #5023: TrackRepository.search() does not
+        # catch, so a rejected pattern surfaces as a driver/SQLAlchemy error or a
+        # ValueError/TypeError from the LIKE-escaping of a non-str query.
+        except (ValueError, TypeError, SQLAlchemyError):
             # May reject dangerous patterns
             pass
 
