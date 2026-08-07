@@ -448,6 +448,104 @@ describe('useRestAPI Hook', () => {
   });
 
   // ==========================================================================
+  // RESPONSE VALIDATION (#4896)
+  // ==========================================================================
+
+  describe('Response Validation (#4896)', () => {
+    it('should pass a well-shaped GET response through the validator unchanged', async () => {
+      mockFetchSuccess({ id: 1, name: 'Test' });
+
+      const { result } = renderHook(() => useRestAPI());
+      const validate = vi.fn().mockReturnValue(true);
+
+      let response;
+      await act(async () => {
+        response = await result.current.get('/api/test', { validate });
+      });
+
+      expect(validate).toHaveBeenCalledWith({ id: 1, name: 'Test' });
+      expect(response).toEqual({ id: 1, name: 'Test' });
+    });
+
+    it('should reject a GET response missing an expected field instead of silently returning it', async () => {
+      // Backend dropped/renamed a field the caller's guard depends on.
+      mockFetchSuccess({ unexpected: 'shape' });
+
+      const { result } = renderHook(() => useRestAPI());
+      const validate = (v: unknown) =>
+        typeof v === 'object' && v !== null && 'id' in v;
+
+      await act(async () => {
+        await expect(
+          result.current.get('/api/test', { validate })
+        ).rejects.toBeDefined();
+      });
+
+      expect(result.current.error).toBeDefined();
+      expect(result.current.error?.message).toContain('/api/test');
+    });
+
+    it('should reject a POST response that fails the validator', async () => {
+      mockFetchSuccess({ wrong: true });
+
+      const { result } = renderHook(() => useRestAPI());
+      const validate = vi.fn().mockReturnValue(false);
+
+      await act(async () => {
+        await expect(
+          result.current.post('/api/test', { name: 'x' }, undefined, { validate })
+        ).rejects.toBeDefined();
+      });
+
+      expect(validate).toHaveBeenCalledWith({ wrong: true });
+    });
+
+    it('should reject a PUT response that fails the validator', async () => {
+      mockFetchSuccess({ wrong: true });
+
+      const { result } = renderHook(() => useRestAPI());
+      const validate = vi.fn().mockReturnValue(false);
+
+      await act(async () => {
+        await expect(
+          result.current.put('/api/test', { name: 'x' }, undefined, { validate })
+        ).rejects.toBeDefined();
+      });
+
+      expect(validate).toHaveBeenCalledWith({ wrong: true });
+    });
+
+    it('should reject a PATCH response that fails the validator', async () => {
+      mockFetchSuccess({ wrong: true });
+
+      const { result } = renderHook(() => useRestAPI());
+      const validate = vi.fn().mockReturnValue(false);
+
+      await act(async () => {
+        await expect(
+          result.current.patch('/api/test', { name: 'x' }, undefined, { validate })
+        ).rejects.toBeDefined();
+      });
+
+      expect(validate).toHaveBeenCalledWith({ wrong: true });
+    });
+
+    it('should behave exactly as before for callers that pass no validate option', async () => {
+      mockFetchSuccess({ id: 1, name: 'Test' });
+
+      const { result } = renderHook(() => useRestAPI());
+
+      let response;
+      await act(async () => {
+        response = await result.current.get('/api/test');
+      });
+
+      expect(response).toEqual({ id: 1, name: 'Test' });
+      expect(result.current.error).toBeNull();
+    });
+  });
+
+  // ==========================================================================
   // TIMEOUT AND ABORT
   // ==========================================================================
 

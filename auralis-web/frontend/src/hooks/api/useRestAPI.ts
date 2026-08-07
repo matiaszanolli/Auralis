@@ -17,6 +17,24 @@ import { API_BASE_URL } from '@/config/api';
 const REQUEST_TIMEOUT = 30000; // 30 seconds
 
 /**
+ * Optional runtime shape guard for a parsed response body (#4896).
+ *
+ * `Response.json()` is `Promise<any>`, so every `as T` in this hook is a
+ * compile-time-only contract — backend field drift surfaces as a downstream
+ * `undefined`/NaN far from its cause. Mirrors the `validate` option
+ * `apiRequest.ts` added for the same reason (#4607): when supplied and the
+ * body fails the guard, the request rejects with an error naming the
+ * endpoint instead of returning a silently-wrong `T`. Endpoints that don't
+ * pass one behave exactly as before.
+ *
+ * @example
+ * const queue = await get('/api/player/queue', { validate: isQueueResponseShape });
+ */
+export interface ResponseValidationOptions {
+  validate?: (value: unknown) => boolean;
+}
+
+/**
  * REST API client hook.
  * Provides type-safe methods for GET, POST, PUT, DELETE requests.
  */
@@ -90,7 +108,7 @@ export function useRestAPI() {
    * GET request.
    */
   const get = useCallback(
-    async <T = unknown>(endpoint: string): Promise<T> => {
+    async <T = unknown>(endpoint: string, options?: ResponseValidationOptions): Promise<T> => {
       const seq = (requestSequences.current.get(endpoint) ?? 0) + 1; requestSequences.current.set(endpoint, seq);
       inflightCount.current += 1;
       setIsLoading(true);
@@ -116,6 +134,12 @@ export function useRestAPI() {
         }
 
         const data = await response.json();
+
+        // Runtime shape check at the boundary, when the caller supplied one (#4896).
+        if (options?.validate && !options.validate(data)) {
+          throw new Error(`Unexpected response shape from ${endpoint}`);
+        }
+
         return data as T;
       } catch (err) {
         // AbortError from unmount cleanup or StaleRequestError — don't surface as API error (fixes #2467, #2439)
@@ -150,7 +174,7 @@ export function useRestAPI() {
    *   await api.post('/api/player/queue/shuffle', { enabled: true });
    */
   const post = useCallback(
-    async <T = unknown>(endpoint: string, payload?: Record<string, unknown>, queryParams?: Record<string, string | number | boolean>): Promise<T> => {
+    async <T = unknown>(endpoint: string, payload?: Record<string, unknown>, queryParams?: Record<string, string | number | boolean>, options?: ResponseValidationOptions): Promise<T> => {
       const seq = (requestSequences.current.get(endpoint) ?? 0) + 1; requestSequences.current.set(endpoint, seq);
       inflightCount.current += 1;
       setIsLoading(true);
@@ -177,6 +201,12 @@ export function useRestAPI() {
         }
 
         const data = await response.json();
+
+        // Runtime shape check at the boundary, when the caller supplied one (#4896).
+        if (options?.validate && !options.validate(data)) {
+          throw new Error(`Unexpected response shape from ${endpoint}`);
+        }
+
         return data as T;
       } catch (err) {
         // AbortError from unmount cleanup or StaleRequestError — don't surface as API error (fixes #2467, #2439)
@@ -198,7 +228,7 @@ export function useRestAPI() {
    * Supports both JSON body and query parameters.
    */
   const put = useCallback(
-    async <T = unknown>(endpoint: string, payload?: Record<string, unknown>, queryParams?: Record<string, string | number | boolean>): Promise<T> => {
+    async <T = unknown>(endpoint: string, payload?: Record<string, unknown>, queryParams?: Record<string, string | number | boolean>, options?: ResponseValidationOptions): Promise<T> => {
       const seq = (requestSequences.current.get(endpoint) ?? 0) + 1; requestSequences.current.set(endpoint, seq);
       inflightCount.current += 1;
       setIsLoading(true);
@@ -225,6 +255,12 @@ export function useRestAPI() {
         }
 
         const data = await response.json();
+
+        // Runtime shape check at the boundary, when the caller supplied one (#4896).
+        if (options?.validate && !options.validate(data)) {
+          throw new Error(`Unexpected response shape from ${endpoint}`);
+        }
+
         return data as T;
       } catch (err) {
         // AbortError from unmount cleanup or StaleRequestError — don't surface as API error (fixes #2467, #2439)
@@ -246,7 +282,7 @@ export function useRestAPI() {
    * Supports both JSON body and query parameters.
    */
   const patch = useCallback(
-    async <T = unknown>(endpoint: string, payload?: Record<string, unknown>, queryParams?: Record<string, string | number | boolean>): Promise<T> => {
+    async <T = unknown>(endpoint: string, payload?: Record<string, unknown>, queryParams?: Record<string, string | number | boolean>, options?: ResponseValidationOptions): Promise<T> => {
       const seq = (requestSequences.current.get(endpoint) ?? 0) + 1; requestSequences.current.set(endpoint, seq);
       inflightCount.current += 1;
       setIsLoading(true);
@@ -273,6 +309,12 @@ export function useRestAPI() {
         }
 
         const data = await response.json();
+
+        // Runtime shape check at the boundary, when the caller supplied one (#4896).
+        if (options?.validate && !options.validate(data)) {
+          throw new Error(`Unexpected response shape from ${endpoint}`);
+        }
+
         return data as T;
       } catch (err) {
         // AbortError from unmount cleanup or StaleRequestError — don't surface as API error (fixes #2467, #2439)

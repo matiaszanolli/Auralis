@@ -125,7 +125,13 @@ describe('usePlaybackQueue', () => {
       expect(result.current.repeatMode).toBe('all');
     });
 
-    expect(mockGet).toHaveBeenCalledWith('/api/player/queue');
+    // useQueueFetch now passes a runtime shape guard (#4896) — assert the
+    // endpoint and that a validator was supplied, not the exact guard
+    // function reference (that's responseGuards.ts's own concern).
+    expect(mockGet).toHaveBeenCalledWith(
+      '/api/player/queue',
+      expect.objectContaining({ validate: expect.any(Function) })
+    );
   });
 
   it('does not dispatch a stale initial-fetch response after unmount (fixes #3925)', async () => {

@@ -12,6 +12,7 @@
 import { useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import { useRestAPI } from '@/hooks/api/useRestAPI';
+import { isQueueResponseShape } from '@/api/responseGuards';
 import {
   setQueue as reduxSetQueue,
   setCurrentIndex as reduxSetCurrentIndex,
@@ -39,7 +40,9 @@ export function useQueueFetch(): void {
 
     const fetchInitialQueue = async () => {
       try {
-        const response = await get<Record<string, unknown>>('/api/player/queue');
+        const response = await get<Record<string, unknown>>('/api/player/queue', {
+          validate: isQueueResponseShape,
+        });
 
         if (response && isActive) {
           // Backend sends snake_case; map to our state shape
