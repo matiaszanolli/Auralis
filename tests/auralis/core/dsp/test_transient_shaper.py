@@ -64,15 +64,22 @@ class TestTransientShaperInvariants:
         assert np.isfinite(out).all()
 
     def test_no_op_when_boost_below_threshold(self):
-        """attack_boost_db <= 0.05 returns input unchanged (early return)."""
+        """attack_boost_db <= 0.05 returns input unchanged (early return) — as
+        a copy, never the caller's own array object (#4900)."""
         audio = _mono()
         out = TransientShaper.apply(audio, SR, 60.0, 250.0, attack_boost_db=0.0)
-        assert out is audio
+        assert out is not audio
+        assert not np.shares_memory(out, audio)
+        np.testing.assert_array_equal(out, audio)
 
     def test_no_op_for_degenerate_band(self):
+        """band_low_hz >= band_high_hz returns input unchanged — as a copy,
+        never the caller's own array object (#4900)."""
         audio = _mono()
         out = TransientShaper.apply(audio, SR, 250.0, 60.0, attack_boost_db=6.0)
-        assert out is audio
+        assert out is not audio
+        assert not np.shares_memory(out, audio)
+        np.testing.assert_array_equal(out, audio)
 
     def test_effect_is_additive(self):
         """With percussive content, the output must differ from input."""

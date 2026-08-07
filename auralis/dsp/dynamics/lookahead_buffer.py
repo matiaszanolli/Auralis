@@ -33,7 +33,7 @@ class LookaheadBuffer:
         """Delay `audio` by `lookahead_samples`, returning an array of the
         same length (a no-op when lookahead_samples == 0)."""
         if self.lookahead_samples == 0:
-            return audio
+            return audio.copy()
 
         # Reset buffer if ndim changed (e.g., mono → stereo across tracks)
         if self.buffer is not None and self.buffer.ndim != audio.ndim:

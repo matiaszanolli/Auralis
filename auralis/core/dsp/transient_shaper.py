@@ -75,7 +75,7 @@ class TransientShaper:
             Audio with shaped transients, same shape and dtype as input.
         """
         if attack_boost_db <= 0.05:
-            return audio
+            return audio.copy()
 
         nyq = sample_rate / 2.0
         # Floor is a numerical-stability minimum, NOT a musical low cut. The
@@ -86,7 +86,7 @@ class TransientShaper:
         lo_n = max(1e-4, min(0.995, band_low_hz / nyq))
         hi_n = max(1e-4, min(0.995, band_high_hz / nyq))
         if lo_n >= hi_n:
-            return audio
+            return audio.copy()
 
         bp = butter(order, [lo_n, hi_n], btype='band', output='sos')
         axis = -1 if audio.ndim > 1 else 0

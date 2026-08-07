@@ -177,7 +177,7 @@ class ResonanceNotcher:
             Audio with notches applied. Same shape and dtype as input.
         """
         if not notches:
-            return audio
+            return audio.copy()
 
         out = audio.astype(audio.dtype, copy=True)
         nyq = sample_rate / 2.0

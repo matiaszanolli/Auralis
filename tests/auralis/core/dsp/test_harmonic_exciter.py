@@ -67,19 +67,25 @@ class TestHarmonicExciterInvariants:
         assert np.isfinite(out).all()
 
     def test_no_op_when_wet_below_threshold(self):
-        """wet_db <= -60 returns input unchanged (early return)."""
+        """wet_db <= -60 returns input unchanged (early return) — as a copy,
+        never the caller's own array object (#4900)."""
         audio = _mono()
         out = HarmonicExciter.apply(audio, sample_rate=SR, wet_db=-60.0)
-        assert out is audio  # documented early-return: same array
+        assert out is not audio
+        assert not np.shares_memory(out, audio)
+        np.testing.assert_array_equal(out, audio)
 
     def test_no_op_for_degenerate_band(self):
-        """donor_low_hz >= donor_high_hz returns input unchanged."""
+        """donor_low_hz >= donor_high_hz returns input unchanged — as a copy,
+        never the caller's own array object (#4900)."""
         audio = _mono()
         out = HarmonicExciter.apply(
             audio, sample_rate=SR, wet_db=-12.0,
             donor_low_hz=4000.0, donor_high_hz=1000.0,
         )
-        assert out is audio
+        assert out is not audio
+        assert not np.shares_memory(out, audio)
+        np.testing.assert_array_equal(out, audio)
 
     def test_effect_is_additive(self):
         """With a strong wet level the output must differ from input."""

@@ -73,7 +73,7 @@ class LowMidTransientEnhancer:
             Audio with enhanced low-mid transients
         """
         if intensity <= 0.0:
-            return audio
+            return audio.copy()
 
         # Handle stereo vs mono
         is_stereo = audio.ndim > 1 and audio.shape[1] == 2

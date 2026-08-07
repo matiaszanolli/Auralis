@@ -159,7 +159,7 @@ class RealtimeAdaptiveEQ:
 
             except Exception as e:
                 debug(f"Real-time processing error: {e}")
-                return audio_chunk  # Return unprocessed audio on error
+                return audio_chunk.copy()  # Return unprocessed audio on error
 
     def _process_fixed_chunk(self, audio_chunk: np.ndarray,
                            content_info: dict[str, Any] | None) -> np.ndarray:

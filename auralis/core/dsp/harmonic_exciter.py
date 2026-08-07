@@ -96,7 +96,7 @@ class HarmonicExciter:
               ringing — exactly the artifact we want to avoid.
         """
         if wet_db <= -60.0:
-            return audio
+            return audio.copy()
 
         nyquist = sample_rate / 2.0
 
@@ -105,7 +105,7 @@ class HarmonicExciter:
         high_norm = min(0.99, max(0.01, donor_high_hz / nyquist))
         if low_norm >= high_norm:
             # Degenerate band (e.g. very low sample rate) — no exciter possible.
-            return audio
+            return audio.copy()
         bp_sos = butter(order, [low_norm, high_norm], btype='band', output='sos')
 
         # --- 2. Saturate to generate harmonics ---

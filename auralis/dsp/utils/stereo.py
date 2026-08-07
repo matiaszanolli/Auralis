@@ -95,7 +95,7 @@ def adjust_stereo_width(stereo_audio: np.ndarray, width_factor: float) -> np.nda
         Width-adjusted stereo audio
     """
     if stereo_audio.ndim != 2 or stereo_audio.shape[1] != 2:
-        return stereo_audio
+        return stereo_audio.copy()
 
     # Convert to mid-side
     mid, side = mid_side_encode(stereo_audio)
@@ -148,11 +148,11 @@ def adjust_stereo_width_multiband(
         Width-adjusted stereo audio with frequency-appropriate widening
     """
     if stereo_audio.ndim != 2 or stereo_audio.shape[1] != 2:
-        return stereo_audio
+        return stereo_audio.copy()
 
     # No change needed
     if abs(width_factor - 0.5) < 0.01:
-        return stereo_audio
+        return stereo_audio.copy()
 
     nyquist = sample_rate / 2
 

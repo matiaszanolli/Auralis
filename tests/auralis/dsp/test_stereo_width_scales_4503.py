@@ -212,6 +212,13 @@ class TestInvariants:
         np.testing.assert_array_equal(audio, original)
 
     def test_mono_input_passes_through(self):
+        # A pass-through/no-op branch must still return a copy, never the
+        # caller's own array object (#4900) — equal in value, not identity.
         mono = np.zeros((1000, 1), dtype=np.float32)
-        assert adjust_stereo_width(mono, 0.9) is mono
-        assert adjust_stereo_width_multiband(mono, 0.9, SR) is mono
+        result_a = adjust_stereo_width(mono, 0.9)
+        assert result_a is not mono
+        np.testing.assert_array_equal(result_a, mono)
+
+        result_b = adjust_stereo_width_multiband(mono, 0.9, SR)
+        assert result_b is not mono
+        np.testing.assert_array_equal(result_b, mono)
