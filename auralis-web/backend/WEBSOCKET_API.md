@@ -600,6 +600,10 @@ Broadcast when a library scan fails. `{ "data": { "error": string } }`
 #### `library_tracks_removed`
 Broadcast when tracks are removed from the library. `{ "data": { "count": number } }`
 
+#### `cache_cleared`
+Broadcast by `POST /api/cache/clear` (`routers/cache_streamlined.py`) after both
+cache tiers are dropped. `{ "data": { "message": string } }`
+
 #### `fingerprint_progress`
 Broadcast by `audio_stream_controller.py` while computing a track fingerprint.
 `{ "data": { "track_id": number, "status": "analyzing" | "complete" | "failed" | "error" | "cached" | "queued", "message": string, "stream_type?": "enhanced" | "normal" } }`
@@ -846,7 +850,7 @@ Complete TypeScript types for all WebSocket messages are available in:
 
 **Frontend**: [auralis-web/frontend/src/types/websocket.ts](../frontend/src/types/websocket.ts) — a barrel re-export (#4081); the canonical source is [`auralis-web/frontend/src/types/ws/registry.ts`](../frontend/src/types/ws/registry.ts)
 
-The complete `WebSocketMessageType` union (34 members) is reproduced here for quick reference. Note `audio_chunk_meta` is intentionally excluded from this union — it's a JSON text frame fused with the following binary frame into a synthetic `audio_chunk` event by `WebSocketContext` before reaching consumers (see `ws/streaming.ts`):
+The complete `WebSocketMessageType` union (35 members) is reproduced here for quick reference. Note `audio_chunk_meta` is intentionally excluded from this union — it's a JSON text frame fused with the following binary frame into a synthetic `audio_chunk` event by `WebSocketContext` before reaching consumers (see `ws/streaming.ts`):
 
 ```typescript
 export type WebSocketMessageType =
@@ -894,6 +898,7 @@ export type WebSocketMessageType =
   | 'library_scan_started'
   | 'library_scan_error'
   | 'library_tracks_removed'
+  | 'cache_cleared'
   // Error messages
   | 'error';
 ```
@@ -905,6 +910,7 @@ export type WebSocketMessageType =
 | Player state | `player_state`, `playback_started`, `playback_paused`, `playback_resumed`, `playback_stopped`, `track_loaded`, `track_changed`, `position_changed`, `volume_changed` |
 | Queue | `queue_updated`, `queue_changed`, `queue_shuffled`, `repeat_mode_changed` |
 | Library | `library_updated`, `library_scan_started`, `library_scan_error`, `library_tracks_removed` |
+| System | `cache_cleared` |
 | Metadata | `metadata_updated`, `metadata_batch_updated` |
 | Playlists | `playlist_created`, `playlist_updated`, `playlist_deleted` |
 | Enhancement | `enhancement_settings_changed`, `mastering_recommendation` |
