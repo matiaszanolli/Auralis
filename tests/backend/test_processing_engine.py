@@ -269,6 +269,15 @@ class TestProcessingJobProcessing:
         the post-process save/telemetry/completion flow — exactly the
         bug-masking pattern that let #3489 ship. No more try/except: a
         regression here must fail the test.
+
+        #4757: this test also used to mock the telemetry side-channel with a
+        shape that never occurs in production — get_processing_info() never
+        returns "last_processing_time"/"last_lufs" keys (it's a fixed 7-key
+        static-config dict), and last_content_profile is always a dict, never
+        an object with a `.genre` attribute — so the test validated the exact
+        bug it should have caught. Mocks now match HybridProcessor's real
+        shape: last_content_profile as the legacy AdaptiveMode dict
+        (genre_info.primary), continuous_mode.last_fingerprint for LUFS.
         """
         engine = ProcessingEngine(max_concurrent_jobs=1)
 
@@ -284,16 +293,18 @@ class TestProcessingJobProcessing:
             # post-#3489 contract asserted by processing_engine.py's
             # isinstance(result, np.ndarray) guard.
             mock_proc_instance.process.return_value = np.zeros((1000, 2), dtype=np.float32)
-            # Telemetry side-channel (processing_engine.py pulls this instead
-            # of result attributes, also post-#3489) — assert it's actually
-            # read, not just tolerated if absent.
-            mock_proc_instance.get_processing_info.return_value = {
-                "last_processing_time": 1.23,
-                "last_lufs": -14.0,
+            # Telemetry side-channels _finalize_job actually reads (#4757):
+            # last_content_profile is a dict (legacy AdaptiveMode shape here,
+            # genre lives under genre_info.primary); continuous_mode's
+            # last_fingerprint carries the real measured LUFS on the
+            # production (continuous-space) path and takes precedence when
+            # present — set to None here so the legacy dict's estimated_lufs
+            # is exercised instead.
+            mock_proc_instance.last_content_profile = {
+                "genre_info": {"primary": "rock"},
+                "estimated_lufs": -14.0,
             }
-            mock_content_profile = Mock()
-            mock_content_profile.genre = "rock"
-            mock_proc_instance.last_content_profile = mock_content_profile
+            mock_proc_instance.continuous_mode.last_fingerprint = None
             mock_processor.return_value = mock_proc_instance
 
             # Create and process job
@@ -310,12 +321,57 @@ class TestProcessingJobProcessing:
 
             assert job.status == ProcessingStatus.COMPLETED
             assert job.result_data is not None
-            assert job.result_data["processing_time"] == 1.23
+            # Real wall-clock duration (job.started_at → completion), not a
+            # mocked value — just assert it was actually measured.
+            assert isinstance(job.result_data["processing_time"], float)
+            assert job.result_data["processing_time"] >= 0.0
             assert job.result_data["lufs"] == -14.0
             assert job.result_data["genre_detected"] == "rock"
 
             mock_save.assert_called_once()
             assert mock_save.call_args.kwargs["subtype"] == "PCM_16"
+
+    @pytest.mark.asyncio
+    async def test_process_job_lufs_from_continuous_mode_fingerprint(self, temp_audio_file):
+        """The default/production path (use_continuous_space=True, #4757).
+
+        ContinuousMode is "the default and the only value the app ever
+        sets" (hybrid_processor.py's own docstring) — it never runs genre
+        classification, but its 25D fingerprint carries a real measured
+        LUFS. That fingerprint value must win over any legacy
+        last_content_profile estimate, and genre_detected must stay honestly
+        None rather than fabricating a value.
+        """
+        engine = ProcessingEngine(max_concurrent_jobs=1)
+
+        with patch('core.processing_engine.load_audio') as mock_load, \
+             patch('core.processing_engine.HybridProcessor') as mock_processor, \
+             patch('core.processing_engine.save') as mock_save:
+
+            mock_load.return_value = (np.zeros((1000, 2), dtype=np.float32), 44100)
+
+            mock_proc_instance = Mock()
+            mock_proc_instance.process.return_value = np.zeros((1000, 2), dtype=np.float32)
+            # Continuous-mode shape: no genre_info anywhere.
+            mock_proc_instance.last_content_profile = {
+                "fingerprint": {"lufs": -9.5},
+                "coordinates": Mock(),
+                "parameters": Mock(),
+            }
+            mock_proc_instance.continuous_mode.last_fingerprint = {"lufs": -9.5}
+            mock_processor.return_value = mock_proc_instance
+
+            job = await engine.create_job(
+                input_path=str(temp_audio_file),
+                settings={"mode": "adaptive", "output_format": "wav", "bit_depth": 16},
+            )
+            await engine.process_job(job)
+
+            assert job.status == ProcessingStatus.COMPLETED
+            assert job.result_data is not None
+            assert job.result_data["lufs"] == -9.5
+            assert job.result_data["genre_detected"] is None
+            mock_save.assert_called_once()
 
 
 class TestJobCreation:
