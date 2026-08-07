@@ -33,6 +33,7 @@ on:
       - 'auralis-web/backend/**'
       - 'tests/**'
       - 'requirements.txt'
+      - 'requirements-lock.txt'
       - 'pytest.ini'
       - 'pytest-baseline.json'
       - 'scripts/check_pytest_baseline.py'
@@ -43,6 +44,7 @@ on:
       - 'auralis-web/backend/**'
       - 'tests/**'
       - 'requirements.txt'
+      - 'requirements-lock.txt'
       - 'pytest.ini'
       - 'pytest-baseline.json'
       - 'scripts/check_pytest_baseline.py'
@@ -76,7 +78,14 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          # --require-hashes (#4889): requirements.txt's == pins cover only
+          # direct dependencies — nothing hash-verified or version-pinned
+          # the transitive tree, so a fresh install resolved whatever
+          # transitive versions PyPI served at install time. requirements-
+          # lock.txt hash-locks the full tree (see its own header for the
+          # regeneration command); --require-hashes makes pip refuse to
+          # install anything that doesn't match a listed hash.
+          pip install --require-hashes -r requirements-lock.txt
           # pytest MUST stay at 9.0.x: 9.1 removed the legacy
           # pytest_ignore_collect(path, config) hook signature that
           # tests/conftest.py still uses, which crashes collection entirely.

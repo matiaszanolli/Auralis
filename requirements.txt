@@ -1,6 +1,12 @@
 # Core Audio Processing
 # Pinned to exact versions for reproducible installs (#2414).
 # Run `pip-compile requirements.in` (or `uv pip compile`) to regenerate.
+#
+# requirements-lock.txt hash-locks this file's FULL transitive tree (#4889) —
+# after changing anything here, regenerate it too:
+#   uv pip compile requirements.txt --generate-hashes \
+#     --python-version 3.14 --python-platform x86_64-unknown-linux-gnu \
+#     -o requirements-lock.txt
 numpy==2.3.5
 scipy==1.16.3
 soundfile==0.13.1
