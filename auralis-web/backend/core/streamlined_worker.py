@@ -615,11 +615,15 @@ class StreamlinedCacheWorker:
             preset_str = "original" if preset is None else preset
             logger.info(f"⚡ IMMEDIATE: Processing chunk {chunk_idx} ({preset_str})")
 
-            await self._process_chunk(
+            chunk_path = await self._process_chunk(
                 track, track_id, chunk_idx, preset, intensity, tier="tier1"
             )
 
-            return True
+            # _process_chunk swallows its own failures (timeout, missing/
+            # unreadable file, any other exception) and returns None rather
+            # than raising, so "no exception here" doesn't mean "chunk built"
+            # — only a non-None path does (#5063).
+            return chunk_path is not None
 
         except Exception as e:
             logger.error(f"Immediate processing failed: {e}")

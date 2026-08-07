@@ -77,3 +77,35 @@ class TestImmediateProcessingBounds:
         assert result is False
         worker.library_manager.tracks.get_by_id.assert_not_called()
         process_chunk.assert_not_awaited()
+
+
+class TestImmediateProcessingReportsActualOutcome:
+    """#5063: trigger_immediate_processing used to return True unconditionally
+    after awaiting _process_chunk, even though _process_chunk swallows every
+    failure (timeout, FileNotFoundError, PermissionError, catch-all) and
+    returns None rather than raising — so the caller could never tell "chunk
+    cached" from "chunk failed to build"."""
+
+    @pytest.mark.asyncio
+    async def test_returns_false_when_process_chunk_reports_failure(self, monkeypatch):
+        worker = _worker(current_chunk=1, total_chunks=3)
+        monkeypatch.setattr(worker, "_process_chunk", AsyncMock(return_value=None))
+
+        result = await worker.trigger_immediate_processing(
+            track_id=7, chunk_idx=1, preset="adaptive", intensity=1.0,
+        )
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_returns_true_when_process_chunk_produces_a_path(self, monkeypatch):
+        worker = _worker(current_chunk=1, total_chunks=3)
+        monkeypatch.setattr(
+            worker, "_process_chunk", AsyncMock(return_value="/tmp/chunk_001.wav")
+        )
+
+        result = await worker.trigger_immediate_processing(
+            track_id=7, chunk_idx=1, preset="adaptive", intensity=1.0,
+        )
+
+        assert result is True
