@@ -17,6 +17,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from .dependencies import require_repository_factory, with_error_handling
 from .errors import NotFoundError
+from .pagination import PaginationParams, compute_has_more
 from .serializers import serialize_album_detail, serialize_albums, serialize_tracks
 
 logger = logging.getLogger(__name__)
@@ -42,8 +43,8 @@ def create_albums_router(
     @router.get("/api/albums")
     @with_error_handling("get albums")
     async def get_albums(
-        limit: int = Query(50, ge=1, le=200),
-        offset: int = Query(0, ge=0),
+        limit: int = Query(PaginationParams.DEFAULT_LIMIT, ge=PaginationParams.MIN_LIMIT, le=PaginationParams.MAX_LIMIT),
+        offset: int = Query(PaginationParams.DEFAULT_OFFSET, ge=PaginationParams.MIN_OFFSET),
         search: str | None = None,
         order_by: Literal['title', 'year', 'created_at'] = 'title'
     ) -> Any:
@@ -74,7 +75,7 @@ def create_albums_router(
             albums, total = await asyncio.to_thread(repos.albums.search, search, limit=limit, offset=offset, order_by=order_by)
         else:
             albums, total = await asyncio.to_thread(repos.albums.get_all, limit=limit, offset=offset, order_by=order_by)
-        has_more = (offset + len(albums)) < total
+        has_more = compute_has_more(offset, len(albums), total)
 
         return {
             "albums": serialize_albums(albums),

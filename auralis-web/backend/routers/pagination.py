@@ -17,6 +17,27 @@ from pydantic import BaseModel, Field
 T = TypeVar('T')
 
 
+def compute_has_more(offset: int, item_count: int, total: int) -> bool:
+    """
+    Whether more items remain beyond the current page.
+
+    The single source of truth for this formula (#4902) — every paginated
+    router previously recomputed ``(offset + len(items)) < total`` inline
+    (5 call sites across albums.py, artists.py, tracks.py x2, playlists.py),
+    with no shared code to keep them in sync. ``PaginatedResponse.create()``
+    below uses this too, so there is exactly one implementation regardless of
+    whether a route can adopt the full response model or only needs the
+    boolean (most of these routers can't: their response shape is keyed by
+    domain name — "albums"/"artists"/"tracks"/"playlists" — not the generic
+    "items" ``PaginatedResponse`` uses, so switching the whole response would
+    be a breaking frontend contract change, not a refactor).
+
+    Using ``item_count`` (the actual page length) rather than ``limit``
+    handles partial last pages correctly.
+    """
+    return (offset + item_count) < total
+
+
 class PaginatedResponse(BaseModel, Generic[T]):
     """
     Generic paginated response model with consistent structure.
@@ -80,15 +101,16 @@ class PaginatedResponse(BaseModel, Generic[T]):
             PaginatedResponse instance with has_more calculated
 
         Note:
-            has_more is calculated as: (offset + len(items)) < total
-            Using len(items) instead of limit handles partial last pages correctly.
+            has_more is calculated via compute_has_more() — see that function
+            for why routers that can't adopt this response model still share
+            the same formula.
         """
         return cls(
             items=items,
             total=total,
             offset=offset,
             limit=limit,
-            has_more=(offset + len(items)) < total
+            has_more=compute_has_more(offset, len(items), total)
         )
 
 

@@ -17,6 +17,7 @@ from pydantic import BaseModel
 
 from .dependencies import require_repository_factory, with_error_handling
 from .errors import NotFoundError
+from .pagination import PaginationParams, compute_has_more
 from .serializers import serialize_artist
 
 
@@ -114,8 +115,8 @@ def create_artists_router(
     @router.get("/api/artists", response_model=ArtistsListResponse)
     @with_error_handling("fetch artists")
     async def get_artists(
-        limit: int = Query(50, ge=1, le=200, description="Number of artists to return"),
-        offset: int = Query(0, ge=0, description="Number of artists to skip"),
+        limit: int = Query(PaginationParams.DEFAULT_LIMIT, ge=PaginationParams.MIN_LIMIT, le=PaginationParams.MAX_LIMIT, description="Number of artists to return"),
+        offset: int = Query(PaginationParams.DEFAULT_OFFSET, ge=PaginationParams.MIN_OFFSET, description="Number of artists to skip"),
         search: str | None = Query(None, description="Search query for artist name"),
         order_by: Literal['name', 'album_count', 'track_count'] = Query(
             'name', description="Sort by: name, album_count, track_count"
@@ -170,7 +171,7 @@ def create_artists_router(
                 artwork_source=artist.artwork_source,
             ))
 
-        has_more = (offset + len(artist_responses)) < total
+        has_more = compute_has_more(offset, len(artist_responses), total)
 
         return ArtistsListResponse(
             artists=artist_responses,

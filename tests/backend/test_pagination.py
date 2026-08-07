@@ -22,7 +22,56 @@ if 'routers' not in sys.modules:
     _stub.__package__ = 'routers'
     sys.modules['routers'] = _stub
 
-from routers.pagination import PaginatedResponse, PaginationParams
+from routers.pagination import PaginatedResponse, PaginationParams, compute_has_more
+
+
+# ---------------------------------------------------------------------------
+# compute_has_more — the shared formula (#4902)
+#
+# Previously duplicated inline at 5 call sites (albums.py, artists.py,
+# tracks.py x2, playlists.py); routers/pagination.py::PaginatedResponse was
+# never imported by any of them despite its own docstring claiming it
+# eliminated exactly this duplication. All 5 routers, plus
+# PaginatedResponse.create() itself, now call this one function.
+# ---------------------------------------------------------------------------
+
+class TestComputeHasMore:
+    def test_true_when_more_items_remain(self):
+        assert compute_has_more(offset=0, item_count=10, total=25) is True
+
+    def test_false_on_last_page(self):
+        assert compute_has_more(offset=15, item_count=10, total=25) is False
+
+    def test_false_when_past_total(self):
+        assert compute_has_more(offset=10, item_count=0, total=5) is False
+
+    def test_boundary_one_before_end(self):
+        assert compute_has_more(offset=14, item_count=10, total=25) is True
+
+    def test_false_on_exact_full_page_no_remainder(self):
+        assert compute_has_more(offset=150, item_count=50, total=200) is False
+
+    def test_false_on_empty_collection(self):
+        assert compute_has_more(offset=0, item_count=0, total=0) is False
+
+    @pytest.mark.parametrize(
+        "offset,item_count,total,expected",
+        [
+            (0, 50, 500, True),
+            (0, 1, 1, False),
+            (450, 50, 500, False),
+            (449, 50, 500, True),
+            (0, 0, 0, False),
+        ],
+    )
+    def test_matches_paginated_response_create(self, offset, item_count, total, expected):
+        """compute_has_more() and PaginatedResponse.create() must agree —
+        the latter delegates to the former (#4902), so this is a regression
+        guard against them drifting apart again."""
+        items = list(range(item_count))
+        resp = PaginatedResponse.create(items=items, total=total, limit=50, offset=offset)
+        assert compute_has_more(offset, item_count, total) == expected
+        assert resp.has_more == expected
 
 
 # ---------------------------------------------------------------------------

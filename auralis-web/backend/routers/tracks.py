@@ -25,6 +25,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from .dependencies import require_repository_factory
 from .errors import NotFoundError, handle_query_error
+from .pagination import PaginationParams, compute_has_more
 from .serializers import serialize_tracks
 
 logger = logging.getLogger(__name__)
@@ -38,8 +39,8 @@ def create_tracks_router(
 
     @router.get("/api/library/tracks")
     async def get_tracks(
-        limit: int = Query(50, ge=1, le=200),
-        offset: int = Query(0, ge=0),
+        limit: int = Query(PaginationParams.DEFAULT_LIMIT, ge=PaginationParams.MIN_LIMIT, le=PaginationParams.MAX_LIMIT),
+        offset: int = Query(PaginationParams.DEFAULT_OFFSET, ge=PaginationParams.MIN_OFFSET),
         search: str | None = None,
         # #2727: Literal type makes FastAPI reject unknown values with
         # 422 at the route layer instead of silently coercing to 'title'.
@@ -57,7 +58,7 @@ def create_tracks_router(
                 )
             else:
                 tracks, total = await asyncio.to_thread(repos.tracks.get_all, limit=limit, offset=offset, order_by=order_by)
-            has_more = (offset + len(tracks)) < total
+            has_more = compute_has_more(offset, len(tracks), total)
             return {
                 "tracks": serialize_tracks(tracks),
                 "total": total,
@@ -72,14 +73,14 @@ def create_tracks_router(
 
     @router.get("/api/library/tracks/favorites")
     async def get_favorite_tracks(
-        limit: int = Query(50, ge=1, le=200),
-        offset: int = Query(0, ge=0),
+        limit: int = Query(PaginationParams.DEFAULT_LIMIT, ge=PaginationParams.MIN_LIMIT, le=PaginationParams.MAX_LIMIT),
+        offset: int = Query(PaginationParams.DEFAULT_OFFSET, ge=PaginationParams.MIN_OFFSET),
     ) -> dict[str, Any]:
         """Get all favorite tracks with pagination."""
         try:
             repos = require_repository_factory(get_repository_factory)
             tracks, total = await asyncio.to_thread(repos.tracks.get_favorites, limit=limit, offset=offset)
-            has_more = (offset + len(tracks)) < total
+            has_more = compute_has_more(offset, len(tracks), total)
             return {
                 "tracks": serialize_tracks(tracks),
                 "total": total,

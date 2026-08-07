@@ -27,6 +27,7 @@ from pydantic import BaseModel, Field
 
 from .dependencies import require_repository_factory, with_error_handling
 from .errors import NotFoundError
+from .pagination import PaginationParams, compute_has_more
 from .serializers import serialize_playlist, serialize_playlists
 
 router = APIRouter(tags=["playlists"])
@@ -88,8 +89,8 @@ def create_playlists_router(
     @router.get("/api/playlists")
     @with_error_handling("get playlists")
     async def get_playlists(
-        limit: int = Query(50, ge=1, le=200, description="Number of playlists to return"),
-        offset: int = Query(0, ge=0, description="Number of playlists to skip"),
+        limit: int = Query(PaginationParams.DEFAULT_LIMIT, ge=PaginationParams.MIN_LIMIT, le=PaginationParams.MAX_LIMIT, description="Number of playlists to return"),
+        offset: int = Query(PaginationParams.DEFAULT_OFFSET, ge=PaginationParams.MIN_OFFSET, description="Number of playlists to skip"),
     ) -> dict[str, Any]:
         """
         Get a paginated list of playlists.
@@ -123,7 +124,7 @@ def create_playlists_router(
             "total": total,
             "offset": offset,
             "limit": limit,
-            "has_more": (offset + len(serialized)) < total,
+            "has_more": compute_has_more(offset, len(serialized), total),
         }
 
     @router.get("/api/playlists/{playlist_id}")
