@@ -12,6 +12,7 @@ import asyncio
 import logging
 import sys
 import time
+from collections import OrderedDict
 from typing import Any, cast
 from collections.abc import Callable
 
@@ -150,13 +151,31 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         "/api/similarity": (20, 60),        # 20 similarity queries per minute
     }
 
-    # Evict stale keys every 256 rate-limited requests to bound memory (#2630).
+    # Evict stale keys every 256 rate-limited requests (#2630). This bounds
+    # growth BETWEEN windows — once every timestamp for a key is older than
+    # max_window, the sweep removes it. It does NOT bound growth WITHIN a
+    # single window: a burst of many distinct client_ip:path keys inside one
+    # 60s window (e.g. every track ID touched across a large library) is not
+    # caught by this sweep no matter how often it runs, since each such
+    # entry's newest timestamp is still fresh (#4804). The hard cap below is
+    # what actually bounds that case; keying on path prefix instead of the
+    # full path (#4728) would remove the growth path entirely by collapsing
+    # the key space to clients × rule count.
     _EVICTION_INTERVAL = 256
+
+    # Hard cap on live entries, independent of the between-window sweep above
+    # (#4804). Evicted LRU-style (least-recently-touched first, via
+    # OrderedDict.move_to_end() on every hit) so active clients are never
+    # evicted ahead of quiet ones. ~10k entries is a generous margin above
+    # normal traffic shapes while still bounding worst-case memory (roughly
+    # 2 MB at the ~200 B/entry estimate from #4804's own impact analysis).
+    _MAX_WINDOW_ENTRIES = 10_000
 
     def __init__(self, app: Any) -> None:
         super().__init__(app)
-        # {client_key: [timestamp, ...]}
-        self._windows: dict[str, list[float]] = {}
+        # {client_key: [timestamp, ...]} — OrderedDict (not plain dict) so
+        # move_to_end() can track recency for the hard-cap LRU eviction below.
+        self._windows: OrderedDict[str, list[float]] = OrderedDict()
         self._request_count = 0
         # Serialize the get → prune → check → write critical section so the
         # rate limit is exact even if a future refactor introduces an await
@@ -165,7 +184,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self._lock: asyncio.Lock = asyncio.Lock()
 
     def _evict_stale_keys(self, now: float) -> None:
-        """Remove dict entries whose timestamps have all expired."""
+        """Remove dict entries whose timestamps have all expired, then
+        enforce the hard cap (#4804) — see _MAX_WINDOW_ENTRIES and the
+        _EVICTION_INTERVAL comment above for why both are needed."""
         # Find the longest window across all rules for a conservative cutoff
         max_window = max(w for _, w in self._RATE_LIMITS.values())
         stale_keys = [
@@ -174,6 +195,13 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         ]
         for k in stale_keys:
             del self._windows[k]
+
+        # Hard cap: bounds within-window growth the staleness sweep above
+        # cannot catch. popitem(last=False) drops the oldest (least-recently-
+        # touched) entry — dispatch() calls move_to_end() on every hit, so
+        # this is true LRU, not merely insertion order.
+        while len(self._windows) > self._MAX_WINDOW_ENTRIES:
+            self._windows.popitem(last=False)
 
     async def dispatch(self, request: Request, call_next: Callable[[Request], Any]) -> Response:
         try:
@@ -212,6 +240,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
                 if len(timestamps) >= max_requests:
                     self._windows[key] = timestamps
+                    # Recency touch for the hard-cap LRU eviction (#4804) —
+                    # a client still being rate-limited is by definition
+                    # active and must not be evicted ahead of quiet keys.
+                    self._windows.move_to_end(key)
                     retry_after = int(window_sec - (now - timestamps[0])) + 1
                     return JSONResponse(
                         status_code=429,
@@ -221,6 +253,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
                 timestamps.append(now)
                 self._windows[key] = timestamps
+                self._windows.move_to_end(key)  # recency touch (#4804)
 
             return await call_next(request)
         except Exception as exc:
