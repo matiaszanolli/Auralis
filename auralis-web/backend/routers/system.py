@@ -351,7 +351,25 @@ def create_system_router(
             while True:
                 # Named raw_data to avoid shadowing the inner payload dicts
                 # extracted per-message below (fixes #2312).
-                raw_data = await websocket.receive_text()
+                #
+                # receive_text() does `message["text"]` with no type check
+                # (#4741): a binary frame arrives as {"type": "websocket.receive",
+                # "bytes": ...} with no "text" key, so receive_text() raises a
+                # bare KeyError that falls through to the generic `except
+                # Exception` below and tears down the whole connection with no
+                # error frame sent. Call receive() directly and branch on frame
+                # type so a binary frame gets a typed error response instead.
+                frame = await websocket.receive()
+                if frame["type"] == "websocket.disconnect":
+                    raise WebSocketDisconnect(frame.get("code", 1000), frame.get("reason"))
+                if "text" not in frame:
+                    await send_error_response(
+                        websocket,
+                        "unsupported_frame_type",
+                        "Binary WebSocket frames are not supported; send JSON text frames",
+                    )
+                    continue
+                raw_data = frame["text"]
 
                 # Security: Validate message size and structure (fixes #2156).
                 # Parsed BEFORE rate-limiting (#4786) so the type is known:

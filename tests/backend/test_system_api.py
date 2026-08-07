@@ -222,6 +222,27 @@ class TestWebSocketMessageValidation:
             data = _recv_until_type(websocket, "error")
             assert "size" in data.get("message", "").lower()
 
+    def test_websocket_binary_frame_rejected_with_error(self, client):
+        """A binary frame gets a typed error frame, not a silent close (#4741).
+
+        receive_text() does `message["text"]` with no type check, so a
+        binary frame (queued by uvicorn as {"type": ..., "bytes": ...}, no
+        "text" key) used to raise a bare KeyError that fell through to the
+        endpoint's blanket `except Exception` and tore the connection down
+        with no explanation to the client.
+        """
+        with client.websocket_connect("/ws") as websocket:
+            websocket.send_bytes(b"\x00\x01\x02binary-not-json")
+
+            # Connection must stay open and respond with a typed error frame.
+            data = _recv_until_type(websocket, "error")
+            assert data["error"] == "unsupported_frame_type"
+
+            # Normal text-frame dispatch is unaffected afterward.
+            websocket.send_text(json.dumps({"type": "ping"}))
+            pong = _recv_until_type(websocket, "pong")
+            assert pong["type"] == "pong"
+
     def test_websocket_rate_limiting(self, client):
         """Test WebSocket rate limiting (security)
 
