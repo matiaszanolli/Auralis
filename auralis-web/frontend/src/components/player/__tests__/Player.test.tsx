@@ -10,10 +10,8 @@
  */
 
 import { beforeEach, describe, it, expect, vi } from 'vitest';
-import type { ReactNode } from 'react';
 import { screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { render } from '@/test/test-utils';
-import { PlaybackSessionProvider } from '@/contexts/PlaybackSessionContext';
 import Player from '../Player';
 
 // Captured across renders so tests can assert on the exact wire-mode choice.
@@ -63,10 +61,12 @@ vi.mock('@/hooks/enhancement/useEnhancementControl', () => ({
 
 function renderPlayer(...args: Parameters<typeof render>) {
   const [ui, options] = args;
-  return render(
-    <PlaybackSessionProvider>{ui as ReactNode}</PlaybackSessionProvider>,
-    options
-  );
+  // #5006: test-utils' AllProviders now wraps every render in
+  // PlaybackSessionProvider — wrapping again here would nest two provider
+  // instances (a second live usePlayEnhanced() call), which #4541's single-
+  // session invariant explicitly forbids even if it happened not to break
+  // any assertion here.
+  return render(ui, options);
 }
 
 const mockTrack = {

@@ -1,13 +1,11 @@
 {
   "_comment": "Known-failing vitest specs (#4640). CI fails on any failure NOT listed here. Regenerate with: pnpm run test:baseline:update",
   "generatedFrom": {
-    "totalTests": 3427,
-    "failedTests": 142
+    "totalTests": 3342,
+    "failedTests": 139
   },
   "failures": [
     "src/components/__tests__/Sidebar.test.tsx::Sidebar renders in collapsed state",
-    "src/components/__tests__/SimilarityVisualization.test.tsx::SimilarityVisualization Top Differences should display dimension names formatted correctly",
-    "src/components/features/discovery/__tests__/useSimilarTracksFormatting.test.ts::<suite failed to run>",
     "src/components/library/Items/__tests__/useTrackFormatting.test.ts::useTrackFormatting formatDuration should format 3661 seconds as \"61:01\"",
     "src/components/library/Items/__tests__/useTrackFormatting.test.ts::useTrackFormatting formatDuration should handle 2 hours duration",
     "src/components/library/Items/__tests__/useTrackFormatting.test.ts::useTrackFormatting formatDuration should handle large durations (hours)",
@@ -107,8 +105,6 @@
     "src/components/shared/__tests__/ConnectionStatusIndicator.test.tsx::ConnectionStatusIndicator should transition from connected to disconnected",
     "src/components/shared/__tests__/ConnectionStatusIndicator.test.tsx::ConnectionStatusIndicator should transition from disconnected to reconnecting",
     "src/components/shared/__tests__/ConnectionStatusIndicator.test.tsx::ConnectionStatusIndicator should transition from reconnecting to connected",
-    "src/components/track/__tests__/TrackCard.test.tsx::TrackCard Edge Cases should handle very long duration",
-    "src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts::usePlayEnhanced – WS disconnect cleanup stops engine and resets Redux streaming state on disconnect",
     "src/hooks/fingerprint/__tests__/useFingerprintCache.test.ts::useCachedFingerprint should return cached fingerprint",
     "src/hooks/fingerprint/__tests__/useFingerprintCache.test.ts::useFingerprintCacheStats should return cache statistics",
     "src/hooks/fingerprint/__tests__/useFingerprintCache.test.ts::useIsFingerprintCached should return true when track is cached",

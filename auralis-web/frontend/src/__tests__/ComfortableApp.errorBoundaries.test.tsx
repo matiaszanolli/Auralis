@@ -16,7 +16,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { act, screen } from '@testing-library/react';
 import { render } from '@/test/test-utils';
-import { PlaybackSessionProvider } from '@/contexts/PlaybackSessionContext';
 import ComfortableApp from '../ComfortableApp';
 
 vi.mock('@/hooks/enhancement/usePlayEnhanced', () => ({
@@ -57,11 +56,10 @@ vi.mock('@/components/shared/KeyboardShortcutsHelp', () => ({
 }));
 
 function renderApp() {
-  return render(
-    <PlaybackSessionProvider>
-      <ComfortableApp />
-    </PlaybackSessionProvider>
-  );
+  // #5006: test-utils' AllProviders now wraps every render in
+  // PlaybackSessionProvider — wrapping again here would nest two provider
+  // instances (a second live usePlayEnhanced() call).
+  return render(<ComfortableApp />);
 }
 
 function pressKey(key: string, opts: KeyboardEventInit = {}) {

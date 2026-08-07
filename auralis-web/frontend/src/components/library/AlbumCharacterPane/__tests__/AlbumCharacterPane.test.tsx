@@ -97,6 +97,34 @@ vi.mock('../usePlaybackWithDecay', () => ({
 let mockIsPlaying = false;
 let mockCurrentTrack: { id: number; title: string } | null = null;
 
+// #5005: PlaybackSessionProvider (now mounted by test-utils' AllProviders)
+// calls usePlayEnhanced() for real, which needs much more player.streaming
+// Redux state than this file's hand-rolled useSelector fake below models.
+// This component doesn't touch playback session state at all, so mock it
+// directly rather than deep-replicating streaming state shape — matches
+// this file's own "keep tests focused" intent. useEnhancementControl is
+// already mocked above (`mockUseEnhancementControl`) — reuse that one
+// rather than adding a second, conflicting mock for the same module.
+vi.mock('@/hooks/enhancement/usePlayEnhanced', () => ({
+  usePlayEnhanced: () => ({
+    playEnhanced: vi.fn(),
+    playNormal: vi.fn(),
+    seekTo: vi.fn(),
+    pausePlayback: vi.fn(),
+    resumePlayback: vi.fn(),
+    stopPlayback: vi.fn(),
+    setVolume: vi.fn(),
+    isStreaming: false,
+    streamingState: 'idle',
+    processedChunks: 0,
+    totalChunks: 0,
+    currentTime: 0,
+    isPaused: false,
+    isSeeking: false,
+    error: null,
+  }),
+}));
+
 vi.mock('react-redux', async () => {
   const actual = await vi.importActual<typeof import('react-redux')>('react-redux');
   return {
@@ -109,6 +137,14 @@ vi.mock('react-redux', async () => {
         player: {
           isPlaying: mockIsPlaying,
           currentTrack: mockCurrentTrack,
+        },
+        // #5005: PlaybackSessionProvider (now mounted by test-utils'
+        // AllProviders) reads selectQueueTracks/selectCurrentIndex
+        // unconditionally — an empty, neutral queue is enough since this
+        // component doesn't itself consume queue state.
+        queue: {
+          tracks: [],
+          currentIndex: -1,
         },
       };
       return selector(fakeState);

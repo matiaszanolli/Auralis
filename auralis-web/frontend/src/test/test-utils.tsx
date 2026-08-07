@@ -18,6 +18,7 @@ import { Provider as ReduxProvider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import { ToastProvider } from '@/components/shared/Toast'
+import { PlaybackSessionProvider } from '@/contexts/PlaybackSessionContext'
 import playerReducer from '@/store/slices/playerSlice'
 import queueReducer from '@/store/slices/queueSlice'
 import cacheReducer from '@/store/slices/cacheSlice'
@@ -124,13 +125,26 @@ export function AllProviders({ children, preloadedState, store }: AllProvidersPr
 
   // Note: DragDropContext removed to prevent "Should not already be working" errors
   // Tests that need drag-drop should wrap components individually with DragDropContext
+  //
+  // #5005: PlaybackSessionProvider must be present here to match App.tsx's real
+  // nesting order (Redux -> QueryClient -> Theme -> Toast -> WebSocket ->
+  // PlaybackSessionProvider) — #4541 wired several hooks (usePlayTrack,
+  // usePlaylistContextActions) to consume it, and any spec rendering a
+  // component that reaches them threw "usePlaybackSession must be used
+  // within a PlaybackSessionProvider" with no provider here. WebSocketProvider
+  // itself is intentionally NOT added: useWebSocketContext is globally mocked
+  // in src/test/setup.ts, so PlaybackSessionProvider's internal
+  // usePlayEnhanced()/useEnhancementControl() calls resolve against the mock
+  // without a real WebSocketProvider wrapper.
   return (
     <ReduxProvider store={testStore}>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <ThemeProvider>
             <ToastProvider>
-              {children}
+              <PlaybackSessionProvider>
+                {children}
+              </PlaybackSessionProvider>
             </ToastProvider>
           </ThemeProvider>
         </BrowserRouter>

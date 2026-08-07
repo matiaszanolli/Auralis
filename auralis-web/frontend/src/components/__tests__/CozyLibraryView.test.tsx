@@ -17,11 +17,16 @@ vi.mock('@/hooks/library/useLibraryWithStats', () => ({
   useLibraryWithStats: vi.fn(),
 }));
 vi.mock('@/contexts/WebSocketContext', () => ({
+  // #5005: PlaybackSessionProvider (now mounted by test-utils' AllProviders)
+  // reaches useAudioStreamingCore/useEnhancementControl, which call these two
+  // methods unconditionally — omitting them throws at render time.
   useWebSocketContext: () => ({
     subscribe: vi.fn(() => vi.fn()),
     unsubscribe: vi.fn(),
     send: vi.fn(),
     isConnected: true,
+    setResumePositionGetter: vi.fn(),
+    reissueActiveStreamAs: vi.fn(() => false),
   }),
   WebSocketProvider: ({ children }: any) => children,
 }));
