@@ -21,7 +21,7 @@ vi.mock('@/hooks/player/usePlaybackQueue', () => ({
   usePlaybackQueue: () => ({ setQueue: mockSetQueue }),
 }));
 vi.mock('@/contexts/PlaybackSessionContext', () => ({
-  usePlaybackSession: () => ({ startTrack: mockStartTrack }),
+  usePlaybackControls: () => ({ startTrack: mockStartTrack }),
 }));
 vi.mock('@/components/shared/Toast', () => ({
   useToast: () => ({ info: mockInfo, error: mockError }),

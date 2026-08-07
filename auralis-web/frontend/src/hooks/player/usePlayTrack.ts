@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useToast } from '@/components/shared/Toast';
-import { usePlaybackSession } from '@/contexts/PlaybackSessionContext';
+import { usePlaybackControls } from '@/contexts/PlaybackSessionContext';
 import { getApiUrl } from '@/config/api';
 import type { Track } from '@/types/domain';
 
@@ -19,7 +19,7 @@ export type PlayableTrack = Pick<Track, 'id'>;
  * owns stream confirmation/error state (#4812/#4813/#4829).
  */
 export const usePlayTrack = () => {
-  const { startTrack } = usePlaybackSession();
+  const { startTrack } = usePlaybackControls();
   const { error: errorToast } = useToast();
 
   // #4161: abort the queue POST on unmount so a stray playback start doesn't

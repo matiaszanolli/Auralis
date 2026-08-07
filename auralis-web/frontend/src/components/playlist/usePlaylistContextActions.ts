@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { getPlaylistContextActions } from '@/components/shared/ContextMenu';
 import { useToast } from '@/components/shared/Toast';
-import { usePlaybackSession } from '@/contexts/PlaybackSessionContext';
+import { usePlaybackControls } from '@/contexts/PlaybackSessionContext';
 import { usePlaybackQueue } from '@/hooks/player/usePlaybackQueue';
 import * as playlistService from '@/services/playlistService';
 
@@ -26,7 +26,7 @@ export const usePlaylistContextActions = ({
 }: UsePlaylistContextActionsProps) => {
   const { info, error: errorToast } = useToast();
   const { setQueue } = usePlaybackQueue();
-  const { startTrack } = usePlaybackSession();
+  const { startTrack } = usePlaybackControls();
 
   return useMemo(() => {
     if (!playlist) return [];

@@ -23,7 +23,12 @@ import QueuePanel from './QueuePanel';
 // Shared playback session (#4541) — the same instance the global keyboard
 // shortcuts (ComfortableApp) consume, so transport actions here and Space/
 // arrow-key shortcuts operate on one enhanced-audio session, not two.
-import { usePlaybackSession } from '@/contexts/PlaybackSessionContext';
+// Split into two hooks (#5006): Player is the one consumer that genuinely
+// needs the high-frequency progress fields (it renders the progress bar),
+// so it subscribes to both; low-frequency-only consumers (ComfortableApp,
+// usePlayTrack, usePlaylistContextActions) use usePlaybackControls() alone
+// and no longer re-render on the 10Hz position tick.
+import { usePlaybackControls, usePlaybackProgress } from '@/contexts/PlaybackSessionContext';
 
 // Redux hooks and actions
 import { useSelector } from 'react-redux';
@@ -41,9 +46,6 @@ const Player = () => {
   const {
     isStreaming,
     streamingState,
-    processedChunks,
-    totalChunks,
-    currentTime: wsCurrentTime,
     isPaused,
     isSeeking,
     isCommandPending,
@@ -54,7 +56,12 @@ const Player = () => {
     handlePrevious,
     handleVolumeChange,
     handleMuteToggle,
-  } = usePlaybackSession();
+  } = usePlaybackControls();
+  const {
+    processedChunks,
+    totalChunks,
+    currentTime: wsCurrentTime,
+  } = usePlaybackProgress();
 
   // Derived buffering state for UI
   const isBuffering = streamingState === 'buffering';

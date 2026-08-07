@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
 import { Box } from '@mui/material';
 import { useSelector } from 'react-redux';
-import { usePlaybackSession } from '@/contexts/PlaybackSessionContext';
+import { usePlaybackControls } from '@/contexts/PlaybackSessionContext';
 
 // No need to import DragDropContext - it's wrapped in AppContainer
 import Player from './components/player/Player';
@@ -63,7 +63,7 @@ function ComfortableApp() {
   // Player.tsx drives, not a disconnected legacy control plane — sending
   // 'play_normal' (the old usePlaybackControl.play()) cancelled the user's
   // own in-flight enhanced stream server-side with no visible error.
-  const session = usePlaybackSession();
+  const session = usePlaybackControls();
   const isPlaying = session.isStreaming && !session.isPaused;
   const togglePlayPause = session.handlePlayPause;
   const nextTrack = session.handleNext;
@@ -88,6 +88,12 @@ function ComfortableApp() {
       description: 'Play/Pause',
       category: 'Playback',
       handler: () => {
+        // #5008: runTransportCommand's shared commandPendingRef silently
+        // drops this command if a different transport command (Next/
+        // Previous/Play-Pause) is still in flight — checking isCommandPending
+        // here stops the confirmation toast from firing on a dropped command
+        // the mouse-path buttons already refuse via the same flag.
+        if (session.isCommandPending) return;
         togglePlayPause();
         info(isPlaying ? 'Paused' : 'Playing');
       }
@@ -97,6 +103,7 @@ function ComfortableApp() {
       description: 'Next track',
       category: 'Playback',
       handler: () => {
+        if (session.isCommandPending) return;
         nextTrack();
         info('Next track');
       }
@@ -106,6 +113,7 @@ function ComfortableApp() {
       description: 'Previous track',
       category: 'Playback',
       handler: () => {
+        if (session.isCommandPending) return;
         previousTrack();
         info('Previous track');
       }

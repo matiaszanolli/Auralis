@@ -12,12 +12,15 @@
  * This provider calls `usePlayEnhanced()` exactly once at the app root and
  * exposes the transport handlers (play/pause, next/previous, volume/mute,
  * seek) that both Player.tsx's transport bar and the global shortcuts
- * consume via `usePlaybackSession()`.
+ * consume — split (#5006) into `usePlaybackControls()` (low-frequency) and
+ * `usePlaybackProgress()` (the 10Hz position tick) in
+ * `./playbackSessionContexts`, since a single combined context re-rendered
+ * every consumer — including the app root — on every position update.
  *
  * @module contexts/PlaybackSessionContext
  */
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import type { AppDispatch } from '@/store';
 import { usePlayEnhanced } from '@/hooks/enhancement/usePlayEnhanced';
@@ -25,44 +28,14 @@ import { useEnhancementControl } from '@/hooks/enhancement/useEnhancementControl
 import { selectQueueTracks, selectCurrentIndex } from '@/store/slices/queueSlice';
 import { setCurrentTrackAndSyncQueue, setVolume as setVolumeAction } from '@/store/slices/playerSlice';
 import { playerSelectors } from '@/store/selectors';
+import {
+  PlaybackControlsContext,
+  PlaybackProgressContext,
+  type PlaybackControlsContextValue,
+  type PlaybackProgressContextValue,
+} from './playbackSessionContexts';
 
 const DEBUG = import.meta.env.DEV;
-
-interface PlaybackSessionContextValue {
-  /** True while a chunk is streaming or buffering. */
-  isStreaming: boolean;
-  /** Streaming state machine (idle, buffering, streaming, error, complete). */
-  streamingState: 'idle' | 'buffering' | 'streaming' | 'error' | 'complete';
-  processedChunks: number;
-  totalChunks: number;
-  /** Current playback position (seconds) reported by the streaming engine. */
-  currentTime: number;
-  isPaused: boolean;
-  isSeeking: boolean;
-  /** True while a transport command is waiting for its playback request. */
-  isCommandPending: boolean;
-  error: string | null;
-
-  /** Start a track using the current enhancement enabled/preset/intensity state. */
-  startTrack: (trackId: number) => Promise<void>;
-
-  /** Seek to a position (seconds) in the current track. */
-  handleSeek: (position: number) => void;
-  /** Play/pause/resume the current track — the single entry point for both
-   *  the transport bar and the Space shortcut. */
-  handlePlayPause: () => Promise<void>;
-  /** Stop current playback and play the next queue track. */
-  handleNext: () => Promise<void>;
-  /** Stop current playback and play the previous queue track. */
-  handlePrevious: () => Promise<void>;
-  /** Set the live playback volume (0-1) and persist it to Redux. */
-  handleVolumeChange: (volume: number) => Promise<void>;
-  /** Toggle mute, restoring the pre-mute volume on unmute. Returns the
-   *  resulting muted state so callers can report it (e.g. a toast). */
-  handleMuteToggle: () => Promise<boolean>;
-}
-
-const PlaybackSessionContext = createContext<PlaybackSessionContextValue | null>(null);
 
 export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
   const dispatch = useDispatch<AppDispatch>();
@@ -257,12 +230,13 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
     }
   }, [streamingState, currentTime, trackDuration, currentQueueIndex, queueTracks.length, handleNext]);
 
-  const value = useMemo<PlaybackSessionContextValue>(() => ({
+  // #5006: split from one combined value into two, so a consumer that only
+  // needs controls (ComfortableApp, usePlayTrack, usePlaylistContextActions)
+  // does not re-render on the 10Hz currentTime tick that only Player/
+  // ProgressBar actually need.
+  const controlsValue = useMemo<PlaybackControlsContextValue>(() => ({
     isStreaming,
     streamingState,
-    processedChunks,
-    totalChunks,
-    currentTime,
     isPaused,
     isSeeking,
     isCommandPending,
@@ -275,22 +249,24 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
     handleVolumeChange,
     handleMuteToggle,
   }), [
-    isStreaming, streamingState, processedChunks, totalChunks,
-    currentTime, isPaused, isSeeking, isCommandPending, error, startTrack,
-    handleSeek, handlePlayPause, handleNext, handlePrevious, handleVolumeChange, handleMuteToggle,
+    isStreaming, streamingState, isPaused, isSeeking, isCommandPending, error,
+    startTrack, handleSeek, handlePlayPause, handleNext, handlePrevious,
+    handleVolumeChange, handleMuteToggle,
   ]);
 
+  const progressValue = useMemo<PlaybackProgressContextValue>(() => ({
+    processedChunks,
+    totalChunks,
+    currentTime,
+  }), [processedChunks, totalChunks, currentTime]);
+
   return (
-    <PlaybackSessionContext.Provider value={value}>
-      {children}
-    </PlaybackSessionContext.Provider>
+    <PlaybackControlsContext.Provider value={controlsValue}>
+      <PlaybackProgressContext.Provider value={progressValue}>
+        {children}
+      </PlaybackProgressContext.Provider>
+    </PlaybackControlsContext.Provider>
   );
 }
 
-export function usePlaybackSession(): PlaybackSessionContextValue {
-  const ctx = useContext(PlaybackSessionContext);
-  if (!ctx) {
-    throw new Error('usePlaybackSession must be used within a PlaybackSessionProvider');
-  }
-  return ctx;
-}
+export { usePlaybackControls, usePlaybackProgress } from './playbackSessionContexts';

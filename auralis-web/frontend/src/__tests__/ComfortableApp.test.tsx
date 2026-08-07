@@ -17,7 +17,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { act } from '@testing-library/react';
 import { render } from '@/test/test-utils';
-import { PlaybackSessionProvider } from '@/contexts/PlaybackSessionContext';
 import ComfortableApp from '../ComfortableApp';
 
 const {
@@ -26,6 +25,7 @@ const {
   mockResumePlayback,
   mockStopPlayback,
   mockSetVolume,
+  mockInfo,
   streaming,
 } = vi.hoisted(() => ({
   mockPlayEnhanced: vi.fn(),
@@ -33,8 +33,17 @@ const {
   mockResumePlayback: vi.fn(),
   mockStopPlayback: vi.fn(),
   mockSetVolume: vi.fn(),
+  mockInfo: vi.fn(),
   // Mutable so individual tests can flip isStreaming/isPaused before render.
   streaming: { isStreaming: false, isPaused: false },
+}));
+
+// #5008: spy on the toast `info()` call so the "false confirmation on a
+// dropped command" regression test can assert it. ToastProvider must still
+// be exported as a passthrough — AllProviders (test-utils) renders it.
+vi.mock('@/components/shared/Toast', () => ({
+  useToast: () => ({ info: mockInfo, success: vi.fn(), error: vi.fn() }),
+  ToastProvider: ({ children }: any) => children,
 }));
 
 vi.mock('@/hooks/enhancement/usePlayEnhanced', () => ({
@@ -57,7 +66,11 @@ vi.mock('@/hooks/enhancement/usePlayEnhanced', () => ({
 }));
 
 vi.mock('@/hooks/enhancement/useEnhancementControl', () => ({
-  useEnhancementControl: () => ({ preset: 'adaptive', intensity: 1.0 }),
+  // #5005: `enabled` was missing here, so `startTrackForSettings` always
+  // fell through to the (also unmocked) `playNormal` branch — this test
+  // suite never actually exercised the enhanced path it exists to verify,
+  // masked until now by the render crash fixed in test-utils.tsx.
+  useEnhancementControl: () => ({ enabled: true, preset: 'adaptive', intensity: 1.0 }),
 }));
 
 const mockTrack = {
@@ -69,12 +82,11 @@ const mockTrack = {
 };
 
 function renderApp(preloadedState?: Parameters<typeof render>[1]) {
-  return render(
-    <PlaybackSessionProvider>
-      <ComfortableApp />
-    </PlaybackSessionProvider>,
-    preloadedState
-  );
+  // #5005: test-utils' AllProviders now wraps every render in
+  // PlaybackSessionProvider (matching App.tsx's single-provider structure) —
+  // wrapping again here would nest two provider instances and defeat the
+  // "one shared session" invariant this suite exists to verify.
+  return render(<ComfortableApp />, preloadedState);
 }
 
 function pressKey(key: string) {
@@ -90,6 +102,7 @@ describe('ComfortableApp global shortcuts (#4541)', () => {
     mockResumePlayback.mockClear();
     mockStopPlayback.mockClear();
     mockSetVolume.mockClear();
+    mockInfo.mockClear();
     streaming.isStreaming = false;
     streaming.isPaused = false;
   });
@@ -198,5 +211,40 @@ describe('ComfortableApp global shortcuts (#4541)', () => {
 
     pressKey('m');
     expect(mockSetVolume).toHaveBeenLastCalledWith(0.7);
+  });
+
+  it('#5008: a command dropped while another is in flight does not fire a false confirmation toast', async () => {
+    // Hold the first command pending so runTransportCommand's shared
+    // commandPendingRef guard is still held when the second command fires.
+    let resolvePlayEnhanced: () => void = () => {};
+    mockPlayEnhanced.mockImplementationOnce(
+      () => new Promise<void>((resolve) => { resolvePlayEnhanced = resolve; })
+    );
+
+    renderApp({
+      preloadedState: {
+        player: { currentTrack: mockTrack } as never,
+      },
+    });
+
+    pressKey(' '); // starts the enhanced session; commandPendingRef is now held
+    expect(mockInfo).toHaveBeenCalledWith('Playing'); // the command that IS running still confirms
+
+    // A different command fires while the first is still in flight — must be
+    // dropped silently, not falsely confirmed.
+    pressKey('ArrowRight');
+
+    expect(mockInfo).not.toHaveBeenCalledWith('Next track');
+    // The dropped command's own side effect must not have run either —
+    // confirms the guard suppressed the toast because the command was
+    // genuinely dropped, not because of an unrelated toast bug.
+    expect(mockStopPlayback).not.toHaveBeenCalled();
+
+    // Let the first command settle so the pending flag clears cleanly and
+    // doesn't leak into other tests.
+    await act(async () => {
+      resolvePlayEnhanced();
+      await Promise.resolve();
+    });
   });
 });

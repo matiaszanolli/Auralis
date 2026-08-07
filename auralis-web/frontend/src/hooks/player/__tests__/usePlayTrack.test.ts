@@ -18,12 +18,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { usePlayTrack } from '../usePlayTrack';
-import { usePlaybackSession } from '@/contexts/PlaybackSessionContext';
+import { usePlaybackControls } from '@/contexts/PlaybackSessionContext';
 import { useToast } from '@/components/shared/Toast';
 
 // Mock collaborators. getApiUrl is mocked to identity so the fetch URL is
 // asserted as the bare path regardless of the configured API base.
-vi.mock('@/contexts/PlaybackSessionContext', () => ({ usePlaybackSession: vi.fn() }));
+vi.mock('@/contexts/PlaybackSessionContext', () => ({ usePlaybackControls: vi.fn() }));
 vi.mock('@/components/shared/Toast', () => ({ useToast: vi.fn() }));
 vi.mock('@/config/api', () => ({ getApiUrl: (path: string) => path }));
 
@@ -35,7 +35,7 @@ const track = { id: 42, title: 'Test Song' };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(usePlaybackSession).mockReturnValue({ startTrack: mockStartTrack } as any);
+  vi.mocked(usePlaybackControls).mockReturnValue({ startTrack: mockStartTrack } as any);
   vi.mocked(useToast).mockReturnValue({ error: mockError } as any);
   mockFetch = vi.fn();
   vi.stubGlobal('fetch', mockFetch);
