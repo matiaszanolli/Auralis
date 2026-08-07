@@ -462,7 +462,10 @@ def backup_database(db_path: str, backup_dir: str | None = None) -> str:
         with sqlite3.connect(str(backup_file)) as dst:
             src.backup(dst)
 
-    logger.info(f"✅ Database backed up to: {backup_file}")
+    # Absolute path embeds OS username + install layout (#4351/#4366); keep
+    # the event at INFO but the path itself at DEBUG only (#4929).
+    logger.info("✅ Database backed up")
+    logger.debug(f"Backup location: {backup_file}")
     return str(backup_file)
 
 
@@ -504,7 +507,9 @@ def restore_database(backup_path: str, db_path: str) -> bool:
             with sqlite3.connect(str(db_path_obj)) as dst:
                 src.backup(dst)
 
-        logger.info(f"✅ Database restored from: {backup_path}")
+        # Path stays at DEBUG only — see backup_database's rationale (#4929).
+        logger.info("✅ Database restored")
+        logger.debug(f"Restored from: {backup_path}")
         return True
 
     except Exception as e:
@@ -559,8 +564,11 @@ def check_and_migrate_database(db_path: str, auto_backup: bool = True) -> bool:
                 # Backup before migration
                 if auto_backup and current_version > 0:
                     try:
+                        # backup_database() already logs "✅ Database backed
+                        # up" at INFO; the path itself stays at DEBUG only
+                        # (#4929).
                         backup_path = backup_database(db_path)
-                        logger.info(f"Created backup: {backup_path}")
+                        logger.debug(f"Pre-migration backup location: {backup_path}")
                     except Exception as e:
                         logger.error(f"Failed to create backup: {e}")
                         logger.error("❌ Aborting migration - backup failed")

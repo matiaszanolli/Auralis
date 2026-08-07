@@ -251,6 +251,21 @@ class TestDatabaseBackup:
         # Cleanup
         Path(backup_path).unlink()
 
+    def test_backup_and_restore_do_not_log_absolute_path_at_info(self, temp_db_with_data, caplog):
+        """Regression for #4929: backup_database()/restore_database() must not
+        leak the absolute filesystem path (OS username + install layout) at
+        INFO level — only at DEBUG."""
+        with caplog.at_level("INFO", logger="auralis.library.migration_manager"):
+            backup_path = backup_database(temp_db_with_data)
+            restore_database(backup_path, temp_db_with_data)
+
+        info_messages = [r.message for r in caplog.records if r.levelname == "INFO"]
+        assert not any(temp_db_with_data in msg or backup_path in msg for msg in info_messages), (
+            f"absolute path leaked at INFO: {info_messages}"
+        )
+
+        Path(backup_path).unlink()
+
     def test_backup_nonexistent_database(self):
         """Test backup fails for nonexistent database"""
         with pytest.raises(FileNotFoundError):

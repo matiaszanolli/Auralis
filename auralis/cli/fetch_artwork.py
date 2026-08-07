@@ -147,7 +147,10 @@ def main():
         # reach its .SessionLocal and hand it to a RepositoryFactory — the
         # deprecated facade was never used. LibraryDatabase owns that bootstrap
         # and exposes the factory directly.
-        logger.info(f"Loading library from: {library_path}")
+        # Absolute path embeds OS username + install layout (#4351/#4366);
+        # keep it at DEBUG only (#4929).
+        logger.info("Loading library")
+        logger.debug(f"Library path: {library_path}")
         library_db = LibraryDatabase(database_path=str(library_path))
         artist_repository = library_db.repositories.artists
 

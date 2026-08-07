@@ -302,6 +302,51 @@ class TestVersionInvalidation:
         result = svc._load_from_database("/x.wav")
         assert result is not None and result['lufs'] == -14.0
 
+    def test_stale_band_pct_discard_does_not_log_absolute_path_at_info(self, caplog):
+        """Regression for #4929: the stale-fingerprint discard log must not
+        carry the absolute filepath (OS username + install layout) at INFO."""
+        from auralis.__version__ import FINGERPRINT_ALGORITHM_VERSION
+        from auralis.analysis.fingerprint.fingerprint_service import FingerprintService
+
+        svc = FingerprintService.__new__(FingerprintService)
+
+        class _Path:
+            def exists(self):
+                return True
+
+        class _TrackRepo:
+            def get_id_by_filepath(self, _fp):
+                return 1
+
+        class _Row:
+            """Band pcts deliberately sum to well below 1.0 (stale)."""
+            lufs = -14.0
+            fingerprint_version = FINGERPRINT_ALGORITHM_VERSION
+
+            def __getattr__(self, _name):
+                return 0.01
+
+        class _FpRepo:
+            def get_by_track_id(self, _tid):
+                return _Row()
+
+        svc.db_path = _Path()            # type: ignore[assignment]
+        svc._track_repo = _TrackRepo()   # type: ignore[assignment]
+        svc._fingerprint_repo = _FpRepo()  # type: ignore[assignment]
+
+        absolute_path = "/home/someuser/Music/private_track.wav"
+        with caplog.at_level("INFO", logger="auralis.analysis.fingerprint.fingerprint_service"):
+            result = svc._load_from_database(absolute_path)
+
+        assert result is None
+        info_messages = [r.message for r in caplog.records if r.levelname == "INFO"]
+        assert not any(absolute_path in msg for msg in info_messages), (
+            f"absolute path leaked at INFO: {info_messages}"
+        )
+        assert any("private_track.wav" in msg for msg in info_messages), (
+            "expected the filename (not the full path) to still be logged at INFO"
+        )
+
     def test_queue_rewrites_outdated_rows(self):
         """The background re-fingerprint pass must key off the same constant."""
         from auralis.services import fingerprint_queue

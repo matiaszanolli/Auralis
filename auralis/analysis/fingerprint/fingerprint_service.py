@@ -199,7 +199,9 @@ class FingerprintService:
 
             result = {key: getattr(fp, key) for key in _FP_KEYS}
             if not self._band_pct_valid(result):
-                logger.info(f"Discarding stale DB fingerprint (band-pct sum != 1): {filepath}")
+                # Filename only, matching this file's other INFO logs (#4929) —
+                # the full path leaks OS-username/install-layout info (#4351/#4366).
+                logger.info(f"Discarding stale DB fingerprint (band-pct sum != 1): {Path(filepath).name}")
                 return None
             return result
 
