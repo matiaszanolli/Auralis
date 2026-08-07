@@ -11,7 +11,7 @@
  * animation-duration: ${tokens.transitions.base};
  * ```
  *
- * @see docs/guides/UI_DESIGN_GUIDELINES.md
+ * @see docs/UI_DESIGN_GUIDELINES.md
  */
 
 import { keyframes } from '@mui/material/styles';

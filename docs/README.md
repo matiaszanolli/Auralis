@@ -75,8 +75,11 @@ Focused guides that back up [CONTRIBUTING.md](CONTRIBUTING.md):
 Protocol & feature references:
 
 - [../auralis-web/backend/WEBSOCKET_API.md](../auralis-web/backend/WEBSOCKET_API.md) — WS
-  message reference *(note: stale on chunk size — trust `chunk_boundaries.py`)*
-- [guides/](guides/) — feature-level design notes and integration guides *(mixed freshness)*
+  message reference
+- [archive/guides/](archive/guides/) — feature-level design notes and integration guides
+  *(historical; #4984 archived this out of the current tree — most entries predate the current
+  architecture. `UI_DESIGN_GUIDELINES.md` and `MIGRATION_GUIDE.md` are still current and live
+  at the docs root)*
 - [features/](features/) — per-feature documentation
 
 ---

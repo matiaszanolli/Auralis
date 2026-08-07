@@ -7,7 +7,7 @@
  * @example
  * import { tokens, Button, Card } from '@/design-system';
  *
- * @see docs/guides/UI_DESIGN_GUIDELINES.md
+ * @see docs/UI_DESIGN_GUIDELINES.md
  */
 
 // Design tokens

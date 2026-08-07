@@ -4,7 +4,7 @@
  * 16 core primitive components that form the foundation of all UI.
  * These are the canonical components for all basic UI patterns.
  *
- * @see docs/guides/UI_DESIGN_GUIDELINES.md
+ * @see docs/UI_DESIGN_GUIDELINES.md
  */
 
 // MUI-Based Primitives (with design tokens)

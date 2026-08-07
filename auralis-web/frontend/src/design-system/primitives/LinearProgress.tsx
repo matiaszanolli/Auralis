@@ -7,7 +7,7 @@
  *   <LinearProgress />
  *   <LinearProgress variant="determinate" value={75} />
  *
- * @see docs/guides/UI_DESIGN_GUIDELINES.md
+ * @see docs/UI_DESIGN_GUIDELINES.md
  */
 
 import MuiLinearProgress, {

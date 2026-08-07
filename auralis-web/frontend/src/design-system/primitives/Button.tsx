@@ -9,7 +9,7 @@
  *   <Button variant="secondary" size="sm">Small</Button>
  *   <Button variant="ghost" disabled>Disabled</Button>
  *
- * @see docs/guides/UI_DESIGN_GUIDELINES.md
+ * @see docs/UI_DESIGN_GUIDELINES.md
  */
 
 import { ComponentType, ReactNode } from 'react';

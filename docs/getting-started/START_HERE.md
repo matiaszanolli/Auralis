@@ -5,7 +5,7 @@
 > The good news: the redesign they describe largely **did ship**. The two signature colors this doc calls out — Soft Violet (`#7366F0`) and Electric Aqua (`#47D6FF`) — are live today in `auralis-web/frontend/src/design-system/tokens/colors.ts` and `tokens/surfaces.ts`. For the current, real design system, see:
 >
 > - `auralis-web/frontend/src/design-system/` — the actual token source of truth (colors, spacing, typography, effects, surfaces — see the `tokens/` subdirectory)
-> - [docs/guides/UI_DESIGN_GUIDELINES.md](../guides/UI_DESIGN_GUIDELINES.md) — component conventions (note: also has some stale specifics as of 2026-07-08's docs audit; verify import paths against actual code)
+> - [docs/UI_DESIGN_GUIDELINES.md](../UI_DESIGN_GUIDELINES.md) — component conventions (note: also has some stale specifics as of 2026-07-08's docs audit; verify import paths against actual code)
 > - `FIGMA_TOKENS_EXPORT.json` (repo root) — the one file from this redesign's original file list that does still exist
 >
 > The rest of this file is kept below for historical color/scheme context only — do not follow its "Next Steps" as an active plan, and do not click the document links, they don't resolve.

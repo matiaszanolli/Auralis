@@ -103,7 +103,7 @@ vendor/auralis-dsp/               Rust DSP via PyO3 (HPSS, YIN, Chroma)
 desktop/                          Electron wrapper
 tests/                            ~5,400 test functions (391 files) across 19 subdirs (unit, integration,
                                     boundary, concurrency, security, load, regression...)
-docs/                             21 topic dirs (development, features, frontend...)
+docs/                             18 topic dirs (development, features, frontend...)
 ```
 
 ## Architecture Flow

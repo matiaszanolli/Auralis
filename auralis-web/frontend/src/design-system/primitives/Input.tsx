@@ -8,7 +8,7 @@
  *   <Input variant="search" startIcon={<SearchIcon />} />
  *   <Input error errorMessage="Required field" />
  *
- * @see docs/guides/UI_DESIGN_GUIDELINES.md
+ * @see docs/UI_DESIGN_GUIDELINES.md
  */
 
 import { styled } from '@mui/material/styles';

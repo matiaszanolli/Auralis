@@ -101,7 +101,7 @@ Both write **flat** JSON fingerprint dicts. `FingerprintExtractor` reads/writes 
 per-file sidecar during scanning.
 
 > ⚠️ **The spec doc lies.**
-> [`docs/guides/25D_SIDECAR_FORMAT_SPEC.md`](../guides/25D_SIDECAR_FORMAT_SPEC.md) is a
+> [`docs/archive/guides/25D_SIDECAR_FORMAT_SPEC.md`](../archive/guides/25D_SIDECAR_FORMAT_SPEC.md) is a
 > **design proposal (Oct 2025)**, not as-built. It shows a *nested* fingerprint
 > (`frequency/dynamics/…`), band values as **0–100**, and SHA-256 checksums — none of which
 > match the code (flat dict, 0–1 fractions, size+mtime validation). Do not treat its example

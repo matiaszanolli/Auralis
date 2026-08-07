@@ -291,7 +291,7 @@ src/design-system/
 2. ❓ Can I compose multiple primitives?
 3. ❓ Can I add a prop to an existing component?
 4. ❓ Is this truly a new pattern, or a variant?
-5. ❓ Have I checked the [UI_DESIGN_GUIDELINES.md](../../../docs/guides/UI_DESIGN_GUIDELINES.md)?
+5. ❓ Have I checked the [UI_DESIGN_GUIDELINES.md](../../../../docs/UI_DESIGN_GUIDELINES.md)?
 
 **If you answered NO to all of these**, then you may create a new component. But it must:
 - Use design tokens exclusively
@@ -342,7 +342,7 @@ All components must meet these targets:
 
 ## 📚 Additional Resources
 
-- **[UI Design Guidelines](../../../docs/guides/UI_DESIGN_GUIDELINES.md)** - **MANDATORY** reading
+- **[UI Design Guidelines](../../../../docs/UI_DESIGN_GUIDELINES.md)** - **MANDATORY** reading
 - **[UI Overhaul Plan](../../../docs/roadmaps/UI_OVERHAUL_PLAN.md)** - Beta 10.0 roadmap
 - **[Master Roadmap](../../../docs/roadmaps/MASTER_ROADMAP.md)** - Complete project roadmap
 
@@ -390,7 +390,7 @@ import { Button } from '@/design-system';
 
 When creating a new component:
 
-- [ ] Read [UI_DESIGN_GUIDELINES.md](../../../docs/guides/UI_DESIGN_GUIDELINES.md)
+- [ ] Read [UI_DESIGN_GUIDELINES.md](../../../../docs/UI_DESIGN_GUIDELINES.md)
 - [ ] Checked if existing primitives can be composed
 - [ ] Uses design tokens exclusively (no hardcoded values)
 - [ ] Component is < 300 lines
@@ -406,4 +406,4 @@ When creating a new component:
 **Created**: November 6, 2025
 **Part of**: Beta 10.0 UI Overhaul
 
-**See**: [UI_DESIGN_GUIDELINES.md](../../../docs/guides/UI_DESIGN_GUIDELINES.md) for complete rules
+**See**: [UI_DESIGN_GUIDELINES.md](../../../../docs/UI_DESIGN_GUIDELINES.md) for complete rules

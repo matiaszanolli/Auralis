@@ -243,7 +243,7 @@ A: Use `vi.fn()` instead. Vitest provides jest-compatible API.
 
 ## Reference
 
-- [Full Memory Fix Documentation](../../docs/guides/FRONTEND_TEST_MEMORY_IMPROVEMENTS_APPLIED.md)
-- [Initial Memory Analysis](../../docs/guides/FRONTEND_TEST_MEMORY_FIX.md)
+- [Full Memory Fix Documentation](../../archive/guides/FRONTEND_TEST_MEMORY_IMPROVEMENTS_APPLIED.md)
+- [Initial Memory Analysis](../../archive/guides/FRONTEND_TEST_MEMORY_FIX.md)
 - [CLAUDE.md - Frontend Testing](../../CLAUDE.md#frontend-testing)
 - [Vitest Configuration](https://vitest.dev/config/)

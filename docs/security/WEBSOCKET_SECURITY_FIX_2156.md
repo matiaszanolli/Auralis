@@ -32,7 +32,7 @@ Fixed HIGH severity security vulnerability in WebSocket handler that allowed unv
 
 ### New Files
 
-#### 1. `auralis-web/backend/websocket_security.py` (moved into `websocket/websocket_security.py`)
+#### 1. `auralis-web/backend/websocket/websocket_security.py` (originally auralis-web/backend/websocket_security.py; module since moved into websocket/)
 Security utilities for WebSocket validation and rate limiting:
 - `WebSocketRateLimiter` - Per-connection rate limiter with sliding window
 - `validate_and_parse_message()` - Message size, JSON, and schema validation

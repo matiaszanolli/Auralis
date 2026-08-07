@@ -474,7 +474,7 @@ const USE_PLAYER_V2 = process.env.REACT_APP_USE_PLAYER_V2 === 'true';
 
 - **Audits**: [docs/ui_audit/](../ui_audit/) - All component audits
 - **Roadmap**: `docs/roadmaps/UI_OVERHAUL_REVISED.md` — removed in a docs cleanup (`c389853f`); no longer in the repo
-- **Design Guidelines**: [docs/guides/UI_DESIGN_GUIDELINES.md](../guides/UI_DESIGN_GUIDELINES.md)
+- **Design Guidelines**: [docs/UI_DESIGN_GUIDELINES.md](../UI_DESIGN_GUIDELINES.md)
 - **Design Tokens**: [auralis-web/frontend/src/design-system/tokens.ts](../../auralis-web/frontend/src/design-system/tokens.ts)
 - **PlayerBarV2 Implementation**: [docs/sessions/nov9_ui_overhaul/PLAYERBARV2_IMPLEMENTATION_COMPLETE.md](../sessions/nov9_ui_overhaul/PLAYERBARV2_IMPLEMENTATION_COMPLETE.md)
 

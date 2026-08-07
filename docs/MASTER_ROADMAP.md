@@ -66,7 +66,7 @@ the roadmap should stop implying otherwise:
   replaced: the shipped browser player is the **Web Audio API** with a circular `Float32Array`
   PCM buffer + `AudioWorkletNode`, fed by binary PCM WebSocket frames. `MediaSource` /
   `SourceBuffer` / WebM / Opus appear **nowhere** in the current backend or frontend. The
-  `docs/guides/MSE_*` and `MULTI_TIER_BUFFER_*` guides are legacy. See
+  `docs/archive/guides/MSE_*` and `MULTI_TIER_BUFFER_*` guides are legacy. See
   [subsystems/frontend.md §8](subsystems/frontend.md#8-browser-audio-pipeline-the-real-one).
 - **The "architecture cleanup" track (remove `SpectrumMapper`) never happened.**
   `SpectrumMapper` is still constructed and used by `HybridProcessor`
@@ -110,8 +110,8 @@ deferred LARGE items and known gaps:
 already tracked):
 
 - `phase_correlation` — schema says 0–1, analyzer returns −1..+1.
-- Variation dims have two different default-value sets (`batch/variation.py` vs the
-  orchestrator's `_get_default_fingerprint`).
+- Variation dims have two different default-value sets (`auralis/analysis/fingerprint/metrics/variation_metrics.py`'s
+  `VariationMetrics` vs the orchestrator's `_get_default_fingerprint`).
 - `25D_SIDECAR_FORMAT_SPEC.md` diverges from the as-built format (nested vs flat, 0–100 vs 0–1
   band fractions, SHA-256 vs size+mtime validation) — spec should be reconciled or marked
   design-only.
@@ -131,7 +131,7 @@ is depth, UX, and productization:
 | Vision | Foundation in code | Remaining |
 |--------|--------------------|-----------|
 | "Find songs like this" | Similarity API + kNN graph shipped | Discovery UX, cross-genre tuning |
-| Intelligent / flow playlists | `content/recommendations.py` (`RecommendationEngine`) | Playlist generation UX, sequencing |
+| Intelligent / flow playlists | `auralis-web/backend/services/recommendation_service.py` (`RecommendationService`) | Playlist generation UX, sequencing |
 | User preference learning | [`auralis/learning/`](../auralis/learning/) (`preference_engine`, `reference_analyzer`, `reference_library`) | Closing the loop into live mastering params |
 | Section-aware / real-time adaptation | ContinuousMode + per-chunk params | Intra-track section detection |
 | Enhancement profile sharing | Deterministic fingerprint→params | Export/import + sharing surface |

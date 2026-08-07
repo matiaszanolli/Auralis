@@ -350,7 +350,7 @@ at WebSocketProvider (src/contexts/WebSocketContext.tsx:12:3)
 
 - [CLAUDE.md](../../CLAUDE.md) - General development guidelines
 - [PLAYER_COMPONENT_CONSOLIDATION_PLAN.md](./PLAYER_COMPONENT_CONSOLIDATION_PLAN.md) - Phase 2 consolidation
-- [AUDIO_PLAYBACK_STATUS.md](../../docs/guides/AUDIO_PLAYBACK_STATUS.md) - Audio infrastructure
+- [AUDIO_PLAYBACK_STATUS.md](../../docs/archive/guides/AUDIO_PLAYBACK_STATUS.md) - Audio infrastructure
 - [PLAYER_ARCHITECTURE_IMPROVEMENTS.md](./PLAYER_ARCHITECTURE_IMPROVEMENTS.md) - Architecture context
 
 ---

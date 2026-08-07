@@ -8,7 +8,7 @@
  *   <Badge value="New" variant="success" />
  *   <Badge dot variant="error" />
  *
- * @see docs/guides/UI_DESIGN_GUIDELINES.md
+ * @see docs/UI_DESIGN_GUIDELINES.md
  */
 
 import { styled } from '@mui/material/styles';

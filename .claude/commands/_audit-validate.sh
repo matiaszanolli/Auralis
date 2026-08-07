@@ -88,7 +88,7 @@ expand_braces() {
 
 stale_count=0
 checked_count=0
-shopt -s nullglob
+shopt -s nullglob globstar
 skill_files=(
     .claude/commands/audit-*.md
     .claude/commands/_audit-*.md
@@ -99,17 +99,33 @@ skill_files=(
     .claude/commands/gen-test.md
     .claude/agents/*.md
     # #4547: the authoritative docs tree, which rotted unchecked while the
-    # gate reported PASS over the skill files alone. Deliberately NOT
-    # including docs/development/ or docs/guides/: those are historical
-    # plan/audit snapshots whose purpose is to record what was deleted, so
-    # naming a removed file is correct there, not drift.
+    # gate reported PASS over the skill files alone.
     docs/architecture/*.md
     docs/subsystems/*.md
     CLAUDE.md
     README.md
     auralis-web/backend/WEBSOCKET_API.md
+    # #4984: #4547 only covered 11 of 507 docs/**/*.md files (2.2%) — the gate
+    # reported false-clean over the other 496. This extends coverage to the
+    # full "current" (non-historical) subset, ~108 files. Deliberately NOT
+    # including docs/development/, docs/archive/ (which now also holds the
+    # former docs/guides/), docs/audits/, or docs/releases/: those are
+    # historical plan/audit/guide snapshots whose purpose is to record what
+    # was deleted or superseded, so naming a removed/renamed file there is
+    # correct, not drift.
+    docs/*.md
+    docs/deployment/*.md
+    docs/features/**/*.md
+    docs/frontend/**/*.md
+    docs/getting-started/*.md
+    docs/optimization/*.md
+    docs/security/*.md
+    docs/testing/*.md
+    docs/troubleshooting/*.md
+    docs/ui_audit/*.md
+    docs/versions/*.md
 )
-shopt -u nullglob
+shopt -u nullglob globstar
 
 # Enumerate every tracked repo path once so partial refs like
 # `repositories/track_repository.py` (shorthand for

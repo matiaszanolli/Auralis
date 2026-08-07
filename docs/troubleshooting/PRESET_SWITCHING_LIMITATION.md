@@ -254,7 +254,7 @@ After MSE implementation:
 
 **Multi-Tier Buffer System**:
 - [auralis-web/backend/multi_tier_buffer.py](auralis-web/backend/multi_tier_buffer.py) - Buffer implementation
-- [docs/guides/MSE_PROGRESSIVE_STREAMING_PLAN.md](docs/guides/MSE_PROGRESSIVE_STREAMING_PLAN.md) - MSE implementation plan
+- [docs/archive/guides/MSE_PROGRESSIVE_STREAMING_PLAN.md](../archive/guides/MSE_PROGRESSIVE_STREAMING_PLAN.md) - MSE implementation plan
 
 **Streaming Architecture**:
 - [auralis-web/backend/routers/player.py:101](auralis-web/backend/routers/player.py#L101) - Current streaming endpoint

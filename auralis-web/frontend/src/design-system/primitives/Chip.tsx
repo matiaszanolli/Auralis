@@ -7,7 +7,7 @@
  *   <Chip label="React" />
  *   <Chip label="Delete me" onDelete={() => {}} />
  *
- * @see docs/guides/UI_DESIGN_GUIDELINES.md
+ * @see docs/UI_DESIGN_GUIDELINES.md
  */
 
 import MuiChip, { ChipProps as MuiChipProps } from '@mui/material/Chip';

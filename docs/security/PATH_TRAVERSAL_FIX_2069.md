@@ -8,7 +8,7 @@ Fixed path traversal vulnerability in `/api/library/scan` endpoint that allowed 
 
 **Severity**: MEDIUM (adjusted from HIGH for local media player context)
 
-> **Note (2026-07-09)**: The protection described below is still in place and correct in spirit, but names/paths have since drifted: `ScanRequest`/`directory: str` is now `LibraryScanRequest`/`directories: list[str]` (plural, `schemas.py`), the security module moved from `auralis-web/backend/path_security.py` to `auralis-web/backend/security/path_security.py`, and the endpoint is registered in `routers/library_scan.py` (not `routers/files.py`). The code samples below are kept as originally written (singular `directory`) for historical accuracy of the original fix.
+> **Note (2026-07-09)**: The protection described below is still in place and correct in spirit, but names/paths have since drifted: `ScanRequest`/`directory: str` is now `LibraryScanRequest`/`directories: list[str]` (plural, `schemas.py`), the security module moved from auralis-web/backend/path_security.py to `auralis-web/backend/security/path_security.py`, and the endpoint is registered in `routers/library_scan.py` (not `routers/files.py`). The code samples below are kept as originally written (singular `directory`) for historical accuracy of the original fix.
 
 ## Vulnerability Details
 

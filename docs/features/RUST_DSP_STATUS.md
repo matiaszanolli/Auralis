@@ -1,7 +1,7 @@
 # Rust DSP Library (`vendor/auralis-dsp/`) — Current Status
 
 **Last verified**: 2026-07-09
-**Supersedes**: `docs/guides/RUST_DSP_HPSS_IMPLEMENTATION_SUMMARY.md`, `RUST_DSP_PROJECT_STATUS.md`, `RUST_DSP_EXTRACTION_PLAN.md`
+**Supersedes**: `docs/archive/guides/RUST_DSP_HPSS_IMPLEMENTATION_SUMMARY.md`, `RUST_DSP_PROJECT_STATUS.md`, `RUST_DSP_EXTRACTION_PLAN.md`
 
 Those three docs describe the crate as it stood on 2025-11-24, when only HPSS was implemented and YIN/Chroma/PyO3 bindings were skeletons. That's no longer true — this doc replaces them as the status reference. The extraction plan's algorithm descriptions (STFT/median-filter/Wiener-mask chains, YIN autocorrelation, CQT chroma) are still accurate background reading and aren't repeated here.
 

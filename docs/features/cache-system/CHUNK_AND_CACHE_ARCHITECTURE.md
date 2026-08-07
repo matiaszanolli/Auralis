@@ -3,7 +3,7 @@
 **Last verified**: 2026-07-09
 **Status**: Current — replaces the multi-tier-buffer / MSE / 30s-chunk designs
 
-This is a short, code-verified description of how audio is chunked, cached, and streamed today. Several older docs under `docs/guides/` and `docs/features/cache-system/` describe a 30-second chunk model, an L1/L2/L3 "multi-tier buffer" with branch prediction, and browser MediaSource Extensions (MSE) streaming. **None of that was ever adopted or has since been removed** — those docs are superseded and point here.
+This is a short, code-verified description of how audio is chunked, cached, and streamed today. Several older docs under `docs/archive/guides/` and `docs/features/cache-system/` describe a 30-second chunk model, an L1/L2/L3 "multi-tier buffer" with branch prediction, and browser MediaSource Extensions (MSE) streaming. **None of that was ever adopted or has since been removed** — those docs are superseded and point here.
 
 ## Chunk model — 15 / 10 / 5
 
