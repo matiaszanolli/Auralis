@@ -32,4 +32,4 @@ repos:
         args: [
           "--disable=C0111",  # missing-docstring
         ]
-        additional_dependencies: [pylint-pytest]
+        additional_dependencies: [pylint-pytest, psutil]
