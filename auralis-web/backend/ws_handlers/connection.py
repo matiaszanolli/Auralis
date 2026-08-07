@@ -191,6 +191,7 @@ async def teardown_connection(
     try:
         state.pause_events.pop(ws_id, None)
         state.flow_events.pop(ws_id, None)
+        state.active_stream_settings.pop(ws_id, None)  # #4742
     except Exception:
         logger.warning("Stream-event cleanup failed", exc_info=True)
 

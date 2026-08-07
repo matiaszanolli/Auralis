@@ -20,7 +20,7 @@ caller reads the (possibly patched) module global once per connection.
 """
 
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 from collections.abc import Callable
 
@@ -34,6 +34,13 @@ class StreamState:
     active_track_ids: dict[str, int]
     pause_events: dict[str, asyncio.Event]
     flow_events: dict[str, asyncio.Event]
+    # Per-connection snapshot of the preset/intensity/enabled actually resolved
+    # for THIS connection's current stream, keyed by ws_id (#4742). handle_seek
+    # reads this instead of the process-global enhancement_settings dict, so a
+    # second connection's play_enhanced can no longer retarget a first
+    # connection's subsequent seeks. Defaulted so existing keyword
+    # constructions (production and tests) keep working unchanged.
+    active_stream_settings: dict[str, dict[str, Any]] = field(default_factory=dict)
 
 
 @dataclass

@@ -71,6 +71,7 @@ async def handle_stop(websocket: WebSocket, state: StreamState) -> None:
         state.active_track_ids.pop(ws_id, None)
         state.pause_events.pop(ws_id, None)
         state.flow_events.pop(ws_id, None)
+        state.active_stream_settings.pop(ws_id, None)  # #4742
     if task and not task.done():
         task.cancel()
         try:

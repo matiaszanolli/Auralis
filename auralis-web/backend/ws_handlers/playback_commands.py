@@ -189,6 +189,17 @@ async def handle_play_enhanced(
 
     ws_id = _ws_id(websocket)
 
+    # Record what THIS connection's stream actually resolved to, so
+    # handle_seek can read it back instead of the process-global
+    # enhancement_settings dict (#4742) — that global is shared by every
+    # connection, so a second connection's play_enhanced used to silently
+    # retarget a first connection's subsequent seeks.
+    state.active_stream_settings[ws_id] = {
+        "preset": preset,
+        "intensity": intensity,
+        "enabled": enhancement_enabled,
+    }
+
     # Every command is authoritative, including a same-track reissue with a
     # new preset/intensity or resume position. Mirror play_normal by replacing
     # the active task instead of deduplicating solely by track_id (#4726).
@@ -300,11 +311,23 @@ async def handle_seek(
         await send_error_response(websocket, "invalid_seek_position", "position must be a non-negative number")
         return
 
-    # Use WS message values as initial fallback (fixes #2381),
-    # then let server-side settings override (fixes #2103).
+    # Use WS message values as initial fallback (fixes #2381), then let
+    # server-side settings override (fixes #2103). The override source is
+    # THIS connection's own active stream settings — recorded by
+    # handle_play_enhanced — not the process-global enhancement_settings
+    # dict (#4742): that global is shared by every connection, so a second
+    # connection's play_enhanced used to silently retarget this connection's
+    # seek. Fall back to the global only when this connection has no
+    # recorded stream yet (e.g. seek arrived before any play_enhanced).
+    ws_id = _ws_id(websocket)
+    stream_settings = state.active_stream_settings.get(ws_id)
+
     preset = data.get("preset", "adaptive")
     intensity = data.get("intensity", 1.0)
-    if deps.get_enhancement_settings is not None:
+    if stream_settings is not None:
+        preset = stream_settings.get("preset", preset)
+        intensity = stream_settings.get("intensity", intensity)
+    elif deps.get_enhancement_settings is not None:
         settings = deps.get_enhancement_settings()
         preset = settings.get("preset", preset)
         intensity = settings.get("intensity", intensity)
@@ -312,7 +335,6 @@ async def handle_seek(
     logger.info(f"Received seek: track_id={track_id}, position={position}s, preset={preset}")
 
     # Pop prior task under lock; cancel and await outside lock to avoid deadlock (fixes #2425, #2430)
-    ws_id = _ws_id(websocket)
     async with state.active_tasks_lock:
         for k in [k for k, v in state.active_tasks.items() if v.done()]:
             state.active_tasks.pop(k, None)
@@ -338,8 +360,11 @@ async def handle_seek(
         "data": {"track_id": track_id, "position": position},
     })
 
+    # Same per-connection-first resolution as preset/intensity above (#4742).
     enhancement_enabled = True
-    if deps.get_enhancement_settings is not None:
+    if stream_settings is not None and "enabled" in stream_settings:
+        enhancement_enabled = stream_settings["enabled"]
+    elif deps.get_enhancement_settings is not None:
         enhancement_enabled = deps.get_enhancement_settings().get("enabled", True)
 
     # Reset pause/flow-control events AND register the new seek task
