@@ -688,9 +688,20 @@ def create_lifespan(deps: dict[str, Any]):
             elif not globals_dict.get('library_manager'):
                 logger.warning("⚠️  Library manager not available - streamlined cache disabled")
 
-        yield
-
-        # === Shutdown ===
-        await _shutdown_components(globals_dict)
+        # #4801: try/finally so a BaseException thrown into this generator at
+        # the yield (e.g. CancelledError from a forced/second-SIGINT exit
+        # tearing down the lifespan task rather than sending a clean
+        # lifespan.shutdown message) still runs shutdown. Without this, the
+        # code after a bare `yield` is simply never reached and the SQLite
+        # WAL checkpoint, aiohttp session close, and worker/thread-pool
+        # teardown in _shutdown_components all get skipped. Safe to run
+        # unconditionally here because #4569 already hardened every step
+        # inside _shutdown_components against a single failing step aborting
+        # the rest.
+        try:
+            yield
+        finally:
+            # === Shutdown ===
+            await _shutdown_components(globals_dict)
 
     return lifespan
