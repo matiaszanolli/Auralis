@@ -19,7 +19,13 @@ import logging
 
 import numpy as np
 
-from core.chunk_boundaries import CHUNK_DURATION, CHUNK_INTERVAL, CONTEXT_DURATION, OVERLAP_DURATION
+from core.chunk_boundaries import (
+    CHUNK_DURATION,
+    CHUNK_INTERVAL,
+    CONTEXT_DURATION,
+    OVERLAP_DURATION,
+    ChunkBoundaryManager,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -62,35 +68,51 @@ class ChunkOperations:
             filepath: Path to audio file
             chunk_index: Index of chunk to load (0-based)
             sample_rate: Sample rate of audio
-            chunk_duration: Duration of each chunk in seconds (actual chunk length)
-            chunk_interval: Interval between chunk starts (for overlap model)
-            overlap_duration: Overlap duration for crossfading
+            chunk_duration: Duration of each chunk in seconds (actual chunk length).
+                Only used when total_duration is None — see below.
+            chunk_interval: Interval between chunk starts (for overlap model).
+                Only used when total_duration is None — see below.
+            overlap_duration: Overlap duration for crossfading. Unused directly;
+                kept for call-site symmetry with extract_chunk_segment().
             with_context: Include context before/after for better processing
-            total_duration: Total duration of audio (optional, for validation)
+            total_duration: Total duration of audio, if known. When provided,
+                boundaries are derived from ChunkBoundaryManager — the same
+                authority trim_context() uses — instead of being re-derived
+                here, so the load and trim halves of the pipeline cannot
+                structurally desync (the #3807 failure mode; fixes #5055).
+                ChunkBoundaryManager always uses chunk_boundaries.py's
+                module-level CHUNK_DURATION/CHUNK_INTERVAL/CONTEXT_DURATION,
+                so chunk_duration/chunk_interval above are ignored in this
+                case — true of every current caller, which already pass
+                those same constants through. When None (duration not yet
+                known), falls back to the original unbounded derivation
+                using chunk_duration/chunk_interval directly.
 
         Returns:
             Tuple of (audio_chunk, chunk_start_time, chunk_end_time)
         """
-        # Calculate chunk boundaries
-        if chunk_index == 0:
-            # First chunk: starts at 0
-            chunk_start = 0.0
-            chunk_end = chunk_start + chunk_duration
+        if total_duration is not None:
+            boundary_manager = ChunkBoundaryManager(
+                total_duration=total_duration, sample_rate=sample_rate
+            )
+            load_start, load_end, chunk_start, chunk_end = boundary_manager.get_chunk_boundaries(
+                chunk_index, with_context=with_context
+            )
         else:
-            # Subsequent chunks: use interval for start position
-            chunk_start = chunk_index * chunk_interval
-            chunk_end = chunk_start + chunk_duration
-
-        # Cap end time at total_duration if provided (last chunk shouldn't exceed file length)
-        if total_duration is not None:
-            chunk_end = min(chunk_end, total_duration)
-
-        # Add context if requested
-        context_duration = CONTEXT_DURATION if with_context else 0.0
-        load_start = max(0.0, chunk_start - context_duration)
-        load_end = chunk_end + context_duration
-        if total_duration is not None:
-            load_end = min(load_end, total_duration)
+            # No known total_duration (e.g. probing before metadata is
+            # loaded) — ChunkBoundaryManager requires one, so fall back to
+            # the original, unbounded derivation. chunk_end/load_end are NOT
+            # capped here; test_fallback_start_beyond_eof_returns_float32
+            # deliberately exercises this uncapped path.
+            if chunk_index == 0:
+                chunk_start = 0.0
+                chunk_end = chunk_start + chunk_duration
+            else:
+                chunk_start = chunk_index * chunk_interval
+                chunk_end = chunk_start + chunk_duration
+            context_duration = CONTEXT_DURATION if with_context else 0.0
+            load_start = max(0.0, chunk_start - context_duration)
+            load_end = chunk_end + context_duration
 
         # An out-of-range chunk_index (beyond total_duration) collapses this
         # window to empty or inverted once chunk_end is capped above. Bail out
