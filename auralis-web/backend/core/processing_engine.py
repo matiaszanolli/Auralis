@@ -39,6 +39,7 @@ from auralis.utils.logging import Code, ModuleError
 # them without a circular dependency; re-exported here so existing
 # `from core.processing_engine import ProcessingJob, ProcessingStatus` keeps
 # working (#4250).
+from config.limits import PROCESSING_TEMP_DIRNAME, UPLOAD_TEMP_DIRNAME
 from core.job_models import ProcessingJob, ProcessingStatus
 from core.job_worker import JobWorker
 from core.processor_pool import ProcessorPool
@@ -168,7 +169,7 @@ class ProcessingEngine:
         self._jobs_lock: asyncio.Lock = asyncio.Lock()
 
         # Temporary file management
-        self.temp_dir: Path = Path(tempfile.gettempdir()) / "auralis_processing"
+        self.temp_dir: Path = Path(tempfile.gettempdir()) / PROCESSING_TEMP_DIRNAME
         self.temp_dir.mkdir(exist_ok=True)
 
         # Progress callbacks
@@ -833,7 +834,7 @@ class ProcessingEngine:
 
         # Phase 1: identify expired jobs under lock (no blocking I/O)
         candidate_paths: list[tuple[Path, Path]] = []  # (output_path, input_path)
-        upload_dir = Path(tempfile.gettempdir()) / "auralis_uploads"
+        upload_dir = Path(tempfile.gettempdir()) / UPLOAD_TEMP_DIRNAME
 
         async with self._jobs_lock:
             for job_id, job in self.jobs.items():

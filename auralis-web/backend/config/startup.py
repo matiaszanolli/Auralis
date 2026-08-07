@@ -32,6 +32,7 @@ from config.background_workers import (
     WORKER_STOP_KWARGS,
     stop_background_workers,
 )
+from config.limits import CHUNK_TEMP_DIRNAME, UPLOAD_TEMP_DIRNAME
 
 logger = logging.getLogger(__name__)
 
@@ -354,7 +355,7 @@ def create_lifespan(deps: dict[str, Any]):
         # Clear chunk files from disk to avoid serving stale chunks with old presets.
         # Offloaded via asyncio.to_thread (#4754) — up to 512 MB of cached WAVs,
         # previously removed directly on the event loop during lifespan startup.
-        chunk_dir = Path(tempfile.gettempdir()) / "auralis_chunks"
+        chunk_dir = Path(tempfile.gettempdir()) / CHUNK_TEMP_DIRNAME
         if chunk_dir.exists():
             try:
                 await asyncio.to_thread(shutil.rmtree, chunk_dir)
@@ -661,7 +662,7 @@ def create_lifespan(deps: dict[str, Any]):
                 # never reclaimed until now (#4762).
                 _ttl = globals_dict['processing_engine'].completed_job_ttl_hours
                 reclaim_stale_temp_entries(globals_dict['processing_engine'].temp_dir, _ttl)
-                reclaim_stale_temp_entries(Path(tempfile.gettempdir()) / "auralis_uploads", _ttl)
+                reclaim_stale_temp_entries(Path(tempfile.gettempdir()) / UPLOAD_TEMP_DIRNAME, _ttl)
 
                 # Start the processing worker — retain strong reference to prevent GC,
                 # and attach a done-callback so a silently-failing start_worker is

@@ -33,6 +33,7 @@ from core.chunked_processor import (
     apply_crossfade_between_chunks,
 )
 from core.chunk_cache_manager import ChunkCacheManager
+from config.limits import CHUNK_TEMP_DIRNAME
 
 
 # ---------------------------------------------------------------------------
@@ -150,7 +151,7 @@ class TestChunkedAudioProcessorInit:
 
     def test_chunk_dir_creation(self, processor):
         """Chunk directory is created and has the expected name."""
-        assert processor.chunk_dir.name == "auralis_chunks"
+        assert processor.chunk_dir.name == CHUNK_TEMP_DIRNAME
         assert processor.chunk_dir.exists()
 
 

@@ -13,3 +13,11 @@ MAX_UPLOAD_BYTES: int = 500 * 1024 * 1024
 
 # Maximum number of files accepted in one multipart upload request (#4349).
 MAX_UPLOAD_FILES: int = 200
+
+# Temp-directory names under tempfile.gettempdir(), previously re-typed as bare
+# string literals at each call site (#5021). Upload handling, job cleanup,
+# startup sweeps, and chunked processing must all agree on these exact names
+# so a startup/cleanup sweep never silently misses files another site wrote.
+UPLOAD_TEMP_DIRNAME: str = "auralis_uploads"
+CHUNK_TEMP_DIRNAME: str = "auralis_chunks"
+PROCESSING_TEMP_DIRNAME: str = "auralis_processing"

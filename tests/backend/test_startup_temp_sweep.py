@@ -23,6 +23,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
+from config.limits import CHUNK_TEMP_DIRNAME
 from config.startup import reclaim_leftover_stream_temps, reclaim_stale_temp_entries
 
 
@@ -46,7 +47,7 @@ def test_reclaims_matching_dirs(tmp_path):
 
 def test_ignores_non_matching_dirs(tmp_path):
     """Unrelated temp dirs (e.g. auralis_chunks) are left untouched."""
-    chunks = tmp_path / "auralis_chunks"
+    chunks = tmp_path / CHUNK_TEMP_DIRNAME
     chunks.mkdir()
     other = tmp_path / "some_other_dir"
     other.mkdir()

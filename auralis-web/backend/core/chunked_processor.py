@@ -36,6 +36,7 @@ if backend_path not in sys.path:
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
+from config.limits import CHUNK_TEMP_DIRNAME
 from core.audio_processing_pipeline import AudioProcessingPipeline
 
 # Core modules (new modular architecture)
@@ -185,7 +186,7 @@ class ChunkedAudioProcessor:
         self.chunk_interval: float = float(CHUNK_INTERVAL)
 
         # Temp directory for chunks
-        self.chunk_dir = Path(tempfile.gettempdir()) / "auralis_chunks"
+        self.chunk_dir = Path(tempfile.gettempdir()) / CHUNK_TEMP_DIRNAME
         self.chunk_dir.mkdir(exist_ok=True)
 
         # Initialize new modular architecture (Phase 3.5, updated Phase 2, Phase 5.1)

@@ -19,6 +19,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
+from config.limits import CHUNK_TEMP_DIRNAME  # noqa: E402
 from config.startup import create_lifespan  # noqa: E402
 
 pytestmark = pytest.mark.asyncio
@@ -45,7 +46,7 @@ class FakeApp:
 
 
 async def test_chunk_dir_rmtree_offloaded_via_to_thread(tmp_path):
-    chunk_dir = tmp_path / "auralis_chunks"
+    chunk_dir = tmp_path / CHUNK_TEMP_DIRNAME
     chunk_dir.mkdir()
     (chunk_dir / "stale_chunk.wav").write_bytes(b"\x00")
 
@@ -73,7 +74,7 @@ async def test_chunk_dir_rmtree_offloaded_via_to_thread(tmp_path):
 async def test_chunk_dir_recreated_after_clearing(tmp_path):
     """Behavior must be unchanged by the offload: the directory is cleared
     then immediately recreated so subsequent chunk writes still succeed."""
-    chunk_dir = tmp_path / "auralis_chunks"
+    chunk_dir = tmp_path / CHUNK_TEMP_DIRNAME
     chunk_dir.mkdir()
     (chunk_dir / "stale_chunk.wav").write_bytes(b"\x00")
 

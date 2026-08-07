@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 
 # Upload security constants (#2560). Single source of truth in config.limits (#4033).
 from config.limits import MAX_UPLOAD_BYTES as _MAX_UPLOAD_BYTES
+from config.limits import UPLOAD_TEMP_DIRNAME
 # Derived from the single source of truth (auralis.io.formats) so the upload
 # allowlist tracks exactly what the loader can decode (#4109).
 from auralis.io.formats import AUDIO_EXTENSIONS as _ALLOWED_AUDIO_EXTENSIONS
@@ -298,7 +299,7 @@ def create_processing_router(
                 raise HTTPException(status_code=400, detail=f"Invalid processing settings: {e}")
 
             # Save uploaded file to temp location
-            temp_dir = Path(tempfile.gettempdir()) / "auralis_uploads"
+            temp_dir = Path(tempfile.gettempdir()) / UPLOAD_TEMP_DIRNAME
             temp_dir.mkdir(exist_ok=True)
 
             # Enforce size limit before reading the whole body (#2560)
