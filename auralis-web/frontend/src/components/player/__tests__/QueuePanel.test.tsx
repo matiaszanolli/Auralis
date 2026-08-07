@@ -628,3 +628,80 @@ describe('QueuePanel row keys (#4428)', () => {
     consoleError.mockRestore();
   });
 });
+
+describe('QueuePanel collapsed/expanded transitions (#5007)', () => {
+  // Before the fix, QueuePanel called 9 hooks AFTER `if (collapsed) return`
+  // — collapsed=true called 11 hooks, collapsed=false called 20. React
+  // matches hooks to fiber slots strictly by call order/count per component
+  // instance, so a mid-lifetime transition between the two threw "Rendered
+  // fewer hooks than expected". The fix (extracting the expanded body into
+  // QueuePanelExpanded, mounted/unmounted as its own component instance
+  // rather than conditionally calling extra hooks inside one instance) means
+  // this transition must no longer throw in either direction.
+
+  // Self-contained mock setup — do not rely on a sibling describe block's
+  // beforeEach/mockReturnValue, which vi.clearAllMocks() does not reset.
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(usePlaybackQueueModule.usePlaybackQueue).mockReturnValue({
+      queue: mockTracks,
+      currentIndex: 0,
+      currentTrack: mockTracks[0],
+      isShuffled: false,
+      repeatMode: 'off',
+      setQueue: vi.fn().mockResolvedValue(undefined),
+      addTrack: vi.fn().mockResolvedValue(undefined),
+      removeTrack: mockRemoveTrack,
+      reorderTrack: vi.fn().mockResolvedValue(undefined),
+      reorderQueue: vi.fn().mockResolvedValue(undefined),
+      toggleShuffle: mockToggleShuffle,
+      setRepeatMode: mockSetRepeatMode,
+      clearQueue: mockClearQueue,
+      isLoading: false,
+      error: null,
+      clearError: vi.fn(),
+    } as any);
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+    cleanup();
+  });
+
+  it('transitions from collapsed to expanded without a hook-order error', () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const { rerender } = renderWithWrapper(<QueuePanel collapsed={true} />);
+    expect(screen.getByText('▶ Queue (3)')).toBeInTheDocument();
+
+    // renderWithWrapper already applies MinimalWrapper via the `wrapper`
+    // render option, which testing-library's rerender() re-applies
+    // automatically — wrapping again here would nest a second <Router>.
+    rerender(<QueuePanel collapsed={false} />);
+
+    expect(screen.getByText('Queue (3)')).toBeInTheDocument();
+    const hookOrderError = consoleError.mock.calls.some(([msg]) =>
+      typeof msg === 'string' &&
+      (msg.includes('Rendered fewer hooks than expected') || msg.includes('change in the order of Hooks'))
+    );
+    expect(hookOrderError).toBe(false);
+    consoleError.mockRestore();
+  });
+
+  it('transitions from expanded to collapsed without a hook-order error', () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const { rerender } = renderWithWrapper(<QueuePanel collapsed={false} />);
+    expect(screen.getByText('Queue (3)')).toBeInTheDocument();
+
+    rerender(<QueuePanel collapsed={true} />);
+
+    expect(screen.getByText('▶ Queue (3)')).toBeInTheDocument();
+    const hookOrderError = consoleError.mock.calls.some(([msg]) =>
+      typeof msg === 'string' &&
+      (msg.includes('Rendered fewer hooks than expected') || msg.includes('change in the order of Hooks'))
+    );
+    expect(hookOrderError).toBe(false);
+    consoleError.mockRestore();
+  });
+});
