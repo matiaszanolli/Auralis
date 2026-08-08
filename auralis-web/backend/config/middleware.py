@@ -209,17 +209,24 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
             # Find matching rate-limit rule
             limit_rule: tuple[int, int] | None = None
+            matched_prefix: str | None = None
             for prefix, rule in self._RATE_LIMITS.items():
                 if path.startswith(prefix):
                     limit_rule = rule
+                    matched_prefix = prefix
                     break
 
-            if limit_rule is None:
+            if limit_rule is None or matched_prefix is None:
                 return await call_next(request)
 
             max_requests, window_sec = limit_rule
             client_ip = request.client.host if request.client else "unknown"
-            key = f"{client_ip}:{path}"
+            # Key on the matched prefix, not the full path (#4728). Every
+            # rate-limited prefix except two fixed paths fans out over a path
+            # parameter (track_id, job_id, ...) — keying on the full path gave
+            # each distinct resource its own fresh, effectively-unlimited
+            # budget instead of the shared one the docstring promises.
+            key = f"{client_ip}:{matched_prefix}"
             now = time.monotonic()
 
             # Critical section (#3329): eviction + sliding-window get/check/write
