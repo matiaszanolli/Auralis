@@ -289,7 +289,11 @@ export interface FingerprintResponse {
 // SimilarTracksRequest / SimilarTrack / SimilarTracksResponse removed (#4372)
 // — the api.ts SimilarTrack was nested ({track, similarity_score}) while the
 // backend returns a flat shape; every real consumer imports SimilarTrack from
-// '@/services/similarityService' or '@/hooks/fingerprint' instead.
+// '@/hooks/fingerprint' instead. A second frontend SimilarTrack variant lived
+// at '@/services/similarityService' with a `duration` field the backend never
+// populated (#4674) — that whole service had zero production importers (its
+// only consumer, components/features/discovery/, was dead code already
+// deleted) and was removed rather than wired up.
 
 // ============================================================================
 // Health & Status API
