@@ -23,7 +23,6 @@ import numpy as np
 import pytest
 
 from auralis.io.saver import save as save_audio
-from auralis.library.manager import LibraryManager
 
 # ============================================================================
 # Fixtures

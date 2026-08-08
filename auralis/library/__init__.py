@@ -9,16 +9,17 @@ Music library database integration for Auralis
 """
 
 from .database import LibraryDatabase
-from .manager import LibraryManager
 from .models import Album, Artist, Genre, Playlist, Track
 from .scanner import AudioFileInfo, LibraryScanner, ScanResult
 
 __all__ = [
-    # LibraryDatabase is the supported entry point; LibraryManager is the
-    # deprecated legacy facade over it and is no longer constructed in
-    # production (#4619).
+    # LibraryDatabase is the supported entry point. LibraryManager — the
+    # deprecated legacy facade over it, unconstructed in production since
+    # #4619 — and its dead cache.py were deleted outright (#4915) rather
+    # than held to the promised v2.0.0 removal: zero production callers
+    # remained, so there was nothing left for the deprecation window to
+    # protect.
     "LibraryDatabase",
-    "LibraryManager",
     "Track", "Album", "Artist", "Genre", "Playlist",
     "LibraryScanner", "ScanResult", "AudioFileInfo"
 ]

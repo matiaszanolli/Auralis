@@ -42,7 +42,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.config import UnifiedConfig
 from auralis.io.saver import save as save_audio
-from auralis.library.manager import LibraryManager
 from auralis.library.models import Track
 
 # Fixtures are now provided by conftest.py:

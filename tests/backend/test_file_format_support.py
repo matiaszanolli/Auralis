@@ -30,7 +30,6 @@ import numpy as np
 
 from auralis.io.saver import save as save_audio
 from auralis.io.unified_loader import load_audio
-from auralis.library.manager import LibraryManager
 from auralis.library.scanner import LibraryScanner
 
 # ============================================================================
