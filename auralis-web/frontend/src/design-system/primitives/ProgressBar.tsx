@@ -1,5 +1,6 @@
 import { CSSProperties, forwardRef, useId } from 'react';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface ProgressBarProps {
   value: number;
@@ -58,13 +59,13 @@ export const ProgressBar = forwardRef<
     justifyContent: 'space-between',
     alignItems: 'center',
     fontSize: tokens.typography.fontSize.sm,
-    color: tokens.colors.text.secondary,
+    color: themeVars.textSecondary,
   };
 
   const barContainerStyles: CSSProperties = {
     width: '100%',
     height: barHeight,
-    backgroundColor: tokens.colors.bg.secondary,
+    backgroundColor: themeVars.surfacePrimary,
     borderRadius: tokens.borderRadius.full,
     overflow: 'hidden',
   };

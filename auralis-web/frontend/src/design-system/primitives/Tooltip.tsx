@@ -13,13 +13,14 @@
 import { styled } from '@mui/material/styles';
 import MuiTooltip, { TooltipProps as MuiTooltipProps } from '@mui/material/Tooltip';
 import { tokens } from '@/design-system/tokens';
+import { themeVars } from '@/theme/semanticTheme';
 
 export type TooltipProps = MuiTooltipProps;
 
 const StyledTooltip = styled(MuiTooltip)({
   '& .MuiTooltip-tooltip': {
-    background: tokens.colors.bg.elevated,
-    color: tokens.colors.text.primary,
+    background: themeVars.surfaceRaised,
+    color: themeVars.textPrimary,
     fontSize: tokens.typography.fontSize.sm,
     fontWeight: tokens.typography.fontWeight.medium,
     padding: `${tokens.spacing.xs} ${tokens.spacing.md}`,
@@ -28,7 +29,7 @@ const StyledTooltip = styled(MuiTooltip)({
     border: `1px solid ${tokens.colors.border.light}`,
   },
   '& .MuiTooltip-arrow': {
-    color: tokens.colors.bg.elevated,
+    color: themeVars.surfaceRaised,
     '&::before': {
       border: `1px solid ${tokens.colors.border.light}`,
     },

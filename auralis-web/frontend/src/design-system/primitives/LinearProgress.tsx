@@ -15,11 +15,12 @@ import MuiLinearProgress, {
 } from '@mui/material/LinearProgress';
 import { styled } from '@mui/material/styles';
 import { tokens } from '@/design-system/tokens';
+import { themeVars } from '@/theme/semanticTheme';
 
 export type LinearProgressProps = MuiLinearProgressProps;
 
 const StyledLinearProgress = styled(MuiLinearProgress)({
-  backgroundColor: tokens.colors.bg.level3,
+  backgroundColor: themeVars.surfaceRaised,
   height: 6,
   borderRadius: tokens.borderRadius.sm,
 

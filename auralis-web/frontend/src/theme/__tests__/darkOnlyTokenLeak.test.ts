@@ -34,6 +34,17 @@ const MIGRATED = [
   // Highest-reach library surfaces.
   '../../components/library/Items/tracks/TrackRow.styles.ts',
   '../../components/library/Items/tables/TrackTableRowItem.tsx',
+  // Remaining design-system primitives with real .text/.bg refs (#4877).
+  '../../design-system/primitives/LinearProgress.tsx',
+  '../../design-system/primitives/Modal.tsx',
+  '../../design-system/primitives/Card.tsx',
+  '../../design-system/primitives/Checkbox.tsx',
+  '../../design-system/primitives/ProgressBar.tsx',
+  '../../design-system/primitives/SegmentedControl.tsx',
+  '../../design-system/primitives/Chip.tsx',
+  '../../design-system/primitives/ErrorBoundary.tsx',
+  '../../design-system/primitives/Tooltip.tsx',
+  '../../design-system/primitives/Toggle.tsx',
 ] as const;
 
 const sources = import.meta.glob('../../**/*.{ts,tsx}', {

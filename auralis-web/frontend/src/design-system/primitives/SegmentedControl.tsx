@@ -20,6 +20,7 @@
 import { ReactNode } from 'react';
 import { styled } from '@mui/material/styles';
 import { tokens } from '@/design-system/tokens';
+import { themeVars } from '@/theme/semanticTheme';
 
 export interface SegmentedControlOption {
   value: string;
@@ -101,8 +102,8 @@ const SegmentButton = styled('button')<{
   // Appearance
   borderRadius: `calc(${tokens.borderRadius.md} - 2px)`,
   color: isSelected
-    ? tokens.colors.text.primary
-    : tokens.colors.text.tertiary,
+    ? themeVars.textPrimary
+    : themeVars.textMuted,
   background: isSelected
     ? tokens.colors.opacityScale.white.subtle
     : 'transparent',
@@ -122,7 +123,7 @@ const SegmentButton = styled('button')<{
   // Hover (only when not selected and not disabled)
   '&:hover': !isSelected && !disabled ? {
     background: tokens.colors.opacityScale.white.micro,
-    color: tokens.colors.text.secondary,
+    color: themeVars.textSecondary,
   } : {},
 
   // Active (press)

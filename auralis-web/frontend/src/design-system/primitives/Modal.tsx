@@ -20,6 +20,7 @@ import DialogActions from '@mui/material/DialogActions';
 import IconButton from './IconButton';
 import CloseIcon from '@mui/icons-material/Close';
 import { tokens } from '@/design-system/tokens';
+import { themeVars } from '@/theme/semanticTheme';
 
 export interface ModalProps extends Omit<MuiDialogProps, 'title'> {
   /**
@@ -62,7 +63,7 @@ const StyledDialog = styled(MuiDialog, {
     '& .MuiDialog-paper': {
       ...sizeStyles[size as keyof typeof sizeStyles],
       width: '100%',
-      background: tokens.colors.bg.level4,  // Surface elevation (modals)
+      background: themeVars.surfaceOverlay,  // Surface elevation (modals) (#4877)
       borderRadius: tokens.borderRadius.xl,
       border: `1px solid ${tokens.colors.border.light}`,
       boxShadow: tokens.shadows['2xl'],
@@ -71,8 +72,8 @@ const StyledDialog = styled(MuiDialog, {
     '& .MuiBackdrop-root': {
       // #3637: replace pure-black backdrop with the deep blue-black overlay
       // token so it respects the "no pure black" rule in §1 of the style
-      // guide. tokens.colors.bg.overlay is rgba(11,16,32,0.95).
-      background: tokens.colors.bg.overlay,
+      // guide. themeVars.backdrop is dark-mode rgba(11,16,32,0.80) (#4877).
+      background: themeVars.backdrop,
       backdropFilter: 'blur(4px)',
     },
   };
@@ -84,14 +85,14 @@ const StyledDialogTitle = styled(DialogTitle)({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  color: tokens.colors.text.primary,
+  color: themeVars.textPrimary,
   fontSize: tokens.typography.fontSize.xl,
   fontWeight: tokens.typography.fontWeight.semibold,
 });
 
 const StyledDialogContent = styled(DialogContent)({
   padding: tokens.spacing.lg,
-  color: tokens.colors.text.secondary,
+  color: themeVars.textSecondary,
 });
 
 const StyledDialogActions = styled(DialogActions)({

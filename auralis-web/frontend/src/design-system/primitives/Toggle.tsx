@@ -1,5 +1,6 @@
 import { CSSProperties, InputHTMLAttributes, forwardRef } from 'react';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface ToggleProps
   extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> {
@@ -39,7 +40,7 @@ export const Toggle = forwardRef<
     margin: 0,
     padding: 0,
     cursor: 'pointer',
-    backgroundColor: tokens.colors.bg.secondary,
+    backgroundColor: themeVars.surfacePrimary,
     border: `2px solid ${tokens.colors.border.light}`,
     borderRadius: tokens.borderRadius.full,
     transition: tokens.transitions.all,
@@ -48,7 +49,7 @@ export const Toggle = forwardRef<
 
   const labelStyles: CSSProperties = {
     fontSize: tokens.typography.fontSize.base,
-    color: tokens.colors.text.primary,
+    color: themeVars.textPrimary,
     cursor: 'pointer',
     userSelect: 'none',
   };

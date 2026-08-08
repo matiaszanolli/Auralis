@@ -1,5 +1,6 @@
 import { CSSProperties, InputHTMLAttributes, forwardRef } from 'react';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface CheckboxProps
   extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> {
@@ -34,7 +35,7 @@ export const Checkbox = forwardRef<
 
   const labelStyles: CSSProperties = {
     fontSize: tokens.typography.fontSize.base,
-    color: tokens.colors.text.primary,
+    color: themeVars.textPrimary,
     cursor: 'pointer',
     userSelect: 'none',
   };

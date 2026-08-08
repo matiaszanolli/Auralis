@@ -15,6 +15,7 @@ import { ComponentType } from 'react';
 import { styled } from '@mui/material/styles';
 import MuiCard, { CardProps as MuiCardProps } from '@mui/material/Card';
 import { tokens } from '@/design-system/tokens';
+import { themeVars } from '@/theme/semanticTheme';
 
 export interface CardProps extends Omit<MuiCardProps, 'variant'> {
   /**
@@ -62,19 +63,19 @@ const StyledCard = styled(MuiCard as ComponentType<Omit<MuiCardProps, 'variant'>
   // Variant styles
   const variantStyles = {
     default: {
-      background: tokens.colors.bg.tertiary,
+      background: themeVars.surfaceSecondary,
       border: 'none',
       boxShadow: tokens.shadows.none,
     },
 
     elevated: {
-      background: tokens.colors.bg.tertiary,
+      background: themeVars.surfaceSecondary,
       border: 'none',
       boxShadow: tokens.shadows.md,
     },
 
     outlined: {
-      background: tokens.colors.bg.secondary,
+      background: themeVars.surfacePrimary,
       border: `1px solid ${tokens.colors.border.light}`,
       boxShadow: tokens.shadows.none,
     },

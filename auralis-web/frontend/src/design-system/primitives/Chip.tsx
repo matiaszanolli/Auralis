@@ -13,22 +13,23 @@
 import MuiChip, { ChipProps as MuiChipProps } from '@mui/material/Chip';
 import { styled } from '@mui/material/styles';
 import { tokens } from '@/design-system/tokens';
+import { themeVars } from '@/theme/semanticTheme';
 
 export type ChipProps = MuiChipProps;
 
 const StyledChip = styled(MuiChip)({
-  backgroundColor: tokens.colors.bg.level3,
-  color: tokens.colors.text.primary,
+  backgroundColor: themeVars.surfaceRaised,
+  color: themeVars.textPrimary,
   fontSize: tokens.typography.fontSize.sm,
   fontWeight: tokens.typography.fontWeight.medium,
   border: `1px solid ${tokens.colors.border.light}`,
 
   '&:hover': {
-    backgroundColor: tokens.colors.bg.level4,
+    backgroundColor: themeVars.surfaceOverlay,
   },
 
   '& .MuiChip-deleteIcon': {
-    color: tokens.colors.text.secondary,
+    color: themeVars.textSecondary,
     '&:hover': {
       color: tokens.colors.semantic.error,
     },
@@ -36,7 +37,7 @@ const StyledChip = styled(MuiChip)({
 
   // Variant support
   '&.MuiChip-filled': {
-    backgroundColor: tokens.colors.bg.level3,
+    backgroundColor: themeVars.surfaceRaised,
   },
 
   '&.MuiChip-outlined': {

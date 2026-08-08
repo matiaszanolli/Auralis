@@ -1,5 +1,6 @@
 import { CSSProperties, Component, ErrorInfo, ReactNode } from 'react';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -58,7 +59,7 @@ export class ErrorBoundary extends Component<
       };
 
       const messageStyles: CSSProperties = {
-        color: tokens.colors.text.secondary,
+        color: themeVars.textSecondary,
         fontSize: tokens.typography.fontSize.sm,
         marginBottom: tokens.spacing.md,
         fontFamily: tokens.typography.fontFamily.mono,
@@ -69,7 +70,7 @@ export class ErrorBoundary extends Component<
       const buttonStyles: CSSProperties = {
         padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
         backgroundColor: tokens.colors.accent.primary,
-        color: tokens.colors.text.primary,
+        color: themeVars.onAccent,  // text on a fixed accent-colored surface, not body text (#4877)
         border: 'none',
         borderRadius: tokens.borderRadius.md,
         cursor: 'pointer',
