@@ -1521,6 +1521,57 @@ class TestPlaylistEndpoints:
 
             assert response.status_code == 200
 
+    def test_delete_playlist_idempotent_on_repeat_call(self, client):
+        """#4734: a repeat DELETE after a successful delete must NOT 404
+        (RFC 7231 §4.3.5), matching the routers/artwork.py precedent
+        (#3563). The playlist still exists per get_by_id (first call's
+        semantics), but the underlying delete() races/no-ops to False —
+        that's still success from the client's idempotency perspective."""
+        mock_repos = Mock()
+        mock_repos.playlists.get_by_id.return_value = Mock()
+        mock_repos.playlists.delete.return_value = False
+
+        with patch('routers.playlists.require_repository_factory', return_value=mock_repos):
+            response = _with_trusted_origin(client, "delete", "/api/playlists/1")
+
+            assert response.status_code == 200
+
+    def test_delete_playlist_404_when_never_existed(self, client):
+        """#4734: DELETE on a playlist ID that never existed still 404s —
+        only the already-deleted case is idempotent."""
+        mock_repos = Mock()
+        mock_repos.playlists.get_by_id.return_value = None
+
+        with patch('routers.playlists.require_repository_factory', return_value=mock_repos):
+            response = _with_trusted_origin(client, "delete", "/api/playlists/999")
+
+            assert response.status_code == 404
+            mock_repos.playlists.delete.assert_not_called()
+
+    def test_remove_track_from_playlist_idempotent_on_repeat_call(self, client):
+        """#4734: a repeat DELETE of an already-removed (or never-present)
+        track must NOT 404 as long as the playlist itself still exists."""
+        mock_repos = Mock()
+        mock_repos.playlists.get_by_id.return_value = Mock()
+        mock_repos.playlists.remove_track.return_value = True
+
+        with patch('routers.playlists.require_repository_factory', return_value=mock_repos):
+            response = _with_trusted_origin(client, "delete", "/api/playlists/1/tracks/5")
+
+            assert response.status_code == 200
+
+    def test_remove_track_from_playlist_404_when_playlist_never_existed(self, client):
+        """#4734: unlike the idempotent already-removed-track case, a
+        wholly nonexistent playlist_id must still 404."""
+        mock_repos = Mock()
+        mock_repos.playlists.get_by_id.return_value = None
+
+        with patch('routers.playlists.require_repository_factory', return_value=mock_repos):
+            response = _with_trusted_origin(client, "delete", "/api/playlists/999/tracks/5")
+
+            assert response.status_code == 404
+            mock_repos.playlists.remove_track.assert_not_called()
+
     def test_clear_playlist_success(self, client):
         """Test clearing all tracks from playlist"""
         mock_repos = Mock()

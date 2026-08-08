@@ -252,10 +252,17 @@ def create_playlists_router(
             HTTPException: If library manager/factory not available or playlist not found
         """
         repos = require_repository_factory(get_repository_factory)
-        success = await asyncio.to_thread(repos.playlists.delete, playlist_id)
-
-        if not success:
+        # Idempotent DELETE per RFC 7231 §4.3.5 — a repeat call after a
+        # successful delete should NOT 404 (#4734, matching the
+        # routers/artwork.py precedent from #3563). Only 404 when the
+        # playlist itself doesn't exist; if `delete()` still returns False
+        # (e.g. a concurrent delete raced us between the check and the
+        # call) that's also success from the client's idempotency
+        # perspective.
+        playlist = await asyncio.to_thread(repos.playlists.get_by_id, playlist_id)
+        if playlist is None:
             raise NotFoundError("Playlist")
+        await asyncio.to_thread(repos.playlists.delete, playlist_id)
 
         # Broadcast playlist deleted event
         await connection_manager.broadcast({
@@ -403,13 +410,21 @@ def create_playlists_router(
             dict: Success message
 
         Raises:
-            HTTPException: If library manager/factory not available or track/playlist not found
+            HTTPException: If library manager/factory not available or playlist not found
         """
         repos = require_repository_factory(get_repository_factory)
-        success = await asyncio.to_thread(repos.playlists.remove_track, playlist_id, track_id)
-
-        if not success:
-            raise NotFoundError("Playlist", detail="Playlist or track not found")
+        # Idempotent DELETE per RFC 7231 §4.3.5 — a repeat call for a track
+        # already removed (or never present) should NOT 404 (#4734).
+        # PlaylistRepository.remove_track() already returns True
+        # unconditionally on a successful DELETE regardless of rowcount
+        # (idempotent by construction), but the router still needs its own
+        # existence check: without one, a call against a wholly nonexistent
+        # playlist_id silently "succeeds" too, matching the artwork
+        # precedent's "404 only when the top-level resource is gone" rule.
+        playlist = await asyncio.to_thread(repos.playlists.get_by_id, playlist_id)
+        if playlist is None:
+            raise NotFoundError("Playlist")
+        await asyncio.to_thread(repos.playlists.remove_track, playlist_id, track_id)
 
         # Broadcast playlist updated event
         await connection_manager.broadcast({
