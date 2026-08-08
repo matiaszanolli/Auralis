@@ -128,6 +128,7 @@ Before committing, verify each keyed check. Reference these tags in the commit i
 - [ ] **SCHEMA**: If a Pydantic model changed, frontend types match?
 - [ ] **TOKEN**: If frontend code touched, no raw hex colors (use `tokens`)?
 - [ ] **TEST**: Regression test added when applicable?
+- [ ] **LOC**: If this issue is a god-file/oversized-module split, re-run `wc -l` on the target file before closing (#4673) — close only when it's under the project's 300-LOC rule, otherwise re-scope the issue (update its body with the current LOC and what remains) and leave it open rather than closing on partial progress. Four issues (#4245, #4249, #4250, #4254) were closed in 2026-07 while their targets stayed 2.3-2.7x over the limit, understating the real backlog until re-audited.
 
 ## Phase 8: Commit and Close
 

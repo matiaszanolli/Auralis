@@ -209,6 +209,7 @@ Every agent prompt MUST include:
   find auralis-web/frontend/src \( -name '*.ts' -o -name '*.tsx' \) -exec wc -l {} + | awk '$1>300 && $2!="total"' | sort -rn | head -40
   ```
   Do NOT hardcode the offender list in this skill — re-run each audit (membership drifts). For each oversized file propose a split **axis** (by responsibility / submodule), not by line count alone.
+- Every god-file/oversized-module split issue this dimension files must carry an explicit acceptance criterion: **close only when the target file is verified under 300 LOC; otherwise re-scope and keep it open** (#4673). Four issues (#4245, #4249, #4250, #4254) were closed in 2026-07 while their targets stayed 2.3-2.7x over the limit — "closed" in the tracker did not mean "under 300 lines." `fix-issue.md`'s Phase 7 **LOC** completeness check enforces this at close time.
 - Functions / methods > 100 LOC — propose extraction.
 - Deeply nested conditionals (depth > 4) — often a strategy/lookup-table or early-return refactor.
 - React components with too many `useState`/`useEffect` hooks (a sign the component is doing several jobs) — propose a custom-hook extraction.
