@@ -1,9 +1,11 @@
-"""Regression tests for AudioProcessingPipeline.apply_enhancement (#4371).
+"""Regression tests for AudioProcessingPipeline.apply_enhancement (#4371, #4795).
 
-The intensity blend must preserve the sample-count invariant
-(len(output) == len(input)). If a processor ever returns a
-different-length array, the blend must fail loudly rather than silently
-truncating to min_len and masking a gapless glitch.
+The sample-count invariant (len(output) == len(input)) must hold
+regardless of intensity. If a processor ever returns a different-length
+array, apply_enhancement must fail loudly rather than silently
+truncating/padding downstream and masking a gapless glitch. #4371 covered
+this only inside the intensity < 1.0 blending branch; #4795 closed the gap
+at the default intensity == 1.0 path used by every production call site.
 """
 
 import sys
@@ -45,6 +47,15 @@ def test_length_mismatch_raises_instead_of_truncating() -> None:
         AudioProcessingPipeline.apply_enhancement(
             audio, _ShorterProcessor(), intensity=0.5
         )
+
+
+def test_length_mismatch_raises_at_default_intensity() -> None:
+    """#4795: the invariant must be enforced at intensity=1.0 too — the
+    default at every production construction site, previously left
+    completely unchecked."""
+    audio = _make_audio()
+    with pytest.raises(ValueError, match="does not match input"):
+        AudioProcessingPipeline.apply_enhancement(audio, _ShorterProcessor())
 
 
 def test_matching_length_blends_and_preserves_samples() -> None:

@@ -253,24 +253,28 @@ class AudioProcessingPipeline:
             )
             return audio
 
+        # Sample-count preservation is a critical gapless invariant (project
+        # CLAUDE.md: len(output) == len(input)). The processor is expected to
+        # uphold it upstream; if it ever returns a different length, fail
+        # loudly rather than letting it flow downstream to be silently
+        # padded/trimmed. Checked unconditionally — not just inside the
+        # intensity < 1.0 blending branch — because intensity == 1.0 (the
+        # default at every construction site) is the overwhelmingly common
+        # path and was previously left completely unchecked (#4371, #4795).
+        if len(processed) != len(audio):
+            logger.error(
+                "Processor violated sample-count invariant: "
+                f"input={len(audio)} output={len(processed)}"
+            )
+            raise ValueError(
+                "Processed audio length "
+                f"({len(processed)}) does not match input "
+                f"({len(audio)}); refusing to truncate-blend"
+            )
+
         # Apply intensity blending if < 1.0
         if intensity < 1.0:
             logger.debug(f"Blending processed audio at intensity {intensity:.2f}")
-            # Sample-count preservation is a critical gapless invariant
-            # (project CLAUDE.md: len(output) == len(input)). The processor is
-            # expected to uphold it upstream; if it ever returns a different
-            # length, fail loudly rather than silently truncating to min_len
-            # and masking the glitch (#4371).
-            if len(processed) != len(audio):
-                logger.error(
-                    "Processor violated sample-count invariant: "
-                    f"input={len(audio)} output={len(processed)}"
-                )
-                raise ValueError(
-                    "Processed audio length "
-                    f"({len(processed)}) does not match input "
-                    f"({len(audio)}); refusing to truncate-blend"
-                )
             processed = audio * (1.0 - intensity) + processed * intensity
 
         return processed
