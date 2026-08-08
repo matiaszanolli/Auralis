@@ -387,9 +387,17 @@ def setup_middleware(app: FastAPI) -> None:
     """
     Add middleware to FastAPI application.
 
-    Configures middleware in the correct order:
-    1. NoCacheMiddleware - for frontend assets
-    2. CORSMiddleware - for cross-origin requests
+    `add_middleware` composes LIFO: the last-registered middleware wraps
+    outermost. Request-inbound order (outermost first) is:
+    1. CORSMiddleware - cross-origin requests
+    2. SecurityHeadersMiddleware - security headers on every response
+    3. NoCacheMiddleware - no-cache headers for frontend assets
+    4. OriginCheckMiddleware - CSRF-shaped request rejection (#4893)
+    5. TrustedHostMiddleware - Host header validation (#4353)
+    6. RateLimitMiddleware - rate limiting for expensive endpoints (#2575), innermost
+
+    See the registration order below (reverse of the above) for why each
+    middleware is placed where it is.
 
     Args:
         app: FastAPI application instance (modified in-place)
