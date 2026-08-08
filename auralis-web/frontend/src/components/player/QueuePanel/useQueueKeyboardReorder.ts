@@ -47,10 +47,13 @@ export function useQueueKeyboardReorder({
   /**
    * Bounds are checked here rather than in the row, which does not know the
    * queue length. `reorderTrack` is optimistic: it dispatches to Redux before
-   * the PUT resolves, so the list re-renders — and, because the row key embeds
-   * the index (#4428), the moved row unmounts and remounts — while this is
-   * still awaiting. Focus therefore cannot be restored after the await; it is
-   * handed to the layout effect below, which runs on every queue change.
+   * the PUT resolves, so the list re-renders while this is still awaiting.
+   * Row keys are index-free and occurrence-disambiguated (#4428), so the
+   * moved row's DOM node is reused (a props update, not an unmount/remount)
+   * — but its `data-queue-index` attribute only reflects the new position
+   * once React commits that re-render, which hasn't happened yet at this
+   * point in the callback. Focus therefore cannot be restored here; it is
+   * handed to the layout effect below, which runs after the commit.
    */
   const handleKeyboardReorder = useCallback(
     async (fromIndex: number, toIndex: number) => {
@@ -84,9 +87,11 @@ export function useQueueKeyboardReorder({
   );
 
   // Restore focus to the moved row once it has re-rendered at its new index.
-  // Done in an effect rather than inline after the await because the row
-  // unmounts and remounts (its key embeds the index, #4428) during the
-  // optimistic update, which would drop focus set beforehand.
+  // Done in an effect rather than inline after the await because the row's
+  // `data-queue-index` attribute (queried below) only updates once React
+  // commits the re-render triggered by the optimistic dispatch — the row
+  // itself is reused, not remounted (index-free key, #4428), but locating it
+  // by its new index still has to wait for that commit.
   useLayoutEffect(() => {
     if (pendingFocusIndex === null) return;
 
