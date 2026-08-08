@@ -54,7 +54,14 @@ export const StatusIndicator = styled(Box)<{ color: string }>(({ color }) => ({
   minWidth: tokens.spacing.md,
 }));
 
-export const TitleBox = styled('h1')({
+// Not a heading (#5013): ViewContainer.tsx already renders the sole <h1> for
+// every library view (per-view text — "Songs", "Albums", ...), which
+// correctly describes page content; this top-bar title is a static literal
+// ("Your Music") that never changes with the view. Making both <h1> gave
+// screen-reader heading navigation two simultaneous, unrelated level-1
+// headings. View changes are separately announced via AppViewAnnouncement's
+// aria-live region, so this box needs no heading role of its own.
+export const TitleBox = styled(Box)({
   margin: 0,
   fontSize: tokens.typography.fontSize.xl,
   fontWeight: tokens.typography.fontWeight.semibold,
