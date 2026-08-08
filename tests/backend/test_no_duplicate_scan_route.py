@@ -82,35 +82,39 @@ def test_files_router_retains_formats_endpoint():
     )
 
 
-def test_scan_request_accepts_multiple_directories():
+def test_scan_request_accepts_multiple_directories(tmp_path):
     """
     schemas.LibraryScanRequest must accept a list of directory paths.
     A single directory is passed as a one-element list ["path"].
     """
-    from unittest.mock import patch
     from schemas import LibraryScanRequest
 
-    with patch("security.path_security.validate_scan_path", side_effect=lambda p: Path(p)):
-        req = LibraryScanRequest(directories=["/tmp/music", "/tmp/other"])
-        assert len(req.directories) == 2
+    music = tmp_path / "music"
+    other = tmp_path / "other"
+    music.mkdir()
+    other.mkdir()
 
-        single = LibraryScanRequest(directories=["/tmp/music"])
-        assert len(single.directories) == 1
+    req = LibraryScanRequest(directories=[str(music), str(other)])
+    assert len(req.directories) == 2
+
+    single = LibraryScanRequest(directories=[str(music)])
+    assert len(single.directories) == 1
 
 
-def test_scan_request_accepts_optional_flags():
+def test_scan_request_accepts_optional_flags(tmp_path):
     """schemas.LibraryScanRequest must default recursive=True, skip_existing=True."""
-    from unittest.mock import patch
     from schemas import LibraryScanRequest
 
-    with patch("security.path_security.validate_scan_path", side_effect=lambda p: Path(p)):
-        req = LibraryScanRequest(directories=["/tmp/music"])
-        assert req.recursive is True
-        assert req.skip_existing is True
+    music = tmp_path / "music"
+    music.mkdir()
 
-        custom = LibraryScanRequest(directories=["/tmp/music"], recursive=False, skip_existing=False)
-        assert custom.recursive is False
-        assert custom.skip_existing is False
+    req = LibraryScanRequest(directories=[str(music)])
+    assert req.recursive is True
+    assert req.skip_existing is True
+
+    custom = LibraryScanRequest(directories=[str(music)], recursive=False, skip_existing=False)
+    assert custom.recursive is False
+    assert custom.skip_existing is False
 
 
 def test_files_router_has_no_local_scan_request_class():

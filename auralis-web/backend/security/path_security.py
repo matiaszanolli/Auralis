@@ -6,6 +6,20 @@ Path validation and sanitization to prevent directory traversal attacks.
 
 Fixes #2069: Path traversal in directory scanning endpoint
 
+Trust model (#4799): Auralis is a single-user desktop app where directories
+come from the user's own file picker, not an untrusted network client. Every
+real directory entry point (``LibraryScanRequest.validate_directory_paths``
+in ``schemas.py``, ``POST /api/settings/scan-folders``) validates through
+``validate_user_chosen_directory()`` / ``validate_directory_list()``, which
+enforce basic safety (no traversal, must exist, must be readable) but
+deliberately do NOT restrict to a fixed allowlist — the user's choice is
+trusted. Registering a folder via ``register_allowed_directory()`` then
+widens the allowlist ``validate_file_path()`` consults for the rest of the
+session. There is intentionally no separate allowlist-enforcing directory
+validator in this module — an earlier one (``validate_scan_path``) existed
+unused alongside this posture and was removed as dead code rather than left
+implying a containment guarantee the app doesn't actually enforce.
+
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3, see LICENSE for more details.
 """
@@ -86,100 +100,6 @@ def get_allowed_directories() -> list[Path]:
     return [path.resolve() for path in allowed_dirs if path.exists()]
 
 
-def validate_scan_path(
-    directory: str,
-    allowed_base_dirs: list[Path] | None = None
-) -> Path:
-    """
-    Validate and sanitize a directory path for scanning.
-
-    Security checks:
-    - Path must be absolute or relative (will be resolved)
-    - No path traversal sequences (../)
-    - Must fall within allowed base directories
-    - Must be an existing directory
-    - Must be readable
-
-    Args:
-        directory: Directory path to validate (str or Path)
-        allowed_base_dirs: List of allowed base directories (default: user home, Music, Documents)
-
-    Returns:
-        Resolved absolute Path object if valid
-
-    Raises:
-        PathValidationError: If path fails validation
-
-    Examples:
-        >>> validate_scan_path("/home/user/Music")  # OK
-        >>> validate_scan_path("../../etc")  # Raises PathValidationError
-        >>> validate_scan_path("/etc")  # Raises PathValidationError (not in allowed dirs)
-    """
-    if not directory:
-        raise PathValidationError("Directory path cannot be empty")
-
-    # Convert to Path object
-    try:
-        path = Path(directory)
-    except (ValueError, TypeError) as e:
-        raise PathValidationError(f"Invalid path format: {e}")
-
-    # Resolve to absolute path (resolves symlinks and normalizes)
-    try:
-        resolved_path = path.resolve()
-    except (OSError, RuntimeError) as e:
-        raise PathValidationError(f"Failed to resolve path: {e}")
-
-    # Check for path traversal attempts in original path
-    # This catches things like "../../etc" even before resolution
-    if ".." in Path(directory).parts:
-        raise PathValidationError(
-            "Path traversal sequences (..) are not allowed. "
-            "Please use absolute paths or paths relative to your home directory."
-        )
-
-    # Get allowed base directories
-    if allowed_base_dirs is None:
-        allowed_base_dirs = get_allowed_directories()
-
-    # Check if path falls within any allowed base directory
-    is_allowed = False
-    for base_dir in allowed_base_dirs:
-        try:
-            # Check if resolved path is relative to base_dir
-            # This will raise ValueError if not relative
-            resolved_path.relative_to(base_dir)
-            is_allowed = True
-            break
-        except ValueError:
-            continue
-
-    if not is_allowed:
-        allowed_dirs_str = ", ".join(str(d) for d in allowed_base_dirs)
-        raise PathValidationError(
-            f"Path '{resolved_path}' is outside allowed directories. "
-            f"Allowed directories: {allowed_dirs_str}"
-        )
-
-    # Check if path exists
-    if not resolved_path.exists():
-        raise PathValidationError(f"Directory does not exist: {resolved_path}")
-
-    # Check if it's actually a directory
-    if not resolved_path.is_dir():
-        raise PathValidationError(f"Path is not a directory: {resolved_path}")
-
-    # Check if directory is readable
-    if not os.access(resolved_path, os.R_OK):
-        raise PathValidationError(f"Directory is not readable: {resolved_path}")
-
-    # Debug, not info: validators run very frequently and the absolute path is
-    # sensitive (the user's media library layout) — at INFO it floods logs and
-    # gets persisted to electron-log on disk (#3844).
-    logger.debug(f"Path validation successful: {resolved_path}")
-    return resolved_path
-
-
 def validate_file_path(
     filepath: str,
     allowed_base_dirs: list[Path] | None = None
@@ -187,8 +107,12 @@ def validate_file_path(
     """
     Validate and sanitize a file path against allowed directories.
 
-    Same security checks as validate_scan_path but for files instead of
-    directories.
+    Security checks:
+    - Path must be absolute or relative (will be resolved)
+    - No path traversal sequences (../)
+    - Must fall within allowed base directories
+    - Must exist
+    - Must be readable
 
     Args:
         filepath: File path to validate
@@ -246,8 +170,10 @@ def validate_file_path(
     if not os.access(resolved_path, os.R_OK):
         raise PathValidationError(f"File is not readable: {resolved_path}")
 
-    # Debug, not info (#3844): see validate_scan_path note — this one runs 5×
-    # per /api/metadata/tracks/{id} request.
+    # Debug, not info (#3844): validators run very frequently and the
+    # resolved path is sensitive (the user's media library layout) — at INFO
+    # it floods logs and gets persisted to electron-log on disk. This one
+    # runs 5x per /api/metadata/tracks/{id} request.
     logger.debug(f"File path validation successful: {resolved_path}")
     return resolved_path
 
@@ -359,45 +285,3 @@ def sanitize_path_for_response(path: Path | str) -> str:
         # Path is not in home directory, return as-is
         # (This shouldn't happen for music files, but handle gracefully)
         return str(path_obj)
-
-
-def is_safe_filename(filename: str) -> bool:
-    """
-    Check if a filename is safe (no path traversal or special chars).
-
-    Args:
-        filename: Filename to check
-
-    Returns:
-        True if safe, False otherwise
-
-    Examples:
-        >>> is_safe_filename("song.mp3")
-        True
-        >>> is_safe_filename("../../../etc/passwd")
-        False
-        >>> is_safe_filename("valid-file_name.mp3")
-        True
-    """
-    if not filename:
-        return False
-
-    # Check for path separators (should be just a filename)
-    if os.sep in filename or (os.altsep and os.altsep in filename):
-        return False
-
-    # Check for path traversal
-    if ".." in filename:
-        return False
-
-    # Check for null bytes
-    if "\0" in filename:
-        return False
-
-    # Filename should not start with . (hidden files) unless it's a valid music file
-    if filename.startswith(".") and not any(
-        filename.endswith(ext) for ext in [".mp3", ".flac", ".wav", ".m4a", ".ogg"]
-    ):
-        return False
-
-    return True

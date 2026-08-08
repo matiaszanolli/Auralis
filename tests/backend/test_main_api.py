@@ -204,8 +204,7 @@ class TestLibraryEndpoints:
         mock_result.rejected = False
 
         with patch.dict('main.globals_dict', {'library_manager': mock_library}), \
-             patch('auralis.library.scanner.LibraryScanner') as mock_scanner_class, \
-             patch('security.path_security.validate_scan_path', return_value=tmp_path):
+             patch('auralis.library.scanner.LibraryScanner') as mock_scanner_class:
 
             mock_scanner = Mock()
             mock_scanner.scan_directories.return_value = mock_result
@@ -232,8 +231,7 @@ class TestLibraryEndpoints:
         """
         scan_dir = str(tmp_path)
 
-        with patch.dict('main.globals_dict', {'library_manager': None}), \
-             patch('security.path_security.validate_scan_path', return_value=tmp_path):
+        with patch.dict('main.globals_dict', {'library_manager': None}):
             response = client.post(
                 "/api/library/scan",
                 json={"directories": [scan_dir]}

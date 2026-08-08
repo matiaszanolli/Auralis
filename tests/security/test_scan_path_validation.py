@@ -2,17 +2,19 @@
 Scan Path Validation Security Tests
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Security tests for directory scan path validation.
+Security tests for directory scan/file path validation actually reachable
+from a real entry point: LibraryScanRequest (path traversal, system-path,
+mixed-batch, valid-path handling) and validate_file_path (mastering
+endpoint, #2229). validate_scan_path/is_safe_filename were removed as dead
+code with zero call sites (#4799); their coverage went with them.
 
 Fixes #2069: Path traversal in directory scanning endpoint
 
 SECURITY CONTROLS TESTED:
 - Path traversal prevention (../ sequences)
 - Absolute path restriction (paths outside allowed dirs)
-- Symlink attack prevention (path resolution)
-- Non-existent directory rejection
-- Unreadable directory rejection
-- Empty/null path rejection
+- Non-existent/unreadable path rejection
+- Path sanitization for API responses
 
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3, see LICENSE for more details.
@@ -32,168 +34,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web/backen
 from security.path_security import (
     PathValidationError,
     get_allowed_directories,
-    is_safe_filename,
     sanitize_path_for_response,
     validate_file_path,
-    validate_scan_path,
 )
-
-
-@pytest.mark.security
-class TestPathTraversalPrevention:
-    """Test path traversal prevention in scan endpoint."""
-
-    def test_reject_parent_directory_traversal(self):
-        """
-        SECURITY: Reject ../ path traversal sequences.
-        Attack vector: Access directories outside allowed paths.
-        """
-        traversal_paths = [
-            "../../../etc",
-            "../../..",
-            "../sensitive",
-            "music/../../etc",
-            "./music/../../../etc",
-        ]
-
-        for path in traversal_paths:
-            with pytest.raises(PathValidationError) as exc_info:
-                validate_scan_path(path)
-
-            assert "path traversal" in str(exc_info.value).lower(), \
-                f"Should reject traversal path: {path}"
-
-    def test_reject_absolute_paths_outside_allowed(self):
-        """
-        SECURITY: Reject absolute paths outside allowed directories.
-        Attack vector: Direct access to system directories.
-        """
-        # These paths should be rejected (not in user's home directory)
-        system_paths = [
-            "/etc",
-            "/var",
-            "/tmp/system",
-            "/root",
-            "/proc",
-            "/sys",
-        ]
-
-        allowed_dirs = [Path.home()]  # Only allow home directory
-
-        for path in system_paths:
-            # Skip if path doesn't exist (can't test on all systems)
-            if not Path(path).exists():
-                continue
-
-            with pytest.raises(PathValidationError) as exc_info:
-                validate_scan_path(path, allowed_base_dirs=allowed_dirs)
-
-            assert "outside allowed directories" in str(exc_info.value).lower(), \
-                f"Should reject system path: {path}"
-
-    def test_accept_valid_paths_in_home(self, tmp_path):
-        """Valid paths within home directory should be accepted."""
-        # Create test directory in home
-        test_dir = tmp_path / "music"
-        test_dir.mkdir()
-
-        # Mock Path.home() to return tmp_path
-        with patch('security.path_security.Path.home', return_value=tmp_path):
-            # Should accept path in home directory
-            result = validate_scan_path(str(test_dir))
-            assert result == test_dir.resolve()
-
-    def test_reject_non_existent_directory(self):
-        """
-        SECURITY: Reject non-existent directories.
-        Prevents enumeration attacks.
-        """
-        non_existent = str(Path.home() / "this_directory_does_not_exist_12345")
-
-        with pytest.raises(PathValidationError) as exc_info:
-            validate_scan_path(non_existent)
-
-        assert "does not exist" in str(exc_info.value).lower()
-
-    def test_reject_file_as_directory(self, tmp_path):
-        """
-        SECURITY: Reject files when directory expected.
-        """
-        # Create a file (not directory)
-        test_file = tmp_path / "test.txt"
-        test_file.write_text("test")
-
-        with patch('security.path_security.Path.home', return_value=tmp_path):
-            with pytest.raises(PathValidationError) as exc_info:
-                validate_scan_path(str(test_file))
-
-            assert "not a directory" in str(exc_info.value).lower()
-
-    def test_reject_unreadable_directory(self, tmp_path):
-        """
-        SECURITY: Reject unreadable directories.
-        """
-        # Create unreadable directory
-        test_dir = tmp_path / "unreadable"
-        test_dir.mkdir()
-
-        # Remove read permission
-        os.chmod(test_dir, 0o000)
-
-        try:
-            with patch('security.path_security.Path.home', return_value=tmp_path):
-                with pytest.raises(PathValidationError) as exc_info:
-                    validate_scan_path(str(test_dir))
-
-                assert "not readable" in str(exc_info.value).lower()
-        finally:
-            # Restore permissions for cleanup
-            os.chmod(test_dir, 0o755)
-
-    def test_reject_empty_path(self):
-        """
-        SECURITY: Reject empty path strings.
-        """
-        with pytest.raises(PathValidationError) as exc_info:
-            validate_scan_path("")
-
-        assert "cannot be empty" in str(exc_info.value).lower()
-
-    def test_reject_null_path(self):
-        """
-        SECURITY: Reject null/None paths.
-        """
-        with pytest.raises(PathValidationError):
-            validate_scan_path(None)  # type: ignore
-
-    def test_symlink_resolution(self, tmp_path):
-        """
-        SECURITY: Symlinks are resolved and validated against final target.
-        Prevents symlink attacks to escape allowed directories.
-        """
-        # Create target directory outside allowed area
-        system_dir = tmp_path / "system"
-        system_dir.mkdir()
-
-        # Create allowed directory
-        allowed_dir = tmp_path / "music"
-        allowed_dir.mkdir()
-
-        # Create symlink from allowed to system
-        symlink = allowed_dir / "link_to_system"
-        symlink.symlink_to(system_dir)
-
-        # Mock Path.home() to only allow music directory
-        with patch('security.path_security.Path.home', return_value=tmp_path):
-            # Symlink target (system_dir) is outside allowed (music only)
-            # Should be rejected after resolution
-            with pytest.raises(PathValidationError) as exc_info:
-                validate_scan_path(
-                    str(symlink),
-                    allowed_base_dirs=[allowed_dir]
-                )
-
-            assert "outside allowed directories" in str(exc_info.value).lower()
 
 
 @pytest.mark.security
@@ -221,75 +64,6 @@ class TestAllowedDirectories:
 
                 # Should include XDG_MUSIC_DIR
                 assert any(tmpdir in str(d) for d in allowed)
-
-
-@pytest.mark.security
-class TestFilenameValidation:
-    """Test filename safety validation."""
-
-    def test_safe_filenames(self):
-        """Safe filenames should be accepted."""
-        safe_names = [
-            "song.mp3",
-            "track-01.flac",
-            "my_music_file.wav",
-            "Album Name - Song.m4a",
-            "file.ogg",
-        ]
-
-        for name in safe_names:
-            assert is_safe_filename(name), f"Should accept safe filename: {name}"
-
-    def test_reject_path_traversal_in_filename(self):
-        """
-        SECURITY: Filenames with path traversal should be rejected.
-        """
-        unsafe_names = [
-            "../../../etc/passwd",
-            "../../file.mp3",
-            "../music.mp3",
-            "dir/../file.mp3",
-        ]
-
-        for name in unsafe_names:
-            assert not is_safe_filename(name), \
-                f"Should reject unsafe filename: {name}"
-
-    def test_reject_absolute_paths_in_filename(self):
-        """
-        SECURITY: Absolute paths should be rejected as filenames.
-        """
-        absolute_paths = [
-            "/etc/passwd",
-            "/var/log/file.mp3",
-            "C:\\Windows\\file.mp3",
-        ]
-
-        for name in absolute_paths:
-            assert not is_safe_filename(name), \
-                f"Should reject absolute path: {name}"
-
-    def test_reject_null_bytes(self):
-        """
-        SECURITY: Null bytes in filenames should be rejected.
-        """
-        assert not is_safe_filename("file\0.mp3")
-        assert not is_safe_filename("\0passwd")
-
-    def test_reject_empty_filename(self):
-        """Empty filenames should be rejected."""
-        assert not is_safe_filename("")
-
-    def test_reject_hidden_files_except_music(self):
-        """Hidden files should be rejected unless they're music files."""
-        # Non-music hidden files
-        assert not is_safe_filename(".hidden")
-        assert not is_safe_filename(".env")
-        assert not is_safe_filename(".secret")
-
-        # Music hidden files should be OK (unlikely but valid)
-        assert is_safe_filename(".song.mp3")
-        assert is_safe_filename(".track.flac")
 
 
 @pytest.mark.security
