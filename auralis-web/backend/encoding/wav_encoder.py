@@ -54,6 +54,16 @@ def encode_to_wav(audio: np.ndarray, sample_rate: int = 44100, output_path: str 
         if audio.dtype != np.float32:
             audio = audio.astype(np.float32, copy=True)
 
+        # Last line of defence (#4672): np.clip does NOT sanitize NaN
+        # (np.clip(nan, -1, 1) is still nan), so a non-finite sample would
+        # otherwise reach sf.write as an undefined PCM_16 sample. Currently
+        # this function has no production caller — #4895 rerouted the one
+        # live call path (get_wav_chunk_path) through the already-guarded
+        # WAVEncoder.encode_and_save instead — but it remains public API
+        # (encoding/__init__.py exports it), so this is fixed rather than
+        # left correct-only-by-accident.
+        audio = np.nan_to_num(audio, nan=0.0, posinf=1.0, neginf=-1.0)
+
         # Ensure audio is in valid range for PCM_16 encoding [-1.0, 1.0]
         # Clip to prevent distortion
         audio = np.clip(audio, -1.0, 1.0)

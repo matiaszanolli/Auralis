@@ -102,6 +102,18 @@ class LevelManager:
             logger.warning("RMS calculation for empty audio, returning -inf")
             return -np.inf
 
+        if not np.all(np.isfinite(audio)):
+            # A NaN/Inf chunk must never enter rms_history (#4672): NaN
+            # comparisons are always False, so `abs(level_diff_db) >
+            # self.max_level_change_db` in smooth_transition silently takes
+            # the no-adjustment branch and every later chunk in the track
+            # compares against nan forever — smoothing stops applying with
+            # no error. Fall back to the last known-good level so history
+            # stays finite and smoothing keeps working for later chunks;
+            # SILENCE_FLOOR_DB if there is no prior level yet.
+            logger.warning("RMS calculation received non-finite audio; using last known level")
+            return self.current_rms if self.current_rms is not None else SILENCE_FLOOR_DB
+
         rms = np.sqrt(np.mean(audio ** 2))
         rms_db = 20 * np.log10(rms + 1e-10)  # Add epsilon to avoid log(0)
 

@@ -232,6 +232,27 @@ class AudioProcessingPipeline:
             logger.error("Processor returned None, using original audio")
             return audio
 
+        # Guard the pipeline's own boundary against non-finite DSP output
+        # (#4672). np.clip does NOT sanitize NaN (np.clip(nan, -1, 1) is
+        # still nan), so an unguarded NaN here reaches encode_to_wav's
+        # PCM_16 write as an undefined sample AND poisons
+        # LevelManager.calculate_rms -> rms_history for every subsequent
+        # chunk in the track (np.sqrt(np.mean(audio**2)) on a NaN input is
+        # NaN, and nan comparisons are always False, so smoothing silently
+        # stops applying instead of erroring). Falling back to the
+        # unprocessed audio (same shape/dtype the caller already validated
+        # as finite) produces one audible discontinuity instead of a
+        # silent, permanent poisoning — loud and diagnosable rather than
+        # a click nobody can trace back to its chunk.
+        if not np.all(np.isfinite(processed)):
+            num_nan = int(np.sum(np.isnan(processed)))
+            num_inf = int(np.sum(np.isinf(processed)))
+            logger.warning(
+                f"Processor produced non-finite output (chunk_index={chunk_index}): "
+                f"{num_nan} NaN, {num_inf} infinite — falling back to unprocessed audio"
+            )
+            return audio
+
         # Apply intensity blending if < 1.0
         if intensity < 1.0:
             logger.debug(f"Blending processed audio at intensity {intensity:.2f}")
