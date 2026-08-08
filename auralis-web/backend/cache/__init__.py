@@ -6,18 +6,16 @@ Unified cache management system with two-tier caching strategy:
 - Tier 1 (Hot): Current + next chunk for instant playback (12 MB)
 - Tier 2 (Warm): Full track cache for instant seeking (60-120 MB)
 
-Also includes monitoring and endpoint utilities for cache-aware operations.
+Also includes monitoring utilities for cache-aware operations. The real
+cache HTTP surface lives in routers/cache_streamlined.py; endpoints.py
+(a second, never-wired "cache-aware endpoint" helper layer built for the
+retired REST/MSE chunk-streaming surface, #4435) was deleted as dead code
+with zero production importers (#4738).
 
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3, see LICENSE for more details.
 """
 
-from .endpoints import (
-    CacheAwareEndpoint,
-    CacheQueryBuilder,
-    EndpointMetrics,
-    create_cache_aware_handler,
-)
 from .manager import (
     CHUNK_DURATION,
     CHUNK_INTERVAL,
@@ -56,9 +54,4 @@ __all__ = [
     "CacheMetrics",
     "CacheAlert",
     "HealthStatus",
-    # Endpoints exports
-    "CacheAwareEndpoint",
-    "CacheQueryBuilder",
-    "EndpointMetrics",
-    "create_cache_aware_handler",
 ]

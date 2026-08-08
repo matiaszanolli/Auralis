@@ -42,9 +42,7 @@ const mockConfig: APIClientConfig = {
 const mockSuccessResponse = {
   status: 'success',
   data: { id: 1, name: 'Test' },
-  timestamp: new Date().toISOString(),
-  cache_source: 'miss',
-  processing_time_ms: 2.5
+  timestamp: new Date().toISOString()
 };
 
 const mockErrorResponse = {
@@ -396,24 +394,6 @@ describe('CacheAwareAPIClient', () => {
   beforeEach(() => {
     client = new StandardizedAPIClient(mockConfig);
     cacheClient = new CacheAwareAPIClient(client);
-  });
-
-  it('should get chunk with cache information', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: vi.fn().mockResolvedValue({
-        ...mockSuccessResponse,
-        data: { chunk: 'data' },
-        cache_source: 'tier1'
-      })
-    });
-    global.fetch = mockFetch;
-
-    const result = await cacheClient.getChunk(1, 0);
-
-    expect(result.cacheSource).toBe('tier1');
-    expect(result.cacheHit).toBe(true);
-    expect(result.processingTimeMs).toBeDefined();
   });
 
   it('should get cache stats', async () => {

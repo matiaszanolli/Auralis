@@ -25,8 +25,6 @@ export interface SuccessResponse<T> {
   data: T;
   message?: string;
   timestamp: string;
-  cache_source?: 'tier1' | 'tier2' | 'miss';
-  processing_time_ms?: number;
 }
 
 /**
@@ -408,29 +406,18 @@ export class StandardizedAPIClient {
 // ============================================================================
 
 /**
- * Cache-aware API client for chunk operations
+ * Cache-aware API client for cache stats/health operations.
+ *
+ * #4738: this class used to also expose getChunk(), calling a
+ * /api/chunks/{trackId}/{chunkIndex} route that never existed — residue of
+ * the retired REST/MSE chunk-streaming surface (routers/wav_streaming.py,
+ * removed in #4435) paired with a backend "cache-aware endpoint" helper
+ * layer (cache/endpoints.py) that had zero production importers on its own
+ * side and was deleted in the same issue. Removed here too so neither side
+ * describes an API the other doesn't implement.
  */
 export class CacheAwareAPIClient {
   constructor(private apiClient: StandardizedAPIClient) {}
-
-  /**
-   * Get chunk with cache information
-   */
-  async getChunk(trackId: number, chunkIndex: number, _preset?: string) {
-    const endpoint = `/api/chunks/${trackId}/${chunkIndex}`;
-    const response = await this.apiClient.get(endpoint, { cache: true });
-
-    if (isSuccessResponse(response)) {
-      return {
-        data: response.data,
-        cacheSource: response.cache_source ?? 'miss',
-        cacheHit: response.cache_source !== undefined && response.cache_source !== 'miss',
-        processingTimeMs: response.processing_time_ms ?? 0
-      };
-    }
-
-    return { error: response };
-  }
 
   /**
    * Get cache statistics.
