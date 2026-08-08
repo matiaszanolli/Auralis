@@ -17,8 +17,10 @@ from pathlib import Path
 from typing import Any
 
 import uvicorn
+from fastapi import WebSocket
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from starlette import status
 
 # NOTE: logging.basicConfig was removed (#3537 / BE-NEW-79). uvicorn.run()
 # installs its own logging configuration with handlers on the root logger,
@@ -200,6 +202,22 @@ FRONTEND_MISSING_HTML = """
             </body>
         </html>
         """
+
+# Catch-all for unregistered WebSocket paths (#4800). Starlette's Mount
+# matches websocket scopes just like http ones (it only special-cases the
+# path, not scope["type"]), so without this a client that upgrades to any
+# unregistered /ws* path in production falls through the single real /ws
+# route (registered above, via setup_routers) all the way to the
+# StaticFiles Mount below, whose __call__ asserts scope["type"] == "http"
+# and raises an unhandled AssertionError instead of a clean close.
+# Registered here — after setup_routers's real /ws route, before the Mount
+# — so /ws itself still matches first (Starlette checks routes in
+# registration order) and every other path gets a clean policy-violation
+# close instead.
+@app.websocket("/{path:path}")
+async def _unregistered_websocket(websocket: WebSocket) -> None:
+    await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+
 
 # Only mount static files in production (when not running --dev)
 # In development, Vite serves the frontend and proxies API requests
