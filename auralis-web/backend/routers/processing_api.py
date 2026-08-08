@@ -24,6 +24,7 @@ from core.processing_engine import ProcessingEngine, ProcessingStatus
 from pydantic import BaseModel, ValidationError, model_validator
 from security.path_security import PathValidationError, validate_file_path
 
+from .dependencies import with_error_handling
 from .errors import NotFoundError
 
 logger = logging.getLogger(__name__)
@@ -365,6 +366,7 @@ def create_processing_router(
 
 
     @router.get("/job/{job_id}", response_model=JobStatusResponse)
+    @with_error_handling("get job status")
     async def get_job_status(job_id: str) -> JobStatusResponse:
         """Get the status of a processing job"""
         engine = get_processing_engine()
@@ -385,6 +387,7 @@ def create_processing_router(
 
 
     @router.get("/job/{job_id}/download")
+    @with_error_handling("download job result")
     async def download_result(job_id: str) -> FileResponse:
         """
         Download the processed audio file.
@@ -400,6 +403,13 @@ def create_processing_router(
 
         if job.status != ProcessingStatus.COMPLETED:
             raise HTTPException(status_code=400, detail=f"Job not completed (status: {job.status.value})")
+
+        # A job that reached COMPLETED without output_path set is an
+        # engine-layer bug, not a client error — but Path(None) raises an
+        # unhandled TypeError rather than a typed response (#4736).
+        if not job.output_path:
+            logger.error(f"Job {job_id} is COMPLETED but has no output_path set")
+            raise HTTPException(status_code=500, detail="Job completed but produced no output file")
 
         output_path = Path(job.output_path).resolve()
 
@@ -430,6 +440,7 @@ def create_processing_router(
 
 
     @router.post("/job/{job_id}/cancel", response_model=CancelJobResponse)
+    @with_error_handling("cancel job")
     async def cancel_job(job_id: str) -> dict[str, Any]:
         """Cancel a queued or processing job"""
         engine = get_processing_engine()
@@ -448,6 +459,7 @@ def create_processing_router(
 
 
     @router.get("/jobs", response_model=JobListResponse)
+    @with_error_handling("list jobs")
     async def list_jobs(
         status: ProcessingStatus | None = None,
         limit: int = Query(50, ge=1, le=1000),
@@ -479,6 +491,7 @@ def create_processing_router(
 
 
     @router.get("/queue/status", response_model=QueueStatusResponse)
+    @with_error_handling("get queue status")
     async def get_queue_status() -> dict[str, Any]:
         """Get current processing queue status"""
         engine = get_processing_engine()

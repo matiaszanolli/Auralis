@@ -256,6 +256,58 @@ class TestJobDownload:
 
         assert response.status_code == 400  # Job not completed
 
+    def test_download_completed_job_with_no_output_path(self, client, mock_engine):
+        """#4736: a job that reached COMPLETED without output_path set must
+        raise a typed 500, not an unhandled TypeError from Path(None)."""
+        mock_job = Mock()
+        mock_job.job_id = "test-job-123"
+        mock_job.status = ProcessingStatus.COMPLETED
+        mock_job.output_path = None
+
+        mock_engine.get_job.return_value = mock_job
+
+        response = client.get("/api/processing/job/test-job-123/download")
+
+        assert response.status_code == 500
+        assert "detail" in response.json()
+
+
+class TestFiveHandlersHaveErrorHandling:
+    """#4736: get_job_status, download_result, cancel_job, list_jobs, and
+    get_queue_status must convert an unexpected engine-layer exception into
+    a typed {"detail": ...} 500, not let it propagate as Starlette's bare
+    unhandled-exception response."""
+
+    def test_get_job_status_unexpected_exception_yields_typed_500(self, client, mock_engine):
+        mock_engine.get_job.side_effect = RuntimeError("engine exploded")
+        response = client.get("/api/processing/job/test-job-123")
+        assert response.status_code == 500
+        assert "detail" in response.json()
+
+    def test_download_result_unexpected_exception_yields_typed_500(self, client, mock_engine):
+        mock_engine.get_job.side_effect = RuntimeError("engine exploded")
+        response = client.get("/api/processing/job/test-job-123/download")
+        assert response.status_code == 500
+        assert "detail" in response.json()
+
+    def test_cancel_job_unexpected_exception_yields_typed_500(self, client, mock_engine):
+        mock_engine.cancel_job.side_effect = RuntimeError("engine exploded")
+        response = client.post("/api/processing/job/test-job-123/cancel")
+        assert response.status_code == 500
+        assert "detail" in response.json()
+
+    def test_list_jobs_unexpected_exception_yields_typed_500(self, client, mock_engine):
+        mock_engine.get_all_jobs.side_effect = RuntimeError("engine exploded")
+        response = client.get("/api/processing/jobs")
+        assert response.status_code == 500
+        assert "detail" in response.json()
+
+    def test_get_queue_status_unexpected_exception_yields_typed_500(self, client, mock_engine):
+        mock_engine.get_queue_status.side_effect = RuntimeError("engine exploded")
+        response = client.get("/api/processing/queue/status")
+        assert response.status_code == 500
+        assert "detail" in response.json()
+
 
 class TestQueueManagement:
     """Test queue management endpoints"""
