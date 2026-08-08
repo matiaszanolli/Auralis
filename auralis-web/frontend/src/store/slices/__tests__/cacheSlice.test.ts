@@ -7,7 +7,6 @@
 import reducer, {
   setCacheStats,
   setCacheHealth,
-  updateCache,
   setIsLoading,
   setError,
   clearError,
@@ -84,18 +83,6 @@ describe('cacheSlice', () => {
     expect(state.lastUpdated).toBeGreaterThan(0);
   });
 
-  it('updateCache sets both stats and health', () => {
-    const state = reducer(initialState, updateCache({ stats: mockStats, health: mockHealth }));
-    expect(state.stats).toEqual(mockStats);
-    expect(state.health).toEqual(mockHealth);
-  });
-
-  it('updateCache with only stats preserves null health', () => {
-    const state = reducer(initialState, updateCache({ stats: mockStats }));
-    expect(state.stats).toEqual(mockStats);
-    expect(state.health).toBeNull();
-  });
-
   // #4482: the fixtures above all set `tracks: {}`, so they can't distinguish
   // "stripping ran" from "stripping is a no-op". These two dispatch a POPULATED
   // per-track map and assert it is emptied before it reaches the store (#3623/#3967).
@@ -111,18 +98,6 @@ describe('cacheSlice', () => {
     expect(state.stats!.tracks).toEqual({});
     // Aggregates are preserved — only the per-track map is stripped.
     expect(state.stats!.overall.tracks_cached).toBe(7);
-  });
-
-  it('updateCache strips a populated per-track map to {} (#3967/#4482)', () => {
-    const statsWithTracks: CacheStats = {
-      ...mockStats,
-      tracks: {
-        '1': { track_id: 1, completion_percent: 100, fully_cached: true },
-      },
-    };
-    const state = reducer(initialState, updateCache({ stats: statsWithTracks }));
-    expect(state.stats!.tracks).toEqual({});
-    expect(state.stats!.overall.total_chunks).toBe(15);
   });
 
   // ─── Loading/Error ────────────────────────────────────────────

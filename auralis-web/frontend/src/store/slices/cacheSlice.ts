@@ -71,36 +71,6 @@ const cacheSlice = createSlice({
     },
 
     /**
-     * Update both stats and health
-     */
-    updateCache: {
-      reducer(
-        state,
-        action: PayloadAction<
-          {
-            stats?: CacheStats;
-            health?: CacheHealth;
-          },
-          string,
-          { timestamp: number }
-        >
-      ) {
-        if (action.payload.stats) {
-          // Strip per-track Map to prevent Redux non-serialisable-value warnings —
-          // same stripping applied by setCacheStats.prepare() (fixes #3967 / RS-3).
-          state.stats = { ...action.payload.stats, tracks: {} };
-        }
-        if (action.payload.health) {
-          state.health = action.payload.health;
-        }
-        state.lastUpdated = action.meta.timestamp;
-      },
-      prepare(params: { stats?: CacheStats; health?: CacheHealth }) {
-        return { payload: params, meta: { timestamp: Date.now() } };
-      },
-    },
-
-    /**
      * Set loading state
      */
     setIsLoading(state, action: PayloadAction<boolean>) {
@@ -158,7 +128,6 @@ const cacheSlice = createSlice({
 export const {
   setCacheStats,
   setCacheHealth,
-  updateCache,
   setIsLoading,
   setError,
   clearError,

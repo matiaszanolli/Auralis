@@ -297,12 +297,12 @@ describe('End-to-End User Flows', () => {
       state = store.getState();
       expect(state.cache.stats?.overall.total_chunks).toBe(0);
 
-      // 4. Update cache (simulated refresh)
-      store.dispatch(cacheActions.updateCache({
-        stats: {
-          ...stats,
-          overall: { ...stats.overall, total_chunks: 5 },
-        },
+      // 4. Update cache (simulated refresh) — setCacheStats is the real
+      // production dispatch for this (useReduxState.ts); updateCache was
+      // dead code with zero production callers, deleted in #5015.
+      store.dispatch(cacheActions.setCacheStats({
+        ...stats,
+        overall: { ...stats.overall, total_chunks: 5 },
       }));
 
       state = store.getState();
