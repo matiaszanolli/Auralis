@@ -24,25 +24,27 @@ interface TrackFingerprintResponse {
 }
 
 /**
- * Fetch track fingerprint from backend
+ * Fetch track fingerprint from backend.
+ *
+ * A 404 is the one expected non-error outcome (fingerprint queued but not
+ * ready yet), so it resolves to `null`. Everything else — a non-2xx status
+ * or a network-level failure — rejects instead of being swallowed to `null`
+ * (#4847): a 404 and "the endpoint is broken" used to be indistinguishable,
+ * both driving refetchInterval's indefinite 5s poll and leaving
+ * `query.error` permanently empty.
  */
 const fetchTrackFingerprint = async (trackId: number): Promise<TrackFingerprintResponse | null> => {
-  try {
-    const response = await fetch(`/api/tracks/${trackId}/fingerprint`);
+  const response = await fetch(`/api/tracks/${trackId}/fingerprint`);
 
-    if (!response.ok) {
-      // Track doesn't have fingerprint yet (queued for generation)
-      if (response.status === 404) {
-        return null;
-      }
-      throw new Error(`Failed to fetch track fingerprint: ${response.statusText}`);
+  if (!response.ok) {
+    // Track doesn't have fingerprint yet (queued for generation)
+    if (response.status === 404) {
+      return null;
     }
-
-    return await response.json();
-  } catch (error) {
-    console.warn(`Failed to fetch fingerprint for track ${trackId}:`, error);
-    return null; // Graceful fallback
+    throw new Error(`Failed to fetch track fingerprint: ${response.statusText}`);
   }
+
+  return await response.json();
 };
 
 /**
@@ -83,6 +85,14 @@ export function useTrackFingerprint(
     retry: false, // Don't retry on 404
     // Re-fetch periodically if fingerprint not ready (queued for generation)
     refetchInterval: (query) => {
+      // #4847: a failed fetch (5xx, network error) leaves `data` at its
+      // last value — which is `null` for a track that was still queued
+      // when it started failing — so the error check must come first, or
+      // polling never stops and the error is silently masked as "pending"
+      // forever.
+      if (query.state.status === 'error') {
+        return false;
+      }
       // If we got null (not ready), poll every 5 seconds
       if (query.state.data === null) {
         return retryInterval;
@@ -99,7 +109,9 @@ export function useTrackFingerprint(
     artist: data?.artist ?? null,
     album: data?.album ?? null,
     isLoading: query.isLoading,
-    isPending: query.data === null, // Fingerprint queued but not ready
+    // Fingerprint queued but not ready — distinct from a genuine error
+    // (#4847), which used to look identical to this state.
+    isPending: query.data === null && !query.isError,
     error: query.error,
     refetch: query.refetch,
   };

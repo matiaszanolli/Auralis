@@ -122,4 +122,71 @@ describe('useTrackFingerprint', () => {
 
     expect(result.current.error).toBeTruthy();
   });
+
+  it('should not report isPending on a non-404 failure (#4847)', async () => {
+    // Before the fix, a 500 collapsed into the same `data === null` state
+    // as a genuine 404, so isPending stayed true and the caller had no way
+    // to tell "queued" apart from "the endpoint is broken".
+    setupFetch({ detail: 'Server error' }, 500);
+
+    const { result } = renderHook(() => useTrackFingerprint(1), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(result.current.error).toBeTruthy();
+    expect(result.current.isPending).toBe(false);
+  });
+
+  it('should not schedule another poll after a non-404 failure (#4847)', async () => {
+    // Regression for the specific amplification bug: refetchInterval used
+    // to key off `data === null` alone, which stays true after a failed
+    // fetch that started from the "queued" state — polling forever
+    // disguised as "pending" instead of surfacing the error once.
+    setupFetch({ detail: 'Server error' }, 500);
+
+    const { result } = renderHook(
+      () => useTrackFingerprint(1, { retryInterval: 10 }),
+      { wrapper: createWrapper() }
+    );
+
+    await waitFor(() => {
+      expect(result.current.error).toBeTruthy();
+    });
+
+    const callsAfterFirstFailure = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.length;
+
+    // Wait comfortably past the (short, test-only) retry interval — if
+    // polling were still scheduled, fetch would have been called again.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect((global.fetch as ReturnType<typeof vi.fn>).mock.calls.length).toBe(
+      callsAfterFirstFailure
+    );
+  });
+
+  it('should keep polling on a genuine 404 (queued, not an error)', async () => {
+    setupFetch({ detail: 'Not found' }, 404);
+
+    const { result } = renderHook(
+      () => useTrackFingerprint(1, { retryInterval: 10 }),
+      { wrapper: createWrapper() }
+    );
+
+    await waitFor(() => {
+      expect(result.current.isPending).toBe(true);
+    });
+    expect(result.current.error).toBeNull();
+
+    const callsAfterFirstFetch = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.length;
+
+    await waitFor(() => {
+      expect((global.fetch as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(
+        callsAfterFirstFetch
+      );
+    });
+  });
 });
