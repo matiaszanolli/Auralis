@@ -5,6 +5,7 @@ const { spawn, exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const { isSafeExternalUrl, isAllowedAppNavigation } = require('./url-safety');
+const { buildBackendEnv } = require('./backend-env');
 
 // Configure logging for auto-updater
 log.transports.file.level = 'info';
@@ -185,7 +186,10 @@ class AuralisApp {
       cwd: cwd,
       detached: true,  // Create new process group for easy cleanup
       env: {
-        ...process.env,
+        // buildBackendEnv() clears AURALIS_DEV_MODE on the production path
+        // so an ambient value from the parent shell can't silently reopen
+        // the dev-mode CORS/WS origin allowlist in a packaged build (#4898).
+        ...buildBackendEnv(process.env, this.isDevelopment),
         PYTHONUNBUFFERED: '1',
         // Tell backend it's running in Electron
         ELECTRON_MODE: '1',
