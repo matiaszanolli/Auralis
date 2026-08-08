@@ -1,6 +1,7 @@
 import { useId } from 'react';
 import Box from '@mui/material/Box';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 import { useDialogAccessibility } from '@/hooks/shared/useDialogAccessibility';
 
 interface ConfirmationDialogProps {
@@ -46,7 +47,7 @@ export function ConfirmationDialog({
         aria-modal="true"
         aria-labelledby={titleId}
         style={{
-          background: tokens.colors.bg.secondary,
+          background: themeVars.surfacePrimary,
           borderRadius: tokens.borderRadius.sm,
           border: `1px solid ${isDangerous ? tokens.colors.semantic.error : tokens.colors.border.medium}`,
           padding: tokens.spacing.lg,
@@ -61,7 +62,7 @@ export function ConfirmationDialog({
             margin: `0 0 ${tokens.spacing.md} 0`,
             fontSize: tokens.typography.fontSize.lg,
             fontWeight: tokens.typography.fontWeight.semibold,
-            color: isDangerous ? tokens.colors.semantic.error : tokens.colors.text.primary,
+            color: isDangerous ? tokens.colors.semantic.error : themeVars.textPrimary,
           }}
         >
           {title}
@@ -71,7 +72,7 @@ export function ConfirmationDialog({
           style={{
             margin: `0 0 ${tokens.spacing.lg} 0`,
             fontSize: tokens.typography.fontSize.base,
-            color: tokens.colors.text.secondary,
+            color: themeVars.textSecondary,
             lineHeight: tokens.typography.lineHeight.normal,
           }}
         >
@@ -91,16 +92,16 @@ export function ConfirmationDialog({
             disabled={disabled}
             sx={{
               padding: `${tokens.spacing.sm} ${tokens.spacing.lg}`,
-              background: tokens.colors.bg.tertiary,
+              background: themeVars.surfaceSecondary,
               border: `1px solid ${tokens.colors.border.light}`,
               borderRadius: tokens.borderRadius.sm,
-              color: tokens.colors.text.primary,
+              color: themeVars.textPrimary,
               cursor: disabled ? 'not-allowed' : 'pointer',
               fontSize: tokens.typography.fontSize.sm,
               fontWeight: tokens.typography.fontWeight.medium,
               transition: tokens.transitions.hover_out,
               '&:hover': {
-                background: tokens.colors.bg.elevated,
+                background: themeVars.surfaceRaised,
               },
             }}
           >
@@ -115,7 +116,7 @@ export function ConfirmationDialog({
               background: isDangerous ? tokens.colors.semantic.error : tokens.colors.accent.primary,
               border: 'none',
               borderRadius: tokens.borderRadius.sm,
-              color: tokens.colors.text.primary,
+              color: themeVars.onAccent,
               cursor: disabled ? 'not-allowed' : 'pointer',
               fontSize: tokens.typography.fontSize.sm,
               fontWeight: tokens.typography.fontWeight.semibold,

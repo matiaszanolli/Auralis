@@ -6,6 +6,7 @@
  */
 
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 export const styles = {
   container: {
@@ -13,7 +14,7 @@ export const styles = {
     flexDirection: 'column' as const,
     width: '100%',
     height: '100%',
-    backgroundColor: tokens.colors.bg.primary,
+    backgroundColor: themeVars.canvas,
     borderLeft: `1px solid ${tokens.colors.border.light}`,
     overflow: 'hidden',
   },
@@ -35,13 +36,13 @@ export const styles = {
     margin: 0,
     fontSize: tokens.typography.fontSize.lg,
     fontWeight: tokens.typography.fontWeight.bold,
-    color: tokens.colors.text.primary,
+    color: themeVars.textPrimary,
   },
 
   toggleButton: {
     background: 'none',
     border: 'none',
-    color: tokens.colors.text.primary,
+    color: themeVars.textPrimary,
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.lg,
     padding: tokens.spacing.sm,
@@ -49,7 +50,7 @@ export const styles = {
     transition: tokens.transitions.background,
 
     ':hover': {
-      backgroundColor: tokens.colors.bg.secondary,
+      backgroundColor: themeVars.surfacePrimary,
     },
   },
 
@@ -72,7 +73,7 @@ export const styles = {
     margin: 0,
     fontSize: tokens.typography.fontSize.md,
     fontWeight: tokens.typography.fontWeight.bold,
-    color: tokens.colors.text.primary,
+    color: themeVars.textPrimary,
     paddingBottom: tokens.spacing.xs,
     borderBottom: `1px solid ${tokens.colors.border.light}`,
   },
@@ -85,7 +86,7 @@ export const styles = {
 
   statItem: {
     padding: tokens.spacing.sm,
-    backgroundColor: tokens.colors.bg.secondary,
+    backgroundColor: themeVars.surfacePrimary,
     borderRadius: tokens.borderRadius.md,
     border: `1px solid ${tokens.colors.border.light}`,
     display: 'flex',
@@ -95,14 +96,14 @@ export const styles = {
 
   statLabel: {
     fontSize: tokens.typography.fontSize.sm,
-    color: tokens.colors.text.tertiary,
+    color: themeVars.textMuted,
     fontWeight: tokens.typography.fontWeight.semibold,
   },
 
   statValue: {
     fontSize: tokens.typography.fontSize.lg,
     fontWeight: tokens.typography.fontWeight.bold,
-    color: tokens.colors.text.primary,
+    color: themeVars.textPrimary,
   },
 
   statsGrid: {
@@ -116,18 +117,18 @@ export const styles = {
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: tokens.spacing.sm,
-    backgroundColor: tokens.colors.bg.secondary,
+    backgroundColor: themeVars.surfacePrimary,
     borderRadius: tokens.borderRadius.sm,
     fontSize: tokens.typography.fontSize.sm,
   },
 
   statRowLabel: {
-    color: tokens.colors.text.tertiary,
+    color: themeVars.textMuted,
     fontWeight: tokens.typography.fontWeight.semibold,
   },
 
   statRowValue: {
-    color: tokens.colors.text.primary,
+    color: themeVars.textPrimary,
     fontWeight: tokens.typography.fontWeight.bold,
     fontVariantNumeric: 'tabular-nums' as const,
   },
@@ -143,7 +144,7 @@ export const styles = {
     alignItems: 'center',
     gap: tokens.spacing.sm,
     padding: tokens.spacing.sm,
-    backgroundColor: tokens.colors.bg.secondary,
+    backgroundColor: themeVars.surfacePrimary,
     borderRadius: tokens.borderRadius.sm,
     fontSize: tokens.typography.fontSize.sm,
   },
@@ -156,7 +157,7 @@ export const styles = {
 
   topItemValue: {
     flex: 1,
-    color: tokens.colors.text.primary,
+    color: themeVars.textPrimary,
     fontWeight: tokens.typography.fontWeight.semibold,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
@@ -164,7 +165,7 @@ export const styles = {
   },
 
   topItemStats: {
-    color: tokens.colors.text.tertiary,
+    color: themeVars.textMuted,
     fontSize: tokens.typography.fontSize.xs,
     flexShrink: 0,
   },
@@ -181,7 +182,7 @@ export const styles = {
     gap: tokens.spacing.sm,
     padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
     borderRadius: tokens.borderRadius.md,
-    color: tokens.colors.text.primaryFull, // White text on colored badge
+    color: themeVars.onAccent, // White text on colored badge
     fontWeight: tokens.typography.fontWeight.bold,
     fontSize: tokens.typography.fontSize.sm,
   },
@@ -202,7 +203,7 @@ export const styles = {
 
   issueItem: {
     fontSize: tokens.typography.fontSize.sm,
-    color: tokens.colors.text.tertiary,
+    color: themeVars.textMuted,
     padding: tokens.spacing.xs,
     paddingLeft: tokens.spacing.sm,
   },
@@ -213,13 +214,13 @@ export const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     flex: 1,
-    color: tokens.colors.text.tertiary,
+    color: themeVars.textMuted,
     textAlign: 'center' as const,
   },
 
   emptySubtext: {
     fontSize: tokens.typography.fontSize.sm,
-    color: tokens.colors.text.tertiary,
+    color: themeVars.textMuted,
     marginTop: tokens.spacing.sm,
   },
 };

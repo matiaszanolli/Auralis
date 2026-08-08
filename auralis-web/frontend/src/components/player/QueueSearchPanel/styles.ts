@@ -1,4 +1,5 @@
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 export { resultItemStyles } from './resultItemStyles';
 
@@ -18,7 +19,7 @@ export const panelStyles = {
   },
 
   panel: {
-    backgroundColor: tokens.colors.bg.primary,
+    backgroundColor: themeVars.canvas,
     borderRadius: tokens.borderRadius.lg,
     border: `1px solid ${tokens.colors.border.light}`,
     display: 'flex',
@@ -42,13 +43,13 @@ export const panelStyles = {
     margin: 0,
     fontSize: tokens.typography.fontSize.xl,
     fontWeight: tokens.typography.fontWeight.bold,
-    color: tokens.colors.text.primary,
+    color: themeVars.textPrimary,
   },
 
   closeButton: {
     background: 'none',
     border: 'none',
-    color: tokens.colors.text.primary,
+    color: themeVars.textPrimary,
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.lg,
     padding: tokens.spacing.sm,
@@ -56,7 +57,7 @@ export const panelStyles = {
     transition: tokens.transitions.background,
 
     ':hover': {
-      backgroundColor: tokens.colors.bg.secondary,
+      backgroundColor: themeVars.surfacePrimary,
     },
   },
 
@@ -80,8 +81,8 @@ export const panelStyles = {
     padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
     borderRadius: tokens.borderRadius.md,
     border: `1px solid ${tokens.colors.border.light}`,
-    backgroundColor: tokens.colors.bg.secondary,
-    color: tokens.colors.text.primary,
+    backgroundColor: themeVars.surfacePrimary,
+    color: themeVars.textPrimary,
     fontSize: tokens.typography.fontSize.md,
     fontFamily: 'inherit',
     transition: `border-color ${tokens.transitions.hover_out}`,
@@ -92,7 +93,7 @@ export const panelStyles = {
     },
 
     '::placeholder': {
-      color: tokens.colors.text.tertiary,
+      color: themeVars.textMuted,
     },
   },
 
@@ -101,7 +102,7 @@ export const panelStyles = {
     right: tokens.spacing.sm,
     background: 'none',
     border: 'none',
-    color: tokens.colors.text.tertiary,
+    color: themeVars.textMuted,
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.md,
     padding: tokens.spacing.xs,
@@ -109,7 +110,7 @@ export const panelStyles = {
     transition: tokens.transitions.color,
 
     ':hover': {
-      color: tokens.colors.text.primary,
+      color: themeVars.textPrimary,
     },
   },
 
@@ -123,27 +124,27 @@ export const panelStyles = {
     padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,
     borderRadius: tokens.borderRadius.md,
     border: `1px solid ${tokens.colors.border.light}`,
-    backgroundColor: tokens.colors.bg.secondary,
-    color: tokens.colors.text.primary,
+    backgroundColor: themeVars.surfacePrimary,
+    color: themeVars.textPrimary,
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.sm,
     fontWeight: tokens.typography.fontWeight.semibold,
     transition: tokens.transitions.hover_out,
 
     ':hover': {
-      backgroundColor: tokens.colors.bg.tertiary,
+      backgroundColor: themeVars.surfaceSecondary,
     },
   },
 
   filterButtonActive: {
     backgroundColor: tokens.colors.accent.primary,
-    color: tokens.colors.text.primaryFull,
+    color: themeVars.onAccent,
     borderColor: tokens.colors.accent.primary,
   },
 
   resultsInfo: {
     fontSize: tokens.typography.fontSize.sm,
-    color: tokens.colors.text.tertiary,
+    color: themeVars.textMuted,
     padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,
   },
 
@@ -166,14 +167,14 @@ export const panelStyles = {
     alignItems: 'center',
     justifyContent: 'center',
     flex: 1,
-    color: tokens.colors.text.tertiary,
+    color: themeVars.textMuted,
     textAlign: 'center' as const,
     padding: tokens.spacing.xl,
   },
 
   noResultsHint: {
     fontSize: tokens.typography.fontSize.sm,
-    color: tokens.colors.text.tertiary,
+    color: themeVars.textMuted,
     marginTop: tokens.spacing.sm,
   },
 
@@ -189,8 +190,8 @@ export const panelStyles = {
     padding: `${tokens.spacing.xs} ${tokens.spacing.md}`,
     borderRadius: tokens.borderRadius.md,
     border: `1px solid ${tokens.colors.border.light}`,
-    backgroundColor: tokens.colors.bg.secondary,
-    color: tokens.colors.text.primary,
+    backgroundColor: themeVars.surfacePrimary,
+    color: themeVars.textPrimary,
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.sm,
     fontWeight: tokens.typography.fontWeight.semibold,
@@ -198,7 +199,7 @@ export const panelStyles = {
 
     ':hover': {
       backgroundColor: tokens.colors.semantic.error,
-      color: tokens.colors.text.primaryFull,
+      color: themeVars.onError,
     },
   },
 };

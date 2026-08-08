@@ -7,6 +7,7 @@
  */
 
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 import { CacheStats } from '@/services/api/standardizedAPIClient';
 
 /**
@@ -47,7 +48,7 @@ export function PercentageDisplay({ value, threshold = 70 }: { value: number; th
       >
         {percentage}%
       </div>
-      <span style={{ color: tokens.colors.text.secondary, fontSize: tokens.typography.fontSize.sm }}>
+      <span style={{ color: themeVars.textSecondary, fontSize: tokens.typography.fontSize.sm }}>
         {percentage}%
       </span>
     </div>
@@ -60,7 +61,7 @@ export function PercentageDisplay({ value, threshold = 70 }: { value: number; th
 export function FileSizeDisplay({ sizeMb }: { sizeMb: number }) {
   const display = sizeMb >= 1024 ? `${(sizeMb / 1024).toFixed(2)} GB` : `${sizeMb.toFixed(1)} MB`;
   return (
-    <span style={{ color: tokens.colors.text.secondary, fontSize: tokens.typography.fontSize.sm }}>
+    <span style={{ color: themeVars.textSecondary, fontSize: tokens.typography.fontSize.sm }}>
       {display}
     </span>
   );
@@ -76,7 +77,7 @@ export function TierCard({ tier, stats }: { tier: 'tier1' | 'tier2'; stats: Cach
     <div
       style={{
         padding: tokens.spacing.lg,
-        background: tokens.colors.bg.tertiary,
+        background: themeVars.surfaceSecondary,
         borderRadius: '8px',
         border: `1px solid ${tokens.colors.border.light}`,
       }}
@@ -85,7 +86,7 @@ export function TierCard({ tier, stats }: { tier: 'tier1' | 'tier2'; stats: Cach
         style={{
           fontSize: tokens.typography.fontSize.md,
           fontWeight: tokens.typography.fontWeight.semibold,
-          color: tokens.colors.text.primary,
+          color: themeVars.textPrimary,
           marginBottom: tokens.spacing.md,
         }}
       >
@@ -104,13 +105,13 @@ export function TierCard({ tier, stats }: { tier: 'tier1' | 'tier2'; stats: Cach
             <div
               style={{
                 fontSize: tokens.typography.fontSize.xs,
-                color: tokens.colors.text.tertiary,
+                color: themeVars.textMuted,
                 marginBottom: tokens.spacing.xs,
               }}
             >
               Chunks
             </div>
-            <div style={{ fontSize: tokens.typography.fontSize.lg, color: tokens.colors.text.primary }}>
+            <div style={{ fontSize: tokens.typography.fontSize.lg, color: themeVars.textPrimary }}>
               {stats.chunks}
             </div>
           </div>
@@ -118,7 +119,7 @@ export function TierCard({ tier, stats }: { tier: 'tier1' | 'tier2'; stats: Cach
             <div
               style={{
                 fontSize: tokens.typography.fontSize.xs,
-                color: tokens.colors.text.tertiary,
+                color: themeVars.textMuted,
                 marginBottom: tokens.spacing.xs,
               }}
             >
@@ -137,7 +138,7 @@ export function TierCard({ tier, stats }: { tier: 'tier1' | 'tier2'; stats: Cach
           <div
             style={{
               fontSize: tokens.typography.fontSize.xs,
-              color: tokens.colors.text.tertiary,
+              color: themeVars.textMuted,
               marginBottom: tokens.spacing.sm,
             }}
           >
@@ -147,7 +148,7 @@ export function TierCard({ tier, stats }: { tier: 'tier1' | 'tier2'; stats: Cach
           <div
             style={{
               fontSize: tokens.typography.fontSize.xs,
-              color: tokens.colors.text.tertiary,
+              color: themeVars.textMuted,
               marginTop: tokens.spacing.sm,
             }}
           >

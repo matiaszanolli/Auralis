@@ -14,6 +14,7 @@
  */
 
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 import { CACHE_STATS_REFRESH_INTERVAL_MS, useCacheStats } from '@/hooks/shared/useStandardizedAPI';
 import { PercentageDisplay, FileSizeDisplay, TierCard } from './CacheStatsDashboard/StatCards';
 import { TrackCacheList } from './CacheStatsDashboard/TrackCacheList';
@@ -40,7 +41,7 @@ export function CacheStatsDashboard({
       <div
         style={{
           padding: tokens.spacing.lg,
-          color: tokens.colors.text.secondary,
+          color: themeVars.textSecondary,
           textAlign: 'center',
         }}
       >
@@ -81,7 +82,7 @@ export function CacheStatsDashboard({
       <div
         style={{
           padding: tokens.spacing.lg,
-          background: tokens.colors.bg.secondary,
+          background: themeVars.surfacePrimary,
           borderRadius: '8px',
           border: `1px solid ${tokens.colors.border.accent}`,
         }}
@@ -90,7 +91,7 @@ export function CacheStatsDashboard({
           style={{
             fontSize: tokens.typography.fontSize.lg,
             fontWeight: tokens.typography.fontWeight.semibold,
-            color: tokens.colors.text.primary,
+            color: themeVars.textPrimary,
             marginBottom: tokens.spacing.md,
           }}
         >
@@ -108,7 +109,7 @@ export function CacheStatsDashboard({
             <div
               style={{
                 fontSize: tokens.typography.fontSize.xs,
-                color: tokens.colors.text.tertiary,
+                color: themeVars.textMuted,
                 marginBottom: tokens.spacing.xs,
               }}
             >
@@ -120,13 +121,13 @@ export function CacheStatsDashboard({
             <div
               style={{
                 fontSize: tokens.typography.fontSize.xs,
-                color: tokens.colors.text.tertiary,
+                color: themeVars.textMuted,
                 marginBottom: tokens.spacing.xs,
               }}
             >
               Chunks Cached
             </div>
-            <div style={{ fontSize: tokens.typography.fontSize.lg, color: tokens.colors.text.primary }}>
+            <div style={{ fontSize: tokens.typography.fontSize.lg, color: themeVars.textPrimary }}>
               {cacheStats.overall.total_chunks}
             </div>
           </div>
@@ -134,7 +135,7 @@ export function CacheStatsDashboard({
             <div
               style={{
                 fontSize: tokens.typography.fontSize.xs,
-                color: tokens.colors.text.tertiary,
+                color: themeVars.textMuted,
                 marginBottom: tokens.spacing.xs,
               }}
             >
@@ -146,13 +147,13 @@ export function CacheStatsDashboard({
             <div
               style={{
                 fontSize: tokens.typography.fontSize.xs,
-                color: tokens.colors.text.tertiary,
+                color: themeVars.textMuted,
                 marginBottom: tokens.spacing.xs,
               }}
             >
               Tracks Cached
             </div>
-            <div style={{ fontSize: tokens.typography.fontSize.lg, color: tokens.colors.text.primary }}>
+            <div style={{ fontSize: tokens.typography.fontSize.lg, color: themeVars.textPrimary }}>
               {cacheStats.overall.tracks_cached}
             </div>
           </div>
@@ -176,7 +177,7 @@ export function CacheStatsDashboard({
         <div
           style={{
             padding: tokens.spacing.lg,
-            background: tokens.colors.bg.tertiary,
+            background: themeVars.surfaceSecondary,
             borderRadius: '8px',
             border: `1px solid ${tokens.colors.border.light}`,
           }}
@@ -185,7 +186,7 @@ export function CacheStatsDashboard({
             style={{
               fontSize: tokens.typography.fontSize.md,
               fontWeight: tokens.typography.fontWeight.semibold,
-              color: tokens.colors.text.primary,
+              color: themeVars.textPrimary,
               marginBottom: tokens.spacing.md,
             }}
           >
@@ -200,7 +201,7 @@ export function CacheStatsDashboard({
       <div
         style={{
           fontSize: tokens.typography.fontSize.xs,
-          color: tokens.colors.text.tertiary,
+          color: themeVars.textMuted,
           textAlign: 'center',
         }}
       >

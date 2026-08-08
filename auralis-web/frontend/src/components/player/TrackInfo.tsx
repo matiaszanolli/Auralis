@@ -17,6 +17,7 @@
 
 import { useSelector } from 'react-redux';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 import { selectCurrentTrack } from '@/store/slices/playerSlice';
 
 /**
@@ -122,7 +123,7 @@ const styles = {
     width: '100%',
     height: '100%',
     objectFit: 'cover' as const,
-    backgroundColor: tokens.colors.bg.tertiary,
+    backgroundColor: themeVars.surfaceSecondary,
   },
 
   artworkPlaceholder: {
@@ -131,8 +132,8 @@ const styles = {
     justifyContent: 'center',
     width: '100%',
     height: '100%',
-    backgroundColor: tokens.colors.bg.tertiary,
-    color: tokens.colors.text.secondary,
+    backgroundColor: themeVars.surfaceSecondary,
+    color: themeVars.textSecondary,
   },
 
   artworkPlaceholderIcon: {
@@ -155,7 +156,7 @@ const styles = {
     fontFamily: tokens.typography.fontFamily.header,  // Manrope for track titles (Design Language v1.2.0 §3)
     fontSize: tokens.typography.fontSize.lg,
     fontWeight: tokens.typography.fontWeight.bold,
-    color: tokens.colors.text.primary,
+    color: themeVars.textPrimary,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap' as const,
@@ -165,7 +166,7 @@ const styles = {
   artist: {
     margin: 0,
     fontSize: tokens.typography.fontSize.md,
-    color: tokens.colors.text.secondary,
+    color: themeVars.textSecondary,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap' as const,
@@ -175,7 +176,7 @@ const styles = {
   album: {
     margin: 0,
     fontSize: tokens.typography.fontSize.sm,
-    color: tokens.colors.text.tertiary,
+    color: themeVars.textMuted,
     fontStyle: 'italic' as const,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
@@ -200,8 +201,8 @@ const styles = {
     width: '120px',
     height: '120px',
     borderRadius: tokens.borderRadius.xl,                 // 20px - softer, more organic
-    backgroundColor: tokens.colors.bg.tertiary,
-    color: tokens.colors.text.tertiary,
+    backgroundColor: themeVars.surfaceSecondary,
+    color: themeVars.textMuted,
   },
 
   emptyIcon: {
@@ -220,13 +221,13 @@ const styles = {
     margin: 0,
     fontSize: tokens.typography.fontSize.md,
     fontWeight: tokens.typography.fontWeight.bold,
-    color: tokens.colors.text.secondary,
+    color: themeVars.textSecondary,
   },
 
   emptySubtitle: {
     margin: 0,
     fontSize: tokens.typography.fontSize.sm,
-    color: tokens.colors.text.tertiary,
+    color: themeVars.textMuted,
   },
 };
 

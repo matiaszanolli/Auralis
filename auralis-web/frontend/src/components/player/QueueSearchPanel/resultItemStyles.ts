@@ -1,4 +1,5 @@
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 export const resultItemStyles = {
   resultItem: {
@@ -6,12 +7,12 @@ export const resultItemStyles = {
     transition: tokens.transitions.background,
 
     ':hover': {
-      backgroundColor: tokens.colors.bg.secondary,
+      backgroundColor: themeVars.surfacePrimary,
     },
   },
 
   resultItemHovered: {
-    backgroundColor: tokens.colors.bg.secondary,
+    backgroundColor: themeVars.surfacePrimary,
   },
 
   resultItemContent: {
@@ -32,7 +33,7 @@ export const resultItemStyles = {
   },
 
   resultTitle: {
-    color: tokens.colors.text.primary,
+    color: themeVars.textPrimary,
     fontSize: tokens.typography.fontSize.md,
     fontWeight: tokens.typography.fontWeight.semibold,
     whiteSpace: 'nowrap' as const,
@@ -44,7 +45,7 @@ export const resultItemStyles = {
   },
 
   resultSubtitle: {
-    color: tokens.colors.text.tertiary,
+    color: themeVars.textMuted,
     fontSize: tokens.typography.fontSize.sm,
     whiteSpace: 'nowrap' as const,
     overflow: 'hidden',
@@ -55,7 +56,7 @@ export const resultItemStyles = {
   },
 
   resultAlbum: {
-    color: tokens.colors.text.tertiary,
+    color: themeVars.textMuted,
     fontSize: tokens.typography.fontSize.xs,
     whiteSpace: 'nowrap' as const,
     overflow: 'hidden',
@@ -68,7 +69,7 @@ export const resultItemStyles = {
   matchBadge: {
     display: 'inline-block',
     backgroundColor: tokens.colors.accent.primary,
-    color: tokens.colors.text.primaryFull,
+    color: themeVars.onAccent,
     padding: `2px 6px`,
     borderRadius: tokens.borderRadius.sm,
     // #3639: bump from 10px to xs (11px) — WCAG AA body-text floor.
@@ -86,7 +87,7 @@ export const resultItemStyles = {
   },
 
   resultDuration: {
-    color: tokens.colors.text.tertiary,
+    color: themeVars.textMuted,
     fontSize: tokens.typography.fontSize.sm,
     fontVariantNumeric: 'tabular-nums' as const,
     minWidth: '48px',
@@ -98,7 +99,7 @@ export const resultItemStyles = {
     borderRadius: tokens.borderRadius.md,
     border: 'none',
     backgroundColor: tokens.colors.semantic.error,
-    color: tokens.colors.text.primaryFull,
+    color: themeVars.onError,
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.md,
     transition: tokens.transitions.opacity,

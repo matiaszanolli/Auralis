@@ -19,6 +19,7 @@
 
 import { ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface SearchBarProps {
   /** Callback when search query changes (debounced) */
@@ -172,7 +173,7 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     fontSize: tokens.typography.fontSize.base,
-    color: tokens.colors.text.tertiary,
+    color: themeVars.textMuted,
     opacity: 0.6,
     flexShrink: 0,
   },
@@ -183,11 +184,11 @@ const styles = {
     border: 'none',
     outline: 'none',
     fontSize: tokens.typography.fontSize.md,
-    color: tokens.colors.text.primary,
+    color: themeVars.textPrimary,
     fontFamily: tokens.typography.fontFamily.primary,
 
     '&::placeholder': {
-      color: tokens.colors.text.tertiary,
+      color: themeVars.textMuted,
     },
   },
 
@@ -201,13 +202,13 @@ const styles = {
     backgroundColor: 'transparent',
     border: 'none',
     cursor: 'pointer',
-    color: tokens.colors.text.secondary,
+    color: themeVars.textSecondary,
     fontSize: tokens.typography.fontSize.md,
     transition: tokens.transitions.color,
     flexShrink: 0,
 
     '&:hover': {
-      color: tokens.colors.text.primary,
+      color: themeVars.textPrimary,
     },
   },
 
@@ -224,7 +225,7 @@ const styles = {
   hint: {
     margin: 0,
     fontSize: tokens.typography.fontSize.xs,
-    color: tokens.colors.text.tertiary,
+    color: themeVars.textMuted,
     paddingLeft: tokens.spacing.md,
     paddingTop: tokens.spacing.xs,
     opacity: 0.7,

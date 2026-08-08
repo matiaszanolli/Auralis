@@ -4,16 +4,22 @@
 
 import { TableHead, TableRow, TableCell } from '@mui/material';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 export const TrackTableHeader = () => {
   return (
     <TableHead>
       <TableRow sx={{
-        backgroundColor: `rgba(${parseInt(tokens.colors.bg.level3.slice(1, 3), 16)}, ${parseInt(tokens.colors.bg.level3.slice(3, 5), 16)}, ${parseInt(tokens.colors.bg.level3.slice(5, 7), 16)}, 0.5)`,
+        // #4877: was a manual rgba() built by slicing tokens.colors.bg.level3's
+        // hex digits — a dark-only computation that broke under light mode.
+        // color-mix() applies the same 50% alpha to whichever theme-aware
+        // surface is active (matches the pattern in AppMainContent.tsx /
+        // AppContainer.tsx).
+        backgroundColor: `color-mix(in srgb, ${themeVars.surfaceRaised} 50%, transparent)`,
         borderBottom: `1px solid ${tokens.colors.border.light}`,
       }}>
         <TableCell width="60px" sx={{
-          color: tokens.colors.text.tertiary,
+          color: themeVars.textMuted,
           fontWeight: tokens.typography.fontWeight.semibold,
           fontSize: tokens.typography.fontSize.xs,
           textTransform: 'uppercase',
@@ -23,7 +29,7 @@ export const TrackTableHeader = () => {
           #
         </TableCell>
         <TableCell sx={{
-          color: tokens.colors.text.tertiary,
+          color: themeVars.textMuted,
           fontWeight: tokens.typography.fontWeight.semibold,
           fontSize: tokens.typography.fontSize.xs,
           textTransform: 'uppercase',
@@ -33,7 +39,7 @@ export const TrackTableHeader = () => {
           Title
         </TableCell>
         <TableCell sx={{
-          color: tokens.colors.text.tertiary,
+          color: themeVars.textMuted,
           fontWeight: tokens.typography.fontWeight.semibold,
           fontSize: tokens.typography.fontSize.xs,
           textTransform: 'uppercase',
@@ -43,7 +49,7 @@ export const TrackTableHeader = () => {
           Artist
         </TableCell>
         <TableCell align="right" width="100px" sx={{
-          color: tokens.colors.text.tertiary,
+          color: themeVars.textMuted,
           fontWeight: tokens.typography.fontWeight.semibold,
           fontSize: tokens.typography.fontSize.xs,
           textTransform: 'uppercase',

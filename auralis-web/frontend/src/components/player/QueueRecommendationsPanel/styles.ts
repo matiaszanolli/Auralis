@@ -1,4 +1,5 @@
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 export const styles = {
   container: {
@@ -6,7 +7,7 @@ export const styles = {
     flexDirection: 'column' as const,
     width: '100%',
     height: '100%',
-    backgroundColor: tokens.colors.bg.primary,
+    backgroundColor: themeVars.canvas,
     borderLeft: `1px solid ${tokens.colors.border.light}`,
     overflow: 'hidden',
   },
@@ -28,13 +29,13 @@ export const styles = {
     margin: 0,
     fontSize: tokens.typography.fontSize.lg,
     fontWeight: tokens.typography.fontWeight.bold,
-    color: tokens.colors.text.primary,
+    color: themeVars.textPrimary,
   },
 
   toggleButton: {
     background: 'none',
     border: 'none',
-    color: tokens.colors.text.primary,
+    color: themeVars.textPrimary,
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.lg,
     padding: tokens.spacing.sm,
@@ -42,7 +43,7 @@ export const styles = {
     transition: tokens.transitions.background,
 
     ':hover': {
-      backgroundColor: tokens.colors.bg.secondary,
+      backgroundColor: themeVars.surfacePrimary,
     },
   },
 
@@ -58,8 +59,8 @@ export const styles = {
     padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,
     borderRadius: tokens.borderRadius.sm,
     border: `1px solid ${tokens.colors.border.light}`,
-    backgroundColor: tokens.colors.bg.secondary,
-    color: tokens.colors.text.primary,
+    backgroundColor: themeVars.surfacePrimary,
+    color: themeVars.textPrimary,
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.sm,
     fontWeight: tokens.typography.fontWeight.semibold,
@@ -67,13 +68,13 @@ export const styles = {
     whiteSpace: 'nowrap' as const,
 
     ':hover': {
-      backgroundColor: tokens.colors.bg.tertiary,
+      backgroundColor: themeVars.surfaceSecondary,
     },
   },
 
   tabActive: {
     backgroundColor: tokens.colors.accent.primary,
-    color: tokens.colors.text.primaryFull,
+    color: themeVars.onAccent,
     borderColor: tokens.colors.accent.primary,
   },
 
@@ -94,14 +95,14 @@ export const styles = {
     alignItems: 'center',
     gap: tokens.spacing.md,
     padding: tokens.spacing.sm,
-    backgroundColor: tokens.colors.bg.secondary,
+    backgroundColor: themeVars.surfacePrimary,
     borderRadius: tokens.borderRadius.sm,
     transition: tokens.transitions.background,
     cursor: 'pointer',
   },
 
   recommendationItemHovered: {
-    backgroundColor: tokens.colors.bg.tertiary,
+    backgroundColor: themeVars.surfaceSecondary,
   },
 
   recInfo: {
@@ -113,7 +114,7 @@ export const styles = {
   },
 
   recTitle: {
-    color: tokens.colors.text.primary,
+    color: themeVars.textPrimary,
     fontSize: tokens.typography.fontSize.sm,
     fontWeight: tokens.typography.fontWeight.semibold,
     overflow: 'hidden',
@@ -122,7 +123,7 @@ export const styles = {
   },
 
   recArtist: {
-    color: tokens.colors.text.tertiary,
+    color: themeVars.textMuted,
     fontSize: tokens.typography.fontSize.xs,
   },
 
@@ -150,18 +151,18 @@ export const styles = {
     alignItems: 'center',
     gap: tokens.spacing.md,
     padding: tokens.spacing.sm,
-    backgroundColor: tokens.colors.bg.secondary,
+    backgroundColor: themeVars.surfacePrimary,
     borderRadius: tokens.borderRadius.sm,
     transition: tokens.transitions.background,
     cursor: 'pointer',
   },
 
   trackItemHovered: {
-    backgroundColor: tokens.colors.bg.tertiary,
+    backgroundColor: themeVars.surfaceSecondary,
   },
 
   trackIndex: {
-    color: tokens.colors.text.tertiary,
+    color: themeVars.textMuted,
     fontSize: tokens.typography.fontSize.sm,
     fontWeight: tokens.typography.fontWeight.bold,
     minWidth: '24px',
@@ -177,7 +178,7 @@ export const styles = {
   },
 
   trackTitle: {
-    color: tokens.colors.text.primary,
+    color: themeVars.textPrimary,
     fontSize: tokens.typography.fontSize.sm,
     fontWeight: tokens.typography.fontWeight.semibold,
     overflow: 'hidden',
@@ -186,32 +187,32 @@ export const styles = {
   },
 
   trackArtist: {
-    color: tokens.colors.text.tertiary,
+    color: themeVars.textMuted,
     fontSize: tokens.typography.fontSize.xs,
   },
 
   artistCard: {
     padding: tokens.spacing.md,
-    backgroundColor: tokens.colors.bg.secondary,
+    backgroundColor: themeVars.surfacePrimary,
     borderRadius: tokens.borderRadius.sm,
     border: `1px solid ${tokens.colors.border.light}`,
     transition: tokens.transitions.hover_out,
   },
 
   artistCardHovered: {
-    backgroundColor: tokens.colors.bg.tertiary,
+    backgroundColor: themeVars.surfaceSecondary,
     borderColor: tokens.colors.accent.primary,
   },
 
   artistName: {
-    color: tokens.colors.text.primary,
+    color: themeVars.textPrimary,
     fontSize: tokens.typography.fontSize.md,
     fontWeight: tokens.typography.fontWeight.bold,
     marginBottom: tokens.spacing.xs,
   },
 
   artistCount: {
-    color: tokens.colors.text.tertiary,
+    color: themeVars.textMuted,
     fontSize: tokens.typography.fontSize.xs,
     marginBottom: tokens.spacing.sm,
   },
@@ -227,7 +228,7 @@ export const styles = {
     alignItems: 'center',
     justifyContent: 'space-between',
     fontSize: tokens.typography.fontSize.xs,
-    color: tokens.colors.text.secondary,
+    color: themeVars.textSecondary,
     opacity: 0.7,
   },
 
@@ -247,7 +248,7 @@ export const styles = {
     borderRadius: tokens.borderRadius.sm,
     border: 'none',
     backgroundColor: tokens.colors.accent.primary,
-    color: tokens.colors.text.primaryFull,
+    color: themeVars.onAccent,
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.md,
     fontWeight: tokens.typography.fontWeight.bold,
@@ -269,7 +270,7 @@ export const styles = {
     borderRadius: tokens.borderRadius.sm,
     border: 'none',
     backgroundColor: tokens.colors.accent.primary,
-    color: tokens.colors.text.primaryFull,
+    color: themeVars.onAccent,
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.xs,
     fontWeight: tokens.typography.fontWeight.bold,
@@ -282,14 +283,14 @@ export const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     flex: 1,
-    color: tokens.colors.text.tertiary,
+    color: themeVars.textMuted,
     textAlign: 'center' as const,
     padding: tokens.spacing.xl,
   },
 
   emptySubtext: {
     fontSize: tokens.typography.fontSize.sm,
-    color: tokens.colors.text.tertiary,
+    color: themeVars.textMuted,
     marginTop: tokens.spacing.sm,
   },
 };
