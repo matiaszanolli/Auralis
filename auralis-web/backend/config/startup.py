@@ -20,7 +20,7 @@ import shutil
 import tempfile
 import threading
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
@@ -323,6 +323,479 @@ def reclaim_stale_temp_entries(dir_path: Path, max_age_hours: float) -> int:
     return reclaimed
 
 
+async def _cleanup_temp_directories() -> None:
+    """Clear stale chunk cache and orphaned stream temp files on startup.
+
+    Offloaded via asyncio.to_thread (#4754) — up to 512 MB of cached WAVs,
+    previously removed directly on the event loop during lifespan startup.
+    """
+    chunk_dir = Path(tempfile.gettempdir()) / CHUNK_TEMP_DIRNAME
+    if chunk_dir.exists():
+        try:
+            await asyncio.to_thread(shutil.rmtree, chunk_dir)
+            chunk_dir.mkdir(exist_ok=True)
+            logger.info(f"🧹 Cleared chunk directory: {chunk_dir.name}")
+        except Exception as e:
+            logger.warning(f"Failed to clear chunk directory: {e}")
+
+    # Sweep temp WAVs orphaned by interrupted compressed-format streams (#3877).
+    reclaim_leftover_stream_temps(Path(tempfile.gettempdir()))
+
+
+def _init_library_database(globals_dict: dict[str, Any]) -> None:
+    """Open the library database and repository factory.
+
+    No try/except of its own — a failure here must propagate to the
+    caller so the outer Auralis-init rollback (#3812) reverts the whole
+    component set, matching the original inline behavior exactly.
+    """
+    from auralis.library import LibraryDatabase
+
+    # Ensure database directory exists before opening the library DB
+    music_dir = Path.home() / "Music" / "Auralis"
+    music_dir.mkdir(parents=True, exist_ok=True)
+    # Absolute home/database paths are sensitive and persist to the
+    # on-disk electron-log, so they log at DEBUG — consistent with the
+    # #3844 demotion of the sibling path-validation logs (#4376).
+    logger.debug(f"📁 Database directory ready: {music_dir}")
+
+    # Open the library database. #4619: this used to construct the
+    # deprecated LibraryManager, so every boot fired the
+    # DeprecationWarning that its own message says precedes removal
+    # in v2.0.0 — a promise that could not be kept while the class
+    # was load-bearing. LibraryDatabase owns the migration, engine,
+    # session factory, scan slots and shutdown; LibraryManager is
+    # now only the legacy query facade over it.
+    globals_dict['library_manager'] = LibraryDatabase()
+    logger.info("✅ Auralis library database initialized")
+    logger.debug(f"📊 Database location: {globals_dict['library_manager'].database_path}")
+
+    # Repository factory for dependency injection. It is owned by
+    # LibraryDatabase so every consumer — routers via this key and
+    # components handed the database object — shares one instance
+    # instead of building a second factory over the same sessions.
+    globals_dict['repository_factory'] = globals_dict['library_manager'].repositories
+    logger.info("✅ Repository Factory initialized (Phase 2 support)")
+
+
+async def _init_fingerprint_extraction_queue(globals_dict: dict[str, Any]) -> None:
+    """Start the CPU-based fingerprint extraction queue (36x speedup).
+
+    Note: GPU batch processing was causing memory exhaustion crashes.
+    CPU parallelization provides better stability and consistent
+    performance. Own try/except: a failure here must not abort the rest
+    of Auralis component initialization (matches original inline
+    behavior).
+    """
+    try:
+        from auralis.services.fingerprint_extractor import (
+            FingerprintExtractor,
+        )
+        from auralis.services.fingerprint_queue import (
+            FingerprintExtractionQueue,
+        )
+
+        # Create fingerprint extractor with library manager's fingerprint repository
+        fingerprint_extractor = FingerprintExtractor(
+            fingerprint_repository=globals_dict['library_manager'].fingerprints,
+            track_repository=globals_dict['library_manager'].tracks,
+        )
+        logger.info("✅ Fingerprint Extractor initialized")
+
+        # Create CPU-based fingerprint queue (24+ workers, 36x speedup)
+        fingerprint_queue = FingerprintExtractionQueue(
+            fingerprint_extractor=fingerprint_extractor,
+            get_repository_factory=lambda: globals_dict.get('repository_factory'),  # type: ignore[arg-type, return-value]
+            num_workers=None,  # Auto-detect CPU cores
+            max_workers=None  # Auto-size based on system
+        )
+
+        # Start background workers
+        await fingerprint_queue.start()
+        logger.info(f"✅ Fingerprint extraction queue started ({fingerprint_queue.num_workers} workers, 36x CPU speedup)")
+
+        # Store for later reference
+        globals_dict['fingerprint_queue'] = fingerprint_queue
+        globals_dict['gpu_processor'] = None  # GPU disabled
+
+    except Exception as fp_e:
+        logger.warning(f"⚠️  Failed to initialize fingerprinting system: {fp_e}")
+
+
+def _seed_settings_and_enhancement(globals_dict: dict[str, Any]) -> None:
+    """Wire the settings repository and seed runtime enhancement settings.
+
+    Settings-repository assignment has no try/except of its own
+    (propagates to the outer rollback, matching original behavior);
+    seeding enhancement settings from persisted user settings is
+    best-effort and independently caught, as it was originally.
+    """
+    # Settings repository — taken from the shared factory rather
+    # than constructed again over the same session factory (#4619).
+    globals_dict['settings_repository'] = globals_dict['repository_factory'].settings
+    logger.info("✅ Settings Repository initialized")
+
+    # Seed the runtime enhancement settings from persisted user
+    # settings so a saved default preset / intensity / auto-enhance
+    # actually affects playback (#4409). Without this the dict stays
+    # hardcoded adaptive/1.0/enabled. seed_enhancement_settings mutates
+    # in place — routers captured this exact dict object via
+    # deps['enhancement_settings'].
+    try:
+        from helpers import seed_enhancement_settings
+        _user_settings = globals_dict['settings_repository'].get_settings()
+        seed_enhancement_settings(globals_dict['enhancement_settings'], _user_settings)
+        logger.info(
+            f"✅ Enhancement settings seeded from user settings: "
+            f"{globals_dict['enhancement_settings']}"
+        )
+    except Exception as e:
+        logger.warning(f"⚠️  Failed to seed enhancement settings: {e}")
+
+
+def _register_scan_folders(globals_dict: dict[str, Any]) -> None:
+    """Register user-configured scan folders as allowed directories so
+    validate_file_path accepts files from custom locations."""
+    try:
+        import json
+        from security.path_security import register_allowed_directory
+        settings = globals_dict['settings_repository'].get_settings()
+        if settings and settings.scan_folders:
+            folders = json.loads(settings.scan_folders) if isinstance(settings.scan_folders, str) else settings.scan_folders
+            for folder in folders:
+                register_allowed_directory(Path(folder))
+            logger.info(f"✅ Registered {len(folders)} scan folder(s) as allowed directories")
+    except Exception as e:
+        logger.warning(f"⚠️  Failed to register scan folders: {e}")
+
+
+def _init_reference_cloud_refresh(globals_dict: dict[str, Any]) -> Callable[..., None]:
+    """Create and wire the shared reference-cloud refresh closure (#3479).
+
+    Invoked by scanner end-of-run and fingerprint-queue drain hooks (and
+    the REST refresh endpoint). The seeder is idempotent and reads
+    existing fingerprint rows — no audio I/O — so calling it from
+    multiple producers is safe. Returns the closure so the caller can
+    also hand it to the auto-scanner as its on_scan_complete callback.
+    """
+    def _refresh_reference_cloud(*_args: Any, **_kwargs: Any) -> None:
+        try:
+            from auralis.learning.reference_seeder import refresh_cloud
+            factory = globals_dict.get('repository_factory')
+            if factory is None:
+                return
+            cleared, selected = refresh_cloud(factory.fingerprints)
+            logger.info(
+                f"🎯 Reference cloud refreshed: cleared {cleared}, "
+                f"selected {selected}"
+            )
+        except Exception as rc_exc:
+            logger.warning(f"Reference cloud refresh failed: {rc_exc}")
+
+    globals_dict['refresh_reference_cloud'] = _refresh_reference_cloud
+
+    # Wire the fingerprint queue drain hook now that we have the
+    # closure available (queue itself was started earlier).
+    _fpq = globals_dict.get('fingerprint_queue')
+    if _fpq is not None:
+        _fpq.set_drained_callback(_refresh_reference_cloud)
+
+    return _refresh_reference_cloud
+
+
+async def _start_auto_scanner(
+    manager: Any,
+    globals_dict: dict[str, Any],
+    on_scan_complete: Callable[..., None],
+) -> None:
+    """Start the library auto-scanner service.
+
+    Replaces the old one-shot ~/Music scan with a proper service that:
+    - reads scan_folders from user settings (not hardcoded)
+    - uses watchdog for real-time detection + periodic polling fallback
+    - removes stale tracks (cleanup_missing_files) after each cycle
+    - handles crashes gracefully with 30s back-off
+    """
+    try:
+        from services.library_auto_scanner import LibraryAutoScanner
+        auto_scanner = LibraryAutoScanner(
+            settings_repo=globals_dict['settings_repository'],
+            library_manager=globals_dict['library_manager'],
+            fingerprint_queue=globals_dict.get('fingerprint_queue'),
+            connection_manager=manager,
+            on_scan_complete=on_scan_complete,
+        )
+        await auto_scanner.start()
+        globals_dict['auto_scanner'] = auto_scanner
+    except Exception as as_e:
+        logger.warning(f"⚠️  Failed to start LibraryAutoScanner: {as_e}")
+
+
+def _init_audio_player(manager: Any, globals_dict: dict[str, Any]) -> None:
+    """Initialize the enhanced audio player and player state manager.
+
+    No try/except of its own — propagates to the outer Auralis-init
+    rollback, matching original inline behavior.
+    """
+    from auralis.player.config import PlayerConfig
+    from auralis.player import AudioPlayer
+    from core.state_manager import PlayerStateManager
+
+    # Initialize enhanced audio player with optimized config
+    player_config = PlayerConfig(
+        buffer_size=1024,
+        sample_rate=44100,
+        enable_level_matching=True,
+        enable_frequency_matching=False,
+        enable_stereo_width=False,
+        enable_auto_mastering=False,
+        enable_advanced_smoothing=True,
+        max_db_change_per_second=2.0
+    )
+    globals_dict['audio_player'] = AudioPlayer(
+        player_config,
+        library_manager=globals_dict['library_manager'],
+        get_repository_factory=lambda: globals_dict.get('repository_factory')
+    )
+    logger.info("✅ Enhanced Audio Player initialized (Phase 4 RepositoryFactory support enabled)")
+
+    # Initialize state manager (must be after library_manager is created)
+    globals_dict['player_state_manager'] = PlayerStateManager(manager)
+    logger.info("✅ Player State Manager initialized")
+
+
+async def _init_ondemand_fingerprint_queue(globals_dict: dict[str, Any]) -> None:
+    """Initialize on-demand fingerprint queue (Phase 7.4).
+
+    Handles 404s during similarity lookup - queues tracks for
+    background processing.
+    """
+    try:
+        from analysis.fingerprint_generator import FingerprintGenerator
+        from analysis.fingerprint_queue import (
+            FingerprintQueue,
+            set_fingerprint_queue,
+        )
+
+        # Create FingerprintGenerator for the queue
+        fp_generator = FingerprintGenerator(
+            session_factory=globals_dict['library_manager'].SessionLocal,
+            get_repository_factory=lambda: globals_dict.get('repository_factory')
+        )
+
+        # Helper to get track filepath
+        def get_track_filepath(track_id: int) -> str | None:
+            try:
+                factory = globals_dict.get('repository_factory')
+                if factory:
+                    track = factory.tracks.get_by_id(track_id)
+                    if track and track.filepath:
+                        return str(track.filepath)
+            except Exception:
+                # Best-effort lookup (#4368 — was a bare pass,
+                # hiding genuine repository failures from debugging).
+                logger.debug(f"Track filepath lookup failed for {track_id}", exc_info=True)
+            return None
+
+        # Create and start on-demand fingerprint queue
+        ondemand_queue = FingerprintQueue(
+            fingerprint_generator=fp_generator,
+            get_track_filepath=get_track_filepath
+        )
+        await ondemand_queue.start()
+        set_fingerprint_queue(ondemand_queue)
+        globals_dict['ondemand_fingerprint_queue'] = ondemand_queue
+        logger.info("✅ On-demand fingerprint queue started (background processing for 404s)")
+
+    except Exception as odq_e:
+        logger.warning(f"⚠️  Failed to initialize on-demand fingerprint queue: {odq_e}")
+
+
+def _init_similarity_system(HAS_SIMILARITY: bool, globals_dict: dict[str, Any]) -> None:
+    """Initialize the fingerprint similarity system and K-NN graph builder."""
+    if not HAS_SIMILARITY:
+        return
+    try:
+        from auralis.analysis.fingerprint import (
+            FingerprintSimilarity,
+            KNNGraphBuilder,
+        )
+
+        globals_dict['similarity_system'] = FingerprintSimilarity(
+            globals_dict['library_manager'].fingerprints
+        )
+        logger.info("✅ Fingerprint Similarity System initialized")
+
+        # #4139: auto-fit in the background so an existing
+        # library gets working recommendations without a manual
+        # /api/similarity/fit call. fit() is a no-op (returns
+        # False) below min_samples (fresh install / library
+        # reset), leaving the system unfitted — the similarity
+        # router then surfaces a clear 503 rather than silently
+        # empty results. Runs off the startup path because
+        # normalizer.fit() streams every fingerprint in batches.
+        globals_dict['graph_builder'] = None
+
+        def _auto_fit_similarity(
+            sim_system=globals_dict['similarity_system'],
+            lib_mgr=globals_dict['library_manager'],
+            gd=globals_dict,
+            builder_cls=KNNGraphBuilder,
+        ):
+            try:
+                if sim_system.fit():
+                    # get_component reads globals fresh per
+                    # request, so this late assignment is picked up.
+                    gd['graph_builder'] = builder_cls(
+                        similarity_system=sim_system,
+                        session_factory=lib_mgr.SessionLocal,
+                    )
+                    logger.info("✅ Similarity auto-fitted; K-NN Graph Builder ready")
+                else:
+                    logger.info("ℹ️  Similarity auto-fit skipped (not enough fingerprints yet)")
+            except Exception as fit_e:
+                logger.warning(f"⚠️  Similarity auto-fit failed: {fit_e}")
+
+        threading.Thread(
+            target=_auto_fit_similarity,
+            name="similarity-autofit",
+            daemon=True,
+        ).start()
+    except Exception as sim_e:
+        logger.warning(f"⚠️  Failed to initialize Similarity System: {sim_e}")
+        globals_dict['similarity_system'] = None
+        globals_dict['graph_builder'] = None
+
+
+async def _init_auralis_components(
+    HAS_AURALIS: bool,
+    HAS_SIMILARITY: bool,
+    manager: Any,
+    globals_dict: dict[str, Any],
+) -> None:
+    """Initialize the full Auralis component set: library DB,
+    fingerprinting, settings, player, similarity (#4671).
+
+    All sub-steps run under one rollback boundary (#3812): a failure
+    anywhere in this sequence rolls back every already-initialized
+    component to a coherent 'not ready' state (_rollback_partial_startup)
+    rather than leaving some components truthy and others None, so
+    downstream routers gate correctly. Individual sub-steps that already
+    tolerated their own failure before this extraction (fingerprint
+    queue, settings seeding, scan folders, auto-scanner, on-demand
+    queue, similarity) still catch internally and do not trigger this
+    rollback; sub-steps with no internal try/except before this
+    extraction (library DB, audio player/state manager) still propagate
+    to it — this preserves the exact original failure semantics, not
+    just the original code layout.
+    """
+    if not HAS_AURALIS:
+        logger.warning("⚠️  Auralis not available - running in demo mode")
+        return
+
+    try:
+        _init_library_database(globals_dict)
+        await _init_fingerprint_extraction_queue(globals_dict)
+        _seed_settings_and_enhancement(globals_dict)
+        _register_scan_folders(globals_dict)
+        refresh_reference_cloud = _init_reference_cloud_refresh(globals_dict)
+        await _start_auto_scanner(manager, globals_dict, refresh_reference_cloud)
+        _init_audio_player(manager, globals_dict)
+        await _init_ondemand_fingerprint_queue(globals_dict)
+        _init_similarity_system(HAS_SIMILARITY, globals_dict)
+    except Exception as e:
+        import traceback
+        logger.error(f"❌ Failed to initialize Auralis components: {e}")
+        logger.error(f"Traceback:\n{traceback.format_exc()}")
+        logger.error("⚠️  Auralis library initialization failed - rolling back partial state; API will return 503")
+        await _rollback_partial_startup(globals_dict)
+
+
+async def _init_processing_engine(HAS_PROCESSING: bool, globals_dict: dict[str, Any]) -> None:
+    """Initialize the processing engine and its background worker."""
+    if not HAS_PROCESSING:
+        logger.warning("⚠️  Processing engine not available")
+        return
+    try:
+        from core.processing_engine import ProcessingEngine
+
+        globals_dict['processing_engine'] = ProcessingEngine(max_concurrent_jobs=2)
+
+        # Age-sweep auralis_processing/auralis_uploads: cleanup_old_jobs()
+        # is driven off the in-memory jobs registry, which is empty right
+        # after a crash or restart, so leftovers from a previous run were
+        # never reclaimed until now (#4762).
+        _ttl = globals_dict['processing_engine'].completed_job_ttl_hours
+        reclaim_stale_temp_entries(globals_dict['processing_engine'].temp_dir, _ttl)
+        reclaim_stale_temp_entries(Path(tempfile.gettempdir()) / UPLOAD_TEMP_DIRNAME, _ttl)
+
+        # Start the processing worker — retain strong reference to prevent GC,
+        # and attach a done-callback so a silently-failing start_worker is
+        # logged rather than disappearing (fixes #3512 / BE-NEW-54).
+        from helpers import spawn_background_task
+        globals_dict['_processing_worker_task'] = spawn_background_task(
+            globals_dict['processing_engine'].start_worker(),
+            name="processing_engine.start_worker",
+        )
+        # #3512's callback above only logs; also null the global so a
+        # worker that dies AFTER startup returns stops accepting jobs
+        # it will never run (fixes #4318).
+        _watch_critical_worker_task(
+            globals_dict['_processing_worker_task'],
+            globals_dict,
+            ('processing_engine',),
+            "ProcessingEngine",
+        )
+        logger.info("✅ Processing Engine initialized")
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize Processing Engine: {e}")
+
+
+async def _init_streamlined_cache(HAS_STREAMLINED_CACHE: bool, globals_dict: dict[str, Any]) -> None:
+    """Initialize the streamlined cache manager and its background worker (Beta.9)."""
+    if not (HAS_STREAMLINED_CACHE and globals_dict.get('library_manager')):
+        if not HAS_STREAMLINED_CACHE:
+            logger.warning("⚠️  Streamlined cache not available")
+        elif not globals_dict.get('library_manager'):
+            logger.warning("⚠️  Library manager not available - streamlined cache disabled")
+        return
+    try:
+        from cache import streamlined_cache_manager
+        from core.streamlined_worker import StreamlinedCacheWorker
+
+        # Use global singleton instance
+        globals_dict['streamlined_cache'] = streamlined_cache_manager
+        from cache.manager import TIER1_MAX_SIZE_MB
+        logger.info(f"✅ Streamlined Cache Manager initialized ({TIER1_MAX_SIZE_MB:.1f} MB Tier 1)")
+
+        # Create and start worker
+        globals_dict['streamlined_worker'] = StreamlinedCacheWorker(
+            cache_manager=globals_dict['streamlined_cache'],
+            library_manager=globals_dict['library_manager']
+        )
+
+        # Start the worker
+        await globals_dict['streamlined_worker'].start()
+        logger.info("✅ Streamlined Cache Worker started")
+
+        # Null both the worker AND the cache manager if the worker's
+        # background loop dies after startup returns — without a
+        # populator the cache never fills, so routers should treat it
+        # as unavailable (503) rather than serve permanent misses
+        # silently (fixes #4318).
+        worker_task = globals_dict['streamlined_worker'].worker_task
+        if worker_task is not None:
+            _watch_critical_worker_task(
+                worker_task,
+                globals_dict,
+                ('streamlined_cache', 'streamlined_worker'),
+                "StreamlinedCacheWorker",
+            )
+
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize streamlined cache: {e}")
+
+
 def create_lifespan(deps: dict[str, Any]):
     """
     Create a lifespan context manager for FastAPI application.
@@ -351,384 +824,15 @@ def create_lifespan(deps: dict[str, Any]):
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         # === Startup ===
-
-        # Clear chunk files from disk to avoid serving stale chunks with old presets.
-        # Offloaded via asyncio.to_thread (#4754) — up to 512 MB of cached WAVs,
-        # previously removed directly on the event loop during lifespan startup.
-        chunk_dir = Path(tempfile.gettempdir()) / CHUNK_TEMP_DIRNAME
-        if chunk_dir.exists():
-            try:
-                await asyncio.to_thread(shutil.rmtree, chunk_dir)
-                chunk_dir.mkdir(exist_ok=True)
-                logger.info(f"🧹 Cleared chunk directory: {chunk_dir.name}")
-            except Exception as e:
-                logger.warning(f"Failed to clear chunk directory: {e}")
-
-        # Sweep temp WAVs orphaned by interrupted compressed-format streams (#3877).
-        reclaim_leftover_stream_temps(Path(tempfile.gettempdir()))
-
-        if HAS_AURALIS:
-            try:
-                # Import Auralis components here to support optional dependency
-                from core.state_manager import PlayerStateManager
-
-                from auralis.library import LibraryDatabase
-                from auralis.player.config import PlayerConfig
-                from auralis.player import AudioPlayer
-
-                # Ensure database directory exists before opening the library DB
-                music_dir = Path.home() / "Music" / "Auralis"
-                music_dir.mkdir(parents=True, exist_ok=True)
-                # Absolute home/database paths are sensitive and persist to the
-                # on-disk electron-log, so they log at DEBUG — consistent with the
-                # #3844 demotion of the sibling path-validation logs (#4376).
-                logger.debug(f"📁 Database directory ready: {music_dir}")
-
-                # Open the library database. #4619: this used to construct the
-                # deprecated LibraryManager, so every boot fired the
-                # DeprecationWarning that its own message says precedes removal
-                # in v2.0.0 — a promise that could not be kept while the class
-                # was load-bearing. LibraryDatabase owns the migration, engine,
-                # session factory, scan slots and shutdown; LibraryManager is
-                # now only the legacy query facade over it.
-                globals_dict['library_manager'] = LibraryDatabase()
-                logger.info("✅ Auralis library database initialized")
-                logger.debug(f"📊 Database location: {globals_dict['library_manager'].database_path}")
-
-                # Repository factory for dependency injection. It is owned by
-                # LibraryDatabase so every consumer — routers via this key and
-                # components handed the database object — shares one instance
-                # instead of building a second factory over the same sessions.
-                globals_dict['repository_factory'] = globals_dict['library_manager'].repositories
-                logger.info("✅ Repository Factory initialized (Phase 2 support)")
-
-                # Initialize CPU-based fingerprinting system (36x speedup via parallel workers)
-                # Note: GPU batch processing was causing memory exhaustion crashes.
-                # CPU parallelization provides better stability and consistent performance.
-                try:
-                    from auralis.services.fingerprint_extractor import (
-                        FingerprintExtractor,
-                    )
-                    from auralis.services.fingerprint_queue import (
-                        FingerprintExtractionQueue,
-                    )
-
-                    # Create fingerprint extractor with library manager's fingerprint repository
-                    fingerprint_extractor = FingerprintExtractor(
-                        fingerprint_repository=globals_dict['library_manager'].fingerprints,
-                        track_repository=globals_dict['library_manager'].tracks,
-                    )
-                    logger.info("✅ Fingerprint Extractor initialized")
-
-                    # Create CPU-based fingerprint queue (24+ workers, 36x speedup)
-                    fingerprint_queue = FingerprintExtractionQueue(
-                        fingerprint_extractor=fingerprint_extractor,
-                        get_repository_factory=lambda: globals_dict.get('repository_factory'),  # type: ignore[arg-type, return-value]
-                        num_workers=None,  # Auto-detect CPU cores
-                        max_workers=None  # Auto-size based on system
-                    )
-
-                    # Start background workers
-                    await fingerprint_queue.start()
-                    logger.info(f"✅ Fingerprint extraction queue started ({fingerprint_queue.num_workers} workers, 36x CPU speedup)")
-
-                    # Store for later reference
-                    globals_dict['fingerprint_queue'] = fingerprint_queue
-                    globals_dict['gpu_processor'] = None  # GPU disabled
-
-                except Exception as fp_e:
-                    logger.warning(f"⚠️  Failed to initialize fingerprinting system: {fp_e}")
-                    fingerprint_queue = None
-
-                # Settings repository — taken from the shared factory rather
-                # than constructed again over the same session factory (#4619).
-                globals_dict['settings_repository'] = globals_dict['repository_factory'].settings
-                logger.info("✅ Settings Repository initialized")
-
-                # Seed the runtime enhancement settings from persisted user
-                # settings so a saved default preset / intensity / auto-enhance
-                # actually affects playback (#4409). Without this the dict stays
-                # hardcoded adaptive/1.0/enabled. seed_enhancement_settings mutates
-                # in place — routers captured this exact dict object via
-                # deps['enhancement_settings'].
-                try:
-                    from helpers import seed_enhancement_settings
-                    _user_settings = globals_dict['settings_repository'].get_settings()
-                    seed_enhancement_settings(globals_dict['enhancement_settings'], _user_settings)
-                    logger.info(
-                        f"✅ Enhancement settings seeded from user settings: "
-                        f"{globals_dict['enhancement_settings']}"
-                    )
-                except Exception as e:
-                    logger.warning(f"⚠️  Failed to seed enhancement settings: {e}")
-
-                # Register user-configured scan folders as allowed directories
-                # so validate_file_path accepts files from custom locations.
-                try:
-                    import json
-                    from security.path_security import register_allowed_directory
-                    settings = globals_dict['settings_repository'].get_settings()
-                    if settings and settings.scan_folders:
-                        folders = json.loads(settings.scan_folders) if isinstance(settings.scan_folders, str) else settings.scan_folders
-                        for folder in folders:
-                            register_allowed_directory(Path(folder))
-                        logger.info(f"✅ Registered {len(folders)} scan folder(s) as allowed directories")
-                except Exception as e:
-                    logger.warning(f"⚠️  Failed to register scan folders: {e}")
-
-                # #3479: shared refresh closure for the reference cloud,
-                # invoked by scanner end-of-run and fingerprint-queue drain
-                # hooks (and the REST refresh endpoint). The seeder is
-                # idempotent and reads existing fingerprint rows — no audio
-                # I/O — so calling it from multiple producers is safe.
-                def _refresh_reference_cloud(*_args: Any, **_kwargs: Any) -> None:
-                    try:
-                        from auralis.learning.reference_seeder import refresh_cloud
-                        factory = globals_dict.get('repository_factory')
-                        if factory is None:
-                            return
-                        cleared, selected = refresh_cloud(factory.fingerprints)
-                        logger.info(
-                            f"🎯 Reference cloud refreshed: cleared {cleared}, "
-                            f"selected {selected}"
-                        )
-                    except Exception as rc_exc:
-                        logger.warning(f"Reference cloud refresh failed: {rc_exc}")
-
-                globals_dict['refresh_reference_cloud'] = _refresh_reference_cloud
-
-                # Wire the fingerprint queue drain hook now that we have the
-                # closure available (queue itself was started above).
-                _fpq = globals_dict.get('fingerprint_queue')
-                if _fpq is not None:
-                    _fpq.set_drained_callback(_refresh_reference_cloud)
-
-                # Start the library auto-scanner service.
-                # Replaces the old one-shot ~/Music scan with a proper service that:
-                # - reads scan_folders from user settings (not hardcoded)
-                # - uses watchdog for real-time detection + periodic polling fallback
-                # - removes stale tracks (cleanup_missing_files) after each cycle
-                # - handles crashes gracefully with 30s back-off
-                try:
-                    from services.library_auto_scanner import LibraryAutoScanner
-                    auto_scanner = LibraryAutoScanner(
-                        settings_repo=globals_dict['settings_repository'],
-                        library_manager=globals_dict['library_manager'],
-                        fingerprint_queue=globals_dict.get('fingerprint_queue'),
-                        connection_manager=manager,
-                        on_scan_complete=_refresh_reference_cloud,
-                    )
-                    await auto_scanner.start()
-                    globals_dict['auto_scanner'] = auto_scanner
-                except Exception as as_e:
-                    logger.warning(f"⚠️  Failed to start LibraryAutoScanner: {as_e}")
-
-                # Initialize enhanced audio player with optimized config
-                player_config = PlayerConfig(
-                    buffer_size=1024,
-                    sample_rate=44100,
-                    enable_level_matching=True,
-                    enable_frequency_matching=False,
-                    enable_stereo_width=False,
-                    enable_auto_mastering=False,
-                    enable_advanced_smoothing=True,
-                    max_db_change_per_second=2.0
-                )
-                globals_dict['audio_player'] = AudioPlayer(
-                    player_config,
-                    library_manager=globals_dict['library_manager'],
-                    get_repository_factory=lambda: globals_dict.get('repository_factory')
-                )
-                logger.info("✅ Enhanced Audio Player initialized (Phase 4 RepositoryFactory support enabled)")
-
-                # Initialize state manager (must be after library_manager is created)
-                globals_dict['player_state_manager'] = PlayerStateManager(manager)
-                logger.info("✅ Player State Manager initialized")
-
-                # Initialize on-demand fingerprint queue (Phase 7.4)
-                # This handles 404s during similarity lookup - queues tracks for background processing
-                try:
-                    from analysis.fingerprint_generator import FingerprintGenerator
-                    from analysis.fingerprint_queue import (
-                        FingerprintQueue,
-                        set_fingerprint_queue,
-                    )
-
-                    # Create FingerprintGenerator for the queue
-                    fp_generator = FingerprintGenerator(
-                        session_factory=globals_dict['library_manager'].SessionLocal,
-                        get_repository_factory=lambda: globals_dict.get('repository_factory')
-                    )
-
-                    # Helper to get track filepath
-                    def get_track_filepath(track_id: int) -> str | None:
-                        try:
-                            factory = globals_dict.get('repository_factory')
-                            if factory:
-                                track = factory.tracks.get_by_id(track_id)
-                                if track and track.filepath:
-                                    return str(track.filepath)
-                        except Exception:
-                            # Best-effort lookup (#4368 — was a bare pass,
-                            # hiding genuine repository failures from debugging).
-                            logger.debug(f"Track filepath lookup failed for {track_id}", exc_info=True)
-                        return None
-
-                    # Create and start on-demand fingerprint queue
-                    ondemand_queue = FingerprintQueue(
-                        fingerprint_generator=fp_generator,
-                        get_track_filepath=get_track_filepath
-                    )
-                    await ondemand_queue.start()
-                    set_fingerprint_queue(ondemand_queue)
-                    globals_dict['ondemand_fingerprint_queue'] = ondemand_queue
-                    logger.info("✅ On-demand fingerprint queue started (background processing for 404s)")
-
-                except Exception as odq_e:
-                    logger.warning(f"⚠️  Failed to initialize on-demand fingerprint queue: {odq_e}")
-
-                # Initialize similarity system
-                if HAS_SIMILARITY:
-                    try:
-                        from auralis.analysis.fingerprint import (
-                            FingerprintSimilarity,
-                            KNNGraphBuilder,
-                        )
-
-                        globals_dict['similarity_system'] = FingerprintSimilarity(
-                            globals_dict['library_manager'].fingerprints
-                        )
-                        logger.info("✅ Fingerprint Similarity System initialized")
-
-                        # #4139: auto-fit in the background so an existing
-                        # library gets working recommendations without a manual
-                        # /api/similarity/fit call. fit() is a no-op (returns
-                        # False) below min_samples (fresh install / library
-                        # reset), leaving the system unfitted — the similarity
-                        # router then surfaces a clear 503 rather than silently
-                        # empty results. Runs off the startup path because
-                        # normalizer.fit() streams every fingerprint in batches.
-                        globals_dict['graph_builder'] = None
-
-                        def _auto_fit_similarity(
-                            sim_system=globals_dict['similarity_system'],
-                            lib_mgr=globals_dict['library_manager'],
-                            gd=globals_dict,
-                            builder_cls=KNNGraphBuilder,
-                        ):
-                            try:
-                                if sim_system.fit():
-                                    # get_component reads globals fresh per
-                                    # request, so this late assignment is picked up.
-                                    gd['graph_builder'] = builder_cls(
-                                        similarity_system=sim_system,
-                                        session_factory=lib_mgr.SessionLocal,
-                                    )
-                                    logger.info("✅ Similarity auto-fitted; K-NN Graph Builder ready")
-                                else:
-                                    logger.info("ℹ️  Similarity auto-fit skipped (not enough fingerprints yet)")
-                            except Exception as fit_e:
-                                logger.warning(f"⚠️  Similarity auto-fit failed: {fit_e}")
-
-                        threading.Thread(
-                            target=_auto_fit_similarity,
-                            name="similarity-autofit",
-                            daemon=True,
-                        ).start()
-                    except Exception as sim_e:
-                        logger.warning(f"⚠️  Failed to initialize Similarity System: {sim_e}")
-                        globals_dict['similarity_system'] = None
-                        globals_dict['graph_builder'] = None
-
-            except Exception as e:
-                import traceback
-                logger.error(f"❌ Failed to initialize Auralis components: {e}")
-                logger.error(f"Traceback:\n{traceback.format_exc()}")
-                logger.error("⚠️  Auralis library initialization failed - rolling back partial state; API will return 503")
-                await _rollback_partial_startup(globals_dict)
-        else:
-            logger.warning("⚠️  Auralis not available - running in demo mode")
-
-        # Initialize processing engine
-        if HAS_PROCESSING:
-            try:
-                from core.processing_engine import ProcessingEngine
-
-                globals_dict['processing_engine'] = ProcessingEngine(max_concurrent_jobs=2)
-
-                # Age-sweep auralis_processing/auralis_uploads: cleanup_old_jobs()
-                # is driven off the in-memory jobs registry, which is empty right
-                # after a crash or restart, so leftovers from a previous run were
-                # never reclaimed until now (#4762).
-                _ttl = globals_dict['processing_engine'].completed_job_ttl_hours
-                reclaim_stale_temp_entries(globals_dict['processing_engine'].temp_dir, _ttl)
-                reclaim_stale_temp_entries(Path(tempfile.gettempdir()) / UPLOAD_TEMP_DIRNAME, _ttl)
-
-                # Start the processing worker — retain strong reference to prevent GC,
-                # and attach a done-callback so a silently-failing start_worker is
-                # logged rather than disappearing (fixes #3512 / BE-NEW-54).
-                from helpers import spawn_background_task
-                globals_dict['_processing_worker_task'] = spawn_background_task(
-                    globals_dict['processing_engine'].start_worker(),
-                    name="processing_engine.start_worker",
-                )
-                # #3512's callback above only logs; also null the global so a
-                # worker that dies AFTER startup returns stops accepting jobs
-                # it will never run (fixes #4318).
-                _watch_critical_worker_task(
-                    globals_dict['_processing_worker_task'],
-                    globals_dict,
-                    ('processing_engine',),
-                    "ProcessingEngine",
-                )
-                logger.info("✅ Processing Engine initialized")
-            except Exception as e:
-                logger.error(f"❌ Failed to initialize Processing Engine: {e}")
-        else:
-            logger.warning("⚠️  Processing engine not available")
-
-        # Initialize streamlined cache system (Beta.9)
-        if HAS_STREAMLINED_CACHE and globals_dict.get('library_manager'):
-            try:
-                from cache import streamlined_cache_manager
-                from core.streamlined_worker import StreamlinedCacheWorker
-
-                # Use global singleton instance
-                globals_dict['streamlined_cache'] = streamlined_cache_manager
-                from cache.manager import TIER1_MAX_SIZE_MB
-                logger.info(f"✅ Streamlined Cache Manager initialized ({TIER1_MAX_SIZE_MB:.1f} MB Tier 1)")
-
-                # Create and start worker
-                globals_dict['streamlined_worker'] = StreamlinedCacheWorker(
-                    cache_manager=globals_dict['streamlined_cache'],
-                    library_manager=globals_dict['library_manager']
-                )
-
-                # Start the worker
-                await globals_dict['streamlined_worker'].start()
-                logger.info("✅ Streamlined Cache Worker started")
-
-                # Null both the worker AND the cache manager if the worker's
-                # background loop dies after startup returns — without a
-                # populator the cache never fills, so routers should treat it
-                # as unavailable (503) rather than serve permanent misses
-                # silently (fixes #4318).
-                worker_task = globals_dict['streamlined_worker'].worker_task
-                if worker_task is not None:
-                    _watch_critical_worker_task(
-                        worker_task,
-                        globals_dict,
-                        ('streamlined_cache', 'streamlined_worker'),
-                        "StreamlinedCacheWorker",
-                    )
-
-            except Exception as e:
-                logger.error(f"❌ Failed to initialize streamlined cache: {e}")
-        else:
-            if not HAS_STREAMLINED_CACHE:
-                logger.warning("⚠️  Streamlined cache not available")
-            elif not globals_dict.get('library_manager'):
-                logger.warning("⚠️  Library manager not available - streamlined cache disabled")
+        # Order is load-bearing (#4671): library DB before anything that
+        # reads it, settings before scan-folder registration and player
+        # init, fingerprint queue before its drain hook is wired.
+        # Processing engine and streamlined cache are independent of the
+        # Auralis component set and of each other.
+        await _cleanup_temp_directories()
+        await _init_auralis_components(HAS_AURALIS, HAS_SIMILARITY, manager, globals_dict)
+        await _init_processing_engine(HAS_PROCESSING, globals_dict)
+        await _init_streamlined_cache(HAS_STREAMLINED_CACHE, globals_dict)
 
         # #4801: try/finally so a BaseException thrown into this generator at
         # the yield (e.g. CancelledError from a forced/second-SIGINT exit
