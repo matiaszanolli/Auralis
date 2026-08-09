@@ -449,6 +449,11 @@ Sent as a **text JSON frame** immediately before each binary PCM frame. The clie
   "data": {
     "seq": number,              // Monotonic per-stream counter (0-based). Increments by 1 per frame.
                                 // Clients can detect dropped/reordered frames when seq jumps.
+    "track_id"?: number,        // Owning track — lets a client drop late chunk-progress from a
+                                // superseded track after a rapid skip.
+    "stream_epoch"?: number,    // Owning stream epoch. A new stream (seek/track change) allocates a
+                                // new epoch — `seq` is only comparable within the same epoch; see
+                                // the desync note below.
     "chunk_index": number,      // Which 15-second chunk this frame belongs to (0-based)
     "chunk_count": number,      // Total chunks in stream (same as audio_stream_start.total_chunks)
     "frame_index": number,      // Frame index within the current chunk (0-based)
@@ -462,6 +467,8 @@ Sent as a **text JSON frame** immediately before each binary PCM frame. The clie
 **Binary frame format**: `sample_count × 4` bytes of little-endian `float32` values, interleaved stereo if `channels == 2` (L0 R0 L1 R1 …).
 
 **Frontend note**: `WebSocketContext` automatically fuses the `audio_chunk_meta` text frame and the following binary frame into a synthetic `audio_chunk` event (with `pcm_binary` populated) for downstream consumers.
+
+**Desync detection (#3774)**: `websocketConnectionCore.handleSocketFrame` tracks the expected `seq` per `stream_epoch`, resetting the counter whenever `stream_epoch` changes (a new stream — seek or track change — legitimately restarts `seq` at 0). A gap (skipped or reordered `seq` within the same epoch) logs a `console.warn` and dispatches a synthetic `audio_stream_error` (`code: "DESYNC"`) through the same handling path a server-detected stream error already goes through, so a dropped/reordered WS frame surfaces as a visible error + stream cleanup instead of silently pairing the wrong PCM with the wrong metadata.
 
 ---
 

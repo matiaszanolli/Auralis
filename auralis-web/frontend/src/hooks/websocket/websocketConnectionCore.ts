@@ -14,6 +14,7 @@ import type {
   AnyWebSocketMessage,
   AudioChunkMessage,
   AudioChunkMetaMessage,
+  AudioStreamErrorMessage,
   WebSocketMessage,
 } from '@/types/websocket';
 
@@ -52,6 +53,10 @@ export type DispatchMessage = (message: AnyWebSocketMessage | WebSocketMessage) 
  * - `lastStreamCommand`: last play_enhanced/play_normal, re-issued on reconnect
  *   (#2385); cleared on explicit stop/pause.
  * - `resumeGetters`: per-stream-type playback-position getters (#3185/#3373).
+ * - `expectedSeq` / `seqStreamEpoch`: audio_chunk_meta.seq desync detection
+ *   (#3774). `seqStreamEpoch` tracks which stream_epoch `expectedSeq` applies
+ *   to, so a new stream (seek/track change) resets tracking instead of
+ *   comparing against the previous stream's counter.
  */
 export interface ConnectionState {
   manager: WebSocketManager | null;
@@ -61,6 +66,8 @@ export interface ConnectionState {
   pendingMeta: AudioChunkMetaMessage | null;
   lastStreamCommand: OutgoingWebSocketMessage | null;
   resumeGetters: Record<string, () => number>;
+  expectedSeq: number | null;
+  seqStreamEpoch: number | null;
 }
 
 export const connState: ConnectionState = {
@@ -71,6 +78,8 @@ export const connState: ConnectionState = {
   pendingMeta: null,
   lastStreamCommand: null,
   resumeGetters: {},
+  expectedSeq: null,
+  seqStreamEpoch: null,
 };
 
 /**
@@ -111,11 +120,59 @@ export function resetConnectionSingletons(): void {
     delete connState.resumeGetters[key];
   }
   connState.pendingMeta = null;
+  connState.expectedSeq = null;
+  connState.seqStreamEpoch = null;
 }
 
 // ============================================================================
 // Pure procedures
 // ============================================================================
+
+/**
+ * Validate `audio_chunk_meta.seq` against the running per-stream counter
+ * (#3774). The backend stamps a monotonic `seq` on every `audio_chunk_meta`
+ * specifically so a dropped or reordered WS frame (proxy hiccup, browser
+ * throttle, GC pause) can be detected — before this, nothing read it, so the
+ * guarantee was nominal only and a desync would silently pair the wrong PCM
+ * with the wrong meta.
+ *
+ * Tracking resets on a new `stream_epoch` (seek/track change starts a fresh
+ * stream, #4563) so the counter never compares across unrelated streams. A
+ * gap dispatches a synthetic `audio_stream_error`, reusing the exact handling
+ * path (`useAudioStreamingCore.handleStreamError`) a server-detected error
+ * already goes through — visible error state + stream cleanup — rather than
+ * inventing a second, parallel recovery mechanism.
+ */
+function checkSeqForDesync(meta: AudioChunkMetaMessage, dispatch: DispatchMessage): void {
+  const { seq, stream_epoch, track_id, stream_type } = meta.data;
+  if (typeof seq !== 'number') return;
+
+  if (stream_epoch !== connState.seqStreamEpoch) {
+    connState.seqStreamEpoch = stream_epoch ?? null;
+    connState.expectedSeq = null;
+  }
+
+  if (connState.expectedSeq !== null && seq !== connState.expectedSeq) {
+    console.warn(
+      `[WebSocket] audio_chunk_meta desync: expected seq ${connState.expectedSeq}, got ${seq} ` +
+      `(stream_epoch=${stream_epoch ?? 'none'})`
+    );
+    const desyncError: AudioStreamErrorMessage = {
+      type: 'audio_stream_error',
+      data: {
+        track_id: track_id ?? 0,
+        error: `Audio stream desync detected (expected frame ${connState.expectedSeq}, got ${seq})`,
+        code: 'DESYNC',
+        stream_type,
+      },
+    };
+    dispatch(desyncError);
+    // Resync on the frame we just saw rather than re-firing every
+    // subsequent frame until the next gap.
+  }
+
+  connState.expectedSeq = seq + 1;
+}
 
 /**
  * Parse one inbound frame and dispatch it. Handles the backend's binary PCM
@@ -181,8 +238,11 @@ export function handleSocketFrame(
       JSON.parse(event.data);
 
     // If this is an audio_chunk_meta, stash it and wait for the binary frame.
-    // It is never dispatched to subscribers.
+    // It is never dispatched to subscribers (except the synthetic desync
+    // audio_stream_error below).
     if (message.type === 'audio_chunk_meta') {
+      const meta = message as AudioChunkMetaMessage;
+      checkSeqForDesync(meta, dispatch);
       connState.pendingMeta = message;
       return;
     }
