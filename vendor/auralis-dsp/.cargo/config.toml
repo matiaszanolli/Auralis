@@ -30,6 +30,14 @@
 #
 # Setting it here rather than in the shell means `maturin develop` and
 # `cargo build` both pick it up with no env-var ritual.
+#
+# GIL-only, not free-threaded (#4962): this flag is explicitly rejected by
+# pyo3-ffi 0.23.5's build script on a free-threaded interpreter (python3.14t)
+# — "the free-threaded build of CPython does not support the limited API so
+# this check cannot be suppressed" — with no workaround at this pyo3 version.
+# `requires-python = ">=3.14"` in pyproject.toml technically admits 3.14t, but
+# building this crate against it is an unsuppressible hard failure. Use the
+# standard GIL-enabled CPython 3.14 build.
 
 [env]
 PYO3_USE_ABI3_FORWARD_COMPATIBILITY = "1"

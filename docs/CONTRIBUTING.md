@@ -10,10 +10,16 @@ how to test and ship a change. For architecture, start at
 
 | Tool | Version | Notes |
 |------|---------|-------|
-| **Python** | 3.14+ | `.python-version` pins 3.14; `uv venv` fetches it if needed |
+| **Python** | 3.14+ (GIL build, not `3.14t`) | `.python-version` pins 3.14; `uv venv` fetches it if needed |
 | **[uv](https://docs.astral.sh/uv/)** | latest | Manages the Python interpreter + venv (replaces pyenv/venv/pip) |
 | **Node** | 24+ | Frontend + Electron |
 | **Rust** | stable + `maturin` | Required — the DSP module has no Python fallback |
+
+> The free-threaded CPython 3.14 build (`python3.14t`) is **not supported**: `pyo3-ffi` 0.23.5's
+> build script hard-fails on it with no workaround (`PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1`, which
+> makes the pinned pyo3 0.23 work on the regular 3.14 build, is explicitly rejected on
+> free-threaded interpreters — see [`vendor/auralis-dsp/.cargo/config.toml`](../vendor/auralis-dsp/.cargo/config.toml)).
+> `requires-python = ">=3.14"` technically admits `3.14t`; use the standard GIL-enabled build.
 
 ---
 
