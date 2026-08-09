@@ -18,10 +18,9 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, Optional
 
 
-def find_latest_profile(profile_dir: Path, recording_type: str) -> Optional[Path]:
+def find_latest_profile(profile_dir: Path, recording_type: str) -> Path | None:
     """Find the latest version of a profile.
 
     Args:
@@ -197,9 +196,9 @@ def commit_profile(profile_path: Path, reason: str) -> bool:
 
 def update_profile(
     recording_type: str,
-    adjustments: Dict[str, float],
+    adjustments: dict[str, float],
     reason: str,
-    data_dir: Optional[Path] = None,
+    data_dir: Path | None = None,
     no_test: bool = False,
 ) -> bool:
     """Update a profile with new parameter values.
@@ -286,7 +285,7 @@ def update_profile(
     return True
 
 
-def apply_patterns(data_dir: Optional[Path] = None) -> bool:
+def apply_patterns(data_dir: Path | None = None) -> bool:
     """Auto-detect patterns and apply suggested adjustments.
 
     This is a placeholder that shows how to integrate with analyze_feedback.py

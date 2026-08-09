@@ -9,14 +9,14 @@ import os
 import sys
 import tracemalloc
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import psutil
 
 # Setup memory tracking
 tracemalloc.start()
 
-def get_memory_usage() -> Dict[str, float]:
+def get_memory_usage() -> dict[str, float]:
     """Get current memory stats in MB."""
     process = psutil.Process(os.getpid())
     mem_info = process.memory_info()
@@ -27,7 +27,7 @@ def get_memory_usage() -> Dict[str, float]:
         'percent': process.memory_percent(),
     }
 
-def profile_section(name: str, before: Dict[str, float], after: Dict[str, float]) -> None:
+def profile_section(name: str, before: dict[str, float], after: dict[str, float]) -> None:
     """Print memory delta for a section."""
     delta_rss = after['rss_mb'] - before['rss_mb']
     delta_vms = after['vms_mb'] - before['vms_mb']

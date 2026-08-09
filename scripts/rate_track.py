@@ -15,7 +15,6 @@ import argparse
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import librosa
 import numpy as np
@@ -29,8 +28,8 @@ from auralis.core.recording_type_detector import RecordingTypeDetector
 def rate_track(
     audio_file: str,
     rating: int,
-    comment: Optional[str] = None,
-    data_dir: Optional[Path] = None
+    comment: str | None = None,
+    data_dir: Path | None = None
 ) -> None:
     """Rate a mastered track and save feedback.
 

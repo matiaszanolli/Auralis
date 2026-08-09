@@ -11,7 +11,7 @@ sys.path.insert(0, '/mnt/data/src/matchering')
 
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any
 
 import numpy as np
 import soundfile as sf
@@ -23,7 +23,7 @@ from auralis.io.audio_loader import load_audio
 from auto_master import master_audio
 
 
-def fingerprint_audio(audio_path: str) -> Dict[str, Any]:
+def fingerprint_audio(audio_path: str) -> dict[str, Any]:
     """Generate fingerprint for audio"""
     try:
         analyzer = AudioFingerprintAnalyzer()
@@ -49,19 +49,19 @@ def process_track(input_path: str, output_path: str) -> bool:
         traceback.print_exc()
         return False
 
-def get_loudness_gain(input_fp: Dict, output_fp: Dict) -> float:
+def get_loudness_gain(input_fp: dict, output_fp: dict) -> float:
     """Calculate loudness gain"""
     input_lufs = input_fp.get('lufs', 0)
     output_lufs = output_fp.get('lufs', 0)
     return output_lufs - input_lufs
 
-def get_crest_change(input_fp: Dict, output_fp: Dict) -> float:
+def get_crest_change(input_fp: dict, output_fp: dict) -> float:
     """Calculate crest factor change"""
     input_crest = input_fp.get('crest_db', 0)
     output_crest = output_fp.get('crest_db', 0)
     return output_crest - input_crest
 
-def format_result(track_name: str, input_fp: Dict, output_fp: Dict) -> str:
+def format_result(track_name: str, input_fp: dict, output_fp: dict) -> str:
     """Format result line"""
     input_lufs = input_fp.get('lufs', 'N/A')
     output_lufs = output_fp.get('lufs', 'N/A')

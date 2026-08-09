@@ -43,7 +43,7 @@ import logging
 import sys
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -58,7 +58,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def find_test_track() -> Optional[str]:
+def find_test_track() -> str | None:
     """
     Find a test audio file to benchmark.
 
@@ -93,7 +93,7 @@ def measure_chunk_processing(
     track_id: int = 1,
     num_chunks: int = 5,
     preset: str = "adaptive"
-) -> Tuple[float, List[float]]:
+) -> tuple[float, list[float]]:
     """
     Measure chunk processing time.
 
@@ -116,7 +116,7 @@ def measure_chunk_processing(
             intensity=1.0
         )
 
-        chunk_times: List[float] = []
+        chunk_times: list[float] = []
         total_start = time.time()
 
         for chunk_idx in range(min(num_chunks, processor.total_chunks or 5)):
@@ -139,7 +139,7 @@ def measure_chunk_processing(
         return 0.0, []
 
 
-def benchmark_with_cache_clearing() -> Dict[str, Any]:
+def benchmark_with_cache_clearing() -> dict[str, Any]:
     """
     Benchmark with and without cache.
 
@@ -227,7 +227,7 @@ def benchmark_with_cache_clearing() -> Dict[str, Any]:
         return {}
 
 
-def print_summary(results: Dict[str, Any]) -> None:
+def print_summary(results: dict[str, Any]) -> None:
     """Print benchmark summary."""
     if not results:
         logger.error("No results to display")

@@ -8,13 +8,13 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 sys.path.insert(0, '/mnt/data/src/matchering')
 from auralis.analysis.fingerprint.fingerprint_service import FingerprintService
 
 
-def fingerprint_audio(audio_path: str) -> Dict[str, Any]:
+def fingerprint_audio(audio_path: str) -> dict[str, Any]:
     """Fingerprint audio"""
     try:
         service = FingerprintService(fingerprint_strategy="sampling")
@@ -36,7 +36,7 @@ def process_track(input_path: str, output_path: str) -> bool:
     return result.returncode == 0
 
 
-def test_track(track_path: str, track_name: str, era: str) -> Tuple[bool, Dict]:
+def test_track(track_path: str, track_name: str, era: str) -> tuple[bool, dict]:
     """Test single track and return results"""
     if not os.path.exists(track_path):
         return False, {}

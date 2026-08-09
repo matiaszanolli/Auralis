@@ -9,10 +9,10 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 
-def run_fingerprint(audio_path: str) -> Dict[str, Any]:
+def run_fingerprint(audio_path: str) -> dict[str, Any]:
     """Run fingerprinting on audio and return results"""
     result = subprocess.run(
         ["python", "fingerprint_track.py", audio_path, "--json"],
@@ -47,19 +47,19 @@ def process_track(input_path: str, output_path: str) -> bool:
     print(result.stdout)
     return True
 
-def get_loudness_gain(input_fp: Dict, output_fp: Dict) -> float:
+def get_loudness_gain(input_fp: dict, output_fp: dict) -> float:
     """Calculate loudness gain between input and output"""
     input_lufs = input_fp.get('lufs', 0)
     output_lufs = output_fp.get('lufs', 0)
     return output_lufs - input_lufs
 
-def get_crest_change(input_fp: Dict, output_fp: Dict) -> float:
+def get_crest_change(input_fp: dict, output_fp: dict) -> float:
     """Calculate change in crest factor (dynamic range)"""
     input_crest = input_fp.get('crest_db', 0)
     output_crest = output_fp.get('crest_db', 0)
     return output_crest - input_crest
 
-def format_result(track_name: str, input_fp: Dict, output_fp: Dict) -> str:
+def format_result(track_name: str, input_fp: dict, output_fp: dict) -> str:
     """Format validation result"""
     input_lufs = input_fp.get('lufs', 'N/A')
     output_lufs = output_fp.get('lufs', 'N/A')

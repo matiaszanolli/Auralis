@@ -9,7 +9,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 # Add project to path
 sys.path.insert(0, '/mnt/data/src/matchering')
@@ -17,7 +17,7 @@ sys.path.insert(0, '/mnt/data/src/matchering')
 from auralis.analysis.fingerprint.fingerprint_service import FingerprintService
 
 
-def fingerprint_audio(audio_path: str) -> Dict[str, Any]:
+def fingerprint_audio(audio_path: str) -> dict[str, Any]:
     """Fingerprint audio using FingerprintService"""
     try:
         service = FingerprintService(fingerprint_strategy="sampling")
@@ -50,7 +50,7 @@ def process_track_with_auto_master(input_path: str, output_path: str) -> bool:
     return True
 
 
-def format_result(track_name: str, input_fp: Dict, output_fp: Dict) -> str:
+def format_result(track_name: str, input_fp: dict, output_fp: dict) -> str:
     """Format result line"""
     input_lufs = input_fp.get('lufs', None)
     output_lufs = output_fp.get('lufs', None)

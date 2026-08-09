@@ -16,12 +16,11 @@ import json
 from collections import Counter
 from pathlib import Path
 from statistics import mean, median, stdev
-from typing import Dict, List, Optional
 
 from auralis.core.recording_type_detector import RecordingType
 
 
-def load_feedback(data_dir: Path, recording_type: Optional[str] = None) -> List[dict]:
+def load_feedback(data_dir: Path, recording_type: str | None = None) -> list[dict]:
     """Load all feedback entries from ratings.jsonl.
 
     Args:
@@ -50,7 +49,7 @@ def load_feedback(data_dir: Path, recording_type: Optional[str] = None) -> List[
     return ratings
 
 
-def extract_feedback_keywords(comments: List[str]) -> Dict[str, int]:
+def extract_feedback_keywords(comments: list[str]) -> dict[str, int]:
     """Extract parameter names from feedback comments.
 
     Args:
