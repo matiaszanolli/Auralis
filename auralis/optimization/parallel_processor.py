@@ -17,6 +17,7 @@ directly.
 from .parallel import (
     ParallelAudioProcessor,
     ParallelBandProcessor,
+    ExecutorPool,
     ParallelConfig,
     ParallelFeatureExtractor,
     ParallelFFTProcessor,
@@ -27,6 +28,7 @@ from .parallel import (
 
 __all__ = [
     "ParallelConfig",
+    "ExecutorPool",
     "ParallelFFTProcessor",
     "ParallelBandProcessor",
     "ParallelFeatureExtractor",

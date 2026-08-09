@@ -10,7 +10,7 @@ global-instance accessors (#4276).
 """
 
 import threading
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+from concurrent.futures import as_completed
 from typing import Any
 from collections.abc import Callable
 
@@ -19,6 +19,7 @@ import numpy as np
 from ...utils.logging import debug, info, warning
 from .band_processor import ParallelBandProcessor
 from .config import ParallelConfig
+from .executor_pool import ExecutorPool
 from .feature_extractor import ParallelFeatureExtractor
 from .fft_processor import ParallelFFTProcessor
 
@@ -33,6 +34,11 @@ class ParallelAudioProcessor:
         self.fft_processor: ParallelFFTProcessor = ParallelFFTProcessor(config)
         self.band_processor: ParallelBandProcessor = ParallelBandProcessor(config)
         self.feature_extractor: ParallelFeatureExtractor = ParallelFeatureExtractor(config)
+
+        # #3762: reuse workers across process_batch() calls instead of paying
+        # spawn cost every time. Own pool rather than one shared with the
+        # sub-processors — see ExecutorPool's nesting caveat.
+        self._executor_pool: ExecutorPool = ExecutorPool("ParallelAudioProcessor")
 
         info(f"Parallel audio processor initialized with {self.config.max_workers} workers")
 
@@ -69,32 +75,45 @@ class ParallelAudioProcessor:
             # try/except if they want the same per-file isolation.
             return [process_func(audio) for audio in audio_files]
 
-        num_workers = max_workers or min(self.config.max_workers, len(audio_files))
+        # #3762: size the pool at the configured ceiling rather than at
+        # len(audio_files). concurrent.futures spawns workers lazily — one per
+        # pending work item — so a 2-file batch still runs on 2 workers, but a
+        # 2-file batch followed by a 50-file batch now reuses one pool instead
+        # of building a differently-sized one each time.
+        num_workers = max_workers or self.config.max_workers
 
         # Use multiprocessing for batch processing (true parallelism);
         # threading fallback otherwise. Both share the same
         # submit + as_completed + per-future try/except plumbing.
-        ExecutorCls = (
-            ProcessPoolExecutor if self.config.use_multiprocessing
-            else ThreadPoolExecutor
-        )
+        executor = self._executor_pool.get(num_workers, self.config.use_multiprocessing)
         results: list[np.ndarray | None] = [None] * len(audio_files)
-        with ExecutorCls(max_workers=num_workers) as executor:
-            future_to_index = {
-                executor.submit(process_func, audio): idx
-                for idx, audio in enumerate(audio_files)
-            }
-            for future in as_completed(future_to_index):
-                idx = future_to_index[future]
-                try:
-                    results[idx] = future.result()
-                except Exception as exc:  # noqa: BLE001
-                    warning(
-                        f"process_batch: file at index {idx} failed: {exc}"
-                    )
-                    # results[idx] stays None — caller handles partial batch.
+        future_to_index = {
+            executor.submit(process_func, audio): idx
+            for idx, audio in enumerate(audio_files)
+        }
+        for future in as_completed(future_to_index):
+            idx = future_to_index[future]
+            try:
+                results[idx] = future.result()
+            except Exception as exc:  # noqa: BLE001
+                warning(
+                    f"process_batch: file at index {idx} failed: {exc}"
+                )
+                # results[idx] stays None — caller handles partial batch.
 
         return results
+
+    def close(self) -> None:
+        """Release pooled workers held by this processor and its sub-processors.
+
+        #3762: pools are long-lived by design, so a caller that is done with a
+        processor (or a test that wants a clean slate) needs an explicit
+        release. Idempotent, and the processor stays usable afterwards.
+        """
+        self._executor_pool.close()
+        self.fft_processor.close()
+        self.band_processor.close()
+        self.feature_extractor.close()
 
     def get_config(self) -> ParallelConfig:
         """Get current configuration"""

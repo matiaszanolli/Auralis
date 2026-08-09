@@ -9,7 +9,6 @@ Parallel FFT / STFT computation for spectrum analysis (#4276).
 """
 
 import threading
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from typing import Any
 
 import numpy as np
@@ -17,6 +16,7 @@ from scipy.signal.windows import hann
 
 from ...utils.logging import debug
 from .config import ParallelConfig
+from .executor_pool import ExecutorPool
 
 
 class ParallelFFTProcessor:
@@ -28,10 +28,18 @@ class ParallelFFTProcessor:
         self.lock: threading.Lock = threading.Lock()
         self.window_cache: dict[int, np.ndarray] = {}
 
+        # #3762: STFT calls this once per analysed buffer; a fresh pool per call
+        # cost more than the FFTs themselves for short audio.
+        self._executor_pool: ExecutorPool = ExecutorPool("ParallelFFTProcessor")
+
         # Pre-compute common window functions
         self._init_window_cache()
 
         debug(f"Parallel FFT processor initialized: max_workers={self.config.max_workers}")
+
+    def close(self) -> None:
+        """Release pooled workers (#3762). Idempotent; the processor stays usable."""
+        self._executor_pool.close()
 
     @staticmethod
     def _readonly_window(size: int) -> np.ndarray:
@@ -148,17 +156,18 @@ class ParallelFFTProcessor:
             # Sequential processing
             return [self._process_fft_chunk(*chunk_data) for chunk_data in chunks]
 
-        # Determine optimal worker count
-        num_workers = min(self.config.max_workers, len(chunks))
+        # Determine optimal worker count. #3762: the configured ceiling, so the
+        # pool is reusable across calls with differing chunk counts; workers are
+        # spawned lazily per task, so concurrency is unchanged.
+        num_workers = self.config.max_workers
 
+        executor = self._executor_pool.get(num_workers, self.config.use_multiprocessing)
         if self.config.use_multiprocessing:
             # Use process pool for CPU-bound FFT operations
-            with ProcessPoolExecutor(max_workers=num_workers) as executor:
-                results = list(executor.map(self._process_fft_chunk_static, chunks))
+            results = list(executor.map(self._process_fft_chunk_static, chunks))
         else:
             # Use thread pool (works well for NumPy/SciPy with GIL release)
-            with ThreadPoolExecutor(max_workers=num_workers) as executor:
-                results = list(executor.map(self._process_fft_chunk, *zip(*chunks)))
+            results = list(executor.map(self._process_fft_chunk, *zip(*chunks)))
 
         return results
 

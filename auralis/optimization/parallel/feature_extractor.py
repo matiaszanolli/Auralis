@@ -8,7 +8,7 @@ Parallel audio feature extraction across a set of extractor callables (#4276).
 :license: GPLv3, see LICENSE for more details.
 """
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import as_completed
 from typing import Any
 from collections.abc import Callable
 
@@ -16,6 +16,7 @@ import numpy as np
 
 from ...utils.logging import debug, warning
 from .config import ParallelConfig
+from .executor_pool import ExecutorPool
 
 
 class ParallelFeatureExtractor:
@@ -23,7 +24,13 @@ class ParallelFeatureExtractor:
 
     def __init__(self, config: ParallelConfig | None = None) -> None:
         self.config: ParallelConfig = config or ParallelConfig()
+        # #3762: extraction runs per track, so the pool outlives a single call.
+        self._executor_pool: ExecutorPool = ExecutorPool("ParallelFeatureExtractor")
         debug(f"Parallel feature extractor initialized")
+
+    def close(self) -> None:
+        """Release pooled workers (#3762). Idempotent; the extractor stays usable."""
+        self._executor_pool.close()
 
     def extract_features_parallel(
         self,
@@ -47,31 +54,31 @@ class ParallelFeatureExtractor:
                 for name, extractor in feature_extractors.items()
             }
 
-        num_workers = min(self.config.max_workers, len(feature_extractors))
+        # #3762: configured ceiling so one pool serves every extractor-set size.
+        executor = self._executor_pool.get(self.config.max_workers, use_multiprocessing=False)
 
-        with ThreadPoolExecutor(max_workers=num_workers) as executor:
-            # Submit feature extraction tasks.
-            # #3673: pass audio.copy() to each worker so an in-place mutation
-            # by one extractor cannot corrupt sibling extractors. Matches the
-            # ParallelBandProcessor pattern fixed in #3355.
-            futures: dict[Any, str] = {
-                executor.submit(extractor, audio.copy()): name
-                for name, extractor in feature_extractors.items()
-            }
+        # Submit feature extraction tasks.
+        # #3673: pass audio.copy() to each worker so an in-place mutation
+        # by one extractor cannot corrupt sibling extractors. Matches the
+        # ParallelBandProcessor pattern fixed in #3355.
+        futures: dict[Any, str] = {
+            executor.submit(extractor, audio.copy()): name
+            for name, extractor in feature_extractors.items()
+        }
 
-            # Collect results.
-            # #3674: guard future.result() so one failing extractor doesn't
-            # abort the entire run. Matches the per-future try/except pattern
-            # already used in ParallelBandProcessor (lines 280-285).
-            features: dict[str, Any] = {}
-            for future in as_completed(futures):
-                feature_name = futures[future]
-                try:
-                    features[feature_name] = future.result()
-                except Exception as exc:
-                    warning(
-                        f"Feature extractor '{feature_name}' failed: {exc}"
-                    )
-                    features[feature_name] = None
+        # Collect results.
+        # #3674: guard future.result() so one failing extractor doesn't
+        # abort the entire run. Matches the per-future try/except pattern
+        # already used in ParallelBandProcessor (lines 280-285).
+        features: dict[str, Any] = {}
+        for future in as_completed(futures):
+            feature_name = futures[future]
+            try:
+                features[feature_name] = future.result()
+            except Exception as exc:
+                warning(
+                    f"Feature extractor '{feature_name}' failed: {exc}"
+                )
+                features[feature_name] = None
 
         return features

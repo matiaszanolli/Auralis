@@ -8,13 +8,14 @@ Parallel frequency-band filtering with per-band / per-group fallbacks (#4276).
 :license: GPLv3, see LICENSE for more details.
 """
 
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+from concurrent.futures import as_completed
 from collections.abc import Callable
 
 import numpy as np
 
 from ...utils.logging import debug, warning
 from .config import ParallelConfig
+from .executor_pool import ExecutorPool
 
 
 class ParallelBandProcessor:
@@ -22,7 +23,14 @@ class ParallelBandProcessor:
 
     def __init__(self, config: ParallelConfig | None = None) -> None:
         self.config: ParallelConfig = config or ParallelConfig()
+        # #3762: band filtering runs per audio buffer, so per-call pool
+        # construction was pure overhead on every processed track.
+        self._executor_pool: ExecutorPool = ExecutorPool("ParallelBandProcessor")
         debug(f"Parallel band processor initialized: max_workers={self.config.max_workers}")
+
+    def close(self) -> None:
+        """Release pooled workers (#3762). Idempotent; the processor stays usable."""
+        self._executor_pool.close()
 
     def process_bands_parallel(
         self,
@@ -53,8 +61,11 @@ class ParallelBandProcessor:
         if self.config.band_grouping and band_groups:
             return self._process_band_groups(audio, band_filters, band_gains, band_groups)
 
-        # Determine worker count
-        num_workers = min(self.config.max_workers, num_bands)
+        # Determine worker count. #3762: the configured ceiling, not
+        # min(ceiling, num_bands) — workers spawn lazily per submitted task, so
+        # the effective concurrency is unchanged while the pool stays cacheable
+        # across calls with differing band counts.
+        num_workers = self.config.max_workers
 
         # Process bands in parallel.
         # Each worker receives its own copy of the input audio so that an
@@ -80,67 +91,67 @@ class ParallelBandProcessor:
                     f"true multiprocessing."
                 )
                 use_mp = False
+        # #3762: reuse a cached pool instead of building/tearing one down per call.
+        executor = self._executor_pool.get(num_workers, use_mp)
         if use_mp:
             # Multiprocessing for heavy filtering
-            with ProcessPoolExecutor(max_workers=num_workers) as executor:
-                # Prepare tasks
-                tasks = [
-                    (audio.copy(), band_filters[i], band_gains[i], i)
-                    for i in range(num_bands)
-                ]
+            # Prepare tasks
+            tasks = [
+                (audio.copy(), band_filters[i], band_gains[i], i)
+                for i in range(num_bands)
+            ]
 
-                # Execute in parallel
-                future_to_band = {
-                    executor.submit(self._process_single_band_static, task): i
-                    for i, task in enumerate(tasks)
-                }
+            # Execute in parallel
+            future_to_band = {
+                executor.submit(self._process_single_band_static, task): i
+                for i, task in enumerate(tasks)
+            }
 
-                # Pre-compute unprocessed band signals as fallback for failed bands
-                # (return filtered + gain-corrected signal instead of silence —
-                # fixes #3430 and #3675: previously omitted the gain multiply
-                # so an EQ cut became a pass-through and a boost became neutral).
-                # #4572: copy per band — an in-place filter would otherwise
-                # corrupt `audio` for the remaining fallback entries.
-                band_fallbacks: list[np.ndarray] = [
-                    band_filters[i](audio.copy()) * (10 ** (band_gains[i] / 20))
-                    for i in range(num_bands)
-                ]
-                band_results: list[np.ndarray] = list(band_fallbacks)
-                for future in as_completed(future_to_band):
-                    band_i = future_to_band[future]
-                    try:
-                        idx, result = future.result()
-                        band_results[idx] = result
-                    except Exception as exc:
-                        warning(f"Band {band_i} processing failed (process pool), using unprocessed signal: {exc}")
+            # Pre-compute unprocessed band signals as fallback for failed bands
+            # (return filtered + gain-corrected signal instead of silence —
+            # fixes #3430 and #3675: previously omitted the gain multiply
+            # so an EQ cut became a pass-through and a boost became neutral).
+            # #4572: copy per band — an in-place filter would otherwise
+            # corrupt `audio` for the remaining fallback entries.
+            band_fallbacks: list[np.ndarray] = [
+                band_filters[i](audio.copy()) * (10 ** (band_gains[i] / 20))
+                for i in range(num_bands)
+            ]
+            band_results: list[np.ndarray] = list(band_fallbacks)
+            for future in as_completed(future_to_band):
+                band_i = future_to_band[future]
+                try:
+                    idx, result = future.result()
+                    band_results[idx] = result
+                except Exception as exc:
+                    warning(f"Band {band_i} processing failed (process pool), using unprocessed signal: {exc}")
         else:
             # Threading for lighter operations
-            with ThreadPoolExecutor(max_workers=num_workers) as executor:
-                # Pre-compute unprocessed band signals as fallback (#3430) BEFORE
-                # submitting workers so the main thread's reads of `audio` don't
-                # race with concurrent workers (#3355).
-                # #3675: include the gain multiply so a failed band contributes
-                # at its configured level (not 0 dB).
-                # #4572: copy per band, as above.
-                band_fallbacks = [
-                    band_filters[i](audio.copy()) * (10 ** (band_gains[i] / 20))
-                    for i in range(num_bands)
-                ]
+            # Pre-compute unprocessed band signals as fallback (#3430) BEFORE
+            # submitting workers so the main thread's reads of `audio` don't
+            # race with concurrent workers (#3355).
+            # #3675: include the gain multiply so a failed band contributes
+            # at its configured level (not 0 dB).
+            # #4572: copy per band, as above.
+            band_fallbacks = [
+                band_filters[i](audio.copy()) * (10 ** (band_gains[i] / 20))
+                for i in range(num_bands)
+            ]
 
-                # Submit tasks — each worker gets its own copy of `audio`
-                # so an in-place band filter cannot corrupt siblings (#3355).
-                futures_with_idx = [
-                    (i, executor.submit(self._process_single_band, audio.copy(), band_filters[i], band_gains[i], i))
-                    for i in range(num_bands)
-                ]
+            # Submit tasks — each worker gets its own copy of `audio`
+            # so an in-place band filter cannot corrupt siblings (#3355).
+            futures_with_idx = [
+                (i, executor.submit(self._process_single_band, audio.copy(), band_filters[i], band_gains[i], i))
+                for i in range(num_bands)
+            ]
 
-                band_results = list(band_fallbacks)
-                for band_i, future in futures_with_idx:
-                    try:
-                        idx, result = future.result()
-                        band_results[idx] = result
-                    except Exception as exc:
-                        warning(f"Band {band_i} processing failed (thread pool), using unprocessed signal: {exc}")
+            band_results = list(band_fallbacks)
+            for band_i, future in futures_with_idx:
+                try:
+                    idx, result = future.result()
+                    band_results[idx] = result
+                except Exception as exc:
+                    warning(f"Band {band_i} processing failed (thread pool), using unprocessed signal: {exc}")
 
         # #3760: sum all band results, preserving the input dtype.
         # `np.sum` promotes to the highest dtype seen across the worker
@@ -185,35 +196,35 @@ class ParallelBandProcessor:
     ) -> np.ndarray:
         """Process frequency bands in groups"""
         num_groups = len(band_groups)
-        num_workers = min(self.config.max_workers, num_groups)
+        # #3762: configured ceiling, pooled — see process_bands_parallel.
+        executor = self._executor_pool.get(self.config.max_workers, use_multiprocessing=False)
 
-        with ThreadPoolExecutor(max_workers=num_workers) as executor:
-            # Each group worker receives its own copy of `audio` so an
-            # in-place band filter cannot corrupt sibling groups (#3355).
-            futures = [
-                executor.submit(self._process_band_group, audio.copy(), band_filters, band_gains, group)
-                for group in band_groups
-            ]
+        # Each group worker receives its own copy of `audio` so an
+        # in-place band filter cannot corrupt sibling groups (#3355).
+        futures = [
+            executor.submit(self._process_band_group, audio.copy(), band_filters, band_gains, group)
+            for group in band_groups
+        ]
 
-            # Collect group results — failed groups fall back to unprocessed
-            # band sum for that group rather than silence (fixes #3430).
-            group_results: list[np.ndarray] = [np.zeros_like(audio) for _ in range(num_groups)]
-            for i, future in enumerate(futures):
-                try:
-                    group_results[i] = future.result()
-                except Exception as exc:
-                    warning(f"Band group {i} processing failed, using unprocessed signal: {exc}")
-                    # Fall back to gain-corrected sum of this group's bands.
-                    # #3675: include the gain multiply so the failed group's
-                    # contribution matches its configured per-band levels.
-                    for band_idx in band_groups[i]:
-                        # Pass a copy like the worker path (#4229): an in-place
-                        # band filter would otherwise corrupt `audio` for the
-                        # remaining fallback iterations.
-                        group_results[i] += (
-                            band_filters[band_idx](audio.copy())
-                            * (10 ** (band_gains[band_idx] / 20))
-                        )
+        # Collect group results — failed groups fall back to unprocessed
+        # band sum for that group rather than silence (fixes #3430).
+        group_results: list[np.ndarray] = [np.zeros_like(audio) for _ in range(num_groups)]
+        for i, future in enumerate(futures):
+            try:
+                group_results[i] = future.result()
+            except Exception as exc:
+                warning(f"Band group {i} processing failed, using unprocessed signal: {exc}")
+                # Fall back to gain-corrected sum of this group's bands.
+                # #3675: include the gain multiply so the failed group's
+                # contribution matches its configured per-band levels.
+                for band_idx in band_groups[i]:
+                    # Pass a copy like the worker path (#4229): an in-place
+                    # band filter would otherwise corrupt `audio` for the
+                    # remaining fallback iterations.
+                    group_results[i] += (
+                        band_filters[band_idx](audio.copy())
+                        * (10 ** (band_gains[band_idx] / 20))
+                    )
 
         # Sum all group results. Cast back to the input dtype (#4125): np.sum
         # promotes to the widest worker dtype, so a single float64 result (e.g.

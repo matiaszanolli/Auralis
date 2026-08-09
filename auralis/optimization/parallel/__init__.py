@@ -20,11 +20,13 @@ from .audio_processor import (
 from .band_processor import ParallelBandProcessor
 from .config import ParallelConfig
 from .decorators import parallelize
+from .executor_pool import ExecutorPool
 from .feature_extractor import ParallelFeatureExtractor
 from .fft_processor import ParallelFFTProcessor
 
 __all__ = [
     "ParallelConfig",
+    "ExecutorPool",
     "ParallelFFTProcessor",
     "ParallelBandProcessor",
     "ParallelFeatureExtractor",
