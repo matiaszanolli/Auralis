@@ -50,7 +50,7 @@ class MetadataUpdateRequest(BaseModel):
     lyrics: str | None = None
     copyright: str | None = None
 
-    model_config = {"extra": "forbid", "populate_by_name": True}
+    model_config = {"extra": "forbid", "validate_by_name": True, "validate_by_alias": True}
 
 
 class BatchMetadataUpdateRequest(BaseModel):
