@@ -9,6 +9,7 @@ Data access layer for user settings operations
 """
 
 import json
+import threading
 from typing import Any
 
 from sqlalchemy import delete, select
@@ -19,6 +20,16 @@ from .base import BaseRepository
 
 class SettingsRepository(BaseRepository):
     """Repository for user settings database operations"""
+
+    # Serializes the add_scan_folder/remove_scan_folder read-modify-write
+    # window. `select(...).with_for_update()` compiles to `SELECT ... FOR
+    # UPDATE` only on dialects with row-level locking; SQLAlchemy's SQLite
+    # dialect silently drops the clause, so it was a no-op there (#4956,
+    # regression of #3339). This project is SQLite-only (single-file
+    # `~/.auralis/library.db`), so an in-process lock is sufficient — it
+    # does not help multi-process/multi-host access, but the desktop app
+    # never does that.
+    _scan_folders_lock = threading.RLock()
 
     def get_settings(self) -> UserSettings | None:
         """
@@ -132,53 +143,51 @@ class SettingsRepository(BaseRepository):
         return self.update_settings({'scan_folders': folders})
 
     def add_scan_folder(self, folder: str) -> UserSettings:
-        """Add a new folder to scan list (atomic read-modify-write, #3339)."""
-        session = self.get_session()
-        try:
-            settings = session.execute(
-                select(UserSettings).with_for_update()
-            ).scalars().first()
-            if not settings:
-                settings = UserSettings()
-                session.add(settings)
+        """Add a new folder to scan list (atomic read-modify-write, #3339, #4956)."""
+        with self._scan_folders_lock:
+            session = self.get_session()
+            try:
+                settings = session.execute(select(UserSettings)).scalars().first()
+                if not settings:
+                    settings = UserSettings()
+                    session.add(settings)
 
-            folders: list[str] = json.loads(str(settings.scan_folders)) if settings.scan_folders else []
-            if folder not in folders:
-                folders.append(folder)
-                settings.scan_folders = json.dumps(folders)
+                folders: list[str] = json.loads(str(settings.scan_folders)) if settings.scan_folders else []
+                if folder not in folders:
+                    folders.append(folder)
+                    settings.scan_folders = json.dumps(folders)
 
-            session.commit()
-            session.refresh(settings)
-            session.expunge(settings)
-            return settings
-        except Exception:
-            session.rollback()
-            raise
-        finally:
-            session.close()
+                session.commit()
+                session.refresh(settings)
+                session.expunge(settings)
+                return settings
+            except Exception:
+                session.rollback()
+                raise
+            finally:
+                session.close()
 
     def remove_scan_folder(self, folder: str) -> UserSettings:
-        """Remove a folder from scan list (atomic read-modify-write, #3339)."""
-        session = self.get_session()
-        try:
-            settings = session.execute(
-                select(UserSettings).with_for_update()
-            ).scalars().first()
-            if not settings:
-                settings = UserSettings()
-                session.add(settings)
+        """Remove a folder from scan list (atomic read-modify-write, #3339, #4956)."""
+        with self._scan_folders_lock:
+            session = self.get_session()
+            try:
+                settings = session.execute(select(UserSettings)).scalars().first()
+                if not settings:
+                    settings = UserSettings()
+                    session.add(settings)
 
-            folders: list[str] = json.loads(str(settings.scan_folders)) if settings.scan_folders else []
-            if folder in folders:
-                folders.remove(folder)
-                settings.scan_folders = json.dumps(folders)
+                folders: list[str] = json.loads(str(settings.scan_folders)) if settings.scan_folders else []
+                if folder in folders:
+                    folders.remove(folder)
+                    settings.scan_folders = json.dumps(folders)
 
-            session.commit()
-            session.refresh(settings)
-            session.expunge(settings)
-            return settings
-        except Exception:
-            session.rollback()
-            raise
-        finally:
-            session.close()
+                session.commit()
+                session.refresh(settings)
+                session.expunge(settings)
+                return settings
+            except Exception:
+                session.rollback()
+                raise
+            finally:
+                session.close()
