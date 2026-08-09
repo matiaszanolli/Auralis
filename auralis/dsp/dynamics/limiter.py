@@ -176,9 +176,12 @@ class AdaptiveLimiter:
         # The previous negative origin looked *backward*, defeating the
         # purpose of the lookahead delay (mirrors BrickWallLimiter fix #3308).
         # #3688: dtype-match the zeros so this path doesn't latently promote
-        # float32 to float64. Currently masked by VectorizedEnvelopeFollower
-        # hard-coding float32 output downstream, but the local promotion is
-        # still wasteful and fragile under envelope-follower substitution.
+        # float32 to float64. VectorizedEnvelopeFollower no longer hard-codes
+        # float32 output downstream (#4934 fixed the numba path; #4225 fixed
+        # the vectorized path), so a float64 audio buffer now stays float64
+        # end-to-end through process_buffer() — this local dtype-match keeps
+        # that true starting here too, rather than depending on the
+        # downstream cast to correct an upstream promotion.
         padded = np.concatenate([abs_audio, np.zeros(lookahead, dtype=abs_audio.dtype)])
         # scipy requires -(size // 2) <= origin <= (size - 1) // 2. For even
         # `lookahead`, `+lookahead // 2` exceeds the upper bound and raises

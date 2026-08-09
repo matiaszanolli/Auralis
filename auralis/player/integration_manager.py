@@ -293,7 +293,11 @@ class IntegrationManager:
 
             # Find and try similar tracks as references
             repos = self._get_repos()
-            references, _ = repos.tracks.find_similar(track, limit=3)
+            # find_similar returns list[Track], not a 2-tuple (#4935) — the
+            # old `references, _ = ...` destructuring raised ValueError for
+            # any result count other than exactly 2, silently swallowed by
+            # the broad except below on almost every real invocation.
+            references = repos.tracks.find_similar(track, limit=3)
 
             for ref_track in references:
                 if Path(cast(str, ref_track.filepath)).exists():

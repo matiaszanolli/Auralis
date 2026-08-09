@@ -64,7 +64,9 @@ class VectorizedEnvelopeFollower:
             Array of envelope values
         """
         if len(input_levels) == 0:
-            return np.array([])
+            # Empty output must still match the caller's dtype (#4934), not
+            # silently default to float64 regardless of input_levels.dtype.
+            return np.array([], dtype=input_levels.dtype)
 
         # Allocate output inheriting the caller's dtype — forcing float32 here
         # silently downcast a float64 caller (#4225). compressor.py already
@@ -115,7 +117,12 @@ class VectorizedEnvelopeFollower:
         if len(output) > 0:
             self.envelope = output[-1]
 
-        return output.astype(np.float32, copy=False)
+        # Preserve the caller's dtype — hard-coding float32 here silently
+        # downcast a float64 caller (#4934, the numba-path sibling of the
+        # #4225 fix already applied to process_buffer_vectorized above).
+        # _process_envelope_numba's own np.zeros_like already produces the
+        # right dtype; this cast only needs to be a no-op when it already is.
+        return output.astype(input_levels.dtype, copy=False)
 
     def process_buffer(self, input_levels: np.ndarray) -> np.ndarray:
         """
