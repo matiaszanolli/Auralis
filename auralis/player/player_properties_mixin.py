@@ -24,24 +24,25 @@ class PlayerPropertiesMixin:
     sets on the same instance. (``position`` stays on AudioPlayer itself; see
     note below.)
 
-    Lock discipline (#4574) — every data-bearing setter here acquires the same
-    lock its readers hold, so a reader never observes a half-updated composite:
+    Lock discipline (#4574, #3785) — every data-bearing property here acquires
+    the same lock its counterpart writer holds, so a reader never observes a
+    half-updated composite and a writer never races a raw unlocked read:
 
     ==================  ====================================================
     Property            Guarding lock
     ==================  ====================================================
     ``current_track``   ``IntegrationManager._position_lock``, via
                         :py:meth:`IntegrationManager.set_current_track`
-    ``audio_data``      ``AudioFileManager._audio_lock`` (#3443)
+    ``audio_data``      ``AudioFileManager._audio_lock`` (#3443, write side)
     ``reference_data``  ``AudioFileManager._audio_lock``
-    ``sample_rate``     ``AudioFileManager._audio_lock``
-    ``current_file``    read-only here; written by ``AudioFileManager``
-                        under ``_audio_lock``
-    ``reference_file``  read-only here; written by ``AudioFileManager``
-                        under ``_audio_lock``
+    ``sample_rate``     ``AudioFileManager._audio_lock`` (#4574 write, #3785 read)
+    ``current_file``    read-only here, under ``AudioFileManager._audio_lock``
+                        (#3785); written by ``AudioFileManager`` under the
+                        same lock
+    ``reference_file``  read-only here, under ``AudioFileManager._audio_lock``
+                        (#3785); written by ``AudioFileManager`` under the
+                        same lock
     ==================  ====================================================
-
-    The raw *read* side of ``AudioFileManager`` is tracked separately by #3785.
     """
 
     file_manager: AudioFileManager
@@ -49,8 +50,9 @@ class PlayerPropertiesMixin:
 
     @property
     def current_file(self) -> str | None:
-        """Get current audio file path"""
-        return self.file_manager.current_file
+        """Get current audio file path (locked read, #3785)"""
+        with self.file_manager._audio_lock:
+            return self.file_manager.current_file
 
     @property
     def current_track(self) -> Any:
@@ -64,8 +66,9 @@ class PlayerPropertiesMixin:
 
     @property
     def reference_file(self) -> str | None:
-        """Get current reference file path"""
-        return self.file_manager.reference_file
+        """Get current reference file path (locked read, #3785)"""
+        with self.file_manager._audio_lock:
+            return self.file_manager.reference_file
 
     @property
     def audio_data(self) -> Any:
@@ -100,8 +103,9 @@ class PlayerPropertiesMixin:
 
     @property
     def sample_rate(self) -> int:
-        """Get current sample rate"""
-        return self.file_manager.sample_rate
+        """Get current sample rate (locked read, #3785)"""
+        with self.file_manager._audio_lock:
+            return self.file_manager.sample_rate
 
     @sample_rate.setter
     def sample_rate(self, value: int) -> None:

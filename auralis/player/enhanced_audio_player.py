@@ -289,14 +289,18 @@ class AudioPlayer(PlayerFingerprintLoaderMixin, PlayerPropertiesMixin):
             # lock-ordering issue.
             # #3781: defer_notifications() outer so load_and_stop()'s notify
             # fires after _audio_lock releases (see seek() for full rationale).
+            # #3785: capture current_file inside the same _audio_lock section
+            # rather than as a separate raw read after it releases — closes
+            # the window where a concurrent load/advance could swap
+            # current_file between load_and_stop() and the read.
             with self.playback.defer_notifications(), self.file_manager._audio_lock:
                 self.playback.load_and_stop()
+                current_file = self.file_manager.current_file
             # IntegrationManager.load_track_from_library() calls
             # file_manager.load_file() internally, which sets current_file.
             # Schedule the fingerprint loader here (the player wrapper
             # bypasses AudioPlayer.load_file()) so adaptive mastering picks
             # up the new track instead of keeping the previous one (#3463).
-            current_file = self.file_manager.current_file
             if current_file:
                 self._schedule_fingerprint_load(current_file)
             self.gapless.start_prebuffering()

@@ -222,10 +222,16 @@ class IntegrationManager:
             state_info = {}
         # Enrich state info with current context (atomic snapshot, fixes #2899)
         with self._position_lock:
+            # #3785: current_file is AudioFileManager state written under its
+            # own _audio_lock, not _position_lock — read it under _audio_lock
+            # too instead of as a raw attribute access, closing the torn/stale
+            # read window against a concurrent load/advance.
+            with self.file_manager._audio_lock:
+                current_file = self.file_manager.current_file
             state_info.update({
                 'position_seconds': self._get_position_seconds(),
                 'duration_seconds': self.file_manager.get_duration(),
-                'current_file': self.file_manager.current_file,
+                'current_file': current_file,
                 # Pre-materialised at assignment time (#4552) — no ORM access,
                 # and therefore no SQL, under _position_lock.
                 'current_track': self._current_track_dict,
@@ -342,11 +348,17 @@ class IntegrationManager:
             # between the two reads can't produce an inconsistent snapshot
             # (e.g. state="paused" + is_playing=True).
             state_value, is_playing = self.playback.get_state_snapshot()
+            # #3785: current_file is AudioFileManager state written under its
+            # own _audio_lock — read it under _audio_lock rather than as a
+            # raw attribute access (matches the _position_lock -> _audio_lock
+            # order already used by _get_position_seconds() just above).
+            with self.file_manager._audio_lock:
+                current_file = self.file_manager.current_file
             playback_info = {
                 'state': state_value,
                 'position_seconds': self._get_position_seconds(),
                 'duration_seconds': self.file_manager.get_duration(),
-                'current_file': self.file_manager.current_file,
+                'current_file': current_file,
                 'is_playing': is_playing,
             }
             # #4102: read current_track inside the SAME _position_lock block
