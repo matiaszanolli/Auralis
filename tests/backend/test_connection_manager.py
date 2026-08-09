@@ -56,7 +56,7 @@ class TestBroadcastDisconnectSafety:
 
         # Make ws1.send_text disconnect ws2 mid-broadcast
         async def disconnect_ws2(*_args, **_kwargs):
-            manager.disconnect(ws2)
+            await manager.disconnect(ws2)
 
         ws1.send_text = AsyncMock(side_effect=disconnect_ws2)
 
@@ -122,7 +122,7 @@ class TestBroadcastDisconnectSafety:
             if call_count == 1:
                 # First send: remove ws_drop so second iteration would crash
                 # without the snapshot fix
-                manager.disconnect(ws_drop)
+                await manager.disconnect(ws_drop)
 
         ws_keep.send_text = AsyncMock(side_effect=drop_on_second)
 
@@ -130,6 +130,99 @@ class TestBroadcastDisconnectSafety:
 
         assert ws_keep in manager.active_connections
         assert ws_drop not in manager.active_connections
+
+
+class TestBroadcastConcurrency:
+    """Regression tests for #3867 — broadcast must not serialise on one client."""
+
+    @pytest.mark.asyncio
+    async def test_slow_client_does_not_delay_other_clients(self):
+        """A slow client must not push the others' sends out behind it.
+
+        Serial iteration made client N wait for the cumulative send time of
+        clients 0..N-1. With concurrent sends the fast clients complete while
+        the slow one is still blocked, so the total wall-clock is one slow
+        send, not the sum.
+        """
+        manager = ConnectionManager()
+
+        slow_delay = 0.2
+        slow_ws = _make_ws()
+
+        async def slow_send(*_args, **_kwargs):
+            await asyncio.sleep(slow_delay)
+
+        slow_ws.send_text = AsyncMock(side_effect=slow_send)
+
+        fast_connections = [_make_ws() for _ in range(4)]
+        # Slow client first so a serial loop would block every fast client.
+        manager.active_connections = [slow_ws, *fast_connections]
+
+        loop = asyncio.get_running_loop()
+        start = loop.time()
+        completion_times: list[float] = []
+
+        for ws in fast_connections:
+            ws.send_text = AsyncMock(
+                side_effect=lambda *_a, **_kw: completion_times.append(loop.time())
+            )
+
+        await manager.broadcast({"type": "state"})
+
+        assert len(completion_times) == 4
+        # Every fast client was served well before the slow one finished.
+        for finished_at in completion_times:
+            assert finished_at - start < slow_delay / 2
+
+        # And nobody was evicted: a slow-but-within-timeout client stays.
+        assert manager.active_connections == [slow_ws, *fast_connections]
+
+    @pytest.mark.asyncio
+    async def test_broadcast_costs_one_timeout_not_n(self, monkeypatch):
+        """N wedged clients cost one timeout total, not N sequential timeouts."""
+        import config.globals as globals_module
+
+        monkeypatch.setattr(globals_module, "BROADCAST_SEND_TIMEOUT", 0.1)
+
+        async def never_completes(*_args, **_kwargs):
+            await asyncio.sleep(3600)
+
+        manager = ConnectionManager()
+        wedged = [_make_ws() for _ in range(5)]
+        for ws in wedged:
+            ws.send_text = AsyncMock(side_effect=never_completes)
+        manager.active_connections = list(wedged)
+
+        loop = asyncio.get_running_loop()
+        start = loop.time()
+        await manager.broadcast({"type": "state"})
+        elapsed = loop.time() - start
+
+        # Serial would be 5 x 0.1s; concurrent is a single 0.1s window.
+        assert elapsed < 0.3
+        # All five exceeded the timeout and were evicted.
+        assert manager.active_connections == []
+
+    @pytest.mark.asyncio
+    async def test_healthy_clients_survive_a_wedged_peer(self, monkeypatch):
+        """Only the timed-out connection is evicted; healthy peers still get the frame."""
+        import config.globals as globals_module
+
+        monkeypatch.setattr(globals_module, "BROADCAST_SEND_TIMEOUT", 0.1)
+
+        async def never_completes(*_args, **_kwargs):
+            await asyncio.sleep(3600)
+
+        manager = ConnectionManager()
+        wedged_ws = _make_ws()
+        wedged_ws.send_text = AsyncMock(side_effect=never_completes)
+        healthy_ws = _make_ws()
+        manager.active_connections = [wedged_ws, healthy_ws]
+
+        await manager.broadcast({"type": "state"})
+
+        assert manager.active_connections == [healthy_ws]
+        healthy_ws.send_text.assert_awaited_once()
 
 
 # ---------------------------------------------------------------------------

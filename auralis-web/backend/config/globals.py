@@ -128,9 +128,30 @@ class ConnectionManager:
             else:
                 logger.debug(f"WebSocket disconnect called for {client_id} but connection not in list (already removed)")
 
+    async def _send_to(self, connection: WebSocket, message_json: str) -> None:
+        """Send one already-encoded frame to one client, bounded by a timeout.
+
+        #4581: Starlette applies backpressure, so a client that stops draining
+        its socket makes send_text block until the OS buffer clears — which
+        could be forever for a suspended Electron renderer or a half-open TCP
+        connection. Every caller awaiting broadcast() inherited that stall, and
+        PlaybackService held _playback_lock across it, freezing all transport
+        controls. A client that cannot accept a frame within the timeout is
+        treated exactly like one that raised: evicted.
+        """
+        await asyncio.wait_for(
+            connection.send_text(message_json),
+            timeout=BROADCAST_SEND_TIMEOUT,
+        )
+
     async def broadcast(self, message: dict[str, Any]) -> None:
         """
         Broadcast message to all connected clients.
+
+        Sends run concurrently (#3867): a serial loop made every client wait out
+        the slowest one, so a single wedged client added BROADCAST_SEND_TIMEOUT
+        to the latency of every client behind it in the list. With gather, the
+        whole broadcast costs one timeout at worst regardless of client count.
 
         Automatically removes stale connections that fail to receive messages,
         including ones that are merely *stuck* rather than errored.
@@ -143,32 +164,27 @@ class ConnectionManager:
         async with self._lock:
             connections_snapshot = list(self.active_connections)
 
+        if not connections_snapshot:
+            return
+
         message_json = json.dumps(message)
 
-        for connection in connections_snapshot:
-            try:
-                # #4581: bound the per-client send. Starlette applies
-                # backpressure, so a client that stops draining its socket
-                # makes send_text block until the OS buffer clears — which
-                # could be forever for a suspended Electron renderer or a
-                # half-open TCP connection. Every caller awaiting broadcast()
-                # inherited that stall, and PlaybackService held
-                # _playback_lock across it, freezing all transport controls.
-                # A client that cannot accept a frame within the timeout is
-                # treated exactly like one that raised: evicted.
-                await asyncio.wait_for(
-                    connection.send_text(message_json),
-                    timeout=BROADCAST_SEND_TIMEOUT,
-                )
-            except TimeoutError:
-                stale_connections.append(connection)
+        results = await asyncio.gather(
+            *(self._send_to(connection, message_json) for connection in connections_snapshot),
+            return_exceptions=True,
+        )
+
+        for connection, result in zip(connections_snapshot, results):
+            if not isinstance(result, BaseException):
+                continue
+            stale_connections.append(connection)
+            if isinstance(result, TimeoutError):
                 logger.warning(
                     f"WebSocket send exceeded {BROADCAST_SEND_TIMEOUT}s — "
                     f"marking connection stale for removal"
                 )
-            except Exception as e:
-                stale_connections.append(connection)
-                logger.debug(f"Marking stale connection for removal: {e}")
+            else:
+                logger.debug(f"Marking stale connection for removal: {result}")
 
         if stale_connections:
             async with self._lock:
