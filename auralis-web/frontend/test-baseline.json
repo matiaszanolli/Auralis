@@ -1,8 +1,8 @@
 {
   "_comment": "Known-failing vitest specs (#4640). CI fails on any failure NOT listed here. Regenerate with: pnpm run test:baseline:update",
   "generatedFrom": {
-    "totalTests": 3342,
-    "failedTests": 139
+    "totalTests": 3383,
+    "failedTests": 127
   },
   "failures": [
     "src/components/__tests__/Sidebar.test.tsx::Sidebar renders in collapsed state",
@@ -108,7 +108,6 @@
     "src/hooks/fingerprint/__tests__/useFingerprintCache.test.ts::useCachedFingerprint should return cached fingerprint",
     "src/hooks/fingerprint/__tests__/useFingerprintCache.test.ts::useFingerprintCacheStats should return cache statistics",
     "src/hooks/fingerprint/__tests__/useFingerprintCache.test.ts::useIsFingerprintCached should return true when track is cached",
-    "src/hooks/fingerprint/__tests__/useTrackFingerprint.test.ts::useTrackFingerprint should set error on non-404 failure",
     "src/hooks/player/__tests__/usePlayerDisplay.test.ts::usePlayerDisplay Hook Edge Cases should handle NaN values",
     "src/hooks/player/__tests__/usePlayerDisplay.test.ts::usePlayerDisplay Hook Edge Cases should handle negative currentTime",
     "src/hooks/player/__tests__/usePlayerDisplay.test.ts::usePlayerDisplay Hook Long Duration Formatting should force show hours when requested",
@@ -124,17 +123,6 @@
     "src/performance/__tests__/lazyLoader.test.tsx::Lazy Loader Fallback Components should render default error fallback",
     "src/performance/__tests__/lazyLoader.test.tsx::Lazy Loader Fallback Components should render default loading fallback",
     "src/performance/__tests__/lazyLoader.test.tsx::Lazy Loader Fallback Components should render error fallback without error message",
-    "src/services/__tests__/similarityService.test.ts::SimilarityService buildGraph should build K-NN graph with custom k",
-    "src/services/__tests__/similarityService.test.ts::SimilarityService buildGraph should build K-NN graph with default k",
-    "src/services/__tests__/similarityService.test.ts::SimilarityService compareTracks should compare two tracks",
-    "src/services/__tests__/similarityService.test.ts::SimilarityService explainSimilarity should explain similarity between tracks",
-    "src/services/__tests__/similarityService.test.ts::SimilarityService explainSimilarity should use default topN parameter",
-    "src/services/__tests__/similarityService.test.ts::SimilarityService findSimilar should find similar tracks with custom limit",
-    "src/services/__tests__/similarityService.test.ts::SimilarityService findSimilar should find similar tracks with default parameters",
-    "src/services/__tests__/similarityService.test.ts::SimilarityService findSimilar should find similar tracks without graph",
-    "src/services/__tests__/similarityService.test.ts::SimilarityService fit should fit similarity system with default parameters",
-    "src/services/__tests__/similarityService.test.ts::SimilarityService fit should fit with custom min_samples",
-    "src/services/__tests__/similarityService.test.ts::SimilarityService getGraphStats should get graph statistics",
     "src/store/middleware/__tests__/loggerMiddleware.test.ts::Logger Middleware should track state changes",
     "src/tests/api-integration/library-api.test.ts::Library API Integration Tests Album Endpoints should fetch album by ID",
     "src/tests/api-integration/library-api.test.ts::Library API Integration Tests Album Endpoints should fetch album tracks",

@@ -649,7 +649,7 @@ describe('CozyArtistList', () => {
   });
 
   describe('Edge Cases', () => {
-    it('should handle response with null artists array', async () => {
+    it('should reject a response with a null artists array', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -664,7 +664,7 @@ describe('CozyArtistList', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText(/No Artists Yet/)).toBeInTheDocument();
+        expect(screen.getByText(/Error Loading Artists/)).toBeInTheDocument();
       });
     });
 

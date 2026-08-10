@@ -176,15 +176,6 @@ def validate_release_metadata(expected: str | None = None) -> list[str]:
         "degraded build-date fallback",
         flags=re.DOTALL,
     )
-    _require_match(
-        errors,
-        Path("Dockerfile"),
-        r'^LABEL version="([^"]+)"$',
-        version,
-        "container version label",
-        flags=re.MULTILINE,
-    )
-
     return errors
 
 

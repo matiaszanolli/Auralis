@@ -7,7 +7,7 @@
 ## Preparation
 
 - [x] Canonical version advanced to `1.5.1`.
-- [x] Python package, compatibility module, backend fallback, container, root package,
+- [x] Python package, compatibility module, backend fallback, root package,
   frontend, desktop, and packaging metadata aligned.
 - [x] Canonical changelog updated.
 - [x] Release notes written.

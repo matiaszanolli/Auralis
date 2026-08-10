@@ -2,8 +2,33 @@ name: Build Release Binaries
 
 on:
   push:
+    branches:
+      - master
     tags:
       - 'v*'
+    paths:
+      - 'auralis/version.py'
+      - 'auralis/__version__.py'
+      - 'auralis-web/backend/routers/health.py'
+      - 'auralis-web/frontend/package.json'
+      - 'desktop/package.json'
+      - 'package.json'
+      - 'pyproject.toml'
+      - 'scripts/validate_release_metadata.py'
+      - 'tests/validation/test_release_version_consistency.py'
+      - '.github/workflows/build-release.yml'
+  pull_request:
+    paths:
+      - 'auralis/version.py'
+      - 'auralis/__version__.py'
+      - 'auralis-web/backend/routers/health.py'
+      - 'auralis-web/frontend/package.json'
+      - 'desktop/package.json'
+      - 'package.json'
+      - 'pyproject.toml'
+      - 'scripts/validate_release_metadata.py'
+      - 'tests/validation/test_release_version_consistency.py'
+      - '.github/workflows/build-release.yml'
   workflow_dispatch:
     inputs:
       version:
@@ -39,8 +64,12 @@ jobs:
         run: |
           if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
             VERSION="$RELEASE_INPUT"
-          else
+          elif [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             VERSION="${GITHUB_REF_NAME#v}"
+          else
+            # Push/PR runs are a cheap metadata preflight. The cross-platform
+            # binary jobs below remain limited to manual dispatches and tags.
+            VERSION="$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")"
           fi
 
           python scripts/validate_release_metadata.py --expected "$VERSION"
@@ -55,6 +84,7 @@ jobs:
 
   build-linux:
     needs: prepare
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
@@ -211,6 +241,7 @@ jobs:
 
   build-windows:
     needs: prepare
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
     runs-on: windows-2025
     timeout-minutes: 45
     env:
@@ -343,6 +374,7 @@ jobs:
 
   build-macos:
     needs: prepare
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
     runs-on: macos-15
     timeout-minutes: 45
     env:
@@ -544,11 +576,8 @@ jobs:
           prerelease: ${{ needs.prepare.outputs.is_prerelease }}
           generate_release_notes: true
           fail_on_unmatched_files: true
-          files: |
-            artifacts/*.AppImage
-            artifacts/*.deb
-            artifacts/*.flatpak
-            artifacts/*.exe
-            artifacts/*.dmg
-            artifacts/SHA256SUMS.txt
-            artifacts/SHA256SUMS.txt.asc
+          # The checksum signature is optional until the repository signing
+          # key is provisioned. Every file in this directory came from one of
+          # the explicitly verified build artifacts above, plus the generated
+          # checksum and optional signature.
+          files: artifacts/*

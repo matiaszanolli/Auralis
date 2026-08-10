@@ -19,7 +19,7 @@ The complete evidence and implementation order are in the
 
 ## Included in this preparation
 
-- Product, compatibility, backend, Python packaging, container, root package, frontend, and
+- Product, compatibility, backend, Python packaging, root package, frontend, and
   desktop metadata aligned on `1.5.1`.
 - Backend version reporting moved back to the canonical `auralis/version.py` product version.
 - Version synchronization expanded to cover every derived release surface.

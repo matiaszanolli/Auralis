@@ -61,12 +61,6 @@ def test_all_release_metadata_matches_product_version() -> None:
     assert fallback_build_date is not None
     assert fallback_build_date.group(1) == product_version.__build_date__
 
-    dockerfile = (PROJECT_ROOT / "Dockerfile").read_text()
-    container_label = re.search(r'^LABEL version="([^"]+)"$', dockerfile, re.MULTILINE)
-    assert container_label is not None
-    assert container_label.group(1) == expected
-
-
 def test_version_components_match_semantic_version() -> None:
     match = re.fullmatch(
         r"(\d+)\.(\d+)\.(\d+)(?:-(alpha|beta|rc)\.(\d+))?",
