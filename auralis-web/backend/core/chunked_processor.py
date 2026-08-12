@@ -65,7 +65,7 @@ from core.encoding.atomic_io import (
 )
 from encoding.wav_encoder import WAVEncoderError
 from core.file_signature import FileSignatureService  # Phase 5.1: File signature generation
-from core.level_manager import LevelManager
+from core.level_manager import MAX_LEVEL_CHANGE_DB, LevelManager  # noqa: F401  (re-exported, see below)
 from core.mastering_target_service import (
     get_mastering_target_service,  # Singleton accessor (#4749: was constructed fresh per instance)
 )
@@ -126,7 +126,13 @@ _last_content_profiles_lock = threading.Lock()
 # comes from chunk_boundaries — the single source of truth (#4024) — re-exported
 # via the import above so existing `from core.chunked_processor import …` call
 # sites keep working.
-MAX_LEVEL_CHANGE_DB = 1.5  # maximum allowed level change between chunks in dB
+#
+# MAX_LEVEL_CHANGE_DB follows the same rule (#4284): it is owned by level_manager
+# (whose LevelManager applies it) and re-exported from the import above, rather
+# than redeclared here. The redeclared copy only re-supplied LevelManager's own
+# default, so tuning one without the other would have left this module and
+# LevelManager silently disagreeing on level-change tolerance across chunk
+# boundaries — the failure mode of #4124.
 
 
 class ChunkedAudioProcessor:
@@ -196,7 +202,9 @@ class ChunkedAudioProcessor:
         total_duration_valid: float = self.total_duration or 0.0  # Fallback to 0 if somehow None
         sample_rate_valid: int = self.sample_rate or 44100  # Fallback to standard sample rate
         self._boundary_manager: Any = ChunkBoundaryManager(total_duration_valid, sample_rate_valid)
-        self._level_manager: Any = LevelManager(max_level_change_db=MAX_LEVEL_CHANGE_DB)
+        # No max_level_change_db argument: LevelManager's own default IS
+        # MAX_LEVEL_CHANGE_DB, so passing it back in was a no-op (#4284).
+        self._level_manager: Any = LevelManager()
         self._wav_encoder: Any = WAVEncoder(chunk_dir=self.chunk_dir, default_subtype='PCM_16')
         self._processor_factory: Any = get_processor_factory()  # Phase 2: Use singleton
         self._mastering_target_service: Any = get_mastering_target_service()
@@ -524,7 +532,9 @@ class ChunkedAudioProcessor:
         )
 
         # Trim context (keep only the actual chunk) (Phase 5.1: Using ChunkBoundaryManager)
-        processed_chunk = self._boundary_manager.trim_context(cast(np.ndarray, processed_chunk), chunk_index)
+        # No cast(): processed_chunk is already np.ndarray here, so the cast was
+        # redundant and mypy flagged it.
+        processed_chunk = self._boundary_manager.trim_context(processed_chunk, chunk_index)
 
         # Validate chunk is not empty before smooth transitions
         if len(processed_chunk) == 0:

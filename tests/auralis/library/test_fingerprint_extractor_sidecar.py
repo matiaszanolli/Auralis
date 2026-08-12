@@ -4,14 +4,21 @@
 Integration tests for FingerprintExtractor with .25d sidecar caching
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Tests the integration between FingerprintExtractor and SidecarManager
+Tests the integration between FingerprintExtractor and SidecarManager.
+
+Every test here patched `fingerprint_extractor.load_audio` plus
+`analyzer.analyze`, the two-call shape the extractor used before #4595
+replaced them with a single `compute_windowed_fingerprint()` delegation. Once
+that symbol was gone, `mock.patch` raised AttributeError at setup and all 13
+tests failed before reaching an assertion — a dead file, not a passing one.
+They now patch the one seam that actually exists, so "did the slow path run?"
+is a single mock's call count rather than two mocks that could disagree.
 
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3, see LICENSE for more details.
 """
 
 import time
-from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
@@ -19,6 +26,10 @@ import pytest
 from auralis.__version__ import FINGERPRINT_ALGORITHM_VERSION
 from auralis.services.fingerprint_extractor import FingerprintExtractor
 from auralis.library.sidecar_manager import SidecarManager
+
+# The single seam the slow path goes through since #4595. Patching this stands
+# in for "the audio was loaded and analysed".
+_COMPUTE = 'auralis.services.fingerprint_extractor.compute_windowed_fingerprint'
 
 
 @pytest.fixture
@@ -105,34 +116,29 @@ def test_extractor_initializes_with_sidecar_disabled(mock_repository):
 
 # ===== Cache Hit Tests =====
 
-@patch('auralis.services.fingerprint_extractor.load_audio')
-def test_cache_hit_skips_audio_analysis(mock_load_audio, extractor_with_sidecar, temp_audio_file, sample_fingerprint):
+@patch(_COMPUTE)
+def test_cache_hit_skips_audio_analysis(mock_compute, extractor_with_sidecar, temp_audio_file, sample_fingerprint):
     """Test that valid sidecar file skips audio loading and analysis"""
-    # Create valid sidecar file
     sidecar_data = {'fingerprint': sample_fingerprint, 'metadata': {}}
     extractor_with_sidecar.sidecar_manager.write(temp_audio_file, sidecar_data)
 
-    # Extract fingerprint
     success = extractor_with_sidecar.extract_and_store(track_id=1, filepath=str(temp_audio_file))
 
-    # Should succeed
     assert success
 
-    # Should NOT load audio (cache hit)
-    mock_load_audio.assert_not_called()
+    # Should NOT analyse the audio (cache hit)
+    mock_compute.assert_not_called()
 
     # Should store in repository
     extractor_with_sidecar.fingerprint_repo.upsert.assert_called_once_with(1, sample_fingerprint)
 
 
-@patch('auralis.services.fingerprint_extractor.load_audio')
-def test_cache_hit_performance(mock_load_audio, extractor_with_sidecar, temp_audio_file, sample_fingerprint):
+@patch(_COMPUTE)
+def test_cache_hit_performance(mock_compute, extractor_with_sidecar, temp_audio_file, sample_fingerprint):
     """Test that cache hit is significantly faster than analysis"""
-    # Create valid sidecar file
     sidecar_data = {'fingerprint': sample_fingerprint, 'metadata': {}}
     extractor_with_sidecar.sidecar_manager.write(temp_audio_file, sidecar_data)
 
-    # Measure extraction time with cache
     start = time.perf_counter()
     success = extractor_with_sidecar.extract_and_store(track_id=1, filepath=str(temp_audio_file))
     elapsed = time.perf_counter() - start
@@ -140,238 +146,184 @@ def test_cache_hit_performance(mock_load_audio, extractor_with_sidecar, temp_aud
     assert success
     # Should be very fast (< 50ms)
     assert elapsed < 0.05
-    # Should not load audio
-    mock_load_audio.assert_not_called()
+    mock_compute.assert_not_called()
 
 
 # ===== Cache Miss Tests =====
 
-@patch('auralis.services.fingerprint_extractor.load_audio')
-def test_cache_miss_performs_analysis(mock_load_audio, extractor_with_sidecar, temp_audio_file, sample_fingerprint):
+@patch(_COMPUTE)
+def test_cache_miss_performs_analysis(mock_compute, extractor_with_sidecar, temp_audio_file, sample_fingerprint):
     """Test that missing sidecar file triggers audio analysis"""
-    import numpy as np
+    mock_compute.return_value = sample_fingerprint
 
-    # Setup mocks - need numpy array, not list
-    mock_audio = (np.array([0.1, 0.2, 0.3]), 44100)
-    mock_load_audio.return_value = mock_audio
+    success = extractor_with_sidecar.extract_and_store(track_id=1, filepath=str(temp_audio_file))
 
-    # Mock analyzer's analyze method on the existing instance
-    with patch.object(extractor_with_sidecar.analyzer, 'analyze', return_value=sample_fingerprint) as mock_analyze:
-        # Extract fingerprint (no sidecar exists)
-        success = extractor_with_sidecar.extract_and_store(track_id=1, filepath=str(temp_audio_file))
+    assert success
 
-        # Should succeed
-        assert success
+    # Should analyse the audio, and for THIS file
+    mock_compute.assert_called_once()
+    _analyzer, analysed_path = mock_compute.call_args[0]
+    assert analysed_path == temp_audio_file
 
-        # Should load audio
-        mock_load_audio.assert_called_once_with(str(temp_audio_file))
-
-        # Should analyze audio
-        mock_analyze.assert_called_once()
-
-        # Should store in repository
-        extractor_with_sidecar.fingerprint_repo.upsert.assert_called_once_with(1, sample_fingerprint)
+    extractor_with_sidecar.fingerprint_repo.upsert.assert_called_once_with(1, sample_fingerprint)
 
 
-@patch('auralis.services.fingerprint_extractor.load_audio')
-def test_cache_miss_creates_sidecar(mock_load_audio, extractor_with_sidecar, temp_audio_file, sample_fingerprint):
+@patch(_COMPUTE)
+def test_cache_miss_creates_sidecar(mock_compute, extractor_with_sidecar, temp_audio_file, sample_fingerprint):
     """Test that analysis creates sidecar file for future speedup"""
-    import numpy as np
+    mock_compute.return_value = sample_fingerprint
 
-    # Setup mocks
-    mock_audio = (np.array([0.1, 0.2, 0.3]), 44100)
-    mock_load_audio.return_value = mock_audio
-
-    # No sidecar exists initially
     assert not extractor_with_sidecar.sidecar_manager.exists(temp_audio_file)
 
-    # Mock analyzer
-    with patch.object(extractor_with_sidecar.analyzer, 'analyze', return_value=sample_fingerprint):
-        # Extract fingerprint
-        success = extractor_with_sidecar.extract_and_store(track_id=1, filepath=str(temp_audio_file))
-        assert success
+    success = extractor_with_sidecar.extract_and_store(track_id=1, filepath=str(temp_audio_file))
+    assert success
 
-    # Sidecar should now exist
     assert extractor_with_sidecar.sidecar_manager.exists(temp_audio_file)
-
-    # Sidecar should be valid
     assert extractor_with_sidecar.sidecar_manager.is_valid(temp_audio_file)
 
-    # Sidecar should contain correct fingerprint
     cached_fp = extractor_with_sidecar.sidecar_manager.get_fingerprint(temp_audio_file)
     assert cached_fp == sample_fingerprint
 
 
 # ===== Invalid Cache Tests =====
 
-@patch('auralis.services.fingerprint_extractor.load_audio')
-def test_invalid_sidecar_triggers_reanalysis(mock_load_audio, extractor_with_sidecar, temp_audio_file, sample_fingerprint):
+@patch(_COMPUTE)
+def test_invalid_sidecar_triggers_reanalysis(mock_compute, extractor_with_sidecar, temp_audio_file, sample_fingerprint):
     """Test that invalid sidecar file triggers re-analysis"""
-    import numpy as np
-
-    # Create invalid sidecar (corrupted JSON)
+    # Corrupted JSON
     sidecar_path = extractor_with_sidecar.sidecar_manager.get_sidecar_path(temp_audio_file)
     sidecar_path.parent.mkdir(parents=True, exist_ok=True)
     sidecar_path.write_text("{ invalid json }")
 
-    # Setup mocks
-    mock_audio = (np.array([0.1, 0.2, 0.3]), 44100)
-    mock_load_audio.return_value = mock_audio
+    mock_compute.return_value = sample_fingerprint
 
-    # Mock analyzer
-    with patch.object(extractor_with_sidecar.analyzer, 'analyze', return_value=sample_fingerprint) as mock_analyze:
-        # Extract fingerprint
-        success = extractor_with_sidecar.extract_and_store(track_id=1, filepath=str(temp_audio_file))
+    success = extractor_with_sidecar.extract_and_store(track_id=1, filepath=str(temp_audio_file))
 
-        # Should succeed
-        assert success
-
-        # Should perform analysis (cache invalid)
-        mock_load_audio.assert_called_once()
-        mock_analyze.assert_called_once()
+    assert success
+    # Should perform analysis (cache invalid)
+    mock_compute.assert_called_once()
 
 
-@patch('auralis.services.fingerprint_extractor.load_audio')
-def test_modified_audio_invalidates_cache(mock_load_audio, extractor_with_sidecar, temp_audio_file, sample_fingerprint):
+@patch(_COMPUTE)
+def test_modified_audio_invalidates_cache(mock_compute, extractor_with_sidecar, temp_audio_file, sample_fingerprint):
     """Test that modified audio file invalidates sidecar cache"""
-    import numpy as np
-
-    # Create valid sidecar
     sidecar_data = {'fingerprint': sample_fingerprint, 'metadata': {}}
     extractor_with_sidecar.sidecar_manager.write(temp_audio_file, sidecar_data)
     assert extractor_with_sidecar.sidecar_manager.is_valid(temp_audio_file)
 
-    # Modify audio file
     time.sleep(0.1)  # Ensure timestamp changes
     temp_audio_file.write_text("modified audio data")
 
-    # Sidecar should now be invalid
     assert not extractor_with_sidecar.sidecar_manager.is_valid(temp_audio_file)
 
-    # Setup mocks
-    mock_audio = (np.array([0.1, 0.2, 0.3]), 44100)
-    mock_load_audio.return_value = mock_audio
+    mock_compute.return_value = sample_fingerprint
 
-    # Mock analyzer
-    with patch.object(extractor_with_sidecar.analyzer, 'analyze', return_value=sample_fingerprint):
-        # Extract fingerprint
-        success = extractor_with_sidecar.extract_and_store(track_id=1, filepath=str(temp_audio_file))
+    success = extractor_with_sidecar.extract_and_store(track_id=1, filepath=str(temp_audio_file))
 
-        # Should succeed with re-analysis
-        assert success
-        mock_load_audio.assert_called_once()
+    assert success
+    mock_compute.assert_called_once()
+
+
+@patch(_COMPUTE)
+def test_stale_algorithm_version_triggers_reanalysis(mock_compute, extractor_with_sidecar, temp_audio_file, sample_fingerprint):
+    """A sidecar from an older algorithm version must not be trusted.
+
+    Complements the corrupt/modified cases above: the sidecar is perfectly
+    valid and complete here, and is rejected purely on version.
+    """
+    stale = dict(sample_fingerprint, fingerprint_version=FINGERPRINT_ALGORITHM_VERSION - 1)
+    extractor_with_sidecar.sidecar_manager.write(
+        temp_audio_file, {'fingerprint': stale, 'metadata': {}}
+    )
+    mock_compute.return_value = sample_fingerprint
+
+    success = extractor_with_sidecar.extract_and_store(track_id=1, filepath=str(temp_audio_file))
+
+    assert success
+    mock_compute.assert_called_once()
+    # The row stored is the freshly computed one, at the current version.
+    _tid, stored = extractor_with_sidecar.fingerprint_repo.upsert.call_args[0]
+    assert stored['fingerprint_version'] == FINGERPRINT_ALGORITHM_VERSION
 
 
 # ===== Disabled Sidecar Tests =====
 
-@patch('auralis.services.fingerprint_extractor.load_audio')
-def test_disabled_sidecar_always_analyzes(mock_load_audio, extractor_without_sidecar, temp_audio_file, sample_fingerprint):
+@patch(_COMPUTE)
+def test_disabled_sidecar_always_analyzes(mock_compute, extractor_without_sidecar, temp_audio_file, sample_fingerprint):
     """Test that disabling sidecars forces audio analysis"""
-    import numpy as np
-
     # Create sidecar file (should be ignored)
     sidecar_manager = SidecarManager()
     sidecar_data = {'fingerprint': sample_fingerprint, 'metadata': {}}
     sidecar_manager.write(temp_audio_file, sidecar_data)
 
-    # Setup mocks
-    mock_audio = (np.array([0.1, 0.2, 0.3]), 44100)
-    mock_load_audio.return_value = mock_audio
+    mock_compute.return_value = sample_fingerprint
 
-    # Mock analyzer
-    with patch.object(extractor_without_sidecar.analyzer, 'analyze', return_value=sample_fingerprint) as mock_analyze:
-        # Extract fingerprint
-        success = extractor_without_sidecar.extract_and_store(track_id=1, filepath=str(temp_audio_file))
+    success = extractor_without_sidecar.extract_and_store(track_id=1, filepath=str(temp_audio_file))
 
-        # Should succeed
-        assert success
-
-        # Should ALWAYS analyze (sidecar disabled)
-        mock_load_audio.assert_called_once()
-        mock_analyze.assert_called_once()
+    assert success
+    # Should ALWAYS analyze (sidecar disabled)
+    mock_compute.assert_called_once()
 
 
-@patch('auralis.services.fingerprint_extractor.load_audio')
-def test_disabled_sidecar_never_writes(mock_load_audio, extractor_without_sidecar, temp_audio_file, sample_fingerprint):
+@patch(_COMPUTE)
+def test_disabled_sidecar_never_writes(mock_compute, extractor_without_sidecar, temp_audio_file, sample_fingerprint):
     """Test that disabling sidecars prevents writing"""
-    import numpy as np
+    mock_compute.return_value = sample_fingerprint
 
-    # Setup mocks
-    mock_audio = (np.array([0.1, 0.2, 0.3]), 44100)
-    mock_load_audio.return_value = mock_audio
+    success = extractor_without_sidecar.extract_and_store(track_id=1, filepath=str(temp_audio_file))
+    assert success
 
-    # Mock analyzer
-    with patch.object(extractor_without_sidecar.analyzer, 'analyze', return_value=sample_fingerprint):
-        # Extract fingerprint
-        success = extractor_without_sidecar.extract_and_store(track_id=1, filepath=str(temp_audio_file))
-        assert success
-
-    # No sidecar should be created
     sidecar_manager = SidecarManager()
     assert not sidecar_manager.exists(temp_audio_file)
 
 
 # ===== Incomplete Fingerprint Tests =====
 
-def test_incomplete_fingerprint_not_used(extractor_with_sidecar, temp_audio_file, sample_fingerprint):
+@patch(_COMPUTE)
+def test_incomplete_fingerprint_not_used(mock_compute, extractor_with_sidecar, temp_audio_file, sample_fingerprint):
     """Test that sidecar with incomplete fingerprint is rejected"""
-    import numpy as np
-
-    # Create sidecar with incomplete fingerprint
     incomplete_fp = {"lufs": -14.0}  # Only 1 dimension
     sidecar_data = {'fingerprint': incomplete_fp, 'metadata': {}}
     extractor_with_sidecar.sidecar_manager.write(temp_audio_file, sidecar_data)
 
     # Analyzer returns a complete 25D fingerprint on the fresh analysis pass.
-    with patch('auralis.services.fingerprint_extractor.load_audio') as mock_load, \
-         patch.object(extractor_with_sidecar.analyzer, 'analyze', return_value=sample_fingerprint):
+    mock_compute.return_value = sample_fingerprint
 
-        mock_load.return_value = (np.array([0.1, 0.2, 0.3]), 44100)
+    success = extractor_with_sidecar.extract_and_store(track_id=1, filepath=str(temp_audio_file))
 
-        # Extract fingerprint
-        success = extractor_with_sidecar.extract_and_store(track_id=1, filepath=str(temp_audio_file))
-
-        # Should fall back to analysis (incomplete sidecar fingerprint)
-        assert success
-        mock_load.assert_called_once()
+    # Should fall back to analysis (incomplete sidecar fingerprint)
+    assert success
+    mock_compute.assert_called_once()
 
 
 # ===== Batch Extraction Tests =====
 
-@patch('auralis.services.fingerprint_extractor.load_audio')
-def test_batch_extraction_cache_statistics(mock_load_audio, extractor_with_sidecar, tmp_path, sample_fingerprint):
+@patch(_COMPUTE)
+def test_batch_extraction_cache_statistics(mock_compute, extractor_with_sidecar, tmp_path, sample_fingerprint):
     """Test batch extraction tracks cache hit statistics"""
-    import numpy as np
-
     # Create 3 files: 2 with cache, 1 without
     files = [tmp_path / f"track{i}.flac" for i in range(3)]
     for f in files:
         f.write_text("audio data")
 
-    # Create sidecars for first 2 files
     sidecar_data = {'fingerprint': sample_fingerprint, 'metadata': {}}
     for f in files[:2]:
         extractor_with_sidecar.sidecar_manager.write(f, sidecar_data)
 
-    # Setup mocks
-    mock_load_audio.return_value = (np.array([0.1, 0.2, 0.3]), 44100)
+    mock_compute.return_value = sample_fingerprint
 
-    # Prepare batch
-    track_ids_paths = [(i+1, str(f)) for i, f in enumerate(files)]
+    track_ids_paths = [(i + 1, str(f)) for i, f in enumerate(files)]
 
-    # Extract batch (analyzer returns a complete fingerprint on the uncached file)
-    with patch.object(extractor_with_sidecar.analyzer, 'analyze', return_value=sample_fingerprint):
-        stats = extractor_with_sidecar.extract_batch(track_ids_paths)
+    stats = extractor_with_sidecar.extract_batch(track_ids_paths)
 
-    # Should have 3 successes
     assert stats['success'] == 3
     assert stats['failed'] == 0
     assert stats['skipped'] == 0
     # 2 cached, 1 analyzed
     assert stats['cached'] == 2
 
-    # Audio should only be loaded once (for uncached file)
-    assert mock_load_audio.call_count == 1
+    # Audio should only be analysed once (for the uncached file)
+    assert mock_compute.call_count == 1
 
 
 # ===== Error Handling Tests =====
@@ -385,58 +337,56 @@ def test_nonexistent_audio_file_fails_gracefully(extractor_with_sidecar, tmp_pat
     assert not success
 
 
-@patch('auralis.services.fingerprint_extractor.load_audio')
-def test_audio_loading_error_fails_gracefully(mock_load_audio, extractor_with_sidecar, temp_audio_file):
+@patch(_COMPUTE)
+def test_audio_loading_error_fails_gracefully(mock_compute, extractor_with_sidecar, temp_audio_file):
     """Test extraction fails gracefully when audio loading fails"""
-    # Make load_audio raise exception
-    mock_load_audio.side_effect = RuntimeError("Failed to load audio")
+    mock_compute.side_effect = RuntimeError("Failed to load audio")
 
     success = extractor_with_sidecar.extract_and_store(track_id=1, filepath=str(temp_audio_file))
 
     assert not success
 
 
-@patch('auralis.services.fingerprint_extractor.load_audio')
-def test_analysis_error_fails_gracefully(mock_load_audio, extractor_with_sidecar, temp_audio_file):
+@patch(_COMPUTE)
+def test_analysis_error_fails_gracefully(mock_compute, extractor_with_sidecar, temp_audio_file):
     """Test extraction fails gracefully when analysis fails"""
-    import numpy as np
+    mock_compute.side_effect = RuntimeError("Analysis failed")
 
-    mock_audio = (np.array([0.1]), 44100)
-    mock_load_audio.return_value = mock_audio
+    success = extractor_with_sidecar.extract_and_store(track_id=1, filepath=str(temp_audio_file))
 
-    # Mock analyzer to raise error
-    with patch.object(extractor_with_sidecar.analyzer, 'analyze', side_effect=RuntimeError("Analysis failed")):
-        success = extractor_with_sidecar.extract_and_store(track_id=1, filepath=str(temp_audio_file))
+    assert not success
 
-        assert not success
+
+@patch(_COMPUTE)
+def test_analysis_returning_nothing_fails_gracefully(mock_compute, extractor_with_sidecar, temp_audio_file):
+    """compute_windowed_fingerprint returns None on failure rather than raising (#4595)."""
+    mock_compute.return_value = None
+
+    success = extractor_with_sidecar.extract_and_store(track_id=1, filepath=str(temp_audio_file))
+
+    assert not success
+    extractor_with_sidecar.fingerprint_repo.upsert.assert_not_called()
 
 
 # ===== Real-World Workflow Tests =====
 
-@patch('auralis.services.fingerprint_extractor.load_audio')
-def test_two_pass_workflow(mock_load_audio, extractor_with_sidecar, temp_audio_file, sample_fingerprint):
+@patch(_COMPUTE)
+def test_two_pass_workflow(mock_compute, extractor_with_sidecar, temp_audio_file, sample_fingerprint):
     """Test typical two-pass workflow: first scan (slow), second scan (fast)"""
-    import numpy as np
+    mock_compute.return_value = sample_fingerprint
 
-    # Setup mocks
-    mock_audio = (np.array([0.1]), 44100)
-    mock_load_audio.return_value = mock_audio
+    # First pass: No cache, performs analysis
+    success1 = extractor_with_sidecar.extract_and_store(track_id=1, filepath=str(temp_audio_file))
+    assert success1
+    assert mock_compute.call_count == 1
 
-    # Mock analyzer
-    with patch.object(extractor_with_sidecar.analyzer, 'analyze', return_value=sample_fingerprint):
-        # First pass: No cache, performs analysis
-        success1 = extractor_with_sidecar.extract_and_store(track_id=1, filepath=str(temp_audio_file))
-        assert success1
-        assert mock_load_audio.call_count == 1
-
-    # Reset repository mock
     extractor_with_sidecar.fingerprint_repo.upsert.reset_mock()
 
     # Second pass: Cache exists, skips analysis
     success2 = extractor_with_sidecar.extract_and_store(track_id=1, filepath=str(temp_audio_file))
     assert success2
-    # Audio loading count unchanged (cache hit)
-    assert mock_load_audio.call_count == 1
+    # Analysis count unchanged (cache hit)
+    assert mock_compute.call_count == 1
 
     # Repository should be updated in both passes
     assert extractor_with_sidecar.fingerprint_repo.upsert.call_count == 1

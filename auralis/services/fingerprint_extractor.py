@@ -9,14 +9,22 @@ Extracts 25D audio fingerprints during library scanning
 """
 
 import gc
+import time
 from pathlib import Path
 from typing import Any
 
 from ..analysis.fingerprint import AudioFingerprintAnalyzer
+from ..analysis.fingerprint.metrics.constants import FINGERPRINT_DIMENSION_NAMES
 from ..analysis.fingerprint.windowed_compute import compute_windowed_fingerprint
 from ..__version__ import FINGERPRINT_ALGORITHM_VERSION
 from ..library.sidecar_manager import SidecarManager
 from ..utils.logging import debug, error, info, warning
+
+
+# Decoded audio can reach 1.8-3.6 GB; with many concurrent workers a >300 MB
+# FLAC drives 32-48 GB peak across 16 workers, so oversized files are skipped
+# rather than fingerprinted (#2896).
+MAX_FINGERPRINT_FILE_SIZE_MB = 300.0
 
 
 class CorruptedTrackError(Exception):
@@ -78,7 +86,9 @@ class FingerprintExtractor:
             return False
 
         try:
-            deleted = self.track_repo.delete(track_id)
+            # bool(): track_repo is an untyped `Any`, so its return would
+            # otherwise leak Any out of a `-> bool` signature.
+            deleted = bool(self.track_repo.delete(track_id))
             if deleted:
                 info(f"Automatically deleted corrupted track {track_id} from database: {filepath}")
             else:
@@ -106,134 +116,158 @@ class FingerprintExtractor:
         Returns:
             True if successful, False otherwise
         """
-        import time
         try:
-            time.time()
             filepath_obj = Path(filepath)
-            fingerprint = None
-            cached = False
 
-            # Try to load from .25d sidecar file (fast path)
-            if self.use_sidecar_files and self.sidecar_manager:
-                if self.sidecar_manager.is_valid(filepath_obj):
-                    fingerprint = self.sidecar_manager.get_fingerprint(filepath_obj)
-                    # Fingerprint should have 25 dimensions, may also include fingerprint_version
-                    if fingerprint and len(fingerprint) >= 25:
-                        # Reject sidecar fingerprints computed with an older algorithm version
-                        sidecar_version = int(fingerprint.get('fingerprint_version', 1))
-                        if sidecar_version < FINGERPRINT_ALGORITHM_VERSION:
-                            warning(
-                                f"Sidecar fingerprint for track {track_id} is v{sidecar_version} "
-                                f"(current: v{FINGERPRINT_ALGORITHM_VERSION}), re-extracting"
-                            )
-                            fingerprint = None
-                        else:
-                            info(f"Loaded fingerprint from .25d file for track {track_id}")
-                            cached = True
-                    else:
-                        warning(f"Invalid fingerprint in .25d file, will re-analyze")
-                        fingerprint = None
+            # Strategy 1: the .25d sidecar (fast path, ~1 ms).
+            fingerprint = self._load_sidecar_fingerprint(track_id, filepath_obj)
+            cached = fingerprint is not None
 
-            # No cached fingerprint — compute it with the in-process analyzer.
-            if not fingerprint:
-                file_size_mb = Path(filepath).stat().st_size / (1024 * 1024)
+            # Strategy 2: analyse the audio (slow path, ~75 s).
+            if fingerprint is None:
+                fingerprint = self._compute_fingerprint(track_id, filepath_obj)
 
-                # Skip very large files: decoded audio can be 1.8-3.6 GB and, with many
-                # concurrent workers, cause OOM (>300 MB FLAC → 32-48 GB peak with 16 workers).
-                if file_size_mb > 300:
-                    warning(f"Skipping fingerprint for large file ({file_size_mb:.1f}MB): {filepath}")
-                    return False
-
-                # #4595: use the SINGLE shared windowing implementation rather
-                # than a local load + first-90s crop + single-window analyze.
-                # This path previously truncated to the first 90 s from the
-                # START, which systematically under-reads LUFS when a track
-                # opens on an ambient intro (validated: RMSE 1.96 dB, max
-                # 9.2 dB vs 1.07 / 3.6 for the body+probe strategy). Because
-                # the background queue almost always wins the race to write the
-                # DB row, essentially every scanned track was stamped with the
-                # less accurate fingerprint and never recomputed.
-                #
-                # compute_windowed_fingerprint() does its own bounded loading
-                # (body window + two 30 s probes at the analysis rate), so it
-                # never materialises the whole decoded file — which also
-                # preserves the #2896 OOM protection this crop provided.
-                try:
-                    debug(f"Extracting fingerprint for track {track_id}")
-                    fingerprint = compute_windowed_fingerprint(
-                        self.analyzer, Path(filepath)
-                    )
-                finally:
-                    # Release any large intermediates promptly; with many
-                    # concurrent workers these accumulate and cause unbounded
-                    # memory growth.
-                    gc.collect()
-
-            # compute_windowed_fingerprint() returns None on any failure, where the
-            # previous analyzer.analyze() call always returned a dict (possibly {}).
-            # Guard explicitly so the .items() filter below cannot raise (#4595).
-            if not fingerprint:
-                warning(f"Fingerprint computation returned nothing for track {track_id}")
+            if fingerprint is None:
                 return False
 
-            # Filter out metadata keys (like '_harmonic_analysis_method') that shouldn't be stored
-            # Keep only the 25 actual fingerprint dimensions
-            expected_keys = {
-                'sub_bass_pct', 'bass_pct', 'low_mid_pct', 'mid_pct', 'upper_mid_pct', 'presence_pct', 'air_pct',
-                'lufs', 'crest_db', 'bass_mid_ratio',
-                'tempo_bpm', 'rhythm_stability', 'transient_density', 'silence_ratio',
-                'spectral_centroid', 'spectral_rolloff', 'spectral_flatness',
-                'harmonic_ratio', 'pitch_stability', 'chroma_energy',
-                'stereo_width', 'phase_correlation', 'dynamic_range_variation', 'loudness_variation_std', 'peak_consistency'
-            }
-            fingerprint = {k: v for k, v in fingerprint.items() if k in expected_keys}
-
-            # Reject empty/incomplete fingerprints so zero-vectors are never stored (#3306)
-            if len(fingerprint) < len(expected_keys):
-                warning(
-                    f"Fingerprint incomplete for track {track_id}: "
-                    f"{len(fingerprint)}/{len(expected_keys)} dimensions. Skipping storage."
-                )
+            fingerprint = self._prepare_for_storage(track_id, fingerprint)
+            if fingerprint is None:
                 return False
 
-            # Add fingerprint_version so the DB row records which algorithm produced it.
-            # Uses the single authoritative constant — bump FINGERPRINT_ALGORITHM_VERSION
-            # in auralis/__version__.py to trigger re-fingerprinting of old rows.
-            fingerprint['fingerprint_version'] = FINGERPRINT_ALGORITHM_VERSION
-
-            # Store in database
-            result = self.fingerprint_repo.upsert(track_id, fingerprint)
-
-            if result:
-                # Note: fingerprint_started_at is cleared by the worker after processing
-                # (This prevents tracks from timing out and being reprocessed)
-
-                # Write .25d sidecar file (if not cached and feature enabled)
-                if not cached and self.use_sidecar_files and self.sidecar_manager:
-                    # Extract basic track metadata for sidecar file
-                    metadata = {
-                        'track_id': track_id,
-                        'filename': filepath_obj.name,
-                        'file_extension': filepath_obj.suffix,
-                        'file_size_bytes': filepath_obj.stat().st_size,
-                        'extracted_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
-                    }
-
-                    sidecar_data = {
-                        'fingerprint': fingerprint,
-                        'metadata': metadata
-                    }
-                    self.sidecar_manager.write(filepath_obj, sidecar_data)
-
-                info(f"Fingerprint {'loaded from cache' if cached else 'extracted'} and stored for track {track_id}")
-                return True
-            else:
+            if not self.fingerprint_repo.upsert(track_id, fingerprint):
                 error(f"Failed to store fingerprint for track {track_id}")
                 return False
+
+            # Note: fingerprint_started_at is cleared by the worker after processing
+            # (This prevents tracks from timing out and being reprocessed)
+            if not cached:
+                self._write_sidecar(track_id, filepath_obj, fingerprint)
+
+            info(
+                f"Fingerprint {'loaded from cache' if cached else 'extracted'} "
+                f"and stored for track {track_id}"
+            )
+            return True
 
         except Exception as e:
             error(f"Error extracting fingerprint for track {track_id} ({filepath}): {e}")
             return False
+
+    def _load_sidecar_fingerprint(self, track_id: int, filepath_obj: Path) -> dict[str, Any] | None:
+        """Load a usable fingerprint from the track's .25d sidecar, if any.
+
+        Returns None whenever the sidecar cannot be trusted — feature disabled,
+        missing/stale file, too few dimensions, or computed by an older
+        algorithm version — which routes the caller to a fresh analysis.
+        """
+        if not (self.use_sidecar_files and self.sidecar_manager):
+            return None
+        if not self.sidecar_manager.is_valid(filepath_obj):
+            return None
+
+        fingerprint = self.sidecar_manager.get_fingerprint(filepath_obj)
+        # A sidecar fingerprint carries the 25 dimensions and may also carry
+        # fingerprint_version, hence >= rather than ==.
+        if not fingerprint or len(fingerprint) < len(FINGERPRINT_DIMENSION_NAMES):
+            warning("Invalid fingerprint in .25d file, will re-analyze")
+            return None
+
+        # Reject sidecar fingerprints computed with an older algorithm version.
+        sidecar_version = int(fingerprint.get('fingerprint_version', 1))
+        if sidecar_version < FINGERPRINT_ALGORITHM_VERSION:
+            warning(
+                f"Sidecar fingerprint for track {track_id} is v{sidecar_version} "
+                f"(current: v{FINGERPRINT_ALGORITHM_VERSION}), re-extracting"
+            )
+            return None
+
+        info(f"Loaded fingerprint from .25d file for track {track_id}")
+        return fingerprint
+
+    def _compute_fingerprint(self, track_id: int, filepath_obj: Path) -> dict[str, Any] | None:
+        """Analyse the audio file with the in-process windowed analyzer.
+
+        Returns None if the file is too large to analyse safely, or if the
+        analyzer could not produce a fingerprint.
+        """
+        file_size_mb = filepath_obj.stat().st_size / (1024 * 1024)
+        if file_size_mb > MAX_FINGERPRINT_FILE_SIZE_MB:
+            warning(
+                f"Skipping fingerprint for large file ({file_size_mb:.1f}MB): {filepath_obj}"
+            )
+            return None
+
+        # #4595: use the SINGLE shared windowing implementation rather
+        # than a local load + first-90s crop + single-window analyze.
+        # This path previously truncated to the first 90 s from the
+        # START, which systematically under-reads LUFS when a track
+        # opens on an ambient intro (validated: RMSE 1.96 dB, max
+        # 9.2 dB vs 1.07 / 3.6 for the body+probe strategy). Because
+        # the background queue almost always wins the race to write the
+        # DB row, essentially every scanned track was stamped with the
+        # less accurate fingerprint and never recomputed.
+        #
+        # compute_windowed_fingerprint() does its own bounded loading
+        # (body window + two 30 s probes at the analysis rate), so it
+        # never materialises the whole decoded file — which also
+        # preserves the #2896 OOM protection the size guard above provides.
+        try:
+            debug(f"Extracting fingerprint for track {track_id}")
+            fingerprint = compute_windowed_fingerprint(self.analyzer, filepath_obj)
+        finally:
+            # Release any large intermediates promptly; with many
+            # concurrent workers these accumulate and cause unbounded
+            # memory growth.
+            gc.collect()
+
+        # compute_windowed_fingerprint() returns None on any failure, where the
+        # previous analyzer.analyze() call always returned a dict (possibly {}).
+        # Guard explicitly so the caller's .items() filter cannot raise (#4595).
+        if not fingerprint:
+            warning(f"Fingerprint computation returned nothing for track {track_id}")
+            return None
+        return fingerprint
+
+    def _prepare_for_storage(
+        self, track_id: int, fingerprint: dict[str, Any]
+    ) -> dict[str, Any] | None:
+        """Strip metadata keys, reject incomplete vectors, stamp the version.
+
+        Returns None when the fingerprint is missing dimensions, so a partial
+        vector is never stored as if it were complete (#3306).
+        """
+        stored = {k: v for k, v in fingerprint.items() if k in FINGERPRINT_DIMENSION_NAMES}
+
+        if len(stored) < len(FINGERPRINT_DIMENSION_NAMES):
+            warning(
+                f"Fingerprint incomplete for track {track_id}: "
+                f"{len(stored)}/{len(FINGERPRINT_DIMENSION_NAMES)} dimensions. Skipping storage."
+            )
+            return None
+
+        # Record which algorithm produced this row. Uses the single authoritative
+        # constant — bump FINGERPRINT_ALGORITHM_VERSION in auralis/__version__.py
+        # to trigger re-fingerprinting of old rows.
+        stored['fingerprint_version'] = FINGERPRINT_ALGORITHM_VERSION
+        return stored
+
+    def _write_sidecar(
+        self, track_id: int, filepath_obj: Path, fingerprint: dict[str, Any]
+    ) -> None:
+        """Write the freshly computed fingerprint out as a .25d sidecar."""
+        if not (self.use_sidecar_files and self.sidecar_manager):
+            return
+
+        self.sidecar_manager.write(filepath_obj, {
+            'fingerprint': fingerprint,
+            'metadata': {
+                'track_id': track_id,
+                'filename': filepath_obj.name,
+                'file_extension': filepath_obj.suffix,
+                'file_size_bytes': filepath_obj.stat().st_size,
+                'extracted_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+            },
+        })
 
     def extract_batch(self, track_ids_paths: list[tuple[int, str]], max_failures: int = 10) -> dict[str, int]:
         """

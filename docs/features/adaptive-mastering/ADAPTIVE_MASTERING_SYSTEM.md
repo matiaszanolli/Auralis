@@ -43,7 +43,6 @@ Extracts 7-key audio metrics using librosa for classification:
 - `MasteringFingerprint.compare()`: Calculate before/after differences
 - `MasteringFingerprint.classify_quality()`: Classify as premium/professional/commercial/damaged/poor
 - `analyze_album()`: Batch analyze all tracks in directory with album-level statistics
-- `compare_albums()`: Compare originals vs remasters and calculate deltas
 
 **Used By:** Adaptive engine for incoming audio classification
 

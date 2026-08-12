@@ -56,9 +56,21 @@ class TestSingleImplementation:
     def test_extractor_delegates_to_shared_function(self):
         from auralis.services import fingerprint_extractor as fx
 
-        src = inspect.getsource(fx.FingerprintExtractor.extract_and_store)
+        # Asserted against the whole module, not inspect.getsource() of one
+        # method: #4283 split extract_and_store into strategy helpers, moving
+        # this call into _compute_fingerprint. The #4595 invariant is "the
+        # extractor delegates to the shared windowing rather than re-inlining
+        # it" — a module-level check enforces exactly that and survives further
+        # method reshuffling, matching the two sibling tests below.
+        src = Path(fx.__file__).read_text()
         assert "compute_windowed_fingerprint" in src, (
             "FingerprintExtractor no longer uses the shared windowing (#4595)"
+        )
+        assert "compute_windowed_fingerprint" in inspect.getsource(
+            fx.FingerprintExtractor._compute_fingerprint
+        ), (
+            "the shared windowing call left FingerprintExtractor._compute_fingerprint "
+            "— if the strategy split changed, point this test at its new home (#4283)"
         )
 
     def test_no_windowing_constants_remain_in_either_old_site(self):

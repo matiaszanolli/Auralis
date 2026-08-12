@@ -163,6 +163,37 @@ def test_max_level_change_is_reasonable():
     )
 
 
+@pytest.mark.unit
+def test_max_level_change_has_a_single_owner():
+    """INVARIANT: level_manager owns MAX_LEVEL_CHANGE_DB; others re-export it (#4284).
+
+    chunked_processor used to redeclare `MAX_LEVEL_CHANGE_DB = 1.5` verbatim,
+    re-supplying LevelManager's own default. Values matched, so nothing broke —
+    but tuning one site without the other would leave the processor and the
+    LevelManager silently disagreeing on level-change tolerance across chunk
+    boundaries, which is the failure mode of #4124. `is` rather than `==`: an
+    equal-but-separate copy is exactly what this forbids.
+    """
+    from core import chunked_processor, level_manager
+
+    assert chunked_processor.MAX_LEVEL_CHANGE_DB is level_manager.MAX_LEVEL_CHANGE_DB, (
+        "chunked_processor re-declares MAX_LEVEL_CHANGE_DB instead of re-exporting "
+        "level_manager's — the two can now drift apart (#4284)"
+    )
+
+
+@pytest.mark.unit
+def test_level_manager_default_is_the_shared_constant():
+    """A LevelManager built with no argument uses the one shared tolerance.
+
+    ChunkedAudioProcessor now constructs `LevelManager()` argument-free, so the
+    default is what actually governs chunk-boundary smoothing in production.
+    """
+    from core.level_manager import MAX_LEVEL_CHANGE_DB as OWNED, LevelManager
+
+    assert LevelManager().max_level_change_db == OWNED
+
+
 # ============================================================================
 # Chunk Boundary Invariant Tests (P0 Priority)
 # ============================================================================
