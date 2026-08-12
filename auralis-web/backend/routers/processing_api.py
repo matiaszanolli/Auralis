@@ -21,7 +21,7 @@ from typing import Any, Literal
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from core.processing_engine import ProcessingEngine, ProcessingStatus
-from pydantic import BaseModel, ValidationError, model_validator
+from pydantic import BaseModel, Field, ValidationError, model_validator
 from security.path_security import PathValidationError, validate_file_path
 
 from .dependencies import with_error_handling
@@ -169,6 +169,26 @@ class QueueStatusResponse(BaseModel):
 class PresetsResponse(BaseModel):
     """Available processing presets"""
     presets: dict[str, Any]
+
+
+class ProcessingParametersResponse(BaseModel):
+    """Live auto-mastering parameters from the continuous-space system.
+
+    `is_default` distinguishes "no measurement yet" from real measurements
+    that happen to land on the default values (#3779) — both branches return
+    200 with the same field set.
+    """
+    is_default: bool = Field(description="True when these are placeholders, not measurements")
+    spectral_balance: float = Field(description="Spectral-balance coordinate (0–1)")
+    dynamic_range: float = Field(description="Dynamic-range coordinate (0–1)")
+    energy_level: float = Field(description="Energy-level coordinate (0–1)")
+    target_lufs: float = Field(description="Target integrated loudness (LUFS)")
+    peak_target_db: float = Field(description="Target true peak (dBFS)")
+    bass_boost: float = Field(description="Low-shelf gain (dB)")
+    air_boost: float = Field(description="High-shelf gain (dB)")
+    compression_amount: float = Field(description="Compression amount (0–1)")
+    expansion_amount: float = Field(description="Expansion amount (0–1)")
+    stereo_width: float = Field(description="Target stereo width")
 
 
 class CleanupResponse(BaseModel):
@@ -616,7 +636,7 @@ def create_processing_router(
         return {"presets": presets}
 
 
-    @router.get("/parameters")
+    @router.get("/parameters", response_model=ProcessingParametersResponse)
     async def get_processing_parameters() -> dict[str, Any]:
         """
         Get current processing parameters from the continuous space system.

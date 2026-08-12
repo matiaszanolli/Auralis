@@ -15,6 +15,7 @@ from collections.abc import Callable
 
 from cache import StreamlinedCacheManager
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
 
 # The canonical, fully-typed contracts (#3548 / BE-NEW-90, #4755): this router
 # used to declare its own same-named CacheStatsResponse/TrackCacheStatus with
@@ -27,6 +28,17 @@ from fastapi import APIRouter, HTTPException
 from schemas import CacheHealthResponse, CacheStatsResponse, TrackCacheStatusResponse
 
 logger = logging.getLogger(__name__)
+
+
+class ClearTrackCacheResponse(BaseModel):
+    """Result of clearing one track's cached chunks."""
+    message: str = Field(description="Human-readable confirmation")
+    removed: int = Field(description="Number of cached chunks removed")
+
+
+class ClearCacheResponse(BaseModel):
+    """Result of clearing every cache tier."""
+    message: str = Field(description="Human-readable confirmation")
 
 
 def _require_cache(
@@ -120,7 +132,7 @@ def create_streamlined_cache_router(
             logger.exception(f"Error getting track cache status (track {track_id})")
             raise HTTPException(status_code=500, detail="Failed to get track cache status")
 
-    @router.delete("/track/{track_id}")
+    @router.delete("/track/{track_id}", response_model=ClearTrackCacheResponse)
     async def clear_track_cache(track_id: int) -> dict[str, Any]:
         """Clear cached data for a single track."""
         cache_manager = _require_cache(get_cache_manager)
@@ -131,7 +143,7 @@ def create_streamlined_cache_router(
             logger.exception(f"Error clearing cache for track {track_id}")
             raise HTTPException(status_code=500, detail="Failed to clear track cache")
 
-    @router.post("/clear")
+    @router.post("/clear", response_model=ClearCacheResponse)
     async def clear_cache() -> dict[str, str]:
         """
         Clear all caches (Tier 1 and Tier 2).

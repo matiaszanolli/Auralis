@@ -18,12 +18,66 @@ from typing import Any
 from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel, Field
 
 from .errors import NotFoundError
 from .dependencies import require_repository_factory
 from .similarity_common import _with_similarity_error_handling
 
 logger = logging.getLogger(__name__)
+
+
+class FingerprintQueueStatusResponse(BaseModel):
+    """On-demand fingerprint queue status.
+
+    Every field but `available` is optional because this route reports
+    failures as a 200-OK body rather than an HTTPException: an uninitialized
+    queue returns `{available: False, message}` and an internal error returns
+    `{available: False, error, ref}`, neither of which carries queue counters.
+    """
+    available: bool = Field(description="False when the queue is absent or errored")
+    queued: int | None = Field(default=None, description="Tracks waiting in the queue")
+    processing: int | None = Field(default=None, description="Track ID being processed, if any")
+    completed: int | None = Field(default=None, description="Fingerprints generated")
+    failed: int | None = Field(default=None, description="Failed generation attempts")
+    started_at: str | None = Field(default=None, description="Worker start time (ISO 8601)")
+    is_running: bool | None = Field(default=None, description="True while the worker is active")
+    message: str | None = Field(default=None, description="Explanation when unavailable")
+    error: str | None = Field(default=None, description="Error code when the read failed")
+    ref: str | None = Field(default=None, description="Correlation id for the server-side log (#3331)")
+
+
+class EnqueueFingerprintResponse(BaseModel):
+    """Result of enqueueing one track for fingerprinting.
+
+    `track_id` is absent on the already-fingerprinted early return, which
+    exits before the queue is consulted.
+    """
+    enqueued: bool = Field(description="True when the track was added to the queue")
+    track_id: int | None = Field(default=None, description="Track that was enqueued")
+    reason: str = Field(description="Why the track was or was not enqueued")
+
+
+class EnqueueAllFingerprintsResponse(BaseModel):
+    """Result of a batch enqueue of every track missing a fingerprint.
+
+    `skipped` / `pending_after` are absent on the nothing-to-do early return.
+    """
+    enqueued: int = Field(description="Tracks added to the queue")
+    skipped: int | None = Field(default=None, description="Tracks already queued or processing")
+    already_fingerprinted: int = Field(description="Tracks that already had a fingerprint")
+    total_tracks: int = Field(description="Total tracks in the library")
+    pending_after: int | None = Field(default=None, description="Tracks still missing a fingerprint")
+    message: str = Field(description="Human-readable summary")
+
+
+class FingerprintStatsResponse(BaseModel):
+    """Library-wide fingerprint coverage."""
+    total_tracks: int = Field(description="Total tracks in the library")
+    fingerprinted: int = Field(description="Tracks with a fingerprint")
+    pending: int = Field(description="Tracks still missing a fingerprint")
+    progress_percent: float = Field(description="Coverage percentage (0–100)")
+    message: str = Field(description="Human-readable summary")
 
 
 def create_fingerprint_queue_router(
@@ -40,7 +94,7 @@ def create_fingerprint_queue_router(
     """
     router = APIRouter(prefix="/api/similarity", tags=["fingerprint-queue"])
 
-    @router.get("/fingerprint-queue/status")
+    @router.get("/fingerprint-queue/status", response_model=FingerprintQueueStatusResponse)
     async def get_fingerprint_queue_status() -> dict[str, Any]:
         """
         Get status of the on-demand fingerprint generation queue.
@@ -87,7 +141,7 @@ def create_fingerprint_queue_router(
                 "ref": ref,
             }
 
-    @router.post("/fingerprint-queue/enqueue/{track_id}")
+    @router.post("/fingerprint-queue/enqueue/{track_id}", response_model=EnqueueFingerprintResponse)
     @_with_similarity_error_handling("Error enqueueing track")
     async def enqueue_fingerprint(track_id: int) -> dict[str, Any]:
         """
@@ -130,7 +184,7 @@ def create_fingerprint_queue_router(
             "reason": "Added to queue" if added else "Already queued or processing"
         }
 
-    @router.post("/fingerprint-queue/enqueue-all")
+    @router.post("/fingerprint-queue/enqueue-all", response_model=EnqueueAllFingerprintsResponse)
     @_with_similarity_error_handling("Error batch enqueueing tracks")
     async def enqueue_all_missing_fingerprints(
         limit: int = Query(None, ge=1, le=10000, description="Maximum tracks to enqueue (default: all)")
@@ -202,7 +256,7 @@ def create_fingerprint_queue_router(
             "message": f"Enqueued {enqueued_count} tracks for background fingerprinting"
         }
 
-    @router.get("/fingerprint-stats")
+    @router.get("/fingerprint-stats", response_model=FingerprintStatsResponse)
     @_with_similarity_error_handling("Error getting fingerprint stats")
     async def get_fingerprint_stats() -> dict[str, Any]:
         """

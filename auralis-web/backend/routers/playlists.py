@@ -25,6 +25,8 @@ from collections.abc import Callable
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from schemas import PlaylistResponse, TrackResponse
+
 from .dependencies import require_repository_factory, with_error_handling
 from .errors import NotFoundError
 from .pagination import PaginationParams, compute_has_more
@@ -68,6 +70,45 @@ class ReorderTrackRequest(BaseModel):
     to_index: int = Field(ge=0)
 
 
+class PlaylistListResponse(BaseModel):
+    """Paginated playlist listing."""
+    playlists: list[PlaylistResponse] = Field(default_factory=list, description="Playlists in this page")
+    total: int = Field(description="Total playlists in the library")
+    limit: int = Field(description="Requested page size")
+    offset: int = Field(description="Number of playlists skipped")
+    has_more: bool = Field(description="True when further pages exist")
+
+
+class PlaylistDetailResponse(PlaylistResponse):
+    """A single playlist with its full track list.
+
+    Extends :class:`PlaylistResponse` rather than redeclaring it, so the
+    detail route cannot drift from the listing shape. `tracks` comes from
+    `Track.to_dict()` directly here, not `serialize_tracks`.
+    """
+    tracks: list[TrackResponse] = Field(
+        default_factory=list,
+        description="Tracks in playlist order (association-table `position`)",
+    )
+
+
+class PlaylistMessageResponse(BaseModel):
+    """Bare confirmation returned by the mutating playlist routes."""
+    message: str = Field(description="Human-readable confirmation")
+
+
+class CreatePlaylistResponse(BaseModel):
+    """Result of creating a playlist."""
+    message: str = Field(description="Human-readable confirmation")
+    playlist: PlaylistResponse = Field(description="The newly created playlist")
+
+
+class AddTracksResponse(BaseModel):
+    """Result of a batch track add."""
+    message: str = Field(description="Human-readable confirmation")
+    added_count: int = Field(description="Number of tracks actually added")
+
+
 def create_playlists_router(
     get_repository_factory: Callable[[], Any],
     connection_manager: Any
@@ -86,7 +127,7 @@ def create_playlists_router(
         Phase 6B: Fully migrated to RepositoryFactory pattern (no LibraryManager fallback)
     """
 
-    @router.get("/api/playlists")
+    @router.get("/api/playlists", response_model=PlaylistListResponse)
     @with_error_handling("get playlists")
     async def get_playlists(
         limit: int = Query(PaginationParams.DEFAULT_LIMIT, ge=PaginationParams.MIN_LIMIT, le=PaginationParams.MAX_LIMIT, description="Number of playlists to return"),
@@ -127,7 +168,7 @@ def create_playlists_router(
             "has_more": compute_has_more(offset, len(serialized), total),
         }
 
-    @router.get("/api/playlists/{playlist_id}")
+    @router.get("/api/playlists/{playlist_id}", response_model=PlaylistDetailResponse)
     @with_error_handling("get playlist")
     async def get_playlist(playlist_id: int) -> dict[str, Any]:
         """
@@ -153,7 +194,7 @@ def create_playlists_router(
 
         return playlist_dict
 
-    @router.post("/api/playlists")
+    @router.post("/api/playlists", response_model=CreatePlaylistResponse)
     @with_error_handling("create playlist")
     async def create_playlist(request: CreatePlaylistRequest) -> dict[str, Any]:
         """
@@ -193,7 +234,7 @@ def create_playlists_router(
             "playlist": serialize_playlist(playlist)
         }
 
-    @router.put("/api/playlists/{playlist_id}")
+    @router.put("/api/playlists/{playlist_id}", response_model=PlaylistMessageResponse)
     @with_error_handling("update playlist")
     async def update_playlist(playlist_id: int, request: UpdatePlaylistRequest) -> dict[str, Any]:
         """
@@ -236,7 +277,7 @@ def create_playlists_router(
 
         return {"message": "Playlist updated successfully"}
 
-    @router.delete("/api/playlists/{playlist_id}")
+    @router.delete("/api/playlists/{playlist_id}", response_model=PlaylistMessageResponse)
     @with_error_handling("delete playlist")
     async def delete_playlist(playlist_id: int) -> dict[str, Any]:
         """
@@ -274,7 +315,7 @@ def create_playlists_router(
 
         return {"message": "Playlist deleted successfully"}
 
-    @router.post("/api/playlists/{playlist_id}/tracks")
+    @router.post("/api/playlists/{playlist_id}/tracks", response_model=AddTracksResponse)
     @with_error_handling("add tracks to playlist")
     async def add_tracks_to_playlist(playlist_id: int, request: AddTracksRequest) -> dict[str, Any]:
         """
@@ -315,7 +356,7 @@ def create_playlists_router(
             "added_count": added_count
         }
 
-    @router.post("/api/playlists/{playlist_id}/tracks/add")
+    @router.post("/api/playlists/{playlist_id}/tracks/add", response_model=PlaylistMessageResponse)
     @with_error_handling("add track to playlist")
     async def add_track_to_playlist(playlist_id: int, request: AddTrackRequest) -> dict[str, Any]:
         """
@@ -355,7 +396,7 @@ def create_playlists_router(
 
         return {"message": "Track added to playlist"}
 
-    @router.put("/api/playlists/{playlist_id}/tracks/reorder")
+    @router.put("/api/playlists/{playlist_id}/tracks/reorder", response_model=PlaylistMessageResponse)
     @with_error_handling("reorder playlist track")
     async def reorder_playlist_track(playlist_id: int, request: ReorderTrackRequest) -> dict[str, Any]:
         """
@@ -396,7 +437,7 @@ def create_playlists_router(
 
         return {"message": "Playlist reordered"}
 
-    @router.delete("/api/playlists/{playlist_id}/tracks/{track_id}")
+    @router.delete("/api/playlists/{playlist_id}/tracks/{track_id}", response_model=PlaylistMessageResponse)
     @with_error_handling("remove track from playlist")
     async def remove_track_from_playlist(playlist_id: int, track_id: int) -> dict[str, Any]:
         """
@@ -437,7 +478,7 @@ def create_playlists_router(
 
         return {"message": "Track removed from playlist"}
 
-    @router.delete("/api/playlists/{playlist_id}/tracks")
+    @router.delete("/api/playlists/{playlist_id}/tracks", response_model=PlaylistMessageResponse)
     @with_error_handling("clear playlist")
     async def clear_playlist(playlist_id: int) -> dict[str, Any]:
         """

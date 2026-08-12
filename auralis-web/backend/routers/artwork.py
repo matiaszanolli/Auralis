@@ -27,12 +27,45 @@ from collections.abc import Callable, Iterator
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse, Response
+from pydantic import BaseModel, Field
 
 from .dependencies import require_repository_factory, with_error_handling
 from .errors import NotFoundError
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["artwork"])
+
+
+# NOTE: GET /api/albums/{album_id}/artwork has no response_model on purpose —
+# it returns raw image bytes (FileResponse/Response), not JSON. Same for the
+# other binary routes in this codebase; only the JSON routes below are typed.
+
+
+class ArtworkExtractResponse(BaseModel):
+    """Result of extracting embedded artwork from an album's tracks."""
+    message: str = Field(description="Human-readable confirmation")
+    artwork_url: str = Field(description="Artwork API URL, never a filesystem path (#2508)")
+    album_id: int = Field(description="Album that was updated")
+
+
+class ArtworkDeleteResponse(BaseModel):
+    """Result of deleting album artwork.
+
+    Idempotent per RFC 7231 §4.3.5: a repeat call after a successful delete
+    still returns 200 (#3563).
+    """
+    message: str = Field(description="Human-readable confirmation")
+    album_id: int = Field(description="Album that was updated")
+
+
+class ArtworkDownloadResponse(BaseModel):
+    """Result of downloading album artwork from an online source."""
+    message: str = Field(description="Human-readable confirmation")
+    artwork_url: str = Field(description="Artwork API URL, never a filesystem path")
+    album_id: int = Field(description="Album that was updated")
+    artist: str = Field(description="Artist name used for the lookup")
+    album: str | None = Field(default=None, description="Album name used for the lookup")
+
 
 # Downscaled-thumbnail support (#4447). Requested sizes snap UP to one of these
 # buckets so the on-disk cache holds at most len(_THUMB_BUCKETS) variants per
@@ -330,7 +363,7 @@ def create_artwork_router(
             },
         )
 
-    @router.post("/api/albums/{album_id}/artwork/extract")
+    @router.post("/api/albums/{album_id}/artwork/extract", response_model=ArtworkExtractResponse)
     @with_error_handling("extract artwork")
     async def extract_album_artwork(album_id: int) -> dict[str, Any]:
         """
@@ -375,7 +408,7 @@ def create_artwork_router(
             "album_id": album_id
         }
 
-    @router.delete("/api/albums/{album_id}/artwork")
+    @router.delete("/api/albums/{album_id}/artwork", response_model=ArtworkDeleteResponse)
     @with_error_handling("delete artwork")
     async def delete_album_artwork(album_id: int) -> dict[str, Any]:
         """
@@ -411,7 +444,7 @@ def create_artwork_router(
 
         return {"message": "Artwork deleted successfully", "album_id": album_id}
 
-    @router.post("/api/albums/{album_id}/artwork/download")
+    @router.post("/api/albums/{album_id}/artwork/download", response_model=ArtworkDownloadResponse)
     @with_error_handling("download artwork")
     async def download_album_artwork(album_id: int) -> dict[str, Any]:
         """

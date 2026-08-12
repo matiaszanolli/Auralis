@@ -22,6 +22,9 @@ from typing import Any, Literal
 from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel, Field
+
+from schemas import TrackListResponse, TrackResponse
 
 from .dependencies import require_repository_factory
 from .errors import NotFoundError, handle_query_error
@@ -31,13 +34,34 @@ from .serializers import serialize_tracks
 logger = logging.getLogger(__name__)
 
 
+class TrackFavoriteResponse(BaseModel):
+    """Result of toggling a track's favorite flag."""
+    message: str = Field(description="Human-readable confirmation")
+    track_id: int = Field(description="Track that was updated")
+    favorite: bool = Field(description="Favorite state after the update")
+
+
+class TrackLyricsResponse(BaseModel):
+    """Lyrics for a track, from the database or extracted from the file.
+
+    All three fields are null-able: a track with no lyrics anywhere returns
+    `{track_id, lyrics: null, format: null}` rather than a 404.
+    """
+    track_id: int = Field(description="Track database ID")
+    lyrics: str | None = Field(default=None, description="Lyrics text, or null when unavailable")
+    format: Literal["lrc", "plain"] | None = Field(
+        default=None,
+        description="'lrc' when timestamped, 'plain' otherwise, null when no lyrics",
+    )
+
+
 def create_tracks_router(
     get_repository_factory: Callable[[], Any],
 ) -> APIRouter:
     """Factory: track-domain routes."""
     router = APIRouter(tags=["library"])
 
-    @router.get("/api/library/tracks")
+    @router.get("/api/library/tracks", response_model=TrackListResponse)
     async def get_tracks(
         limit: int = Query(PaginationParams.DEFAULT_LIMIT, ge=PaginationParams.MIN_LIMIT, le=PaginationParams.MAX_LIMIT),
         offset: int = Query(PaginationParams.DEFAULT_OFFSET, ge=PaginationParams.MIN_OFFSET),
@@ -71,7 +95,7 @@ def create_tracks_router(
         except Exception as e:
             raise handle_query_error("get tracks", e)
 
-    @router.get("/api/library/tracks/favorites")
+    @router.get("/api/library/tracks/favorites", response_model=TrackListResponse)
     async def get_favorite_tracks(
         limit: int = Query(PaginationParams.DEFAULT_LIMIT, ge=PaginationParams.MIN_LIMIT, le=PaginationParams.MAX_LIMIT),
         offset: int = Query(PaginationParams.DEFAULT_OFFSET, ge=PaginationParams.MIN_OFFSET),
@@ -93,7 +117,7 @@ def create_tracks_router(
         except Exception as e:
             raise handle_query_error("get favorite tracks", e)
 
-    @router.get("/api/library/tracks/{track_id}")
+    @router.get("/api/library/tracks/{track_id}", response_model=TrackResponse)
     async def get_track(track_id: int) -> dict[str, Any]:
         """Get a single track by ID."""
         try:
@@ -107,7 +131,7 @@ def create_tracks_router(
         except Exception as e:
             raise handle_query_error("get track", e)
 
-    @router.post("/api/library/tracks/{track_id}/favorite")
+    @router.post("/api/library/tracks/{track_id}/favorite", response_model=TrackFavoriteResponse)
     async def set_track_favorite(track_id: int) -> dict[str, Any]:
         """Mark track as favorite."""
         try:
@@ -122,7 +146,7 @@ def create_tracks_router(
         except Exception as e:
             raise handle_query_error("set track favorite", e)
 
-    @router.delete("/api/library/tracks/{track_id}/favorite")
+    @router.delete("/api/library/tracks/{track_id}/favorite", response_model=TrackFavoriteResponse)
     async def remove_track_favorite(track_id: int) -> dict[str, Any]:
         """Remove track from favorites."""
         try:
@@ -137,7 +161,7 @@ def create_tracks_router(
         except Exception as e:
             raise handle_query_error("remove track favorite", e)
 
-    @router.get("/api/library/tracks/{track_id}/lyrics")
+    @router.get("/api/library/tracks/{track_id}/lyrics", response_model=TrackLyricsResponse)
     async def get_track_lyrics(track_id: int) -> dict[str, Any]:
         """Get lyrics for a track, from DB or extracted from file."""
         try:

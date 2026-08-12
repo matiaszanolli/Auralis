@@ -14,6 +14,14 @@ from typing import Any, Literal
 from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel, Field
+
+from schemas import (
+    AlbumDetailResponse,
+    AlbumListResponse,
+    FingerprintVectorResponse,
+    TrackResponse,
+)
 
 from .dependencies import require_repository_factory, with_error_handling
 from .errors import NotFoundError
@@ -21,6 +29,42 @@ from .pagination import PaginationParams, compute_has_more
 from .serializers import serialize_album_detail, serialize_albums, serialize_tracks
 
 logger = logging.getLogger(__name__)
+
+
+class AlbumTracksResponse(BaseModel):
+    """Track listing for one album, in the snake_case shape its consumer expects.
+
+    Deliberately snake_case while the sibling `GET /api/albums/{id}` is
+    camelCase — `useAlbumDetails.ts` reads the album-level keys directly here
+    and runs `tracks` through the frontend's canonical `transformTracks()`
+    (#4568).
+    """
+    album_id: int = Field(description="Album database ID")
+    album_title: str | None = Field(default=None, description="Album title")
+    artist: str = Field(default="Unknown Artist", description="Album artist name")
+    year: int | None = Field(default=None, description="Release year")
+    artwork_url: str | None = Field(default=None, description="Artwork API URL")
+    tracks: list[TrackResponse] = Field(
+        default_factory=list,
+        description="Tracks ordered by disc number then track number",
+    )
+    total_tracks: int = Field(description="Number of tracks returned")
+
+
+class AlbumFingerprintResponse(BaseModel):
+    """Median 25D fingerprint aggregated across an album's fingerprinted tracks.
+
+    `fingerprint` keys are the API-side dimension names, which differ from the
+    DB column names for five dimensions (#2477) — see the `db_to_api` map below.
+    """
+    album_id: int = Field(description="Album database ID")
+    album_title: str | None = Field(default=None, description="Album title")
+    track_count: int = Field(description="Total tracks in the album")
+    fingerprinted_track_count: int = Field(description="Tracks that actually had a fingerprint")
+    fingerprint: FingerprintVectorResponse = Field(
+        default_factory=FingerprintVectorResponse,
+        description="Median value per fingerprint dimension (25 entries)",
+    )
 
 
 def create_albums_router(
@@ -40,7 +84,7 @@ def create_albums_router(
     """
     router = APIRouter()
 
-    @router.get("/api/albums")
+    @router.get("/api/albums", response_model=AlbumListResponse)
     @with_error_handling("get albums")
     async def get_albums(
         limit: int = Query(PaginationParams.DEFAULT_LIMIT, ge=PaginationParams.MIN_LIMIT, le=PaginationParams.MAX_LIMIT),
@@ -85,7 +129,7 @@ def create_albums_router(
             "has_more": has_more
         }
 
-    @router.get("/api/albums/{album_id}")
+    @router.get("/api/albums/{album_id}", response_model=AlbumDetailResponse)
     @with_error_handling("get album")
     async def get_album(album_id: int) -> Any:
         """
@@ -116,7 +160,7 @@ def create_albums_router(
         # camelCase, so artist and track number rendered blank (#4568).
         return serialize_album_detail(album)
 
-    @router.get("/api/albums/{album_id}/tracks")
+    @router.get("/api/albums/{album_id}/tracks", response_model=AlbumTracksResponse)
     @with_error_handling("get album tracks")
     async def get_album_tracks(album_id: int) -> Any:
         """
@@ -153,7 +197,7 @@ def create_albums_router(
             "total_tracks": len(tracks_data)
         }
 
-    @router.get("/api/albums/{album_id}/fingerprint")
+    @router.get("/api/albums/{album_id}/fingerprint", response_model=AlbumFingerprintResponse)
     @with_error_handling("get album fingerprint")
     async def get_album_fingerprint(album_id: int) -> Any:
         """

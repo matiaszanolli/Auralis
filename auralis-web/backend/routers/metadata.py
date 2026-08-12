@@ -74,6 +74,86 @@ class BatchMetadataRequest(BaseModel):
     updates: list[BatchMetadataUpdateRequest] = Field(..., description="List of updates")
 
 
+class EditableFieldsResponse(BaseModel):
+    """Editable tag fields for a track, plus the file's current tag values."""
+    track_id: int = Field(description="Track database ID")
+    format: str | None = Field(default=None, description="Container/codec format")
+    editable_fields: list[str] = Field(
+        default_factory=list,
+        description="Tag names writable for this format (per TAG_MAPPINGS)",
+    )
+    current_metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Tags currently present in the file; keys vary by format",
+    )
+
+
+class TrackMetadataResponse(BaseModel):
+    """Current on-disk tag values for a track."""
+    track_id: int = Field(description="Track database ID")
+    format: str | None = Field(default=None, description="Container/codec format")
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Tags read from the file; keys vary by format",
+    )
+
+
+class MetadataUpdateResponse(BaseModel):
+    """Result of writing tags to one track's file.
+
+    `updated_fields` lists what was written to the FILE (tag names). Fields
+    with no Track DB column — artist, album, albumartist, genre, bpm,
+    composer, publisher, copyright — are intentionally file-only (#4731).
+    """
+    track_id: int = Field(description="Track database ID")
+    success: bool = Field(description="True when the file write succeeded")
+    updated_fields: list[str] = Field(
+        default_factory=list,
+        description="Tag names written to the file",
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Tags re-read from the file after the write",
+    )
+
+
+class BatchMetadataResultItem(BaseModel):
+    """Per-track outcome within a batch metadata update.
+
+    NOTE: `filepath` is echoed by `MetadataEditor.batch_update` and is
+    therefore declared here so the response_model does not silently drop it.
+    It is the one place a server-side path reaches a client, which sits
+    awkwardly beside #3205's "filepath is server-only" rule — flagged rather
+    than changed here, since removing it is a contract change, not a
+    schema-coverage fix.
+    """
+    track_id: int = Field(description="Track database ID")
+    filepath: str | None = Field(default=None, description="Server-side file path")
+    success: bool = Field(description="True when this track's write succeeded")
+    updates: dict[str, Any] | None = Field(
+        default=None,
+        description="Tags written for this track (successful entries only)",
+    )
+    error: str | None = Field(default=None, description="Failure reason, when unsuccessful")
+    rolled_back: bool | None = Field(
+        default=None,
+        description="True on entries reverted because a sibling write failed",
+    )
+
+
+class BatchMetadataResponse(BaseModel):
+    """Aggregate result of a batch metadata update."""
+    success: bool = Field(description="True when no track failed")
+    total: int = Field(description="Number of updates attempted")
+    successful: int = Field(description="Number that succeeded")
+    failed: int = Field(description="Number that failed")
+    results: list[BatchMetadataResultItem] = Field(
+        default_factory=list,
+        description="Per-track outcomes",
+    )
+    rolled_back: bool = Field(description="True when the whole batch was reverted")
+
+
 # MetadataUpdateRequest fields whose Pydantic name is a mutagen tag name, not
 # the Track DB column name (#4731). ``track``/``disc`` have an explicit
 # ``alias=`` already; ``comment`` has none, since it doubles as the file-tag
@@ -127,7 +207,7 @@ def create_metadata_router(
     if metadata_editor is None:
         metadata_editor = MetadataEditor()
 
-    @router.get("/api/metadata/tracks/{track_id}/fields")
+    @router.get("/api/metadata/tracks/{track_id}/fields", response_model=EditableFieldsResponse)
     @with_error_handling("get editable fields")
     async def get_editable_fields(track_id: int) -> dict[str, Any]:
         """
@@ -172,7 +252,7 @@ def create_metadata_router(
         except FileNotFoundError:
             raise NotFoundError("Audio file", detail=f"Audio file not found for track {track_id}")
 
-    @router.get("/api/metadata/tracks/{track_id}")
+    @router.get("/api/metadata/tracks/{track_id}", response_model=TrackMetadataResponse)
     @with_error_handling("get track metadata")
     async def get_track_metadata(track_id: int) -> dict[str, Any]:
         """
@@ -215,7 +295,7 @@ def create_metadata_router(
         except FileNotFoundError:
             raise NotFoundError("Audio file", detail=f"Audio file not found for track {track_id}")
 
-    @router.put("/api/metadata/tracks/{track_id}")
+    @router.put("/api/metadata/tracks/{track_id}", response_model=MetadataUpdateResponse)
     @with_error_handling("update track metadata")
     async def update_track_metadata(track_id: int, request: MetadataUpdateRequest) -> dict[str, Any]:
         """
@@ -315,7 +395,7 @@ def create_metadata_router(
             # Invalid metadata error
             raise HTTPException(status_code=400, detail=f"Invalid metadata: {e}")
 
-    @router.post("/api/metadata/batch")
+    @router.post("/api/metadata/batch", response_model=BatchMetadataResponse)
     @with_error_handling("batch update metadata")
     async def batch_update_metadata(request: BatchMetadataRequest) -> dict[str, Any]:
         """

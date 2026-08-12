@@ -18,13 +18,41 @@ from typing import Any
 from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
 
 from auralis.utils.logging import sanitize_log_value
+
+from schemas import FingerprintVectorResponse
 
 from .dependencies import require_repository_factory
 from .errors import NotFoundError, handle_query_error
 
 logger = logging.getLogger(__name__)
+
+
+class FingerprintingStatusResponse(BaseModel):
+    """Library-wide fingerprinting progress, with a display-ready status line."""
+    total_tracks: int = Field(description="Total tracks in the library")
+    fingerprinted_tracks: int = Field(description="Tracks with a fingerprint")
+    pending_tracks: int = Field(description="Tracks still missing a fingerprint")
+    progress_percent: float = Field(description="Coverage percentage (0–100)")
+    status: str = Field(description="Human-readable progress line")
+    estimated_remaining_seconds: int = Field(
+        description="Rough ETA at 30 s/track; 0 when nothing is pending"
+    )
+
+
+class TrackFingerprintResponse(BaseModel):
+    """The 25D fingerprint for one track, with its display metadata.
+
+    A track without a fingerprint yields 404 (and is queued for background
+    generation), so `fingerprint` is always populated on a 200.
+    """
+    track_id: int = Field(description="Track database ID")
+    track_title: str | None = Field(default=None, description="Track title")
+    artist: str = Field(default="Unknown Artist", description="Joined artist names")
+    album: str = Field(default="Unknown Album", description="Album title")
+    fingerprint: FingerprintVectorResponse = Field(description="The 25 fingerprint dimensions")
 
 
 def create_fingerprint_status_router(
@@ -33,7 +61,7 @@ def create_fingerprint_status_router(
     """Factory: fingerprint-status routes."""
     router = APIRouter(tags=["library"])
 
-    @router.get("/api/library/fingerprints/status")
+    @router.get("/api/library/fingerprints/status", response_model=FingerprintingStatusResponse)
     async def get_fingerprinting_status() -> dict[str, Any]:
         """Get fingerprinting progress for library."""
         try:
@@ -67,7 +95,7 @@ def create_fingerprint_status_router(
         except Exception as e:
             raise handle_query_error("get fingerprinting status", e)
 
-    @router.get("/api/tracks/{track_id}/fingerprint")
+    @router.get("/api/tracks/{track_id}/fingerprint", response_model=TrackFingerprintResponse)
     async def get_track_fingerprint(track_id: int) -> dict[str, Any]:
         """Get the 25D audio fingerprint for a specific track.
 

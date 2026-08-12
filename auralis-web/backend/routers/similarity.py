@@ -37,6 +37,18 @@ from .similarity_common import (  # noqa: F401
 logger = logging.getLogger(__name__)
 
 
+class FitSimilarityResponse(BaseModel):
+    """Result of fitting the similarity system.
+
+    Returned unchanged when the system was already fitted — `fitted` is True
+    in both branches; only `message` distinguishes them.
+    """
+    fitted: bool = Field(description="True once the system is fitted")
+    total_fingerprints: int = Field(description="Fingerprints the system was fitted on")
+    message: str = Field(description="Human-readable summary")
+
+
+
 # Response models
 class SimilarTrack(BaseModel):
     """Similar track response model"""
@@ -285,7 +297,7 @@ def create_similarity_router(
 
         return SimilarityExplanation(**explanation)
 
-    @router.post("/fit")
+    @router.post("/fit", response_model=FitSimilarityResponse)
     @_with_similarity_error_handling("Error fitting similarity system")
     async def fit_similarity_system(
         min_samples: int = Query(10, ge=5, description="Minimum fingerprints required to fit")

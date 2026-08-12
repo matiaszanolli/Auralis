@@ -16,13 +16,19 @@ from typing import Any
 from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from auralis.analysis.fingerprint import KNNGraphBuilder
 
 from .similarity_common import _with_similarity_error_handling
 
 logger = logging.getLogger(__name__)
+
+
+class ClearGraphResponse(BaseModel):
+    """Result of clearing the K-NN similarity graph."""
+    edges_deleted: int = Field(description="Number of graph edges removed")
+
 
 
 class GraphStatsResponse(BaseModel):
@@ -50,7 +56,7 @@ def create_similarity_graph_router(
     """
     router = APIRouter(prefix="/api/similarity", tags=["similarity-graph"])
 
-    @router.post("/graph/build")
+    @router.post("/graph/build", response_model=GraphStatsResponse)
     @_with_similarity_error_handling("Error building graph")
     async def build_similarity_graph(
         k: int = Query(10, ge=1, le=50, description="Number of neighbors per track"),
@@ -104,7 +110,7 @@ def create_similarity_graph_router(
             return GraphStatsResponse(**stats.to_dict())
         return None
 
-    @router.delete("/graph")
+    @router.delete("/graph", response_model=ClearGraphResponse)
     @_with_similarity_error_handling("Error clearing graph")
     async def clear_similarity_graph() -> dict[str, Any]:
         """

@@ -31,11 +31,56 @@ from typing import Any, cast
 from collections.abc import Callable
 
 from fastapi import APIRouter, Header, HTTPException
+from pydantic import BaseModel, Field
 
 from .dependencies import require_repository_factory, with_error_handling
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["library"])
+
+
+class RefreshReferencesResponse(BaseModel):
+    """Result of rebuilding the mastering reference cloud (#3479)."""
+    cleared: int = Field(description="Existing is_reference flags cleared")
+    selected: int = Field(description="Fingerprints newly flagged as references")
+
+
+class LibraryStatsResponse(BaseModel):
+    """Library-wide statistics (`StatsRepository.get_library_stats`).
+
+    `avg_dr_rating` / `avg_lufs` are deliberate duplicates of
+    `average_dr` / `average_lufs` — the repository emits both because the
+    frontend reads the former pair. Declaring only one of each would delete
+    the other from the response.
+
+    Every counter carries a default even though the repository always
+    populates all of them. A `response_model` validates as well as filters, so
+    required fields would turn any partial payload — a stub repository, a
+    future query that stops computing one aggregate — into a 500 with an empty
+    body. Defaulting degrades to zero instead, matching the
+    `_safe_collection`/`_safe_scalar` posture the ORM layer already takes, and
+    the OpenAPI schema is equally complete either way.
+    """
+    total_tracks: int = Field(default=0, description="Number of tracks")
+    total_albums: int = Field(default=0, description="Number of albums")
+    total_artists: int = Field(default=0, description="Number of artists")
+    total_genres: int = Field(default=0, description="Number of genres")
+    total_playlists: int = Field(default=0, description="Number of playlists")
+    total_duration: float = Field(default=0.0, description="Summed track duration in seconds")
+    total_duration_formatted: str = Field(default="", description="Human-readable total duration")
+    total_filesize: int = Field(default=0, description="Summed file size in bytes")
+    total_filesize_gb: float = Field(default=0.0, description="Summed file size in GB (2 dp)")
+    total_plays: int = Field(default=0, description="Summed play count")
+    favorite_count: int = Field(default=0, description="Number of favorited tracks")
+    average_dr: float | None = Field(default=None, description="Mean dynamic-range rating")
+    average_lufs: float | None = Field(default=None, description="Mean integrated loudness")
+    avg_dr_rating: float | None = Field(default=None, description="Alias of average_dr")
+    avg_lufs: float | None = Field(default=None, description="Alias of average_lufs")
+
+
+class LibraryResetResponse(BaseModel):
+    """Confirmation returned by the destructive library reset."""
+    message: str = Field(description="Human-readable confirmation")
 
 
 def create_library_router(
@@ -57,7 +102,7 @@ def create_library_router(
         (create_tracks_router, create_library_scan_router, create_fingerprint_status_router).
     """
 
-    @router.post("/api/library/refresh-references")
+    @router.post("/api/library/refresh-references", response_model=RefreshReferencesResponse)
     @with_error_handling("refresh reference cloud")
     async def refresh_reference_cloud() -> dict[str, Any]:
         """#3479: rebuild the mastering reference cloud from current library state.
@@ -76,7 +121,7 @@ def create_library_router(
         )
         return {"cleared": cleared, "selected": selected}
 
-    @router.get("/api/library/stats")
+    @router.get("/api/library/stats", response_model=LibraryStatsResponse)
     @with_error_handling("get library stats")
     async def get_library_stats() -> dict[str, Any]:
         """Get library statistics (track count, album count, etc.)."""
@@ -90,7 +135,7 @@ def create_library_router(
     # /api/artists/{id}, /api/albums/{id} with a different, undocumented
     # response shape (fixes #3824 / BE-RH-7).
 
-    @router.post("/api/library/reset")
+    @router.post("/api/library/reset", response_model=LibraryResetResponse)
     @with_error_handling("reset library")
     async def reset_library(
         x_confirm_reset: str = Header(

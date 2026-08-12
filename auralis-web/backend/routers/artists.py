@@ -23,7 +23,15 @@ from .serializers import serialize_artist
 
 # Response models
 class ArtistResponse(BaseModel):
-    """Artist information response"""
+    """Artist information response.
+
+    Covers the union of `Artist.to_dict()` and `DEFAULT_ARTIST_FIELDS` — the
+    two shapes `serialize_artist()` can return. The five fields below the
+    artwork pair were missing until #3838: `response_model` filters anything
+    it does not declare, so `/api/artists` was silently stripping them from
+    every response with no error and no log line. Pinned by
+    `tests/backend/test_response_model_coverage.py`.
+    """
     id: int
     name: str
     album_count: int
@@ -31,6 +39,11 @@ class ArtistResponse(BaseModel):
     genres: list[str] | None = None
     artwork_url: str | None = None  # Phase 2: Artist artwork
     artwork_source: str | None = None  # Source: 'musicbrainz', 'discogs', etc.
+    normalized_name: str | None = None  # Canonical form used for duplicate detection
+    total_plays: int | None = None
+    avg_mastering_quality: float | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
 
 
 class ArtistsListResponse(BaseModel):

@@ -21,16 +21,18 @@ import logging
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from collections.abc import Callable
 from uuid import uuid4
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
+from pydantic import BaseModel, Field
 
 from auralis.utils.logging import sanitize_log_value
 
 from .dependencies import require_repository_factory
 from core.processing_engine import _safe_error_message
+
 
 # Upload limits — single source of truth in config.limits (#4033). MAX_UPLOAD_FILES
 # bounds how many files one multipart request may carry so a single request can't
@@ -82,6 +84,43 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["files"])
 
 
+class UploadResultItem(BaseModel):
+    """Per-file outcome of an upload batch.
+
+    The success and failure branches emit different key sets — only
+    `filename`, `status` and `message` are common — so the track fields are
+    optional rather than required.
+    """
+    filename: str = Field(description="Client-supplied file name")
+    status: Literal["success", "error"] = Field(description="Per-file outcome")
+    message: str = Field(description="Human-readable detail")
+    track_id: int | None = Field(default=None, description="Created track ID, on success")
+    title: str | None = Field(default=None, description="Derived track title, on success")
+    duration: float | None = Field(default=None, description="Duration in seconds, on success")
+    sample_rate: int | None = Field(default=None, description="Sample rate in Hz, on success")
+
+
+class UploadResultResponse(BaseModel):
+    """Result of an audio file upload batch.
+
+    Partial success is normal: the route returns 200 with a mix of
+    `status: "success"` and `status: "error"` entries rather than failing the
+    whole batch.
+    """
+    results: list[UploadResultItem] = Field(
+        default_factory=list,
+        description="One entry per uploaded file, in request order",
+    )
+
+
+class SupportedFormatsResponse(BaseModel):
+    """Audio formats, sample rates, and bit depths the backend accepts."""
+    input_formats: list[str] = Field(description="Accepted input file extensions")
+    output_formats: list[str] = Field(description="Available output file extensions")
+    sample_rates: list[int] = Field(description="Supported sample rates in Hz")
+    bit_depths: list[int] = Field(description="Supported bit depths")
+
+
 def create_files_router(
     connection_manager: Any = None,
     get_repository_factory: Callable[[], Any] | None = None
@@ -106,7 +145,7 @@ def create_files_router(
             return require_repository_factory(get_repository_factory)
         raise HTTPException(status_code=503, detail="Repository factory not available")
 
-    @router.post("/api/files/upload")
+    @router.post("/api/files/upload", response_model=UploadResultResponse)
     async def upload_files(files: list[UploadFile] = File(...)) -> dict[str, Any]:
         """
         Upload audio files for processing.
@@ -270,7 +309,7 @@ def create_files_router(
 
         return {"results": results}
 
-    @router.get("/api/audio/formats")
+    @router.get("/api/audio/formats", response_model=SupportedFormatsResponse)
     async def get_supported_formats() -> dict[str, Any]:
         """
         Get supported audio formats.

@@ -18,6 +18,7 @@ from typing import Any
 from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
 
 from schemas import LibraryScanRequest, ScanResultResponse
 from helpers import scan_progress_percentage
@@ -27,6 +28,11 @@ from .errors import handle_query_error
 logger = logging.getLogger(__name__)
 
 
+class ScanStatusResponse(BaseModel):
+    """Live scan-slot state, for a client resyncing mid-scan (#4821)."""
+    is_scanning: bool = Field(description="True while a directory scan holds the scan slot")
+
+
 def create_library_scan_router(
     get_library_manager: Callable[[], Any] | None = None,
     connection_manager: Any | None = None,
@@ -34,7 +40,7 @@ def create_library_scan_router(
     """Factory: library scan route."""
     router = APIRouter(tags=["library"])
 
-    @router.get("/api/library/scan/status")
+    @router.get("/api/library/scan/status", response_model=ScanStatusResponse)
     async def get_scan_status() -> dict[str, Any]:
         """Resync point for a client that (re)connects mid-scan or after one
         finished while its WebSocket was disconnected (#4821).
