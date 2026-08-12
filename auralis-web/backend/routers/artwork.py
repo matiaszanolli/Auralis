@@ -14,7 +14,6 @@ Endpoints:
 """
 
 import asyncio
-import hashlib
 import logging
 import mimetypes
 import os
@@ -28,6 +27,13 @@ from collections.abc import Callable, Iterator
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
+
+from core.thumbnail_cache import (
+    THUMB_TMP_PREFIX,
+    purge_thumbnails,
+    reap_orphan_temp_files,
+    thumb_path_hash,
+)
 
 from .dependencies import require_repository_factory, with_error_handling
 from .errors import NotFoundError
@@ -81,10 +87,10 @@ def _bucket_size(size: int) -> int:
     return _THUMB_BUCKETS[-1]
 
 
-# Prefix for in-progress thumbnail renders (#4527). Stable and distinctive so a
-# cache sweeper can recognise an orphan left by a crashed render — the cache
-# keys themselves are hex digests and never start with a dot.
-_THUMB_TMP_PREFIX = ".tmp-"
+# Prefix for in-progress thumbnail renders (#4527). Owned by core.thumbnail_cache
+# (which reaps orphans by it, #4532) and re-exported here for the existing
+# callers and tests that read it from this module.
+_THUMB_TMP_PREFIX = THUMB_TMP_PREFIX
 
 # Per-cache-key render locks (#4527). Two requests for the same album at the
 # same bucket used to render concurrently; now the second waits and takes the
@@ -151,15 +157,57 @@ def _render_thumbnail(
                 # thumbnail() preserves aspect ratio and only ever downsizes, so
                 # a small source is served as-is rather than upscaled.
                 image.thumbnail((bucket, bucket))
-                if pil_fmt == "JPEG" and image.mode not in ("RGB", "L"):
-                    image = image.convert("RGB")
-                image.save(handle, format=pil_fmt)
+                # Rebound to a new name: convert() returns a plain Image while
+                # `image` is typed as the ImageFile the context manager yielded,
+                # so reassigning it is an incompatible-assignment for mypy.
+                out_image = (
+                    image.convert("RGB")
+                    if pil_fmt == "JPEG" and image.mode not in ("RGB", "L")
+                    else image
+                )
+                out_image.save(handle, format=pil_fmt)
         tmp.replace(dst)
     except BaseException:
         # Leave no orphan behind — a generation-based cache purge keys on the
         # source path hash and would never match a stray temp file.
         tmp.unlink(missing_ok=True)
         raise
+
+
+def _artwork_dirs() -> tuple[Path, Path]:
+    """``(artwork_dir, thumb_dir)`` — one definition for every caller.
+
+    The render path and the purge path MUST agree on where the cache lives, so
+    both read it from here rather than each rebuilding the path.
+    """
+    artwork_dir = Path.home() / ".auralis" / "artwork"
+    return artwork_dir, artwork_dir / "thumbnails"
+
+
+def _purge_album_thumbnails(*sources: Path | str | None) -> int:
+    """Purge cached thumbnails derived from ``sources``, and reap stale temps.
+
+    Blocking (filesystem) — call via ``asyncio.to_thread``.
+
+    Resolves each source before hashing, because that is what the render path
+    hashes: ``get_album_artwork`` passes
+    ``Path(album.artwork_path).resolve(strict=False)`` into the cache. Hashing
+    the unresolved ``album.artwork_path`` instead would produce a different
+    prefix and silently purge nothing whenever the stored path is relative or
+    crosses a symlink (#4532).
+    """
+    _artwork_dir, thumb_dir = _artwork_dirs()
+
+    resolved: list[Path] = []
+    for source in sources:
+        if not source:
+            continue
+        try:
+            resolved.append(Path(source).resolve(strict=False))
+        except (OSError, RuntimeError, ValueError):
+            logger.warning("Could not resolve artwork path for purge: %s", source)
+
+    return purge_thumbnails(thumb_dir, *resolved) + reap_orphan_temp_files(thumb_dir)
 
 
 def _thumb_target(media_type: str) -> tuple[str, str, str]:
@@ -190,7 +238,10 @@ def _get_or_create_thumbnail(
         pil_fmt, ext, resp_type = _thumb_target(media_type)
 
         stat = src.stat()
-        path_hash = hashlib.sha1(str(src).encode("utf-8")).hexdigest()[:12]
+        # thumb_path_hash is shared with the purge in core.thumbnail_cache, which
+        # globs on this exact prefix — computing it here independently would let
+        # the two drift and silently strand every entry (#4532).
+        path_hash = thumb_path_hash(src)
         key = f"{path_hash}_{bucket}_{stat.st_mtime_ns:x}_{stat.st_size:x}{ext}"
         dst = thumb_dir / key
 
@@ -200,6 +251,12 @@ def _get_or_create_thumbnail(
                 # Re-check under the lock: whoever held it before us may have
                 # rendered this exact key already.
                 if not dst.exists():
+                    # Sweep dead writers' temp files before adding our own, so
+                    # orphans cannot accumulate indefinitely on an install that
+                    # never deletes artwork (#4532). Cheap: one glob over a
+                    # directory whose size is bounded by live thumbnails, and
+                    # only on an actual cache miss.
+                    reap_orphan_temp_files(thumb_dir)
                     _render_thumbnail(src, dst, bucket, pil_fmt, ext, thumb_dir)
 
         return dst, resp_type
@@ -270,8 +327,8 @@ def create_artwork_router(
             raise NotFoundError("Artwork")
 
         # Security: Validate artwork path is within allowed directory
-        # Define allowed artwork directory
-        artwork_dir = Path.home() / ".auralis" / "artwork"
+        # Define allowed artwork directory (shared with the purge path, #4532)
+        artwork_dir, thumb_dir = _artwork_dirs()
         artwork_dir.mkdir(parents=True, exist_ok=True)  # Ensure directory exists
 
         # Resolve allowed directory (handles symlinks in base path)
@@ -329,7 +386,6 @@ def create_artwork_router(
         serve_path = requested_path
         serve_media_type = media_type
         if size is not None:
-            thumb_dir = artwork_dir / "thumbnails"
             thumbnail = await asyncio.to_thread(
                 _get_or_create_thumbnail, requested_path, size, media_type, thumb_dir
             )
@@ -381,6 +437,11 @@ def create_artwork_router(
             HTTPException: If library manager/factory not available or extraction fails
         """
         repos = get_repos()
+        # The superseded generation's thumbnails are keyed on the OLD source
+        # path, which the extract below overwrites, so read it first (#4532).
+        previous = await asyncio.to_thread(repos.albums.get_by_id, album_id)
+        previous_path = previous.artwork_path if previous else None
+
         artwork_path = await asyncio.to_thread(repos.albums.extract_and_save_artwork, album_id)
 
         if not artwork_path:
@@ -388,6 +449,12 @@ def create_artwork_router(
                 status_code=404,
                 detail="No artwork found in album tracks"
             )
+
+        # Purge both paths: the old one covers a move to a new file, the new one
+        # covers an in-place overwrite (same path, fresh mtime — the old key
+        # still sits in the cache). Thumbnails render lazily, so nothing for the
+        # new generation exists yet and this cannot delete a live entry.
+        await asyncio.to_thread(_purge_album_thumbnails, previous_path, artwork_path)
 
         # Convert filesystem path to API URL
         artwork_url = f"/api/albums/{album_id}/artwork"
@@ -431,9 +498,18 @@ def create_artwork_router(
         album = await asyncio.to_thread(repos.albums.get_by_id, album_id)
         if album is None:
             raise NotFoundError("Album", album_id)
+        # Read the source path BEFORE the row is cleared — it is the only way
+        # back to the derived thumbnails, and delete_artwork discards it (#4532).
+        source_path = album.artwork_path
         success = await asyncio.to_thread(repos.albums.delete_artwork, album_id)
         # If repo returns False the artwork was already absent — also
         # success from the client's idempotency perspective.
+
+        # Drop the derived thumbnails. Runs regardless of `success` so a
+        # half-finished earlier delete (row gone, cache left) still gets cleaned
+        # up, and after the DB write so a purge failure cannot fail the request —
+        # purge_thumbnails swallows its own OSErrors for that reason.
+        await asyncio.to_thread(_purge_album_thumbnails, source_path)
 
         # Broadcast artwork updated event (only when something actually changed)
         if success:
@@ -488,10 +564,17 @@ def create_artwork_router(
                 detail=f"No artwork found online for '{album_name}' by '{artist_name}'"
             )
 
+        # Captured before update_artwork_path replaces it, so the superseded
+        # generation's thumbnails can still be located (#4532).
+        previous_path = album.artwork_path
+
         # Save artwork path to database
         updated_album = await asyncio.to_thread(repos.albums.update_artwork_path, album_id, artwork_path)
         if not updated_album:
             raise NotFoundError("Album")
+
+        # Same both-paths purge as the extract route above.
+        await asyncio.to_thread(_purge_album_thumbnails, previous_path, artwork_path)
 
         # Convert filesystem path to API URL
         artwork_url = f"/api/albums/{album_id}/artwork"

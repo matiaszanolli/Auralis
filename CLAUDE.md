@@ -210,6 +210,12 @@ Cached chunk files are 16-bit PCM WAV, not float32.
 2. **Modular** — < 300 lines per module, single responsibility.
 3. **No variants** — No "Enhanced"/"V2"/"Advanced" copies. Refactor in-place.
 4. **Repository pattern** — All DB via `auralis/library/repositories/`, never raw SQL.
+5. **Deferrals are greppable** — Write a deferred decision as `# TODO(#NNNN):`
+   with a real issue number, not as prose ("For now, …", "Temporarily …").
+   Prose deferrals are invisible to any marker sweep, so `/audit-tech-debt` has
+   to fall back to a high-recall prose grep that cannot distinguish a deferral
+   from an ordinary sentence (#4564). Genuine marker debt is currently **0** —
+   keep it that way by linking the issue instead of leaving a bare `TODO`.
 
 ## Git
 

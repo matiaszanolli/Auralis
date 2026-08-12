@@ -29,9 +29,10 @@ ask "does this instruction widen the signal?", compare the width factor against
 """
 
 import numpy as np
-from scipy.signal import butter, sosfiltfilt
+from scipy.signal import butter
 
 from ..basic import mid_side_decode, mid_side_encode
+from .filters import sosfiltfilt_safe
 
 #: Width factor that leaves the signal unchanged (side gain of exactly 1.0).
 #: Audio that has not been width-adjusted sits here *by definition*, which is
@@ -181,13 +182,28 @@ def adjust_stereo_width_multiband(
     sos_high = butter(2, freq_high, btype='high', output='sos')
 
     # Extract bands (for width calculation only, not recombination).
-    # sosfiltfilt always returns float64; cast back to the input dtype so
-    # the final `stereo_audio + diff_*` add doesn't silently promote a
-    # float32 signal to float64 (#3468). resonance_notcher.py uses the
-    # same wrap; keep them consistent.
-    band_lowmid = np.asarray(sosfiltfilt(sos_lowmid, stereo_audio, axis=0), dtype=stereo_audio.dtype)
-    band_highmid = np.asarray(sosfiltfilt(sos_highmid, stereo_audio, axis=0), dtype=stereo_audio.dtype)
-    band_high = np.asarray(sosfiltfilt(sos_high, stereo_audio, axis=0), dtype=stereo_audio.dtype)
+    #
+    # sosfiltfilt_safe both casts back to the input dtype — sosfiltfilt returns
+    # float64, and an unguarded call would silently promote a float32 signal
+    # through the final `stereo_audio + diff_*` add (#3468) — and returns the
+    # band unfiltered when the buffer is shorter than scipy's padlen instead of
+    # raising mid-DSP (#4520). At order 2 that threshold is 16 samples, so a
+    # buffer of 15 or fewer used to crash here for ANY width factor far enough
+    # from unity to reach this line.
+    # on_too_short="zeros", NOT passthrough: each result is one band's content,
+    # and the `diff_* = widened(band) - band` sums below add every band's
+    # contribution on top of the input. Empty bands give diff == 0, so audio too
+    # short to filter comes back unwidened; passing the full signal through as
+    # all three "bands" would instead widen it three times over.
+    band_lowmid = sosfiltfilt_safe(
+        sos_lowmid, stereo_audio, context="stereo width low-mid", on_too_short="zeros"
+    )
+    band_highmid = sosfiltfilt_safe(
+        sos_highmid, stereo_audio, context="stereo width high-mid", on_too_short="zeros"
+    )
+    band_high = sosfiltfilt_safe(
+        sos_high, stereo_audio, context="stereo width high", on_too_short="zeros"
+    )
 
     # Calculate expansion amount from base factor
     expansion = width_factor - 0.5  # 0 to 0.5 range
@@ -201,7 +217,9 @@ def adjust_stereo_width_multiband(
     def expansion_factor(f_center: float) -> float:
         """Smooth logarithmic curve: higher freq = more expansion"""
         log_pos = np.log(f_center / f_min) / log_range  # 0.0 to 1.0
-        return 0.3 + (log_pos * 0.7)  # Ramp from 0.3 to 1.0 with frequency
+        # float(): np.log returns a numpy scalar, which mypy widens to Any and
+        # would leak out of this `-> float` signature.
+        return float(0.3 + (log_pos * 0.7))  # Ramp from 0.3 to 1.0 with frequency
 
     # Width factors for each band
     width_lowmid = 0.5 + expansion * expansion_factor(775.0)    # ~0.6

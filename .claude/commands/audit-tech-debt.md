@@ -67,15 +67,37 @@ Default every tech-debt finding to LOW unless one of the above fires. Do **not**
    ```bash
    .claude/commands/_audit-validate.sh || true   # STALE lines → auto-eligible Dim 7/10 findings (effort: trivial)
    ```
-6. Snapshot current totals as a baseline (so the report can show direction and the next run can diff):
+6. Snapshot current totals as a baseline (so the report can show direction and the next run can diff).
+
+   **Read the metric notes below before quoting any of these numbers in a report** (#4564): three of them are easy to misread, and two used to be computed in forms that systematically overstated debt.
+
    ```bash
+   SRC_INC=(--include='*.py' --include='*.ts' --include='*.tsx' --include='*.js' --include='*.jsx' --include='*.rs' --include='*.mjs')
+   SRC_DIRS=(auralis auralis-web/backend auralis-web/frontend/src vendor/auralis-dsp/src)
+   NON_TEST='test|__tests__|\.spec\.|/mocks/'
+   # Known non-marker uses of "XXX": design-system size tokens (xxxl/spacingXXXLarge),
+   # the migration filename pattern (migration_vXXX_to_vYYY.sql), issue-number
+   # placeholders (#3xxx), and "0.xxxx" digit runs in test strings.
+   MARKER_FP='x{3,}l|v?XXX_to|#[0-9]xxx|0\.x{3,}'
    {
-     echo "TODO/FIXME/HACK/XXX (py):   $(grep -RInE '(TODO|FIXME|HACK|XXX)\b' auralis auralis-web/backend --include='*.py' | wc -l)"
-     echo "TODO/FIXME/HACK/XXX (ts):   $(grep -RInE '(TODO|FIXME|HACK|XXX)\b' auralis-web/frontend/src --include='*.ts' --include='*.tsx' | wc -l)"
+     # ONE case-insensitive sweep across every source language, minus known
+     # false positives — so the number printed is GENUINE marker debt and a 0 is
+     # a meaningful health signal. Previously two case-sensitive .py/.ts-only
+     # greps whose every hit was a false positive (#4564).
+     echo "markers, genuine (all src):  $(grep -RIniE '(TODO|FIXME|HACK|XXX)\b' "${SRC_DIRS[@]}" "${SRC_INC[@]}" 2>/dev/null | grep -viE "$MARKER_FP" | wc -l)"
+     echo "markers, raw (pre-filter):   $(grep -RIniE '(TODO|FIXME|HACK|XXX)\b' "${SRC_DIRS[@]}" "${SRC_INC[@]}" 2>/dev/null | wc -l)"
+     # Prose deferrals — where THIS repo actually records deferred work. No
+     # marker grep sees these, so without this line the marker count reads as
+     # "no deferred work" when there is some (#4564).
+     echo "prose deferrals (non-test):  $(grep -RIniE 'for now|temporarily|workaround|revisit|not implemented' "${SRC_DIRS[@]}" "${SRC_INC[@]}" 2>/dev/null | grep -vE "$NON_TEST" | wc -l)"
      echo "NotImplementedError:        $(grep -RInE 'NotImplementedError' auralis auralis-web/backend --include='*.py' | wc -l)"
      echo "type: ignore (py):          $(grep -RIn 'type: ignore' auralis auralis-web/backend --include='*.py' | wc -l)"
      echo "@ts-ignore/@ts-expect-error: $(grep -RInE '@ts-(ignore|expect-error)' auralis-web/frontend/src | wc -l)"
-     echo "': any' / 'as any' (ts):     $(grep -RInE ':\s*any\b|as any|<any>' auralis-web/frontend/src --include='*.ts' --include='*.tsx' | wc -l)"
+     # Non-test is the number that matters: specs and mocks are ~95% of the raw
+     # hits, and quoting raw argues for a type-safety push the shipped code does
+     # not need (#4564). Raw is kept only for trend continuity.
+     echo "'any' non-test (ts):         $(grep -RInE ':\s*any\b|as any|<any>' auralis-web/frontend/src --include='*.ts' --include='*.tsx' | grep -vE "$NON_TEST" | wc -l)"
+     echo "'any' raw incl. tests (ts):  $(grep -RInE ':\s*any\b|as any|<any>' auralis-web/frontend/src --include='*.ts' --include='*.tsx' | wc -l)"
      echo "skipped tests (py):         $(grep -RInE '@pytest\.mark\.(skip|skipif|xfail)' tests | wc -l)"
      echo "skipped tests (ts):         $(grep -RInE '\b(it|test|describe)\.(skip|todo)\b' auralis-web/frontend/src | wc -l)"
      echo "py files >300 LOC:          $(find auralis auralis-web/backend -name '*.py' -exec wc -l {} + | awk '$1>300 && $2!="total"' | wc -l)"
@@ -83,6 +105,18 @@ Default every tech-debt finding to LOW unless one of the above fires. Do **not**
      echo "allow(dead_code) (rust):    $(grep -RInE 'allow\(dead_code\)' vendor/auralis-dsp/src 2>/dev/null | wc -l)"
    } > /tmp/audit/tech-debt/baseline.txt
    ```
+
+   **Metric notes** (#4564) — carry these labels into the report's Baseline Snapshot; do not relabel a filtered count as a raw one:
+
+   | Metric | Read it as |
+   |---|---|
+   | `markers, genuine` | The real marker debt. **0 is the expected value** for this repo and is a good result, not a suspicious one. If it is nonzero, list the hits — do not report the count alone. |
+   | `markers, raw` | Diagnostic only. A gap vs `genuine` just means the false-positive filter fired; it is not debt. Never quote this as marker debt. |
+   | `prose deferrals` | This repo writes deferrals as prose ("For now, …", "Temporarily …"), so this is where its deferred work lives. High recall, low precision — **read the hits, don't quote the number** as debt. Individually-tracked ones exist (e.g. #4405, #4239); dedup before filing. |
+   | `'any' non-test` | The type-safety debt that ships. Quote this one. |
+   | `'any' raw incl. tests` | Trend continuity only. Specs and mocks dominate it. |
+
+   These greps are the definition of the metric — if a future run finds them wrong, fix them **here** rather than correcting the numbers by hand in one report (which is what #4564 was filed for).
 
 ## Phase 2: Launch Dimension Agents
 

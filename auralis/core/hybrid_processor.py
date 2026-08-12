@@ -26,7 +26,7 @@ from ..io.results import Result
 from ..learning.preference_engine import create_preference_engine
 from ..optimization.performance_optimizer import get_performance_optimizer
 from ..utils.audio_validation import sanitize_audio, validate_audio_finite
-from ..utils.logging import debug, info
+from ..utils.logging import debug, info, warning
 from .analysis import AdaptiveTargetGenerator, ContentAnalyzer
 from .analysis.spectrum_mapper import SpectrumMapper
 from .config import UnifiedConfig
@@ -263,14 +263,29 @@ class HybridProcessor:
             target_audio = np.column_stack([target_audio, target_audio])
             debug(f"Converted mono audio to stereo: shape now {target_audio.shape}")
 
-        # Check for minimum audio length (1024 samples = ~23ms at 44.1kHz)
-        # Prevents Rust FFT/DSP operations from panicking on tiny audio
+        # Audio shorter than one analysis window (1024 samples, ~23ms at
+        # 44.1kHz) is returned unprocessed rather than rejected (#4520).
+        #
+        # This used to `raise ValueError`, which broke the pipeline's core
+        # invariant — `len(output) == len(input)`, load-bearing for gapless
+        # playback — for any short buffer, and made a caller's only options
+        # "crash" or "pre-check the length itself". Returning it untouched is
+        # what the empty-audio and silence branches immediately above already
+        # do, and no meaningful mastering decision can be made from 23ms
+        # anyway: the fingerprint stage alone needs 11025 samples.
+        #
+        # The raise was originally defensive against Rust FFT panics on tiny
+        # audio. Those are fixed at the source — vendor/auralis-dsp hpss.rs
+        # short-circuits below one FFT frame, verified here for n=0..2048 —
+        # so the guard now only blocks work the DSP layer handles correctly.
         MIN_SAMPLES = 1024
         if target_audio.shape[0] < MIN_SAMPLES:
-            raise ValueError(
-                f"Target audio must have at least {MIN_SAMPLES} samples for DSP processing, "
-                f"got {target_audio.shape[0]} samples (~{target_audio.shape[0]/44100*1000:.1f}ms at 44.1kHz)"
+            warning(
+                f"Audio too short to master ({target_audio.shape[0]} samples, "
+                f"~{target_audio.shape[0]/44100*1000:.1f}ms at 44.1kHz); "
+                f"returning it unprocessed (need {MIN_SAMPLES} samples)"
             )
+            return target_audio.copy()
 
         # Handle silence (all zeros) - return as-is to avoid NaN production in downstream processing
         if np.allclose(target_audio, 0.0, atol=1e-10):
