@@ -968,7 +968,12 @@ class TestWebSocketJobProgress:
         import asyncio
         asyncio.run(progress_callback("test-job-456", 50.0, "halfway"))
 
-        mock_engine.unregister_progress_callback.assert_awaited_once_with("test-job-456")
+        # Unregisters ITSELF, not the whole job_id (#3868) — a bare
+        # unregister(job_id) would evict every other connection subscribed to
+        # the same job.
+        mock_engine.unregister_progress_callback.assert_awaited_once_with(
+            "test-job-456", progress_callback
+        )
 
 
 class TestWebSocketCleanup:

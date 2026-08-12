@@ -172,8 +172,13 @@ class ProcessingEngine:
         self.temp_dir: Path = Path(tempfile.gettempdir()) / PROCESSING_TEMP_DIRNAME
         self.temp_dir.mkdir(exist_ok=True)
 
-        # Progress callbacks
-        self.progress_callbacks: dict[str, Callable[..., Any]] = {}
+        # Progress callbacks, per job_id. A LIST, not a single callable (#3868):
+        # each WebSocket that subscribes to a job registers its own closure, and
+        # a single-value dict silently let the newest subscriber overwrite every
+        # earlier one — so with two subscribers (multi-window Electron, or one
+        # client subscribing twice) all but the last stopped receiving
+        # `job_progress` events, with no error anywhere.
+        self.progress_callbacks: dict[str, list[Callable[..., Any]]] = {}
 
         # Per-job cooperative cancellation tokens (#4496). A job's input/reference
         # FFmpeg decode runs in a `to_thread` worker that `task.cancel()` cannot
@@ -275,34 +280,93 @@ class ProcessingEngine:
             return self.jobs.get(job_id)
 
     async def register_progress_callback(self, job_id: str, callback: Callable[..., Any]) -> None:
-        """Register a callback for job progress updates"""
-        async with self._jobs_lock:
-            self.progress_callbacks[job_id] = callback
+        """Add a callback for job progress updates.
 
-    async def unregister_progress_callback(self, job_id: str) -> None:
-        """Remove a progress callback (e.g. on WebSocket disconnect)."""
+        Additive: every subscriber for `job_id` is retained and notified
+        (#3868). Re-registering the same callable is a no-op rather than a
+        double subscription, so a duplicate `subscribe_job_progress` cannot
+        make the client receive each tick twice.
+        """
         async with self._jobs_lock:
-            self.progress_callbacks.pop(job_id, None)
+            callbacks = self.progress_callbacks.setdefault(job_id, [])
+            if callback not in callbacks:
+                callbacks.append(callback)
+
+    async def unregister_progress_callback(
+        self, job_id: str, callback: Callable[..., Any] | None = None
+    ) -> None:
+        """Remove progress callbacks for `job_id` (e.g. on WebSocket disconnect).
+
+        Args:
+            job_id: The job whose subscribers are being removed.
+            callback: Remove only this subscriber, leaving other subscribers of
+                the same job intact — what a per-connection disconnect wants.
+                `None` removes every subscriber, for job-wide teardown
+                (cancel_job, job cleanup). Passing `None` from a per-connection
+                path would evict other live clients' subscriptions (#3868).
+        """
+        async with self._jobs_lock:
+            if callback is None:
+                self.progress_callbacks.pop(job_id, None)
+                return
+            callbacks = self.progress_callbacks.get(job_id)
+            if not callbacks:
+                return
+            # Identity/equality removal; tolerate an already-removed callback so
+            # a self-unregister racing with disconnect cleanup is not an error.
+            try:
+                callbacks.remove(callback)
+            except ValueError:
+                pass
+            if not callbacks:
+                self.progress_callbacks.pop(job_id, None)
 
     async def _notify_progress(self, job_id: str, progress: float, message: str = "") -> None:
-        """Notify progress callback.
+        """Notify every subscriber registered for this job.
 
         Silences and removes callbacks that raise (e.g. dead WebSocket),
         so a WS disconnect does not abort the processing job (#3325).
+
+        Subscribers run concurrently and are pruned individually (#3868):
+        serial delivery would let one slow/wedged socket delay every other
+        subscriber's tick, and removing the whole `job_id` entry on the first
+        failure — as the single-callback version did — would silently
+        unsubscribe the healthy clients along with the dead one.
         """
         async with self._jobs_lock:
             job = self.jobs.get(job_id)
             if job:
                 job.progress = progress
-            callback = self.progress_callbacks.get(job_id)
+            # Snapshot: the awaits below run outside the lock, and a callback
+            # may unregister itself (or others) while we are iterating.
+            callbacks = list(self.progress_callbacks.get(job_id, ()))
 
-        if job and callback:
-            try:
-                await callback(job_id, progress, message)
-            except Exception:
-                logger.debug("Progress callback for job %s failed, removing", job_id)
-                async with self._jobs_lock:
-                    self.progress_callbacks.pop(job_id, None)
+        if not (job and callbacks):
+            return
+
+        results = await asyncio.gather(
+            *(cb(job_id, progress, message) for cb in callbacks),
+            return_exceptions=True,
+        )
+        failed = [cb for cb, result in zip(callbacks, results) if isinstance(result, BaseException)]
+        if not failed:
+            return
+
+        logger.debug(
+            "%d/%d progress callbacks for job %s failed, removing them",
+            len(failed), len(callbacks), job_id,
+        )
+        async with self._jobs_lock:
+            remaining = self.progress_callbacks.get(job_id)
+            if remaining is None:
+                return
+            for cb in failed:
+                try:
+                    remaining.remove(cb)
+                except ValueError:
+                    pass
+            if not remaining:
+                self.progress_callbacks.pop(job_id, None)
 
     # Processor-pool operations delegate to self._pool (#4250). Thin wrappers are
     # kept so any caller/test using the engine-level names still works.

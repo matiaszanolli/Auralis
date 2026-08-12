@@ -315,8 +315,11 @@ def create_system_router(
         # attempt a teardown that needs them (#4771).
         heartbeat_task: asyncio.Task[None] | None = None
         state: StreamState | None = None
-        # Track job IDs this WS subscribed to, for cleanup on disconnect (#3325)
-        subscribed_job_ids: set[str] = set()
+        # This WS's own job-progress subscriptions (job_id -> callback), for
+        # cleanup on disconnect (#3325). A dict rather than a set of job_ids so
+        # teardown unregisters exactly this connection's callback and leaves
+        # other connections subscribed to the same job alone (#3868).
+        job_subscriptions: dict[str, Callable[..., Any]] = {}
 
         try:
             # setup_connection() now runs INSIDE the try (was previously
@@ -392,12 +395,17 @@ def create_system_router(
                     allowed, error_msg = _rate_limiter.check_rate_limit(websocket)
                     if not allowed:
                         logger.warning(f"Rate limit exceeded for WebSocket {_ws_id(websocket)}: {error_msg}")
-                        await send_error_response(websocket, "rate_limit_exceeded", error_msg)
+                        # check_rate_limit types its reason as `str | None`; it
+                        # is always set when allowed is False, but fall back so
+                        # the client still gets a message either way.
+                        await send_error_response(
+                            websocket, "rate_limit_exceeded", error_msg or "Rate limit exceeded"
+                        )
                         continue
 
                 try:
                     await ws_connection.dispatch_message(
-                        websocket, message, state, deps, heartbeat, connection_id, subscribed_job_ids
+                        websocket, message, state, deps, heartbeat, connection_id, job_subscriptions
                     )
                 except (WebSocketDisconnect, RuntimeError):
                     # Genuinely fatal transport errors — let the outer
@@ -429,7 +437,7 @@ def create_system_router(
             if state is not None and heartbeat_task is not None:
                 await ws_connection.teardown_connection(
                     websocket, heartbeat_task, state, get_processing_engine,
-                    subscribed_job_ids, manager, _rate_limiter,
+                    job_subscriptions, manager, _rate_limiter,
                 )
             elif heartbeat_task is not None:
                 # setup_connection() returned a heartbeat_task but raised

@@ -19,6 +19,7 @@ from collections.abc import Callable
 from fastapi import WebSocket
 
 from core.audio_stream_controller import ws_id as _ws_id
+from core.stream_protocol import safe_send_text
 from helpers import spawn_background_task
 from websocket.websocket_protocol import HeartbeatManager
 from websocket.websocket_security import WebSocketRateLimiter
@@ -53,11 +54,16 @@ async def setup_connection(
                 logger.warning(f"WebSocket {connection_id} stale — closing")
                 await websocket.close(code=1001, reason="Heartbeat timeout")
                 return
-            try:
-                await websocket.send_text(json.dumps({"type": "ping"}))
-                heartbeat.mark_ping(connection_id)
-            except Exception:
-                return  # Connection already dead
+            # safe_send_text pre-checks the connection state and classifies
+            # failures (#3870): a bare send_text() on a just-disconnected
+            # socket raises RuntimeError("Cannot call 'send' once a close
+            # message has been sent."), and the old blanket `except Exception:
+            # return` swallowed that indistinguishably from a genuine encoder
+            # or payload error. safe_send_text logs a real close at debug and
+            # anything else at warning, so genuine bugs stay visible.
+            if not await safe_send_text(websocket, {"type": "ping"}):
+                return  # Connection already dead, or the send genuinely failed
+            heartbeat.mark_ping(connection_id)
 
     heartbeat_task = spawn_background_task(_heartbeat_loop(), name=f"ws_heartbeat_{connection_id}")
 
@@ -114,7 +120,7 @@ async def dispatch_message(
     deps: WSDeps,
     heartbeat: HeartbeatManager,
     connection_id: str,
-    subscribed_job_ids: set[str],
+    job_subscriptions: dict[str, Callable[..., Any]],
 ) -> None:
     """Route one parsed WS message to its handler by `type`."""
     msg_type = message.get("type")
@@ -142,7 +148,7 @@ async def dispatch_message(
     elif msg_type == "seek":
         await playback_commands.handle_seek(websocket, message, state, deps)
     elif msg_type == "subscribe_job_progress":
-        await msg_handlers.handle_subscribe_job_progress(websocket, message, deps, subscribed_job_ids)
+        await msg_handlers.handle_subscribe_job_progress(websocket, message, deps, job_subscriptions)
     else:
         await msg_handlers.handle_unknown(websocket, message)
 
@@ -152,7 +158,7 @@ async def teardown_connection(
     heartbeat_task: asyncio.Task[None],
     state: StreamState,
     get_processing_engine: Callable[..., Any],
-    subscribed_job_ids: set[str],
+    job_subscriptions: dict[str, Callable[..., Any]],
     manager: Any,
     rate_limiter: WebSocketRateLimiter,
 ) -> None:
@@ -210,12 +216,17 @@ async def teardown_connection(
 
     # Remove stale progress callbacks on WS disconnect (#3325).
     # Wrap each unregister so one failure doesn't skip the rest.
-    if subscribed_job_ids:
+    #
+    # Unregisters THIS connection's own callback per job, not the job_id
+    # wholesale (#3868) — other connections may still be subscribed to the
+    # same job, and evicting them here would silently stop their
+    # `job_progress` events with no error on either side.
+    if job_subscriptions:
         processing_engine = get_processing_engine()
         if processing_engine:
-            for jid in list(subscribed_job_ids):
+            for jid, callback in list(job_subscriptions.items()):
                 try:
-                    await processing_engine.unregister_progress_callback(jid)
+                    await processing_engine.unregister_progress_callback(jid, callback)
                 except Exception:
                     logger.warning(f"Failed to unregister progress callback for {jid}", exc_info=True)
 

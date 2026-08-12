@@ -11,7 +11,6 @@ routers/system.py (#4074).
 :license: GPLv3, see LICENSE for more details.
 """
 
-import json
 import logging
 from typing import Any
 
@@ -48,8 +47,17 @@ def handle_heartbeat(heartbeat: HeartbeatManager, connection_id: str) -> None:
 
 
 async def handle_subscribe_job_progress(
-    websocket: WebSocket, message: dict[str, Any], deps: WSDeps, subscribed_job_ids: set[str]
+    websocket: WebSocket,
+    message: dict[str, Any],
+    deps: WSDeps,
+    job_subscriptions: dict[str, Any],
 ) -> None:
+    """Subscribe this connection to `job_progress` events for one job.
+
+    `job_subscriptions` maps job_id -> this connection's callback, so
+    teardown can unregister exactly its own subscription and leave other
+    connections subscribed to the same job untouched (#3868).
+    """
     data = message.get("data", {})
     job_id = data.get("job_id")
     # Validate job_id — prior code accepted any value, opening a slow
@@ -69,19 +77,30 @@ async def handle_subscribe_job_progress(
         # a callback AFTER it raises, so without this guard every
         # progress tick between disconnect and cleanup still
         # attempts a send on a dead socket (fixes #3826 / BE-RH-9).
+        #
+        # Unregisters ITSELF, not the whole job_id (#3868): a bare
+        # unregister(job_id) here would drop every other connection's
+        # subscription to the same job as collateral.
         if websocket.client_state != WebSocketState.CONNECTED:
-            await processing_engine.unregister_progress_callback(job_id)
+            await processing_engine.unregister_progress_callback(job_id, progress_callback)
             return
-        await websocket.send_text(json.dumps({
+        await safe_send_text(websocket, {
             "type": "job_progress",
             "data": {"job_id": job_id, "progress": progress, "message": message}
-        }))
+        })
+
+    # A repeat subscribe for the same job on the same connection replaces the
+    # old closure rather than stacking a second one, which would deliver every
+    # tick twice to this socket (#3868).
+    previous = job_subscriptions.get(job_id)
+    if previous is not None:
+        await processing_engine.unregister_progress_callback(job_id, previous)
 
     # Track subscription intent BEFORE registering with the engine
     # (not after) so the disconnect-cleanup loop below always knows
     # to unregister this job_id even if this task is cancelled
     # mid-await inside register_progress_callback.
-    subscribed_job_ids.add(job_id)
+    job_subscriptions[job_id] = progress_callback
     await processing_engine.register_progress_callback(job_id, progress_callback)
 
 

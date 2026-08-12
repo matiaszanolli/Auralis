@@ -234,7 +234,10 @@ async def test_progress_callbacks_fire_correctly():
         progress_log.append(pct)
 
     engine.jobs[job.job_id] = job
-    engine.progress_callbacks[job.job_id] = capture_progress
+    # Register via the public API: progress_callbacks holds a LIST of
+    # subscribers per job_id since #3868, so assigning a bare callable here
+    # would leave _notify_progress trying to call a list.
+    await engine.register_progress_callback(job.job_id, capture_progress)
 
     with (
         patch("core.processing_engine.load_audio", return_value=(fake_audio, 44100)),
