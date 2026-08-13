@@ -8,6 +8,7 @@
 
 import { Table, TableBody, TableContainer, TableRow, Paper, Typography, TableCell } from '@mui/material';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 import { usePlaybackState } from '@/components/library/usePlaybackState';
 import TrackTableHeader from './TrackTableHeader';
 import TrackTableRowItem from './TrackTableRowItem';
@@ -34,7 +35,11 @@ export const AlbumTrackTable = ({
     <TableContainer
       component={Paper}
       sx={{
-        background: `rgba(${parseInt(tokens.colors.bg.level2.slice(1, 3), 16)}, ${parseInt(tokens.colors.bg.level2.slice(3, 5), 16)}, ${parseInt(tokens.colors.bg.level2.slice(5, 7), 16)}, 0.92)`,
+        // #4464/#4877: was a manual rgba() built by slicing tokens.colors.bg.level2's
+        // hex digits — a dark-only computation that broke under light mode, the
+        // same defect #4877 fixed in TrackTableHeader. color-mix() applies the
+        // alpha to whichever theme-aware surface is active instead.
+        background: `color-mix(in srgb, ${themeVars.surfaceSecondary} 92%, transparent)`,
         borderRadius: tokens.borderRadius.lg,
         backdropFilter: 'blur(12px)',
         border: `1px solid ${tokens.colors.border.light}`,

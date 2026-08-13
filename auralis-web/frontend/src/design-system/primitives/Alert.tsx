@@ -1,5 +1,5 @@
 import { CSSProperties, ReactNode, forwardRef } from 'react';
-import { tokens } from '@/design-system/tokens';
+import { tokens, withOpacity } from '@/design-system/tokens';
 
 interface AlertProps {
   children: ReactNode;
@@ -9,31 +9,24 @@ interface AlertProps {
   className?: string;
 }
 
-const hexToRgba = (hex: string, alpha: number): string => {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-};
-
 const variantStyles = {
   info: {
-    bg: hexToRgba(tokens.colors.semantic.info, 0.15),
+    bg: withOpacity(tokens.colors.semantic.info, 0.15),
     border: tokens.colors.semantic.info,
     text: tokens.colors.semantic.info,
   },
   success: {
-    bg: hexToRgba(tokens.colors.semantic.success, 0.15),
+    bg: withOpacity(tokens.colors.semantic.success, 0.15),
     border: tokens.colors.semantic.success,
     text: tokens.colors.semantic.success,
   },
   warning: {
-    bg: hexToRgba(tokens.colors.semantic.warning, 0.15),
+    bg: withOpacity(tokens.colors.semantic.warning, 0.15),
     border: tokens.colors.semantic.warning,
     text: tokens.colors.semantic.warning,
   },
   error: {
-    bg: hexToRgba(tokens.colors.semantic.error, 0.15),
+    bg: withOpacity(tokens.colors.semantic.error, 0.15),
     border: tokens.colors.semantic.error,
     text: tokens.colors.semantic.error,
   },

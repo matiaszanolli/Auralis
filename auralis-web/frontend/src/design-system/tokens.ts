@@ -24,7 +24,8 @@ export const tokens = {
   zIndex, breakpoints, components, gradients, glass, animations,
 } as const;
 
-export { withOpacity } from './tokens/with-opacity';
+export { withOpacity, hexToRgb } from './tokens/with-opacity';
+export type { RgbChannels } from './tokens/with-opacity';
 
 export type DesignTokens = typeof tokens;
 export type ColorToken = keyof typeof tokens.colors;

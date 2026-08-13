@@ -11,8 +11,8 @@
  */
 
 // Design tokens
-export { tokens, withOpacity } from './tokens';
-export type { DesignTokens, ColorToken, SpacingToken, TypographyToken } from './tokens';
+export { tokens, withOpacity, hexToRgb } from './tokens';
+export type { DesignTokens, ColorToken, SpacingToken, TypographyToken, RgbChannels } from './tokens';
 
 // Animation system
 export {
