@@ -107,25 +107,6 @@ impl Limiter {
         delayed_audio
     }
 
-    /// Detect inter-sample peaks using simple linear interpolation
-    fn detect_isr_peaks(&self, audio: &[f32]) -> f32 {
-        if audio.len() < 2 {
-            return audio.iter().map(|&x| x.abs()).fold(0.0f32, f32::max);
-        }
-
-        // Sample peaks
-        let sample_peaks = audio.iter().map(|&x| x.abs()).fold(0.0f32, f32::max);
-
-        // Interpolated peaks (linear interpolation between samples)
-        let mut interp_peaks = 0.0f32;
-        for i in 0..audio.len() - 1 {
-            let interpolated = (audio[i] + audio[i + 1]) / 2.0;
-            interp_peaks = interp_peaks.max(interpolated.abs());
-        }
-
-        sample_peaks.max(interp_peaks)
-    }
-
     /// Simple oversampling using zero-padding and filtering
     fn oversample(&self, audio: &[f32]) -> Vec<f32> {
         let factor = self.config.oversampling;
