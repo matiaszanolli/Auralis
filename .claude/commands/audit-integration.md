@@ -1,11 +1,11 @@
 ---
-description: "Trace 7 critical data flows across audio engine, FastAPI backend, and React frontend"
+description: "Trace 9 critical data flows across audio engine, FastAPI backend, and React frontend"
 argument-hint: "[--focus <flow-names>] [--depth shallow|deep] [--limit <N>]"
 ---
 
 # Backend-Frontend-Engine Integration Audit
 
-Trace the 7 critical data flows between the Auralis audio engine, FastAPI backend, and React frontend.
+Trace the 9 critical data flows between the Auralis audio engine, FastAPI backend, and React frontend.
 
 **Architecture**: This is an orchestrator. Each flow runs as an Agent-tool subagent (`subagent_type: general-purpose`, `model: sonnet`). Max 3 run concurrently.
 
@@ -13,7 +13,7 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 
 ## Parameters (from $ARGUMENTS)
 
-- `--flows <numbers>`: Comma-separated flow numbers (e.g., `1,3,5`). Default: all 7.
+- `--flows <numbers>`: Comma-separated flow numbers (e.g., `1,3,5`). Default: all 9.
 - `--depth shallow|deep`: `shallow` = check key patterns only; `deep` = trace full data paths. Default: `deep`.
 - `--limit <N>`: Stop after N findings. Default: unlimited.
 
@@ -50,7 +50,7 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 | User navigates | Frontend | `src/hooks/library/`, `src/store/` library slice |
 | REST requests | Frontend | `src/services/` API client |
 | Library endpoints | Backend | `routers/` (albums, artists, playlists, tracks) |
-| Database queries | Engine | `auralis/library/manager.py` → `repositories/` |
+| Database queries | Engine | `auralis/library/database.py` (`LibraryDatabase`) → `repositories/` |
 | Response format | Backend | `schemas.py` |
 
 **Check**: Pagination — consistent between frontend expectations and backend response? Field naming — camelCase (frontend) vs snake_case (backend)? Null handling — what happens when optional metadata is missing? Large libraries — does the frontend handle 100k+ tracks?
@@ -63,11 +63,11 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 | Settings API call | Frontend | `src/services/` |
 | Enhancement endpoint | Backend | `auralis-web/backend/routers/enhancement.py` |
 | Runtime settings | Backend | shared `enhancement_settings` dict (mutated in place, seeded at startup from UserSettings) |
-| Processing config | Engine | `auralis/core/config/unified_config.py` (UnifiedConfig) and legacy `auralis/core/config.py` |
+| Processing config | Engine | `auralis/core/config/unified_config.py` (UnifiedConfig) — the only config layer since #4918 |
 | DSP pipeline | Engine | `auralis/core/hybrid_processor.py` → DSP modules |
 | Real-time application | Engine | `auralis/player/realtime_processor.py` |
 
-**Check**: Config format — do frontend slider values map correctly to engine parameters? Does the transport actually pass the *current* preset/intensity through to playback, or re-read stale Redux state? Range validation — can the frontend send out-of-range values? Real-time vs offline — is the same config used for both paths? Do the UnifiedConfig package and legacy `config.py` disagree on any parameter? Latency — does enhancement cause audible gaps?
+**Check**: Config format — do frontend slider values map correctly to engine parameters? Does the transport actually pass the *current* preset/intensity through to playback, or re-read stale Redux state? Range validation — can the frontend send out-of-range values? Real-time vs offline — is the same config used for both paths? Do the enhancement settings participate in the chunk cache key, or can a settings change serve cached audio mastered with the *previous* settings? Latency — does enhancement cause audible gaps?
 
 ### Flow 4: Library Scanning
 
@@ -78,7 +78,7 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 | Auto-scan | Backend | `auralis-web/backend/services/library_auto_scanner.py` (background folder watcher) |
 | Filesystem scan | Engine | `auralis/library/scanner/` |
 | Metadata extraction | Engine | `auralis/io/unified_loader.py` |
-| Database insert | Engine | `auralis/library/manager.py` → repositories |
+| Database insert | Engine | `auralis/library/database.py` → repositories |
 | Progress updates | Backend | WebSocket or polling |
 | UI update | Frontend | Redux store |
 
@@ -115,11 +115,42 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 | Step | Layer | File |
 |------|-------|------|
 | Artwork request | Frontend | Image components, hooks |
-| Artwork endpoint | Backend | `routers/artwork.py` |
-| Artwork extraction | Engine | Metadata/artwork services |
+| Artwork endpoint | Backend | `auralis-web/backend/routers/artwork.py` |
+| Artwork extraction | Engine | `auralis/services/artwork_service.py`, `auralis/library/artwork.py` |
+| Thumbnail cache | Backend | `auralis-web/backend/core/thumbnail_cache.py` — on-disk, content-addressed on source mtime/size (#4447) |
 | Image serving | Backend | Static file or stream response |
 
-**Check**: Image formats — are all common formats handled? Cache headers — are they set correctly? Missing artwork — fallback behavior? Large images — resizing on backend or frontend?
+**Check**: Image formats — are all common formats handled? Cache headers — are they set correctly, and do they agree with the on-disk thumbnail cache's own invalidation? Does the thumbnail key's size bucket match the sizes the frontend actually requests, or does every request miss? Missing artwork — fallback behavior? Large images — resizing on backend or frontend?
+
+### Flow 8: Seek & Rebuffer
+
+| Step | Layer | File |
+|------|-------|------|
+| User drags the scrubber | Frontend | `auralis-web/frontend/src/hooks/player/`, player slice in `auralis-web/frontend/src/store/` |
+| Seek command | Frontend → Backend | WebSocket message → `auralis-web/backend/ws_handlers/playback_commands.py` |
+| Seek stream path | Backend | `auralis-web/backend/core/stream_seek.py`, `auralis-web/backend/core/stream_chunk_ops.py` |
+| Chunk index math | Backend | `auralis-web/backend/core/chunk_boundaries.py` (`content_chunk_count()`, overlap-aware) |
+| Source seek | Backend | `auralis-web/backend/core/seekable_source.py` (converts non-seekable sources once, #4737) |
+| Cache lookup | Backend | `auralis-web/backend/core/chunk_cache.py` + `file_signature.py` |
+| Prefetch / buffer reset | Backend | `auralis-web/backend/core/stream_prefetch.py`, `auralis-web/backend/core/proactive_buffer.py` |
+| Level continuity | Backend | `auralis-web/backend/core/level_manager.py` |
+| Resume playback | Frontend | WebSocket hook → Web Audio API |
+
+**Check**: Position units — does the frontend send seconds where the backend expects samples (or ms)? Does the reported position after seek match what was requested, or drift by an overlap width? Are stale pre-seek chunks drained from both the backend buffer and the frontend audio queue, or does the user hear pre-seek audio after the jump? Rapid consecutive seeks — does the last one win, or do two streams interleave? Seek past end / to 0 — clamped consistently on both sides? Does the first post-seek chunk arrive at the right level, given it has no predecessor context?
+
+### Flow 9: Queue & Playback State
+
+| Step | Layer | File |
+|------|-------|------|
+| User reorders / adds / removes | Frontend | Queue components, `auralis-web/frontend/src/store/` |
+| Queue request | Backend | `auralis-web/backend/routers/player.py` |
+| Queue service | Backend | `auralis-web/backend/services/queue_service.py`, `queue_enrichment.py`, `queue_protocols.py` |
+| Engine queue | Engine | `auralis/player/queue_controller.py` (authoritative order) |
+| Persisted queue | Engine | `auralis/library/repositories/` (queue, queue_history) |
+| State broadcast | Backend | `auralis-web/backend/core/state_manager.py` → WebSocket |
+| UI update | Frontend | Redux store |
+
+**Check**: The engine queue and the backend state manager hold *different shapes* of the same queue — the engine's is filepath-only and authoritative on order, the state manager's carries rich track info and goes stale after add/remove/move (#4374 bridged them via enrichment in `queue_service.py`). Does every mutation path re-enrich, or do some return the stale copy? Is `filepath` ever leaked to the client (it must not be — #3205; clients get `format`)? After a reorder, does the frontend's optimistic order match what the engine actually plays next? Does queue persistence survive a restart, and does the persisted index still point at the same track after a library rescan?
 
 ## Per-Flow Verification Checklist
 
@@ -156,7 +187,7 @@ Every agent prompt MUST include:
 ```
 ### <ID>: <Short Title>
 - **Severity**: CRITICAL | HIGH | MEDIUM | LOW
-- **Flow**: <which of the 7 flows>
+- **Flow**: <which of the 9 flows>
 - **Boundary**: <sender layer> → <receiver layer>
 - **Location**: `<sender-file>:<line>` → `<receiver-file>:<line>`
 - **Status**: NEW | Existing: #NNN | Regression of #NNN
@@ -174,13 +205,15 @@ Flow → Output mapping:
 - Flow 5 (WebSocket Lifecycle) → `/tmp/audit/integration/flow_5.md`
 - Flow 6 (Fingerprint & Similarity) → `/tmp/audit/integration/flow_6.md`
 - Flow 7 (Artwork) → `/tmp/audit/integration/flow_7.md`
+- Flow 8 (Seek & Rebuffer) → `/tmp/audit/integration/flow_8.md`
+- Flow 9 (Queue & Playback State) → `/tmp/audit/integration/flow_9.md`
 
 ## Phase 3: Merge
 
 1. Read all `/tmp/audit/integration/flow_*.md` files
 2. Combine into `docs/audits/AUDIT_INTEGRATION_<TODAY>.md` with structure:
    - **Executive Summary** — Total findings by severity, key themes, most impactful boundary mismatches
-   - **Flow Coverage Matrix** — Table of all 7 flows with boundary-check status
+   - **Flow Coverage Matrix** — Table of all 9 flows with boundary-check status
    - **Findings** — Grouped by severity (CRITICAL first), deduplicated across flows
    - **Relationships** — Shared root causes, cross-flow boundary issues
    - **Prioritized Fix Order** — What to fix first and why

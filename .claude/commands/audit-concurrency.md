@@ -43,14 +43,17 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 
 ### Dimension 2: Audio Processing Pipeline
 
-**Key files**: `auralis/core/hybrid_processor.py`, `auralis/core/simple_mastering.py`, `auralis/optimization/parallel_processor.py`, `auralis/dsp/stages.py`, `vendor/auralis-dsp/`
+**Key files**: `auralis/core/hybrid_processor.py`, `auralis/core/simple_mastering.py`, `auralis/core/mastering_chunk_loop.py`, `auralis/core/mastering_process_chunk.py`, `auralis/dsp/stages.py`, `vendor/auralis-dsp/`
+
+The engine-side parallel processor (*auralis/optimization/parallel_processor.py* + *parallel/*) was deleted as unreachable in #4565 — audit the engine's sequential chunk loop here, and the backend's concurrent chunk processor in Dimension 3. Do not report the deleted module.
 
 **Check**:
-- [ ] Parallel processor — are audio chunks independently copied before processing? Can adjacent chunks interfere?
+- [ ] Chunk loop — are audio chunks independently copied before processing? Can adjacent chunks interfere through carried context (notch state, level smoothing, limiter memory)?
+- [ ] Shared mastering targets — targets derived once per track and read by concurrent chunk workers must be immutable. Is any target dict/array mutated in place by a worker?
 - [ ] Copy-before-modify pattern — is `audio.copy()` consistently used before in-place NumPy operations?
 - [ ] Rust DSP boundary — does PyO3 correctly handle GIL release during processing? Can concurrent calls corrupt shared state?
 - [ ] HybridProcessor chain — if one stage fails mid-array, is the pipeline state consistent?
-- [ ] Sample count preservation — can parallel processing paths produce different lengths?
+- [ ] Sample count preservation — can the chunked and whole-file paths produce different lengths?
 - [ ] Crossfade between chunks (recent fix `0a5df7a3`) — is the crossfade buffer shared or independent?
 
 ### Dimension 3: Backend WebSocket & Streaming
@@ -62,7 +65,9 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 - [ ] Chunked processor state — is it per-request or shared? Can concurrent requests corrupt chunk state?
 - [ ] Processor pool — is checkout/return in `auralis-web/backend/core/processor_pool.py` leak-free on every early-exit and exception path?
 - [ ] Job worker lifecycle — can `auralis-web/backend/core/job_worker.py` die silently and leave the queue stalled? Is there a watchdog?
-- [ ] Chunk cache — concurrent writers to the same cache key: torn/partial files, or last-writer-wins?
+- [ ] Chunk cache — concurrent writers to the same cache key: torn/partial files, or last-writer-wins? Are writes atomic (temp + rename via `auralis-web/backend/core/encoding/atomic_io.py`), and does the same reasoning hold for `auralis-web/backend/core/thumbnail_cache.py` and `auralis-web/backend/cache/manager.py`?
+- [ ] Seek vs in-flight work — a seek arriving mid-stream must cancel prefetch (`auralis-web/backend/core/stream_prefetch.py`) and drain `auralis-web/backend/core/proactive_buffer.py`. Can a cancelled task still deliver a chunk into the post-seek stream, or write a stale entry into the cache?
+- [ ] Controller state via helpers — `auralis-web/backend/core/stream_chunk_ops.py` and `stream_fingerprint.py` take the controller instance and read/write its attributes. Two concurrent streams on one controller: is that state per-connection or shared?
 - [ ] Streaming semaphores — `stream_enhanced.py` / `stream_normal.py` must release in `finally`; are all early exits accounted for?
 - [ ] Processing engine — shared or per-request instances? Thread safety?
 - [ ] FastAPI async handlers calling sync audio code — are they using `run_in_executor` / `asyncio.to_thread`? Can blocking calls starve the event loop?
@@ -71,12 +76,13 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 
 ### Dimension 4: Library & Database
 
-**Key files**: `auralis/library/manager.py`, `auralis/library/repositories/`, `auralis/library/scanner/`, `auralis/library/migration_manager.py`
+**Key files**: `auralis/library/database.py`, `auralis/library/repositories/`, `auralis/library/scanner/`, `auralis/library/migration_manager.py`, `auralis/library/resource_monitor.py`
 
 **Check**:
 - [ ] SQLite thread safety — `check_same_thread=False`? Connection pooling config?
 - [ ] `pool_pre_ping=True` — is it actually set?
-- [ ] Concurrent scans — can two scan operations run simultaneously and cause conflicts?
+- [ ] Concurrent scans — can two scan operations run simultaneously and cause conflicts? Scan slots are owned by `auralis/library/database.py`; verify acquisition and release are symmetric on every exception path.
+- [ ] Detached-instance races — repositories `expunge()` what they return. A post-commit `refresh()` expires the instance *without* re-applying `selectinload()` options, so another thread touching a relationship then raises `DetachedInstanceError`. Are relationships touched while still attached?
 - [ ] Repository pattern — any raw SQL bypassing the ORM?
 - [ ] Library writes during playback reads — can a scan update a track that's currently playing?
 - [ ] Migration execution — safe to run while the app is serving requests? Migrations use inter-process file locking (`fcntl`/`msvcrt`) plus a same-process `threading.Lock`; the file lock alone does NOT serialize threads in one process — verify both are still present.

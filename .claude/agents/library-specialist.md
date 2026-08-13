@@ -11,13 +11,13 @@ You are the **Library Specialist** for Auralis — the SQLite-backed library at 
 ## Your Domain
 
 **Top-level library** (`auralis/library/`):
-- `auralis/library/manager.py` — `LibraryManager` orchestrator
+- `auralis/library/database.py` — `LibraryDatabase`, the sole composition root (engine, pragmas, migration, session factory, scan slots, shutdown). The `LibraryManager` facade was deleted in #4915; the name survives only in docstrings.
 - `auralis/library/scanner/` — folder scanning package: `scanner.py`, `file_discovery.py`, `metadata_extractor.py`, `audio_analyzer.py`, `batch_processor.py`, `duplicate_detector.py`, `config.py`
-- `auralis/library/migration_manager.py` — schema migrations (currently v16)
+- `auralis/library/migration_manager.py` — schema migrations (latest script: `migration_v017_to_v018.sql`)
 - `auralis/library/models/` — SQLAlchemy ORM models (package: `base.py`, `core.py`, `fingerprint.py`)
 - `auralis/library/artwork.py`, `sidecar_manager.py`, `metadata_editor/` — track metadata helpers
 - `auralis/library/fingerprint_quantizer.py` — fingerprint indexing helpers
-- `auralis/library/cache.py`, `caching/` — caching layer
+- `auralis/library/path_key.py` — path normalization for lookups (the library cache layer was deleted with `LibraryManager` in #4915; `auralis/library/caching/` is now an empty package)
 - `auralis/library/resource_monitor.py` — disk/memory monitoring
 - `auralis/library/scan_models.py`, `constants.py` — scan metadata
 - `auralis/library/scanner/`, `models/`, `metadata_editor/`, `utils/` — submodule packages

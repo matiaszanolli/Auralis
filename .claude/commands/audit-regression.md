@@ -54,7 +54,10 @@ These are known critical invariants that must ALWAYS be verified, regardless of 
 | Sample count preservation in DSP pipeline | — | `auralis/core/hybrid_processor.py`, `auralis/dsp/stages.py` | `len(output) == len(input)` invariant maintained across all processing stages |
 | Copy-before-modify pattern | — | `auralis/core/simple_mastering.py`, `auralis/dsp/stages.py` | `audio.copy()` called before any in-place operations |
 | Thread-safe player state (RLock) | — | `auralis/player/enhanced_audio_player.py` | All state mutations protected by RLock |
-| SQLite thread-safe pooling | — | `auralis/library/manager.py` | `pool_pre_ping=True` and proper connection pooling configured |
+| SQLite thread-safe pooling | — | `auralis/library/database.py` | `pool_pre_ping=True` and proper connection pooling configured |
+| Seekable chunk reads | — | `auralis-web/backend/core/seekable_source.py` | Chunk readers get a seekable path; a non-seekable source is converted **once**, never re-decoded whole per chunk (#4737) |
+| Parallel-processor cluster stays deleted | `2ca72012` | `auralis/optimization/` | No *parallel_processor.py* / *parallel/* package reappears, and nothing in production imports `auralis.optimization` (#4565) |
+| LibraryManager stays deleted | `44af56d8` | `auralis/library/` | No `manager.py`; `LibraryDatabase` is the only composition root and nothing constructs a `LibraryManager` (#4915) |
 | Repository pattern (no raw SQL) | — | `auralis/library/repositories/` | All database access goes through repository classes, no raw SQL |
 | Gapless playback engine | — | `auralis/player/gapless_playback_engine.py` | No gap or click at track boundaries |
 | Path containment on file-serving routes | — | `auralis-web/backend/security/path_security.py`, `auralis-web/backend/routers/files.py` | File-serving routes validate through `path_security`, not hand-rolled prefix checks |

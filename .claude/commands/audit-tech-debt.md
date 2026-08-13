@@ -182,7 +182,7 @@ Every agent prompt MUST include:
 ### Dimension 4: Magic Numbers & Hardcoded Constants
 **Entry points**: `auralis/core/`, `auralis/dsp/`, `auralis-web/backend/`, `auralis-web/frontend/src/`
 **Checklist**:
-- Bare audio constants inline (sample rates, FFT/window sizes, hop lengths, crossfade durations, chunk sizes/intervals) that should live in the config layer — `auralis/core/config/` (UnifiedConfig) for engine parameters, legacy `auralis/core/config.py` for the older dataclasses. A value defined in *both* is itself a finding.
+- Bare audio constants inline (sample rates, FFT/window sizes, hop lengths, crossfade durations, chunk sizes/intervals) that should live in the config layer — `auralis/core/config/` (UnifiedConfig) for engine parameters, `auralis-web/backend/core/chunk_boundaries.py` for chunk geometry, `auralis-web/backend/core/env_config.py` for env-tunable backend integers. A value defined in more than one of these is itself a finding.
 - Chunk boundaries already have a single source of truth in `auralis-web/backend/core/chunk_boundaries.py` (`CHUNK_DURATION` 15.0 / `CHUNK_INTERVAL` 10.0 / `OVERLAP_DURATION` 5.0 / `CONTEXT_DURATION` 5.0) — flag any literal that bypasses it, and any chunk count computed as `ceil(duration / CHUNK_DURATION)` instead of the overlap-aware `content_chunk_count()`.
 - Backend timeouts / TTLs / queue sizes / frame-byte budgets hardcoded inline (should be named module constants).
 - Frontend: hardcoded hex/rgb colors that bypass `auralis-web/frontend/src/design-system/` tokens (overlaps `/audit-frontend` Dim 5 — report under whichever you run; dedup at merge).

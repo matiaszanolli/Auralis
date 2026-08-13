@@ -28,11 +28,21 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "ba
 @pytest.fixture
 def mock_artist():
     """Create a mock artist object"""
-    artist = Mock(spec=['id', 'name', 'albums', 'tracks', 'artwork_url', 'artwork_source'])
+    # album_count/track_count are part of the spec because the counts now
+    # travel with the row from the repository's COUNT subqueries (#5084)
+    # rather than being re-derived by serialize_artist() from the collections
+    # — the list query no longer loads those collections at all. The values
+    # match len(albums)/len(tracks) below so the response is unchanged.
+    artist = Mock(spec=[
+        'id', 'name', 'albums', 'tracks', 'artwork_url', 'artwork_source',
+        'album_count', 'track_count',
+    ])
     artist.id = 1
     artist.name = "Test Artist"
     artist.artwork_url = None
     artist.artwork_source = None
+    artist.album_count = 2
+    artist.track_count = 2
 
     # Mock albums without circular references
     album1 = Mock(spec=['id', 'title', 'year', 'tracks'])

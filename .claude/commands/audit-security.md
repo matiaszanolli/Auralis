@@ -115,7 +115,8 @@ For each category, check the specific items listed. Do NOT limit yourself to the
 | `auralis-web/backend/core/chunked_processor.py` | Audio chunk processing |
 | `auralis/io/unified_loader.py` | File loading (FFmpeg, SoundFile) |
 | `auralis/library/scanner/` | Filesystem scanning |
-| `auralis/library/manager.py` | Database access orchestration |
+| `auralis/library/database.py` | Database access orchestration (`LibraryDatabase`) |
+| `auralis-web/backend/core/thumbnail_cache.py` | On-disk cache keyed on a hash of the source path — verify the key cannot be attacker-influenced into a path escape |
 | `auralis/library/migration_manager.py` | Schema migrations |
 | `auralis-web/frontend/src/services/` | API clients |
 | `auralis-web/frontend/src/hooks/` | WebSocket and API hooks |
@@ -124,7 +125,7 @@ For each category, check the specific items listed. Do NOT limit yourself to the
 
 Trace how user-controlled data flows through the system:
 
-1. **File paths**: Frontend search → Backend router → `security/path_security.py` → LibraryManager → unified_loader → FFmpeg — is the path validated at each boundary, and does every route actually go through `path_security`?
+1. **File paths**: Frontend search → Backend router → `security/path_security.py` → `LibraryDatabase` / repositories → unified_loader → FFmpeg — is the path validated at each boundary, and does every route actually go through `path_security`? Include the cache paths: a chunk or thumbnail cache key derived from a user-influenced path must not be able to write outside its cache directory.
 2. **Audio metadata**: File on disk → unified_loader → ID3/metadata parser → database → API response → Frontend render — is metadata sanitized?
 3. **WebSocket messages**: Frontend → `websocket/websocket_security.py` → `ws_handlers/connection.py` → `ws_handlers/messages.py` → `core/audio_stream_controller.py` → processing_engine → chunked_processor → audio engine — are messages validated at the handler boundary, or trusted after handshake?
 4. **Library scan paths**: User adds folder → `routers/library_scan.py` → `scanner/` → filesystem walk → database insert — can symlinks or special paths escape?

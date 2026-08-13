@@ -70,6 +70,38 @@ class TrackInArtist(BaseModel):
     format: str | None = None
 
 
+def _artist_genres(artist: Any, artist_data: dict[str, Any]) -> list[str] | None:
+    """Distinct genre names for an artist row, or None when there are none.
+
+    Prefers `Artist.genre_names`, which ArtistRepository's list reads populate
+    from one grouped query (#5084). Falls back to walking `tracks -> genres`
+    for artists that did not come from a list read — test doubles and
+    detail-loaded instances — reading the collection defensively, since a
+    detached instance without that eager-load raises DetachedInstanceError
+    (not AttributeError, so `hasattr` would not contain it).
+    """
+    from_repo = artist_data.get('genres')
+    if from_repo is not None:
+        return list(from_repo) or None
+
+    try:
+        tracks = list(artist.tracks)
+    except Exception:
+        return None
+
+    genres: set[str] = set()
+    for track in tracks:
+        try:
+            track_genres = list(track.genres or ())
+        except Exception:
+            continue
+        for genre in track_genres:
+            name = getattr(genre, 'name', None)
+            if isinstance(name, str):
+                genres.add(name)
+    return sorted(genres) if genres else None
+
+
 def _track_format(track: Any) -> str | None:
     """Read a track's audio format defensively (#4586).
 
@@ -157,23 +189,17 @@ def create_artists_router(
         # Transform to response format
         artist_responses = []
         for artist in artists:
-            # Get unique genres from artist's tracks
-            # Note: Track has many-to-many relationship with genres
-            genres = set()
-            for track in artist.tracks:
-                if hasattr(track, 'genres') and track.genres:
-                    for genre in track.genres:
-                        if hasattr(genre, 'name'):
-                            genres.add(genre.name)
-
-            genres_list = list(genres) if genres else None
-
-            # #4909: route counts through serialize_artist() instead of
-            # re-deriving len(artist.albums)/len(artist.tracks) inline — this
-            # picks up its Mock-safety try/except TypeError guard (#4306),
-            # which the inline version never received.
+            # Genres come from the repository's single grouped query (#5084).
+            # Walking artist.tracks -> track.genres here is what forced the
+            # repository to hydrate every Track row on the page; it is now the
+            # fallback for objects that never went through a list read (test
+            # doubles, and any future caller passing a detail-loaded artist).
             artist_data = serialize_artist(artist)
+            genres_list = _artist_genres(artist, artist_data)
 
+            # #4909: counts are routed through serialize_artist() rather than
+            # re-derived inline; since #5084 they originate from the
+            # repository's correlated COUNT subqueries.
             # #4833: the five fields below the artwork pair were declared on
             # ArtistResponse by #3838 but never populated here, so they stayed
             # None on every response — `created_at` in particular, which the

@@ -8,11 +8,81 @@ Data access layer for artist operations
 :license: GPLv3, see LICENSE for more details.
 """
 
-from sqlalchemy import func, select
-from sqlalchemy.orm import selectinload
+from typing import Any, Sequence
 
-from ..models import Album, Artist, Track, track_artist
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session, selectinload, with_expression
+
+from ..models import Album, Artist, Genre, Track, track_artist, track_genre
 from .base import BaseRepository
+
+
+def _track_count_subquery() -> Any:
+    """Correlated COUNT of an artist's tracks (#5084).
+
+    Same shape as the `order_by='track_count'` ordering expression in
+    get_all(), and as AlbumRepository's _track_count_subquery (#4777). Artists
+    with no tracks yield 0, not NULL, so no COALESCE is needed.
+    """
+    return (
+        select(func.count())
+        .select_from(track_artist)
+        .where(track_artist.c.artist_id == Artist.id)
+        .correlate(Artist)
+        .scalar_subquery()
+    )
+
+
+def _album_count_subquery() -> Any:
+    """Correlated COUNT of an artist's albums (#5084)."""
+    return (
+        select(func.count(Album.id))
+        .where(Album.artist_id == Artist.id)
+        .correlate(Artist)
+        .scalar_subquery()
+    )
+
+
+def _attach_genre_names(session: Session, artists: Sequence[Artist]) -> None:
+    """Populate `Artist.genre_names` for a page of artists in one query (#5084).
+
+    The list endpoint needs the distinct genre names across each artist's
+    tracks — and nothing else off those tracks. Eager-loading
+    `Artist.tracks -> Track.genres` to get them hydrated every full Track row
+    on the page, including the unbounded `lyrics` and `fingerprint_vector`
+    Text columns, so cost scaled with tracks-per-artist rather than page size.
+
+    This is one grouped SELECT over the association tables returning only
+    (artist_id, genre name) pairs, so its row count is bounded by
+    artists x distinct-genres, not by tracks.
+    """
+    artist_ids = [a.id for a in artists if a.id is not None]
+    if not artist_ids:
+        return
+
+    rows = session.execute(
+        select(track_artist.c.artist_id, Genre.name)
+        .select_from(track_artist)
+        .join(track_genre, track_genre.c.track_id == track_artist.c.track_id)
+        .join(Genre, Genre.id == track_genre.c.genre_id)
+        .where(track_artist.c.artist_id.in_(artist_ids))
+        .distinct()
+    ).all()
+
+    by_artist: dict[int, set[str]] = {}
+    for artist_id, genre_name in rows:
+        if genre_name:
+            by_artist.setdefault(artist_id, set()).add(genre_name)
+
+    for artist in artists:
+        # Sorted for a stable response order. `[]` means "no genres", which is
+        # distinct from the None default meaning "this query did not ask".
+        #
+        # setattr() rather than a plain assignment: `Artist.genre_names` is
+        # declared ClassVar so SQLAlchemy's annotation scanner leaves it
+        # unmapped, and mypy rejects assigning to a ClassVar through an
+        # instance even though shadowing it per-instance is ordinary Python.
+        setattr(artist, 'genre_names', sorted(by_artist.get(artist.id, ())))
 
 
 # Named eager-load constants (#5028), mirroring track_repository.py's
@@ -37,9 +107,16 @@ _ARTIST_DETAIL_OPTIONS = (
 # left out here (unlike _ARTIST_DETAIL_OPTIONS) to avoid pulling the full
 # Track+Album row set for every artist on the page twice over (fixes #2516's
 # N×M row explosion via selectinload instead of nested joinedload).
+# #5084: the list endpoint reads only a genre-name set and two counts off each
+# artist. Both now come from SQL — the counts from correlated subqueries via
+# with_expression (Artist.track_count_expr/album_count_expr, mirroring Album's
+# #4777 treatment), the genres from one grouped query in _attach_genre_names()
+# — so no Track or Album row is hydrated at all. #4553 had already trimmed this
+# to "what the serializer reads"; the residue was that even that scoped load
+# was a full-Track hydration for a count-and-name-only consumer.
 _ARTIST_LIST_OPTIONS = (
-    selectinload(Artist.tracks).selectinload(Track.genres),
-    selectinload(Artist.albums),
+    with_expression(Artist.track_count_expr, _track_count_subquery()),
+    with_expression(Artist.album_count_expr, _album_count_subquery()),
 )
 
 
@@ -131,6 +208,8 @@ class ArtistRepository(BaseRepository):
                 ).scalars().all()
             )
 
+            _attach_genre_names(session, artists)
+
             for artist in artists:
                 session.expunge(artist)
             return artists, total
@@ -173,6 +252,8 @@ class ArtistRepository(BaseRepository):
                     .offset(offset)
                 ).scalars().all()
             )
+
+            _attach_genre_names(session, artists)
 
             for artist in artists:
                 session.expunge(artist)

@@ -13,6 +13,8 @@ DetachedInstanceError.
 
 import pytest
 
+from sqlalchemy.orm.exc import DetachedInstanceError
+
 from auralis.library.models import Album, Artist, Genre, Track
 
 
@@ -326,50 +328,70 @@ class TestArtistRepositoryDetachedAccess:
             # Must not raise DetachedInstanceError
             assert len(album.tracks) >= 0
 
-    # #4553 narrowed the eager-load contract of the two *paginated* methods.
+    # #4553, then #5084, narrowed the eager-load contract of the two
+    # *paginated* methods.
     #
-    # get_all()/search() back GET /api/artists, whose serializer reads only
-    # `artist.tracks -> track.genres` plus len() on tracks and albums. They used
-    # to also load `Artist.tracks -> Track.album` and
-    # `Artist.albums -> Album.tracks` — which #4236 pinned here — but that made
-    # every page pull the full Track+Album row set for all artists on the page
-    # twice over, so cost scaled with tracks-per-artist rather than page size.
+    # get_all()/search() back GET /api/artists, whose serializer reads only a
+    # genre-name set plus two counts. #4553 trimmed the eager loads to exactly
+    # that (`artist.tracks -> track.genres` and `artist.albums`); #5084 removed
+    # them entirely, because even that scoped load hydrated every full Track row
+    # on the page — including the unbounded `lyrics`/`fingerprint_vector` Text
+    # columns — for a count-and-name-only consumer. The counts now come from
+    # correlated COUNT subqueries (track_count_expr/album_count_expr, the same
+    # treatment Album got in #4777) and the genres from one grouped query.
     #
-    # What the list path guarantees is therefore now: artist.tracks,
-    # artist.albums, and track.genres are detached-safe; nested album.tracks is
-    # NOT. The single-row lookups keep the full guarantee (see
-    # test_get_by_id_relationships_accessible / test_get_by_name_...), because
-    # the artist-detail route genuinely reads album.tracks.
+    # What the list path guarantees is therefore now: artist.track_count_expr,
+    # artist.album_count_expr and artist.genre_names are detached-safe;
+    # artist.tracks and artist.albums are NOT. The single-row lookups keep the
+    # full guarantee (see test_get_by_id_relationships_accessible /
+    # test_get_by_name_...), because the artist-detail route genuinely reads
+    # album.tracks.
 
-    def test_get_all_relationships_accessible(
+    def test_get_all_list_aggregates_accessible(
         self, artist_repository, track_repository, session_factory
     ):
-        """get_all() must return artists whose list-path relationships are
-        accessible after the session closes (#4236, narrowed by #4553)."""
+        """get_all() must return artists whose list-path values survive the
+        session close (#4236, narrowed by #4553 and #5084)."""
         self._setup_artist(track_repository, session_factory)
 
         artists, total = artist_repository.get_all(limit=10)
         assert total >= 1
         for artist in artists:
             # must not raise DetachedInstanceError
-            assert len(artist.albums) >= 0
-            for track in artist.tracks:
-                assert len(track.genres) >= 0
+            assert artist.track_count_expr >= 0
+            assert artist.album_count_expr >= 0
+            assert isinstance(artist.genre_names, list)
 
-    def test_search_relationships_accessible(
+    def test_get_all_no_longer_eager_loads_the_collections(
         self, artist_repository, track_repository, session_factory
     ):
-        """search() must return artists whose list-path relationships are
-        accessible after the session closes (#4236, narrowed by #4553)."""
+        """The narrowing is the point of #5084, so pin it: touching `tracks`
+        on a list-read artist must raise rather than silently working via a
+        lazy load that would defeat the optimisation."""
+        self._setup_artist(track_repository, session_factory)
+
+        artists, _ = artist_repository.get_all(limit=10)
+        assert artists
+
+        with pytest.raises(DetachedInstanceError):
+            _ = len(artists[0].tracks)
+        with pytest.raises(DetachedInstanceError):
+            _ = len(artists[0].albums)
+
+    def test_search_list_aggregates_accessible(
+        self, artist_repository, track_repository, session_factory
+    ):
+        """search() must return artists whose list-path values survive the
+        session close (#4236, narrowed by #4553 and #5084)."""
         self._setup_artist(track_repository, session_factory)
 
         artists, total = artist_repository.search('Detached Test')
         assert total >= 1
         for artist in artists:
             # must not raise DetachedInstanceError
-            assert len(artist.albums) >= 0
-            for track in artist.tracks:
-                assert len(track.genres) >= 0
+            assert artist.track_count_expr >= 0
+            assert artist.album_count_expr >= 0
+            assert isinstance(artist.genre_names, list)
 
 
 class TestSettingsRepositoryDetachedAccess:

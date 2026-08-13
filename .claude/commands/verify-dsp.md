@@ -26,7 +26,7 @@ Determine scope from arguments:
 | DSP Modules | `auralis/dsp/stages.py`, `eq/psychoacoustic_eq.py`, `advanced_dynamics.py`, `realtime_adaptive_eq/realtime_eq.py` |
 | Audio I/O | `auralis/io/unified_loader.py`, `results.py` |
 | Player RT Processing | `auralis/player/realtime_processor.py` |
-| Parallel Processing | `auralis/optimization/parallel_processor.py` |
+| Chunked Mastering | `auralis/core/mastering_chunk_loop.py`, `mastering_process_chunk.py` |
 | Backend Chunking | `auralis-web/backend/core/chunked_processor.py` |
 | Rust DSP Bindings | `vendor/auralis-dsp/src/*.rs` |
 
@@ -93,18 +93,24 @@ Determine scope from arguments:
 
 **Pass criteria**: Final output is always clamped. Intermediate stages that can exceed [-1.0, 1.0] have downstream clamping.
 
-### INV-6: Parallel Safety
+### INV-6: Chunk Safety
 
-**Rule**: True copies (not views), correct reassembly order, equal-power crossfade at boundaries.
+**Rule**: True copies (not views), correct reassembly order, continuous carried state, equal-power crossfade at boundaries.
 
-**How to verify**:
-- `parallel_processor.py`: chunks created with `.copy()`, not array slicing (views)
-- Chunk reassembly: verify ordering is maintained (index-based, not arrival-order)
-- Boundary crossfade: overlapping regions use equal-power curves, not linear
-- No shared mutable state between parallel workers
-- Thread pool: check for GIL implications with NumPy operations
+The engine-side parallel processor was deleted in #4565. Two live chunk paths remain — verify both:
 
-**Pass criteria**: Parallel processing produces bit-identical results to sequential processing (within floating-point tolerance).
+**How to verify** — engine loop (`auralis/core/mastering_chunk_loop.py`, `auralis/core/mastering_process_chunk.py`):
+- Chunks created with `.copy()`, not array slicing (views)
+- Carried context (notch state, level/gain smoothing, limiter memory) evolves continuously and is not reset per chunk
+- Final short chunk is neither zero-padded nor dropped
+
+**How to verify** — backend processor (`auralis-web/backend/core/chunked_processor.py`, `auralis-web/backend/core/processor_pool.py`):
+- Chunk reassembly: ordering is index-based, not arrival-order
+- Boundary crossfade in `auralis-web/backend/core/chunk_crossfade.py`: overlapping regions use equal-power curves, not linear
+- No shared mutable state between concurrent workers — mastering targets read by workers must be immutable
+- Chunk geometry comes from `auralis-web/backend/core/chunk_boundaries.py`, never a literal
+
+**Pass criteria**: Chunked processing produces the same result as whole-file processing (within floating-point tolerance), and `sum(chunk_lengths) == total_length`.
 
 ## Output Format
 

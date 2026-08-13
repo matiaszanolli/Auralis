@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 if TYPE_CHECKING:
     from .fingerprint import SimilarityGraph, TrackFingerprint
@@ -359,21 +359,50 @@ class Artist(Base, TimestampMixin):
     albums: Mapped[list[Album]] = relationship("Album", back_populates="artist")
     tracks: Mapped[list[Track]] = relationship("Track", secondary=track_artist, back_populates="artists")
 
+    # Populated by ArtistRepository.get_all()/.search() via with_expression()
+    # so a list view can report these counts without hydrating every Track row
+    # belonging to every artist on the page (#5084, mirroring
+    # Album.track_count_expr/#4777). Left as None on any query that does not
+    # ask for them (get_by_id/get_by_name legitimately need the collections
+    # anyway), in which case to_dict() falls back to walking them.
+    track_count_expr: Mapped[int | None] = query_expression()
+    album_count_expr: Mapped[int | None] = query_expression()
+
+    # Distinct genre names across the artist's tracks, set by
+    # ArtistRepository's list reads from one grouped query (#5084). Not a
+    # mapped column and not a query_expression: SQLite's group_concat cannot
+    # take both DISTINCT and a separator, and a comma-joined string would be
+    # ambiguous for a genre name containing a comma. ClassVar so SQLAlchemy's
+    # annotation scanning leaves it alone; None means "this query did not ask
+    # for genres", which is different from "this artist has none".
+    genre_names: ClassVar[list[str] | None] = None
+
     def to_dict(self) -> dict[str, Any]:
         """Convert artist to dictionary"""
-        # Guarded relationship reads (#4641) — see Album.to_dict.
+        # Prefer the SQL-computed counts when the query supplied them (#5084);
+        # otherwise fall back to guarded relationship reads (#4641 — see
+        # Album.to_dict).
+        if self.track_count_expr is not None:
+            track_count = self.track_count_expr
+            album_count = self.album_count_expr or 0
+        else:
+            track_count = len(_safe_collection(self, 'tracks'))
+            album_count = len(_safe_collection(self, 'albums'))
+
         return {
             'id': self.id,
             'name': self.name,
             'normalized_name': self.normalized_name,
             'total_plays': self.total_plays,
             'avg_mastering_quality': self.avg_mastering_quality,
-            'album_count': len(_safe_collection(self, 'albums')),
-            'track_count': len(_safe_collection(self, 'tracks')),
+            'album_count': album_count,
+            'track_count': track_count,
             'artwork_url': self.artwork_url,  # Include artwork URL
             'artwork_source': self.artwork_source,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            # Set by ArtistRepository's list reads (#5084) — see genre_names.
+            'genres': self.genre_names,
         }
 
 

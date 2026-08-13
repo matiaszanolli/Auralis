@@ -58,7 +58,7 @@ Code quality, maintainability, hardening opportunities. Fix opportunistically.
 - Deprecated API still imported but not breaking
 - Missing type hints on internal functions
 - Test coverage gaps (where code works correctly)
-- Hard-coded constant that should be in the config layer (`auralis/core/config/` UnifiedConfig, or legacy `auralis/core/config.py`) — or, for chunk sizing, in `auralis-web/backend/core/chunk_boundaries.py`
+- Hard-coded constant that should be in the config layer (`auralis/core/config/` UnifiedConfig) — or, for chunk sizing, in `auralis-web/backend/core/chunk_boundaries.py`
 
 ## Special Rules
 

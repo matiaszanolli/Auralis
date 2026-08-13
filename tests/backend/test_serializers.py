@@ -317,22 +317,47 @@ class TestSerializeAlbumDetail:
 # ---------------------------------------------------------------------------
 
 class TestSerializeArtist:
-    def _make_artist(self, album_count=0, track_count=0):
-        dict_result = {'id': 5, 'name': 'Artist C', 'track_count': 0, 'album_count': 0}
-        return _FakeModel(
-            dict_result,
-            albums=[object() for _ in range(album_count)],
-            tracks=[object() for _ in range(track_count)],
-        )
+    """#5084: album_count/track_count are computed by Artist.to_dict()
+    (preferring the repository's SQL aggregates track_count_expr/
+    album_count_expr, falling back to walking the collections only when the
+    query didn't supply them) — NOT re-derived here. Same contract, and same
+    reasoning, as TestSerializeAlbum above: ArtistRepository.get_all()/
+    .search() no longer eager-load `tracks`/`albums`, and a real detached ORM
+    instance raises DetachedInstanceError (not caught by `hasattr()`) on an
+    unloaded relationship access."""
 
-    def test_album_count_derived_from_albums(self):
+    def _make_artist(self, album_count=0, track_count=0, **attrs):
+        dict_result = {
+            'id': 5,
+            'name': 'Artist C',
+            'track_count': track_count,
+            'album_count': album_count,
+        }
+        return _FakeModel(dict_result, **attrs)
+
+    def test_album_count_passed_through_from_to_dict(self):
         artist = self._make_artist(album_count=3)
         result = serialize_artist(artist)
         assert result['album_count'] == 3
 
-    def test_track_count_derived_from_tracks(self):
+    def test_track_count_passed_through_from_to_dict(self):
         artist = self._make_artist(track_count=7)
         result = serialize_artist(artist)
+        assert result['track_count'] == 7
+
+    def test_counts_are_not_re_derived_from_the_collections(self):
+        """to_dict()'s values win even when the collections disagree — the
+        collections are exactly what the list query no longer loads."""
+        artist = self._make_artist(
+            album_count=3,
+            track_count=7,
+            albums=[object()],
+            tracks=[object(), object()],
+        )
+
+        result = serialize_artist(artist)
+
+        assert result['album_count'] == 3
         assert result['track_count'] == 7
 
     def test_serialize_artists_list(self):

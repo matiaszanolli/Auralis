@@ -146,10 +146,14 @@ Audit the entire Auralis codebase for deprecated APIs, libraries, patterns, and 
 **Check**:
 - [ ] Any *setup.cfg* / *setup.py* left over — should they be consolidated into `pyproject.toml`? (Neither exists today; flag only if one reappears.)
 - [ ] `pytest.ini` deprecated options or marker syntax
-- [ ] **pytest version floor**: `tests/conftest.py` still uses the legacy `pytest_ignore_collect(path, config)` hook signature, which `pytest>=9.1.0` removed — a fresh resolve against the `>=7.0.0` floor in `pyproject.toml` picks a version that crashes collection outright. Flag the floor pin; the working version is `==9.0.1`.
+- [ ] **pytest version floor** — RESOLVED, do not re-report. The legacy `pytest_ignore_collect(path, config)` hook was deleted from `tests/conftest.py` (it guarded 8 files that no longer exist) and the markers pytest 9.1 rejects under `--strict-markers` are now declared in `pytest.ini` (#4529). The floor is `pytest>=9.0.1`, mirroring `minversion` in `pytest.ini`, and collection succeeds on 9.1.1. Flag only a *new* divergence between the `pyproject.toml` floor and `pytest.ini`'s `minversion`.
 - [ ] Version drift: `auralis/version.py` is the source of truth and `sync_version.py` propagates it. Flag any `package.json`/`pyproject.toml` quoting a different version instead of hand-editing them.
-- [ ] GitHub Actions deprecated action versions (`actions/checkout@v2` → `@v4`, `actions/setup-python@v3` → `@v5`)
-- [ ] Deprecated Docker base images (if applicable)
+- [ ] GitHub Actions deprecated action versions (`actions/checkout@v2` → `@v4`, `actions/setup-python@v3` → `@v5`) across all 7 workflows in `.github/workflows/`
+- [ ] `pnpm/action-setup` must NOT carry a `version:` input — every `package.json` here declares `packageManager`, and supplying both makes the action hard-error before installing anything. A `version:` reappearing is a regression, not a modernization.
+- [ ] Backend CI must stay on Python 3.14 — on 3.13 this codebase's PEP 649 deferred annotations fail at import and the suite collects zero tests. Flag any workflow that lowers it.
+- [ ] Baseline-gated workflows (`backend-tests.yml`, `frontend-test.yml`) exit 0 on the test step and let the *baseline* step decide the job. Verify the gate scripts (`scripts/check_pytest_baseline.py`, `auralis-web/frontend/scripts/check-test-baseline.mjs`) are still invoked and still fail on a missing report or 0 collected tests — a gate that silently passes a crashed runner is worse than no gate.
+- [ ] Guard workflows still wired: `lockfile-guard.yml`, `requirements-pin-guard.yml`, `rust-audit.yml`, and `.github/scripts/check_pyproject_deps.py`
+- [ ] No Docker/container config should reappear — Auralis ships as a desktop Electron app; the *Dockerfile* was deleted deliberately
 - [ ] `mypy` deprecated configuration options
 - [ ] `black` / `ruff` deprecated configuration options or rules
 - [ ] Deprecated pip features or install flags

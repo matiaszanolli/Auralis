@@ -64,7 +64,15 @@ See `.claude/commands/_audit-common.md` for project layout, methodology, and con
 2. /audit-integration --flows 1,3  — Playback + Enhancement flows
 3. /audit-concurrency --focus 1,2  — Player + Processing pipeline
 ```
-**When**: After DSP changes, crossfade modifications, or parallel processing updates.
+**When**: After DSP changes, crossfade modifications, or chunked-mastering updates.
+
+### `streaming-deep` — Streaming, seek, and cache correctness
+```
+1. /audit-backend --focus 2,3,10,11  — WebSocket + chunking + caching + seek
+2. /audit-integration --flows 1,5,8  — Playback + WebSocket lifecycle + Seek & Rebuffer
+3. /audit-concurrency --focus 3      — Backend streaming races
+```
+**When**: After changes to the stream_* modules, the chunk or thumbnail caches, `seekable_source.py`, or the prefetch/buffer path. These four surfaces share state and their bugs present identically to the user (wrong or missing audio), so auditing one without the others usually misattributes the cause.
 
 ## Execution
 

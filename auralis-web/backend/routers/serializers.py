@@ -264,21 +264,21 @@ def serialize_artist(artist: Any) -> dict[str, Any]:
     """
     artist_dict = serialize_object(artist, DEFAULT_ARTIST_FIELDS)
 
-    # Calculate counts from related objects if available. try/except TypeError
-    # guards against Mock objects in tests, whose .albums/.tracks are
-    # themselves auto-generated Mocks (truthy, but not sized) — same pattern
-    # as serialize_album's guard above (#4306).
-    if hasattr(artist, 'albums') and artist.albums:
-        try:
-            artist_dict['album_count'] = len(artist.albums)
-        except TypeError:
-            pass
-    if hasattr(artist, 'tracks') and artist.tracks:
-        try:
-            artist_dict['track_count'] = len(artist.tracks)
-        except TypeError:
-            pass
-
+    # album_count/track_count come from Artist.to_dict() above (#5084), which
+    # prefers the repository's SQL-computed aggregates (track_count_expr/
+    # album_count_expr) when the query supplied them and falls back to walking
+    # the collections when it did not. This function used to re-derive both by
+    # reading artist.albums/artist.tracks here — but ArtistRepository's list
+    # reads no longer eager-load them (that was the whole point), and
+    # `hasattr(artist, 'tracks')` does NOT guard against the
+    # DetachedInstanceError a real ORM instance raises on an unloaded
+    # relationship (DetachedInstanceError is not an AttributeError, so
+    # hasattr() lets it propagate). This mirrors serialize_album, which lost
+    # the same block for the same reason in #4777.
+    #
+    # The Mock-object path is unaffected: serialize_object() falls back to
+    # getattr over DEFAULT_ARTIST_FIELDS, which already carries
+    # album_count/track_count defaults.
     return artist_dict
 
 

@@ -29,7 +29,7 @@ This audit covers ONLY the frontend code:
 - **Types**: `auralis-web/frontend/src/types/` (`api.ts`, `domain.ts`, `websocket.ts`, `ws/`)
 - **Design System**: `auralis-web/frontend/src/design-system/` (tokens, theme) and `auralis-web/frontend/src/theme/`
 - **Tests**: `auralis-web/frontend/src/test/` (utils + global setup), plus specs in `auralis-web/frontend/src/__tests__/`, `auralis-web/frontend/src/tests/`, and co-located `*.test.tsx`
-- **Other**: `auralis-web/frontend/src/a11y/`, `auralis-web/frontend/src/performance/`, `auralis-web/frontend/src/utils/`
+- **Other**: `auralis-web/frontend/src/a11y/` (`focusManagement.ts`), `auralis-web/frontend/src/performance/` (`lazyLoader.tsx`, `withMemo.tsx`, `useRenderProfiler.ts`, `bundleAnalyzer.ts`), `auralis-web/frontend/src/utils/`, `auralis-web/frontend/src/api/` (`responseGuards.ts`, `transformers/`), `auralis-web/frontend/src/config/api.ts`
 - **Config**: `auralis-web/frontend/vite.config.mts`, `auralis-web/frontend/vitest.config.ts`, `auralis-web/frontend/tsconfig.json`, `auralis-web/frontend/package.json` (pnpm is the only supported package manager)
 
 Out of scope: Python backend, audio engine, Rust DSP, database.
@@ -107,8 +107,9 @@ Out of scope: Python backend, audio engine, Rust DSP, database.
 - [ ] Loading states — is there a loading indicator for every async operation?
 - [ ] Request cancellation — are fetch/axios requests cancelled on component unmount?
 - [ ] Retry logic — are transient failures (network, 503) retried? Are non-transient failures (400, 404) NOT retried?
-- [ ] Response validation — is the response shape validated or trusted blindly?
-- [ ] Base URL configuration — is the API base URL configurable, not hardcoded?
+- [ ] Response validation — runtime guards live in `auralis-web/frontend/src/api/responseGuards.ts`. Do the fetch paths actually route through them, or do some cast the JSON straight to a type and trust it? A guard that exists but is unused is worse than none — it implies coverage that isn't there.
+- [ ] Error normalization — are HTTP failures funnelled through `auralis-web/frontend/src/utils/httpError.ts` / `errorGuards.ts`, or does each call site re-implement error shape handling?
+- [ ] Base URL configuration — is the API base URL sourced from `auralis-web/frontend/src/config/api.ts`, not hardcoded per call site?
 - [ ] camelCase/snake_case — is the casing conversion between frontend (camelCase) and backend (snake_case) handled consistently?
 
 ### Dimension 7: Performance
@@ -127,7 +128,8 @@ Out of scope: Python backend, audio engine, Rust DSP, database.
 **Check**:
 - [ ] Keyboard navigation — can all interactive elements be reached and activated via keyboard?
 - [ ] ARIA labels — do custom controls (sliders, progress bars, play/pause) have proper ARIA attributes?
-- [ ] Focus management — is focus correctly managed after modal open/close, route changes, and dynamic content?
+- [ ] Focus management — is focus correctly managed after modal open/close, route changes, and dynamic content? Helpers live in `auralis-web/frontend/src/a11y/focusManagement.ts`; flag components that hand-roll focus traps instead of using them.
+- [ ] View announcements — does `auralis-web/frontend/src/components/core/AppViewAnnouncement.tsx` announce view changes to screen readers, and is there exactly one `<h1>` per view (a specced invariant — see the co-located tests)?
 - [ ] Screen reader — are player state changes (now playing, paused) announced?
 - [ ] Color contrast — do text and interactive elements meet WCAG AA contrast ratios?
 - [ ] Semantic HTML — are headings hierarchical? Are lists using `<ul>`/`<ol>`? Are buttons vs links correct?

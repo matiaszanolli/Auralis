@@ -29,7 +29,10 @@ Categorize changed files by risk domain:
 | Audio Core/DSP | `auralis/core/*`, `auralis/dsp/*` | `/audit-engine` |
 | Player | `auralis/player/*` | `/audit-engine`, `/audit-concurrency` |
 | Audio I/O | `auralis/io/*` | `/audit-engine` |
-| Parallel Processing | `auralis/optimization/*` | `/audit-engine`, `/audit-concurrency` |
+| Chunked Mastering | `auralis/core/mastering_*.py` | `/audit-engine`, `/audit-concurrency` |
+| Optimization (test-only) | `auralis/optimization/*` | `/audit-tech-debt` — no production importers since #4565 |
+| Caching | `auralis-web/backend/core/chunk_cache*`, `auralis-web/backend/core/thumbnail_cache.py`, `auralis-web/backend/core/file_signature.py`, `auralis-web/backend/cache/*` | `/audit-backend` (dim 10) |
+| Seek & buffering | `auralis-web/backend/core/stream_seek.py`, `auralis-web/backend/core/seekable_source.py`, `auralis-web/backend/core/stream_prefetch.py`, `auralis-web/backend/core/proactive_buffer.py` | `/audit-backend` (dim 11), `/audit-integration` (flow 8) |
 | Analysis/Fingerprint | `auralis/analysis/*` | `/audit-engine` |
 | Library/Database | `auralis/library/*` | `/audit-engine`, `/audit-concurrency` |
 | Backend Routes | `auralis-web/backend/routers/*` | `/audit-backend` |

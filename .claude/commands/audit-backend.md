@@ -13,7 +13,7 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 
 ## Parameters (from $ARGUMENTS)
 
-- `--focus <dimensions>`: Comma-separated dimension numbers or names (e.g., `1,3` or `routes,websocket,schemas`). Default: all 9.
+- `--focus <dimensions>`: Comma-separated dimension numbers or names (e.g., `1,3` or `routes,websocket,schemas,caching,seek`). Default: all 11.
 - `--depth shallow|deep`: `shallow` = check key patterns only; `deep` = trace full call graphs. Default: `deep`.
 - `--limit <N>`: Stop after N findings (useful for time-boxed audits). Default: unlimited.
 
@@ -26,8 +26,12 @@ This audit covers ONLY the backend code:
 - **Routers**: `auralis-web/backend/routers/` — 26 `.py` files: 20 registered routers (albums, artists, artwork, cache_streamlined, enhancement, files, fingerprint_queue, fingerprint_status, health, library, library_scan, metadata, player, playlists, processing_api, settings, similarity, similarity_graph, system, tracks) + shared helpers (`dependencies.py`, `errors.py`, `pagination.py`, `serializers.py`, `similarity_common.py`). Derive the live list from `auralis-web/backend/config/routes.py`.
 - **WebSocket**: `auralis-web/backend/core/audio_stream_controller.py` plus the handler layer in `auralis-web/backend/ws_handlers/` (`connection.py`, `context.py`, `messages.py`, `playback_commands.py`, `playback_control.py`) and `auralis-web/backend/websocket/` (`websocket_protocol.py`, `websocket_security.py`)
 - **Chunked Processor**: `auralis-web/backend/core/chunked_processor.py`; constants come from `auralis-web/backend/core/chunk_boundaries.py` (`CHUNK_DURATION=15.0`, `CHUNK_INTERVAL=10.0`, `OVERLAP_DURATION=5.0`, `CONTEXT_DURATION=5.0`) — never hardcode them. Related: `chunk_cache.py`, `chunk_cache_manager.py`, `chunk_crossfade.py`, `chunk_mastering.py`, `chunk_operations.py`.
-- **Streaming paths**: `auralis-web/backend/core/stream_enhanced.py`, `auralis-web/backend/core/stream_normal.py`, `auralis-web/backend/core/stream_seek.py`, `auralis-web/backend/core/stream_prefetch.py`, `auralis-web/backend/core/stream_protocol.py`, `auralis-web/backend/core/stream_messages.py`, `auralis-web/backend/core/proactive_buffer.py`
-- **Processing Engine & workers**: `auralis-web/backend/core/processing_engine.py`, `auralis-web/backend/core/processor_pool.py`, `auralis-web/backend/core/processor_factory.py`, `auralis-web/backend/core/job_worker.py`, `auralis-web/backend/core/streamlined_worker.py`, `auralis-web/backend/core/state_manager.py`
+- **Streaming paths**: `auralis-web/backend/core/stream_enhanced.py`, `auralis-web/backend/core/stream_normal.py`, `auralis-web/backend/core/stream_seek.py`, `auralis-web/backend/core/stream_prefetch.py`, `auralis-web/backend/core/stream_protocol.py`, `auralis-web/backend/core/stream_messages.py`, `auralis-web/backend/core/proactive_buffer.py`. Shared per-chunk helpers extracted from the controller (#4071) live in `auralis-web/backend/core/stream_chunk_ops.py` (used by the enhanced and seek paths only — the normal path reads chunks off disk with no DSP) and `auralis-web/backend/core/stream_fingerprint.py` (fingerprint readiness before/while adaptive mastering streams). Both take the controller instance as a parameter, so they read its mutable state — treat them as part of the controller's surface, not as free functions.
+- **Seek support**: `auralis-web/backend/core/seekable_source.py` — guarantees chunk readers a libsndfile-seekable path, converting once when the source is not seekable (#4737). A regression here silently degrades to whole-file decodes per chunk.
+- **Processing Engine & workers**: `auralis-web/backend/core/processing_engine.py`, `auralis-web/backend/core/job_models.py` (`ProcessingJob` / `ProcessingStatus`, extracted in #4250 to break a circular import and re-exported from `processing_engine.py`), `auralis-web/backend/core/processor_pool.py`, `auralis-web/backend/core/processor_factory.py`, `auralis-web/backend/core/job_worker.py`, `auralis-web/backend/core/streamlined_worker.py`, `auralis-web/backend/core/state_manager.py`
+- **Shared processing helpers**: `auralis-web/backend/core/audio_processing_pipeline.py` (`AudioProcessingPipeline` — consolidation of the chunked/hybrid/realtime paths; imported by `chunked_processor.py`), `auralis-web/backend/core/mastering_target_service.py` (centralized fingerprint load + target generation, replacing three duplicated code paths in `chunked_processor.py`), `auralis-web/backend/core/level_manager.py` (RMS level continuity across chunk transitions). Because each of these was created to *replace* duplicated logic, check that the old copies really are gone — a surviving copy is a No-variants violation and a divergence risk.
+- **Caching**: three independent caches with separate keys and lifetimes — `auralis-web/backend/core/chunk_cache.py` + `chunk_cache_manager.py` (invalidated via `auralis-web/backend/core/file_signature.py`, which keys on mtime+size), `auralis-web/backend/core/thumbnail_cache.py` (content-addressed `{path_hash}_{bucket}_{mtime_ns}_{size}{ext}`, #4447 — fresh keys on edit, so superseded entries need explicit eviction), and `auralis-web/backend/cache/` (`manager.py`, `monitoring.py`) behind `auralis-web/backend/routers/cache_streamlined.py`
+- **Env-var tuning**: `auralis-web/backend/core/env_config.py` — integer tuning constants read from the environment at import time (#3917). Values read at import cannot be re-tuned at runtime; flag any that a request path assumes it can change.
 - **Schemas**: `auralis-web/backend/schemas.py`
 - **Services**: `auralis-web/backend/services/` (10 modules incl. `library_auto_scanner.py`, `queue_service.py`, `queue_enrichment.py`, `queue_protocols.py`, `playback_service.py`)
 - **Security**: `auralis-web/backend/security/path_security.py`, `auralis-web/backend/websocket/websocket_security.py`
@@ -56,7 +60,7 @@ Out of scope: React frontend, audio engine internals (`auralis/`), Rust DSP. How
 - [ ] Response schemas — do actual return values match declared response models?
 - [ ] Idempotency — are PUT/DELETE operations safe to retry?
 - [ ] Route conflicts — are there overlapping path patterns that could match incorrectly?
-- [ ] Dependency injection — are shared resources (LibraryManager, ProcessingEngine) injected correctly?
+- [ ] Dependency injection — are shared resources (`LibraryDatabase`, the repository factory, `ProcessingEngine`) injected via `auralis-web/backend/routers/dependencies.py` rather than reached for as module globals?
 - [ ] Missing endpoints — are there frontend API calls that have no corresponding backend route?
 
 ### Dimension 2: WebSocket Streaming
@@ -153,6 +157,36 @@ Out of scope: React frontend, audio engine internals (`auralis/`), Rust DSP. How
 - [ ] Error scenario tests — are corrupt files, missing resources, and timeouts tested?
 - [ ] Concurrency tests — are concurrent request scenarios tested?
 
+### Dimension 10: Caching & Invalidation
+
+Three independent caches now exist, each with its own key derivation, eviction policy, and staleness failure mode. A bug here serves *wrong audio or wrong artwork*, which is user-visible and hard to attribute.
+
+**Key files**: `auralis-web/backend/core/chunk_cache.py`, `auralis-web/backend/core/chunk_cache_manager.py`, `auralis-web/backend/core/file_signature.py`, `auralis-web/backend/core/thumbnail_cache.py`, `auralis-web/backend/cache/manager.py`, `auralis-web/backend/cache/monitoring.py`, `auralis-web/backend/routers/cache_streamlined.py`, `auralis-web/backend/analysis/track_analysis_cache.py`
+
+**Check**:
+- [ ] Key completeness — does every cache key include everything that changes the cached bytes? Chunk keys must cover the file signature (mtime+size) **and** the mastering parameters; a key that omits enhancement settings serves enhanced audio for an unenhanced request (and the reverse).
+- [ ] Stale-after-edit — if the source file is edited in place, does the next read miss the cache? `file_signature.py` keys on mtime+size; a filesystem with coarse mtime granularity or a same-size edit defeats that. Is there a content fallback?
+- [ ] Unbounded growth — `thumbnail_cache.py` mints a fresh key on every source edit, so superseded entries are orphaned by construction. Is there eviction (LRU, size cap, TTL), and does it actually run?
+- [ ] Torn writes — are cache files written atomically (temp file + rename via `auralis-web/backend/core/encoding/atomic_io.py`), or can a crash mid-write leave a truncated file that later reads accept as valid?
+- [ ] Concurrent writers — two requests computing the same key simultaneously: last-writer-wins, or a corrupt interleave? Is there single-flight/dedup?
+- [ ] Cache-format assumptions — cached chunk files are 16-bit PCM WAV, not float32. Does every size/duration estimate and every reader agree on that?
+- [ ] Invalidation reach — does the cache-clearing endpoint in `auralis-web/backend/routers/cache_streamlined.py` clear all three caches, or only the one it knows about? Partial invalidation leaves inconsistent state across layers.
+- [ ] Monitoring truthfulness — do the hit/miss counters in `auralis-web/backend/cache/monitoring.py` count what they claim? A miss recorded as a hit hides a regression.
+
+### Dimension 11: Seek & Buffering
+
+**Key files**: `auralis-web/backend/core/stream_seek.py`, `auralis-web/backend/core/seekable_source.py`, `auralis-web/backend/core/stream_prefetch.py`, `auralis-web/backend/core/proactive_buffer.py`, `auralis-web/backend/core/stream_chunk_ops.py`, `auralis-web/backend/core/chunk_boundaries.py`
+
+**Check**:
+- [ ] Seek target → chunk index — is the mapping computed via `chunk_boundaries.py` (overlap-aware), or with a naive `position / CHUNK_DURATION` that lands mid-overlap and repeats or skips audio?
+- [ ] Seekable source — does `seekable_source.py` convert non-seekable inputs exactly once and reuse the converted path? A per-chunk conversion (or a per-chunk whole-file decode, the #4737 regression) turns one seek into O(n) full decodes.
+- [ ] Rapid seeks — does a second seek arriving mid-service cancel the first, or do both keep streaming into the same connection and interleave chunks?
+- [ ] Prefetch cancellation — when a seek invalidates in-flight prefetch work, is that work cancelled and are its buffers released, or does it complete and land stale chunks in the cache/buffer?
+- [ ] Buffer reset — is `proactive_buffer.py` drained on seek? Serving pre-seek buffered audio after a seek is an audible jump backwards.
+- [ ] Seek past end / negative — clamped, or does it produce an out-of-range chunk index or an empty stream that hangs the client?
+- [ ] Level continuity after seek — the chunk starting at a seek target has no predecessor context. Does `level_manager.py` / mastering state initialize sanely, or does the first post-seek chunk come in at the wrong level?
+- [ ] Seek during processing — can a seek arrive while the previous chunk is still being mastered, and does the result get discarded rather than emitted out of order?
+
 ## Phase 1: Setup
 
 1. Parse `$ARGUMENTS` for `--focus`, `--depth`, `--limit`
@@ -177,7 +211,7 @@ Every agent prompt MUST include:
 ```
 ### <ID>: <Short Title>
 - **Severity**: CRITICAL | HIGH | MEDIUM | LOW
-- **Dimension**: Route Handlers | WebSocket Streaming | Chunked Processing | Processing Engine | Schema Consistency | Middleware & Config | Error Handling | Performance | Test Coverage
+- **Dimension**: Route Handlers | WebSocket Streaming | Chunked Processing | Processing Engine | Schema Consistency | Middleware & Config | Error Handling | Performance | Test Coverage | Caching & Invalidation | Seek & Buffering
 - **Location**: `<file-path>:<line-range>`
 - **Status**: NEW | Existing: #NNN | Regression of #NNN
 - **Description**: What is wrong and why
@@ -196,6 +230,8 @@ Dimension → Output mapping:
 - Dimension 7 (Error Handling) → `/tmp/audit/backend/dim_7.md`
 - Dimension 8 (Performance) → `/tmp/audit/backend/dim_8.md`
 - Dimension 9 (Test Coverage) → `/tmp/audit/backend/dim_9.md`
+- Dimension 10 (Caching & Invalidation) → `/tmp/audit/backend/dim_10.md`
+- Dimension 11 (Seek & Buffering) → `/tmp/audit/backend/dim_11.md`
 
 ## Phase 3: Merge
 
