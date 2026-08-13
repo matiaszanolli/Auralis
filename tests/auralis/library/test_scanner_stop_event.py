@@ -47,6 +47,10 @@ def _make_scanner(files: list[str], per_file_delay: float = 0.0) -> LibraryScann
 
     scanner.file_discovery = MagicMock()
     scanner.file_discovery.discover_audio_files.side_effect = _discover
+    # #4840: the scanner no longer calls count_audio_files() — the counting
+    # pass keeps its discovered paths and reuses them, so the tree is walked
+    # once. Left configured anyway so this harness still works if a future
+    # change reinstates a separate counting call.
     scanner.file_discovery.count_audio_files.return_value = len(files)
 
     scanner.batch_processor = MagicMock()

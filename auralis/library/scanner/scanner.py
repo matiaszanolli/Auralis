@@ -14,7 +14,7 @@ import time
 from typing import Any
 from collections.abc import Callable
 
-from ...utils.logging import info, warning
+from ...utils.logging import debug, info, warning
 from ..scan_models import ScanResult
 from .audio_analyzer import AudioAnalyzer
 from .batch_processor import BatchProcessor
@@ -22,6 +22,19 @@ from .config import DEFAULT_BATCH_SIZE
 from .duplicate_detector import DuplicateDetector
 from .file_discovery import FileDiscovery
 from .metadata_extractor import MetadataExtractor
+
+
+# #4840: hard ceiling on the discovery cache. Path strings average roughly
+# 100 bytes, so 100k paths is ~10 MB — negligible next to the audio buffers the
+# app already holds, and it covers essentially every real music library. Past
+# this the cache is dropped and discovery falls back to a second walk, which
+# preserves #2160's "memory bounded regardless of library size" invariant
+# instead of trading it away.
+_PATH_CACHE_LIMIT = 100_000
+
+# How often the counting pass emits a running tally. Frequent enough that the
+# UI moves on a slow network share, rare enough not to flood the WebSocket.
+_COUNT_PROGRESS_EVERY = 250
 
 
 class LibraryScanner:
@@ -184,15 +197,59 @@ class LibraryScanner:
             # (a file is counted as found at most `batch_size` frames before
             # it is processed), so `processed / files_found` is pinned at
             # ~100% — that was #4411, and it must not come back. A dedicated
-            # counting pass walks the tree once with an O(1) counter, giving
-            # a fixed total that makes `processed / total_expected` a real,
-            # monotonically increasing fraction. No paths are retained, so
-            # the streaming memory bound from #2160 is untouched.
+            # counting pass gives a fixed total, making
+            # `processed / total_expected` a real, monotonically increasing
+            # fraction.
+            #
+            # #4840: that pass used to throw its results away, so the identical
+            # recursive walk (including a `stat()` per entry for the
+            # symlink-cycle check) ran twice — roughly doubling wall-clock for
+            # discovery-bound libraries on slow storage, which is exactly the
+            # network-share / USB-drive case a desktop app hits. The paths are
+            # now kept and reused, so the tree is walked once.
+            #
+            # The cache is hard-capped rather than unbounded: #2160's streaming
+            # memory bound is the reason the count pass discarded paths in the
+            # first place. Past the cap the cache is dropped and the scan falls
+            # back to re-walking, so memory is bounded by construction and only
+            # libraries beyond the cap pay the second walk.
             total_expected: int = 0
+            cached_paths: list[str] | None = []
+            directories_counted: int = 0
+
             for directory in directories:
                 if self.should_stop.is_set():
                     break
-                total_expected += self.file_discovery.count_audio_files(directory, recursive)
+                for filepath in self.file_discovery.discover_audio_files(directory, recursive):
+                    if self.should_stop.is_set():
+                        break
+                    total_expected += 1
+                    if cached_paths is not None:
+                        if len(cached_paths) >= _PATH_CACHE_LIMIT:
+                            # Give up caching for this scan; stay bounded.
+                            debug(
+                                f"Path cache limit ({_PATH_CACHE_LIMIT}) reached — "
+                                "falling back to a second discovery walk (#4840)"
+                            )
+                            cached_paths = None
+                        else:
+                            cached_paths.append(filepath)
+                    # #4840: the count pass emitted nothing, so the UI sat on a
+                    # pure indeterminate spinner for its whole duration — which
+                    # on a large or slow library is minutes of apparent silence.
+                    # A running tally is the one honest thing available before
+                    # the denominator exists.
+                    if total_expected % _COUNT_PROGRESS_EVERY == 0:
+                        self._report_progress({
+                            'stage': 'counting',
+                            'directory': directory,
+                            'total_found': total_expected,
+                            'processed': 0,
+                            # Still genuinely unknown: there is no denominator
+                            # until this pass finishes.
+                            'progress': None,
+                        })
+                directories_counted += 1
 
             if self.should_stop.is_set():
                 return result
@@ -255,29 +312,56 @@ class LibraryScanner:
                     'current_file': batch[0] if batch else None,
                 })
 
-            for directory in directories:
-                if self.should_stop.is_set():
-                    break
+            def _feed(filepath: str) -> None:
+                """Accumulate one discovered path, flushing on a full batch."""
+                nonlocal pending_batch
+                pending_batch.append(filepath)
+                result.files_found += 1
+                if len(pending_batch) >= batch_size:
+                    _process_batch(pending_batch)
+                    pending_batch = []
 
-                for filepath in self.file_discovery.discover_audio_files(directory, recursive):
+            if cached_paths is not None:
+                # #4840: the counting pass already walked the tree, so reuse its
+                # result instead of walking it again. This is the whole point of
+                # the fix — one traversal, not two.
+                result.directories_scanned = directories_counted
+                for filepath in cached_paths:
                     if self.should_stop.is_set():
                         break
-                    pending_batch.append(filepath)
-                    result.files_found += 1
-
-                    if len(pending_batch) >= batch_size:
-                        _process_batch(pending_batch)
-                        pending_batch = []
-
-                result.directories_scanned += 1
+                    _feed(filepath)
+                # Release the cache before the (potentially long) tail of
+                # processing rather than holding it to the end of the scan.
+                cached_paths = None
                 self._report_progress({
                     'stage': 'discovering',
-                    'directory': directory,
                     'total_found': result.files_found,
                     'total_expected': total_expected,
                     'processed': result.files_processed,
                     'progress': _progress_fraction(),
                 })
+            else:
+                # Cache overflowed (library larger than _PATH_CACHE_LIMIT), so
+                # fall back to the second walk. Bounded memory wins over the
+                # extra I/O; see the note at the counting pass.
+                for directory in directories:
+                    if self.should_stop.is_set():
+                        break
+
+                    for filepath in self.file_discovery.discover_audio_files(directory, recursive):
+                        if self.should_stop.is_set():
+                            break
+                        _feed(filepath)
+
+                    result.directories_scanned += 1
+                    self._report_progress({
+                        'stage': 'discovering',
+                        'directory': directory,
+                        'total_found': result.files_found,
+                        'total_expected': total_expected,
+                        'processed': result.files_processed,
+                        'progress': _progress_fraction(),
+                    })
 
             info(f"Discovered {result.files_found} audio files")
 
