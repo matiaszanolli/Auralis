@@ -38,8 +38,17 @@ class RealtimeProcessor:
         # Performance monitoring
         self.performance_monitor = PerformanceMonitor(max_cpu_usage=0.75)
 
-        # Processing state
-        self.is_processing = False
+        # Processing state.
+        #
+        # #4633: there is deliberately no `is_processing` flag here. One existed,
+        # assigned False in __init__ and never touched again — process_chunk()
+        # never toggled it and nothing read it, so any consumer that reasonably
+        # trusted the name (a busy indicator, a health check, a re-entrancy
+        # guard) would have silently received a permanent False. If live
+        # processing status is ever genuinely needed, wire it properly rather
+        # than reinstating the default: set it under `self.lock` at the top of
+        # process_chunk() and clear it in a `finally:` so it cannot stick after
+        # an exception, and surface it through get_processing_info().
         self.effects_enabled = {
             'level_matching': config.enable_level_matching,
             'auto_mastering': config.enable_auto_mastering,

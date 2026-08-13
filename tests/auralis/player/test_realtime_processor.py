@@ -401,12 +401,26 @@ class TestRealtimeProcessorComprehensive:
         processor = RealtimeProcessor(self.config)
 
         assert processor.config == self.config
-        assert hasattr(processor, 'level_matcher')
-        assert hasattr(processor, 'auto_master')
-        assert hasattr(processor, 'performance_monitor')
-        assert hasattr(processor, 'is_processing')  # New API: is_processing not processing_enabled
-        assert hasattr(processor, 'effects_enabled')  # Effects managed via dictionary
-        assert hasattr(processor, 'lock')  # Thread safety
+        # Sub-processors are present iff their config flag enabled them, rather
+        # than merely existing as attributes.
+        assert (processor.level_matcher is not None) == self.config.enable_level_matching
+        assert (processor.auto_master is not None) == self.config.enable_auto_mastering
+        assert processor.performance_monitor.get_stats() is not None
+        # Effects are managed via a dictionary keyed by effect name.
+        assert set(processor.effects_enabled) == {'level_matching', 'auto_mastering'}
+        # Thread safety: `lock` must be an actual acquirable lock.
+        assert processor.lock.acquire(timeout=1)
+        processor.lock.release()
+
+        # #4633: `is_processing` must NOT come back. It was assigned False in
+        # __init__ and never updated, so it advertised live status while always
+        # reporting idle. Reinstating the bare default would re-arm that trap;
+        # if a real flag is wanted it must be toggled in process_chunk() under
+        # `lock` with a `finally:` reset (see the note in processor.py).
+        assert not hasattr(processor, 'is_processing'), (
+            "is_processing was reintroduced — a status flag that process_chunk() "
+            "never sets is worse than no flag at all (#4633)"
+        )
 
         self.tearDown()
 
