@@ -41,7 +41,13 @@ export interface ArtistApiResponse {
   artwork_url: string | null; // Backend field name (issue #2110: was incorrectly artwork_path)
   track_count: number; // snake_case
   album_count: number; // snake_case
-  date_added?: string | null;
+  /**
+   * ISO timestamp of when the artist row was created. The artists router names
+   * this `created_at` (from `Artist.to_dict()`), not `date_added` as tracks do
+   * — this type declared the track spelling, which no artist response has ever
+   * carried, so `dateAdded` was always undefined (#4833).
+   */
+  created_at?: string | null;
 }
 
 export interface ArtistsApiResponse {

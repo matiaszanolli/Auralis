@@ -16,7 +16,7 @@ describe('artistTransformer', () => {
         artwork_url: '/artists/slayer.jpg',
         track_count: 120,
         album_count: 12,
-        date_added: '2023-01-15T10:30:00Z',
+        created_at: '2023-01-15T10:30:00Z',
       };
 
       const result = transformArtist(apiArtist);
@@ -40,7 +40,7 @@ describe('artistTransformer', () => {
         artwork_url: null,
         track_count: 5,
         album_count: 1,
-        date_added: null,
+        created_at: null,
       };
 
       const result = transformArtist(apiArtist);
@@ -59,7 +59,7 @@ describe('artistTransformer', () => {
         artwork_url: '/new.jpg',
         track_count: 0,
         album_count: 0,
-        date_added: '2024-12-01T00:00:00Z',
+        created_at: '2024-12-01T00:00:00Z',
       };
 
       const result = transformArtist(apiArtist);
@@ -75,7 +75,7 @@ describe('artistTransformer', () => {
         artwork_url: '/metallica.jpg',
         track_count: 150,
         album_count: 10,
-        date_added: null,
+        created_at: null,
       };
 
       const result = transformArtist(apiArtist);
@@ -91,7 +91,7 @@ describe('artistTransformer', () => {
         artwork_url: null,
         track_count: 1,
         album_count: 1,
-        date_added: null,
+        created_at: null,
       };
 
       const result = transformArtist(apiArtist);
@@ -113,7 +113,7 @@ describe('artistTransformer', () => {
           artwork_url: '/art1.jpg',
           track_count: 50,
           album_count: 5,
-          date_added: '2023-01-01T00:00:00Z',
+          created_at: '2023-01-01T00:00:00Z',
         },
         {
           id: 2,
@@ -121,7 +121,7 @@ describe('artistTransformer', () => {
           artwork_url: null,
           track_count: 20,
           album_count: 2,
-          date_added: null,
+          created_at: null,
         },
       ];
 
@@ -146,7 +146,7 @@ describe('artistTransformer', () => {
           artwork_url: '/solo.jpg',
           track_count: 10,
           album_count: 1,
-          date_added: '2023-01-01T00:00:00Z',
+          created_at: '2023-01-01T00:00:00Z',
         },
       ];
 
@@ -167,7 +167,7 @@ describe('artistTransformer', () => {
             artwork_url: '/art1.jpg',
             track_count: 50,
             album_count: 5,
-            date_added: '2023-01-01T00:00:00Z',
+            created_at: '2023-01-01T00:00:00Z',
           },
         ],
         total: 200,
@@ -225,7 +225,7 @@ describe('artistTransformer', () => {
             artwork_url: null,
             track_count: 1,
             album_count: 1,
-            date_added: null,
+            created_at: null,
           },
         ],
         total: 1000,
@@ -250,7 +250,7 @@ describe('artistTransformer', () => {
         artwork_url: '/test.jpg',
         track_count: 1,
         album_count: 1,
-        date_added: null,
+        created_at: null,
       };
 
       const result = transformArtist(apiArtist);
@@ -266,7 +266,7 @@ describe('artistTransformer', () => {
         artwork_url: null,
         track_count: 99,
         album_count: 1,
-        date_added: null,
+        created_at: null,
       };
 
       const result = transformArtist(apiArtist);
@@ -282,7 +282,7 @@ describe('artistTransformer', () => {
         artwork_url: null,
         track_count: 1,
         album_count: 15,
-        date_added: null,
+        created_at: null,
       };
 
       const result = transformArtist(apiArtist);
@@ -291,20 +291,20 @@ describe('artistTransformer', () => {
       expect(result).not.toHaveProperty('album_count');
     });
 
-    it('should convert date_added to dateAdded', () => {
+    it('should convert created_at to dateAdded (#4833)', () => {
       const apiArtist: ArtistApiResponse = {
         id: 1,
         name: 'Test',
         artwork_url: null,
         track_count: 1,
         album_count: 1,
-        date_added: '2023-12-25T12:00:00Z',
+        created_at: '2023-12-25T12:00:00Z',
       };
 
       const result = transformArtist(apiArtist);
 
       expect(result.dateAdded).toBe('2023-12-25T12:00:00Z');
-      expect(result).not.toHaveProperty('date_added');
+      expect(result).not.toHaveProperty('created_at');
     });
   });
 
@@ -316,7 +316,7 @@ describe('artistTransformer', () => {
         artwork_url: '/test.jpg',
         track_count: 50,
         album_count: 5,
-        date_added: '2023-01-01T00:00:00Z',
+        created_at: '2023-01-01T00:00:00Z',
       };
 
       const result: Artist = transformArtist(apiArtist);
@@ -333,7 +333,7 @@ describe('artistTransformer', () => {
           artwork_url: null,
           track_count: 1,
           album_count: 1,
-          date_added: null,
+          created_at: null,
         },
       ];
 

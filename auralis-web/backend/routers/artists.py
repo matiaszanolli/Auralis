@@ -174,6 +174,11 @@ def create_artists_router(
             # which the inline version never received.
             artist_data = serialize_artist(artist)
 
+            # #4833: the five fields below the artwork pair were declared on
+            # ArtistResponse by #3838 but never populated here, so they stayed
+            # None on every response — `created_at` in particular, which the
+            # frontend's Artist.dateAdded is transformed from. They all come
+            # straight out of Artist.to_dict() via serialize_artist().
             artist_responses.append(ArtistResponse(
                 id=cast(int, artist.id),
                 name=cast(str, artist.name),
@@ -182,6 +187,11 @@ def create_artists_router(
                 genres=genres_list,
                 artwork_url=artist.artwork_url,
                 artwork_source=artist.artwork_source,
+                normalized_name=artist_data.get('normalized_name'),
+                total_plays=artist_data.get('total_plays'),
+                avg_mastering_quality=artist_data.get('avg_mastering_quality'),
+                created_at=artist_data.get('created_at'),
+                updated_at=artist_data.get('updated_at'),
             ))
 
         has_more = compute_has_more(offset, len(artist_responses), total)

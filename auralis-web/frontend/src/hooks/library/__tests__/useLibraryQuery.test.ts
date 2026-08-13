@@ -1268,7 +1268,10 @@ describe('useLibraryQuery', () => {
       mockRest({
         artists: [{
           id: 2, name: 'Artist', artwork_url: '/api/artists/2/artwork',
-          track_count: 25, album_count: 3, date_added: '2026-01-01',
+          // #4833: the artists router names this `created_at` (Artist.to_dict()),
+          // not `date_added` — the old fixture used the track spelling, which no
+          // real /api/artists response has ever carried.
+          track_count: 25, album_count: 3, created_at: '2026-01-01',
         }],
         total: 1, offset: 0, limit: 50, hasMore: false,
       });

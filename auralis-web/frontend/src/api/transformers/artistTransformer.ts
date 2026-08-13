@@ -14,7 +14,8 @@ import type { Artist } from '@/types/domain';
  * - artwork_url (string | null)  — issue #2110: was incorrectly artwork_path
  * - track_count (number)
  * - album_count (number)
- * - date_added (string | undefined)
+ * - created_at (string | undefined) — issue #4833: was read as date_added,
+ *   which /api/artists never emits (that is the *track* spelling)
  *
  * Frontend domain (camelCase):
  * - artworkUrl (string | undefined)
@@ -29,7 +30,7 @@ export function transformArtist(apiArtist: ArtistApiResponse): Artist {
     artworkUrl: apiArtist.artwork_url ?? undefined, // snake → camel, null → undefined
     trackCount: apiArtist.track_count, // snake → camel
     albumCount: apiArtist.album_count, // snake → camel
-    dateAdded: apiArtist.date_added ?? undefined, // snake → camel, null → undefined
+    dateAdded: apiArtist.created_at ?? undefined, // snake → camel, null → undefined
   };
 }
 
