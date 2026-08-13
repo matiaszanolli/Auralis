@@ -9,7 +9,6 @@ REST API endpoints for fingerprint-based music similarity
 """
 
 import asyncio
-import logging
 from typing import Any
 from collections.abc import Callable
 
@@ -42,9 +41,6 @@ from .similarity_common import (  # noqa: F401
     require_fingerprinted_tracks,
     require_similarity_system,
 )
-
-logger = logging.getLogger(__name__)
-
 
 class FitSimilarityResponse(BaseModel):
     """Result of fitting the similarity system.
