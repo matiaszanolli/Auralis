@@ -14,6 +14,7 @@ import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { ApiError } from '@/types/api';
 import { ApiErrorHandler } from '@/types/api';
 import { API_BASE_URL } from '@/config/api';
+import { httpErrorFromResponse } from '@/utils/httpError';
 const REQUEST_TIMEOUT = 30000; // 30 seconds
 
 /**
@@ -124,7 +125,8 @@ export function useRestAPI() {
         });
 
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          // Read the backend's `detail` before discarding the body (#4831).
+          throw await httpErrorFromResponse(response);
         }
 
         // Detect stale response: if a newer request started after this one, discard this response (fixes #2439).
@@ -191,7 +193,8 @@ export function useRestAPI() {
         });
 
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          // Read the backend's `detail` before discarding the body (#4831).
+          throw await httpErrorFromResponse(response);
         }
 
         // Detect stale response (fixes #2439).
@@ -245,7 +248,8 @@ export function useRestAPI() {
         });
 
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          // Read the backend's `detail` before discarding the body (#4831).
+          throw await httpErrorFromResponse(response);
         }
 
         // Detect stale response (fixes #2439).
@@ -299,7 +303,8 @@ export function useRestAPI() {
         });
 
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          // Read the backend's `detail` before discarding the body (#4831).
+          throw await httpErrorFromResponse(response);
         }
 
         // Detect stale response (fixes #2439).
@@ -351,7 +356,8 @@ export function useRestAPI() {
         });
 
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          // Read the backend's `detail` before discarding the body (#4831).
+          throw await httpErrorFromResponse(response);
         }
 
         // Detect stale response (fixes #2439).

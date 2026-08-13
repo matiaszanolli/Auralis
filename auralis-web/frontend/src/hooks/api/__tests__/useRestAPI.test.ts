@@ -769,6 +769,64 @@ describe('useRestAPI Hook', () => {
       expect(result.current.error?.message).toContain('Not Found');
     });
 
+    it('surfaces the backend detail instead of the generic status line (#4831)', async () => {
+      mockFetch.mockResolvedValueOnce(createMockResponse(
+        { detail: 'Track 123 not found' },
+        { ok: false, status: 404, statusText: 'Not Found' }
+      ));
+
+      const { result } = renderHook(() => useRestAPI());
+
+      await act(async () => {
+        await expect(result.current.get('/api/test/track')).rejects.toMatchObject({
+          status: 404,
+          message: 'Track 123 not found',
+        });
+      });
+
+      expect(result.current.error?.message).toBe('Track 123 not found');
+      expect(result.current.error?.status).toBe(404);
+    });
+
+    it('formats a FastAPI 422 validation detail array (#4831)', async () => {
+      mockFetch.mockResolvedValueOnce(createMockResponse(
+        { detail: [{ loc: ['body', 'limit'], msg: 'ensure this value is <= 100', type: 'value_error' }] },
+        { ok: false, status: 422, statusText: 'Unprocessable Entity' }
+      ));
+
+      const { result } = renderHook(() => useRestAPI());
+
+      await act(async () => {
+        try {
+          await result.current.post('/api/test/track', { limit: 500 });
+        } catch {
+          // Expected
+        }
+      });
+
+      expect(result.current.error?.message).toBe('limit: ensure this value is <= 100');
+      expect(result.current.error?.status).toBe(422);
+    });
+
+    it('falls back to the generic status line when the body is not JSON (#4831)', async () => {
+      const response = createMockResponse(null, { ok: false, status: 500, statusText: 'Internal Server Error' });
+      (response as any).json = async () => { throw new SyntaxError('Unexpected token'); };
+      mockFetch.mockResolvedValueOnce(response);
+
+      const { result } = renderHook(() => useRestAPI());
+
+      await act(async () => {
+        try {
+          await result.current.delete('/api/test/track');
+        } catch {
+          // Expected
+        }
+      });
+
+      expect(result.current.error?.message).toBe('HTTP 500: Internal Server Error');
+      expect(result.current.error?.status).toBe(500);
+    });
+
     it('should handle fetch throwing non-Error objects', async () => {
       mockFetch.mockRejectedValueOnce('String error');
 

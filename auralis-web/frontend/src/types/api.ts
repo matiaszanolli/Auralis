@@ -367,8 +367,14 @@ export interface StreamingUrlResponse {
 export class ApiErrorHandler {
   static parse(error: unknown): ApiError {
     if (error instanceof Error) {
-      // Extract the real HTTP status from 'HTTP ${status}: ${text}' messages thrown
-      // by useRestAPI, so callers see the actual code rather than always 500 (#2361).
+      // useRestAPI attaches the real status as a property so the message can be
+      // the backend's `detail` text instead of 'HTTP nnn: ...' (#4831). Fall back
+      // to scraping the legacy generic message for any thrower that still uses
+      // it, so callers keep seeing the actual code rather than always 500 (#2361).
+      const attached = (error as { status?: unknown }).status;
+      if (typeof attached === 'number') {
+        return { status: attached, message: error.message };
+      }
       const httpMatch = error.message.match(/^HTTP (\d{3}):/);
       return {
         status: httpMatch ? parseInt(httpMatch[1], 10) : 500,

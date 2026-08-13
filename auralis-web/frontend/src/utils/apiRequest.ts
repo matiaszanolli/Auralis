@@ -9,6 +9,7 @@
  */
 
 import { getApiUrl } from '@/config/api';
+import { readHttpErrorBody } from '@/utils/httpError';
 
 /**
  * Default request timeout (ms). Matches the 30s timeout already used by the
@@ -182,19 +183,9 @@ export async function apiRequest<T = unknown>(
     }
 
     // Handle error responses
-    let errorMessage = `Request failed with status ${response.status}`;
-    let errorDetail: string | undefined;
-
-    try {
-      const errorData = await response.json();
-      errorDetail = errorData.detail || errorData.message;
-      if (errorDetail) {
-        errorMessage = errorDetail;
-      }
-    } catch {
-      // Response wasn't JSON, use status text
-      errorMessage = `${response.status} ${response.statusText}`;
-    }
+    const { detail: errorDetail, parsed } = await readHttpErrorBody(response);
+    const errorMessage = errorDetail
+      ?? (parsed ? `Request failed with status ${response.status}` : `${response.status} ${response.statusText}`);
 
     throw new APIRequestError(errorMessage, response.status, errorDetail);
   } catch (error) {
@@ -285,15 +276,9 @@ export async function getBlob(endpoint: string, options?: Omit<RequestOptions, '
       return response.blob();
     }
 
-    let errorMessage = `Request failed with status ${response.status}`;
-    let errorDetail: string | undefined;
-    try {
-      const errorData = await response.json();
-      errorDetail = errorData.detail || errorData.message;
-      if (errorDetail) errorMessage = errorDetail;
-    } catch {
-      errorMessage = `${response.status} ${response.statusText}`;
-    }
+    const { detail: errorDetail, parsed } = await readHttpErrorBody(response);
+    const errorMessage = errorDetail
+      ?? (parsed ? `Request failed with status ${response.status}` : `${response.status} ${response.statusText}`);
     throw new APIRequestError(errorMessage, response.status, errorDetail);
   } catch (error) {
     if (error instanceof APIRequestError) throw error;
