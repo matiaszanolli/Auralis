@@ -29,6 +29,7 @@ import asyncio
 import contextvars
 import itertools
 import logging
+import threading
 import uuid
 from typing import Any
 from collections.abc import Callable
@@ -129,6 +130,44 @@ _global_stream_semaphore: asyncio.Semaphore = asyncio.Semaphore(MAX_CONCURRENT_S
 # skip-failed-chunk recovery branch (sibling of #2747, fixes #3852).
 CHUNK_PROCESS_TIMEOUT: float = 30.0
 
+# Degraded-mode fallback cache, shared across ALL AudioStreamController
+# instances for the same reason _global_stream_semaphore is (#2469, #5087).
+#
+# routers/system.py builds a fresh controller per stream request, passing
+# `get_cache_manager()` — which returns None for every request once the
+# `streamlined_cache` global fails to initialise, or after its worker dies and
+# #4318's failure path nulls it. The old `cache_manager or SimpleChunkCache()`
+# fallback then handed each controller its own private cache, silently undoing
+# #3855's cross-request sharing: chunks were never reused between requests
+# (every scrub/replay a miss) and the memory ceiling multiplied by the number
+# of concurrent streams (~50 chunks x ~5.3MB x up to MAX_CONCURRENT_STREAMS
+# ~= 2.6GB), with nothing logged to say degraded mode was active.
+#
+# SimpleChunkCache guards its own state with a threading.Lock (#2436), so one
+# shared instance is safe for concurrent streams.
+_fallback_chunk_cache: 'SimpleChunkCache | None' = None
+_fallback_cache_lock = threading.Lock()
+
+
+def get_fallback_chunk_cache() -> SimpleChunkCache:
+    """Return the process-wide degraded-mode chunk cache, creating it once.
+
+    Logs a WARNING the first time it is used so the degraded state is
+    observable rather than silent (#5087).
+    """
+    global _fallback_chunk_cache
+    with _fallback_cache_lock:
+        if _fallback_chunk_cache is None:
+            logger.warning(
+                "No streamlined cache manager available — falling back to a shared "
+                "in-memory SimpleChunkCache. Chunk caching is degraded: this is the "
+                "path taken when the streamlined cache failed to initialise at "
+                "startup or its worker died (#4318). Streams will still play, but "
+                "cache capacity and hit rate are reduced."
+            )
+            _fallback_chunk_cache = SimpleChunkCache()
+        return _fallback_chunk_cache
+
 
 def ws_id(websocket: WebSocket) -> str:
     """Return a stable UUID for this websocket, assigned on first call.
@@ -179,8 +218,13 @@ class AudioStreamController:
         self._get_repository_factory: Callable[[], RepositoryFactory] | None = get_repository_factory
         self._get_enhancement_enabled = get_enhancement_enabled
 
-        # Use provided cache manager or fallback to SimpleChunkCache
-        self.cache_manager: StreamlinedCacheManager | SimpleChunkCache = cache_manager or SimpleChunkCache()
+        # Use the provided cache manager, or the process-wide degraded-mode
+        # fallback — never a fresh per-instance one, which would silently undo
+        # #3855's cross-request sharing whenever get_cache_manager() returns
+        # None (#5087). See get_fallback_chunk_cache().
+        self.cache_manager: StreamlinedCacheManager | SimpleChunkCache = (
+            cache_manager if cache_manager is not None else get_fallback_chunk_cache()
+        )
         self._stream_type: str | None = None  # Deprecated; reads now use _stream_type_var.get() (fixes #2493)
         logger.info(f"AudioStreamController initialized with cache manager: {type(self.cache_manager).__name__}")
 
