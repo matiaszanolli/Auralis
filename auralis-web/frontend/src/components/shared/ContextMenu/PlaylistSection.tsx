@@ -47,7 +47,9 @@ const CreateNewMenuItem = styled(MenuItem)({
 const SectionLabel = styled(Box)({
   fontSize: tokens.typography.fontSize.xs,
   fontWeight: tokens.typography.fontWeight.semibold,
-  color: tokens.colors.text.disabled,
+  // #4635: xs label text needs AA 4.5:1; disabled (40%) is only calibrated
+  // for the 3:1 large-text floor. Same fix as the sidebar labels in #4451.
+  color: tokens.colors.text.metadata,
   textTransform: 'uppercase',
   letterSpacing: '0.5px',
   padding: '8px 16px 4px 16px',

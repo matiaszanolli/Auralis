@@ -81,7 +81,7 @@ export const AddToPlaylistMenu = ({
 
       {!loading && playlists.length === 0 && (
         <MenuItem disabled>
-          <Typography variant="body2" sx={{ color: tokens.colors.text.disabled }}>
+          <Typography variant="body2" sx={{ color: tokens.colors.text.metadata }}>
             No playlists yet
           </Typography>
         </MenuItem>

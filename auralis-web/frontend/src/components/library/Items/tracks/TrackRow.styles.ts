@@ -216,8 +216,16 @@ export const TrackAlbum = styled(Typography)(
 export const TrackDuration = styled(Typography)({
   fontSize: tokens.typography.fontSize.sm,
   fontWeight: tokens.typography.fontWeight.normal,
-  color: themeVars.textDisabled,
-  opacity: 0.5,                                      // Phase 2: Ghosted duration (third-level hierarchy)
+  // #4635: was themeVars.textDisabled (40% white) AND opacity: 0.5, compounding
+  // to ~20% effective alpha — roughly 1.9:1, near-invisible to everyone, on the
+  // most-visited surface in the app. A duration is ordinary content, not a
+  // disabled control, so AA's 4.5:1 applies with no exemption.
+  //
+  // The extra opacity is gone rather than retuned: textMuted is already the
+  // intended third-level "ghosted" treatment, so multiplying it was double-
+  // fading. Keeping the hierarchy (primary > secondary > muted) via the token
+  // alone is what #4182 and #4451 did for the same pattern.
+  color: themeVars.textMuted,
   minWidth: '50px',
   textAlign: 'right',
   marginRight: tokens.spacing.sm,

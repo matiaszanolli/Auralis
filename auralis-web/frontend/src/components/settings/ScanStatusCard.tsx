@@ -38,11 +38,13 @@ export const ScanStatusCard = ({ disabled = false, onScanNow }: ScanStatusCardPr
           display: 'flex',
           alignItems: 'center',
           gap: 1.5,
-          color: tokens.colors.text.disabled,
+          // #4635: metadata (60%), not disabled (40%) — this is normal-size
+          // informational text, not a disabled control. AA needs 4.5:1.
+          color: tokens.colors.text.metadata,
         }}
       >
         <FolderOffIcon fontSize="small" />
-        <Typography variant="body2" sx={{ color: tokens.colors.text.disabled }}>
+        <Typography variant="body2" sx={{ color: tokens.colors.text.metadata }}>
           Add folders above to begin scanning
         </Typography>
       </Box>

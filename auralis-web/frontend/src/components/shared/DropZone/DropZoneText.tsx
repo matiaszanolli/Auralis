@@ -53,7 +53,8 @@ export const DropZoneText = ({ isDragging, scanning }: DropZoneTextProps) => {
           sx={{
             display: 'block',
             mt: 2,
-            color: tokens.colors.text.disabled,
+            // #4635: 11px informational text, not decoration — AA 4.5:1.
+            color: tokens.colors.text.metadata,
             fontSize: 11,
           }}
         >

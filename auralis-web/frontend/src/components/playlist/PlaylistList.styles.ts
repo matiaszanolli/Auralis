@@ -162,6 +162,7 @@ export const AddButton = styled(IconButton)({
 export const EmptyState = styled(Box)({
   padding: `${tokens.spacing.group} ${tokens.spacing.section}`, // 16px vertical, 32px horizontal
   textAlign: 'center',
-  color: tokens.colors.text.disabled,
+  // #4635: 13px text — AA 4.5:1 applies, so metadata (60%) not disabled (40%).
+  color: tokens.colors.text.metadata,
   fontSize: tokens.typography.fontSize.base,              // 13px - standard base size
 });
