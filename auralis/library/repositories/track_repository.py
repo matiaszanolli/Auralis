@@ -11,12 +11,13 @@ Data access layer for track operations
 from collections.abc import Callable, Iterator
 from typing import Any
 
-from sqlalchemy import and_, delete, func, or_, select
+from sqlalchemy import and_, delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from ...utils.logging import debug, error, info, warning
 from ..models import Album, Artist, Genre, Track
+from ..path_key import make_filepath_key
 from ..utils.artist_normalizer import normalize_artist_name
 from .base import BaseRepository
 
@@ -204,7 +205,7 @@ class TrackRepository(BaseRepository):
             existing = session.execute(
                 select(Track).options(
                     *_track_eager_options()
-                ).where(Track.filepath == track_info['filepath'])
+                ).where(Track.filepath_key == make_filepath_key(track_info['filepath']))
             ).scalars().unique().first()
             if existing:
                 session.expunge(existing)
@@ -240,6 +241,7 @@ class TrackRepository(BaseRepository):
             track = Track(
                 title=track_info.get('title', 'Unknown'),
                 filepath=track_info['filepath'],
+                filepath_key=make_filepath_key(track_info['filepath']),
                 duration=track_info.get('duration'),
                 sample_rate=track_info.get('sample_rate'),
                 bit_depth=track_info.get('bit_depth'),
@@ -338,11 +340,48 @@ class TrackRepository(BaseRepository):
             track = session.execute(
                 select(Track)
                 .options(*_track_eager_options())
-                .where(Track.filepath == filepath)
+                .where(Track.filepath_key == make_filepath_key(filepath))
             ).scalars().unique().first()
             if track:
                 session.expunge(track)
             return track
+
+    def backfill_filepath_keys(self, batch_size: int = 500) -> int:
+        """Populate ``filepath_key`` for rows the v017->v018 migration left NULL.
+
+        The migration adds the column but cannot fill it: the key is case-folded
+        only on case-insensitive platforms, and SQLite's ASCII-only ``lower()``
+        disagrees with ``str.casefold()`` on non-ASCII paths. Doing it here keeps
+        ``make_filepath_key`` the single authority (#4842).
+
+        Idempotent and cheap once done — the WHERE clause matches nothing on
+        every subsequent start, so this costs one indexed count.
+
+        Returns:
+            How many rows were backfilled.
+        """
+        updated = 0
+        with self._session_scope() as session:
+            while True:
+                rows = session.execute(
+                    select(Track.id, Track.filepath)
+                    .where(Track.filepath_key.is_(None))
+                    .limit(batch_size)
+                ).all()
+                if not rows:
+                    break
+                for track_id, filepath in rows:
+                    session.execute(
+                        update(Track)
+                        .where(Track.id == track_id)
+                        .values(filepath_key=make_filepath_key(filepath))
+                    )
+                    updated += 1
+                session.commit()
+
+        if updated:
+            info(f"Backfilled filepath_key for {updated} track(s) (#4842)")
+        return updated
 
     def get_by_paths(self, filepaths: list[str]) -> dict[str, Track]:
         """Get tracks by filepath using bounded ``WHERE IN`` queries."""
@@ -355,7 +394,7 @@ class TrackRepository(BaseRepository):
                 tracks = session.execute(
                     select(Track)
                     .options(*_track_eager_options())
-                    .where(Track.filepath.in_(batch))
+                    .where(Track.filepath_key.in_([make_filepath_key(p) for p in batch]))
                 ).scalars().unique().all()
                 for track in tracks:
                     session.expunge(track)
@@ -374,7 +413,7 @@ class TrackRepository(BaseRepository):
         """
         with self._session_scope() as session:
             return session.execute(
-                select(Track.id).where(Track.filepath == filepath)
+                select(Track.id).where(Track.filepath_key == make_filepath_key(filepath))
             ).scalar_one_or_none()
 
     def update_by_filepath(self, filepath: str, track_info: dict[str, Any]) -> Track | None:
@@ -390,7 +429,9 @@ class TrackRepository(BaseRepository):
         """
         session = self.get_session()
         try:
-            track = session.execute(select(Track).where(Track.filepath == filepath)).scalars().first()
+            track = session.execute(
+                select(Track).where(Track.filepath_key == make_filepath_key(filepath))
+            ).scalars().first()
             if not track:
                 warning(f"Track not found: {filepath}")
                 return None
@@ -423,7 +464,7 @@ class TrackRepository(BaseRepository):
             track = session.execute(
                 select(Track)
                 .options(*_track_eager_options())
-                .where(Track.filepath == filepath)
+                .where(Track.filepath_key == make_filepath_key(filepath))
             ).scalars().unique().first()
             info(f"Updated track: {track.title}")
             session.expunge(track)

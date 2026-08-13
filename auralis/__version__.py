@@ -8,7 +8,7 @@ independent and must only change with their respective formats.
 
 __version__ = "1.5.1"
 __version_info__ = (1, 5, 1, "", 0)
-__db_schema_version__ = 17  # track_fingerprints.reference_weight for listening-behavior-weighted reference selection (#3480 Layer 1)
+__db_schema_version__ = 18  # tracks.filepath_key for case-insensitive path matching on Windows/macOS (#4842)
 
 # Fingerprint algorithm version — increment this whenever the 25D extraction
 # algorithm changes in a way that produces different values for the same audio.

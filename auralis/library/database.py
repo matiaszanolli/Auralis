@@ -189,6 +189,17 @@ class LibraryDatabase:
         # through here — no component builds its own factory off SessionLocal.
         self.repositories = RepositoryFactory(self.SessionLocal)
 
+        # #4842: the v017->v018 migration adds tracks.filepath_key but cannot
+        # fill it — the key is case-folded only on case-insensitive platforms,
+        # and SQLite's ASCII-only lower() disagrees with str.casefold() on the
+        # non-ASCII paths a music library is full of. Fill it here, where
+        # make_filepath_key() is available and remains the single authority.
+        # Idempotent: matches nothing on every start after the first.
+        try:
+            self.repositories.tracks.backfill_filepath_keys()
+        except Exception as e:  # noqa: BLE001 - never block startup on a backfill
+            warning(f"filepath_key backfill skipped: {e}")
+
         # Thread-safe locking for delete operations (prevents race conditions)
         self._delete_lock = threading.RLock()
 

@@ -89,7 +89,19 @@ class Track(Base, TimestampMixin):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     title: Mapped[str] = mapped_column(String, nullable=False)
+    # The path exactly as discovered — this is the string used to open the file,
+    # so it must keep its real case.
     filepath: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    # #4842: the value lookups actually compare. Derived by
+    # auralis.library.path_key.make_filepath_key(), which case-folds on
+    # Windows/macOS (case-insensitive filesystems) and preserves case on Linux.
+    # `filepath`'s own unique constraint cannot prevent the duplicate this
+    # guards, because it only rejects an *identical* string — two differently
+    # cased spellings of one physical file pass it happily.
+    #
+    # Nullable so the v017->v018 migration can add the column before the
+    # backfill runs; every write path populates it.
+    filepath_key: Mapped[str | None] = mapped_column(String, unique=True, index=True)
     duration: Mapped[float | None] = mapped_column(Float)
     sample_rate: Mapped[int | None] = mapped_column(Integer)
     bit_depth: Mapped[int | None] = mapped_column(Integer)

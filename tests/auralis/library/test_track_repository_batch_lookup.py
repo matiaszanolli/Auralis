@@ -30,7 +30,10 @@ def test_batch_lookups_chunk_in_clauses_and_return_partial_maps(
     def count_main_queries(_conn, _cursor, statement, _parameters, _context, _many):
         if 'WHERE tracks.id IN' in statement:
             query_counts['id'] += 1
-        if 'WHERE tracks.filepath IN' in statement:
+        # #4842: path lookups compare tracks.filepath_key, the case-folded
+        # matching key, not tracks.filepath. The batching this asserts is
+        # unchanged — only the column moved.
+        if 'WHERE tracks.filepath_key IN' in statement:
             query_counts['filepath'] += 1
 
     monkeypatch.setattr(track_repository_module, '_SQLITE_IN_BATCH_SIZE', 2)
