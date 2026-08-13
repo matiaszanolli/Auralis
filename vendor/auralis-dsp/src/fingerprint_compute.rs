@@ -1,6 +1,8 @@
 /// Unified 25D audio fingerprinting
 /// Orchestrates all fingerprint dimensions from specialized modules
 
+use rustfft::{FftPlanner, num_complex::Complex32};
+
 use crate::chroma;
 use crate::dsp_math::{compute_rms, estimate_lufs};
 use crate::frequency_analysis;
@@ -315,6 +317,24 @@ pub fn compute_complete_fingerprint(
 ///
 /// Computes an onset-strength envelope from spectral flux, then finds the
 /// dominant periodicity via autocorrelation in the BPM range [60, 200].
+///
+/// # Relationship to `tempo::detect_tempo` (#4599)
+///
+/// The crate has a second spectral-flux implementation in `tempo.rs`. The two
+/// are *not* interchangeable and this one is not a lazy duplicate:
+/// `detect_tempo` applies a Hann window and derives BPM from thresholded
+/// inter-onset intervals, while this one is rectangular-windowed and takes an
+/// autocorrelation argmax. Their BPM outputs differ, and this function's output
+/// is a stored fingerprint dimension, so switching would silently invalidate
+/// every fingerprint in every user's library. What the two *should* share is
+/// the transform, and now do: both plan an `rustfft` FFT once and reuse it.
+///
+/// This previously ran a manual O(bins x N) DFT per frame — for a 90 s buffer
+/// at 22050 Hz, ~4.1e9 transcendental calls per track. The FFT below is
+/// mathematically the same transform (the frame is zero-padded to `frame_size`
+/// exactly as the DFT's `angle` denominator already assumed), so tempo values
+/// are unchanged; `tests::estimate_tempo_matches_the_naive_dft_reference`
+/// pins that against a copy of the original loop.
 fn estimate_tempo(audio: &[f32], sample_rate: u32) -> f32 {
     let hop = 512usize;
     let frame_size = 1024usize;
@@ -333,23 +353,28 @@ fn estimate_tempo(audio: &[f32], sample_rate: u32) -> f32 {
     let mut prev_mag = vec![0.0f32; half];
     let mut onset_env = Vec::with_capacity(n_frames);
 
+    // Plan once, outside the frame loop — planner construction is not free.
+    let mut planner = FftPlanner::<f32>::new();
+    let fft = planner.plan_fft_forward(frame_size);
+    let mut buffer = vec![Complex32::new(0.0, 0.0); frame_size];
+
     for i in 0..n_frames {
         let start = i * hop;
         let end = (start + frame_size).min(audio.len());
         let frame = &audio[start..end];
 
-        // Simple DFT magnitude for low bins (cheap approximation)
-        let mut mag = vec![0.0f32; half];
-        for k in 0..half {
-            let mut re = 0.0f32;
-            let mut im = 0.0f32;
-            for (n, &s) in frame.iter().enumerate() {
-                let angle = -2.0 * std::f32::consts::PI * k as f32 * n as f32 / frame_size as f32;
-                re += s * angle.cos();
-                im += s * angle.sin();
-            }
-            mag[k] = (re * re + im * im).sqrt();
+        // Rectangular window, zero-padded to frame_size for a short tail frame.
+        // (The naive DFT this replaced divided the angle by frame_size while
+        // iterating only the samples present, i.e. the same zero-padding.)
+        for (slot, &s) in buffer.iter_mut().zip(frame.iter()) {
+            *slot = Complex32::new(s, 0.0);
         }
+        for slot in buffer.iter_mut().skip(frame.len()) {
+            *slot = Complex32::new(0.0, 0.0);
+        }
+        fft.process(&mut buffer);
+
+        let mag: Vec<f32> = buffer[..half].iter().map(|c| c.norm()).collect();
 
         // Spectral flux (only positive differences = onsets)
         let flux: f32 = mag.iter().zip(prev_mag.iter())
@@ -506,6 +531,174 @@ fn estimate_chroma_energy(audio: &[f32], sample_rate: u32) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::f32::consts::PI;
+
+    /// The pre-#4599 implementation, kept verbatim as an equivalence oracle.
+    ///
+    /// `estimate_tempo` now plans an FFT instead of accumulating a manual
+    /// O(bins x N) DFT per frame. That is only a legitimate swap if the tempo
+    /// it produces is unchanged — the value is a stored fingerprint dimension,
+    /// so a silent shift would invalidate every fingerprint already in a user's
+    /// library. This reference lets the tests below assert equivalence rather
+    /// than merely "it still returns a number".
+    fn estimate_tempo_naive_dft(audio: &[f32], sample_rate: u32) -> f32 {
+        let hop = 512usize;
+        let frame_size = 1024usize;
+
+        if audio.len() < frame_size * 2 {
+            return 120.0;
+        }
+
+        let n_frames = (audio.len().saturating_sub(frame_size)) / hop + 1;
+        if n_frames < 2 {
+            return 120.0;
+        }
+
+        let half = frame_size / 2 + 1;
+        let mut prev_mag = vec![0.0f32; half];
+        let mut onset_env = Vec::with_capacity(n_frames);
+
+        for i in 0..n_frames {
+            let start = i * hop;
+            let end = (start + frame_size).min(audio.len());
+            let frame = &audio[start..end];
+
+            let mut mag = vec![0.0f32; half];
+            for k in 0..half {
+                let mut re = 0.0f32;
+                let mut im = 0.0f32;
+                for (n, &sample) in frame.iter().enumerate() {
+                    let angle = -2.0 * PI * k as f32 * n as f32 / frame_size as f32;
+                    re += sample * angle.cos();
+                    im += sample * angle.sin();
+                }
+                mag[k] = (re * re + im * im).sqrt();
+            }
+
+            let flux: f32 = mag.iter().zip(prev_mag.iter())
+                .map(|(&cur, &prev)| (cur - prev).max(0.0))
+                .sum();
+            onset_env.push(flux);
+            prev_mag = mag;
+        }
+
+        if onset_env.len() < 4 {
+            return 120.0;
+        }
+
+        let onset_sr = sample_rate as f32 / hop as f32;
+        let min_lag = (onset_sr * 60.0 / 200.0).ceil() as usize;
+        let max_lag = (onset_sr * 60.0 / 60.0).floor() as usize;
+        let max_lag = max_lag.min(onset_env.len() / 2);
+
+        if min_lag >= max_lag {
+            return 120.0;
+        }
+
+        let mut best_lag = min_lag;
+        let mut best_corr = f32::NEG_INFINITY;
+
+        for lag in min_lag..=max_lag {
+            let mut corr = 0.0f32;
+            let n = onset_env.len() - lag;
+            for i in 0..n {
+                corr += onset_env[i] * onset_env[i + lag];
+            }
+            if corr > best_corr {
+                best_corr = corr;
+                best_lag = lag;
+            }
+        }
+
+        let bpm = 60.0 * onset_sr / best_lag as f32;
+        bpm.clamp(60.0, 200.0)
+    }
+
+    /// Click track: an impulse every `60 / bpm` seconds over a quiet bed.
+    fn click_track(bpm: f32, seconds: f32, sample_rate: u32) -> Vec<f32> {
+        let n = (seconds * sample_rate as f32) as usize;
+        let period = (sample_rate as f32 * 60.0 / bpm) as usize;
+        let mut audio = vec![0.0f32; n];
+        let mut i = 0;
+        while i < n {
+            // A short decaying burst reads as an onset to spectral flux.
+            for d in 0..64.min(n - i) {
+                audio[i + d] = (1.0 - d as f32 / 64.0) * 0.9;
+            }
+            i += period;
+        }
+        audio
+    }
+
+    #[test]
+    fn estimate_tempo_matches_the_naive_dft_reference() {
+        // 22050 Hz matches the rate the fingerprint path resamples to.
+        for bpm in [90.0f32, 120.0, 174.0] {
+            let audio = click_track(bpm, 8.0, 22050);
+
+            let fast = estimate_tempo(&audio, 22050);
+            let reference = estimate_tempo_naive_dft(&audio, 22050);
+
+            assert!(
+                (fast - reference).abs() < 0.01,
+                "FFT tempo {} diverged from the naive-DFT reference {} at {} BPM",
+                fast, reference, bpm
+            );
+        }
+    }
+
+    #[test]
+    fn estimate_tempo_matches_the_reference_on_noise_and_tones() {
+        // Signals with no clear beat still have to agree: the assertion is
+        // about the transform, not about tempo accuracy.
+        let sr = 22050u32;
+        let tone: Vec<f32> = (0..sr as usize * 4)
+            .map(|i| (2.0 * PI * 440.0 * i as f32 / sr as f32).sin() * 0.5)
+            .collect();
+        // Deterministic pseudo-noise — no rand dependency in this crate.
+        let noise: Vec<f32> = (0..sr as usize * 4)
+            .map(|i| ((i as f32 * 12.9898).sin() * 43758.5453).fract() * 2.0 - 1.0)
+            .collect();
+
+        for signal in [tone, noise] {
+            let fast = estimate_tempo(&signal, sr);
+            let reference = estimate_tempo_naive_dft(&signal, sr);
+            assert!(
+                (fast - reference).abs() < 0.01,
+                "FFT tempo {} diverged from reference {}",
+                fast, reference
+            );
+        }
+    }
+
+    #[test]
+    fn estimate_tempo_reports_a_stable_period_for_a_click_track() {
+        // Characterization, not accuracy: on a 120 BPM click track this
+        // algorithm reports ~60 BPM — the half-tempo. Its autocorrelation
+        // argmax is unnormalized, so it does not discriminate between a period
+        // and its multiples. That octave error predates #4599 (the naive-DFT
+        // reference above returns the same value) and is deliberately NOT
+        // fixed here: this dimension is stored in every existing fingerprint,
+        // so changing it is a separate, migration-bearing decision.
+        let audio = click_track(120.0, 12.0, 22050);
+
+        let bpm = estimate_tempo(&audio, 22050);
+
+        assert!((bpm - estimate_tempo_naive_dft(&audio, 22050)).abs() < 0.01);
+        assert!((bpm - 60.0).abs() < 6.0, "expected the ~60 BPM half-tempo, got {}", bpm);
+    }
+
+    #[test]
+    fn estimate_tempo_keeps_its_insufficient_data_fallbacks() {
+        // Shorter than frame_size * 2.
+        assert_eq!(estimate_tempo(&vec![0.0; 2047], 22050), 120.0);
+        // Exactly at the boundary the guard rejects.
+        assert_eq!(estimate_tempo(&[], 22050), 120.0);
+        // Long enough to pass the first guard but yielding < 4 onset frames.
+        let short = vec![0.1f32; 2048 + 512];
+        let fallback_or_valid = estimate_tempo(&short, 22050);
+        assert!(fallback_or_valid >= 60.0 && fallback_or_valid <= 200.0);
+    }
 
     #[test]
     fn test_compute_complete_fingerprint_mono() {

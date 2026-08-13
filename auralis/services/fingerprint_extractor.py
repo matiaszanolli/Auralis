@@ -106,8 +106,15 @@ class FingerprintExtractor:
         Workflow:
         1. Check for valid .25d sidecar file (if enabled)
         2. If valid: Load fingerprint from .25d (instant, ~1ms)
-        3. If invalid/missing: Analyze audio (slow, ~75s)
+        3. If invalid/missing: Analyze audio (~1 s of DSP on a release build,
+           plus decode; #4599 re-measured this)
         4. Store in database + write .25d file
+
+        The "~75 s" this used to claim predated #4599, when estimate_tempo ran a
+        naive O(bins x N) DFT per frame. Measured on a 90 s buffer (the crop
+        this path applies): 9.5 s -> 0.6 s per track on a release build. A
+        `maturin develop` debug build is ~25x slower again, which is the most
+        likely origin of the original figure — quote release numbers here.
 
         Args:
             track_id: ID of the track in the database
@@ -123,7 +130,8 @@ class FingerprintExtractor:
             fingerprint = self._load_sidecar_fingerprint(track_id, filepath_obj)
             cached = fingerprint is not None
 
-            # Strategy 2: analyse the audio (slow path, ~75 s).
+            # Strategy 2: analyse the audio (slow path: decode + ~1 s of DSP
+            # on a release build — see the workflow note above, #4599).
             if fingerprint is None:
                 fingerprint = self._compute_fingerprint(track_id, filepath_obj)
 
