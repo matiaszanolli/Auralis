@@ -22,6 +22,7 @@ Worker Pool:
 :license: GPLv3, see LICENSE for more details.
 """
 
+import os
 import threading
 import time
 from typing import Any
@@ -34,6 +35,39 @@ from auralis.__version__ import FINGERPRINT_ALGORITHM_VERSION
 
 from ..library.resource_monitor import AdaptiveResourceMonitor, ResourceLimits
 from ..utils.logging import debug, error, info, warning
+
+
+DEFAULT_TRACK_TIMEOUT_SECONDS: float = 600.0
+
+
+def _default_track_timeout() -> float:
+    """Per-track wall-clock bound for `extract_and_store` (#4837).
+
+    Analysis of a normal file takes on the order of a minute (see
+    `FingerprintExtractor.extract_and_store`), so the default is deliberately
+    far above that — this is a wedged-worker backstop, not a performance knob.
+    Override with `AURALIS_FINGERPRINT_TRACK_TIMEOUT` (seconds); a malformed or
+    non-positive value falls back to the default rather than disabling the
+    bound, since an unbounded call is exactly the failure mode being fixed.
+    """
+    raw = os.environ.get('AURALIS_FINGERPRINT_TRACK_TIMEOUT')
+    if raw is None:
+        return DEFAULT_TRACK_TIMEOUT_SECONDS
+    try:
+        value = float(raw)
+    except ValueError:
+        warning(
+            f"AURALIS_FINGERPRINT_TRACK_TIMEOUT={raw!r} is not a number; "
+            f"using {DEFAULT_TRACK_TIMEOUT_SECONDS}s"
+        )
+        return DEFAULT_TRACK_TIMEOUT_SECONDS
+    if value <= 0:
+        warning(
+            f"AURALIS_FINGERPRINT_TRACK_TIMEOUT={value} must be positive; "
+            f"using {DEFAULT_TRACK_TIMEOUT_SECONDS}s"
+        )
+        return DEFAULT_TRACK_TIMEOUT_SECONDS
+    return value
 
 
 class FingerprintExtractionQueue:
@@ -68,7 +102,8 @@ class FingerprintExtractionQueue:
                  get_repository_factory: Callable[[], RepositoryFactory],
                  num_workers: int | None = None,
                  enable_adaptive_scaling: bool = True,
-                 max_workers: int | None = None) -> None:
+                 max_workers: int | None = None,
+                 track_timeout: float | None = None) -> None:
         """
         Initialize fingerprint extraction worker pool.
 
@@ -78,9 +113,9 @@ class FingerprintExtractionQueue:
             num_workers: Number of background worker threads (default: 0.5x CPU cores)
             enable_adaptive_scaling: Enable adaptive resource monitoring (default: True)
             max_workers: Maximum workers for adaptive scaling (default: 2.0x CPU cores)
+            track_timeout: Per-track bound on extraction in seconds (#4837; default
+                from AURALIS_FINGERPRINT_TRACK_TIMEOUT, else 600)
         """
-        import os
-
         # Auto-detect optimal worker bounds based on CPU cores
         cpu_count = os.cpu_count() or 16
 
@@ -97,6 +132,9 @@ class FingerprintExtractionQueue:
         self.initial_num_workers: int = num_workers
         self.current_num_workers: int = num_workers
         self.max_workers_limit: int = max_workers
+        self.track_timeout: float = (
+            track_timeout if track_timeout is not None else _default_track_timeout()
+        )
 
         # Worker threads (no job queue needed)
         self.workers: list[threading.Thread] = []
@@ -377,6 +415,63 @@ class FingerprintExtractionQueue:
         finally:
             info(f"Worker {worker_id} stopped")
 
+    def _extract_bounded(self, track_id: int, filepath: str, worker_id: int) -> bool:
+        """Run `extract_and_store` under a wall-clock bound (#4837).
+
+        `extract_and_store` is a synchronous call into DSP analysis (and, below
+        that, native/Rust code). An unbounded loop or a native call that never
+        returns used to wedge the calling worker thread — and the semaphore slot
+        it holds — for the lifetime of the process, so a handful of pathological
+        files could starve fingerprinting permanently. The streaming path bounds
+        its per-chunk DSP for exactly this reason (#3852).
+
+        The work runs on a **daemon** thread that this method joins with a
+        timeout. A hung call cannot be killed in-process, so on timeout the
+        thread is abandoned rather than terminated — but the worker returns, the
+        semaphore is released by `_process_track`'s `finally`, and the track is
+        recorded as a failure. Daemon (rather than a `ThreadPoolExecutor`)
+        because the stdlib's executor joins its threads at interpreter exit
+        regardless of `cancel_futures`, so an abandoned task there would block
+        process shutdown — the same hazard documented in
+        `auralis-web/backend/analysis/fingerprint_generator.py`.
+
+        Raises:
+            TimeoutError: if the call exceeds `self.track_timeout`.
+            Exception: whatever `extract_and_store` raised, re-raised unchanged
+                so the caller's existing error handling is unaffected.
+        """
+        outcome: dict[str, Any] = {}
+
+        def _run() -> None:
+            try:
+                outcome['result'] = self.extractor.extract_and_store(track_id, filepath)
+            except BaseException as exc:  # noqa: BLE001 - re-raised on the calling thread
+                outcome['error'] = exc
+
+        thread = threading.Thread(
+            target=_run,
+            name=f"fingerprint-extract-{track_id}",
+            daemon=True,
+        )
+        thread.start()
+        thread.join(self.track_timeout)
+
+        if thread.is_alive():
+            warning(
+                f"Worker {worker_id}: fingerprint extraction for track {track_id} "
+                f"exceeded {self.track_timeout}s and was abandoned (thread left "
+                f"running); releasing the worker slot: {filepath}"
+            )
+            raise TimeoutError(
+                f"Fingerprint extraction for track {track_id} timed out after "
+                f"{self.track_timeout}s"
+            )
+
+        if 'error' in outcome:
+            raise outcome['error']
+
+        return bool(outcome.get('result', False))
+
     def _process_track(self, track: Any, worker_id: int) -> None:
         """
         Process a single track: extract and store fingerprint.
@@ -417,8 +512,9 @@ class FingerprintExtractionQueue:
         try:
             debug(f"Worker {worker_id} extracting fingerprint for track {track.id}")
 
-            # Extract and store fingerprint
-            success = self.extractor.extract_and_store(track.id, track.filepath)
+            # Extract and store fingerprint, bounded so a hung analysis cannot
+            # wedge this worker (and its semaphore slot) forever (#4837).
+            success = self._extract_bounded(track.id, track.filepath, worker_id)
 
             if success:
                 with self.stats_lock:
