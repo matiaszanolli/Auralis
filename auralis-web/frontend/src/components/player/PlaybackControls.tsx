@@ -19,9 +19,10 @@
  * />
  */
 
-import { useMemo, useState, memo } from 'react';
+import { useEffect, useMemo, useRef, useState, memo } from 'react';
 import { tokens } from '@/design-system';
 import styles from './PlaybackControlsStyles';
+import { screenReaderOnly } from '@/components/core/accessibilityStyles';
 
 export interface PlaybackControlsProps {
   /**
@@ -90,6 +91,29 @@ const PlaybackControlsComponent = ({
   // Hover and focus state tracking per button
   const [hoveredButton, setHoveredButton] = useState<string | null>(null);
   const [focusedButton, setFocusedButton] = useState<string | null>(null);
+
+  // Screen-reader announcement for play/pause transitions (#4474).
+  //
+  // The button swaps its aria-label, but Space toggles playback from anywhere
+  // via useKeyboardShortcuts — the button need never have focus, so nothing
+  // reads the new label out. This mirrors the track-change live region added by
+  // #2362 (polite + atomic, visually hidden).
+  //
+  // Populated only on an actual transition: rendering the current state on
+  // mount would make every page load announce "Paused" unprompted.
+  const [playbackAnnouncement, setPlaybackAnnouncement] = useState('');
+  const previousIsPlaying = useRef<boolean | null>(null);
+
+  useEffect(() => {
+    if (previousIsPlaying.current === null) {
+      previousIsPlaying.current = isPlaying;
+      return;
+    }
+    if (previousIsPlaying.current !== isPlaying) {
+      previousIsPlaying.current = isPlaying;
+      setPlaybackAnnouncement(isPlaying ? 'Playing' : 'Paused');
+    }
+  }, [isPlaying]);
 
   // Compute secondary button hover/focus styles based on state
   const getSecondaryButtonStyle = (buttonId: string) => ({
@@ -194,6 +218,19 @@ const PlaybackControlsComponent = ({
       >
         ⏭
       </button>
+
+      {/* Play/pause state announcement (#4474). Always rendered so assistive
+          tech observes the region before its content changes; empty until the
+          first transition. */}
+      <div
+        data-testid="playback-controls-announcement"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        style={screenReaderOnly}
+      >
+        {playbackAnnouncement}
+      </div>
 
       {/* Loading indicator with live region announcement */}
       {isLoading && (
