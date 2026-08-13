@@ -12,6 +12,7 @@ import { useState, useEffect } from 'react';
 import { transformTracks } from '@/api/transformers/trackTransformer';
 import type { TrackApiResponse } from '@/api/transformers/types';
 import type { DetailTrack } from '@/types/domain';
+import { isAbortError } from '@/utils/errorGuards';
 
 export interface Album {
   id: number;
@@ -76,7 +77,7 @@ export const useAlbumDetails = (albumId: number) => {
         };
         setAlbum(albumData);
       } catch (err) {
-        if ((err as Error).name === 'AbortError') return;
+        if (isAbortError(err)) return;
         console.error('Error fetching album details:', err);
         setError(err instanceof Error ? err.message : 'Failed to load album details');
       } finally {

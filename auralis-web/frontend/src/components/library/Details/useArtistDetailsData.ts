@@ -8,6 +8,7 @@ import { useState, useEffect } from 'react';
 import type { Artist as DomainArtist, DetailTrack } from '@/types/domain';
 import type { ArtistDetailApiResponse } from '@/api/transformers/types';
 import { transformArtistDetail } from '@/api/transformers/artistTransformer';
+import { isAbortError } from '@/utils/errorGuards';
 
 export interface Album {
   id: number;
@@ -58,7 +59,7 @@ export const useArtistDetailsData = (artistId: number) => {
         };
         setArtist(artistData);
       } catch (err) {
-        if ((err as Error).name === 'AbortError') return;
+        if (isAbortError(err)) return;
         console.error('Error fetching artist details:', err);
         setError(err instanceof Error ? err.message : 'Failed to load artist details');
       } finally {

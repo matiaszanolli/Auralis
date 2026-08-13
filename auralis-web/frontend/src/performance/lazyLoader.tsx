@@ -21,6 +21,7 @@
 
 import { Component, ComponentProps, ComponentType, ErrorInfo, LazyExoticComponent, MemoExoticComponent, ReactElement, ReactNode, Suspense, lazy, memo } from 'react';
 import { tokens } from '@/design-system';
+import { toError } from '@/utils/errorGuards';
 
 // ============================================================================
 // Types
@@ -185,7 +186,7 @@ export async function dynamicImport<T>(
     try {
       return await importFn();
     } catch (error) {
-      lastError = error as Error;
+      lastError = toError(error);
       if (attempt < maxRetries - 1) {
         const delay = config.retryDelay ?? 1000;
         await new Promise((resolve) => setTimeout(resolve, delay * (attempt + 1)));
@@ -232,7 +233,7 @@ class ModulePreloader {
         config.onSuccess?.();
       })
       .catch((error) => {
-        config.onError?.(error as Error);
+        config.onError?.(toError(error));
       })
       .finally(() => {
         this.preloadQueue.delete(id);
@@ -322,12 +323,12 @@ export function useRoutePreload(
   return {
     onMouseEnter: () => {
       dynamicImport(importFn).catch((error) => {
-        config.onError?.(error as Error);
+        config.onError?.(toError(error));
       });
     },
     onFocus: () => {
       dynamicImport(importFn).catch((error) => {
-        config.onError?.(error as Error);
+        config.onError?.(toError(error));
       });
     },
   };

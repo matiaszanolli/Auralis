@@ -9,6 +9,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
+import { isAbortError } from '@/utils/errorGuards';
 
 export interface MetadataFields {
   title?: string;
@@ -76,7 +77,7 @@ export const useMetadataForm = (
         }
         setMetadata((data as { metadata: MetadataFields }).metadata || {});
       } catch (err) {
-        if ((err as Error).name === 'AbortError') return;
+        if (isAbortError(err)) return;
         console.error('Error fetching metadata:', err);
         setError(err instanceof Error ? err.message : 'Failed to load metadata');
       } finally {
@@ -155,7 +156,7 @@ export const useMetadataForm = (
       return true;
     } catch (err) {
       // Aborted by unmount — not user-facing.
-      if ((err as Error).name === 'AbortError') return false;
+      if (isAbortError(err)) return false;
       console.error('Error saving metadata:', err);
       if (!controller.signal.aborted) {
         setError(err instanceof Error ? err.message : 'Failed to save metadata');

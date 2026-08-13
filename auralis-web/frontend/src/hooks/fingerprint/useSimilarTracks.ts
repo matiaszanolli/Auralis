@@ -25,6 +25,7 @@
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { isAbortError } from '@/utils/errorGuards';
 
 /**
  * Similar track response model (matches backend SimilarTrack)
@@ -224,7 +225,7 @@ export function useSimilarTracks(): UseSimilarTracksReturn {
 
         return results;
       } catch (err) {
-        if ((err as Error).name === 'AbortError') {
+        if (isAbortError(err)) {
           // Caller cancelled — no state to update, no error to surface.
           throw err;
         }

@@ -12,6 +12,8 @@
  * WebSocket streaming: handled by usePlayEnhanced hook + WebSocketContext
  */
 
+import { toError } from '@/utils/errorGuards';
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -88,7 +90,7 @@ export async function retryWithBackoff<T>(
     try {
       return await fn();
     } catch (err) {
-      lastError = err as Error;
+      lastError = toError(err);
 
       // Check if we should retry this error
       if (config.shouldRetry && !config.shouldRetry(lastError)) {

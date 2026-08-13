@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
+import { toError } from '@/utils/errorGuards';
 
 interface OptimisticUpdateOptions<T> {
   onSuccess?: (data: T) => void;
@@ -55,7 +56,7 @@ export function useOptimisticUpdate<T, Args extends unknown[]>(
         return result;
       } catch (err) {
         // Rollback to previous state on error
-        const error = err as Error;
+        const error = toError(err);
         setState(previousState);
         setError(error);
         onErrorRef.current?.(error);

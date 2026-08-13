@@ -3,6 +3,7 @@ import { useToast } from '@/components/shared/Toast';
 import { usePlaybackControls } from '@/contexts/PlaybackSessionContext';
 import { getApiUrl } from '@/config/api';
 import type { Track } from '@/types/domain';
+import { isAbortError } from '@/utils/errorGuards';
 
 /**
  * Minimal track shape usePlayTrack needs. `Track` / `LibraryTrack` /
@@ -68,7 +69,7 @@ export const usePlayTrack = () => {
         await startTrack(track.id);
       } catch (err) {
         // Aborted by unmount — not user-facing.
-        if ((err as Error).name === 'AbortError') return;
+        if (isAbortError(err)) return;
         console.error('Failed to play track:', err);
         errorToast(err instanceof Error ? err.message : 'Failed to play track');
       }

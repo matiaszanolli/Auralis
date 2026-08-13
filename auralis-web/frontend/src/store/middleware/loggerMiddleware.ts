@@ -21,6 +21,7 @@
 
 import type { Middleware, UnknownAction } from '@reduxjs/toolkit';
 import type { RootState } from '@/store/index';
+import { toError } from '@/utils/errorGuards';
 
 // ============================================================================
 // Logger Configuration
@@ -162,7 +163,7 @@ export function createLoggerMiddleware(config: LoggerConfig = {}): Middleware {
       try {
         result = next(action);
       } catch (e) {
-        error = e as Error;
+        error = toError(e);
       }
 
       const nextState = store.getState();
