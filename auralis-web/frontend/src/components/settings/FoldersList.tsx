@@ -54,11 +54,15 @@ export const FoldersList = ({
                 primary={basename}
                 secondary={folder}
                 slotProps={{
-                  primary: { sx: { fontSize: '0.9rem', fontWeight: tokens.typography.fontWeight.medium } },
+                  // #4465: were 0.9rem/0.75rem — off the token scale entirely.
+                  // base (14px) is the standard body size; sm (13px) is the
+                  // scale's designated metadata/caption size, and is no further
+                  // from the old 12px than xs (11px), which is the WCAG AA floor.
+                  primary: { sx: { fontSize: tokens.typography.fontSize.base, fontWeight: tokens.typography.fontWeight.medium } },
                   secondary: {
                     noWrap: true,
                     title: folder,
-                    sx: { fontSize: '0.75rem', color: themeVars.textMuted },
+                    sx: { fontSize: tokens.typography.fontSize.sm, color: themeVars.textMuted },
                   },
                 }}
               />
