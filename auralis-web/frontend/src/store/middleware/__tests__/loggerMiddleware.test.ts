@@ -20,7 +20,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { configureStore } from '@reduxjs/toolkit';
-import playerReducer from '@/store/slices/playerSlice';
+import playerReducer, { setVolume } from '@/store/slices/playerSlice';
 import queueReducer from '@/store/slices/queueSlice';
 import cacheReducer from '@/store/slices/cacheSlice';
 import connectionReducer from '@/store/slices/connectionSlice';
@@ -288,30 +288,97 @@ describe('Logger Middleware', () => {
   // Error Handling Tests
   // ============================================================================
 
-  it('should handle errors in actions', () => {
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  /**
+   * #4476: this used to call a standalone throwing function and assert it threw
+   * — the store was built but never dispatched through, so the middleware's
+   * catch → console.error → rethrow never executed and the branch was
+   * uncovered. These dispatch a throwing reducer through a real store with the
+   * middleware applied.
+   */
+  describe('error handling (#4476)', () => {
+    const BOOM = 'test/boom';
 
-    store = configureStore({
-      reducer: {
-        player: playerReducer,
-        queue: queueReducer,
-        cache: cacheReducer,
-        connection: connectionReducer,
-      },
-      middleware: (getDefaultMiddleware) =>
-        getDefaultMiddleware().concat(createLoggerMiddleware()),
-    });
-
-    // Create an action that will throw
-    const throwingAction = () => {
-      throw new Error('Test error');
+    /** Reducer that throws only for the BOOM action, so other dispatches work. */
+    const explodingReducer = (state = { value: 0 }, action: { type: string }) => {
+      if (action.type === BOOM) {
+        throw new Error('Test error');
+      }
+      return state;
     };
 
-    expect(() => {
-      throwingAction();
-    }).toThrow();
+    const makeStore = (config = {}) =>
+      configureStore({
+        reducer: { exploding: explodingReducer },
+        middleware: (getDefaultMiddleware) =>
+          getDefaultMiddleware().concat(createLoggerMiddleware({ enabled: true, ...config })),
+      });
 
-    consoleErrorSpy.mockRestore();
+    it('rethrows a reducer error through dispatch', () => {
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleGroupEndSpy = vi.spyOn(console, 'groupEnd').mockImplementation(() => {});
+      store = makeStore();
+
+      expect(() => store.dispatch({ type: BOOM })).toThrow('Test error');
+
+      consoleErrorSpy.mockRestore();
+      consoleGroupEndSpy.mockRestore();
+    });
+
+    it('logs the caught error via console.error', () => {
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleGroupEndSpy = vi.spyOn(console, 'groupEnd').mockImplementation(() => {});
+      store = makeStore();
+
+      expect(() => store.dispatch({ type: BOOM })).toThrow();
+
+      expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+      const logged = consoleErrorSpy.mock.calls[0][0];
+      expect(logged).toBeInstanceOf(Error);
+      expect((logged as Error).message).toBe('Test error');
+
+      consoleErrorSpy.mockRestore();
+      consoleGroupEndSpy.mockRestore();
+    });
+
+    it('closes the console group even when the action throws', () => {
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleGroupEndSpy = vi.spyOn(console, 'groupEnd').mockImplementation(() => {});
+      store = makeStore();
+
+      expect(() => store.dispatch({ type: BOOM })).toThrow();
+
+      // Otherwise every subsequent console log stays nested inside the failed
+      // action's group for the rest of the session.
+      expect(consoleGroupEndSpy).toHaveBeenCalled();
+
+      consoleErrorSpy.mockRestore();
+      consoleGroupEndSpy.mockRestore();
+    });
+
+    it('leaves the store usable for later actions', () => {
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleGroupEndSpy = vi.spyOn(console, 'groupEnd').mockImplementation(() => {});
+      store = makeStore();
+
+      expect(() => store.dispatch({ type: BOOM })).toThrow();
+      expect(() => store.dispatch({ type: 'test/ok' })).not.toThrow();
+      expect(store.getState().exploding).toEqual({ value: 0 });
+
+      consoleErrorSpy.mockRestore();
+      consoleGroupEndSpy.mockRestore();
+    });
+
+    it('still rethrows when logging is disabled', () => {
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      // enabled:false takes the early `return next(action)` path, which has no
+      // try/catch — the error must still reach the caller.
+      store = makeStore({ enabled: false });
+
+      expect(() => store.dispatch({ type: BOOM })).toThrow('Test error');
+      expect(consoleErrorSpy).not.toHaveBeenCalled();
+
+      consoleErrorSpy.mockRestore();
+    });
   });
 
   // ============================================================================
@@ -330,7 +397,11 @@ describe('Logger Middleware', () => {
         getDefaultMiddleware().concat(createLoggerMiddleware({ diff: true })),
     });
 
-    store.dispatch({ type: 'player/setVolume', payload: 50 });
+    // Via the action creator, not a hand-built `{type, payload}`: setVolume uses
+    // a `prepare` callback that stamps `meta.timestamp`, and its reducer reads
+    // `action.meta.timestamp` — a raw object skips prepare and throws there.
+    // (Pre-existing failure in this file, unrelated to the middleware.)
+    store.dispatch(setVolume(50));
 
     const state = store.getState();
     expect(state.player.volume).toBe(50);
