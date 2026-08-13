@@ -604,6 +604,79 @@ class TestDrainCancelledTask:
             f"drain left a task exception unretrieved: {never_retrieved}"
         )
 
+    @pytest.mark.asyncio
+    async def test_drain_propagates_a_cancellation_aimed_at_the_caller(self):
+        """#5083: a CancelledError delivered to the *calling* task while it is
+        parked in drain's `await task` must propagate.
+
+        teardown_connection and handle_seek cancel the outer streaming task, and
+        drain runs mid-loop, not only at teardown. Swallowing that cancellation
+        leaves the old stream sending chunks while handle_seek blocks on
+        `await old_task` — the interleaved-frames failure #3806 closed."""
+        controller = _make_controller()
+        entered = asyncio.Event()
+        outcome: dict[str, object] = {}
+
+        async def _forever():
+            await asyncio.Event().wait()
+
+        async def _outer():
+            inner = asyncio.ensure_future(_forever())
+            await asyncio.sleep(0)  # let the inner task start
+            entered.set()
+            try:
+                await controller._drain_cancelled_task(inner)
+            except asyncio.CancelledError:
+                outcome["propagated"] = True
+                raise
+            outcome["propagated"] = False
+
+        outer = asyncio.ensure_future(_outer())
+        await entered.wait()
+        await asyncio.sleep(0)  # park inside drain's `await task`
+        outer.cancel()
+
+        with pytest.raises(asyncio.CancelledError):
+            await outer
+
+        assert outcome.get("propagated") is True, (
+            "drain swallowed a cancellation targeting the calling task"
+        )
+
+    @pytest.mark.asyncio
+    async def test_drain_still_suppresses_the_inner_tasks_own_cancellation(self):
+        """#3493 regression guard: with no cancellation pending against the
+        caller, the drained task's own CancelledError is still suppressed."""
+        controller = _make_controller()
+
+        async def _forever():
+            await asyncio.Event().wait()
+
+        inner = asyncio.ensure_future(_forever())
+        await asyncio.sleep(0)
+
+        await controller._drain_cancelled_task(inner)  # must not raise
+
+        assert inner.cancelled()
+        # The caller survives and keeps running.
+        assert asyncio.current_task() is not None
+        assert not asyncio.current_task().cancelled()
+
+    @pytest.mark.asyncio
+    async def test_drain_suppresses_inner_errors_but_not_caller_cancellation(self):
+        """A drained task that raises a normal Exception is still swallowed —
+        only the caller's own cancellation is allowed through."""
+        controller = _make_controller()
+
+        async def _raises_slowly():
+            await asyncio.sleep(0)
+            raise RuntimeError("teardown failure inside the look-ahead")
+
+        task = asyncio.ensure_future(_raises_slowly())
+        await asyncio.sleep(0)
+
+        await controller._drain_cancelled_task(task)  # must not raise
+
 
 class _FakeSoundFile:
     """Minimal sf.SoundFile stand-in backed by a NumPy array.

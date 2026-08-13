@@ -218,6 +218,20 @@ async def drain_cancelled_task(task: asyncio.Task[Any] | None) -> None:
     not caught by `except Exception`), tearing down the entire stream
     instead of skipping the failed chunk as #3190 intended. Also closes
     the look-ahead-orphan leak on outer-block exit.
+
+    A `CancelledError` raised out of `await task` has two possible origins and
+    only one of them may be swallowed (#5083):
+
+    - the drained inner task's own cancellation — suppress, as #3493 intends;
+    - a cancellation delivered to the *calling* task while it is parked in that
+      await — must propagate. `teardown_connection` and `handle_seek` cancel the
+      outer streaming task, and this helper runs mid-loop (stream_normal /
+      stream_enhanced), not only during teardown. Swallowing that cancellation
+      leaves the old stream sending chunks while `handle_seek` blocks on
+      `await old_task`, which is the interleaved-frames failure #3806 closed.
+
+    `Task.cancelling()` (3.11+) is what distinguishes them: it is non-zero only
+    when a cancellation was requested against the current task itself.
     """
     if task is None:
         return
@@ -231,5 +245,22 @@ async def drain_cancelled_task(task: asyncio.Task[Any] | None) -> None:
             task.exception()
         return
     task.cancel()
-    with contextlib.suppress(asyncio.CancelledError, Exception):
+    try:
         await task
+    except asyncio.CancelledError:
+        if _caller_is_being_cancelled():
+            raise
+    except Exception:
+        # Teardown errors from the drained task are not the caller's problem.
+        pass
+
+
+def _caller_is_being_cancelled() -> bool:
+    """Whether the *current* task has a cancellation of its own pending (#5083).
+
+    Returns False outside a task context, where there is no caller cancellation
+    to preserve — that keeps the pre-#5083 suppress-everything behaviour for
+    any caller not running inside a Task.
+    """
+    current = asyncio.current_task()
+    return current is not None and current.cancelling() > 0
