@@ -91,6 +91,33 @@ export function useQueueMutations(): QueueMutations {
   stateRef.current = { tracks, currentIndex, isShuffled, repeatMode };
 
   /**
+   * Per-field generation counters guarding stale rollbacks (#4836).
+   *
+   * A rollback restores a snapshot taken *before* its own mutation applied, so
+   * if a later mutation has since applied (and possibly already succeeded), the
+   * earlier mutation's failure would undo it too — for the queue that means a
+   * whole-array overwrite discarding the later change entirely.
+   *
+   * Each mutation stamps its field's counter on entry and only rolls back if it
+   * is still the newest mutation for that field. Counters are per-field rather
+   * than global so a queue mutation cannot suppress a shuffle rollback, or vice
+   * versa. A suppressed rollback still surfaces its error to the caller; the
+   * server's `queue_changed` broadcast is what reconciles the state.
+   */
+  const generationRef = useRef({ queue: 0, shuffle: 0, repeat: 0 });
+
+  const beginMutation = useCallback(
+    (field: keyof typeof generationRef.current): number => (generationRef.current[field] += 1),
+    []
+  );
+
+  const isNewestMutation = useCallback(
+    (field: keyof typeof generationRef.current, generation: number): boolean =>
+      generationRef.current[field] === generation,
+    []
+  );
+
+  /**
    * Run a queue-array mutation optimistically (#4583).
    *
    * `apply` dispatches the change to Redux immediately so the UI reflects it
@@ -117,14 +144,20 @@ export function useQueueMutations(): QueueMutations {
 
       const previousTracks = stateRef.current.tracks;
       const previousIndex = stateRef.current.currentIndex;
+      const generation = beginMutation('queue');
 
       apply();
 
       try {
         await request();
       } catch (err) {
-        dispatch(reduxSetQueue(previousTracks));
-        dispatch(reduxSetCurrentIndex(previousIndex));
+        // Only the newest queue mutation may restore its snapshot — an older
+        // one would overwrite the whole array, discarding a later mutation
+        // that has already applied and possibly succeeded (#4836).
+        if (isNewestMutation('queue', generation)) {
+          dispatch(reduxSetQueue(previousTracks));
+          dispatch(reduxSetCurrentIndex(previousIndex));
+        }
 
         const apiError = ApiErrorHandler.parseWithCode(err, errorCode);
         setError(apiError);
@@ -133,7 +166,7 @@ export function useQueueMutations(): QueueMutations {
         setIsLoading(false);
       }
     },
-    [dispatch]
+    [dispatch, beginMutation, isNewestMutation]
   );
 
   const setQueue = useCallback(
@@ -231,6 +264,7 @@ export function useQueueMutations(): QueueMutations {
 
     const newShuffle = !stateRef.current.isShuffled;
     const previousShuffle = stateRef.current.isShuffled;
+    const generation = beginMutation('shuffle');
 
     dispatch(reduxSetIsShuffled(newShuffle));
 
@@ -241,7 +275,10 @@ export function useQueueMutations(): QueueMutations {
       // Mirrors queueService.shuffleQueue, which has always been correct.
       await post('/api/player/queue/shuffle', { enabled: newShuffle });
     } catch (err) {
-      dispatch(reduxSetIsShuffled(previousShuffle));
+      // Skip the rollback if a newer toggle has since applied (#4836).
+      if (isNewestMutation('shuffle', generation)) {
+        dispatch(reduxSetIsShuffled(previousShuffle));
+      }
 
       const apiError = ApiErrorHandler.parseWithCode(err, 'SHUFFLE_ERROR');
       setError(apiError);
@@ -249,7 +286,7 @@ export function useQueueMutations(): QueueMutations {
     } finally {
       setIsLoading(false);
     }
-  }, [post, dispatch]);
+  }, [post, dispatch, beginMutation, isNewestMutation]);
 
   const setRepeatMode = useCallback(
     async (mode: 'off' | 'all' | 'one'): Promise<void> => {
@@ -270,12 +307,16 @@ export function useQueueMutations(): QueueMutations {
       setError(null);
 
       const previousMode = stateRef.current.repeatMode;
+      const generation = beginMutation('repeat');
       dispatch(reduxSetRepeatMode(mode));
 
       try {
         await post('/api/player/queue/repeat', { mode });
       } catch (err) {
-        dispatch(reduxSetRepeatMode(previousMode));
+        // Skip the rollback if a newer mode change has since applied (#4836).
+        if (isNewestMutation('repeat', generation)) {
+          dispatch(reduxSetRepeatMode(previousMode));
+        }
 
         const apiError = ApiErrorHandler.parseWithCode(err, 'REPEAT_MODE_ERROR');
         setError(apiError);
@@ -284,7 +325,7 @@ export function useQueueMutations(): QueueMutations {
         setIsLoading(false);
       }
     },
-    [post, dispatch]
+    [post, dispatch, beginMutation, isNewestMutation]
   );
 
   const clearQueue = useCallback(
