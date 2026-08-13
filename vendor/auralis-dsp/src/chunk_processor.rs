@@ -4,7 +4,7 @@
 // Copyright (C) 2024 Auralis Team
 // License: GPLv3
 
-use ndarray::{Array1, Array2, ArrayView1, ArrayView2, Axis};
+use ndarray::{Array1, Array2, ArrayView1, ArrayView2};
 
 /// Chunk processing configuration
 #[derive(Debug, Clone)]

@@ -11,7 +11,6 @@
 /// "YIN, a fundamental frequency estimator for speech and music."
 /// JASA 111, 2002.
 
-use std::f64::consts::PI;
 use rayon::prelude::*;
 
 /// Detect fundamental frequency using YIN algorithm
@@ -222,6 +221,9 @@ fn parabolic_interpolate(aacf: &[f64], tau: usize) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    // Only the synthetic-signal generators below need PI; keeping the import
+    // module-scoped made it an unused-import warning in every non-test build.
+    use std::f64::consts::PI;
 
     #[test]
     fn test_yin_output_shape() {
