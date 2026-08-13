@@ -350,6 +350,8 @@ class LibraryAutoScanner:
                     "files_updated": scan_result.files_updated if scan_result else 0,
                     "files_skipped": scan_result.files_skipped if scan_result else 0,
                     "files_failed": scan_result.files_failed if scan_result else 0,
+                    # #4841: kept identical to the manual-scan emit above.
+                    "failures": [f.to_dict() for f in scan_result.failures] if scan_result else [],
                     "duration": scan_result.scan_time if scan_result else 0,
                     "directories_scanned": scan_result.directories_scanned if scan_result else 0,
                 }

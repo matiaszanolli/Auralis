@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from ...utils.logging import debug, error
+from ...utils.logging import error, warning
 from ..scan_models import ScanResult
 
 
@@ -66,7 +66,7 @@ class BatchProcessor:
                 break
 
             try:
-                file_result, track_record = self.process_single_file(
+                file_result, track_record, reason = self.process_single_file(
                     file_path, skip_existing, check_modifications
                 )
 
@@ -80,17 +80,18 @@ class BatchProcessor:
                 elif file_result == 'skipped':
                     result.files_skipped += 1
                 else:  # failed
-                    result.files_failed += 1
+                    # #4841: keep the path and reason, not just a tally.
+                    result.record_failure(file_path, reason or 'Unknown error')
 
             except Exception as e:
                 error(f"Failed to process {file_path}: {e}")
-                result.files_failed += 1
+                result.record_failure(file_path, str(e) or e.__class__.__name__)
 
         return result
 
     def process_single_file(self, file_path: str,
                            skip_existing: bool,
-                           check_modifications: bool) -> tuple[str, Any]:
+                           check_modifications: bool) -> tuple[str, Any, str | None]:
         """
         Process a single audio file
 
@@ -100,8 +101,11 @@ class BatchProcessor:
             check_modifications: Check if file was modified
 
         Returns:
-            Tuple of (status, track_record) where status is 'added', 'updated', 'skipped', or 'failed'
-            and track_record is the Track object if newly added, None otherwise
+            Tuple of (status, track_record, reason) where status is 'added',
+            'updated', 'skipped', or 'failed'; track_record is the Track object
+            if newly added, None otherwise; and reason explains a 'failed'
+            status and is None for every other status (#4841 — the caller used
+            to receive a bare 'failed' with nothing to tell the user).
         """
         try:
             # Check if file already exists in library (query once, reuse below)
@@ -123,14 +127,16 @@ class BatchProcessor:
                     if updated_at and updated_at.tzinfo is None:
                         updated_at = updated_at.replace(tzinfo=timezone.utc)
                     if updated_at and updated_at >= file_mtime:
-                        return 'skipped', None  # File hasn't been modified
+                        return 'skipped', None, None  # File hasn't been modified
                 else:
-                    return 'skipped', None  # Skip existing files
+                    return 'skipped', None, None  # Skip existing files
 
             # Extract file information
             audio_info = self.audio_analyzer.extract_audio_info(file_path)
             if not audio_info:
-                return 'failed', None
+                # The most common failure by far: unreadable or corrupt file,
+                # or a format the analyzer cannot decode.
+                return 'failed', None, 'Could not read audio information (unreadable or unsupported file)'
 
             # Extract metadata and add to audio_info
             metadata = self.metadata_extractor.extract_metadata_from_file(file_path)
@@ -144,12 +150,20 @@ class BatchProcessor:
             if existing_track:
                 # Update existing track (reuses query from above)
                 track = tracks_repo.update_by_filepath(file_path, track_info)
-                return ('updated', None) if track else ('failed', None)
+                if track:
+                    return 'updated', None, None
+                return 'failed', None, 'Database update failed'
             else:
                 # Add new track
                 track = tracks_repo.add(track_info)
-                return ('added', track) if track else ('failed', None)
+                if track:
+                    return 'added', track, None
+                return 'failed', None, 'Database insert failed'
 
         except Exception as e:
-            debug(f"Error processing {file_path}: {e}")
-            return 'failed', None
+            # #4841: warning, not debug. This is the more common of the two
+            # failure sites, and debug is not surfaced by default logging
+            # configs — so the one failure a user was most likely to hit was
+            # also the one they were least likely to see.
+            warning(f"Error processing {file_path}: {e}")
+            return 'failed', None, str(e) or e.__class__.__name__

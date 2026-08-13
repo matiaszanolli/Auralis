@@ -15,7 +15,7 @@ from typing import Any
 from collections.abc import Callable
 
 from ...utils.logging import debug, info, warning
-from ..scan_models import ScanResult
+from ..scan_models import MAX_RECORDED_FAILURES, ScanResult
 from .audio_analyzer import AudioAnalyzer
 from .batch_processor import BatchProcessor
 from .config import DEFAULT_BATCH_SIZE
@@ -295,6 +295,12 @@ class LibraryScanner:
                 result.files_updated += batch_result.files_updated
                 result.files_skipped += batch_result.files_skipped
                 result.files_failed += batch_result.files_failed
+                # #4841: carry the per-file failures up too, still capped, so
+                # the caller can name the files instead of only counting them.
+                if batch_result.failures:
+                    room = MAX_RECORDED_FAILURES - len(result.failures)
+                    if room > 0:
+                        result.failures.extend(batch_result.failures[:room])
                 # Accumulate added tracks so the async caller can enqueue
                 # fingerprints in the event loop after to_thread() returns.
                 # asyncio.create_task() cannot be called from this worker

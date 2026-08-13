@@ -117,9 +117,19 @@ export interface ScanCompleteMessage extends WebSocketMessage {
     files_updated?: number;
     files_skipped?: number;
     files_failed?: number;
+    // #4841: which files failed and why, capped backend-side. `files_failed`
+    // remains the exact count, so this can be shorter than that number.
+    failures?: ScanFailure[];
     directories_scanned?: number;
     duration: number; // Seconds
   };
+}
+
+
+/** One file a scan could not process, and the reason (#4841). */
+export interface ScanFailure {
+  filepath: string;
+  reason: string;
 }
 
 

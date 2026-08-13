@@ -46,6 +46,9 @@ class _StubBatchProcessor:
             files_skipped=0,
             files_failed=0,
             added_tracks=[],
+            # #4841: the scanner now carries per-file failures up from each
+            # batch, so a double standing in for ScanResult has to model it.
+            failures=[],
         )
 
     def stop(self) -> None:

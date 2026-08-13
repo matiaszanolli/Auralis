@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useToast } from '@/components/shared/Toast';
 import { isElectron, getElectronAPI } from '@/utils/electron';
+import type { ScanFailure } from '@/types/ws/library';
 
 export interface UseLibraryScanOptions {
   includeStats: boolean;
@@ -15,6 +16,34 @@ export interface UseLibraryScanReturn {
   handleScanFolder: () => Promise<void>;
   scanAbortRef: React.MutableRefObject<AbortController | null>;
 }
+
+/** How many failed filenames a toast names before summarising the rest. */
+const MAX_FAILURES_IN_TOAST = 3;
+
+
+/** Basename of a path, for a toast that must stay readable. */
+function baseName(filepath: string): string {
+  const parts = filepath.split(/[/\\]/);
+  return parts[parts.length - 1] || filepath;
+}
+
+/**
+ * Append the failed filenames to a scan summary (#4841).
+ *
+ * Shows a few names rather than all of them: a folder of corrupt files would
+ * otherwise produce a toast nobody can read. The count in the summary is
+ * already exact, so this is about making the failures *findable*.
+ */
+function describeFailures(failures: ScanFailure[] | undefined, failedCount: number): string {
+  if (!failures?.length) return '';
+
+  const shown = failures.slice(0, MAX_FAILURES_IN_TOAST);
+  const names = shown.map((f) => baseName(f.filepath)).join(', ');
+  const remaining = failedCount - shown.length;
+
+  return `\n${names}${remaining > 0 ? ` and ${remaining} more` : ''}`;
+}
+
 
 export const useLibraryScan = ({
   includeStats,
@@ -79,8 +108,12 @@ export const useLibraryScan = ({
       });
 
       if (response.ok) {
-        const result: { files_added?: number; files_failed?: number; files_skipped?: number } =
-          await response.json();
+        const result: {
+          files_added?: number;
+          files_failed?: number;
+          files_skipped?: number;
+          failures?: ScanFailure[];
+        } = await response.json();
         // Guard post-success work against unmount (#3987).
         if (!mountedRef.current) return;
         // Surface partial failures instead of a silent "Added 0 tracks" (#4412).
@@ -92,7 +125,11 @@ export const useLibraryScan = ({
           skipped > 0 ? `${skipped} skipped` : null,
         ].filter(Boolean).join(', ');
         const summary = `Scan complete! Added ${added} tracks${extras ? ` (${extras})` : ''}`;
-        if (failed > 0) toastRef.current.toastError(summary);
+        // #4841: name the files that failed. "3 failed" told the user something
+        // was wrong but gave them no way to find out what, short of reading
+        // backend logs a desktop end user generally cannot see. The backend caps
+        // the list, so it may be shorter than `failed`.
+        if (failed > 0) toastRef.current.toastError(`${summary}${describeFailures(result.failures, failed)}`);
         else toastRef.current.success(summary);
         await fetchTracks();
         if (includeStats) await refetchStats();

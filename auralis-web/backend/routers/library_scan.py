@@ -197,6 +197,8 @@ def create_library_scan_router(
                         "files_updated": result.files_updated,
                         "files_skipped": result.files_skipped,
                         "files_failed": result.files_failed,
+                        # #4841: name the failed files, not just the count.
+                        "failures": [f.to_dict() for f in result.failures],
                         "duration": result.scan_time,
                         "directories_scanned": result.directories_scanned,
                     },
@@ -218,6 +220,7 @@ def create_library_scan_router(
                 files_updated=result.files_updated,
                 files_skipped=result.files_skipped,
                 files_failed=result.files_failed,
+                failures=[f.to_dict() for f in result.failures],
                 duration=result.scan_time,
                 directories_scanned=result.directories_scanned,
             )

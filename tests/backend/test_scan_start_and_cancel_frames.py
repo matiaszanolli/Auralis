@@ -71,6 +71,8 @@ class _RejectingScanner(_BaseScanner):
             rejected=True, added_tracks=[], files_found=0, files_processed=0,
             files_added=0, files_updated=0, files_skipped=0, files_failed=0,
             scan_time=0.0, directories_scanned=0,
+            # #4841: the router serialises result.failures.
+            failures=[],
         )
 
 
@@ -84,6 +86,7 @@ class _AcceptingScanner(_BaseScanner):
             rejected=False, added_tracks=[], files_found=10, files_processed=10,
             files_added=2, files_updated=0, files_skipped=8, files_failed=0,
             scan_time=1.5, directories_scanned=1,
+            failures=[],
         )
 
 

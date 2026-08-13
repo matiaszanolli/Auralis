@@ -60,7 +60,9 @@ def test_modified_file_is_not_skipped(tz):
         # modification check does NOT short-circuit to 'skipped' first.
         processor.audio_analyzer.extract_audio_info.return_value = None
 
-        status, _ = processor.process_single_file(file_path, skip_existing=True, check_modifications=True)
+        status, _track, _reason = processor.process_single_file(
+            file_path, skip_existing=True, check_modifications=True
+        )
 
         assert status != 'skipped', (
             f"file modified after last scan was incorrectly skipped under TZ={tz}"
@@ -84,7 +86,9 @@ def test_unmodified_file_is_still_skipped(tz):
 
         processor = _make_processor(existing_track)
 
-        status, _ = processor.process_single_file(file_path, skip_existing=True, check_modifications=True)
+        status, _track, _reason = processor.process_single_file(
+            file_path, skip_existing=True, check_modifications=True
+        )
 
         assert status == 'skipped', (
             f"unmodified file was NOT skipped under TZ={tz}"
