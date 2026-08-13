@@ -32,6 +32,17 @@ from security.path_security import PathValidationError, validate_file_path
 
 logger = logging.getLogger(__name__)
 
+# How many consecutive per-chunk disk-read timeouts end the stream (#5082).
+# Bounding each read with wait_for stops the stream hanging forever, but it
+# does NOT stop the blocking sf.SoundFile read underneath: wait_for bounds the
+# *coroutine*, and the worker thread it abandons keeps running in the default
+# executor — the orphaned-thread caveat #4815/#4727 record. This fix does not
+# eliminate that leak. So on storage that is genuinely gone, retrying every
+# chunk would strand one executor thread per chunk and hold the stream permit
+# for total_chunks x CHUNK_PROCESS_TIMEOUT. Two in a row is enough evidence
+# that the backing file is unreachable rather than one chunk being slow.
+MAX_CONSECUTIVE_READ_TIMEOUTS: int = 2
+
 
 async def stream_normal_audio(
     controller: '_asc.AudioStreamController',
@@ -85,6 +96,10 @@ async def stream_normal_audio(
     # DOES have an early-break-with-partial-content case after all — via
     # `continue`, not `break`.
     failed_chunks: list[int] = []
+    # Consecutive per-chunk disk-read timeouts — see
+    # MAX_CONSECUTIVE_READ_TIMEOUTS at module scope for why the run is bounded
+    # (#5082).
+    read_timeouts: int = 0
 
     # temp_dir is declared before the guard so the finally cleanup can see it
     # regardless of where control leaves the try below. It is the *directory*
@@ -290,13 +305,32 @@ async def stream_normal_audio(
                 # Get chunk audio: from look-ahead task or read now
                 if lookahead_read is not None:
                     try:
-                        chunk_audio = await lookahead_read
+                        # Bounded like every sibling path's chunk producer
+                        # (#5082) — see the inline read below for why.
+                        # Timed here rather than at create_task() time: the
+                        # pause/flow-control waits above sit between the two,
+                        # so a legitimately long client pause would otherwise
+                        # burn the budget and time out a healthy read.
+                        chunk_audio = await asyncio.wait_for(
+                            lookahead_read, timeout=_asc.CHUNK_PROCESS_TIMEOUT
+                        )
                     except ConnectionError:
                         # Client disconnected during the look-ahead read (#3874).
                         # Clean exit — not a chunk failure, so don't log it as one.
                         stopped_early = True
                         break
-                    lookahead_read = None
+                    except TimeoutError:
+                        logger.error(
+                            f"Look-ahead read for chunk {chunk_idx} timed out after "
+                            f"{_asc.CHUNK_PROCESS_TIMEOUT}s (track {track_id})"
+                        )
+                        read_timeouts += 1
+                        raise
+                    finally:
+                        # wait_for already cancelled the task on timeout, and
+                        # the recovery branch drains it; either way this slot
+                        # must not be re-awaited next iteration.
+                        lookahead_read = None
                 else:
                     # #4560: on the first chunk of a seek, start the read at the
                     # requested position rather than at the chunk boundary, and
@@ -306,12 +340,32 @@ async def stream_normal_audio(
                     # ever primed after this first read.
                     trim = first_chunk_trim_samples if chunk_idx == start_chunk else 0
                     start_sample = chunk_idx * interval_samples + trim
-                    chunk_audio = await asyncio.to_thread(
-                        _read_audio_chunk,
-                        streaming_filepath,
-                        start_sample,
-                        chunk_samples - trim,
-                    )
+                    # Bound the disk read the same way every sibling chunk
+                    # producer bounds its worker-thread call (#5082;
+                    # stream_chunk_ops/stream_enhanced/stream_seek all use
+                    # CHUNK_PROCESS_TIMEOUT). sf.SoundFile open/seek/read on a
+                    # stalled network mount or a yanked external drive neither
+                    # returns nor raises, so without this the stream hangs
+                    # forever holding a MAX_CONCURRENT_STREAMS permit.
+                    # TimeoutError is an Exception subclass, so it falls into
+                    # the skip-failed-chunk recovery branch below.
+                    try:
+                        chunk_audio = await asyncio.wait_for(
+                            asyncio.to_thread(
+                                _read_audio_chunk,
+                                streaming_filepath,
+                                start_sample,
+                                chunk_samples - trim,
+                            ),
+                            timeout=_asc.CHUNK_PROCESS_TIMEOUT,
+                        )
+                    except TimeoutError:
+                        logger.error(
+                            f"Disk read for chunk {chunk_idx} timed out after "
+                            f"{_asc.CHUNK_PROCESS_TIMEOUT}s (track {track_id})"
+                        )
+                        read_timeouts += 1
+                        raise
 
                 # Start look-ahead: read next chunk while we stream current one
                 if chunk_idx + 1 < total_chunks:
@@ -345,6 +399,9 @@ async def stream_normal_audio(
                     stopped_early = True
                     break
                 delivered_samples += int(chunk_audio.shape[0])
+                # A chunk got through, so the storage is responding — only a
+                # *run* of timeouts means the backing file is unreachable (#5082).
+                read_timeouts = 0
 
                 # Progress update
                 if on_progress:
@@ -369,6 +426,22 @@ async def stream_normal_audio(
                 # Recorded so the terminal message doesn't claim
                 # reason="completed" over a stream with gaps (#4790).
                 failed_chunks.append(chunk_idx)
+                # ...unless the storage itself is gone (#5082): continuing then
+                # just strands another executor thread per chunk and delays the
+                # permit release by CHUNK_PROCESS_TIMEOUT each time. Stop and
+                # let the client retry.
+                if read_timeouts >= MAX_CONSECUTIVE_READ_TIMEOUTS:
+                    logger.error(
+                        f"Normal audio stream aborting: {read_timeouts} consecutive disk-read "
+                        f"timeouts (track {track_id}, chunk {chunk_idx}) — backing file "
+                        f"{streaming_filepath} appears unreachable"
+                    )
+                    # Deliberately NOT stopped_early: that reports
+                    # reason="stopped", which #4790 reserves for a clean
+                    # client-driven exit. failed_chunks is non-empty here, so
+                    # falling out of the loop lands on the reason="errored"
+                    # branch — the accurate one for a server-side abort.
+                    break
                 continue
 
         if stopped_early:
