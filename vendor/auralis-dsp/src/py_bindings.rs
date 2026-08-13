@@ -661,8 +661,22 @@ fn apply_multiband_eq_wrapper(
     // Convert to ndarray
     let audio_array = audio.as_array().to_owned();
 
-    // Create multi-band EQ
+    // Guard the channel axis before it sizes an allocation (#4502).
+    // A (samples, channels) array — the orientation soundfile and most of the
+    // Python pipeline use — would otherwise make num_channels the *sample*
+    // count and allocate one filter bank per sample. Mirrors the check in
+    // compute_fingerprint_wrapper.
     let num_channels = audio_array.shape()[0];
+    if num_channels == 0 || num_channels > 2 {
+        return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+            format!(
+                "Channels must be 1 (mono) or 2 (stereo), got {};                  audio must be shaped (channels, samples), not (samples, channels)",
+                num_channels
+            ),
+        ));
+    }
+
+    // Create multi-band EQ
     let mut eq = biquad_filter::MultiBandEQ::three_band(
         sr as f64,
         bass_gain_db,
@@ -754,7 +768,18 @@ fn process_chunks_wrapper(
     // Convert to ndarray
     let audio_array = audio.as_array().to_owned();
 
+    // Same channel-axis guard as apply_multiband_eq_wrapper above (#4502):
+    // num_channels sizes per-channel state in ChunkProcessor.
     let num_channels = audio_array.shape()[0];
+    if num_channels == 0 || num_channels > 2 {
+        return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+            format!(
+                "Channels must be 1 (mono) or 2 (stereo), got {};                  audio must be shaped (channels, samples), not (samples, channels)",
+                num_channels
+            ),
+        ));
+    }
+
     let config = chunk_processor::ChunkConfig {
         chunk_size,
         overlap,
