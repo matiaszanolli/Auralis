@@ -10,7 +10,8 @@ Both bugs lived in the `/ws` job-progress path and both were silent:
   were the mirror image: `unregister_progress_callback(job_id)` dropped the
   whole entry, so one client closing its socket unsubscribed everyone else.
 
-* **#3870** — `_heartbeat_loop` sent its ping with a bare
+* **#3870** — `run_heartbeat_loop` (a closure named `_heartbeat_loop`
+  until #4843 extracted it) sent its ping with a bare
   `websocket.send_text(...)` under a blanket `except Exception: return`. A
   send racing a disconnect raises `RuntimeError("Cannot call 'send' once a
   close message has been sent.")`, indistinguishable there from a genuine
@@ -340,6 +341,10 @@ class TestHeartbeatPingIsGuarded:
             hb = hb_cls.return_value
             hb.interval_seconds = 0
             hb.is_stale.return_value = False
+            # #4843: the loop now schedules on the pending-pong deadline too.
+            # None means "no ping outstanding", so only the ping interval
+            # governs — which is what this test wants to drive.
+            hb.seconds_until_stale.return_value = None
             _cid, heartbeat, task = await ws_connection.setup_connection(ws, manager, None, None)
             # Yield enough times for the loop to run its first iteration.
             for _ in range(10):
@@ -374,7 +379,9 @@ class TestHeartbeatPingIsGuarded:
         state check — a behavioural test on a mock socket passes either way.
         """
         source = (_BACKEND / "ws_handlers" / "connection.py").read_text()
-        start = source.index("async def _heartbeat_loop")
-        body = source[start:source.index("heartbeat_task = spawn_background_task")]
+        # #4843 extracted this from a closure inside setup_connection to a
+        # module-level coroutine so its scheduling could be tested directly.
+        start = source.index("async def run_heartbeat_loop")
+        body = source[start:source.index("async def setup_connection")]
         assert "safe_send_text" in body
         assert "websocket.send_text" not in body

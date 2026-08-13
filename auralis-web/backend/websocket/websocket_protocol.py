@@ -81,3 +81,23 @@ class HeartbeatManager:
 
         elapsed = (datetime.now(timezone.utc) - self.pending_pongs[connection_id]).total_seconds()
         return elapsed > self.timeout_seconds
+
+    def seconds_until_stale(self, connection_id: str) -> float | None:
+        """Seconds remaining before ``is_stale()`` flips true, or None.
+
+        None means there is no outstanding ping, so staleness cannot occur until
+        one is sent. A value <= 0 means the deadline has already passed.
+
+        This exists so the heartbeat loop can wake at the *timeout* deadline
+        rather than only at the next ping interval (#4843). Previously the loop
+        slept ``interval_seconds`` and then checked, so by the time anything
+        looked, ``elapsed`` was always ≈ ``interval_seconds`` — making
+        ``timeout_seconds`` inert for its stated purpose and detection latency
+        effectively ``1-2 x interval_seconds``.
+        """
+        pending = self.pending_pongs.get(connection_id)
+        if pending is None:
+            return None
+
+        elapsed = (datetime.now(timezone.utc) - pending).total_seconds()
+        return self.timeout_seconds - elapsed

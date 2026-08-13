@@ -31,6 +31,67 @@ from .context import StreamState, WSDeps
 logger = logging.getLogger(__name__)
 
 
+async def run_heartbeat_loop(
+    websocket: WebSocket,
+    heartbeat: HeartbeatManager,
+    connection_id: str,
+) -> None:
+    """Send pings and evict stale connections.
+
+    Two independent cadences, deliberately decoupled (#4843): pings go out
+    every ``interval_seconds``, but staleness is checked at the ``pending
+    pong + timeout_seconds`` deadline. The loop previously slept one full
+    interval and then checked, so ``elapsed`` at check time was always
+    ≈ ``interval_seconds`` — ``30 > 10`` was unconditionally true and
+    ``timeout_seconds`` could not influence detection latency at all.
+    Tuning it down bought nothing unless ``interval_seconds`` came down too.
+
+    Sleeping to whichever deadline comes first (rather than polling on a
+    fixed short tick) keeps an idle connection at exactly one wake-up per
+    interval, so accuracy costs no extra wake-ups in the common case.
+    """
+    loop = asyncio.get_running_loop()
+    next_ping_at = loop.time() + heartbeat.interval_seconds
+    # is_stale() compares with a strict `>`, so waking exactly ON the
+    # deadline can read as not-yet-stale and cost an extra zero-delay pass.
+    # Wake a hair after it instead.
+    DEADLINE_EPSILON = 0.01
+
+    while True:
+        until_stale = heartbeat.seconds_until_stale(connection_id)
+        delay = next_ping_at - loop.time()
+        if until_stale is not None:
+            delay = min(delay, until_stale + DEADLINE_EPSILON)
+        # Never busy-spin: a deadline already in the past yields 0, and the
+        # check below runs immediately.
+        await asyncio.sleep(max(0.0, delay))
+
+        if heartbeat.is_stale(connection_id):
+            logger.warning(f"WebSocket {connection_id} stale — closing")
+            await websocket.close(code=1001, reason="Heartbeat timeout")
+            return
+
+        # Woke for the timeout deadline, not the ping deadline — the pong
+        # is still outstanding but not yet late. Re-evaluate rather than
+        # sending an extra ping ahead of schedule.
+        if loop.time() < next_ping_at:
+            continue
+        # safe_send_text pre-checks the connection state and classifies
+        # failures (#3870): a bare send_text() on a just-disconnected
+        # socket raises RuntimeError("Cannot call 'send' once a close
+        # message has been sent."), and the old blanket `except Exception:
+        # return` swallowed that indistinguishably from a genuine encoder
+        # or payload error. safe_send_text logs a real close at debug and
+        # anything else at warning, so genuine bugs stay visible.
+        if not await safe_send_text(websocket, {"type": "ping"}):
+            return  # Connection already dead, or the send genuinely failed
+        heartbeat.mark_ping(connection_id)
+        # Fixed cadence from the scheduled time, not from now, so a slow
+        # send does not let the ping interval drift outward over a long
+        # session.
+        next_ping_at += heartbeat.interval_seconds
+
+
 async def setup_connection(
     websocket: WebSocket,
     manager: Any,
@@ -46,26 +107,10 @@ async def setup_connection(
     connection_id = _ws_id(websocket)
     heartbeat = HeartbeatManager(interval_seconds=30, timeout_seconds=10)
 
-    async def _heartbeat_loop() -> None:
-        """Send pings and evict stale connections."""
-        while True:
-            await asyncio.sleep(heartbeat.interval_seconds)
-            if heartbeat.is_stale(connection_id):
-                logger.warning(f"WebSocket {connection_id} stale — closing")
-                await websocket.close(code=1001, reason="Heartbeat timeout")
-                return
-            # safe_send_text pre-checks the connection state and classifies
-            # failures (#3870): a bare send_text() on a just-disconnected
-            # socket raises RuntimeError("Cannot call 'send' once a close
-            # message has been sent."), and the old blanket `except Exception:
-            # return` swallowed that indistinguishably from a genuine encoder
-            # or payload error. safe_send_text logs a real close at debug and
-            # anything else at warning, so genuine bugs stay visible.
-            if not await safe_send_text(websocket, {"type": "ping"}):
-                return  # Connection already dead, or the send genuinely failed
-            heartbeat.mark_ping(connection_id)
-
-    heartbeat_task = spawn_background_task(_heartbeat_loop(), name=f"ws_heartbeat_{connection_id}")
+    heartbeat_task = spawn_background_task(
+        run_heartbeat_loop(websocket, heartbeat, connection_id),
+        name=f"ws_heartbeat_{connection_id}",
+    )
 
     # Everything below is best-effort (each push is already independently
     # guarded) and should never actually raise — but if it ever does, don't
