@@ -86,8 +86,10 @@ export const useDropZone = (
         const entry = item.webkitGetAsEntry();
 
         if (entry && entry.isDirectory) {
-          // Get the full path
-          const folderPath = (entry as any).fullPath || entry.name;
+          // Get the full path. #4664: no cast needed — webkitGetAsEntry()
+          // already returns FileSystemEntry, which declares `fullPath` in
+          // lib.dom. The `as any` was hiding a type that was there all along.
+          const folderPath = entry.fullPath || entry.name;
           callback(folderPath);
         } else if (entry && entry.isFile) {
           // If it's a file, get its parent directory

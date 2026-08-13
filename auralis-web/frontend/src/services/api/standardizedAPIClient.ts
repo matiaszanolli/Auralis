@@ -119,17 +119,27 @@ export interface RequestOptions {
 }
 
 /**
- * Type guard for success responses
+ * Type guard for success responses.
+ *
+ * #4664: takes `unknown`, not `any`. A guard whose parameter is `any` accepts an
+ * already-wrong-shaped value and narrows it with no compiler pushback — the
+ * opposite of what a guard is for. The body performed the necessary defensive
+ * checks already; it just needs the explicit object narrowing to reach the
+ * fields, matching `isCacheStatsShape`/`isCacheHealthShape` below.
  */
-export function isSuccessResponse<T>(response: any): response is SuccessResponse<T> {
-  return !!(response && response.status === 'success' && response.data !== undefined);
+export function isSuccessResponse<T>(response: unknown): response is SuccessResponse<T> {
+  if (!response || typeof response !== 'object') return false;
+  const o = response as Record<string, unknown>;
+  return o.status === 'success' && o.data !== undefined;
 }
 
 /**
- * Type guard for error responses
+ * Type guard for error responses. Takes `unknown` for the same reason (#4664).
  */
-export function isErrorResponse(response: any): response is ErrorResponse {
-  return !!(response && response.status === 'error' && response.error !== undefined);
+export function isErrorResponse(response: unknown): response is ErrorResponse {
+  if (!response || typeof response !== 'object') return false;
+  const o = response as Record<string, unknown>;
+  return o.status === 'error' && o.error !== undefined;
 }
 
 /**
