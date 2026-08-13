@@ -288,7 +288,6 @@
     "tests.backend.test_similarity_api.TestEnqueueTrack::test_enqueue_track_endpoint",
     "tests.backend.test_similarity_api.TestEnqueueTrack::test_enqueue_track_negative_id",
     "tests.backend.test_similarity_api.TestEnqueueTrack::test_enqueue_track_not_found",
-    "tests.backend.test_similarity_api.TestExplainSimilarity::test_explain_similarity_not_found",
     "tests.backend.test_similarity_api.TestFingerprintQueueStatus::test_get_queue_status_accepts_get_only",
     "tests.backend.test_similarity_api.TestFingerprintStats::test_get_fingerprint_stats_accepts_get_only",
     "tests.backend.test_similarity_api.TestFitModel::test_fit_model_endpoint",

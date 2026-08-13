@@ -19,10 +19,18 @@ from .errors import NotFoundError
 from pydantic import BaseModel, Field
 
 from auralis.analysis.fingerprint import (
+    FingerprintNormalizer,
     FingerprintSimilarity,
     KNNGraphBuilder,
     SimilarityResult,
 )
+
+# Upper bound for `top_n` on the explain route. Derived from the dimension list
+# the explanation actually slices — `DistanceCalculator.get_dimension_contributions()`
+# enumerates `FingerprintNormalizer.DIMENSION_NAMES` — rather than hard-coded to
+# today's count, so extending the fingerprint vector cannot leave the API
+# silently refusing dimensions that exist (#4630).
+EXPLAINABLE_DIMENSIONS = len(FingerprintNormalizer.DIMENSION_NAMES)
 
 from .dependencies import require_repository_factory
 # Shared error helpers live in similarity_common (#4270) so the similarity-graph
@@ -31,6 +39,7 @@ from .dependencies import require_repository_factory
 from .similarity_common import (  # noqa: F401
     _internal_error_response,
     _with_similarity_error_handling,
+    require_fingerprinted_tracks,
     require_similarity_system,
 )
 
@@ -139,27 +148,10 @@ def create_similarity_router(
         """
         repos = require_repository_factory(get_repository_factory)
 
-        # Check if track exists
-        track = await asyncio.to_thread(repos.tracks.get_by_id, track_id)
-        if not track:
-            raise NotFoundError("Track", track_id)
-
-        # Check if track has fingerprint
-        if not await asyncio.to_thread(repos.fingerprints.exists, track_id):
-            # Enqueue for background processing (Phase 7.4)
-            try:
-                from analysis.fingerprint_queue import get_fingerprint_queue
-                queue = get_fingerprint_queue()
-                if queue:
-                    await asyncio.to_thread(queue.enqueue, track_id)
-                    logger.info(f"📋 Track {track_id} queued for background fingerprinting")
-            except Exception as q_err:
-                logger.debug(f"Could not enqueue track {track_id}: {q_err}")
-
-            raise HTTPException(
-                status_code=404,
-                detail=f"Track {track_id} does not have a fingerprint. Queued for background processing."
-            )
+        # Track must exist and have a fingerprint; a missing fingerprint is
+        # enqueued so the next request succeeds (#4630 — shared with /compare
+        # and /explain so the three routes cannot drift apart again).
+        await require_fingerprinted_tracks(repos, track_id)
 
         results = []
 
@@ -232,20 +224,10 @@ def create_similarity_router(
         """
         repos = require_repository_factory(get_repository_factory)
 
-        # Check if tracks exist
-        track1 = await asyncio.to_thread(repos.tracks.get_by_id, track_id1)
-        track2 = await asyncio.to_thread(repos.tracks.get_by_id, track_id2)
-
-        if not track1:
-            raise NotFoundError("Track", track_id1)
-        if not track2:
-            raise NotFoundError("Track", track_id2)
-
-        # Check fingerprints
-        if not await asyncio.to_thread(repos.fingerprints.exists, track_id1):
-            raise NotFoundError("Track", detail=f"Track {track_id1} missing fingerprint")
-        if not await asyncio.to_thread(repos.fingerprints.exists, track_id2):
-            raise NotFoundError("Track", detail=f"Track {track_id2} missing fingerprint")
+        # #4630: shared with /similar and /explain. This route previously
+        # validated but never enqueued, so a missing fingerprint here failed
+        # permanently while the same track under /similar repaired itself.
+        await require_fingerprinted_tracks(repos, track_id1, track_id2)
 
         # Calculate similarity
         similarity = require_similarity_system(get_similarity_system)
@@ -270,7 +252,12 @@ def create_similarity_router(
     async def explain_similarity(
         track_id1: int,
         track_id2: int,
-        top_n: int = Query(5, ge=1, le=25, description="Number of top contributing dimensions")
+        top_n: int = Query(
+            5,
+            ge=1,
+            le=EXPLAINABLE_DIMENSIONS,
+            description="Number of top contributing dimensions",
+        )
     ) -> SimilarityExplanation:
         """
         Explain why two tracks are similar/different
@@ -280,11 +267,21 @@ def create_similarity_router(
         Args:
             track_id1: First track ID
             track_id2: Second track ID
-            top_n: Number of top dimensions to return
+            top_n: Number of top dimensions to return (1..EXPLAINABLE_DIMENSIONS)
 
         Returns:
             Detailed explanation of similarity
         """
+        repos = require_repository_factory(get_repository_factory)
+
+        # #4630: this route had no repository handle at all, so it performed
+        # none of the checks its siblings do — a nonexistent track, a track
+        # missing a fingerprint, and a genuine engine failure all surfaced as
+        # one opaque "Could not generate explanation", and nothing was ever
+        # enqueued, so the explain view failed permanently where /similar
+        # would have repaired itself.
+        await require_fingerprinted_tracks(repos, track_id1, track_id2)
+
         similarity = require_similarity_system(get_similarity_system)
 
         if not await asyncio.to_thread(similarity.is_fitted):
@@ -292,8 +289,17 @@ def create_similarity_router(
 
         explanation = await asyncio.to_thread(similarity.get_similarity_explanation, track_id1, track_id2, top_n=top_n)
 
+        # Both tracks exist and are fingerprinted by now, so a falsy return no
+        # longer means "something, somewhere, was missing" — it means the engine
+        # itself could not produce an explanation for this pair.
         if not explanation:
-            raise NotFoundError("Explanation", detail="Could not generate explanation")
+            raise NotFoundError(
+                "Explanation",
+                detail=(
+                    f"Similarity engine could not explain tracks {track_id1} "
+                    f"and {track_id2}"
+                ),
+            )
 
         return SimilarityExplanation(**explanation)
 
