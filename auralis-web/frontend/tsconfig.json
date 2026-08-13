@@ -21,6 +21,26 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
 
+    /*
+     * noUncheckedIndexedAccess: deliberately OFF (#4665).
+     *
+     * It is the highest-value remaining flag for this codebase — `queue.tracks[i]`
+     * and `tracks[i]` indexing runs through the player and queue code, and the
+     * bounds checks there are by convention rather than compiler-enforced.
+     *
+     * Measured cost of turning it on, 2026-08-13:
+     *   production (`type-check:prod`):  0 -> 146 errors
+     *   all sources (`type-check`):    101 -> 578 errors
+     *
+     * Production going non-zero breaks `frontend-typecheck.yml` on the first
+     * commit, so this cannot be folded into another change — it needs its own
+     * pass that fixes all 146 before flipping the flag. Note the fix is real
+     * narrowing, NOT non-null assertions (`!`), which would reintroduce exactly
+     * the unchecked access the flag exists to surface.
+     *
+     * noImplicitReturns is also off and is lower value here; no measurement taken.
+     */
+
     /* Path mapping */
     "baseUrl": ".",
     "paths": {
