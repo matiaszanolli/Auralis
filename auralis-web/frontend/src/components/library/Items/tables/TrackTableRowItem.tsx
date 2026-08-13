@@ -2,7 +2,7 @@
  * TrackTableRowItem - Individual track row in album table
  */
 
-import { KeyboardEvent } from 'react';
+import { KeyboardEvent, memo } from 'react';
 import { TableCell, Typography, IconButton } from '@mui/material';
 import MoreVert from '@mui/icons-material/MoreVert';
 import { tokens } from '@/design-system';
@@ -24,7 +24,7 @@ interface TrackTableRowItemProps {
   formatDuration: (seconds: number) => string;
 }
 
-export const TrackTableRowItem = ({
+const TrackTableRowItemImpl = ({
   track,
   index,
   isCurrentTrack,
@@ -140,5 +140,27 @@ export const TrackTableRowItem = ({
     </>
   );
 };
+
+/**
+ * Memoized so a play/pause tick — which re-renders AlbumTrackTable and every
+ * row under it — only re-renders the rows whose output actually changed
+ * (#4472). Mirrors the QueueTrackItem (#4177) / AlbumCard (#3929) pattern and,
+ * like them, relies on the parent passing stable handlers.
+ *
+ * `isPlaying` is deliberately compared only for the current track: the prop
+ * reaches the DOM solely through `isCurrentTrack && isPlaying`
+ * (TrackPlayIndicator), so for every other row a play/pause transition cannot
+ * change what renders. Comparing it unconditionally would re-render all 20-30
+ * rows on each toggle — the exact cost this memo exists to remove.
+ */
+export const TrackTableRowItem = memo(TrackTableRowItemImpl, (prev, next) =>
+  prev.track === next.track &&
+  prev.index === next.index &&
+  prev.isCurrentTrack === next.isCurrentTrack &&
+  (prev.isPlaying === next.isPlaying || (!prev.isCurrentTrack && !next.isCurrentTrack)) &&
+  prev.onTrackClick === next.onTrackClick &&
+  prev.onFindSimilar === next.onFindSimilar &&
+  prev.formatDuration === next.formatDuration
+);
 
 export default TrackTableRowItem;

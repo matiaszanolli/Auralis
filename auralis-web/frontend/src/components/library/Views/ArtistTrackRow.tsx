@@ -2,7 +2,7 @@
  * ArtistTrackRow - Individual track row in artist tracks table
  */
 
-import { KeyboardEvent } from 'react';
+import { KeyboardEvent, memo } from 'react';
 import { TableCell, Typography, Box } from '@mui/material';
 import PlayArrow from '@mui/icons-material/PlayArrow';
 import Pause from '@mui/icons-material/Pause';
@@ -19,7 +19,7 @@ interface ArtistTrackRowProps {
   formatDuration: (seconds: number) => string;
 }
 
-export const ArtistTrackRow = ({
+const ArtistTrackRowImpl = ({
   track,
   index,
   isCurrentTrack,
@@ -86,5 +86,19 @@ export const ArtistTrackRow = ({
     </StyledTableRow>
   );
 };
+
+/**
+ * Memoized on the same terms as TrackTableRowItem (#4472) — including the
+ * conditional `isPlaying` comparison, since this row also reads the prop only
+ * as `isCurrentTrack && isPlaying`.
+ */
+export const ArtistTrackRow = memo(ArtistTrackRowImpl, (prev, next) =>
+  prev.track === next.track &&
+  prev.index === next.index &&
+  prev.isCurrentTrack === next.isCurrentTrack &&
+  (prev.isPlaying === next.isPlaying || (!prev.isCurrentTrack && !next.isCurrentTrack)) &&
+  prev.onTrackClick === next.onTrackClick &&
+  prev.formatDuration === next.formatDuration
+);
 
 export default ArtistTrackRow;

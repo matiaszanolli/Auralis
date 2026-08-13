@@ -73,9 +73,11 @@ export const AlbumDetailView = ({
     }
   };
 
-  const handleTrackClick = (track: Track) => {
+  // Stable identity so TrackTableRowItem's React.memo isn't defeated by a
+  // fresh closure on every AlbumDetailView render (#4472).
+  const handleTrackClick = useCallback((track: Track) => {
     playTrack(track);
-  };
+  }, [playTrack]);
 
   if (loading) {
     return (

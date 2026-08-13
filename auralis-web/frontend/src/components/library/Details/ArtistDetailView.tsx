@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Container } from '@mui/material';
 import { tokens } from '@/design-system';
 import { EmptyState } from '@/components/shared/ui/feedback';
@@ -51,10 +51,11 @@ export const ArtistDetailView = ({
     }
   };
 
-  // Handle track click - play the selected track
-  const handleTrackClick = (track: Track) => {
+  // Handle track click - play the selected track. useCallback so ArtistTrackRow's
+  // React.memo isn't defeated by a fresh closure each render (#4472).
+  const handleTrackClick = useCallback((track: Track) => {
     playTrack(track);
-  };
+  }, [playTrack]);
 
   // Handle album click - delegates to parent
   const handleAlbumClick = (albumId: number) => {
