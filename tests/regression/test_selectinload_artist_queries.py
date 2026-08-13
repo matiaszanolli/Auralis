@@ -10,9 +10,16 @@ to avoid N*M Cartesian-product row explosion.
 module-level constants (`_ARTIST_DETAIL_OPTIONS` / `_ARTIST_LIST_OPTIONS`),
 so a method's own source no longer contains the `selectinload(`/`joinedload(`
 calls directly — it references the constant by name. This now checks the
-constants' own source (still selectinload-only) AND that each method
-references the correct constant rather than defining its own inline options
-(which is exactly the kind of drift #5028 fixed).
+constants' own source AND that each method references the correct constant
+rather than defining its own inline options (which is exactly the kind of
+drift #5028 fixed).
+
+#5084 made `_ARTIST_LIST_OPTIONS` stronger than "selectinload-only": the list
+endpoint's counts now come from `with_expression()` correlated subqueries and
+its genre names from one grouped query, so the constant loads *no*
+relationship at all. That satisfies #2613's no-Cartesian-product guarantee by
+construction, so this file checks the two constants against their respective
+contracts rather than holding both to the selectinload rule.
 """
 
 import inspect
@@ -56,14 +63,35 @@ class TestSelectinloadArtistQueries:
         assert match, f"could not find {constant_name}'s definition in artist_repository.py"
         return match.group(0)
 
-    @pytest.mark.parametrize('constant_name', ['_ARTIST_DETAIL_OPTIONS', '_ARTIST_LIST_OPTIONS'])
-    def test_shared_eager_load_constants_use_selectinload(self, constant_name):
-        """The two constants every read method funnels through (#5028) must
-        themselves be selectinload-only — this is where #2613's guarantee
-        now actually lives."""
-        src = self._get_constant_definition_source(constant_name)
-        assert 'selectinload(' in src, f"{constant_name} should use selectinload"
-        assert not self._has_joinedload_call(src), f"{constant_name} should not use joinedload"
+    def test_detail_options_use_selectinload(self):
+        """`_ARTIST_DETAIL_OPTIONS` genuinely needs the relationships loaded
+        (to_dict() walks tracks->genres, tracks->album, albums->tracks), so
+        for it #2613's rule still applies verbatim: selectinload, never
+        joinedload."""
+        src = self._get_constant_definition_source('_ARTIST_DETAIL_OPTIONS')
+        assert 'selectinload(' in src, "_ARTIST_DETAIL_OPTIONS should use selectinload"
+        assert not self._has_joinedload_call(src), "_ARTIST_DETAIL_OPTIONS should not use joinedload"
+
+    def test_list_options_load_no_relationships(self):
+        """`_ARTIST_LIST_OPTIONS` must load no relationship at all (#5084).
+
+        The list endpoint reads only two counts and a genre-name set, which
+        now come from `with_expression()` correlated subqueries and one
+        grouped query respectively. Reintroducing *either* loader strategy
+        here would put full `Track` hydration (including the unbounded
+        `lyrics` / `fingerprint_vector` Text columns) back on every page load
+        — joinedload as #2613's Cartesian explosion, selectinload as #5084's
+        scales-with-tracks-per-artist regression.
+        """
+        src = self._get_constant_definition_source('_ARTIST_LIST_OPTIONS')
+        assert not self._has_joinedload_call(src), "_ARTIST_LIST_OPTIONS should not use joinedload"
+        assert 'selectinload(' not in src, (
+            "_ARTIST_LIST_OPTIONS should not eager-load relationships — the list "
+            "endpoint's counts and genre names come from SQL aggregates (#5084)"
+        )
+        assert 'with_expression(' in src, (
+            "_ARTIST_LIST_OPTIONS should supply the count subqueries via with_expression (#5084)"
+        )
 
     def test_get_all_uses_selectinload(self):
         src = self._get_source('get_all')
