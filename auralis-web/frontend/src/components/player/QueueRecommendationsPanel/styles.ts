@@ -266,7 +266,7 @@ export const styles = {
   },
 
   addButtonSmall: {
-    padding: '2px 4px',
+    padding: `${tokens.spacing.xxs} ${tokens.spacing.xs}`,
     borderRadius: tokens.borderRadius.sm,
     border: 'none',
     backgroundColor: tokens.colors.accent.primary,

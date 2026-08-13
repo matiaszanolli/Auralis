@@ -71,7 +71,7 @@ export const PlaylistListHeader = ({
         <QueueMusic sx={{ fontSize: tokens.typography.fontSize.lg }} />
         Playlists ({playlistCount})
       </SectionTitle>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: tokens.spacing.xs }}>
         <Tooltip title="Create playlist">
           <AddButton onClick={handleCreateClick}>
             <Add />

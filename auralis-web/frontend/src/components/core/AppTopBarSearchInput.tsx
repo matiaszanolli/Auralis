@@ -71,7 +71,7 @@ export const AppTopBarSearchInput = ({
           aria-label="Clear search"
           sx={{
             color: themeVars.textMuted,
-            padding: '4px',
+            padding: tokens.spacing.xs,
             '&:hover': {
               color: themeVars.textPrimary,
             },

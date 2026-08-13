@@ -55,7 +55,7 @@ export const EnhancementContainer = styled(Box)({
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
-  gap: '2px',
+  gap: tokens.spacing.xxs,
 });
 
 export const SwitchPaper = styled(Paper, {

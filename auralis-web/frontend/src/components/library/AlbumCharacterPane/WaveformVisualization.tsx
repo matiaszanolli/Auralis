@@ -39,7 +39,7 @@ export const WaveformVisualization = memo(({
         alignItems: 'flex-end',
         justifyContent: 'space-around',
         height: '100px',
-        gap: '6px',
+        gap: tokens.spacing.sm,
         mt: tokens.spacing.xl,
         mb: tokens.spacing.lg,
         px: tokens.spacing.md,

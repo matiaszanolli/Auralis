@@ -10,8 +10,8 @@ export const SelectableContainer = styled(Box, {
 })<{ isSelected: boolean }>(({ theme: _theme, isSelected }) => ({
   display: 'flex',
   alignItems: 'center',
-  gap: '8px',
-  padding: '4px 8px',
+  gap: tokens.spacing.cluster,
+  padding: `${tokens.spacing.xs} ${tokens.spacing.cluster}`,
   borderRadius: '8px',
   backgroundColor: isSelected ? tokens.colors.opacityScale.accent.lighter : 'transparent',
   border: isSelected ? `1px solid ${tokens.colors.opacityScale.accent.strong}` : '1px solid transparent',

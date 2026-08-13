@@ -23,7 +23,9 @@ import { tokens } from '@/design-system';
 const PlaylistMenuItem = styled(MenuItem)({
   fontSize: tokens.typography.fontSize.sm,
   color: tokens.colors.text.secondary,
-  padding: '8px 16px 8px 48px',
+  // 48px is a nesting indent for sub-items, not a spacing step — kept
+  // literal deliberately (#4663); the rest map to the scale exactly.
+  padding: `${tokens.spacing.cluster} ${tokens.spacing.group} ${tokens.spacing.cluster} 48px`,
   transition: tokens.transitions.hover_out,
   '&:hover': {
     background: tokens.colors.opacityScale.accent.veryLight,
@@ -35,7 +37,9 @@ const PlaylistMenuItem = styled(MenuItem)({
 const CreateNewMenuItem = styled(MenuItem)({
   fontSize: tokens.typography.fontSize.sm,
   color: tokens.colors.accent.primary,
-  padding: '8px 16px 8px 48px',
+  // 48px is a nesting indent for sub-items, not a spacing step — kept
+  // literal deliberately (#4663); the rest map to the scale exactly.
+  padding: `${tokens.spacing.cluster} ${tokens.spacing.group} ${tokens.spacing.cluster} 48px`,
   fontWeight: tokens.typography.fontWeight.semibold,
   transition: tokens.transitions.hover_out,
   '&:hover': {
@@ -52,7 +56,7 @@ const SectionLabel = styled(Box)({
   color: tokens.colors.text.metadata,
   textTransform: 'uppercase',
   letterSpacing: '0.5px',
-  padding: '8px 16px 4px 16px',
+  padding: `${tokens.spacing.cluster} ${tokens.spacing.group} ${tokens.spacing.xs} ${tokens.spacing.group}`,
 });
 
 export interface PlaylistSectionProps {

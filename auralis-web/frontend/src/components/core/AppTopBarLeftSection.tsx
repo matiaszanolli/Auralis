@@ -2,6 +2,7 @@
 import MenuIcon from '@mui/icons-material/Menu';
 import { LeftSection, TitleBox } from './AppTopBar.styles';
 import { IconButton } from '@/design-system';
+import { tokens } from '@/design-system';
 import { themeVars } from '@/theme/semanticTheme';
 import { screenReaderOnly } from './accessibilityStyles';
 
@@ -29,7 +30,7 @@ export const AppTopBarLeftSection = ({
           aria-label="Open navigation menu"
           sx={{
             color: themeVars.textSecondary,
-            padding: '8px',
+            padding: tokens.spacing.cluster,
             '&:hover': {
               background: themeVars.accentSoft,
             },

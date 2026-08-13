@@ -12,6 +12,7 @@
  * - PulsingBox: Opacity pulse animation for icon/text loaders
  */
 
+import { tokens } from '@/design-system';
 import { Box, styled } from '@mui/material';
 import { themeVars } from '@/theme/semanticTheme';
 import { shimmer, pulse } from './Animation.styles';
@@ -78,5 +79,5 @@ export const LoadingIconContainer = styled(Box)({
   flexDirection: 'column',
   alignItems: 'center',
   justifyContent: 'center',
-  gap: '16px',
+  gap: tokens.spacing.group,
 });

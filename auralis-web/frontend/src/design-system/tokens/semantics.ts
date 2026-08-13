@@ -7,6 +7,7 @@
  * of cross-category references.
  */
 import { colors } from './colors';
+import { spacing } from './layout';
 import { withOpacity } from './with-opacity';
 
 
@@ -136,7 +137,10 @@ export const components = {
 
     button: {
       primary: {
-        padding: '12px 24px',
+        // #4663: 24px is genuinely off the spacing scale (lg=20, xl=28). Kept
+        // literal rather than snapped to a neighbouring step, so this control's
+        // width does not shift; the vertical 12px is spacing.md exactly.
+        padding: `${spacing.md} 24px`,
         borderRadius: '8px',
         fontSize: '14px',
         fontWeight: 500,
@@ -151,7 +155,7 @@ export const components = {
       height: '48px',
       borderRadius: '24px',  // Pill shape
       background: withOpacity(colors.bg.level4, 0.6),
-      padding: '0 16px',
+      padding: `0 ${spacing.group}`,
     },
 
     // Input surface backgrounds at rest / hover / focus (#3981 — was raw rgba

@@ -72,7 +72,7 @@ export const progressBarStyles = {
     position: 'relative',
     height: '24px',
     cursor: disabled ? 'default' : 'pointer',
-    padding: '8px 0',
+    padding: `${tokens.spacing.cluster} 0`,
     userSelect: 'none',
     outline: 'none',
     borderRadius: tokens.borderRadius.md,

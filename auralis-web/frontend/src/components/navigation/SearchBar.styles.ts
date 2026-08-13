@@ -7,7 +7,7 @@ import { IconButton } from '@/design-system';
 import { styled, Typography } from '@mui/material';
 
 export const ClearButton = styled(IconButton)({
-  padding: '8px',
+  padding: tokens.spacing.cluster,
   color: tokens.colors.text.secondary,
   transition: tokens.transitions.hover_out,
 
@@ -21,6 +21,6 @@ export const ResultCount = styled(Typography)({
   fontSize: tokens.typography.fontSize.xs,
   fontWeight: tokens.typography.fontWeight.medium,
   color: tokens.colors.text.secondary,
-  padding: '0 12px',
+  padding: `0 ${tokens.spacing.md}`,
   whiteSpace: 'nowrap',
 });

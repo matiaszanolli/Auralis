@@ -74,8 +74,8 @@ const ControlContainer = styled('div')<{ size: 'sm' | 'md' }>(({ size: _size }) 
   backdropFilter: 'blur(4px)',
   borderRadius: tokens.borderRadius.md,
   border: `1px solid ${tokens.colors.opacityScale.white.faint}`,
-  padding: '2px',
-  gap: '2px',
+  padding: tokens.spacing.xxs,
+  gap: tokens.spacing.xxs,
 }));
 
 const SegmentButton = styled('button')<{

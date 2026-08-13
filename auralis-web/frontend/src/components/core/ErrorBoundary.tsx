@@ -73,6 +73,9 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           <button
             onClick={this.handleRetry}
             style={{
+              // 10px/24px are both off the spacing scale (sm=6, md=12,
+              // lg=20, xl=28). Kept literal rather than snapped, so this
+              // button's size does not shift (#4663).
               padding: '10px 24px',
               borderRadius: tokens.borderRadius.md,
               border: 'none',

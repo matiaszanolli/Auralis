@@ -28,7 +28,7 @@ export const LogoContainer = styled(Box, {
 })<{ animated?: boolean }>(({ animated }) => ({
   display: 'flex',
   alignItems: 'center',
-  gap: '12px',
+  gap: tokens.spacing.md,
   animation: animated ? `${float} 3s ease-in-out infinite` : 'none',
 }));
 

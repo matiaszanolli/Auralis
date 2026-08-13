@@ -1,6 +1,7 @@
 
 import { ListContainer } from '@/components/library/Styles/ArtistList.styles';
 import { List } from '@/design-system';
+import { tokens } from '@/design-system';
 import { Box, ListItem, Skeleton } from '@mui/material';
 
 /**
@@ -16,7 +17,7 @@ export const ArtistListLoading = () => {
       <List>
         {[...Array(15)].map((_, index) => (
           <ListItem key={index}>
-            <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', padding: '16px 20px' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', padding: `${tokens.spacing.group} ${tokens.spacing.lg}` }}>
               <Skeleton variant="circular" width={56} height={56} sx={{ marginRight: '20px' }} />
               <Box sx={{ flex: 1 }}>
                 <Skeleton variant="text" width="30%" height={24} />
