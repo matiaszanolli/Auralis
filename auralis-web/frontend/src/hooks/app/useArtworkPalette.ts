@@ -24,6 +24,7 @@ import {
   generateArtworkGlow,
   type ArtworkPalette,
 } from '@/utils/colorExtraction';
+import { tokens } from '@/design-system/tokens';
 import { getArtworkUrl } from '@/services/artworkService';
 import { useArtworkRevision } from '@/hooks/library/useArtworkUpdates';
 
@@ -168,7 +169,7 @@ export function useArtworkPalette(
   // Generate CSS values from palette
   const gradient = palette ? generateArtworkGradient(palette, 0.08) : 'transparent';
   const glow = palette ? generateArtworkGlow(palette, 0.15) : 'none';
-  const accentColor = palette?.vibrant?.hex || palette?.dominant?.hex || '#7366f0';
+  const accentColor = palette?.vibrant?.hex || palette?.dominant?.hex || tokens.colors.accent.primary;
 
   return {
     palette,

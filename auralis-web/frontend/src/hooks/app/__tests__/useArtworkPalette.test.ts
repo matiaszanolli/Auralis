@@ -1,6 +1,7 @@
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { useArtworkPalette, _internal as artworkPaletteInternal } from '../useArtworkPalette';
 import type { ArtworkPalette } from '@/utils/colorExtraction';
+import { tokens } from '@/design-system/tokens';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import { _internal as artworkUpdatesInternal } from '@/hooks/library/useArtworkUpdates';
 
@@ -163,7 +164,8 @@ describe('useArtworkPalette', () => {
 
     await waitFor(() => expect(result.current.error).toBe('Artwork deleted'));
     expect(result.current.palette).toBeNull();
-    expect(result.current.accentColor).toBe('#7366f0');
+    // #4463: the no-palette fallback is the brand token, not a transcribed hex.
+    expect(result.current.accentColor).toBe(tokens.colors.accent.primary);
   });
 
   it('does not invalidate another album palette on unrelated updates (#4530)', async () => {

@@ -13,6 +13,10 @@
  * Design: "Let the music's visual identity flow into the UI"
  */
 
+// Imported from the token module rather than the '@/design-system' barrel so a
+// plain utility doesn't pull the component library in with it.
+import { tokens, hexToRgb } from '@/design-system/tokens';
+
 /**
  * RGB color representation
  */
@@ -55,6 +59,13 @@ export interface ArtworkPalette {
   /** Is the overall artwork dark? */
   isDarkArtwork: boolean;
 }
+
+/**
+ * RGB channels of the brand accent, derived from the token rather than
+ * transcribed (#4463). `hexToRgb` returns null only for non-hex input, which a
+ * literal token hex never is — the fallback keeps the type non-nullable.
+ */
+const BRAND_FALLBACK_RGB = hexToRgb(tokens.colors.accent.primary) ?? { r: 115, g: 102, b: 240 };
 
 /**
  * Convert RGB to Hex
@@ -279,12 +290,11 @@ export async function extractArtworkColors(
         }
 
         if (pixels.length === 0) {
-          // Fallback to default palette if no valid pixels
+          // Fallback to the brand accent. Was a hand-written copy of its hex
+          // and channel numbers, which would silently drift on a rebrand (#4463).
           const defaultColor: ExtractedColor = {
-            r: 115,
-            g: 102,
-            b: 240,
-            hex: '#7366f0',
+            ...BRAND_FALLBACK_RGB,
+            hex: tokens.colors.accent.primary,
             lightness: 67,
             saturation: 82,
             isVibrant: true,
