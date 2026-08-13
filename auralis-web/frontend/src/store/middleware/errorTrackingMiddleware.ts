@@ -51,6 +51,23 @@ export interface TrackedError {
 export interface ErrorTrackingConfig {
   enabled?: boolean;
   maxErrors?: number;
+  /**
+   * Optional allowlist narrowing which actions may be tracked as errors (#4662).
+   *
+   * Detection is otherwise a substring heuristic (`payload.error`, or an action
+   * type containing `Error`/`Failure`/`setError`), which is deliberately broad.
+   * Supplying this restricts tracking to the listed actions *in addition to*
+   * that heuristic — it never causes an action the heuristic rejected to be
+   * tracked.
+   *
+   * Each entry matches either the full action type (`'player/setError'`) or the
+   * name after the last `/` (`'setError'`).
+   *
+   * Omitted — the default — means unrestricted. It previously defaulted to
+   * `['setError', 'setLastError']`, but that value was never read by anything,
+   * so it carried no behaviour; applying it literally would have silently
+   * dropped real errors such as `player/setStreamingError`.
+   */
   errorActions?: string[];
   onError?: (error: TrackedError) => void;
   onRecovery?: (error: TrackedError) => void;
@@ -171,11 +188,32 @@ function generateErrorId(): string {
 const defaultConfig: ErrorTrackingConfig = {
   enabled: true,
   maxErrors: 50,
-  errorActions: ['setError', 'setLastError'],
+  // No `errorActions` default: omitted means unrestricted (#4662). The former
+  // `['setError', 'setLastError']` default was never read, so it had no
+  // behaviour to preserve — and enforcing it literally would have dropped
+  // `player/setStreamingError` and `connection/setConnectionError`, which the
+  // heuristic tracks today.
   logToConsole: true,
   logToServer: false,
   recoveryStrategies: new Map(),
 };
+
+/**
+ * Whether `actionType` is permitted by an `errorActions` allowlist.
+ *
+ * An absent or empty list means unrestricted, so the middleware's default
+ * behaviour is exactly the heuristic on its own.
+ */
+export function isAllowedErrorAction(
+  actionType: string | undefined,
+  errorActions: string[] | undefined
+): boolean {
+  if (!errorActions || errorActions.length === 0) return true;
+  if (!actionType) return false;
+
+  const actionName = actionType.slice(actionType.lastIndexOf('/') + 1);
+  return errorActions.some((allowed) => allowed === actionType || allowed === actionName);
+}
 
 /**
  * Error store for tracking
@@ -293,6 +331,13 @@ export function createErrorTrackingMiddleware(
           shouldTrackError = true;
           errorMessage = actionPayload;
           errorContext = { message: actionPayload };
+        }
+
+        // #4662: apply the allowlist, if one was configured. This narrows the
+        // heuristic above and never widens it, so an unconfigured middleware
+        // behaves exactly as before.
+        if (shouldTrackError && !isAllowedErrorAction(actionType, finalConfig.errorActions)) {
+          shouldTrackError = false;
         }
 
         if (shouldTrackError) {
