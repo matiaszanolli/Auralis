@@ -73,6 +73,18 @@ class ResizableSemaphore:
         with self._cond:
             return self._in_use
 
+    @property
+    def usage(self) -> tuple[int, int]:
+        """``(in_use, capacity)`` read under a single lock acquisition.
+
+        Reading the two properties separately costs two acquisitions and can
+        straddle a concurrent ``acquire``/``release``/``resize``, yielding a pair
+        that never actually existed — misleading in exactly the diagnostic logs
+        this is for (#4636). One snapshot, one lock.
+        """
+        with self._cond:
+            return self._in_use, self._capacity
+
     # Context-manager support for parity with threading.Semaphore, in case a
     # future call site uses `with`.
     def __enter__(self) -> "ResizableSemaphore":

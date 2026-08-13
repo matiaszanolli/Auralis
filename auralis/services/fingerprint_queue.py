@@ -388,10 +388,24 @@ class FingerprintExtractionQueue:
             track: Track object with id and filepath attributes
             worker_id: ID of the worker processing this track
         """
-        # Acquire semaphore to limit concurrent audio processing
-        # Only 3 workers can process audio simultaneously (prevents ~1.2GB memory spikes)
-        # Other workers wait here while still able to fetch from database
-        debug(f"Worker {worker_id} waiting for processing slot (currently {self.stats['processing']}/3 in use)")
+        # Acquire semaphore to limit concurrent audio processing.
+        #
+        # The limit is deliberately generous — at least 8, up to max_workers (see
+        # the construction site) — and resizable at runtime by the adaptive
+        # resource monitor (#4404). It is NOT the old "only 3 concurrent, to cap
+        # memory at ~1.2GB" design; that comment survived the change and said the
+        # opposite of the constructor's own two lines above it (#4636).
+        #
+        # Report in_use/capacity as one snapshot from the semaphore itself. No
+        # literal can be right here, and pairing stats['processing'] with the
+        # live capacity would be wrong in the other direction: that counter is
+        # incremented only *after* the acquire below, so it excludes this worker.
+        # Other workers wait here while still able to fetch from database.
+        in_use, capacity = self.processing_semaphore.usage
+        debug(
+            f"Worker {worker_id} waiting for processing slot "
+            f"(currently {in_use}/{capacity} in use)"
+        )
         self.processing_semaphore.acquire()
 
         with self.stats_lock:
