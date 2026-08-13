@@ -86,10 +86,23 @@ class GaplessPlaybackEngine:
         Safe to call multiple times or concurrently—only one thread runs at a time.
         No-op after cleanup() has been called.
         """
+        # Cheap fast path only — the authoritative shutdown check is inside the
+        # lock below. Passing here proves nothing: cleanup() can set _shutdown
+        # between this line and the acquire (#4631).
         if not self.prebuffer_enabled or self._shutdown.is_set():
             return
 
         with self._thread_lock:
+            # #4631: re-check _shutdown *inside* the lock. cleanup() sets the
+            # event and then snapshots prebuffer_thread under this same lock, so
+            # once it has done so no new thread can be created here — without
+            # this check a caller that passed the fast path above could start a
+            # non-daemon thread after cleanup() already joined the old one,
+            # leaving it unjoined and outliving cleanup.
+            if self._shutdown.is_set():
+                debug("Prebuffering not started: engine is shutting down")
+                return
+
             # Double-check inside the lock to close the TOCTOU window (#2075)
             if self.prebuffer_thread and self.prebuffer_thread.is_alive():
                 debug("Prebuffer thread already running")
@@ -265,6 +278,12 @@ class GaplessPlaybackEngine:
                 prebuffer_matches = False
 
         if prebuffer_matches:
+            # `prebuffer_matches` is only True when both of these are non-None
+            # (see its definition above). Restate it here so the narrowing holds
+            # for the swap below — mypy cannot carry a None-check made inside a
+            # separate boolean expression across the intervening block.
+            assert audio_data is not None and sample_rate is not None
+
             # Use prebuffered audio (gapless!)
             info(f"Using prebuffered track (gapless): {file_path}")
 
@@ -392,12 +411,26 @@ class GaplessPlaybackEngine:
         Signals the prebuffer worker to stop at the next safe point, then
         waits up to 5s for it to finish.  Non-daemon threads are used so
         the OS never kills the thread while it holds a file handle (#2075).
+
+        Order matters: set _shutdown *before* taking _thread_lock, so a
+        start_prebuffering() call that wins the race for the lock sees the flag
+        and declines to create a thread. Mirrors the #3694/#4227 _advance_thread
+        discipline in enhanced_audio_player.cleanup() (#4631).
         """
         self._shutdown.set()
 
-        if self.prebuffer_thread and self.prebuffer_thread.is_alive():
-            self.prebuffer_thread.join(timeout=5.0)
-            if self.prebuffer_thread.is_alive():
+        # #4631: snapshot the handle under the lock that guards its creation.
+        # An unlocked read can observe the pre-assignment value (or tear under
+        # free-threaded 3.14+) and skip the join entirely.
+        with self._thread_lock:
+            prebuffer_thread = self.prebuffer_thread
+
+        # Join OUTSIDE the lock: _prebuffer_worker does not take _thread_lock
+        # today, but joining while holding it would deadlock the moment it did.
+        # The project's discipline is "callbacks and joins outside locks".
+        if prebuffer_thread is not None and prebuffer_thread.is_alive():
+            prebuffer_thread.join(timeout=5.0)
+            if prebuffer_thread.is_alive():
                 warning("Prebuffer thread did not stop within 5s after shutdown signal")
 
         self.invalidate_prebuffer()
