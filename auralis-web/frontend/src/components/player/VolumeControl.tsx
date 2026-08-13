@@ -14,7 +14,7 @@
  * />
  */
 
-import { CSSProperties, useMemo, useState } from 'react';
+import { CSSProperties, useMemo, useState, memo } from 'react';
 import { tokens } from '@/design-system/tokens';
 import { themeVars } from '@/theme/semanticTheme';
 
@@ -62,7 +62,7 @@ export interface VolumeControlProps {
  *
  * Renders volume slider with mute button and percentage display.
  */
-export const VolumeControl = ({
+const VolumeControlComponent = ({
   volume,
   onVolumeChange,
   isMuted = false,
@@ -236,5 +236,21 @@ export const VolumeControl = ({
     </div>
   );
 };
+
+/**
+ * Memoized (#4632): `Player` re-renders 10x/second while a track is playing —
+ * it subscribes to the 10Hz position tick via `usePlaybackProgress()` because it
+ * renders the progress bar. This component's props do not change on that tick,
+ * so without `memo` its whole body re-executed 10x/second for the entire
+ * duration of every playback session, on a machine that is simultaneously
+ * running the Python DSP engine.
+ *
+ * This only holds while every prop stays referentially stable: an inline arrow
+ * or object literal at the call site defeats it silently. See Player.tsx, where
+ * the handlers are `useCallback`-wrapped for exactly this reason.
+ */
+export const VolumeControl = memo(VolumeControlComponent);
+
+VolumeControl.displayName = 'VolumeControl';
 
 export default VolumeControl;

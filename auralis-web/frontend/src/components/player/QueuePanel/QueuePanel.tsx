@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { usePlaybackQueue } from '@/hooks/player/usePlaybackQueue';
 import { QueuePanelExpanded } from './QueuePanelExpanded';
 import { styles } from './styles';
@@ -18,7 +19,7 @@ interface QueuePanelProps {
  * lives in `QueuePanelExpanded`, called unconditionally by that component's
  * own single instance instead of conditionally by this one.
  */
-export const QueuePanel = ({
+const QueuePanelComponent = ({
   collapsed = false,
   onToggleCollapse,
 }: QueuePanelProps) => {
@@ -68,5 +69,27 @@ export const QueuePanel = ({
     />
   );
 };
+
+/**
+ * Memoized (#4632): this is the expensive one. `Player` re-renders 10x/second
+ * while a track is playing (it subscribes to the position tick to render the
+ * progress bar) and QueuePanel is always mounted — hidden via CSS, not
+ * unmounted, to preserve scroll and focus (#2541). So every tick re-invoked
+ * `usePlaybackQueue()`, re-ran `useVirtualizer()` in QueuePanelExpanded, and
+ * rebuilt the JSX for every visible row. Only the leaf `QueueTrackItem`s were
+ * protected (#4177); all the reconciliation above them still happened.
+ *
+ * `memo` blocks re-renders driven by the parent only — `usePlaybackQueue()`
+ * subscribes to the store itself, so genuine queue changes still re-render this
+ * component, and the always-mounted #2541 behaviour is unaffected.
+ *
+ * This also covers `QueueControlBar`, which the issue listed as a sixth direct
+ * child of `Player`: it is actually a grandchild, rendered by
+ * `QueuePanelExpanded` below, so it stops re-rendering on the tick as soon as
+ * this component does.
+ */
+export const QueuePanel = memo(QueuePanelComponent);
+
+QueuePanel.displayName = 'QueuePanel';
 
 export default QueuePanel;

@@ -4,7 +4,7 @@
  * wraps usePlayEnhanced.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { Box } from '@mui/material';
 import { styles } from './Player.styles';
 import { themeVars } from '@/theme/semanticTheme';
@@ -80,6 +80,25 @@ const Player = () => {
     setQueuePanelOpen(prev => !prev);
   }, []);
 
+  // #4632: every prop reaching a memoized child must be referentially stable —
+  // one inline arrow silently defeats that child's `React.memo` and the whole
+  // fix becomes a no-op that still looks correct. These two were inline.
+  const handleCloseQueue = useCallback(() => setQueuePanelOpen(false), []);
+  const handleMuteClick = useCallback(() => { void handleMuteToggle(); }, [handleMuteToggle]);
+
+  // The wrapper/button `sx` objects are spread literals, so they were rebuilt
+  // 10x/second and re-serialized by emotion even though only one field varies.
+  const queuePanelWrapperSx = useMemo(
+    () => ({ ...styles.queuePanelWrapper, display: queuePanelOpen ? undefined : 'none' }),
+    [queuePanelOpen]
+  );
+  const queueButtonSx = useMemo(() => ({
+    ...styles.queueButton,
+    background: queuePanelOpen ? themeVars.accentSoft : 'transparent',
+    borderColor: queuePanelOpen ? themeVars.accent : themeVars.borderDefault,
+    color: queuePanelOpen ? themeVars.accent : themeVars.textPrimary,
+  }), [queuePanelOpen]);
+
   return (
     <Box
       data-testid="player"
@@ -138,7 +157,7 @@ const Player = () => {
             volume={volume / 100}
             onVolumeChange={handleVolumeChange}
             isMuted={isMuted}
-            onMuteToggle={() => { void handleMuteToggle(); }}
+            onMuteToggle={handleMuteClick}
             disabled={hasError}
           />
 
@@ -146,12 +165,7 @@ const Player = () => {
           <Box
             component="button"
             onClick={handleQueueToggle}
-            sx={{
-              ...styles.queueButton,
-              background: queuePanelOpen ? themeVars.accentSoft : 'transparent',
-              borderColor: queuePanelOpen ? themeVars.accent : themeVars.borderDefault,
-              color: queuePanelOpen ? themeVars.accent : themeVars.textPrimary,
-            }}
+            sx={queueButtonSx}
             title="Toggle queue (Q)"
             aria-label="Toggle queue"
             aria-expanded={queuePanelOpen}
@@ -165,11 +179,11 @@ const Player = () => {
       {/* Queue Panel - Always mounted; hidden via CSS to preserve scroll + focus (#2541) */}
       <Box
         id="queue-panel-region"
-        sx={{ ...styles.queuePanelWrapper, display: queuePanelOpen ? undefined : 'none' }}
+        sx={queuePanelWrapperSx}
       >
         <QueuePanel
           collapsed={false}
-          onToggleCollapse={() => setQueuePanelOpen(false)}
+          onToggleCollapse={handleCloseQueue}
         />
       </Box>
 

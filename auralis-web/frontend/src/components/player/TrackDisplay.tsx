@@ -12,7 +12,7 @@
  * />
  */
 
-import { useMemo } from 'react';
+import { useMemo, memo } from 'react';
 import { tokens } from '@/design-system/tokens';
 import { themeVars } from '@/theme/semanticTheme';
 
@@ -54,7 +54,7 @@ export interface TrackDisplayProps {
  *
  * Renders track title, artist, and album information with proper text overflow handling.
  */
-export const TrackDisplay = ({
+const TrackDisplayComponent = ({
   title,
   artist,
   album,
@@ -171,5 +171,21 @@ export const TrackDisplay = ({
     </div>
   );
 };
+
+/**
+ * Memoized (#4632): `Player` re-renders 10x/second while a track is playing —
+ * it subscribes to the 10Hz position tick via `usePlaybackProgress()` because it
+ * renders the progress bar. This component's props do not change on that tick,
+ * so without `memo` its whole body re-executed 10x/second for the entire
+ * duration of every playback session, on a machine that is simultaneously
+ * running the Python DSP engine.
+ *
+ * This only holds while every prop stays referentially stable: an inline arrow
+ * or object literal at the call site defeats it silently. See Player.tsx, where
+ * the handlers are `useCallback`-wrapped for exactly this reason.
+ */
+export const TrackDisplay = memo(TrackDisplayComponent);
+
+TrackDisplay.displayName = 'TrackDisplay';
 
 export default TrackDisplay;
