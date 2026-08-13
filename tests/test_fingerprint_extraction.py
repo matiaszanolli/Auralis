@@ -13,9 +13,7 @@ Tests the 25D fingerprint extraction pipeline, including:
 :license: GPLv3, see LICENSE for more details.
 """
 
-import asyncio
 import json
-import tempfile
 from pathlib import Path
 from typing import Dict
 
@@ -124,127 +122,64 @@ def fingerprint_extractor_mock():
     return MockFingerprintExtractor()
 
 
-# Tests for fingerprint data structure
-
-class TestFingerprintJob:
-    """Tests for FingerprintJob dataclass"""
-
-    def test_fingerprint_job_creation(self):
-        """Test basic job creation"""
-        from auralis.services.fingerprint_queue import FingerprintJob
-
-        job = FingerprintJob(
-            track_id=123,
-            filepath='/path/to/audio.mp3',
-            priority=1
-        )
-
-        assert job.track_id == 123
-        assert job.filepath == '/path/to/audio.mp3'
-        assert job.priority == 1
-        assert job.retry_count == 0
-        assert job.max_retries == 3
-
-    def test_fingerprint_job_priority_ordering(self):
-        """Test job priority queue ordering"""
-        from auralis.services.fingerprint_queue import FingerprintJob
-
-        job1 = FingerprintJob(track_id=1, filepath='file1.mp3', priority=0)
-        job2 = FingerprintJob(track_id=2, filepath='file2.mp3', priority=2)
-        job3 = FingerprintJob(track_id=3, filepath='file3.mp3', priority=1)
-
-        # Test __lt__ ordering
-        assert job2 < job3  # priority 2 > priority 1
-        assert job3 < job1  # priority 1 > priority 0
-        assert not (job1 < job2)
-
-
 # Tests for FingerprintExtractionQueue
+#
+# The job-queue API these tests used to cover (FingerprintJob, enqueue(),
+# enqueue_batch(), max_queue_size, get_queue_size(), the 'queued' stat) no
+# longer exists: workers pull unfingerprinted tracks straight from the database
+# via FingerprintSchedulerRepository, which is what removed the pre-loading and
+# backpressure problems that queue had. The tests below cover the pool as it is
+# now; per-track timeout behaviour lives in test_fingerprint_queue_timeout_4837.py.
 
 class TestFingerprintExtractionQueue:
-    """Tests for async fingerprint extraction queue"""
+    """Tests for the DB-pull fingerprint worker pool"""
 
-    @pytest.mark.asyncio
-    async def test_queue_initialization(self, fingerprint_extractor_mock, library_manager_mock):
-        """Test queue initialization"""
+    @staticmethod
+    def _make_queue(extractor, **kwargs):
         from auralis.services.fingerprint_queue import FingerprintExtractionQueue
 
-        queue = FingerprintExtractionQueue(
-            fingerprint_extractor=fingerprint_extractor_mock,
-            library_manager=library_manager_mock,
-            num_workers=4,
-            max_queue_size=100
+        return FingerprintExtractionQueue(
+            fingerprint_extractor=extractor,
+            get_repository_factory=lambda: None,
+            enable_adaptive_scaling=False,
+            **kwargs,
         )
+
+    def test_queue_initialization(self, fingerprint_extractor_mock):
+        """Worker count and stop flag reflect the constructor arguments"""
+        queue = self._make_queue(fingerprint_extractor_mock, num_workers=4, max_workers=4)
 
         assert queue.num_workers == 4
-        assert queue.max_queue_size == 100
-        assert queue.get_queue_size() == 0
-        assert queue.should_stop == False  # Initially not stopped
+        assert queue.workers == []  # no threads until start()
+        assert queue.should_stop is False
 
-    @pytest.mark.asyncio
-    async def test_enqueue_single_job(self, fingerprint_extractor_mock, library_manager_mock):
-        """Test enqueueing a single job"""
-        from auralis.services.fingerprint_queue import FingerprintExtractionQueue
+    def test_worker_count_defaults_to_half_the_cpus(self, fingerprint_extractor_mock):
+        """num_workers defaults to max(4, cpu_count * 0.5)"""
+        import os
 
-        queue = FingerprintExtractionQueue(
-            fingerprint_extractor=fingerprint_extractor_mock,
-            library_manager=library_manager_mock,
-            num_workers=1
-        )
+        queue = self._make_queue(fingerprint_extractor_mock)
 
-        success = await queue.enqueue(
-            track_id=123,
-            filepath='/path/to/audio.mp3',
-            priority=0
-        )
+        assert queue.num_workers == max(4, int((os.cpu_count() or 16) * 0.5))
 
-        assert success is True
-        assert queue.get_queue_size() == 1
-        assert queue.get_stats()['queued'] == 1
+    def test_processing_semaphore_is_at_least_eight_slots(self, fingerprint_extractor_mock):
+        """The memory-aware semaphore starts fully available"""
+        queue = self._make_queue(fingerprint_extractor_mock, num_workers=2, max_workers=2)
 
-    @pytest.mark.asyncio
-    async def test_enqueue_batch(self, fingerprint_extractor_mock, library_manager_mock):
-        """Test batch enqueuing"""
-        from auralis.services.fingerprint_queue import FingerprintExtractionQueue
+        in_use, capacity = queue.processing_semaphore.usage
+        assert in_use == 0
+        assert capacity >= 8
 
-        queue = FingerprintExtractionQueue(
-            fingerprint_extractor=fingerprint_extractor_mock,
-            library_manager=library_manager_mock,
-            num_workers=2
-        )
-
-        tracks = [
-            (1, '/path/audio1.mp3'),
-            (2, '/path/audio2.mp3'),
-            (3, '/path/audio3.mp3'),
-        ]
-
-        enqueued = await queue.enqueue_batch(tracks, priority=0)
-
-        assert enqueued == 3
-        assert queue.get_queue_size() == 3
-        assert queue.get_stats()['queued'] == 3
-
-    @pytest.mark.asyncio
-    async def test_queue_statistics(self, fingerprint_extractor_mock, library_manager_mock):
-        """Test queue statistics tracking"""
-        from auralis.services.fingerprint_queue import FingerprintExtractionQueue
-
-        queue = FingerprintExtractionQueue(
-            fingerprint_extractor=fingerprint_extractor_mock,
-            library_manager=library_manager_mock
-        )
-
-        # Enqueue some jobs
-        await queue.enqueue(1, '/path/file1.mp3')
-        await queue.enqueue(2, '/path/file2.mp3')
+    def test_queue_statistics(self, fingerprint_extractor_mock):
+        """Stats start at zero and expose the counters callers read"""
+        queue = self._make_queue(fingerprint_extractor_mock, num_workers=2, max_workers=2)
 
         stats = queue.get_stats()
 
-        assert stats['queued'] == 2
         assert stats['processing'] == 0
         assert stats['completed'] == 0
         assert stats['failed'] == 0
+        assert stats['cached'] == 0
+        assert 'queued' not in stats  # no job queue any more
 
 
 # Tests for FingerprintQueueManager
@@ -298,11 +233,13 @@ class TestScannerFingerprinterIntegration:
         from auralis.services.fingerprint_queue import FingerprintExtractionQueue
         from auralis.library.scanner import LibraryScanner
 
-        # Create minimal queue
+        # Create minimal queue. The pool takes a repository-factory callable,
+        # not a library manager — workers claim tracks through it.
         extractor = type('MockExtractor', (), {'extract_and_store': lambda *a, **k: True})()
         queue = FingerprintExtractionQueue(
             fingerprint_extractor=extractor,
-            library_manager=library_manager_mock
+            get_repository_factory=lambda: library_manager_mock,
+            enable_adaptive_scaling=False,
         )
 
         # Scanner should accept queue
@@ -403,57 +340,10 @@ class TestFingerprintDataFormat:
         assert loaded['stereo_width'] == 0.7
 
 
-# Performance and stress tests
-
-class TestFingerprintQueuePerformance:
-    """Performance tests for fingerprint queue"""
-
-    @pytest.mark.asyncio
-    @pytest.mark.performance
-    async def test_enqueue_throughput(self, fingerprint_extractor_mock, library_manager_mock):
-        """Test enqueue throughput (should be fast)"""
-        import time
-
-        from auralis.services.fingerprint_queue import FingerprintExtractionQueue
-
-        queue = FingerprintExtractionQueue(
-            fingerprint_extractor=fingerprint_extractor_mock,
-            library_manager=library_manager_mock,
-            max_queue_size=1000
-        )
-
-        start = time.time()
-
-        # Enqueue 100 jobs
-        for i in range(100):
-            await queue.enqueue(i, f'/path/file{i}.mp3')
-
-        elapsed = time.time() - start
-
-        # Should enqueue 100 jobs very quickly (< 1 second)
-        assert elapsed < 1.0
-        assert queue.get_queue_size() == 100
-
-    @pytest.mark.asyncio
-    @pytest.mark.boundary
-    async def test_queue_max_size_limit(self, fingerprint_extractor_mock, library_manager_mock):
-        """Test queue respects max size limit"""
-        from auralis.services.fingerprint_queue import FingerprintExtractionQueue
-
-        queue = FingerprintExtractionQueue(
-            fingerprint_extractor=fingerprint_extractor_mock,
-            library_manager=library_manager_mock,
-            max_queue_size=5  # Small limit for testing
-        )
-
-        # Enqueue up to limit
-        for i in range(5):
-            success = await queue.enqueue(i, f'/path/file{i}.mp3')
-            assert success
-
-        # Try to enqueue beyond limit (should fail)
-        success = await queue.enqueue(5, '/path/file5.mp3')
-        assert not success
+# NOTE: the enqueue-throughput and max-queue-size tests that used to live here
+# measured the removed job queue (enqueue()/max_queue_size). The DB-pull design
+# has no enqueue path to benchmark — worker throughput is exercised end-to-end
+# by tests/test_fingerprint_queue_timeout_4837.py and the integration suite.
 
 
 if __name__ == '__main__':
