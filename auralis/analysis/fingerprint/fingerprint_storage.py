@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from ...utils.atomic_write import write_json_atomic
 from .schema import DIMENSION_SCHEMA
 
 
@@ -120,9 +121,13 @@ class FingerprintStorage:
             "mastering_targets": targets
         }
 
-        # Write to cache
-        with open(cache_path, 'w', encoding='utf-8') as f:
-            json.dump(content, f, indent=2, sort_keys=True)
+        # #4508: atomic — see auralis/utils/atomic_write.py. Opening the
+        # destination in 'w' truncated the existing cache entry before the first
+        # byte was written, so an interrupted write left a torn .25d that load()
+        # then treats as a cache miss, discarding a fingerprint that had already
+        # been computed. Shared with SidecarManager.write (#4638), the other .25d
+        # writer, so the two cannot drift apart again.
+        write_json_atomic(cache_path, content, indent=2, sort_keys=True)
 
         return cache_path
 

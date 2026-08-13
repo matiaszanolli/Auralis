@@ -23,6 +23,7 @@ from typing import Any, cast
 
 from ..__version__ import FINGERPRINT_ALGORITHM_VERSION
 from ..analysis.fingerprint.schema import DIMENSION_SCHEMA
+from ..utils.atomic_write import write_json_atomic
 from ..utils.logging import debug, error, info, warning
 from ..version import __version__
 
@@ -251,9 +252,13 @@ class SidecarManager:
                 'metadata': data.get('metadata', {})
             }
 
-            # Write to file
-            with open(sidecar_path, 'w', encoding='utf-8') as f:
-                json.dump(sidecar_data, f, indent=2)
+            # #4638: atomic. Opening the destination in 'w' truncated it before
+            # the first byte was written, so an interrupted scan destroyed the
+            # previously-valid sidecar as well as failing to write the new one —
+            # and this artifact lives next to the user's audio file, where a
+            # leftover truncated file is user-visible. Shared with
+            # FingerprintStorage.save (#4508) so the two .25d writers cannot drift.
+            write_json_atomic(sidecar_path, sidecar_data, indent=2)
 
             info(f"Wrote sidecar file: {sidecar_path}")
             return True
