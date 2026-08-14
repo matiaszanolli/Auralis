@@ -681,12 +681,14 @@ class TestWebSocketPlayback:
         import routers.system as system_module
 
         lock_reacquired = threading.Event()
+        stream_audio_calls: list[int] = []
 
         async def slow_stream_audio(
             websocket, get_repository_factory, get_enhancement_settings,
             get_cache_manager, *, track_id, preset, intensity, force,
             start_position, ws_id,
         ):
+            stream_audio_calls.append(track_id)
             try:
                 await asyncio.sleep(1000)
             except asyncio.CancelledError:
@@ -706,9 +708,20 @@ class TestWebSocketPlayback:
 
         with patch.object(system_module, "stream_audio", slow_stream_audio):
             with client.websocket_connect("/ws") as websocket:
+                # force:True is required (#5092). The test app has enhancement
+                # disabled by default, so without it handle_play_enhanced
+                # returns at the `if not enhancement_enabled and not force:`
+                # gate (playback_commands.py:174) — the patched stream_audio is
+                # never called, no streaming task is created, and the Event
+                # below is never set. The test then failed 100% of the time
+                # while claiming "#3828 not fixed", which was never true.
+                # Same payload shape as test_play_enhanced_force_overrides_disabled.
                 websocket.send_text(json.dumps({
                     "type": "play_enhanced",
-                    "data": {"track_id": 1, "preset": "adaptive", "intensity": 1.0},
+                    "data": {
+                        "track_id": 1, "preset": "adaptive",
+                        "intensity": 1.0, "force": True,
+                    },
                 }))
                 # Let the first task actually start before cancelling it.
                 import time as time_module
@@ -716,10 +729,24 @@ class TestWebSocketPlayback:
 
                 websocket.send_text(json.dumps({
                     "type": "play_enhanced",
-                    "data": {"track_id": 2, "preset": "adaptive", "intensity": 1.0},
+                    "data": {
+                        "track_id": 2, "preset": "adaptive",
+                        "intensity": 1.0, "force": True,
+                    },
                 }))
                 websocket.send_text(json.dumps({"type": "ping"}))
                 _recv_until_type(websocket, "pong")
+
+        # Guard against this test silently going vacuous again (#5092). Without
+        # force:True both sends were rejected at the enhancement-disabled gate,
+        # so the patched stream_audio never ran and the assertion below could
+        # only ever fail. If this trips, the payload no longer reaches the
+        # handler and the lock assertion proves nothing.
+        assert stream_audio_calls == [1, 2], (
+            f"patched stream_audio saw {stream_audio_calls}, expected [1, 2] — "
+            "the play_enhanced payloads are not reaching the streaming path, so "
+            "the lock-ordering assertion below is vacuous"
+        )
 
         assert lock_reacquired.wait(timeout=2.0), (
             "stream_audio's finally-block self-cleanup never acquired "
