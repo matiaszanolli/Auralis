@@ -1,4 +1,4 @@
-import { MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { MouseEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Typography } from '@mui/material';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ContextMenu, ContextMenuAction } from '@/components/shared/ContextMenu';
@@ -98,7 +98,12 @@ export const ArtistListContent = ({
   const scrollElementRef = useRef<HTMLElement | null>(null);
   const [scrollReady, setScrollReady] = useState(false);
 
-  useEffect(() => {
+  // #5120: a layout effect, not a passive one. `useEffect` runs *after* paint,
+  // so the first committed frame took the `canVirtualize === false` branch and
+  // painted every item unwindowed before swapping to the structurally different
+  // virtualized tree — a visible flash plus a full mount/unmount of every row on
+  // each navigation. `useContainerWidth` already resolves pre-paint the same way.
+  useLayoutEffect(() => {
     scrollElementRef.current = document.getElementById('app-main-content-scroll');
     setScrollReady(scrollElementRef.current !== null);
   }, []);

@@ -9,7 +9,7 @@
  * scroll element / container width are unmeasurable (jsdom tests).
  */
 
-import { RefObject, useEffect, useState } from 'react';
+import { RefObject, useLayoutEffect, useState } from 'react';
 import { tokens } from '@/design-system';
 import { AlbumCard } from '@/components/album/AlbumCard/AlbumCard';
 import { GridContainer } from '@/components/library/Styles/Grid.styles';
@@ -58,7 +58,12 @@ export const AlbumGridContent = ({
 }: AlbumGridContentProps) => {
   const [scrollElement, setScrollElement] = useState<HTMLElement | null>(null);
 
-  useEffect(() => {
+  // #5120: a layout effect, not a passive one — for two reasons here. It reads
+  // scrollHeight/clientHeight, which needs layout to have happened; and running
+  // after paint meant the first committed frame took the
+  // `canVirtualize === false` branch and painted every album unwindowed before
+  // swapping to the structurally different virtualized tree.
+  useLayoutEffect(() => {
     // GridContainer is itself the scroll element when used as a fixed-height
     // panel; fall back to the page-level scroll container otherwise.
     const container = containerRef.current;

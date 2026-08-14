@@ -16,7 +16,7 @@
  * - Falls back to hash-based gradients if fingerprints unavailable
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { EmptyState } from '@/components/shared/ui/feedback';
 import { AlbumGridLoadingState } from './AlbumGridLoadingState';
 import { EraSection } from './EraSection';
@@ -194,7 +194,12 @@ function VirtualizedAlbumGrid({
   const scrollElementRef = useRef<HTMLElement | null>(null);
   const [scrollReady, setScrollReady] = useState(false);
 
-  useEffect(() => {
+  // #5120: a layout effect, not a passive one. `useEffect` runs *after* paint,
+  // so the first committed frame took the `canVirtualize === false` branch and
+  // painted every item unwindowed before swapping to the structurally different
+  // virtualized tree — a visible flash plus a full mount/unmount of every row on
+  // each navigation. `useContainerWidth` already resolves pre-paint the same way.
+  useLayoutEffect(() => {
     scrollElementRef.current = document.getElementById('app-main-content-scroll');
     setScrollReady(scrollElementRef.current !== null);
   }, []);
