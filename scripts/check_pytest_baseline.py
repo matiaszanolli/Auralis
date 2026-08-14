@@ -19,10 +19,19 @@ This is the pytest counterpart of ``auralis-web/frontend/scripts/check-test-base
 
 Usage::
 
-    python scripts/check_pytest_baseline.py <junit.xml>            # verify
-    python scripts/check_pytest_baseline.py <junit.xml> --update   # rewrite baseline
+    python scripts/check_pytest_baseline.py <junit.xml>                 # verify
+    python scripts/check_pytest_baseline.py <junit.xml> --update        # rewrite baseline
+    python scripts/check_pytest_baseline.py <junit.xml> --strict-stale  # also fail on stale entries
 
-Exit codes: 0 = no new failures, 1 = new failures (or unusable input).
+Stale entries are the other half of the ratchet (#5091): a baselined test that
+starts passing but keeps its entry silently re-permits that exact failure, so
+the test can regress and CI stays green. 69 such entries had accumulated in a
+27-file sample before this was reported. Staleness is always *reported*;
+``--strict-stale`` makes it *fail*, and counts only tests actually present in
+the report so a scoped run cannot trip it.
+
+Exit codes: 0 = no new failures, 1 = new failures (or unusable input),
+1 = stale entries when ``--strict-stale`` is set.
 """
 
 from __future__ import annotations
@@ -89,6 +98,23 @@ def collect_failures(root: ET.Element) -> set[str]:
     return failures
 
 
+def collect_all_test_ids(root: ET.Element) -> set[str]:
+    """Every test present in the report, passing or not.
+
+    Needed to tell a baseline entry that *ran and passed* (genuinely stale)
+    apart from one that simply was not part of this run — a scoped invocation,
+    a renamed or deleted test, or a file the workflow ``--ignore``s. Subtracting
+    failures from the baseline alone conflates the two, which would make the
+    strict mode below fail on any partial artifact.
+    """
+    ids: set[str] = set()
+    for case in root.iter("testcase"):
+        classname = case.get("classname", "")
+        name = case.get("name", "<unknown>")
+        ids.add(f"{classname}::{name}" if classname else name)
+    return ids
+
+
 def counts(root: ET.Element) -> tuple[int, int]:
     suites = root.findall("testsuite") if root.tag == "testsuites" else [root]
     total = sum(int(s.get("tests", 0)) for s in suites)
@@ -144,6 +170,15 @@ def main() -> int:
     parser.add_argument(
         "--update", action="store_true", help="rewrite the baseline from this run"
     )
+    parser.add_argument(
+        "--strict-stale",
+        action="store_true",
+        help=(
+            "also fail when a baselined test ran and PASSED (a stale entry). "
+            "Only counts tests actually present in this report, so a scoped "
+            "run cannot trip it."
+        ),
+    )
     args = parser.parse_args()
 
     root = read_results(args.results)
@@ -155,18 +190,36 @@ def main() -> int:
         return 0
 
     baseline = load_baseline()
+    present = collect_all_test_ids(root)
     added = sorted(current - baseline)
-    fixed = sorted(baseline - current)
+    # Split what the old code lumped together as "no longer fails" (#5091).
+    # A baselined test that ran and passed is stale and must be removed;
+    # one absent from the report was simply not run and says nothing.
+    stale = sorted((baseline & present) - current)
+    not_run = sorted(baseline - present)
 
     print(
         f"pytest: {total} collected, {len(current)} failing "
         f"(baseline allows {len(baseline)})."
     )
 
-    if fixed:
-        print(f"\n✔ {len(fixed)} baseline failure(s) no longer fail:")
-        print(_listing(fixed))
-        print("  Regenerate the baseline and commit to tighten the gate.")
+    if stale:
+        print(f"\n✔ {len(stale)} baseline entry(ies) ran and PASSED — stale:")
+        print(_listing(stale))
+        print(
+            "  Each one silently re-permits that exact failure: the test can "
+            "regress and CI stays green.\n"
+            "  Remove them, or regenerate: "
+            "python scripts/check_pytest_baseline.py <junit.xml> --update"
+        )
+
+    if not_run:
+        print(
+            f"\nℹ {len(not_run)} baseline entry(ies) were not in this report "
+            "(scoped run, --ignore'd file, or renamed/deleted test)."
+        )
+        print(_listing(not_run))
+        print("  Not treated as stale — this report cannot prove they pass.")
 
     if added:
         print(f"\n✖ {len(added)} NEW test failure(s) not in the baseline:\n", file=sys.stderr)
@@ -175,6 +228,14 @@ def main() -> int:
             "\nFix them, or — only if the failure is genuinely pre-existing and "
             "was merely unmasked — regenerate the baseline and explain why in "
             "the PR.",
+            file=sys.stderr,
+        )
+        return 1
+
+    if stale and args.strict_stale:
+        print(
+            f"\n✖ --strict-stale: {len(stale)} baselined test(s) now pass. "
+            "The ratchet may shrink, never grow — tighten it.",
             file=sys.stderr,
         )
         return 1
