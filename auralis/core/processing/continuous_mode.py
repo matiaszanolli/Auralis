@@ -67,6 +67,13 @@ PHASE_DROP_KNEE_START = 0.1
 PHASE_DROP_KNEE_END = 0.3
 PHASE_LEVEL_KNEE_START = 0.4
 PHASE_LEVEL_KNEE_END = 0.2
+# Stereo-width clipping safety (#5108). The fourth guard in this file, and the
+# one #4860 never migrated: it was a bare `if pre_peak_db > -2.0` skip that
+# either applied full widening or none. Knee centred on that old -2.0 dBFS
+# threshold so the far field is unchanged — full widening well below, unity
+# (no widening) well above — and only the transition becomes a ramp.
+WIDTH_PEAK_KNEE_START = -3.0
+WIDTH_PEAK_KNEE_END = -2.0
 MAX_PHASE_BLEND = 0.5
 
 # Below these a correction is numerically pointless, not merely small. These
@@ -651,17 +658,38 @@ class ContinuousMode:
         # Check peak levels before expansion (safety)
         pre_peak_db = StereoWidthProcessor.get_peak_db(audio)
 
-        # Skip expansion if already close to clipping. "Does this widen?" is
-        # answered against unity, not against a measurement: untouched audio is
-        # at unity side gain by definition. The old test compared the width
-        # factor against the decorrelation reading, so a narrowing request on a
-        # near-mono source (e.g. factor 0.4 vs decorrelation 0.1) read as
-        # "widening" and was skipped, while a genuine widening request on a
-        # decorrelated source (factor 0.7 vs decorrelation 0.9) slipped past
-        # the clipping guard.
-        if pre_peak_db > -2.0 and target_width > WIDTH_FACTOR_UNITY:
-            debug(f"[Stereo Width] SKIPPED expansion due to high peak ({pre_peak_db:.2f} dB)")
-            return audio
+        # Ease expansion off as the signal approaches clipping. "Does this
+        # widen?" is answered against unity, not against a measurement:
+        # untouched audio is at unity side gain by definition. An earlier
+        # version compared the width factor against the decorrelation reading,
+        # so a narrowing request on a near-mono source (e.g. factor 0.4 vs
+        # decorrelation 0.1) read as "widening" and was suppressed, while a
+        # genuine widening request on a decorrelated source (factor 0.7 vs
+        # decorrelation 0.9) slipped past the clipping guard entirely (#4503).
+        #
+        # #5108: ramp the widening away as the peak approaches clipping instead
+        # of switching it off. This was `if pre_peak_db > -2.0 and target_width
+        # > WIDTH_FACTOR_UNITY: return audio` — the fourth cross-dimensional
+        # guard in this method, and the one #4860 never migrated to
+        # smooth_gate(). Two masters 0.01 dB apart straddling -2.0 dBFS got
+        # either full adjust_stereo_width_multiband() treatment or none: an
+        # audible stereo-image difference from an inaudible input difference,
+        # in a peak region the pipeline's own -0.3 dBFS ceiling makes common.
+        #
+        # Only widening is gated; a narrowing request cannot push peaks up, so
+        # it passes through untouched (preserving #4503's width-factor vs
+        # decorrelation axis correction).
+        if target_width > WIDTH_FACTOR_UNITY:
+            # gate: 0 well below the knee (widen fully), 1 at/above it (unity).
+            gate = smooth_gate(
+                pre_peak_db, WIDTH_PEAK_KNEE_START, WIDTH_PEAK_KNEE_END
+            )
+            target_width = target_width + (WIDTH_FACTOR_UNITY - target_width) * gate
+            if gate > 0.0:
+                debug(
+                    f"[Stereo Width] peak {pre_peak_db:.2f} dB — widening eased "
+                    f"toward unity (gate={gate:.2f}, target={target_width:.3f})"
+                )
 
         # Multiband so sub-300 Hz stays (near-)mono — protects kick/bass punch
         # and mono compatibility, matching the SimpleMastering path (#4504).
