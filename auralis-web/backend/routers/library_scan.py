@@ -217,10 +217,14 @@ def create_library_scan_router(
                 if result.files_added or result.files_updated:
                     await connection_manager.broadcast({
                         "type": "library_updated",
-                        # `reason` kept for backward compat; new consumers use `action` (#3544).
+                        # Fields here must match LibraryUpdatedMessage in
+                        # frontend/src/types/ws/library.ts. `reason` — a
+                        # duplicate of `action` kept for backward compat with
+                        # pre-#3544 clients — was dropped in #4975: Auralis
+                        # ships frontend and backend as one Electron bundle, so
+                        # there is no independently-versioned older client.
                         "data": {
                             "action": "scan",
-                            "reason": "scan",
                             "track_count": result.files_added,
                         },
                     })

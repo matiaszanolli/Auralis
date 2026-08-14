@@ -368,8 +368,10 @@ class LibraryAutoScanner:
                 {
                     "type": "library_updated",
                     "data": {
+                        # `reason` (a duplicate of `action`, kept for backward
+                        # compat with pre-#3544 clients) dropped in #4975 —
+                        # see the matching emitter in routers/library_scan.py.
                         "action": "scan",
-                        "reason": "scan",
                         "track_count": files_added,
                     },
                 },
