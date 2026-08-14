@@ -21,6 +21,7 @@ Coverage:
 """
 
 import json
+import math
 import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
@@ -30,6 +31,8 @@ from starlette.websockets import WebSocketDisconnect
 
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
+
+from schemas import VALID_PRESETS  # noqa: E402  (needs the sys.path line above)
 
 
 def _recv_until_type(websocket, target: str, max_reads: int = 10) -> dict:
@@ -465,73 +468,163 @@ class TestWebSocketPlayback:
                 data = self._recv_until_stream_error(websocket)
                 assert data["data"]["code"] != "ENHANCEMENT_DISABLED"
 
-    def test_play_enhanced_invalid_preset(self, client):
-        """Test play_enhanced with invalid preset (Issue #2112)"""
-        with client.websocket_connect("/ws") as websocket:
-            # Send play_enhanced with invalid preset
-            websocket.send_text(json.dumps({
-                "type": "play_enhanced",
-                "data": {
-                    "track_id": 1,
-                    "preset": "invalid_preset_name",
-                    "intensity": 1.0
-                }
-            }))
+    # ---- #4600 fallback contract (rewritten in #5093) -------------------
+    #
+    # These three used to assert only `isinstance(data, dict)` on a single
+    # received frame. Every /ws connection pushes unsolicited
+    # enhancement_settings_changed/player_state frames on accept, so that
+    # asserted on the handshake, not on any response to the bad payload — they
+    # passed even if handle_play_enhanced never ran. The preset one accepted
+    # `audio_stream_error` as proof of preset rejection, but the error it
+    # actually saw was the enhancement-disabled gate (the same one #5092 was
+    # about), unrelated to the preset value.
+    #
+    # The real contract (#4600, playback_commands.py:120-131): on a *streaming*
+    # command an out-of-range/NaN/inf intensity or an unknown preset falls back
+    # to the STORED setting rather than 422-ing — refusing to start playback
+    # over a bad slider value is worse than playing at the stored value. What
+    # is NOT acceptable, and was the original bug, is silent coercion to
+    # maximum, or NaN/inf reaching the runtime settings dict.
+    #
+    # So these assert on what the streaming path actually received, by
+    # capturing stream_audio's resolved kwargs. force:True gets past the
+    # disabled gate; the ping/pong round-trip guarantees the handler has run
+    # (messages are processed in order) before the assertion.
 
-            # Should receive error about invalid preset (after the
-            # connect-handshake frames: enhancement_settings_changed, player_state)
-            handshake_types = {"enhancement_settings_changed", "player_state"}
-            for _ in range(10):
-                data = json.loads(websocket.receive_text())
-                if data.get("type") not in handshake_types:
-                    break
-            else:
-                raise AssertionError("No response received within 10 frames")
+    @staticmethod
+    def _capture_stream_audio_kwargs():
+        """Return (recorder_list, patched_stream_audio)."""
+        import asyncio
 
-            # Should either reject immediately or fail gracefully
-            # Not crash the processing engine
-            assert isinstance(data, dict)
-            assert data.get("type") in ["audio_stream_error", "error", "seek_started"]
+        captured: list[dict] = []
+
+        async def recording_stream_audio(
+            websocket, get_repository_factory, get_enhancement_settings,
+            get_cache_manager, *, track_id, preset, intensity, force,
+            start_position, ws_id,
+        ):
+            captured.append({
+                "track_id": track_id, "preset": preset,
+                "intensity": intensity, "force": force,
+            })
+            await asyncio.sleep(0)
+
+        return captured, recording_stream_audio
+
+    def _resolved_stream_kwargs(self, client, payload_data, stored):
+        """Send one play_enhanced and return the kwargs stream_audio received."""
+        import main
+        import routers.system as system_module
+
+        captured, recording_stream_audio = self._capture_stream_audio_kwargs()
+
+        with patch.dict(main.globals_dict["enhancement_settings"], stored):
+            with patch.object(system_module, "stream_audio", recording_stream_audio):
+                with client.websocket_connect("/ws") as websocket:
+                    websocket.send_text(json.dumps({
+                        "type": "play_enhanced", "data": payload_data,
+                    }))
+                    # Round-trip a ping so the play_enhanced above is fully
+                    # handled before we assert (in-order processing).
+                    websocket.send_text(json.dumps({"type": "ping"}))
+                    for _ in range(10):
+                        if json.loads(websocket.receive_text()).get("type") == "pong":
+                            break
+                    else:
+                        raise AssertionError("No pong within 10 frames")
+
+        assert captured, (
+            "stream_audio was never reached — the payload was rejected before "
+            "the streaming path, so this test would assert nothing"
+        )
+        return captured[0]
 
     def test_play_enhanced_out_of_range_intensity(self, client):
-        """Test play_enhanced with out-of-range intensity (Issue #2112)"""
-        with client.websocket_connect("/ws") as websocket:
-            # Send play_enhanced with intensity > 1.0
-            websocket.send_text(json.dumps({
-                "type": "play_enhanced",
-                "data": {
-                    "track_id": 1,
-                    "preset": "adaptive",
-                    "intensity": 5.0  # Way out of range
-                }
-            }))
-
-            # Should receive error or clamp value
-            response = websocket.receive_text()
-            data = json.loads(response)
-
-            # Should handle gracefully, not crash
-            assert isinstance(data, dict)
+        """intensity > INTENSITY_MAX falls back to the stored value (#4600)."""
+        resolved = self._resolved_stream_kwargs(
+            client,
+            {"track_id": 1, "preset": "adaptive", "intensity": 5.0, "force": True},
+            stored={"enabled": False, "preset": "adaptive", "intensity": 0.42},
+        )
+        assert resolved["intensity"] == pytest.approx(0.42), (
+            f"out-of-range intensity resolved to {resolved['intensity']}; the "
+            "stored value must win. 5.0 would mean the client value was used "
+            "verbatim; 1.0 would mean silent coercion to maximum — the #4600 bug"
+        )
 
     def test_play_enhanced_negative_intensity(self, client):
-        """Test play_enhanced with negative intensity (Issue #2112)"""
-        with client.websocket_connect("/ws") as websocket:
-            # Send play_enhanced with negative intensity
-            websocket.send_text(json.dumps({
-                "type": "play_enhanced",
-                "data": {
-                    "track_id": 1,
-                    "preset": "adaptive",
-                    "intensity": -0.5
-                }
-            }))
+        """intensity < INTENSITY_MIN falls back to the stored value (#4600)."""
+        resolved = self._resolved_stream_kwargs(
+            client,
+            {"track_id": 1, "preset": "adaptive", "intensity": -0.5, "force": True},
+            stored={"enabled": False, "preset": "adaptive", "intensity": 0.42},
+        )
+        assert resolved["intensity"] == pytest.approx(0.42)
+        assert resolved["intensity"] >= 0.0
 
-            # Should receive error or clamp to 0
-            response = websocket.receive_text()
-            data = json.loads(response)
+    @pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+    def test_play_enhanced_non_finite_intensity_never_reaches_settings(
+        self, client, bad
+    ):
+        """NaN/±inf must not reach the runtime settings dict (#4600).
 
-            # Should handle gracefully
-            assert isinstance(data, dict)
+        json.dumps emits bare NaN/Infinity tokens, which the server's json.loads
+        accepts — so these really do arrive as floats, not strings.
+        """
+        import main
+
+        resolved = self._resolved_stream_kwargs(
+            client,
+            {"track_id": 1, "preset": "adaptive", "intensity": bad, "force": True},
+            stored={"enabled": False, "preset": "adaptive", "intensity": 0.42},
+        )
+        assert math.isfinite(resolved["intensity"]), (
+            f"non-finite intensity {bad!r} reached the streaming path"
+        )
+        assert resolved["intensity"] == pytest.approx(0.42)
+        live = main.globals_dict["enhancement_settings"]["intensity"]
+        assert math.isfinite(live), f"non-finite intensity persisted: {live!r}"
+
+    def test_play_enhanced_valid_intensity_is_honoured(self, client):
+        """Control: an in-range client value must NOT be replaced by the stored one."""
+        resolved = self._resolved_stream_kwargs(
+            client,
+            {"track_id": 1, "preset": "adaptive", "intensity": 0.75, "force": True},
+            stored={"enabled": False, "preset": "adaptive", "intensity": 0.42},
+        )
+        assert resolved["intensity"] == pytest.approx(0.75), (
+            "a valid client intensity was overwritten by the stored value — "
+            "the fallback is firing when it should not"
+        )
+
+    def test_play_enhanced_invalid_preset(self, client):
+        """An unknown preset falls back to the stored preset (#4600).
+
+        Isolated from the enhancement-disabled gate via force:True, so the
+        observed behaviour reflects preset handling and not the gate's error.
+        """
+        resolved = self._resolved_stream_kwargs(
+            client,
+            {
+                "track_id": 1, "preset": "invalid_preset_name",
+                "intensity": 1.0, "force": True,
+            },
+            stored={"enabled": False, "preset": "warm", "intensity": 1.0},
+        )
+        assert resolved["preset"] == "warm", (
+            f"invalid preset resolved to {resolved['preset']!r}; the stored "
+            "preset must win, and the raw invalid value must never pass through"
+        )
+        assert resolved["preset"] in VALID_PRESETS
+
+    def test_play_enhanced_valid_preset_is_honoured(self, client):
+        """Control: a valid client preset must NOT be replaced by the stored one."""
+        resolved = self._resolved_stream_kwargs(
+            client,
+            {"track_id": 1, "preset": "punchy", "intensity": 1.0, "force": True},
+            stored={"enabled": False, "preset": "warm", "intensity": 1.0},
+        )
+        assert resolved["preset"] == "punchy"
 
     def test_pause_playback(self, client):
         """Test pause message"""
