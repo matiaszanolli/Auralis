@@ -129,7 +129,12 @@ def create_fingerprint_status_router(
                         # or the bounded queue is full; claiming "queued for
                         # generation" regardless would mislead the caller
                         # when the track was actually dropped.
-                        queued = queue.enqueue(track_id)
+                        # Offloaded like every other enqueue call from an
+                        # `async def` (#4702). Bounded in-memory push under a
+                        # lock today, so the stall is sub-millisecond — but the
+                        # invariant "no sync queue work on the loop" is only
+                        # useful if it holds uniformly and greppably.
+                        queued = await asyncio.to_thread(queue.enqueue, track_id)
                         if queued:
                             logger.info(f"📋 Track {track_id} queued for background fingerprinting")
                         else:

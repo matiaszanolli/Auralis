@@ -179,7 +179,18 @@ def create_library_scan_router(
                     from analysis.fingerprint_queue import get_fingerprint_queue
                     fp_queue = get_fingerprint_queue()
                     if fp_queue:
-                        enqueued = sum(1 for t in result.added_tracks if fp_queue.enqueue(t.id))
+                        # Offloaded (#4702): this is a comprehension over every
+                        # newly-added track, so unlike the single-track call
+                        # sites its cost scales with scan size — a large import
+                        # would hold the loop for the whole sweep, stalling
+                        # audio streaming and the scan_complete broadcast below.
+                        # The whole loop is offloaded rather than each enqueue,
+                        # matching the batch pattern in fingerprint_queue.py
+                        # (#3335): one hop instead of N.
+                        def _enqueue_added() -> int:
+                            return sum(1 for t in result.added_tracks if fp_queue.enqueue(t.id))
+
+                        enqueued = await asyncio.to_thread(_enqueue_added)
                         if enqueued:
                             logger.info(f"Enqueued {enqueued} tracks for fingerprinting after scan")
                 except Exception as fp_err:
