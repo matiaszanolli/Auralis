@@ -257,7 +257,7 @@ npx msw init public/ --save
 **Mocks:**
 - `src/test/mocks/server.ts` - MSW server
 - `src/test/mocks/handlers.ts` - API endpoint handlers
-- `src/test/mocks/api.ts` - Mock data (tracks, albums, etc.)
+- `src/test/mocks/mockData.ts` - Mock data (tracks, albums, etc.)
 - `src/test/mocks/websocket.ts` - WebSocket mock
 
 **Templates:**

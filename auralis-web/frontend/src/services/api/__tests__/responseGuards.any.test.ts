@@ -77,7 +77,8 @@ const ALLOWED_ANY_FILES: Record<string, string> = {
   // Test infrastructure — mocks and setup intentionally model loose payloads.
   'test/mocks/handlers.ts': 'MSW handlers model arbitrary wire payloads',
   'test/mocks/websocket.ts': 'mock socket models arbitrary frames',
-  'test/mocks/api.ts': 'mock API models arbitrary payloads',
+  // 'test/mocks/api.ts' was here until #4698 deleted the module — it was a
+  // dead, drifted duplicate of mockData.ts that no test ever imported.
   'test/setup.ts': 'global test shims',
 
   // Dead code — removed wholesale by #4696, so typing it first is wasted work.

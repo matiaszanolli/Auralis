@@ -32,7 +32,9 @@ src/
 │   ├── setup.ts              # Global test setup (mocks, polyfills)
 │   ├── test-utils.tsx        # Custom render with providers
 │   ├── mocks/
-│   │   ├── api.ts           # API mock utilities & mock data
+│   │   ├── mockData.ts      # THE fixture source (tracks, albums, player state…)
+│   │   ├── handlers.ts      # MSW request handlers built on mockData
+│   │   ├── server.ts        # MSW server, started globally in setup.ts
 │   │   └── websocket.ts     # WebSocket mock utilities
 │   └── README.md            # This file
 ├── components/
@@ -134,23 +136,42 @@ describe('useMyHook', () => {
 
 ### Mocking API Calls
 
+API calls are mocked with [MSW](https://mswjs.io/). `src/test/setup.ts` starts
+the server for **every** test and resets handlers between them, so the default
+handlers in `mocks/handlers.ts` — backed by the fixtures in `mocks/mockData.ts` —
+are already in effect. Do not assign to `global.fetch`: that bypasses MSW for
+the rest of the file and is never restored.
+
+Override a single endpoint for one test with `server.use()`:
+
 ```tsx
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
+import { http, HttpResponse } from 'msw'
 import { render, screen, waitFor } from '@/test/test-utils'
-import { mockFetch, mockApiEndpoint, mockTracks } from '@/test/mocks/api'
+import { server } from '@/test/mocks/server'
+import { mockTracks } from '@/test/mocks/mockData'
 import TrackList from '../TrackList'
 
 describe('TrackList', () => {
-  beforeEach(() => {
-    mockFetch()
-    mockApiEndpoint('/api/tracks', mockTracks)
-  })
-
   it('fetches and displays tracks', async () => {
     render(<TrackList />)
 
     await waitFor(() => {
-      expect(screen.getByText('Test Track')).toBeInTheDocument()
+      expect(screen.getByText(mockTracks[0].title)).toBeInTheDocument()
+    })
+  })
+
+  it('shows an error when the request fails', async () => {
+    server.use(
+      http.get('http://localhost:8765/api/library/tracks', () =>
+        HttpResponse.json({ error: 'Server error' }, { status: 500 })
+      )
+    )
+
+    render(<TrackList />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/error/i)).toBeInTheDocument()
     })
   })
 })
