@@ -103,6 +103,15 @@ async def setup_connection(
     # Origin check is delegated entirely to ConnectionManager.connect
     # (config/globals.py) — see #3524 / BE-NEW-66. Single authoritative
     # origin policy lives in config/globals.py.
+    #
+    # #4703: connect() RAISES WebSocketOriginRejected on a denied handshake
+    # (it used to `return` after close(1008), and this call ignored the
+    # result). Deliberately not caught here: propagating out of this function
+    # before the heartbeat task is spawned below is what makes the rejection
+    # cost nothing — no connection id, no 30 s-sleeping heartbeat task, no
+    # swallowed initial pushes, no teardown pass. websocket_endpoint catches
+    # it and returns; its `finally` is already guarded by None checks that
+    # both hold here.
     await manager.connect(websocket)
     connection_id = _ws_id(websocket)
     heartbeat = HeartbeatManager(interval_seconds=30, timeout_seconds=10)

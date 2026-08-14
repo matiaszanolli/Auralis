@@ -12,6 +12,7 @@ import logging
 from typing import Any
 from collections.abc import Callable
 
+from config.globals import WebSocketOriginRejected
 from core.audio_stream_controller import AudioStreamController, ws_id as _ws_id
 from core.processing_engine import _safe_error_message
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -427,6 +428,15 @@ def create_system_router(
                     await send_error_response(websocket, "internal_error", "Command failed")
                     continue
 
+        except WebSocketOriginRejected as e:
+            # #4703: the handshake was denied inside setup_connection before
+            # accept() and before the heartbeat task was spawned, so there is
+            # nothing to tear down — both `finally` branches below are already
+            # guarded by their None checks. Caught explicitly (and ahead of the
+            # generic handlers) so a policy rejection is not logged as an
+            # "Unexpected WebSocket error" with a stack trace; connect() has
+            # already logged the specific reason at warning level.
+            logger.debug(f"WebSocket handshake rejected: {e}")
         except WebSocketDisconnect:
             logger.info("WebSocket client disconnected normally")
         except RuntimeError as e:

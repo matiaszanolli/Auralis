@@ -64,6 +64,27 @@ LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
 BROADCAST_SEND_TIMEOUT = 2.0
 
 
+class WebSocketOriginRejected(Exception):
+    """Raised by `ConnectionManager.connect` when the handshake is denied.
+
+    #4703: rejection used to be a bare `return` after `close(1008)`, and
+    `setup_connection` ignored the result — so the endpoint ran a full
+    connection lifecycle on a socket that was never accepted: a connection id,
+    a spawned heartbeat task that sleeps up to 30 s before its first send
+    fails, two swallowed initial pushes, and a whole teardown pass.
+
+    Not an auth bypass — the handshake is denied before `accept()`, so no client
+    message can ever be exchanged. The cost is wasted work plus the latent
+    hazard that the single authoritative origin check had no way to stop the
+    handler, so anything added between `setup_connection` and the receive loop
+    would have run for rejected origins too.
+
+    An exception rather than a bool return (which #3524 made load-bearing by
+    consolidating the origin policy here): a bool can be ignored by the next
+    caller exactly as it was, an exception cannot be silently dropped.
+    """
+
+
 class ConnectionManager:
     """
     Manages WebSocket connections for real-time communication.
@@ -85,6 +106,11 @@ class ConnectionManager:
 
         Args:
             websocket: WebSocket connection to register
+
+        Raises:
+            WebSocketOriginRejected: the handshake was denied and the socket
+                closed with 1008. Both rejection branches signal identically,
+                and neither reaches `accept()` (#4703).
         """
         # Check Origin header for security (CORS does not apply to WebSocket upgrades).
         origin = websocket.headers.get("origin", "").lower()
@@ -93,7 +119,7 @@ class ConnectionManager:
             if origin not in ALLOWED_WS_ORIGINS:
                 logger.warning(f"WebSocket connection rejected: untrusted origin {origin!r}")
                 await websocket.close(code=1008)  # Policy Violation
-                return
+                raise WebSocketOriginRejected(f"untrusted origin {origin!r}")
         else:
             # Empty Origin: allow only from loopback so non-browser processes
             # on non-loopback interfaces cannot bypass the check (fixes #3845).
@@ -103,7 +129,9 @@ class ConnectionManager:
                     f"WebSocket connection rejected: empty Origin from non-loopback host {client_host!r}"
                 )
                 await websocket.close(code=1008)  # Policy Violation
-                return
+                raise WebSocketOriginRejected(
+                    f"empty Origin from non-loopback host {client_host!r}"
+                )
 
         await websocket.accept()
         async with self._lock:

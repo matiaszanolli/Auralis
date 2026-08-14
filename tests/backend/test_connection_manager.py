@@ -20,7 +20,7 @@ import pytest
 # Add backend directory to path so we can import the module directly
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from config.globals import ConnectionManager
+from config.globals import ConnectionManager, WebSocketOriginRejected
 
 
 def _make_ws(send_raises: Exception | None = None) -> MagicMock:
@@ -266,10 +266,15 @@ class TestOriginCheck:
 
     @pytest.mark.asyncio
     async def test_untrusted_origin_rejected(self):
-        """A connection with a non-empty, unlisted Origin is rejected (code 1008)."""
+        """A connection with a non-empty, unlisted Origin is rejected (code 1008).
+
+        #4703: rejection now RAISES rather than returning, so the caller
+        cannot ignore it and run a lifecycle on an unaccepted socket.
+        """
         manager = ConnectionManager()
         ws = _make_connect_ws(origin="https://evil.example.com")
-        await manager.connect(ws)
+        with pytest.raises(WebSocketOriginRejected):
+            await manager.connect(ws)
         ws.close.assert_awaited_once_with(code=1008)
         ws.accept.assert_not_awaited()
 
@@ -293,10 +298,14 @@ class TestOriginCheck:
 
     @pytest.mark.asyncio
     async def test_empty_origin_non_loopback_rejected(self):
-        """Empty Origin from a non-loopback host is rejected (code 1008) (#3845)."""
+        """Empty Origin from a non-loopback host is rejected (code 1008) (#3845).
+
+        #4703: raises, like the untrusted-origin branch — both signal identically.
+        """
         manager = ConnectionManager()
         ws = _make_connect_ws(origin="", client_host="192.168.1.42")
-        await manager.connect(ws)
+        with pytest.raises(WebSocketOriginRejected):
+            await manager.connect(ws)
         ws.close.assert_awaited_once_with(code=1008)
         ws.accept.assert_not_awaited()
 
@@ -306,6 +315,7 @@ class TestOriginCheck:
         manager = ConnectionManager()
         ws = _make_connect_ws(origin="", client_host="127.0.0.1")
         ws.client = None  # override to simulate missing client info
-        await manager.connect(ws)
+        with pytest.raises(WebSocketOriginRejected):
+            await manager.connect(ws)
         ws.close.assert_awaited_once_with(code=1008)
         ws.accept.assert_not_awaited()
