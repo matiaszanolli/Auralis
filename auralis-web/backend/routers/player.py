@@ -35,7 +35,7 @@ from collections.abc import Callable
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 
-from .errors import NotFoundError
+from .errors import NotFoundError, raise_for_service_error
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from player_state import PlayerState, TrackInfo
 from services import (
@@ -43,6 +43,7 @@ from services import (
     PlaybackService,
     QueueService,
     RecommendationService,
+    ServiceUnavailable,
 )
 
 logger = logging.getLogger(__name__)
@@ -503,7 +504,7 @@ def create_player_router(
             service = get_queue_service()
             return await service.get_queue_info()
         except ValueError as e:
-            raise HTTPException(status_code=503, detail=str(e))
+            raise_for_service_error(e, "get queue")
         except Exception:
             logger.error("Failed to get queue", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to get queue")
@@ -515,7 +516,7 @@ def create_player_router(
             service = get_queue_service()
             return await service.set_queue(request.tracks, request.start_index)
         except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e) if "valid" in str(e) else "Player not available")
+            raise_for_service_error(e, "set queue")
         except Exception:
             logger.error("Failed to set queue", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to set queue")
@@ -641,8 +642,7 @@ def create_player_router(
             service = get_queue_service()
             return await service.remove_track_from_queue(index)
         except ValueError as e:
-            status_code = 400 if "Invalid" in str(e) else 503
-            raise HTTPException(status_code=status_code, detail=str(e))
+            raise_for_service_error(e, "remove from queue")
         except Exception:
             logger.error("Failed to remove from queue", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to remove from queue")
@@ -654,7 +654,7 @@ def create_player_router(
             service = get_queue_service()
             return await service.reorder_queue(request.new_order)
         except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
+            raise_for_service_error(e, "reorder queue")
         except Exception:
             logger.error("Failed to reorder queue", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to reorder queue")
@@ -666,7 +666,7 @@ def create_player_router(
             service = get_queue_service()
             return await service.clear_queue()
         except ValueError as e:
-            raise HTTPException(status_code=503, detail=str(e))
+            raise_for_service_error(e, "clear queue")
         except Exception:
             logger.error("Failed to clear queue", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to clear queue")
@@ -678,8 +678,7 @@ def create_player_router(
             service = get_queue_service()
             return await service.add_track_to_queue(request.track_id, request.position)
         except ValueError as e:
-            status_code = 404 if "not found" in str(e).lower() else 503
-            raise HTTPException(status_code=status_code, detail=str(e))
+            raise_for_service_error(e, "add track to queue")
         except Exception:
             logger.error("Failed to add track to queue", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to add track to queue")
@@ -691,7 +690,7 @@ def create_player_router(
             service = get_queue_service()
             return await service.move_track_in_queue(request.from_index, request.to_index)
         except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
+            raise_for_service_error(e, "move track")
         except Exception:
             logger.error("Failed to move track", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to move track")
@@ -706,7 +705,7 @@ def create_player_router(
             else:
                 return await service.unshuffle_queue()
         except ValueError as e:
-            raise HTTPException(status_code=503, detail=str(e))
+            raise_for_service_error(e, "shuffle queue")
         except Exception:
             logger.error("Failed to shuffle queue", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to shuffle queue")
@@ -717,7 +716,7 @@ def create_player_router(
         try:
             state_manager = get_player_state_manager()
             if not state_manager:
-                raise ValueError("Player state manager not available")
+                raise ServiceUnavailable("Player state manager not available")
 
             # Pass through 'off' / 'one' / 'all' — backend now uses the same
             # vocabulary as the frontend Literal (#3501 / BE-NEW-43).
@@ -731,7 +730,7 @@ def create_player_router(
 
             return {"message": f"Repeat mode set to {request.mode}"}
         except ValueError as e:
-            raise HTTPException(status_code=503, detail=str(e))
+            raise_for_service_error(e, "set repeat mode")
         except Exception:
             logger.error("Failed to set repeat mode", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to set repeat mode")

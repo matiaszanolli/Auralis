@@ -76,6 +76,45 @@ class ConnectionManagerUnavailableError(ServiceUnavailableError):
         super().__init__("Connection manager not available")
 
 
+def raise_for_service_error(error: ValueError, operation: str) -> NoReturn:
+    """
+    Map a service-layer failure to its HTTP status by exception TYPE (#4700).
+
+    Replaces the substring sniffing the queue handlers used to do
+    (``400 if "valid" in str(e) else ...``), which reported every
+    service-outage condition as 400 Bad Request and re-broke whenever a
+    message was reworded.
+
+    Args:
+        operation: Description of the failed operation, used for the 500 detail
+            (e.g. "set queue")
+        error: The service-layer exception, normally a ``ServiceError`` subclass
+
+    Raises:
+        HTTPException: 503 unavailable, 404 not found, 400 invalid request,
+            500 operation failure. A plain ``ValueError`` from a not-yet-typed
+            raiser keeps the historical 400 default.
+    """
+    from services.errors import (
+        InvalidRequest,
+        OperationFailed,
+        ResourceNotFound,
+        ServiceUnavailable,
+    )
+
+    if isinstance(error, ServiceUnavailable):
+        raise ServiceUnavailableError(str(error))
+    if isinstance(error, ResourceNotFound):
+        raise NotFoundError("Resource", detail=str(error))
+    if isinstance(error, InvalidRequest):
+        raise BadRequestError(str(error))
+    if isinstance(error, OperationFailed):
+        raise InternalServerError(operation, error)
+
+    # Untyped ValueError — historical behaviour was 400 with the raw message.
+    raise BadRequestError(str(error))
+
+
 def handle_query_error(operation: str, error: Exception) -> NoReturn:
     """
     Centralized error handler for query operations.

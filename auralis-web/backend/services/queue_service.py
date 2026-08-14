@@ -13,6 +13,12 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
+from .errors import (
+    InvalidRequest,
+    OperationFailed,
+    ResourceNotFound,
+    ServiceUnavailable,
+)
 from .queue_enrichment import QueueEnricher
 from .queue_protocols import AudioPlayerWithQueue, QueueManager
 
@@ -185,7 +191,7 @@ class QueueService:
             Exception: If unable to retrieve queue
         """
         if not self.audio_player:
-            raise ValueError("Audio player not available")
+            raise ServiceUnavailable("Audio player not available")
 
         try:
             queue_obj = getattr(self.audio_player, 'queue', None)
@@ -235,11 +241,11 @@ class QueueService:
             Exception: If operation fails
         """
         if not self.audio_player:
-            raise ValueError("Audio player not available")
+            raise ServiceUnavailable("Audio player not available")
         if not self.player_state_manager:
-            raise ValueError("Player state manager not available")
+            raise ServiceUnavailable("Player state manager not available")
         if not self.library_manager:
-            raise ValueError("Library manager not available")
+            raise ServiceUnavailable("Library manager not available")
 
         async with self._set_queue_lock:
             self._next_set_queue_generation += 1
@@ -277,7 +283,7 @@ class QueueService:
                 db_tracks = await asyncio.to_thread(_fetch_individually)
 
             if not db_tracks:
-                raise ValueError("No valid tracks found")
+                raise InvalidRequest("No valid tracks found")
 
             # Convert to TrackInfo for state
             track_infos = [self.create_track_info_fn(t) for t in db_tracks]
@@ -380,9 +386,9 @@ class QueueService:
             Exception: If track not found or operation fails
         """
         if not self.audio_player or not hasattr(self.audio_player, 'queue'):
-            raise ValueError("Queue manager not available")
+            raise ServiceUnavailable("Queue manager not available")
         if not self.library_manager:
-            raise ValueError("Library manager not available")
+            raise ServiceUnavailable("Library manager not available")
 
         try:
             # Get track from library — sync DB call, offload (#3554).
@@ -390,7 +396,7 @@ class QueueService:
                 self.library_manager.tracks.get_by_id, track_id
             )
             if not track:
-                raise ValueError(f"Track {track_id} not found")
+                raise ResourceNotFound(f"Track {track_id} not found")
 
             queue_manager = self.audio_player.queue
             track_info = {'id': track.id, 'filepath': track.filepath}
@@ -443,7 +449,7 @@ class QueueService:
             Exception: If index invalid or operation fails
         """
         if not self.audio_player or not hasattr(self.audio_player, 'queue'):
-            raise ValueError("Queue manager not available")
+            raise ServiceUnavailable("Queue manager not available")
 
         try:
             queue_manager = self.audio_player.queue
@@ -451,7 +457,7 @@ class QueueService:
             # Validate index
             queue_size = queue_manager.get_queue_size()
             if index < 0 or index >= queue_size:
-                raise ValueError(f"Invalid index: {index}")
+                raise InvalidRequest(f"Invalid index: {index}")
 
             # Detect whether the currently-playing track is the one being removed
             # (fixes #2403: without this check, audio continues from the removed track
@@ -461,7 +467,7 @@ class QueueService:
             # Remove track from queue
             success = queue_manager.remove_track(index)
             if not success:
-                raise ValueError("Failed to remove track")
+                raise OperationFailed("Failed to remove track")
 
             # If the removed track was playing, stop current audio and load the new
             # current track (or stop entirely if the queue is now empty).
@@ -511,7 +517,7 @@ class QueueService:
             Exception: If order invalid or operation fails
         """
         if not self.audio_player or not hasattr(self.audio_player, 'queue'):
-            raise ValueError("Queue manager not available")
+            raise ServiceUnavailable("Queue manager not available")
 
         try:
             queue_manager = self.audio_player.queue
@@ -519,19 +525,19 @@ class QueueService:
             # Validate new_order
             queue_size = queue_manager.get_queue_size()
             if len(new_order) != queue_size:
-                raise ValueError(
+                raise InvalidRequest(
                     f"new_order length ({len(new_order)}) must match queue size ({queue_size})"
                 )
 
             if set(new_order) != set(range(queue_size)):
-                raise ValueError(
+                raise InvalidRequest(
                     "new_order must contain all indices from 0 to queue_size-1 exactly once"
                 )
 
             # Reorder queue
             success = queue_manager.reorder_tracks(new_order)
             if not success:
-                raise ValueError("Failed to reorder queue")
+                raise OperationFailed("Failed to reorder queue")
 
             # Get updated queue
             updated_queue = queue_manager.get_queue()
@@ -567,7 +573,7 @@ class QueueService:
             Exception: If indices invalid or operation fails
         """
         if not self.audio_player or not hasattr(self.audio_player, 'queue'):
-            raise ValueError("Queue manager not available")
+            raise ServiceUnavailable("Queue manager not available")
 
         try:
             queue_manager = self.audio_player.queue
@@ -576,9 +582,9 @@ class QueueService:
             # Validate indices
             queue_size = len(current_queue)
             if from_index < 0 or from_index >= queue_size:
-                raise ValueError(f"Invalid from_index: {from_index}")
+                raise InvalidRequest(f"Invalid from_index: {from_index}")
             if to_index < 0 or to_index >= queue_size:
-                raise ValueError(f"Invalid to_index: {to_index}")
+                raise InvalidRequest(f"Invalid to_index: {to_index}")
 
             # Move under QueueManager's lock so the playing track is preserved
             # by identity and no stale current_index is reapplied (#4776).
@@ -586,7 +592,7 @@ class QueueService:
                 queue_manager.move_track, from_index, to_index
             )
             if not success:
-                raise ValueError("Failed to move track")
+                raise OperationFailed("Failed to move track")
 
             # Broadcast queue update (fixes #3492)
             await self._broadcast_queue_changed(
@@ -619,7 +625,7 @@ class QueueService:
             Exception: If operation fails
         """
         if not self.audio_player or not hasattr(self.audio_player, 'queue'):
-            raise ValueError("Queue manager not available")
+            raise ServiceUnavailable("Queue manager not available")
 
         try:
             queue_manager = self.audio_player.queue
@@ -664,7 +670,7 @@ class QueueService:
             Exception: If operation fails
         """
         if not self.audio_player or not hasattr(self.audio_player, 'queue'):
-            raise ValueError("Queue manager not available")
+            raise ServiceUnavailable("Queue manager not available")
 
         try:
             queue_manager = self.audio_player.queue
@@ -709,9 +715,9 @@ class QueueService:
             Exception: If operation fails
         """
         if not self.audio_player or not hasattr(self.audio_player, 'queue'):
-            raise ValueError("Queue manager not available")
+            raise ServiceUnavailable("Queue manager not available")
         if not self.player_state_manager:
-            raise ValueError("Player state manager not available")
+            raise ServiceUnavailable("Player state manager not available")
 
         try:
             queue_manager = self.audio_player.queue
