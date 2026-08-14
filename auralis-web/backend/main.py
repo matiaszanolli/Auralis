@@ -17,10 +17,11 @@ from pathlib import Path
 from typing import Any
 
 import uvicorn
-from fastapi import WebSocket
-from fastapi.responses import HTMLResponse
+from fastapi import Request, WebSocket
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette import status
+from starlette.routing import Match
 
 # NOTE: logging.basicConfig was removed (#3537 / BE-NEW-79). uvicorn.run()
 # installs its own logging configuration with handlers on the root logger,
@@ -217,6 +218,80 @@ FRONTEND_MISSING_HTML = """
 @app.websocket("/{path:path}")
 async def _unregistered_websocket(websocket: WebSocket) -> None:
     await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+
+
+# Named so _methods_allowed_for can skip them. Both match *every* path, so
+# leaving them in would report each path as allowing every method: the
+# catch-all matches its own request, and the SPA Mount is what shadowed the 405
+# in the first place.
+_CATCH_ALL_ROUTE_NAMES = {"_unmatched_api_path", "frontend"}
+
+_PROBE_METHODS = ("GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS")
+
+
+def _methods_allowed_for(request: Request) -> set[str]:
+    """Methods some real route accepts for this request's path.
+
+    Empty when no route matches the path under any method — a genuine 404
+    rather than a method mismatch.
+
+    Probes each method through Starlette's own matcher rather than reading
+    `route.methods`: `app.include_router()` leaves each router as a single
+    nested `_IncludedRouter` entry in `app.routes` (children are not flattened
+    up), and those expose no `.methods` — so a direct attribute read finds no
+    API routes at all and every path looks like a 404. Asking `matches()` for a
+    FULL match per candidate method delegates to the same resolution the real
+    request would use, at any nesting depth.
+    """
+    allowed: set[str] = set()
+    probe = dict(request.scope)
+    for method in _PROBE_METHODS:
+        probe["method"] = method
+        for route in request.app.routes:
+            if getattr(route, "name", None) in _CATCH_ALL_ROUTE_NAMES:
+                continue
+            if route.matches(probe)[0] is Match.FULL:
+                allowed.add(method)
+                break
+    return allowed
+
+
+# Catch-all for unmatched /api paths (#5090). Same placement rationale as the
+# WebSocket catch-all above: after setup_routers's real routes, before the
+# StaticFiles Mount.
+#
+# Starlette returns 405 for a method mismatch only when NO route fully matches
+# the request. The SPA Mount at "/" below fully matches *every* path, so once it
+# is registered it beats the partial (path-matched, method-mismatched) match on
+# every real API route — `GET /api/files/upload` reached StaticFiles, found no
+# such file on disk, and became a 404 instead of the 405 the route shape
+# implies. That also meant every unknown /api path returned StaticFiles' error
+# rather than the app's JSON error shape.
+#
+# Because the mount only exists in production with a built frontend, and
+# `auralis-web/frontend/dist/` is gitignored and never built by
+# `backend-tests.yml`, this silently made behaviour differ between CI (no
+# mount, 405) and a developer machine that had run a frontend build (mount,
+# 404) — the same environment-dependence that makes worktree baselines report
+# phantom diffs. Handling /api explicitly here makes the response identical in
+# both, and keeps API errors in the API's own format.
+@app.api_route(
+    "/api/{path:path}",
+    methods=["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"],
+    include_in_schema=False,
+)
+async def _unmatched_api_path(request: Request, path: str) -> JSONResponse:
+    allowed = _methods_allowed_for(request)
+    if allowed:
+        return JSONResponse(
+            status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
+            content={"detail": "Method Not Allowed"},
+            headers={"Allow": ", ".join(sorted(allowed))},
+        )
+    return JSONResponse(
+        status_code=status.HTTP_404_NOT_FOUND,
+        content={"detail": "Not Found"},
+    )
 
 
 # Only mount static files in production (when not running --dev)
