@@ -78,6 +78,45 @@ describe('usePlayTrack', () => {
     expect(mockError).toHaveBeenCalledWith(expect.stringContaining('500'));
   });
 
+  // #5121: the failure branch used to throw a hardcoded
+  // `Failed to set queue: {status} {statusText}`, discarding the backend's
+  // HTTPException detail. Routed through httpErrorFromResponse (the same fix
+  // #4831 applied to useRestAPI.ts) so the toast names the real cause.
+  it("surfaces the backend's error detail rather than a bare status line (#5121)", async () => {
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 422,
+      statusText: 'Unprocessable Entity',
+      json: async () => ({ detail: 'Track 42 not found' }),
+    });
+
+    const { result } = renderHook(() => usePlayTrack());
+    await act(async () => {
+      await result.current.playTrack(track);
+    });
+
+    expect(mockStartTrack).not.toHaveBeenCalled();
+    expect(mockError).toHaveBeenCalledWith('Track 42 not found');
+  });
+
+  it('falls back to the status line when the body carries no detail (#5121)', async () => {
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 503,
+      statusText: 'Service Unavailable',
+      json: async () => {
+        throw new Error('not json');
+      },
+    });
+
+    const { result } = renderHook(() => usePlayTrack());
+    await act(async () => {
+      await result.current.playTrack(track);
+    });
+
+    expect(mockError).toHaveBeenCalledWith(expect.stringContaining('503'));
+  });
+
   it('delegates the selected track id to PlaybackSession', async () => {
     mockFetch.mockResolvedValue({ ok: true, status: 200 });
 

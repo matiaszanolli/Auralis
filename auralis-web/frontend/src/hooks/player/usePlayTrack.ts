@@ -4,6 +4,7 @@ import { usePlaybackControls } from '@/contexts/PlaybackSessionContext';
 import { getApiUrl } from '@/config/api';
 import type { Track } from '@/types/domain';
 import { isAbortError } from '@/utils/errorGuards';
+import { httpErrorFromResponse } from '@/utils/httpError';
 
 /**
  * Minimal track shape usePlayTrack needs. `Track` / `LibraryTrack` /
@@ -54,10 +55,12 @@ export const usePlayTrack = () => {
         });
 
         // #3953: only stream if the queue POST succeeded.
+        // #5121: surface the backend's HTTPException `detail` rather than a
+        // bare status line — set_queue raises actionable text ("Track 123 not
+        // found") that the hardcoded message discarded. Same fix #4831 applied
+        // to useRestAPI.ts.
         if (!queueResponse.ok) {
-          throw new Error(
-            `Failed to set queue: ${queueResponse.status} ${queueResponse.statusText}`
-          );
+          throw await httpErrorFromResponse(queueResponse);
         }
 
         // Skip the stream if the component unmounted while the POST was in flight.
