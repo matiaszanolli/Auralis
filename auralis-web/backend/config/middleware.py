@@ -23,6 +23,8 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
+from .origins import LOOPBACK_ORIGIN_HOSTS, csp_connect_src, origin_matrix
+
 logger = logging.getLogger(__name__)
 
 
@@ -126,7 +128,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
                 "font-src 'self' https://fonts.gstatic.com; "
                 f"img-src {img_src}; "
-                "connect-src 'self' ws://localhost:* http://localhost:*; "
+                # Derived from config/origins.py so it cannot drift from the
+                # CORS and WebSocket allowlists again (#4712) — it listed only
+                # `localhost`, blocking the WS for a page opened via 127.0.0.1.
+                f"connect-src {csp_connect_src()}; "
                 "media-src 'self' blob:;"
             )
 
@@ -338,16 +343,12 @@ def cors_allowed_origins() -> list[str]:
     Only http/https appear here, not ws/wss: an Origin header for an HTTP
     request always carries the *page* scheme, so a `ws://` entry could never
     match a CORS preflight.
+
+    The host x port matrix itself lives in config/origins.py — shared with
+    build_ws_origins() and the CSP connect-src directive so the three cannot
+    drift apart again (#4712).
     """
-    from .app import is_dev_mode
-    dev_ports = list(range(3000, 3007)) if is_dev_mode() else []
-    all_ports = dev_ports + [8765]
-    return [
-        f"{scheme}://{host}:{port}"
-        for scheme in ("http", "https")
-        for host in ("localhost", "127.0.0.1")
-        for port in all_ports
-    ]
+    return origin_matrix(("http", "https"))
 
 
 # Hosts a browser can legitimately put in the Host header for this backend.
@@ -360,7 +361,13 @@ def cors_allowed_origins() -> list[str]:
 # No "[::1]": the same split(":") leaves "[" for an IPv6 literal, so a bracketed
 # address cannot be matched at all. It does not need to be — main.py binds
 # 127.0.0.1, so the v6 loopback never reaches this process.
-_TRUSTED_HOSTS: tuple[str, ...] = ("localhost", "127.0.0.1")
+#
+# Sourced from config/origins.py rather than re-spelled here: this was the
+# fourth independent copy of the same both-spellings host policy, alongside
+# CORS, the WS allowlist and the CSP (#4712 / #3539). A new loopback spelling
+# must be trusted in the Host header for the same reason it must be allowed as
+# an origin, so the coupling is intended.
+_TRUSTED_HOSTS: tuple[str, ...] = LOOPBACK_ORIGIN_HOSTS
 
 # Starlette's TestClient sends `Host: testserver` by default, and several
 # suites drive the ASGI app through httpx with base_url="http://test". Neither

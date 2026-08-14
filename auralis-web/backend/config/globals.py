@@ -33,18 +33,13 @@ def build_ws_origins() -> frozenset[str]:
     is_dev_mode() so a packaged build won't accept WS upgrades from those origins
     (#4350). 8765 (the backend) and file:// (Electron renderer) are always
     allowed. Shares the dev-gating contract with middleware.cors_allowed_origins.
+
+    The host x port matrix itself lives in config/origins.py — shared with
+    cors_allowed_origins() and the CSP connect-src directive so the three
+    cannot drift apart again (#4712).
     """
-    from .app import is_dev_mode
-    ports = (list(range(3000, 3007)) if is_dev_mode() else []) + [8765]
-    return frozenset(
-        {
-            f"{scheme}://{host}:{port}"
-            for scheme in ("http", "https", "ws", "wss")
-            for host in ("localhost", "127.0.0.1")
-            for port in ports
-        }
-        | {"file://"}
-    )
+    from .origins import origin_matrix
+    return frozenset(origin_matrix(("http", "https", "ws", "wss")) + ["file://"])
 
 
 # Frozen at import time: dev/prod mode is fixed for the process lifetime (set by

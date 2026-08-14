@@ -109,12 +109,22 @@ class TestOtherDirectivesUnchanged:
         [
             ("default-src", ["'self'"]),
             ("media-src", ["'self'", "blob:"]),
-            ("connect-src", ["'self'", "ws://localhost:*", "http://localhost:*"]),
             ("font-src", ["'self'", "https://fonts.gstatic.com"]),
         ],
     )
     def test_directive_intact(self, directive: str, expected: list[str]):
         assert _directive(directive) == expected
+
+    def test_connect_src_is_generated_from_the_shared_host_policy(self):
+        """#4712 replaced the hardcoded localhost-only literal.
+
+        The exact source list is owned by config/origins.py and asserted in
+        test_origin_policy_single_source.py; this only pins that widening
+        img-src did not disturb it.
+        """
+        from config.origins import csp_connect_src
+
+        assert _directive("connect-src") == csp_connect_src().split()
 
     def test_frame_ancestors_protection_still_set(self):
         assert "'self'" in _directive("default-src")
