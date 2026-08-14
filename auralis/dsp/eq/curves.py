@@ -12,18 +12,39 @@ from typing import Any
 
 import numpy as np
 
-# Genre-specific EQ curves (25 bands)
+# Genre-specific EQ curves (25 bands), in dB.
+#
+# `dtype=np.float64` is load-bearing, not decoration (#4923). These literals are
+# Python ints, so without it NumPy infers int64 and every sub-1 dB adjustment a
+# caller adds truncates to zero on assignment — `curve[i] += 0.3 * 2.0 * 0.2`
+# writes 0, not 0.12. The no-genre path in `create_target_curve` builds
+# `np.zeros()` (float64) and behaves correctly, so the truncation appeared only
+# when a genre WAS supplied, i.e. exactly when a shaped curve was wanted.
 GENRE_CURVES = {
-    'rock': np.array([2, 1, 0, 0, 1, 2, 1, 0, -1, 0, 1, 2, 1, 0, 0, 1, 2, 1, 0, -1, 0, 0, 0, 0, 0]),
-    'pop': np.array([1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0]),
-    'classical': np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0]),
-    'electronic': np.array([3, 2, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 2, 2, 2, 1, 1, 1, 0, 0, 0, 0]),
-    'jazz': np.array([0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0]),
-    'ambient': np.array([1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 2, 2, 1, 1, 0, 0, 0, 0]),
-    'metal': np.array([2, 2, 1, 0, 0, 1, 2, 1, -1, -1, 0, 1, 2, 2, 1, 1, 2, 2, 1, 0, 0, 0, 0, 0, 0]),
-    'hip-hop': np.array([3, 2, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 2, 1, 1, 0, 0, 0, 0, 0, 0]),
-    'country': np.array([1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0]),
+    'rock': np.array([2, 1, 0, 0, 1, 2, 1, 0, -1, 0, 1, 2, 1, 0, 0, 1, 2, 1, 0, -1, 0, 0, 0, 0, 0], dtype=np.float64),
+    'pop': np.array([1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0], dtype=np.float64),
+    'classical': np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0], dtype=np.float64),
+    'electronic': np.array([3, 2, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 2, 2, 2, 1, 1, 1, 0, 0, 0, 0], dtype=np.float64),
+    'jazz': np.array([0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0], dtype=np.float64),
+    'ambient': np.array([1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 2, 2, 1, 1, 0, 0, 0, 0], dtype=np.float64),
+    'metal': np.array([2, 2, 1, 0, 0, 1, 2, 1, -1, -1, 0, 1, 2, 2, 1, 1, 2, 2, 1, 0, 0, 0, 0, 0, 0], dtype=np.float64),
+    'hip-hop': np.array([3, 2, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 2, 1, 1, 0, 0, 0, 0, 0, 0], dtype=np.float64),
+    'country': np.array([1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0], dtype=np.float64),
 }
+
+# Defence in depth for the copy-before-modify invariant (#4923). Returning a
+# view of one of these and mutating it corrupted the shared preset for the rest
+# of the process. `generate_genre_eq_curve` now copies, but a future edit that
+# drops the `.copy()` would silently reintroduce that; with the source arrays
+# read-only it raises `ValueError: assignment destination is read-only` at the
+# first write instead. Reads, slices and `np.copy()` are unaffected.
+def _freeze(curves: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
+    for curve in curves.values():
+        curve.setflags(write=False)
+    return curves
+
+
+GENRE_CURVES = _freeze(GENRE_CURVES)
 
 
 def generate_genre_eq_curve(genre: str, num_bands: int = 25) -> np.ndarray:
@@ -42,7 +63,14 @@ def generate_genre_eq_curve(genre: str, num_bands: int = 25) -> np.ndarray:
     if genre_lower in GENRE_CURVES:
         curve = GENRE_CURVES[genre_lower]
         if len(curve) >= num_bands:
-            return curve[:num_bands]
+            # .copy() is required, not defensive style (#4923). NumPy slicing
+            # returns a VIEW, so without it every caller shared one buffer with
+            # the module-level preset table — `create_target_curve` then wrote
+            # its brightness/warmth adjustments straight into GENRE_CURVES and
+            # they ACCUMULATED across calls for the life of the process. The
+            # two branches below already build fresh arrays; this was the lone
+            # aliasing path, and it is the default one (25 bands of 25).
+            return curve[:num_bands].copy()
         else:
             # Pad with zeros if needed
             padded = np.zeros(num_bands)

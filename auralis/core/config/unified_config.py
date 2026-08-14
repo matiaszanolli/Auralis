@@ -18,6 +18,16 @@ from .genre_profiles import create_default_genre_profiles, get_genre_profile
 from .preset_profiles import PresetProfile, get_available_presets, get_preset_profile
 from .settings import AdaptiveConfig, GenreProfile, LimiterConfig
 
+# The three processing modes, as one runtime-checkable source of truth.
+#
+# `set_processing_mode`'s `Literal` annotation is static-only, so it validates
+# nothing at runtime; this tuple is what the setter actually checks against, and
+# it must stay in step with the `is_reference_mode` / `is_adaptive_mode` /
+# `is_hybrid_mode` predicates below. Adding a fourth mode means adding it here,
+# adding a predicate, and widening the `Literal` — all three, or a mode becomes
+# settable that no dispatch branch recognises.
+PROCESSING_MODES: tuple[str, ...] = ("reference", "adaptive", "hybrid")
+
 
 class UnifiedConfig:
     """
@@ -172,7 +182,32 @@ class UnifiedConfig:
         return get_genre_profile(genre, self.genre_profiles)
 
     def set_processing_mode(self, mode: Literal["reference", "adaptive", "hybrid"]) -> None:
-        """Change the processing mode"""
+        """
+        Change the processing mode.
+
+        Args:
+            mode: One of "reference", "adaptive", "hybrid"
+
+        Raises:
+            ValueError: If the mode is not one of the three known modes.
+
+        The `Literal` annotation is a static hint only — nothing enforced it at
+        runtime, so an unknown string was accepted silently and left the config
+        in a state where `is_adaptive_mode()`, `is_reference_mode()` AND
+        `is_hybrid_mode()` all return False. Every mode-dispatch branch then
+        falls through, which surfaces far from the assignment that caused it.
+
+        Callers that already validate (`HybridProcessor.set_processing_mode`,
+        the `Literal`-typed Pydantic model in `routers/processing_api.py`) were
+        not the gap; `ProcessorFactory.get_or_create_for_config` passes its
+        `mode` argument straight through. Validating here matches
+        `set_mastering_preset` below, which has always rejected unknown names.
+        """
+        if mode not in PROCESSING_MODES:
+            raise ValueError(
+                f"Invalid processing mode '{mode}'. "
+                f"Valid modes: {', '.join(PROCESSING_MODES)}"
+            )
         self.adaptive.mode = mode
         debug(f"Processing mode changed to: {mode}")
 

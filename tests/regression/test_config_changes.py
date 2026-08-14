@@ -21,7 +21,29 @@ import pytest
 
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.config import UnifiedConfig
+from auralis.core.config.unified_config import PROCESSING_MODES, get_available_presets
+from auralis.io.results import Result
 from auralis.io.unified_loader import load_audio
+
+# ---------------------------------------------------------------------------
+# These tests were written against an imagined `UnifiedConfig` API and had been
+# failing for a long time: they read `config.processing_mode`,
+# `config.sample_rate`, `config.bit_depth` and `config.config_data`, none of
+# which exist. The real names are `config.adaptive.mode` (with
+# `is_adaptive_mode()` / `is_reference_mode()` / `is_hybrid_mode()` predicates),
+# `config.internal_sample_rate`, and `to_dict()` / `from_dict()`. Bit depth is
+# not a config concept at all — it is the PCM subtype on `io.results.Result`.
+#
+# They were also `try/except (ValueError, AttributeError): pass` around most
+# assertions, so even the reachable ones asserted almost nothing: an
+# `AttributeError` from a misspelt attribute is indistinguishable from the
+# validation the test claims to be checking. Rewritten to name the real API and
+# to let unexpected exceptions fail.
+#
+# One of them was right and the code was wrong: `set_processing_mode` accepted
+# any string, leaving the config in a mode where all three predicates return
+# False. That is now validated in `UnifiedConfig.set_processing_mode`.
+# ---------------------------------------------------------------------------
 
 
 @pytest.mark.regression
@@ -35,8 +57,11 @@ class TestProcessingModeChanges:
         """
         config = UnifiedConfig()
 
-        assert config.processing_mode == "adaptive", \
+        assert config.adaptive.mode == "adaptive", \
             "Default processing mode should be adaptive"
+        assert config.is_adaptive_mode()
+        assert not config.is_reference_mode()
+        assert not config.is_hybrid_mode()
 
     def test_all_processing_modes_available(self):
         """
@@ -44,129 +69,130 @@ class TestProcessingModeChanges:
         Test: Adaptive, reference, hybrid modes work.
         """
         config = UnifiedConfig()
+        predicates = {
+            "adaptive": config.is_adaptive_mode,
+            "reference": config.is_reference_mode,
+            "hybrid": config.is_hybrid_mode,
+        }
+        assert set(PROCESSING_MODES) == set(predicates), \
+            "PROCESSING_MODES and the is_*_mode predicates have drifted apart"
 
-        # Test each mode can be set without error
-        modes = ["adaptive", "reference", "hybrid"]
+        for mode in PROCESSING_MODES:
+            config.set_processing_mode(mode)  # type: ignore[arg-type]
 
-        for mode in modes:
-            config.set_processing_mode(mode)
-            assert config.processing_mode == mode, \
-                f"Should be able to set {mode} mode"
+            assert config.adaptive.mode == mode, f"Should be able to set {mode} mode"
+            # Exactly one predicate must match — a mode no branch recognises is
+            # the failure this guards.
+            matching = [name for name, is_mode in predicates.items() if is_mode()]
+            assert matching == [mode], f"{mode}: expected only {mode}, got {matching}"
 
     def test_invalid_mode_rejected(self):
         """
         REGRESSION: Invalid processing modes should be rejected.
         Test: Unknown modes raise ValueError.
+
+        The `Literal` annotation on `set_processing_mode` is static-only. Before
+        this was enforced at runtime, an unknown mode was stored silently and
+        every `is_*_mode()` check then returned False.
         """
         config = UnifiedConfig()
 
-        # Try to set invalid mode
-        with pytest.raises((ValueError, KeyError)):
-            config.set_processing_mode("invalid_mode_xyz")
+        with pytest.raises(ValueError, match="Invalid processing mode"):
+            config.set_processing_mode("invalid_mode_xyz")  # type: ignore[arg-type]
+
+    def test_rejected_mode_leaves_previous_mode_intact(self):
+        """A rejected write must not half-apply."""
+        config = UnifiedConfig()
+        config.set_processing_mode("hybrid")
+
+        with pytest.raises(ValueError):
+            config.set_processing_mode("nope")  # type: ignore[arg-type]
+
+        assert config.adaptive.mode == "hybrid"
+        assert config.is_hybrid_mode()
 
     def test_mode_change_doesnt_corrupt_config(self):
         """
         REGRESSION: Changing mode shouldn't corrupt other settings.
-        Test: Sample rate, bit depth preserved after mode change.
+        Test: Audio settings preserved after mode change.
         """
         config = UnifiedConfig()
 
-        original_sr = config.sample_rate
-        original_bd = config.bit_depth
+        preserved = {
+            "internal_sample_rate": config.internal_sample_rate,
+            "processing_sample_rate": config.processing_sample_rate,
+            "fft_size": config.fft_size,
+            "threshold": config.threshold,
+            "mastering_profile": config.mastering_profile,
+        }
 
-        # Change mode
         config.set_processing_mode("reference")
 
-        # Other settings should be preserved
-        assert config.sample_rate == original_sr, \
-            "Sample rate should not change with mode"
-        assert config.bit_depth == original_bd, \
-            "Bit depth should not change with mode"
+        for name, before in preserved.items():
+            assert getattr(config, name) == before, \
+                f"{name} should not change with processing mode"
 
 
 @pytest.mark.regression
 class TestParameterValidation:
     """Test parameter validation changes."""
 
-    def test_sample_rate_validation(self):
+    def test_sample_rate_accepts_standard_rates(self):
         """
-        REGRESSION: Sample rate validation should prevent invalid values.
-        Test: Negative/zero/excessive sample rates rejected.
+        REGRESSION: Standard sample rates should be constructible.
+        Test: 44.1k/48k/96k/192k all produce a usable config.
+
+        `internal_sample_rate` is a constructor argument, not a validated
+        property — the derived values are what must stay coherent, so those are
+        what this asserts.
         """
-        config = UnifiedConfig()
+        for rate in (44100, 48000, 96000, 192000):
+            config = UnifiedConfig(internal_sample_rate=rate)
 
-        # Valid sample rates should work
-        valid_rates = [44100, 48000, 96000, 192000]
-        for rate in valid_rates:
-            try:
-                config.sample_rate = rate
-                assert config.sample_rate == rate
-            except (ValueError, AttributeError):
-                # May be read-only, which is fine
-                pass
+            assert config.internal_sample_rate == rate
+            assert config.get_chunk_size_samples() > 0, \
+                f"{rate} Hz produced a non-positive chunk size"
+            assert config.get_latency_budget_samples() > 0, \
+                f"{rate} Hz produced a non-positive latency budget"
 
-        # Invalid sample rates should be rejected (if validation exists)
-        invalid_rates = [-44100, 0, 999999999]
-        for rate in invalid_rates:
-            try:
-                config.sample_rate = rate
-                # If no validation, that's okay (just document behavior)
-                if hasattr(config, 'sample_rate'):
-                    current = config.sample_rate
-                    # Either rejected or clamped to valid range
-                    assert current > 0, "Sample rate should be positive"
-            except (ValueError, AttributeError):
-                # Rejection is expected
-                pass
+    def test_sample_rate_derivations_scale_with_the_rate(self):
+        """Chunk/latency sample counts are derived from the rate, not fixed."""
+        base = UnifiedConfig(internal_sample_rate=44100)
+        double = UnifiedConfig(internal_sample_rate=88200)
+
+        assert double.get_chunk_size_samples() == 2 * base.get_chunk_size_samples()
 
     def test_bit_depth_validation(self):
         """
         REGRESSION: Bit depth validation should prevent invalid values.
-        Test: Only 16/24/32 bit depths allowed.
+        Test: Only subtypes the container supports are accepted.
+
+        Bit depth is not a `UnifiedConfig` concept — it is the PCM subtype on
+        `io.results.Result`, which is where the validation actually lives.
         """
-        config = UnifiedConfig()
+        for subtype in ("PCM_16", "PCM_24", "FLOAT"):
+            assert Result("/tmp/auralis-bitdepth-test.wav", subtype=subtype).subtype == subtype
 
-        # Valid bit depths
-        valid_depths = [16, 24, 32]
-        for depth in valid_depths:
-            try:
-                config.bit_depth = depth
-                assert config.bit_depth == depth
-            except (ValueError, AttributeError):
-                # May be read-only
-                pass
-
-        # Invalid bit depths
-        invalid_depths = [8, 64, 128, -16]
-        for depth in invalid_depths:
-            try:
-                config.bit_depth = depth
-                if hasattr(config, 'bit_depth'):
-                    current = config.bit_depth
-                    # Should be valid depth
-                    assert current in [16, 24, 32], \
-                        f"Bit depth {current} should be 16/24/32"
-            except (ValueError, AttributeError):
-                # Rejection is expected
-                pass
+        for subtype in ("PCM_8", "PCM_64", "NOT_A_SUBTYPE"):
+            with pytest.raises(TypeError):
+                Result("/tmp/auralis-bitdepth-test.wav", subtype=subtype)
 
     def test_parameter_type_checking(self):
         """
-        REGRESSION: Parameters should enforce correct types.
-        Test: String sample rates rejected.
+        REGRESSION: Parameters should enforce correct values.
+        Test: Unknown modes and presets are rejected, not silently stored.
         """
         config = UnifiedConfig()
 
-        # Try to set wrong types
-        try:
-            config.sample_rate = "44100"  # String instead of int
-            # If accepted, verify it was converted
-            if hasattr(config, 'sample_rate'):
-                assert isinstance(config.sample_rate, int), \
-                    "Sample rate should be int"
-        except (ValueError, TypeError, AttributeError):
-            # Type error is expected
-            pass
+        with pytest.raises(ValueError):
+            config.set_processing_mode("44100")  # type: ignore[arg-type]
+
+        with pytest.raises(ValueError):
+            config.set_mastering_preset("not_a_preset")
+
+        # The rejected writes must not have landed.
+        assert config.adaptive.mode == "adaptive"
+        assert config.mastering_profile == "adaptive"
 
 
 @pytest.mark.regression
@@ -176,33 +202,40 @@ class TestDefaultValueChanges:
     def test_default_sample_rate_unchanged(self):
         """
         REGRESSION: Default sample rate should be 44.1kHz.
-        Test: New configs have 44100 sample rate.
+        Test: New configs have 44100 internal sample rate.
         """
         config = UnifiedConfig()
 
-        assert config.sample_rate == 44100, \
-            "Default sample rate should be 44.1kHz"
+        assert config.internal_sample_rate == 44100, \
+            "Default internal sample rate should be 44.1kHz"
 
     def test_default_bit_depth_unchanged(self):
         """
-        REGRESSION: Default bit depth should be 24-bit.
-        Test: New configs have 24-bit depth.
-        """
-        config = UnifiedConfig()
+        REGRESSION: Default output bit depth should be 16-bit PCM.
+        Test: `Result` defaults to PCM_16.
 
-        assert config.bit_depth == 24, \
-            "Default bit depth should be 24-bit"
+        The previous version asserted 24-bit against a `config.bit_depth` that
+        has never existed. The real default is PCM_16, consistent with the
+        cached chunk files the streaming path writes.
+        """
+        assert Result("/tmp/auralis-default-depth.wav").subtype == "PCM_16"
 
     def test_default_processing_preset(self):
         """
         REGRESSION: Default preset should be 'adaptive'.
-        Test: Default config uses adaptive preset.
+        Test: Default config uses the adaptive mastering preset.
+
+        Preset and processing MODE are different axes that happen to share the
+        name "adaptive" — `mastering_profile` (gentle/warm/bright/punchy/live)
+        vs `adaptive.mode` (reference/adaptive/hybrid). Both are asserted so a
+        future rename of one cannot be mistaken for the other.
         """
         config = UnifiedConfig()
 
-        # Default mode should be adaptive
-        assert config.processing_mode == "adaptive", \
-            "Default should use adaptive mode"
+        assert config.mastering_profile == "adaptive"
+        assert config.get_preset_profile() is not None, \
+            "The default preset name must resolve to a real profile"
+        assert config.adaptive.mode == "adaptive"
 
 
 @pytest.mark.regression
@@ -221,39 +254,43 @@ class TestPresetCompatibility:
         filepath = os.path.join(temp_audio_dir, 'preset_test.wav')
         sf.write(filepath, audio, 44100, subtype='PCM_16')
 
-        presets = ["adaptive", "gentle", "warm", "bright", "punchy"]
+        # Driven off the real preset registry rather than a hardcoded list, so
+        # a newly added preset is covered automatically. The previous version
+        # passed these names to `set_processing_mode`, conflating presets with
+        # processing modes — only "adaptive" is valid for both.
+        presets = get_available_presets()
+        assert presets, "No mastering presets registered"
+
+        preset_audio, _ = load_audio(filepath)
+        input_length = len(preset_audio)
 
         for preset in presets:
             config = UnifiedConfig()
-            config.set_processing_mode(preset)
-            processor = HybridProcessor(config)
+            config.set_mastering_preset(preset)
+            assert config.get_preset_profile() is not None, \
+                f"Preset '{preset}' is registered but has no profile"
 
-            # Should process without error
-            preset_audio, _ = load_audio(filepath)
+            processor = HybridProcessor(config)
             result = processor.process(preset_audio)
 
             assert isinstance(result, np.ndarray), \
                 f"Preset '{preset}' should return numpy array"
-            assert len(result) > 0, \
-                f"Preset '{preset}' should return non-empty audio"
+            assert len(result) == input_length, \
+                f"Preset '{preset}' changed the sample count"
+            assert np.all(np.isfinite(result)), \
+                f"Preset '{preset}' produced NaN/Inf"
 
     def test_preset_names_case_insensitive(self):
         """
         REGRESSION: Preset names should be case-insensitive.
-        Test: 'Adaptive' and 'adaptive' both work.
+        Test: 'Adaptive', 'adaptive' and 'ADAPTIVE' all resolve identically.
         """
-        config = UnifiedConfig()
+        for variant in ("adaptive", "Adaptive", "ADAPTIVE"):
+            config = UnifiedConfig()
+            config.set_mastering_preset(variant)
 
-        # Try different cases
-        variants = ["adaptive", "Adaptive", "ADAPTIVE"]
-
-        for variant in variants:
-            try:
-                config.set_processing_mode(variant)
-                # Should work (case-insensitive) or raise consistent error
-            except (ValueError, KeyError):
-                # If case-sensitive, that's documented behavior
-                pass
+            assert config.mastering_profile == "adaptive", \
+                f"'{variant}' should normalise to 'adaptive'"
 
 
 @pytest.mark.regression
@@ -267,14 +304,34 @@ class TestGenreProfileChanges:
         """
         config = UnifiedConfig()
 
-        # These are common genre profiles that should exist
-        # (May not be directly settable, but should be in system)
+        # The previous version asserted `hasattr(config, 'config_data') or
+        # hasattr(config, 'processing_mode')` — neither attribute exists, and
+        # neither would have said anything about genres even if it did. The
+        # real store is `config.genre_profiles`.
         expected_genres = ["rock", "pop", "classical", "jazz", "electronic"]
 
-        # Verify config system has genre support
-        # (Implementation-dependent, may not be directly accessible)
-        assert hasattr(config, 'config_data') or hasattr(config, 'processing_mode'), \
-            "Config should support genre-aware processing"
+        missing = [g for g in expected_genres if g not in config.genre_profiles]
+        assert not missing, f"Genre profiles removed: {missing}"
+
+    def test_genre_profiles_carry_real_targets(self):
+        """A registered genre must resolve to a usable profile, not a stub."""
+        config = UnifiedConfig()
+
+        for genre in ("rock", "pop", "classical", "jazz", "electronic"):
+            profile = config.get_genre_profile(genre)
+
+            assert profile.name == genre
+            assert profile.target_lufs < 0, \
+                f"{genre}: target_lufs should be negative dBFS, got {profile.target_lufs}"
+
+    def test_unknown_genre_falls_back_rather_than_raising(self):
+        """Genre detection is best-effort; an unknown label must not crash."""
+        config = UnifiedConfig()
+
+        profile = config.get_genre_profile("no-such-genre")
+
+        assert profile is not None
+        assert profile.target_lufs < 0
 
 
 @pytest.mark.regression
@@ -284,43 +341,44 @@ class TestConfigFileFormat:
     def test_config_data_structure_stable(self):
         """
         REGRESSION: Config data structure should be stable.
-        Test: config_data dictionary exists and has core keys.
+        Test: `to_dict()` keeps its core keys.
+
+        There is no `config_data` attribute; `to_dict()`/`from_dict()` are the
+        serialization surface, and their key names are the actual compatibility
+        contract for any persisted config.
         """
-        config = UnifiedConfig()
+        data = UnifiedConfig().to_dict()
 
-        # Should have config_data attribute (or equivalent)
-        has_config = hasattr(config, 'config_data') or \
-                     hasattr(config, 'sample_rate')
-
-        assert has_config, "Config should have configuration storage"
+        required = {
+            "internal_sample_rate",
+            "fft_size",
+            "threshold",
+            "processing_mode",
+            "adaptation_strength",
+        }
+        missing = required - set(data)
+        assert not missing, f"to_dict() dropped keys: {sorted(missing)}"
 
     def test_config_serialization_compatible(self):
         """
         REGRESSION: Config should be serializable to JSON.
-        Test: Config can be converted to dict/JSON.
+        Test: Config survives a to_dict -> JSON -> from_dict round trip.
+
+        Previously this swallowed TypeError/AttributeError and passed on the
+        `except` branch, so it could not have failed for any reason.
         """
         import json
 
-        config = UnifiedConfig()
+        original = UnifiedConfig()
+        original.set_processing_mode("hybrid")
 
-        # Try to serialize config
-        try:
-            if hasattr(config, 'config_data'):
-                config_dict = config.config_data
-            else:
-                config_dict = {
-                    'sample_rate': config.sample_rate,
-                    'bit_depth': config.bit_depth,
-                    'processing_mode': config.processing_mode
-                }
+        restored = UnifiedConfig.from_dict(json.loads(json.dumps(original.to_dict())))
 
-            # Should be JSON-serializable
-            json_str = json.dumps(config_dict)
-            assert len(json_str) > 0, "Config should serialize to JSON"
-
-        except (TypeError, AttributeError):
-            # If not serializable, that's documented behavior
-            pass
+        assert restored.internal_sample_rate == original.internal_sample_rate
+        assert restored.fft_size == original.fft_size
+        assert restored.threshold == original.threshold
+        assert restored.adaptive.mode == "hybrid", \
+            "Processing mode must survive the round trip"
 
 
 @pytest.mark.regression
