@@ -187,7 +187,7 @@ def create_fingerprint_queue_router(
     @router.post("/fingerprint-queue/enqueue-all", response_model=EnqueueAllFingerprintsResponse)
     @_with_similarity_error_handling("Error batch enqueueing tracks")
     async def enqueue_all_missing_fingerprints(
-        limit: int = Query(None, ge=1, le=10000, description="Maximum tracks to enqueue (default: all)")
+        limit: int | None = Query(None, ge=1, le=10000, description="Maximum tracks to enqueue (default: all)")
     ) -> dict[str, Any]:
         """
         Enqueue all tracks that don't have fingerprints for background processing.
