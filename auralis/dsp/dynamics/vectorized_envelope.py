@@ -42,14 +42,6 @@ class VectorizedEnvelopeFollower:
         self.attack_coeff = np.exp(-1.0 / (attack_ms * 0.001 * sample_rate))
         self.release_coeff = np.exp(-1.0 / (release_ms * 0.001 * sample_rate))
 
-    def process(self, input_level: float) -> float:
-        """Process single input level (for backward compatibility)"""
-        if input_level > self.envelope:
-            self.envelope = input_level + (self.envelope - input_level) * self.attack_coeff
-        else:
-            self.envelope = input_level + (self.envelope - input_level) * self.release_coeff
-        return self.envelope
-
     def process_buffer_vectorized(self, input_levels: np.ndarray) -> np.ndarray:
         """
         Process entire buffer with pure NumPy vectorization
@@ -176,91 +168,3 @@ def _process_envelope_numba(
         output[i] = current_env
 
     return output
-
-
-class FastEnvelopeFollower:
-    """
-    Alternative vectorized approach using segment-based processing
-
-    This version processes attack/release segments separately,
-    allowing for more vectorization opportunities.
-    """
-
-    def __init__(self, sample_rate: int, attack_ms: float, release_ms: float):
-        self.sample_rate = sample_rate
-        self.envelope = 0.0
-
-        # Time constants
-        self.attack_coeff = np.exp(-1.0 / (attack_ms * 0.001 * sample_rate))
-        self.release_coeff = np.exp(-1.0 / (release_ms * 0.001 * sample_rate))
-
-    def process_buffer_fast(self, input_levels: np.ndarray, chunk_size: int = 1024) -> np.ndarray:
-        """
-        Process buffer in chunks for better cache locality
-
-        Args:
-            input_levels: Input levels
-            chunk_size: Chunk size for processing (default: 1024)
-
-        Returns:
-            Envelope values
-        """
-        output = np.zeros_like(input_levels)
-        current_env = self.envelope
-
-        # Process in chunks for better cache utilization
-        for i in range(0, len(input_levels), chunk_size):
-            end_idx = min(i + chunk_size, len(input_levels))
-            chunk = input_levels[i:end_idx]
-
-            # Process chunk
-            for j, val in enumerate(chunk):
-                if val > current_env:
-                    current_env = val + (current_env - val) * self.attack_coeff
-                else:
-                    current_env = val + (current_env - val) * self.release_coeff
-                output[i + j] = current_env
-
-        self.envelope = current_env
-        return output
-
-
-# Factory functions
-def create_vectorized_envelope_follower(
-    sample_rate: int,
-    attack_ms: float,
-    release_ms: float,
-    use_numba: bool = True
-) -> VectorizedEnvelopeFollower:
-    """
-    Create vectorized envelope follower
-
-    Args:
-        sample_rate: Sample rate
-        attack_ms: Attack time in ms
-        release_ms: Release time in ms
-        use_numba: Use Numba JIT compilation if available
-
-    Returns:
-        VectorizedEnvelopeFollower instance
-    """
-    return VectorizedEnvelopeFollower(sample_rate, attack_ms, release_ms, use_numba)
-
-
-def create_fast_envelope_follower(
-    sample_rate: int,
-    attack_ms: float,
-    release_ms: float
-) -> FastEnvelopeFollower:
-    """
-    Create fast envelope follower with chunked processing
-
-    Args:
-        sample_rate: Sample rate
-        attack_ms: Attack time in ms
-        release_ms: Release time in ms
-
-    Returns:
-        FastEnvelopeFollower instance
-    """
-    return FastEnvelopeFollower(sample_rate, attack_ms, release_ms)
