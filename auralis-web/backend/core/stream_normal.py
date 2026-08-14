@@ -28,6 +28,7 @@ from fastapi import WebSocket
 from fastapi.websockets import WebSocketDisconnect
 
 from . import audio_stream_controller as _asc
+from .executors import run_in_stream_executor
 from security.path_security import PathValidationError, validate_file_path
 
 logger = logging.getLogger(__name__)
@@ -351,7 +352,7 @@ async def stream_normal_audio(
                     # the skip-failed-chunk recovery branch below.
                     try:
                         chunk_audio = await asyncio.wait_for(
-                            asyncio.to_thread(
+                            run_in_stream_executor(
                                 _read_audio_chunk,
                                 streaming_filepath,
                                 start_sample,
@@ -371,7 +372,7 @@ async def stream_normal_audio(
                 if chunk_idx + 1 < total_chunks:
                     next_start = (chunk_idx + 1) * interval_samples
                     lookahead_read = asyncio.create_task(
-                        asyncio.to_thread(
+                        run_in_stream_executor(
                             _read_audio_chunk_lookahead, streaming_filepath, next_start, chunk_samples
                         )
                     )

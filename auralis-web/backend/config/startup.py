@@ -110,6 +110,25 @@ def _clear_module_level_fingerprint_queue() -> None:
         logger.warning(f"⚠️  Error clearing module-level fingerprint queue: {_fq_exc}")
 
 
+def _install_thread_pools() -> None:
+    """Install the explicit streaming + I/O thread pools (#5086/#4810).
+
+    Guarded like every other startup step: the app is fully functional
+    without the split (every `to_thread` simply falls back to CPython's
+    default pool, the pre-#5086 behaviour), so a failure here must degrade
+    rather than abort startup.
+    """
+    try:
+        from core.executors import install_executors
+        install_executors()
+        logger.info("✅ Thread pools installed (streaming + I/O)")
+    except Exception as pool_err:
+        logger.warning(
+            f"⚠️  Thread pool installation failed, falling back to the default "
+            f"executor for all offloaded work: {pool_err}"
+        )
+
+
 async def _shutdown_components(globals_dict: dict[str, Any]) -> None:
     """Tear down every long-lived component, best-effort.
 
@@ -217,6 +236,18 @@ async def _shutdown_components(globals_dict: dict[str, Any]) -> None:
                 logger.info("✅ Library database shut down (WAL checkpointed)")
             except Exception as lm_err:
                 logger.warning(f"⚠️  Library database shutdown error: {lm_err}")
+
+        # Thread pools last (#5086): every step above may offload work via
+        # asyncio.to_thread, and the I/O pool IS the loop's default executor —
+        # shutting it down earlier would make those calls raise
+        # "cannot schedule new futures after shutdown" and skip the WAL
+        # checkpoint. Non-blocking by design; see shutdown_executors().
+        try:
+            from core.executors import shutdown_executors
+            shutdown_executors()
+            logger.info("✅ Thread pools shut down")
+        except Exception as pool_err:
+            logger.warning(f"⚠️  Thread pool shutdown error: {pool_err}")
 
         logger.info("✅ Application shutdown complete")
     except Exception as e:
@@ -829,6 +860,13 @@ def create_lifespan(deps: dict[str, Any]):
         # init, fingerprint queue before its drain hook is wired.
         # Processing engine and streamlined cache are independent of the
         # Auralis component set and of each other.
+        # Thread pools first: this replaces the loop's default executor, so
+        # it must happen before anything issues an asyncio.to_thread call
+        # (#5086/#4810). Installing it later would leave early startup work
+        # on CPython's implicit pool and, worse, hand out futures against a
+        # pool that is about to stop being the default.
+        _install_thread_pools()
+
         await _cleanup_temp_directories()
         await _init_auralis_components(HAS_AURALIS, HAS_SIMILARITY, manager, globals_dict)
         await _init_processing_engine(HAS_PROCESSING, globals_dict)

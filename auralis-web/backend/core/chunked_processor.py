@@ -711,7 +711,13 @@ class ChunkedAudioProcessor:
             - path: for caching/durability
             - audio: numpy array for immediate streaming (avoids disk round-trip)
         """
-        return await asyncio.to_thread(self.process_chunk, chunk_index, fast_start, True)
+        # Dedicated streaming pool, not the shared default executor (#5086):
+        # this is the per-chunk hot path, and queueing behind an unrelated
+        # repository call or the library scan makes CHUNK_PROCESS_TIMEOUT
+        # (#3852) fire on queueing delay rather than a genuine DSP hang.
+        from .executors import run_in_stream_executor
+
+        return await run_in_stream_executor(self.process_chunk, chunk_index, fast_start, True)
 
 
 

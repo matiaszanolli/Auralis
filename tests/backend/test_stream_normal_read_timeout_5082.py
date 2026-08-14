@@ -306,10 +306,13 @@ class TestBothReadSitesAreBounded:
         )
 
         # Both producers must sit inside a wait_for: the inline read wraps the
-        # to_thread call directly, the look-ahead one bounds the await of the
-        # task it armed earlier.
+        # offload call directly, the look-ahead one bounds the await of the
+        # task it armed earlier. The offload is `run_in_stream_executor`
+        # rather than bare `asyncio.to_thread` since #5086 moved the per-chunk
+        # hot path onto its own pool; either spelling satisfies #5082.
         assert re.search(
-            r"wait_for\(\s*\n?\s*asyncio\.to_thread\(\s*\n?\s*_read_audio_chunk", code
+            r"wait_for\(\s*\n?\s*(asyncio\.to_thread|run_in_stream_executor)"
+            r"\(\s*\n?\s*_read_audio_chunk", code
         ), "the inline _read_audio_chunk read is not wrapped in asyncio.wait_for"
 
         assert re.search(
