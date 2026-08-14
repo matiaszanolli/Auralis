@@ -20,7 +20,7 @@ All code lives in a single repo at `/mnt/data/src/matchering`.
 ```
 Audio Engine:        auralis/                                Core Python audio engine
 Core Pipeline:       auralis/core/                           hybrid_processor.py, simple_mastering.py, processing/, config/, recording_type_detector.py
-DSP:                 auralis/dsp/                            stages.py (pipeline main()), basic.py, advanced_dynamics.py, eq/ (psychoacoustic_eq), realtime_adaptive_eq/ (realtime_eq), dynamics/, utils/
+DSP:                 auralis/dsp/                            basic.py, advanced_dynamics.py, eq/ (psychoacoustic_eq), dynamics/, utils/
 Player:              auralis/player/                         enhanced_audio_player.py, gapless_playback_engine.py, queue_controller.py, realtime_processor.py
 Library:             auralis/library/                        manager.py, scanner/ (package), models/ (ORM package), migration_manager.py
 Repositories:        auralis/library/repositories/           13 repos + base.py (BaseRepository) + factory.py (RepositoryFactory): track, album, artist, playlist, genre, stats, fingerprint, fingerprint_scheduler, fingerprint_stats, queue, queue_history, settings, similarity_graph
@@ -49,7 +49,7 @@ Frontend Test Utils: auralis-web/frontend/src/test/
 
 Rust DSP:            vendor/auralis-dsp/                     PyO3 module (HPSS, YIN, Chroma)
 Desktop:             desktop/                                Electron wrapper
-Tests:               tests/                                  ~5,000 test functions (415 files) across 19 dirs
+Tests:               tests/                                  ~6,271 test functions (540 files) across 19 dirs
 Audit Reports:       docs/audits/                            Generated audit reports
 Local Issue Cache:   .Codex/issues/                         Issue snapshots (per audit-publish / fix-issue)
 Specialist Agents:   .Codex/agents/                         dsp, backend, frontend, library specialists

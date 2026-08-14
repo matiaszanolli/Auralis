@@ -43,7 +43,7 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 
 ### Dimension 2: Audio Processing Pipeline
 
-**Key files**: `auralis/core/hybrid_processor.py`, `auralis/core/simple_mastering.py`, `auralis/core/mastering_chunk_loop.py`, `auralis/core/mastering_process_chunk.py`, `auralis/dsp/stages.py`, `vendor/auralis-dsp/`
+**Key files**: `auralis/core/hybrid_processor.py`, `auralis/core/simple_mastering.py`, `auralis/core/mastering_chunk_loop.py`, `auralis/core/mastering_process_chunk.py`, `vendor/auralis-dsp/`
 
 The engine-side parallel processor (*auralis/optimization/parallel_processor.py* + *parallel/*) was deleted as unreachable in #4565 — audit the engine's sequential chunk loop here, and the backend's concurrent chunk processor in Dimension 3. Do not report the deleted module.
 

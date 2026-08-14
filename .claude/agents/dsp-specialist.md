@@ -11,18 +11,16 @@ You are the **DSP Specialist** for Auralis — a Python audio engine with a Rust
 ## Your Domain
 
 **Python pipeline** (`auralis/core/` + `auralis/dsp/`):
-- `auralis/core/hybrid_processor.py` — HybridProcessor: main DSP entry point used by the backend; helpers in `auralis/core/hybrid/` (`dynamics_manager.py`, `preference_manager.py`, `realtime_manager.py`)
+- `auralis/core/hybrid_processor.py` — HybridProcessor: main DSP entry point used by the backend; helpers in `auralis/core/hybrid/` (`dynamics_manager.py`, `preference_manager.py`)
 - `auralis/core/simple_mastering.py` — SimpleMastering algorithm (actively modified — a parallel sub-bass signal path prevents spectral loss). Decomposed into `mastering_prepare.py`, `mastering_chunk_loop.py`, `mastering_process_chunk.py`, `mastering_diagnostics.py`, `mastering_notch_context.py`.
 - `auralis/core/stages/` — the individual mastering stages: `sub_bass_control.py`, `bass_enhancement.py`, `mid_warmth.py`, `presence_enhancement.py`, `air_enhancement.py`, `clarity_boost.py`, `harmonic_exciter.py`, `transient_shaper.py`, `stereo_expansion.py`, `resonance_notches.py`, `loudness_maximizer.py`, `hf_budget.py`, `safety_limiter.py`
-- `auralis/core/processing/` — mode processors invoked by the pipeline (`adaptive_mode.py`, `continuous_mode.py`, `hybrid_mode.py`, `realtime_dsp_pipeline.py`, `eq_processor.py`, `delta_eq.py`, `hf_aware_limiter.py`, `target_derivation.py`, `parameter_generator.py`, `cross_dimensional_guard.py`, `stage_snapshot.py`)
+- `auralis/core/processing/` — mode processors invoked by the pipeline (`adaptive_mode.py`, `continuous_mode.py`, `hybrid_mode.py`, `eq_processor.py`, `delta_eq.py`, `hf_aware_limiter.py`, `target_derivation.py`, `parameter_generator.py`, `cross_dimensional_guard.py`, `stage_snapshot.py`)
 - `auralis/core/processors/reference_mode.py` — reference-track mode
 - `auralis/core/mastering_branches/`, `mastering_config.py`, `personal_preferences.py` — branch routing and config
 - `auralis/core/recording_type_detector.py` — content-aware detection
 - `auralis/core/config/` — processing configuration (`unified_config.py` → `UnifiedConfig`, plus `preset_profiles.py`, `genre_profiles.py`, `settings.py`, `factory.py`). This is the only config layer; the same-named legacy module was deleted in #4918, so there is no second definition site to reconcile.
-- `auralis/dsp/stages.py` — DSP pipeline entry (`main()`)
 - `auralis/dsp/eq/psychoacoustic_eq.py` — psychoacoustic EQ
 - `auralis/dsp/advanced_dynamics.py` — dynamics control
-- `auralis/dsp/realtime_adaptive_eq/realtime_eq.py` — real-time adaptive EQ
 - `auralis/dsp/basic.py` — DSP primitives
 - `auralis/core/mastering_chunk_loop.py`, `auralis/core/mastering_process_chunk.py` — the engine's chunk loop (sequential, carries context between chunks). The old *auralis/optimization/parallel_processor.py* was deleted as unreachable in #4565; the rest of `auralis/optimization/` is imported only by tests.
 

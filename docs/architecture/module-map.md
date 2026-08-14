@@ -36,7 +36,6 @@ auralis/
 │   ├── basic.py                  rms, normalize, amplify, mid/side
 │   ├── advanced_dynamics.py      DynamicsProcessor (gate/comp/limit)
 │   ├── eq/                       PsychoacousticEQ (26 Bark bands, WOLA)
-│   ├── realtime_adaptive_eq/     RealtimeAdaptiveEQ (FIFO, exact-length)
 │   └── stages.py                 Legacy Matchering reference matcher
 ├── analysis/                   Largest module (~80 files)
 │   ├── fingerprint/              25D fingerprint: schema, analyzers, metrics, utilities,

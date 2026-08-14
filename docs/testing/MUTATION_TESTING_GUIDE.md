@@ -179,7 +179,7 @@ mutmut browse
 |--------|-------|----------------------|----------|
 | `auralis/library/cache.py` | 255 | > 80% | P0 |
 | `auralis/library/repositories/track_repository.py` | 611 | > 75% | P0 |
-| `auralis/dsp/stages.py` | ~300 | > 75% | P1 |
+| `auralis/core/mastering_process_chunk.py` | ~200 | > 75% | P1 |
 | `auralis/core/hybrid_processor.py` | 409 | > 70% | P1 |
 | `auralis/player/realtime/processor.py` | ~200 | > 80% | P1 |
 
@@ -520,11 +520,11 @@ Repeat steps 2-4 until target mutation score achieved.
 - Target: > 75% mutation score
 - Create: `tests/mutation/test_track_repository_mutations.py`
 
-**Day 5-6: DSP Stages**
-- File: `auralis/dsp/stages.py` (~300 lines)
-- Current tests: `tests/auralis/dsp/test_stages.py`
+**Day 5-6: Per-chunk mastering**
+- File: `auralis/core/mastering_process_chunk.py` (~200 lines)
+- Current tests: `tests/auralis/core/`
 - Target: > 75% mutation score
-- Create: `tests/mutation/test_dsp_stages_mutations.py`
+- Create: `tests/mutation/test_mastering_chunk_mutations.py`
 
 **Day 7: Analysis & Documentation**
 - Analyze overall results

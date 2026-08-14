@@ -354,22 +354,13 @@ class TestDSPComponents:
             # Functions might require specific input format
             assert any(word in str(e).lower() for word in ['audio', 'shape', 'dtype', 'format'])
 
-    def test_dsp_stages_functionality(self):
-        """Test DSP stages functionality."""
-        try:
-            from auralis.dsp.stages import (
-                MasteringStage,
-                PreprocessingStage,
-                ProcessingStage,
-            )
-
-            # Test stage classes exist
-            assert ProcessingStage is not None
-            assert PreprocessingStage is not None
-            assert MasteringStage is not None
-
-        except ImportError:
-            pytest.skip("DSP stages not available")
+    # #4867 removed `test_dsp_stages_functionality`. It imported three class
+    # names (`ProcessingStage`, `PreprocessingStage`, `MasteringStage`) that
+    # never existed in `auralis/dsp/stages.py` — the module only ever held a
+    # `main()` function — so the import always raised and the `except
+    # ImportError: pytest.skip(...)` swallowed it. The test skipped on every
+    # run it ever made and never exercised the module it named. `stages.py`
+    # itself is gone; deleting the test loses no coverage.
 
 
 class TestIOComponents:

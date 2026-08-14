@@ -23,10 +23,11 @@ There are **two independent top-level engines**. They share the core invariants
 | **Streaming / real-time master** | `HybridProcessor` | [`auralis/core/hybrid_processor.py:44`](../../auralis/core/hybrid_processor.py) | Web backend, live playback |
 | **Offline / batch file master** | `SimpleMasteringPipeline` | [`auralis/core/simple_mastering.py:40`](../../auralis/core/simple_mastering.py) | CLI / batch file mastering |
 
-A third, older path — [`auralis/dsp/stages.py:27`](../../auralis/dsp/stages.py) `main()` —
-is the legacy Matchering-derived **reference matcher** (loudness/RMS/crest analysis →
-gain match → soft-clip → normalize). It is largely standalone from the mode processors
-below.
+There is no third path. A legacy Matchering-derived reference matcher
+(`auralis/dsp/stages.py::main()`) used to sit alongside these, exported as
+`auralis.dsp.main`; #4867 deleted it after confirming it had no caller in the
+app, the offline CLI, the scripts, or any test. A `RealtimeDSPPipeline` mode
+also used to exist; #4873 deleted it — see [§ Deleted paths](#deleted-paths).
 
 ---
 
@@ -56,7 +57,6 @@ HybridProcessor.process_realtime_chunk()   # real-time chunk   (:406)
 | **Continuous** (default adaptive) | `ContinuousMode` | [`continuous_mode.py:83`](../../auralis/core/processing/continuous_mode.py) | Maps the 25D fingerprint → 3D processing space → continuous `ProcessingParameters`. Selected when `config.use_continuous_space=True`. |
 | **Adaptive** (legacy) | `AdaptiveMode` | [`adaptive_mode.py:33`](../../auralis/core/processing/adaptive_mode.py) | Preset/spectrum-based path used only when `use_continuous_space=False`. |
 | **Hybrid** | `HybridMode` | [`hybrid_mode.py:21`](../../auralis/core/processing/hybrid_mode.py) | Blends reference matching with adaptive output at `adaptation_strength * 0.5`. |
-| **Realtime** | `RealtimeDSPPipeline` | [`realtime_dsp_pipeline.py:31`](../../auralis/core/processing/realtime_dsp_pipeline.py) | Quick content analysis → realtime adaptive EQ → dynamics. Low latency. |
 
 **Mode selection** is two orthogonal axes:
 
@@ -167,7 +167,6 @@ In `QuietBranch`, the loudness maximizer is the load-bearing tuning surface. Con
 | [`basic.py`](../../auralis/dsp/basic.py) | `rms`, `normalize` (dtype-preserving), `amplify` (always `.copy()` first), `mid_side_encode` / `mid_side_decode` |
 | [`advanced_dynamics.py`](../../auralis/dsp/advanced_dynamics.py) | `DynamicsProcessor` (gate + compressor + limiter, content-aware, RLock-guarded chain). Auto makeup-gain = `-threshold/ratio` capped at 12 dB |
 | [`eq/psychoacoustic_eq.py`](../../auralis/dsp/eq/psychoacoustic_eq.py) | `PsychoacousticEQ` — 26 Bark-scale critical bands, masking model, adaptive gains clipped ±12 dB |
-| [`realtime_adaptive_eq/realtime_eq.py`](../../auralis/dsp/realtime_adaptive_eq/realtime_eq.py) | `RealtimeAdaptiveEQ` — buffers variable chunk sizes into fixed frames; a persistent FIFO guarantees exact-length output |
 
 ### The WOLA / COLA constraint (read before touching the EQ)
 
@@ -330,6 +329,26 @@ There are **two separate processor caches**: the module-level convenience cache 
 4. [`mastering_branches/`](../../auralis/core/mastering_branches/) — the offline
    signal path and tuning constants: `base.py` (abstract contract), `continuous.py` (the
    single path), `soft_clip_params.py`.
+
+## 11. Deleted paths
+
+Both were reachable-looking but unreachable, and both are recorded here because
+"this looks like a missing wire-up, let me connect it" is the tempting wrong
+move on each.
+
+| Path | Removed by | Why not wired up instead |
+|---|---|---|
+| `RealtimeDSPPipeline` + `RealtimeAdaptiveEQ` + `AdaptiveLimiter` (`auralis/dsp/realtime_adaptive_eq/`, `auralis/core/processing/realtime_dsp_pipeline.py`, `auralis/core/hybrid/realtime_manager.py`, `auralis/dsp/dynamics/limiter.py`) | #4873 | Its EQ applied block FFT gain with **no window and no overlap-add** (#4615) — never WOLA-safe, so it could not simply be switched on. See the COLA constraint above. |
+| `auralis/dsp/stages.py::main()`, exported as `auralis.dsp.main` | #4867 | A Matchering-2.0-lineage reference matcher with zero callers in the app, the offline CLI, the scripts, or any test. Its only would-be test imported three class names that never existed in the file, so it skipped on every run. |
+
+Deleting the realtime pipeline left `HybridProcessor.dynamics_processor` with no
+`process()` caller — it survives only behind `reset_dynamics()` /
+`set_dynamics_mode()` / `get_dynamics_info()`. Do **not** "fix" that by inserting
+it into `ContinuousMode`: that would double-compress and fight the
+continuous-space LUFS target. Guarded by
+`tests/regression/test_dynamics_processor_wiring.py`.
+
+---
 
 **Related:** [fingerprinting.md](fingerprinting.md) ·
 [backend-api.md](backend-api.md) · [../architecture/data-flow.md](../architecture/data-flow.md)

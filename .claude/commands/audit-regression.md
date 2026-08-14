@@ -51,8 +51,8 @@ These are known critical invariants that must ALWAYS be verified, regardless of 
 | Cursor-based pagination in cleanup | `bd94fd59` | `auralis/library/` | `cleanup_missing_files` uses ID-cursor, not offset pagination |
 | SQLAlchemy engine disposal | `8adb8d0a` | `auralis/library/migration_manager.py` | Engine is disposed in `MigrationManager.close()` |
 | Migration lock covers threads too | — | `auralis/library/migration_manager.py` | Inter-process file lock (`fcntl`/`msvcrt`) **and** a same-process `threading.Lock` + double-check. The file lock alone does not serialize threads in one process. |
-| Sample count preservation in DSP pipeline | — | `auralis/core/hybrid_processor.py`, `auralis/dsp/stages.py` | `len(output) == len(input)` invariant maintained across all processing stages |
-| Copy-before-modify pattern | — | `auralis/core/simple_mastering.py`, `auralis/dsp/stages.py` | `audio.copy()` called before any in-place operations |
+| Sample count preservation in DSP pipeline | — | `auralis/core/hybrid_processor.py`, `auralis/core/mastering_process_chunk.py` | `len(output) == len(input)` invariant maintained across all processing stages |
+| Copy-before-modify pattern | — | `auralis/core/simple_mastering.py`, `auralis/core/stages/` | `audio.copy()` called before any in-place operations |
 | Thread-safe player state (RLock) | — | `auralis/player/enhanced_audio_player.py` | All state mutations protected by RLock |
 | SQLite thread-safe pooling | — | `auralis/library/database.py` | `pool_pre_ping=True` and proper connection pooling configured |
 | Seekable chunk reads | — | `auralis-web/backend/core/seekable_source.py` | Chunk readers get a seekable path; a non-seekable source is converted **once**, never re-decoded whole per chunk (#4737) |

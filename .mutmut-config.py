@@ -8,7 +8,7 @@ CRITICAL MODULES TO TEST:
 - auralis/core/hybrid_processor.py - Main processing engine
 - auralis/library/manager.py - Library management
 - auralis/library/repositories/ - Data access layer
-- auralis/dsp/stages.py - DSP processing stages
+- auralis/core/mastering_process_chunk.py - Per-chunk mastering
 - auralis/player/realtime/ - Real-time playback
 
 MUTATION TESTING STRATEGY:

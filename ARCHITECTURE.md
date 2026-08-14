@@ -14,15 +14,13 @@ Auralis uses a layered processor architecture for audio processing:
   - `AdaptiveMode`: Spectrum-based adaptive processing
   - `HybridMode`: Combined reference + adaptive
   - `ContinuousMode`: Continuous learning mode
-  - `RealtimeDSPPipeline`: Low-latency chunk processing
 
-**Removed**: the old `processor.py` reference-based entry point has been deleted — `HybridProcessor` is now the sole core entry point.
+**Removed**: the old `processor.py` reference-based entry point has been deleted — `HybridProcessor` is now the sole core entry point. `RealtimeDSPPipeline` and its realtime adaptive EQ were likewise deleted (#4873), as was `auralis/dsp/stages.py::main()` (#4867); see [docs/subsystems/dsp-engine.md](docs/subsystems/dsp-engine.md) § Deleted paths for why neither was wired up instead.
 
 ### 2. Specialized Processing Layer (`auralis/core/processing/`)
 
 Implements the mode processors and per-stage DSP the HybridProcessor delegates to:
 - **AdaptiveMode / ContinuousMode / HybridMode** (`adaptive_mode.py`, `continuous_mode.py`, `hybrid_mode.py`): mastering modes
-- **RealtimeDSPPipeline** (`realtime_dsp_pipeline.py`): low-latency chunk path
 - **EQProcessor** (`eq_processor.py`), **HF-aware limiter** (`hf_aware_limiter.py`), delta EQ, cross-dimensional guard, target derivation
 
 ### 3. Backend/Streaming Layer (`auralis-web/backend/`)
