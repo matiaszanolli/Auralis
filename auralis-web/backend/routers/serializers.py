@@ -16,11 +16,38 @@ from sqlalchemy.exc import SQLAlchemyError
 logger = logging.getLogger(__name__)
 
 
-# Default field mappings for common objects
+# ---------------------------------------------------------------------------
+# getattr-fallback defaults — NOT the response contract (#4708)
+#
+# `serialize_object()` returns `obj.to_dict()` for any non-Mock object that
+# provides one, so for a real ORM row these maps are never consulted. They are
+# reached only by:
+#   * Mock/MagicMock objects in tests (the branch is explicitly skipped for
+#     them so a Mock's auto-generated `to_dict` cannot recurse), and
+#   * the rare case where a real `to_dict()` raises, which is logged and
+#     falls through.
+#
+# Do not read a key here as a guarantee about what an endpoint emits. The
+# comments below used to say things like "always required by
+# TrackApiResponse" and cite #2267 / #2851 as though this code enforced them;
+# it cannot, and that misreading is what let `Track.to_dict()`'s field gaps and
+# the album-detail casing bugs sit unnoticed (#4708).
+#
+# The actual response contract is the union of `Model.to_dict()` and these
+# defaults, declared as Pydantic models in `schemas.py` (see the "Library
+# Domain Response Models" block there for why it must be the union) and pinned
+# mechanically by `tests/backend/test_response_model_coverage.py`. These maps
+# keep their names because that union test and the response models depend on
+# them — they are a real, if rarely-taken, path rather than test-only fixtures.
+#
+# Where a key below has no counterpart in the corresponding `to_dict()`, the
+# two paths genuinely disagree; the union above is what reconciles them.
+# ---------------------------------------------------------------------------
 DEFAULT_TRACK_FIELDS = {
-    # Core identity (always required by TrackApiResponse)
+    # Core identity. `Track.to_dict()` emits all five.
     'id': None,
     'title': 'Unknown',
+    # `artist` (singular) is fallback-only — to_dict() emits `artists` (list).
     'artist': '',
     'album': '',
     'duration': 0,
@@ -31,7 +58,11 @@ DEFAULT_TRACK_FIELDS = {
     # fallback (Mocks and detached objects), so the two paths disagreed about
     # whether a serialized track carries a path at all (#4586).
     'format': 'Unknown',
-    # Optional metadata (fixes #2267 — frontend requires artist/album, others desirable)
+    # Optional metadata. #2267 wanted artist/album on the wire; that is
+    # delivered by Track.to_dict(), not here. Fallback-only keys in this
+    # group — to_dict() emits none of them: `genre` (it emits `genres`, a
+    # list), `loudness` (it emits `lufs_level`), `date_added`/`date_modified`
+    # (it emits `created_at`/`updated_at`).
     'artwork_url': None,
     'genre': None,
     'year': None,
@@ -41,7 +72,9 @@ DEFAULT_TRACK_FIELDS = {
     'loudness': None,
     'date_added': None,
     'date_modified': None,
-    # Navigation and favorites (#2851 — required for album track ordering and favorite status)
+    # Navigation and favorites. #2851 added these to the wire via
+    # Track.to_dict(), which emits all four; they are mirrored here so the
+    # fallback shape does not lose them.
     'album_id': None,
     'track_number': None,
     'disc_number': None,
@@ -63,7 +96,8 @@ DEFAULT_ARTIST_FIELDS = {
     'name': 'Unknown Artist',
     'track_count': 0,
     'album_count': 0,
-    # Include artwork fields so serialize_artist() never silently drops them (fixes #2511)
+    # Artwork fields mirrored here so the fallback shape matches
+    # Artist.to_dict(), which also emits them (#2511).
     'artwork_url': None,
     'artwork_source': None,
 }
@@ -83,18 +117,24 @@ def serialize_object(obj: Any, fallback_fields: dict[str, Any] | None = None) ->
     """
     Serialize a single object to a dictionary.
 
-    Attempts to use the object's to_dict() method if available, otherwise falls back
-    to getattr with provided default values.
+    Returns ``obj.to_dict()`` whenever the object provides one and is not a
+    Mock — which is every real ORM row — and only otherwise projects ``obj``
+    through ``fallback_fields`` with getattr.
+
+    ``fallback_fields`` therefore does NOT describe what an endpoint returns
+    for a real row; see the block comment above ``DEFAULT_TRACK_FIELDS`` and
+    the response models in ``schemas.py`` for the actual contract (#4708).
 
     Args:
         obj: Object to serialize
-        fallback_fields: Dictionary mapping field names to default values if object lacks the field
+        fallback_fields: Defaults used only on the getattr path (Mocks, or a
+            real object whose to_dict() raised)
 
     Returns:
         Dictionary representation of the object
 
     Example:
-        track = Track(id=1, title="Song", duration=180)
+        # Real row -> Track.to_dict(); the fallback map is not consulted.
         data = serialize_object(track, DEFAULT_TRACK_FIELDS)
     """
     if obj is None:
