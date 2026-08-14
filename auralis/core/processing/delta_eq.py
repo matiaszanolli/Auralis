@@ -29,6 +29,8 @@ import math
 from dataclasses import dataclass
 from typing import Mapping
 
+from .cross_dimensional_guard import smooth_gate
+
 
 # ---------------------------------------------------------------------------
 # Per-band asymmetric caps (dB). Picked from perceptual considerations,
@@ -61,11 +63,26 @@ BAND_CAPS_DB: dict[str, tuple[float, float]] = {
 # threshold at which a band is acoustically meaningful.
 _FRACTION_FLOOR = 1e-4
 
-# Bands whose source fraction is below this threshold are treated as
-# acoustically empty — we don't try to "boost silence". The delta is set
-# to zero regardless of what the target says. Prevents the saturation
-# artifact where source=0.000 in a band makes log(target/floor) blow up.
+# Bands whose source fraction is near zero are treated as acoustically
+# empty — we don't try to "boost silence". Prevents the saturation artifact
+# where source=0.000 in a band makes log(target/floor) blow up.
+#
+# This is the CENTRE of a smoothstep knee, not a hard cutoff (#4938). It used
+# to be `if src_val_raw < _EMPTY_BAND_THRESHOLD: per_band[band] = 0.0`, which
+# meant a source fraction moving from 0.0049 to 0.0050 — one hundredth of a
+# percentage point of band energy — swung that band's gain from 0.00 dB to
+# 1.99 dB. That is a categorical step of exactly the kind the continuous-space
+# architecture exists to eliminate, and it made the applied EQ noise-sensitive
+# rather than content-driven for vinyl transfers, high-passed masters and
+# mono/vocal-only sources whose sub-bass or air band sits on the cliff.
 _EMPTY_BAND_THRESHOLD = 0.005      # 0.5% of energy
+
+# The gate opens across [0, 2 x threshold], so the old threshold sits at the
+# midpoint (weight 0.5) and the far-field behaviour is unchanged: no correction
+# at a genuinely silent band, full correction once the band carries real
+# energy. This mirrors how #4860 replaced the ContinuousMode hard guards —
+# same helper, knee centred on the old threshold.
+_EMPTY_BAND_KNEE_END = 2.0 * _EMPTY_BAND_THRESHOLD
 
 
 @dataclass(frozen=True)
@@ -104,18 +121,17 @@ def compute_delta_eq(
     per_band: dict[str, float] = {}
     for band, (k_lift, k_cut) in BAND_CAPS_DB.items():
         src_val_raw = float(source.get(band, 0.0))
-        # Acoustically empty bands get no correction — boosting silence is
-        # meaningless and the log-of-tiny-fraction path would saturate the
-        # lift cap purely because the source is near zero.
-        if src_val_raw < _EMPTY_BAND_THRESHOLD:
-            per_band[band] = 0.0
-            continue
         src_val = max(_FRACTION_FLOOR, src_val_raw)
         tgt_val = max(_FRACTION_FLOOR, float(target.get(band, 0.0)))
         raw_delta = 10.0 * math.log10(tgt_val / src_val)
         k = k_lift if raw_delta > 0 else k_cut
         applied = k * math.tanh(raw_delta / k)
-        per_band[band] = applied
+        # Fade the correction in across the acoustically-empty boundary rather
+        # than switching it on (#4938). `_FRACTION_FLOOR` still bounds the log
+        # below, and tanh still bounds `applied` to the per-band cap, so a
+        # near-silent band produces a capped delta scaled by a near-zero gate —
+        # the same ~0 dB the hard guard gave, reached continuously.
+        per_band[band] = applied * smooth_gate(src_val_raw, 0.0, _EMPTY_BAND_KNEE_END)
 
     # Map 7 fingerprint bands → 5 EQ shelves.
     # The low_shelf at 200 Hz covers sub_bass (20-60) + bass (60-250);

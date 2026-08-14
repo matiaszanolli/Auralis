@@ -17,6 +17,7 @@ import pytest
 
 from auralis.core.processing.delta_eq import (
     BAND_CAPS_DB,
+    _EMPTY_BAND_KNEE_END,
     compute_delta_eq,
     to_eq_curve,
 )
@@ -81,8 +82,8 @@ def test_bass_lift_cap_is_larger_than_cut_cap():
 
 def test_huge_lift_request_saturates_at_lift_cap():
     """source=0.01 vs target=0.5 → ~+17 dB raw, must saturate near cap.
-    (Source is above the _EMPTY_BAND_THRESHOLD=0.005, so the delta math runs
-    rather than the empty-band early-return.)"""
+    (Source is at _EMPTY_BAND_KNEE_END, so the empty-band gate is fully open
+    and the delta math runs unattenuated — see #4938.)"""
     source = {b: 0.01 for b in BAND_CAPS_DB}
     target = {b: 0.50 for b in BAND_CAPS_DB}
     r = compute_delta_eq(source=source, target=target)
@@ -92,7 +93,7 @@ def test_huge_lift_request_saturates_at_lift_cap():
 
 
 def test_acoustically_empty_source_band_gets_zero_correction():
-    """Source below 0.5% energy in a band → no correction, even if target
+    """Source at zero energy in a band → no correction, even if target
     says it would 'want' more. Boosting silence is meaningless and prevents
     the saturation artifact where source≈0 produces near-cap lift."""
     source = {b: 0.10 for b in BAND_CAPS_DB}
@@ -101,6 +102,69 @@ def test_acoustically_empty_source_band_gets_zero_correction():
     target['sub_bass_pct'] = 0.10     # target wants 10%
     r = compute_delta_eq(source=source, target=target)
     assert r.per_band_delta_db['sub_bass_pct'] == 0.0
+
+
+# ---------------------------------------------------------------------------
+# #4938 — the empty-band guard is a knee, not a cliff
+# ---------------------------------------------------------------------------
+
+def test_empty_band_guard_has_no_discontinuity():
+    """Sweeping the source fraction across the empty-band boundary must vary
+    the correction continuously (#4938).
+
+    The guard used to be `if src < _EMPTY_BAND_THRESHOLD: gain = 0.0`, so a
+    source fraction moving 0.0049 -> 0.0050 — one hundredth of a percentage
+    point of band energy — swung that band from 0.00 dB to 1.99 dB. Two
+    near-identical masters landing either side of the line got audibly
+    different EQ, and re-fingerprinting the same source (different resample
+    path, minor upstream change) could flip which side it landed on.
+    """
+    target = {b: 0.10 for b in BAND_CAPS_DB}
+
+    def sub_bass_gain(src_fraction: float) -> float:
+        source = dict(target)
+        source['sub_bass_pct'] = src_fraction
+        return compute_delta_eq(source=source, target=target).per_band_delta_db['sub_bass_pct']
+
+    # Sweep well past the knee so both the closed and fully-open regions are
+    # covered, with a step far finer than the knee width.
+    step = _EMPTY_BAND_KNEE_END / 500.0
+    xs = [i * step for i in range(int(4 * _EMPTY_BAND_KNEE_END / step) + 1)]
+    gains = [sub_bass_gain(x) for x in xs]
+
+    largest_jump = max(abs(b - a) for a, b in zip(gains, gains[1:]))
+    # Pre-fix this sweep contained a single ~1.99 dB step; the knee bounds it
+    # to roughly (cap / knee-samples), i.e. hundredths of a dB.
+    assert largest_jump < 0.05, (
+        f"EQ gain jumps {largest_jump:.3f} dB between adjacent source "
+        f"fractions {step:.6f} apart — the empty-band guard is still a cliff"
+    )
+
+    # The specific pair named in the issue.
+    below, above = sub_bass_gain(0.0049), sub_bass_gain(0.0050)
+    assert abs(above - below) < 0.10
+
+
+def test_empty_band_guard_preserves_far_field_behaviour():
+    """The knee must not change what the guard was for (#4938): a silent band
+    still gets no correction, and a band carrying real energy still gets the
+    full uncapped-by-the-gate delta."""
+    target = {b: 0.10 for b in BAND_CAPS_DB}
+
+    def sub_bass_gain(src_fraction: float) -> float:
+        source = dict(target)
+        source['sub_bass_pct'] = src_fraction
+        return compute_delta_eq(source=source, target=target).per_band_delta_db['sub_bass_pct']
+
+    # Genuinely empty → still zero, exactly as the hard guard gave.
+    assert sub_bass_gain(0.0) == 0.0
+
+    # At/above the knee end the gate is fully open: identical to the value the
+    # delta math produces with no attenuation at all.
+    full = sub_bass_gain(_EMPTY_BAND_KNEE_END)
+    assert full > 0.0
+    # Monotonically non-decreasing approach to it (the gate only ever opens).
+    assert sub_bass_gain(_EMPTY_BAND_KNEE_END / 2) < full
 
 
 def test_huge_cut_request_saturates_at_cut_cap():
