@@ -32,6 +32,7 @@ Single-window LUFS RMSE 1.96 dB / max 9.2 dB → multi-window 1.07 dB / max 3.6 
 """
 
 import logging
+import math
 from pathlib import Path
 from typing import Any
 
@@ -50,6 +51,52 @@ def _band_pct_valid(fp: dict[str, Any]) -> bool:
     """Return True if the seven frequency-band fractions sum to 1 ± 0.05."""
     total = float(sum(fp.get(k, 0.0) for k in _BAND_PCT_KEYS))
     return 0.95 <= total <= 1.05
+
+
+def _sanitize_non_finite(fingerprint: dict[str, Any], label: str) -> list[str]:
+    """Replace NaN/Inf dimensions with 0.0 in place; return the names replaced.
+
+    Reinstates the guard added for #2531, which lived in
+    ``AudioFingerprintAnalyzer.analyze()`` until ``871356f7`` ("route
+    fingerprinting through in-process Rust engine") replaced that analyzer
+    wholesale without porting it (#5103). Nothing downstream re-checked, so a
+    single NaN sample in decoded audio reached ``track_fingerprints`` unguarded
+    and stayed there: ``_prepare_for_storage()`` validates dimension *count*
+    only, ``upsert()`` validates column *names* only, and the read-time
+    ``_band_pct_valid()`` check inspects only the 7 band percentages — so a NaN
+    ``lufs`` reads back as "valid" forever.
+
+    The Rust layer cannot catch this on its own: ``estimate_lufs()``'s silence
+    early-return is ``if rms < 1e-10``, and ``NaN < 1e-10`` is false in
+    IEEE-754, so NaN flows straight past it and ``.clamp(-120.0, 0.0)`` is a
+    no-op on NaN (``vendor/auralis-dsp/src/dsp_math.rs:11-40``). This is the
+    single choke point every producer converges on.
+
+    Replace-and-warn rather than reject: it preserves the "always produce a
+    fingerprint" contract every caller is written against, so a poisoned file
+    degrades to a comparable-but-wrong row that is logged, rather than
+    retry-looping forever in ``FingerprintExtractionQueue``.
+    """
+    replaced: list[str] = []
+    for key, value in fingerprint.items():
+        if not isinstance(value, (int, float, np.number)) or isinstance(value, bool):
+            continue
+        try:
+            if not math.isfinite(float(value)):
+                fingerprint[key] = 0.0
+                replaced.append(key)
+        except (TypeError, ValueError, OverflowError):
+            # Non-coercible values are not fingerprint dimensions; leave them
+            # for the completeness/schema checks to reject.
+            continue
+
+    if replaced:
+        logger.warning(
+            f"Fingerprint for {label} contained {len(replaced)} non-finite "
+            f"dimension(s), replaced with 0.0: {sorted(replaced)}. "
+            f"Check the source file and the contributing analyzers."
+        )
+    return replaced
 
 
 def _numpy_to_python(obj: Any) -> Any:
@@ -283,6 +330,13 @@ def compute_windowed_fingerprint(
                 f"{len(fingerprint)} of 25 dimensions present — discarding"
             )
             return None
+
+        # #5103: last guard before the value leaves this function. Every
+        # persistence path — the DB row via _prepare_for_storage/upsert, the
+        # .25d sidecar, and mastering-target selection — converges here, and
+        # none of them re-check finiteness downstream.
+        if fingerprint:
+            _sanitize_non_finite(fingerprint, audio_path.name)
 
         # Convert numpy types to JSON-safe Python types
         fingerprint_clean: dict[str, Any] = _numpy_to_python(fingerprint)
