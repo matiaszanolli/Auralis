@@ -1,16 +1,23 @@
 /**
- * Library API Integration Tests
+ * Library API Integration Tests — SKIPPED (#5119)
  *
- * Tests for library API endpoints using MSW
- * Part of 200-test frontend integration suite
+ * These tests exercise no component at all — bare `fetch()` against MSW, defined entirely within this file. No
+ * production module is imported: the only non-test-infrastructure imports are
+ * vitest, @testing-library, msw and react. The suite could therefore only ever
+ * validate its own fixture, never regress with production code — deleting the
+ * feature it names would leave every test in this file green.
  *
- * Tests cover:
- * - Track listing and pagination
- * - Album browsing
- * - Artist browsing
- * - Search functionality
- * - Metadata editing
- * - Favorite toggling
+ * That is the same false-green defect #3935 fixed in
+ * `src/tests/integration/streaming-audio/streaming-mse.test.tsx`, which was
+ * skipped rather than deleted for the same reason. The fix was applied to that
+ * one file and never swept across this directory (#5119).
+ *
+ * Real coverage for this area lives in `src/services/__tests__/libraryService` and the library hook specs.
+ *
+ * Kept (skipped, not deleted) as a starting point should these be rewritten to
+ * render the production component/hook they claim to cover — see
+ * `library-management.test.tsx` and `playlist-management.test.tsx` in this
+ * directory for the pattern that does it correctly.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -18,7 +25,7 @@ import { describe, it, expect } from 'vitest';
 // API base URL
 const API_BASE = 'http://localhost:8765/api';
 
-describe('Library API Integration Tests', () => {
+describe.skip('Library API Integration Tests', () => {
   describe('Track Endpoints', () => {
     it('should fetch tracks with pagination', async () => {
       const response = await fetch(`${API_BASE}/library/tracks?limit=10&offset=0`);

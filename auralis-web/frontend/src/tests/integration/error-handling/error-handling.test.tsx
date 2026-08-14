@@ -1,18 +1,23 @@
 /**
- * Error Handling API Integration Tests
+ * Error Handling API Integration Tests — SKIPPED (#5119)
  *
- * Comprehensive error handling tests for API interactions
- * Part of 200-test frontend integration suite
+ * These tests exercise `TestAPIComponent` / `TestConcurrentComponent` / `TestRetryComponent`, defined entirely within this file. No
+ * production module is imported: the only non-test-infrastructure imports are
+ * vitest, @testing-library, msw and react. The suite could therefore only ever
+ * validate its own fixture, never regress with production code — deleting the
+ * feature it names would leave every test in this file green.
  *
- * Test Categories:
- * 1. HTTP Error Responses (6 tests) - 400, 401, 403, 404, 500, 503
- * 2. Network Errors (4 tests) - timeout, connection refused, DNS, aborted
- * 3. Malformed Responses (3 tests) - invalid JSON, missing fields, type mismatch
- * 4. Missing Data Scenarios (3 tests) - empty body, null fields, undefined
- * 5. Concurrent Requests (2 tests) - multiple simultaneous, race conditions
- * 6. Rate Limiting (2 tests) - 429 status, retry-after header
+ * That is the same false-green defect #3935 fixed in
+ * `src/tests/integration/streaming-audio/streaming-mse.test.tsx`, which was
+ * skipped rather than deleted for the same reason. The fix was applied to that
+ * one file and never swept across this directory (#5119).
  *
- * Total: 20 tests
+ * Real coverage for this area lives in `src/utils/__tests__/httpError` and the per-hook error-path specs.
+ *
+ * Kept (skipped, not deleted) as a starting point should these be rewritten to
+ * render the production component/hook they claim to cover — see
+ * `library-management.test.tsx` and `playlist-management.test.tsx` in this
+ * directory for the pattern that does it correctly.
  */
 
 import { useEffect, useState } from 'react';
@@ -138,7 +143,7 @@ const TestRetryComponent = () => {
   );
 };
 
-describe('Error Handling API Integration Tests', () => {
+describe.skip('Error Handling API Integration Tests', () => {
   // SKIPPED: Memory-intensive test (688 lines). Run separately with increased heap.
   // Reset handlers after each test
   afterEach(() => {

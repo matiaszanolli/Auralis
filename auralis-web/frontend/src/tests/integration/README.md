@@ -1,8 +1,39 @@
 # Frontend Integration Tests
 
-Comprehensive integration tests organized by feature modules to improve maintainability, reduce memory footprint, and enable selective test runs.
+Integration tests organized by feature module, to improve maintainability,
+reduce memory footprint, and enable selective test runs.
+
+> ## ⚠️ Much of this directory is SKIPPED and does not test production code (#5119)
+>
+> 14 files in this tree — and `../api-integration/library-api.test.ts` — import
+> **zero production modules**. Each one defines a throwaway React component
+> inside the test file (`SearchableLibrary`, `CachedLibrary`, `VirtualList`,
+> `TestAPIComponent`, …) and asserts against that fixture. Deleting the feature
+> a file names would leave every test in it green.
+>
+> They ran green in every CI pass while asserting nothing about the app, so as
+> of #5119 they are wrapped in `describe.skip` with a per-file docstring
+> pointing at where the real coverage lives. They are kept, not deleted, as a
+> starting point for a rewrite.
+>
+> This is the same defect #3935 found in `streaming-audio/streaming-mse.test.tsx`
+> and fixed the same way; that fix was never swept across the rest of the
+> directory, which is what #5119 corrects.
+>
+> **Only these files in this tree exercise real production code:**
+> `library-management/library-management.test.tsx` (renders `CozyLibraryView`),
+> `library-management/playlist-management.test.tsx` (renders `PlaylistList` +
+> `playlistService`), and `websocket-realtime/websocket-realtime.test.tsx`
+> (`vi.unmock()`s the real `WebSocketContext`). Use those as the pattern when
+> rewriting any of the skipped files.
+>
+> The counts and "EXTRACTED & PASSING ✅" claims further down describe file
+> *organization*, not coverage. Read them as a refactoring log, not as evidence
+> that a feature is tested.
 
 ## Directory Structure
+
+`SKIPPED` marks a suite that tests only its own in-file fixture (#5119).
 
 ```
 tests/integration/
@@ -12,26 +43,34 @@ tests/integration/
 │   └── progress-bar-monitoring.test.tsx # Progress tracking
 │
 ├── library-management/           # Library browsing & management
-│   ├── library-management.test.tsx      # Core library operations
-│   ├── metadata.test.tsx                # Metadata editing & validation (13 tests)
-│   ├── artwork.test.tsx                 # Album artwork management (7 tests)
-│   ├── search-filter-accessibility.test.tsx # Search, filter, sort (1148 LOC - priority for splitting)
-│   └── playlist-management.test.tsx     # Playlist operations
+│   ├── library-management.test.tsx      # Core library ops — renders real CozyLibraryView
+│   ├── playlist-management.test.tsx     # Playlist ops — renders real PlaylistList
+│   ├── metadata.test.tsx                # SKIPPED (#5119) — in-file fixture
+│   ├── artwork.test.tsx                 # SKIPPED (#5119) — in-file fixture
+│   ├── search.test.tsx                  # SKIPPED (#5119) — in-file SearchableLibrary
+│   ├── filter.test.tsx                  # SKIPPED (#5119) — in-file fixture
+│   ├── sort.test.tsx                    # SKIPPED (#5119) — in-file fixture
+│   └── accessibility.test.tsx           # SKIPPED (#5119) — in-file fixture
 │
 ├── streaming-audio/              # Audio streaming & buffering
-│   └── streaming-mse.test.tsx          # Media Source Extensions (882 LOC)
+│   └── streaming-mse.test.tsx          # SKIPPED (#3935) — in-file MSE mocks; Auralis never used MSE
 │
 ├── websocket-realtime/           # Real-time WebSocket updates
-│   └── websocket-realtime.test.tsx     # Connection & state sync (811 LOC)
+│   └── websocket-realtime.test.tsx     # Connection & state sync — real WebSocketContext
 │
 ├── enhancement-processing/       # Audio enhancement parameters
 │   └── enhancement-pane.test.tsx       # Enhancement controls
 │
 ├── error-handling/               # Error scenarios & recovery
-│   └── error-handling.test.tsx         # API error handling (688 LOC)
+│   └── error-handling.test.tsx         # SKIPPED (#5119) — in-file TestAPIComponent
 │
 ├── performance/                  # Performance & optimization tests
-│   └── performance-large-libraries.test.tsx # Pagination, scrolling, caching (1114 LOC - priority for splitting)
+│   ├── performance-large-libraries.test.tsx # SKIPPED (#5119) — in-file fixtures
+│   ├── pagination.test.tsx              # SKIPPED (#5119) — in-file fixture
+│   ├── virtual-scrolling.test.tsx       # SKIPPED (#5119) — in-file VirtualList
+│   ├── cache-efficiency.test.tsx        # SKIPPED (#5119) — in-file CachedLibrary
+│   ├── bundle-size.test.tsx             # SKIPPED (#5119) — asserts on object literals
+│   └── memory-management.test.tsx       # SKIPPED (#5119) — in-file ComponentWithListeners
 │
 └── mocks/                        # MSW server & mock data
     ├── server.ts                 # MSW server setup
@@ -40,6 +79,10 @@ tests/integration/
     ├── api.ts                    # API constants
     └── websocket.ts              # WebSocket mocks
 ```
+
+`../api-integration/library-api.test.ts` is also SKIPPED (#5119): it renders no
+component at all, calling bare `fetch()` against MSW mocks without touching
+`libraryService`, `useLibraryPagination` or `useInfiniteAlbums`.
 
 ## Test Organization Benefits
 
@@ -156,20 +199,21 @@ Successfully extracted all 20 performance tests into focused test modules:
 
 ## Test Counts by Feature
 
-| Feature | Files | Tests | LOC |
-|---------|-------|-------|-----|
-| Player Controls | 3 | ~35 | ~680 |
-| Library Management (Phase 2) | 7 | ~40 | ~1,797* |
-| Streaming Audio | 1 | ~15 | ~882 |
-| WebSocket | 1 | ~20 | ~811 |
-| Enhancement | 1 | ~15 | ~TBD |
-| Error Handling | 1 | ~15 | ~688 |
-| Performance (Phase 3) | 6 | ~40** | ~1,124*** |
-| **TOTAL** | **20** | **~180** | **~7,982** |
+These are file-organization counts, **not** coverage. The "skipped" column is
+what matters: a skipped suite contributes zero regression protection (#5119).
 
-*includes search, filter, sort, accessibility, metadata, artwork test files
-**includes 20 new tests (5 in pagination, 5 in virtual-scrolling, 5 in cache-efficiency, 3 in bundle-size, 2 in memory-management) + 20 original monolithic tests
-***includes both original monolithic file (1,114 LOC) + 5 new refactored files (~1,124 LOC including components and MSW handlers)
+| Feature | Files | Skipped (#5119/#3935) | Exercises production code |
+|---------|-------|----------------------|---------------------------|
+| Player Controls | 3 | 0 | yes |
+| Library Management | 8 | 6 | only `library-management` + `playlist-management` |
+| Streaming Audio | 1 | 1 (#3935) | no — see `services/audio/__tests__/AudioPlaybackEngine.test.ts` |
+| WebSocket | 1 | 0 | yes (`vi.unmock()`s the real context) |
+| Enhancement | 1 | 0 | yes |
+| Error Handling | 1 | 1 | no |
+| Performance | 6 | 6 | no |
+| **TOTAL** | **21** | **14** | — |
+
+Plus `../api-integration/library-api.test.ts` (skipped, 1 file).
 
 ## Test Setup & Utilities
 

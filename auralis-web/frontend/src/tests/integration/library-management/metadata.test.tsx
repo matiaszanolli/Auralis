@@ -1,16 +1,23 @@
 /**
- * Metadata API Integration Tests
+ * Metadata API Integration Tests — SKIPPED (#5119)
  *
- * Tests for metadata editing and validation
- * Previously part of metadata-artwork.test.tsx (lines 1-476, 499-896, 1198-1337)
+ * These tests exercise its own inline metadata fixture, defined entirely within this file. No
+ * production module is imported: the only non-test-infrastructure imports are
+ * vitest, @testing-library, msw and react. The suite could therefore only ever
+ * validate its own fixture, never regress with production code — deleting the
+ * feature it names would leave every test in this file green.
  *
- * Test Categories:
- * 1. Track Metadata Editing (6 tests)
- * 2. Metadata Field Validation (4 tests)
- * 3. Metadata Synchronization (2 tests)
- * 4. Error Handling (1 test)
+ * That is the same false-green defect #3935 fixed in
+ * `src/tests/integration/streaming-audio/streaming-mse.test.tsx`, which was
+ * skipped rather than deleted for the same reason. The fix was applied to that
+ * one file and never swept across this directory (#5119).
  *
- * Total: 13 tests
+ * Real coverage for this area lives in `src/components/library/EditMetadataDialog/__tests__/`.
+ *
+ * Kept (skipped, not deleted) as a starting point should these be rewritten to
+ * render the production component/hook they claim to cover — see
+ * `library-management.test.tsx` and `playlist-management.test.tsx` in this
+ * directory for the pattern that does it correctly.
  */
 
 import { useEffect, useState } from 'react';
@@ -319,7 +326,7 @@ const BatchMetadataForm = ({ trackIds, onSave, onError }: BatchMetadataFormProps
 // Test Suite
 // ==========================================
 
-describe('Metadata API Integration Tests', () => {
+describe.skip('Metadata API Integration Tests', () => {
   // SKIPPED: Large integration test (876 lines). Run separately with increased heap.
   // Reset handlers after each test
   afterEach(() => {

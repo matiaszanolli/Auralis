@@ -1,12 +1,23 @@
 /**
- * Sort Integration Tests
+ * Sort Operations — SKIPPED (#5119)
  *
- * Tests for sorting functionality including title, artist, date added, play count, and duration.
+ * These tests exercise its own inline sort fixture, defined entirely within this file. No
+ * production module is imported: the only non-test-infrastructure imports are
+ * vitest, @testing-library, msw and react. The suite could therefore only ever
+ * validate its own fixture, never regress with production code — deleting the
+ * feature it names would leave every test in this file green.
  *
- * Test Categories:
- * 1. Sort Operations (5 tests)
+ * That is the same false-green defect #3935 fixed in
+ * `src/tests/integration/streaming-audio/streaming-mse.test.tsx`, which was
+ * skipped rather than deleted for the same reason. The fix was applied to that
+ * one file and never swept across this directory (#5119).
  *
- * Previously part of search-filter-accessibility.test.tsx
+ * Real coverage for this area lives in the CozyLibraryView / track-list specs.
+ *
+ * Kept (skipped, not deleted) as a starting point should these be rewritten to
+ * render the production component/hook they claim to cover — see
+ * `library-management.test.tsx` and `playlist-management.test.tsx` in this
+ * directory for the pattern that does it correctly.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -75,7 +86,7 @@ const SortableLibrary = () => {
   );
 };
 
-describe('Sort Operations', () => {
+describe.skip('Sort Operations', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

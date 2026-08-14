@@ -1,14 +1,23 @@
 /**
- * Artwork API Integration Tests
+ * Artwork API Integration Tests — SKIPPED (#5119)
  *
- * Tests for album artwork management and validation
- * Previously part of metadata-artwork.test.tsx (lines 1-476, 902-1192)
+ * These tests exercise its own inline artwork fixture, defined entirely within this file. No
+ * production module is imported: the only non-test-infrastructure imports are
+ * vitest, @testing-library, msw and react. The suite could therefore only ever
+ * validate its own fixture, never regress with production code — deleting the
+ * feature it names would leave every test in this file green.
  *
- * Test Categories:
- * 1. Album Artwork Management (4 tests)
- * 2. Artwork Format Handling (3 tests)
+ * That is the same false-green defect #3935 fixed in
+ * `src/tests/integration/streaming-audio/streaming-mse.test.tsx`, which was
+ * skipped rather than deleted for the same reason. The fix was applied to that
+ * one file and never swept across this directory (#5119).
  *
- * Total: 7 tests
+ * Real coverage for this area lives in `src/components/shared/MediaCard/` specs and the artwork service tests.
+ *
+ * Kept (skipped, not deleted) as a starting point should these be rewritten to
+ * render the production component/hook they claim to cover — see
+ * `library-management.test.tsx` and `playlist-management.test.tsx` in this
+ * directory for the pattern that does it correctly.
  */
 
 import { useEffect, useState } from 'react';
@@ -171,7 +180,7 @@ const ArtworkManager = ({ albumId, onUpload, onDelete, onError }: ArtworkManager
 // Test Suite
 // ==========================================
 
-describe('Artwork API Integration Tests', () => {
+describe.skip('Artwork API Integration Tests', () => {
   // Mock URL.createObjectURL and URL.revokeObjectURL for all tests
   beforeEach(() => {
     // Always mock URL methods for consistent test behavior

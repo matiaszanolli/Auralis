@@ -1,13 +1,23 @@
 /**
- * Advanced Search Integration Tests
+ * Advanced Search Integration Tests — SKIPPED (#5119)
  *
- * Tests for search functionality including fuzzy matching, multi-field search,
- * and debouncing behavior.
+ * These tests exercise `SearchableLibrary`, defined entirely within this file. No
+ * production module is imported: the only non-test-infrastructure imports are
+ * vitest, @testing-library, msw and react. The suite could therefore only ever
+ * validate its own fixture, never regress with production code — deleting the
+ * feature it names would leave every test in this file green.
  *
- * Test Categories:
- * 1. Advanced Search (5 tests)
+ * That is the same false-green defect #3935 fixed in
+ * `src/tests/integration/streaming-audio/streaming-mse.test.tsx`, which was
+ * skipped rather than deleted for the same reason. The fix was applied to that
+ * one file and never swept across this directory (#5119).
  *
- * Previously part of search-filter-accessibility.test.tsx
+ * Real coverage for this area lives in `src/hooks/library/__tests__/` (useLibraryQuery) and the CozyLibraryView specs.
+ *
+ * Kept (skipped, not deleted) as a starting point should these be rewritten to
+ * render the production component/hook they claim to cover — see
+ * `library-management.test.tsx` and `playlist-management.test.tsx` in this
+ * directory for the pattern that does it correctly.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -77,7 +87,7 @@ const SearchableLibrary = () => {
   );
 };
 
-describe('Advanced Search Integration Tests', () => {
+describe.skip('Advanced Search Integration Tests', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
