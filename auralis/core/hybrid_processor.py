@@ -254,14 +254,22 @@ class HybridProcessor:
         if not isinstance(target_audio, np.ndarray):
             raise ValueError(f"Target audio must be a NumPy array, got {type(target_audio)}")
 
-        # Handle empty audio first (before any other processing)
-        if len(target_audio) == 0:
-            return target_audio.copy()
-
-        # Convert mono to stereo if needed
+        # Convert mono to stereo if needed.
+        #
+        # This runs BEFORE the empty-audio check (#4976). With the order
+        # reversed, an empty mono buffer returned 1-D `(0,)` while every other
+        # path — including the all-zeros return a few lines below, which sits
+        # after this conversion — returned 2-D `(N, 2)`. A caller that indexes
+        # `result[:, 0]`, reasonable given the shape this processor otherwise
+        # always guarantees, hit an IndexError only on the empty-mono path.
         if target_audio.ndim == 1:
             target_audio = np.column_stack([target_audio, target_audio])
             debug(f"Converted mono audio to stereo: shape now {target_audio.shape}")
+
+        # Handle empty audio before any further processing. Post-conversion
+        # this returns (0, 2) for mono and stereo alike.
+        if len(target_audio) == 0:
+            return target_audio.copy()
 
         # Audio shorter than one analysis window (1024 samples, ~23ms at
         # 44.1kHz) is returned unprocessed rather than rejected (#4520).
