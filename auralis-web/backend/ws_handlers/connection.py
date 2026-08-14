@@ -224,6 +224,14 @@ async def teardown_connection(
     # Cancel any active streaming task — idempotent pop under lock (fixes #2425).
     # Also await the cancellation so the streaming task fully releases its
     # semaphore + chunk cache before we proceed.
+    #
+    # #4704: this is deliberately a lock-split variant of the teardown that
+    # playback_commands._cancel_prior_task expresses in one block. It runs at
+    # DISCONNECT, not mid-stream, so the registries it clears below can be
+    # cleared outside `active_tasks_lock` — no successor stream is about to
+    # register into them, which is the race the mid-stream helper guards
+    # against. Each half is independently try/except'd so one failing cleanup
+    # cannot skip the rest of a disconnect.
     try:
         async with state.active_tasks_lock:
             task = state.active_tasks.pop(ws_id, None)

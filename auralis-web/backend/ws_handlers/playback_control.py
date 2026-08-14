@@ -63,6 +63,19 @@ async def handle_buffer_ready(websocket: WebSocket, state: StreamState) -> None:
 async def handle_stop(websocket: WebSocket, state: StreamState) -> None:
     logger.info("Received stop command via WebSocket")
     ws_id = _ws_id(websocket)
+    # #4704 SIBLING, deliberately NOT routed through
+    # playback_commands._cancel_prior_task, unlike handle_seek:
+    #   * this also clears `active_stream_settings`, which the helper must not
+    #     touch — seek and play re-use that snapshot for the successor stream
+    #     (#4742), whereas a stop ends the stream outright;
+    #   * the helper additionally sweeps completed tasks for OTHER ws ids,
+    #     which stop has no reason to do;
+    #   * `playback_control` does not import from `playback_commands`, and
+    #     reaching for a sibling module's private helper to save six lines
+    #     would couple the two for less than it costs.
+    # Consolidating all three teardown sites behind one shared module is a
+    # reasonable follow-up, but it is a behaviour change for this handler and
+    # is out of scope for a consistency fix.
     async with state.active_tasks_lock:
         task = state.active_tasks.pop(ws_id, None)
         # Also clear the per-ws event/track registries so a stop with no

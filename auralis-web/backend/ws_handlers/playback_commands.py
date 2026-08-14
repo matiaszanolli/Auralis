@@ -334,26 +334,26 @@ async def handle_seek(
 
     logger.info(f"Received seek: track_id={track_id}, position={position}s, preset={preset}")
 
-    # Pop prior task under lock; cancel and await outside lock to avoid deadlock (fixes #2425, #2430)
-    async with state.active_tasks_lock:
-        for k in [k for k, v in state.active_tasks.items() if v.done()]:
-            state.active_tasks.pop(k, None)
-        old_task = state.active_tasks.pop(ws_id, None)
-    if old_task and not old_task.done():
-        logger.info("Cancelling existing streaming task for seek")
-        old_task.cancel()
-        # Await unconditionally (fixes #3806) — the prior 100ms
-        # wait_for/shield let the old task's DSP work (200ms-2s
-        # inside asyncio.to_thread) outlive the timeout, so it
-        # resumed and sent its own chunk over the same websocket
-        # concurrently with the new seek task, interleaving
-        # frames. play_enhanced/play_normal already await
-        # unconditionally (see above); seek was the outlier. No
-        # deadlock risk: the lock was released above this block.
-        try:
-            await old_task
-        except (asyncio.CancelledError, Exception):
-            pass
+    # #4704: use the shared helper rather than open-coding the teardown.
+    # This block popped only `active_tasks`, leaving `active_track_ids`,
+    # `pause_events` and `flow_events` pointing at the superseded stream's
+    # objects for the whole cancel-and-await window. Nothing broke today
+    # because the three are re-registered below, but a divergent copy of a
+    # lock-ordered teardown is the shape that produced #3828 / #3522 / #4364.
+    # #4364 gave handle_stop the same treatment; seek was the last outlier.
+    #
+    # The helper preserves both invariants this site depended on: pop under
+    # `active_tasks_lock`, then cancel and await OUTSIDE it (#2425/#2430/#3828 —
+    # awaiting under the lock is the original deadlock), and await
+    # unconditionally (#3806 — the prior 100 ms wait_for/shield let the old
+    # task's 200 ms-2 s DSP work outlive the timeout, so it resumed and
+    # interleaved chunks with the new seek task on the same websocket).
+    #
+    # It deliberately does NOT clear `active_stream_settings`: seek reads that
+    # snapshot above to inherit the running stream's preset/intensity (#4742),
+    # and the new task inherits the same connection's settings. Only
+    # handle_stop clears it, because a stop ends the stream outright.
+    await _cancel_prior_task(ws_id, state)
 
     await safe_send_text(websocket, {
         "type": "seek_started",
