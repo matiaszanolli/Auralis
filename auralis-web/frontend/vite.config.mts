@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 import { execSync } from 'child_process'
+import { vendorChunk } from './vite.manualChunks'
 
 // Function to get current commit hash (called fresh each time in dev mode)
 function getCommitId(): string {
@@ -125,23 +126,19 @@ export default defineConfig(({ mode }) => {
       sourcemap: false,
       rollupOptions: {
         output: {
-          // Separate vendor chunk for better module initialization order
-          // Critical: This prevents 'Paper is not defined' errors in Electron/AppImage
-          // by ensuring React, ReactDOM, and MUI load before application code
-          manualChunks: (id) => {
-            // Explicitly put vendor libraries in vendor chunk
-            if (
-              id.includes('node_modules/react') ||
-              id.includes('node_modules/@mui') ||
-              id.includes('node_modules/@emotion')
-            ) {
-              return 'vendor'
-            }
-          },
+          // Separate vendor chunk for better module initialization order.
+          // Defined in vite.manualChunks.ts so it is unit-testable — read the
+          // rationale there before changing it (#4697).
+          manualChunks: vendorChunk,
           chunkFileNames: '[name]-[hash].js',
         },
       },
-      chunkSizeWarningLimit: 500,
+      // The `vendor` chunk is intentionally large (~705 kB raw / ~215 kB gzip
+      // as of #4697) because the rule above deliberately front-loads React,
+      // MUI and Emotion. Warning about it on every build trained everyone to
+      // ignore the warning; this limit is set just above the current vendor
+      // size so real growth still surfaces. Raise it only with a measurement.
+      chunkSizeWarningLimit: 750,
     },
   }
 })
