@@ -180,7 +180,9 @@ def test_racy_set_mastering_targets_setter_is_gone():
 # ProcessorFactory's cache must now call close() on it first.
 
 def _make_key(i: int) -> ProcessorCacheKey:
-    return ProcessorCacheKey(track_id=i, preset="adaptive", intensity=1.0, config_hash=f"hash_{i}", targets_hash="none")
+    # #4707: intensity is no longer a key field — it never reached the
+    # constructed processor.
+    return ProcessorCacheKey(track_id=i, preset="adaptive", config_hash=f"hash_{i}", targets_hash="none")
 
 
 def test_lru_eviction_closes_evicted_processor():

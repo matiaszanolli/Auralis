@@ -31,10 +31,23 @@ class ProcessorCacheKey(NamedTuple):
     positional indexing (`key[0]`). Adding a new field in the future
     (sample_rate, etc.) stays backward-compatible for callers that
     already use the named fields; positional access would silently shift.
+
+    #4707: `intensity` is deliberately NOT a field. It was keyed on without
+    ever reaching the constructed processor — `get_or_create` applies only the
+    preset (`config.mastering_profile`) and optional mastering targets, and
+    intensity is realised downstream as a dry/wet blend on the processor's
+    OUTPUT (`core/audio_processing_pipeline.py`). Two calls differing only in
+    intensity therefore built two byte-identical processors and consumed two of
+    the 32 LRU slots, so an intensity slider sweep evicted genuinely distinct
+    (track, preset) processors and forced redundant 200-500 ms constructions,
+    each spinning up a fresh 5-thread fingerprint executor (#3746).
+
+    Every field here is one the processor actually consumes, matching
+    `ProcessorPool.cache_key`. Contrast `targets_hash`, which #3720 added
+    precisely because targets DO change the constructed processor.
     """
     track_id: int
     preset: str
-    intensity: float
     config_hash: str
     targets_hash: str
 
@@ -60,7 +73,7 @@ class ProcessorFactory:
     - hybrid_processor.py: _processor_cache (config-based caching)
 
     This factory provides:
-    - Unified cache key: (track_id, preset, intensity, config_hash)
+    - Unified cache key: (track_id, preset, config_hash, targets_hash)
     - Thread-safe operations with RLock
     - Lifecycle management (create, release, cleanup)
     - Statistics and monitoring
@@ -85,14 +98,15 @@ class ProcessorFactory:
 
     def __init__(self) -> None:
         """Initialize processor factory."""
-        # Unified cache: (track_id, preset, intensity, config_hash) -> HybridProcessor.
+        # Unified cache: (track_id, preset, config_hash, targets_hash) -> HybridProcessor.
         # OrderedDict with LRU eviction (fixes #3515 / BE-NEW-57) — `cleanup_track`
         # is never called by production code, so the unbounded dict was
         # accumulating gigabytes of HybridProcessor state for any long-running
         # backend session.
-        # #3720: cache key includes targets_hash (5-tuple) so different
-        # mastering_targets for the same (track_id, preset, intensity)
-        # get distinct cached processors instead of racing on a re-apply.
+        # #3720: cache key includes targets_hash so different
+        # mastering_targets for the same (track_id, preset) get distinct
+        # cached processors instead of racing on a re-apply. #4707 dropped
+        # intensity from the key — the processor never consumed it.
         # #3733: the key shape is documented as a NamedTuple
         # (ProcessorCacheKey) so introspection — e.g., `cleanup_for_track`
         # filtering by `track_id` — uses named-attribute access and
@@ -112,7 +126,6 @@ class ProcessorFactory:
         self,
         track_id: int,
         preset: str,
-        intensity: float,
         config_hash: str,
         targets_hash: str = "none",
     ) -> ProcessorCacheKey:
@@ -122,13 +135,15 @@ class ProcessorFactory:
         Args:
             track_id: Track ID (use 0 for config-based caching)
             preset: Processing preset
-            intensity: Processing intensity
             config_hash: Hash of config object (use "default" for default config)
             targets_hash: Hash of mastering_targets dict (use "none" if absent).
                 #3720: included in the key so two callers requesting the same
-                (track_id, preset, intensity) with DIFFERENT targets get
-                different cached processors — eliminates the need to re-apply
-                targets on cache hit (which raced with in-flight processing).
+                (track_id, preset) with DIFFERENT targets get different cached
+                processors — eliminates the need to re-apply targets on cache
+                hit (which raced with in-flight processing).
+
+        Note:
+            `intensity` is intentionally absent (#4707) — see ProcessorCacheKey.
 
         Returns:
             Cache key tuple
@@ -136,7 +151,6 @@ class ProcessorFactory:
         return ProcessorCacheKey(
             track_id=track_id,
             preset=preset.lower(),
-            intensity=intensity,
             config_hash=config_hash,
             targets_hash=targets_hash,
         )
@@ -145,7 +159,7 @@ class ProcessorFactory:
         """#3720: content hash of mastering_targets, used in the cache key.
         Returns "none" when targets are absent so existing callsites that
         don't supply targets share a single cache entry per (track, preset,
-        intensity, config) — preserving the prior cache-hit behaviour for
+        config) — preserving the prior cache-hit behaviour for
         the common case."""
         if mastering_targets is None:
             return "none"
@@ -194,7 +208,11 @@ class ProcessorFactory:
         Args:
             track_id: Track ID for cache key (use 0 for non-track processing)
             preset: Processing preset (adaptive, gentle, warm, bright, punchy)
-            intensity: Processing intensity (0.0-1.0)
+            intensity: Processing intensity (0.0-1.0). Logged for
+                diagnostics and accepted for API stability, but NOT part
+                of the cache key — it is applied downstream as a dry/wet
+                blend on the processor's output, never at construction
+                (#4707).
             config: Optional UnifiedConfig instance
             mastering_targets: Optional pre-computed mastering targets
 
@@ -213,7 +231,7 @@ class ProcessorFactory:
         config_hash = self._get_config_hash(config)
         targets_hash = self._get_targets_hash(mastering_targets)
         cache_key = self._get_cache_key(
-            track_id, preset, intensity, config_hash, targets_hash
+            track_id, preset, config_hash, targets_hash
         )
 
         with self._lock:
