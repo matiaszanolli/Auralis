@@ -33,15 +33,21 @@ NOT_DIRECT_DEPENDENCIES: dict[str, str] = {
     # Pinned transitively for reproducible installs, not imported by us.
     "h11": "transitive: required by httpcore and uvicorn",
     "httpcore": "transitive: required by httpx",
-    "python-dotenv": "transitive: required by pydantic-settings",
+    # #4871: this read "required by pydantic-settings", which was wrong even
+    # before that pin was dropped — the actual requirer is `uvicorn[standard]`
+    # (`python-dotenv>=0.13; extra == "standard"`). A wrong reason here is not
+    # cosmetic: it is what someone reads when deciding whether the entry can go.
+    "python-dotenv": "transitive: required by uvicorn[standard]",
     # Test-only; declared in the `dev` extra instead.
     "httpx": "test-only: fastapi.testclient.TestClient",
-    # No importer anywhere in the repo and required by nothing installed.
-    # Left pinned rather than removed because requirements.txt is mirrored into
-    # the shipped desktop manifest; dropping it is a distribution change that
-    # belongs with the manifest-reconciliation work (#4355), not here.
-    "pydantic-settings": "UNUSED: zero importers repo-wide - see #4355",
 }
+# `pydantic-settings` used to be exempted here as "UNUSED: zero importers
+# repo-wide - see #4355". #4871 removed the pin itself from both manifests
+# instead: it is absent from pyproject.toml, absent from the installed .venv,
+# and imported by nothing — so it was describing a package the app neither
+# declares nor ships. `starlette` moved the opposite way in the same change:
+# it is imported directly by five backend modules and is now a declared
+# dependency rather than an undeclared transitive.
 
 
 def normalize(name: str) -> str:

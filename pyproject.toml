@@ -45,14 +45,14 @@ dependencies = [
     # install dies building llvmlite 0.36 from source. Verified against a clean
     # 3.14 venv. requirements.txt's `numpy==2.3.5` sits inside this range.
     # Revisit when numba supports numpy 2.5.
-    "numpy>=2.0,<2.5",
-    "scipy>=1.16",
-    "soundfile>=0.13",
+    "numpy>=2.4,<2.5",
+    "scipy>=1.18",
+    "soundfile>=0.14",
     "librosa>=0.11",
     "resampy>=0.4",          # auralis/io/processing.py resampling path
-    "mutagen>=1.47",         # tag reading/writing across the scanner + metadata router
+    "mutagen>=1.48",         # tag reading/writing across the scanner + metadata router
     # Backend
-    "fastapi>=0.115",
+    "fastapi>=0.141",
     # Extras must match both requirements manifests (#4561) — see the note
     # there on uvloop/httptools. The floor-vs-exact pinning divergence between
     # this file and requirements.txt is tracked separately by #4355.
@@ -60,16 +60,24 @@ dependencies = [
     # resume_writing into a real event, so WebSocket sends never actually
     # suspend under backpressure — see requirements.txt's uvicorn comment.
     "uvicorn[standard]>=0.52.1",
-    "pydantic>=2.12",
+    "pydantic>=2.13",
+    # Imported directly (config/middleware.py, main.py, ws_handlers/messages.py):
+    # BaseHTTPMiddleware, TrustedHostMiddleware, Request/Response, routing.Match,
+    # WebSocketState. FastAPI re-exports only part of this, so it is a real
+    # direct dependency, not just FastAPI's transitive — and it was declared
+    # nowhere at all until #4871. FastAPI's own range is open-ended
+    # (`starlette>=0.46.0`, no cap), so leaving it undeclared let a fresh
+    # resolve pick any newer major.
+    "starlette>=1.3.1",
     # No import anywhere, but load-bearing: FastAPI raises at request time on
     # the `UploadFile`/`File(...)` endpoints in routers/files.py without it.
-    "python-multipart>=0.0.31",
+    "python-multipart>=0.0.32",
     # Database
-    "SQLAlchemy>=2.0",       # auralis/library/** — models, 14 repositories, migrations
+    "SQLAlchemy>=2.0.51",       # auralis/library/** — models, 14 repositories, migrations
     # Supporting
     "pillow>=12.3",          # artwork thumbnail endpoint (#4447)
     "aiohttp>=3.14.3",         # artwork fetching
-    "psutil>=7.1",           # system router
+    "psutil>=7.2",           # system router
 ]
 
 [project.optional-dependencies]

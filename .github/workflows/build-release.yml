@@ -145,7 +145,13 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install --upgrade pip setuptools wheel maturin
-          pip install -r requirements.txt
+          # #4871: install the hash-locked file, not requirements.txt. The
+          # manifest pins direct dependencies only, so `pip install -r
+          # requirements.txt` still resolved every TRANSITIVE afresh at build
+          # time — each release shipped whatever satisfied the ranges that day,
+          # unverified by any CI run. --require-hashes makes the shipped set
+          # byte-identical to what backend-tests.yml tested.
+          pip install --require-hashes -r requirements-lock.txt
 
       - name: Build Rust DSP module
         run: |
@@ -288,7 +294,13 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install --upgrade pip setuptools wheel maturin
-          pip install -r requirements.txt
+          # #4871: install the hash-locked file, not requirements.txt. The
+          # manifest pins direct dependencies only, so `pip install -r
+          # requirements.txt` still resolved every TRANSITIVE afresh at build
+          # time — each release shipped whatever satisfied the ranges that day,
+          # unverified by any CI run. --require-hashes makes the shipped set
+          # byte-identical to what backend-tests.yml tested.
+          pip install --require-hashes -r requirements-lock.txt
 
       - name: Build Rust DSP module
         shell: pwsh
@@ -420,7 +432,13 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install --upgrade pip setuptools wheel maturin
-          pip install -r requirements.txt
+          # #4871: install the hash-locked file, not requirements.txt. The
+          # manifest pins direct dependencies only, so `pip install -r
+          # requirements.txt` still resolved every TRANSITIVE afresh at build
+          # time — each release shipped whatever satisfied the ranges that day,
+          # unverified by any CI run. --require-hashes makes the shipped set
+          # byte-identical to what backend-tests.yml tested.
+          pip install --require-hashes -r requirements-lock.txt
 
       - name: Build Rust DSP module
         run: |

@@ -119,6 +119,25 @@ jobs:
       - name: Verify pyproject.toml declares the same runtime dependency set
         run: python .github/scripts/check_pyproject_deps.py
 
+  lock-matches-manifest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: '3.14'
+
+      # #4871: the three jobs above all compare FILES to other FILES. None of
+      # them could see that the pins describe a stack nothing installs — at
+      # filing time requirements.txt pinned fastapi==0.122.0 while every audit
+      # conclusion was drawn from an environment running 0.141.1, and starlette
+      # was pinned nowhere at all. requirements-lock.txt is what CI and the
+      # release build actually install, so making it agree with the manifest is
+      # what turns these pins from documentation into a constraint.
+      - name: Verify requirements-lock.txt installs exactly what requirements.txt pins
+        run: python .github/scripts/check_lock_matches_manifest.py
+
   pinned-parser-dependencies:
     runs-on: ubuntu-latest
     steps:

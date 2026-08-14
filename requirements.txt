@@ -4,18 +4,25 @@
 #
 # requirements-lock.txt hash-locks this file's FULL transitive tree (#4889) —
 # after changing anything here, regenerate it too:
-#   uv pip compile requirements.txt --generate-hashes \
-#     --python-version 3.14 --python-platform x86_64-unknown-linux-gnu \
-#     -o requirements-lock.txt
-numpy==2.3.5
-scipy==1.16.3
-soundfile==0.13.1
+#   uv pip compile requirements.txt --generate-hashes --universal \
+#     --python-version 3.14 -o requirements-lock.txt
+#
+# `--universal` is required, not optional (#4871). The lock was previously
+# compiled with `--python-platform x86_64-unknown-linux-gnu`, which RESOLVES
+# environment markers away instead of preserving them: `uvloop` came out
+# unconditional (it has no Windows wheel at all, so a Windows install fails
+# outright) and `colorama` was dropped entirely. That was survivable only while
+# backend-tests.yml — Linux — was the sole consumer. build-release.yml now
+# installs this file on all three platforms, so it must stay marker-aware.
+numpy==2.4.6
+scipy==1.18.0
+soundfile==0.14.0
 librosa==0.11.0
 resampy==0.4.3
-mutagen==1.47.0
+mutagen==1.48.1
 
 # FastAPI Backend
-fastapi==0.122.0
+fastapi==0.141.1
 # [standard] is load-bearing, not cosmetic: it pulls uvloop + httptools, so the
 # WebSocket audio stream runs on a different event-loop implementation with it
 # than without. The shipped desktop manifest
@@ -33,12 +40,21 @@ fastapi==0.122.0
 # guards can never trigger. Do not downgrade below this without re-verifying
 # tests/backend/test_websocket_uvicorn_backpressure_4784.py still passes.
 uvicorn[standard]==0.52.1
-pydantic==2.12.4
-pydantic-settings==2.12.0
-python-multipart==0.0.31
+# Starlette is FastAPI's ASGI foundation — every inbound HTTP request and the
+# WebSocket audio stream go through it. It is a TRANSITIVE dependency, and
+# fastapi==0.141.1 declares `starlette>=0.46.0` with NO upper bound, so an
+# unpinned resolve takes whatever is newest on PyPI that day. Two builds of the
+# same commit could ship different Starlette majors (#4871).
+#
+# It is pinned here, as a direct entry, precisely because it is not one:
+# requirements-pin-guard.yml's manifest diff only sees lines in these files, so
+# a transitive left to the resolver is invisible to every gate the repo has.
+starlette==1.3.1
+pydantic==2.13.4
+python-multipart==0.0.32
 
 # Database
-SQLAlchemy==2.0.44
+SQLAlchemy==2.0.51
 
 # Image Processing
 # Used by the artwork endpoint to serve downscaled thumbnail variants (#4447).
@@ -46,7 +62,7 @@ pillow==12.3.0
 
 # Async HTTP & Utilities
 aiohttp==3.14.3
-psutil==7.1.3
+psutil==7.2.2
 python-dotenv==1.2.2
 
 # HTTP dependencies (automatically installed by FastAPI/aiohttp)
