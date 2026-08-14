@@ -513,6 +513,78 @@ describe('useBatchOperations', () => {
 
       expect(mockToastError).toHaveBeenCalledWith('Failed to toggle favorites');
     });
+
+    // #5118: the backend has no toggle endpoint — POST sets favorite=true and
+    // DELETE sets it false, neither reading prior state. This hook used to POST
+    // unconditionally, so un-favoriting silently no-opped server-side while the
+    // toast still reported success. These tests assert the METHOD, which none
+    // of the tests above ever did — which is why the bug went unnoticed.
+    it('DELETEs already-favorited tracks and POSTs the rest (#5118)', async () => {
+      const posted: string[] = [];
+      const deleted: string[] = [];
+      server.use(
+        http.post('/api/library/tracks/:id/favorite', ({ params }) => {
+          posted.push(String(params.id));
+          return HttpResponse.json({ favorite: true });
+        }),
+        http.delete('/api/library/tracks/:id/favorite', ({ params }) => {
+          deleted.push(String(params.id));
+          return HttpResponse.json({ favorite: false });
+        })
+      );
+
+      const { result } = renderHook(() =>
+        useBatchOperations({
+          selectedTracks: new Set([1, 2, 3]),
+          selectedCount: 3,
+          onFetchTracks: mockOnFetchTracks,
+          onClearSelection: mockOnClearSelection,
+          tracks: [
+            { id: 1, favorite: true },
+            { id: 2, favorite: false },
+            { id: 3 }, // favorite absent → treated as not favorited
+          ],
+        })
+      );
+
+      await act(async () => {
+        await result.current.handleBulkToggleFavorite();
+      });
+
+      expect(deleted).toEqual(['1']);
+      expect(posted.sort()).toEqual(['2', '3']);
+    });
+
+    it('falls back to POST-only when no track states are supplied (#5118)', async () => {
+      const posted: string[] = [];
+      const deleted: string[] = [];
+      server.use(
+        http.post('/api/library/tracks/:id/favorite', ({ params }) => {
+          posted.push(String(params.id));
+          return HttpResponse.json({ favorite: true });
+        }),
+        http.delete('/api/library/tracks/:id/favorite', ({ params }) => {
+          deleted.push(String(params.id));
+          return HttpResponse.json({ favorite: false });
+        })
+      );
+
+      const { result } = renderHook(() =>
+        useBatchOperations({
+          selectedTracks: new Set([1, 2]),
+          selectedCount: 2,
+          onFetchTracks: mockOnFetchTracks,
+          onClearSelection: mockOnClearSelection,
+        })
+      );
+
+      await act(async () => {
+        await result.current.handleBulkToggleFavorite();
+      });
+
+      expect(posted.sort()).toEqual(['1', '2']);
+      expect(deleted).toEqual([]);
+    });
   });
 
   describe('Empty Selection', () => {

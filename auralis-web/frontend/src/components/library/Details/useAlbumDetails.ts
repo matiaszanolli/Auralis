@@ -12,6 +12,7 @@ import { useState, useEffect } from 'react';
 import { transformTracks } from '@/api/transformers/trackTransformer';
 import type { TrackApiResponse } from '@/api/transformers/types';
 import type { DetailTrack } from '@/types/domain';
+import { ENDPOINTS } from '@/config/api';
 import { isAbortError } from '@/utils/errorGuards';
 
 export interface Album {
@@ -76,6 +77,11 @@ export const useAlbumDetails = (albumId: number) => {
           tracks,
         };
         setAlbum(albumData);
+        // #5118: seed the heart from the server rather than leaving it false.
+        // `favorite` is on the wire for every track (DEFAULT_TRACK_FIELDS, #2851)
+        // and survives transformTracks, so the control no longer misrepresents
+        // stored state before the first click.
+        setIsFavorite(tracks[0]?.favorite ?? false);
       } catch (err) {
         if (isAbortError(err)) return;
         console.error('Error fetching album details:', err);
@@ -98,8 +104,11 @@ export const useAlbumDetails = (albumId: number) => {
         return;
       }
 
-      const response = await fetch(`/api/library/tracks/${trackId}/favorite`, {
-        method: 'POST',
+      // #5118: the backend has no toggle semantic — POST sets favorite=true and
+      // DELETE sets it false, each unconditionally. Always POSTing meant
+      // un-favoriting never reached the server while the UI reported success.
+      const response = await fetch(ENDPOINTS.TRACK_FAVORITE(trackId), {
+        method: isFavorite ? 'DELETE' : 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -109,7 +118,12 @@ export const useAlbumDetails = (albumId: number) => {
         throw new Error('Failed to update favorite status');
       }
 
-      setIsFavorite(!isFavorite);
+      // Take the new state from the server's `favorite` field rather than
+      // negating the local one, so the control cannot drift from stored state.
+      const result = await response.json().catch(() => null);
+      setIsFavorite(
+        typeof result?.favorite === 'boolean' ? result.favorite : !isFavorite
+      );
     } catch (err) {
       console.error('Error toggling favorite:', err);
       setError(err instanceof Error ? err.message : 'Failed to update favorite status');

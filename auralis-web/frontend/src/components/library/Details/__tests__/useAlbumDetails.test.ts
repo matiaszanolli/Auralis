@@ -14,7 +14,7 @@
  * does not break them.
  */
 
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useAlbumDetails } from '../useAlbumDetails';
 
@@ -70,6 +70,105 @@ describe('useAlbumDetails', () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     return result;
   };
+
+  // #5118: the backend exposes favorites as POST (set true) / DELETE (set
+  // false), with no toggle semantic. The hook used to always POST and then
+  // negate a local boolean that started `false` unconditionally — so the heart
+  // misreported stored state on load, and un-favoriting never reached the
+  // server while the UI reported success.
+  describe('favorite state (#5118)', () => {
+    /** Route the album fetch to the fixture and the favorite call to `body`. */
+    const mockFetch = (body: unknown = { favorite: false }) => {
+      const fetchMock = vi.fn().mockImplementation((url: string) => {
+        if (String(url).includes('/favorite')) {
+          return Promise.resolve({ ok: true, json: async () => body });
+        }
+        return Promise.resolve({ ok: true, json: async () => ALBUM_TRACKS_RESPONSE });
+      });
+      global.fetch = fetchMock as unknown as typeof fetch;
+      return fetchMock;
+    };
+
+    it('seeds isFavorite from the first track rather than defaulting to false', async () => {
+      mockFetch();
+      const result = await load();
+
+      // Fixture track 10 has favorite: true.
+      expect(result.current.isFavorite).toBe(true);
+    });
+
+    it('issues DELETE when the album is already favorited', async () => {
+      const fetchMock = mockFetch({ favorite: false });
+      const result = await load();
+      expect(result.current.isFavorite).toBe(true);
+
+      await act(async () => {
+        await result.current.toggleFavorite();
+      });
+
+      const favoriteCall = fetchMock.mock.calls.find(([url]) =>
+        String(url).includes('/favorite')
+      );
+      expect(favoriteCall?.[0]).toBe('/api/library/tracks/10/favorite');
+      expect(favoriteCall?.[1]).toMatchObject({ method: 'DELETE' });
+      expect(result.current.isFavorite).toBe(false);
+    });
+
+    it('issues POST when the album is not favorited', async () => {
+      const fetchMock = vi.fn().mockImplementation((url: string) => {
+        if (String(url).includes('/favorite')) {
+          return Promise.resolve({ ok: true, json: async () => ({ favorite: true }) });
+        }
+        return Promise.resolve({
+          ok: true,
+          // Same fixture, but the first track is not favorited.
+          json: async () => ({
+            ...ALBUM_TRACKS_RESPONSE,
+            tracks: [{ ...ALBUM_TRACKS_RESPONSE.tracks[0], favorite: false }],
+          }),
+        });
+      });
+      global.fetch = fetchMock as unknown as typeof fetch;
+
+      const result = await load();
+      expect(result.current.isFavorite).toBe(false);
+
+      await act(async () => {
+        await result.current.toggleFavorite();
+      });
+
+      const favoriteCall = fetchMock.mock.calls.find(([url]) =>
+        String(url).includes('/favorite')
+      );
+      expect(favoriteCall?.[1]).toMatchObject({ method: 'POST' });
+      expect(result.current.isFavorite).toBe(true);
+    });
+
+    it('takes the resulting state from the response, not from negating locally', async () => {
+      // Server reports the track is still favorited (e.g. a concurrent change).
+      // The old code blindly flipped to false; the new code must trust the server.
+      mockFetch({ favorite: true });
+      const result = await load();
+      expect(result.current.isFavorite).toBe(true);
+
+      await act(async () => {
+        await result.current.toggleFavorite();
+      });
+
+      expect(result.current.isFavorite).toBe(true);
+    });
+
+    it('falls back to a local flip when the response carries no favorite field', async () => {
+      mockFetch({});
+      const result = await load();
+
+      await act(async () => {
+        await result.current.toggleFavorite();
+      });
+
+      expect(result.current.isFavorite).toBe(false);
+    });
+  });
 
   it('maps per-track snake_case fields to the camelCase domain shape', async () => {
     const result = await load();

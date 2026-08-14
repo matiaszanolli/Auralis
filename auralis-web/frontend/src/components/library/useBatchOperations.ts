@@ -9,6 +9,14 @@ interface UseBatchOperationsProps {
   selectedCount: number;
   onFetchTracks: () => Promise<void>;
   onClearSelection: () => void;
+  /**
+   * The tracks the selection indexes into. Only `id` and `favorite` are read —
+   * `handleBulkToggleFavorite` needs each track's current favorite state to
+   * pick POST (set) vs DELETE (clear), since the backend has no toggle
+   * endpoint (#5118). Omitted/unknown tracks are treated as not-favorited,
+   * which degrades to the previous set-only behaviour rather than throwing.
+   */
+  tracks?: readonly { id: number; favorite?: boolean }[];
 }
 
 /**
@@ -39,6 +47,7 @@ export const useBatchOperations = ({
   selectedCount,
   onFetchTracks,
   onClearSelection,
+  tracks,
 }: UseBatchOperationsProps) => {
   const { success, error } = useToast();
 
@@ -125,8 +134,19 @@ export const useBatchOperations = ({
 
   const handleBulkToggleFavorite = useCallback(() => runExclusive(async () => {
     const trackIds = Array.from(selectedTracks);
+
+    // #5118: POST sets favorite=true and DELETE sets it false — neither reads
+    // prior state, so there is no toggle endpoint to call. Unconditionally
+    // POSTing meant un-favoriting silently no-opped server-side while the
+    // toast reported success. Flip each track against its own current state,
+    // matching the single-track heart in useAlbumDetails.
+    const favoriteById = new Map(tracks?.map(t => [t.id, t.favorite === true]));
     const results = await Promise.allSettled(
-      trackIds.map(trackId => post(ENDPOINTS.TRACK_FAVORITE(trackId)))
+      trackIds.map(trackId =>
+        favoriteById.get(trackId)
+          ? del(ENDPOINTS.TRACK_FAVORITE(trackId))
+          : post(ENDPOINTS.TRACK_FAVORITE(trackId))
+      )
     );
 
     reportBatchResult(
@@ -139,7 +159,7 @@ export const useBatchOperations = ({
 
     onClearSelection();
     await onFetchTracks();
-  }), [runExclusive, selectedTracks, onClearSelection, onFetchTracks, success, error]);
+  }), [runExclusive, selectedTracks, tracks, onClearSelection, onFetchTracks, success, error]);
 
   return useMemo(() => ({
     handleBulkAddToQueue,

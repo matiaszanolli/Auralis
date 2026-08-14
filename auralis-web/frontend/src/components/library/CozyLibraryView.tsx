@@ -160,6 +160,9 @@ const CozyLibraryView = memo<CozyLibraryViewProps>(({
     selectedCount,
     onFetchTracks: fetchTracks,
     onClearSelection: clearSelection,
+    // #5118: bulk favorite needs each track's current state to pick POST vs
+    // DELETE — the backend has no toggle endpoint.
+    tracks,
   });
 
   // Keyboard shortcuts
