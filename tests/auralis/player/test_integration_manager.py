@@ -319,7 +319,7 @@ class TestAutoSelectReference:
         ref_path = "/music/reference.flac"
         track = _make_track(recommended_reference=ref_path)
         factory = MagicMock()
-        factory.tracks.find_similar.return_value = ([], 0)
+        factory.tracks.find_similar.return_value = []
         m = _make_manager(factory_returns=factory)
         m.file_manager.load_reference.return_value = True
         cb = MagicMock()
@@ -339,7 +339,7 @@ class TestAutoSelectReference:
         ref_path = "/music/missing.flac"
         track = _make_track(recommended_reference=ref_path)
         factory = MagicMock()
-        factory.tracks.find_similar.return_value = ([], 0)
+        factory.tracks.find_similar.return_value = []
         m = _make_manager(factory_returns=factory)
         m.file_manager.load_reference.return_value = True
 
@@ -355,7 +355,7 @@ class TestAutoSelectReference:
         track = _make_track(recommended_reference=ref_path)
         similar = _make_track(track_id=2, filepath="/music/similar.flac")
         factory = MagicMock()
-        factory.tracks.find_similar.return_value = ([similar], 1)
+        factory.tracks.find_similar.return_value = [similar]
         m = _make_manager(factory_returns=factory)
 
         # AudioFileManager.load_reference returns ndarray | None — None on
@@ -374,7 +374,7 @@ class TestAutoSelectReference:
         track = _make_track(recommended_reference=None)
         sim1 = _make_track(track_id=2, filepath="/music/sim1.flac")
         factory = MagicMock()
-        factory.tracks.find_similar.return_value = ([sim1], 1)
+        factory.tracks.find_similar.return_value = [sim1]
         m = _make_manager(factory_returns=factory)
         m.file_manager.load_reference.return_value = True
         cb = MagicMock()
@@ -394,7 +394,7 @@ class TestAutoSelectReference:
         sim1 = _make_track(track_id=2, filepath="/music/sim1.flac")
         sim2 = _make_track(track_id=3, filepath="/music/sim2.flac")
         factory = MagicMock()
-        factory.tracks.find_similar.return_value = ([sim1, sim2], 2)
+        factory.tracks.find_similar.return_value = [sim1, sim2]
         m = _make_manager(factory_returns=factory)
         m.file_manager.load_reference.return_value = True
 
@@ -409,7 +409,7 @@ class TestAutoSelectReference:
         missing = _make_track(track_id=2, filepath="/music/missing.flac")
         present = _make_track(track_id=3, filepath="/music/present.flac")
         factory = MagicMock()
-        factory.tracks.find_similar.return_value = ([missing, present], 2)
+        factory.tracks.find_similar.return_value = [missing, present]
         m = _make_manager(factory_returns=factory)
         m.file_manager.load_reference.return_value = True
 
@@ -425,7 +425,7 @@ class TestAutoSelectReference:
         """When no reference can be found, no callback is fired."""
         track = _make_track(recommended_reference=None)
         factory = MagicMock()
-        factory.tracks.find_similar.return_value = ([], 0)
+        factory.tracks.find_similar.return_value = []
         m = _make_manager(factory_returns=factory)
         cb = MagicMock()
         m.add_callback(cb)
@@ -443,6 +443,43 @@ class TestAutoSelectReference:
         m = _make_manager(factory_returns=factory)
         # Must not raise
         m._auto_select_reference(track)
+
+    @pytest.mark.parametrize("count", [0, 1, 3])
+    def test_consumes_find_similar_as_a_list_not_a_2_tuple(self, count):
+        """find_similar returns list[Track]; any result count must work (#4935).
+
+        The old code did `references, _ = repos.tracks.find_similar(...)`, which
+        only unpacks when the list holds exactly 2 items. With limit=3 the call
+        can return 0, 1, 2 or 3 tracks, so every count except the coincidental 2
+        raised ValueError — swallowed by the method's broad `except Exception`,
+        making auto-reference-selection a silent no-op on almost every real
+        invocation while logging the same message as a legitimate "no reference
+        found". These are the three counts the bug broke on; a regression to
+        tuple-unpacking fails all three.
+        """
+        similar = [
+            _make_track(track_id=100 + i, filepath=f"/music/sim{i}.flac")
+            for i in range(count)
+        ]
+        track = _make_track(recommended_reference=None)
+        factory = MagicMock()
+        factory.tracks.find_similar.return_value = similar
+        m = _make_manager(factory_returns=factory)
+        m.file_manager.load_reference.return_value = True
+        cb = MagicMock()
+        m.add_callback(cb)
+
+        with patch("pathlib.Path.exists", return_value=True):
+            m._auto_select_reference(track)
+
+        if count == 0:
+            m.file_manager.load_reference.assert_not_called()
+            cb.assert_not_called()
+        else:
+            # Stops at the first loadable candidate.
+            m.file_manager.load_reference.assert_called_once_with(similar[0].filepath)
+            cb.assert_called_once()
+            assert cb.call_args[0][0]['action'] == 'reference_loaded'
 
 
 # ---------------------------------------------------------------------------

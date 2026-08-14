@@ -289,7 +289,9 @@ class IntegrationManager:
         try:
             # Try recommended reference first
             if track.recommended_reference and Path(track.recommended_reference).exists():
-                if self.file_manager.load_reference(cast(str, track.recommended_reference)) is not None:
+                # The truthiness check above already narrows this to `str`, so
+                # the cast mypy used to need here is now redundant.
+                if self.file_manager.load_reference(track.recommended_reference) is not None:
                     info(f"Using recommended reference: {track.recommended_reference}")
                     self._notify_callbacks({
                         'action': 'reference_loaded',
