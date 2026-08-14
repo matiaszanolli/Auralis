@@ -47,6 +47,13 @@ _BAND_PCT_KEYS: tuple[str, ...] = (
 )
 
 
+# Seconds decoded ahead of a bounded FFmpeg window and then trimmed off, so the
+# samples handed to the analyzer are identical to the same span of a full decode
+# (#5110). 0.5 s was measured as sufficient for bit-exact agreement on MP3;
+# 1.0 s carries margin for other codecs at negligible cost against a 90 s window.
+_SEEK_PREROLL_S = 1.0
+
+
 def _band_pct_valid(fp: dict[str, Any]) -> bool:
     """Return True if the seven frequency-band fractions sum to 1 ± 0.05."""
     total = float(sum(fp.get(k, 0.0) for k in _BAND_PCT_KEYS))
@@ -173,35 +180,109 @@ def compute_windowed_fingerprint(
 
             from auralis.io.formats import FFMPEG_FORMATS
             if audio_path.suffix.lower() in FFMPEG_FORMATS:
-                # libsndfile can't decode AAC/MP3/etc — load via ffmpeg then resample.
+                # libsndfile can't decode AAC/MP3/etc — load via ffmpeg.
+                #
+                # #5110: decode only the windows actually analysed. This branch
+                # used to decode the ENTIRE file, resample the ENTIRE buffer,
+                # and only then crop to 150 s — the opposite of the two sibling
+                # branches (the libsndfile one seeks via librosa.load's
+                # offset/duration; the pre-loaded one crops before resampling,
+                # with a docstring about avoiding full-duration allocation). For
+                # a 2-hour podcast that was up to ~50x the necessary CPU with a
+                # peak footprint in the GB range, multiplied by the extraction
+                # queue's concurrency. It also made
+                # fingerprint_extractor.py's claim that this function "never
+                # materialises the whole decoded file" false for exactly the
+                # formats most libraries are made of.
                 from auralis.io.loaders import load_with_ffmpeg
+                from auralis.io.loaders.ffmpeg_loader import _probe_audio
                 import tempfile
+
+                def _decode_window(
+                    tmp_dir: str, offset_s: float | None, dur_s: float | None
+                ) -> np.ndarray:
+                    """Decode one bounded span and return it as (channels, samples).
+
+                    Decodes _SEEK_PREROLL_S ahead of the window and trims it off
+                    by exact sample count. A bounded MP3/AAC decode starting
+                    cold at the seek point differs from the same span of a full
+                    decode — the codec needs a few frames to converge (bit
+                    reservoir, filterbank state). Measured on a real MP3, a
+                    zero-pre-roll window drifted up to 1.1% on crest_db and
+                    ~1% on transient_density; with 0.5 s of pre-roll the samples
+                    are bit-identical to the full-decode span.
+
+                    That is what keeps this a pure performance change: stored
+                    fingerprints stay comparable with newly computed ones, so no
+                    FINGERPRINT_ALGORITHM_VERSION bump (and no library-wide
+                    re-fingerprint) is required.
+                    """
+                    preroll = 0.0
+                    if offset_s is not None and offset_s > 0:
+                        preroll = min(_SEEK_PREROLL_S, offset_s)
+                        offset_s = offset_s - preroll
+                        if dur_s is not None:
+                            dur_s = dur_s + preroll
+
+                    win, win_sr = load_with_ffmpeg(
+                        audio_path, tmp_dir, offset=offset_s, duration=dur_s
+                    )
+                    # Trim at the NATIVE rate, before resampling — resampling
+                    # would make the sample count no longer map to preroll.
+                    if preroll > 0:
+                        win = win[int(round(preroll * win_sr)):]
+                    if win.ndim == 2:
+                        win = win.T
+                    if win_sr != _target_sr:
+                        if win.ndim == 2:
+                            win = np.stack([
+                                librosa.resample(
+                                    win[ch].astype(np.float32),
+                                    orig_sr=win_sr, target_sr=_target_sr,
+                                )
+                                for ch in range(win.shape[0])
+                            ])
+                        else:
+                            win = librosa.resample(
+                                win.astype(np.float32),
+                                orig_sr=win_sr, target_sr=_target_sr,
+                            )
+                    return win
+
+                # Duration from ffprobe rather than from a decoded buffer — the
+                # window offsets need it *before* anything is decoded, and the
+                # soundfile probe above cannot open these containers.
+                _probe = _probe_audio(audio_path)
+                _total_s = _probe.get('duration')
+
                 with tempfile.TemporaryDirectory() as tmp:
-                    raw_audio, raw_sr = load_with_ffmpeg(audio_path, tmp)
-                # raw_audio is (samples, channels) or (samples,); convert to (channels, samples)
-                if raw_audio.ndim == 2:
-                    raw_audio = raw_audio.T
-                if raw_sr != _target_sr:
-                    if raw_audio.ndim == 2:
-                        raw_audio = np.stack([
-                            librosa.resample(raw_audio[ch].astype(np.float32), orig_sr=raw_sr, target_sr=_target_sr)
-                            for ch in range(raw_audio.shape[0])
-                        ])
+                    if not _total_s or _total_s <= 0:
+                        # ffprobe gave no duration (rare: true-VBR without a
+                        # header). Fall back to decoding from the start and
+                        # bounding by length — still avoids the full file.
+                        logger.debug(
+                            f"No probed duration for {audio_path.name}; "
+                            f"decoding a bounded head window instead"
+                        )
+                        audio = _decode_window(tmp, None, _body_s)
+                        _probe_audios = []
                     else:
-                        raw_audio = librosa.resample(raw_audio.astype(np.float32), orig_sr=raw_sr, target_sr=_target_sr)
-                _total_s    = raw_audio.shape[-1] / _target_sr
-                _body_offset = min(_total_s * 0.50, max(0.0, _total_s - _body_s))
-                _body_start  = int(_target_sr * _body_offset)
-                _body_end    = _body_start + int(_target_sr * _body_s)
-                audio = raw_audio[..., _body_start:_body_end]
-                # Lightweight LUFS/crest probes at 25 % and 75 %
-                _probe_fracs = [0.25, 0.75]
-                _probe_audios = []
-                for _frac in _probe_fracs:
-                    _ps = int(_target_sr * min(_frac * _total_s, max(0.0, _total_s - _probe_s)))
-                    _pe = _ps + int(_target_sr * _probe_s)
-                    _pa = raw_audio[..., _ps:_pe]
-                    _probe_audios.append(_pa)
+                        _body_offset = min(
+                            _total_s * 0.50, max(0.0, _total_s - _body_s)
+                        )
+                        audio = _decode_window(tmp, _body_offset, _body_s)
+                        # Lightweight LUFS/crest probes at 25 % and 75 %
+                        _probe_audios = [
+                            _decode_window(
+                                tmp,
+                                min(_frac * _total_s, max(0.0, _total_s - _probe_s)),
+                                _probe_s,
+                            )
+                            for _frac in (0.25, 0.75)
+                        ]
+
+                # Rounding safety at the target rate (works for 1-D and 2-D).
+                audio = audio[..., :int(_target_sr * _body_s)]
                 sr = _target_sr
             else:
                 audio, sr = librosa.load(

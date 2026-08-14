@@ -43,7 +43,20 @@ __db_schema_version__ = 18  # tracks.filepath_key for case-insensitive path matc
 #             a normalized RMS/loudness proxy. It previously duplicated the
 #             `lufs` dimension; it is now decorrelated from loudness. v6 rows
 #             are not comparable to v7 rows and must be recomputed.
-FINGERPRINT_ALGORITHM_VERSION = 7
+# v8 (#5110): FFmpeg-routed formats (.mp3/.m4a/.aac/.ogg/.wma/.opus) now decode
+#             only the analysed window instead of the whole file. The old path
+#             decoded everything, resampled the whole buffer, and cropped last;
+#             a bounded decode necessarily crops before resampling, matching
+#             what the libsndfile and pre-loaded branches already did. Measured
+#             on a real MP3 that shifts values up to ~1.1% (crest_db by
+#             ~0.13 dB, others under 0.7%). A 1 s decode pre-roll removes the
+#             codec-warm-up component; the residual is the resampling window
+#             itself and is inherent to any bounded decode.
+#             Lossless formats are bit-identical — only FFmpeg-routed rows
+#             change — but the version is global, so this bump recomputes
+#             everything. v7 rows are not comparable to v8 rows for
+#             FFmpeg-routed sources and must be recomputed.
+FINGERPRINT_ALGORITHM_VERSION = 8
 
 # Version history
 # 1.0.0 - Initial release with adaptive mastering, web UI, and desktop app

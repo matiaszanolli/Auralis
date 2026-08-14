@@ -247,6 +247,8 @@ def load_with_ffmpeg(
     file_path: Path,
     temp_folder: str | None = None,
     cancel_event: "threading.Event | None" = None,
+    offset: float | None = None,
+    duration: float | None = None,
 ) -> tuple[np.ndarray, int]:
     """Load audio using FFmpeg conversion to WAV.
 
@@ -254,6 +256,16 @@ def load_with_ffmpeg(
     FFmpeg child is terminated promptly and ``asyncio.CancelledError`` is raised
     (#4496). When it is ``None`` (the default for every non-job caller) the
     decode runs exactly as before.
+
+    ``offset``/``duration`` (seconds) bound the decode to a window, mapping to
+    ffmpeg's ``-ss``/``-t`` (#5110). Both default to ``None``, which decodes the
+    whole file exactly as before — every existing call site is unaffected.
+
+    ``-ss`` is placed *before* ``-i`` for input seeking, which skips to the
+    window rather than decoding and discarding everything ahead of it. That is
+    the whole point: fingerprint windowing needs ~150 s out of a file that may
+    be hours long, and decoding all of it was up to ~50x the necessary CPU with
+    a peak footprint in the GB range.
     """
 
     # Check if FFmpeg is available
@@ -354,18 +366,29 @@ def load_with_ffmpeg(
         # Gating here matches `soundfile_loader`, which downmixes only when
         # `shape[1] > 2`.
         needs_downmix = source_channels > 2
-        ffmpeg_cmd = [
-            'ffmpeg',
+        ffmpeg_cmd = ['ffmpeg']
+        # -ss BEFORE -i is input seeking: ffmpeg jumps to the offset instead of
+        # decoding and discarding everything ahead of it (#5110).
+        if offset is not None and offset > 0:
+            ffmpeg_cmd += ['-ss', f'{offset:.6f}']
+        ffmpeg_cmd += [
             '-i', file_path_str,
             '-acodec', 'pcm_s16le',            # 16-bit PCM
             '-ar', str(source_sample_rate),    # Preserve native sample rate
         ]
+        if duration is not None and duration > 0:
+            ffmpeg_cmd += ['-t', f'{duration:.6f}']
         if needs_downmix:
             ffmpeg_cmd += ['-ac', '2']         # Surround → stereo (#3672)
         ffmpeg_cmd += [
             '-y',                              # Overwrite output
             str(temp_wav)
         ]
+        if offset is not None or duration is not None:
+            debug(
+                f"FFmpeg: bounded decode offset={offset}s duration={duration}s "
+                f"(instead of the full file)"
+            )
         if needs_downmix:
             debug(f"FFmpeg: converting at {source_sample_rate} Hz, "
                   f"downmixing {source_channels} → 2 ch")
@@ -385,9 +408,21 @@ def load_with_ffmpeg(
         # Load the converted WAV file
         audio_data, sample_rate = load_with_soundfile(temp_wav)
 
-        # Validate duration against original file metadata
-        if expected_duration is not None:
+        # Validate duration against original file metadata.
+        #
+        # #5110: with a bounded decode the output is deliberately shorter than
+        # the source, so comparing against the *file's* duration would flag
+        # every windowed read as severely truncated. Compare against the span
+        # that was actually requested instead — the check still catches a decode
+        # that returned far less than asked for, which is what it is for.
+        effective_expected = expected_duration
+        if effective_expected is not None and (offset is not None or duration is not None):
+            remaining = max(0.0, effective_expected - (offset or 0.0))
+            effective_expected = min(duration, remaining) if duration else remaining
+
+        if effective_expected is not None and effective_expected > 0:
             actual_duration = len(audio_data) / sample_rate
+            expected_duration = effective_expected
             duration_percentage = (actual_duration / expected_duration) * 100
 
             if duration_percentage < 10:
