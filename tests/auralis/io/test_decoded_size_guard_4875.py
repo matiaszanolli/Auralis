@@ -198,5 +198,98 @@ class TestSoundfileGuardWiring:
         assert "exceeds maximum decoded size" not in str(excinfo.value)
 
 
+class TestPlaybackLoaderGuardWiring:
+    """#5104: the fourth call site #4875 never reached.
+
+    `auralis/io/loader.py` *defines* the byte budget but `load()` never called
+    it — and that is the loader `auralis/player/audio_file_manager.py` and
+    `auralis/player/gapless_playback_engine.py` import directly, bypassing
+    `unified_loader.load_audio` (which did carry the fix). So the one decode
+    path on the playback thread was the one path without the guard.
+    """
+
+    # 6 GiB / (192000 Hz x 2ch x 4B) = 4194 s, so 5000 s of 192 kHz stereo is
+    # ~7.15 GiB — comfortably over the byte budget and comfortably under the
+    # 7200 s duration cap. (#5104's report quoted a ~55 min / "5.1 GiB" example;
+    # that is 5.07 GB but only 4.72 GiB, i.e. actually within budget. The gap is
+    # real, the illustrative figure conflated GB and GiB.)
+    @staticmethod
+    def _info(rate, channels, duration=5000.0):
+        class FakeInfo:
+            pass
+
+        FakeInfo.duration = duration
+        FakeInfo.samplerate = rate
+        FakeInfo.channels = channels
+        FakeInfo.frames = int(duration * rate)
+        return FakeInfo()
+
+    def test_rejects_high_res_before_reading(self, monkeypatch, tmp_path):
+        """192 kHz stereo at ~83 min: under the duration cap, over the budget."""
+        import auralis.io.loader as loader_module
+
+        source = tmp_path / "source.wav"
+        source.write_bytes(b"RIFF" + b"\x00" * 64)
+
+        def fake_read(*_args, **_kwargs):
+            raise AssertionError("sf.read must not run — that read IS the OOM")
+
+        monkeypatch.setattr(
+            loader_module.sf, "info", lambda *_a, **_k: self._info(192000, 2)
+        )
+        monkeypatch.setattr(loader_module.sf, "read", fake_read)
+
+        with pytest.raises(RuntimeError, match="exceeds maximum decoded size"):
+            loader_module.load(str(source))
+
+    def test_ordinary_file_is_not_rejected(self, monkeypatch, tmp_path):
+        """No false positive: 44.1 kHz stereo at the same duration is ~1.2 GiB.
+
+        Reaching sf.read is the assertion — it means the guard let it through.
+        """
+        import auralis.io.loader as loader_module
+
+        source = tmp_path / "source.wav"
+        source.write_bytes(b"RIFF" + b"\x00" * 64)
+
+        reached = {"n": 0}
+
+        def fake_read(*_args, **_kwargs):
+            reached["n"] += 1
+            raise _Reached()
+
+        monkeypatch.setattr(
+            loader_module.sf, "info", lambda *_a, **_k: self._info(44100, 2)
+        )
+        monkeypatch.setattr(loader_module.sf, "read", fake_read)
+
+        with pytest.raises(Exception) as excinfo:
+            loader_module.load(str(source))
+
+        assert reached["n"] == 1, "the guard rejected a legitimate 44.1 kHz file"
+        assert "exceeds maximum decoded size" not in str(excinfo.value)
+
+    def test_duration_cap_still_fires_first(self, monkeypatch, tmp_path):
+        """The pre-existing #3300 duration check is unchanged by the addition."""
+        import auralis.io.loader as loader_module
+
+        source = tmp_path / "source.wav"
+        source.write_bytes(b"RIFF" + b"\x00" * 64)
+
+        monkeypatch.setattr(
+            loader_module.sf,
+            "info",
+            lambda *_a, **_k: self._info(44100, 2, duration=99999.0),
+        )
+        monkeypatch.setattr(
+            loader_module.sf,
+            "read",
+            lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("must not read")),
+        )
+
+        with pytest.raises(RuntimeError, match="exceeds maximum duration"):
+            loader_module.load(str(source))
+
+
 class _Reached(Exception):
     """Marker: control reached the decode, i.e. the guard did not reject."""

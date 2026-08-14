@@ -113,7 +113,8 @@ def load(file_path: str, file_type: str = "audio") -> tuple[np.ndarray, int]:
         tuple: (audio_data, sample_rate)
 
     Raises:
-        RuntimeError: If the file exceeds MAX_DURATION_SECONDS
+        RuntimeError: If the file exceeds MAX_DURATION_SECONDS, or if its
+            estimated decoded size exceeds MAX_DECODED_BYTES (#4875, #5104)
     """
     debug(f"Loading {file_type} file: {file_path}")
 
@@ -138,6 +139,17 @@ def load(file_path: str, file_type: str = "audio") -> tuple[np.ndarray, int]:
                     f"Audio file exceeds maximum duration "
                     f"({file_info.duration:.0f}s > {MAX_DURATION_SECONDS}s): {file_path}"
                 )
+            # Duration alone does not bound memory (#4875). #4875 applied the
+            # byte budget to soundfile_loader/ffmpeg_loader/unified_loader but
+            # not to this function — the loader auralis/player/ imports directly
+            # — so a 192 kHz stereo WAV under the duration cap was accepted here
+            # and rejected by every other decode path (#5104). sf.info already
+            # carries samplerate and channels, so the check is free.
+            detail = oversize_decode_detail(
+                file_info.duration, file_info.samplerate, file_info.channels
+            )
+            if detail:
+                raise RuntimeError(f"{detail}: {file_path}")
             audio_data, sample_rate = sf.read(file_path, dtype=np.float32, always_2d=True)
             if len(audio_data) < file_info.frames:
                 raise RuntimeError(

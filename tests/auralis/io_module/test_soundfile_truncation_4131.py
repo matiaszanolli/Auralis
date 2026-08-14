@@ -30,8 +30,16 @@ def _make_flac(tmp_path):
 
 
 def _patch(monkeypatch, read_frames):
+    # samplerate/channels are required by the #4875 byte-budget guard, which
+    # runs before the truncation check this file exercises. Without them the
+    # fake raises AttributeError inside the guard and every test here fails on
+    # a stale-mock error rather than on the behaviour under test.
     monkeypatch.setattr(
-        mod.sf, "info", lambda *a, **k: SimpleNamespace(frames=FULL, duration=FULL / SR)
+        mod.sf,
+        "info",
+        lambda *a, **k: SimpleNamespace(
+            frames=FULL, duration=FULL / SR, samplerate=SR, channels=2
+        ),
     )
     monkeypatch.setattr(
         mod.sf,
