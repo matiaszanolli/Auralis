@@ -97,9 +97,15 @@ class TestGaplessTransitionPositionReset:
     positions from the previous track caused get_audio_chunk() to read past the
     end of the new (often shorter) track, producing silence.
 
-    The fix adds playback.seek(0, total_samples) in AudioPlayer.next_track()
-    after advance_with_prebuffer() returns True, covering both the gapless
+    The fix adds playback.seek(0, total_samples), covering both the gapless
     (prebuffer) and fallback paths.
+
+    #5105 moved *where* that reset runs: next_track() now hands it to
+    advance_with_prebuffer() as the `on_swap` callback, which the engine invokes
+    under `_audio_lock` immediately after installing the new audio. The observable
+    contract these tests assert — position is 0 once next_track() returns — is
+    unchanged; the fakes below simply have to call `on_swap` like the real engine
+    does, since they stand in for it.
     """
 
     @pytest.fixture
@@ -128,8 +134,13 @@ class TestGaplessTransitionPositionReset:
         """Return a fake advance_with_prebuffer that installs new audio data."""
         import numpy as np
 
-        def fake_advance(was_playing):
+        def fake_advance(was_playing, on_swap=None):
             player.file_manager.audio_data = np.zeros(new_samples, dtype=np.float32)
+            # Mirror the real engine (#5105): on_swap runs under _audio_lock
+            # immediately after the swap, and carries the position reset.
+            if on_swap is not None:
+                with player.file_manager._audio_lock:
+                    on_swap()
             return True
 
         return fake_advance
@@ -188,8 +199,11 @@ class TestGaplessTransitionPositionReset:
         # Previous track is 441000 samples; new track is only 220500
         new_audio = np.zeros(220500, dtype=np.float32)
 
-        def fake_advance(was_playing):
+        def fake_advance(was_playing, on_swap=None):
             player.file_manager.audio_data = new_audio
+            if on_swap is not None:
+                with player.file_manager._audio_lock:
+                    on_swap()
             return True
 
         player.playback.seek(440000, 441000)
@@ -218,9 +232,12 @@ class TestGaplessTransitionPositionReset:
         # Track B: 48kHz, 10s → 480000 samples
         new_audio = np.zeros(480000, dtype=np.float32)
 
-        def fake_advance(was_playing):
+        def fake_advance(was_playing, on_swap=None):
             player.file_manager.audio_data = new_audio
             player.file_manager.sample_rate = 48000
+            if on_swap is not None:
+                with player.file_manager._audio_lock:
+                    on_swap()
             return True
 
         player.gapless.advance_with_prebuffer.side_effect = fake_advance

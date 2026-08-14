@@ -318,48 +318,54 @@ class AudioPlayer(PlayerFingerprintLoaderMixin, PlayerPropertiesMixin):
         Returns:
             bool: True if advanced, False if no next track
         """
-        # #3717: hold `_audio_lock` across the entire swap-and-reset
-        # sequence. Previously the gapless engine released the lock
-        # after swapping `audio_data`, leaving a window where the
-        # audio callback could acquire the lock, call
-        # `read_and_advance_position(chunk_size)` against the new
-        # (shorter) `audio_data` at the OLD position, and return
-        # silence — defeating the gapless guarantee. RLock re-entry
-        # by the same thread means the inner gapless acquisition is
-        # free. Lock nesting `_audio_lock → PlaybackController._lock`
-        # is consistent with `get_audio_chunk()` (the prior caller of
-        # this pattern), so no inversion risk.
+        # #3717: the swap and the position reset must be atomic with the audio
+        # callback's chunk read. Otherwise the callback can acquire
+        # `_audio_lock` between them, call
+        # `read_and_advance_position(chunk_size)` against the new (shorter)
+        # `audio_data` at the OLD position, and return silence — defeating the
+        # gapless guarantee.
         #
-        # #3781: defer_notifications() outer so seek()'s notify call below
-        # fires only after _audio_lock releases (see AudioPlayer.seek() for
+        # #5105: that atomicity is now provided by the `on_swap` callback
+        # below, which `advance_with_prebuffer()` invokes inside the same
+        # `_audio_lock` acquisition as the swap itself. This method no longer
+        # takes `_audio_lock` at all.
+        #
+        # It used to wrap the whole call, which made the fallback branches'
+        # `load_file()` — a genuinely blocking disk read with no timeout — run
+        # inside the critical section. `_audio_lock` is an RLock, so re-entry
+        # from this thread succeeded silently and the read stalled the
+        # real-time playback thread for its full duration (tens to hundreds of
+        # ms), plus any concurrent `seek()`/`cleanup()`. Hoisting the I/O out
+        # of the lock is the same correction #3656 applied to `add_to_queue`.
+        #
+        # #3781: defer_notifications() still wraps the call so seek()'s notify
+        # fires only after `_audio_lock` releases (see AudioPlayer.seek() for
         # full rationale).
         #
-        # #3735: only the swap + seek stay under _audio_lock — that's all
-        # #3717 needs atomic with the audio callback's chunk read. The
-        # callback dispatch, fingerprint scheduling, and play()/stop() below
-        # are not time-critical and don't touch file_manager state, so they
-        # run after the lock releases (matching previous_track()'s shape).
-        # play()/stop() no longer hold _audio_lock while they notify, so
-        # they don't need defer_notifications() either.
-        with self.playback.defer_notifications(), self.file_manager._audio_lock:
+        # #3735: the callback dispatch, fingerprint scheduling, and
+        # play()/stop() below are not time-critical and don't touch
+        # file_manager state, so they stay outside — matching previous_track().
+        current_file: str | None = None
+
+        def _on_swap() -> None:
+            # Runs with `_audio_lock` held, immediately after the new audio is
+            # installed. Lock nesting `_audio_lock → PlaybackController._lock`
+            # matches `get_audio_chunk()`, so no inversion risk.
+            nonlocal current_file
+            # Reset position to 0 for the incoming track (#2283). Both the
+            # prebuffer and fallback paths bypass AudioPlayer.load_file(), so
+            # the playback.stop() that normally resets position never runs.
+            self.playback.seek(0, self.file_manager.get_total_samples())
+            # current_file is file_manager state guarded by `_audio_lock` —
+            # capture it here so the fingerprint scheduling below (after the
+            # lock releases) can't race a concurrent load/advance.
+            current_file = self.file_manager.current_file
+
+        with self.playback.defer_notifications():
             was_playing = self.playback.is_playing()
-            advanced = self.gapless.advance_with_prebuffer(was_playing)
-            current_file = None
-
-            if advanced:
-                # Reset position to 0 for the incoming track (#2283).
-                # Both the gapless (prebuffer) and fallback paths inside
-                # advance_with_prebuffer() bypass AudioPlayer.load_file(), so
-                # the playback.stop() that normally resets position is never
-                # called.  seek(0, ...) is the lock-safe way to do this.
-                # Now atomic with the swap (#3717).
-                self.playback.seek(0, self.file_manager.get_total_samples())
-
-                # current_file is file_manager state guarded by _audio_lock —
-                # capture it into a local now so the fingerprint scheduling
-                # below (after the lock releases) can't race a concurrent
-                # load/advance that swaps file_manager.current_file.
-                current_file = self.file_manager.current_file
+            advanced = self.gapless.advance_with_prebuffer(
+                was_playing, on_swap=_on_swap
+            )
 
         if not advanced:
             return False

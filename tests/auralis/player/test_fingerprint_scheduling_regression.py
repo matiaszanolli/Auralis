@@ -53,9 +53,15 @@ class TestFingerprintScheduling:
         player, schedule = player_with_mocks
         # advance_with_prebuffer succeeds and the file_manager now points at
         # the new prebuffered file.
-        def fake_advance(was_playing: bool) -> bool:
+        def fake_advance(was_playing: bool, on_swap=None) -> bool:
             del was_playing  # signature must match advance_with_prebuffer
             player.file_manager.current_file = "/queue/track_B.flac"
+            # #5105: the engine invokes on_swap under _audio_lock right after
+            # the swap. next_track() captures current_file there, so a fake
+            # that skips it leaves the fingerprint scheduling with nothing.
+            if on_swap is not None:
+                with player.file_manager._audio_lock:
+                    on_swap()
             return True
 
         with patch.object(player.gapless, "advance_with_prebuffer",
