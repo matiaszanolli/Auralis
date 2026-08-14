@@ -11,6 +11,7 @@ import { tokens } from '@/design-system';
 import { TrackCardContent } from './TrackCardStyles';
 import { Tooltip } from '@/design-system';
 import { Typography } from '@mui/material';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface TrackCardInfoProps {
   title: string;
@@ -32,7 +33,7 @@ export const TrackCardInfo = ({
           variant="subtitle1"
           sx={{
             fontWeight: isPlaying ? tokens.typography.fontWeight.bold : tokens.typography.fontWeight.semibold, // Higher contrast for visual anchor
-            color: tokens.colors.text.primary,
+            color: themeVars.textPrimary,
             mb: 1,
             lineHeight: 1.4,
             overflow: 'hidden',
@@ -49,7 +50,7 @@ export const TrackCardInfo = ({
         <Typography
           variant="body2"
           sx={{
-            color: tokens.colors.text.secondary,
+            color: themeVars.textSecondary,
             fontWeight: tokens.typography.fontWeight.normal, // Reduced from default (less weight variance)
             lineHeight: 1.5, // Increased for secondary text breathing room
             overflow: 'hidden',
@@ -66,7 +67,7 @@ export const TrackCardInfo = ({
         <Typography
           variant="caption"
           sx={{
-            color: tokens.colors.text.tertiary, // Changed from disabled to tertiary (better hierarchy)
+            color: themeVars.textMuted, // Changed from disabled to tertiary (better hierarchy)
             fontWeight: tokens.typography.fontWeight.normal,
             lineHeight: 1.5,
             overflow: 'hidden',

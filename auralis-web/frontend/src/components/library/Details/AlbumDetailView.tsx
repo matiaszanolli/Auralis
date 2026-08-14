@@ -30,6 +30,7 @@ import { AlbumCharacterPane } from '@/components/library/AlbumCharacterPane';
 import ArrowBack from '@mui/icons-material/ArrowBack';
 import { Button, IconButton } from '@/design-system';
 import { Box, Container, Skeleton } from '@mui/material';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface AlbumDetailViewProps {
   albumId: number;
@@ -121,7 +122,7 @@ export const AlbumDetailView = ({
               startIcon={<ArrowBack />}
               sx={{
                 background: tokens.gradients.aurora,
-                color: tokens.colors.text.primary,
+                color: themeVars.textPrimary,
                 fontWeight: tokens.typography.fontWeight.semibold,
                 padding: `${tokens.spacing.sm} ${tokens.spacing.lg}`,
                 borderRadius: tokens.borderRadius.md,
@@ -172,13 +173,13 @@ export const AlbumDetailView = ({
               aria-label="Go back to albums library"
               sx={{
                 mb: tokens.spacing.lg,
-                color: tokens.colors.text.secondary,
+                color: themeVars.textSecondary,
                 border: `1px solid ${tokens.colors.border.light}`,
                 borderRadius: tokens.borderRadius.md,
                 padding: tokens.spacing.sm,
                 transition: tokens.transitions.all,
                 '&:hover': {
-                  backgroundColor: tokens.colors.bg.tertiary,
+                  backgroundColor: themeVars.surfaceSecondary,
                   borderColor: tokens.colors.accent.primary,
                   transform: 'scale(1.05)',
                 },

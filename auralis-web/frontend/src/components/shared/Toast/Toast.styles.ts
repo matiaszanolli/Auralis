@@ -3,6 +3,7 @@ import { tokens } from '@/design-system/tokens';
 import { getToastBackgroundColor, getToastBorderColor } from './toastColors';
 import { Alert } from '@/design-system/primitives/Alert';
 import { AlertColor, styled, keyframes } from '@mui/material';
+import { themeVars } from '@/theme/semanticTheme';
 
 /**
  * Toast animation - slide in from right
@@ -24,7 +25,7 @@ export const slideIn = keyframes`
 export const StyledAlert = styled(Alert)<{ severity: AlertColor }>(({ severity }) => {
   return {
     background: getToastBackgroundColor(severity),
-    color: tokens.colors.text.primary,
+    color: themeVars.textPrimary,
     border: `1px solid ${getToastBorderColor(severity)}`,
     borderRadius: tokens.borderRadius.md,
     boxShadow: tokens.shadows.md,

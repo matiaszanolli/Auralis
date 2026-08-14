@@ -17,6 +17,7 @@ import FolderOffIcon from '@mui/icons-material/FolderOff';
 import { Button } from '@/design-system';
 import { tokens } from '@/design-system';
 import { useScanProgress } from '@/hooks/library/useScanProgress';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface ScanStatusCardProps {
   /** Disable the Scan Now button (no folders configured) */
@@ -40,11 +41,11 @@ export const ScanStatusCard = ({ disabled = false, onScanNow }: ScanStatusCardPr
           gap: 1.5,
           // #4635: metadata (60%), not disabled (40%) — this is normal-size
           // informational text, not a disabled control. AA needs 4.5:1.
-          color: tokens.colors.text.metadata,
+          color: themeVars.textMuted,
         }}
       >
         <FolderOffIcon fontSize="small" />
-        <Typography variant="body2" sx={{ color: tokens.colors.text.metadata }}>
+        <Typography variant="body2" sx={{ color: themeVars.textMuted }}>
           Add folders above to begin scanning
         </Typography>
       </Box>
@@ -65,10 +66,10 @@ export const ScanStatusCard = ({ disabled = false, onScanNow }: ScanStatusCardPr
       {isScanning ? (
         <Box sx={{ p: tokens.spacing.md }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-            <Typography variant="body2" sx={{ color: tokens.colors.text.secondary, fontWeight: tokens.typography.fontWeight.medium }}>
+            <Typography variant="body2" sx={{ color: themeVars.textSecondary, fontWeight: tokens.typography.fontWeight.medium }}>
               Scanning…
             </Typography>
-            <Typography variant="caption" sx={{ color: tokens.colors.text.metadata }}>
+            <Typography variant="caption" sx={{ color: themeVars.textMuted }}>
               {/* Only show "N / total" when the percentage is a real fraction;
                   in the streaming scan model total is not yet known, so show the
                   climbing count instead of a misleading N / N (#4411). */}
@@ -95,7 +96,7 @@ export const ScanStatusCard = ({ disabled = false, onScanNow }: ScanStatusCardPr
                 sx={{
                   display: 'block',
                   mt: 0.75,
-                  color: tokens.colors.text.metadata,
+                  color: themeVars.textMuted,
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
@@ -128,12 +129,12 @@ export const ScanStatusCard = ({ disabled = false, onScanNow }: ScanStatusCardPr
                   −{lastResult.filesRemoved} removed
                 </Typography>
               )}
-              <Typography variant="body2" sx={{ color: tokens.colors.text.metadata }}>
+              <Typography variant="body2" sx={{ color: themeVars.textMuted }}>
                 ({lastResult.duration.toFixed(1)}s)
               </Typography>
             </Box>
           ) : (
-            <Typography variant="body2" sx={{ color: tokens.colors.text.metadata }}>
+            <Typography variant="body2" sx={{ color: themeVars.textMuted }}>
               No scans yet
             </Typography>
           )}

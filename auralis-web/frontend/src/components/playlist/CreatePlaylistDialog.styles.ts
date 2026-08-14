@@ -1,5 +1,6 @@
 import { styled, Box } from '@mui/material';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 export const DialogContentBox = styled(Box)({
   pt: 2,
@@ -16,6 +17,6 @@ export const TrackCountInfoBox = styled(Box)({
 });
 
 export const TrackCountInfoText = styled(Box)({
-  color: tokens.colors.text.secondary,
+  color: themeVars.textSecondary,
   fontSize: tokens.typography.fontSize.base,
 });

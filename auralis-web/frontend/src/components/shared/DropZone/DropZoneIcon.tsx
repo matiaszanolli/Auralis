@@ -9,6 +9,7 @@ import CloudUpload from '@mui/icons-material/CloudUpload';
 import FolderOpen from '@mui/icons-material/FolderOpen';
 import CheckCircle from '@mui/icons-material/CheckCircle';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface DropZoneIconProps {
   isDragging: boolean;
@@ -46,7 +47,7 @@ export const DropZoneIcon = ({ isDragging, scanning }: DropZoneIconProps) => {
         <FolderOpen
           sx={{
             fontSize: 64,
-            color: tokens.colors.text.disabled,
+            color: themeVars.textDisabled,
             transition: `color ${tokens.transitions.stateChange}`,
           }}
         />

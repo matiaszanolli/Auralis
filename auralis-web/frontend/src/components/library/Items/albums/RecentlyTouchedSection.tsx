@@ -15,6 +15,7 @@ import { tokens } from '@/design-system';
 import { AlbumCard } from '@/components/album/AlbumCard/AlbumCard';
 import { useAlbumFingerprints } from '@/hooks/fingerprint/useAlbumFingerprint';
 import type { RecentlyTouchedEntry } from '@/hooks/library/useRecentlyTouched';
+import { themeVars } from '@/theme/semanticTheme';
 
 /**
  * Memoized per-album card (#4189). The onClick/onHoverEnter binds that inject
@@ -107,7 +108,7 @@ export const RecentlyTouchedSection = ({
         sx={{
           fontSize: tokens.typography.fontSize.md,
           fontWeight: tokens.typography.fontWeight.semibold,
-          color: tokens.colors.text.primary,
+          color: themeVars.textPrimary,
           mb: tokens.spacing.md,
           display: 'flex',
           alignItems: 'center',
@@ -131,7 +132,7 @@ export const RecentlyTouchedSection = ({
             height: '6px',
           },
           '&::-webkit-scrollbar-track': {
-            background: tokens.colors.bg.tertiary,
+            background: themeVars.surfaceSecondary,
             borderRadius: tokens.borderRadius.full,
           },
           '&::-webkit-scrollbar-thumb': {

@@ -6,6 +6,7 @@
 
 import { Typography } from '@mui/material';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface DropZoneTextProps {
   isDragging: boolean;
@@ -19,7 +20,7 @@ export const DropZoneText = ({ isDragging, scanning }: DropZoneTextProps) => {
         variant="h6"
         sx={{
           fontWeight: tokens.typography.fontWeight.semibold,
-          color: isDragging ? tokens.colors.accent.primary : tokens.colors.text.primary,
+          color: isDragging ? tokens.colors.accent.primary : themeVars.textPrimary,
           mb: 1,
           transition: tokens.transitions.color,
         }}
@@ -34,7 +35,7 @@ export const DropZoneText = ({ isDragging, scanning }: DropZoneTextProps) => {
       <Typography
         variant="body2"
         sx={{
-          color: tokens.colors.text.secondary,
+          color: themeVars.textSecondary,
           maxWidth: 400,
           mx: 'auto',
         }}
@@ -54,7 +55,7 @@ export const DropZoneText = ({ isDragging, scanning }: DropZoneTextProps) => {
             display: 'block',
             mt: 2,
             // #4635: 11px informational text, not decoration — AA 4.5:1.
-            color: tokens.colors.text.metadata,
+            color: themeVars.textMuted,
             fontSize: 11,
           }}
         >

@@ -3,6 +3,7 @@ import { Box, Typography } from '@mui/material';
 import { Tooltip } from '@/design-system';
 import { tokens } from '@/design-system';
 import { Preset } from './presetConfig';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface PresetItemProps {
   preset: Preset;
@@ -74,7 +75,7 @@ export const PresetItem = ({
           height: buttonSize,
           transform: `translate(calc(-50% + ${position.x}px), calc(-50% + ${position.y}px))`,
           borderRadius: '50%',
-          background: isActive ? preset.gradient : tokens.colors.bg.tertiary,
+          background: isActive ? preset.gradient : themeVars.surfaceSecondary,
           border: isActive
             ? `3px solid ${tokens.colors.border.heavy}`
             : isHovered
@@ -105,10 +106,10 @@ export const PresetItem = ({
             // the nearest named step xl (22px) per #4204.
             fontSize: isActive ? tokens.typography.fontSize['2xl'] : tokens.typography.fontSize.xl,
             color: isActive
-              ? tokens.colors.text.primary
+              ? themeVars.textPrimary
               : isHovered
-              ? tokens.colors.text.primary
-              : tokens.colors.text.secondary,
+              ? themeVars.textPrimary
+              : themeVars.textSecondary,
             transition: tokens.transitions.state_inOut,
             filter: isActive ? `drop-shadow(0 2px 4px ${tokens.colors.opacityScale.dark.strong})` : 'none',
           }}

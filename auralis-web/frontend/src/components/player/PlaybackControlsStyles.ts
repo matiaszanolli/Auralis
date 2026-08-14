@@ -6,6 +6,7 @@
  */
 
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 const styles = {
   /**
@@ -39,7 +40,7 @@ const styles = {
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.xl,             // 24px for visual impact
     fontWeight: tokens.typography.fontWeight.bold,
-    color: tokens.colors.text.primary,
+    color: themeVars.textPrimary,
     transition: `${tokens.transitions.all}, backdrop-filter ${tokens.transitions.base}`,
 
     // Enhanced shadow for depth + inner glow
@@ -88,7 +89,7 @@ const styles = {
     borderRadius: tokens.borderRadius.md,                 // 12px - softer, more organic
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.md,              // 15px
-    color: tokens.colors.text.primary,
+    color: themeVars.textPrimary,
     transition: `${tokens.transitions.all}, backdrop-filter ${tokens.transitions.base}`,
     outline: 'none',
 
@@ -123,7 +124,7 @@ const styles = {
    */
   loadingIndicator: {
     fontSize: tokens.typography.fontSize.xs,
-    color: tokens.colors.text.secondary,
+    color: themeVars.textSecondary,
     marginLeft: tokens.spacing.sm,
     fontStyle: 'italic',
   },

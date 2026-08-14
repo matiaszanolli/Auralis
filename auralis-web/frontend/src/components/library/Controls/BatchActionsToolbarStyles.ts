@@ -7,6 +7,7 @@ import { spacingPresets } from '@/components/library/Styles/Spacing.styles';
 import { tokens, withOpacity } from '@/design-system';
 import { IconButton } from '@/design-system';
 import { Paper, Typography, styled } from '@mui/material';
+import { themeVars } from '@/theme/semanticTheme';
 
 export const ToolbarContainer = styled(Paper)(({ theme: _theme }) => ({
   position: 'fixed',
@@ -40,14 +41,14 @@ export const ToolbarContainer = styled(Paper)(({ theme: _theme }) => ({
 }));
 
 export const SelectionCount = styled(Typography)(({ theme: _theme }) => ({
-  color: tokens.colors.text.primary,
+  color: themeVars.textPrimary,
   fontWeight: tokens.typography.fontWeight.bold,
   fontSize: tokens.typography.fontSize.md,
   minWidth: '140px',
 }));
 
 export const ActionButton = styled(IconButton)(({ theme: _theme }) => ({
-  color: tokens.colors.text.primary,
+  color: themeVars.textPrimary,
   backgroundColor: tokens.colors.opacityScale.accent.light,
   '&:hover': {
     backgroundColor: tokens.colors.opacityScale.accent.standard,
@@ -56,7 +57,7 @@ export const ActionButton = styled(IconButton)(({ theme: _theme }) => ({
 }));
 
 export const CloseButton = styled(IconButton)(({ theme: _theme }) => ({
-  color: tokens.colors.text.primary,
+  color: themeVars.textPrimary,
   marginLeft: 'auto',
   '&:hover': {
     backgroundColor: tokens.colors.opacityScale.accent.light,

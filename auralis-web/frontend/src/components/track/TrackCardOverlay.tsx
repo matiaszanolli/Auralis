@@ -15,6 +15,7 @@ import { PlayOverlay, DurationBadge, NoArtworkIcon, ShimmerOverlay } from './Tra
 import { formatDuration } from './TrackCardHelpers';
 import { IconButton } from '@/design-system';
 import { Typography } from '@mui/material';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface TrackCardOverlayProps {
   duration: number;
@@ -62,7 +63,7 @@ export const TrackCardOverlay = ({
             width: 56,
             height: 56,
             background: tokens.gradients.aurora,
-            color: tokens.colors.text.primary,
+            color: themeVars.textPrimary,
             transform: isHovered ? 'scale(1)' : 'scale(0.8)',
             transition: tokens.transitions.state_inOut,
             '&:hover': {
@@ -89,7 +90,7 @@ export const TrackCardOverlay = ({
         <Typography
           variant="caption"
           sx={{
-            color: isHovered ? tokens.colors.text.primary : tokens.colors.text.tertiary,
+            color: isHovered ? themeVars.textPrimary : themeVars.textMuted,
             fontWeight: tokens.typography.fontWeight.medium,
             fontSize: tokens.typography.fontSize.xs,
             transition: tokens.transitions.color,

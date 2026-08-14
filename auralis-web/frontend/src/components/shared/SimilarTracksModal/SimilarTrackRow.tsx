@@ -11,6 +11,7 @@ import { ListItem, ListItemButton, ListItemText, Box, Typography } from '@mui/ma
 import PlayArrow from '@mui/icons-material/PlayArrow';
 import { tokens } from '@/design-system';
 import type { SimilarTrack } from '@/hooks/fingerprint';
+import { themeVars } from '@/theme/semanticTheme';
 
 export interface SimilarTrackRowProps {
   track: SimilarTrack;
@@ -35,7 +36,7 @@ export const SimilarTrackRow = ({ track, rank, isLast, onClick }: SimilarTrackRo
         gap: tokens.spacing.md,                      // 12px
         transition: tokens.transitions.fast,         // 150ms hover
         '&:hover': {
-          backgroundColor: tokens.colors.bg.secondary,
+          backgroundColor: themeVars.surfacePrimary,
           '& .play-icon': {
             opacity: 1,
             transform: 'scale(1)',
@@ -54,7 +55,7 @@ export const SimilarTrackRow = ({ track, rank, isLast, onClick }: SimilarTrackRo
         <Typography sx={{
           fontSize: tokens.typography.fontSize.base, // 16px
           fontWeight: tokens.typography.fontWeight.medium,
-          color: tokens.colors.text.secondary,
+          color: themeVars.textSecondary,
           transition: tokens.transitions.fast,
         }}>
           {rank}
@@ -81,13 +82,13 @@ export const SimilarTrackRow = ({ track, rank, isLast, onClick }: SimilarTrackRo
             sx: {
               fontSize: tokens.typography.fontSize.base, // 16px
               fontWeight: tokens.typography.fontWeight.medium,
-              color: tokens.colors.text.primary,
+              color: themeVars.textPrimary,
             },
           },
           secondary: {
             sx: {
               fontSize: tokens.typography.fontSize.sm, // 13px
-              color: tokens.colors.text.secondary,
+              color: themeVars.textSecondary,
               marginTop: tokens.spacing.xs,            // 4px
             },
           },

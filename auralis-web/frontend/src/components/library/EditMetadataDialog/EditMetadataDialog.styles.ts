@@ -1,5 +1,6 @@
 import { styled, Box } from '@mui/material';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 export const DialogHeaderBox = styled(Box)({
   display: 'flex',
@@ -8,14 +9,14 @@ export const DialogHeaderBox = styled(Box)({
 });
 
 export const DialogTitleStyled = styled(Box)({
-  color: tokens.colors.text.primary,
+  color: themeVars.textPrimary,
   borderBottom: `1px solid ${tokens.colors.opacityScale.accent.ultraLight}`,
 });
 
 export const DialogPaperProps = {
   sx: {
-    bgcolor: tokens.colors.bg.level3,
-    backgroundImage: `linear-gradient(135deg, ${tokens.colors.bg.level3} 0%, ${tokens.colors.bg.level0} 100%)`,
+    bgcolor: themeVars.surfaceRaised,
+    backgroundImage: `linear-gradient(135deg, ${themeVars.surfaceRaised} 0%, ${themeVars.canvas} 100%)`,
   },
 };
 

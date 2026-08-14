@@ -1,6 +1,7 @@
 # Desktop UI Theme Unification — 2026-07-25
 
-**Status:** Two implementation slices complete; repository-wide migration remains open
+**Status:** Complete for `tokens.colors.text` / `tokens.colors.bg` (#4877, 2026-08-14).
+`tokens.glass` and direct hex/RGB expressions remain open — see *Remaining migration debt*.
 
 **Product decision:** Electron is the only official interface platform. Standalone browser/PWA
 execution is deprecated and retained solely as an unsupported renderer-development preview.
@@ -74,8 +75,12 @@ Two string-level heuristics currently find:
 
 - 206 production UI files containing direct hex/RGB color expressions outside theme token
   definitions and tests;
-- 151 production UI files still selecting `tokens.colors.bg`, `tokens.colors.text`, or
-  `tokens.glass` directly.
+- ~~151 production UI files still selecting `tokens.colors.bg`, `tokens.colors.text`, or
+  `tokens.glass` directly.~~ The `tokens.colors.text` / `tokens.colors.bg` half of this is
+  **done** — #4877 migrated the last 65 files / 169 references on 2026-08-14, and
+  `src/theme/__tests__/darkOnlyTokenLeak.test.ts` now fails the build on any new direct
+  reference from production code, so it cannot regrow. `tokens.glass` is untouched and
+  still open.
 
 Those counts include legitimate fixed-output colors, SVG artwork, canvas visualizations, and
 audio-semantic rendering, so they are an upper bound rather than 357 confirmed defects.

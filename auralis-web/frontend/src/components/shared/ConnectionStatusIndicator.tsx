@@ -22,6 +22,7 @@ import { useConnectionState } from '@/hooks/shared/useReduxState';
 import { useAPIHealthPoll } from '@/hooks/shared/useAPIHealthPoll';
 import { useAutoHide } from '@/hooks/shared/useAutoHide';
 import { ConnectionDetailsPanel } from './ConnectionDetailsPanel';
+import { themeVars } from '@/theme/semanticTheme';
 
 type Position = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 
@@ -119,7 +120,7 @@ export function ConnectionStatusIndicator({
         }}
         style={{
           padding: tokens.spacing.sm,
-          background: tokens.colors.bg.secondary,
+          background: themeVars.surfacePrimary,
           border: `2px solid ${statusColor}`,
           borderRadius: '50%',
           width: '40px',

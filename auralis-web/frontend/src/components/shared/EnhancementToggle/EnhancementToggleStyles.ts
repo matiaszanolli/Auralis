@@ -2,6 +2,7 @@
 import { tokens } from '@/design-system';
 import { IconButton } from '@/design-system';
 import { Box, Paper, styled } from '@mui/material';
+import { themeVars } from '@/theme/semanticTheme';
 
 /**
  * Styled components for EnhancementToggle variants
@@ -13,7 +14,7 @@ export const ToggleButton = styled(IconButton, {
 })<{ $isEnabled: boolean }>(({ $isEnabled }) => ({
   width: '40px',
   height: '40px',
-  color: $isEnabled ? tokens.colors.accent.primary : tokens.colors.text.tertiary,
+  color: $isEnabled ? tokens.colors.accent.primary : themeVars.textMuted,
   background: $isEnabled ? `${tokens.colors.accent.primary}15` : 'transparent',
   border: `2px solid ${$isEnabled ? tokens.colors.accent.primary : tokens.colors.border.medium}`,
   boxShadow: $isEnabled ? tokens.shadows.glowSoft : 'none',
@@ -23,7 +24,7 @@ export const ToggleButton = styled(IconButton, {
     transform: 'scale(1.1)',
     background: $isEnabled
       ? `${tokens.colors.accent.primary}25`
-      : tokens.colors.bg.elevated,
+      : themeVars.surfaceRaised,
     boxShadow: $isEnabled ? tokens.shadows.glowMd : tokens.shadows.md,
   },
 
@@ -43,7 +44,7 @@ export const EnhancementLabel = styled(Box, {
 })<{ $isEnabled: boolean }>(({ $isEnabled }) => ({
   fontSize: tokens.typography.fontSize.xs,
   fontWeight: tokens.typography.fontWeight.medium,
-  color: $isEnabled ? tokens.colors.accent.primary : tokens.colors.text.tertiary,
+  color: $isEnabled ? tokens.colors.accent.primary : themeVars.textMuted,
   textTransform: 'uppercase',
   letterSpacing: '0.5px',
   transition: tokens.transitions.color,

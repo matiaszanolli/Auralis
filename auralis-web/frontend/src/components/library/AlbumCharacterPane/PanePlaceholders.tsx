@@ -3,6 +3,7 @@ import { Box, Typography, LinearProgress } from '@mui/material';
 import type { SxProps } from '@mui/material';
 import { tokens, withOpacity } from '@/design-system';
 import { FloatingParticles } from './FloatingParticles';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface PlaceholderShellProps {
   containerStyles: SxProps;
@@ -54,7 +55,7 @@ export const EmptyStatePane = ({ containerStyles, enhancementSection }: EmptySta
       <Typography
         variant="body2"
         sx={{
-          color: tokens.colors.text.tertiary,
+          color: themeVars.textMuted,
           textAlign: 'center',
           fontSize: tokens.typography.fontSize.sm,
           textShadow: `0 2px 8px ${tokens.colors.opacityScale.dark.strong}`,
@@ -95,7 +96,7 @@ export const PendingStatePane = ({ containerStyles, enhancementSection, displayT
       <Typography
         variant="body2"
         sx={{
-          color: tokens.colors.text.secondary,
+          color: themeVars.textSecondary,
           textAlign: 'center',
           fontSize: tokens.typography.fontSize.sm,
           textShadow: `0 2px 8px ${tokens.colors.opacityScale.dark.strong}`,
@@ -106,7 +107,7 @@ export const PendingStatePane = ({ containerStyles, enhancementSection, displayT
       <Typography
         variant="caption"
         sx={{
-          color: tokens.colors.text.tertiary,
+          color: themeVars.textMuted,
           textAlign: 'center',
           fontSize: tokens.typography.fontSize.xs,
           opacity: 0.8,
@@ -117,7 +118,7 @@ export const PendingStatePane = ({ containerStyles, enhancementSection, displayT
       <Typography
         variant="caption"
         sx={{
-          color: tokens.colors.text.tertiary,
+          color: themeVars.textMuted,
           textAlign: 'center',
           fontSize: tokens.typography.fontSize.xs,
           opacity: 0.6,
@@ -153,7 +154,7 @@ export const LoadingStatePane = ({ containerStyles, enhancementSection, isTrackP
       <Typography
         variant="body2"
         sx={{
-          color: tokens.colors.text.tertiary,
+          color: themeVars.textMuted,
           textAlign: 'center',
           textShadow: `0 0 12px ${tokens.colors.opacityScale.accent.strong}`,
         }}
@@ -191,7 +192,7 @@ export const NoFingerprintPane = ({ containerStyles, enhancementSection, isTrack
       <Typography
         variant="body2"
         sx={{
-          color: tokens.colors.text.tertiary,
+          color: themeVars.textMuted,
           textAlign: 'center',
           fontSize: tokens.typography.fontSize.sm,
           textShadow: `0 2px 8px ${tokens.colors.opacityScale.dark.strong}`,

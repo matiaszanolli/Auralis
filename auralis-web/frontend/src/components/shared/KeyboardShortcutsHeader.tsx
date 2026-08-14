@@ -5,6 +5,7 @@ import { StyledDialogTitle } from '@/components/library/Styles/Dialog.styles';
 import { tokens } from '@/design-system';
 import { IconButton } from '@/design-system';
 import { Typography } from '@mui/material';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface KeyboardShortcutsHeaderProps {
   onClose: () => void;
@@ -28,7 +29,7 @@ export const KeyboardShortcutsHeader = ({ onClose }: KeyboardShortcutsHeaderProp
         onClick={onClose}
         aria-label="Close keyboard shortcuts"
         sx={{
-          color: tokens.colors.text.primary,
+          color: themeVars.textPrimary,
           '&:hover': {
             background: tokens.colors.opacityScale.accent.minimal,
           },

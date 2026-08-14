@@ -10,6 +10,7 @@ import AlbumsTab from '@/components/library/Views/AlbumsTab';
 import TracksTab from '@/components/library/Views/TracksTab';
 import type { DetailTrack as Track } from '@/types/domain';
 import { type Artist } from './useArtistDetailsData';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface ArtistDetailTabsProps {
   artist: Artist;
@@ -43,7 +44,7 @@ export const ArtistDetailTabsSection = ({
             boxShadow: `0 0 8px ${tokens.colors.accent.primary}40`,  // 40% glow
           },
           '& .MuiTab-root': {
-            color: tokens.colors.text.secondary,
+            color: themeVars.textSecondary,
             fontWeight: tokens.typography.fontWeight.semibold,
             fontSize: tokens.typography.fontSize.lg,          // 16px
             transition: tokens.transitions.all,
@@ -52,7 +53,7 @@ export const ArtistDetailTabsSection = ({
             paddingTop: tokens.spacing.md,
             paddingBottom: tokens.spacing.md,
             '&:hover': {
-              color: tokens.colors.text.primary,
+              color: themeVars.textPrimary,
               transform: 'scale(1.02)',                       // Scale-based hover (Design Language §5)
             },
             '&.Mui-selected': {

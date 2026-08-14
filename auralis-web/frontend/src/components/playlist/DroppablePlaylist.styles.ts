@@ -2,6 +2,7 @@ import { styled } from '@mui/material/styles';
 import { Box, ListItemButton, Typography } from '@mui/material';
 import QueueMusicIcon from '@mui/icons-material/QueueMusic';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 export const StyledListItemButton = styled(ListItemButton, {
   shouldForwardProp: (prop) => prop !== 'isDraggingOver' && prop !== 'selected',
@@ -28,12 +29,12 @@ export const StyledListItemButton = styled(ListItemButton, {
 
 export const PlaylistIcon = styled(QueueMusicIcon)({
   marginRight: tokens.spacing.sm,
-  color: tokens.colors.text.secondary,
+  color: themeVars.textSecondary,
 });
 
 export const TrackCount = styled(Typography)<{ component?: React.ElementType }>({
   fontSize: tokens.typography.fontSize.sm,
-  color: tokens.colors.text.secondary,
+  color: themeVars.textSecondary,
   marginLeft: tokens.spacing.xs,
 });
 

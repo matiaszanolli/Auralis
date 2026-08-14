@@ -9,6 +9,7 @@ import ArrowBack from '@mui/icons-material/ArrowBack';
 import ArtistHeader from './ArtistHeader';
 import { type Artist } from './useArtistDetailsData';
 import { IconButton } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface ArtistDetailHeaderProps {
   artist: Artist;
@@ -31,13 +32,13 @@ export const ArtistDetailHeaderSection = ({
           aria-label="Go back to artists library"
           sx={{
             mb: tokens.spacing.lg,
-            color: tokens.colors.text.secondary,
+            color: themeVars.textSecondary,
             border: `1px solid ${tokens.colors.border.light}`,
             borderRadius: tokens.borderRadius.md,
             padding: tokens.spacing.sm,
             transition: tokens.transitions.all,
             '&:hover': {
-              backgroundColor: tokens.colors.bg.tertiary,
+              backgroundColor: themeVars.surfaceSecondary,
               borderColor: tokens.colors.accent.primary,
               transform: 'scale(1.05)',
             },

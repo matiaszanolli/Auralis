@@ -9,6 +9,7 @@
 
 import Box from '@mui/material/Box';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface ConnectionDetailsPanelProps {
   wsConnected: boolean;
@@ -38,7 +39,7 @@ export function ConnectionDetailsPanel({
       style={{
         marginTop: tokens.spacing.sm,
         padding: tokens.spacing.lg,
-        background: tokens.colors.bg.secondary,
+        background: themeVars.surfacePrimary,
         border: `1px solid ${tokens.colors.border.medium}`,
         borderRadius: '8px',
         minWidth: '280px',
@@ -89,7 +90,7 @@ export function ConnectionDetailsPanel({
         <div
           style={{
             fontSize: tokens.typography.fontSize.xs,
-            color: tokens.colors.text.tertiary,
+            color: themeVars.textMuted,
             marginBottom: tokens.spacing.xs,
           }}
         >
@@ -115,7 +116,7 @@ export function ConnectionDetailsPanel({
           <span
             style={{
               fontSize: tokens.typography.fontSize.sm,
-              color: tokens.colors.text.secondary,
+              color: themeVars.textSecondary,
             }}
           >
             {wsConnected ? 'Connected' : 'Disconnected'}
@@ -134,7 +135,7 @@ export function ConnectionDetailsPanel({
         <div
           style={{
             fontSize: tokens.typography.fontSize.xs,
-            color: tokens.colors.text.tertiary,
+            color: themeVars.textMuted,
             marginBottom: tokens.spacing.xs,
           }}
         >
@@ -160,7 +161,7 @@ export function ConnectionDetailsPanel({
           <span
             style={{
               fontSize: tokens.typography.fontSize.sm,
-              color: tokens.colors.text.secondary,
+              color: themeVars.textSecondary,
             }}
           >
             {apiConnected ? 'Connected' : 'Disconnected'}
@@ -180,7 +181,7 @@ export function ConnectionDetailsPanel({
           <div
             style={{
               fontSize: tokens.typography.fontSize.xs,
-              color: tokens.colors.text.tertiary,
+              color: themeVars.textMuted,
               marginBottom: tokens.spacing.xs,
             }}
           >
@@ -240,7 +241,7 @@ export function ConnectionDetailsPanel({
             background: tokens.colors.accent.primary,
             border: 'none',
             borderRadius: '6px',
-            color: tokens.colors.text.primary,
+            color: themeVars.textPrimary,
             fontSize: tokens.typography.fontSize.sm,
             fontWeight: tokens.typography.fontWeight.semibold,
             cursor: 'pointer',

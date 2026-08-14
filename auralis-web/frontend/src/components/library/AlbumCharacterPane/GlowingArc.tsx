@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { Box, Typography } from '@mui/material';
 import { tokens, withOpacity } from '@/design-system';
 import { arcPulse } from './animations';
+import { themeVars } from '@/theme/semanticTheme';
 
 // #3598: brand-anchored visualization colors. Previously inline `rgba(...)`
 // literals (e.g. rgba(0, 200, 220, ...)) drifted off-palette from the
@@ -103,7 +104,7 @@ export const GlowingArc = memo(({ isAnimating, intensity, energyLevel }: Glowing
           bottom: '-20px',
           fontSize: tokens.typography.fontSize.xs,
           fontWeight: tokens.typography.fontWeight.medium,
-          color: tokens.colors.text.tertiary,
+          color: themeVars.textMuted,
           letterSpacing: '0.15em',
           textTransform: 'uppercase',
           opacity: 0.6 + intensity * 0.3,

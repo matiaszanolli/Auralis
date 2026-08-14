@@ -22,6 +22,7 @@ import {
   useContainerWidth,
   useGridVirtualizer,
 } from '@/components/library/Items/utilities/useGridVirtualizer';
+import { themeVars } from '@/theme/semanticTheme';
 
 // Card visual height (200px square per token) + room for title/artist + row gap.
 const ERA_ROW_HEIGHT = 304;
@@ -132,7 +133,7 @@ export const EraSection = ({
         sx={{
           fontSize: tokens.typography.fontSize.lg,
           fontWeight: tokens.typography.fontWeight.semibold,
-          color: tokens.colors.text.secondary,
+          color: themeVars.textSecondary,
           mb: tokens.spacing.md,
           pl: tokens.spacing.xs,
           // Subtle left border accent

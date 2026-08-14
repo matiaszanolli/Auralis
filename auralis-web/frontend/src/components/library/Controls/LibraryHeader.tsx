@@ -10,6 +10,7 @@
 import { memo } from 'react';
 import { Box, Typography } from '@mui/material';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface LibraryHeaderProps {
   view: string;
@@ -45,7 +46,7 @@ export const LibraryHeader = memo<LibraryHeaderProps>(({ view }) => {
       </Typography>
       <Typography
         variant="subtitle1"
-        color={tokens.colors.text.secondary}
+        color={themeVars.textSecondary}
         sx={{
           fontFamily: tokens.typography.fontFamily.primary,  // Inter for body text
           fontSize: tokens.typography.fontSize.lg,           // 20px - increased from default

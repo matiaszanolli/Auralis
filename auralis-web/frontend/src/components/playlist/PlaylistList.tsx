@@ -42,6 +42,7 @@ import { usePlaylistWebSocket } from './usePlaylistWebSocket';
 import { usePlaylistOperations } from './usePlaylistOperations';
 import { usePlaylistContextActions } from './usePlaylistContextActions';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface PlaylistListProps {
   onPlaylistSelect?: (playlistId: number) => void;
@@ -204,7 +205,7 @@ export const PlaylistList = ({
             gap: tokens.spacing.sm,
             padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
             cursor: 'pointer',
-            color: tokens.colors.text.secondary,
+            color: themeVars.textSecondary,
             transition: tokens.transitions.fast,
             // Reset native button chrome so it matches the surrounding rows.
             width: '100%',
@@ -213,8 +214,8 @@ export const PlaylistList = ({
             font: 'inherit',
             textAlign: 'left',
             '&:hover': {
-              color: tokens.colors.text.primary,
-              backgroundColor: tokens.colors.bg.level2,
+              color: themeVars.textPrimary,
+              backgroundColor: themeVars.surfaceSecondary,
             },
           }}
         >

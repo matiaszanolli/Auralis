@@ -4,6 +4,7 @@
 
 import type { CSSProperties } from 'react';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 export const progressBarStyles = {
   wrapper: {
@@ -30,7 +31,7 @@ export const progressBarStyles = {
     transform: 'translateY(-50%)',
     width: '100%',
     height: '6px',
-    backgroundColor: tokens.colors.bg.tertiary,
+    backgroundColor: themeVars.surfaceSecondary,
     borderRadius: tokens.borderRadius.full,
     overflow: 'hidden',
     boxShadow: `inset 0 1px 3px ${tokens.colors.opacityScale.dark.standard}`,
@@ -65,7 +66,7 @@ export const progressBarStyles = {
     boxShadow: isDragging ? tokens.shadows.glowMd : tokens.shadows.glowSoft,
     transition: `all ${tokens.transitions.audioLag} ease-out`,
     pointerEvents: 'none',
-    border: `2px solid ${tokens.colors.bg.level1}`,
+    border: `2px solid ${themeVars.surfacePrimary}`,
   }),
 
   container: (disabled: boolean, isFocused: boolean): CSSProperties => ({
@@ -88,8 +89,8 @@ export const progressBarStyles = {
     top: '-40px',
     left: `${Math.min(Math.max(hoverPercentage, 0), 100)}%`,
     transform: 'translateX(-50%)',
-    backgroundColor: tokens.colors.bg.secondary,
-    color: tokens.colors.text.primary,
+    backgroundColor: themeVars.surfacePrimary,
+    color: themeVars.textPrimary,
     padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
     borderRadius: tokens.borderRadius.md,
     fontSize: tokens.typography.fontSize.xs,

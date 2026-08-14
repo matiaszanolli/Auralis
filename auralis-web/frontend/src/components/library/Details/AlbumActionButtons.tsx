@@ -13,6 +13,7 @@ import FavoriteBorder from '@mui/icons-material/FavoriteBorder';
 import { Tooltip, tokens } from '@/design-system';
 import { IconButton, Button } from '@/design-system';
 import { Box } from '@mui/material';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface AlbumActionButtonsProps {
   isPlaying: boolean;
@@ -47,7 +48,7 @@ export const AlbumActionButtons = ({
         disabled={savingFavorite}
         sx={{
           background: tokens.gradients.aurora,
-          color: tokens.colors.text.primary,
+          color: themeVars.textPrimary,
           fontWeight: tokens.typography.fontWeight.semibold,
           padding: `${tokens.spacing.sm} ${tokens.spacing.lg}`,
           borderRadius: tokens.borderRadius.md,
@@ -84,13 +85,13 @@ export const AlbumActionButtons = ({
           aria-pressed={isFavorite}
           aria-label={isFavorite ? 'Album is favorited. Press to remove' : 'Album is not favorited. Press to add'}
           sx={{
-            color: isFavorite ? tokens.colors.semantic.error : tokens.colors.text.secondary,
+            color: isFavorite ? tokens.colors.semantic.error : themeVars.textSecondary,
             border: `1px solid ${tokens.colors.border.light}`,
             borderRadius: tokens.borderRadius.md,
             padding: tokens.spacing.sm,
             transition: tokens.transitions.all,
             '&:hover': {
-              backgroundColor: tokens.colors.bg.tertiary,
+              backgroundColor: themeVars.surfaceSecondary,
               borderColor: tokens.colors.accent.primary,
               transform: 'scale(1.05)',
             },
@@ -110,13 +111,13 @@ export const AlbumActionButtons = ({
           onClick={onAddToQueue}
           aria-label="Add to queue"
           sx={{
-            color: tokens.colors.text.secondary,
+            color: themeVars.textSecondary,
             border: `1px solid ${tokens.colors.border.light}`,
             borderRadius: tokens.borderRadius.md,
             padding: tokens.spacing.sm,
             transition: tokens.transitions.all,
             '&:hover': {
-              backgroundColor: tokens.colors.bg.tertiary,
+              backgroundColor: themeVars.surfaceSecondary,
               borderColor: tokens.colors.accent.primary,
               transform: 'scale(1.05)',
             },
@@ -132,13 +133,13 @@ export const AlbumActionButtons = ({
           onClick={onMoreOptions}
           aria-label="More options"
           sx={{
-            color: tokens.colors.text.secondary,
+            color: themeVars.textSecondary,
             border: `1px solid ${tokens.colors.border.light}`,
             borderRadius: tokens.borderRadius.md,
             padding: tokens.spacing.sm,
             transition: tokens.transitions.all,
             '&:hover': {
-              backgroundColor: tokens.colors.bg.tertiary,
+              backgroundColor: themeVars.surfaceSecondary,
               borderColor: tokens.colors.accent.primary,
               transform: 'scale(1.05)',
             },

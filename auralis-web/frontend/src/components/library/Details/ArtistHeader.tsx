@@ -8,6 +8,7 @@ import { ArtistAvatarCircle } from '@/components/library/Styles/ArtistDetail.sty
 import { IconButton, Button } from '@/design-system';
 import { Box, Typography } from '@mui/material';
 import type { Artist } from '@/types/domain';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface ArtistHeaderProps {
   artist: Artist;
@@ -68,7 +69,7 @@ export const ArtistHeader = ({
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.xs }}>
           {/* Primary stats line */}
           <Typography variant="body1" sx={{
-            color: tokens.colors.text.secondary,
+            color: themeVars.textSecondary,
             fontSize: tokens.typography.fontSize.md,
             fontWeight: tokens.typography.fontWeight.medium,
             letterSpacing: '0.02em',
@@ -80,7 +81,7 @@ export const ArtistHeader = ({
 
           {/* Additional context - currently placeholder, can be expanded with backend data */}
           <Typography variant="body2" sx={{
-            color: tokens.colors.text.tertiary,
+            color: themeVars.textMuted,
             fontSize: tokens.typography.fontSize.sm,
             fontWeight: tokens.typography.fontWeight.normal,
           }}>
@@ -97,7 +98,7 @@ export const ArtistHeader = ({
             onClick={onPlayAll}
             sx={{
               background: tokens.gradients.aurora,
-              color: tokens.colors.text.primary,
+              color: themeVars.textPrimary,
               fontWeight: tokens.typography.fontWeight.semibold,
               padding: `${tokens.spacing.sm} ${tokens.spacing.lg}`,
               borderRadius: tokens.borderRadius.md,
@@ -128,14 +129,14 @@ export const ArtistHeader = ({
             startIcon={<Shuffle />}
             onClick={onShuffle}
             sx={{
-              color: tokens.colors.text.secondary,
+              color: themeVars.textSecondary,
               borderColor: tokens.colors.border.light,
               fontWeight: tokens.typography.fontWeight.semibold,
               padding: `${tokens.spacing.sm} ${tokens.spacing.lg}`,
               borderRadius: tokens.borderRadius.md,
               transition: tokens.transitions.all,
               '&:hover': {
-                backgroundColor: tokens.colors.bg.tertiary,
+                backgroundColor: themeVars.surfaceSecondary,
                 borderColor: tokens.colors.accent.primary,
                 transform: 'scale(1.05)',
               },
@@ -151,13 +152,13 @@ export const ArtistHeader = ({
           <IconButton
             aria-label={`More options for ${artist.name}`}
             sx={{
-              color: tokens.colors.text.secondary,
+              color: themeVars.textSecondary,
               border: `1px solid ${tokens.colors.border.light}`,
               borderRadius: tokens.borderRadius.md,
               padding: tokens.spacing.sm,
               transition: tokens.transitions.all,
               '&:hover': {
-                backgroundColor: tokens.colors.bg.tertiary,
+                backgroundColor: themeVars.surfaceSecondary,
                 borderColor: tokens.colors.accent.primary,
                 transform: 'scale(1.05)',
               },

@@ -22,6 +22,7 @@ import { useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 /** Shape of one entry in the cache stats `tracks` map. */
 export interface TrackCacheInfo {
@@ -100,7 +101,7 @@ export function TrackCacheList({ tracks }: TrackCacheListProps) {
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   padding: tokens.spacing.sm,
-                  background: tokens.colors.bg.elevated,
+                  background: themeVars.surfaceRaised,
                   borderRadius: '4px',
                   height: '100%',
                   boxSizing: 'border-box',
@@ -109,7 +110,7 @@ export function TrackCacheList({ tracks }: TrackCacheListProps) {
                 <span
                   style={{
                     fontSize: tokens.typography.fontSize.sm,
-                    color: tokens.colors.text.secondary,
+                    color: themeVars.textSecondary,
                   }}
                 >
                   Track {trackInfo.track_id}
@@ -143,7 +144,7 @@ export function TrackCacheList({ tracks }: TrackCacheListProps) {
                   <span
                     style={{
                       fontSize: tokens.typography.fontSize.xs,
-                      color: tokens.colors.text.tertiary,
+                      color: themeVars.textMuted,
                       minWidth: '40px',
                       textAlign: 'right',
                     }}

@@ -30,6 +30,7 @@ import { tokens } from '@/design-system';
 import { useSimilarTracks, type SimilarTrack } from '@/hooks/fingerprint';
 import { SimilarTracksModalHeader } from './SimilarTracksModalHeader';
 import { SimilarTrackRow } from './SimilarTrackRow';
+import { themeVars } from '@/theme/semanticTheme';
 
 export interface SimilarTracksModalProps {
   /** Is modal open? */
@@ -125,7 +126,7 @@ export const SimilarTracksModal = ({
             <CircularProgress sx={{ color: tokens.colors.accent.primary }} />
             <Typography sx={{
               fontSize: tokens.typography.fontSize.base,        // 16px
-              color: tokens.colors.text.secondary,
+              color: themeVars.textSecondary,
             }}>
               Analyzing fingerprint space...
             </Typography>
@@ -147,7 +148,7 @@ export const SimilarTracksModal = ({
             </Typography>
             <Typography sx={{
               fontSize: tokens.typography.fontSize.sm,          // 13px
-              color: tokens.colors.text.secondary,
+              color: themeVars.textSecondary,
             }}>
               Try again or select a different track.
             </Typography>
@@ -177,14 +178,14 @@ export const SimilarTracksModal = ({
           }}>
             <Typography sx={{
               fontSize: tokens.typography.fontSize.base,        // 16px
-              color: tokens.colors.text.secondary,
+              color: themeVars.textSecondary,
               marginBottom: tokens.spacing.md,                  // 12px
             }}>
               No similar tracks found.
             </Typography>
             <Typography sx={{
               fontSize: tokens.typography.fontSize.sm,          // 13px
-              color: tokens.colors.text.tertiary,
+              color: themeVars.textMuted,
             }}>
               Try a different track or check back later.
             </Typography>

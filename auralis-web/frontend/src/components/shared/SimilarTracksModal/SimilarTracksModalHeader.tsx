@@ -11,6 +11,7 @@ import { DialogTitle, IconButton, Box, Typography } from '@mui/material';
 import Close from '@mui/icons-material/Close';
 import Explore from '@mui/icons-material/Explore';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 export interface SimilarTracksModalHeaderProps {
   /** Track title (for display in the subtitle) */
@@ -34,13 +35,13 @@ export const SimilarTracksModalHeader = ({ trackTitle, onClose }: SimilarTracksM
           fontFamily: tokens.typography.fontFamily.header,  // Manrope for headers
           fontWeight: tokens.typography.fontWeight.semibold,
           fontSize: tokens.typography.fontSize.xl,          // 24px
-          color: tokens.colors.text.primary,
+          color: themeVars.textPrimary,
         }}>
           Similar Tracks
         </Typography>
         <Typography variant="body2" sx={{
           fontSize: tokens.typography.fontSize.sm,          // 13px
-          color: tokens.colors.text.secondary,
+          color: themeVars.textSecondary,
           marginTop: tokens.spacing.xs,                     // 4px
         }}>
           Tracks similar to "{trackTitle}"
@@ -51,9 +52,9 @@ export const SimilarTracksModalHeader = ({ trackTitle, onClose }: SimilarTracksM
       onClick={onClose}
       aria-label="Close similar tracks"
       sx={{
-        color: tokens.colors.text.secondary,
+        color: themeVars.textSecondary,
         '&:hover': {
-          backgroundColor: tokens.colors.bg.tertiary,
+          backgroundColor: themeVars.surfaceSecondary,
         },
       }}
     >

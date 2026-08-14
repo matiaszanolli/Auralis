@@ -9,6 +9,7 @@ import { Box, Paper, Typography, Fade, Stack } from '@mui/material';
 import AutoAwesome from '@mui/icons-material/AutoAwesome';
 import { tokens } from '@/design-system';
 import { ProcessingStatsChips } from './ProcessingStatsChips';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface ProcessingStats {
   status: 'analyzing' | 'processing' | 'idle';
@@ -86,7 +87,7 @@ export const ProcessingToast = ({ stats, show }: ProcessingToastProps) => {
             <Typography
               variant="body2"
               sx={{
-                color: tokens.colors.text.primary,
+                color: themeVars.textPrimary,
                 fontWeight: tokens.typography.fontWeight.semibold,
                 fontSize: tokens.typography.fontSize.sm
               }}

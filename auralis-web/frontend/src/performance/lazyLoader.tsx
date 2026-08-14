@@ -22,6 +22,7 @@
 import { Component, ComponentProps, ComponentType, ErrorInfo, LazyExoticComponent, MemoExoticComponent, ReactElement, ReactNode, Suspense, lazy, memo } from 'react';
 import { tokens } from '@/design-system';
 import { toError } from '@/utils/errorGuards';
+import { themeVars } from '@/theme/semanticTheme';
 
 // ============================================================================
 // Types
@@ -99,7 +100,7 @@ export const DefaultLoadingFallback = () => (
       minHeight: '100px',
     }}
   >
-    <div style={{ textAlign: 'center', color: tokens.colors.text.secondary }}>
+    <div style={{ textAlign: 'center', color: themeVars.textSecondary }}>
       <p>Loading...</p>
     </div>
   </div>

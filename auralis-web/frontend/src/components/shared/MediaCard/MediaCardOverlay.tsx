@@ -106,7 +106,7 @@ export const MediaCardOverlay = ({
             borderRadius: tokens.borderRadius.sm,
             background: tokens.colors.opacityScale.dark.nearOpaque,
             backdropFilter: 'blur(8px)',
-            color: tokens.colors.text.primary,
+            color: themeVars.textPrimary,
             fontSize: tokens.typography.fontSize.xs,
             fontWeight: tokens.typography.fontWeight.medium,
           }}

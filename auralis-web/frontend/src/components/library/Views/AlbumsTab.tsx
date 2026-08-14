@@ -7,6 +7,7 @@ import {
 import Grid2 from '@mui/material/Grid';
 import { tokens } from '@/design-system';
 import AlbumCard from '@/components/album/AlbumCard/AlbumCard';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface Album {
   id: number;
@@ -75,7 +76,7 @@ export const AlbumsTab = ({
         <Typography variant="h6" sx={{
           fontSize: tokens.typography.fontSize.lg,
           fontWeight: tokens.typography.fontWeight.semibold,
-          color: tokens.colors.text.secondary,
+          color: themeVars.textSecondary,
           letterSpacing: '0.02em',
         }}>
           Albums {/* Sorted by year (newest first) - can be enhanced later */}

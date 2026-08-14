@@ -7,6 +7,7 @@
 import { Box } from '@mui/material';
 import { PRESETS, getCirclePosition } from './presetConfig';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface RadialDecorationsProps {
   size: number; // Diameter of selector
@@ -46,7 +47,7 @@ export const RadialDecorations = ({
               y1={centerY}
               x2={centerX + pos.x}
               y2={centerY + pos.y}
-              stroke={isActive ? tokens.colors.accent.primary : tokens.colors.text.primary}
+              stroke={isActive ? tokens.colors.accent.primary : themeVars.textPrimary}
               strokeWidth={isActive ? 2 : 1}
               strokeDasharray={isActive ? '0' : '4 4'}
               style={{

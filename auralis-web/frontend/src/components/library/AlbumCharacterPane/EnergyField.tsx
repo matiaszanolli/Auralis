@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { Box, Typography } from '@mui/material';
 import { tokens } from '@/design-system';
 import { energyDrift } from './animations';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface EnergyFieldProps {
   energy: number;
@@ -32,7 +33,7 @@ export const EnergyField = memo(({ energy, isAnimating, intensity }: EnergyField
         <Typography
           variant="caption"
           sx={{
-            color: tokens.colors.text.tertiary,
+            color: themeVars.textMuted,
             fontSize: tokens.typography.fontSize.xs,
             fontWeight: tokens.typography.fontWeight.medium,
             textTransform: 'uppercase',
@@ -46,7 +47,7 @@ export const EnergyField = memo(({ energy, isAnimating, intensity }: EnergyField
         <Typography
           variant="caption"
           sx={{
-            color: tokens.colors.text.tertiary,
+            color: themeVars.textMuted,
             fontSize: tokens.typography.fontSize.xs,
             fontWeight: tokens.typography.fontWeight.medium,
             textTransform: 'uppercase',
@@ -95,7 +96,7 @@ export const EnergyField = memo(({ energy, isAnimating, intensity }: EnergyField
             borderRadius: tokens.borderRadius.full,
             // Dynamic hue based on energy
             background: `hsla(${hue}, 75%, 55%, 1)`,
-            border: `2px solid ${tokens.colors.bg.primary}`,
+            border: `2px solid ${themeVars.canvas}`,
             // Glow radius and intensity fade during decay (but linger)
             boxShadow: `0 0 ${6 + glowIntensity * 6}px hsla(${hue}, 70%, 50%, ${0.3 + glowIntensity * 0.2})`,
             transition: `left ${tokens.transitions.slow}, box-shadow ${tokens.transitions.base}`,

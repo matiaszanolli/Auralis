@@ -19,17 +19,18 @@ import PlaylistAdd from '@mui/icons-material/PlaylistAdd';
 import Add from '@mui/icons-material/Add';
 import * as playlistService from '@/services/playlistService';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 const PlaylistMenuItem = styled(MenuItem)({
   fontSize: tokens.typography.fontSize.sm,
-  color: tokens.colors.text.secondary,
+  color: themeVars.textSecondary,
   // 48px is a nesting indent for sub-items, not a spacing step — kept
   // literal deliberately (#4663); the rest map to the scale exactly.
   padding: `${tokens.spacing.cluster} ${tokens.spacing.group} ${tokens.spacing.cluster} 48px`,
   transition: tokens.transitions.hover_out,
   '&:hover': {
     background: tokens.colors.opacityScale.accent.veryLight,
-    color: tokens.colors.text.primary,
+    color: themeVars.textPrimary,
     transform: 'translateX(2px)',
   },
 });
@@ -53,7 +54,7 @@ const SectionLabel = styled(Box)({
   fontWeight: tokens.typography.fontWeight.semibold,
   // #4635: xs label text needs AA 4.5:1; disabled (40%) is only calibrated
   // for the 3:1 large-text floor. Same fix as the sidebar labels in #4451.
-  color: tokens.colors.text.metadata,
+  color: themeVars.textMuted,
   textTransform: 'uppercase',
   letterSpacing: '0.5px',
   padding: `${tokens.spacing.cluster} ${tokens.spacing.group} ${tokens.spacing.xs} ${tokens.spacing.group}`,

@@ -6,6 +6,7 @@
 
 import { Box, Typography } from '@mui/material';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface AlbumMetadataProps {
   year?: number;
@@ -32,7 +33,7 @@ export const AlbumMetadata = ({
   return (
     <Box>
       <Typography variant="body2" sx={{
-        color: tokens.colors.text.tertiary,
+        color: themeVars.textMuted,
         mb: tokens.spacing.sm,
         fontSize: tokens.typography.fontSize.sm,
         fontWeight: tokens.typography.fontWeight.normal,
@@ -44,7 +45,7 @@ export const AlbumMetadata = ({
       </Typography>
       {genre && (
         <Typography variant="body2" sx={{
-          color: tokens.colors.text.tertiary,
+          color: themeVars.textMuted,
           fontSize: tokens.typography.fontSize.sm,
           fontWeight: tokens.typography.fontWeight.normal,
         }}>

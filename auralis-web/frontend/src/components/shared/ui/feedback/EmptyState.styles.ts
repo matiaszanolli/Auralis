@@ -6,6 +6,7 @@
 
 import { Box, Typography, styled } from '@mui/material';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 export const Container = styled(Box)({
   display: 'flex',
@@ -23,7 +24,7 @@ export const IconContainer = styled(Box)({
     // #3639: tokens.typography.fontSize.huge (80px) — named display scale
     // for empty-state placeholder glyphs.
     fontSize: tokens.typography.fontSize.huge,
-    color: tokens.colors.text.tertiary,
+    color: themeVars.textMuted,
     transition: tokens.transitions.base_inOut,
   },
 
@@ -36,13 +37,13 @@ export const IconContainer = styled(Box)({
 export const Title = styled(Typography)({
   fontSize: tokens.typography.fontSize['2xl'],
   fontWeight: tokens.typography.fontWeight.semibold,
-  color: tokens.colors.text.primary,
+  color: themeVars.textPrimary,
   marginBottom: tokens.spacing.sm,
 });
 
 export const Description = styled(Typography)({
   fontSize: tokens.typography.fontSize.base,
-  color: tokens.colors.text.secondary,
+  color: themeVars.textSecondary,
   marginBottom: tokens.spacing.lg,
   maxWidth: '400px',
   lineHeight: tokens.typography.lineHeight.relaxed,

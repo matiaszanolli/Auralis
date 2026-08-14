@@ -7,6 +7,7 @@
 import { Menu, MenuItem } from '@mui/material';
 import Edit from '@mui/icons-material/Edit';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface BatchActionsMoreMenuProps {
   anchorEl: HTMLElement | null;
@@ -48,7 +49,7 @@ export const BatchActionsMoreMenu = ({
         },
       }}
     >
-      <MenuItem onClick={handleEditClick} sx={{ color: tokens.colors.text.primaryFull, gap: 1 }}>
+      <MenuItem onClick={handleEditClick} sx={{ color: themeVars.textStrong, gap: 1 }}>
         <Edit fontSize="small" />
         Edit Metadata
       </MenuItem>

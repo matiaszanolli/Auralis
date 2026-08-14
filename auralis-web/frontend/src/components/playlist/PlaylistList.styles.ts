@@ -9,6 +9,7 @@
 import { tokens } from '@/design-system';
 import { IconButton } from '@/design-system';
 import { Box, ListItem, ListItemButton, Typography, styled } from '@mui/material';
+import { themeVars } from '@/theme/semanticTheme';
 
 /**
  * PlaylistSection - Root container for the playlists section (Design Language v1.2.0)
@@ -46,7 +47,7 @@ export const SectionHeader = styled(Box)({
 export const SectionTitle = styled(Typography)({
   fontSize: tokens.typography.fontSize.sm,                // 11px - small section label
   fontWeight: tokens.typography.fontWeight.semibold,
-  color: tokens.colors.text.secondary,
+  color: themeVars.textSecondary,
   textTransform: 'uppercase',
   letterSpacing: '0.5px',
   display: 'flex',
@@ -106,7 +107,7 @@ export const StyledListItemButton = styled(ListItemButton)<{ selected?: boolean 
 
     '& .MuiListItemText-primary': {
       fontSize: tokens.typography.fontSize.sm,            // 11px
-      color: selected ? tokens.colors.text.primary : tokens.colors.text.secondary,
+      color: selected ? themeVars.textPrimary : themeVars.textSecondary,
       fontWeight: selected ? tokens.typography.fontWeight.medium : tokens.typography.fontWeight.normal,
     },
   })
@@ -129,7 +130,7 @@ export const PlaylistActions = styled(Box)({
 export const ActionButton = styled(IconButton)({
   width: '28px',
   height: '28px',
-  color: tokens.colors.text.secondary,
+  color: themeVars.textSecondary,
   '&:hover': {
     color: tokens.colors.accent.primary,
     background: tokens.colors.opacityScale.accent.veryLight,
@@ -145,7 +146,7 @@ export const ActionButton = styled(IconButton)({
 export const AddButton = styled(IconButton)({
   width: '28px',
   height: '28px',
-  color: tokens.colors.text.secondary,
+  color: themeVars.textSecondary,
   '&:hover': {
     color: tokens.colors.accent.primary,
     background: tokens.colors.opacityScale.accent.veryLight,
@@ -163,6 +164,6 @@ export const EmptyState = styled(Box)({
   padding: `${tokens.spacing.group} ${tokens.spacing.section}`, // 16px vertical, 32px horizontal
   textAlign: 'center',
   // #4635: 13px text — AA 4.5:1 applies, so metadata (60%) not disabled (40%).
-  color: tokens.colors.text.metadata,
+  color: themeVars.textMuted,
   fontSize: tokens.typography.fontSize.base,              // 13px - standard base size
 });

@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react';
 import { Menu, MenuItem, CircularProgress, Typography } from '@mui/material';
 import { tokens } from '@/design-system';
 import { getPlaylists, type Playlist } from '@/services/playlistService';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface AddToPlaylistMenuProps {
   anchorEl: HTMLElement | null;
@@ -81,7 +82,7 @@ export const AddToPlaylistMenu = ({
 
       {!loading && playlists.length === 0 && (
         <MenuItem disabled>
-          <Typography variant="body2" sx={{ color: tokens.colors.text.metadata }}>
+          <Typography variant="body2" sx={{ color: themeVars.textMuted }}>
             No playlists yet
           </Typography>
         </MenuItem>
@@ -92,7 +93,7 @@ export const AddToPlaylistMenu = ({
           <MenuItem
             key={playlist.id}
             onClick={() => handleSelect(playlist)}
-            sx={{ color: tokens.colors.text.primaryFull }}
+            sx={{ color: themeVars.textStrong }}
           >
             {playlist.name} ({playlist.track_count})
           </MenuItem>

@@ -18,6 +18,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import { tokens } from '@/design-system';
 import { StyledDialog, StyledDialogTitle, CancelButtonForDialog } from '@/components/library/Styles/Dialog.styles';
 import type { Artist } from '@/types/domain';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface ArtistInfoModalProps {
   open: boolean;
@@ -97,7 +98,7 @@ const styles = {
     marginBottom: tokens.spacing.lg,
     fontSize: tokens.typography.fontSize.xl,
     fontWeight: tokens.typography.fontWeight.bold,
-    color: tokens.colors.text.primary,
+    color: themeVars.textPrimary,
   },
 
   statsContainer: {
@@ -116,7 +117,7 @@ const styles = {
 
   statLabel: {
     fontSize: tokens.typography.fontSize.sm,
-    color: tokens.colors.text.secondary,
+    color: themeVars.textSecondary,
     fontWeight: tokens.typography.fontWeight.semibold,
     textTransform: 'uppercase' as const,
     letterSpacing: '0.5px',

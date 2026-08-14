@@ -3,6 +3,7 @@ import { Switch, FormControlLabel, Typography } from '@mui/material';
 import { tokens } from '@/design-system';
 import { SwitchPaper } from './EnhancementToggleStyles';
 import { EnhancementToggleProps } from './EnhancementToggle';
+import { themeVars } from '@/theme/semanticTheme';
 
 /**
  * Switch variant of EnhancementToggle
@@ -61,7 +62,7 @@ export const SwitchVariant = memo<EnhancementToggleProps>(({
             sx={{
               fontFamily: tokens.typography.fontFamily.primary,
               fontWeight: tokens.typography.fontWeight.semibold,
-              color: tokens.colors.text.primary,
+              color: themeVars.textPrimary,
               fontSize: tokens.typography.fontSize.sm,
             }}
           >
@@ -76,7 +77,7 @@ export const SwitchVariant = memo<EnhancementToggleProps>(({
             display: 'block',
             mt: tokens.spacing.xs,
             ml: `calc(${tokens.spacing.xxl} + ${tokens.spacing.xs})`, // Switch width + gap
-            color: tokens.colors.text.secondary,
+            color: themeVars.textSecondary,
             fontSize: tokens.typography.fontSize.xs,
             fontFamily: tokens.typography.fontFamily.primary,
           }}

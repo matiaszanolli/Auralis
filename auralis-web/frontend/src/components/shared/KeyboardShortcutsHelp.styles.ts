@@ -1,8 +1,9 @@
 import { styled, Paper, Box, Typography } from '@mui/material';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 export const CategorySection = styled(Paper)(() => ({
-  background: tokens.colors.bg.level3,
+  background: themeVars.surfaceRaised,
   border: `1px solid ${tokens.colors.border.light}`,
   borderRadius: tokens.borderRadius.lg,
   padding: tokens.spacing.md,
@@ -14,14 +15,14 @@ export const ShortcutRow = styled(Box)(() => ({
   justifyContent: 'space-between',
   alignItems: 'center',
   padding: `${tokens.spacing.sm} 0`,
-  borderBottom: `1px solid ${tokens.colors.bg.level3}`,
+  borderBottom: `1px solid ${themeVars.surfaceRaised}`,
   '&:last-child': {
     borderBottom: 'none',
   },
 }));
 
 export const ShortcutKey = styled(Box)(() => ({
-  background: tokens.colors.bg.level2,
+  background: themeVars.surfaceSecondary,
   border: `1px solid ${tokens.colors.border.heavy}`,
   borderRadius: tokens.borderRadius.sm,
   padding: `${tokens.spacing.sm} 12px`,
@@ -35,7 +36,7 @@ export const ShortcutKey = styled(Box)(() => ({
 }));
 
 export const ShortcutDescription = styled(Typography)(() => ({
-  color: tokens.colors.text.tertiary,
+  color: themeVars.textMuted,
   fontSize: tokens.typography.fontSize.base,
 }));
 
@@ -52,7 +53,7 @@ export const CategoryTitle = styled(Typography)(() => ({
 export const EmptyStateBox = styled(Box)(() => ({
   textAlign: 'center',
   padding: `40px ${tokens.spacing.md}`,
-  color: tokens.colors.text.muted,
+  color: themeVars.textMuted,
 }));
 
 export const DialogContentBoxStyles = {

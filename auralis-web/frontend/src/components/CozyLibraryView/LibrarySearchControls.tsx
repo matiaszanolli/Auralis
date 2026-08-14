@@ -6,6 +6,7 @@ import ViewToggle, { ViewMode } from '@/components/navigation/ViewToggle';
 import { tokens } from '@/design-system';
 import { Tooltip, IconButton } from '@/design-system';
 import { Box, Paper, Typography } from '@mui/material';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface LibrarySearchControlsProps {
   searchQuery: string;
@@ -46,7 +47,7 @@ export const LibrarySearchControls = ({
       sx={{
         p: tokens.spacing.lg,
         mb: tokens.spacing.xl,
-        background: `${tokens.colors.bg.elevated}80`,
+        background: `${themeVars.surfaceRaised}80`,
         backdropFilter: 'blur(10px)',
         borderRadius: tokens.borderRadius.lg
       }}

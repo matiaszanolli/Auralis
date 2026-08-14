@@ -7,6 +7,7 @@
 import { Box, Typography } from '@mui/material';
 import { Preset } from './presetConfig';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface RadialCenterHubProps {
   preset: Preset;
@@ -40,7 +41,7 @@ export const RadialCenterHub = ({ preset, size }: RadialCenterHubProps) => {
       <Box
         sx={{
           fontSize: 32,
-          color: tokens.colors.text.primary,
+          color: themeVars.textPrimary,
           mb: 0.5,
           filter: `drop-shadow(0 2px 4px ${tokens.colors.opacityScale.dark.strong})`,
           animation: 'pulse 2s ease-in-out infinite',
@@ -55,7 +56,7 @@ export const RadialCenterHub = ({ preset, size }: RadialCenterHubProps) => {
       <Typography
         variant="caption"
         sx={{
-          color: tokens.colors.text.primary,
+          color: themeVars.textPrimary,
           fontWeight: tokens.typography.fontWeight.bold,
           fontSize: 13,
           textTransform: 'uppercase',

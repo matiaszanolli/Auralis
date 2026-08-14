@@ -7,6 +7,7 @@
 import { tokens } from '@/design-system';
 import { Card } from '@/design-system';
 import { Box, CardContent, styled } from '@mui/material';
+import { themeVars } from '@/theme/semanticTheme';
 
 export const StyledTrackCard = styled(Card, {
   shouldForwardProp: (prop) => prop !== 'isPlaying',
@@ -16,7 +17,7 @@ export const StyledTrackCard = styled(Card, {
   overflow: 'hidden',
   cursor: 'pointer',
   transition: tokens.transitions.state_inOut,
-  background: isPlaying ? tokens.colors.bg.level4 : tokens.colors.bg.tertiary,
+  background: isPlaying ? themeVars.surfaceOverlay : themeVars.surfaceSecondary,
   // Visual anchor for currently playing track - stronger elevation
   boxShadow: isPlaying
     ? `0 4px 16px ${tokens.colors.opacityScale.dark.strong}, 0 0 0 1px ${tokens.colors.accent.primary}40` // Elevated + subtle accent glow
@@ -27,7 +28,7 @@ export const StyledTrackCard = styled(Card, {
     boxShadow: isPlaying
       ? `0 8px 28px ${tokens.colors.opacityScale.dark.strong}, 0 0 0 1px ${tokens.colors.accent.primary}60` // Enhanced glow on hover
       : `0 8px 24px ${tokens.colors.opacityScale.dark.strong}`,
-    background: tokens.colors.bg.level4,
+    background: themeVars.surfaceOverlay,
   },
 }));
 

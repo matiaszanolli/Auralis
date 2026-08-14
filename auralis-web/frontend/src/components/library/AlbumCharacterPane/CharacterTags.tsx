@@ -1,12 +1,18 @@
 import { memo } from 'react';
 import { Box, Chip } from '@mui/material';
-import { tokens, withOpacity } from '@/design-system';
+import { tokens } from '@/design-system';
 import { subtleGlow } from './animations';
+import { themeVars } from '@/theme/semanticTheme';
 
 // #3598: surface lift derived from bg.level4 (closest token to the previous
 // rgba(30, 40, 65, ...) inline literal). Glow halo backgrounds now share the
 // brand blue-black ramp instead of inventing intermediate tints.
-const SURFACE_LIFT = tokens.colors.bg.level4;     // #1F2940
+//
+// #4877: now a CSS custom property rather than a hex literal, so it can NOT be
+// passed to withOpacity() — that helper hex-parses its input and returns the
+// string UNCHANGED when parsing fails, which would silently drop the alpha and
+// render these halos fully opaque. Composed with color-mix() below instead.
+const SURFACE_LIFT = themeVars.surfaceOverlay;
 
 interface CharacterTagsProps {
   tags: Array<{ label: string; category: string }>;
@@ -42,9 +48,9 @@ export const CharacterTags = memo(({ tags, isAnimating, intensity }: CharacterTa
             size="small"
             sx={{
               // Glass background
-              background: withOpacity(SURFACE_LIFT, 0.4 + glowIntensity * 0.15),
+              background: `color-mix(in srgb, ${SURFACE_LIFT} ${((0.4 + glowIntensity * 0.15) * 100).toFixed(2)}%, transparent)`,
               backdropFilter: 'blur(4px)',
-              color: tokens.colors.text.secondary,
+              color: themeVars.textSecondary,
               fontSize: tokens.typography.fontSize.xs,
               fontWeight: tokens.typography.fontWeight.medium,
               // Glass bevel instead of hard border
@@ -52,7 +58,7 @@ export const CharacterTags = memo(({ tags, isAnimating, intensity }: CharacterTa
               transition: `all ${tokens.transitions.slow}`,
               // Multi-layer glow effect
               boxShadow: `
-                inset 0 1px 0 ${withOpacity(tokens.colors.text.primaryFull, 0.08 + glowIntensity * 0.08)},
+                inset 0 1px 0 color-mix(in srgb, ${themeVars.textStrong} ${((0.08 + glowIntensity * 0.08) * 100).toFixed(2)}%, transparent),
                 inset 0 -1px 0 ${tokens.colors.opacityScale.dark.lighter},
                 ${glowIntensity > 0.1
                   ? `0 0 ${8 + glowIntensity * 10}px hsla(${tagHue}, 70%, 55%, ${0.15 + glowIntensity * 0.25})`
@@ -66,7 +72,7 @@ export const CharacterTags = memo(({ tags, isAnimating, intensity }: CharacterTa
               '&:hover': {
                 // Slightly stronger lift on hover — same bg.level4 token,
                 // higher alpha to compensate for darker source.
-                background: withOpacity(SURFACE_LIFT, 0.6 + glowIntensity * 0.25),
+                background: `color-mix(in srgb, ${SURFACE_LIFT} ${((0.6 + glowIntensity * 0.25) * 100).toFixed(2)}%, transparent)`,
                 boxShadow: `
                   inset 0 1px 0 ${tokens.colors.opacityScale.white.lighter},
                   inset 0 -1px 0 ${tokens.colors.opacityScale.dark.standard},

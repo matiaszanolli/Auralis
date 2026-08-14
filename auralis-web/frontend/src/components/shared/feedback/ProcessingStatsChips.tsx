@@ -9,6 +9,7 @@ import TrendingUp from '@mui/icons-material/TrendingUp';
 import Speed from '@mui/icons-material/Speed';
 import Memory from '@mui/icons-material/Memory';
 import { Chip, tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface ProcessingStatsChipsProps {
   cacheHit?: boolean;
@@ -70,11 +71,11 @@ export const ProcessingStatsChips = ({
           size="small"
           sx={{
             height: '22px',
-            backgroundColor: `${tokens.colors.text.secondary}1A`,
-            color: tokens.colors.text.secondary,
+            backgroundColor: `${themeVars.textSecondary}1A`,
+            color: themeVars.textSecondary,
             fontSize: tokens.typography.fontSize.xs,
             '& .MuiChip-icon': {
-              color: tokens.colors.text.secondary,
+              color: themeVars.textSecondary,
             },
           }}
         />

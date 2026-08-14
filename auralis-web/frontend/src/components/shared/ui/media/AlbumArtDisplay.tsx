@@ -16,6 +16,7 @@ import { Box, styled } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 export interface AlbumArtDisplayProps {
   /**
@@ -65,7 +66,7 @@ const StyledAlbumArt = styled(Box)<StyledAlbumArtProps>(({ size, useTokens }) =>
   borderRadius: useTokens ? tokens.borderRadius.md : '6px',
   overflow: 'hidden',
   flexShrink: 0,
-  background: useTokens ? tokens.colors.bg.elevated : `linear-gradient(135deg, ${tokens.colors.opacityScale.accent.veryLight} 0%, ${tokens.colors.opacityScale.accent.veryLight} 100%)`,
+  background: useTokens ? themeVars.surfaceRaised : `linear-gradient(135deg, ${tokens.colors.opacityScale.accent.veryLight} 0%, ${tokens.colors.opacityScale.accent.veryLight} 100%)`,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -86,7 +87,7 @@ const StyledAlbumArt = styled(Box)<StyledAlbumArtProps>(({ size, useTokens }) =>
 }));
 
 const PlaceholderIcon = styled(MusicNoteIcon)(({ theme: _theme }) => ({
-  color: tokens.colors.text.tertiary,
+  color: themeVars.textMuted,
   fontSize: tokens.typography.fontSize.xl,
 }));
 

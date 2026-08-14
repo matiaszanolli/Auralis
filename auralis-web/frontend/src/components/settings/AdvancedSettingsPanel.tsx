@@ -11,6 +11,7 @@ import { SettingsUpdate, resetLibrary } from '@/services/settingsService';
 import { SectionContainer, SectionLabel, SectionDescription } from '@/components/library/Styles/Dialog.styles';
 import { ConfirmationDialog } from '@/components/shared/ui/ConfirmationDialog';
 import { CacheStatsDashboard } from '@/components/shared/CacheStatsDashboard';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface AdvancedSettingsPanelProps {
   cacheSize: number;
@@ -154,7 +155,7 @@ export const AdvancedSettingsPanel = ({
         <div
           style={{
             fontSize: tokens.typography.fontSize.sm,
-            color: tokens.colors.text.secondary,
+            color: themeVars.textSecondary,
             marginBottom: tokens.spacing.md,
             lineHeight: tokens.typography.lineHeight.normal,
           }}
@@ -171,7 +172,7 @@ export const AdvancedSettingsPanel = ({
             background: tokens.colors.semantic.error,
             border: 'none',
             borderRadius: '6px',
-            color: tokens.colors.text.primary,
+            color: themeVars.textPrimary,
             fontSize: tokens.typography.fontSize.sm,
             fontWeight: tokens.typography.fontWeight.semibold,
             cursor: 'pointer',

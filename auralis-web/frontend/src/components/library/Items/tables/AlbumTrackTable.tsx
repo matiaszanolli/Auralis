@@ -35,7 +35,7 @@ export const AlbumTrackTable = ({
     <TableContainer
       component={Paper}
       sx={{
-        // #4464/#4877: was a manual rgba() built by slicing tokens.colors.bg.level2's
+        // #4464/#4877: was a manual rgba() built by slicing themeVars.surfaceSecondary's
         // hex digits — a dark-only computation that broke under light mode, the
         // same defect #4877 fixed in TrackTableHeader. color-mix() applies the
         // alpha to whichever theme-aware surface is active instead.
@@ -70,7 +70,7 @@ export const AlbumTrackTable = ({
                 borderTop: `1px solid ${tokens.colors.border.light}`,
               }}>
                 <Typography sx={{
-                  color: tokens.colors.text.tertiary,
+                  color: themeVars.textMuted,
                   fontSize: tokens.typography.fontSize.md,
                 }}>
                   No tracks found for this album

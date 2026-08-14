@@ -3,6 +3,7 @@ import { Box, styled } from '@mui/material';
 import { rotate, pulse } from '@/components/library/Styles/Animation.styles';
 import { tokens, CircularProgress } from '@/design-system';
 import { useId } from 'react';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface LoadingSpinnerProps {
   size?: number;
@@ -85,7 +86,7 @@ const CenteredContainer = styled(Box)({
 
 const LoadingText = styled(Box)(({ theme: _theme }) => ({
   fontSize: tokens.typography.fontSize.base,
-  color: tokens.colors.text.secondary,
+  color: themeVars.textSecondary,
   fontWeight: tokens.typography.fontWeight.medium,
   animation: `${pulse} 2s ease-in-out infinite`,
 }));

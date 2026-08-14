@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Typography } from '@mui/material';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface RotatingDescriptionProps {
   descriptions: string[];
@@ -47,7 +48,7 @@ export const RotatingDescription = ({
     <Typography
       variant="body2"
       sx={{
-        color: tokens.colors.text.secondary,
+        color: themeVars.textSecondary,
         fontSize: tokens.typography.fontSize.sm,
         lineHeight: 1.6,
         opacity: isVisible ? 1 : 0,

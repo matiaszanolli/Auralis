@@ -23,6 +23,7 @@ import { useEffect, useMemo, useRef, useState, memo } from 'react';
 import { tokens } from '@/design-system';
 import styles from './PlaybackControlsStyles';
 import { screenReaderOnly } from '@/components/core/accessibilityStyles';
+import { themeVars } from '@/theme/semanticTheme';
 
 export interface PlaybackControlsProps {
   /**
@@ -119,10 +120,10 @@ const PlaybackControlsComponent = ({
   const getSecondaryButtonStyle = (buttonId: string) => ({
     ...styles.secondaryButton,
     opacity: isDisabled ? 0.7 : 1,
-    color: isDisabled ? tokens.colors.text.disabled : tokens.colors.text.secondary,
+    color: isDisabled ? themeVars.textDisabled : themeVars.textSecondary,
     cursor: isDisabled ? 'not-allowed' : 'pointer',
     ...(hoveredButton === buttonId && !isDisabled ? {
-      backgroundColor: tokens.colors.bg.tertiary,
+      backgroundColor: themeVars.surfaceSecondary,
       borderColor: tokens.colors.accent.primary,
       transform: 'scale(1.05)',
     } : {}),
@@ -136,7 +137,7 @@ const PlaybackControlsComponent = ({
   const getPrimaryButtonStyle = () => ({
     ...styles.primaryButton,
     opacity: isDisabled ? 0.7 : 1,
-    color: isDisabled ? tokens.colors.text.disabled : tokens.colors.text.primary,
+    color: isDisabled ? themeVars.textDisabled : themeVars.textPrimary,
     cursor: isDisabled ? 'not-allowed' : 'pointer',
     ...(hoveredButton === 'primary' && !isDisabled ? {
       transform: 'scale(1.08)',

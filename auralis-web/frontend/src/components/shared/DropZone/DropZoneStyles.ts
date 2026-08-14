@@ -1,5 +1,6 @@
 import { Paper, styled, alpha } from '@mui/material';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 /**
  * Styled components for DropZone
@@ -12,17 +13,21 @@ export const DropZonePaper = styled(Paper, {
     position: 'relative',
     padding: tokens.spacing.xxl,
     borderRadius: tokens.borderRadius.lg,
+    // MUI's alpha() parses the color string, so it cannot take a
+    // `var(--app-*)` — it throws on one. color-mix() applies the same fraction
+    // to whichever color the theme resolves the variable to, at paint time
+    // (#4877), matching AppMainContent.tsx / TrackTableHeader.tsx.
     border: `2px dashed ${
       $isDragging
         ? tokens.colors.accent.primary
         : $scanning
-        ? alpha(tokens.colors.text.secondary, 0.3)
-        : alpha(tokens.colors.text.disabled, 0.2)
+        ? `color-mix(in srgb, ${themeVars.textSecondary} 30%, transparent)`
+        : `color-mix(in srgb, ${themeVars.textDisabled} 20%, transparent)`
     }`,
     background: $isDragging
       ? alpha(tokens.colors.accent.primary, 0.05)
       : $scanning
-      ? alpha(tokens.colors.bg.elevated, 0.5)
+      ? `color-mix(in srgb, ${themeVars.surfaceRaised} 50%, transparent)`
       : 'transparent',
     cursor: $disabled || $scanning ? 'not-allowed' : 'pointer',
     transition: tokens.transitions.state_inOut,

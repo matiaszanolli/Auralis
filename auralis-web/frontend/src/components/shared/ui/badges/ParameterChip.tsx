@@ -7,6 +7,7 @@
 
 import { memo } from 'react';
 import { Chip, tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface ParameterChipProps {
   label: string;
@@ -22,7 +23,7 @@ export const ParameterChip = memo<ParameterChipProps>(({ label, gradient }) => {
         height: tokens.spacing.lg,
         fontSize: tokens.typography.fontSize.xs,
         background: gradient,
-        color: tokens.colors.text.primary,
+        color: themeVars.textPrimary,
         fontWeight: tokens.typography.fontWeight.semibold,
         borderRadius: tokens.borderRadius.sm,
       }}
