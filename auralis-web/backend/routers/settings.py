@@ -71,7 +71,18 @@ class SettingsUpdateRequest(BaseModel):
     crossfade_duration: float | None = Field(default=None, ge=0)
     gapless_enabled: bool | None = None
     replay_gain_enabled: bool | None = None
-    volume: float | None = Field(default=None, ge=0.0, le=1.0)
+    # 0.0-1.0, NOT the 0-100 scale used by SetVolumeRequest and PlayerState
+    # (#4711). Two different scales share the field name across this API; the
+    # persisted UserSettings.volume column is normalised (default 0.8), so the
+    # scale is stated here rather than renamed — a rename would need a column
+    # migration and a stored 0.8 misread as 0-100 is near-silent.
+    volume: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Default playback volume, normalised 0.0-1.0. Note this is "
+                    "NOT the 0-100 scale used by POST /api/player/volume.",
+    )
     # Audio output
     output_device: str | None = None
     bit_depth: int | None = None
@@ -113,7 +124,16 @@ class SettingsResponse(BaseModel):
     crossfade_duration: float | None = None
     gapless_enabled: bool | None = None
     replay_gain_enabled: bool | None = None
-    volume: float | None = None
+    # Same normalised 0.0-1.0 scale as SettingsUpdateRequest.volume, and
+    # bounded identically (#4711) — it was unconstrained `float | None`, so
+    # the scale was enforced on the way in but not on the way out.
+    volume: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Default playback volume, normalised 0.0-1.0. Note this is "
+                    "NOT the 0-100 scale used by POST /api/player/volume.",
+    )
     output_device: str | None = None
     bit_depth: int | None = None
     sample_rate: int | None = None

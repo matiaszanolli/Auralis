@@ -72,8 +72,12 @@ class PlayerState(BaseModel):
     current_time: float = 0.0
     duration: float = 0.0
 
-    # Audio controls
-    volume: int = 80
+    # Audio controls. 0-100, matching SetVolumeRequest and the WS broadcast the
+    # frontend reads — NOT the normalised 0.0-1.0 scale that
+    # SettingsUpdateRequest.volume and the persisted UserSettings.volume column
+    # use under the same field name (#4711). Anything bridging settings volume
+    # into player volume (or back) needs a x100 / ÷100.
+    volume: int = Field(default=80, description="Playback volume on a 0-100 scale.")
     is_muted: bool = False
 
     # Queue management
