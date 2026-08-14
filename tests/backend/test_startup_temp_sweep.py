@@ -27,6 +27,14 @@ from config.limits import CHUNK_TEMP_DIRNAME
 from config.startup import reclaim_leftover_stream_temps, reclaim_stale_temp_entries
 
 
+def _age_entry(path: Path, hours: float) -> Path:
+    """Backdate an entry's mtime so it looks `hours` old to the sweep."""
+    stale_time = time.time() - (hours * 3600)
+    import os
+    os.utime(path, (stale_time, stale_time))
+    return path
+
+
 def _make_stream_dir(root: Path, name: str) -> Path:
     d = root / name
     d.mkdir()
@@ -35,9 +43,14 @@ def _make_stream_dir(root: Path, name: str) -> Path:
 
 
 def test_reclaims_matching_dirs(tmp_path):
-    """All auralis_stream_* dirs are removed and counted."""
+    """All orphaned auralis_stream_* dirs are removed and counted.
+
+    #4713 backdated these: an *untagged* directory (no owning PID in its name)
+    is only reclaimed once it is older than max_age_hours, because ownership is
+    unknowable and a fresh one may belong to a live instance.
+    """
     for name in ("auralis_stream_aaa", "auralis_stream_bbb", "auralis_stream_ccc"):
-        _make_stream_dir(tmp_path, name)
+        _age_entry(_make_stream_dir(tmp_path, name), hours=2.0)
 
     count = reclaim_leftover_stream_temps(tmp_path)
 
@@ -74,7 +87,8 @@ def test_removal_failure_is_logged_not_swallowed(tmp_path, caplog):
     # NotADirectoryError → must be caught, logged, and not counted.
     bad = tmp_path / "auralis_stream_locked"
     bad.write_bytes(b"not a directory")
-    good = _make_stream_dir(tmp_path, "auralis_stream_ok")
+    _age_entry(bad, hours=2.0)
+    good = _age_entry(_make_stream_dir(tmp_path, "auralis_stream_ok"), hours=2.0)
 
     with caplog.at_level(logging.WARNING, logger="config.startup"):
         count = reclaim_leftover_stream_temps(tmp_path)
@@ -85,13 +99,6 @@ def test_removal_failure_is_logged_not_swallowed(tmp_path, caplog):
     warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
     assert warnings, "a removal failure must be logged, not swallowed"
     assert "auralis_stream_locked" in warnings[0].message
-
-
-def _age_entry(path: Path, hours: float) -> None:
-    """Backdate an entry's mtime so it looks `hours` old to the sweep."""
-    stale_time = time.time() - (hours * 3600)
-    import os
-    os.utime(path, (stale_time, stale_time))
 
 
 def test_stale_entries_removes_only_old_files(tmp_path):

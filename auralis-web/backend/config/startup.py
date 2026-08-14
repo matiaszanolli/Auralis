@@ -16,6 +16,7 @@ Manages component initialization and cleanup via FastAPI lifespan context manage
 
 import asyncio
 import logging
+import os
 import shutil
 import tempfile
 import threading
@@ -32,7 +33,13 @@ from config.background_workers import (
     WORKER_STOP_KWARGS,
     stop_background_workers,
 )
-from config.limits import CHUNK_TEMP_DIRNAME, UPLOAD_TEMP_DIRNAME
+from config.limits import (
+    CHUNK_TEMP_DIRNAME,
+    CHUNK_TEMP_OWNER_FILENAME,
+    STREAM_TEMP_PREFIX,
+    UPLOAD_TEMP_DIRNAME,
+    owning_pid_from_stream_temp_name,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -299,26 +306,134 @@ def _watch_critical_worker_task(
     task.add_done_callback(_on_done)
 
 
-def reclaim_leftover_stream_temps(temp_root: Path) -> int:
+def pid_is_alive(pid: int) -> bool:
+    """True if a process with `pid` currently exists.
+
+    Via psutil (already a hard dependency) rather than ``os.kill(pid, 0)``:
+    on Windows CPython implements ``os.kill`` for non-CTRL signals by opening
+    the process and calling ``TerminateProcess`` — a liveness *probe* written
+    that way would kill the process it is asking about.
+
+    A dead PID can be recycled, so a True answer is not proof the process is
+    still *ours*. Callers must treat this as "do not touch", never as "this is
+    definitely an Auralis instance".
+    """
+    try:
+        import psutil
+        return bool(psutil.pid_exists(pid))
+    except Exception as e:  # psutil missing or platform refusal — fail safe
+        logger.debug(f"PID liveness check unavailable for {pid}: {e}")
+        return True
+
+
+def reclaim_leftover_stream_temps(temp_root: Path, max_age_hours: float = 1.0) -> int:
     """Remove temp WAV dirs orphaned by interrupted compressed-format streams.
 
-    stream_normal_audio writes a temp WAV under ``auralis_stream_*`` and cleans
-    it in its finally block, but a crash or a locked file (Windows AV /
+    stream_normal_audio writes a temp WAV under ``auralis_stream_<pid>_*`` and
+    cleans it in its finally block, but a crash or a locked file (Windows AV /
     cloud-sync) can leave one behind (#3877). Sweep them on startup so any leak
     surfaces in the log and stays bounded.
 
-    Returns the number of leftover directories successfully reclaimed.
+    #4713: this used to ``rmtree`` **every** match with no ownership or age
+    check, so a second backend — a dev running ``main.py --dev`` on an alternate
+    port while the packaged app is open, or a test pointed at the real temp root
+    — deleted the *live* temp WAVs of the running instance, producing
+    file-not-found errors mid-playback in the other process.
+
+    Two guards, in order:
+
+    - **PID tag (exact).** Directories written by #4713 or later carry the
+      owning PID. A directory whose PID is still alive is skipped outright, no
+      matter how old — a long audiobook or DJ set can legitimately hold one open
+      for hours.
+    - **Age (fallback).** A directory with no PID tag predates the tagging (or
+      came from something else), so ownership is unknowable; anything modified
+      within `max_age_hours` is left alone on the assumption it may be live.
+
+    Args:
+        temp_root: Directory to sweep (the system temp root in production).
+        max_age_hours: Age below which an *untagged* directory is left alone.
+
+    Returns the number of leftover directories successfully reclaimed — skipped
+    directories are excluded from the count, which is what the log line reports.
     """
     reclaimed = 0
-    for leftover in temp_root.glob("auralis_stream_*"):
+    skipped = 0
+    cutoff = time.time() - (max_age_hours * 3600)
+
+    for leftover in temp_root.glob(f"{STREAM_TEMP_PREFIX}*"):
+        owner_pid = owning_pid_from_stream_temp_name(leftover.name)
+
+        if owner_pid is not None:
+            if pid_is_alive(owner_pid):
+                skipped += 1
+                continue
+        else:
+            # Untagged: no ownership information, so fall back to age.
+            try:
+                if leftover.stat().st_mtime >= cutoff:
+                    skipped += 1
+                    continue
+            except OSError:
+                # Vanished between glob and stat — nothing to reclaim.
+                continue
+
         try:
             shutil.rmtree(leftover)
             reclaimed += 1
         except Exception as e:
             logger.warning(f"Failed to remove leftover temp stream dir {leftover}: {e}")
+
     if reclaimed:
-        logger.info(f"🧹 Reclaimed {reclaimed} leftover temp stream dir(s)")
+        logger.info(
+            f"🧹 Reclaimed {reclaimed} leftover temp stream dir(s) from dead/aged owners"
+        )
+    if skipped:
+        logger.debug(f"Left {skipped} in-use temp stream dir(s) alone (#4713)")
     return reclaimed
+
+
+def claim_chunk_cache(chunk_dir: Path, owner_marker: Path) -> bool:
+    """Decide whether this process may wipe the shared chunk cache, and claim it.
+
+    #4713: the wipe was unconditional, so a second backend starting up deleted
+    the cached chunks a running instance was still serving from.
+
+    Deliberately an *ownership* check rather than the age heuristic used for
+    stream temps. Making the wipe age-conditional would change the blast radius
+    of #4666 (the on-disk chunk cache is not keyed on mastering targets) from
+    intra-session to cross-session, because the start-of-run wipe is what
+    currently keeps stale un-targeted chunks from outliving a restart. Keying on
+    ownership instead preserves that exactly: a lone instance — every packaged
+    Electron run — still finds no live foreign owner and still wipes on every
+    start. Only the concurrent-instance case, which is the actual defect here,
+    takes the new path.
+
+    Returns True when the caller should wipe. Always (re)claims the marker so
+    the *next* start sees this process as the owner.
+    """
+    may_wipe = True
+    try:
+        if owner_marker.exists():
+            recorded = owner_marker.read_text().strip()
+            if recorded.isdigit():
+                other_pid = int(recorded)
+                if other_pid != os.getpid() and pid_is_alive(other_pid):
+                    logger.info(
+                        f"🔒 Chunk cache is claimed by live PID {other_pid}; "
+                        f"leaving {chunk_dir.name} alone (#4713)"
+                    )
+                    may_wipe = False
+    except OSError as e:
+        logger.debug(f"Could not read chunk-cache owner marker: {e}")
+
+    try:
+        owner_marker.parent.mkdir(parents=True, exist_ok=True)
+        owner_marker.write_text(str(os.getpid()))
+    except OSError as e:
+        logger.debug(f"Could not claim chunk-cache owner marker: {e}")
+
+    return may_wipe
 
 
 def reclaim_stale_temp_entries(dir_path: Path, max_age_hours: float) -> int:
@@ -360,17 +475,25 @@ async def _cleanup_temp_directories() -> None:
     Offloaded via asyncio.to_thread (#4754) — up to 512 MB of cached WAVs,
     previously removed directly on the event loop during lifespan startup.
     """
-    chunk_dir = Path(tempfile.gettempdir()) / CHUNK_TEMP_DIRNAME
-    if chunk_dir.exists():
-        try:
-            await asyncio.to_thread(shutil.rmtree, chunk_dir)
-            chunk_dir.mkdir(exist_ok=True)
-            logger.info(f"🧹 Cleared chunk directory: {chunk_dir.name}")
-        except Exception as e:
-            logger.warning(f"Failed to clear chunk directory: {e}")
+    temp_root = Path(tempfile.gettempdir())
+    chunk_dir = temp_root / CHUNK_TEMP_DIRNAME
+    owner_marker = temp_root / CHUNK_TEMP_OWNER_FILENAME
 
-    # Sweep temp WAVs orphaned by interrupted compressed-format streams (#3877).
-    reclaim_leftover_stream_temps(Path(tempfile.gettempdir()))
+    # #4713: only wipe when no *live* foreign backend has claimed the shared
+    # cache. A lone instance (every packaged run) still wipes on every start,
+    # so #4666's stale-chunk blast radius stays intra-session.
+    if await asyncio.to_thread(claim_chunk_cache, chunk_dir, owner_marker):
+        if chunk_dir.exists():
+            try:
+                await asyncio.to_thread(shutil.rmtree, chunk_dir)
+                chunk_dir.mkdir(exist_ok=True)
+                logger.info(f"🧹 Cleared chunk directory: {chunk_dir.name}")
+            except Exception as e:
+                logger.warning(f"Failed to clear chunk directory: {e}")
+
+    # Sweep temp WAVs orphaned by interrupted compressed-format streams (#3877),
+    # skipping any a live process still owns (#4713).
+    await asyncio.to_thread(reclaim_leftover_stream_temps, temp_root)
 
 
 def _init_library_database(globals_dict: dict[str, Any]) -> None:

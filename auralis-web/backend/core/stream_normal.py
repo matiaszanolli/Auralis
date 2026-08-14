@@ -164,10 +164,13 @@ async def stream_normal_audio(
             # and .ogg, which libsndfile can in fact seek — and narrowing that
             # would change normal-streaming seek behaviour for the most common
             # library format. Left alone deliberately; see the issue notes.
+            from config.limits import stream_temp_prefix
             from core.seekable_source import convert_to_temp_wav
 
+            # PID-tagged so the startup sweep can tell a live instance's temp
+            # WAV from a genuinely orphaned one (#4713).
             converted_dir, converted_wav = await asyncio.to_thread(
-                convert_to_temp_wav, validated_filepath, prefix='auralis_stream_'
+                convert_to_temp_wav, validated_filepath, prefix=stream_temp_prefix()
             )
             temp_dir = converted_dir
             streaming_filepath = converted_wav

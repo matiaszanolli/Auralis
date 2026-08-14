@@ -21,3 +21,50 @@ MAX_UPLOAD_FILES: int = 200
 UPLOAD_TEMP_DIRNAME: str = "auralis_uploads"
 CHUNK_TEMP_DIRNAME: str = "auralis_chunks"
 PROCESSING_TEMP_DIRNAME: str = "auralis_processing"
+
+# Prefix for the per-stream temp WAV directories created by
+# core/stream_normal.py. The startup sweep globs `STREAM_TEMP_PREFIX + "*"`, so
+# the producer and the sweeper must agree on it (#3877).
+STREAM_TEMP_PREFIX: str = "auralis_stream_"
+
+# Sibling marker file recording which process last claimed the chunk cache, so
+# a second backend starting up does not wipe a running instance's cache (#4713).
+# Deliberately a sibling of the chunk dir rather than a file inside it:
+# `ChunkCacheManager.prune_chunk_directory` iterates every file in the dir and
+# deletes the oldest by mtime, which would eventually eat a marker stored there.
+CHUNK_TEMP_OWNER_FILENAME: str = "auralis_chunks.owner"
+
+
+def stream_temp_prefix(pid: int | None = None) -> str:
+    """Temp-dir prefix for this process's stream WAVs, PID-tagged (#4713).
+
+    The startup sweep used to `rmtree` every `auralis_stream_*` directory in the
+    system temp root with no ownership check, so a second backend (e.g. a dev
+    running `main.py --dev` on an alternate port) deleted the *live* temp WAVs
+    of the already-running instance. Tagging the directory with the owning PID
+    lets the sweep skip anything a live process still owns.
+
+    Args:
+        pid: Override the PID, for tests. Defaults to the current process.
+    """
+    import os
+    return f"{STREAM_TEMP_PREFIX}{os.getpid() if pid is None else pid}_"
+
+
+def owning_pid_from_stream_temp_name(name: str) -> int | None:
+    """Parse the PID out of a `stream_temp_prefix()` directory name.
+
+    Returns None for a directory that carries no PID tag — one written before
+    #4713, or by something else entirely. Callers must fall back to an age
+    heuristic for those rather than assuming they are orphaned.
+    """
+    if not name.startswith(STREAM_TEMP_PREFIX):
+        return None
+    remainder = name[len(STREAM_TEMP_PREFIX):]
+    pid_text, _, rest = remainder.partition("_")
+    # `mkdtemp` appends its own random suffix after our prefix, so a tagged name
+    # always has something following the PID. A bare digit run with no separator
+    # is an untagged mkdtemp suffix that happens to be numeric.
+    if not rest or not pid_text.isdigit():
+        return None
+    return int(pid_text)
