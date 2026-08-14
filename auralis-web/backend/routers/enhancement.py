@@ -99,10 +99,20 @@ class SetIntensityRequest(BaseModel):
 
 
 class EnhancementSettings(BaseModel):
-    """Current enhancement settings."""
+    """Current enhancement settings.
+
+    #4424 made ``EnhancementPresetLiteral`` the single source of truth and
+    migrated the request side; the response side kept a bare ``str`` until
+    #4710. That mattered because the frontend narrows on the same closed union
+    (``EnhancementSettingsChangedMessage.data.preset``), so a non-canonical
+    value serialized straight through and dropped the enhancement UI out of
+    its switch — and OpenAPI advertised a free-form string for a closed enum.
+    """
     enabled: bool
-    preset: str
-    intensity: float
+    preset: EnhancementPresetLiteral
+    # EnhancementIntensity carries the canonical ge=0.0/le=1.0 bound (#4600),
+    # which also rejects NaN and ±inf for free.
+    intensity: EnhancementIntensity
 
 
 class EnhancementSettingsResponse(BaseModel):

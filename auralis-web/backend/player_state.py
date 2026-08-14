@@ -10,9 +10,11 @@ This ensures consistency across WebSocket and REST endpoints.
 """
 
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
+
+from schemas import EnhancementPresetLiteral
 
 
 class PlaybackState(str, Enum):
@@ -85,11 +87,18 @@ class PlayerState(BaseModel):
     # Prior code stored 'none' here and translated 'off' -> 'none' at the
     # REST boundary, but the broadcast still carried 'none' which the
     # frontend Literal does not recognise — the UI toggle got stuck (#3501).
-    repeat_mode: str = "off"  # "off" | "one" | "all"
+    # Typed as the closed set rather than `str` (#4710) so it drives OpenAPI
+    # and matches RepeatModeRequest.mode, which already uses this Literal.
+    # Note this constrains construction only: PlayerStateManager._mutate_state
+    # assigns via setattr and the model does not set validate_assignment, so
+    # this is a documented contract rather than a runtime gate.
+    repeat_mode: Literal["off", "one", "all"] = "off"
 
     # Enhancement
     mastering_enabled: bool = True
-    current_preset: str = "adaptive"
+    # #4424 made EnhancementPresetLiteral the single source of truth; the
+    # response side was migrated in #4710. Same setattr caveat as above.
+    current_preset: EnhancementPresetLiteral = "adaptive"
 
     # Real-time analysis (optional)
     analysis: dict[str, Any] | None = None

@@ -22,6 +22,8 @@ import asyncio
 import logging
 from typing import Any
 
+from schemas import VALID_PRESETS
+
 logger = logging.getLogger(__name__)
 
 
@@ -105,8 +107,23 @@ def seed_enhancement_settings(
     """
     if user_settings is None:
         return
-    if getattr(user_settings, 'default_preset', None):
-        enhancement_settings['preset'] = user_settings.default_preset
+    stored_preset = getattr(user_settings, 'default_preset', None)
+    if stored_preset:
+        # `default_preset` is a plain String column, so a legacy or
+        # hand-edited row can hold a value outside the canonical set. Since
+        # #4710 typed EnhancementSettings.preset as EnhancementPresetLiteral,
+        # seeding an off-list value here would turn every
+        # GET /api/player/enhancement/status into a response-validation 500.
+        # Degrade to the default and say so instead — the same tolerance the
+        # WS command path already applies (playback_commands.py).
+        if stored_preset in VALID_PRESETS:
+            enhancement_settings['preset'] = stored_preset
+        else:
+            logger.warning(
+                f"Stored default_preset {stored_preset!r} is not one of "
+                f"{VALID_PRESETS}; keeping "
+                f"{enhancement_settings.get('preset', 'adaptive')!r}"
+            )
     intensity = getattr(user_settings, 'enhancement_intensity', None)
     if intensity is not None:
         enhancement_settings['intensity'] = float(intensity)
