@@ -10,7 +10,8 @@ The Hermitian-mirror step shared by ``apply_eq_mono``,
 for an even ``fft_size`` — for odd ``fft_size`` the two sides of the multiply
 have mismatched lengths and raise a broadcast ``ValueError`` deep in the FFT
 chain. Not reachable today (``EQSettings.fft_size`` defaults to 4096 and
-``RealtimeAdaptiveEQ`` always sets ``buffer_size * 2``, always even) — but
+the deleted ``RealtimeAdaptiveEQ`` always set ``buffer_size * 2``, always
+even — #4873) — but
 ``fft_size`` is a caller-supplied int with no validation. This guards the
 construction site with a clear, fail-fast error instead.
 

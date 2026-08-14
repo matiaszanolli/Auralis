@@ -20,19 +20,17 @@ from ..utils.logging import debug
 # Import from refactored modules
 from .dynamics import (
     AdaptiveCompressor,
-    AdaptiveLimiter,
     CompressorSettings,
     DynamicsMode,
     DynamicsSettings,
     EnvelopeFollower,
-    LimiterSettings,
 )
 from .utils.adaptive import smooth_parameter_transition
 
 # Re-export for backward compatibility
 __all__ = [
-    'DynamicsMode', 'CompressorSettings', 'LimiterSettings', 'DynamicsSettings',
-    'EnvelopeFollower', 'AdaptiveCompressor', 'AdaptiveLimiter',
+    'DynamicsMode', 'CompressorSettings', 'DynamicsSettings',
+    'EnvelopeFollower', 'AdaptiveCompressor',
     'DynamicsProcessor', 'create_dynamics_processor'
 ]
 
@@ -71,11 +69,6 @@ class DynamicsProcessor:
             self.compressor: AdaptiveCompressor | None = AdaptiveCompressor(settings.compressor, settings.sample_rate)
         else:
             self.compressor = None
-
-        if settings.enable_limiter and settings.limiter is not None:
-            self.limiter: AdaptiveLimiter | None = AdaptiveLimiter(settings.limiter, settings.sample_rate)
-        else:
-            self.limiter = None
 
         # Gate (simple implementation)
         self.gate_threshold_linear = 10 ** (settings.gate_threshold_db / 20)
@@ -147,11 +140,6 @@ class DynamicsProcessor:
                 # content types; genre still adapts threshold and ratio below.
                 processed_audio, comp_info = self.compressor.process(processed_audio)
                 processing_info['compressor'] = comp_info
-
-            # Apply limiting
-            if self.settings.enable_limiter and self.limiter is not None:
-                processed_audio, limit_info = self.limiter.process(processed_audio)
-                processing_info['limiter'] = limit_info
 
             # Update adaptation state
             self._update_adaptation_state(processed_audio, content_info)
@@ -300,9 +288,6 @@ class DynamicsProcessor:
         if self.compressor:
             info['compressor'] = self.compressor.get_current_state()
 
-        if self.limiter:
-            info['limiter'] = self.limiter.get_current_state()
-
         info['gate'] = {
             'threshold_db': self.settings.gate_threshold_db,
             'current_gain': self.gate_gain
@@ -339,9 +324,6 @@ class DynamicsProcessor:
                 self.compressor.settings.threshold_db = self._initial_compressor_threshold_db
                 self.compressor.settings.ratio = self._initial_compressor_ratio
                 self.compressor.settings.makeup_gain_db = self._initial_compressor_makeup_gain_db
-
-            if self.limiter:
-                self.limiter.reset()
 
             self.gate_gain = 1.0
             self.content_history.clear()

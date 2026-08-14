@@ -110,9 +110,9 @@ class AdaptiveCompressor:
         # never saw material any earlier than the audio it gated, so
         # lookahead was pure added output latency with zero gain-computer
         # benefit. Compute levels from, and apply gain to, the same
-        # undelayed `audio` instead (mirrors the AdaptiveLimiter fix, which
-        # drops its lookahead delay from the signal path for the same
-        # reason). `_apply_lookahead`/`_lookahead` are kept as
+        # undelayed `audio` instead (this mirrored the same fix in the
+        # now-deleted AdaptiveLimiter — #4873).
+        # `_apply_lookahead`/`_lookahead` are kept as
         # directly-tested helpers (see
         # tests/regression/test_compressor_lookahead_buffer.py) but are no
         # longer part of this signal path.

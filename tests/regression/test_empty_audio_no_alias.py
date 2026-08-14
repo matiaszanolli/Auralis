@@ -3,7 +3,8 @@ Regression: Empty-audio early-return must not alias input (#2911)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Four DSP components returned the original array on empty-input guard
-clauses. This violated the project-wide invariant that DSP functions
+clauses (one of them, AdaptiveLimiter, was later deleted as unreachable
+in #4873; the remaining three are still covered here). This violated the project-wide invariant that DSP functions
 never return an alias to their input, risking silent corruption when
 callers mutate the returned buffer.
 
@@ -20,8 +21,7 @@ from auralis.dsp.dynamics.brick_wall_limiter import (
     BrickWallLimiterSettings,
 )
 from auralis.dsp.dynamics.compressor import AdaptiveCompressor
-from auralis.dsp.dynamics.limiter import AdaptiveLimiter
-from auralis.dsp.dynamics.settings import CompressorSettings, LimiterSettings
+from auralis.dsp.dynamics.settings import CompressorSettings
 
 
 @pytest.fixture
@@ -40,12 +40,6 @@ class TestEmptyAudioNoAlias:
     def test_compressor(self, empty_audio):
         compressor = AdaptiveCompressor(CompressorSettings(), sample_rate=44100)
         result, info = compressor.process(empty_audio)
-        assert result is not empty_audio
-        assert info == {}
-
-    def test_limiter(self, empty_audio):
-        limiter = AdaptiveLimiter(LimiterSettings(), sample_rate=44100)
-        result, info = limiter.process(empty_audio)
         assert result is not empty_audio
         assert info == {}
 

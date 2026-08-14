@@ -537,34 +537,6 @@ class TestComponentPerformance:
         benchmark_results['target_generation_ms'] = latency_ms
         print(f"\n✓ Target generation: {latency_ms:.1f}ms")
 
-    def test_realtime_eq_adaptation_performance(self, performance_audio_file, timer, benchmark_results):
-        """
-        BENCHMARK: Real-time EQ adaptation should achieve >500x real-time factor.
-        """
-        from auralis.dsp.realtime_adaptive_eq import create_realtime_adaptive_eq
-
-        audio, sr = load_audio(performance_audio_file)
-        duration = len(audio) / sr
-
-        realtime_eq = create_realtime_adaptive_eq(
-            sample_rate=sr,
-            buffer_size=1024,
-            target_latency_ms=20.0,
-            adaptation_rate=0.1
-        )
-
-        with timer() as t:
-            result = realtime_eq.process_realtime(audio)
-
-        assert result is not None
-        rtf = duration / t.elapsed
-
-        # BENCHMARK: Real-time EQ should achieve > 40x real-time
-        assert rtf > 40, f"Real-time EQ RTF {rtf:.1f}x below 40x"
-
-        benchmark_results['realtime_eq_rtf'] = rtf
-        print(f"\n✓ Real-time EQ: {rtf:.1f}x RTF")
-
     def test_combined_pipeline_performance(self, performance_audio_file, timer, benchmark_results):
         """
         BENCHMARK: Full pipeline should be sum of components (within 20% overhead).

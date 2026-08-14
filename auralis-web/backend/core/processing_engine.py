@@ -118,10 +118,13 @@ def _reset_processor_state(processor: HybridProcessor) -> None:
     """Reset the per-job cross-call state on a pooled/cached processor.
 
     Run via a single `asyncio.to_thread` call (fixes #4797) rather than as
-    three bare synchronous calls on the event loop, since each acquires
+    bare synchronous calls on the event loop, since each acquires
     `_process_lock` (#3787).
+
+    `reset_realtime_eq()` was dropped with the unwired real-time EQ path in
+    #4873; `reset_psychoacoustic_eq()` below covers the EQ the live
+    adaptive/continuous path actually uses.
     """
-    processor.reset_realtime_eq()
     processor.reset_dynamics()
     processor.reset_psychoacoustic_eq()
     processor.reset_limiter()
@@ -553,9 +556,9 @@ class ProcessingEngine:
 
         # Reset EQ state before each job so cached processors don't bleed
         # the previous track's psychoacoustic EQ curve into the new track (fixes #2400).
-        # reset_realtime_eq() only clears the real-time EQ path's own EQ; the
-        # adaptive/continuous path uses a separate main psychoacoustic EQ whose
-        # gain-smoothing state also has to be reset here (completes #2400).
+        # The adaptive/continuous path's main psychoacoustic EQ is the one that
+        # matters here; the separate real-time EQ path this used to also reset
+        # was deleted as unreachable in #4873.
         # reset_limiter() clears the brick-wall limiter's cross-call gain-reduction
         # state so a loud track doesn't leave the next one starting pre-attenuated
         # (fixes #4811).

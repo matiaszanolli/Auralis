@@ -2,6 +2,22 @@
 Recording Type Detector
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+.. note::
+
+    **OFFLINE SCRIPTS ONLY — not on the shipped app's audio path (#4873).**
+
+    The only non-test callers are ``scripts/rate_track.py`` and
+    ``scripts/analyze_feedback.py``. The Electron app's audio goes
+    ``HybridProcessor.process()`` -> ``ContinuousMode``, which derives its
+    parameters from the continuous fingerprint space rather than from a
+    categorical recording-type branch — the architecture this module predates.
+
+    This is a **deliberate, recorded decision**, not an oversight: #4873
+    evaluated deleting it and chose to keep it because those two scripts still
+    use it. Do not re-file it as "dead code", and do not wire it into the
+    mastering path without first re-opening the categorical-vs-continuous
+    decision.
+
 Detects recording type (studio/bootleg/metal) from 25D audio fingerprint
 and generates adaptive mastering parameters.
 

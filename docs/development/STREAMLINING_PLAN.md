@@ -42,6 +42,9 @@ Each item = **one PR**, independently revertible:
 | # | Item | Verified state | Status |
 |---|------|----------------|--------|
 | 5 | `AdaptiveMode` (legacy adaptive path) | Removed its `chunked_processor` usage (+ fixed a latent bug, see below). After that, `AdaptiveMode` has **no production caller** — it backs only the `hybrid`/`reference` mastering modes, which the app never selects | ✅ **Closed 2026-07-11 — kept intentionally.** Per product decision, the `hybrid`/`reference` modes stay, so `AdaptiveMode` stays as their backing. Documented as legacy in its class docstring. Not further retired |
+| 7 | Realtime `AdaptiveLimiter` / `RealtimeAdaptiveEQ` / `RealtimeDSPPipeline` chain (#4873) | `HybridProcessor.process_realtime_chunk()` had **zero** production callers — pinned as unreachable by `test_realtime_eq_unwired_4615.py` — and `AdaptiveLimiter` was never even constructed on the live path (`enable_limiter = False`). Two MEDIUM bugs (#4907, #4913) were nonetheless found *and fixed* inside it after the reachability finding was filed | ✅ **Done 2026-08-14 — deleted**, ~1,076 LOC + 5 test modules. Wiring it in was rejected: the EQ path applied block-FFT gain with no window and no overlap-add (#4615), so it was never WOLA-safe |
+| 8 | 13-stage `core/stages/` + `SimpleMasteringPipeline` chain (#4873) | ~3,441 LOC unreachable from the Electron app — but **not orphaned**: the root `auto_master.py` offline CLI is a working entry point | ✅ **Closed 2026-08-14 — kept intentionally.** Retiring it is a product decision about the CLI, not a cleanup. Labelled in-module as an offline subsystem so audits stop re-filing it as dead |
+| 9 | `RecordingTypeDetector` (#4873) | 476 LOC, reached only from `scripts/rate_track.py` and `scripts/analyze_feedback.py`; predates the continuous-fingerprint-space architecture the app now uses | ✅ **Closed 2026-08-14 — kept intentionally.** Same treatment as #8: labelled offline-scripts-only |
 | 6 | Two processor caches | `hybrid_processor._processor_cache` (max 10, core library) vs `ProcessorFactory` (max 32, backend). **These sit at different layers** — `auralis` core cannot import the backend's `ProcessorFactory` (confirmed), so this is layered, not a naive merge. The real duplication was 3 **unused** `process_adaptive/reference/hybrid` wrappers in `processor_factory` duplicating `hybrid_processor`'s public API | ✅ **Done 2026-07-11** — removed the 3 dead `processor_factory` convenience fns. Two caches **kept** (layered/intentional) |
 
 ---
@@ -75,7 +78,15 @@ These read like duplicates but are deliberate; collapsing them reintroduces fixe
   double-compression fighting the LUFS target.
 - **Three chunk paths** (WS streaming / REST batch / REST WAV) — different transports/uses.
 - **`HybridProcessor` (streaming) vs `SimpleMasteringPipeline` (offline file)** — different
-  workflows that share only the audio invariants.
+  workflows that share only the audio invariants. #4873 recorded the keep decision: the
+  offline chain (`core/stages/`, `core/mastering_*`, `core/mastering_branches/`) is reached
+  only from the root `auto_master.py` CLI, and `RecordingTypeDetector` only from
+  `scripts/rate_track.py` / `scripts/analyze_feedback.py`. **Unreachable from the app is not
+  the same as dead** — all four modules now carry an in-module banner saying so, and re-filing
+  them as dead code is the specific mistake to avoid.
+- **`ContinuousMasteringBranch` (offline CLI) vs `ContinuousMode` (shipped app)** — same word,
+  different subsystems. `mastering_branches/continuous.py` belongs to `SimpleMasteringPipeline`;
+  `core/processing/continuous_mode.py` is what every user-audible byte actually goes through.
 - **`analysis/quality/` vs `analysis/quality_assessors/`** (was #9) — **not duplication.**
   `quality/` (the assessment modules) imports its base class and utilities *from*
   `quality_assessors/` (`base_assessor`, `utilities/scoring_ops`, `assessment_constants`).
@@ -214,6 +225,20 @@ Verified: 85 targeted fingerprint/similarity/extractor tests pass; suite collect
   classifiers". (Corrected: `content/RecommendationEngine` is **not** dead — used via the
   `create_recommendation_engine` factory in `content_analysis.py`; caught by re-verify when a
   trial delete broke the import. Grep the factory name, not just the class.)
+- **2026-08-14 (#4873)** — Recorded a wire-up-or-delete decision for all four clusters the
+  "~4,800-5,700 LOC unreachable" inventory covered, after re-verifying every verdict against
+  HEAD. **Deleted** the realtime `AdaptiveLimiter`/`RealtimeAdaptiveEQ`/`RealtimeDSPPipeline`
+  chain (~1,076 LOC + 5 test modules): zero production callers, never WOLA-safe to wire up
+  (#4615), and demonstrably bleeding engineering effort (#4907/#4913 fixed inside it *after*
+  the reachability finding). **Kept** the `core/stages/` + `SimpleMasteringPipeline` chain
+  (~3,441 LOC, entry point `auto_master.py`) and `RecordingTypeDetector` (476 LOC, entry points
+  `scripts/rate_track.py` + `scripts/analyze_feedback.py`) — both have real offline callers, so
+  deleting them is a product decision about those tools, not cleanup. All four kept modules now
+  carry an in-module "OFFLINE … — not on the shipped app's audio path (#4873)" banner, which is
+  the actual fix for the issue's real complaint: every audit re-discovering the same LOC.
+  Deleting `RealtimeDSPPipeline` left `HybridProcessor.dynamics_processor` with no `process()`
+  caller — it survives behind `reset_dynamics()` and is flagged in-module; retiring it is
+  follow-up work, not part of this decision.
 - **2026-07-11 (Wave 3)** — #1 done: resolved the `SpectralOperations` name collision by
   renaming the test-only metrics class → `SpectralMetrics` (52 metrics tests pass; production
   `utilities.SpectralOperations` untouched).

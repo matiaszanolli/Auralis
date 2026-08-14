@@ -2,14 +2,17 @@
 Lookahead Ring Buffer
 ~~~~~~~~~~~~~~~~~~~~~
 
-Ring-buffer delay line shared by AdaptiveCompressor and AdaptiveLimiter to
-implement lookahead: delaying the signal by `lookahead_samples` so the
-gain-computer can react to a transient before it reaches the output.
+Ring-buffer delay line used by AdaptiveCompressor to implement lookahead:
+delaying the signal by `lookahead_samples` so the gain-computer can react to a
+transient before it reaches the output.
 
 Extracted from two byte-identical ~15-line implementations (#4309) — a #3427
 fix (an explicit .copy() before the ring buffer's slice assignment) had only
-been ported to one of the two copies, and the underlying duplication left
-both at risk of the same kind of drift recurring.
+been ported to one of the two copies, and the underlying duplication left both
+at risk of the same kind of drift recurring. The second copy's owner,
+AdaptiveLimiter, was deleted as unreachable in #4873; this module stays where
+it is rather than being folded back into compressor.py, since the dedup is what
+the #4309 regression test pins.
 
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3, see LICENSE for more details.

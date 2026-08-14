@@ -2,6 +2,23 @@
 Simple Mastering Pipeline
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
+.. note::
+
+    **OFFLINE CLI SUBSYSTEM — not on the shipped app's audio path (#4873).**
+
+    The only non-test caller of this pipeline is the root ``auto_master.py``
+    CLI. The Electron app's audio goes ``HybridProcessor.process()`` ->
+    ``ContinuousMode`` and never reaches here.
+
+    This is a **deliberate, recorded decision**, not an oversight: #4873
+    evaluated wiring this chain into the shipped path, deleting it, and keeping
+    it, and chose to keep it because ``auto_master.py`` is a working tool. Treat
+    findings here as offline-tool bugs, not user-facing ones — and do not
+    re-file it as "dead code"; it has a caller, just not one in the app.
+
+    Everything under ``core/stages/`` and ``core/mastering_branches/`` plus the
+    ``core/mastering_*.py`` modules belongs to this same subsystem.
+
 Minimal-dependency mastering facade for CLI tools like auto_master.py.
 Uses existing DSP components without requiring full HybridProcessor setup.
 

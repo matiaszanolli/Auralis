@@ -75,23 +75,26 @@ class TestHybridProcessorNaNDetection:
         # Output should always be finite (sanitized if needed)
         assert np.isfinite(result).all()
 
-    def test_realtime_chunk_nan_detection(self, processor):
-        """Test that realtime chunk processing detects NaN"""
-        # Create chunk with NaN
+    def test_chunk_sized_input_nan_detection(self, processor):
+        """NaN detection must hold for chunk-sized inputs too.
+
+        These two cases used to run through ``process_realtime_chunk``, which
+        #4873 deleted with the rest of the unreachable real-time path. The
+        NaN-guard contract they cover is not realtime-specific — it is
+        ``validate_audio_finite`` at the ``process()`` entry point — so they are
+        re-pointed at the live path rather than dropped.
+        """
         chunk = np.random.randn(1024, 2).astype(np.float32) * 0.5
         chunk[500, 0] = np.nan
 
-        # Should raise error on NaN in realtime chunk
         with pytest.raises(ModuleError):
-            processor.process_realtime_chunk(chunk)
+            processor.process(chunk)
 
-    def test_realtime_chunk_clean_audio(self, processor):
-        """Test that clean realtime chunks are processed"""
-        # Create clean chunk
+    def test_chunk_sized_clean_audio(self, processor):
+        """A clean chunk-sized input processes successfully."""
         chunk = np.random.randn(1024, 2).astype(np.float32) * 0.5
 
-        # Should process successfully
-        result = processor.process_realtime_chunk(chunk)
+        result = processor.process(chunk)
 
         assert result is not None
         assert np.isfinite(result).all()

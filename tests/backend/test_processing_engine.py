@@ -789,7 +789,6 @@ class TestResetProcessorState:
             await engine.process_job(job)
 
             assert job.status == ProcessingStatus.COMPLETED
-            mock_proc.reset_realtime_eq.assert_called_once()
             mock_proc.reset_dynamics.assert_called_once()
             mock_proc.reset_psychoacoustic_eq.assert_called_once()
             mock_proc.reset_limiter.assert_called_once()
@@ -812,7 +811,7 @@ class TestResetProcessorState:
             mock_proc = Mock()
             mock_proc.process.return_value = np.zeros((1000, 2))
             # Simulate a slow (blocking) acquire of `_process_lock`.
-            mock_proc.reset_realtime_eq.side_effect = lambda: time.sleep(0.3)
+            mock_proc.reset_dynamics.side_effect = lambda: time.sleep(0.3)
             mock_processor_cls.return_value = mock_proc
 
             job = await engine.create_job(

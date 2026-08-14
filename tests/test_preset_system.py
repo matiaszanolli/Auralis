@@ -327,7 +327,6 @@ class TestPresetProcessing:
         result1 = processor.process(audio.copy())
 
         # Reset per-track state exactly as the processing engine does per job.
-        processor.reset_realtime_eq()
         processor.reset_dynamics()
         processor.reset_psychoacoustic_eq()
         processor.reset_limiter()

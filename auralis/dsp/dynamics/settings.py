@@ -14,10 +14,12 @@ from enum import Enum
 # Bound pairs shared by more than one field below. Promoted to named
 # constants (#5022) after two pairs were independently re-typed as identical
 # bare literals months apart with no cross-reference: CompressorSettings.ratio
-# / DynamicsSettings.gate_ratio, CompressorSettings.lookahead_ms /
-# LimiterSettings.lookahead_ms, and CompressorSettings.threshold_db /
-# DynamicsSettings.gate_threshold_db. Fields whose valid range is not shared
-# with another field keep their own inline bounds.
+# / DynamicsSettings.gate_ratio and CompressorSettings.threshold_db /
+# DynamicsSettings.gate_threshold_db. (The third pair, CompressorSettings /
+# LimiterSettings lookahead_ms, went with AdaptiveLimiter in #4873.) Fields
+# whose valid range is not shared with another field keep their own inline
+# bounds — LOOKAHEAD_MS_BOUNDS now has a single consumer but stays named
+# because it is the compressor's documented contract, not a bare literal.
 THRESHOLD_DB_BOUNDS: tuple[float, float] = (-80.0, 0.0)
 RATIO_BOUNDS: tuple[float, float] = (1.0, 100.0)
 LOOKAHEAD_MS_BOUNDS: tuple[float, float] = (0.0, 50.0)
@@ -60,25 +62,6 @@ class CompressorSettings:
 
 
 @dataclass
-class LimiterSettings:
-    """Limiter configuration"""
-    threshold_db: float = -1.0
-    release_ms: float = 50.0
-    lookahead_ms: float = 5.0
-    isr_enabled: bool = True  # Inter-sample peak detection
-    oversampling: int = 4
-
-    def __post_init__(self) -> None:
-        self.threshold_db = _clamp(self.threshold_db, (-40.0, 0.0))
-        self.release_ms = _clamp(self.release_ms, (1.0, 2000.0))
-        self.lookahead_ms = _clamp(self.lookahead_ms, LOOKAHEAD_MS_BOUNDS)
-        # Oversampling must be a power of 2 in [1, 8]
-        valid_oversampling = {1, 2, 4, 8}
-        if self.oversampling not in valid_oversampling:
-            self.oversampling = min(valid_oversampling, key=lambda x: abs(x - self.oversampling))
-
-
-@dataclass
 class DynamicsSettings:
     """Complete dynamics processing settings"""
     mode: DynamicsMode = DynamicsMode.ADAPTIVE
@@ -91,9 +74,6 @@ class DynamicsSettings:
 
     enable_compressor: bool = True
     compressor: CompressorSettings | None = None
-
-    enable_limiter: bool = True
-    limiter: LimiterSettings | None = None
 
     # Adaptive settings
     adaptation_speed: float = 0.1
@@ -109,5 +89,3 @@ class DynamicsSettings:
 
         if self.compressor is None:
             self.compressor = CompressorSettings()
-        if self.limiter is None:
-            self.limiter = LimiterSettings()

@@ -2,53 +2,52 @@
 DynamicsProcessor Wiring Regression Test
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Regression test for issue #2897.
+Regression test for issue #2897, re-scoped by #4873.
 
-`HybridProcessor.dynamics_processor` is the dynamics engine for the REALTIME
-path only; the offline `ContinuousMode` path intentionally uses its own
-continuous-space dynamics. These tests lock that intentional divergence so the
-processor is not mistaken for dead code and removed, and so it is not wired into
-the offline chain (which would double-compress / fight the LUFS target).
+`HybridProcessor.dynamics_processor` used to be the dynamics engine for the
+REALTIME path, consumed by `RealtimeDSPPipeline`. #4873 deleted that pipeline
+as unreachable from the shipped app, so nothing runs the processor's chain any
+more — it survives only behind the
+`get_dynamics_info()`/`set_dynamics_mode()`/`reset_dynamics()` public API,
+which `processing_engine._reset_processor_state` still calls.
+
+What these tests lock is the half of #2897 that still matters and is the easy
+thing to get wrong now that the realtime consumer is gone: the offline
+`ContinuousMode` path must NOT be "fixed" by wiring this processor into it.
+ContinuousMode runs its own full-signal, fingerprint-driven continuous-space
+dynamics; stacking this on top would double-compress and fight the
+continuous-space LUFS target with its own -14 LUFS makeup gain.
 """
 
-import numpy as np
 import pytest
 
-from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.config import UnifiedConfig
+from auralis.core.hybrid_processor import HybridProcessor
 
 
 @pytest.mark.regression
 class TestDynamicsProcessorWiring:
-    """Lock the realtime-only consumer relationship for dynamics_processor (#2897)."""
+    """Lock what remains of the #2897 divergence after #4873."""
 
     def setup_method(self):
         self.processor = HybridProcessor(UnifiedConfig())
 
-    def test_dynamics_processor_is_wired_into_realtime_pipeline(self):
-        """The realtime pipeline must consume the SAME dynamics_processor instance.
-
-        Guards against removing dynamics_processor as 'dead code' — it is the
-        realtime path's dynamics stage.
-        """
+    def test_dynamics_manager_wraps_the_same_instance(self):
+        """DynamicsManager (mode/reset/info) is the surviving consumer."""
         assert self.processor.dynamics_processor is not None
-        assert (
-            self.processor.realtime_processor.dynamics_processor
-            is self.processor.dynamics_processor
-        ), "Realtime pipeline must share the HybridProcessor.dynamics_processor instance"
-
-    def test_dynamics_manager_wraps_same_instance(self):
-        """DynamicsManager (mode/reset/info) wraps the same instance too."""
         assert (
             self.processor.dynamics_manager.dynamics_processor
             is self.processor.dynamics_processor
         )
 
     def test_offline_continuous_mode_does_not_reference_dynamics_processor(self):
-        """The offline path must NOT hold the realtime dynamics_processor.
+        """The offline path must NOT hold the dynamics_processor.
 
-        Offline dynamics is the continuous-space clip-blend / RMS-expansion stage,
-        intentionally distinct from the realtime DynamicsProcessor (#2897).
+        Offline dynamics is the continuous-space clip-blend / RMS-expansion
+        stage, intentionally distinct from DynamicsProcessor (#2897). With the
+        realtime consumer deleted (#4873) this processor now *looks* orphaned,
+        which makes "just wire it into ContinuousMode" the tempting wrong fix —
+        hence this guard.
         """
         continuous_mode = self.processor.continuous_mode
         for attr in vars(continuous_mode).values():
@@ -57,10 +56,13 @@ class TestDynamicsProcessorWiring:
                 "the offline path uses its own continuous-space dynamics (#2897)"
             )
 
-    def test_realtime_chunk_runs_through_dynamics_processor(self):
-        """Sanity: the realtime entry point processes audio without error."""
-        chunk = (np.random.RandomState(0).randn(2048, 2) * 0.2).astype(np.float32)
-        out = self.processor.process_realtime_chunk(chunk)
-        assert out.shape == chunk.shape
-        assert out.dtype == chunk.dtype
-        assert np.all(np.isfinite(out))
+    def test_realtime_pipeline_is_gone(self):
+        """#4873: the realtime chunk path was deleted, not merely disabled.
+
+        If this fails, someone reintroduced it — re-read #4615 first, since the
+        deleted EQ path applied block FFT gain with no window and no
+        overlap-add and was never WOLA-safe to wire up.
+        """
+        assert not hasattr(self.processor, "realtime_processor")
+        assert not hasattr(self.processor, "realtime_eq")
+        assert not hasattr(self.processor, "process_realtime_chunk")

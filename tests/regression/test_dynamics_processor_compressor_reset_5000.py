@@ -109,7 +109,6 @@ class TestDynamicsProcessorCompressorReset:
         )
 
         # Inter-job reset, exactly as processing_engine._execute_job performs it.
-        processor.reset_realtime_eq()
         processor.reset_dynamics()
         processor.reset_psychoacoustic_eq()
         processor.reset_limiter()

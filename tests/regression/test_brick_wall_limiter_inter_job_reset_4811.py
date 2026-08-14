@@ -10,8 +10,9 @@ track on the same pooled ``HybridProcessor`` started already attenuated by
 that leftover gain, baking an audible fade-in into the rendered output.
 
 ``HybridProcessor.reset_limiter()`` closes that gap alongside the existing
-``reset_realtime_eq()`` / ``reset_dynamics()`` / ``reset_psychoacoustic_eq()``
-inter-job resets (#2400).
+``reset_dynamics()`` / ``reset_psychoacoustic_eq()`` inter-job resets (#2400).
+(A fourth, ``reset_realtime_eq()``, went with the unwired real-time EQ path in
+#4873.)
 """
 
 import numpy as np
@@ -65,7 +66,6 @@ class TestBrickWallLimiterInterJobReset:
         )
 
         # Inter-job reset, exactly as processing_engine._execute_job performs it.
-        processor.reset_realtime_eq()
         processor.reset_dynamics()
         processor.reset_psychoacoustic_eq()
         processor.reset_limiter()

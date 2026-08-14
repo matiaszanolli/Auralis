@@ -2,6 +2,13 @@
 """
 Auto-Mastering Script
 
+Standalone OFFLINE CLI. This is the sole entry point into
+``SimpleMasteringPipeline`` and the 13-stage ``auralis/core/stages/`` package —
+roughly 3,400 LOC that nothing in the Electron app reaches (#4873). The app's
+own audio goes ``HybridProcessor.process()`` -> ``ContinuousMode`` instead.
+Keeping this tool is what keeps that subsystem alive; retiring it would make
+~3,400 LOC deletable.
+
 Uses SimpleMasteringPipeline for fingerprint-driven adaptive mastering.
 
 Usage (single file):

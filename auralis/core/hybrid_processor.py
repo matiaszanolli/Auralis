@@ -21,22 +21,20 @@ from ..analysis.fingerprint import AudioFingerprintAnalyzer
 from ..dsp.advanced_dynamics import DynamicsMode, create_dynamics_processor
 from ..dsp.dynamics import create_brick_wall_limiter
 from ..dsp.eq.psychoacoustic_eq import EQSettings, PsychoacousticEQ
-from ..dsp.realtime_adaptive_eq import create_realtime_adaptive_eq
 from ..io.results import Result
 from ..learning.preference_engine import create_preference_engine
 from ..optimization.performance_optimizer import get_performance_optimizer
-from ..utils.audio_validation import sanitize_audio, validate_audio_finite
+from ..utils.audio_validation import validate_audio_finite
 from ..utils.logging import debug, info, warning
 from .analysis import AdaptiveTargetGenerator, ContentAnalyzer
 from .analysis.spectrum_mapper import SpectrumMapper
 from .config import UnifiedConfig
-from .hybrid import DynamicsManager, PreferenceManager, RealtimeEQManager
+from .hybrid import DynamicsManager, PreferenceManager
 from .processing import (
     AdaptiveMode,
     ContinuousMode,
     EQProcessor,
     HybridMode,
-    RealtimeDSPPipeline,
 )
 from .processors import apply_reference_matching
 
@@ -68,28 +66,18 @@ class HybridProcessor:
         )
         self.psychoacoustic_eq = PsychoacousticEQ(eq_settings)
 
-        # Initialize real-time adaptive EQ for streaming applications
-        self.realtime_eq = create_realtime_adaptive_eq(
-            sample_rate=config.internal_sample_rate,
-            buffer_size=min(config.fft_size // 4, 1024),
-            target_latency_ms=20.0,
-            adaptation_rate=config.adaptive.adaptation_strength
-        )
-
-        # Advanced dynamics processor — REALTIME PATH ONLY (#2897).
+        # Advanced dynamics processor.
         #
-        # Consumed by RealtimeDSPPipeline.process_chunk (realtime_dsp_pipeline.py:80,
-        # wired at the RealtimeDSPPipeline construction below) via
-        # process_realtime_chunk(). It is purpose-built for low-latency chunk
-        # streaming: per-chunk content adaptation with smoothed parameter
-        # transitions and a rolling content-history window.
-        #
-        # The OFFLINE path (ContinuousMode.process) deliberately does NOT use this
-        # processor — it runs its own full-signal, fingerprint-driven continuous-space
-        # dynamics (see ContinuousMode._apply_dynamics). Inserting this processor into
-        # the offline chain would double-compress, fight the continuous-space LUFS
-        # target with its own -14 LUFS makeup gain, and confound the cross-dimensional
-        # guards. The offline/realtime divergence is intentional, not dead code.
+        # #4873 deleted RealtimeDSPPipeline, its only `process()` caller, so
+        # nothing currently runs this processor's chain — it survives only for
+        # the `reset_dynamics()`/`set_dynamics_mode()`/`get_dynamics_info()`
+        # public API (`processing_engine._reset_processor_state` calls the
+        # first). Do NOT insert it into the offline chain to "make it live":
+        # ContinuousMode.process runs its own full-signal, fingerprint-driven
+        # continuous-space dynamics (ContinuousMode._apply_dynamics), and adding
+        # this on top would double-compress, fight the continuous-space LUFS
+        # target with its own -14 LUFS makeup gain, and confound the
+        # cross-dimensional guards. Retiring it is tracked separately.
         self.dynamics_processor = create_dynamics_processor(
             mode=DynamicsMode.ADAPTIVE,
             sample_rate=config.internal_sample_rate,
@@ -97,7 +85,6 @@ class HybridProcessor:
         )
         self.dynamics_processor.settings.enable_gate = False
         self.dynamics_processor.settings.enable_compressor = True
-        self.dynamics_processor.settings.enable_limiter = False
 
         # Initialize brick-wall limiter for final peak control
         self.brick_wall_limiter = create_brick_wall_limiter(
@@ -111,7 +98,6 @@ class HybridProcessor:
         self.preference_engine = create_preference_engine()
 
         # Initialize component managers
-        self.realtime_eq_manager = RealtimeEQManager(self.realtime_eq)
         self.dynamics_manager = DynamicsManager(self.dynamics_processor)
         self.preference_manager = PreferenceManager(self.preference_engine)
 
@@ -128,10 +114,6 @@ class HybridProcessor:
             config, self.content_analyzer, self.target_generator,
             self.adaptive_mode
         )
-        self.realtime_processor = RealtimeDSPPipeline(
-            config, self.realtime_eq, self.dynamics_processor
-        )
-
         # Shared state (backwards compatibility)
         self.current_user_id: str | None = None
 
@@ -421,84 +403,7 @@ class HybridProcessor:
 
         return processed
 
-    def process_realtime_chunk(self, audio_chunk: np.ndarray,
-                              content_info: dict[str, Any] | None = None) -> np.ndarray:
-        """
-        Process audio chunk in real-time for streaming applications
-
-        .. warning::
-
-            **RESERVED / UNWIRED — NOT WOLA-SAFE (#4615).**
-
-            This method has no production callers; it is exercised by tests
-            only. It delegates to ``RealtimeDSPPipeline.process_chunk()`` →
-            ``RealtimeAdaptiveEQ.process_realtime()``, which applies block FFT
-            gain with no analysis window and no overlap-add. Wiring it into a
-            playback path as-is reintroduces #3294 (~6 dB COLA ripple, audible
-            clicking at every block boundary).
-
-            Real playback uses :meth:`process` → ``ContinuousMode``/
-            ``AdaptiveMode`` → ``EQProcessor``, whose COLA-correct 50 %-hop
-            WOLA loop is the #4217 fix. See
-            ``RealtimeAdaptiveEQ.process_realtime`` for the full rationale and
-            what a correct wiring would require.
-            ``tests/regression/test_realtime_eq_unwired_4615.py`` fails if a
-            production caller appears.
-
-        Args:
-            audio_chunk: Small audio chunk for real-time processing
-            content_info: Optional pre-analyzed content information
-
-        Returns:
-            Processed audio chunk with minimal latency
-        """
-        debug("Processing real-time audio chunk")
-
-        # #3787: hold _process_lock for the duration of the chunk so a
-        # concurrent process() or setter on the same cached instance
-        # cannot tear inner-component state (RealtimeAdaptiveEQ /
-        # DynamicsProcessor / preference_engine all share mutable state
-        # — see #3788, #3789). The lock is an RLock so the realtime
-        # path can still re-enter via the manager classes if needed.
-        with self._process_lock:
-            # Validate input chunk for NaN/Inf
-            audio_chunk = validate_audio_finite(audio_chunk, context="realtime chunk input", repair=False)
-            input_len = len(audio_chunk)
-
-            # Process chunk
-            processed_chunk = self.realtime_processor.process_chunk(audio_chunk, content_info)
-
-            # Validate output for NaN/Inf (graceful handling for streaming)
-            processed_chunk = sanitize_audio(processed_chunk, context="realtime chunk output")
-
-            # #3792: sample-count assertion mirroring the offline mode
-            # handlers (the #2519 pattern). Without this, an inner-DSP
-            # regression that drops samples mid-frame would only fire
-            # downstream at the audio stream boundary, masking the real
-            # culprit. Empty inputs return empty outputs — both are
-            # length-0, so the assertion still holds.
-            assert len(processed_chunk) == input_len, (
-                f"realtime chunk shape mismatch: input {input_len} -> "
-                f"output {len(processed_chunk)}"
-            )
-
-            return processed_chunk
-
     # Delegation methods for component managers
-
-    def get_realtime_eq_info(self) -> dict[str, Any]:
-        """Get real-time EQ status and performance information"""
-        return self.realtime_eq_manager.get_info()
-
-    def set_realtime_eq_parameters(self, **kwargs: Any) -> None:
-        """Update real-time EQ parameters dynamically (#3787: locked)."""
-        with self._process_lock:
-            self.realtime_eq_manager.set_parameters(**kwargs)
-
-    def reset_realtime_eq(self) -> None:
-        """Reset real-time EQ state (#3787: locked)."""
-        with self._process_lock:
-            self.realtime_eq_manager.reset()
 
     def get_dynamics_info(self) -> dict[str, Any]:
         """Get dynamics processing information"""
@@ -522,8 +427,10 @@ class HybridProcessor:
         gain-smoothing state persists across ``process()`` calls for
         intra-track streaming continuity; resetting it at a track/job boundary
         keeps one master from bleeding the previous track's EQ curve into the
-        next. Distinct from ``reset_realtime_eq()``, which resets the *separate*
-        psychoacoustic EQ owned by the real-time EQ path (completes #2400)."""
+        next. Was distinct from ``reset_realtime_eq()``, which reset the
+        *separate* psychoacoustic EQ owned by the real-time EQ path (#2400);
+        that path and its reset went with #4873, so this is now the only
+        psychoacoustic-EQ reset."""
         with self._process_lock:
             self.psychoacoustic_eq.reset()
 
@@ -634,7 +541,7 @@ def _apply_module_optimizations() -> None:
         )(original_process)
         AdaptiveMode._optimized = True  # type: ignore[attr-defined]
 
-        # Note: We don't optimize HybridProcessor.process_realtime_chunk at module level
+        # Note: we don't optimize HybridProcessor.process() at module level
         # because it's an instance method. It will use the optimizer's cached methods
         # if called frequently (the optimizer tracks hot methods internally).
 

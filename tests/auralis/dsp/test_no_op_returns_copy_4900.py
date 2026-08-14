@@ -5,14 +5,15 @@ No-op/bypass DSP paths must never hand back the caller's own array (#4900)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Eight DSP entry points, on their "nothing to do" branch, returned the caller's
-exact array object instead of ``audio.copy()`` — the same class of bug closed
+exact array object instead of ``audio.copy()`` (one of the eight,
+``RealtimeAdaptiveEQ.process_realtime``, was deleted as unreachable in #4873) — the same class of bug closed
 #3427 (LookaheadBuffer) and #2512 (mono_to_stereo) for. No live corruption
 existed (every reachable caller already owned a copy by that point), but it
 was a latent in-place-mutation bug waiting for any future caller to mutate
 the "processed" result in place.
 
 This module provides a shared ``assert_returns_copy`` helper and applies it
-to all 8 sites, plus the stage-boundary fix in
+to the surviving sites, plus the stage-boundary fix in
 ``core/stages/harmonic_exciter.py`` that used to propagate an aliased array
 straight past the ``no_op()`` contract every other stage honours.
 
@@ -32,8 +33,6 @@ from auralis.core.mastering_config import SimpleMasteringConfig
 from auralis.core.stages import harmonic_exciter as harmonic_exciter_stage
 from auralis.dsp.dynamics.lookahead_buffer import LookaheadBuffer
 from auralis.dsp.dynamics.lowmid_transient_enhancer import LowMidTransientEnhancer
-from auralis.dsp.realtime_adaptive_eq.realtime_eq import RealtimeAdaptiveEQ
-from auralis.dsp.realtime_adaptive_eq.settings import RealtimeEQSettings
 from auralis.dsp.utils.stereo import adjust_stereo_width, adjust_stereo_width_multiband
 
 
@@ -125,18 +124,6 @@ class TestLowMidTransientEnhancerReturnsCopy:
         enhancer = LowMidTransientEnhancer(sample_rate=44100)
         audio = np.random.randn(4410).astype(np.float32)
         assert_returns_copy(enhancer.enhance_transients, audio, intensity=0.0)
-
-
-class TestRealtimeAdaptiveEQReturnsCopy:
-    def test_processing_error_returns_copy(self, monkeypatch: pytest.MonkeyPatch):
-        eq = RealtimeAdaptiveEQ(RealtimeEQSettings(buffer_size=1024))
-        audio_chunk = np.random.randn(1024).astype(np.float32)
-
-        def _explode(*args: Any, **kwargs: Any) -> np.ndarray:
-            raise RuntimeError("simulated processing failure")
-
-        monkeypatch.setattr(eq, "_process_fixed_chunk", _explode)
-        assert_returns_copy(eq.process_realtime, audio_chunk)
 
 
 class TestHarmonicExciterStageRoutesThroughNoOp:

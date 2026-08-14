@@ -350,7 +350,6 @@ def test_processing_is_deterministic(processor, test_audio_stereo):
 
     # Process twice, resetting per-track state between runs as production does.
     result1 = processor.process(audio.copy())
-    processor.reset_realtime_eq()
     processor.reset_dynamics()
     processor.reset_psychoacoustic_eq()
     processor.reset_limiter()

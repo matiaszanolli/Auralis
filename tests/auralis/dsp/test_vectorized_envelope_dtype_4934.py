@@ -47,7 +47,8 @@ class TestProcessBufferNumbaPreservesDtype:
 
     def test_process_buffer_dispatches_to_numba_and_preserves_dtype(self):
         """End-to-end via process_buffer() (the actual call site used by
-        AdaptiveLimiter), not the numba method directly — confirms the
+        the since-deleted AdaptiveLimiter, #4873), not the numba method
+        directly — confirms the
         default use_numba=True path is the one under test, matching how
         production code actually calls this class."""
         follower = _follower(use_numba=True)

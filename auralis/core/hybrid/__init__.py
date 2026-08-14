@@ -10,10 +10,8 @@ Modular components for hybrid audio processing
 
 from .dynamics_manager import DynamicsManager
 from .preference_manager import PreferenceManager
-from .realtime_manager import RealtimeEQManager
 
 __all__ = [
-    'RealtimeEQManager',
     'DynamicsManager',
     'PreferenceManager',
 ]
