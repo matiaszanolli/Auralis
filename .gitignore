@@ -49,8 +49,14 @@ scripts/node_modules/
 # Electron builder yml configs
 *.yml
 latest-*.yml
-# But allow GitHub workflows
-!.github/workflows/*.yml
+# But allow everything under .github/ — it is all CI/repo config, never an
+# Electron builder artifact. This was `!.github/workflows/*.yml` and so silently
+# swallowed `.github/dependabot.yml` when it was added in #4868: `git add` on an
+# ignored path is a no-op, so the file simply never entered the repo and the
+# absence looked like "Dependabot just isn't configured". The same trap applies
+# to `.github/ISSUE_TEMPLATE/*.yml` and any future `.github/*.yml`.
+!.github/**/*.yml
+!.github/**/*.yaml
 
 # PyInstaller specific
 *.spec

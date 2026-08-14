@@ -1,0 +1,27 @@
+# Keeps the commit-SHA action pins from silently going stale (#4868).
+#
+# Every `uses:` in .github/workflows/ is pinned to an immutable commit SHA with
+# a `# vX.Y.Z` comment. That closes the "upstream re-points a tag" hole, but it
+# also means a pinned action never receives upstream security fixes on its own.
+# Dependabot is the other half of that trade: it opens a PR when a newer release
+# exists, rewriting both the SHA and the version comment together.
+#
+# Scope is deliberately narrow — github-actions only. The Python/npm/cargo
+# manifests here are governed by their own guards (requirements-pin-guard.yml,
+# lockfile-guard.yml, rust-audit.yml) and by the deliberate `numpy<2.5` ceiling,
+# so letting Dependabot raise those would fight existing policy rather than
+# support it.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    # One PR per action keeps a compromised-upstream bump reviewable in
+    # isolation; a batched PR is exactly where a bad SHA slips through.
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci"
+    labels:
+      - "dependencies"
+      - "ci"

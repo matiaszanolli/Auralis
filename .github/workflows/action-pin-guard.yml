@@ -1,0 +1,87 @@
+name: Action Pin Guard
+
+# #4868: every third-party (and first-party `actions/*`) reference in
+# .github/workflows/ was pinned to a floating tag (@v6, @v7) or a branch tip
+# (dtolnay/rust-toolchain@master). A tag is mutable: whoever controls the
+# upstream repo can re-point it at a new commit, and the next CI run executes
+# that commit with whatever `permissions:`/secrets the job holds. For
+# build-release.yml's create-release job — `contents: write`, and it produces
+# the installer binaries users download — that is the ability to tamper with a
+# shipped release.
+#
+# All references are now pinned to immutable commit SHAs with a `# vX.Y.Z`
+# comment. This job keeps it that way: adding a step with `uses: foo/bar@v1` is
+# a one-line change nobody flags in review, and it silently reopens the hole.
+#
+# Pairs with .github/dependabot.yml, which bumps the pins so they do not go
+# stale. Pinning without that trades tag-mutability for missed security fixes.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  actions-pinned-to-sha:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Verify every `uses:` is pinned to a 40-char commit SHA
+        run: |
+          set -euo pipefail
+          bad=0
+
+          # Matches `uses: owner/repo@ref`, capturing the ref. Local composite
+          # actions (`uses: ./.github/actions/...`) and container references
+          # (`uses: docker://...`) are not tag-mutable in the same way and are
+          # skipped.
+          while IFS= read -r hit; do
+            file=${hit%%:*}
+            rest=${hit#*:}
+            line=${rest%%:*}
+            ref=$(printf '%s' "${rest#*:}" | sed -E 's/.*uses:[[:space:]]*//; s/[[:space:]]*(#.*)?$//')
+
+            case "$ref" in
+              ./*|docker://*) continue ;;
+            esac
+
+            sha=${ref#*@}
+            if ! printf '%s' "$sha" | grep -qE '^[0-9a-f]{40}$'; then
+              echo "::error file=$file,line=$line::'$ref' is not pinned to a commit SHA (#4868)"
+              bad=1
+            fi
+          done < <(grep -rnE '^[[:space:]]*-?[[:space:]]*uses:' .github/workflows/*.yml)
+
+          if [ "$bad" -ne 0 ]; then
+            echo
+            echo "Pin the action to an immutable commit SHA with a version comment:"
+            echo "    uses: owner/repo@<40-char-sha> # v1.2.3"
+            echo
+            echo "Resolve a tag to its commit SHA (note: annotated tags need the"
+            echo "second call — the first returns the tag object, not the commit,"
+            echo "and pinning a tag-object SHA fails at runtime):"
+            echo "    gh api repos/OWNER/REPO/git/ref/tags/TAG --jq '.object.sha,.object.type'"
+            echo "    gh api repos/OWNER/REPO/git/tags/SHA     --jq '.object.sha'"
+            exit 1
+          fi
+          echo "OK: every workflow action reference is pinned to a commit SHA."
+
+      - name: Verify each pin records which version it is
+        run: |
+          set -euo pipefail
+          # A bare SHA is secure but unreadable — nobody can tell whether
+          # d23441a is current or two years stale without a network round-trip,
+          # and Dependabot uses the comment to know what it is upgrading from.
+          missing=$(grep -rnE '^[[:space:]]*-?[[:space:]]*uses:[[:space:]]*[^.][^[:space:]]*@[0-9a-f]{40}[[:space:]]*$' \
+            .github/workflows/*.yml || true)
+
+          if [ -n "$missing" ]; then
+            echo "::error::Pinned action(s) missing a trailing '# version' comment (#4868)"
+            echo "$missing"
+            exit 1
+          fi
+          echo "OK: every pin carries a version comment."
