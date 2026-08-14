@@ -83,6 +83,26 @@ from auralis.io.unified_loader import get_audio_info, load_audio
 logger = logging.getLogger(__name__)
 
 
+# Latched so a misresolved registry is reported once rather than on every
+# per-track Tier-1 lookup (#4714). Reset by tests via _reset_registry_miss_warning().
+_registry_miss_warned = False
+
+
+def _warn_once_on_registry_miss(message: str) -> None:
+    """Log a registry misresolution at WARNING, exactly once per process."""
+    global _registry_miss_warned
+    if _registry_miss_warned:
+        return
+    _registry_miss_warned = True
+    logger.warning(f"⚠️  {message}")
+
+
+def _reset_registry_miss_warning() -> None:
+    """Clear the latch. Test-only — production never un-misresolves."""
+    global _registry_miss_warned
+    _registry_miss_warned = False
+
+
 def _default_get_fingerprints_repository() -> Any | None:
     """Return the global FingerprintRepository for Tier-1 (DB) fingerprint lookup.
 
@@ -100,17 +120,40 @@ def _default_get_fingerprints_repository() -> Any | None:
     production and every construction fell through to the slow fingerprint
     tiers. It now goes through ``get_component_registry()``, which resolves the
     single registered dict at call time.
+
+    #4714: the "return None" paths below are not equivalent, and treating them
+    as one is what let #3836 ship dead for months. Two are legitimate (no
+    registry at all in a bare unit test; startup has not populated the factory
+    yet), but a registry that does not even *declare* the key — the exact #4578
+    shape — can never be main.py's dict and means a reader has resolved the
+    wrong object. That case, and a genuine exception, log loudly instead of
+    degrading in silence. Still never raises: Tier-1 is an optimisation, and
+    processor construction must not depend on it.
     """
     try:
         from config.globals import get_component_registry
         registry = get_component_registry()
         if registry is None:
+            # Bare unit-test context — main.py was never imported.
+            logger.debug("No component registry set; skipping Tier-1 fingerprint lookup")
             return None
-        factory = registry.get("repository_factory")
+        if "repository_factory" not in registry:
+            _warn_once_on_registry_miss(
+                "the registered component registry does not declare "
+                "'repository_factory' — a reader has resolved a registry that is "
+                "not main.py's (#4578/#4714); Tier-1 DB fingerprint lookup is dead "
+                "and every mastering target will fall through to the slow tiers"
+            )
+            return None
+        factory = registry["repository_factory"]
         if factory is None:
+            # Pre-startup window: the key exists, _init_library_database has
+            # not run yet. Legitimate and transient.
+            logger.debug("repository_factory not populated yet; skipping Tier-1 lookup")
             return None
         return factory.fingerprints
-    except Exception:  # pragma: no cover - defensive: never break processor init
+    except Exception as e:  # defensive: never break processor init
+        _warn_once_on_registry_miss(f"Tier-1 fingerprint repository lookup failed: {e}")
         return None
 
 
