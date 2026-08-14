@@ -71,7 +71,11 @@ export interface Album {
   // Optional metadata
   artworkUrl?: string; // camelCase
   year?: number;
-  genre?: string;
+  // No `genre` (#4709): Album has no genre column — genre lives on Track via
+  // the track_genre association — so neither serialize_album nor
+  // serialize_album_detail can populate one. Declaring it here advertised a
+  // field the backend never sends. Re-add alongside a real derivation (e.g.
+  // the modal genre across the album's tracks), not before.
 
   // Stats
   trackCount: number; // camelCase

@@ -272,10 +272,16 @@ def serialize_album_detail(album: Any) -> dict[str, Any]:
         'artistId': snake.get('artist_id'),
         'year': snake.get('year'),
         'artworkUrl': snake.get('artwork_url'),
-        'genre': snake.get('genre'),
+        # No 'genre' key (#4709): Album has no genre column — genre lives on
+        # Track via the track_genre association — so Album.to_dict() never
+        # emits one and this always resolved to null. Deriving an album genre
+        # (e.g. the modal genre across album.tracks) is a feature, not a bug
+        # fix; until then the response should not advertise the field.
         'trackCount': snake.get('track_count', 0),
         'totalDuration': snake.get('total_duration', 0),
-        'dateAdded': snake.get('date_added') or snake.get('created_at'),
+        # Album.to_dict() emits created_at, never date_added — the old
+        # `date_added or created_at` fallback only worked by accident (#4709).
+        'dateAdded': snake.get('created_at'),
     }
 
 

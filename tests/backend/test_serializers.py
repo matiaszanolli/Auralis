@@ -268,6 +268,11 @@ class TestSerializeAlbumDetail:
     """GET /api/albums/{id} camelCase contract (#4423)."""
 
     def _make_album(self, extra=None, track_count: int = 0, total_duration: float = 0):
+        # Mirrors Album.to_dict()'s real key set. It deliberately carries NO
+        # 'genre': Album has no genre column, so the old fixture's
+        # `'genre': 'Rock'` was a key production can never emit — and it is
+        # why serialize_album_detail's phantom genre mapping went unnoticed
+        # (#4709, same shape as #4830/#4833).
         dict_result = {
             'id': 10,
             'title': 'Album A',
@@ -275,7 +280,6 @@ class TestSerializeAlbumDetail:
             'artist_id': 7,
             'year': 2020,
             'artwork_path': None,
-            'genre': 'Rock',
             'track_count': track_count,
             'total_duration': total_duration,
         }
@@ -294,11 +298,20 @@ class TestSerializeAlbumDetail:
             'artistId': 7,
             'year': 2020,
             'artworkUrl': None,
-            'genre': 'Rock',
             'trackCount': 2,
             'totalDuration': 300.0,
             'dateAdded': None,
         }
+
+    def test_does_not_advertise_a_genre_field(self):
+        """Album has no genre column, so the response must not claim one (#4709).
+
+        Even when the serialized album somehow carries a `genre` key, it must
+        not reach the camelCase detail response — the frontend Album type no
+        longer declares it either.
+        """
+        album = self._make_album(extra={'genre': 'Rock'})
+        assert 'genre' not in serialize_album_detail(album)
 
     def test_never_leaks_snake_case_keys(self):
         album = self._make_album(track_count=1, total_duration=60.0)
@@ -306,7 +319,12 @@ class TestSerializeAlbumDetail:
         for snake in ('track_count', 'artwork_url', 'total_duration', 'artist_id', 'album_id'):
             assert snake not in result
 
-    def test_date_added_falls_back_to_created_at(self):
+    def test_date_added_reads_created_at(self):
+        """Album.to_dict() emits created_at, never date_added (#4709).
+
+        This used to be spelled `date_added or created_at`; the first operand
+        could never be populated, so the fallback worked only by accident.
+        """
         album = self._make_album(extra={'created_at': '2020-01-02T03:04:05Z'})
         result = serialize_album_detail(album)
         assert result['dateAdded'] == '2020-01-02T03:04:05Z'
