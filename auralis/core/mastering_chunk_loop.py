@@ -13,8 +13,10 @@ Extracted from simple_mastering.py's _master_file_impl "Step 3" (#4072).
 :license: GPLv3, see LICENSE for more details.
 """
 
+import os
+import tempfile
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import soundfile as sf
@@ -52,7 +54,6 @@ def process_chunks(
 
     # Process and write in streaming mode
     chunk_size = sr * config.CHUNK_DURATION_SEC
-    info = {'stages': []}
 
     # Every processing path yields stereo: mono is expanded to 2 channels
     # (see the `chunk.ndim == 1` branch below) and >2ch sources are downmixed
@@ -60,9 +61,77 @@ def process_chunks(
     # `min(channels, 2)` here opened a 1-channel sink for mono input and then
     # crashed with a shape mismatch on the first stereo write (#4494).
     out_channels = 2
+
+    # Stage into a sibling temp file and os.replace() onto the final name only
+    # after every chunk is written (#5109).
+    #
+    # The loop below has no per-chunk try/except, so any raise — the
+    # validate_audio_finite(..., repair=False) in mastering_process_chunk.py, an
+    # _assert_finite in mastering_branches/continuous.py, a DSP stage — used to
+    # propagate while sf.SoundFile's __exit__ still finalised a syntactically
+    # valid header over whatever had been written. The result was a truncated
+    # but perfectly readable file sitting at the exact requested output path,
+    # indistinguishable from a finished master. Neither caller in auto_master.py
+    # removed it: master_folder appends to failed_files and moves on, leaving
+    # the partial file among its successful neighbours under the expected name.
+    #
+    # os.replace is atomic within a filesystem, so a reader sees the complete
+    # file or no file — never a prefix. The temp lives in the destination
+    # directory to keep the rename on one filesystem (a cross-device rename is
+    # not atomic and raises), and keeps the real extension because soundfile
+    # infers the container format from it. Same shape as the backend's
+    # encoding/atomic_io.py (#4576), reimplemented rather than imported:
+    # auralis-web is not an importable package from the engine, and depending
+    # on the web backend from auralis/ would invert the layering.
+    final_path = Path(output_path)
+    final_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_fd, tmp_name = tempfile.mkstemp(
+        dir=str(final_path.parent),
+        prefix=f".{final_path.stem}.",
+        suffix=f".part{final_path.suffix}",
+    )
+    os.close(tmp_fd)
+    tmp_path = Path(tmp_name)
+
+    try:
+        info, chunks_processed = _render_to_sink(
+            pipeline, input_path, tmp_path, sr, total_frames, fingerprint,
+            intensity, config, verbose, crossfade_samples, chunk_size,
+            out_channels,
+        )
+        os.replace(tmp_path, final_path)
+    except BaseException:
+        # BaseException, not Exception: a KeyboardInterrupt mid-render must not
+        # leave the staged file behind either.
+        tmp_path.unlink(missing_ok=True)
+        raise
+
+    return info, chunks_processed
+
+
+def _render_to_sink(
+    pipeline: 'SimpleMasteringPipeline',
+    input_path: Path,
+    output_path: Path,
+    sr: int,
+    total_frames: int,
+    fingerprint: dict[str, Any],
+    intensity: float,
+    config: 'SimpleMasteringConfig',
+    verbose: bool,
+    crossfade_samples: int,
+    chunk_size: int,
+    out_channels: int,
+) -> tuple[dict[str, Any], int]:
+    """Render every chunk into ``output_path``. Raises if the render is short.
+
+    Split out of process_chunks so the staging/rename lives in one place and
+    this stays the pure render (#5109).
+    """
+    info: dict[str, Any] = {'stages': []}
     with sf.SoundFile(str(input_path)) as audio_file:
         with sf.SoundFile(
-            output_path,
+            str(output_path),
             mode='w',
             samplerate=sr,
             channels=out_channels,
@@ -231,5 +300,19 @@ def process_chunks(
                 if verbose and chunks_processed % config.PROGRESS_REPORT_INTERVAL_CHUNKS == 0:
                     progress = (chunks_processed / total_chunks) * 100
                     print(f"   Progress: {progress:.0f}% ({chunks_processed}/{total_chunks} chunks)")
+
+    # The `chunk.size == 0` break above exits without raising, which would
+    # otherwise publish a short file as a finished master — the same outcome
+    # #5109 is about, reached without an exception. read_pos advances by
+    # core_samples every iteration and core_samples is
+    # min(chunk_size, total_frames - read_pos), so a complete render always
+    # performs exactly ceil(total_frames / chunk_size) iterations; a shortfall
+    # means the source read returned nothing while frames remained.
+    if chunks_processed != total_chunks:
+        raise RuntimeError(
+            f"Mastering render is short: wrote {chunks_processed} of "
+            f"{total_chunks} chunks for '{input_path}'. The source stopped "
+            f"yielding samples before {total_frames} frames were read."
+        )
 
     return info, chunks_processed
