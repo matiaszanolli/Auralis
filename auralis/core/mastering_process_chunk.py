@@ -59,7 +59,8 @@ def reduce_peaks(
 ) -> tuple[np.ndarray, float]:
     """Surgical peak reduction via soft clipping."""
     if current_db <= target_db:
-        return audio, current_db
+        # Copy on bypass, matching stages.no_op()'s contract (#5107).
+        return audio.copy(), current_db
 
     threshold = 10 ** (target_db / 20.0)
     processed = soft_clip(audio, threshold=threshold, ceiling=min(0.99, threshold * 1.05))

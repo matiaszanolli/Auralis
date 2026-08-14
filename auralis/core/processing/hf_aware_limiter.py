@@ -75,7 +75,8 @@ def apply_hf_aware_limiter(
     # Short-circuit when no limiting needed at all — pure pass-through.
     peak_db = DBConversion.to_db(float(np.max(np.abs(audio))))
     if peak_db <= SafetyLimiter.SAFETY_THRESHOLD_DB:
-        return audio, False
+        # Copy on bypass, matching stages.no_op()'s contract (#5107).
+        return audio.copy(), False
 
     # shelf_db == 0 disables HF protection — fall through to wideband path.
     if shelf_db <= 0:

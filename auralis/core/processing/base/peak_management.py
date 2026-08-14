@@ -54,7 +54,13 @@ class SafetyLimiter:
 
             return audio, True
 
-        return audio, False
+        # Copy on bypass (#5107). `auralis/core/stages/__init__.py::no_op()`
+        # defines the contract every named stage honours — an early-return
+        # bypass never hands back the caller's array — and this is the same
+        # maybe-process shape one package over. Today's callers happen to pass
+        # an already-copied buffer, so nothing is exposed; the copy makes that
+        # a property of this function rather than of its call sites.
+        return audio.copy(), False
 
 
 class PeakNormalizer:
@@ -89,4 +95,7 @@ class PeakNormalizer:
             ProcessingLogger.post_stage("Peak Normalization", peak_db, target_peak_db, "Peak")
             return audio, peak_db
 
-        return audio, peak_db
+        # Fourth site of the same bypass-without-copy shape, found by the
+        # sibling sweep for #5107 (the issue listed three). Near-silent input
+        # only, but the contract is the same.
+        return audio.copy(), peak_db
