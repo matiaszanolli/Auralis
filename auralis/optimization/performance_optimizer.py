@@ -169,8 +169,6 @@ class PerformanceOptimizer:
 
     def shutdown(self) -> None:
         """Shutdown optimizer and cleanup resources"""
-        # #3476: removed `self.parallel.shutdown()` — the ParallelProcessor
-        # field was dead (see __init__ comment).
         info("Performance optimizer shutdown complete")
 
 

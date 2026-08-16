@@ -129,12 +129,6 @@ def create_library_router(
         stats = await asyncio.to_thread(factory.stats.get_library_stats)
         return cast(dict[str, Any], stats)
 
-    # Removed: GET /api/library/albums — dead endpoint, duplicate of GET /api/albums (fixes #2509)
-    # Removed: GET /api/library/artists, GET /api/library/artists/{id}, GET
-    # /api/library/albums/{id} — dead-end duplicates of /api/artists,
-    # /api/artists/{id}, /api/albums/{id} with a different, undocumented
-    # response shape (fixes #3824 / BE-RH-7).
-
     @router.post("/api/library/reset", response_model=LibraryResetResponse)
     @with_error_handling("reset library")
     async def reset_library(

@@ -234,9 +234,9 @@ def _probe_audio(file_path: Path) -> dict:
     # to the empty result_dict (load_with_ffmpeg also guards via check_ffprobe).
     except FileNotFoundError:
         warning("ffprobe binary not found; skipping probe (install ffprobe for accurate metadata)")
-    # #3697: removed the trailing `, Exception` from the catch tuple so
-    # programming errors propagate naturally instead of being swallowed
-    # as `Code.ERROR_CORRUPTED` for every load.
+    # Keep this tuple narrow — do NOT add a trailing `Exception` (#3697).
+    # A catch-all here swallows programming errors and mislabels every load as
+    # `Code.ERROR_CORRUPTED`.
     except (subprocess.TimeoutExpired, json.JSONDecodeError, ValueError) as e:
         warning(f"Could not probe audio with ffprobe: {e}")
 

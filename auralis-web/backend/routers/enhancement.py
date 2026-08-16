@@ -537,12 +537,4 @@ def create_enhancement_router(
     # OpenAPI "audio-processing" tag are consistent with the rest of that
     # namespace.
 
-    # Removed: POST /api/player/enhancement/cache/clear (fixes #3835 / BE-PE-2).
-    # It operated on `processing_cache`, a dict declared in main.py/globals.py
-    # that nothing in the codebase ever wrote to (grep -rn "processing_cache\["
-    # returned zero hits) — the endpoint always reported "0 items removed"
-    # regardless of real cache state. The real processed-chunk caches
-    # (ChunkCacheManager / StreamlinedCacheManager / ProcessorFactory) are
-    # invalidated by the multi-tier buffer manager call above, not this dict.
-
     return router

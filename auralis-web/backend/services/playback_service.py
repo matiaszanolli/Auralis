@@ -297,15 +297,6 @@ class PlaybackService:
                 if hasattr(self.audio_player, 'seek'):
                     await asyncio.to_thread(self.audio_player.seek, position)
 
-                # #3777: removed the `{"type": "seek"}` broadcast — no
-                # frontend subscriber consumes it (grep over
-                # auralis-web/frontend/src/ returns zero subscribe()
-                # calls for "seek"). The outbound `play_enhanced` /
-                # `play_normal` streams already carry `start_position`
-                # via the WS path; the legacy REST seek endpoint only
-                # mutates the AudioPlayer state and doesn't
-                # need an extra cross-client broadcast.
-
             logger.info(f"⏩ Seeked to {position:.1f}s")
             return {
                 "message": "Seek successful",
