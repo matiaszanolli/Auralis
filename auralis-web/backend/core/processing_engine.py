@@ -40,6 +40,7 @@ from auralis.utils.logging import Code, ModuleError
 # `from core.processing_engine import ProcessingJob, ProcessingStatus` keeps
 # working (#4250).
 from config.limits import PROCESSING_TEMP_DIRNAME, UPLOAD_TEMP_DIRNAME
+from core.encoding import WAVEncoderError
 from core.job_models import ProcessingJob, ProcessingStatus
 from core.job_worker import JobWorker
 from core.processor_pool import ProcessorPool
@@ -57,18 +58,20 @@ logger = logging.getLogger(__name__)
 # Maps exception types to user-safe messages.  Order matters: first
 # match wins, so put specific types before broad ones.
 _ERROR_CATEGORIES: list[tuple[type[BaseException], str]] = [
+    # #5147: WAVEncoderError used to be appended here inside a
+    # `try: from encoding.wav_encoder import ... except ImportError: pass`,
+    # because that module was only importable when auralis-web/backend
+    # happened to be on sys.path. Any environment where that failed silently
+    # lost the mapping and reported encoder failures under the generic
+    # message. It now comes from the core.encoding package, which is a normal
+    # relative sibling and cannot fail to import, so it is stated inline.
+    (WAVEncoderError, "Audio encoding failed"),
     (FileNotFoundError, "Audio file not found"),
     (PermissionError, "Permission denied accessing audio file"),
     (OSError, "Audio file could not be read"),
     (ValueError, "Invalid audio data or parameters"),
     (MemoryError, "Insufficient memory to process audio"),
 ]
-
-try:
-    from encoding.wav_encoder import WAVEncoderError
-    _ERROR_CATEGORIES.insert(0, (WAVEncoderError, "Audio encoding failed"))
-except ImportError:
-    pass
 
 # auralis.io.unified_loader (and its loaders/ siblings) raise ModuleError — a
 # bare Exception subclass — for every load failure instead of a stdlib

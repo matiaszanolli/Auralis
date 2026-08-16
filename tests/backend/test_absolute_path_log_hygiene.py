@@ -22,25 +22,19 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "ba
 from auralis.io.saver import save as save_audio
 
 
-# ---------------------------------------------------------------------------
-# encoding/wav_encoder.py — encode_to_wav
-# ---------------------------------------------------------------------------
-
-def test_wav_encoder_logs_basename_not_full_path(tmp_path, caplog):
-    from encoding.wav_encoder import encode_to_wav
-
-    output_path = tmp_path / "deeply" / "nested" / "chunk.wav"
-    output_path.parent.mkdir(parents=True)
-    audio = np.zeros((1000, 2), dtype=np.float32)
-
-    with caplog.at_level(logging.INFO, logger="encoding.wav_encoder"):
-        encode_to_wav(audio, sample_rate=44100, output_path=str(output_path))
-
-    info_records = [r for r in caplog.records if r.levelno == logging.INFO]
-    assert any("chunk.wav" in r.message for r in info_records)
-    assert not any(str(tmp_path) in r.message for r in info_records), (
-        "INFO log must not contain the absolute path"
-    )
+# #5147: a test_wav_encoder_logs_basename_not_full_path case sat here,
+# covering encode_to_wav() in the standalone auralis-web/backend/encoding/
+# package. That package had no production callers and was deleted.
+#
+# It was dropped rather than repointed at the live encoder
+# (core/encoding/wav_encoder.py's WAVEncoder) because that class has exactly
+# one INFO line — `Cleaned up N chunk file(s) for track T` at :270 — and it
+# already emits a count, not a path, so the assertion would be vacuous. Its
+# other path-bearing lines are :172 (ERROR) and :267 (WARNING), both failure
+# diagnostics carrying the exception, which sit outside this file's
+# INFO-level policy (#4366, see the module docstring).
+#
+# The four cases below are unaffected.
 
 
 # ---------------------------------------------------------------------------

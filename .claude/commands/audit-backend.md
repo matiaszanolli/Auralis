@@ -35,7 +35,7 @@ This audit covers ONLY the backend code:
 - **Schemas**: `auralis-web/backend/schemas.py`
 - **Services**: `auralis-web/backend/services/` (10 modules incl. `library_auto_scanner.py`, `queue_service.py`, `queue_enrichment.py`, `queue_protocols.py`, `playback_service.py`)
 - **Security**: `auralis-web/backend/security/path_security.py`, `auralis-web/backend/websocket/websocket_security.py`
-- **Support modules**: `auralis-web/backend/analysis/`, `auralis-web/backend/monitoring/`, and **two** encoding packages — `auralis-web/backend/encoding/wav_encoder.py` (legacy) and `auralis-web/backend/core/encoding/` (`wav_encoder.py` with different content, plus `atomic_io.py`). Both are live: `auralis-web/backend/core/processing_engine.py` imports the legacy one, `auralis-web/backend/core/chunked_processor.py` imports both. There is only one `WAVEncoderError` class (defined in `encoding/wav_encoder.py`, used correctly everywhere) — the real duplication is two different `WAVEncoder` *implementations*: legacy functional style in `encoding/`, class-based in `core/encoding/` (which raises bare `OSError`/`ValueError` instead of `WAVEncoderError`, so `processing_engine.py`'s `_ERROR_CATEGORIES` insertion can silently misclassify WAV write failures from that path).
+- **Support modules**: `auralis-web/backend/analysis/`, `auralis-web/backend/monitoring/`, and **one** encoding package — `auralis-web/backend/core/encoding/` (`wav_encoder.py`, class-based `WAVEncoder`, plus `atomic_io.py`), which also defines and exports `WAVEncoderError`. A second functional-style *auralis-web/backend/encoding/* package existed until #5147; its `encode_to_wav()` had zero production callers and it survived only to host the exception class. Do not re-report the old "two `WAVEncoder` implementations" duplication or the `_ERROR_CATEGORIES` misclassification that came with it — `auralis-web/backend/core/processing_engine.py` now imports `WAVEncoderError` from `core.encoding` unconditionally, and `auralis-web/backend/core/chunked_processor.py` has a single import.
 - **Tests**: Backend-related tests under `tests/`
 
 Out of scope: React frontend, audio engine internals (`auralis/`), Rust DSP. However, DO verify that the backend correctly calls engine APIs and returns responses matching frontend expectations.
@@ -69,7 +69,7 @@ Out of scope: React frontend, audio engine internals (`auralis/`), Rust DSP. How
 - [ ] Connection lifecycle — is accept/close handled correctly in `auralis-web/backend/ws_handlers/connection.py`? Are resources cleaned up on disconnect?
 - [ ] Handler split — do `ws_handlers/messages.py`, `playback_commands.py` and `playback_control.py` agree on the message contract in `auralis-web/backend/websocket/websocket_protocol.py`?
 - [ ] Origin/auth checks — is `auralis-web/backend/websocket/websocket_security.py` actually applied on connect, and can it be bypassed?
-- [ ] Binary frame format — is the audio frame encoding (`auralis-web/backend/encoding/wav_encoder.py`) consistent with what the frontend expects?
+- [ ] Binary frame format — is the audio frame encoding (`auralis-web/backend/core/encoding/wav_encoder.py`) consistent with what the frontend expects?
 - [ ] Backpressure — what happens when the client can't consume frames fast enough? Does the server buffer unboundedly?
 - [ ] Multiple clients — can multiple WebSocket connections coexist? Is state per-connection or shared?
 - [ ] Error during streaming — does a processing error gracefully close the stream or leave it hanging?

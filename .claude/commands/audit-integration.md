@@ -92,7 +92,7 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 | WS accept + checks | Backend | `auralis-web/backend/ws_handlers/connection.py`, `auralis-web/backend/websocket/websocket_security.py` |
 | Message routing | Backend | `auralis-web/backend/ws_handlers/messages.py`, `playback_commands.py`, `playback_control.py` |
 | Protocol contract | Backend | `auralis-web/backend/websocket/websocket_protocol.py`, `auralis-web/backend/core/stream_protocol.py`, `auralis-web/backend/core/stream_messages.py` |
-| Binary audio frames | Backend | `auralis-web/backend/encoding/wav_encoder.py`, `auralis-web/backend/core/audio_stream_controller.py` |
+| Binary audio frames | Backend | `auralis-web/backend/core/encoding/wav_encoder.py`, `auralis-web/backend/core/audio_stream_controller.py` |
 | Frame decode | Frontend | WebSocket hook → Web Audio API |
 
 **Check**: Connection establishment — handshake protocol? Message types — are all types documented and handled on both sides? Binary vs text frames — consistent usage? Reconnection — does the frontend re-establish state after disconnect? Backpressure — what happens when the frontend can't consume frames fast enough?

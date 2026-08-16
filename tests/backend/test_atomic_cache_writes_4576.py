@@ -222,7 +222,7 @@ class TestEncodeAndSaveErrorClassification:
 
     def test_write_failure_raises_wav_encoder_error_not_bare_oserror(self, tmp_path, monkeypatch):
         from core.encoding.wav_encoder import WAVEncoder
-        from encoding.wav_encoder import WAVEncoderError
+        from core.encoding import WAVEncoderError
 
         encoder = WAVEncoder(tmp_path)
         audio = np.zeros((128, 2), dtype=np.float32)

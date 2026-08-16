@@ -15,11 +15,23 @@ from typing import Any
 import numpy as np
 
 from auralis.io.saver import save as save_audio
-from encoding.wav_encoder import WAVEncoderError
 
 from .atomic_io import atomic_save_audio, is_partial_path
 
 logger = logging.getLogger(__name__)
+
+
+class WAVEncoderError(Exception):
+    """Raised when WAV encoding fails.
+
+    #5147: previously defined in auralis-web/backend/encoding/wav_encoder.py,
+    a module that survived only to host this class — its encode_to_wav() had
+    no production callers. It was reached from here and from two core/ modules
+    via a bare ``from encoding.wav_encoder import ...``, an absolute import
+    that resolved only because pytest.ini and uvicorn happen to put
+    auralis-web/backend on sys.path. It now lives beside the WAVEncoder that
+    raises it and is re-exported from core.encoding.
+    """
 
 
 class WAVEncoder:
@@ -242,7 +254,7 @@ class WAVEncoder:
             f"track_{track_id}_{file_signature}_*.wav",  # Old format
             f"v*_track_{track_id}_{file_signature}_*.wav",  # New versioned format
         ]
-        files = []
+        files: list[Path] = []
         for pattern in patterns:
             files.extend(self.chunk_dir.glob(pattern))
         deleted_count = 0

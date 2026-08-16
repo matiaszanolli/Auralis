@@ -63,7 +63,7 @@ from core.encoding.atomic_io import (
     atomic_save_audio,
     is_wav_complete,
 )
-from encoding.wav_encoder import WAVEncoderError
+from core.encoding import WAVEncoderError
 from core.file_signature import FileSignatureService  # Phase 5.1: File signature generation
 from core.level_manager import MAX_LEVEL_CHANGE_DB, LevelManager  # noqa: F401  (re-exported, see below)
 from core.mastering_target_service import (
