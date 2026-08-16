@@ -4,140 +4,39 @@ Auralis Database Migration System
 
 Handles database schema versioning and migrations
 
+The lock, the backup/restore helpers and the per-step SQL execution live in
+sibling modules since the #4511 split; they are re-exported below so every
+existing import of this module keeps working.
+
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3, see LICENSE for more details.
 """
 
 import logging
-import platform
-import re
-import sqlite3
-import threading
-import time
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
-from sqlalchemy import create_engine, event, select
+from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
 from auralis.__version__ import __db_schema_version__
 from auralis.library.models import Base, SchemaVersion
 
-# Import platform-specific file locking
-if platform.system() == "Windows":
-    import msvcrt
-else:
-    import fcntl
+from .migration_backup import backup_database, restore_database  # re-exported (#4511)
+from .migration_engine import create_migration_engine
+from .migration_lock import migration_lock  # re-exported (#4511)
+from .migration_steps import run_migration_step
 
 logger = logging.getLogger(__name__)
 
-
-# Serializes the migration step across threads IN THE SAME PROCESS (#4232).
-# The file lock below is inter-*process* only: `fcntl.flock` is per open-file-
-# description, so two threads sharing one process each open their own fd and
-# both acquire it, and `msvcrt.locking` byte-range locks are per-process, so on
-# Windows nothing serializes same-process threads at all.
-#
-# This lives here rather than at the caller (#4523) so BOTH entry points get it
-# — `check_and_migrate_database` and `migrations.normalize_existing_artists`.
-# It used to live in `LibraryDatabase.__init__`, which meant the second entry
-# point had process serialization only. Global rather than per-path: migrations
-# run at startup against a single database, and a global lock is strictly
-# stronger than a per-path one.
-_thread_lock = threading.Lock()
-
-
-@contextmanager
-def migration_lock(db_path: str, timeout: float = 30.0):
-    """
-    Acquire the migration lock: thread-exclusive *and* process-exclusive.
-
-    Two layers are needed because neither covers the other's case — see the
-    ``_thread_lock`` comment above. ``timeout`` is a budget shared across both
-    acquisitions, not a per-layer allowance.
-
-    The lock file is deliberately **never deleted** (#4523). ``flock``/
-    ``msvcrt`` locks are bound to an *inode*, not a path, so unlinking it
-    destroys the path→inode identity the lock is built on: a waiter still
-    queued on the old (now unlinked, unreachable) inode and a fresh arrival
-    that creates a brand-new inode would both believe they hold the lock. A
-    zero-byte sentinel next to the database is the cheap price of correctness.
-
-    Args:
-        db_path: Path to database file
-        timeout: Maximum total time to wait for the lock in seconds
-
-    Yields:
-        None (lock is held during context)
-
-    Raises:
-        TimeoutError: If lock cannot be acquired within timeout
-        OSError: If lock file cannot be created
-    """
-    db_path_obj = Path(db_path)
-    lock_file = db_path_obj.parent / f".{db_path_obj.name}.migration.lock"
-
-    # Ensure directory exists
-    lock_file.parent.mkdir(parents=True, exist_ok=True)
-
-    deadline = time.monotonic() + timeout
-
-    if not _thread_lock.acquire(timeout=timeout):
-        raise TimeoutError(
-            f"Could not acquire migration lock within {timeout}s. "
-            "Another thread may be migrating the database."
-        )
-
-    lock_fd = None
-    try:
-        # Open lock file
-        lock_fd = open(lock_file, 'w')
-
-        if platform.system() == "Windows":
-            # Windows: Use msvcrt.locking with retry loop
-            while True:
-                try:
-                    msvcrt.locking(lock_fd.fileno(), msvcrt.LK_NBLCK, 1)
-                    break
-                except OSError:
-                    if time.monotonic() >= deadline:
-                        raise TimeoutError(
-                            f"Could not acquire migration lock within {timeout}s. "
-                            "Another process may be migrating the database."
-                        )
-                    time.sleep(0.1)
-        else:
-            # Linux/macOS: Use fcntl.flock with timeout
-            while True:
-                try:
-                    fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-                    break
-                except OSError:
-                    if time.monotonic() >= deadline:
-                        raise TimeoutError(
-                            f"Could not acquire migration lock within {timeout}s. "
-                            "Another process may be migrating the database."
-                        )
-                    time.sleep(0.1)
-
-        logger.debug(f"Acquired migration lock: {lock_file}")
-        yield
-
-    finally:
-        # Release lock. The lock FILE stays — see the docstring; unlinking it is
-        # what #4523 is about.
-        if lock_fd:
-            try:
-                if platform.system() == "Windows":
-                    msvcrt.locking(lock_fd.fileno(), msvcrt.LK_UNLCK, 1)
-                else:
-                    fcntl.flock(lock_fd.fileno(), fcntl.LOCK_UN)
-                lock_fd.close()
-                logger.debug(f"Released migration lock: {lock_file}")
-            except Exception as e:
-                logger.warning(f"Error releasing lock: {e}")
-        _thread_lock.release()
+__all__ = [
+    'MigrationManager',
+    'check_and_migrate_database',
+    'migration_lock',
+    'backup_database',
+    'restore_database',
+]
 
 
 class MigrationManager:
@@ -151,30 +50,7 @@ class MigrationManager:
             db_path: Path to SQLite database file
         """
         self.db_path = Path(db_path)
-        self.engine = create_engine(
-            f'sqlite:///{self.db_path}',
-            connect_args={
-                'timeout': 15,          # 15s busy timeout matches LibraryDatabase
-                'check_same_thread': False,
-            },
-            # #3702: verify connection before use to avoid stale-connection
-            # OperationalError when another process has checkpointed the
-            # WAL between MigrationManager init and first use. Matches
-            # LibraryDatabase's create_engine() contract.
-            pool_pre_ping=True,
-        )
-
-        @event.listens_for(self.engine, "connect")
-        def set_sqlite_pragma(dbapi_connection, connection_record):
-            cursor = dbapi_connection.cursor()
-            cursor.execute("PRAGMA journal_mode=WAL")
-            cursor.execute("PRAGMA synchronous=NORMAL")
-            cursor.execute("PRAGMA foreign_keys=ON")
-            # Explicit busy timeout at PRAGMA level for consistent behavior
-            # under concurrent migration access (#3312, matches LibraryDatabase #2091).
-            cursor.execute("PRAGMA busy_timeout=60000")  # 60s
-            cursor.close()
-
+        self.engine = create_migration_engine(self.db_path)
         self._SessionFactory = sessionmaker(self.engine)
         self.migrations_dir = Path(__file__).parent / "migrations"
 
@@ -242,106 +118,15 @@ class MigrationManager:
         Returns:
             True if successful, False otherwise
         """
-        migration_file = f"migration_v{from_version:03d}_to_v{to_version:03d}.sql"
-        migration_path = self.migrations_dir / migration_file
-
-        if not migration_path.exists():
-            logger.error(f"Migration script not found: {migration_file}")
-            return False
-
-        logger.info(f"Applying migration: {migration_file}")
-
-        try:
-            # Read migration SQL
-            with open(migration_path) as f:
-                sql = f.read()
-
-            # Validate migration SQL before execution (#2083, #2925).
-            #
-            # DROP TABLE is normally rejected, but the SQLite recreate-and-copy
-            # idiom (the only way to add a UNIQUE/PRIMARY KEY constraint to an
-            # existing table) requires it. Migrations that genuinely need DROP
-            # TABLE must declare `-- @ALLOW_DROP_TABLE` so the intent is
-            # explicit and auditable in the migration file itself.
-            sql_upper = sql.upper()
-            allow_drop_table = '@ALLOW_DROP_TABLE' in sql_upper
-            _DANGEROUS_KEYWORDS = {'DROP DATABASE'}
-            if not allow_drop_table:
-                _DANGEROUS_KEYWORDS = _DANGEROUS_KEYWORDS | {'DROP TABLE'}
-            for keyword in _DANGEROUS_KEYWORDS:
-                if keyword in sql_upper:
-                    logger.error(f"Migration {migration_file} contains dangerous operation: {keyword}")
-                    return False
-
-            # Block unqualified DELETE FROM (no WHERE clause) — intentional
-            # data wipes.  DELETE FROM ... WHERE ... is allowed (#2925).
-            #
-            # NOT re.MULTILINE: with it, `$` matched end-of-line, so a valid
-            # multi-line `DELETE FROM t\nWHERE ...` was wrongly flagged as
-            # unqualified because the newline after the table name satisfied
-            # `$` before the WHERE on the next line. End-of-string `$` only.
-            if re.search(r'DELETE\s+FROM\s+\w+\s*(;|$)', sql_upper):
-                logger.error(f"Migration {migration_file} contains unqualified DELETE FROM (missing WHERE clause)")
-                return False
-
-            description = f"Migrated from v{from_version} to v{to_version}"
-
-            # Execute DDL and record version in the SAME transaction (#2905).
-            #
-            # Python's sqlite3 driver implicitly commits before DDL statements
-            # unless isolation_level is None (manual transaction control).  We
-            # drop to the raw DBAPI connection so BEGIN/COMMIT/ROLLBACK are
-            # fully under our control and DDL + version INSERT are truly atomic.
-            raw_conn = self.engine.raw_connection()
-            try:
-                dbapi_conn = raw_conn.dbapi_connection
-                old_isolation = dbapi_conn.isolation_level
-                dbapi_conn.isolation_level = None
-                cursor = dbapi_conn.cursor()
-                try:
-                    cursor.execute("BEGIN")
-
-                    # Apply DDL statements
-                    statements = [s.strip() for s in sql.split(';') if s.strip()]
-                    for statement in statements:
-                        if statement:
-                            try:
-                                cursor.execute(statement)
-                            except Exception as stmt_err:
-                                # Tolerate "duplicate column" errors from ADD COLUMN
-                                # on databases where the column was added outside
-                                # the migration system.
-                                if "duplicate column" in str(stmt_err).lower():
-                                    logger.warning(
-                                        f"Column already exists, skipping: {statement[:80]}"
-                                    )
-                                else:
-                                    raise
-
-                    # Record the migration in the same transaction
-                    cursor.execute(
-                        "INSERT INTO schema_version (version, applied_at, description, migration_script) "
-                        "VALUES (?, ?, ?, ?)",
-                        (to_version, datetime.now().isoformat(), description, migration_file),
-                    )
-
-                    cursor.execute("COMMIT")
-                except BaseException:
-                    cursor.execute("ROLLBACK")
-                    raise
-                finally:
-                    cursor.close()
-                    dbapi_conn.isolation_level = old_isolation
-            finally:
-                raw_conn.close()
-
-            logger.info(f"✅ Recorded migration to v{to_version}: {description}")
-            logger.info(f"✅ Migration to v{to_version} completed successfully")
-            return True
-
-        except Exception as e:
-            logger.error(f"❌ Migration failed: {e}")
-            raise
+        # `datetime.now` is passed rather than imported by migration_steps so
+        # this module stays the patch point for the atomicity test (#2905).
+        return run_migration_step(
+            self.engine,
+            self.migrations_dir,
+            from_version,
+            to_version,
+            datetime.now,
+        )
 
     def initialize_fresh_database(self) -> bool:
         """
@@ -422,99 +207,6 @@ class MigrationManager:
     def close(self) -> None:
         """Dispose engine and release all connections (issue #2395)."""
         self.engine.dispose()
-
-
-def backup_database(db_path: str, backup_dir: str | None = None) -> str:
-    """
-    Create a backup of the database file.
-
-    Args:
-        db_path: Path to database file
-        backup_dir: Optional directory for backups (defaults to same dir as db)
-
-    Returns:
-        Path to the backup file
-    """
-    db_path_obj = Path(db_path)
-
-    if not db_path_obj.exists():
-        raise FileNotFoundError(f"Database file not found: {db_path}")
-
-    # Determine backup directory
-    if backup_dir:
-        backup_path = Path(backup_dir)
-    else:
-        backup_path = db_path_obj.parent
-
-    backup_path.mkdir(parents=True, exist_ok=True)
-
-    # Create timestamped backup filename
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_file = backup_path / f"{db_path_obj.stem}.backup_{timestamp}{db_path_obj.suffix}"
-
-    # Use sqlite3.Connection.backup() (SQLite Online Backup API) instead of
-    # shutil.copy2().  shutil.copy2 copies only the .db file and silently
-    # misses pages that are committed but not yet checkpointed into the main
-    # file (i.e. data sitting in the -wal file).  sqlite3.backup() reads
-    # through both the main file and the WAL, producing a fully consistent
-    # point-in-time snapshot of all committed data.
-    with sqlite3.connect(str(db_path_obj)) as src:
-        with sqlite3.connect(str(backup_file)) as dst:
-            src.backup(dst)
-
-    # Absolute path embeds OS username + install layout (#4351/#4366); keep
-    # the event at INFO but the path itself at DEBUG only (#4929).
-    logger.info("✅ Database backed up")
-    logger.debug(f"Backup location: {backup_file}")
-    return str(backup_file)
-
-
-def restore_database(backup_path: str, db_path: str) -> bool:
-    """
-    Restore database from backup using the SQLite Online Backup API.
-
-    Uses sqlite3.Connection.backup() instead of shutil.copy2 to avoid
-    WAL corruption: the backup API reads through the WAL and produces a
-    consistent snapshot, and the restored file starts in rollback-journal
-    mode so no stale -wal/-shm files can interfere (fixes #3452).
-
-    Args:
-        backup_path: Path to backup file
-        db_path: Path to database file to restore
-
-    Returns:
-        True if successful
-    """
-    backup_path_obj = Path(backup_path)
-    db_path_obj = Path(db_path)
-
-    if not backup_path_obj.exists():
-        raise FileNotFoundError(f"Backup file not found: {backup_path}")
-
-    try:
-        # Remove stale WAL/SHM sidecar files from the target before restoring.
-        # If these files persist from a prior session they can cause the newly
-        # restored database to open with an inconsistent WAL state.
-        for suffix in ('-wal', '-shm'):
-            sidecar = db_path_obj.with_suffix(db_path_obj.suffix + suffix)
-            if sidecar.exists():
-                sidecar.unlink()
-
-        # Use SQLite Online Backup API (same as backup_database) to restore.
-        # This reads through the backup's WAL (if any) and writes a fully
-        # consistent main database file.
-        with sqlite3.connect(str(backup_path_obj)) as src:
-            with sqlite3.connect(str(db_path_obj)) as dst:
-                src.backup(dst)
-
-        # Path stays at DEBUG only — see backup_database's rationale (#4929).
-        logger.info("✅ Database restored")
-        logger.debug(f"Restored from: {backup_path}")
-        return True
-
-    except Exception as e:
-        logger.error(f"❌ Failed to restore database: {e}")
-        return False
 
 
 def check_and_migrate_database(db_path: str, auto_backup: bool = True) -> bool:
