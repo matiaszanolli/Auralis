@@ -39,10 +39,16 @@ Key pieces:
 ### Lifespan (`config/startup.py`)
 
 Startup builds services in a strict order (all under `if HAS_AURALIS`): temp-chunk cleanup →
-`LibraryManager` → `RepositoryFactory` → `FingerprintExtractor` / `FingerprintExtractionQueue`
+`LibraryDatabase` → `RepositoryFactory` → `FingerprintExtractor` / `FingerprintExtractionQueue`
 → `SettingsRepository` → scan-folder allowlist → `LibraryAutoScanner` → `AudioPlayer` →
 `PlayerStateManager` → `FingerprintSimilarity` (auto-fit in a background daemon) →
 `ProcessingEngine(max_concurrent_jobs=2)` → `StreamlinedCacheWorker`.
+
+`LibraryDatabase` owns the migration, engine, session factory, scan slots and shutdown. The
+globals-dict key it is stored under is still spelled `library_manager` (#5031) — that name
+predates #4619, which replaced the construction of the since-deleted `LibraryManager` facade
+(#4915) with `LibraryDatabase` itself. Grep for `library_manager` to find consumers; grep for
+`LibraryDatabase` to find the class.
 
 Three resilience patterns to know:
 
@@ -54,7 +60,7 @@ Three resilience patterns to know:
   treated as failure).
 - **Ordered shutdown** — background workers stopped via the shared `BACKGROUND_WORKER_KEYS`
   list, then processing engine, audio player, `ProcessorFactory` cache clear (frees thread
-  pools, #3746), artwork aiohttp session, and finally `LibraryManager.shutdown()` (WAL
+  pools, #3746), artwork aiohttp session, and finally `LibraryDatabase.shutdown()` (WAL
   checkpoint) last.
 
 ---

@@ -94,7 +94,7 @@ auralis/                          Core Python audio engine
 │   ├── basic.py                    DSP primitives
 │   ├── advanced_dynamics.py        Dynamics control
 │   ├── eq/                         Psychoacoustic EQ (psychoacoustic_eq.py)
-├── analysis/                     Audio analysis (largest module, 54 files)
+├── analysis/                     Audio analysis (largest module, 57 files)
 │   ├── fingerprint/                25D fingerprinting system
 │   │   ├── analyzers/                Batch & streaming analyzers
 │   │   ├── metrics/                  Spectral, harmonic, temporal
@@ -109,7 +109,8 @@ auralis/                          Core Python audio engine
 │   └── realtime_processor.py       Real-time processing
 ├── library/                      SQLite library (~/.auralis/library.db)
 │   ├── database.py                 LibraryDatabase (engine, migration, sessions, scan slots)
-│   ├── manager.py                  LibraryManager (DEPRECATED facade over LibraryDatabase)
+│                                     Startup stores it under the globals key `library_manager`
+│                                     — a historical name; LibraryManager was deleted (#4915)
 │   ├── repositories/               13 repos + base.py (BaseRepository) + factory.py
 │   │                                 (track, album, artist, playlist, genre, stats,
 │   │                                 fingerprint, fingerprint_scheduler, fingerprint_stats,

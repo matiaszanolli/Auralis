@@ -37,18 +37,18 @@ auralis/
 │   ├── advanced_dynamics.py      DynamicsProcessor (gate/comp/limit)
 │   ├── eq/                       PsychoacousticEQ (26 Bark bands, WOLA)
 │   └── stages.py                 Legacy Matchering reference matcher
-├── analysis/                   Largest module (~80 files)
+├── analysis/                   Largest module (57 files)
 │   ├── fingerprint/              25D fingerprint: schema, analyzers, metrics, utilities,
 │   │                               normalizer, distance, similarity, knn_graph
 │   ├── content/                  Genre/mood/recommendation (content-aware)
 │   ├── ml/                       RuleBasedGenreClassifier (linear, NOT a neural net)
 │   └── quality/                  Quality assessment (loudness, DR, distortion)
 ├── library/                    SQLite library (~/.auralis/library.db)
-│   ├── manager.py                LibraryManager
-│   ├── repositories/             14 repos + base.py (BaseRepository) + factory.py
-│   ├── scanner.py                Folder scanning
+│   ├── database.py               LibraryDatabase (engine, migration, sessions, scan slots)
+│   ├── repositories/             13 repos + base.py (BaseRepository) + factory.py
+│   ├── scanner/                  Folder scanning (a package, not a module)
 │   ├── sidecar_manager.py        Per-file .25d sidecars
-│   └── migration_manager.py      DB migrations (schema v17)
+│   └── migration_manager.py      DB migrations (schema v18)
 ├── io/                         unified_loader.py (FFmpeg/SoundFile), results.py (PCM output)
 ├── player/                     enhanced_audio_player, gapless engine, queue_controller
 ├── services/                   Background: fingerprint_queue, fingerprint_extractor, artwork
