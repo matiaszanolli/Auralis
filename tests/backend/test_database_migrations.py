@@ -306,7 +306,7 @@ def test_migration_handles_old_schema_gracefully(temp_db_dir):
         db = LibraryDatabase(database_path=str(db_path))
         # Should not crash
 
-    # narrowed from bare Exception, #5023. TODO(#5023): LibraryDatabase.__init__
+    # narrowed from bare Exception, #5023. TODO(#5174): LibraryDatabase.__init__
     # signals a failed migration by raising a *bare* ``Exception`` (see
     # auralis/library/database.py: `raise Exception("Failed to migrate database
     # to current version")`), which cannot be caught more narrowly than

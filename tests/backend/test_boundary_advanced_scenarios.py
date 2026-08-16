@@ -649,7 +649,7 @@ def test_invalid_file_path_handling(tmp_path):
     # FileNotFoundError came from the LibraryManager.add_track() facade, which
     # was deleted with the rest of that legacy wrapper (#4915). Adding a row for
     # a missing file must therefore not raise, and must not corrupt the DB.
-    # TODO(#4915): nothing validates on-disk existence at the repository layer
+    # TODO(#5172): nothing validates on-disk existence at the repository layer
     # anymore. If that guard is wanted back it belongs in TrackRepository.add(),
     # and this assertion should become `pytest.raises(FileNotFoundError)` again.
     db.tracks.add({
@@ -804,7 +804,7 @@ def test_concurrent_delete_same_track(test_library_large):
     # actually calls — does an unlocked SELECT-then-DELETE in its own session,
     # so several threads can each observe the row and each report True (the
     # losers' DELETE matches 0 rows and SQLAlchemy logs a SAWarning).
-    # TODO(#4915): if "exactly one delete wins" is a property worth having, it
+    # TODO(#5173): if "exactly one delete wins" is a property worth having, it
     # belongs in TrackRepository.delete() (e.g. check the DELETE rowcount and
     # return False when 0 rows matched), not in a deleted legacy facade.
     assert errors == [], f"Concurrent delete errors: {errors}"

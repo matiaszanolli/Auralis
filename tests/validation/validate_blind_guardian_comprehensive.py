@@ -148,7 +148,8 @@ def analyze_album_pair(album_name: str, original_dir: Path, remaster_dir: Path) 
         # guarded arithmetic (no raise sites found) — so this loop-body
         # tolerance is for numeric edge cases surfacing as ValueError/
         # RuntimeError out of librosa/numpy on unusual real-world audio.
-        # TODO(#5023): could not fully rule out other exception types, needs follow-up
+        # Carried a marker citing #5023, which is closed; nobody holds an
+        # intent to widen this. Kept as a caveat, not tracked debt (#5143).
         except (ValueError, RuntimeError) as e:
             pass
 

@@ -81,18 +81,40 @@ Default every tech-debt finding to LOW unless one of the above fires. Do **not**
    ```bash
    SRC_INC=(--include='*.py' --include='*.ts' --include='*.tsx' --include='*.js' --include='*.jsx' --include='*.rs' --include='*.mjs')
    SRC_DIRS=(auralis auralis-web/backend auralis-web/frontend/src vendor/auralis-dsp/src)
+   # #5143: SRC_DIRS excludes the Python tests/ tree, and for a long time every
+   # genuine marker in the repo lived there — so "markers, genuine = 0" was
+   # reported as a repo-wide health signal while 9 markers sat unswept, 7 of
+   # them citing CLOSED issues. tests/ is counted on its own line below rather
+   # than folded into SRC_DIRS, so the shipped-code signal stays readable and
+   # the two cannot be confused. (Frontend specs live under
+   # auralis-web/frontend/src/**/__tests__ and are already inside SRC_DIRS.)
+   #
+   # Leaving SRC_DIRS itself untouched is the deliberate call: it also scopes
+   # the `prose deferrals` line, which already filters test paths out via
+   # NON_TEST, so widening it would have been a no-op there while inflating
+   # `markers, raw`. The >300 LOC and 'any' censuses carry their own explicit
+   # directory lists and are unaffected either way — all out of scope here.
+   PY_TEST_DIRS=(tests)
    NON_TEST='test|__tests__|\.spec\.|/mocks/'
    # Known non-marker uses of "XXX": design-system size tokens (xxxl/spacingXXXLarge),
    # the migration filename pattern (migration_vXXX_to_vYYY.sql), issue-number
    # placeholders (#3xxx), and "0.xxxx" digit runs in test strings.
-   MARKER_FP='x{3,}l|v?XXX_to|#[0-9]xxx|0\.x{3,}'
+   # `x{4,}` (#5143): runs of 4+ X are redaction/temp-name placeholders, never
+   # markers — `(ref XXXXXXXX)` correlation ids, `.tmp-XXXX` suffixes. A real
+   # XXX marker is exactly three, and `XXX\b` still matches inside a longer run
+   # (the boundary falls at the end), so without this the tests/ line reports
+   # three phantom hits.
+   MARKER_FP='x{3,}l|v?XXX_to|#[0-9]xxx|0\.x{3,}|x{4,}'
    {
      # ONE case-insensitive sweep across every source language, minus known
      # false positives — so the number printed is GENUINE marker debt and a 0 is
      # a meaningful health signal. Previously two case-sensitive .py/.ts-only
      # greps whose every hit was a false positive (#4564).
-     echo "markers, genuine (all src):  $(grep -RIniE '(TODO|FIXME|HACK|XXX)\b' "${SRC_DIRS[@]}" "${SRC_INC[@]}" 2>/dev/null | grep -viE "$MARKER_FP" | wc -l)"
+     echo "markers, genuine (src):      $(grep -RIniE '(TODO|FIXME|HACK|XXX)\b' "${SRC_DIRS[@]}" "${SRC_INC[@]}" 2>/dev/null | grep -viE "$MARKER_FP" | wc -l)"
      echo "markers, raw (pre-filter):   $(grep -RIniE '(TODO|FIXME|HACK|XXX)\b' "${SRC_DIRS[@]}" "${SRC_INC[@]}" 2>/dev/null | wc -l)"
+     # #5143: the tests/ half of the same census. Report BOTH lines — never
+     # quote the src figure alone as a repo-wide "marker debt" number.
+     echo "markers, genuine (tests/):   $(grep -RIniE '(TODO|FIXME|HACK|XXX)\b' "${PY_TEST_DIRS[@]}" --include='*.py' 2>/dev/null | grep -viE "$MARKER_FP" | wc -l)"
      # Prose deferrals — where THIS repo actually records deferred work. No
      # marker grep sees these, so without this line the marker count reads as
      # "no deferred work" when there is some (#4564).
@@ -117,7 +139,8 @@ Default every tech-debt finding to LOW unless one of the above fires. Do **not**
 
    | Metric | Read it as |
    |---|---|
-   | `markers, genuine` | The real marker debt. **0 is the expected value** for this repo and is a good result, not a suspicious one. If it is nonzero, list the hits — do not report the count alone. |
+   | `markers, genuine (src)` | The real marker debt in shipped code. **0 is the expected value** for this repo and is a good result, not a suspicious one. If it is nonzero, list the hits — do not report the count alone. **Never quote this alone as the repo-wide figure** (#5143) — pair it with the `tests/` line below. |
+   | `markers, genuine (tests/)` | The same census over the Python `tests/` tree, which `SRC_DIRS` excludes. Not expected to be 0: a marker here is legitimate when it cites an OPEN issue. What *is* a finding is a marker citing a **CLOSED** issue — that is provenance masquerading as tracking, and it is how 7 markers went unswept until #5143. Check each cited number's state before reporting. |
    | `markers, raw` | Diagnostic only. A gap vs `genuine` just means the false-positive filter fired; it is not debt. Never quote this as marker debt. |
    | `prose deferrals` | This repo writes deferrals as prose ("For now, …", "Temporarily …"), so this is where its deferred work lives. High recall, low precision — **read the hits, don't quote the number** as debt. Individually-tracked ones exist (e.g. #4405, #4239); dedup before filing. |
    | `'any' non-test` | The type-safety debt that ships. Quote this one. |

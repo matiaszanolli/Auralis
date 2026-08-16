@@ -552,7 +552,7 @@ def test_failed_add_doesnt_corrupt_database(tmp_path):
     # (unlike the deleted LibraryManager.add_track() facade) it does not check
     # that the file exists on disk (#4915), so the missing-filepath case is the
     # one the repository layer actually refuses.
-    # TODO(#4915): the '/nonexistent/file.wav' rejection this test used to
+    # TODO(#5172): the '/nonexistent/file.wav' rejection this test used to
     # exercise no longer exists anywhere; restore it in TrackRepository.add()
     # if on-disk validation is still wanted.
     assert db.tracks.add({'title': 'Invalid'}) is None

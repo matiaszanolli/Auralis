@@ -72,7 +72,8 @@ class TestQueryPerformanceDualMode:
         # catches its own internal failures and returns None; the only
         # escape path left is get_session()/session_factory() raising a
         # SQLAlchemy-level error before the internal try starts.
-        # TODO(#5023): could not fully confirm no other type can escape, needs follow-up
+        # Carried a marker citing #5023, which is closed; nobody holds an
+        # intent to widen this. Kept as a caveat, not tracked debt (#5143).
         except SQLAlchemyError:
             # Skip if add fails
             pass

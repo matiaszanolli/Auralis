@@ -227,8 +227,13 @@ Cached chunk files are 16-bit PCM WAV, not float32.
    with a real issue number, not as prose ("For now, …", "Temporarily …").
    Prose deferrals are invisible to any marker sweep, so `/audit-tech-debt` has
    to fall back to a high-recall prose grep that cannot distinguish a deferral
-   from an ordinary sentence (#4564). Genuine marker debt is currently **0** —
-   keep it that way by linking the issue instead of leaving a bare `TODO`.
+   from an ordinary sentence (#4564). Genuine marker debt in shipped code —
+   `auralis/`, `auralis-web/`, `vendor/` — is currently **0**; `tests/` holds
+   **5**, each citing an OPEN issue (#5171, #5172 ×2, #5173, #5174). Keep both
+   figures honest by linking the issue instead of leaving a bare `TODO`.
+   The scope matters: that "0" was quoted repo-wide for weeks while every
+   genuine marker in the tree sat in `tests/`, uncounted (#5143), so
+   `/audit-tech-debt` now reports the two censuses as separate lines.
 
 ## Git
 

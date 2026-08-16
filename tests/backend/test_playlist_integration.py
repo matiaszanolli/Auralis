@@ -374,7 +374,7 @@ def test_search_playlists(library_with_playlists):
     db, playlist_ids, track_ids, _ = library_with_playlists
 
     # Search for "Playlist 1"
-    # TODO(#4915): playlist search was never implemented — neither on the
+    # TODO(#5171): playlist search was never implemented — neither on the
     # deprecated library facade nor on PlaylistRepository — so this call was
     # already an AttributeError before the migration (the module is skipped).
     # Left in repository shape so the intent survives for whoever adds
