@@ -156,15 +156,32 @@ describe('AlbumDetailView', () => {
       });
     });
 
-    it('should display genre', async () => {
+    // Characterization test, not the desired behaviour (#5170).
+    //
+    // This asserted `queryAllByText(/rock/i).length >= 0` — true by
+    // construction, so it passed whether or not genre rendered (#5136).
+    // Replacing it with a real assertion turned it red and exposed why:
+    // `useAlbumDetails.ts:68-77` never maps a `genre` key into `albumData`,
+    // and `/api/albums/{id}/tracks` does not send one at all, so
+    // `AlbumMetadata`'s `{genre && ...}` block (AlbumMetadata.tsx:46) is
+    // unreachable from this view. The mock below carries `genre: 'Rock'`,
+    // which the real endpoint does not return.
+    //
+    // Pinned to today's behaviour so the gap stays visible: when #5170 wires
+    // genre through, this test fails and must be flipped to assert the
+    // `Genre: Rock` line renders.
+    it('does not display genre — endpoint omits it and the hook drops it (#5170)', async () => {
       render(
         <AlbumDetailView albumId={1} />
       );
 
+      // Wait for the album to actually load before asserting an absence,
+      // otherwise this passes against the loading skeleton.
       await waitFor(() => {
-        const genreElements = screen.queryAllByText(/rock/i);
-        expect(genreElements.length).toBeGreaterThanOrEqual(0);
+        expect(screen.getByText(/Come Together/)).toBeInTheDocument();
       }, { timeout: 2000 });
+
+      expect(screen.queryByText(/Genre:/i)).not.toBeInTheDocument();
     });
 
     it('should display track count', async () => {
@@ -262,8 +279,12 @@ describe('AlbumDetailView', () => {
       );
 
       await waitFor(() => {
+        // TrackPlayIndicator renders `{trackNumber || index + 1}`
+        // (TrackPlayIndicator.tsx:39), so all three mock tracks are numbered.
+        // Was `>= 0 // Track numbers may be hidden`, true by construction and
+        // documenting nothing (#5136).
         const trackNumbers = screen.queryAllByText(/^[123]$/);
-        expect(trackNumbers.length).toBeGreaterThanOrEqual(0); // Track numbers may be hidden
+        expect(trackNumbers).toHaveLength(3);
       });
     });
 

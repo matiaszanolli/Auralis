@@ -75,8 +75,9 @@ describe('SettingsDialog', () => {
         <SettingsDialog open={true} onClose={vi.fn()} />
       );
 
+      // Was `>= 0`, true by construction for any array length (#5136).
       const closeButtons = screen.queryAllByRole('button', { name: /close/i });
-      expect(closeButtons.length).toBeGreaterThanOrEqual(0);
+      expect(closeButtons.length).toBeGreaterThan(0);
     });
   });
 
