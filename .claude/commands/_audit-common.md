@@ -55,7 +55,7 @@ Frontend Test Utils: auralis-web/frontend/src/test/          setup.ts, test-util
 Rust DSP:            vendor/auralis-dsp/                     PyO3 module, 19 src/*.rs. Exposes 11 functions via py_bindings.rs: hpss, yin, chroma_cqt, detect_tempo, envelope_follow, compress, limit, compute_fingerprint, apply_multiband_eq, detect_onsets, process_chunks. rhythm.rs/tempo.rs/onset_detector.rs were ported in when the standalone fingerprint-server was deleted (#4533).
 Desktop:             desktop/                                Electron wrapper
 Scripts:             scripts/                                Dev/release tooling — check_pytest_baseline.py, validate_release_metadata.py, run_all_tests.py, development/
-Tests:               tests/                                  ~6,271 test functions (540 files) across 19 dirs
+Tests:               tests/                                  ~6,289 test functions (541 files) across 19 dirs
 Audit Reports:       docs/audits/                            Generated audit reports
 Local Issue Cache:   .claude/issues/                         Issue snapshots (per audit-publish / fix-issue)
 Specialist Agents:   .claude/agents/                         dsp, backend, frontend, library specialists
@@ -91,13 +91,14 @@ Both suites carry a large pre-existing failure baseline, so a raw failure is **n
 | Suite | Baseline | Check | CI |
 |-------|----------|-------|-----|
 | Frontend (vitest) | `auralis-web/frontend/test-baseline.json` — an explicit list of known-failing specs (~165 of ~3,446 at last regen) | `pnpm run test:ci` then `pnpm run test:baseline` | `.github/workflows/frontend-test.yml` |
-| Backend (pytest) | *pytest-baseline.json* at the repo root — generate it with `scripts/check_pytest_baseline.py` if absent (it is not tracked yet) | `python scripts/check_pytest_baseline.py pytest-results.xml` | `.github/workflows/backend-tests.yml` |
+| Backend (pytest) | `pytest-baseline.json` at the repo root — tracked, 482 entries, regenerated 2026-08-14 (`f59b4901`) | `python scripts/check_pytest_baseline.py pytest-results.xml` | `.github/workflows/backend-tests.yml` |
 
 Rules:
 - **Read the baseline file before reporting any failing test.** If the spec is listed, it is known — do not file it.
 - Both gates are *ratchets*: the baseline may shrink, never grow. A newly-failing test not in the baseline is a genuine regression and worth a finding.
 - Regenerate rather than hand-edit: `pnpm run test:baseline:update`.
 - CI **does** now run vitest and pytest. Any audit note claiming "no CI runs the tests" is out of date.
+- `backend-tests.yml` is currently **red on every run**, and that is not the same as "the gate is broken" (#4974). The baseline file exists and the pytest step runs 6,901 selected tests; it is the *baseline-comparison* step that fails, on failures absent from the list. Read that step, not the pytest step. Do **not** report "the backend gate has never worked / the baseline is missing" — that was true through 2026-07 and is not now. #5091 tracks the opposite rot (69 entries whose tests now pass).
 - A worktree comparison (`git worktree add`, **never** `git stash`) is still the fallback when a baseline file is missing or you need to attribute a failure to a specific commit.
 
 ## Severity Framework

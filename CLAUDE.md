@@ -65,8 +65,14 @@ cd auralis-web/frontend && pnpm run test:ci && pnpm run test:baseline:update
 
 Generate a baseline from a **CI artifact**, not a local run — a baseline built
 against a different interpreter or dependency set reports spurious new failures.
-`pytest-baseline.json` does not exist yet, so `backend-tests.yml` cannot pass
-until one is generated from a real run.
+
+`pytest-baseline.json` **is tracked** (482 entries, regenerated 2026-08-14 in
+`f59b4901`) — the "it does not exist yet" note that stood here was true when
+written and is not any more (#4974). `backend-tests.yml` still fails, but on the
+ratchet doing its job rather than on a missing file: the ratchet rejects
+failures absent from the list. Read the failing run's *baseline* step, not the
+pytest step, to see which. #5091 tracks the converse rot — 69 entries whose
+tests now pass, which the ratchet cannot detect on its own.
 
 Do not add a `version:` input to `pnpm/action-setup`: every `package.json` here
 declares `packageManager`, and supplying both makes the action hard-error before
@@ -108,14 +114,18 @@ auralis/                          Core Python audio engine
 │   │                                 (track, album, artist, playlist, genre, stats,
 │   │                                 fingerprint, fingerprint_scheduler, fingerprint_stats,
 │   │                                 queue, queue_history, settings, similarity_graph)
-│   ├── scanner.py                  Folder scanning
+│   ├── scanner/                    Folder scanning (a package, not a module)
 │   └── migration_manager.py        DB migrations (schema v18)
 ├── io/                           Audio I/O
 │   ├── unified_loader.py           Unified loading (FFmpeg, SoundFile)
 │   └── results.py                  Output formats (pcm16, pcm24)
-├── optimization/                 Performance
-│   ├── parallel/                   Parallel audio processing (impl lives here)
-│   └── parallel_processor.py       Compatibility barrel re-exporting parallel/ (#4276)
+├── optimization/                 Performance — LIVE, not test-only (#5142)
+│   ├── performance_optimizer.py    get_performance_optimizer(); applied at import
+│   │                                 time by core/hybrid_processor.py
+│   ├── config.py
+│   └── acceleration/, caching/, memory/, profiling/
+│                                   (parallel/ + parallel_processor.py deleted #4565;
+│                                    NO rust_integration.py — see #5168)
 ├── services/                     Background services (fingerprint, artwork)
 ├── learning/                     Preference engine, reference analysis
 └── utils/                        Logging, helpers, preview creator
@@ -126,12 +136,16 @@ auralis-web/
 │   ├── routers/                    20 registered routers (player, library, albums,
 │   │                                 artists, playlists, enhancement, metadata,
 │   │                                 artwork, system, similarity, streaming...)
-│   ├── processing_engine.py        Audio processing orchestration
-│   ├── chunked_processor.py        15s chunks rendered w/ context, emitted as
-│   │                                 10s NON-overlapping segments (no crossfade)
-│   ├── audio_stream_controller.py  WebSocket audio streaming
+│   ├── core/                       Engine-facing layer. NOT top-level (#4627):
+│   │   ├── processing_engine.py      Audio processing orchestration
+│   │   ├── chunked_processor.py      15s chunks rendered w/ context, emitted as
+│   │   │                               10s NON-overlapping segments (no crossfade)
+│   │   ├── audio_stream_controller.py  WebSocket audio streaming
+│   │   ├── stream_*.py               normal/enhanced/seek streaming paths
+│   │   ├── chunk_boundaries.py       Sole chunk-geometry authority
+│   │   └── executors.py              Streaming + I/O thread pools (#5086)
 │   ├── schemas.py                  Request/response schemas
-│   └── services/, core/, config/   Service layer, encoding, config
+│   └── services/, config/          Service layer, startup/config
 └── frontend/                     React 18 + TypeScript + Vite + Redux
     └── src/
         ├── components/               UI components
@@ -144,7 +158,7 @@ auralis-web/
 
 vendor/auralis-dsp/               Rust DSP via PyO3 (HPSS, YIN, Chroma)
 desktop/                          Electron wrapper
-tests/                            ~6,271 test functions (540 files) across 19 subdirs (unit, integration,
+tests/                            ~6,289 test functions (541 files) across 19 subdirs (unit, integration,
                                     boundary, concurrency, security, load, regression...)
 docs/                             18 topic dirs (development, features, frontend...)
 ```
