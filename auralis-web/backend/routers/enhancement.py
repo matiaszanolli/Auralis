@@ -24,6 +24,7 @@ from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException, Query
 
+from .dependencies import with_error_handling
 from .errors import NotFoundError
 from pydantic import BaseModel, field_validator
 
@@ -234,6 +235,7 @@ def create_enhancement_router(
             logger.error(f"❌ Background chunk pre-processing failed: {e}")
 
     @router.post("/api/player/enhancement/toggle", response_model=EnhancementSettingsResponse)
+    @with_error_handling("toggle enhancement")
     async def toggle_enhancement(body: ToggleEnhancementRequest) -> dict[str, Any]:
         """
         Enable or disable real-time audio enhancement.
@@ -250,54 +252,51 @@ def create_enhancement_router(
         Raises:
             HTTPException: If toggling fails
         """
-        try:
-            enhancement_settings = get_enhancement_settings()
-            enabled = body.enabled
-            enhancement_settings["enabled"] = enabled
+        enhancement_settings = get_enhancement_settings()
+        enabled = body.enabled
+        enhancement_settings["enabled"] = enabled
 
-            # If enabling enhancement mid-playback, pre-process upcoming chunks in background
-            if enabled and get_player_state_manager is not None:
-                player_state_manager = get_player_state_manager()
-                if player_state_manager:
-                    state = player_state_manager.get_state()
-                    # Only pre-process if actively playing
-                    if state.current_track and state.state.value == "playing":
-                        # Launch background task to pre-process next 3 chunks (#2296).
-                        # Use the canonical fire-and-forget helper so an exception
-                        # escaping the coroutine is logged consistently with the
-                        # other long-lived background tasks (#3851 / sibling of #3512).
-                        spawn_background_task(
-                            _preprocess_upcoming_chunks(
-                                track_id=state.current_track.id,
-                                filepath=state.current_track.filepath,
-                                current_time=state.current_time,
-                                preset=enhancement_settings.get("preset", "adaptive"),
-                                intensity=enhancement_settings.get("intensity", 1.0)
-                            ),
-                            name="enhancement._preprocess_upcoming_chunks",
-                        )
-                        logger.info(f"🎯 Launched background pre-processing for track {state.current_track.id} at {state.current_time:.1f}s")
+        # If enabling enhancement mid-playback, pre-process upcoming chunks in background
+        if enabled and get_player_state_manager is not None:
+            player_state_manager = get_player_state_manager()
+            if player_state_manager:
+                state = player_state_manager.get_state()
+                # Only pre-process if actively playing
+                if state.current_track and state.state.value == "playing":
+                    # Launch background task to pre-process next 3 chunks (#2296).
+                    # Use the canonical fire-and-forget helper so an exception
+                    # escaping the coroutine is logged consistently with the
+                    # other long-lived background tasks (#3851 / sibling of #3512).
+                    spawn_background_task(
+                        _preprocess_upcoming_chunks(
+                            track_id=state.current_track.id,
+                            filepath=state.current_track.filepath,
+                            current_time=state.current_time,
+                            preset=enhancement_settings.get("preset", "adaptive"),
+                            intensity=enhancement_settings.get("intensity", 1.0)
+                        ),
+                        name="enhancement._preprocess_upcoming_chunks",
+                    )
+                    logger.info(f"🎯 Launched background pre-processing for track {state.current_track.id} at {state.current_time:.1f}s")
 
-            # Broadcast to all clients
-            await connection_manager.broadcast({
-                "type": "enhancement_settings_changed",
-                "data": {
-                    "enabled": enabled,
-                    "preset": enhancement_settings["preset"],
-                    "intensity": enhancement_settings["intensity"]
-                }
-            })
-
-            logger.info(f"Enhancement {'enabled' if enabled else 'disabled'}")
-            return {
-                "message": f"Enhancement {'enabled' if enabled else 'disabled'}",
-                "settings": enhancement_settings
+        # Broadcast to all clients
+        await connection_manager.broadcast({
+            "type": "enhancement_settings_changed",
+            "data": {
+                "enabled": enabled,
+                "preset": enhancement_settings["preset"],
+                "intensity": enhancement_settings["intensity"]
             }
-        except Exception as e:
-            logger.error(f"Failed to toggle enhancement: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail="Failed to toggle enhancement")
+        })
+
+        logger.info(f"Enhancement {'enabled' if enabled else 'disabled'}")
+        return {
+            "message": f"Enhancement {'enabled' if enabled else 'disabled'}",
+            "settings": enhancement_settings
+        }
 
     @router.post("/api/player/enhancement/preset", response_model=EnhancementSettingsResponse)
+    @with_error_handling("change preset")
     async def set_enhancement_preset(body: SetPresetRequest) -> dict[str, Any]:
         """
         Change the enhancement preset.
@@ -311,53 +310,50 @@ def create_enhancement_router(
         Raises:
             HTTPException: If preset is invalid or change fails
         """
-        try:
-            preset = body.preset  # already validated and lowercased by SetPresetRequest
-            enhancement_settings = get_enhancement_settings()
-            old_preset = enhancement_settings.get("preset")
-            enhancement_settings["preset"] = preset
+        preset = body.preset  # already validated and lowercased by SetPresetRequest
+        enhancement_settings = get_enhancement_settings()
+        old_preset = enhancement_settings.get("preset")
+        enhancement_settings["preset"] = preset
 
-            # Update multi-tier buffer manager for branch prediction learning
-            if get_multi_tier_buffer and get_player_state_manager and old_preset != preset:
-                buffer_manager = get_multi_tier_buffer()
-                player_state_manager = get_player_state_manager()
-                if buffer_manager and player_state_manager:
-                    state = player_state_manager.get_state()
-                    # Only update if we have a current track
-                    if state.current_track:
-                        await buffer_manager.update_position(
-                            track_id=state.current_track.id,
-                            position=state.current_time,
-                            preset=preset,
-                            intensity=enhancement_settings["intensity"]
-                        )
-                        logger.info(f"🎯 Buffer manager learned preset switch: {old_preset} → {preset}")
+        # Update multi-tier buffer manager for branch prediction learning
+        if get_multi_tier_buffer and get_player_state_manager and old_preset != preset:
+            buffer_manager = get_multi_tier_buffer()
+            player_state_manager = get_player_state_manager()
+            if buffer_manager and player_state_manager:
+                state = player_state_manager.get_state()
+                # Only update if we have a current track
+                if state.current_track:
+                    await buffer_manager.update_position(
+                        track_id=state.current_track.id,
+                        position=state.current_time,
+                        preset=preset,
+                        intensity=enhancement_settings["intensity"]
+                    )
+                    logger.info(f"🎯 Buffer manager learned preset switch: {old_preset} → {preset}")
 
-            # NOTE: We keep the old preset cached for instant toggling back
-            # Proactive buffering will handle caching the new preset in background
-            # This prevents the 2-5s delay when switching presets
-            logger.info(f"⚡ Preset switched instantly: {old_preset} → {preset} (cache preserved)")
+        # NOTE: We keep the old preset cached for instant toggling back
+        # Proactive buffering will handle caching the new preset in background
+        # This prevents the 2-5s delay when switching presets
+        logger.info(f"⚡ Preset switched instantly: {old_preset} → {preset} (cache preserved)")
 
-            # Broadcast to all clients
-            await connection_manager.broadcast({
-                "type": "enhancement_settings_changed",
-                "data": {
-                    "preset": preset,
-                    "enabled": enhancement_settings["enabled"],
-                    "intensity": enhancement_settings["intensity"]
-                }
-            })
-
-            logger.info(f"Enhancement preset changed to: {preset}")
-            return {
-                "message": f"Preset changed to {preset}",
-                "settings": enhancement_settings
+        # Broadcast to all clients
+        await connection_manager.broadcast({
+            "type": "enhancement_settings_changed",
+            "data": {
+                "preset": preset,
+                "enabled": enhancement_settings["enabled"],
+                "intensity": enhancement_settings["intensity"]
             }
-        except Exception as e:
-            logger.error(f"Failed to change preset: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail="Failed to change preset")
+        })
+
+        logger.info(f"Enhancement preset changed to: {preset}")
+        return {
+            "message": f"Preset changed to {preset}",
+            "settings": enhancement_settings
+        }
 
     @router.post("/api/player/enhancement/intensity", response_model=EnhancementSettingsResponse)
+    @with_error_handling("set intensity")
     async def set_enhancement_intensity(body: SetIntensityRequest) -> dict[str, Any]:
         """
         Adjust the enhancement intensity.
@@ -371,51 +367,48 @@ def create_enhancement_router(
         Raises:
             HTTPException: If intensity change fails
         """
-        try:
-            intensity = body.intensity  # already clamped by SetIntensityRequest
-            enhancement_settings = get_enhancement_settings()
-            old_intensity = enhancement_settings.get("intensity")
-            enhancement_settings["intensity"] = intensity
+        intensity = body.intensity  # already clamped by SetIntensityRequest
+        enhancement_settings = get_enhancement_settings()
+        old_intensity = enhancement_settings.get("intensity")
+        enhancement_settings["intensity"] = intensity
 
-            preset = enhancement_settings.get("preset", "adaptive")
+        preset = enhancement_settings.get("preset", "adaptive")
 
-            # Notify multi-tier buffer manager so pre-buffered chunks at the old
-            # intensity are replaced — mirrors the same call in set_enhancement_preset
-            # (fixes #2504).
-            if get_multi_tier_buffer and get_player_state_manager and old_intensity != intensity:
-                buffer_manager = get_multi_tier_buffer()
-                player_state_manager = get_player_state_manager()
-                if buffer_manager and player_state_manager:
-                    state = player_state_manager.get_state()
-                    if state.current_track:
-                        await buffer_manager.update_position(
-                            track_id=state.current_track.id,
-                            position=state.current_time,
-                            preset=preset,
-                            intensity=intensity
-                        )
-                        logger.info(f"🎯 Buffer manager updated for intensity switch: {old_intensity} → {intensity}")
+        # Notify multi-tier buffer manager so pre-buffered chunks at the old
+        # intensity are replaced — mirrors the same call in set_enhancement_preset
+        # (fixes #2504).
+        if get_multi_tier_buffer and get_player_state_manager and old_intensity != intensity:
+            buffer_manager = get_multi_tier_buffer()
+            player_state_manager = get_player_state_manager()
+            if buffer_manager and player_state_manager:
+                state = player_state_manager.get_state()
+                if state.current_track:
+                    await buffer_manager.update_position(
+                        track_id=state.current_track.id,
+                        position=state.current_time,
+                        preset=preset,
+                        intensity=intensity
+                    )
+                    logger.info(f"🎯 Buffer manager updated for intensity switch: {old_intensity} → {intensity}")
 
-            # Broadcast to all clients
-            await connection_manager.broadcast({
-                "type": "enhancement_settings_changed",
-                "data": {
-                    "intensity": intensity,
-                    "enabled": enhancement_settings["enabled"],
-                    "preset": enhancement_settings["preset"]
-                }
-            })
-
-            logger.info(f"Enhancement intensity changed to: {intensity}")
-            return {
-                "message": f"Intensity set to {intensity}",
-                "settings": enhancement_settings
+        # Broadcast to all clients
+        await connection_manager.broadcast({
+            "type": "enhancement_settings_changed",
+            "data": {
+                "intensity": intensity,
+                "enabled": enhancement_settings["enabled"],
+                "preset": enhancement_settings["preset"]
             }
-        except Exception as e:
-            logger.error(f"Failed to set intensity: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail="Failed to set intensity")
+        })
+
+        logger.info(f"Enhancement intensity changed to: {intensity}")
+        return {
+            "message": f"Intensity set to {intensity}",
+            "settings": enhancement_settings
+        }
 
     @router.get("/api/player/enhancement/status", response_model=EnhancementSettings)
+    @with_error_handling("get enhancement status")
     async def get_enhancement_status() -> dict[str, Any]:
         """
         Get current enhancement settings.
@@ -423,16 +416,13 @@ def create_enhancement_router(
         Returns:
             dict: Current enhancement settings (enabled, preset, intensity)
         """
-        try:
-            return get_enhancement_settings()
-        except Exception as e:
-            logger.error("Failed to get enhancement status", exc_info=True)
-            raise HTTPException(status_code=500, detail="Failed to get enhancement status") from e
+        return get_enhancement_settings()
 
     @router.get(
         "/api/player/mastering/recommendation/{track_id}",
         response_model=MasteringRecommendationResponse,
     )
+    @with_error_handling("generate mastering recommendation")
     async def get_mastering_recommendation(
         track_id: int,
         confidence_threshold: float = Query(
@@ -526,9 +516,6 @@ def create_enhancement_router(
 
         except HTTPException:
             raise
-        except Exception as e:
-            logger.error(f"Failed to generate mastering recommendation for track {track_id}: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail="Analysis failed")
 
     # Moved to routers/processing_api.py (#5073): GET /api/processing/parameters
     # was owned by this router but registered unconditionally, unlike its 8

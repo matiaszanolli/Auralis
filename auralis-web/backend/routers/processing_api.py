@@ -221,6 +221,7 @@ def create_processing_router(
     router = APIRouter(prefix="/api/processing", tags=["audio-processing"])
 
     @router.post("/process", response_model=ProcessResponse)
+    @with_error_handling("submit processing job")
     async def process_audio(request: ProcessRequest) -> ProcessResponse:
         """
         Submit an audio file for processing.
@@ -282,14 +283,15 @@ def create_processing_router(
                 message="Processing job submitted successfully"
             )
 
+        # @with_error_handling maps anything else — notably OperationalError
+        # -> retryable 503 (#4605). This arm is kept only so the try: stays
+        # valid without re-indenting the whole body.
         except HTTPException:
             raise
-        except Exception as e:
-            logger.error(f"Failed to submit processing job: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail="Failed to submit processing job")
 
 
     @router.post("/upload-and-process", response_model=ProcessResponse)
+    @with_error_handling("upload and process")
     async def upload_and_process(
         file: UploadFile = File(...),
         settings: str = Form(...)  # JSON string of ProcessingSettings
@@ -378,11 +380,9 @@ def create_processing_router(
                 input_path.unlink(missing_ok=True)
                 raise
 
+        # See the note on process_audio above (#4605).
         except HTTPException:
             raise
-        except Exception as e:
-            logger.error(f"Failed to upload and process: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail="Failed to upload and process")
 
 
     @router.get("/job/{job_id}", response_model=JobStatusResponse)

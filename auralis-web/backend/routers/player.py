@@ -35,6 +35,7 @@ from collections.abc import Callable
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 
+from .dependencies import with_error_handling
 from .errors import NotFoundError, raise_for_service_error
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from player_state import PlayerState, TrackInfo
@@ -329,6 +330,7 @@ def create_player_router(
     # ============================================================================
 
     @router.get("/api/player/status", response_model=PlayerState)
+    @with_error_handling("get player status")
     async def get_player_status() -> dict[str, Any]:
         """
         Get current player status (single source of truth).
@@ -344,11 +346,9 @@ def create_player_router(
             return await service.get_status()
         except ValueError as e:
             raise HTTPException(status_code=503, detail=str(e))
-        except Exception:
-            logger.error("Failed to get player status", exc_info=True)
-            raise HTTPException(status_code=500, detail="Failed to get player status")
 
     @router.post("/api/player/load", response_model=LoadTrackResponse)
+    @with_error_handling("load track")
     async def load_track(request: LoadTrackRequest, background_tasks: BackgroundTasks) -> dict[str, Any]:
         """
         Load a track into the player (database-backed, prevents path traversal).
@@ -423,11 +423,9 @@ def create_player_router(
 
         except HTTPException:
             raise
-        except Exception:
-            logger.error("Failed to load track", exc_info=True)
-            raise HTTPException(status_code=500, detail="Failed to load track")
 
     @router.post("/api/player/seek", response_model=SeekResponse)
+    @with_error_handling("seek")
     async def seek_position(request: SeekRequest) -> dict[str, Any]:
         """
         Seek to position in seconds.
@@ -461,11 +459,9 @@ def create_player_router(
             return result
         except ValueError as e:
             raise HTTPException(status_code=503, detail=str(e))
-        except Exception:
-            logger.error("Failed to seek", exc_info=True)
-            raise HTTPException(status_code=500, detail="Failed to seek")
 
     @router.post("/api/player/volume", response_model=VolumeResponse)
+    @with_error_handling("set volume")
     async def set_volume(body: SetVolumeRequest) -> dict[str, Any]:
         """
         Set playback volume.
@@ -489,15 +485,13 @@ def create_player_router(
             return result
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
-        except Exception:
-            logger.error("Failed to set volume", exc_info=True)
-            raise HTTPException(status_code=500, detail="Failed to set volume")
 
     # ============================================================================
     # QUEUE ENDPOINTS
     # ============================================================================
 
     @router.get("/api/player/queue", response_model=QueueInfoResponse)
+    @with_error_handling("get queue")
     async def get_queue() -> dict[str, Any]:
         """Get current playback queue."""
         try:
@@ -505,11 +499,9 @@ def create_player_router(
             return await service.get_queue_info()
         except ValueError as e:
             raise_for_service_error(e, "get queue")
-        except Exception:
-            logger.error("Failed to get queue", exc_info=True)
-            raise HTTPException(status_code=500, detail="Failed to get queue")
 
     @router.post("/api/player/queue", response_model=SetQueueResponse)
+    @with_error_handling("set queue")
     async def set_queue(request: SetQueueRequest) -> dict[str, Any]:
         """Set the playback queue (updates single source of truth)."""
         try:
@@ -517,9 +509,6 @@ def create_player_router(
             return await service.set_queue(request.tracks, request.start_index)
         except ValueError as e:
             raise_for_service_error(e, "set queue")
-        except Exception:
-            logger.error("Failed to set queue", exc_info=True)
-            raise HTTPException(status_code=500, detail="Failed to set queue")
 
     # ============================================================================
     # QUEUE HISTORY / UNDO ENDPOINTS (#3805)
@@ -533,6 +522,7 @@ def create_player_router(
     # ============================================================================
 
     @router.get("/api/player/queue/history", response_model=QueueHistoryListResponse)
+    @with_error_handling("get queue history")
     async def get_queue_history(limit: int = Query(20, ge=1, le=100)) -> dict[str, Any]:
         """Get recent queue-operation history entries (newest first)."""
         try:
@@ -542,11 +532,9 @@ def create_player_router(
             return {"history": history, "count": len(history)}
         except HTTPException:
             raise
-        except Exception:
-            logger.error("Failed to get queue history", exc_info=True)
-            raise HTTPException(status_code=500, detail="Failed to get queue history")
 
     @router.post("/api/player/queue/history", response_model=QueueHistoryEntryResponse)
+    @with_error_handling("record queue history")
     async def record_queue_history(request: RecordQueueHistoryRequest) -> dict[str, Any]:
         """Record a queue-state snapshot to history, for later undo."""
         try:
@@ -562,11 +550,9 @@ def create_player_router(
             raise
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
-        except Exception:
-            logger.error("Failed to record queue history", exc_info=True)
-            raise HTTPException(status_code=500, detail="Failed to record queue history")
 
     @router.post("/api/player/queue/undo", response_model=UndoQueueResponse)
+    @with_error_handling("undo queue operation")
     async def undo_queue_operation() -> dict[str, Any]:
         """Undo the last recorded queue operation.
 
@@ -618,11 +604,9 @@ def create_player_router(
             raise
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
-        except Exception:
-            logger.error("Failed to undo queue operation", exc_info=True)
-            raise HTTPException(status_code=500, detail="Failed to undo queue operation")
 
     @router.delete("/api/player/queue/history", response_model=MessageResponse)
+    @with_error_handling("clear queue history")
     async def clear_queue_history() -> dict[str, Any]:
         """Clear all queue history entries."""
         try:
@@ -631,11 +615,9 @@ def create_player_router(
             return {"message": "Queue history cleared"}
         except HTTPException:
             raise
-        except Exception:
-            logger.error("Failed to clear queue history", exc_info=True)
-            raise HTTPException(status_code=500, detail="Failed to clear queue history")
 
     @router.delete("/api/player/queue/{index}", response_model=RemoveFromQueueResponse)
+    @with_error_handling("remove from queue")
     async def remove_from_queue(index: int) -> dict[str, Any]:
         """Remove track from queue at specified index."""
         try:
@@ -643,11 +625,9 @@ def create_player_router(
             return await service.remove_track_from_queue(index)
         except ValueError as e:
             raise_for_service_error(e, "remove from queue")
-        except Exception:
-            logger.error("Failed to remove from queue", exc_info=True)
-            raise HTTPException(status_code=500, detail="Failed to remove from queue")
 
     @router.put("/api/player/queue/reorder", response_model=QueueSizeResponse)
+    @with_error_handling("reorder queue")
     async def reorder_queue(request: ReorderQueueRequest) -> dict[str, Any]:
         """Reorder the playback queue."""
         try:
@@ -655,11 +635,9 @@ def create_player_router(
             return await service.reorder_queue(request.new_order)
         except ValueError as e:
             raise_for_service_error(e, "reorder queue")
-        except Exception:
-            logger.error("Failed to reorder queue", exc_info=True)
-            raise HTTPException(status_code=500, detail="Failed to reorder queue")
 
     @router.post("/api/player/queue/clear", response_model=MessageResponse)
+    @with_error_handling("clear queue")
     async def clear_queue() -> dict[str, Any]:
         """Clear the entire playback queue."""
         try:
@@ -667,11 +645,9 @@ def create_player_router(
             return await service.clear_queue()
         except ValueError as e:
             raise_for_service_error(e, "clear queue")
-        except Exception:
-            logger.error("Failed to clear queue", exc_info=True)
-            raise HTTPException(status_code=500, detail="Failed to clear queue")
 
     @router.post("/api/player/queue/add-track", response_model=AddTrackToQueueResponse)
+    @with_error_handling("add track to queue")
     async def add_track_to_queue(request: AddTrackToQueueRequest) -> dict[str, Any]:
         """Add a track to queue at specific position (for drag-and-drop)."""
         try:
@@ -679,11 +655,9 @@ def create_player_router(
             return await service.add_track_to_queue(request.track_id, request.position)
         except ValueError as e:
             raise_for_service_error(e, "add track to queue")
-        except Exception:
-            logger.error("Failed to add track to queue", exc_info=True)
-            raise HTTPException(status_code=500, detail="Failed to add track to queue")
 
     @router.put("/api/player/queue/move", response_model=MoveQueueTrackResponse)
+    @with_error_handling("move track")
     async def move_queue_track(request: MoveQueueTrackRequest) -> dict[str, Any]:
         """Move a track within the queue (for drag-and-drop)."""
         try:
@@ -691,11 +665,9 @@ def create_player_router(
             return await service.move_track_in_queue(request.from_index, request.to_index)
         except ValueError as e:
             raise_for_service_error(e, "move track")
-        except Exception:
-            logger.error("Failed to move track", exc_info=True)
-            raise HTTPException(status_code=500, detail="Failed to move track")
 
     @router.post("/api/player/queue/shuffle", response_model=QueueSizeResponse)
+    @with_error_handling("shuffle queue")
     async def shuffle_queue(request: ShuffleRequest) -> dict[str, Any]:
         """Shuffle or unshuffle the playback queue."""
         try:
@@ -706,11 +678,9 @@ def create_player_router(
                 return await service.unshuffle_queue()
         except ValueError as e:
             raise_for_service_error(e, "shuffle queue")
-        except Exception:
-            logger.error("Failed to shuffle queue", exc_info=True)
-            raise HTTPException(status_code=500, detail="Failed to shuffle queue")
 
     @router.post("/api/player/queue/repeat", response_model=MessageResponse)
+    @with_error_handling("set repeat mode")
     async def set_repeat_mode(request: RepeatModeRequest) -> dict[str, Any]:
         """Set the playback repeat mode (off, all, one)."""
         try:
@@ -731,15 +701,13 @@ def create_player_router(
             return {"message": f"Repeat mode set to {request.mode}"}
         except ValueError as e:
             raise_for_service_error(e, "set repeat mode")
-        except Exception:
-            logger.error("Failed to set repeat mode", exc_info=True)
-            raise HTTPException(status_code=500, detail="Failed to set repeat mode")
 
     # ============================================================================
     # NAVIGATION ENDPOINTS
     # ============================================================================
 
     @router.post("/api/player/next", response_model=MessageResponse)
+    @with_error_handling("skip track")
     async def next_track() -> dict[str, Any]:
         """Skip to next track."""
         try:
@@ -747,11 +715,9 @@ def create_player_router(
             return await service.next_track()
         except ValueError as e:
             raise HTTPException(status_code=503, detail=str(e))
-        except Exception:
-            logger.error("Failed to skip track", exc_info=True)
-            raise HTTPException(status_code=500, detail="Failed to skip track")
 
     @router.post("/api/player/previous", response_model=MessageResponse)
+    @with_error_handling("skip track")
     async def previous_track() -> dict[str, Any]:
         """Skip to previous track."""
         try:
@@ -759,8 +725,5 @@ def create_player_router(
             return await service.previous_track()
         except ValueError as e:
             raise HTTPException(status_code=503, detail=str(e))
-        except Exception:
-            logger.error("Failed to skip track", exc_info=True)
-            raise HTTPException(status_code=500, detail="Failed to skip track")
 
     return router
