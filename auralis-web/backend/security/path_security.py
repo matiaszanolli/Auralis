@@ -82,9 +82,12 @@ def get_allowed_directories() -> list[Path]:
     Returns:
         List of allowed directory paths
 
-    Note:
-        In production, this should read from configuration.
-        For now, we default to user's home directory and standard music folders.
+    The allow-list is DEFAULT_ALLOWED_DIRS (home plus the standard music
+    folders) widened by two configured sources: XDG_MUSIC_DIR, and the scan
+    folders registered at runtime into _extra_allowed_dirs. Startup seeds the
+    latter from the settings-backed scan-folder allowlist, so this list is
+    already configuration-driven — it is not a hardcoded stand-in awaiting one
+    (#5145). Non-existent entries are dropped rather than resolved.
     """
     allowed_dirs = DEFAULT_ALLOWED_DIRS.copy()
 
