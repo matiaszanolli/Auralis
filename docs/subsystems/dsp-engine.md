@@ -24,7 +24,7 @@ There are **two independent top-level engines**. They share the core invariants
 | **Offline / batch file master** | `SimpleMasteringPipeline` | [`auralis/core/simple_mastering.py:40`](../../auralis/core/simple_mastering.py) | CLI / batch file mastering |
 
 There is no third path. A legacy Matchering-derived reference matcher
-(`auralis/dsp/stages.py::main()`) used to sit alongside these, exported as
+(*auralis/dsp/stages.py::main()*) used to sit alongside these, exported as
 `auralis.dsp.main`; #4867 deleted it after confirming it had no caller in the
 app, the offline CLI, the scripts, or any test. A `RealtimeDSPPipeline` mode
 also used to exist; #4873 deleted it — see [§ Deleted paths](#deleted-paths).
@@ -338,8 +338,8 @@ move on each.
 
 | Path | Removed by | Why not wired up instead |
 |---|---|---|
-| `RealtimeDSPPipeline` + `RealtimeAdaptiveEQ` + `AdaptiveLimiter` (`auralis/dsp/realtime_adaptive_eq/`, `auralis/core/processing/realtime_dsp_pipeline.py`, `auralis/core/hybrid/realtime_manager.py`, `auralis/dsp/dynamics/limiter.py`) | #4873 | Its EQ applied block FFT gain with **no window and no overlap-add** (#4615) — never WOLA-safe, so it could not simply be switched on. See the COLA constraint above. |
-| `auralis/dsp/stages.py::main()`, exported as `auralis.dsp.main` | #4867 | A Matchering-2.0-lineage reference matcher with zero callers in the app, the offline CLI, the scripts, or any test. Its only would-be test imported three class names that never existed in the file, so it skipped on every run. |
+| `RealtimeDSPPipeline` + `RealtimeAdaptiveEQ` + `AdaptiveLimiter` (*auralis/dsp/realtime_adaptive_eq/*, *auralis/core/processing/realtime_dsp_pipeline.py*, *auralis/core/hybrid/realtime_manager.py*, *auralis/dsp/dynamics/limiter.py*) | #4873 | Its EQ applied block FFT gain with **no window and no overlap-add** (#4615) — never WOLA-safe, so it could not simply be switched on. See the COLA constraint above. |
+| *auralis/dsp/stages.py::main()*, exported as `auralis.dsp.main` | #4867 | A Matchering-2.0-lineage reference matcher with zero callers in the app, the offline CLI, the scripts, or any test. Its only would-be test imported three class names that never existed in the file, so it skipped on every run. |
 
 Deleting the realtime pipeline left `HybridProcessor.dynamics_processor` with no
 `process()` caller — it survives only behind `reset_dynamics()` /

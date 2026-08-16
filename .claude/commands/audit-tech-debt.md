@@ -65,7 +65,14 @@ Default every tech-debt finding to LOW unless one of the above fires. Do **not**
 4. Scan `docs/audits/` for prior tech-debt reports (`AUDIT_TECH_DEBT_*.md`).
 5. Run the path-reference gate so Dim 7 / Dim 10 can treat its output as pre-confirmed findings:
    ```bash
-   .claude/commands/_audit-validate.sh || true   # STALE lines → auto-eligible Dim 7/10 findings (effort: trivial)
+   # Exit 0 = clean. Exit 1 = a STRICT-scope stale ref (.claude/** or the
+   # authoritative docs) — always a real regression, report it. Exit 2 = a
+   # docs/ ref beyond the ratchet baseline — also a real regression.
+   # Both are auto-eligible Dim 7/10 findings (effort: trivial).
+   # `|| true` only keeps the audit running past a non-zero exit; do not use
+   # it to ignore the output (#5144 — that suppression is why the gate caught
+   # nothing for a week).
+   .claude/commands/_audit-validate.sh; echo "gate exit: $?"
    ```
 6. Snapshot current totals as a baseline (so the report can show direction and the next run can diff).
 

@@ -1,0 +1,53 @@
+name: Path References
+
+# #5144: .claude/commands/_audit-validate.sh exists to stop stale-path drift
+# after module splits and renames, but it was wired into no workflow at all and
+# its only call site suppressed the exit code with `|| true`. It had therefore
+# exited 1 on every run since #4984 widened it to docs/ (310 stale refs on day
+# one) while nothing observed the failure.
+#
+# The script now has two scopes, and this job enforces both:
+#
+#   exit 1 — a stale ref in .claude/** or the authoritative docs (CLAUDE.md,
+#            README.md, WEBSOCKET_API.md, docs/architecture, docs/subsystems,
+#            docs/README). That set is clean and must stay clean.
+#   exit 2 — a docs/ ref beyond .claude/commands/_audit-validate-baseline.txt.
+#            That baseline is a shrink-only ratchet, the same shape as
+#            pytest-baseline.json and frontend/test-baseline.json.
+#
+# Unlike those two test ratchets, this gate's own step decides the job: the
+# script's exit code IS the verdict, so there is no separate baseline step to
+# read. A red run here means a path reference was added or broken by the diff.
+#
+# To clear a legitimate removal, fix the ref or de-backtick it — a path that no
+# longer exists is written in *italics* (see the convention note in the script
+# header). Absorbing a new failure with --update-baseline is not the fix; the
+# baseline may shrink, never grow.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  path-references:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Validate path references
+        run: |
+          set -uo pipefail
+          .claude/commands/_audit-validate.sh
+          status=$?
+
+          case "$status" in
+            0) echo "::notice::Path references OK." ;;
+            1) echo "::error::Stale path reference in .claude/** or the authoritative docs. Fix the ref, or write it in *italics* if the target was deleted." ;;
+            2) echo "::error::New stale docs/ path reference beyond the ratchet baseline. Fix it — do not absorb it with --update-baseline." ;;
+            *) echo "::error::Path-reference gate failed to run (exit $status)." ;;
+          esac
+          exit "$status"

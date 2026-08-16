@@ -141,6 +141,23 @@ Backticked file/dir paths in any `audit-*.md` skill (or this file) **must resolv
 - Placeholder tokens containing `<` or `>` (per-finding format templates) are skipped.
 - Run `.claude/commands/_audit-validate.sh` before committing edits to any audit skill.
 
+**Two scopes (#5144).** The gate is red-by-default over the whole docs tree —
+it found 310 stale refs the day #4984 widened it — so it is split into a strict
+half and a ratchet half, and its exit code says which failed:
+
+| Exit | Scope | Meaning |
+|---|---|---|
+| 0 | — | Strict clean, ratchet at or below baseline. |
+| 1 | `.claude/**`, `CLAUDE.md`, `README.md`, `auralis-web/backend/WEBSOCKET_API.md`, `docs/architecture/`, `docs/subsystems/`, `docs/README.md` | A stale ref in the authoritative set. Always a regression. |
+| 2 | the rest of the current `docs/` tree | A ref not in `.claude/commands/_audit-validate-baseline.txt`. Also a regression. |
+
+`.github/workflows/path-references.yml` enforces both on every push and PR.
+The baseline is a **shrink-only ratchet** like `pytest-baseline.json`: fix a
+listed ref and regenerate with `_audit-validate.sh --update-baseline`, but
+never use that flag to absorb a new failure. A docs file leaves the ratchet and
+joins the strict list by being cleaned up and relisted in the script — that is
+the intended direction of travel.
+
 ## Specialist Agents
 
 For complex investigations, the orchestrator audits (`audit-engine`, `audit-backend`, `audit-frontend`, `audit-integration`) may delegate to specialists in `.claude/agents/`:
