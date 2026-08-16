@@ -53,7 +53,10 @@ auralis/
 ├── player/                     enhanced_audio_player, gapless engine, queue_controller
 ├── services/                   Background: fingerprint_queue, fingerprint_extractor, artwork
 ├── learning/                   Preference engine, reference analysis
-├── optimization/               parallel_processor
+├── optimization/               performance_optimizer (LIVE — applied at import time by
+│                                 core/hybrid_processor.py), acceleration/, caching/,
+│                                 memory/, profiling/, config.py. parallel_processor +
+│                                 parallel/ were deleted (#4565); no rust_integration.py (#5168)
 └── utils/                      Logging, helpers, preview creator
 ```
 

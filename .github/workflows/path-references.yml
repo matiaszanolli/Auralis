@@ -51,3 +51,12 @@ jobs:
             *) echo "::error::Path-reference gate failed to run (exit $status)." ;;
           esac
           exit "$status"
+
+      # #5142: _audit-common.md's Optimization row tells auditors what severity
+      # to apply to findings in auralis/optimization/. It claimed the package
+      # had no production importers — false, and it suppressed findings in live
+      # DSP code. Stdlib-only and static on purpose, so it runs here without a
+      # dependency install; the dynamic counterpart is
+      # tests/test_optimization_is_live_5142.py in the backend suite.
+      - name: Verify the documented auralis/optimization/ importer set
+        run: python3 scripts/check_optimization_importers.py
