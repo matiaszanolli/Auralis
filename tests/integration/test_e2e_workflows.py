@@ -86,14 +86,14 @@ def test_add_track_complete_workflow(temp_library, sample_audio_file):
         'format': 'WAV',
     }
 
-    added_track = manager.add_track(track_info)
+    added_track = manager.repositories.tracks.add(track_info)
 
     assert added_track is not None, "Track should be added successfully"
     assert added_track.title == 'Test Track'
     assert added_track.filepath == sample_audio_file
 
     # Step 5: Retrieve track
-    tracks, total = manager.get_all_tracks(limit=10)
+    tracks, total = manager.repositories.tracks.get_all(limit=10)
 
     assert total == 1, "Should have exactly 1 track in library"
     assert tracks[0].id == added_track.id
@@ -115,7 +115,7 @@ def test_add_track_with_metadata_extraction(temp_library, sample_audio_file):
         'title': 'Auto-extracted Track',
     }
 
-    added_track = manager.add_track(track_info)
+    added_track = manager.repositories.tracks.add(track_info)
 
     # Verify extracted metadata
     assert added_track is not None
@@ -139,17 +139,17 @@ def test_add_track_prevents_duplicates(temp_library, sample_audio_file):
     }
 
     # Add first time
-    track1 = manager.add_track(track_info)
+    track1 = manager.repositories.tracks.add(track_info)
 
     # Add second time (same filepath)
-    track2 = manager.add_track(track_info)
+    track2 = manager.repositories.tracks.add(track_info)
 
     # Should either:
     # 1. Return existing track (no duplicate)
     # 2. Update existing track
     # 3. Raise error (explicit duplicate prevention)
 
-    tracks, total = manager.get_all_tracks(limit=10)
+    tracks, total = manager.repositories.tracks.get_all(limit=10)
 
     # Should have only 1 track (no duplicate)
     assert total == 1, f"Should have 1 track, got {total} (duplicate created!)"
@@ -171,10 +171,10 @@ def test_add_track_and_retrieve_by_artist(temp_library, sample_audio_file):
         'album': 'Test Album',
     }
 
-    added_track = manager.add_track(track_info)
+    added_track = manager.repositories.tracks.add(track_info)
 
     # Query by artist
-    artist_tracks = manager.get_tracks_by_artist('Unique Artist Name', limit=10)
+    artist_tracks = manager.repositories.tracks.get_by_artist('Unique Artist Name', limit=10)
 
     assert len(artist_tracks) == 1, "Should find track by artist"
     assert artist_tracks[0].id == added_track.id
@@ -196,10 +196,10 @@ def test_add_track_and_search(temp_library, sample_audio_file):
         'artists': ['Test Artist'],
     }
 
-    added_track = manager.add_track(track_info)
+    added_track = manager.repositories.tracks.add(track_info)
 
     # Search by title
-    results, total = manager.search_tracks('Searchable')
+    results, total = manager.repositories.tracks.search('Searchable')
 
     assert total == 1, "Search should find 1 track"
     assert results[0].id == added_track.id
@@ -570,7 +570,7 @@ def test_paginate_large_library_workflow(temp_library):
             'filepath': filepath,
             'title': f'Track {i:03d}',
         }
-        added = manager.add_track(track_info)
+        added = manager.repositories.tracks.add(track_info)
         track_ids.append(added.id)
 
     # Step 2 & 3: Paginate and verify
@@ -579,7 +579,7 @@ def test_paginate_large_library_workflow(temp_library):
     offset = 0
 
     while True:
-        tracks, total = manager.get_all_tracks(limit=page_size, offset=offset)
+        tracks, total = manager.repositories.tracks.get_all(limit=page_size, offset=offset)
 
         if not tracks:
             break
@@ -615,11 +615,11 @@ def test_pagination_preserves_order(temp_library):
             'filepath': filepath,
             'title': f'Z{i:02d}',  # Prefix to control sort order
         }
-        manager.add_track(track_info)
+        manager.repositories.tracks.add(track_info)
 
     # Retrieve in two pages
-    page1, _ = manager.get_all_tracks(limit=20, offset=0, order_by='title')
-    page2, _ = manager.get_all_tracks(limit=20, offset=20, order_by='title')
+    page1, _ = manager.repositories.tracks.get_all(limit=20, offset=0, order_by='title')
+    page2, _ = manager.repositories.tracks.get_all(limit=20, offset=20, order_by='title')
 
     # Verify ordering is consistent
     all_titles = [t.title for t in page1] + [t.title for t in page2]
@@ -649,12 +649,12 @@ def test_pagination_last_page_partial(temp_library):
             'filepath': filepath,
             'title': f'Track {i:02d}',
         }
-        manager.add_track(track_info)
+        manager.repositories.tracks.add(track_info)
 
     # Paginate
-    page1, total = manager.get_all_tracks(limit=20, offset=0)
-    page2, _ = manager.get_all_tracks(limit=20, offset=20)
-    page3, _ = manager.get_all_tracks(limit=20, offset=40)
+    page1, total = manager.repositories.tracks.get_all(limit=20, offset=0)
+    page2, _ = manager.repositories.tracks.get_all(limit=20, offset=20)
+    page3, _ = manager.repositories.tracks.get_all(limit=20, offset=40)
 
     assert total == num_tracks, f"Total should be {num_tracks}"
     assert len(page1) == 20, "Page 1 should have 20 items"
@@ -684,10 +684,10 @@ def test_pagination_with_filtering(temp_library):
             'title': f'Track {i:02d}',
             'artists': [artist],
         }
-        manager.add_track(track_info)
+        manager.repositories.tracks.add(track_info)
 
     # Filter by Artist A and paginate
-    artist_a_tracks = manager.get_tracks_by_artist('Artist A', limit=100)
+    artist_a_tracks = manager.repositories.tracks.get_by_artist('Artist A', limit=100)
 
     # Should have 15 tracks (half of 30)
     assert len(artist_a_tracks) == 15, \
@@ -714,11 +714,11 @@ def test_pagination_performance(temp_library):
             'filepath': filepath,
             'title': f'Track {i:03d}',
         }
-        manager.add_track(track_info)
+        manager.repositories.tracks.add(track_info)
 
     # Measure pagination performance
     start_time = time.time()
-    tracks, total = manager.get_all_tracks(limit=50, offset=0)
+    tracks, total = manager.repositories.tracks.get_all(limit=50, offset=0)
     elapsed = time.time() - start_time
 
     # Should be fast (< 500ms for 200 tracks)
@@ -754,10 +754,10 @@ def test_search_by_title_workflow(temp_library, sample_audio_file):
             'filepath': filepath,
             'title': title,
         }
-        manager.add_track(track_info)
+        manager.repositories.tracks.add(track_info)
 
     # Search for "Rock"
-    results, total = manager.search_tracks("Rock")
+    results, total = manager.repositories.tracks.search("Rock")
 
     assert total == 2, f"Should find 2 'Rock' tracks, found {total}"
     rock_titles = {t.title for t in results}
@@ -791,10 +791,10 @@ def test_search_by_artist_workflow(temp_library):
             'title': title,
             'artists': [artist],
         }
-        manager.add_track(track_info)
+        manager.repositories.tracks.add(track_info)
 
     # Search for "Beatles"
-    results, total = manager.search_tracks("Beatles")
+    results, total = manager.repositories.tracks.search("Beatles")
 
     assert total == 2, f"Should find 2 Beatles tracks, found {total}"
 
@@ -817,11 +817,11 @@ def test_search_case_insensitive(temp_library):
         'filepath': filepath,
         'title': 'RoCk SoNg',
     }
-    manager.add_track(track_info)
+    manager.repositories.tracks.add(track_info)
 
     # Search with different cases
     for query in ["rock", "ROCK", "Rock", "RoCk"]:
-        results, total = manager.search_tracks(query)
+        results, total = manager.repositories.tracks.search(query)
         assert total >= 1, f"Search '{query}' should find track (case-insensitive)"
 
 
@@ -839,10 +839,10 @@ def test_search_empty_query(temp_library, sample_audio_file):
         'filepath': sample_audio_file,
         'title': 'Test Track',
     }
-    manager.add_track(track_info)
+    manager.repositories.tracks.add(track_info)
 
     # Search with empty query
-    results, total = manager.search_tracks("")
+    results, total = manager.repositories.tracks.search("")
 
     # Either returns all tracks or returns nothing (both acceptable)
     assert total >= 0, "Empty search should not crash"
@@ -862,10 +862,10 @@ def test_search_no_results(temp_library, sample_audio_file):
         'filepath': sample_audio_file,
         'title': 'Known Track',
     }
-    manager.add_track(track_info)
+    manager.repositories.tracks.add(track_info)
 
     # Search for non-existent term
-    results, total = manager.search_tracks("NonExistentSearchTerm12345")
+    results, total = manager.repositories.tracks.search("NonExistentSearchTerm12345")
 
     assert total == 0, "Search with no matches should return 0"
     assert len(results) == 0, "Results list should be empty"
@@ -890,7 +890,7 @@ def test_add_track_without_artwork(temp_library, sample_audio_file):
     }
 
     # Should not crash
-    added_track = manager.add_track(track_info)
+    added_track = manager.repositories.tracks.add(track_info)
 
     assert added_track is not None
     # The track persists with its title even with no artwork (#4049).
@@ -920,7 +920,7 @@ def test_track_with_embedded_artwork(temp_library):
         'title': 'Artwork Track',
     }
 
-    added_track = manager.add_track(track_info)
+    added_track = manager.repositories.tracks.add(track_info)
 
     # Should add successfully even without artwork (#4049).
     assert added_track is not None
@@ -950,10 +950,10 @@ def test_album_artwork_shared(temp_library):
             'album': album_name,
             'artists': ['Test Artist'],  # Album creation requires artist
         }
-        manager.add_track(track_info)
+        manager.repositories.tracks.add(track_info)
 
     # Retrieve tracks
-    tracks, _ = manager.get_all_tracks(limit=10)
+    tracks, _ = manager.repositories.tracks.get_all(limit=10)
 
     # All tracks from same album should exist
     album_tracks = [t for t in tracks if t.album and t.album.title == album_name]
@@ -980,7 +980,7 @@ def test_artwork_file_not_found_handling(temp_library):
     }
 
     # Should not crash
-    added_track = manager.add_track(track_info)
+    added_track = manager.repositories.tracks.add(track_info)
     assert added_track is not None
     assert added_track.title == 'Missing Artwork Track'  # (#4049)
 
@@ -1002,11 +1002,11 @@ def test_update_track_artwork(temp_library, sample_audio_file):
         'title': 'Updatable Artwork Track',
     }
 
-    added_track = manager.add_track(track_info)
+    added_track = manager.repositories.tracks.add(track_info)
 
     # Update track (artwork would be updated via metadata)
     # This is a placeholder for actual artwork update logic
-    updated_track = manager.update_track(added_track.id, {
+    updated_track = manager.repositories.tracks.update(added_track.id, {
         'title': 'Updated Title',
     })
 
