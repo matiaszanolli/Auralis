@@ -20,8 +20,13 @@ from main import app
 
 @pytest.fixture
 def client():
-    """Test client for API requests"""
-    return TestClient(app)
+    """Test client for API requests.
+
+    Carries the #5089 Origin header for the same reason the shared conftest
+    fixture does: OriginCheckMiddleware rejects state-changing /api requests
+    with an empty Origin from TestClient's non-loopback 'testclient' host.
+    """
+    return TestClient(app, headers={"origin": "http://localhost:8765"})
 
 
 class TestProcessingParametersEndpoint:

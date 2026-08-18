@@ -92,9 +92,16 @@ class TestGetSimilarTracks:
 
         response = client.get("/api/similarity/tracks/1/similar")
 
-        # Should return 400 (no fingerprint) and queue for processing
-        assert response.status_code == 400
-        assert "fingerprint" in response.json()["detail"].lower()
+        # 404, not 400: #4630 moved this precondition into
+        # require_fingerprinted_tracks() (routers/similarity_common.py) so
+        # /similar, /compare and /explain could not drift apart again, and it
+        # signals a missing fingerprint with NotFoundError. The track is
+        # enqueued on the way out, so the condition repairs itself.
+        assert response.status_code == 404
+        # Assert the fingerprint-specific detail, not just "fingerprint":
+        # a nonexistent track is also a 404 ("Track 1 not found"), and these
+        # two causes are deliberately distinguished by the same helper.
+        assert "does not have a fingerprint" in response.json()["detail"]
 
     def test_get_similar_tracks_limit_parameter(self, client):
         """Test similar tracks with different limit values"""
@@ -300,12 +307,46 @@ class TestEnqueueTrack:
 
         assert response.status_code == 404
 
-    def test_enqueue_track_endpoint(self, client):
+    @patch('routers.fingerprint_queue.require_repository_factory')
+    def test_enqueue_track_endpoint(self, mock_require_repos, client, mock_repos):
         """Test enqueueing a track for fingerprinting"""
-        response = client.post("/api/similarity/fingerprint-queue/enqueue/1")
+        # This asserted 404 on the premise that "track 1 doesn't exist in the
+        # test library". The `client` fixture runs the real lifespan against
+        # the developer's real ~/.auralis/library.db, where track 1 generally
+        # does exist, so that premise was environment-dependent -- it went
+        # unnoticed only because the POST was rejected by the Origin-check
+        # middleware before it ever reached the route (#5089).
+        #
+        # Mock the repositories like the sibling test_enqueue_track_not_found
+        # above so the happy path is exercised deterministically, and mock the
+        # queue too: whether track 1 is *already* queued depends on what ran
+        # earlier in the session (a missing-fingerprint 404 from /similar
+        # enqueues it as a side effect), which would otherwise flip `reason`
+        # between "Added to queue" and "Already queued or processing". It also
+        # stops this test feeding the real background fingerprint worker.
+        mock_require_repos.return_value = mock_repos
 
-        # Track 1 doesn't exist in the test library
-        assert response.status_code == 404
+        mock_track = Mock()
+        mock_track.id = 1
+        mock_repos.tracks.get_by_id.return_value = mock_track
+        mock_repos.fingerprints.exists.return_value = False
+
+        mock_queue = Mock()
+        mock_queue.enqueue.return_value = True
+
+        with patch('analysis.fingerprint_queue.get_fingerprint_queue', return_value=mock_queue):
+            response = client.post("/api/similarity/fingerprint-queue/enqueue/1")
+
+        assert response.status_code == 200
+        # Exactly the EnqueueFingerprintResponse shape the frontend consumes
+        # (routers/fingerprint_queue.py) -- track_id is populated on this
+        # branch and omitted only on the already-fingerprinted early return.
+        assert response.json() == {
+            "enqueued": True,
+            "track_id": 1,
+            "reason": "Added to queue",
+        }
+        mock_queue.enqueue.assert_called_once_with(1)
 
     def test_enqueue_track_accepts_post_only(self, client):
         """Test that enqueue endpoint only accepts POST"""
@@ -324,6 +365,14 @@ class TestEnqueueAll:
 
     def test_enqueue_all_endpoint(self, client):
         """Test enqueueing all tracks"""
+        # Real side effect (#5089): the `client` fixture runs the full lifespan
+        # against the developer's real ~/.auralis/library.db, so this genuinely
+        # feeds the background fingerprint worker -- it was inert only while
+        # the POST was Origin-rejected. Tracks whose audio cannot be
+        # fingerprinted leave an in-progress claim placeholder row behind
+        # (lufs == PLACEHOLDER_LUFS_SENTINEL); FingerprintRepository.exists()
+        # filters those out (#4822), so /similar keeps correctly reporting
+        # "no fingerprint" for them rather than treating a claim as complete.
         response = client.post("/api/similarity/fingerprint-queue/enqueue-all")
 
         # Should process (may be slow if many tracks)
@@ -367,9 +416,25 @@ class TestSimilarityIntegration:
             status_response = client.get("/api/similarity/fingerprint-queue/status")
             assert status_response.status_code == 200
 
-            # 3. Try to get similar tracks (may fail if fingerprint not yet processed)
+            # 3. Try to get similar tracks. Fingerprint generation is
+            #    asynchronous, so it is normally not ready by the time this
+            #    runs: /similar reports that as a 404 naming the missing
+            #    fingerprint (#4630 -- require_fingerprinted_tracks() raises
+            #    NotFoundError; it was never a 400) and re-enqueues the track.
+            #    Assert that specific detail instead of widening the status
+            #    allow-list, because "Track 1 not found" is a 404 too -- and a
+            #    just-enqueued track coming back as nonexistent would mean the
+            #    two routes disagree about the library, which must still fail.
+            #    This branch only became reachable once the enqueue above
+            #    stopped being rejected by the Origin check (#5089).
             similar_response = client.get("/api/similarity/tracks/1/similar")
-            assert similar_response.status_code in [200, 400]
+
+            if similar_response.status_code == 404:
+                assert "does not have a fingerprint" in similar_response.json()["detail"]
+            else:
+                # Fingerprint already complete: either similarity results, or
+                # 503 if the similarity system was never fitted for this library.
+                assert similar_response.status_code in (200, 503)
 
     def test_workflow_build_graph_then_query(self, client):
         """Test workflow: build graph → get stats → query similar"""

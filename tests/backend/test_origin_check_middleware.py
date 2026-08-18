@@ -83,6 +83,27 @@ async def test_no_origin_from_loopback_is_allowed(app):
 
 
 @pytest.mark.asyncio
+async def test_no_origin_from_non_loopback_is_rejected(app):
+    """#5089's regression test: a non-browser client with no Origin header,
+    reported from a non-loopback host, must still be rejected.
+
+    This is the exact shape of every request Starlette's own `TestClient`
+    sends — it reports its client host as the non-loopback literal
+    'testclient' — which is what let 131 tests across 10 files silently pass
+    a 403 instead of exercising the route/handler they meant to test until
+    the shared `tests/backend/conftest.py::client` fixture started sending a
+    trusted Origin by default. This test covers the rejection path itself so
+    it doesn't go untested in the other direction now that the fixture no
+    longer exercises it.
+    """
+    transport = ASGITransport(app=app, client=("203.0.113.5", 12345))  # TEST-NET-3, RFC 5737
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.post("/api/player/queue/clear")
+
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
 async def test_untrusted_origin_rejected_on_put(app):
     transport = ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:

@@ -83,25 +83,36 @@ class TestScanDirectory:
 
     def test_scan_directory_path_traversal_attack(self, client):
         """Test that path traversal is blocked (security)"""
-        # Try to scan outside allowed directory
+        # Try to scan outside allowed directory. The request field is
+        # `directories: list[str]` (LibraryScanRequest), not `directory` --
+        # the old singular key meant `directories` was always absent and this
+        # test always 422'd on a missing-required-field error that had
+        # nothing to do with path traversal, regardless of the payload (#5089).
         response = client.post(
             "/api/library/scan",
-            json={"directory": "../../etc/passwd"}
+            json={"directories": ["../../etc/passwd"]}
         )
 
-        assert response.status_code == 400
-        assert "Path traversal" in response.json()["detail"] or \
-               "outside" in response.json()["detail"]
+        # validate_directory_list()'s PathValidationError surfaces through a
+        # Pydantic field_validator, which FastAPI reports as 422, not 400.
+        assert response.status_code == 422
+        detail = response.json()["errors"][0]["message"]
+        assert "Path traversal" in detail
 
     def test_scan_directory_absolute_path_outside_allowed(self, client):
         """Test that absolute paths outside allowed directories are rejected"""
         response = client.post(
             "/api/library/scan",
-            json={"directory": "/etc/passwd"}
+            json={"directories": ["/etc/passwd"]}
         )
 
-        # Should be rejected by path validation
-        assert response.status_code in [400, 403]
+        # Rejected by the same field_validator as the traversal case above
+        # (/etc/passwd exists but is a file, not a directory) -- 422, not
+        # 400/403 (#5089: this test used the wrong field name and therefore
+        # never actually reached path validation before).
+        assert response.status_code == 422
+        detail = response.json()["errors"][0]["message"]
+        assert "not a directory" in detail
 
     def test_scan_directory_nonexistent(self, client):
         """Test scanning non-existent directory"""
@@ -112,25 +123,38 @@ class TestScanDirectory:
         # the patches only ever raised AttributeError before the request was made.
         response = client.post(
             "/api/library/scan",
-            json={"directory": "/tmp/nonexistent_auralis_test_dir_12345"}
+            json={"directories": ["/tmp/nonexistent_auralis_test_dir_12345"]}
         )
 
-        # Rejected before reaching scan logic: the TestClient sends no Origin
-        # header, and the CSRF Origin-check middleware (#3845/#4353) rejects
-        # any state-changing request without one, regardless of directory.
-        assert response.status_code == 403
+        # validate_user_chosen_directory() rejects a nonexistent path in the
+        # same Pydantic field_validator as the two tests above, so this is
+        # 422 with a "does not exist" detail, not the 503 "library manager
+        # not available" path -- that check only runs once the request body
+        # itself has validated (#5089: this test's field name meant it never
+        # got past the missing-required-field 422 either, coincidentally
+        # landing on the same status code for the wrong reason).
+        assert response.status_code == 422
+        detail = response.json()["errors"][0]["message"]
+        assert "does not exist" in detail
 
-    @patch('main.library_manager')
-    @patch('main.connection_manager')
-    def test_scan_directory_library_unavailable(self, mock_manager, mock_library, client):
+    def test_scan_directory_library_unavailable(self, client):
         """Test scan when library manager not available"""
-        mock_manager.broadcast = AsyncMock()
-        mock_library.return_value = None
+        # library_manager is resolved lazily from main.globals_dict at request
+        # time (config/routes.py's get_component() closure), not a patchable
+        # module attribute -- @patch('main.library_manager') never existed as
+        # a target (#4788) and unconditionally raised AttributeError at test
+        # setup before the request was ever made (#5089).
+        import main
 
-        response = client.post(
-            "/api/library/scan",
-            json={"directory": "/tmp"}
-        )
+        original = main.globals_dict.get('library_manager')
+        main.globals_dict['library_manager'] = None
+        try:
+            response = client.post(
+                "/api/library/scan",
+                json={"directories": ["/tmp"]}
+            )
+        finally:
+            main.globals_dict['library_manager'] = original
 
         # Should return 503 (Service Unavailable)
         assert response.status_code == 503
@@ -144,18 +168,20 @@ class TestScanDirectory:
 class TestUploadFiles:
     """Test POST /api/files/upload"""
 
-    @patch('main.library_manager')
-    def test_upload_no_files(self, mock_library, client):
+    def test_upload_no_files(self, client):
         """Test upload with no files provided"""
         response = client.post("/api/files/upload")
 
         assert response.status_code == 422  # Validation error
 
-    @patch('main.library_manager')
-    def test_upload_unsupported_file_type(self, mock_library, client):
+    def test_upload_unsupported_file_type(self, client):
         """Test upload with unsupported file type"""
-        mock_library_obj = Mock()
-        mock_library.return_value = mock_library_obj
+        # No @patch('main.library_manager') (#5089/#4788): upload_files() has
+        # never read `library_manager` -- it gates on the repository_factory
+        # closure via get_repos()/require_repository_factory(), and the
+        # target attribute doesn't exist on `main` at all, so the patch
+        # unconditionally raised AttributeError at test setup regardless of
+        # what this test actually exercises.
 
         # Create fake executable file
         file_data = b"fake executable"
@@ -169,15 +195,19 @@ class TestUploadFiles:
         assert data["results"][0]["status"] == "error"
         assert "Unsupported" in data["results"][0]["message"]
 
-    @patch('main.library_manager')
-    def test_upload_supported_extensions(self, mock_library, client):
+    def test_upload_supported_extensions(self, client, reset_rate_limits):
         """Test that supported extensions are accepted"""
-        mock_library_obj = Mock()
-        mock_library.return_value = mock_library_obj
-
+        # See test_upload_unsupported_file_type above re: the removed patch.
         supported = [".mp3", ".wav", ".flac", ".ogg", ".m4a", ".aac"]
 
         for ext in supported:
+            # 6 iterations exceed /api/files/upload's 5-per-60s rate-limit
+            # budget (#5089: real now that Origin is trusted and requests
+            # actually reach RateLimitMiddleware); reset between calls since
+            # this test is about extension handling, not rate limiting (which
+            # has its own dedicated coverage in test_rate_limit_*.py).
+            reset_rate_limits()
+
             filename = f"test{ext}"
             file_data = b"fake audio data"
             files = {"files": (filename, io.BytesIO(file_data), "audio/mpeg")}
@@ -190,24 +220,29 @@ class TestUploadFiles:
             # Should not reject based on extension
             assert "results" in data
 
-    @patch('main.library_manager')
-    def test_upload_library_unavailable(self, mock_library, client):
-        """Test upload when library manager not available"""
-        mock_library.return_value = None
+    def test_upload_library_unavailable(self, client):
+        """Test upload when repository factory not available"""
+        # upload_files() gates on get_repos() -> require_repository_factory(),
+        # which reads main.globals_dict['repository_factory'] lazily at
+        # request time (config/routes.py's get_component() closure) -- not
+        # `library_manager`, and not a patchable module attribute either way
+        # (#5089/#4788).
+        import main
 
-        file_data = b"fake audio"
-        files = {"files": ("test.mp3", io.BytesIO(file_data), "audio/mpeg")}
+        original = main.globals_dict.get('repository_factory')
+        main.globals_dict['repository_factory'] = None
+        try:
+            file_data = b"fake audio"
+            files = {"files": ("test.mp3", io.BytesIO(file_data), "audio/mpeg")}
 
-        response = client.post("/api/files/upload", files=files)
+            response = client.post("/api/files/upload", files=files)
+        finally:
+            main.globals_dict['repository_factory'] = original
 
         assert response.status_code == 503
 
-    @patch('main.library_manager')
-    def test_upload_multiple_files(self, mock_library, client):
+    def test_upload_multiple_files(self, client):
         """Test uploading multiple files at once"""
-        mock_library_obj = Mock()
-        mock_library.return_value = mock_library_obj
-
         # Create multiple files
         files = [
             ("files", ("track1.mp3", io.BytesIO(b"audio1"), "audio/mpeg")),
@@ -222,12 +257,8 @@ class TestUploadFiles:
         assert "results" in data
         assert len(data["results"]) == 3
 
-    @patch('main.library_manager')
-    def test_upload_mixed_valid_invalid(self, mock_library, client):
+    def test_upload_mixed_valid_invalid(self, client):
         """Test uploading mix of valid and invalid files"""
-        mock_library_obj = Mock()
-        mock_library.return_value = mock_library_obj
-
         files = [
             ("files", ("valid.mp3", io.BytesIO(b"audio"), "audio/mpeg")),
             ("files", ("invalid.exe", io.BytesIO(b"binary"), "application/octet-stream")),
@@ -339,7 +370,7 @@ class TestFilesSecurityValidation:
         # Should be rejected
         assert response.status_code in [400, 422]
 
-    def test_scan_special_characters(self, client):
+    def test_scan_special_characters(self, client, reset_rate_limits):
         """Test handling of special characters in paths"""
         # Test various special characters
         special_paths = [
@@ -350,21 +381,35 @@ class TestFilesSecurityValidation:
         ]
 
         for path in special_paths:
+            # 4 iterations exceed /api/library/scan's 2-per-60s rate-limit
+            # budget (#5089: real now that Origin is trusted); reset between
+            # calls since this test is about path handling, not rate limiting.
+            reset_rate_limits()
+
             response = client.post(
                 "/api/library/scan",
-                json={"directory": path}
+                # `directories: list[str]`, not `directory` (#5089) -- the
+                # old singular key meant every one of these requests 422'd on
+                # a missing-required-field error before the special
+                # characters were ever inspected, regardless of which one.
+                json={"directories": [path]}
             )
 
-            # No Origin header on this request, so the CSRF Origin-check
-            # middleware (#3845/#4353) rejects it before the path is ever
-            # inspected, regardless of the special characters used (#4788).
-            assert response.status_code == 403
+            # None of these resolve to a real directory (the shell
+            # metacharacters are inert here -- Path()/.resolve() never
+            # invokes a shell), so validate_user_chosen_directory() rejects
+            # them all the same way test_scan_directory_nonexistent does:
+            # 422 with a "does not exist" detail. The important security
+            # property is that nothing executes and no path outside the
+            # request is touched, which the 422 alone demonstrates.
+            assert response.status_code == 422
+            detail = response.json()["errors"][0]["message"]
+            assert "does not exist" in detail
 
-    @patch('main.library_manager')
-    def test_upload_filename_validation(self, mock_library, client):
+    def test_upload_filename_validation(self, client):
         """Test that dangerous filenames are handled safely"""
-        mock_library_obj = Mock()
-        mock_library.return_value = mock_library_obj
+        # No @patch('main.library_manager') -- see
+        # test_upload_unsupported_file_type above (#5089/#4788).
 
         # Dangerous filenames
         dangerous_names = [

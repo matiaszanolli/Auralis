@@ -125,6 +125,66 @@ def sample_audio_long():
     return audio_stereo, sample_rate
 
 
+def _clear_rate_limit_windows() -> None:
+    """Clear RateLimitMiddleware's sliding windows (#5089).
+
+    OriginCheckMiddleware is registered outside RateLimitMiddleware precisely
+    so a rejected CSRF-shaped request never consumes rate budget. While the
+    test client sent no Origin, every state-changing /api request was rejected
+    at the origin check and the rate limiter never saw it. Now that the client
+    sends a trusted Origin, those requests reach the limiter for real -- and
+    the limits are tight (``/api/library/scan`` allows 2 per 60s, uploads 5),
+    so either a class with more than two scan tests, or a single test that
+    posts more than two payloads to the same endpoint (e.g. a security test
+    looping over several malicious inputs), exhausts the budget and gets a 429
+    that has nothing to do with what it actually asserts.
+
+    ``main.app`` is a module-level singleton shared by every test in this
+    directory, so its middleware instances -- and their windows -- persist for
+    the whole session. Clearing them restores isolation without weakening the
+    limiter itself, which keeps its own dedicated coverage (see
+    test_rate_limit_*.py / test_middleware_429_security_headers.py).
+    """
+    try:
+        import main
+    except ImportError:
+        return
+
+    stack = getattr(main.app, "middleware_stack", None)
+    if stack is None:
+        # No request has been served yet, so the stack was never built.
+        return
+
+    from config.middleware import RateLimitMiddleware
+
+    node, depth = stack, 0
+    while node is not None and depth < 30:
+        if isinstance(node, RateLimitMiddleware):
+            node._windows.clear()
+            node._request_count = 0
+            return
+        node = getattr(node, "app", None)
+        depth += 1
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limit_windows():
+    """Clear rate-limit state after every test -- see _clear_rate_limit_windows()."""
+    yield
+    _clear_rate_limit_windows()
+
+
+@pytest.fixture
+def reset_rate_limits():
+    """Callable fixture for a test body to reset rate-limit budget mid-test.
+
+    For a single test that deliberately sends more than a rate-limited
+    endpoint's per-window allowance -- e.g. looping several malicious payloads
+    through the same POST route -- rather than testing the rate limit itself.
+    """
+    return _clear_rate_limit_windows
+
+
 @pytest.fixture
 def client():
     """
@@ -168,6 +228,21 @@ def client():
                 return _orig_ws_connect(url, headers=headers, **kwargs)
 
             test_client.websocket_connect = _ws_connect_with_origin  # type: ignore[method-assign]
+
+            # #5089: the same reasoning applies to plain HTTP verbs.
+            # OriginCheckMiddleware rejects any state-changing /api request
+            # that arrives with an empty Origin from a non-loopback host, and
+            # Starlette's TestClient reports its host as 'testclient'. Every
+            # POST/PUT/DELETE/PATCH built on this fixture therefore got a 403
+            # before the route, dependency graph, or Pydantic validator ever
+            # ran -- 131 tests across 10 files asserting against a rejection
+            # they never intended to exercise. Setting a default Origin on the
+            # client (httpx merges these into every request) restores the
+            # write-path coverage. The middleware's own enforcement stays
+            # covered by test_origin_check_middleware.py, which builds its own
+            # app and client rather than using this fixture.
+            test_client.headers.update({"origin": "http://localhost:8765"})
+
             yield test_client
     except ImportError:
         # If backend not available, skip fixture
