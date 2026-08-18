@@ -29,11 +29,20 @@ class TestArtworkDownloadEndpoint:
     """Tests for POST /api/albums/{album_id}/artwork/download"""
 
     def _make_mock_album(self, album_id: int = 1, title: str = "Test Album",
-                         artist_name: str = "Test Artist") -> Mock:
-        """Create a mock album with artist relationship."""
+                         artist_name: str = "Test Artist",
+                         artwork_path: str | None = None) -> Mock:
+        """Create a mock album with artist relationship.
+
+        ``artwork_path`` defaults to None -- the realistic state of an album
+        that is about to have artwork downloaded. It must be a real str/None
+        rather than an auto-Mock: the route captures it as ``previous_path``
+        and feeds it to ``_purge_album_thumbnails``, which calls ``Path()`` on
+        every truthy source (#5089).
+        """
         album = Mock()
         album.id = album_id
         album.title = title
+        album.artwork_path = artwork_path
         album.artist = Mock()
         album.artist.name = artist_name
         return album

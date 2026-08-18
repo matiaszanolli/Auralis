@@ -28,9 +28,18 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "ba
 
 @pytest.fixture
 def client():
-    """Create test client for main app"""
+    """Create test client for main app.
+
+    Shadows the shared conftest `client` fixture deliberately: this one skips
+    the lifespan, which would run real startup against the developer's actual
+    ~/.auralis/library.db. It must therefore repeat the conftest fixture's
+    #5089 Origin header itself -- OriginCheckMiddleware rejects every
+    state-changing /api request carrying an empty Origin from TestClient's
+    non-loopback 'testclient' host, which silently turned 13 queue assertions
+    into 403 checks. Port 8765 is allowlisted in both dev and prod (#4781).
+    """
     from main import app
-    return TestClient(app)
+    return TestClient(app, headers={"origin": "http://localhost:8765"})
 
 
 @pytest.fixture

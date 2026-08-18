@@ -125,12 +125,17 @@ class TestSendQueueBounds:
 class TestActiveStreamsTracking:
     """Verify active_streams dict management."""
 
-    async def test_active_streams_dict_exists(self):
-        """Controller must track active streams."""
-        controller = AudioStreamController()
-        assert hasattr(controller, 'active_streams') or hasattr(controller, '_active_streams'), (
-            "Controller must have active_streams tracking"
-        )
+    # #4941: test_active_streams_dict_exists used to live here, asserting
+    # `AudioStreamController` has an `active_streams`/`_active_streams`
+    # attribute. Both names were removed in #4362 as a write-only registry --
+    # each request builds a fresh controller, so the dict never held more
+    # than one entry and nothing ever read it. The real cancellation
+    # registry is system.py's module-level `_active_streaming_tasks`, which
+    # lives a layer above the controller (populated by the WS message loop
+    # that wraps a controller call in asyncio.create_task()), so there is no
+    # controller-level attribute for a test at this class's level to assert
+    # the existence of any more. See the longer comment in
+    # test_stream_disconnect_toctou.py for the full removal rationale.
 
     async def test_stream_type_tracking(self):
         """Controller must distinguish enhanced vs normal streams."""

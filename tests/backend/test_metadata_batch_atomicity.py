@@ -220,7 +220,13 @@ class TestBatchUpdateAtomicity:
         updates = make_updates(3)
 
         def _exists(path):
-            return 'track2' not in path  # track2 is missing
+            # batch_update's pre-validation goes through
+            # ``Path(update.filepath).exists()`` since the os.path -> pathlib
+            # migration (c37cc960), so the patched os.path.exists is handed a
+            # PosixPath, not the str this side effect was written against.
+            # Without str() the substring test raises TypeError inside the
+            # mock and the assertions below are never reached.
+            return 'track2' not in str(path)  # track2 is missing
 
         with patch('os.path.exists', side_effect=_exists), \
              patch.object(editor, 'write_metadata', return_value=True) as mock_write:
@@ -310,6 +316,39 @@ def _batch_track(tid: int) -> Mock:
     return t
 
 
+def _batch_repos(*track_ids: int) -> Mock:
+    """RepositoryFactory mock shaped like the batch route's real collaborators.
+
+    The route stopped calling ``tracks.get_by_id`` once per update and
+    ``tracks.update_metadata`` once per successful result in c7e7684e (#3857's
+    N+1 fix). It now issues exactly two repository calls:
+
+        tracks.get_by_ids(ids)                     -> dict[int, Track]
+        tracks.update_metadata_batch([(id, cols)]) -> list[int]
+
+    Mocking only the old singular names left ``update_metadata_batch``
+    returning a bare ``Mock``, which the broadcast block's
+    ``len(successful_track_ids)`` turned into a TypeError -> 500. That was
+    invisible while every POST was rejected by OriginCheckMiddleware before
+    reaching the route (#5089).
+    """
+    repos = Mock()
+    repos.tracks.get_by_ids.return_value = {
+        tid: _batch_track(tid) for tid in track_ids
+    }
+    repos.tracks.update_metadata_batch.return_value = list(track_ids)
+    return repos
+
+
+# The route validates each DB-sourced filepath through
+# security.path_security.validate_file_path (#2302), which requires a real,
+# readable file under an allowed directory. The synthetic '/fake/trackN.mp3'
+# paths above can never satisfy that, so without this patch every update is
+# skipped by the prep loop and the get_by_ids mock is decorative. Patching it
+# to the identity keeps these tests about what they claim to be about -- how
+# the route surfaces rolled_back and drives the DB write -- while letting the
+# real prep loop run. Path validation has its own coverage elsewhere.
+@patch('routers.metadata.validate_file_path', new=lambda p: p)
 class TestBatchEndpointAtomicity:
     """/api/metadata/batch endpoint correctly surfaces rolled_back."""
 
@@ -318,9 +357,7 @@ class TestBatchEndpointAtomicity:
     def test_success_response_has_success_true(
         self, mock_batch, mock_repos_fn, client
     ):
-        mock_repos = Mock()
-        mock_repos.tracks.get_by_id.side_effect = _batch_track
-        mock_repos.tracks.update_metadata.return_value = Mock()
+        mock_repos = _batch_repos(1, 2)
         mock_repos_fn.return_value = mock_repos
 
         mock_batch.return_value = {
@@ -349,8 +386,7 @@ class TestBatchEndpointAtomicity:
     def test_partial_failure_response_has_success_false(
         self, mock_batch, mock_repos_fn, client
     ):
-        mock_repos = Mock()
-        mock_repos.tracks.get_by_id.side_effect = _batch_track
+        mock_repos = _batch_repos(1, 2)
         mock_repos_fn.return_value = mock_repos
 
         mock_batch.return_value = {
@@ -380,8 +416,7 @@ class TestBatchEndpointAtomicity:
         self, mock_batch, mock_repos_fn, client
     ):
         """When rolled_back=True no DB update calls should be made."""
-        mock_repos = Mock()
-        mock_repos.tracks.get_by_id.side_effect = _batch_track
+        mock_repos = _batch_repos(1, 2)
         mock_repos_fn.return_value = mock_repos
 
         mock_batch.return_value = {
@@ -400,16 +435,18 @@ class TestBatchEndpointAtomicity:
             ]
         })
 
-        mock_repos.tracks.update_metadata.assert_not_called()
+        # update_metadata (singular) is no longer called by this route at
+        # all, so the original assertion held vacuously; update_metadata_batch
+        # is the method the not-rolled-back path actually invokes
+        # (#3857 / c7e7684e).
+        mock_repos.tracks.update_metadata_batch.assert_not_called()
 
     @patch('routers.metadata.require_repository_factory')
     @patch('auralis.library.metadata_editor.MetadataEditor.batch_update')
     def test_no_rollback_response_updates_db_for_successful_tracks(
         self, mock_batch, mock_repos_fn, client
     ):
-        mock_repos = Mock()
-        mock_repos.tracks.get_by_id.side_effect = _batch_track
-        mock_repos.tracks.update_metadata.return_value = Mock()
+        mock_repos = _batch_repos(1, 2)
         mock_repos_fn.return_value = mock_repos
 
         mock_batch.return_value = {
@@ -428,15 +465,21 @@ class TestBatchEndpointAtomicity:
             ]
         })
 
-        assert mock_repos.tracks.update_metadata.call_count == 2
+        # One batched write instead of two per-track ones (#3857 / c7e7684e).
+        # Asserting the payload rather than a call count preserves the original
+        # intent -- both successful tracks reach the DB -- and additionally
+        # pins the tag-name -> DB-column translation the route applies via
+        # _tag_dict_to_db_columns on the way through (#4731).
+        mock_repos.tracks.update_metadata_batch.assert_called_once_with(
+            [(1, {'title': 'T1'}), (2, {'title': 'T2'})]
+        )
 
     @patch('routers.metadata.require_repository_factory')
     @patch('auralis.library.metadata_editor.MetadataEditor.batch_update')
     def test_response_includes_per_file_results(
         self, mock_batch, mock_repos_fn, client
     ):
-        mock_repos = Mock()
-        mock_repos.tracks.get_by_id.side_effect = _batch_track
+        mock_repos = _batch_repos(1)
         mock_repos_fn.return_value = mock_repos
 
         mock_batch.return_value = {

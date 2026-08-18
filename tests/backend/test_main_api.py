@@ -202,6 +202,13 @@ class TestLibraryEndpoints:
         mock_result.directories_scanned = 1
         mock_result.added_tracks = []
         mock_result.rejected = False
+        # #4841 added a per-file failure list to the scan result, which
+        # library_scan.py iterates for both the REST response and the paired
+        # scan_complete broadcast (`[f.to_dict() for f in result.failures]`).
+        # A bare Mock attribute is not iterable, so the route 500'd. Only
+        # observable now that the request reaches the route at all -- it used
+        # to be rejected on the missing Origin header first (#5089).
+        mock_result.failures = []
 
         with patch.dict('main.globals_dict', {'library_manager': mock_library}), \
              patch('auralis.library.scanner.LibraryScanner') as mock_scanner_class:
@@ -618,11 +625,34 @@ class TestPlayerEndpoints:
 
     def test_add_to_queue(self, client):
         """Test adding track to queue via add-track endpoint (#2725: legacy /queue/add removed)"""
-        response = client.post("/api/player/queue/add-track", json={"track_id": 1})
+        # Stubbed rather than relying on track 1 being absent (#5089). The
+        # shared `client` fixture runs the real lifespan against the
+        # developer's own ~/.auralis/library.db, so "track_id=1 isn't seeded in
+        # the test DB" was never a property of the test -- on a populated
+        # library the add genuinely succeeds and returns 200. The claim went
+        # unnoticed while the request was rejected on the missing Origin header
+        # before reaching the route at all.
+        #
+        # QueueService is constructed per request from globals_dict
+        # (get_queue_service in routers/player.py), and add_track_to_queue
+        # raises ResourceNotFound -> 404 when tracks.get_by_id returns None, so
+        # stubbing the lookup makes the not-found branch deterministic
+        # regardless of what the real library contains.
+        mock_library = Mock()
+        mock_library.tracks.get_by_id.return_value = None
 
-        # track_id=1 isn't seeded in the test DB, so the endpoint's
-        # not-found path is the correct, single outcome (#4788).
-        assert response.status_code == 404
+        # Any object exposing `.queue` satisfies the service's availability
+        # guard; the lookup fails first, so the queue is never touched.
+        mock_player = Mock()
+
+        with patch.dict('main.globals_dict', {
+            'library_manager': mock_library,
+            'audio_player': mock_player,
+        }):
+            response = client.post("/api/player/queue/add-track", json={"track_id": 1})
+
+            assert response.status_code == 404
+            mock_library.tracks.get_by_id.assert_called_once_with(1)
 
 
 @pytest.mark.skip(reason="Processing control endpoints not implemented - /api/processing/enable_matching, /api/processing/load_reference, /api/processing/apply_preset do not exist")
@@ -796,15 +826,34 @@ class TestAPIDocumentation:
     """Test API documentation endpoints"""
 
     def test_openapi_schema(self, client):
-        """Test OpenAPI schema is available"""
-        response = client.get("/openapi.json")
+        """Test OpenAPI schema is served only in dev mode, never at the default path"""
+        from config.app import is_dev_mode
 
-        assert response.status_code == 200
-        data = response.json()
+        # #4375: disabling docs_url/redoc_url alone still left the complete
+        # schema readable at FastAPI's default /openapi.json, so openapi_url is
+        # disabled too and the app mounts it under /api when enabled. The bare
+        # default path is therefore 404 in BOTH modes -- that unconditional
+        # absence is the security property the change exists to guarantee, so
+        # assert it directly rather than only asserting the happy path.
+        assert client.get("/openapi.json").status_code == 404
 
-        assert "openapi" in data
-        assert "info" in data
-        assert "paths" in data
+        # pytest runs with neither --dev nor AURALIS_DEV_MODE (#4802 / see the
+        # same note in tests/backend/conftest.py), so is_dev_mode() is False
+        # here and the schema is disabled outright -- verified by request, not
+        # assumed. The branch is kept instead of hardcoding 404 so the test
+        # still states the real contract if the suite is ever run with
+        # AURALIS_DEV_MODE set.
+        response = client.get("/api/openapi.json")
+
+        if is_dev_mode():
+            assert response.status_code == 200
+            data = response.json()
+
+            assert "openapi" in data
+            assert "info" in data
+            assert "paths" in data
+        else:
+            assert response.status_code == 404
 
     def test_api_docs_accessible(self, client):
         """Test API docs endpoint (only available in dev mode)"""
@@ -1502,7 +1551,13 @@ class TestPlaylistEndpoints:
     def test_add_track_to_playlist_success(self, client):
         """Test adding track to playlist"""
         mock_repos = Mock()
-        mock_repos.playlists.add_track.return_value = True
+        # #3856 replaced the per-ID `add_track` loop with a single batch
+        # `add_tracks(playlist_id, track_ids)` that returns the number added.
+        # Stubbing the stale singular name left `add_tracks` auto-mocked, so
+        # the route handed FastAPI a Mock for `added_count` and the response
+        # failed AddTracksResponse validation with a 500 (#5089 -- previously
+        # masked by the Origin 403).
+        mock_repos.playlists.add_tracks.return_value = 1
 
         with patch.dict('main.globals_dict', {'repository_factory': mock_repos}):
             response = client.post("/api/playlists/1/tracks", json={"track_ids": [5]})
@@ -1673,15 +1728,39 @@ class TestAlbumArtworkEndpoints:
         mock_album = Mock()
         mock_album.id = 1
         mock_album.tracks = []
+        # The route passes the album's previous artwork_path to
+        # _purge_album_thumbnails(), which calls Path(source) on it -- a bare
+        # Mock attribute raises TypeError there and surfaced as a 500. None is
+        # the truthful value for an album that has no artwork yet, matching
+        # test_get_artwork_no_artwork above (#5089: only reachable now that the
+        # POST is no longer rejected on the missing Origin header).
+        mock_album.artwork_path = None
 
         mock_repos = Mock()
         mock_repos.albums.get_by_id.return_value = mock_album
+        # The route's outcome is decided by extract_and_save_artwork()'s return
+        # value: a falsy result is the 404 "no artwork found in album tracks"
+        # branch, and anything else is treated as the saved path and handed to
+        # Path() by _purge_album_thumbnails(). Left auto-mocked it returned a
+        # truthy Mock, which took the success branch and then raised TypeError
+        # inside Path() -- a 500. Stubbing it with a real path string is what
+        # makes this a deterministic *success* test (its name) rather than a
+        # coin flip between the two outcomes. The path need not exist: purging
+        # hashes it to look for derived thumbnails, and a path this specific has
+        # none, so nothing in the real ~/.auralis artwork cache is touched.
+        mock_repos.albums.extract_and_save_artwork.return_value = (
+            "/tmp/auralis-test-extracted-artwork-5089.jpg"
+        )
 
         with patch('routers.artwork.require_repository_factory', return_value=mock_repos):
             response = client.post("/api/albums/1/artwork/extract")
 
-            # 200 if extraction succeeds, 404 if no tracks to extract from
-            assert response.status_code in [200, 404]
+            assert response.status_code == 200
+            data = response.json()
+            # The route returns the API URL, not the filesystem path (#2508).
+            assert data["artwork_url"] == "/api/albums/1/artwork"
+            assert data["album_id"] == 1
+            mock_repos.albums.extract_and_save_artwork.assert_called_once_with(1)
 
     def test_delete_artwork_success(self, client):
         """Test deleting album artwork"""

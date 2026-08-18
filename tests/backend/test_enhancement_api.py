@@ -30,7 +30,13 @@ class TestToggleEnhancement:
 
     def test_toggle_enhancement_enable(self, client):
         """Test enabling enhancement"""
-        response = client.post("/api/player/enhancement/toggle?enabled=true")
+        # `enabled` is a JSON body field (ToggleEnhancementRequest), not a query
+        # param: #2485 moved every enhancement mutation endpoint off query
+        # strings onto Pydantic bodies. Sent as `?enabled=true` the required
+        # body is simply absent, so the request 422s on "body: Field required"
+        # and the handler never runs (#5089 -- previously masked by the
+        # Origin-check 403, which rejected this POST before validation).
+        response = client.post("/api/player/enhancement/toggle", json={"enabled": True})
 
         assert response.status_code == 200
         data = response.json()
@@ -40,7 +46,8 @@ class TestToggleEnhancement:
 
     def test_toggle_enhancement_disable(self, client):
         """Test disabling enhancement"""
-        response = client.post("/api/player/enhancement/toggle?enabled=false")
+        # JSON body, not a query param -- see test_toggle_enhancement_enable.
+        response = client.post("/api/player/enhancement/toggle", json={"enabled": False})
 
         assert response.status_code == 200
         data = response.json()
@@ -55,9 +62,14 @@ class TestToggleEnhancement:
 
     def test_toggle_enhancement_invalid_type(self, client):
         """Test toggle with invalid boolean value"""
-        response = client.post("/api/player/enhancement/toggle?enabled=invalid")
+        # Must go in the body to actually exercise boolean coercion: as
+        # `?enabled=invalid` this 422'd on the missing body instead, making the
+        # test indistinguishable from test_toggle_enhancement_missing_parameter
+        # above and blind to the field's type constraint (#5089).
+        response = client.post("/api/player/enhancement/toggle", json={"enabled": "invalid"})
 
         assert response.status_code == 422
+        assert response.json()["errors"][0]["field"] == "body.enabled"
 
 
 class TestSetEnhancementPreset:
@@ -65,8 +77,13 @@ class TestSetEnhancementPreset:
 
     def test_set_preset_valid(self, client):
         """Test setting valid preset"""
+        # JSON body (SetPresetRequest), not a query param -- see
+        # test_toggle_enhancement_enable re: #2485. /api/player/enhancement/*
+        # carries no RateLimitMiddleware rule, so the five iterations need no
+        # reset_rate_limits (only /api/files/upload, /api/processing,
+        # /api/library/scan and /api/similarity are limited).
         for preset in ["adaptive", "gentle", "warm", "bright", "punchy"]:
-            response = client.post(f"/api/player/enhancement/preset?preset={preset}")
+            response = client.post("/api/player/enhancement/preset", json={"preset": preset})
 
             assert response.status_code == 200
             data = response.json()
@@ -74,7 +91,9 @@ class TestSetEnhancementPreset:
 
     def test_set_preset_case_insensitive(self, client):
         """Test that preset names are case-insensitive"""
-        response = client.post("/api/player/enhancement/preset?preset=WARM")
+        # SetPresetRequest.lowercase_preset is a mode="before" validator, so the
+        # canonical Literal still enforces the closed set after lowering.
+        response = client.post("/api/player/enhancement/preset", json={"preset": "WARM"})
 
         assert response.status_code == 200
         data = response.json()
@@ -82,10 +101,22 @@ class TestSetEnhancementPreset:
 
     def test_set_preset_invalid(self, client):
         """Test setting invalid preset"""
-        response = client.post("/api/player/enhancement/preset?preset=invalid_preset")
+        response = client.post(
+            "/api/player/enhancement/preset", json={"preset": "invalid_preset"}
+        )
 
-        assert response.status_code == 400
-        assert "Invalid preset" in response.json()["detail"]
+        # 422, not 400: the preset constraint is `EnhancementPresetLiteral`
+        # (#4424 made it the single source of truth in schemas.py), so an
+        # unknown value is rejected by Pydantic during request validation and
+        # surfaces through config/app.py's RequestValidationError handler as
+        # {"detail": "Validation error", "errors": [...]}. The handler never
+        # runs, so there is no hand-rolled 400 "Invalid preset" to assert on --
+        # that phrasing predates the Literal (#5089).
+        assert response.status_code == 422
+        error = response.json()["errors"][0]
+        assert error["field"] == "body.preset"
+        # The Literal's own message enumerates the valid presets.
+        assert "'adaptive'" in error["message"] and "'punchy'" in error["message"]
 
     def test_set_preset_missing_parameter(self, client):
         """Test preset change without preset parameter"""
@@ -185,57 +216,106 @@ class TestGetMasteringRecommendation:
     query parameter is accepted.
     """
 
-    # Module-level router is shared — create client once to avoid duplicate routes.
-    _repos_box: list = [None]
+    @staticmethod
+    def _mock_recommendation(**overrides):
+        """A recommendation mock shaped like MasteringRecommendation.to_response().
 
-    @classmethod
-    def _get_client(cls):
-        if not hasattr(cls, '_client'):
-            from unittest.mock import Mock
-            from fastapi import FastAPI
-            from fastapi.testclient import TestClient
-            from routers.enhancement import create_enhancement_router
+        The route serializes with ``rec.to_response(track_id)``, not
+        ``rec.to_dict()`` (#3840: to_dict() omits track_id/is_hybrid and leaks
+        the internal-only created/alternative_profiles keys). A mock that only
+        stubs ``to_dict`` therefore returns a bare Mock from ``to_response``,
+        which the route's ``isinstance(result, dict)`` guard collapses to ``{}``
+        -- and ``response_model=MasteringRecommendationResponse`` then raises
+        ResponseValidationError naming all 8 required fields (#5089).
 
-            cls._repos_box[0] = Mock()
-            cls._repos_box[0].tracks.get_by_id = Mock(return_value=None)
-
-            router = create_enhancement_router(
-                get_enhancement_settings=lambda: {"enabled": True, "preset": "adaptive", "intensity": 0.7},
-                connection_manager=Mock(),
-                get_repository_factory=lambda: cls._repos_box[0],
-            )
-            app = FastAPI()
-            app.include_router(router)
-            cls._client = TestClient(app)
-        return cls._client
-
-    def setup_method(self):
-        """Reset mock repos before each test."""
+        The payload carries every required field of that response model so these
+        tests assert the routing behaviour they are named for rather than
+        tripping over serialization.
+        """
         from unittest.mock import Mock
-        self._get_client()  # ensure client exists
-        self._repos_box[0] = Mock()
-        self._repos_box[0].tracks.get_by_id = Mock(return_value=None)
 
-    def test_returns_404_for_nonexistent_track(self):
+        payload = {
+            "track_id": 1,
+            "primary_profile_id": "pop",
+            "primary_profile_name": "Pop",
+            "confidence_score": 0.9,
+            "predicted_loudness_change": 1.5,
+            "predicted_crest_change": -0.5,
+            "predicted_centroid_change": 120.0,
+            "weighted_profiles": [],
+            "reasoning": "",
+            "is_hybrid": False,
+        }
+        payload.update(overrides)
+
+        rec = Mock()
+        rec.to_response.return_value = payload
+        return rec
+
+    @pytest.fixture
+    def repos(self, client):
+        """Swap the real RepositoryFactory for a mock on the real app.
+
+        This class used to build its own FastAPI app around
+        create_enhancement_router(...) with mock closures. That can never work
+        in a session that also touches main.app: routers/enhancement.py binds
+        its handlers to a MODULE-LEVEL ``router = APIRouter(...)`` singleton, so
+        every create_enhancement_router() call APPENDS another copy of each
+        route to that one object. main.app's startup registers the first copy
+        (bound to the real, globals-backed closures), and the standalone app
+        then included *both* copies -- Starlette matches the earlier one, so the
+        mock repos were ignored and the endpoint queried the developer's real
+        library.db, returning a real uploads/*.wav filepath. Running the class
+        by itself hid this, because main.app was never built (#5089).
+
+        Injecting through main.globals_dict instead exercises the route that is
+        actually registered, and mirrors how the router is really wired:
+        config/routes.py passes ``get_repository_factory=get_component(
+        'repository_factory')``, a lambda that reads globals_dict at request
+        time -- the same lazy-resolution pattern test_files_api.py uses.
+        """
+        from unittest.mock import Mock
+
+        import main
+        from routers import enhancement as enhancement_module
+
+        mock_repos = Mock()
+        mock_repos.tracks.get_by_id = Mock(return_value=None)
+
+        original = main.globals_dict.get('repository_factory')
+        main.globals_dict['repository_factory'] = mock_repos
+
+        # The router keeps a module-level 60s TTL cache keyed by
+        # (track_id, confidence_threshold) (#3865/#4657). Two tests below both
+        # request track 1 at the default threshold, so without clearing it the
+        # second is served from cache, ChunkedAudioProcessor is never
+        # constructed, and its call_args assertion reads None. Cleared for the
+        # same isolation reason test_recommendation_cache.py and
+        # test_readiness_and_stream_end_contracts.py clear it -- both of which
+        # keep the cache's own behaviour covered.
+        enhancement_module._recommendation_cache.clear()
+        try:
+            yield mock_repos
+        finally:
+            main.globals_dict['repository_factory'] = original
+            enhancement_module._recommendation_cache.clear()
+
+    def test_returns_404_for_nonexistent_track(self, client, repos):
         """Call with nonexistent track_id → 404"""
-        client = self._get_client()
-
         response = client.get("/api/player/mastering/recommendation/999")
 
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
 
-    def test_resolves_filepath_from_db(self):
+    def test_resolves_filepath_from_db(self, client, repos):
         """Call with valid track_id → filepath resolved from DB, not query param"""
         from unittest.mock import Mock, patch
 
-        client = self._get_client()
         track = Mock()
         track.filepath = "/music/song.flac"
-        self._repos_box[0].tracks.get_by_id.return_value = track
+        repos.tracks.get_by_id.return_value = track
 
-        mock_rec = Mock()
-        mock_rec.to_dict.return_value = {"primary_profile_id": "pop", "confidence_score": 0.9}
+        mock_rec = self._mock_recommendation()
 
         with patch("core.chunked_processor.ChunkedAudioProcessor") as MockProc:
             MockProc.return_value.get_mastering_recommendation.return_value = mock_rec
@@ -247,17 +327,15 @@ class TestGetMasteringRecommendation:
         assert call_kwargs["filepath"] == "/music/song.flac"
         assert call_kwargs["track_id"] == 1
 
-    def test_no_filepath_query_param_accepted(self):
+    def test_no_filepath_query_param_accepted(self, client, repos):
         """The filepath query parameter must not influence the endpoint"""
         from unittest.mock import Mock, patch
 
-        client = self._get_client()
         track = Mock()
         track.filepath = "/music/real.flac"
-        self._repos_box[0].tracks.get_by_id.return_value = track
+        repos.tracks.get_by_id.return_value = track
 
-        mock_rec = Mock()
-        mock_rec.to_dict.return_value = {"primary_profile_id": "pop"}
+        mock_rec = self._mock_recommendation()
 
         with patch("core.chunked_processor.ChunkedAudioProcessor") as MockProc:
             MockProc.return_value.get_mastering_recommendation.return_value = mock_rec
@@ -269,17 +347,15 @@ class TestGetMasteringRecommendation:
         call_kwargs = MockProc.call_args[1]
         assert call_kwargs["filepath"] == "/music/real.flac"
 
-    def test_custom_confidence_threshold(self):
+    def test_custom_confidence_threshold(self, client, repos):
         """Custom confidence_threshold parameter is passed through"""
         from unittest.mock import Mock, patch
 
-        client = self._get_client()
         track = Mock()
         track.filepath = "/music/song.flac"
-        self._repos_box[0].tracks.get_by_id.return_value = track
+        repos.tracks.get_by_id.return_value = track
 
-        mock_rec = Mock()
-        mock_rec.to_dict.return_value = {"primary_profile_id": "pop"}
+        mock_rec = self._mock_recommendation()
 
         with patch("core.chunked_processor.ChunkedAudioProcessor") as MockProc:
             MockProc.return_value.get_mastering_recommendation.return_value = mock_rec
@@ -364,16 +440,18 @@ class TestEnhancementIntegration:
 
     def test_workflow_enable_change_preset_adjust_intensity(self, client):
         """Test complete workflow: enable → change preset → adjust intensity"""
+        # All three take JSON bodies, not query params (#2485 / #5089) -- see
+        # test_toggle_enhancement_enable.
         # 1. Enable enhancement
-        response = client.post("/api/player/enhancement/toggle?enabled=true")
+        response = client.post("/api/player/enhancement/toggle", json={"enabled": True})
         assert response.status_code == 200
 
         # 2. Change preset
-        response = client.post("/api/player/enhancement/preset?preset=warm")
+        response = client.post("/api/player/enhancement/preset", json={"preset": "warm"})
         assert response.status_code == 200
 
         # 3. Adjust intensity
-        response = client.post("/api/player/enhancement/intensity?intensity=0.7")
+        response = client.post("/api/player/enhancement/intensity", json={"intensity": 0.7})
         assert response.status_code == 200
 
         # 4. Verify final state
@@ -389,6 +467,7 @@ class TestEnhancementIntegration:
         presets = ["gentle", "warm", "bright", "punchy", "adaptive"]
 
         for preset in presets:
-            response = client.post(f"/api/player/enhancement/preset?preset={preset}")
+            # JSON body, not a query param (#2485 / #5089).
+            response = client.post("/api/player/enhancement/preset", json={"preset": preset})
             assert response.status_code == 200
             assert response.json()["settings"]["preset"] == preset
