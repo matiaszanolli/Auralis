@@ -1,8 +1,8 @@
 {
   "_comment": "Known-failing pytest tests (#4562). CI fails on any failure NOT listed here. Regenerate with: python scripts/check_pytest_baseline.py <junit.xml> --update",
   "generatedFrom": {
-    "totalTests": 6910,
-    "failedTests": 219
+    "totalTests": 6889,
+    "failedTests": 217
   },
   "failures": [
     "tests.auralis.analysis.fingerprint.test_rust_fingerprint_glue::test_all_values_finite",
@@ -77,7 +77,6 @@
     "tests.concurrency.test_async_operations.TestFastAPIAsyncPatterns::test_async_file_operations",
     "tests.concurrency.test_migration_lock_identity_4523.TestLockFilePersists::test_migration_lock_never_unlinks",
     "tests.concurrency.test_parallel_processing.TestBatchProcessing::test_batch_processing_cancellation",
-    "tests.concurrency.test_thread_safety.TestAudioProcessingThreadSafety::test_concurrent_fingerprint_extraction",
     "tests.edge_cases.test_filesystem_errors.TestMissingFiles::test_process_nonexistent_file",
     "tests.edge_cases.test_resource_exhaustion.TestResourceLimitConfiguration::test_graceful_degradation_under_pressure",
     "tests.edge_cases.test_resource_exhaustion.TestResourceLimitConfiguration::test_processing_with_memory_limit",
@@ -160,7 +159,6 @@
     "tests.performance.test_audio_processing_performance.TestComponentPerformance::test_spectrum_analysis_performance",
     "tests.performance.test_audio_processing_performance.TestMemoryEfficiency::test_concurrent_processing_memory_isolation",
     "tests.performance.test_audio_processing_performance.TestMemoryEfficiency::test_processing_memory_per_second",
-    "tests.performance.test_library_operations_performance.TestCachePerformance::test_cache_hit_speedup",
     "tests.performance.test_library_operations_performance.TestCachePerformance::test_cache_memory_overhead",
     "tests.performance.test_library_operations_performance.TestCachePerformance::test_concurrent_cache_access",
     "tests.performance.test_library_operations_performance.TestDatabaseQueryPerformance::test_album_aggregation_performance",
