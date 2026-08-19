@@ -101,9 +101,16 @@ jobs:
 
       # Fails the job on any failure not present in pytest-baseline.json, and
       # also fails if the report is missing or reports 0 collected tests, so a
-      # crashed runner cannot pass as green.
+      # crashed runner cannot pass as green. --strict-stale (#5091) also fails
+      # on a baseline entry that ran and passed -- the other half of the
+      # ratchet, since a stale entry silently re-permits its exact failure if
+      # that test ever regresses. Off until now: turning it on before the
+      # baseline was regenerated from a real CI artifact (commit f59b4901
+      # did the detection tooling but explicitly left the regeneration and
+      # this flag for later) would have failed every run immediately on the
+      # 241 stale entries that had already accumulated.
       - name: Compare against known-failure baseline
-        run: python scripts/check_pytest_baseline.py pytest-results.xml
+        run: python scripts/check_pytest_baseline.py pytest-results.xml --strict-stale
 
       - name: Upload test results
         if: always()
