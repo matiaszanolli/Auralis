@@ -56,9 +56,17 @@ permissions:
 jobs:
   pytest:
     runs-on: ubuntu-latest
-    # The suite takes ~7 minutes locally; the cap exists so a spec that hangs
-    # the runner fails the job instead of burning the whole allowance.
-    timeout-minutes: 30
+    # The cap exists so a spec that hangs the runner fails the job instead of
+    # burning the whole allowance -- not to keep the suite fast. It isn't:
+    # the "~7 minutes locally" claim this comment used to make was stale.
+    # This branch's own CI runs (32252354656, 32259315272) were each
+    # cancelled by the 30-minute cap; #5089's Origin-header fix is the
+    # likely driver -- tests that used to fail instantly on a 403 before
+    # reaching the route now execute the real handler for the first time
+    # (genuine audio decode, DSP calls, filesystem I/O), which costs real
+    # wall time a short-circuited 403 never did. See #5095's identical fix
+    # for the fuller writeup. 45 restores comfortable margin.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
