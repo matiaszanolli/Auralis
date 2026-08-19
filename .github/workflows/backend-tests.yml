@@ -64,9 +64,21 @@ permissions:
 jobs:
   pytest:
     runs-on: ubuntu-latest
-    # The suite takes ~7 minutes locally; the cap exists so a spec that hangs
-    # the runner fails the job instead of burning the whole allowance.
-    timeout-minutes: 30
+    # The cap exists so a spec that hangs the runner fails the job instead of
+    # burning the whole allowance -- not to keep the suite fast. It isn't:
+    # the "~7 minutes locally" claim this comment used to make was stale.
+    # Recent completed CI runs already took ~20-21 minutes at 30 (run
+    # 31961589789: 20m42s; 31960984507: 21m21s; 31959998496: 19m27s -- all
+    # before #5095 restored test_thread_safety.py, which itself only adds a
+    # fraction of a second). #5089's Origin-header fix is the real driver:
+    # many tests that used to fail instantly on a 403 before reaching the
+    # route now execute the real handler for the first time -- genuine audio
+    # decode attempts, DSP calls, filesystem I/O -- which costs real wall
+    # time that a short-circuited 403 never did. Run 32252354656 hit exactly
+    # this: cancelled at 83% around the 30-minute mark despite
+    # test_thread_safety.py itself completing in under a second mid-run.
+    # 45 restores comfortable margin for a suite whose real work grew.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
