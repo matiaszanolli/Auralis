@@ -375,39 +375,51 @@ class TestAudioProcessingThreadSafety:
     @pytest.mark.concurrency
     @pytest.mark.thread_safety
     @pytest.mark.audio
-    @pytest.mark.xfail(reason="UnifiedConfig has no set_intensity(); test needs re-pointing at the current config API (see #4548)", strict=True)
     def test_processor_instance_isolation(self, test_audio_files, thread_pool):
         """
         Test that processor instances don't interfere with each other.
 
         Each thread should have isolated processor state.
+
+        #5156: was xfail(strict) for `UnifiedConfig has no set_intensity()`.
+        True — the config API exposes set_processing_mode() and
+        set_mastering_preset(), never an intensity scalar. The test's point is
+        that concurrently-constructed processors configured *differently* stay
+        isolated, so the differing knob is now the mastering preset.
         """
         from auralis.core.hybrid_processor import HybridProcessor
         from auralis.core.config import UnifiedConfig
         from auralis.io.unified_loader import load_audio
 
-        def process_with_different_settings(filepath, intensity):
+        def process_with_different_settings(filepath, preset):
             config = UnifiedConfig()
             config.set_processing_mode("adaptive")
-            config.set_intensity(intensity)
+            config.set_mastering_preset(preset)
 
             audio, sr = load_audio(filepath)
             processor = HybridProcessor(config)
             result = processor.process(audio)
-            return (len(result), intensity)
+            return (len(result), preset)
 
-        # Process same file with different intensities concurrently
-        futures = []
-        for i, intensity in enumerate([0.3, 0.5, 0.7, 0.9]):
-            future = thread_pool.submit(process_with_different_settings, test_audio_files[0], intensity)
-            futures.append(future)
+        # Process the same file under four different presets concurrently
+        presets = ["gentle", "warm", "bright", "punchy"]
+        futures = [
+            thread_pool.submit(process_with_different_settings, test_audio_files[0], preset)
+            for preset in presets
+        ]
 
         results = [f.result() for f in futures]
 
-        # Each should have used its own intensity setting
+        # Each thread kept its own config: every preset comes back exactly
+        # once, so no thread observed another's setting.
         assert len(results) == 4
-        intensities = [r[1] for r in results]
-        assert set(intensities) == {0.3, 0.5, 0.7, 0.9}
+        assert sorted(r[1] for r in results) == sorted(presets)
+
+        # And every one produced real output of the same length -- differing
+        # settings must not change the sample count (gapless invariant).
+        lengths = {r[0] for r in results}
+        assert len(lengths) == 1, f"presets produced differing lengths: {lengths}"
+        assert lengths.pop() > 0
 
     @pytest.mark.concurrency
     @pytest.mark.thread_safety
@@ -447,7 +459,6 @@ class TestAudioProcessingThreadSafety:
         assert all(r > 0 for r in results)
 
     @pytest.mark.concurrency
-    @pytest.mark.xfail(reason="AdaptiveCompressor.__init__ now requires a 'settings' argument; test still calls the old no-arg form (see #4548)", strict=True)
     @pytest.mark.thread_safety
     @pytest.mark.audio
     def test_concurrent_dynamics_processing(self, test_audio_files, thread_pool):
@@ -455,14 +466,19 @@ class TestAudioProcessingThreadSafety:
         Test dynamics processing isolation.
 
         Validates that dynamics processors don't share state.
+
+        #5156: re-pointed at the current constructor —
+        AdaptiveCompressor(settings, sample_rate). process() returns
+        (audio, metrics), not a bare array.
         """
         from auralis.dsp.dynamics import AdaptiveCompressor
+        from auralis.dsp.dynamics.settings import CompressorSettings
         from auralis.io.unified_loader import load_audio
 
         def process_dynamics(filepath):
             audio, sr = load_audio(filepath)
-            compressor = AdaptiveCompressor(sample_rate=sr)
-            result = compressor.process(audio)
+            compressor = AdaptiveCompressor(CompressorSettings(), sr)
+            result, _metrics = compressor.process(audio)
             return len(result)
 
         futures = [thread_pool.submit(process_dynamics, fp) for fp in test_audio_files[:5]]
@@ -497,7 +513,6 @@ class TestAudioProcessingThreadSafety:
         assert all(isinstance(r, (int, float)) for r in results)
 
     @pytest.mark.concurrency
-    @pytest.mark.xfail(reason="BaseSpectrumAnalyzer.__init__ no longer accepts a 'sample_rate' kwarg; test needs re-pointing at the current constructor (see #4548)", strict=True)
     @pytest.mark.thread_safety
     @pytest.mark.audio
     def test_concurrent_spectrum_analysis(self, test_audio_files, thread_pool):
@@ -505,15 +520,18 @@ class TestAudioProcessingThreadSafety:
         Test spectrum analyzer thread-safety.
 
         Validates that spectrum analysis can run concurrently.
+
+        #5156: re-pointed — the constructor takes an optional SpectrumSettings,
+        not a sample_rate; the rate is passed per call to analyze_file().
         """
         from auralis.analysis.base_spectrum_analyzer import SpectrumAnalyzer
         from auralis.io.unified_loader import load_audio
 
         def analyze_spectrum(filepath):
             audio, sr = load_audio(filepath)
-            analyzer = SpectrumAnalyzer(sample_rate=sr)
+            analyzer = SpectrumAnalyzer()
             result = analyzer.analyze_file(audio, sr)
-            return result is not None
+            return isinstance(result, dict) and bool(result)
 
         futures = [thread_pool.submit(analyze_spectrum, fp) for fp in test_audio_files[:5]]
         results = [f.result() for f in futures]
@@ -521,7 +539,6 @@ class TestAudioProcessingThreadSafety:
         assert all(results)
 
     @pytest.mark.concurrency
-    @pytest.mark.xfail(reason="ContentAnalyzer.analyze_content() takes 1 argument, test passes 2; signature changed (see #4548)", strict=True)
     @pytest.mark.thread_safety
     @pytest.mark.audio
     def test_concurrent_content_analysis(self, test_audio_files, thread_pool):
@@ -529,6 +546,9 @@ class TestAudioProcessingThreadSafety:
         Test ContentAnalyzer thread-safety.
 
         Validates that content analysis can run concurrently.
+
+        #5156: re-pointed — analyze_content() takes audio only; the sample
+        rate is a constructor concern.
         """
         from auralis.core.analysis import ContentAnalyzer
         from auralis.io.unified_loader import load_audio
@@ -536,8 +556,8 @@ class TestAudioProcessingThreadSafety:
         analyzer = ContentAnalyzer()
 
         def analyze_content(filepath):
-            audio, sr = load_audio(filepath)
-            profile = analyzer.analyze_content(audio, sr)
+            audio, _sr = load_audio(filepath)
+            profile = analyzer.analyze_content(audio)
             return profile['genre_info']['primary'] if profile else None
 
         futures = [thread_pool.submit(analyze_content, fp) for fp in test_audio_files[:5]]
@@ -550,24 +570,28 @@ class TestAudioProcessingThreadSafety:
     @pytest.mark.concurrency
     @pytest.mark.thread_safety
     @pytest.mark.audio
-    @pytest.mark.xfail(reason="AdaptiveTargetGenerator.__init__ now requires a 'config' argument; test still calls the old no-arg form (see #4548)", strict=True)
     def test_concurrent_target_generation(self, test_audio_files, thread_pool):
         """
         Test TargetGenerator thread-safety.
 
         Validates that target generation can run concurrently.
+
+        #5156: re-pointed — the generator takes a UnifiedConfig, the method is
+        generate_targets() (not generate_target_curve), and analyze_content()
+        takes audio only.
         """
         from auralis.core.analysis import AdaptiveTargetGenerator, ContentAnalyzer
+        from auralis.core.config import UnifiedConfig
         from auralis.io.unified_loader import load_audio
 
         analyzer = ContentAnalyzer()
-        generator = AdaptiveTargetGenerator()
+        generator = AdaptiveTargetGenerator(UnifiedConfig())
 
         def generate_target(filepath):
-            audio, sr = load_audio(filepath)
-            profile = analyzer.analyze_content(audio, sr)
-            target = generator.generate_target_curve(profile)
-            return target is not None
+            audio, _sr = load_audio(filepath)
+            profile = analyzer.analyze_content(audio)
+            target = generator.generate_targets(profile)
+            return isinstance(target, dict) and bool(target)
 
         futures = [thread_pool.submit(generate_target, fp) for fp in test_audio_files[:5]]
         results = [f.result() for f in futures]

@@ -383,7 +383,7 @@ class TestProcessPoolPerformance:
         # Startup should be reasonably fast (< 2 seconds)
         assert startup_time < 2.0
 
-    @pytest.mark.xfail(reason="HybridProcessor cannot be pickled for multiprocessing IPC (see #4269)", strict=True)
+    @pytest.mark.xfail(reason="#5188: HybridProcessor holds a threading.RLock and cannot be pickled for multiprocessing IPC; pending a decision on whether multiprocessing is a supported model at all", strict=True)
     def test_process_pool_task_distribution(self, test_audio_files, process_pool):
         """Test that tasks are evenly distributed across workers."""
         from auralis.io.unified_loader import load_audio
@@ -414,7 +414,7 @@ class TestProcessPoolPerformance:
         max_tasks = max(worker_usage.values())
         assert max_tasks <= min_tasks * 2  # At most 2x difference
 
-    @pytest.mark.xfail(reason="HybridProcessor cannot be pickled for multiprocessing IPC (see #4269)", strict=True)
+    @pytest.mark.xfail(reason="#5188: HybridProcessor holds a threading.RLock and cannot be pickled for multiprocessing IPC; pending a decision on whether multiprocessing is a supported model at all", strict=True)
     def test_process_pool_worker_utilization(self, test_audio_files, process_pool):
         """Test that all workers are utilized."""
         from auralis.io.unified_loader import load_audio
@@ -435,7 +435,7 @@ class TestProcessPoolPerformance:
         # Should use at least 2 workers for 10 files
         assert len(unique_workers) >= 2
 
-    @pytest.mark.xfail(reason="HybridProcessor cannot be pickled for multiprocessing IPC (see #4269)", strict=True)
+    @pytest.mark.xfail(reason="#5188: HybridProcessor holds a threading.RLock and cannot be pickled for multiprocessing IPC; pending a decision on whether multiprocessing is a supported model at all", strict=True)
     def test_process_pool_memory_per_worker(self, test_audio_files, process_pool):
         """Test memory usage per worker."""
         import psutil
@@ -462,7 +462,7 @@ class TestProcessPoolPerformance:
         # Each worker should use reasonable memory (< 300 MB)
         assert all(mem < 300 for mem in memory_usages)
 
-    @pytest.mark.xfail(reason="HybridProcessor cannot be pickled for multiprocessing IPC (see #4269)", strict=True)
+    @pytest.mark.xfail(reason="#5188: HybridProcessor holds a threading.RLock and cannot be pickled for multiprocessing IPC; pending a decision on whether multiprocessing is a supported model at all", strict=True)
     def test_process_pool_scaling_efficiency(self, test_audio_files):
         """Test speedup vs worker count."""
         from auralis.io.unified_loader import load_audio
@@ -490,7 +490,7 @@ class TestProcessPoolPerformance:
         speedup = time_1_worker / time_2_workers
         assert speedup > 1.2  # At least 20% speedup
 
-    @pytest.mark.xfail(reason="HybridProcessor cannot be pickled for multiprocessing IPC (see #4269)", strict=True)
+    @pytest.mark.xfail(reason="#5188: HybridProcessor holds a threading.RLock and cannot be pickled for multiprocessing IPC; pending a decision on whether multiprocessing is a supported model at all", strict=True)
     def test_process_pool_cpu_utilization(self, test_audio_files, process_pool):
         """Test CPU usage optimization."""
         import psutil
@@ -524,7 +524,7 @@ class TestProcessPoolPerformance:
         # CPU usage should increase during processing
         assert cpu_during > cpu_before
 
-    @pytest.mark.xfail(reason="HybridProcessor cannot be pickled for multiprocessing IPC (see #4269)", strict=True)
+    @pytest.mark.xfail(reason="#5188: HybridProcessor holds a threading.RLock and cannot be pickled for multiprocessing IPC; pending a decision on whether multiprocessing is a supported model at all", strict=True)
     def test_process_pool_io_bound_tasks(self, test_audio_files, process_pool):
         """Test I/O-bound task handling."""
         from auralis.io.unified_loader import load_audio
@@ -545,7 +545,7 @@ class TestProcessPoolPerformance:
         assert duration < 15  # 4 files with 0.1s delay each + overhead
         assert len(results) == 4
 
-    @pytest.mark.xfail(reason="HybridProcessor cannot be pickled for multiprocessing IPC (see #4269)", strict=True)
+    @pytest.mark.xfail(reason="#5188: HybridProcessor holds a threading.RLock and cannot be pickled for multiprocessing IPC; pending a decision on whether multiprocessing is a supported model at all", strict=True)
     def test_process_pool_cpu_bound_tasks(self, test_audio_files, process_pool):
         """Test CPU-bound task handling."""
         from auralis.io.unified_loader import load_audio
@@ -569,7 +569,7 @@ class TestProcessPoolPerformance:
         assert len(results) == 4
         assert all(r > 0 for r in results)
 
-    @pytest.mark.xfail(reason="HybridProcessor cannot be pickled for multiprocessing IPC (see #4269)", strict=True)
+    @pytest.mark.xfail(reason="#5188: HybridProcessor holds a threading.RLock and cannot be pickled for multiprocessing IPC; pending a decision on whether multiprocessing is a supported model at all", strict=True)
     def test_process_pool_mixed_workload(self, test_audio_files, process_pool):
         """Test mix of I/O and CPU tasks."""
         from auralis.io.unified_loader import load_audio
@@ -602,7 +602,7 @@ class TestProcessPoolPerformance:
         assert len(io_results) == 3
         assert len(cpu_results) == 3
 
-    @pytest.mark.xfail(reason="HybridProcessor cannot be pickled for multiprocessing IPC (see #4269)", strict=True)
+    @pytest.mark.xfail(reason="#5188: HybridProcessor holds a threading.RLock and cannot be pickled for multiprocessing IPC; pending a decision on whether multiprocessing is a supported model at all", strict=True)
     def test_process_pool_dynamic_sizing(self, test_audio_files):
         """Test adjusting pool size dynamically."""
         from auralis.io.unified_loader import load_audio
