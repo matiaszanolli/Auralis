@@ -1021,14 +1021,23 @@ repos:
 
 ### CI Pipeline (GitHub Actions)
 
-> **⚠️ Proposed / target state — NOT yet implemented.** The `test.yml` workflow
-> below does not exist. As of now `.github/workflows/` contains
-> `build-release.yml`, `frontend-test.yml` (runs vitest against a known-failure
-> baseline, #4640), `frontend-typecheck.yml` (runs `tsc` only), `lockfile-guard.yml`,
-> `requirements-pin-guard.yml`, and `rust-audit.yml` — there is **no** automated
-> pytest / coverage / codecov / e2e gate on push or PR. Treat the pipeline and the
-> Quality Gates below as the intended design to build toward, not a guarantee that
-> these checks run automatically today.
+> **⚠️ The `test.yml` workflow below is still a proposal — it does not exist.**
+> But the pytest gate it proposes now does, under a different name:
+> `.github/workflows/` currently contains `action-pin-guard.yml`,
+> `backend-tests.yml` (runs `pytest --junitxml`, gated against
+> `pytest-baseline.json` by `scripts/check_pytest_baseline.py`),
+> `build-release.yml`, `frontend-test.yml` (runs `pnpm run test:ci` against a
+> known-failure baseline, #4640, gated by `scripts/check-test-baseline.mjs`),
+> `frontend-typecheck.yml` (runs `pnpm run type-check:prod`, must be clean),
+> `lockfile-guard.yml`, `path-references.yml`, `requirements-pin-guard.yml`,
+> and `rust-audit.yml`. Both baseline-gated workflows are **ratchets, not a
+> green-suite demand**: the test step itself always exits 0, and the baseline
+> step is what actually decides the job, comparing the run against its
+> checked-in baseline and failing only on failures not already known there
+> (never on a missing report or 0 collected tests, so a crashed runner can't
+> pass as green). The baseline may shrink, never grow. Treat the `test.yml`
+> pipeline and Quality Gates below as the coverage/codecov/e2e layer this
+> project still doesn't have, not as a claim that no pytest gate runs today.
 >
 > Verify against the Actions tab rather than against files in the repo: until
 > #4562, `.github/workflows.backup/` held five tracked workflows whose README
