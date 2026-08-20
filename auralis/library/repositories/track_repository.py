@@ -688,15 +688,30 @@ class TrackRepository(BaseRepository):
             return tracks, total
 
     def record_play(self, track_id: int) -> None:
-        """Record a track play"""
+        """Record a track play.
+
+        Atomic at the SQL level (#5157): a prior SELECT-then-Python-increment
+        (`track.play_count = (track.play_count or 0) + 1`) raced under
+        concurrent plays -- two sessions could read the same starting count
+        and each write back count+1, losing one increment. UPDATE ... SET
+        play_count = play_count + 1 is a single statement the database
+        applies atomically per row, so concurrent calls always sum correctly
+        regardless of interleaving. coalesce() covers the (already-defensive)
+        case of a NULL play_count from a pre-migration row.
+        """
         session = self.get_session()
         try:
-            track = session.execute(select(Track).where(Track.id == track_id)).scalars().first()
-            if track:
-                track.play_count = (track.play_count or 0) + 1
-                track.last_played = func.now()
-                session.commit()
-                debug(f"Recorded play for track: {track.title}")
+            result = session.execute(
+                update(Track)
+                .where(Track.id == track_id)
+                .values(
+                    play_count=func.coalesce(Track.play_count, 0) + 1,
+                    last_played=func.now(),
+                )
+            )
+            session.commit()
+            if result.rowcount:
+                debug(f"Recorded play for track id={track_id}")
         except Exception as e:
             session.rollback()
             error(f"Failed to record play: {e}")
