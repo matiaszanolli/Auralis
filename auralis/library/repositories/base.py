@@ -18,6 +18,31 @@ from contextlib import contextmanager
 
 from sqlalchemy.orm import Session
 
+# Backslash is the escape character every repository passes as
+# ``ilike(..., escape='\\')``.
+LIKE_ESCAPE = '\\'
+
+
+def escape_like(query: str) -> str:
+    """Neutralise LIKE metacharacters in a user-supplied search string.
+
+    Without this, a query containing ``%`` or ``_`` is interpreted as a
+    wildcard and matches far more rows than the user asked for — ``%`` alone
+    matches everything (#2405).
+
+    Pair with ``escape='\\'`` on the ``ilike()`` call::
+
+        term = f"%{escape_like(query)}%"
+        Model.name.ilike(term, escape='\\')
+
+    Note:
+        ``TrackRepository``, ``AlbumRepository``, ``ArtistRepository`` and
+        ``GenreRepository`` still each carry their own inline copy of this
+        expression. They predate this helper and are unchanged here to keep
+        #5171 to its own scope; migrating them is a mechanical follow-up.
+    """
+    return query.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+
 
 class BaseRepository:
     """Base class providing session-factory storage and session lifecycle.

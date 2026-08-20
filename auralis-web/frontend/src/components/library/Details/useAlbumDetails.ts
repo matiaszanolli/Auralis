@@ -72,6 +72,10 @@ export const useAlbumDetails = (albumId: number) => {
           artist: data.artist,
           artist_name: data.artist,
           year: data.year,
+          // #5170: genre is derived server-side (modal genre across the
+          // album's tracks — Album has no genre column). Without this line
+          // AlbumMetadata's "Genre:" row was unreachable.
+          genre: data.genre,
           track_count: data.total_tracks,
           total_duration: tracks.reduce((sum, t) => sum + (t.duration || 0), 0),
           tracks,

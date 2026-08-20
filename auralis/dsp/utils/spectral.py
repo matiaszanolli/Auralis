@@ -11,8 +11,6 @@ Spectral feature extraction and analysis functions
 import numpy as np
 from scipy.signal.windows import hann
 
-from ...utils.logging import debug
-
 
 def frames_for_seconds(sample_rate: int, seconds: float, *, power_of_two: bool = True) -> int:
     """
@@ -207,7 +205,29 @@ def tempo_estimate(audio: np.ndarray, sample_rate: int = 44100) -> float:
     Rough tempo estimation using onset detection
 
     Uses spectral flux to detect onsets and estimate tempo.
-    Tries high-performance Rust implementation first with Python fallback.
+
+    This used to open with a "try the Rust implementation first (3-5x faster)"
+    branch that imported ``...optimization.rust_integration``. That module has
+    never existed, so the import raised ``ModuleNotFoundError`` on every call
+    and the enclosing ``except Exception`` swallowed it — the branch was dead
+    from the day it was written and every call already ran the NumPy path
+    (#5168).
+
+    The branch was removed rather than repointed at ``auralis_dsp.detect_tempo``,
+    because measuring it showed the premise backwards. On music-like input at
+    44.1 kHz, ``auralis_dsp.detect_tempo`` is **~25-29x slower** than the NumPy
+    implementation below at every buffer length tested (5 s: 98 ms vs 3.9 ms;
+    60 s: 1247 ms vs 43 ms), for the same BPM to within 0.2, and it halves the
+    tempo on some click tracks. ``tempo_estimate`` runs on the live analysis
+    path (``core/analysis/content_analyzer.py``, ``analysis/ml/feature_extractor.py``),
+    so wiring the Rust call in would have been a large regression, not a
+    speedup.
+
+    ``tempo.rs::detect_tempo`` is therefore an unused binding. #4599's rustfft
+    work is *not* stranded by this: it optimised the crate's **other**
+    spectral-flux tempo routine, ``fingerprint_compute.rs::estimate_tempo``,
+    which production does reach through ``auralis_dsp.compute_fingerprint``
+    (see ``analysis/fingerprint/rust_fingerprint.py``).
 
     Args:
         audio: Input audio signal
@@ -216,31 +236,6 @@ def tempo_estimate(audio: np.ndarray, sample_rate: int = 44100) -> float:
     Returns:
         Estimated tempo in BPM
     """
-    # Try Rust implementation first (3-5x faster)
-    try:
-        from ...optimization.rust_integration import try_import_rust_module
-        rust_dsp = try_import_rust_module()
-
-        if rust_dsp is not None:
-            # Convert stereo to mono if needed
-            if audio.ndim == 2:
-                mono_audio = np.mean(audio, axis=1)
-            else:
-                mono_audio = audio
-
-            # Ensure float64 for Rust
-            mono_audio = mono_audio.astype(np.float64)
-
-            try:
-                tempo_bpm = rust_dsp.detect_tempo(mono_audio, sample_rate)
-                if 40 <= tempo_bpm <= 300:  # Sanity check
-                    return float(tempo_bpm)
-            except Exception as e:
-                debug(f"Rust tempo detection failed, falling back to Python: {e}")
-    except Exception as e:
-        debug(f"Could not import Rust DSP module: {e}")
-
-    # Python fallback implementation
     return _tempo_estimate_python(audio, sample_rate)
 
 

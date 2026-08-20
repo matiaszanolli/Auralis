@@ -9,9 +9,9 @@ Data access layer for track operations
 """
 
 from collections.abc import Callable, Iterator
-from typing import Any
+from typing import Any, cast
 
-from sqlalchemy import and_, delete, func, or_, select, update
+from sqlalchemy import CursorResult, and_, delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload, selectinload
 
@@ -698,17 +698,22 @@ class TrackRepository(BaseRepository):
         applies atomically per row, so concurrent calls always sum correctly
         regardless of interleaving. coalesce() covers the (already-defensive)
         case of a NULL play_count from a pre-migration row.
+
+        A missing ``track_id`` is a no-op (rowcount 0), matching the previous
+        behaviour; nothing is returned so callers keep their current contract.
         """
         session = self.get_session()
         try:
-            result = session.execute(
+            # cast(): session.execute() is typed Result, which has no
+            # rowcount; the UPDATE path really returns a CursorResult.
+            result = cast(CursorResult[Any], session.execute(
                 update(Track)
                 .where(Track.id == track_id)
                 .values(
                     play_count=func.coalesce(Track.play_count, 0) + 1,
                     last_played=func.now(),
                 )
-            )
+            ))
             session.commit()
             if result.rowcount:
                 debug(f"Recorded play for track id={track_id}")

@@ -1,8 +1,8 @@
 {
-  "_comment": "Known-failing vitest specs (#4640). CI fails on any failure NOT listed here. Regenerate with: pnpm run test:baseline:update",
+  "_comment": "Known-failing vitest specs (#4640). CI fails on any failure NOT listed here. Regenerate with: pnpm run test:baseline:update. #5158: the 8 src/tests/api-integration/library-api.test.ts entries were removed by hand — #5119 wrapped that file in a top-level describe.skip, so those specs can never be reported as failures again and the entries were dead weight. Removing them is a provable shrink; a full local regeneration was deliberately avoided because a baseline built outside CI reports spurious new failures.",
   "generatedFrom": {
     "totalTests": 3383,
-    "failedTests": 126
+    "failedTests": 118
   },
   "failures": [
     "src/components/__tests__/Sidebar.test.tsx::Sidebar renders in collapsed state",
@@ -122,14 +122,6 @@
     "src/performance/__tests__/lazyLoader.test.tsx::Lazy Loader Error Boundary should use custom fallback",
     "src/performance/__tests__/lazyLoader.test.tsx::Lazy Loader Fallback Components should render default error fallback",
     "src/performance/__tests__/lazyLoader.test.tsx::Lazy Loader Fallback Components should render default loading fallback",
-    "src/performance/__tests__/lazyLoader.test.tsx::Lazy Loader Fallback Components should render error fallback without error message",
-    "src/tests/api-integration/library-api.test.ts::Library API Integration Tests Album Endpoints should fetch album by ID",
-    "src/tests/api-integration/library-api.test.ts::Library API Integration Tests Album Endpoints should fetch album tracks",
-    "src/tests/api-integration/library-api.test.ts::Library API Integration Tests Album Endpoints should fetch all albums",
-    "src/tests/api-integration/library-api.test.ts::Library API Integration Tests Album Endpoints should return 404 for non-existent album",
-    "src/tests/api-integration/library-api.test.ts::Library API Integration Tests Artist Endpoints should fetch all artists",
-    "src/tests/api-integration/library-api.test.ts::Library API Integration Tests Artist Endpoints should fetch artist by ID",
-    "src/tests/api-integration/library-api.test.ts::Library API Integration Tests Artist Endpoints should fetch artist tracks",
-    "src/tests/api-integration/library-api.test.ts::Library API Integration Tests Artist Endpoints should return 404 for non-existent artist"
+    "src/performance/__tests__/lazyLoader.test.tsx::Lazy Loader Fallback Components should render error fallback without error message"
   ]
 }
