@@ -156,32 +156,26 @@ describe('AlbumDetailView', () => {
       });
     });
 
-    // Characterization test, not the desired behaviour (#5170).
+    // Flipped from a characterization test now that #5170 wired genre through.
     //
-    // This asserted `queryAllByText(/rock/i).length >= 0` — true by
+    // History: this asserted `queryAllByText(/rock/i).length >= 0` — true by
     // construction, so it passed whether or not genre rendered (#5136).
-    // Replacing it with a real assertion turned it red and exposed why:
-    // `useAlbumDetails.ts:68-77` never maps a `genre` key into `albumData`,
-    // and `/api/albums/{id}/tracks` does not send one at all, so
-    // `AlbumMetadata`'s `{genre && ...}` block (AlbumMetadata.tsx:46) is
-    // unreachable from this view. The mock below carries `genre: 'Rock'`,
-    // which the real endpoint does not return.
-    //
-    // Pinned to today's behaviour so the gap stays visible: when #5170 wires
-    // genre through, this test fails and must be flipped to assert the
-    // `Genre: Rock` line renders.
-    it('does not display genre — endpoint omits it and the hook drops it (#5170)', async () => {
+    // A real assertion turned it red, which is how #5170 was found: the hook
+    // never mapped a `genre` key and `/api/albums/{id}/tracks` never sent one,
+    // so `AlbumMetadata`'s `{genre && ...}` block was unreachable. The
+    // endpoint now derives a genre (the modal genre across the album's
+    // tracks — `Album` has no genre column) and the hook maps it.
+    it('should display genre (#5170)', async () => {
       render(
         <AlbumDetailView albumId={1} />
       );
 
-      // Wait for the album to actually load before asserting an absence,
-      // otherwise this passes against the loading skeleton.
       await waitFor(() => {
         expect(screen.getByText(/Come Together/)).toBeInTheDocument();
       }, { timeout: 2000 });
 
-      expect(screen.queryByText(/Genre:/i)).not.toBeInTheDocument();
+      expect(screen.getByText(/Genre:/i)).toBeInTheDocument();
+      expect(screen.getByText(/Rock/)).toBeInTheDocument();
     });
 
     it('should display track count', async () => {
