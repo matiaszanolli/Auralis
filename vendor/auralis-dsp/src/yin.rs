@@ -27,7 +27,7 @@ use rayon::prelude::*;
 /// # Parameters
 /// - Frame length: 2048 samples (~46ms at 44.1kHz)
 /// - Hop length: 512 samples (~11.6ms, 25% overlap)
-/// - Trough threshold: 0.1 (AACF relative tolerance)
+/// - Trough threshold: 0.15 (d' absolute threshold, YIN paper §III-D)
 pub fn yin(
     y: &[f64],
     sr: usize,
@@ -86,7 +86,7 @@ fn process_frame(frame: &[f64], sr: f64, min_lag: usize, max_lag: usize, thresho
     // Step 1: Compute difference function
     let df = compute_difference_function(frame);
 
-    // Step 2: Cumulative mean normalization
+    // Step 2: Cumulative mean normalization -> d'(tau) (YIN eq. 8)
     let aacf = cumulative_mean_normalization(&df);
 
     // Step 3: Find first minimum below trough_threshold within frequency bounds
@@ -140,49 +140,84 @@ fn compute_difference_function(frame: &[f64]) -> Vec<f64> {
     df
 }
 
-/// Cumulative Mean Normalization (CMN) - convert DF to AACF
+/// Cumulative Mean Normalization (CMN) - convert DF to the normalized
+/// difference function d'(τ)
 ///
-/// AACF[0] = 1.0
-/// AACF[τ] = 2·DF[τ] / (Σ DF[i] for i in [1, τ])
+/// YIN paper eq. (8):
 ///
-/// Normalized autocorrelation function in range [0, 2]
+///   d'(0) = 1
+///   d'(τ) = d(τ) / [ (1/τ) · Σ_{j=1..τ} d(j) ]   =   τ · d(τ) / Σ_{j=1..τ} d(j)
+///
+/// #5169: this used a constant factor of 2 in place of τ:
+///
+///   aacf[tau] = 2.0 * df[tau] / running_sum;      // WRONG
+///
+/// Dividing by the cumulative *sum* instead of the cumulative *mean* makes the
+/// normalized curve decay roughly as 1/τ, so "first value below threshold" was
+/// answered by where that decay crossed the threshold rather than by where the
+/// signal actually repeats. The reported pitch was therefore near-constant
+/// (~1150-1660 Hz) and almost independent of the input: 110 Hz read as
+/// 1145 Hz, 880 Hz as 1664 Hz. The docstring above encoded the same error, so
+/// it could not be caught by reading the code against its own spec.
+///
+/// The result is not bounded by 2 — d'(τ) is ~1 for aperiodic lags and dips
+/// toward 0 at the period — so the old clamp to [0, 2] is gone too. It only
+/// ever flattened peaks (troughs sit far below 2) but it made the values
+/// silently non-comparable to librosa's.
 fn cumulative_mean_normalization(df: &[f64]) -> Vec<f64> {
     let n = df.len();
     let mut aacf = vec![0.0; n];
 
-    // AACF[0] is always 1.0
+    // d'(0) is 1 by definition.
     aacf[0] = 1.0;
 
-    let mut running_sum = df[0];
+    let mut running_sum = 0.0;
     for tau in 1..n {
         running_sum += df[tau];
 
         if running_sum > 1e-10 {
-            aacf[tau] = 2.0 * df[tau] / running_sum;
+            aacf[tau] = df[tau] * (tau as f64) / running_sum;
         } else {
-            aacf[tau] = 2.0;  // High penalty for very small running sum
+            // Σ d(j) ~ 0 means the frame is silent (or constant): every lag
+            // matches equally well, which is not periodicity. 1.0 is the
+            // aperiodic value, so no trough is found and the frame reads as
+            // unvoiced — the same outcome as before, without pretending the
+            // penalty is a real measurement.
+            aacf[tau] = 1.0;
         }
-
-        // Clip to valid range [0, 2]
-        aacf[tau] = aacf[tau].min(2.0).max(0.0);
     }
 
     aacf
 }
 
-/// Find first trough (minimum) below threshold
+/// Find the first local minimum of d' that falls below `threshold`
 ///
-/// Returns the lag index where AACF[τ] < threshold is first satisfied
-/// If no such trough exists, returns None (unvoiced frame)
+/// YIN's "absolute threshold" step (paper §III-D): take the *first* dip below
+/// the threshold rather than the global minimum, so an octave-lower harmonic
+/// later in the lag range cannot win.
+///
+/// #5169: this returned the first lag whose value is below the threshold,
+/// which is the leading *edge* of the dip, not its bottom. That biases the lag
+/// low and so the frequency high. Having crossed the threshold we now walk
+/// downhill to the actual minimum before returning, which is what the paper
+/// specifies and what librosa does.
+///
+/// Returns None when no lag in `[min_lag, max_lag)` dips below the threshold —
+/// an unvoiced frame.
 fn find_trough(aacf: &[f64], min_lag: usize, max_lag: usize, threshold: f64) -> Option<usize> {
     if min_lag >= aacf.len() || min_lag >= max_lag {
         return None;
     }
 
     let search_end = max_lag.min(aacf.len());
+    let mut tau = (min_lag..search_end).find(|&tau| aacf[tau] < threshold)?;
 
-    // Look for the first minimum below threshold
-    (min_lag..search_end).find(|&tau| aacf[tau] < threshold)
+    // Descend to the bottom of this dip, staying inside the search window.
+    while tau + 1 < search_end && aacf[tau + 1] < aacf[tau] {
+        tau += 1;
+    }
+
+    Some(tau)
 }
 
 /// Parabolic interpolation for sub-sample refinement
@@ -264,10 +299,39 @@ mod tests {
 
         let mean_f0 = voiced.iter().sum::<f64>() / voiced.len() as f64;
 
-        // YIN may detect harmonics or subharmonics, so be permissive
-        // but check that we're detecting something in the ballpark
-        assert!(mean_f0 > 100.0 && mean_f0 < 1500.0,
-                "440 Hz detection should be reasonable, got {:.2} Hz", mean_f0);
+        // #5169: this used to accept anything in 100..1500 Hz, which the
+        // broken implementation's 1316 Hz passed. A pure sine is the easiest
+        // possible input for a pitch detector — hold it to 1 %.
+        assert!((mean_f0 - freq).abs() / freq < 0.01,
+                "440 Hz sine detected as {:.2} Hz", mean_f0);
+    }
+
+    /// #5169 regression: the reported pitch must track the input.
+    ///
+    /// The original defect returned ~1150-1660 Hz for every input, so the
+    /// *ratio* to the true pitch collapsed from 10.4x to 1.9x across this
+    /// range while each individual value still looked like "a frequency".
+    /// Sweeping several octaves in one test is what makes that visible.
+    #[test]
+    fn test_yin_tracks_pitch_across_octaves() {
+        let sr = 44100;
+        for &freq in &[110.0_f64, 220.0, 440.0, 880.0] {
+            let n_samples = sr;  // 1 second
+            let audio: Vec<f64> = (0..n_samples)
+                .map(|i| (2.0 * PI * freq * i as f64 / sr as f64).sin())
+                .collect();
+
+            let f0 = yin(&audio, sr, 65.4, 2093.0);
+            let mut voiced: Vec<f64> = f0.into_iter().filter(|&x| x > 0.0).collect();
+            assert!(!voiced.is_empty(), "{} Hz sine produced no voiced frames", freq);
+
+            voiced.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            let median = voiced[voiced.len() / 2];
+
+            assert!((median - freq).abs() / freq < 0.01,
+                    "{} Hz sine detected as {:.2} Hz (ratio {:.2})",
+                    freq, median, median / freq);
+        }
     }
 
     #[test]
@@ -328,11 +392,12 @@ mod tests {
 
         let mean_f0 = voiced.iter().sum::<f64>() / voiced.len() as f64;
 
-        // Check if detected frequency is within reasonable range
-        // YIN may find harmonics or nearby frequencies
-        assert!(mean_f0 > freq / 3.0 && mean_f0 < freq * 3.0,
-                "440 Hz detection with DC offset: detected {:.2} Hz (out of expected range)",
-                mean_f0);
+        // A DC offset shifts the difference function by a constant and must
+        // not move the period. Tolerance is looser than the clean-sine case
+        // only because this frame is 0.1 s, not because DC is expected to
+        // degrade the estimate (#5169).
+        assert!((mean_f0 - freq).abs() / freq < 0.02,
+                "440 Hz with DC offset detected as {:.2} Hz", mean_f0);
     }
 
     #[test]
@@ -349,20 +414,37 @@ mod tests {
 
     #[test]
     fn test_cmn_normalization() {
-        // Create DF with known values
+        // #5169: this test encoded the broken formula. It asserted
+        // `aacf[1] < aacf[0]`, which is unsatisfiable under YIN eq. (8) —
+        // d'(1) = 1·d(1)/d(1) = 1 = d'(0) for *any* input — and a [0, 2]
+        // bound that only held because the old code clamped to it. Both
+        // assertions passed against the wrong implementation and would have
+        // rejected the right one, so this is now checked against hand-computed
+        // values from the paper's definition instead.
         let df = vec![1.0, 0.5, 0.3, 0.2, 0.1];
         let aacf = cumulative_mean_normalization(&df);
 
-        // AACF[0] must be 1.0
+        // d'(0) = 1 by definition; d'(1) = 1 identically.
         assert_eq!(aacf[0], 1.0);
+        assert!((aacf[1] - 1.0).abs() < 1e-12, "d'(1) must be exactly 1, got {}", aacf[1]);
 
-        // AACF must be in [0, 2]
-        for &val in &aacf {
-            assert!(val >= 0.0 && val <= 2.0, "AACF value {} out of range [0, 2]", val);
+        // d'(tau) = tau * d(tau) / sum(d(1..=tau))
+        //   tau=2: 2 * 0.3 / 0.8 = 0.75
+        //   tau=3: 3 * 0.2 / 1.0 = 0.60
+        //   tau=4: 4 * 0.1 / 1.1 = 0.363636...
+        assert!((aacf[2] - 0.75).abs() < 1e-12, "d'(2) = {}", aacf[2]);
+        assert!((aacf[3] - 0.60).abs() < 1e-12, "d'(3) = {}", aacf[3]);
+        assert!((aacf[4] - 4.0 * 0.1 / 1.1).abs() < 1e-12, "d'(4) = {}", aacf[4]);
+    }
+
+    /// A silent frame must read as aperiodic (1.0), not as a strong match.
+    #[test]
+    fn test_cmn_silent_frame_is_aperiodic() {
+        let aacf = cumulative_mean_normalization(&vec![0.0; 8]);
+        assert_eq!(aacf[0], 1.0);
+        for (tau, &val) in aacf.iter().enumerate().skip(1) {
+            assert!((val - 1.0).abs() < 1e-12, "d'({}) = {} for silence", tau, val);
         }
-
-        // AACF should generally increase (as DF decreases) for normalized values
-        assert!(aacf[1] < aacf[0], "AACF should decrease for small DF values");
     }
 
     #[test]
