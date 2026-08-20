@@ -12,11 +12,18 @@ deleted outright. It also drove its "real audio" cases off a hardcoded
 one. Both are gone; the tests below call the real binding on synthetic signals
 whose true pitch is known by construction.
 
-What that rewrite immediately exposed is filed as #5169: the Rust `yin` does
+What that rewrite immediately exposed was filed as #5169: the Rust `yin` did
 not track pitch at all, returning a near-constant ~1150-1660 Hz regardless of
-input. The accuracy tests here are therefore `xfail` — they assert the contract
-that *should* hold, and will XPASS once #5169 is fixed. The structural tests
-(shape, dtype, finiteness, determinism) are live and passing.
+input. Root cause was in `yin.rs`'s cumulative mean normalisation, which used a
+constant factor of 2 where YIN eq. (8) requires tau — dividing by the cumulative
+sum rather than the cumulative mean — so the normalised curve decayed as ~1/tau
+and the threshold crossing was answered by that decay instead of by the signal's
+period. Fixed in #5169, together with a trough search that stopped at the
+leading edge of the dip rather than its bottom.
+
+The accuracy tests below were `xfail` while that stood; they are now live
+assertions. The Rust binding agrees with the true pitch to within ~2 cents on
+pure sines.
 """
 
 import numpy as np
@@ -125,16 +132,11 @@ def test_yin_handles_audio_shorter_than_one_frame():
 
 
 # --------------------------------------------------------------------------
-# Accuracy — xfail pending #5169. These are the assertions the binding is
-# supposed to satisfy; they are what makes the defect visible instead of
-# silently green. Non-strict so a fix does not fail the suite, but an XPASS
-# in the report is the signal that #5169 can be closed.
+# Accuracy. These were xfail while #5169 stood; the xfail markers are gone now
+# that the binding is correct, so a regression fails the suite rather than
+# quietly returning to "expected failure".
 # --------------------------------------------------------------------------
 
-@pytest.mark.xfail(
-    reason="#5169: Rust yin returns a near-constant ~1150-1660 Hz regardless of input pitch",
-    strict=False,
-)
 @pytest.mark.parametrize("freq", [110.0, 220.0, 440.0, 880.0])
 def test_yin_detects_known_sine_pitch(freq):
     """A pure tone's median F0 should land within a semitone of its true pitch."""
@@ -146,13 +148,13 @@ def test_yin_detects_known_sine_pitch(freq):
     )
 
 
-@pytest.mark.xfail(reason="#5169: Rust yin pitch estimate is not tied to the input", strict=False)
 def test_yin_agrees_with_librosa_on_chirp():
     """Within a quarter-tone of librosa over a 200->1000 Hz sweep.
 
-    Correlation alone is not enough here and is why this went unnoticed: the
-    Rust contour correlates 0.994 with librosa while sitting ~1550 cents high,
-    because it tracks the sweep's *shape* without tracking its pitch.
+    Correlation alone is not enough here and is why the defect went unnoticed:
+    the broken contour correlated 0.994 with librosa while sitting ~1550 cents
+    high, because it tracked the sweep's *shape* without tracking its pitch.
+    Post-fix the offset is ~30 cents, well inside a quarter-tone.
     """
     audio = chirp(200.0, 1000.0)
     assert median_cents_error(yin_librosa(audio), yin_rust(audio)) < 50.0
