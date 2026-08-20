@@ -149,7 +149,9 @@ For recovery work, run the backend and Vite separately:
 **One-time setup:**
 
 ```bash
-uv venv --python 3.14
+# --python-preference only-managed: without it uv can silently pick a
+# stale pyenv shim instead of the interpreter .python-version pins.
+uv venv --python-preference only-managed
 source .venv/bin/activate
 uv pip install -r requirements.txt
 cd vendor/auralis-dsp

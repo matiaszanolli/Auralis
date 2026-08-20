@@ -12,8 +12,9 @@
 For experienced Python developers, here's the fastest path:
 
 ```bash
-# 1. Install dependencies (uv manages the Python interpreter + venv)
-uv venv && source .venv/bin/activate
+# 1. Install dependencies (uv manages the Python interpreter + venv).
+#    --python-preference only-managed stops uv picking a stale pyenv shim.
+uv venv --python-preference only-managed && source .venv/bin/activate
 uv pip install -r requirements.txt
 
 # 2. Start backend with hot reload (database auto-initializes on first run)
@@ -99,8 +100,10 @@ A virtual environment isolates Python packages for this project, preventing conf
 `uv` provisions the interpreter (pinned in `.python-version`) and creates the venv in one step — no separate Python install needed.
 
 ```bash
-# Create the virtual environment at .venv
-uv venv
+# Create the virtual environment at .venv.
+# --python-preference only-managed stops uv picking a stale pyenv shim
+# instead of the interpreter .python-version pins.
+uv venv --python-preference only-managed
 
 # Activate it
 # On macOS/Linux:

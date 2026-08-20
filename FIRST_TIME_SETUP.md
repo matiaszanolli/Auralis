@@ -60,7 +60,9 @@ cd Auralis
 ```bash
 # uv creates the venv using the interpreter pinned in .python-version (3.14),
 # downloading a uv-managed CPython if you do not already have one.
-uv venv
+# --python-preference only-managed is what forces that: without it, uv can
+# silently pick a stale pyenv shim that happens to be on PATH instead.
+uv venv --python-preference only-managed
 source .venv/bin/activate
 ```
 
@@ -228,7 +230,7 @@ pnpm test
 
 | Issue | Solution |
 |-------|----------|
-| `python: command not found` | Run `uv venv && source .venv/bin/activate`, or use `python3` instead |
+| `python: command not found` | Run `uv venv --python-preference only-managed && source .venv/bin/activate`, or use `python3` instead |
 | `ModuleNotFoundError: numpy` | Did you activate the venv? `source .venv/bin/activate`, then `uv pip install -r requirements.txt` |
 | `libsndfile not found` | Install audio libraries (see section above) |
 | `Port 8765 already in use` | Kill existing process: `lsof -ti:8765 \| xargs kill -9` |

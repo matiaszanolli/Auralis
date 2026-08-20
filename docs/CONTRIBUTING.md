@@ -26,8 +26,10 @@ how to test and ship a change. For architecture, start at
 ## 2. First-time setup
 
 ```bash
-# 1. Python env + deps (.python-version pins the interpreter uv provisions)
-uv venv && source .venv/bin/activate
+# 1. Python env + deps (.python-version pins the interpreter uv provisions).
+#    --python-preference only-managed: without it uv can silently pick a
+#    stale pyenv shim instead of that pinned interpreter.
+uv venv --python-preference only-managed && source .venv/bin/activate
 uv pip install -r requirements.txt
 
 # 2. Build the Rust DSP module (REQUIRED before first run)
