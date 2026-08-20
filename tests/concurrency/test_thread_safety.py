@@ -128,10 +128,11 @@ class TestSharedResourceAccess:
             'channels': 2
         })
 
-        # Concurrent play count increments through the production path (#5157).
-        # record_play() issues a single atomic UPDATE ... play_count + 1, so
-        # every call must land — a hand-rolled SELECT-then-increment here would
-        # only be testing the test's own race, not the repository's.
+        # Concurrent play count increments. Goes through record_play() itself
+        # (#5157) rather than a hand-rolled SELECT-then-Python-increment,
+        # which is exactly the lost-update race this test exists to catch --
+        # record_play() is now a single atomic UPDATE ... SET play_count =
+        # play_count + 1, so every one of the 50 concurrent calls counts.
         def increment_play_count(track_id):
             track_repo.record_play(track_id)
             return True
@@ -141,14 +142,16 @@ class TestSharedResourceAccess:
 
         assert all(r for r in results)
 
-        # Verify final count — exactly 50, zero lost updates
+        # Verify final count is exactly 50 -- an atomic UPDATE guarantees no
+        # lost updates regardless of interleaving, so there is no longer a
+        # "close enough" tolerance to allow for.
         session = temp_db()
         from auralis.library.models import Track
         final_track = session.query(Track).filter_by(id=track.id).first()
         final_count = final_track.play_count
         session.close()
 
-        assert final_count == 50, f"Play count {final_count} != 50 — increments were lost"
+        assert final_count == 50, f"Play count {final_count} != 50, lost update detected"
 
     @pytest.mark.concurrency
     @pytest.mark.thread_safety
@@ -222,7 +225,12 @@ class TestSharedResourceAccess:
             'channels': 2
         })
 
-        # Concurrent metadata updates (different fields)
+        # Concurrent metadata updates (different fields). update_title has no
+        # lost-update concern -- each call sets a different value and the
+        # last writer simply wins, which is expected, not a race. The
+        # play_count side goes through record_play() itself (#5157), now a
+        # single atomic UPDATE, instead of the hand-rolled
+        # SELECT-then-Python-increment that used to lose updates here.
         def update_title(track_id, new_title):
             session = temp_db()
             from auralis.library.models import Track
@@ -233,7 +241,6 @@ class TestSharedResourceAccess:
             session.close()
 
         def update_play_count(track_id):
-            # Production path — atomic UPDATE, no lost increments (#5157)
             track_repo.record_play(track_id)
 
         # Mix of updates
@@ -252,9 +259,10 @@ class TestSharedResourceAccess:
         final_track = session.query(Track).filter_by(id=track.id).first()
         assert final_track is not None
         assert final_track.title is not None
+        # All 10 increments must count -- an atomic UPDATE guarantees no lost
+        # updates, so there is no longer a "some succeeded" tolerance to allow.
         assert final_track.play_count == 10, (
-            f"Play count {final_track.play_count} != 10 — increments were lost "
-            f"while concurrent title writes were in flight"
+            f"Play count {final_track.play_count} != 10, lost update detected"
         )
         session.close()
 

@@ -690,19 +690,22 @@ class TrackRepository(BaseRepository):
     def record_play(self, track_id: int) -> None:
         """Record a track play.
 
-        The increment is a single atomic ``UPDATE ... SET play_count =
-        play_count + 1`` evaluated by the database, not a Python-side
-        read-modify-write (#5157). The previous SELECT-then-``+ 1`` shape lost
-        increments whenever two play events for the same track overlapped,
-        because both threads read the same starting value and wrote back the
-        same result.
+        Atomic at the SQL level (#5157): a prior SELECT-then-Python-increment
+        (`track.play_count = (track.play_count or 0) + 1`) raced under
+        concurrent plays -- two sessions could read the same starting count
+        and each write back count+1, losing one increment. UPDATE ... SET
+        play_count = play_count + 1 is a single statement the database
+        applies atomically per row, so concurrent calls always sum correctly
+        regardless of interleaving. coalesce() covers the (already-defensive)
+        case of a NULL play_count from a pre-migration row.
 
-        ``COALESCE`` covers rows written before ``play_count`` had a default.
         A missing ``track_id`` is a no-op (rowcount 0), matching the previous
         behaviour; nothing is returned so callers keep their current contract.
         """
         session = self.get_session()
         try:
+            # cast(): session.execute() is typed Result, which has no
+            # rowcount; the UPDATE path really returns a CursorResult.
             result = cast(CursorResult[Any], session.execute(
                 update(Track)
                 .where(Track.id == track_id)
@@ -713,7 +716,7 @@ class TrackRepository(BaseRepository):
             ))
             session.commit()
             if result.rowcount:
-                debug(f"Recorded play for track: {track_id}")
+                debug(f"Recorded play for track id={track_id}")
         except Exception as e:
             session.rollback()
             error(f"Failed to record play: {e}")
