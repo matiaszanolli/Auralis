@@ -14,13 +14,16 @@ Philosophy:
 These tests validate that the system handles string inputs safely
 and gracefully, preventing security vulnerabilities and crashes.
 
-NOTE: Tests use old TrackRepository API - requires refactoring.
+#5154: this module was skipped wholesale for "Tests use old TrackRepository
+API - requires session_factory parameter". That was true of exactly one
+fixture — track_repo built `TrackRepository(db_path=":memory:")` and called
+`repo.close()`, neither of which exists on the repository API any more. The
+tests themselves were fine. Since the file holds this suite's SQL-injection and
+string-boundary coverage, the fixture is now built the way every other test
+builds a repository, and the module-level skip is gone.
 """
 
 import pytest
-
-# Mark tests using old TrackRepository API as needing refactoring
-pytestmark = pytest.mark.skip(reason="Tests use old TrackRepository API - requires session_factory parameter")
 import shutil
 import tempfile
 from pathlib import Path
@@ -43,11 +46,22 @@ def temp_audio_dir():
 
 
 @pytest.fixture
-def track_repo():
-    """Create an in-memory track repository."""
-    repo = TrackRepository(db_path=":memory:")
-    yield repo
-    repo.close()
+def track_repo(tmp_path):
+    """Create a track repository over a throwaway file-backed database.
+
+    File-backed rather than ``:memory:`` so the repository's own short-lived
+    sessions all see the same database — an in-memory SQLite URL gives each
+    new connection its own empty one (#5154).
+    """
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    from auralis.library.models import Base
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'strings.db'}")
+    Base.metadata.create_all(engine)
+    yield TrackRepository(sessionmaker(bind=engine))
+    engine.dispose()
 
 
 def create_test_track(directory: Path, filename: str):
@@ -272,9 +286,26 @@ def test_sql_injection_in_title(temp_audio_dir, track_repo):
         "bitrate": 1411200,
     }
 
-    # Should treat as literal string, not execute SQL
+    # Should treat as literal string, not execute SQL.
+    # #5154: asserting only `is not None` meant an injection that SUCCEEDED
+    # and returned a row still passed. The real claim is that the payload is
+    # stored verbatim as data and that the table survives.
     track = track_repo.add(track_info)
     assert track is not None
+    assert track.title == sql_injection, (
+        f"Injection payload was not stored verbatim: {track.title!r}"
+    )
+
+    # Round-trip through a fresh read, not just the returned instance.
+    reread = track_repo.get_by_id(track.id)
+    assert reread is not None, "tracks table did not survive the injection"
+    assert reread.title == sql_injection
+
+    # The payload must not have created or destroyed rows.
+    _, total_after_first = track_repo.get_all(limit=100)
+    assert total_after_first == 1, (
+        f"Expected exactly 1 row after the injection attempt, got {total_after_first}"
+    )
 
     # Verify database is still intact by adding another track
     filepath2 = create_test_track(temp_audio_dir, "track2.wav")

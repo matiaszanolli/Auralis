@@ -203,9 +203,21 @@ class TestLoudnessMeter:
 
         result = self.meter.measure_chunk(varying_signal)
 
-        # Gating should exclude silent portions
-        assert result['block_loudness'] is not None
-        assert result['momentary_lufs'] is not None
+        # #5154: two `is not None` assertions said nothing about gating —
+        # they passed for any numeric output at all. Gating's observable
+        # effect is that the silent halves do not drag the measurement down,
+        # so the gated loudness of (silence + tone + silence) must stay close
+        # to the tone measured on its own rather than ~3 dB below it.
+        assert np.isfinite(result['block_loudness'])
+        assert np.isfinite(result['momentary_lufs'])
+
+        tone_only = self.meter.measure_chunk(self.sine_stereo)
+        assert result['momentary_lufs'] == pytest.approx(
+            tone_only['momentary_lufs'], abs=3.0
+        ), (
+            f"Gated loudness {result['momentary_lufs']:.2f} LUFS drifted from the "
+            f"tone-only {tone_only['momentary_lufs']:.2f} LUFS — silence was not gated out"
+        )
 
     def test_true_peak_detection(self):
         """Test true peak detection with oversampling."""

@@ -404,12 +404,16 @@ class TestIOComponents:
         try:
             from auralis.io.results import ProcessingResults, ResultsContainer
 
-            # Test results classes
-            assert ProcessingResults is not None
+            # #5154: `assert ProcessingResults is not None` is true for any
+            # successfully imported name, so this only re-tested the import.
+            assert callable(ProcessingResults)
+            assert callable(ResultsContainer)
 
-            # Test basic results creation
+            # A default-constructed result set must be usable, not merely
+            # non-None.
             results = ProcessingResults()
             assert results is not None
+            assert isinstance(results.to_dict(), dict) if hasattr(results, 'to_dict') else True
 
         except ImportError:
             pytest.skip("ProcessingResults not available")
@@ -539,9 +543,17 @@ class TestModelRelationships:
         db.playlists.add_track(playlist.id, track1.id)
         db.playlists.add_track(playlist.id, track2.id)
 
-        # Verify playlist contents
+        # Verify playlist contents. #5154: this asserted only that the
+        # playlist still existed, so it passed even if add_track() were a
+        # no-op — which is the entire relationship this test is named for.
         retrieved_playlist = db.playlists.get_by_id(playlist.id)
         assert retrieved_playlist is not None
+        assert retrieved_playlist.name == 'Relationship Test Playlist'
+
+        track_ids = [t.id for t in retrieved_playlist.tracks]
+        assert track_ids == [track1.id, track2.id], (
+            f"Playlist should hold both tracks in insertion order, got {track_ids}"
+        )
 
 
 class TestErrorHandlingAndEdgeCases:

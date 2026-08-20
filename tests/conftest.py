@@ -6,6 +6,7 @@ import os
 import shutil
 import sys
 import tempfile
+import warnings
 from pathlib import Path
 from typing import Any, Callable, Dict, Tuple
 
@@ -498,11 +499,51 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "error: Error handling and edge case tests")
 
 def pytest_collection_modifyitems(config, items):
-    """Modify test collection to add markers based on test location and name"""
-    # NOTE: Disabled automatic marker assignment for performance - tests should be marked explicitly
-    # This hook was causing O(n) operations on 6000+ items, slowing down test collection significantly
-    # If automatic markers are needed again, use set operations instead of string searches for better performance
-    pass
+    """Warn about tests whose only assertions are ``X is not None`` (#5154).
+
+    Automatic *marker* assignment stays disabled here for performance — it was
+    doing O(n) string searches over 6000+ items and slowing collection
+    noticeably. If markers are ever needed again, use set operations.
+
+    The weak-assertion check below is deliberately scoped to the files this
+    session actually collected, not the whole tree: a single-file run parses
+    one file (~1 ms), and only a full run pays the ~0.3 s for all 544. That
+    keeps the inner loop fast while still making a new offender visible the
+    first time anyone runs the file containing it.
+
+    A warning, not a failure — ``scripts/check_weak_assertions.py`` is the
+    gate. #4049 and #4257 each fixed this pattern and each closed without one,
+    which is why the count had regrown to 57.
+    """
+    try:
+        sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
+        from check_weak_assertions import load_baseline, scan_file
+    except Exception:
+        return  # never let a lint helper break collection
+
+    try:
+        collected_files = {
+            Path(str(item.fspath)) for item in items if getattr(item, "fspath", None)
+        }
+        baseline = load_baseline()
+        new_offenders = {}
+        for path in collected_files:
+            if not path.name.startswith("test_"):
+                continue
+            for name, count in scan_file(path).items():
+                if name not in baseline:
+                    new_offenders[name] = count
+    except Exception:
+        return
+
+    for name, count in sorted(new_offenders.items()):
+        warnings.warn(
+            f"#5154: {name} asserts only `is not None` ({count} assertion(s)). "
+            f"Assert the value the test is named for. "
+            f"Gate: python scripts/check_weak_assertions.py",
+            UserWarning,
+            stacklevel=1,
+        )
 
 def pytest_runtest_setup(item):
     """Setup hook called before each test"""

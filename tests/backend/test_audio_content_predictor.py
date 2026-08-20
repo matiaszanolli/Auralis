@@ -297,8 +297,17 @@ class TestAudioContentPredictor:
         """Test creating predictor"""
         predictor = AudioContentPredictor()
 
+        # #5154: two `is not None` assertions passed against an empty rule set.
+        # The rules are the thing that makes the predictor work, so assert they
+        # exist AND cover the presets the predictor scores.
         assert predictor.analyzer is not None
-        assert predictor.affinity_rules is not None
+        assert predictor.affinity_rules, "affinity_rules must not be empty"
+
+        scores = await predictor.predict_preset_for_chunk(
+            audio_data=np.random.randn(44100) * 0.1
+        )
+        for preset in ('punchy', 'gentle'):
+            assert hasattr(scores, preset), f"predictor cannot score {preset!r}"
 
     @pytest.mark.asyncio
     async def test_predict_high_energy_suggests_punchy(self):

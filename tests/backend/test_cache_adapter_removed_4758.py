@@ -41,5 +41,18 @@ class TestStreamlinedCacheAdapterRemoved:
         normally after the dead adapter's removal."""
         import cache
 
-        assert cache.StreamlinedCacheManager is not None
-        assert cache.streamlined_cache_manager is not None
+        # #5154: `is not None` is true for any imported name, so this only
+        # re-tested the import. The claim is that the cache still *works*
+        # after the adapter's removal, so exercise it.
+        assert callable(cache.StreamlinedCacheManager)
+        manager = cache.streamlined_cache_manager
+        assert isinstance(manager, cache.StreamlinedCacheManager)
+
+        stats = manager.get_stats()
+        assert isinstance(stats, dict) and stats, "cache reported no stats"
+
+        # A track nothing has cached must report as not cached, rather than
+        # raising or claiming a hit. (get_chunk is a coroutine, so the sync
+        # status queries are what this non-async test can exercise.)
+        assert manager.is_track_fully_cached(-1) is False
+        assert manager.get_track_cache_status(-1) is None

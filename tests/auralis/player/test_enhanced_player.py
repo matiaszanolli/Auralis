@@ -506,11 +506,19 @@ class TestEnhancedPlayerWithFixtures:
 
         Phase 5E: Demonstrates proper fixture usage pattern.
         """
-        # enhanced_player fixture already has get_repository_factory_callable injected
+        # enhanced_player fixture already has get_repository_factory_callable
+        # injected. #5154: four `is not None` assertions passed against a
+        # player whose every collaborator was misconfigured; assert the
+        # observable initial state instead.
         assert enhanced_player is not None
         assert enhanced_player.config is not None
         assert enhanced_player.playback is not None
         assert enhanced_player.queue is not None
+
+        # A freshly-built player is stopped, silent and holding nothing.
+        assert enhanced_player.state == PlaybackState.STOPPED
+        assert not enhanced_player.is_playing()
+        assert enhanced_player.queue.get_queue() == []
 
     def test_queue_controller_with_factory(self, queue_controller, get_repository_factory_callable):
         """Test QueueController with RepositoryFactory dependency injection.
@@ -546,11 +554,17 @@ class TestEnhancedPlayerWithFixtures:
         Phase 5E: Demonstrates library integration with factory pattern.
         """
         assert integration_manager is not None
-        assert integration_manager.get_repository_factory is not None
+        assert callable(integration_manager.get_repository_factory)
 
-        # Test that factory is callable and returns something
+        # #5154: "returns something" was the whole assertion. What matters is
+        # that it returns a usable factory exposing the repositories, and that
+        # repeated calls resolve the same one rather than building a new
+        # factory (and a new session pool) per access.
         factory = integration_manager.get_repository_factory()
         assert factory is not None
+        for repo_name in ('tracks', 'albums', 'artists', 'playlists'):
+            assert hasattr(factory, repo_name), f"factory is missing .{repo_name}"
+        assert integration_manager.get_repository_factory() is factory
 
     def test_playback_control_flow(self, enhanced_player):
         """Test complete playback control flow.

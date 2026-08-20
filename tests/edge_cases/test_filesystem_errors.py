@@ -481,13 +481,21 @@ class TestPathIssues:
         abs_filepath = os.path.join(temp_audio_dir, filename)
         save(abs_filepath, audio, sample_rate, subtype='PCM_16')
 
-        # Try to load with absolute path
+        # #5154: two `is not None` assertions passed even if str and Path
+        # inputs produced different audio, which is the one thing this test
+        # is for. Assert both round-trip the saved file and agree exactly.
         result1, sr1 = load_audio(abs_filepath)
         assert result1 is not None
+        assert sr1 == sample_rate
+        assert result1.shape[0] == audio.shape[0]
 
-        # Try to load with Path object
         result2, sr2 = load_audio(Path(abs_filepath))
         assert result2 is not None
+        assert sr2 == sr1
+        np.testing.assert_array_equal(
+            result1, result2,
+            err_msg="str and Path inputs produced different audio"
+        )
 
 
 @pytest.mark.edge_case

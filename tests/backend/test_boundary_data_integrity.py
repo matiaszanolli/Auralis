@@ -680,13 +680,25 @@ def test_relationship_integrity_after_operations(integrity_library):
     # docstring's actual claim ("Album/artist relationships intact") was
     # previously never exercised; access them so a DetachedInstanceError
     # or a broken relationship load would fail this test.
-    tracks, _ = db.tracks.get_all(limit=100)
+    tracks, total = db.tracks.get_all(limit=100)
+
+    # #5154: the loop asserted only `is not None` on id/filepath, so it never
+    # checked that the three operations above actually took effect. Assert
+    # their outcomes first.
+    assert track_ids[2] not in {t.id for t in tracks}, "deleted track still present"
+    by_id = {t.id: t for t in tracks}
+    assert by_id[track_ids[0]].favorite is True, "set_favorite did not persist"
+    assert by_id[track_ids[1]].title == "Updated", "update did not persist"
+
     for track in tracks:
         assert track.id is not None
         assert track.filepath is not None
-        # Album and artist should be valid (or None if not set)
-        _ = track.album
-        _ = track.artists
+        # Album and artist must load without DetachedInstanceError, and an
+        # album that is set must carry a real title rather than degrading to
+        # a blank/None relationship.
+        if track.album is not None:
+            assert track.album.title
+        assert isinstance(track.artists, list)
 
 
 @pytest.mark.boundary

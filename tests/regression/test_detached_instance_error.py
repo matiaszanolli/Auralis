@@ -306,8 +306,13 @@ class TestArtistRepositoryDetachedAccess:
 
         artist = artist_repository.get_by_id(artist_id)
         assert artist is not None
-        _ = artist.tracks
-        _ = artist.albums
+        # #5154: `_ = artist.tracks` proves only that access does not raise.
+        # A relationship that silently degrades to [] — the exact failure mode
+        # _safe_collection() produces on a missing eager-load — also does not
+        # raise, so assert the collections are actually populated, matching
+        # what the get_by_name sibling below already does.
+        assert len(artist.tracks) >= 1, "artist.tracks came back empty"
+        assert len(artist.albums) >= 1, "artist.albums came back empty"
 
     def test_get_by_name_relationships_accessible(
         self, artist_repository, track_repository, session_factory

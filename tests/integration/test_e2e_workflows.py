@@ -117,11 +117,25 @@ def test_add_track_with_metadata_extraction(temp_library, sample_audio_file):
 
     added_track = manager.repositories.tracks.add(track_info)
 
-    # Verify extracted metadata
+    # Verify extracted metadata against the fixture's known values.
+    # #5154: these were four `is not None` assertions, so the test passed
+    # against an extractor returning the wrong value for every field. The
+    # sample_audio_file fixture is a 3-second stereo 440 Hz WAV at 44.1 kHz.
     assert added_track is not None
-    assert added_track.format is not None, "Format should be extracted"
-    assert added_track.sample_rate is not None, "Sample rate should be extracted"
-    assert added_track.channels is not None, "Channels should be extracted"
+    assert added_track.format.lower() == 'wav', (
+        f"Format should be extracted as wav, got {added_track.format!r}"
+    )
+    assert added_track.sample_rate == 44100, (
+        f"Sample rate should be 44100, got {added_track.sample_rate}"
+    )
+    assert added_track.channels == 2, (
+        f"Channels should be 2, got {added_track.channels}"
+    )
+    assert added_track.duration == pytest.approx(3.0, abs=0.05), (
+        f"Duration should be ~3.0s, got {added_track.duration}"
+    )
+    # The caller-supplied title must survive extraction, not be overwritten.
+    assert added_track.title == 'Auto-extracted Track'
 
 
 @pytest.mark.e2e
