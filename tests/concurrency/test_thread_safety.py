@@ -105,7 +105,6 @@ class TestSharedResourceAccess:
         results = [f.result() for f in futures]
         assert all(r for r in results)
 
-    @pytest.mark.xfail(reason="Asserts no lost updates across concurrent read-modify-write increments, which neither this test's hand-rolled increment nor TrackRepository.record_play provides — both do SELECT then play_count+1 in Python. Needs an atomic UPDATE (see #4548)", strict=True)
     @pytest.mark.concurrency
     @pytest.mark.thread_safety
     def test_concurrent_database_transactions(self, temp_db, thread_pool):
@@ -129,15 +128,12 @@ class TestSharedResourceAccess:
             'channels': 2
         })
 
-        # Concurrent play count increments
+        # Concurrent play count increments through the production path (#5157).
+        # record_play() issues a single atomic UPDATE ... play_count + 1, so
+        # every call must land — a hand-rolled SELECT-then-increment here would
+        # only be testing the test's own race, not the repository's.
         def increment_play_count(track_id):
-            session = temp_db()
-            from auralis.library.models import Track
-            t = session.query(Track).filter_by(id=track_id).first()
-            if t:
-                t.play_count = (t.play_count or 0) + 1
-                session.commit()
-            session.close()
+            track_repo.record_play(track_id)
             return True
 
         futures = [thread_pool.submit(increment_play_count, track.id) for _ in range(50)]
@@ -145,15 +141,14 @@ class TestSharedResourceAccess:
 
         assert all(r for r in results)
 
-        # Verify final count (should be 50 if isolation works)
+        # Verify final count — exactly 50, zero lost updates
         session = temp_db()
         from auralis.library.models import Track
         final_track = session.query(Track).filter_by(id=track.id).first()
         final_count = final_track.play_count
         session.close()
 
-        # Count should be close to 50 (allowing for some race conditions in SQLite)
-        assert final_count >= 45, f"Play count {final_count} too low, transaction isolation may be broken"
+        assert final_count == 50, f"Play count {final_count} != 50 — increments were lost"
 
     @pytest.mark.concurrency
     @pytest.mark.thread_safety
@@ -205,7 +200,6 @@ class TestSharedResourceAccess:
         all_tracks, total = db.tracks.get_all(limit=100)
         assert len(all_tracks) == 30
 
-    @pytest.mark.xfail(reason="Asserts no lost updates across concurrent read-modify-write increments, which neither this test's hand-rolled increment nor TrackRepository.record_play provides — both do SELECT then play_count+1 in Python. Needs an atomic UPDATE (see #4548)", strict=True)
     @pytest.mark.concurrency
     @pytest.mark.thread_safety
     def test_concurrent_metadata_updates(self, temp_db, thread_pool):
@@ -239,13 +233,8 @@ class TestSharedResourceAccess:
             session.close()
 
         def update_play_count(track_id):
-            session = temp_db()
-            from auralis.library.models import Track
-            t = session.query(Track).filter_by(id=track_id).first()
-            if t:
-                t.play_count = (t.play_count or 0) + 1
-                session.commit()
-            session.close()
+            # Production path — atomic UPDATE, no lost increments (#5157)
+            track_repo.record_play(track_id)
 
         # Mix of updates
         futures = []
@@ -263,7 +252,10 @@ class TestSharedResourceAccess:
         final_track = session.query(Track).filter_by(id=track.id).first()
         assert final_track is not None
         assert final_track.title is not None
-        assert final_track.play_count >= 5  # At least some increments succeeded
+        assert final_track.play_count == 10, (
+            f"Play count {final_track.play_count} != 10 — increments were lost "
+            f"while concurrent title writes were in flight"
+        )
         session.close()
 
     @pytest.mark.concurrency
