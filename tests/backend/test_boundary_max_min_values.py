@@ -374,19 +374,25 @@ def test_digital_silence():
 
 @pytest.mark.boundary
 @pytest.mark.loudness
-@pytest.mark.skip(reason="Known limitation: Extreme DC offset edge case not fully handled. Processor designed for realistic audio (DC mean typically < 0.01).")
+@pytest.mark.skip(reason="#5187: HybridProcessor performs no DC-offset removal at any level; awaiting an /audit-engine decision on whether to add one")
 def test_dc_offset_at_maximum():
     """
     BOUNDARY: Audio with maximum DC offset (mean = 1.0).
 
     Tests DC removal/filtering.
 
-    NOTE: This test is skipped because audio with a DC offset of exactly 1.0
-    (extreme edge case, unrealistic in real audio) is not fully handled by the
-    processor. The processor's DC removal works well for realistic audio but
-    may not completely remove artificial maximum DC offsets.
+    Still skipped, but now against a live issue (#5187) rather than as a
+    permanent fact. The old reason claimed this was an extreme-edge-case
+    limitation and that "the processor's DC removal works well for realistic
+    audio"; measuring it for #5155 showed there is no DC-removal stage in the
+    pipeline at all. A realistic 0.01 DC offset comes out at 0.026 — scaled
+    with the signal, not filtered — and a grep for any DC/highpass stage
+    across auralis/core/ and auralis/dsp/ returns nothing.
 
-    Real audio typically has DC offsets < 0.01, which is handled correctly.
+    #5187 carries the measurements and the design questions (where in the
+    chain, whether it must be state-continuous across chunk boundaries). Once
+    that is decided this test is either un-skipped with a near-zero-mean
+    assertion, or deleted.
     """
     config = UnifiedConfig()
     processor = HybridProcessor(config)
@@ -428,19 +434,20 @@ def test_alternating_polarity():
 @pytest.mark.boundary
 @pytest.mark.slow
 @pytest.mark.large_library
-@pytest.mark.skip(reason="Known limitation: Repository deduplicates by filepath. Test requires unique files per track.")
 def test_library_with_thousand_tracks(tmp_path):
     """
     BOUNDARY: Library with 1000 tracks.
 
     Tests pagination performance, query time.
 
-    NOTE: This test is skipped because the TrackRepository deduplicates tracks by
-    filepath, which is correct behavior for the library. The test attempts to add
-    1000 tracks with the same filepath, which only results in 1 track being stored.
-
-    To properly test this would require creating 1000 unique audio files or mocking
-    the filepath deduplication behavior.
+    Was skipped as "Known limitation: Repository deduplicates by filepath",
+    which described the *test's* bug, not the repository's: it added 1000
+    tracks all sharing one template.wav path, so dedup — correct behaviour —
+    stored exactly one row and the assertions could never hold. The skip
+    reason claimed a fix "would require creating 1000 unique audio files";
+    it does not. ``TrackRepository.add`` stores the path it is given without
+    stat-ing it, so 1000 distinct path strings are enough, and this measures
+    database throughput rather than filesystem I/O anyway (#5155).
     """
     db_path = tmp_path / "large.db"
     db = LibraryDatabase(database_path=str(db_path))
@@ -448,16 +455,11 @@ def test_library_with_thousand_tracks(tmp_path):
     audio_dir = tmp_path / "audio"
     audio_dir.mkdir()
 
-    # Create 1 second test audio (reuse for all tracks)
-    audio = np.random.randn(44100, 2).astype(np.float32) * 0.1
-    test_file = audio_dir / "template.wav"
-    save_audio(str(test_file), audio, 44100, subtype='PCM_16')
-
-    # Add 1000 tracks
+    # Add 1000 tracks, one distinct filepath each
     start_time = time.time()
     for i in range(1000):
         track_info = {
-            'filepath': str(test_file),
+            'filepath': str(audio_dir / f"track_{i:04d}.wav"),
             'title': f'Track {i:04d}',
             'artists': [f'Artist {i % 100}'],
             'album': f'Album {i % 200}',
@@ -475,7 +477,20 @@ def test_library_with_thousand_tracks(tmp_path):
     query_time = time.time() - start_time
 
     assert total == 1000, f"Should have 1000 tracks, got {total}"
+    assert len(tracks) == 1000, f"Should return 1000 rows, got {len(tracks)}"
     assert query_time < 1.0, f"Query took too long: {query_time:.2f}s"
+
+    # Pin the dedup contract the old skip named, rather than just working
+    # around it: one row per filepath, re-adding a known path is a no-op.
+    db.tracks.add({
+        'filepath': str(audio_dir / "track_0000.wav"),
+        'title': 'Duplicate filepath',
+        'artists': ['Someone Else'],
+    })
+    _, total_after = db.tracks.get_all(limit=2000)
+    assert total_after == 1000, (
+        f"Re-adding an existing filepath created a row: {total} -> {total_after}"
+    )
 
 
 @pytest.mark.boundary
@@ -502,16 +517,14 @@ def test_search_in_large_library(tmp_path):
 
 @pytest.mark.boundary
 @pytest.mark.large_library
-@pytest.mark.skip(reason="Known limitation: Repository deduplicates by filepath. Test requires unique files per track.")
 def test_many_albums_query_performance(tmp_path):
     """
     BOUNDARY: Query performance with 500+ albums.
 
-    NOTE: This test is skipped because the TrackRepository deduplicates tracks by
-    filepath, which is correct behavior. The test attempts to add 1000 tracks with
-    the same filepath, resulting in only 1 track being stored instead of 500 albums.
-
-    To properly test would require creating unique audio files for each track.
+    Same story as test_library_with_thousand_tracks: the old skip blamed the
+    repository's filepath dedup, but the test was reusing one template.wav
+    path for all 1000 tracks, so only one row was ever stored. Distinct
+    filepaths fix it — no per-track audio file needed (#5155).
     """
     db_path = tmp_path / "many_albums.db"
     db = LibraryDatabase(database_path=str(db_path))
@@ -519,18 +532,21 @@ def test_many_albums_query_performance(tmp_path):
     audio_dir = tmp_path / "audio"
     audio_dir.mkdir()
 
-    # Create template audio
-    audio = np.random.randn(44100, 2).astype(np.float32) * 0.1
-    test_file = audio_dir / "template.wav"
-    save_audio(str(test_file), audio, 44100, subtype='PCM_16')
-
-    # Add tracks for 500 albums (2 tracks per album)
+    # Add tracks for 500 albums (2 tracks per album), one path each.
+    #
+    # The artist is derived from the album index, not from i. Album identity
+    # is (title, artist_id) — see TrackRepository._get_or_create_album — so
+    # the original `Artist {i % 50}` gave an album's two tracks *different*
+    # artists and each title spawned two albums, yielding 1000 rather than
+    # the asserted 500. That second defect was invisible behind the skip:
+    # fixing only the filepath reuse leaves this test red (#5155).
     for i in range(1000):
+        album_index = i // 2
         track_info = {
-            'filepath': str(test_file),
+            'filepath': str(audio_dir / f"track_{i:04d}.wav"),
             'title': f'Track {i}',
-            'artists': [f'Artist {i % 50}'],
-            'album': f'Album {i // 2}',  # 500 unique albums
+            'artists': [f'Artist {album_index % 50}'],
+            'album': f'Album {album_index}',  # 500 unique albums
         }
         db.tracks.add(track_info)
 

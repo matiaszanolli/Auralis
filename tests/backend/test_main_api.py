@@ -547,17 +547,17 @@ class TestPlayerEndpoints:
             mock_player.add_to_queue.assert_called_once()
             mock_library.tracks.get_by_id.assert_called_once_with(1)
 
-    @pytest.mark.skip(reason="play/pause/stop deprecated — now WebSocket-only")
+    @pytest.mark.skip(reason="#4400: play/pause/stop deprecated — now WebSocket-only")
     def test_play_audio(self, client):
         """Test starting playback"""
         pass
 
-    @pytest.mark.skip(reason="play/pause/stop deprecated — now WebSocket-only")
+    @pytest.mark.skip(reason="#4400: play/pause/stop deprecated — now WebSocket-only")
     def test_pause_audio(self, client):
         """Test pausing playback"""
         pass
 
-    @pytest.mark.skip(reason="play/pause/stop deprecated — now WebSocket-only")
+    @pytest.mark.skip(reason="#4400: play/pause/stop deprecated — now WebSocket-only")
     def test_stop_audio(self, client):
         """Test stopping playback"""
         pass
@@ -1776,7 +1776,7 @@ class TestAlbumArtworkEndpoints:
             assert response.status_code == 200
 
 
-@pytest.mark.skip(reason="REST stream endpoint removed — audio streaming is WebSocket-only")
+@pytest.mark.skip(reason="#4400: REST stream endpoint removed — audio streaming is WebSocket-only")
 class TestPlayerStreamEndpoint:
     """Test audio streaming endpoint"""
 

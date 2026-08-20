@@ -78,7 +78,7 @@ def test_library_with_tracks(tmp_path):
 
 @pytest.mark.integration
 @pytest.mark.api
-@pytest.mark.skip(reason="Play/pause REST endpoints deprecated — playback is now WebSocket-only")
+@pytest.mark.skip(reason="#4400: Play/pause REST endpoints deprecated — playback is now WebSocket-only")
 def test_player_play_pause_api_workflow(client, test_library_with_tracks):
     """
     INTEGRATION TEST: /api/player/play → /api/player/pause workflow.
@@ -172,22 +172,38 @@ def test_library_tracks_pagination_api(client):
 
 @pytest.mark.integration
 @pytest.mark.api
-@pytest.mark.skip(reason="Endpoint /api/library/search not yet implemented (returns 404)")
 def test_library_search_api(client):
     """
-    INTEGRATION TEST: /api/library/search endpoint.
+    INTEGRATION TEST: library search.
+
+    This was skipped as "Endpoint /api/library/search not yet implemented
+    (returns 404)". The endpoint genuinely does not exist and is on no
+    roadmap — but library search does, as the ``search`` query parameter on
+    ``GET /api/library/tracks`` (routers/tracks.py, which forwards to
+    ``TrackRepository.search``). Nobody is building ``/api/library/search``
+    because the capability already shipped at a different address, so the
+    test is re-pointed rather than deleted (#5155).
 
     Validates:
-    - Search accepts query parameter
-    - Returns matching tracks
-    - Returns correct schema
+    - Search accepts a query parameter
+    - Returns the paginated track-list schema
+    - Filters: a query matching nothing returns zero tracks
     """
-    response = client.get("/api/library/search?q=test")
-    assert response.status_code == 200, "Search endpoint should be accessible"
+    response = client.get("/api/library/tracks?search=test")
+    assert response.status_code == 200, "Track search should be accessible"
 
     data = response.json()
-    assert "tracks" in data or "results" in data, "Response should include results"
-    assert "total" in data or "count" in data, "Response should include count"
+    assert "tracks" in data, "Response should include a tracks list"
+    assert "total" in data, "Response should include a total count"
+    assert isinstance(data["tracks"], list)
+    assert isinstance(data["total"], int)
+
+    # A query that cannot match anything must actually filter, not fall back
+    # to returning the whole library — otherwise this asserts only that the
+    # endpoint is reachable.
+    empty = client.get("/api/library/tracks?search=zzz_no_such_track_zzz")
+    assert empty.status_code == 200
+    assert empty.json()["tracks"] == []
 
 
 @pytest.mark.integration
