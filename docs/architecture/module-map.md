@@ -29,7 +29,7 @@ auralis/
 ├── core/                       Processing pipeline
 │   ├── hybrid_processor.py       HybridProcessor — streaming engine entry
 │   ├── simple_mastering.py       SimpleMasteringPipeline — offline file masterer
-│   ├── mastering_branches.py     Material-classified mastering branches
+│   ├── mastering_branches/       Material-classified mastering branches (package)
 │   ├── processing/               Mode processors (adaptive, continuous, hybrid, realtime)
 │   └── config/                   UnifiedConfig, preset_profiles
 ├── dsp/                        Signal processing primitives

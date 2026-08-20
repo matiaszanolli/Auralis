@@ -31,6 +31,37 @@ from .serializers import serialize_album_detail, serialize_albums, serialize_tra
 logger = logging.getLogger(__name__)
 
 
+def _derive_album_genre(tracks_data: list[dict[str, Any]]) -> str | None:
+    """Most common genre across an album's serialized tracks (#5170).
+
+    ``Album`` has no genre column — genre lives on ``Track`` via the
+    ``track_genre`` association — so an album genre has to be derived. #4709
+    removed the always-null ``genre`` key from ``serialize_album_detail`` for
+    exactly this reason and called the derivation a feature rather than a bug
+    fix; this is that feature, scoped to the one endpoint whose consumer
+    (``useAlbumDetails`` -> ``AlbumMetadata``) renders a "Genre:" line.
+
+    Ties are broken by first appearance in disc/track order, which is stable
+    for a given album and keeps the answer deterministic. Returns ``None``
+    when no track carries a genre, so the UI's ``{genre && ...}`` guard hides
+    the row rather than rendering an empty one.
+
+    Note:
+        This counts each *track*, not each genre tag: a track tagged
+        ``["Rock", "Blues"]`` contributes one vote to each. That matches how a
+        listener would describe the album and avoids a single heavily-tagged
+        track outvoting the rest.
+    """
+    counts: dict[str, int] = {}
+    for track in tracks_data:
+        for genre in track.get('genres') or []:
+            if genre:
+                counts[genre] = counts.get(genre, 0) + 1
+    if not counts:
+        return None
+    return max(counts, key=lambda name: counts[name])
+
+
 class AlbumTracksResponse(BaseModel):
     """Track listing for one album, in the snake_case shape its consumer expects.
 
@@ -43,6 +74,13 @@ class AlbumTracksResponse(BaseModel):
     album_title: str | None = Field(default=None, description="Album title")
     artist: str = Field(default="Unknown Artist", description="Album artist name")
     year: int | None = Field(default=None, description="Release year")
+    genre: str | None = Field(
+        default=None,
+        description=(
+            "Most common genre across the album's tracks, or None if no track "
+            "is tagged. Derived, not stored — Album has no genre column (#5170)."
+        ),
+    )
     artwork_url: str | None = Field(default=None, description="Artwork API URL")
     tracks: list[TrackResponse] = Field(
         default_factory=list,
@@ -192,6 +230,7 @@ def create_albums_router(
             "album_title": album.title,
             "artist": album.artist.name if album.artist else 'Unknown Artist',
             "year": album.year,
+            "genre": _derive_album_genre(tracks_data),
             "artwork_url": f"/api/albums/{album_id}/artwork" if album.artwork_path else None,
             "tracks": tracks_data,
             "total_tracks": len(tracks_data)

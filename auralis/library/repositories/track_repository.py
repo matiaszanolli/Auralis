@@ -9,9 +9,9 @@ Data access layer for track operations
 """
 
 from collections.abc import Callable, Iterator
-from typing import Any
+from typing import Any, cast
 
-from sqlalchemy import and_, delete, func, or_, select, update
+from sqlalchemy import CursorResult, and_, delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload, selectinload
 
@@ -688,15 +688,32 @@ class TrackRepository(BaseRepository):
             return tracks, total
 
     def record_play(self, track_id: int) -> None:
-        """Record a track play"""
+        """Record a track play.
+
+        The increment is a single atomic ``UPDATE ... SET play_count =
+        play_count + 1`` evaluated by the database, not a Python-side
+        read-modify-write (#5157). The previous SELECT-then-``+ 1`` shape lost
+        increments whenever two play events for the same track overlapped,
+        because both threads read the same starting value and wrote back the
+        same result.
+
+        ``COALESCE`` covers rows written before ``play_count`` had a default.
+        A missing ``track_id`` is a no-op (rowcount 0), matching the previous
+        behaviour; nothing is returned so callers keep their current contract.
+        """
         session = self.get_session()
         try:
-            track = session.execute(select(Track).where(Track.id == track_id)).scalars().first()
-            if track:
-                track.play_count = (track.play_count or 0) + 1
-                track.last_played = func.now()
-                session.commit()
-                debug(f"Recorded play for track: {track.title}")
+            result = cast(CursorResult[Any], session.execute(
+                update(Track)
+                .where(Track.id == track_id)
+                .values(
+                    play_count=func.coalesce(Track.play_count, 0) + 1,
+                    last_played=func.now(),
+                )
+            ))
+            session.commit()
+            if result.rowcount:
+                debug(f"Recorded play for track: {track_id}")
         except Exception as e:
             session.rollback()
             error(f"Failed to record play: {e}")

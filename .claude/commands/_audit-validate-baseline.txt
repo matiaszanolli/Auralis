@@ -20,7 +20,6 @@ docs/UI_DESIGN_GUIDELINES.md	TrackItem.tsx
 docs/UI_DESIGN_GUIDELINES.md	Visualizer.tsx
 docs/UI_DESIGN_GUIDELINES.md	usePlayer.ts
 docs/deployment/APPIMAGE_BUILD_COMPLETE.md	auralis/analysis/fingerprint/utilities/temporal_ops.py
-docs/deployment/DEPLOYMENT_SUMMARY.md	auralis/core/mastering_branches.py
 docs/deployment/GITHUB_RELEASE_GUIDE.md	latest-linux.yml
 docs/deployment/GITHUB_RELEASE_GUIDE.md	latest-linux.yml
 docs/deployment/GITHUB_RELEASE_GUIDE.md	latest-linux.yml
@@ -36,13 +35,11 @@ docs/features/RUST_DSP_EXTRACTION_PLAN.md	src/autocorrelation.rs
 docs/features/RUST_DSP_EXTRACTION_PLAN.md	src/median_filter.rs
 docs/features/RUST_DSP_EXTRACTION_PLAN.md	tests/test_hpss.rs
 docs/features/RUST_DSP_EXTRACTION_PLAN.md	tests/test_yin.rs
-docs/features/adaptive-mastering/ADAPTIVE_MASTERING_SYSTEM.md	auralis/core/mastering_branches.py
 docs/features/adaptive-mastering/ADAPTIVE_MASTERING_SYSTEM.md	auralis_integration.py
 docs/features/adaptive-mastering/ADAPTIVE_MASTERING_SYSTEM.md	auralis_integration.py
 docs/features/adaptive-mastering/ADAPTIVE_MASTERING_SYSTEM.md	batch_analyzer.py
 docs/features/adaptive-mastering/ADAPTIVE_MASTERING_SYSTEM.md	batch_analyzer.py
 docs/features/adaptive-mastering/ADAPTIVE_MASTERING_SYSTEM.md	continuous_target_generator.py
-docs/features/adaptive-mastering/ADAPTIVE_MASTERING_SYSTEM.md	mastering_branches.py
 docs/features/adaptive-mastering/ADAPTIVE_MASTERING_SYSTEM.md	profile_matcher.py
 docs/features/adaptive-mastering/ADAPTIVE_MASTERING_SYSTEM.md	profile_versioning.py
 docs/features/adaptive-mastering/ADAPTIVE_MASTERING_SYSTEM.md	profile_versioning.py
