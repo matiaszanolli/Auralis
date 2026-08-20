@@ -420,7 +420,16 @@ class TestAudioProcessingThreadSafety:
             eq_settings = EQSettings(sample_rate=sr, fft_size=2048)
             eq = PsychoacousticEQ(eq_settings)
             target_curve = np.zeros(len(eq.critical_bands))
-            result = eq.process_realtime_chunk(audio, target_curve)
+            # process_realtime_chunk() requires input no longer than fft_size
+            # (#3742) -- the real production caller (core/processing/
+            # eq_processor.py) always pre-chunks a full buffer into fft_size
+            # frames via a WOLA loop before calling it once per frame. This
+            # test is about concurrent-call thread-safety, not the WOLA
+            # chunking logic itself (covered elsewhere), so slice one frame's
+            # worth rather than reimplementing that loop -- surfaced while
+            # verifying #5095's hang fix let this test run for the first time.
+            chunk = audio[:eq_settings.fft_size]
+            result = eq.process_realtime_chunk(chunk, target_curve)
             return len(result)
 
         futures = [thread_pool.submit(process_eq, fp) for fp in test_audio_files[:5]]
@@ -576,7 +585,13 @@ class TestAudioProcessingThreadSafety:
 
         def process_with_state_check(filepath, thread_id):
             try:
-                barrier.wait()  # Start all simultaneously
+                # #5095: bounded, not a bare barrier.wait(). An unbounded wait
+                # here means one thread that never gets created (start()
+                # raising RuntimeError under OS thread-limit pressure -- see
+                # run_concurrent_with_barrier's fix for the same failure
+                # mode) strands every other thread already parked at the
+                # barrier, forever.
+                barrier.wait(timeout=30)  # Start all simultaneously
                 config = UnifiedConfig()
                 config.set_processing_mode("adaptive")
                 processor = HybridProcessor(config)
@@ -591,18 +606,38 @@ class TestAudioProcessingThreadSafety:
                 with lock:
                     errors.append((thread_id, e))
 
+        # daemon=True (#5095): a thread that's still stuck after its joined
+        # timeout below must not block process exit the way a non-daemon
+        # thread would.
         threads = []
-        for i in range(10):
-            t = threading.Thread(
-                target=process_with_state_check,
-                args=(test_audio_files[i % len(test_audio_files)], i)
-            )
-            threads.append(t)
-            t.start()
+        try:
+            for i in range(10):
+                t = threading.Thread(
+                    target=process_with_state_check,
+                    args=(test_audio_files[i % len(test_audio_files)], i),
+                    daemon=True,
+                )
+                threads.append(t)
+                t.start()
+        except RuntimeError:
+            # A thread failed to start -- the barrier can now never reach
+            # quorum on its own. abort() immediately raises
+            # BrokenBarrierError in every thread already waiting instead of
+            # leaving them to sit until their own timeout.
+            barrier.abort()
+            raise
 
+        still_alive = []
         for t in threads:
             t.join(timeout=30)
+            if t.is_alive():
+                still_alive.append(t)
 
+        assert not still_alive, (
+            f"{len(still_alive)} thread(s) still running after 30s -- "
+            "daemon=True so they won't block process exit, but this is a "
+            "real hang in the code under test, not just a slow test"
+        )
         # No errors should occur
         assert len(errors) == 0, f"Errors occurred: {errors}"
         # All threads should complete

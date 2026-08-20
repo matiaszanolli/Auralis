@@ -64,18 +64,35 @@ def run_concurrent(func: Callable, n_threads: int = 10, timeout: float = 30, *ar
     return results
 
 
-def run_concurrent_with_barrier(func: Callable, barrier: threading.Barrier, *args, **kwargs) -> List[Any]:
+def run_concurrent_with_barrier(
+    func: Callable, barrier: threading.Barrier, *args, timeout: float = 30, **kwargs
+) -> List[Any]:
     """
     Run function concurrently with all threads starting simultaneously.
 
     Args:
         func: Function to run
         barrier: Barrier to synchronize thread start
+        timeout: Seconds to wait for all parties at the barrier, and (as a
+            remaining-time budget) for each thread to finish afterward.
+            Unlike run_concurrent's n_threads, barrier.parties is fixed by
+            whoever built the Barrier, so a thread that never gets created
+            (see below) means the barrier can never reach quorum on its own.
         *args: Arguments to pass to function
         **kwargs: Keyword arguments to pass to function
 
     Returns:
         List of results from each thread
+
+    Raises:
+        TimeoutError: If the barrier or any thread doesn't complete within
+            `timeout` seconds (fixes #5095: this used to `barrier.wait()`
+            and `t.join()` with no timeout at all, so a single thread that
+            failed to reach the barrier -- e.g. threading.Thread.start()
+            raising RuntimeError under OS thread-limit pressure from earlier
+            tests' own leaked threads in the same file -- stranded every
+            other thread already waiting, permanently, with no way for this
+            helper or its caller to ever notice or recover).
     """
     results = []
     errors = []
@@ -84,7 +101,7 @@ def run_concurrent_with_barrier(func: Callable, barrier: threading.Barrier, *arg
 
     def worker():
         try:
-            barrier.wait()  # Wait for all threads to be ready
+            barrier.wait(timeout=timeout)  # Wait for all threads to be ready
             result = func(*args, **kwargs)
             with lock:
                 results.append(result)
@@ -92,11 +109,28 @@ def run_concurrent_with_barrier(func: Callable, barrier: threading.Barrier, *arg
             with lock:
                 errors.append(e)
 
-    threads = [threading.Thread(target=worker) for _ in range(n_threads)]
+    threads = [threading.Thread(target=worker, daemon=True) for _ in range(n_threads)]
+    start_time = time.time()
+    try:
+        for t in threads:
+            t.start()
+    except RuntimeError:
+        # A thread failed to start (e.g. RLIMIT_NPROC) -- the barrier can now
+        # never reach n_threads parties on its own. abort() immediately
+        # raises BrokenBarrierError in every thread already parked in
+        # wait(), rather than leaving them to sit until the timeout above.
+        barrier.abort()
+        raise
+
     for t in threads:
-        t.start()
-    for t in threads:
-        t.join()
+        remaining = timeout - (time.time() - start_time)
+        t.join(timeout=max(remaining, 0))
+        if t.is_alive():
+            raise TimeoutError(
+                f"run_concurrent_with_barrier: a thread was still running "
+                f"after {timeout}s (daemon=True, so it will not block "
+                f"process exit, but its result was never collected)"
+            )
 
     if errors:
         raise errors[0]
