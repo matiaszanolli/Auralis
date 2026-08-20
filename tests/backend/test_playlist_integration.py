@@ -373,16 +373,17 @@ def test_search_playlists(library_with_playlists):
     """
     db, playlist_ids, track_ids, _ = library_with_playlists
 
-    # Search for "Playlist 1"
-    # TODO(#5171): playlist search was never implemented — neither on the
-    # deprecated library facade nor on PlaylistRepository — so this call was
-    # already an AttributeError before the migration (the module is skipped).
-    # Left in repository shape so the intent survives for whoever adds
-    # PlaylistRepository.search().
-    results = db.playlists.search("Playlist 1")
+    # Search for "Playlist 1".
+    # PlaylistRepository.search() was implemented in #5171; before that this
+    # call was an AttributeError. It returns (results, total) like every peer
+    # repository's search(). Live coverage lives in
+    # tests/auralis/library/test_playlist_search_5171.py — this module is
+    # skipped wholesale for unrelated API drift (see the pytestmark above).
+    results, total = db.playlists.search("Playlist 1")
 
     # Should return at least one result
     assert len(results) >= 1, "Search should return results"
+    assert total >= 1, "Search should report a non-zero total"
 
     # All results should match query
     for playlist in results:

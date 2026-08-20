@@ -16,6 +16,11 @@ reduce memory footprint, and enable selective test runs.
 > pointing at where the real coverage lives. They are kept, not deleted, as a
 > starting point for a rewrite.
 >
+> **The rewrite is tracked by #5186** (filed under #5158, which found that
+> #5119's promised follow-up was never opened). Each of the 15 files needs to
+> reach one of two terminal states — rewritten against real production modules,
+> or explicitly retired with a note here. Staying skipped is not one of them.
+>
 > This is the same defect #3935 found in `streaming-audio/streaming-mse.test.tsx`
 > and fixed the same way; that fix was never swept across the rest of the
 > directory, which is what #5119 corrects.

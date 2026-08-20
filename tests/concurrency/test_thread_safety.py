@@ -105,7 +105,6 @@ class TestSharedResourceAccess:
         results = [f.result() for f in futures]
         assert all(r for r in results)
 
-    @pytest.mark.xfail(reason="Asserts no lost updates across concurrent read-modify-write increments, which neither this test's hand-rolled increment nor TrackRepository.record_play provides — both do SELECT then play_count+1 in Python. Needs an atomic UPDATE (see #4548)", strict=True)
     @pytest.mark.concurrency
     @pytest.mark.thread_safety
     def test_concurrent_database_transactions(self, temp_db, thread_pool):
@@ -129,15 +128,13 @@ class TestSharedResourceAccess:
             'channels': 2
         })
 
-        # Concurrent play count increments
+        # Concurrent play count increments. Goes through record_play() itself
+        # (#5157) rather than a hand-rolled SELECT-then-Python-increment,
+        # which is exactly the lost-update race this test exists to catch --
+        # record_play() is now a single atomic UPDATE ... SET play_count =
+        # play_count + 1, so every one of the 50 concurrent calls counts.
         def increment_play_count(track_id):
-            session = temp_db()
-            from auralis.library.models import Track
-            t = session.query(Track).filter_by(id=track_id).first()
-            if t:
-                t.play_count = (t.play_count or 0) + 1
-                session.commit()
-            session.close()
+            track_repo.record_play(track_id)
             return True
 
         futures = [thread_pool.submit(increment_play_count, track.id) for _ in range(50)]
@@ -145,15 +142,16 @@ class TestSharedResourceAccess:
 
         assert all(r for r in results)
 
-        # Verify final count (should be 50 if isolation works)
+        # Verify final count is exactly 50 -- an atomic UPDATE guarantees no
+        # lost updates regardless of interleaving, so there is no longer a
+        # "close enough" tolerance to allow for.
         session = temp_db()
         from auralis.library.models import Track
         final_track = session.query(Track).filter_by(id=track.id).first()
         final_count = final_track.play_count
         session.close()
 
-        # Count should be close to 50 (allowing for some race conditions in SQLite)
-        assert final_count >= 45, f"Play count {final_count} too low, transaction isolation may be broken"
+        assert final_count == 50, f"Play count {final_count} != 50, lost update detected"
 
     @pytest.mark.concurrency
     @pytest.mark.thread_safety
@@ -205,7 +203,6 @@ class TestSharedResourceAccess:
         all_tracks, total = db.tracks.get_all(limit=100)
         assert len(all_tracks) == 30
 
-    @pytest.mark.xfail(reason="Asserts no lost updates across concurrent read-modify-write increments, which neither this test's hand-rolled increment nor TrackRepository.record_play provides — both do SELECT then play_count+1 in Python. Needs an atomic UPDATE (see #4548)", strict=True)
     @pytest.mark.concurrency
     @pytest.mark.thread_safety
     def test_concurrent_metadata_updates(self, temp_db, thread_pool):
@@ -228,7 +225,12 @@ class TestSharedResourceAccess:
             'channels': 2
         })
 
-        # Concurrent metadata updates (different fields)
+        # Concurrent metadata updates (different fields). update_title has no
+        # lost-update concern -- each call sets a different value and the
+        # last writer simply wins, which is expected, not a race. The
+        # play_count side goes through record_play() itself (#5157), now a
+        # single atomic UPDATE, instead of the hand-rolled
+        # SELECT-then-Python-increment that used to lose updates here.
         def update_title(track_id, new_title):
             session = temp_db()
             from auralis.library.models import Track
@@ -239,13 +241,7 @@ class TestSharedResourceAccess:
             session.close()
 
         def update_play_count(track_id):
-            session = temp_db()
-            from auralis.library.models import Track
-            t = session.query(Track).filter_by(id=track_id).first()
-            if t:
-                t.play_count = (t.play_count or 0) + 1
-                session.commit()
-            session.close()
+            track_repo.record_play(track_id)
 
         # Mix of updates
         futures = []
@@ -263,7 +259,11 @@ class TestSharedResourceAccess:
         final_track = session.query(Track).filter_by(id=track.id).first()
         assert final_track is not None
         assert final_track.title is not None
-        assert final_track.play_count >= 5  # At least some increments succeeded
+        # All 10 increments must count -- an atomic UPDATE guarantees no lost
+        # updates, so there is no longer a "some succeeded" tolerance to allow.
+        assert final_track.play_count == 10, (
+            f"Play count {final_track.play_count} != 10, lost update detected"
+        )
         session.close()
 
     @pytest.mark.concurrency
@@ -428,7 +428,16 @@ class TestAudioProcessingThreadSafety:
             eq_settings = EQSettings(sample_rate=sr, fft_size=2048)
             eq = PsychoacousticEQ(eq_settings)
             target_curve = np.zeros(len(eq.critical_bands))
-            result = eq.process_realtime_chunk(audio, target_curve)
+            # process_realtime_chunk() requires input no longer than fft_size
+            # (#3742) -- the real production caller (core/processing/
+            # eq_processor.py) always pre-chunks a full buffer into fft_size
+            # frames via a WOLA loop before calling it once per frame. This
+            # test is about concurrent-call thread-safety, not the WOLA
+            # chunking logic itself (covered elsewhere), so slice one frame's
+            # worth rather than reimplementing that loop -- surfaced while
+            # verifying #5095's hang fix let this test run for the first time.
+            chunk = audio[:eq_settings.fft_size]
+            result = eq.process_realtime_chunk(chunk, target_curve)
             return len(result)
 
         futures = [thread_pool.submit(process_eq, fp) for fp in test_audio_files[:5]]
@@ -584,7 +593,13 @@ class TestAudioProcessingThreadSafety:
 
         def process_with_state_check(filepath, thread_id):
             try:
-                barrier.wait()  # Start all simultaneously
+                # #5095: bounded, not a bare barrier.wait(). An unbounded wait
+                # here means one thread that never gets created (start()
+                # raising RuntimeError under OS thread-limit pressure -- see
+                # run_concurrent_with_barrier's fix for the same failure
+                # mode) strands every other thread already parked at the
+                # barrier, forever.
+                barrier.wait(timeout=30)  # Start all simultaneously
                 config = UnifiedConfig()
                 config.set_processing_mode("adaptive")
                 processor = HybridProcessor(config)
@@ -599,18 +614,38 @@ class TestAudioProcessingThreadSafety:
                 with lock:
                     errors.append((thread_id, e))
 
+        # daemon=True (#5095): a thread that's still stuck after its joined
+        # timeout below must not block process exit the way a non-daemon
+        # thread would.
         threads = []
-        for i in range(10):
-            t = threading.Thread(
-                target=process_with_state_check,
-                args=(test_audio_files[i % len(test_audio_files)], i)
-            )
-            threads.append(t)
-            t.start()
+        try:
+            for i in range(10):
+                t = threading.Thread(
+                    target=process_with_state_check,
+                    args=(test_audio_files[i % len(test_audio_files)], i),
+                    daemon=True,
+                )
+                threads.append(t)
+                t.start()
+        except RuntimeError:
+            # A thread failed to start -- the barrier can now never reach
+            # quorum on its own. abort() immediately raises
+            # BrokenBarrierError in every thread already waiting instead of
+            # leaving them to sit until their own timeout.
+            barrier.abort()
+            raise
 
+        still_alive = []
         for t in threads:
             t.join(timeout=30)
+            if t.is_alive():
+                still_alive.append(t)
 
+        assert not still_alive, (
+            f"{len(still_alive)} thread(s) still running after 30s -- "
+            "daemon=True so they won't block process exit, but this is a "
+            "real hang in the code under test, not just a slow test"
+        )
         # No errors should occur
         assert len(errors) == 0, f"Errors occurred: {errors}"
         # All threads should complete

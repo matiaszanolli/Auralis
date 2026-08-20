@@ -11,10 +11,18 @@ name: Backend Tests
 # failures that are NOT already known. The baseline can shrink but never grow.
 # Once it reaches zero, replace the baseline step with a plain pytest invocation.
 #
-# One file is excluded because it HANGS when run as a whole file rather than
-# as scoped classes — it would burn the runner's whole allowance instead of
-# failing. Removing an exclusion requires fixing the hang first:
-#   tests/concurrency/test_thread_safety.py
+# tests/concurrency/test_thread_safety.py used to be excluded for the same
+# reason (#5095): two unbounded waits -- a threading.Barrier.wait() with no
+# timeout in tests/concurrency/helpers.py::run_concurrent_with_barrier, and
+# an inline test's raw threading.Thread.join(timeout=30) that didn't check
+# whether the thread was still alive afterward -- meant a single thread that
+# failed to reach the barrier (e.g. Thread.start() raising RuntimeError
+# under OS thread-limit pressure from earlier tests' own non-daemon
+# threads) permanently stranded every other thread already waiting, with no
+# way for the helper or its caller to ever notice. Both now bound their
+# waits and mark threads daemon=True so a residual hang can't block process
+# exit. The file now completes in ~6s (verified stable across repeated
+# runs) instead of hanging indefinitely.
 #
 # tests/backend/test_system_api.py used to be excluded for the same reason
 # (#4781): the `client` fixture's websocket_connect() defaulted the Origin
@@ -56,9 +64,22 @@ permissions:
 jobs:
   pytest:
     runs-on: ubuntu-latest
-    # The suite takes ~7 minutes locally; the cap exists so a spec that hangs
-    # the runner fails the job instead of burning the whole allowance.
-    timeout-minutes: 30
+    # The cap exists so a spec that hangs the runner fails the job instead of
+    # burning the whole allowance -- not to keep the suite fast. It isn't:
+    # the "~7 minutes locally" claim this comment used to make was stale.
+    # Recent completed CI runs already took ~20-21 minutes at 30 (run
+    # 31961589789: 20m42s; 31960984507: 21m21s; 31959998496: 19m27s -- all
+    # before #5095 restored test_thread_safety.py, which itself only adds a
+    # fraction of a second). #5089's Origin-header fix is the real driver:
+    # many tests that used to fail instantly on a 403 before reaching the
+    # route now execute the real handler for the first time -- genuine audio
+    # decode attempts, DSP calls, filesystem I/O -- which costs real wall
+    # time that a short-circuited 403 never did. Runs 32252354656 and
+    # 32259315272 hit exactly this, each cancelled by the 30-minute cap --
+    # the former at 83% around the 30-minute mark despite
+    # test_thread_safety.py itself completing in under a second mid-run.
+    # 45 restores comfortable margin for a suite whose real work grew.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -96,14 +117,20 @@ jobs:
       - name: Run pytest
         run: |
           python -m pytest -q -m "not slow" -p no:randomly \
-            --ignore=tests/concurrency/test_thread_safety.py \
             --junitxml=pytest-results.xml || true
 
       # Fails the job on any failure not present in pytest-baseline.json, and
       # also fails if the report is missing or reports 0 collected tests, so a
-      # crashed runner cannot pass as green.
+      # crashed runner cannot pass as green. --strict-stale (#5091) also fails
+      # on a baseline entry that ran and passed -- the other half of the
+      # ratchet, since a stale entry silently re-permits its exact failure if
+      # that test ever regresses. Off until now: turning it on before the
+      # baseline was regenerated from a real CI artifact (commit f59b4901
+      # did the detection tooling but explicitly left the regeneration and
+      # this flag for later) would have failed every run immediately on the
+      # 241 stale entries that had already accumulated.
       - name: Compare against known-failure baseline
-        run: python scripts/check_pytest_baseline.py pytest-results.xml
+        run: python scripts/check_pytest_baseline.py pytest-results.xml --strict-stale
 
       - name: Upload test results
         if: always()
