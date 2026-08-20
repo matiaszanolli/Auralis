@@ -1021,35 +1021,23 @@ repos:
 
 ### CI Pipeline (GitHub Actions)
 
-> **⚠️ The `test.yml` workflow below is proposed, not implemented.** It does not
-> exist. What actually runs on push / PR is the nine workflows in
-> `.github/workflows/`:
->
-> | Workflow | What it runs | How it is gated |
-> |---|---|---|
-> | `backend-tests.yml` | `pytest --junitxml` | ratchet vs `pytest-baseline.json` (`scripts/check_pytest_baseline.py`) |
-> | `frontend-test.yml` | `pnpm run test:ci` (vitest) | ratchet vs `auralis-web/frontend/test-baseline.json` (`auralis-web/frontend/scripts/check-test-baseline.mjs`) |
-> | `frontend-typecheck.yml` | `pnpm run type-check:prod` | must be clean |
-> | `action-pin-guard.yml` | GitHub Action SHA pinning | must be clean |
-> | `lockfile-guard.yml` | lockfile drift | must be clean |
-> | `requirements-pin-guard.yml` | `requirements*.txt` pinning | must be clean |
-> | `path-references.yml` | backticked path refs resolve | must be clean |
-> | `rust-audit.yml` | `cargo audit` | must be clean |
-> | `build-release.yml` | desktop packaging | release only |
->
-> **Both test gates are ratchets, not pass/fail suites.** Neither suite is green,
-> so each run is judged against a checked-in list of known failures and fails only
-> on failures *not* in that list. The test step itself always exits `0` — **the
-> baseline step is what decides the job**, so read that step, not the pytest /
-> vitest step, to see why a run went red. Both gates also fail on a missing report
-> or 0 collected tests, so a crashed runner cannot pass as green. A baseline may
-> shrink, never grow: when you fix a failing test, regenerate the baseline in the
-> same change or the stale entry silently re-permits that exact failure. This
-> mirrors the CI-gates table in `CLAUDE.md` — keep the two in sync.
->
-> There is still **no** coverage / codecov / e2e gate, and no `pytest -m unit` vs
-> `-m integration` split in CI. Treat the pipeline below and the Quality Gates
-> that follow as the intended design to build toward, not as checks that run today.
+> **⚠️ The `test.yml` workflow below is still a proposal — it does not exist.**
+> But the pytest gate it proposes now does, under a different name:
+> `.github/workflows/` currently contains `action-pin-guard.yml`,
+> `backend-tests.yml` (runs `pytest --junitxml`, gated against
+> `pytest-baseline.json` by `scripts/check_pytest_baseline.py`),
+> `build-release.yml`, `frontend-test.yml` (runs `pnpm run test:ci` against a
+> known-failure baseline, #4640, gated by `scripts/check-test-baseline.mjs`),
+> `frontend-typecheck.yml` (runs `pnpm run type-check:prod`, must be clean),
+> `lockfile-guard.yml`, `path-references.yml`, `requirements-pin-guard.yml`,
+> and `rust-audit.yml`. Both baseline-gated workflows are **ratchets, not a
+> green-suite demand**: the test step itself always exits 0, and the baseline
+> step is what actually decides the job, comparing the run against its
+> checked-in baseline and failing only on failures not already known there
+> (never on a missing report or 0 collected tests, so a crashed runner can't
+> pass as green). The baseline may shrink, never grow. Treat the `test.yml`
+> pipeline and Quality Gates below as the coverage/codecov/e2e layer this
+> project still doesn't have, not as a claim that no pytest gate runs today.
 >
 > Verify against the Actions tab rather than against files in the repo: until
 > #4562, `.github/workflows.backup/` held five tracked workflows whose README
