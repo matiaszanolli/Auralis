@@ -1,7 +1,7 @@
 {
   "_comment": "Known-failing vitest specs (#4640). CI fails on any failure NOT listed here. Regenerate with: pnpm run test:baseline:update. #5158: the 8 src/tests/api-integration/library-api.test.ts entries were removed by hand — #5119 wrapped that file in a top-level describe.skip, so those specs can never be reported as failures again and the entries were dead weight. Removing them is a provable shrink; a full local regeneration was deliberately avoided because a baseline built outside CI reports spurious new failures.",
   "generatedFrom": {
-    "totalTests": 3383,
+    "totalTests": 3538,
     "failedTests": 118
   },
   "failures": [
