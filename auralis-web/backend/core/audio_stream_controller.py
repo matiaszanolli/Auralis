@@ -130,6 +130,14 @@ _global_stream_semaphore: asyncio.Semaphore = asyncio.Semaphore(MAX_CONCURRENT_S
 # skip-failed-chunk recovery branch (sibling of #2747, fixes #3852).
 CHUNK_PROCESS_TIMEOUT: float = 30.0
 
+# How long a stream waits for a slot in _global_stream_semaphore before giving
+# up and returning "server busy" (#4930). Was a bare `timeout=5.0` repeated in
+# all three streaming entry points, the one value in this cluster that never
+# got promoted alongside MAX_CONCURRENT_STREAMS and CHUNK_PROCESS_TIMEOUT — so
+# retuning it (longer under slow disks, shorter to shed load faster) meant
+# editing three files in lockstep with nothing to catch a missed one.
+STREAM_ACQUIRE_TIMEOUT_SECONDS: float = 5.0
+
 # Degraded-mode fallback cache, shared across ALL AudioStreamController
 # instances for the same reason _global_stream_semaphore is (#2469, #5087).
 #
