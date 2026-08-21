@@ -132,6 +132,13 @@ Default every tech-debt finding to LOW unless one of the above fires. Do **not**
      echo "py files >300 LOC:          $(find auralis auralis-web/backend -name '*.py' -exec wc -l {} + | awk '$1>300 && $2!="total"' | wc -l)"
      echo "ts/tsx files >300 LOC:      $(find auralis-web/frontend/src \( -name '*.ts' -o -name '*.tsx' \) -exec wc -l {} + | awk '$1>300 && $2!="total"' | wc -l)"
      echo "allow(dead_code) (rust):    $(grep -RInE 'allow\(dead_code\)' vendor/auralis-dsp/src 2>/dev/null | wc -l)"
+     # DRIFT INDICATOR, not a pass/fail gate (#4924). Module-level DSP helpers
+     # that default sample_rate to 44100 rather than requiring it: harmless
+     # while every caller passes one explicitly (re-verified twice), but the
+     # shape that silently mis-processes a 48k/96k file the day one doesn't.
+     # Report the number and its direction; only investigate sites that are
+     # NEW since the previous audit.
+     echo "sample_rate=44100 defaults:  $(grep -rIn -E 'sample_rate\s*:?\s*(int)?\s*=\s*44100' auralis auralis-web/backend | wc -l)"
    } > /tmp/audit/tech-debt/baseline.txt
    ```
 
@@ -140,6 +147,7 @@ Default every tech-debt finding to LOW unless one of the above fires. Do **not**
    | Metric | Read it as |
    |---|---|
    | `markers, genuine (src)` | The real marker debt in shipped code. **0 is the expected value** for this repo and is a good result, not a suspicious one. If it is nonzero, list the hits — do not report the count alone. **Never quote this alone as the repo-wide figure** (#5143) — pair it with the `tests/` line below. |
+   | `sample_rate=44100 defaults` | Module-level DSP helpers that default the rate instead of requiring it. **A drift indicator, not a debt count** (#4924) — the number is meaningless in isolation, because every one of these is harmless while its callers pass a rate explicitly, and that has now been verified twice (2026-07-25, 2026-07-29). Report the value and its direction, and investigate only sites that are NEW since the previous audit. Diff base: **43** at the 2026-08-16 recount, down from 48 on 2026-07-29 — the 5 lost were all in files deleted since (*auralis/core/config.py* #4918, two in the `realtime_adaptive_eq/` package #4873, two in the `encoding/` package #5147), with **zero** new sites. |
    | `markers, genuine (tests/)` | The same census over the Python `tests/` tree, which `SRC_DIRS` excludes. Not expected to be 0: a marker here is legitimate when it cites an OPEN issue. What *is* a finding is a marker citing a **CLOSED** issue — that is provenance masquerading as tracking, and it is how 7 markers went unswept until #5143. Check each cited number's state before reporting. |
    | `markers, raw` | Diagnostic only. A gap vs `genuine` just means the false-positive filter fired; it is not debt. Never quote this as marker debt. |
    | `prose deferrals` | This repo writes deferrals as prose ("For now, …", "Temporarily …"), so this is where its deferred work lives. High recall, low precision — **read the hits, don't quote the number** as debt. Individually-tracked ones exist (e.g. #4405, #4239); dedup before filing. |
