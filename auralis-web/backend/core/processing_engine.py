@@ -394,8 +394,10 @@ class ProcessingEngine:
 
         Thin wrapper over self._pool.close_all() — the engine's own processor
         cache had no equivalent to ProcessorFactory's shutdown-time
-        clear_cache() (#3746), so up to _max_cached instances leaked on every
-        restart. Called from startup.py's shutdown handler.
+        clear_cache(), so up to _max_cached instances were never dropped on
+        restart. Inert while HybridProcessor.close() releases nothing (#4744);
+        this is the plumbing for when it does not. Called from startup.py's
+        shutdown handler.
         """
         await self._pool.close_all()
 
@@ -812,10 +814,11 @@ class ProcessingEngine:
             # get_or_create() POPS it from the pool, so whoever took it owns it
             # and must give it back (#3201). Three of the four exit paths did;
             # the catch-all `except Exception` did not, so every failed job
-            # dropped a warm processor without returning or closing it —
-            # permanently leaking its 5-thread fingerprint executor (#3746) and
+            # dropped a warm processor without returning or closing it,
             # forcing the next same-config job to pay the full 200-500 ms
-            # HybridProcessor.__init__ again. Hoisting it means a future branch
+            # HybridProcessor.__init__ again. (#3746 also cited a permanently
+            # leaked 5-thread fingerprint executor; that executor is gone —
+            # see #4744 — but the reconstruction cost is not.) Hoisting it means a future branch
             # cannot reintroduce the same omission.
             #
             # A timed-out or cancelled processor is the one exception: it must

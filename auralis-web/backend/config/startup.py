@@ -207,13 +207,15 @@ async def _shutdown_components(globals_dict: dict[str, Any]) -> None:
             except Exception as player_err:
                 logger.warning(f"⚠️  Audio player shutdown error: {player_err}")
 
-        # Release cached HybridProcessor thread pools (fixes #3746 — each
-        # cached processor's fingerprint_analyzer owns a 5-thread executor
-        # that outlives the processor unless explicitly closed).
+        # Drop every cached HybridProcessor. #3746 added this to reclaim each
+        # instance's 5-thread fingerprint executor; that executor no longer
+        # exists and close() releases nothing today (#4744), so what this
+        # actually does now is free the cached instances themselves. The log
+        # line says that rather than implying a thread-pool reclaim.
         try:
             from core.processor_factory import get_processor_factory
             get_processor_factory().clear_cache()
-            logger.info("✅ Processor factory cache cleared")
+            logger.info("✅ Processor factory cache cleared (processors dropped)")
         except Exception as factory_err:
             logger.warning(f"⚠️  Processor factory shutdown error: {factory_err}")
 

@@ -121,12 +121,14 @@ class ProcessorPool:
 
             # Keep cache size bounded (max N different processor configurations).
             #
-            # Close the evicted instance (#4370): its fingerprint_analyzer owns a
-            # 5-thread executor that the threading module keeps reachable, so
-            # dropping the reference never reclaims it (#3746). ProcessorFactory
-            # closes on every eviction path; this one did not, which also defeats
-            # the #4567 fix — returning a processor here could silently leak a
-            # different one.
+            # Close the evicted instance (#4370). ProcessorFactory closes on
+            # every eviction path; this one did not, which also defeats the
+            # #4567 fix — returning a processor here could silently leak a
+            # different one. The original #3746 rationale (fingerprint_analyzer
+            # owns a 5-thread executor the threading module keeps reachable) no
+            # longer holds: HybridProcessor.close() releases nothing today
+            # (#4744). The call stays because it is the disposal seam a future
+            # resource will arrive through, not because it reclaims threads.
             #
             # Evicting `cache_keys[0]` IS least-recently-used here, despite
             # looking like plain insertion-order FIFO — #4370 read it as FIFO
@@ -146,9 +148,10 @@ class ProcessorPool:
                     ):
                         to_close.append(evicted)
 
-        # close() shuts down sub-component executors and should not extend the
-        # cache critical section. This also reclaims an idle same-key instance
-        # replaced by a later exclusive lease.
+        # close() is called outside the cache critical section: it is the
+        # sub-component disposal seam and must not extend the lock even once it
+        # regains substance (#4744 — it releases nothing today). This also
+        # drops an idle same-key instance replaced by a later exclusive lease.
         for stale_processor in to_close:
             try:
                 stale_processor.close()
@@ -158,9 +161,11 @@ class ProcessorPool:
     async def close_all(self) -> None:
         """Drain and close every cached processor (#5061).
 
-        Mirrors ProcessorFactory's shutdown-time cache clear (#3746) — this
-        pool had no equivalent, so its cached instances were never released on
-        backend shutdown. Pops everything out under the lock, then closes
+        Mirrors ProcessorFactory's shutdown-time cache clear — this pool had no
+        equivalent, so its cached instances were never dropped on backend
+        shutdown. (What #3746 originally reclaimed here, a 5-thread executor, is
+        gone; close() releases nothing today — see #4744.) Pops everything out
+        under the lock, then closes
         outside it (matching return_to_cache's existing pattern), tolerating
         individual close() failures so one bad instance can't abort the drain.
         """

@@ -40,7 +40,9 @@ class ProcessorCacheKey(NamedTuple):
     intensity therefore built two byte-identical processors and consumed two of
     the 32 LRU slots, so an intensity slider sweep evicted genuinely distinct
     (track, preset) processors and forced redundant 200-500 ms constructions,
-    each spinning up a fresh 5-thread fingerprint executor (#3746).
+    each paying the full 200-500 ms HybridProcessor.__init__ (#3746 — which
+    also cited a 5-thread fingerprint executor per build; that executor is
+    gone, see #4744, but the construction cost is not).
 
     Every field here is one the processor actually consumes, matching
     `ProcessorPool.cache_key`. Contrast `targets_hash`, which #3720 added
@@ -304,7 +306,9 @@ class ProcessorFactory:
             return cached
 
         for evicted_key, evicted_processor in evicted:
-            # Release evicted thread pools outside the cache lock (#3746).
+            # Dispose outside the cache lock — the ordering #3746 established.
+            # close() releases nothing today (#4744); it is the seam, not a
+            # thread-pool reclaim.
             evicted_processor.close()
             logger.info(
                 "ProcessorFactory: LRU-evicted processor for cache_key %s",
@@ -386,7 +390,8 @@ class ProcessorFactory:
             ]
 
             for key in keys_to_remove:
-                # Release thread pools before dropping the reference (fixes #3746).
+                # Dispose before dropping the reference (#3746 set the pattern;
+                # close() releases nothing today — #4744).
                 self._processor_cache.pop(key).close()
 
             logger.info(f"Cleaned up {len(keys_to_remove)} processor(s) for track {track_id}")
@@ -419,7 +424,8 @@ class ProcessorFactory:
         """Clear all cached processors (for memory management)."""
         with self._lock:
             count = len(self._processor_cache)
-            # Release thread pools before dropping references (fixes #3746).
+            # Dispose before dropping references (#3746 set the pattern;
+            # close() releases nothing today — #4744).
             for processor in self._processor_cache.values():
                 processor.close()
             self._processor_cache.clear()

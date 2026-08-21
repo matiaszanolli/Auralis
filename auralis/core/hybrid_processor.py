@@ -39,6 +39,15 @@ from .processing import (
 from .processors import apply_reference_matching
 
 
+#: Attributes that are process-wide singletons rather than resources this
+#: instance owns, and so must never be closed by an eviction. Generic
+#: forwarding in `HybridProcessor.close()` would otherwise let one evicted
+#: processor tear down state every other processor is still using (#4744).
+#: `performance_optimizer` comes from `get_performance_optimizer()`, a
+#: double-checked global.
+_NOT_OWNED_BY_PROCESSOR = frozenset({"performance_optimizer"})
+
+
 class HybridProcessor:
     """
     Main hybrid processor supporting reference-based and adaptive mastering
@@ -135,6 +144,10 @@ class HybridProcessor:
         # RLock so process()->_process_impl re-acquisition is safe.
         self._process_lock = threading.RLock()
 
+        # Set by close(); see its docstring. Guards against double-close and
+        # makes a release that currently frees nothing observable (#4744).
+        self._closed = False
+
         # Processing state
         self.current_targets: dict[str, Any] | None = None
         self.processing_history: list[Any] = []
@@ -143,18 +156,53 @@ class HybridProcessor:
         debug(f"Hybrid processor initialized in {config.adaptive.mode} mode with psychoacoustic EQ")
 
     def close(self) -> None:
-        """Release background resources held by sub-components.
+        """Disposal hook for an evicted processor. **Releases nothing today.**
 
-        Must be called when a HybridProcessor is evicted from a cache
-        (module-level `_processor_cache` here, or `ProcessorFactory` in
-        auralis-web/backend) rather than left to the garbage collector —
-        `fingerprint_analyzer` owns a 5-thread executor that is never
-        reclaimed otherwise, leaking up to 50 idle threads across a
-        10-entry cache in long-running sessions (fixes #3746).
+        Called by every cache eviction path (the module-level
+        `_processor_cache` here, `ProcessorFactory` and `ProcessorPool` in
+        auralis-web/backend) so a processor being dropped gets a chance to let
+        go of anything it owns.
+
+        Right now it has nothing to let go of, and saying so is the point
+        (#4744). #3746 added this because `fingerprint_analyzer` owned a
+        5-thread executor — up to 50 idle threads across a 10-entry cache.
+        `AudioFingerprintAnalyzer` was later rewritten as a thin facade over
+        the in-process Rust engine and its `close()` became a documented
+        no-op, but the comments at every call site went on describing a thread
+        pool being reclaimed. The hook is kept rather than deleted because
+        removing it would mean the *next* resource needs both a new `close()`
+        and a re-plumbing of all seven eviction sites.
+
+        The forwarding is deliberately generic: every *owned* attribute
+        exposing a callable `close()` is closed, rather than
+        `fingerprint_analyzer` being named. That is what stops a future
+        sub-component from silently inheriting a no-op release path — the
+        failure mode #4744 was filed about. Sub-component failures are logged
+        and swallowed: eviction runs on shutdown and cache-clear paths where
+        one bad component must not abort the rest.
+
+        Idempotent — `_closed` makes a second call a no-op and makes the
+        first observable, since "did close() run?" is otherwise unanswerable
+        for a function that does nothing. It is set *before* the loop so a
+        sub-component holding a back-reference (``target_generator`` is built
+        with ``self``) cannot recurse.
         """
-        close_fn = getattr(self.fingerprint_analyzer, "close", None)
-        if callable(close_fn):
-            close_fn()
+        if self._closed:
+            return
+        self._closed = True
+
+        for name, component in list(vars(self).items()):
+            if name.startswith("_") or name in _NOT_OWNED_BY_PROCESSOR:
+                continue
+            if component is self:
+                continue
+            close_fn = getattr(component, "close", None)
+            if not callable(close_fn):
+                continue
+            try:
+                close_fn()
+            except Exception as exc:  # pragma: no cover - defensive
+                debug(f"HybridProcessor.close: {name}.close() failed: {exc}")
 
     def set_fixed_mastering_targets(self, targets: dict[str, Any] | None) -> None:
         """
@@ -619,7 +667,8 @@ def _get_or_create_processor(config: UnifiedConfig | None, mode: str) -> HybridP
         return cached
 
     for evicted_key, evicted_processor in evicted:
-        # Release thread pools outside the cache lock (fixes #3746).
+        # Dispose outside the cache lock — the ordering #3746 established.
+        # close() releases nothing today; see its docstring (#4744).
         evicted_processor.close()
         debug(f"Evicted cached HybridProcessor (cache full): key={evicted_key}")
 
