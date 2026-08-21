@@ -13,13 +13,31 @@ Philosophy:
 These tests ensure that the system maintains acceptable
 performance as it grows and evolves.
 
-NOTE: Tests use old TrackRepository API - requires refactoring.
+
+#4691: the whole module was skipped with "Tests use old TrackRepository API -
+requires session_factory parameter". Two separate breakages, neither of them
+that:
+
+* `_library_db(tmp_path)` cannot be constructed at all —
+  SQLAlchemy picks SingletonThreadPool for an in-memory SQLite URL, which
+  rejects the `pool_size`/`max_overflow` the class always passes. Production
+  is always file-backed, so the tests are now too.
+* `_track_repo(tmp_path)` / `repo.close()` are gone from the
+  repository API, the same drift `test_string_input_boundaries.py` had fixed
+  in #5154.
+
+Every test here is marked `slow`, so this module runs in the slow lane rather
+than the default `-m "not slow"` CI gate. That is deliberate and worth being
+explicit about: these assert wall-clock thresholds and take ~84s in total, so
+gating CI on them would trade a silent skip for a flaky, runner-dependent
+failure. Half the module was already marked `slow`; the rest just had not been,
+and the module-level skip hid the inconsistency. They now execute — run them
+with `pytest tests/backend/test_performance_benchmarks.py` (no marker filter).
 """
 
 import pytest
 
 # Mark tests using old TrackRepository API as needing refactoring
-pytestmark = pytest.mark.skip(reason="Tests use old TrackRepository API - requires session_factory parameter")
 import shutil
 import tempfile
 import time
@@ -54,6 +72,34 @@ def create_test_audio_file(filepath: Path, duration: float = 10.0):
     audio_stereo = np.column_stack([audio, audio])
     save_audio(str(filepath), audio_stereo, 44100, subtype='PCM_16')
     return filepath
+
+
+def _library_db(tmp_path: Path) -> LibraryDatabase:
+    """A file-backed LibraryDatabase.
+
+    Not ``:memory:``: SQLAlchemy selects SingletonThreadPool for an in-memory
+    SQLite URL, which rejects the ``pool_size``/``max_overflow`` LibraryDatabase
+    always passes, so the constructor raises before any test body runs (#4691).
+    """
+    return LibraryDatabase(database_path=str(tmp_path / "perf.db"))
+
+
+def _track_repo(tmp_path: Path, name: str = "perf_repo.db") -> TrackRepository:
+    """A repository over a throwaway file-backed database.
+
+    Mirrors `test_string_input_boundaries.py` (#5154): the old
+    ``_track_repo(tmp_path)`` constructor is gone, and a
+    file-backed URL is required so the repository's short-lived
+    session-per-method all see the same database.
+    """
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    from auralis.library.models import Base
+
+    engine = create_engine(f"sqlite:///{tmp_path / name}")
+    Base.metadata.create_all(engine)
+    return TrackRepository(sessionmaker(bind=engine))
 
 
 # ============================================================================
@@ -130,7 +176,8 @@ def test_perf_audio_processing_60_seconds():
 # ============================================================================
 
 @pytest.mark.performance
-def test_perf_library_scan_10_tracks(temp_audio_dir):
+@pytest.mark.slow  # wall-clock threshold (#4691)
+def test_perf_library_scan_10_tracks(temp_audio_dir, tmp_path):
     """
     PERFORMANCE: Scan folder with 10 tracks.
 
@@ -141,14 +188,16 @@ def test_perf_library_scan_10_tracks(temp_audio_dir):
         filepath = temp_audio_dir / f"track_{i:02d}.wav"
         create_test_audio_file(filepath, duration=1.0)
 
-    db = LibraryDatabase(database_path=":memory:")
+    db = _library_db(tmp_path)
     scanner = LibraryScanner(db)
 
     start_time = time.time()
-    added, skipped, errors = scanner.scan_folder(str(temp_audio_dir))
+    # scan_folder() returns the list of discovered files; it used to return an
+    # (added, skipped, errors) tuple (#4691).
+    discovered = scanner.scan_folder(str(temp_audio_dir))
     elapsed_time = time.time() - start_time
 
-    assert added == 10
+    assert len(discovered) == 10
 
     print(f"\n  Scanned 10 tracks in {elapsed_time:.3f}s")
     print(f"  Rate: {10 / elapsed_time:.1f} tracks/second")
@@ -161,7 +210,7 @@ def test_perf_library_scan_10_tracks(temp_audio_dir):
 
 @pytest.mark.performance
 @pytest.mark.slow
-def test_perf_library_scan_100_tracks(temp_audio_dir):
+def test_perf_library_scan_100_tracks(temp_audio_dir, tmp_path):
     """
     PERFORMANCE: Scan folder with 100 tracks.
 
@@ -172,14 +221,16 @@ def test_perf_library_scan_100_tracks(temp_audio_dir):
         filepath = temp_audio_dir / f"track_{i:03d}.wav"
         create_test_audio_file(filepath, duration=0.5)
 
-    db = LibraryDatabase(database_path=":memory:")
+    db = _library_db(tmp_path)
     scanner = LibraryScanner(db)
 
     start_time = time.time()
-    added, skipped, errors = scanner.scan_folder(str(temp_audio_dir))
+    # scan_folder() returns the list of discovered files; it used to return an
+    # (added, skipped, errors) tuple (#4691).
+    discovered = scanner.scan_folder(str(temp_audio_dir))
     elapsed_time = time.time() - start_time
 
-    assert added == 100
+    assert len(discovered) == 100
 
     print(f"\n  Scanned 100 tracks in {elapsed_time:.3f}s")
     print(f"  Rate: {100 / elapsed_time:.1f} tracks/second")
@@ -191,13 +242,14 @@ def test_perf_library_scan_100_tracks(temp_audio_dir):
 
 
 @pytest.mark.performance
-def test_perf_library_query_1000_tracks(temp_audio_dir):
+@pytest.mark.slow  # wall-clock threshold (#4691)
+def test_perf_library_query_1000_tracks(temp_audio_dir, tmp_path):
     """
     PERFORMANCE: Query library with 1000 tracks.
 
     Baseline: Paginated query should complete in < 0.1 seconds.
     """
-    track_repo = TrackRepository(db_path=":memory:")
+    track_repo = _track_repo(tmp_path)
 
     # Add 1000 tracks to database (without creating files)
     for i in range(1000):
@@ -226,7 +278,8 @@ def test_perf_library_query_1000_tracks(temp_audio_dir):
     assert elapsed_time < 0.1, \
         f"Too slow: {elapsed_time*1000:.2f}ms (target <100ms)"
 
-    track_repo.close()
+    # The repository API has no close(); the throwaway engine goes away
+    # with tmp_path (#4691).
 
 
 # ============================================================================
@@ -234,13 +287,14 @@ def test_perf_library_query_1000_tracks(temp_audio_dir):
 # ============================================================================
 
 @pytest.mark.performance
-def test_perf_search_query_1000_tracks(temp_audio_dir):
+@pytest.mark.slow  # wall-clock threshold (#4691)
+def test_perf_search_query_1000_tracks(temp_audio_dir, tmp_path):
     """
     PERFORMANCE: Search in library with 1000 tracks.
 
     Baseline: Search should complete in < 0.2 seconds.
     """
-    track_repo = TrackRepository(db_path=":memory:")
+    track_repo = _track_repo(tmp_path)
 
     # Add 1000 tracks
     for i in range(1000):
@@ -266,7 +320,8 @@ def test_perf_search_query_1000_tracks(temp_audio_dir):
     assert elapsed_time < 0.2, \
         f"Too slow: {elapsed_time*1000:.2f}ms (target <200ms)"
 
-    track_repo.close()
+    # The repository API has no close(); the throwaway engine goes away
+    # with tmp_path (#4691).
 
 
 # ============================================================================
@@ -274,7 +329,8 @@ def test_perf_search_query_1000_tracks(temp_audio_dir):
 # ============================================================================
 
 @pytest.mark.performance
-def test_perf_cache_hit_improvement():
+@pytest.mark.slow  # wall-clock threshold (#4691)
+def test_perf_cache_hit_improvement(tmp_path):
     """
     PERFORMANCE: A repeated query should not be slower than the first one.
 
@@ -285,7 +341,7 @@ def test_perf_cache_hit_improvement():
     ``TrackRepository.get_all``. What is measured is SQLite page-cache /
     SQLAlchemy warm-up, which is why the assertion is a weak ordering check.
     """
-    db = LibraryDatabase(database_path=":memory:")
+    db = _library_db(tmp_path)
 
     # Add some tracks
     for i in range(10):
@@ -329,6 +385,7 @@ def test_perf_cache_hit_improvement():
 # ============================================================================
 
 @pytest.mark.performance
+@pytest.mark.slow  # 60s+ benchmark (#4691)
 def test_perf_memory_efficiency_large_audio():
     """
     PERFORMANCE: Processing large audio should not cause memory issues.
@@ -358,7 +415,7 @@ def test_perf_memory_efficiency_large_audio():
 
 @pytest.mark.performance
 @pytest.mark.slow
-def test_perf_scalability_increasing_track_counts():
+def test_perf_scalability_increasing_track_counts(tmp_path):
     """
     PERFORMANCE: Query performance scales sub-linearly.
 
@@ -367,7 +424,7 @@ def test_perf_scalability_increasing_track_counts():
     results = []
 
     for count in [100, 500, 1000]:
-        track_repo = TrackRepository(db_path=":memory:")
+        track_repo = _track_repo(tmp_path)
 
         # Add tracks
         for i in range(count):
@@ -391,7 +448,8 @@ def test_perf_scalability_increasing_track_counts():
         results.append((count, elapsed_time))
         print(f"\n  {count} tracks: {elapsed_time*1000:.2f}ms")
 
-        track_repo.close()
+        # The repository API has no close(); the throwaway engine goes away
+        # with tmp_path (#4691).
 
     # Verify sub-linear scaling
     # 10x more tracks should not take 10x longer

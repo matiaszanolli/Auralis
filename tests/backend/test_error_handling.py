@@ -19,7 +19,6 @@ NOTE: Some tests use old TrackRepository API - requires refactoring.
 import pytest
 
 # Mark tests using old TrackRepository API as needing refactoring
-pytestmark = pytest.mark.skip(reason="Tests use old TrackRepository API - requires session_factory parameter")
 import shutil
 import tempfile
 from pathlib import Path
@@ -32,6 +31,7 @@ from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.config import UnifiedConfig
 from auralis.io.saver import save as save_audio
 from auralis.io.unified_loader import load_audio
+from auralis.utils.logging import ModuleError
 from auralis.library.database import LibraryDatabase
 from auralis.library.repositories.track_repository import TrackRepository
 
@@ -48,11 +48,23 @@ def temp_audio_dir():
 
 
 @pytest.fixture
-def track_repo():
-    """Create an in-memory track repository."""
-    repo = TrackRepository(db_path=":memory:")
-    yield repo
-    repo.close()
+def track_repo(tmp_path):
+    """A track repository over a throwaway file-backed database.
+
+    File-backed rather than ``:memory:`` so the repository's own short-lived
+    sessions all see the same database — an in-memory SQLite URL gives each new
+    connection its own empty one. Same shape as
+    `test_string_input_boundaries.py` (#5154); the old
+    ``TrackRepository(db_path=...)`` / ``repo.close()`` API is gone (#4691).
+    """
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    from auralis.library.models import Base
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'errors.db'}")
+    Base.metadata.create_all(engine)
+    return TrackRepository(sessionmaker(bind=engine))
 
 
 # ============================================================================
@@ -69,7 +81,10 @@ def test_error_load_nonexistent_file():
     """
     nonexistent = "/path/that/does/not/exist.wav"
 
-    with pytest.raises((FileNotFoundError, IOError, OSError)):
+    # `load_audio` wraps every failure in ModuleError rather than letting the
+    # underlying FileNotFoundError/OSError through (#4691). Asserting the
+    # wrapper is what actually pins the loader's contract.
+    with pytest.raises((ModuleError, FileNotFoundError, OSError)):
         load_audio(nonexistent)
 
 
@@ -82,7 +97,7 @@ def test_error_load_directory_as_file(temp_audio_dir):
     Tests that directories are rejected.
     """
     # Try to load a directory
-    with pytest.raises((IOError, OSError, IsADirectoryError, ValueError)):
+    with pytest.raises((ModuleError, OSError, IsADirectoryError, ValueError)):
         load_audio(str(temp_audio_dir))
 
 
@@ -99,7 +114,8 @@ def test_error_save_to_readonly_location():
     # Try to save to /dev/null or similar read-only location
     readonly_path = "/dev/null/impossible.wav"
 
-    with pytest.raises((IOError, OSError, PermissionError)):
+    # `save_audio` wraps the libsndfile failure in RuntimeError (#4691).
+    with pytest.raises((RuntimeError, OSError, PermissionError)):
         save_audio(readonly_path, audio, 44100, subtype='PCM_16')
 
 
@@ -120,8 +136,17 @@ def test_error_process_empty_audio():
     config = UnifiedConfig()
     processor = HybridProcessor(config)
 
-    with pytest.raises((ValueError, RuntimeError, Exception)):
-        processor.process(empty_audio)
+    # #4691: this asserted a raise, which the processor has never done here.
+    # Zero-length audio takes the documented MIN_SAMPLES short-circuit —
+    # "too short to master, returning it unprocessed" — and that IS the
+    # contract: the streaming path feeds it buffers and must not have playback
+    # die on a degenerate one. What matters is that it returns cleanly and
+    # preserves the invariants, which is what is asserted now.
+    result = processor.process(empty_audio)
+
+    assert isinstance(result, np.ndarray)
+    assert len(result) == len(empty_audio)
+    assert result.dtype == empty_audio.dtype
 
 
 @pytest.mark.error
@@ -132,19 +157,37 @@ def test_error_process_nan_audio():
 
     Tests that NaN values are detected.
     """
-    audio_with_nan = np.array([[1.0, 1.0], [np.nan, 0.5], [0.3, 0.3]])
+    # A realistic buffer: `validate_audio_finite(repair=False)` rejects this.
+    audio_with_nan = (np.random.randn(44100, 2) * 0.2)
+    audio_with_nan[1000, 0] = np.nan
 
     config = UnifiedConfig()
     processor = HybridProcessor(config)
 
-    # Should either raise error or sanitize NaN values
-    try:
-        processed = processor.process(audio_with_nan)
-        # If it succeeds, verify no NaN in output
-        assert not np.isnan(processed).any()
-    except (ValueError, RuntimeError):
-        # Rejection is acceptable
-        pass
+    with pytest.raises(ModuleError, match="NaN"):
+        processor.process(audio_with_nan)
+
+
+@pytest.mark.error
+@pytest.mark.unit
+@pytest.mark.xfail(
+    strict=True,
+    reason="#5191: the MIN_SAMPLES short-circuit returns before "
+           "validate_audio_finite, so a sub-MIN_SAMPLES buffer keeps its NaN",
+)
+def test_error_process_nan_audio_short_buffer():
+    """The gap the original 3-sample fixture was unknowingly sitting on.
+
+    `_process_impl` validates NaN/Inf and fails fast — but only after the
+    "too short to master" short-circuit has already returned a copy. So the
+    guard holds at every length except the one this exercises.
+    """
+    audio_with_nan = np.array([[1.0, 1.0], [np.nan, 0.5], [0.3, 0.3]])
+
+    processor = HybridProcessor(UnifiedConfig())
+    processed = processor.process(audio_with_nan)
+
+    assert not np.isnan(processed).any()
 
 
 @pytest.mark.error
@@ -155,19 +198,31 @@ def test_error_process_inf_audio():
 
     Tests that inf values are detected.
     """
-    audio_with_inf = np.array([[1.0, 1.0], [np.inf, 0.5], [0.3, 0.3]])
+    audio_with_inf = (np.random.randn(44100, 2) * 0.2)
+    audio_with_inf[1000, 0] = np.inf
 
     config = UnifiedConfig()
     processor = HybridProcessor(config)
 
-    # Should either raise error or sanitize inf values
-    try:
-        processed = processor.process(audio_with_inf)
-        # If it succeeds, verify no inf in output
-        assert not np.isinf(processed).any()
-    except (ValueError, RuntimeError):
-        # Rejection is acceptable
-        pass
+    with pytest.raises(ModuleError, match="Inf"):
+        processor.process(audio_with_inf)
+
+
+@pytest.mark.error
+@pytest.mark.unit
+@pytest.mark.xfail(
+    strict=True,
+    reason="#5191: the MIN_SAMPLES short-circuit returns before "
+           "validate_audio_finite, so a sub-MIN_SAMPLES buffer keeps its Inf",
+)
+def test_error_process_inf_audio_short_buffer():
+    """Inf half of #5191 — see test_error_process_nan_audio_short_buffer."""
+    audio_with_inf = np.array([[1.0, 1.0], [np.inf, 0.5], [0.3, 0.3]])
+
+    processor = HybridProcessor(UnifiedConfig())
+    processed = processor.process(audio_with_inf)
+
+    assert not np.isinf(processed).any()
 
 
 # ============================================================================
@@ -187,8 +242,12 @@ def test_error_add_track_missing_required_fields(track_repo):
         # Missing filepath, artist, album, duration, etc.
     }
 
-    with pytest.raises((ValueError, KeyError, Exception)):
-        track_repo.add(incomplete_track_info)
+    # #4691: this asserted a raise. The repository signals a rejected row by
+    # returning None instead — the right contract for a scanner walking
+    # thousands of files, where one malformed tag must not abort the walk.
+    # Asserting the real contract is what makes this test able to notice a
+    # regression; asserting a raise it never performed could only ever fail.
+    assert track_repo.add(incomplete_track_info) is None
 
 
 @pytest.mark.error
@@ -280,7 +339,10 @@ def test_error_cleanup_on_exception(temp_audio_dir):
 
     Tests that file handles and connections are closed on error.
     """
-    db = LibraryDatabase(database_path=":memory:")
+    # Not ":memory:": SQLAlchemy picks SingletonThreadPool for an in-memory
+    # SQLite URL, which rejects the pool_size/max_overflow LibraryDatabase
+    # always passes, so the constructor raises before the test body (#4691).
+    db = LibraryDatabase(database_path=str(temp_audio_dir / "cleanup.db"))
 
     try:
         # Force an error by trying to add invalid data
@@ -362,8 +424,8 @@ def test_error_database_locked_handling():
             # Database lock or constraint violation is acceptable
             pass
 
-        db1.close()
-        db2.close()
+        db1.shutdown()
+        db2.shutdown()
 
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)

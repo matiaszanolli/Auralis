@@ -16,13 +16,18 @@ boundary conditions where off-by-one errors commonly occur.
 
 NOTE: These tests require refactoring to use the new TrackRepository API
 that takes a session_factory parameter instead of db_path.
-The old API (TrackRepository(db_path=":memory:")) is no longer supported.
+#4691: the whole module was skipped with "Tests use old TrackRepository API -
+requires session_factory parameter". That was true of the *fixtures*, not the
+tests: `TrackRepository(db_path=":memory:")` and `repo.close()` are both gone
+from the repository API. Rebuilt the same way `test_string_input_boundaries.py`
+already was (#5154) — a file-backed throwaway engine, since an in-memory
+SQLite URL gives each new connection its own empty database and the repository
+opens a short-lived session per call. All 15 tests pass unchanged.
 """
 
 import pytest
 
 # Mark all tests in this module as needing refactoring
-pytestmark = pytest.mark.skip(reason="Tests use old TrackRepository API - requires session_factory parameter")
 import shutil
 import tempfile
 from pathlib import Path
@@ -46,26 +51,50 @@ def temp_audio_dir():
     shutil.rmtree(temp_dir, ignore_errors=True)
 
 
-@pytest.fixture
-def empty_library():
-    """Create an empty in-memory library.
+def _dispose(track_repo: TrackRepository) -> None:
+    """Dispose a throwaway repository's engine.
 
-    NOTE: This fixture uses TrackRepository(db_path=":memory:") which is the old API.
-    TrackRepository now requires a session_factory parameter.
-    These tests need refactoring to create proper SQLAlchemy sessions.
+    `TrackRepository` has no `close()` — the old API this module was written
+    against did. Reaching through to the session factory's bind is the only
+    way to release the SQLite file handle deterministically, which matters
+    because these tests build one database per test.
     """
-    pytest.skip("TrackRepository API has changed - requires session_factory parameter")
+    bind = getattr(track_repo.session_factory, "kw", {}).get("bind")
+    if bind is not None:
+        bind.dispose()
+
+
+def _make_track_repo(db_path: Path | None = None) -> TrackRepository:
+    """Build a repository the way every other test in this suite does.
+
+    File-backed rather than ``:memory:`` so the repository's own short-lived
+    sessions all see the same database — an in-memory SQLite URL gives each new
+    connection its own empty one. Same fixture shape as
+    `test_string_input_boundaries.py`, which had this identical breakage fixed
+    first (#5154).
+    """
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    from auralis.library.models import Base
+
+    if db_path is None:
+        db_path = Path(tempfile.mkdtemp()) / "boundaries.db"
+    engine = create_engine(f"sqlite:///{db_path}")
+    Base.metadata.create_all(engine)
+    return TrackRepository(sessionmaker(bind=engine))
 
 
 @pytest.fixture
-def single_track_library(temp_audio_dir):
-    """Create a library with exactly 1 track.
+def empty_library(tmp_path):
+    """A library with no tracks."""
+    return _make_track_repo(tmp_path / "boundaries_empty.db")
 
-    NOTE: This fixture uses the old TrackRepository API.
-    Requires refactoring to use session_factory parameter.
-    """
-    pytest.skip("TrackRepository API has changed - requires session_factory parameter")
-    track_repo = TrackRepository(db_path=":memory:")  # Old API - no longer works
+
+@pytest.fixture
+def single_track_library(temp_audio_dir, tmp_path):
+    """Create a library with exactly 1 track."""
+    track_repo = _make_track_repo(tmp_path / "boundaries_single.db")
 
     # Create minimal audio file
     audio = np.random.randn(44100, 2)  # 1 second stereo
@@ -85,8 +114,7 @@ def single_track_library(temp_audio_dir):
     }
     track_repo.add(track_info)
 
-    yield track_repo
-    track_repo.close()
+    return track_repo
 
 
 def populate_library(track_repo, num_tracks: int, temp_dir: Path):
@@ -217,7 +245,7 @@ def test_pagination_exact_page_size_50_tracks(temp_audio_dir):
 
     Tests when total tracks exactly matches page size (no second page).
     """
-    track_repo = TrackRepository(db_path=":memory:")
+    track_repo = _make_track_repo()
     try:
         populate_library(track_repo, num_tracks=50, temp_dir=temp_audio_dir)
 
@@ -232,7 +260,9 @@ def test_pagination_exact_page_size_50_tracks(temp_audio_dir):
 
         assert len(tracks_page2) == 0
     finally:
-        track_repo.close()
+        # The repository API has no close(); its sessions are short-lived and
+        # the throwaway engine goes away with the temp directory (#4691).
+        _dispose(track_repo)
 
 
 @pytest.mark.boundary
@@ -243,7 +273,7 @@ def test_pagination_exact_two_pages_100_tracks(temp_audio_dir):
 
     Tests when total tracks is exactly 2x page size.
     """
-    track_repo = TrackRepository(db_path=":memory:")
+    track_repo = _make_track_repo()
     try:
         populate_library(track_repo, num_tracks=100, temp_dir=temp_audio_dir)
 
@@ -260,7 +290,9 @@ def test_pagination_exact_two_pages_100_tracks(temp_audio_dir):
         tracks_page3, _ = track_repo.get_all(limit=50, offset=100)
         assert len(tracks_page3) == 0
     finally:
-        track_repo.close()
+        # The repository API has no close(); its sessions are short-lived and
+        # the throwaway engine goes away with the temp directory (#4691).
+        _dispose(track_repo)
 
 
 @pytest.mark.boundary
@@ -271,7 +303,7 @@ def test_pagination_one_track_over_page_boundary(temp_audio_dir):
 
     Tests minimal overflow past page boundary.
     """
-    track_repo = TrackRepository(db_path=":memory:")
+    track_repo = _make_track_repo()
     try:
         populate_library(track_repo, num_tracks=51, temp_dir=temp_audio_dir)
 
@@ -284,7 +316,9 @@ def test_pagination_one_track_over_page_boundary(temp_audio_dir):
         tracks_page2, _ = track_repo.get_all(limit=50, offset=50)
         assert len(tracks_page2) == 1
     finally:
-        track_repo.close()
+        # The repository API has no close(); its sessions are short-lived and
+        # the throwaway engine goes away with the temp directory (#4691).
+        _dispose(track_repo)
 
 
 # ============================================================================
@@ -299,7 +333,7 @@ def test_offset_exactly_at_total_count_returns_empty(temp_audio_dir):
 
     Tests that offset equal to total count returns empty results.
     """
-    track_repo = TrackRepository(db_path=":memory:")
+    track_repo = _make_track_repo()
     try:
         populate_library(track_repo, num_tracks=100, temp_dir=temp_audio_dir)
 
@@ -309,7 +343,9 @@ def test_offset_exactly_at_total_count_returns_empty(temp_audio_dir):
         assert len(tracks) == 0
         assert total == 100
     finally:
-        track_repo.close()
+        # The repository API has no close(); its sessions are short-lived and
+        # the throwaway engine goes away with the temp directory (#4691).
+        _dispose(track_repo)
 
 
 @pytest.mark.boundary
@@ -320,7 +356,7 @@ def test_offset_beyond_total_count_returns_empty(temp_audio_dir):
 
     Tests that offset beyond total count returns empty results.
     """
-    track_repo = TrackRepository(db_path=":memory:")
+    track_repo = _make_track_repo()
     try:
         populate_library(track_repo, num_tracks=100, temp_dir=temp_audio_dir)
 
@@ -330,7 +366,9 @@ def test_offset_beyond_total_count_returns_empty(temp_audio_dir):
         assert len(tracks) == 0
         assert total == 100
     finally:
-        track_repo.close()
+        # The repository API has no close(); its sessions are short-lived and
+        # the throwaway engine goes away with the temp directory (#4691).
+        _dispose(track_repo)
 
 
 @pytest.mark.boundary
@@ -341,7 +379,7 @@ def test_offset_one_before_last_item(temp_audio_dir):
 
     Tests accessing the very last item via offset.
     """
-    track_repo = TrackRepository(db_path=":memory:")
+    track_repo = _make_track_repo()
     try:
         populate_library(track_repo, num_tracks=100, temp_dir=temp_audio_dir)
 
@@ -351,7 +389,9 @@ def test_offset_one_before_last_item(temp_audio_dir):
         assert len(tracks) == 1, "Should return the last item"
         assert total == 100
     finally:
-        track_repo.close()
+        # The repository API has no close(); its sessions are short-lived and
+        # the throwaway engine goes away with the temp directory (#4691).
+        _dispose(track_repo)
 
 
 # ============================================================================
@@ -366,7 +406,7 @@ def test_limit_zero_returns_empty(temp_audio_dir):
 
     Tests that limit=0 returns no results (but still reports total).
     """
-    track_repo = TrackRepository(db_path=":memory:")
+    track_repo = _make_track_repo()
     try:
         populate_library(track_repo, num_tracks=100, temp_dir=temp_audio_dir)
 
@@ -375,7 +415,9 @@ def test_limit_zero_returns_empty(temp_audio_dir):
         assert len(tracks) == 0, "limit=0 should return 0 tracks"
         assert total == 100, "Total count should still be reported correctly"
     finally:
-        track_repo.close()
+        # The repository API has no close(); its sessions are short-lived and
+        # the throwaway engine goes away with the temp directory (#4691).
+        _dispose(track_repo)
 
 
 @pytest.mark.boundary
@@ -386,7 +428,7 @@ def test_limit_one_returns_single_track(temp_audio_dir):
 
     Tests minimum non-zero limit.
     """
-    track_repo = TrackRepository(db_path=":memory:")
+    track_repo = _make_track_repo()
     try:
         populate_library(track_repo, num_tracks=100, temp_dir=temp_audio_dir)
 
@@ -395,7 +437,9 @@ def test_limit_one_returns_single_track(temp_audio_dir):
         assert len(tracks) == 1
         assert total == 100
     finally:
-        track_repo.close()
+        # The repository API has no close(); its sessions are short-lived and
+        # the throwaway engine goes away with the temp directory (#4691).
+        _dispose(track_repo)
 
 
 @pytest.mark.boundary
@@ -406,7 +450,7 @@ def test_limit_larger_than_total_returns_all(temp_audio_dir):
 
     Tests that large limit values don't cause errors.
     """
-    track_repo = TrackRepository(db_path=":memory:")
+    track_repo = _make_track_repo()
     try:
         populate_library(track_repo, num_tracks=50, temp_dir=temp_audio_dir)
 
@@ -416,4 +460,6 @@ def test_limit_larger_than_total_returns_all(temp_audio_dir):
         assert len(tracks) == 50, "Should return all 50 tracks"
         assert total == 50
     finally:
-        track_repo.close()
+        # The repository API has no close(); its sessions are short-lived and
+        # the throwaway engine goes away with the temp directory (#4691).
+        _dispose(track_repo)

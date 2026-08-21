@@ -21,7 +21,6 @@ Requires refactoring to match current API.
 import pytest
 
 # Skip - tests use APIs incompatible with current implementation
-pytestmark = pytest.mark.skip(reason="Tests use APIs incompatible with current implementation. Requires refactoring.")
 import shutil
 import tempfile
 from pathlib import Path
@@ -292,10 +291,11 @@ def test_format_scanner_detects_wav_files(temp_audio_dir, library_manager):
         save_audio(str(filepath), audio, sr, subtype='PCM_16')
 
     scanner = LibraryScanner(library_manager)
-    added, skipped, errors = scanner.scan_folder(str(temp_audio_dir))
+    # scan_folder() returns the list of discovered files; it used to return an
+    # (added, skipped, errors) tuple (#4691).
+    discovered = scanner.scan_folder(str(temp_audio_dir))
 
-    assert added == 3
-    assert errors == 0
+    assert len(discovered) == 3
 
 
 @pytest.mark.integration
@@ -312,10 +312,11 @@ def test_format_scanner_detects_flac_files(temp_audio_dir, library_manager):
         save_audio(str(filepath), audio, sr, subtype='PCM_16')
 
     scanner = LibraryScanner(library_manager)
-    added, skipped, errors = scanner.scan_folder(str(temp_audio_dir))
+    # scan_folder() returns the list of discovered files; it used to return an
+    # (added, skipped, errors) tuple (#4691).
+    discovered = scanner.scan_folder(str(temp_audio_dir))
 
-    assert added == 3
-    assert errors == 0
+    assert len(discovered) == 3
 
 
 @pytest.mark.integration
@@ -330,6 +331,8 @@ def test_format_scanner_skips_unsupported_files(temp_audio_dir, library_manager)
     text_file.write_text("This is not an audio file")
 
     scanner = LibraryScanner(library_manager)
-    added, skipped, errors = scanner.scan_folder(str(temp_audio_dir))
+    # scan_folder() returns only the files it recognised as audio; the
+    # unsupported ones are simply absent rather than counted as skipped (#4691).
+    discovered = scanner.scan_folder(str(temp_audio_dir))
 
-    assert added == 0
+    assert len(discovered) == 0

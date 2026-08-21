@@ -7,15 +7,24 @@ Tests the simplified two-tier cache system.
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3, see LICENSE for more details.
 
-NOTE: Tests use APIs that are incompatible with current implementation.
-Requires refactoring to match current API.
+NOTE (#4691): this module carried a blanket module-level skip reading "Tests
+use APIs incompatible with current implementation". It was not true of the
+module — 20 of its 24 tests passed against the current API the whole time. The
+four that did not were asserting a 30-second chunk model (60s -> 2 chunks,
+position 30.0 -> chunk 1) that the live 15s/10s overlap geometry has not
+matched for a long time. Those four now compare against
+``chunk_boundaries``' ``chunk_for_position()`` / ``content_chunk_count()``, the
+single sources of truth the implementation itself delegates to, so the same
+drift cannot silently reopen.
+
+This is the only dedicated coverage for the streamlined cache manager, which
+``config/startup.py`` treats as a critical worker — it was reporting green over
+zero executing assertions.
 """
 
-import pytest
-
-# Skip - tests use APIs incompatible with current implementation
-pytestmark = pytest.mark.skip(reason="Tests use APIs incompatible with current implementation. Requires refactoring.")
 import asyncio
+
+import pytest
 
 # Add backend to path
 import sys
@@ -24,6 +33,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
+from core.chunk_boundaries import chunk_for_position, content_chunk_count
 from cache.manager import (
     CHUNK_DURATION,
     CHUNK_SIZE_MB,
@@ -170,26 +180,69 @@ class TestStreamlinedCacheManager:
         assert len(cache_manager.tier1_cache) == 0
         assert len(cache_manager.tier2_cache) == 0
 
-    def test_get_current_chunk(self, cache_manager):
-        """Test chunk index calculation."""
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("position", [0.0, 15.0, 30.0, 45.0, 60.0, 90.0])
+    async def test_get_current_chunk(self, cache_manager, position):
+        """Chunk index comes from the chunk-model SoT, not a local formula.
+
+        These assertions used to hardcode a 30-second chunk model
+        (`_get_current_chunk(30.0) == 1`), which the live 15s/10s overlap model
+        has not matched for a long time; the drift was invisible because the
+        module was skipped (#4691). Comparing against `chunk_for_position()`
+        pins what `_get_current_chunk` actually promises — that it delegates —
+        without re-encoding a geometry that can change again.
+
+        A track has to be loaded first: with none, the manager falls back to
+        `total_chunks = 1` and every position maps to chunk 0, which is what
+        made the original run report `_get_current_chunk(30.0) == 0`.
+        """
+        duration = 120.0
+        await cache_manager.update_position(1, 0.0, "adaptive", 1.0, duration)
+        total = cache_manager.track_status[1].total_chunks
+
+        assert cache_manager._get_current_chunk(position) == chunk_for_position(position, total)[0]
+
+    @pytest.mark.asyncio
+    async def test_get_current_chunk_is_zero_based_and_monotonic(self, cache_manager):
+        """Anchor the delegation to facts, so it cannot pass vacuously."""
+        await cache_manager.update_position(1, 0.0, "adaptive", 1.0, 120.0)
+
         assert cache_manager._get_current_chunk(0.0) == 0
-        assert cache_manager._get_current_chunk(15.0) == 0
-        assert cache_manager._get_current_chunk(30.0) == 1
-        assert cache_manager._get_current_chunk(45.0) == 1
-        assert cache_manager._get_current_chunk(60.0) == 2
-        assert cache_manager._get_current_chunk(90.0) == 3
+        # Chunk 0 emits a full CHUNK_DURATION, so a position comfortably inside
+        # it maps there. NOT every position inside it: within
+        # SEEK_MIN_CHUNK_REMAINDER of the chunk end, chunk_for_position()
+        # deliberately advances to the next chunk rather than hand back a
+        # sliver that underruns immediately — asserting `CHUNK_DURATION - 0.1`
+        # maps to 0 fails, correctly.
+        assert cache_manager._get_current_chunk(CHUNK_DURATION - 1.0) == 0
+        assert cache_manager._get_current_chunk(CHUNK_DURATION - 0.1) == 1
 
-    def test_calculate_total_chunks(self, cache_manager):
-        """Test total chunk calculation."""
-        # Exactly divisible
-        assert cache_manager._calculate_total_chunks(60.0) == 2
+        indices = [cache_manager._get_current_chunk(p) for p in (0.0, 30.0, 60.0, 90.0)]
+        assert indices == sorted(indices)
+        assert indices[-1] > indices[0]
 
-        # With remainder
-        assert cache_manager._calculate_total_chunks(65.0) == 3
-        assert cache_manager._calculate_total_chunks(90.5) == 4
+    def test_get_current_chunk_without_a_track_maps_everything_to_zero(self, cache_manager):
+        """The documented fallback: no track status means total_chunks == 1."""
+        assert cache_manager.current_track_id is None
+        assert cache_manager._get_current_chunk(90.0) == 0
 
-        # Short track
-        assert cache_manager._calculate_total_chunks(15.0) == 1
+    @pytest.mark.parametrize("duration", [15.0, 60.0, 65.0, 90.5])
+    def test_calculate_total_chunks(self, cache_manager, duration):
+        """Total chunks delegates to content_chunk_count() (#4620).
+
+        The old expectations (60s -> 2, 65s -> 3, 90.5s -> 4) encoded a 30s
+        chunk model. The cache-completion target must equal
+        ``ChunkedAudioProcessor.total_chunks``, which is set from
+        ``content_chunk_count()``, so that is what this compares against —
+        re-deriving the number here is exactly how the two drifted apart.
+        """
+        assert cache_manager._calculate_total_chunks(duration) == content_chunk_count(duration)
+
+    def test_calculate_total_chunks_is_at_least_one_and_monotonic(self, cache_manager):
+        """The properties the delegation must preserve regardless of geometry."""
+        assert cache_manager._calculate_total_chunks(1.0) >= 1
+        counts = [cache_manager._calculate_total_chunks(d) for d in (15.0, 60.0, 90.5, 300.0)]
+        assert counts == sorted(counts)
 
     @pytest.mark.asyncio
     async def test_update_position_initializes_track(self, cache_manager):
@@ -205,7 +258,8 @@ class TestStreamlinedCacheManager:
         assert cache_manager.current_track_id == 1
         assert cache_manager.current_position == 0.0
         assert 1 in cache_manager.track_status
-        assert cache_manager.track_status[1].total_chunks == 3
+        # Was hardcoded to 3, a 30s-chunk-model number (#4691).
+        assert cache_manager.track_status[1].total_chunks == content_chunk_count(90.0)
 
     @pytest.mark.asyncio
     async def test_update_position_clears_tier1_on_track_change(self, cache_manager):
@@ -310,18 +364,30 @@ class TestStreamlinedCacheManager:
 
     @pytest.mark.asyncio
     async def test_track_fully_cached_detection(self, cache_manager):
-        """Test detection of fully cached track."""
-        await cache_manager.update_position(1, 0.0, "adaptive", 1.0, 60.0)  # 2 chunks
+        """Test detection of fully cached track.
+
+        The chunk count is taken from the chunk model rather than assumed to
+        be 2 (#4691): a 60s track is 6 content chunks under the live 15s/10s
+        geometry, so the old fixed pair of add_chunk calls could never reach
+        "fully cached" and the assertion silently depended on a stale model.
+        """
+        duration = 60.0
+        total = content_chunk_count(duration)
+        await cache_manager.update_position(1, 0.0, "adaptive", 1.0, duration)
 
         # Add all original chunks
-        await cache_manager.add_chunk(1, 0, Path("/tmp/c0_o.webm"), None, 1.0, tier="tier2")
-        await cache_manager.add_chunk(1, 1, Path("/tmp/c1_o.webm"), None, 1.0, tier="tier2")
+        for idx in range(total):
+            await cache_manager.add_chunk(
+                1, idx, Path(f"/tmp/c{idx}_o.webm"), None, 1.0, tier="tier2"
+            )
 
         assert cache_manager.is_track_fully_cached(1) is False
 
         # Add all processed chunks
-        await cache_manager.add_chunk(1, 0, Path("/tmp/c0_p.webm"), "adaptive", 1.0, tier="tier2")
-        await cache_manager.add_chunk(1, 1, Path("/tmp/c1_p.webm"), "adaptive", 1.0, tier="tier2")
+        for idx in range(total):
+            await cache_manager.add_chunk(
+                1, idx, Path(f"/tmp/c{idx}_p.webm"), "adaptive", 1.0, tier="tier2"
+            )
 
         assert cache_manager.is_track_fully_cached(1) is True
 

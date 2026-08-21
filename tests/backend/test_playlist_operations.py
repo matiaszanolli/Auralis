@@ -21,7 +21,13 @@ Currently skipped until PlaylistRepository is implemented in LibraryManager.
 import pytest
 
 # Skip all playlist tests - feature not yet implemented
-pytestmark = pytest.mark.skip(reason="Playlist operations are Phase 3 feature (v1.3.0) - PlaylistRepository not yet implemented")
+pytestmark = pytest.mark.skip(
+    reason="#4381: fixtures reach for LibraryDatabase.playlist_repo, which does "
+           "not exist — the accessor is .playlists via the repository factory. "
+           "All 13 tests ERROR in fixture setup, so xfail cannot express this "
+           "(a fixture error is an error, not an xfail). Left to #4381, which "
+           "owns both playlist modules; see #4691."
+)
 import shutil
 import tempfile
 from pathlib import Path

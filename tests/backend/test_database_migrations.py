@@ -14,7 +14,15 @@ Philosophy:
 These tests ensure that database migrations work correctly
 and preserve user data during upgrades.
 
-NOTE: Tests use a close() method that LibraryDatabase does not have (its lifecycle
+#4691: skipped as "Tests use a close() method LibraryDatabase does not have".
+That covered one of three drifts, and the other two mattered more: the
+repository accessors are `db.albums` / `db.artists`, not `db.album_repo` /
+`db.artist_repo`, and the schema assertions still described `artist`/`album` as
+plain Track columns from before normalisation. A migration suite that cannot
+notice the schema it is asserting against has changed is worse than no
+migration suite; all nine tests now run.
+
+Original note: tests used a close() method LibraryDatabase does not have (its lifecycle
 method is shutdown()), and reach for album_repo/artist_repo instead of the
 .albums/.artists repository properties. Requires refactoring.
 """
@@ -22,7 +30,6 @@ method is shutdown()), and reach for album_repo/artist_repo instead of the
 import pytest
 
 # Skip - API incompatibility with LibraryDatabase
-pytestmark = pytest.mark.skip(reason="Tests use a close() method LibraryDatabase does not have (lifecycle method is shutdown()). Requires refactoring to match current API.")
 import shutil
 import sqlite3
 import tempfile
@@ -115,7 +122,7 @@ def test_migration_preserves_existing_tracks(temp_db_dir):
     }
     track = db1.tracks.add(track_info)
     track_id = track.id
-    db1.close()
+    db1.shutdown()
 
     # Reopen database (simulates migration on app restart)
     db2 = LibraryDatabase(database_path=str(db_path))
@@ -123,9 +130,23 @@ def test_migration_preserves_existing_tracks(temp_db_dir):
 
     assert retrieved is not None
     assert retrieved.title == "Test Track"
-    assert retrieved.artist == "Test Artist"
+    assert retrieved.filepath == "/test/track.wav"
+    assert retrieved.duration == 180.0
 
-    db2.close()
+    # NOT asserting an artist name here, deliberately (#4691). The old
+    # `retrieved.artist == "Test Artist"` assumed a plain column from before
+    # normalisation. Artist is now a many-to-many via `track_artist`, and
+    # `TrackRepository.add()` persists only column fields — the `artist` and
+    # `album` keys in `track_info` above are ignored, with the association
+    # written by the scanner instead. So an artist assertion here would be
+    # testing the scanner, not migration data preservation.
+    #
+    # Reading the relationship through `to_dict()` is still worth doing: it
+    # exercises the repository's eager-load, and a DetachedInstanceError would
+    # mean the row survived the reopen but is unreadable.
+    assert retrieved.to_dict()["artists"] == []
+
+    db2.shutdown()
 
 
 @pytest.mark.integration
@@ -153,7 +174,7 @@ def test_migration_preserves_track_count(temp_db_dir):
         db1.tracks.add(track_info)
 
     tracks1, total1 = db1.tracks.get_all(limit=100, offset=0)
-    db1.close()
+    db1.shutdown()
 
     # Reopen and verify count
     db2 = LibraryDatabase(database_path=str(db_path))
@@ -162,7 +183,7 @@ def test_migration_preserves_track_count(temp_db_dir):
     assert total2 == total1
     assert total2 == 10
 
-    db2.close()
+    db2.shutdown()
 
 
 # ============================================================================
@@ -189,13 +210,21 @@ def test_migration_tracks_table_has_required_columns(library_db_file):
     }
     track = library_db_file.tracks.add(track_info)
 
-    # Verify track has expected attributes
+    # Verify track has expected attributes.
+    #
+    # #4691: this used to assert `artist` and `album` as plain columns, which
+    # is the pre-normalisation schema. Artist is a many-to-many via
+    # `track_artist` (`Track.artists`) and album is a FK relationship
+    # (`Track.album_id` / `Track.album`), so the old assertions could only ever
+    # fail against a migrated database — which is precisely what a migration
+    # test is supposed to notice.
     assert hasattr(track, 'id')
     assert hasattr(track, 'filepath')
     assert hasattr(track, 'title')
-    assert hasattr(track, 'artist')
-    assert hasattr(track, 'album')
     assert hasattr(track, 'duration')
+    assert hasattr(track, 'album_id')
+    assert hasattr(track, 'album')
+    assert hasattr(track, 'artists')
 
 
 @pytest.mark.integration
@@ -206,7 +235,7 @@ def test_migration_albums_table_exists(library_db_file):
     Tests that all required tables are created.
     """
     # Try to query albums table
-    albums, total = library_db_file.album_repo.get_all(limit=10, offset=0)
+    albums, total = library_db_file.albums.get_all(limit=10, offset=0)
 
     assert isinstance(albums, list)
     assert isinstance(total, int)
@@ -220,7 +249,7 @@ def test_migration_artists_table_exists(library_db_file):
     Tests that all required tables are created.
     """
     # Try to query artists table
-    artists, total = library_db_file.artist_repo.get_all(limit=10, offset=0)
+    artists, total = library_db_file.artists.get_all(limit=10, offset=0)
 
     assert isinstance(artists, list)
     assert isinstance(total, int)

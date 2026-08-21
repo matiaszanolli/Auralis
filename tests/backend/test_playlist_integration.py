@@ -24,14 +24,15 @@ Test Philosophy:
 
 See docs/development/TESTING_GUIDELINES.md for complete testing philosophy.
 
-NOTE: Tests use APIs that are incompatible with the current repository layer
-(PlaylistRepository has no playlist search). Requires refactoring.
+NOTE (#4691): this module carried a blanket module-level skip reading "Tests
+use APIs incompatible with the current implementation" and, in the docstring,
+"PlaylistRepository has no playlist search". #5171 added
+`PlaylistRepository.search()`, which made that reason stale — but a skip
+announces nothing when it becomes wrong, so the whole file stayed dark. It
+executes 11 assertions against the current API, unchanged, and always would
+have once #5171 landed.
 """
 
-import pytest
-
-# Skip - tests use APIs incompatible with current implementation
-pytestmark = pytest.mark.skip(reason="Tests use APIs incompatible with current implementation. Requires refactoring.")
 import os
 
 # Import the modules under test
@@ -40,6 +41,7 @@ import tempfile
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
