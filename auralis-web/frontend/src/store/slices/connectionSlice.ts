@@ -121,6 +121,11 @@ const connectionSlice = createSlice({
 
     /**
      * Set max reconnect attempts
+     *
+     * No production dispatch sites (#4921) — kept as an idiomatic
+     * Redux action. Live sync uses field-level dispatches; see the note on
+     * resetPlayer in playerSlice.ts for why the bulk-update siblings were
+     * deleted rather than documented.
      */
     setMaxReconnectAttempts(state, action: PayloadAction<number>) {
       state.maxReconnectAttempts = action.payload;
@@ -147,31 +152,14 @@ const connectionSlice = createSlice({
     },
 
     /**
-     * Update entire connection state
-     */
-    updateConnectionState: {
-      reducer(
-        state,
-        action: PayloadAction<
-          Partial<Omit<ConnectionState, 'lastUpdated'>>,
-          string,
-          { timestamp: number }
-        >
-      ) {
-        // Filter out undefined values to avoid overwriting valid state
-        const defined = Object.fromEntries(
-          Object.entries(action.payload).filter(([, v]) => v !== undefined)
-        );
-        Object.assign(state, defined);
-        state.lastUpdated = action.meta.timestamp;
-      },
-      prepare(connectionState: Partial<Omit<ConnectionState, 'lastUpdated'>>) {
-        return { payload: connectionState, meta: { timestamp: Date.now() } };
-      },
-    },
-
-    /**
      * Reset connection state
+     *
+     * No production dispatch sites (#4921) — kept as an idiomatic Redux reset. Live WebSocket sync
+     * dispatches field-level actions from usePlayerStateSync.ts /
+     * useAPIHealthPoll.ts, which is the intended architecture; the bulk
+     * updatePlaybackState/updateStreamingInfo/updateConnectionState actions
+     * that sat beside these were deleted in #4921 because they duplicated
+     * hardening the field-level path already has.
      */
     resetConnection(state) {
       Object.assign(state, initialState);
@@ -188,7 +176,6 @@ export const {
   setMaxReconnectAttempts,
   setError,
   clearError,
-  updateConnectionState,
   resetConnection,
 } = connectionSlice.actions;
 

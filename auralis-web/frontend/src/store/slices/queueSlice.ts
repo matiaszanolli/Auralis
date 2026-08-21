@@ -301,6 +301,12 @@ const queueSlice = createSlice({
 
     /**
      * Clear error
+     *
+     * No production dispatch sites (#4921) for THIS slice; cacheSlice's and
+     * connectionSlice's same-named actions ARE dispatched, from useReduxState.ts — kept as an idiomatic
+     * Redux action. Live sync uses field-level dispatches; see the note on
+     * resetPlayer in playerSlice.ts for why the bulk-update siblings were
+     * deleted rather than documented.
      */
     clearError(state) {
       state.error = null;
@@ -336,6 +342,11 @@ const queueSlice = createSlice({
 
     /**
      * Reset queue state
+     *
+     * No production dispatch sites (#4921) — kept as an idiomatic
+     * Redux action. Live sync uses field-level dispatches; see the note on
+     * resetPlayer in playerSlice.ts for why the bulk-update siblings were
+     * deleted rather than documented.
      */
     resetQueue(state) {
       Object.assign(state, initialState);

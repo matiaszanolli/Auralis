@@ -17,14 +17,12 @@ import reducer, {
   setIsLoading,
   setError,
   clearError,
-  updatePlaybackState,
   resetPlayer,
   startStreaming,
   updateStreamingProgress,
   completeStreaming,
   setStreamingError,
   resetStreaming,
-  updateStreamingInfo,
 } from '../playerSlice';
 import type { PlayerState, Track } from '../playerSlice';
 
@@ -123,14 +121,6 @@ describe('playerSlice', () => {
     expect(state.currentTime).toBe(120);
   });
 
-  it('updatePlaybackState re-clamps currentTime to duration (#4191)', () => {
-    let state = reducer(initialState, setDuration(300));
-    state = reducer(state, setCurrentTime(280));
-    state = reducer(state, updatePlaybackState({ duration: 100 }));
-    expect(state.duration).toBe(100);
-    expect(state.currentTime).toBe(100);
-  });
-
   // ─── Volume reducers ───────────────────────────────────────────
 
   it('setVolume clamps 0-100 and unmutes', () => {
@@ -179,40 +169,6 @@ describe('playerSlice', () => {
     expect(state.error).toBe('Something broke');
     state = reducer(state, clearError());
     expect(state.error).toBeNull();
-  });
-
-  // ─── updatePlaybackState (deep merge) ─────────────────────────
-
-  it('updatePlaybackState deep-merges streaming sub-state (#2352)', () => {
-    // Start enhanced streaming
-    let state = reducer(
-      initialState,
-      startStreaming({
-        streamType: 'enhanced',
-        trackId: 1,
-        totalChunks: 10,
-        intensity: 0.8,
-      }),
-    );
-
-    // Update progress
-    state = reducer(
-      state,
-      updateStreamingProgress({
-        streamType: 'enhanced',
-        processedChunks: 5,
-        bufferedSamples: 44100,
-        progress: 50,
-      }),
-    );
-
-    // Simulate a server sync that only sends partial state (no streaming)
-    state = reducer(state, updatePlaybackState({ isPlaying: true }));
-
-    // Streaming sub-state must NOT be clobbered
-    expect(state.isPlaying).toBe(true);
-    expect(state.streaming.enhanced.processedChunks).toBe(5);
-    expect(state.streaming.enhanced.progress).toBe(50);
   });
 
   // ─── resetPlayer ──────────────────────────────────────────────
@@ -304,22 +260,6 @@ describe('playerSlice', () => {
       expect(state.streaming.normal.processedChunks).toBe(0);
     });
 
-    it('updateStreamingInfo partial-merges into sub-state', () => {
-      let state = reducer(
-        initialState,
-        startStreaming({ streamType: 'enhanced', trackId: 1, totalChunks: 10, intensity: 1 }),
-      );
-      state = reducer(
-        state,
-        updateStreamingInfo({ streamType: 'enhanced', progress: 75, bufferedSamples: 100000 }),
-      );
-      // Merged fields
-      expect(state.streaming.enhanced.progress).toBe(75);
-      expect(state.streaming.enhanced.bufferedSamples).toBe(100000);
-      // Unchanged fields
-      expect(state.streaming.enhanced.trackId).toBe(1);
-      expect(state.streaming.enhanced.totalChunks).toBe(10);
-    });
 
     it('normal and enhanced streams are independent', () => {
       let state = reducer(

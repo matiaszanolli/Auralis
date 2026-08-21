@@ -13,7 +13,6 @@ import reducer, {
   setMaxReconnectAttempts,
   setError,
   clearError,
-  updateConnectionState,
   resetConnection,
   selectWSConnected,
   selectAPIConnected,
@@ -123,18 +122,6 @@ describe('connectionSlice', () => {
     let state = reducer(initialState, setError('err'));
     state = reducer(state, clearError());
     expect(state.lastError).toBeNull();
-  });
-
-  // ─── Bulk update ──────────────────────────────────────────────
-
-  it('updateConnectionState merges partial state', () => {
-    const state = reducer(
-      initialState,
-      updateConnectionState({ wsConnected: true, latency: 42 })
-    );
-    expect(state.wsConnected).toBe(true);
-    expect(state.latency).toBe(42);
-    expect(state.apiConnected).toBe(false); // unchanged
   });
 
   // ─── Reset ────────────────────────────────────────────────────

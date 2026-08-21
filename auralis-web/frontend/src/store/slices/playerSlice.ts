@@ -232,54 +232,26 @@ const playerSlice = createSlice({
 
     /**
      * Clear error
+     *
+     * No production dispatch sites (#4921) for THIS slice; cacheSlice's and
+     * connectionSlice's same-named actions ARE dispatched, from useReduxState.ts — kept as an idiomatic
+     * Redux action. Live sync uses field-level dispatches; see the note on
+     * resetPlayer in playerSlice.ts for why the bulk-update siblings were
+     * deleted rather than documented.
      */
     clearError(state) {
       state.error = null;
     },
 
     /**
-     * Update entire playback state (for WebSocket sync)
-     */
-    updatePlaybackState: {
-      reducer(
-        state,
-        action: PayloadAction<
-          Partial<Omit<PlayerState, 'lastUpdated'>>,
-          string,
-          { timestamp: number }
-        >
-      ) {
-        // Deep-merge the streaming sub-state so a server status_update that
-        // includes a partial streaming object doesn't clobber the client-side
-        // streaming progress tracked by usePlayEnhanced (fixes #2352).
-        const { streaming, ...rest } = action.payload;
-        // Filter out undefined values to avoid clobbering valid state (#3025)
-        const defined = Object.fromEntries(
-          Object.entries(rest).filter(([, v]) => v !== undefined)
-        );
-        Object.assign(state, defined);
-        // Re-clamp currentTime to duration — Object.assign bypasses the
-        // setCurrentTime/setDuration clamps (#4191).
-        if (state.currentTime > state.duration) {
-          state.currentTime = state.duration;
-        }
-        // Keep currentTrack.duration in sync with top-level duration (#2774)
-        if (rest.duration !== undefined && state.currentTrack) {
-          state.currentTrack.duration = rest.duration;
-        }
-        if (streaming) {
-          if (streaming.normal) Object.assign(state.streaming.normal, streaming.normal);
-          if (streaming.enhanced) Object.assign(state.streaming.enhanced, streaming.enhanced);
-        }
-        state.lastUpdated = action.meta.timestamp;
-      },
-      prepare(playbackState: Partial<Omit<PlayerState, 'lastUpdated'>>) {
-        return { payload: playbackState, meta: { timestamp: Date.now() } };
-      },
-    },
-
-    /**
      * Reset player state
+     *
+     * No production dispatch sites (#4921) — kept as a store-reset helper, which components/__tests__/Integration.test.tsx:425 uses. Live WebSocket sync
+     * dispatches field-level actions from usePlayerStateSync.ts /
+     * useAPIHealthPoll.ts, which is the intended architecture; the bulk
+     * updatePlaybackState/updateStreamingInfo/updateConnectionState actions
+     * that sat beside these were deleted in #4921 because they duplicated
+     * hardening the field-level path already has.
      */
     resetPlayer(state) {
       Object.assign(state, {
@@ -429,26 +401,6 @@ const playerSlice = createSlice({
       },
     },
 
-    /**
-     * Update entire streaming info (for WebSocket sync)
-     */
-    updateStreamingInfo: {
-      reducer(
-        state,
-        action: PayloadAction<
-          { streamType: StreamType } & Partial<Omit<StreamingInfo, 'error'>>,
-          string,
-          { timestamp: number }
-        >
-      ) {
-        const { streamType, ...updates } = action.payload;
-        Object.assign(state.streaming[streamType], updates);
-        state.lastUpdated = action.meta.timestamp;
-      },
-      prepare(params: { streamType: StreamType } & Partial<Omit<StreamingInfo, 'error'>>) {
-        return { payload: params, meta: { timestamp: Date.now() } };
-      },
-    },
   },
 });
 
@@ -464,14 +416,12 @@ export const {
   setIsLoading,
   setError,
   clearError,
-  updatePlaybackState,
   resetPlayer,
   startStreaming,
   updateStreamingProgress,
   completeStreaming,
   setStreamingError,
   resetStreaming,
-  updateStreamingInfo,
 } = playerSlice.actions;
 
 /**

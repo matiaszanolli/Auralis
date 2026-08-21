@@ -118,6 +118,11 @@ const cacheSlice = createSlice({
 
     /**
      * Reset cache state
+     *
+     * No production dispatch sites (#4921) — kept as an idiomatic
+     * Redux action. Live sync uses field-level dispatches; see the note on
+     * resetPlayer in playerSlice.ts for why the bulk-update siblings were
+     * deleted rather than documented.
      */
     resetCache(state) {
       Object.assign(state, initialState);
