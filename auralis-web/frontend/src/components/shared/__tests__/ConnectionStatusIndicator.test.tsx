@@ -21,7 +21,6 @@ import { ReactElement, ReactNode } from 'react';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { BrowserRouter } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { createTestStore } from '@/test/test-utils';
@@ -58,12 +57,12 @@ function MinimalWrapper({ children }: { children: ReactNode }) {
   // tests previously rendered without a store and failed at "could not find
   // react-redux context").
   return (
+    // No <BrowserRouter> (#4943): the app has no router, so this was
+    // scaffolding for a dependency nothing under src/ uses in production.
     <Provider store={createTestStore()}>
-      <BrowserRouter>
-        <ThemeProvider>
-          {children}
-        </ThemeProvider>
-      </BrowserRouter>
+      <ThemeProvider>
+        {children}
+      </ThemeProvider>
     </Provider>
   );
 }

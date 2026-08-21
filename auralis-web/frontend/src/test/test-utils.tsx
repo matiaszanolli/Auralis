@@ -12,7 +12,6 @@
 
 import { ReactElement, ReactNode } from 'react'
 import { render, RenderOptions } from '@testing-library/react'
-import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Provider as ReduxProvider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
@@ -139,15 +138,19 @@ export function AllProviders({ children, preloadedState, store }: AllProvidersPr
   return (
     <ReduxProvider store={testStore}>
       <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
-          <ThemeProvider>
-            <ToastProvider>
-              <PlaybackSessionProvider>
-                {children}
-              </PlaybackSessionProvider>
-            </ToastProvider>
-          </ThemeProvider>
-        </BrowserRouter>
+        {/* No <BrowserRouter> (#4943). The app has no router — nothing under
+            src/ imports react-router outside tests — so wrapping every
+            rendered component in one was scaffolding for a dependency that
+            does not exist, and react-router-dom 6.30.2 logged two v7 Future
+            Flag deprecation warnings per test because of it. Removing beats
+            adding a `future` prop: there is no router behaviour to preserve. */}
+        <ThemeProvider>
+          <ToastProvider>
+            <PlaybackSessionProvider>
+              {children}
+            </PlaybackSessionProvider>
+          </ToastProvider>
+        </ThemeProvider>
       </QueryClientProvider>
     </ReduxProvider>
   )

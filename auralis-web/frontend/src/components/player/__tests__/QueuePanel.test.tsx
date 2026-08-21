@@ -9,7 +9,6 @@ import { ReactElement, ReactNode } from 'react';
 import { describe, it, expect, beforeAll, beforeEach, vi, afterEach, afterAll } from 'vitest';
 import { render, screen, within, fireEvent, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { BrowserRouter } from 'react-router-dom';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { QueuePanel } from '../QueuePanel';
 
@@ -75,12 +74,12 @@ const mockTracks = [
  * Minimal wrapper for tests
  */
 function MinimalWrapper({ children }: { children: ReactNode }) {
+  // No <BrowserRouter> (#4943): this file kept its own copy of the router
+  // wrapper that test-utils.tsx had, and the app has no router at all.
   return (
-    <BrowserRouter>
-      <ThemeProvider>
-        {children}
-      </ThemeProvider>
-    </BrowserRouter>
+    <ThemeProvider>
+      {children}
+    </ThemeProvider>
   );
 }
 
@@ -676,7 +675,7 @@ describe('QueuePanel collapsed/expanded transitions (#5007)', () => {
 
     // renderWithWrapper already applies MinimalWrapper via the `wrapper`
     // render option, which testing-library's rerender() re-applies
-    // automatically — wrapping again here would nest a second <Router>.
+    // automatically — wrapping again here would nest a second provider.
     rerender(<QueuePanel collapsed={false} />);
 
     expect(screen.getByText('Queue (3)')).toBeInTheDocument();
