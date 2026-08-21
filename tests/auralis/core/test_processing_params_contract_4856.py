@@ -3,7 +3,7 @@ Contract tests for the ProcessingParameters dynamics dicts — issue #4856.
 
 Two independent producers build `compression_params` / `expansion_params`:
 
-  * `ContinuousMode._convert_targets_to_parameters` — the fixed-targets fast
+  * `fixed_target_params.convert_targets_to_parameters` — the fixed-targets fast
     path taken when a track has a `.25d` fingerprint sidecar, which skips
     fingerprint extraction entirely;
   * `ContinuousParameterGenerator` — the fingerprint path.
@@ -30,7 +30,7 @@ from auralis.core.processing.base.compression_expansion import (
     CompressionStrategies,
     ExpansionStrategies,
 )
-from auralis.core.processing.continuous_mode import ContinuousMode
+from auralis.core.processing.fixed_target_params import convert_targets_to_parameters
 
 FIXED_TARGETS = {
     'target_lufs': -14.0,
@@ -55,9 +55,8 @@ FINGERPRINT_25D = {
 
 
 def _fixed_target_params():
-    """Build params via the fast path without constructing a full ContinuousMode."""
-    mode = ContinuousMode.__new__(ContinuousMode)
-    return ContinuousMode._convert_targets_to_parameters(mode, FIXED_TARGETS)
+    """Build params via the fast path (a free function since #4254)."""
+    return convert_targets_to_parameters(FIXED_TARGETS)
 
 
 def _audio(seed: int = 0) -> np.ndarray:

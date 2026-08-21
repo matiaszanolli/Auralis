@@ -255,7 +255,7 @@ class TestCompensationBounds:
 
     def test_spectral_tilt_correction_capped_at_2db(self):
         """Spectral tilt correction should not exceed ±2 dB."""
-        from auralis.core.processing.continuous_mode import (
+        from auralis.core.processing.continuous_guards import (
             _apply_spectral_tilt_correction,
         )
         audio = np.random.default_rng(42).standard_normal((44100, 2)).astype(np.float32) * 0.1
@@ -321,7 +321,7 @@ class TestGuardDisabled:
 
         mode = self._build_mode(guard_enabled=False)
         with patch(
-            'auralis.core.processing.continuous_mode._apply_spectral_tilt_correction'
+            'auralis.core.processing.continuous_stages._apply_spectral_tilt_correction'
         ) as mock_tilt:
             mode.process(stereo_noise.copy(), self._identity_eq())
         assert mock_tilt.call_count == 0

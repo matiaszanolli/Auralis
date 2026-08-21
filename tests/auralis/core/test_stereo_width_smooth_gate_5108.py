@@ -24,7 +24,7 @@ peak across the knee must move the effective width smoothly, with no step.
 import numpy as np
 import pytest
 
-from auralis.core.processing.continuous_mode import (
+from auralis.core.processing.continuous_guards import (
     WIDTH_PEAK_KNEE_END,
     WIDTH_PEAK_KNEE_START,
 )

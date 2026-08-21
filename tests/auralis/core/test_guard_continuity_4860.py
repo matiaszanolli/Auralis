@@ -28,7 +28,7 @@ absence of a step.
 import numpy as np
 import pytest
 
-from auralis.core.processing import continuous_mode as cm
+from auralis.core.processing import continuous_guards as cm
 from auralis.core.processing.cross_dimensional_guard import smooth_gate
 
 # The correction formulas exactly as _stage_eq / _stage_dynamics /
