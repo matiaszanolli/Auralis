@@ -86,6 +86,10 @@ auralis-web/backend/dist/
 **/coverage
 .cache/
 .pytest_cache/
+# Left behind by a one-off ruff run; ruff is not a dependency of this
+# project and nothing invokes it (#4946). Ignored so a stray cache
+# directory does not re-imply a linter that is not configured.
+.ruff_cache/
 .coverage
 coverage.json
 htmlcov/
