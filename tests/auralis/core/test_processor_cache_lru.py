@@ -14,8 +14,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import auralis.core.hybrid_processor as hp_module
-from auralis.core.hybrid_processor import _PROCESSOR_CACHE_MAX_SIZE
+import auralis.core.hybrid_processor_singleton as hp_module
+from auralis.core.hybrid_processor_singleton import _PROCESSOR_CACHE_MAX_SIZE
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -261,7 +261,7 @@ class TestGetOrCreateProcessorCaching:
             for i in range(_PROCESSOR_CACHE_MAX_SIZE + 20):
                 cfg = MagicMock()
                 # Make id(cfg) return a unique value per iteration
-                with patch('auralis.core.hybrid_processor.HybridProcessor') as MockHP:
+                with patch('auralis.core.hybrid_processor_singleton.HybridProcessor') as MockHP:
                     MockHP.return_value = MagicMock()
                     # Directly insert with unique key to bypass id() ambiguity
                     key = f"test_key_{i}"

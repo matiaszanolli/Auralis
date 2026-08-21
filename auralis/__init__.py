@@ -25,7 +25,8 @@ from .core.config import (
     create_reference_config,
     get_preset_profile,
 )
-from .core.hybrid_processor import HybridProcessor, process_adaptive, process_reference
+from .core.hybrid_processor import HybridProcessor
+from .core.hybrid_processor_singleton import process_adaptive, process_reference
 
 # Results and output handling
 from .io.results import Result, pcm16, pcm24
