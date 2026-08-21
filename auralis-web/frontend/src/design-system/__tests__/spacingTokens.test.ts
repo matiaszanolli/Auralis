@@ -57,8 +57,8 @@ describe('the spacing steps used by the migration (#4663)', () => {
  * migrated. Both are recorded here so a new literal has to be justified.
  */
 const ALLOWED_SPACING_LITERALS: Record<string, string> = {
-  // Dead tree, removed wholesale by #4696 — migrating it would be wasted work.
-  'performance/lazyLoader.tsx': 'dead tree, #4696',
+  // The 'performance/lazyLoader.tsx' entry that stood here is gone: #4696
+  // deleted src/performance/ wholesale.
 
   // `margin: '0 auto'` is the horizontal-centering idiom, not a spacing value.
   // There is no token for `auto` and inventing one would obscure the intent.

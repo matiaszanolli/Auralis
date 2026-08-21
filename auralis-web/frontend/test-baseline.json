@@ -1,8 +1,8 @@
 {
-  "_comment": "Known-failing vitest specs (#4640). CI fails on any failure NOT listed here. Regenerate with: pnpm run test:baseline:update. #5158: the 8 src/tests/api-integration/library-api.test.ts entries were removed by hand — #5119 wrapped that file in a top-level describe.skip, so those specs can never be reported as failures again and the entries were dead weight. Removing them is a provable shrink; a full local regeneration was deliberately avoided because a baseline built outside CI reports spurious new failures.",
+  "_comment": "Known-failing vitest specs (#4640). CI fails on any failure NOT listed here. Regenerate with: pnpm run test:baseline:update. #5158: the 8 src/tests/api-integration/library-api.test.ts entries were removed by hand — #5119 wrapped that file in a top-level describe.skip, so those specs can never be reported as failures again and the entries were dead weight. Removing them is a provable shrink; a full local regeneration was deliberately avoided because a baseline built outside CI reports spurious new failures. #4696 removed the src/performance/ entries by hand: that directory was deleted wholesale, so its specs can never run again.",
   "generatedFrom": {
     "totalTests": 3538,
-    "failedTests": 118
+    "failedTests": 111
   },
   "failures": [
     "src/components/__tests__/Sidebar.test.tsx::Sidebar renders in collapsed state",
@@ -115,13 +115,6 @@
     "src/hooks/player/__tests__/usePlayerDisplay.test.ts::usePlayerDisplay Hook Utility Functions should format with hours when requested",
     "src/hooks/shared/__tests__/useReduxState.test.tsx::Redux State Hooks State Selectors usePlayerState should return player slice",
     "src/hooks/shared/__tests__/useReduxState.test.tsx::Redux State Hooks usePlayer should return player state and actions",
-    "src/hooks/shared/__tests__/useReduxState.test.tsx::Redux State Hooks usePlayer should seek to position",
-    "src/performance/__tests__/lazyLoader.test.tsx::Lazy Loader Error Boundary should call onError callback",
-    "src/performance/__tests__/lazyLoader.test.tsx::Lazy Loader Error Boundary should render children when no error",
-    "src/performance/__tests__/lazyLoader.test.tsx::Lazy Loader Error Boundary should render fallback when error occurs",
-    "src/performance/__tests__/lazyLoader.test.tsx::Lazy Loader Error Boundary should use custom fallback",
-    "src/performance/__tests__/lazyLoader.test.tsx::Lazy Loader Fallback Components should render default error fallback",
-    "src/performance/__tests__/lazyLoader.test.tsx::Lazy Loader Fallback Components should render default loading fallback",
-    "src/performance/__tests__/lazyLoader.test.tsx::Lazy Loader Fallback Components should render error fallback without error message"
+    "src/hooks/shared/__tests__/useReduxState.test.tsx::Redux State Hooks usePlayer should seek to position"
   ]
 }

@@ -81,11 +81,8 @@ const ALLOWED_ANY_FILES: Record<string, string> = {
   // dead, drifted duplicate of mockData.ts that no test ever imported.
   'test/setup.ts': 'global test shims',
 
-  // Dead code — removed wholesale by #4696, so typing it first is wasted work.
-  'performance/lazyLoader.tsx': 'dead tree, #4696',
-  'performance/useRenderProfiler.ts': 'dead tree, #4696',
-  'performance/withMemo.tsx': 'dead tree, #4696',
-  'performance/bundleAnalyzer.ts': 'dead tree, #4696',
+  // The four 'performance/*' entries that stood here are gone: #4696 deleted
+  // src/performance/ wholesale, so there is nothing left to allow.
 
   // Generic wrappers and dev tooling where `any` is the honest signature.
   'utils/serviceFactory.ts': 'generic CRUD factory over unconstrained shapes (#4461)',
