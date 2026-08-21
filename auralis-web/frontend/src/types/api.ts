@@ -177,7 +177,22 @@ export interface EnhancementSettingsRequest {
 // EnhancementSettingsResponse removed (#4372) — backend returns
 // {message, settings:{...}} (nested), not this flat shape; no importers.
 
-export interface EnhancementPreset {
+/*
+ * Renamed from `EnhancementPreset` in #4942, same reasoning as the
+ * `PlayerState` note above.
+ *
+ * `domain.EnhancementPreset` is the string-literal union used as a settings
+ * VALUE ('adaptive' | 'gentle' | ...). This is a different thing entirely: a
+ * preset DESCRIPTOR row returned by GET /api/enhancement/presets. Two
+ * structurally incompatible types sharing one name meant an IDE auto-import on
+ * a bare `EnhancementPreset` could silently pick the wrong one — and unlike a
+ * shape duplicate, a union resolving where an object was meant (or vice versa)
+ * fails in confusing places far from the import.
+ *
+ * The union keeps the plain name because it is what application code passes
+ * around; this one carries the `Info` suffix.
+ */
+export interface EnhancementPresetInfo {
   id: string;
   name: string;
   description: string;
@@ -186,7 +201,7 @@ export interface EnhancementPreset {
 }
 
 export interface EnhancementPresetsResponse {
-  presets: EnhancementPreset[];
+  presets: EnhancementPresetInfo[];
 }
 
 // ============================================================================
