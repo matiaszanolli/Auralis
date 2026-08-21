@@ -104,12 +104,13 @@ impl EnvelopeFollower {
         output
     }
 
-    /// Reset envelope state to zero
-    pub fn reset(&mut self) {
-        self.envelope = 0.0;
-    }
-
-    /// Get current envelope value
+    /// Test-only view of the current envelope value.
+    ///
+    /// `#[cfg(test)]` for the same reason as `Compressor::get_state` (#4594):
+    /// production reaches `EnvelopeFollower` only through the stateless
+    /// `envelope_follow` path, which never introspects it. The tests below do,
+    /// to verify the follower actually tracks its input.
+    #[cfg(test)]
     pub fn get_envelope(&self) -> f32 {
         self.envelope
     }
@@ -192,18 +193,6 @@ mod tests {
 
         // Envelope should be non-zero after processing
         assert!(follower.get_envelope() > 0.0);
-    }
-
-    #[test]
-    fn test_reset() {
-        let config = EnvelopeConfig::default();
-        let mut follower = EnvelopeFollower::new(&config);
-
-        follower.process(1.0);
-        assert!(follower.get_envelope() > 0.0);
-
-        follower.reset();
-        assert_eq!(follower.get_envelope(), 0.0);
     }
 
     #[test]

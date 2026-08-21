@@ -252,20 +252,19 @@ impl Compressor {
         (processed_audio, info)
     }
 
-    /// Reset compressor state
-    pub fn reset(&mut self) {
-        self.peak_follower.reset();
-        self.rms_follower.reset();
-        self.gain_follower.reset();
-        self.gain_reduction = 0.0;
-        self.previous_gain = 1.0;
-
-        if let Some(ref mut buffer) = self.lookahead_buffer {
-            buffer.clear();
-        }
-    }
-
-    /// Get current compressor state
+    /// Test-only view of the internal state: `(gain_reduction, output_gain)`.
+    ///
+    /// NOTE the field order differs from `Limiter::get_state`, which returns
+    /// `(current_gain, peak_hold)` — a swap between the two would be invisible
+    /// at the call site, since both are `(f32, f32)`.
+    ///
+    /// `#[cfg(test)]` because nothing in production reads it (#4594): the crate
+    /// is a `cdylib` PyO3 extension whose Python surface is 11 stateless free
+    /// functions, so no caller ever holds a `Compressor` long enough to
+    /// introspect it. Compiling it only under `cargo test` keeps the assertions
+    /// that need it while stating plainly that it is test scaffolding rather
+    /// than public API.
+    #[cfg(test)]
     pub fn get_state(&self) -> (f32, f32) {
         (self.gain_reduction, self.previous_gain)
     }

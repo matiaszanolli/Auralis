@@ -1,39 +1,6 @@
 /// Stereo field analysis
 /// Measures stereo width and phase correlation between channels
 
-/// Check if audio is stereo (has significant difference between channels)
-fn is_stereo_signals(left: &[f32], right: &[f32]) -> bool {
-    if left.len() != right.len() {
-        return false;
-    }
-
-    if left.is_empty() {
-        return false;
-    }
-
-    // Compute correlation coefficient
-    let mut sum_xy = 0.0f32;
-    let mut sum_x = 0.0f32;
-    let mut sum_y = 0.0f32;
-    let mut sum_x2 = 0.0f32;
-    let mut sum_y2 = 0.0f32;
-
-    for (x, y) in left.iter().zip(right.iter()) {
-        sum_xy += x * y;
-        sum_x += x;
-        sum_y += y;
-        sum_x2 += x * x;
-        sum_y2 += y * y;
-    }
-
-    let n = left.len() as f32;
-    let correlation = (n * sum_xy - sum_x * sum_y)
-        / ((n * sum_x2 - sum_x * sum_x) * (n * sum_y2 - sum_y * sum_y)).sqrt();
-
-    // If correlation is close to 1.0, channels are nearly identical (mono)
-    correlation.abs() < 0.95
-}
-
 /// Compute mid-side decomposition
 /// mid = (L + R) / 2
 /// side = (L - R) / 2
@@ -150,27 +117,6 @@ fn normalize_signal(signal: &[f32]) -> Vec<f32> {
         .collect()
 }
 
-/// Detect if signal is mono (very high correlation) or stereo
-/// This is a convenience function
-///
-/// # Arguments
-/// * `channels` - Number of channels
-/// * `audio` - Interleaved audio samples (for stereo: L, R, L, R, ...)
-///
-/// # Returns
-/// true if stereo, false if mono
-pub fn is_stereo(channels: u32, audio: &[f32]) -> bool {
-    if channels != 2 || audio.is_empty() {
-        return channels > 1;
-    }
-
-    // Extract left and right channels
-    let left: Vec<f32> = audio.iter().step_by(2).copied().collect();
-    let right: Vec<f32> = audio.iter().skip(1).step_by(2).copied().collect();
-
-    is_stereo_signals(&left, &right)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -213,20 +159,6 @@ mod tests {
         let right = vec![0.9, 0.1, 0.8, 0.2]; // Different
         let correlation = compute_phase_correlation(&left, &right);
         assert!(correlation.abs() < 0.8); // Should be somewhere in between
-    }
-
-    #[test]
-    fn test_is_stereo_mono() {
-        let audio = vec![0.1, 0.1, 0.2, 0.2, 0.3, 0.3]; // L=0.1, R=0.1, etc.
-        let stereo = is_stereo(2, &audio);
-        assert!(!stereo);
-    }
-
-    #[test]
-    fn test_is_stereo_wide() {
-        let audio = vec![0.5, -0.5, 0.5, -0.5, 0.5, -0.5]; // L=0.5, R=-0.5
-        let stereo = is_stereo(2, &audio);
-        assert!(stereo);
     }
 
     #[test]

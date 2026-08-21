@@ -224,15 +224,12 @@ impl Limiter {
         }
     }
 
-    /// Reset limiter state
-    pub fn reset(&mut self) {
-        self.gain_smoother.reset();
-        self.current_gain = 1.0;
-        self.peak_hold = 0.0;
-        self.lookahead_buffer.clear();
-    }
-
-    /// Get current limiter state
+    /// Test-only view of the internal state: `(current_gain, peak_hold)`.
+    ///
+    /// NOTE the field order differs from `Compressor::get_state`, which returns
+    /// `(gain_reduction, output_gain)`. See that method for why both are
+    /// `#[cfg(test)]` (#4594).
+    #[cfg(test)]
     pub fn get_state(&self) -> (f32, f32) {
         (self.current_gain, self.peak_hold)
     }

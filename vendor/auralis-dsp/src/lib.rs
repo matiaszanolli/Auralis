@@ -48,5 +48,5 @@ pub use limiter::{limit, Limiter, LimiterConfig, LimitingInfo};
 pub use frequency_analysis::compute_frequency_distribution;
 pub use spectral_features::{compute_spectral_centroid, compute_spectral_rolloff, compute_spectral_flatness, audio_to_freq_domain};
 pub use variation_analysis::{compute_dynamic_range_variation, compute_loudness_variation, compute_peak_consistency};
-pub use stereo_analysis::{compute_stereo_width, compute_phase_correlation, is_stereo};
+pub use stereo_analysis::{compute_stereo_width, compute_phase_correlation};
 pub use fingerprint_compute::{AudioFingerprint, compute_complete_fingerprint};

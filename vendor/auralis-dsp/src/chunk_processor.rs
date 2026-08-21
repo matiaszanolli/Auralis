@@ -4,7 +4,7 @@
 // Copyright (C) 2024 Auralis Team
 // License: GPLv3
 
-use ndarray::{Array1, Array2, ArrayView1, ArrayView2};
+use ndarray::{Array2, ArrayView2};
 
 /// Chunk processing configuration
 #[derive(Debug, Clone)]
@@ -149,58 +149,6 @@ impl ChunkProcessor {
         }
     }
 
-    /// Reset processor state
-    pub fn reset(&mut self) {
-        self.overlap_buffer.fill(0.0);
-    }
-}
-
-/// Process mono audio in chunks
-pub fn process_mono_chunks<F>(
-    audio: &ArrayView1<f64>,
-    chunk_size: usize,
-    overlap: usize,
-    mut process_fn: F,
-) -> Array1<f64>
-where
-    F: FnMut(&ArrayView1<f64>) -> Array1<f64>,
-{
-    let total_samples = audio.len();
-    let hop_size = chunk_size - overlap;
-    let num_chunks = (total_samples + hop_size - 1) / hop_size;
-
-    let mut output = Array1::zeros(total_samples);
-
-    for chunk_idx in 0..num_chunks {
-        let start = chunk_idx * hop_size;
-        let end = (start + chunk_size).min(total_samples);
-
-        // Extract and process chunk
-        let chunk = audio.slice(ndarray::s![start..end]);
-        let processed = process_fn(&chunk);
-
-        // Write to output with overlap-add (matching process_chunks behaviour)
-        let write_len = processed.len().min(total_samples - start);
-        if chunk_idx > 0 && overlap > 0 {
-            // Accumulate in the overlap region
-            let ola_samples = overlap.min(write_len);
-            output
-                .slice_mut(ndarray::s![start..start + ola_samples])
-                .scaled_add(1.0, &processed.slice(ndarray::s![..ola_samples]));
-            // Assign the non-overlap remainder
-            if write_len > ola_samples {
-                output
-                    .slice_mut(ndarray::s![start + ola_samples..start + write_len])
-                    .assign(&processed.slice(ndarray::s![ola_samples..write_len]));
-            }
-        } else {
-            output
-                .slice_mut(ndarray::s![start..start + write_len])
-                .assign(&processed.slice(ndarray::s![..write_len]));
-        }
-    }
-
-    output
 }
 
 /// Chunk statistics for monitoring
@@ -285,17 +233,6 @@ mod tests {
             (max - 1.0).abs() < 1e-10,
             "constant-1.0 pass-through should stay at 1.0 everywhere, got max={max}"
         );
-    }
-
-    #[test]
-    fn test_mono_chunk_processing() {
-        let audio = Array1::ones(5000);
-
-        // Amplify by 2x
-        let output = process_mono_chunks(&audio.view(), 1000, 100, |chunk| chunk.mapv(|x| x * 2.0));
-
-        // All samples should be amplified
-        assert!((output[100] - 2.0).abs() < 1e-10);
     }
 
     #[test]

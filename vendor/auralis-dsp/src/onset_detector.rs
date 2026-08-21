@@ -33,12 +33,6 @@ impl OnsetDetector {
         }
     }
 
-    /// Set peak picking threshold
-    pub fn with_threshold(mut self, threshold: f64) -> Self {
-        self.threshold = threshold;
-        self
-    }
-
     /// Detect onsets in audio signal
     pub fn detect(&self, audio: &ArrayView1<f64>) -> OnsetDetectionResult {
         // Compute onset strength envelope (spectral flux)

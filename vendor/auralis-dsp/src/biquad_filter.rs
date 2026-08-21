@@ -136,14 +136,6 @@ impl BiquadCascade {
         output
     }
 
-    /// Reset filter states (call when processing new file)
-    pub fn reset(&mut self) {
-        for channel_states in self.states.iter_mut() {
-            for state in channel_states.iter_mut() {
-                *state = BiquadState::default();
-            }
-        }
-    }
 }
 
 /// Multi-band EQ processor (common use case)
@@ -191,12 +183,6 @@ impl MultiBandEQ {
         output
     }
 
-    /// Reset all filter states
-    pub fn reset(&mut self) {
-        for cascade in self.bands.iter_mut() {
-            cascade.reset();
-        }
-    }
 }
 
 #[cfg(test)]
@@ -218,20 +204,5 @@ mod tests {
         // Output should be non-zero and decay
         assert!(output[0] > 0.0);
         assert!(output[50] < output[0]);
-    }
-
-    #[test]
-    fn test_cascade_reset() {
-        let coeffs = BiquadCoeffs::lowpass(44100.0, 1000.0, 0.707);
-        let mut cascade = BiquadCascade::new(vec![coeffs], 1);
-
-        // Process some audio
-        let audio = Array1::ones(100);
-        let _ = cascade.process(&audio.view(), 0);
-
-        // Reset should clear state
-        cascade.reset();
-        assert_eq!(cascade.states[0][0].z1, 0.0);
-        assert_eq!(cascade.states[0][0].z2, 0.0);
     }
 }
