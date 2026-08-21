@@ -22,6 +22,8 @@ from collections.abc import Callable
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from schemas import TrackId
+
 from auralis.library.metadata_editor import MetadataEditor, MetadataUpdate
 
 from security.path_security import PathValidationError, validate_file_path
@@ -65,13 +67,29 @@ class BatchMetadataUpdateRequest(BaseModel):
     and ``extra="forbid"``) makes the two routes accept exactly the same shape
     and rejects unknown keys with a 422.
     """
-    track_id: int = Field(..., description="Track ID")
+    track_id: TrackId = Field(..., description="Track ID")
     metadata: MetadataUpdateRequest = Field(..., description="Metadata fields to update")
+
+
+#: Upper bound on one batch. The route writes tags to every file in the list
+#: inside a single request, so an unbounded payload is an unbounded amount of
+#: synchronous disk I/O (#4681).
+MAX_BATCH_UPDATES = 1000
 
 
 class BatchMetadataRequest(BaseModel):
     """Request model for batch update endpoint"""
-    updates: list[BatchMetadataUpdateRequest] = Field(..., description="List of updates")
+    # Upper bound only. The empty case is NOT a 422: the route answers it with
+    # an explicit 400 "No updates provided", pinned by
+    # test_metadata_batch_atomicity.py::test_empty_updates_returns_400 and
+    # test_metadata_api.py::test_batch_update_empty_list. A min_length here
+    # would preempt that with a 422 and change a contract this issue never
+    # asked to change.
+    updates: list[BatchMetadataUpdateRequest] = Field(
+        ...,
+        max_length=MAX_BATCH_UPDATES,
+        description="List of updates",
+    )
 
 
 class EditableFieldsResponse(BaseModel):

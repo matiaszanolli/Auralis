@@ -25,7 +25,14 @@ from collections.abc import Callable
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from schemas import PlaylistResponse, TrackResponse
+from schemas import (
+    MAX_TRACK_ID_LIST,
+    PlaylistResponse,
+    QueueIndex,
+    TrackId,
+    TrackIdList,
+    TrackResponse,
+)
 
 from .dependencies import require_repository_factory, with_error_handling
 from .errors import NotFoundError
@@ -35,22 +42,28 @@ from .serializers import serialize_playlist, serialize_playlists
 router = APIRouter(tags=["playlists"])
 
 
+#: Playlist names and descriptions are free text but not unbounded — a name is
+#: a label, not a payload, and the column behind it is a plain String.
+MAX_PLAYLIST_NAME = 255
+MAX_PLAYLIST_DESCRIPTION = 4096
+
+
 class CreatePlaylistRequest(BaseModel):
     """Request model for creating a playlist"""
-    name: str
-    description: str = ""
-    track_ids: list[int] = []
+    name: str = Field(min_length=1, max_length=MAX_PLAYLIST_NAME)
+    description: str = Field(default="", max_length=MAX_PLAYLIST_DESCRIPTION)
+    track_ids: TrackIdList = []
 
 
 class UpdatePlaylistRequest(BaseModel):
     """Request model for updating a playlist"""
-    name: str | None = None
-    description: str | None = None
+    name: str | None = Field(default=None, min_length=1, max_length=MAX_PLAYLIST_NAME)
+    description: str | None = Field(default=None, max_length=MAX_PLAYLIST_DESCRIPTION)
 
 
 class AddTracksRequest(BaseModel):
     """Request model for adding tracks to playlist"""
-    track_ids: list[int]
+    track_ids: TrackIdList
 
 
 class AddTrackRequest(BaseModel):
@@ -60,14 +73,14 @@ class AddTrackRequest(BaseModel):
     by appending, which cannot express "drop this track at index N" — the
     operation drag-and-drop actually performs.
     """
-    track_id: int
-    position: int | None = Field(default=None, ge=0)
+    track_id: TrackId
+    position: QueueIndex | None = None
 
 
 class ReorderTrackRequest(BaseModel):
     """Request model for reordering a track within a playlist (#4658)."""
-    from_index: int = Field(ge=0)
-    to_index: int = Field(ge=0)
+    from_index: QueueIndex
+    to_index: QueueIndex
 
 
 class PlaylistListResponse(BaseModel):

@@ -39,6 +39,7 @@ from .dependencies import with_error_handling
 from .errors import NotFoundError, raise_for_service_error
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from player_state import PlayerState, TrackInfo
+from schemas import QueueIndex, QueueIndexList, TrackId, TrackIdList
 from services import (
     NavigationService,
     PlaybackService,
@@ -53,34 +54,48 @@ router = APIRouter(tags=["player"])
 
 class SetQueueRequest(BaseModel):
     """Request model for setting the playback queue"""
-    tracks: list[int]  # Track IDs
-    start_index: int = 0
+    tracks: TrackIdList
+    start_index: QueueIndex = 0
 
 
 class ReorderQueueRequest(BaseModel):
-    """Request model for reordering the queue"""
-    new_order: list[int]  # New order of track indices
+    """Request model for reordering the queue.
+
+    ``new_order`` is a permutation of the queue's current *indices*, not track
+    ids. Bounds are per-element and on length; whether the list is actually a
+    permutation of the live queue is a runtime question QueueService answers,
+    not one a body model can.
+    """
+    new_order: QueueIndexList
 
 
 class MoveQueueTrackRequest(BaseModel):
     """Request model for moving a track within the queue (drag-and-drop)"""
-    from_index: int
-    to_index: int
+    from_index: QueueIndex
+    to_index: QueueIndex
 
 
 class AddTrackToQueueRequest(BaseModel):
     """Request model for adding a track to queue with position"""
-    track_id: int
-    position: int | None = None  # None = append to end
+    track_id: TrackId
+    position: QueueIndex | None = None  # None = append to end
 
 
 class LoadTrackRequest(BaseModel):
     """Request model for loading a track"""
-    track_id: int
+    track_id: TrackId
 
 
 class SeekRequest(BaseModel):
-    """Request model for seek operation with input validation."""
+    """Request model for seek operation with input validation.
+
+    Deliberately has no upper bound (#4681). The only meaningful ceiling is the
+    loaded track's duration, which a body model cannot see; the route applies
+    that check when a track is loaded, and
+    `tests/backend/test_player_api_comprehensive.py::test_seek_overflow_protection`
+    pins the no-track-loaded case to a pass-through 200. A fixed numeric cap
+    here would be arbitrary and would break that documented contract.
+    """
     position: float
 
     @field_validator('position')
@@ -124,8 +139,8 @@ class RepeatModeRequest(BaseModel):
 
 class QueueHistoryStateSnapshot(BaseModel):
     """Queue state snapshot carried by a history entry (#3805)."""
-    track_ids: list[int]
-    current_index: int = 0
+    track_ids: TrackIdList
+    current_index: QueueIndex = 0
     is_shuffled: bool = False
     repeat_mode: Literal["off", "all", "one"] = "off"
 
