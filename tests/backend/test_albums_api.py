@@ -237,12 +237,20 @@ class TestGetAlbumById:
             assert data["title"] == "Test Album"
             assert data["artist"] == "Test Artist"
 
-            # camelCase domain contract (#4423): the detail endpoint is consumed
-            # on the Album domain convention, so it exposes trackCount, never the
-            # snake_case track_count.
-            assert "trackCount" in data
-            assert "track_count" not in data
-            assert "artwork_url" not in data
+            # Same snake_case shape as the GET /api/albums listing (#4679).
+            # #4423 gave this endpoint a camelCase shape of its own for a
+            # frontend consumer that never materialised, leaving one entity on
+            # the wire in two incompatible casings against a single declared TS
+            # contract. The camelCase serializer and response model are gone.
+            assert "track_count" in data
+            assert "trackCount" not in data
+            assert "artworkUrl" not in data
+            assert "totalDuration" not in data
+            assert "artistId" not in data
+            # The deleted AlbumDetailResponse declared `genre` long after the
+            # serializer stopped emitting it (#4709), so the endpoint shipped a
+            # permanent null. Album has no genre column.
+            assert "genre" not in data
 
     def test_get_album_by_id_not_found(self, client, mock_repos):
         """Test getting non-existent album"""

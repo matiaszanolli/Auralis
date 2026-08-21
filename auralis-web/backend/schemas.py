@@ -290,26 +290,6 @@ class AlbumListResponse(BaseModel):
     has_more: bool = Field(description="True when further pages exist")
 
 
-class AlbumDetailResponse(BaseModel):
-    """A single album in the frontend camelCase domain shape (#4423).
-
-    Deliberately camelCase and deliberately distinct from `AlbumResponse`:
-    `GET /api/albums/{id}` is consumed on the `Album` domain-type convention,
-    while the sibling `{id}/tracks` endpoint stays snake_case for its own
-    consumer. See `serializers.serialize_album_detail`.
-    """
-    id: int | None = Field(default=None, description="Album database ID")
-    title: str | None = Field(default=None, description="Album title")
-    artist: str | None = Field(default=None, description="Album artist name")
-    artistId: int | None = Field(default=None, description="Album artist ID")
-    year: int | None = Field(default=None, description="Release year")
-    artworkUrl: str | None = Field(default=None, description="Artwork API URL")
-    genre: str | None = Field(default=None, description="Album genre")
-    trackCount: int = Field(default=0, description="Number of tracks held")
-    totalDuration: float = Field(default=0, description="Summed track duration in seconds")
-    dateAdded: str | None = Field(default=None, description="Creation timestamp (ISO 8601)")
-
-
 class PlaylistResponse(BaseModel):
     """A serialized playlist (`serializers.serialize_playlist`)."""
     id: int | None = Field(default=None, description="Playlist database ID")

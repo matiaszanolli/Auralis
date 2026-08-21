@@ -30,7 +30,6 @@ from routers.serializers import (
     DEFAULT_PLAYLIST_FIELDS,
     DEFAULT_TRACK_FIELDS,
     serialize_album,
-    serialize_album_detail,
     serialize_albums,
     serialize_artist,
     serialize_artists,
@@ -264,70 +263,106 @@ class TestSerializeAlbum:
         assert len(results) == 3
 
 
-class TestSerializeAlbumDetail:
-    """GET /api/albums/{id} camelCase contract (#4423)."""
+class TestAlbumDetailSharesTheListingShape:
+    """`GET /api/albums/{id}` emits the same snake_case shape as the listing (#4679).
+
+    #4423 gave the detail endpoint a camelCase serializer of its own. Nothing
+    ever consumed it — `useAlbumDetails.ts` reads the sibling {id}/tracks
+    endpoint — while the frontend declared exactly one Album contract
+    (`AlbumApiResponse`, snake_case) and one transformer (`transformAlbum`),
+    which pointed at the detail endpoint would have produced an all-undefined
+    Album. The variant is deleted; both endpoints now go through
+    `serialize_album`.
+    """
 
     def _make_album(self, extra=None, track_count: int = 0, total_duration: float = 0):
         # Mirrors Album.to_dict()'s real key set. It deliberately carries NO
-        # 'genre': Album has no genre column, so the old fixture's
-        # `'genre': 'Rock'` was a key production can never emit — and it is
-        # why serialize_album_detail's phantom genre mapping went unnoticed
-        # (#4709, same shape as #4830/#4833).
+        # 'genre': Album has no genre column, so a `'genre': 'Rock'` fixture
+        # would be a key production can never emit — and that is how the old
+        # camelCase serializer's phantom genre mapping went unnoticed (#4709,
+        # same shape as #4830/#4833).
         dict_result = {
             'id': 10,
             'title': 'Album A',
             'artist': 'Artist B',
             'artist_id': 7,
             'year': 2020,
-            'artwork_path': None,
+            'total_tracks': None,
+            'total_discs': None,
+            # Album.to_dict() converts artwork_path to an API URL and emits
+            # `artwork_url`. The pre-#4679 fixture spelled this `artwork_path`
+            # while claiming to mirror to_dict()'s key set; the camelCase
+            # serializer read `snake.get('artwork_url')`, so the mismatch
+            # resolved to None either way and went unnoticed.
+            'artwork_url': None,
+            'avg_dr_rating': None,
+            'avg_lufs': None,
+            'mastering_consistency': None,
             'track_count': track_count,
             'total_duration': total_duration,
+            'created_at': None,
+            'updated_at': None,
         }
         if extra:
             dict_result.update(extra)
         return _FakeModel(dict_result)
 
-    def test_returns_camelcase_domain_keys(self):
+    def test_the_fixture_matches_the_real_to_dict_key_set(self):
+        """Guards the mismatch above from silently returning."""
+        from auralis.library.models.core import Album
+
+        assert set(self._make_album().to_dict()) == set(Album().to_dict())
+
+    def test_the_camelcase_serializer_is_gone(self):
+        """The lone camelCase producer must not come back (#4679)."""
+        import routers.serializers as serializers_module
+
+        assert not hasattr(serializers_module, 'serialize_album_detail')
+
+    def test_detail_route_uses_the_listing_serializer_and_model(self):
+        source = (_backend_dir / "routers" / "albums.py").read_text()
+        detail = source.split('@router.get("/api/albums/{album_id}"', 1)[1]
+        detail = detail.split("@router.get", 1)[0]
+        assert "response_model=AlbumResponse" in detail
+        assert "return serialize_album(album)" in detail
+
+    def test_emits_snake_case_only(self):
         album = self._make_album(track_count=2, total_duration=300.0)
-        result = serialize_album_detail(album)
-        # Matches the frontend Album domain / albumTransformer output.
-        assert result == {
-            'id': 10,
-            'title': 'Album A',
-            'artist': 'Artist B',
-            'artistId': 7,
-            'year': 2020,
-            'artworkUrl': None,
-            'trackCount': 2,
-            'totalDuration': 300.0,
-            'dateAdded': None,
-        }
+        result = serialize_album(album)
+        for camel in ('trackCount', 'artworkUrl', 'totalDuration', 'artistId', 'dateAdded'):
+            assert camel not in result
+        assert result['track_count'] == 2
+        assert result['total_duration'] == 300.0
+        assert result['artist_id'] == 7
+
+    def test_carries_every_field_the_frontend_album_contract_declares(self):
+        """`AlbumApiResponse` / `transformAlbum` must find each key it reads."""
+        album = self._make_album(track_count=2, total_duration=300.0)
+        result = serialize_album(album)
+        for field in ('id', 'title', 'artist', 'artist_id', 'year',
+                      'artwork_url', 'track_count', 'total_duration'):
+            assert field in result, f"transformAlbum would read {field} as undefined"
 
     def test_does_not_advertise_a_genre_field(self):
         """Album has no genre column, so the response must not claim one (#4709).
 
-        Even when the serialized album somehow carries a `genre` key, it must
-        not reach the camelCase detail response — the frontend Album type no
-        longer declares it either.
+        The deleted `AlbumDetailResponse` declared `genre` with a None default
+        long after the serializer stopped emitting it, so the endpoint shipped
+        a permanent `"genre": null`. `AlbumResponse` declares no such field.
         """
-        album = self._make_album(extra={'genre': 'Rock'})
-        assert 'genre' not in serialize_album_detail(album)
+        from schemas import AlbumResponse
 
-    def test_never_leaks_snake_case_keys(self):
-        album = self._make_album(track_count=1, total_duration=60.0)
-        result = serialize_album_detail(album)
-        for snake in ('track_count', 'artwork_url', 'total_duration', 'artist_id', 'album_id'):
-            assert snake not in result
+        assert 'genre' not in AlbumResponse.model_fields
 
-    def test_date_added_reads_created_at(self):
+    def test_created_at_is_the_creation_timestamp(self):
         """Album.to_dict() emits created_at, never date_added (#4709).
 
-        This used to be spelled `date_added or created_at`; the first operand
-        could never be populated, so the fallback worked only by accident.
+        The camelCase serializer spelled this `date_added or created_at`; the
+        first operand could never be populated, so the fallback worked only by
+        accident. The snake_case shape carries `created_at` directly.
         """
         album = self._make_album(extra={'created_at': '2020-01-02T03:04:05Z'})
-        result = serialize_album_detail(album)
-        assert result['dateAdded'] == '2020-01-02T03:04:05Z'
+        assert serialize_album(album)['created_at'] == '2020-01-02T03:04:05Z'
 
 
 # ---------------------------------------------------------------------------

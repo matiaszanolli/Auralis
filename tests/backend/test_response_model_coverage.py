@@ -39,10 +39,8 @@ from routers.serializers import (  # noqa: E402
     DEFAULT_ARTIST_FIELDS,
     DEFAULT_PLAYLIST_FIELDS,
     DEFAULT_TRACK_FIELDS,
-    serialize_album_detail,
 )
 from schemas import (  # noqa: E402
-    AlbumDetailResponse,
     AlbumResponse,
     FingerprintVectorResponse,
     PlaylistResponse,
@@ -188,11 +186,26 @@ class TestDomainModelFieldCoverage:
         dropped = emitted - _fields(ArtistResponse)
         assert not dropped, f"ArtistResponse would silently delete: {sorted(dropped)}"
 
-    def test_album_detail_response_covers_the_camelcase_shape(self):
-        """`GET /api/albums/{id}` is camelCase, unlike its snake_case siblings (#4423)."""
-        emitted = set(serialize_album_detail(Album()).keys())
-        dropped = emitted - _fields(AlbumDetailResponse)
-        assert not dropped, f"AlbumDetailResponse would silently delete: {sorted(dropped)}"
+    def test_no_response_model_declares_a_camelcase_field(self):
+        """One entity, one casing on the wire (#4679).
+
+        `AlbumDetailResponse` used to be the sole camelCase response model in
+        the backend, so `GET /api/albums` and `GET /api/albums/{id}` emitted
+        the same entity in two incompatible shapes against a single declared
+        frontend contract. Both endpoints share `AlbumResponse` now; this
+        asserts no sibling quietly reintroduces the split.
+        """
+        import schemas as schemas_module
+
+        offenders = {
+            f"{name}.{field}"
+            for name, model in vars(schemas_module).items()
+            if isinstance(model, type) and issubclass(model, BaseModel)
+            and model.__module__ == schemas_module.__name__
+            for field in model.model_fields
+            if any(char.isupper() for char in field)
+        }
+        assert not offenders, f"camelCase response fields: {sorted(offenders)}"
 
     def test_track_response_still_withholds_filepath(self):
         """#3205: the server-side path is server-only and must not become a field."""

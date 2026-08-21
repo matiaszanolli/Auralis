@@ -255,36 +255,6 @@ def serialize_album(album: Any) -> dict[str, Any]:
     return album_dict
 
 
-def serialize_album_detail(album: Any) -> dict[str, Any]:
-    """Serialize an album to the frontend camelCase domain shape (#4423).
-
-    ``GET /api/albums/{id}`` is consumed on the camelCase convention (the
-    ``Album`` domain type / albumTransformer contract), so this maps the
-    snake_case ``serialize_album`` output to camelCase keys rather than leaking
-    ``track_count``/``artwork_url``. Kept distinct from the sibling
-    ``{id}/tracks`` endpoint, which stays snake_case for its existing consumer.
-    """
-    snake = serialize_album(album)
-    return {
-        'id': snake.get('id'),
-        'title': snake.get('title'),
-        'artist': snake.get('artist'),
-        'artistId': snake.get('artist_id'),
-        'year': snake.get('year'),
-        'artworkUrl': snake.get('artwork_url'),
-        # No 'genre' key (#4709): Album has no genre column — genre lives on
-        # Track via the track_genre association — so Album.to_dict() never
-        # emits one and this always resolved to null. Deriving an album genre
-        # (e.g. the modal genre across album.tracks) is a feature, not a bug
-        # fix; until then the response should not advertise the field.
-        'trackCount': snake.get('track_count', 0),
-        'totalDuration': snake.get('total_duration', 0),
-        # Album.to_dict() emits created_at, never date_added — the old
-        # `date_added or created_at` fallback only worked by accident (#4709).
-        'dateAdded': snake.get('created_at'),
-    }
-
-
 def serialize_albums(albums: list[Any]) -> list[dict[str, Any]]:
     """
     Serialize a list of albums with duration calculation.

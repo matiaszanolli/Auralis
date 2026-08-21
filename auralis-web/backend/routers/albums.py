@@ -17,8 +17,8 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from schemas import (
-    AlbumDetailResponse,
     AlbumListResponse,
+    AlbumResponse,
     FingerprintVectorResponse,
     TrackResponse,
 )
@@ -26,7 +26,7 @@ from schemas import (
 from .dependencies import require_repository_factory, with_error_handling
 from .errors import NotFoundError
 from .pagination import PaginationParams, compute_has_more
-from .serializers import serialize_album_detail, serialize_albums, serialize_tracks
+from .serializers import serialize_album, serialize_albums, serialize_tracks
 
 logger = logging.getLogger(__name__)
 
@@ -167,7 +167,7 @@ def create_albums_router(
             "has_more": has_more
         }
 
-    @router.get("/api/albums/{album_id}", response_model=AlbumDetailResponse)
+    @router.get("/api/albums/{album_id}", response_model=AlbumResponse)
     @with_error_handling("get album")
     async def get_album(album_id: int) -> Any:
         """
@@ -177,9 +177,8 @@ def create_albums_router(
             album_id: Album ID
 
         Returns:
-            dict: Album object in the frontend camelCase domain shape
-                (``trackCount``/``artworkUrl``/``totalDuration``), ready for
-                album-detail navigation on the camelCase convention (#4423).
+            dict: Album object in the same snake_case shape as the
+                ``GET /api/albums`` listing (#4679).
 
         Raises:
             HTTPException: If album not found or query fails
@@ -190,13 +189,19 @@ def create_albums_router(
         if not album:
             raise NotFoundError("Album", album_id)
 
-        # camelCase domain shape — see serialize_album_detail (#4423). The
-        # sibling {id}/tracks endpoint stays snake_case: its consumer
-        # (useAlbumDetails.ts) reads the album-level keys snake_case directly and
-        # runs the per-track payload through the frontend's canonical
-        # transformTracks(). It previously read those per-track fields as
-        # camelCase, so artist and track number rendered blank (#4568).
-        return serialize_album_detail(album)
+        # Same serializer and same response model as the listing above (#4679).
+        # #4423 gave this one endpoint a camelCase shape of its own
+        # (`trackCount`/`artworkUrl`/`totalDuration`) on the theory that it
+        # would be consumed on the frontend's `Album` domain convention. No
+        # consumer ever appeared — `useAlbumDetails.ts` reads the sibling
+        # {id}/tracks endpoint — so all it produced was one entity emitted in
+        # two incompatible shapes against a single declared TS contract
+        # (`AlbumApiResponse`, snake_case) and a single transformer
+        # (`transformAlbum`), which pointed here would have yielded an
+        # all-undefined Album. The camelCase serializer and its response model
+        # are gone; casing translation belongs to the frontend transformer
+        # layer, as it already does for albums, artists and playlists.
+        return serialize_album(album)
 
     @router.get("/api/albums/{album_id}/tracks", response_model=AlbumTracksResponse)
     @with_error_handling("get album tracks")
