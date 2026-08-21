@@ -70,10 +70,13 @@ export interface ErrorTrackingConfig {
    */
   errorActions?: string[];
   onError?: (error: TrackedError) => void;
-  onRecovery?: (error: TrackedError) => void;
   logToConsole?: boolean;
-  logToServer?: boolean;
-  recoveryStrategies?: Map<string, () => Record<string, unknown>>;
+  // #4695: `logToServer`, `captureErrorToServer`, `onRecovery` and
+  // `recoveryStrategies` were removed here. The first posted to `/api/errors`,
+  // a route that has never existed; the other three were declared (and two of
+  // them defaulted) but never read by anything. A config field with no
+  // implementation is a promise the middleware does not keep — see #4453 for
+  // the same defect in `enabled`, and #4662 for `errorActions`.
 }
 
 // ============================================================================
@@ -194,8 +197,6 @@ const defaultConfig: ErrorTrackingConfig = {
   // `player/setStreamingError` and `connection/setConnectionError`, which the
   // heuristic tracks today.
   logToConsole: true,
-  logToServer: false,
-  recoveryStrategies: new Map(),
 };
 
 /**
@@ -373,11 +374,6 @@ export function createErrorTrackingMiddleware(
             }
           }
 
-          // Send to server if enabled
-          if (finalConfig.logToServer) {
-            captureErrorToServer(trackedError);
-          }
-
           // Attempt recovery based on category.
           // Defer dispatch to avoid re-entrant dispatch mid-action-processing (#3023).
           //
@@ -437,32 +433,6 @@ export function createErrorTrackingMiddleware(
       }
     };
   };
-}
-
-// ============================================================================
-// Error Capture and Reporting
-// ============================================================================
-
-/**
- * Send error to analytics/logging server
- */
-function captureErrorToServer(error: TrackedError): void {
-  // This would typically send to a logging service like Sentry
-  try {
-    if (navigator.sendBeacon) {
-      navigator.sendBeacon('/api/errors', JSON.stringify(error));
-    } else {
-      fetch('/api/errors', {
-        method: 'POST',
-        body: JSON.stringify(error),
-        keepalive: true,
-      }).catch(() => {
-        // Ignore failures in error reporting
-      });
-    }
-  } catch {
-    // Silently fail error reporting
-  }
 }
 
 // ============================================================================
