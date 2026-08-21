@@ -14,6 +14,7 @@ import asyncio
 import json
 import logging
 import math
+from collections.abc import Mapping
 from typing import Any
 
 from core.audio_stream_controller import ws_id as _ws_id
@@ -29,6 +30,81 @@ from websocket.websocket_security import send_error_response
 from .context import StreamState, WSDeps
 
 logger = logging.getLogger(__name__)
+
+# Fallbacks of last resort, used only when neither the client payload nor any
+# stored settings dict yields a valid value.
+DEFAULT_PRESET = "adaptive"
+DEFAULT_INTENSITY = 1.0
+
+# Sentinel distinguishing "the client omitted this key" from "the client sent
+# null/garbage" — only the latter is worth a warning.
+_ABSENT = object()
+
+
+def resolve_enhancement_params(
+    data: Mapping[str, Any],
+    *fallbacks: Mapping[str, Any] | None,
+) -> tuple[str | None, float | None]:
+    """Resolve ``(preset, intensity)`` for a command that starts a stream (#4677).
+
+    One precedence rule for every such command: a *valid* client value wins,
+    and each fallback mapping is consulted in order for whatever the client did
+    not supply. Returns ``None`` for a field when no valid value exists
+    anywhere, leaving the caller to choose between erroring and defaulting.
+
+    ``handle_play_enhanced`` and ``handle_seek`` used to resolve the same two
+    quantities with *opposite* rules. ``play_enhanced`` validated the client
+    value against ``VALID_PRESETS`` (#4424) and treated it as authoritative;
+    ``seek`` skipped that validation entirely and let the stored value win. The
+    stored dict always carries a ``"preset"`` key, so ``settings.get("preset",
+    preset)`` discarded whatever the client sent unconditionally — scrubbing
+    re-mastered the track with a preset the listener never selected — and in
+    the branch where no stored dict exists the raw client string reached
+    processor construction unchecked.
+
+    Fallback values are validated too. The stored dict is seeded from a plain
+    String column (``helpers.seed_enhancement_settings``), so an off-list value
+    can reach it; degrading to the caller's default beats forwarding a preset
+    the processor does not implement.
+
+    Invalid client values are logged rather than swallowed: a warning naming
+    the rejected value is the only signal that the enhancement being played is
+    not the one that was asked for.
+    """
+    raw_preset = data.get("preset", _ABSENT)
+    preset: str | None = None
+    if isinstance(raw_preset, str) and raw_preset.lower() in VALID_PRESETS:
+        preset = raw_preset.lower()
+    elif raw_preset is not _ABSENT and raw_preset not in (None, ""):
+        logger.warning(
+            f"Ignoring invalid preset {raw_preset!r} from client "
+            f"(must be one of: {', '.join(VALID_PRESETS)})"
+        )
+
+    raw_intensity = data.get("intensity", _ABSENT)
+    intensity: float | None = None
+    if is_valid_intensity(raw_intensity):
+        intensity = float(raw_intensity)
+    elif raw_intensity is not _ABSENT and raw_intensity is not None:
+        logger.warning(f"Ignoring invalid intensity {raw_intensity!r} from client")
+
+    for source in fallbacks:
+        if preset is not None and intensity is not None:
+            break
+        if source is None:
+            continue
+        if preset is None:
+            candidate = source.get("preset")
+            if isinstance(candidate, str) and candidate.lower() in VALID_PRESETS:
+                preset = candidate.lower()
+        if intensity is None:
+            # `is_valid_intensity` returns plain bool, so mypy cannot narrow
+            # the Mapping's `Any | None` on its own.
+            candidate_intensity: Any = source.get("intensity")
+            if is_valid_intensity(candidate_intensity):
+                intensity = float(candidate_intensity)
+
+    return preset, intensity
 
 
 async def _cancel_prior_task(ws_id: str, state: StreamState) -> None:
@@ -117,9 +193,6 @@ async def handle_play_enhanced(
     # Explicit client opt-out of the stored-`enabled` gate (#3773).
     force = bool(data.get("force", False))
 
-    raw_preset = data.get("preset", "")
-    raw_intensity = data.get("intensity")
-    preset = raw_preset.lower() if (raw_preset and isinstance(raw_preset, str) and raw_preset.lower() in VALID_PRESETS) else None
     # Third contract for the same quantity, deliberately kept (#4600): an
     # out-of-range/NaN intensity on a *streaming command* falls back to the
     # stored setting rather than 422-ing, because refusing to start playback
@@ -127,17 +200,22 @@ async def handle_play_enhanced(
     # The REST surfaces reject instead — see EnhancementIntensity in schemas.py.
     # What is NOT acceptable, and was the actual bug, is silent coercion to
     # maximum: `is_valid_intensity` rejects NaN and ±inf, so neither can reach
-    # the runtime settings dict from here.
-    intensity = float(raw_intensity) if is_valid_intensity(raw_intensity) else None
+    # the runtime settings dict from here. Both rules now live in
+    # `resolve_enhancement_params`, shared with handle_seek (#4677).
+    settings = deps.get_enhancement_settings() if deps.get_enhancement_settings is not None else None
+    preset, intensity = resolve_enhancement_params(data, settings)
 
     enhancement_enabled = True
-    if deps.get_enhancement_settings is not None:
-        settings = deps.get_enhancement_settings()
+    if settings is not None:
         enhancement_enabled = settings.get("enabled", True)
+        # The stored dict is the only fallback here and it was already
+        # consulted above, so a None at this point means neither source held a
+        # valid value — take the module default rather than erroring, matching
+        # the pre-#4677 behaviour of `settings.get("preset", "adaptive")`.
         if preset is None:
-            preset = settings.get("preset", "adaptive")
+            preset = DEFAULT_PRESET
         if intensity is None:
-            intensity = settings.get("intensity", 1.0)
+            intensity = DEFAULT_INTENSITY
         # Write the accepted values back (#4601). The payload is authoritative
         # here, but nothing ever recorded that, so the REST global kept the OLD
         # preset while the stream ran on the new one. Two readers key off the
@@ -155,11 +233,14 @@ async def handle_play_enhanced(
         settings["intensity"] = intensity
         logger.info(f"Using enhancement settings (frontend+stored): enabled={enhancement_enabled}, preset={preset}, intensity={intensity}")
     else:
+        # No stored dict to fall back on: an unresolvable preset is a client
+        # bug with nothing to degrade to, so surface it. handle_seek makes the
+        # opposite call deliberately — see its own comment.
         if preset is None:
             await send_error_response(websocket, "invalid_preset", f"Invalid preset. Must be one of: {', '.join(VALID_PRESETS)}")
             return
         if intensity is None:
-            intensity = 1.0
+            intensity = DEFAULT_INTENSITY
         logger.warning("Enhancement settings not available, using validated message data")
 
     start_position = float(data.get("start_position", 0.0) or 0.0)
@@ -311,26 +392,37 @@ async def handle_seek(
         await send_error_response(websocket, "invalid_seek_position", "position must be a non-negative number")
         return
 
-    # Use WS message values as initial fallback (fixes #2381), then let
-    # server-side settings override (fixes #2103). The override source is
-    # THIS connection's own active stream settings — recorded by
-    # handle_play_enhanced — not the process-global enhancement_settings
-    # dict (#4742): that global is shared by every connection, so a second
+    # Same precedence as handle_play_enhanced, via the same helper (#4677).
+    # These two handlers used to resolve the same quantity with opposite
+    # rules: a valid preset on the seek frame was discarded unconditionally
+    # (the fallback dict always carries a "preset" key), so scrubbing could
+    # re-master the track with a preset the listener never chose, and the
+    # no-fallback branch forwarded the client string with no VALID_PRESETS
+    # check at all. The client payload is authoritative when valid.
+    #
+    # Fallback order, for whatever the payload does not supply: THIS
+    # connection's own active stream settings — recorded by
+    # handle_play_enhanced — before the process-global enhancement_settings
+    # dict (#4742). That global is shared by every connection, so a second
     # connection's play_enhanced used to silently retarget this connection's
-    # seek. Fall back to the global only when this connection has no
-    # recorded stream yet (e.g. seek arrived before any play_enhanced).
+    # seek; the global is consulted only when this connection has no recorded
+    # stream yet (e.g. a seek arriving before any play_enhanced).
+    #
+    # Unlike play_enhanced, an unresolvable preset defaults here instead of
+    # erroring. Refusing to scrub over a bad preset value ends playback at the
+    # seek point, which is the same trade #4600 already settled for intensity
+    # on streaming commands: degrade, do not reject.
     ws_id = _ws_id(websocket)
     stream_settings = state.active_stream_settings.get(ws_id)
+    global_settings = (
+        deps.get_enhancement_settings() if deps.get_enhancement_settings is not None else None
+    )
 
-    preset = data.get("preset", "adaptive")
-    intensity = data.get("intensity", 1.0)
-    if stream_settings is not None:
-        preset = stream_settings.get("preset", preset)
-        intensity = stream_settings.get("intensity", intensity)
-    elif deps.get_enhancement_settings is not None:
-        settings = deps.get_enhancement_settings()
-        preset = settings.get("preset", preset)
-        intensity = settings.get("intensity", intensity)
+    preset, intensity = resolve_enhancement_params(data, stream_settings, global_settings)
+    if preset is None:
+        preset = DEFAULT_PRESET
+    if intensity is None:
+        intensity = DEFAULT_INTENSITY
 
     logger.info(f"Received seek: track_id={track_id}, position={position}s, preset={preset}")
 
