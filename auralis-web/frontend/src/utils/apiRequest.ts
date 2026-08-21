@@ -1,20 +1,44 @@
 /**
- * API Request Utility
+ * API Request Utility — the app's HTTP transport
  *
  * Centralized fetch wrapper that handles:
  * - Consistent error handling across all services
  * - Error message extraction from response
  * - Standard request headers
- * - Request/response logging
+ * - Timeout via AbortController, with a caller signal forwarded alongside
+ * - Optional runtime shape validation at the boundary (`validate`, #4607)
+ *
+ * ## Target end state (#4693)
+ *
+ * This module is the single transport. The app used to have three parallel
+ * implementations of timeout, retry and error normalisation, which is why
+ * #4442 was resolved by *synchronising a constant across all three* rather
+ * than by converging them — and why #4467 (retry eligibility matched on error
+ * message substrings instead of status codes) would otherwise need fixing in
+ * three places.
+ *
+ * `services/api/standardizedAPIClient.ts` was retired by #4693; only its cache
+ * telemetry types and shape guards remain, and its two endpoints now come
+ * through here.
+ *
+ * One duplicate is left: `hooks/api/useRestAPI.ts`, which reimplements the
+ * transport rather than wrapping it. The end state is for it to keep its React
+ * surface — loading/error state, per-hook AbortController, stale-request
+ * filtering — as a thin wrapper over `apiRequest`, holding no fetch logic of
+ * its own. That was left out of #4693 deliberately: it has six production
+ * consumers and roughly ten test files that mock its current shape, so it is
+ * its own piece of work.
+ *
+ * Do not add a third transport. New endpoints go through this module, or
+ * through `useRestAPI` when a component needs the React state surface.
  */
 
 import { getApiUrl } from '@/config/api';
 import { readHttpErrorBody } from '@/utils/httpError';
 
 /**
- * Default request timeout (ms). Matches the 30s timeout already used by the
- * app's other two HTTP layers (hooks/api/useRestAPI.ts and
- * services/api/standardizedAPIClient.ts) so all three behave the same (#4442).
+ * Default request timeout (ms). `hooks/api/useRestAPI.ts` uses the same 30s so
+ * the two remaining layers behave identically (#4442).
  */
 export const DEFAULT_TIMEOUT_MS = 30000;
 

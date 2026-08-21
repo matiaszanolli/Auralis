@@ -1,10 +1,16 @@
 /**
  * API response guards take `unknown`, and the remaining `any` uses are recorded (#4664)
  *
- * `isSuccessResponse` / `isErrorResponse` sit on the real API-response path and
- * took `any`. A type guard whose parameter is `any` accepts an
- * already-wrong-shaped value and narrows it with no compiler pushback — the
- * exact opposite of what a guard is for. Both now take `unknown`.
+ * A type guard whose parameter is `any` accepts an already-wrong-shaped value
+ * and narrows it with no compiler pushback — the exact opposite of what a guard
+ * is for. Every guard on the API-response path takes `unknown`.
+ *
+ * #4693 retired `StandardizedAPIClient`, taking `isSuccessResponse` /
+ * `isErrorResponse` and the envelope they described with it — nothing in
+ * production called them, and the endpoints send their payload bare. The
+ * signature check below therefore now covers the two guards that survived,
+ * `isCacheStatsShape` / `isCacheHealthShape`, which is the same property on the
+ * code that still exists.
  *
  * The second half of the issue is bookkeeping: a repo-wide `any` sweep keeps
  * being re-reported, so the accepted uses are recorded here as an allowlist that
@@ -12,56 +18,6 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import {
-  isSuccessResponse,
-  isErrorResponse,
-} from '../standardizedAPIClient';
-
-describe('isSuccessResponse accepts unknown safely (#4664)', () => {
-  it.each([
-    ['null', null],
-    ['undefined', undefined],
-    ['a number', 42],
-    ['a string', 'success'],
-    ['a boolean', true],
-    ['an empty object', {}],
-    ['an array', []],
-    ['a wrong-status envelope', { status: 'error', error: 'x' }],
-    ['a success envelope with no data', { status: 'success' }],
-  ])('returns false for %s without throwing', (_label, value) => {
-    expect(() => isSuccessResponse(value)).not.toThrow();
-    expect(isSuccessResponse(value)).toBe(false);
-  });
-
-  it('returns true for a well-formed success envelope', () => {
-    expect(isSuccessResponse({ status: 'success', data: { id: 1 } })).toBe(true);
-  });
-
-  it('accepts a success envelope whose data is falsy but defined', () => {
-    // `data: 0` / `data: null` are legitimate payloads; only `undefined` means
-    // "absent". The original `response.data !== undefined` check is preserved.
-    expect(isSuccessResponse({ status: 'success', data: 0 })).toBe(true);
-    expect(isSuccessResponse({ status: 'success', data: null })).toBe(true);
-  });
-});
-
-describe('isErrorResponse accepts unknown safely (#4664)', () => {
-  it.each([
-    ['null', null],
-    ['undefined', undefined],
-    ['a number', 42],
-    ['an empty object', {}],
-    ['a success envelope', { status: 'success', data: 1 }],
-    ['an error envelope with no error field', { status: 'error' }],
-  ])('returns false for %s without throwing', (_label, value) => {
-    expect(() => isErrorResponse(value)).not.toThrow();
-    expect(isErrorResponse(value)).toBe(false);
-  });
-
-  it('returns true for a well-formed error envelope', () => {
-    expect(isErrorResponse({ status: 'error', error: 'boom' })).toBe(true);
-  });
-});
 
 /**
  * Deliberate `any` exceptions, as code.
@@ -96,9 +52,9 @@ const ALLOWED_ANY_FILES: Record<string, string> = {
   'api/responseGuards.ts': 'documents that Response.json() is Promise<any>',
   'components/player/QueuePanel/QueuePanelExpanded.tsx': 'virtualizer ref interop',
 
-  // The response cache stores heterogeneous payloads by key; the guards above
-  // are what re-narrow them on the way out.
-  'services/api/standardizedAPIClient.ts': 'internal response cache map value',
+  // The 'services/api/standardizedAPIClient.ts' entry that stood here named the
+  // client's internal response cache map. #4693 retired the client, so the file
+  // holds only types and guards and contains no `any` at all.
 };
 
 describe('the remaining any usage is a recorded set, not a growing one (#4664)', () => {
@@ -129,29 +85,29 @@ describe('the remaining any usage is a recorded set, not a growing one (#4664)',
     expect(offenders).toEqual([]);
   });
 
-  it('both guards declare `unknown`, not `any`', async () => {
-    // The guards' fix is type-level: their runtime behaviour is unchanged, so
-    // every assertion above passes with `any` too. This is the one check that
-    // actually discriminates, and it is why it exists.
+  it('the surviving cache guards declare `unknown`, not `any`', async () => {
+    // Type-level, so runtime assertions cannot discriminate — this is the one
+    // check that does, and it is why it exists. Repointed by #4693 from
+    // isSuccessResponse/isErrorResponse, which were removed with the client,
+    // onto the two guards that outlived it.
     const source = (await import('../standardizedAPIClient?raw')).default as string;
 
-    for (const guard of ['isSuccessResponse', 'isErrorResponse']) {
+    for (const guard of ['isCacheStatsShape', 'isCacheHealthShape']) {
       const signature = source
         .split('\n')
         .find((line) => line.includes(`export function ${guard}`));
 
       expect(signature, `${guard} signature not found`).toBeDefined();
-      expect(signature).toContain('response: unknown');
-      expect(signature).not.toContain('response: any');
+      expect(signature).toContain('v: unknown');
+      expect(signature).not.toContain('v: any');
     }
   });
 
-  it('the two API response guards are NOT on the allowlist', () => {
-    // They were the one live-data-path exception worth fixing, and they are
-    // fixed. If a future edit reintroduces `any` there, the sweep above must
-    // catch it rather than find it pre-approved.
-    const guardsEntry = ALLOWED_ANY_FILES['services/api/standardizedAPIClient.ts'];
-    expect(guardsEntry).toBe('internal response cache map value');
-    expect(guardsEntry).not.toMatch(/guard/i);
+  it('the cache guards module is NOT on the allowlist', () => {
+    // It was allowed only for the client's internal response-cache map, which
+    // #4693 deleted. With the file down to types and guards there is nothing
+    // to pre-approve, so a future `any` there must be caught by the sweep above
+    // rather than found already permitted.
+    expect(ALLOWED_ANY_FILES['services/api/standardizedAPIClient.ts']).toBeUndefined();
   });
 });

@@ -2,10 +2,23 @@
  * Cache telemetry hooks — `useCacheStats` / `useCacheHealth`
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
- * React-Query-backed polling hooks over the cache-monitoring endpoints,
- * built on `CacheAwareAPIClient` (envelope unwrap + shared response cache).
+ * React-Query-backed polling hooks over the cache-monitoring endpoints.
  * These are NOT a generic REST client — use `useRestAPI`
  * (hooks/api/useRestAPI.ts) for plain GET/POST/PUT/PATCH/DELETE.
+ *
+ * #4693: these used to go through `CacheAwareAPIClient`, the app's third
+ * parallel HTTP layer. They now use `utils/apiRequest.ts` like everything
+ * else, with the `isCacheStatsShape` / `isCacheHealthShape` guards (#4440)
+ * carried over as `apiRequest`'s `validate` step — same contract: a bare
+ * payload (these endpoints send no envelope), and a throw rather than a silent
+ * `null` on a wrong shape or an HTTP error.
+ *
+ * Retiring that client also removed a second, redundant response cache sitting
+ * underneath React Query. It had a 60s TTL and cached every GET, while
+ * `useCacheStats` polls every 5s — so eleven of every twelve polls returned a
+ * cached value, `refetch()` could return data up to a minute old, and the
+ * `cache_cleared` invalidation below (#4585) was partly defeated because
+ * invalidating the React Query entry still hit the stale inner cache.
  *
  * History: this module used to also host a generic fetch-on-mount hook (#4300,
  * migrated to `useRestAPI`) plus `usePaginatedAPI` / `useBatchOperations` /
@@ -20,11 +33,12 @@
 import { useCallback, useMemo, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  CacheAwareAPIClient,
   CacheStats,
   CacheHealth,
-  getAPIClient,
+  isCacheStatsShape,
+  isCacheHealthShape,
 } from '@/services/api/standardizedAPIClient';
+import { get } from '@/utils/apiRequest';
 import { useWebSocketMessages } from '@/hooks/websocket/useWebSocketMessages';
 import type { WebSocketMessageType } from '@/types/websocket';
 
@@ -47,15 +61,6 @@ export interface APIRequestState<T> {
 // Single source of truth for useCacheStats' poll cadence — also consumed by
 // CacheStatsDashboard's footer label so the two can't drift out of sync (#4310).
 export const CACHE_STATS_REFRESH_INTERVAL_MS = 5000;
-
-// Shared client instance for cache queries (avoids recreating per hook call)
-let _cacheClient: CacheAwareAPIClient | null = null;
-function getCacheClient(): CacheAwareAPIClient {
-  if (!_cacheClient) {
-    _cacheClient = new CacheAwareAPIClient(getAPIClient());
-  }
-  return _cacheClient;
-}
 
 // Module-level constant so the subscription key is referentially stable.
 const CACHE_CLEARED_TYPES: WebSocketMessageType[] = ['cache_cleared'];
@@ -92,7 +97,7 @@ export function useCacheStats(): APIRequestState<CacheStats> & {
 } {
   const query = useQuery<CacheStats | null>({
     queryKey: ['cache', 'stats'],
-    queryFn: () => getCacheClient().getCacheStats(),
+    queryFn: () => get<CacheStats>('/api/cache/stats', { validate: isCacheStatsShape }),
     refetchInterval: CACHE_STATS_REFRESH_INTERVAL_MS,
   });
 
@@ -120,7 +125,7 @@ export function useCacheHealth(refreshInterval: number = 10000): APIRequestState
 } {
   const query = useQuery<CacheHealth | null>({
     queryKey: ['cache', 'health'],
-    queryFn: () => getCacheClient().getCacheHealth(),
+    queryFn: () => get<CacheHealth>('/api/cache/health', { validate: isCacheHealthShape }),
     refetchInterval: refreshInterval,
   });
 

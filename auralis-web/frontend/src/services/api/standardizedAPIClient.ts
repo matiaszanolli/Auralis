@@ -1,46 +1,33 @@
 /**
- * Standardized API Client
- * ~~~~~~~~~~~~~~~~~~~~~~~
+ * Cache telemetry types and shape guards
+ * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
- * Type-safe API client for communicating with Phase B standardized endpoints.
- * Handles request/response validation, caching, and error handling.
+ * What remains of the former `StandardizedAPIClient`, the app's third parallel
+ * HTTP layer, retired by #4693. The client, `CacheAwareAPIClient`, the
+ * singleton accessors and the `SuccessResponse`/`ErrorResponse` envelope all
+ * went with it; `hooks/shared/useStandardizedAPI.ts` now calls
+ * `utils/apiRequest.ts` directly and passes the two guards below as its
+ * `validate` step.
  *
- * Phase C.1: Frontend Integration
+ * The envelope types and their `isSuccessResponse`/`isErrorResponse` guards
+ * were dropped rather than ported. #4693's completeness check asks that they
+ * be carried over, but there was nothing to carry: no production code ever
+ * called them, and the client's own comment recorded the envelope as
+ * "currently unused" because these endpoints return their payload bare. Their
+ * only exercise was a test asserting they take `unknown` rather than `any`
+ * (#4664), which is a property of code that no longer exists.
+ *
+ * The file keeps its name because six modules import `CacheStats` /
+ * `CacheHealth` from this path. Renaming it to match its contents is a
+ * mechanical follow-up, not part of the retirement.
+ *
+ * New guards belong in `@/api/responseGuards`, which generalised this
+ * #4440 pattern for every other endpoint.
  *
  * @copyright (C) 2024 Auralis Team
  * @license GPLv3, see LICENSE for more details
  */
 
-import { API_BASE_URL } from '@/config/api';
-
-// ============================================================================
-// API Response Types (matching backend schemas)
-// ============================================================================
-
-/**
- * Standard success response from API
- */
-export interface SuccessResponse<T> {
-  status: 'success';
-  data: T;
-  message?: string;
-  timestamp: string;
-}
-
-/**
- * Standard error response from API
- */
-export interface ErrorResponse {
-  status: 'error';
-  error: string;
-  message: string;
-  details?: Record<string, any>;
-  timestamp: string;
-}
-
-/**
- * Cache statistics response
- */
 export interface CacheStats {
   tier1: {
     chunks: number;
@@ -88,73 +75,6 @@ export interface CacheHealth {
   timestamp?: string;
 }
 
-// ============================================================================
-// API Client Configuration
-// ============================================================================
-
-export interface APIClientConfig {
-  baseURL: string;
-  timeout?: number;
-  retryAttempts?: number;
-  retryDelay?: number;
-  cacheResponses?: boolean;
-  cacheTTL?: number;
-  maxCacheSize?: number;
-}
-
-/**
- * API Request options
- */
-export interface RequestOptions {
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
-  body?: Record<string, any>;
-  headers?: Record<string, string>;
-  timeout?: number;
-  cache?: boolean;
-  cacheTTL?: number;
-  /** Allow retrying this request on failure even if the method is non-idempotent. */
-  idempotent?: boolean;
-  /** External AbortSignal for caller-controlled cancellation (e.g. unmount). */
-  signal?: AbortSignal;
-}
-
-/**
- * Type guard for success responses.
- *
- * #4664: takes `unknown`, not `any`. A guard whose parameter is `any` accepts an
- * already-wrong-shaped value and narrows it with no compiler pushback — the
- * opposite of what a guard is for. The body performed the necessary defensive
- * checks already; it just needs the explicit object narrowing to reach the
- * fields, matching `isCacheStatsShape`/`isCacheHealthShape` below.
- */
-export function isSuccessResponse<T>(response: unknown): response is SuccessResponse<T> {
-  if (!response || typeof response !== 'object') return false;
-  const o = response as Record<string, unknown>;
-  return o.status === 'success' && o.data !== undefined;
-}
-
-/**
- * Type guard for error responses. Takes `unknown` for the same reason (#4664).
- */
-export function isErrorResponse(response: unknown): response is ErrorResponse {
-  if (!response || typeof response !== 'object') return false;
-  const o = response as Record<string, unknown>;
-  return o.status === 'error' && o.error !== undefined;
-}
-
-/**
- * NOTE (#4607 SIBLING check): this client does NOT route through
- * `apiRequest`'s `validate` option, and deliberately so. It covers only the two
- * cache endpoints below, and both already get a full payload shape check via
- * `unwrapCachePayload(..., isCacheStatsShape | isCacheHealthShape, ...)` — which
- * is strictly stronger than the envelope-only `isSuccessResponse` predicate and
- * equivalent in effect to the boundary guard added for #4607. Adding a second
- * validation layer here would duplicate the check, not extend coverage.
- *
- * If this client ever grows a third endpoint, guard it the same way (or migrate
- * it to `apiRequest` with a `validate` from `@/api/responseGuards`).
- */
-
 /**
  * Runtime shape check for a bare CacheStats payload (#4440). The
  * /api/cache/stats endpoint returns this object directly, NOT wrapped in a
@@ -190,289 +110,3 @@ export function isCacheHealthShape(v: unknown): v is CacheHealth {
  * a wrapped one, throws on a genuine ErrorResponse from `request()`, and throws
  * on an unrecognized shape — surfacing a real error instead of a silent null.
  */
-function unwrapCachePayload<T>(
-  response: SuccessResponse<T> | ErrorResponse,
-  guard: (v: unknown) => v is T,
-  label: string
-): T {
-  if (isErrorResponse(response)) {
-    throw new Error(`${label} request failed: ${response.message}`);
-  }
-  // Support both the (currently unused) envelope and the real bare shape.
-  const payload = isSuccessResponse<T>(response) ? response.data : (response as unknown);
-  if (!guard(payload)) {
-    throw new Error(`${label} returned an unexpected response shape`);
-  }
-  return payload;
-}
-
-// ============================================================================
-// Standardized API Client
-// ============================================================================
-
-export class StandardizedAPIClient {
-  private baseURL: string;
-  private timeout: number;
-  private retryAttempts: number;
-  private retryDelay: number;
-  private responseCache: Map<string, { data: any; timestamp: number }>;
-  private cacheTTL: number;
-  private maxCacheSize: number;
-
-  constructor(config: APIClientConfig) {
-    this.baseURL = config.baseURL;
-    this.timeout = config.timeout ?? 30000;
-    this.retryAttempts = config.retryAttempts ?? 3;
-    this.retryDelay = config.retryDelay ?? 1000;
-    this.cacheTTL = config.cacheTTL ?? 60000; // 60 second default
-    this.maxCacheSize = config.maxCacheSize ?? 200;
-    this.responseCache = new Map();
-  }
-
-  /**
-   * Perform an API request with automatic retry and caching
-   */
-  private async request<T>(
-    endpoint: string,
-    options: RequestOptions = {}
-  ): Promise<SuccessResponse<T> | ErrorResponse> {
-    const url = `${this.baseURL}${endpoint}`;
-    const method = options.method ?? 'GET';
-    const timeout = options.timeout ?? this.timeout;
-    const shouldCache = options.cache ?? true;
-
-    // Check cache for GET requests
-    if (method === 'GET' && shouldCache) {
-      const cachedResponse = this.responseCache.get(url);
-      if (cachedResponse) {
-        const elapsed = Date.now() - cachedResponse.timestamp;
-        if (elapsed < (options.cacheTTL ?? this.cacheTTL)) {
-          console.debug(`[API Cache HIT] ${endpoint}`);
-          return cachedResponse.data;
-        }
-        // Stale entry — remove eagerly so it doesn't occupy a slot
-        this.responseCache.delete(url);
-      }
-    }
-
-    let lastError: Error | null = null;
-
-    // Only retry idempotent methods (GET, HEAD) by default.
-    // Non-idempotent methods (POST, PUT, DELETE, PATCH) require explicit opt-in.
-    const isIdempotent = options.idempotent ?? method === 'GET';
-    const maxAttempts = isIdempotent ? this.retryAttempts : 0;
-
-    // Retry logic
-    for (let attempt = 0; attempt <= maxAttempts; attempt++) {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-        // Forward external signal (unmount cancellation) to internal controller (#3393)
-        const onExternalAbort = () => controller.abort();
-        if (options.signal?.aborted) {
-          controller.abort();
-        } else {
-          options.signal?.addEventListener('abort', onExternalAbort, { once: true });
-        }
-
-        const response = await fetch(url, {
-          method,
-          headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-          },
-          body: options.body ? JSON.stringify(options.body) : undefined,
-          signal: controller.signal
-        });
-
-        clearTimeout(timeoutId);
-        options.signal?.removeEventListener('abort', onExternalAbort);
-
-        // Guard against non-JSON error responses (e.g. 502 HTML pages) (#2987).
-        // Surface immediately without retry instead of letting json() throw.
-        const contentType = response.headers?.get?.('content-type') ?? '';
-        if (!response.ok && !contentType.includes('application/json')) {
-          const text = await response.text();
-          console.error(`[API Error] ${method} ${endpoint}: ${response.status} (non-JSON)`, text.slice(0, 200));
-          return {
-            status: 'error',
-            error: `http_${response.status}`,
-            message: `Server returned ${response.status} with non-JSON response`,
-            timestamp: new Date().toISOString()
-          } as ErrorResponse;
-        }
-
-        const data = await response.json();
-
-        // Cache successful responses with LRU eviction
-        if (method === 'GET' && shouldCache && response.ok) {
-          // Evict oldest entry (Map preserves insertion order) when at capacity
-          if (this.responseCache.size >= this.maxCacheSize) {
-            const oldestKey = this.responseCache.keys().next().value;
-            if (oldestKey !== undefined) {
-              this.responseCache.delete(oldestKey);
-            }
-          }
-          this.responseCache.set(url, {
-            data,
-            timestamp: Date.now()
-          });
-          console.debug(`[API Cache SET] ${endpoint}`);
-        }
-
-        if (!response.ok) {
-          console.error(`[API Error] ${method} ${endpoint}: ${response.status}`, data);
-          return data as ErrorResponse;
-        }
-
-        return data as SuccessResponse<T>;
-
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
-
-        // Never retry AbortError (request timeout)
-        const isAbort = error instanceof DOMException && error.name === 'AbortError';
-        if (isAbort) {
-          break;
-        }
-
-        if (attempt < maxAttempts) {
-          const delay = this.retryDelay * Math.pow(2, attempt); // Exponential backoff
-          console.warn(`[API Retry] ${endpoint} (attempt ${attempt + 1}/${maxAttempts}) in ${delay}ms`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-        }
-      }
-    }
-
-    // All retries exhausted
-    console.error(`[API Failed] ${endpoint}: ${lastError?.message}`);
-    return {
-      status: 'error',
-      error: 'network_error',
-      message: lastError?.message ?? 'Request failed after retries',
-      timestamp: new Date().toISOString()
-    };
-  }
-
-  /**
-   * GET request
-   */
-  async get<T>(endpoint: string, options?: RequestOptions): Promise<SuccessResponse<T> | ErrorResponse> {
-    return this.request<T>(endpoint, { ...options, method: 'GET' });
-  }
-
-  /**
-   * POST request
-   */
-  async post<T>(
-    endpoint: string,
-    body?: Record<string, any>,
-    options?: RequestOptions
-  ): Promise<SuccessResponse<T> | ErrorResponse> {
-    return this.request<T>(endpoint, { ...options, method: 'POST', body });
-  }
-
-  /**
-   * PUT request
-   */
-  async put<T>(
-    endpoint: string,
-    body?: Record<string, any>,
-    options?: RequestOptions
-  ): Promise<SuccessResponse<T> | ErrorResponse> {
-    return this.request<T>(endpoint, { ...options, method: 'PUT', body });
-  }
-
-  /**
-   * DELETE request
-   */
-  async delete<T>(endpoint: string, options?: RequestOptions): Promise<SuccessResponse<T> | ErrorResponse> {
-    return this.request<T>(endpoint, { ...options, method: 'DELETE' });
-  }
-
-  /**
-   * Clear response cache
-   */
-  clearCache(): void {
-    this.responseCache.clear();
-    console.debug('[API] Response cache cleared');
-  }
-
-  /**
-   * Get cache statistics
-   */
-  getCacheStats(): { size: number; entries: number; maxSize: number } {
-    return {
-      size: this.responseCache.size,
-      entries: this.responseCache.size,
-      maxSize: this.maxCacheSize,
-    };
-  }
-}
-
-// ============================================================================
-// Specialized API Clients
-// ============================================================================
-
-/**
- * Cache-aware API client for cache stats/health operations.
- *
- * #4738: this class used to also expose getChunk(), calling a
- * /api/chunks/{trackId}/{chunkIndex} route that never existed — residue of
- * the retired REST/MSE chunk-streaming surface (routers/wav_streaming.py,
- * removed in #4435) paired with a backend "cache-aware endpoint" helper
- * layer (cache/endpoints.py) that had zero production importers on its own
- * side and was deleted in the same issue. Removed here too so neither side
- * describes an API the other doesn't implement.
- */
-export class CacheAwareAPIClient {
-  constructor(private apiClient: StandardizedAPIClient) {}
-
-  /**
-   * Get cache statistics.
-   *
-   * The backend returns a bare CacheStatsResponse (no envelope), so this parses
-   * the bare shape and throws on error/mismatch rather than resolving `null`
-   * on every 200 OK (#4440).
-   */
-  async getCacheStats(): Promise<CacheStats> {
-    const response = await this.apiClient.get<CacheStats>('/api/cache/stats');
-    return unwrapCachePayload(response, isCacheStatsShape, 'cache stats');
-  }
-
-  /**
-   * Get cache health status.
-   *
-   * The backend returns a bare health dict (no envelope, no `timestamp`), so
-   * this parses the bare shape and throws on error/mismatch rather than
-   * resolving `null` on every 200 OK (#4440).
-   */
-  async getCacheHealth(): Promise<CacheHealth> {
-    const response = await this.apiClient.get<CacheHealth>('/api/cache/health');
-    return unwrapCachePayload(response, isCacheHealthShape, 'cache health');
-  }
-}
-
-/**
- * Create singleton API client instance
- */
-let apiClientInstance: StandardizedAPIClient | null = null;
-
-export function initializeAPIClient(config: APIClientConfig): StandardizedAPIClient {
-  apiClientInstance = new StandardizedAPIClient(config);
-  console.log('[API Client] Initialized with config:', {
-    baseURL: config.baseURL,
-    timeout: config.timeout ?? 30000,
-    retryAttempts: config.retryAttempts ?? 3
-  });
-  return apiClientInstance;
-}
-
-export function getAPIClient(): StandardizedAPIClient {
-  if (!apiClientInstance) {
-    const baseURL = import.meta.env.VITE_API_URL ?? API_BASE_URL;
-    apiClientInstance = initializeAPIClient({ baseURL });
-  }
-  return apiClientInstance;
-}
