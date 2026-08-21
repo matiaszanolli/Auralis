@@ -9,6 +9,23 @@ const { buildBackendEnv } = require('./backend-env');
 
 // Configure logging for auto-updater
 log.transports.file.level = 'info';
+
+// Owner-only log file (#4932). electron-log's file transport defaults to
+// requesting mode 0o666, so the file lands at 0o666 & ~umask — 0o644 under the
+// usual 0o022, i.e. world-readable. That is harmless under this app's
+// single-user desktop threat model and while the file holds only update-check
+// timestamps, but #4920 has since begun routing backend output through this
+// same file, so its contents are no longer trivially uninteresting. 0o600
+// costs nothing and stops the question recurring.
+//
+// Merged onto the transport's existing writeOptions rather than replaced:
+// assigning a bare { mode } would drop the upstream flag:'a' and
+// encoding:'utf8' defaults, truncating the log on every launch.
+log.transports.file.writeOptions = {
+  ...log.transports.file.writeOptions,
+  mode: 0o600,
+};
+
 autoUpdater.logger = log;
 
 /**
