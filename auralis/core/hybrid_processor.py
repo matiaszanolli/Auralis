@@ -246,9 +246,7 @@ class HybridProcessor:
         self,
         target: np.ndarray,
         reference: np.ndarray | None = None,
-        results: str | list[str] | Result | list[Result] | None = None,
-        preview_target: Result | None = None,
-        preview_result: Result | None = None
+        results: str | list[str] | Result | list[Result] | None = None
     ) -> np.ndarray | None:
         """
         Main processing function supporting both reference and adaptive modes
@@ -257,22 +255,18 @@ class HybridProcessor:
             target: Target audio array (pre-loaded NumPy array)
             reference: Reference audio array (optional for adaptive mode)
             results: Output file path(s) or Result object(s)
-            preview_target: Preview target result (optional)
-            preview_result: Preview result output (optional)
 
         Returns:
             Processed audio array (if no file output specified)
         """
         with self._process_lock:
-            return self._process_impl(target, reference, results, preview_target, preview_result)
+            return self._process_impl(target, reference, results)
 
     def _process_impl(
         self,
         target: np.ndarray,
         reference: np.ndarray | None = None,
-        results: str | list[str] | Result | list[Result] | None = None,
-        preview_target: Result | None = None,
-        preview_result: Result | None = None
+        results: str | list[str] | Result | list[Result] | None = None
     ) -> np.ndarray | None:
         """Inner implementation called under _process_lock."""
         info(f"Starting hybrid processing in {self.config.adaptive.mode} mode")

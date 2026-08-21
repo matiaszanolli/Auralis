@@ -55,12 +55,6 @@ class UnifiedConfig:
         lowess_it: int = 0,
         lowess_delta: float = 0.001,
 
-        # Preview settings
-        preview_size: float = 30,
-        preview_analysis_step: float = 5,
-        preview_fade_size: float = 1,
-        preview_fade_coefficient: float = 8,
-
         # System settings
         temp_folder: str | None = None,
         limiter: LimiterConfig | None = None,
@@ -126,16 +120,6 @@ class UnifiedConfig:
         self.lowess_frac = lowess_frac
         self.lowess_it = lowess_it
         self.lowess_delta = lowess_delta
-
-        # Preview settings
-        assert preview_size > 5
-        assert preview_analysis_step > 1
-        assert preview_fade_size > 0
-        assert preview_fade_coefficient >= 2
-        self.preview_size = preview_size * internal_sample_rate
-        self.preview_analysis_step = preview_analysis_step * internal_sample_rate
-        self.preview_fade_size = preview_fade_size * internal_sample_rate
-        self.preview_fade_coefficient = preview_fade_coefficient
 
         # System settings
         self.temp_folder = temp_folder
