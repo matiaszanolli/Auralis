@@ -18,3 +18,5 @@ export { useTrackFingerprint } from './useTrackFingerprint';
 export { useAlbumFingerprint, useAlbumFingerprints } from './useAlbumFingerprint';
 export { useSimilarTracks } from './useSimilarTracks';
 export type { SimilarTrack, SimilarityOptions } from './useSimilarTracks';
+export { classifySimilarityError } from './similarityErrorState';
+export type { SimilarityErrorKind, SimilarityErrorState } from './similarityErrorState';

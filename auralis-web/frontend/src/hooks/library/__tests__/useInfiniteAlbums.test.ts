@@ -150,11 +150,16 @@ describe('useInfiniteAlbums', () => {
     expect(result.current.hasNextPage).toBe(false);
   });
 
-  it('should handle fetch error', async () => {
+  it('surfaces the backend detail on a fetch error (#4626)', async () => {
+    // Was `Failed to fetch albums: ${statusText}`, which discarded the body —
+    // and rendered as a bare "Failed to fetch albums: " over HTTP/2, where
+    // statusText is empty.
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
       ok: false,
-      statusText: 'Internal Server Error',
-    } as Response);
+      status: 500,
+      statusText: '',
+      json: () => Promise.resolve({ detail: 'Library database is locked' }),
+    } as unknown as Response);
 
     const { result } = renderHook(() => useInfiniteAlbums(), {
       wrapper: createWrapper(),
@@ -162,7 +167,24 @@ describe('useInfiniteAlbums', () => {
 
     await waitFor(() => expect(result.current.isError).toBe(true));
 
-    expect(result.current.error?.message).toContain('Failed to fetch albums');
+    expect(result.current.error?.message).toBe('Library database is locked');
+  });
+
+  it('falls back to the status line when the body carries no detail', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      statusText: 'Internal Server Error',
+      json: () => Promise.reject(new Error('not json')),
+    } as unknown as Response);
+
+    const { result } = renderHook(() => useInfiniteAlbums(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+
+    expect(result.current.error?.message).toBe('HTTP 500: Internal Server Error');
   });
 
   it('should not fetch when enabled is false', async () => {

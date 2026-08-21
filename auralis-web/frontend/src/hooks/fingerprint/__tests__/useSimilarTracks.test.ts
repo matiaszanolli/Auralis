@@ -135,3 +135,97 @@ describe('useSimilarTracks', () => {
     expect(result.current.error).toBeNull();
   });
 });
+
+/**
+ * #4626: the backend's `detail` body must survive the fetch boundary.
+ *
+ * `useSimilarTracks` threw `Similarity search failed: ${status} ${statusText}`
+ * without ever reading the body, so the router's deliberately-actionable detail
+ * was discarded irrecoverably (the body can only be read once, and only before
+ * the error propagates). `statusText` is also empty over HTTP/2, which made the
+ * message degrade to `"Similarity search failed: 404 "`.
+ */
+describe('backend error detail (#4626)', () => {
+  const mockErrorResponse = (status: number, detail: string, statusText = '') => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status,
+      statusText,
+      json: () => Promise.resolve({ detail }),
+    });
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('surfaces the queued-for-fingerprinting detail rather than the status line', async () => {
+    const detail =
+      'Track 7 does not have a fingerprint. Queued for background processing.';
+    mockErrorResponse(404, detail);
+
+    const { result } = renderHook(() => useSimilarTracks());
+    await act(async () => {
+      await result.current.findSimilar(7).catch(() => {});
+    });
+
+    expect(result.current.error).toBe(detail);
+    expect(result.current.errorStatus).toBe(404);
+  });
+
+  it('exposes the status so a 503 is distinguishable from a 404', async () => {
+    mockErrorResponse(503, 'Similarity system not initialized.');
+
+    const { result } = renderHook(() => useSimilarTracks());
+    await act(async () => {
+      await result.current.findSimilar(7).catch(() => {});
+    });
+
+    expect(result.current.errorStatus).toBe(503);
+  });
+
+  it('stays informative when statusText is empty (the HTTP/2 shape)', async () => {
+    mockErrorResponse(404, 'Track 7 not found', '');
+
+    const { result } = renderHook(() => useSimilarTracks());
+    await act(async () => {
+      await result.current.findSimilar(7).catch(() => {});
+    });
+
+    // Previously: "Similarity search failed: 404 " — a string with no content.
+    expect(result.current.error).toBe('Track 7 not found');
+  });
+
+  it('falls back to the status line when the body carries no detail', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      statusText: 'Internal Server Error',
+      json: () => Promise.reject(new Error('not json')),
+    });
+
+    const { result } = renderHook(() => useSimilarTracks());
+    await act(async () => {
+      await result.current.findSimilar(7).catch(() => {});
+    });
+
+    expect(result.current.error).toBe('HTTP 500: Internal Server Error');
+    expect(result.current.errorStatus).toBe(500);
+  });
+
+  it('clears the status alongside the message', async () => {
+    mockErrorResponse(404, 'Track 7 not found');
+
+    const { result } = renderHook(() => useSimilarTracks());
+    await act(async () => {
+      await result.current.findSimilar(7).catch(() => {});
+    });
+    expect(result.current.errorStatus).toBe(404);
+
+    act(() => {
+      result.current.clear();
+    });
+    expect(result.current.error).toBeNull();
+    expect(result.current.errorStatus).toBeNull();
+  });
+});

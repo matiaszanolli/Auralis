@@ -27,7 +27,11 @@
 import { useEffect } from 'react';
 import { Dialog, DialogContent, Box, Typography, CircularProgress, List } from '@mui/material';
 import { tokens } from '@/design-system';
-import { useSimilarTracks, type SimilarTrack } from '@/hooks/fingerprint';
+import {
+  useSimilarTracks,
+  classifySimilarityError,
+  type SimilarTrack,
+} from '@/hooks/fingerprint';
 import { SimilarTracksModalHeader } from './SimilarTracksModalHeader';
 import { SimilarTrackRow } from './SimilarTrackRow';
 import { themeVars } from '@/theme/semanticTheme';
@@ -60,7 +64,13 @@ export const SimilarTracksModal = ({
   onTrackPlay,
   limit = 20,
 }: SimilarTracksModalProps) => {
-  const { similarTracks, loading, error, findSimilar, clear } = useSimilarTracks();
+  const { similarTracks, loading, error, errorStatus, findSimilar, clear } =
+    useSimilarTracks();
+
+  // The backend distinguishes "queued for fingerprinting", "still initialising"
+  // and "no such track"; two of those are progress rather than failure, so they
+  // must not render as a red error (#4626).
+  const errorState = error ? classifySimilarityError(error, errorStatus) : null;
 
   // Fetch similar tracks when modal opens with a valid trackId
   useEffect(() => {
@@ -133,24 +143,26 @@ export const SimilarTracksModal = ({
           </Box>
         )}
 
-        {/* Error State */}
-        {error && !loading && (
+        {/* Error / pending State */}
+        {errorState && !loading && (
           <Box sx={{
             padding: tokens.spacing.xxl,                        // 40px
             textAlign: 'center',
           }}>
             <Typography sx={{
               fontSize: tokens.typography.fontSize.base,        // 16px
-              color: tokens.colors.semantic.error,
+              color: errorState.transient
+                ? tokens.colors.semantic.info
+                : tokens.colors.semantic.error,
               marginBottom: tokens.spacing.md,                  // 12px
             }}>
-              ⚠️ {error}
+              {errorState.transient ? '⏳' : '⚠️'} {errorState.title}
             </Typography>
             <Typography sx={{
               fontSize: tokens.typography.fontSize.sm,          // 13px
               color: themeVars.textSecondary,
             }}>
-              Try again or select a different track.
+              {errorState.hint}
             </Typography>
           </Box>
         )}
@@ -171,7 +183,7 @@ export const SimilarTracksModal = ({
         )}
 
         {/* No Results */}
-        {similarTracks && similarTracks.length === 0 && !loading && !error && (
+        {similarTracks && similarTracks.length === 0 && !loading && !errorState && (
           <Box sx={{
             padding: tokens.spacing.xxl,                        // 40px
             textAlign: 'center',

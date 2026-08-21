@@ -13,6 +13,7 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { transformAlbumsResponse } from '@/api/transformers';
 import type { AlbumsApiResponse } from '@/api/transformers';
 import { getApiUrl } from '@/config/api';
+import { httpErrorFromResponse } from '@/utils/httpError';
 
 interface UseInfiniteAlbumsOptions {
   limit?: number;
@@ -45,7 +46,8 @@ async function fetchAlbums({
   const response = await fetch(getApiUrl(`/api/albums?${params}`));
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch albums: ${response.statusText}`);
+    // Same `statusText`-only discard as the fingerprint hooks (#4626).
+    throw await httpErrorFromResponse(response);
   }
 
   // Return raw API response (snake_case) - transformation happens in useInfiniteAlbums

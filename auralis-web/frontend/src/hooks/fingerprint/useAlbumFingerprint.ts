@@ -14,6 +14,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import type { AudioFingerprint } from '@/utils/fingerprintToGradient';
+import { httpErrorFromResponse } from '@/utils/httpError';
 
 interface AlbumFingerprintResponse {
   album_id: number;
@@ -35,7 +36,12 @@ const fetchAlbumFingerprint = async (albumId: number): Promise<AudioFingerprint 
       if (response.status === 404) {
         return null;
       }
-      throw new Error(`Failed to fetch album fingerprint: ${response.statusText}`);
+      // Surface the backend's `detail` and status rather than a bare
+      // `statusText`, which is empty over HTTP/2 (#4626). This hook swallows
+      // every failure into the hash-gradient fallback below, so the detail's
+      // only destination is the console warning — which is exactly where
+      // someone debugging a missing gradient will look.
+      throw await httpErrorFromResponse(response);
     }
 
     const data: AlbumFingerprintResponse = await response.json();

@@ -14,6 +14,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import type { AudioFingerprint } from '@/utils/fingerprintToGradient';
+import { httpErrorFromResponse } from '@/utils/httpError';
 
 interface TrackFingerprintResponse {
   track_id: number;
@@ -41,7 +42,9 @@ const fetchTrackFingerprint = async (trackId: number): Promise<TrackFingerprintR
     if (response.status === 404) {
       return null;
     }
-    throw new Error(`Failed to fetch track fingerprint: ${response.statusText}`);
+    // Surface the backend's `detail` and status rather than a bare
+    // `statusText`, which is empty over HTTP/2 (#4626).
+    throw await httpErrorFromResponse(response);
   }
 
   return await response.json();

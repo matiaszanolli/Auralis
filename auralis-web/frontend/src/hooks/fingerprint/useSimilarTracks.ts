@@ -26,6 +26,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { isAbortError } from '@/utils/errorGuards';
+import { httpErrorFromResponse, type HttpStatusError } from '@/utils/httpError';
 
 /**
  * Similar track response model (matches backend SimilarTrack)
@@ -67,8 +68,19 @@ interface UseSimilarTracksReturn {
   similarTracks: SimilarTrack[] | null;
   /** Is similarity search in progress? */
   loading: boolean;
-  /** Error message (if search failed) */
+  /** Error message (if search failed) — the backend's `detail` when it sent one */
   error: string | null;
+  /**
+   * HTTP status of the failed request, or null when the failure had none
+   * (network error) or nothing has failed.
+   *
+   * Callers need this to tell apart three states the backend deliberately
+   * distinguishes but which all look like "an error" without it (#4626):
+   * a 404 whose detail says the track was queued for fingerprinting (transient,
+   * retry shortly), a 503 (similarity system still initialising, also
+   * transient), and a genuine 404 for a track that does not exist.
+   */
+  errorStatus: number | null;
   /** Find similar tracks for a given track ID */
   findSimilar: (trackId: number, options?: SimilarityOptions) => Promise<SimilarTrack[]>;
   /** Clear current results */
@@ -102,6 +114,7 @@ export function useSimilarTracks(): UseSimilarTracksReturn {
   const [similarTracks, setSimilarTracks] = useState<SimilarTrack[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorStatus, setErrorStatus] = useState<number | null>(null);
 
   // Track current request to prevent race conditions
   const currentRequestRef = useRef<number | null>(null);
@@ -157,6 +170,7 @@ export function useSimilarTracks(): UseSimilarTracksReturn {
       // Start search
       setLoading(true);
       setError(null);
+      setErrorStatus(null);
 
       // Cancel any previous in-flight request before starting a new one.
       abortRef.current?.abort();
@@ -184,9 +198,13 @@ export function useSimilarTracks(): UseSimilarTracksReturn {
         );
 
         if (!response.ok) {
-          throw new Error(
-            `Similarity search failed: ${response.status} ${response.statusText}`
-          );
+          // Read the backend's `detail` before the body is discarded (#4626).
+          // similarity.py encodes the actionable part of the failure there —
+          // "Track N does not have a fingerprint. Queued for background
+          // processing." is a different situation from "track not found", and
+          // both arrive as a 404. `statusText` is empty over HTTP/2, so the old
+          // message could degrade to "Similarity search failed: 404 ".
+          throw await httpErrorFromResponse(response);
         }
 
         // Parse response (backend uses snake_case, convert to camelCase)
@@ -235,6 +253,7 @@ export function useSimilarTracks(): UseSimilarTracksReturn {
             err instanceof Error ? err.message : 'Failed to find similar tracks';
           console.error(`[useSimilarTracks] Error finding similar tracks:`, err);
           setError(message);
+          setErrorStatus((err as HttpStatusError)?.status ?? null);
           setLoading(false);
         }
 
@@ -252,6 +271,7 @@ export function useSimilarTracks(): UseSimilarTracksReturn {
     abortRef.current = null;
     setSimilarTracks(null);
     setError(null);
+    setErrorStatus(null);
     setLoading(false);
     currentRequestRef.current = null;
   }, []);
@@ -260,6 +280,7 @@ export function useSimilarTracks(): UseSimilarTracksReturn {
     similarTracks,
     loading,
     error,
+    errorStatus,
     findSimilar,
     clear,
   };
