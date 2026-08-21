@@ -23,7 +23,7 @@ import numpy as np
 from .fingerprint.metrics import MetricUtils
 
 try:
-    import yaml  # type: ignore[import-untyped]
+    import yaml
 except ImportError:
     yaml = None
 

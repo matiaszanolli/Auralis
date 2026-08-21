@@ -151,6 +151,17 @@ strict = true
 module = "auralis-web.backend.cache.*"
 strict = true
 
+# PyYAML ships no py.typed and no stubs are declared as a dependency (#4397).
+# Declared here rather than as an inline `# type: ignore[import-untyped]` on the
+# import: the comment was dead weight under the repo's standard invocation, which
+# always passes --ignore-missing-imports, so `warn_unused_ignores` flagged it as
+# the only unused ignore in the tree — while a bare `mypy path.py` still needed
+# it. A per-module override is true under both invocations and is where mypy
+# expects "this third-party module has no stubs" to live.
+[[tool.mypy.overrides]]
+module = "yaml"
+ignore_missing_imports = true
+
 # Optional: Gradual typing for other backend modules (less strict during migration)
 [[tool.mypy.overrides]]
 module = "auralis-web.backend.*"
