@@ -29,7 +29,7 @@ This audit covers ONLY the frontend code:
 - **Types**: `auralis-web/frontend/src/types/` (`api.ts`, `domain.ts`, `websocket.ts`, `ws/`)
 - **Design System**: `auralis-web/frontend/src/design-system/` (tokens, theme) and `auralis-web/frontend/src/theme/`
 - **Tests**: `auralis-web/frontend/src/test/` (utils + global setup), plus specs in `auralis-web/frontend/src/__tests__/`, `auralis-web/frontend/src/tests/`, and co-located `*.test.tsx`
-- **Other**: `auralis-web/frontend/src/a11y/` (`focusManagement.ts`), `auralis-web/frontend/src/performance/` (`lazyLoader.tsx`, `withMemo.tsx`, `useRenderProfiler.ts`, `bundleAnalyzer.ts`), `auralis-web/frontend/src/utils/`, `auralis-web/frontend/src/api/` (`responseGuards.ts`, `transformers/`), `auralis-web/frontend/src/config/api.ts`
+- **Other**: `auralis-web/frontend/src/a11y/` (`focusManagement.ts`), `auralis-web/frontend/src/utils/`, `auralis-web/frontend/src/api/` (`responseGuards.ts`, `transformers/`), `auralis-web/frontend/src/config/api.ts`
 - **Config**: `auralis-web/frontend/vite.config.mts`, `auralis-web/frontend/vitest.config.ts`, `auralis-web/frontend/tsconfig.json`, `auralis-web/frontend/package.json` (pnpm is the only supported package manager)
 
 Out of scope: Python backend, audio engine, Rust DSP, database.

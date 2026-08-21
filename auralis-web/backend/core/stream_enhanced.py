@@ -15,6 +15,7 @@ Extracted from audio_stream_controller.py (#4071).
 """
 
 import asyncio
+import functools
 import logging
 from pathlib import Path  # noqa: F401 — kept for module-attribute patching in tests (core.stream_enhanced.Path)
 from typing import TYPE_CHECKING, Any
@@ -118,10 +119,17 @@ async def stream_enhanced_audio(
             # highest-traffic consumer of track.filepath (#4345).
             try:
                 validated_filepath = str(
-                    await asyncio.to_thread(validate_file_path, str(track.filepath))
+                    await asyncio.to_thread(
+                        functools.partial(
+                            validate_file_path,
+                            str(track.filepath),
+                            context=f"track {track_id}",
+                        )
+                    )
                 )
-            except PathValidationError as e:
-                logger.warning(f"Track {track_id} filepath failed validation: {e}")
+            except PathValidationError:
+                # No logger call here: validate_file_path logs the rejection
+                # itself with the context above, exactly once (#4925).
                 await controller._send_error(
                     websocket, track_id, "Audio file not found"
                 )

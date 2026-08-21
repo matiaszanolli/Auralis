@@ -34,7 +34,12 @@ def _bypass_streaming_path_validation(monkeypatch):
     """
     from security.path_security import PathValidationError
 
-    def _existence_only_check(filepath: str) -> Path:
+    def _existence_only_check(filepath: str, context: str | None = None) -> Path:
+        # `context` mirrors the keyword the real validator gained in #4925 so
+        # it can log a rejection once, with the caller's context, instead of
+        # each caller remembering to. The stand-in accepts and ignores it —
+        # without the parameter every streaming test that goes through this
+        # fixture dies with "unexpected keyword argument 'context'".
         p = Path(filepath)
         if not p.exists():
             raise PathValidationError(f"File does not exist: {filepath}")

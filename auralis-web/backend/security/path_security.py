@@ -24,9 +24,12 @@ implying a containment guarantee the app doesn't actually enforce.
 :license: GPLv3, see LICENSE for more details.
 """
 
+import functools
 import logging
 import os
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +78,43 @@ class PathValidationError(Exception):
     pass
 
 
+def _logs_rejections(fn: Callable[..., Path]) -> Callable[..., Path]:
+    """Emit exactly one warning whenever the wrapped validator rejects a path.
+
+    #4925: rejections used to be logged only by whichever caller remembered
+    to. Six call sites did, six did not — so a traversal probe against, say,
+    ``/api/settings/scan-folder`` left no trace at all, just a 400 to the
+    client, and repeated probing could not be noticed after the fact. Only the
+    SUCCESS path was logged here, at debug.
+
+    Wrapping rather than editing each ``raise`` site keeps the original
+    exception and its traceback untouched (bare ``raise``), and means a
+    validator that grows a new rejection branch is covered automatically
+    instead of relying on someone remembering this rule.
+
+    The corollary: callers must NOT log their own warning or the line doubles.
+    Callers that know something the validator cannot — which track, which
+    request parameter — pass ``context`` instead, so the single line still
+    carries it.
+
+    Typed as ``Callable[..., Path]`` deliberately: ``context`` is injected by
+    the wrapper and is not part of the wrapped function's own signature, so a
+    precise ``ParamSpec`` would reject every caller that passes it.
+    """
+    @functools.wraps(fn)
+    def wrapper(*args: Any, context: str | None = None, **kwargs: Any) -> Path:
+        try:
+            return fn(*args, **kwargs)
+        except PathValidationError as e:
+            logger.warning(
+                "Path validation rejected%s: %s",
+                f" ({context})" if context else "",
+                e,
+            )
+            raise
+    return wrapper
+
+
 def get_allowed_directories() -> list[Path]:
     """
     Get list of allowed base directories for scanning.
@@ -103,6 +143,7 @@ def get_allowed_directories() -> list[Path]:
     return [path.resolve() for path in allowed_dirs if path.exists()]
 
 
+@_logs_rejections
 def validate_file_path(
     filepath: str,
     allowed_base_dirs: list[Path] | None = None
@@ -181,6 +222,7 @@ def validate_file_path(
     return resolved_path
 
 
+@_logs_rejections
 def validate_user_chosen_directory(directory: str) -> Path:
     """
     Validate a directory path explicitly chosen by the user (e.g., via file picker).

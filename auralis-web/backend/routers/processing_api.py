@@ -234,9 +234,11 @@ def create_processing_router(
         try:
             # Validate input path against allowed directories (#2559)
             try:
-                validated_input = validate_file_path(request.input_path)
-            except PathValidationError as e:
-                logger.warning(f"Invalid input path rejected: {e}")
+                validated_input = validate_file_path(
+                    request.input_path, context="input_path"
+                )
+            except PathValidationError:
+                # validate_file_path logs it once with the context above (#4925).
                 raise HTTPException(status_code=400, detail="Invalid or inaccessible input path")
 
             # A "reference" job with no reference is not a meaningful adaptive
@@ -252,9 +254,11 @@ def create_processing_router(
             validated_reference: Path | None = None
             if request.reference_path:
                 try:
-                    validated_reference = validate_file_path(request.reference_path)
-                except PathValidationError as e:
-                    logger.warning(f"Invalid reference path rejected: {e}")
+                    validated_reference = validate_file_path(
+                        request.reference_path, context="reference_path"
+                    )
+                except PathValidationError:
+                    # validate_file_path logs it once with the context above (#4925).
                     raise HTTPException(status_code=400, detail="Invalid or inaccessible reference path")
 
             # Create processing job

@@ -463,9 +463,12 @@ def create_metadata_router(
 
             # Validate DB-retrieved filepath before file I/O (fixes #2302)
             try:
-                validated_filepath = str(validate_file_path(str(track.filepath)))
-            except PathValidationError as e:
-                logger.warning(f"Invalid filepath for track {update_req.track_id}: {e}, skipping")
+                validated_filepath = str(validate_file_path(
+                    str(track.filepath),
+                    context=f"track {update_req.track_id}, batch update — skipping",
+                ))
+            except PathValidationError:
+                # validate_file_path logs it once with the context above (#4925).
                 continue
 
             batch_updates.append(MetadataUpdate(
