@@ -351,4 +351,127 @@ describe('useAppDragDrop', () => {
       consoleErrorSpy.mockRestore();
     });
   });
+
+  describe('hung backend (#4694)', () => {
+    // These handlers used bare fetch() with no signal and no timeout, so a
+    // backend that accepted the connection and never answered left the drop
+    // pending forever. Drag-drop has no loading indicator either, so the user
+    // saw nothing at all. They now go through apiRequest's 30s timeout (#4442).
+    //
+    // Only the two *reachable* handlers are covered here. handleReorderQueue
+    // and handleReorderPlaylist are unreachable at HEAD — see the routing test
+    // below and #5189 — so a timeout test for them would assert nothing.
+
+    const HUNG = () => new Promise<never>(() => {});
+
+    it.each([
+      ['add to queue', '/api/player/queue/add-track',
+       { droppableId: 'library', index: 0 }, { droppableId: 'queue', index: 0 }],
+      ['add to playlist', '/api/playlists/:id/tracks/add',
+       { droppableId: 'library', index: 0 }, { droppableId: 'playlist-1', index: 0 }],
+    ])('%s surfaces a timeout instead of hanging', async (_label, path, source, destination) => {
+      server.use(http.post(path, HUNG));
+
+      const { result } = renderHook(() =>
+        useAppDragDrop({ info: mockInfo, success: mockSuccess })
+      );
+
+      vi.useFakeTimers();
+      try {
+        let settled = false;
+        const pending = result.current
+          .handleDragEnd(createDropResult(source, destination))
+          .then(() => { settled = true; });
+
+        // Before the timeout fires the drop is genuinely still pending —
+        // this is the state the user used to be stuck in permanently.
+        await vi.advanceTimersByTimeAsync(29_000);
+        expect(settled).toBe(false);
+        expect(mockInfo).not.toHaveBeenCalled();
+
+        await vi.advanceTimersByTimeAsync(2_000);
+        await pending;
+        expect(settled).toBe(true);
+      } finally {
+        vi.useRealTimers();
+      }
+
+      // handleDragEnd swallows the error into a toast, so the toast text is
+      // where the timeout is observable.
+      expect(mockInfo).toHaveBeenCalledWith(expect.stringContaining('timed out'));
+      expect(mockSuccess).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('reorder routing is broken (#5189)', () => {
+    // Characterization, not desired behaviour. handleDragEnd tests
+    // `destination.droppableId === 'queue'` before it tests
+    // `destination.droppableId === source.droppableId`, so a within-list drag
+    // never reaches handleReorderQueue / handleReorderPlaylist — it calls the
+    // ADD endpoint instead, duplicating the track rather than moving it.
+    //
+    // The pre-existing 'reorders tracks in queue' / 'reorders tracks in
+    // playlist' tests above assert only `expect(result.current).toBeDefined()`,
+    // which is why this went unnoticed. Pinned here so the gap is visible;
+    // when #5189 fixes the routing these expectations flip to the move/reorder
+    // endpoints.
+
+    const recordEndpoint = (hits: string[]) => {
+      server.use(
+        http.post('/api/player/queue/add-track', () => {
+          hits.push('POST add-track');
+          return HttpResponse.json({ success: true });
+        }),
+        http.put('/api/player/queue/move', () => {
+          hits.push('PUT move');
+          return HttpResponse.json({ success: true });
+        }),
+        http.post('/api/playlists/:id/tracks/add', () => {
+          hits.push('POST playlist-add');
+          return HttpResponse.json({ success: true });
+        }),
+        http.put('/api/playlists/:id/tracks/reorder', () => {
+          hits.push('PUT playlist-reorder');
+          return HttpResponse.json({ success: true });
+        })
+      );
+    };
+
+    it('a queue reorder calls add-track, not move', async () => {
+      const hits: string[] = [];
+      recordEndpoint(hits);
+
+      const { result } = renderHook(() =>
+        useAppDragDrop({ info: mockInfo, success: mockSuccess })
+      );
+
+      await act(async () => {
+        await result.current.handleDragEnd(
+          createDropResult({ droppableId: 'queue', index: 1 }, { droppableId: 'queue', index: 3 })
+        );
+      });
+
+      expect(hits).toEqual(['POST add-track']);   // should be ['PUT move']
+    });
+
+    it('a playlist reorder calls tracks/add, not tracks/reorder', async () => {
+      const hits: string[] = [];
+      recordEndpoint(hits);
+
+      const { result } = renderHook(() =>
+        useAppDragDrop({ info: mockInfo, success: mockSuccess })
+      );
+
+      await act(async () => {
+        await result.current.handleDragEnd(
+          createDropResult(
+            { droppableId: 'playlist-1', index: 0 },
+            { droppableId: 'playlist-1', index: 2 }
+          )
+        );
+      });
+
+      expect(hits).toEqual(['POST playlist-add']); // should be ['PUT playlist-reorder']
+    });
+  });
 });

@@ -1,6 +1,8 @@
 import { useCallback } from 'react';
 import { DropResult } from '@hello-pangea/dnd';
 
+import { APIRequestError, post, put } from '@/utils/apiRequest';
+
 /**
  * Toast notification function signature.
  * Used to display feedback to the user about drag-drop operations.
@@ -114,19 +116,37 @@ export const useAppDragDrop = ({ info, success }: DragDropConfig) => {
 };
 
 /**
- * Build an Error from a failed response, preferring the backend's `detail`
- * field over a generic fallback so drag-drop toasts are actionable (#3989).
+ * Run a drag-drop mutation, keeping the handler's specific fallback message.
+ *
+ * These four handlers used bare `fetch()` with no signal and no timeout, so a
+ * hung backend left the action pending forever with no feedback — drag-drop
+ * has no loading indicator either (#4694). They now go through `apiRequest`,
+ * which applies the app-wide 30s timeout (#4442) and already prefers the
+ * backend's `detail` field, which is what #3989 wanted.
+ *
+ * The wrapper exists for the one case `apiRequest` cannot know about: an HTTP
+ * error with no `detail` in the body. `apiRequest` renders that as
+ * "Request failed with status 500", where these toasts want "Failed to add
+ * track to queue".
+ *
+ * Discriminating on `statusCode`, not on `detail` alone, is deliberate: a
+ * timeout is also an `APIRequestError` with no `detail`, but it carries
+ * `statusCode: 0`. Testing `!detail` by itself would replace
+ * "Request timed out after 30000ms" with the generic fallback and hide exactly
+ * the failure this issue is about.
  */
-async function errorFromResponse(response: Response, fallback: string): Promise<Error> {
+async function withFallbackMessage(
+  fallback: string,
+  send: () => Promise<unknown>
+): Promise<void> {
   try {
-    const errorData = await response.json();
-    if (errorData && typeof errorData.detail === 'string' && errorData.detail) {
-      return new Error(errorData.detail);
+    await send();
+  } catch (err) {
+    if (err instanceof APIRequestError && err.statusCode !== 0 && !err.detail) {
+      throw new Error(fallback);
     }
-  } catch {
-    // Body wasn't JSON or was empty — fall through to the generic message.
+    throw err;
   }
-  return new Error(fallback);
 }
 
 /**
@@ -137,18 +157,9 @@ async function handleAddToQueue(
   position: number,
   success: ToastNotifier
 ) {
-  const response = await fetch('/api/player/queue/add-track', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      track_id: trackId,
-      position,
-    }),
-  });
-
-  if (!response.ok) {
-    throw await errorFromResponse(response, 'Failed to add track to queue');
-  }
+  await withFallbackMessage('Failed to add track to queue', () =>
+    post('/api/player/queue/add-track', { track_id: trackId, position })
+  );
 
   success(`Added track to queue at position ${position + 1}`);
 }
@@ -162,18 +173,9 @@ async function handleAddToPlaylist(
   position: number,
   success: ToastNotifier
 ) {
-  const response = await fetch(`/api/playlists/${playlistId}/tracks/add`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      track_id: trackId,
-      position,
-    }),
-  });
-
-  if (!response.ok) {
-    throw await errorFromResponse(response, 'Failed to add track to playlist');
-  }
+  await withFallbackMessage('Failed to add track to playlist', () =>
+    post(`/api/playlists/${playlistId}/tracks/add`, { track_id: trackId, position })
+  );
 
   success('Added track to playlist');
 }
@@ -186,18 +188,9 @@ async function handleReorderQueue(
   toIndex: number,
   info: ToastNotifier
 ) {
-  const response = await fetch('/api/player/queue/move', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      from_index: fromIndex,
-      to_index: toIndex,
-    }),
-  });
-
-  if (!response.ok) {
-    throw await errorFromResponse(response, 'Failed to reorder queue');
-  }
+  await withFallbackMessage('Failed to reorder queue', () =>
+    put('/api/player/queue/move', { from_index: fromIndex, to_index: toIndex })
+  );
 
   info('Queue reordered');
 }
@@ -211,21 +204,12 @@ async function handleReorderPlaylist(
   toIndex: number,
   info: ToastNotifier
 ) {
-  const response = await fetch(
-    `/api/playlists/${playlistId}/tracks/reorder`,
-    {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from_index: fromIndex,
-        to_index: toIndex,
-      }),
-    }
+  await withFallbackMessage('Failed to reorder playlist', () =>
+    put(`/api/playlists/${playlistId}/tracks/reorder`, {
+      from_index: fromIndex,
+      to_index: toIndex,
+    })
   );
-
-  if (!response.ok) {
-    throw await errorFromResponse(response, 'Failed to reorder playlist');
-  }
 
   info('Playlist reordered');
 }
