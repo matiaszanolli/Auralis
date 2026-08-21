@@ -193,15 +193,48 @@ export const useKeyboardShortcuts = (
     .map((s: KeyboardShortcut) => `${s.key}:${s.ctrl ?? ''}:${s.meta ?? ''}:${s.alt ?? ''}:${s.shift ?? ''}`)
     .join('|');
 
-  // Register shortcuts with service when shortcut keys change
+  // The live shortcut array, refreshed every commit. Handler closures change
+  // identity on every render while the shortcut *structure* rarely does, so
+  // the two are decoupled: this ref carries the current handlers, and the
+  // effect below registers a stable trampoline that reads through it.
+  //
+  // Done in a layout effect (post-commit) rather than the render body so
+  // render stays pure — a render-body side effect double-fired under
+  // Concurrent/Strict mode (#4160). It runs before the passive effect below
+  // on the same commit, so a structure change sees the new handlers.
+  const shortcutsRef = useRef(shortcutsToRegister);
+  useLayoutEffect(() => {
+    shortcutsRef.current = shortcutsToRegister;
+  });
+
+  // Register shortcuts with the service when the shortcut *keys* change.
+  //
+  // #4692: this used to be two registration paths with different gating. The
+  // effect below was gated on serializedKey (#2696), while a second layout
+  // effect re-registered whenever `shortcutsRef.current !== shortcutsToRegister`
+  // — a comparison that is true on every render for the config-object form,
+  // since `configToServiceShortcuts` builds a fresh array each time. The
+  // comment above it claimed to re-register only "when the shortcut array
+  // identity changes", which is exactly the condition that never fails to hold.
+  // That ungated path was also, accidentally, the only thing keeping handlers
+  // current, so it could not simply be deleted or memoized away — memoizing the
+  // array on serializedKey would have frozen the handlers inside it.
+  //
+  // The trampoline resolves both at once: registration happens once per
+  // structure change, and the handler it registers reads the latest closure out
+  // of the ref at call time. Index lookup is safe because serializedKey encodes
+  // every shortcut's key and modifiers in order, so any change that could
+  // reorder or resize the array also changes the key and re-runs this effect.
   useEffect(() => {
     // Clear any previous shortcuts
     keyboardShortcuts.clear();
 
     // Register all shortcuts
-    shortcutsToRegister.forEach((shortcut: KeyboardShortcut) => {
-      const { handler, ...definition } = shortcut;
-      keyboardShortcuts.register(definition, handler);
+    shortcutsRef.current.forEach((shortcut: KeyboardShortcut, index: number) => {
+      const { handler: _handler, ...definition } = shortcut;
+      keyboardShortcuts.register(definition, () => {
+        shortcutsRef.current[index]?.handler();
+      });
     });
 
     // Start listening
@@ -212,24 +245,8 @@ export const useKeyboardShortcuts = (
       keyboardShortcuts.stopListening();
       keyboardShortcuts.clear();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- serializedKey tracks shortcut structure; handlers update via ref below
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- serializedKey tracks shortcut structure; handlers stay current via shortcutsRef
   }, [serializedKey]);
-
-  // Keep handlers fresh without re-running the full effect. The service stores
-  // handlers by reference, so we re-register in-place when the shortcut array
-  // identity changes. Done in a layout effect (post-commit) rather than the
-  // render body so render stays pure — a render-body side effect double-fired
-  // under Concurrent/Strict mode (#4160).
-  const shortcutsRef = useRef(shortcutsToRegister);
-  useLayoutEffect(() => {
-    if (shortcutsRef.current !== shortcutsToRegister) {
-      shortcutsRef.current = shortcutsToRegister;
-      shortcutsToRegister.forEach((shortcut: KeyboardShortcut) => {
-        const { handler, ...definition } = shortcut;
-        keyboardShortcuts.register(definition, handler);
-      });
-    }
-  });
 
   // Enable/disable based on state
   useEffect(() => {
