@@ -9,7 +9,6 @@ import type { WebSocketMessage, TrackInfo } from './base';
 
 /** Message-type literals owned by the queue domain. */
 export type QueueMessageType =
-  | 'queue_updated'
   | 'queue_changed'
   | 'queue_shuffled'
   | 'repeat_mode_changed';
@@ -19,15 +18,12 @@ export type QueueMessageType =
 // Queue Messages
 // ============================================================================
 
-export interface QueueUpdatedMessage extends WebSocketMessage {
-  type: 'queue_updated';
-  data: {
-    action: 'added' | 'removed' | 'reordered' | 'cleared' | 'shuffled';
-    track_path?: string; // For "added" action
-    index?: number; // For "removed" action
-    queue_size: number;
-  };
-}
+// `queue_updated` was removed here in #4680. Its backend emitter went away with
+// #3492 — `routers/player.py` and `services/queue_service.py` still carry the
+// comments recording the removal — but the four frontend declarations stayed,
+// leaving a subscription key that could never fire and that a future author
+// would reasonably subscribe to and then debug at length. `queue_changed`
+// below is the live replacement.
 
 
 /**

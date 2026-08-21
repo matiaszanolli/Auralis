@@ -39,6 +39,11 @@ on:
     paths:
       - 'auralis/**'
       - 'auralis-web/backend/**'
+      # The WS message-type registry is a frontend file, but
+      # tests/backend/test_ws_type_registry_drift_4680.py reads it to check the
+      # backend's emitted literals against it (#4680). Without this entry the
+      # drift check would not run for the one change most likely to break it.
+      - 'auralis-web/frontend/src/types/ws/**'
       - 'tests/**'
       - 'requirements.txt'
       - 'requirements-lock.txt'
@@ -50,6 +55,11 @@ on:
     paths:
       - 'auralis/**'
       - 'auralis-web/backend/**'
+      # The WS message-type registry is a frontend file, but
+      # tests/backend/test_ws_type_registry_drift_4680.py reads it to check the
+      # backend's emitted literals against it (#4680). Without this entry the
+      # drift check would not run for the one change most likely to break it.
+      - 'auralis-web/frontend/src/types/ws/**'
       - 'tests/**'
       - 'requirements.txt'
       - 'requirements-lock.txt'

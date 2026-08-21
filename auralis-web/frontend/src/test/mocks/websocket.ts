@@ -234,16 +234,6 @@ export const mockWSMessages = {
     data: { volume },
   }),
 
-  queueUpdated: (action: string, queueSize: number, trackPath?: string, index?: number) => ({
-    type: 'queue_updated',
-    data: {
-      action,
-      queue_size: queueSize,
-      ...(trackPath && { track_path: trackPath }),
-      ...(index !== undefined && { index }),
-    },
-  }),
-
   // Enhancement messages
   enhancementSettingsChanged: (enabled: boolean, preset: string, intensity: number) => ({
     type: 'enhancement_settings_changed',

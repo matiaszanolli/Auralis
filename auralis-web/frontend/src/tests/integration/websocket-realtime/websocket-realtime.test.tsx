@@ -293,6 +293,11 @@ describe('WebSocket & Real-time Updates Integration Tests', () => {
       unsubscribe();
     });
 
+    // Retargeted from 'queue_updated' to 'queue_changed' (#4680). The backend
+    // emitter for 'queue_updated' was removed by #3492 while the frontend
+    // declarations stayed, so this test subscribed to a key that production
+    // can never deliver — it passed only because the mock socket happily
+    // emits anything. 'queue_changed' is what the backend actually sends.
     it('should receive queue updates', async () => {
       // Arrange
       const { result } = renderHook(() => useWebSocketContext(), {
@@ -302,14 +307,13 @@ describe('WebSocket & Real-time Updates Integration Tests', () => {
       await waitFor(() => expect(result.current.isConnected).toBe(true));
 
       const handler = vi.fn();
-      const unsubscribe = result.current.subscribe('queue_updated', handler);
+      const unsubscribe = result.current.subscribe('queue_changed', handler);
 
       // Act - simulate queue update
       mockWS.simulateMessage({
-        type: 'queue_updated',
+        type: 'queue_changed',
         data: {
-          action: 'added',
-          track_path: '/path/to/track.mp3',
+          tracks: [],
           queue_size: 10,
         },
       });
@@ -318,10 +322,9 @@ describe('WebSocket & Real-time Updates Integration Tests', () => {
       await waitFor(() => {
         expect(handler).toHaveBeenCalledWith(
           expect.objectContaining({
-            type: 'queue_updated',
+            type: 'queue_changed',
             data: {
-              action: 'added',
-              track_path: '/path/to/track.mp3',
+              tracks: [],
               queue_size: 10,
             },
           })

@@ -17,13 +17,19 @@ describe('@/types/websocket barrel (#4081)', () => {
     // is consumed internally by WebSocketContext and never dispatched.
     // 'cache_cleared' was added (#4585) — it was broadcast by the backend but
     // never registered, so the dispatcher dropped it silently.
+    // #4680 traded one for one: 'job_progress' added (emitted by the backend
+    // with no declaration anywhere), 'queue_updated' removed (declared here
+    // with no emitter since #3492).
     expect(ws.ALL_MESSAGE_TYPES).toHaveLength(35);
     expect(ws.ALL_MESSAGE_TYPES).not.toContain('audio_chunk_meta');
+    expect(ws.ALL_MESSAGE_TYPES).not.toContain('queue_updated');
     expect(ws.ALL_MESSAGE_TYPES).toContain('cache_cleared');
+    expect(ws.ALL_MESSAGE_TYPES).toContain('job_progress');
     expect(ws.ALL_MESSAGE_TYPES).toContain('player_state');
     expect(ws.ALL_MESSAGE_TYPES).toContain('error');
     expect(ws.PLAYER_STATE_TYPES).toContain('playback_started');
-    expect(ws.QUEUE_TYPES).toContain('queue_updated');
+    expect(ws.QUEUE_TYPES).toContain('queue_changed');
+    expect(ws.QUEUE_TYPES).not.toContain('queue_updated');
     expect(ws.ENHANCEMENT_TYPES).toContain('mastering_recommendation');
     expect(ws.LIBRARY_TYPES).toContain('library_updated');
   });

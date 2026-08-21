@@ -23,7 +23,6 @@ import type {
 
 import type {
   QueueMessageType,
-  QueueUpdatedMessage,
   QueueChangedMessage,
   QueueShuffledMessage,
   RepeatModeChangedMessage,
@@ -58,6 +57,7 @@ import type {
 import type {
   SystemMessageType,
   CacheClearedMessage,
+  JobProgressMessage,
 } from './system';
 
 import type {
@@ -93,7 +93,6 @@ export type AnyWebSocketMessage =
   | TrackChangedMessage
   | PositionChangedMessage
   | VolumeChangedMessage
-  | QueueUpdatedMessage
   | QueueChangedMessage
   | QueueShuffledMessage
   | RepeatModeChangedMessage
@@ -118,6 +117,7 @@ export type AnyWebSocketMessage =
   | LibraryScanErrorMessage
   | LibraryTracksRemovedMessage
   | CacheClearedMessage
+  | JobProgressMessage
   | WebSocketErrorMessage;
 
 
@@ -135,7 +135,6 @@ export const ALL_MESSAGE_TYPES: readonly WebSocketMessageType[] = [
   'track_changed',
   'position_changed',
   'volume_changed',
-  'queue_updated',
   'queue_changed',
   'queue_shuffled',
   'repeat_mode_changed',
@@ -160,6 +159,7 @@ export const ALL_MESSAGE_TYPES: readonly WebSocketMessageType[] = [
   'library_scan_error',
   'library_tracks_removed',
   'cache_cleared',
+  'job_progress',
   'error',
 ] as const satisfies readonly WebSocketMessageType[];
 
@@ -187,7 +187,6 @@ export const PLAYER_STATE_TYPES: WebSocketMessageType[] = [
 
 
 export const QUEUE_TYPES: WebSocketMessageType[] = [
-  'queue_updated',
   'queue_changed',
   'queue_shuffled',
   'repeat_mode_changed',

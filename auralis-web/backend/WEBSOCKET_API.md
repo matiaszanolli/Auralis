@@ -167,28 +167,11 @@ Broadcast when volume is adjusted.
 
 ### Queue Management Messages
 
-#### `queue_updated`
-Broadcast when the playback queue is modified.
-
-**Triggers**:
-- `POST /api/player/queue/add`
-- `DELETE /api/player/queue/{index}`
-- `PUT /api/player/queue/reorder`
-- `POST /api/player/queue/clear`
-- `POST /api/player/queue/shuffle`
-
-**Payload**:
-```typescript
-{
-  "type": "queue_updated",
-  "data": {
-    "action": "added" | "removed" | "reordered" | "cleared" | "shuffled",
-    "track_path"?: string,        // For "added"
-    "index"?: number,              // For "removed"
-    "queue_size": number
-  }
-}
-```
+> **Removed: `queue_updated`.** #3492 deleted its emitter; the queue routes
+> broadcast `queue_changed` instead. The frontend declarations lingered until
+> #4680, and this document described it as live for longer still. Nothing in
+> `auralis-web/backend/` emits it — `routers/player.py` and
+> `services/queue_service.py` carry only the comments recording the removal.
 
 ---
 
@@ -611,6 +594,17 @@ Broadcast when tracks are removed from the library. `{ "data": { "count": number
 Broadcast by `POST /api/cache/clear` (`routers/cache_streamlined.py`) after both
 cache tiers are dropped. `{ "data": { "message": string } }`
 
+#### `job_progress`
+Per-tick progress for one background processing job, sent only to the
+connections that subscribed to that `job_id` via the `subscribe_job_progress`
+command (`ws_handlers/messages.py`).
+`{ "data": { "job_id": string, "progress": number /* 0.0-1.0 */, "message": string } }`
+
+Registered in the frontend union by #4680. It has no subscriber yet — the one
+consumer that ever read it did so via a raw string compare in a since-deleted
+service, bypassing the registry — so registering it is what makes a type-safe
+subscriber possible rather than the fix being complete on its own.
+
 #### `fingerprint_progress`
 Broadcast by `audio_stream_controller.py` while computing a track fingerprint.
 `{ "data": { "track_id": number, "status": "analyzing" | "complete" | "failed" | "error" | "cached" | "queued", "message": string, "stream_type?": "enhanced" | "normal" } }`
@@ -749,7 +743,7 @@ function MyComponent() {
 | `POST /api/player/volume` | `volume_changed` | ✅ |
 | `POST /api/player/next` | `track_changed` | ✅ |
 | `POST /api/player/previous` | `track_changed` | ✅ |
-| `POST /api/player/queue/*` | `queue_updated` | ✅ |
+| `POST /api/player/queue/*` | `queue_changed`, `queue_shuffled`, `repeat_mode_changed` | ✅ |
 | `POST /api/playlists` | `playlist_created` | ✅ |
 | `PUT /api/playlists/{id}` | `playlist_updated` | ✅ |
 | `DELETE /api/playlists/{id}` | `playlist_deleted` | ✅ |
@@ -857,7 +851,7 @@ Complete TypeScript types for all WebSocket messages are available in:
 
 **Frontend**: [auralis-web/frontend/src/types/websocket.ts](../frontend/src/types/websocket.ts) — a barrel re-export (#4081); the canonical source is [`auralis-web/frontend/src/types/ws/registry.ts`](../frontend/src/types/ws/registry.ts)
 
-The complete `WebSocketMessageType` union (35 members) is reproduced here for quick reference. Note `audio_chunk_meta` is intentionally excluded from this union — it's a JSON text frame fused with the following binary frame into a synthetic `audio_chunk` event by `WebSocketContext` before reaching consumers (see `ws/streaming.ts`):
+The complete `WebSocketMessageType` union (35 members) is reproduced here for quick reference. This block is hand-maintained and has drifted from the real union before (#4991); `tests/backend/test_ws_type_registry_drift_4680.py` now checks it against both the backend's emitted literals and `registry.ts`, so a stale copy fails CI rather than misleading the next reader. Note `audio_chunk_meta` is intentionally excluded from this union — it's a JSON text frame fused with the following binary frame into a synthetic `audio_chunk` event by `WebSocketContext` before reaching consumers (see `ws/streaming.ts`):
 
 ```typescript
 export type WebSocketMessageType =
@@ -872,7 +866,6 @@ export type WebSocketMessageType =
   | 'position_changed'
   | 'volume_changed'
   // Queue messages
-  | 'queue_updated'
   | 'queue_changed'
   | 'queue_shuffled'
   | 'repeat_mode_changed'
@@ -906,6 +899,7 @@ export type WebSocketMessageType =
   | 'library_scan_error'
   | 'library_tracks_removed'
   | 'cache_cleared'
+  | 'job_progress'
   // Error messages
   | 'error';
 ```
@@ -915,9 +909,9 @@ export type WebSocketMessageType =
 | Category | Types |
 |----------|-------|
 | Player state | `player_state`, `playback_started`, `playback_paused`, `playback_resumed`, `playback_stopped`, `track_loaded`, `track_changed`, `position_changed`, `volume_changed` |
-| Queue | `queue_updated`, `queue_changed`, `queue_shuffled`, `repeat_mode_changed` |
+| Queue | `queue_changed`, `queue_shuffled`, `repeat_mode_changed` |
 | Library | `library_updated`, `library_scan_started`, `library_scan_error`, `library_tracks_removed` |
-| System | `cache_cleared` |
+| System | `cache_cleared`, `job_progress` |
 | Metadata | `metadata_updated`, `metadata_batch_updated` |
 | Playlists | `playlist_created`, `playlist_updated`, `playlist_deleted` |
 | Enhancement | `enhancement_settings_changed`, `mastering_recommendation` |

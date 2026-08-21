@@ -25,7 +25,6 @@ import type {
 } from './player';
 
 import type {
-  QueueUpdatedMessage,
   QueueChangedMessage,
   QueueShuffledMessage,
   RepeatModeChangedMessage,
@@ -133,8 +132,6 @@ export const isTrackChangedMessage          = makeGuard<TrackChangedMessage>('tr
 export const isPositionChangedMessage       = makeGuard<PositionChangedMessage>('position_changed');
 
 export const isVolumeChangedMessage         = makeGuard<VolumeChangedMessage>('volume_changed');
-
-export const isQueueUpdatedMessage          = makeGuard<QueueUpdatedMessage>('queue_updated');
 
 export const isMetadataBatchUpdatedMessage  = makeGuard<MetadataBatchUpdatedMessage>('metadata_batch_updated');
 
