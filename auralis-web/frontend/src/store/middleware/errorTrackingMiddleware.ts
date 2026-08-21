@@ -2,16 +2,27 @@
  * Redux Error Tracking Middleware
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
- * Middleware for centralized error tracking and recovery.
- * Monitors Redux actions for errors and provides recovery mechanisms.
+ * Middleware for centralized error tracking. Monitors Redux actions for
+ * errors, categorises them, and records them for inspection.
  *
  * Features:
  * - Automatic error detection from action payloads
  * - Error categorization and context tracking
- * - Recovery action suggestions
- * - Error analytics collection
- * - Retry with exponential backoff
- * - Error boundary integration
+ * - Optional `errorActions` allowlist restricting which action types are
+ *   tracked (#4662)
+ *
+ * NOT features, despite what this block used to claim:
+ * - *Recovery action suggestions* (#4933). `onRecovery` and
+ *   `recoveryStrategies` were config fields nothing ever read; both were
+ *   removed in #4695. There is no recovery mechanism here — a caller that
+ *   wants one has to build it.
+ * - *Error boundary integration* (#4933). The app's ErrorBoundary components
+ *   do not import anything from this module; `store/index.ts`'s
+ *   `createErrorTrackingMiddleware` call is its only consumer.
+ *
+ * `retryAction`, `getErrorStats` and `ErrorStore` are real implementations but
+ * have no callers outside tests — tracked separately by #5017. Do not read
+ * their presence as evidence that retry/analytics are wired into the app.
  *
  * Phase C.4d: Redux Error Handling
  *
