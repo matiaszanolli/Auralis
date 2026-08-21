@@ -154,4 +154,6 @@ class NormalizationStep:
                 print(f"[{self.step_name}] Peak: {self.before_measurement['peak_db']:.2f} → "
                       f"{self.after_measurement['peak_db']:.2f} dB (Δ {peak_delta:+.2f}), "
                       f"RMS: {self.before_measurement['rms_db']:.2f} → "
-                      f"{self.after_measurement['rms_db']:.2f} dB (Δ {rms_delta:+.2f})")
+                      f"{self.after_measurement['rms_db']:.2f} dB (Δ {rms_delta:+.2f}), "
+                      f"Crest: {self.before_measurement['crest']:.2f} → "
+                      f"{self.after_measurement['crest']:.2f} dB (Δ {crest_delta:+.2f})")
