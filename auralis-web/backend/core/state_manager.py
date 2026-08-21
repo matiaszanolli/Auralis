@@ -234,6 +234,23 @@ class PlayerStateManager:
             "data": state.model_dump()
         })
 
+    async def shutdown(self) -> None:
+        """Stop this manager's background work (#4747).
+
+        The 1 Hz position loop was previously only reachable from
+        ``set_playing(False)``, so the app lifespan — which tears down every
+        other long-lived component explicitly — left it running when the
+        process shut down mid-playback. The loop kept broadcasting
+        ``position_changed`` against closing WebSockets until the event loop
+        went away, producing "Task was destroyed but it is pending" at
+        teardown.
+
+        Public and idempotent: ``_shutdown_components`` calls it without
+        knowing whether playback was ever started, and calling it twice (or
+        after a pause already stopped the loop) is a no-op.
+        """
+        await self._stop_position_updates()
+
     def _start_position_updates(self) -> None:
         """Start periodic position updates (called when playback starts)"""
         if self._position_update_task is None or self._position_update_task.done():

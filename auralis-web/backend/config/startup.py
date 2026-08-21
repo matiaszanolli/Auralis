@@ -151,6 +151,19 @@ async def _shutdown_components(globals_dict: dict[str, Any]) -> None:
     The outer ``try`` remains only as a last-resort net.
     """
     try:
+        # Stop the 1 Hz player-state broadcast FIRST (#4747). It was the only
+        # long-lived task in the lifespan with no symmetric stop: started by
+        # set_playing(True) and cancelled only by set_playing(False), so a
+        # shutdown mid-playback left it broadcasting position_changed against
+        # closing WebSockets until the event loop went away. Ordered ahead of
+        # every other teardown so nothing below it races a broadcast.
+        if globals_dict.get('player_state_manager'):
+            try:
+                await globals_dict['player_state_manager'].shutdown()
+                logger.info("✅ Player state manager stopped")
+            except Exception as psm_err:
+                logger.warning(f"⚠️  Player state manager shutdown error: {psm_err}")
+
         # Stop the background workers (auto_scanner, ondemand + batch fingerprint
         # queues) through the shared helper so this path and the library-reset
         # endpoint can never diverge on which workers exist (#4111) *or* on how
