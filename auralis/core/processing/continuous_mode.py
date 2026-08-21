@@ -16,6 +16,7 @@ done with those parameters lives alongside it (#4254) --
 the guard knees, and ``fixed_target_params.py`` the fixed-targets conversion.
 """
 
+from collections.abc import Sequence
 from typing import Any
 
 import numpy as np
@@ -23,6 +24,7 @@ import numpy as np
 from auralis.core.analysis import ContentAnalyzer
 
 from ...utils.logging import debug
+from .album_target import AlbumTarget, derive_album_target
 from .continuous_space import (
     PreferenceVector,
     ProcessingParameters,
@@ -72,6 +74,11 @@ class ContinuousMode(ContinuousStagesMixin):
         self._reference_cloud: list[Any] | None = None
         self._distance_stats: Any | None = None
 
+        # Album-consistency override (#3481). When set, every process() call
+        # uses this one target instead of deriving its own, so tracks played as
+        # an album converge on a shared tonality. None = per-track mode.
+        self._album_target: dict[str, float] | None = None
+
         # Initialize continuous space components
         self.space_mapper = ProcessingSpaceMapper()
         self.param_generator = ContinuousParameterGenerator()
@@ -98,6 +105,34 @@ class ContinuousMode(ContinuousStagesMixin):
         the parameter generator then falls back to legacy deficit-based math.
         Cached across process() calls so we only hit the DB once per session.
         """
+        # Album mode short-circuits the per-track k-NN entirely (#3481): the
+        # shared target IS the answer, and re-deriving one here would be the
+        # per-track drift album mode exists to remove.
+        if self._album_target is not None:
+            return self._album_target
+
+        context = self._reference_context()
+        if context is None:
+            return None
+        references, stats = context
+
+        from .target_derivation import derive_target
+        result = derive_target(fingerprint, references, stats)
+        if result is None:
+            return None
+        debug(
+            f"[Mastering] Target derived from {result.n_matched} references "
+            f"(top: {result.top_ref_ids[:3]})"
+        )
+        return result.target
+
+    def _reference_context(self) -> tuple[list[Any], Any] | None:
+        """Lazy-load the reference cloud and its z-score stats.
+
+        Cached across process() calls so we only hit the DB once per session.
+        Returns None when no repository is wired or the cloud is empty — every
+        caller then falls back to legacy deficit-based math.
+        """
         if self.fingerprint_repository is None:
             return None
 
@@ -117,15 +152,65 @@ class ContinuousMode(ContinuousStagesMixin):
             from .target_derivation import DistanceStats
             self._distance_stats = DistanceStats.from_references(self._reference_cloud)
 
-        from .target_derivation import derive_target
-        result = derive_target(fingerprint, self._reference_cloud, self._distance_stats)
-        if result is None:
+        return self._reference_cloud, self._distance_stats
+
+    def set_album_target(self, target: dict[str, float] | None) -> None:
+        """Pin every subsequent process() call to one shared target (#3481).
+
+        Pass None to return to per-track derivation. Only the target spectrum is
+        shared: each track still gets its own coordinates, dynamics, loudness and
+        stereo width, and its own EQ curve — the curve is a symmetric delta from
+        that track's source to this target, which is how tracks starting from
+        different places converge rather than staying different.
+        """
+        self._album_target = target
+
+    def derive_album_target(
+        self, album_audio: Sequence[np.ndarray]
+    ) -> AlbumTarget | None:
+        """Fingerprint every track of an album and derive one shared target.
+
+        Returns None when the reference cloud is unavailable or no track yielded
+        a target; the caller should then simply not enter album mode.
+        """
+        context = self._reference_context()
+        if context is None:
             return None
-        debug(
-            f"[Mastering] Target derived from {result.n_matched} references "
-            f"(top: {result.top_ref_ids[:3]})"
+        references, stats = context
+
+        fingerprints = [
+            self.fingerprint_analyzer.analyze(audio, self.config.internal_sample_rate)
+            for audio in album_audio
+        ]
+        return derive_album_target(
+            [fp for fp in fingerprints if fp], references, stats
         )
-        return result.target
+
+    def process_album(
+        self, album_audio: Sequence[np.ndarray], eq_processor: Any
+    ) -> list[np.ndarray]:
+        """Process a whole album against one shared target (#3481).
+
+        Falls back to plain per-track processing when no shared target can be
+        derived, so this is always safe to call. The override is cleared in a
+        ``finally`` — a track that raises mid-album must not leave the processor
+        pinned to an album target for whatever plays next.
+        """
+        album = list(album_audio)
+        album_target = self.derive_album_target(album)
+        if album_target is None:
+            debug("[Album] No shared target available — processing per track")
+            return [self.process(audio, eq_processor) for audio in album]
+
+        debug(
+            f"[Album] Processing {len(album)} tracks against a shared target "
+            f"({album_target.n_tracks} contributed, {album_target.n_skipped} skipped)"
+        )
+        self.set_album_target(album_target.target)
+        try:
+            return [self.process(audio, eq_processor) for audio in album]
+        finally:
+            self.set_album_target(None)
 
     def process(self, target_audio: np.ndarray, eq_processor: Any,
                 fixed_params: dict[str, Any] | None = None) -> np.ndarray:
