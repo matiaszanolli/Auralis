@@ -2,11 +2,16 @@
  * FingerprintCache — IndexedDB round-trip, TTL expiry and cleanup (#4478)
  *
  * The 378-line persistence layer behind the fingerprint UI had no tests: the
- * only file that referenced it mocked the whole module
- * (`hooks/fingerprint/__tests__/useFingerprintCache.test.ts`), so nothing ever
+ * only file that referenced it — `hooks/fingerprint/useFingerprintCache`, since
+ * deleted in #4239 — mocked the whole module in its own tests, so nothing ever
  * exercised a real IndexedDB round-trip, the 30-day expiry, or the cleanup
  * sweep. These drive the real class against `fake-indexeddb`, which jsdom does
  * not provide on its own.
+ *
+ * With that hook gone the cache has no consumer at all, so these tests are now
+ * its only exercise. They are kept rather than deleted alongside it: the class
+ * is correct, self-contained persistence, and it is what a real client-side
+ * fingerprint cache would be built on if one is ever wired up.
  *
  * Each test gets a fresh database and a fresh `FingerprintCache`, because the
  * class caches its `IDBDatabase` handle for the life of the instance.
