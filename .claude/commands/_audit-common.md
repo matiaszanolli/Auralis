@@ -30,7 +30,7 @@ Backend:             auralis-web/backend/                    FastAPI :8765
 Backend Entry:       auralis-web/backend/main.py             Thin entry — builds the lifespan, then delegates to config/. StaticFiles mount + `--dev` switch live here.
 Backend App Wiring:  auralis-web/backend/config/             app.py (create_app), middleware.py (CORS + RateLimit + SecurityHeaders + NoCache), routes.py (registers all 20 routers), startup.py (lifespan), background_workers.py, globals.py, limits.py
 Backend Routers:     auralis-web/backend/routers/            26 .py files = 20 registered routers + helpers (dependencies.py, errors.py, pagination.py, serializers.py, similarity_common.py)
-Backend Streaming:   auralis-web/backend/core/               32 modules — chunked_processor.py, chunk_boundaries.py (chunk-constant SoT), chunk_cache*.py, chunk_crossfade.py, chunk_mastering.py, chunk_operations.py, audio_stream_controller.py, stream_*.py (enhanced/normal/seek/prefetch/protocol/messages/chunk_ops/fingerprint), processing_engine.py, job_models.py, processor_pool.py, processor_factory.py, job_worker.py, streamlined_worker.py, state_manager.py, proactive_buffer.py, audio_processing_pipeline.py, mastering_target_service.py, level_manager.py, seekable_source.py, file_signature.py, thumbnail_cache.py, env_config.py, encoding/
+Backend Streaming:   auralis-web/backend/core/               34 modules — chunked_processor.py, chunk_boundaries.py (chunk-constant SoT), chunk_cache*.py, chunk_crossfade.py, chunk_mastering.py, chunk_operations.py, audio_stream_controller.py, stream_*.py (enhanced/normal/seek/prefetch/protocol/messages/chunk_ops/fingerprint), processing_engine.py, job_models.py, processor_pool.py, processor_factory.py, job_worker.py, streamlined_worker.py, state_manager.py, proactive_buffer.py, audio_processing_pipeline.py, mastering_target_service.py, level_manager.py, seekable_source.py, file_signature.py, thumbnail_cache.py, env_config.py, encoding/
 Backend Cache:       auralis-web/backend/cache/              manager.py, monitoring.py — the streamlined cache surface behind routers/cache_streamlined.py. Distinct from the chunk cache in core/ and the thumbnail cache in core/thumbnail_cache.py; all three are separate caches with separate invalidation rules.
 Backend WebSocket:   auralis-web/backend/ws_handlers/        connection.py, context.py, messages.py, playback_commands.py, playback_control.py
                      auralis-web/backend/websocket/          websocket_protocol.py, websocket_security.py
@@ -54,7 +54,7 @@ Frontend Test Utils: auralis-web/frontend/src/test/          setup.ts, test-util
 Rust DSP:            vendor/auralis-dsp/                     PyO3 module, 19 src/*.rs. Exposes 11 functions via py_bindings.rs: hpss, yin, chroma_cqt, detect_tempo, envelope_follow, compress, limit, compute_fingerprint, apply_multiband_eq, detect_onsets, process_chunks. rhythm.rs/tempo.rs/onset_detector.rs were ported in when the standalone fingerprint-server was deleted (#4533).
 Desktop:             desktop/                                Electron wrapper
 Scripts:             scripts/                                Dev/release tooling — check_pytest_baseline.py, validate_release_metadata.py, run_all_tests.py, development/
-Tests:               tests/                                  ~6,289 test functions (541 files) across 19 dirs
+Tests:               tests/                                  ~6,474 test functions (559 files) across 18 dirs
 Audit Reports:       docs/audits/                            Generated audit reports
 Local Issue Cache:   .claude/issues/                         Issue snapshots (per audit-publish / fix-issue)
 Specialist Agents:   .claude/agents/                         dsp, backend, frontend, library specialists
@@ -89,15 +89,15 @@ Both suites carry a large pre-existing failure baseline, so a raw failure is **n
 
 | Suite | Baseline | Check | CI |
 |-------|----------|-------|-----|
-| Frontend (vitest) | `auralis-web/frontend/test-baseline.json` — an explicit list of known-failing specs (~165 of ~3,446 at last regen) | `pnpm run test:ci` then `pnpm run test:baseline` | `.github/workflows/frontend-test.yml` |
-| Backend (pytest) | `pytest-baseline.json` at the repo root — tracked, 482 entries, regenerated 2026-08-14 (`f59b4901`) | `python scripts/check_pytest_baseline.py pytest-results.xml` | `.github/workflows/backend-tests.yml` |
+| Frontend (vitest) | `auralis-web/frontend/test-baseline.json` — an explicit list of known-failing specs (111 of 3,538 at last regen) | `pnpm run test:ci` then `pnpm run test:baseline` | `.github/workflows/frontend-test.yml` |
+| Backend (pytest) | `pytest-baseline.json` at the repo root — tracked, 216 entries, regenerated 2026-08-19 (`7c03249e`) | `python scripts/check_pytest_baseline.py pytest-results.xml --strict-stale` | `.github/workflows/backend-tests.yml` |
 
 Rules:
 - **Read the baseline file before reporting any failing test.** If the spec is listed, it is known — do not file it.
 - Both gates are *ratchets*: the baseline may shrink, never grow. A newly-failing test not in the baseline is a genuine regression and worth a finding.
 - Regenerate rather than hand-edit: `pnpm run test:baseline:update`.
 - CI **does** now run vitest and pytest. Any audit note claiming "no CI runs the tests" is out of date.
-- `backend-tests.yml` is currently **red on every run**, and that is not the same as "the gate is broken" (#4974). The baseline file exists and the pytest step runs 6,901 selected tests; it is the *baseline-comparison* step that fails, on failures absent from the list. Read that step, not the pytest step. Do **not** report "the backend gate has never worked / the baseline is missing" — that was true through 2026-07 and is not now. #5091 tracks the opposite rot (69 entries whose tests now pass).
+- `backend-tests.yml` is currently **red on every run**, and that is not the same as "the gate is broken" (#4974). The baseline file exists and the pytest step runs 6,889 selected tests; it is the *baseline-comparison* step that fails, on failures absent from the list — or, since #5091, on a baselined entry that now passes. Read that step, not the pytest step. Do **not** report "the backend gate has never worked / the baseline is missing" — that was true through 2026-07 and is not now. #5091 (69 entries whose tests now pass, silently re-permitted) is now CLOSED: `check_pytest_baseline.py --strict-stale` is wired into `backend-tests.yml` and fails the job on any stale entry, not just on new unlisted failures. Do not re-report "the ratchet can't detect stale entries" — it now can and does.
 - A worktree comparison (`git worktree add`, **never** `git stash`) is still the fallback when a baseline file is missing or you need to attribute a failure to a specific commit.
 
 ## Severity Framework

@@ -66,13 +66,15 @@ cd auralis-web/frontend && pnpm run test:ci && pnpm run test:baseline:update
 Generate a baseline from a **CI artifact**, not a local run — a baseline built
 against a different interpreter or dependency set reports spurious new failures.
 
-`pytest-baseline.json` **is tracked** (482 entries, regenerated 2026-08-14 in
-`f59b4901`) — the "it does not exist yet" note that stood here was true when
+`pytest-baseline.json` **is tracked** (216 entries, regenerated 2026-08-19 in
+`7c03249e`) — the "it does not exist yet" note that stood here was true when
 written and is not any more (#4974). `backend-tests.yml` still fails, but on the
 ratchet doing its job rather than on a missing file: the ratchet rejects
 failures absent from the list. Read the failing run's *baseline* step, not the
-pytest step, to see which. #5091 tracks the converse rot — 69 entries whose
-tests now pass, which the ratchet cannot detect on its own.
+pytest step, to see which. #5091 (69 entries whose tests now pass, silently
+re-permitted) is now CLOSED — `check_pytest_baseline.py --strict-stale` is wired
+into `backend-tests.yml` and fails the job on any stale baseline entry too, not
+just on new unlisted failures.
 
 Do not add a `version:` input to `pnpm/action-setup`: every `package.json` here
 declares `packageManager`, and supplying both makes the action hard-error before
@@ -159,8 +161,8 @@ auralis-web/
 
 vendor/auralis-dsp/               Rust DSP via PyO3 (HPSS, YIN, Chroma)
 desktop/                          Electron wrapper
-tests/                            ~6,289 test functions (541 files) across 19 subdirs (unit, integration,
-                                    boundary, concurrency, security, load, regression...)
+tests/                            ~6,474 test functions (559 files) across 18 subdirs (auralis, backend,
+                                    integration, boundaries, concurrency, security, load_stress, regression...)
 docs/                             18 topic dirs (development, features, frontend...)
 ```
 
@@ -229,8 +231,9 @@ Cached chunk files are 16-bit PCM WAV, not float32.
    to fall back to a high-recall prose grep that cannot distinguish a deferral
    from an ordinary sentence (#4564). Genuine marker debt in shipped code —
    `auralis/`, `auralis-web/`, `vendor/` — is currently **0**; `tests/` holds
-   **5**, each citing an OPEN issue (#5171, #5172 ×2, #5173, #5174). Keep both
-   figures honest by linking the issue instead of leaving a bare `TODO`.
+   **4**, each citing an OPEN issue (#5172 ×2, #5173, #5174) — #5171 was the
+   fifth until it was fixed and closed. Keep both figures honest by linking
+   the issue instead of leaving a bare `TODO`.
    The scope matters: that "0" was quoted repo-wide for weeks while every
    genuine marker in the tree sat in `tests/`, uncounted (#5143), so
    `/audit-tech-debt` now reports the two censuses as separate lines.

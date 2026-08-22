@@ -600,7 +600,7 @@ export const mockPlayerState: PlayerStateMessage['data'] = {
 - [ ] `src/hooks/player/usePlaybackControl.ts` - Control methods
 - [ ] `src/hooks/library/useLibrary.ts` - Library queries
 - [ ] `src/hooks/enhancement/useEnhancement.ts` - Audio settings
-- [ ] `src/hooks/fingerprint/useFingerprintCache.ts` - Fingerprint cache
+- [x] *src/hooks/fingerprint/useFingerprintCache.ts* - Fingerprint cache — built differently than planned: a `src/services/fingerprint/FingerprintCache.ts` service plus `src/hooks/fingerprint/useAlbumFingerprint.ts` / `useTrackFingerprint.ts` / `useSimilarTracks.ts`, not this hook
 
 ### Services
 - [ ] `src/services/fingerprint/FingerprintCache.ts` - IndexedDB cache

@@ -208,7 +208,7 @@ Every agent prompt MUST include:
 **Output**: `/tmp/audit/tech-debt/dim_2.md`
 
 ### Dimension 3: Logic Duplication
-**Entry points**: any subsystem with N>1 similar files — the Sibling Detection groups in `_audit-common.md` are the prime targets: `auralis/library/repositories/` (14 repos, each extends `BaseRepository`), `auralis-web/backend/routers/` (20 registered routers), `auralis-web/backend/core/` (the `stream_*.py` / `chunk_*.py` families), `auralis/core/` (the `mastering_*.py` family), `auralis/dsp/`, `auralis-web/frontend/src/hooks/`.
+**Entry points**: any subsystem with N>1 similar files — the Sibling Detection groups in `_audit-common.md` are the prime targets: `auralis/library/repositories/` (13 repos, each extends `BaseRepository`), `auralis-web/backend/routers/` (20 registered routers), `auralis-web/backend/core/` (the `stream_*.py` / `chunk_*.py` families), `auralis/core/` (the `mastering_*.py` family), `auralis/dsp/`, `auralis-web/frontend/src/hooks/`.
 **Checklist**:
 - Repeated query scaffolding across `auralis/library/repositories/` (session open → query → `selectinload` → map) — should it funnel through a base-repository helper?
 - Repeated request-validation / error-`HTTPException` / response-shaping boilerplate across `auralis-web/backend/routers/` (cross-reference `/sync-contracts` for the schema side).
