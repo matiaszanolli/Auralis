@@ -27,6 +27,12 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { isAbortError } from '@/utils/errorGuards';
 import { httpErrorFromResponse, type HttpStatusError } from '@/utils/httpError';
+// LRU + TTL cache, keyed on every parameter that reaches the wire (#4629).
+import {
+  getCacheKey,
+  readSimilarityCache,
+  writeSimilarityCache,
+} from './similarityCache';
 
 /**
  * Similar track response model (matches backend SimilarTrack)
@@ -88,21 +94,6 @@ interface UseSimilarTracksReturn {
 }
 
 /**
- * In-memory LRU cache for similarity results (max 50 entries).
- * Key: `${trackId}:${limit}:${includeDetails}`, Value: SimilarTrack[]
- * Map iteration order is insertion order, so oldest entries are first.
- */
-const CACHE_MAX_ENTRIES = 50;
-const similarityCache = new Map<string, SimilarTrack[]>();
-
-/**
- * Generate cache key from search parameters
- */
-function getCacheKey(trackId: number, limit: number, includeDetails: boolean): string {
-  return `${trackId}:${limit}:${includeDetails}`;
-}
-
-/**
  * useSimilarTracks Hook
  *
  * Finds similar tracks using fingerprint-based similarity search.
@@ -154,13 +145,12 @@ export function useSimilarTracks(): UseSimilarTracksReturn {
 
       currentRequestRef.current = trackId;
 
-      // Check cache first
-      const cacheKey = getCacheKey(trackId, limit, includeDetails);
-      const cached = similarityCache.get(cacheKey);
+      // Check cache first. `useGraph` is part of the key: it selects between
+      // two different backend data sources, so omitting it aliased the two
+      // answers onto one entry (#4629).
+      const cacheKey = getCacheKey(trackId, limit, includeDetails, useGraph);
+      const cached = readSimilarityCache(cacheKey);
       if (cached) {
-        // Promote to most-recent for LRU ordering
-        similarityCache.delete(cacheKey);
-        similarityCache.set(cacheKey, cached);
         setSimilarTracks(cached);
         setLoading(false);
         setError(null);
@@ -232,12 +222,7 @@ export function useSimilarTracks(): UseSimilarTracksReturn {
         // Check if this is still the current request (prevent race condition)
         if (currentRequestRef.current === trackId) {
           setSimilarTracks(results);
-          // LRU eviction: remove oldest entries when cache exceeds max size
-          if (similarityCache.size >= CACHE_MAX_ENTRIES) {
-            const oldestKey = similarityCache.keys().next().value!;
-            similarityCache.delete(oldestKey);
-          }
-          similarityCache.set(cacheKey, results);
+          writeSimilarityCache(cacheKey, results);
           setLoading(false);
         }
 

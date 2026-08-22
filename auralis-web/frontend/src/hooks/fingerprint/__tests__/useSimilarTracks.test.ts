@@ -7,6 +7,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useSimilarTracks } from '../useSimilarTracks';
+import { clearSimilarityCache } from '../similarityCache';
 
 // Mock fetch
 const mockFetchResponse = (data: any, ok = true, status = 200) => {
@@ -227,5 +228,84 @@ describe('backend error detail (#4626)', () => {
     });
     expect(result.current.error).toBeNull();
     expect(result.current.errorStatus).toBeNull();
+  });
+});
+
+/**
+ * #4629: `use_graph` selects between two backend data sources but was absent
+ * from the cache key, so the two answers aliased onto one entry.
+ */
+describe('useGraph cache aliasing (#4629)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    clearSimilarityCache();
+  });
+
+  const payload = (trackId: number) => [
+    {
+      track_id: trackId,
+      distance: 0.1,
+      similarity_score: 0.9,
+      rank: 1,
+      title: 't',
+      artist: 'a',
+      album: 'b',
+    },
+  ];
+
+  it('does not serve the graph result to a useGraph:false request', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, status: 200, json: () => Promise.resolve(payload(100)) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: () => Promise.resolve(payload(200)) });
+    global.fetch = fetchMock;
+
+    const { result } = renderHook(() => useSimilarTracks());
+
+    let fromGraph: Awaited<ReturnType<typeof result.current.findSimilar>> = [];
+    let fromRealtime: typeof fromGraph = [];
+    await act(async () => {
+      fromGraph = await result.current.findSimilar(1, { limit: 10, useGraph: true });
+    });
+    await act(async () => {
+      fromRealtime = await result.current.findSimilar(1, { limit: 10, useGraph: false });
+    });
+
+    // Pre-fix: one fetch, and the second call returned the first payload.
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fromGraph[0].trackId).toBe(100);
+    expect(fromRealtime[0].trackId).toBe(200);
+  });
+
+  it('sends the flag it keyed on', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve(payload(100)) });
+    global.fetch = fetchMock;
+
+    const { result } = renderHook(() => useSimilarTracks());
+    await act(async () => {
+      await result.current.findSimilar(1, { limit: 10, useGraph: false });
+    });
+
+    expect(String(fetchMock.mock.calls[0][0])).toContain('use_graph=false');
+  });
+
+  it('still caches repeated identical calls', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve(payload(100)) });
+    global.fetch = fetchMock;
+
+    const { result } = renderHook(() => useSimilarTracks());
+    await act(async () => {
+      await result.current.findSimilar(1, { limit: 10, useGraph: true });
+    });
+    await act(async () => {
+      await result.current.findSimilar(1, { limit: 10, useGraph: true });
+    });
+
+    // The key gained a dimension; it must not have become cache-busting.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
