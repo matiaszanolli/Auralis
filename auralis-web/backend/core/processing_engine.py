@@ -33,15 +33,20 @@ from auralis.core.hybrid_processor import HybridProcessor
 from auralis.io.processing import resample_audio
 from auralis.io.saver import save
 from auralis.io.unified_loader import load_audio
-from auralis.utils.logging import Code, ModuleError
 
 # ProcessingJob / ProcessingStatus live in job_models so the worker can import
 # them without a circular dependency; re-exported here so existing
 # `from core.processing_engine import ProcessingJob, ProcessingStatus` keeps
 # working (#4250).
 from config.limits import PROCESSING_TEMP_DIRNAME, UPLOAD_TEMP_DIRNAME
-from core.encoding import WAVEncoderError
+from core.job_cleanup import cleanup_expired_jobs
+
+# _safe_error_message lives in job_error_mapping so it (and its mapping
+# tables) can be tested/imported independently; re-exported here for the
+# same reason ProcessingJob/ProcessingStatus are (#4250 follow-up).
+from core.job_error_mapping import _safe_error_message
 from core.job_models import ProcessingJob, ProcessingStatus
+from core.job_progress import ProgressNotifier
 from core.job_worker import JobWorker
 from core.processor_pool import ProcessorPool
 
@@ -54,67 +59,6 @@ __all__ = [
 
 
 logger = logging.getLogger(__name__)
-
-# Maps exception types to user-safe messages.  Order matters: first
-# match wins, so put specific types before broad ones.
-_ERROR_CATEGORIES: list[tuple[type[BaseException], str]] = [
-    # #5147: WAVEncoderError used to be appended here inside a
-    # `try: from encoding.wav_encoder import ... except ImportError: pass`,
-    # because that module was only importable when auralis-web/backend
-    # happened to be on sys.path. Any environment where that failed silently
-    # lost the mapping and reported encoder failures under the generic
-    # message. It now comes from the core.encoding package, which is a normal
-    # relative sibling and cannot fail to import, so it is stated inline.
-    (WAVEncoderError, "Audio encoding failed"),
-    (FileNotFoundError, "Audio file not found"),
-    (PermissionError, "Permission denied accessing audio file"),
-    (OSError, "Audio file could not be read"),
-    (ValueError, "Invalid audio data or parameters"),
-    (MemoryError, "Insufficient memory to process audio"),
-]
-
-# auralis.io.unified_loader (and its loaders/ siblings) raise ModuleError — a
-# bare Exception subclass — for every load failure instead of a stdlib
-# exception type, so it never matched _ERROR_CATEGORIES above and every load
-# failure collapsed into the generic fallback (#4769). ModuleError.code is the
-# formatted "<Code.* value>: <detail>" string, so match on its prefix rather
-# than isinstance. Order matters: first match wins.
-_MODULE_ERROR_CATEGORIES: list[tuple[str, str]] = [
-    (Code.ERROR_FILE_NOT_FOUND, "Audio file not found"),
-    (Code.ERROR_EMPTY_FILE, "Audio file is empty"),
-    (Code.ERROR_EMPTY_AUDIO, "Audio file contains no audio data"),
-    (Code.ERROR_UNSUPPORTED_FORMAT, "Unsupported audio format"),
-    (Code.ERROR_INVALID_SAMPLE_RATE, "Invalid audio sample rate"),
-    (Code.ERROR_INVALID_AUDIO, "Invalid or corrupted audio data"),
-    (Code.ERROR_TRUNCATED_FILE, "Audio file appears to be truncated or incomplete"),
-    (Code.ERROR_CORRUPTED, "Audio file is corrupted or unsupported"),
-    (Code.ERROR_FFMPEG_NOT_FOUND, "Audio decoder unavailable on server"),
-    (Code.ERROR_FFMPEG_TIMEOUT, "Audio conversion timed out"),
-    (Code.ERROR_FFMPEG_CONVERSION, "Audio file could not be converted"),
-    (Code.ERROR_LOADING, "Audio file could not be loaded"),
-    (Code.ERROR_VALIDATION, "Audio validation failed"),
-    (Code.ERROR_NAN_DETECTED, "Audio file contains invalid sample values"),
-]
-
-
-def _safe_error_message(exc: Exception) -> str:
-    """Return a user-safe error category for *exc*.
-
-    The raw exception is intentionally NOT included — callers must log
-    it separately so internal paths / library internals stay server-side.
-    This also applies to ModuleError.code, which can embed absolute paths
-    or raw FFmpeg stderr; only the mapped category string is ever returned.
-    """
-    if isinstance(exc, ModuleError):
-        code = getattr(exc, "code", "") or ""
-        for prefix, message in _MODULE_ERROR_CATEGORIES:
-            if code.startswith(prefix):
-                return message
-        return "Audio file could not be processed"
-    for exc_type, message in _ERROR_CATEGORIES:
-        if isinstance(exc, exc_type):
-            return message
-    return "An unexpected error occurred during processing"
 
 
 def _reset_processor_state(processor: HybridProcessor) -> None:
@@ -178,13 +122,11 @@ class ProcessingEngine:
         self.temp_dir: Path = Path(tempfile.gettempdir()) / PROCESSING_TEMP_DIRNAME
         self.temp_dir.mkdir(exist_ok=True)
 
-        # Progress callbacks, per job_id. A LIST, not a single callable (#3868):
-        # each WebSocket that subscribes to a job registers its own closure, and
-        # a single-value dict silently let the newest subscriber overwrite every
-        # earlier one — so with two subscribers (multi-window Electron, or one
-        # client subscribing twice) all but the last stopped receiving
-        # `job_progress` events, with no error anywhere.
-        self.progress_callbacks: dict[str, list[Callable[..., Any]]] = {}
+        # Progress-callback fan-out (#4250: extracted to ProgressNotifier).
+        # Shares this engine's jobs dict / _jobs_lock by reference so a
+        # progress tick still updates the same job objects create_job() and
+        # cancel_job() mutate.
+        self._progress: ProgressNotifier = ProgressNotifier(self.jobs, self._jobs_lock)
 
         # Per-job cooperative cancellation tokens (#4496). A job's input/reference
         # FFmpeg decode runs in a `to_thread` worker that `task.cancel()` cannot
@@ -218,6 +160,15 @@ class ProcessingEngine:
     @property
     def processors(self) -> dict[str, HybridProcessor]:
         return self._pool.processors
+
+    @property
+    def progress_callbacks(self) -> dict[str, list[Callable[..., Any]]]:
+        return self._progress.callbacks
+
+    @progress_callbacks.setter
+    def progress_callbacks(self, value: dict[str, list[Callable[..., Any]]]) -> None:
+        # Some tests reset this directly between cases (#3868 test fixtures).
+        self._progress.callbacks = value
 
     async def _construct_processor(self, config: UnifiedConfig) -> HybridProcessor:
         """Factory for the ProcessorPool. Kept on the engine so HybridProcessor
@@ -285,94 +236,22 @@ class ProcessingEngine:
         async with self._jobs_lock:
             return self.jobs.get(job_id)
 
+    # Progress-callback fan-out delegates to self._progress (#4250 follow-up).
+    # Thin wrappers are kept so any caller/test using the engine-level names
+    # still works.
     async def register_progress_callback(self, job_id: str, callback: Callable[..., Any]) -> None:
-        """Add a callback for job progress updates.
-
-        Additive: every subscriber for `job_id` is retained and notified
-        (#3868). Re-registering the same callable is a no-op rather than a
-        double subscription, so a duplicate `subscribe_job_progress` cannot
-        make the client receive each tick twice.
-        """
-        async with self._jobs_lock:
-            callbacks = self.progress_callbacks.setdefault(job_id, [])
-            if callback not in callbacks:
-                callbacks.append(callback)
+        """Add a callback for job progress updates. See ProgressNotifier.register."""
+        await self._progress.register(job_id, callback)
 
     async def unregister_progress_callback(
         self, job_id: str, callback: Callable[..., Any] | None = None
     ) -> None:
-        """Remove progress callbacks for `job_id` (e.g. on WebSocket disconnect).
-
-        Args:
-            job_id: The job whose subscribers are being removed.
-            callback: Remove only this subscriber, leaving other subscribers of
-                the same job intact — what a per-connection disconnect wants.
-                `None` removes every subscriber, for job-wide teardown
-                (cancel_job, job cleanup). Passing `None` from a per-connection
-                path would evict other live clients' subscriptions (#3868).
-        """
-        async with self._jobs_lock:
-            if callback is None:
-                self.progress_callbacks.pop(job_id, None)
-                return
-            callbacks = self.progress_callbacks.get(job_id)
-            if not callbacks:
-                return
-            # Identity/equality removal; tolerate an already-removed callback so
-            # a self-unregister racing with disconnect cleanup is not an error.
-            try:
-                callbacks.remove(callback)
-            except ValueError:
-                pass
-            if not callbacks:
-                self.progress_callbacks.pop(job_id, None)
+        """Remove progress callbacks for `job_id`. See ProgressNotifier.unregister."""
+        await self._progress.unregister(job_id, callback)
 
     async def _notify_progress(self, job_id: str, progress: float, message: str = "") -> None:
-        """Notify every subscriber registered for this job.
-
-        Silences and removes callbacks that raise (e.g. dead WebSocket),
-        so a WS disconnect does not abort the processing job (#3325).
-
-        Subscribers run concurrently and are pruned individually (#3868):
-        serial delivery would let one slow/wedged socket delay every other
-        subscriber's tick, and removing the whole `job_id` entry on the first
-        failure — as the single-callback version did — would silently
-        unsubscribe the healthy clients along with the dead one.
-        """
-        async with self._jobs_lock:
-            job = self.jobs.get(job_id)
-            if job:
-                job.progress = progress
-            # Snapshot: the awaits below run outside the lock, and a callback
-            # may unregister itself (or others) while we are iterating.
-            callbacks = list(self.progress_callbacks.get(job_id, ()))
-
-        if not (job and callbacks):
-            return
-
-        results = await asyncio.gather(
-            *(cb(job_id, progress, message) for cb in callbacks),
-            return_exceptions=True,
-        )
-        failed = [cb for cb, result in zip(callbacks, results) if isinstance(result, BaseException)]
-        if not failed:
-            return
-
-        logger.debug(
-            "%d/%d progress callbacks for job %s failed, removing them",
-            len(failed), len(callbacks), job_id,
-        )
-        async with self._jobs_lock:
-            remaining = self.progress_callbacks.get(job_id)
-            if remaining is None:
-                return
-            for cb in failed:
-                try:
-                    remaining.remove(cb)
-                except ValueError:
-                    pass
-            if not remaining:
-                self.progress_callbacks.pop(job_id, None)
+        """Notify every subscriber registered for this job. See ProgressNotifier.notify."""
+        await self._progress.notify(job_id, progress, message)
 
     # Processor-pool operations delegate to self._pool (#4250). Thin wrappers are
     # kept so any caller/test using the engine-level names still works.
@@ -894,61 +773,17 @@ class ProcessingEngine:
         return True
 
     async def cleanup_old_jobs(self, max_age_hours: float = 24) -> int:
-        """Clean up old completed jobs and their files.
-
-        Protected by _jobs_lock so that concurrent invocations (worker finally-
-        block vs. explicit DELETE /jobs/cleanup request) do not iterate and
-        delete self.jobs simultaneously, which would raise RuntimeError in
-        CPython when another coroutine modifies the dict mid-iteration (#2435).
+        """Clean up old completed jobs and their files (#4250 follow-up:
+        delegated to job_cleanup.cleanup_expired_jobs). See that function's
+        docstring for the locking/offload details (#2435, #3327, #4754).
 
         Returns:
             int: Number of jobs removed
         """
-        now = datetime.now()
-        jobs_to_remove: list[str] = []
-        files_to_delete: list[Path] = []
-
-        # Phase 1: identify expired jobs under lock (no blocking I/O)
-        candidate_paths: list[tuple[Path, Path]] = []  # (output_path, input_path)
         upload_dir = Path(tempfile.gettempdir()) / UPLOAD_TEMP_DIRNAME
-
-        async with self._jobs_lock:
-            for job_id, job in self.jobs.items():
-                if job.status in [ProcessingStatus.COMPLETED, ProcessingStatus.FAILED, ProcessingStatus.CANCELLED]:
-                    if job.completed_at is not None:
-                        age_hours = (now - job.completed_at).total_seconds() / 3600
-                        if age_hours > max_age_hours:
-                            candidate_paths.append((Path(job.output_path), Path(job.input_path)))
-                            jobs_to_remove.append(job_id)
-
-            for job_id in jobs_to_remove:
-                del self.jobs[job_id]
-                if job_id in self.progress_callbacks:
-                    del self.progress_callbacks[job_id]
-
-        # Phase 2: filesystem checks and deletions outside the lock (#3327).
-        # Offloaded via asyncio.to_thread (#4754) — an unbounded per-job
-        # loop of stat()/unlink() calls that grows with job count, running
-        # directly on the event loop.
-        def _delete_expired_files() -> None:
-            for output_path, input_path in candidate_paths:
-                try:
-                    if output_path.exists():
-                        files_to_delete.append(output_path)
-                    if input_path.exists() and input_path.is_relative_to(upload_dir):
-                        files_to_delete.append(input_path)
-                except OSError:
-                    pass  # Path check failed — skip
-
-            for file_path in files_to_delete:
-                try:
-                    file_path.unlink(missing_ok=True)
-                except OSError as e:
-                    logger.warning(f"Failed to delete {file_path}: {e}")
-
-        await asyncio.to_thread(_delete_expired_files)
-
-        return len(jobs_to_remove)
+        return await cleanup_expired_jobs(
+            self.jobs, self._jobs_lock, self.progress_callbacks, upload_dir, max_age_hours
+        )
 
     def get_all_jobs(self) -> list[ProcessingJob]:
         """Get all jobs"""

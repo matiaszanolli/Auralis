@@ -132,7 +132,7 @@ class WAVEncoder:
         Raises:
             ValueError: If audio invalid
             WAVEncoderError: If the write fails (#4919 — was a bare OSError,
-                misclassified by processing_engine._ERROR_CATEGORIES as a
+                misclassified by job_error_mapping._ERROR_CATEGORIES as a
                 read failure since WAVEncoderError is checked first there).
         """
         if subtype is None:

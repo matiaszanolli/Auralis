@@ -48,12 +48,15 @@ def engine():
     dirs, processor pool) — these tests exercise the callback registry and
     `_notify_progress` alone.
     """
+    from core.job_progress import ProgressNotifier
     from core.processing_engine import ProcessingEngine
 
     eng = ProcessingEngine.__new__(ProcessingEngine)
-    eng.progress_callbacks = {}
     eng.jobs = {}
     eng._jobs_lock = asyncio.Lock()
+    # progress_callbacks is a property backed by ProgressNotifier (#4250
+    # follow-up) — construct it directly since __init__ is skipped here.
+    eng._progress = ProgressNotifier(eng.jobs, eng._jobs_lock)
     return eng
 
 
