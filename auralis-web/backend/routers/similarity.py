@@ -156,7 +156,23 @@ def create_similarity_router(
         if graph_builder is not None:
             neighbors = await asyncio.to_thread(graph_builder.get_neighbors, track_id, limit=limit)
 
-            if neighbors:
+            # The graph stores a fixed `k` edges per track, chosen at build time
+            # (`POST /graph/build?k=...`, default 10). `get_neighbors` caps that
+            # list at `limit` but cannot extend it, so a request for more than
+            # `k` used to return however many the graph happened to hold — with
+            # nothing to distinguish "the library only has this many similar
+            # tracks" from "the graph was not built wide enough" (#4864).
+            #
+            # A short list therefore means the graph cannot answer this request,
+            # which is the same situation as an empty one: fall back. The count
+            # is already in hand, so this costs no extra query, and the fast
+            # path still covers the common case where `limit <= k` (the router
+            # and the builder share a default of 10). When the library genuinely
+            # holds fewer than `limit` similar tracks the fallback returns the
+            # same short list — a redundant search over a library small enough
+            # for that to be cheap, in exchange for never silently under-serving
+            # a wide request.
+            if len(neighbors) >= limit:
                 # Convert to SimilarTrack objects
                 for neighbor in neighbors:
                     results.append(SimilarTrack(
@@ -166,7 +182,7 @@ def create_similarity_router(
                         rank=neighbor['rank']
                     ))
             else:
-                # Graph not built yet, fall back to real-time calculation
+                # Graph absent or narrower than the request — recompute.
                 graph_builder = None
 
         if graph_builder is None:
