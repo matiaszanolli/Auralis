@@ -392,9 +392,9 @@ class TestQualityMetricsSimple:
             response = self.metrics._analyze_frequency_response(self.sine, 44100)
             assert isinstance(response, dict)
         # narrowed from bare Exception, #5023: `_analyze_frequency_response`
-        # exists on ReferenceAnalyzer (auralis/learning/reference_analyzer.py),
-        # not on QualityMetrics — always raises AttributeError here, the
-        # "not implemented" case this test tolerates.
+        # is not a method of QualityMetrics — always raises AttributeError
+        # here, the "not implemented" case this test tolerates. (It used to
+        # exist on ReferenceAnalyzer, deleted as dead code in #4592.)
         except AttributeError:
             pass
 

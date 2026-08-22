@@ -1,17 +1,18 @@
 """
 Analysis fast-path FFT windows scale with sample rate (#4308).
 
-Four analysis fast paths hardcoded small FFT window/hop sizes as bare sample
-counts (512/1024/2048), silently changing the frequency/time resolution
-tradeoff across sample rates (same family of bug as the already-fixed #4029/
-#4030). Windows are now anchored in time via frames_for_seconds()
-(auralis/dsp/utils/spectral.py), reproducing the historical 44.1kHz literals
-exactly while scaling proportionally at other rates.
+Originally four analysis fast paths hardcoded small FFT window/hop sizes as
+bare sample counts (512/1024/2048), silently changing the frequency/time
+resolution tradeoff across sample rates (same family of bug as the
+already-fixed #4029/#4030). Windows are now anchored in time via
+frames_for_seconds() (auralis/dsp/utils/spectral.py), reproducing the
+historical 44.1kHz literals exactly while scaling proportionally at other
+rates. Now three: the ContentAwareAnalyzer fast path was removed as dead
+code (#4592, zero production callers).
 """
 
 import numpy as np
 
-from auralis.analysis.content_aware_analyzer import ContentAwareAnalyzer
 from auralis.analysis.ml.feature_extractor import FeatureExtractor
 from auralis.core.analysis.content_analysis_facade import ContentAnalysisFacade
 from auralis.dsp.utils.spectral import _tempo_estimate_python, frames_for_seconds
@@ -41,14 +42,6 @@ def test_content_analysis_facade_quick_analysis_runs_at_multiple_rates():
         facade = ContentAnalysisFacade(sample_rate=sr)
         result = facade.analyze_quick(_tone(sr))
         assert np.isfinite(result["spectral_centroid"])
-
-
-def test_content_aware_analyzer_spectral_flux_runs_at_multiple_rates():
-    analyzer = ContentAwareAnalyzer()
-    for sr in (44100, 48000, 96000):
-        flux = analyzer._calculate_spectral_flux(_tone(sr), sr)
-        assert np.isfinite(flux)
-        assert flux >= 0
 
 
 def test_feature_extractor_onset_rate_runs_at_multiple_rates():
