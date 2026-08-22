@@ -111,12 +111,15 @@ class TestScanConcurrencyGuard:
         db, music_dir = scan_env
         db.settings.update_settings({"max_concurrent_scans": 1})
 
-        # Force an error at the end of the scan (after slot is held)
-        monkeypatch.setattr(
-            scanner_module.LibraryScanner,
-            "_update_library_stats",
-            lambda self, r: (_ for _ in ()).throw(RuntimeError("injected error")),
-        )
+        # Force an error at the end of the scan (after slot is held), right
+        # before the "scan completed" log line that closes out the try block
+        # (the _update_library_stats() no-op this used to patch was removed
+        # as dead code in #4243 — this hooks the same end-of-scan point).
+        def _boom(msg, *args, **kwargs):
+            if msg.startswith("Library scan completed"):
+                raise RuntimeError("injected error")
+
+        monkeypatch.setattr(scanner_module, "info", _boom)
 
         scanner = LibraryScanner(db)
 

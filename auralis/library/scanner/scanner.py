@@ -387,9 +387,6 @@ class LibraryScanner:
 
             result.scan_time = time.time() - start_time
 
-            # Update library statistics
-            self._update_library_stats(result)
-
             info(f"Library scan completed: {result}")
             return result
 
@@ -469,15 +466,6 @@ class LibraryScanner:
             List of lists, where each inner list contains paths of duplicate files
         """
         return self.duplicate_detector.find_duplicates(directories)  # type: ignore[no-any-return]
-
-    def _update_library_stats(self, scan_result: ScanResult) -> None:
-        """Update library statistics after scan"""
-        try:
-            # This would update the LibraryStats table
-            # For now, just log the results
-            info(f"Scan completed: {scan_result}")
-        except Exception as e:
-            warning(f"Failed to update library stats: {e}")
 
     def _report_progress(self, progress_data: dict[str, Any]) -> None:
         """Report progress to callback if set"""
