@@ -43,7 +43,9 @@ const ALLOWED_ANY_FILES: Record<string, string> = {
   // Generic wrappers and dev tooling where `any` is the honest signature.
   'utils/serviceFactory.ts': 'generic CRUD factory over unconstrained shapes (#4461)',
   'store/middleware/loggerMiddleware.ts': 'logs arbitrary action payloads',
-  'a11y/focusManagement.ts': 'generic DOM helpers (also dead — #4392)',
+  // 'a11y/focusManagement.ts' was here until #4392 deleted the dead
+  // getAccessibleName() that was its only `any` use — the surviving
+  // FocusManager class has none.
   'hooks/app/keyboardShortcutDefinitions.ts': 'handler signatures vary per shortcut',
   'design-system/primitives/Text.tsx': 'polymorphic `as` prop',
   'types/window.d.ts': 'ambient global augmentation',
