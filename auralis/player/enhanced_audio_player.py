@@ -83,7 +83,6 @@ class AudioPlayer(
         self,
         config: PlayerConfig | None = None,
         get_repository_factory: Callable[[], Any] | None = None,
-        library_manager: Any | None = None
     ) -> None:
         """
         Initialize the enhanced audio player with components.
@@ -91,7 +90,6 @@ class AudioPlayer(
         Args:
             config: Player configuration (PlayerConfig)
             get_repository_factory: Callable that returns RepositoryFactory instance (REQUIRED)
-            library_manager: Deprecated, kept for backward compatibility only
         """
         if config is None:
             config = PlayerConfig()
@@ -106,7 +104,7 @@ class AudioPlayer(
         # Initialize components
         self.playback = PlaybackController()
         self.file_manager = AudioFileManager(config.sample_rate)
-        self.queue = QueueController(get_repository_factory, library_manager)
+        self.queue = QueueController(get_repository_factory)
         self.processor = RealtimeProcessor(config)
         self.gapless = GaplessPlaybackEngine(self.file_manager, self.queue)
         self.integration = IntegrationManager(

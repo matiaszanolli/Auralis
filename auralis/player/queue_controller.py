@@ -28,14 +28,12 @@ class QueueController:
     def __init__(
         self,
         get_repository_factory: Callable[[], Any],
-        library_manager: Any | None = None
     ) -> None:
         """
         Initialize queue controller.
 
         Args:
             get_repository_factory: Callable that returns RepositoryFactory instance (REQUIRED)
-            library_manager: Deprecated, kept for backward compatibility only
         """
         self.queue: Any = QueueManager()
         self.get_repository_factory = get_repository_factory

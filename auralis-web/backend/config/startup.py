@@ -723,7 +723,6 @@ def _init_audio_player(manager: Any, globals_dict: dict[str, Any]) -> None:
     )
     globals_dict['audio_player'] = AudioPlayer(
         player_config,
-        library_manager=globals_dict['library_manager'],
         get_repository_factory=lambda: globals_dict.get('repository_factory')
     )
     logger.info("✅ Enhanced Audio Player initialized (Phase 4 RepositoryFactory support enabled)")
