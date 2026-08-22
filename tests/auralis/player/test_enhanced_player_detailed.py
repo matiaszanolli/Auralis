@@ -68,8 +68,8 @@ class TestQueueManager:
 
     @pytest.fixture
     def queue_manager(self, get_repository_factory_callable):
-        """Create the queue controller (enhanced_audio_player.QueueManager is an
-        alias for QueueController, which now requires a repository factory)."""
+        """Create the queue controller (QueueController requires a repository
+        factory; the enhanced_audio_player.QueueManager alias was removed, #4311)."""
         from auralis.player.queue_controller import QueueController
         return QueueController(get_repository_factory_callable)
 

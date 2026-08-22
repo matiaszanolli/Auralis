@@ -37,9 +37,6 @@ from .player_streaming_mixin import PlayerStreamingMixin
 from .queue_controller import QueueController
 from .realtime_processor import RealtimeProcessor
 
-# Backward compatibility alias for old test code
-QueueManager = QueueController
-
 
 class AudioPlayer(
     PlayerFileLoadingMixin,

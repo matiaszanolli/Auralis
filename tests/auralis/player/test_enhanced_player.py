@@ -6,7 +6,7 @@ Enhanced Audio Player Comprehensive Coverage Test
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Comprehensive tests targeting 40%+ coverage for AudioPlayer (currently 17%)
-Tests both QueueManager and AudioPlayer classes
+Tests both QueueController and AudioPlayer classes
 """
 
 import os
@@ -29,7 +29,6 @@ from auralis.player.enhanced_audio_player import (
     AudioPlayer,
     PlaybackState,
     QueueController,
-    QueueManager,
 )
 
 
@@ -77,11 +76,11 @@ class TestAudioPlayerComprehensive:
         return test_file_paths
 
     def test_queue_manager_basic_operations(self, queue_controller, test_audio_files):
-        """Test QueueManager basic operations.
+        """Test QueueController basic operations.
 
         Phase 5E: Refactored to use pytest fixture pattern.
         """
-        # Use the queue_controller fixture which provides QueueManager interface
+        # Use the queue_controller fixture which provides QueueController interface
         queue = queue_controller
 
         # Test initialization
@@ -118,7 +117,7 @@ class TestAudioPlayerComprehensive:
         assert len(queue.get_queue()) == 0
 
     def test_queue_manager_edge_cases(self, queue_controller, test_audio_files):
-        """Test QueueManager edge cases and boundary conditions"""
+        """Test QueueController edge cases and boundary conditions"""
         queue = queue_controller
 
         # Test operations on empty queue - clear first to ensure empty state
