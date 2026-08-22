@@ -98,16 +98,34 @@ class MetadataExtractor:
 
         for field, keys in self.TAG_MAPPINGS.items():
             for key in keys:
-                if key in audio_file:
+                try:
+                    if key not in audio_file:
+                        continue
                     value = audio_file[key]
-                    if isinstance(value, list) and value:
-                        value = value[0]
+                except ValueError:
+                    # TAG_MAPPINGS mixes ID3 (MP3), Vorbis-comment (FLAC/OGG)
+                    # and MP4 atom key spellings per field so one table covers
+                    # every format. Vorbis-comment keys are restricted to
+                    # printable ASCII excluding '=' (mutagen's
+                    # vorbis.is_valid_key) — an MP4 atom name like '\xa9nam'
+                    # violates that and raises ValueError from `key in
+                    # audio_file` on a FLAC/OGG file, regardless of whether
+                    # that key is actually present. Uncaught, this used to
+                    # propagate out of the whole method on the first
+                    # not-actually-set field reaching its MP4-style
+                    # candidate, discarding every field already matched and
+                    # silently returning no metadata at all for the file —
+                    # not just skipping the one inapplicable key.
+                    continue
 
-                    if value:
-                        normalized_value = self._normalize_field_value(field, value)
-                        if normalized_value is not None:
-                            metadata[field] = normalized_value
-                            break
+                if isinstance(value, list) and value:
+                    value = value[0]
+
+                if value:
+                    normalized_value = self._normalize_field_value(field, value)
+                    if normalized_value is not None:
+                        metadata[field] = normalized_value
+                        break
 
         return metadata
 
