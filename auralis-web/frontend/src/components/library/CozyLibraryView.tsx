@@ -16,7 +16,7 @@
  * - Component composition
  */
 
-import { memo, useCallback, useMemo, useState, lazy, Suspense } from 'react';
+import { memo, useMemo, lazy, Suspense } from 'react';
 import { Box } from '@mui/material';
 import BatchActionsToolbar from './Controls/BatchActionsToolbar';
 // Lazy-load the on-demand dialogs so their (~760 LOC + transitive deps) bundle
@@ -38,6 +38,7 @@ import { useBatchOperations } from './useBatchOperations';
 import { useNavigationState } from './useNavigationState';
 import { useMetadataEditing } from './useMetadataEditing';
 import { usePlaybackState } from './usePlaybackState';
+import { useSimilarTracksModal } from './useSimilarTracksModal';
 import { tokens } from '@/design-system';
 
 interface CozyLibraryViewProps {
@@ -121,32 +122,14 @@ const CozyLibraryView = memo<CozyLibraryViewProps>(({
   } = useMetadataEditing(fetchTracks);
 
   // Phase 5: Similar tracks modal state
-  const [similarTracksModalOpen, setSimilarTracksModalOpen] = useState(false);
-  const [similarTrackId, setSimilarTrackId] = useState<number | null>(null);
-  const [similarTrackTitle, setSimilarTrackTitle] = useState<string>('');
-
-  const handleFindSimilar = useCallback((trackId: number) => {
-    const track = tracks.find(t => t.id === trackId);
-    setSimilarTrackId(trackId);
-    setSimilarTrackTitle(track?.title || 'this track');
-    setSimilarTracksModalOpen(true);
-  }, [tracks]);
-
-  const handleCloseSimilarTracksModal = useCallback(() => {
-    setSimilarTracksModalOpen(false);
-    setSimilarTrackId(null);
-    setSimilarTrackTitle('');
-  }, []);
-
-  // #3617: stable onTrackPlay for SimilarTracksModal — was an inline arrow
-  // that defeated memoization if the modal is ever wrapped in React.memo.
-  const handlePlaySimilarTrack = useCallback(
-    (trackId: number) => {
-      const track = tracks.find(t => t.id === trackId);
-      if (track) handlePlayTrack(track);
-    },
-    [tracks, handlePlayTrack]
-  );
+  const {
+    similarTracksModalOpen,
+    similarTrackId,
+    similarTrackTitle,
+    handleFindSimilar,
+    handleCloseSimilarTracksModal,
+    handlePlaySimilarTrack,
+  } = useSimilarTracksModal({ tracks, onPlayTrack: handlePlayTrack });
 
   // Batch operations
   const {
