@@ -21,7 +21,7 @@ vi.mock('../../utils/apiRequest', () => ({
   },
 }));
 
-import { get, post, put } from '../../utils/apiRequest';
+import { get, post, put } from '@/utils/apiRequest';
 import settingsService, { type UserSettings, type SettingsUpdate } from '../settingsService';
 
 const mockGet = get as ReturnType<typeof vi.fn>;

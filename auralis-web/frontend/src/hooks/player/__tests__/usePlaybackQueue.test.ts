@@ -12,8 +12,8 @@ import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { usePlaybackQueue, usePlaybackQueueView } from '../usePlaybackQueue';
 import queueReducer from '@/store/slices/queueSlice';
-import * as useRestAPIModule from '../../api/useRestAPI';
-import * as useWebSocketModule from '../../websocket/useWebSocketMessages';
+import * as useRestAPIModule from '@/hooks/api/useRestAPI';
+import * as useWebSocketModule from '@/hooks/websocket/useWebSocketMessages';
 
 // usePlaybackQueue reads/writes queue state via Redux (queueSlice) — every
 // renderHook call needs a real store wrapped in a Provider, or useDispatch/

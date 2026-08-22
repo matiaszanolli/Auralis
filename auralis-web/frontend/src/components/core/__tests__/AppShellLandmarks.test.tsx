@@ -15,7 +15,7 @@ vi.mock('@/components/playlist/PlaylistList', () => ({ default: () => null }));
 
 import { AppMainContent } from '../AppMainContent';
 import { AppTopBar } from '../AppTopBar';
-import { SidebarContent } from '../../layouts/Sidebar/SidebarContent';
+import { SidebarContent } from '@/components/layouts/Sidebar/SidebarContent';
 
 describe('App shell landmarks (#4183)', () => {
   it('AppMainContent exposes a single main landmark', () => {

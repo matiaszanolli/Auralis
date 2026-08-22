@@ -21,7 +21,7 @@ vi.mock('../../utils/apiRequest', () => ({
   },
 }));
 
-import { get, post, put, del } from '../../utils/apiRequest';
+import { get, post, put, del } from '@/utils/apiRequest';
 import {
   getQueue,
   removeTrackFromQueue,

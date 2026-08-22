@@ -27,7 +27,7 @@ import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { useQueueMutations } from '../useQueueMutations';
 import queueReducer, { setQueue as reduxSetQueue } from '@/store/slices/queueSlice';
-import * as useRestAPIModule from '../../api/useRestAPI';
+import * as useRestAPIModule from '@/hooks/api/useRestAPI';
 import type { Track } from '@/types/domain';
 
 const track = (id: number): Track => ({

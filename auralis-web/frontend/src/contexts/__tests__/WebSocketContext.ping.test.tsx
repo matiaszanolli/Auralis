@@ -33,7 +33,7 @@ import {
   resetWebSocketSingletons,
 } from '../WebSocketContext';
 import type { AnyWebSocketMessage, WebSocketMessage } from '../WebSocketContext';
-import { WebSocketManager } from '../../utils/errorHandling';
+import { WebSocketManager } from '@/utils/errorHandling';
 
 type WSEvent = 'open' | 'close' | 'error' | 'message';
 

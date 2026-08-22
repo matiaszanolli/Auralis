@@ -11,7 +11,7 @@
 import { describe, it, expect } from 'vitest';
 import { tokens } from '@/design-system';
 // Vite raw import (typed via vite/client) — avoids node:fs and its type deps.
-import indexCss from '../../index.css?raw';
+import indexCss from '@/index.css?raw';
 
 /** Read a `--name: value;` declaration from the :root block. */
 function cssVar(name: string): string {

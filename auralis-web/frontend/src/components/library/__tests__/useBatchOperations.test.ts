@@ -27,7 +27,7 @@ vi.mock('../../shared/Toast', () => ({
   })),
 }));
 
-import { useToast } from '../../shared/Toast';
+import { useToast } from '@/components/shared/Toast';
 
 describe('useBatchOperations', () => {
   const mockOnFetchTracks = vi.fn().mockResolvedValue(undefined);

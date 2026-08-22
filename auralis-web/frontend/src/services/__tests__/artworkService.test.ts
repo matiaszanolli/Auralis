@@ -32,7 +32,7 @@ import {
   withArtworkSize,
   type ArtworkResponse,
 } from '../artworkService';
-import { post, del } from '../../utils/apiRequest';
+import { post, del } from '@/utils/apiRequest';
 
 const mockPost = post as ReturnType<typeof vi.fn>;
 const mockDel = del as ReturnType<typeof vi.fn>;

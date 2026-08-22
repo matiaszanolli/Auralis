@@ -22,7 +22,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { getSemanticCssVariables } from '../semanticTheme';
-import indexCss from '../../index.css?raw';
+import indexCss from '@/index.css?raw';
 
 // Every CSS module in the app, keyed by path. `eager` so this stays synchronous.
 const cssModules = import.meta.glob('../../**/*.module.css', {

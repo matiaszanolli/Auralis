@@ -20,7 +20,7 @@ import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { useQueueMutations } from '../useQueueMutations';
 import queueReducer, { setIsShuffled } from '@/store/slices/queueSlice';
-import * as useRestAPIModule from '../../api/useRestAPI';
+import * as useRestAPIModule from '@/hooks/api/useRestAPI';
 
 let store: ReturnType<typeof configureStore>;
 let post: ReturnType<typeof vi.fn>;

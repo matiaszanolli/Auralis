@@ -38,7 +38,7 @@ import {
   resetWebSocketSingletons,
 } from '../WebSocketContext';
 import type { AnyWebSocketMessage, WebSocketMessage } from '../WebSocketContext';
-import { WebSocketManager } from '../../utils/errorHandling';
+import { WebSocketManager } from '@/utils/errorHandling';
 
 // ============================================================================
 // Mock WebSocketManager factory (mirrors WebSocketContext.reconnect.test.tsx)

@@ -31,7 +31,7 @@ import {
   resetWebSocketSingletons,
   resetUnregisteredTypeWarnings,
 } from '../WebSocketContext';
-import { WebSocketManager } from '../../utils/errorHandling';
+import { WebSocketManager } from '@/utils/errorHandling';
 
 type WSEvent = 'open' | 'close' | 'error' | 'message';
 

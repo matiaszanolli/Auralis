@@ -7,7 +7,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent } from '@/test/test-utils'
 import userEvent from '@testing-library/user-event'
-import { useTheme } from '../../contexts/ThemeContext'
+import { useTheme } from '@/contexts/ThemeContext'
 import ThemeToggle from '../shared/ui/ThemeToggle'
 
 // Mock the useTheme hook while preserving other exports

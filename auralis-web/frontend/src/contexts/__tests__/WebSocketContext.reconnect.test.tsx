@@ -34,7 +34,7 @@ import {
   useWebSocketContext,
   resetWebSocketSingletons,
 } from '../WebSocketContext';
-import { WebSocketManager } from '../../utils/errorHandling';
+import { WebSocketManager } from '@/utils/errorHandling';
 
 // ============================================================================
 // Mock WebSocketManager factory
