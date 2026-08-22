@@ -10,6 +10,7 @@ Calculates weighted Euclidean distance between fingerprints for similarity ranki
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 import numpy as np
@@ -273,12 +274,29 @@ class FingerprintDistance:
             max_distance: Maximum expected distance (for normalization)
 
         Returns:
-            Similarity score (1.0 = identical, 0.0 = completely different)
+            Similarity score in [0.0, 1.0] (1.0 = identical, 0.0 = completely
+            different). Always finite, for any float input.
+
+        A NaN distance collapses to 0.0 — "least similar" — rather than
+        propagating (#5057). `np.clip` inside `normalize_to_range` handles ±inf
+        (they saturate to 1.0 / 0.0) but passes NaN straight through, and NaN was
+        the one value that escaped: every similarity score in the system comes
+        from here, including the ones `KNNGraphBuilder` persists as graph edges,
+        and the response models bound this field with `ge=0.0, le=1.0`, so a NaN
+        became a `ResponseValidationError` — an opaque 500 — at serialization.
+
+        0.0 rather than a neutral 0.5: `find_similar` sorts by this score
+        descending, so a pair we could not measure must not outrank one we could.
+        Sorting it last is the conservative recommendation; 0.5 would place an
+        unmeasurable pair above genuinely dissimilar but correctly-measured ones.
         """
         # Inverse relationship: lower distance = higher similarity
         # Normalize distance to 0-1 using MetricUtils, then invert
         normalized_distance = MetricUtils.normalize_to_range(distance, max_distance, clip=True)
         similarity = 1.0 - normalized_distance
+
+        if not math.isfinite(similarity):
+            return 0.0
 
         return similarity
 
