@@ -44,10 +44,16 @@ export class MockWebSocket {
     setTimeout(() => this.simulateOpen(), 0)
   }
 
+  // Per WHATWG (https://websockets.spec.whatwg.org/#dom-websocket-send):
+  // send() throws only while CONNECTING; while CLOSING/CLOSED it's a silent
+  // no-op, and while OPEN it proceeds. This mock used to throw for any
+  // non-OPEN state, which made CLOSING/CLOSED look like an error a real
+  // WebSocket would never raise (#4491).
   send = vi.fn((_data: string) => {
-    if (this.readyState !== OPEN) {
-      throw new Error('WebSocket is not open')
+    if (this.readyState === CONNECTING) {
+      throw new Error("Failed to execute 'send' on 'WebSocket': Still in CONNECTING state.")
     }
+    // CLOSING/CLOSED: no-op, matching the real WebSocket's silent discard.
   })
 
   close = vi.fn((code?: number, reason?: string) => {
@@ -138,138 +144,4 @@ export function mockWebSocket(): MockWebSocket {
  */
 export function resetWebSocketMock() {
   delete (global as any).WebSocket
-}
-
-// ============================================================================
-// Mock WebSocket Messages
-// ============================================================================
-
-export const mockWSMessages = {
-  playerState: (data: any) => ({
-    type: 'player_state',
-    data,
-  }),
-
-  processingProgress: (progress: number, message: string) => ({
-    type: 'processing_progress',
-    data: {
-      progress,
-      message,
-      timestamp: new Date().toISOString(),
-    },
-  }),
-
-  processingComplete: (jobId: string, outputFile: string) => ({
-    type: 'processing_complete',
-    data: {
-      job_id: jobId,
-      output_file: outputFile,
-      timestamp: new Date().toISOString(),
-    },
-  }),
-
-  processingError: (jobId: string, error: string) => ({
-    type: 'processing_error',
-    data: {
-      job_id: jobId,
-      error,
-      timestamp: new Date().toISOString(),
-    },
-  }),
-
-  libraryUpdate: (action: string, data: any) => ({
-    type: 'library_update',
-    data: {
-      action,
-      ...data,
-    },
-  }),
-
-  scanProgress: (current: number, total: number, currentFile?: string) => ({
-    type: 'scan_progress' as const,
-    data: {
-      current,
-      total,
-      percentage: total > 0 ? Math.round((current / total) * 100) : 0,
-      current_file: currentFile,
-    },
-  }),
-
-  connectionStatus: (connected: boolean) => ({
-    type: 'connection_status',
-    data: {
-      connected,
-      timestamp: new Date().toISOString(),
-    },
-  }),
-
-  // Player state messages
-  trackChanged: (action: 'next' | 'previous') => ({
-    type: 'track_changed',
-    data: { action },
-  }),
-
-  playbackStarted: () => ({
-    type: 'playback_started',
-    data: { state: 'playing' },
-  }),
-
-  playbackPaused: () => ({
-    type: 'playback_paused',
-    data: { state: 'paused' },
-  }),
-
-  playbackStopped: () => ({
-    type: 'playback_stopped',
-    data: { state: 'stopped' },
-  }),
-
-  positionChanged: (position: number) => ({
-    type: 'position_changed',
-    data: { position },
-  }),
-
-  volumeChanged: (volume: number) => ({
-    type: 'volume_changed',
-    data: { volume },
-  }),
-
-  // Enhancement messages
-  enhancementSettingsChanged: (enabled: boolean, preset: string, intensity: number) => ({
-    type: 'enhancement_settings_changed',
-    data: { enabled, preset, intensity },
-  }),
-
-  // Library messages
-  libraryUpdated: (action: string, trackCount?: number, albumCount?: number, artistCount?: number) => ({
-    type: 'library_updated',
-    data: {
-      action,
-      ...(trackCount && { track_count: trackCount }),
-      ...(albumCount && { album_count: albumCount }),
-      ...(artistCount && { artist_count: artistCount }),
-    },
-  }),
-
-  // Playlist messages
-  playlistCreated: (playlistId: number, name: string) => ({
-    type: 'playlist_created',
-    data: { playlist_id: playlistId, name },
-  }),
-
-  playlistUpdated: (playlistId: number, action: string) => ({
-    type: 'playlist_updated',
-    data: { playlist_id: playlistId, action },
-  }),
-
-  playlistDeleted: (playlistId: number) => ({
-    type: 'playlist_deleted',
-    data: { playlist_id: playlistId },
-  }),
-
-  // Favorite toggle
-  favoriteToggled: (trackId: number, isFavorite: boolean) => ({
-    type: 'favorite_toggled',
-    data: { track_id: trackId, is_favorite: isFavorite },
-  }),
 }
