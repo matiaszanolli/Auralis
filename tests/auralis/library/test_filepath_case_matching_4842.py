@@ -238,12 +238,26 @@ class TestBackfill:
 
 
 class TestNoRawFilepathComparisonsRemain:
-    """CONSISTENCY check from the issue, as a test."""
+    """CONSISTENCY check from the issue, as a test.
 
-    def test_repository_compares_only_the_key(self):
+    ``TrackRepository`` is a facade over five per-concern mixin modules
+    (#4511: ``track_repository_lifecycle.py``, ``_mutation.py``,
+    ``_maintenance.py``, ``_lookup.py``, ``_search.py``), so the invariants
+    below are checked across the whole ``track_repository*.py`` family
+    rather than the single facade file that used to hold every method body.
+    """
+
+    @staticmethod
+    def _repository_family_source() -> str:
         from pathlib import Path
 
-        source = Path('auralis/library/repositories/track_repository.py').read_text()
+        repo_dir = Path('auralis/library/repositories')
+        return '\n'.join(
+            path.read_text() for path in sorted(repo_dir.glob('track_repository*.py'))
+        )
+
+    def test_repository_compares_only_the_key(self):
+        source = self._repository_family_source()
         stripped = '\n'.join(
             line for line in source.splitlines() if not line.strip().startswith('#')
         )
@@ -255,9 +269,7 @@ class TestNoRawFilepathComparisonsRemain:
         )
 
     def test_every_write_path_sets_the_key(self):
-        from pathlib import Path
-
-        source = Path('auralis/library/repositories/track_repository.py').read_text()
+        source = self._repository_family_source()
 
         assert 'filepath_key=make_filepath_key(' in source, (
             "Track rows are created without a filepath_key, so they would be "
