@@ -38,6 +38,14 @@ class Unit(str, Enum):
 # MetricUtils.normalize_to_range(centroid_median, 8000.0, clip=True).
 CENTROID_NORMALIZATION_HZ: float = 8000.0
 
+# Rolloff is normalized against a DIFFERENT frequency to the centroid — 10 kHz,
+# the Python analyzer's historical convention, which `rust_fingerprint.py`
+# matches when it divides the raw Hz value. The two constants being unequal is
+# the whole trap: `rolloff_to_hz` used to denormalize with the centroid's 8 kHz
+# and returned Hz values 20% low (#4863). Lives here, next to the helper that
+# consumes it, so producer and inverse cannot disagree again.
+ROLLOFF_NORMALIZATION_HZ: float = 10_000.0
+
 
 # (unit, semantic_min, semantic_max) per dimension.
 # semantic_min/max are typical, not absolute — used for normalization.
@@ -112,13 +120,20 @@ def centroid_to_hz(centroid_normalized: float) -> float:
 
 
 def rolloff_to_hz(rolloff_normalized: float) -> float:
-    """Convert a normalized 85%-rolloff value back to Hz."""
-    return float(rolloff_normalized) * CENTROID_NORMALIZATION_HZ
+    """Convert a normalized 85%-rolloff value back to Hz.
+
+    Note the constant differs from :func:`centroid_to_hz`: rolloff is stored
+    against ROLLOFF_NORMALIZATION_HZ (10 kHz), not the centroid's 8 kHz. This
+    helper multiplied by the centroid constant until #4863, so every value it
+    produced was 20% low.
+    """
+    return float(rolloff_normalized) * ROLLOFF_NORMALIZATION_HZ
 
 
 __all__ = [
     "Unit",
     "CENTROID_NORMALIZATION_HZ",
+    "ROLLOFF_NORMALIZATION_HZ",
     "DIMENSION_SCHEMA",
     "BAND_RANGES_HZ",
     "centroid_to_hz",

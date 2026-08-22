@@ -14,9 +14,12 @@ the spectral character.
 
 from __future__ import annotations
 
+import pytest
+
 from auralis.analysis.fingerprint.schema import (
     CENTROID_NORMALIZATION_HZ,
     DIMENSION_SCHEMA,
+    ROLLOFF_NORMALIZATION_HZ,
     centroid_to_hz,
     rolloff_to_hz,
 )
@@ -73,7 +76,44 @@ def test_centroid_denormalization_constant_is_8khz():
     assert centroid_to_hz(1.0) == 8000.0
     assert centroid_to_hz(0.5) == 4000.0
     assert centroid_to_hz(0.0) == 0.0
-    assert rolloff_to_hz(0.5) == 4000.0
+
+
+def test_rolloff_denormalization_constant_is_10khz():
+    """Rolloff is stored against 10 kHz, NOT the centroid's 8 kHz (#4863).
+
+    `rolloff_to_hz` multiplied by CENTROID_NORMALIZATION_HZ until #4863, so it
+    returned Hz values 20% low — and this assertion used to pin that bug
+    (`rolloff_to_hz(0.5) == 4000.0`).
+    """
+    assert ROLLOFF_NORMALIZATION_HZ == 10_000.0
+    assert rolloff_to_hz(1.0) == 10_000.0
+    assert rolloff_to_hz(0.5) == 5000.0
+    assert rolloff_to_hz(0.0) == 0.0
+
+
+def test_rolloff_and_centroid_use_different_scales():
+    """The two constants differing is the trap this helper fell into."""
+    assert ROLLOFF_NORMALIZATION_HZ != CENTROID_NORMALIZATION_HZ
+    assert rolloff_to_hz(1.0) != centroid_to_hz(1.0)
+
+
+def test_rolloff_helper_inverts_what_the_rust_adapter_produces():
+    """Round-trip against the producer, not against a restated constant.
+
+    `rust_fingerprint` divides the raw Hz by ROLLOFF_NORMALIZATION_HZ; this
+    helper is its inverse, so composing them must be the identity. Both now
+    import the constant from `schema`, which is what makes that true by
+    construction rather than by coincidence.
+    """
+    from auralis.analysis.fingerprint.rust_fingerprint import (
+        ROLLOFF_NORMALIZATION_HZ as PRODUCER_CONSTANT,
+    )
+
+    assert PRODUCER_CONSTANT is ROLLOFF_NORMALIZATION_HZ
+
+    for raw_hz in (0.0, 2500.0, 5000.0, 10_000.0):
+        normalized = raw_hz / PRODUCER_CONSTANT
+        assert rolloff_to_hz(normalized) == pytest.approx(raw_hz)
 
 
 # ---------------------------------------------------------------------------

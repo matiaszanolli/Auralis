@@ -19,8 +19,8 @@ Rust → schema differences handled here:
 - ``loudness_variation`` → ``loudness_variation_std`` (already dB in 0-10; rename only).
 - ``spectral_centroid`` raw Hz → 0-1 via ``/ CENTROID_NORMALIZATION_HZ`` (8 kHz).
 - ``spectral_rolloff`` raw Hz → 0-1 via ``/ ROLLOFF_NORMALIZATION_HZ`` (10 kHz — matches
-  the Python analyzer's historical convention; note ``schema.rolloff_to_hz`` uses 8 kHz,
-  a pre-existing inconsistency in that helper).
+  the Python analyzer's historical convention, and the constant ``schema.rolloff_to_hz``
+  now inverts with; it used the centroid's 8 kHz until #4863).
 - ``dynamic_range_variation`` raw crest-factor dB-std → 0-1 through a smooth
   half-response curve (6 dB maps to 0.5; larger values approach 1 without
   reaching a hard ceiling).
@@ -38,11 +38,7 @@ peak_consistency, stereo_width, phase_correlation) passes through unchanged.
 import math
 from typing import Any
 
-from .schema import CENTROID_NORMALIZATION_HZ
-
-# Rolloff historically normalized against 10 kHz in the Python analyzer
-# (utilities/spectral_ops.py). Kept explicit here so the convention is auditable.
-ROLLOFF_NORMALIZATION_HZ: float = 10_000.0
+from .schema import CENTROID_NORMALIZATION_HZ, ROLLOFF_NORMALIZATION_HZ
 # Dynamic-range variation reaches half response at a 6 dB standard deviation.
 DRV_HALF_RESPONSE_DB: float = 6.0
 
