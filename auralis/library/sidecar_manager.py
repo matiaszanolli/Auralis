@@ -139,8 +139,10 @@ class SidecarManager:
                 debug(f"Audio file modified: {expected_mtime} → {actual_mtime}")
                 return False
 
-            # Optionally verify checksum (expensive, only if explicitly requested)
-            # For now, size + mtime is sufficient for validation
+            # Size + mtime is the deliberate validation strategy — a checksum
+            # would catch content changes that leave size/mtime unchanged
+            # (rare) but costs a full file read on every check, so it's not
+            # computed here (#4405).
 
             # Check required fields
             fingerprint = data.get('fingerprint')
