@@ -78,19 +78,6 @@ def test_library_with_tracks(tmp_path):
 
 @pytest.mark.integration
 @pytest.mark.api
-@pytest.mark.skip(reason="#4400: Play/pause REST endpoints deprecated — playback is now WebSocket-only")
-def test_player_play_pause_api_workflow(client, test_library_with_tracks):
-    """
-    INTEGRATION TEST: /api/player/play → /api/player/pause workflow.
-
-    STATUS: Skipped — play/pause REST endpoints have been removed in favour
-    of WebSocket streaming (usePlayEnhanced / usePlayNormal).
-    """
-    pass
-
-
-@pytest.mark.integration
-@pytest.mark.api
 def test_player_seek_api(client):
     """
     INTEGRATION TEST: /api/player/seek endpoint.

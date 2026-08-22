@@ -547,21 +547,6 @@ class TestPlayerEndpoints:
             mock_player.add_to_queue.assert_called_once()
             mock_library.tracks.get_by_id.assert_called_once_with(1)
 
-    @pytest.mark.skip(reason="#4400: play/pause/stop deprecated — now WebSocket-only")
-    def test_play_audio(self, client):
-        """Test starting playback"""
-        pass
-
-    @pytest.mark.skip(reason="#4400: play/pause/stop deprecated — now WebSocket-only")
-    def test_pause_audio(self, client):
-        """Test pausing playback"""
-        pass
-
-    @pytest.mark.skip(reason="#4400: play/pause/stop deprecated — now WebSocket-only")
-    def test_stop_audio(self, client):
-        """Test stopping playback"""
-        pass
-
     def test_seek_audio(self, client):
         """Test seeking to position"""
         mock_player = Mock()
@@ -653,93 +638,6 @@ class TestPlayerEndpoints:
 
             assert response.status_code == 404
             mock_library.tracks.get_by_id.assert_called_once_with(1)
-
-
-@pytest.mark.skip(reason="Processing control endpoints not implemented - /api/processing/enable_matching, /api/processing/load_reference, /api/processing/apply_preset do not exist")
-class TestProcessingControlEndpoints:
-    """Test processing control endpoints"""
-
-    def test_get_audio_analysis(self, client):
-        """Test getting audio analysis"""
-        response = client.get("/api/processing/analysis")
-
-        # Route isn't registered (class-level skip: endpoint not implemented),
-        # so FastAPI's unmatched-route 404 is the only outcome (#4788).
-        assert response.status_code == 404
-
-    def test_enable_level_matching(self, client):
-        """Test enabling level matching"""
-        mock_player = Mock()
-        mock_player.config.enable_level_matching = False
-
-        with patch.dict('main.globals_dict', {'audio_player': mock_player}):
-            response = client.post("/api/processing/enable_matching?enabled=true")
-
-            assert response.status_code == 200
-            data = response.json()
-            assert data["enabled"] is True
-
-    def test_disable_level_matching(self, client):
-        """Test disabling level matching"""
-        mock_player = Mock()
-        mock_player.config.enable_level_matching = True
-
-        with patch.dict('main.globals_dict', {'audio_player': mock_player}):
-            response = client.post("/api/processing/enable_matching?enabled=false")
-
-            assert response.status_code == 200
-            data = response.json()
-            assert data["enabled"] is False
-
-    def test_load_reference_track(self, client):
-        """Test loading reference track"""
-        mock_player = Mock()
-        mock_player.load_reference.return_value = True
-
-        with patch.dict('main.globals_dict', {'audio_player': mock_player}):
-            response = client.post("/api/processing/load_reference?reference_path=/ref.wav")
-
-            assert response.status_code == 200
-            data = response.json()
-            assert "reference_path" in data
-            mock_player.load_reference.assert_called_once()
-
-    def test_load_reference_track_failure(self, client):
-        """Test reference track loading failure"""
-        mock_player = Mock()
-        mock_player.load_reference.side_effect = Exception("Failed to load")
-
-        with patch.dict('main.globals_dict', {'audio_player': mock_player}):
-            response = client.post("/api/processing/load_reference?reference_path=/bad.wav")
-
-            assert response.status_code == 500
-
-    def test_apply_processing_preset(self, client):
-        """Test applying processing preset"""
-        mock_player = Mock()
-        settings = {"mode": "adaptive", "target_loudness": -14}
-
-        with patch.dict('main.globals_dict', {'audio_player': mock_player}):
-            response = client.post(
-                "/api/processing/apply_preset",
-                params={"preset_name": "warm"},
-                json={"settings": settings}
-            )
-
-            assert response.status_code == 200
-            data = response.json()
-            assert "warm" in data["message"]
-
-    def test_apply_preset_not_available(self, client):
-        """Test applying preset when player not available"""
-        with patch.dict('main.globals_dict', {'audio_player': None}):
-            response = client.post(
-                "/api/processing/apply_preset",
-                params={"preset_name": "warm"},
-                json={"settings": {}}
-            )
-
-            assert response.status_code == 503
 
 
 class TestWebSocketConnection:
@@ -1774,17 +1672,6 @@ class TestAlbumArtworkEndpoints:
             response = client.delete("/api/albums/1/artwork")
 
             assert response.status_code == 200
-
-
-@pytest.mark.skip(reason="#4400: REST stream endpoint removed — audio streaming is WebSocket-only")
-class TestPlayerStreamEndpoint:
-    """Test audio streaming endpoint"""
-
-    def test_stream_track_no_library(self, client):
-        pass
-
-    def test_stream_track_not_found(self, client):
-        pass
 
 
 if __name__ == "__main__":
