@@ -27,6 +27,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { isAbortError } from '@/utils/errorGuards';
 import { httpErrorFromResponse, type HttpStatusError } from '@/utils/httpError';
+import { getApiUrl } from '@/config/api';
 // LRU + TTL cache, keyed on every parameter that reaches the wire (#4629).
 import {
   getCacheKey,
@@ -177,7 +178,7 @@ export function useSimilarTracks(): UseSimilarTracksReturn {
 
         // Call backend API
         const response = await fetch(
-          `/api/similarity/tracks/${trackId}/similar?${params.toString()}`,
+          getApiUrl(`/api/similarity/tracks/${trackId}/similar?${params.toString()}`),
           {
             method: 'GET',
             headers: {

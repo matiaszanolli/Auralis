@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useToast } from '@/components/shared/Toast';
 import { transformTracks, type TrackApiResponse } from '@/api/transformers';
 import type { LibraryTrack } from '@/types/domain';
+import { getApiUrl } from '@/config/api';
 
 export interface UseLibraryPaginationOptions {
   view: string;
@@ -83,7 +84,7 @@ export const useLibraryPagination = ({ view }: UseLibraryPaginationOptions): Use
         const controller = new AbortController();
         fetchAbortRef.current = controller;
 
-        const response = await fetch(endpoint, { signal: controller.signal });
+        const response = await fetch(getApiUrl(endpoint), { signal: controller.signal });
         if (isStale()) return;
 
         if (response.ok) {
@@ -159,7 +160,7 @@ export const useLibraryPagination = ({ view }: UseLibraryPaginationOptions): Use
       const controller = new AbortController();
       fetchAbortRef.current = controller;
 
-      const response = await fetch(endpoint, { signal: controller.signal });
+      const response = await fetch(getApiUrl(endpoint), { signal: controller.signal });
       if (isStale()) return;
 
       if (response.ok) {

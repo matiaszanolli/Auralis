@@ -12,7 +12,7 @@ import { useState, useEffect } from 'react';
 import { transformTracks } from '@/api/transformers/trackTransformer';
 import type { TrackApiResponse } from '@/api/transformers/types';
 import type { DetailTrack } from '@/types/domain';
-import { ENDPOINTS } from '@/config/api';
+import { ENDPOINTS, getApiUrl } from '@/config/api';
 import { isAbortError } from '@/utils/errorGuards';
 
 export interface Album {
@@ -43,7 +43,7 @@ export const useAlbumDetails = (albumId: number) => {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(`/api/albums/${albumId}/tracks`, {
+        const response = await fetch(getApiUrl(`/api/albums/${albumId}/tracks`), {
           signal: controller.signal,
         });
         if (!response.ok) {

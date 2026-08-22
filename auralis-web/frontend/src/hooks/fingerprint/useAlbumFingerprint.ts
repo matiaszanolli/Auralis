@@ -15,6 +15,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { AudioFingerprint } from '@/utils/fingerprintToGradient';
 import { httpErrorFromResponse } from '@/utils/httpError';
+import { getApiUrl } from '@/config/api';
 
 interface AlbumFingerprintResponse {
   album_id: number;
@@ -42,7 +43,7 @@ interface AlbumFingerprintResponse {
  * that hook's shape rather than inventing a third.
  */
 const fetchAlbumFingerprint = async (albumId: number): Promise<AudioFingerprint | null> => {
-  const response = await fetch(`/api/albums/${albumId}/fingerprint`);
+  const response = await fetch(getApiUrl(`/api/albums/${albumId}/fingerprint`));
 
   if (!response.ok) {
     // Album doesn't have fingerprints yet, return null (will use hash fallback)

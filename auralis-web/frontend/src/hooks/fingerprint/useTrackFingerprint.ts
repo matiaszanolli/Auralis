@@ -15,6 +15,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { AudioFingerprint } from '@/utils/fingerprintToGradient';
 import { httpErrorFromResponse } from '@/utils/httpError';
+import { getApiUrl } from '@/config/api';
 
 interface TrackFingerprintResponse {
   track_id: number;
@@ -35,7 +36,7 @@ interface TrackFingerprintResponse {
  * `query.error` permanently empty.
  */
 const fetchTrackFingerprint = async (trackId: number): Promise<TrackFingerprintResponse | null> => {
-  const response = await fetch(`/api/tracks/${trackId}/fingerprint`);
+  const response = await fetch(getApiUrl(`/api/tracks/${trackId}/fingerprint`));
 
   if (!response.ok) {
     // Track doesn't have fingerprint yet (queued for generation)

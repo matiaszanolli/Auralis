@@ -10,6 +10,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { isAbortError } from '@/utils/errorGuards';
+import { getApiUrl } from '@/config/api';
 
 export interface MetadataFields {
   title?: string;
@@ -59,7 +60,7 @@ export const useMetadataForm = (
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(`/api/metadata/tracks/${trackId}`, {
+        const response = await fetch(getApiUrl(`/api/metadata/tracks/${trackId}`), {
           signal: controller.signal,
         });
         if (!response.ok) throw new Error('Failed to fetch metadata');
@@ -128,7 +129,7 @@ export const useMetadataForm = (
         return;
       }
 
-      const response = await fetch(`/api/metadata/tracks/${trackId}`, {
+      const response = await fetch(getApiUrl(`/api/metadata/tracks/${trackId}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

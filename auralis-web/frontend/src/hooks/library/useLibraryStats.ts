@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { type LibraryStats } from '@/types/domain';
+import { getApiUrl } from '@/config/api';
 
 export type { LibraryStats };
 
@@ -36,7 +37,7 @@ export const useLibraryStats = ({ includeStats }: UseLibraryStatsOptions): UseLi
     setStatsLoading(true);
     setStatsError(null);
     try {
-      const response = await fetch('/api/library/stats', { signal: controller.signal });
+      const response = await fetch(getApiUrl('/api/library/stats'), { signal: controller.signal });
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       const data: LibraryStats = await response.json();
       setStats(data);

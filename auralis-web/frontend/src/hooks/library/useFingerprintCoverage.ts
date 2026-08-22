@@ -14,6 +14,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { httpErrorFromResponse } from '@/utils/httpError';
+import { getApiUrl } from '@/config/api';
 
 /** Matches `FingerprintingStatusResponse` in `routers/fingerprint_status.py`. */
 export interface FingerprintCoverage {
@@ -81,7 +82,7 @@ export function useFingerprintCoverage(enabled = true): UseFingerprintCoverageRe
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/library/fingerprints/status');
+      const response = await fetch(getApiUrl('/api/library/fingerprints/status'));
       if (!response.ok) {
         throw await httpErrorFromResponse(response);
       }
@@ -100,7 +101,7 @@ export function useFingerprintCoverage(enabled = true): UseFingerprintCoverageRe
   const analyseRemaining = useCallback(async () => {
     setEnqueueing(true);
     try {
-      const response = await fetch('/api/similarity/fingerprint-queue/enqueue-all', {
+      const response = await fetch(getApiUrl('/api/similarity/fingerprint-queue/enqueue-all'), {
         method: 'POST',
       });
       if (!response.ok) {

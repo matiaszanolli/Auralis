@@ -13,6 +13,7 @@ import type {
   ScanCompleteMessage,
 } from '@/types/websocket';
 import { isLibraryTracksRemovedMessage } from '@/types/ws/guards';
+import { getApiUrl } from '@/config/api';
 
 export interface ScanProgress {
   isScanning: boolean;
@@ -78,7 +79,7 @@ export function useScanProgress(): ScanStatus {
     if (connectionStatus !== 'connected') return;
 
     const controller = new AbortController();
-    fetch('/api/library/scan/status', { signal: controller.signal })
+    fetch(getApiUrl('/api/library/scan/status'), { signal: controller.signal })
       .then((response) => (response.ok ? response.json() : null))
       .then((data: { is_scanning?: boolean } | null) => {
         if (!data) return;

@@ -9,6 +9,7 @@ import type { Artist as DomainArtist, DetailTrack } from '@/types/domain';
 import type { ArtistDetailApiResponse } from '@/api/transformers/types';
 import { transformArtistDetail } from '@/api/transformers/artistTransformer';
 import { isAbortError } from '@/utils/errorGuards';
+import { getApiUrl } from '@/config/api';
 
 export interface Album {
   id: number;
@@ -36,7 +37,7 @@ export const useArtistDetailsData = (artistId: number) => {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(`/api/artists/${artistId}`, {
+        const response = await fetch(getApiUrl(`/api/artists/${artistId}`), {
           signal: controller.signal,
         });
         if (!response.ok) {

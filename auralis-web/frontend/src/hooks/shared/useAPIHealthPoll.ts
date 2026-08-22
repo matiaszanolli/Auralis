@@ -14,6 +14,7 @@
 import { useEffect, useRef } from 'react';
 import { useDispatch } from 'react-redux';
 import { setAPIConnected, setLatency } from '@/store/slices/connectionSlice';
+import { getApiUrl } from '@/config/api';
 
 export function useAPIHealthPoll(intervalMs = 5000): void {
   const dispatch = useDispatch();
@@ -27,7 +28,7 @@ export function useAPIHealthPoll(intervalMs = 5000): void {
     const pollHealth = async () => {
       const start = performance.now();
       try {
-        const response = await fetch('/api/health', { method: 'GET' });
+        const response = await fetch(getApiUrl('/api/health'), { method: 'GET' });
         if (!mountedRef.current) return;
         const latency = Math.round(performance.now() - start);
         if (response.ok) {

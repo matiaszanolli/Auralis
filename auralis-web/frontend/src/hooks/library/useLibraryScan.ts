@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useToast } from '@/components/shared/Toast';
 import { isElectron, getElectronAPI } from '@/utils/electron';
 import type { ScanFailure } from '@/types/ws/library';
+import { getApiUrl } from '@/config/api';
 
 export interface UseLibraryScanOptions {
   includeStats: boolean;
@@ -100,7 +101,7 @@ export const useLibraryScan = ({
     const controller = new AbortController();
     scanAbortRef.current = controller;
     try {
-      const response = await fetch('/api/library/scan', {
+      const response = await fetch(getApiUrl('/api/library/scan'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ directories: [folderPath] }),
