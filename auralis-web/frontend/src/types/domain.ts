@@ -105,27 +105,6 @@ export interface Artist {
 }
 
 // ============================================================================
-// Playlist
-// ============================================================================
-
-export interface Playlist {
-  id: number;
-  name: string;
-  description?: string;
-  trackCount: number; // transformed from snake_case track_count (fixes #2505)
-  isSmart: boolean; // transformed from snake_case is_smart (fixes #2505)
-
-  // Timestamps — optional because backend returns null when the field is unset
-  // (fixes #2278: was required string, causing crashes on null created_at)
-  createdAt?: string; // ISO 8601 — transformed from created_at (fixes #2505)
-  modifiedAt?: string; // ISO 8601 — transformed from modified_at (fixes #2505)
-}
-
-export interface PlaylistDetail extends Playlist {
-  tracks: Track[];
-}
-
-// ============================================================================
 // Queue
 // ============================================================================
 

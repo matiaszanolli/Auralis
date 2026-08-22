@@ -23,4 +23,3 @@ export * from './types';
 export * from './albumTransformer';
 export * from './artistTransformer';
 export * from './trackTransformer';
-export * from './playlistTransformer';

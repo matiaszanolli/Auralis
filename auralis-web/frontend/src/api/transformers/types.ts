@@ -122,29 +122,6 @@ export interface TracksApiResponse {
 }
 
 // ============================================================================
-// Playlist API Response
-// ============================================================================
-
-export interface PlaylistApiResponse {
-  id: number;
-  name: string;
-  description?: string;
-  track_count: number; // snake_case (backend field name)
-  is_smart: boolean; // snake_case (backend field name)
-  created_at?: string; // ISO 8601
-  modified_at?: string; // ISO 8601
-}
-
-export interface PlaylistDetailApiResponse extends PlaylistApiResponse {
-  tracks: TrackApiResponse[];
-}
-
-export interface PlaylistsApiResponse {
-  playlists: PlaylistApiResponse[];
-  total: number;
-}
-
-// ============================================================================
 // Artist Detail API Response (#2844: matches backend ArtistDetailResponse shape)
 // ============================================================================
 
