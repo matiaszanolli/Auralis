@@ -4,6 +4,7 @@ import { SettingsUpdate } from '@/services/settingsService';
 import FoldersList from './FoldersList';
 import AutoScanSettings from './AutoScanSettings';
 import ScanStatusCard from './ScanStatusCard';
+import FingerprintCoverageCard from './FingerprintCoverageCard';
 import { tokens } from '@/design-system';
 
 interface LibrarySettingsPanelProps {
@@ -22,6 +23,7 @@ interface LibrarySettingsPanelProps {
  * Manages:
  * - Scan folders list (add, remove)
  * - Live scan status card
+ * - Library-wide audio-analysis (fingerprint) coverage (#4865)
  * - Auto-scan toggle and interval
  */
 export const LibrarySettingsPanel = ({
@@ -45,6 +47,11 @@ export const LibrarySettingsPanel = ({
           disabled={scanFolders.length === 0}
           onScanNow={onScanNow}
         />
+      </Box>
+      {/* Scanning finds files; analysis fingerprints them. Separate cards
+          because they run on very different clocks (#4865). */}
+      <Box sx={{ mb: tokens.spacing.lg }}>
+        <FingerprintCoverageCard />
       </Box>
       <AutoScanSettings
         autoScan={autoScan}
