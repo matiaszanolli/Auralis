@@ -396,11 +396,6 @@ def get_quality_benchmark(genre: Genre) -> dict[str, float]:
     return GENRE_QUALITY_BENCHMARKS.get(genre, {})
 
 
-def get_engineer_profile(engineer: MasteringEngineer) -> dict[str, str]:
-    """Get mastering profile for a specific engineer."""
-    return ENGINEER_PROFILES.get(engineer, {})
-
-
 def list_all_references() -> list[ReferenceTrack]:
     """Get all reference tracks across all genres."""
     all_refs = []
