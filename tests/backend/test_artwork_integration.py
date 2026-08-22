@@ -31,15 +31,22 @@ import os
 import sys
 import tempfile
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
+from fastapi import HTTPException
 from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from auralis.io.saver import save as save_audio
+from auralis.library.artwork import ArtworkExtractor
 from auralis.library.database import LibraryDatabase
+
+# tests/backend/conftest.py puts auralis-web/backend on sys.path, which is
+# where these live.
+from routers.artwork import _bucket_size, _get_or_create_thumbnail, _THUMB_BUCKETS
 
 # ============================================================================
 # Fixtures
@@ -98,6 +105,28 @@ def library_with_artwork(tmp_path):
     yield db, track, tmp_path
 
     # Cleanup handled by tmp_path
+
+
+def _artwork_get_route():
+    """The registered GET /api/albums/{album_id}/artwork route endpoint.
+
+    ``routers.artwork.router`` is a module-level singleton that only gains
+    routes once ``create_artwork_router`` runs — normally a side effect of
+    importing ``main`` (whichever test happens to trigger that first, e.g.
+    via the ``client`` fixture or the autouse rate-limit-window reset,
+    populates it for the rest of the session). Registering it explicitly
+    here — the same pattern ``test_thumbnail_cache_eviction_4532.py`` uses —
+    makes route lookup work regardless of what ran before this test, instead
+    of silently depending on incidental import order.
+    """
+    import routers.artwork as artwork_module
+
+    artwork_module.create_artwork_router(MagicMock(), lambda: MagicMock())
+    return next(
+        r for r in artwork_module.router.routes
+        if getattr(r, "path", "") == "/api/albums/{album_id}/artwork"
+        and "GET" in getattr(r, "methods", set())
+    )
 
 
 # ============================================================================
@@ -194,7 +223,7 @@ def test_artwork_cache_key_uniqueness():
 
 @pytest.mark.integration
 @pytest.mark.artwork
-def test_artwork_cache_invalidation():
+def test_artwork_cache_invalidation(tmp_path):
     """
     INTEGRATION TEST: Cache invalidation when artwork changes.
 
@@ -204,13 +233,39 @@ def test_artwork_cache_invalidation():
     3. Verify old cache cleared
     4. Verify new artwork cached
     """
-    # Test documents expected behavior for cache invalidation
-    pass
+    extractor = ArtworkExtractor(str(tmp_path / "artwork"))
+
+    original_data = Image.new('RGB', (200, 200), color=(10, 20, 30))
+    updated_data = Image.new('RGB', (200, 200), color=(200, 210, 220))
+
+    def _jpeg_bytes(img: Image.Image) -> bytes:
+        import io
+        buf = io.BytesIO()
+        img.save(buf, format='JPEG')
+        return buf.getvalue()
+
+    original_path = extractor._save_artwork(_jpeg_bytes(original_data), album_id=1, mime_type='image/jpeg')
+    assert original_path is not None and os.path.exists(original_path)
+
+    # Content-addressed storage: different content -> different cache entry,
+    # so an update is never silently overwritten while the old one is live.
+    updated_path = extractor._save_artwork(_jpeg_bytes(updated_data), album_id=1, mime_type='image/jpeg')
+    assert updated_path is not None and os.path.exists(updated_path)
+    assert updated_path != original_path, "changed artwork must land on a new cache key"
+
+    # Invalidate the superseded entry — the real album-update flow deletes the
+    # old path once the DB row is repointed at the new one.
+    assert extractor.delete_artwork(original_path) is True
+    assert not os.path.exists(original_path), "old cache entry must be gone after invalidation"
+
+    # The new artwork remains valid and discoverable via the cache lookup.
+    assert os.path.exists(updated_path)
+    assert extractor.get_artwork_path(1) == updated_path
 
 
 @pytest.mark.integration
 @pytest.mark.artwork
-def test_artwork_cache_size_limits():
+def test_artwork_cache_size_limits(tmp_path):
     """
     INTEGRATION TEST: Cache respects size limits.
 
@@ -218,8 +273,26 @@ def test_artwork_cache_size_limits():
     - Cache doesn't grow unbounded
     - Old entries evicted when limit reached
     """
-    # Test would verify cache size management
-    pass
+    src = tmp_path / "cover.png"
+    Image.new('RGB', (1200, 1200), color=(50, 60, 70)).save(src, format='PNG')
+    thumb_dir = tmp_path / "thumbnails"
+
+    # Request many distinct sizes for the same source. Each snaps up to one
+    # of _THUMB_BUCKETS, so the on-disk variant count stays bounded by the
+    # bucket count instead of growing 1:1 with every distinct size a client
+    # ever asks for.
+    requested_sizes = [17, 40, 55, 90, 130, 200, 300, 450, 600, 900, 1500, 2000]
+    for size in requested_sizes:
+        result = _get_or_create_thumbnail(src, size, "image/png", thumb_dir)
+        assert result is not None
+
+    cached_files = list(thumb_dir.glob("*.png"))
+    distinct_buckets = {_bucket_size(s) for s in requested_sizes}
+    assert len(cached_files) == len(distinct_buckets)
+    assert len(cached_files) <= len(_THUMB_BUCKETS)
+    assert len(cached_files) < len(requested_sizes), (
+        "cache must not grow one entry per requested size"
+    )
 
 
 # ============================================================================
@@ -228,7 +301,7 @@ def test_artwork_cache_size_limits():
 
 @pytest.mark.integration
 @pytest.mark.artwork
-def test_serve_cached_artwork():
+def test_serve_cached_artwork(tmp_path):
     """
     INTEGRATION TEST: Serve artwork from cache.
 
@@ -238,13 +311,49 @@ def test_serve_cached_artwork():
     3. Verify image format (JPEG/PNG)
     4. Verify image dimensions
     """
-    # Test would verify artwork serving endpoint
-    pass
+    import asyncio
+
+    artwork_dir = tmp_path / "artwork"
+    artwork_dir.mkdir()
+    thumb_dir = artwork_dir / "thumbnails"
+    art_path = artwork_dir / "album_1_deadbeef.jpg"
+    Image.new('RGB', (300, 300), color=(80, 90, 100)).save(art_path, format='JPEG')
+
+    album = MagicMock()
+    album.artwork_path = str(art_path)
+    repos = MagicMock()
+    repos.albums.get_by_id.return_value = album
+
+    request = MagicMock(headers={})
+
+    with (
+        patch("routers.artwork.require_repository_factory", return_value=repos),
+        patch("routers.artwork._artwork_dirs", return_value=(artwork_dir, thumb_dir)),
+    ):
+        route = _artwork_get_route()
+        response = asyncio.run(route.endpoint(album_id=1, request=request, size=None))
+
+    assert response.media_type == "image/jpeg"
+    assert response.path == str(art_path)
+    etag = response.headers.get("ETag")
+    assert etag
+
+    # Repeat request with a matching If-None-Match must be served from cache
+    # as a 304, not re-sent.
+    request_cached = MagicMock(headers={"if-none-match": etag})
+    with (
+        patch("routers.artwork.require_repository_factory", return_value=repos),
+        patch("routers.artwork._artwork_dirs", return_value=(artwork_dir, thumb_dir)),
+    ):
+        route = _artwork_get_route()
+        cached_response = asyncio.run(route.endpoint(album_id=1, request=request_cached, size=None))
+
+    assert cached_response.status_code == 304
 
 
 @pytest.mark.integration
 @pytest.mark.artwork
-def test_serve_artwork_with_fallback():
+def test_serve_artwork_with_fallback(tmp_path):
     """
     INTEGRATION TEST: Fallback to default artwork when missing.
 
@@ -253,8 +362,30 @@ def test_serve_artwork_with_fallback():
     2. Verify fallback image returned
     3. Verify fallback is valid image
     """
-    # Test would verify fallback mechanism
-    pass
+    import asyncio
+
+    artwork_dir = tmp_path / "artwork"
+    thumb_dir = artwork_dir / "thumbnails"
+
+    album = MagicMock()
+    album.artwork_path = None  # No artwork extracted/downloaded for this album.
+    repos = MagicMock()
+    repos.albums.get_by_id.return_value = album
+
+    request = MagicMock(headers={})
+
+    # The backend has no default-image asset to fall back to server-side — the
+    # contract clients rely on for their own fallback UI is a clean 404 rather
+    # than a crash or an ambiguous empty body.
+    with (
+        patch("routers.artwork.require_repository_factory", return_value=repos),
+        patch("routers.artwork._artwork_dirs", return_value=(artwork_dir, thumb_dir)),
+    ):
+        route = _artwork_get_route()
+        with pytest.raises(HTTPException) as exc_info:
+            asyncio.run(route.endpoint(album_id=1, request=request, size=None))
+
+    assert exc_info.value.status_code == 404
 
 
 # ============================================================================
@@ -323,7 +454,7 @@ def test_artwork_resize_to_thumbnails(test_artwork_dir):
 
 @pytest.mark.integration
 @pytest.mark.artwork
-def test_handle_corrupted_artwork():
+def test_handle_corrupted_artwork(tmp_path):
     """
     INTEGRATION TEST: Handle corrupted artwork gracefully.
 
@@ -332,13 +463,38 @@ def test_handle_corrupted_artwork():
     2. Verify doesn't crash
     3. Verify fallback used
     """
-    # Test would verify error handling for corrupted images
-    pass
+    import asyncio
+
+    artwork_dir = tmp_path / "artwork"
+    artwork_dir.mkdir()
+    thumb_dir = artwork_dir / "thumbnails"
+    corrupt_path = artwork_dir / "album_1_corrupt.jpg"
+    corrupt_path.write_bytes(b"this is not a valid jpeg")
+
+    album = MagicMock()
+    album.artwork_path = str(corrupt_path)
+    repos = MagicMock()
+    repos.albums.get_by_id.return_value = album
+    request = MagicMock(headers={})
+
+    # Request a thumbnail size so PIL is actually asked to decode the
+    # corrupted bytes (_get_or_create_thumbnail catches the decode failure
+    # and returns None) — the endpoint must not 500, it must fall back to
+    # serving the original file as-is.
+    with (
+        patch("routers.artwork.require_repository_factory", return_value=repos),
+        patch("routers.artwork._artwork_dirs", return_value=(artwork_dir, thumb_dir)),
+    ):
+        route = _artwork_get_route()
+        response = asyncio.run(route.endpoint(album_id=1, request=request, size=256))
+
+    assert response.path == str(corrupt_path), "must fall back to the raw original file"
+    assert not list(thumb_dir.glob("*")), "no thumbnail should have been cached from garbage bytes"
 
 
 @pytest.mark.integration
 @pytest.mark.artwork
-def test_handle_missing_artwork_file():
+def test_handle_missing_artwork_file(tmp_path):
     """
     INTEGRATION TEST: Handle missing artwork file gracefully.
 
@@ -347,5 +503,26 @@ def test_handle_missing_artwork_file():
     2. Verify doesn't crash
     3. Verify fallback used
     """
-    # Test would verify error handling for missing files
-    pass
+    import asyncio
+
+    artwork_dir = tmp_path / "artwork"
+    thumb_dir = artwork_dir / "thumbnails"
+    # A path the DB row points at, but the file was deleted off disk
+    # (e.g. manual cleanup, failed extraction that half-wrote the row).
+    missing_path = artwork_dir / "album_1_gone.jpg"
+
+    album = MagicMock()
+    album.artwork_path = str(missing_path)
+    repos = MagicMock()
+    repos.albums.get_by_id.return_value = album
+    request = MagicMock(headers={})
+
+    with (
+        patch("routers.artwork.require_repository_factory", return_value=repos),
+        patch("routers.artwork._artwork_dirs", return_value=(artwork_dir, thumb_dir)),
+    ):
+        route = _artwork_get_route()
+        with pytest.raises(HTTPException) as exc_info:
+            asyncio.run(route.endpoint(album_id=1, request=request, size=None))
+
+    assert exc_info.value.status_code == 404

@@ -16,13 +16,20 @@ across different formats and scenarios.
 """
 
 import shutil
+import sys
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 import pytest
 
 from auralis.io.saver import save as save_audio
+
+# tests/backend/conftest.py puts auralis-web/backend on sys.path, which is
+# where routers.artwork lives.
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'auralis-web' / 'backend'))
+import routers.artwork as artwork_module  # noqa: E402
 
 # ============================================================================
 # Fixtures
@@ -179,15 +186,36 @@ def test_artwork_cache_saves_extracted_artwork(temp_audio_dir):
 
 
 @pytest.mark.integration
-def test_artwork_cache_hit_faster_than_extraction():
+def test_artwork_cache_hit_faster_than_extraction(tmp_path):
     """
     ARTWORK: Cache hit is faster than extraction.
 
     Tests that cached artwork loads faster than extraction.
     """
-    # This is a performance characteristic test
-    # Actual implementation depends on caching strategy
-    pass
+    from PIL import Image
+
+    src = tmp_path / "cover.jpg"
+    Image.new('RGB', (500, 500), color=(60, 70, 80)).save(src, format='JPEG')
+    thumb_dir = tmp_path / "thumbnails"
+
+    render_calls = []
+    real_render = artwork_module._render_thumbnail
+
+    def _counting_render(*args, **kwargs):
+        render_calls.append(1)
+        return real_render(*args, **kwargs)
+
+    with patch.object(artwork_module, "_render_thumbnail", side_effect=_counting_render):
+        first = artwork_module._get_or_create_thumbnail(src, 256, "image/jpeg", thumb_dir)
+        assert first is not None
+        assert len(render_calls) == 1, "first request must actually render"
+
+        second = artwork_module._get_or_create_thumbnail(src, 256, "image/jpeg", thumb_dir)
+        assert second is not None
+        assert second[0] == first[0]
+        # The cache hit must not repeat the PIL decode/resize/encode work —
+        # that's the "faster than extraction" characteristic in practice.
+        assert len(render_calls) == 1, "second request must be served from cache, not re-rendered"
 
 
 @pytest.mark.integration
