@@ -10,10 +10,15 @@ function; re-exported from chunked_processor so existing
 `from core.chunked_processor import apply_crossfade_between_chunks` imports keep
 working.
 
-NOTE (#4245 CONSISTENCY / #4071): audio_stream_controller.py performs its own
-boundary handling for the live stream path; if that god-file is later split, its
-crossfade helper and this one should be reconciled against a single source of
-truth rather than duplicated.
+NOTE (#4245 CONSISTENCY / #4071): audio_stream_controller.py applies NO
+boundary crossfade of its own — #4642 deleted the last remnant
+(`_apply_boundary_crossfade`, a no-op since #3514) once ChunkOperations
+started rendering each chunk with context and trimming it to a
+non-overlapping CHUNK_INTERVAL segment, leaving nothing to blend on the
+live-stream path. See tests/backend/test_audio_stream_crossfade.py. The
+actual duplicate this check turned up lived in chunk_operations.py
+(`ChunkOperations.apply_crossfade`, an unused copy of the function below) and
+was removed rather than reconciled (#4245).
 
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3, see LICENSE for more details.
