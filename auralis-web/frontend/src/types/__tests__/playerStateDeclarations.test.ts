@@ -13,6 +13,14 @@
  * observable at runtime — the runtime scale is already covered by
  * `usePlaybackControl.test.ts`. A declaration-level defect needs a
  * declaration-level guard, which is what this is.
+ *
+ * #4398 went further and deleted api.ts's player-request types outright
+ * (PlayerPlayRequest/PlayerSeekRequest/PlayerVolumeRequest/etc.) — zero real
+ * importers, the same "nothing imported it" finding this file's own docstring
+ * already made about api.ts's PlayerState. api.ts no longer declares any
+ * player-state-adjacent type, so it dropped out of the "surviving
+ * declarations state the 0-100 scale" check below; only domain.ts and
+ * ws/player.ts remain to check.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -72,6 +80,5 @@ describe('player state type declarations (#3894)', () => {
   it('the surviving player-state declarations state the 0-100 scale', () => {
     expect(domainTypes).toMatch(/0-100/);
     expect(wsPlayerTypes).toMatch(/0-100/);
-    expect(apiTypes).toMatch(/0-100/);
   });
 });
