@@ -23,7 +23,8 @@ export interface ScanProgress {
    *  indicator). A `0` here means 0% processed, not "unknown". */
   percentage: number | null;
   currentFile: string | null;
-  phase: 'discovering' | 'processing' | 'fingerprinting';
+  /** `'fingerprinting'` removed in #4648 — no reachable emitter. */
+  phase: 'discovering' | 'processing';
 }
 
 export interface ScanResult {

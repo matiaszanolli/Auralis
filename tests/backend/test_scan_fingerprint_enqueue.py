@@ -97,16 +97,18 @@ class TestScannerNoAsyncioCreateTask:
 
     def test_no_asyncio_create_task_in_scan_directories(self):
         """
-        asyncio.create_task must not be called during scan_directories execution,
-        even when a fingerprint_queue is set on the scanner.
+        asyncio.create_task must not be called during scan_directories execution.
+
+        The scanner no longer takes a fingerprint_queue at all (#4648) — the
+        parameter existed only to feed `_enqueue_fingerprints`, the very method
+        whose `create_task` call this test was written to keep out.
         """
         from auralis.library.scanner.scanner import LibraryScanner
 
         track_obj = _make_track(7)
         library_manager = MagicMock()
         library_manager.try_acquire_scan_slot.return_value = (True, 1)
-        fake_queue = MagicMock()
-        scanner = LibraryScanner(library_manager, fingerprint_queue=fake_queue)
+        scanner = LibraryScanner(library_manager)
 
         batch_result = MagicMock()
         batch_result.files_processed = 1

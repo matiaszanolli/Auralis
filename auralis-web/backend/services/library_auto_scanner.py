@@ -206,10 +206,10 @@ class LibraryAutoScanner:
         # progress event once it owns the scan slot; _async_progress below turns
         # that into the frame.
 
-        scanner = LibraryScanner(
-            self._library_manager,
-            fingerprint_queue=self._fingerprint_queue
-        )
+        # No fingerprint_queue: the scanner never enqueued (#4648, #2382).
+        # This class does its own enqueueing after the scan returns — see the
+        # `self._fingerprint_queue` guard in _run_scan_cycle below.
+        scanner = LibraryScanner(self._library_manager)
 
         # Bridge sync scanner progress → async broadcast
         loop = asyncio.get_running_loop()

@@ -50,16 +50,23 @@ class LibraryScanner:
     - Intelligent file filtering
     """
 
-    def __init__(self, library_manager: Any, fingerprint_queue: Any | None = None) -> None:
+    def __init__(self, library_manager: Any) -> None:
         """
         Initialize scanner with library manager
 
+        This scanner does NOT enqueue fingerprints. #2382 moved that to the
+        caller, after `asyncio.to_thread(scan_directories)` returns, because
+        `scan_directories` is fully synchronous and `asyncio.create_task` from
+        its thread raised `RuntimeError: no running event loop`. The
+        `fingerprint_queue` parameter this used to accept went with the dead
+        `_enqueue_fingerprints` it fed (#4648) — it was being passed in and
+        silently ignored. See `routers/library_scan.py` and
+        `LibraryAutoScanner._run_scan_cycle` for the enqueue that actually runs.
+
         Args:
             library_manager: Library manager instance
-            fingerprint_queue: Optional FingerprintExtractionQueue for background fingerprinting
         """
         self.library_manager: Any = library_manager
-        self.fingerprint_queue: Any | None = fingerprint_queue
         self.progress_callback: Callable[[dict[str, Any]], None] | None = None
         # #3479: invoked after every successful scan completes (even an empty
         # one), outside the scan-slot lock so the consumer can do its own DB
@@ -479,33 +486,3 @@ class LibraryScanner:
                 self.progress_callback(progress_data)
             except Exception as e:
                 warning(f"Progress callback failed: {e}")
-
-    async def _enqueue_fingerprints(self, track_records: list[Any]) -> None:
-        """
-        Enqueue fingerprints for newly added tracks
-
-        Args:
-            track_records: List of Track objects that need fingerprinting
-        """
-        if not self.fingerprint_queue or not track_records:
-            return
-
-        enqueued_count: int = 0
-        for track in track_records:
-            try:
-                success: bool = await self.fingerprint_queue.enqueue(
-                    track_id=track.id,
-                    filepath=track.filepath,
-                    priority=0  # Normal priority for scan operations
-                )
-                if success:
-                    enqueued_count += 1
-            except Exception as e:
-                warning(f"Failed to enqueue fingerprint for track {track.id}: {e}")
-
-        if enqueued_count > 0:
-            info(f"Enqueued {enqueued_count} fingerprints for extraction")
-            self._report_progress({
-                'stage': 'fingerprinting',
-                'fingerprints_enqueued': enqueued_count
-            })
