@@ -57,11 +57,19 @@ function requestOptions(
  * type (e.g. number for playlists/tracks, string for fingerprints) and
  * passing a string where a number is expected becomes a TS error.
  */
-export interface CrudEndpoints<ID = number, P extends Record<string, unknown> = Record<string, unknown>> {
+export interface CrudEndpoints<
+  ID = number,
+  P extends Record<string, unknown> = Record<string, unknown>,
+  U = unknown,
+> {
   list?: string | ((params?: P) => string);
   get?: string | ((id: ID) => string);
-  create?: string | ((params?: P) => string);
-  update?: string | ((id: ID, params?: P) => string);
+  // create/update URL-builders receive the request body, not `P` (URL/query
+  // params) — `P` and the body shape are unrelated types (e.g.
+  // PlaylistListParams vs Playlist) and forcing them together required an
+  // `unknown` double-cast that let the actual body slip through unchecked (#4461).
+  create?: string | ((data?: Partial<U>) => string);
+  update?: string | ((id: ID, data?: Partial<U>) => string);
   delete?: string | ((id: ID) => string);
   custom?: Record<string, string | ((params?: P) => string)>;
 
@@ -93,7 +101,7 @@ export function createCrudService<
   U = unknown,
   ID = number,
   P extends Record<string, unknown> = Record<string, unknown>,
->(endpoints: CrudEndpoints<ID, P>) {
+>(endpoints: CrudEndpoints<ID, P, U>) {
   return {
     /**
      * GET list of items
@@ -131,7 +139,7 @@ export function createCrudService<
         throw new Error('create endpoint not configured');
       }
       const endpoint = typeof endpoints.create === 'function'
-        ? endpoints.create(data as unknown as P)
+        ? endpoints.create(data)
         : endpoints.create;
       const opts = requestOptions(undefined, options);
       const body = data as Record<string, unknown>;
@@ -146,7 +154,7 @@ export function createCrudService<
         throw new Error('update endpoint not configured');
       }
       const endpoint = typeof endpoints.update === 'function'
-        ? endpoints.update(id, data as unknown as P)
+        ? endpoints.update(id, data)
         : endpoints.update;
       const opts = requestOptions(undefined, options);
       const body = data as Record<string, unknown>;
