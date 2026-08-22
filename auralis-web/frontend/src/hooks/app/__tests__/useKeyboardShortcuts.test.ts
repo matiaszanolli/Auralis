@@ -7,7 +7,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook } from '@testing-library/react';
-import { useKeyboardShortcuts, getShortcutString, KEYBOARD_SHORTCUTS } from '../useKeyboardShortcuts';
+import { useKeyboardShortcuts, formatShortcut, KEYBOARD_SHORTCUTS } from '../useKeyboardShortcuts';
 
 // Helper to create keyboard events
 const createKeyboardEvent = (
@@ -517,7 +517,15 @@ describe('useKeyboardShortcuts', () => {
   });
 });
 
-describe('getShortcutString', () => {
+// #4645: getShortcutString (a string-in/string-out "legacy alias for
+// formatShortcut") had zero production consumers and was deleted. Its
+// docstring's "alias" claim didn't hold — formatShortcut takes a
+// ShortcutDefinition object, not a pre-formatted string, and joins modifiers
+// with '' on Mac vs '+' elsewhere, unlike getShortcutString's plain
+// find-and-replace. This block re-points the Mac/non-Mac modifier-symbol
+// coverage getShortcutString exercised onto formatShortcut's real API,
+// asserting formatShortcut's actual output rather than the old function's.
+describe('formatShortcut (Mac/non-Mac modifier symbols)', () => {
   beforeEach(() => {
     Object.defineProperty(navigator, 'platform', {
       value: 'Linux',
@@ -526,32 +534,32 @@ describe('getShortcutString', () => {
     });
   });
 
-  it('should replace Cmd with ⌘ on Mac', () => {
+  it('renders Ctrl/Cmd as ⌘ on Mac', () => {
     Object.defineProperty(navigator, 'platform', { value: 'MacIntel' });
 
-    const result = getShortcutString('Cmd+K');
+    const result = formatShortcut({ key: 'k', ctrl: true, description: 'Test', category: 'Global' });
 
-    expect(result).toBe('⌘+K');
+    expect(result).toBe('⌘K');
   });
 
-  it('should replace Ctrl with Ctrl on non-Mac', () => {
+  it('renders Ctrl as Ctrl on non-Mac', () => {
     Object.defineProperty(navigator, 'platform', { value: 'Win32' });
 
-    const result = getShortcutString('Ctrl+K');
+    const result = formatShortcut({ key: 'k', ctrl: true, description: 'Test', category: 'Global' });
 
     expect(result).toBe('Ctrl+K');
   });
 
-  it('should replace Cmd with Ctrl on non-Mac', () => {
+  it('renders meta as Ctrl on non-Mac', () => {
     Object.defineProperty(navigator, 'platform', { value: 'Linux' });
 
-    const result = getShortcutString('Cmd+,');
+    const result = formatShortcut({ key: ',', meta: true, description: 'Test', category: 'Global' });
 
     expect(result).toBe('Ctrl+,');
   });
 
-  it('should handle strings without modifiers', () => {
-    const result = getShortcutString('Space');
+  it('handles shortcuts without modifiers', () => {
+    const result = formatShortcut({ key: ' ', description: 'Test', category: 'Global' });
 
     expect(result).toBe('Space');
   });

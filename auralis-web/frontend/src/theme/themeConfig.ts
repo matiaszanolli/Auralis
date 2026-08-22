@@ -505,11 +505,11 @@ export const createAuralisTheme = (mode: ThemeMode): Theme => {
   });
 };
 
-// Export default dark theme for backward compatibility
-export const auralisTheme = createAuralisTheme('dark');
 // #4584: the `darkColors as colors` alias is gone. It was a third colour API
 // competing with `themeVars` and the raw tokens, and it silently handed callers
 // the *dark* palette regardless of the active mode. Use `themeVars` for
 // theme-aware colours; `darkColors`/`lightColors` remain exported under their
 // real names for building the MUI theme below, not for component use.
-export default auralisTheme;
+//
+// #4645: the `auralisTheme` default export ("for backward compatibility") had
+// zero consumers too — nothing imported the default or the named export.

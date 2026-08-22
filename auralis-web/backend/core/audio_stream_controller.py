@@ -44,7 +44,6 @@ from auralis.library.repositories.factory import RepositoryFactory
 
 from .chunk_cache import SimpleChunkCache
 from .env_config import get_int_env
-from .stream_protocol import _SEND_QUEUE_MAXSIZE  # noqa: F401 (re-exported for compat)
 
 logger = logging.getLogger(__name__)
 

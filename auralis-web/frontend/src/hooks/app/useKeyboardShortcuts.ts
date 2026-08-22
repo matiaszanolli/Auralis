@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useLayoutEffect, useCallback, useState, useRef } from 'react';
-import { keyboardShortcuts, isMacPlatform, ShortcutDefinition, ShortcutHandler } from '@/services/keyboardShortcutsService';
+import { keyboardShortcuts, ShortcutDefinition, ShortcutHandler } from '@/services/keyboardShortcutsService';
 import {
   SHORTCUT_CONFIG_MAP,
   PRESET_SHORTCUTS,
@@ -119,21 +119,6 @@ const configToServiceShortcuts = (config: KeyboardShortcutsConfig): Array<Keyboa
  */
 export const formatShortcut = (shortcut: ShortcutDefinition): string => {
   return keyboardShortcuts.formatShortcut(shortcut);
-};
-
-/**
- * Legacy alias for formatShortcut (for backward compatibility with tests)
- */
-export const getShortcutString = (shortcut: string): string => {
-  // Handle string-based shortcut formatting for tests
-  // This converts shortcut strings like 'Cmd+K' to display format
-  const isMac = isMacPlatform();
-
-  if (shortcut.includes('Cmd')) {
-    return shortcut.replace('Cmd', isMac ? '⌘' : 'Ctrl');
-  }
-
-  return shortcut;
 };
 
 /**
