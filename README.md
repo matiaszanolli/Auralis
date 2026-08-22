@@ -114,31 +114,36 @@ Several months behind `master` — see the note above. Download from [GitHub Rel
 
 **Windows:**
 ```bash
-# 1. Download Auralis.Setup.1.2.0-beta.2.exe
+# 1. Download Auralis.Setup.<VERSION>.exe
 # 2. Run the installer
 # 3. Launch Auralis from Start Menu
 ```
 
 **Linux (AppImage):**
 ```bash
-# 1. Download Auralis-1.2.0-beta.2.AppImage
-chmod +x Auralis-1.2.0-beta.2.AppImage
-./Auralis-1.2.0-beta.2.AppImage
+# 1. Download Auralis-<VERSION>.AppImage
+chmod +x Auralis-<VERSION>.AppImage
+./Auralis-<VERSION>.AppImage
 ```
 
 **Linux (Debian/Ubuntu):**
 ```bash
-# 1. Download auralis-desktop_1.2.0-beta.2_amd64.deb
-sudo dpkg -i auralis-desktop_1.2.0-beta.2_amd64.deb
+# 1. Download auralis-desktop_<VERSION>_amd64.deb
+sudo dpkg -i auralis-desktop_<VERSION>_amd64.deb
 auralis
 ```
 
 **macOS:**
 ```bash
-# 1. Download Auralis-1.2.0-beta.2.dmg (or -arm64.dmg for Apple Silicon)
+# 1. Download Auralis-<VERSION>.dmg (or -arm64.dmg for Apple Silicon)
 # 2. Open the DMG and drag Auralis to Applications
 # 3. First launch: Right-click → Open (to bypass Gatekeeper)
 ```
+
+`<VERSION>` above is whatever release you downloaded from the table — see
+the *"last binary release"* note above (currently v1.2.0-beta.2). These
+blocks are intentionally not tied to a specific version string so they
+stay correct across releases without a per-release edit.
 
 ### Option 2: Run the verified components from source
 

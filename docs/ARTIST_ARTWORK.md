@@ -1,7 +1,6 @@
 # Artist Artwork Feature
 
 **Status**: ✅ Implemented (Phase 2)
-**Version**: 1.2.0-beta.1+
 
 This feature automatically fetches artist images from free, open-source APIs and displays them in the artist detail view.
 
