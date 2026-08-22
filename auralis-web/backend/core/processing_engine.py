@@ -30,9 +30,6 @@ sys.path.append(str(Path(__file__).parent.parent.parent))
 
 from auralis.core.config import UnifiedConfig
 from auralis.core.hybrid_processor import HybridProcessor
-from auralis.io.processing import resample_audio
-from auralis.io.saver import save
-from auralis.io.unified_loader import load_audio
 
 # ProcessingJob / ProcessingStatus live in job_models so the worker can import
 # them without a circular dependency; re-exported here so existing
@@ -44,7 +41,15 @@ from core.job_cleanup import cleanup_expired_jobs
 # _safe_error_message lives in job_error_mapping so it (and its mapping
 # tables) can be tested/imported independently; re-exported here for the
 # same reason ProcessingJob/ProcessingStatus are (#4250 follow-up).
+from core.job_config import create_processor_config
 from core.job_error_mapping import _safe_error_message
+
+# _prepare_job/_execute_job's bodies live in job_execution.py (load_audio()/
+# save() calls and all) so a test can intercept those calls at
+# 'core.job_execution.load_audio' / 'core.job_execution.save' — see that
+# module's docstring (#4250 follow-up).
+from core.job_execution import execute_job, prepare_job
+from core.job_finalize import finalize_job
 from core.job_models import ProcessingJob, ProcessingStatus
 from core.job_progress import ProgressNotifier
 from core.job_worker import JobWorker
@@ -59,22 +64,6 @@ __all__ = [
 
 
 logger = logging.getLogger(__name__)
-
-
-def _reset_processor_state(processor: HybridProcessor) -> None:
-    """Reset the per-job cross-call state on a pooled/cached processor.
-
-    Run via a single `asyncio.to_thread` call (fixes #4797) rather than as
-    bare synchronous calls on the event loop, since each acquires
-    `_process_lock` (#3787).
-
-    `reset_realtime_eq()` was dropped with the unwired real-time EQ path in
-    #4873; `reset_psychoacoustic_eq()` below covers the EQ the live
-    adaptive/continuous path actually uses.
-    """
-    processor.reset_dynamics()
-    processor.reset_psychoacoustic_eq()
-    processor.reset_limiter()
 
 
 class ProcessingEngine:
@@ -310,122 +299,22 @@ class ProcessingEngine:
             except Exception:
                 logger.debug("Processor close() also failed", exc_info=True)
 
+    # _create_processor_config/_prepare_job/_execute_job/_finalize_job delegate
+    # to job_config.py/job_execution.py/job_finalize.py (#4250 follow-up). Thin
+    # wrappers are kept — rather than importing those functions directly into
+    # process_job — so `patch.object(engine, "_prepare_job"/"_execute_job"/
+    # "_finalize_job"/"_create_processor_config", ...)` in
+    # tests/backend/test_process_job_nonblocking.py and
+    # tests/backend/test_processor_return_on_failure.py keeps working
+    # unmodified: those tests replace the bound method on the instance, which
+    # only works while it's an attribute directly on ProcessingEngine.
     def _create_processor_config(self, job: ProcessingJob) -> UnifiedConfig:
-        """
-        Create UnifiedConfig from job settings.
-
-        Currently supports ONLY adaptive / reference / hybrid mode selection.
-        The offline-mastering pipeline (HybridProcessor.process) drives EQ /
-        dynamics / level / genre from its OWN internal fingerprint analysis
-        via ContinuousMode — it does NOT read from `config.adaptive.eq_gains`,
-        `config.adaptive.compressor`, `config.adaptive.target_lufs`,
-        `config.adaptive.gain`, or `config.adaptive.genre_override`.
-
-        Until those readers exist (tracked as the wire-up follow-up for
-        #3490), any "eq" / "dynamics" / "level_matching" / "genre_override"
-        keys in `job.settings` are logged at INFO and ignored. Prior code
-        silently wrote them into dynamic attributes on `AdaptiveConfig` —
-        the UI looked responsive while changing nothing audible.
-        """
-
-        config = UnifiedConfig()
-
-        # Set processing mode
-        if job.mode == "adaptive":
-            config.set_processing_mode("adaptive")
-        elif job.mode == "reference":
-            config.set_processing_mode("reference")
-        elif job.mode == "hybrid":
-            config.set_processing_mode("hybrid")
-
-        # Log (don't silently drop) any UI settings the engine cannot consume.
-        # The frontend should hide these controls until the engine reads them
-        # (see #3490 follow-up). Logging at INFO so developers see it in dev.
-        unsupported: list[str] = []
-        # Guard each lookup against an explicit `None` value, not just a missing
-        # key — ProcessingSettings.model_dump() always includes "eq"/"dynamics"/
-        # "fingerprint" with a None default when the client doesn't set them, so
-        # `"eq" in job.settings` is True while `job.settings["eq"]` is None and
-        # `.get()` on it raises AttributeError (fixes #3819, found while writing
-        # the first end-to-end test to drive a real ProcessingEngine — every job
-        # submitted with default settings failed with "unexpected error").
-        fingerprint_settings = job.settings.get("fingerprint")
-        if fingerprint_settings and fingerprint_settings.get("enabled"):
-            # The 25D-fingerprint-to-mastering-parameter mapper this once fed
-            # (auralis/analysis/fingerprint/parameter_mapper.py) was deleted
-            # as dead code (#4926) — superseded by the continuous-parameter-
-            # space mastering path (auralis/core/processing/continuous_space.py).
-            # No frontend control sends this setting; kept defensive in case a
-            # client still submits it.
-            unsupported.append("fingerprint (superseded by continuous-space mastering)")
-        eq_settings = job.settings.get("eq")
-        if eq_settings and eq_settings.get("enabled"):
-            unsupported.append("eq")
-        dynamics_settings = job.settings.get("dynamics")
-        if dynamics_settings and dynamics_settings.get("enabled"):
-            unsupported.append("dynamics")
-        level_settings = job.settings.get("level_matching") or job.settings.get("levelMatching")
-        if level_settings and level_settings.get("enabled"):
-            unsupported.append("level_matching")
-        # Value check, not key presence (#5060 fix): ProcessingSettings.model_dump()
-        # always includes "genre_override" with a None default even when the
-        # client never set it (same trap #3819 already fixed for "fingerprint"
-        # above), so `"genre_override" in job.settings` was True — and thus
-        # reported as ignored — on every single job, not just ones that set it.
-        if job.settings.get("genre_override") is not None:
-            unsupported.append("genre_override")
-        # sample_rate: None means "keep original" (router default) and is a
-        # legitimate no-op, not an ignored request; any other value is accepted
-        # by the API but never actually applied — the offline pipeline writes
-        # at the input file's rate (#5060).
-        if job.settings.get("sample_rate") is not None:
-            unsupported.append("sample_rate")
-
-        # Surfaced in result_data (#5060) so a client can tell "applied" from
-        # "accepted but silently ignored" instead of only via this INFO log.
-        job.ignored_settings = unsupported
-
-        if unsupported:
-            logger.info(
-                "Job %s: requested settings (%s) are accepted but not consumed "
-                "by the offline pipeline — HybridProcessor drives these from "
-                "internal fingerprint analysis. See #3490 for the wire-up plan.",
-                job.job_id,
-                ", ".join(unsupported),
-            )
-
-        return config
+        return create_processor_config(job)
 
     async def _prepare_job(
         self, job: ProcessingJob
     ) -> tuple[np.ndarray, int, UnifiedConfig, HybridProcessor]:
-        """Mark the job started, load its input audio, build its config, and
-        acquire an exclusively-owned processor (#4250). The processor is popped
-        from the pool (#3201) and MUST be returned by the caller — process_job
-        does so on every exit path."""
-        job.status = ProcessingStatus.PROCESSING
-        job.started_at = datetime.now()
-
-        await self._notify_progress(job.job_id, 0.0, "Loading audio file...")
-
-        # Register a cooperative cancellation token so cancel_job() can abort an
-        # in-flight FFmpeg decode running in the to_thread worker (#4496).
-        cancel_event = self._cancel_events.setdefault(job.job_id, threading.Event())
-
-        # Load input audio — disk-bound; offload to thread (fixes #2319)
-        audio, sample_rate = await asyncio.to_thread(
-            load_audio, job.input_path, cancel_event=cancel_event
-        )
-
-        await self._notify_progress(job.job_id, 20.0, "Analyzing audio content...")
-
-        # Create processor config
-        config = self._create_processor_config(job)
-
-        # Get or create processor — exclusively owned until returned (#3201)
-        processor = await self._get_or_create_processor(job.mode, config)
-
-        return audio, sample_rate, config, processor
+        return await prepare_job(self, job)
 
     async def _execute_job(
         self,
@@ -434,115 +323,7 @@ class ProcessingEngine:
         sample_rate: int,
         processor: HybridProcessor,
     ) -> np.ndarray:
-        """Reset processor state, run the timeout-guarded DSP process, and save
-        the output. Returns the processed audio array (#4250)."""
-        await self._notify_progress(job.job_id, 40.0, "Processing audio...")
-
-        # Reset EQ state before each job so cached processors don't bleed
-        # the previous track's psychoacoustic EQ curve into the new track (fixes #2400).
-        # The adaptive/continuous path's main psychoacoustic EQ is the one that
-        # matters here; the separate real-time EQ path this used to also reset
-        # was deleted as unreachable in #4873.
-        # reset_limiter() clears the brick-wall limiter's cross-call gain-reduction
-        # state so a loud track doesn't leave the next one starting pre-attenuated
-        # (fixes #4811).
-        #
-        # Each reset acquires `_process_lock` (#3787), a plain threading.RLock.
-        # #4727 guarantees a timed-out job's processor is discarded rather than
-        # reused, so this lock is never held by an orphaned thread by the time we
-        # get here — but the acquire is still offloaded to a thread (fixes #4797)
-        # so the event loop is never the thing that blocks if that guarantee is
-        # ever broken by some other path in the future.
-        await asyncio.to_thread(_reset_processor_state, processor)
-
-        # Process audio — CPU-bound; offload to thread (fixes #2319)
-        # Wrap with wait_for so a hung DSP/Rust call cannot hold the
-        # semaphore slot indefinitely (fixes #2747).
-        timeout = self.processing_timeout
-        if job.mode == "reference" or job.mode == "hybrid":
-            # Load reference audio if needed
-            reference_path = job.settings.get("reference_path")
-            if reference_path and Path(reference_path).exists():
-                # Same cooperative-cancel token as the input load (#4496 SIBLING):
-                # the reference decode is the identical to_thread(load_audio)
-                # pattern and must also stop its FFmpeg child on cancel.
-                cancel_event = self._cancel_events.get(job.job_id)
-                reference_audio, reference_sr = await asyncio.to_thread(
-                    load_audio, reference_path, cancel_event=cancel_event
-                )
-                # Resample reference if needed — CPU-bound; offload to thread
-                if reference_sr != sample_rate:
-                    reference_audio = await asyncio.to_thread(
-                        resample_audio, reference_audio, reference_sr, sample_rate
-                    )
-                result = await asyncio.wait_for(
-                    asyncio.to_thread(processor.process, audio, reference_audio),
-                    timeout=timeout,
-                )
-            else:
-                # Fall back to adaptive if the reference is unavailable. The
-                # config was already switched to reference/hybrid mode in
-                # _build_config, and `is_reference_mode() and reference is not
-                # None` is the only arm that accepts reference mode — so
-                # calling process(audio) without ALSO moving the config back
-                # raised ValueError instead of falling back at all (#4735).
-                #
-                # The router now rejects mode="reference" with no reference at
-                # submit time, so this is the narrow race where the file
-                # vanished between request and execution; make it degrade
-                # rather than crash, and say so in the log.
-                logger.warning(
-                    "Job %s: mode=%s but reference %r is unavailable; "
-                    "falling back to adaptive processing.",
-                    job.job_id, job.mode, reference_path,
-                )
-                processor.config.set_processing_mode("adaptive")
-                result = await asyncio.wait_for(
-                    asyncio.to_thread(processor.process, audio),
-                    timeout=timeout,
-                )
-        else:
-            # Adaptive mode
-            result = await asyncio.wait_for(
-                asyncio.to_thread(processor.process, audio),
-                timeout=timeout,
-            )
-
-        await self._notify_progress(job.job_id, 80.0, "Saving processed audio...")
-
-        # Save output audio (output_format is recorded in _finalize_job).
-        bit_depth = job.settings.get("bit_depth", 16)
-
-        # Determine subtype based on bit depth
-        subtype_map: dict[int, str] = {16: 'PCM_16', 24: 'PCM_24', 32: 'PCM_32'}
-        subtype = subtype_map.get(bit_depth, 'PCM_16')
-
-        # HybridProcessor.process() returns a bare np.ndarray. Earlier
-        # versions of this code accessed `result.audio` / `result.lufs` /
-        # `result.processing_time` etc., which silently raised
-        # AttributeError on every successful job and routed every job
-        # through the catch-all "An unexpected error occurred" branch
-        # (fixes #3489). Pull richer telemetry from the processor's
-        # last_content_profile / get_processing_info() in _finalize_job.
-        if not isinstance(result, np.ndarray):
-            raise TypeError(
-                f"HybridProcessor.process() returned {type(result).__name__}, "
-                "expected numpy.ndarray"
-            )
-        audio_data: np.ndarray = result
-
-        # Disk-bound write; offload to thread (fixes #2319)
-        await asyncio.to_thread(
-            save,
-            file_path=job.output_path,
-            audio_data=audio_data,
-            sample_rate=sample_rate,
-            subtype=subtype,
-        )
-
-        await self._notify_progress(job.job_id, 100.0, "Processing complete!")
-
-        return audio_data
+        return await execute_job(self, job, audio, sample_rate, processor)
 
     def _finalize_job(
         self,
@@ -551,78 +332,7 @@ class ProcessingEngine:
         sample_rate: int,
         processor: HybridProcessor,
     ) -> None:
-        """Collect best-effort telemetry and record the completed result (#4250).
-
-        #4757: get_processing_info() returns a fixed 7-key dict of static
-        config (mode/sample_rate/fft_size/...) — it never has "processing_time"
-        or "lufs" keys, so those two lookups always missed. And
-        last_content_profile is a dict (either ContinuousMode's
-        {'fingerprint', 'coordinates', 'parameters'} or, on the legacy
-        AdaptiveMode path, ContentAnalyzer.analyze_content()'s dict), so
-        getattr(dict_instance, "genre", None) could never succeed either —
-        dicts don't expose keys as attributes. All three fields were
-        permanently null.
-        """
-        genre_detected: str | None = None
-        lufs: float | None = None
-        try:
-            content_profile = getattr(processor, "last_content_profile", None)
-            if isinstance(content_profile, dict):
-                # Legacy AdaptiveMode path (use_continuous_space=False, or the
-                # adaptive component of hybrid/reference modes): genre lives
-                # under genre_info.primary, not a top-level "genre" key.
-                genre_info = content_profile.get("genre_info")
-                if isinstance(genre_info, dict):
-                    genre_detected = genre_info.get("primary")
-                estimated_lufs = content_profile.get("estimated_lufs")
-                if estimated_lufs is not None:
-                    lufs = float(estimated_lufs)
-
-            # Default/production path (use_continuous_space=True, the only
-            # value the app ever sets): ContinuousMode never runs genre
-            # classification, but its 25D fingerprint carries a real measured
-            # LUFS — prefer it over the legacy estimate above when present.
-            continuous_mode = getattr(processor, "continuous_mode", None)
-            fingerprint = getattr(continuous_mode, "last_fingerprint", None)
-            if isinstance(fingerprint, dict) and fingerprint.get("lufs") is not None:
-                lufs = float(fingerprint["lufs"])
-        except Exception:
-            # Telemetry is non-critical; never let it fail the job.
-            pass
-
-        output_format = job.settings.get("output_format", "wav")
-        bit_depth = job.settings.get("bit_depth", 16)
-
-        # Real wall-clock duration from job.started_at (set in _prepare_job)
-        # to now — covers load + analysis + DSP, not just the DSP call, which
-        # is what "processing_time" for a submitted job actually means to a
-        # caller. Reuse the same timestamp for completed_at so the two never
-        # disagree.
-        completed_at = datetime.now()
-        processing_time = (
-            (completed_at - job.started_at).total_seconds()
-            if job.started_at is not None else None
-        )
-
-        # Store result metadata — use filename-only for output_file so
-        # the absolute temp path never appears in API responses (#3848,
-        # sibling of the input_file sanitisation in #3322).
-        job.result_data = {
-            "output_file": Path(job.output_path).name,
-            "sample_rate": int(sample_rate),
-            "duration": float(len(audio_data) / sample_rate),
-            "format": output_format,
-            "bit_depth": bit_depth,
-            "processing_time": processing_time,
-            "genre_detected": genre_detected,
-            "lufs": lufs,
-            # Settings accepted at submit time but not consumed by the
-            # offline pipeline (#5060) — see _create_processor_config.
-            "ignored_settings": job.ignored_settings,
-        }
-
-        job.status = ProcessingStatus.COMPLETED
-        job.completed_at = completed_at
+        finalize_job(job, audio_data, sample_rate, processor)
 
     async def process_job(self, job: ProcessingJob) -> None:
         """

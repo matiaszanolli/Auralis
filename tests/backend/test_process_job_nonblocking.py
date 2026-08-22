@@ -79,8 +79,8 @@ async def test_load_audio_offloaded_to_thread():
         return await real_to_thread(func, *args, **kwargs)
 
     with (
-        patch("core.processing_engine.load_audio", return_value=(fake_audio, 44100)) as mock_load,
-        patch("core.processing_engine.save"),
+        patch("core.job_execution.load_audio", return_value=(fake_audio, 44100)) as mock_load,
+        patch("core.job_execution.save"),
         patch.object(engine, "_create_processor_config", return_value=_make_config()),
         patch.object(engine, "_get_or_create_processor", return_value=MagicMock(
             process=MagicMock(return_value=fake_result)
@@ -116,8 +116,8 @@ async def test_processor_process_offloaded_to_thread():
         return await real_to_thread(func, *args, **kwargs)
 
     with (
-        patch("core.processing_engine.load_audio", return_value=(fake_audio, 44100)),
-        patch("core.processing_engine.save"),
+        patch("core.job_execution.load_audio", return_value=(fake_audio, 44100)),
+        patch("core.job_execution.save"),
         patch.object(engine, "_create_processor_config", return_value=_make_config()),
         patch.object(engine, "_get_or_create_processor", return_value=mock_processor),
         patch("asyncio.to_thread", side_effect=spy_to_thread),
@@ -148,8 +148,8 @@ async def test_save_offloaded_to_thread():
         return await real_to_thread(func, *args, **kwargs)
 
     with (
-        patch("core.processing_engine.load_audio", return_value=(fake_audio, 44100)),
-        patch("core.processing_engine.save") as mock_save,
+        patch("core.job_execution.load_audio", return_value=(fake_audio, 44100)),
+        patch("core.job_execution.save") as mock_save,
         patch.object(engine, "_create_processor_config", return_value=_make_config()),
         patch.object(engine, "_get_or_create_processor", return_value=MagicMock(
             process=MagicMock(return_value=fake_result)
@@ -198,8 +198,8 @@ async def test_event_loop_responsive_during_processing():
         return fake_result
 
     with (
-        patch("core.processing_engine.load_audio", side_effect=slow_load),
-        patch("core.processing_engine.save"),
+        patch("core.job_execution.load_audio", side_effect=slow_load),
+        patch("core.job_execution.save"),
         patch.object(engine, "_create_processor_config", return_value=_make_config()),
         patch.object(engine, "_get_or_create_processor", return_value=MagicMock(
             process=MagicMock(side_effect=slow_process)
@@ -240,8 +240,8 @@ async def test_progress_callbacks_fire_correctly():
     await engine.register_progress_callback(job.job_id, capture_progress)
 
     with (
-        patch("core.processing_engine.load_audio", return_value=(fake_audio, 44100)),
-        patch("core.processing_engine.save"),
+        patch("core.job_execution.load_audio", return_value=(fake_audio, 44100)),
+        patch("core.job_execution.save"),
         patch.object(engine, "_create_processor_config", return_value=_make_config()),
         patch.object(engine, "_get_or_create_processor", return_value=MagicMock(
             process=MagicMock(return_value=fake_result)
@@ -275,8 +275,8 @@ async def test_reference_load_also_offloaded():
         return await real_to_thread(func, *args, **kwargs)
 
     with (
-        patch("core.processing_engine.load_audio", return_value=(fake_audio, 44100)) as mock_load,
-        patch("core.processing_engine.save"),
+        patch("core.job_execution.load_audio", return_value=(fake_audio, 44100)) as mock_load,
+        patch("core.job_execution.save"),
         patch("pathlib.Path.exists", return_value=True),
         patch.object(engine, "_create_processor_config", return_value=_make_config()),
         patch.object(engine, "_get_or_create_processor", return_value=MagicMock(

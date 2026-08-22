@@ -9,7 +9,8 @@ REALTIME path, consumed by `RealtimeDSPPipeline`. #4873 deleted that pipeline
 as unreachable from the shipped app, so nothing runs the processor's chain any
 more — it survives only behind the
 `get_dynamics_info()`/`set_dynamics_mode()`/`reset_dynamics()` public API,
-which `processing_engine._reset_processor_state` still calls.
+which `job_execution._reset_processor_state` still calls (#4250 follow-up:
+moved out of `processing_engine.py`).
 
 What these tests lock is the half of #2897 that still matters and is the easy
 thing to get wrong now that the realtime consumer is gone: the offline

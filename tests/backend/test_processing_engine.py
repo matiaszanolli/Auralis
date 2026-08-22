@@ -281,9 +281,9 @@ class TestProcessingJobProcessing:
         """
         engine = ProcessingEngine(max_concurrent_jobs=1)
 
-        with patch('core.processing_engine.load_audio') as mock_load, \
+        with patch('core.job_execution.load_audio') as mock_load, \
              patch('core.processing_engine.HybridProcessor') as mock_processor, \
-             patch('core.processing_engine.save') as mock_save:
+             patch('core.job_execution.save') as mock_save:
 
             # Setup mocks
             mock_load.return_value = (np.zeros((1000, 2), dtype=np.float32), 44100)
@@ -344,9 +344,9 @@ class TestProcessingJobProcessing:
         """
         engine = ProcessingEngine(max_concurrent_jobs=1)
 
-        with patch('core.processing_engine.load_audio') as mock_load, \
+        with patch('core.job_execution.load_audio') as mock_load, \
              patch('core.processing_engine.HybridProcessor') as mock_processor, \
-             patch('core.processing_engine.save') as mock_save:
+             patch('core.job_execution.save') as mock_save:
 
             mock_load.return_value = (np.zeros((1000, 2), dtype=np.float32), 44100)
 
@@ -662,7 +662,7 @@ class TestProcessingTimeout:
         """A hung processor.process() times out and marks the job FAILED (fixes #2747)"""
         engine = ProcessingEngine(max_concurrent_jobs=1, processing_timeout=0.1)
 
-        with patch('core.processing_engine.load_audio') as mock_load, \
+        with patch('core.job_execution.load_audio') as mock_load, \
              patch('core.processing_engine.HybridProcessor') as mock_processor_cls:
 
             mock_load.return_value = (np.zeros((1000, 2)), 44100)
@@ -692,7 +692,7 @@ class TestProcessingTimeout:
         job with the same config to pop and reuse concurrently."""
         engine = ProcessingEngine(max_concurrent_jobs=1, processing_timeout=0.1)
 
-        with patch('core.processing_engine.load_audio') as mock_load, \
+        with patch('core.job_execution.load_audio') as mock_load, \
              patch('core.processing_engine.HybridProcessor') as mock_processor_cls:
 
             mock_load.return_value = (np.zeros((1000, 2)), 44100)
@@ -722,7 +722,7 @@ class TestProcessingTimeout:
         processor, not the orphaned one from the timed-out job."""
         engine = ProcessingEngine(max_concurrent_jobs=1, processing_timeout=0.1)
 
-        with patch('core.processing_engine.load_audio') as mock_load, \
+        with patch('core.job_execution.load_audio') as mock_load, \
              patch('core.processing_engine.HybridProcessor') as mock_processor_cls:
 
             mock_load.return_value = (np.zeros((1000, 2)), 44100)
@@ -774,7 +774,7 @@ class TestResetProcessorState:
         pre-existing resets (fixes #4811), not just some of them."""
         engine = ProcessingEngine(max_concurrent_jobs=1)
 
-        with patch('core.processing_engine.load_audio') as mock_load, \
+        with patch('core.job_execution.load_audio') as mock_load, \
              patch('core.processing_engine.HybridProcessor') as mock_processor_cls:
 
             mock_load.return_value = (np.zeros((1000, 2)), 44100)
@@ -804,7 +804,7 @@ class TestResetProcessorState:
 
         engine = ProcessingEngine(max_concurrent_jobs=1)
 
-        with patch('core.processing_engine.load_audio') as mock_load, \
+        with patch('core.job_execution.load_audio') as mock_load, \
              patch('core.processing_engine.HybridProcessor') as mock_processor_cls:
 
             mock_load.return_value = (np.zeros((1000, 2)), 44100)
@@ -980,9 +980,9 @@ class TestIgnoredSettingsSurfaced:
         parsing server logs."""
         engine = ProcessingEngine(max_concurrent_jobs=1)
 
-        with patch('core.processing_engine.load_audio') as mock_load, \
+        with patch('core.job_execution.load_audio') as mock_load, \
              patch('core.processing_engine.HybridProcessor') as mock_processor, \
-             patch('core.processing_engine.save') as mock_save:
+             patch('core.job_execution.save') as mock_save:
 
             mock_load.return_value = (np.zeros((1000, 2), dtype=np.float32), 44100)
             mock_proc_instance = Mock()
