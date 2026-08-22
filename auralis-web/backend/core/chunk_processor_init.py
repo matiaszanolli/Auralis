@@ -36,11 +36,21 @@ logger = logging.getLogger("core.chunked_processor")
 
 
 class Collaborators(NamedTuple):
-    """Bundle returned by :func:`build_collaborators`."""
+    """Bundle returned by :func:`build_collaborators`.
 
-    boundary_manager: ChunkBoundaryManager
-    level_manager: LevelManager
-    wav_encoder: WAVEncoder
+    Fields are typed ``Any`` (not their concrete classes) to preserve
+    ChunkedAudioProcessor's pre-#4245 typing: ``self._boundary_manager`` /
+    ``self._level_manager`` / ``self._wav_encoder`` were always annotated
+    ``Any`` there ("Type: ignore for untyped core modules"), which is what
+    keeps mypy quiet about e.g. ``preset: str | None`` reaching
+    ``WAVEncoder.encode_and_save_from_path(preset: str)`` — a real but
+    pre-existing gap (runtime-guarded, never actually None at those call
+    sites) that concrete typing would newly surface as an error.
+    """
+
+    boundary_manager: Any
+    level_manager: Any
+    wav_encoder: Any
     cache_manager: ChunkCacheManager
     path_cache: ChunkPathCache
 

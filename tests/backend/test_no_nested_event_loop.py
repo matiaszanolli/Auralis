@@ -78,8 +78,8 @@ async def test_get_full_processed_audio_path_calls_process_chunk_safe():
     proc._get_chunk_path = fake_get_chunk_path  # type: ignore[method-assign]
 
     with (
-        patch("core.chunked_processor.load_audio", return_value=(fake_audio, 44100)),
-        patch("core.chunked_processor.save_audio"),
+        patch("core.chunk_batch.load_audio", return_value=(fake_audio, 44100)),
+        patch("core.chunk_batch.save_audio"),
         patch("core.chunked_processor.apply_crossfade_between_chunks", side_effect=lambda a, b, _: a),
         patch.object(Path, "exists", return_value=False),
     ):
@@ -122,8 +122,8 @@ async def test_get_full_processed_audio_path_no_nested_loop():
 
     with (
         patch("asyncio.run", patched_asyncio_run),
-        patch("core.chunked_processor.load_audio", return_value=(fake_audio, 44100)),
-        patch("core.chunked_processor.save_audio"),
+        patch("core.chunk_batch.load_audio", return_value=(fake_audio, 44100)),
+        patch("core.chunk_batch.save_audio"),
         patch("core.chunked_processor.apply_crossfade_between_chunks", side_effect=lambda a, b, _: a),
         patch.object(Path, "exists", return_value=False),
     ):
@@ -153,7 +153,7 @@ async def test_get_full_processed_audio_path_returns_cached():
     proc.process_chunk_safe = fake_process_chunk_safe  # type: ignore[method-assign]
 
     with patch.object(Path, "exists", return_value=True), \
-         patch("core.chunked_processor.is_wav_complete", return_value=True):
+         patch("core.chunk_batch.is_wav_complete", return_value=True):
         result = await proc.get_full_processed_audio_path()
 
     assert chunk_calls == [], "No chunks should be processed when cached file exists"

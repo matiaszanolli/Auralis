@@ -210,7 +210,7 @@ class TestProcessorIntegration:
         meta = {"sample_rate": 44100, "channels": 2, "duration_seconds": 40.0}
 
         with patch("auralis.io.unified_loader.load_audio", side_effect=counting_load_audio), \
-             patch("core.chunked_processor.get_audio_info", return_value=meta):
+             patch("core.chunk_metadata.get_audio_info", return_value=meta):
             processor = ChunkedAudioProcessor(
                 track_id=1, filepath=unopenable_file,
                 preset=None, intensity=1.0, chunk_cache={},

@@ -30,9 +30,14 @@ class TestWavChunkCacheRace:
         )
 
     def test_get_wav_chunk_path_uses_lock(self):
-        """get_wav_chunk_path must acquire _sync_cache_lock."""
-        from core.chunked_processor import ChunkedAudioProcessor
-        source = inspect.getsource(ChunkedAudioProcessor.get_wav_chunk_path)
+        """get_wav_chunk_path must acquire _sync_cache_lock.
+
+        The check→process→cache body lives in chunk_streaming.get_wav_chunk_path
+        (#4245); ChunkedAudioProcessor.get_wav_chunk_path is a thin delegator to
+        it, so that's where the lock usage is introspected.
+        """
+        from core import chunk_streaming
+        source = inspect.getsource(chunk_streaming.get_wav_chunk_path)
         assert "_sync_cache_lock" in source, (
             "get_wav_chunk_path does not use _sync_cache_lock — "
             "concurrent requests will race on cache miss"

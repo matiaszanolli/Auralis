@@ -13,6 +13,9 @@ genuine probe failure.
 
 These tests exercise ``_load_metadata()`` in isolation (via ``__new__`` so the
 heavy constructor is skipped) with ``get_audio_info`` / ``load_audio`` patched.
+
+``_load_metadata()`` itself delegates to ``core.chunk_metadata.load_audio_metadata()``
+(#4245), which is where ``get_audio_info`` / ``load_audio`` are now patched.
 """
 
 import sys
@@ -49,8 +52,8 @@ class TestChunkedMetadataRouting:
             "duration_seconds": 212.5,
         }
         with (
-            patch("core.chunked_processor.get_audio_info", return_value=meta) as m_info,
-            patch("core.chunked_processor.load_audio") as m_load,
+            patch("core.chunk_metadata.get_audio_info", return_value=meta) as m_info,
+            patch("core.chunk_metadata.load_audio") as m_load,
         ):
             proc._load_metadata()
 
@@ -66,8 +69,8 @@ class TestChunkedMetadataRouting:
         proc = _bare_processor("/library/track.wav")
         meta = {"sample_rate": 44100, "channels": 1, "duration_seconds": 10.0}
         with (
-            patch("core.chunked_processor.get_audio_info", return_value=meta),
-            patch("core.chunked_processor.load_audio") as m_load,
+            patch("core.chunk_metadata.get_audio_info", return_value=meta),
+            patch("core.chunk_metadata.load_audio") as m_load,
         ):
             proc._load_metadata()
 
@@ -82,9 +85,9 @@ class TestChunkedMetadataRouting:
         # Stereo (frames, channels) — the samples-first convention load_audio uses.
         fake_audio = np.zeros((88200, 2), dtype=np.float32)
         with (
-            patch("core.chunked_processor.get_audio_info",
+            patch("core.chunk_metadata.get_audio_info",
                   return_value={"error": "ffprobe failed"}),
-            patch("core.chunked_processor.load_audio",
+            patch("core.chunk_metadata.load_audio",
                   return_value=(fake_audio, 44100)) as m_load,
         ):
             proc._load_metadata()
@@ -99,9 +102,9 @@ class TestChunkedMetadataRouting:
         proc = _bare_processor("/library/mono.mp3")
         mono_audio = np.zeros(44100, dtype=np.float32)  # 1-D
         with (
-            patch("core.chunked_processor.get_audio_info",
+            patch("core.chunk_metadata.get_audio_info",
                   return_value={"error": "probe failed"}),
-            patch("core.chunked_processor.load_audio",
+            patch("core.chunk_metadata.load_audio",
                   return_value=(mono_audio, 44100)),
         ):
             proc._load_metadata()
