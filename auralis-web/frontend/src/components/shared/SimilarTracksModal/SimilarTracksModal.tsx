@@ -27,11 +27,11 @@
 import { useEffect } from 'react';
 import { Dialog, DialogContent, Box, Typography, CircularProgress, List } from '@mui/material';
 import { tokens } from '@/design-system';
-import {
-  useSimilarTracks,
-  classifySimilarityError,
-  type SimilarTrack,
-} from '@/hooks/fingerprint';
+import { useSimilarTracks, type SimilarTrack } from '@/hooks/fingerprint';
+// Imported from its own module rather than the barrel: this is a pure function,
+// and tests that mock the hooks barrel wholesale should not have to restate it
+// (nor render against a fake classifier — the state mapping is what they assert).
+import { classifySimilarityError } from '@/hooks/fingerprint/similarityErrorState';
 import { SimilarTracksModalHeader } from './SimilarTracksModalHeader';
 import { SimilarTrackRow } from './SimilarTrackRow';
 import { themeVars } from '@/theme/semanticTheme';

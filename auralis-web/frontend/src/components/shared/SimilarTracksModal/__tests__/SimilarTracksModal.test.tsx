@@ -101,6 +101,54 @@ describe('SimilarTracksModal', () => {
     expect(screen.getByText('Try again or select a different track.')).toBeInTheDocument();
   });
 
+  /**
+   * #4626: the backend distinguishes "queued for fingerprinting" (404),
+   * "still initialising" (503) and "no such track" (404). Two of those are
+   * progress, not failure, and must not read as a red error.
+   */
+  describe('distinct backend failure states (#4626)', () => {
+    const withError = (error: string, errorStatus: number | null) => {
+      mockUseSimilarTracks.mockReturnValue({
+        similarTracks: null,
+        loading: false,
+        error,
+        errorStatus,
+        findSimilar: mockFindSimilar,
+        clear: mockClear,
+      });
+    };
+
+    it('renders the queued 404 as analysis in progress, not an error', () => {
+      withError(
+        'Track 7 does not have a fingerprint. Queued for background processing.',
+        404
+      );
+      render(<SimilarTracksModal {...defaultProps} />);
+
+      expect(screen.getByText(/Analysing this track/)).toBeInTheDocument();
+      expect(screen.getByText(/check back in a few seconds/i)).toBeInTheDocument();
+      // The generic failure hint must not appear for a transient state.
+      expect(
+        screen.queryByText('Try again or select a different track.')
+      ).not.toBeInTheDocument();
+    });
+
+    it('renders a 503 as the engine still starting up', () => {
+      withError('Similarity system not initialized.', 503);
+      render(<SimilarTracksModal {...defaultProps} />);
+
+      expect(screen.getByText(/similarity engine ready/i)).toBeInTheDocument();
+    });
+
+    it('renders a genuine 404 differently from the queued one', () => {
+      withError('Track 7 not found', 404);
+      render(<SimilarTracksModal {...defaultProps} />);
+
+      expect(screen.queryByText(/Analysing this track/)).not.toBeInTheDocument();
+      expect(screen.getByText(/no longer in your library/i)).toBeInTheDocument();
+    });
+  });
+
   it('shows "No similar tracks found" when similarTracks is empty', () => {
     mockUseSimilarTracks.mockReturnValue({
       similarTracks: [],
