@@ -155,12 +155,12 @@ class TestArtistArtworkContract:
 
     def test_the_exception_is_documented_in_the_model(self):
         """A divergence nobody wrote down is a bug waiting to be 'fixed'."""
+        # #4511 split Artist out of models/core.py into its own module.
         source = (
             Path(__file__).parent.parent.parent
-            / "auralis" / "library" / "models" / "core.py"
+            / "auralis" / "library" / "models" / "artist.py"
         ).read_text()
         artist_block = source[source.index("class Artist("):]
-        artist_block = artist_block[: artist_block.index("class Genre(")]
         assert "#4526" in artist_block, (
             "Artist.artwork_url's divergence from Album/Track is undocumented"
         )
