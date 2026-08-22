@@ -12,6 +12,7 @@ Audio-specific metrics for RMS, loudness, and dB conversions.
 import librosa
 import numpy as np
 
+from ....utils.logging import warning
 from .safe_operations import SafeOperations
 
 
@@ -35,8 +36,23 @@ class AudioMetrics:
 
         Returns:
             RMS values in dB
+
+        The default reference normalises to the loudest element, which is what an
+        array of per-frame RMS values wants. For a single element that is
+        degenerate: the reference IS the value, so the result is identically 0.0
+        whatever the input. That silently zeroed three of the seven dimensions of
+        every mastering fingerprint (#5099), so the case now warns instead of
+        passing quietly. Pass an explicit `ref` (1.0 for dBFS) to silence it.
         """
         rms_array: np.ndarray = np.asarray(rms)
+
+        if ref is None and rms_array.size <= 1:
+            warning(
+                "rms_to_db() called on a single value with no explicit ref: the "
+                "default reference is the input itself, so the result is 0.0 dB "
+                "regardless of level. Pass ref=1.0 for dBFS (#5099)."
+            )
+
         ref_val: float = ref if ref is not None else (np.max(np.abs(rms_array)) if np.any(rms_array) else 1.0)
 
         return librosa.amplitude_to_db(rms_array, ref=ref_val)  # type: ignore[no-any-return]

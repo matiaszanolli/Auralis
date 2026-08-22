@@ -141,11 +141,21 @@ class MasteringFingerprint:
                 right = y[1] if y.shape[0] > 1 else y
                 mono = (left + right) / 2
 
-            # Loudness metrics
+            # Loudness metrics.
+            #
+            # `ref=1.0` is required, not decorative (#5099). `rms_to_db` defaults
+            # its reference to the max of its own input, which is right when
+            # normalising an array of per-frame values to the loudest frame — but
+            # these are single-element arrays, so the reference IS the value and
+            # `amplitude_to_db(x, ref=x)` is identically 0.0. Every track came out
+            # with loudness/peak/crest of exactly 0.0, which is also why
+            # `classify_quality()` could never reach its premium/professional/
+            # commercial arms. Full scale is the correct reference here: the
+            # fields are documented as dBFS.
             rms = np.sqrt(np.mean(mono ** 2))
-            loudness_dbfs = AudioMetrics.rms_to_db(np.array([rms]))[0]
+            loudness_dbfs = AudioMetrics.rms_to_db(np.array([rms]), ref=1.0)[0]
             peak = np.max(np.abs(mono))
-            peak_dbfs = AudioMetrics.rms_to_db(np.array([peak]))[0]
+            peak_dbfs = AudioMetrics.rms_to_db(np.array([peak]), ref=1.0)[0]
             crest_db = peak_dbfs - loudness_dbfs
 
             # Spectral metrics
