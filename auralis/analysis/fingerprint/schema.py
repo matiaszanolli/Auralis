@@ -84,14 +84,20 @@ DIMENSION_SCHEMA: dict[str, tuple[Unit, float, float]] = {
 
 
 # Bands of the 7-band fingerprint energy split, in Hz. Useful for EQ targeting.
+#
+# These are documentation of an existing computation, not an input to it: the
+# split is performed in Rust, by the `freqs` edge array in
+# `vendor/auralis-dsp/src/frequency_analysis.rs`. Keep the two in lockstep — a
+# consumer that trusts these bounds while the DSP uses different ones computes
+# against the wrong slice of the spectrum with nothing to signal it (#4862).
 BAND_RANGES_HZ: dict[str, tuple[float, float]] = {
     'sub_bass_pct': (20.0,    60.0),
     'bass_pct':     (60.0,   250.0),
     'low_mid_pct':  (250.0,  500.0),
     'mid_pct':      (500.0,  2000.0),
     'upper_mid_pct':(2000.0, 4000.0),
-    'presence_pct': (4000.0, 6000.0),
-    'air_pct':      (6000.0, 20000.0),
+    'presence_pct': (4000.0, 8000.0),
+    'air_pct':      (8000.0, 20000.0),
 }
 
 
