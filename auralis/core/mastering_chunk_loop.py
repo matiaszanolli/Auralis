@@ -3,9 +3,9 @@ Mastering Chunked Processing Loop
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Reads a file in overlapping chunks, runs each through
-SimpleMasteringPipeline._process, assembles the output with an equal-power
-crossfade at chunk boundaries, applies a True Peak guard, and streams the
-result to the output WAV.
+SimpleMasteringPipeline._process, assembles the output with an equal-gain
+(raised-cosine) crossfade at chunk boundaries, applies a True Peak guard, and
+streams the result to the output WAV.
 
 Extracted from simple_mastering.py's _master_file_impl "Step 3" (#4072).
 
@@ -47,9 +47,14 @@ def process_chunks(
         the first chunk (matches original behavior: info is only updated
         once, from chunk 0).
     """
-    # Equal-power crossfade between chunks for seamless transitions.
-    # Adjacent chunks both process the overlap region, then we blend
-    # with cosine curves to maintain perceived loudness through the join.
+    # Equal-gain (raised-cosine) crossfade between chunks for seamless
+    # transitions. Adjacent chunks both process the *same* overlap region of
+    # source samples, so their outputs are highly correlated — equal-gain is
+    # the correct blend here (sin^2 + cos^2 == 1, amplitude sum = 1).
+    # Do NOT switch to sin/cos (true equal-power, amplitude-squared sum = 1):
+    # that's for blending uncorrelated material (e.g. different tracks) and
+    # would introduce an audible +3 dB bulge at the midpoint of every chunk
+    # boundary here. See #4966.
     crossfade_samples = int(sr * config.CROSSFADE_DURATION_SEC)
 
     # Process and write in streaming mode
@@ -247,7 +252,9 @@ def _render_to_sink(
                     else:
                         head = processed_chunk[:, :head_len]
 
-                        # Equal-power crossfade (cosine curves maintain loudness).
+                        # Equal-gain (raised-cosine) crossfade: correct for this
+                        # correlated overlap region (adjacent chunks process the
+                        # same source samples). NOT equal-power — see #4966.
                         # #3684: compute the fade ramps in the chunk's
                         # dtype so the multiply with prev_tail/head does
                         # not promote crossfaded → float64.
