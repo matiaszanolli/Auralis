@@ -17,12 +17,3 @@ warning — a malformed override never crashes startup (see
 | `AURALIS_PROCESSOR_CACHE_MAX` | `32` | `core/processor_factory.py` | LRU bound on cached `HybridProcessor` instances (EQ filter banks, compressor state, mastering targets — roughly 1-200 MB each). Amortises creation cost across rapid track switches and A/B preset comparisons (#3515). |
 | `AURALIS_FINGERPRINT_WORKERS` | `max(1, min(2, cpu_count // 2))` | `analysis/fingerprint_generator.py` | Thread pool size for fingerprint extraction (PyO3 Rust releases the GIL, so threads give true parallelism). |
 | `AURALIS_SCAN_TIMEOUT` | `3600` (seconds) | `routers/library_scan.py` | Timeout for a full library scan. |
-
-## Deliberately not covered
-
-`monitoring/memory_monitor.py`'s `MemoryPressureMonitor.cache_sizes` (the
-per-status L1/L2/L3 cache-size tuples used for graceful degradation under
-memory pressure) is intentionally **not** exposed here. It's adaptive
-logic driven by live memory pressure, not a single tunable cap, and making
-each of its 9 values independently env-configurable is a larger scope
-change than this pass covers (#3917).

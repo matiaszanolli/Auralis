@@ -39,7 +39,6 @@ Backend Schemas:     auralis-web/backend/schemas.py
 Backend Services:    auralis-web/backend/services/           library_auto_scanner.py, queue_service.py, queue_enrichment.py, queue_protocols.py, playback_service.py, navigation_service.py, recommendation_service.py, artwork_downloader.py
 Backend Analysis:    auralis-web/backend/analysis/           analysis_extractor.py, fingerprint_generator.py, fingerprint_queue.py, track_analysis_cache.py
 Backend Encoding:    auralis-web/backend/core/encoding/      wav_encoder.py (class-based `WAVEncoder`, raises `WAVEncoderError`) + atomic_io.py. SOLE implementation. A second, functional-style auralis-web/backend/encoding/ package existed until #5147; its encode_to_wav() had zero production callers and survived only to host `WAVEncoderError`, reached via a bare `from encoding.wav_encoder import ...` that resolved only because pytest.ini/uvicorn put auralis-web/backend on sys.path. Both the class and the package are gone — this is no longer a duplication hotspot, and there is no "legacy copy" to check.
-Backend Monitoring:  auralis-web/backend/monitoring/         memory_monitor.py, metrics_collector.py
 
 Frontend:            auralis-web/frontend/src/               React 18 + TS + Vite + Redux + MUI
 Frontend Components: auralis-web/frontend/src/components/
