@@ -36,6 +36,7 @@ import pytest
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT / "auralis-web" / "backend"))
 
+from core.job_lifecycle import process_job as _job_lifecycle_process_job
 from core.processing_engine import ProcessingEngine, ProcessingJob, ProcessingStatus
 from core.processor_pool import ProcessorPool
 
@@ -280,10 +281,16 @@ class TestPoolEvictionClosesTheEvicted:
 
 
 class TestSingleReturnSite:
-    """#4567 CONSISTENCY — one call site, so a new branch cannot miss it."""
+    """#4567 CONSISTENCY — one call site, so a new branch cannot miss it.
+
+    process_job()'s try/except/finally orchestration body now lives in
+    job_lifecycle.process_job() (#4250 follow-up); ProcessingEngine.process_job
+    is a thin delegate that no longer contains this source text, so the
+    assertion targets the module the logic actually moved to.
+    """
 
     async def test_process_job_reclaims_the_processor_from_finally_only(self):
-        src = inspect.getsource(ProcessingEngine.process_job)
+        src = inspect.getsource(_job_lifecycle_process_job)
 
         assert src.count("_cleanup_processor(") == 1
         finally_body = src.split("finally:", 1)[1]

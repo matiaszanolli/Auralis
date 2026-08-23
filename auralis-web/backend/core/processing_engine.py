@@ -50,6 +50,11 @@ from core.job_error_mapping import _safe_error_message
 # module's docstring (#4250 follow-up).
 from core.job_execution import execute_job, prepare_job
 from core.job_finalize import finalize_job
+
+# process_job's try/except/finally orchestration body lives in
+# job_lifecycle.py; ProcessingEngine.process_job() below is a thin
+# delegating method (#4250 follow-up).
+from core.job_lifecycle import process_job as _process_job_impl
 from core.job_models import ProcessingJob, ProcessingStatus
 from core.job_progress import ProgressNotifier
 from core.job_worker import JobWorker
@@ -335,104 +340,16 @@ class ProcessingEngine:
         finalize_job(job, audio_data, sample_rate, processor)
 
     async def process_job(self, job: ProcessingJob) -> None:
+        """Process a single job using the HybridProcessor.
+
+        Thin delegate over job_lifecycle.process_job() (#4250 follow-up).
+        Kept as a real bound method — rather than importing the function
+        directly into callers — so `patch.object(engine, "process_job", ...)`
+        in tests/backend/test_cancel_job_stops_processing.py and the plain
+        `await engine.process_job(job)` call sites across the backend test
+        suite and core/job_worker.py's dispatch loop keep working unmodified.
         """
-        Process a single job using the HybridProcessor
-        """
-        # Guard: if cancel_job() fired before the worker started this job, skip it.
-        if job.status == ProcessingStatus.CANCELLED:
-            return
-
-        processor = None
-        config = None
-        # Set when the DSP call is abandoned mid-flight (a wait_for timeout) —
-        # the underlying OS thread may still be running inside
-        # processor.process() and mutating its internals, so the instance
-        # must never be handed to another job (#4727).
-        processor_poisoned = False
-        try:
-            audio, sample_rate, config, processor = await self._prepare_job(job)
-            audio_data = await self._execute_job(job, audio, sample_rate, processor)
-            self._finalize_job(job, audio_data, sample_rate, processor)
-
-        except TimeoutError:
-            # asyncio.wait_for raised TimeoutError — the DSP call hung.
-            # Mark FAILED so the semaphore slot is released (fixes #2747).
-            # wait_for only cancels the asyncio-side wrapper future; the OS
-            # thread running processor.process() keeps running, so the
-            # instance must be discarded rather than returned to the pool for
-            # the next same-config job to reuse (#4727).
-            processor_poisoned = True
-            job.status = ProcessingStatus.FAILED
-            job.error_message = (
-                f"Processing timed out after {self.processing_timeout:.0f}s"
-            )
-            job.completed_at = datetime.now()
-
-            await self._notify_progress(
-                job.job_id, 100.0, job.error_message
-            )
-
-        except asyncio.CancelledError:
-            # task.cancel() was called — mark cancelled and re-raise so asyncio
-            # correctly records the task as cancelled (fixes #2217).
-            # Conservatively discard any acquired processor: cancellation may
-            # have abandoned an uncancellable to_thread DSP call just like a
-            # timeout does (#4727/#4759).
-            processor_poisoned = processor is not None
-            if job.status == ProcessingStatus.PROCESSING:
-                job.status = ProcessingStatus.CANCELLED
-                job.completed_at = datetime.now()
-            raise
-
-        except Exception as e:
-            job.status = ProcessingStatus.FAILED
-            # Log full exception for debugging; expose only a safe
-            # category string to the API caller (fixes #2741).
-            logger.error(
-                "Processing job %s failed: %s",
-                job.job_id, e, exc_info=True,
-            )
-            job.error_message = _safe_error_message(e)
-            job.completed_at = datetime.now()
-
-            await self._notify_progress(
-                job.job_id, 100.0, f"Processing failed: {job.error_message}"
-            )
-        finally:
-            # Return the processor here rather than per-branch (#4567).
-            # get_or_create() POPS it from the pool, so whoever took it owns it
-            # and must give it back (#3201). Three of the four exit paths did;
-            # the catch-all `except Exception` did not, so every failed job
-            # dropped a warm processor without returning or closing it,
-            # forcing the next same-config job to pay the full 200-500 ms
-            # HybridProcessor.__init__ again. (#3746 also cited a permanently
-            # leaked 5-thread fingerprint executor; that executor is gone —
-            # see #4744 — but the reconstruction cost is not.) Hoisting it means a future branch
-            # cannot reintroduce the same omission.
-            #
-            # A timed-out or cancelled processor is the one exception: it must
-            # be closed and discarded, never cached, since an orphaned thread
-            # may still be running inside it (#4727/#4759).
-            try:
-                if processor is not None and config is not None:
-                    cleanup_task = asyncio.create_task(
-                        self._cleanup_processor(
-                            job, config, processor, processor_poisoned
-                        )
-                    )
-                    try:
-                        # Cleanup owns a popped processor and must finish even
-                        # if cancellation lands while it waits for the pool
-                        # lock (#4759).
-                        await asyncio.shield(cleanup_task)
-                    except asyncio.CancelledError:
-                        await cleanup_task
-                        raise
-            finally:
-                # Never let a cancellation during cleanup skip registry
-                # removal (#4496/#4759).
-                self._cancel_events.pop(job.job_id, None)
-
+        await _process_job_impl(self, job)
 
     async def stop_worker(self) -> None:
         """Stop the worker loop and cancel all in-progress jobs (#4250: delegated
