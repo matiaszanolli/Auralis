@@ -5,7 +5,7 @@
  */
 
 
-import type { EnhancementPreset } from '../domain';
+import type { EnhancementPreset } from '@/types/domain';
 import type { WebSocketMessage } from './base';
 
 /** Message-type literals owned by the streaming domain.
