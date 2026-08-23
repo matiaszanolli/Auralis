@@ -38,6 +38,17 @@ if TYPE_CHECKING:
 logger = logging.getLogger("core.chunked_processor")
 
 
+class ChunkCancelledError(Exception):
+    """Raised when a chunk's owning stream was cancelled before/during DSP
+    (#4815). Distinguishes a deliberately-abandoned chunk from a genuine
+    processing failure — callers must not log/retry it as one. In practice
+    the coroutine that would have awaited this chunk has almost always
+    already unwound via CancelledError by the time this is raised (asyncio
+    cancellation doesn't wait for the underlying executor thread), so this
+    exists mainly to cut the wasted DSP work short rather than to be
+    observed by a live caller."""
+
+
 def process_chunk(
     processor: "ChunkedAudioProcessor", chunk_index: int, fast_start: bool = False, locked: bool = False
 ) -> tuple[str, np.ndarray]:
@@ -81,6 +92,17 @@ def process_chunk(
         from auralis.io.unified_loader import load_audio
         audio, _ = load_audio(str(cached_path))
         return (str(cached_path), audio)
+
+    # #4815: bail out before the expensive DSP call if the owning stream was
+    # already cancelled (seek/track-change/disconnect) — cheap to check, and
+    # avoids running 200ms-2s of DSP work (and holding the shared
+    # HybridProcessor's _process_lock, blocking any NEW stream reusing the
+    # same pooled processor) for a chunk nothing will ever consume.
+    cancel_event = getattr(processor, "_cancel_event", None)
+    if cancel_event is not None and cancel_event.is_set():
+        raise ChunkCancelledError(
+            f"Chunk {chunk_index} abandoned: owning stream was cancelled"
+        )
 
     logger.info(f"Processing chunk {chunk_index}/{processor.total_chunks} (preset: {processor.preset}, fast_start: {fast_start})")
 

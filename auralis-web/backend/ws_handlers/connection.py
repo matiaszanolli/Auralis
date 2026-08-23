@@ -247,6 +247,13 @@ async def teardown_connection(
             state.active_track_ids.pop(ws_id, None)
         if task and not task.done():
             logger.info(f"Cancelling streaming task on disconnect for ws {ws_id}")
+            # #4815: same signal as _cancel_prior_task/handle_stop — set()
+            # the in-flight-DSP cancel token BEFORE cancelling the coroutine,
+            # so an executor thread already running a chunk can abort
+            # instead of running to completion unreferenced past disconnect.
+            cancel_event = state.chunk_cancel_events.get(ws_id)
+            if cancel_event is not None:
+                cancel_event.set()
             task.cancel()
             try:
                 await task
@@ -260,6 +267,7 @@ async def teardown_connection(
         state.pause_events.pop(ws_id, None)
         state.flow_events.pop(ws_id, None)
         state.active_stream_settings.pop(ws_id, None)  # #4742
+        state.chunk_cancel_events.pop(ws_id, None)  # #4815
     except Exception:
         logger.warning("Stream-event cleanup failed", exc_info=True)
 

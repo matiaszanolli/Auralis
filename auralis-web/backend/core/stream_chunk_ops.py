@@ -28,6 +28,7 @@ from fastapi import WebSocket
 
 from . import audio_stream_controller as _asc
 from .chunk_cache import SimpleChunkCache
+from .chunk_streaming import ChunkCancelledError
 
 if TYPE_CHECKING:
     from .audio_stream_controller import AudioStreamController
@@ -120,6 +121,20 @@ async def process_chunk_only(
             raise TimeoutError(
                 f"Chunk {chunk_index} processing timed out after {_asc.CHUNK_PROCESS_TIMEOUT}s"
             ) from e
+        except ChunkCancelledError:
+            # #4815: the owning stream was cancelled (seek/track-change/
+            # disconnect) and chunk_streaming.process_chunk bailed out before
+            # starting DSP. In practice the awaiting task has usually already
+            # unwound via asyncio.CancelledError by the time this is even
+            # reachable — but if it IS reached, this must NOT be logged or
+            # retried as a processing failure. Re-raised as ConnectionError so
+            # it flows into the callers' existing "client disconnected — clean
+            # exit" handling (stream_enhanced.py/stream_seek.py already treat
+            # ConnectionError this way; no new except clause needed there).
+            logger.debug(f"Chunk {chunk_index} abandoned: stream cancelled")
+            raise ConnectionError(
+                f"Chunk {chunk_index} abandoned: owning stream was cancelled"
+            )
         sr = processor.sample_rate
 
         logger.debug(

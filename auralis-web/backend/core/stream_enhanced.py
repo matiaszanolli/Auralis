@@ -16,6 +16,7 @@ Extracted from audio_stream_controller.py (#4071).
 
 import asyncio
 import logging
+import threading
 from pathlib import Path  # noqa: F401 — kept for module-attribute patching in tests (core.stream_enhanced.Path)
 from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
@@ -85,6 +86,17 @@ async def stream_enhanced_audio(
     # (fixes #3493 unbound-var hazard).
     lookahead_task: asyncio.Task[tuple[np.ndarray, int]] | None = None
 
+    # Cooperative-cancel signal for in-flight chunk DSP (#4815). Registered
+    # as early as possible — before track lookup/processor construction —
+    # so _cancel_prior_task can find and set() it for the whole lifetime of
+    # this task, not just once the streaming loop starts. Set() by
+    # playback_commands._cancel_prior_task / playback_control.handle_stop
+    # before they call task.cancel(); checked by
+    # chunk_streaming.process_chunk before starting DSP.
+    from routers.system import _stream_chunk_cancel_events
+    chunk_cancel_event = threading.Event()
+    _stream_chunk_cancel_events[_asc.ws_id(websocket)] = chunk_cancel_event
+
     # Whether the chunk loop exited before delivering the whole track, and how
     # much audio actually reached the client. Without these the terminal message
     # reported the FULL track length on a truncated stream, so a client could not
@@ -124,6 +136,7 @@ async def stream_enhanced_audio(
                     filepath=validated_filepath,
                     preset=preset,
                     intensity=intensity,
+                    cancel_event=chunk_cancel_event,
                 ),
                 timeout=_asc.CHUNK_PROCESS_TIMEOUT,
             )
@@ -392,3 +405,9 @@ async def stream_enhanced_audio(
         # reference past stream teardown (fixes #3493).
         await controller._drain_cancelled_task(lookahead_task)
         controller._stream_semaphore.release()
+        # #4815: only remove OUR OWN registration — a reissued stream on the
+        # same ws_id may already have registered its own event by the time
+        # this (cancelled) task's finally runs.
+        _ws_id_key = _asc.ws_id(websocket)
+        if _stream_chunk_cancel_events.get(_ws_id_key) is chunk_cancel_event:
+            _stream_chunk_cancel_events.pop(_ws_id_key, None)

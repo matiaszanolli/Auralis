@@ -84,6 +84,12 @@ async def handle_stop(websocket: WebSocket, state: StreamState) -> None:
         state.pause_events.pop(ws_id, None)
         state.flow_events.pop(ws_id, None)
         state.active_stream_settings.pop(ws_id, None)  # #4742
+        # #4815: same sibling treatment as _cancel_prior_task — pop while
+        # holding the lock, then set() outside it (below), so an in-flight
+        # chunk DSP call aborts instead of running to completion unreferenced.
+        cancel_event = state.chunk_cancel_events.pop(ws_id, None)
+    if cancel_event is not None:
+        cancel_event.set()
     if task and not task.done():
         task.cancel()
         await await_cancelled_task(task, logger)

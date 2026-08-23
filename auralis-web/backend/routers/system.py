@@ -9,6 +9,7 @@ Health and version endpoints have been moved to routers/health.py.
 import asyncio
 import json
 import logging
+import threading
 from typing import Any
 from collections.abc import Callable
 
@@ -40,6 +41,13 @@ _stream_pause_events: dict[str, asyncio.Event] = {}
 # (frontend buffer is full); when set, backend continues streaming.
 # Separate from pause events — pause is user-initiated, flow is buffer-driven.
 _stream_flow_events: dict[str, asyncio.Event] = {}
+
+# Per-WebSocket cooperative-cancel signal for in-flight chunk DSP (#4815).
+# stream_enhanced.py/stream_seek.py create one threading.Event per active
+# stream and set()/pop() it in this dict; _cancel_prior_task/handle_stop
+# set() it before cancelling so an already-abandoned chunk's executor
+# thread can bail out early instead of running to completion unreferenced.
+_stream_chunk_cancel_events: dict[str, threading.Event] = {}
 
 
 # Global rate limiter for all WebSocket connections (fixes #2156)
@@ -346,6 +354,7 @@ def create_system_router(
                 active_track_ids=_active_streaming_track_ids,
                 pause_events=_stream_pause_events,
                 flow_events=_stream_flow_events,
+                chunk_cancel_events=_stream_chunk_cancel_events,
             )
             deps = WSDeps(
                 get_repository_factory=get_repository_factory,

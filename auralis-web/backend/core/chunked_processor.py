@@ -100,15 +100,27 @@ class ChunkedAudioProcessor:
         filepath: str,
         preset: str | None = "adaptive",
         intensity: float = 1.0,
-        chunk_cache: dict[str, Any] | None = None
+        chunk_cache: dict[str, Any] | None = None,
+        cancel_event: threading.Event | None = None,
     ) -> None:
         """track_id/filepath identify the track; preset=None serves original audio
-        unprocessed; chunk_cache is a shared dict of chunk paths across processors."""
+        unprocessed; chunk_cache is a shared dict of chunk paths across processors.
+
+        cancel_event: optional cooperative-cancel signal (#4815). The caller
+        sets it when this processor's owning stream is torn down (seek,
+        track change, disconnect); chunk_streaming.process_chunk checks it
+        before starting DSP so an already-abandoned chunk bails out instead
+        of running to completion unreferenced. None (the default) means "no
+        cancellation signal available" — every check degrades to a no-op,
+        so callers that don't have a per-stream event (e.g. the prefetch
+        path) keep working unchanged.
+        """
         self.track_id = track_id
         self.filepath = filepath
         self.preset = preset
         self.intensity = intensity
         self.chunk_cache = chunk_cache if chunk_cache is not None else {}
+        self._cancel_event = cancel_event
 
         # Resolves `filepath` to a seekable path on first chunk load, at most
         # once per track (#4737); lazy so a caller wanting only

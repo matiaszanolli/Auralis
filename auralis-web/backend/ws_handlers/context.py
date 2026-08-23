@@ -21,6 +21,7 @@ caller reads the (possibly patched) module global once per connection.
 
 import asyncio
 import logging
+import threading
 from dataclasses import dataclass, field
 from typing import Any
 from collections.abc import Callable
@@ -42,6 +43,18 @@ class StreamState:
     # connection's subsequent seeks. Defaulted so existing keyword
     # constructions (production and tests) keep working unchanged.
     active_stream_settings: dict[str, dict[str, Any]] = field(default_factory=dict)
+    # Cooperative-cancel signal for the enhanced/seek streaming paths (#4815).
+    # `old_task.cancel()` cancels the asyncio coroutine promptly, but the
+    # concurrent.futures.Future running the actual chunk DSP inside
+    # STREAM_EXECUTOR is already running by the time that happens and does
+    # NOT stop — .cancel() on a running future is a no-op. The streaming
+    # entry point (stream_enhanced.py/stream_seek.py) creates one
+    # threading.Event per active stream, keyed by ws_id, and passes it into
+    # ChunkedAudioProcessor; _cancel_prior_task/handle_stop set() it before
+    # cancelling the task so the in-flight DSP call can check it and bail
+    # out early instead of running to completion unreferenced. Same pattern
+    # ProcessingEngine._cancel_events already uses for FFmpeg decode.
+    chunk_cancel_events: dict[str, threading.Event] = field(default_factory=dict)
 
 
 @dataclass

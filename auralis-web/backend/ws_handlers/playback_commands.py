@@ -123,6 +123,14 @@ async def _cancel_prior_task(ws_id: str, state: StreamState) -> None:
 
     if old_task and not old_task.done():
         logger.info(f"Cancelling existing streaming task for ws {ws_id}")
+        # #4815: signal the in-flight chunk DSP to abort BEFORE cancelling
+        # the coroutine — task.cancel() only interrupts the coroutine at its
+        # next await; the concurrent.futures.Future already running inside
+        # STREAM_EXECUTOR does not stop and keeps running unreferenced
+        # unless it checks this event itself (chunk_streaming.process_chunk).
+        cancel_event = state.chunk_cancel_events.get(ws_id)
+        if cancel_event is not None:
+            cancel_event.set()
         old_task.cancel()
         # Await cancellation so the old task releases pause/flow events (#3219)
         await await_cancelled_task(old_task, logger)
