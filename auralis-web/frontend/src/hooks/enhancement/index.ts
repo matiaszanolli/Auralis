@@ -14,11 +14,10 @@ export { useMasteringRecommendation } from './useMasteringRecommendation';
 // WebSocket streaming hooks (Phase 2.3)
 export { usePlayEnhanced } from './usePlayEnhanced';
 export type { UsePlayEnhancedReturn } from './usePlayEnhanced';
-// usePlayNormal removed (#4541) — zero production importers, and its
+// Normal (unprocessed) playback is intentionally not wired to any UI: the
 // play_normal wire command is what a disconnected client could send to
-// cancel the live enhanced-audio session. Normal (unprocessed) playback
-// is not currently wired to any UI; re-add via PlaybackSessionContext if
-// it's needed again, not as an independent control plane.
+// cancel the live enhanced-audio session. Re-add via PlaybackSessionContext
+// if it's needed again, not as an independent control plane.
 
 // usePlayEnhanced sub-hooks (#4077 decomposition)
 export { useFingerprintStatus, type FingerprintStatus } from './useFingerprintStatus';
