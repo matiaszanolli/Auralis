@@ -53,10 +53,10 @@ There is **no** `wav_streaming` router — audio streaming goes over WebSocket v
 - `auralis-web/backend/analysis/` — `analysis_extractor.py`, `fingerprint_generator.py`, `fingerprint_queue.py`, `track_analysis_cache.py`
 - `auralis-web/backend/core/encoding/` (`wav_encoder.py`, `atomic_io.py`), `auralis-web/backend/monitoring/` — encoding, memory/metrics
 
-**Services** (`auralis-web/backend/services/` — 8):
+**Services** (`auralis-web/backend/services/`):
 - `library_auto_scanner.py` — background folder watcher (replaced the older `_background_auto_scan`)
 - `playback_service.py`, `queue_service.py` — playback orchestration. `queue_service.get_queue_info` enriches the engine queue (filepath-only, authoritative order) with state-manager TrackInfo.
-- `audio_content_predictor.py`, `recommendation_service.py`, `learning_system.py` — ML services
+- `recommendation_service.py` — mastering recommendations
 - `artwork_downloader.py`, `navigation_service.py` — utilities
 
 ## Critical Invariants
