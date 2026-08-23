@@ -252,7 +252,10 @@ class TestSiblingRoutesShareOnePolicy:
 
     def test_all_three_routes_use_the_shared_helper(self):
         """A copy left behind would recreate the divergence this issue is about."""
-        source = inspect.getsource(similarity_module.create_similarity_router)
+        # Module source, not create_similarity_router's: #4670 hoisted the
+        # handlers out of the factory closure to module level, so the factory
+        # is now only the ~20-line assembler that registers them.
+        source = inspect.getsource(similarity_module)
 
         assert source.count("require_fingerprinted_tracks(") == 3, (
             "expected /similar, /compare and /explain to each call the shared "
@@ -334,7 +337,9 @@ class TestTopNBoundIsDerived:
         assert EXPLAINABLE_DIMENSIONS == len(FingerprintNormalizer.DIMENSION_NAMES)
 
     def test_bound_is_not_a_hard_coded_literal_in_the_route(self):
-        source = inspect.getsource(similarity_module.create_similarity_router)
+        # The route that declares `top_n`, rather than the factory that
+        # registers it — the handler moved to module level in #4670.
+        source = inspect.getsource(similarity_module.explain_similarity)
         assert "le=EXPLAINABLE_DIMENSIONS" in source, (
             "top_n's upper bound is not derived from the dimension count (#4630)"
         )
