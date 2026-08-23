@@ -65,6 +65,7 @@ from config.globals import ConnectionManager, set_component_registry
 from config.middleware import setup_middleware
 from config.routes import setup_routers
 from config.startup import create_lifespan
+from core.env_config import get_int_env
 
 # Import state management
 from player_state import create_track_info
@@ -329,11 +330,16 @@ else:
 
 
 if __name__ == "__main__":
-    print("🚀 Starting Auralis Web Backend...", flush=True)
+    # AURALIS_PORT (#4805): launch-auralis-web.py accepts --port and threads
+    # it through via this same env var, mirroring AURALIS_DEV_MODE two lines
+    # below. Without this, --port silently no-op'd -- the launcher printed
+    # the requested port while the backend always bound 8765.
+    _port = get_int_env("AURALIS_PORT", 8765)
+    print(f"🚀 Starting Auralis Web Backend on port {_port}...", flush=True)
 
     uvicorn.run(
         app,  # Pass app directly instead of "main:app" to avoid module duplication
         host="127.0.0.1",
-        port=8765,
+        port=_port,
         log_level="info"
     )

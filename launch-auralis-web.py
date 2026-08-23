@@ -63,6 +63,13 @@ def start_backend(port=8765, dev_mode=False):
     env = os.environ.copy()
     env["PYTHONPATH"] = str(Path(__file__).parent)
 
+    # Pass the port through via environment variable, same reason dev mode
+    # is (sys.argv won't work reliably through subprocess). Namespaced
+    # AURALIS_PORT (#4805) — must stay in sync with main.py, which reads
+    # this same name via get_int_env(). Without this the backend always
+    # bound the hardcoded default and --port silently no-op'd.
+    env["AURALIS_PORT"] = str(port)
+
     # Pass dev mode to backend via environment variable
     # (since sys.argv won't work reliably through subprocess).
     # Namespaced AURALIS_DEV_MODE (#4802) — must stay in sync with
@@ -90,12 +97,17 @@ def start_frontend_dev():
     node_modules = frontend_dir / "node_modules"
     if not node_modules.exists():
         print("📦 Installing frontend dependencies...")
-        subprocess.check_call(["npm", "install"], cwd=frontend_dir)
+        # pnpm, not npm (#4805) — package.json declares
+        # "packageManager": "pnpm@10.20.0" and pnpm is the only supported JS
+        # package manager (#4357). npm install against a pnpm lockfile can
+        # produce a divergent node_modules tree and a stray package-lock.json
+        # alongside the committed pnpm-lock.yaml.
+        subprocess.check_call(["pnpm", "install"], cwd=frontend_dir)
 
     print("🎨 Starting React development server...")
 
     process = subprocess.Popen(
-        ["npm", "start"],
+        ["pnpm", "run", "dev"],
         cwd=frontend_dir
     )
 
