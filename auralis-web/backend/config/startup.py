@@ -220,6 +220,24 @@ async def _shutdown_components(globals_dict: dict[str, Any]) -> None:
     The outer ``try`` remains only as a last-resort net.
     """
     try:
+        # Await any teardown a watchdog already scheduled for a worker that
+        # died BEFORE this shutdown started (#4819). Ordered first: those
+        # tasks cancel in-flight per-job DSP work, and every step below
+        # this one assumes that work is no longer racing against teardown.
+        # Fire-and-forget alone (_watch_critical_worker_task's
+        # spawn_background_task call) risks the same class of bug this fix
+        # closes if the process exits before the loop gives it a turn.
+        pending_watchdog_teardowns = globals_dict.pop('_watchdog_teardown_tasks', None)
+        if pending_watchdog_teardowns:
+            try:
+                await asyncio.wait(pending_watchdog_teardowns, timeout=10.0)
+                logger.info(
+                    f"✅ Awaited {len(pending_watchdog_teardowns)} watchdog-scheduled "
+                    f"teardown task(s)"
+                )
+            except Exception as watchdog_err:
+                logger.warning(f"⚠️  Watchdog teardown await failed: {watchdog_err}")
+
         # Stop the 1 Hz player-state broadcast FIRST (#4747). It was the only
         # long-lived task in the lifespan with no symmetric stop: started by
         # set_playing(True) and cancelled only by set_playing(False), so a
@@ -331,6 +349,9 @@ def _watch_critical_worker_task(
     globals_dict: dict[str, Any],
     keys_to_clear: tuple[str, ...],
     service_name: str,
+    *,
+    teardown_key: str | None = None,
+    teardown: Callable[[Any], Any] | None = None,
 ) -> None:
     """Null `globals_dict[key]` for each key if `task` dies unexpectedly.
 
@@ -349,6 +370,18 @@ def _watch_critical_worker_task(
     Cancellation is NOT treated as a failure — it's the expected signal from
     an explicit `stop_worker()`/`worker.stop()` call during graceful
     shutdown, not an unexpected death.
+
+    `teardown_key`/`teardown` (#4819): _shutdown_components gates calling
+    the worker's own stop()/stop_worker() on `globals_dict.get(key)` being
+    truthy — the EXACT key this function nulls above. An unexpected death
+    therefore used to make shutdown skip real teardown entirely, leaking
+    the worker's in-flight per-job asyncio.to_thread(...) DSP threads past
+    LibraryDatabase.shutdown()/audio_player.cleanup() (an Electron quit that
+    hangs). When both are given, the live object is snapshotted BEFORE
+    nulling `globals_dict[teardown_key]` (so routers still see 503
+    immediately) and `teardown(obj)` is scheduled as a background task so
+    its cancellation of in-flight work still runs regardless of whether
+    _shutdown_components' gate later reads a live or nulled global.
     """
     def _on_done(t: asyncio.Task[Any]) -> None:
         if t.cancelled():
@@ -365,8 +398,25 @@ def _watch_critical_worker_task(
                 f"❌ {service_name} background task exited without being stopped — marking "
                 f"unavailable ({', '.join(keys_to_clear)} will now report 503 to routers)"
             )
+        stale_obj = globals_dict.get(teardown_key) if teardown_key is not None else None
         for key in keys_to_clear:
             globals_dict[key] = None
+        if stale_obj is not None and teardown is not None:
+            from helpers import spawn_background_task
+            logger.info(
+                f"🔧 Running {service_name} teardown now so in-flight work is "
+                f"cancelled even though {service_name} died before shutdown"
+            )
+            teardown_task = spawn_background_task(
+                teardown(stale_obj), name=f"{service_name}.watchdog_teardown"
+            )
+            # #4819: fire-and-forget alone risks the SAME class of bug this
+            # fix exists to close — if the process exits before the event
+            # loop gets a turn to run it, the teardown never actually
+            # happens. Tracked here so _shutdown_components can await it
+            # as part of the same shutdown sequence rather than trusting it
+            # completes on its own schedule.
+            globals_dict.setdefault('_watchdog_teardown_tasks', []).append(teardown_task)
 
     task.add_done_callback(_on_done)
 
@@ -963,6 +1013,8 @@ async def _init_processing_engine(HAS_PROCESSING: bool, globals_dict: dict[str, 
             globals_dict,
             ('processing_engine',),
             "ProcessingEngine",
+            teardown_key='processing_engine',
+            teardown=lambda engine: engine.stop_worker(),
         )
         logger.info("✅ Processing Engine initialized")
     except Exception as e:
@@ -1008,6 +1060,8 @@ async def _init_streamlined_cache(HAS_STREAMLINED_CACHE: bool, globals_dict: dic
                 globals_dict,
                 ('streamlined_cache', 'streamlined_worker'),
                 "StreamlinedCacheWorker",
+                teardown_key='streamlined_worker',
+                teardown=lambda worker: worker.stop(),
             )
 
     except Exception as e:
