@@ -17,7 +17,7 @@ the remaining components that never own an async task of their own.
 
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
@@ -27,6 +27,7 @@ from config.startup import (
     _ROLLBACK_COMPONENTS_TO_NULL,
     _ROLLBACK_SERVICES_TO_STOP,
     _rollback_partial_startup,
+    _shutdown_components,
 )
 
 
@@ -144,3 +145,111 @@ async def test_stop_kwargs_match_each_services_expected_shutdown_call():
     assert services['auto_scanner'] == {}
     assert services['ondemand_fingerprint_queue'] == {}
     assert services['fingerprint_queue'] == {'timeout': 30.0}
+
+
+class TestRollbackReallyTearsDownOwnedResources:
+    """#4764: library_manager, audio_player, and player_state_manager used to
+    be bare-nulled on rollback with no teardown call, unlike every background
+    *service* above. Once nulled, _shutdown_components' `if globals_dict.get(
+    ...)` guard can never fire for them again — the SQLite engine, the audio
+    device, and (if playback had started) the 1 Hz broadcast task were then
+    unreachable for the rest of the process lifetime.
+    """
+
+    async def test_library_manager_is_shut_down_before_being_nulled(self):
+        library_manager = Mock()
+        globals_dict = {"library_manager": library_manager}
+
+        await _rollback_partial_startup(globals_dict)
+
+        library_manager.shutdown.assert_called_once()
+        assert globals_dict["library_manager"] is None
+
+    async def test_audio_player_is_stopped_and_cleaned_up_before_being_nulled(self):
+        audio_player = Mock()
+        globals_dict = {"audio_player": audio_player}
+
+        await _rollback_partial_startup(globals_dict)
+
+        audio_player.stop.assert_called_once()
+        audio_player.cleanup.assert_called_once()
+        assert globals_dict["audio_player"] is None
+
+    async def test_player_state_manager_is_shut_down_before_being_nulled(self):
+        player_state_manager = Mock()
+        player_state_manager.shutdown = AsyncMock()
+        globals_dict = {"player_state_manager": player_state_manager}
+
+        await _rollback_partial_startup(globals_dict)
+
+        player_state_manager.shutdown.assert_awaited_once()
+        assert globals_dict["player_state_manager"] is None
+
+    async def test_all_three_teardowns_happen_together_in_one_rollback(self):
+        """Integration-style check per this issue's own test plan: simulate a
+        startup failure after LibraryDatabase() and AudioPlayer() both
+        succeeded (e.g. PlayerStateManager construction raising next), and
+        assert every owned resource's teardown method fired exactly once."""
+        library_manager = Mock()
+        audio_player = Mock()
+        player_state_manager = Mock()
+        player_state_manager.shutdown = AsyncMock()
+        globals_dict = {
+            "library_manager": library_manager,
+            "audio_player": audio_player,
+            "player_state_manager": player_state_manager,
+        }
+
+        await _rollback_partial_startup(globals_dict)
+
+        library_manager.shutdown.assert_called_once()
+        audio_player.stop.assert_called_once()
+        audio_player.cleanup.assert_called_once()
+        player_state_manager.shutdown.assert_awaited_once()
+        for key in globals_dict:
+            assert globals_dict[key] is None
+
+    async def test_a_failing_teardown_does_not_abort_the_rest_of_rollback(self):
+        """Best-effort, like every other rollback step: one resource's
+        teardown raising must not prevent the others from being torn down
+        and nulled."""
+        library_manager = Mock()
+        library_manager.shutdown.side_effect = RuntimeError("WAL checkpoint failed")
+        audio_player = Mock()
+        globals_dict = {"library_manager": library_manager, "audio_player": audio_player}
+
+        await _rollback_partial_startup(globals_dict)  # must not raise
+
+        audio_player.stop.assert_called_once()
+        assert globals_dict["library_manager"] is None
+        assert globals_dict["audio_player"] is None
+
+    async def test_shutdown_components_and_rollback_use_the_same_teardown(self):
+        """CONSISTENCY: the two paths share the teardown helpers, so a future
+        change to how library_manager/audio_player/player_state_manager are
+        torn down cannot silently diverge between rollback and normal
+        shutdown again. Patches the module-level imports _shutdown_components
+        unconditionally reaches for (same pattern as
+        test_shutdown_step_isolation.py's _quiet_externals()) so this stays a
+        unit test of the three teardown calls, not an integration test of the
+        whole shutdown sequence."""
+        library_manager = Mock()
+        audio_player = Mock()
+        player_state_manager = Mock(shutdown=AsyncMock())
+        globals_dict = {
+            "library_manager": library_manager,
+            "audio_player": audio_player,
+            "player_state_manager": player_state_manager,
+        }
+
+        with (
+            patch("core.processor_factory.get_processor_factory", Mock()),
+            patch("services.artwork_downloader.close_artwork_downloader", AsyncMock()),
+            patch("analysis.fingerprint_generator.shutdown_fingerprint_executor_bounded", AsyncMock()),
+        ):
+            await _shutdown_components(globals_dict)
+
+        library_manager.shutdown.assert_called_once()
+        audio_player.stop.assert_called_once()
+        audio_player.cleanup.assert_called_once()
+        player_state_manager.shutdown.assert_awaited_once()

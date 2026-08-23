@@ -78,6 +78,17 @@ async def _rollback_partial_startup(globals_dict: dict[str, Any]) -> None:
     awaiting .stop() on already-running background services before nulling
     them — is directly unit-testable without needing to mock the entire
     Auralis startup import chain.
+
+    Three components get a real teardown call, not just a bare null-out
+    (#4764): player_state_manager (stop the 1 Hz broadcast task, #4747),
+    audio_player (release the hardware device, #3210), and library_manager
+    (WAL checkpoint + engine dispose, #3210). Without this, a startup
+    failure after these were constructed left the SQLite engine, the audio
+    device, and (if playback had started) a background task unreachable for
+    the rest of the process lifetime — _shutdown_components' guard on
+    globals_dict.get(...) never fires once rollback has already nulled the
+    reference. The three teardown helpers are shared with
+    _shutdown_components so the two paths cannot silently diverge again.
     """
     for _svc_key, _stop_kwargs in _ROLLBACK_SERVICES_TO_STOP:
         _svc = globals_dict.get(_svc_key)
@@ -88,6 +99,11 @@ async def _rollback_partial_startup(globals_dict: dict[str, Any]) -> None:
                 logger.warning(f"⚠️  Error stopping {_svc_key} during rollback: {_stop_exc}")
             finally:
                 globals_dict[_svc_key] = None
+
+    await _teardown_player_state_manager(globals_dict)
+    _teardown_audio_player(globals_dict)
+    _teardown_library_manager(globals_dict)
+
     for _component in _ROLLBACK_COMPONENTS_TO_NULL:
         globals_dict[_component] = None
 
@@ -100,6 +116,59 @@ async def _rollback_partial_startup(globals_dict: dict[str, Any]) -> None:
     # work onto a queue that will never run instead of taking their
     # unavailable branch.
     _clear_module_level_fingerprint_queue()
+
+
+async def _teardown_player_state_manager(globals_dict: dict[str, Any]) -> None:
+    """Stop the 1 Hz player-state broadcast task (#4747), best-effort.
+
+    Shared by _shutdown_components and _rollback_partial_startup (#4764) —
+    the orphaned-background-task risk #4747 fixed for shutdown applies
+    equally to a startup failure after PlayerStateManager was constructed
+    and playback had already started.
+    """
+    manager = globals_dict.get('player_state_manager')
+    if not manager:
+        return
+    try:
+        await manager.shutdown()
+        logger.info("✅ Player state manager stopped")
+    except Exception as psm_err:
+        logger.warning(f"⚠️  Player state manager shutdown error: {psm_err}")
+
+
+def _teardown_audio_player(globals_dict: dict[str, Any]) -> None:
+    """Stop and release the audio player's hardware resources (#3210), best-effort.
+
+    Shared by _shutdown_components and _rollback_partial_startup (#4764) so
+    the two teardown paths cannot silently diverge on how — or whether — the
+    audio player is released.
+    """
+    player = globals_dict.get('audio_player')
+    if not player:
+        return
+    try:
+        if hasattr(player, 'stop'):
+            player.stop()
+        if hasattr(player, 'cleanup'):
+            player.cleanup()
+        logger.info("✅ Audio Player stopped")
+    except Exception as player_err:
+        logger.warning(f"⚠️  Audio player shutdown error: {player_err}")
+
+
+def _teardown_library_manager(globals_dict: dict[str, Any]) -> None:
+    """Shut down the library database — WAL checkpoint + engine dispose (#3210), best-effort.
+
+    Shared by _shutdown_components and _rollback_partial_startup (#4764).
+    """
+    manager = globals_dict.get('library_manager')
+    if not manager:
+        return
+    try:
+        manager.shutdown()
+        logger.info("✅ Library database shut down (WAL checkpointed)")
+    except Exception as lm_err:
+        logger.warning(f"⚠️  Library database shutdown error: {lm_err}")
 
 
 def _clear_module_level_fingerprint_queue() -> None:
@@ -157,12 +226,7 @@ async def _shutdown_components(globals_dict: dict[str, Any]) -> None:
         # shutdown mid-playback left it broadcasting position_changed against
         # closing WebSockets until the event loop went away. Ordered ahead of
         # every other teardown so nothing below it races a broadcast.
-        if globals_dict.get('player_state_manager'):
-            try:
-                await globals_dict['player_state_manager'].shutdown()
-                logger.info("✅ Player state manager stopped")
-            except Exception as psm_err:
-                logger.warning(f"⚠️  Player state manager shutdown error: {psm_err}")
+        await _teardown_player_state_manager(globals_dict)
 
         # Stop the background workers (auto_scanner, ondemand + batch fingerprint
         # queues) through the shared helper so this path and the library-reset
@@ -196,16 +260,7 @@ async def _shutdown_components(globals_dict: dict[str, Any]) -> None:
                 logger.warning(f"⚠️  Processing engine shutdown error: {pe_err}")
 
         # Stop audio player and release hardware resources (#3210)
-        if globals_dict.get('audio_player'):
-            try:
-                player = globals_dict['audio_player']
-                if hasattr(player, 'stop'):
-                    player.stop()
-                if hasattr(player, 'cleanup'):
-                    player.cleanup()
-                logger.info("✅ Audio Player stopped")
-            except Exception as player_err:
-                logger.warning(f"⚠️  Audio player shutdown error: {player_err}")
+        _teardown_audio_player(globals_dict)
 
         # Drop every cached HybridProcessor. #3746 added this to reclaim each
         # instance's 5-thread fingerprint executor; that executor no longer
@@ -252,12 +307,7 @@ async def _shutdown_components(globals_dict: dict[str, Any]) -> None:
             logger.warning(f"⚠️  Fingerprint executor shutdown error: {fp_err}")
 
         # Shut down the library database last — WAL checkpoint + engine dispose (#3210)
-        if globals_dict.get('library_manager'):
-            try:
-                globals_dict['library_manager'].shutdown()
-                logger.info("✅ Library database shut down (WAL checkpointed)")
-            except Exception as lm_err:
-                logger.warning(f"⚠️  Library database shutdown error: {lm_err}")
+        _teardown_library_manager(globals_dict)
 
         # Thread pools last (#5086): every step above may offload work via
         # asyncio.to_thread, and the I/O pool IS the loop's default executor —
