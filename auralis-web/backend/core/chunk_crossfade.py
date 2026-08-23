@@ -4,8 +4,17 @@
 Chunk crossfade math
 ~~~~~~~~~~~~~~~~~~~~~
 
-Equal-power (sin²/cos²) overlap-add crossfade between adjacent processed audio
-chunks. Extracted from chunked_processor.py (#4245) as a standalone, stateless
+Equal-gain (sin²/cos²) overlap-add crossfade between adjacent processed audio
+chunks — sin²+cos²=1 is an amplitude sum, not the amplitude-SQUARED sum that
+defines true equal-power (bare sin/cos, no square). Equal-gain is correct
+here: this blends adjacent chunks of the SAME correlated source, not
+different/uncorrelated tracks — true equal-power would introduce an audible
++3 dB bulge at the crossfade midpoint for this use case (#3878; this was
+previously mislabelled "equal-power" in this docstring and the comment
+below, though the math itself was always correct — do NOT switch fade_out/
+fade_in to bare cos(t)/sin(t)).
+
+Extracted from chunked_processor.py (#4245) as a standalone, stateless
 function; re-exported from chunked_processor so existing
 `from core.chunked_processor import apply_crossfade_between_chunks` imports keep
 working.
@@ -55,7 +64,8 @@ def apply_crossfade_between_chunks(chunk1: np.ndarray, chunk2: np.ndarray, overl
     chunk1_tail = chunk1[-actual_overlap:]
     chunk2_head = chunk2[:actual_overlap]
 
-    # Create equal-power fade curves (sin²/cos²) to avoid energy dip at midpoint (fixes #2080)
+    # Create equal-gain fade curves (sin²/cos²) to avoid energy dip at midpoint
+    # (fixes #2080). NOT equal-power — see module docstring / #3878.
     t = np.linspace(0.0, np.pi / 2, actual_overlap)
     fade_out = np.cos(t) ** 2
     fade_in = np.sin(t) ** 2
