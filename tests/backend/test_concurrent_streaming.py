@@ -25,8 +25,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web/backen
 from core.audio_stream_controller import (
     AudioStreamController,
     MAX_CONCURRENT_STREAMS,
-    _SEND_QUEUE_MAXSIZE,
 )
+# _SEND_QUEUE_MAXSIZE's real home — audio_stream_controller.py's re-export
+# (kept "for backward compatibility" with zero real consumers) was removed
+# in #4645; this test is the actual consumer that grep missed then, since it
+# lives under tests/backend/, not auralis-web/backend/ (#4604 test run caught it).
+from core.stream_protocol import _SEND_QUEUE_MAXSIZE
 
 
 @pytest.mark.asyncio
