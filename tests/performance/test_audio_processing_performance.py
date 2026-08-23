@@ -677,7 +677,7 @@ class TestMemoryEfficiency:
 
         print(f"\n✓ Audio buffer overhead: {overhead_ratio:.1f}x")
 
-    @pytest.mark.skip(reason="Memory measurement unreliable - needs redesign to measure growth over iterations")
+    @pytest.mark.skip(reason="Memory measurement unreliable - needs redesign to measure growth over iterations (see #5194)")
     def test_processing_memory_cleanup(self, performance_audio_file):
         """
         BENCHMARK: Memory should be released after processing (>80% reclaimed).

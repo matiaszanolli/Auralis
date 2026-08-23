@@ -304,7 +304,7 @@ class TestMemoryEfficiency:
 class TestGarbageCollection:
     """Measure garbage collection effectiveness."""
 
-    @pytest.mark.skip(reason="Memory measurement unreliable - needs redesign to measure growth over iterations")
+    @pytest.mark.skip(reason="Memory measurement unreliable - needs redesign to measure growth over iterations (see #5194)")
     def test_gc_after_processing(self, performance_audio_file):
         """
         BENCHMARK: GC should reclaim > 70% of processing memory.
