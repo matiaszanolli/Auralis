@@ -15,7 +15,6 @@ Extracted from audio_stream_controller.py (#4071).
 """
 
 import asyncio
-import functools
 import logging
 from pathlib import Path  # noqa: F401 — kept for module-attribute patching in tests (core.stream_enhanced.Path)
 from typing import TYPE_CHECKING, Any
@@ -28,7 +27,8 @@ from fastapi.websockets import WebSocketDisconnect
 from . import audio_stream_controller as _asc
 from .chunk_boundaries import emitted_chunk_start
 from .chunk_cache import SimpleChunkCache
-from security.path_security import PathValidationError, validate_file_path
+from .stream_track_resolution import resolve_and_validate_track
+from security.path_security import validate_file_path
 
 if TYPE_CHECKING:
     from .chunked_processor import ChunkedAudioProcessor
@@ -106,38 +106,14 @@ async def stream_enhanced_audio(
     # get_by_id cannot escape before the permit is released, which would leak a
     # permit permanently for the process lifetime (#4329).
     try:
-        # Get track from library
-        try:
-            factory = controller._get_repository_factory()
-            track = await asyncio.to_thread(factory.tracks.get_by_id, track_id)
-            if not track:
-                await controller._send_error(websocket, track_id, "Track not found")
-                return
-
-            # Validate the DB-retrieved filepath before any file I/O — mirrors
-            # metadata.py's guard (fixes #2302), extended here to streaming's
-            # highest-traffic consumer of track.filepath (#4345).
-            try:
-                validated_filepath = str(
-                    await asyncio.to_thread(
-                        functools.partial(
-                            validate_file_path,
-                            str(track.filepath),
-                            context=f"track {track_id}",
-                        )
-                    )
-                )
-            except PathValidationError:
-                # No logger call here: validate_file_path logs the rejection
-                # itself with the context above, exactly once (#4925).
-                await controller._send_error(
-                    websocket, track_id, "Audio file not found"
-                )
-                return
-        except Exception as e:
-            logger.error(f"Failed to load track {track_id}: {e}", exc_info=True)
-            await controller._send_error(websocket, track_id, "Failed to load track")
+        # Get track from library and validate its filepath (#5032: shared
+        # with stream_normal.py/stream_seek.py — see stream_track_resolution.py).
+        resolved = await resolve_and_validate_track(
+            controller, track_id, websocket, validate_file_path=validate_file_path
+        )
+        if resolved is None:
             return
+        track, validated_filepath = resolved
 
         # Create processor for this track with timeout (#2125)
         try:
