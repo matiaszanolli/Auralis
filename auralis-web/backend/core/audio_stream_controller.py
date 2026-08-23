@@ -12,9 +12,13 @@ module-level state (contextvars, timeouts, semaphore) the extracted
 streaming submodules key off of: chunk_cache.py (SimpleChunkCache),
 stream_protocol.py (wire send + PCM framing), stream_messages.py (JSON
 control messages), stream_fingerprint.py (fingerprint readiness),
-stream_chunk_ops.py + stream_prefetch.py (per-chunk helpers), and
-stream_enhanced.py / stream_normal.py / stream_seek.py (the three entry
-points).
+stream_chunk_ops.py (per-chunk helpers), and stream_enhanced.py /
+stream_normal.py / stream_seek.py (the three entry points).
+
+stream_prefetch.py (next-track prefetch) was deleted (#3879): its only
+caller, _prefetch_next_track, was unreachable dead code (prefetch disabled
+since #3513/#3884) with zero test coverage despite a docstring claiming
+otherwise.
 
 AudioStreamController's methods are thin delegates to these submodules so
 the public/test-facing surface (`controller._send_error(...)`,
@@ -344,11 +348,6 @@ class AudioStreamController:
         return await stream_chunk_ops.process_and_stream_chunk(
             self, chunk_index, processor, websocket, on_progress
         )
-
-    async def _prefetch_next_track(self, current_track_id: int, preset: str, intensity: float) -> None:
-        from . import stream_prefetch
-        await stream_prefetch.prefetch_next_track(self, current_track_id, preset, intensity)
-
 
     async def stream_enhanced_audio(
         self,
