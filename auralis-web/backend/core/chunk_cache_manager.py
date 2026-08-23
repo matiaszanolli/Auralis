@@ -110,8 +110,17 @@ class ChunkCacheManager:
 
     # Shared across all instances so the on-disk reaper throttle and the prune
     # itself are coordinated for the single /tmp/auralis_chunks directory (#3834).
+    # Two separate locks (#4838): _prune_lock guards ONLY the counter
+    # test-and-reset (a few instructions) so every concurrent writer's throttle
+    # check is fast regardless of what the reaper is doing. _prune_scan_lock
+    # guards the scan+delete itself, acquired non-blockingly — a writer that
+    # crosses the throttle while a scan is already running skips this trigger
+    # rather than queuing behind the full directory walk (previously ALL
+    # concurrent writers serialised behind whichever one ran the scan, since
+    # a single lock covered both the counter and the scan).
     _prune_lock: "threading.Lock" = threading.Lock()
     _write_counter: int = 0
+    _prune_scan_lock: "threading.Lock" = threading.Lock()
 
     def __init__(
         self,
@@ -226,6 +235,15 @@ class ChunkCacheManager:
 
         A class-level counter + lock coordinates the throttle across every
         ChunkCacheManager instance, since they all share one chunk directory.
+
+        #4838: the counter test-and-reset and the scan itself are two
+        separate locks. Holding one lock across both used to serialise every
+        concurrent chunk-cache writer in the process behind whichever one
+        triggered the 32nd write — the directory scan (iterdir + stat per
+        file) and the unlink loop are typically sub-millisecond on warm
+        local SSD, but on cold cache or network storage they multiply the
+        shared-executor exhaustion #4727 describes by holding every other
+        writer's thread hostage too, not just the scanning one.
         """
         cls = type(self)
         with cls._prune_lock:
@@ -233,9 +251,24 @@ class ChunkCacheManager:
             if cls._write_counter < self._prune_every:
                 return
             cls._write_counter = 0
-            # Prune under the lock so concurrent writers don't launch overlapping
-            # reapers; a scan of a few hundred files is sub-millisecond-to-ms.
+
+        # Outside _prune_lock now: another writer's counter check above is
+        # never blocked by the scan below, no matter how long it takes.
+        if not cls._prune_scan_lock.acquire(blocking=False):
+            # A scan is already in flight (a different writer crossed the
+            # threshold first, or a slow prior scan is still running).
+            # Skip rather than queue behind it — self-correcting on the next
+            # PRUNE_EVERY_N_WRITES trigger, and non-silent so a persistently
+            # skipped prune (a scan that never finishes) is visible.
+            logger.debug(
+                f"Chunk-cache prune already in progress for {chunk_dir}; "
+                f"skipping this trigger"
+            )
+            return
+        try:
             self.prune_chunk_directory(chunk_dir, self._max_disk_bytes)
+        finally:
+            cls._prune_scan_lock.release()
 
     @staticmethod
     def prune_chunk_directory(chunk_dir: Path, max_bytes: int) -> tuple[int, int]:
