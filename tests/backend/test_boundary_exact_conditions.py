@@ -396,6 +396,8 @@ def test_position_exactly_duration(tmp_path):
     try:
         player.seek_to_position(duration)
         # Should not crash, should be at end
+    except (AssertionError, ZeroDivisionError, IndexError):
+        raise  # never mask a real bug behind a skip (#4969)
     except Exception as e:
         pytest.skip(f"Seek to exact duration not implemented: {e}")
 
@@ -469,6 +471,8 @@ def test_processing_at_standard_sample_rates(tmp_path, sample_rate):
         assert len(result) == len(audio), (
             f"Sample count should be preserved at {sample_rate}Hz"
         )
+    except (AssertionError, ZeroDivisionError, IndexError):
+        raise  # never mask a real bug behind a skip (#4969)
     except Exception as e:
         pytest.skip(f"Processing at {sample_rate}Hz not implemented: {e}")
 
@@ -521,6 +525,8 @@ def test_track_title_max_length(tmp_path):
     try:
         track = db.tracks.add(track_info)
         assert track.title == long_title, "Should preserve long title"
+    except (AssertionError, ZeroDivisionError, IndexError):
+        raise  # never mask a real bug behind a skip (#4969)
     except Exception as e:
         # If rejected, document the limit
         pytest.skip(f"Long title rejected: {e}")

@@ -186,6 +186,8 @@ def test_very_long_track_in_library(tmp_path):
     try:
         track = db.tracks.add(track_info)
         assert track.duration == duration, "Duration should be preserved"
+    except (AssertionError, ZeroDivisionError, IndexError):
+        raise  # never mask a real bug behind a skip (#4969)
     except Exception as e:
         pytest.skip(f"Very long track not supported: {e}")
 
@@ -213,6 +215,8 @@ def test_one_sample_audio():
         # If supported, output is an ndarray preserving the sample count (#4049).
         assert isinstance(result, np.ndarray)
         assert len(result) == len(audio)
+    except (AssertionError, ZeroDivisionError, IndexError):
+        raise  # never mask a real bug behind a skip (#4969)
     except Exception as e:
         pytest.skip(f"1-sample audio not supported: {e}")
 
@@ -231,6 +235,8 @@ def test_ten_sample_audio():
     try:
         result = processor.process(audio)
         assert len(result) == 10, "Should preserve sample count"
+    except (AssertionError, ZeroDivisionError, IndexError):
+        raise  # never mask a real bug behind a skip (#4969)
     except Exception as e:
         pytest.skip(f"10-sample audio not supported: {e}")
 
@@ -252,6 +258,8 @@ def test_sub_frame_duration():
     try:
         result = processor.process(audio)
         assert len(result) == 256, "Should handle sub-frame audio"
+    except (AssertionError, ZeroDivisionError, IndexError):
+        raise  # never mask a real bug behind a skip (#4969)
     except Exception as e:
         pytest.skip(f"Sub-frame audio not supported: {e}")
 
@@ -423,6 +431,8 @@ def test_alternating_polarity():
         result = processor.process(audio)
         # Should not crash or produce artifacts
         assert not np.isnan(result).any(), "Should handle Nyquist frequency"
+    except (AssertionError, ZeroDivisionError, IndexError):
+        raise  # never mask a real bug behind a skip (#4969)
     except Exception as e:
         pytest.skip(f"Nyquist frequency not supported: {e}")
 
@@ -588,13 +598,13 @@ def test_very_long_track_title(tmp_path):
         'artists': ['Artist'],
     }
 
-    try:
-        track = db.tracks.add(track_info)
-        retrieved_tracks, _ = db.tracks.get_all(limit=1)
-        assert len(retrieved_tracks[0].title) == 1000, "Should preserve long title"
-    except Exception as e:
-        # Database may have column limit
-        pytest.skip(f"1000 char title not supported: {e}")
+    track = db.tracks.add(track_info)
+    retrieved_tracks, _ = db.tracks.get_all(limit=1)
+    # `_validate_and_normalize_track_info` intentionally truncates title/album
+    # to 500 chars (#2073) — asserting the full 1000 here was simply wrong,
+    # and used to be masked by a bare `except Exception: pytest.skip(...)`
+    # that turned this real assertion mismatch into a silent SKIP (#4969).
+    assert len(retrieved_tracks[0].title) == 500, "Title should be truncated to the documented 500-char cap (#2073)"
 
 
 @pytest.mark.boundary

@@ -809,6 +809,8 @@ def test_enhancement_api_websocket_updates_workflow(library_with_tracks):
                     break
 
             assert completion_received
+    except (AssertionError, ZeroDivisionError, IndexError):
+        raise  # never mask a real bug behind a skip (#4969)
     except Exception as e:
         # WebSocket testing may not be supported in all environments
         pytest.skip(f"WebSocket testing not supported: {e}")

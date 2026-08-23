@@ -255,6 +255,8 @@ class TestFingerprintRepository:
             count = FingerprintRepository.cleanup_incomplete_fingerprints()
             assert isinstance(count, int)
             assert count >= 0
+        except (AssertionError, ZeroDivisionError, IndexError):
+            raise  # never mask a real bug behind a skip (#4969)
         except Exception as e:
             # Database might not have incomplete fingerprints, that's fine
             pytest.skip(f"No incomplete fingerprints to clean: {e}")

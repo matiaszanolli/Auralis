@@ -540,6 +540,8 @@ def test_zero_length_audio_array():
         result = processor.process(empty_audio)
         # Should return empty or handle gracefully
         assert len(result) == 0, "Should return empty for empty input"
+    except (AssertionError, ZeroDivisionError, IndexError):
+        raise  # never mask a real bug behind a skip (#4969)
     except Exception as e:
         # Document expected behavior if it should raise
         pytest.skip(f"Zero-length audio handling not implemented: {e}")
