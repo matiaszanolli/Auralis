@@ -51,55 +51,53 @@ class TrackRepositoryMutationMixin(BaseRepository):
         Returns:
             Updated Track object if successful, None if failed
         """
-        session = self.get_session()
-        try:
-            track = session.execute(
-                select(Track).where(Track.filepath_key == make_filepath_key(filepath))
-            ).scalars().first()
-            if not track:
-                warning(f"Track not found: {filepath}")
+        with self._session_scope() as session:
+            try:
+                track = session.execute(
+                    select(Track).where(Track.filepath_key == make_filepath_key(filepath))
+                ).scalars().first()
+                if not track:
+                    warning(f"Track not found: {filepath}")
+                    return None
+
+                # Update basic fields
+                for key in ['title', 'duration', 'sample_rate', 'bit_depth', 'channels',
+                           'format', 'filesize', 'peak_level', 'rms_level', 'dr_rating',
+                           'lufs_level', 'track_number', 'disc_number', 'year', 'comments']:
+                    if key in track_info:
+                        setattr(track, key, track_info[key])
+
+                # Update artists
+                if 'artists' in track_info:
+                    self._update_artists(session, track, track_info['artists'])
+
+                # Update genres
+                if 'genres' in track_info:
+                    self._update_genres(session, track, track_info['genres'])
+
+                # Update album
+                if 'album' in track_info:
+                    album = session.execute(select(Album).where(Album.title == track_info['album'])).scalars().first()
+                    if not album:
+                        album = Album(title=track_info['album'], year=track_info.get('year'))
+                        session.add(album)
+                    track.album = album
+
+                session.commit()
+                # Re-query with eager loading before detaching from session
+                track = session.execute(
+                    select(Track)
+                    .options(*_track_eager_options())
+                    .where(Track.filepath_key == make_filepath_key(filepath))
+                ).scalars().unique().first()
+                info(f"Updated track: {track.title}")
+                session.expunge(track)
+                return track
+
+            except Exception as e:
+                session.rollback()
+                error(f"Failed to update track: {e}")
                 return None
-
-            # Update basic fields
-            for key in ['title', 'duration', 'sample_rate', 'bit_depth', 'channels',
-                       'format', 'filesize', 'peak_level', 'rms_level', 'dr_rating',
-                       'lufs_level', 'track_number', 'disc_number', 'year', 'comments']:
-                if key in track_info:
-                    setattr(track, key, track_info[key])
-
-            # Update artists
-            if 'artists' in track_info:
-                self._update_artists(session, track, track_info['artists'])
-
-            # Update genres
-            if 'genres' in track_info:
-                self._update_genres(session, track, track_info['genres'])
-
-            # Update album
-            if 'album' in track_info:
-                album = session.execute(select(Album).where(Album.title == track_info['album'])).scalars().first()
-                if not album:
-                    album = Album(title=track_info['album'], year=track_info.get('year'))
-                    session.add(album)
-                track.album = album
-
-            session.commit()
-            # Re-query with eager loading before detaching from session
-            track = session.execute(
-                select(Track)
-                .options(*_track_eager_options())
-                .where(Track.filepath_key == make_filepath_key(filepath))
-            ).scalars().unique().first()
-            info(f"Updated track: {track.title}")
-            session.expunge(track)
-            return track
-
-        except Exception as e:
-            session.rollback()
-            error(f"Failed to update track: {e}")
-            return None
-        finally:
-            session.close()
 
     def update(self, track_id: int, track_info: dict[str, Any]) -> Track | None:
         """
@@ -112,55 +110,53 @@ class TrackRepositoryMutationMixin(BaseRepository):
         Returns:
             Updated track or None if not found
         """
-        session = self.get_session()
-        try:
-            track = session.execute(select(Track).where(Track.id == track_id)).scalars().first()
-            if not track:
+        with self._session_scope() as session:
+            try:
+                track = session.execute(select(Track).where(Track.id == track_id)).scalars().first()
+                if not track:
+                    return None
+
+                # Update simple fields
+                for field in ['title', 'duration', 'bitrate', 'sample_rate', 'year', 'track_number', 'disc_number']:
+                    if field in track_info:
+                        setattr(track, field, track_info[field])
+
+                # Update artists if provided
+                if 'artist' in track_info or 'artists' in track_info:
+                    artists = track_info.get('artists', [track_info.get('artist')] if track_info.get('artist') else [])
+                    if artists:
+                        self._update_artists(session, track, artists)
+
+                # Update genres if provided
+                if 'genre' in track_info or 'genres' in track_info:
+                    genres = track_info.get('genres', [track_info.get('genre')] if track_info.get('genre') else [])
+                    if genres:
+                        self._update_genres(session, track, genres)
+
+                # Update album if provided
+                if 'album' in track_info:
+                    album_title = track_info['album']
+                    if album_title:
+                        album = session.execute(select(Album).where(Album.title == album_title)).scalars().first()
+                        if not album:
+                            album = Album(title=album_title)
+                            session.add(album)
+                        track.album = album
+
+                session.commit()
+                # Re-query with eager loading before detaching from session
+                track = session.execute(
+                    select(Track)
+                    .options(*_track_eager_options())
+                    .where(Track.id == track_id)
+                ).scalars().unique().first()
+                debug(f"Updated track: {track.title}")
+                session.expunge(track)
+                return track
+            except Exception as e:
+                session.rollback()
+                error(f"Failed to update track: {e}")
                 return None
-
-            # Update simple fields
-            for field in ['title', 'duration', 'bitrate', 'sample_rate', 'year', 'track_number', 'disc_number']:
-                if field in track_info:
-                    setattr(track, field, track_info[field])
-
-            # Update artists if provided
-            if 'artist' in track_info or 'artists' in track_info:
-                artists = track_info.get('artists', [track_info.get('artist')] if track_info.get('artist') else [])
-                if artists:
-                    self._update_artists(session, track, artists)
-
-            # Update genres if provided
-            if 'genre' in track_info or 'genres' in track_info:
-                genres = track_info.get('genres', [track_info.get('genre')] if track_info.get('genre') else [])
-                if genres:
-                    self._update_genres(session, track, genres)
-
-            # Update album if provided
-            if 'album' in track_info:
-                album_title = track_info['album']
-                if album_title:
-                    album = session.execute(select(Album).where(Album.title == album_title)).scalars().first()
-                    if not album:
-                        album = Album(title=album_title)
-                        session.add(album)
-                    track.album = album
-
-            session.commit()
-            # Re-query with eager loading before detaching from session
-            track = session.execute(
-                select(Track)
-                .options(*_track_eager_options())
-                .where(Track.id == track_id)
-            ).scalars().unique().first()
-            debug(f"Updated track: {track.title}")
-            session.expunge(track)
-            return track
-        except Exception as e:
-            session.rollback()
-            error(f"Failed to update track: {e}")
-            return None
-        finally:
-            session.close()
 
     def update_metadata(self, track_id: int, **fields: Any) -> Track | None:
         """
@@ -176,29 +172,27 @@ class TrackRepositoryMutationMixin(BaseRepository):
         Raises:
             Exception: If update fails
         """
-        session = self.get_session()
-        try:
-            track = session.execute(select(Track).where(Track.id == track_id)).scalars().first()
-            if not track:
-                return None
+        with self._session_scope() as session:
+            try:
+                track = session.execute(select(Track).where(Track.id == track_id)).scalars().first()
+                if not track:
+                    return None
 
-            # Update only provided fields, and only ones that are actually
-            # editable metadata — never structural columns (#4555).
-            for key, value in _filter_metadata_fields(track_id, fields).items():
-                if hasattr(track, key) and value is not None:
-                    setattr(track, key, value)
+                # Update only provided fields, and only ones that are actually
+                # editable metadata — never structural columns (#4555).
+                for key, value in _filter_metadata_fields(track_id, fields).items():
+                    if hasattr(track, key) and value is not None:
+                        setattr(track, key, value)
 
-            session.commit()
-            session.refresh(track)
-            session.expunge(track)
-            debug(f"Updated track metadata: {track.title}")
-            return track
-        except Exception as e:
-            session.rollback()
-            error(f"Failed to update track metadata {track_id}: {e}")
-            raise
-        finally:
-            session.close()
+                session.commit()
+                session.refresh(track)
+                session.expunge(track)
+                debug(f"Updated track metadata: {track.title}")
+                return track
+            except Exception as e:
+                session.rollback()
+                error(f"Failed to update track metadata {track_id}: {e}")
+                raise
 
     def update_metadata_batch(
         self, updates: list[tuple[int, dict[str, Any]]]
@@ -221,28 +215,26 @@ class TrackRepositoryMutationMixin(BaseRepository):
         if not updates:
             return []
 
-        session = self.get_session()
-        try:
-            successful: list[int] = []
-            for track_id, fields in updates:
-                track = session.execute(
-                    select(Track).where(Track.id == track_id)
-                ).scalars().first()
-                if not track:
-                    continue
-                # Same allowlist as update_metadata — structural columns are
-                # not writable through a metadata path (#4555).
-                for key, value in _filter_metadata_fields(track_id, fields).items():
-                    if hasattr(track, key) and value is not None:
-                        setattr(track, key, value)
-                successful.append(track_id)
+        with self._session_scope() as session:
+            try:
+                successful: list[int] = []
+                for track_id, fields in updates:
+                    track = session.execute(
+                        select(Track).where(Track.id == track_id)
+                    ).scalars().first()
+                    if not track:
+                        continue
+                    # Same allowlist as update_metadata — structural columns are
+                    # not writable through a metadata path (#4555).
+                    for key, value in _filter_metadata_fields(track_id, fields).items():
+                        if hasattr(track, key) and value is not None:
+                            setattr(track, key, value)
+                    successful.append(track_id)
 
-            session.commit()
-            debug(f"Batch-updated metadata for {len(successful)} track(s)")
-            return successful
-        except Exception as e:
-            session.rollback()
-            error(f"Failed to batch-update track metadata: {e}")
-            raise
-        finally:
-            session.close()
+                session.commit()
+                debug(f"Batch-updated metadata for {len(successful)} track(s)")
+                return successful
+            except Exception as e:
+                session.rollback()
+                error(f"Failed to batch-update track metadata: {e}")
+                raise

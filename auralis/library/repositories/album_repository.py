@@ -85,8 +85,7 @@ class AlbumRepository(BaseRepository):
 
     def get_by_id(self, album_id: int) -> Album | None:
         """Get album by ID with relationships loaded"""
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             album = session.execute(
                 select(Album)
                 .options(*_ALBUM_DETAIL_OPTIONS)
@@ -98,13 +97,10 @@ class AlbumRepository(BaseRepository):
                 # without hitting DetachedInstanceError (fixes #2406).
                 session.expunge_all()
             return album
-        finally:
-            session.close()
 
     def get_by_title(self, title: str) -> Album | None:
         """Get album by title with relationships loaded"""
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             album = session.execute(
                 select(Album)
                 .options(*_ALBUM_DETAIL_OPTIONS)
@@ -116,8 +112,6 @@ class AlbumRepository(BaseRepository):
                 # without hitting DetachedInstanceError (fixes #2406 / #4236).
                 session.expunge_all()
             return album
-        finally:
-            session.close()
 
     def get_all(self, limit: int = 50, offset: int = 0, order_by: str = 'title') -> tuple[list[Album], int]:
         """
@@ -131,8 +125,7 @@ class AlbumRepository(BaseRepository):
         Returns:
             Tuple of (albums list, total count)
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             # Get total count
             total = session.execute(
                 select(func.count()).select_from(Album)
@@ -160,13 +153,10 @@ class AlbumRepository(BaseRepository):
                 session.expunge_all()
 
             return albums, total
-        finally:
-            session.close()
 
     def get_recent(self, limit: int = 50, offset: int = 0) -> list[Album]:
         """Get recently added albums with pagination"""
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             albums = session.execute(
                 select(Album)
                 .options(*_ALBUM_LIST_OPTIONS)
@@ -177,8 +167,6 @@ class AlbumRepository(BaseRepository):
             if albums:
                 session.expunge_all()
             return albums
-        finally:
-            session.close()
 
     def search(self, query: str, limit: int = 50, offset: int = 0, order_by: str = 'title') -> tuple[list[Album], int]:
         """
@@ -194,8 +182,7 @@ class AlbumRepository(BaseRepository):
             Tuple of (matching albums, total match count) — total enables correct
             pagination (fixes #2482: estimated total was always wrong).
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             # Escape LIKE metacharacters so a query containing '%' or '_' does
             # not accidentally match all rows (fixes #2405).
             escaped = query.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
@@ -240,8 +227,6 @@ class AlbumRepository(BaseRepository):
             if results:
                 session.expunge_all()
             return results, total
-        finally:
-            session.close()
 
     def extract_and_save_artwork(self, album_id: int) -> str | None:
         """
@@ -253,8 +238,7 @@ class AlbumRepository(BaseRepository):
         Returns:
             Path to saved artwork, or None if extraction failed
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             album = session.execute(
                 select(Album)
                 # Deliberately narrower than _ALBUM_DETAIL_OPTIONS (#5028
@@ -283,9 +267,6 @@ class AlbumRepository(BaseRepository):
 
             return None
 
-        finally:
-            session.close()
-
     def update_artwork(self, album_id: int, artwork_path: str) -> bool:
         """
         Update album artwork path
@@ -297,19 +278,17 @@ class AlbumRepository(BaseRepository):
         Returns:
             True if updated successfully
         """
-        session = self.get_session()
-        try:
-            album = session.execute(select(Album).where(Album.id == album_id)).scalars().first()
-            if album:
-                album.artwork_path = artwork_path
-                session.commit()
-                return True
-            return False
-        except Exception:
-            session.rollback()  # fixes #2238: prevent dirty session in pool
-            raise
-        finally:
-            session.close()
+        with self._session_scope() as session:
+            try:
+                album = session.execute(select(Album).where(Album.id == album_id)).scalars().first()
+                if album:
+                    album.artwork_path = artwork_path
+                    session.commit()
+                    return True
+                return False
+            except Exception:
+                session.rollback()  # fixes #2238: prevent dirty session in pool
+                raise
 
     def delete_artwork(self, album_id: int) -> bool:
         """
@@ -321,22 +300,20 @@ class AlbumRepository(BaseRepository):
         Returns:
             True if deleted successfully
         """
-        session = self.get_session()
-        try:
-            album = session.execute(select(Album).where(Album.id == album_id)).scalars().first()
-            if album and album.artwork_path:
-                # Delete file
-                self.artwork_extractor.delete_artwork(album.artwork_path)
-                # Clear database reference
-                album.artwork_path = None
-                session.commit()
-                return True
-            return False
-        except Exception:
-            session.rollback()  # fixes #2238: prevent dirty session in pool
-            raise
-        finally:
-            session.close()
+        with self._session_scope() as session:
+            try:
+                album = session.execute(select(Album).where(Album.id == album_id)).scalars().first()
+                if album and album.artwork_path:
+                    # Delete file
+                    self.artwork_extractor.delete_artwork(album.artwork_path)
+                    # Clear database reference
+                    album.artwork_path = None
+                    session.commit()
+                    return True
+                return False
+            except Exception:
+                session.rollback()  # fixes #2238: prevent dirty session in pool
+                raise
 
     def update_artwork_path(self, album_id: int, artwork_path: str) -> Album | None:
         """
@@ -352,24 +329,22 @@ class AlbumRepository(BaseRepository):
         Raises:
             Exception: If update fails
         """
-        session = self.get_session()
-        try:
-            album = session.execute(select(Album).where(Album.id == album_id)).scalars().first()
-            if not album:
-                return None
+        with self._session_scope() as session:
+            try:
+                album = session.execute(select(Album).where(Album.id == album_id)).scalars().first()
+                if not album:
+                    return None
 
-            album.artwork_path = artwork_path
-            session.commit()
-            session.refresh(album)
-            # Every other read path here eager-loads artist + tracks because
-            # Album.to_dict() reads both; refresh() does not re-apply query
-            # options, so force them in before detaching (#4641). The artwork
-            # router hands this album straight to to_dict().
-            _ = album.artist, album.tracks
-            session.expunge(album)
-            return album
-        except Exception:
-            session.rollback()
-            raise
-        finally:
-            session.close()
+                album.artwork_path = artwork_path
+                session.commit()
+                session.refresh(album)
+                # Every other read path here eager-loads artist + tracks because
+                # Album.to_dict() reads both; refresh() does not re-apply query
+                # options, so force them in before detaching (#4641). The artwork
+                # router hands this album straight to to_dict().
+                _ = album.artist, album.tracks
+                session.expunge(album)
+                return album
+            except Exception:
+                session.rollback()
+                raise

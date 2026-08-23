@@ -13,26 +13,22 @@ into ``PlaylistRepository`` together.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from collections.abc import Callable
-
 from sqlalchemy import func, or_, select
-from sqlalchemy.orm import Session, with_expression
+from sqlalchemy.orm import with_expression
 from sqlalchemy.sql.selectable import ScalarSelect
 
 from ..models import Playlist, Track
 from ..models.base import track_playlist
-from .base import escape_like
+from .base import BaseRepository, escape_like
 
 
-class PlaylistQueryMixin:
+class PlaylistQueryMixin(BaseRepository):
     """Multi-playlist listing/search, sharing the repository's session factory.
 
-    ``get_session`` is provided by ``BaseRepository`` — declared here bare
-    (no assignment) so type checkers know this mixin depends on it without
-    shadowing the real implementation via MRO.
+    Inherits ``BaseRepository`` directly for ``get_session``/
+    ``_session_scope`` (#4604) — see ``playlist_membership_mixin.py`` for
+    why a bare annotation doesn't work for ``_session_scope`` here.
     """
-
-    get_session: Callable[[], Session]
 
     def get_all(self, limit: int = 50, offset: int = 0) -> tuple[list[Playlist], int]:
         """Get a page of playlists, with each playlist's track count.
@@ -54,8 +50,7 @@ class PlaylistQueryMixin:
             count comes from a correlated ``COUNT`` over the association table
             instead of loading full Track rows just to call ``len()`` on them.
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             total = session.execute(
                 select(func.count()).select_from(Playlist)
             ).scalar_one()
@@ -85,8 +80,6 @@ class PlaylistQueryMixin:
             # pre-loaded here) raised DetachedInstanceError.
             session.expunge_all()
             return list(playlists), total
-        finally:
-            session.close()
 
     def _track_count_subquery(self) -> ScalarSelect[int]:
         """Correlated COUNT of a playlist's tracks, evaluated per row.
@@ -137,8 +130,7 @@ class PlaylistQueryMixin:
         Returns:
             Tuple of (matching playlists, total match count).
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             search_term = f"%{escape_like(query)}%"
             search_filter = or_(
                 Playlist.name.ilike(search_term, escape='\\'),
@@ -171,5 +163,3 @@ class PlaylistQueryMixin:
             # DetachedInstanceError (#3709).
             session.expunge_all()
             return list(playlists), total
-        finally:
-            session.close()

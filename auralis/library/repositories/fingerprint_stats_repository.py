@@ -33,32 +33,31 @@ class FingerprintStatsRepository(BaseRepository):
         Returns:
             True if successful, False otherwise
         """
-        session = self.get_session()
-        try:
-            # Fingerprint status/computed_at live on the tracks table (Track
-            # model), not track_fingerprints. The previous raw SQL targeted
-            # track_fingerprints — which has none of these columns — so the
-            # UPDATE failed and the method always returned False (#4108). It also
-            # referenced a non-existent `fingerprint_started_at` column. Use the
-            # ORM update() against Track so column names stay in sync with the
-            # model and a future rename fails at type-check, not silently.
-            values: dict[Any, Any] = {Track.fingerprint_status: status}
-            if status == 'completed' and completed_at:
-                # fingerprint_computed_at is a DateTime column; convert the ISO
-                # string callers pass so SQLite's DateTime bind processor accepts it.
-                values[Track.fingerprint_computed_at] = datetime.fromisoformat(completed_at)
-            session.execute(
-                update(Track).where(Track.id == track_id).values(values)
-            )
-            session.commit()
-            return True
-        except Exception as e:
-            session.rollback()
-            error(f"Failed to update status for track {track_id}: {e}")
-            return False
-        finally:
-            session.expunge_all()
-            session.close()
+        with self._session_scope() as session:
+            try:
+                # Fingerprint status/computed_at live on the tracks table (Track
+                # model), not track_fingerprints. The previous raw SQL targeted
+                # track_fingerprints — which has none of these columns — so the
+                # UPDATE failed and the method always returned False (#4108). It also
+                # referenced a non-existent `fingerprint_started_at` column. Use the
+                # ORM update() against Track so column names stay in sync with the
+                # model and a future rename fails at type-check, not silently.
+                values: dict[Any, Any] = {Track.fingerprint_status: status}
+                if status == 'completed' and completed_at:
+                    # fingerprint_computed_at is a DateTime column; convert the ISO
+                    # string callers pass so SQLite's DateTime bind processor accepts it.
+                    values[Track.fingerprint_computed_at] = datetime.fromisoformat(completed_at)
+                session.execute(
+                    update(Track).where(Track.id == track_id).values(values)
+                )
+                session.commit()
+                return True
+            except Exception as e:
+                session.rollback()
+                error(f"Failed to update status for track {track_id}: {e}")
+                return False
+            finally:
+                session.expunge_all()
 
     def get_fingerprint_status(self, track_id: int) -> dict[str, Any] | None:
         """Get fingerprint status for a specific track.
@@ -66,8 +65,7 @@ class FingerprintStatsRepository(BaseRepository):
         Returns:
             Dict with fingerprint status details or None if not found.
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             fingerprint = session.execute(
                 select(TrackFingerprint).where(TrackFingerprint.track_id == track_id)
             ).scalars().first()
@@ -82,8 +80,6 @@ class FingerprintStatsRepository(BaseRepository):
                 'updated_at': getattr(fingerprint, 'updated_at', None),
                 'has_fingerprint': fingerprint is not None,
             }
-        finally:
-            session.close()
 
     def get_fingerprint_stats(self) -> dict[str, int]:
         """Get overall fingerprint statistics.
@@ -92,8 +88,7 @@ class FingerprintStatsRepository(BaseRepository):
             Dict with 'total', 'fingerprinted', 'current', 'outdated',
             'pending', and 'progress_percent' counts.
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             total_tracks = session.execute(
                 select(func.count(Track.id))
             ).scalar_one_or_none() or 0
@@ -132,8 +127,6 @@ class FingerprintStatsRepository(BaseRepository):
                 'pending': pending_count,
                 'progress_percent': progress_percent,
             }
-        finally:
-            session.close()
 
     def cleanup_incomplete_fingerprints(self) -> int:
         """Clean up incomplete fingerprints on startup (crash recovery).
@@ -151,39 +144,37 @@ class FingerprintStatsRepository(BaseRepository):
         Raises:
             Exception: If cleanup fails
         """
-        session = self.get_session()
-        try:
-            # 1. Delete new-track placeholder rows (lufs=-100.0 sentinel, #2453).
-            result = session.execute(
-                delete(TrackFingerprint).where(TrackFingerprint.lufs == -100.0)
-            )
-            deleted_count = result.rowcount
+        with self._session_scope() as session:
+            try:
+                # 1. Delete new-track placeholder rows (lufs=-100.0 sentinel, #2453).
+                result = session.execute(
+                    delete(TrackFingerprint).where(TrackFingerprint.lufs == -100.0)
+                )
+                deleted_count = result.rowcount
 
-            # 2. Reset stale outdated-fingerprint claims (fingerprint_version=0 sentinel).
-            #    These are fingerprints that were claimed for re-extraction but the
-            #    worker crashed before completing. Reset to version 1 so they are
-            #    eligible for re-claiming next time.
-            # #3711: use ORM update() instead of raw text() — table renames via
-            # migrations would catch the change here.
-            reset_result = session.execute(
-                update(TrackFingerprint)
-                .where(TrackFingerprint.fingerprint_version == 0)
-                .values(fingerprint_version=1)
-            )
-            reset_count = reset_result.rowcount
+                # 2. Reset stale outdated-fingerprint claims (fingerprint_version=0 sentinel).
+                #    These are fingerprints that were claimed for re-extraction but the
+                #    worker crashed before completing. Reset to version 1 so they are
+                #    eligible for re-claiming next time.
+                # #3711: use ORM update() instead of raw text() — table renames via
+                # migrations would catch the change here.
+                reset_result = session.execute(
+                    update(TrackFingerprint)
+                    .where(TrackFingerprint.fingerprint_version == 0)
+                    .values(fingerprint_version=1)
+                )
+                reset_count = reset_result.rowcount
 
-            total = deleted_count + reset_count
-            if total == 0:
-                return 0
+                total = deleted_count + reset_count
+                if total == 0:
+                    return 0
 
-            session.commit()
-            if deleted_count:
-                info(f"Cleaned up {deleted_count} incomplete new-track fingerprint placeholder(s)")
-            if reset_count:
-                info(f"Reset {reset_count} stale outdated-fingerprint claim(s) (version=0 → 1)")
-            return total
-        except Exception:
-            session.rollback()
-            raise
-        finally:
-            session.close()
+                session.commit()
+                if deleted_count:
+                    info(f"Cleaned up {deleted_count} incomplete new-track fingerprint placeholder(s)")
+                if reset_count:
+                    info(f"Reset {reset_count} stale outdated-fingerprint claim(s) (version=0 → 1)")
+                return total
+            except Exception:
+                session.rollback()
+                raise

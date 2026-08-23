@@ -26,17 +26,15 @@ class SimilarityGraphRepository(BaseRepository):
         Returns:
             Number of edges deleted
         """
-        session = self.get_session()
-        try:
-            count = session.execute(select(func.count()).select_from(SimilarityGraph)).scalar_one()
-            session.execute(delete(SimilarityGraph))
-            session.commit()
-            return count
-        except Exception:
-            session.rollback()
-            raise
-        finally:
-            session.close()
+        with self._session_scope() as session:
+            try:
+                count = session.execute(select(func.count()).select_from(SimilarityGraph)).scalar_one()
+                session.execute(delete(SimilarityGraph))
+                session.commit()
+                return count
+            except Exception:
+                session.rollback()
+                raise
 
     def delete_by_track_id(self, track_id: int) -> int:
         """
@@ -48,19 +46,17 @@ class SimilarityGraphRepository(BaseRepository):
         Returns:
             Number of edges deleted
         """
-        session = self.get_session()
-        try:
-            count = session.execute(
-                select(func.count()).select_from(SimilarityGraph).where(SimilarityGraph.track_id == track_id)
-            ).scalar_one()
-            session.execute(delete(SimilarityGraph).where(SimilarityGraph.track_id == track_id))
-            session.commit()
-            return count
-        except Exception:
-            session.rollback()
-            raise
-        finally:
-            session.close()
+        with self._session_scope() as session:
+            try:
+                count = session.execute(
+                    select(func.count()).select_from(SimilarityGraph).where(SimilarityGraph.track_id == track_id)
+                ).scalar_one()
+                session.execute(delete(SimilarityGraph).where(SimilarityGraph.track_id == track_id))
+                session.commit()
+                return count
+            except Exception:
+                session.rollback()
+                raise
 
     def add_edges(self, edges: list[dict[str, Any]]) -> int:
         """
@@ -73,20 +69,18 @@ class SimilarityGraphRepository(BaseRepository):
         Returns:
             Number of edges added
         """
-        session = self.get_session()
-        try:
-            edge_objects = [
-                SimilarityGraph(**edge_data)
-                for edge_data in edges
-            ]
-            session.add_all(edge_objects)
-            session.commit()
-            return len(edge_objects)
-        except Exception:
-            session.rollback()
-            raise
-        finally:
-            session.close()
+        with self._session_scope() as session:
+            try:
+                edge_objects = [
+                    SimilarityGraph(**edge_data)
+                    for edge_data in edges
+                ]
+                session.add_all(edge_objects)
+                session.commit()
+                return len(edge_objects)
+            except Exception:
+                session.rollback()
+                raise
 
     def add_edge(
         self,
@@ -106,22 +100,20 @@ class SimilarityGraphRepository(BaseRepository):
             similarity_score: Similarity score (0-1)
             rank: Rank of this neighbor (1 = closest)
         """
-        session = self.get_session()
-        try:
-            edge = SimilarityGraph(
-                track_id=track_id,
-                similar_track_id=similar_track_id,
-                distance=distance,
-                similarity_score=similarity_score,
-                rank=rank
-            )
-            session.add(edge)
-            session.commit()
-        except Exception:
-            session.rollback()
-            raise
-        finally:
-            session.close()
+        with self._session_scope() as session:
+            try:
+                edge = SimilarityGraph(
+                    track_id=track_id,
+                    similar_track_id=similar_track_id,
+                    distance=distance,
+                    similarity_score=similarity_score,
+                    rank=rank
+                )
+                session.add(edge)
+                session.commit()
+            except Exception:
+                session.rollback()
+                raise
 
     def get_neighbors(
         self,
@@ -138,8 +130,7 @@ class SimilarityGraphRepository(BaseRepository):
         Returns:
             List of SimilarityGraph edges ordered by rank
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             stmt = (
                 select(SimilarityGraph)
                 .where(SimilarityGraph.track_id == track_id)
@@ -153,8 +144,6 @@ class SimilarityGraphRepository(BaseRepository):
             for edge in edges:
                 session.expunge(edge)
             return edges
-        finally:
-            session.close()
 
     def get_stats(self) -> tuple[int, int, int, float, float, float] | None:
         """
@@ -164,8 +153,7 @@ class SimilarityGraphRepository(BaseRepository):
             Tuple of (total_tracks, total_edges, k_neighbors, avg_distance,
                      min_distance, max_distance) or None if graph is empty
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             # Count edges
             total_edges = session.execute(select(func.count()).select_from(SimilarityGraph)).scalar_one()
 
@@ -197,8 +185,6 @@ class SimilarityGraphRepository(BaseRepository):
                 float(min_distance or 0),
                 float(max_distance or 0)
             )
-        finally:
-            session.close()
 
     def count_edges(self) -> int:
         """
@@ -207,8 +193,5 @@ class SimilarityGraphRepository(BaseRepository):
         Returns:
             Total edge count
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             return session.execute(select(func.count()).select_from(SimilarityGraph)).scalar_one()
-        finally:
-            session.close()

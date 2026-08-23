@@ -44,8 +44,7 @@ class QueueHistoryRepository(BaseRepository):
         if operation not in valid_operations:
             raise ValueError(f"Invalid operation: {operation}. Must be one of {valid_operations}")
 
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             # Get the current queue state to associate with history
             queue_state = session.execute(select(QueueState)).scalars().first()
             if not queue_state:
@@ -70,8 +69,6 @@ class QueueHistoryRepository(BaseRepository):
 
             session.expunge(history_entry)
             return history_entry
-        finally:
-            session.close()
 
     def get_history(self, limit: int = 20) -> list[QueueHistory]:
         """
@@ -83,8 +80,7 @@ class QueueHistoryRepository(BaseRepository):
         Returns:
             List of QueueHistory entries ordered by creation time (newest first)
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             queue_state = session.execute(select(QueueState)).scalars().first()
             if not queue_state:
                 return []
@@ -99,8 +95,6 @@ class QueueHistoryRepository(BaseRepository):
             for entry in entries:
                 session.expunge(entry)
             return entries
-        finally:
-            session.close()
 
     def undo(self, queue_repository: Any = None) -> QueueState | None:
         """
@@ -121,8 +115,7 @@ class QueueHistoryRepository(BaseRepository):
         Raises:
             ValueError: If history entry is invalid or corrupted
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             queue_state = session.execute(select(QueueState)).scalars().first()
             if not queue_state:
                 return None
@@ -157,8 +150,6 @@ class QueueHistoryRepository(BaseRepository):
             session.refresh(queue_state)
             session.expunge(queue_state)
             return cast(QueueState | None, queue_state)
-        finally:
-            session.close()
 
     def clear_history(self) -> bool:
         """
@@ -167,8 +158,7 @@ class QueueHistoryRepository(BaseRepository):
         Returns:
             True if successful, False if no queue state exists
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             queue_state = session.execute(select(QueueState)).scalars().first()
             if not queue_state:
                 return False
@@ -180,8 +170,6 @@ class QueueHistoryRepository(BaseRepository):
 
             session.commit()
             return True
-        finally:
-            session.close()
 
     def get_history_count(self) -> int:
         """
@@ -190,8 +178,7 @@ class QueueHistoryRepository(BaseRepository):
         Returns:
             Number of history entries for current queue
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             queue_state = session.execute(select(QueueState)).scalars().first()
             if not queue_state:
                 return 0
@@ -202,8 +189,6 @@ class QueueHistoryRepository(BaseRepository):
             ).scalar_one()
 
             return count
-        finally:
-            session.close()
 
     def to_dict(self, entry: QueueHistory) -> dict[str, Any]:
         """

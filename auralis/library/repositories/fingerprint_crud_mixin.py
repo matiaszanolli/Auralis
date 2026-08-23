@@ -43,41 +43,40 @@ class FingerprintCrudMixin(BaseRepository):
         Returns:
             TrackFingerprint object if successful, None if failed
         """
-        session = self.get_session()
-        try:
-            # Check if fingerprint already exists
-            existing = session.execute(
-                select(TrackFingerprint).where(TrackFingerprint.track_id == track_id)
-            ).scalars().first()
+        with self._session_scope() as session:
+            try:
+                # Check if fingerprint already exists
+                existing = session.execute(
+                    select(TrackFingerprint).where(TrackFingerprint.track_id == track_id)
+                ).scalars().first()
 
-            if existing:
-                debug(f"Fingerprint already exists for track {track_id}, updating")
-                return self.update(track_id, fingerprint_data)
+                if existing:
+                    debug(f"Fingerprint already exists for track {track_id}, updating")
+                    return self.update(track_id, fingerprint_data)
 
-            # Create new fingerprint
-            fingerprint = TrackFingerprint(
-                track_id=track_id,
-                **fingerprint_data
-            )
+                # Create new fingerprint
+                fingerprint = TrackFingerprint(
+                    track_id=track_id,
+                    **fingerprint_data
+                )
 
-            session.add(fingerprint)
-            session.commit()
-            session.refresh(fingerprint)
+                session.add(fingerprint)
+                session.commit()
+                session.refresh(fingerprint)
 
-            # CRITICAL: Detach object from session before returning
-            session.expunge(fingerprint)
+                # CRITICAL: Detach object from session before returning
+                session.expunge(fingerprint)
 
-            info(f"Added fingerprint for track {track_id}")
-            return fingerprint
+                info(f"Added fingerprint for track {track_id}")
+                return fingerprint
 
-        except Exception as e:
-            session.rollback()
-            error(f"Failed to add fingerprint for track {track_id}: {e}")
-            return None
-        finally:
-            # CRITICAL: Explicitly clear session to free memory
-            session.expunge_all()
-            session.close()
+            except Exception as e:
+                session.rollback()
+                error(f"Failed to add fingerprint for track {track_id}: {e}")
+                return None
+            finally:
+                # CRITICAL: Explicitly clear session to free memory
+                session.expunge_all()
 
     def update(self, track_id: int, fingerprint_data: dict[str, float]) -> TrackFingerprint | None:
         """
@@ -90,38 +89,37 @@ class FingerprintCrudMixin(BaseRepository):
         Returns:
             Updated TrackFingerprint object if successful, None if failed
         """
-        session = self.get_session()
-        try:
-            fingerprint = session.execute(
-                select(TrackFingerprint).where(TrackFingerprint.track_id == track_id)
-            ).scalars().first()
+        with self._session_scope() as session:
+            try:
+                fingerprint = session.execute(
+                    select(TrackFingerprint).where(TrackFingerprint.track_id == track_id)
+                ).scalars().first()
 
-            if not fingerprint:
-                warning(f"Fingerprint not found for track {track_id}")
+                if not fingerprint:
+                    warning(f"Fingerprint not found for track {track_id}")
+                    return None
+
+                # Update all provided fields
+                for key, value in fingerprint_data.items():
+                    if hasattr(fingerprint, key):
+                        setattr(fingerprint, key, value)
+
+                session.commit()
+                session.refresh(fingerprint)
+
+                # CRITICAL: Detach object from session before returning
+                session.expunge(fingerprint)
+
+                info(f"Updated fingerprint for track {track_id}")
+                return fingerprint
+
+            except Exception as e:
+                session.rollback()
+                error(f"Failed to update fingerprint for track {track_id}: {e}")
                 return None
-
-            # Update all provided fields
-            for key, value in fingerprint_data.items():
-                if hasattr(fingerprint, key):
-                    setattr(fingerprint, key, value)
-
-            session.commit()
-            session.refresh(fingerprint)
-
-            # CRITICAL: Detach object from session before returning
-            session.expunge(fingerprint)
-
-            info(f"Updated fingerprint for track {track_id}")
-            return fingerprint
-
-        except Exception as e:
-            session.rollback()
-            error(f"Failed to update fingerprint for track {track_id}: {e}")
-            return None
-        finally:
-            # CRITICAL: Explicitly clear session to free memory
-            session.expunge_all()
-            session.close()
+            finally:
+                # CRITICAL: Explicitly clear session to free memory
+                session.expunge_all()
 
     def delete(self, track_id: int) -> bool:
         """
@@ -133,25 +131,23 @@ class FingerprintCrudMixin(BaseRepository):
         Returns:
             True if successful, False otherwise
         """
-        session = self.get_session()
-        try:
-            fingerprint = session.execute(
-                select(TrackFingerprint).where(TrackFingerprint.track_id == track_id)
-            ).scalars().first()
+        with self._session_scope() as session:
+            try:
+                fingerprint = session.execute(
+                    select(TrackFingerprint).where(TrackFingerprint.track_id == track_id)
+                ).scalars().first()
 
-            if not fingerprint:
-                warning(f"Fingerprint not found for track {track_id}")
+                if not fingerprint:
+                    warning(f"Fingerprint not found for track {track_id}")
+                    return False
+
+                session.delete(fingerprint)
+                session.commit()
+
+                info(f"Deleted fingerprint for track {track_id}")
+                return True
+
+            except Exception as e:
+                session.rollback()
+                error(f"Failed to delete fingerprint for track {track_id}: {e}")
                 return False
-
-            session.delete(fingerprint)
-            session.commit()
-
-            info(f"Deleted fingerprint for track {track_id}")
-            return True
-
-        except Exception as e:
-            session.rollback()
-            error(f"Failed to delete fingerprint for track {track_id}: {e}")
-            return False
-        finally:
-            session.close()

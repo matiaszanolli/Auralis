@@ -125,8 +125,7 @@ class ArtistRepository(BaseRepository):
 
     def get_by_id(self, artist_id: int) -> Artist | None:
         """Get artist by ID with relationships loaded"""
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             artist = (
                 session.execute(
                     select(Artist)
@@ -137,13 +136,10 @@ class ArtistRepository(BaseRepository):
             if artist:
                 session.expunge(artist)
             return artist
-        finally:
-            session.close()
 
     def get_by_name(self, name: str) -> Artist | None:
         """Get artist by name with relationships loaded"""
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             artist = (
                 session.execute(
                     select(Artist)
@@ -154,8 +150,6 @@ class ArtistRepository(BaseRepository):
             if artist:
                 session.expunge(artist)
             return artist
-        finally:
-            session.close()
 
     def get_all(self, limit: int = 50, offset: int = 0, order_by: str = 'name') -> tuple[list[Artist], int]:
         """Get all artists with pagination and relationships loaded
@@ -168,8 +162,7 @@ class ArtistRepository(BaseRepository):
         Returns:
             Tuple of (artists list, total count)
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             # Get total count
             total = session.execute(select(func.count()).select_from(Artist)).scalar_one()
 
@@ -213,8 +206,6 @@ class ArtistRepository(BaseRepository):
             for artist in artists:
                 session.expunge(artist)
             return artists, total
-        finally:
-            session.close()
 
     def search(self, query: str, limit: int = 50, offset: int = 0) -> tuple[list[Artist], int]:
         """Search artists by name with pagination
@@ -227,8 +218,7 @@ class ArtistRepository(BaseRepository):
         Returns:
             Tuple of (artists list, total count of matching artists)
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             # Escape LIKE metacharacters so a query containing '%' or '_' does
             # not accidentally match all rows (fixes #2405).
             escaped = query.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
@@ -258,8 +248,6 @@ class ArtistRepository(BaseRepository):
             for artist in artists:
                 session.expunge(artist)
             return artists, total
-        finally:
-            session.close()
 
     def get_all_artists(self) -> list[Artist]:
         """Get all artists without pagination (for batch operations)
@@ -271,8 +259,7 @@ class ArtistRepository(BaseRepository):
             Uses selectinload to avoid DetachedInstanceError when accessing .tracks
             or .albums on returned objects after the session is closed (fixes #2524).
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             artists = (
                 session.execute(
                     select(Artist)
@@ -291,8 +278,6 @@ class ArtistRepository(BaseRepository):
             for artist in artists:
                 session.expunge(artist)
             return artists
-        finally:
-            session.close()
 
     def update_artwork(
         self,
@@ -314,22 +299,20 @@ class ArtistRepository(BaseRepository):
         """
         from datetime import datetime, timezone
 
-        session = self.get_session()
-        try:
-            artist = session.execute(
-                select(Artist).where(Artist.id == artist_id)
-            ).scalars().first()
-            if not artist:
-                return False
+        with self._session_scope() as session:
+            try:
+                artist = session.execute(
+                    select(Artist).where(Artist.id == artist_id)
+                ).scalars().first()
+                if not artist:
+                    return False
 
-            artist.artwork_url = artwork_url
-            artist.artwork_source = artwork_source
-            artist.artwork_fetched_at = artwork_fetched_at or datetime.now(timezone.utc)
+                artist.artwork_url = artwork_url
+                artist.artwork_source = artwork_source
+                artist.artwork_fetched_at = artwork_fetched_at or datetime.now(timezone.utc)
 
-            session.commit()
-            return True
-        except Exception:
-            session.rollback()
-            raise
-        finally:
-            session.close()
+                session.commit()
+                return True
+            except Exception:
+                session.rollback()
+                raise

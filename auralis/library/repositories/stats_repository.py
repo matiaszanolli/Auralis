@@ -26,8 +26,7 @@ class StatsRepository(BaseRepository):
         Returns:
             Dictionary with library statistics
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             # Single atomic query for all track-level stats (counts, sums, averages)
             track_stats_row = session.execute(select(
                 func.count(Track.id).label('total_tracks'),
@@ -87,6 +86,3 @@ class StatsRepository(BaseRepository):
             stats['total_filesize_gb'] = round(stats['total_filesize'] / (1024 ** 3), 2)
 
             return stats
-
-        finally:
-            session.close()

@@ -41,8 +41,7 @@ class QueueRepository(BaseRepository):
         Returns:
             QueueState object with current queue configuration
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             queue_state = session.execute(select(QueueState)).scalars().first()
 
             # Create default queue state if none exist
@@ -54,8 +53,6 @@ class QueueRepository(BaseRepository):
 
             session.expunge(queue_state)
             return queue_state
-        finally:
-            session.close()
 
     def set_queue_state(self, track_ids: list[int], current_index: int = 0,
                         is_shuffled: bool = False, repeat_mode: str = 'off') -> QueueState:
@@ -79,8 +76,7 @@ class QueueRepository(BaseRepository):
 
         self._validate_index(current_index, track_ids)
 
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             queue_state = session.execute(select(QueueState)).scalars().first()
 
             if not queue_state:
@@ -97,8 +93,6 @@ class QueueRepository(BaseRepository):
             session.refresh(queue_state)
             session.expunge(queue_state)
             return queue_state
-        finally:
-            session.close()
 
     def update_queue_state(self, updates: dict[str, Any]) -> QueueState:
         """
@@ -114,8 +108,7 @@ class QueueRepository(BaseRepository):
         Returns:
             Updated QueueState object
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             queue_state = session.execute(select(QueueState)).scalars().first()
 
             if not queue_state:
@@ -154,8 +147,6 @@ class QueueRepository(BaseRepository):
             session.refresh(queue_state)
             session.expunge(queue_state)
             return queue_state
-        finally:
-            session.close()
 
     def clear_queue(self) -> QueueState:
         """
@@ -164,8 +155,7 @@ class QueueRepository(BaseRepository):
         Returns:
             Updated QueueState object with empty queue
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             queue_state = session.execute(select(QueueState)).scalars().first()
 
             if not queue_state:
@@ -181,8 +171,6 @@ class QueueRepository(BaseRepository):
             session.refresh(queue_state)
             session.expunge(queue_state)
             return queue_state
-        finally:
-            session.close()
 
     def to_dict(self, queue_state: QueueState) -> dict[str, Any]:
         """

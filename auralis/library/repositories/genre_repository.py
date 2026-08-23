@@ -40,16 +40,13 @@ class GenreRepository(BaseRepository):
         Returns:
             Genre or None if not found
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             genre = session.execute(
                 select(Genre).where(Genre.id == genre_id).options(*_GENRE_LOAD_OPTIONS)
             ).scalars().first()
             if genre:
                 session.expunge(genre)
             return genre
-        finally:
-            session.close()
 
     def get_by_name(self, name: str) -> Genre | None:
         """
@@ -61,16 +58,13 @@ class GenreRepository(BaseRepository):
         Returns:
             Genre or None if not found
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             genre = session.execute(
                 select(Genre).where(Genre.name == name).options(*_GENRE_LOAD_OPTIONS)
             ).scalars().first()
             if genre:
                 session.expunge(genre)
             return genre
-        finally:
-            session.close()
 
     def get_all(self, limit: int = 50, offset: int = 0, order_by: str = 'name') -> tuple[list[Genre], int]:
         """
@@ -84,8 +78,7 @@ class GenreRepository(BaseRepository):
         Returns:
             Tuple of (genres list, total count)
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             # Get total count
             total = session.execute(
                 select(func.count()).select_from(Genre)
@@ -109,8 +102,6 @@ class GenreRepository(BaseRepository):
                 session.expunge(genre)
 
             return genres, total
-        finally:
-            session.close()
 
     def get_tracks_by_genre(
         self,
@@ -129,8 +120,7 @@ class GenreRepository(BaseRepository):
         Returns:
             Tuple of (tracks list, total count)
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             # Get total count
             genre = session.execute(
                 select(Genre).where(Genre.id == genre_id)
@@ -159,8 +149,6 @@ class GenreRepository(BaseRepository):
                 session.expunge(track)
 
             return tracks, total
-        finally:
-            session.close()
 
     def create(self, name: str, preferred_profile: str | None = None, **kwargs: Any) -> Genre:
         """
@@ -177,30 +165,28 @@ class GenreRepository(BaseRepository):
         Raises:
             Exception: If genre creation fails (e.g., duplicate name)
         """
-        session = self.get_session()
-        try:
-            genre = Genre(name=name, preferred_profile=preferred_profile)
+        with self._session_scope() as session:
+            try:
+                genre = Genre(name=name, preferred_profile=preferred_profile)
 
-            # Set additional fields
-            for key, value in kwargs.items():
-                if hasattr(genre, key) and value is not None:
-                    setattr(genre, key, value)
+                # Set additional fields
+                for key, value in kwargs.items():
+                    if hasattr(genre, key) and value is not None:
+                        setattr(genre, key, value)
 
-            session.add(genre)
-            session.commit()
-            session.refresh(genre)
-            # refresh() expires the instance but does not re-apply the
-            # query-level load options, so force the relationship in while
-            # still attached (#4641).
-            _ = genre.tracks
-            session.expunge(genre)
-            return genre
-        except Exception as e:
-            session.rollback()
-            logger.error(f"Failed to create genre: {e}")
-            raise
-        finally:
-            session.close()
+                session.add(genre)
+                session.commit()
+                session.refresh(genre)
+                # refresh() expires the instance but does not re-apply the
+                # query-level load options, so force the relationship in while
+                # still attached (#4641).
+                _ = genre.tracks
+                session.expunge(genre)
+                return genre
+            except Exception as e:
+                session.rollback()
+                logger.error(f"Failed to create genre: {e}")
+                raise
 
     def update(self, genre_id: int, **fields: Any) -> Genre | None:
         """
@@ -216,30 +202,28 @@ class GenreRepository(BaseRepository):
         Raises:
             Exception: If update fails
         """
-        session = self.get_session()
-        try:
-            genre = session.execute(
-                select(Genre).where(Genre.id == genre_id)
-            ).scalars().first()
-            if not genre:
-                return None
+        with self._session_scope() as session:
+            try:
+                genre = session.execute(
+                    select(Genre).where(Genre.id == genre_id)
+                ).scalars().first()
+                if not genre:
+                    return None
 
-            # Update only provided fields
-            for key, value in fields.items():
-                if hasattr(genre, key) and value is not None:
-                    setattr(genre, key, value)
+                # Update only provided fields
+                for key, value in fields.items():
+                    if hasattr(genre, key) and value is not None:
+                        setattr(genre, key, value)
 
-            session.commit()
-            session.refresh(genre)
-            _ = genre.tracks  # force-load before detaching (#4641)
-            session.expunge(genre)
-            return genre
-        except Exception as e:
-            session.rollback()
-            logger.error(f"Failed to update genre {genre_id}: {e}")
-            raise
-        finally:
-            session.close()
+                session.commit()
+                session.refresh(genre)
+                _ = genre.tracks  # force-load before detaching (#4641)
+                session.expunge(genre)
+                return genre
+            except Exception as e:
+                session.rollback()
+                logger.error(f"Failed to update genre {genre_id}: {e}")
+                raise
 
     def delete(self, genre_id: int) -> bool:
         """
@@ -254,23 +238,21 @@ class GenreRepository(BaseRepository):
         Raises:
             Exception: If deletion fails
         """
-        session = self.get_session()
-        try:
-            genre = session.execute(
-                select(Genre).where(Genre.id == genre_id)
-            ).scalars().first()
-            if not genre:
-                return False
+        with self._session_scope() as session:
+            try:
+                genre = session.execute(
+                    select(Genre).where(Genre.id == genre_id)
+                ).scalars().first()
+                if not genre:
+                    return False
 
-            session.delete(genre)
-            session.commit()
-            return True
-        except Exception as e:
-            session.rollback()
-            logger.error(f"Failed to delete genre {genre_id}: {e}")
-            raise
-        finally:
-            session.close()
+                session.delete(genre)
+                session.commit()
+                return True
+            except Exception as e:
+                session.rollback()
+                logger.error(f"Failed to delete genre {genre_id}: {e}")
+                raise
 
     def search(self, query: str, limit: int = 50, offset: int = 0) -> tuple[list[Genre], int]:
         """
@@ -284,8 +266,7 @@ class GenreRepository(BaseRepository):
         Returns:
             Tuple of (genres list, total count)
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             # Search for genres matching the query.
             # Escape LIKE metacharacters to prevent full-table scans on '%'/'_' (fixes #2405).
             escaped = query.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
@@ -308,5 +289,3 @@ class GenreRepository(BaseRepository):
                 session.expunge(genre)
 
             return genres, total
-        finally:
-            session.close()

@@ -36,8 +36,7 @@ class SettingsRepository(BaseRepository):
         Get user settings (always returns the first/only settings record)
         Creates default settings if none exist
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             settings = session.execute(select(UserSettings)).scalars().first()
 
             # Create default settings if none exist
@@ -49,8 +48,6 @@ class SettingsRepository(BaseRepository):
 
             session.expunge(settings)
             return settings
-        finally:
-            session.close()
 
     def update_settings(self, updates: dict[str, Any]) -> UserSettings:
         """
@@ -62,8 +59,7 @@ class SettingsRepository(BaseRepository):
         Returns:
             Updated UserSettings object
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             settings = session.execute(select(UserSettings)).scalars().first()
 
             if not settings:
@@ -105,8 +101,6 @@ class SettingsRepository(BaseRepository):
             session.refresh(settings)
             session.expunge(settings)
             return settings
-        finally:
-            session.close()
 
     def reset_to_defaults(self) -> UserSettings:
         """
@@ -115,8 +109,7 @@ class SettingsRepository(BaseRepository):
         Returns:
             UserSettings object with default values
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             # Delete existing settings
             session.execute(delete(UserSettings))
 
@@ -127,8 +120,6 @@ class SettingsRepository(BaseRepository):
             session.refresh(settings)
             session.expunge(settings)
             return settings
-        finally:
-            session.close()
 
     def update_scan_folders(self, folders: list[str]) -> UserSettings:
         """
@@ -144,8 +135,7 @@ class SettingsRepository(BaseRepository):
 
     def add_scan_folder(self, folder: str) -> UserSettings:
         """Add a new folder to scan list (atomic read-modify-write, #3339, #4956)."""
-        with self._scan_folders_lock:
-            session = self.get_session()
+        with self._scan_folders_lock, self._session_scope() as session:
             try:
                 settings = session.execute(select(UserSettings)).scalars().first()
                 if not settings:
@@ -164,13 +154,10 @@ class SettingsRepository(BaseRepository):
             except Exception:
                 session.rollback()
                 raise
-            finally:
-                session.close()
 
     def remove_scan_folder(self, folder: str) -> UserSettings:
         """Remove a folder from scan list (atomic read-modify-write, #3339, #4956)."""
-        with self._scan_folders_lock:
-            session = self.get_session()
+        with self._scan_folders_lock, self._session_scope() as session:
             try:
                 settings = session.execute(select(UserSettings)).scalars().first()
                 if not settings:
@@ -189,5 +176,3 @@ class SettingsRepository(BaseRepository):
             except Exception:
                 session.rollback()
                 raise
-            finally:
-                session.close()

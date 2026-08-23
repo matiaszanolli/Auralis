@@ -73,35 +73,34 @@ class FingerprintUpsertMixin(BaseRepository):
         # `fingerprint_version` stay as whatever store_fingerprint set.
         update_clause = ', '.join(f"{col} = excluded.{col}" for col in cols)
 
-        session = self.get_session()
-        try:
-            params: dict[str, Any] = {
-                'track_id': track_id,
-                'fp_version': FINGERPRINT_ALGORITHM_VERSION,
-                **fingerprint_data,
-            }
+        with self._session_scope() as session:
+            try:
+                params: dict[str, Any] = {
+                    'track_id': track_id,
+                    'fp_version': FINGERPRINT_ALGORITHM_VERSION,
+                    **fingerprint_data,
+                }
 
-            session.execute(
-                text(
-                    f"INSERT INTO track_fingerprints (track_id, fingerprint_version, {cols_str}) "
-                    f"VALUES (:track_id, :fp_version, {named_placeholders}) "
-                    f"ON CONFLICT (track_id) DO UPDATE SET {update_clause}"
-                ),
-                params,
-            )
-            session.commit()
+                session.execute(
+                    text(
+                        f"INSERT INTO track_fingerprints (track_id, fingerprint_version, {cols_str}) "
+                        f"VALUES (:track_id, :fp_version, {named_placeholders}) "
+                        f"ON CONFLICT (track_id) DO UPDATE SET {update_clause}"
+                    ),
+                    params,
+                )
+                session.commit()
 
-            fingerprint = TrackFingerprint(track_id=track_id, **fingerprint_data)
-            info(f"Upserted fingerprint for track {track_id}")
-            return fingerprint
+                fingerprint = TrackFingerprint(track_id=track_id, **fingerprint_data)
+                info(f"Upserted fingerprint for track {track_id}")
+                return fingerprint
 
-        except Exception as e:
-            session.rollback()
-            error(f"Failed to upsert fingerprint for track {track_id}: {e}")
-            return None
-        finally:
-            session.expunge_all()
-            session.close()
+            except Exception as e:
+                session.rollback()
+                error(f"Failed to upsert fingerprint for track {track_id}: {e}")
+                return None
+            finally:
+                session.expunge_all()
 
     def store_fingerprint(
         self,
@@ -154,36 +153,35 @@ class FingerprintUpsertMixin(BaseRepository):
         all_cols = cols + ['fingerprint_blob', 'fingerprint_version']
         update_clause = ', '.join(f"{col} = excluded.{col}" for col in all_cols)
 
-        session = self.get_session()
-        try:
-            # Quantize fingerprint
-            quantized_blob = FingerprintQuantizer.quantize(fingerprint_dict)
+        with self._session_scope() as session:
+            try:
+                # Quantize fingerprint
+                quantized_blob = FingerprintQuantizer.quantize(fingerprint_dict)
 
-            params: dict[str, Any] = {
-                'track_id': track_id,
-                'fingerprint_blob': quantized_blob,
-                'fp_version': FINGERPRINT_ALGORITHM_VERSION,
-                **fingerprint_dict,
-            }
+                params: dict[str, Any] = {
+                    'track_id': track_id,
+                    'fingerprint_blob': quantized_blob,
+                    'fp_version': FINGERPRINT_ALGORITHM_VERSION,
+                    **fingerprint_dict,
+                }
 
-            session.execute(
-                text(f"""
-                    INSERT INTO track_fingerprints
-                    (track_id, {cols_str}, fingerprint_blob, fingerprint_version)
-                    VALUES (:track_id, {named_placeholders}, :fingerprint_blob, :fp_version)
-                    ON CONFLICT (track_id) DO UPDATE SET {update_clause}
-                """),
-                params,
-            )
-            session.commit()
+                session.execute(
+                    text(f"""
+                        INSERT INTO track_fingerprints
+                        (track_id, {cols_str}, fingerprint_blob, fingerprint_version)
+                        VALUES (:track_id, {named_placeholders}, :fingerprint_blob, :fp_version)
+                        ON CONFLICT (track_id) DO UPDATE SET {update_clause}
+                    """),
+                    params,
+                )
+                session.commit()
 
-            info(f"Stored fingerprint for track {track_id} (quantized blob: 25 bytes)")
-            return None
+                info(f"Stored fingerprint for track {track_id} (quantized blob: 25 bytes)")
+                return None
 
-        except Exception as e:
-            session.rollback()
-            error(f"Failed to store fingerprint for track {track_id}: {e}")
-            return None
-        finally:
-            session.expunge_all()
-            session.close()
+            except Exception as e:
+                session.rollback()
+                error(f"Failed to store fingerprint for track {track_id}: {e}")
+                return None
+            finally:
+                session.expunge_all()
