@@ -19,7 +19,7 @@ import logging
 from typing import Any
 from collections.abc import Callable
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from schemas import TrackId
@@ -198,6 +198,382 @@ def _tag_dict_to_db_columns(tag_updates: dict[str, Any]) -> dict[str, Any]:
     return {_METADATA_FIELD_TO_COLUMN.get(k, k): v for k, v in tag_updates.items()}
 
 
+# ============================================================================
+# DEPENDENCY WIRING (#4670)
+#
+# create_metadata_router() used to be a ~310-line closure: every handler
+# below was nested inside it purely to reach get_repository_factory /
+# broadcast_manager / metadata_editor via closure capture, which made a
+# handler impossible to import or call without first building the whole
+# router. Handlers are now module level; they reach the same callables
+# through FastAPI Depends() instead.
+#
+# _MetadataDeps holds the raw callables/objects the factory receives. It is
+# populated exactly once, by create_metadata_router() itself -- same as the
+# old closure, which only ever ran once per process (config/routes.py calls
+# the factory a single time at startup; the test `client` fixture imports
+# the already-built `main.app` once per process too). This is a deliberate
+# simplification, not a new hazard: nothing in this codebase calls
+# create_metadata_router() more than once in the same process. It does NOT
+# reproduce the #4361 module-level-`APIRouter()` hazard, since the router
+# instance itself is still built fresh, per call, inside the factory below.
+#
+# A handler's Depends() default is only consulted when FastAPI itself
+# invokes it for a real request; a direct unit-test call passes the
+# dependency explicitly as a keyword argument and never touches
+# _MetadataDeps at all -- that's the seam #4670 asked for.
+#
+# Note the handlers still call require_repository_factory(...) themselves
+# rather than receiving an already-resolved RepositoryFactory: the batch
+# route deliberately answers an empty `updates` list with a 400 BEFORE it
+# ever touches the factory, and resolving the factory in a Depends() would
+# turn that into a 503 whenever the factory is unavailable. Injecting the
+# getter keeps the original ordering verbatim.
+# ============================================================================
+
+class _MetadataDeps:
+    get_repository_factory: Callable[[], Any]
+    broadcast_manager: Any
+    metadata_editor: MetadataEditor
+
+
+_deps = _MetadataDeps()
+
+
+def _get_repository_factory() -> Callable[[], Any]:
+    return _deps.get_repository_factory
+
+
+def _get_broadcast_manager() -> Any:
+    return _deps.broadcast_manager
+
+
+def _get_metadata_editor() -> MetadataEditor:
+    return _deps.metadata_editor
+
+
+@with_error_handling("get editable fields")
+async def get_editable_fields(
+    track_id: int,
+    get_repository_factory: Callable[[], Any] = Depends(_get_repository_factory),
+    metadata_editor: MetadataEditor = Depends(_get_metadata_editor),
+) -> dict[str, Any]:
+    """
+    Get list of editable metadata fields for a track.
+
+    Args:
+        track_id: Track ID
+
+    Returns:
+        dict: List of editable fields and their current values
+
+    Raises:
+        HTTPException: If track not found or file doesn't exist
+    """
+    try:
+        repos = require_repository_factory(get_repository_factory)
+        # Get track from database
+        track = await asyncio.to_thread(repos.tracks.get_by_id, track_id)
+
+        if not track:
+            raise NotFoundError("Track")
+
+        # Validate DB-retrieved filepath before any file I/O (fixes #2302)
+        try:
+            filepath_str = str(validate_file_path(str(track.filepath)))
+        except PathValidationError as e:
+            raise HTTPException(status_code=400, detail=f"Invalid track filepath: {e}")
+        editable_fields = await asyncio.to_thread(metadata_editor.get_editable_fields, filepath_str)
+
+        # Get current metadata (file I/O — run in thread)
+        current_metadata = await asyncio.to_thread(metadata_editor.read_metadata, filepath_str)
+
+        return {
+            "track_id": track_id,
+            "format": track.format,
+            "editable_fields": editable_fields,
+            "current_metadata": current_metadata
+        }
+
+    except HTTPException:
+        raise  # Re-raise HTTPException as-is (don't wrap in 500)
+    except FileNotFoundError:
+        raise NotFoundError("Audio file", detail=f"Audio file not found for track {track_id}")
+
+
+@with_error_handling("get track metadata")
+async def get_track_metadata(
+    track_id: int,
+    get_repository_factory: Callable[[], Any] = Depends(_get_repository_factory),
+    metadata_editor: MetadataEditor = Depends(_get_metadata_editor),
+) -> dict[str, Any]:
+    """
+    Get current metadata for a track.
+
+    Args:
+        track_id: Track ID
+
+    Returns:
+        dict: Track metadata
+
+    Raises:
+        HTTPException: If track not found or file doesn't exist
+    """
+    try:
+        repos = require_repository_factory(get_repository_factory)
+        # Get track from database
+        track = await asyncio.to_thread(repos.tracks.get_by_id, track_id)
+
+        if not track:
+            raise NotFoundError("Track")
+
+        # Validate DB-retrieved filepath before file I/O (fixes #2302)
+        try:
+            filepath_validated = str(validate_file_path(str(track.filepath)))
+        except PathValidationError as e:
+            raise HTTPException(status_code=400, detail=f"Invalid track filepath: {e}")
+
+        # Read metadata from file (offloaded to thread to avoid event-loop block, fixes #2317)
+        metadata = await asyncio.to_thread(metadata_editor.read_metadata, filepath_validated)
+
+        return {
+            "track_id": track_id,
+            "format": track.format,
+            "metadata": metadata
+        }
+
+    except HTTPException:
+        raise  # Re-raise HTTPException as-is
+    except FileNotFoundError:
+        raise NotFoundError("Audio file", detail=f"Audio file not found for track {track_id}")
+
+
+@with_error_handling("update track metadata")
+async def update_track_metadata(
+    track_id: int,
+    request: MetadataUpdateRequest,
+    get_repository_factory: Callable[[], Any] = Depends(_get_repository_factory),
+    metadata_editor: MetadataEditor = Depends(_get_metadata_editor),
+    broadcast_manager: Any = Depends(_get_broadcast_manager),
+) -> dict[str, Any]:
+    """
+    Update metadata for a track.
+
+    Args:
+        track_id: Track ID
+        request: Metadata fields to update
+
+    Returns:
+        dict: Updated track metadata
+
+    Raises:
+        HTTPException: If track not found, file doesn't exist, or update fails
+    """
+    try:
+        repos = require_repository_factory(get_repository_factory)
+        # Get track from database
+        track = await asyncio.to_thread(repos.tracks.get_by_id, track_id)
+
+        if not track:
+            raise NotFoundError("Track")
+
+        # Convert request to dict and filter out None values
+        metadata_updates = {
+            k: v for k, v in request.model_dump().items()
+            if v is not None
+        }
+
+        if not metadata_updates:
+            raise HTTPException(status_code=400, detail="No metadata fields provided")
+
+        # Validate DB-retrieved filepath before any file I/O (fixes #2302)
+        try:
+            filepath_validated = str(validate_file_path(str(track.filepath)))
+        except PathValidationError as e:
+            raise HTTPException(status_code=400, detail=f"Invalid track filepath: {e}")
+
+        # Write metadata to file (backup always enforced server-side, fixes #2407).
+        # Offloaded to thread to avoid blocking the event loop (fixes #2317).
+        success = await asyncio.to_thread(
+            metadata_editor.write_metadata,
+            filepath_validated,
+            metadata_updates,
+            True  # backup=True
+        )
+
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to write metadata to file")
+
+        # Update database record using repository. metadata_updates is
+        # tag-keyed (matches write_metadata above); translate to DB
+        # column names first or track/disc/comment silently vanish (#4731).
+        db_metadata_updates = _tag_dict_to_db_columns(metadata_updates)
+        updated_track = await asyncio.to_thread(
+            lambda: repos.tracks.update_metadata(track_id, **db_metadata_updates)
+        )
+        if not updated_track:
+            raise NotFoundError("Track", detail="Track not found for update")
+
+        # Use the updated track for subsequent operations
+        track = updated_track
+
+        # Broadcast metadata updated event. updated_fields lists what was
+        # written to the FILE (tag names); fields with no Track DB
+        # column (artist, album, albumartist, genre, bpm, composer,
+        # publisher, copyright) are intentionally file-only and don't
+        # appear in db_metadata_updates above (#4731).
+        if broadcast_manager:
+            await broadcast_manager.broadcast({
+                "type": "metadata_updated",
+                "data": {
+                    "track_id": track_id,
+                    "updated_fields": list(metadata_updates.keys())
+                }
+            })
+
+        # Read updated metadata (offloaded to thread, fixes #2317)
+        # track was refreshed from DB above — re-validate before read (fixes #2302)
+        validated_path_for_read = str(validate_file_path(str(track.filepath)))
+        updated_metadata = await asyncio.to_thread(metadata_editor.read_metadata, validated_path_for_read)
+
+        logger.info(f"Updated metadata for track {track_id}: {list(metadata_updates.keys())}")
+
+        return {
+            "track_id": track_id,
+            "success": True,
+            "updated_fields": list(metadata_updates.keys()),
+            "metadata": updated_metadata
+        }
+
+    except HTTPException:
+        raise
+    except FileNotFoundError:
+        raise NotFoundError("Audio file", detail=f"Audio file not found for track {track_id}")
+    except ValueError as e:
+        # Invalid metadata error
+        raise HTTPException(status_code=400, detail=f"Invalid metadata: {e}")
+
+
+@with_error_handling("batch update metadata")
+async def batch_update_metadata(
+    request: BatchMetadataRequest,
+    get_repository_factory: Callable[[], Any] = Depends(_get_repository_factory),
+    metadata_editor: MetadataEditor = Depends(_get_metadata_editor),
+    broadcast_manager: Any = Depends(_get_broadcast_manager),
+) -> dict[str, Any]:
+    """
+    Batch update metadata for multiple tracks.
+
+    Args:
+        request: List of metadata updates
+
+    Returns:
+        dict: Batch update results (success/failure per track)
+
+    Raises:
+        HTTPException: If library manager/factory not available or validation fails
+    """
+    if not request.updates:
+        raise HTTPException(status_code=400, detail="No updates provided")
+
+    repos = require_repository_factory(get_repository_factory)
+
+    # Fetch all requested tracks in one WHERE-IN query (fixes #3857 N+1).
+    all_track_ids = [u.track_id for u in request.updates]
+    track_map: dict[int, Any] = await asyncio.to_thread(
+        repos.tracks.get_by_ids, all_track_ids
+    )
+
+    # Prepare batch updates — validate filepath for each found track.
+    batch_updates = []
+    for update_req in request.updates:
+        track = track_map.get(update_req.track_id)
+        if not track:
+            logger.warning(f"Track {update_req.track_id} not found, skipping")
+            continue
+
+        # Drop unset fields, mirroring the single-track route (#4555).
+        # model_dump() emits field names (track/disc), not the
+        # track_number/disc_number aliases, so both routes hand the
+        # metadata editor an identically-shaped tag dict.
+        metadata_fields = {
+            k: v for k, v in update_req.metadata.model_dump().items()
+            if v is not None
+        }
+        if not metadata_fields:
+            logger.warning(
+                f"No metadata fields for track {update_req.track_id}, skipping"
+            )
+            continue
+
+        # Validate DB-retrieved filepath before file I/O (fixes #2302)
+        try:
+            validated_filepath = str(validate_file_path(
+                str(track.filepath),
+                context=f"track {update_req.track_id}, batch update — skipping",
+            ))
+        except PathValidationError:
+            # validate_file_path logs it once with the context above (#4925).
+            continue
+
+        batch_updates.append(MetadataUpdate(
+            track_id=update_req.track_id,
+            filepath=validated_filepath,
+            updates=metadata_fields,
+            backup=True  # always enforced server-side (fixes #2407)
+        ))
+
+    # Execute batch update (atomic when backup=True).
+    # Offloaded to thread to avoid blocking the event loop (fixes #2317).
+    results = await asyncio.to_thread(metadata_editor.batch_update, batch_updates)
+    rolled_back: bool = results.get('rolled_back', False)
+
+    # Update database for all successful results in one transaction
+    # (fixes #3857 N+1 on the update side).
+    successful_track_ids = []
+
+    if not rolled_back:
+        db_updates: list[tuple[int, dict[str, Any]]] = []
+        for result in results.get('results', []):
+            if result.get('success'):
+                track_id = result['track_id']
+                # updates is tag-keyed (echoed from the MetadataUpdate we
+                # built above) — translate before the DB write, mirroring
+                # the single-track route's fix (#4731).
+                updates = _tag_dict_to_db_columns(result.get('updates', {}))
+                if updates:
+                    db_updates.append((track_id, updates))
+
+        if db_updates:
+            successful_track_ids = await asyncio.to_thread(
+                repos.tracks.update_metadata_batch, db_updates
+            )
+
+    # Broadcast batch update event
+    if broadcast_manager and successful_track_ids:
+        await broadcast_manager.broadcast({
+            "type": "metadata_batch_updated",
+            "data": {
+                "track_ids": successful_track_ids,
+                "count": len(successful_track_ids)
+            }
+        })
+
+    logger.info(
+        f"Batch metadata update: {results['successful']}/{results['total']} successful"
+        + (", rolled back" if rolled_back else "")
+    )
+
+    return {
+        "success": results['failed'] == 0,
+        "total": results['total'],
+        "successful": results['successful'],
+        "failed": results['failed'],
+        "results": results['results'],
+        "rolled_back": rolled_back,
+    }
+
+
 def create_metadata_router(
     get_repository_factory: Callable[[], Any],
     broadcast_manager: Any,
@@ -217,315 +593,20 @@ def create_metadata_router(
     Note:
         Phase 6B: Fully migrated to RepositoryFactory pattern (no LibraryManager fallback).
     """
-
-    # Create a fresh router instance (important for testing - avoids route pollution)
-    router = APIRouter(tags=["metadata"])
-
     # Initialize metadata editor (shared instance) or use provided one
     if metadata_editor is None:
         metadata_editor = MetadataEditor()
 
-    @router.get("/api/metadata/tracks/{track_id}/fields", response_model=EditableFieldsResponse)
-    @with_error_handling("get editable fields")
-    async def get_editable_fields(track_id: int) -> dict[str, Any]:
-        """
-        Get list of editable metadata fields for a track.
+    _deps.get_repository_factory = get_repository_factory
+    _deps.broadcast_manager = broadcast_manager
+    _deps.metadata_editor = metadata_editor
 
-        Args:
-            track_id: Track ID
+    # Create a fresh router instance (important for testing - avoids route pollution)
+    router = APIRouter(tags=["metadata"])
 
-        Returns:
-            dict: List of editable fields and their current values
-
-        Raises:
-            HTTPException: If track not found or file doesn't exist
-        """
-        try:
-            repos = require_repository_factory(get_repository_factory)
-            # Get track from database
-            track = await asyncio.to_thread(repos.tracks.get_by_id, track_id)
-
-            if not track:
-                raise NotFoundError("Track")
-
-            # Validate DB-retrieved filepath before any file I/O (fixes #2302)
-            try:
-                filepath_str = str(validate_file_path(str(track.filepath)))
-            except PathValidationError as e:
-                raise HTTPException(status_code=400, detail=f"Invalid track filepath: {e}")
-            editable_fields = await asyncio.to_thread(metadata_editor.get_editable_fields, filepath_str)
-
-            # Get current metadata (file I/O — run in thread)
-            current_metadata = await asyncio.to_thread(metadata_editor.read_metadata, filepath_str)
-
-            return {
-                "track_id": track_id,
-                "format": track.format,
-                "editable_fields": editable_fields,
-                "current_metadata": current_metadata
-            }
-
-        except HTTPException:
-            raise  # Re-raise HTTPException as-is (don't wrap in 500)
-        except FileNotFoundError:
-            raise NotFoundError("Audio file", detail=f"Audio file not found for track {track_id}")
-
-    @router.get("/api/metadata/tracks/{track_id}", response_model=TrackMetadataResponse)
-    @with_error_handling("get track metadata")
-    async def get_track_metadata(track_id: int) -> dict[str, Any]:
-        """
-        Get current metadata for a track.
-
-        Args:
-            track_id: Track ID
-
-        Returns:
-            dict: Track metadata
-
-        Raises:
-            HTTPException: If track not found or file doesn't exist
-        """
-        try:
-            repos = require_repository_factory(get_repository_factory)
-            # Get track from database
-            track = await asyncio.to_thread(repos.tracks.get_by_id, track_id)
-
-            if not track:
-                raise NotFoundError("Track")
-
-            # Validate DB-retrieved filepath before file I/O (fixes #2302)
-            try:
-                filepath_validated = str(validate_file_path(str(track.filepath)))
-            except PathValidationError as e:
-                raise HTTPException(status_code=400, detail=f"Invalid track filepath: {e}")
-
-            # Read metadata from file (offloaded to thread to avoid event-loop block, fixes #2317)
-            metadata = await asyncio.to_thread(metadata_editor.read_metadata, filepath_validated)
-
-            return {
-                "track_id": track_id,
-                "format": track.format,
-                "metadata": metadata
-            }
-
-        except HTTPException:
-            raise  # Re-raise HTTPException as-is
-        except FileNotFoundError:
-            raise NotFoundError("Audio file", detail=f"Audio file not found for track {track_id}")
-
-    @router.put("/api/metadata/tracks/{track_id}", response_model=MetadataUpdateResponse)
-    @with_error_handling("update track metadata")
-    async def update_track_metadata(track_id: int, request: MetadataUpdateRequest) -> dict[str, Any]:
-        """
-        Update metadata for a track.
-
-        Args:
-            track_id: Track ID
-            request: Metadata fields to update
-
-        Returns:
-            dict: Updated track metadata
-
-        Raises:
-            HTTPException: If track not found, file doesn't exist, or update fails
-        """
-        try:
-            repos = require_repository_factory(get_repository_factory)
-            # Get track from database
-            track = await asyncio.to_thread(repos.tracks.get_by_id, track_id)
-
-            if not track:
-                raise NotFoundError("Track")
-
-            # Convert request to dict and filter out None values
-            metadata_updates = {
-                k: v for k, v in request.model_dump().items()
-                if v is not None
-            }
-
-            if not metadata_updates:
-                raise HTTPException(status_code=400, detail="No metadata fields provided")
-
-            # Validate DB-retrieved filepath before any file I/O (fixes #2302)
-            try:
-                filepath_validated = str(validate_file_path(str(track.filepath)))
-            except PathValidationError as e:
-                raise HTTPException(status_code=400, detail=f"Invalid track filepath: {e}")
-
-            # Write metadata to file (backup always enforced server-side, fixes #2407).
-            # Offloaded to thread to avoid blocking the event loop (fixes #2317).
-            success = await asyncio.to_thread(
-                metadata_editor.write_metadata,
-                filepath_validated,
-                metadata_updates,
-                True  # backup=True
-            )
-
-            if not success:
-                raise HTTPException(status_code=500, detail="Failed to write metadata to file")
-
-            # Update database record using repository. metadata_updates is
-            # tag-keyed (matches write_metadata above); translate to DB
-            # column names first or track/disc/comment silently vanish (#4731).
-            db_metadata_updates = _tag_dict_to_db_columns(metadata_updates)
-            updated_track = await asyncio.to_thread(
-                lambda: repos.tracks.update_metadata(track_id, **db_metadata_updates)
-            )
-            if not updated_track:
-                raise NotFoundError("Track", detail="Track not found for update")
-
-            # Use the updated track for subsequent operations
-            track = updated_track
-
-            # Broadcast metadata updated event. updated_fields lists what was
-            # written to the FILE (tag names); fields with no Track DB
-            # column (artist, album, albumartist, genre, bpm, composer,
-            # publisher, copyright) are intentionally file-only and don't
-            # appear in db_metadata_updates above (#4731).
-            if broadcast_manager:
-                await broadcast_manager.broadcast({
-                    "type": "metadata_updated",
-                    "data": {
-                        "track_id": track_id,
-                        "updated_fields": list(metadata_updates.keys())
-                    }
-                })
-
-            # Read updated metadata (offloaded to thread, fixes #2317)
-            # track was refreshed from DB above — re-validate before read (fixes #2302)
-            validated_path_for_read = str(validate_file_path(str(track.filepath)))
-            updated_metadata = await asyncio.to_thread(metadata_editor.read_metadata, validated_path_for_read)
-
-            logger.info(f"Updated metadata for track {track_id}: {list(metadata_updates.keys())}")
-
-            return {
-                "track_id": track_id,
-                "success": True,
-                "updated_fields": list(metadata_updates.keys()),
-                "metadata": updated_metadata
-            }
-
-        except HTTPException:
-            raise
-        except FileNotFoundError:
-            raise NotFoundError("Audio file", detail=f"Audio file not found for track {track_id}")
-        except ValueError as e:
-            # Invalid metadata error
-            raise HTTPException(status_code=400, detail=f"Invalid metadata: {e}")
-
-    @router.post("/api/metadata/batch", response_model=BatchMetadataResponse)
-    @with_error_handling("batch update metadata")
-    async def batch_update_metadata(request: BatchMetadataRequest) -> dict[str, Any]:
-        """
-        Batch update metadata for multiple tracks.
-
-        Args:
-            request: List of metadata updates
-
-        Returns:
-            dict: Batch update results (success/failure per track)
-
-        Raises:
-            HTTPException: If library manager/factory not available or validation fails
-        """
-        if not request.updates:
-            raise HTTPException(status_code=400, detail="No updates provided")
-
-        repos = require_repository_factory(get_repository_factory)
-
-        # Fetch all requested tracks in one WHERE-IN query (fixes #3857 N+1).
-        all_track_ids = [u.track_id for u in request.updates]
-        track_map: dict[int, Any] = await asyncio.to_thread(
-            repos.tracks.get_by_ids, all_track_ids
-        )
-
-        # Prepare batch updates — validate filepath for each found track.
-        batch_updates = []
-        for update_req in request.updates:
-            track = track_map.get(update_req.track_id)
-            if not track:
-                logger.warning(f"Track {update_req.track_id} not found, skipping")
-                continue
-
-            # Drop unset fields, mirroring the single-track route (#4555).
-            # model_dump() emits field names (track/disc), not the
-            # track_number/disc_number aliases, so both routes hand the
-            # metadata editor an identically-shaped tag dict.
-            metadata_fields = {
-                k: v for k, v in update_req.metadata.model_dump().items()
-                if v is not None
-            }
-            if not metadata_fields:
-                logger.warning(
-                    f"No metadata fields for track {update_req.track_id}, skipping"
-                )
-                continue
-
-            # Validate DB-retrieved filepath before file I/O (fixes #2302)
-            try:
-                validated_filepath = str(validate_file_path(
-                    str(track.filepath),
-                    context=f"track {update_req.track_id}, batch update — skipping",
-                ))
-            except PathValidationError:
-                # validate_file_path logs it once with the context above (#4925).
-                continue
-
-            batch_updates.append(MetadataUpdate(
-                track_id=update_req.track_id,
-                filepath=validated_filepath,
-                updates=metadata_fields,
-                backup=True  # always enforced server-side (fixes #2407)
-            ))
-
-        # Execute batch update (atomic when backup=True).
-        # Offloaded to thread to avoid blocking the event loop (fixes #2317).
-        results = await asyncio.to_thread(metadata_editor.batch_update, batch_updates)
-        rolled_back: bool = results.get('rolled_back', False)
-
-        # Update database for all successful results in one transaction
-        # (fixes #3857 N+1 on the update side).
-        successful_track_ids = []
-
-        if not rolled_back:
-            db_updates: list[tuple[int, dict[str, Any]]] = []
-            for result in results.get('results', []):
-                if result.get('success'):
-                    track_id = result['track_id']
-                    # updates is tag-keyed (echoed from the MetadataUpdate we
-                    # built above) — translate before the DB write, mirroring
-                    # the single-track route's fix (#4731).
-                    updates = _tag_dict_to_db_columns(result.get('updates', {}))
-                    if updates:
-                        db_updates.append((track_id, updates))
-
-            if db_updates:
-                successful_track_ids = await asyncio.to_thread(
-                    repos.tracks.update_metadata_batch, db_updates
-                )
-
-        # Broadcast batch update event
-        if broadcast_manager and successful_track_ids:
-            await broadcast_manager.broadcast({
-                "type": "metadata_batch_updated",
-                "data": {
-                    "track_ids": successful_track_ids,
-                    "count": len(successful_track_ids)
-                }
-            })
-
-        logger.info(
-            f"Batch metadata update: {results['successful']}/{results['total']} successful"
-            + (", rolled back" if rolled_back else "")
-        )
-
-        return {
-            "success": results['failed'] == 0,
-            "total": results['total'],
-            "successful": results['successful'],
-            "failed": results['failed'],
-            "results": results['results'],
-            "rolled_back": rolled_back,
-        }
+    router.add_api_route("/api/metadata/tracks/{track_id}/fields", get_editable_fields, methods=["GET"], response_model=EditableFieldsResponse)
+    router.add_api_route("/api/metadata/tracks/{track_id}", get_track_metadata, methods=["GET"], response_model=TrackMetadataResponse)
+    router.add_api_route("/api/metadata/tracks/{track_id}", update_track_metadata, methods=["PUT"], response_model=MetadataUpdateResponse)
+    router.add_api_route("/api/metadata/batch", batch_update_metadata, methods=["POST"], response_model=BatchMetadataResponse)
 
     return router
