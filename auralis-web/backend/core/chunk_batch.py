@@ -43,6 +43,7 @@ async def process_all_chunks_async(processor: "ChunkedAudioProcessor") -> None:
     assert processor.total_chunks is not None
     logger.info(f"Starting background processing of {processor.total_chunks - 1} remaining chunks")
 
+    failed_chunks = 0
     for chunk_idx in range(1, processor.total_chunks):
         try:
             # Check if already cached — in-memory tier only (not the on-disk
@@ -59,9 +60,21 @@ async def process_all_chunks_async(processor: "ChunkedAudioProcessor") -> None:
             await asyncio.sleep(0.1)
 
         except Exception as e:
+            failed_chunks += 1
             logger.error(f"Failed to process chunk {chunk_idx}: {e}")
 
-    logger.info("Background chunk processing complete")
+    # #4809: "complete" is misleading when every chunk in the batch failed —
+    # qualify it instead of logging an unconditional success message.
+    if failed_chunks and failed_chunks >= processor.total_chunks - 1:
+        logger.error(
+            f"Background chunk processing finished with all {failed_chunks} chunk(s) failed"
+        )
+    elif failed_chunks:
+        logger.warning(
+            f"Background chunk processing complete with {failed_chunks} chunk(s) failed"
+        )
+    else:
+        logger.info("Background chunk processing complete")
 
 
 async def get_full_processed_audio_path(processor: "ChunkedAudioProcessor") -> str:

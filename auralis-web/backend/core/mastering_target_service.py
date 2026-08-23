@@ -252,7 +252,8 @@ class MasteringTargetService:
                     duration_value: float = (
                         float(audio_file.info.length) if audio_file else len(full_audio) / sr
                     )
-                except Exception:
+                except Exception as e:
+                    logger.debug(f"Mutagen duration probe failed, falling back to computed duration: {e}", exc_info=True)
                     duration_value = len(full_audio) / sr
 
                 fingerprint_data['_metadata'] = {

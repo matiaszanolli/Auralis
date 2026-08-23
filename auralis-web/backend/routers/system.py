@@ -136,8 +136,10 @@ async def stream_audio(
                     }
                 })
             )
-        except Exception:
-            pass  # WebSocket may be closed
+        except Exception as e:
+            # WebSocket may be closed — but also catches a send-side bug
+            # (e.g. a json.dumps failure), so log it (#4809).
+            logger.debug(f"Failed to send PROCESSOR_UNAVAILABLE error frame: {e}", exc_info=True)
     except Exception as e:
         logger.error(f"Error in streaming task: {e}", exc_info=True)
         try:
@@ -152,8 +154,10 @@ async def stream_audio(
                     }
                 })
             )
-        except Exception:
-            pass  # WebSocket may be closed
+        except Exception as e:
+            # WebSocket may be closed — but also catches a send-side bug
+            # (e.g. a json.dumps failure), so log it (#4809).
+            logger.debug(f"Failed to send STREAMING_ERROR (enhanced) error frame: {e}", exc_info=True)
     finally:
         # Idempotent self-cleanup under lock (fixes #2425)
         async with _active_streaming_tasks_lock:
@@ -201,8 +205,10 @@ async def stream_normal(
                     }
                 })
             )
-        except Exception:
-            pass  # WebSocket may be closed
+        except Exception as e:
+            # WebSocket may be closed — but also catches a send-side bug
+            # (e.g. a json.dumps failure), so log it (#4809).
+            logger.debug(f"Failed to send STREAMING_ERROR (normal) error frame: {e}", exc_info=True)
     finally:
         # Idempotent self-cleanup under lock (fixes #2425)
         async with _active_streaming_tasks_lock:
@@ -273,8 +279,10 @@ async def stream_from_position(
                     }
                 })
             )
-        except Exception:
-            pass
+        except Exception as e:
+            # WebSocket may be closed — but also catches a send-side bug
+            # (e.g. a json.dumps failure), so log it (#4809).
+            logger.debug(f"Failed to send SEEK_ERROR error frame: {e}", exc_info=True)
     finally:
         # Idempotent self-cleanup under lock (fixes #2425)
         async with _active_streaming_tasks_lock:

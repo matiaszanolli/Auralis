@@ -27,7 +27,7 @@ from schemas import (  # single source of truth (#4424, #4600)
 )
 from websocket.websocket_security import send_error_response
 
-from .context import StreamState, WSDeps
+from .context import StreamState, WSDeps, await_cancelled_task
 
 logger = logging.getLogger(__name__)
 
@@ -125,10 +125,7 @@ async def _cancel_prior_task(ws_id: str, state: StreamState) -> None:
         logger.info(f"Cancelling existing streaming task for ws {ws_id}")
         old_task.cancel()
         # Await cancellation so the old task releases pause/flow events (#3219)
-        try:
-            await old_task
-        except (asyncio.CancelledError, Exception):
-            pass
+        await await_cancelled_task(old_task, logger)
 
 
 async def _generate_mastering_recommendation(track_id: int, deps: WSDeps) -> None:

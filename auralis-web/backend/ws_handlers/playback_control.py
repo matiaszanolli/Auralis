@@ -10,7 +10,6 @@ websocket_endpoint dispatch loop in routers/system.py (#4074).
 :license: GPLv3, see LICENSE for more details.
 """
 
-import asyncio
 import logging
 
 from fastapi import WebSocket
@@ -18,7 +17,7 @@ from fastapi import WebSocket
 from core.audio_stream_controller import ws_id as _ws_id
 from core.stream_protocol import safe_send_text
 
-from .context import StreamState
+from .context import StreamState, await_cancelled_task
 
 logger = logging.getLogger(__name__)
 
@@ -87,9 +86,6 @@ async def handle_stop(websocket: WebSocket, state: StreamState) -> None:
         state.active_stream_settings.pop(ws_id, None)  # #4742
     if task and not task.done():
         task.cancel()
-        try:
-            await task
-        except (asyncio.CancelledError, Exception):
-            pass
+        await await_cancelled_task(task, logger)
         logger.info("Cancelled active streaming task")
     await safe_send_text(websocket, {"type": "playback_stopped", "data": {"state": "stopped"}})

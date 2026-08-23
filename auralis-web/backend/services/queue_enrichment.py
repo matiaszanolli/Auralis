@@ -72,7 +72,8 @@ class QueueEnricher:
         if self.player_state_manager is not None:
             try:
                 state = self.player_state_manager.get_state()
-            except Exception:
+            except Exception as e:
+                logger.debug(f"player_state_manager.get_state() failed; falling back to engine-order-only queue: {e}", exc_info=True)
                 state = None
             for ti in getattr(state, "queue", None) or []:
                 fp = getattr(ti, "filepath", None)
@@ -122,7 +123,8 @@ class QueueEnricher:
         if self.player_state_manager is not None:
             try:
                 state = self.player_state_manager.get_state()
-            except Exception:
+            except Exception as e:
+                logger.debug(f"player_state_manager.get_state() failed; falling back to the engine's boolean repeat flag: {e}", exc_info=True)
                 state = None
             mode = getattr(state, "repeat_mode", None)
             if mode in ("off", "all", "one"):
