@@ -289,6 +289,41 @@ async def _preprocess_upcoming_chunks(track_id: int, filepath: str, current_time
         logger.error(f"❌ Background chunk pre-processing failed: {e}")
 
 
+def _maybe_prewarm_upcoming_chunks(
+    enhancement_settings: dict[str, Any],
+    player_state_manager: Any,
+) -> None:
+    """Launch background pre-processing of the next few chunks at the
+    current preset/intensity, mirroring the toggle-ON pre-warm (#2296).
+
+    Only fires when a track is actively playing — otherwise there is no
+    "upcoming" position to pre-process from, same guard toggle_enhancement
+    already used. Shared by toggle_enhancement/set_enhancement_preset/
+    set_enhancement_intensity (#4425) so a preset or intensity change mid-
+    playback gets the same "no audible on-demand gap" treatment the
+    enable-toggle path already had.
+    """
+    if not player_state_manager:
+        return
+    state = player_state_manager.get_state()
+    if not (state.current_track and state.state.value == "playing"):
+        return
+    spawn_background_task(
+        _preprocess_upcoming_chunks(
+            track_id=state.current_track.id,
+            filepath=state.current_track.filepath,
+            current_time=state.current_time,
+            preset=enhancement_settings.get("preset", "adaptive"),
+            intensity=enhancement_settings.get("intensity", 1.0),
+        ),
+        name="enhancement._preprocess_upcoming_chunks",
+    )
+    logger.info(
+        f"🎯 Launched background pre-processing for track {state.current_track.id} "
+        f"at {state.current_time:.1f}s"
+    )
+
+
 @with_error_handling("toggle enhancement")
 async def toggle_enhancement(
     body: ToggleEnhancementRequest,
@@ -314,26 +349,10 @@ async def toggle_enhancement(
     enabled = body.enabled
     enhancement_settings["enabled"] = enabled
 
-    # If enabling enhancement mid-playback, pre-process upcoming chunks in background
-    if enabled and player_state_manager:
-        state = player_state_manager.get_state()
-        # Only pre-process if actively playing
-        if state.current_track and state.state.value == "playing":
-            # Launch background task to pre-process next 3 chunks (#2296).
-            # Use the canonical fire-and-forget helper so an exception
-            # escaping the coroutine is logged consistently with the
-            # other long-lived background tasks (#3851 / sibling of #3512).
-            spawn_background_task(
-                _preprocess_upcoming_chunks(
-                    track_id=state.current_track.id,
-                    filepath=state.current_track.filepath,
-                    current_time=state.current_time,
-                    preset=enhancement_settings.get("preset", "adaptive"),
-                    intensity=enhancement_settings.get("intensity", 1.0)
-                ),
-                name="enhancement._preprocess_upcoming_chunks",
-            )
-            logger.info(f"🎯 Launched background pre-processing for track {state.current_track.id} at {state.current_time:.1f}s")
+    # If enabling enhancement mid-playback, pre-process upcoming chunks in
+    # background (#2296) so the client doesn't hit an on-demand processing gap.
+    if enabled:
+        _maybe_prewarm_upcoming_chunks(enhancement_settings, player_state_manager)
 
     # Broadcast to all clients
     await connection_manager.broadcast({
@@ -388,6 +407,13 @@ async def set_enhancement_preset(
                 intensity=enhancement_settings["intensity"]
             )
             logger.info(f"🎯 Buffer manager learned preset switch: {old_preset} → {preset}")
+
+    # Pre-process upcoming chunks at the new preset so a mid-playback preset
+    # change doesn't hit an on-demand processing gap — same treatment
+    # toggle_enhancement's enable path already gets (#4425). Only when
+    # enhancement is the active audio path and the preset actually changed.
+    if enhancement_settings.get("enabled") and old_preset != preset:
+        _maybe_prewarm_upcoming_chunks(enhancement_settings, player_state_manager)
 
     # NOTE: We keep the old preset cached for instant toggling back
     # Proactive buffering will handle caching the new preset in background
@@ -450,6 +476,13 @@ async def set_enhancement_intensity(
                 intensity=intensity
             )
             logger.info(f"🎯 Buffer manager updated for intensity switch: {old_intensity} → {intensity}")
+
+    # Pre-process upcoming chunks at the new intensity so a mid-playback
+    # intensity change doesn't hit an on-demand processing gap — same
+    # treatment toggle_enhancement's enable path already gets (#4425). Only
+    # when enhancement is the active audio path and intensity actually changed.
+    if enhancement_settings.get("enabled") and old_intensity != intensity:
+        _maybe_prewarm_upcoming_chunks(enhancement_settings, player_state_manager)
 
     # Broadcast to all clients
     await connection_manager.broadcast({
