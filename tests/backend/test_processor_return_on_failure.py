@@ -182,10 +182,14 @@ class TestProcessorIsAlwaysReclaimed:
         job = _make_job()
         processor = MagicMock()
 
+        # _cleanup_processor delegates to engine._pool.cleanup(), which calls
+        # the pool's own return_to_cache() directly (#4250 follow-up) --
+        # engine._return_processor (itself now just a thin wrapper over the
+        # same pool method) is no longer the call site cleanup actually uses.
         with _prepared(engine, processor), patch.object(
             engine, "_execute_job", AsyncMock(side_effect=ValueError("boom"))
         ), patch.object(
-            engine, "_return_processor", AsyncMock(side_effect=RuntimeError("pool down"))
+            engine._pool, "return_to_cache", AsyncMock(side_effect=RuntimeError("pool down"))
         ):
             await engine.process_job(job)
 
@@ -210,7 +214,7 @@ class TestProcessorIsAlwaysReclaimed:
         with _prepared(engine, processor), patch.object(
             engine, "_execute_job", AsyncMock(return_value=np.zeros(8, dtype=np.float32))
         ), patch.object(engine, "_finalize_job", MagicMock()), patch.object(
-            engine, "_return_processor", side_effect=_contended_return
+            engine._pool, "return_to_cache", side_effect=_contended_return
         ):
             task = asyncio.create_task(engine.process_job(job))
             await asyncio.wait_for(cleanup_started.wait(), timeout=1.0)

@@ -16,9 +16,7 @@ import logging
 import sys
 import tempfile
 import threading
-import uuid
 from collections.abc import Callable
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -51,9 +49,11 @@ from core.job_error_mapping import _safe_error_message
 from core.job_execution import execute_job, prepare_job
 from core.job_finalize import finalize_job
 
-# process_job's try/except/finally orchestration body lives in
-# job_lifecycle.py; ProcessingEngine.process_job() below is a thin
-# delegating method (#4250 follow-up).
+# create_job/process_job/cancel_job's bodies live in job_lifecycle.py;
+# the ProcessingEngine methods below are thin delegating methods
+# (#4250 follow-up).
+from core.job_lifecycle import cancel_job as _cancel_job_impl
+from core.job_lifecycle import create_job as _create_job_impl
 from core.job_lifecycle import process_job as _process_job_impl
 from core.job_models import ProcessingJob, ProcessingStatus
 from core.job_progress import ProgressNotifier
@@ -178,37 +178,11 @@ class ProcessingEngine:
         mode: str = "adaptive",
         reference_path: str | None = None
     ) -> ProcessingJob:
-        """Create a new processing job"""
+        """Create a new processing job.
 
-        job_id = str(uuid.uuid4())
-
-        # Generate output path
-        output_format = settings.get("output_format", "wav")
-        output_path = str(self.temp_dir / f"{job_id}_processed.{output_format}")
-
-        job = ProcessingJob(
-            job_id=job_id,
-            input_path=input_path,
-            output_path=output_path,
-            settings=settings,
-            mode=mode
-        )
-
-        # Store the reference path for BOTH reference-consuming modes. This
-        # read is served by the single `job.settings.get("reference_path")` in
-        # _execute_job, whose branch already covers `reference` and `hybrid` —
-        # so gating the *write* on hybrid alone silently discarded the
-        # reference for every mode="reference" job, which then fell through to
-        # `processor.process(audio)` with reference=None while the config was
-        # already in reference mode, and HybridProcessor._process_impl matched
-        # none of its three dispatch arms: ValueError, 100% of the time (#4735).
-        if mode in ("reference", "hybrid") and reference_path:
-            job.settings["reference_path"] = reference_path
-
-        async with self._jobs_lock:
-            self.jobs[job_id] = job
-
-        return job
+        Thin delegate over job_lifecycle.create_job() (#4250 follow-up).
+        """
+        return await _create_job_impl(self, input_path, settings, mode, reference_path)
 
     async def submit_job(self, job: ProcessingJob) -> str:
         """Submit a job to the processing queue.
@@ -281,28 +255,11 @@ class ProcessingEngine:
         processor: HybridProcessor,
         poisoned: bool,
     ) -> None:
-        """Return or discard an owned processor without leaking it."""
-        if poisoned:
-            try:
-                await self._discard_processor(processor)
-            except Exception:
-                logger.warning(
-                    "Failed to discard poisoned processor for job %s",
-                    job.job_id, exc_info=True,
-                )
-            return
+        """Return or discard an owned processor without leaking it.
 
-        try:
-            await self._return_processor(job.mode, config, processor)
-        except Exception as return_err:
-            logger.warning(
-                "Failed to return processor for job %s: %s",
-                job.job_id, return_err,
-            )
-            try:
-                processor.close()
-            except Exception:
-                logger.debug("Processor close() also failed", exc_info=True)
+        Thin delegate over self._pool.cleanup() (#4250 follow-up).
+        """
+        await self._pool.cleanup(job.job_id, job.mode, config, processor, poisoned)
 
     # _create_processor_config/_prepare_job/_execute_job/_finalize_job delegate
     # to job_config.py/job_execution.py/job_finalize.py (#4250 follow-up). Thin
@@ -367,37 +324,13 @@ class ProcessingEngine:
     async def cancel_job(self, job_id: str) -> bool:
         """Cancel a job.
 
+        Thin delegate over job_lifecycle.cancel_job() (#4250 follow-up).
+
         For QUEUED jobs: marks the status so process_job() skips it.
         For PROCESSING jobs: cancels the asyncio Task, which injects
         CancelledError at the next await point (fixes #2217).
         """
-        async with self._jobs_lock:
-            job = self.jobs.get(job_id)
-            if not job:
-                return False
-
-            if job.status not in [ProcessingStatus.QUEUED, ProcessingStatus.PROCESSING]:
-                return False
-
-            job.status = ProcessingStatus.CANCELLED
-            job.completed_at = datetime.now()
-            self.progress_callbacks.pop(job_id, None)
-
-        # Signal the loader to terminate any in-flight FFmpeg child (#4496).
-        # task.cancel() alone injects CancelledError only at the next await, but
-        # the task is parked inside a to_thread FFmpeg decode that cannot be
-        # interrupted that way; setting the event kills the child promptly and
-        # frees the worker thread. Safe to set even if no decode is in flight.
-        cancel_event = self._cancel_events.get(job_id)
-        if cancel_event is not None:
-            cancel_event.set()
-
-        # Cancel the asyncio Task outside the lock — task.cancel() is
-        # thread-safe and the await would block under the lock.
-        task = self._tasks.get(job_id)
-        if task and not task.done():
-            task.cancel()
-        return True
+        return await _cancel_job_impl(self, job_id)
 
     async def cleanup_old_jobs(self, max_age_hours: float = 24) -> int:
         """Clean up old completed jobs and their files (#4250 follow-up:

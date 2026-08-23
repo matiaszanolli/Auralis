@@ -195,3 +195,39 @@ class ProcessorPool:
             processor.close()
         except Exception as close_err:  # pragma: no cover - defensive
             logger.warning("Failed to close discarded processor: %s", close_err)
+
+    async def cleanup(
+        self,
+        job_id: str,
+        mode: str,
+        config: UnifiedConfig,
+        processor: HybridProcessor,
+        poisoned: bool,
+    ) -> None:
+        """Return or discard a processor a job owned, without leaking it (#4250 follow-up).
+
+        `job_id` is used only for logging; the caller (job_lifecycle.process_job,
+        via ProcessingEngine._cleanup_processor) is the one deciding `poisoned`
+        based on how the job's DSP call exited.
+        """
+        if poisoned:
+            try:
+                await self.discard(processor)
+            except Exception:
+                logger.warning(
+                    "Failed to discard poisoned processor for job %s",
+                    job_id, exc_info=True,
+                )
+            return
+
+        try:
+            await self.return_to_cache(mode, config, processor)
+        except Exception as return_err:
+            logger.warning(
+                "Failed to return processor for job %s: %s",
+                job_id, return_err,
+            )
+            try:
+                processor.close()
+            except Exception:
+                logger.debug("Processor close() also failed", exc_info=True)

@@ -1,36 +1,39 @@
 #!/usr/bin/env python3
 
 """
-process_job() orchestration for ProcessingEngine (#4250 follow-up)
+Job lifecycle orchestration for ProcessingEngine (#4250 follow-up)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-`process_job()` was the last ~100-line chunk of `processing_engine.py`'s job
-lifecycle: the try/except/finally orchestration that calls
-`_prepare_job()` / `_execute_job()` / `_finalize_job()` (job_execution.py /
-job_finalize.py) and handles every exit path — success, DSP timeout,
-cooperative cancellation, and the catch-all failure branch — with a single
+Three job-lifecycle stages that used to live inline in
+`processing_engine.py`: `create_job()` (construct + register), `process_job()`
+(the try/except/finally orchestration around `_prepare_job()` /
+`_execute_job()` / `_finalize_job()`, handling every exit path — success, DSP
+timeout, cooperative cancellation, catch-all failure — with a single
 `finally` that reclaims the processor it owns exactly once (#4567) and always
-clears the job's cancellation-token registry entry (#4496/#4759).
+clears the cancellation-token registry entry (#4496/#4759)), and
+`cancel_job()` (mark-and-signal for a queued or in-flight job).
 
-`ProcessingEngine.process_job()` stays a thin delegating method of the same
-name so `patch.object(engine, "process_job", ...)` in
-`tests/backend/test_cancel_job_stops_processing.py` and the plain
-`await engine.process_job(job)` call sites across
-`tests/backend/test_processing_engine.py`,
+`ProcessingEngine.create_job()` / `.process_job()` / `.cancel_job()` stay thin
+delegating methods of the same names so `patch.object(engine, "process_job",
+...)` in `tests/backend/test_cancel_job_stops_processing.py` and the plain
+`await engine.process_job(job)` / `.create_job(...)` / `.cancel_job(...)` call
+sites across `tests/backend/test_processing_engine.py`,
 `tests/backend/test_process_job_nonblocking.py`,
 `tests/backend/test_processor_return_on_failure.py`,
-`tests/backend/test_cancel_job_stops_processing.py`, and
-`core/job_worker.py`'s dispatch loop all keep working unmodified: those call
-sites replace or invoke the bound method on the instance, which only works
-while it's an attribute directly on `ProcessingEngine`.
+`tests/backend/test_cancel_job_stops_processing.py`,
+`routers/processing_api.py`, and `core/job_worker.py`'s dispatch loop all keep
+working unmodified: those call sites replace or invoke the bound method on
+the instance, which only works while it's an attribute directly on
+`ProcessingEngine`.
 
-`process_job()` takes the owning `ProcessingEngine` as its first argument
-rather than duplicating its collaborators — it calls back into the engine's
-own delegating methods (`engine._prepare_job`, `engine._execute_job`,
-`engine._finalize_job`, `engine._notify_progress`, `engine._cleanup_processor`)
-and its `_cancel_events` registry / `processing_timeout` attribute, so a test
-that patches those engine-level names still intercepts calls made from here —
-same pattern as `job_execution.py`'s `prepare_job()` / `execute_job()`.
+Each function takes the owning `ProcessingEngine` as its first argument
+rather than duplicating its collaborators — they call back into the engine's
+own delegating methods/state (`engine._prepare_job`, `engine._execute_job`,
+`engine._finalize_job`, `engine._notify_progress`, `engine._cleanup_processor`,
+`engine.jobs`, `engine._jobs_lock`, `engine._cancel_events`,
+`engine.processing_timeout`), so a test that patches those engine-level names
+still intercepts calls made from here — same pattern as `job_execution.py`'s
+`prepare_job()` / `execute_job()`.
 
 `tests/backend/test_processor_return_on_failure.py::TestSingleReturnSite`
 used `inspect.getsource(ProcessingEngine.process_job)` to assert the single
@@ -49,8 +52,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from core.job_error_mapping import _safe_error_message
 from core.job_models import ProcessingJob, ProcessingStatus
@@ -58,9 +62,48 @@ from core.job_models import ProcessingJob, ProcessingStatus
 if TYPE_CHECKING:
     from core.processing_engine import ProcessingEngine
 
-__all__ = ["process_job"]
+__all__ = ["create_job", "process_job", "cancel_job"]
 
 logger = logging.getLogger(__name__)
+
+
+async def create_job(
+    engine: "ProcessingEngine",
+    input_path: str,
+    settings: dict[str, Any],
+    mode: str = "adaptive",
+    reference_path: str | None = None,
+) -> ProcessingJob:
+    """Create a new processing job and register it on the engine."""
+    job_id = str(uuid.uuid4())
+
+    # Generate output path
+    output_format = settings.get("output_format", "wav")
+    output_path = str(engine.temp_dir / f"{job_id}_processed.{output_format}")
+
+    job = ProcessingJob(
+        job_id=job_id,
+        input_path=input_path,
+        output_path=output_path,
+        settings=settings,
+        mode=mode,
+    )
+
+    # Store the reference path for BOTH reference-consuming modes. This
+    # read is served by the single `job.settings.get("reference_path")` in
+    # _execute_job, whose branch already covers `reference` and `hybrid` —
+    # so gating the *write* on hybrid alone silently discarded the
+    # reference for every mode="reference" job, which then fell through to
+    # `processor.process(audio)` with reference=None while the config was
+    # already in reference mode, and HybridProcessor._process_impl matched
+    # none of its three dispatch arms: ValueError, 100% of the time (#4735).
+    if mode in ("reference", "hybrid") and reference_path:
+        job.settings["reference_path"] = reference_path
+
+    async with engine._jobs_lock:
+        engine.jobs[job_id] = job
+
+    return job
 
 
 async def process_job(engine: "ProcessingEngine", job: ProcessingJob) -> None:
@@ -161,3 +204,39 @@ async def process_job(engine: "ProcessingEngine", job: ProcessingJob) -> None:
             # Never let a cancellation during cleanup skip registry
             # removal (#4496/#4759).
             engine._cancel_events.pop(job.job_id, None)
+
+
+async def cancel_job(engine: "ProcessingEngine", job_id: str) -> bool:
+    """Cancel a job.
+
+    For QUEUED jobs: marks the status so process_job() skips it.
+    For PROCESSING jobs: cancels the asyncio Task, which injects
+    CancelledError at the next await point (fixes #2217).
+    """
+    async with engine._jobs_lock:
+        job = engine.jobs.get(job_id)
+        if not job:
+            return False
+
+        if job.status not in [ProcessingStatus.QUEUED, ProcessingStatus.PROCESSING]:
+            return False
+
+        job.status = ProcessingStatus.CANCELLED
+        job.completed_at = datetime.now()
+        engine.progress_callbacks.pop(job_id, None)
+
+    # Signal the loader to terminate any in-flight FFmpeg child (#4496).
+    # task.cancel() alone injects CancelledError only at the next await, but
+    # the task is parked inside a to_thread FFmpeg decode that cannot be
+    # interrupted that way; setting the event kills the child promptly and
+    # frees the worker thread. Safe to set even if no decode is in flight.
+    cancel_event = engine._cancel_events.get(job_id)
+    if cancel_event is not None:
+        cancel_event.set()
+
+    # Cancel the asyncio Task outside the lock — task.cancel() is
+    # thread-safe and the await would block under the lock.
+    task = engine._tasks.get(job_id)
+    if task and not task.done():
+        task.cancel()
+    return True
