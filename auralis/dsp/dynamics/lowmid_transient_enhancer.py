@@ -25,12 +25,14 @@ class LowMidTransientEnhancer:
     4. Re-combine with full signal
     """
 
-    def __init__(self, sample_rate: int = 44100):
+    def __init__(self, sample_rate: int):
         """
         Initialize the transient enhancer.
 
         Args:
-            sample_rate: Audio sample rate in Hz
+            sample_rate: Audio sample rate in Hz. Required (#4622) — the
+                bandpass filter design below derives its edges from it, so a
+                missing/wrong value silently mis-places the low-mid band.
         """
         self.sample_rate = sample_rate
 

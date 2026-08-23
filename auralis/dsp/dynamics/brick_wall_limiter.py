@@ -244,25 +244,27 @@ class BrickWallLimiter:
 
 
 def create_brick_wall_limiter(
+    sample_rate: int,
     threshold_db: float = -0.5,
     lookahead_ms: float = 2.0,
     release_ms: float = 50.0,
-    sample_rate: int = 44100
 ) -> BrickWallLimiter:
     """
     Factory function to create brick-wall limiter
 
     Args:
+        sample_rate: Audio sample rate. Required (#4622) — a missing/wrong
+            value silently mis-tunes look-ahead/release timing for the
+            actual audio, with no error and no cue at the call site.
         threshold_db: Ceiling level in dBFS (typically -0.1 to -1.0)
         lookahead_ms: Look-ahead time in milliseconds (1-5ms typical)
         release_ms: Release time in milliseconds (20-100ms typical)
-        sample_rate: Audio sample rate
 
     Returns:
         Configured BrickWallLimiter instance
 
     Example:
-        >>> limiter = create_brick_wall_limiter(threshold_db=-0.3, lookahead_ms=2.0)
+        >>> limiter = create_brick_wall_limiter(44100, threshold_db=-0.3, lookahead_ms=2.0)
         >>> limited_audio = limiter.process(audio)
     """
     settings = BrickWallLimiterSettings(

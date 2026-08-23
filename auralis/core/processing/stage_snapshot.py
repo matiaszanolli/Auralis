@@ -59,8 +59,12 @@ def _compute_3band_energy(audio: np.ndarray, sample_rate: int) -> tuple[float, f
     return float(bass), float(mid), float(high)
 
 
-def _compute_phase_correlation(audio: np.ndarray, sample_rate: int = 44100) -> float | None:
-    """Fast phase correlation between L/R channels (truncated to 2s for speed)."""
+def _compute_phase_correlation(audio: np.ndarray, sample_rate: int) -> float | None:
+    """Fast phase correlation between L/R channels (truncated to 2s for speed).
+
+    sample_rate is required (#4622) — it sets the 2s truncation window, so a
+    missing/wrong value silently truncates the wrong amount of audio.
+    """
     if audio.ndim != 2 or audio.shape[1] != 2:
         return None
     max_samples = min(len(audio), sample_rate * 2)

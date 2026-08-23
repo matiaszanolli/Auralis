@@ -113,12 +113,16 @@ def adjust_stereo_width(stereo_audio: np.ndarray, width_factor: float) -> np.nda
 def adjust_stereo_width_multiband(
     stereo_audio: np.ndarray,
     width_factor: float,
-    sample_rate: int = 44100,
+    sample_rate: int,
     original_width: float = 0.5,
     bass_content: float = 0.3
 ) -> np.ndarray:
     """
     Adjust stereo width with frequency-dependent processing.
+
+    sample_rate is required (#4622) — the per-band filters below derive
+    their edges from it, so a missing/wrong value silently mis-places
+    every frequency band this function widens.
 
     Uses PARALLEL processing to avoid crossover phase/magnitude issues.
     Instead of splitting bands and recombining (which causes notches with

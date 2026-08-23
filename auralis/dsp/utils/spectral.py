@@ -39,7 +39,7 @@ def frames_for_seconds(sample_rate: int, seconds: float, *, power_of_two: bool =
     return target
 
 
-def spectral_centroid(audio: np.ndarray, sample_rate: int = 44100) -> float:
+def spectral_centroid(audio: np.ndarray, sample_rate: int) -> float:
     """
     Calculate spectral centroid (brightness measure)
 
@@ -48,7 +48,9 @@ def spectral_centroid(audio: np.ndarray, sample_rate: int = 44100) -> float:
 
     Args:
         audio: Input audio signal
-        sample_rate: Sample rate in Hz
+        sample_rate: Sample rate in Hz. Required (#4622) — used to convert
+            FFT bins to Hz, so a missing/wrong value silently mis-reports
+            the centroid for the actual audio.
 
     Returns:
         Spectral centroid in Hz
@@ -88,7 +90,7 @@ def spectral_centroid(audio: np.ndarray, sample_rate: int = 44100) -> float:
 
 
 def spectral_rolloff(audio: np.ndarray,
-                    sample_rate: int = 44100,
+                    sample_rate: int,
                     rolloff_percent: float = 0.85) -> float:
     """
     Calculate spectral rolloff frequency
@@ -98,7 +100,9 @@ def spectral_rolloff(audio: np.ndarray,
 
     Args:
         audio: Input audio signal
-        sample_rate: Sample rate in Hz
+        sample_rate: Sample rate in Hz. Required (#4622) — used to convert
+            FFT bins to Hz, so a missing/wrong value silently mis-reports
+            the rolloff frequency for the actual audio.
         rolloff_percent: Percentage of energy for rolloff calculation (0-1)
 
     Returns:
@@ -200,9 +204,12 @@ def energy_profile(audio: np.ndarray, window_size: int = 1024) -> np.ndarray:
     return np.array(energy_values)
 
 
-def tempo_estimate(audio: np.ndarray, sample_rate: int = 44100) -> float:
+def tempo_estimate(audio: np.ndarray, sample_rate: int) -> float:
     """
     Rough tempo estimation using onset detection
+
+    sample_rate is required (#4622) — a missing/wrong value silently
+    mis-reports the tempo for the actual audio.
 
     Uses spectral flux to detect onsets and estimate tempo.
 
@@ -239,9 +246,12 @@ def tempo_estimate(audio: np.ndarray, sample_rate: int = 44100) -> float:
     return _tempo_estimate_python(audio, sample_rate)
 
 
-def _tempo_estimate_python(audio: np.ndarray, sample_rate: int = 44100) -> float:
+def _tempo_estimate_python(audio: np.ndarray, sample_rate: int) -> float:
     """
     Python fallback for tempo estimation using spectral flux.
+
+    sample_rate is required (#4622) — a missing/wrong value silently
+    mis-reports the tempo for the actual audio.
 
     This is the original pure-Python implementation, used when Rust module
     is unavailable.

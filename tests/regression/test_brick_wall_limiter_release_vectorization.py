@@ -65,7 +65,7 @@ class TestReleaseEnvelopeMatchesScalarReference:
                 np.arange(n) % 2 == 0, 0.7, 1.0
             ).astype(dtype)
 
-        limiter = create_brick_wall_limiter()
+        limiter = create_brick_wall_limiter(44100)
         # Capture seed BEFORE the call (the method mutates current_gain).
         seed = limiter.current_gain
         rc = limiter.release_coef
@@ -87,11 +87,11 @@ class TestReleaseEnvelopeMatchesScalarReference:
             rng.rand(n) < 0.2, rng.uniform(0.3, 0.95, n), 1.0
         ).astype(np.float64)
 
-        whole = create_brick_wall_limiter()._release_envelope(
+        whole = create_brick_wall_limiter(44100)._release_envelope(
             target_gains, np.dtype(np.float64)
         )
 
-        chunked_limiter = create_brick_wall_limiter()
+        chunked_limiter = create_brick_wall_limiter(44100)
         pieces = []
         for sl in (slice(0, 1500), slice(1500, 4000), slice(4000, n)):
             pieces.append(
@@ -108,7 +108,7 @@ class TestBrickWallLimiterInvariants:
 
     @pytest.mark.parametrize("dtype", [np.float32, np.float64])
     def test_sample_count_and_dtype_preserved_mono(self, dtype):
-        limiter = create_brick_wall_limiter()
+        limiter = create_brick_wall_limiter(44100)
         audio = (np.random.RandomState(0).randn(44100) * 2.0).astype(dtype)
         out = limiter.process(audio)
         assert out.shape == audio.shape
@@ -116,7 +116,7 @@ class TestBrickWallLimiterInvariants:
 
     @pytest.mark.parametrize("dtype", [np.float32, np.float64])
     def test_sample_count_and_dtype_preserved_stereo(self, dtype):
-        limiter = create_brick_wall_limiter()
+        limiter = create_brick_wall_limiter(44100)
         audio = (np.random.RandomState(0).randn(44100, 2) * 2.0).astype(dtype)
         out = limiter.process(audio)
         assert out.shape == audio.shape
@@ -137,21 +137,21 @@ class TestBrickWallLimiterInvariants:
 
     def test_no_limiting_passes_through(self):
         """A signal below the ceiling is left essentially unchanged."""
-        limiter = create_brick_wall_limiter(threshold_db=-0.5)
+        limiter = create_brick_wall_limiter(44100, threshold_db=-0.5)
         audio = (np.random.RandomState(3).randn(10000) * 0.05).astype(np.float64)
         out = limiter.process(audio)
         np.testing.assert_allclose(out, audio, atol=1e-9)
 
     def test_lookahead_zero_does_not_crash(self):
         """lookahead_ms=0 is clamped and must not raise (#3750)."""
-        limiter = create_brick_wall_limiter(lookahead_ms=0.0)
+        limiter = create_brick_wall_limiter(44100, lookahead_ms=0.0)
         audio = (np.random.RandomState(5).randn(2048) * 1.5).astype(np.float32)
         out = limiter.process(audio)
         assert out.shape == audio.shape
         assert out.dtype == np.float32
 
     def test_empty_audio_returns_copy(self):
-        limiter = create_brick_wall_limiter()
+        limiter = create_brick_wall_limiter(44100)
         empty = np.array([], dtype=np.float32)
         out = limiter.process(empty)
         assert out.shape == empty.shape

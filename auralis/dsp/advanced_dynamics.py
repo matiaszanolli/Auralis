@@ -333,16 +333,18 @@ class DynamicsProcessor:
 
 
 def create_dynamics_processor(
+    sample_rate: int,
     mode: DynamicsMode = DynamicsMode.ADAPTIVE,
-    sample_rate: int = 44100,
     target_lufs: float = -14.0
 ) -> DynamicsProcessor:
     """
     Factory function to create dynamics processor
 
     Args:
+        sample_rate: Audio sample rate. Required (#4622) — a missing/wrong
+            value silently mis-tunes the dynamics processing for the actual
+            audio, with no error and no cue at the call site.
         mode: Processing mode
-        sample_rate: Audio sample rate
         target_lufs: Target loudness level
 
     Returns:

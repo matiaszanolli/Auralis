@@ -55,8 +55,8 @@ class StereoWidthProcessor:
         current_width: float,
         target_width: float,
         peak_db: float,
+        sample_rate: int,
         safety_mode: str = "adaptive",
-        sample_rate: int = 44100,
     ) -> np.ndarray:
         """
         Apply stereo width adjustment with safety checks to prevent peak clipping.
@@ -67,9 +67,12 @@ class StereoWidthProcessor:
                 for logging/diagnostics only — see the scale note below.
             target_width: Target WIDTH FACTOR (side-gain axis, 0.5 = unchanged)
             peak_db: Current peak in dB
+            sample_rate: Sample rate, for the multiband crossovers. Required
+                (#4622) — passed straight through to
+                adjust_stereo_width_multiband(), where a missing/wrong value
+                silently mis-places every frequency band.
             safety_mode: Safety strategy ("adaptive" = limit expansion for loud material,
                                         "conservative" = skip expansion if peak > threshold)
-            sample_rate: Sample rate, for the multiband crossovers
 
         Returns:
             Audio with adjusted stereo width

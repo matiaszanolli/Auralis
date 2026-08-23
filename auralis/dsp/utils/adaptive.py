@@ -70,7 +70,7 @@ def smooth_parameter_transition(current_value: float,
     return current_value + (target_value - current_value) * smoothing_factor
 
 
-def calculate_loudness_units(audio: np.ndarray, sample_rate: int = 44100) -> float:
+def calculate_loudness_units(audio: np.ndarray, sample_rate: int) -> float:
     """
     Simple loudness calculation (approximation of LUFS)
 
@@ -79,7 +79,10 @@ def calculate_loudness_units(audio: np.ndarray, sample_rate: int = 44100) -> flo
 
     Args:
         audio: Input audio signal
-        sample_rate: Sample rate in Hz
+        sample_rate: Sample rate in Hz. Required (#4622) — every DSP entry
+            point in this module takes it explicitly rather than assuming
+            44.1kHz, even where (as here) the current implementation
+            doesn't yet use it.
 
     Returns:
         Loudness in approximate LUFS

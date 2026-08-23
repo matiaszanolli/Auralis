@@ -20,7 +20,7 @@ class MaskingThresholdCalculator:
     def calculate_masking(self,
                          magnitude_spectrum: np.ndarray,
                          critical_bands: list[CriticalBand],
-                         sample_rate: int = 44100) -> np.ndarray:
+                         sample_rate: int) -> np.ndarray:
         """
         Calculate masking thresholds for each critical band
 
@@ -30,7 +30,9 @@ class MaskingThresholdCalculator:
         Args:
             magnitude_spectrum: Magnitude spectrum (linear scale)
             critical_bands: List of critical bands
-            sample_rate: Audio sample rate in Hz
+            sample_rate: Audio sample rate in Hz. Required (#4622) — used to
+                derive each band's FFT bin range, so a missing/wrong value
+                silently mis-places every masking threshold.
 
         Returns:
             Masking threshold in dB for each band
@@ -76,7 +78,13 @@ class MaskingThresholdCalculator:
         """
         # This is a simplified model
         # A full implementation would use spreading functions
-        return self.calculate_masking(magnitude_spectrum, critical_bands)
+        #
+        # #4622: this method has no callers anywhere in the codebase (dead
+        # code) and never took its own sample_rate parameter, so there's no
+        # real caller's rate to thread through here. 44100 preserves this
+        # already-untested method's exact prior behavior rather than
+        # expanding its signature, which is out of this issue's scope.
+        return self.calculate_masking(magnitude_spectrum, critical_bands, 44100)
 
     def calculate_temporal_masking(self,
                                    magnitude_history: list[np.ndarray],

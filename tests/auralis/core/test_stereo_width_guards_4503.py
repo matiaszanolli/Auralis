@@ -183,9 +183,14 @@ class TestNoCrossScaleComparisonsRemain:
 
 class TestSignature:
     def test_apply_stereo_width_safe_accepts_sample_rate(self):
-        """The multiband crossovers need it; a wrong rate misplaces the bands."""
+        """The multiband crossovers need it; a wrong rate misplaces the bands.
+
+        #4622: sample_rate has no default any more — a silent 44.1kHz
+        fallback is exactly the hazard that issue removed. A caller must
+        pass the real rate explicitly.
+        """
         params = inspect.signature(
             StereoWidthProcessor.apply_stereo_width_safe
         ).parameters
         assert "sample_rate" in params
-        assert params["sample_rate"].default == 44100
+        assert params["sample_rate"].default is inspect.Parameter.empty

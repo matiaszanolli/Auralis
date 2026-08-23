@@ -154,7 +154,7 @@ class TestEQCurrentAPI:
         self.setUp()
 
         # Test with defaults
-        eq = create_psychoacoustic_eq()
+        eq = create_psychoacoustic_eq(44100)
         assert eq is not None
         assert eq.sample_rate == 44100
 

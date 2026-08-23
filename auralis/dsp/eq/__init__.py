@@ -16,9 +16,13 @@ from .psychoacoustic_eq import EQSettings, PsychoacousticEQ
 
 
 # Factory function for backward compatibility
-def create_psychoacoustic_eq(sample_rate: int = 44100,
+def create_psychoacoustic_eq(sample_rate: int,
                             fft_size: int = 4096) -> PsychoacousticEQ:
-    """Create psychoacoustic EQ with default settings"""
+    """Create psychoacoustic EQ with default settings.
+
+    sample_rate is required (#4622) — a missing/wrong value silently
+    mis-places every critical-band edge for the actual audio.
+    """
     settings = EQSettings(
         sample_rate=sample_rate,
         fft_size=fft_size,
