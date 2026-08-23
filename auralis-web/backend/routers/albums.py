@@ -10,10 +10,10 @@ REST API endpoints for album browsing and management
 
 import asyncio
 import logging
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 from collections.abc import Callable
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from pydantic import BaseModel, Field
 
 from schemas import (
@@ -199,7 +199,7 @@ async def get_albums(
 
 
 @with_error_handling("get album")
-async def get_album(album_id: int, repos: Any = Depends(_get_repos)) -> Any:
+async def get_album(album_id: Annotated[int, Path(ge=1)], repos: Any = Depends(_get_repos)) -> Any:
     """
     Get album details by ID.
 
@@ -234,7 +234,7 @@ async def get_album(album_id: int, repos: Any = Depends(_get_repos)) -> Any:
 
 
 @with_error_handling("get album tracks")
-async def get_album_tracks(album_id: int, repos: Any = Depends(_get_repos)) -> Any:
+async def get_album_tracks(album_id: Annotated[int, Path(ge=1)], repos: Any = Depends(_get_repos)) -> Any:
     """
     Get all tracks for a specific album.
 
@@ -271,7 +271,7 @@ async def get_album_tracks(album_id: int, repos: Any = Depends(_get_repos)) -> A
 
 
 @with_error_handling("get album fingerprint")
-async def get_album_fingerprint(album_id: int, repos: Any = Depends(_get_repos)) -> Any:
+async def get_album_fingerprint(album_id: Annotated[int, Path(ge=1)], repos: Any = Depends(_get_repos)) -> Any:
     """
     Get median fingerprint for an album (aggregated from all tracks).
 

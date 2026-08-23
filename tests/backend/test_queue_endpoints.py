@@ -103,7 +103,9 @@ class TestRemoveFromQueue:
             assert "Invalid index" in response.json()['detail']
 
     def test_remove_negative_index(self, client, mock_queue_manager):
-        """Test removing track with negative index"""
+        """A negative index is rejected at the path-validation boundary
+        (Path(..., ge=0), #3893) rather than reaching the handler's own
+        out-of-range check — 422, not the handler's 400."""
         mock_player = Mock()
         mock_player.queue = mock_queue_manager
         mock_state = Mock()
@@ -113,7 +115,7 @@ class TestRemoveFromQueue:
             'player_state_manager': mock_state
         }):
             response = client.delete("/api/player/queue/-1")
-            assert response.status_code == 400
+            assert response.status_code == 422
 
     def test_remove_no_player(self, client):
         """Test removing when player is not available"""

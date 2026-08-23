@@ -18,10 +18,10 @@ Endpoints:
 
 import asyncio
 import logging
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 from collections.abc import Callable
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Path, Query
 from pydantic import BaseModel, Field
 
 from schemas import TrackListResponse, TrackResponse
@@ -118,7 +118,7 @@ def create_tracks_router(
             raise handle_query_error("get favorite tracks", e)
 
     @router.get("/api/library/tracks/{track_id}", response_model=TrackResponse)
-    async def get_track(track_id: int) -> dict[str, Any]:
+    async def get_track(track_id: Annotated[int, Path(ge=1)]) -> dict[str, Any]:
         """Get a single track by ID."""
         try:
             repos = require_repository_factory(get_repository_factory)
@@ -132,7 +132,7 @@ def create_tracks_router(
             raise handle_query_error("get track", e)
 
     @router.post("/api/library/tracks/{track_id}/favorite", response_model=TrackFavoriteResponse)
-    async def set_track_favorite(track_id: int) -> dict[str, Any]:
+    async def set_track_favorite(track_id: Annotated[int, Path(ge=1)]) -> dict[str, Any]:
         """Mark track as favorite."""
         try:
             repos = require_repository_factory(get_repository_factory)
@@ -147,7 +147,7 @@ def create_tracks_router(
             raise handle_query_error("set track favorite", e)
 
     @router.delete("/api/library/tracks/{track_id}/favorite", response_model=TrackFavoriteResponse)
-    async def remove_track_favorite(track_id: int) -> dict[str, Any]:
+    async def remove_track_favorite(track_id: Annotated[int, Path(ge=1)]) -> dict[str, Any]:
         """Remove track from favorites."""
         try:
             repos = require_repository_factory(get_repository_factory)
@@ -162,7 +162,7 @@ def create_tracks_router(
             raise handle_query_error("remove track favorite", e)
 
     @router.get("/api/library/tracks/{track_id}/lyrics", response_model=TrackLyricsResponse)
-    async def get_track_lyrics(track_id: int) -> dict[str, Any]:
+    async def get_track_lyrics(track_id: Annotated[int, Path(ge=1)]) -> dict[str, Any]:
         """Get lyrics for a track, from DB or extracted from file."""
         try:
             repos = require_repository_factory(get_repository_factory)

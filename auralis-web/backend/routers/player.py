@@ -30,10 +30,10 @@ Endpoints:
 import asyncio
 import logging
 import math
-from typing import Any, Literal, cast
+from typing import Annotated, Any, Literal, cast
 from collections.abc import Callable
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Path, Query
 
 from .dependencies import with_error_handling
 from .errors import NotFoundError, raise_for_service_error
@@ -688,7 +688,7 @@ async def clear_queue_history(repo: Any = Depends(_get_queue_history_repo)) -> d
 
 @with_error_handling("remove from queue")
 async def remove_from_queue(
-    index: int,
+    index: Annotated[int, Path(ge=0)],
     service: QueueService = Depends(_get_queue_service),
 ) -> dict[str, Any]:
     """Remove track from queue at specified index."""

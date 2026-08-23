@@ -13,7 +13,7 @@ from contextvars import ContextVar
 from typing import Annotated, Any
 from collections.abc import Callable
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 
 from .errors import NotFoundError
 from pydantic import BaseModel, Field
@@ -209,7 +209,7 @@ def _get_repository_factory_getter() -> Callable[[], Any]:
 
 @_with_similarity_error_handling("Error finding similar tracks")
 async def get_similar_tracks(
-    track_id: int,
+    track_id: Annotated[int, Path(ge=1)],
     limit: int = Query(10, ge=1, le=100, description="Number of similar tracks to return"),
     use_graph: bool = Query(True, description="Use pre-computed graph if available"),
     include_details: bool = Query(True, description="Include track title/artist/album"),
@@ -317,8 +317,8 @@ async def get_similar_tracks(
 
 @_with_similarity_error_handling("Error comparing tracks")
 async def compare_tracks(
-    track_id1: int,
-    track_id2: int,
+    track_id1: Annotated[int, Path(ge=1)],
+    track_id2: Annotated[int, Path(ge=1)],
     get_repository_factory: Annotated[
         Callable[[], Any], Depends(_get_repository_factory_getter)
     ] = _repository_factory_getter,
@@ -364,8 +364,8 @@ async def compare_tracks(
 
 @_with_similarity_error_handling("Error explaining similarity")
 async def explain_similarity(
-    track_id1: int,
-    track_id2: int,
+    track_id1: Annotated[int, Path(ge=1)],
+    track_id2: Annotated[int, Path(ge=1)],
     top_n: int = Query(
         5,
         ge=1,

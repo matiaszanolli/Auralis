@@ -14,10 +14,10 @@ their original ``/api/similarity/fingerprint-queue*`` and
 import asyncio
 import logging
 import uuid
-from typing import Any
+from typing import Annotated, Any
 from collections.abc import Callable
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Path, Query
 from pydantic import BaseModel, Field
 
 from .errors import NotFoundError
@@ -143,7 +143,7 @@ def create_fingerprint_queue_router(
 
     @router.post("/fingerprint-queue/enqueue/{track_id}", response_model=EnqueueFingerprintResponse)
     @_with_similarity_error_handling("Error enqueueing track")
-    async def enqueue_fingerprint(track_id: int) -> dict[str, Any]:
+    async def enqueue_fingerprint(track_id: Annotated[int, Path(ge=1)]) -> dict[str, Any]:
         """
         Manually enqueue a track for fingerprint generation.
 

@@ -182,10 +182,12 @@ class TestMarkFavorite:
         assert response.status_code in [404, 405]
 
     def test_mark_favorite_negative_id(self, client):
-        """Test marking favorite with negative track ID"""
+        """A negative track ID is rejected at the path-validation boundary
+        (Path(..., ge=1), #3893) rather than reaching the DB layer and
+        404ing — the FastAPI-standard "invalid input" status."""
         response = client.post("/api/library/tracks/-1/favorite")
 
-        assert response.status_code == 404
+        assert response.status_code == 422
 
 
 class TestRemoveFavorite:

@@ -21,10 +21,11 @@ import tempfile
 import threading
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 from collections.abc import Callable, Iterator
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import Path as PathParam
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
@@ -308,7 +309,7 @@ def _get_repos() -> Any:
 
 @with_error_handling("get artwork")
 async def get_album_artwork(
-    album_id: int,
+    album_id: Annotated[int, PathParam(ge=1)],
     request: Request,
     size: int | None = Query(
         None,
@@ -440,7 +441,7 @@ async def get_album_artwork(
 
 @with_error_handling("extract artwork")
 async def extract_album_artwork(
-    album_id: int,
+    album_id: Annotated[int, PathParam(ge=1)],
     repos: Any = Depends(_get_repos),
     connection_manager: Any = Depends(_get_connection_manager),
 ) -> dict[str, Any]:
@@ -499,7 +500,7 @@ async def extract_album_artwork(
 
 @with_error_handling("delete artwork")
 async def delete_album_artwork(
-    album_id: int,
+    album_id: Annotated[int, PathParam(ge=1)],
     repos: Any = Depends(_get_repos),
     connection_manager: Any = Depends(_get_connection_manager),
 ) -> dict[str, Any]:
@@ -547,7 +548,7 @@ async def delete_album_artwork(
 
 @with_error_handling("download artwork")
 async def download_album_artwork(
-    album_id: int,
+    album_id: Annotated[int, PathParam(ge=1)],
     repos: Any = Depends(_get_repos),
     connection_manager: Any = Depends(_get_connection_manager),
 ) -> dict[str, Any]:

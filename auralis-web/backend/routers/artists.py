@@ -9,10 +9,10 @@ REST API endpoints for artist browsing and management
 """
 
 import asyncio
-from typing import Any, Literal, cast
+from typing import Annotated, Any, Literal, cast
 from collections.abc import Callable
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Path, Query
 from pydantic import BaseModel
 
 from .dependencies import require_repository_factory, with_error_handling
@@ -232,7 +232,7 @@ def create_artists_router(
 
     @router.get("/api/artists/{artist_id}", response_model=ArtistDetailResponse)
     @with_error_handling("fetch artist")
-    async def get_artist(artist_id: int) -> ArtistDetailResponse:
+    async def get_artist(artist_id: Annotated[int, Path(ge=1)]) -> ArtistDetailResponse:
         """Get detailed information about a specific artist
 
         Returns artist information with all their albums.
@@ -273,7 +273,7 @@ def create_artists_router(
 
     @router.get("/api/artists/{artist_id}/tracks", response_model=ArtistTracksResponse)
     @with_error_handling("fetch artist tracks")
-    async def get_artist_tracks(artist_id: int) -> ArtistTracksResponse:
+    async def get_artist_tracks(artist_id: Annotated[int, Path(ge=1)]) -> ArtistTracksResponse:
         """Get all tracks for a specific artist
 
         Returns all tracks by the artist, sorted by album and track number.

@@ -10,11 +10,11 @@ API endpoints for streamlined two-tier cache management and statistics.
 
 import asyncio
 import logging
-from typing import Any
+from typing import Annotated, Any
 from collections.abc import Callable
 
 from cache import StreamlinedCacheManager
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Path
 from pydantic import BaseModel, Field
 
 # The canonical, fully-typed contracts (#3548 / BE-NEW-90, #4755): this router
@@ -97,7 +97,7 @@ def create_streamlined_cache_router(
 
     @router.get("/track/{track_id}/status", response_model=TrackCacheStatusResponse)
     @with_error_handling("get track cache status")
-    async def get_track_cache_status(track_id: int) -> TrackCacheStatusResponse:
+    async def get_track_cache_status(track_id: Annotated[int, Path(ge=1)]) -> TrackCacheStatusResponse:
         """
         Get cache status for a specific track.
 
@@ -130,7 +130,7 @@ def create_streamlined_cache_router(
 
     @router.delete("/track/{track_id}", response_model=ClearTrackCacheResponse)
     @with_error_handling("clear track cache")
-    async def clear_track_cache(track_id: int) -> dict[str, Any]:
+    async def clear_track_cache(track_id: Annotated[int, Path(ge=1)]) -> dict[str, Any]:
         """Clear cached data for a single track."""
         cache_manager = _require_cache(get_cache_manager)
         removed = await cache_manager.clear_track(track_id)

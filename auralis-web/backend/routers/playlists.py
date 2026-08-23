@@ -19,10 +19,10 @@ Endpoints:
 """
 
 import asyncio
-from typing import Any
+from typing import Annotated, Any
 from collections.abc import Callable
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from pydantic import BaseModel, Field
 
 from schemas import (
@@ -212,7 +212,7 @@ async def get_playlists(
 
 @with_error_handling("get playlist")
 async def get_playlist(
-    playlist_id: int,
+    playlist_id: Annotated[int, Path(ge=1)],
     repos: Any = Depends(_get_repos),
 ) -> dict[str, Any]:
     """
@@ -283,7 +283,7 @@ async def create_playlist(
 
 @with_error_handling("update playlist")
 async def update_playlist(
-    playlist_id: int,
+    playlist_id: Annotated[int, Path(ge=1)],
     request: UpdatePlaylistRequest,
     repos: Any = Depends(_get_repos),
     connection_manager: Any = Depends(_get_connection_manager),
@@ -330,7 +330,7 @@ async def update_playlist(
 
 @with_error_handling("delete playlist")
 async def delete_playlist(
-    playlist_id: int,
+    playlist_id: Annotated[int, Path(ge=1)],
     repos: Any = Depends(_get_repos),
     connection_manager: Any = Depends(_get_connection_manager),
 ) -> dict[str, Any]:
@@ -371,7 +371,7 @@ async def delete_playlist(
 
 @with_error_handling("add tracks to playlist")
 async def add_tracks_to_playlist(
-    playlist_id: int,
+    playlist_id: Annotated[int, Path(ge=1)],
     request: AddTracksRequest,
     repos: Any = Depends(_get_repos),
     connection_manager: Any = Depends(_get_connection_manager),
@@ -416,7 +416,7 @@ async def add_tracks_to_playlist(
 
 @with_error_handling("add track to playlist")
 async def add_track_to_playlist(
-    playlist_id: int,
+    playlist_id: Annotated[int, Path(ge=1)],
     request: AddTrackRequest,
     repos: Any = Depends(_get_repos),
     connection_manager: Any = Depends(_get_connection_manager),
@@ -460,7 +460,7 @@ async def add_track_to_playlist(
 
 @with_error_handling("reorder playlist track")
 async def reorder_playlist_track(
-    playlist_id: int,
+    playlist_id: Annotated[int, Path(ge=1)],
     request: ReorderTrackRequest,
     repos: Any = Depends(_get_repos),
     connection_manager: Any = Depends(_get_connection_manager),
@@ -505,8 +505,8 @@ async def reorder_playlist_track(
 
 @with_error_handling("remove track from playlist")
 async def remove_track_from_playlist(
-    playlist_id: int,
-    track_id: int,
+    playlist_id: Annotated[int, Path(ge=1)],
+    track_id: Annotated[int, Path(ge=1)],
     repos: Any = Depends(_get_repos),
     connection_manager: Any = Depends(_get_connection_manager),
 ) -> dict[str, Any]:
@@ -550,7 +550,7 @@ async def remove_track_from_playlist(
 
 @with_error_handling("clear playlist")
 async def clear_playlist(
-    playlist_id: int,
+    playlist_id: Annotated[int, Path(ge=1)],
     repos: Any = Depends(_get_repos),
     connection_manager: Any = Depends(_get_connection_manager),
 ) -> dict[str, Any]:

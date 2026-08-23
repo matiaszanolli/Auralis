@@ -19,10 +19,10 @@ import logging
 import os
 import time
 from collections import OrderedDict
-from typing import Any
+from typing import Annotated, Any
 from collections.abc import Callable
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 
 from .dependencies import with_error_handling
 from .errors import NotFoundError
@@ -516,7 +516,7 @@ async def get_enhancement_status(
 
 @with_error_handling("generate mastering recommendation")
 async def get_mastering_recommendation(
-    track_id: int,
+    track_id: Annotated[int, Path(ge=1)],
     confidence_threshold: float = Query(
         0.4,
         ge=0.0,

@@ -16,10 +16,10 @@ Endpoints:
 
 import asyncio
 import logging
-from typing import Any
+from typing import Annotated, Any
 from collections.abc import Callable
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Path
 from pydantic import BaseModel, Field
 
 from schemas import TrackId
@@ -254,7 +254,7 @@ def _get_metadata_editor() -> MetadataEditor:
 
 @with_error_handling("get editable fields")
 async def get_editable_fields(
-    track_id: int,
+    track_id: Annotated[int, Path(ge=1)],
     get_repository_factory: Callable[[], Any] = Depends(_get_repository_factory),
     metadata_editor: MetadataEditor = Depends(_get_metadata_editor),
 ) -> dict[str, Any]:
@@ -303,7 +303,7 @@ async def get_editable_fields(
 
 @with_error_handling("get track metadata")
 async def get_track_metadata(
-    track_id: int,
+    track_id: Annotated[int, Path(ge=1)],
     get_repository_factory: Callable[[], Any] = Depends(_get_repository_factory),
     metadata_editor: MetadataEditor = Depends(_get_metadata_editor),
 ) -> dict[str, Any]:
@@ -350,7 +350,7 @@ async def get_track_metadata(
 
 @with_error_handling("update track metadata")
 async def update_track_metadata(
-    track_id: int,
+    track_id: Annotated[int, Path(ge=1)],
     request: MetadataUpdateRequest,
     get_repository_factory: Callable[[], Any] = Depends(_get_repository_factory),
     metadata_editor: MetadataEditor = Depends(_get_metadata_editor),

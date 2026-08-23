@@ -14,10 +14,10 @@ Endpoints:
 
 import asyncio
 import logging
-from typing import Any
+from typing import Annotated, Any
 from collections.abc import Callable
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Path
 from pydantic import BaseModel, Field
 
 from auralis.utils.logging import sanitize_log_value
@@ -96,7 +96,7 @@ def create_fingerprint_status_router(
             raise handle_query_error("get fingerprinting status", e)
 
     @router.get("/api/tracks/{track_id}/fingerprint", response_model=TrackFingerprintResponse)
-    async def get_track_fingerprint(track_id: int) -> dict[str, Any]:
+    async def get_track_fingerprint(track_id: Annotated[int, Path(ge=1)]) -> dict[str, Any]:
         """Get the 25D audio fingerprint for a specific track.
 
         Used by the Album Character Pane. Queues the track for background
