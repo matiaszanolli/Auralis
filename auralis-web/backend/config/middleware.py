@@ -29,13 +29,20 @@ logger = logging.getLogger(__name__)
 
 
 def _middleware_error_response(exc: Exception, where: str) -> JSONResponse:
-    """Uniform JSON 500 for an exception raised inside a middleware dispatch.
+    """Uniform JSON 500 for an exception raised by a middleware's OWN logic
+    (not a downstream route handler's — see #4808 on why `call_next(request)`
+    must never sit inside the `try` this feeds).
 
     ``BaseHTTPMiddleware.dispatch`` runs outside FastAPI's ExceptionMiddleware,
     so ``@app.exception_handler(Exception)`` does not cover it — a raise here
     would otherwise reach Starlette's ``ServerErrorMiddleware`` and return a
-    plaintext ``Internal Server Error`` without the ``{"detail": ...}`` shape the
-    frontend expects (#4378).
+    generic error response rather than one this codebase's own callers
+    construct (#4378). #4808 found that ServerErrorMiddleware's response
+    shape is no longer actually different — ``config/app.py``'s registered
+    ``@app.exception_handler(Exception)`` produces the identical
+    ``{"detail": "Internal server error"}`` / 500 shape — but this helper
+    stays: it's still the right place to log which middleware's own
+    bookkeeping failed, distinct from a route handler's exception.
     """
     logger.error(f"Unhandled exception in {where}: {exc}", exc_info=True)
     return JSONResponse(status_code=500, content={"detail": "Internal server error"})
@@ -50,9 +57,15 @@ class NoCacheMiddleware(BaseHTTPMiddleware):
     """
 
     async def dispatch(self, request: Request, call_next: Callable[[Request], Any]) -> Response:
-        try:
-            response = await call_next(request)
+        # call_next(request) deliberately sits OUTSIDE the try below (#4808):
+        # BaseHTTPMiddleware.call_next re-raises a downstream route handler's
+        # exception at this call site, so catching Exception around it would
+        # swallow that exception here and misattribute every unhandled route
+        # error to NoCacheMiddleware instead of letting it reach
+        # config/app.py's registered `@app.exception_handler(Exception)`.
+        response = await call_next(request)
 
+        try:
             # Only disable caching for frontend static files (not API endpoints)
             # API streaming responses must NOT have cache-control headers modified
             if not request.url.path.startswith('/api') and not request.url.path.startswith('/ws'):
@@ -114,9 +127,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """
 
     async def dispatch(self, request: Request, call_next: Callable[[Request], Any]) -> Response:
-        try:
-            response = await call_next(request)
+        # call_next(request) sits outside the try below for the same reason
+        # as NoCacheMiddleware's — see its dispatch() comment (#4808).
+        response = await call_next(request)
 
+        try:
             response.headers["X-Content-Type-Options"] = "nosniff"
             response.headers["X-Frame-Options"] = "DENY"
             response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
@@ -209,6 +224,19 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             self._windows.popitem(last=False)
 
     async def dispatch(self, request: Request, call_next: Callable[[Request], Any]) -> Response:
+        # The try below covers ONLY this middleware's own rate-limit
+        # bookkeeping — matching a rule, the sliding-window lock/dict
+        # manipulation, and the 429 it may return. call_next(request) is
+        # called exactly once, OUTSIDE the try, at the bottom of this method
+        # (#4808): BaseHTTPMiddleware.call_next re-raises a downstream route
+        # handler's exception at its call site, so wrapping it here caught
+        # every unhandled route exception and misattributed it as
+        # "Unhandled exception in RateLimitMiddleware" instead of letting it
+        # reach config/app.py's registered `@app.exception_handler(Exception)`.
+        # This used to be two call sites (an early-return fast path plus the
+        # final one); collapsing to one after the bookkeeping block achieves
+        # the same fast-path behavior (nothing below runs when no rule
+        # matches) without needing call_next inside the guarded section.
         try:
             path = request.url.path
 
@@ -221,55 +249,53 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                     matched_prefix = prefix
                     break
 
-            if limit_rule is None or matched_prefix is None:
-                return await call_next(request)
+            if limit_rule is not None and matched_prefix is not None:
+                max_requests, window_sec = limit_rule
+                client_ip = request.client.host if request.client else "unknown"
+                # Key on the matched prefix, not the full path (#4728). Every
+                # rate-limited prefix except two fixed paths fans out over a path
+                # parameter (track_id, job_id, ...) — keying on the full path gave
+                # each distinct resource its own fresh, effectively-unlimited
+                # budget instead of the shared one the docstring promises.
+                key = f"{client_ip}:{matched_prefix}"
+                now = time.monotonic()
 
-            max_requests, window_sec = limit_rule
-            client_ip = request.client.host if request.client else "unknown"
-            # Key on the matched prefix, not the full path (#4728). Every
-            # rate-limited prefix except two fixed paths fans out over a path
-            # parameter (track_id, job_id, ...) — keying on the full path gave
-            # each distinct resource its own fresh, effectively-unlimited
-            # budget instead of the shared one the docstring promises.
-            key = f"{client_ip}:{matched_prefix}"
-            now = time.monotonic()
+                # Critical section (#3329): eviction + sliding-window get/check/write
+                # must be atomic with respect to other concurrent dispatches.
+                async with self._lock:
+                    # Periodic eviction of stale keys to prevent unbounded growth (#2630)
+                    self._request_count += 1
+                    if self._request_count >= self._EVICTION_INTERVAL:
+                        self._request_count = 0
+                        self._evict_stale_keys(now)
 
-            # Critical section (#3329): eviction + sliding-window get/check/write
-            # must be atomic with respect to other concurrent dispatches.
-            async with self._lock:
-                # Periodic eviction of stale keys to prevent unbounded growth (#2630)
-                self._request_count += 1
-                if self._request_count >= self._EVICTION_INTERVAL:
-                    self._request_count = 0
-                    self._evict_stale_keys(now)
+                    # Prune expired entries and check limit
+                    timestamps = self._windows.get(key, [])
+                    timestamps = [t for t in timestamps if now - t < window_sec]
 
-                # Prune expired entries and check limit
-                timestamps = self._windows.get(key, [])
-                timestamps = [t for t in timestamps if now - t < window_sec]
+                    if not timestamps:
+                        self._windows.pop(key, None)
 
-                if not timestamps:
-                    self._windows.pop(key, None)
+                    if len(timestamps) >= max_requests:
+                        self._windows[key] = timestamps
+                        # Recency touch for the hard-cap LRU eviction (#4804) —
+                        # a client still being rate-limited is by definition
+                        # active and must not be evicted ahead of quiet keys.
+                        self._windows.move_to_end(key)
+                        retry_after = int(window_sec - (now - timestamps[0])) + 1
+                        return JSONResponse(
+                            status_code=429,
+                            content={"detail": "Too many requests"},
+                            headers={"Retry-After": str(retry_after)},
+                        )
 
-                if len(timestamps) >= max_requests:
+                    timestamps.append(now)
                     self._windows[key] = timestamps
-                    # Recency touch for the hard-cap LRU eviction (#4804) —
-                    # a client still being rate-limited is by definition
-                    # active and must not be evicted ahead of quiet keys.
-                    self._windows.move_to_end(key)
-                    retry_after = int(window_sec - (now - timestamps[0])) + 1
-                    return JSONResponse(
-                        status_code=429,
-                        content={"detail": "Too many requests"},
-                        headers={"Retry-After": str(retry_after)},
-                    )
-
-                timestamps.append(now)
-                self._windows[key] = timestamps
-                self._windows.move_to_end(key)  # recency touch (#4804)
-
-            return await call_next(request)
+                    self._windows.move_to_end(key)  # recency touch (#4804)
         except Exception as exc:
             return _middleware_error_response(exc, "RateLimitMiddleware")
+
+        return await call_next(request)
 
 
 class OriginCheckMiddleware(BaseHTTPMiddleware):
@@ -295,6 +321,10 @@ class OriginCheckMiddleware(BaseHTTPMiddleware):
     _STATE_CHANGING_METHODS = frozenset({"POST", "PUT", "DELETE", "PATCH"})
 
     async def dispatch(self, request: Request, call_next: Callable[[Request], Any]) -> Response:
+        # The try below covers ONLY this middleware's own origin check.
+        # call_next(request) is called exactly once, OUTSIDE the try, at the
+        # bottom of this method — same reasoning as RateLimitMiddleware's
+        # dispatch() comment (#4808).
         try:
             if request.method in self._STATE_CHANGING_METHODS and request.url.path.startswith("/api"):
                 from .globals import LOOPBACK_HOSTS
@@ -317,10 +347,10 @@ class OriginCheckMiddleware(BaseHTTPMiddleware):
                             f"empty Origin from non-loopback host {client_host!r}"
                         )
                         return JSONResponse(status_code=403, content={"detail": "Untrusted origin"})
-
-            return await call_next(request)
         except Exception as exc:
             return _middleware_error_response(exc, "OriginCheckMiddleware")
+
+        return await call_next(request)
 
 
 def cors_allowed_origins() -> list[str]:
