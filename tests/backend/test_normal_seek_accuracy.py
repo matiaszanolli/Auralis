@@ -195,3 +195,28 @@ class TestSeekOffsetIsInformationalOnly:
 
         delivered_start_s = _first_source_frame(chunks[0]) / SAMPLE_RATE
         assert delivered_start_s == pytest.approx(start_data["seek_position"], abs=0.001)
+
+
+class TestTotalDurationIsTheFullTrack:
+    """#4431 — total_duration must report the FULL track length, not the
+    duration remaining from the seek point.
+
+    Before the fix, a seek to 17s into a 60s track advertised
+    total_duration=43 (60 - 17) here, while stream_enhanced.py/stream_seek.py
+    advertised the full 60 for the identical scenario — and this same
+    function's own total_chunks field was already full/seek-stable (#3768),
+    making the reduced total_duration an internal inconsistency even before
+    comparing across paths.
+    """
+
+    @pytest.mark.asyncio
+    async def test_total_duration_is_full_track_length_on_seek(self, ramp_wav):
+        start_data, _ = await _stream(ramp_wav, 17.0)
+
+        assert start_data["total_duration"] == pytest.approx(DURATION_S)
+
+    @pytest.mark.asyncio
+    async def test_total_duration_is_full_track_length_with_no_seek(self, ramp_wav):
+        start_data, _ = await _stream(ramp_wav, 0.0)
+
+        assert start_data["total_duration"] == pytest.approx(DURATION_S)

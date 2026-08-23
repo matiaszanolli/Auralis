@@ -245,7 +245,14 @@ async def stream_normal_audio(
             # path convention since #3185).
             total_chunks=total_chunks,
             chunk_duration=chunk_duration,
-            total_duration=duration - (start_chunk * chunk_duration),
+            # #4431: full track duration, not duration remaining from the
+            # seek point — matches stream_enhanced.py/stream_seek.py's
+            # `total_duration=processor.duration` convention (and this same
+            # function's own `total_chunks`, which is already the full,
+            # seek-stable count per #3768 immediately above). The FE only
+            # ever read this field inside a DEBUG console.log, never stored
+            # it, so this was latent drift rather than an observed bug.
+            total_duration=duration,
             **seek_kwargs,
         ):
             logger.info(f"WebSocket disconnected, cannot start stream")
