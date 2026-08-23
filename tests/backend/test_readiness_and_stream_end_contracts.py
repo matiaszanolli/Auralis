@@ -176,7 +176,11 @@ class TestRecommendationCacheBounds:
 
         from routers import enhancement
 
-        source = inspect.getsource(enhancement.create_enhancement_router)
+        # The handler is a module-level function since #4670 (it used to be
+        # nested inside create_enhancement_router), and is wrapped by
+        # @with_error_handling -- inspect.getsource unwraps __wrapped__, so
+        # this still reads the handler's own source.
+        source = inspect.getsource(enhancement.get_mastering_recommendation)
         assert "confidence_threshold: float = Query(" in source
         assert "ge=0.0" in source and "le=1.0" in source
 
