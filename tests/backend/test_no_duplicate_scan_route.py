@@ -26,13 +26,38 @@ def _parse_files_py() -> ast.Module:
     return ast.parse(FILES_PY.read_text())
 
 
-def _route_decorators(tree: ast.Module) -> list[str]:
+def _registered_route_paths(tree: ast.Module) -> list[str]:
     """
-    Extract path strings from @router.<method>("<path>") decorators in the AST.
-    Returns a list of path literals found in decorator calls.
+    Extract the path strings files.py registers on its router, in either form:
+
+    - ``@router.<method>("<path>")`` decorators, and
+    - ``router.add_api_route("<path>", handler, methods=[...])`` calls.
+
+    The second form is what the router uses since #4670 hoisted its handlers
+    to module level; the decorator form is still matched so this helper stays
+    valid for any router that has not been converted yet.
     """
     paths: list[str] = []
+
+    def _record(call: ast.Call) -> None:
+        for arg in call.args:
+            if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+                paths.append(arg.value)
+
     for node in ast.walk(tree):
+        # router.add_api_route("<path>", handler, methods=[...])
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "add_api_route"
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id == "router"
+        ):
+            # Only the first positional argument is the path; the second is
+            # the handler (an ast.Name, not a Constant, so _record skips it).
+            _record(node)
+            continue
+
         if not isinstance(node, (ast.AsyncFunctionDef, ast.FunctionDef)):
             continue
         for dec in node.decorator_list:
@@ -44,9 +69,7 @@ def _route_decorators(tree: ast.Module) -> list[str]:
                 and dec.func.value.id == "router"
             ):
                 continue
-            for arg in dec.args:
-                if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
-                    paths.append(arg.value)
+            _record(dec)
     return paths
 
 
@@ -57,7 +80,7 @@ def test_files_router_does_not_register_scan_endpoint():
     unreachable dead code (fixes #2123).
     """
     tree = _parse_files_py()
-    routes = _route_decorators(tree)
+    routes = _registered_route_paths(tree)
     assert "/api/library/scan" not in routes, (
         "files.py must not register /api/library/scan — "
         "this causes library.py's endpoint to be unreachable (fixes #2123)"
@@ -67,7 +90,7 @@ def test_files_router_does_not_register_scan_endpoint():
 def test_files_router_retains_upload_endpoint():
     """POST /api/files/upload must still be present in files.py."""
     tree = _parse_files_py()
-    routes = _route_decorators(tree)
+    routes = _registered_route_paths(tree)
     assert "/api/files/upload" in routes, (
         "POST /api/files/upload must remain in files.py"
     )
@@ -76,7 +99,7 @@ def test_files_router_retains_upload_endpoint():
 def test_files_router_retains_formats_endpoint():
     """GET /api/audio/formats must still be present in files.py."""
     tree = _parse_files_py()
-    routes = _route_decorators(tree)
+    routes = _registered_route_paths(tree)
     assert "/api/audio/formats" in routes, (
         "GET /api/audio/formats must remain in files.py"
     )

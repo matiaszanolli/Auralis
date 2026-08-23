@@ -25,7 +25,7 @@ from typing import Any, Literal
 from collections.abc import Callable
 from uuid import uuid4
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
 from auralis.utils.logging import sanitize_log_value
@@ -81,7 +81,6 @@ except ImportError:
     HAS_LIBRARY = False
 
 logger = logging.getLogger(__name__)
-router = APIRouter(tags=["files"])
 
 
 class UploadResultItem(BaseModel):
@@ -121,6 +120,247 @@ class SupportedFormatsResponse(BaseModel):
     bit_depths: list[int] = Field(description="Supported bit depths")
 
 
+# ============================================================================
+# DEPENDENCY WIRING (#4670)
+#
+# create_files_router() used to be a closure: both handlers below were nested
+# inside it purely to reach get_repository_factory via closure capture, which
+# made a handler impossible to import or call without first building the whole
+# router. Handlers are now module level; they reach the same callables through
+# FastAPI Depends() instead.
+#
+# _FilesDeps holds the raw callables/objects the factory receives. It is
+# populated exactly once, by create_files_router() itself -- same as the old
+# closure, which only ever ran once per process (config/routes.py calls the
+# factory a single time at startup; the test `client` fixture imports the
+# already-built `main.app` once per process too). This is a deliberate
+# simplification, not a new hazard: nothing in this codebase calls
+# create_files_router() more than once in the same process, save
+# tests/backend/test_upload_file_count_cap.py, which builds its own throwaway
+# app and exercises it immediately. It does NOT reproduce the #4361
+# module-level-`APIRouter()` hazard, since the router instance itself is now
+# built fresh, per call, inside the factory below.
+#
+# A handler's Depends() default is only consulted when FastAPI itself invokes
+# it for a real request; a direct unit-test call passes the dependency
+# explicitly as a keyword argument and never touches _FilesDeps at all --
+# that's the seam #4670 asked for.
+# ============================================================================
+
+class _FilesDeps:
+    connection_manager: Any = None
+    get_repository_factory: Callable[[], Any] | None = None
+
+
+_deps = _FilesDeps()
+
+
+def _get_repos() -> Any:
+    """Get repository factory for accessing repositories."""
+    if _deps.get_repository_factory:
+        return require_repository_factory(_deps.get_repository_factory)
+    raise HTTPException(status_code=503, detail="Repository factory not available")
+
+
+def _get_repos_provider() -> Callable[[], Any]:
+    """Hand the handler the repository *provider*, not the repositories.
+
+    The original nested handler called get_repos() partway through its body —
+    after the empty-batch (400) and file-count (413) checks — so a request
+    rejected by either of those never touched the repository factory.
+    Resolving the factory through Depends() directly would hoist its 503 ahead
+    of both, changing which status an over-large batch gets on a backend with
+    no repositories, so the handler keeps calling it itself at the original
+    point.
+    """
+    return _get_repos
+
+
+async def upload_files(
+    files: list[UploadFile] = File(...),
+    get_repos: Callable[[], Any] = Depends(_get_repos_provider),
+) -> dict[str, Any]:
+    """
+    Upload audio files for processing.
+
+    Saves uploaded files to library and extracts metadata.
+
+    Args:
+        files: List of uploaded files
+
+    Returns:
+        dict: Upload results for each file with metadata
+
+    Raises:
+        HTTPException: If no files provided or library unavailable
+    """
+    if not files:
+        raise HTTPException(status_code=400, detail="No files provided")
+
+    # Cap the file count before decoding anything (#4349): reject an
+    # over-large batch with 413 rather than looping over every element.
+    if len(files) > _MAX_UPLOAD_FILES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Too many files in one request (max {_MAX_UPLOAD_FILES})",
+        )
+
+    repos = get_repos()
+
+    if not HAS_LIBRARY:
+        raise HTTPException(status_code=503, detail="Audio processing library not available")
+
+    results: list[dict[str, Any]] = []
+    supported_extensions = tuple(SUPPORTED_FORMATS.keys())
+
+    for file in files:
+        try:
+            # Validate file type
+            if not file.filename or not file.filename.lower().endswith(supported_extensions):
+                # Log rejected uploads for security audit trail (fixes #2421).
+                logger.warning(
+                    f"Rejected upload of unsupported file type: {file.filename!r}"
+                )
+                results.append({
+                    "filename": file.filename or "",
+                    "status": "error",
+                    "message": "Unsupported file type"
+                })
+                continue
+
+            # Save uploaded file to temporary location.
+            # Cap the read at the source instead of buffering the whole
+            # body first (fixes #3494 / BE-NEW-36 — prior code did
+            # `await file.read()` with no size limit and only checked the
+            # cap AFTER reading, so a 2 GB POST OOM'd the backend before
+            # rejection). +1 lets us detect overflow via length compare.
+            suffix = Path(file.filename).suffix if file.filename else ""
+            content = await file.read(_MAX_UPLOAD_BYTES + 1)
+            if len(content) > _MAX_UPLOAD_BYTES:
+                logger.warning(f"Rejected oversized upload: {file.filename!r} ({len(content)} bytes)")
+                results.append({
+                    "filename": file.filename or "",
+                    "status": "error",
+                    "message": "File exceeds maximum upload size of 500 MB"
+                })
+                continue
+
+            # Validate magic bytes before invoking audio parser (issue #2415)
+            if not _has_valid_audio_magic(content):
+                logger.warning(
+                    f"Rejected upload with invalid audio content: {file.filename!r}"
+                )
+                results.append({
+                    "filename": file.filename or "",
+                    "status": "error",
+                    "message": "File content does not match any known audio format"
+                })
+                continue
+
+            # Sync ops below — temp write, audio decode, file move, DB
+            # insert — are wrapped in asyncio.to_thread so the event
+            # loop isn't blocked for the (often multi-hundred-ms)
+            # duration of an upload (fixes #3494 / BE-NEW-36).
+            def _write_temp(content_bytes: bytes, suffix_str: str) -> str:
+                with tempfile.NamedTemporaryFile(delete=False, suffix=suffix_str) as tmp:
+                    tmp.write(content_bytes)
+                    return tmp.name
+
+            temp_path = await asyncio.to_thread(_write_temp, content, suffix)
+
+            try:
+                # Load audio to get metadata (sample rate, duration)
+                audio_data, sample_rate = await asyncio.to_thread(load_audio, temp_path)
+                duration = len(audio_data) / sample_rate
+
+                # Move to permanent library storage before committing the DB record
+                # (issue #2392: storing temp_path then deleting it made every upload
+                # unplayable immediately after the finally block ran).
+                upload_dir = Path.home() / ".auralis" / "uploads"
+                await asyncio.to_thread(upload_dir.mkdir, parents=True, exist_ok=True)
+                permanent_path = upload_dir / f"{uuid4().hex}{suffix}"
+                await asyncio.to_thread(shutil.move, str(temp_path), str(permanent_path))
+
+                # Extract file name without extension
+                file_stem = Path(file.filename).stem if file.filename else "track"
+
+                # Create track info dictionary for library
+                track_info = {
+                    "filepath": str(permanent_path),  # permanent, not temp (issue #2392)
+                    "filename": file.filename,
+                    "title": file_stem,
+                    "duration": duration,
+                    "sample_rate": sample_rate,
+                    "channels": 1 if audio_data.ndim == 1 else audio_data.shape[1]
+                }
+
+                # Add track to library via repository
+                track = await asyncio.to_thread(repos.tracks.add, track_info)
+
+                if track:
+                    results.append({
+                        "filename": file.filename or "",
+                        "status": "success",
+                        "message": "File uploaded and added to library",
+                        "track_id": track.id,
+                        "title": track.title,
+                        "duration": float(track.duration),
+                        "sample_rate": track.sample_rate
+                    })
+                    logger.info(f"Successfully uploaded and processed: {sanitize_log_value(file.filename)}")
+                else:
+                    results.append({
+                        "filename": file.filename or "",
+                        "status": "error",
+                        "message": "Failed to add track to library"
+                    })
+
+            except Exception as e:
+                logger.error(f"Audio processing error for {sanitize_log_value(file.filename)}: {e}", exc_info=True)
+                results.append({
+                    "filename": file.filename or "",
+                    "status": "error",
+                    "message": f"Failed to process audio: {_safe_error_message(e)}"
+                })
+
+            finally:
+                # shutil.move already removed the temp file on success; unlink is a
+                # no-op (missing_ok) in that case. On failure the temp file still
+                # exists and must be cleaned up here.
+                try:
+                    Path(temp_path).unlink(missing_ok=True)
+                except Exception as e:
+                    logger.debug(f"Failed to clean temp file: {e}")
+
+        except Exception as e:
+            logger.error(f"Upload error for {sanitize_log_value(file.filename)}: {e}", exc_info=True)
+            results.append({
+                "filename": file.filename or "",
+                "status": "error",
+                "message": _safe_error_message(e)
+            })
+
+    return {"results": results}
+
+
+async def get_supported_formats() -> dict[str, Any]:
+    """
+    Get supported audio formats.
+
+    Returns information about supported input/output formats,
+    sample rates, and bit depths.
+
+    Returns:
+        dict: Supported formats, sample rates, and bit depths
+    """
+    return {
+        "input_formats": [".mp3", ".wav", ".flac", ".ogg", ".m4a", ".aac"],
+        "output_formats": [".wav", ".flac", ".mp3"],
+        "sample_rates": [44100, 48000, 88200, 96000, 192000],
+        "bit_depths": [16, 24, 32]
+    }
+
+
 def create_files_router(
     connection_manager: Any = None,
     get_repository_factory: Callable[[], Any] | None = None
@@ -138,193 +378,15 @@ def create_files_router(
     Note:
         Directory scanning is handled by routers/library.py (fixes #2123).
     """
+    # connection_manager is accepted for call-site compatibility with
+    # config/routes.py but is not used by any handler below -- pre-existing,
+    # unrelated to #4670.
+    _deps.connection_manager = connection_manager
+    _deps.get_repository_factory = get_repository_factory
 
-    def get_repos() -> Any:
-        """Get repository factory for accessing repositories."""
-        if get_repository_factory:
-            return require_repository_factory(get_repository_factory)
-        raise HTTPException(status_code=503, detail="Repository factory not available")
+    router = APIRouter(tags=["files"])
 
-    @router.post("/api/files/upload", response_model=UploadResultResponse)
-    async def upload_files(files: list[UploadFile] = File(...)) -> dict[str, Any]:
-        """
-        Upload audio files for processing.
-
-        Saves uploaded files to library and extracts metadata.
-
-        Args:
-            files: List of uploaded files
-
-        Returns:
-            dict: Upload results for each file with metadata
-
-        Raises:
-            HTTPException: If no files provided or library unavailable
-        """
-        if not files:
-            raise HTTPException(status_code=400, detail="No files provided")
-
-        # Cap the file count before decoding anything (#4349): reject an
-        # over-large batch with 413 rather than looping over every element.
-        if len(files) > _MAX_UPLOAD_FILES:
-            raise HTTPException(
-                status_code=413,
-                detail=f"Too many files in one request (max {_MAX_UPLOAD_FILES})",
-            )
-
-        repos = get_repos()
-
-        if not HAS_LIBRARY:
-            raise HTTPException(status_code=503, detail="Audio processing library not available")
-
-        results: list[dict[str, Any]] = []
-        supported_extensions = tuple(SUPPORTED_FORMATS.keys())
-
-        for file in files:
-            try:
-                # Validate file type
-                if not file.filename or not file.filename.lower().endswith(supported_extensions):
-                    # Log rejected uploads for security audit trail (fixes #2421).
-                    logger.warning(
-                        f"Rejected upload of unsupported file type: {file.filename!r}"
-                    )
-                    results.append({
-                        "filename": file.filename or "",
-                        "status": "error",
-                        "message": "Unsupported file type"
-                    })
-                    continue
-
-                # Save uploaded file to temporary location.
-                # Cap the read at the source instead of buffering the whole
-                # body first (fixes #3494 / BE-NEW-36 — prior code did
-                # `await file.read()` with no size limit and only checked the
-                # cap AFTER reading, so a 2 GB POST OOM'd the backend before
-                # rejection). +1 lets us detect overflow via length compare.
-                suffix = Path(file.filename).suffix if file.filename else ""
-                content = await file.read(_MAX_UPLOAD_BYTES + 1)
-                if len(content) > _MAX_UPLOAD_BYTES:
-                    logger.warning(f"Rejected oversized upload: {file.filename!r} ({len(content)} bytes)")
-                    results.append({
-                        "filename": file.filename or "",
-                        "status": "error",
-                        "message": "File exceeds maximum upload size of 500 MB"
-                    })
-                    continue
-
-                # Validate magic bytes before invoking audio parser (issue #2415)
-                if not _has_valid_audio_magic(content):
-                    logger.warning(
-                        f"Rejected upload with invalid audio content: {file.filename!r}"
-                    )
-                    results.append({
-                        "filename": file.filename or "",
-                        "status": "error",
-                        "message": "File content does not match any known audio format"
-                    })
-                    continue
-
-                # Sync ops below — temp write, audio decode, file move, DB
-                # insert — are wrapped in asyncio.to_thread so the event
-                # loop isn't blocked for the (often multi-hundred-ms)
-                # duration of an upload (fixes #3494 / BE-NEW-36).
-                def _write_temp(content_bytes: bytes, suffix_str: str) -> str:
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix_str) as tmp:
-                        tmp.write(content_bytes)
-                        return tmp.name
-
-                temp_path = await asyncio.to_thread(_write_temp, content, suffix)
-
-                try:
-                    # Load audio to get metadata (sample rate, duration)
-                    audio_data, sample_rate = await asyncio.to_thread(load_audio, temp_path)
-                    duration = len(audio_data) / sample_rate
-
-                    # Move to permanent library storage before committing the DB record
-                    # (issue #2392: storing temp_path then deleting it made every upload
-                    # unplayable immediately after the finally block ran).
-                    upload_dir = Path.home() / ".auralis" / "uploads"
-                    await asyncio.to_thread(upload_dir.mkdir, parents=True, exist_ok=True)
-                    permanent_path = upload_dir / f"{uuid4().hex}{suffix}"
-                    await asyncio.to_thread(shutil.move, str(temp_path), str(permanent_path))
-
-                    # Extract file name without extension
-                    file_stem = Path(file.filename).stem if file.filename else "track"
-
-                    # Create track info dictionary for library
-                    track_info = {
-                        "filepath": str(permanent_path),  # permanent, not temp (issue #2392)
-                        "filename": file.filename,
-                        "title": file_stem,
-                        "duration": duration,
-                        "sample_rate": sample_rate,
-                        "channels": 1 if audio_data.ndim == 1 else audio_data.shape[1]
-                    }
-
-                    # Add track to library via repository
-                    track = await asyncio.to_thread(repos.tracks.add, track_info)
-
-                    if track:
-                        results.append({
-                            "filename": file.filename or "",
-                            "status": "success",
-                            "message": "File uploaded and added to library",
-                            "track_id": track.id,
-                            "title": track.title,
-                            "duration": float(track.duration),
-                            "sample_rate": track.sample_rate
-                        })
-                        logger.info(f"Successfully uploaded and processed: {sanitize_log_value(file.filename)}")
-                    else:
-                        results.append({
-                            "filename": file.filename or "",
-                            "status": "error",
-                            "message": "Failed to add track to library"
-                        })
-
-                except Exception as e:
-                    logger.error(f"Audio processing error for {sanitize_log_value(file.filename)}: {e}", exc_info=True)
-                    results.append({
-                        "filename": file.filename or "",
-                        "status": "error",
-                        "message": f"Failed to process audio: {_safe_error_message(e)}"
-                    })
-
-                finally:
-                    # shutil.move already removed the temp file on success; unlink is a
-                    # no-op (missing_ok) in that case. On failure the temp file still
-                    # exists and must be cleaned up here.
-                    try:
-                        Path(temp_path).unlink(missing_ok=True)
-                    except Exception as e:
-                        logger.debug(f"Failed to clean temp file: {e}")
-
-            except Exception as e:
-                logger.error(f"Upload error for {sanitize_log_value(file.filename)}: {e}", exc_info=True)
-                results.append({
-                    "filename": file.filename or "",
-                    "status": "error",
-                    "message": _safe_error_message(e)
-                })
-
-        return {"results": results}
-
-    @router.get("/api/audio/formats", response_model=SupportedFormatsResponse)
-    async def get_supported_formats() -> dict[str, Any]:
-        """
-        Get supported audio formats.
-
-        Returns information about supported input/output formats,
-        sample rates, and bit depths.
-
-        Returns:
-            dict: Supported formats, sample rates, and bit depths
-        """
-        return {
-            "input_formats": [".mp3", ".wav", ".flac", ".ogg", ".m4a", ".aac"],
-            "output_formats": [".wav", ".flac", ".mp3"],
-            "sample_rates": [44100, 48000, 88200, 96000, 192000],
-            "bit_depths": [16, 24, 32]
-        }
+    router.add_api_route("/api/files/upload", upload_files, methods=["POST"], response_model=UploadResultResponse)
+    router.add_api_route("/api/audio/formats", get_supported_formats, methods=["GET"], response_model=SupportedFormatsResponse)
 
     return router
