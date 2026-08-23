@@ -10,6 +10,7 @@
 
 import { describe, it, expect } from 'vitest';
 import * as ws from '@/types/websocket';
+import type { AudioStreamStartMessage } from '@/types/websocket';
 
 describe('@/types/websocket barrel (#4081)', () => {
   it('re-exports the message-type tables', () => {
@@ -54,5 +55,35 @@ describe('@/types/websocket barrel (#4081)', () => {
     expect(camel.isPlaying).toBe(true);
     expect(camel.position).toBe(5);
     expect(camel.crossfadeDuration).toBe(3.0); // default applied
+  });
+
+  it("accepts audio_stream_start.data.preset: 'none' (#4654)", () => {
+    // stream_normal.py hardcodes preset="none" for the unprocessed-playback
+    // path — a stream-MODE marker, not a mastering preset. This fixture
+    // failing to type-check against AudioStreamStartMessage is the bug
+    // #4654 fixed (EnhancementPreset | 'none' override on this one field,
+    // narrower than widening the picker-facing EnhancementPreset union).
+    const normalStreamStart: AudioStreamStartMessage = {
+      type: 'audio_stream_start',
+      data: {
+        track_id: 1,
+        preset: 'none',
+        intensity: 1.0,
+        sample_rate: 44100,
+        channels: 2,
+        total_chunks: 4,
+        chunk_duration: 15.0,
+        total_duration: 60.0,
+        stream_type: 'normal',
+      },
+    };
+    expect(ws.isAudioStreamStartMessage(normalStreamStart as never)).toBe(true);
+
+    // A real mastering preset must still type-check on the same field.
+    const enhancedStreamStart: AudioStreamStartMessage = {
+      ...normalStreamStart,
+      data: { ...normalStreamStart.data, preset: 'warm', stream_type: 'enhanced' },
+    };
+    expect(ws.isAudioStreamStartMessage(enhancedStreamStart as never)).toBe(true);
   });
 });

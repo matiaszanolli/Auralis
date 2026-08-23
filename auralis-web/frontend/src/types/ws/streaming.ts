@@ -30,7 +30,15 @@ export interface AudioStreamStartMessage extends WebSocketMessage {
   type: 'audio_stream_start';
   data: {
     track_id: number;
-    preset: EnhancementPreset;
+    /** `'none'` is a stream-MODE marker sent only by the unprocessed
+     * (`play_normal`) path — not a member of the mastering-preset picker
+     * union. Widening EnhancementPreset itself would need a 'none' entry in
+     * every Record<EnhancementPreset, ...>-keyed sibling in domain.ts
+     * (ENHANCEMENT_PRESETS, ENHANCEMENT_PRESET_NAMES,
+     * ENHANCEMENT_PRESET_DESCRIPTIONS, isEnhancementPreset) and the preset
+     * picker excluding it — this narrower override is cheaper and correct
+     * (#4654). */
+    preset: EnhancementPreset | 'none';
     intensity: number;
     sample_rate: number;
     channels: number;
