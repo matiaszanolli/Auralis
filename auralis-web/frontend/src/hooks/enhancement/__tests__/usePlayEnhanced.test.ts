@@ -139,6 +139,7 @@ function makeStreamErrorMsg(overrides: Record<string, any> = {}) {
 const handlers: Record<string, (msg: any) => void> = {};
 const mockUnsubscribers: Record<string, ReturnType<typeof vi.fn>> = {};
 const mockSend = vi.fn();
+const mockReissueActiveStreamAs = vi.fn(() => false);
 let mockWsConnected = true;
 
 let mockBufferInstance: {
@@ -174,6 +175,8 @@ function setupMocks() {
   Object.keys(handlers).forEach((k) => delete handlers[k]);
   Object.keys(mockUnsubscribers).forEach((k) => delete mockUnsubscribers[k]);
   mockSend.mockReset();
+  mockReissueActiveStreamAs.mockReset();
+  mockReissueActiveStreamAs.mockReturnValue(false);
   mockWsConnected = true;
 
   // Fresh PCMStreamBuffer mock
@@ -261,10 +264,10 @@ function setupMocks() {
     // failure through the rest of the suite.
     setResumePositionGetter: vi.fn(),
     // #3759 / #3763: reissueActiveStreamAs is invoked from
-    // useEnhancementControl on toggle/preset/intensity changes; mocked
-    // here so the WebSocketContextValue shape matches the production
-    // interface.
-    reissueActiveStreamAs: vi.fn(() => false),
+    // useEnhancementControl on toggle/preset/intensity changes, and from
+    // useAudioStreamingCore's handleStreamError to auto-resume after a
+    // recoverable chunk failure (#4655).
+    reissueActiveStreamAs: mockReissueActiveStreamAs,
   }));
 }
 
@@ -637,6 +640,52 @@ describe('usePlayEnhanced – audio_stream_error', () => {
     fireHandler('audio_stream_error', makeStreamErrorMsg({ stream_type: 'normal' }));
 
     expect(store.getState().player.streaming.enhanced.state).toBe('error');
+  });
+
+  // ==========================================================================
+  // recovery_position auto-resume (#4655)
+  // ==========================================================================
+
+  it('auto-resumes from recovery_position when the backend names one', () => {
+    fireHandler('audio_stream_error', makeStreamErrorMsg({ recovery_position: 42.5 }));
+
+    expect(mockReissueActiveStreamAs).toHaveBeenCalledWith('play_enhanced', {}, 42.5);
+  });
+
+  it('re-issues as play_normal for a normal-stream recovery', () => {
+    fireHandler(
+      'audio_stream_error',
+      makeStreamErrorMsg({ stream_type: 'normal', recovery_position: 10.0 })
+    );
+
+    expect(mockReissueActiveStreamAs).toHaveBeenCalledWith('play_normal', {}, 10.0);
+  });
+
+  it('does NOT attempt a reissue when recovery_position is absent — same as before #4655', () => {
+    fireHandler('audio_stream_error', makeStreamErrorMsg());
+
+    expect(mockReissueActiveStreamAs).not.toHaveBeenCalled();
+    // Existing teardown behaviour is unchanged.
+    expect(mockBufferInstance.dispose).toHaveBeenCalled();
+    expect(mockEngineInstance.dispose).toHaveBeenCalled();
+  });
+
+  it('bounds retry: does not re-attempt at the same (track, recovery_position) pair', () => {
+    fireHandler('audio_stream_error', makeStreamErrorMsg({ recovery_position: 5.0 }));
+    expect(mockReissueActiveStreamAs).toHaveBeenCalledTimes(1);
+
+    // The exact same recovery point fails again (e.g. the reissued stream
+    // hits the identical unrecoverable error) — must not loop.
+    fireHandler('audio_stream_error', makeStreamErrorMsg({ recovery_position: 5.0 }));
+    expect(mockReissueActiveStreamAs).toHaveBeenCalledTimes(1);
+  });
+
+  it('allows a retry at a DIFFERENT recovery_position for the same track', () => {
+    fireHandler('audio_stream_error', makeStreamErrorMsg({ recovery_position: 5.0 }));
+    fireHandler('audio_stream_error', makeStreamErrorMsg({ recovery_position: 9.0 }));
+
+    expect(mockReissueActiveStreamAs).toHaveBeenCalledTimes(2);
+    expect(mockReissueActiveStreamAs).toHaveBeenNthCalledWith(2, 'play_enhanced', {}, 9.0);
   });
 });
 

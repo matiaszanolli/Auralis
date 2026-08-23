@@ -58,7 +58,8 @@ export interface UseWebSocketConnection {
   setResumePositionGetter: (streamType: string, getter: (() => number) | null) => void;
   reissueActiveStreamAs: (
     type: 'play_enhanced' | 'play_normal',
-    dataOverrides?: Record<string, unknown>
+    dataOverrides?: Record<string, unknown>,
+    startPositionOverride?: number
   ) => boolean;
 }
 
@@ -321,7 +322,12 @@ export function useWebSocketConnection({
   const reissueActiveStreamAs = useCallback(
     (
       type: 'play_enhanced' | 'play_normal',
-      dataOverrides: Record<string, unknown> = {}
+      dataOverrides: Record<string, unknown> = {},
+      // #4655: an explicit resume point (e.g. a chunk-failure recovery_position)
+      // takes priority over the live resumeGetters lookup below, which reports
+      // *current playback position* — not the same quantity when recovering
+      // from a mid-stream error the client hasn't played up to yet.
+      startPositionOverride?: number
     ): boolean => {
       const last = connState.lastStreamCommand;
       if (!last) return false;
@@ -329,7 +335,7 @@ export function useWebSocketConnection({
       const trackId = prevData.track_id;
       if (trackId == null) return false;
 
-      const resumePos = connState.resumeGetters[type]?.() ?? 0;
+      const resumePos = startPositionOverride ?? connState.resumeGetters[type]?.() ?? 0;
       const next: OutgoingWebSocketMessage = {
         type,
         data: {

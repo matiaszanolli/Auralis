@@ -82,7 +82,8 @@ interface WebSocketContextValue {
   // for subsequent reconnects.
   reissueActiveStreamAs: (
     type: 'play_enhanced' | 'play_normal',
-    dataOverrides?: Record<string, unknown>
+    dataOverrides?: Record<string, unknown>,
+    startPositionOverride?: number
   ) => boolean;
 }
 

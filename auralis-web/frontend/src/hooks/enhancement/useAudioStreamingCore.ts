@@ -163,6 +163,10 @@ export function useAudioStreamingCore(
   /** Epoch of the stream the current audio_stream_start opened (#4563). */
   const streamEpochRef = useRef<number | null>(null);
   const lastDispatchedProgressRef = useRef<number>(-1);
+  /** Bounds handleStreamError's auto-resume to one attempt per distinct
+   *  (trackId, recovery_position) pair, so a chunk that keeps failing at the
+   *  same recovery point can't loop the stream forever (#4655). */
+  const lastRecoveryAttemptRef = useRef<{ trackId: number; position: number } | null>(null);
 
   const [currentTime, setCurrentTime] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -394,7 +398,32 @@ export function useAudioStreamingCore(
     // skip isn't shown on the new track (#4434).
     dispatch(setStreamingError({ streamType, error: errorMsg, trackId: message.data.track_id }));
     cleanupStreaming();
-  }, [dispatch, streamType, logPrefix, cleanupStreaming, acceptsStreamType]);
+
+    // #4655: when the backend names a safe resume offset, auto-resume the
+    // stream from there instead of leaving playback dead after a mid-stream
+    // chunk failure. Bounded to one attempt per distinct (trackId,
+    // recovery_position) pair — a persistently failing chunk would otherwise
+    // keep re-arriving with the SAME recovery_position and loop forever.
+    const { recovery_position: recoveryPosition, track_id: trackId } = message.data;
+    const alreadyAttempted =
+      lastRecoveryAttemptRef.current?.trackId === trackId &&
+      lastRecoveryAttemptRef.current?.position === recoveryPosition;
+
+    if (typeof recoveryPosition === 'number' && Number.isFinite(recoveryPosition) && !alreadyAttempted) {
+      lastRecoveryAttemptRef.current = { trackId, position: recoveryPosition };
+      // message.data.stream_type is the PRODUCER's label (absent on some
+      // error paths) — 'normal' means play_normal, everything else
+      // (including undefined, since the enhanced/seek paths are this
+      // stream's default) re-issues as play_enhanced.
+      const reissueType = message.data.stream_type === 'normal' ? 'play_normal' : 'play_enhanced';
+      const reissued = wsContext.reissueActiveStreamAs(reissueType, {}, recoveryPosition);
+      if (reissued) {
+        DEBUG && console.log(
+          `${logPrefix} Auto-resuming from recovery_position=${recoveryPosition}s after chunk failure`
+        );
+      }
+    }
+  }, [dispatch, streamType, logPrefix, cleanupStreaming, acceptsStreamType, wsContext]);
 
   // #3588/#2532: ref indirection so handler identity changes don't force a
   // resubscribe — the only valid resubscribe trigger is wsContext changing
