@@ -70,6 +70,12 @@ EXEMPT: dict[str, str] = {
 }
 
 _DECORATOR_RE = re.compile(r"\s*@(?:router|app)\.(get|post|delete|put|patch)\(")
+# Routers converted under #4670 hoist their handlers to module level and
+# register them from a short assembler with explicit `add_api_route()` calls
+# instead of decorating nested closures. Those routes carry exactly the same
+# obligation, so the scanner has to recognise both spellings — matching only
+# decorators would silently drop every converted router out of the ratchet.
+_ADD_ROUTE_RE = re.compile(r"\s*(?:router|app)\.add_api_route\(")
 
 
 def _iter_route_decorators():
@@ -87,7 +93,8 @@ def _iter_route_decorators():
         lines = path.read_text().split("\n")
         for i, line in enumerate(lines):
             match = _DECORATOR_RE.match(line)
-            if not match:
+            add_match = _ADD_ROUTE_RE.match(line) if not match else None
+            if not match and not add_match:
                 continue
             # Consume until the decorator's parens balance — response_model=
             # is frequently on a continuation line.
@@ -102,13 +109,16 @@ def _iter_route_decorators():
                 j += 1
             decorator = "\n".join(chunk)
             route = re.search(r'\(\s*["\']([^"\']*)["\']', decorator)
-            yield (
-                str(rel),
-                i + 1,
-                match.group(1).upper(),
-                route.group(1) if route else "?",
-                "response_model=" in decorator,
-            )
+            route_path = route.group(1) if route else "?"
+            has_model = "response_model=" in decorator
+            if match:
+                yield (str(rel), i + 1, match.group(1).upper(), route_path, has_model)
+                continue
+            # add_api_route() takes its verbs as a list, so one call can be
+            # several routes; yield each so the ratchet counts them all.
+            methods = re.search(r"methods\s*=\s*\[([^\]]*)\]", decorator)
+            for verb in re.findall(r'["\'](\w+)["\']', methods.group(1) if methods else ""):
+                yield (str(rel), i + 1, verb.upper(), route_path, has_model)
 
 
 class TestRouteCoverage:

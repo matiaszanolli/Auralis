@@ -107,26 +107,20 @@ def library_with_artwork(tmp_path):
     # Cleanup handled by tmp_path
 
 
-def _artwork_get_route():
-    """The registered GET /api/albums/{album_id}/artwork route endpoint.
+def _artwork_get_handler():
+    """The GET /api/albums/{album_id}/artwork handler.
 
-    ``routers.artwork.router`` is a module-level singleton that only gains
-    routes once ``create_artwork_router`` runs — normally a side effect of
-    importing ``main`` (whichever test happens to trigger that first, e.g.
-    via the ``client`` fixture or the autouse rate-limit-window reset,
-    populates it for the rest of the session). Registering it explicitly
-    here — the same pattern ``test_thumbnail_cache_eviction_4532.py`` uses —
-    makes route lookup work regardless of what ran before this test, instead
-    of silently depending on incidental import order.
+    Since #4670 this is a plain module-level ``async def``, so the tests below
+    import and call it directly and pass ``repos`` as a keyword argument,
+    bypassing FastAPI's ``Depends()``. Previously the handler was a closure
+    nested in ``create_artwork_router`` and the only way to reach it was via
+    the module-level ``routers.artwork.router`` singleton, which had to be
+    populated by calling the factory first — an incidental-import-order
+    dependency, and the #4361 shared-router hazard. Both are gone.
     """
-    import routers.artwork as artwork_module
+    from routers.artwork import get_album_artwork
 
-    artwork_module.create_artwork_router(MagicMock(), lambda: MagicMock())
-    return next(
-        r for r in artwork_module.router.routes
-        if getattr(r, "path", "") == "/api/albums/{album_id}/artwork"
-        and "GET" in getattr(r, "methods", set())
-    )
+    return get_album_artwork
 
 
 # ============================================================================
@@ -326,12 +320,10 @@ def test_serve_cached_artwork(tmp_path):
 
     request = MagicMock(headers={})
 
-    with (
-        patch("routers.artwork.require_repository_factory", return_value=repos),
-        patch("routers.artwork._artwork_dirs", return_value=(artwork_dir, thumb_dir)),
-    ):
-        route = _artwork_get_route()
-        response = asyncio.run(route.endpoint(album_id=1, request=request, size=None))
+    with patch("routers.artwork._artwork_dirs", return_value=(artwork_dir, thumb_dir)):
+        response = asyncio.run(
+            _artwork_get_handler()(album_id=1, request=request, size=None, repos=repos)
+        )
 
     assert response.media_type == "image/jpeg"
     assert response.path == str(art_path)
@@ -341,12 +333,10 @@ def test_serve_cached_artwork(tmp_path):
     # Repeat request with a matching If-None-Match must be served from cache
     # as a 304, not re-sent.
     request_cached = MagicMock(headers={"if-none-match": etag})
-    with (
-        patch("routers.artwork.require_repository_factory", return_value=repos),
-        patch("routers.artwork._artwork_dirs", return_value=(artwork_dir, thumb_dir)),
-    ):
-        route = _artwork_get_route()
-        cached_response = asyncio.run(route.endpoint(album_id=1, request=request_cached, size=None))
+    with patch("routers.artwork._artwork_dirs", return_value=(artwork_dir, thumb_dir)):
+        cached_response = asyncio.run(
+            _artwork_get_handler()(album_id=1, request=request_cached, size=None, repos=repos)
+        )
 
     assert cached_response.status_code == 304
 
@@ -377,13 +367,11 @@ def test_serve_artwork_with_fallback(tmp_path):
     # The backend has no default-image asset to fall back to server-side — the
     # contract clients rely on for their own fallback UI is a clean 404 rather
     # than a crash or an ambiguous empty body.
-    with (
-        patch("routers.artwork.require_repository_factory", return_value=repos),
-        patch("routers.artwork._artwork_dirs", return_value=(artwork_dir, thumb_dir)),
-    ):
-        route = _artwork_get_route()
+    with patch("routers.artwork._artwork_dirs", return_value=(artwork_dir, thumb_dir)):
         with pytest.raises(HTTPException) as exc_info:
-            asyncio.run(route.endpoint(album_id=1, request=request, size=None))
+            asyncio.run(
+                _artwork_get_handler()(album_id=1, request=request, size=None, repos=repos)
+            )
 
     assert exc_info.value.status_code == 404
 
@@ -481,12 +469,10 @@ def test_handle_corrupted_artwork(tmp_path):
     # corrupted bytes (_get_or_create_thumbnail catches the decode failure
     # and returns None) — the endpoint must not 500, it must fall back to
     # serving the original file as-is.
-    with (
-        patch("routers.artwork.require_repository_factory", return_value=repos),
-        patch("routers.artwork._artwork_dirs", return_value=(artwork_dir, thumb_dir)),
-    ):
-        route = _artwork_get_route()
-        response = asyncio.run(route.endpoint(album_id=1, request=request, size=256))
+    with patch("routers.artwork._artwork_dirs", return_value=(artwork_dir, thumb_dir)):
+        response = asyncio.run(
+            _artwork_get_handler()(album_id=1, request=request, size=256, repos=repos)
+        )
 
     assert response.path == str(corrupt_path), "must fall back to the raw original file"
     assert not list(thumb_dir.glob("*")), "no thumbnail should have been cached from garbage bytes"
@@ -517,12 +503,10 @@ def test_handle_missing_artwork_file(tmp_path):
     repos.albums.get_by_id.return_value = album
     request = MagicMock(headers={})
 
-    with (
-        patch("routers.artwork.require_repository_factory", return_value=repos),
-        patch("routers.artwork._artwork_dirs", return_value=(artwork_dir, thumb_dir)),
-    ):
-        route = _artwork_get_route()
+    with patch("routers.artwork._artwork_dirs", return_value=(artwork_dir, thumb_dir)):
         with pytest.raises(HTTPException) as exc_info:
-            asyncio.run(route.endpoint(album_id=1, request=request, size=None))
+            asyncio.run(
+                _artwork_get_handler()(album_id=1, request=request, size=None, repos=repos)
+            )
 
     assert exc_info.value.status_code == 404

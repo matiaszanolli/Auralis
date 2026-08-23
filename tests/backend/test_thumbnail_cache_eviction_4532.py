@@ -248,7 +248,10 @@ class TestDeleteRoutePurges:
     @pytest.mark.asyncio
     async def test_delete_reads_the_path_before_clearing_and_purges(self, thumb_dir, tmp_path):
         """The path must be captured BEFORE delete_artwork discards it."""
-        from routers.artwork import create_artwork_router
+        # Since #4670 the handler is a module-level `async def`, so it is
+        # called directly with explicit repos/connection_manager instead of
+        # being dug out of a router the factory had to build first.
+        from routers.artwork import delete_album_artwork
 
         source = tmp_path / "cover.png"
         seeded = _seed_generation(thumb_dir, source.resolve())
@@ -266,20 +269,12 @@ class TestDeleteRoutePurges:
 
         manager.broadcast = _broadcast
 
-        with (
-            patch("routers.artwork.require_repository_factory", return_value=repos),
-            patch("routers.artwork._artwork_dirs", return_value=(thumb_dir.parent, thumb_dir)),
+        with patch(
+            "routers.artwork._artwork_dirs", return_value=(thumb_dir.parent, thumb_dir)
         ):
-            create_artwork_router(manager, lambda: repos)
-            # Call the handler directly via the registered route.
-            import routers.artwork as artwork_module
-
-            route = next(
-                r for r in artwork_module.router.routes
-                if getattr(r, "path", "") == "/api/albums/{album_id}/artwork"
-                and "DELETE" in getattr(r, "methods", set())
+            await delete_album_artwork(
+                album_id=1, repos=repos, connection_manager=manager
             )
-            await route.endpoint(album_id=1)
 
         assert all(not f.exists() for f in seeded)
         assert list(thumb_dir.glob(f"{thumb_path_hash(source.resolve())}_*")) == []

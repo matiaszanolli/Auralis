@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Any
 from collections.abc import Callable, Iterator
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
@@ -39,7 +39,6 @@ from .dependencies import require_repository_factory, with_error_handling
 from .errors import NotFoundError
 
 logger = logging.getLogger(__name__)
-router = APIRouter(tags=["artwork"])
 
 
 # NOTE: GET /api/albums/{album_id}/artwork has no response_model on purpose —
@@ -265,6 +264,367 @@ def _get_or_create_thumbnail(
         return None
 
 
+# ============================================================================
+# DEPENDENCY WIRING (#4670)
+#
+# create_artwork_router() used to be a 330-line closure: every handler below
+# was nested inside it purely to reach connection_manager/get_repository_factory
+# via closure capture, which made a handler impossible to import or call
+# without first building the whole router. Handlers are now module level; they
+# reach the same callables through FastAPI Depends() instead.
+#
+# _ArtworkDeps holds the raw callables/objects the factory receives. It is
+# populated exactly once, by create_artwork_router() itself -- same as the
+# old closure, which only ever ran once per process (config/routes.py calls
+# the factory a single time at startup; the test `client` fixture imports
+# the already-built `main.app` once per process too). This is a deliberate
+# simplification, not a new hazard: nothing in this codebase calls
+# create_artwork_router() more than once in the same process. It does NOT
+# reproduce the #4361 module-level-`APIRouter()` hazard, since the router
+# instance itself is still built fresh, per call, inside the factory below.
+#
+# A handler's Depends() default is only consulted when FastAPI itself
+# invokes it for a real request; a direct unit-test call passes the
+# service/dependency explicitly as a keyword argument and never touches
+# _ArtworkDeps at all -- that's the seam #4670 asked for.
+# ============================================================================
+
+class _ArtworkDeps:
+    connection_manager: Any
+    get_repository_factory: Callable[[], Any]
+
+
+_deps = _ArtworkDeps()
+
+
+def _get_connection_manager() -> Any:
+    return _deps.connection_manager
+
+
+def _get_repos() -> Any:
+    """Get repository factory for accessing repositories."""
+    return require_repository_factory(_deps.get_repository_factory)
+
+
+@with_error_handling("get artwork")
+async def get_album_artwork(
+    album_id: int,
+    request: Request,
+    size: int | None = Query(
+        None,
+        ge=16,
+        le=2048,
+        description=(
+            "Optional max dimension (px) for a downscaled thumbnail. Snaps "
+            "up to a cache bucket; omit for the full-resolution image (#4447)."
+        ),
+    ),
+    repos: Any = Depends(_get_repos),
+) -> Response:
+    """
+    Get album artwork file (with path traversal protection).
+
+    Args:
+        album_id: Album ID
+        size: Optional max dimension for a downscaled thumbnail variant.
+
+    Returns:
+        FileResponse: Artwork image file (or a size-appropriate thumbnail).
+
+    Raises:
+        HTTPException: If library manager/factory not available, album/artwork not found,
+                     or path validation fails
+    """
+    # Get album to find artwork path
+    album = await asyncio.to_thread(repos.albums.get_by_id, album_id)
+
+    if not album:
+        raise NotFoundError("Album")
+
+    if not album.artwork_path:
+        raise NotFoundError("Artwork")
+
+    # Security: Validate artwork path is within allowed directory
+    # Define allowed artwork directory (shared with the purge path, #4532)
+    artwork_dir, thumb_dir = _artwork_dirs()
+    artwork_dir.mkdir(parents=True, exist_ok=True)  # Ensure directory exists
+
+    # Resolve allowed directory (handles symlinks in base path)
+    allowed_dir = artwork_dir.resolve()
+
+    # Resolve artwork path (handles symlinks and relative paths)
+    # Use strict=False to resolve path even if file doesn't exist (for security validation)
+    try:
+        requested_path = Path(album.artwork_path).resolve(strict=False)
+    except (OSError, RuntimeError, ValueError) as e:
+        logger.warning(f"Invalid artwork path for album {album_id}: {album.artwork_path} - {e}")
+        raise HTTPException(status_code=403, detail="Access denied: invalid path")
+
+    # Security: Check that resolved path is within allowed directory
+    # This MUST happen before existence check to prevent path traversal
+    # Use is_relative_to() for safe path comparison (prevents traversal attacks)
+    if not requested_path.is_relative_to(allowed_dir):
+        logger.warning(
+            f"Path traversal attempt blocked for album {album_id}: "
+            f"requested={requested_path}, allowed_dir={allowed_dir}"
+        )
+        raise HTTPException(status_code=403, detail="Access denied: path outside artwork directory")
+
+    # Additional check: file must exist (after security validation)
+    if not requested_path.exists():
+        raise NotFoundError("Artwork")
+
+    # Detect MIME type from file extension first, then fall back to magic bytes
+    # so that PNG files with unrecognized/missing extensions are not served
+    # as image/jpeg (fixes #2510).
+    media_type, _ = mimetypes.guess_type(str(requested_path))
+    if not media_type or not media_type.startswith("image/"):
+        # Read the first 12 bytes to identify the format via magic bytes
+        def _read_header() -> bytes:
+            try:
+                with open(requested_path, "rb") as _f:
+                    return _f.read(12)
+            except OSError:
+                return b""
+        header = await asyncio.to_thread(_read_header)
+        if header[:8] == b"\x89PNG\r\n\x1a\n":
+            media_type = "image/png"
+        elif header[:3] == b"\xff\xd8\xff":
+            media_type = "image/jpeg"
+        elif header[:4] == b"RIFF" and header[8:12] == b"WEBP":
+            media_type = "image/webp"
+        elif header[:4] in (b"GIF8", b"GIF9"):
+            media_type = "image/gif"
+        else:
+            media_type = "image/jpeg"  # safest fallback for browsers
+
+    # If a thumbnail size was requested, serve a downscaled variant instead
+    # of the full-resolution bitmap (#4447). On any failure we fall back to
+    # the original, so a broken/unsupported image never 500s the request.
+    serve_path = requested_path
+    serve_media_type = media_type
+    if size is not None:
+        thumbnail = await asyncio.to_thread(
+            _get_or_create_thumbnail, requested_path, size, media_type, thumb_dir
+        )
+        if thumbnail is not None:
+            serve_path, serve_media_type = thumbnail
+
+    # Build ETag from the SERVED file's stat for conditional caching (#2864).
+    stat = serve_path.stat()
+    etag = f'"{stat.st_mtime_ns:x}-{stat.st_size:x}"'
+
+    # If client already has this version, return 304 (no body).
+    if_none_match = request.headers.get("if-none-match")
+    if if_none_match and if_none_match == etag:
+        return Response(
+            status_code=304,
+            headers={
+                "ETag": etag,
+                "Cache-Control": "public, no-cache",
+            },
+        )
+
+    # Return artwork file with ETag for conditional caching.
+    # no-cache = always revalidate, but 304 avoids re-download
+    # when content hasn't changed.
+    return FileResponse(
+        str(serve_path),
+        media_type=serve_media_type,
+        headers={
+            "ETag": etag,
+            "Cache-Control": "public, no-cache",
+        },
+    )
+
+
+@with_error_handling("extract artwork")
+async def extract_album_artwork(
+    album_id: int,
+    repos: Any = Depends(_get_repos),
+    connection_manager: Any = Depends(_get_connection_manager),
+) -> dict[str, Any]:
+    """
+    Extract artwork from album tracks.
+
+    Extracts embedded artwork from the album's audio files and saves it.
+
+    Args:
+        album_id: Album ID
+
+    Returns:
+        dict: Success message and artwork URL
+
+    Raises:
+        HTTPException: If library manager/factory not available or extraction fails
+    """
+    # The superseded generation's thumbnails are keyed on the OLD source
+    # path, which the extract below overwrites, so read it first (#4532).
+    previous = await asyncio.to_thread(repos.albums.get_by_id, album_id)
+    previous_path = previous.artwork_path if previous else None
+
+    artwork_path = await asyncio.to_thread(repos.albums.extract_and_save_artwork, album_id)
+
+    if not artwork_path:
+        raise HTTPException(
+            status_code=404,
+            detail="No artwork found in album tracks"
+        )
+
+    # Purge both paths: the old one covers a move to a new file, the new one
+    # covers an in-place overwrite (same path, fresh mtime — the old key
+    # still sits in the cache). Thumbnails render lazily, so nothing for the
+    # new generation exists yet and this cannot delete a live entry.
+    await asyncio.to_thread(_purge_album_thumbnails, previous_path, artwork_path)
+
+    # Convert filesystem path to API URL
+    artwork_url = f"/api/albums/{album_id}/artwork"
+
+    # Broadcast artwork updated event
+    await connection_manager.broadcast({
+        "type": "artwork_updated",
+        "data": {
+            "action": "extracted",
+            "album_id": album_id,
+            "artwork_url": artwork_url
+        }
+    })
+
+    return {
+        "message": "Artwork extracted successfully",
+        "artwork_url": artwork_url,  # API URL — consistent with artist serializer (fixes #2508)
+        "album_id": album_id
+    }
+
+
+@with_error_handling("delete artwork")
+async def delete_album_artwork(
+    album_id: int,
+    repos: Any = Depends(_get_repos),
+    connection_manager: Any = Depends(_get_connection_manager),
+) -> dict[str, Any]:
+    """
+    Delete album artwork.
+
+    Args:
+        album_id: Album ID
+
+    Returns:
+        dict: Success message
+
+    Raises:
+        HTTPException: If library manager/factory not available or artwork not found
+    """
+    # Idempotent DELETE per RFC 7231 §4.3.5 — a repeat call after a
+    # successful delete should NOT 404 (#3563 / BE-NEW-105). Only
+    # 404 when the album itself doesn't exist; if artwork is
+    # already gone, return success.
+    album = await asyncio.to_thread(repos.albums.get_by_id, album_id)
+    if album is None:
+        raise NotFoundError("Album", album_id)
+    # Read the source path BEFORE the row is cleared — it is the only way
+    # back to the derived thumbnails, and delete_artwork discards it (#4532).
+    source_path = album.artwork_path
+    success = await asyncio.to_thread(repos.albums.delete_artwork, album_id)
+    # If repo returns False the artwork was already absent — also
+    # success from the client's idempotency perspective.
+
+    # Drop the derived thumbnails. Runs regardless of `success` so a
+    # half-finished earlier delete (row gone, cache left) still gets cleaned
+    # up, and after the DB write so a purge failure cannot fail the request —
+    # purge_thumbnails swallows its own OSErrors for that reason.
+    await asyncio.to_thread(_purge_album_thumbnails, source_path)
+
+    # Broadcast artwork updated event (only when something actually changed)
+    if success:
+        await connection_manager.broadcast({
+            "type": "artwork_updated",
+            "data": {"action": "deleted", "album_id": album_id}
+        })
+
+    return {"message": "Artwork deleted successfully", "album_id": album_id}
+
+
+@with_error_handling("download artwork")
+async def download_album_artwork(
+    album_id: int,
+    repos: Any = Depends(_get_repos),
+    connection_manager: Any = Depends(_get_connection_manager),
+) -> dict[str, Any]:
+    """
+    Download album artwork from online sources.
+
+    Automatically searches and downloads artwork from MusicBrainz and iTunes.
+
+    Args:
+        album_id: Album ID
+
+    Returns:
+        dict: Success message and artwork path
+
+    Raises:
+        HTTPException: If library manager/factory not available or download fails
+    """
+    # Get album using repository (includes eager loading of artist)
+    album = await asyncio.to_thread(repos.albums.get_by_id, album_id)
+
+    if not album:
+        raise NotFoundError("Album")
+
+    # Get artist name (from first track if available)
+    artist_name = album.artist.name if album.artist else "Unknown Artist"
+    album_name = album.title
+
+    # Download artwork using the artwork downloader service
+    from services.artwork_downloader import get_artwork_downloader
+    downloader = get_artwork_downloader()
+
+    artwork_path = await downloader.download_artwork(
+        artist=artist_name,
+        album=album_name,
+        album_id=album_id
+    )
+
+    if not artwork_path:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No artwork found online for '{album_name}' by '{artist_name}'"
+        )
+
+    # Captured before update_artwork_path replaces it, so the superseded
+    # generation's thumbnails can still be located (#4532).
+    previous_path = album.artwork_path
+
+    # Save artwork path to database
+    updated_album = await asyncio.to_thread(repos.albums.update_artwork_path, album_id, artwork_path)
+    if not updated_album:
+        raise NotFoundError("Album")
+
+    # Same both-paths purge as the extract route above.
+    await asyncio.to_thread(_purge_album_thumbnails, previous_path, artwork_path)
+
+    # Convert filesystem path to API URL
+    artwork_url = f"/api/albums/{album_id}/artwork"
+
+    # Broadcast artwork updated event
+    await connection_manager.broadcast({
+        "type": "artwork_updated",
+        "data": {
+            "action": "downloaded",
+            "album_id": album_id,
+            "artwork_url": artwork_url
+        }
+    })
+
+    return {
+        "message": "Artwork downloaded successfully",
+        "artwork_url": artwork_url,  # API URL, not filesystem path
+        "album_id": album_id,
+        "artist": artist_name,
+        "album": album_name
+    }
+
+
 def create_artwork_router(
     connection_manager: Any,
     get_repository_factory: Callable[[], Any]
@@ -282,319 +642,26 @@ def create_artwork_router(
     Note:
         Phase 6B: Fully migrated to RepositoryFactory pattern (no LibraryManager fallback)
     """
+    _deps.connection_manager = connection_manager
+    _deps.get_repository_factory = get_repository_factory
 
-    def get_repos() -> Any:
-        """Get repository factory for accessing repositories."""
-        return require_repository_factory(get_repository_factory)
+    router = APIRouter(tags=["artwork"])
 
-    @router.get("/api/albums/{album_id}/artwork")
-    @with_error_handling("get artwork")
-    async def get_album_artwork(
-        album_id: int,
-        request: Request,
-        size: int | None = Query(
-            None,
-            ge=16,
-            le=2048,
-            description=(
-                "Optional max dimension (px) for a downscaled thumbnail. Snaps "
-                "up to a cache bucket; omit for the full-resolution image (#4447)."
-            ),
-        ),
-    ) -> Response:
-        """
-        Get album artwork file (with path traversal protection).
-
-        Args:
-            album_id: Album ID
-            size: Optional max dimension for a downscaled thumbnail variant.
-
-        Returns:
-            FileResponse: Artwork image file (or a size-appropriate thumbnail).
-
-        Raises:
-            HTTPException: If library manager/factory not available, album/artwork not found,
-                         or path validation fails
-        """
-        repos = get_repos()
-        # Get album to find artwork path
-        album = await asyncio.to_thread(repos.albums.get_by_id, album_id)
-
-        if not album:
-            raise NotFoundError("Album")
-
-        if not album.artwork_path:
-            raise NotFoundError("Artwork")
-
-        # Security: Validate artwork path is within allowed directory
-        # Define allowed artwork directory (shared with the purge path, #4532)
-        artwork_dir, thumb_dir = _artwork_dirs()
-        artwork_dir.mkdir(parents=True, exist_ok=True)  # Ensure directory exists
-
-        # Resolve allowed directory (handles symlinks in base path)
-        allowed_dir = artwork_dir.resolve()
-
-        # Resolve artwork path (handles symlinks and relative paths)
-        # Use strict=False to resolve path even if file doesn't exist (for security validation)
-        try:
-            requested_path = Path(album.artwork_path).resolve(strict=False)
-        except (OSError, RuntimeError, ValueError) as e:
-            logger.warning(f"Invalid artwork path for album {album_id}: {album.artwork_path} - {e}")
-            raise HTTPException(status_code=403, detail="Access denied: invalid path")
-
-        # Security: Check that resolved path is within allowed directory
-        # This MUST happen before existence check to prevent path traversal
-        # Use is_relative_to() for safe path comparison (prevents traversal attacks)
-        if not requested_path.is_relative_to(allowed_dir):
-            logger.warning(
-                f"Path traversal attempt blocked for album {album_id}: "
-                f"requested={requested_path}, allowed_dir={allowed_dir}"
-            )
-            raise HTTPException(status_code=403, detail="Access denied: path outside artwork directory")
-
-        # Additional check: file must exist (after security validation)
-        if not requested_path.exists():
-            raise NotFoundError("Artwork")
-
-        # Detect MIME type from file extension first, then fall back to magic bytes
-        # so that PNG files with unrecognized/missing extensions are not served
-        # as image/jpeg (fixes #2510).
-        media_type, _ = mimetypes.guess_type(str(requested_path))
-        if not media_type or not media_type.startswith("image/"):
-            # Read the first 12 bytes to identify the format via magic bytes
-            def _read_header() -> bytes:
-                try:
-                    with open(requested_path, "rb") as _f:
-                        return _f.read(12)
-                except OSError:
-                    return b""
-            header = await asyncio.to_thread(_read_header)
-            if header[:8] == b"\x89PNG\r\n\x1a\n":
-                media_type = "image/png"
-            elif header[:3] == b"\xff\xd8\xff":
-                media_type = "image/jpeg"
-            elif header[:4] == b"RIFF" and header[8:12] == b"WEBP":
-                media_type = "image/webp"
-            elif header[:4] in (b"GIF8", b"GIF9"):
-                media_type = "image/gif"
-            else:
-                media_type = "image/jpeg"  # safest fallback for browsers
-
-        # If a thumbnail size was requested, serve a downscaled variant instead
-        # of the full-resolution bitmap (#4447). On any failure we fall back to
-        # the original, so a broken/unsupported image never 500s the request.
-        serve_path = requested_path
-        serve_media_type = media_type
-        if size is not None:
-            thumbnail = await asyncio.to_thread(
-                _get_or_create_thumbnail, requested_path, size, media_type, thumb_dir
-            )
-            if thumbnail is not None:
-                serve_path, serve_media_type = thumbnail
-
-        # Build ETag from the SERVED file's stat for conditional caching (#2864).
-        stat = serve_path.stat()
-        etag = f'"{stat.st_mtime_ns:x}-{stat.st_size:x}"'
-
-        # If client already has this version, return 304 (no body).
-        if_none_match = request.headers.get("if-none-match")
-        if if_none_match and if_none_match == etag:
-            return Response(
-                status_code=304,
-                headers={
-                    "ETag": etag,
-                    "Cache-Control": "public, no-cache",
-                },
-            )
-
-        # Return artwork file with ETag for conditional caching.
-        # no-cache = always revalidate, but 304 avoids re-download
-        # when content hasn't changed.
-        return FileResponse(
-            str(serve_path),
-            media_type=serve_media_type,
-            headers={
-                "ETag": etag,
-                "Cache-Control": "public, no-cache",
-            },
-        )
-
-    @router.post("/api/albums/{album_id}/artwork/extract", response_model=ArtworkExtractResponse)
-    @with_error_handling("extract artwork")
-    async def extract_album_artwork(album_id: int) -> dict[str, Any]:
-        """
-        Extract artwork from album tracks.
-
-        Extracts embedded artwork from the album's audio files and saves it.
-
-        Args:
-            album_id: Album ID
-
-        Returns:
-            dict: Success message and artwork URL
-
-        Raises:
-            HTTPException: If library manager/factory not available or extraction fails
-        """
-        repos = get_repos()
-        # The superseded generation's thumbnails are keyed on the OLD source
-        # path, which the extract below overwrites, so read it first (#4532).
-        previous = await asyncio.to_thread(repos.albums.get_by_id, album_id)
-        previous_path = previous.artwork_path if previous else None
-
-        artwork_path = await asyncio.to_thread(repos.albums.extract_and_save_artwork, album_id)
-
-        if not artwork_path:
-            raise HTTPException(
-                status_code=404,
-                detail="No artwork found in album tracks"
-            )
-
-        # Purge both paths: the old one covers a move to a new file, the new one
-        # covers an in-place overwrite (same path, fresh mtime — the old key
-        # still sits in the cache). Thumbnails render lazily, so nothing for the
-        # new generation exists yet and this cannot delete a live entry.
-        await asyncio.to_thread(_purge_album_thumbnails, previous_path, artwork_path)
-
-        # Convert filesystem path to API URL
-        artwork_url = f"/api/albums/{album_id}/artwork"
-
-        # Broadcast artwork updated event
-        await connection_manager.broadcast({
-            "type": "artwork_updated",
-            "data": {
-                "action": "extracted",
-                "album_id": album_id,
-                "artwork_url": artwork_url
-            }
-        })
-
-        return {
-            "message": "Artwork extracted successfully",
-            "artwork_url": artwork_url,  # API URL — consistent with artist serializer (fixes #2508)
-            "album_id": album_id
-        }
-
-    @router.delete("/api/albums/{album_id}/artwork", response_model=ArtworkDeleteResponse)
-    @with_error_handling("delete artwork")
-    async def delete_album_artwork(album_id: int) -> dict[str, Any]:
-        """
-        Delete album artwork.
-
-        Args:
-            album_id: Album ID
-
-        Returns:
-            dict: Success message
-
-        Raises:
-            HTTPException: If library manager/factory not available or artwork not found
-        """
-        repos = get_repos()
-        # Idempotent DELETE per RFC 7231 §4.3.5 — a repeat call after a
-        # successful delete should NOT 404 (#3563 / BE-NEW-105). Only
-        # 404 when the album itself doesn't exist; if artwork is
-        # already gone, return success.
-        album = await asyncio.to_thread(repos.albums.get_by_id, album_id)
-        if album is None:
-            raise NotFoundError("Album", album_id)
-        # Read the source path BEFORE the row is cleared — it is the only way
-        # back to the derived thumbnails, and delete_artwork discards it (#4532).
-        source_path = album.artwork_path
-        success = await asyncio.to_thread(repos.albums.delete_artwork, album_id)
-        # If repo returns False the artwork was already absent — also
-        # success from the client's idempotency perspective.
-
-        # Drop the derived thumbnails. Runs regardless of `success` so a
-        # half-finished earlier delete (row gone, cache left) still gets cleaned
-        # up, and after the DB write so a purge failure cannot fail the request —
-        # purge_thumbnails swallows its own OSErrors for that reason.
-        await asyncio.to_thread(_purge_album_thumbnails, source_path)
-
-        # Broadcast artwork updated event (only when something actually changed)
-        if success:
-            await connection_manager.broadcast({
-                "type": "artwork_updated",
-                "data": {"action": "deleted", "album_id": album_id}
-            })
-
-        return {"message": "Artwork deleted successfully", "album_id": album_id}
-
-    @router.post("/api/albums/{album_id}/artwork/download", response_model=ArtworkDownloadResponse)
-    @with_error_handling("download artwork")
-    async def download_album_artwork(album_id: int) -> dict[str, Any]:
-        """
-        Download album artwork from online sources.
-
-        Automatically searches and downloads artwork from MusicBrainz and iTunes.
-
-        Args:
-            album_id: Album ID
-
-        Returns:
-            dict: Success message and artwork path
-
-        Raises:
-            HTTPException: If library manager/factory not available or download fails
-        """
-        repos = get_repos()
-        # Get album using repository (includes eager loading of artist)
-        album = await asyncio.to_thread(repos.albums.get_by_id, album_id)
-
-        if not album:
-            raise NotFoundError("Album")
-
-        # Get artist name (from first track if available)
-        artist_name = album.artist.name if album.artist else "Unknown Artist"
-        album_name = album.title
-
-        # Download artwork using the artwork downloader service
-        from services.artwork_downloader import get_artwork_downloader
-        downloader = get_artwork_downloader()
-
-        artwork_path = await downloader.download_artwork(
-            artist=artist_name,
-            album=album_name,
-            album_id=album_id
-        )
-
-        if not artwork_path:
-            raise HTTPException(
-                status_code=404,
-                detail=f"No artwork found online for '{album_name}' by '{artist_name}'"
-            )
-
-        # Captured before update_artwork_path replaces it, so the superseded
-        # generation's thumbnails can still be located (#4532).
-        previous_path = album.artwork_path
-
-        # Save artwork path to database
-        updated_album = await asyncio.to_thread(repos.albums.update_artwork_path, album_id, artwork_path)
-        if not updated_album:
-            raise NotFoundError("Album")
-
-        # Same both-paths purge as the extract route above.
-        await asyncio.to_thread(_purge_album_thumbnails, previous_path, artwork_path)
-
-        # Convert filesystem path to API URL
-        artwork_url = f"/api/albums/{album_id}/artwork"
-
-        # Broadcast artwork updated event
-        await connection_manager.broadcast({
-            "type": "artwork_updated",
-            "data": {
-                "action": "downloaded",
-                "album_id": album_id,
-                "artwork_url": artwork_url
-            }
-        })
-
-        return {
-            "message": "Artwork downloaded successfully",
-            "artwork_url": artwork_url,  # API URL, not filesystem path
-            "album_id": album_id,
-            "artist": artist_name,
-            "album": album_name
-        }
+    # GET stays first: it is the only route on the bare `/artwork` path, and the
+    # `/artwork/extract` + `/artwork/download` literals below must keep their
+    # original relative order for path matching to be unchanged.
+    router.add_api_route("/api/albums/{album_id}/artwork", get_album_artwork, methods=["GET"])
+    router.add_api_route(
+        "/api/albums/{album_id}/artwork/extract", extract_album_artwork,
+        methods=["POST"], response_model=ArtworkExtractResponse,
+    )
+    router.add_api_route(
+        "/api/albums/{album_id}/artwork", delete_album_artwork,
+        methods=["DELETE"], response_model=ArtworkDeleteResponse,
+    )
+    router.add_api_route(
+        "/api/albums/{album_id}/artwork/download", download_album_artwork,
+        methods=["POST"], response_model=ArtworkDownloadResponse,
+    )
 
     return router
