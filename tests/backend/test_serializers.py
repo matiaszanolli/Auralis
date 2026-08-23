@@ -320,11 +320,26 @@ class TestAlbumDetailSharesTheListingShape:
         assert not hasattr(serializers_module, 'serialize_album_detail')
 
     def test_detail_route_uses_the_listing_serializer_and_model(self):
-        source = (_backend_dir / "routers" / "albums.py").read_text()
-        detail = source.split('@router.get("/api/albums/{album_id}"', 1)[1]
-        detail = detail.split("@router.get", 1)[0]
-        assert "response_model=AlbumResponse" in detail
-        assert "return serialize_album(album)" in detail
+        """get_album must register with AlbumResponse and return serialize_album().
+
+        #4670 hoisted albums.py's handlers to module level and switched
+        registration from `@router.get(...)` decorators to
+        `router.add_api_route(...)` calls in a short assembler -- there is no
+        single decorated block to slice out of the source anymore, so the two
+        assertions are checked against their own sources instead.
+        """
+        import inspect
+
+        import routers.albums as albums_module
+
+        handler_source = inspect.getsource(albums_module.get_album)
+        assert "return serialize_album(album)" in handler_source
+
+        factory_source = inspect.getsource(albums_module.create_albums_router)
+        assert 'router.add_api_route("/api/albums/{album_id}", get_album' in factory_source
+        assert "response_model=AlbumResponse" in factory_source.split(
+            'router.add_api_route("/api/albums/{album_id}", get_album', 1
+        )[1].split("\n", 1)[0]
 
     def test_emits_snake_case_only(self):
         album = self._make_album(track_count=2, total_duration=300.0)
