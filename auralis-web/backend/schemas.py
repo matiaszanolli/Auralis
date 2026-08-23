@@ -367,23 +367,13 @@ class WebSocketErrorResponse(BaseModel):
     })
 
 
-# ============================================================================
-# Request Parameter Models
-# ============================================================================
-
-class PaginationParams(BaseModel):
-    """Standard pagination query parameters."""
-    limit: int = Field(default=50, ge=1, le=500, description="Items per page (1–500)")
-    offset: int = Field(default=0, ge=0, description="Number of items to skip")
-
-
 # ---------------------------------------------------------------------------
 # Request-body constraints (#4681)
 # ---------------------------------------------------------------------------
 
 # The query-parameter surface has always been constrained — `Query(50, ge=1,
-# le=200)` and `PaginationParams` above — while the player/queue *body* models
-# accepted any int. A negative index or a `track_id` of -1 therefore reached
+# le=200)` and `routers.pagination.PaginationParams` — while the player/queue
+# *body* models accepted any int. A negative index or a `track_id` of -1 therefore reached
 # QueueService and the engine queue, where the failure mode is a 500 or a
 # silently wrong queue position rather than a 422 naming the offending field.
 #

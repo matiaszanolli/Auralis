@@ -94,3 +94,22 @@ class TestPaginationParamsConstants:
 
     def test_min_limit_less_than_default(self):
         assert PaginationParams.MIN_LIMIT < PaginationParams.DEFAULT_LIMIT
+
+
+class TestRouterQueryReferencesTheCanonicalCap:
+    """#4761 regression guard: routers must reference PaginationParams.MAX_LIMIT,
+    not a bare literal that happens to match today and can silently drift
+    tomorrow. schemas.PaginationParams (a second, incompatible class capped at
+    500) was deleted for the same reason — two definitions of "the" pagination
+    cap is exactly how a drift like that goes unnoticed."""
+
+    @pytest.mark.parametrize("router_module", ["albums", "artists", "tracks", "playlists"])
+    def test_query_declarations_reference_max_limit_by_name(self, router_module):
+        import inspect
+        import importlib
+
+        source = inspect.getsource(importlib.import_module(f"routers.{router_module}"))
+        assert "PaginationParams.MAX_LIMIT" in source, (
+            f"routers/{router_module}.py must reference PaginationParams.MAX_LIMIT "
+            "in its Query(...) declarations rather than a hardcoded literal"
+        )

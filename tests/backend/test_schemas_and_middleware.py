@@ -24,51 +24,15 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web/backen
 
 from schemas import (
     LibraryScanRequest,
-    PaginationParams,
     WebSocketErrorResponse,
     WebSocketMessageBase,
     WebSocketMessageType,
 )
 
-# ============================================================================
-# Schema Tests
-# ============================================================================
-
-
-class TestPaginationSchemas:
-    """Test pagination-related schemas."""
-
-    def test_pagination_params_validation(self):
-        """Test PaginationParams validation."""
-        # Valid params
-        params = PaginationParams(limit=50, offset=0)
-        assert params.limit == 50
-        assert params.offset == 0
-
-        # Default values
-        params = PaginationParams()
-        assert params.limit == 50
-        assert params.offset == 0
-
-    def test_pagination_params_constraints(self):
-        """Test PaginationParams constraints."""
-        # Limit must be at least 1
-        with pytest.raises(ValueError):
-            PaginationParams(limit=0)
-
-        # Limit max is 500 - values above are rejected by Pydantic validation
-        with pytest.raises(ValueError):
-            PaginationParams(limit=600)
-
-        # Boundary test: limit=500 should be valid
-        params = PaginationParams(limit=500)
-        assert params.limit == 500
-
-        # Offset cannot be negative
-        with pytest.raises(ValueError):
-            PaginationParams(offset=-1)
-
-
+# schemas.PaginationParams (capped limit at 500) was deleted (#4761): it had
+# zero production importers and disagreed with the class actually wired into
+# routers, routers.pagination.PaginationParams (capped at 200) — see
+# tests/backend/test_pagination.py for that one's coverage.
 
 # ============================================================================
 # Helper Function Tests
