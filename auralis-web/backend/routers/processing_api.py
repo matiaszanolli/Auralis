@@ -15,10 +15,11 @@ import logging
 import tempfile
 import uuid
 from collections.abc import Callable
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from core.processing_engine import ProcessingEngine, ProcessingStatus
 from pydantic import BaseModel, Field, ValidationError, model_validator
@@ -197,15 +198,654 @@ class CleanupResponse(BaseModel):
     removed: int
 
 
+# ============================================================================
+# DEPENDENCY WIRING (#4670)
+#
+# create_processing_router() used to be a 570-line closure: every handler
+# below was nested inside it purely to reach get_processing_engine /
+# get_enhancement_settings through closure capture, which made a handler
+# impossible to import or call without first building the whole router.
+# Handlers are now module level; they reach the same callables through
+# FastAPI Depends() instead.
+#
+# _ProcessingDeps holds the raw callables the factory receives. `_deps` is the
+# module-level holder, populated by create_processing_router() itself -- in
+# production that happens exactly once per process (config/routes.py calls the
+# factory a single time at startup).
+#
+# Unlike the player router (#4670's first slice), this factory *is* called
+# more than once per process: tests/backend/test_processing_api.py builds a
+# fresh router per test around a mock engine while main.app's own router --
+# built at import time with the real engine getter *and* the enhancement
+# settings getter -- is still live in the same process. A single module-level
+# holder would be last-writer-wins across those routers, so a later test
+# driving main.app (e.g. tests/backend/test_processing_parameters.py) would
+# silently get the mock engine and a None enhancement-settings getter.
+# Each factory call therefore also builds its own _ProcessingDeps, published
+# for the duration of a request by a router-level dependency (_bind_deps)
+# into the _current_deps ContextVar: router-level dependencies are solved
+# before the handler's own Depends(), and a ContextVar set inside an async
+# dependency stays visible for the rest of that request's task, so every
+# provider below resolves against the deps of the router that matched.
+# `_deps` stays as the fallback for anything resolved outside a request.
+#
+# A handler's Depends() default is only consulted when FastAPI itself invokes
+# it for a real request; a direct unit-test call passes the dependency
+# explicitly as a keyword argument and never touches _ProcessingDeps or the
+# ContextVar at all -- that is the seam #4670 asked for.
+# ============================================================================
+
+class _ProcessingDeps:
+    """Raw dependencies one create_processing_router() call was handed."""
+
+    def __init__(
+        self,
+        get_processing_engine: Callable[[], ProcessingEngine | None] | None = None,
+        get_enhancement_settings: Callable[[], dict[str, Any]] | None = None,
+    ) -> None:
+        self.get_processing_engine: Callable[[], ProcessingEngine | None] = (
+            get_processing_engine if get_processing_engine is not None else (lambda: None)
+        )
+        self.get_enhancement_settings = get_enhancement_settings
+
+
+_deps = _ProcessingDeps()
+
+_current_deps: ContextVar[_ProcessingDeps] = ContextVar(
+    "auralis_processing_deps", default=_deps
+)
+
+
+def _make_deps_binder(deps: _ProcessingDeps) -> Callable[[], Any]:
+    """Build the router-level dependency that publishes `deps` per request.
+
+    One binder per create_processing_router() call; see the DEPENDENCY WIRING
+    note above for why the deps are not read straight off a single global.
+    """
+    async def _bind_deps() -> None:
+        _current_deps.set(deps)
+
+    return _bind_deps
+
+
+def _get_processing_engine() -> ProcessingEngine | None:
+    """Live ProcessingEngine, or None when it has not been initialised."""
+    return _current_deps.get().get_processing_engine()
+
+
+def _get_enhancement_settings() -> Callable[[], dict[str, Any]] | None:
+    """The enhancement-settings *getter*, or None when the factory omitted it.
+
+    Returns the callable rather than the settings dict so GET /parameters can
+    still tell "not wired up" (503) from "wired up and empty" (#5073), exactly
+    as it did when it read the closure variable directly.
+    """
+    return _current_deps.get().get_enhancement_settings
+
+
+@with_error_handling("submit processing job")
+async def process_audio(
+    request: ProcessRequest,
+    engine: ProcessingEngine | None = Depends(_get_processing_engine),
+) -> ProcessResponse:
+    """
+    Submit an audio file for processing.
+    Returns a job ID that can be used to track progress.
+    """
+    if not engine:
+        raise HTTPException(status_code=503, detail="Processing engine not available")
+
+    try:
+        # Validate input path against allowed directories (#2559)
+        try:
+            validated_input = validate_file_path(
+                request.input_path, context="input_path"
+            )
+        except PathValidationError:
+            # validate_file_path logs it once with the context above (#4925).
+            raise HTTPException(status_code=400, detail="Invalid or inaccessible input path")
+
+        # A "reference" job with no reference is not a meaningful adaptive
+        # fallback — the caller asked for their reference to be matched.
+        # Fail fast and say so, rather than silently returning
+        # adaptive-mastered audio labelled as a reference job (#4735).
+        if request.settings.mode == "reference" and not request.reference_path:
+            raise HTTPException(
+                status_code=422,
+                detail="mode='reference' requires a reference_path",
+            )
+
+        validated_reference: Path | None = None
+        if request.reference_path:
+            try:
+                validated_reference = validate_file_path(
+                    request.reference_path, context="reference_path"
+                )
+            except PathValidationError:
+                # validate_file_path logs it once with the context above (#4925).
+                raise HTTPException(status_code=400, detail="Invalid or inaccessible reference path")
+
+        # Create processing job
+        job = await engine.create_job(
+            input_path=str(validated_input),
+            settings=request.settings.model_dump(),
+            mode=request.settings.mode,
+            reference_path=str(validated_reference) if validated_reference else None
+        )
+
+        # Submit to queue
+        try:
+            job_id = await engine.submit_job(job)
+        except asyncio.QueueFull:
+            raise HTTPException(
+                status_code=503,
+                detail="Processing queue is full, please try again later",
+            )
+
+        # Debug, not info (#3844): input_path is an absolute media-library path.
+        logger.debug(f"Processing job {job_id} submitted for {request.input_path}")
+
+        return ProcessResponse(
+            job_id=job_id,
+            status=ProcessingStatus.QUEUED,
+            message="Processing job submitted successfully"
+        )
+
+    # @with_error_handling maps anything else — notably OperationalError
+    # -> retryable 503 (#4605). This arm is kept only so the try: stays
+    # valid without re-indenting the whole body.
+    except HTTPException:
+        raise
+
+
+@with_error_handling("upload and process")
+async def upload_and_process(
+    file: UploadFile = File(...),
+    settings: str = Form(...),  # JSON string of ProcessingSettings
+    engine: ProcessingEngine | None = Depends(_get_processing_engine),
+) -> ProcessResponse:
+    """
+    Upload an audio file and immediately submit for processing.
+    Combines file upload and processing submission in one request.
+    """
+    if not engine:
+        raise HTTPException(status_code=503, detail="Processing engine not available")
+
+    try:
+        # Parse settings from JSON string. Malformed client input (bad
+        # JSON, or a shape ProcessingSettings rejects) is a 400, not the
+        # generic 500 both used to fall through to via the bare
+        # `except Exception` below — that loose behavior was masked by
+        # a test assertion permitting 500 as an acceptable outcome
+        # (#4788) until it was tightened and caught this.
+        import json
+        try:
+            settings_dict = json.loads(settings)
+        except json.JSONDecodeError as e:
+            raise HTTPException(status_code=400, detail=f"Invalid settings JSON: {e}")
+        try:
+            processing_settings = ProcessingSettings(**settings_dict)
+        except (TypeError, ValidationError) as e:
+            raise HTTPException(status_code=400, detail=f"Invalid processing settings: {e}")
+
+        # Save uploaded file to temp location
+        temp_dir = Path(tempfile.gettempdir()) / UPLOAD_TEMP_DIRNAME
+        temp_dir.mkdir(exist_ok=True)
+
+        # Enforce size limit before reading the whole body (#2560)
+        content = await file.read(_MAX_UPLOAD_BYTES + 1)
+        if len(content) > _MAX_UPLOAD_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File too large (max {_MAX_UPLOAD_BYTES // 1024 // 1024} MB)"
+            )
+
+        # Reject files whose magic bytes don't match a known audio format (#2560)
+        if not _is_valid_audio_magic(content):
+            raise HTTPException(
+                status_code=415,
+                detail="Unsupported or invalid audio file format"
+            )
+
+        # Use a UUID filename to prevent client-controlled path injection (#2560).
+        # Open with "xb" (exclusive create) to prevent TOCTOU: if another process
+        # created a symlink at this path between path selection and open, the
+        # kernel raises FileExistsError rather than following the symlink (fixes #2170).
+        original_ext = Path(file.filename or "").suffix.lower()
+        if original_ext not in _ALLOWED_AUDIO_EXTENSIONS:
+            original_ext = ".bin"
+        input_path = temp_dir / f"{uuid.uuid4()}{original_ext}"
+        with open(input_path, "xb") as f:
+            f.write(content)
+
+        # Debug, not info (#3844): avoid logging absolute filesystem paths.
+        logger.debug(f"Uploaded file saved to {input_path}")
+
+        # Create and submit job — clean up temp file on failure (#3223)
+        try:
+            job = await engine.create_job(
+                input_path=str(input_path),
+                settings=processing_settings.model_dump(),
+                mode=processing_settings.mode
+            )
+
+            try:
+                job_id = await engine.submit_job(job)
+            except asyncio.QueueFull:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Processing queue is full, please try again later",
+                )
+
+            return ProcessResponse(
+                job_id=job_id,
+                status=ProcessingStatus.QUEUED,
+                message=f"File {file.filename} uploaded and queued for processing"
+            )
+        except Exception:
+            # Clean up orphaned temp file on any failure after write
+            input_path.unlink(missing_ok=True)
+            raise
+
+    # See the note on process_audio above (#4605).
+    except HTTPException:
+        raise
+
+
+@with_error_handling("get job status")
+async def get_job_status(
+    job_id: str,
+    engine: ProcessingEngine | None = Depends(_get_processing_engine),
+) -> JobStatusResponse:
+    """Get the status of a processing job"""
+    if not engine:
+        raise HTTPException(status_code=503, detail="Processing engine not available")
+
+    job = await engine.get_job(job_id)
+    if not job:
+        raise NotFoundError("Job")
+
+    return JobStatusResponse(
+        job_id=job.job_id,
+        status=job.status,
+        progress=job.progress,
+        error_message=job.error_message,
+        result_data=job.result_data
+    )
+
+
+@with_error_handling("download job result")
+async def download_result(
+    job_id: str,
+    engine: ProcessingEngine | None = Depends(_get_processing_engine),
+) -> FileResponse:
+    """
+    Download the processed audio file.
+    Only available when job status is 'completed'.
+    """
+    if not engine:
+        raise HTTPException(status_code=503, detail="Processing engine not available")
+
+    job = await engine.get_job(job_id)
+    if not job:
+        raise NotFoundError("Job")
+
+    if job.status != ProcessingStatus.COMPLETED:
+        raise HTTPException(status_code=400, detail=f"Job not completed (status: {job.status.value})")
+
+    # A job that reached COMPLETED without output_path set is an
+    # engine-layer bug, not a client error — but Path(None) raises an
+    # unhandled TypeError rather than a typed response (#4736).
+    if not job.output_path:
+        logger.error(f"Job {job_id} is COMPLETED but has no output_path set")
+        raise HTTPException(status_code=500, detail="Job completed but produced no output file")
+
+    output_path = Path(job.output_path).resolve()
+
+    # Validate output path is within the expected temp directory (#2561)
+    allowed_output_base = Path(tempfile.gettempdir()).resolve()
+    try:
+        output_path.relative_to(allowed_output_base)
+    except ValueError:
+        logger.error(f"Job {job_id} output path outside expected directory: {output_path}")
+        raise HTTPException(status_code=500, detail="Output path configuration error")
+
+    if not output_path.exists():
+        raise NotFoundError("Output file")
+
+    # Determine media type based on file extension
+    media_types = {
+        ".wav": "audio/wav",
+        ".flac": "audio/flac",
+        ".mp3": "audio/mpeg",
+    }
+    media_type = media_types.get(output_path.suffix, "application/octet-stream")
+
+    return FileResponse(
+        path=str(output_path),
+        media_type=media_type,
+        filename=f"auralis_processed{output_path.suffix}"
+    )
+
+
+@with_error_handling("cancel job")
+async def cancel_job(
+    job_id: str,
+    engine: ProcessingEngine | None = Depends(_get_processing_engine),
+) -> dict[str, Any]:
+    """Cancel a queued or processing job"""
+    if not engine:
+        raise HTTPException(status_code=503, detail="Processing engine not available")
+
+    success = await engine.cancel_job(job_id)
+    if not success:
+        # Check if job exists to provide correct error
+        job = await engine.get_job(job_id)
+        if not job:
+            raise NotFoundError("Job")
+        raise HTTPException(status_code=400, detail="Job cannot be cancelled (already completed)")
+
+    return {"message": "Job cancelled successfully", "job_id": job_id}
+
+
+@with_error_handling("list jobs")
+async def list_jobs(
+    status: ProcessingStatus | None = None,
+    limit: int = Query(50, ge=1, le=1000),
+    engine: ProcessingEngine | None = Depends(_get_processing_engine),
+) -> dict[str, Any]:
+    """List all processing jobs, optionally filtered by status.
+
+    `status` is the enum rather than `str` + a hand-rolled check (#3896):
+    FastAPI now rejects an unknown value at the boundary with 422, matching
+    how `limit` already behaves, and OpenAPI documents the valid values.
+    """
+    if not engine:
+        raise HTTPException(status_code=503, detail="Processing engine not available")
+
+    jobs = engine.get_all_jobs()
+
+    # Filter by status if provided. FastAPI has already coerced and
+    # validated the value, so no manual membership check is needed.
+    if status:
+        jobs = [j for j in jobs if j.status == status]
+
+    # Limit results
+    jobs = jobs[:limit]
+
+    return {
+        "jobs": [job.to_dict() for job in jobs],
+        "total": len(jobs)
+    }
+
+
+@with_error_handling("get queue status")
+async def get_queue_status(
+    engine: ProcessingEngine | None = Depends(_get_processing_engine),
+) -> dict[str, Any]:
+    """Get current processing queue status"""
+    if not engine:
+        raise HTTPException(status_code=503, detail="Processing engine not available")
+
+    return engine.get_queue_status()
+
+
+async def get_processing_presets() -> dict[str, Any]:
+    """Get available processing presets"""
+    presets = {
+        "adaptive": {
+            "name": "Adaptive Mastering",
+            "description": "Intelligent content-aware mastering without reference",
+            "mode": "adaptive",
+            "settings": {
+                "eq": {"enabled": True},
+                "dynamics": {"enabled": True},
+                "level_matching": {"enabled": True, "target_lufs": -16}
+            }
+        },
+        "gentle": {
+            "name": "Gentle Enhancement",
+            "description": "Subtle improvements preserving original character",
+            "mode": "adaptive",
+            "settings": {
+                "eq": {
+                    "enabled": True,
+                    "low": 1,
+                    "low_mid": 0.5,
+                    "mid": 0,
+                    "high_mid": 1,
+                    "high": 2
+                },
+                "dynamics": {
+                    "enabled": True,
+                    "compressor": {
+                        "threshold": -24,
+                        "ratio": 2,
+                        "attack": 10,
+                        "release": 200
+                    }
+                }
+            }
+        },
+        "warm": {
+            "name": "Warm & Rich",
+            "description": "Enhanced low end with warm mid range",
+            "mode": "adaptive",
+            "settings": {
+                "eq": {
+                    "enabled": True,
+                    "low": 2,
+                    "low_mid": 1,
+                    "mid": -0.5,
+                    "high_mid": 0,
+                    "high": 1
+                },
+                "dynamics": {
+                    "enabled": True,
+                    "compressor": {
+                        "threshold": -20,
+                        "ratio": 3,
+                        "attack": 5,
+                        "release": 150
+                    }
+                }
+            }
+        },
+        "bright": {
+            "name": "Bright & Crisp",
+            "description": "Enhanced clarity and presence",
+            "mode": "adaptive",
+            "settings": {
+                "eq": {
+                    "enabled": True,
+                    "low": -1,
+                    "low_mid": 0,
+                    "mid": 1,
+                    "high_mid": 2,
+                    "high": 3
+                },
+                "dynamics": {
+                    "enabled": True,
+                    "compressor": {
+                        "threshold": -16,
+                        "ratio": 4,
+                        "attack": 1,
+                        "release": 50
+                    }
+                }
+            }
+        },
+        "punchy": {
+            "name": "Punchy & Dynamic",
+            "description": "Strong bass and aggressive dynamics",
+            "mode": "adaptive",
+            "settings": {
+                "eq": {
+                    "enabled": True,
+                    "low": 3,
+                    "low_mid": 1,
+                    "mid": 0,
+                    "high_mid": 1,
+                    "high": 2
+                },
+                "dynamics": {
+                    "enabled": True,
+                    "compressor": {
+                        "threshold": -12,
+                        "ratio": 6,
+                        "attack": 0.5,
+                        "release": 30
+                    }
+                }
+            }
+        }
+    }
+
+    return {"presets": presets}
+
+
+async def get_processing_parameters(
+    get_enhancement_settings: Callable[[], dict[str, Any]] | None = Depends(
+        _get_enhancement_settings
+    ),
+) -> dict[str, Any]:
+    """
+    Get current processing parameters from the continuous space system.
+    This shows what the auto-mastering engine is doing in real-time.
+
+    Reads from the global content profile cache populated by ChunkedAudioProcessor
+    during streaming playback.
+
+    Moved here from routers/enhancement.py (#5073) so GET /api/processing/parameters
+    is gated behind HAS_PROCESSING like its 8 siblings under this router, instead
+    of being unconditionally registered while the rest of the /api/processing
+    namespace can be absent in a degraded build.
+
+    Returns:
+        dict: Processing parameters including coordinates, targets, and adjustments
+    """
+    if get_enhancement_settings is None:
+        raise HTTPException(status_code=503, detail="Enhancement settings not available")
+
+    try:
+        from core.chunked_processor import get_last_content_profile
+
+        # Get current preset
+        preset = get_enhancement_settings().get("preset", "adaptive")
+
+        # Try to get profile from ChunkedAudioProcessor global cache
+        profile = get_last_content_profile(preset)
+
+        if profile is None:
+            # No processing data yet - return default values.
+            # #3779: include `is_default: True` so clients can
+            # distinguish "no data yet" from "real measurements
+            # that coincidentally landed at the default values".
+            logger.debug(f"No processing profile found for preset '{preset}' - returning defaults")
+            return {
+                "is_default": True,
+                "spectral_balance": 0.5,
+                "dynamic_range": 0.5,
+                "energy_level": 0.5,
+                "target_lufs": -14.0,
+                "peak_target_db": -1.0,
+                "bass_boost": 0.0,
+                "air_boost": 0.0,
+                "compression_amount": 0.0,
+                "expansion_amount": 0.0,
+                "stereo_width": 0.75
+            }
+
+        # Extract coordinates (ProcessingCoordinates dataclass or dict)
+        coords = profile.get('coordinates')
+        params = profile.get('parameters')
+
+        if coords is None or params is None:
+            # Legacy mode or no continuous space data.
+            # #3779: same is_default marker as the no-profile branch.
+            logger.debug(f"Profile for preset '{preset}' missing coordinates or parameters")
+            return {
+                "is_default": True,
+                "spectral_balance": 0.5,
+                "dynamic_range": 0.5,
+                "energy_level": 0.5,
+                "target_lufs": -14.0,
+                "peak_target_db": -1.0,
+                "bass_boost": 0.0,
+                "air_boost": 0.0,
+                "compression_amount": 0.0,
+                "expansion_amount": 0.0,
+                "stereo_width": 0.75
+            }
+
+        # Extract values (handle both dataclass and dict formats)
+        def get_attr(obj: Any, attr: str, default: Any = 0.0) -> Any:
+            """Get attribute from dataclass or dict"""
+            if isinstance(obj, dict):
+                return obj.get(attr, default)
+            return getattr(obj, attr, default)
+
+        # Convert ProcessingCoordinates and ProcessingParameters to dict
+        # #3779: `is_default: False` confirms these are measured values
+        # from a live ChunkedAudioProcessor profile, not the defaults.
+        result = {
+            "is_default": False,
+            "spectral_balance": get_attr(coords, 'spectral_balance', 0.5),
+            "dynamic_range": get_attr(coords, 'dynamic_range', 0.5),
+            "energy_level": get_attr(coords, 'energy_level', 0.5),
+            "target_lufs": get_attr(params, 'target_lufs', -14.0),
+            "peak_target_db": get_attr(params, 'peak_target_db', -1.0),
+            "bass_boost": get_attr(params, 'eq_curve', {}).get('low_shelf_gain', 0.0),
+            "air_boost": get_attr(params, 'eq_curve', {}).get('high_shelf_gain', 0.0),
+            "compression_amount": get_attr(params, 'compression_params', {}).get('amount', 0.0),
+            "expansion_amount": get_attr(params, 'expansion_params', {}).get('amount', 0.0),
+            "stereo_width": get_attr(params, 'stereo_width_target', 0.75)
+        }
+
+        logger.debug(f"📊 Returning processing parameters for preset '{preset}': {result}")
+        return result
+
+    except HTTPException:
+        raise
+    except Exception:
+        # Don't silently mask the failure as 'all-systems-nominal' —
+        # surface it as 500 so operators see a real error count
+        # increment and clients can decide whether to retry (#3562 /
+        # BE-NEW-104). The legitimate empty-profile case still falls
+        # through the normal 200-OK path above.
+        logger.exception("Failed to get processing parameters")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to get processing parameters",
+        )
+
+
+async def cleanup_old_jobs(
+    max_age_hours: float = Query(24, gt=0),
+    engine: ProcessingEngine | None = Depends(_get_processing_engine),
+) -> dict[str, Any]:
+    """Clean up completed jobs older than specified hours"""
+    if not engine:
+        raise HTTPException(status_code=503, detail="Processing engine not available")
+
+    removed_count = await engine.cleanup_old_jobs(max_age_hours)
+
+    return {
+        "message": f"Cleaned up jobs older than {max_age_hours} hours",
+        "removed": removed_count
+    }
+
+
 def create_processing_router(
     get_processing_engine: Callable[[], ProcessingEngine | None],
     get_enhancement_settings: Callable[[], dict[str, Any]] | None = None,
 ) -> APIRouter:
     """
-    Factory that creates the processing router with a closure over the engine
-    getter, matching the factory pattern used by all other routers (fixes
-    #3862 / BE-RH-11 — replaces module-level mutable + ``set_processing_engine``
-    setter with a testable closure).
+    Factory that assembles the processing router from the module-level
+    handlers above, wiring the engine getter in through Depends() rather than
+    a closure (#4670). It keeps the factory shape every other router uses,
+    which is what replaced the module-level mutable + ``set_processing_engine``
+    setter this router started out with (fixes #3862 / BE-RH-11).
 
     Args:
         get_processing_engine: Callable returning the live ``ProcessingEngine``
@@ -218,553 +858,27 @@ def create_processing_router(
     Returns:
         Configured ``APIRouter`` for ``/api/processing``.
     """
-    router = APIRouter(prefix="/api/processing", tags=["audio-processing"])
-
-    @router.post("/process", response_model=ProcessResponse)
-    @with_error_handling("submit processing job")
-    async def process_audio(request: ProcessRequest) -> ProcessResponse:
-        """
-        Submit an audio file for processing.
-        Returns a job ID that can be used to track progress.
-        """
-        engine = get_processing_engine()
-        if not engine:
-            raise HTTPException(status_code=503, detail="Processing engine not available")
-
-        try:
-            # Validate input path against allowed directories (#2559)
-            try:
-                validated_input = validate_file_path(
-                    request.input_path, context="input_path"
-                )
-            except PathValidationError:
-                # validate_file_path logs it once with the context above (#4925).
-                raise HTTPException(status_code=400, detail="Invalid or inaccessible input path")
-
-            # A "reference" job with no reference is not a meaningful adaptive
-            # fallback — the caller asked for their reference to be matched.
-            # Fail fast and say so, rather than silently returning
-            # adaptive-mastered audio labelled as a reference job (#4735).
-            if request.settings.mode == "reference" and not request.reference_path:
-                raise HTTPException(
-                    status_code=422,
-                    detail="mode='reference' requires a reference_path",
-                )
-
-            validated_reference: Path | None = None
-            if request.reference_path:
-                try:
-                    validated_reference = validate_file_path(
-                        request.reference_path, context="reference_path"
-                    )
-                except PathValidationError:
-                    # validate_file_path logs it once with the context above (#4925).
-                    raise HTTPException(status_code=400, detail="Invalid or inaccessible reference path")
-
-            # Create processing job
-            job = await engine.create_job(
-                input_path=str(validated_input),
-                settings=request.settings.model_dump(),
-                mode=request.settings.mode,
-                reference_path=str(validated_reference) if validated_reference else None
-            )
-
-            # Submit to queue
-            try:
-                job_id = await engine.submit_job(job)
-            except asyncio.QueueFull:
-                raise HTTPException(
-                    status_code=503,
-                    detail="Processing queue is full, please try again later",
-                )
-
-            # Debug, not info (#3844): input_path is an absolute media-library path.
-            logger.debug(f"Processing job {job_id} submitted for {request.input_path}")
-
-            return ProcessResponse(
-                job_id=job_id,
-                status=ProcessingStatus.QUEUED,
-                message="Processing job submitted successfully"
-            )
-
-        # @with_error_handling maps anything else — notably OperationalError
-        # -> retryable 503 (#4605). This arm is kept only so the try: stays
-        # valid without re-indenting the whole body.
-        except HTTPException:
-            raise
-
-
-    @router.post("/upload-and-process", response_model=ProcessResponse)
-    @with_error_handling("upload and process")
-    async def upload_and_process(
-        file: UploadFile = File(...),
-        settings: str = Form(...)  # JSON string of ProcessingSettings
-    ) -> ProcessResponse:
-        """
-        Upload an audio file and immediately submit for processing.
-        Combines file upload and processing submission in one request.
-        """
-        engine = get_processing_engine()
-        if not engine:
-            raise HTTPException(status_code=503, detail="Processing engine not available")
-
-        try:
-            # Parse settings from JSON string. Malformed client input (bad
-            # JSON, or a shape ProcessingSettings rejects) is a 400, not the
-            # generic 500 both used to fall through to via the bare
-            # `except Exception` below — that loose behavior was masked by
-            # a test assertion permitting 500 as an acceptable outcome
-            # (#4788) until it was tightened and caught this.
-            import json
-            try:
-                settings_dict = json.loads(settings)
-            except json.JSONDecodeError as e:
-                raise HTTPException(status_code=400, detail=f"Invalid settings JSON: {e}")
-            try:
-                processing_settings = ProcessingSettings(**settings_dict)
-            except (TypeError, ValidationError) as e:
-                raise HTTPException(status_code=400, detail=f"Invalid processing settings: {e}")
-
-            # Save uploaded file to temp location
-            temp_dir = Path(tempfile.gettempdir()) / UPLOAD_TEMP_DIRNAME
-            temp_dir.mkdir(exist_ok=True)
-
-            # Enforce size limit before reading the whole body (#2560)
-            content = await file.read(_MAX_UPLOAD_BYTES + 1)
-            if len(content) > _MAX_UPLOAD_BYTES:
-                raise HTTPException(
-                    status_code=413,
-                    detail=f"File too large (max {_MAX_UPLOAD_BYTES // 1024 // 1024} MB)"
-                )
-
-            # Reject files whose magic bytes don't match a known audio format (#2560)
-            if not _is_valid_audio_magic(content):
-                raise HTTPException(
-                    status_code=415,
-                    detail="Unsupported or invalid audio file format"
-                )
-
-            # Use a UUID filename to prevent client-controlled path injection (#2560).
-            # Open with "xb" (exclusive create) to prevent TOCTOU: if another process
-            # created a symlink at this path between path selection and open, the
-            # kernel raises FileExistsError rather than following the symlink (fixes #2170).
-            original_ext = Path(file.filename or "").suffix.lower()
-            if original_ext not in _ALLOWED_AUDIO_EXTENSIONS:
-                original_ext = ".bin"
-            input_path = temp_dir / f"{uuid.uuid4()}{original_ext}"
-            with open(input_path, "xb") as f:
-                f.write(content)
-
-            # Debug, not info (#3844): avoid logging absolute filesystem paths.
-            logger.debug(f"Uploaded file saved to {input_path}")
-
-            # Create and submit job — clean up temp file on failure (#3223)
-            try:
-                job = await engine.create_job(
-                    input_path=str(input_path),
-                    settings=processing_settings.model_dump(),
-                    mode=processing_settings.mode
-                )
-
-                try:
-                    job_id = await engine.submit_job(job)
-                except asyncio.QueueFull:
-                    raise HTTPException(
-                        status_code=503,
-                        detail="Processing queue is full, please try again later",
-                    )
-
-                return ProcessResponse(
-                    job_id=job_id,
-                    status=ProcessingStatus.QUEUED,
-                    message=f"File {file.filename} uploaded and queued for processing"
-                )
-            except Exception:
-                # Clean up orphaned temp file on any failure after write
-                input_path.unlink(missing_ok=True)
-                raise
-
-        # See the note on process_audio above (#4605).
-        except HTTPException:
-            raise
-
-
-    @router.get("/job/{job_id}", response_model=JobStatusResponse)
-    @with_error_handling("get job status")
-    async def get_job_status(job_id: str) -> JobStatusResponse:
-        """Get the status of a processing job"""
-        engine = get_processing_engine()
-        if not engine:
-            raise HTTPException(status_code=503, detail="Processing engine not available")
-
-        job = await engine.get_job(job_id)
-        if not job:
-            raise NotFoundError("Job")
-
-        return JobStatusResponse(
-            job_id=job.job_id,
-            status=job.status,
-            progress=job.progress,
-            error_message=job.error_message,
-            result_data=job.result_data
-        )
-
-
-    @router.get("/job/{job_id}/download")
-    @with_error_handling("download job result")
-    async def download_result(job_id: str) -> FileResponse:
-        """
-        Download the processed audio file.
-        Only available when job status is 'completed'.
-        """
-        engine = get_processing_engine()
-        if not engine:
-            raise HTTPException(status_code=503, detail="Processing engine not available")
-
-        job = await engine.get_job(job_id)
-        if not job:
-            raise NotFoundError("Job")
-
-        if job.status != ProcessingStatus.COMPLETED:
-            raise HTTPException(status_code=400, detail=f"Job not completed (status: {job.status.value})")
-
-        # A job that reached COMPLETED without output_path set is an
-        # engine-layer bug, not a client error — but Path(None) raises an
-        # unhandled TypeError rather than a typed response (#4736).
-        if not job.output_path:
-            logger.error(f"Job {job_id} is COMPLETED but has no output_path set")
-            raise HTTPException(status_code=500, detail="Job completed but produced no output file")
-
-        output_path = Path(job.output_path).resolve()
-
-        # Validate output path is within the expected temp directory (#2561)
-        allowed_output_base = Path(tempfile.gettempdir()).resolve()
-        try:
-            output_path.relative_to(allowed_output_base)
-        except ValueError:
-            logger.error(f"Job {job_id} output path outside expected directory: {output_path}")
-            raise HTTPException(status_code=500, detail="Output path configuration error")
-
-        if not output_path.exists():
-            raise NotFoundError("Output file")
-
-        # Determine media type based on file extension
-        media_types = {
-            ".wav": "audio/wav",
-            ".flac": "audio/flac",
-            ".mp3": "audio/mpeg",
-        }
-        media_type = media_types.get(output_path.suffix, "application/octet-stream")
-
-        return FileResponse(
-            path=str(output_path),
-            media_type=media_type,
-            filename=f"auralis_processed{output_path.suffix}"
-        )
-
-
-    @router.post("/job/{job_id}/cancel", response_model=CancelJobResponse)
-    @with_error_handling("cancel job")
-    async def cancel_job(job_id: str) -> dict[str, Any]:
-        """Cancel a queued or processing job"""
-        engine = get_processing_engine()
-        if not engine:
-            raise HTTPException(status_code=503, detail="Processing engine not available")
-
-        success = await engine.cancel_job(job_id)
-        if not success:
-            # Check if job exists to provide correct error
-            job = await engine.get_job(job_id)
-            if not job:
-                raise NotFoundError("Job")
-            raise HTTPException(status_code=400, detail="Job cannot be cancelled (already completed)")
-
-        return {"message": "Job cancelled successfully", "job_id": job_id}
-
-
-    @router.get("/jobs", response_model=JobListResponse)
-    @with_error_handling("list jobs")
-    async def list_jobs(
-        status: ProcessingStatus | None = None,
-        limit: int = Query(50, ge=1, le=1000),
-    ) -> dict[str, Any]:
-        """List all processing jobs, optionally filtered by status.
-
-        `status` is the enum rather than `str` + a hand-rolled check (#3896):
-        FastAPI now rejects an unknown value at the boundary with 422, matching
-        how `limit` already behaves, and OpenAPI documents the valid values.
-        """
-        engine = get_processing_engine()
-        if not engine:
-            raise HTTPException(status_code=503, detail="Processing engine not available")
-
-        jobs = engine.get_all_jobs()
-
-        # Filter by status if provided. FastAPI has already coerced and
-        # validated the value, so no manual membership check is needed.
-        if status:
-            jobs = [j for j in jobs if j.status == status]
-
-        # Limit results
-        jobs = jobs[:limit]
-
-        return {
-            "jobs": [job.to_dict() for job in jobs],
-            "total": len(jobs)
-        }
-
-
-    @router.get("/queue/status", response_model=QueueStatusResponse)
-    @with_error_handling("get queue status")
-    async def get_queue_status() -> dict[str, Any]:
-        """Get current processing queue status"""
-        engine = get_processing_engine()
-        if not engine:
-            raise HTTPException(status_code=503, detail="Processing engine not available")
-
-        return engine.get_queue_status()
-
-
-    @router.get("/presets", response_model=PresetsResponse)
-    async def get_processing_presets() -> dict[str, Any]:
-        """Get available processing presets"""
-        presets = {
-            "adaptive": {
-                "name": "Adaptive Mastering",
-                "description": "Intelligent content-aware mastering without reference",
-                "mode": "adaptive",
-                "settings": {
-                    "eq": {"enabled": True},
-                    "dynamics": {"enabled": True},
-                    "level_matching": {"enabled": True, "target_lufs": -16}
-                }
-            },
-            "gentle": {
-                "name": "Gentle Enhancement",
-                "description": "Subtle improvements preserving original character",
-                "mode": "adaptive",
-                "settings": {
-                    "eq": {
-                        "enabled": True,
-                        "low": 1,
-                        "low_mid": 0.5,
-                        "mid": 0,
-                        "high_mid": 1,
-                        "high": 2
-                    },
-                    "dynamics": {
-                        "enabled": True,
-                        "compressor": {
-                            "threshold": -24,
-                            "ratio": 2,
-                            "attack": 10,
-                            "release": 200
-                        }
-                    }
-                }
-            },
-            "warm": {
-                "name": "Warm & Rich",
-                "description": "Enhanced low end with warm mid range",
-                "mode": "adaptive",
-                "settings": {
-                    "eq": {
-                        "enabled": True,
-                        "low": 2,
-                        "low_mid": 1,
-                        "mid": -0.5,
-                        "high_mid": 0,
-                        "high": 1
-                    },
-                    "dynamics": {
-                        "enabled": True,
-                        "compressor": {
-                            "threshold": -20,
-                            "ratio": 3,
-                            "attack": 5,
-                            "release": 150
-                        }
-                    }
-                }
-            },
-            "bright": {
-                "name": "Bright & Crisp",
-                "description": "Enhanced clarity and presence",
-                "mode": "adaptive",
-                "settings": {
-                    "eq": {
-                        "enabled": True,
-                        "low": -1,
-                        "low_mid": 0,
-                        "mid": 1,
-                        "high_mid": 2,
-                        "high": 3
-                    },
-                    "dynamics": {
-                        "enabled": True,
-                        "compressor": {
-                            "threshold": -16,
-                            "ratio": 4,
-                            "attack": 1,
-                            "release": 50
-                        }
-                    }
-                }
-            },
-            "punchy": {
-                "name": "Punchy & Dynamic",
-                "description": "Strong bass and aggressive dynamics",
-                "mode": "adaptive",
-                "settings": {
-                    "eq": {
-                        "enabled": True,
-                        "low": 3,
-                        "low_mid": 1,
-                        "mid": 0,
-                        "high_mid": 1,
-                        "high": 2
-                    },
-                    "dynamics": {
-                        "enabled": True,
-                        "compressor": {
-                            "threshold": -12,
-                            "ratio": 6,
-                            "attack": 0.5,
-                            "release": 30
-                        }
-                    }
-                }
-            }
-        }
-
-        return {"presets": presets}
-
-
-    @router.get("/parameters", response_model=ProcessingParametersResponse)
-    async def get_processing_parameters() -> dict[str, Any]:
-        """
-        Get current processing parameters from the continuous space system.
-        This shows what the auto-mastering engine is doing in real-time.
-
-        Reads from the global content profile cache populated by ChunkedAudioProcessor
-        during streaming playback.
-
-        Moved here from routers/enhancement.py (#5073) so GET /api/processing/parameters
-        is gated behind HAS_PROCESSING like its 8 siblings under this router, instead
-        of being unconditionally registered while the rest of the /api/processing
-        namespace can be absent in a degraded build.
-
-        Returns:
-            dict: Processing parameters including coordinates, targets, and adjustments
-        """
-        if get_enhancement_settings is None:
-            raise HTTPException(status_code=503, detail="Enhancement settings not available")
-
-        try:
-            from core.chunked_processor import get_last_content_profile
-
-            # Get current preset
-            preset = get_enhancement_settings().get("preset", "adaptive")
-
-            # Try to get profile from ChunkedAudioProcessor global cache
-            profile = get_last_content_profile(preset)
-
-            if profile is None:
-                # No processing data yet - return default values.
-                # #3779: include `is_default: True` so clients can
-                # distinguish "no data yet" from "real measurements
-                # that coincidentally landed at the default values".
-                logger.debug(f"No processing profile found for preset '{preset}' - returning defaults")
-                return {
-                    "is_default": True,
-                    "spectral_balance": 0.5,
-                    "dynamic_range": 0.5,
-                    "energy_level": 0.5,
-                    "target_lufs": -14.0,
-                    "peak_target_db": -1.0,
-                    "bass_boost": 0.0,
-                    "air_boost": 0.0,
-                    "compression_amount": 0.0,
-                    "expansion_amount": 0.0,
-                    "stereo_width": 0.75
-                }
-
-            # Extract coordinates (ProcessingCoordinates dataclass or dict)
-            coords = profile.get('coordinates')
-            params = profile.get('parameters')
-
-            if coords is None or params is None:
-                # Legacy mode or no continuous space data.
-                # #3779: same is_default marker as the no-profile branch.
-                logger.debug(f"Profile for preset '{preset}' missing coordinates or parameters")
-                return {
-                    "is_default": True,
-                    "spectral_balance": 0.5,
-                    "dynamic_range": 0.5,
-                    "energy_level": 0.5,
-                    "target_lufs": -14.0,
-                    "peak_target_db": -1.0,
-                    "bass_boost": 0.0,
-                    "air_boost": 0.0,
-                    "compression_amount": 0.0,
-                    "expansion_amount": 0.0,
-                    "stereo_width": 0.75
-                }
-
-            # Extract values (handle both dataclass and dict formats)
-            def get_attr(obj: Any, attr: str, default: Any = 0.0) -> Any:
-                """Get attribute from dataclass or dict"""
-                if isinstance(obj, dict):
-                    return obj.get(attr, default)
-                return getattr(obj, attr, default)
-
-            # Convert ProcessingCoordinates and ProcessingParameters to dict
-            # #3779: `is_default: False` confirms these are measured values
-            # from a live ChunkedAudioProcessor profile, not the defaults.
-            result = {
-                "is_default": False,
-                "spectral_balance": get_attr(coords, 'spectral_balance', 0.5),
-                "dynamic_range": get_attr(coords, 'dynamic_range', 0.5),
-                "energy_level": get_attr(coords, 'energy_level', 0.5),
-                "target_lufs": get_attr(params, 'target_lufs', -14.0),
-                "peak_target_db": get_attr(params, 'peak_target_db', -1.0),
-                "bass_boost": get_attr(params, 'eq_curve', {}).get('low_shelf_gain', 0.0),
-                "air_boost": get_attr(params, 'eq_curve', {}).get('high_shelf_gain', 0.0),
-                "compression_amount": get_attr(params, 'compression_params', {}).get('amount', 0.0),
-                "expansion_amount": get_attr(params, 'expansion_params', {}).get('amount', 0.0),
-                "stereo_width": get_attr(params, 'stereo_width_target', 0.75)
-            }
-
-            logger.debug(f"📊 Returning processing parameters for preset '{preset}': {result}")
-            return result
-
-        except HTTPException:
-            raise
-        except Exception:
-            # Don't silently mask the failure as 'all-systems-nominal' —
-            # surface it as 500 so operators see a real error count
-            # increment and clients can decide whether to retry (#3562 /
-            # BE-NEW-104). The legitimate empty-profile case still falls
-            # through the normal 200-OK path above.
-            logger.exception("Failed to get processing parameters")
-            raise HTTPException(
-                status_code=500,
-                detail="Failed to get processing parameters",
-            )
-
-
-    @router.delete("/jobs/cleanup", response_model=CleanupResponse)
-    async def cleanup_old_jobs(max_age_hours: float = Query(24, gt=0)) -> dict[str, Any]:
-        """Clean up completed jobs older than specified hours"""
-        engine = get_processing_engine()
-        if not engine:
-            raise HTTPException(status_code=503, detail="Processing engine not available")
-
-        removed_count = await engine.cleanup_old_jobs(max_age_hours)
-
-        return {
-            "message": f"Cleaned up jobs older than {max_age_hours} hours",
-            "removed": removed_count
-        }
+    deps = _ProcessingDeps(get_processing_engine, get_enhancement_settings)
+    # Keep the module-level holder pointing at the most recent call, so
+    # anything resolving outside a request still sees a wired-up getter.
+    _deps.get_processing_engine = deps.get_processing_engine
+    _deps.get_enhancement_settings = deps.get_enhancement_settings
+
+    router = APIRouter(
+        prefix="/api/processing",
+        tags=["audio-processing"],
+        dependencies=[Depends(_make_deps_binder(deps))],
+    )
+
+    router.add_api_route("/process", process_audio, methods=["POST"], response_model=ProcessResponse)
+    router.add_api_route("/upload-and-process", upload_and_process, methods=["POST"], response_model=ProcessResponse)
+    router.add_api_route("/job/{job_id}", get_job_status, methods=["GET"], response_model=JobStatusResponse)
+    router.add_api_route("/job/{job_id}/download", download_result, methods=["GET"])
+    router.add_api_route("/job/{job_id}/cancel", cancel_job, methods=["POST"], response_model=CancelJobResponse)
+    router.add_api_route("/jobs", list_jobs, methods=["GET"], response_model=JobListResponse)
+    router.add_api_route("/queue/status", get_queue_status, methods=["GET"], response_model=QueueStatusResponse)
+    router.add_api_route("/presets", get_processing_presets, methods=["GET"], response_model=PresetsResponse)
+    router.add_api_route("/parameters", get_processing_parameters, methods=["GET"], response_model=ProcessingParametersResponse)
+    router.add_api_route("/jobs/cleanup", cleanup_old_jobs, methods=["DELETE"], response_model=CleanupResponse)
 
     return router
