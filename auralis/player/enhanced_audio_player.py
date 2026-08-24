@@ -131,6 +131,15 @@ class AudioPlayer(
         self._auto_advancing = threading.Event()
         self._advance_generation = 0  # Monotonic counter for compare-and-clear (#3350)
         self._stop_requested = threading.Event()  # Prevents auto-advance after stop() (#3296)
+        # #5240: mirrors `_stop_requested` for the equivalent pause-race window.
+        # next_track()/previous_track() capture `was_playing` before a blocking
+        # track transition, then unconditionally resume via `playback.play()`
+        # afterward. `_stop_requested` lets that resume be overridden by a
+        # concurrent stop() — but pause() had no equivalent signal, so a user
+        # pausing mid-transition was silently overridden back to PLAYING. Set
+        # in pause(), cleared in play(), checked (like _stop_requested) both
+        # before attempting the resume and again immediately after.
+        self._pause_requested = threading.Event()
         # #3694: hold a reference to the most recently spawned auto-advance
         # thread so cleanup() can join it. Without this, an in-flight advance
         # thread that has already passed its _stop_requested check can call
@@ -166,11 +175,19 @@ class AudioPlayer(
         started = self.playback.play()
         if started:
             self._stop_requested.clear()
+            self._pause_requested.clear()
         return started
 
     def pause(self) -> bool:
         """Pause playback"""
-        return self.playback.pause()
+        # #5240: mirrors `_stop_requested.set()` in stop() — records that the
+        # user explicitly requested a pause, so a resume already in flight
+        # (next_track()/previous_track()) can detect and honor it instead of
+        # silently overriding it back to PLAYING.
+        paused = self.playback.pause()
+        if paused:
+            self._pause_requested.set()
+        return paused
 
     def stop(self) -> bool:
         """Stop playback"""

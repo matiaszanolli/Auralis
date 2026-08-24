@@ -47,6 +47,7 @@ class PlayerQueueNavigationMixin:
     gapless: GaplessPlaybackEngine
     integration: IntegrationManager
     _stop_requested: threading.Event
+    _pause_requested: threading.Event
     # Provided by PlayerFileLoadingMixin.
     load_file: Callable[[str], bool]
     load_track_from_library: Callable[[int], bool]
@@ -131,10 +132,21 @@ class PlayerQueueNavigationMixin:
         # #4126: double-check after play() — stop() sets _stop_requested
         # without holding _audio_lock, so a concurrent stop() may have
         # won the race between the first check and the play() call.
+        # #5240: check `_pause_requested` after play() the same way — but
+        # deliberately NOT in the initial guard alongside `_stop_requested`.
+        # `load_and_stop()` above already forced state to STOPPED, and
+        # `PlaybackController.pause()` only transitions out of PLAYING — so
+        # skipping play() here when a pause raced in early would strand the
+        # player at STOPPED, not PAUSED, misrepresenting what the user asked
+        # for. Instead always attempt the resume, then immediately re-pause
+        # if a pause() (at any point up to here) asked for it — a real but
+        # harmless PLAYING->PAUSED flicker, not a stall.
         if was_playing and not self._stop_requested.is_set():
             self.playback.play()
             if self._stop_requested.is_set():
                 self.playback.stop()
+            elif self._pause_requested.is_set():
+                self.playback.pause()
 
         return True
 
@@ -168,10 +180,16 @@ class PlayerQueueNavigationMixin:
                 # #4126: double-check after play() — stop() sets _stop_requested
                 # without holding _audio_lock, so a concurrent stop() may have
                 # won the race between the first check and the play() call.
+                # #5240: check `_pause_requested` after play() — deliberately
+                # NOT in the initial guard alongside `_stop_requested`; see
+                # next_track() for the full rationale (kept identical here so
+                # the two paths cannot drift).
                 if was_playing and not self._stop_requested.is_set():
                     self.playback.play()
                     if self._stop_requested.is_set():
                         self.playback.stop()
+                    elif self._pause_requested.is_set():
+                        self.playback.pause()
                 return True
             # File load failed — roll back queue index under lock.
             self.queue.rollback_index(saved_index)

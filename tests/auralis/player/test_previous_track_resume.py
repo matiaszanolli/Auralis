@@ -55,6 +55,7 @@ def _make_player(load_succeeds: bool = True) -> AudioPlayer:
     player._auto_advancing = threading.Event()
     player._advance_generation = 0
     player._stop_requested = threading.Event()
+    player._pause_requested = threading.Event()
     player._advance_thread = None
     player._cleanup_in_progress = threading.Event()
 
@@ -165,6 +166,50 @@ class TestConcurrentStopDuringPrevious:
         assert player.is_playing() is False
 
 
+class TestConcurrentPauseDuringPrevious:
+    """#5240: a pause() landing between the guard and play() must still win.
+
+    Mirrors TestConcurrentStopDuringPrevious — pause() has no is_stopped()-style
+    state to misread, but it has the identical timing bug: `was_playing` is
+    captured before the blocking `load_file()` call, and the resume that
+    follows used to be unconditional once `was_playing` was True, silently
+    overriding a pause() that raced the load.
+    """
+
+    def test_pause_racing_the_resume_leaves_player_paused(self):
+        player = _make_player()
+        player.playback.state = PlaybackState.PLAYING
+
+        # load_file() calls file_manager.load_file() (the blocking disk read)
+        # BEFORE playback.load_and_stop() forces state to STOPPED — so state
+        # is still PLAYING for the whole duration of this mocked call. That's
+        # the real window a concurrent pause() lands in; patching player.pause()
+        # in to *this* mock (rather than after load_file() returns) is what
+        # actually reproduces the race instead of pausing a track already
+        # forced to STOPPED, where PlaybackController.pause() would no-op.
+        def load_file_racing_a_pause(_path: str) -> bool:
+            player.pause()
+            return True
+
+        player.file_manager.load_file.side_effect = load_file_racing_a_pause
+
+        assert player.previous_track() is True
+        assert player.is_playing() is False
+        assert player.playback.state is PlaybackState.PAUSED
+
+    def test_pause_does_not_leak_across_a_later_explicit_resume(self):
+        """`_pause_requested` must clear on the next real play(), not linger."""
+        player = _make_player()
+        player.playback.state = PlaybackState.PLAYING
+
+        player.pause()
+        assert player._pause_requested.is_set()
+
+        player.playback.state = PlaybackState.PAUSED
+        assert player.play() is True
+        assert player._pause_requested.is_set() is False
+
+
 class TestNextTrackParity:
     """#3712 applied the same guard to the gapless advance path."""
 
@@ -185,6 +230,17 @@ class TestNextTrackParity:
         player.stop()
         assert player.next_track() is True
         assert player.is_playing() is False
+
+    def test_advance_after_explicit_pause_does_not_resume(self):
+        """#5240: same guard, applied to the gapless next_track() path."""
+        player = _make_player()
+        player.playback.state = PlaybackState.PLAYING
+        player.gapless.advance_with_prebuffer.return_value = True
+
+        player.pause()
+        assert player.next_track() is True
+        assert player.is_playing() is False
+        assert player.playback.state is PlaybackState.PAUSED
 
 
 if __name__ == "__main__":
