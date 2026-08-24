@@ -988,13 +988,25 @@ class TestSettingsEndpoints:
     """Test settings management endpoints (#2757: was incorrectly skipped)"""
 
     def _mock_settings(self):
-        """Create a mock settings object with to_dict()."""
+        """Create a mock settings object with to_dict().
+
+        Also sets the enhancement-related attributes (default_preset/
+        auto_enhance/enhancement_intensity) to real UserSettings column
+        defaults (#4587): seed_enhancement_settings() reads these directly
+        off the returned settings object via getattr(), and a bare Mock's
+        auto-created attributes aren't the string/bool/float that helper
+        expects — a real UserSettings row never has this problem, only this
+        loosely-typed test double did.
+        """
         settings = Mock()
         settings.to_dict.return_value = {
             'theme': 'dark',
             'scan_folders': ['/music'],
             'auto_scan': True,
         }
+        settings.default_preset = 'adaptive'
+        settings.auto_enhance = True
+        settings.enhancement_intensity = 1.0
         return settings
 
     def test_get_settings_no_repository(self, client):

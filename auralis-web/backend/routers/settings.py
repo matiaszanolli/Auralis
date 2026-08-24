@@ -39,10 +39,20 @@ from security.path_security import (
     PathValidationError,
 )
 
+from helpers import seed_enhancement_settings
+
 from .dependencies import with_error_handling
 from .errors import NotFoundError
 
 logger = logging.getLogger(__name__)
+
+# Fields that also live in the runtime `enhancement_settings` dict (#4409),
+# under different names (see seed_enhancement_settings). A PUT that touches
+# any of these must re-seed the live dict and broadcast — otherwise a
+# Settings-dialog save only takes effect at the next backend restart (#4587).
+_ENHANCEMENT_SETTINGS_FIELDS = frozenset({
+    'default_preset', 'auto_enhance', 'enhancement_intensity',
+})
 
 
 class _ScanFolderRequest(BaseModel):
@@ -162,6 +172,8 @@ class SettingsUpdateResponse(BaseModel):
 def create_settings_router(
     get_settings_repo: Callable[[], Any],
     get_auto_scanner: Callable[[], Any] | None = None,
+    get_enhancement_settings: Callable[[], dict[str, Any]] | None = None,
+    connection_manager: Any = None,
 ) -> APIRouter:
     """
     Factory function to create the settings router.
@@ -170,6 +182,18 @@ def create_settings_router(
         get_settings_repo: Callable returning a SettingsRepository instance
         get_auto_scanner: Optional callable returning a LibraryAutoScanner (for
                           reload_config() calls after settings changes)
+        get_enhancement_settings: Optional callable returning the shared,
+                          shared-by-reference runtime `enhancement_settings`
+                          dict (auralis-web/backend/main.py). When given, a
+                          PUT/reset that touches an enhancement-related field
+                          re-seeds this dict and broadcasts the change so it
+                          takes effect on the live session immediately,
+                          instead of only at the next backend restart (#4587)
+                          — the write-back half of the sync #4409 started.
+        connection_manager: Optional WebSocket connection manager used to
+                          broadcast `enhancement_settings_changed` after a
+                          re-seed. No-op (re-seed only, no broadcast) if not
+                          given.
 
     Returns:
         APIRouter: Configured router instance
@@ -192,6 +216,36 @@ def create_settings_router(
                 await scanner.reload_config()
             except Exception as exc:
                 logger.warning(f"Failed to notify auto-scanner of settings change: {exc}")
+
+    async def _sync_enhancement_settings(settings: Any) -> None:
+        """Re-seed the live runtime dict from just-persisted settings and
+        broadcast (#4587) — the DB-to-runtime half of keeping the Settings
+        dialog and the Enhancement Panel in sync. Mirrors
+        config/startup.py's one-time seed at process start, using the exact
+        same `seed_enhancement_settings` helper so the two can never drift
+        onto different mapping/validation logic.
+
+        `enhancement_settings` is mutated in place (seed_enhancement_settings's
+        own contract) — every router holding a reference to it (system,
+        enhancement) observes the new values without re-fetching anything.
+        """
+        if get_enhancement_settings is None:
+            return
+        live_settings = get_enhancement_settings()
+        seed_enhancement_settings(live_settings, settings)
+        if connection_manager is None:
+            return
+        try:
+            await connection_manager.broadcast({
+                "type": "enhancement_settings_changed",
+                "data": {
+                    "enabled": live_settings["enabled"],
+                    "preset": live_settings["preset"],
+                    "intensity": live_settings["intensity"],
+                },
+            })
+        except Exception as exc:
+            logger.warning(f"Failed to broadcast enhancement_settings_changed: {exc}")
 
     @router.get("/api/settings", response_model=SettingsResponse)
     @with_error_handling("get settings")
@@ -248,6 +302,13 @@ def create_settings_router(
                 unregister_allowed_directory(Path(removed))
 
         await _notify_scanner()
+
+        # #4587: only re-seed/broadcast when this save actually touched an
+        # enhancement-related field — an unrelated save (e.g. theme) should
+        # not fire a WS message enhancement consumers have no reason to see.
+        if _ENHANCEMENT_SETTINGS_FIELDS & payload.keys():
+            await _sync_enhancement_settings(settings)
+
         return {"message": "Settings updated", "settings": settings.to_dict()}
 
     @router.post("/api/settings/scan-folders", response_model=SettingsUpdateResponse)
@@ -287,6 +348,11 @@ def create_settings_router(
         # previously-registered extra directory should remain trusted (#3842).
         clear_extra_allowed_directories()
         await _notify_scanner()
+        # #4587: reset_to_defaults() always rewrites every column (unlike the
+        # partial-update PUT above), so the enhancement fields are always
+        # touched here — re-seed/broadcast unconditionally rather than
+        # checking payload keys, since there is no payload to check.
+        await _sync_enhancement_settings(settings)
         return {"message": "Settings reset to defaults", "settings": settings.to_dict()}
 
     return router

@@ -289,6 +289,25 @@ async def _preprocess_upcoming_chunks(track_id: int, filepath: str, current_time
         logger.error(f"❌ Background chunk pre-processing failed: {e}")
 
 
+async def _persist_enhancement_setting(repos: Any, fields: dict[str, Any]) -> None:
+    """Write a live enhancement-setting change through to the DB (#4587) —
+    the runtime-to-DB half of keeping the Settings dialog and the
+    Enhancement Panel in sync. ``fields`` uses ``UserSettings`` column names
+    (``auto_enhance``/``default_preset``/``enhancement_intensity``), not the
+    runtime dict's shorter ``enabled``/``preset``/``intensity`` keys.
+
+    Tolerant of failure, same as ``settings.py``'s ``_notify_scanner()``: the
+    runtime change these callers already applied is the primary effect and
+    must not be undone by a DB hiccup — a failed persist just means the
+    change won't survive the next restart, which is the pre-fix behaviour,
+    not a new regression.
+    """
+    try:
+        await asyncio.to_thread(repos.settings.update_settings, fields)
+    except Exception as exc:
+        logger.warning(f"Failed to persist enhancement setting {fields}: {exc}")
+
+
 def _maybe_prewarm_upcoming_chunks(
     enhancement_settings: dict[str, Any],
     player_state_manager: Any,
@@ -330,6 +349,7 @@ async def toggle_enhancement(
     enhancement_settings: dict[str, Any] = Depends(_get_enhancement_settings),
     player_state_manager: Any = Depends(_get_player_state_manager),
     connection_manager: Any = Depends(_get_connection_manager),
+    repos: Any = Depends(_get_repository_factory),
 ) -> dict[str, Any]:
     """
     Enable or disable real-time audio enhancement.
@@ -346,6 +366,7 @@ async def toggle_enhancement(
     Raises:
         HTTPException: If toggling fails
     """
+    old_enabled = enhancement_settings.get("enabled")
     enabled = body.enabled
     enhancement_settings["enabled"] = enabled
 
@@ -353,6 +374,12 @@ async def toggle_enhancement(
     # background (#2296) so the client doesn't hit an on-demand processing gap.
     if enabled:
         _maybe_prewarm_upcoming_chunks(enhancement_settings, player_state_manager)
+
+    # #4587: persist so an Enhancement Panel change survives a backend
+    # restart — this endpoint previously only mutated the runtime dict, so
+    # the next startup's seed_enhancement_settings() silently reverted it.
+    if repos is not None and old_enabled != enabled:
+        await _persist_enhancement_setting(repos, {"auto_enhance": enabled})
 
     # Broadcast to all clients
     await connection_manager.broadcast({
@@ -378,6 +405,7 @@ async def set_enhancement_preset(
     buffer_manager: Any = Depends(_get_multi_tier_buffer),
     player_state_manager: Any = Depends(_get_player_state_manager),
     connection_manager: Any = Depends(_get_connection_manager),
+    repos: Any = Depends(_get_repository_factory),
 ) -> dict[str, Any]:
     """
     Change the enhancement preset.
@@ -420,6 +448,10 @@ async def set_enhancement_preset(
     # This prevents the 2-5s delay when switching presets
     logger.info(f"⚡ Preset switched instantly: {old_preset} → {preset} (cache preserved)")
 
+    # #4587: persist so this survives a backend restart — see toggle_enhancement.
+    if repos is not None and old_preset != preset:
+        await _persist_enhancement_setting(repos, {"default_preset": preset})
+
     # Broadcast to all clients
     await connection_manager.broadcast({
         "type": "enhancement_settings_changed",
@@ -444,6 +476,7 @@ async def set_enhancement_intensity(
     buffer_manager: Any = Depends(_get_multi_tier_buffer),
     player_state_manager: Any = Depends(_get_player_state_manager),
     connection_manager: Any = Depends(_get_connection_manager),
+    repos: Any = Depends(_get_repository_factory),
 ) -> dict[str, Any]:
     """
     Adjust the enhancement intensity.
@@ -483,6 +516,10 @@ async def set_enhancement_intensity(
     # when enhancement is the active audio path and intensity actually changed.
     if enhancement_settings.get("enabled") and old_intensity != intensity:
         _maybe_prewarm_upcoming_chunks(enhancement_settings, player_state_manager)
+
+    # #4587: persist so this survives a backend restart — see toggle_enhancement.
+    if repos is not None and old_intensity != intensity:
+        await _persist_enhancement_setting(repos, {"enhancement_intensity": intensity})
 
     # Broadcast to all clients
     await connection_manager.broadcast({

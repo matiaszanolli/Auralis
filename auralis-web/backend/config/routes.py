@@ -115,9 +115,14 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
     logger.debug("✅ System router registered")
 
     # Create and include settings router (GET/PUT /api/settings, scan-folders management)
+    # #4587: get_enhancement_settings/connection_manager let a settings save
+    # re-seed the live enhancement_settings dict and broadcast the change,
+    # instead of only taking effect at the next backend restart.
     settings_router: APIRouter = create_settings_router(
         get_settings_repo=get_component('settings_repository'),
         get_auto_scanner=get_component('auto_scanner'),
+        get_enhancement_settings=lambda: enhancement_settings,
+        connection_manager=manager,
     )
     app.include_router(settings_router)
     logger.debug("✅ Settings router registered")
