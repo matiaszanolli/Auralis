@@ -83,10 +83,10 @@ describe('ArtistDetailView', () => {
     });
   });
 
-  describe('Error state', () => {
+  describe('Error state (#4643)', () => {
     it('renders error message when fetch fails', () => {
       mockUseArtistDetailsData.mockReturnValue({
-        artist: null, loading: false, error: 'Network error',
+        artist: null, loading: false, error: { status: 0, message: 'Network error' },
       });
       render(<ArtistDetailView artistId={1} />);
       expect(screen.getByRole('alert')).toBeInTheDocument();
@@ -96,6 +96,25 @@ describe('ArtistDetailView', () => {
       mockUseArtistDetailsData.mockReturnValue({ artist: null, loading: false, error: null });
       render(<ArtistDetailView artistId={1} />);
       expect(screen.getByRole('alert')).toBeInTheDocument();
+    });
+
+    it('renders "Artist not found" (not a generic error) for a 404', () => {
+      mockUseArtistDetailsData.mockReturnValue({
+        artist: null, loading: false, error: { status: 404, message: 'Artist 999 not found' },
+      });
+      render(<ArtistDetailView artistId={999} />);
+      expect(screen.getByText('Artist not found')).toBeInTheDocument();
+      expect(screen.queryByText('Error Loading Artist')).not.toBeInTheDocument();
+    });
+
+    it('renders "Error Loading Artist" with the message for a 500 — distinguishable from a 404', () => {
+      mockUseArtistDetailsData.mockReturnValue({
+        artist: null, loading: false, error: { status: 500, message: 'Internal server error' },
+      });
+      render(<ArtistDetailView artistId={1} />);
+      expect(screen.getByText('Error Loading Artist')).toBeInTheDocument();
+      expect(screen.getByText('Internal server error')).toBeInTheDocument();
+      expect(screen.queryByText('Artist not found')).not.toBeInTheDocument();
     });
   });
 

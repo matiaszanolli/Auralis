@@ -12,7 +12,10 @@ import { useState, useEffect } from 'react';
 import { transformTracks } from '@/api/transformers/trackTransformer';
 import type { TrackApiResponse } from '@/api/transformers/types';
 import type { DetailTrack } from '@/types/domain';
-import { ENDPOINTS, getApiUrl } from '@/config/api';
+import type { ApiError } from '@/types/api';
+import { ApiErrorHandler } from '@/types/api';
+import { ENDPOINTS } from '@/config/api';
+import { get, post, del } from '@/utils/apiRequest';
 import { isAbortError } from '@/utils/errorGuards';
 
 export interface Album {
@@ -30,7 +33,7 @@ export interface Album {
 export const useAlbumDetails = (albumId: number) => {
   const [album, setAlbum] = useState<Album | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ApiError | null>(null);
   const [isFavorite, setIsFavorite] = useState(false);
   const [savingFavorite, setSavingFavorite] = useState(false);
 
@@ -43,13 +46,15 @@ export const useAlbumDetails = (albumId: number) => {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(getApiUrl(`/api/albums/${albumId}/tracks`), {
+        // #4643: routed through the shared get()/ApiErrorHandler transport
+        // (like the rest of the library hooks) instead of a raw fetch() that
+        // collapsed every non-OK response into an identical, status-less
+        // Error — a 404 (stale/deleted album link, recoverable) and a 500
+        // (possibly transient) rendered the same, with no way for the UI to
+        // offer a differentiated recovery action.
+        const data = await get<any>(`/api/albums/${albumId}/tracks`, {
           signal: controller.signal,
         });
-        if (!response.ok) {
-          throw new Error('Failed to fetch album details');
-        }
-        const data = await response.json();
         if (controller.signal.aborted) return;
 
         // `/api/albums/{id}/tracks` serialises per-track fields in snake_case
@@ -87,9 +92,15 @@ export const useAlbumDetails = (albumId: number) => {
         // stored state before the first click.
         setIsFavorite(tracks[0]?.favorite ?? false);
       } catch (err) {
-        if (isAbortError(err)) return;
+        // #4643: get() wraps even a caller-triggered abort into an
+        // APIRequestError rather than preserving the original AbortError's
+        // `.name` (apiRequest.ts's own catch-all does this deliberately —
+        // see its tests), so isAbortError(err) alone would miss it. The
+        // signal is authoritative regardless of how the shared transport
+        // happens to shape an abort; check it first.
+        if (controller.signal.aborted || isAbortError(err)) return;
         console.error('Error fetching album details:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load album details');
+        setError(ApiErrorHandler.parse(err));
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
@@ -104,33 +115,26 @@ export const useAlbumDetails = (albumId: number) => {
       // Use first track's ID to toggle favorite (albums don't have direct favorite endpoints)
       const trackId = album?.tracks?.[0]?.id;
       if (!trackId) {
-        setError('Cannot favorite album: no tracks available');
+        setError({ status: 400, message: 'Cannot favorite album: no tracks available' });
         return;
       }
 
       // #5118: the backend has no toggle semantic — POST sets favorite=true and
       // DELETE sets it false, each unconditionally. Always POSTing meant
       // un-favoriting never reached the server while the UI reported success.
-      const response = await fetch(ENDPOINTS.TRACK_FAVORITE(trackId), {
-        method: isFavorite ? 'DELETE' : 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update favorite status');
-      }
+      // #4643: routed through the shared transport, same as the fetch above.
+      const result = isFavorite
+        ? await del<{ favorite?: boolean }>(ENDPOINTS.TRACK_FAVORITE(trackId))
+        : await post<{ favorite?: boolean }>(ENDPOINTS.TRACK_FAVORITE(trackId));
 
       // Take the new state from the server's `favorite` field rather than
       // negating the local one, so the control cannot drift from stored state.
-      const result = await response.json().catch(() => null);
       setIsFavorite(
         typeof result?.favorite === 'boolean' ? result.favorite : !isFavorite
       );
     } catch (err) {
       console.error('Error toggling favorite:', err);
-      setError(err instanceof Error ? err.message : 'Failed to update favorite status');
+      setError(ApiErrorHandler.parse(err));
     } finally {
       setSavingFavorite(false);
     }

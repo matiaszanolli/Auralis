@@ -15,6 +15,7 @@
  */
 
 import { useState, useCallback } from 'react';
+import { ApiErrorHandler } from '@/types/api';
 import { tokens } from '@/design-system';
 import { formatDuration } from '@/utils/timeFormat';
 import { EmptyState } from '@/components/shared/ui/feedback';
@@ -106,14 +107,19 @@ export const AlbumDetailView = ({
   }
 
   if (error || !album) {
+    // #4643: a 404 (stale/deleted album link) is recoverable and reads better
+    // as "not found" than as a generic failure; a real 500/network error
+    // keeps the distinct "Error Loading" framing + message so the two are no
+    // longer indistinguishable to the user.
+    const notFound = !error || ApiErrorHandler.isNotFound(error);
     return (
       <Container maxWidth="xl" sx={{
         py: tokens.spacing.xl,
         px: tokens.spacing.lg,
       }}>
         <EmptyState
-          title={error ? 'Error Loading Album' : 'Album not found'}
-          description={error || undefined}
+          title={notFound ? 'Album not found' : 'Error Loading Album'}
+          description={notFound ? undefined : error?.message}
         />
         {onBack && (
           <Box sx={{ textAlign: 'center', mt: tokens.spacing.lg }}>

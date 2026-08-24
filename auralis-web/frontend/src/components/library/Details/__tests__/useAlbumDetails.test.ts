@@ -17,6 +17,7 @@
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useAlbumDetails } from '../useAlbumDetails';
+import { ApiErrorHandler } from '@/types/api';
 
 const ALBUM_TRACKS_RESPONSE = {
   album_id: 1,
@@ -224,12 +225,62 @@ describe('useAlbumDetails', () => {
     expect(result.current.error).toBeNull();
   });
 
-  it('surfaces a failed request as an error', async () => {
-    global.fetch = vi.fn().mockResolvedValue({ ok: false }) as unknown as typeof fetch;
+  // #4643: routed through get()/ApiErrorHandler so the real HTTP status
+  // survives instead of collapsing every non-OK response into an identical,
+  // status-less Error.
+  describe('error status (#4643)', () => {
+    const mockFailedFetch = (status: number, detail: string) => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status,
+        statusText: 'Error',
+        json: async () => ({ detail }),
+      }) as unknown as typeof fetch;
+    };
 
-    const result = await load();
+    it('surfaces a 404 as an identifiable not-found error', async () => {
+      mockFailedFetch(404, 'Album 999 not found');
 
-    expect(result.current.error).toBe('Failed to fetch album details');
-    expect(result.current.album).toBeNull();
+      const result = await load();
+
+      expect(result.current.album).toBeNull();
+      expect(result.current.error).not.toBeNull();
+      expect(ApiErrorHandler.isNotFound(result.current.error!)).toBe(true);
+      expect(result.current.error!.message).toBe('Album 999 not found');
+    });
+
+    it('surfaces a 500 as a distinguishable server error, not a not-found', async () => {
+      mockFailedFetch(500, 'Internal server error');
+
+      const result = await load();
+
+      expect(result.current.album).toBeNull();
+      expect(result.current.error).not.toBeNull();
+      expect(ApiErrorHandler.isNotFound(result.current.error!)).toBe(false);
+      expect(ApiErrorHandler.isNetworkError(result.current.error!)).toBe(true);
+    });
+
+    it('produces no error state when the request is aborted mid-flight', async () => {
+      // The internal AbortController fires on unmount; simulate that by
+      // having fetch reject with the DOMException shape a real abort throws.
+      global.fetch = vi.fn().mockImplementation(
+        (_url: string, init?: { signal?: AbortSignal }) =>
+          new Promise((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () =>
+              reject(new DOMException('The operation was aborted.', 'AbortError'))
+            );
+          })
+      ) as unknown as typeof fetch;
+
+      const { result, unmount } = renderHook(() => useAlbumDetails(1));
+      unmount(); // triggers the effect cleanup's controller.abort()
+
+      // Give the rejected promise a tick to settle before asserting.
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(result.current.error).toBeNull();
+    });
   });
 });

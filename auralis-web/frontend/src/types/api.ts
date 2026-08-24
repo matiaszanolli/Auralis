@@ -38,11 +38,18 @@ export function isApiError(err: unknown): err is ApiError {
 export class ApiErrorHandler {
   static parse(error: unknown): ApiError {
     if (error instanceof Error) {
-      // useRestAPI attaches the real status as a property so the message can be
-      // the backend's `detail` text instead of 'HTTP nnn: ...' (#4831). Fall back
-      // to scraping the legacy generic message for any thrower that still uses
-      // it, so callers keep seeing the actual code rather than always 500 (#2361).
-      const attached = (error as { status?: unknown }).status;
+      // useRestAPI attaches the real status as `.status` so the message can be
+      // the backend's `detail` text instead of 'HTTP nnn: ...' (#4831).
+      // `utils/apiRequest.ts`'s APIRequestError carries the identical
+      // information under `.statusCode` instead (#4643) — a naming mismatch
+      // between the app's two HTTP transports that meant this method quietly
+      // fell through to the 500 default for every APIRequestError, regardless
+      // of the real status, until this branch checked for it explicitly.
+      // Fall back to scraping the legacy generic message for any thrower that
+      // uses neither, so callers keep seeing the actual code rather than
+      // always 500 (#2361).
+      const attached = (error as { status?: unknown; statusCode?: unknown }).status
+        ?? (error as { statusCode?: unknown }).statusCode;
       if (typeof attached === 'number') {
         return { status: attached, message: error.message };
       }

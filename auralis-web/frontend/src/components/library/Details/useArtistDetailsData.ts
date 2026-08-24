@@ -7,9 +7,11 @@
 import { useState, useEffect } from 'react';
 import type { Artist as DomainArtist, DetailTrack } from '@/types/domain';
 import type { ArtistDetailApiResponse } from '@/api/transformers/types';
+import type { ApiError } from '@/types/api';
+import { ApiErrorHandler } from '@/types/api';
 import { transformArtistDetail } from '@/api/transformers/artistTransformer';
 import { isAbortError } from '@/utils/errorGuards';
-import { getApiUrl } from '@/config/api';
+import { get } from '@/utils/apiRequest';
 
 export interface Album {
   id: number;
@@ -27,7 +29,7 @@ export interface Artist extends DomainArtist {
 export const useArtistDetailsData = (artistId: number) => {
   const [artist, setArtist] = useState<Artist | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ApiError | null>(null);
 
   // #3601: AbortController on the fetch to prevent setState on dead component
   // and to cancel the in-flight request when the user navigates away.
@@ -37,13 +39,14 @@ export const useArtistDetailsData = (artistId: number) => {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(getApiUrl(`/api/artists/${artistId}`), {
+        // #4643: routed through the shared get()/ApiErrorHandler transport,
+        // same fix and same rationale as the sibling useAlbumDetails.ts — a
+        // raw fetch() collapsed a 404 and a 500 into an identical, status-less
+        // Error with no way for the UI to offer a differentiated recovery
+        // action.
+        const data = await get<ArtistDetailApiResponse>(`/api/artists/${artistId}`, {
           signal: controller.signal,
         });
-        if (!response.ok) {
-          throw new Error('Failed to fetch artist details');
-        }
-        const data: ArtistDetailApiResponse = await response.json();
         if (controller.signal.aborted) return;
 
         const base = transformArtistDetail(data);
@@ -60,9 +63,14 @@ export const useArtistDetailsData = (artistId: number) => {
         };
         setArtist(artistData);
       } catch (err) {
-        if (isAbortError(err)) return;
+        // #4643: get() wraps even a caller-triggered abort into an
+        // APIRequestError rather than preserving the original AbortError's
+        // `.name` — see useAlbumDetails.ts for the full rationale. Check the
+        // signal first; it is authoritative regardless of how the shared
+        // transport happens to shape an abort.
+        if (controller.signal.aborted || isAbortError(err)) return;
         console.error('Error fetching artist details:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load artist details');
+        setError(ApiErrorHandler.parse(err));
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }

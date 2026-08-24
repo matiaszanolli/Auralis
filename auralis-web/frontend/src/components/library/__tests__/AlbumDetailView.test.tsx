@@ -620,7 +620,9 @@ describe('AlbumDetailView', () => {
     it('should display error message on fetch failure', async () => {
       mockFetch.mockResolvedValue({
         ok: false,
-        json: async () => ({ error: 'Not found' }),
+        status: 500,
+        statusText: 'Internal Server Error',
+        json: async () => ({ detail: 'Not found' }),
       });
 
       render(
@@ -633,6 +635,42 @@ describe('AlbumDetailView', () => {
         const matches = screen.getAllByText(/failed|error|not found/i);
         expect(matches.length).toBeGreaterThan(0);
       });
+    });
+
+    // #4643: a 404 must read as recoverable ("not found"), distinct from a
+    // real server/network failure — the two used to render identically
+    // because the raw fetch() this hook used discarded the HTTP status.
+    it('renders "Album not found" (not a generic error) for a 404', async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 404,
+        statusText: 'Not Found',
+        json: async () => ({ detail: 'Album 999 not found' }),
+      });
+
+      render(<AlbumDetailView albumId={999} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Album not found')).toBeInTheDocument();
+      });
+      expect(screen.queryByText('Error Loading Album')).not.toBeInTheDocument();
+    });
+
+    it('renders "Error Loading Album" with the message for a 500 — distinguishable from a 404', async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        json: async () => ({ detail: 'Internal server error' }),
+      });
+
+      render(<AlbumDetailView albumId={1} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Error Loading Album')).toBeInTheDocument();
+      });
+      expect(screen.getByText('Internal server error')).toBeInTheDocument();
+      expect(screen.queryByText('Album not found')).not.toBeInTheDocument();
     });
 
     it('should show back button in error state', async () => {

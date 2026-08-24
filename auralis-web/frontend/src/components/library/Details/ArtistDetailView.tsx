@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Container } from '@mui/material';
+import { ApiErrorHandler } from '@/types/api';
 import { tokens } from '@/design-system';
 import { EmptyState } from '@/components/shared/ui/feedback';
 import DetailLoading from './DetailLoading';
@@ -71,14 +72,19 @@ export const ArtistDetailView = ({
 
   // Error or not found state
   if (error || !artist) {
+    // #4643: a 404 (stale/deleted artist link) is recoverable and reads
+    // better as "not found" than as a generic failure; a real 500/network
+    // error keeps the distinct "Error Loading" framing + message — see the
+    // sibling AlbumDetailView for the identical fix and full rationale.
+    const notFound = !error || ApiErrorHandler.isNotFound(error);
     return (
       <Container maxWidth="xl" sx={{
         py: tokens.spacing.xl,
         px: tokens.spacing.lg,
       }} role="alert" aria-live="assertive">
         <EmptyState
-          title={error ? 'Error Loading Artist' : 'Artist not found'}
-          description={error || undefined}
+          title={notFound ? 'Artist not found' : 'Error Loading Artist'}
+          description={notFound ? undefined : error?.message}
         />
       </Container>
     );
