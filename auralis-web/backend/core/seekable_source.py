@@ -35,6 +35,8 @@ import shutil
 import tempfile
 from pathlib import Path
 
+from config.limits import SEEKABLE_TEMP_PREFIX
+
 logger = logging.getLogger(__name__)
 
 
@@ -53,7 +55,7 @@ def can_seek_natively(filepath: str) -> bool:
         return False
 
 
-def convert_to_temp_wav(filepath: str, *, prefix: str = "auralis_seekable_") -> tuple[str, str]:
+def convert_to_temp_wav(filepath: str, *, prefix: str = SEEKABLE_TEMP_PREFIX) -> tuple[str, str]:
     """Decode `filepath` once and write it to a temp WAV that libsndfile can seek.
 
     Returns ``(temp_dir, wav_path)``. The caller owns ``temp_dir`` and must

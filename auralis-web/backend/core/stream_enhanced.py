@@ -85,6 +85,13 @@ async def stream_enhanced_audio(
     # even if an exception fires before the streaming loop initialises it
     # (fixes #3493 unbound-var hazard).
     lookahead_task: asyncio.Task[tuple[np.ndarray, int]] | None = None
+    # Same unbound-var hazard as lookahead_task above, for the same reason:
+    # the outer `finally:` below must be able to release this processor's
+    # temp WAV (SeekableSource, #4737) even when construction itself timed
+    # out or an earlier step raised before `processor` was ever assigned
+    # (#5253 — a leaked temp WAV per seek/play of a non-natively-seekable
+    # format, since nothing here used to call .close() at all).
+    processor: 'ChunkedAudioProcessor | None' = None
 
     # Cooperative-cancel signal for in-flight chunk DSP (#4815). Registered
     # as early as possible — before track lookup/processor construction —
@@ -129,7 +136,7 @@ async def stream_enhanced_audio(
 
         # Create processor for this track with timeout (#2125)
         try:
-            processor: 'ChunkedAudioProcessor' = await asyncio.wait_for(
+            processor = await asyncio.wait_for(
                 asyncio.to_thread(
                     controller.chunked_processor_class,
                     track_id=track_id,
@@ -405,6 +412,14 @@ async def stream_enhanced_audio(
         # reference past stream teardown (fixes #3493).
         await controller._drain_cancelled_task(lookahead_task)
         controller._stream_semaphore.release()
+        # #5253: release the temp WAV this processor may own (SeekableSource,
+        # #4737) — a non-natively-seekable format (m4a/aac/wma) converts once
+        # per ChunkedAudioProcessor instance, and since a new instance is
+        # constructed per stream, nothing ever reclaimed it before this fix.
+        # Never self.processor — that's the *shared* HybridProcessor owned by
+        # ProcessorFactory's own lifecycle (see ChunkedAudioProcessor.close()).
+        if processor is not None:
+            await asyncio.to_thread(processor.close)
         # #4815: only remove OUR OWN registration — a reissued stream on the
         # same ws_id may already have registered its own event by the time
         # this (cancelled) task's finally runs.

@@ -33,6 +33,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "ba
 from config.limits import (  # noqa: E402
     CHUNK_TEMP_DIRNAME,
     CHUNK_TEMP_OWNER_FILENAME,
+    SEEKABLE_TEMP_PREFIX,
     STREAM_TEMP_PREFIX,
     owning_pid_from_stream_temp_name,
     stream_temp_prefix,
@@ -90,6 +91,63 @@ class TestStreamTempNaming:
 
         assert "stream_temp_prefix()" in source
         assert "prefix='auralis_stream_'" not in source
+
+
+class TestSeekableTempPrefixWiring:
+    """WIRING (#5253): if seekable_source.py stops using the shared
+    SEEKABLE_TEMP_PREFIX constant, the sweep can never recognise its temp
+    dirs as belonging to it — the producer and the sweeper must agree,
+    exactly like TestStreamTempNaming.test_producer_uses_the_shared_prefix
+    above does for the stream-temp prefix."""
+
+    def test_producer_uses_the_shared_prefix(self):
+        backend = Path(__file__).parent.parent.parent / "auralis-web" / "backend"
+        source = (backend / "core" / "seekable_source.py").read_text()
+
+        assert "SEEKABLE_TEMP_PREFIX" in source
+        assert 'prefix: str = "auralis_seekable_"' not in source
+
+
+class TestSeekableTempSweep:
+    """#5253: auralis_seekable_* directories (SeekableSource.convert_to_temp_wav,
+    #4737) leaked unconditionally — not just on a crash — because neither
+    stream_seek.py nor stream_enhanced.py ever called processor.close(), and
+    the startup sweep never globbed this prefix at all. Both halves of the
+    fix (the .close() calls and this sweep) are independent backstops for
+    the same leak."""
+
+    def test_fresh_seekable_dir_is_skipped(self, tmp_path):
+        fresh = _make_stream_dir(tmp_path, f"{SEEKABLE_TEMP_PREFIX}fresh")
+
+        assert reclaim_leftover_stream_temps(tmp_path) == 0
+        assert fresh.exists()
+
+    def test_aged_seekable_dir_is_reclaimed(self, tmp_path):
+        aged = _make_stream_dir(tmp_path, f"{SEEKABLE_TEMP_PREFIX}aged", age_hours=2.0)
+
+        assert reclaim_leftover_stream_temps(tmp_path) == 1
+        assert not aged.exists()
+
+    def test_mixed_stream_and_seekable_dirs_both_swept(self, tmp_path):
+        """One sweep call must cover both prefixes, not just one or the
+        other — a regression that narrowed the glob back to a single
+        prefix would still pass every other test in this file."""
+        aged_stream = _make_stream_dir(tmp_path, "auralis_stream_aged", age_hours=2.0)
+        aged_seekable = _make_stream_dir(tmp_path, f"{SEEKABLE_TEMP_PREFIX}aged", age_hours=2.0)
+        fresh_seekable = _make_stream_dir(tmp_path, f"{SEEKABLE_TEMP_PREFIX}fresh")
+
+        assert reclaim_leftover_stream_temps(tmp_path) == 2
+        assert not aged_stream.exists()
+        assert not aged_seekable.exists()
+        assert fresh_seekable.exists()
+
+    def test_seekable_prefix_has_no_pid_tag_so_falls_to_age_heuristic(self):
+        """SeekableSource never adopted the #4713 PID-tagging scheme, so
+        parsing one of its directory names must return None (ownership
+        unknowable) rather than misidentifying it as an auralis_stream_*
+        name — which is exactly what routes it to the safe age fallback
+        instead of the PID-liveness branch."""
+        assert owning_pid_from_stream_temp_name(f"{SEEKABLE_TEMP_PREFIX}abc123") is None
 
 
 class TestStreamTempSweepOwnership:

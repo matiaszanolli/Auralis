@@ -27,6 +27,15 @@ PROCESSING_TEMP_DIRNAME: str = "auralis_processing"
 # the producer and the sweeper must agree on it (#3877).
 STREAM_TEMP_PREFIX: str = "auralis_stream_"
 
+# Prefix for the per-track temp WAV directories SeekableSource.convert_to_temp_wav
+# creates for non-natively-seekable formats (m4a/aac/wma, #4737). Unlike
+# STREAM_TEMP_PREFIX these carry no PID tag, so the startup sweep's ownership
+# check always falls back to its age heuristic for them — same as any other
+# untagged directory (#5253: the sweep never globbed this prefix at all, so a
+# leaked directory — e.g. from the .close() gap this same fix closes — was
+# never reclaimed regardless of age).
+SEEKABLE_TEMP_PREFIX: str = "auralis_seekable_"
+
 # Sibling marker file recording which process last claimed the chunk cache, so
 # a second backend starting up does not wipe a running instance's cache (#4713).
 # Deliberately a sibling of the chunk dir rather than a file inside it:

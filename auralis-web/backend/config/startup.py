@@ -15,6 +15,7 @@ Manages component initialization and cleanup via FastAPI lifespan context manage
 """
 
 import asyncio
+import itertools
 import logging
 import os
 import shutil
@@ -36,6 +37,7 @@ from config.background_workers import (
 from config.limits import (
     CHUNK_TEMP_DIRNAME,
     CHUNK_TEMP_OWNER_FILENAME,
+    SEEKABLE_TEMP_PREFIX,
     STREAM_TEMP_PREFIX,
     UPLOAD_TEMP_DIRNAME,
     owning_pid_from_stream_temp_name,
@@ -446,24 +448,30 @@ def reclaim_leftover_stream_temps(temp_root: Path, max_age_hours: float = 1.0) -
 
     stream_normal_audio writes a temp WAV under ``auralis_stream_<pid>_*`` and
     cleans it in its finally block, but a crash or a locked file (Windows AV /
-    cloud-sync) can leave one behind (#3877). Sweep them on startup so any leak
-    surfaces in the log and stays bounded.
+    cloud-sync) can leave one behind (#3877). SeekableSource.convert_to_temp_wav
+    writes an ``auralis_seekable_*`` one for any non-natively-seekable format
+    (m4a/aac/wma, #4737) with the same failure mode — plus, until #5253, the
+    seek/enhanced streaming entry points never called ``.close()`` at all, so
+    every one of those leaked unconditionally, not just on a crash. Sweep both
+    prefixes on startup so any leak surfaces in the log and stays bounded.
 
-    #4713: this used to ``rmtree`` **every** match with no ownership or age
-    check, so a second backend — a dev running ``main.py --dev`` on an alternate
-    port while the packaged app is open, or a test pointed at the real temp root
-    — deleted the *live* temp WAVs of the running instance, producing
-    file-not-found errors mid-playback in the other process.
+    #4713: this used to ``rmtree`` **every** ``auralis_stream_*`` match with no
+    ownership or age check, so a second backend — a dev running ``main.py
+    --dev`` on an alternate port while the packaged app is open, or a test
+    pointed at the real temp root — deleted the *live* temp WAVs of the
+    running instance, producing file-not-found errors mid-playback in the
+    other process.
 
     Two guards, in order:
 
-    - **PID tag (exact).** Directories written by #4713 or later carry the
-      owning PID. A directory whose PID is still alive is skipped outright, no
-      matter how old — a long audiobook or DJ set can legitimately hold one open
-      for hours.
-    - **Age (fallback).** A directory with no PID tag predates the tagging (or
-      came from something else), so ownership is unknowable; anything modified
-      within `max_age_hours` is left alone on the assumption it may be live.
+    - **PID tag (exact).** Directories written by #4713 or later (the
+      ``auralis_stream_*`` producer only) carry the owning PID. A directory
+      whose PID is still alive is skipped outright, no matter how old — a
+      long audiobook or DJ set can legitimately hold one open for hours.
+    - **Age (fallback).** A directory with no PID tag — either it predates the
+      tagging, or it's an ``auralis_seekable_*`` directory, which has never
+      carried one — has unknowable ownership; anything modified within
+      `max_age_hours` is left alone on the assumption it may be live.
 
     Args:
         temp_root: Directory to sweep (the system temp root in production).
@@ -476,7 +484,16 @@ def reclaim_leftover_stream_temps(temp_root: Path, max_age_hours: float = 1.0) -
     skipped = 0
     cutoff = time.time() - (max_age_hours * 3600)
 
-    for leftover in temp_root.glob(f"{STREAM_TEMP_PREFIX}*"):
+    # #5253: auralis_seekable_* carries no PID tag at all (SeekableSource
+    # never adopted the #4713 tagging scheme), so owning_pid_from_stream_temp_name
+    # correctly returns None for it below and every match falls straight to
+    # the age-based guard — the same safe default an untagged auralis_stream_*
+    # directory already gets.
+    leftovers = itertools.chain(
+        temp_root.glob(f"{STREAM_TEMP_PREFIX}*"),
+        temp_root.glob(f"{SEEKABLE_TEMP_PREFIX}*"),
+    )
+    for leftover in leftovers:
         owner_pid = owning_pid_from_stream_temp_name(leftover.name)
 
         if owner_pid is not None:
