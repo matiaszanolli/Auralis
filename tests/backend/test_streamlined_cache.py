@@ -64,7 +64,12 @@ class TestCachedChunk:
         assert chunk.access_count == 0
 
     def test_cached_chunk_key(self):
-        """Test cache key generation."""
+        """Test cache key generation.
+
+        #5251: the key now carries a trailing file_signature segment
+        (empty string when none is supplied) so an in-place file edit
+        produces a different key rather than reusing a stale one.
+        """
         chunk = CachedChunk(
             track_id=1,
             chunk_idx=0,
@@ -74,7 +79,7 @@ class TestCachedChunk:
         )
 
         key = chunk.key()
-        assert key == "1_adaptive_1.0_0"
+        assert key == "1_adaptive_1.0_0_"
 
     def test_cached_chunk_key_original(self):
         """Test cache key for original (unprocessed) chunk."""
@@ -87,7 +92,21 @@ class TestCachedChunk:
         )
 
         key = chunk.key()
-        assert key == "1_original_1.0_0"
+        assert key == "1_original_1.0_0_"
+
+    def test_cached_chunk_key_includes_file_signature(self):
+        """#5251: two chunks that differ only in file_signature must get
+        different keys — this is the whole point of the fix."""
+        base_kwargs = dict(
+            track_id=1, chunk_idx=0, preset="adaptive", intensity=1.0,
+            chunk_path=Path("/tmp/chunk.webm")
+        )
+        chunk_a = CachedChunk(file_signature="aaaaaaaa", **base_kwargs)
+        chunk_b = CachedChunk(file_signature="bbbbbbbb", **base_kwargs)
+
+        assert chunk_a.key() != chunk_b.key()
+        assert chunk_a.key() == "1_adaptive_1.0_0_aaaaaaaa"
+        assert chunk_b.key() == "1_adaptive_1.0_0_bbbbbbbb"
 
     def test_is_original(self):
         """Test checking if chunk is original."""
@@ -321,21 +340,48 @@ class TestStreamlinedCacheManager:
         assert cache_manager.tier1_misses == 1
 
     @pytest.mark.asyncio
+    async def test_get_chunk_signature_mismatch_is_a_miss(self, cache_manager):
+        """#5251: a chunk cached under one file_signature must not be served
+        for a lookup under a different one — the exact scenario an in-place
+        file edit (same track_id, new content) produces."""
+        chunk_path = Path("/tmp/chunk_0.webm")
+        await cache_manager.add_chunk(
+            1, 0, chunk_path, "adaptive", 1.0, tier="tier1", file_signature="aaaaaaaa"
+        )
+
+        # Same track/chunk/preset/intensity, different signature (as if the
+        # source file were edited since this chunk was cached).
+        result_path, tier = await cache_manager.get_chunk(
+            1, 0, "adaptive", 1.0, file_signature="bbbbbbbb"
+        )
+
+        assert result_path is None
+        assert tier == "miss"
+
+        # The original signature still hits, proving this is a genuine
+        # signature check and not an accidental full-miss.
+        result_path, tier = await cache_manager.get_chunk(
+            1, 0, "adaptive", 1.0, file_signature="aaaaaaaa"
+        )
+        assert result_path == chunk_path
+        assert tier == "tier1"
+
+    @pytest.mark.asyncio
     async def test_add_chunk_tier1_auto_detect(self, cache_manager):
         """Test auto-detection of Tier 1 chunks."""
         await cache_manager.update_position(1, 0.0, "adaptive", 1.0, 60.0)
 
         # Current chunk (0) should go to Tier 1
         await cache_manager.add_chunk(1, 0, Path("/tmp/chunk_0.webm"), "adaptive", 1.0, tier="auto")
-        assert "1_adaptive_1.0_0" in cache_manager.tier1_cache
+        assert "1_adaptive_1.0_0_" in cache_manager.tier1_cache
 
         # Next chunk (1) should go to Tier 1
         await cache_manager.add_chunk(1, 1, Path("/tmp/chunk_1.webm"), "adaptive", 1.0, tier="auto")
-        assert "1_adaptive_1.0_1" in cache_manager.tier1_cache
+        assert "1_adaptive_1.0_1_" in cache_manager.tier1_cache
 
         # Chunk 5 should go to Tier 2
         await cache_manager.add_chunk(1, 5, Path("/tmp/chunk_5.webm"), "adaptive", 1.0, tier="auto")
-        assert "1_adaptive_1.0_5" in cache_manager.tier2_cache
+        assert "1_adaptive_1.0_5_" in cache_manager.tier2_cache
 
     @pytest.mark.asyncio
     async def test_tier1_eviction(self, cache_manager):
@@ -433,6 +479,58 @@ class TestStreamlinedCacheManager:
         assert len(cache_manager.tier1_cache) == 0
         assert len(cache_manager.tier2_cache) == 0
         assert len(cache_manager.track_status) == 0
+
+    @pytest.mark.asyncio
+    async def test_clear_all_deletes_on_disk_chunk_files(self, cache_manager, tmp_path):
+        """#5249: clear_all() must delete the on-disk WAV files, not just
+        empty the in-memory dicts — otherwise ChunkPathCache's independent
+        on-disk existence check keeps finding and serving the same bytes."""
+        c1 = tmp_path / "c0.wav"
+        c2 = tmp_path / "c5.wav"
+        c1.write_bytes(b"fake-wav-bytes-1")
+        c2.write_bytes(b"fake-wav-bytes-2")
+
+        await cache_manager.update_position(1, 0.0, "adaptive", 1.0, 60.0)
+        await cache_manager.add_chunk(1, 0, c1, "adaptive", 1.0, tier="tier1")
+        await cache_manager.add_chunk(1, 5, c2, "adaptive", 1.0, tier="tier2")
+
+        assert c1.exists() and c2.exists()
+
+        await cache_manager.clear_all()
+
+        assert not c1.exists(), "clear_all() left a tier1 chunk file on disk"
+        assert not c2.exists(), "clear_all() left a tier2 chunk file on disk"
+
+    @pytest.mark.asyncio
+    async def test_clear_track_deletes_on_disk_chunk_files(self, cache_manager, tmp_path):
+        """#5249: same guarantee as clear_all(), but scoped to one track —
+        and must NOT touch another track's still-cached files."""
+        mine = tmp_path / "mine.wav"
+        other = tmp_path / "other.wav"
+        mine.write_bytes(b"fake-wav-bytes")
+        other.write_bytes(b"fake-wav-bytes")
+
+        await cache_manager.add_chunk(1, 0, mine, "adaptive", 1.0, tier="tier2")
+        await cache_manager.add_chunk(2, 0, other, "adaptive", 1.0, tier="tier2")
+
+        removed = await cache_manager.clear_track(1)
+
+        assert removed == 1
+        assert not mine.exists(), "clear_track() left the target track's chunk file on disk"
+        assert other.exists(), "clear_track() deleted an unrelated track's chunk file"
+
+    @pytest.mark.asyncio
+    async def test_clear_track_tolerates_already_missing_file(self, cache_manager):
+        """A chunk file that's already gone (race with another cleanup pass,
+        or was never actually written) must not raise — matches this
+        cache's established graceful-degradation style."""
+        await cache_manager.add_chunk(
+            1, 0, Path("/nonexistent/does_not_exist.wav"), "adaptive", 1.0, tier="tier1"
+        )
+
+        removed = await cache_manager.clear_track(1)  # must not raise
+
+        assert removed == 1
 
 
 class TestCacheMemoryManagement:

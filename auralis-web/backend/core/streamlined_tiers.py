@@ -21,6 +21,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from core.file_signature import FileSignatureService
 from core.streamlined_processor_cache import prune_processors_for_track
 
 
@@ -111,9 +112,14 @@ async def ensure_tier1_chunk(
     # Collect chunk paths to warm Tier 1 after processing
     tier1_chunks_to_warm: list[tuple[int, Path, str | None]] = []
 
+    # #5251: this tier is consulted before the signature-aware disk lookup,
+    # so a lookup without the current file signature would keep hitting a
+    # stale in-memory entry after the source file changes on disk.
+    file_signature = FileSignatureService.generate(track.filepath)
+
     # Check if original chunk is cached
     original_path, tier = await worker.cache_manager.get_chunk(
-        track_id, chunk_idx, preset=None, intensity=intensity
+        track_id, chunk_idx, preset=None, intensity=intensity, file_signature=file_signature
     )
 
     if original_path is None:
@@ -130,7 +136,7 @@ async def ensure_tier1_chunk(
     # Check if processed chunk is cached (only if auto-mastering enabled)
     if worker.cache_manager.auto_mastering_enabled:
         processed_path, tier = await worker.cache_manager.get_chunk(
-            track_id, chunk_idx, preset=preset, intensity=intensity
+            track_id, chunk_idx, preset=preset, intensity=intensity, file_signature=file_signature
         )
 
         if processed_path is None:
@@ -149,7 +155,8 @@ async def ensure_tier1_chunk(
         await worker.cache_manager.warm_tier1_immediately(
             track_id=track_id,
             chunk_paths=tier1_chunks_to_warm,
-            intensity=intensity
+            intensity=intensity,
+            file_signature=file_signature
         )
 
 

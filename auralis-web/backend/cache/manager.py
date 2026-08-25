@@ -73,6 +73,17 @@ class CachedChunk:
     preset: str | None  # None for original, preset name for processed
     intensity: float
     chunk_path: Path
+    # File signature (mtime+size hash, see core/file_signature.py) the chunk
+    # was cached under (#5251). Every sibling tier already keys on this —
+    # SimpleChunkCache (core/chunk_cache.py, CACHE_VERSION 4, #4358) and the
+    # on-disk ChunkPathCache/ChunkCacheManager both include it — but this
+    # tier, which is consulted BEFORE the signature-aware disk lookup, never
+    # got the fix, so an in-place file edit (e.g. a re-master landing at the
+    # identical path) kept serving pre-edit audio from here until LRU
+    # eviction happened to reclaim the entry. Defaults to "" so a caller that
+    # genuinely has no signature available degrades to the old (unsafe but
+    # unchanged) behavior rather than erroring.
+    file_signature: str = ""
     timestamp: float = field(default_factory=time.time)
     access_count: int = 0
     last_access: float = field(default_factory=time.time)
@@ -93,10 +104,25 @@ class CachedChunk:
                 # matches the rest of this cache's graceful-degradation style.
                 self.size_bytes = 0
 
+    @staticmethod
+    def make_key(
+        track_id: int,
+        chunk_idx: int,
+        preset: str | None,
+        intensity: float,
+        file_signature: str = "",
+    ) -> str:
+        """Compose the cache key — the single source of truth for this tier's
+        key format, so a lookup (which has no CachedChunk instance yet) and
+        an insert (which does, via .key()) can never drift apart."""
+        preset_key = "original" if preset is None else preset
+        return f"{track_id}_{preset_key}_{intensity:.1f}_{chunk_idx}_{file_signature}"
+
     def key(self) -> str:
         """Generate unique cache key."""
-        preset_key = "original" if self.preset is None else self.preset
-        return f"{self.track_id}_{preset_key}_{self.intensity:.1f}_{self.chunk_idx}"
+        return CachedChunk.make_key(
+            self.track_id, self.chunk_idx, self.preset, self.intensity, self.file_signature
+        )
 
     def is_original(self) -> bool:
         """Check if this is an original (unprocessed) chunk."""
@@ -321,7 +347,8 @@ class StreamlinedCacheManager:
         track_id: int,
         chunk_idx: int,
         preset: str | None = None,
-        intensity: float = 1.0
+        intensity: float = 1.0,
+        file_signature: str = ""
     ) -> tuple[Path | None, str]:
         """
         Get chunk from cache.
@@ -331,12 +358,14 @@ class StreamlinedCacheManager:
             chunk_idx: Chunk index
             preset: Preset (None for original)
             intensity: Processing intensity
+            file_signature: File signature (#5251) the chunk should have been
+                cached under — a mismatch (e.g. the file was edited since)
+                is a cache miss, not an error, exactly like the on-disk tier.
 
         Returns:
             (chunk_path, tier) - tier is "tier1", "tier2", or "miss"
         """
-        preset_key = "original" if preset is None else preset
-        cache_key = f"{track_id}_{preset_key}_{intensity:.1f}_{chunk_idx}"
+        cache_key = CachedChunk.make_key(track_id, chunk_idx, preset, intensity, file_signature)
 
         # Check Tier 1 first (hot)
         if cache_key in self.tier1_cache:
@@ -366,7 +395,8 @@ class StreamlinedCacheManager:
         chunk_path: Path,
         preset: str | None = None,
         intensity: float = 1.0,
-        tier: str = "auto"
+        tier: str = "auto",
+        file_signature: str = ""
     ) -> bool:
         """
         Add chunk to cache.
@@ -378,6 +408,10 @@ class StreamlinedCacheManager:
             preset: Preset (None for original)
             intensity: Processing intensity
             tier: "tier1", "tier2", or "auto" (auto-detect)
+            file_signature: File signature (#5251) this chunk was produced
+                from — carried through to the cache key so an in-place file
+                edit produces a fresh key rather than overwriting/serving a
+                stale one.
 
         Returns:
             True if added successfully
@@ -388,7 +422,8 @@ class StreamlinedCacheManager:
                 chunk_idx=chunk_idx,
                 preset=preset,
                 intensity=intensity,
-                chunk_path=chunk_path
+                chunk_path=chunk_path,
+                file_signature=file_signature
             )
 
             cache_key = chunk.key()
@@ -590,7 +625,8 @@ class StreamlinedCacheManager:
         self,
         track_id: int,
         chunk_paths: list[tuple[int, Path, str | None]],
-        intensity: float = 1.0
+        intensity: float = 1.0,
+        file_signature: str = ""
     ) -> int:
         """
         Immediately warm Tier 1 cache with pre-processed chunks.
@@ -602,6 +638,8 @@ class StreamlinedCacheManager:
             track_id: Track ID
             chunk_paths: List of (chunk_index, path, preset) tuples to cache
             intensity: Processing intensity
+            file_signature: File signature (#5251) these chunks were
+                produced from — see CachedChunk.file_signature.
 
         Returns:
             Number of chunks loaded into Tier 1
@@ -615,7 +653,8 @@ class StreamlinedCacheManager:
                     chunk_idx=chunk_idx,
                     preset=preset,
                     intensity=intensity,
-                    chunk_path=chunk_path
+                    chunk_path=chunk_path,
+                    file_signature=file_signature
                 )
 
                 cache_key = chunk.key()
@@ -676,37 +715,72 @@ class StreamlinedCacheManager:
     async def clear_track(self, track_id: int) -> int:
         """Clear all cached data for a single track.
 
+        Also deletes the underlying on-disk WAV chunk files (#5249) —
+        clearing only the tier1/tier2 in-memory bookkeeping left
+        ChunkPathCache's independent on-disk existence check
+        (core/chunk_path_cache.py) still finding and serving the exact same
+        bytes on the very next request, making the user's "clear and retry"
+        troubleshooting lever a no-op for anything already on disk.
+
         Returns the number of cache entries removed.
         """
         async with self._lock:
             # Remove Tier 1 entries for this track
-            t1_keys = [k for k in self.tier1_cache if str(track_id) in str(k)]
-            for key in t1_keys:
+            t1_removed = [(k, v) for k, v in self.tier1_cache.items() if str(track_id) in str(k)]
+            for key, _ in t1_removed:
                 del self.tier1_cache[key]
 
             # Remove Tier 2 entries for this track
-            t2_keys = [
-                k for k, chunk in self.tier2_cache.items()
-                if chunk.track_id == track_id
+            t2_removed = [
+                (k, v) for k, v in self.tier2_cache.items()
+                if v.track_id == track_id
             ]
-            for key in t2_keys:
+            for key, _ in t2_removed:
                 del self.tier2_cache[key]
 
             # Remove track status
             self.track_status.pop(track_id, None)
 
-            removed = len(t1_keys) + len(t2_keys)
-            logger.info(f"Cleared cache for track {track_id} ({removed} entries)")
-            return removed
+            removed = len(t1_removed) + len(t2_removed)
+            chunk_paths = [chunk.chunk_path for _, chunk in (*t1_removed, *t2_removed)]
+
+        # Disk I/O outside the lock — a slow or failing deletion must not
+        # hold up other cache operations, and the in-memory bookkeeping
+        # above is already committed regardless of the disk outcome.
+        await asyncio.to_thread(self._unlink_chunk_files, chunk_paths)
+
+        logger.info(f"Cleared cache for track {track_id} ({removed} entries)")
+        return removed
 
     async def clear_all(self) -> None:
-        """Clear all caches."""
+        """Clear all caches, including the underlying on-disk WAV chunk
+        files (#5249) — see clear_track()'s docstring for why this matters."""
         async with self._lock:
+            chunk_paths = [c.chunk_path for c in self.tier1_cache.values()]
+            chunk_paths.extend(c.chunk_path for c in self.tier2_cache.values())
             self.tier1_cache.clear()
             self.tier2_cache.clear()
             self.track_status.clear()
             self.mastering_recommendations.clear()
-            logger.info("All caches cleared")
+
+        await asyncio.to_thread(self._unlink_chunk_files, chunk_paths)
+        logger.info(f"All caches cleared ({len(chunk_paths)} on-disk chunk file(s) removed)")
+
+    @staticmethod
+    def _unlink_chunk_files(chunk_paths: list[Path]) -> None:
+        """Best-effort delete of the on-disk WAV files backing cache entries
+        that were just dropped from the in-memory dicts. A file that's
+        already gone (race with another cleanup pass, or was never
+        actually written) is not an error — matches this cache's
+        established graceful-degradation style (see
+        CachedChunk.__post_init__)."""
+        for path in chunk_paths:
+            try:
+                path.unlink()
+            except FileNotFoundError:
+                pass
+            except OSError as e:
+                logger.warning(f"Could not delete cached chunk file {path}: {e}")
 
 
 # Global instance

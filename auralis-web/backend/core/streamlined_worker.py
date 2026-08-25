@@ -250,7 +250,12 @@ class StreamlinedCacheWorker:
                     chunk_path=Path(chunk_path),
                     preset=preset,
                     intensity=intensity,
-                    tier=tier
+                    tier=tier,
+                    # #5251: carry the signature through so an in-place file
+                    # edit produces a fresh key on the next lookup instead of
+                    # a stale hit — processor.file_signature was already
+                    # computed by ChunkedAudioProcessor.__init__.
+                    file_signature=processor.file_signature,
                 )
 
                 if success:

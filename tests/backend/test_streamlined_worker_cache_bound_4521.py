@@ -68,6 +68,9 @@ class _StubProcessor:
     def __init__(self, **kwargs):
         self.kwargs = kwargs
         self.intensity = kwargs.get("intensity")
+        # Real ChunkedAudioProcessor.__init__ always sets this (#5251) —
+        # _process_chunk() now reads it to pass through to add_chunk().
+        self.file_signature = "stubsig"
         self.process_chunk_safe = AsyncMock(return_value=("/tmp/chunk.wav", None))
         _StubProcessor.instances.append(self)
 
