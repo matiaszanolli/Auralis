@@ -148,7 +148,6 @@ class SupportedFormatsResponse(BaseModel):
 # ============================================================================
 
 class _FilesDeps:
-    connection_manager: Any = None
     get_repository_factory: Callable[[], Any] | None = None
 
 
@@ -362,14 +361,12 @@ async def get_supported_formats() -> dict[str, Any]:
 
 
 def create_files_router(
-    connection_manager: Any = None,
     get_repository_factory: Callable[[], Any] | None = None
 ) -> APIRouter:
     """
     Factory function to create files router with dependencies.
 
     Args:
-        connection_manager: WebSocket connection manager for broadcasts
         get_repository_factory: Callable that returns RepositoryFactory instance
 
     Returns:
@@ -378,10 +375,6 @@ def create_files_router(
     Note:
         Directory scanning is handled by routers/library.py (fixes #2123).
     """
-    # connection_manager is accepted for call-site compatibility with
-    # config/routes.py but is not used by any handler below -- pre-existing,
-    # unrelated to #4670.
-    _deps.connection_manager = connection_manager
     _deps.get_repository_factory = get_repository_factory
 
     router = APIRouter(tags=["files"])

@@ -129,7 +129,6 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
 
     # Create and include files router (scan, upload, formats)
     files_router: APIRouter = create_files_router(
-        connection_manager=manager,
         get_repository_factory=get_component('repository_factory')
     )
     app.include_router(files_router)
