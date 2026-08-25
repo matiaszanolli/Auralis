@@ -368,6 +368,36 @@ class TestGetMasteringRecommendation:
             confidence_threshold=0.8
         )
 
+    def test_returns_500_when_analysis_times_out(self, client, repos):
+        """#5248: a hung ChunkedAudioProcessor construction/analysis (e.g. a
+        corrupt-header file — sf.info() has no timeout of its own for
+        natively-decodable formats) must surface as a clean 500 naming the
+        timeout, not hang the request indefinitely.
+
+        Patches asyncio.wait_for (not asyncio.to_thread) so the earlier,
+        unrelated `await asyncio.to_thread(repos.tracks.get_by_id, ...)`
+        lookup is unaffected — wait_for is only used at the one new call
+        site this fix added. The side_effect closes the real
+        `asyncio.to_thread(_run_recommendation)` coroutine it intercepts
+        before raising, so nothing is left dangling for the GC to warn
+        about.
+        """
+        from unittest.mock import Mock, patch
+
+        track = Mock()
+        track.filepath = "/music/song.flac"
+        repos.tracks.get_by_id.return_value = track
+
+        async def _timeout_side_effect(coro, timeout=None):
+            coro.close()
+            raise TimeoutError
+
+        with patch("routers.enhancement.asyncio.wait_for", side_effect=_timeout_side_effect):
+            response = client.get("/api/player/mastering/recommendation/1")
+
+        assert response.status_code == 500
+        assert "timed out" in response.json()["detail"].lower()
+
 
 class TestGetProcessingParameters:
     """Test GET /api/processing/parameters"""

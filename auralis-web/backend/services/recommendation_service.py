@@ -12,6 +12,8 @@ import asyncio
 import logging
 from typing import Any, Protocol, cast
 
+from core import audio_stream_controller as _asc
+
 logger = logging.getLogger(__name__)
 
 
@@ -93,7 +95,15 @@ class RecommendationService:
             return cast(dict[str, Any], rec.to_response(track_id))
 
         try:
-            rec_dict = await asyncio.to_thread(_analyze)
+            # #5248: bound the same way every streaming entry point bounds
+            # ChunkedAudioProcessor construction — sf.info() has no timeout
+            # of its own for natively-decodable formats, so a corrupt header
+            # or a track on storage that disappears mid-read can otherwise
+            # hang this thread forever and, since this fires on every play,
+            # eventually exhaust the shared IO_EXECUTOR pool.
+            rec_dict = await asyncio.wait_for(
+                asyncio.to_thread(_analyze), timeout=_asc.CHUNK_PROCESS_TIMEOUT
+            )
             if rec_dict:
                 await self.connection_manager.broadcast({
                     "type": "mastering_recommendation",
@@ -102,6 +112,14 @@ class RecommendationService:
                 logger.info(f"📊 Broadcasted mastering recommendation for track {track_id}")
                 return rec_dict
             logger.info(f"ℹ️  No confident recommendation found for track {track_id}")
+            return {}
+        except TimeoutError:
+            # Recommendations are optional — a hung analysis should degrade
+            # exactly like an analysis failure, not propagate.
+            logger.warning(
+                f"Mastering recommendation analysis timed out after "
+                f"{_asc.CHUNK_PROCESS_TIMEOUT}s for track {track_id}"
+            )
             return {}
         except Exception as e:
             # Log but don't fail - recommendations are optional
@@ -152,7 +170,11 @@ class RecommendationService:
             return cast(dict[str, Any], rec.to_response(track_id))
 
         try:
-            return await asyncio.to_thread(_analyze)
+            # #5248: same timeout bound as generate_and_broadcast_recommendation
+            # above — see that method's comment for why this is needed.
+            return await asyncio.wait_for(
+                asyncio.to_thread(_analyze), timeout=_asc.CHUNK_PROCESS_TIMEOUT
+            )
         except Exception as e:
             logger.error(f"Failed to get mastering recommendation for track {track_id}: {e}")
             raise

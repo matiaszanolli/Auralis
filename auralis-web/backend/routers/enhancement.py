@@ -28,6 +28,7 @@ from .dependencies import with_error_handling
 from .errors import NotFoundError
 from pydantic import BaseModel, field_validator
 
+from core import audio_stream_controller as _asc
 from core.chunk_boundaries import (  # single source of truth (#2564)
     chunk_for_position,
     content_chunk_count,
@@ -632,7 +633,23 @@ async def get_mastering_recommendation(
             # is_hybrid and honors MasteringRecommendationResponse (#3840).
             return rec.to_response(_tid) if rec is not None else None
 
-        result = await asyncio.to_thread(_run_recommendation)
+        # #5248: bound the same way every streaming entry point bounds
+        # ChunkedAudioProcessor construction — sf.info() has no timeout of
+        # its own for natively-decodable formats, so a corrupt header or a
+        # track on storage that disappears mid-read can otherwise hang this
+        # thread forever and, since analysis is unconditional, eventually
+        # exhaust the shared IO_EXECUTOR pool.
+        try:
+            result = await asyncio.wait_for(
+                asyncio.to_thread(_run_recommendation),
+                timeout=_asc.CHUNK_PROCESS_TIMEOUT,
+            )
+        except TimeoutError:
+            raise HTTPException(
+                status_code=500,
+                detail="Mastering recommendation analysis timed out — "
+                "the file may be corrupt or on slow storage",
+            ) from None
 
         if result is None:
             raise HTTPException(status_code=500, detail="Failed to analyze audio file")

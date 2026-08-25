@@ -123,6 +123,88 @@ class TestGetRecommendationForTrack:
                 await service.get_recommendation_for_track(7, "/music/track.mp3")
 
 
+class TestAnalysisTimeout:
+    """#5248: both call sites must bound the analysis in
+    asyncio.wait_for(..., timeout=CHUNK_PROCESS_TIMEOUT), mirroring every
+    streaming entry point's ChunkedAudioProcessor construction — otherwise a
+    corrupt-header file (sf.info() has no timeout of its own for
+    natively-decodable formats) can hang a shared IO_EXECUTOR thread forever.
+    """
+
+    @pytest.mark.asyncio
+    async def test_generate_and_broadcast_returns_empty_dict_on_timeout(self):
+        """A hung analysis must degrade like any other analysis failure.
+
+        Mocking `to_thread` (not `wait_for`) to raise TimeoutError directly
+        is functionally equivalent to a real wait_for timeout from the
+        caller's point of view (both raise inside the same try block, hit
+        the same except clause) — and, unlike mocking `wait_for`, it never
+        constructs a real `_analyze()` coroutine that would be left
+        unawaited when the mock intercepts it.
+        """
+        service, conn_mgr = _make_service()
+
+        with patch(
+            "services.recommendation_service.asyncio.to_thread",
+            side_effect=TimeoutError,
+        ):
+            result = await service.generate_and_broadcast_recommendation(1, "/music/track.mp3")
+
+        assert result == {}
+        conn_mgr.broadcast.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_get_recommendation_raises_timeout_error(self):
+        """Unlike the broadcast path, this one preserves its documented
+        "raises on failure" contract — a timeout must still propagate."""
+        service, _ = _make_service()
+
+        with patch(
+            "services.recommendation_service.asyncio.to_thread",
+            side_effect=TimeoutError,
+        ):
+            with pytest.raises(TimeoutError):
+                await service.get_recommendation_for_track(7, "/music/track.mp3")
+
+    @pytest.mark.asyncio
+    async def test_generate_and_broadcast_uses_chunk_process_timeout(self):
+        """The bound must match the constant every streaming entry point
+        uses (core.audio_stream_controller.CHUNK_PROCESS_TIMEOUT), not an
+        ad-hoc value that could drift from it."""
+        from core import audio_stream_controller as _asc
+
+        service, _ = _make_service()
+
+        with patch(
+            "services.recommendation_service.asyncio.wait_for",
+            new_callable=AsyncMock,
+        ) as mock_wait_for:
+            mock_wait_for.return_value = None
+            await service.generate_and_broadcast_recommendation(1, "/music/track.mp3")
+
+        assert mock_wait_for.await_args.kwargs["timeout"] == _asc.CHUNK_PROCESS_TIMEOUT
+        # The mock intercepted wait_for before it could await its argument —
+        # close the real (never-run) `asyncio.to_thread(_analyze)` coroutine
+        # it was handed, so it isn't left dangling for the GC to warn about.
+        mock_wait_for.await_args.args[0].close()
+
+    @pytest.mark.asyncio
+    async def test_get_recommendation_uses_chunk_process_timeout(self):
+        from core import audio_stream_controller as _asc
+
+        service, _ = _make_service()
+
+        with patch(
+            "services.recommendation_service.asyncio.wait_for",
+            new_callable=AsyncMock,
+        ) as mock_wait_for:
+            mock_wait_for.return_value = None
+            await service.get_recommendation_for_track(7, "/music/track.mp3")
+
+        assert mock_wait_for.await_args.kwargs["timeout"] == _asc.CHUNK_PROCESS_TIMEOUT
+        mock_wait_for.await_args.args[0].close()
+
+
 class TestAnalyzeDoesNotMutateSysPath:
     """#4745: both _analyze() closures used to unconditionally
     sys.path.insert(0, ...) on every call with no removal — an unbounded,
