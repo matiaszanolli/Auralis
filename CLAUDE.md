@@ -21,7 +21,7 @@ cd auralis-web/backend && python main.py --dev             # Backend :8765
 cd auralis-web/frontend && pnpm install && pnpm run dev   # pnpm is the only supported JS package manager (#4357)
 
 # Test — scope first, widen once. `-q` keeps passes as dots; `-v` dumps every
-# test name into context for ~5,600 tests.
+# test name into context for ~6,552 tests.
 python -m pytest -q -m "not slow" tests/auralis/dsp     # A domain (the normal inner loop)
 python -m pytest tests/path.py::test_name -vv -s        # Single test
 cd auralis-web/frontend && pnpm run test:memory         # Frontend (2GB heap; OOMs without it)
@@ -161,7 +161,7 @@ auralis-web/
 
 vendor/auralis-dsp/               Rust DSP via PyO3 (HPSS, YIN, Chroma)
 desktop/                          Electron wrapper
-tests/                            ~6,474 test functions (559 files) across 18 subdirs (auralis, backend,
+tests/                            ~6,552 test functions (576 files) across 18 subdirs (auralis, backend,
                                     integration, boundaries, concurrency, security, load_stress, regression...)
 docs/                             18 topic dirs (development, features, frontend...)
 ```
