@@ -135,3 +135,59 @@ def test_does_not_call_unbounded_get_all(dims):
 
     assert repo.get_all_calls, "expected paged get_all calls"
     assert all(limit is not None for limit, _offset in repo.get_all_calls)
+
+
+def test_stop_event_set_before_first_batch_aborts_immediately(dims):
+    """#4682: a stop_event set before fit() starts reading batches must abort
+    with no batch reads at all — the cooperative-cancellation entry point a
+    background caller (SimilarityAutoFitWorker) uses since the underlying
+    thread can't be forcibly killed once a batch read is in flight."""
+    import threading
+
+    repo = _FakeFingerprintRepository(_synthetic_vectors(130, dims))
+    stop_event = threading.Event()
+    stop_event.set()
+
+    result = FingerprintNormalizer().fit(repo, min_samples=10, batch_size=50, stop_event=stop_event)
+
+    assert result is False
+    assert repo.get_all_calls == [], "must not read any batch once already stopped"
+
+
+def test_stop_event_set_mid_fit_aborts_before_remaining_batches(dims):
+    """A stop_event set partway through must stop the loop at the NEXT batch
+    boundary rather than reading the whole table regardless."""
+    import threading
+
+    repo = _FakeFingerprintRepository(_synthetic_vectors(300, dims))
+    stop_event = threading.Event()
+
+    # Set the event after the first batch read completes, simulating a
+    # stop() call arriving mid-fit.
+    real_get_all = repo.get_all
+
+    def _get_all_then_stop(limit=None, offset=0):
+        result = real_get_all(limit=limit, offset=offset)
+        stop_event.set()
+        return result
+
+    repo.get_all = _get_all_then_stop
+
+    result = FingerprintNormalizer().fit(repo, min_samples=10, batch_size=50, stop_event=stop_event)
+
+    assert result is False
+    assert len(repo.get_all_calls) == 1, "must not proceed past the batch where the stop was observed"
+
+
+def test_fit_still_succeeds_when_stop_event_never_set(dims):
+    """Passing a stop_event that is never set must not change fit()'s
+    outcome — the parameter is purely additive."""
+    import threading
+
+    vectors = _synthetic_vectors(130, dims)
+    repo = _FakeFingerprintRepository(vectors)
+    stop_event = threading.Event()
+
+    result = FingerprintNormalizer().fit(repo, min_samples=10, batch_size=50, stop_event=stop_event)
+
+    assert result is True

@@ -20,7 +20,6 @@ import logging
 import os
 import shutil
 import tempfile
-import threading
 import time
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
@@ -896,7 +895,7 @@ async def _init_ondemand_fingerprint_queue(globals_dict: dict[str, Any]) -> None
         logger.warning(f"⚠️  Failed to initialize on-demand fingerprint queue: {odq_e}")
 
 
-def _init_similarity_system(HAS_SIMILARITY: bool, globals_dict: dict[str, Any]) -> None:
+async def _init_similarity_system(HAS_SIMILARITY: bool, globals_dict: dict[str, Any]) -> None:
     """Initialize the fingerprint similarity system and K-NN graph builder."""
     if not HAS_SIMILARITY:
         return
@@ -905,6 +904,7 @@ def _init_similarity_system(HAS_SIMILARITY: bool, globals_dict: dict[str, Any]) 
             FingerprintSimilarity,
             KNNGraphBuilder,
         )
+        from services.similarity_autofit_worker import SimilarityAutoFitWorker
 
         globals_dict['similarity_system'] = FingerprintSimilarity(
             globals_dict['library_manager'].fingerprints
@@ -919,33 +919,23 @@ def _init_similarity_system(HAS_SIMILARITY: bool, globals_dict: dict[str, Any]) 
         # router then surfaces a clear 503 rather than silently
         # empty results. Runs off the startup path because
         # normalizer.fit() streams every fingerprint in batches.
+        #
+        # #4682: this used to be a bare threading.Thread(daemon=True) with no
+        # stop signal, never stored anywhere shutdown or library-reset could
+        # find it. SimilarityAutoFitWorker gives it the same start()/stop()
+        # shape every other BACKGROUND_WORKER_KEYS entry has, registered
+        # below under 'similarity_autofit' so lifespan shutdown and
+        # POST /api/library/reset both stop it through the shared helper
+        # (config/background_workers.py) instead of being able to diverge.
         globals_dict['graph_builder'] = None
-
-        def _auto_fit_similarity(
+        autofit_worker = SimilarityAutoFitWorker(
             sim_system=globals_dict['similarity_system'],
             lib_mgr=globals_dict['library_manager'],
-            gd=globals_dict,
+            globals_dict=globals_dict,
             builder_cls=KNNGraphBuilder,
-        ):
-            try:
-                if sim_system.fit():
-                    # get_component reads globals fresh per
-                    # request, so this late assignment is picked up.
-                    gd['graph_builder'] = builder_cls(
-                        similarity_system=sim_system,
-                        session_factory=lib_mgr.SessionLocal,
-                    )
-                    logger.info("✅ Similarity auto-fitted; K-NN Graph Builder ready")
-                else:
-                    logger.info("ℹ️  Similarity auto-fit skipped (not enough fingerprints yet)")
-            except Exception as fit_e:
-                logger.warning(f"⚠️  Similarity auto-fit failed: {fit_e}")
-
-        threading.Thread(
-            target=_auto_fit_similarity,
-            name="similarity-autofit",
-            daemon=True,
-        ).start()
+        )
+        await autofit_worker.start()
+        globals_dict['similarity_autofit'] = autofit_worker
     except Exception as sim_e:
         logger.warning(f"⚠️  Failed to initialize Similarity System: {sim_e}")
         globals_dict['similarity_system'] = None
@@ -987,7 +977,7 @@ async def _init_auralis_components(
         await _start_auto_scanner(manager, globals_dict, refresh_reference_cloud)
         _init_audio_player(manager, globals_dict)
         await _init_ondemand_fingerprint_queue(globals_dict)
-        _init_similarity_system(HAS_SIMILARITY, globals_dict)
+        await _init_similarity_system(HAS_SIMILARITY, globals_dict)
     except Exception as e:
         import traceback
         logger.error(f"❌ Failed to initialize Auralis components: {e}")

@@ -18,6 +18,7 @@ Without normalization, high-range dimensions dominate distance calculations.
 from __future__ import annotations
 
 import json
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -120,6 +121,7 @@ class FingerprintNormalizer:
         fingerprint_repository: Any,
         min_samples: int = 10,
         batch_size: int = 5000,
+        stop_event: threading.Event | None = None,
     ) -> bool:
         """
         Calculate normalization statistics from library fingerprints
@@ -137,9 +139,15 @@ class FingerprintNormalizer:
             fingerprint_repository: FingerprintRepository instance
             min_samples: Minimum number of fingerprints required
             batch_size: Rows hydrated per DB read (peak ORM memory bound)
+            stop_event: Checked between batch reads (#4682) — if set, the
+                fit is abandoned and this returns False rather than starting
+                a new batch read. A background caller running this on a
+                thread it cannot forcibly cancel (an in-flight DB read can't
+                be interrupted) uses this for cooperative early exit, e.g.
+                on process shutdown or a library reset.
 
         Returns:
-            True if successful, False if insufficient data
+            True if successful, False if insufficient data or stopped early
         """
         # Cheap count first so we can short-circuit without reading any rows.
         total = fingerprint_repository.get_count()
@@ -155,6 +163,9 @@ class FingerprintNormalizer:
         batch_arrays: list[np.ndarray] = []
         offset = 0
         while True:
+            if stop_event is not None and stop_event.is_set():
+                info("Similarity fit stopped before completing (#4682)")
+                return False
             batch = fingerprint_repository.get_all(limit=batch_size, offset=offset)
             if not batch:
                 break

@@ -8,6 +8,7 @@ High-level API for finding similar tracks using fingerprint-based similarity
 :license: GPLv3, see LICENSE for more details.
 """
 
+import threading
 from typing import Any
 
 import numpy as np
@@ -84,18 +85,22 @@ class FingerprintSimilarity:
         self.distance_calc = FingerprintDistance(weights=weights)
         self.fitted = False
 
-    def fit(self, min_samples: int = 10) -> bool:
+    def fit(self, min_samples: int = 10, stop_event: threading.Event | None = None) -> bool:
         """
         Calculate normalization statistics from library
 
         Args:
             min_samples: Minimum fingerprints required
+            stop_event: Forwarded to FingerprintNormalizer.fit() (#4682) for
+                cooperative early exit from a background caller.
 
         Returns:
             True if successful, False otherwise
         """
         info("Fitting similarity system to library fingerprints...")
-        success = self.normalizer.fit(self.fingerprint_repo, min_samples=min_samples)
+        success = self.normalizer.fit(
+            self.fingerprint_repo, min_samples=min_samples, stop_event=stop_event
+        )
 
         if success:
             self.fitted = True

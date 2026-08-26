@@ -28,14 +28,18 @@ pytestmark = pytest.mark.asyncio
 
 
 def test_canonical_worker_set():
-    """The three known background workers are the canonical set."""
+    """The four known background workers are the canonical set."""
     assert set(BACKGROUND_WORKER_KEYS) == {
         "auto_scanner",
         "ondemand_fingerprint_queue",
         "fingerprint_queue",
+        "similarity_autofit",
     }
     # auto_scanner stops first (it may enqueue into the fingerprint queues).
     assert BACKGROUND_WORKER_KEYS[0] == "auto_scanner"
+    # similarity_autofit only reads fingerprints and depends on nothing else
+    # in the set (#4682), so it's appended last / restarted first.
+    assert BACKGROUND_WORKER_KEYS[-1] == "similarity_autofit"
 
 
 async def test_stop_returns_only_present_workers():
@@ -50,8 +54,8 @@ async def test_stop_returns_only_present_workers():
 
     stopped = await stop_background_workers(lambda k: workers.get(k))
 
-    assert stopped == ["auto_scanner", "ondemand_fingerprint_queue"]
-    assert order == ["auto_scanner", "ondemand_fingerprint_queue"]
+    assert stopped == ["auto_scanner", "ondemand_fingerprint_queue", "similarity_autofit"]
+    assert order == ["auto_scanner", "ondemand_fingerprint_queue", "similarity_autofit"]
 
 
 async def test_start_restarts_in_reverse_order():

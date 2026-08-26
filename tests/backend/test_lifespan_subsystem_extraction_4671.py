@@ -47,7 +47,8 @@ def _patch_all_auralis_init_steps(stack: ExitStack, **overrides):
         "_start_auto_scanner": AsyncMock(),
         "_init_audio_player": MagicMock(),
         "_init_ondemand_fingerprint_queue": AsyncMock(),
-        "_init_similarity_system": MagicMock(),
+        # #4682: became async so it can await SimilarityAutoFitWorker.start().
+        "_init_similarity_system": AsyncMock(),
     }
     defaults.update(overrides)
     for name, mock in defaults.items():
@@ -80,7 +81,7 @@ async def test_runs_every_subsystem_in_the_documented_order():
     assert mocks["_start_auto_scanner"].await_args.args[0] is manager
     mocks["_init_audio_player"].assert_called_once_with(manager, globals_dict)
     mocks["_init_ondemand_fingerprint_queue"].assert_awaited_once_with(globals_dict)
-    mocks["_init_similarity_system"].assert_called_once_with(True, globals_dict)
+    mocks["_init_similarity_system"].assert_awaited_once_with(True, globals_dict)
 
 
 async def test_reference_cloud_closure_is_threaded_into_auto_scanner():

@@ -27,6 +27,13 @@ BACKGROUND_WORKER_KEYS: tuple[str, ...] = (
     "auto_scanner",
     "ondemand_fingerprint_queue",
     "fingerprint_queue",
+    # #4682: the one-shot similarity auto-fit pass used to run on an
+    # untracked daemon thread with no stop signal. Stopped last / restarted
+    # first — it only reads fingerprints (never enqueues into the queues
+    # above it) so its ordering relative to them doesn't matter for
+    # correctness; it's appended here rather than reordering the existing
+    # three.
+    "similarity_autofit",
 )
 
 # Per-worker keyword arguments for ``stop()``. Lives here rather than at the
