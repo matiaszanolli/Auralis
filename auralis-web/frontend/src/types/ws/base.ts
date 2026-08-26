@@ -5,7 +5,7 @@
  */
 
 
-import type { WebSocketMessageType, AnyWebSocketMessage } from './registry';
+import type { WebSocketMessageType } from './registry';
 
 
 // ============================================================================
@@ -68,12 +68,3 @@ export interface TrackInfo {
   date_modified?: string;
 }
 
-
-// ============================================================================
-// Generated type guards for the remaining 19 message types (#2548)
-// Uses a factory so each guard is a single, consistent, type-safe expression.
-// ============================================================================
-
-export function makeGuard<T extends AnyWebSocketMessage>(type: T['type']) {
-  return (msg: AnyWebSocketMessage): msg is T => msg.type === type;
-}
