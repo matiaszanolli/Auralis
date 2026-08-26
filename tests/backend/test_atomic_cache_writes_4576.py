@@ -10,9 +10,12 @@ file *was* there — the one place in the backend where a failure produced
 durable wrong audio rather than a transient error.
 """
 
+import os
 import struct
 import sys
+import time
 from pathlib import Path
+from unittest import mock
 
 import numpy as np
 import pytest
@@ -23,8 +26,8 @@ sys.path.insert(0, str(_REPO_ROOT / "auralis-web" / "backend"))
 
 from core.encoding.atomic_io import (  # noqa: E402
     PARTIAL_SUFFIX,
+    PARTIAL_MAX_AGE_SECONDS,
     atomic_save_audio,
-    atomic_write_bytes,
     cleanup_partial_files,
     is_partial_path,
     is_wav_complete,
@@ -78,12 +81,22 @@ class TestWavCompletenessGate:
         assert is_wav_complete(p) is True
 
 
-class TestAtomicWriteBytes:
+class TestStageAndReplace:
+    """#5208: these exercised the deleted `atomic_write_bytes` wrapper.
+
+    Retargeted onto `atomic_save_audio`, the only remaining entry point, so
+    the `_stage_and_replace` behaviour they pin (crash-safety, overwrite of a
+    poisoned entry, destination-directory creation) is still covered.
+    """
+
+    @staticmethod
+    def _write(data: bytes):
+        return lambda staged: Path(staged).write_bytes(data)
 
     def test_writes_the_complete_file(self, tmp_path):
         p = tmp_path / "chunk.wav"
         payload = _wav_bytes()
-        atomic_write_bytes(p, payload)
+        atomic_save_audio(p, self._write(payload))
 
         assert p.read_bytes() == payload
         assert is_wav_complete(p)
@@ -102,7 +115,7 @@ class TestAtomicWriteBytes:
         monkeypatch.setattr(Path, "write_bytes", _explode)
 
         with pytest.raises(OSError):
-            atomic_write_bytes(p, _wav_bytes())
+            atomic_save_audio(p, self._write(_wav_bytes()))
 
         assert not p.exists(), "a partial file was published at the canonical path"
         assert list(tmp_path.glob(f"*{PARTIAL_SUFFIX}*")) == [], "staging file leaked"
@@ -112,12 +125,12 @@ class TestAtomicWriteBytes:
         p.write_bytes(b"RIFF\x00\x00")          # pre-existing truncated entry
         assert not is_wav_complete(p)
 
-        atomic_write_bytes(p, _wav_bytes())
+        atomic_save_audio(p, self._write(_wav_bytes()))
         assert is_wav_complete(p)
 
     def test_creates_the_destination_directory(self, tmp_path):
         p = tmp_path / "nested" / "deeper" / "chunk.wav"
-        atomic_write_bytes(p, _wav_bytes())
+        atomic_save_audio(p, self._write(_wav_bytes()))
         assert is_wav_complete(p)
 
 
@@ -169,6 +182,52 @@ class TestPartialCleanup:
         assert cleanup_partial_files(tmp_path) == 2
         assert keep.exists()
         assert list(tmp_path.glob(f"*{PARTIAL_SUFFIX}*")) == []
+
+    def test_min_age_spares_a_partial_that_may_still_be_in_flight(self, tmp_path):
+        """#5208: the age bar is what makes the sweep safe to run while
+        another live backend owns the chunk cache. A staging file is
+        indistinguishable by name from one that instance is still filling, so
+        deleting a fresh one would break its os.replace()."""
+        fresh = tmp_path / f".chunk.wav.fresh{PARTIAL_SUFFIX}"
+        fresh.write_bytes(b"in flight")
+        stale = tmp_path / f".chunk.wav.stale{PARTIAL_SUFFIX}"
+        stale.write_bytes(b"orphan")
+        old_mtime = time.time() - (PARTIAL_MAX_AGE_SECONDS * 2)
+        os.utime(stale, (old_mtime, old_mtime))
+
+        assert cleanup_partial_files(tmp_path, PARTIAL_MAX_AGE_SECONDS) == 1
+        assert fresh.exists(), "an in-flight staging file was reaped"
+        assert not stale.exists()
+
+    def test_zero_min_age_reaps_everything(self, tmp_path):
+        """The owning caller passes 0 and must clear even a just-written one."""
+        (tmp_path / f".chunk.wav.fresh{PARTIAL_SUFFIX}").write_bytes(b"x")
+        assert cleanup_partial_files(tmp_path) == 1
+
+    def test_sweeps_a_real_staged_name(self, tmp_path):
+        """Staged files are dotfiles; Path.glob must still match them.
+
+        `glob.glob` skips a leading dot, so a sweep written with that module
+        would silently no-op. This pins the name produced by the real writer
+        rather than a hand-made fixture."""
+        seen = []
+
+        def _save(staged: str) -> None:
+            seen.append(Path(staged))
+            raise RuntimeError("die mid-write, but leave the file behind")
+
+        # Suppress _stage_and_replace's own best-effort unlink so a staged
+        # file survives the failure, standing in for a process killed mid-write.
+        with pytest.raises(RuntimeError):
+            with mock.patch.object(Path, "unlink", lambda self, **kw: None):
+                atomic_save_audio(tmp_path / "chunk.wav", _save)
+
+        assert seen and seen[0].exists(), "fixture did not leave a staged file"
+        assert cleanup_partial_files(tmp_path) == 1
+        assert not seen[0].exists()
+
+    def test_missing_directory_is_not_an_error(self, tmp_path):
+        assert cleanup_partial_files(tmp_path / "nope") == 0
 
     def test_staged_file_keeps_the_real_extension(self):
         """soundfile infers the container from the extension (#4576).

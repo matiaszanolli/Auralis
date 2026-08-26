@@ -33,6 +33,8 @@ from config.background_workers import (
     WORKER_STOP_KWARGS,
     stop_background_workers,
 )
+from core.encoding.atomic_io import PARTIAL_MAX_AGE_SECONDS, cleanup_partial_files
+
 from config.limits import (
     CHUNK_TEMP_DIRNAME,
     CHUNK_TEMP_OWNER_FILENAME,
@@ -626,6 +628,23 @@ async def _cleanup_temp_directories() -> None:
                 logger.info(f"🧹 Cleared chunk directory: {chunk_dir.name}")
             except Exception as e:
                 logger.warning(f"Failed to clear chunk directory: {e}")
+        # We own the cache, so every staging file here belongs to a dead
+        # writer — no age bar. Normally a no-op, because the wipe above
+        # already removed them; this is what runs when the wipe raised
+        # partway (it only warns) or when the directory did not exist.
+        partial_min_age = 0.0
+    else:
+        # Another backend is live and may be mid-write. A staging file is
+        # indistinguishable by name from an in-flight one, so only reap
+        # partials too old to be in flight — deleting a live one would make
+        # the other instance's os.replace() fail. This branch is the reason
+        # #5208 existed: it is the one path that neither wipes nor sweeps,
+        # so orphans from a crashed sibling accumulated here indefinitely.
+        partial_min_age = PARTIAL_MAX_AGE_SECONDS
+
+    # #5208: atomic_io wrote this sweep alongside the #4576 staged-write fix
+    # but never called it from anywhere but its own test.
+    await asyncio.to_thread(cleanup_partial_files, chunk_dir, partial_min_age)
 
     # Sweep temp WAVs orphaned by interrupted compressed-format streams (#3877),
     # skipping any a live process still owns (#4713).

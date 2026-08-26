@@ -11,12 +11,16 @@ file *was* there.
 
 Two halves, both needed:
 
-  * :func:`atomic_write_bytes` / :func:`atomic_save_audio` stage into a
-    sibling temp file and ``os.replace()`` onto the final name. ``os.replace``
-    is atomic within a filesystem, so a reader sees either the complete file or
-    no file — never a prefix.
+  * :func:`atomic_save_audio` stages into a sibling temp file and
+    ``os.replace()`` onto the final name. ``os.replace`` is atomic within a
+    filesystem, so a reader sees either the complete file or no file — never a
+    prefix. (A raw-bytes sibling, ``atomic_write_bytes``, was removed in #5208:
+    it never acquired a production writer.)
   * :func:`is_wav_complete` gates the hit path, so entries poisoned *before*
     this fix are evicted and regenerated rather than served.
+  * :func:`cleanup_partial_files` sweeps staging files orphaned by a process
+    that died mid-write, and is called from the backend's startup temp sweep
+    (#5208 — it was written with #4576 but never wired in).
 
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3
@@ -26,6 +30,7 @@ import logging
 import os
 import struct
 import tempfile
+import time
 from collections.abc import Callable
 from pathlib import Path
 
@@ -40,6 +45,11 @@ logger = logging.getLogger(__name__)
 # WAVEncoder.cleanup_track_chunks cannot match it. `is_partial_path` is the
 # single predicate for "this is staging, not a cache entry".
 PARTIAL_SUFFIX = ".part"
+
+# How old a staging file must be before a sweep that does not own the directory
+# will reap it. A chunk render completes in seconds; an hour is far past any
+# legitimate in-flight write while still bounding accumulation (#5208).
+PARTIAL_MAX_AGE_SECONDS = 3600.0
 
 # A canonical RIFF/WAVE header is 44 bytes; anything at or below that carries no
 # audio frames and is treated as truncated.
@@ -77,14 +87,6 @@ def _stage_and_replace(final_path: Path, write: Callable[[Path], None]) -> None:
         except OSError as cleanup_error:  # pragma: no cover - best effort
             logger.debug(f"Could not remove staged file {tmp_path}: {cleanup_error}")
         raise
-
-
-def atomic_write_bytes(final_path: Path, data: bytes) -> None:
-    """Write *data* to *final_path* atomically."""
-    def _write(tmp: Path) -> None:
-        tmp.write_bytes(data)
-
-    _stage_and_replace(final_path, _write)
 
 
 def atomic_save_audio(
@@ -138,16 +140,32 @@ def is_wav_complete(path: Path) -> bool:
         return False
 
 
-def cleanup_partial_files(directory: Path) -> int:
-    """Delete leftover ``*.part`` staging files from interrupted writes.
+def cleanup_partial_files(directory: Path, min_age_seconds: float = 0.0) -> int:
+    """Delete leftover staging files from interrupted writes.
 
     Returns the number removed. Best-effort: per-file errors are logged, never
     raised.
+
+    *min_age_seconds* skips files modified more recently than that. A staging
+    file is indistinguishable by name from one a *live* writer is still filling
+    — both are ``.<final>.<rand>.part.<ext>`` — so when the chunk cache is
+    claimed by another running backend (#4713) the sweep must only reap
+    partials too old to be in flight. A chunk render finishes in seconds, so
+    anything older than :data:`PARTIAL_MAX_AGE_SECONDS` is certainly orphaned.
+    The default of 0 removes every partial regardless of age, which is correct
+    only when the caller owns the directory.
+
+    Note the glob matches dotfiles: staged names begin with ``.``, and
+    ``Path.glob`` — unlike :mod:`glob` — does not treat a leading dot as
+    special. Sweeping with the :mod:`glob` module here would silently no-op.
     """
     removed = 0
+    cutoff = time.time() - min_age_seconds if min_age_seconds > 0 else None
     try:
         for candidate in directory.glob(f"*{PARTIAL_SUFFIX}*"):
             try:
+                if cutoff is not None and candidate.stat().st_mtime >= cutoff:
+                    continue
                 candidate.unlink()
                 removed += 1
             except OSError as e:  # pragma: no cover - best effort
