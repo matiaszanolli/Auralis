@@ -91,7 +91,13 @@ class PeakNormalizer:
 
         if peak > 0.001:  # Avoid division by zero
             target_peak = DBConversion.to_linear(target_peak_db)
-            audio = audio * (target_peak / peak)
+            # float() the scalar before scaling. NumPy promotes
+            # float32_array * np.float64_scalar to float64, and callers do
+            # hand np.float64 targets through here — e.g.
+            # AdaptiveLoudnessControl.calculate_adaptive_peak_target() returns
+            # one — which silently broke the float32-in/float32-out dtype
+            # invariant. A Python float keeps the array's own dtype.
+            audio = audio * float(target_peak / peak)
             ProcessingLogger.post_stage("Peak Normalization", peak_db, target_peak_db, "Peak")
             return audio, peak_db
 

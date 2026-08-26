@@ -10,9 +10,9 @@ Utilities for adaptive and intelligent audio processing
 
 import numpy as np
 
-from ..basic import rms
+from ...analysis.loudness_meter import LoudnessMeter
+from ..basic import rms  # noqa: F401  — re-exported; tests/validation imports it from here
 from .audio_info import mono_to_stereo
-from .conversion import to_db
 
 
 def adaptive_gain_calculation(target_rms: float,
@@ -72,31 +72,67 @@ def smooth_parameter_transition(current_value: float,
 
 def calculate_loudness_units(audio: np.ndarray, sample_rate: int) -> float:
     """
-    Simple loudness calculation (approximation of LUFS)
+    Measure programme loudness in LUFS, K-weighted per ITU-R BS.1770-4.
 
-    This is a simplified loudness calculation. For precise measurements,
-    use a full ITU-R BS.1770-4 implementation.
+    #5221: this used to return ``to_db(rms(audio)) - 23.0``. Both halves of
+    that were wrong. There is no K-weighting in plain RMS, and -23.0 is the
+    EBU R128 *target* level (``EBU_R128_TARGET_LUFS`` in
+    ``analysis/quality_assessors/utilities/assessment_constants.py``), not a
+    dBFS->LUFS scale offset — BS.1770-4's absolute-scale constant is -0.691,
+    as ``loudness_meter.calculate_block_loudness`` and the fingerprint's own
+    proxy (``fingerprint/windowed_compute.py``) both already use. The result
+    read ~25 LU below true loudness, on a scale no other part of the pipeline
+    speaks.
+
+    That mattered because every consumer of this value is calibrated in real
+    LUFS: ``continuous_dsp_ops`` normalizes toward ``params.target_lufs``
+    (derived from the fingerprint's -0.691-scale ``lufs`` and from
+    ``PresetProfile.target_lufs``, e.g. -14.0), ``AdaptiveLoudnessControl``
+    compares against ``TARGET_LUFS = -11.0`` / ``VERY_LOUD_THRESHOLD = -12.0``,
+    and ``adaptive_mode``'s ``loudness_coordinate`` tanh is centred on
+    -14.3887. Reading 25 LU low turned the first into a systematic ~+25 dB
+    over-boost that the peak limiter then clawed back to the -0.3 dBFS
+    ceiling (making "LUFS normalization" behave as peak normalization), and
+    starved the other two: the tanh sat at ~0.0005 instead of ~0.45, and the
+    "already loud" branch was unreachable. So this is a calibration repair,
+    not a rescaling — the downstream constants were always written for true
+    LUFS and need no re-tuning.
+
+    Gating is deliberately not applied. BS.1770-4 gating is defined over a
+    sequence of 400 ms blocks and is undefined for the sub-400 ms buffers this
+    function is called with; on full chunks it moves the result by <0.05 LU
+    while costing ~4.6x more. The K-weighted mean-square over the supplied
+    buffer is exactly ``LoudnessMeter.calculate_block_loudness``, so a caller
+    that needs gated integrated loudness should use ``LoudnessMeter`` directly
+    (as ``core/mastering_prepare.py`` does).
 
     Args:
         audio: Input audio signal
         sample_rate: Sample rate in Hz. Required (#4622) — every DSP entry
             point in this module takes it explicitly rather than assuming
-            44.1kHz, even where (as here) the current implementation
-            doesn't yet use it.
+            44.1kHz. Now genuinely load-bearing: it sets the K-weighting
+            filter design.
 
     Returns:
-        Loudness in approximate LUFS
+        Loudness in LUFS, floored at -70.0 for silence.
     """
+    if audio.size == 0:
+        return -70.0
+
     if audio.ndim == 1:
         audio = mono_to_stereo(audio)
 
-    # Simple K-weighting approximation
-    # This is a simplified version - real LUFS calculation is more complex
-    rms_value = rms(audio)
-    if rms_value > 0:
-        loudness_db = to_db(rms_value)
-        # Rough conversion to LUFS-like scale
-        lufs_approx = loudness_db - 23.0  # Offset to approximate LUFS scale
-        return lufs_approx
-    else:
-        return -70.0  # Very quiet
+    # A fresh meter per call. `apply_k_weighting()` carries filter state
+    # (pre_filter_zi/rlb_filter_zi) across calls, so a shared instance would
+    # let one buffer's filter tail colour the next measurement — and the
+    # pipeline measures unrelated buffers from several threads. Construction
+    # is ~0.07 ms against ~45 ms of filtering for a 15 s chunk, so it is not
+    # worth caching behind a lock.
+    meter = LoudnessMeter(sample_rate=sample_rate)
+    lufs = meter.calculate_block_loudness(meter.apply_k_weighting(audio))
+
+    # Silence gives -inf; callers subtract from this value and feed it to tanh
+    # curves, so hand back the same finite floor the old implementation used.
+    if not np.isfinite(lufs):
+        return -70.0
+    return float(lufs)

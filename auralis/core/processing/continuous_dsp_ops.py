@@ -190,12 +190,14 @@ class ContinuousDSPOpsMixin:
         audio = validate_audio_finite(audio, context="continuous_mode final normalization", repair=True)
 
         # Step 1: LUFS-based normalization to target loudness.
-        # #3665: previously used unweighted RMS as a proxy for LUFS, which
-        # diverged by 3-6 dB depending on spectral content (bass-heavy
-        # material was under-normalized; bright material over-normalized).
-        # K-weighted gated LUFS per ITU-R BS.1770-4 is the correct
-        # measurement; calculate_loudness_units() is already used elsewhere
-        # in this module for the EQ-compensation step (line 342).
+        # #3665 moved this off raw RMS, which diverged 3-6 dB with spectral
+        # content (bass-heavy under-normalized, bright over-normalized), and
+        # onto calculate_loudness_units(). #5221: that only looked like a fix
+        # — the function was still unweighted RMS, just shifted by the EBU
+        # R128 *target* (-23.0) as if it were a dBFS->LUFS offset, so it read
+        # ~25 LU below `target_lufs`'s true-LUFS scale and this step became a
+        # ~+25 dB over-boost that Step 2 clawed back to the ceiling. It is now
+        # genuinely K-weighted per BS.1770-4 and the two sides share a scale.
         current_lufs = calculate_loudness_units(audio, self.config.internal_sample_rate)
         if not np.isfinite(current_lufs):
             # Fall back to RMS for very short or silent segments where
