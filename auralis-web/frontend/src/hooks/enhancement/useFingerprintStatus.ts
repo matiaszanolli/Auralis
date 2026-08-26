@@ -92,7 +92,11 @@ export function useFingerprintStatus(
   }, [cancelFingerprintTimeout]);
   handlerRef.current = handleFingerprintProgress;
 
-  // Subscribe on mount (or WebSocket reconnect).
+  // Subscribe on mount. `subscribe` is identity-stable across WS status
+  // transitions (WebSocketContext memoizes its value over [isConnected,
+  // connectionStatus], not over `subscribe` itself), so depending on the
+  // whole `wsContext` object resubscribed on every connect/disconnect/error
+  // flicker instead of only when `subscribe` itself changes (#4668).
   useEffect(() => {
     const unsubscribe = wsContext.subscribe(
       'fingerprint_progress',
@@ -103,7 +107,7 @@ export function useFingerprintStatus(
       unsubscribe?.();
       DEBUG && console.log('[useFingerprintStatus] Unsubscribed from fingerprint_progress on unmount');
     };
-  }, [wsContext]);
+  }, [wsContext.subscribe]);
 
   // Cancel a pending auto-clear timer on unmount (#2353).
   useEffect(() => cancelFingerprintTimeout, [cancelFingerprintTimeout]);

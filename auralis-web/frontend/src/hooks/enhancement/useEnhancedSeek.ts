@@ -90,6 +90,9 @@ export function useEnhancedSeek({
 
   // Subscribe to seek_started to clear isSeeking as soon as the backend
   // acknowledges the seek request (fallback for a lost audio_stream_start #2873).
+  // `subscribe` is identity-stable across WS status transitions — depending on
+  // the whole `wsContext` object resubscribed on every connect/disconnect/error
+  // flicker instead of only when `subscribe` itself changes (#4668).
   useEffect(() => {
     const unsubscribe = wsContext.subscribe('seek_started', () => setIsSeeking(false));
     DEBUG && console.log('[usePlayEnhanced] Subscribed to seek_started on mount');
@@ -97,7 +100,7 @@ export function useEnhancedSeek({
       unsubscribe?.();
       DEBUG && console.log('[usePlayEnhanced] Unsubscribed from seek_started on unmount');
     };
-  }, [wsContext, setIsSeeking]);
+  }, [wsContext.subscribe, setIsSeeking]);
 
   return { seekTo };
 }
