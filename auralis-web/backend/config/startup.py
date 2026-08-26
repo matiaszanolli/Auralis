@@ -1036,6 +1036,16 @@ async def _init_processing_engine(HAS_PROCESSING: bool, globals_dict: dict[str, 
         logger.info("✅ Processing Engine initialized")
     except Exception as e:
         logger.error(f"❌ Failed to initialize Processing Engine: {e}")
+        # #3898: a failure anywhere after `globals_dict['processing_engine']`
+        # is assigned above (e.g. reclaim_stale_temp_entries, spawn_background_task)
+        # used to leave it truthy with no worker actually running.
+        # processing_api's routes gate on `is None` -> 503; a stale truthy
+        # entry made them accept jobs (202) that would queue forever, since
+        # nothing dequeues them. Distinct from the #4318 case
+        # _watch_critical_worker_task handles (a worker that started fine
+        # then died later) -- this is the worker never having started at all.
+        globals_dict.pop('processing_engine', None)
+        globals_dict.pop('_processing_worker_task', None)
 
 
 async def _init_streamlined_cache(HAS_STREAMLINED_CACHE: bool, globals_dict: dict[str, Any]) -> None:
@@ -1083,6 +1093,14 @@ async def _init_streamlined_cache(HAS_STREAMLINED_CACHE: bool, globals_dict: dic
 
     except Exception as e:
         logger.error(f"❌ Failed to initialize streamlined cache: {e}")
+        # #3898 (sibling of the processing-engine case above): a failure
+        # anywhere after `globals_dict['streamlined_cache']` is assigned
+        # (e.g. StreamlinedCacheWorker construction, worker.start()) used to
+        # leave it truthy with no worker actually draining it, so every
+        # chunk request silently took the slow uncached path forever instead
+        # of the router-level 503 a genuinely-unavailable cache should give.
+        globals_dict.pop('streamlined_cache', None)
+        globals_dict.pop('streamlined_worker', None)
 
 
 def create_lifespan(deps: dict[str, Any]):
