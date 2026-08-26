@@ -440,7 +440,6 @@ async def stream_normal_audio(
             failed_chunks=failed_chunks,
             delivered_samples=delivered_samples,
             sample_rate=sample_rate,
-            full_total_samples=total_frames,
             full_duration=duration,
         )
 

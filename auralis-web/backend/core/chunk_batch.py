@@ -105,7 +105,7 @@ async def get_full_processed_audio_path(processor: "ChunkedAudioProcessor") -> s
     for chunk_idx in range(processor.total_chunks):
         await processor.process_chunk_safe(chunk_idx, fast_start=(chunk_idx == 0))
 
-    # Concatenate chunks with proper crossfading
+    # Concatenate contiguous, non-overlapping chunks without crossfading.
     logger.info("Concatenating all processed chunks")
     all_chunks: list[np.ndarray] = []
 

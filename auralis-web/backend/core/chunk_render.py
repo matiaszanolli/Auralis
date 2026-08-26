@@ -185,6 +185,10 @@ def process_chunk_core(
         chunk_index=chunk_index,
         allow_empty=False  # Don't allow empty chunks
     )
+    # The shared HybridProcessor has now advanced. If any validation or write
+    # below this point fails, chunk_streaming must invalidate that cached
+    # processor before a retry of this chunk (#5274).
+    processor._dsp_state_advanced = processor.preset is not None
 
     # Trim context (keep only the actual chunk) (Phase 5.1: Using ChunkBoundaryManager)
     processed_chunk = processor._boundary_manager.trim_context(processed_chunk, chunk_index)

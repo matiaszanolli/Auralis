@@ -155,9 +155,16 @@ async def stream_enhanced_audio_from_position(
 
         # Ensure processor has loaded metadata (raise instead of assert
         # so guards work under python -O / PyInstaller, fixes #2735)
-        for _attr in ('total_chunks', 'sample_rate', 'channels', 'duration'):
-            if getattr(processor, _attr) is None:
-                raise ValueError(f"Processor metadata missing: {_attr} is None")
+        if processor is None:
+            raise ValueError("Audio processor initialization returned None")
+        if processor.total_chunks is None:
+            raise ValueError("Processor metadata missing: total_chunks is None")
+        if processor.sample_rate is None:
+            raise ValueError("Processor metadata missing: sample_rate is None")
+        if processor.channels is None:
+            raise ValueError("Processor metadata missing: channels is None")
+        if processor.duration is None:
+            raise ValueError("Processor metadata missing: duration is None")
 
 
         # Map the requested position onto the chunk that actually EMITS it
@@ -174,10 +181,18 @@ async def stream_enhanced_audio_from_position(
         # point falls within a sliver of its chunk's end — hence
         # effective_position, which is what the client must be told.
         start_chunk_idx, seek_offset, effective_position = chunk_for_position(
-            start_position, processor.total_chunks
+            start_position,
+            processor.total_chunks,
+            total_duration=processor.duration,
         )
 
-        if effective_position != start_position:
+        if start_position >= processor.duration:
+            logger.info(
+                f"Seek: requested {start_position:.2f}s is at/past the "
+                f"{processor.duration:.2f}s track end; clamping to "
+                f"{effective_position:.2f}s so audible audio is delivered"
+            )
+        elif effective_position != start_position:
             logger.info(
                 f"Seek: requested {start_position:.2f}s falls within "
                 f"{SEEK_MIN_CHUNK_REMAINDER}s of chunk {start_chunk_idx - 1}'s end; "
@@ -395,7 +410,6 @@ async def stream_enhanced_audio_from_position(
             failed_chunks=failed_chunks,
             delivered_samples=delivered_samples,
             sample_rate=processor.sample_rate,
-            full_total_samples=int(processor.duration * processor.sample_rate),
             full_duration=processor.duration,
         )
 

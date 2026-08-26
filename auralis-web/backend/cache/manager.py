@@ -154,6 +154,7 @@ class TrackCacheStatus:
     """Track-level cache status."""
     track_id: int
     total_chunks: int
+    total_duration: float | None = None
     cached_chunks_original: set[int] = field(default_factory=set)
     cached_chunks_processed: set[int] = field(default_factory=set)
     cache_complete: bool = False
@@ -251,7 +252,11 @@ class StreamlinedCacheManager:
         status = self.track_status.get(self.current_track_id) if self.current_track_id else None
         if status is not None:
             total_chunks = status.total_chunks
-        return chunk_for_position(position, total_chunks)[0]
+        return chunk_for_position(
+            position,
+            total_chunks,
+            total_duration=status.total_duration if status is not None else None,
+        )[0]
 
     def _calculate_total_chunks(self, duration: float) -> int:
         """Content-carrying chunk count — delegates to the chunk-model SoT.
@@ -328,7 +333,8 @@ class StreamlinedCacheManager:
                 total_chunks = self._calculate_total_chunks(track_duration)
                 self.track_status[track_id] = TrackCacheStatus(
                     track_id=track_id,
-                    total_chunks=total_chunks
+                    total_chunks=total_chunks,
+                    total_duration=track_duration,
                 )
                 logger.info(f"Track {track_id}: {total_chunks} chunks needed ({track_duration:.1f}s)")
 

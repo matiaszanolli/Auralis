@@ -241,7 +241,11 @@ async def _preprocess_upcoming_chunks(track_id: int, filepath: str, current_time
         # the first half of every emitted chunk window and was skipping
         # the immediately-next chunk (the one whose absence causes the
         # stall this pre-fetch exists to prevent).
-        current_chunk_idx = chunk_for_position(current_time, total_chunks)[0]
+        current_chunk_idx = chunk_for_position(
+            current_time,
+            total_chunks,
+            total_duration=total_duration,
+        )[0]
         chunks_to_process = [current_chunk_idx + i for i in range(1, 4)]  # Next 3 chunks
 
         logger.info(f"🎯 Pre-processing chunks {chunks_to_process} for track {track_id} (current chunk: {current_chunk_idx})")

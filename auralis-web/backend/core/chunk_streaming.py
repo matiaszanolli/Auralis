@@ -49,8 +49,35 @@ class ChunkCancelledError(Exception):
     observed by a live caller."""
 
 
+def _invalidate_after_post_dsp_failure(
+    processor: "ChunkedAudioProcessor", chunk_index: int
+) -> None:
+    """Ensure a retry cannot reuse a stateful processor advanced by this chunk."""
+    if not getattr(processor, "_dsp_state_advanced", False):
+        return
+    processor._dsp_state_advanced = False
+    if processor.preset is None:
+        return
+    processor._processor_factory.invalidate(
+        track_id=processor.track_id,
+        preset=processor.preset,
+        mastering_targets=processor.mastering_targets,
+    )
+    # Processing selects from the factory on every call; this is only an
+    # observational handle to the instance created during initialization.
+    processor.processor = None
+    logger.error(
+        "Chunk %s failed after DSP state advanced; invalidated the cached "
+        "processor so a retry starts fresh",
+        chunk_index,
+    )
+
+
 def process_chunk(
-    processor: "ChunkedAudioProcessor", chunk_index: int, fast_start: bool = False, locked: bool = False
+    processor: "ChunkedAudioProcessor",
+    chunk_index: int,
+    fast_start: bool = False,
+    locked: bool = False,
 ) -> tuple[str, np.ndarray]:
     """
     Process a single chunk with Auralis HybridProcessor and save to WAV.
@@ -115,40 +142,44 @@ def process_chunk(
     if processor.fingerprint is None and chunk_index == 0:
         logger.info(f"ℹ️  No cached fingerprint for track {processor.track_id} — using per-chunk adaptive processing")
 
-    # Process chunk using shared core logic
-    processed_chunk = processor._process_chunk_core(chunk_index, fast_start)
+    processor._dsp_state_advanced = False
+    try:
+        # Process chunk using shared core logic
+        processed_chunk = processor._process_chunk_core(chunk_index, fast_start)
 
-    # CRITICAL: Extract the correct segment for this chunk to handle overlaps (Phase 5.1: Using ChunkOperations)
-    # - Chunk 0: full CHUNK_DURATION (15s)
-    # - Regular chunks: skip overlap (5s), extract CHUNK_INTERVAL (10s)
-    # Without this, chunks would overlap and cause audio jumps during playback
-    assert processor.sample_rate is not None and processor.total_chunks is not None and processor.total_duration is not None
-    extracted_chunk = ChunkOperations.extract_chunk_segment(
-        processed_chunk=processed_chunk,
-        chunk_index=chunk_index,
-        sample_rate=processor.sample_rate,
-        chunk_duration=CHUNK_DURATION,
-        chunk_interval=CHUNK_INTERVAL,
-        overlap_duration=OVERLAP_DURATION,
-        total_chunks=processor.total_chunks,
-        total_duration=processor.total_duration
-    )
+        # Extract the emitted, non-overlapping segment before durable encoding.
+        assert (
+            processor.sample_rate is not None
+            and processor.total_chunks is not None
+            and processor.total_duration is not None
+        )
+        extracted_chunk = ChunkOperations.extract_chunk_segment(
+            processed_chunk=processed_chunk,
+            chunk_index=chunk_index,
+            sample_rate=processor.sample_rate,
+            chunk_duration=CHUNK_DURATION,
+            chunk_interval=CHUNK_INTERVAL,
+            overlap_duration=OVERLAP_DURATION,
+            total_chunks=processor.total_chunks,
+            total_duration=processor.total_duration,
+        )
 
-    # Save chunk using WAVEncoder (Phase 3.5 refactoring)
-    # NOTE: Saved for durability/caching, but we return the array directly to avoid disk I/O
-    chunk_path = processor._wav_encoder.encode_and_save_from_path(
-        audio=extracted_chunk,
-        sample_rate=processor.sample_rate,
-        track_id=processor.track_id,
-        file_signature=processor.file_signature,
-        preset=processor.preset,
-        intensity=processor.intensity,
-        chunk_index=chunk_index,
-        subtype='PCM_16'
-    )
-
-    # Cache the path
-    processor._path_cache.store(chunk_index, chunk_path)
+        # Saved for durability/caching; the array avoids an immediate readback.
+        chunk_path = processor._wav_encoder.encode_and_save_from_path(
+            audio=extracted_chunk,
+            sample_rate=processor.sample_rate,
+            track_id=processor.track_id,
+            file_signature=processor.file_signature,
+            preset=processor.preset,
+            intensity=processor.intensity,
+            chunk_index=chunk_index,
+            subtype='PCM_16',
+        )
+        processor._path_cache.store(chunk_index, chunk_path)
+    except Exception:
+        _invalidate_after_post_dsp_failure(processor, chunk_index)
+        raise
+    processor._dsp_state_advanced = False
 
     logger.info(f"Chunk {chunk_index} processed and saved to {Path(chunk_path).name}")
     # Return both path (for caching) and audio array (for immediate streaming)
@@ -217,44 +248,40 @@ def get_wav_chunk_path(processor: "ChunkedAudioProcessor", chunk_index: int) -> 
 
         logger.info(f"Processing chunk {chunk_index} directly to WAV")
 
-        # Use shared core processing logic (eliminates duplicate code)
-        processed_chunk = processor._process_chunk_core(chunk_index, fast_start=False)
-
-        # Extract the correct segment for this chunk (Phase 5.1: Using ChunkOperations)
-        extracted_chunk = ChunkOperations.extract_chunk_segment(
-            processed_chunk=processed_chunk,
-            chunk_index=chunk_index,
-            sample_rate=processor.sample_rate,
-            chunk_duration=CHUNK_DURATION,
-            chunk_interval=CHUNK_INTERVAL,
-            overlap_duration=OVERLAP_DURATION,
-            total_chunks=processor.total_chunks,
-            total_duration=processor.total_duration
-        )
-
-        # Encode directly to WAV (Web Audio API compatible). Routed through
-        # the same WAVEncoder.encode_and_save() primitive process_chunk()
-        # uses (#4895) — this applies the isfinite/empty-array guard the
-        # standalone encode_to_wav() lacked, and its own stage+os.replace
-        # atomic write (#4576) replaces the manual encode_to_wav() +
-        # atomic_write_bytes() pair, leaving exactly one atomic-write
-        # implementation (atomic_save_audio) for this pipeline.
+        processor._dsp_state_advanced = False
         try:
-            processor._wav_encoder.encode_and_save(
-                audio=extracted_chunk,
+            # Use shared core processing logic (eliminates duplicate code)
+            processed_chunk = processor._process_chunk_core(chunk_index, fast_start=False)
+
+            extracted_chunk = ChunkOperations.extract_chunk_segment(
+                processed_chunk=processed_chunk,
+                chunk_index=chunk_index,
                 sample_rate=processor.sample_rate,
-                chunk_path=wav_chunk_path,
-                subtype='PCM_16'
+                chunk_duration=CHUNK_DURATION,
+                chunk_interval=CHUNK_INTERVAL,
+                overlap_duration=OVERLAP_DURATION,
+                total_chunks=processor.total_chunks,
+                total_duration=processor.total_duration,
             )
-            logger.info(f"Chunk {chunk_index} encoded to WAV: {wav_chunk_path.name}")
 
-        except WAVEncoderError as e:
-            logger.error(f"WAV encoding failed for chunk {chunk_index}: {e}")
-            raise RuntimeError(f"Failed to encode chunk to WAV: {e}")
+            try:
+                processor._wav_encoder.encode_and_save(
+                    audio=extracted_chunk,
+                    sample_rate=processor.sample_rate,
+                    chunk_path=wav_chunk_path,
+                    subtype='PCM_16',
+                )
+                logger.info(f"Chunk {chunk_index} encoded to WAV: {wav_chunk_path.name}")
+            except WAVEncoderError as e:
+                logger.error(f"WAV encoding failed for chunk {chunk_index}: {e}")
+                raise RuntimeError(f"Failed to encode chunk to WAV: {e}")
 
-        # Cache the path under the same collapsed key process_chunk() uses
-        # (#4792), so this write is visible to both callers.
-        processor._path_cache.store(chunk_index, wav_chunk_path)
+            # Cache under the same collapsed key process_chunk() uses.
+            processor._path_cache.store(chunk_index, wav_chunk_path)
+        except Exception:
+            _invalidate_after_post_dsp_failure(processor, chunk_index)
+            raise
+        processor._dsp_state_advanced = False
 
     # Store last_content_profile globally for visualizer API access
     # This allows the /api/processing/parameters endpoint to show real processing data.

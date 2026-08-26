@@ -119,6 +119,21 @@ class TestChunkForPosition:
         idx, _, _ = chunk_for_position(10_000.0, TOTAL_CHUNKS)
         assert idx == TOTAL_CHUNKS - 1
 
+    def test_position_past_duration_retains_audible_last_chunk_audio(self):
+        duration = 60.0
+        total_chunks = 6
+
+        idx, offset, effective = chunk_for_position(
+            duration + 5.0,
+            total_chunks,
+            total_duration=duration,
+        )
+
+        assert idx == total_chunks - 1
+        assert effective == pytest.approx(duration - SEEK_MIN_CHUNK_REMAINDER)
+        assert offset == pytest.approx(4.5)
+        assert duration - effective == pytest.approx(SEEK_MIN_CHUNK_REMAINDER)
+
 
 class TestSliverAvoidance:
     """A seek must not deliver a first chunk trimmed down to nothing."""

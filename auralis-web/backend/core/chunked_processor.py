@@ -28,6 +28,7 @@ so log-capture assertions are unaffected by where the code physically lives.
 """
 
 import logging
+import math
 import sys
 import tempfile
 import threading
@@ -172,6 +173,10 @@ class ChunkedAudioProcessor:
         # Prevents concurrent processor.process() calls from corrupting shared
         # DSP state (envelope followers, gain reduction tracking).
         self._processor_lock = threading.RLock()
+        # Per-attempt marker set immediately after the stateful DSP call.
+        # chunk_streaming clears it on durable success or invalidates the
+        # pooled processor when a later step fails (#5274).
+        self._dsp_state_advanced = False
         # Serialises get_wav_chunk_path()'s check→process→cache cycle so two
         # concurrent thread-pool calls for the same chunk can't both miss+process it.
         self._sync_cache_lock = threading.Lock()
@@ -221,6 +226,11 @@ class ChunkedAudioProcessor:
     def _load_metadata(self) -> None:
         """Load audio file metadata without decoding it. Delegates to chunk_metadata (#4245)."""
         meta = load_audio_metadata(self.filepath)
+        if not math.isfinite(meta.total_duration) or meta.total_duration <= 0:
+            raise ValueError(
+                f"Cannot process unplayable audio with duration "
+                f"{meta.total_duration!r}s: {self.filepath}"
+            )
         self.sample_rate = meta.sample_rate
         self.channels = meta.channels
         self.total_duration = meta.total_duration

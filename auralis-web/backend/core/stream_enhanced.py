@@ -382,7 +382,6 @@ async def stream_enhanced_audio(
             delivered_samples=delivered_samples,
             sample_rate=processor.sample_rate,
             # Both guaranteed non-None due to the metadata assertions above.
-            full_total_samples=int(processor.duration * processor.sample_rate),
             full_duration=processor.duration,
             log_full_duration_on_partial=True,
         )

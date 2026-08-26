@@ -312,6 +312,37 @@ class TestStreamEndReason:
         data = await self._capture(track_id=1, total_samples=100, duration=1.0)
         assert data["reason"] == "completed"
 
+    @pytest.mark.asyncio
+    async def test_completed_seek_reports_only_delivered_length(self):
+        from core import stream_messages
+
+        sent: list[dict] = []
+
+        class _Controller:
+            async def _send_stream_end(self, _ws, **kwargs):
+                sent.append(kwargs)
+                return True
+
+        ok = await stream_messages.send_stream_completion(
+            _Controller(),
+            object(),
+            track_id=1,
+            label="Seek stream",
+            stopped_early=False,
+            failed_chunks=[],
+            delivered_samples=220_500,
+            sample_rate=44_100,
+            full_duration=30.0,
+        )
+
+        assert ok is True
+        assert sent == [{
+            "track_id": 1,
+            "total_samples": 220_500,
+            "duration": 5.0,
+            "reason": "completed",
+        }]
+
     def test_every_send_stream_end_call_site_sets_reason(self):
         """#4659 CONSISTENCY: no call site may silently default."""
         import re

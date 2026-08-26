@@ -367,6 +367,45 @@ class ProcessorFactory:
                 self._active_processors.pop(track_id)
                 logger.debug(f"Released processor for track {track_id}")
 
+    def invalidate(
+        self,
+        *,
+        track_id: int,
+        preset: str,
+        mastering_targets: dict[str, Any] | None = None,
+        config: Any | None = None,
+    ) -> bool:
+        """Discard a processor whose state can no longer be retried safely.
+
+        A successful stateful DSP pass followed by a failed validation or
+        durable write leaves that instance advanced. Removing the exact cache
+        entry makes a retry construct a fresh processor instead of applying
+        the same chunk twice to the advanced instance (#5274).
+        """
+        cache_key = self._get_cache_key(
+            track_id,
+            preset,
+            self._get_config_hash(config),
+            self._get_targets_hash(mastering_targets),
+        )
+        with self._lock:
+            processor = self._processor_cache.pop(cache_key, None)
+            if processor is None:
+                return False
+            if self._active_processors.get(track_id) is processor:
+                self._active_processors.pop(track_id, None)
+
+        # Dispose outside the factory lock, following the existing eviction
+        # ordering. HybridProcessor.close() is currently idempotent/no-op.
+        processor.close()
+        logger.warning(
+            "Invalidated advanced processor after post-DSP failure: "
+            "track_id=%s, preset=%s",
+            track_id,
+            preset,
+        )
+        return True
+
     def cleanup_track(self, track_id: int) -> None:
         """
         Clean up all processors for a track.

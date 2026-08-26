@@ -33,6 +33,7 @@ from core.chunked_processor import (
     apply_crossfade_between_chunks,
 )
 from core.chunk_cache_manager import ChunkCacheManager
+from core.chunk_metadata import AudioMetadata
 from config.limits import CHUNK_TEMP_DIRNAME
 
 
@@ -298,6 +299,23 @@ class TestMetadataLoading:
         assert isinstance(processor.sample_rate, int)
         assert isinstance(processor.total_duration, float)
         assert isinstance(processor.total_chunks, int)
+
+    @pytest.mark.parametrize("duration", [0.0, -1.0, math.inf, math.nan])
+    def test_rejects_unplayable_duration_before_chunk_processing(self, duration):
+        proc = MagicMock(spec=ChunkedAudioProcessor)
+        proc.filepath = "/fake/empty.wav"
+        metadata = AudioMetadata(
+            sample_rate=FAKE_SR,
+            channels=FAKE_CHANNELS,
+            total_duration=duration,
+            total_chunks=1,
+        )
+
+        with (
+            patch("core.chunked_processor.load_audio_metadata", return_value=metadata),
+            pytest.raises(ValueError, match="Cannot process unplayable audio"),
+        ):
+            ChunkedAudioProcessor._load_metadata(proc)
 
 
 # ---------------------------------------------------------------------------

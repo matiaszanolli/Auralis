@@ -164,6 +164,23 @@ def test_different_mastering_targets_get_distinct_processors():
     assert len(factory._processor_cache) == 2
 
 
+def test_invalidate_forces_retry_to_use_fresh_processor():
+    factory = ProcessorFactory()
+    first = MagicMock(name="advanced-processor")
+    second = MagicMock(name="fresh-processor")
+
+    with patch(
+        "auralis.core.hybrid_processor.HybridProcessor",
+        side_effect=[first, second],
+    ):
+        assert factory.get_or_create(track_id=7, preset="warm") is first
+        assert factory.invalidate(track_id=7, preset="warm") is True
+        assert factory.get_or_create(track_id=7, preset="warm") is second
+
+    first.close.assert_called_once()
+    second.close.assert_not_called()
+
+
 def test_racy_set_mastering_targets_setter_is_gone():
     """#4618: the deprecated in-place setter must not come back. It looked up the
     OLD-shape key (targets_hash="none") and mutated that shared processor."""

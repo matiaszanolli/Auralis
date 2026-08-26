@@ -201,7 +201,6 @@ async def send_stream_completion(
     failed_chunks: list[int],
     delivered_samples: int,
     sample_rate: float | int | None,
-    full_total_samples: int,
     full_duration: float,
     log_full_duration_on_partial: bool = False,
 ) -> bool:
@@ -213,8 +212,9 @@ async def send_stream_completion(
     enhancement toggled off mid-stream) reports ``"stopped"``; one that ran to
     the end but skipped one or more chunks via the #3190 skip-and-continue
     recovery path reports ``"errored"`` rather than falsely claiming the full
-    track was delivered (#4790); anything else is ``"completed"`` with the
-    FULL track's sample count/duration, not just what was delivered.
+    track was delivered (#4790). Every terminal reason reports the samples
+    actually delivered, including a completed stream that began mid-track
+    after a seek or reconnect (#5279).
 
     Args:
         label: Log-line prefix distinguishing the three callers (e.g.
@@ -254,12 +254,16 @@ async def send_stream_completion(
             reason=reason,
         )
 
-    logger.info(f"{label} complete: track={track_id}")
+    _sample_rate = sample_rate or 0
+    delivered_duration = delivered_samples / _sample_rate if _sample_rate else 0.0
+    logger.info(
+        f"{label} complete: track={track_id}, delivered={delivered_duration:.2f}s"
+    )
     return await controller._send_stream_end(
         websocket,
         track_id=track_id,
-        total_samples=full_total_samples,
-        duration=full_duration,
+        total_samples=delivered_samples,
+        duration=delivered_duration,
         reason="completed",
     )
 

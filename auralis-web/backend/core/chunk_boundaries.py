@@ -74,6 +74,8 @@ def chunk_for_position(
     position: float,
     total_chunks: int,
     min_remainder: float = SEEK_MIN_CHUNK_REMAINDER,
+    *,
+    total_duration: float | None = None,
 ) -> tuple[int, float, float]:
     """Map a source-time position onto the chunk that actually emits it (#4557).
 
@@ -96,9 +98,15 @@ def chunk_for_position(
         position: Requested source time in seconds.
         total_chunks: Number of chunks the processor will emit.
         min_remainder: Minimum seconds of audio the first chunk must retain.
+        total_duration: Actual track duration. When supplied, positions at or
+            beyond the end are clamped far enough back to retain audible audio
+            instead of producing an empty first buffer (#5254).
     """
     pos = max(0.0, float(position))
     total_chunks = max(1, int(total_chunks))
+    if total_duration is not None:
+        duration = max(0.0, float(total_duration))
+        pos = min(pos, max(0.0, duration - min_remainder))
 
     # Chunk 0 emits a full CHUNK_DURATION, so anything inside it maps there;
     # after that the emitted timeline is offset by OVERLAP_DURATION.
