@@ -14,7 +14,6 @@ audio file has gone missing.
 from typing import Any, cast
 
 from sqlalchemy import CursorResult, delete, func, select, update
-from sqlalchemy.orm import Session
 
 from ...utils.logging import debug, error, info
 from ..models import Track

@@ -26,7 +26,6 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from pydantic import BaseModel, Field
 
 from schemas import (
-    MAX_TRACK_ID_LIST,
     PlaylistResponse,
     QueueIndex,
     TrackId,

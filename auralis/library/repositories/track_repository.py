@@ -34,7 +34,6 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 
 from ...utils.logging import error
 from ..models import Track
-from .base import BaseRepository
 
 
 def _track_eager_options(*, collections_via_selectin: bool = False) -> tuple:

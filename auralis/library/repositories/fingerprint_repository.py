@@ -34,7 +34,6 @@ from .fingerprint_query_mixin import FingerprintQueryMixin
 from .fingerprint_shared import (
     PLACEHOLDER_LUFS_SENTINEL,
     _FINGERPRINT_WRITABLE_COLS,
-    _current_fingerprint_clause,
     _validate_fingerprint_columns,
     is_current_fingerprint,
 )
@@ -48,10 +47,19 @@ from .fingerprint_upsert_mixin import FingerprintUpsertMixin
 # is_current_fingerprint``). The real definitions live in fingerprint_shared
 # so the mixin modules above can use them without importing this facade
 # module and creating a circular import.
+# The underscore-prefixed pair is re-exported too: tests/auralis/library/
+# test_fingerprint_repository_db_path.py imports both from this module path.
+# Listing them here is what makes that contract explicit — and what stops a
+# mechanical `ruff --fix F401` sweep from deleting them as unused (#5209).
+# _current_fingerprint_clause was in the import list but is NOT re-exported:
+# its only users (fingerprint_query_mixin, fingerprint_similarity_mixin) take
+# it straight from fingerprint_shared, so it was genuinely unused here.
 __all__ = [
     "FingerprintRepository",
     "PLACEHOLDER_LUFS_SENTINEL",
     "is_current_fingerprint",
+    "_FINGERPRINT_WRITABLE_COLS",
+    "_validate_fingerprint_columns",
 ]
 
 
