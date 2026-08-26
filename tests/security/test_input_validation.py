@@ -90,8 +90,9 @@ class TestAdditionalInjectionVectors:
 
             # Should handle homographs safely
             track = track_repo.add(track_info)
-            # System may accept or reject, but shouldn't crash
-            assert True, "Homograph handled without crash"
+            assert track is not None
+            assert track.title == text
+            assert track.filepath == track_info['filepath']
 
     def test_null_byte_injection(self, temp_db):
         """
@@ -135,15 +136,17 @@ class TestAdditionalInjectionVectors:
         """
         track_repo = TrackRepository(temp_db)
 
-        # Add test track
-        track_repo.add({
-            'filepath': '/tmp/ldap_test.flac',
-            'title': 'LDAP Test Track',
-            'artists': ['Test Artist'],
-            'format': 'FLAC',
-            'sample_rate': 44100,
-            'channels': 2
-        })
+        seeded = []
+        for index, title in enumerate(("LDAP Test Track", "Quiet Song", "Another Tune")):
+            seeded.append(track_repo.add({
+                'filepath': f'/tmp/ldap_test_{index}.flac',
+                'title': title,
+                'artists': ['Test Artist'],
+                'format': 'FLAC',
+                'sample_rate': 44100,
+                'channels': 2
+            }))
+        seeded_ids = {track.id for track in seeded if track is not None}
 
         ldap_attacks = [
             "*)(uid=*",
@@ -162,9 +165,9 @@ class TestAdditionalInjectionVectors:
             else:
                 results = result
 
-            # Should not expose all records or crash
-            # May return 0 or some results, but should be safe
-            assert True, "LDAP injection handled safely"
+            result_ids = {track.id for track in results}
+            assert result_ids <= seeded_ids
+            assert result_ids != seeded_ids, "LDAP metacharacters matched every track"
 
 
 @pytest.mark.security

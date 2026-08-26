@@ -136,17 +136,8 @@ class MetadataUpdateResponse(BaseModel):
 
 
 class BatchMetadataResultItem(BaseModel):
-    """Per-track outcome within a batch metadata update.
-
-    NOTE: `filepath` is echoed by `MetadataEditor.batch_update` and is
-    therefore declared here so the response_model does not silently drop it.
-    It is the one place a server-side path reaches a client, which sits
-    awkwardly beside #3205's "filepath is server-only" rule — flagged rather
-    than changed here, since removing it is a contract change, not a
-    schema-coverage fix.
-    """
+    """Per-track outcome within a batch metadata update."""
     track_id: int = Field(description="Track database ID")
-    filepath: str | None = Field(default=None, description="Server-side file path")
     success: bool = Field(description="True when this track's write succeeded")
     updates: dict[str, Any] | None = Field(
         default=None,

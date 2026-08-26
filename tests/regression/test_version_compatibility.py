@@ -406,18 +406,13 @@ class TestDeprecatedFeatures:
         REGRESSION: Old import paths should still work.
         Test: Legacy imports don't break.
         """
-        # These are legacy imports that should still work
-        try:
-            from auralis.analysis.quality.quality_metrics import QualityMetrics
-            from auralis.dsp.eq.psychoacoustic_eq import PsychoacousticEQ
-            from auralis.dsp.utils.spectral import spectral_centroid
-            success = True
-        except ImportError:
-            success = False
+        from auralis.analysis.quality.quality_metrics import QualityMetrics
+        from auralis.dsp.eq.psychoacoustic_eq import PsychoacousticEQ
+        from auralis.dsp.utils.spectral import spectral_centroid
 
-        # May or may not work depending on refactoring state
-        # Just verify no crash
-        assert True, "Import attempt should not crash"
+        assert QualityMetrics is not None
+        assert PsychoacousticEQ is not None
+        assert callable(spectral_centroid)
 
     def test_old_processing_parameters_mapped(self):
         """

@@ -156,6 +156,16 @@ def test_update_settings_scan_folders_rejects_nonexistent(client: TestClient) ->
     assert client._repo.updated_with is None  # type: ignore[attr-defined]
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX system directories")
+@pytest.mark.parametrize("system_dir", ["/etc", "/root", "/var"])
+def test_update_settings_scan_folders_rejects_system_directories(
+    client: TestClient, system_dir: str
+) -> None:
+    resp = client.put("/api/settings", json={"scan_folders": [system_dir]})
+    assert resp.status_code == 400
+    assert client._repo.updated_with is None  # type: ignore[attr-defined]
+
+
 def test_update_settings_rejects_invalid_preset(client: TestClient) -> None:
     """default_preset is constrained to the shared EnhancementPreset enum, so a
     bogus value 422s at the boundary instead of silently reaching the repo (#4424)."""

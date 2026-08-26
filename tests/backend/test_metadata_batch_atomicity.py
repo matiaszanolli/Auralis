@@ -348,7 +348,7 @@ def _batch_repos(*track_ids: int) -> Mock:
 # to the identity keeps these tests about what they claim to be about -- how
 # the route surfaces rolled_back and drives the DB write -- while letting the
 # real prep loop run. Path validation has its own coverage elsewhere.
-@patch('routers.metadata.validate_file_path', new=lambda p: p)
+@patch('routers.metadata.validate_file_path', new=lambda p, **_kwargs: p)
 class TestBatchEndpointAtomicity:
     """/api/metadata/batch endpoint correctly surfaces rolled_back."""
 
@@ -363,8 +363,8 @@ class TestBatchEndpointAtomicity:
         mock_batch.return_value = {
             'total': 2, 'successful': 2, 'failed': 0,
             'results': [
-                {'track_id': 1, 'filepath': '/f/t1.mp3', 'success': True, 'updates': {'title': 'T1'}},
-                {'track_id': 2, 'filepath': '/f/t2.mp3', 'success': True, 'updates': {'title': 'T2'}},
+                {'track_id': 1, 'success': True, 'updates': {'title': 'T1'}},
+                {'track_id': 2, 'success': True, 'updates': {'title': 'T2'}},
             ],
             'rolled_back': False,
         }
@@ -380,6 +380,7 @@ class TestBatchEndpointAtomicity:
         data = resp.json()
         assert data['success'] is True
         assert data['rolled_back'] is False
+        assert all('filepath' not in result for result in data['results'])
 
     @patch('routers.metadata.require_repository_factory')
     @patch('auralis.library.metadata_editor.MetadataEditor.batch_update')

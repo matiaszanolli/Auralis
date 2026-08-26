@@ -28,8 +28,34 @@ logger = logging.getLogger(__name__)
 # rationale; re-exported here under their original names since callers/tests
 # import them from this module).
 MAX_MESSAGE_SIZE = WS_MAX_MESSAGE_SIZE
+MAX_JSON_DEPTH = 32
 MAX_MESSAGES_PER_SECOND = WS_MAX_MESSAGES_PER_SECOND
 MESSAGE_WINDOW_SECONDS = WS_MESSAGE_WINDOW_SECONDS
+
+
+def _json_nesting_exceeds(data: str, max_depth: int) -> bool:
+    """Detect excessive object/array nesting without recursively parsing JSON."""
+    depth = 0
+    in_string = False
+    escaped = False
+    for char in data:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            continue
+        if char == '"':
+            in_string = True
+        elif char in "[{":
+            depth += 1
+            if depth > max_depth:
+                return True
+        elif char in "]}":
+            depth -= 1
+    return False
 
 
 class WebSocketRateLimiter:
@@ -204,10 +230,16 @@ async def validate_and_parse_message(
         )
         return None, error_msg
 
+    if _json_nesting_exceeds(data, MAX_JSON_DEPTH):
+        error_msg = f"JSON nesting exceeds maximum depth {MAX_JSON_DEPTH}"
+        logger.warning("Rejected deeply nested WebSocket message")
+        await send_error_response(websocket, "message_too_complex", error_msg)
+        return None, error_msg
+
     # Parse JSON (security: catch malformed JSON)
     try:
         message = json.loads(data)
-    except json.JSONDecodeError as e:
+    except (json.JSONDecodeError, RecursionError) as e:
         error_msg = f"Invalid JSON: {e}"
         logger.warning(f"Failed to parse WebSocket message: {error_msg}")
         await send_error_response(

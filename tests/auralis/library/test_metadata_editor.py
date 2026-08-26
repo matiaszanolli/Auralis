@@ -300,6 +300,7 @@ class TestBatchUpdate:
         assert results['total'] == 2
         assert results['rolled_back'] is False
         assert all(r['success'] for r in results['results'])
+        assert all('filepath' not in r for r in results['results'])
 
     def test_batch_update_with_failures(self):
         """Test batch update with some failures rolls back all applied files"""
@@ -334,6 +335,8 @@ class TestBatchUpdate:
         # The error message for track2 mentions the original error
         track2_result = next(r for r in results['results'] if r['track_id'] == 2)
         assert 'Test error' in track2_result['error']
+        assert '/path/to/track2.mp3' not in track2_result['error']
+        assert all('filepath' not in r for r in results['results'])
 
     def test_batch_update_empty_list(self):
         """Test batch update with empty list"""

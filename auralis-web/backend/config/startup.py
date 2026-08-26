@@ -513,7 +513,10 @@ def reclaim_leftover_stream_temps(temp_root: Path, max_age_hours: float = 1.0) -
             shutil.rmtree(leftover)
             reclaimed += 1
         except Exception as e:
-            logger.warning(f"Failed to remove leftover temp stream dir {leftover}: {e}")
+            logger.warning(
+                f"Failed to remove leftover temp stream dir {leftover.name}: "
+                f"{type(e).__name__}"
+            )
 
     if reclaimed:
         logger.info(
@@ -594,7 +597,9 @@ def reclaim_stale_temp_entries(dir_path: Path, max_age_hours: float) -> int:
                 entry.unlink()
             reclaimed += 1
         except Exception as e:
-            logger.warning(f"Failed to remove stale temp entry {entry}: {e}")
+            logger.warning(
+                f"Failed to remove stale temp entry {entry.name}: {type(e).__name__}"
+            )
     if reclaimed:
         logger.info(f"🧹 Reclaimed {reclaimed} stale entr{'y' if reclaimed == 1 else 'ies'} from {dir_path.name}")
     return reclaimed

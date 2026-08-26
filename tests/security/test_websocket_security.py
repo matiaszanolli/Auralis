@@ -93,15 +93,15 @@ class TestWebSocketMessageSizeValidation:
     @pytest.mark.asyncio
     async def test_boundary_message_size(self):
         """Messages exactly at 64KB limit should be accepted."""
-        # Create message at exactly 64KB - overhead for JSON structure
-        overhead = len('{"type":"ping","data":""}')
-        data_size = MAX_MESSAGE_SIZE - overhead - 100  # Leave buffer for encoding
+        empty_message = json.dumps(
+            {"type": "ping", "data": {"payload": ""}}, separators=(",", ":")
+        )
+        data_size = MAX_MESSAGE_SIZE - len(empty_message.encode("utf-8"))
         large_data = "x" * data_size
-
-        message_json = json.dumps({
-            "type": "ping",
-            "data": large_data
-        })
+        message_json = json.dumps(
+            {"type": "ping", "data": {"payload": large_data}}, separators=(",", ":")
+        )
+        assert len(message_json.encode("utf-8")) == MAX_MESSAGE_SIZE
 
         mock_ws = AsyncMock()
 
@@ -145,10 +145,10 @@ class TestWebSocketJSONParsing:
         SECURITY: Deeply nested JSON should be size-limited.
         Attack vector: CPU exhaustion via deep recursion.
         """
-        # Create deeply nested structure
+        # Create deeply nested structure that remains well below the size cap.
         nested = {"type": "ping", "data": {}}
         current = nested["data"]
-        for _ in range(1000):
+        for _ in range(100):
             current["nested"] = {}
             current = current["nested"]
 
@@ -159,10 +159,12 @@ class TestWebSocketJSONParsing:
 
         result, error = await validate_and_parse_message(message_json, mock_ws)
 
-        # If message is under size limit, it will be parsed but schema validation
-        # should catch unknown structure
-        # If over size limit, it should be rejected for size
-        assert result is None or error is not None
+        assert len(message_json.encode("utf-8")) < MAX_MESSAGE_SIZE
+        assert result is None
+        assert error is not None
+        assert "nesting" in error.lower()
+        error_response = json.loads(mock_ws.send_text.call_args[0][0])
+        assert error_response["error"] == "message_too_complex"
 
 
 @pytest.mark.security

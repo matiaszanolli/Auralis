@@ -11,7 +11,8 @@ come from the user's own file picker, not an untrusted network client. Every
 real directory entry point (``LibraryScanRequest.validate_directory_paths``
 in ``schemas.py``, ``POST /api/settings/scan-folders``) validates through
 ``validate_user_chosen_directory()`` / ``validate_directory_list()``, which
-enforce basic safety (no traversal, must exist, must be readable) but
+enforce basic safety (no traversal, no operating-system roots, must exist and
+be readable) but
 deliberately do NOT restrict to a fixed allowlist — the user's choice is
 trusted. Registering a folder via ``register_allowed_directory()`` then
 widens the allowlist ``validate_file_path()`` consults for the rest of the
@@ -27,6 +28,7 @@ implying a containment guarantee the app doesn't actually enforce.
 import functools
 import logging
 import os
+import sys
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -43,6 +45,33 @@ DEFAULT_ALLOWED_DIRS = [
 # Extra directories registered at runtime (populated by startup.py after
 # reading user-configured scan folders from the database).
 _extra_allowed_dirs: list[Path] = []
+
+
+def _system_directory_roots() -> tuple[Path, ...]:
+    """Return OS-owned directory trees that must never become scan roots."""
+    if os.name == "nt":
+        candidates = {
+            Path(os.environ.get("SystemRoot", r"C:\Windows")),
+            Path(os.environ.get("ProgramFiles", r"C:\Program Files")),
+            Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")),
+        }
+    else:
+        candidates = {
+            Path("/"), Path("/bin"), Path("/boot"), Path("/dev"),
+            Path("/etc"), Path("/proc"), Path("/root"), Path("/sbin"),
+            Path("/sys"), Path("/usr"), Path("/var"),
+        }
+        if sys.platform == "darwin":
+            candidates.update({Path("/Library"), Path("/System")})
+    return tuple(path.resolve() for path in candidates)
+
+
+def _is_system_directory(path: Path) -> bool:
+    filesystem_root = Path(path.anchor)
+    return any(
+        path == root or (root != filesystem_root and path.is_relative_to(root))
+        for root in _system_directory_roots()
+    )
 
 
 def register_allowed_directory(directory: Path) -> None:
@@ -228,9 +257,9 @@ def validate_user_chosen_directory(directory: str) -> Path:
     Validate a directory path explicitly chosen by the user (e.g., via file picker).
 
     Auralis is a single-user desktop app. When the user explicitly selects a
-    folder to scan, we trust their choice and only enforce basic safety checks
-    (no traversal, must exist, must be readable) without restricting to
-    predefined allowed directories.
+    folder to scan, we trust their choice outside operating-system-owned
+    directory trees and enforce basic safety checks (no traversal, must exist,
+    must be readable) without restricting to predefined media directories.
 
     Args:
         directory: Directory path chosen by the user
@@ -258,6 +287,11 @@ def validate_user_chosen_directory(directory: str) -> Path:
         raise PathValidationError(
             "Path traversal sequences (..) are not allowed. "
             "Please use absolute paths."
+        )
+
+    if _is_system_directory(resolved_path):
+        raise PathValidationError(
+            "Operating-system directories cannot be used as library scan roots"
         )
 
     if not resolved_path.exists():

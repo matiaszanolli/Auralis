@@ -212,7 +212,7 @@ class MetadataEditor:
             - total (int): updates attempted
             - successful (int): updates that committed
             - failed (int): updates that did not commit
-            - results (list): per-file {track_id, filepath, success, [error], [updates]}
+            - results (list): per-file {track_id, success, [error], [updates]}
             - rolled_back (bool): True when a failure triggered a full rollback
         """
         if not updates:
@@ -244,12 +244,11 @@ class MetadataEditor:
                     'results': [
                         {
                             'track_id': u.track_id,
-                            'filepath': u.filepath,
                             'success': False,
                             'error': (
-                                f"File not found: {update.filepath}"
+                                "File not found"
                                 if u.filepath == update.filepath
-                                else f"Aborted: {update.filepath} not found"
+                                else "Aborted: another batch file was not found"
                             ),
                         }
                         for u in updates
@@ -272,12 +271,11 @@ class MetadataEditor:
                             'results': [
                                 {
                                     'track_id': u.track_id,
-                                    'filepath': u.filepath,
                                     'success': False,
                                     'error': (
-                                        f"Failed to create backup: {update.filepath}"
+                                        "Failed to create backup"
                                         if u.filepath == update.filepath
-                                        else f"Aborted: backup failed for {update.filepath}"
+                                        else "Aborted: another batch backup failed"
                                     ),
                                 }
                                 for u in updates
@@ -297,7 +295,6 @@ class MetadataEditor:
                 applied_paths.append(update.filepath)
                 per_file_results.append({
                     'track_id': update.track_id,
-                    'filepath': update.filepath,
                     'success': True,
                     'updates': update.updates,
                 })
@@ -305,9 +302,8 @@ class MetadataEditor:
                 any_failed = True
                 per_file_results.append({
                     'track_id': update.track_id,
-                    'filepath': update.filepath,
                     'success': False,
-                    'error': str(e),
+                    'error': str(e).replace(update.filepath, Path(update.filepath).name),
                 })
 
         # Phase 4 — Roll back all applied files when the batch was backed up and any failed.

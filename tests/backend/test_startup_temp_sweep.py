@@ -99,6 +99,7 @@ def test_removal_failure_is_logged_not_swallowed(tmp_path, caplog):
     warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
     assert warnings, "a removal failure must be logged, not swallowed"
     assert "auralis_stream_locked" in warnings[0].message
+    assert str(tmp_path) not in warnings[0].message
 
 
 def test_stale_entries_removes_only_old_files(tmp_path):
@@ -164,3 +165,5 @@ def test_stale_entries_removal_failure_is_logged_not_swallowed(tmp_path, caplog,
     assert old_file.exists()
     warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
     assert warnings, "a removal failure must be logged, not swallowed"
+    assert "locked.wav" in warnings[0].message
+    assert str(tmp_path) not in warnings[0].message
