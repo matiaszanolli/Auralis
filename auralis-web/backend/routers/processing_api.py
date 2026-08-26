@@ -36,6 +36,9 @@ from config.limits import UPLOAD_TEMP_DIRNAME
 # Derived from the single source of truth (auralis.io.formats) so the upload
 # allowlist tracks exactly what the loader can decode (#4109).
 from auralis.io.formats import AUDIO_EXTENSIONS as _ALLOWED_AUDIO_EXTENSIONS
+# The mastering engine's real preset definitions — the presets endpoint
+# projects these rather than restating them (#5220).
+from auralis.core.config.preset_profiles import PresetProfile, create_preset_profiles
 
 
 def _is_valid_audio_magic(data: bytes) -> bool:
@@ -590,118 +593,72 @@ async def get_queue_status(
     return engine.get_queue_status()
 
 
-async def get_processing_presets() -> dict[str, Any]:
-    """Get available processing presets"""
-    presets = {
-        "adaptive": {
-            "name": "Adaptive Mastering",
-            "description": "Intelligent content-aware mastering without reference",
-            "mode": "adaptive",
-            "settings": {
-                "eq": {"enabled": True},
-                "dynamics": {"enabled": True},
-                "level_matching": {"enabled": True, "target_lufs": -16}
-            }
-        },
-        "gentle": {
-            "name": "Gentle Enhancement",
-            "description": "Subtle improvements preserving original character",
-            "mode": "adaptive",
-            "settings": {
-                "eq": {
-                    "enabled": True,
-                    "low": 1,
-                    "low_mid": 0.5,
-                    "mid": 0,
-                    "high_mid": 1,
-                    "high": 2
+def _preset_to_payload(profile: PresetProfile) -> dict[str, Any]:
+    """Project a `PresetProfile` onto the public presets payload.
+
+    Units are the profile's own: EQ gains and compressor/limiter thresholds in
+    dB, attack/release in ms, ratio as N:1, blends and intensities in 0.0-1.0.
+    """
+    return {
+        "name": profile.name,
+        "description": profile.description,
+        # Every profile is applied through the adaptive mastering path;
+        # PresetProfile has no mode of its own.
+        "mode": "adaptive",
+        "settings": {
+            "eq": {
+                "enabled": profile.eq_blend > 0.0,
+                "blend": profile.eq_blend,
+                "low": profile.low_shelf_gain,
+                "low_mid": profile.low_mid_gain,
+                "mid": profile.mid_gain,
+                "high_mid": profile.high_mid_gain,
+                "high": profile.high_shelf_gain,
+            },
+            "dynamics": {
+                "enabled": profile.dynamics_blend > 0.0,
+                "blend": profile.dynamics_blend,
+                "compressor": {
+                    "threshold": profile.compression_threshold,
+                    "ratio": profile.compression_ratio,
+                    "attack": profile.compression_attack,
+                    "release": profile.compression_release,
                 },
-                "dynamics": {
-                    "enabled": True,
-                    "compressor": {
-                        "threshold": -24,
-                        "ratio": 2,
-                        "attack": 10,
-                        "release": 200
-                    }
-                }
-            }
-        },
-        "warm": {
-            "name": "Warm & Rich",
-            "description": "Enhanced low end with warm mid range",
-            "mode": "adaptive",
-            "settings": {
-                "eq": {
-                    "enabled": True,
-                    "low": 2,
-                    "low_mid": 1,
-                    "mid": -0.5,
-                    "high_mid": 0,
-                    "high": 1
+                "limiter": {
+                    "threshold": profile.limiter_threshold,
+                    "release": profile.limiter_release,
                 },
-                "dynamics": {
-                    "enabled": True,
-                    "compressor": {
-                        "threshold": -20,
-                        "ratio": 3,
-                        "attack": 5,
-                        "release": 150
-                    }
-                }
-            }
+            },
+            "level_matching": {
+                "enabled": True,
+                "target_lufs": profile.target_lufs,
+                "peak_target_db": profile.peak_target_db,
+            },
         },
-        "bright": {
-            "name": "Bright & Crisp",
-            "description": "Enhanced clarity and presence",
-            "mode": "adaptive",
-            "settings": {
-                "eq": {
-                    "enabled": True,
-                    "low": -1,
-                    "low_mid": 0,
-                    "mid": 1,
-                    "high_mid": 2,
-                    "high": 3
-                },
-                "dynamics": {
-                    "enabled": True,
-                    "compressor": {
-                        "threshold": -16,
-                        "ratio": 4,
-                        "attack": 1,
-                        "release": 50
-                    }
-                }
-            }
-        },
-        "punchy": {
-            "name": "Punchy & Dynamic",
-            "description": "Strong bass and aggressive dynamics",
-            "mode": "adaptive",
-            "settings": {
-                "eq": {
-                    "enabled": True,
-                    "low": 3,
-                    "low_mid": 1,
-                    "mid": 0,
-                    "high_mid": 1,
-                    "high": 2
-                },
-                "dynamics": {
-                    "enabled": True,
-                    "compressor": {
-                        "threshold": -12,
-                        "ratio": 6,
-                        "attack": 0.5,
-                        "release": 30
-                    }
-                }
-            }
-        }
     }
 
-    return {"presets": presets}
+
+async def get_processing_presets() -> dict[str, Any]:
+    """Get available processing presets.
+
+    #5220: this used to return a hand-typed dict of 5 presets whose EQ and
+    compressor numbers were invented — unitless integers that matched nothing
+    the mastering engine applies — and which silently omitted the engine's
+    6th preset, "live". The catalog is now projected from
+    `create_preset_profiles()`, the same source `HybridProcessor` masters
+    with, so the two cannot drift apart again.
+
+    Note the split with #4861: that issue tracks "live" being unreachable
+    through `schemas.VALID_PRESETS` / `EnhancementPresetLiteral` and the
+    frontend's `ENHANCEMENT_PRESETS`, which this endpoint does not feed and
+    this change does not touch.
+    """
+    return {
+        "presets": {
+            name: _preset_to_payload(profile)
+            for name, profile in create_preset_profiles().items()
+        }
+    }
 
 
 async def get_processing_parameters(

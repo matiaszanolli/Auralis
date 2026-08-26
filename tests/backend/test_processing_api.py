@@ -82,6 +82,64 @@ class TestProcessingPresets:
         assert "bright" in data["presets"]
         assert "punchy" in data["presets"]
 
+    def test_presets_match_the_engines_profiles(self, client, mock_engine):
+        """Every value comes from create_preset_profiles(), in its units (#5220).
+
+        The endpoint used to return a hand-typed dict whose EQ and compressor
+        numbers were invented — unitless integers matching nothing the
+        mastering engine applies (`gentle` advertised ratio 2 @ -24 dB where
+        the engine uses 1.8 @ -20.0 dB) — and it silently dropped the 6th
+        preset. Asserted field-by-field against the profiles so a future edit
+        to either side has to touch this test.
+        """
+        from auralis.core.config.preset_profiles import create_preset_profiles
+
+        profiles = create_preset_profiles()
+        presets = client.get("/api/processing/presets").json()["presets"]
+
+        assert set(presets) == set(profiles), "endpoint and engine disagree on the catalog"
+        assert "live" in presets, "the engine's 6th preset must not be dropped"
+
+        for name, profile in profiles.items():
+            payload = presets[name]
+            assert payload["name"] == profile.name
+            assert payload["description"] == profile.description
+
+            eq = payload["settings"]["eq"]
+            assert eq["low"] == profile.low_shelf_gain
+            assert eq["low_mid"] == profile.low_mid_gain
+            assert eq["mid"] == profile.mid_gain
+            assert eq["high_mid"] == profile.high_mid_gain
+            assert eq["high"] == profile.high_shelf_gain
+            assert eq["blend"] == profile.eq_blend
+
+            comp = payload["settings"]["dynamics"]["compressor"]
+            assert comp["threshold"] == profile.compression_threshold
+            assert comp["ratio"] == profile.compression_ratio
+            assert comp["attack"] == profile.compression_attack
+            assert comp["release"] == profile.compression_release
+
+            limiter = payload["settings"]["dynamics"]["limiter"]
+            assert limiter["threshold"] == profile.limiter_threshold
+            assert limiter["release"] == profile.limiter_release
+
+            level = payload["settings"]["level_matching"]
+            assert level["target_lufs"] == profile.target_lufs
+            assert level["peak_target_db"] == profile.peak_target_db
+
+    def test_preset_gains_are_db_not_unitless_ints(self, client, mock_engine):
+        """Pins the unit change specifically (#5220).
+
+        The fabricated payload used small unitless integers; the engine's are
+        dB gains and real thresholds. `gentle` is the clearest case.
+        """
+        gentle = client.get("/api/processing/presets").json()["presets"]["gentle"]
+
+        assert gentle["settings"]["eq"]["low"] == 0.3          # was 1
+        assert gentle["settings"]["eq"]["high"] == 0.5         # was 2
+        assert gentle["settings"]["dynamics"]["compressor"]["ratio"] == 1.8      # was 2
+        assert gentle["settings"]["dynamics"]["compressor"]["threshold"] == -20.0  # was -24
+
     def test_preset_structure(self, client, mock_engine):
         """Test preset data structure"""
         response = client.get("/api/processing/presets")
@@ -667,7 +725,11 @@ class TestQueueBackpressureAPI:
         ref_file.write_bytes(b"RIFF" + b"\x00" * 40)
         mock_engine.create_job.return_value = mock_engine.get_job.return_value
 
-        def fake_validate(path):
+        def fake_validate(path, context=None):
+            # The real validate_file_path takes a keyword `context` for its
+            # error messages; the stub went stale when that was added and the
+            # test has been erroring on the mismatch rather than exercising
+            # the reference path.
             return Path(path)
 
         with patch("routers.processing_api.validate_file_path", side_effect=fake_validate):
