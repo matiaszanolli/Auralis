@@ -19,6 +19,7 @@ covers the surrounding lifecycle/config-reload/watchdog/polling surface.
 import asyncio
 import json
 import sys
+import threading
 import time
 from pathlib import Path
 from types import SimpleNamespace
@@ -329,6 +330,43 @@ class TestWatchdogDebounce:
         handler.on_created(None)
         await asyncio.sleep(0.6)
         assert trigger_calls == 2
+
+    @pytest.mark.asyncio
+    async def test_rapid_events_from_a_real_background_thread_still_coalesce(self):
+        """#4748: _schedule() used to call TimerHandle.cancel() directly from
+        whatever thread invokes it -- unsafe if that thread isn't the loop's,
+        which is exactly the case watchdog callbacks are in production (the
+        other tests in this class call on_created() etc. from the loop thread
+        itself, so they can't exercise the cross-thread path this fix
+        touches). Fires a burst of events from a genuine separate
+        threading.Thread and asserts the coalescing behavior is unaffected by
+        removing the redundant, unsafe cancel."""
+        loop = asyncio.get_running_loop()
+        trigger_calls = 0
+
+        async def _trigger() -> None:
+            nonlocal trigger_calls
+            trigger_calls += 1
+
+        handler = _DebounceHandler(trigger_fn=_trigger, loop=loop)
+
+        def _fire_burst_from_watchdog_thread() -> None:
+            for _ in range(5):
+                handler.on_created(None)
+                handler.on_deleted(None)
+                handler.on_moved(None)
+                time.sleep(0.01)
+
+        thread = threading.Thread(target=_fire_burst_from_watchdog_thread)
+        thread.start()
+        thread.join(timeout=5)
+        assert not thread.is_alive()
+
+        # Nothing should have fired yet -- still within the debounce window.
+        assert trigger_calls == 0
+
+        await asyncio.sleep(0.6)
+        assert trigger_calls == 1
 
 
 class TestSyncWatchdog:

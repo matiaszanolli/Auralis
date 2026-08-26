@@ -58,11 +58,14 @@ class _DebounceHandler(FileSystemEventHandler):  # type: ignore[misc]
         self._schedule()
 
     def _schedule(self) -> None:
-        # Cancel pending timer and reset; fires 500ms after last event.
-        # Use call_soon_threadsafe because watchdog callbacks run on a
-        # background thread, and call_later is not thread-safe (#2863).
-        if self._pending is not None:
-            self._pending.cancel()
+        # Runs on the watchdog thread, not the event loop's — call_later
+        # (and cancelling a TimerHandle it produced) is not thread-safe from
+        # here (#2863), so the actual cancel-and-reschedule is deferred to
+        # _schedule_on_loop() via call_soon_threadsafe. #4748: this used to
+        # also call self._pending.cancel() directly, right above the comment
+        # explaining why that's unsafe from this thread — redundant besides,
+        # since _schedule_on_loop() below re-cancels correctly on the loop
+        # thread before rescheduling.
         self._loop.call_soon_threadsafe(self._schedule_on_loop)
 
     def _schedule_on_loop(self) -> None:
