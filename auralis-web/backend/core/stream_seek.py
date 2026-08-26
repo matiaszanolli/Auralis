@@ -294,6 +294,7 @@ async def stream_enhanced_audio_from_position(
                         track_id,
                         f"Failed to send audio chunk {chunk_idx}",
                         recovery_position=recovery_position,
+                        error_code="SEEK_ERROR",
                     )
                     stopped_early = True
                     break
@@ -346,6 +347,7 @@ async def stream_enhanced_audio_from_position(
                     track_id,
                     f"Audio processing timed out on chunk {chunk_idx}; stream stopped",
                     recovery_position=recovery_position,
+                    error_code="SEEK_ERROR",
                 )
                 stopped_early = True
                 break
@@ -373,6 +375,7 @@ async def stream_enhanced_audio_from_position(
                     track_id,
                     f"Failed to process audio chunk {chunk_idx}",
                     recovery_position=recovery_position,
+                    error_code="SEEK_ERROR",
                 )
                 # Skip failed chunk and continue (#3190). Recorded so the
                 # terminal message doesn't claim reason="completed" over a
@@ -402,7 +405,9 @@ async def stream_enhanced_audio_from_position(
     except Exception as e:
         logger.error(f"Seek streaming failed: {e}", exc_info=True)
         if controller._is_websocket_connected(websocket):
-            await controller._send_error(websocket, track_id, "Audio streaming failed")
+            await controller._send_error(
+                websocket, track_id, "Audio streaming failed", error_code="SEEK_ERROR"
+            )
     finally:
         # Drain any in-flight look-ahead (fixes #3493).
         await controller._drain_cancelled_task(lookahead_task)
