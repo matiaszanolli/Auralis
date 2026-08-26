@@ -315,7 +315,17 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                         retry_after = int(window_sec - (now - timestamps[0])) + 1
                         return JSONResponse(
                             status_code=429,
-                            content={"detail": "Too many requests"},
+                            content={
+                                "detail": "Too many requests",
+                                # Which rule fired and how long to back off, in
+                                # the JSON body so the frontend doesn't have to
+                                # infer the rule from the request path or parse
+                                # the Retry-After header to show a specific
+                                # message (#3904) — e.g. "you're scanning too
+                                # often, wait 23s" instead of a generic notice.
+                                "rule": matched_prefix,
+                                "retry_after_seconds": retry_after,
+                            },
                             headers={"Retry-After": str(retry_after)},
                         )
 
