@@ -1014,6 +1014,118 @@ describe('usePlayerStateSync – track_changed (#4144)', () => {
 });
 
 // ============================================================================
+// track_changed seq guard — out-of-order drop (#4582)
+// ============================================================================
+//
+// NavigationService's next/previous/jump calls are re-instantiated per
+// request and their engine-mutate-then-broadcast steps can interleave under
+// a rapid skip burst, so an older track_changed can arrive after a newer
+// one. Each broadcast now carries NavigationService's own monotonic `seq`
+// (a separate counter from player_state.seq — see usePlayerStateSync.ts).
+
+describe('usePlayerStateSync – track_changed seq guard (#4582)', () => {
+  let store: TestStore;
+
+  const queueTracks = [
+    { id: 1, title: 'T1', artist: 'A', album: '', duration: 100, artwork_url: null },
+    { id: 2, title: 'T2', artist: 'B', album: '', duration: 110, artwork_url: null },
+    { id: 3, title: 'T3', artist: 'C', album: '', duration: 120, artwork_url: null },
+    { id: 4, title: 'T4', artist: 'D', album: '', duration: 130, artwork_url: null },
+  ];
+
+  beforeEach(() => {
+    setupWebSocketMock();
+    store = createTestStore();
+    renderHook(() => usePlayerStateSync(), { wrapper: makeWrapper(store) });
+    firePlayerState({ queue: queueTracks, queue_index: 0 });
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('leaves Redux on the newer index when an older-seq event arrives after a newer one', () => {
+    fire('track_changed', { action: 'next', track_index: 3, seq: 5 });
+    expect(store.getState().queue.currentIndex).toBe(3);
+
+    // Reordered delivery: an earlier command's broadcast lands last.
+    fire('track_changed', { action: 'next', track_index: 2, seq: 4 });
+    expect(store.getState().queue.currentIndex).toBe(3);
+    expect(store.getState().player.currentTrack?.id).toBe(4);
+  });
+
+  it('applies events with strictly increasing seq', () => {
+    fire('track_changed', { action: 'next', track_index: 1, seq: 1 });
+    expect(store.getState().queue.currentIndex).toBe(1);
+
+    fire('track_changed', { action: 'next', track_index: 2, seq: 2 });
+    expect(store.getState().queue.currentIndex).toBe(2);
+  });
+
+  it('applies events with no seq field (backward compatible)', () => {
+    fire('track_changed', { action: 'next', track_index: 1 });
+    expect(store.getState().queue.currentIndex).toBe(1);
+  });
+
+  it('does not cross-compare against the player_state seq watermark', () => {
+    // player_state has already climbed to a high seq; track_changed's own
+    // counter legitimately starts low — it must not be rejected as "stale"
+    // against the unrelated player_state watermark.
+    firePlayerState({ seq: 500, volume: 50 });
+    fire('track_changed', { action: 'next', track_index: 1, seq: 1 });
+    expect(store.getState().queue.currentIndex).toBe(1);
+  });
+});
+
+describe('usePlayerStateSync – track_changed seq reset on reconnect (#4582/#4338)', () => {
+  let store: TestStore;
+
+  const queueTracks = [
+    { id: 1, title: 'T1', artist: 'A', album: '', duration: 100, artwork_url: null },
+    { id: 2, title: 'T2', artist: 'B', album: '', duration: 110, artwork_url: null },
+    { id: 3, title: 'T3', artist: 'C', album: '', duration: 120, artwork_url: null },
+    { id: 4, title: 'T4', artist: 'D', album: '', duration: 130, artwork_url: null },
+  ];
+
+  beforeEach(() => {
+    setupWebSocketMock();
+    store = createTestStore();
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('resets its watermark on reconnect, mirroring the player_state seq reset', () => {
+    const mockContext = makeMockWsContext({
+      connectionStatus: 'connected',
+      subscribe: vi.fn((type: string, handler: (msg: any) => void) => {
+        handlers[type] = handler;
+        if (type === 'player_state') playerStateHandler = handler;
+        return mockUnsubscribe;
+      }) as any,
+    });
+    vi.mocked(WebSocketContextModule.useWebSocketContext).mockImplementation(() => mockContext);
+
+    const { rerender } = renderHook(() => usePlayerStateSync(), { wrapper: makeWrapper(store) });
+    firePlayerState({ queue: queueTracks, queue_index: 0 });
+
+    fire('track_changed', { action: 'next', track_index: 3, seq: 50 });
+    expect(store.getState().queue.currentIndex).toBe(3);
+
+    // Backend restarts: connection drops then re-establishes. NavigationService's
+    // module-level counter (a fresh process) restarts from 1.
+    mockContext.connectionStatus = 'disconnected';
+    rerender();
+    mockContext.connectionStatus = 'connected';
+    rerender();
+
+    fire('track_changed', { action: 'next', track_index: 1, seq: 1 });
+    expect(store.getState().queue.currentIndex).toBe(1);
+  });
+});
+
+// ============================================================================
 // seq — out-of-order snapshot drop (#3732)
 // ============================================================================
 //

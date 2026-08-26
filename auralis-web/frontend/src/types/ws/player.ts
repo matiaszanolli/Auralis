@@ -165,6 +165,11 @@ export interface TrackChangedMessage extends WebSocketMessage {
     // guard on `typeof track_index === 'number'`.
     action: 'next' | 'previous' | 'jumped';
     track_index?: number;
+    // Monotonic per NavigationService's own counter (#4582) — a rapid skip
+    // burst can interleave concurrent broadcasts at the WS layer, so
+    // subscribers drop anything older than the newest seq already applied.
+    // Optional for the same reason as track_index above.
+    seq?: number;
   };
 }
 

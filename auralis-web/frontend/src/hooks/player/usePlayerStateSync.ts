@@ -74,15 +74,26 @@ export function usePlayerStateSync() {
   // already applied instead of regressing the UI to stale state.
   const lastSeenSeqRef = useRef(0);
 
+  // Highest track_changed `seq` applied so far (#4582). This is a SEPARATE
+  // watermark from lastSeenSeqRef above, not a shared one: track_changed's
+  // seq comes from NavigationService's own counter (it mutates the engine's
+  // queue, not PlayerStateManager.state, so there is no shared generation to
+  // draw from — see the backend's _TrackChangeSequencer). Comparing it
+  // against lastSeenSeqRef would reject valid track_changed events any time
+  // the two counters happened to disagree in magnitude.
+  const lastSeenTrackChangedSeqRef = useRef(0);
+
   // A backend restart resets its StateManager seq counter to 0, but this ref
   // survives across reconnects — every post-restart snapshot would otherwise
   // be dropped as "older" until the counter climbs back past the pre-restart
   // max (#4338). Reset on every (re)connection: within one continuous
   // session connectionStatus never flips back to 'connected', so the #3732
-  // out-of-order guard still holds there.
+  // out-of-order guard still holds there. Same rationale applies to the
+  // NavigationService-side counter behind lastSeenTrackChangedSeqRef.
   useEffect(() => {
     if (connectionStatus === 'connected') {
       lastSeenSeqRef.current = 0;
+      lastSeenTrackChangedSeqRef.current = 0;
     }
   }, [connectionStatus]);
 
@@ -254,11 +265,23 @@ export function usePlayerStateSync() {
     // all include track_index now; resolve the track from the already-synced
     // queue rather than replicating backend shuffle/repeat ordering client-side.
     const unsubscribeTrackChanged = subscribe('track_changed', (message) => {
-      const data = (message as { data?: { action?: string; track_index?: number } }).data;
+      const data = (message as { data?: { action?: string; track_index?: number; seq?: number } }).data;
       if (!data || typeof data.track_index !== 'number' || !Number.isInteger(data.track_index)) {
         // No index in payload — let the next player_state snapshot reconcile.
         return;
       }
+
+      // #4582: a rapid skip burst can interleave concurrent next/previous/
+      // jump broadcasts at the WS layer even though the backend now
+      // serializes their engine mutation (NavigationService's
+      // _TrackChangeSequencer). Drop anything older than the newest seq
+      // already applied instead of regressing the queue position — same
+      // shape as the player_state guard above, but its own watermark.
+      if (typeof data.seq === 'number') {
+        if (data.seq < lastSeenTrackChangedSeqRef.current) return;
+        lastSeenTrackChangedSeqRef.current = data.seq;
+      }
+
       const index = data.track_index;
       const tracks = store.getState().queue.tracks;
       if (index >= 0 && index < tracks.length) {
