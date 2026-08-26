@@ -332,47 +332,6 @@ export interface PaginatedResponse<T> {
   pagination: PaginationState;
 }
 
-// ============================================================================
-// Type Guards
-// ============================================================================
-
-export function isTrack(value: unknown): value is Track {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    typeof (value as Track).id === 'number' &&
-    typeof (value as Track).title === 'string' &&
-    typeof (value as Track).artist === 'string' &&
-    typeof (value as Track).album === 'string' &&
-    typeof (value as Track).duration === 'number'
-  );
-}
-
-export function isAlbum(value: unknown): value is Album {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    typeof (value as Album).id === 'number' &&
-    typeof (value as Album).title === 'string' &&
-    typeof (value as Album).artist === 'string' &&
-    typeof (value as Album).trackCount === 'number' // camelCase
-  );
-}
-
-export function isArtist(value: unknown): value is Artist {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    typeof (value as Artist).id === 'number' &&
-    typeof (value as Artist).name === 'string' &&
-    typeof (value as Artist).trackCount === 'number' // camelCase
-  );
-}
-
-export function isEnhancementPreset(value: unknown): value is EnhancementPreset {
-  return ENHANCEMENT_PRESETS.includes(value as EnhancementPreset);
-}
-
 // #4830: the local TrackApiResponse/transformBackendTrack pair that used to
 // live here duplicated (and diverged from) the canonical transformer at
 // @/api/transformers/trackTransformer.ts — its `genre` field never read the
@@ -386,26 +345,3 @@ export function isEnhancementPreset(value: unknown): value is EnhancementPreset 
 
 // Re-export from canonical location for backwards compatibility
 export { formatDuration } from '@/utils/timeFormat';
-
-export function parseDuration(formatted: string): number {
-  const parts = formatted.split(':').map(p => parseInt(p, 10));
-  if (parts.length === 2) {
-    return parts[0] * 60 + parts[1];
-  }
-  if (parts.length === 3) {
-    return parts[0] * 3600 + parts[1] * 60 + parts[2];
-  }
-  return 0;
-}
-
-export function getTrackKey(track: Track): string {
-  return `track-${track.id}`;
-}
-
-export function getAlbumKey(album: Album): string {
-  return `album-${album.id}`;
-}
-
-export function getArtistKey(artist: Artist): string {
-  return `artist-${artist.id}`;
-}
