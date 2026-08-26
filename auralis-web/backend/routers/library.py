@@ -36,7 +36,6 @@ from pydantic import BaseModel, Field
 from .dependencies import require_repository_factory, with_error_handling
 
 logger = logging.getLogger(__name__)
-router = APIRouter(tags=["library"])
 
 
 class RefreshReferencesResponse(BaseModel):
@@ -101,6 +100,13 @@ def create_library_router(
         Track / scan / fingerprint routes are registered by their own factory functions
         (create_tracks_router, create_library_scan_router, create_fingerprint_status_router).
     """
+    # Fresh router per factory call (#4361) — a module-level router shared
+    # across calls means a second factory call (e.g. in tests) re-registers
+    # or shadows routes on the same object, and any dependency override bound
+    # on that second call silently never takes effect (FastAPI serves the
+    # first-registered handler). Matches the isolated-per-factory pattern
+    # metadata.py:87 documents.
+    router = APIRouter(tags=["library"])
 
     @router.post("/api/library/refresh-references", response_model=RefreshReferencesResponse)
     @with_error_handling("refresh reference cloud")

@@ -59,8 +59,6 @@ _rate_limiter = WebSocketRateLimiter(max_messages_per_second=10)
 # gets force-closed by the next heartbeat tick as if it had gone stale.
 _RATE_LIMIT_EXEMPT_TYPES = frozenset({"ping", "pong", "heartbeat"})
 
-router = APIRouter(tags=["system"])
-
 # ============================================================================
 # Streaming task coroutines — module-level so they are independently testable.
 # The per-message locals (track_id, preset, …) are snapshotted as keyword-only
@@ -316,6 +314,10 @@ def create_system_router(
 
     Health and version routes are registered separately via create_health_router().
     """
+    # Fresh router per factory call (#4361) — see routers/library.py's
+    # identical fix for the full rationale (metadata.py:87 is the reference
+    # pattern).
+    router = APIRouter(tags=["system"])
 
     @router.websocket("/ws")
     async def websocket_endpoint(websocket: WebSocket) -> None:
