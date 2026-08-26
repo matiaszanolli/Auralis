@@ -5,7 +5,13 @@ routers. Previously ``_MAX_UPLOAD_BYTES`` was defined independently in
 ``routers/files.py`` and ``routers/processing_api.py`` (and ``_MAX_UPLOAD_FILES``
 lived only in ``files.py``), so an ops/security change to a cap required editing
 multiple files with no enforcement that they stayed in sync.
+
+Also collects the HTTP rate-limit and WebSocket-message-limit constants
+(#3902) that used to live as bare, undocumented magic numbers directly in
+``config/middleware.py`` / ``websocket/websocket_security.py``.
 """
+
+from core.env_config import get_int_env
 
 # Maximum bytes accepted for a single uploaded file (500 MB). Enforced by
 # reading at most MAX_UPLOAD_BYTES + 1 and rejecting on overflow (#2248, #3494).
@@ -77,3 +83,63 @@ def owning_pid_from_stream_temp_name(name: str) -> int | None:
     if not rest or not pid_text.isdigit():
         return None
     return int(pid_text)
+
+
+# ============================================================================
+# HTTP rate limiting (config/middleware.py's RateLimitMiddleware) (#2575)
+# ============================================================================
+
+# Per-path-prefix (max_requests, window_seconds) rate limits. Each pair is
+# overridable via env var (#3901) so a power user running a large library
+# import or batch processing session doesn't have to edit code and rebuild
+# to raise a limit tuned for a "typical" session — the 2/minute scan limit in
+# particular is awkward: a user re-triggering a scan after seeing an error is
+# one click from a 429.
+RATE_LIMIT_UPLOAD_MAX: int = get_int_env("AURALIS_RATE_LIMIT_UPLOAD_MAX", 5)
+RATE_LIMIT_UPLOAD_WINDOW: int = get_int_env("AURALIS_RATE_LIMIT_UPLOAD_WINDOW", 60)
+RATE_LIMIT_PROCESSING_MAX: int = get_int_env("AURALIS_RATE_LIMIT_PROCESSING_MAX", 10)
+RATE_LIMIT_PROCESSING_WINDOW: int = get_int_env("AURALIS_RATE_LIMIT_PROCESSING_WINDOW", 60)
+RATE_LIMIT_SCAN_MAX: int = get_int_env("AURALIS_RATE_LIMIT_SCAN_MAX", 2)
+RATE_LIMIT_SCAN_WINDOW: int = get_int_env("AURALIS_RATE_LIMIT_SCAN_WINDOW", 60)
+RATE_LIMIT_SIMILARITY_MAX: int = get_int_env("AURALIS_RATE_LIMIT_SIMILARITY_MAX", 20)
+RATE_LIMIT_SIMILARITY_WINDOW: int = get_int_env("AURALIS_RATE_LIMIT_SIMILARITY_WINDOW", 60)
+
+# Evict rate-limit keys with only expired timestamps every N rate-limited
+# requests (#2630, #3902). This bounds growth BETWEEN windows — once every
+# timestamp for a key is older than the longest configured window, the sweep
+# removes it. It does NOT bound growth WITHIN a single window: a burst of many
+# distinct client_ip:path keys inside one 60s window (e.g. every track ID
+# touched across a large library) is not caught by this sweep no matter how
+# often it runs, since each such entry's newest timestamp is still fresh
+# (#4804) — RATE_LIMIT_MAX_WINDOW_ENTRIES below is what actually bounds that
+# case. Not env-overridable: this is an internal memory/CPU tuning knob, not
+# a per-deployment policy choice like the limits above — on a desktop app
+# with a handful of concurrent clients this never approaches a scale where
+# tuning it matters.
+RATE_LIMIT_EVICTION_INTERVAL: int = 256
+
+# Hard cap on live rate-limit window entries, independent of the
+# between-window sweep above (#4804). Evicted LRU-style (least-recently-
+# touched first) so active clients are never evicted ahead of quiet ones.
+# ~10k entries is a generous margin above normal traffic shapes while still
+# bounding worst-case memory (roughly 2 MB at the ~200 B/entry estimate
+# from #4804's own impact analysis).
+RATE_LIMIT_MAX_WINDOW_ENTRIES: int = 10_000
+
+
+# ============================================================================
+# WebSocket message limits (websocket/websocket_security.py) (#2156, #3902)
+# ============================================================================
+
+# Maximum accepted size of a single WebSocket message, in bytes. Rejecting
+# oversized frames early bounds per-message parse/validation cost; 64 KB is
+# comfortably above any legitimate control message this protocol sends
+# (play/seek/pause commands, small JSON payloads) with headroom to spare.
+WS_MAX_MESSAGE_SIZE: int = 64 * 1024
+
+# Per-connection message rate limit: at most this many messages accepted
+# within WS_MESSAGE_WINDOW_SECONDS before WebSocketRateLimiter starts
+# rejecting (#3811 also maintains a per-client-IP fallback bucket so closing
+# and reopening the connection can't reset this budget).
+WS_MAX_MESSAGES_PER_SECOND: int = 10
+WS_MESSAGE_WINDOW_SECONDS: float = 1.0

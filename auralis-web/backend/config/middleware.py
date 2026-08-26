@@ -23,6 +23,18 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
+from .limits import (
+    RATE_LIMIT_EVICTION_INTERVAL,
+    RATE_LIMIT_MAX_WINDOW_ENTRIES,
+    RATE_LIMIT_PROCESSING_MAX,
+    RATE_LIMIT_PROCESSING_WINDOW,
+    RATE_LIMIT_SCAN_MAX,
+    RATE_LIMIT_SCAN_WINDOW,
+    RATE_LIMIT_SIMILARITY_MAX,
+    RATE_LIMIT_SIMILARITY_WINDOW,
+    RATE_LIMIT_UPLOAD_MAX,
+    RATE_LIMIT_UPLOAD_WINDOW,
+)
 from .origins import LOOPBACK_ORIGIN_HOSTS, csp_connect_src, origin_matrix
 
 logger = logging.getLogger(__name__)
@@ -163,33 +175,23 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     Only applies to paths in ``_RATE_LIMITS``; all other routes pass through.
     """
 
-    # path-prefix → (max_requests, window_seconds)
+    # path-prefix → (max_requests, window_seconds). Values sourced from
+    # config/limits.py (#3902), each overridable via env var (#3901) —
+    # see that module for the per-limit docstrings and env-var names.
     _RATE_LIMITS: dict[str, tuple[int, int]] = {
-        "/api/files/upload": (5, 60),       # 5 uploads per minute
-        "/api/processing": (10, 60),        # 10 processing jobs per minute
-        "/api/library/scan": (2, 60),       # 2 scans per minute
-        "/api/similarity": (20, 60),        # 20 similarity queries per minute
+        "/api/files/upload": (RATE_LIMIT_UPLOAD_MAX, RATE_LIMIT_UPLOAD_WINDOW),
+        "/api/processing": (RATE_LIMIT_PROCESSING_MAX, RATE_LIMIT_PROCESSING_WINDOW),
+        "/api/library/scan": (RATE_LIMIT_SCAN_MAX, RATE_LIMIT_SCAN_WINDOW),
+        "/api/similarity": (RATE_LIMIT_SIMILARITY_MAX, RATE_LIMIT_SIMILARITY_WINDOW),
     }
 
-    # Evict stale keys every 256 rate-limited requests (#2630). This bounds
-    # growth BETWEEN windows — once every timestamp for a key is older than
-    # max_window, the sweep removes it. It does NOT bound growth WITHIN a
-    # single window: a burst of many distinct client_ip:path keys inside one
-    # 60s window (e.g. every track ID touched across a large library) is not
-    # caught by this sweep no matter how often it runs, since each such
-    # entry's newest timestamp is still fresh (#4804). The hard cap below is
-    # what actually bounds that case; keying on path prefix instead of the
-    # full path (#4728) would remove the growth path entirely by collapsing
-    # the key space to clients × rule count.
-    _EVICTION_INTERVAL = 256
-
-    # Hard cap on live entries, independent of the between-window sweep above
-    # (#4804). Evicted LRU-style (least-recently-touched first, via
-    # OrderedDict.move_to_end() on every hit) so active clients are never
-    # evicted ahead of quiet ones. ~10k entries is a generous margin above
-    # normal traffic shapes while still bounding worst-case memory (roughly
-    # 2 MB at the ~200 B/entry estimate from #4804's own impact analysis).
-    _MAX_WINDOW_ENTRIES = 10_000
+    # Evict stale keys every N rate-limited requests, and the hard cap on live
+    # entries independent of that sweep — see config/limits.py's
+    # RATE_LIMIT_EVICTION_INTERVAL / RATE_LIMIT_MAX_WINDOW_ENTRIES docstrings
+    # (#2630, #4804, #3902) for the full growth-bound rationale kept there
+    # rather than duplicated here.
+    _EVICTION_INTERVAL = RATE_LIMIT_EVICTION_INTERVAL
+    _MAX_WINDOW_ENTRIES = RATE_LIMIT_MAX_WINDOW_ENTRIES
 
     def __init__(self, app: Any) -> None:
         super().__init__(app)

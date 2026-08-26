@@ -18,15 +18,18 @@ from typing import Any
 
 from fastapi import WebSocket
 from pydantic import ValidationError
+from config.limits import WS_MAX_MESSAGE_SIZE, WS_MAX_MESSAGES_PER_SECOND, WS_MESSAGE_WINDOW_SECONDS
 from core.audio_stream_controller import ws_id as _stable_ws_id
 from schemas import WebSocketErrorResponse, WebSocketMessageBase
 
 logger = logging.getLogger(__name__)
 
-# Security limits
-MAX_MESSAGE_SIZE = 64 * 1024  # 64KB max message size
-MAX_MESSAGES_PER_SECOND = 10  # 10 messages per second per connection
-MESSAGE_WINDOW_SECONDS = 1.0  # Time window for rate limiting
+# Security limits (#3902: moved to config/limits.py for the documented
+# rationale; re-exported here under their original names since callers/tests
+# import them from this module).
+MAX_MESSAGE_SIZE = WS_MAX_MESSAGE_SIZE
+MAX_MESSAGES_PER_SECOND = WS_MAX_MESSAGES_PER_SECOND
+MESSAGE_WINDOW_SECONDS = WS_MESSAGE_WINDOW_SECONDS
 
 
 class WebSocketRateLimiter:
