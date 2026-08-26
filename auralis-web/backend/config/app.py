@@ -18,6 +18,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from auralis.version import __version__ as AURALIS_VERSION
+from core.encoding import WAVEncoderError
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +99,22 @@ def create_app(lifespan: Any = None) -> FastAPI:
         return JSONResponse(
             status_code=422,
             content={"detail": "Validation error", "errors": errors},
+        )
+
+    @app.exception_handler(WAVEncoderError)
+    async def wav_encoder_exception_handler(request: Request, exc: WAVEncoderError) -> JSONResponse:
+        # #3912: every current WAVEncoderError call site already catches and
+        # translates it explicitly (routers/files.py and core/job_lifecycle.py
+        # via _safe_error_message(), core/chunk_streaming.py by re-raising as
+        # RuntimeError) — this is a safety net for a future REST caller that
+        # forgets to, so it gets a category message instead of falling through
+        # to the generic "Internal server error" below with no class context.
+        # (WebMEncoderError, the issue's other named type, no longer exists —
+        # its module was removed in #5147; only WAVEncoderError survives.)
+        logger.error(f"Unhandled WAVEncoderError on {request.method} {request.url.path}: {exc}", exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Audio encoding failed"},
         )
 
     @app.exception_handler(Exception)
