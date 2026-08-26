@@ -20,5 +20,3 @@ export type { SegmentedControlProps, SegmentedControlOption } from './SegmentedC
 
 export { Slider } from './Slider';
 export type { SliderProps } from './Slider';
-
-export { Toggle } from './Toggle';

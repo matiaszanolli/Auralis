@@ -30,7 +30,6 @@ Single source of truth for all design values:
 5. **Input** - Text inputs and search fields
 6. **Badge** - Counts, labels, status indicators
 7. **Tooltip** - Contextual help on hover
-8. **Modal** - Dialogs and confirmations
 
 ---
 
@@ -94,22 +93,6 @@ const MyComponent = () => (
   placeholder="Search music..."
   startIcon={<SearchIcon />}
 />
-
-// Modal dialog
-<Modal
-  open={open}
-  onClose={handleClose}
-  title="Confirm Delete"
-  size="md"
-  actions={
-    <>
-      <Button variant="ghost" onClick={handleClose}>Cancel</Button>
-      <Button variant="danger" onClick={handleDelete}>Delete</Button>
-    </>
-  }
->
-  <p>Are you sure you want to delete this playlist?</p>
-</Modal>
 ```
 
 ---
@@ -275,7 +258,6 @@ src/design-system/
 │   ├── Input.tsx
 │   ├── Badge.tsx
 │   ├── Tooltip.tsx
-│   ├── Modal.tsx
 │   └── index.ts
 ├── index.ts                  # Main export
 └── README.md                 # This file

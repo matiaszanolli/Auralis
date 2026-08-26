@@ -19,12 +19,6 @@ export type { ChipProps } from './Chip';
 export { CircularProgress } from './CircularProgress';
 export type { CircularProgressProps } from './CircularProgress';
 
-export { LinearProgress } from './LinearProgress';
-export type { LinearProgressProps } from './LinearProgress';
-
-export { Modal } from './Modal';
-export type { ModalProps } from './Modal';
-
 export { ProgressBar } from './ProgressBar';
 
 export { Tooltip } from './Tooltip';
