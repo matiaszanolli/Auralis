@@ -380,50 +380,21 @@ async def stream_enhanced_audio_from_position(
                 failed_chunks.append(chunk_idx)
                 continue
 
-        # Stream finished — distinguish a truncated seek stream from a
-        # completed one and report what was actually delivered (#4659). A
-        # stream that ran to the end but skipped one or more failed chunks
-        # (#3190) is neither: it didn't stop early, but it also didn't
-        # deliver the whole seek range, so reason="completed" with the full
-        # track's sample count would be a lie (#4790).
-        if stopped_early:
-            _sample_rate = processor.sample_rate or 0
-            _delivered_duration = delivered_samples / _sample_rate if _sample_rate else 0.0
-            logger.info(
-                f"Seek stream stopped early: track={track_id}, "
-                f"delivered={_delivered_duration:.2f}s"
-            )
-            await controller._send_stream_end(
-                websocket,
-                track_id=track_id,
-                total_samples=delivered_samples,
-                duration=_delivered_duration,
-                reason="stopped",
-            )
-        elif failed_chunks:
-            _sample_rate = processor.sample_rate or 0
-            _delivered_duration = delivered_samples / _sample_rate if _sample_rate else 0.0
-            logger.info(
-                f"Seek stream degraded: track={track_id}, "
-                f"{len(failed_chunks)} chunk(s) failed ({failed_chunks}), "
-                f"delivered={_delivered_duration:.2f}s"
-            )
-            await controller._send_stream_end(
-                websocket,
-                track_id=track_id,
-                total_samples=delivered_samples,
-                duration=_delivered_duration,
-                reason="errored",
-            )
-        else:
-            logger.info(f"Seek stream complete: track={track_id}")
-            await controller._send_stream_end(
-                websocket,
-                track_id=track_id,
-                total_samples=int(processor.duration * processor.sample_rate),
-                duration=processor.duration,
-                reason="completed",
-            )
+        # Distinguish a truncated seek stream from a completed one and report
+        # what was actually delivered — shared with stream_normal.py/
+        # stream_enhanced.py (#5032), see stream_messages.send_stream_completion
+        # for the reason= rules (#4659/#4790).
+        await controller._send_stream_completion(
+            websocket,
+            track_id=track_id,
+            label="Seek stream",
+            stopped_early=stopped_early,
+            failed_chunks=failed_chunks,
+            delivered_samples=delivered_samples,
+            sample_rate=processor.sample_rate,
+            full_total_samples=int(processor.duration * processor.sample_rate),
+            full_duration=processor.duration,
+        )
 
     except WebSocketDisconnect:
         # Client closed the WebSocket — normal exit (#3511 / BE-NEW-53).

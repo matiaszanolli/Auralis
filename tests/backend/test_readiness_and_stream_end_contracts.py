@@ -329,10 +329,27 @@ class TestStreamEndReason:
         assert not offenders, "call sites missing an explicit reason=: " + "; ".join(offenders)
 
     def test_all_stream_paths_track_early_exit(self):
-        """Every producer must report a mid-send failure as stopped (#4732)."""
+        """Every producer must report a mid-send failure as stopped (#4732).
+
+        #5032 pulled the reason="stopped"/"errored"/"completed" decision out
+        of the three handlers into the shared
+        stream_messages.send_stream_completion — each handler no longer
+        spells `reason="stopped"` itself, it tracks stopped_early and hands
+        it to the shared helper. Check both halves: each handler still does
+        its own tracking, and the shared helper still reports "stopped".
+        """
         for name in ("stream_enhanced.py", "stream_seek.py", "stream_normal.py"):
             source = (_BACKEND / "core" / name).read_text()
             assert "stopped_early" in source, f"{name} does not track early exit"
-            assert 'reason="stopped"' in source, f"{name} never reports a stopped stream"
+            assert "_send_stream_completion(" in source, (
+                f"{name} does not report completion via the shared helper"
+            )
             assert "delivered_samples" in source, f"{name} does not count delivered audio"
             assert "if not delivered:" in source, f"{name} ignores failed chunk sends"
+
+        import re
+
+        shared_source = (_BACKEND / "core" / "stream_messages.py").read_text()
+        assert re.search(r'reason\s*=\s*"stopped"', shared_source), (
+            "stream_messages.py's send_stream_completion never reports a stopped stream"
+        )

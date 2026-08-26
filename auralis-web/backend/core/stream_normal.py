@@ -174,28 +174,19 @@ async def stream_normal_audio(
             _get_audio_info, streaming_filepath
         )
 
-        duration = total_frames / sample_rate
-
-        # Calculate chunks (NO overlap for normal streaming - no crossfade applied)
-        # #3775: pull the constant from chunk_boundaries instead of
-        # re-declaring it (third declaration removed; chunked_processor
-        # CHUNK_DURATION already mirrors chunk_boundaries.CHUNK_DURATION).
-        from .chunk_boundaries import CHUNK_DURATION
-        chunk_duration = float(CHUNK_DURATION)
-        chunk_samples = int(chunk_duration * sample_rate)
-
-        # For normal path: chunk_interval = chunk_duration (no overlap)
-        # Unlike enhanced path which uses ChunkedProcessor with server-side crossfade,
-        # normal path sends chunks without processing, so overlap would cause duplication
-        interval_samples = chunk_samples  # No overlap
-
-        total_chunks = max(1, int(np.ceil(total_frames / interval_samples)))
-
-        # Calculate start chunk for seek (#3187)
-        start_chunk = 0
-        if start_position > 0:
-            start_sample = int(start_position * sample_rate)
-            start_chunk = min(start_sample // interval_samples, total_chunks - 1)
+        # Calculate chunks (NO overlap for normal streaming - no crossfade
+        # applied). #3775: pulls CHUNK_DURATION from chunk_boundaries instead
+        # of re-declaring it. #5032: the plan math itself (chunk sizing, seek
+        # chunk/offset/trim) is shared via normal_stream_plan() so it is
+        # unit-testable without file I/O.
+        from .chunk_boundaries import normal_stream_plan
+        plan = normal_stream_plan(total_frames, sample_rate, start_position)
+        duration = plan.duration
+        chunk_duration = plan.chunk_duration
+        chunk_samples = plan.chunk_samples
+        interval_samples = plan.interval_samples
+        total_chunks = plan.total_chunks
+        start_chunk = plan.start_chunk
 
         logger.info(
             f"Starting normal audio stream: track={track_id}, "
@@ -219,12 +210,8 @@ async def stream_normal_audio(
         # The server is now authoritative and trims the first chunk itself,
         # matching the enhanced path (stream_seek.py). Only one side may trim:
         # adding a client-side trim on top of this would double-skip.
-        seek_offset = start_position - (start_chunk * chunk_duration)
-        first_chunk_trim_samples = (
-            int(start_position * sample_rate) - (start_chunk * interval_samples)
-            if start_position > 0
-            else 0
-        )
+        seek_offset = plan.seek_offset
+        first_chunk_trim_samples = plan.first_chunk_trim_samples
         seek_kwargs: dict[str, Any] = {}
         if start_position > 0:
             seek_kwargs = {
@@ -442,42 +429,20 @@ async def stream_normal_audio(
                     break
                 continue
 
-        if stopped_early:
-            delivered_duration = delivered_samples / sample_rate
-            logger.info(
-                f"Normal audio stream stopped early: track={track_id}, "
-                f"delivered={delivered_duration:.2f}s"
-            )
-            await controller._send_stream_end(
-                websocket,
-                track_id=track_id,
-                total_samples=delivered_samples,
-                duration=delivered_duration,
-                reason="stopped",
-            )
-        elif failed_chunks:
-            delivered_duration = delivered_samples / sample_rate
-            logger.info(
-                f"Normal audio stream degraded: track={track_id}, "
-                f"{len(failed_chunks)} chunk(s) failed ({failed_chunks}), "
-                f"delivered={delivered_duration:.2f}s"
-            )
-            await controller._send_stream_end(
-                websocket,
-                track_id=track_id,
-                total_samples=delivered_samples,
-                duration=delivered_duration,
-                reason="errored",
-            )
-        else:
-            logger.info(f"Normal audio stream complete: track={track_id}")
-            await controller._send_stream_end(
-                websocket,
-                track_id=track_id,
-                total_samples=total_frames,
-                duration=duration,
-                reason="completed",
-            )
+        # Report whether the loop ran to completion and what was actually
+        # delivered — shared with stream_enhanced.py/stream_seek.py (#5032),
+        # see stream_messages.send_stream_completion for the reason= rules.
+        await controller._send_stream_completion(
+            websocket,
+            track_id=track_id,
+            label="Normal audio stream",
+            stopped_early=stopped_early,
+            failed_chunks=failed_chunks,
+            delivered_samples=delivered_samples,
+            sample_rate=sample_rate,
+            full_total_samples=total_frames,
+            full_duration=duration,
+        )
 
     except WebSocketDisconnect:
         # Client closed the WebSocket — normal exit (#3511 / BE-NEW-53).

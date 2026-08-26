@@ -191,6 +191,79 @@ async def send_error(
         logger.error(f"Failed to send error message: {e}")
 
 
+async def send_stream_completion(
+    controller: 'AudioStreamController',
+    websocket: WebSocket,
+    *,
+    track_id: int,
+    label: str,
+    stopped_early: bool,
+    failed_chunks: list[int],
+    delivered_samples: int,
+    sample_rate: float | int | None,
+    full_total_samples: int,
+    full_duration: float,
+    log_full_duration_on_partial: bool = False,
+) -> bool:
+    """Decide reason=stopped/errored/completed and send audio_stream_end (#5032).
+
+    Shared epilogue for stream_normal.py/stream_enhanced.py/stream_seek.py's
+    per-chunk loop, each of which used to carry an identical ~30-line copy of
+    this branch. A stream that stopped early (disconnect, semaphore timeout,
+    enhancement toggled off mid-stream) reports ``"stopped"``; one that ran to
+    the end but skipped one or more chunks via the #3190 skip-and-continue
+    recovery path reports ``"errored"`` rather than falsely claiming the full
+    track was delivered (#4790); anything else is ``"completed"`` with the
+    FULL track's sample count/duration, not just what was delivered.
+
+    Args:
+        label: Log-line prefix distinguishing the three callers (e.g.
+            ``"Normal audio stream"``, ``"Audio stream"``, ``"Seek stream"``).
+            Does not affect the wire message, which is identical either way.
+        log_full_duration_on_partial: stream_enhanced.py's stopped/degraded
+            log lines append ``" of {full_duration}s"``; stream_normal.py's
+            and stream_seek.py's do not. Preserved verbatim rather than
+            unified, since nothing here needs the two to match.
+
+    Returns:
+        Whatever ``controller._send_stream_end`` returns (True if the
+        WebSocket accepted the message).
+    """
+    if stopped_early or failed_chunks:
+        _sample_rate = sample_rate or 0
+        delivered_duration = delivered_samples / _sample_rate if _sample_rate else 0.0
+        duration_suffix = f" of {full_duration}s" if log_full_duration_on_partial else ""
+        if stopped_early:
+            logger.info(
+                f"{label} stopped early: track={track_id}, "
+                f"delivered={delivered_duration:.2f}s{duration_suffix}"
+            )
+            reason = "stopped"
+        else:
+            logger.info(
+                f"{label} degraded: track={track_id}, "
+                f"{len(failed_chunks)} chunk(s) failed ({failed_chunks}), "
+                f"delivered={delivered_duration:.2f}s{duration_suffix}"
+            )
+            reason = "errored"
+        return await controller._send_stream_end(
+            websocket,
+            track_id=track_id,
+            total_samples=delivered_samples,
+            duration=delivered_duration,
+            reason=reason,
+        )
+
+    logger.info(f"{label} complete: track={track_id}")
+    return await controller._send_stream_end(
+        websocket,
+        track_id=track_id,
+        total_samples=full_total_samples,
+        duration=full_duration,
+        reason="completed",
+    )
+
+
 async def send_fingerprint_progress(
     websocket: WebSocket,
     track_id: int,

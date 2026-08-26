@@ -349,52 +349,23 @@ async def stream_enhanced_audio(
                 failed_chunks.append(chunk_idx)
                 continue
 
-        # Stream finished — report whether the loop ran to the end, and how much
-        # audio actually reached the client, so a truncated stream is not
-        # indistinguishable from a completed one (#4659). A stream that ran to
-        # the end but skipped one or more failed chunks (#3190) is neither: it
-        # didn't stop early, but it also didn't deliver the whole track, so
-        # reason="completed" with the full track's sample count would be a lie
-        # (#4790).
-        if stopped_early:
-            _sample_rate = processor.sample_rate or 0
-            _delivered_duration = delivered_samples / _sample_rate if _sample_rate else 0.0
-            logger.info(
-                f"Audio stream stopped early: track={track_id}, "
-                f"delivered={_delivered_duration:.2f}s of {processor.duration}s"
-            )
-            await controller._send_stream_end(
-                websocket,
-                track_id=track_id,
-                total_samples=delivered_samples,
-                duration=_delivered_duration,
-                reason="stopped",
-            )
-        elif failed_chunks:
-            _sample_rate = processor.sample_rate or 0
-            _delivered_duration = delivered_samples / _sample_rate if _sample_rate else 0.0
-            logger.info(
-                f"Audio stream degraded: track={track_id}, "
-                f"{len(failed_chunks)} chunk(s) failed ({failed_chunks}), "
-                f"delivered={_delivered_duration:.2f}s of {processor.duration}s"
-            )
-            await controller._send_stream_end(
-                websocket,
-                track_id=track_id,
-                total_samples=delivered_samples,
-                duration=_delivered_duration,
-                reason="errored",
-            )
-        else:
-            logger.info(f"Audio stream complete: track={track_id}")
-            # Both are guaranteed non-None due to assertions above
-            await controller._send_stream_end(
-                websocket,
-                track_id=track_id,
-                total_samples=int(processor.duration * processor.sample_rate),
-                duration=processor.duration,
-                reason="completed",
-            )
+        # Report whether the loop ran to the end and how much audio actually
+        # reached the client — shared with stream_normal.py/stream_seek.py
+        # (#5032), see stream_messages.send_stream_completion for the
+        # reason= rules (#4659/#4790).
+        await controller._send_stream_completion(
+            websocket,
+            track_id=track_id,
+            label="Audio stream",
+            stopped_early=stopped_early,
+            failed_chunks=failed_chunks,
+            delivered_samples=delivered_samples,
+            sample_rate=processor.sample_rate,
+            # Both guaranteed non-None due to the metadata assertions above.
+            full_total_samples=int(processor.duration * processor.sample_rate),
+            full_duration=processor.duration,
+            log_full_duration_on_partial=True,
+        )
 
     except WebSocketDisconnect:
         # Client closed the WebSocket — normal exit (#3511 / BE-NEW-53;

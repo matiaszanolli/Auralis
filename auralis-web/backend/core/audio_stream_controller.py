@@ -294,6 +294,10 @@ class AudioStreamController:
         from . import stream_messages
         return await stream_messages.send_stream_end(self, websocket, **kwargs)
 
+    async def _send_stream_completion(self, websocket: WebSocket, **kwargs: Any) -> bool:
+        from . import stream_messages
+        return await stream_messages.send_stream_completion(self, websocket, **kwargs)
+
     async def _send_error(self, websocket: WebSocket, track_id: int, error_message: str, **kwargs: Any) -> None:
         from . import stream_messages
         await stream_messages.send_error(self, websocket, track_id, error_message, **kwargs)

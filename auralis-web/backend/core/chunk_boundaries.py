@@ -10,6 +10,7 @@ Centralizes chunk calculation logic to prevent duplication and ensure consistenc
 """
 
 import logging
+from typing import NamedTuple
 
 import numpy as np
 
@@ -119,6 +120,68 @@ def chunk_for_position(
         pos = emitted_chunk_start(index)
 
     return index, offset, pos
+
+
+class NormalStreamPlan(NamedTuple):
+    """No-overlap chunk plan for stream_normal.py (#5032).
+
+    Distinct from the overlap-aware CHUNK_INTERVAL/OVERLAP_DURATION model the
+    rest of this module describes: normal streaming sends raw chunks with no
+    server-side crossfade, so ``interval_samples == chunk_samples`` here —
+    everything else in this module (``emitted_chunk_start``, ``CHUNK_INTERVAL``,
+    ``chunk_for_position``...) is about the enhanced/seek path instead.
+    """
+    duration: float
+    chunk_duration: float
+    chunk_samples: int
+    interval_samples: int
+    total_chunks: int
+    start_chunk: int
+    seek_offset: float
+    first_chunk_trim_samples: int
+
+
+def normal_stream_plan(
+    total_frames: int, sample_rate: int, start_position: float = 0.0
+) -> NormalStreamPlan:
+    """Compute the no-overlap chunk plan for normal (unprocessed) streaming.
+
+    Pulled out of stream_normal.py's inline math (#5032) so it is unit-testable
+    without any file I/O; behaviour is unchanged.
+
+    ``first_chunk_trim_samples`` is the number of samples to skip off the
+    front of ``start_chunk``'s read so playback lands exactly on
+    ``start_position`` — the server-side trim #4560 made authoritative
+    (``seek_offset`` is informational only; no client ever consumed it).
+    """
+    chunk_duration = float(CHUNK_DURATION)
+    chunk_samples = int(chunk_duration * sample_rate)
+    interval_samples = chunk_samples  # No overlap for the normal path.
+
+    total_chunks = max(1, int(np.ceil(total_frames / interval_samples)))
+
+    start_chunk = 0
+    if start_position > 0:
+        start_sample = int(start_position * sample_rate)
+        start_chunk = min(start_sample // interval_samples, total_chunks - 1)
+
+    seek_offset = start_position - (start_chunk * chunk_duration)
+    first_chunk_trim_samples = (
+        int(start_position * sample_rate) - (start_chunk * interval_samples)
+        if start_position > 0
+        else 0
+    )
+
+    return NormalStreamPlan(
+        duration=total_frames / sample_rate,
+        chunk_duration=chunk_duration,
+        chunk_samples=chunk_samples,
+        interval_samples=interval_samples,
+        total_chunks=total_chunks,
+        start_chunk=start_chunk,
+        seek_offset=seek_offset,
+        first_chunk_trim_samples=first_chunk_trim_samples,
+    )
 
 
 class ChunkBoundaryManager:
