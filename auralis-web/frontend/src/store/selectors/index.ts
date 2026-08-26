@@ -13,5 +13,4 @@ export * from './player';
 export * from './queue';
 export * from './cache';
 export * from './connection';
-export * from './selectorPerformance';
 export * from './combined';

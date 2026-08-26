@@ -42,12 +42,8 @@ import {
   makeSelectTracksInRange,
   makeSelectFilteredTracks,
   makeSelectTracksByDuration,
-  // Performance tracking (moved from advanced.ts)
-  selectorPerformance,
-  createMemoizedSelector,
   optimizedSelectors,
 } from '../index';
-import type { SelectorMetrics } from '../index';
 import type { RootState } from '@/store/index';
 
 // ============================================================================
@@ -91,15 +87,7 @@ describe('Single import source', () => {
     expect(typeof selectConnectionStatus).toBe('function');
     expect(typeof selectPlaybackState).toBe('function');
     expect(typeof selectQueueState).toBe('function');
-    expect(typeof selectorPerformance).toBeDefined();
-    expect(typeof createMemoizedSelector).toBe('function');
     expect(typeof optimizedSelectors).toBe('object');
-  });
-
-  it('SelectorMetrics type is exported (type-level check via runtime object)', () => {
-    // selectorPerformance.getMetrics() returns SelectorMetrics[]
-    const result = selectorPerformance.getMetrics() as SelectorMetrics[];
-    expect(Array.isArray(result)).toBe(true);
   });
 });
 
@@ -533,93 +521,5 @@ describe('optimizedSelectors aggregate', () => {
     const snap = optimizedSelectors.appSnapshot(store.getState() as RootState);
     // selectAppSnapshot is the createSelector one from index.ts
     expect(typeof snap).toBe('object');
-  });
-});
-
-// ============================================================================
-// Performance tracker (moved from advanced.ts)
-// ============================================================================
-
-describe('SelectorPerformanceTracker', () => {
-  beforeEach(() => {
-    selectorPerformance.reset();
-  });
-
-  it('records cache hits and misses', () => {
-    selectorPerformance.recordCall('testSel', 0.1, false); // miss
-    selectorPerformance.recordCall('testSel', 0.05, true); // hit
-    const m = selectorPerformance.getMetrics('testSel') as SelectorMetrics;
-    expect(m.calls).toBe(2);
-    expect(m.cacheHits).toBe(1);
-    expect(m.cacheMisses).toBe(1);
-  });
-
-  it('getCacheHitRate returns 50% for 1 hit in 2 calls', () => {
-    selectorPerformance.recordCall('s', 0, false);
-    selectorPerformance.recordCall('s', 0, true);
-    expect(selectorPerformance.getCacheHitRate('s')).toBe(50);
-  });
-
-  it('reset(name) clears only the named selector', () => {
-    selectorPerformance.recordCall('a', 0, true);
-    selectorPerformance.recordCall('b', 0, true);
-    selectorPerformance.reset('a');
-    const all = selectorPerformance.getMetrics() as SelectorMetrics[];
-    expect(all.find((m) => m.name === 'a')).toBeUndefined();
-    expect(all.find((m) => m.name === 'b')).toBeDefined();
-  });
-
-  it('report() includes selector names', () => {
-    selectorPerformance.recordCall('mySelector', 1.5, false);
-    expect(selectorPerformance.report()).toContain('mySelector');
-  });
-});
-
-describe('createMemoizedSelector', () => {
-  beforeEach(() => {
-    selectorPerformance.reset();
-  });
-
-  it('returns correct computed value', () => {
-    const store = createTestStore();
-    store.dispatch(setDuration(400));
-    store.dispatch(setCurrentTime(100));
-
-    const sel = createMemoizedSelector(
-      'testProgress',
-      (s: RootState) => [s.player.currentTime, s.player.duration],
-      (t: number, d: number) => (d > 0 ? t / d : 0)
-    );
-
-    expect(sel(store.getState() as RootState)).toBeCloseTo(0.25);
-  });
-
-  it('returns same reference on repeated calls with unchanged inputs', () => {
-    const store = createTestStore();
-    const sel = createMemoizedSelector(
-      'stableRef',
-      (s: RootState) => [s.queue.tracks],
-      (tracks: any[]) => ({ length: tracks.length })
-    );
-
-    const state = store.getState() as RootState;
-    const a = sel(state);
-    const b = sel(state);
-    expect(a).toBe(b);
-  });
-
-  it('returns new reference when inputs change', () => {
-    const store = createTestStore();
-    const sel = createMemoizedSelector(
-      'changedRef',
-      (s: RootState) => [s.player.currentTime],
-      (t: number) => ({ t })
-    );
-
-    store.dispatch(setDuration(200)); // needed so setCurrentTime isn't clamped to 0
-    const a = sel(store.getState() as RootState);
-    store.dispatch(setCurrentTime(99));
-    const b = sel(store.getState() as RootState);
-    expect(a).not.toBe(b);
   });
 });
