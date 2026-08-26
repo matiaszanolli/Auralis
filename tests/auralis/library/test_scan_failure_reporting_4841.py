@@ -185,6 +185,10 @@ class TestScannerCarriesFailuresUp:
 
         library_manager = MagicMock()
         library_manager.try_acquire_scan_slot.return_value = (True, 1)
+        # #4509: a bare MagicMock's auto-attribute return value is truthy,
+        # which would otherwise make the per-directory dedup guard reject
+        # every scan.
+        library_manager.try_reserve_scan_paths.return_value = []
         scanner = LibraryScanner(library_manager)
 
         files = [f'/music/{i}.mp3' for i in range(6)]
@@ -218,6 +222,10 @@ class TestScannerCarriesFailuresUp:
 
         library_manager = MagicMock()
         library_manager.try_acquire_scan_slot.return_value = (True, 1)
+        # #4509: a bare MagicMock's auto-attribute return value is truthy,
+        # which would otherwise make the per-directory dedup guard reject
+        # every scan.
+        library_manager.try_reserve_scan_paths.return_value = []
         scanner = LibraryScanner(library_manager)
 
         files = [f'/music/{i}.mp3' for i in range(8)]

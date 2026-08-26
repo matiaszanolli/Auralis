@@ -81,10 +81,11 @@ class LibraryScanner:
         # pattern (#3710 / library_auto_scanner).
         self.should_stop: threading.Event = threading.Event()
 
-        # Per-directory deduplication: prevents concurrent scans of the same
-        # folder from producing duplicate DB entries (fixes #3455).
-        self._active_paths: set[str] = set()
-        self._active_paths_lock = threading.Lock()
+        # Per-directory deduplication (#3455) lives on library_manager, not
+        # here — see LibraryDatabase.try_reserve_scan_paths()/#4509. Every
+        # caller (LibraryAutoScanner._do_scan, routers/library_scan.py)
+        # constructs a fresh LibraryScanner per invocation, so an instance
+        # attribute here would never be shared between two overlapping scans.
 
         # Initialize components
         self.file_discovery: Any = FileDiscovery()
@@ -121,6 +122,15 @@ class LibraryScanner:
         that lacks release_scan_slot (mirrors the try_acquire guard)."""
         try:
             self.library_manager.release_scan_slot()
+        except AttributeError:
+            pass
+
+    def _release_scan_paths_safe(self, paths: list[str]) -> None:
+        """Release reserved per-directory dedup paths (#3455 / #4509),
+        tolerating a lightweight mock library_manager that lacks
+        release_scan_paths (mirrors _release_scan_slot_safe)."""
+        try:
+            self.library_manager.release_scan_paths(paths)
         except AttributeError:
             pass
 
@@ -162,24 +172,31 @@ class LibraryScanner:
             return result
         # --- End concurrency guard ---
 
-        # --- Per-directory dedup guard (#3455) ---
+        # --- Per-directory dedup guard (#3455 / #4509) ---
+        # Reserved on library_manager, not on self — see the #4509 note in
+        # __init__: a fresh LibraryScanner per invocation means an instance
+        # attribute here would never be shared between two overlapping scans.
         normalized = [os.path.normpath(os.path.abspath(d)) for d in directories]
-        with self._active_paths_lock:
-            already_scanning = [d for d in normalized if d in self._active_paths]
-            if already_scanning:
-                warning(
-                    f"Scan rejected: directories already being scanned: {already_scanning}"
-                )
-                result.rejected = True
-                # #4330: this early return happens BEFORE the try/finally that
-                # releases the slot, so release it here or the slot leaks
-                # permanently. We must NOT fall through to that finally: it also
-                # removes `normalized` from _active_paths, which on this path
-                # belong to the OTHER (already-running) scan.
-                if _acquired:
-                    self._release_scan_slot_safe()
-                return result
-            self._active_paths.update(normalized)
+        already_scanning: list[str] = []
+        try:
+            already_scanning = self.library_manager.try_reserve_scan_paths(normalized)
+        except AttributeError:
+            pass  # library_manager is a lightweight mock; skip guard
+
+        if already_scanning:
+            warning(
+                f"Scan rejected: directories already being scanned: {already_scanning}"
+            )
+            result.rejected = True
+            # #4330: this early return happens BEFORE the try/finally that
+            # releases the slot, so release it here or the slot leaks
+            # permanently. We must NOT release `normalized` from the shared
+            # dedup set here: try_reserve_scan_paths() did not reserve them
+            # for us on this rejection path (they belong to the OTHER,
+            # already-running scan), so there is nothing of ours to release.
+            if _acquired:
+                self._release_scan_slot_safe()
+            return result
         # --- End per-directory dedup guard ---
 
         info(f"Starting library scan of {len(directories)} directories")
@@ -396,9 +413,8 @@ class LibraryScanner:
             return result
 
         finally:
-            # Release per-directory dedup guard (#3455)
-            with self._active_paths_lock:
-                self._active_paths.difference_update(normalized)
+            # Release per-directory dedup guard (#3455 / #4509)
+            self._release_scan_paths_safe(normalized)
             self._release_scan_slot_safe()
 
             # #3479: fire scan-complete callback outside the scan-slot lock

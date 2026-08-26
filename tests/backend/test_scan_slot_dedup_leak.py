@@ -8,7 +8,15 @@ such rejections, _active_scans saturates and ALL subsequent scans are rejected
 at the slot guard until process restart.
 
 The fix releases the slot in the dedup-reject branch (without falling through
-the finally, which would also strip the OTHER scan's paths from _active_paths).
+the finally, which would also strip the OTHER scan's paths from the shared
+dedup set).
+
+#4509: the dedup set itself moved from LibraryScanner (`._active_paths`, an
+instance attribute reset to empty on every fresh scanner) onto library_manager
+(`try_reserve_scan_paths`/`release_scan_paths`) — every real caller constructs
+a new LibraryScanner per scan, so the guard has to live on the one object
+those calls actually share. This test's mock now backs those two methods with
+a real shared set instead of manipulating `scanner._active_paths` directly.
 """
 
 import os
@@ -24,8 +32,9 @@ from auralis.library.scanner.scanner import LibraryScanner
 
 def _make_scanner_with_slot_counter(max_scans: int = 2):
     """Return (scanner, state) where state['active'] tracks live scan slots
-    using the real acquire/release semantics of LibraryManager."""
-    state = {"active": 0, "max": max_scans}
+    and state['paths'] tracks reserved dedup paths, using the real
+    acquire/release semantics of LibraryDatabase."""
+    state = {"active": 0, "max": max_scans, "paths": set()}
     lock = threading.Lock()
 
     def _acquire():
@@ -39,9 +48,23 @@ def _make_scanner_with_slot_counter(max_scans: int = 2):
         with lock:
             state["active"] = max(0, state["active"] - 1)
 
+    def _reserve_paths(paths):
+        with lock:
+            clashing = [p for p in paths if p in state["paths"]]
+            if clashing:
+                return clashing
+            state["paths"].update(paths)
+            return []
+
+    def _release_paths(paths):
+        with lock:
+            state["paths"].difference_update(paths)
+
     lm = MagicMock()
     lm.try_acquire_scan_slot.side_effect = _acquire
     lm.release_scan_slot.side_effect = _release
+    lm.try_reserve_scan_paths.side_effect = _reserve_paths
+    lm.release_scan_paths.side_effect = _release_paths
 
     return LibraryScanner(lm), state
 
@@ -54,7 +77,7 @@ def test_dedup_rejection_releases_scan_slot(tmp_path):
     normalized = os.path.normpath(os.path.abspath(busy))
 
     # Simulate another scan already owning this directory.
-    scanner._active_paths.add(normalized)
+    state["paths"].add(normalized)
 
     # Reject more times than there are slots — with the leak, the third would
     # already be starved because the slot counter would be pinned at max.
@@ -66,10 +89,10 @@ def test_dedup_rejection_releases_scan_slot(tmp_path):
             f"(active={state['active']}) — regression of #4330"
         )
 
-    # The finally must NOT have stripped the other scan's path.
-    assert normalized in scanner._active_paths, (
-        "dedup-reject path fell through the finally and removed the OTHER "
-        "scan's _active_paths entry"
+    # The dedup-reject branch must NOT have released the other scan's path
+    # (it never reserved it in the first place on this path).
+    assert normalized in state["paths"], (
+        "dedup-reject path released the OTHER scan's reserved path"
     )
 
     # Acceptance criterion: a fresh, non-overlapping scan can still acquire.

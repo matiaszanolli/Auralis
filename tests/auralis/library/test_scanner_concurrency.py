@@ -131,3 +131,66 @@ class TestScanConcurrencyGuard:
         scanner2 = LibraryScanner(db)
         result2 = scanner2.scan_directories([str(music_dir)])
         assert not result2.rejected, "Slot was not released after errored scan"
+
+
+class TestPerDirectoryDedupGuard:
+    """#4509: the per-directory dedup guard (#3455) must reject an
+    overlapping scan of the SAME directory even when the scan-slot guard
+    alone would allow both to run — proving the two LibraryScanner instances
+    (each constructed fresh, matching every real caller's shape) share ONE
+    dedup set via library_manager rather than each seeing its own empty one.
+    """
+
+    def test_overlapping_scan_of_same_directory_rejected_even_with_slots_available(
+        self, scan_env, monkeypatch
+    ):
+        from auralis.library.scanner import LibraryScanner
+        from auralis.library.scanner import scanner as scanner_module
+
+        db, music_dir = scan_env
+        # Slots are deliberately NOT the constraint here — both scans could
+        # hold a slot simultaneously. Any rejection must come from the
+        # per-directory guard alone.
+        db.settings.update_settings({"max_concurrent_scans": 5})
+
+        entered_scan = threading.Event()
+        release_scan = threading.Event()
+        real_info = scanner_module.info
+
+        def _blocking_info(msg, *args, **kwargs):
+            # Fires right after the dedup guard reserves the path and before
+            # any real file-walking work — the exact window where a second,
+            # overlapping scan of the same directory must be observable.
+            if msg.startswith("Starting library scan"):
+                entered_scan.set()
+                release_scan.wait(timeout=5)
+            return real_info(msg, *args, **kwargs)
+
+        monkeypatch.setattr(scanner_module, "info", _blocking_info)
+
+        first_result: list = []
+
+        def _run_first_scan():
+            scanner = LibraryScanner(db)
+            first_result.append(scanner.scan_directories([str(music_dir)]))
+
+        t1 = threading.Thread(target=_run_first_scan)
+        t1.start()
+        try:
+            assert entered_scan.wait(timeout=5), "first scan never reached the blocking point"
+
+            # Second, genuinely overlapping scan of the SAME directory, via a
+            # separate LibraryScanner instance sharing the same db — the real
+            # production shape (a fresh scanner is constructed per call).
+            scanner2 = LibraryScanner(db)
+            second_result = scanner2.scan_directories([str(music_dir)])
+        finally:
+            release_scan.set()
+            t1.join(timeout=10)
+
+        assert not first_result[0].rejected, "the first scan should have proceeded normally"
+        assert second_result.rejected, (
+            "an overlapping scan of the same directory must be rejected by the "
+            "per-directory dedup guard, not silently allowed to run just because "
+            "a scan slot was available (#4509)"
+        )

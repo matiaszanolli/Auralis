@@ -36,6 +36,10 @@ def _make_scanner(files: list[str], per_file_delay: float = 0.0) -> LibraryScann
     """
     library_manager = MagicMock()
     library_manager.try_acquire_scan_slot.return_value = (True, 1)
+    # #4509: the per-directory dedup guard moved from LibraryScanner onto
+    # library_manager — a bare MagicMock's auto-attribute return value is
+    # truthy, which would otherwise make every scan look "already scanning".
+    library_manager.try_reserve_scan_paths.return_value = []
 
     scanner = LibraryScanner(library_manager)
 
@@ -152,13 +156,19 @@ class TestStopScanMidBatch:
         scanner.library_manager.release_scan_slot.assert_called_once()
 
     def test_directory_path_is_released_when_cancelled(self):
-        """The per-directory dedup guard must not stay latched after a cancel."""
+        """The per-directory dedup guard must not stay latched after a cancel.
+
+        #4509: the guard moved onto library_manager (a fresh LibraryScanner
+        is constructed per real scan, so the dedup set has to live on the
+        one object every call shares) — assert the release call reached it,
+        mirroring the scan-slot release check above.
+        """
         scanner = _make_scanner([f"/music/{i}.flac" for i in range(50)])
         scanner.should_stop.set()
 
         scanner.scan_directories(["/music"], batch_size=10)
 
-        assert scanner._active_paths == set()
+        scanner.library_manager.release_scan_paths.assert_called_once()
 
     def test_uncancelled_scan_still_completes_fully(self):
         """Control: without a stop, every file is discovered and processed."""

@@ -31,6 +31,10 @@ class TestScannerOnScanComplete:
         library_manager = MagicMock()
         # Make try_acquire_scan_slot return success so the scan body runs.
         library_manager.try_acquire_scan_slot.return_value = (True, 1)
+        # #4509: a bare MagicMock's auto-attribute return value is truthy,
+        # which would otherwise make the per-directory dedup guard reject
+        # every scan.
+        library_manager.try_reserve_scan_paths.return_value = []
         scanner = LibraryScanner(library_manager)
         # Stub the heavy collaborators — we only care about the callback.
         scanner.file_discovery = MagicMock()

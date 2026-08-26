@@ -207,6 +207,17 @@ class LibraryDatabase:
         self._scan_slots_lock = threading.Lock()
         self._active_scans: int = 0
 
+        # Per-directory scan dedup (#3455 / #4509): must live here, not on
+        # LibraryScanner, because every caller (LibraryAutoScanner._do_scan,
+        # LibraryManager.scan_directories) constructs a FRESH LibraryScanner
+        # per invocation — an instance attribute would never be shared
+        # between two overlapping scans, so the guard would only ever see
+        # its own empty set. This object is the one thing already shared
+        # across those call sites (it's what the #2438 scan-slot counter
+        # above uses for the same reason).
+        self._active_scan_paths_lock = threading.Lock()
+        self._active_scan_paths: set[str] = set()
+
         # Clean up incomplete fingerprints from interrupted sessions (crash recovery)
         self._cleanup_incomplete_fingerprints()
 
@@ -299,6 +310,32 @@ class LibraryDatabase:
         """Release a slot previously acquired by try_acquire_scan_slot()."""
         with self._scan_slots_lock:
             self._active_scans = max(0, self._active_scans - 1)
+
+    def try_reserve_scan_paths(self, paths: list[str]) -> list[str]:
+        """
+        Atomically reserve directory paths for an exclusive scan (#3455 / #4509).
+
+        Args:
+            paths: Normalized (os.path.normpath(os.path.abspath(...))) directory
+                paths the caller is about to scan.
+
+        Returns:
+            The subset of `paths` already reserved by another in-flight scan.
+            Empty means none clashed and all of `paths` are now reserved for
+            the caller — who must call `release_scan_paths(paths)` when done,
+            success or failure alike.
+        """
+        with self._active_scan_paths_lock:
+            clashing = [p for p in paths if p in self._active_scan_paths]
+            if clashing:
+                return clashing
+            self._active_scan_paths.update(paths)
+            return []
+
+    def release_scan_paths(self, paths: list[str]) -> None:
+        """Release paths previously reserved by try_reserve_scan_paths()."""
+        with self._active_scan_paths_lock:
+            self._active_scan_paths.difference_update(paths)
 
     def is_scanning(self) -> bool:
         """True if at least one scan currently holds a slot.
