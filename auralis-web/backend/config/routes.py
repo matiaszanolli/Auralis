@@ -56,7 +56,6 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
             - enhancement_settings: dict
             - chunked_audio_processor_class: class
             - create_track_info_fn: callable
-            - buffer_presets_fn: callable
             - globals: Dict with component instances
     """
 
@@ -67,7 +66,6 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
     enhancement_settings: dict[str, Any] = deps.get('enhancement_settings', {})
     chunked_audio_processor_class: Any = deps.get('chunked_audio_processor_class')
     create_track_info_fn: Any = deps.get('create_track_info_fn')
-    buffer_presets_fn: Any = deps.get('buffer_presets_fn')
     globals_dict: dict[str, Any] = deps.get('globals', {})
 
     # Helper to safely get global components
@@ -225,7 +223,6 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
         connection_manager=manager,
         chunked_audio_processor_class=chunked_audio_processor_class,
         create_track_info_fn=create_track_info_fn,
-        buffer_presets_fn=buffer_presets_fn,
         get_multi_tier_buffer=lambda: globals_dict.get('streamlined_cache') if HAS_STREAMLINED_CACHE else None,
         get_enhancement_settings=lambda: enhancement_settings
     )

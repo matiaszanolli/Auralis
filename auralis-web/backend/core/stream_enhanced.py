@@ -28,7 +28,9 @@ from fastapi.websockets import WebSocketDisconnect
 from . import audio_stream_controller as _asc
 from .chunk_boundaries import emitted_chunk_start
 from .chunk_cache import SimpleChunkCache
+from .proactive_buffer import buffer_presets_for_track
 from .stream_track_resolution import resolve_and_validate_track
+from helpers import spawn_background_task
 from security.path_security import validate_file_path
 
 if TYPE_CHECKING:
@@ -159,6 +161,24 @@ async def stream_enhanced_audio(
             if getattr(processor, _attr) is None:
                 raise ValueError(f"Processor metadata missing: {_attr} is None")
 
+        # Proactively buffer the first few chunks across every preset so a
+        # preset switch early in playback doesn't wait the full DSP window
+        # (#3884). Fire-and-forget: buffer_presets_for_track caches each
+        # chunk to the same on-disk WAV cache process_chunk_safe() checks
+        # (ChunkPathCache, keyed on track_id/file_signature/preset/intensity/
+        # chunk_index), so a later real chunk request hits the pre-rendered
+        # file instead of redoing DSP. It is a no-op per chunk that's already
+        # cached, so re-issuing the same track (preset switch, WS reconnect)
+        # is safe to call again. spawn_background_task logs instead of
+        # silently dropping the rare exception that reaches it (the
+        # function's own try/except already handles per-preset/per-chunk
+        # failures internally).
+        spawn_background_task(
+            buffer_presets_for_track(
+                track_id, validated_filepath, intensity, processor.total_chunks
+            ),
+            name=f"proactive_buffer:{track_id}",
+        )
 
         # Phase 7.5: Non-blocking fingerprint check
         # Check if fingerprint exists in cache - if not, queue for background generation

@@ -69,7 +69,6 @@ from core.env_config import get_int_env
 
 # Import state management
 from player_state import create_track_info
-from core.proactive_buffer import buffer_presets_for_track
 
 # Check feature availability via real import probes (fixes #3534 /
 # BE-NEW-76 — prior code had empty try: pass blocks that could never
@@ -141,7 +140,6 @@ deps = {
     'enhancement_settings': globals_dict['enhancement_settings'],
     'chunked_audio_processor_class': ChunkedAudioProcessor,
     'create_track_info_fn': create_track_info,
-    'buffer_presets_fn': buffer_presets_for_track,
 }
 
 # Create lifespan context manager for startup/shutdown (populates globals_dict)

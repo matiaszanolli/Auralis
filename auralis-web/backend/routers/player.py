@@ -813,7 +813,6 @@ def create_player_router(
     connection_manager: Any,
     chunked_audio_processor_class: type | None,
     create_track_info_fn: Callable[[Any], Any],
-    buffer_presets_fn: Callable[..., Any],
     get_enhancement_settings: Callable[[], Any] | None = None,
     get_multi_tier_buffer: Callable[[], Any] | None = None
 ) -> APIRouter:
@@ -827,15 +826,17 @@ def create_player_router(
         connection_manager: WebSocket connection manager for broadcasts
         chunked_audio_processor_class: ChunkedAudioProcessor class (or None if not available)
         create_track_info_fn: Function to create TrackInfo from database track
-        buffer_presets_fn: Function for proactive preset buffering
 
     Returns:
         APIRouter: Configured router instance
     """
-    # chunked_audio_processor_class, buffer_presets_fn, get_enhancement_settings,
-    # and get_multi_tier_buffer are accepted for call-site compatibility with
+    # chunked_audio_processor_class, get_enhancement_settings, and
+    # get_multi_tier_buffer are accepted for call-site compatibility with
     # config/routes.py but are not used by any handler below -- pre-existing,
-    # unrelated to #4670.
+    # unrelated to #4670. (buffer_presets_fn, formerly also in this list, was
+    # removed in #3884: it's now called directly from stream_enhanced.py,
+    # the actual play_enhanced path -- this REST router never triggers
+    # streaming, so it could never have been the right place to invoke it.)
     _deps.get_library_manager = get_library_manager
     _deps.get_audio_player = get_audio_player
     _deps.get_player_state_manager = get_player_state_manager
