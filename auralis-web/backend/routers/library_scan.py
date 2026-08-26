@@ -101,6 +101,17 @@ def create_library_scan_router(
                         # have passed, so it is the earliest point at which a
                         # start frame is truthful (#4602).
                         if stage == 'started':
+                            # `directories` is the resolved-absolute form of
+                            # what the requesting user picked via a directory
+                            # dialog (LibraryScanRequest.validate_directory_paths) —
+                            # a value the user already knows, not a path the
+                            # server introduced. Deliberately NOT class-name
+                            # redacted like library_scan_error below: that frame
+                            # echoes an *unhandled exception's message*, which
+                            # can name server-internal paths the user never
+                            # chose — a different, broader disclosure surface.
+                            # One policy for the whole scan-frame family (#4651):
+                            # redact only what the user did not themselves supply.
                             asyncio.run_coroutine_threadsafe(
                                 connection_manager.broadcast({
                                     "type": "library_scan_started",
@@ -131,6 +142,12 @@ def create_library_scan_router(
                                     "current": processed,
                                     "total": total,
                                     "percentage": percentage,
+                                    # Same policy as library_scan_started above
+                                    # (#4651): this path lives under a directory
+                                    # the user picked, and the frontend's
+                                    # ScanStatusCard surfaces it verbatim in a
+                                    # tooltip by design — redacting it here
+                                    # would silently break that affordance.
                                     "current_file": progress_data.get('current_file') or progress_data.get('file'),
                                     "phase": stage,
                                 },
@@ -280,7 +297,11 @@ def create_library_scan_router(
             raise
         except Exception as e:
             # Class-name-only redaction, matching the auto-scanner (#3543), so a
-            # 500 also releases the scanning state (#4413).
+            # 500 also releases the scanning state (#4413). Unlike
+            # library_scan_started/scan_progress above, `str(e)` here can name
+            # ANY path the exception happened to touch — not just the
+            # directories the user chose — so this frame stays redacted even
+            # though those two intentionally are not (#4651).
             if connection_manager:
                 await connection_manager.broadcast({
                     "type": "library_scan_error",

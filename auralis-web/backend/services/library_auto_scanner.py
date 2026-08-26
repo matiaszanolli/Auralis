@@ -218,6 +218,13 @@ class LibraryAutoScanner:
             # Emitted only once the scanner owns the scan slot, so this is the
             # earliest truthful start frame (#4602).
             if data.get('stage') == 'started':
+                # `scan_folders` are the user's configured auto-scan folders
+                # (Settings), same disclosure class as the manual route's
+                # request.directories — a value the user already knows, not
+                # one the server introduced. Deliberately not redacted like
+                # the library_scan_error frames below, which echo an
+                # *unhandled exception's message* and can name paths the user
+                # never chose (#4651, same policy as routers/library_scan.py).
                 await connection_manager_safe_broadcast(
                     self._connection_manager,
                     {
@@ -244,6 +251,10 @@ class LibraryAutoScanner:
                         "current": processed,
                         "total": total,
                         "percentage": pct,
+                        # Same policy as library_scan_started above (#4651):
+                        # this path lives under a user-chosen folder, and the
+                        # frontend's ScanStatusCard surfaces it verbatim in a
+                        # tooltip by design.
                         "current_file": data.get('current_file') or data.get('file') or data.get('directory'),
                         "phase": data.get('stage', 'processing'),
                     }
