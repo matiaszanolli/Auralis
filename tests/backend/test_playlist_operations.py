@@ -1,7 +1,8 @@
 """
 Playlist Operations Tests
 
-Tests playlist CRUD operations, track management, and workflows.
+Tests playlist CRUD operations, track management, and workflows against a
+real temp-DB `PlaylistRepository` (#4381).
 
 Philosophy:
 - Test complete playlist workflows
@@ -14,25 +15,20 @@ Philosophy:
 These tests ensure that playlist management works correctly
 and handles edge cases gracefully.
 
-NOTE: Playlist operations are a Phase 3 feature (v1.3.0, May 2026)
-Currently skipped until PlaylistRepository is implemented in LibraryManager.
+Sibling of test_playlist_integration.py (#4691, already repo-backed): that
+file drives the same CRUD/track-membership surface through one large
+`library_with_playlists` fixture; this file uses per-test fixtures
+(`playlist_repo`/`track_repo`) for finer-grained isolation and covers a few
+scenarios integration.py doesn't (empty-playlist tracks, add-to-nonexistent-
+playlist, multi-track add).
 """
 
-import pytest
-
-# Skip all playlist tests - feature not yet implemented
-pytestmark = pytest.mark.skip(
-    reason="#4381: fixtures reach for LibraryDatabase.playlist_repo, which does "
-           "not exist — the accessor is .playlists via the repository factory. "
-           "All 13 tests ERROR in fixture setup, so xfail cannot express this "
-           "(a fixture error is an error, not an xfail). Left to #4381, which "
-           "owns both playlist modules; see #4691."
-)
 import shutil
 import tempfile
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from auralis.io.saver import save as save_audio
 
@@ -55,8 +51,13 @@ def temp_audio_dir():
 
 @pytest.fixture
 def playlist_repo(library_manager):
-    """Get playlist repository from library manager."""
-    return library_manager.playlist_repo
+    """Get playlist repository from library manager.
+
+    #4381: LibraryDatabase's convenience accessor is `.playlists`, not the
+    `.playlist_repo` this fixture used to reach for (which never existed —
+    every test ERRORed in fixture setup).
+    """
+    return library_manager.playlists
 
 
 @pytest.fixture
@@ -73,6 +74,26 @@ def create_test_track(directory: Path, filename: str):
     return filepath
 
 
+def _track_info(filepath: Path, title: str) -> dict:
+    """Standard track_info dict for TrackRepository.add() (#4381).
+
+    `artists` must be a list — TrackRepository.add() reads
+    `track_info.get('artists', [])`; a singular `artist` key is silently
+    ignored rather than erroring, which is exactly the kind of stale-API
+    drift this file was already carrying.
+    """
+    return {
+        "filepath": str(filepath),
+        "title": title,
+        "artists": ["Test Artist"],
+        "album": "Test Album",
+        "duration": 1.0,
+        "sample_rate": 44100,
+        "channels": 2,
+        "bitrate": 1411200,
+    }
+
+
 # ============================================================================
 # Playlist CRUD Tests
 # ============================================================================
@@ -84,12 +105,7 @@ def test_playlist_create_empty_playlist(playlist_repo):
 
     Tests basic playlist creation.
     """
-    playlist_info = {
-        "name": "Test Playlist",
-        "description": "A test playlist",
-    }
-
-    playlist = playlist_repo.add(playlist_info)
+    playlist = playlist_repo.create(name="Test Playlist", description="A test playlist")
 
     assert playlist is not None
     assert playlist.name == "Test Playlist"
@@ -103,12 +119,7 @@ def test_playlist_create_and_retrieve(playlist_repo):
 
     Tests round-trip persistence.
     """
-    playlist_info = {
-        "name": "Rock Classics",
-        "description": "Best rock tracks",
-    }
-
-    created = playlist_repo.add(playlist_info)
+    created = playlist_repo.create(name="Rock Classics", description="Best rock tracks")
     retrieved = playlist_repo.get_by_id(created.id)
 
     assert retrieved is not None
@@ -123,8 +134,7 @@ def test_playlist_update_name(playlist_repo):
 
     Tests metadata modification.
     """
-    playlist_info = {"name": "Original Name"}
-    playlist = playlist_repo.add(playlist_info)
+    playlist = playlist_repo.create(name="Original Name")
 
     playlist_repo.update(playlist.id, {"name": "Updated Name"})
     updated = playlist_repo.get_by_id(playlist.id)
@@ -139,8 +149,7 @@ def test_playlist_delete_removes_playlist(playlist_repo):
 
     Tests deletion.
     """
-    playlist_info = {"name": "Temporary Playlist"}
-    playlist = playlist_repo.add(playlist_info)
+    playlist = playlist_repo.create(name="Temporary Playlist")
 
     playlist_repo.delete(playlist.id)
     deleted = playlist_repo.get_by_id(playlist.id)
@@ -159,29 +168,14 @@ def test_playlist_add_track_to_playlist(temp_audio_dir, playlist_repo, track_rep
 
     Tests playlist-track relationship creation.
     """
-    # Create playlist
-    playlist_info = {"name": "My Playlist"}
-    playlist = playlist_repo.add(playlist_info)
+    playlist = playlist_repo.create(name="My Playlist")
 
-    # Create track
     filepath = create_test_track(temp_audio_dir, "track.wav")
-    track_info = {
-        "filepath": str(filepath),
-        "title": "Test Track",
-        "artist": "Test Artist",
-        "album": "Test Album",
-        "duration": 1.0,
-        "sample_rate": 44100,
-        "channels": 2,
-        "bitrate": 1411200,
-    }
-    track = track_repo.add(track_info)
+    track = track_repo.add(_track_info(filepath, "Test Track"))
 
-    # Add track to playlist
     playlist_repo.add_track(playlist.id, track.id)
 
-    # Verify track is in playlist
-    tracks = playlist_repo.get_tracks(playlist.id)
+    tracks = playlist_repo.get_by_id(playlist.id).tracks
     assert len(tracks) == 1
     assert tracks[0].id == track.id
 
@@ -193,27 +187,14 @@ def test_playlist_add_multiple_tracks(temp_audio_dir, playlist_repo, track_repo)
 
     Tests multiple track additions.
     """
-    playlist_info = {"name": "Multi-Track Playlist"}
-    playlist = playlist_repo.add(playlist_info)
+    playlist = playlist_repo.create(name="Multi-Track Playlist")
 
-    # Create and add 5 tracks
     for i in range(5):
         filepath = create_test_track(temp_audio_dir, f"track_{i}.wav")
-        track_info = {
-            "filepath": str(filepath),
-            "title": f"Track {i}",
-            "artist": "Artist",
-            "album": "Album",
-            "duration": 1.0,
-            "sample_rate": 44100,
-            "channels": 2,
-            "bitrate": 1411200,
-        }
-        track = track_repo.add(track_info)
+        track = track_repo.add(_track_info(filepath, f"Track {i}"))
         playlist_repo.add_track(playlist.id, track.id)
 
-    # Verify all tracks in playlist
-    tracks = playlist_repo.get_tracks(playlist.id)
+    tracks = playlist_repo.get_by_id(playlist.id).tracks
     assert len(tracks) == 5
 
 
@@ -224,44 +205,17 @@ def test_playlist_remove_track_from_playlist(temp_audio_dir, playlist_repo, trac
 
     Tests track removal from playlist.
     """
-    playlist_info = {"name": "Test Playlist"}
-    playlist = playlist_repo.add(playlist_info)
+    playlist = playlist_repo.create(name="Test Playlist")
 
-    # Add two tracks
-    track1_filepath = create_test_track(temp_audio_dir, "track1.wav")
-    track1_info = {
-        "filepath": str(track1_filepath),
-        "title": "Track 1",
-        "artist": "Artist",
-        "album": "Album",
-        "duration": 1.0,
-        "sample_rate": 44100,
-        "channels": 2,
-        "bitrate": 1411200,
-    }
-    track1 = track_repo.add(track1_info)
-
-    track2_filepath = create_test_track(temp_audio_dir, "track2.wav")
-    track2_info = {
-        "filepath": str(track2_filepath),
-        "title": "Track 2",
-        "artist": "Artist",
-        "album": "Album",
-        "duration": 1.0,
-        "sample_rate": 44100,
-        "channels": 2,
-        "bitrate": 1411200,
-    }
-    track2 = track_repo.add(track2_info)
+    track1 = track_repo.add(_track_info(create_test_track(temp_audio_dir, "track1.wav"), "Track 1"))
+    track2 = track_repo.add(_track_info(create_test_track(temp_audio_dir, "track2.wav"), "Track 2"))
 
     playlist_repo.add_track(playlist.id, track1.id)
     playlist_repo.add_track(playlist.id, track2.id)
 
-    # Remove one track
     playlist_repo.remove_track(playlist.id, track1.id)
 
-    # Verify only track2 remains
-    tracks = playlist_repo.get_tracks(playlist.id)
+    tracks = playlist_repo.get_by_id(playlist.id).tracks
     assert len(tracks) == 1
     assert tracks[0].id == track2.id
 
@@ -273,28 +227,16 @@ def test_playlist_track_order_preserved(temp_audio_dir, playlist_repo, track_rep
 
     Tests that tracks appear in the order they were added.
     """
-    playlist_info = {"name": "Ordered Playlist"}
-    playlist = playlist_repo.add(playlist_info)
+    playlist = playlist_repo.create(name="Ordered Playlist")
 
     track_ids = []
     for i in range(3):
         filepath = create_test_track(temp_audio_dir, f"track_{i}.wav")
-        track_info = {
-            "filepath": str(filepath),
-            "title": f"Track {i}",
-            "artist": "Artist",
-            "album": "Album",
-            "duration": 1.0,
-            "sample_rate": 44100,
-            "channels": 2,
-            "bitrate": 1411200,
-        }
-        track = track_repo.add(track_info)
+        track = track_repo.add(_track_info(filepath, f"Track {i}"))
         track_ids.append(track.id)
         playlist_repo.add_track(playlist.id, track.id)
 
-    # Verify order matches insertion order
-    tracks = playlist_repo.get_tracks(playlist.id)
+    tracks = playlist_repo.get_by_id(playlist.id).tracks
     retrieved_ids = [t.id for t in tracks]
 
     assert retrieved_ids == track_ids
@@ -311,12 +253,9 @@ def test_playlist_get_all_playlists(playlist_repo):
 
     Tests retrieving all playlists.
     """
-    # Create 3 playlists
     for i in range(3):
-        playlist_info = {"name": f"Playlist {i}"}
-        playlist_repo.add(playlist_info)
+        playlist_repo.create(name=f"Playlist {i}")
 
-    # Retrieve all playlists
     playlists, total = playlist_repo.get_all(limit=50, offset=0)
 
     assert len(playlists) == 3
@@ -330,10 +269,9 @@ def test_playlist_get_empty_playlist_tracks(playlist_repo):
 
     Tests querying tracks from playlist with no tracks.
     """
-    playlist_info = {"name": "Empty Playlist"}
-    playlist = playlist_repo.add(playlist_info)
+    playlist = playlist_repo.create(name="Empty Playlist")
 
-    tracks = playlist_repo.get_tracks(playlist.id)
+    tracks = playlist_repo.get_by_id(playlist.id).tracks
 
     assert len(tracks) == 0
 
@@ -349,28 +287,15 @@ def test_playlist_delete_playlist_removes_tracks(temp_audio_dir, playlist_repo, 
 
     Tests that deleting playlist doesn't delete tracks, only relationships.
     """
-    playlist_info = {"name": "Test Playlist"}
-    playlist = playlist_repo.add(playlist_info)
+    playlist = playlist_repo.create(name="Test Playlist")
 
-    # Add track
     filepath = create_test_track(temp_audio_dir, "track.wav")
-    track_info = {
-        "filepath": str(filepath),
-        "title": "Test Track",
-        "artist": "Artist",
-        "album": "Album",
-        "duration": 1.0,
-        "sample_rate": 44100,
-        "channels": 2,
-        "bitrate": 1411200,
-    }
-    track = track_repo.add(track_info)
+    track = track_repo.add(_track_info(filepath, "Test Track"))
     playlist_repo.add_track(playlist.id, track.id)
 
-    # Delete playlist
     playlist_repo.delete(playlist.id)
 
-    # Verify track still exists
+    # Deleting the playlist must not cascade to the track itself.
     retrieved_track = track_repo.get_by_id(track.id)
     assert retrieved_track is not None
 
@@ -378,61 +303,37 @@ def test_playlist_delete_playlist_removes_tracks(temp_audio_dir, playlist_repo, 
 @pytest.mark.integration
 def test_playlist_duplicate_track_in_playlist_allowed(temp_audio_dir, playlist_repo, track_repo):
     """
-    PLAYLIST: Adding same track twice is allowed (or prevented).
+    PLAYLIST: Adding the same track twice is idempotent.
 
-    Tests duplicate track handling.
+    add_track's composite-PK INSERT OR IGNORE (see
+    playlist_membership_mixin.py) makes a second add_track for a track
+    already in the playlist a no-op — it returns True but does not
+    duplicate the row.
     """
-    playlist_info = {"name": "Test Playlist"}
-    playlist = playlist_repo.add(playlist_info)
+    playlist = playlist_repo.create(name="Test Playlist")
 
     filepath = create_test_track(temp_audio_dir, "track.wav")
-    track_info = {
-        "filepath": str(filepath),
-        "title": "Test Track",
-        "artist": "Artist",
-        "album": "Album",
-        "duration": 1.0,
-        "sample_rate": 44100,
-        "channels": 2,
-        "bitrate": 1411200,
-    }
-    track = track_repo.add(track_info)
+    track = track_repo.add(_track_info(filepath, "Test Track"))
 
-    # Try adding same track twice
-    playlist_repo.add_track(playlist.id, track.id)
-    playlist_repo.add_track(playlist.id, track.id)
+    assert playlist_repo.add_track(playlist.id, track.id) is True
+    assert playlist_repo.add_track(playlist.id, track.id) is True
 
-    # Depending on implementation, might allow duplicates or prevent
-    tracks = playlist_repo.get_tracks(playlist.id)
-
-    # Either 1 (prevented) or 2 (allowed) is acceptable
-    assert len(tracks) in [1, 2]
+    tracks = playlist_repo.get_by_id(playlist.id).tracks
+    assert len(tracks) == 1
 
 
 @pytest.mark.integration
 def test_playlist_add_track_to_nonexistent_playlist(temp_audio_dir, playlist_repo, track_repo):
     """
-    PLAYLIST: Adding track to non-existent playlist handles gracefully.
-
-    Tests error handling.
+    PLAYLIST: Adding a track to a non-existent playlist is a no-op, not an
+    exception — add_track's existence check returns False on lookup miss
+    (see playlist_membership_mixin.py) rather than raising.
     """
     filepath = create_test_track(temp_audio_dir, "track.wav")
-    track_info = {
-        "filepath": str(filepath),
-        "title": "Test Track",
-        "artist": "Artist",
-        "album": "Album",
-        "duration": 1.0,
-        "sample_rate": 44100,
-        "channels": 2,
-        "bitrate": 1411200,
-    }
-    track = track_repo.add(track_info)
+    track = track_repo.add(_track_info(filepath, "Test Track"))
 
     nonexistent_playlist_id = 999999
 
-    # Should raise error or handle gracefully
-    try:
-        playlist_repo.add_track(nonexistent_playlist_id, track.id)
-    except (ValueError, Exception):
-        pass  # Expected
+    result = playlist_repo.add_track(nonexistent_playlist_id, track.id)
+
+    assert result is False
