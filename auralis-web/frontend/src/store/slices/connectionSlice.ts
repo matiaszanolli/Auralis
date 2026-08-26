@@ -127,8 +127,14 @@ const connectionSlice = createSlice({
      * resetPlayer in playerSlice.ts for why the bulk-update siblings were
      * deleted rather than documented.
      */
-    setMaxReconnectAttempts(state, action: PayloadAction<number>) {
-      state.maxReconnectAttempts = action.payload;
+    setMaxReconnectAttempts: {
+      reducer(state, action: PayloadAction<number, string, { timestamp: number }>) {
+        state.maxReconnectAttempts = action.payload;
+        state.lastUpdated = action.meta.timestamp;
+      },
+      prepare(maxAttempts: number) {
+        return { payload: maxAttempts, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
@@ -147,8 +153,14 @@ const connectionSlice = createSlice({
     /**
      * Clear error
      */
-    clearError(state) {
-      state.lastError = null;
+    clearError: {
+      reducer(state, action: PayloadAction<void, string, { timestamp: number }>) {
+        state.lastError = null;
+        state.lastUpdated = action.meta.timestamp;
+      },
+      prepare() {
+        return { payload: undefined, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**

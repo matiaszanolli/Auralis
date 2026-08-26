@@ -106,9 +106,10 @@ describe('connectionSlice', () => {
     expect(state.reconnectAttempts).toBe(0);
   });
 
-  it('setMaxReconnectAttempts updates max', () => {
+  it('setMaxReconnectAttempts updates max and bumps lastUpdated (#4458)', () => {
     const state = reducer(initialState, setMaxReconnectAttempts(10));
     expect(state.maxReconnectAttempts).toBe(10);
+    expect(state.lastUpdated).toBeGreaterThan(0);
   });
 
   // ─── Error ────────────────────────────────────────────────────
@@ -118,10 +119,11 @@ describe('connectionSlice', () => {
     expect(state.lastError).toBe('connection lost');
   });
 
-  it('clearError clears error', () => {
+  it('clearError clears error and bumps lastUpdated (#4458)', () => {
     let state = reducer(initialState, setError('err'));
     state = reducer(state, clearError());
     expect(state.lastError).toBeNull();
+    expect(state.lastUpdated).toBeGreaterThan(0);
   });
 
   // ─── Reset ────────────────────────────────────────────────────

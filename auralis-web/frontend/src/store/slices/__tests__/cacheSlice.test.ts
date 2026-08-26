@@ -102,20 +102,23 @@ describe('cacheSlice', () => {
 
   // ─── Loading/Error ────────────────────────────────────────────
 
-  it('setIsLoading sets loading state', () => {
+  it('setIsLoading sets loading state and bumps lastUpdated (#4458)', () => {
     const state = reducer(initialState, setIsLoading(true));
     expect(state.isLoading).toBe(true);
+    expect(state.lastUpdated).toBeGreaterThan(0);
   });
 
-  it('setError sets error message', () => {
+  it('setError sets error message and bumps lastUpdated (#4458)', () => {
     const state = reducer(initialState, setError('cache error'));
     expect(state.error).toBe('cache error');
+    expect(state.lastUpdated).toBeGreaterThan(0);
   });
 
-  it('clearError clears error', () => {
+  it('clearError clears error and bumps lastUpdated (#4458)', () => {
     let state = reducer(initialState, setError('err'));
     state = reducer(state, clearError());
     expect(state.error).toBeNull();
+    expect(state.lastUpdated).toBeGreaterThan(0);
   });
 
   // ─── Clear/Reset ──────────────────────────────────────────────

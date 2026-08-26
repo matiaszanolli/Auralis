@@ -73,22 +73,40 @@ const cacheSlice = createSlice({
     /**
      * Set loading state
      */
-    setIsLoading(state, action: PayloadAction<boolean>) {
-      state.isLoading = action.payload;
+    setIsLoading: {
+      reducer(state, action: PayloadAction<boolean, string, { timestamp: number }>) {
+        state.isLoading = action.payload;
+        state.lastUpdated = action.meta.timestamp;
+      },
+      prepare(isLoading: boolean) {
+        return { payload: isLoading, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
      * Set error message
      */
-    setError(state, action: PayloadAction<string | null>) {
-      state.error = action.payload;
+    setError: {
+      reducer(state, action: PayloadAction<string | null, string, { timestamp: number }>) {
+        state.error = action.payload;
+        state.lastUpdated = action.meta.timestamp;
+      },
+      prepare(error: string | null) {
+        return { payload: error, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
      * Clear error
      */
-    clearError(state) {
-      state.error = null;
+    clearError: {
+      reducer(state, action: PayloadAction<void, string, { timestamp: number }>) {
+        state.error = null;
+        state.lastUpdated = action.meta.timestamp;
+      },
+      prepare() {
+        return { payload: undefined, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
