@@ -498,24 +498,16 @@ export const selectError = (state: { player: PlayerState }) => state.player.erro
 export const selectPlayerState = (state: { player: PlayerState }) => state.player;
 
 // Streaming selectors (Phase 2.2)
-// Top-level selector returns both sub-states
-export const selectStreaming = (state: { player: PlayerState }) => state.player.streaming;
-// Type-specific selectors for A/B comparison hooks
-export const selectNormalStreaming = (state: { player: PlayerState }) => state.player.streaming.normal;
+//
+// #5211: nine of the eleven selectors that used to live here had zero
+// references anywhere, tests included. They duplicated a layer that already
+// exists — `store/selectors/player.ts` carries the canonical `selectStreaming`
+// / `selectEnhancedStreamingState` — so nothing ever reached for these, and
+// the one production reader that wants raw streaming state
+// (hooks/enhancement/useEnhancedPlaybackShortcuts.ts) reads
+// `state.player.streaming.enhanced` directly.
+//
+// Only the selector with a real consumer is kept.
 export const selectEnhancedStreaming = (state: { player: PlayerState }) => state.player.streaming.enhanced;
-// Convenience selectors for the enhanced (primary) stream
-export const selectStreamingState = (state: { player: PlayerState }) => state.player.streaming.enhanced.state;
-export const selectStreamingProgress = (state: { player: PlayerState }) => state.player.streaming.enhanced.progress;
-export const selectStreamingTrackId = (state: { player: PlayerState }) => state.player.streaming.enhanced.trackId;
-export const selectStreamingIntensity = (state: { player: PlayerState }) => state.player.streaming.enhanced.intensity;
-export const selectBufferedSamples = (state: { player: PlayerState }) => state.player.streaming.enhanced.bufferedSamples;
-export const selectStreamingError = (state: { player: PlayerState }) => state.player.streaming.enhanced.error;
-export const selectIsStreaming = (state: { player: PlayerState }) => {
-  const { normal, enhanced } = state.player.streaming;
-  return (
-    normal.state === 'streaming' || normal.state === 'buffering' ||
-    enhanced.state === 'streaming' || enhanced.state === 'buffering'
-  );
-};
 
 export default playerSlice.reducer;
