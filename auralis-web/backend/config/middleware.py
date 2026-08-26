@@ -149,6 +149,34 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
             response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
             img_src = " ".join(("'self'", "data:", "blob:", *_ARTIST_ARTWORK_IMG_HOSTS))
+            # `'unsafe-inline'` on both directives is intentional, not an
+            # oversight (#3900) -- each was investigated for a hash/nonce
+            # replacement and rejected for a concrete, checkable reason:
+            #
+            # script-src: the built frontend (auralis-web/frontend/dist/,
+            # served by main.py's StaticFiles(html=True) mount) ships one
+            # fixed inline `<script type="module">` bootstrap block in
+            # index.html. Its exact bytes change on every Vite build (the
+            # embedded chunk filenames carry a content hash), so a CSP
+            # `'sha256-...'` allowance would have to be computed from the
+            # live index.html at startup and kept byte-for-byte in sync with
+            # whatever the browser's HTML parser feeds its SHA-256 -- a
+            # mismatch fails silently at the CSP layer and blocks the app's
+            # entire boot (a blank white screen) for every user, which this
+            # environment has no Playwright/browser-driven test to verify
+            # against before shipping. Worse-than-the-gap-it-closes risk for
+            # a LOW-severity, Electron-only (no remote content) finding.
+            # Revisit if Vite's own CSP/nonce plugin support (or a real
+            # browser-driven frontend test suite) lands.
+            #
+            # style-src: React/MUI here render styling as inline `style="..."`
+            # element attributes (sx props, emotion CSS-in-JS), not `<style>`
+            # tags -- and per the CSP spec, `'nonce-...'`/`'sha256-...'` only
+            # ever allowlist `<script>`/`<style>` elements, never the `style=`
+            # *attribute*. There is no nonce/hash mechanism that covers this
+            # case at all; removing 'unsafe-inline' here would require
+            # rewriting the inline-style usage sitewide to class-based
+            # styling, out of scope for a backend CSP header fix.
             response.headers["Content-Security-Policy"] = (
                 "default-src 'self'; "
                 "script-src 'self' 'unsafe-inline'; "
