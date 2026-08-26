@@ -11,6 +11,7 @@ All tests exercise the real ConnectionManager imported from config.globals.
 """
 
 import asyncio
+import logging
 import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
@@ -319,3 +320,59 @@ class TestOriginCheck:
             await manager.connect(ws)
         ws.close.assert_awaited_once_with(code=1008)
         ws.accept.assert_not_awaited()
+
+
+class TestConnectionLifecycleLogLevels:
+    """#3903: routine connect/disconnect must not log at INFO -- it drowns
+    out genuinely important INFO events (e.g. every wscat/test-script
+    loopback connection used to log one of these). Rejections still WARN
+    (already covered by TestOriginCheck); stale-connection removal in
+    broadcast() is deliberately left at INFO (an anomaly, not routine
+    traffic) -- not tested here since it's unchanged."""
+
+    @pytest.mark.asyncio
+    async def test_successful_connect_does_not_log_at_info(self, caplog):
+        manager = ConnectionManager()
+        ws = _make_connect_ws(origin="http://localhost:8765")
+
+        with caplog.at_level(logging.DEBUG, logger="config.globals"):
+            await manager.connect(ws)
+
+        assert not [r for r in caplog.records if r.levelno >= logging.INFO], (
+            "a successful connect must not log at INFO or above"
+        )
+        assert any(
+            "WebSocket connected from" in r.message and r.levelno == logging.DEBUG
+            for r in caplog.records
+        ), "the connect message must still be emitted, just at DEBUG"
+
+    @pytest.mark.asyncio
+    async def test_disconnect_does_not_log_at_info(self, caplog):
+        manager = ConnectionManager()
+        ws = _make_connect_ws(origin="http://localhost:8765")
+        await manager.connect(ws)
+
+        with caplog.at_level(logging.DEBUG, logger="config.globals"):
+            await manager.disconnect(ws)
+
+        assert not [r for r in caplog.records if r.levelno >= logging.INFO], (
+            "a routine disconnect must not log at INFO or above"
+        )
+        assert any(
+            "WebSocket disconnected from" in r.message and r.levelno == logging.DEBUG
+            for r in caplog.records
+        ), "the disconnect message must still be emitted, just at DEBUG"
+
+    @pytest.mark.asyncio
+    async def test_rejected_connect_still_warns(self, caplog):
+        """Sibling check: the fix must not silence the actually-important
+        rejection path while quieting the routine success path."""
+        manager = ConnectionManager()
+        ws = _make_connect_ws(origin="https://evil.example.com")
+
+        with caplog.at_level(logging.DEBUG, logger="config.globals"):
+            with pytest.raises(WebSocketOriginRejected):
+                await manager.connect(ws)
+
+        warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+        assert any("untrusted origin" in r.message for r in warnings)
