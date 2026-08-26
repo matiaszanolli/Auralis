@@ -275,6 +275,16 @@ describe('queueSlice', () => {
     expect(state.currentIndex).toBe(1);
   });
 
+  it('previousTrack on an empty queue with repeatMode "all" leaves currentIndex at 0, not -1 (#4457)', () => {
+    // tracks.length - 1 is -1 on an empty queue, violating the
+    // 0 <= currentIndex invariant — Math.max(0, ...) must clamp it.
+    const state = reducer(
+      { ...initialState, currentIndex: 0, repeatMode: 'all' },
+      previousTrack()
+    );
+    expect(state.currentIndex).toBe(0);
+  });
+
   // ─── Repeat mode: 'off' at boundaries (explicit, mirrors 'all') ─
 
   it('nextTrack does not wrap when repeatMode is "off" and at the last track', () => {

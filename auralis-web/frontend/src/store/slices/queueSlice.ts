@@ -262,7 +262,11 @@ const queueSlice = createSlice({
         if (state.currentIndex > 0) {
           state.currentIndex -= 1;
         } else if (state.repeatMode === 'all') {
-          state.currentIndex = state.tracks.length - 1; // wrap to last track
+          // #4457: tracks.length - 1 is -1 on an empty queue, violating the
+          // 0 <= currentIndex invariant — the stale -1 would then persist
+          // (nothing else resets it) until a later add left the queue
+          // showing "no current track" despite having one.
+          state.currentIndex = Math.max(0, state.tracks.length - 1); // wrap to last track
         } else {
           return; // 'off' at start — do nothing
         }
