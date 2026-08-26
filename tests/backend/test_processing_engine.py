@@ -520,6 +520,34 @@ class TestQueueBackpressure:
         assert status["queue_full"] is False
 
     @pytest.mark.asyncio
+    async def test_get_queue_status_total_and_cancelled_match_schema(
+        self, engine, temp_audio_file
+    ):
+        """#3886: QueueStatusResponse declares `total`/`cancelled`, but the
+        engine used to never populate them (extra="allow" silently let both
+        default to 0 next to the real `total_jobs` count). `total` must equal
+        `total_jobs`, and `cancelled` must reflect jobs actually cancelled --
+        not stay 0 while cancelled jobs exist in engine.jobs."""
+        job1 = await engine.create_job(
+            input_path=str(temp_audio_file), settings={"mode": "adaptive"}
+        )
+        await engine.submit_job(job1)
+        job2 = await engine.create_job(
+            input_path=str(temp_audio_file), settings={"mode": "gentle"}
+        )
+        await engine.submit_job(job2)
+
+        # Cancel one QUEUED job before the worker (never started here) picks
+        # it up -- job_lifecycle.cancel_job marks QUEUED jobs CANCELLED
+        # synchronously, no running worker required.
+        assert await engine.cancel_job(job2.job_id) is True
+
+        status = engine.get_queue_status()
+
+        assert status["total"] == status["total_jobs"] == 2
+        assert status["cancelled"] == 1
+
+    @pytest.mark.asyncio
     async def test_processing_count_reflects_semaphore_value(self):
         """get_queue_status()['processing'] tracks active jobs via _active_job_count (#2459)"""
         engine = ProcessingEngine(max_concurrent_jobs=3)

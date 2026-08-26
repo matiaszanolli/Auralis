@@ -350,15 +350,27 @@ class ProcessingEngine:
         return list(self.jobs.values())
 
     def get_queue_status(self) -> dict[str, Any]:
-        """Get current queue status"""
+        """Get current queue status.
+
+        Populates both `total`/`cancelled` (the fields QueueStatusResponse
+        declares) and `total_jobs` (the pre-existing extra field several
+        callers/tests already read) so the two no longer disagree (#3886) --
+        the schema's `extra="allow"` meant a client saw `total=0` next to
+        `total_jobs=N` and `cancelled=0` even when cancelled jobs existed,
+        with no way to know which was authoritative. `total_jobs` is kept
+        rather than removed: it predates the schema fields and is still the
+        one asserted by existing tests/callers.
+        """
         # Snapshot to avoid RuntimeError if cleanup_old_jobs mutates self.jobs concurrently (#2435)
         jobs = list(self.jobs.values())
         return {
             "total_jobs": len(jobs),
+            "total": len(jobs),
             "queued": len([j for j in jobs if j.status == ProcessingStatus.QUEUED]),
             "processing": self._active_job_count,  # replaces ._value private attr (#2459)
             "completed": len([j for j in jobs if j.status == ProcessingStatus.COMPLETED]),
             "failed": len([j for j in jobs if j.status == ProcessingStatus.FAILED]),
+            "cancelled": len([j for j in jobs if j.status == ProcessingStatus.CANCELLED]),
             "max_concurrent": self.max_concurrent_jobs,
             "max_queue_size": self.max_queue_size,
             "queue_full": self.job_queue.full(),
