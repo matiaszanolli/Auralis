@@ -21,7 +21,7 @@ import tempfile
 import threading
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from collections.abc import Callable, Iterator
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -302,6 +302,24 @@ def _get_connection_manager() -> Any:
     return _deps.connection_manager
 
 
+async def _broadcast_artwork_updated(
+    connection_manager: Any,
+    action: Literal["extracted", "downloaded", "deleted"],
+    album_id: int,
+    artwork_url: str | None = None,
+) -> None:
+    """Broadcast `artwork_updated` from the one place all three emit sites
+    share, so the payload cannot drift out of sync with the frontend's
+    ``ArtworkUpdatedMessage`` contract (types/ws/enhancement.ts:71-78, #4676).
+    ``artwork_url`` is omitted for 'deleted', matching that contract's
+    `artwork_url?: string; // absent for 'deleted'`.
+    """
+    data: dict[str, Any] = {"action": action, "album_id": album_id}
+    if artwork_url is not None:
+        data["artwork_url"] = artwork_url
+    await connection_manager.broadcast({"type": "artwork_updated", "data": data})
+
+
 def _get_repos() -> Any:
     """Get repository factory for accessing repositories."""
     return require_repository_factory(_deps.get_repository_factory)
@@ -482,14 +500,7 @@ async def extract_album_artwork(
     artwork_url = f"/api/albums/{album_id}/artwork"
 
     # Broadcast artwork updated event
-    await connection_manager.broadcast({
-        "type": "artwork_updated",
-        "data": {
-            "action": "extracted",
-            "album_id": album_id,
-            "artwork_url": artwork_url
-        }
-    })
+    await _broadcast_artwork_updated(connection_manager, "extracted", album_id, artwork_url)
 
     return {
         "message": "Artwork extracted successfully",
@@ -538,10 +549,7 @@ async def delete_album_artwork(
 
     # Broadcast artwork updated event (only when something actually changed)
     if success:
-        await connection_manager.broadcast({
-            "type": "artwork_updated",
-            "data": {"action": "deleted", "album_id": album_id}
-        })
+        await _broadcast_artwork_updated(connection_manager, "deleted", album_id)
 
     return {"message": "Artwork deleted successfully", "album_id": album_id}
 
@@ -608,14 +616,7 @@ async def download_album_artwork(
     artwork_url = f"/api/albums/{album_id}/artwork"
 
     # Broadcast artwork updated event
-    await connection_manager.broadcast({
-        "type": "artwork_updated",
-        "data": {
-            "action": "downloaded",
-            "album_id": album_id,
-            "artwork_url": artwork_url
-        }
-    })
+    await _broadcast_artwork_updated(connection_manager, "downloaded", album_id, artwork_url)
 
     return {
         "message": "Artwork downloaded successfully",
