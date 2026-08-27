@@ -38,7 +38,13 @@ import {
   resetStreaming,
   selectIsPlaying,
 } from '@/store/slices/playerSlice';
-import { decodeAudioChunkMessage } from '@/utils/audio/pcmDecoding';
+import {
+  classifyChunk,
+  ingestChunk,
+  isOutOfSequence,
+  shouldDispatchProgress,
+} from './audioChunkIngest';
+import { STREAM_START_WATCHDOG_MS, useStreamStartWatchdog } from './useStreamStartWatchdog';
 import type {
   AudioStreamStartMessage,
   AudioChunkMessage,
@@ -46,15 +52,9 @@ import type {
   AudioStreamErrorMessage,
 } from '@/contexts/WebSocketContext';
 
-/**
- * Client-side watchdog for the first stream message after a play command
- * (#4433). Must exceed the backend's own bound (CHUNK_PROCESS_TIMEOUT = 30s,
- * plus a 5s stream-semaphore wait) so the backend's audio_stream_error surfaces
- * first in the normal timeout case — this only fires for a fully-hung worker
- * that never emits anything, which would otherwise leave the UI in 'buffering'
- * forever (the duplicate-play guard blocks a naive retry).
- */
-export const STREAM_START_WATCHDOG_MS = 45000;
+// Re-exported, not redefined: the timer itself now lives in
+// useStreamStartWatchdog (#5041), but tests import the constant from here.
+export { STREAM_START_WATCHDOG_MS } from './useStreamStartWatchdog';
 
 export interface StreamingMetadata {
   sampleRate: number;
@@ -180,13 +180,24 @@ export function useAudioStreamingCore(
   );
 
   // Watchdog for the first stream message after a play command (#4433).
-  const streamStartWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const clearStreamStartWatchdog = useCallback(() => {
-    if (streamStartWatchdogRef.current !== null) {
-      clearTimeout(streamStartWatchdogRef.current);
-      streamStartWatchdogRef.current = null;
-    }
-  }, []);
+  //
+  // The timeout handler reaches cleanupStreaming through a ref rather than
+  // closing over it: cleanupStreaming itself calls `clear`, so a direct
+  // dependency would be circular and neither could be memoized (#5041).
+  const cleanupStreamingRef = useRef<() => void>(() => {});
+  const { arm: armStreamStartWatchdog, clear: clearStreamStartWatchdog } =
+    useStreamStartWatchdog(() => {
+      console.error(
+        `${logPrefix} No audio stream started within ${STREAM_START_WATCHDOG_MS}ms — surfacing error`
+      );
+      dispatch(
+        setStreamingError({
+          streamType,
+          error: 'Timed out waiting for the audio stream to start. Please try again.',
+        })
+      );
+      cleanupStreamingRef.current();
+    });
 
   const cleanupStreaming = useCallback(() => {
     clearStreamStartWatchdog();
@@ -209,48 +220,28 @@ export function useAudioStreamingCore(
     onCleanupExtra?.();
   }, [closeContextOnCleanup, onCleanupExtra, clearStreamStartWatchdog]);
 
-  // Armed by the caller right after it sends a play command. If neither an
-  // audio_stream_start nor any other stream message arrives within the window,
-  // surface a streaming error instead of hanging in 'buffering' (#4433).
-  const armStreamStartWatchdog = useCallback(() => {
-    clearStreamStartWatchdog();
-    streamStartWatchdogRef.current = setTimeout(() => {
-      streamStartWatchdogRef.current = null;
-      console.error(
-        `${logPrefix} No audio stream started within ${STREAM_START_WATCHDOG_MS}ms — surfacing error`
-      );
-      dispatch(
-        setStreamingError({
-          streamType,
-          error: 'Timed out waiting for the audio stream to start. Please try again.',
-        })
-      );
-      cleanupStreaming();
-    }, STREAM_START_WATCHDOG_MS);
-  }, [clearStreamStartWatchdog, dispatch, streamType, logPrefix, cleanupStreaming]);
+  useEffect(() => {
+    cleanupStreamingRef.current = cleanupStreaming;
+  }, [cleanupStreaming]);
 
+  // The decode/append/progress arithmetic lives in ./audioChunkIngest as plain
+  // functions (#5041); what stays here is acting on their decisions, because
+  // that needs the refs, the dispatcher and the socket.
   const handleChunk = useCallback((message: AudioChunkMessage) => {
     try {
-      // Only process messages intended for this stream (#2104)
-      if (!acceptsStreamType(message.data.stream_type)) return;
+      const rejection = classifyChunk({
+        message,
+        currentEpoch: streamEpochRef.current,
+        initialized: Boolean(pcmBufferRef.current && streamingMetadataRef.current),
+        acceptsStreamType,
+      });
 
-      // Drop frames from a stream that has already been superseded (#4563).
-      // On seek the client resets its PCM buffer before sending the `seek`
-      // frame, but the backend only cancels the old task once its receive loop
-      // dispatches that frame — so frames already in the send queue and socket
-      // buffers (~0.9-3.5 s of pre-seek audio) arrive afterwards and land in the
-      // fresh buffer. Nothing else distinguishes them: the track_id is the same,
-      // chunk_index is >= the last seen so the out-of-sequence guard below never
-      // trips, and `is_seek: true` deliberately preserves the buffer. Only the
-      // epoch does. Both sides must be present, so an older backend (no epoch on
-      // the wire) degrades to the previous behaviour rather than dropping
-      // everything.
-      const incomingEpoch = message.data.stream_epoch;
-      const currentEpoch = streamEpochRef.current;
-      if (incomingEpoch != null && currentEpoch != null && incomingEpoch !== currentEpoch) {
+      if (rejection === 'wrong-stream-type') return;
+
+      if (rejection === 'superseded-epoch') {
         DEBUG && console.warn(`${logPrefix} Dropping chunk from superseded stream:`, {
-          chunkEpoch: incomingEpoch,
-          currentEpoch,
+          chunkEpoch: message.data.stream_epoch,
+          currentEpoch: streamEpochRef.current,
           chunkIndex: message.data?.chunk_index,
         });
         return;
@@ -258,8 +249,8 @@ export function useAudioStreamingCore(
 
       const incomingChunkIndex = message.data?.chunk_index ?? 0;
 
-      // If stream not yet initialized, queue the chunk instead of dropping it
-      if (!pcmBufferRef.current || !streamingMetadataRef.current) {
+      if (rejection === 'not-initialized') {
+        // Queue rather than drop — audio_stream_start may still be in flight.
         DEBUG && console.log(`${logPrefix} Queuing chunk until stream initialized:`, {
           chunkIndex: incomingChunkIndex,
           queueLength: pendingChunksRef.current.length + 1,
@@ -268,86 +259,53 @@ export function useAudioStreamingCore(
         return;
       }
 
+      const buffer = pcmBufferRef.current!;
+      const metadata = streamingMetadataRef.current!;
+
       if (detectOutOfSequence) {
-        // Detect out-of-sequence chunks indicating a new stream started without
-        // a proper audio_stream_start (e.g. missed during WebSocket reconnect).
-        const lastChunk = lastReceivedChunkIndexRef.current;
-        if (lastChunk >= 0 && incomingChunkIndex < lastChunk - 1) {
+        if (isOutOfSequence(lastReceivedChunkIndexRef.current, incomingChunkIndex)) {
           DEBUG && console.warn(`${logPrefix} Out-of-sequence chunk detected:`, {
-            expected: lastChunk + 1,
+            expected: lastReceivedChunkIndexRef.current + 1,
             received: incomingChunkIndex,
             message: 'New stream may have started without audio_stream_start. This can cause audio discontinuity.',
           });
           // Reset the buffer to prevent audio glitches from stale data
-          pcmBufferRef.current.reset();
+          buffer.reset();
           setCurrentTime(0);
           lastReceivedChunkIndexRef.current = -1;
         }
         lastReceivedChunkIndexRef.current = incomingChunkIndex;
       }
 
-      // Decode PCM samples from base64
-      const { samples, metadata } = decodeAudioChunkMessage(
+      const result = ingestChunk({
         message,
-        streamingMetadataRef.current.sampleRate,
-        streamingMetadataRef.current.channels
-      );
+        buffer,
+        metadata,
+        flowPaused: flowPausedRef.current,
+      });
 
-      // Append to circular buffer
-      pcmBufferRef.current.append(samples);
-
-      // Flow control: tell backend to pause/resume sending based on buffer fill level.
-      // 75% full → pause, 50% full → resume (25% hysteresis prevents rapid toggling).
-      const fillPct = pcmBufferRef.current.getFillPercentage();
-      if (fillPct > 75 && !flowPausedRef.current) {
+      if (result.flowControl === 'pause') {
         flowPausedRef.current = true;
         wsContext.send({ type: 'buffer_full', data: {} });
-      } else if (fillPct < 50 && flowPausedRef.current) {
+      } else if (result.flowControl === 'resume') {
         flowPausedRef.current = false;
         wsContext.send({ type: 'buffer_ready', data: {} });
       }
 
-      // Update tracking. The backend splits each CONTENT chunk into
-      // metadata.frameCount ~300 KB binary sub-frames, each arriving as its own
-      // audio_chunk message. Advance the progress counter once per content chunk
-      // (on its final frame) rather than per frame — otherwise the numerator
-      // climbs ~12-18x too fast against totalChunks (the content-chunk count from
-      // audio_stream_start) and the bar hits 100% during the first chunk (#4414).
-      // frameCount defaults to 1 in the decoder, so single-frame chunks still
-      // increment exactly once.
-      if (metadata.frameIndex >= metadata.frameCount - 1) {
-        streamingMetadataRef.current.processedChunks++;
-      }
-      const bufferedSamples = pcmBufferRef.current.getAvailableSamples();
-      const progress =
-        (streamingMetadataRef.current.processedChunks / streamingMetadataRef.current.totalChunks) * 100;
-      const clampedProgress = Math.min(progress, 100);
-
-      if (throttleProgress) {
-        // Throttle Redux dispatches: only update at first chunk, every 10%
-        // increment, or on completion — avoids O(n_chunks) Redux churn (#2535).
-        const lastProgress = lastDispatchedProgressRef.current;
-        const crossedDecile =
-          Math.floor(clampedProgress / 10) > Math.floor(Math.max(0, lastProgress) / 10);
-        if (lastProgress < 0 || crossedDecile || clampedProgress >= 100) {
-          lastDispatchedProgressRef.current = clampedProgress;
-          dispatch(
-            updateStreamingProgress({
-              streamType,
-              processedChunks: streamingMetadataRef.current.processedChunks,
-              bufferedSamples,
-              progress: clampedProgress,
-              trackId: message.data.track_id, // drop stale updates after a skip (#4434)
-            })
-          );
-        }
-      } else {
+      if (
+        shouldDispatchProgress(
+          result.clampedProgress,
+          lastDispatchedProgressRef.current,
+          throttleProgress
+        )
+      ) {
+        if (throttleProgress) lastDispatchedProgressRef.current = result.clampedProgress;
         dispatch(
           updateStreamingProgress({
             streamType,
-            processedChunks: streamingMetadataRef.current.processedChunks,
-            bufferedSamples,
-            progress: clampedProgress,
+            processedChunks: metadata.processedChunks,
+            bufferedSamples: result.bufferedSamples,
+            progress: result.clampedProgress,
             trackId: message.data.track_id, // drop stale updates after a skip (#4434)
           })
         );
@@ -355,16 +313,20 @@ export function useAudioStreamingCore(
 
       // Auto-start playback once the caller's threshold is satisfied.
       const engine = playbackEngineRef.current;
-      if (engine && !engine.isPlaying() && bufferedSamples >= getStartThreshold(streamingMetadataRef.current, engine)) {
+      if (
+        engine &&
+        !engine.isPlaying() &&
+        result.bufferedSamples >= getStartThreshold(metadata, engine)
+      ) {
         engine.startPlayback();
         setIsPaused(false);
       }
 
       DEBUG && console.debug(`${logPrefix} Chunk received:`, {
-        chunkIndex: metadata.chunkIndex,
-        frames: `${metadata.frameIndex + 1}/${metadata.frameCount}`,
-        samples: metadata.sampleCount,
-        buffered: `${(bufferedSamples / streamingMetadataRef.current.sampleRate).toFixed(1)}s`,
+        chunkIndex: result.chunkIndex,
+        frames: `${result.frameIndex + 1}/${result.frameCount}`,
+        samples: result.sampleCount,
+        buffered: `${(result.bufferedSamples / metadata.sampleRate).toFixed(1)}s`,
       });
     } catch (error) {
       const errorMsg = `Failed to process audio chunk: ${error instanceof Error ? error.message : String(error)}`;
