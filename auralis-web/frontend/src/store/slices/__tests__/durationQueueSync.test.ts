@@ -16,8 +16,8 @@ import playerReducer, {
   setCurrentTrack,
   setCurrentTime,
   setDuration,
-  setDurationAndSyncQueue,
 } from '../playerSlice';
+import { setDurationAndSyncQueue } from '../playerQueueSync';
 import cacheReducer from '../cacheSlice';
 import connectionReducer from '../connectionSlice';
 import queueReducer, { setQueue, setCurrentIndex, updateTrackById } from '../queueSlice';

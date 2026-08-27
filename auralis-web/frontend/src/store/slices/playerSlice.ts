@@ -16,24 +16,13 @@
 
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import type { PlayerTrack } from '@/types/domain';
-import { setCurrentIndex, updateTrackById } from '@/store/slices/queueSlice';
+import { initialStreamingInfo, streamingReducers } from './playerStreamingReducers';
+import type { StreamingInfo } from './playerStreamingReducers';
+
+// Re-exported so the slice stays the single import site for player state types.
+export type { StreamingState, StreamType, StreamingInfo } from './playerStreamingReducers';
 
 export type PresetName = 'adaptive' | 'gentle' | 'warm' | 'bright' | 'punchy';
-
-export type StreamingState = 'idle' | 'buffering' | 'streaming' | 'error' | 'complete';
-
-export type StreamType = 'normal' | 'enhanced';
-
-export interface StreamingInfo {
-  state: StreamingState;
-  trackId: number | null;
-  intensity: number;
-  progress: number; // 0-100
-  bufferedSamples: number;
-  totalChunks: number;
-  processedChunks: number;
-  error: string | null;
-}
 
 export interface PlayerState {
   isPlaying: boolean;
@@ -51,17 +40,6 @@ export interface PlayerState {
     enhanced: StreamingInfo;
   };
 }
-
-const initialStreamingInfo: StreamingInfo = {
-  state: 'idle',
-  trackId: null,
-  intensity: 1.0,
-  progress: 0,
-  bufferedSamples: 0,
-  totalChunks: 0,
-  processedChunks: 0,
-  error: null,
-};
 
 const initialState: PlayerState = {
   isPlaying: false,
@@ -270,137 +248,11 @@ const playerSlice = createSlice({
     /**
      * Start audio streaming (normal or enhanced)
      */
-    startStreaming: {
-      reducer(
-        state,
-        action: PayloadAction<
-          {
-            streamType: StreamType;
-            trackId: number;
-            totalChunks: number;
-            intensity: number;
-          },
-          string,
-          { timestamp: number }
-        >
-      ) {
-        const s = state.streaming[action.payload.streamType];
-        s.state = 'buffering';
-        s.trackId = action.payload.trackId;
-        s.totalChunks = action.payload.totalChunks;
-        s.intensity = action.payload.intensity;
-        s.processedChunks = 0;
-        s.progress = 0;
-        s.bufferedSamples = 0;
-        s.error = null;
-        state.lastUpdated = action.meta.timestamp;
-      },
-      prepare(params: {
-        streamType: StreamType;
-        trackId: number;
-        totalChunks: number;
-        intensity: number;
-      }) {
-        return { payload: params, meta: { timestamp: Date.now() } };
-      },
-    },
-
-    /**
-     * Update streaming chunk progress
-     */
-    updateStreamingProgress: {
-      reducer(
-        state,
-        action: PayloadAction<
-          {
-            streamType: StreamType;
-            processedChunks: number;
-            bufferedSamples: number;
-            progress: number;
-            /** When set, the update is ignored unless it matches the active stream's trackId (#4434). */
-            trackId?: number;
-          },
-          string,
-          { timestamp: number }
-        >
-      ) {
-        const s = state.streaming[action.payload.streamType];
-        // Drop late updates from a superseded track after a rapid skip (#4434).
-        if (action.payload.trackId != null && s.trackId !== action.payload.trackId) return;
-        s.processedChunks = action.payload.processedChunks;
-        s.bufferedSamples = action.payload.bufferedSamples;
-        s.progress = action.payload.progress;
-        if (s.state === 'buffering' && action.payload.bufferedSamples > 0) {
-          s.state = 'streaming';
-        }
-        state.lastUpdated = action.meta.timestamp;
-      },
-      prepare(params: {
-        streamType: StreamType;
-        processedChunks: number;
-        bufferedSamples: number;
-        progress: number;
-        trackId?: number;
-      }) {
-        return { payload: params, meta: { timestamp: Date.now() } };
-      },
-    },
-
-    /**
-     * Mark streaming as complete
-     */
-    completeStreaming: {
-      reducer(
-        state,
-        action: PayloadAction<{ streamType: StreamType; trackId?: number }, string, { timestamp: number }>
-      ) {
-        const s = state.streaming[action.payload.streamType];
-        // Ignore a stale 'end' from a superseded track after a rapid skip (#4434).
-        if (action.payload.trackId != null && s.trackId !== action.payload.trackId) return;
-        s.state = 'complete';
-        s.progress = 100;
-        state.lastUpdated = action.meta.timestamp;
-      },
-      prepare(params: StreamType | { streamType: StreamType; trackId?: number }) {
-        // Back-compat: accept a bare streamType or a { streamType, trackId } object.
-        const payload = typeof params === 'string' ? { streamType: params } : params;
-        return { payload, meta: { timestamp: Date.now() } };
-      },
-    },
-
-    /**
-     * Set streaming error
-     */
-    setStreamingError: {
-      reducer(
-        state,
-        action: PayloadAction<{ streamType: StreamType; error: string; trackId?: number }, string, { timestamp: number }>
-      ) {
-        const s = state.streaming[action.payload.streamType];
-        // Ignore a stale error from a superseded track after a rapid skip (#4434).
-        if (action.payload.trackId != null && s.trackId !== action.payload.trackId) return;
-        s.state = 'error';
-        s.error = action.payload.error;
-        state.lastUpdated = action.meta.timestamp;
-      },
-      prepare(params: { streamType: StreamType; error: string; trackId?: number }) {
-        return { payload: params, meta: { timestamp: Date.now() } };
-      },
-    },
-
-    /**
-     * Reset streaming state
-     */
-    resetStreaming: {
-      reducer(state, action: PayloadAction<{ streamType: StreamType }, string, { timestamp: number }>) {
-        state.streaming[action.payload.streamType] = { ...initialStreamingInfo };
-        state.lastUpdated = action.meta.timestamp;
-      },
-      prepare(streamType: StreamType) {
-        return { payload: { streamType }, meta: { timestamp: Date.now() } };
-      },
-    },
-
+    // Streaming sub-state reducers live in ./playerStreamingReducers (#5042).
+    // Spreading rather than nesting keeps the action types identical
+    // (`player/startStreaming`, ...), so no dispatcher or `.type` assertion
+    // changes.
+    ...streamingReducers,
   },
 });
 
@@ -424,66 +276,9 @@ export const {
   resetStreaming,
 } = playerSlice.actions;
 
-/**
- * #3587: dispatch `setCurrentTrack(track)` AND align `queue.currentIndex`
- * to the track's position in the queue (when it is present). Local
- * track-change paths (usePlayNormal, usePlayEnhanced, Player.next/prev)
- * previously updated only `player.currentTrack`, leaving consumers of
- * `selectCurrentQueueTrack` out of sync until the backend WebSocket
- * `player_state` confirmation arrived — or permanently, if it never did.
- *
- * If the track is not in the queue (e.g. ad-hoc play), the queue index
- * stays put and the desync window is moot (no queue-derived selector
- * matches anyway).
- */
-export const setCurrentTrackAndSyncQueue =
-  (track: PlayerTrack | null) =>
-  (
-    dispatch: (action: unknown) => unknown,
-    getState: () => { queue?: { tracks: { id: number }[] } },
-  ) => {
-    dispatch(setCurrentTrack(track));
-    if (track == null) return;
-    const queue = getState().queue;
-    if (!queue?.tracks?.length) return;
-    const idx = queue.tracks.findIndex((t) => t.id === track.id);
-    if (idx >= 0) {
-      dispatch(setCurrentIndex(idx));
-    }
-  };
-
-/**
- * #4580: dispatch `setDuration(duration)` AND patch the queue's copy of the
- * same track.
- *
- * `player.currentTrack` and `queue.tracks[currentIndex]` are two independent
- * records of the same fact. `setDuration` can only reach the player copy, so a
- * `player_state` snapshot carrying a re-analysed duration without a fresh
- * queue array left `selectRemainingTime` / `selectTotalQueueTime` / the queue
- * rows showing the pre-correction value indefinitely.
- *
- * Same shape as `setCurrentTrackAndSyncQueue` (#3587), which exists for the
- * same reason: the two slices must be moved together by the caller, because
- * neither reducer can see the other's state.
- *
- * Note this is a *duration* sync specifically. `artworkUrl` is the other field
- * that could in principle drift, but nothing patches it post-hoc today —
- * artwork refreshes go through a per-album version counter
- * (`useArtworkUpdates`), not through these track records — so there is no
- * one-sided write to mirror. `updateTrackById` takes a generic `changes` patch
- * so covering it later needs no new plumbing.
- */
-export const setDurationAndSyncQueue =
-  (duration: number) =>
-  (
-    dispatch: (action: unknown) => unknown,
-    getState: () => { player?: { currentTrack?: { id: number } | null } },
-  ) => {
-    dispatch(setDuration(duration));
-    const trackId = getState().player?.currentTrack?.id;
-    if (trackId == null) return;
-    dispatch(updateTrackById({ id: trackId, changes: { duration } }));
-  };
+// The setCurrentTrackAndSyncQueue / setDurationAndSyncQueue thunks moved to
+// ./playerQueueSync (#5042) — they synchronise two slices rather than reducing
+// player state, and importing queueSlice's actions here only served them.
 
 // Selectors
 export const selectIsPlaying = (state: { player: PlayerState }) => state.player.isPlaying;

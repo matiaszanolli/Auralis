@@ -26,7 +26,8 @@ import type { AppDispatch } from '@/store';
 import { usePlayEnhanced } from '@/hooks/enhancement/usePlayEnhanced';
 import { useEnhancementControl } from '@/hooks/enhancement/useEnhancementControl';
 import { selectQueueTracks, selectCurrentIndex } from '@/store/slices/queueSlice';
-import { setCurrentTrackAndSyncQueue, setVolume as setVolumeAction } from '@/store/slices/playerSlice';
+import { setVolume as setVolumeAction } from '@/store/slices/playerSlice';
+import { setCurrentTrackAndSyncQueue } from '@/store/slices/playerQueueSync';
 import { playerSelectors } from '@/store/selectors';
 import {
   PlaybackControlsContext,

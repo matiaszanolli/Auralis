@@ -39,11 +39,11 @@ import {
   setCurrentTrack,
   setIsPlaying,
   setCurrentTime,
-  setDurationAndSyncQueue,
   setVolume,
   setMuted,
   setPreset,
 } from '@/store/slices/playerSlice';
+import { setDurationAndSyncQueue } from '@/store/slices/playerQueueSync';
 import {
   setQueue,
   setCurrentIndex,

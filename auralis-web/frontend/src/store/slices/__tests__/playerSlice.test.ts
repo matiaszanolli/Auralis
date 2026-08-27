@@ -7,7 +7,6 @@
 import reducer, {
   setIsPlaying,
   setCurrentTrack,
-  setCurrentTrackAndSyncQueue,
   setCurrentTime,
   setDuration,
   setVolume,
@@ -24,6 +23,7 @@ import reducer, {
   setStreamingError,
   resetStreaming,
 } from '../playerSlice';
+import { setCurrentTrackAndSyncQueue } from '../playerQueueSync';
 import type { PlayerState, Track } from '../playerSlice';
 
 const initialState: PlayerState = {

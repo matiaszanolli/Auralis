@@ -25,8 +25,8 @@ import {
   startStreaming,
   setStreamingError,
   resetStreaming,
-  setCurrentTrackAndSyncQueue,
 } from '@/store/slices/playerSlice';
+import { setCurrentTrackAndSyncQueue } from '@/store/slices/playerQueueSync';
 import type { EnhancementPreset } from '@/types/domain';
 import type { StreamingCoreReturn } from './useAudioStreamingCore';
 import type { CurrentTrackInfo } from './useEnhancedStreamStart';
