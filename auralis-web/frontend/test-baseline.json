@@ -1,5 +1,5 @@
 {
-  "_comment": "Known-failing vitest specs (#4640). CI fails on any failure NOT listed here. Regenerate with: pnpm run test:baseline:update. #5158: the 8 src/tests/api-integration/library-api.test.ts entries were removed by hand — #5119 wrapped that file in a top-level describe.skip, so those specs can never be reported as failures again and the entries were dead weight. Removing them is a provable shrink; a full local regeneration was deliberately avoided because a baseline built outside CI reports spurious new failures. #4696 removed the src/performance/ entries by hand: that directory was deleted wholesale, so its specs can never run again.",
+  "_comment": "Known-failing vitest specs (#4640). CI fails on any failure NOT listed here. Regenerate with: pnpm run test:baseline:update. #5158: the 8 src/tests/api-integration/library-api.test.ts entries were removed by hand \u2014 #5119 wrapped that file in a top-level describe.skip, so those specs can never be reported as failures again and the entries were dead weight. Removing them is a provable shrink; a full local regeneration was deliberately avoided because a baseline built outside CI reports spurious new failures. #4696 removed the src/performance/ entries by hand: that directory was deleted wholesale, so its specs can never run again. #5215: the 3 src/hooks/fingerprint/__tests__/useFingerprintCache.test.ts entries were removed by hand for the same reason \u2014 #4239 deleted that file with the hook, so those specs can never be reported as failures again and the entries silently re-permitted a test that no longer exists.",
   "generatedFrom": {
     "totalTests": 3538,
     "failedTests": 111
@@ -105,9 +105,6 @@
     "src/components/shared/__tests__/ConnectionStatusIndicator.test.tsx::ConnectionStatusIndicator should transition from connected to disconnected",
     "src/components/shared/__tests__/ConnectionStatusIndicator.test.tsx::ConnectionStatusIndicator should transition from disconnected to reconnecting",
     "src/components/shared/__tests__/ConnectionStatusIndicator.test.tsx::ConnectionStatusIndicator should transition from reconnecting to connected",
-    "src/hooks/fingerprint/__tests__/useFingerprintCache.test.ts::useCachedFingerprint should return cached fingerprint",
-    "src/hooks/fingerprint/__tests__/useFingerprintCache.test.ts::useFingerprintCacheStats should return cache statistics",
-    "src/hooks/fingerprint/__tests__/useFingerprintCache.test.ts::useIsFingerprintCached should return true when track is cached",
     "src/hooks/player/__tests__/usePlayerDisplay.test.ts::usePlayerDisplay Hook Edge Cases should handle NaN values",
     "src/hooks/player/__tests__/usePlayerDisplay.test.ts::usePlayerDisplay Hook Edge Cases should handle negative currentTime",
     "src/hooks/player/__tests__/usePlayerDisplay.test.ts::usePlayerDisplay Hook Long Duration Formatting should force show hours when requested",

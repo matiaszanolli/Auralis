@@ -10,8 +10,10 @@
  * computes real fingerprints in Rust and serves them from
  * `/api/tracks/{id}/fingerprint`, which `useTrackFingerprint` below already
  * reads. The IndexedDB layer it drove, `services/fingerprint/FingerprintCache`,
- * is kept — it is tested (#4478) and fabricates nothing — but now has no
- * consumer.
+ * outlived it as a tested-but-unreachable orphan and was deleted in #5215.
+ * It was correct (#4478) — it just had nothing left to serve. If client-side
+ * fingerprint caching is wanted again, it should be built against the backend
+ * endpoint above rather than restored.
  */
 
 export { useTrackFingerprint } from './useTrackFingerprint';
