@@ -240,33 +240,15 @@ export function createLoggerMiddleware(config: LoggerConfig = {}): Middleware {
 }
 
 // ============================================================================
-// Developer Tools Integration
-// ============================================================================
-
-/**
- * Enable Redux DevTools with custom config
- */
-export function getDevToolsConfig() {
-  return {
-    trace: true,
-    traceLimit: 25,
-    features: {
-      pause: true,
-      lock: true,
-      persist: true,
-      export: true,
-      import: 'custom',
-      jump: true,
-      skip: true,
-      reorder: true,
-      dispatch: true,
-      test: true,
-    },
-  };
-}
-
-// ============================================================================
 // Exports
 // ============================================================================
 
-// LoggerConfig, createLoggerMiddleware, and getDevToolsConfig are exported above
+// LoggerConfig and createLoggerMiddleware are exported above.
+//
+// #5213: getDevToolsConfig() was deleted rather than wired in. It documented
+// itself as intended for configureStore()'s devTools option but had no
+// reference anywhere, not even in its own test, and store/index.ts has always
+// passed the plain `devTools: import.meta.env.DEV`. Adopting its config is not
+// a no-op — `trace: true` captures a stack trace for every dispatched action —
+// so turning that on is a DX decision to make deliberately, not a side effect
+// of clearing dead code.

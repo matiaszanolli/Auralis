@@ -516,4 +516,9 @@ export function getErrorStats(errors: TrackedError[]) {
 // Exports
 // ============================================================================
 
-export { ErrorStore, generateErrorId, categorizeError };
+// #5213: categorizeError dropped from this list — nothing outside this module
+// imported it, and exporting it implied other code categorized errors the same
+// way. It stays a module-private function, still called at the two dispatch
+// sites above. (ErrorStore and generateErrorId are left as-is: ErrorStore's
+// unused-outside-tests status is #5017's scope, not this one's.)
+export { ErrorStore, generateErrorId };
