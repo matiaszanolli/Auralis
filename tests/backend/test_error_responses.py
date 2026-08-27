@@ -132,11 +132,11 @@ class TestInternalServerError:
 # ---------------------------------------------------------------------------
 
 class TestSpecialisedUnavailableErrors:
-    def test_library_manager_unavailable_is_503(self):
+    def test_library_database_unavailable_is_503(self):
         err = LibraryManagerUnavailableError()
         assert err.status_code == 503
 
-    def test_library_manager_unavailable_detail(self):
+    def test_library_database_unavailable_detail(self):
         err = LibraryManagerUnavailableError()
         assert "library manager" in err.detail.lower()
 

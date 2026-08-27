@@ -585,11 +585,11 @@ def test_version_info_api(client):
 class TestAPIEndpointDualMode:
     """Phase 5C.2: Dual-mode tests using mock fixtures from conftest.py"""
 
-    def test_mock_library_manager_fixture_interface(self, mock_library_manager):
-        """Test that mock_library_manager has required interface."""
-        assert hasattr(mock_library_manager, 'library')
-        assert hasattr(mock_library_manager.library, 'get_all')
-        assert hasattr(mock_library_manager.library, 'get_by_id')
+    def test_mock_library_database_fixture_interface(self, mock_library_database):
+        """Test that mock_library_database has required interface."""
+        assert hasattr(mock_library_database, 'library')
+        assert hasattr(mock_library_database.library, 'get_all')
+        assert hasattr(mock_library_database.library, 'get_by_id')
 
     def test_mock_repository_factory_fixture_interface(self, mock_repository_factory):
         """Test that mock_repository_factory has required interface."""
@@ -597,7 +597,7 @@ class TestAPIEndpointDualMode:
         assert hasattr(mock_repository_factory.library, 'get_all')
         assert hasattr(mock_repository_factory.library, 'get_by_id')
 
-    def test_dual_mode_interface_equivalence(self, mock_library_manager, mock_repository_factory):
+    def test_dual_mode_interface_equivalence(self, mock_library_database, mock_repository_factory):
         """Test that both mocks implement equivalent interfaces."""
         from unittest.mock import Mock
 
@@ -607,8 +607,8 @@ class TestAPIEndpointDualMode:
         item.name = "Test"
 
         # Test LibraryManager pattern
-        mock_library_manager.library.get_by_id = Mock(return_value=item)
-        lib_result = mock_library_manager.library.get_by_id(1)
+        mock_library_database.library.get_by_id = Mock(return_value=item)
+        lib_result = mock_library_database.library.get_by_id(1)
         assert lib_result.id == 1
 
         # Test RepositoryFactory pattern

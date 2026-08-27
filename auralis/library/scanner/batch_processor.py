@@ -27,16 +27,16 @@ class BatchProcessor:
     - Error handling per file
     """
 
-    def __init__(self, library_manager: Any, audio_analyzer: Any, metadata_extractor: Any) -> None:
+    def __init__(self, library_database: Any, audio_analyzer: Any, metadata_extractor: Any) -> None:
         """
         Initialize batch processor
 
         Args:
-            library_manager: Library manager instance
+            library_database: Library manager instance
             audio_analyzer: AudioAnalyzer instance
             metadata_extractor: MetadataExtractor instance
         """
-        self.library_manager = library_manager
+        self.library_database = library_database
         self.audio_analyzer = audio_analyzer
         self.metadata_extractor = metadata_extractor
         self.should_stop = False
@@ -112,7 +112,7 @@ class BatchProcessor:
             # #4619: repository access, not the deprecated LibraryManager
             # facade — the scanner is handed a LibraryDatabase now, which has
             # `.tracks` but none of the facade's convenience wrappers.
-            tracks_repo = self.library_manager.tracks
+            tracks_repo = self.library_database.tracks
             existing_track = tracks_repo.get_by_path(file_path) if skip_existing else None
             if existing_track:
                 if check_modifications:

@@ -23,11 +23,11 @@ from auralis.library.scanner.batch_processor import BatchProcessor
 
 
 def _make_processor(existing_track):
-    library_manager = MagicMock()
-    library_manager.tracks.get_by_path.return_value = existing_track
+    library_database = MagicMock()
+    library_database.tracks.get_by_path.return_value = existing_track
     # audio_analyzer/metadata_extractor are irrelevant when the file is
     # correctly detected as unmodified and process_single_file returns early.
-    return BatchProcessor(library_manager, MagicMock(), MagicMock())
+    return BatchProcessor(library_database, MagicMock(), MagicMock())
 
 
 @pytest.fixture(params=["UTC", "America/New_York", "Asia/Kolkata"])

@@ -6,7 +6,7 @@ valid-magic files could monopolise the backend and bloat the DB. The handler now
 rejects a batch over _MAX_UPLOAD_FILES with 413 before decoding anything.
 
 Self-contained (builds the router via create_files_router) because the
-main.library_manager-patching harness in test_files_api.py is pre-existing broken.
+main.library_database-patching harness in test_files_api.py is pre-existing broken.
 """
 
 import io

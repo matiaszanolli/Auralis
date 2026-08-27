@@ -47,11 +47,11 @@ class QueueEnricher:
     def __init__(
         self,
         player_state_manager: Any,
-        library_manager: Any,
+        library_database: Any,
         create_track_info_fn: Callable[[Any], Any],
     ) -> None:
         self.player_state_manager: Any = player_state_manager
-        self.library_manager: Any = library_manager
+        self.library_database: Any = library_database
         self.create_track_info_fn: Callable[[Any], Any] = create_track_info_fn
 
     async def enrich_tracks(self, entries: list[Any]) -> list[TrackInfo]:
@@ -84,10 +84,10 @@ class QueueEnricher:
 
         # 2) Resolve filepaths missing from the state map via the library.
         missing = list(dict.fromkeys(fp for fp in filepaths if fp and fp not in by_fp))
-        if missing and self.library_manager is not None:
+        if missing and self.library_database is not None:
             def _lookup() -> dict[str, TrackInfo]:
                 found: dict[str, TrackInfo] = {}
-                tracks = self.library_manager.tracks.get_by_paths(missing)
+                tracks = self.library_database.tracks.get_by_paths(missing)
                 for fp, track in tracks.items():
                     ti = self.create_track_info_fn(track) if track else None
                     if ti is not None:

@@ -28,10 +28,10 @@ def _worker(*, current_chunk: int = 2, total_chunks: int = 3):
     cache_manager.get_track_cache_status = Mock(return_value=status)
     cache_manager.is_track_fully_cached = Mock(return_value=True)
 
-    library_manager = Mock()
-    library_manager.tracks.get_by_id = Mock(return_value=Mock())
+    library_database = Mock()
+    library_database.tracks.get_by_id = Mock(return_value=Mock())
 
-    return StreamlinedCacheWorker(cache_manager, library_manager)
+    return StreamlinedCacheWorker(cache_manager, library_database)
 
 
 class TestPriorityPrefetchBounds:
@@ -75,7 +75,7 @@ class TestImmediateProcessingBounds:
         )
 
         assert result is False
-        worker.library_manager.tracks.get_by_id.assert_not_called()
+        worker.library_database.tracks.get_by_id.assert_not_called()
         process_chunk.assert_not_awaited()
 
 

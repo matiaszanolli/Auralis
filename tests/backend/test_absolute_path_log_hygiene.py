@@ -91,7 +91,7 @@ async def test_auto_scan_start_log_omits_full_folder_paths(caplog):
     scanner = LibraryAutoScanner.__new__(LibraryAutoScanner)
     scanner._connection_manager = Mock()
     scanner._on_scan_complete = None
-    scanner._library_manager = Mock()
+    scanner._library_database = Mock()
     scanner._fingerprint_queue = None
 
     sensitive_folder = "/home/someuser/Music/Private Collection"

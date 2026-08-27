@@ -109,7 +109,7 @@ def test_manual_scan_frame_family_follows_the_documented_policy(monkeypatch, tmp
 def _make_auto_scanner() -> LibraryAutoScanner:
     return LibraryAutoScanner(
         settings_repo=MagicMock(),
-        library_manager=MagicMock(),
+        library_database=MagicMock(),
         fingerprint_queue=None,
         connection_manager=MagicMock(),
     )

@@ -47,7 +47,7 @@ def mock_cache_manager():
 
 
 @pytest.fixture
-def mock_library_manager():
+def mock_library_database():
     lm = Mock()
     track = Mock()
     track.filepath = "/tmp/test_track.wav"
@@ -56,8 +56,8 @@ def mock_library_manager():
 
 
 @pytest.fixture
-def worker(mock_cache_manager, mock_library_manager):
-    return StreamlinedCacheWorker(mock_cache_manager, mock_library_manager)
+def worker(mock_cache_manager, mock_library_database):
+    return StreamlinedCacheWorker(mock_cache_manager, mock_library_database)
 
 
 class _StubProcessor:
@@ -93,7 +93,7 @@ class TestProcessorCacheBound:
         """MAX + 5 distinct track ids leave exactly MAX entries."""
         for track_id in range(_PROCESSOR_CACHE_MAX + 5):
             await worker._process_chunk(
-                worker.library_manager.tracks.get_by_id(track_id),
+                worker.library_database.tracks.get_by_id(track_id),
                 track_id,
                 0,
                 preset="balanced",
@@ -132,7 +132,7 @@ class TestProcessorCacheBound:
     ):
         """The seek path never touched _build_tier2_cache — it must still bound."""
         for track_id in range(_PROCESSOR_CACHE_MAX + 5):
-            worker.library_manager.tracks.get_by_id.return_value = Mock(
+            worker.library_database.tracks.get_by_id.return_value = Mock(
                 filepath="/tmp/t.wav"
             )
             ok = await worker.trigger_immediate_processing(

@@ -58,9 +58,9 @@ class TestScanResultRecordsFailures:
 
 
 def _processor(*, extract_returns=None, extract_raises=None, add_returns=None):
-    library_manager = MagicMock()
-    library_manager.tracks.get_by_path.return_value = None
-    library_manager.tracks.add.return_value = add_returns
+    library_database = MagicMock()
+    library_database.tracks.get_by_path.return_value = None
+    library_database.tracks.add.return_value = add_returns
 
     audio_analyzer = MagicMock()
     if extract_raises is not None:
@@ -69,7 +69,7 @@ def _processor(*, extract_returns=None, extract_raises=None, add_returns=None):
         audio_analyzer.extract_audio_info.return_value = extract_returns
 
     metadata_extractor = MagicMock()
-    return BatchProcessor(library_manager, audio_analyzer, metadata_extractor)
+    return BatchProcessor(library_database, audio_analyzer, metadata_extractor)
 
 
 class TestProcessSingleFileReportsWhy:
@@ -183,13 +183,13 @@ class TestScannerCarriesFailuresUp:
     def test_scanner_accumulates_failures_across_batches(self):
         from auralis.library.scanner.scanner import LibraryScanner
 
-        library_manager = MagicMock()
-        library_manager.try_acquire_scan_slot.return_value = (True, 1)
+        library_database = MagicMock()
+        library_database.try_acquire_scan_slot.return_value = (True, 1)
         # #4509: a bare MagicMock's auto-attribute return value is truthy,
         # which would otherwise make the per-directory dedup guard reject
         # every scan.
-        library_manager.try_reserve_scan_paths.return_value = []
-        scanner = LibraryScanner(library_manager)
+        library_database.try_reserve_scan_paths.return_value = []
+        scanner = LibraryScanner(library_database)
 
         files = [f'/music/{i}.mp3' for i in range(6)]
         scanner.file_discovery = MagicMock()
@@ -220,13 +220,13 @@ class TestScannerCarriesFailuresUp:
 
         monkeypatch.setattr(scanner_module, 'MAX_RECORDED_FAILURES', 3)
 
-        library_manager = MagicMock()
-        library_manager.try_acquire_scan_slot.return_value = (True, 1)
+        library_database = MagicMock()
+        library_database.try_acquire_scan_slot.return_value = (True, 1)
         # #4509: a bare MagicMock's auto-attribute return value is truthy,
         # which would otherwise make the per-directory dedup guard reject
         # every scan.
-        library_manager.try_reserve_scan_paths.return_value = []
-        scanner = LibraryScanner(library_manager)
+        library_database.try_reserve_scan_paths.return_value = []
+        scanner = LibraryScanner(library_database)
 
         files = [f'/music/{i}.mp3' for i in range(8)]
         scanner.file_discovery = MagicMock()

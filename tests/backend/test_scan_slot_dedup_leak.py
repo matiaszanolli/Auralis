@@ -12,7 +12,7 @@ the finally, which would also strip the OTHER scan's paths from the shared
 dedup set).
 
 #4509: the dedup set itself moved from LibraryScanner (`._active_paths`, an
-instance attribute reset to empty on every fresh scanner) onto library_manager
+instance attribute reset to empty on every fresh scanner) onto library_database
 (`try_reserve_scan_paths`/`release_scan_paths`) — every real caller constructs
 a new LibraryScanner per scan, so the guard has to live on the one object
 those calls actually share. This test's mock now backs those two methods with
@@ -96,5 +96,5 @@ def test_dedup_rejection_releases_scan_slot(tmp_path):
     )
 
     # Acceptance criterion: a fresh, non-overlapping scan can still acquire.
-    acquired, _ = scanner.library_manager.try_acquire_scan_slot()
+    acquired, _ = scanner.library_database.try_acquire_scan_slot()
     assert acquired, "a fresh scan was starved — the slot pool never recovered"

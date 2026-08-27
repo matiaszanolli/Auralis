@@ -17,7 +17,7 @@ from auralis.analysis.fingerprint import FingerprintSimilarity, KNNGraphBuilder
 
 
 @pytest.fixture
-def populated_library(library_manager):
+def populated_library(library_database):
     """Populate library with test tracks and fingerprints."""
     # Create test tracks (using correct field names for TrackRepository)
     tracks_data = [
@@ -35,7 +35,7 @@ def populated_library(library_manager):
 
     track_ids = []
     for track_data in tracks_data:
-        track = library_manager.tracks.add(track_data)
+        track = library_database.tracks.add(track_data)
         if track:
             track_ids.append(track.id)
 
@@ -85,9 +85,9 @@ def populated_library(library_manager):
             'phase_correlation': float(np.random.uniform(0.7, 1.0)),
         }
 
-        library_manager.fingerprints.add(track_id, fingerprint_data)
+        library_database.fingerprints.add(track_id, fingerprint_data)
 
-    return library_manager
+    return library_database
 
 
 class TestSimilaritySystem:

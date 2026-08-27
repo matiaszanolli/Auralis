@@ -36,7 +36,7 @@ pytestmark = pytest.mark.asyncio
 @pytest.fixture
 def worker() -> StreamlinedCacheWorker:
     """A worker whose loop does nothing but sleep."""
-    return StreamlinedCacheWorker(cache_manager=MagicMock(), library_manager=MagicMock())
+    return StreamlinedCacheWorker(cache_manager=MagicMock(), library_database=MagicMock())
 
 
 class TestStreamlinedWorkerTaskReset:

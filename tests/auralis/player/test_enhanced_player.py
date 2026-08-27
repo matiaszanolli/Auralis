@@ -244,7 +244,7 @@ class TestAudioPlayerComprehensive:
         prev_success = enhanced_player.previous_track()
         assert prev_success is False
 
-    def test_queue_operations(self, enhanced_player, test_audio_files, library_manager):
+    def test_queue_operations(self, enhanced_player, test_audio_files, library_database):
         """Test queue management operations"""
         # Test add_to_queue
         track_info = {
@@ -272,7 +272,7 @@ class TestAudioPlayerComprehensive:
                 'duration': 180,
                 'sample_rate': 44100
             }
-            library_manager.tracks.add(library_track_info)
+            library_database.tracks.add(library_track_info)
 
             # Search and add to queue
             enhanced_player.search_and_add_to_queue('Library Track', limit=5)
@@ -343,7 +343,7 @@ class TestAudioPlayerComprehensive:
         default_chunk = enhanced_player.get_audio_chunk()
         assert isinstance(default_chunk, np.ndarray)
 
-    def test_library_integration(self, enhanced_player, test_audio_files, library_manager):
+    def test_library_integration(self, enhanced_player, test_audio_files, library_database):
         """Test library integration features"""
         # Add tracks to library for testing
         library_tracks = []
@@ -357,7 +357,7 @@ class TestAudioPlayerComprehensive:
                     'duration': 120 + i*10,
                     'sample_rate': 44100
                 }
-                track = library_manager.tracks.add(track_info)
+                track = library_database.tracks.add(track_info)
                 if track:
                     library_tracks.append(track)
 
@@ -376,7 +376,7 @@ class TestAudioPlayerComprehensive:
             assert len(queue_info['tracks']) >= 1  # Use len(tracks) instead of track_count
 
             # Test load_playlist (create playlist first)
-            playlist = library_manager.playlists.create(
+            playlist = library_database.playlists.create(
                 name='Test Playlist',
                 description='Test playlist for player',
                 track_ids=[track.id for track in library_tracks[:2]]

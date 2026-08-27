@@ -35,9 +35,9 @@ class _FakeLibraryDatabase:
         return self._scanning
 
 
-def _make_app(get_library_manager) -> TestClient:
+def _make_app(get_library_database) -> TestClient:
     app = FastAPI()
-    router = create_library_scan_router(get_library_manager=get_library_manager)
+    router = create_library_scan_router(get_library_database=get_library_database)
     app.include_router(router)
     return TestClient(app)
 
@@ -56,7 +56,7 @@ def test_reports_scanning_when_a_scan_is_active():
     assert response.json() == {"is_scanning": True}
 
 
-def test_503_when_library_manager_unavailable():
+def test_503_when_library_database_unavailable():
     client = _make_app(lambda: None)
     response = client.get("/api/library/scan/status")
     assert response.status_code == 503

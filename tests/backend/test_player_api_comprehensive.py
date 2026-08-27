@@ -120,7 +120,7 @@ class TestLoadTrack:
         # method on the actual instance instead.
         import main as main_module
 
-        with patch.dict('main.globals_dict', {'audio_player': mock_player, 'library_manager': mock_library}), \
+        with patch.dict('main.globals_dict', {'audio_player': mock_player, 'library_database': mock_library}), \
              patch.object(main_module.manager, 'broadcast', new_callable=AsyncMock) as mock_broadcast:
             response = client.post("/api/player/load", json={"track_id": 1})
 
@@ -169,7 +169,7 @@ class TestLoadTrack:
         mock_library = Mock()
         mock_library.tracks.get_by_id.return_value = mock_track
 
-        with patch.dict('main.globals_dict', {'audio_player': mock_player, 'library_manager': mock_library}):
+        with patch.dict('main.globals_dict', {'audio_player': mock_player, 'library_database': mock_library}):
             results = {}
 
             def do_load():
@@ -200,7 +200,7 @@ class TestLoadTrack:
     def test_load_track_does_not_block_event_loop_during_get_by_id(self, client):
         """Regression test for #3822.
 
-        library_manager.tracks.get_by_id() does a synchronous DB query.
+        library_database.tracks.get_by_id() does a synchronous DB query.
         Under lock contention or a cold mtime-cache, this can take hundreds
         of ms. If it runs directly on the event loop instead of via
         asyncio.to_thread, it stalls every other in-flight request for that
@@ -226,7 +226,7 @@ class TestLoadTrack:
         mock_library = Mock()
         mock_library.tracks.get_by_id = Mock(side_effect=slow_get_by_id)
 
-        with patch.dict('main.globals_dict', {'audio_player': mock_player, 'library_manager': mock_library}):
+        with patch.dict('main.globals_dict', {'audio_player': mock_player, 'library_database': mock_library}):
             results = {}
 
             def do_load():

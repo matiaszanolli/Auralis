@@ -88,10 +88,10 @@ class TestLibraryScanGuardsResolvedManager:
 
     def test_guard_checks_the_resolved_manager_not_the_callable(self):
         source = (_BACKEND / "routers" / "library_scan.py").read_text()
-        # The old form `if not get_library_manager:` tested the function object,
+        # The old form `if not get_library_database:` tested the function object,
         # so it never fired and a None manager reached LibraryScanner.
-        assert "if not get_library_manager:" not in source
-        assert "if library_manager is None:" in source
+        assert "if not get_library_database:" not in source
+        assert "if library_database is None:" in source
 
 
 class TestPlayerLoadGuardsLibraryManager:
@@ -99,8 +99,8 @@ class TestPlayerLoadGuardsLibraryManager:
 
     def test_none_check_precedes_the_dereference(self):
         source = (_BACKEND / "routers" / "player.py").read_text()
-        guard_at = source.find("if library_manager is None:")
-        deref_at = source.find("library_manager.tracks.get_by_id")
+        guard_at = source.find("if library_database is None:")
+        deref_at = source.find("library_database.tracks.get_by_id")
         assert guard_at != -1, "the None guard added in #4656 is missing"
         assert guard_at < deref_at, "guard must precede the dereference"
 

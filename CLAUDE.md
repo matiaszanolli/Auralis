@@ -111,8 +111,8 @@ auralis/                          Core Python audio engine
 │   └── realtime_processor.py       Real-time processing
 ├── library/                      SQLite library (~/.auralis/library.db)
 │   ├── database.py                 LibraryDatabase (engine, migration, sessions, scan slots)
-│                                     Startup stores it under the globals key `library_manager`
-│                                     — a historical name; LibraryManager was deleted (#4915)
+│                                     Startup stores it under the globals key `library_database`
+│                                     (renamed in #5162; it used to name the class #4915 deleted)
 │   ├── repositories/               13 repos + base.py (BaseRepository) + factory.py
 │   │                                 (track, album, artist, playlist, genre, stats,
 │   │                                 fingerprint, fingerprint_scheduler, fingerprint_stats,

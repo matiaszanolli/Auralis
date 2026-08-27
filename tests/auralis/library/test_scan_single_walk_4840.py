@@ -43,13 +43,13 @@ def _batch_result(processed: int) -> ScanResult:
 
 def _make_scanner(files_by_dir: dict[str, list[str]]) -> tuple[LibraryScanner, dict]:
     """A scanner whose discovery is instrumented to count traversals."""
-    library_manager = MagicMock()
-    library_manager.try_acquire_scan_slot.return_value = (True, 1)
+    library_database = MagicMock()
+    library_database.try_acquire_scan_slot.return_value = (True, 1)
     # #4509: a bare MagicMock's auto-attribute return value is truthy, which
     # would otherwise make the per-directory dedup guard reject every scan.
-    library_manager.try_reserve_scan_paths.return_value = []
+    library_database.try_reserve_scan_paths.return_value = []
 
-    scanner = LibraryScanner(library_manager)
+    scanner = LibraryScanner(library_database)
     stats = {'walks': 0, 'entries_yielded': 0, 'walks_per_dir': {}}
 
     def _discover(directory: str, recursive: bool = True):

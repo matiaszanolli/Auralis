@@ -84,7 +84,7 @@ class LibraryAutoScanner:
 
     Usage::
 
-        scanner = LibraryAutoScanner(settings_repo, library_manager,
+        scanner = LibraryAutoScanner(settings_repo, library_database,
                                      fingerprint_queue, connection_manager)
         await scanner.start()   # called from lifespan startup
         ...
@@ -96,13 +96,13 @@ class LibraryAutoScanner:
     def __init__(
         self,
         settings_repo: Any,
-        library_manager: Any,
+        library_database: Any,
         fingerprint_queue: Any | None,
         connection_manager: Any,
         on_scan_complete: Any | None = None,
     ) -> None:
         self._settings_repo = settings_repo
-        self._library_manager = library_manager
+        self._library_database = library_database
         self._fingerprint_queue = fingerprint_queue
         self._connection_manager = connection_manager
         # #3479: optional callback invoked at the end of each scan; receives
@@ -212,7 +212,7 @@ class LibraryAutoScanner:
         # No fingerprint_queue: the scanner never enqueued (#4648, #2382).
         # This class does its own enqueueing after the scan returns — see the
         # `self._fingerprint_queue` guard in _run_scan_cycle below.
-        scanner = LibraryScanner(self._library_manager)
+        scanner = LibraryScanner(self._library_database)
 
         # Bridge sync scanner progress → async broadcast
         loop = asyncio.get_running_loop()
@@ -339,7 +339,7 @@ class LibraryAutoScanner:
         removed = 0
         try:
             removed = await asyncio.to_thread(
-                self._library_manager.tracks.cleanup_missing_files
+                self._library_database.tracks.cleanup_missing_files
             )
             if removed:
                 logger.info(f"🗑️  Removed {removed} missing tracks from library")

@@ -37,7 +37,7 @@ from routers.dependencies import (
 
 
 # ---------------------------------------------------------------------------
-# require_library_manager — DELETED (#4619)
+# require_library_database — DELETED (#4619)
 #
 # The deprecated shim had zero production callers once both LibraryManager
 # construction sites were migrated, so it was removed along with the class's
@@ -45,10 +45,10 @@ from routers.dependencies import (
 # below; this asserts the symbol is gone rather than re-testing it.
 # ---------------------------------------------------------------------------
 
-def test_require_library_manager_is_gone():
+def test_require_library_database_is_gone():
     from routers import dependencies
 
-    assert not hasattr(dependencies, "require_library_manager")
+    assert not hasattr(dependencies, "require_library_database")
 
 
 # ---------------------------------------------------------------------------

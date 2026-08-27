@@ -257,7 +257,7 @@ def session_factory(temp_test_db):
 
 
 @pytest.fixture
-def library_manager(temp_test_db):
+def library_database(temp_test_db):
     """Create a LibraryDatabase instance with a temporary database.
 
     #4915: previously yielded the deprecated LibraryManager facade, which had
@@ -382,8 +382,8 @@ def settings_repository(repository_factory):
 
 
 # Dual-mode testing fixture (Phase 5A)
-@pytest.fixture(params=["library_manager", "repository_factory"])
-def dual_mode_data_source(request, library_manager, repository_factory):
+@pytest.fixture(params=["library_database", "repository_factory"])
+def dual_mode_data_source(request, library_database, repository_factory):
     """Parametrized fixture providing both LibraryManager and RepositoryFactory modes.
 
     Use this fixture to run tests in both modes, validating that both
@@ -391,7 +391,7 @@ def dual_mode_data_source(request, library_manager, repository_factory):
 
     Args:
         request: pytest request object
-        library_manager: LibraryManager fixture
+        library_database: LibraryManager fixture
         repository_factory: RepositoryFactory fixture
 
     Yields:
@@ -399,13 +399,13 @@ def dual_mode_data_source(request, library_manager, repository_factory):
 
     Example:
         def test_get_tracks_both_modes(dual_mode_data_source):
-            # Test automatically runs with both library_manager and repository_factory
+            # Test automatically runs with both library_database and repository_factory
             source = dual_mode_data_source
             if hasattr(source, 'tracks'):  # Check if it's a factory or manager
                 tracks, total = source.tracks.get_all(limit=10)
     """
-    if request.param == "library_manager":
-        return library_manager
+    if request.param == "library_database":
+        return library_database
     else:
         return repository_factory
 
@@ -422,9 +422,9 @@ def temp_library(temp_test_db):
     files and access them through a LibraryDatabase instance.
 
     Yields:
-        tuple: (library_manager, audio_dir, temp_dir)
-            - library_manager: LibraryDatabase instance with test database
-              (#4915: was LibraryManager — see the library_manager fixture
+        tuple: (library_database, audio_dir, temp_dir)
+            - library_database: LibraryDatabase instance with test database
+              (#4915: was LibraryManager — see the library_database fixture
               above for why callers using repository-style access are
               unaffected)
             - audio_dir: Path to directory for test audio files

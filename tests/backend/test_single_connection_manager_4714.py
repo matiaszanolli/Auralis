@@ -127,7 +127,7 @@ class TestMisresolutionIsLoud:
         """The exact #4578 shape — a dict that does not declare the key — can
         never be main.py's registry, so it means a reader resolved the wrong
         object."""
-        globals_mod.set_component_registry({"library_manager": None})
+        globals_mod.set_component_registry({"library_database": None})
 
         with caplog.at_level(logging.WARNING, logger="core.chunked_processor"):
             assert _default_get_fingerprints_repository() is None
@@ -139,7 +139,7 @@ class TestMisresolutionIsLoud:
     def test_warning_is_emitted_once_not_per_lookup(self, caplog):
         """The accessor runs per track lookup — an unlatched warning would
         flood the log and get filtered out by whoever reads it."""
-        globals_mod.set_component_registry({"library_manager": None})
+        globals_mod.set_component_registry({"library_database": None})
 
         with caplog.at_level(logging.WARNING, logger="core.chunked_processor"):
             for _ in range(5):

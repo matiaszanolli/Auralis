@@ -285,7 +285,7 @@ def fingerprint_count():
 # ============================================================
 
 @pytest.fixture
-def mock_library_manager():
+def mock_library_database():
     """
     Create a mock LibraryManager for testing routers.
 
@@ -450,8 +450,8 @@ def mock_repository_factory_callable(mock_repository_factory):
     return _get_factory
 
 
-@pytest.fixture(params=["library_manager", "repository_factory"])
-def mock_data_source(request, mock_library_manager, mock_repository_factory):
+@pytest.fixture(params=["library_database", "repository_factory"])
+def mock_data_source(request, mock_library_database, mock_repository_factory):
     """
     Parametrized fixture for dual-mode backend testing.
 
@@ -466,8 +466,8 @@ def mock_data_source(request, mock_library_manager, mock_repository_factory):
             mode, source = mock_data_source
             # Can check which mode and handle accordingly
     """
-    if request.param == "library_manager":
-        return ("library_manager", mock_library_manager)
+    if request.param == "library_database":
+        return ("library_database", mock_library_database)
     else:
         return ("repository_factory", mock_repository_factory)
 

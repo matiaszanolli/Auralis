@@ -47,15 +47,15 @@ def _make_settings(auto_scan: bool = False, scan_folders: list[str] | None = Non
 def _make_scanner(settings: SimpleNamespace | None = None) -> tuple[LibraryAutoScanner, MagicMock, MagicMock, MagicMock]:
     settings_repo = MagicMock()
     settings_repo.get_settings = MagicMock(return_value=settings or _make_settings())
-    library_manager = MagicMock()
+    library_database = MagicMock()
     connection_manager = MagicMock()
     scanner = LibraryAutoScanner(
         settings_repo=settings_repo,
-        library_manager=library_manager,
+        library_database=library_database,
         fingerprint_queue=None,
         connection_manager=connection_manager,
     )
-    return scanner, settings_repo, library_manager, connection_manager
+    return scanner, settings_repo, library_database, connection_manager
 
 
 # ---------------------------------------------------------------------------

@@ -28,14 +28,14 @@ from auralis.services.fingerprint_queue import FingerprintExtractionQueue
 
 class TestScannerOnScanComplete:
     def _make_scanner(self) -> LibraryScanner:
-        library_manager = MagicMock()
+        library_database = MagicMock()
         # Make try_acquire_scan_slot return success so the scan body runs.
-        library_manager.try_acquire_scan_slot.return_value = (True, 1)
+        library_database.try_acquire_scan_slot.return_value = (True, 1)
         # #4509: a bare MagicMock's auto-attribute return value is truthy,
         # which would otherwise make the per-directory dedup guard reject
         # every scan.
-        library_manager.try_reserve_scan_paths.return_value = []
-        scanner = LibraryScanner(library_manager)
+        library_database.try_reserve_scan_paths.return_value = []
+        scanner = LibraryScanner(library_database)
         # Stub the heavy collaborators — we only care about the callback.
         scanner.file_discovery = MagicMock()
         scanner.file_discovery.discover_audio_files.return_value = iter([])
@@ -56,7 +56,7 @@ class TestScannerOnScanComplete:
     def test_callback_suppressed_when_scan_rejected(self) -> None:
         scanner = self._make_scanner()
         # Force scan rejection by saying no slot is available.
-        scanner.library_manager.try_acquire_scan_slot.return_value = (False, 1)
+        scanner.library_database.try_acquire_scan_slot.return_value = (False, 1)
         captured: list[ScanResult] = []
         scanner.set_scan_complete_callback(lambda r: captured.append(r))
 

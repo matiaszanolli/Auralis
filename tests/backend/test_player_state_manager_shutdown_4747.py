@@ -33,7 +33,7 @@ def _globals(**overrides):
     base['streamlined_worker'] = Mock(stop=AsyncMock())
     base['processing_engine'] = Mock(stop_worker=AsyncMock(), close_processor_pool=AsyncMock())
     base['audio_player'] = Mock(stop=Mock(), cleanup=Mock())
-    base['library_manager'] = Mock(shutdown=Mock())
+    base['library_database'] = Mock(shutdown=Mock())
     base['player_state_manager'] = Mock(shutdown=AsyncMock())
     base.update(overrides)
     return base
@@ -62,12 +62,12 @@ class TestLifespanStopsIt:
             side_effect=lambda: order.append('player_state_manager')
         )
         g['audio_player'].stop = Mock(side_effect=lambda: order.append('audio_player'))
-        g['library_manager'].shutdown = Mock(side_effect=lambda: order.append('library_manager'))
+        g['library_database'].shutdown = Mock(side_effect=lambda: order.append('library_database'))
 
         await _run(g)
 
         assert order[0] == 'player_state_manager'
-        assert order == ['player_state_manager', 'audio_player', 'library_manager']
+        assert order == ['player_state_manager', 'audio_player', 'library_database']
 
     async def test_a_failure_here_does_not_skip_the_rest(self):
         """Same step-isolation guarantee as every other step (#4569)."""
@@ -76,7 +76,7 @@ class TestLifespanStopsIt:
 
         await _run(g)
 
-        g['library_manager'].shutdown.assert_called_once()
+        g['library_database'].shutdown.assert_called_once()
         g['audio_player'].cleanup.assert_called_once()
 
     async def test_an_absent_manager_is_not_an_error(self):
@@ -86,7 +86,7 @@ class TestLifespanStopsIt:
 
         await _run(g)
 
-        g['library_manager'].shutdown.assert_called_once()
+        g['library_database'].shutdown.assert_called_once()
 
 
 class TestTheManagerItself:

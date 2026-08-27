@@ -38,7 +38,7 @@ def _globals(**overrides):
     base['streamlined_worker'] = Mock(stop=AsyncMock())
     base['processing_engine'] = Mock(stop_worker=AsyncMock(), close_processor_pool=AsyncMock())
     base['audio_player'] = Mock(stop=Mock(), cleanup=Mock())
-    base['library_manager'] = Mock(shutdown=Mock())
+    base['library_database'] = Mock(shutdown=Mock())
     base.update(overrides)
     return base
 
@@ -67,7 +67,7 @@ class TestOneFailingStepDoesNotSkipTheRest:
 
         await _run(g)
 
-        g['library_manager'].shutdown.assert_called_once()
+        g['library_database'].shutdown.assert_called_once()
         # And the workers *after* the failing one still stopped.
         g['fingerprint_queue'].stop.assert_awaited_once()
 
@@ -78,7 +78,7 @@ class TestOneFailingStepDoesNotSkipTheRest:
         await _run(g)
 
         g['processing_engine'].stop_worker.assert_awaited_once()
-        g['library_manager'].shutdown.assert_called_once()
+        g['library_database'].shutdown.assert_called_once()
 
     async def test_failing_processing_engine_does_not_skip_library_shutdown(self):
         g = _globals()
@@ -87,7 +87,7 @@ class TestOneFailingStepDoesNotSkipTheRest:
         await _run(g)
 
         g['audio_player'].stop.assert_called_once()
-        g['library_manager'].shutdown.assert_called_once()
+        g['library_database'].shutdown.assert_called_once()
 
     async def test_failing_processor_pool_drain_does_not_skip_library_shutdown(self):
         """#5061: close_processor_pool sits right after stop_worker/before the
@@ -98,7 +98,7 @@ class TestOneFailingStepDoesNotSkipTheRest:
         await _run(g)
 
         g['audio_player'].stop.assert_called_once()
-        g['library_manager'].shutdown.assert_called_once()
+        g['library_database'].shutdown.assert_called_once()
 
     async def test_every_step_failing_still_reaches_the_last_one(self):
         g = _globals()
@@ -110,11 +110,11 @@ class TestOneFailingStepDoesNotSkipTheRest:
 
         await _run(g)
 
-        g['library_manager'].shutdown.assert_called_once()
+        g['library_database'].shutdown.assert_called_once()
 
-    async def test_library_manager_failure_is_contained(self):
+    async def test_library_database_failure_is_contained(self):
         g = _globals()
-        g['library_manager'].shutdown = Mock(side_effect=RuntimeError("wal locked"))
+        g['library_database'].shutdown = Mock(side_effect=RuntimeError("wal locked"))
 
         await _run(g)  # must not raise
 
@@ -134,7 +134,7 @@ class TestHappyPath:
         g['processing_engine'].close_processor_pool.assert_awaited_once()
         g['audio_player'].stop.assert_called_once()
         g['audio_player'].cleanup.assert_called_once()
-        g['library_manager'].shutdown.assert_called_once()
+        g['library_database'].shutdown.assert_called_once()
 
     async def test_stop_order_is_documented_order(self):
         """auto_scanner first — it may enqueue into the fingerprint queues."""
@@ -167,12 +167,12 @@ class TestFingerprintExecutorShutdown:
     via atexit — never by the lifespan — so it ran after (not before) the
     library-database shutdown step, and could race an in-flight fingerprint
     computation against the WAL checkpoint. shutdown_fingerprint_executor_bounded()
-    must now run as its own guarded step, ordered before library_manager.shutdown()."""
+    must now run as its own guarded step, ordered before library_database.shutdown()."""
 
     async def test_called_before_library_shutdown(self):
         order: list[str] = []
         g = _globals()
-        g['library_manager'].shutdown = Mock(side_effect=lambda: order.append("library"))
+        g['library_database'].shutdown = Mock(side_effect=lambda: order.append("library"))
 
         factory, artwork, _ = _quiet_externals()
         fingerprint_mock = AsyncMock(side_effect=lambda **kw: order.append("fingerprint"))
@@ -209,7 +209,7 @@ class TestFingerprintExecutorShutdown:
         ):
             await _shutdown_components(g)  # must not raise
 
-        g['library_manager'].shutdown.assert_called_once()
+        g['library_database'].shutdown.assert_called_once()
 
 
 class TestSingleSourceOfTruth:

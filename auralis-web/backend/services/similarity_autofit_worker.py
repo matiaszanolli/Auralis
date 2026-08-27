@@ -8,7 +8,7 @@ entry uses (#4111), so lifespan shutdown and `POST /api/library/reset`
 cannot diverge on it — the gap #4682 found: the fit used to run on a bare
 `threading.Thread(daemon=True)` that was never stored, joined, or signalled
 to stop, so a quit mid-fit tore the process down while the thread still held
-a session against an engine `library_manager.shutdown()` was about to
+a session against an engine `library_database.shutdown()` was about to
 dispose, and a library reset raced it reading fingerprints from a database
 being wiped out from under it.
 

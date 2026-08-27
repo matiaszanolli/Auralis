@@ -67,7 +67,7 @@ def music_dir(tmp_path):
 
 def _run_scan(directory, batch_size=5):
     """Drive a real LibraryScanner and return every progress frame it emits."""
-    scanner = LibraryScanner(library_manager=object())
+    scanner = LibraryScanner(library_database=object())
     scanner.batch_processor = _StubBatchProcessor()
 
     frames: list[dict] = []

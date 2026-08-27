@@ -180,7 +180,7 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
 
     # Scan route with async progress broadcast
     library_scan_router: APIRouter = create_library_scan_router(
-        get_library_manager=get_component('library_manager'),
+        get_library_database=get_component('library_database'),
         connection_manager=manager,
     )
     app.include_router(library_scan_router)
@@ -217,7 +217,7 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
 
     # Create and include player router
     player_router: APIRouter = create_player_router(
-        get_library_manager=get_component('library_manager'),
+        get_library_database=get_component('library_database'),
         get_audio_player=get_component('audio_player'),
         get_player_state_manager=get_component('player_state_manager'),
         connection_manager=manager,

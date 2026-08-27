@@ -110,7 +110,7 @@ class TestSetQueueStatusMapping:
         with patch.dict('main.globals_dict', {
             'audio_player': mock_player,
             'player_state_manager': mock_state,
-            'library_manager': mock_library,
+            'library_database': mock_library,
         }):
             response = client.post(
                 "/api/player/queue",
@@ -152,7 +152,7 @@ class TestSiblingHandlerMapping:
         with patch.dict('main.globals_dict', {
             'audio_player': mock_player,
             'player_state_manager': Mock(),
-            'library_manager': mock_library,
+            'library_database': mock_library,
         }):
             response = client.post(
                 "/api/player/queue/add-track",

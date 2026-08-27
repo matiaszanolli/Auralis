@@ -69,16 +69,16 @@ class TestScannerNoAsyncioCreateTask:
 
         track_obj = _make_track(42)
 
-        library_manager = MagicMock()
+        library_database = MagicMock()
         # try_acquire_scan_slot returns (acquired, max) — a bare MagicMock
         # unpacks to zero values (its default __iter__ is empty), so configure it.
-        library_manager.try_acquire_scan_slot.return_value = (True, 1)
+        library_database.try_acquire_scan_slot.return_value = (True, 1)
         # #4509: a bare MagicMock's auto-attribute return value is truthy,
         # which would otherwise make the per-directory dedup guard reject
         # every scan.
-        library_manager.try_reserve_scan_paths.return_value = []
+        library_database.try_reserve_scan_paths.return_value = []
 
-        scanner = LibraryScanner(library_manager)
+        scanner = LibraryScanner(library_database)
 
         # Patch the internal components so no real I/O happens
         batch_result = MagicMock()
@@ -110,10 +110,10 @@ class TestScannerNoAsyncioCreateTask:
         from auralis.library.scanner.scanner import LibraryScanner
 
         track_obj = _make_track(7)
-        library_manager = MagicMock()
-        library_manager.try_acquire_scan_slot.return_value = (True, 1)
-        library_manager.try_reserve_scan_paths.return_value = []
-        scanner = LibraryScanner(library_manager)
+        library_database = MagicMock()
+        library_database.try_acquire_scan_slot.return_value = (True, 1)
+        library_database.try_reserve_scan_paths.return_value = []
+        scanner = LibraryScanner(library_database)
 
         batch_result = MagicMock()
         batch_result.files_processed = 1

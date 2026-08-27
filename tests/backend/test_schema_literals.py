@@ -110,7 +110,7 @@ def _build_service(*, engine_info: dict, repeat_mode: object = "off",
     return QueueService(
         audio_player=audio_player,
         player_state_manager=state_manager,
-        library_manager=MagicMock(),
+        library_database=MagicMock(),
         connection_manager=MagicMock(),
         create_track_info_fn=create_track_info,
     )

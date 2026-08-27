@@ -5,7 +5,7 @@ This file demonstrates the Phase 5C testing patterns for validating that both
 LibraryManager and RepositoryFactory patterns work correctly with backend endpoints.
 
 Patterns shown:
-1. Unit testing with mock_library_manager
+1. Unit testing with mock_library_database
 2. Unit testing with mock_repository_factory
 3. Parametrized dual-mode testing
 4. Individual repository mocking
@@ -24,9 +24,9 @@ import pytest
 
 @pytest.mark.phase5c
 class TestMockLibraryManager:
-    """Example tests using mock_library_manager fixture."""
+    """Example tests using mock_library_database fixture."""
 
-    def test_get_all_artists_with_mock(self, mock_library_manager):
+    def test_get_all_artists_with_mock(self, mock_library_database):
         """Test that get_all works with mocked LibraryManager."""
         # Set up mock to return test data
         artist1 = Mock()
@@ -37,74 +37,74 @@ class TestMockLibraryManager:
         artist2.name = "Artist 2"
         test_artists = [artist1, artist2]
 
-        mock_library_manager.artists.get_all = Mock(
+        mock_library_database.artists.get_all = Mock(
             return_value=(test_artists, 2)
         )
 
         # Test logic
-        artists, total = mock_library_manager.artists.get_all(limit=50, offset=0)
+        artists, total = mock_library_database.artists.get_all(limit=50, offset=0)
 
         # Verify
         assert len(artists) == 2
         assert total == 2
         assert artists[0].name == "Artist 1"
-        mock_library_manager.artists.get_all.assert_called_once_with(
+        mock_library_database.artists.get_all.assert_called_once_with(
             limit=50, offset=0
         )
 
-    def test_get_by_id_with_mock(self, mock_library_manager):
+    def test_get_by_id_with_mock(self, mock_library_database):
         """Test that get_by_id works with mocked LibraryManager."""
         # Set up mock
         test_artist = Mock()
         test_artist.id = 1
         test_artist.name = "Test Artist"
-        mock_library_manager.artists.get_by_id = Mock(return_value=test_artist)
+        mock_library_database.artists.get_by_id = Mock(return_value=test_artist)
 
         # Test
-        result = mock_library_manager.artists.get_by_id(1)
+        result = mock_library_database.artists.get_by_id(1)
 
         # Verify
         assert result is not None
         assert result.id == 1
         assert result.name == "Test Artist"
-        mock_library_manager.artists.get_by_id.assert_called_once_with(1)
+        mock_library_database.artists.get_by_id.assert_called_once_with(1)
 
-    def test_search_with_mock(self, mock_library_manager):
+    def test_search_with_mock(self, mock_library_database):
         """Test that search works with mocked LibraryManager."""
         # Set up mock
         search_result = Mock()
         search_result.id = 1
         search_result.name = "Artist Alpha"
         search_results = [search_result]
-        mock_library_manager.artists.search = Mock(
+        mock_library_database.artists.search = Mock(
             return_value=(search_results, 1)
         )
 
         # Test
-        results, total = mock_library_manager.artists.search("Alpha", limit=50)
+        results, total = mock_library_database.artists.search("Alpha", limit=50)
 
         # Verify
         assert len(results) == 1
         assert total == 1
-        mock_library_manager.artists.search.assert_called_once_with(
+        mock_library_database.artists.search.assert_called_once_with(
             "Alpha", limit=50
         )
 
-    def test_create_artist_with_mock(self, mock_library_manager):
+    def test_create_artist_with_mock(self, mock_library_database):
         """Test that artist creation works with mocked LibraryManager."""
         # Set up mock
         new_artist = Mock()
         new_artist.id = 3
         new_artist.name = "New Artist"
-        mock_library_manager.artists.create = Mock(return_value=new_artist)
+        mock_library_database.artists.create = Mock(return_value=new_artist)
 
         # Test
-        result = mock_library_manager.artists.create(name="New Artist")
+        result = mock_library_database.artists.create(name="New Artist")
 
         # Verify
         assert result.id == 3
         assert result.name == "New Artist"
-        mock_library_manager.artists.create.assert_called_once()
+        mock_library_database.artists.create.assert_called_once()
 
 
 @pytest.mark.phase5c

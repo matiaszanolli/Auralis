@@ -50,7 +50,7 @@ class LibraryScanner:
     - Intelligent file filtering
     """
 
-    def __init__(self, library_manager: Any) -> None:
+    def __init__(self, library_database: Any) -> None:
         """
         Initialize scanner with library manager
 
@@ -64,9 +64,9 @@ class LibraryScanner:
         `LibraryAutoScanner._run_scan_cycle` for the enqueue that actually runs.
 
         Args:
-            library_manager: Library manager instance
+            library_database: Library manager instance
         """
-        self.library_manager: Any = library_manager
+        self.library_database: Any = library_database
         self.progress_callback: Callable[[dict[str, Any]], None] | None = None
         # #3479: invoked after every successful scan completes (even an empty
         # one), outside the scan-slot lock so the consumer can do its own DB
@@ -81,7 +81,7 @@ class LibraryScanner:
         # pattern (#3710 / library_auto_scanner).
         self.should_stop: threading.Event = threading.Event()
 
-        # Per-directory deduplication (#3455) lives on library_manager, not
+        # Per-directory deduplication (#3455) lives on library_database, not
         # here — see LibraryDatabase.try_reserve_scan_paths()/#4509. Every
         # caller (LibraryAutoScanner._do_scan, routers/library_scan.py)
         # constructs a fresh LibraryScanner per invocation, so an instance
@@ -92,14 +92,14 @@ class LibraryScanner:
         self.audio_analyzer: Any = AudioAnalyzer()
         self.metadata_extractor: Any = MetadataExtractor()
         self.batch_processor: Any = BatchProcessor(
-            library_manager,
+            library_database,
             self.audio_analyzer,
             self.metadata_extractor
         )
         self.duplicate_detector: Any = DuplicateDetector(
             self.file_discovery,
             self.audio_analyzer,
-            library_manager
+            library_database
         )
 
     def set_progress_callback(self, callback: Callable[[dict[str, Any]], None]) -> None:
@@ -118,19 +118,19 @@ class LibraryScanner:
         self.batch_processor.stop()
 
     def _release_scan_slot_safe(self) -> None:
-        """Release a scan slot, tolerating a lightweight mock library_manager
+        """Release a scan slot, tolerating a lightweight mock library_database
         that lacks release_scan_slot (mirrors the try_acquire guard)."""
         try:
-            self.library_manager.release_scan_slot()
+            self.library_database.release_scan_slot()
         except AttributeError:
             pass
 
     def _release_scan_paths_safe(self, paths: list[str]) -> None:
         """Release reserved per-directory dedup paths (#3455 / #4509),
-        tolerating a lightweight mock library_manager that lacks
+        tolerating a lightweight mock library_database that lacks
         release_scan_paths (mirrors _release_scan_slot_safe)."""
         try:
-            self.library_manager.release_scan_paths(paths)
+            self.library_database.release_scan_paths(paths)
         except AttributeError:
             pass
 
@@ -159,9 +159,9 @@ class LibraryScanner:
         _acquired: bool = True
         _max_scans: int = 1
         try:
-            _acquired, _max_scans = self.library_manager.try_acquire_scan_slot()
+            _acquired, _max_scans = self.library_database.try_acquire_scan_slot()
         except AttributeError:
-            pass  # library_manager is a lightweight mock; skip guard
+            pass  # library_database is a lightweight mock; skip guard
 
         if not _acquired:
             warning(
@@ -173,15 +173,15 @@ class LibraryScanner:
         # --- End concurrency guard ---
 
         # --- Per-directory dedup guard (#3455 / #4509) ---
-        # Reserved on library_manager, not on self — see the #4509 note in
+        # Reserved on library_database, not on self — see the #4509 note in
         # __init__: a fresh LibraryScanner per invocation means an instance
         # attribute here would never be shared between two overlapping scans.
         normalized = [os.path.normpath(os.path.abspath(d)) for d in directories]
         already_scanning: list[str] = []
         try:
-            already_scanning = self.library_manager.try_reserve_scan_paths(normalized)
+            already_scanning = self.library_database.try_reserve_scan_paths(normalized)
         except AttributeError:
-            pass  # library_manager is a lightweight mock; skip guard
+            pass  # library_database is a lightweight mock; skip guard
 
         if already_scanning:
             warning(

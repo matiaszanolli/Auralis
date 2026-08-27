@@ -104,7 +104,7 @@ except ImportError:
 manager = ConnectionManager()
 globals_dict = {
     # Components (initialized during startup)
-    'library_manager': None,
+    'library_database': None,
     'repository_factory': None,  # Phase 2: RepositoryFactory for DI
     'settings_repository': None,
     'audio_player': None,

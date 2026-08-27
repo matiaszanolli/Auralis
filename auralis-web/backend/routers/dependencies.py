@@ -86,8 +86,8 @@ def require_repository_factory(get_repository_factory: Callable[[], Any]) -> Any
     """
     Validate that repository factory is available.
 
-    This is the Phase 2 dependency injection mechanism that enables
-    gradual migration from the deprecated LibraryManager facade to
+    This is the Phase 2 dependency injection mechanism that enabled the
+    migration from the since-deleted LibraryManager facade (#4915) to
     direct repository usage.
 
     Args:

@@ -48,16 +48,16 @@ class StreamlinedCacheWorker:
     3. Keep previous track cached for instant back button
     """
 
-    def __init__(self, cache_manager: Any, library_manager: Any) -> None:
+    def __init__(self, cache_manager: Any, library_database: Any) -> None:
         """
         Initialize streamlined cache worker.
 
         Args:
             cache_manager: StreamlinedCacheManager instance
-            library_manager: LibraryDatabase used to get track information
+            library_database: LibraryDatabase used to get track information
         """
         self.cache_manager = cache_manager
-        self.library_manager = library_manager
+        self.library_database = library_database
         self.running = False
         self._worker_task: asyncio.Task[None] | None = None
 

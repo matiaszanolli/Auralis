@@ -44,20 +44,20 @@ def temp_audio_dir():
 
 
 # Phase 5B.1: Migration to conftest.py fixtures
-# Removed local library_manager fixture - now using conftest.py fixture
+# Removed local library_database fixture - now using conftest.py fixture
 # Tests automatically use the fixture from parent conftest.py
 
 
 @pytest.fixture
-def album_repo(library_manager):
+def album_repo(library_database):
     """Get album repository from library manager."""
-    return library_manager.albums
+    return library_database.albums
 
 
 @pytest.fixture
-def track_repo(library_manager):
+def track_repo(library_database):
     """Get track repository from library manager."""
-    return library_manager.tracks
+    return library_database.tracks
 
 
 def create_test_track(directory: Path, filename: str):

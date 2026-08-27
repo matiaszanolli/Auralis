@@ -312,7 +312,7 @@ class TestAllThreeCallPathsShareTheSeeder:
         sys.modules["services.library_auto_scanner"].LibraryAutoScanner = _Scanner
 
         globals_dict = self._globals_with_factory(MagicMock())
-        globals_dict.update({'settings_repository': None, 'library_manager': None})
+        globals_dict.update({'settings_repository': None, 'library_database': None})
         closure = startup_mod._init_reference_cloud_refresh(globals_dict)
 
         await startup_mod._start_auto_scanner(MagicMock(), globals_dict, closure)

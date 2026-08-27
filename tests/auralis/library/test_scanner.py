@@ -122,7 +122,7 @@ class TestLibraryScannerComprehensive:
         assert scanner is not None
         # LibraryScanner has scan_directories(), not scan_directory() or scan_file()
         assert hasattr(scanner, 'scan_directories')
-        assert hasattr(scanner, 'library_manager')
+        assert hasattr(scanner, 'library_database')
 
         self.tearDown()
 

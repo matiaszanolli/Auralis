@@ -158,7 +158,7 @@ class TestLibraryReset:
 
         The `@cached_query` decorators live only on the deprecated
         LibraryManager facade, which the backend no longer constructs, so the
-        reset endpoint no longer takes a `get_library_manager` at all — every
+        reset endpoint no longer takes a `get_library_database` at all — every
         read goes straight through the repositories to SQLite."""
         import inspect
 
@@ -167,7 +167,7 @@ class TestLibraryReset:
         response = _client.post("/api/library/reset", headers=CONFIRM_HEADERS)
 
         assert response.status_code == 200
-        assert "get_library_manager" not in inspect.signature(create_library_router).parameters
+        assert "get_library_database" not in inspect.signature(create_library_router).parameters
 
     def test_workers_restarted_even_if_reset_fails(self):
         """A failing reset still restarts the paused workers (finally) and returns 500."""

@@ -138,7 +138,7 @@ class TestPerDirectoryDedupGuard:
     overlapping scan of the SAME directory even when the scan-slot guard
     alone would allow both to run — proving the two LibraryScanner instances
     (each constructed fresh, matching every real caller's shape) share ONE
-    dedup set via library_manager rather than each seeing its own empty one.
+    dedup set via library_database rather than each seeing its own empty one.
     """
 
     def test_overlapping_scan_of_same_directory_rejected_even_with_slots_available(

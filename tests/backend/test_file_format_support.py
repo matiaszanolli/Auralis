@@ -44,7 +44,7 @@ def temp_audio_dir():
 
 
 # Phase 5B.1: Migration to conftest.py fixtures
-# Removed local library_manager fixture - now using conftest.py fixture
+# Removed local library_database fixture - now using conftest.py fixture
 # Tests automatically use the fixture from parent conftest.py
 
 
@@ -278,7 +278,7 @@ def test_format_stereo_channels(temp_audio_dir):
 # ============================================================================
 
 @pytest.mark.integration
-def test_format_scanner_detects_wav_files(temp_audio_dir, library_manager):
+def test_format_scanner_detects_wav_files(temp_audio_dir, library_database):
     """
     FORMAT: Library scanner detects WAV files.
 
@@ -290,7 +290,7 @@ def test_format_scanner_detects_wav_files(temp_audio_dir, library_manager):
         audio, sr = create_test_audio_data()
         save_audio(str(filepath), audio, sr, subtype='PCM_16')
 
-    scanner = LibraryScanner(library_manager)
+    scanner = LibraryScanner(library_database)
     # scan_folder() returns the list of discovered files; it used to return an
     # (added, skipped, errors) tuple (#4691).
     discovered = scanner.scan_folder(str(temp_audio_dir))
@@ -299,7 +299,7 @@ def test_format_scanner_detects_wav_files(temp_audio_dir, library_manager):
 
 
 @pytest.mark.integration
-def test_format_scanner_detects_flac_files(temp_audio_dir, library_manager):
+def test_format_scanner_detects_flac_files(temp_audio_dir, library_database):
     """
     FORMAT: Library scanner detects FLAC files.
 
@@ -311,7 +311,7 @@ def test_format_scanner_detects_flac_files(temp_audio_dir, library_manager):
         audio, sr = create_test_audio_data()
         save_audio(str(filepath), audio, sr, subtype='PCM_16')
 
-    scanner = LibraryScanner(library_manager)
+    scanner = LibraryScanner(library_database)
     # scan_folder() returns the list of discovered files; it used to return an
     # (added, skipped, errors) tuple (#4691).
     discovered = scanner.scan_folder(str(temp_audio_dir))
@@ -320,7 +320,7 @@ def test_format_scanner_detects_flac_files(temp_audio_dir, library_manager):
 
 
 @pytest.mark.integration
-def test_format_scanner_skips_unsupported_files(temp_audio_dir, library_manager):
+def test_format_scanner_skips_unsupported_files(temp_audio_dir, library_database):
     """
     FORMAT: Library scanner skips unsupported files.
 
@@ -330,7 +330,7 @@ def test_format_scanner_skips_unsupported_files(temp_audio_dir, library_manager)
     text_file = temp_audio_dir / "readme.txt"
     text_file.write_text("This is not an audio file")
 
-    scanner = LibraryScanner(library_manager)
+    scanner = LibraryScanner(library_database)
     # scan_folder() returns only the files it recognised as audio; the
     # unsupported ones are simply absent rather than counted as skipped (#4691).
     discovered = scanner.scan_folder(str(temp_audio_dir))

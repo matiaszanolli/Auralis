@@ -265,7 +265,7 @@ class UndoQueueResponse(BaseModel):
 # DEPENDENCY WIRING (#4670)
 #
 # create_player_router() used to be a 515-line closure: every handler below
-# was nested inside it purely to reach get_library_manager/get_audio_player/
+# was nested inside it purely to reach get_library_database/get_audio_player/
 # etc. via closure capture, which made a handler impossible to import or
 # call without first building the whole router. Handlers are now module
 # level; they reach the same callables through FastAPI Depends() instead.
@@ -287,7 +287,7 @@ class UndoQueueResponse(BaseModel):
 # ============================================================================
 
 class _PlayerDeps:
-    get_library_manager: Callable[[], Any]
+    get_library_database: Callable[[], Any]
     get_audio_player: Callable[[], Any]
     get_player_state_manager: Callable[[], Any]
     connection_manager: Any
@@ -301,8 +301,8 @@ def _get_audio_player() -> Any:
     return _deps.get_audio_player()
 
 
-def _get_library_manager() -> Any:
-    return _deps.get_library_manager()
+def _get_library_database() -> Any:
+    return _deps.get_library_database()
 
 
 def _get_player_state_manager() -> Any:
@@ -329,14 +329,14 @@ def _get_playback_service(
 def _get_queue_service(
     audio_player: Any = Depends(_get_audio_player),
     player_state_manager: Any = Depends(_get_player_state_manager),
-    library_manager: Any = Depends(_get_library_manager),
+    library_database: Any = Depends(_get_library_database),
     connection_manager: Any = Depends(_get_connection_manager),
 ) -> QueueService:
     """Lazy service initialization"""
     return QueueService(
         audio_player=audio_player,
         player_state_manager=player_state_manager,
-        library_manager=library_manager,
+        library_database=library_database,
         connection_manager=connection_manager,
         create_track_info_fn=_deps.create_track_info_fn,
     )
@@ -363,21 +363,21 @@ def _get_navigation_service(
     )
 
 
-def _get_queue_history_repo(library_manager: Any = Depends(_get_library_manager)) -> Any:
+def _get_queue_history_repo(library_database: Any = Depends(_get_library_database)) -> Any:
     """Lazy repository initialization (#3805).
 
     Constructed directly from the library manager's session factory
     rather than via RepositoryFactory — this router only receives
-    get_library_manager, not get_repository_factory. QueueHistoryRepository
+    get_library_database, not get_repository_factory. QueueHistoryRepository
     is cheap to construct (BaseRepository just holds the session factory;
     no per-instance caching needed for occasional undo/history calls).
     """
-    if not library_manager:
+    if not library_database:
         raise HTTPException(status_code=503, detail="Library manager not available")
     from auralis.library.repositories.queue_history_repository import (
         QueueHistoryRepository,
     )
-    return QueueHistoryRepository(library_manager.SessionLocal)
+    return QueueHistoryRepository(library_database.SessionLocal)
 
 
 # ============================================================================
@@ -408,7 +408,7 @@ async def load_track(
     request: LoadTrackRequest,
     background_tasks: BackgroundTasks,
     audio_player: Any = Depends(_get_audio_player),
-    library_manager: Any = Depends(_get_library_manager),
+    library_database: Any = Depends(_get_library_database),
     connection_manager: Any = Depends(_get_connection_manager),
     recommendation_service: RecommendationService = Depends(_get_recommendation_service),
 ) -> dict[str, Any]:
@@ -433,10 +433,10 @@ async def load_track(
     # Security: Query track from database to validate file path (offloaded — sync DB call)
     # This deref sits outside the try: below, so a None manager escaped as an
     # unhandled AttributeError rather than an actionable 503 (#4656).
-    if library_manager is None:
+    if library_database is None:
         raise HTTPException(status_code=503, detail="Library manager not available")
 
-    track = await asyncio.to_thread(library_manager.tracks.get_by_id, request.track_id)
+    track = await asyncio.to_thread(library_database.tracks.get_by_id, request.track_id)
     if not track:
         raise NotFoundError("Track", detail=f"Track {request.track_id} not found in library")
 
@@ -807,7 +807,7 @@ async def previous_track(service: NavigationService = Depends(_get_navigation_se
 
 
 def create_player_router(
-    get_library_manager: Callable[[], Any],
+    get_library_database: Callable[[], Any],
     get_audio_player: Callable[[], Any],
     get_player_state_manager: Callable[[], Any],
     connection_manager: Any,
@@ -820,7 +820,7 @@ def create_player_router(
     Factory function to create player router with dependencies.
 
     Args:
-        get_library_manager: Callable that returns the LibraryDatabase
+        get_library_database: Callable that returns the LibraryDatabase
         get_audio_player: Callable that returns AudioPlayer instance
         get_player_state_manager: Callable that returns PlayerStateManager instance
         connection_manager: WebSocket connection manager for broadcasts
@@ -837,7 +837,7 @@ def create_player_router(
     # removed in #3884: it's now called directly from stream_enhanced.py,
     # the actual play_enhanced path -- this REST router never triggers
     # streaming, so it could never have been the right place to invoke it.)
-    _deps.get_library_manager = get_library_manager
+    _deps.get_library_database = get_library_database
     _deps.get_audio_player = get_audio_player
     _deps.get_player_state_manager = get_player_state_manager
     _deps.connection_manager = connection_manager

@@ -28,19 +28,19 @@ class DuplicateDetector:
     - Can scan directories or entire library
     """
 
-    def __init__(self, file_discovery: Any, audio_analyzer: Any, library_manager: Any | None = None) -> None:
+    def __init__(self, file_discovery: Any, audio_analyzer: Any, library_database: Any | None = None) -> None:
         """
         Initialize duplicate detector
 
         Args:
             file_discovery: FileDiscovery instance
             audio_analyzer: AudioAnalyzer instance
-            library_manager: Optional LibraryDatabase, required for
+            library_database: Optional LibraryDatabase, required for
                 find_duplicates(directories=None) (whole-library dedup, #4241).
         """
         self.file_discovery = file_discovery
         self.audio_analyzer = audio_analyzer
-        self.library_manager = library_manager
+        self.library_database = library_database
 
     def find_duplicates(self, directories: list[str] | None = None) -> list[list[str]]:
         """
@@ -53,7 +53,7 @@ class DuplicateDetector:
             List of lists, where each inner list contains paths of duplicate files
 
         Raises:
-            NotImplementedError: If directories is None and no library_manager
+            NotImplementedError: If directories is None and no library_database
                 was supplied at construction time (#4241).
         """
         try:
@@ -95,18 +95,18 @@ class DuplicateDetector:
         since the last scan are skipped (cleanup_missing_files handles that
         separately) rather than aborting the whole scan.
         """
-        if self.library_manager is None:
+        if self.library_database is None:
             raise NotImplementedError(
-                "find_duplicates(directories=None) requires a library_manager "
+                "find_duplicates(directories=None) requires a library_database "
                 "to query the entire library; pass directories explicitly or "
-                "construct DuplicateDetector with a library_manager."
+                "construct DuplicateDetector with a library_database."
             )
 
         offset = 0
         while True:
             # #4619: repository access — the deprecated LibraryManager facade
             # is no longer what the scanner is constructed with.
-            tracks, total = self.library_manager.tracks.get_all(
+            tracks, total = self.library_database.tracks.get_all(
                 limit=_LIBRARY_SCAN_BATCH_SIZE, offset=offset
             )
             if not tracks:

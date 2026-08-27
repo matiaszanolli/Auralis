@@ -51,7 +51,7 @@ logger = logging.getLogger(__name__)
 # / tasks) by the time a later startup step fails. Rollback must await each
 # one's .stop() before nulling it out, not just drop the reference — an
 # already-running fingerprint queue or auto-scanner would otherwise keep
-# calling into a library_manager that's about to be rolled back to None
+# calling into a library_database that's about to be rolled back to None
 # (#3812 / BE-MW-3, regression of #3540 / BE-NEW-82).
 # Derived from the canonical set (#4569) rather than re-listed, so a worker
 # added to BACKGROUND_WORKER_KEYS is automatically covered by rollback and
@@ -63,7 +63,7 @@ _ROLLBACK_SERVICES_TO_STOP: tuple[tuple[str, dict[str, Any]], ...] = tuple(
 # Components that only need to be nulled on rollback (never started an async
 # task of their own, or are handled by _ROLLBACK_SERVICES_TO_STOP above).
 _ROLLBACK_COMPONENTS_TO_NULL: tuple[str, ...] = (
-    'library_manager', 'repository_factory', 'settings_repository',
+    'library_database', 'repository_factory', 'settings_repository',
     'audio_player', 'player_state_manager',
     'streamlined_cache', 'similarity_system', 'graph_builder',
 )
@@ -73,8 +73,8 @@ async def _rollback_partial_startup(globals_dict: dict[str, Any]) -> None:
     """Roll back partially-initialised globals after a startup failure.
 
     So downstream routers see a coherent 'not ready' state instead of
-    'library_manager truthy but everything else None' (#3540 / BE-NEW-82).
-    Router dependencies that gate on library_manager truthy will then return
+    'library_database truthy but everything else None' (#3540 / BE-NEW-82).
+    Router dependencies that gate on library_database truthy will then return
     503 rather than AttributeError -> 500.
 
     Extracted as a standalone function (#3812) so this behavior — especially
@@ -84,7 +84,7 @@ async def _rollback_partial_startup(globals_dict: dict[str, Any]) -> None:
 
     Three components get a real teardown call, not just a bare null-out
     (#4764): player_state_manager (stop the 1 Hz broadcast task, #4747),
-    audio_player (release the hardware device, #3210), and library_manager
+    audio_player (release the hardware device, #3210), and library_database
     (WAL checkpoint + engine dispose, #3210). Without this, a startup
     failure after these were constructed left the SQLite engine, the audio
     device, and (if playback had started) a background task unreachable for
@@ -105,7 +105,7 @@ async def _rollback_partial_startup(globals_dict: dict[str, Any]) -> None:
 
     await _teardown_player_state_manager(globals_dict)
     _teardown_audio_player(globals_dict)
-    _teardown_library_manager(globals_dict)
+    _teardown_library_database(globals_dict)
 
     for _component in _ROLLBACK_COMPONENTS_TO_NULL:
         globals_dict[_component] = None
@@ -159,12 +159,12 @@ def _teardown_audio_player(globals_dict: dict[str, Any]) -> None:
         logger.warning(f"⚠️  Audio player shutdown error: {player_err}")
 
 
-def _teardown_library_manager(globals_dict: dict[str, Any]) -> None:
+def _teardown_library_database(globals_dict: dict[str, Any]) -> None:
     """Shut down the library database — WAL checkpoint + engine dispose (#3210), best-effort.
 
     Shared by _shutdown_components and _rollback_partial_startup (#4764).
     """
-    manager = globals_dict.get('library_manager')
+    manager = globals_dict.get('library_database')
     if not manager:
         return
     try:
@@ -328,7 +328,7 @@ async def _shutdown_components(globals_dict: dict[str, Any]) -> None:
             logger.warning(f"⚠️  Fingerprint executor shutdown error: {fp_err}")
 
         # Shut down the library database last — WAL checkpoint + engine dispose (#3210)
-        _teardown_library_manager(globals_dict)
+        _teardown_library_database(globals_dict)
 
         # Thread pools last (#5086): every step above may offload work via
         # asyncio.to_thread, and the I/O pool IS the loop's default executor —
@@ -673,17 +673,18 @@ def _init_library_database(globals_dict: dict[str, Any]) -> None:
     # DeprecationWarning that its own message says precedes removal
     # in v2.0.0 — a promise that could not be kept while the class
     # was load-bearing. LibraryDatabase owns the migration, engine,
-    # session factory, scan slots and shutdown; LibraryManager is
-    # now only the legacy query facade over it.
-    globals_dict['library_manager'] = LibraryDatabase()
+    # session factory, scan slots and shutdown; once it did, the facade
+    # had no callers left and #4915 deleted it. The globals key went on
+    # naming it for a month after that, until #5162.
+    globals_dict['library_database'] = LibraryDatabase()
     logger.info("✅ Auralis library database initialized")
-    logger.debug(f"📊 Database location: {globals_dict['library_manager'].database_path}")
+    logger.debug(f"📊 Database location: {globals_dict['library_database'].database_path}")
 
     # Repository factory for dependency injection. It is owned by
     # LibraryDatabase so every consumer — routers via this key and
     # components handed the database object — shares one instance
     # instead of building a second factory over the same sessions.
-    globals_dict['repository_factory'] = globals_dict['library_manager'].repositories
+    globals_dict['repository_factory'] = globals_dict['library_database'].repositories
     logger.info("✅ Repository Factory initialized (Phase 2 support)")
 
 
@@ -706,8 +707,8 @@ async def _init_fingerprint_extraction_queue(globals_dict: dict[str, Any]) -> No
 
         # Create fingerprint extractor with library manager's fingerprint repository
         fingerprint_extractor = FingerprintExtractor(
-            fingerprint_repository=globals_dict['library_manager'].fingerprints,
-            track_repository=globals_dict['library_manager'].tracks,
+            fingerprint_repository=globals_dict['library_database'].fingerprints,
+            track_repository=globals_dict['library_database'].tracks,
         )
         logger.info("✅ Fingerprint Extractor initialized")
 
@@ -829,7 +830,7 @@ async def _start_auto_scanner(
         from services.library_auto_scanner import LibraryAutoScanner
         auto_scanner = LibraryAutoScanner(
             settings_repo=globals_dict['settings_repository'],
-            library_manager=globals_dict['library_manager'],
+            library_database=globals_dict['library_database'],
             fingerprint_queue=globals_dict.get('fingerprint_queue'),
             connection_manager=manager,
             on_scan_complete=on_scan_complete,
@@ -867,7 +868,7 @@ def _init_audio_player(manager: Any, globals_dict: dict[str, Any]) -> None:
     )
     logger.info("✅ Enhanced Audio Player initialized (Phase 4 RepositoryFactory support enabled)")
 
-    # Initialize state manager (must be after library_manager is created)
+    # Initialize state manager (must be after library_database is created)
     globals_dict['player_state_manager'] = PlayerStateManager(manager)
     logger.info("✅ Player State Manager initialized")
 
@@ -887,7 +888,7 @@ async def _init_ondemand_fingerprint_queue(globals_dict: dict[str, Any]) -> None
 
         # Create FingerprintGenerator for the queue
         fp_generator = FingerprintGenerator(
-            session_factory=globals_dict['library_manager'].SessionLocal,
+            session_factory=globals_dict['library_database'].SessionLocal,
             get_repository_factory=lambda: globals_dict.get('repository_factory')
         )
 
@@ -931,7 +932,7 @@ async def _init_similarity_system(HAS_SIMILARITY: bool, globals_dict: dict[str, 
         from services.similarity_autofit_worker import SimilarityAutoFitWorker
 
         globals_dict['similarity_system'] = FingerprintSimilarity(
-            globals_dict['library_manager'].fingerprints
+            globals_dict['library_database'].fingerprints
         )
         logger.info("✅ Fingerprint Similarity System initialized")
 
@@ -954,7 +955,7 @@ async def _init_similarity_system(HAS_SIMILARITY: bool, globals_dict: dict[str, 
         globals_dict['graph_builder'] = None
         autofit_worker = SimilarityAutoFitWorker(
             sim_system=globals_dict['similarity_system'],
-            lib_mgr=globals_dict['library_manager'],
+            lib_mgr=globals_dict['library_database'],
             globals_dict=globals_dict,
             builder_cls=KNNGraphBuilder,
         )
@@ -1064,10 +1065,10 @@ async def _init_processing_engine(HAS_PROCESSING: bool, globals_dict: dict[str, 
 
 async def _init_streamlined_cache(HAS_STREAMLINED_CACHE: bool, globals_dict: dict[str, Any]) -> None:
     """Initialize the streamlined cache manager and its background worker (Beta.9)."""
-    if not (HAS_STREAMLINED_CACHE and globals_dict.get('library_manager')):
+    if not (HAS_STREAMLINED_CACHE and globals_dict.get('library_database')):
         if not HAS_STREAMLINED_CACHE:
             logger.warning("⚠️  Streamlined cache not available")
-        elif not globals_dict.get('library_manager'):
+        elif not globals_dict.get('library_database'):
             logger.warning("⚠️  Library manager not available - streamlined cache disabled")
         return
     try:
@@ -1082,7 +1083,7 @@ async def _init_streamlined_cache(HAS_STREAMLINED_CACHE: bool, globals_dict: dic
         # Create and start worker
         globals_dict['streamlined_worker'] = StreamlinedCacheWorker(
             cache_manager=globals_dict['streamlined_cache'],
-            library_manager=globals_dict['library_manager']
+            library_database=globals_dict['library_database']
         )
 
         # Start the worker

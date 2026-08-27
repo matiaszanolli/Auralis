@@ -32,7 +32,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "ba
 
 
 @pytest.fixture
-def mock_library_manager():
+def mock_library_database():
     """Mock LibraryManager for testing"""
     manager = Mock()
     manager.scan_directory = Mock()
@@ -116,7 +116,7 @@ class TestScanDirectory:
 
     def test_scan_directory_nonexistent(self, client):
         """Test scanning non-existent directory"""
-        # No @patch('main.library_manager')/@patch('main.connection_manager') here
+        # No @patch('main.library_database')/@patch('main.connection_manager') here
         # (#4788): those targets don't exist as module attributes on `main` any
         # more — routers/library_scan.py's dependencies are bound via factory
         # closures in config/routes.py at startup, not module-level lookups — so
@@ -139,22 +139,22 @@ class TestScanDirectory:
 
     def test_scan_directory_library_unavailable(self, client):
         """Test scan when library manager not available"""
-        # library_manager is resolved lazily from main.globals_dict at request
+        # library_database is resolved lazily from main.globals_dict at request
         # time (config/routes.py's get_component() closure), not a patchable
-        # module attribute -- @patch('main.library_manager') never existed as
+        # module attribute -- @patch('main.library_database') never existed as
         # a target (#4788) and unconditionally raised AttributeError at test
         # setup before the request was ever made (#5089).
         import main
 
-        original = main.globals_dict.get('library_manager')
-        main.globals_dict['library_manager'] = None
+        original = main.globals_dict.get('library_database')
+        main.globals_dict['library_database'] = None
         try:
             response = client.post(
                 "/api/library/scan",
                 json={"directories": ["/tmp"]}
             )
         finally:
-            main.globals_dict['library_manager'] = original
+            main.globals_dict['library_database'] = original
 
         # Should return 503 (Service Unavailable)
         assert response.status_code == 503
@@ -176,8 +176,8 @@ class TestUploadFiles:
 
     def test_upload_unsupported_file_type(self, client):
         """Test upload with unsupported file type"""
-        # No @patch('main.library_manager') (#5089/#4788): upload_files() has
-        # never read `library_manager` -- it gates on the repository_factory
+        # No @patch('main.library_database') (#5089/#4788): upload_files() has
+        # never read `library_database` -- it gates on the repository_factory
         # closure via get_repos()/require_repository_factory(), and the
         # target attribute doesn't exist on `main` at all, so the patch
         # unconditionally raised AttributeError at test setup regardless of
@@ -225,7 +225,7 @@ class TestUploadFiles:
         # upload_files() gates on get_repos() -> require_repository_factory(),
         # which reads main.globals_dict['repository_factory'] lazily at
         # request time (config/routes.py's get_component() closure) -- not
-        # `library_manager`, and not a patchable module attribute either way
+        # `library_database`, and not a patchable module attribute either way
         # (#5089/#4788).
         import main
 
@@ -408,7 +408,7 @@ class TestFilesSecurityValidation:
 
     def test_upload_filename_validation(self, client):
         """Test that dangerous filenames are handled safely"""
-        # No @patch('main.library_manager') -- see
+        # No @patch('main.library_database') -- see
         # test_upload_unsupported_file_type above (#5089/#4788).
 
         # Dangerous filenames
@@ -462,7 +462,7 @@ class TestUploadPermanentStorage:
 
         mock_load.return_value = (np.zeros((44100, 2), dtype=np.float32), 44100)
         # The handler's actual DB call is repos.tracks.add via get_repository_factory
-        # — library_manager.add_track is dead wiring (files.py's own docstring: "Deprecated,
+        # — library_database.add_track is dead wiring (files.py's own docstring: "Deprecated,
         # unused. Kept for backward compatibility").
         mock_factory = Mock()
         mock_factory.tracks.add.return_value = self._make_mock_track()
@@ -515,7 +515,7 @@ class TestUploadPermanentStorage:
         mock_move.side_effect = fake_move
 
         import main as main_module
-        with patch.dict(main_module.globals_dict, {'library_manager': mock_lib_obj}):
+        with patch.dict(main_module.globals_dict, {'library_database': mock_lib_obj}):
             files = {"files": ("song.mp3", io.BytesIO(b"RIFF" + b"\x00" * 4 + b"WAVEfmt "), "audio/mpeg")}
             response = client.post("/api/files/upload", files=files)
 
@@ -547,7 +547,7 @@ class TestUploadPermanentStorage:
         mock_move.side_effect = OSError(leaky_message)
 
         import main as main_module
-        with patch.dict(main_module.globals_dict, {'library_manager': mock_lib_obj}):
+        with patch.dict(main_module.globals_dict, {'library_database': mock_lib_obj}):
             files = {"files": ("song.mp3", io.BytesIO(b"RIFF" + b"\x00" * 4 + b"WAVEfmt "), "audio/mpeg")}
             response = client.post("/api/files/upload", files=files)
 
@@ -580,7 +580,7 @@ class TestUploadPermanentStorage:
 
         mock_load.return_value = (np.zeros((44100, 2), dtype=np.float32), 44100)
         # The handler's actual DB call is repos.tracks.add via get_repository_factory
-        # — library_manager.add_track is dead wiring (files.py's own docstring: "Deprecated,
+        # — library_database.add_track is dead wiring (files.py's own docstring: "Deprecated,
         # unused. Kept for backward compatibility").
         mock_factory = Mock()
         permanent_file = tmp_path / "permanent.mp3"

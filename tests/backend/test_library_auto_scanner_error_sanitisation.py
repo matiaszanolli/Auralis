@@ -28,12 +28,12 @@ from services.library_auto_scanner import LibraryAutoScanner
 def _make_scanner() -> tuple[LibraryAutoScanner, MagicMock]:
     """Return a (scanner, broadcast_mock) pair with a minimal mock setup."""
     settings_repo = MagicMock()
-    library_manager = MagicMock()
+    library_database = MagicMock()
     connection_manager = MagicMock()
     broadcast_mock = AsyncMock()
     scanner = LibraryAutoScanner(
         settings_repo=settings_repo,
-        library_manager=library_manager,
+        library_database=library_database,
         fingerprint_queue=None,
         connection_manager=connection_manager,
     )

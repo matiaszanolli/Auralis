@@ -576,7 +576,7 @@ class TestArtistsAPIDualModeParametrized:
 
     These tests automatically run with both LibraryManager and RepositoryFactory
     via the parametrized mock_data_source fixture. Each test runs twice:
-    once with library_manager, once with repository_factory.
+    once with library_database, once with repository_factory.
 
     This pattern validates that both data access patterns provide identical
     interface and behavior without code duplication.
@@ -587,7 +587,7 @@ class TestArtistsAPIDualModeParametrized:
         Parametrized test: Validate artists repository interface works with both modes.
 
         This test automatically runs with:
-        - (library_manager, mock_library_manager)
+        - (library_database, mock_library_database)
         - (repository_factory, mock_repository_factory)
         """
         mode, source = mock_data_source
@@ -679,18 +679,18 @@ class TestArtistsAPIDualModeParametrized:
 # PATTERN: How to migrate existing tests to Phase 5C fixtures
 #
 # BEFORE (current approach):
-#   with patch('main.library_manager') as mock_library:
+#   with patch('main.library_database') as mock_library:
 #       mock_library.artists.get_all.return_value = (artists, total)
 #       response = client.get("/api/artists")
 #
 # AFTER (Phase 5C):
-#   def test_something(self, client, mock_library_manager):
+#   def test_something(self, client, mock_library_database):
 #       artist = Mock()
 #       artist.id = 1
 #       artist.name = "Test"
 #       # ... setup artist
-#       mock_library_manager.artists.get_all = Mock(return_value=(artists, total))
-#       with patch('main.library_manager', mock_library_manager):
+#       mock_library_database.artists.get_all = Mock(return_value=(artists, total))
+#       with patch('main.library_database', mock_library_database):
 #           response = client.get("/api/artists")
 #
 # BENEFITS:

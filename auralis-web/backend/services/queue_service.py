@@ -42,7 +42,7 @@ class QueueService:
         self,
         audio_player: AudioPlayerWithQueue,
         player_state_manager: Any,
-        library_manager: Any,
+        library_database: Any,
         connection_manager: Any,
         create_track_info_fn: Callable[[Any], Any],
     ) -> None:
@@ -52,7 +52,7 @@ class QueueService:
         Args:
             audio_player: AudioPlayer instance with queue support
             player_state_manager: PlayerStateManager instance
-            library_manager: LibraryDatabase (or any object exposing the
+            library_database: LibraryDatabase (or any object exposing the
                 repository accessors) used to resolve track rows
             connection_manager: WebSocket connection manager for broadcasts
             create_track_info_fn: Function to convert DB track to TrackInfo
@@ -62,13 +62,13 @@ class QueueService:
         """
         self.audio_player: AudioPlayerWithQueue = audio_player
         self.player_state_manager: Any = player_state_manager
-        self.library_manager: Any = library_manager
+        self.library_database: Any = library_database
         self.connection_manager: Any = connection_manager
         self.create_track_info_fn: Callable[[Any], Any] = create_track_info_fn
         # Read-model derivation lives in QueueEnricher (#4260); it needs the
         # same three collaborators and no queue state of its own.
         self._enricher = QueueEnricher(
-            player_state_manager, library_manager, create_track_info_fn
+            player_state_manager, library_database, create_track_info_fn
         )
         # #3721: serialise concurrent set_queue() calls. set_queue runs
         # 7 awaitable steps with WS broadcasts and engine I/O; without
@@ -129,11 +129,11 @@ class QueueService:
                 track_ids.append(tid)
 
         by_id: dict[int, Any] = {}
-        if track_ids and self.library_manager is not None:
+        if track_ids and self.library_database is not None:
             try:
                 unique_ids = list(dict.fromkeys(track_ids))
                 by_id = await asyncio.to_thread(
-                    self.library_manager.tracks.get_by_ids, unique_ids
+                    self.library_database.tracks.get_by_ids, unique_ids
                 ) or {}
             except Exception as exc:
                 logger.debug(f"queue_changed batch hydration failed: {exc}")
@@ -244,7 +244,7 @@ class QueueService:
             raise ServiceUnavailable("Audio player not available")
         if not self.player_state_manager:
             raise ServiceUnavailable("Player state manager not available")
-        if not self.library_manager:
+        if not self.library_database:
             raise ServiceUnavailable("Library manager not available")
 
         async with self._set_queue_lock:
@@ -262,7 +262,7 @@ class QueueService:
             # thread (fixes #3554 / BE-NEW-96: per-track sync calls
             # previously blocked the event loop for hundreds of ms on
             # large queues).
-            tracks_repo = self.library_manager.tracks
+            tracks_repo = self.library_database.tracks
             if hasattr(tracks_repo, 'get_by_ids'):
                 # TrackRepository.get_by_ids returns dict[int, Track] keyed by
                 # track id — iterating it yields ints, not Track objects.
@@ -338,7 +338,7 @@ class QueueService:
                             return result
                         track_snapshot = await self.player_state_manager.set_track(
                             current_track,
-                            self.library_manager,
+                            self.library_database,
                             broadcast=False,
                         )
                     if track_snapshot is not None:
@@ -387,13 +387,13 @@ class QueueService:
         """
         if not self.audio_player or not hasattr(self.audio_player, 'queue'):
             raise ServiceUnavailable("Queue manager not available")
-        if not self.library_manager:
+        if not self.library_database:
             raise ServiceUnavailable("Library manager not available")
 
         try:
             # Get track from library — sync DB call, offload (#3554).
             track = await asyncio.to_thread(
-                self.library_manager.tracks.get_by_id, track_id
+                self.library_database.tracks.get_by_id, track_id
             )
             if not track:
                 raise ResourceNotFound(f"Track {track_id} not found")

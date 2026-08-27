@@ -78,7 +78,7 @@ def fingerprint_repository_mock():
 
 
 @pytest.fixture
-def library_manager_mock():
+def library_database_mock():
     """Mock library manager for testing"""
     class MockLibraryDatabase:
         def __init__(self):
@@ -188,13 +188,13 @@ class TestFingerprintQueueManager:
     """Tests for fingerprint queue manager lifecycle"""
 
     @pytest.mark.asyncio
-    async def test_manager_initialization(self, fingerprint_extractor_mock, library_manager_mock):
+    async def test_manager_initialization(self, fingerprint_extractor_mock, library_database_mock):
         """Test queue manager initialization"""
         from auralis.services.fingerprint_queue import FingerprintQueueManager
 
         manager = FingerprintQueueManager(
             fingerprint_extractor=fingerprint_extractor_mock,
-            library_database=library_manager_mock,
+            library_database=library_database_mock,
             num_workers=4
         )
 
@@ -202,13 +202,13 @@ class TestFingerprintQueueManager:
         assert manager.queue is not None
 
     @pytest.mark.asyncio
-    async def test_manager_startup_shutdown(self, fingerprint_extractor_mock, library_manager_mock):
+    async def test_manager_startup_shutdown(self, fingerprint_extractor_mock, library_database_mock):
         """Test manager startup and shutdown"""
         from auralis.services.fingerprint_queue import FingerprintQueueManager
 
         manager = FingerprintQueueManager(
             fingerprint_extractor=fingerprint_extractor_mock,
-            library_database=library_manager_mock,
+            library_database=library_database_mock,
             num_workers=2
         )
 
@@ -227,7 +227,7 @@ class TestFingerprintQueueManager:
 class TestScannerFingerprinterIntegration:
     """Tests for scanner-fingerprinter integration"""
 
-    def test_scanner_does_not_take_a_fingerprint_queue(self, library_manager_mock):
+    def test_scanner_does_not_take_a_fingerprint_queue(self, library_database_mock):
         """The scanner must not accept a queue it would silently ignore (#4648).
 
         It used to take one, store it, and read it only from
@@ -247,10 +247,10 @@ class TestScannerFingerprinterIntegration:
             'enqueue path, so the argument would be silently ignored (#4648)'
         )
 
-        scanner = LibraryScanner(library_manager=library_manager_mock)
+        scanner = LibraryScanner(library_database=library_database_mock)
         assert not hasattr(scanner, 'fingerprint_queue')
 
-    def test_scanner_has_no_enqueue_method(self, library_manager_mock):
+    def test_scanner_has_no_enqueue_method(self, library_database_mock):
         """No async method on the synchronous scan path (#4648)."""
         from auralis.library.scanner import LibraryScanner
 

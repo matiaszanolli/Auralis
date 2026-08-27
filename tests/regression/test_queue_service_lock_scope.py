@@ -31,7 +31,7 @@ async def test_slow_queue_state_broadcast_does_not_hold_set_queue_lock():
     repository.get_by_ids.side_effect = (
         lambda ids: {track_id: tracks[track_id] for track_id in ids}
     )
-    library_manager = SimpleNamespace(tracks=repository)
+    library_database = SimpleNamespace(tracks=repository)
 
     queue_controller = MagicMock()
     audio_player = MagicMock()
@@ -56,7 +56,7 @@ async def test_slow_queue_state_broadcast_does_not_hold_set_queue_lock():
     service = QueueService(
         audio_player=audio_player,
         player_state_manager=DeferredStateManager(),
-        library_manager=library_manager,
+        library_database=library_database,
         connection_manager=MagicMock(),
         create_track_info_fn=lambda track: SimpleNamespace(id=track.id),
     )

@@ -49,16 +49,16 @@ def api_client(temp_library):
     """
     # Import here to avoid circular imports
     try:
-        from auralis_web.backend.dependencies import get_library_manager
+        from auralis_web.backend.dependencies import get_library_database
         from auralis_web.backend.main import app
 
         manager, audio_dir, db_path = temp_library
 
         # Override dependency to use test library
-        def override_get_library_manager():
+        def override_get_library_database():
             return manager
 
-        app.dependency_overrides[get_library_manager] = override_get_library_manager
+        app.dependency_overrides[get_library_database] = override_get_library_database
 
         client = TestClient(app)
         yield client, manager

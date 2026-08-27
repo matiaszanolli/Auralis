@@ -22,7 +22,7 @@ Exercises the real production pipeline against the CURRENT API:
   end to end, not just the DB write.
 - Query/pagination, search, album grouping, metadata edit, favorites, deletion,
   and read-after-write consistency: directly against ``TrackRepository`` /
-  ``AlbumRepository`` via the ``library_manager`` fixture (a real
+  ``AlbumRepository`` via the ``library_database`` fixture (a real
   ``LibraryDatabase`` backed by a temp SQLite file — see tests/conftest.py),
   adding synthetic tracks with ``TrackRepository.add()`` where a real audio
   file isn't the point of the test.
@@ -101,21 +101,21 @@ def _add_track(tracks_repo, *, filepath, title, artists=None, album=None,
 class TestScanAddAndDedup:
     """LibraryScanner.scan_directories() -> BatchProcessor -> TrackRepository."""
 
-    def test_scan_persists_tracks_queryable_afterward(self, library_manager, tmp_path):
+    def test_scan_persists_tracks_queryable_afterward(self, library_database, tmp_path):
         music_dir = tmp_path / "music"
         music_dir.mkdir()
         _write_flac(music_dir / "01.flac", title="Song One", artist="Band A", album="Album A")
         _write_flac(music_dir / "02.flac", title="Song Two", artist="Band A", album="Album A")
 
-        scanner = LibraryScanner(library_manager)
+        scanner = LibraryScanner(library_database)
         result = scanner.scan_directories([str(music_dir)])
 
         assert result.files_added == 2
-        tracks, total = library_manager.tracks.get_all(limit=50)
+        tracks, total = library_database.tracks.get_all(limit=50)
         assert total == 2
         assert {t.title for t in tracks} == {"Song One", "Song Two"}
 
-    def test_rescan_dedups_via_get_by_path(self, library_manager, tmp_path):
+    def test_rescan_dedups_via_get_by_path(self, library_database, tmp_path):
         """A second scan of the same directory must not create duplicate rows.
 
         Exercises the real dedup check (BatchProcessor -> TrackRepository.get_by_path())
@@ -125,7 +125,7 @@ class TestScanAddAndDedup:
         music_dir.mkdir()
         _write_flac(music_dir / "01.flac", title="Song", artist="Band", album="Album")
 
-        scanner = LibraryScanner(library_manager)
+        scanner = LibraryScanner(library_database)
         first = scanner.scan_directories([str(music_dir)])
         assert first.files_added == 1
 
@@ -133,15 +133,15 @@ class TestScanAddAndDedup:
         assert second.files_added == 0
         assert second.files_skipped == 1
 
-        tracks, total = library_manager.tracks.get_all(limit=50)
+        tracks, total = library_database.tracks.get_all(limit=50)
         assert total == 1, "rescan must not create a duplicate row for the same file"
-        assert library_manager.tracks.get_by_path(str(music_dir / "01.flac")) is not None
+        assert library_database.tracks.get_by_path(str(music_dir / "01.flac")) is not None
 
 
 class TestMetadataPersistence:
     """Embedded tags survive extraction, DB persistence, and re-query."""
 
-    def test_embedded_tags_round_trip_through_scan(self, library_manager, tmp_path):
+    def test_embedded_tags_round_trip_through_scan(self, library_database, tmp_path):
         music_dir = tmp_path / "music"
         music_dir.mkdir()
         _write_flac(
@@ -151,11 +151,11 @@ class TestMetadataPersistence:
             duration=1.5, sample_rate=48000,
         )
 
-        scanner = LibraryScanner(library_manager)
+        scanner = LibraryScanner(library_database)
         result = scanner.scan_directories([str(music_dir)])
         assert result.files_added == 1
 
-        tracks, _ = library_manager.tracks.get_all(limit=10)
+        tracks, _ = library_database.tracks.get_all(limit=10)
         assert len(tracks) == 1
         track = tracks[0]
 
@@ -169,8 +169,8 @@ class TestMetadataPersistence:
 
 
 class TestQueryAndPagination:
-    def test_get_all_paginates_without_overlap_or_gaps(self, library_manager):
-        tracks_repo = library_manager.tracks
+    def test_get_all_paginates_without_overlap_or_gaps(self, library_database):
+        tracks_repo = library_database.tracks
         for i in range(5):
             _add_track(
                 tracks_repo, filepath=f"/music/page_{i}.flac",
@@ -192,8 +192,8 @@ class TestQueryAndPagination:
 
 
 class TestSearch:
-    def test_search_matches_title_artist_and_album(self, library_manager):
-        tracks_repo = library_manager.tracks
+    def test_search_matches_title_artist_and_album(self, library_database):
+        tracks_repo = library_database.tracks
         _add_track(
             tracks_repo, filepath="/music/searchable_title.flac",
             title="Searchable Nightfall", artists=["Someone Else"],
@@ -217,9 +217,9 @@ class TestSearch:
         titles = {t.title for t in results}
         assert titles == {"Searchable Nightfall", "Unrelated", "Also Unrelated"}
 
-    def test_search_escapes_like_metacharacters(self, library_manager):
+    def test_search_escapes_like_metacharacters(self, library_database):
         """A literal '%' in the query must not match every row (fixes #2405)."""
-        tracks_repo = library_manager.tracks
+        tracks_repo = library_database.tracks
         _add_track(tracks_repo, filepath="/music/percent.flac", title="100% Done", artists=["A"])
         _add_track(tracks_repo, filepath="/music/other.flac", title="Something Else", artists=["B"])
 
@@ -230,9 +230,9 @@ class TestSearch:
 
 
 class TestAlbumGrouping:
-    def test_tracks_sharing_an_album_are_grouped_under_one_album_row(self, library_manager):
-        tracks_repo = library_manager.tracks
-        albums_repo = library_manager.albums
+    def test_tracks_sharing_an_album_are_grouped_under_one_album_row(self, library_database):
+        tracks_repo = library_database.tracks
+        albums_repo = library_database.albums
 
         t1 = _add_track(
             tracks_repo, filepath="/music/grouped_1.flac",
@@ -261,8 +261,8 @@ class TestAlbumGrouping:
 
 
 class TestMetadataEdit:
-    def test_update_metadata_changes_only_provided_fields(self, library_manager):
-        tracks_repo = library_manager.tracks
+    def test_update_metadata_changes_only_provided_fields(self, library_database):
+        tracks_repo = library_database.tracks
         track = _add_track(
             tracks_repo, filepath="/music/editable.flac",
             title="Original Title", artists=["Original Artist"], track_number=3,
@@ -282,8 +282,8 @@ class TestMetadataEdit:
 
 
 class TestFavorites:
-    def test_set_favorite_and_get_favorites_round_trip(self, library_manager):
-        tracks_repo = library_manager.tracks
+    def test_set_favorite_and_get_favorites_round_trip(self, library_database):
+        tracks_repo = library_database.tracks
         fav = _add_track(tracks_repo, filepath="/music/fav.flac", title="Favorite Track", artists=["A"])
         not_fav = _add_track(tracks_repo, filepath="/music/not_fav.flac", title="Ordinary Track", artists=["B"])
 
@@ -302,8 +302,8 @@ class TestFavorites:
 
 
 class TestDeletion:
-    def test_delete_removes_track_and_it_no_longer_queries(self, library_manager):
-        tracks_repo = library_manager.tracks
+    def test_delete_removes_track_and_it_no_longer_queries(self, library_database):
+        tracks_repo = library_database.tracks
         track = _add_track(tracks_repo, filepath="/music/to_delete.flac", title="Doomed Track", artists=["A"])
 
         assert tracks_repo.get_by_id(track.id) is not None
@@ -323,8 +323,8 @@ class TestReadAfterWriteConsistency:
     every mutation must be immediately visible to query methods, matching the
     project's live-computed-stats invariant (no cached table, see #4243)."""
 
-    def test_add_is_immediately_visible_to_get_all_and_search(self, library_manager):
-        tracks_repo = library_manager.tracks
+    def test_add_is_immediately_visible_to_get_all_and_search(self, library_database):
+        tracks_repo = library_database.tracks
 
         _, total_before = tracks_repo.get_all(limit=50)
         assert total_before == 0
@@ -337,8 +337,8 @@ class TestReadAfterWriteConsistency:
         assert search_total == 1
         assert results[0].title == "Freshly Added"
 
-    def test_update_and_delete_are_immediately_visible(self, library_manager):
-        tracks_repo = library_manager.tracks
+    def test_update_and_delete_are_immediately_visible(self, library_database):
+        tracks_repo = library_database.tracks
         track = _add_track(tracks_repo, filepath="/music/mutable.flac", title="Before Edit", artists=["A"])
 
         tracks_repo.update_metadata(track.id, title="After Edit")

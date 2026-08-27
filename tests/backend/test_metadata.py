@@ -48,7 +48,7 @@ def patch_track_repository(mock_track):
 
 
 # Phase 5B.1: Migration to conftest.py fixtures
-# Removed local mock_library_manager fixture - now using conftest.py fixture
+# Removed local mock_library_database fixture - now using conftest.py fixture
 # This fixture was shadowing conftest.py - tests now use parent fixture
 
 
@@ -107,7 +107,7 @@ def client(mock_track, mock_broadcast_manager, mock_metadata_editor, monkeypatch
     This ensures that mock modifications in one test don't affect others.
 
     Note: Phase 6B migrated to RepositoryFactory pattern - uses get_repository_factory
-    instead of get_library_manager.
+    instead of get_library_database.
 
     Returns:
         tuple: (TestClient, mock_broadcast_manager, mock_metadata_editor, mock_repository_factory)

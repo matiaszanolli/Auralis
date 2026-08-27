@@ -34,13 +34,13 @@ def db_path(tmp_path):
 
 
 class TestNoDeprecatedConstructionInProduction:
-    def test_backend_startup_does_not_construct_library_manager(self):
+    def test_backend_startup_does_not_construct_library_database(self):
         """AC: the startup path builds a LibraryDatabase, not the deprecated class."""
         source = (_REPO_ROOT / "auralis-web" / "backend" / "config" / "startup.py").read_text()
         assert "LibraryManager()" not in source
         assert "LibraryDatabase()" in source
 
-    def test_artwork_cli_does_not_construct_library_manager(self):
+    def test_artwork_cli_does_not_construct_library_database(self):
         """AC: the CLI took a LibraryManager only to reach .SessionLocal."""
         source = (_REPO_ROOT / "auralis" / "cli" / "fetch_artwork.py").read_text()
         assert "LibraryManager(" not in source
@@ -62,7 +62,7 @@ class TestNoDeprecatedConstructionInProduction:
         """#4313: the shim had zero production callers once both sites migrated."""
         from routers import dependencies
 
-        assert not hasattr(dependencies, "require_library_manager")
+        assert not hasattr(dependencies, "require_library_database")
 
 
 class TestLibraryDatabaseIsWarningFree:

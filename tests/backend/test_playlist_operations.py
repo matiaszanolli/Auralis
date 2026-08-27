@@ -45,25 +45,25 @@ def temp_audio_dir():
 
 
 # Phase 5B.1: Migration to conftest.py fixtures
-# Removed local library_manager fixture - now using conftest.py fixture
+# Removed local library_database fixture - now using conftest.py fixture
 # Tests automatically use the fixture from parent conftest.py
 
 
 @pytest.fixture
-def playlist_repo(library_manager):
+def playlist_repo(library_database):
     """Get playlist repository from library manager.
 
     #4381: LibraryDatabase's convenience accessor is `.playlists`, not the
     `.playlist_repo` this fixture used to reach for (which never existed —
     every test ERRORed in fixture setup).
     """
-    return library_manager.playlists
+    return library_database.playlists
 
 
 @pytest.fixture
-def track_repo(library_manager):
+def track_repo(library_database):
     """Get track repository from library manager."""
-    return library_manager.tracks
+    return library_database.tracks
 
 
 def create_test_track(directory: Path, filename: str):

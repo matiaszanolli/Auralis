@@ -87,7 +87,7 @@ class TestStreamlinedCacheRollsBackOnPartialFailure:
         truthy entries -- a cache with nothing draining it is not usable
         (see audio_stream_controller.py's degraded-mode fallback, which
         assumes `streamlined_cache` is None exactly in this situation)."""
-        globals_dict: dict = {'library_manager': MagicMock()}
+        globals_dict: dict = {'library_database': MagicMock()}
 
         with patch(
             "core.streamlined_worker.StreamlinedCacheWorker",
@@ -99,8 +99,8 @@ class TestStreamlinedCacheRollsBackOnPartialFailure:
         assert globals_dict.get('streamlined_worker') is None
 
     @pytest.mark.asyncio
-    async def test_streamlined_cache_skipped_without_library_manager_is_unaffected(self):
-        """The pre-existing early-return (no library_manager) must still
+    async def test_streamlined_cache_skipped_without_library_database_is_unaffected(self):
+        """The pre-existing early-return (no library_database) must still
         just return -- not touch globals_dict at all."""
         globals_dict: dict = {}
 

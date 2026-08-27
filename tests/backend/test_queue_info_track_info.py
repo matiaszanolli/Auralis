@@ -41,13 +41,13 @@ def _build_service(*, state_queue: list[TrackInfo], engine_info: dict) -> QueueS
         return_value=SimpleNamespace(queue=state_queue)
     )
 
-    library_manager = MagicMock()
-    library_manager.tracks = MagicMock()
+    library_database = MagicMock()
+    library_database.tracks = MagicMock()
 
     return QueueService(
         audio_player=audio_player,
         player_state_manager=state_manager,
-        library_manager=library_manager,
+        library_database=library_database,
         connection_manager=MagicMock(),
         create_track_info_fn=create_track_info,
     )
@@ -72,7 +72,7 @@ async def test_enriches_filepath_dicts_from_state_manager():
     assert isinstance(info["current_track"], TrackInfo)
     assert info["current_track"].id == 2
     # The library fallback must not have been needed.
-    service.library_manager.tracks.get_by_paths.assert_not_called()
+    service.library_database.tracks.get_by_paths.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -92,7 +92,7 @@ async def test_falls_back_to_library_for_uncovered_filepath():
         artists=[SimpleNamespace(name="Artist")],
         album=SimpleNamespace(title="Album", id=9), duration=200.0,
     )
-    service.library_manager.tracks.get_by_paths = MagicMock(
+    service.library_database.tracks.get_by_paths = MagicMock(
         return_value={db_track.filepath: db_track}
     )
 
@@ -100,10 +100,10 @@ async def test_falls_back_to_library_for_uncovered_filepath():
 
     assert [t.id for t in info["tracks"]] == [1, 2]
     assert all(isinstance(t, TrackInfo) for t in info["tracks"])
-    service.library_manager.tracks.get_by_paths.assert_called_once_with(
+    service.library_database.tracks.get_by_paths.assert_called_once_with(
         ["/music/track_2.flac"]
     )
-    service.library_manager.tracks.get_by_path.assert_not_called()
+    service.library_database.tracks.get_by_path.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -117,7 +117,7 @@ async def test_drops_unresolvable_entries_instead_of_leaking_partial_dicts():
         "track_count": 2,
     }
     service = _build_service(state_queue=[covered], engine_info=engine_info)
-    service.library_manager.tracks.get_by_paths = MagicMock(return_value={})
+    service.library_database.tracks.get_by_paths = MagicMock(return_value={})
 
     info = await service.get_queue_info()
 
@@ -148,14 +148,14 @@ async def test_batches_multiple_missing_filepaths_and_preserves_engine_order():
         "track_count": 4,
     }
     service = _build_service(state_queue=[covered], engine_info=engine_info)
-    service.library_manager.tracks.get_by_paths = MagicMock(
+    service.library_database.tracks.get_by_paths = MagicMock(
         return_value={second.filepath: second, fourth.filepath: fourth}
     )
 
     info = await service.get_queue_info()
 
     assert [track.id for track in info["tracks"]] == [2, 1, 4]
-    service.library_manager.tracks.get_by_paths.assert_called_once_with(
+    service.library_database.tracks.get_by_paths.assert_called_once_with(
         [second.filepath, "/music/missing.flac", fourth.filepath]
     )
 

@@ -424,7 +424,7 @@ class TestAlbumsAPIDualModeParametrized:
 
     These tests automatically run with both LibraryManager and RepositoryFactory
     via the parametrized mock_data_source fixture. Each test runs twice:
-    once with library_manager, once with repository_factory.
+    once with library_database, once with repository_factory.
     """
 
     def test_albums_repository_interface(self, mock_data_source):
@@ -432,7 +432,7 @@ class TestAlbumsAPIDualModeParametrized:
         Parametrized test: Validate albums repository interface works with both modes.
 
         Each test runs twice via pytest parametrization:
-        - once with (library_manager, mock_library_manager)
+        - once with (library_database, mock_library_database)
         - once with (repository_factory, mock_repository_factory)
         """
         mode, source = mock_data_source

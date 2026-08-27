@@ -25,7 +25,7 @@ class TestPathTraversalPrevention:
         source = inspect.getsource(load_track)
 
         # Must use tracks.get_by_id() for validation
-        assert "library_manager.tracks.get_by_id" in source, (
+        assert "library_database.tracks.get_by_id" in source, (
             "load_track must validate track via database get_by_id()"
         )
 

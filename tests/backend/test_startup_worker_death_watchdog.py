@@ -93,7 +93,7 @@ async def test_does_not_null_globals_on_intentional_cancellation():
 @pytest.mark.asyncio
 async def test_nulls_only_the_specified_keys():
     """Unrelated globals_dict entries must be left alone."""
-    globals_dict = {'processing_engine': object(), 'library_manager': object()}
+    globals_dict = {'processing_engine': object(), 'library_database': object()}
 
     async def dying_worker():
         raise RuntimeError("boom")
@@ -105,7 +105,7 @@ async def test_nulls_only_the_specified_keys():
         await task
 
     assert globals_dict['processing_engine'] is None
-    assert globals_dict['library_manager'] is not None
+    assert globals_dict['library_database'] is not None
 
 
 # ============================================================================

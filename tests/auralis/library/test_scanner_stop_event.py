@@ -30,18 +30,18 @@ JOIN_TIMEOUT = 5.0
 def _make_scanner(files: list[str], per_file_delay: float = 0.0) -> LibraryScanner:
     """Build a scanner whose discovery yields *files* with an optional delay.
 
-    library_manager is a lightweight mock: LibraryScanner tolerates one that
+    library_database is a lightweight mock: LibraryScanner tolerates one that
     lacks try_acquire_scan_slot / release_scan_slot (it catches AttributeError),
     so the scan-slot guard stays out of the way.
     """
-    library_manager = MagicMock()
-    library_manager.try_acquire_scan_slot.return_value = (True, 1)
+    library_database = MagicMock()
+    library_database.try_acquire_scan_slot.return_value = (True, 1)
     # #4509: the per-directory dedup guard moved from LibraryScanner onto
-    # library_manager — a bare MagicMock's auto-attribute return value is
+    # library_database — a bare MagicMock's auto-attribute return value is
     # truthy, which would otherwise make every scan look "already scanning".
-    library_manager.try_reserve_scan_paths.return_value = []
+    library_database.try_reserve_scan_paths.return_value = []
 
-    scanner = LibraryScanner(library_manager)
+    scanner = LibraryScanner(library_database)
 
     def _discover(directory: str, recursive: bool = True):
         for path in files:
@@ -153,12 +153,12 @@ class TestStopScanMidBatch:
 
         scanner.scan_directories(["/music"], batch_size=10)
 
-        scanner.library_manager.release_scan_slot.assert_called_once()
+        scanner.library_database.release_scan_slot.assert_called_once()
 
     def test_directory_path_is_released_when_cancelled(self):
         """The per-directory dedup guard must not stay latched after a cancel.
 
-        #4509: the guard moved onto library_manager (a fresh LibraryScanner
+        #4509: the guard moved onto library_database (a fresh LibraryScanner
         is constructed per real scan, so the dedup set has to live on the
         one object every call shares) — assert the release call reached it,
         mirroring the scan-slot release check above.
@@ -168,7 +168,7 @@ class TestStopScanMidBatch:
 
         scanner.scan_directories(["/music"], batch_size=10)
 
-        scanner.library_manager.release_scan_paths.assert_called_once()
+        scanner.library_database.release_scan_paths.assert_called_once()
 
     def test_uncancelled_scan_still_completes_fully(self):
         """Control: without a stop, every file is discovered and processed."""

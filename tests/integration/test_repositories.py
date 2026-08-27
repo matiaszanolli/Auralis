@@ -445,10 +445,10 @@ class TestRepositoryFactory:
         # Should be the same instance (cached)
         assert tracks_repo1 is tracks_repo2
 
-    def test_factory_from_library_manager_session(self, library_manager):
+    def test_factory_from_library_database_session(self, library_database):
         """Verify factory works with LibraryManager's session factory."""
         # Create factory from library manager's session factory
-        factory = RepositoryFactory(library_manager.SessionLocal)
+        factory = RepositoryFactory(library_database.SessionLocal)
 
         # Verify it works
         assert factory.tracks is not None
@@ -497,10 +497,10 @@ class TestDualModeCompatibility:
         # Should have same number of results
         assert len(tracks_static) == len(tracks_factory)
 
-    def test_library_manager_and_factory_equivalent(self, library_manager, repository_factory):
+    def test_library_database_and_factory_equivalent(self, library_database, repository_factory):
         """Verify LibraryManager and RepositoryFactory return equivalent results."""
         # Get results from LibraryManager
-        tracks_manager, total_manager = library_manager.tracks.get_all(limit=5)
+        tracks_manager, total_manager = library_database.tracks.get_all(limit=5)
 
         # Get results from RepositoryFactory
         tracks_factory, total_factory = repository_factory.tracks.get_all(limit=5)

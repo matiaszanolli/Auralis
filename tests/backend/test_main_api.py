@@ -210,7 +210,7 @@ class TestLibraryEndpoints:
         # to be rejected on the missing Origin header first (#5089).
         mock_result.failures = []
 
-        with patch.dict('main.globals_dict', {'library_manager': mock_library}), \
+        with patch.dict('main.globals_dict', {'library_database': mock_library}), \
              patch('auralis.library.scanner.LibraryScanner') as mock_scanner_class:
 
             mock_scanner = Mock()
@@ -232,19 +232,19 @@ class TestLibraryEndpoints:
     def test_scan_directory_no_library(self, client, tmp_path):
         """Test scan when library manager not available.
 
-        Note: endpoint checks the *resolved* library_manager (#4656), not just
-        the get_library_manager callable (which is always truthy), so a None
-        library_manager is rejected with 503 before the scanner is ever built.
+        Note: endpoint checks the *resolved* library_database (#4656), not just
+        the get_library_database callable (which is always truthy), so a None
+        library_database is rejected with 503 before the scanner is ever built.
         """
         scan_dir = str(tmp_path)
 
-        with patch.dict('main.globals_dict', {'library_manager': None}):
+        with patch.dict('main.globals_dict', {'library_database': None}):
             response = client.post(
                 "/api/library/scan",
                 json={"directories": [scan_dir]}
             )
 
-            # #4656: the endpoint guards the *resolved* library_manager (not just
+            # #4656: the endpoint guards the *resolved* library_database (not just
             # the getter callable) and returns 503 when it's None, before ever
             # constructing the scanner.
             assert response.status_code == 503
@@ -321,10 +321,10 @@ class TestFileUpload:
         mock_library = Mock()
         mock_library.add_track.return_value = mock_track
 
-        # Use globals_dict pattern for library_manager (factory-injected dependency)
+        # Use globals_dict pattern for library_database (factory-injected dependency)
         # load_audio is patched at module level since it's imported there
         with patch('routers.files.load_audio', return_value=(mock_audio, 44100)), \
-             patch.dict('main.globals_dict', {'library_manager': mock_library}):
+             patch.dict('main.globals_dict', {'library_database': mock_library}):
             with open(test_file, "rb") as f:
                 response = client.post(
                     "/api/files/upload",
@@ -395,7 +395,7 @@ class TestFileUpload:
         txt_file = tmp_path / "bad.txt"
         txt_file.write_text("text")
 
-        # Mock load_audio and library_manager for valid files
+        # Mock load_audio and library_database for valid files
         mock_audio = np.zeros((44100, 2), dtype=np.float32)
         mock_track = Mock()
         mock_track.id = 1
@@ -412,7 +412,7 @@ class TestFileUpload:
         ]
 
         with patch('routers.files.load_audio', return_value=(mock_audio, 44100)), \
-             patch.dict('main.globals_dict', {'library_manager': mock_library}):
+             patch.dict('main.globals_dict', {'library_database': mock_library}):
             response = client.post("/api/files/upload", files=files)
 
         # Close file handles
@@ -450,7 +450,7 @@ class TestFileUpload:
             test_file.write_bytes(magic_bytes[fmt])
             files.append(("files", (f"test{fmt}", open(test_file, "rb"), "audio/*")))
 
-        # Mock load_audio and library_manager for all files
+        # Mock load_audio and library_database for all files
         mock_audio = np.zeros((44100, 2), dtype=np.float32)
 
         # Create mock tracks for each format
@@ -466,7 +466,7 @@ class TestFileUpload:
         mock_library.add_track.side_effect = create_mock_track
 
         with patch('routers.files.load_audio', return_value=(mock_audio, 44100)), \
-             patch.dict('main.globals_dict', {'library_manager': mock_library}):
+             patch.dict('main.globals_dict', {'library_database': mock_library}):
             response = client.post("/api/files/upload", files=files)
 
         # Close file handles
@@ -540,7 +540,7 @@ class TestPlayerEndpoints:
         mock_library = Mock()
         mock_library.tracks.get_by_id.return_value = mock_track
 
-        with patch.dict('main.globals_dict', {'audio_player': mock_player, 'library_manager': mock_library}):
+        with patch.dict('main.globals_dict', {'audio_player': mock_player, 'library_database': mock_library}):
             response = client.post("/api/player/load", json={"track_id": 1})
 
             assert response.status_code == 200
@@ -631,7 +631,7 @@ class TestPlayerEndpoints:
         mock_player = Mock()
 
         with patch.dict('main.globals_dict', {
-            'library_manager': mock_library,
+            'library_database': mock_library,
             'audio_player': mock_player,
         }):
             response = client.post("/api/player/queue/add-track", json={"track_id": 1})
@@ -1227,7 +1227,7 @@ class TestAlbumArtistEndpoints:
         mock_artist.artwork_url = None
         mock_artist.artwork_source = None
 
-        # Router uses repository_factory (not library_manager) via get_repository_factory
+        # Router uses repository_factory (not library_database) via get_repository_factory
         mock_factory = Mock()
         mock_factory.artists.get_by_id.return_value = mock_artist
 
@@ -1240,7 +1240,7 @@ class TestAlbumArtistEndpoints:
 
     def test_get_artist_not_found(self, client):
         """Test getting non-existent artist"""
-        # Router uses repository_factory (not library_manager) via get_repository_factory
+        # Router uses repository_factory (not library_database) via get_repository_factory
         mock_factory = Mock()
         mock_factory.artists.get_by_id.return_value = None
 
@@ -1267,7 +1267,7 @@ class TestAlbumArtistEndpoints:
         # Convert dict to object-like mock with attributes
         mock_album = SimpleNamespace(**album_data)
 
-        # Router uses repository_factory (not library_manager) via get_repository_factory
+        # Router uses repository_factory (not library_database) via get_repository_factory
         mock_factory = Mock()
         mock_factory.albums.get_by_id.return_value = mock_album
 
@@ -1280,7 +1280,7 @@ class TestAlbumArtistEndpoints:
 
     def test_get_album_not_found(self, client):
         """Test getting non-existent album"""
-        # Router uses repository_factory (not library_manager) via get_repository_factory
+        # Router uses repository_factory (not library_database) via get_repository_factory
         mock_factory = Mock()
         mock_factory.albums.get_by_id.return_value = None
 
@@ -1311,7 +1311,7 @@ class TestAlbumArtistEndpoints:
             tracks=[]
         )
 
-        # Router uses repository_factory (not library_manager) via get_repository_factory
+        # Router uses repository_factory (not library_database) via get_repository_factory
         # get_all returns (albums, total) tuple for pagination support
         mock_factory = Mock()
         mock_factory.albums.get_all.return_value = ([mock_album1, mock_album2], 2)

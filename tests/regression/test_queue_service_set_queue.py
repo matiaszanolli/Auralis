@@ -56,8 +56,8 @@ def _build_service(repo_returns: object) -> QueueService:
     tracks_repo = MagicMock()
     tracks_repo.get_by_ids = MagicMock(return_value=repo_returns)
 
-    library_manager = MagicMock()
-    library_manager.tracks = tracks_repo
+    library_database = MagicMock()
+    library_database.tracks = tracks_repo
 
     # AudioPlayerWithQueue stand-in — only `queue.set_queue` is touched.
     audio_player = MagicMock()
@@ -78,7 +78,7 @@ def _build_service(repo_returns: object) -> QueueService:
     return QueueService(
         audio_player=audio_player,
         player_state_manager=state_manager,
-        library_manager=library_manager,
+        library_database=library_database,
         connection_manager=connection_manager,
         create_track_info_fn=create_track_info,
     )
@@ -147,8 +147,8 @@ async def test_set_queue_falls_back_when_get_by_ids_missing():
     tracks_repo = MagicMock(spec=['get_by_id'])  # no get_by_ids attr
     tracks_repo.get_by_id = MagicMock(side_effect=lambda tid: _make_track(tid))
 
-    library_manager = MagicMock()
-    library_manager.tracks = tracks_repo
+    library_database = MagicMock()
+    library_database.tracks = tracks_repo
 
     audio_player = MagicMock()
     audio_player.queue.set_queue = MagicMock()
@@ -163,7 +163,7 @@ async def test_set_queue_falls_back_when_get_by_ids_missing():
     service = QueueService(
         audio_player=audio_player,
         player_state_manager=state_manager,
-        library_manager=library_manager,
+        library_database=library_database,
         connection_manager=connection_manager,
         create_track_info_fn=lambda t: SimpleNamespace(id=t.id),
     )

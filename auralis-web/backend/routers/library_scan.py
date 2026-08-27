@@ -34,7 +34,7 @@ class ScanStatusResponse(BaseModel):
 
 
 def create_library_scan_router(
-    get_library_manager: Callable[[], Any] | None = None,
+    get_library_database: Callable[[], Any] | None = None,
     connection_manager: Any | None = None,
 ) -> APIRouter:
     """Factory: library scan route."""
@@ -52,10 +52,10 @@ def create_library_scan_router(
         counter try_acquire_scan_slot()/release_scan_slot() maintain, so it
         self-heals even after a scan crashed without emitting a terminal frame.
         """
-        library_manager = get_library_manager() if get_library_manager else None
-        if library_manager is None:
+        library_database = get_library_database() if get_library_database else None
+        if library_database is None:
             raise HTTPException(status_code=503, detail="Library manager not available")
-        return {"is_scanning": library_manager.is_scanning()}
+        return {"is_scanning": library_database.is_scanning()}
 
     @router.post("/api/library/scan", response_model=ScanResultResponse)
     async def scan_library(request: LibraryScanRequest) -> ScanResultResponse:
@@ -69,11 +69,11 @@ def create_library_scan_router(
             # Guard the *resolved* manager, not the getter: the getter is always
             # truthy, so the previous check never fired and a None manager
             # reached LibraryScanner as an opaque 500 (#4656).
-            library_manager = get_library_manager() if get_library_manager else None
-            if library_manager is None:
+            library_database = get_library_database() if get_library_database else None
+            if library_database is None:
                 raise HTTPException(status_code=503, detail="Library manager not available")
 
-            scanner = LibraryScanner(library_manager)
+            scanner = LibraryScanner(library_database)
 
             # NOTE: `library_scan_started` is NOT broadcast here (#4602). It used
             # to be sent unconditionally on entry — before scan_directories() ran

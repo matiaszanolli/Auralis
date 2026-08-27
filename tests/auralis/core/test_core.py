@@ -247,10 +247,10 @@ class TestLibraryScannerAdvanced:
         """Test scanner initialization and attributes."""
         db, scanner = db_and_scanner
 
-        # LibraryScanner still names its constructor argument `library_manager`,
+        # LibraryScanner still names its constructor argument `library_database`,
         # but the object it holds is a LibraryDatabase.
-        assert scanner.library_manager is db
-        assert hasattr(scanner, 'library_manager')
+        assert scanner.library_database is db
+        assert hasattr(scanner, 'library_database')
 
     def test_scanner_methods_coverage(self, db_and_scanner):
         """Test scanner methods for coverage."""
@@ -260,7 +260,7 @@ class TestLibraryScannerAdvanced:
         scanner_methods = dir(scanner)
 
         # Basic methods should be present
-        assert 'library_manager' in scanner_methods
+        assert 'library_database' in scanner_methods
 
     @pytest.fixture
     def temp_audio_files(self):

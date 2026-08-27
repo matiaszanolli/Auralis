@@ -46,7 +46,7 @@ def _build_service(track_ids: list[int]) -> tuple[QueueService, QueueController,
     repo.get_by_ids = MagicMock(
         side_effect=lambda ids: {track_id: tracks[track_id] for track_id in ids if track_id in tracks}
     )
-    library_manager = SimpleNamespace(tracks=repo)
+    library_database = SimpleNamespace(tracks=repo)
 
     controller = QueueController(lambda: None)
     audio_player = SimpleNamespace(queue=controller)
@@ -58,7 +58,7 @@ def _build_service(track_ids: list[int]) -> tuple[QueueService, QueueController,
     service = QueueService(
         audio_player=audio_player,
         player_state_manager=state_manager,
-        library_manager=library_manager,
+        library_database=library_database,
         connection_manager=connection_manager,
         create_track_info_fn=_track_info,
     )

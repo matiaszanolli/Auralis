@@ -53,7 +53,7 @@ class PlayerStateManager(Protocol):
         """Broadcast a previously sequenced state snapshot."""
         ...
 
-    async def set_track(self, track: Any, library_manager: Any) -> None:
+    async def set_track(self, track: Any, library_database: Any) -> None:
         """Set current track."""
         ...
 

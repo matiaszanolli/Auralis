@@ -6,14 +6,18 @@ Owns the SQLite database itself: migration, engine, pragmas, session factory,
 file-permission hardening, scan-slot accounting and orderly shutdown. Hands out
 repositories through a :class:`RepositoryFactory`.
 
-This is the composition root that replaces ``LibraryManager`` on the production
-startup path (#4619). ``LibraryManager`` has emitted a ``DeprecationWarning``
-since v1.1.0 saying it "will be removed in v2.0.0", yet it was constructed on
-every backend boot — because the bootstrap responsibilities below lived on it
-and ``RepositoryFactory`` (which only takes a ready-made session factory) could
-not stand in for it. Splitting them apart is what makes the deprecation
-truthful: ``LibraryManager`` is now a legacy query facade over this class and
-nothing on the startup path constructs it.
+This is the composition root. It replaced ``LibraryManager`` on the production
+startup path in #4619, and #4915 deleted that class outright. Historical note,
+since the name still turns up in older comments: ``LibraryManager`` had emitted
+a ``DeprecationWarning`` since v1.1.0 yet was still constructed on every backend
+boot, because the bootstrap responsibilities below lived on it and
+``RepositoryFactory`` (which only takes a ready-made session factory) could not
+stand in for it. Splitting them apart is what finally made the removal possible.
+
+#5162 then renamed the backend globals key to ``library_database``; it had gone
+on naming the deleted class for a month. The old spelling is deliberately not
+repeated here — the point of that rename was that grepping the old name should
+return nothing.
 
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3, see LICENSE for more details.
@@ -209,7 +213,7 @@ class LibraryDatabase:
 
         # Per-directory scan dedup (#3455 / #4509): must live here, not on
         # LibraryScanner, because every caller (LibraryAutoScanner._do_scan,
-        # LibraryManager.scan_directories) constructs a FRESH LibraryScanner
+        # LibraryManager.scan_directories, before #4915) constructed a FRESH LibraryScanner
         # per invocation — an instance attribute would never be shared
         # between two overlapping scans, so the guard would only ever see
         # its own empty set. This object is the one thing already shared

@@ -110,11 +110,11 @@ class TestGetPlaybackSnapshot:
 
 
 def _make_worker(cache_manager, track=Mock()):
-    library_manager = Mock()
-    library_manager.tracks.get_by_id = Mock(return_value=track)
+    library_database = Mock()
+    library_database.tracks.get_by_id = Mock(return_value=track)
     return StreamlinedCacheWorker(
         cache_manager=cache_manager,
-        library_manager=library_manager,
+        library_database=library_database,
     )
 
 
@@ -138,7 +138,7 @@ class TestProcessPrioritiesUsesSnapshot:
             mgr.current_position = 500.0
             return Mock()
 
-        worker.library_manager.tracks.get_by_id = _get_by_id
+        worker.library_database.tracks.get_by_id = _get_by_id
 
         # Tier 1 gets current_chunk + 1, Tier 2 gets current_chunk — capture
         # them separately so one does not overwrite the other.
@@ -182,7 +182,7 @@ class TestProcessPrioritiesUsesSnapshot:
             mgr.current_track_id = 99  # playback moved on
             return Mock()
 
-        worker.library_manager.tracks.get_by_id = _get_by_id
+        worker.library_database.tracks.get_by_id = _get_by_id
 
         called: list[str] = []
 

@@ -51,7 +51,7 @@ async def process_priorities(worker: Any) -> None:
     intensity = snapshot.intensity
 
     # Get track from library (sync DB call — offload to thread)
-    track = await asyncio.to_thread(worker.library_manager.tracks.get_by_id, track_id)
+    track = await asyncio.to_thread(worker.library_database.tracks.get_by_id, track_id)
     if not track:
         logger.warning(f"Track {track_id} not found in library")
         return
@@ -262,7 +262,7 @@ async def trigger_immediate_processing(
         )
         return False
 
-    track = await asyncio.to_thread(worker.library_manager.tracks.get_by_id, track_id)
+    track = await asyncio.to_thread(worker.library_database.tracks.get_by_id, track_id)
     if not track:
         return False
 

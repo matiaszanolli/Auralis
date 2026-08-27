@@ -47,7 +47,7 @@ def mock_cache_manager():
 
 
 @pytest.fixture
-def mock_library_manager():
+def mock_library_database():
     """Create a mock LibraryManager"""
     lm = Mock()
     track = Mock()
@@ -57,8 +57,8 @@ def mock_library_manager():
 
 
 @pytest.fixture
-def worker(mock_cache_manager, mock_library_manager):
-    return StreamlinedCacheWorker(mock_cache_manager, mock_library_manager)
+def worker(mock_cache_manager, mock_library_database):
+    return StreamlinedCacheWorker(mock_cache_manager, mock_library_database)
 
 
 class TestProcessorReuse:

@@ -58,7 +58,7 @@ class FingerprintExtractionQueue(FingerprintWorkerExecution, AdaptiveScalingMixi
         # Initialize (automatically starts workers)
         queue = FingerprintExtractionQueue(
             fingerprint_extractor=extractor,
-            library_manager=lib_manager,
+            library_database=lib_manager,
             num_workers=16
         )
         await queue.start()
