@@ -439,7 +439,11 @@ class TestNormalChunkFailureDoesNotReportCompleted:
             def __exit__(self, *exc_info):
                 return self._real.__exit__(*exc_info)
 
-        with patch("core.stream_normal.sf.SoundFile", _FlakySoundFile):
+        # #5032 moved the per-chunk read into core.stream_normal_chunks; the
+        # metadata read stays in core.stream_normal. Patch both so the flaky
+        # SoundFile covers the whole path, as it did when they were one module.
+        with patch("core.stream_normal.sf.SoundFile", _FlakySoundFile), \
+             patch("core.stream_normal_chunks.sf.SoundFile", _FlakySoundFile):
             await controller.stream_normal_audio(track_id=TRACK_ID, websocket=ws)
 
         end_msgs = [m for m in sent if m.get("type") == "audio_stream_end"]

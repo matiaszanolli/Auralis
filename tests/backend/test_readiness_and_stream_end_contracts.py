@@ -369,12 +369,23 @@ class TestStreamEndReason:
         it to the shared helper. Check both halves: each handler still does
         its own tracking, and the shared helper still reports "stopped".
         """
-        for name in ("stream_enhanced.py", "stream_seek.py", "stream_normal.py"):
+        # #5032 also moved each handler's per-chunk loop into a companion
+        # pump module. The handler still reports completion; the loop still
+        # tracks what it delivered and reacts to a failed send. Check each
+        # half where it now lives rather than requiring one file to hold both.
+        handlers = ("stream_enhanced.py", "stream_seek.py", "stream_normal.py")
+        for name in handlers:
             source = (_BACKEND / "core" / name).read_text()
             assert "stopped_early" in source, f"{name} does not track early exit"
             assert "_send_stream_completion(" in source, (
                 f"{name} does not report completion via the shared helper"
             )
+            assert "delivered_samples" in source, f"{name} does not count delivered audio"
+
+        pumps = ("stream_normal_chunks.py", "stream_enhanced_chunks.py", "stream_seek_chunks.py")
+        for name in pumps:
+            source = (_BACKEND / "core" / name).read_text()
+            assert "stopped_early" in source, f"{name} does not track early exit"
             assert "delivered_samples" in source, f"{name} does not count delivered audio"
             assert "if not delivered:" in source, f"{name} ignores failed chunk sends"
 

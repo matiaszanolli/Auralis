@@ -242,7 +242,11 @@ class TestSeekMathUsesSharedConstants:
     def test_recovery_positions_use_the_emitted_start(self):
         """A recovery position on the core timeline replays OVERLAP_DURATION of
         already-delivered audio."""
-        for module in ("stream_seek.py", "stream_enhanced.py"):
+        # #5032 moved each handler's per-chunk loop into a companion pump
+        # module, and the recovery positions are computed inside that loop —
+        # so the guard follows them there. The handlers themselves no longer
+        # compute a recovery position at all.
+        for module in ("stream_seek_chunks.py", "stream_enhanced_chunks.py"):
             source = (Path(_BACKEND) / "core" / module).read_text()
             assert "emitted_chunk_start" in source, (
                 f"{module} must compute recovery positions from the emitted "
