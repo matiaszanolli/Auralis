@@ -18,8 +18,6 @@ import reducer, {
   selectAPIConnected,
   selectLatency,
   selectReconnectAttempts,
-  selectIsFullyConnected,
-  selectCanReconnect,
   selectConnectionHealth,
 } from '../connectionSlice';
 import type { ConnectionState } from '../connectionSlice';
@@ -152,17 +150,6 @@ describe('connectionSlice', () => {
     expect(selectAPIConnected(root)).toBe(true);
     expect(selectLatency(root)).toBe(50);
     expect(selectReconnectAttempts(root)).toBe(2);
-  });
-
-  it('selectIsFullyConnected requires both connections', () => {
-    expect(selectIsFullyConnected({ connection: { ...initialState, wsConnected: true, apiConnected: true } })).toBe(true);
-    expect(selectIsFullyConnected({ connection: { ...initialState, wsConnected: true, apiConnected: false } })).toBe(false);
-    expect(selectIsFullyConnected({ connection: { ...initialState, wsConnected: false, apiConnected: true } })).toBe(false);
-  });
-
-  it('selectCanReconnect checks attempts vs max', () => {
-    expect(selectCanReconnect({ connection: { ...initialState, reconnectAttempts: 3 } })).toBe(true);
-    expect(selectCanReconnect({ connection: { ...initialState, reconnectAttempts: 5 } })).toBe(false);
   });
 
   // ─── Connection health ────────────────────────────────────────

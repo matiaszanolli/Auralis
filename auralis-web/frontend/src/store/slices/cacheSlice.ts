@@ -166,28 +166,12 @@ export const selectIsHealthy = (state: { cache: CacheState }) =>
 export const selectIsLoading = (state: { cache: CacheState }) => state.cache.isLoading;
 export const selectError = (state: { cache: CacheState }) => state.cache.error;
 
-/**
- * Select overall cache hit rate percentage
- */
-export const selectOverallHitRate = (state: { cache: CacheState }) =>
-  state.cache.stats?.overall.overall_hit_rate ?? 0;
-
-/**
- * Select total cache size in MB
- */
-export const selectTotalCacheSize = (state: { cache: CacheState }) =>
-  state.cache.stats?.overall.total_size_mb ?? 0;
-
-/**
- * Select total chunks cached
- */
-export const selectTotalChunks = (state: { cache: CacheState }) =>
-  state.cache.stats?.overall.total_chunks ?? 0;
-
-/**
- * Select tracks cached count
- */
-export const selectTracksCached = (state: { cache: CacheState }) =>
-  state.cache.stats?.overall.tracks_cached ?? 0;
+// #5212: selectOverallHitRate / selectTotalCacheSize / selectTotalChunks /
+// selectTracksCached were deleted — no useSelector anywhere, only same-named
+// assertions in this slice's own test. That was the second such batch in this
+// file after #4395 cleared the first, so read this as a standing note: these
+// slices have a habit of growing selectors ahead of any UI that needs them.
+// Every field they projected is one property off `selectCacheStats`, which a
+// component can read directly.
 
 export default cacheSlice.reducer;

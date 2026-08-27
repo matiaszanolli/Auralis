@@ -17,10 +17,6 @@ import reducer, {
   selectIsHealthy,
   selectIsLoading,
   selectError,
-  selectOverallHitRate,
-  selectTotalCacheSize,
-  selectTotalChunks,
-  selectTracksCached,
 } from '../cacheSlice';
 import type { CacheState } from '../cacheSlice';
 import type { CacheStats, CacheHealth } from '@/services/api/standardizedAPIClient';
@@ -168,19 +164,4 @@ describe('cacheSlice', () => {
     expect(selectIsHealthy({ cache: initialState })).toBe(false); // null health
   });
 
-  it('derived selectors return correct values with stats', () => {
-    const root = { cache: { ...initialState, stats: mockStats } };
-    expect(selectOverallHitRate(root)).toBe(0.8);
-    expect(selectTotalCacheSize(root)).toBe(150);
-    expect(selectTotalChunks(root)).toBe(15);
-    expect(selectTracksCached(root)).toBe(7);
-  });
-
-  it('derived selectors return 0 when stats is null', () => {
-    const root = { cache: initialState };
-    expect(selectOverallHitRate(root)).toBe(0);
-    expect(selectTotalCacheSize(root)).toBe(0);
-    expect(selectTotalChunks(root)).toBe(0);
-    expect(selectTracksCached(root)).toBe(0);
-  });
 });

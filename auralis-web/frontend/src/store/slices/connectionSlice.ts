@@ -201,17 +201,9 @@ export const selectLatency = (state: { connection: ConnectionState }) =>
 export const selectReconnectAttempts = (state: { connection: ConnectionState }) =>
   state.connection.reconnectAttempts;
 
-/**
- * Select if fully connected (both WebSocket and API)
- */
-export const selectIsFullyConnected = (state: { connection: ConnectionState }) =>
-  state.connection.wsConnected && state.connection.apiConnected;
-
-/**
- * Select if can attempt reconnection
- */
-export const selectCanReconnect = (state: { connection: ConnectionState }) =>
-  state.connection.reconnectAttempts < state.connection.maxReconnectAttempts;
+// #5212: selectIsFullyConnected and selectCanReconnect were deleted — test-only,
+// like the #4395 batch before them. selectConnectionHealth below is equally
+// unconsumed but belongs to #5129 and is deliberately left in place.
 
 /**
  * Select connection health status
