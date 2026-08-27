@@ -79,14 +79,13 @@ export const ArtistHeader = ({
             {artist.trackCount && `${artist.trackCount} ${artist.trackCount === 1 ? 'Track' : 'Tracks'}`}
           </Typography>
 
-          {/* Additional context - currently placeholder, can be expanded with backend data */}
-          <Typography variant="body2" sx={{
-            color: themeVars.textMuted,
-            fontSize: tokens.typography.fontSize.sm,
-            fontWeight: tokens.typography.fontWeight.normal,
-          }}>
-            Artist
-          </Typography>
+          {/* #5153: a second line reading the literal "Artist" used to sit
+              here as a self-described placeholder. It bound to nothing, and
+              the Artist type has no field it could bind to — the album header
+              gets year/track_count/total_duration/genre from AlbumMetadata
+              because those fields exist. Adding artist stats means adding the
+              backend field and an ArtistMetadata component mirroring
+              AlbumMetadata, not filling this literal in. */}
         </Box>
       }
       actions={
