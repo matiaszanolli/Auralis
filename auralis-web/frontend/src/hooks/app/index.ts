@@ -8,4 +8,3 @@
 export { useKeyboardShortcuts } from './useKeyboardShortcuts';
 export { useAppDragDrop } from './useAppDragDrop';
 export { useAppLayout } from './useAppLayout';
-export { useCommitId } from './useCommitId';
