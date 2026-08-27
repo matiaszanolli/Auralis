@@ -84,7 +84,14 @@ class HybridProcessor:
         # continuous-space dynamics (ContinuousMode._apply_dynamics), and adding
         # this on top would double-compress, fight the continuous-space LUFS
         # target with its own -14 LUFS makeup gain, and confound the
-        # cross-dimensional guards. Retiring it is tracked separately.
+        # cross-dimensional guards.
+        #
+        # TODO(#5295): delete DynamicsProcessor.process()/_adapt_to_content()
+        # once #5000's regression coverage is re-homed. Written as a marker
+        # rather than the prose "tracked separately" it replaces, so a marker
+        # sweep can find it (CLAUDE.md Principle 5) — #5152 was filed because
+        # the genre-bucket constants stranded in that dead path were invisible
+        # to exactly such a sweep.
         self.dynamics_processor = create_dynamics_processor(
             mode=DynamicsMode.ADAPTIVE,
             sample_rate=config.internal_sample_rate,

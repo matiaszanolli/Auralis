@@ -230,10 +230,14 @@ Cached chunk files are 16-bit PCM WAV, not float32.
    Prose deferrals are invisible to any marker sweep, so `/audit-tech-debt` has
    to fall back to a high-recall prose grep that cannot distinguish a deferral
    from an ordinary sentence (#4564). Genuine marker debt in shipped code —
-   `auralis/`, `auralis-web/`, `vendor/` — is currently **0**; `tests/` holds
-   **4**, each citing an OPEN issue (#5172 ×2, #5173, #5174) — #5171 was the
-   fifth until it was fixed and closed. Keep both figures honest by linking
-   the issue instead of leaving a bare `TODO`.
+   `auralis/`, `auralis-web/`, `vendor/` — is **1**: `core/hybrid_processor.py`
+   carries `TODO(#5295)` for the retirement of `DynamicsProcessor.process()`.
+   It was 0 until #5152, which is worth reading as the rule working rather than
+   breaking: that marker replaced the prose "Retiring it is tracked separately",
+   so the count going 0 → 1 records debt that already existed and was
+   unsweepable. `tests/` holds **4**, each citing an OPEN issue (#5172 ×2,
+   #5173, #5174) — #5171 was the fifth until it was fixed and closed. Keep both
+   figures honest by linking the issue instead of leaving a bare `TODO`.
    The scope matters: that "0" was quoted repo-wide for weeks while every
    genuine marker in the tree sat in `tests/`, uncounted (#5143), so
    `/audit-tech-debt` now reports the two censuses as separate lines.
