@@ -248,12 +248,12 @@ export async function removeTrackFromPlaylist(
   await del(ENDPOINTS.REMOVE_PLAYLIST_TRACK(playlistId, trackId));
 }
 
-/**
- * Clear all tracks from playlist
- */
-export async function clearPlaylist(playlistId: number): Promise<void> {
-  await del(ENDPOINTS.PLAYLIST_TRACKS(playlistId));
-}
+// #5214: clearPlaylist() was deleted — tested, backed by a working
+// DELETE /api/playlists/{id}/tracks, but never called from any UI. Nothing
+// offers the user a "clear all tracks" action, so the wrapper sat unreachable.
+// ENDPOINTS.PLAYLIST_TRACKS is deliberately left in config/api.ts: that map is
+// a catalog of the backend surface and already carries nine other entries with
+// no client caller, so pruning this one alone would be arbitrary.
 
 export default {
   getPlaylists,
@@ -264,5 +264,4 @@ export default {
   addTrackToPlaylist,
   addTracksToPlaylist,
   removeTrackFromPlaylist,
-  clearPlaylist,
 };

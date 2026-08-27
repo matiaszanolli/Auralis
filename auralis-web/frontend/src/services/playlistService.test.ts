@@ -253,22 +253,6 @@ describe('PlaylistService', () => {
     })
   })
 
-  describe('clearPlaylist', () => {
-    it('clears playlist successfully', async () => {
-      vi.mocked(apiRequest.del).mockResolvedValue({})
-
-      await playlistService.clearPlaylist(1)
-
-      expect(apiRequest.del).toHaveBeenCalledWith('/api/playlists/1/tracks')
-    })
-
-    it('throws error when playlist not found', async () => {
-      vi.mocked(apiRequest.del).mockRejectedValue(new Error('Playlist not found'))
-
-      await expect(playlistService.clearPlaylist(999)).rejects.toThrow('Playlist not found')
-    })
-  })
-
   describe('Error Handling', () => {
     it('handles malformed JSON response', async () => {
       vi.mocked(apiRequest.get).mockRejectedValue(new Error('Invalid JSON'))

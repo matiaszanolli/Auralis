@@ -241,17 +241,6 @@ describe('Playlist Management Integration Tests', () => {
       expect(removeTrackSpy).toHaveBeenCalledWith(1, 101);
     });
 
-    it('should clear all tracks from playlist', async () => {
-      // Arrange
-      const clearPlaylistSpy = vi.spyOn(playlistService, 'clearPlaylist');
-
-      // Act - Clear playlist
-      await playlistService.clearPlaylist(1);
-
-      // Assert - API was called
-      expect(clearPlaylistSpy).toHaveBeenCalledWith(1);
-    });
-
     it('should move track to different position within playlist', async () => {
       // Arrange
       const newTrackOrder = [3, 1, 2, 4, 5]; // New order after moving track

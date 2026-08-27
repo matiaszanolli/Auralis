@@ -2,57 +2,21 @@
  * Artwork Service (Phase 5a)
  * ~~~~~~~~~~~~~~~~
  *
- * Service for managing album artwork: extraction, download, and deletion.
- *
- * Refactored using Service Factory Pattern (Phase 5a) to reduce code duplication.
+ * Builds album-artwork URLs, including the downscaled-thumbnail variants the
+ * backend serves from cache buckets (#4447).
  */
 
 import { API_BASE_URL } from '@/config/api';
-import { createCrudService } from '@/utils/serviceFactory';
 
-export interface ArtworkResponse {
-  message: string;
-  artwork_url: string;
-  album_id: number;
-  artist?: string;
-  album?: string;
-}
-
-export interface ArtworkRequest {
-  // Empty request body for artwork operations
-}
-
-type ArtworkParams = { albumId: number } & Record<string, unknown>;
-
-// Create base CRUD service using factory with custom endpoints
-const crudService = createCrudService<ArtworkResponse, ArtworkRequest, number, ArtworkParams>({
-  custom: {
-    extract: (data) => `/api/albums/${data?.albumId}/artwork/extract`,
-    download: (data) => `/api/albums/${data?.albumId}/artwork/download`,
-    delete: (data) => `/api/albums/${data?.albumId}/artwork`,
-  },
-});
-
-/**
- * Extract artwork from album's audio files
- */
-export async function extractArtwork(albumId: number): Promise<ArtworkResponse> {
-  return crudService.custom<ArtworkResponse>('extract', 'post', { albumId });
-}
-
-/**
- * Download artwork from online sources (MusicBrainz, iTunes)
- */
-export async function downloadArtwork(albumId: number): Promise<ArtworkResponse> {
-  return crudService.custom<ArtworkResponse>('download', 'post', { albumId });
-}
-
-/**
- * Delete album artwork
- */
-export async function deleteArtwork(albumId: number): Promise<{ message: string; album_id: number }> {
-  return crudService.custom<{ message: string; album_id: number }>('delete', 'delete', { albumId });
-}
+// #5214: extractArtwork / downloadArtwork / deleteArtwork were deleted, along
+// with the ArtworkResponse/ArtworkRequest types and the createCrudService()
+// wiring that existed only to back them. All three had tests but no caller —
+// no component or hook ever invoked them, so the artwork-management UI they
+// were built for was never wired up. The backend endpoints
+// (/api/albums/{id}/artwork/{extract,download} and DELETE) are untouched, so
+// re-adding a three-line wrapper is trivial if that UI is ever built.
+//
+// What remains here are the two URL builders, which do have real callers.
 
 export interface ArtworkUrlOptions {
   /**
