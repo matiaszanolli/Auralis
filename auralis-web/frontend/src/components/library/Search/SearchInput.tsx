@@ -1,14 +1,11 @@
-
-import {
-  InputAdornment
-} from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
-import CloseIcon from '@mui/icons-material/Close';
+import { InputAdornment } from "@mui/material";
+import SearchIcon from "@mui/icons-material/Search";
+import CloseIcon from "@mui/icons-material/Close";
 import {
   SearchContainer,
-  SearchField
-} from '@/components/library/Styles/SearchStyles.styles';
-import { tokens, CircularProgress } from '@/design-system';
+  SearchField,
+} from "@/components/library/Styles/SearchStyles.styles";
+import { tokens, CircularProgress, IconButton } from "@/design-system";
 
 interface SearchInputProps {
   query: string;
@@ -31,7 +28,7 @@ export const SearchInput = ({
   query,
   loading,
   onQueryChange,
-  onClear
+  onClear,
 }: SearchInputProps) => {
   return (
     <SearchContainer>
@@ -45,22 +42,28 @@ export const SearchInput = ({
             startAdornment: (
               <InputAdornment position="start">
                 {loading ? (
-                  <CircularProgress size={20} sx={{ color: tokens.colors.accent.primary }} />
+                  <CircularProgress
+                    size={20}
+                    sx={{ color: tokens.colors.accent.primary }}
+                  />
                 ) : (
-                  <SearchIcon sx={{ color: 'text.secondary' }} />
+                  <SearchIcon sx={{ color: "text.secondary" }} />
                 )}
               </InputAdornment>
             ),
             endAdornment: query && (
               <InputAdornment position="end">
-                <CloseIcon
-                  sx={{
-                    cursor: 'pointer',
-                    color: 'text.secondary',
-                    '&:hover': { color: 'text.primary' }
-                  }}
+                <IconButton
                   onClick={onClear}
-                />
+                  size="small"
+                  aria-label="Clear search"
+                  sx={{
+                    color: "text.secondary",
+                    "&:hover": { color: "text.primary" },
+                  }}
+                >
+                  <CloseIcon fontSize="small" />
+                </IconButton>
               </InputAdornment>
             ),
           },
