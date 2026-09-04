@@ -1,8 +1,8 @@
 {
-  "_comment": "Known-failing pytest tests (#4562). CI fails on any failure NOT listed here. Regenerate with: python scripts/check_pytest_baseline.py <junit.xml> --update. #5169, #5284, #5287, #5288, #5289, #5290, #5291, and #5292 removed newly passing entries by hand: --strict-stale (#5091) fails the job on a baselined test that passes. Removed rather than regenerated -- a baseline built outside CI reports spurious new failures.",
+  "_comment": "Known-failing pytest tests (#4562). CI fails on any failure NOT listed here. Regenerate with: python scripts/check_pytest_baseline.py <junit.xml> --update. #5169, #5284, #5287, #5288, #5289, #5290, #5291, #5292, and #5295 removed obsolete or newly passing entries by hand: --strict-stale (#5091) fails the job on a baselined test that passes. Removed rather than regenerated -- a baseline built outside CI reports spurious new failures.",
   "generatedFrom": {
     "totalTests": 6889,
-    "failedTests": 170
+    "failedTests": 168
   },
   "failures": [
     "tests.auralis.analysis.fingerprint.test_rust_fingerprint_glue::test_all_values_finite",
@@ -135,8 +135,6 @@
     "tests.performance.test_throughput_benchmarks.TestScalabilityThroughput::test_throughput_vs_data_size",
     "tests.regression.test_data_migration.TestUserPreferencesMigration::test_favorite_tracks_preserved",
     "tests.regression.test_data_migration.TestUserPreferencesMigration::test_play_count_migration",
-    "tests.regression.test_dynamics_runtime_settings.TestDynamicsRuntimeStageFlags::test_gate_runtime_behavior_is_unchanged",
-    "tests.regression.test_dynamics_runtime_settings::test_zero_gate_ratio_is_safe_when_processing",
     "tests.regression.test_fingerprint_keyboard_interrupt.TestFingerprintKeyboardInterrupt::test_keyboard_interrupt_handler_cancels_and_waits",
     "tests.regression.test_fingerprint_keyboard_interrupt.TestFingerprintKeyboardInterrupt::test_keyboard_interrupt_propagates_and_shuts_down_executor",
     "tests.regression.test_fixed_bugs.TestChunkProcessingBugs::test_continuous_mode_state_preservation_bug",

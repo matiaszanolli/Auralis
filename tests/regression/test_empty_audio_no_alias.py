@@ -2,11 +2,11 @@
 Regression: Empty-audio early-return must not alias input (#2911)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Four DSP components returned the original array on empty-input guard
-clauses (one of them, AdaptiveLimiter, was later deleted as unreachable
-in #4873; the remaining three are still covered here). This violated the project-wide invariant that DSP functions
-never return an alias to their input, risking silent corruption when
-callers mutate the returned buffer.
+Four DSP components returned the original array on empty-input guards.
+AdaptiveLimiter was deleted as unreachable in #4873 and DynamicsProcessor's
+orphaned processing path was retired in #5295; the remaining two are covered
+here. Returning aliases violates the project-wide invariant that DSP functions
+produce independent output buffers.
 
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3, see LICENSE for more details.
@@ -15,7 +15,6 @@ callers mutate the returned buffer.
 import numpy as np
 import pytest
 
-from auralis.dsp.advanced_dynamics import DynamicsProcessor, DynamicsSettings
 from auralis.dsp.dynamics.brick_wall_limiter import (
     BrickWallLimiter,
     BrickWallLimiterSettings,
@@ -40,11 +39,5 @@ class TestEmptyAudioNoAlias:
     def test_compressor(self, empty_audio):
         compressor = AdaptiveCompressor(CompressorSettings(), sample_rate=44100)
         result, info = compressor.process(empty_audio)
-        assert result is not empty_audio
-        assert info == {}
-
-    def test_dynamics_processor(self, empty_audio):
-        processor = DynamicsProcessor(DynamicsSettings())
-        result, info = processor.process(empty_audio)
         assert result is not empty_audio
         assert info == {}

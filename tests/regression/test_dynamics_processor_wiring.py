@@ -6,8 +6,8 @@ Regression test for issue #2897, re-scoped by #4873.
 
 `HybridProcessor.dynamics_processor` used to be the dynamics engine for the
 REALTIME path, consumed by `RealtimeDSPPipeline`. #4873 deleted that pipeline
-as unreachable from the shipped app, so nothing runs the processor's chain any
-more — it survives only behind the
+as unreachable from the shipped app, and #5295 deleted its orphaned processing
+methods. The object survives only behind the
 `get_dynamics_info()`/`set_dynamics_mode()`/`reset_dynamics()` public API,
 which `job_execution._reset_processor_state` still calls (#4250 follow-up:
 moved out of `processing_engine.py`).
@@ -24,6 +24,7 @@ import pytest
 
 from auralis.core.config import UnifiedConfig
 from auralis.core.hybrid_processor import HybridProcessor
+from auralis.dsp.advanced_dynamics import DynamicsMode
 
 
 @pytest.mark.regression
@@ -40,6 +41,28 @@ class TestDynamicsProcessorWiring:
             self.processor.dynamics_manager.dynamics_processor
             is self.processor.dynamics_processor
         )
+
+    def test_dead_processing_api_is_retired(self):
+        """The removed categorical dynamics path must not quietly return."""
+        dynamics = self.processor.dynamics_processor
+        assert not hasattr(dynamics, "process")
+        assert not hasattr(dynamics, "_apply_gate")
+        assert not hasattr(dynamics, "_adapt_to_content")
+        assert not hasattr(dynamics, "_update_adaptation_state")
+
+    def test_management_api_remains_available(self):
+        """Mode, diagnostics, and reset are the intentional live surface."""
+        dynamics = self.processor.dynamics_processor
+        dynamics.set_mode(DynamicsMode.MUSICAL)
+        dynamics.gate_gain = 0.5
+        dynamics.adaptation_state["current_lufs"] = -2.0
+
+        assert dynamics.get_processing_info()["mode"] == "musical"
+
+        dynamics.reset()
+        info = dynamics.get_processing_info()
+        assert info["gate"]["current_gain"] == 1.0
+        assert info["adaptation_state"]["current_lufs"] == -14.0
 
     def test_offline_continuous_mode_does_not_reference_dynamics_processor(self):
         """The offline path must NOT hold the dynamics_processor.

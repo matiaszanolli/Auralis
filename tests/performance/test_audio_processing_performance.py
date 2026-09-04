@@ -377,36 +377,6 @@ class TestComponentPerformance:
         benchmark_results['eq_rtf'] = rtf
         print(f"\n✓ EQ processing: {rtf:.1f}x RTF")
 
-    def test_dynamics_processing_performance(self, performance_audio_file, timer, benchmark_results):
-        """
-        BENCHMARK: Dynamics processing should achieve >100x real-time factor.
-        """
-        from auralis.dsp.advanced_dynamics import (
-            DynamicsMode,
-            create_dynamics_processor,
-        )
-
-        audio, sr = load_audio(performance_audio_file)
-        duration = len(audio) / sr
-
-        dynamics = create_dynamics_processor(
-            mode=DynamicsMode.ADAPTIVE,
-            sample_rate=sr,
-            target_lufs=-14.0
-        )
-
-        with timer() as t:
-            result = dynamics.process(audio)
-
-        assert result is not None
-        rtf = duration / t.elapsed
-
-        # BENCHMARK: Dynamics should achieve > 20x real-time
-        assert rtf > 20, f"Dynamics RTF {rtf:.1f}x below 20x"
-
-        benchmark_results['dynamics_rtf'] = rtf
-        print(f"\n✓ Dynamics processing: {rtf:.1f}x RTF")
-
     def test_limiter_performance(self, performance_audio_file, timer, benchmark_results):
         """
         BENCHMARK: Limiter should achieve >200x real-time factor.
