@@ -42,11 +42,10 @@ describe('Sidebar', () => {
     const user = userEvent.setup()
     render(<Sidebar onNavigate={mockOnNavigate} />)
 
-    const albumsButton = screen.getByText('Albums').closest('button')
-    if (albumsButton) {
-      await user.click(albumsButton)
-      expect(mockOnNavigate).toHaveBeenCalledWith('albums')
-    }
+    await user.click(screen.getByRole('button', { name: 'Albums' }))
+
+    expect(mockOnNavigate).toHaveBeenCalledWith('albums')
+    expect(mockOnNavigate).toHaveBeenCalledTimes(1)
   })
 
   it('renders in collapsed state', () => {
@@ -66,23 +65,19 @@ describe('Sidebar', () => {
 
   it('calls onToggleCollapse when collapse button clicked', async () => {
     const user = userEvent.setup()
-    const { container} = render(<Sidebar onToggleCollapse={mockOnToggleCollapse} />)
+    render(<Sidebar onToggleCollapse={mockOnToggleCollapse} />)
 
-    const collapseButton = container.querySelector('[data-testid="ChevronLeftIcon"]')?.closest('button')
-    if (collapseButton) {
-      await user.click(collapseButton)
-      expect(mockOnToggleCollapse).toHaveBeenCalledTimes(1)
-    }
+    await user.click(screen.getByRole('button', { name: 'Collapse sidebar' }))
+
+    expect(mockOnToggleCollapse).toHaveBeenCalledTimes(1)
   })
 
   it('calls onOpenSettings when settings clicked', async () => {
     const user = userEvent.setup()
     render(<Sidebar onOpenSettings={mockOnOpenSettings} />)
 
-    const settingsButton = screen.getByText('Settings').closest('button')
-    if (settingsButton) {
-      await user.click(settingsButton)
-      expect(mockOnOpenSettings).toHaveBeenCalledTimes(1)
-    }
+    await user.click(screen.getByRole('button', { name: 'Settings' }))
+
+    expect(mockOnOpenSettings).toHaveBeenCalledTimes(1)
   })
 })
