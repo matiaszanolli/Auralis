@@ -394,8 +394,10 @@ class StreamlinedCacheManager:
             logger.debug(f"Tier 2 HIT: {cache_key}")
             return chunk.chunk_path, "tier2"
 
-        # Cache miss - always increment tier1_misses (total misses)
+        # Both tiers were checked and missed. Each tier exposes its own miss
+        # counter, while the overall stats below count this request once.
         self.tier1_misses += 1
+        self.tier2_misses += 1
         logger.debug(f"Cache MISS: {cache_key}")
         return None, "miss"
 
@@ -591,8 +593,9 @@ class StreamlinedCacheManager:
         tier1_size_mb = self._tier_size_mb(self.tier1_cache)
         tier2_size_mb = self._tier_size_mb(self.tier2_cache)
 
-        total_requests = (self.tier1_hits + self.tier1_misses +
-                         self.tier2_hits + self.tier2_misses)
+        # tier1_misses and tier2_misses both describe the same full-cache miss;
+        # do not double-count it in overall request/miss totals (#5252).
+        total_requests = self.tier1_hits + self.tier2_hits + self.tier1_misses
 
         return {
             "tier1": {
@@ -607,13 +610,13 @@ class StreamlinedCacheManager:
                 "size_mb": tier2_size_mb,
                 "hits": self.tier2_hits,
                 "misses": self.tier2_misses,
-                "hit_rate": self.tier2_hits / max(1, total_requests) if total_requests > 0 else 0.0,
+                "hit_rate": self.tier2_hits / max(1, self.tier2_hits + self.tier2_misses),
             },
             "overall": {
                 "total_chunks": len(self.tier1_cache) + len(self.tier2_cache),
                 "total_size_mb": tier1_size_mb + tier2_size_mb,
                 "total_hits": self.tier1_hits + self.tier2_hits,
-                "total_misses": self.tier1_misses + self.tier2_misses,
+                "total_misses": self.tier1_misses,
                 "overall_hit_rate": (self.tier1_hits + self.tier2_hits) / max(1, total_requests),
                 # (#4785) Belongs under "overall", not "tier2" — schemas.OverallCacheStats,
                 # standardizedAPIClient.ts and types/api.ts all read it from here.

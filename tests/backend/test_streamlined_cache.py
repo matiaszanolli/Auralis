@@ -34,6 +34,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
 from core.chunk_boundaries import chunk_for_position, content_chunk_count
+from cache.monitoring import CacheMonitor
 from cache.manager import (
     CHUNK_DURATION,
     CHUNK_SIZE_MB,
@@ -338,6 +339,7 @@ class TestStreamlinedCacheManager:
         assert result_path is None
         assert tier == "miss"
         assert cache_manager.tier1_misses == 1
+        assert cache_manager.tier2_misses == 1
 
     @pytest.mark.asyncio
     async def test_get_chunk_signature_mismatch_is_a_miss(self, cache_manager):
@@ -458,8 +460,38 @@ class TestStreamlinedCacheManager:
         assert stats["tier1"]["misses"] == 1
         assert stats["tier2"]["chunks"] == 1
         assert stats["tier2"]["hits"] == 1
+        assert stats["tier2"]["misses"] == 1
+        assert stats["tier2"]["hit_rate"] == pytest.approx(0.5)
         assert stats["overall"]["total_chunks"] == 2
+        assert stats["overall"]["total_misses"] == 1
+        assert stats["overall"]["overall_hit_rate"] == pytest.approx(2 / 3)
         assert 1 in stats["tracks"]
+
+    @pytest.mark.asyncio
+    async def test_tier2_hit_rate_uses_only_tier2_attempts(self, cache_manager):
+        """Tier-1 traffic must not dilute the reported Tier-2 rate (#5252)."""
+        await cache_manager.add_chunk(
+            1, 5, Path("/tmp/tier2.webm"), "adaptive", 1.0, tier="tier2"
+        )
+        await cache_manager.add_chunk(
+            1, 0, Path("/tmp/tier1.webm"), "adaptive", 1.0, tier="tier1"
+        )
+
+        for _ in range(2):
+            await cache_manager.get_chunk(1, 5, "adaptive", 1.0)
+        for chunk_idx in range(10, 13):
+            await cache_manager.get_chunk(1, chunk_idx, "adaptive", 1.0)
+        for _ in range(4):
+            await cache_manager.get_chunk(1, 0, "adaptive", 1.0)
+
+        stats = cache_manager.get_stats()
+        assert stats["tier2"]["hits"] == 2
+        assert stats["tier2"]["misses"] == 3
+        assert stats["tier2"]["hit_rate"] == pytest.approx(2 / 5)
+
+        # CacheMonitor consumes this exact field for live metrics/alerts.
+        metrics = CacheMonitor(cache_manager).update_metrics()
+        assert metrics.tier2_hit_rate == pytest.approx(2 / 5)
 
     @pytest.mark.asyncio
     async def test_clear_all(self, cache_manager):
