@@ -32,6 +32,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from ._helpers import _safe_collection, _safe_scalar
 from .base import Base, TimestampMixin, track_artist, track_genre, track_playlist
 
 
@@ -122,29 +123,16 @@ class Track(Base, TimestampMixin):
         Returns album artwork as API URL instead of filesystem path.
         """
         try:
-            # Safe access to relationship attributes
-            album_title = None
+            album = _safe_scalar(self, 'album')
+            album_title = album.title if album else None
             album_artwork = None
-            try:
-                album_title = self.album.title if self.album else None
-                # Convert filesystem path to API URL if artwork exists
-                if self.album and hasattr(self.album, 'artwork_path') and self.album.artwork_path:
-                    album_artwork = f"/api/albums/{self.album.id}/artwork"
-            except Exception:
-                album_title = None
-                album_artwork = None
+            if album and album.artwork_path:
+                album_artwork = f"/api/albums/{album.id}/artwork"
 
-            artist_names = []
-            try:
-                artist_names = [artist.name for artist in self.artists]
-            except Exception:
-                artist_names = []
-
-            genre_names = []
-            try:
-                genre_names = [genre.name for genre in self.genres]
-            except Exception:
-                genre_names = []
+            artist_names = [
+                artist.name for artist in _safe_collection(self, 'artists')
+            ]
+            genre_names = [genre.name for genre in _safe_collection(self, 'genres')]
 
             return {
                 'id': self.id,

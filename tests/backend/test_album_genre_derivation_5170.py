@@ -17,15 +17,17 @@ Two halves are covered here:
     `[]` by `_safe_collection()`), so the derived genre was always None.
 """
 
+import logging
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT / "auralis-web" / "backend"))
 
-from routers.albums import AlbumTracksResponse, _derive_album_genre
+from routers.albums import AlbumTracksResponse, _derive_album_genre, get_album_tracks
 
 
 class TestDeriveAlbumGenre:
@@ -116,3 +118,48 @@ class TestAlbumDetailEagerLoadsTrackGenres:
         album = album_repo.get_by_id(album_id)
 
         assert _derive_album_genre(serialize_tracks(album.tracks)) == 'Rock'
+
+    @pytest.mark.asyncio
+    async def test_album_and_artist_values_reach_the_handler_response(self, seeded):
+        """Real detached rows keep their relationship values on the wire (#5260)."""
+        album_repo, album_id = seeded
+
+        response = await get_album_tracks(
+            album_id,
+            repos=SimpleNamespace(albums=album_repo),
+        )
+
+        assert response["tracks"]
+        assert all(track["album"] == "Test Album" for track in response["tracks"])
+        assert all(track["artists"] == ["Artist"] for track in response["tracks"])
+
+
+class TestTrackRelationshipSerializationBackstop:
+    def test_unloaded_relationships_log_instead_of_failing_silently(
+        self, session_factory, tmp_path, caplog
+    ):
+        """A future missing eager-load must leave a diagnostic warning (#5260)."""
+        from sqlalchemy import select
+
+        from auralis.library.models import Track
+        from auralis.library.repositories import TrackRepository
+
+        created = TrackRepository(session_factory).add({
+            'filepath': str(tmp_path / 'detached.flac'),
+            'title': 'Detached Track',
+            'artists': ['Artist'],
+            'album': 'Test Album',
+        })
+        with session_factory() as session:
+            detached = session.execute(
+                select(Track).where(Track.id == created.id)
+            ).scalars().one()
+            session.expunge(detached)
+
+        with caplog.at_level(logging.WARNING, logger='auralis.library.models._helpers'):
+            payload = detached.to_dict()
+
+        assert payload['album'] is None
+        assert payload['artists'] == []
+        assert "Track.album could not be loaded" in caplog.text
+        assert "Track.artists could not be loaded" in caplog.text

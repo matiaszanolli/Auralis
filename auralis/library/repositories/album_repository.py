@@ -54,14 +54,14 @@ def _total_duration_subquery() -> Any:
 # Single-album detail reads: get_by_id/get_by_title hand the album straight
 # to to_dict(), which reads both album.artist and album.tracks.
 #
-# Track.genres is eager-loaded too (#5170). Everything here is expunged before
-# it is returned, so a lazy genres access downstream raised
-# DetachedInstanceError, which _safe_collection() degraded to [] — every track
-# on the album-detail path reported `genres: []` regardless of its real tags,
-# and the derived album genre was therefore always empty.
+# Track relationships used by Track.to_dict() are eager-loaded too
+# (#5170/#5260). Everything here is expunged before it is returned, so a lazy
+# relationship access downstream otherwise degrades to an empty wire value.
 _ALBUM_DETAIL_OPTIONS = (
     joinedload(Album.artist),
     selectinload(Album.tracks).selectinload(Track.genres),
+    selectinload(Album.tracks).selectinload(Track.artists),
+    selectinload(Album.tracks).joinedload(Track.album),
 )
 
 # Paginated/listing reads: track_count_expr/total_duration_expr cover what
