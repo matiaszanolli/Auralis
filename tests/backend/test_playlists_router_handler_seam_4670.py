@@ -66,25 +66,44 @@ async def test_create_playlist_broadcasts_through_an_injected_manager():
     assert stub_manager.broadcast.await_args.args[0]["type"] == "playlist_created"
 
 
-async def test_add_tracks_to_playlist_rejects_an_empty_add():
-    """The 400-on-zero-added branch survives the extraction verbatim."""
-    from fastapi import HTTPException
-
+async def test_add_tracks_to_playlist_accepts_duplicate_only_add():
+    """An idempotent all-duplicate add is a successful no-op (#5263)."""
     stub_repos = MagicMock()
+    stub_repos.playlists.get_by_id.return_value = MagicMock()
     stub_repos.playlists.add_tracks.return_value = 0
     stub_manager = MagicMock()
     stub_manager.broadcast = AsyncMock()
 
+    result = await add_tracks_to_playlist(
+        5,
+        AddTracksRequest(track_ids=[1, 2]),
+        repos=stub_repos,
+        connection_manager=stub_manager,
+    )
+
+    assert result["added_count"] == 0
+    stub_repos.playlists.get_by_id.assert_called_once_with(5)
+    stub_repos.playlists.add_tracks.assert_called_once_with(5, [1, 2])
+    stub_manager.broadcast.assert_not_awaited()
+
+
+async def test_add_tracks_to_playlist_rejects_missing_playlist():
+    """A missing playlist is distinct from an idempotent no-op (#5263)."""
+    from fastapi import HTTPException
+
+    stub_repos = MagicMock()
+    stub_repos.playlists.get_by_id.return_value = None
+
     with pytest.raises(HTTPException) as exc:
         await add_tracks_to_playlist(
-            5,
-            AddTracksRequest(track_ids=[1, 2]),
+            999,
+            AddTracksRequest(track_ids=[1]),
             repos=stub_repos,
-            connection_manager=stub_manager,
+            connection_manager=MagicMock(),
         )
 
-    assert exc.value.status_code == 400
-    stub_manager.broadcast.assert_not_awaited()
+    assert exc.value.status_code == 404
+    stub_repos.playlists.add_tracks.assert_not_called()
 
 
 async def test_clear_playlist_callable_with_bare_stubs():

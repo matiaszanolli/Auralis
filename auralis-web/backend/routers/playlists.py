@@ -386,8 +386,15 @@ async def add_tracks_to_playlist(
         dict: Success message and count of added tracks
 
     Raises:
-        HTTPException: If library manager/factory not available or no tracks added
+        HTTPException: If library manager/factory is unavailable or playlist is missing
     """
+    # add_tracks() deliberately returns 0 both for a missing playlist and for
+    # an idempotent all-duplicate request. Resolve existence first so only the
+    # former is a 404; the latter is a successful no-op (#5263).
+    playlist = await asyncio.to_thread(repos.playlists.get_by_id, playlist_id)
+    if playlist is None:
+        raise NotFoundError("Playlist")
+
     # Single to_thread call for all IDs — avoids N×session-open/commit
     # overhead and the frontend 5s timeout on large album imports
     # (fixes #3856; replaces N×add_track loop).
@@ -395,18 +402,17 @@ async def add_tracks_to_playlist(
         repos.playlists.add_tracks, playlist_id, request.track_ids
     )
 
-    if added_count == 0:
-        raise HTTPException(status_code=400, detail="No tracks were added")
-
-    # Broadcast playlist updated event
-    await broadcast_typed(
-        connection_manager,
-        "playlist_updated",
-        {
-            "playlist_id": playlist_id,
-            "action": "track_added",
-        },
-    )
+    if added_count > 0:
+        # Broadcast only when membership actually changed. Re-adding tracks
+        # that are already present is successful but has no update to announce.
+        await broadcast_typed(
+            connection_manager,
+            "playlist_updated",
+            {
+                "playlist_id": playlist_id,
+                "action": "track_added",
+            },
+        )
 
     return {
         "message": f"Added {added_count} track(s) to playlist",

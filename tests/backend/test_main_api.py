@@ -1463,6 +1463,33 @@ class TestPlaylistEndpoints:
             assert "added_count" in data
             assert data["added_count"] == 1
 
+    def test_add_duplicate_tracks_to_playlist_is_successful_noop(self, client):
+        """An all-duplicate batch add returns its real zero count (#5263)."""
+        mock_repos = Mock()
+        mock_repos.playlists.get_by_id.return_value = Mock()
+        mock_repos.playlists.add_tracks.return_value = 0
+
+        with patch('routers.playlists.require_repository_factory', return_value=mock_repos):
+            response = _with_trusted_origin(
+                client, "post", "/api/playlists/1/tracks", json={"track_ids": [5]}
+            )
+
+        assert response.status_code == 200
+        assert response.json()["added_count"] == 0
+
+    def test_add_tracks_to_missing_playlist_returns_404(self, client):
+        """A nonexistent playlist is not conflated with a duplicate no-op (#5263)."""
+        mock_repos = Mock()
+        mock_repos.playlists.get_by_id.return_value = None
+
+        with patch('routers.playlists.require_repository_factory', return_value=mock_repos):
+            response = _with_trusted_origin(
+                client, "post", "/api/playlists/999/tracks", json={"track_ids": [5]}
+            )
+
+        assert response.status_code == 404
+        mock_repos.playlists.add_tracks.assert_not_called()
+
     def test_remove_track_from_playlist_success(self, client):
         """Test removing track from playlist"""
         mock_repos = Mock()
