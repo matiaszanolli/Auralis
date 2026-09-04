@@ -8,8 +8,6 @@ Tests the metadata router endpoints for editing track metadata.
 :license: GPLv3, see LICENSE for more details.
 """
 
-import os
-import shutil
 import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
@@ -21,11 +19,13 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "ba
 
 
 @pytest.fixture
-def mock_track():
-    """Create a mock track object"""
+def mock_track(tmp_path):
+    """Create a mock track backed by a readable file in a temporary library."""
+    filepath = tmp_path / "test.mp3"
+    filepath.touch()
     track = Mock()
     track.id = 1
-    track.filepath = "/path/to/test.mp3"
+    track.filepath = str(filepath)
     track.format = "mp3"
     track.title = "Test Track"
     track.artist = "Test Artist"
@@ -112,8 +112,8 @@ def client(mock_track, mock_broadcast_manager, mock_metadata_editor, monkeypatch
     Returns:
         tuple: (TestClient, mock_broadcast_manager, mock_metadata_editor, mock_repository_factory)
     """
-    import sys
     from types import ModuleType
+
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
@@ -127,15 +127,22 @@ def client(mock_track, mock_broadcast_manager, mock_metadata_editor, monkeypatch
     # stub and registered zero routers) if it happened to run afterward.
     if 'config.routes' not in sys.modules:
         routes_stub = ModuleType('config.routes')
-        routes_stub.setup_routers = lambda app: None  # Stub function
+        routes_stub.setup_routers = lambda app, deps: None  # Stub function
         monkeypatch.setitem(sys.modules, 'config.routes', routes_stub)
 
     from routers.metadata import create_metadata_router
+    from security.path_security import (
+        register_allowed_directory,
+        unregister_allowed_directory,
+    )
 
     # Create mock repository factory with tracks repository
     mock_repository_factory = Mock()
     mock_repository_factory.tracks = Mock()
     mock_repository_factory.tracks.get_by_id.return_value = mock_track
+    mock_repository_factory.tracks.get_by_ids.return_value = {mock_track.id: mock_track}
+    mock_repository_factory.tracks.update_metadata.return_value = mock_track
+    mock_repository_factory.tracks.update_metadata_batch.return_value = [mock_track.id]
 
     # Create a fresh app and router for this test
     app = FastAPI()
@@ -146,9 +153,15 @@ def client(mock_track, mock_broadcast_manager, mock_metadata_editor, monkeypatch
     )
     app.include_router(router)
 
-    client = TestClient(app)
-    # Return tuple for unpacking in tests (added mock_repository_factory for edge case tests)
-    return client, mock_broadcast_manager, mock_metadata_editor, mock_repository_factory
+    test_client = TestClient(app)
+    library_dir = Path(mock_track.filepath).parent
+    register_allowed_directory(library_dir)
+    try:
+        # Return tuple for unpacking in tests (added mock_repository_factory for edge case tests)
+        yield test_client, mock_broadcast_manager, mock_metadata_editor, mock_repository_factory
+    finally:
+        test_client.close()
+        unregister_allowed_directory(library_dir)
 
 
 class TestGetEditableFields:
@@ -156,14 +169,14 @@ class TestGetEditableFields:
 
     def test_get_editable_fields_success(self, client):
         """Test successfully getting editable fields for a track"""
-        test_client, _, mock_editor, _ = client
+        test_client, _, _, _ = client
 
         response = test_client.get("/api/metadata/tracks/1/fields")
 
         assert response.status_code == 200
         data = response.json()
         assert data["track_id"] == 1
-        assert data["filepath"] == "/path/to/test.mp3"
+        assert "filepath" not in data
         assert data["format"] == "mp3"
         assert "title" in data["editable_fields"]
         assert "artist" in data["editable_fields"]
@@ -172,7 +185,7 @@ class TestGetEditableFields:
 
     def test_get_editable_fields_track_not_found(self, client):
         """Test getting fields for non-existent track"""
-        test_client, _, mock_editor, mock_repo_factory = client
+        test_client, _, _, mock_repo_factory = client
 
         # Override mock to return None for non-existent track
         mock_repo_factory.tracks.get_by_id.return_value = None
@@ -200,14 +213,14 @@ class TestGetTrackMetadata:
     
     def test_get_metadata_success(self, client):
         """Test successfully getting track metadata"""
-        test_client, _, mock_editor, _ = client
+        test_client, _, _, _ = client
 
         response = test_client.get("/api/metadata/tracks/1")
 
         assert response.status_code == 200
         data = response.json()
         assert data["track_id"] == 1
-        assert data["filepath"] == "/path/to/test.mp3"
+        assert "filepath" not in data
         assert data["format"] == "mp3"
         assert data["metadata"]["title"] == "Test Track"
         assert data["metadata"]["artist"] == "Test Artist"
@@ -215,7 +228,7 @@ class TestGetTrackMetadata:
     
     def test_get_metadata_track_not_found(self, client):
         """Test getting metadata for non-existent track"""
-        test_client, _, mock_editor, mock_repo_factory = client
+        test_client, _, _, mock_repo_factory = client
 
         # Override mock to return None for non-existent track
         mock_repo_factory.tracks.get_by_id.return_value = None
@@ -273,9 +286,10 @@ class TestUpdateTrackMetadata:
 
         assert response.status_code == 200
 
-        # Verify backup parameter was passed
+        # Backups are always enforced server-side, regardless of the legacy
+        # query parameter (#2407).
         call_args = mock_editor.write_metadata.call_args
-        assert call_args[1]['backup'] is True
+        assert call_args.args[2] is True
 
     
     def test_update_metadata_without_backup(self, client):
@@ -288,14 +302,14 @@ class TestUpdateTrackMetadata:
 
         assert response.status_code == 200
 
-        # Verify backup parameter was passed
+        # A client cannot disable the server-side backup invariant (#2407).
         call_args = mock_editor.write_metadata.call_args
-        assert call_args[1]['backup'] is False
+        assert call_args.args[2] is True
 
     
     def test_update_metadata_empty_fields(self, client):
         """Test updating with no fields provided"""
-        test_client, _, mock_editor, _ = client
+        test_client, _, _, _ = client
 
         response = test_client.put("/api/metadata/tracks/1", json={})
 
@@ -318,7 +332,7 @@ class TestUpdateTrackMetadata:
     
     def test_update_metadata_track_not_found(self, client):
         """Test updating non-existent track"""
-        test_client, _, mock_editor, mock_repo_factory = client
+        test_client, _, _, mock_repo_factory = client
 
         # Override mock to return None for non-existent track
         mock_repo_factory.tracks.get_by_id.return_value = None
@@ -337,15 +351,13 @@ class TestBatchUpdateMetadata:
         test_client, broadcast_manager, mock_editor, mock_repo_factory = client
 
         # Create mock tracks
-        track1 = Mock(id=1, filepath="/path/to/test1.mp3", title="Track 1")
-        track2 = Mock(id=2, filepath="/path/to/test2.mp3", title="Track 2")
+        valid_filepath = mock_repo_factory.tracks.get_by_id.return_value.filepath
+        track1 = Mock(id=1, filepath=valid_filepath, title="Track 1")
+        track2 = Mock(id=2, filepath=valid_filepath, title="Track 2")
 
-        # Configure mock repository factory to return different tracks by ID
-        mock_repo_factory.tracks.get_by_id.side_effect = lambda track_id: track1 if track_id == 1 else track2
-        # Mock update_track to return the updated track
-        mock_repo_factory.tracks.update_track.side_effect = lambda track_id, **kwargs: (
-            track1 if track_id == 1 else track2
-        )
+        # Batch routes use one WHERE-IN lookup and one transactional update.
+        mock_repo_factory.tracks.get_by_ids.return_value = {1: track1, 2: track2}
+        mock_repo_factory.tracks.update_metadata_batch.return_value = [1, 2]
 
         batch_request = {
             "updates": [
@@ -376,7 +388,7 @@ class TestBatchUpdateMetadata:
     
     def test_batch_update_empty_list(self, client):
         """Test batch update with empty list"""
-        test_client, _, mock_editor, _ = client
+        test_client, _, _, _ = client
 
         batch_request = {
             "updates": [],
@@ -404,11 +416,12 @@ class TestBatchUpdateMetadata:
             ]
         }
 
-        track1 = Mock(id=1, filepath="/path/to/test1.mp3")
+        valid_filepath = mock_repo_factory.tracks.get_by_id.return_value.filepath
+        track1 = Mock(id=1, filepath=valid_filepath)
 
-        # Configure mock to return track1 for ID 1, None for ID 2
-        mock_repo_factory.tracks.get_by_id.side_effect = lambda track_id: track1 if track_id == 1 else None
-        mock_repo_factory.tracks.update_track.return_value = track1
+        # Configure the batched repository contract with only track 1 present.
+        mock_repo_factory.tracks.get_by_ids.return_value = {1: track1}
+        mock_repo_factory.tracks.update_metadata_batch.return_value = [1]
 
         batch_request = {
             "updates": [
@@ -452,7 +465,7 @@ class TestMetadataValidation:
     
     def test_invalid_field_name(self, client):
         """Test updating with invalid field name"""
-        test_client, _, mock_editor, _ = client
+        test_client, _, _, _ = client
 
         # Extra fields should be rejected by Pydantic with extra="forbid"
         update_data = {
@@ -468,7 +481,7 @@ class TestMetadataValidation:
     
     def test_year_type_validation(self, client):
         """Test year field type validation"""
-        test_client, _, mock_editor, _ = client
+        test_client, _, _, _ = client
 
         update_data = {
             "year": "not a number"  # Should fail validation
@@ -482,7 +495,7 @@ class TestMetadataValidation:
     
     def test_multiple_fields_update(self, client):
         """Test updating multiple fields at once"""
-        test_client, _, mock_editor, _ = client
+        test_client, _, _, _ = client
 
         update_data = {
             "title": "New Title",

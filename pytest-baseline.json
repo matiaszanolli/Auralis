@@ -1,8 +1,8 @@
 {
-  "_comment": "Known-failing pytest tests (#4562). CI fails on any failure NOT listed here. Regenerate with: python scripts/check_pytest_baseline.py <junit.xml> --update. #5169 and #5290 removed newly passing entries by hand: --strict-stale (#5091) fails the job on a baselined test that passes. Removed rather than regenerated -- a baseline built outside CI reports spurious new failures.",
+  "_comment": "Known-failing pytest tests (#4562). CI fails on any failure NOT listed here. Regenerate with: python scripts/check_pytest_baseline.py <junit.xml> --update. #5169, #5290, and #5292 removed newly passing entries by hand: --strict-stale (#5091) fails the job on a baselined test that passes. Removed rather than regenerated -- a baseline built outside CI reports spurious new failures.",
   "generatedFrom": {
     "totalTests": 6889,
-    "failedTests": 211
+    "failedTests": 201
   },
   "failures": [
     "tests.auralis.analysis.fingerprint.test_rust_fingerprint_glue::test_all_values_finite",
@@ -42,16 +42,6 @@
     "tests.backend.test_library_reset.TestLibraryReset::test_workers_restarted_even_if_reset_fails",
     "tests.backend.test_library_reset.TestLibraryResetConfirmationGuard::test_succeeds_with_correct_header",
     "tests.backend.test_main_api.TestPlayerEndpoints::test_set_volume",
-    "tests.backend.test_metadata.TestBatchUpdateMetadata::test_batch_update_partial_success",
-    "tests.backend.test_metadata.TestBatchUpdateMetadata::test_batch_update_success",
-    "tests.backend.test_metadata.TestGetEditableFields::test_get_editable_fields_file_not_found",
-    "tests.backend.test_metadata.TestGetEditableFields::test_get_editable_fields_success",
-    "tests.backend.test_metadata.TestGetTrackMetadata::test_get_metadata_success",
-    "tests.backend.test_metadata.TestMetadataValidation::test_multiple_fields_update",
-    "tests.backend.test_metadata.TestUpdateTrackMetadata::test_update_metadata_success",
-    "tests.backend.test_metadata.TestUpdateTrackMetadata::test_update_metadata_with_backup",
-    "tests.backend.test_metadata.TestUpdateTrackMetadata::test_update_metadata_without_backup",
-    "tests.backend.test_metadata.TestUpdateTrackMetadata::test_update_metadata_write_failure",
     "tests.backend.test_player_api_comprehensive.TestAddTrackToQueue::test_add_track_valid",
     "tests.backend.test_player_api_comprehensive.TestSetQueue::test_set_queue_with_tracks",
     "tests.backend.test_preprocess_upcoming_chunks_5052.TestPrewarmProbesFfmpegOnlyFormats::test_prewarm_processes_chunks_for_m4a_track",
