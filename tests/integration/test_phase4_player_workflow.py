@@ -1,572 +1,618 @@
-"""
-Phase 4 Integration Tests - Player Workflow
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+"""In-process integration coverage for the player workflow.
 
-Tests the complete playback workflow against the real backend:
-1. Play → Seek → Pause → Volume Change
-2. Search → Select Track → Play
-3. Error Recovery (network errors, API failures)
-
-Tests use real backend servers (localhost:8765) and validate:
-- UI command → API request → backend state change
-- WebSocket broadcasts received
-- State synchronization
-- Error handling and recovery
-
-:copyright: (C) 2024 Auralis
-:license: GPLv3
+The original Phase 4 suite connected to ``localhost:8765`` with httpx and
+websockets. That made the tests depend on a separately managed development
+server and guaranteed failure in hermetic CI. These tests mount the real
+library/player routers and playback-control WebSocket handlers in a FastAPI
+``TestClient`` instead. Deterministic boundary fakes replace only the audio
+device and database, which are outside the HTTP/WebSocket contract under test.
 """
 
 import asyncio
-import json
-import time
-from typing import Any, Dict, Optional
+from dataclasses import dataclass
+from types import SimpleNamespace
+from typing import Any
 
-import httpx
+import player_state
 import pytest
-import websockets
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.testclient import TestClient
+from routers import player as player_router
+from routers.player import create_player_router
+from routers.tracks import create_tracks_router
+from ws_handlers.context import StreamState
+from ws_handlers.playback_control import (
+    handle_pause,
+    handle_resume,
+    handle_stop,
+)
 
-# Base configuration
-BACKEND_URL = "http://localhost:8765"
-WS_URL = "ws://localhost:8765/ws"
-TIMEOUT = 10.0
-WS_TIMEOUT = 5.0
+
+@dataclass
+class FakeAlbum:
+    title: str
+
+
+@dataclass
+class FakeTrack:
+    id: int
+    title: str
+    artist: str
+    album: FakeAlbum
+    duration: float
+    filepath: str
+    format: str = "flac"
+    artwork_url: str | None = None
+    genre: str | None = "Test"
+    year: int | None = 2026
+    bitrate: int | None = 1411
+    sample_rate: int | None = 44100
+    bit_depth: int | None = 16
+    loudness: float | None = -14.0
+    date_added: str | None = None
+    date_modified: str | None = None
+    album_id: int | None = None
+    track_number: int | None = None
+    disc_number: int | None = None
+    favorite: bool = False
+
+
+class FakeTrackRepository:
+    def __init__(self, tracks: list[FakeTrack]) -> None:
+        self._tracks = tracks
+
+    def get_all(
+        self, *, limit: int, offset: int, order_by: str
+    ) -> tuple[list[FakeTrack], int]:
+        del order_by
+        return self._tracks[offset : offset + limit], len(self._tracks)
+
+    def search(
+        self, query: str, *, limit: int, offset: int, order_by: str
+    ) -> tuple[list[FakeTrack], int]:
+        del order_by
+        query = query.casefold()
+        matches = [
+            track
+            for track in self._tracks
+            if query in track.title.casefold() or query in track.artist.casefold()
+        ]
+        return matches[offset : offset + limit], len(matches)
+
+    def get_by_id(self, track_id: int) -> FakeTrack | None:
+        return next((track for track in self._tracks if track.id == track_id), None)
+
+
+class InProcessConnectionManager:
+    def __init__(self) -> None:
+        self.connections: list[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket) -> None:
+        await websocket.accept()
+        self.connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket) -> None:
+        if websocket in self.connections:
+            self.connections.remove(websocket)
+
+    async def broadcast(self, message: dict[str, Any]) -> None:
+        for websocket in list(self.connections):
+            await websocket.send_json(message)
+
+
+class InProcessStateManager:
+    def __init__(self, manager: InProcessConnectionManager) -> None:
+        self.state = player_state.PlayerState()
+        self.manager = manager
+
+    def get_state(self) -> player_state.PlayerState:
+        return self.state.model_copy(deep=True)
+
+    async def update_state(self, **changes: Any) -> None:
+        for key, value in changes.items():
+            setattr(self.state, key, value)
+        self.state.is_playing = self.state.state == player_state.PlaybackState.PLAYING
+        self.state.is_paused = self.state.state == player_state.PlaybackState.PAUSED
+        self.state.seq += 1
+        await self.manager.broadcast(
+            {"type": "player_state", "data": self.state.model_dump(mode="json")}
+        )
+
+
+class InProcessPlayer:
+    def __init__(
+        self, tracks: FakeTrackRepository, state: InProcessStateManager
+    ) -> None:
+        self.tracks = tracks
+        self.state_manager = state
+        self.queue_ids: list[int] = []
+        self.current_index = 0
+        self.seek_position = 0.0
+
+    def add_to_queue(self, track_info: dict[str, Any]) -> None:
+        track_id = int(track_info["id"])
+        if track_id not in self.queue_ids:
+            self.queue_ids.append(track_id)
+
+    def load_track_from_library(self, track_id: int) -> bool:
+        track = self.tracks.get_by_id(track_id)
+        if track is None:
+            return False
+        self.add_to_queue({"id": track_id})
+        self.current_index = self.queue_ids.index(track_id)
+        info = player_state.create_track_info(track)
+        self.state_manager.state.current_track = info
+        self.state_manager.state.current_time = 0.0
+        self.state_manager.state.duration = track.duration
+        self.state_manager.state.state = player_state.PlaybackState.LOADING
+        self.state_manager.state.queue = [
+            info
+            for queued_id in self.queue_ids
+            if (
+                info := player_state.create_track_info(self.tracks.get_by_id(queued_id))
+            )
+            is not None
+        ]
+        self.state_manager.state.queue_size = len(self.queue_ids)
+        self.state_manager.state.queue_index = self.current_index
+        self.state_manager.state.seq += 1
+        return True
+
+
+class InProcessPlaybackService:
+    def __init__(
+        self,
+        player: InProcessPlayer,
+        state: InProcessStateManager,
+        manager: InProcessConnectionManager,
+    ) -> None:
+        self.player = player
+        self.state_manager = state
+        self.manager = manager
+
+    async def get_status(self) -> dict[str, Any]:
+        state = self.state_manager.get_state()
+        payload = state.model_dump()
+
+        def response_track(track: player_state.TrackInfo) -> dict[str, Any]:
+            data = track.model_dump()
+            # FastAPI validates the internal response against TrackInfo before
+            # applying Field(exclude=True) to the public payload.
+            data["filepath"] = track.filepath
+            return data
+
+        if state.current_track is not None:
+            payload["current_track"] = response_track(state.current_track)
+        payload["queue"] = [response_track(track) for track in state.queue]
+        return payload
+
+    async def seek(self, position: float) -> dict[str, Any]:
+        self.player.seek_position = position
+        self.state_manager.state.current_time = position
+        return {"message": "Seek successful", "position": position}
+
+    async def set_volume(self, volume: float) -> dict[str, Any]:
+        volume_100 = round(volume * 100)
+        self.state_manager.state.volume = volume_100
+        self.state_manager.state.is_muted = volume_100 == 0
+        await self.manager.broadcast(
+            {"type": "volume_changed", "data": {"volume": volume_100, "seq": 1}}
+        )
+        return {"message": "Volume set", "volume": volume_100}
+
+
+class InProcessQueueService:
+    def __init__(
+        self,
+        player: InProcessPlayer,
+        tracks: FakeTrackRepository,
+        state: InProcessStateManager,
+    ) -> None:
+        self.player = player
+        self.tracks = tracks
+        self.state_manager = state
+
+    def _track_infos(self) -> list[player_state.TrackInfo]:
+        return [
+            info
+            for track_id in self.player.queue_ids
+            if (info := player_state.create_track_info(self.tracks.get_by_id(track_id)))
+            is not None
+        ]
+
+    async def get_queue_info(self) -> dict[str, Any]:
+        tracks = self._track_infos()
+        current = tracks[self.player.current_index] if tracks else None
+        return {
+            "tracks": tracks,
+            "current_index": self.player.current_index,
+            "track_count": len(tracks),
+            "current_track": current,
+            "has_next": self.player.current_index < len(tracks) - 1,
+            "has_previous": self.player.current_index > 0,
+            "shuffle_enabled": False,
+            "repeat_mode": "off",
+        }
+
+    async def set_queue(
+        self, track_ids: list[int], start_index: int = 0
+    ) -> dict[str, Any]:
+        valid_ids = [
+            track_id for track_id in track_ids if self.tracks.get_by_id(track_id)
+        ]
+        if not valid_ids:
+            raise ValueError("No valid tracks found")
+        self.player.queue_ids = valid_ids
+        self.player.current_index = min(start_index, len(valid_ids) - 1)
+        infos = self._track_infos()
+        self.state_manager.state.queue = infos
+        self.state_manager.state.queue_size = len(infos)
+        self.state_manager.state.queue_index = self.player.current_index
+        self.state_manager.state.current_track = infos[self.player.current_index]
+        self.state_manager.state.duration = infos[self.player.current_index].duration
+        self.state_manager.state.state = player_state.PlaybackState.PLAYING
+        self.state_manager.state.is_playing = True
+        return {
+            "message": "Queue set successfully",
+            "track_count": len(infos),
+            "start_index": self.player.current_index,
+        }
+
+    async def add_track_to_queue(
+        self, track_id: int, position: int | None = None
+    ) -> dict[str, Any]:
+        if self.tracks.get_by_id(track_id) is None:
+            raise ValueError(f"Track {track_id} not found")
+        if position is None:
+            self.player.queue_ids.append(track_id)
+        else:
+            position = min(position, len(self.player.queue_ids))
+            self.player.queue_ids.insert(position, track_id)
+        self.state_manager.state.queue = self._track_infos()
+        self.state_manager.state.queue_size = len(self.player.queue_ids)
+        return {
+            "message": "Track added to queue",
+            "track_id": track_id,
+            "position": position,
+            "queue_size": len(self.player.queue_ids),
+        }
+
+
+class InProcessNavigationService:
+    def __init__(self, player: InProcessPlayer, state: InProcessStateManager) -> None:
+        self.player = player
+        self.state_manager = state
+
+    def _sync_current(self) -> None:
+        self.state_manager.state.queue_index = self.player.current_index
+        self.state_manager.state.current_track = self.state_manager.state.queue[
+            self.player.current_index
+        ]
+
+    async def next_track(self) -> dict[str, str]:
+        if self.player.current_index < len(self.player.queue_ids) - 1:
+            self.player.current_index += 1
+            self._sync_current()
+            return {"message": "Skipped to next track"}
+        return {"message": "No next track available"}
+
+    async def previous_track(self) -> dict[str, str]:
+        if self.player.current_index > 0:
+            self.player.current_index -= 1
+            self._sync_current()
+            return {"message": "Skipped to previous track"}
+        return {"message": "No previous track available"}
+
+
+class NoOpRecommendationService:
+    async def generate_and_broadcast_recommendation(self, **kwargs: Any) -> None:
+        del kwargs
 
 
 class BackendClient:
-    """HTTP client for backend API calls."""
+    """Small JSON wrapper around FastAPI's in-process client."""
 
-    def __init__(self, base_url: str = BACKEND_URL):
-        self.base_url = base_url
-        self.client = httpx.Client(timeout=TIMEOUT)
+    def __init__(self, client: TestClient, player: InProcessPlayer) -> None:
+        self.client = client
+        self.player = player
 
-    def get(self, endpoint: str, **kwargs) -> Dict[str, Any]:
-        """GET request."""
-        url = f"{self.base_url}{endpoint}"
-        response = self.client.get(url, **kwargs)
+    def get(self, endpoint: str, **kwargs: Any) -> dict[str, Any]:
+        response = self.client.get(endpoint, **kwargs)
         response.raise_for_status()
         return response.json()
 
-    def post(self, endpoint: str, data: Dict[str, Any] = None, **kwargs) -> Dict[str, Any]:
-        """POST request."""
-        url = f"{self.base_url}{endpoint}"
-        response = self.client.post(url, json=data, **kwargs)
+    def post(
+        self, endpoint: str, data: dict[str, Any] | None = None, **kwargs: Any
+    ) -> dict[str, Any]:
+        response = self.client.post(endpoint, json=data, **kwargs)
         response.raise_for_status()
         return response.json()
 
-    def put(self, endpoint: str, data: Dict[str, Any] = None, **kwargs) -> Dict[str, Any]:
-        """PUT request."""
-        url = f"{self.base_url}{endpoint}"
-        response = self.client.put(url, json=data, **kwargs)
-        response.raise_for_status()
-        return response.json()
 
-    def delete(self, endpoint: str, **kwargs) -> Optional[Dict[str, Any]]:
-        """DELETE request."""
-        url = f"{self.base_url}{endpoint}"
-        response = self.client.delete(url, **kwargs)
-        response.raise_for_status()
+def _make_tracks() -> list[FakeTrack]:
+    return [
+        FakeTrack(
+            id=index,
+            title=f"Test Track {index}",
+            artist="Integration Artist",
+            album=FakeAlbum("Integration Album"),
+            duration=120.0 + index,
+            filepath=f"/server-only/music/track-{index}.flac",
+            track_number=index,
+        )
+        for index in range(1, 9)
+    ]
+
+
+@pytest.fixture
+def backend() -> BackendClient:
+    tracks = FakeTrackRepository(_make_tracks())
+    repositories = SimpleNamespace(tracks=tracks)
+    library = SimpleNamespace(tracks=tracks)
+    manager = InProcessConnectionManager()
+    state = InProcessStateManager(manager)
+    audio_player = InProcessPlayer(tracks, state)
+    playback_service = InProcessPlaybackService(audio_player, state, manager)
+    queue_service = InProcessQueueService(audio_player, tracks, state)
+    navigation_service = InProcessNavigationService(audio_player, state)
+
+    app = FastAPI()
+    app.include_router(create_tracks_router(lambda: repositories))
+    app.include_router(
+        create_player_router(
+            lambda: library,
+            lambda: audio_player,
+            lambda: state,
+            manager,
+            None,
+            player_state.create_track_info,
+        )
+    )
+    app.dependency_overrides[player_router._get_playback_service] = lambda: (
+        playback_service
+    )
+    app.dependency_overrides[player_router._get_queue_service] = lambda: queue_service
+    app.dependency_overrides[player_router._get_navigation_service] = lambda: (
+        navigation_service
+    )
+    app.dependency_overrides[player_router._get_recommendation_service] = lambda: (
+        NoOpRecommendationService()
+    )
+
+    @app.websocket("/ws")
+    async def websocket_endpoint(websocket: WebSocket) -> None:
+        stream_state = StreamState({}, asyncio.Lock(), {}, {}, {})
+        await manager.connect(websocket)
+        await websocket.send_json(
+            {"type": "player_state", "data": state.get_state().model_dump(mode="json")}
+        )
         try:
-            return response.json()
-        except ValueError:
-            return None
+            while True:
+                message = await websocket.receive_json()
+                message_type = message.get("type")
+                if message_type == "pause":
+                    state.state.state = player_state.PlaybackState.PAUSED
+                    state.state.is_playing = False
+                    state.state.is_paused = True
+                    await handle_pause(websocket, stream_state)
+                elif message_type == "resume":
+                    state.state.state = player_state.PlaybackState.PLAYING
+                    state.state.is_playing = True
+                    state.state.is_paused = False
+                    await handle_resume(websocket, stream_state)
+                elif message_type == "stop":
+                    state.state.state = player_state.PlaybackState.STOPPED
+                    state.state.is_playing = False
+                    state.state.is_paused = False
+                    state.state.current_time = 0.0
+                    await handle_stop(websocket, stream_state)
+                else:
+                    await websocket.send_json(
+                        {"type": "error", "data": {"message": "Unknown command"}}
+                    )
+        except WebSocketDisconnect:
+            manager.disconnect(websocket)
 
-    def close(self):
-        """Close client."""
-        self.client.close()
-
-
-class WebSocketListener:
-    """Listens to WebSocket messages from backend."""
-
-    def __init__(self, ws_url: str = WS_URL):
-        self.ws_url = ws_url
-        self.websocket = None
-        self.messages = []
-        self.running = False
-
-    async def connect(self):
-        """Connect to WebSocket."""
-        self.websocket = await websockets.connect(self.ws_url)
-        self.running = True
-
-    async def disconnect(self):
-        """Disconnect from WebSocket."""
-        self.running = False
-        if self.websocket:
-            await self.websocket.close()
-
-    async def listen(self, timeout: float = WS_TIMEOUT):
-        """Listen for messages with timeout."""
-        try:
-            while self.running:
-                message = await asyncio.wait_for(
-                    self.websocket.recv(), timeout=timeout
-                )
-                data = json.loads(message)
-                self.messages.append(data)
-                yield data
-        except asyncio.TimeoutError:
-            pass
-
-    def get_messages(self, message_type: str) -> list:
-        """Get messages of specific type."""
-        return [m for m in self.messages if m.get("type") == message_type]
-
-    def clear_messages(self):
-        """Clear message buffer."""
-        self.messages.clear()
+    with TestClient(app) as client:
+        yield BackendClient(client, audio_player)
 
 
-@pytest.fixture
-def backend():
-    """Backend client fixture."""
-    client = BackendClient()
-    yield client
-    client.close()
+def _first_track(backend: BackendClient) -> dict[str, Any]:
+    return backend.get("/api/library/tracks?limit=1&offset=0")["tracks"][0]
 
 
-@pytest.fixture
-async def ws_listener():
-    """WebSocket listener fixture."""
-    listener = WebSocketListener()
-    await listener.connect()
-    yield listener
-    await listener.disconnect()
-
-
-@pytest.fixture
-async def event_loop():
-    """Create event loop for async tests."""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
-
-
-# ============================================================================
-# WORKFLOW 1: Play → Seek → Pause → Volume
-# ============================================================================
+def _load_first_track(backend: BackendClient) -> dict[str, Any]:
+    track = _first_track(backend)
+    backend.post("/api/player/load", {"track_id": track["id"]})
+    return track
 
 
 class TestPlaybackWorkflow:
-    """Test complete playback workflow."""
-
-    def test_get_initial_player_status(self, backend):
-        """Verify initial player status."""
+    def test_get_initial_player_status(self, backend: BackendClient) -> None:
         status = backend.get("/api/player/status")
-
-        # Should have these fields
-        assert "state" in status
-        assert "is_playing" in status
-        assert "current_track" in status
-        assert "volume" in status
-        assert "queue" in status
-        assert isinstance(status["volume"], int)
+        assert status["state"] == "stopped"
+        assert status["is_playing"] is False
+        assert status["current_track"] is None
         assert 0 <= status["volume"] <= 100
+        assert status["queue"] == []
 
-    def test_get_library_tracks(self, backend):
-        """Verify library has tracks available."""
+    def test_get_library_tracks(self, backend: BackendClient) -> None:
         response = backend.get("/api/library/tracks?limit=10&offset=0")
+        assert response["total"] == 8
+        assert len(response["tracks"]) == 8
+        assert {"id", "title", "duration"} <= response["tracks"][0].keys()
+        assert "filepath" not in response["tracks"][0]
 
-        # Should have tracks or empty list (at least the structure)
-        assert "tracks" in response
-        assert isinstance(response["tracks"], list)
+    def test_load_track(self, backend: BackendClient) -> None:
+        track = _first_track(backend)
+        response = backend.post("/api/player/load", {"track_id": track["id"]})
+        status = backend.get("/api/player/status")
+        assert response == {
+            "message": "Track loaded successfully",
+            "track_id": track["id"],
+        }
+        assert status["current_track"]["id"] == track["id"]
+        assert status["queue_size"] == 1
 
-        if response["tracks"]:
-            track = response["tracks"][0]
-            assert "id" in track
-            assert "title" in track
-            assert "duration" in track
-            assert "filepath" in track
+    def test_play_track(self, backend: BackendClient) -> None:
+        _load_first_track(backend)
+        with backend.client.websocket_connect("/ws") as websocket:
+            assert websocket.receive_json()["type"] == "player_state"
+            websocket.send_json({"type": "resume"})
+            assert websocket.receive_json()["type"] == "playback_resumed"
+        assert backend.get("/api/player/status")["is_playing"] is True
 
-    def test_load_track(self, backend):
-        """Load a track into the player."""
-        # Get first available track
-        tracks = backend.get("/api/library/tracks?limit=1&offset=0")
-        if not tracks["tracks"]:
-            pytest.skip("No tracks available in library")
+    def test_pause_track(self, backend: BackendClient) -> None:
+        _load_first_track(backend)
+        with backend.client.websocket_connect("/ws") as websocket:
+            websocket.receive_json()
+            websocket.send_json({"type": "resume"})
+            websocket.receive_json()
+            websocket.send_json({"type": "pause"})
+            message = websocket.receive_json()
+        assert message["type"] == "playback_paused"
+        assert backend.get("/api/player/status")["is_paused"] is True
 
-        track = tracks["tracks"][0]
-        track_id = track["id"]
-        track_path = track["filepath"]
+    def test_seek_position(self, backend: BackendClient) -> None:
+        track = _load_first_track(backend)
+        position = track["duration"] * 0.25
+        response = backend.post("/api/player/seek", {"position": position})
+        assert response["position"] == position
+        assert backend.player.seek_position == position
 
-        # Load track using query parameters
-        response = backend.post(f"/api/player/load?track_path={track_path}&track_id={track_id}")
+    def test_volume_control(self, backend: BackendClient) -> None:
+        assert backend.post("/api/player/volume", {"volume": 50})["volume"] == 50
+        assert backend.post("/api/player/volume", {"volume": 0})["volume"] == 0
+        assert backend.post("/api/player/volume", {"volume": 75})["volume"] == 75
+        assert backend.get("/api/player/status")["volume"] == 75
 
-        assert "state" in response
-        # Track should be queued or loaded
-        assert response["current_track"] is not None or len(response["queue"]) > 0
-
-    def test_play_track(self, backend):
-        """Test playing a track."""
-        # Load track first
-        tracks = backend.get("/api/library/tracks?limit=1&offset=0")
-        if not tracks["tracks"]:
-            pytest.skip("No tracks available")
-
-        track = tracks["tracks"][0]
-        backend.post(f"/api/player/load?track_path={track['filepath']}&track_id={track['id']}")
-
-        # Play
-        response = backend.post("/api/player/play")
-
-        assert response["is_playing"] is True
-        assert response["state"] in ["playing", "buffering"]
-
-    def test_pause_track(self, backend):
-        """Test pausing playback."""
-        # Play first
-        tracks = backend.get("/api/library/tracks?limit=1&offset=0")
-        if not tracks["tracks"]:
-            pytest.skip("No tracks available")
-
-        track = tracks["tracks"][0]
-        backend.post(f"/api/player/load?track_path={track['filepath']}&track_id={track['id']}")
-        backend.post("/api/player/play")
-
-        # Pause
-        response = backend.post("/api/player/pause")
-
-        assert response["is_playing"] is False
-        assert response["is_paused"] is True
-
-    def test_seek_position(self, backend):
-        """Test seeking to a position."""
-        # Load and play track
-        tracks = backend.get("/api/library/tracks?limit=1&offset=0")
-        if not tracks["tracks"]:
-            pytest.skip("No tracks available")
-
-        track = tracks["tracks"][0]
-        track_id = track["id"]
-        duration = track["duration"]
-
-        backend.post(f"/api/player/load?track_path={track['filepath']}&track_id={track_id}")
-        backend.post("/api/player/play")
-
-        # Seek to 25% of duration (query parameter)
-        seek_position = duration * 0.25
-        response = backend.post(f"/api/player/seek?position={seek_position}")
-
-        # Current time should be near seek position (allowing for rounding)
-        assert response["current_time"] > 0
-        assert abs(response["current_time"] - seek_position) < 1.0  # Within 1 second
-
-    def test_volume_control(self, backend):
-        """Test volume changes."""
-        # Set volume to 50 (0-100 scale for API)
-        response = backend.post("/api/player/volume?volume=50")
-
-        assert response["volume"] == 50
-        assert response["is_muted"] is False
-
-        # Mute
-        response = backend.post("/api/player/volume?volume=0")
-        assert response["volume"] == 0
-
-        # Unmute (restore to previous)
-        response = backend.post("/api/player/volume?volume=75")
-        assert response["volume"] == 75
-
-    def test_full_playback_sequence(self, backend):
-        """Test complete sequence: Load → Play → Seek → Pause → Volume."""
-        # Get first track
-        tracks = backend.get("/api/library/tracks?limit=1&offset=0")
-        if not tracks["tracks"]:
-            pytest.skip("No tracks available")
-
-        track = tracks["tracks"][0]
-        track_id = track["id"]
-        duration = track["duration"]
-
-        # 1. Load
-        status = backend.post(f"/api/player/load?track_path={track['filepath']}&track_id={track_id}")
-        assert status["current_track"] is not None or status["queue"]
-
-        # 2. Play
-        status = backend.post("/api/player/play")
-        assert status["is_playing"] is True
-
-        # 3. Seek
-        seek_pos = duration * 0.5  # Seek to halfway
-        status = backend.post(f"/api/player/seek?position={seek_pos}")
-        assert status["current_time"] > 0
-
-        # 4. Pause
-        status = backend.post("/api/player/pause")
+    def test_full_playback_sequence(self, backend: BackendClient) -> None:
+        track = _load_first_track(backend)
+        with backend.client.websocket_connect("/ws") as websocket:
+            websocket.receive_json()
+            websocket.send_json({"type": "resume"})
+            assert websocket.receive_json()["data"]["state"] == "playing"
+            assert (
+                backend.post("/api/player/seek", {"position": track["duration"] / 2})[
+                    "position"
+                ]
+                == track["duration"] / 2
+            )
+            websocket.send_json({"type": "pause"})
+            assert websocket.receive_json()["data"]["state"] == "paused"
+            backend.post("/api/player/volume", {"volume": 60})
+            assert websocket.receive_json()["data"]["volume"] == 60
+        status = backend.get("/api/player/status")
         assert status["is_paused"] is True
-
-        # 5. Volume
-        status = backend.post("/api/player/volume?volume=60")
         assert status["volume"] == 60
 
-    def test_next_track(self, backend):
-        """Test skipping to next track."""
-        # Load a track with queue
-        tracks = backend.get("/api/library/tracks?limit=3&offset=0")
-        if len(tracks["tracks"]) < 2:
-            pytest.skip("Need at least 2 tracks")
+    def test_next_track(self, backend: BackendClient) -> None:
+        tracks = backend.get("/api/library/tracks?limit=3&offset=0")["tracks"]
+        backend.post("/api/player/queue", {"tracks": [t["id"] for t in tracks]})
+        response = backend.post("/api/player/next")
+        assert response["message"] == "Skipped to next track"
+        assert backend.get("/api/player/status")["queue_index"] == 1
 
-        track_ids = [t["id"] for t in tracks["tracks"][:3]]
-
-        # Set queue
-        backend.post("/api/player/queue", {"tracks": track_ids, "start_index": 0})
-
-        # Play
-        backend.post("/api/player/play")
-
-        # Get current track
-        status_before = backend.get("/api/player/status")
-        current_before = status_before["queue_index"]
-
-        # Next
-        status_after = backend.post("/api/player/next")
-
-        # Should have moved to next track
-        assert status_after["queue_index"] > current_before or status_after["queue_size"] <= 1
-
-    def test_previous_track(self, backend):
-        """Test skipping to previous track."""
-        # Load a track with queue
-        tracks = backend.get("/api/library/tracks?limit=3&offset=0")
-        if len(tracks["tracks"]) < 2:
-            pytest.skip("Need at least 2 tracks")
-
-        track_ids = [t["id"] for t in tracks["tracks"][:3]]
-
-        # Set queue at index 1
-        backend.post("/api/player/queue", {"tracks": track_ids, "start_index": 1})
-        backend.post("/api/player/play")
-
-        status_before = backend.get("/api/player/status")
-        current_before = status_before["queue_index"]
-
-        # Previous
-        status_after = backend.post("/api/player/previous")
-
-        # Should have moved to previous track
-        assert status_after["queue_index"] < current_before or current_before == 0
-
-
-# ============================================================================
-# WORKFLOW 2: Search → Select → Play
-# ============================================================================
+    def test_previous_track(self, backend: BackendClient) -> None:
+        tracks = backend.get("/api/library/tracks?limit=3&offset=0")["tracks"]
+        backend.post(
+            "/api/player/queue",
+            {"tracks": [t["id"] for t in tracks], "start_index": 1},
+        )
+        response = backend.post("/api/player/previous")
+        assert response["message"] == "Skipped to previous track"
+        assert backend.get("/api/player/status")["queue_index"] == 0
 
 
 class TestLibrarySearchWorkflow:
-    """Test library search and playback workflow."""
-
-    def test_search_tracks(self, backend):
-        """Search for tracks in library."""
+    def test_search_tracks(self, backend: BackendClient) -> None:
         response = backend.get("/api/library/tracks?limit=50&offset=0")
-
-        assert "tracks" in response
+        assert response["total"] == 8
         assert isinstance(response["tracks"], list)
 
-    def test_search_with_query(self, backend):
-        """Test searching with a query string."""
-        # Try to search for a common term
+    def test_search_with_query(self, backend: BackendClient) -> None:
         response = backend.get(
-            "/api/library/tracks",
-            params={"search": "track", "limit": 10, "offset": 0}
+            "/api/library/tracks", params={"search": "track 2", "limit": 10}
         )
+        assert [track["title"] for track in response["tracks"]] == ["Test Track 2"]
 
-        assert "tracks" in response
-        # Results should match search (or be empty if no matches)
-        assert isinstance(response["tracks"], list)
-
-    def test_pagination(self, backend):
-        """Test pagination through tracks."""
-        # Get first page
+    def test_pagination(self, backend: BackendClient) -> None:
         page1 = backend.get("/api/library/tracks?limit=5&offset=0")
-        assert len(page1["tracks"]) <= 5
-
-        # Get second page
         page2 = backend.get("/api/library/tracks?limit=5&offset=5")
-        assert len(page2["tracks"]) <= 5
+        assert len(page1["tracks"]) == 5
+        assert len(page2["tracks"]) == 3
+        assert {t["id"] for t in page1["tracks"]}.isdisjoint(
+            {t["id"] for t in page2["tracks"]}
+        )
 
-        # Pages should be different (if enough tracks)
-        if len(page1["tracks"]) == 5 and len(page2["tracks"]) > 0:
-            track_ids_1 = {t["id"] for t in page1["tracks"]}
-            track_ids_2 = {t["id"] for t in page2["tracks"]}
-            assert track_ids_1.isdisjoint(track_ids_2)  # No overlap
-
-    def test_select_and_play_from_search(self, backend):
-        """Test selecting a track from search results and playing it."""
-        # Search for tracks
-        response = backend.get("/api/library/tracks?limit=10&offset=0")
-        if not response["tracks"]:
-            pytest.skip("No tracks available")
-
-        track = response["tracks"][0]
-        track_id = track["id"]
-
-        # Load and play
-        backend.post(f"/api/player/load?track_path={track['filepath']}&track_id={track_id}")
-        status = backend.post("/api/player/play")
-
+    def test_select_and_play_from_search(self, backend: BackendClient) -> None:
+        track = backend.get(
+            "/api/library/tracks", params={"search": "track 3", "limit": 10}
+        )["tracks"][0]
+        backend.post("/api/player/load", {"track_id": track["id"]})
+        with backend.client.websocket_connect("/ws") as websocket:
+            websocket.receive_json()
+            websocket.send_json({"type": "resume"})
+            websocket.receive_json()
+        status = backend.get("/api/player/status")
         assert status["is_playing"] is True
-        assert status["current_track"] is not None or len(status["queue"]) > 0
+        assert status["current_track"]["id"] == track["id"]
 
-    def test_add_to_queue_from_search(self, backend):
-        """Test adding searched tracks to queue."""
-        # Get tracks
-        response = backend.get("/api/library/tracks?limit=5&offset=0")
-        if len(response["tracks"]) < 2:
-            pytest.skip("Need at least 2 tracks")
-
-        tracks = response["tracks"]
-
-        # Set initial queue
-        backend.post(
-            "/api/player/queue",
-            {"tracks": [tracks[0]["id"]], "start_index": 0}
-        )
-
-        # Add second track to queue
+    def test_add_to_queue_from_search(self, backend: BackendClient) -> None:
+        tracks = backend.get("/api/library/tracks?limit=2&offset=0")["tracks"]
+        backend.post("/api/player/queue", {"tracks": [tracks[0]["id"]]})
         response = backend.post(
-            "/api/player/queue/add-track",
-            {"track_id": tracks[1]["id"]}
+            "/api/player/queue/add-track", {"track_id": tracks[1]["id"]}
         )
-
-        queue_ids = [t["id"] for t in response["queue"]]
-        assert tracks[1]["id"] in queue_ids
-
-
-# ============================================================================
-# WORKFLOW 3: Error Recovery
-# ============================================================================
+        queue = backend.get("/api/player/queue")
+        assert response["queue_size"] == 2
+        assert [track["id"] for track in queue["tracks"]] == [1, 2]
 
 
 class TestErrorRecovery:
-    """Test error handling and recovery."""
+    def test_invalid_track_id(self, backend: BackendClient) -> None:
+        response = backend.client.post("/api/player/load", json={"track_id": 999999})
+        assert response.status_code == 404
 
-    def test_invalid_track_id(self, backend):
-        """Test loading invalid track path."""
-        with pytest.raises(Exception):  # Should raise HTTP error
-            backend.post("/api/player/load?track_path=/nonexistent/path.mp3&track_id=999999")
+    def test_seek_beyond_duration(self, backend: BackendClient) -> None:
+        track = _load_first_track(backend)
+        response = backend.client.post(
+            "/api/player/seek", json={"position": track["duration"] * 2}
+        )
+        assert response.status_code == 400
 
-    def test_seek_beyond_duration(self, backend):
-        """Test seeking beyond track duration."""
-        tracks = backend.get("/api/library/tracks?limit=1&offset=0")
-        if not tracks["tracks"]:
-            pytest.skip("No tracks available")
+    def test_seek_negative_position(self, backend: BackendClient) -> None:
+        _load_first_track(backend)
+        response = backend.client.post("/api/player/seek", json={"position": -10})
+        assert response.status_code == 422
 
-        track = tracks["tracks"][0]
-        backend.post(f"/api/player/load?track_path={track['filepath']}&track_id={track['id']}")
-        backend.post("/api/player/play")
+    def test_volume_out_of_range(self, backend: BackendClient) -> None:
+        assert backend.post("/api/player/volume", {"volume": 150})["volume"] == 100
+        assert backend.post("/api/player/volume", {"volume": -50})["volume"] == 0
 
-        # Seek beyond duration
-        response = backend.post(f"/api/player/seek?position={track['duration'] * 2}")
-
-        # Should clamp to duration
-        assert response["current_time"] <= track["duration"]
-
-    def test_seek_negative_position(self, backend):
-        """Test seeking to negative position."""
-        tracks = backend.get("/api/library/tracks?limit=1&offset=0")
-        if not tracks["tracks"]:
-            pytest.skip("No tracks available")
-
-        track = tracks["tracks"][0]
-        backend.post(f"/api/player/load?track_path={track['filepath']}&track_id={track['id']}")
-        backend.post("/api/player/play")
-
-        # Seek to negative
-        response = backend.post("/api/player/seek?position=-10")
-
-        # Should clamp to 0
-        assert response["current_time"] >= 0
-
-    def test_volume_out_of_range(self, backend):
-        """Test volume values outside 0-100 range."""
-        # Over 100
-        response = backend.post("/api/player/volume?volume=150")
-        assert 0 <= response["volume"] <= 100
-
-        # Negative
-        response = backend.post("/api/player/volume?volume=-50")
-        assert 0 <= response["volume"] <= 100
-
-    def test_state_consistency_after_error(self, backend):
-        """Verify state is consistent after error."""
-        # Get initial state
+    def test_state_consistency_after_error(self, backend: BackendClient) -> None:
         initial = backend.get("/api/player/status")
-
-        # Try invalid operation
-        try:
-            backend.post("/api/player/load?track_path=/nonexistent/path.mp3&track_id=999999")
-        # narrowed from bare Exception, #5023: BackendClient.post() calls
-        # response.raise_for_status(), which raises httpx.HTTPStatusError for
-        # the router's 404 (track not found) / 400 / 503 responses — the
-        # graceful-rejection path this test anticipates.
-        except httpx.HTTPStatusError:
-            pass
-
-        # State should still be valid
+        response = backend.client.post("/api/player/load", json={"track_id": 999999})
+        assert response.status_code == 404
         final = backend.get("/api/player/status")
-
-        assert "state" in final
-        assert "is_playing" in final
-        assert "volume" in final
-
-
-# ============================================================================
-# WEBSOCKET INTEGRATION (Real-time Updates)
-# ============================================================================
+        assert final == initial
 
 
 class TestWebSocketIntegration:
-    """Test WebSocket real-time message delivery."""
+    def test_ws_connection(self, backend: BackendClient) -> None:
+        with backend.client.websocket_connect("/ws") as websocket:
+            message = websocket.receive_json()
+        assert message["type"] == "player_state"
+        assert message["data"]["state"] == "stopped"
 
-    @pytest.mark.asyncio
-    async def test_ws_connection(self):
-        """Test WebSocket can connect."""
-        listener = WebSocketListener()
-        try:
-            await listener.connect()
-            assert listener.websocket is not None
-        finally:
-            await listener.disconnect()
-
-    @pytest.mark.asyncio
-    async def test_ws_playback_state_message(self, backend):
-        """Test WebSocket broadcasts playback state changes."""
-        listener = WebSocketListener()
-        try:
-            await listener.connect()
-
-            # Clear any existing messages
-            listener.clear_messages()
-
-            # Load and play a track
-            tracks = backend.get("/api/library/tracks?limit=1&offset=0")
-            if not tracks["tracks"]:
-                pytest.skip("No tracks available")
-
-            track = tracks["tracks"][0]
-            backend.post(f"/api/player/load?track_path={track['filepath']}&track_id={track['id']}")
-
-            # Listen for messages while playing
-            async def listen_task():
-                async for msg in listener.listen(timeout=3.0):
-                    if msg.get("type") == "playback_state_changed":
-                        return msg
-
-            backend.post("/api/player/play")
-
-            # Wait for WebSocket message
-            try:
-                msg = await asyncio.wait_for(listen_task(), timeout=5.0)
-                assert msg is not None
-                assert msg["type"] == "playback_state_changed"
-                assert "data" in msg
-            except asyncio.TimeoutError:
-                pytest.skip("WebSocket message not received in time")
-
-        finally:
-            await listener.disconnect()
-
-
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
+    def test_ws_playback_state_message(self, backend: BackendClient) -> None:
+        _load_first_track(backend)
+        with backend.client.websocket_connect("/ws") as websocket:
+            websocket.receive_json()
+            websocket.send_json({"type": "resume"})
+            resumed = websocket.receive_json()
+            websocket.send_json({"type": "stop"})
+            stopped = websocket.receive_json()
+        assert resumed["type"] == "playback_resumed"
+        assert stopped["type"] == "playback_stopped"
+        assert resumed["data"]["seq"] < stopped["data"]["seq"]

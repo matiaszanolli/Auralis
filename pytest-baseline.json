@@ -1,8 +1,8 @@
 {
-  "_comment": "Known-failing pytest tests (#4562). CI fails on any failure NOT listed here. Regenerate with: python scripts/check_pytest_baseline.py <junit.xml> --update. #5169, #5284, #5287, #5288, #5289, #5290, and #5292 removed newly passing entries by hand: --strict-stale (#5091) fails the job on a baselined test that passes. Removed rather than regenerated -- a baseline built outside CI reports spurious new failures.",
+  "_comment": "Known-failing pytest tests (#4562). CI fails on any failure NOT listed here. Regenerate with: python scripts/check_pytest_baseline.py <junit.xml> --update. #5169, #5284, #5287, #5288, #5289, #5290, #5291, and #5292 removed newly passing entries by hand: --strict-stale (#5091) fails the job on a baselined test that passes. Removed rather than regenerated -- a baseline built outside CI reports spurious new failures.",
   "generatedFrom": {
     "totalTests": 6889,
-    "failedTests": 191
+    "failedTests": 170
   },
   "failures": [
     "tests.auralis.analysis.fingerprint.test_rust_fingerprint_glue::test_all_values_finite",
@@ -74,27 +74,6 @@
     "tests.integration.test_api_integration::test_api_player_volume_validation",
     "tests.integration.test_end_to_end_processing::test_e2e_handles_invalid_audio_data",
     "tests.integration.test_end_to_end_processing::test_e2e_process_very_quiet_input",
-    "tests.integration.test_phase4_player_workflow.TestErrorRecovery::test_seek_beyond_duration",
-    "tests.integration.test_phase4_player_workflow.TestErrorRecovery::test_seek_negative_position",
-    "tests.integration.test_phase4_player_workflow.TestErrorRecovery::test_state_consistency_after_error",
-    "tests.integration.test_phase4_player_workflow.TestErrorRecovery::test_volume_out_of_range",
-    "tests.integration.test_phase4_player_workflow.TestLibrarySearchWorkflow::test_add_to_queue_from_search",
-    "tests.integration.test_phase4_player_workflow.TestLibrarySearchWorkflow::test_pagination",
-    "tests.integration.test_phase4_player_workflow.TestLibrarySearchWorkflow::test_search_tracks",
-    "tests.integration.test_phase4_player_workflow.TestLibrarySearchWorkflow::test_search_with_query",
-    "tests.integration.test_phase4_player_workflow.TestLibrarySearchWorkflow::test_select_and_play_from_search",
-    "tests.integration.test_phase4_player_workflow.TestPlaybackWorkflow::test_full_playback_sequence",
-    "tests.integration.test_phase4_player_workflow.TestPlaybackWorkflow::test_get_initial_player_status",
-    "tests.integration.test_phase4_player_workflow.TestPlaybackWorkflow::test_get_library_tracks",
-    "tests.integration.test_phase4_player_workflow.TestPlaybackWorkflow::test_load_track",
-    "tests.integration.test_phase4_player_workflow.TestPlaybackWorkflow::test_next_track",
-    "tests.integration.test_phase4_player_workflow.TestPlaybackWorkflow::test_pause_track",
-    "tests.integration.test_phase4_player_workflow.TestPlaybackWorkflow::test_play_track",
-    "tests.integration.test_phase4_player_workflow.TestPlaybackWorkflow::test_previous_track",
-    "tests.integration.test_phase4_player_workflow.TestPlaybackWorkflow::test_seek_position",
-    "tests.integration.test_phase4_player_workflow.TestPlaybackWorkflow::test_volume_control",
-    "tests.integration.test_phase4_player_workflow.TestWebSocketIntegration::test_ws_connection",
-    "tests.integration.test_phase4_player_workflow.TestWebSocketIntegration::test_ws_playback_state_message",
     "tests.integration.test_repositories.TestAlbumRepository::test_get_all_pagination",
     "tests.integration.test_repositories.TestAlbumRepository::test_get_by_id_with_relationships",
     "tests.integration.test_repositories.TestAlbumRepository::test_update_artwork_path_persists_changes",
