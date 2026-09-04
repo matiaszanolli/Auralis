@@ -9,8 +9,8 @@ REST API endpoints for artist browsing and management
 """
 
 import asyncio
-from typing import Annotated, Any, Literal, cast
 from collections.abc import Callable
+from typing import Annotated, Any, Literal, cast
 
 from fastapi import APIRouter, Path, Query
 from pydantic import BaseModel
@@ -18,7 +18,7 @@ from pydantic import BaseModel
 from .dependencies import require_repository_factory, with_error_handling
 from .errors import NotFoundError
 from .pagination import PaginationParams, compute_has_more
-from .serializers import serialize_artist
+from .serializers import serialize_album, serialize_artist
 
 
 # Response models
@@ -246,16 +246,17 @@ def create_artists_router(
         # Transform albums to response format
         albums = []
         for album in (artist.albums or []):
-            total_duration = sum(
-                track.duration for track in album.tracks if track.duration
-            ) if album.tracks else 0
+            # Keep aggregate preference and unloaded-relationship handling in
+            # Album.to_dict()/serialize_album rather than duplicating it here
+            # (#5200, mirrors the artist-level fix in #4909).
+            album_data = serialize_album(album)
 
             albums.append(AlbumInArtist(
                 id=album.id,
                 title=album.title,
                 year=album.year,
-                track_count=len(album.tracks) if album.tracks else 0,
-                total_duration=total_duration
+                track_count=album_data.get('track_count', 0),
+                total_duration=album_data.get('total_duration', 0),
             ))
 
         # Sort albums by year (newest first), then by title

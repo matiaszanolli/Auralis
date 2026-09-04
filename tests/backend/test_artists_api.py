@@ -17,6 +17,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from auralis.library.models.album import Album
+
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
@@ -45,17 +47,25 @@ def mock_artist():
     artist.track_count = 2
 
     # Mock albums without circular references
-    album1 = Mock(spec=['id', 'title', 'year', 'tracks'])
+    album1 = Mock(spec=[
+        'id', 'title', 'year', 'tracks', 'track_count', 'total_duration',
+    ])
     album1.id = 1
     album1.title = "Album 1"
     album1.year = 2024
     album1.tracks = [Mock(spec=['duration'], duration=180), Mock(spec=['duration'], duration=200)]
+    album1.track_count = 2
+    album1.total_duration = 380
 
-    album2 = Mock(spec=['id', 'title', 'year', 'tracks'])
+    album2 = Mock(spec=[
+        'id', 'title', 'year', 'tracks', 'track_count', 'total_duration',
+    ])
     album2.id = 2
     album2.title = "Album 2"
     album2.year = 2023
     album2.tracks = [Mock(spec=['duration'], duration=150)]
+    album2.track_count = 1
+    album2.total_duration = 150
 
     artist.albums = [album1, album2]
 
@@ -309,6 +319,8 @@ class TestGetArtistById:
             assert data["total_albums"] == 2
             assert data["total_tracks"] == 2
             assert len(data["albums"]) == 2
+            assert data["albums"][0]["track_count"] == 2
+            assert data["albums"][0]["total_duration"] == 380
 
     def test_get_artist_artwork_url_in_detail_response(self, client, mock_artist):
         """Test that artwork_url is included in artist detail response (issue #2110)"""
@@ -344,6 +356,67 @@ class TestGetArtistById:
             albums = data["albums"]
             # Should be sorted by year (newest first), then title
             assert len(albums) == 2
+
+    def test_get_artist_album_without_tracks_does_not_crash(self, client):
+        """Regression test for #5200: the route must not read album.tracks."""
+        album = Mock(spec=['id', 'title', 'year', 'track_count', 'total_duration'])
+        album.id = 1
+        album.title = "Detached Album"
+        album.year = 2024
+        album.track_count = 0
+        album.total_duration = 0
+
+        artist = Mock(spec=[
+            'id', 'name', 'albums', 'tracks', 'artwork_url', 'artwork_source',
+        ])
+        artist.id = 1
+        artist.name = "Test Artist"
+        artist.albums = [album]
+        artist.tracks = []
+        artist.artwork_url = None
+        artist.artwork_source = None
+
+        mock_repo_factory = Mock()
+        mock_repo_factory.artists.get_by_id.return_value = artist
+
+        with patch.dict('main.globals_dict', {'repository_factory': mock_repo_factory}):
+            response = client.get("/api/artists/1")
+
+        assert response.status_code == 200
+        assert response.json()["albums"] == [{
+            "id": 1,
+            "title": "Detached Album",
+            "year": 2024,
+            "track_count": 0,
+            "total_duration": 0.0,
+        }]
+
+    def test_get_artist_album_uses_model_aggregate_values(self, client):
+        """Album.to_dict SQL aggregates flow through the detail endpoint."""
+        album = Album(id=1, title="Aggregate Album", year=2024, artist_id=1)
+        album.track_count_expr = 7
+        album.total_duration_expr = 1234.5
+
+        artist = Mock(spec=[
+            'id', 'name', 'albums', 'tracks', 'artwork_url', 'artwork_source',
+        ])
+        artist.id = 1
+        artist.name = "Test Artist"
+        artist.albums = [album]
+        artist.tracks = []
+        artist.artwork_url = None
+        artist.artwork_source = None
+
+        mock_repo_factory = Mock()
+        mock_repo_factory.artists.get_by_id.return_value = artist
+
+        with patch.dict('main.globals_dict', {'repository_factory': mock_repo_factory}):
+            response = client.get("/api/artists/1")
+
+        assert response.status_code == 200
+        album_data = response.json()["albums"][0]
+        assert album_data["track_count"] == 7
+        assert album_data["total_duration"] == 1234.5
 
     def test_get_artist_by_id_not_found(self, client):
         """Test getting non-existent artist"""
