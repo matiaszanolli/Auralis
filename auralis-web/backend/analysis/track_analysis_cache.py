@@ -223,6 +223,19 @@ class TrackAnalysisCache:
 _track_analysis_cache: TrackAnalysisCache | None = None
 
 
+def clear_global_track_analysis_cache() -> bool:
+    """Clear the optional singleton without creating it just to clear it.
+
+    Returns whether an initialized cache existed. This keeps the unified cache
+    reset complete if a caller opted into the legacy analysis cache while
+    preserving its lazy initialization contract (#5257).
+    """
+    if _track_analysis_cache is None:
+        return False
+    _track_analysis_cache.clear()
+    return True
+
+
 def get_track_analysis_cache() -> TrackAnalysisCache:
     """
     Get or create global track analysis cache instance.

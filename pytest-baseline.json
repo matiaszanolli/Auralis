@@ -1,8 +1,8 @@
 {
-  "_comment": "Known-failing pytest tests (#4562). CI fails on any failure NOT listed here. Regenerate with: python scripts/check_pytest_baseline.py <junit.xml> --update. #5169, #5284, #5287, #5288, #5289, #5290, #5291, #5292, and #5295 removed obsolete or newly passing entries by hand: --strict-stale (#5091) fails the job on a baselined test that passes. Removed rather than regenerated -- a baseline built outside CI reports spurious new failures.",
+  "_comment": "Known-failing pytest tests (#4562). CI fails on any failure NOT listed here. Regenerate with: python scripts/check_pytest_baseline.py <junit.xml> --update. #5169, #5255, #5257, #5284, #5287, #5288, #5289, #5290, #5291, #5292, and #5295 removed obsolete or newly passing entries by hand: --strict-stale (#5091) fails the job on a baselined test that passes. Removed rather than regenerated -- a baseline built outside CI reports spurious new failures.",
   "generatedFrom": {
     "totalTests": 6889,
-    "failedTests": 168
+    "failedTests": 163
   },
   "failures": [
     "tests.auralis.analysis.fingerprint.test_rust_fingerprint_glue::test_all_values_finite",
@@ -36,11 +36,6 @@
     "tests.backend.test_error_responses.TestHandleQueryError::test_detail_contains_error_message",
     "tests.backend.test_error_responses.TestInternalServerError::test_detail_contains_error_message_when_provided",
     "tests.backend.test_library_api_comprehensive.TestRemoveFavorite::test_remove_favorite_idempotent",
-    "tests.backend.test_library_reset.TestLibraryReset::test_all_background_workers_paused_then_restarted",
-    "tests.backend.test_library_reset.TestLibraryReset::test_reset_uses_repository_method_not_raw_session",
-    "tests.backend.test_library_reset.TestLibraryReset::test_returns_503_when_repository_factory_is_none",
-    "tests.backend.test_library_reset.TestLibraryReset::test_workers_restarted_even_if_reset_fails",
-    "tests.backend.test_library_reset.TestLibraryResetConfirmationGuard::test_succeeds_with_correct_header",
     "tests.backend.test_main_api.TestPlayerEndpoints::test_set_volume",
     "tests.backend.test_player_api_comprehensive.TestAddTrackToQueue::test_add_track_valid",
     "tests.backend.test_player_api_comprehensive.TestSetQueue::test_set_queue_with_tracks",

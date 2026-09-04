@@ -26,6 +26,8 @@ from typing import Annotated, Any, Literal
 
 from core.thumbnail_cache import (
     THUMB_TMP_PREFIX,
+    artwork_cache_dirs,
+    prune_thumbnail_cache,
     purge_thumbnails,
     reap_orphan_temp_files,
     thumb_path_hash,
@@ -180,8 +182,7 @@ def _artwork_dirs() -> tuple[Path, Path]:
     The render path and the purge path MUST agree on where the cache lives, so
     both read it from here rather than each rebuilding the path.
     """
-    artwork_dir = Path.home() / ".auralis" / "artwork"
-    return artwork_dir, artwork_dir / "thumbnails"
+    return artwork_cache_dirs()
 
 
 def _purge_album_thumbnails(*sources: Path | str | None) -> int:
@@ -258,6 +259,10 @@ def _get_or_create_thumbnail(
                     # only on an actual cache miss.
                     reap_orphan_temp_files(thumb_dir)
                     _render_thumbnail(src, dst, bucket, pil_fmt, ext, thumb_dir)
+                    # Never evict the file this request is about to serve. If
+                    # one thumbnail somehow exceeds the whole cap, keep that
+                    # response valid and reclaim it on a later miss instead.
+                    prune_thumbnail_cache(thumb_dir, keep=dst)
 
         return dst, resp_type
     except Exception:

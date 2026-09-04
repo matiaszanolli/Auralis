@@ -11,9 +11,12 @@ API endpoints for streamlined two-tier cache management and statistics.
 import asyncio
 import logging
 from collections.abc import Callable
+from pathlib import Path as FilePath
 from typing import Annotated, Any
 
 from cache import StreamlinedCacheManager
+from core.cache_cleanup import clear_all_caches
+from core.thumbnail_cache import artwork_cache_root
 from fastapi import APIRouter, HTTPException, Path
 from pydantic import BaseModel, Field
 
@@ -59,7 +62,8 @@ def _require_cache(
 
 def create_streamlined_cache_router(
     get_cache_manager: Callable[[], StreamlinedCacheManager | None],
-    broadcast_manager: Any | None = None
+    broadcast_manager: Any | None = None,
+    get_artwork_cache_dir: Callable[[], FilePath] = artwork_cache_root,
 ) -> APIRouter:
     """
     Create streamlined cache management router.
@@ -68,6 +72,8 @@ def create_streamlined_cache_router(
         get_cache_manager: Callable that returns the StreamlinedCacheManager
             (or None before lifespan has initialised it).
         broadcast_manager: Optional broadcast manager for notifications
+        get_artwork_cache_dir: Returns the source-artwork cache root. Injectable
+            so tests and alternate deployments never clear a real user cache.
 
     Returns:
         FastAPI router with cache endpoints
@@ -141,12 +147,12 @@ def create_streamlined_cache_router(
     @with_error_handling("clear cache")
     async def clear_cache() -> dict[str, str]:
         """
-        Clear all caches (Tier 1 and Tier 2).
+        Clear chunk, derived-thumbnail, and analysis caches.
 
         Use with caution - this will force re-processing of all chunks.
         """
         cache_manager = _require_cache(get_cache_manager)
-        await cache_manager.clear_all()
+        await clear_all_caches(cache_manager, get_artwork_cache_dir())
 
         # Broadcast cache cleared event using the canonical {type, data}
         # envelope (#3545 / BE-NEW-87). Wrap the message in `data` so

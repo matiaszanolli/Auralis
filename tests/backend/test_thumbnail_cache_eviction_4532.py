@@ -15,6 +15,7 @@ Covers the issue's three acceptance criteria:
   * ``*.tmp`` files do not accumulate across repeated failed renders.
 """
 
+import os
 import sys
 import time
 from pathlib import Path
@@ -27,6 +28,8 @@ sys.path.insert(0, str(_BACKEND))
 
 from core.thumbnail_cache import (  # noqa: E402
     THUMB_TMP_PREFIX,
+    clear_artwork_cache,
+    prune_thumbnail_cache,
     purge_thumbnails,
     reap_orphan_temp_files,
     thumb_path_hash,
@@ -139,8 +142,6 @@ class TestReapOrphanTempFiles:
         orphan = thumb_dir / f"{THUMB_TMP_PREFIX}dead.png"
         orphan.write_bytes(b"partial")
         old = time.time() - 10_000
-        import os
-
         os.utime(orphan, (old, old))
 
         assert reap_orphan_temp_files(thumb_dir) == 1
@@ -173,6 +174,65 @@ class TestReapOrphanTempFiles:
 
         leftovers = [p for p in thumb_dir.iterdir() if p.name.startswith(THUMB_TMP_PREFIX)]
         assert leftovers == [], f"failed renders leaked temp files: {leftovers}"
+
+
+class TestThumbnailCacheBackstop:
+    """#5255: completed thumbnails have a byte-capped oldest-file sweep."""
+
+    def test_prune_deletes_oldest_files_until_under_cap(self, thumb_dir):
+        files = [thumb_dir / f"{idx}.png" for idx in range(3)]
+        now = time.time()
+        for idx, path in enumerate(files):
+            path.write_bytes(b"1234")
+            os.utime(path, (now + idx, now + idx))
+
+        deleted, reclaimed = prune_thumbnail_cache(thumb_dir, max_bytes=8)
+
+        assert (deleted, reclaimed) == (1, 4)
+        assert not files[0].exists()
+        assert files[1].exists() and files[2].exists()
+
+    def test_prune_preserves_the_thumbnail_being_served(self, thumb_dir):
+        files = [thumb_dir / f"{idx}.png" for idx in range(3)]
+        now = time.time()
+        for idx, path in enumerate(files):
+            path.write_bytes(b"1234")
+            os.utime(path, (now + idx, now + idx))
+
+        deleted, reclaimed = prune_thumbnail_cache(
+            thumb_dir,
+            max_bytes=4,
+            keep=files[0],
+        )
+
+        assert (deleted, reclaimed) == (2, 8)
+        assert files[0].read_bytes() == b"1234"
+        assert not files[1].exists() and not files[2].exists()
+
+    def test_render_miss_invokes_the_size_backstop(self, thumb_dir, tmp_path):
+        source = _png(tmp_path / "cover.png")
+
+        with patch("routers.artwork.prune_thumbnail_cache") as prune:
+            result = _get_or_create_thumbnail(source, 256, "image/png", thumb_dir)
+
+        assert result is not None
+        cached, _media_type = result
+        assert prune.call_args_list == [((thumb_dir,), {"keep": cached})]
+
+    def test_clear_artwork_cache_removes_sources_and_derived_files(self, tmp_path):
+        artwork_dir = tmp_path / "artwork"
+        thumb_dir = artwork_dir / "thumbnails"
+        thumb_dir.mkdir(parents=True)
+        source = artwork_dir / "album-1.jpg"
+        thumbnail = thumb_dir / "derived.png"
+        source.write_bytes(b"source")
+        thumbnail.write_bytes(b"thumb")
+
+        deleted, reclaimed = clear_artwork_cache(artwork_dir)
+
+        assert (deleted, reclaimed) == (2, 11)
+        assert artwork_dir.exists()
+        assert list(artwork_dir.rglob("*")) == []
 
 
 class TestPurgeResolvesLikeTheRenderPath:

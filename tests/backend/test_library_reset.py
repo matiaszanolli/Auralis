@@ -29,6 +29,8 @@ from routers.library import create_library_router
 # must only be called once per process).
 _factory_box: list = [None]
 _workers_box: dict = {}
+_cache_box: list = [None]
+_artwork_dir_box: list[Path] = [Path("/nonexistent/auralis-test-artwork")]
 
 
 def _get_factory():
@@ -43,6 +45,8 @@ _app = FastAPI()
 _router = create_library_router(
     get_repository_factory=_get_factory,
     resolve_worker=_resolve_worker,
+    get_cache_manager=lambda: _cache_box[0],
+    get_artwork_cache_dir=lambda: _artwork_dir_box[0],
 )
 _app.include_router(_router)
 _client = TestClient(_app)
@@ -51,12 +55,15 @@ CONFIRM_HEADERS = {"X-Confirm-Reset": "RESET"}
 
 
 @pytest.fixture(autouse=True)
-def _reset_boxes():
+def _reset_boxes(tmp_path):
     _factory_box[0] = None
     _workers_box.clear()
+    _cache_box[0] = None
+    _artwork_dir_box[0] = tmp_path / "artwork"
     yield
     _factory_box[0] = None
     _workers_box.clear()
+    _cache_box[0] = None
 
 
 def _mock_repos():
@@ -138,7 +145,9 @@ class TestLibraryReset:
 
         for key in ("auto_scanner", "ondemand_fingerprint_queue", "fingerprint_queue"):
             worker = MagicMock()
-            worker.stop = AsyncMock(side_effect=lambda k=key: order.append(f"stop:{k}"))
+            worker.stop = AsyncMock(
+                side_effect=lambda timeout=None, k=key: order.append(f"stop:{k}")
+            )
             worker.start = AsyncMock(side_effect=lambda k=key: order.append(f"start:{k}"))
             _workers_box[key] = worker
 
@@ -153,7 +162,7 @@ class TestLibraryReset:
             _workers_box[key].stop.assert_awaited_once()
             _workers_box[key].start.assert_awaited_once()
 
-    def test_reset_needs_no_cache_invalidation(self):
+    def test_reset_needs_no_query_cache_invalidation(self):
         """#4619 / #3770: there is no query cache left to invalidate.
 
         The `@cached_query` decorators live only on the deprecated
@@ -168,6 +177,23 @@ class TestLibraryReset:
 
         assert response.status_code == 200
         assert "get_library_database" not in inspect.signature(create_library_router).parameters
+
+    def test_reset_clears_chunk_artwork_and_thumbnail_caches(self):
+        artwork_dir = _artwork_dir_box[0]
+        thumb_dir = artwork_dir / "thumbnails"
+        thumb_dir.mkdir(parents=True)
+        (artwork_dir / "album.jpg").write_bytes(b"source")
+        (thumb_dir / "album-thumb.png").write_bytes(b"thumb")
+        cache_manager = MagicMock()
+        cache_manager.clear_all = AsyncMock()
+        _cache_box[0] = cache_manager
+        _factory_box[0] = _mock_repos()
+
+        response = _client.post("/api/library/reset", headers=CONFIRM_HEADERS)
+
+        assert response.status_code == 200
+        cache_manager.clear_all.assert_awaited_once_with()
+        assert list(artwork_dir.rglob("*")) == []
 
     def test_workers_restarted_even_if_reset_fails(self):
         """A failing reset still restarts the paused workers (finally) and returns 500."""

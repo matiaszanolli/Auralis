@@ -31,11 +31,22 @@ logger = logging.getLogger(__name__)
 
 __all__ = [
     "THUMB_TMP_PREFIX",
+    "THUMBNAIL_CACHE_MAX_BYTES",
     "TEMP_FILE_MAX_AGE_SECONDS",
+    "artwork_cache_dirs",
+    "artwork_cache_root",
+    "clear_artwork_cache",
+    "prune_thumbnail_cache",
     "thumb_path_hash",
     "purge_thumbnails",
     "reap_orphan_temp_files",
 ]
+
+# A full reset removes both the source-artwork cache and its derived thumbnail
+# tree. Outside a reset, the thumbnail tier is capped independently so stale
+# generations and albums that disappear without an explicit purge cannot grow
+# forever (#5255). 128 MiB comfortably holds thousands of UI-sized images.
+THUMBNAIL_CACHE_MAX_BYTES = 128 * 1024 * 1024
 
 # Prefix for in-progress thumbnail renders (#4527). Stable and distinctive so a
 # sweeper can recognise an orphan left by a crashed render — the cache keys
@@ -46,6 +57,17 @@ THUMB_TMP_PREFIX = ".tmp-"
 # file, and unlinking it would make that render fail; thumbnailing an image
 # takes milliseconds, so anything this old belongs to a dead writer (#4532).
 TEMP_FILE_MAX_AGE_SECONDS = 300.0
+
+
+def artwork_cache_root() -> Path:
+    """Return the canonical source-artwork cache root."""
+    return Path.home() / ".auralis" / "artwork"
+
+
+def artwork_cache_dirs() -> tuple[Path, Path]:
+    """Return the canonical ``(artwork_dir, thumbnail_dir)`` pair."""
+    artwork_dir = artwork_cache_root()
+    return artwork_dir, artwork_dir / "thumbnails"
 
 
 def thumb_path_hash(src: Path | str) -> str:
@@ -100,6 +122,121 @@ def purge_thumbnails(thumb_dir: Path, *sources: Path | str | None) -> int:
     if removed:
         logger.debug("Purged %d cached thumbnail(s) from %s", removed, thumb_dir)
     return removed
+
+
+def prune_thumbnail_cache(
+    thumb_dir: Path,
+    max_bytes: int = THUMBNAIL_CACHE_MAX_BYTES,
+    *,
+    keep: Path | None = None,
+) -> tuple[int, int]:
+    """Evict oldest completed thumbnails until ``thumb_dir`` is within its cap.
+
+    Temporary render files are excluded because they may belong to live
+    writers; :func:`reap_orphan_temp_files` owns their age-based lifecycle.
+    Best-effort filesystem errors never fail the artwork request that triggered
+    the sweep. Returns ``(files_deleted, bytes_reclaimed)``.
+    """
+    if thumb_dir.is_symlink():
+        logger.warning("Refusing to prune symlinked thumbnail directory %s", thumb_dir)
+        return (0, 0)
+
+    try:
+        entries: list[tuple[float, int, Path]] = []
+        total = 0
+        for entry in thumb_dir.iterdir():
+            if entry.name.startswith(THUMB_TMP_PREFIX) or not entry.is_file():
+                continue
+            try:
+                stat = entry.stat()
+            except OSError:
+                continue
+            entries.append((stat.st_mtime, stat.st_size, entry))
+            total += stat.st_size
+    except OSError:
+        logger.debug("Thumbnail-cache prune skipped for %s", thumb_dir, exc_info=True)
+        return (0, 0)
+
+    if total <= max_bytes:
+        return (0, 0)
+
+    entries.sort(key=lambda item: item[0])
+    deleted = 0
+    reclaimed = 0
+    for _mtime, size, entry in entries:
+        if total <= max_bytes:
+            break
+        if keep is not None and entry == keep:
+            continue
+        try:
+            entry.unlink()
+            deleted += 1
+            reclaimed += size
+            total -= size
+        except OSError:
+            logger.warning("Could not prune cached thumbnail %s", entry, exc_info=True)
+
+    if deleted:
+        logger.info(
+            "Pruned %d thumbnail(s) from %s, reclaimed %.1f MiB",
+            deleted,
+            thumb_dir,
+            reclaimed / 1024 / 1024,
+        )
+    return (deleted, reclaimed)
+
+
+def clear_artwork_cache(artwork_dir: Path) -> tuple[int, int]:
+    """Remove every cached source artwork and derived thumbnail below a root.
+
+    The root directory itself is retained. Symlinked roots are refused so a
+    malformed cache path cannot make a reset traverse outside the cache tree.
+    Individual failures are logged and skipped. Returns
+    ``(files_deleted, bytes_reclaimed)``.
+    """
+    if artwork_dir.is_symlink():
+        logger.warning("Refusing to clear symlinked artwork cache %s", artwork_dir)
+        return (0, 0)
+    if not artwork_dir.is_dir():
+        return (0, 0)
+
+    try:
+        entries = list(artwork_dir.rglob("*"))
+    except OSError:
+        logger.warning("Could not enumerate artwork cache %s", artwork_dir, exc_info=True)
+        return (0, 0)
+
+    deleted = 0
+    reclaimed = 0
+    for entry in entries:
+        try:
+            if not (entry.is_file() or entry.is_symlink()):
+                continue
+            size = entry.lstat().st_size
+            entry.unlink()
+            deleted += 1
+            reclaimed += size
+        except OSError:
+            logger.warning("Could not clear cached artwork %s", entry, exc_info=True)
+
+    for directory in sorted(
+        (entry for entry in entries if entry.is_dir()),
+        key=lambda path: len(path.parts),
+        reverse=True,
+    ):
+        try:
+            directory.rmdir()
+        except OSError:
+            pass
+
+    if deleted:
+        logger.info(
+            "Cleared %d artwork-cache file(s) from %s, reclaimed %.1f MiB",
+            deleted,
+            artwork_dir,
+            reclaimed / 1024 / 1024,
+        )
+    return (deleted, reclaimed)
 
 
 def reap_orphan_temp_files(

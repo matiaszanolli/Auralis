@@ -27,9 +27,12 @@ are never used).
 
 import asyncio
 import logging
-from typing import Any, cast
 from collections.abc import Callable
+from pathlib import Path
+from typing import Any, cast
 
+from core.cache_cleanup import clear_all_caches
+from core.thumbnail_cache import artwork_cache_root
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, Field
 
@@ -85,6 +88,8 @@ class LibraryResetResponse(BaseModel):
 def create_library_router(
     get_repository_factory: Callable[[], Any],
     resolve_worker: Callable[[str], Any] | None = None,
+    get_cache_manager: Callable[[], Any] | None = None,
+    get_artwork_cache_dir: Callable[[], Path] = artwork_cache_root,
 ) -> APIRouter:
     """Factory: general library routes (stats, browse, reset).
 
@@ -94,6 +99,8 @@ def create_library_router(
             instance (or ``None``) by component-registry key. Used by the
             destructive reset endpoint to pause/restart all background workers
             so nothing inserts rows mid-reset (#4111).
+        get_cache_manager: Returns the shared chunk cache when initialized.
+        get_artwork_cache_dir: Returns the source-artwork cache root.
 
     Note:
         Phase 6B: Fully migrated to RepositoryFactory pattern.
@@ -173,6 +180,16 @@ def create_library_router(
             # Bulk delete runs in the repository layer (no raw session in the
             # router) and off the event loop.
             await asyncio.to_thread(repos.reset_library)
+
+            # One lifecycle boundary owns every backend cache tier (#5257).
+            # Run it while workers remain paused so a rescan cannot repopulate
+            # stale entries between the database reset and cache cleanup.
+            cache_manager = get_cache_manager() if get_cache_manager else None
+            await clear_all_caches(
+                cache_manager,
+                get_artwork_cache_dir(),
+                clear_source_artwork=True,
+            )
 
             # #4619 / #3770: no query cache to drop any more. The
             # `@cached_query` decorators live only on the deprecated

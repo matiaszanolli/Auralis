@@ -16,7 +16,7 @@ Coverage:
 
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
@@ -25,7 +25,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "ba
 
 
 @pytest.fixture
-def client():
+def client(tmp_path):
     """FastAPI test client with cache router registered via mock cache manager."""
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
@@ -57,6 +57,7 @@ def client():
     app = FastAPI()
     app.include_router(create_streamlined_cache_router(
         get_cache_manager=lambda: mock_cache,
+        get_artwork_cache_dir=lambda: tmp_path / "artwork",
     ))
 
     with TestClient(app) as test_client:
@@ -64,7 +65,7 @@ def client():
 
 
 @pytest.fixture
-def client_no_cache():
+def client_no_cache(tmp_path):
     """FastAPI test client with cache router but no cache manager (pre-lifespan)."""
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
@@ -74,6 +75,7 @@ def client_no_cache():
     app = FastAPI()
     app.include_router(create_streamlined_cache_router(
         get_cache_manager=lambda: None,
+        get_artwork_cache_dir=lambda: tmp_path / "artwork",
     ))
 
     with TestClient(app) as test_client:
@@ -260,6 +262,30 @@ class TestClearCache:
 
         assert "message" in data
         assert "cleared" in data["message"].lower()
+
+    def test_clear_cache_delegates_to_unified_boundary(self, tmp_path):
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+
+        from routers.cache_streamlined import create_streamlined_cache_router
+
+        manager = Mock()
+        artwork_dir = tmp_path / "artwork"
+        clear = AsyncMock()
+        app = FastAPI()
+        app.include_router(
+            create_streamlined_cache_router(
+                get_cache_manager=lambda: manager,
+                get_artwork_cache_dir=lambda: artwork_dir,
+            )
+        )
+
+        with patch("routers.cache_streamlined.clear_all_caches", clear):
+            with TestClient(app) as test_client:
+                response = test_client.post("/api/cache/clear")
+
+        assert response.status_code == 200
+        clear.assert_awaited_once_with(manager, artwork_dir)
 
     def test_clear_cache_multiple_times(self, client):
         """Test clearing cache multiple times"""
