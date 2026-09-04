@@ -1,8 +1,8 @@
 {
-  "_comment": "Known-failing pytest tests (#4562). CI fails on any failure NOT listed here. Regenerate with: python scripts/check_pytest_baseline.py <junit.xml> --update. #5169, #5290, and #5292 removed newly passing entries by hand: --strict-stale (#5091) fails the job on a baselined test that passes. Removed rather than regenerated -- a baseline built outside CI reports spurious new failures.",
+  "_comment": "Known-failing pytest tests (#4562). CI fails on any failure NOT listed here. Regenerate with: python scripts/check_pytest_baseline.py <junit.xml> --update. #5169, #5284, #5287, #5288, #5289, #5290, and #5292 removed newly passing entries by hand: --strict-stale (#5091) fails the job on a baselined test that passes. Removed rather than regenerated -- a baseline built outside CI reports spurious new failures.",
   "generatedFrom": {
     "totalTests": 6889,
-    "failedTests": 201
+    "failedTests": 192
   },
   "failures": [
     "tests.auralis.analysis.fingerprint.test_rust_fingerprint_glue::test_all_values_finite",
@@ -170,10 +170,6 @@
     "tests.regression.test_mastering_content_awareness_end_to_end::test_bright_and_dark_sources_produce_different_eq_curves",
     "tests.regression.test_mastering_content_awareness_end_to_end::test_bright_source_gets_less_hf_boost_than_dark_source",
     "tests.regression.test_no_raw_sql_leaks.TestNoRawSQLLeaks::test_no_raw_sql_outside_repositories",
-    "tests.regression.test_path_traversal_prevention.TestPathTraversalPrevention::test_broadcast_omits_filepath",
-    "tests.regression.test_path_traversal_prevention.TestPathTraversalPrevention::test_load_track_request_requires_track_id",
-    "tests.regression.test_path_traversal_prevention.TestPathTraversalPrevention::test_load_track_uses_database_lookup",
-    "tests.regression.test_path_traversal_prevention.TestPathTraversalPrevention::test_load_track_uses_validated_filepath",
     "tests.regression.test_personal_preferences_atomic.TestAtomicWrite::test_atomic_write_overwrites_existing",
     "tests.regression.test_version_compatibility.TestBackwardCompatibility::test_audio_output_format_unchanged",
     "tests.regression.test_version_compatibility.TestBackwardCompatibility::test_processing_result_deterministic",
@@ -185,12 +181,7 @@
     "tests.regression.test_version_compatibility.TestDatabaseSchemaMigrations::test_composite_index_on_favorites",
     "tests.regression.test_version_compatibility.TestDatabaseSchemaMigrations::test_schema_v2_to_v3_migration",
     "tests.regression.test_version_compatibility.TestDeprecatedFeatures::test_deprecated_config_keys_ignored",
-    "tests.regression.test_ws_connect_state_push.TestWebSocketConnectStatePush::test_pushes_enhancement_settings_on_connect",
-    "tests.regression.test_ws_connect_state_push.TestWebSocketConnectStatePush::test_pushes_player_state_on_connect",
     "tests.security.test_data_security.TestBackupSecurity::test_backup_encryption_readiness",
-    "tests.security.test_scan_path_validation.TestLibraryScanRequestValidation::test_library_scan_request_rejects_system_paths",
-    "tests.security.test_websocket_security.TestWebSocketJSONParsing::test_reject_deeply_nested_json",
-    "tests.security.test_websocket_security.TestWebSocketMessageSizeValidation::test_boundary_message_size",
     "tests.stress.test_large_library.TestMemoryManagement::test_gc_performance",
     "tests.stress.test_processing_stress.TestHighVolumeProcessing::test_processing_prioritization",
     "tests.stress.test_processing_stress.TestHighVolumeProcessing::test_processing_queue_overflow",
