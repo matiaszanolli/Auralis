@@ -55,9 +55,11 @@ class TestSetVolumeBroadcastsOnly:
 
         result = await service.set_volume(0.5)
 
-        connections.broadcast.assert_awaited_once_with(
-            {"type": "volume_changed", "data": {"volume": 50}}
-        )
+        connections.broadcast.assert_awaited_once()
+        message = connections.broadcast.await_args.args[0]
+        assert message["type"] == "volume_changed"
+        assert message["data"]["volume"] == 50
+        assert isinstance(message["data"]["seq"], int)
         assert result == {"message": "Volume set", "volume": 50}
 
     @pytest.mark.asyncio

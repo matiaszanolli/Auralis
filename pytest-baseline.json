@@ -2,7 +2,7 @@
   "_comment": "Known-failing pytest tests (#4562). CI fails on any failure NOT listed here. Regenerate with: python scripts/check_pytest_baseline.py <junit.xml> --update. #5169, #5284, #5287, #5288, #5289, #5290, and #5292 removed newly passing entries by hand: --strict-stale (#5091) fails the job on a baselined test that passes. Removed rather than regenerated -- a baseline built outside CI reports spurious new failures.",
   "generatedFrom": {
     "totalTests": 6889,
-    "failedTests": 192
+    "failedTests": 191
   },
   "failures": [
     "tests.auralis.analysis.fingerprint.test_rust_fingerprint_glue::test_all_values_finite",
@@ -56,7 +56,6 @@
     "tests.backend.test_queue_endpoints.TestShuffleQueue::test_shuffle_no_player",
     "tests.backend.test_queue_endpoints.TestShuffleQueue::test_shuffle_queue_success",
     "tests.backend.test_streaming_path_validation::test_stream_normal_accepts_valid_in_library_path",
-    "tests.backend.test_system_api.TestWebSocketMessageValidation::test_websocket_rate_limiting",
     "tests.backend.test_track_artwork_field_naming.TestAPIContractCompliance::test_track_dict_matches_TrackApiResponse_contract",
     "tests.boundaries.test_audio_processing_boundaries::test_sample_count_invariant",
     "tests.concurrency.test_async_operations.TestFastAPIAsyncPatterns::test_async_file_operations",

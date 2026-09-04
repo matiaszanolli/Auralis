@@ -8,10 +8,11 @@ serialisation. Two concurrent requests could interleave their state
 updates, leaving the UI flashed at the wrong transport state until the
 next `player_state` broadcast settled it.
 
-Post-fix: an `asyncio.Lock` (`self._playback_lock`) serialises each engine
-call with its state mutation and monotonic seq assignment. Both the deferred
+Post-fix: a process-wide `asyncio.Lock` exposed through `_playback_lock`
+serialises each engine call with its state mutation and monotonic event seq
+assignment across separately constructed service instances. Both the deferred
 state snapshot and event-specific message broadcast after lock release, so a
-slow client cannot freeze later transport transitions (#4751).
+slow client cannot freeze later transport transitions (#4751/#5294).
 
 These tests pin the new contract by interleaving asyncio tasks against
 collaborators that record the order of calls.
@@ -34,7 +35,7 @@ _BACKEND = Path(__file__).resolve().parents[2] / "auralis-web" / "backend"
 if str(_BACKEND) not in sys.path:
     sys.path.insert(0, str(_BACKEND))
 
-from services.playback_service import PlaybackService  # noqa: E402
+from services.playback_service import PlaybackService
 
 
 def _build_service() -> tuple[PlaybackService, list[str]]:
@@ -102,7 +103,7 @@ async def test_play_then_pause_run_contiguously_under_concurrency() -> None:
 
     transitions = [
         event for event in events
-        if event.startswith("engine:") or event.startswith("state:set_playing")
+        if event.startswith(("engine:", "state:set_playing"))
     ]
     assert transitions == [
         "engine:play",
@@ -114,6 +115,48 @@ async def test_play_then_pause_run_contiguously_under_concurrency() -> None:
     assert events.count("state_broadcast:False") == 1
     assert events.count("broadcast:playback_started") == 1
     assert events.count("broadcast:playback_paused") == 1
+
+
+@pytest.mark.asyncio
+async def test_separate_service_instances_share_the_transition_lock() -> None:
+    """FastAPI builds one service per request; their lock must still be shared."""
+    first, _events = _build_service()
+    second, _other_events = _build_service()
+
+    assert first._playback_lock is second._playback_lock
+
+
+@pytest.mark.asyncio
+async def test_transport_seq_orders_broadcasts_across_service_instances() -> None:
+    """A late older broadcast carries a lower seq than the newer transition."""
+    first, _events = _build_service()
+    second, _other_events = _build_service()
+    messages: list[dict[str, Any]] = []
+    pause_sent = asyncio.Event()
+
+    async def _reordered_broadcast(message: dict[str, Any]) -> None:
+        if message["type"] == "playback_started":
+            await asyncio.wait_for(pause_sent.wait(), timeout=1.0)
+        messages.append(message)
+        if message["type"] == "playback_paused":
+            pause_sent.set()
+
+    first.connection_manager.broadcast = _reordered_broadcast
+    second.connection_manager.broadcast = _reordered_broadcast
+
+    play_task = asyncio.create_task(first.play())
+    await asyncio.sleep(0)
+    pause_task = asyncio.create_task(second.pause())
+    await asyncio.gather(play_task, pause_task)
+
+    assert [message["type"] for message in messages] == [
+        "playback_paused",
+        "playback_started",
+    ]
+    seq_by_type = {
+        message["type"]: message["data"]["seq"] for message in messages
+    }
+    assert seq_by_type["playback_started"] < seq_by_type["playback_paused"]
 
 
 @pytest.mark.asyncio
@@ -135,7 +178,7 @@ async def test_rapid_alternating_play_pause_serialises() -> None:
 
     transitions = [
         event for event in events
-        if event.startswith("engine:") or event.startswith("state:set_playing")
+        if event.startswith(("engine:", "state:set_playing"))
     ]
     valid_blocks = {
         ("engine:play", "state:set_playing(True)"),
@@ -205,7 +248,7 @@ async def test_set_volume_does_not_take_the_playback_lock() -> None:
     """set_volume is broadcast-only — it must not be serialised with the
     transport methods, since concurrent volume adjustments shouldn't
     block a separately-issued play/pause."""
-    service, events = _build_service()
+    service, _events = _build_service()
 
     # Hold the lock manually to simulate a slow play() in flight.
     async with service._playback_lock:

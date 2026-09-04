@@ -12,10 +12,10 @@ websocket_endpoint dispatch loop in routers/system.py (#4074).
 
 import logging
 
-from fastapi import WebSocket
-
 from core.audio_stream_controller import ws_id as _ws_id
 from core.stream_protocol import safe_send_text
+from fastapi import WebSocket
+from services.playback_event_sequencer import playback_event_sequencer
 
 from .context import StreamState, await_cancelled_task
 
@@ -25,22 +25,32 @@ logger = logging.getLogger(__name__)
 async def handle_pause(websocket: WebSocket, state: StreamState) -> None:
     logger.info("Received pause command via WebSocket")
     ws_id = _ws_id(websocket)
-    pause_evt = state.pause_events.get(ws_id)
-    if pause_evt is not None:
-        pause_evt.clear()
-        logger.info("Paused streaming task (event cleared)")
+    async with playback_event_sequencer.transition_lock:
+        pause_evt = state.pause_events.get(ws_id)
+        if pause_evt is not None:
+            pause_evt.clear()
+            logger.info("Paused streaming task (event cleared)")
+        event_seq = playback_event_sequencer.next_transport_seq()
     # Use {state} shape the frontend type expects (#3503 / BE-NEW-45).
-    await safe_send_text(websocket, {"type": "playback_paused", "data": {"state": "paused"}})
+    await safe_send_text(
+        websocket,
+        {"type": "playback_paused", "data": {"state": "paused", "seq": event_seq}},
+    )
 
 
 async def handle_resume(websocket: WebSocket, state: StreamState) -> None:
     logger.info("Received resume command via WebSocket")
     ws_id = _ws_id(websocket)
-    pause_evt = state.pause_events.get(ws_id)
-    if pause_evt is not None:
-        pause_evt.set()
-        logger.info("Resumed streaming task (event set)")
-    await safe_send_text(websocket, {"type": "playback_resumed", "data": {"state": "playing"}})
+    async with playback_event_sequencer.transition_lock:
+        pause_evt = state.pause_events.get(ws_id)
+        if pause_evt is not None:
+            pause_evt.set()
+            logger.info("Resumed streaming task (event set)")
+        event_seq = playback_event_sequencer.next_transport_seq()
+    await safe_send_text(
+        websocket,
+        {"type": "playback_resumed", "data": {"state": "playing", "seq": event_seq}},
+    )
 
 
 async def handle_buffer_full(websocket: WebSocket, state: StreamState) -> None:
@@ -75,23 +85,28 @@ async def handle_stop(websocket: WebSocket, state: StreamState) -> None:
     # Consolidating all three teardown sites behind one shared module is a
     # reasonable follow-up, but it is a behaviour change for this handler and
     # is out of scope for a consistency fix.
-    async with state.active_tasks_lock:
-        task = state.active_tasks.pop(ws_id, None)
-        # Also clear the per-ws event/track registries so a stop with no
-        # subsequent play/seek doesn't leave stale entries dangling until
-        # disconnect — matching _cancel_prior_task / teardown_connection (#4364).
-        state.active_track_ids.pop(ws_id, None)
-        state.pause_events.pop(ws_id, None)
-        state.flow_events.pop(ws_id, None)
-        state.active_stream_settings.pop(ws_id, None)  # #4742
-        # #4815: same sibling treatment as _cancel_prior_task — pop while
-        # holding the lock, then set() outside it (below), so an in-flight
-        # chunk DSP call aborts instead of running to completion unreferenced.
-        cancel_event = state.chunk_cancel_events.pop(ws_id, None)
-    if cancel_event is not None:
-        cancel_event.set()
-    if task and not task.done():
-        task.cancel()
-        await await_cancelled_task(task, logger)
-        logger.info("Cancelled active streaming task")
-    await safe_send_text(websocket, {"type": "playback_stopped", "data": {"state": "stopped"}})
+    async with playback_event_sequencer.transition_lock:
+        async with state.active_tasks_lock:
+            task = state.active_tasks.pop(ws_id, None)
+            # Also clear the per-ws event/track registries so a stop with no
+            # subsequent play/seek doesn't leave stale entries dangling until
+            # disconnect — matching _cancel_prior_task / teardown_connection (#4364).
+            state.active_track_ids.pop(ws_id, None)
+            state.pause_events.pop(ws_id, None)
+            state.flow_events.pop(ws_id, None)
+            state.active_stream_settings.pop(ws_id, None)  # #4742
+            # #4815: same sibling treatment as _cancel_prior_task — pop while
+            # holding the lock, then set() outside it (below), so an in-flight
+            # chunk DSP call aborts instead of running to completion unreferenced.
+            cancel_event = state.chunk_cancel_events.pop(ws_id, None)
+        if cancel_event is not None:
+            cancel_event.set()
+        if task and not task.done():
+            task.cancel()
+            await await_cancelled_task(task, logger)
+            logger.info("Cancelled active streaming task")
+        event_seq = playback_event_sequencer.next_transport_seq()
+    await safe_send_text(
+        websocket,
+        {"type": "playback_stopped", "data": {"state": "stopped", "seq": event_seq}},
+    )

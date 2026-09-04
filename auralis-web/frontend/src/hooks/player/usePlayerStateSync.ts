@@ -83,6 +83,14 @@ export function usePlayerStateSync() {
   // the two counters happened to disagree in magnitude.
   const lastSeenTrackChangedSeqRef = useRef(0);
 
+  // Discrete transport events share one backend sequence across both REST
+  // PlaybackService broadcasts and WebSocket-native pause/resume/stop replies
+  // (#5294). A single watermark across all four event types is essential: a
+  // delayed playback_started must not overwrite a newer playback_paused.
+  // Volume is independent state and therefore has its own sequence domain.
+  const lastSeenTransportEventSeqRef = useRef(0);
+  const lastSeenVolumeEventSeqRef = useRef(0);
+
   // A backend restart resets its StateManager seq counter to 0, but this ref
   // survives across reconnects — every post-restart snapshot would otherwise
   // be dropped as "older" until the counter climbs back past the pre-restart
@@ -94,6 +102,8 @@ export function usePlayerStateSync() {
     if (connectionStatus === 'connected') {
       lastSeenSeqRef.current = 0;
       lastSeenTrackChangedSeqRef.current = 0;
+      lastSeenTransportEventSeqRef.current = 0;
+      lastSeenVolumeEventSeqRef.current = 0;
     }
   }, [connectionStatus]);
 
@@ -239,24 +249,40 @@ export function usePlayerStateSync() {
     // pause/stop/skip/volume reflect in Redux without waiting up to ~1s for the
     // next snapshot. Previously the command hooks claimed these messages
     // "update the Redux player slice" but no subscriber existed.
-    const unsubscribeStarted = subscribe('playback_started', () => {
+    const shouldApplyTransportEvent = (message: unknown): boolean => {
+      const data = (message as { data?: { seq?: number } }).data;
+      if (typeof data?.seq !== 'number') return true;
+      if (data.seq < lastSeenTransportEventSeqRef.current) return false;
+      lastSeenTransportEventSeqRef.current = data.seq;
+      return true;
+    };
+
+    const unsubscribeStarted = subscribe('playback_started', (message) => {
+      if (!shouldApplyTransportEvent(message)) return;
       dispatch(setIsPlaying(true));
     });
-    const unsubscribeResumed = subscribe('playback_resumed', () => {
+    const unsubscribeResumed = subscribe('playback_resumed', (message) => {
+      if (!shouldApplyTransportEvent(message)) return;
       dispatch(setIsPlaying(true));
     });
-    const unsubscribePaused = subscribe('playback_paused', () => {
+    const unsubscribePaused = subscribe('playback_paused', (message) => {
+      if (!shouldApplyTransportEvent(message)) return;
       dispatch(setIsPlaying(false));
     });
-    const unsubscribeStopped = subscribe('playback_stopped', () => {
+    const unsubscribeStopped = subscribe('playback_stopped', (message) => {
+      if (!shouldApplyTransportEvent(message)) return;
       dispatch(setIsPlaying(false));
     });
 
     const unsubscribeVolume = subscribe('volume_changed', (message) => {
       // 0-100 integer scale — matches playerSlice.setVolume and the scale the
       // player_state snapshot uses.
-      const data = (message as { data?: { volume?: number } }).data;
+      const data = (message as { data?: { volume?: number; seq?: number } }).data;
       if (data && typeof data.volume === 'number' && Number.isFinite(data.volume)) {
+        if (typeof data.seq === 'number') {
+          if (data.seq < lastSeenVolumeEventSeqRef.current) return;
+          lastSeenVolumeEventSeqRef.current = data.seq;
+        }
         dispatch(setVolume(data.volume));
       }
     });

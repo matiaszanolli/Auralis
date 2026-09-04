@@ -12,6 +12,8 @@ import asyncio
 import logging
 from typing import Any, Protocol, cast
 
+from services.playback_event_sequencer import playback_event_sequencer
+
 logger = logging.getLogger(__name__)
 
 
@@ -99,12 +101,12 @@ class PlaybackService:
         self.player_state_manager: PlayerStateManager = player_state_manager
         self.connection_manager: ConnectionManager = connection_manager
 
-        # #3734: serialise play/pause/stop/seek through one service-level
-        # lock so two concurrent requests can't interleave their
+        # #3734/#5294: play/pause/stop/seek use one process-wide lock so
+        # separate per-request service instances cannot interleave their
         # `set_playing` + broadcast steps and leave the UI showing a
-        # stale transport state. Matches the QueueService.set_queue
-        # pattern from #3721. set_volume is broadcast-only and stays
-        # outside the lock.
+        # stale transport state. WebSocket-native pause/resume/stop handlers
+        # draw from the same sequencer. set_volume is broadcast-only and uses
+        # a separate sequence domain, so it stays outside the transport lock.
         #
         # #4581: the explicit `connection_manager.broadcast()` calls now run
         # OUTSIDE this lock — the transition is committed before them, so the
@@ -114,7 +116,23 @@ class PlaybackService:
         # their order still matches the engine transitions. The resulting
         # snapshot is broadcast after release, and clients use seq to discard
         # a late older snapshot.
-        self._playback_lock: asyncio.Lock = asyncio.Lock()
+
+    @property
+    def _playback_lock(self) -> asyncio.Lock:
+        """Compatibility name for the process-wide transition lock.
+
+        A setter-backed override preserves the lightweight ``__new__`` test
+        seam used by the broadcast-timeout regression suite. Normal service
+        construction never sets it and always resolves the shared lock.
+        """
+        override = getattr(self, "_playback_lock_override", None)
+        if override is not None:
+            return override
+        return playback_event_sequencer.transition_lock
+
+    @_playback_lock.setter
+    def _playback_lock(self, lock: asyncio.Lock) -> None:
+        self._playback_lock_override = lock
 
     async def _broadcast_state_snapshot(self, snapshot: Any) -> None:
         """Send a deferred state snapshot when the collaborator returned one."""
@@ -169,6 +187,7 @@ class PlaybackService:
                 state_snapshot = await self.player_state_manager.set_playing(
                     True, broadcast=False
                 )
+                event_seq = playback_event_sequencer.next_transport_seq()
 
             await self._broadcast_state_snapshot(state_snapshot)
 
@@ -178,7 +197,7 @@ class PlaybackService:
             # one stalled WebSocket client froze play/pause/stop for everyone.
             await self.connection_manager.broadcast({
                 "type": "playback_started",
-                "data": {"state": "playing"}
+                "data": {"state": "playing", "seq": event_seq}
             })
 
             logger.info("▶️  Playback started")
@@ -211,13 +230,14 @@ class PlaybackService:
                 state_snapshot = await self.player_state_manager.set_playing(
                     False, broadcast=False
                 )
+                event_seq = playback_event_sequencer.next_transport_seq()
 
             await self._broadcast_state_snapshot(state_snapshot)
 
             # Broadcast outside the lock (#4581) — see play().
             await self.connection_manager.broadcast({
                 "type": "playback_paused",
-                "data": {"state": "paused"}
+                "data": {"state": "paused", "seq": event_seq}
             })
 
             logger.info("⏸️  Playback paused")
@@ -251,13 +271,14 @@ class PlaybackService:
                     state_snapshot = await self.player_state_manager.set_playing(
                         False, broadcast=False
                     )
+                event_seq = playback_event_sequencer.next_transport_seq()
 
             await self._broadcast_state_snapshot(state_snapshot)
 
             # Broadcast outside the lock (#4581) — see play().
             await self.connection_manager.broadcast({
                 "type": "playback_stopped",
-                "data": {"state": "stopped"}
+                "data": {"state": "stopped", "seq": event_seq}
             })
 
             logger.info("⏹️  Playback stopped")
@@ -345,9 +366,10 @@ class PlaybackService:
 
             # Broadcast volume change (0-100 scale matching PlayerState)
             volume_100 = round(volume * 100)
+            event_seq = playback_event_sequencer.next_volume_seq()
             await self.connection_manager.broadcast({
                 "type": "volume_changed",
-                "data": {"volume": volume_100}
+                "data": {"volume": volume_100, "seq": event_seq}
             })
 
             logger.info(f"🔊 Volume set to {volume:.0%} (broadcast only — applied client-side)")

@@ -952,6 +952,71 @@ describe('usePlayerStateSync – discrete playback events (#4144)', () => {
     fire('volume_changed', {});
     expect(store.getState().player.volume).toBe(60);
   });
+
+  it('drops an older transport event even when it has a different type (#5294)', () => {
+    fire('playback_paused', { state: 'paused', seq: 5 });
+    expect(store.getState().player.isPlaying).toBe(false);
+
+    fire('playback_started', { state: 'playing', seq: 4 });
+    expect(store.getState().player.isPlaying).toBe(false);
+  });
+
+  it('applies increasing transport events across started/resumed/paused/stopped', () => {
+    fire('playback_started', { state: 'playing', seq: 1 });
+    expect(store.getState().player.isPlaying).toBe(true);
+    fire('playback_paused', { state: 'paused', seq: 2 });
+    expect(store.getState().player.isPlaying).toBe(false);
+    fire('playback_resumed', { state: 'playing', seq: 3 });
+    expect(store.getState().player.isPlaying).toBe(true);
+    fire('playback_stopped', { state: 'stopped', seq: 4 });
+    expect(store.getState().player.isPlaying).toBe(false);
+  });
+
+  it('drops an older volume event', () => {
+    fire('volume_changed', { volume: 80, seq: 8 });
+    fire('volume_changed', { volume: 20, seq: 7 });
+    expect(store.getState().player.volume).toBe(80);
+  });
+
+  it('keeps transport and volume sequence domains independent', () => {
+    fire('playback_paused', { state: 'paused', seq: 100 });
+    fire('volume_changed', { volume: 25, seq: 1 });
+    expect(store.getState().player.volume).toBe(25);
+
+    fire('volume_changed', { volume: 75, seq: 200 });
+    fire('playback_resumed', { state: 'playing', seq: 101 });
+    expect(store.getState().player.isPlaying).toBe(true);
+  });
+});
+
+describe('usePlayerStateSync – discrete event seq reset on reconnect (#5294)', () => {
+  it('accepts restarted transport and volume counters after reconnect', () => {
+    setupWebSocketMock();
+    const store = createTestStore();
+    const mockContext = makeMockWsContext({
+      connectionStatus: 'connected',
+      subscribe: vi.fn((type: string, handler: (msg: any) => void) => {
+        handlers[type] = handler;
+        if (type === 'player_state') playerStateHandler = handler;
+        return mockUnsubscribe;
+      }) as any,
+    });
+    vi.mocked(WebSocketContextModule.useWebSocketContext).mockImplementation(() => mockContext);
+
+    const { rerender } = renderHook(() => usePlayerStateSync(), { wrapper: makeWrapper(store) });
+    fire('playback_paused', { state: 'paused', seq: 500 });
+    fire('volume_changed', { volume: 80, seq: 500 });
+
+    mockContext.connectionStatus = 'disconnected';
+    rerender();
+    mockContext.connectionStatus = 'connected';
+    rerender();
+
+    fire('playback_resumed', { state: 'playing', seq: 1 });
+    fire('volume_changed', { volume: 10, seq: 1 });
+    expect(store.getState().player.isPlaying).toBe(true);
+    expect(store.getState().player.volume).toBe(10);
+  });
 });
 
 // ============================================================================

@@ -116,6 +116,7 @@ export interface PlaybackStartedMessage extends WebSocketMessage {
   type: 'playback_started';
   data: {
     state: 'playing';
+    seq?: number;
   };
 }
 
@@ -124,6 +125,7 @@ export interface PlaybackPausedMessage extends WebSocketMessage {
   type: 'playback_paused';
   data: {
     state: 'paused';
+    seq?: number;
   };
 }
 
@@ -132,6 +134,7 @@ export interface PlaybackResumedMessage extends WebSocketMessage {
   type: 'playback_resumed';
   data: {
     state: 'playing';
+    seq?: number;
   };
 }
 
@@ -140,6 +143,7 @@ export interface PlaybackStoppedMessage extends WebSocketMessage {
   type: 'playback_stopped';
   data: {
     state: 'stopped';
+    seq?: number;
   };
 }
 
@@ -186,6 +190,7 @@ export interface VolumeChangedMessage extends WebSocketMessage {
   type: 'volume_changed';
   data: {
     volume: number; // 0-100 integer scale (matches PlayerState.volume sent by backend)
+    seq?: number;
   };
 }
 
