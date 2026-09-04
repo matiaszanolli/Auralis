@@ -282,8 +282,8 @@ class TestConcurrentDatabaseOperations:
 
         def delete_track():
             try:
-                track_repo.delete(track_id)
-                success_count[0] += 1
+                if track_repo.delete(track_id):
+                    success_count[0] += 1
             except Exception as e:
                 errors.append(e)
 
@@ -297,8 +297,8 @@ class TestConcurrentDatabaseOperations:
         for t in threads:
             t.join()
 
-        # INVARIANT: At least one delete should succeed, others may fail gracefully
-        assert success_count[0] >= 1, "At least one delete should succeed"
+        assert errors == [], f"Concurrent delete errors: {errors}"
+        assert success_count[0] == 1, "Exactly one concurrent delete should succeed"
 
         # Track should be gone
         all_tracks, total = track_repo.get_all(limit=100, offset=0)

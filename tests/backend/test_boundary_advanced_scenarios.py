@@ -798,20 +798,10 @@ def test_concurrent_delete_same_track(test_library_large):
     for t in threads:
         t.join()
 
-    # #4915: the old assertion here was `success_count[0] <= 1`, which held
-    # only because LibraryManager.delete_track() serialized every delete behind
-    # a facade-level `_delete_lock`. TrackRepository.delete() — what production
-    # actually calls — does an unlocked SELECT-then-DELETE in its own session,
-    # so several threads can each observe the row and each report True (the
-    # losers' DELETE matches 0 rows and SQLAlchemy logs a SAWarning).
-    # TODO(#5173): if "exactly one delete wins" is a property worth having, it
-    # belongs in TrackRepository.delete() (e.g. check the DELETE rowcount and
-    # return False when 0 rows matched), not in a deleted legacy facade.
     assert errors == [], f"Concurrent delete errors: {errors}"
-    assert success_count[0] >= 1, "At least one concurrent delete should succeed"
+    assert success_count[0] == 1, "Exactly one concurrent delete should succeed"
 
-    # Whatever the race, the outcome must be consistent: the target is gone,
-    # exactly once, and nothing else was collateral damage.
+    # The target is gone exactly once, and nothing else was collateral damage.
     assert db.tracks.get_by_id(target_id) is None, "Target track should be deleted"
     tracks, total = db.tracks.get_all(limit=200)
     assert total == len(track_ids) - 1, (

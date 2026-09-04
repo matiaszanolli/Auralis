@@ -11,14 +11,23 @@ adding or deleting a track row itself.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any
+from typing import Any, cast
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, delete, select
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ...utils.logging import debug, error, info, warning
-from ..models import Album, Artist, Genre, Track
+from ..models import (
+    Album,
+    Artist,
+    Genre,
+    Track,
+    track_artist,
+    track_genre,
+    track_playlist,
+)
 from ..path_key import make_filepath_key
 from ..utils.artist_normalizer import normalize_artist_name
 from .base import BaseRepository
@@ -241,13 +250,27 @@ class TrackRepositoryLifecycleMixin(BaseRepository):
         """
         with self._session_scope() as session:
             try:
-                track = session.execute(select(Track).where(Track.id == track_id)).scalars().first()
-                if track:
-                    session.delete(track)
-                    session.commit()
-                    debug(f"Deleted track: {track.title}")
-                    return True
-                return False
+                # A single conditional DELETE makes the return value atomic:
+                # concurrent callers cannot all observe the row and report
+                # success before their individual DELETE statements run
+                # (#5173). session.execute() is typed as Result, although a
+                # DML statement returns CursorResult with rowcount.
+                # The three association tables predate ON DELETE CASCADE, so
+                # remove those rows explicitly in the same transaction before
+                # deleting the parent (the ORM unit of work did this for the
+                # former session.delete(track) implementation).
+                for association in (track_playlist, track_genre, track_artist):
+                    session.execute(
+                        delete(association).where(association.c.track_id == track_id)
+                    )
+                result = cast(CursorResult[Any], session.execute(
+                    delete(Track).where(Track.id == track_id)
+                ))
+                session.commit()
+                deleted = result.rowcount == 1
+                if deleted:
+                    debug(f"Deleted track id={track_id}")
+                return deleted
             except IntegrityError as e:
                 # Distinguished from the generic case because it means a relationship
                 # is missing passive_deletes=True (or a new child table was added
