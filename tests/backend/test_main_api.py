@@ -1054,56 +1054,42 @@ class TestSettingsEndpoints:
         assert response.status_code == 400
         mock_repo.update_settings.assert_not_called()
 
-    def test_update_settings_scan_folders_registers_allowed_directory(self, client, tmp_path):
+    def test_update_settings_scan_folders_registers_allowed_directory(
+        self, client, tmp_path, settings_repository
+    ):
         """PUT /api/settings with a new valid scan_folders entry registers it
         via register_allowed_directory immediately, same as the dedicated
         POST /api/settings/scan-folders route (#4765)."""
-        from security.path_security import _extra_allowed_dirs
-
         resolved = str(tmp_path.resolve())
-        mock_repo = Mock()
-        mock_repo.get_settings.return_value = Mock(scan_folders=None)
-        mock_repo.update_settings.return_value = self._mock_settings()
-
-        with patch.dict('main.globals_dict', {'settings_repository': mock_repo}):
+        with (
+            patch.dict('main.globals_dict', {'settings_repository': settings_repository}),
+            patch('routers.settings.register_allowed_directory') as register,
+        ):
             response = _with_trusted_origin(
                 client, "put", "/api/settings", json={"scan_folders": [str(tmp_path)]}
             )
 
-        try:
-            assert response.status_code == 200
-            mock_repo.update_settings.assert_called_once_with({"scan_folders": [resolved]})
-            assert tmp_path.resolve() in _extra_allowed_dirs
-        finally:
-            if tmp_path.resolve() in _extra_allowed_dirs:
-                _extra_allowed_dirs.remove(tmp_path.resolve())
+        assert response.status_code == 200
+        register.assert_called_once_with(Path(resolved))
 
-    def test_update_settings_scan_folders_unregisters_removed_directory(self, client, tmp_path):
+    def test_update_settings_scan_folders_unregisters_removed_directory(
+        self, client, tmp_path, settings_repository
+    ):
         """PUT /api/settings that drops a previously-configured folder
         unregisters it from the allowlist too (#4765)."""
-        import json as json_module
-        from security.path_security import _extra_allowed_dirs, register_allowed_directory
-
         resolved = str(tmp_path.resolve())
-        register_allowed_directory(tmp_path)
+        settings_repository.update_settings({'scan_folders': [resolved]})
 
-        mock_repo = Mock()
-        mock_repo.get_settings.return_value = Mock(scan_folders=json_module.dumps([resolved]))
-        mock_repo.update_settings.return_value = self._mock_settings()
+        with (
+            patch.dict('main.globals_dict', {'settings_repository': settings_repository}),
+            patch('routers.settings.unregister_allowed_directory') as unregister,
+        ):
+            response = _with_trusted_origin(
+                client, "put", "/api/settings", json={"scan_folders": []}
+            )
 
-        try:
-            assert tmp_path.resolve() in _extra_allowed_dirs
-
-            with patch.dict('main.globals_dict', {'settings_repository': mock_repo}):
-                response = _with_trusted_origin(
-                    client, "put", "/api/settings", json={"scan_folders": []}
-                )
-
-            assert response.status_code == 200
-            assert tmp_path.resolve() not in _extra_allowed_dirs
-        finally:
-            if tmp_path.resolve() in _extra_allowed_dirs:
-                _extra_allowed_dirs.remove(tmp_path.resolve())
+        assert response.status_code == 200
+        unregister.assert_called_once_with(Path(resolved))
 
     def test_reset_settings_success(self, client):
         """POST /api/settings/reset returns defaults."""

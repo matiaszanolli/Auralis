@@ -59,6 +59,11 @@ class SettingsRepository(BaseRepository):
         Returns:
             Updated UserSettings object
         """
+        # Work on a shallow copy: scan_folders and file_types are removed from
+        # the working mapping after their custom serialization, and callers
+        # still need the original payload for post-write side effects (#5259).
+        updates = dict(updates)
+
         with self._session_scope() as session:
             settings = session.execute(select(UserSettings)).scalars().first()
 
