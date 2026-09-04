@@ -127,6 +127,16 @@ def test_71_extra_channels_summed_into_both_sides() -> None:
     assert math.isclose(float(out[0, 0]), float(out[0, 1]), rel_tol=1e-5)
 
 
+@pytest.mark.parametrize("channels", [4, 5, 7])
+def test_noncanonical_channel_counts_require_layout_aware_decode(channels: int) -> None:
+    """Count alone must never guess roles for quad, 5.0, or 6.1 audio."""
+    audio = np.zeros((100, channels), dtype=np.float32)
+    audio[:, -1] = 0.5
+
+    with pytest.raises(ValueError, match=rf"{channels}-channel.*layout-aware"):
+        downmix_to_stereo(audio)
+
+
 def test_rejects_non_2d() -> None:
     with pytest.raises(ValueError):
         downmix_to_stereo(np.zeros(100, dtype=np.float32))

@@ -16,9 +16,10 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 
-from ..utils.logging import ModuleError, debug, info
+from ..utils.logging import ModuleError, debug, info, warning
 from .formats import FFMPEG_FORMATS
 from .loaders import load_with_ffmpeg
+from .processing import downmix_to_stereo, requires_layout_aware_downmix
 
 
 # Maximum audio duration (seconds) that can be loaded into RAM.
@@ -150,12 +151,21 @@ def load(file_path: str, file_type: str = "audio") -> tuple[np.ndarray, int]:
             )
             if detail:
                 raise RuntimeError(f"{detail}: {file_path}")
-            audio_data, sample_rate = sf.read(file_path, dtype=np.float32, always_2d=True)
-            if len(audio_data) < file_info.frames:
-                raise RuntimeError(
-                    f"Truncated audio file '{file_path}': "
-                    f"expected {file_info.frames} frames, got {len(audio_data)}"
+            if requires_layout_aware_downmix(file_info.channels):
+                warning(
+                    f"Routing {file_info.channels}-channel audio through FFmpeg; "
+                    "native downmix only supports canonical 5.1/7.1 channel ordering"
                 )
+                audio_data, sample_rate = load_with_ffmpeg(Path(file_path))
+            else:
+                audio_data, sample_rate = sf.read(
+                    file_path, dtype=np.float32, always_2d=True
+                )
+                if len(audio_data) < file_info.frames:
+                    raise RuntimeError(
+                        f"Truncated audio file '{file_path}': "
+                        f"expected {file_info.frames} frames, got {len(audio_data)}"
+                    )
 
         # Ensure float32
         if audio_data.dtype != np.float32:
@@ -176,7 +186,6 @@ def load(file_path: str, file_type: str = "audio") -> tuple[np.ndarray, int]:
             # WAVs. The FFmpeg path (#3672) already applies the standard
             # matrix; downmix_to_stereo keeps the native loader
             # consistent with that behavior.
-            from .processing import downmix_to_stereo
             audio_data = downmix_to_stereo(audio_data)
 
         info(f"Loaded {file_type}: {audio_data.shape[0]} samples, {sample_rate} Hz")

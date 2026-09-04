@@ -15,6 +15,7 @@ import numpy as np
 import soundfile as sf
 
 from ...utils.logging import Code, ModuleError, warning
+from ..processing import downmix_to_stereo, requires_layout_aware_downmix
 
 
 def _get_wav_declared_size(file_path: Path) -> int | None:
@@ -85,6 +86,17 @@ def load_with_soundfile(file_path: Path) -> tuple[np.ndarray, int]:
         if detail:
             raise ModuleError(f"{Code.ERROR_CORRUPTED}: {detail}: {file_path}")
 
+        if requires_layout_aware_downmix(file_info.channels):
+            warning(
+                f"Routing {file_info.channels}-channel audio through FFmpeg; "
+                "native downmix only supports canonical 5.1/7.1 channel ordering"
+            )
+            # Local import avoids the module cycle: ffmpeg_loader uses this
+            # loader to read its already-stereo temporary WAV.
+            from .ffmpeg_loader import load_with_ffmpeg
+
+            return load_with_ffmpeg(file_path)
+
         # #3748: explicit float32 to match `loader.py`'s sibling sf.read
         # call. Without the dtype hint, soundfile returns float64 for
         # PCM ≥ 16-bit sources, which doubles peak RAM on the canonical
@@ -128,7 +140,6 @@ def load_with_soundfile(file_path: Path) -> tuple[np.ndarray, int]:
                 # Center / LFE / surround channels by taking the first two
                 # columns; now matches the FFmpeg path (#3672) which uses
                 # the same standard matrix via `-ac 2`.
-                from ..processing import downmix_to_stereo
                 original_channels = audio_data.shape[1]
                 audio_data = downmix_to_stereo(audio_data)
                 warning(f"Downmixed {original_channels} channels to stereo (ITU-R BS.775)")

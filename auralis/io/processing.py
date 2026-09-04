@@ -8,11 +8,17 @@ Audio validation and processing utilities
 :license: GPLv3, see LICENSE for more details.
 """
 
-
 import numpy as np
 
 from ..utils.audio_validation import sanitize_audio
 from ..utils.logging import Code, ModuleError, debug, warning
+
+_NATIVE_DOWNMIX_CHANNELS = frozenset({6, 8})
+
+
+def requires_layout_aware_downmix(n_channels: int) -> bool:
+    """Return whether channel roles cannot be inferred safely from count alone."""
+    return n_channels > 2 and n_channels not in _NATIVE_DOWNMIX_CHANNELS
 
 
 def validate_audio(audio_data: np.ndarray, sample_rate: int, file_type: str) -> tuple[np.ndarray, int]:
@@ -121,14 +127,16 @@ def simple_resample(audio_data: np.ndarray, original_rate: int, target_rate: int
 
 def downmix_to_stereo(audio_data: np.ndarray) -> np.ndarray:
     """
-    #3743 — downmix multi-channel audio to stereo using ITU-R BS.775.
+    #3743 — downmix canonical 5.1 / 7.1 audio using ITU-R BS.775.
 
     The two native Python loader paths (`loader.py` for WAV and
     `soundfile_loader.py`) used to do `audio_data[:, :2].copy()` for
     any input with more than two channels — a hard truncation that
     drops Center (vocals/dialogue), LFE, and surround content. The
-    FFmpeg path (#3672) already applies the standard matrix via `-ac 2`;
-    this function keeps the native paths consistent with that behavior.
+    FFmpeg path (#3672) already applies the standard matrix via `-ac 2`.
+    Channel count alone cannot distinguish layouts such as quad and 5.0,
+    so callers must route non-canonical multichannel counts through FFmpeg,
+    which can inspect the container's layout metadata (#5242).
 
     Mapping (BS.775-3):
         L_out = L + 0.707·C + 0.707·Ls
@@ -159,6 +167,11 @@ def downmix_to_stereo(audio_data: np.ndarray) -> np.ndarray:
         return audio_data.copy()
     if n_channels < 2:
         return np.column_stack([audio_data[:, 0], audio_data[:, 0]])
+    if requires_layout_aware_downmix(n_channels):
+        raise ValueError(
+            f"Cannot safely downmix {n_channels}-channel audio from channel count alone; "
+            "route it through a layout-aware decoder"
+        )
 
     input_dtype = audio_data.dtype
     # Promote to float32 for the matrix sum so int sources don't
