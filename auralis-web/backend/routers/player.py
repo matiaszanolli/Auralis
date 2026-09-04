@@ -30,15 +30,12 @@ Endpoints:
 import asyncio
 import logging
 import math
-from typing import Annotated, Any, Literal, cast
 from collections.abc import Callable
+from typing import Annotated, Any, Literal, cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Path, Query
-
-from .dependencies import with_error_handling
-from .errors import NotFoundError, raise_for_service_error
-from pydantic import BaseModel, ConfigDict, Field, field_validator
 from player_state import PlayerState, TrackInfo
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from schemas import QueueIndex, QueueIndexList, TrackId, TrackIdList
 from services import (
     NavigationService,
@@ -47,6 +44,10 @@ from services import (
     RecommendationService,
     ServiceUnavailable,
 )
+from websocket.outbound_messages import broadcast_typed
+
+from .dependencies import with_error_handling
+from .errors import NotFoundError, raise_for_service_error
 
 logger = logging.getLogger(__name__)
 
@@ -463,10 +464,11 @@ async def load_track(
         if success:
             # Broadcast to all connected clients — omit filepath to avoid leaking
             # the server filesystem layout to browser clients (fixes #2479).
-            await connection_manager.broadcast({
-                "type": "track_loaded",
-                "data": {"track_id": track.id}
-            })
+            await broadcast_typed(
+                connection_manager,
+                "track_loaded",
+                {"track_id": track.id},
+            )
 
             # Generate mastering recommendation in background (Priority 4)
             background_tasks.add_task(
@@ -660,14 +662,15 @@ async def undo_queue_operation(
         # Canonical queue event is `queue_changed` (the #3492 rename that
         # this undo straggler missed); `queue_updated` had no FE subscriber
         # so the dedicated broadcast was silently dropped (#4420).
-        await connection_manager.broadcast({
-            "type": "queue_changed",
-            "data": {
+        await broadcast_typed(
+            connection_manager,
+            "queue_changed",
+            {
                 "action": "undo",
                 "current_index": restored_dict['current_index'],
                 "queue_size": len(restored_dict['track_ids']),
             },
-        })
+        )
 
         return {"message": "Queue operation undone", "queue_state": restored_dict}
     except HTTPException:
@@ -774,10 +777,11 @@ async def set_repeat_mode(
         await player_state_manager.update_state(repeat_mode=request.mode)
 
         # Broadcast canonical value so WS and REST always agree
-        await connection_manager.broadcast({
-            "type": "repeat_mode_changed",
-            "data": {"repeat_mode": request.mode},
-        })
+        await broadcast_typed(
+            connection_manager,
+            "repeat_mode_changed",
+            {"repeat_mode": request.mode},
+        )
 
         return {"message": f"Repeat mode set to {request.mode}"}
     except ValueError as e:

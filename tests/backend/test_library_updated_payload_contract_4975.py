@@ -17,6 +17,7 @@ re-added undeclared field fails here rather than surfacing as permanent
 :license: GPLv3, see LICENSE for more details.
 """
 
+import ast
 import re
 from pathlib import Path
 
@@ -42,13 +43,24 @@ def _declared_fields() -> set[str]:
 
 def _emitted_fields(path: Path) -> set[str]:
     """Field names in the `library_updated` broadcast payload of one emitter."""
-    source = path.read_text()
-    idx = source.index('"type": "library_updated"')
-    # The payload's `data` dict opens after the type key and closes at the
-    # first line whose brace returns to the dict's own indentation.
-    block = re.search(r'"data":\s*\{(.*?)\n\s*\},', source[idx:], re.S)
-    assert block, f"library_updated data block not found in {path}"
-    return set(re.findall(r'"(\w+)":', block.group(1)))
+    tree = ast.parse(path.read_text())
+    for node in ast.walk(tree):
+        if not (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "broadcast_typed"
+            and len(node.args) >= 3
+            and isinstance(node.args[1], ast.Constant)
+            and node.args[1].value == "library_updated"
+            and isinstance(node.args[2], ast.Dict)
+        ):
+            continue
+        return {
+            key.value
+            for key in node.args[2].keys
+            if isinstance(key, ast.Constant) and isinstance(key.value, str)
+        }
+    raise AssertionError(f"library_updated typed broadcast not found in {path}")
 
 
 def test_ts_contract_declares_action_and_not_reason():

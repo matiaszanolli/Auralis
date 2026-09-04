@@ -32,13 +32,28 @@ export type QueueMessageType =
 export interface QueueChangedMessage extends WebSocketMessage {
   type: 'queue_changed';
   data: {
-    tracks: TrackInfo[]; // Full queue after change
+    // Most emitters include the hydrated queue. The history-undo emitter only
+    // carries the restored index and queue size, so this is genuinely optional.
+    tracks?: TrackInfo[]; // Full queue after change
     // Both naming conventions are accepted: the backend currently emits
     // snake_case, but some emitters historically used camelCase; consumers
     // (usePlaybackQueue) prefer snake_case and fall back to camelCase.
     current_index?: number;
     currentIndex?: number;
-    action?: 'added' | 'removed' | 'reordered' | 'cleared';
+    action?:
+      | 'added'
+      | 'removed'
+      | 'reordered'
+      | 'shuffled'
+      | 'unshuffled'
+      | 'cleared'
+      | 'undo';
+    track_id?: number;
+    position?: number | null;
+    index?: number;
+    queue_size?: number;
+    from_index?: number;
+    to_index?: number;
   };
 }
 

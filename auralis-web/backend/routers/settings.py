@@ -18,28 +18,26 @@ Endpoints:
 import asyncio
 import json
 import logging
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
-from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException
+from helpers import seed_enhancement_settings
 from pydantic import BaseModel, ConfigDict, Field
-
 from schemas import (  # shared preset enum (#4424) / intensity constraint (#4600)
     EnhancementIntensity,
     EnhancementPresetLiteral,
 )
-
 from security.path_security import (
-    validate_user_chosen_directory,
-    validate_directory_list,
+    PathValidationError,
+    clear_extra_allowed_directories,
     register_allowed_directory,
     unregister_allowed_directory,
-    clear_extra_allowed_directories,
-    PathValidationError,
+    validate_directory_list,
+    validate_user_chosen_directory,
 )
-
-from helpers import seed_enhancement_settings
+from websocket.outbound_messages import broadcast_typed
 
 from .dependencies import with_error_handling
 from .errors import NotFoundError
@@ -236,14 +234,15 @@ def create_settings_router(
         if connection_manager is None:
             return
         try:
-            await connection_manager.broadcast({
-                "type": "enhancement_settings_changed",
-                "data": {
+            await broadcast_typed(
+                connection_manager,
+                "enhancement_settings_changed",
+                {
                     "enabled": live_settings["enabled"],
                     "preset": live_settings["preset"],
                     "intensity": live_settings["intensity"],
                 },
-            })
+            )
         except Exception as exc:
             logger.warning(f"Failed to broadcast enhancement_settings_changed: {exc}")
 

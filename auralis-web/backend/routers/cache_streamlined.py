@@ -10,8 +10,8 @@ API endpoints for streamlined two-tier cache management and statistics.
 
 import asyncio
 import logging
-from typing import Annotated, Any
 from collections.abc import Callable
+from typing import Annotated, Any
 
 from cache import StreamlinedCacheManager
 from fastapi import APIRouter, HTTPException, Path
@@ -26,6 +26,7 @@ from pydantic import BaseModel, Field
 # field-for-field against these models: the one gap (CacheTierStats.tier_name,
 # which get_stats() doesn't produce) is filled in below before validation.
 from schemas import CacheHealthResponse, CacheStatsResponse, TrackCacheStatusResponse
+from websocket.outbound_messages import broadcast_typed
 
 from .dependencies import with_error_handling
 
@@ -151,10 +152,11 @@ def create_streamlined_cache_router(
         # envelope (#3545 / BE-NEW-87). Wrap the message in `data` so
         # the frontend dispatcher does not classify it as unknown.
         if broadcast_manager:
-            await broadcast_manager.broadcast({
-                "type": "cache_cleared",
-                "data": {"message": "All caches cleared"},
-            })
+            await broadcast_typed(
+                broadcast_manager,
+                "cache_cleared",
+                {"message": "All caches cleared"},
+            )
 
         return {"message": "All caches cleared successfully"}
 

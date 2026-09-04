@@ -19,26 +19,26 @@ import logging
 import os
 import time
 from collections import OrderedDict
-from typing import Annotated, Any
 from collections.abc import Callable
-
-from fastapi import APIRouter, Depends, HTTPException, Path, Query
-
-from .dependencies import with_error_handling
-from .errors import NotFoundError
-from pydantic import BaseModel, field_validator
+from typing import Annotated, Any
 
 from core import audio_stream_controller as _asc
 from core.chunk_boundaries import (  # single source of truth (#2564)
     chunk_for_position,
     content_chunk_count,
 )
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from helpers import spawn_background_task
+from pydantic import BaseModel, field_validator
 from schemas import (
     EnhancementIntensity,
     EnhancementPresetLiteral,
     MasteringRecommendationResponse,
 )
+from websocket.outbound_messages import broadcast_typed
+
+from .dependencies import with_error_handling
+from .errors import NotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -213,8 +213,9 @@ async def _preprocess_upcoming_chunks(track_id: int, filepath: str, current_time
     """
     try:
         # Import here to avoid circular dependencies
-        from auralis.io.unified_loader import get_audio_info
         from core.chunked_processor import ChunkedAudioProcessor
+
+        from auralis.io.unified_loader import get_audio_info
 
         # Get audio duration to avoid processing non-existent chunks.
         # #5052: bare sf.info()/soundfile.SoundFile() cannot open
@@ -387,14 +388,15 @@ async def toggle_enhancement(
         await _persist_enhancement_setting(repos, {"auto_enhance": enabled})
 
     # Broadcast to all clients
-    await connection_manager.broadcast({
-        "type": "enhancement_settings_changed",
-        "data": {
+    await broadcast_typed(
+        connection_manager,
+        "enhancement_settings_changed",
+        {
             "enabled": enabled,
             "preset": enhancement_settings["preset"],
-            "intensity": enhancement_settings["intensity"]
-        }
-    })
+            "intensity": enhancement_settings["intensity"],
+        },
+    )
 
     logger.info(f"Enhancement {'enabled' if enabled else 'disabled'}")
     return {
@@ -458,14 +460,15 @@ async def set_enhancement_preset(
         await _persist_enhancement_setting(repos, {"default_preset": preset})
 
     # Broadcast to all clients
-    await connection_manager.broadcast({
-        "type": "enhancement_settings_changed",
-        "data": {
+    await broadcast_typed(
+        connection_manager,
+        "enhancement_settings_changed",
+        {
             "preset": preset,
             "enabled": enhancement_settings["enabled"],
-            "intensity": enhancement_settings["intensity"]
-        }
-    })
+            "intensity": enhancement_settings["intensity"],
+        },
+    )
 
     logger.info(f"Enhancement preset changed to: {preset}")
     return {
@@ -527,14 +530,15 @@ async def set_enhancement_intensity(
         await _persist_enhancement_setting(repos, {"enhancement_intensity": intensity})
 
     # Broadcast to all clients
-    await connection_manager.broadcast({
-        "type": "enhancement_settings_changed",
-        "data": {
+    await broadcast_typed(
+        connection_manager,
+        "enhancement_settings_changed",
+        {
             "intensity": intensity,
             "enabled": enhancement_settings["enabled"],
-            "preset": enhancement_settings["preset"]
-        }
-    })
+            "preset": enhancement_settings["preset"],
+        },
+    )
 
     logger.info(f"Enhancement intensity changed to: {intensity}")
     return {

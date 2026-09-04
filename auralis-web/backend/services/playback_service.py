@@ -12,6 +12,8 @@ import asyncio
 import logging
 from typing import Any, Protocol, cast
 
+from websocket.outbound_messages import broadcast_typed
+
 from services.playback_event_sequencer import playback_event_sequencer
 
 logger = logging.getLogger(__name__)
@@ -195,10 +197,11 @@ class PlaybackService:
             # committed by this point, so the lock protects nothing the
             # broadcast reads — but holding it across a per-client send meant
             # one stalled WebSocket client froze play/pause/stop for everyone.
-            await self.connection_manager.broadcast({
-                "type": "playback_started",
-                "data": {"state": "playing", "seq": event_seq}
-            })
+            await broadcast_typed(
+                self.connection_manager,
+                "playback_started",
+                {"state": "playing", "seq": event_seq},
+            )
 
             logger.info("▶️  Playback started")
             return {"message": "Playback started", "state": "playing"}
@@ -235,10 +238,11 @@ class PlaybackService:
             await self._broadcast_state_snapshot(state_snapshot)
 
             # Broadcast outside the lock (#4581) — see play().
-            await self.connection_manager.broadcast({
-                "type": "playback_paused",
-                "data": {"state": "paused", "seq": event_seq}
-            })
+            await broadcast_typed(
+                self.connection_manager,
+                "playback_paused",
+                {"state": "paused", "seq": event_seq},
+            )
 
             logger.info("⏸️  Playback paused")
             return {"message": "Playback paused", "state": "paused"}
@@ -276,10 +280,11 @@ class PlaybackService:
             await self._broadcast_state_snapshot(state_snapshot)
 
             # Broadcast outside the lock (#4581) — see play().
-            await self.connection_manager.broadcast({
-                "type": "playback_stopped",
-                "data": {"state": "stopped", "seq": event_seq}
-            })
+            await broadcast_typed(
+                self.connection_manager,
+                "playback_stopped",
+                {"state": "stopped", "seq": event_seq},
+            )
 
             logger.info("⏹️  Playback stopped")
             return {"message": "Playback stopped", "state": "stopped"}
@@ -367,10 +372,11 @@ class PlaybackService:
             # Broadcast volume change (0-100 scale matching PlayerState)
             volume_100 = round(volume * 100)
             event_seq = playback_event_sequencer.next_volume_seq()
-            await self.connection_manager.broadcast({
-                "type": "volume_changed",
-                "data": {"volume": volume_100, "seq": event_seq}
-            })
+            await broadcast_typed(
+                self.connection_manager,
+                "volume_changed",
+                {"volume": volume_100, "seq": event_seq},
+            )
 
             logger.info(f"🔊 Volume set to {volume:.0%} (broadcast only — applied client-side)")
             return {

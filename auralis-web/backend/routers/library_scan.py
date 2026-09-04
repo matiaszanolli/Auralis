@@ -14,14 +14,18 @@ Endpoints:
 import asyncio
 import logging
 import os
-from typing import Any
 from collections.abc import Callable
+from typing import Any, cast
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
-
-from schemas import LibraryScanRequest, ScanResultResponse
 from helpers import scan_progress_percentage
+from pydantic import BaseModel, Field
+from schemas import LibraryScanRequest, ScanResultResponse
+from websocket.outbound_messages import (
+    ScanCompletePayload,
+    ScanFailurePayload,
+    broadcast_typed,
+)
 
 from .errors import handle_query_error
 
@@ -113,13 +117,14 @@ def create_library_scan_router(
                             # One policy for the whole scan-frame family (#4651):
                             # redact only what the user did not themselves supply.
                             asyncio.run_coroutine_threadsafe(
-                                connection_manager.broadcast({
-                                    "type": "library_scan_started",
-                                    "data": {
+                                broadcast_typed(
+                                    connection_manager,
+                                    "library_scan_started",
+                                    {
                                         "directories": progress_data.get('directories')
                                         or request.directories,
                                     },
-                                }),
+                                ),
                                 loop,
                             )
                             return
@@ -136,9 +141,10 @@ def create_library_scan_router(
                         # (streaming scan makes processed/total meaningless) — #4411.
                         percentage = scan_progress_percentage(progress_data)
                         asyncio.run_coroutine_threadsafe(
-                            connection_manager.broadcast({
-                                "type": "scan_progress",
-                                "data": {
+                            broadcast_typed(
+                                connection_manager,
+                                "scan_progress",
+                                {
                                     "current": processed,
                                     "total": total,
                                     "percentage": percentage,
@@ -151,7 +157,7 @@ def create_library_scan_router(
                                     "current_file": progress_data.get('current_file') or progress_data.get('file'),
                                     "phase": stage,
                                 },
-                            }),
+                            ),
                             loop,
                         )
                     except Exception:
@@ -217,34 +223,40 @@ def create_library_scan_router(
             # the auto-scanner path (services/library_auto_scanner.py:268-279,
             # fixes #3502 — prior `scan_time` was unread by the frontend).
             if connection_manager:
-                await connection_manager.broadcast({
-                    "type": "scan_complete",
-                    "data": {
-                        "files_processed": result.files_processed or result.files_found,
-                        "files_added": result.files_added,
-                        "files_updated": result.files_updated,
-                        "files_skipped": result.files_skipped,
-                        "files_failed": result.files_failed,
-                        # #4841: name the failed files, not just the count.
-                        "failures": [f.to_dict() for f in result.failures],
-                        "duration": result.scan_time,
-                        "directories_scanned": result.directories_scanned,
-                    },
-                })
+                scan_complete_payload: ScanCompletePayload = {
+                    "files_processed": result.files_processed or result.files_found,
+                    "files_added": result.files_added,
+                    "files_updated": result.files_updated,
+                    "files_skipped": result.files_skipped,
+                    "files_failed": result.files_failed,
+                    # #4841: name the failed files, not just the count.
+                    "failures": [
+                        cast(ScanFailurePayload, failure.to_dict())
+                        for failure in result.failures
+                    ],
+                    "duration": result.scan_time,
+                    "directories_scanned": result.directories_scanned,
+                }
+                await broadcast_typed(
+                    connection_manager,
+                    "scan_complete",
+                    scan_complete_payload,
+                )
                 if result.files_added or result.files_updated:
-                    await connection_manager.broadcast({
-                        "type": "library_updated",
+                    await broadcast_typed(
+                        connection_manager,
+                        "library_updated",
                         # Fields here must match LibraryUpdatedMessage in
                         # frontend/src/types/ws/library.ts. `reason` — a
                         # duplicate of `action` kept for backward compat with
                         # pre-#3544 clients — was dropped in #4975: Auralis
                         # ships frontend and backend as one Electron bundle, so
                         # there is no independently-versioned older client.
-                        "data": {
+                        {
                             "action": "scan",
                             "track_count": result.files_added,
                         },
-                    })
+                    )
 
             return ScanResultResponse(
                 files_found=result.files_found,
@@ -262,10 +274,11 @@ def create_library_scan_router(
             # scanning state instead of hanging on "Scanning..." (#4413). Mirrors
             # the auto-scanner's error broadcast; no OS paths leak (#3543).
             if connection_manager:
-                await connection_manager.broadcast({
-                    "type": "library_scan_error",
-                    "data": {"error": f"library scan timed out after {int(scan_timeout)}s"},
-                })
+                await broadcast_typed(
+                    connection_manager,
+                    "library_scan_error",
+                    {"error": f"library scan timed out after {int(scan_timeout)}s"},
+                )
             raise HTTPException(status_code=504, detail=f"Library scan timed out after {scan_timeout}s")
         except asyncio.CancelledError:
             # The one exit #4413 missed. Since Python 3.8 CancelledError derives
@@ -283,10 +296,11 @@ def create_library_scan_router(
             # deliberately after stop_scan(). TimeoutError still reaches its own
             # handler above: it is an Exception subclass, not this one.
             if connection_manager:
-                await connection_manager.broadcast({
-                    "type": "library_scan_error",
-                    "data": {"error": "library scan cancelled"},
-                })
+                await broadcast_typed(
+                    connection_manager,
+                    "library_scan_error",
+                    {"error": "library scan cancelled"},
+                )
             # Re-raise: swallowing CancelledError breaks structured cancellation
             # and uvicorn's shutdown semantics.
             raise
@@ -303,10 +317,11 @@ def create_library_scan_router(
             # directories the user chose — so this frame stays redacted even
             # though those two intentionally are not (#4651).
             if connection_manager:
-                await connection_manager.broadcast({
-                    "type": "library_scan_error",
-                    "data": {"error": f"{type(e).__name__} during library scan"},
-                })
+                await broadcast_typed(
+                    connection_manager,
+                    "library_scan_error",
+                    {"error": f"{type(e).__name__} during library scan"},
+                )
             raise handle_query_error("scan library", e)
 
     return router

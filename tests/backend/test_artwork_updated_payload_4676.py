@@ -33,6 +33,7 @@ from routers.artwork import (  # noqa: E402
     extract_album_artwork,
 )
 
+
 def _stub_repos(album=None) -> MagicMock:
     repos = MagicMock()
     repos.albums.get_by_id = MagicMock(return_value=album)
@@ -136,5 +137,5 @@ def test_no_inline_artwork_updated_literal_remains():
     the shared helper, not an inline dict literal."""
     assert artwork_router.__file__ is not None
     source = Path(artwork_router.__file__).read_text()
-    # Exactly one occurrence: inside _broadcast_artwork_updated itself.
-    assert len(re.findall(r'"type":\s*"artwork_updated"', source)) == 1
+    assert not re.findall(r'"type":\s*"artwork_updated"', source)
+    assert len(re.findall(r'broadcast_typed\(.*?"artwork_updated"', source, re.S)) == 1

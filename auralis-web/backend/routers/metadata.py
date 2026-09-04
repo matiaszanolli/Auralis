@@ -16,17 +16,16 @@ Endpoints:
 
 import asyncio
 import logging
-from typing import Annotated, Any
 from collections.abc import Callable
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Path
 from pydantic import BaseModel, Field
-
 from schemas import TrackId
+from security.path_security import PathValidationError, validate_file_path
+from websocket.outbound_messages import broadcast_typed
 
 from auralis.library.metadata_editor import MetadataEditor, MetadataUpdate
-
-from security.path_security import PathValidationError, validate_file_path
 
 from .dependencies import require_repository_factory, with_error_handling
 from .errors import NotFoundError
@@ -414,13 +413,14 @@ async def update_track_metadata(
         # publisher, copyright) are intentionally file-only and don't
         # appear in db_metadata_updates above (#4731).
         if broadcast_manager:
-            await broadcast_manager.broadcast({
-                "type": "metadata_updated",
-                "data": {
+            await broadcast_typed(
+                broadcast_manager,
+                "metadata_updated",
+                {
                     "track_id": track_id,
-                    "updated_fields": list(metadata_updates.keys())
-                }
-            })
+                    "updated_fields": list(metadata_updates.keys()),
+                },
+            )
 
         # Read updated metadata (offloaded to thread, fixes #2317)
         # track was refreshed from DB above — re-validate before read (fixes #2302)
@@ -542,13 +542,14 @@ async def batch_update_metadata(
 
     # Broadcast batch update event
     if broadcast_manager and successful_track_ids:
-        await broadcast_manager.broadcast({
-            "type": "metadata_batch_updated",
-            "data": {
+        await broadcast_typed(
+            broadcast_manager,
+            "metadata_batch_updated",
+            {
                 "track_ids": successful_track_ids,
-                "count": len(successful_track_ids)
-            }
-        })
+                "count": len(successful_track_ids),
+            },
+        )
 
     logger.info(
         f"Batch metadata update: {results['successful']}/{results['total']} successful"

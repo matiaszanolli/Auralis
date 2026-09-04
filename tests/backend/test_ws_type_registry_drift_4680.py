@@ -54,7 +54,7 @@ FRONTEND_ONLY = {
 
 
 def _backend_emitted() -> dict[str, set[str]]:
-    """Every ``{"type": "<literal>"}`` dict built anywhere in the backend."""
+    """Every typed broadcast or literal message built in the backend."""
     emitted: dict[str, set[str]] = {}
     for path in sorted(_BACKEND.rglob("*.py")):
         try:
@@ -62,17 +62,30 @@ def _backend_emitted() -> dict[str, set[str]]:
         except SyntaxError:  # pragma: no cover - a broken file fails elsewhere
             continue
         for node in ast.walk(tree):
-            if not isinstance(node, ast.Dict):
-                continue
-            for key, value in zip(node.keys, node.values):
-                if (
-                    isinstance(key, ast.Constant)
-                    and key.value == "type"
-                    and isinstance(value, ast.Constant)
-                    and isinstance(value.value, str)
-                ):
-                    site = f"{path.relative_to(_REPO)}:{node.lineno}"
-                    emitted.setdefault(value.value, set()).add(site)
+            literal: str | None = None
+            if isinstance(node, ast.Dict):
+                for key, value in zip(node.keys, node.values):
+                    if (
+                        isinstance(key, ast.Constant)
+                        and key.value == "type"
+                        and isinstance(value, ast.Constant)
+                        and isinstance(value.value, str)
+                    ):
+                        literal = value.value
+                        break
+            elif (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id == "broadcast_typed"
+                and len(node.args) >= 2
+                and isinstance(node.args[1], ast.Constant)
+                and isinstance(node.args[1].value, str)
+            ):
+                literal = node.args[1].value
+
+            if literal is not None:
+                site = f"{path.relative_to(_REPO)}:{node.lineno}"
+                emitted.setdefault(literal, set()).add(site)
     return emitted
 
 

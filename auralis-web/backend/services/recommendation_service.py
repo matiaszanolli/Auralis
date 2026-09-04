@@ -13,6 +13,7 @@ import logging
 from typing import Any, Protocol, cast
 
 from core import audio_stream_controller as _asc
+from websocket.outbound_messages import MasteringRecommendationPayload, broadcast_typed
 
 logger = logging.getLogger(__name__)
 
@@ -105,10 +106,11 @@ class RecommendationService:
                 asyncio.to_thread(_analyze), timeout=_asc.CHUNK_PROCESS_TIMEOUT
             )
             if rec_dict:
-                await self.connection_manager.broadcast({
-                    "type": "mastering_recommendation",
-                    "data": rec_dict,
-                })
+                await broadcast_typed(
+                    self.connection_manager,
+                    "mastering_recommendation",
+                    cast(MasteringRecommendationPayload, rec_dict),
+                )
                 logger.info(f"📊 Broadcasted mastering recommendation for track {track_id}")
                 return rec_dict
             logger.info(f"ℹ️  No confident recommendation found for track {track_id}")

@@ -19,15 +19,10 @@ import mimetypes
 import os
 import tempfile
 import threading
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Annotated, Any, Literal
-from collections.abc import Callable, Iterator
-
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi import Path as PathParam
-from fastapi.responses import FileResponse, Response
-from pydantic import BaseModel, Field
 
 from core.thumbnail_cache import (
     THUMB_TMP_PREFIX,
@@ -35,6 +30,11 @@ from core.thumbnail_cache import (
     reap_orphan_temp_files,
     thumb_path_hash,
 )
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import Path as PathParam
+from fastapi.responses import FileResponse, Response
+from pydantic import BaseModel, Field
+from websocket.outbound_messages import ArtworkUpdatedPayload, broadcast_typed
 
 from .dependencies import require_repository_factory, with_error_handling
 from .errors import NotFoundError
@@ -314,10 +314,10 @@ async def _broadcast_artwork_updated(
     ``artwork_url`` is omitted for 'deleted', matching that contract's
     `artwork_url?: string; // absent for 'deleted'`.
     """
-    data: dict[str, Any] = {"action": action, "album_id": album_id}
+    data: ArtworkUpdatedPayload = {"action": action, "album_id": album_id}
     if artwork_url is not None:
         data["artwork_url"] = artwork_url
-    await connection_manager.broadcast({"type": "artwork_updated", "data": data})
+    await broadcast_typed(connection_manager, "artwork_updated", data)
 
 
 def _get_repos() -> Any:

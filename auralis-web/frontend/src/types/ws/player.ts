@@ -182,6 +182,7 @@ export interface PositionChangedMessage extends WebSocketMessage {
   type: 'position_changed';
   data: {
     position: number; // Seconds
+    seq?: number;
   };
 }
 

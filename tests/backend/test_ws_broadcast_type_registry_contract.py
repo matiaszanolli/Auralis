@@ -15,6 +15,7 @@ This test closes the *class* rather than the instance: it enumerates the
 appears in `ALL_MESSAGE_TYPES`.
 """
 
+import ast
 import re
 from pathlib import Path
 
@@ -34,9 +35,6 @@ _INTENTIONALLY_UNREGISTERED = {
 # Only these directories originate broadcasts.
 _BROADCAST_DIRS = ("routers", "services", "core")
 
-_TYPE_LITERAL = re.compile(r"""["']type["']\s*:\s*["']([a-z_][a-z0-9_]*)["']""")
-
-
 def _frontend_registered_types() -> set[str]:
     """Parse the ALL_MESSAGE_TYPES array out of registry.ts."""
     source = _REGISTRY.read_text()
@@ -50,25 +48,28 @@ def _frontend_registered_types() -> set[str]:
 
 
 def _backend_broadcast_types() -> dict[str, list[str]]:
-    """Map each broadcast type literal to the files that emit it.
-
-    Commented-out lines are skipped so a removal note (e.g. playback_service's
-    record of the retired `{"type": "seek"}` broadcast) is not counted as a
-    live broadcast.
-    """
+    """Map each typed broadcast discriminator to the files that emit it."""
     found: dict[str, list[str]] = {}
     for subdir in _BROADCAST_DIRS:
         base = _BACKEND / subdir
         if not base.is_dir():
             continue
         for path in base.rglob("*.py"):
-            for line in path.read_text().splitlines():
-                if line.lstrip().startswith("#"):
+            tree = ast.parse(path.read_text())
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Call):
                     continue
-                for literal in _TYPE_LITERAL.findall(line):
-                    found.setdefault(literal, []).append(
-                        str(path.relative_to(_REPO_ROOT))
-                    )
+                if not (
+                    isinstance(node.func, ast.Name)
+                    and node.func.id == "broadcast_typed"
+                    and len(node.args) >= 2
+                    and isinstance(node.args[1], ast.Constant)
+                    and isinstance(node.args[1].value, str)
+                ):
+                    continue
+                found.setdefault(node.args[1].value, []).append(
+                    str(path.relative_to(_REPO_ROOT))
+                )
     return found
 
 

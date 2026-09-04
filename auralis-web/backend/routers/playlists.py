@@ -19,12 +19,11 @@ Endpoints:
 """
 
 import asyncio
-from typing import Annotated, Any
 from collections.abc import Callable
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from pydantic import BaseModel, Field
-
 from schemas import (
     PlaylistResponse,
     QueueIndex,
@@ -32,12 +31,12 @@ from schemas import (
     TrackIdList,
     TrackResponse,
 )
+from websocket.outbound_messages import broadcast_typed
 
 from .dependencies import require_repository_factory, with_error_handling
 from .errors import NotFoundError
 from .pagination import PaginationParams, compute_has_more
 from .serializers import serialize_playlist, serialize_playlists
-
 
 #: Playlist names and descriptions are free text but not unbounded — a name is
 #: a label, not a payload, and the column behind it is a plain String.
@@ -266,13 +265,14 @@ async def create_playlist(
         raise HTTPException(status_code=400, detail="Failed to create playlist")
 
     # Broadcast playlist created event
-    await connection_manager.broadcast({
-        "type": "playlist_created",
-        "data": {
+    await broadcast_typed(
+        connection_manager,
+        "playlist_created",
+        {
             "playlist_id": playlist.id,
-            "name": playlist.name
-        }
-    })
+            "name": playlist.name,
+        },
+    )
 
     return {
         "message": f"Playlist '{request.name}' created",
@@ -316,13 +316,14 @@ async def update_playlist(
         raise NotFoundError("Playlist", detail="Playlist not found or update failed")
 
     # Broadcast playlist updated event
-    await connection_manager.broadcast({
-        "type": "playlist_updated",
-        "data": {
+    await broadcast_typed(
+        connection_manager,
+        "playlist_updated",
+        {
             "playlist_id": playlist_id,
-            "action": "renamed"
-        }
-    })
+            "action": "renamed",
+        },
+    )
 
     return {"message": "Playlist updated successfully"}
 
@@ -358,12 +359,11 @@ async def delete_playlist(
     await asyncio.to_thread(repos.playlists.delete, playlist_id)
 
     # Broadcast playlist deleted event
-    await connection_manager.broadcast({
-        "type": "playlist_deleted",
-        "data": {
-            "playlist_id": playlist_id
-        }
-    })
+    await broadcast_typed(
+        connection_manager,
+        "playlist_deleted",
+        {"playlist_id": playlist_id},
+    )
 
     return {"message": "Playlist deleted successfully"}
 
@@ -399,13 +399,14 @@ async def add_tracks_to_playlist(
         raise HTTPException(status_code=400, detail="No tracks were added")
 
     # Broadcast playlist updated event
-    await connection_manager.broadcast({
-        "type": "playlist_updated",
-        "data": {
+    await broadcast_typed(
+        connection_manager,
+        "playlist_updated",
+        {
             "playlist_id": playlist_id,
-            "action": "track_added"
-        }
-    })
+            "action": "track_added",
+        },
+    )
 
     return {
         "message": f"Added {added_count} track(s) to playlist",
@@ -446,13 +447,14 @@ async def add_track_to_playlist(
     if not added:
         raise HTTPException(status_code=400, detail="Track was not added to playlist")
 
-    await connection_manager.broadcast({
-        "type": "playlist_updated",
-        "data": {
+    await broadcast_typed(
+        connection_manager,
+        "playlist_updated",
+        {
             "playlist_id": playlist_id,
-            "action": "track_added"
-        }
-    })
+            "action": "track_added",
+        },
+    )
 
     return {"message": "Track added to playlist"}
 
@@ -491,13 +493,16 @@ async def reorder_playlist_track(
             detail="Could not reorder track — index out of range for this playlist"
         )
 
-    await connection_manager.broadcast({
-        "type": "playlist_updated",
-        "data": {
+    await broadcast_typed(
+        connection_manager,
+        "playlist_updated",
+        {
             "playlist_id": playlist_id,
-            "action": "tracks_reordered"
-        }
-    })
+            # The frontend contract and listener both use the singular
+            # `reordered`; the old plural spelling made this event a no-op.
+            "action": "reordered",
+        },
+    )
 
     return {"message": "Playlist reordered"}
 
@@ -536,13 +541,14 @@ async def remove_track_from_playlist(
     await asyncio.to_thread(repos.playlists.remove_track, playlist_id, track_id)
 
     # Broadcast playlist updated event
-    await connection_manager.broadcast({
-        "type": "playlist_updated",
-        "data": {
+    await broadcast_typed(
+        connection_manager,
+        "playlist_updated",
+        {
             "playlist_id": playlist_id,
-            "action": "track_removed"
-        }
-    })
+            "action": "track_removed",
+        },
+    )
 
     return {"message": "Track removed from playlist"}
 
@@ -571,13 +577,14 @@ async def clear_playlist(
         raise NotFoundError("Playlist")
 
     # Broadcast playlist cleared event
-    await connection_manager.broadcast({
-        "type": "playlist_updated",
-        "data": {
+    await broadcast_typed(
+        connection_manager,
+        "playlist_updated",
+        {
             "playlist_id": playlist_id,
-            "action": "cleared"
-        }
-    })
+            "action": "cleared",
+        },
+    )
 
     return {"message": "Playlist cleared"}
 

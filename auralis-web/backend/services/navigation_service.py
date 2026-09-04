@@ -12,10 +12,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 from core.state_manager import PlayerStateManager
+from websocket.outbound_messages import broadcast_typed
 
 from auralis import AudioPlayer
 
@@ -139,17 +140,19 @@ class NavigationService:
 
                 if success:
                     if track_index is not None:
+                        assert seq is not None
                         # Include the new index so clients can sync
                         # currentTrack/currentIndex immediately instead of
                         # waiting for the next player_state snapshot (#4144).
-                        await self.connection_manager.broadcast({
-                            "type": "track_changed",
-                            "data": {
+                        await broadcast_typed(
+                            self.connection_manager,
+                            "track_changed",
+                            {
                                 "action": "next",
                                 "track_index": track_index,
                                 "seq": seq,
-                            }
-                        })
+                            },
+                        )
 
                     logger.info("⏭️  Skipped to next track")
                     return {"message": "Skipped to next track"}
@@ -194,17 +197,19 @@ class NavigationService:
 
                 if success:
                     if track_index is not None:
+                        assert seq is not None
                         # Include the new index so clients can sync
                         # currentTrack/currentIndex immediately instead of
                         # waiting for the next player_state snapshot (#4144).
-                        await self.connection_manager.broadcast({
-                            "type": "track_changed",
-                            "data": {
+                        await broadcast_typed(
+                            self.connection_manager,
+                            "track_changed",
+                            {
                                 "action": "previous",
                                 "track_index": track_index,
                                 "seq": seq,
-                            }
-                        })
+                            },
+                        )
 
                     logger.info("⏮️  Skipped to previous track")
                     return {"message": "Skipped to previous track"}
@@ -273,14 +278,15 @@ class NavigationService:
                 seq = _sequencer.next_seq()
 
             # Broadcast track change
-            await self.connection_manager.broadcast({
-                "type": "track_changed",
-                "data": {
+            await broadcast_typed(
+                self.connection_manager,
+                "track_changed",
+                {
                     "action": "jumped",
                     "track_index": track_index,
                     "seq": seq,
-                }
-            })
+                },
+            )
 
             logger.info(f"Jumped to track {track_index}")
             return {

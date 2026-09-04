@@ -8,8 +8,6 @@ WebSocket client.
 This is the sibling of the inner _do_scan() fix from #3543.
 """
 
-import asyncio
-import json
 import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -19,7 +17,6 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
 from services.library_auto_scanner import LibraryAutoScanner
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -57,10 +54,17 @@ class TestRunOuterErrorSanitisation:
         scanner, _ = _make_scanner()
 
         call_count = 0
-        broadcast_calls: list[dict] = []
+        broadcast_calls: list[tuple[str, dict]] = []
 
-        async def _fake_broadcast(manager: object, payload: dict) -> None:
-            broadcast_calls.append(payload)
+        async def _fake_broadcast(
+            manager: object,
+            message_type: str,
+            payload: dict,
+            *,
+            suppress_errors: bool = False,
+        ) -> None:
+            assert suppress_errors is True
+            broadcast_calls.append((message_type, payload))
 
         async def _failing_run_cycle() -> None:
             nonlocal call_count
@@ -73,7 +77,7 @@ class TestRunOuterErrorSanitisation:
         scanner._run_cycle = _failing_run_cycle  # type: ignore[method-assign]
 
         with patch(
-            "services.library_auto_scanner.connection_manager_safe_broadcast",
+            "services.library_auto_scanner.broadcast_typed",
             side_effect=_fake_broadcast,
         ):
             # _interruptible_sleep(30) would stall the test — patch it to skip.
@@ -84,9 +88,9 @@ class TestRunOuterErrorSanitisation:
             await scanner._run()
 
         assert len(broadcast_calls) == 1, "expected exactly one broadcast after the crash"
-        payload = broadcast_calls[0]
-        assert payload["type"] == "library_scan_error"
-        error_text = payload["data"]["error"]
+        message_type, payload = broadcast_calls[0]
+        assert message_type == "library_scan_error"
+        error_text = payload["error"]
 
         # Must NOT contain the raw exception string with sensitive detail
         assert sensitive_msg not in error_text, (
@@ -102,10 +106,17 @@ class TestRunOuterErrorSanitisation:
         matching the inner _do_scan() handler (consistency check, #3543 sibling).
         """
         scanner, _ = _make_scanner()
-        broadcast_calls: list[dict] = []
+        broadcast_calls: list[tuple[str, dict]] = []
 
-        async def _fake_broadcast(manager: object, payload: dict) -> None:
-            broadcast_calls.append(payload)
+        async def _fake_broadcast(
+            manager: object,
+            message_type: str,
+            payload: dict,
+            *,
+            suppress_errors: bool = False,
+        ) -> None:
+            assert suppress_errors is True
+            broadcast_calls.append((message_type, payload))
 
         call_count = 0
 
@@ -124,11 +135,13 @@ class TestRunOuterErrorSanitisation:
         scanner._interruptible_sleep = _instant_sleep  # type: ignore[method-assign]
 
         with patch(
-            "services.library_auto_scanner.connection_manager_safe_broadcast",
+            "services.library_auto_scanner.broadcast_typed",
             side_effect=_fake_broadcast,
         ):
             await scanner._run()
 
         assert broadcast_calls, "expected at least one broadcast"
-        error_text = broadcast_calls[0]["data"]["error"]
+        message_type, payload = broadcast_calls[0]
+        assert message_type == "library_scan_error"
+        error_text = payload["error"]
         assert error_text == "ValueError during library scan"

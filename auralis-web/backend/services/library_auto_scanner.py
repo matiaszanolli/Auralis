@@ -16,17 +16,23 @@ library in sync:
 """
 
 import asyncio
-import logging
 import json
-from typing import Any
-from helpers import spawn_background_task, scan_progress_percentage
+import logging
+from typing import Any, cast
+
+from helpers import scan_progress_percentage, spawn_background_task
+from websocket.outbound_messages import (
+    ScanCompletePayload,
+    ScanFailurePayload,
+    broadcast_typed,
+)
 
 logger = logging.getLogger(__name__)
 
 # Optional watchdog for real-time filesystem events
 try:
-    from watchdog.observers import Observer
     from watchdog.events import FileSystemEventHandler
+    from watchdog.observers import Observer
     HAS_WATCHDOG = True
 except ImportError:
     HAS_WATCHDOG = False
@@ -162,15 +168,16 @@ class LibraryAutoScanner:
                 raise
             except Exception as exc:
                 logger.error(f"LibraryAutoScanner cycle failed: {exc}", exc_info=True)
-                await connection_manager_safe_broadcast(
+                await broadcast_typed(
                     self._connection_manager,
+                    "library_scan_error",
                     {
-                        "type": "library_scan_error",
                         # Mirror the inner _do_scan handler (#3543): surface only the
                         # exception class so OS paths / permission detail don't leak
                         # to every connected client (fixes #3846 / BE-EH-3).
-                        "data": {"error": f"{type(exc).__name__} during library scan"},
+                        "error": f"{type(exc).__name__} during library scan",
                     },
+                    suppress_errors=True,
                 )
                 # Back off 30s before retry to avoid tight crash-loop
                 await self._interruptible_sleep(30)
@@ -228,12 +235,11 @@ class LibraryAutoScanner:
                 # the library_scan_error frames below, which echo an
                 # *unhandled exception's message* and can name paths the user
                 # never chose (#4651, same policy as routers/library_scan.py).
-                await connection_manager_safe_broadcast(
+                await broadcast_typed(
                     self._connection_manager,
-                    {
-                        "type": "library_scan_started",
-                        "data": {"directories": data.get('directories') or scan_folders},
-                    }
+                    "library_scan_started",
+                    {"directories": data.get('directories') or scan_folders},
+                    suppress_errors=True,
                 )
                 return
             # Prefer the pre-counted total (#4616), same as the manual emitter.
@@ -246,22 +252,21 @@ class LibraryAutoScanner:
             # Shared with the manual scan emitter: indeterminate unless a real
             # `progress` fraction is supplied (#4411 / F4-04).
             pct = scan_progress_percentage(data)
-            await connection_manager_safe_broadcast(
+            await broadcast_typed(
                 self._connection_manager,
+                "scan_progress",
                 {
-                    "type": "scan_progress",
-                    "data": {
-                        "current": processed,
-                        "total": total,
-                        "percentage": pct,
-                        # Same policy as library_scan_started above (#4651):
-                        # this path lives under a user-chosen folder, and the
-                        # frontend's ScanStatusCard surfaces it verbatim in a
-                        # tooltip by design.
-                        "current_file": data.get('current_file') or data.get('file') or data.get('directory'),
-                        "phase": data.get('stage', 'processing'),
-                    }
-                }
+                    "current": processed,
+                    "total": total,
+                    "percentage": pct,
+                    # Same policy as library_scan_started above (#4651):
+                    # this path lives under a user-chosen folder, and the
+                    # frontend's ScanStatusCard surfaces it verbatim in a
+                    # tooltip by design.
+                    "current_file": data.get('current_file') or data.get('file') or data.get('directory'),
+                    "phase": data.get('stage', 'processing'),
+                },
+                suppress_errors=True,
             )
 
         def sync_progress(data: dict[str, Any]) -> None:
@@ -311,12 +316,11 @@ class LibraryAutoScanner:
             # on the wire so OS paths / mount points / permission detail
             # don't leak to every connected client (#3543 / BE-NEW-85).
             logger.error(f"scan_directories failed: {exc}", exc_info=True)
-            await connection_manager_safe_broadcast(
+            await broadcast_typed(
                 self._connection_manager,
-                {
-                    "type": "library_scan_error",
-                    "data": {"error": f"{type(exc).__name__} during library scan"},
-                },
+                "library_scan_error",
+                {"error": f"{type(exc).__name__} during library scan"},
+                suppress_errors=True,
             )
             return
 
@@ -343,9 +347,11 @@ class LibraryAutoScanner:
             )
             if removed:
                 logger.info(f"🗑️  Removed {removed} missing tracks from library")
-                await connection_manager_safe_broadcast(
+                await broadcast_typed(
                     self._connection_manager,
-                    {"type": "library_tracks_removed", "data": {"count": removed}}
+                    "library_tracks_removed",
+                    {"count": removed},
+                    suppress_errors=True,
                 )
         except Exception as exc:
             logger.warning(f"cleanup_missing_files failed: {exc}")
@@ -354,22 +360,27 @@ class LibraryAutoScanner:
         # routers/library.py and the frontend ScanCompleteMessage type).
         # Fixes #3502 — extras (files_updated / files_skipped /
         # directories_scanned) are included for parity with the manual path.
-        await connection_manager_safe_broadcast(
+        scan_complete_payload: ScanCompletePayload = {
+            "files_processed": scan_result.files_processed if scan_result else 0,
+            "files_added": scan_result.files_added if scan_result else 0,
+            "files_updated": scan_result.files_updated if scan_result else 0,
+            "files_skipped": scan_result.files_skipped if scan_result else 0,
+            "files_failed": scan_result.files_failed if scan_result else 0,
+            # #4841: kept identical to the manual-scan emit above.
+            "failures": [
+                cast(ScanFailurePayload, failure.to_dict())
+                for failure in scan_result.failures
+            ]
+            if scan_result
+            else [],
+            "duration": scan_result.scan_time if scan_result else 0,
+            "directories_scanned": scan_result.directories_scanned if scan_result else 0,
+        }
+        await broadcast_typed(
             self._connection_manager,
-            {
-                "type": "scan_complete",
-                "data": {
-                    "files_processed": scan_result.files_processed if scan_result else 0,
-                    "files_added": scan_result.files_added if scan_result else 0,
-                    "files_updated": scan_result.files_updated if scan_result else 0,
-                    "files_skipped": scan_result.files_skipped if scan_result else 0,
-                    "files_failed": scan_result.files_failed if scan_result else 0,
-                    # #4841: kept identical to the manual-scan emit above.
-                    "failures": [f.to_dict() for f in scan_result.failures] if scan_result else [],
-                    "duration": scan_result.scan_time if scan_result else 0,
-                    "directories_scanned": scan_result.directories_scanned if scan_result else 0,
-                }
-            }
+            "scan_complete",
+            scan_complete_payload,
+            suppress_errors=True,
         )
 
         # Notify frontend to refresh library views when content changed
@@ -377,18 +388,17 @@ class LibraryAutoScanner:
         # — action + counts that the frontend LibraryUpdatedMessage type
         # actually declares.
         if files_added or removed:
-            await connection_manager_safe_broadcast(
+            await broadcast_typed(
                 self._connection_manager,
+                "library_updated",
                 {
-                    "type": "library_updated",
-                    "data": {
-                        # `reason` (a duplicate of `action`, kept for backward
-                        # compat with pre-#3544 clients) dropped in #4975 —
-                        # see the matching emitter in routers/library_scan.py.
-                        "action": "scan",
-                        "track_count": files_added,
-                    },
+                    # `reason` (a duplicate of `action`, kept for backward
+                    # compat with pre-#3544 clients) dropped in #4975 —
+                    # see the matching emitter in routers/library_scan.py.
+                    "action": "scan",
+                    "track_count": files_added,
                 },
+                suppress_errors=True,
             )
 
     async def _interruptible_sleep(self, seconds: int) -> None:
@@ -471,11 +481,3 @@ def _parse_scan_folders(settings: Any) -> list[str]:
     else:
         return []
     return [str(f) for f in folders if f]
-
-
-async def connection_manager_safe_broadcast(manager: Any, message: dict[str, Any]) -> None:
-    """Broadcast a message, suppressing errors if no clients are connected."""
-    try:
-        await manager.broadcast(message)
-    except Exception as exc:
-        logger.debug(f"Broadcast skipped: {exc}")

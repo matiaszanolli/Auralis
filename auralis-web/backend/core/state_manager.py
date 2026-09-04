@@ -11,10 +11,11 @@ Single source of truth that broadcasts state changes via WebSocket.
 
 import asyncio
 import logging
-from typing import Any
+from typing import Any, cast
 
 from helpers import spawn_background_task
 from player_state import PlaybackState, PlayerState, TrackInfo, create_track_info
+from websocket.outbound_messages import PlayerStatePayload, broadcast_typed
 
 logger = logging.getLogger(__name__)
 
@@ -229,10 +230,8 @@ class PlayerStateManager:
 
     async def _broadcast_state(self, state: PlayerState) -> None:
         """Broadcast state to all WebSocket clients"""
-        await self.ws_manager.broadcast({
-            "type": "player_state",
-            "data": state.model_dump()
-        })
+        payload = cast(PlayerStatePayload, state.model_dump())
+        await broadcast_typed(self.ws_manager, "player_state", payload)
 
     async def shutdown(self) -> None:
         """Stop this manager's background work (#4747).
@@ -350,9 +349,10 @@ class PlayerStateManager:
                 # Broadcast lightweight position update (fixes #2570) — avoids
                 # serialising the full queue + track info every second.
                 if new_time is not None:
-                    await self.ws_manager.broadcast({
-                        "type": "position_changed",
-                        "data": {"position": new_time, "seq": tick_seq},
-                    })
+                    await broadcast_typed(
+                        self.ws_manager,
+                        "position_changed",
+                        {"position": new_time, "seq": tick_seq},
+                    )
         except asyncio.CancelledError:
             pass  # Normal cancellation

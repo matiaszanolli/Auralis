@@ -11,7 +11,14 @@ Coordinates with AudioPlayer and PlayerStateManager to keep queue state synchron
 import asyncio
 import logging
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Unpack
+
+from websocket.outbound_messages import (
+    QueueChangeAction,
+    QueueChangedExtras,
+    QueueChangedPayload,
+    broadcast_typed,
+)
 
 from .errors import (
     InvalidRequest,
@@ -90,8 +97,8 @@ class QueueService:
 
     async def _broadcast_queue_changed(
         self,
-        action: str,
-        **extras: Any,
+        action: QueueChangeAction,
+        **extras: Unpack[QueueChangedExtras],
     ) -> None:
         """Emit a `queue_changed` WS message with the canonical payload that
         the frontend's QueueChangedMessage type expects (fixes #3492).
@@ -138,9 +145,9 @@ class QueueService:
             except Exception as exc:
                 logger.debug(f"queue_changed batch hydration failed: {exc}")
 
-        hydrated: list[Any] = []
+        hydrated: list[dict[str, Any]] = []
         for entry in raw_tracks:
-            track_dict: Any | None = None
+            track_dict: dict[str, Any] | None = None
             try:
                 if isinstance(entry, dict):
                     tid = entry.get('id')
@@ -169,16 +176,13 @@ class QueueService:
                     track_dict = {'filepath': entry}
             hydrated.append(track_dict)
 
-        payload: dict[str, Any] = {
+        payload: QueueChangedPayload = {
             'tracks': hydrated,
             'current_index': current_index,
             'action': action,
+            **extras,
         }
-        payload.update(extras)
-        await self.connection_manager.broadcast({
-            'type': 'queue_changed',
-            'data': payload,
-        })
+        await broadcast_typed(self.connection_manager, "queue_changed", payload)
 
     async def get_queue_info(self) -> dict[str, Any]:
         """
@@ -642,12 +646,11 @@ class QueueService:
                 action="shuffled",
                 queue_size=len(updated_queue),
             )
-            await self.connection_manager.broadcast({
-                "type": "queue_shuffled",
-                "data": {
-                    "is_shuffled": True,
-                },
-            })
+            await broadcast_typed(
+                self.connection_manager,
+                "queue_shuffled",
+                {"is_shuffled": True},
+            )
 
             logger.info(f"Queue shuffled ({len(updated_queue)} tracks)")
             return {
@@ -687,12 +690,11 @@ class QueueService:
                 action="unshuffled",
                 queue_size=len(updated_queue),
             )
-            await self.connection_manager.broadcast({
-                "type": "queue_shuffled",
-                "data": {
-                    "is_shuffled": False,
-                },
-            })
+            await broadcast_typed(
+                self.connection_manager,
+                "queue_shuffled",
+                {"is_shuffled": False},
+            )
 
             logger.info(f"Queue unshuffled ({len(updated_queue)} tracks)")
             return {
