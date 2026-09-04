@@ -10,6 +10,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@/test/test-utils';
 import { act } from 'react';
+import userEvent from '@testing-library/user-event';
 import AlbumArt from './AlbumArt';
 
 describe('AlbumArt', () => {
@@ -113,38 +114,36 @@ describe('AlbumArt', () => {
   });
 
   describe('Click Handling', () => {
-    it('should call onClick handler when provided', () => {
+    it('should call onClick handler when provided', async () => {
+      const user = userEvent.setup();
       const handleClick = vi.fn();
-      let container: any;
-      act(() => {
-        const result = render(
-          <AlbumArt albumId={1} onClick={handleClick} />
-        );
-        container = result.container;
-      });
+      render(<AlbumArt albumId={1} onClick={handleClick} />);
 
-      const element = container.firstChild as HTMLElement;
-      if (element) {
-        act(() => {
-          element.click?.();
-        });
-        expect(handleClick.mock.calls.length).toBeGreaterThanOrEqual(0);
-      }
+      await user.click(screen.getByRole('button', { name: 'Album 1 artwork' }));
+
+      expect(handleClick).toHaveBeenCalledTimes(1);
     });
 
-    it('should handle missing onClick gracefully', () => {
-      let container: any;
-      act(() => {
-        const result = render(<AlbumArt albumId={1} />);
-        container = result.container;
-      });
-      const element = container.firstChild as HTMLElement;
-      // Should not throw
-      expect(() => {
-        act(() => {
-          element.click?.();
-        });
-      }).not.toThrow();
+    it('should activate the onClick handler with Enter and Space', async () => {
+      const user = userEvent.setup();
+      const handleClick = vi.fn();
+      render(<AlbumArt albumId={1} onClick={handleClick} />);
+
+      const artworkButton = screen.getByRole('button', { name: 'Album 1 artwork' });
+      await user.tab();
+      expect(artworkButton).toHaveFocus();
+      await user.keyboard('{Enter} ');
+
+      expect(handleClick).toHaveBeenCalledTimes(2);
+    });
+
+    it('should remain non-interactive when onClick is omitted', () => {
+      const { container } = render(<AlbumArt albumId={1} />);
+      const artwork = container.firstElementChild;
+
+      expect(screen.queryByRole('button')).not.toBeInTheDocument();
+      expect(artwork).not.toHaveAttribute('role');
+      expect(artwork).not.toHaveAttribute('tabindex');
     });
   });
 

@@ -316,8 +316,8 @@ describe('PCMStreamBuffer', () => {
         expect(result.length).toBeLessThanOrEqual(100);
       }
 
-      // After 5 cycles of 100 samples, at least some should be available
-      expect(buffer.getAvailableSamples()).toBeGreaterThanOrEqual(0);
+      // Each cycle retains 50 of the 100 appended samples.
+      expect(buffer.getAvailableSamples()).toBe(250);
     });
 
     it('should maintain data integrity across multiple operations', () => {

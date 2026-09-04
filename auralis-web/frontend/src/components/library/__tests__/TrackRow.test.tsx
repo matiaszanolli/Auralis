@@ -149,16 +149,6 @@ describe('TrackRow', () => {
 
       expect(screen.getByTestId('track-context-menu')).toBeInTheDocument();
     });
-
-    it('should render drag handle if draggable', () => {
-      render(
-        <TrackRow {...{ track: mockTrack, draggable: true, index: 0, onPlay: vi.fn() } as any} />
-      );
-
-      // Drag handle should be present
-      const elements = screen.queryAllByTestId(/drag|handle/i);
-      expect(elements.length).toBeGreaterThanOrEqual(0);
-    });
   });
 
   describe('Selection', () => {

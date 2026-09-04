@@ -6,7 +6,7 @@
  * Enhanced with ProgressiveImage for better perceived performance and retry logic.
  */
 
-import { CSSProperties } from 'react';
+import { CSSProperties, KeyboardEvent } from 'react';
 import { Box, styled } from '@mui/material';
 import { ProgressiveImage } from '@/components/shared/ui/media';
 import { tokens, withOpacity } from '@/design-system';
@@ -39,6 +39,11 @@ const ArtworkContainer = styled(Box, {
     '&:hover': clickable ? {
       transform: 'scale(1.05)',
       boxShadow: `0 8px 32px ${tokens.colors.opacityScale.accent.veryStrong}`,
+    } : {},
+
+    '&:focus-visible': clickable ? {
+      outline: `2px solid ${tokens.colors.accent.primary}`,
+      outlineOffset: '2px',
     } : {},
   })
 );
@@ -96,18 +101,32 @@ export const AlbumArt = ({
   const artworkUrl = albumId
     ? getArtworkUrl(albumId, { size: sizeHint, revision: artworkRevision })
     : '';
+  const artworkLabel = albumId ? `Album ${albumId} artwork` : 'Album artwork';
 
   return (
     <ArtworkContainer
       size={size}
       clickable={!!onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      aria-label={onClick ? artworkLabel : undefined}
       onClick={onClick}
+      onKeyDown={
+        onClick
+          ? (event: KeyboardEvent) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
       sx={{ borderRadius }}
       style={style}
     >
       <ProgressiveImage
         src={artworkUrl}
-        alt={`Album ${albumId} artwork`}
+        alt={artworkLabel}
         width="100%"
         height="100%"
         borderRadius={borderRadius}
