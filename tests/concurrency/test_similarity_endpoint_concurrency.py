@@ -195,7 +195,7 @@ class TestFitInterleavedWithRead:
             pytest.fail("fit did not start within 1s")
 
         read_start = time.monotonic()
-        read_result = await similar_handler(track_id=1, limit=10, use_graph=True, include_details=False)
+        read_result = await similar_handler(track_id=1, limit=1, use_graph=True, include_details=False)
         read_elapsed = time.monotonic() - read_start
 
         assert not fit_task.done(), "fit finished before the read fired — not a real interleaving"

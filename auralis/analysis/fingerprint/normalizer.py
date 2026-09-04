@@ -185,6 +185,12 @@ class FingerprintNormalizer:
         del batch_arrays
         sample_count = vectors.shape[0]
 
+        # Build a complete replacement off to the side.  A fit may run while
+        # existing similarity readers are still using the previous model;
+        # publishing one new dict at the end keeps those readers from seeing
+        # a partially populated set of dimensions (#5243).
+        new_stats: dict[str, DimensionStats] = {}
+
         # Calculate statistics for each dimension
         for i, dim_name in enumerate(self.DIMENSION_NAMES):
             dim_values = vectors[:, i]
@@ -201,7 +207,7 @@ class FingerprintNormalizer:
             mean = np.mean(dim_values)
             std = np.std(dim_values)
 
-            self.stats[dim_name] = DimensionStats(
+            new_stats[dim_name] = DimensionStats(
                 name=dim_name,
                 min_val=float(min_val),
                 max_val=float(max_val),
@@ -213,6 +219,7 @@ class FingerprintNormalizer:
             debug(f"  {dim_name}: min={min_val:.3f}, max={max_val:.3f}, "
                   f"mean={mean:.3f}, std={std:.3f}")
 
+        self.stats = new_stats
         self.fitted = True
         info("Normalization statistics calculated successfully")
         return True

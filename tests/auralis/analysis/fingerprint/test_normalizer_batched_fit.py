@@ -13,10 +13,16 @@ independent of the batch size.
 :license: GPLv3
 """
 
+import threading
+
 import numpy as np
 import pytest
 
-from auralis.analysis.fingerprint.normalizer import FingerprintNormalizer
+import auralis.analysis.fingerprint.normalizer as normalizer_module
+from auralis.analysis.fingerprint.normalizer import (
+    DimensionStats,
+    FingerprintNormalizer,
+)
 
 
 class _FakeFingerprint:
@@ -142,8 +148,6 @@ def test_stop_event_set_before_first_batch_aborts_immediately(dims):
     with no batch reads at all — the cooperative-cancellation entry point a
     background caller (SimilarityAutoFitWorker) uses since the underlying
     thread can't be forcibly killed once a batch read is in flight."""
-    import threading
-
     repo = _FakeFingerprintRepository(_synthetic_vectors(130, dims))
     stop_event = threading.Event()
     stop_event.set()
@@ -157,8 +161,6 @@ def test_stop_event_set_before_first_batch_aborts_immediately(dims):
 def test_stop_event_set_mid_fit_aborts_before_remaining_batches(dims):
     """A stop_event set partway through must stop the loop at the NEXT batch
     boundary rather than reading the whole table regardless."""
-    import threading
-
     repo = _FakeFingerprintRepository(_synthetic_vectors(300, dims))
     stop_event = threading.Event()
 
@@ -182,8 +184,6 @@ def test_stop_event_set_mid_fit_aborts_before_remaining_batches(dims):
 def test_fit_still_succeeds_when_stop_event_never_set(dims):
     """Passing a stop_event that is never set must not change fit()'s
     outcome — the parameter is purely additive."""
-    import threading
-
     vectors = _synthetic_vectors(130, dims)
     repo = _FakeFingerprintRepository(vectors)
     stop_event = threading.Event()
@@ -191,3 +191,45 @@ def test_fit_still_succeeds_when_stop_event_never_set(dims):
     result = FingerprintNormalizer().fit(repo, min_samples=10, batch_size=50, stop_event=stop_event)
 
     assert result is True
+
+
+def test_fit_publishes_complete_stats_atomically(dims, monkeypatch):
+    """Readers keep the previous complete model until all new stats exist."""
+    vectors = _synthetic_vectors(20, dims)
+    normalizer = FingerprintNormalizer()
+    previous_stats = {
+        name: DimensionStats(name, -100.0, 100.0, 0.0, 1.0, 10)
+        for name in FingerprintNormalizer.DIMENSION_NAMES
+    }
+    normalizer.stats = previous_stats
+    normalizer.fitted = True
+
+    first_dimension_computed = threading.Event()
+    release_fit = threading.Event()
+    original_debug = normalizer_module.debug
+
+    def blocking_debug(message):
+        if not first_dimension_computed.is_set():
+            first_dimension_computed.set()
+            assert release_fit.wait(timeout=5)
+        original_debug(message)
+
+    monkeypatch.setattr(normalizer_module, "debug", blocking_debug)
+
+    result: list[bool] = []
+    fit_thread = threading.Thread(
+        target=lambda: result.append(
+            normalizer.fit(_FakeFingerprintRepository(vectors), min_samples=10)
+        )
+    )
+    fit_thread.start()
+    assert first_dimension_computed.wait(timeout=5)
+
+    assert normalizer.stats is previous_stats
+    assert normalizer.stats[FingerprintNormalizer.DIMENSION_NAMES[0]].min_val == -100.0
+
+    release_fit.set()
+    fit_thread.join(timeout=5)
+    assert not fit_thread.is_alive()
+    assert result == [True]
+    assert set(normalizer.stats) == set(FingerprintNormalizer.DIMENSION_NAMES)

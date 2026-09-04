@@ -84,6 +84,7 @@ class FingerprintSimilarity:
         self.normalizer = FingerprintNormalizer(use_robust=use_robust_normalization)
         self.distance_calc = FingerprintDistance(weights=weights)
         self.fitted = False
+        self._fit_lock = threading.Lock()
 
     def fit(self, min_samples: int = 10, stop_event: threading.Event | None = None) -> bool:
         """
@@ -97,18 +98,31 @@ class FingerprintSimilarity:
         Returns:
             True if successful, False otherwise
         """
-        info("Fitting similarity system to library fingerprints...")
-        success = self.normalizer.fit(
-            self.fingerprint_repo, min_samples=min_samples, stop_event=stop_event
-        )
+        # Startup auto-fit and POST /api/similarity/fit share this instance.
+        # Keep their fitted check and the expensive fit in one critical
+        # section so two callers cannot compute and publish competing models
+        # (#5243).  A caller queued behind a successful fit reuses it.
+        with self._fit_lock:
+            if stop_event is not None and stop_event.is_set():
+                info("Similarity fit stopped before starting")
+                return False
 
-        if success:
-            self.fitted = True
-            info("Similarity system ready")
-        else:
-            error("Failed to fit similarity system")
+            if self.fitted:
+                info("Similarity system already fitted")
+                return True
 
-        return success
+            info("Fitting similarity system to library fingerprints...")
+            success = self.normalizer.fit(
+                self.fingerprint_repo, min_samples=min_samples, stop_event=stop_event
+            )
+
+            if success:
+                self.fitted = True
+                info("Similarity system ready")
+            else:
+                error("Failed to fit similarity system")
+
+            return success
 
     def find_similar(
         self,
