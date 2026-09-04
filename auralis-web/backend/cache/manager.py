@@ -770,7 +770,10 @@ class StreamlinedCacheManager:
         """
         async with self._lock:
             # Remove Tier 1 entries for this track
-            t1_removed = [(k, v) for k, v in self.tier1_cache.items() if str(track_id) in str(k)]
+            t1_removed = [
+                (k, v) for k, v in self.tier1_cache.items()
+                if v.track_id == track_id
+            ]
             for key, _ in t1_removed:
                 del self.tier1_cache[key]
 

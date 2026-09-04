@@ -520,6 +520,32 @@ class TestStreamlinedCacheManager:
         assert other.exists(), "clear_track() deleted an unrelated track's chunk file"
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("unrelated_track_id", [12, 21, 100, 512])
+    async def test_clear_track_uses_exact_track_id_for_tier1(
+        self, cache_manager, tmp_path, unrelated_track_id
+    ):
+        """#5250: clearing track 1 must not evict Tier 1 entries whose IDs
+        merely contain the digit 1."""
+        target_paths = [tmp_path / "track-1-a.wav", tmp_path / "track-1-b.wav"]
+        unrelated_path = tmp_path / f"track-{unrelated_track_id}.wav"
+
+        for path in (*target_paths, unrelated_path):
+            path.write_bytes(b"fake-wav-bytes")
+
+        for chunk_idx, path in enumerate(target_paths):
+            await cache_manager.add_chunk(1, chunk_idx, path, tier="tier1")
+        await cache_manager.add_chunk(unrelated_track_id, 0, unrelated_path, tier="tier1")
+
+        removed = await cache_manager.clear_track(1)
+
+        assert removed == len(target_paths)
+        assert all(not path.exists() for path in target_paths)
+        assert unrelated_path.exists()
+        assert {chunk.track_id for chunk in cache_manager.tier1_cache.values()} == {
+            unrelated_track_id
+        }
+
+    @pytest.mark.asyncio
     async def test_clear_track_tolerates_already_missing_file(self, cache_manager):
         """A chunk file that's already gone (race with another cleanup pass,
         or was never actually written) must not raise — matches this
