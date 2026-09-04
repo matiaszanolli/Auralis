@@ -821,24 +821,17 @@ describe('AlbumDetailView', () => {
         expect(screen.getByText('Abbey Road')).toBeInTheDocument();
       });
 
-      let playButton;
-      try {
-        playButton = screen.getByText(/play album/i).closest('button');
-      } catch {
-        playButton = null;
-      }
+      const playButton = screen.getByRole('button', { name: /play album/i });
+      await user.tab();
+      expect(playButton).toHaveFocus();
 
-      if (playButton) {
-        playButton.focus();
-        expect(document.activeElement).toBe(playButton);
+      await user.keyboard('{Enter}');
 
-        await user.keyboard('{Enter}');
-        // Button should respond to keyboard
-        expect(document.activeElement).toBeInTheDocument();
-      } else {
-        // Fallback: album rendered, keyboard navigation tested elsewhere
-        expect(screen.getByText('Abbey Road')).toBeInTheDocument();
-      }
+      expect(mockPlayTrack).toHaveBeenCalledWith(expect.objectContaining({
+        id: mockAlbumData.tracks[0].id,
+        title: mockAlbumData.tracks[0].title,
+      }));
+      expect(mockPlayTrack).toHaveBeenCalledTimes(1);
     });
   });
 

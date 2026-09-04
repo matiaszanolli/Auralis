@@ -439,21 +439,22 @@ describe('BatchActionsToolbar', () => {
 
     it('should be keyboard navigable', async () => {
       const user = userEvent.setup();
+      const onClearSelection = vi.fn();
 
       render(
         <BatchActionsToolbar
             selectedCount={3}
-            onAddToPlaylist={vi.fn()}
-            onClearSelection={vi.fn()}
+            onClearSelection={onClearSelection}
           />
       );
 
-      const firstButton = screen.getAllByRole('button')[0];
-      firstButton.focus();
-      expect(document.activeElement).toBe(firstButton);
+      const clearButton = screen.getByRole('button');
+      await user.tab();
+      expect(clearButton).toHaveFocus();
 
       await user.keyboard('{Enter}');
-      expect(document.activeElement).toBeInTheDocument();
+
+      expect(onClearSelection).toHaveBeenCalledTimes(1);
     });
   });
 

@@ -421,8 +421,7 @@ describe('TrackRow', () => {
       );
 
       await user.tab();
-      // Should be focusable
-      expect(document.activeElement).toBeInTheDocument();
+      expect(screen.getByRole('option')).toHaveFocus();
     });
   });
 

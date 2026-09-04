@@ -451,23 +451,25 @@ describe('SelectableTrackRow', () => {
 
     it('should support keyboard navigation', async () => {
       const user = userEvent.setup();
+      const onToggleSelect = vi.fn();
 
       render(
         <SelectableTrackRow
             track={mockTrack}
             index={0}
             isSelected={false}
-            onToggleSelect={vi.fn()}
+            onToggleSelect={onToggleSelect}
             onPlay={vi.fn()}
           />
       );
 
       const checkbox = screen.getByRole('checkbox');
-      checkbox.focus();
-      expect(document.activeElement).toBe(checkbox);
+      await user.tab();
+      expect(checkbox).toHaveFocus();
 
       await user.keyboard(' '); // Space to toggle
-      expect(document.activeElement).toBeInTheDocument();
+
+      expect(onToggleSelect).toHaveBeenCalledWith(mockTrack.id, expect.anything());
     });
   });
 
