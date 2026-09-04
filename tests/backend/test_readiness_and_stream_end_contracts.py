@@ -7,8 +7,8 @@ wrong rather than loudly broken:
           without a None check, so a legitimately uninitialised component
           surfaced as an opaque 500 instead of an actionable 503. Two sibling
           sites (`library_scan.py`, `player.py`) had the same shape.
-  #4657 — `_recommendation_cache` detected expiry on read but never deleted,
-          had no size cap, and was keyed by an unbounded bare `float`.
+  #4657 — the recommendation cache must delete expired entries, enforce a
+          size cap, and keep hot entries under eviction pressure.
   #4658 — `useAppDragDrop` called two playlist paths the backend never
           registered, so both drag operations returned 405.
   #4659 — a stream truncated by a mid-stream enhancement toggle emitted a
@@ -114,57 +114,52 @@ class TestRecommendationCacheBounds:
 
     @pytest.fixture(autouse=True)
     def _clear_cache(self):
-        from routers import enhancement
+        from cache import streamlined_cache_manager
 
-        enhancement._recommendation_cache.clear()
+        streamlined_cache_manager.clear_mastering_recommendations()
+        self.cache = streamlined_cache_manager
         yield
-        enhancement._recommendation_cache.clear()
+        streamlined_cache_manager.clear_mastering_recommendations()
 
     def test_cap_is_enforced_across_many_distinct_keys(self):
-        from routers import enhancement
-
-        cap = enhancement._RECOMMENDATION_CACHE_MAX
-        far_future = 1e18  # never expires within the test
+        cap = self.cache.MAX_RECOMMENDATIONS
 
         for i in range(cap * 3):
-            enhancement._store_recommendation((i, 0.4), far_future, {"track": i})
+            self.cache.set_mastering_recommendation(i, {"track": i})
 
-        assert len(enhancement._recommendation_cache) <= cap
+        assert len(self.cache.mastering_recommendations) <= cap
 
     def test_expired_entries_are_purged_on_insert(self):
         import time
 
-        from routers import enhancement
-
         already_expired = time.monotonic() - 1.0
         for i in range(10):
-            enhancement._store_recommendation((i, 0.4), already_expired, {"track": i})
+            self.cache.mastering_recommendations[(i, 0.4)] = (
+                already_expired,
+                {"track": i},
+            )
 
         # A fresh insert must evict the stale entries rather than leaving them
         # resident until the process exits (#4657).
-        enhancement._store_recommendation((999, 0.4), time.monotonic() + 600, {"track": 999})
+        self.cache.set_mastering_recommendation(999, {"track": 999})
 
-        assert len(enhancement._recommendation_cache) == 1
-        assert (999, 0.4) in enhancement._recommendation_cache
+        assert len(self.cache.mastering_recommendations) == 1
+        assert (999, 0.4) in self.cache.mastering_recommendations
 
     def test_hot_entry_survives_eviction_pressure(self):
-        from routers import enhancement
+        cap = self.cache.MAX_RECOMMENDATIONS
 
-        cap = enhancement._RECOMMENDATION_CACHE_MAX
-        far_future = 1e18
-
-        enhancement._store_recommendation((0, 0.4), far_future, {"track": 0})
+        self.cache.set_mastering_recommendation(0, {"track": 0})
 
         for i in range(1, cap):
-            enhancement._store_recommendation((i, 0.4), far_future, {"track": i})
-            # Re-assert the hot key so it stays away from the eviction end.
-            enhancement._recommendation_cache.move_to_end((0, 0.4))
+            self.cache.set_mastering_recommendation(i, {"track": i})
+            assert self.cache.get_mastering_recommendation(0) is not None
 
         for i in range(cap, cap + 10):
-            enhancement._store_recommendation((i, 0.4), far_future, {"track": i})
-            enhancement._recommendation_cache.move_to_end((0, 0.4))
+            self.cache.set_mastering_recommendation(i, {"track": i})
+            assert self.cache.get_mastering_recommendation(0) is not None
 
-        assert (0, 0.4) in enhancement._recommendation_cache
+        assert (0, 0.4) in self.cache.mastering_recommendations
 
     def test_threshold_query_param_is_range_bounded(self):
         """`confidence_threshold` must reject out-of-range and non-finite input.

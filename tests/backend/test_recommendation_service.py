@@ -13,6 +13,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
+from cache import StreamlinedCacheManager  # noqa: E402
 from services.recommendation_service import RecommendationService  # noqa: E402
 
 
@@ -23,7 +24,14 @@ from services.recommendation_service import RecommendationService  # noqa: E402
 def _make_service():
     connection_manager = MagicMock()
     connection_manager.broadcast = AsyncMock()
-    return RecommendationService(connection_manager=connection_manager), connection_manager
+    cache_manager = StreamlinedCacheManager()
+    return (
+        RecommendationService(
+            connection_manager=connection_manager,
+            cache_manager=cache_manager,
+        ),
+        connection_manager,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -112,6 +120,45 @@ class TestGetRecommendationForTrack:
             result = await service.get_recommendation_for_track(7, "/music/track.mp3")
 
         assert result is None
+
+    @pytest.mark.asyncio
+    async def test_second_call_hits_shared_cache_without_reanalysis(self):
+        service, _ = _make_service()
+        rec_dict = {"preset": "adaptive", "confidence": 0.75, "track_id": 7}
+
+        with patch(
+            "services.recommendation_service.asyncio.to_thread",
+            new_callable=AsyncMock,
+            return_value=rec_dict,
+        ) as mock_thread:
+            first = await service.get_recommendation_for_track(7, "/music/track.mp3")
+            second = await service.get_recommendation_for_track(7, "/music/track.mp3")
+
+        assert first is rec_dict
+        assert second is rec_dict
+        mock_thread.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_broadcast_and_query_paths_share_cached_result(self):
+        service, conn_mgr = _make_service()
+        rec_dict = {"preset": "warm", "confidence": 0.9, "track_id": 42}
+
+        with patch(
+            "services.recommendation_service.asyncio.to_thread",
+            new_callable=AsyncMock,
+            return_value=rec_dict,
+        ) as mock_thread:
+            broadcast_result = await service.generate_and_broadcast_recommendation(
+                42, "/music/track.mp3"
+            )
+            query_result = await service.get_recommendation_for_track(
+                42, "/music/track.mp3"
+            )
+
+        assert broadcast_result is rec_dict
+        assert query_result is rec_dict
+        mock_thread.assert_awaited_once()
+        conn_mgr.broadcast.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_raises_on_exception(self):

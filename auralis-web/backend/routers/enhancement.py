@@ -17,11 +17,10 @@ Endpoints:
 import asyncio
 import logging
 import os
-import time
-from collections import OrderedDict
 from collections.abc import Callable
 from typing import Annotated, Any
 
+from cache import streamlined_cache_manager
 from core import audio_stream_controller as _asc
 from core.chunk_boundaries import (  # single source of truth (#2564)
     chunk_for_position,
@@ -41,33 +40,6 @@ from .dependencies import with_error_handling
 from .errors import NotFoundError
 
 logger = logging.getLogger(__name__)
-
-# TTL cache for mastering recommendations so repeated calls for the same
-# (track_id, confidence_threshold) don't re-run the full audio analysis
-# (~1-5 s CPU per call).  Entries expire after 60 s (fixes #3865 / BE-RH-20).
-# Format: key -> (expiry_monotonic, result_dict)
-#
-# Bounded and self-purging (#4657): TTL-only expiry was checked on read but
-# entries were never deleted, so the dict grew for the life of the process at
-# a rate of (tracks browsed x distinct thresholds). Expired keys are dropped on
-# insert and the cache is capped in FIFO order, so a long desktop session over
-# a large library cannot grow it without limit.
-_recommendation_cache: OrderedDict[tuple[int, float], tuple[float, dict[str, Any]]] = OrderedDict()
-_RECOMMENDATION_TTL_S: float = 60.0
-_RECOMMENDATION_CACHE_MAX: int = 256
-
-
-def _store_recommendation(key: tuple[int, float], expiry: float, value: dict[str, Any]) -> None:
-    """Insert a recommendation, purging expired entries and enforcing the cap."""
-    now = time.monotonic()
-    for stale_key in [k for k, (exp, _) in _recommendation_cache.items() if exp <= now]:
-        del _recommendation_cache[stale_key]
-
-    _recommendation_cache[key] = (expiry, value)
-    _recommendation_cache.move_to_end(key)
-
-    while len(_recommendation_cache) > _RECOMMENDATION_CACHE_MAX:
-        _recommendation_cache.popitem(last=False)
 
 # EnhancementPresetLiteral is the single source of truth in schemas.py (#4424),
 # imported above. It drives OpenAPI so the preset constraint shows up in the docs,
@@ -606,19 +578,12 @@ async def get_mastering_recommendation(
 
     # Return cached result if still valid — avoids re-running full audio
     # analysis (~1-5 s CPU) on repeated calls for the same track (#3865).
-    _cache_key = (track_id, confidence_threshold)
-    _now = time.monotonic()
-    _cached = _recommendation_cache.get(_cache_key)
+    _cached = streamlined_cache_manager.get_mastering_recommendation(
+        track_id, confidence_threshold
+    )
     if _cached is not None:
-        _expiry, _cached_result = _cached
-        if _now < _expiry:
-            # Keep hot entries away from the FIFO eviction end (#4657).
-            _recommendation_cache.move_to_end(_cache_key)
-            logger.debug(f"Returning cached mastering recommendation for track {track_id}")
-            return _cached_result
-        # Expired: drop it now rather than leaving it resident until the
-        # next insert happens to purge (#4657).
-        del _recommendation_cache[_cache_key]
+        logger.debug(f"Returning cached mastering recommendation for track {track_id}")
+        return _cached
 
     try:
         from core.chunked_processor import ChunkedAudioProcessor
@@ -628,7 +593,7 @@ async def get_mastering_recommendation(
         _tid = track_id
         _ct = confidence_threshold
 
-        def _run_recommendation() -> dict | None:
+        def _run_recommendation() -> dict[str, Any] | None:
             proc = ChunkedAudioProcessor(
                 track_id=_tid,
                 filepath=_fp,
@@ -663,7 +628,9 @@ async def get_mastering_recommendation(
             raise HTTPException(status_code=500, detail="Failed to analyze audio file")
 
         result_dict = result if isinstance(result, dict) else {}
-        _store_recommendation(_cache_key, _now + _RECOMMENDATION_TTL_S, result_dict)
+        streamlined_cache_manager.set_mastering_recommendation(
+            track_id, result_dict, confidence_threshold
+        )
         return result_dict
 
     except HTTPException:

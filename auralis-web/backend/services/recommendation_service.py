@@ -12,6 +12,7 @@ import asyncio
 import logging
 from typing import Any, Protocol, cast
 
+from cache import StreamlinedCacheManager, streamlined_cache_manager
 from core import audio_stream_controller as _asc
 from websocket.outbound_messages import MasteringRecommendationPayload, broadcast_typed
 
@@ -34,17 +35,63 @@ class RecommendationService:
     Broadcasts recommendations via WebSocket to connected clients.
     """
 
-    def __init__(self, connection_manager: BroadcastManager) -> None:
+    def __init__(
+        self,
+        connection_manager: BroadcastManager,
+        cache_manager: StreamlinedCacheManager = streamlined_cache_manager,
+    ) -> None:
         """
         Initialize RecommendationService.
 
         Args:
             connection_manager: WebSocket connection manager for broadcasts
+            cache_manager: Shared recommendation cache
 
         Raises:
             ValueError: If connection_manager is not available
         """
         self.connection_manager: BroadcastManager = connection_manager
+        self.cache_manager = cache_manager
+
+    async def _get_or_analyze(
+        self,
+        track_id: int,
+        track_path: str,
+        confidence_threshold: float,
+    ) -> dict[str, Any] | None:
+        """Return a cached recommendation or run the bounded analysis."""
+        cached = self.cache_manager.get_mastering_recommendation(
+            track_id, confidence_threshold
+        )
+        if cached is not None:
+            logger.debug(f"Returning cached mastering recommendation for track {track_id}")
+            return cached
+
+        def _analyze() -> dict[str, Any] | None:
+            from core.chunked_processor import ChunkedAudioProcessor
+
+            processor = ChunkedAudioProcessor(
+                track_id=track_id,
+                filepath=track_path,
+                preset="adaptive",
+                intensity=1.0,
+                chunk_cache={},
+            )
+            rec = processor.get_mastering_recommendation(
+                confidence_threshold=confidence_threshold
+            )
+            if rec is None:
+                return None
+            return cast(dict[str, Any], rec.to_response(track_id))
+
+        result = await asyncio.wait_for(
+            asyncio.to_thread(_analyze), timeout=_asc.CHUNK_PROCESS_TIMEOUT
+        )
+        if result is not None:
+            self.cache_manager.set_mastering_recommendation(
+                track_id, result, confidence_threshold
+            )
+        return result
 
     async def generate_and_broadcast_recommendation(
         self,
@@ -69,32 +116,6 @@ class RecommendationService:
         Raises:
             Exception: If critical error occurs (not recommended errors are ignored)
         """
-        # ChunkedAudioProcessor.__init__ + get_mastering_recommendation are
-        # synchronous and can take several seconds (full audio decode +
-        # librosa analysis if the fingerprint isn't cached). Run the
-        # whole sync chain in a thread so the event loop stays responsive
-        # (fixes #3553 / BE-NEW-95). FastAPI BackgroundTasks schedules
-        # async coroutines on the SAME event loop as the request — without
-        # this offload, every track-load froze the backend.
-        def _analyze() -> dict[str, Any] | None:
-            from core.chunked_processor import ChunkedAudioProcessor
-
-            processor = ChunkedAudioProcessor(
-                track_id=track_id,
-                filepath=track_path,
-                preset="adaptive",
-                intensity=1.0,
-                chunk_cache={},
-            )
-            rec = processor.get_mastering_recommendation(
-                confidence_threshold=confidence_threshold
-            )
-            if rec is None:
-                return None
-            # to_response is the single source of truth for the payload shape,
-            # shared with the REST endpoint, and adds track_id + is_hybrid (#3840).
-            return cast(dict[str, Any], rec.to_response(track_id))
-
         try:
             # #5248: bound the same way every streaming entry point bounds
             # ChunkedAudioProcessor construction — sf.info() has no timeout
@@ -102,8 +123,8 @@ class RecommendationService:
             # or a track on storage that disappears mid-read can otherwise
             # hang this thread forever and, since this fires on every play,
             # eventually exhaust the shared IO_EXECUTOR pool.
-            rec_dict = await asyncio.wait_for(
-                asyncio.to_thread(_analyze), timeout=_asc.CHUNK_PROCESS_TIMEOUT
+            rec_dict = await self._get_or_analyze(
+                track_id, track_path, confidence_threshold
             )
             if rec_dict:
                 await broadcast_typed(
@@ -150,32 +171,11 @@ class RecommendationService:
         Raises:
             Exception: If analysis fails
         """
-        # Same offload pattern as generate_and_broadcast_recommendation
-        # (fixes #3553 / BE-NEW-95) — sync work runs in a thread.
-        def _analyze() -> dict[str, Any] | None:
-            from core.chunked_processor import ChunkedAudioProcessor
-
-            processor = ChunkedAudioProcessor(
-                track_id=track_id,
-                filepath=track_path,
-                preset="adaptive",
-                intensity=1.0,
-                chunk_cache={},
-            )
-            rec = processor.get_mastering_recommendation(
-                confidence_threshold=confidence_threshold
-            )
-            if rec is None:
-                return None
-            # to_response is the single source of truth for the payload shape,
-            # shared with the REST endpoint, and adds track_id + is_hybrid (#3840).
-            return cast(dict[str, Any], rec.to_response(track_id))
-
         try:
             # #5248: same timeout bound as generate_and_broadcast_recommendation
             # above — see that method's comment for why this is needed.
-            return await asyncio.wait_for(
-                asyncio.to_thread(_analyze), timeout=_asc.CHUNK_PROCESS_TIMEOUT
+            return await self._get_or_analyze(
+                track_id, track_path, confidence_threshold
             )
         except Exception as e:
             logger.error(f"Failed to get mastering recommendation for track {track_id}: {e}")

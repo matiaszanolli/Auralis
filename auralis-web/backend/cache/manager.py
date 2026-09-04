@@ -16,6 +16,7 @@ predictable caching strategy (~150 lines).
 import asyncio
 import logging
 import time
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, NamedTuple
@@ -63,6 +64,9 @@ TIER1_MAX_SIZE_MB = TIER1_MAX_CHUNKS * CHUNK_SIZE_MB * 2  # × 2 for original + 
 # just for being a 3rd track. Flagged as a separate follow-up.
 TIER2_MAX_TRACKS = 2   # Keep last 2 tracks fully cached
 TIER2_MAX_SIZE_MB = 240  # Max 240 MB total (~95 chunks at the corrected CHUNK_SIZE_MB)
+
+# Shared freshness contract for mastering recommendations (#3865/#5280).
+RECOMMENDATION_TTL_S = 60.0
 
 
 @dataclass
@@ -205,8 +209,9 @@ class StreamlinedCacheManager:
         # code used a plain dict and the singleton instance accumulated
         # entries for the entire backend lifetime, growing 1-5 KB per
         # distinct track played (fixes #3555 / BE-NEW-97).
-        from collections import OrderedDict
-        self.mastering_recommendations: OrderedDict[int, dict[str, Any]] = OrderedDict()
+        self.mastering_recommendations: OrderedDict[
+            tuple[int, float], tuple[float, dict[str, Any]]
+        ] = OrderedDict()
         self.MAX_RECOMMENDATIONS = 256
 
         # Playback state
@@ -679,7 +684,12 @@ class StreamlinedCacheManager:
 
             return loaded_count
 
-    def set_mastering_recommendation(self, track_id: int, recommendation: dict[str, Any]) -> None:
+    def set_mastering_recommendation(
+        self,
+        track_id: int,
+        recommendation: dict[str, Any],
+        confidence_threshold: float = 0.4,
+    ) -> None:
         """
         Cache a mastering recommendation for a track (Priority 4).
 
@@ -689,9 +699,23 @@ class StreamlinedCacheManager:
         Args:
             track_id: Track database ID
             recommendation: Serialized MasteringRecommendation dict from adaptive_mastering_engine.recommend_weighted()
+            confidence_threshold: Analysis threshold used to produce the result
         """
-        self.mastering_recommendations[track_id] = recommendation
-        self.mastering_recommendations.move_to_end(track_id)
+        now = time.monotonic()
+        stale_keys = [
+            key
+            for key, (expiry, _) in self.mastering_recommendations.items()
+            if expiry <= now
+        ]
+        for stale_key in stale_keys:
+            del self.mastering_recommendations[stale_key]
+
+        cache_key = (track_id, confidence_threshold)
+        self.mastering_recommendations[cache_key] = (
+            now + RECOMMENDATION_TTL_S,
+            recommendation,
+        )
+        self.mastering_recommendations.move_to_end(cache_key)
         while len(self.mastering_recommendations) > self.MAX_RECOMMENDATIONS:
             self.mastering_recommendations.popitem(last=False)
         logger.info(
@@ -701,17 +725,31 @@ class StreamlinedCacheManager:
             f"blended={'yes' if recommendation.get('weighted_profiles') else 'no'}"
         )
 
-    def get_mastering_recommendation(self, track_id: int) -> dict[str, Any] | None:
+    def get_mastering_recommendation(
+        self, track_id: int, confidence_threshold: float = 0.4
+    ) -> dict[str, Any] | None:
         """
         Retrieve cached mastering recommendation for a track (Priority 4).
 
         Args:
             track_id: Track database ID
+            confidence_threshold: Analysis threshold for the cached result
 
         Returns:
             Serialized MasteringRecommendation dict or None if not cached
         """
-        return self.mastering_recommendations.get(track_id)
+        cache_key = (track_id, confidence_threshold)
+        cached = self.mastering_recommendations.get(cache_key)
+        if cached is None:
+            return None
+
+        expiry, recommendation = cached
+        if time.monotonic() >= expiry:
+            del self.mastering_recommendations[cache_key]
+            return None
+
+        self.mastering_recommendations.move_to_end(cache_key)
+        return recommendation
 
     def clear_mastering_recommendations(self) -> None:
         """Clear all cached mastering recommendations."""

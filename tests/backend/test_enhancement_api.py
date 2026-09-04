@@ -277,7 +277,7 @@ class TestGetMasteringRecommendation:
         from unittest.mock import Mock
 
         import main
-        from routers import enhancement as enhancement_module
+        from cache import streamlined_cache_manager
 
         mock_repos = Mock()
         mock_repos.tracks.get_by_id = Mock(return_value=None)
@@ -285,20 +285,14 @@ class TestGetMasteringRecommendation:
         original = main.globals_dict.get('repository_factory')
         main.globals_dict['repository_factory'] = mock_repos
 
-        # The router keeps a module-level 60s TTL cache keyed by
-        # (track_id, confidence_threshold) (#3865/#4657). Two tests below both
-        # request track 1 at the default threshold, so without clearing it the
-        # second is served from cache, ChunkedAudioProcessor is never
-        # constructed, and its call_args assertion reads None. Cleared for the
-        # same isolation reason test_recommendation_cache.py and
-        # test_readiness_and_stream_end_contracts.py clear it -- both of which
-        # keep the cache's own behaviour covered.
-        enhancement_module._recommendation_cache.clear()
+        # REST and playback share the singleton recommendation cache (#5280).
+        # Clear it so repeated track ids in this class remain isolated.
+        streamlined_cache_manager.clear_mastering_recommendations()
         try:
             yield mock_repos
         finally:
             main.globals_dict['repository_factory'] = original
-            enhancement_module._recommendation_cache.clear()
+            streamlined_cache_manager.clear_mastering_recommendations()
 
     def test_returns_404_for_nonexistent_track(self, client, repos):
         """Call with nonexistent track_id → 404"""
@@ -367,6 +361,25 @@ class TestGetMasteringRecommendation:
         MockProc.return_value.get_mastering_recommendation.assert_called_once_with(
             confidence_threshold=0.8
         )
+
+    def test_second_request_uses_shared_cache(self, client, repos):
+        """The REST path must not construct a second processor on a cache hit."""
+        from unittest.mock import Mock, patch
+
+        track = Mock()
+        track.filepath = "/music/song.flac"
+        repos.tracks.get_by_id.return_value = track
+        mock_rec = self._mock_recommendation()
+
+        with patch("core.chunked_processor.ChunkedAudioProcessor") as MockProc:
+            MockProc.return_value.get_mastering_recommendation.return_value = mock_rec
+            first = client.get("/api/player/mastering/recommendation/1")
+            second = client.get("/api/player/mastering/recommendation/1")
+
+        assert first.status_code == 200
+        assert second.status_code == 200
+        assert second.json() == first.json()
+        MockProc.assert_called_once()
 
     def test_returns_500_when_analysis_times_out(self, client, repos):
         """#5248: a hung ChunkedAudioProcessor construction/analysis (e.g. a
