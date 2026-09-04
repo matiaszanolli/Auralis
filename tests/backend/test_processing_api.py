@@ -386,16 +386,20 @@ class TestQueueManagement:
 
     def test_list_all_jobs(self, client, mock_engine):
         """Test listing all jobs"""
-        # Create mock job objects with to_dict method
+        # Create mock job objects with the shared status-response fields.
         mock_job1 = Mock()
         mock_job1.job_id = "job-1"
         mock_job1.status = ProcessingStatus.COMPLETED
-        mock_job1.to_dict.return_value = {"job_id": "job-1", "status": "completed"}
+        mock_job1.progress = 100.0
+        mock_job1.error_message = None
+        mock_job1.result_data = {"ok": True}
 
         mock_job2 = Mock()
         mock_job2.job_id = "job-2"
         mock_job2.status = ProcessingStatus.PROCESSING
-        mock_job2.to_dict.return_value = {"job_id": "job-2", "status": "processing"}
+        mock_job2.progress = 50.0
+        mock_job2.error_message = None
+        mock_job2.result_data = None
 
         mock_engine.get_all_jobs.return_value = [mock_job1, mock_job2]
 
@@ -406,6 +410,49 @@ class TestQueueManagement:
 
         assert "jobs" in data
         assert len(data["jobs"]) == 2
+        assert data["total"] == 2
+
+    def test_list_and_detail_jobs_have_identical_field_sets(self, client, mock_engine):
+        """List and detail endpoints expose one typed job contract (#5276)."""
+        job = Mock()
+        job.job_id = "test-job-123"
+        job.status = ProcessingStatus.PROCESSING
+        job.progress = 25.0
+        job.error_message = None
+        job.result_data = {"stage": "analysis"}
+        mock_engine.get_job.return_value = job
+        mock_engine.get_all_jobs.return_value = [job]
+
+        detail = client.get("/api/processing/job/test-job-123").json()
+        listed = client.get("/api/processing/jobs").json()["jobs"][0]
+
+        assert set(listed) == set(detail)
+        assert listed == detail
+
+    def test_list_total_is_count_before_limit(self, client, mock_engine):
+        """The total describes every match, not only the returned page (#5269)."""
+        jobs = []
+        for index in range(3):
+            job = Mock()
+            job.job_id = f"job-{index}"
+            job.status = ProcessingStatus.QUEUED
+            job.progress = 0.0
+            job.error_message = None
+            job.result_data = None
+            jobs.append(job)
+        completed = Mock()
+        completed.job_id = "job-completed"
+        completed.status = ProcessingStatus.COMPLETED
+        completed.progress = 100.0
+        completed.error_message = None
+        completed.result_data = None
+        jobs.append(completed)
+        mock_engine.get_all_jobs.return_value = jobs
+
+        data = client.get("/api/processing/jobs?status=queued&limit=1").json()
+
+        assert len(data["jobs"]) == 1
+        assert data["total"] == 3
 
     def test_list_jobs_rejects_negative_limit(self, client, mock_engine):
         """Negative limit must return 422 (fixes #2729)"""

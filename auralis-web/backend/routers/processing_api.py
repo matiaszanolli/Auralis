@@ -21,7 +21,7 @@ from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
-from core.processing_engine import ProcessingEngine, ProcessingStatus
+from core.processing_engine import ProcessingEngine, ProcessingJob, ProcessingStatus
 from pydantic import BaseModel, Field, ValidationError, model_validator
 from security.path_security import PathValidationError, validate_file_path
 
@@ -154,7 +154,7 @@ class CancelJobResponse(BaseModel):
 
 class JobListResponse(BaseModel):
     """Response listing processing jobs"""
-    jobs: list[dict[str, Any]]
+    jobs: list[JobStatusResponse]
     total: int
 
 
@@ -173,6 +173,17 @@ class QueueStatusResponse(BaseModel):
 class PresetsResponse(BaseModel):
     """Available processing presets"""
     presets: dict[str, Any]
+
+
+def _job_status_response(job: ProcessingJob) -> JobStatusResponse:
+    """Serialize one job identically for the detail and list endpoints."""
+    return JobStatusResponse(
+        job_id=job.job_id,
+        status=job.status,
+        progress=job.progress,
+        error_message=job.error_message,
+        result_data=job.result_data,
+    )
 
 
 class ProcessingParametersResponse(BaseModel):
@@ -468,13 +479,7 @@ async def get_job_status(
     if not job:
         raise NotFoundError("Job")
 
-    return JobStatusResponse(
-        job_id=job.job_id,
-        status=job.status,
-        progress=job.progress,
-        error_message=job.error_message,
-        result_data=job.result_data
-    )
+    return _job_status_response(job)
 
 
 @with_error_handling("download job result")
@@ -556,7 +561,7 @@ async def list_jobs(
     status: ProcessingStatus | None = None,
     limit: int = Query(50, ge=1, le=1000),
     engine: ProcessingEngine | None = Depends(_get_processing_engine),
-) -> dict[str, Any]:
+) -> JobListResponse:
     """List all processing jobs, optionally filtered by status.
 
     `status` is the enum rather than `str` + a hand-rolled check (#3896):
@@ -573,13 +578,13 @@ async def list_jobs(
     if status:
         jobs = [j for j in jobs if j.status == status]
 
-    # Limit results
-    jobs = jobs[:limit]
+    total = len(jobs)
+    limited_jobs = jobs[:limit]
 
-    return {
-        "jobs": [job.to_dict() for job in jobs],
-        "total": len(jobs)
-    }
+    return JobListResponse(
+        jobs=[_job_status_response(job) for job in limited_jobs],
+        total=total,
+    )
 
 
 @with_error_handling("get queue status")
