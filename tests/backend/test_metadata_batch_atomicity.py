@@ -17,14 +17,13 @@ endpoint honour the atomic-rollback contract:
 
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, Mock, call, patch
+from unittest.mock import Mock, patch
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
 from auralis.library.metadata_editor import MetadataEditor, MetadataUpdate
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -86,6 +85,7 @@ class TestBatchUpdateAtomicity:
 
         assert all(r['success'] for r in result['results'])
         assert {r['track_id'] for r in result['results']} == {1, 2, 3}
+        assert all('filepath' not in r for r in result['results'])
 
     def test_all_success_cleans_up_backups(self):
         editor = make_editor()
@@ -178,6 +178,7 @@ class TestBatchUpdateAtomicity:
 
         track2 = next(r for r in result['results'] if r['track_id'] == 2)
         assert 'corrupt header' in track2['error']
+        assert 'filepath' not in track2
 
     def test_no_rollback_when_backup_false(self):
         """backup=False batches are best-effort: no rollback on failure."""
@@ -363,8 +364,14 @@ class TestBatchEndpointAtomicity:
         mock_batch.return_value = {
             'total': 2, 'successful': 2, 'failed': 0,
             'results': [
-                {'track_id': 1, 'success': True, 'updates': {'title': 'T1'}},
-                {'track_id': 2, 'success': True, 'updates': {'title': 'T2'}},
+                {
+                    'track_id': 1, 'filepath': '/srv/private/track1.mp3',
+                    'success': True, 'updates': {'title': 'T1'},
+                },
+                {
+                    'track_id': 2, 'filepath': '/srv/private/track2.mp3',
+                    'success': True, 'updates': {'title': 'T2'},
+                },
             ],
             'rolled_back': False,
         }
@@ -393,8 +400,14 @@ class TestBatchEndpointAtomicity:
         mock_batch.return_value = {
             'total': 2, 'successful': 0, 'failed': 2,
             'results': [
-                {'track_id': 1, 'success': False, 'rolled_back': True},
-                {'track_id': 2, 'success': False, 'error': 'Disk full'},
+                {
+                    'track_id': 1, 'filepath': '/srv/private/track1.mp3',
+                    'success': False, 'rolled_back': True,
+                },
+                {
+                    'track_id': 2, 'filepath': '/srv/private/track2.mp3',
+                    'success': False, 'error': 'Disk full',
+                },
             ],
             'rolled_back': True,
         }
@@ -410,6 +423,7 @@ class TestBatchEndpointAtomicity:
         data = resp.json()
         assert data['success'] is False
         assert data['rolled_back'] is True
+        assert all('filepath' not in result for result in data['results'])
 
     @patch('routers.metadata.require_repository_factory')
     @patch('auralis.library.metadata_editor.MetadataEditor.batch_update')
