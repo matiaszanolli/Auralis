@@ -189,7 +189,7 @@ class ContinuousMasteringBranch(ProcessingBranch):
         # Stereo expansion for narrow mixes (brightness-aware)
         processed, width_info = self.pipeline._apply_stereo_expansion(
             processed, unpacker.stereo_width, effective_intensity, sample_rate, verbose,
-            unpacker.bass_pct, unpacker.spectral_centroid, unpacker.air_pct, unpacker.phase_correlation
+            unpacker.spectral_centroid, unpacker.air_pct, unpacker.phase_correlation
         )
         recorder.add(width_info)
 

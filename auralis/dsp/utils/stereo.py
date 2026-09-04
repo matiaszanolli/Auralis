@@ -114,8 +114,6 @@ def adjust_stereo_width_multiband(
     stereo_audio: np.ndarray,
     width_factor: float,
     sample_rate: int,
-    original_width: float = 0.5,
-    bass_content: float = 0.3
 ) -> np.ndarray:
     """
     Adjust stereo width with frequency-dependent processing.
@@ -146,8 +144,6 @@ def adjust_stereo_width_multiband(
         stereo_audio: Stereo audio signal [samples, 2]
         width_factor: Base width factor (0.5 = no change, 1.0 = max width)
         sample_rate: Audio sample rate
-        original_width: Unused (kept for API compatibility)
-        bass_content: Unused (kept for API compatibility)
 
     Returns:
         Width-adjusted stereo audio with frequency-appropriate widening

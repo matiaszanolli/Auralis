@@ -14,7 +14,6 @@ def apply(
     intensity: float,
     sample_rate: int,
     verbose: bool,
-    bass_pct: float = 0.3,
     spectral_centroid: float = 0.5,
     air_pct: float = 0.1,
     phase_correlation: float = 1.0,
@@ -36,7 +35,6 @@ def apply(
         intensity: Processing intensity 0.0-1.0
         sample_rate: Audio sample rate in Hz
         verbose: Print progress
-        bass_pct: Bass content percentage (for multiband weighting)
         spectral_centroid: Brightness indicator 0-1 (higher = brighter)
         air_pct: High-frequency air content 0-1
         phase_correlation: Stereo phase correlation (-1 to +1)
@@ -99,11 +97,7 @@ def apply(
 
     # adjust_stereo_width_multiband expects [samples, channels]
     audio_t = audio.T
-    expanded = adjust_stereo_width_multiband(
-        audio_t, width_factor, sample_rate,
-        original_width=current_width,
-        bass_content=bass_pct,
-    )
+    expanded = adjust_stereo_width_multiband(audio_t, width_factor, sample_rate)
     processed = expanded.T
 
     if verbose:

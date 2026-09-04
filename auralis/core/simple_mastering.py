@@ -309,12 +309,12 @@ class SimpleMasteringPipeline:
 
     def _apply_stereo_expansion(
         self, audio: np.ndarray, current_width: float, intensity: float,
-        sample_rate: int, verbose: bool, bass_pct: float = 0.3,
+        sample_rate: int, verbose: bool,
         spectral_centroid: float = 0.5, air_pct: float = 0.1,
         phase_correlation: float = 1.0,
     ) -> tuple[np.ndarray, dict | None]:
         return stereo_expansion.apply(audio, current_width, intensity, sample_rate, verbose,
-                                       bass_pct=bass_pct, spectral_centroid=spectral_centroid,
+                                       spectral_centroid=spectral_centroid,
                                        air_pct=air_pct, phase_correlation=phase_correlation)
 
     def _apply_bass_enhancement(
