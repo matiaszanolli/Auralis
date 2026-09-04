@@ -3,8 +3,8 @@ Tests for AudioStreamController Streaming Lifecycle
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 End-to-end tests for stream_enhanced_audio and stream_normal_audio,
-verifying the complete message lifecycle: start → chunks → end,
-and error/disconnect handling with mocked WebSocket.
+verifying the complete message lifecycle: start → chunk metadata/binary frames
+→ end, and error/disconnect handling with mocked WebSocket.
 
 Closes issue #2307.
 
@@ -12,7 +12,6 @@ Closes issue #2307.
 :license: GPLv3, see LICENSE for more details.
 """
 
-import asyncio
 import json
 import sys
 from pathlib import Path
@@ -24,13 +23,15 @@ import pytest
 # Add backend to path (belt-and-suspenders alongside conftest)
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web/backend"))
 
-from core.audio_stream_controller import AudioStreamController, MAX_CONCURRENT_STREAMS
+from core.audio_stream_controller import AudioStreamController
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 TRACK_ID = 42
-FILEPATH = "/tmp/fake_test_track.mp3"
+# These lifecycle tests mock SoundFile reads; a WAV suffix keeps them out of the
+# separate compressed-audio conversion path, which has its own focused tests.
+FILEPATH = "/tmp/fake_test_track.wav"
 SAMPLE_RATE = 44100
 CHANNELS = 2
 CHUNK_DURATION = 15.0
@@ -181,14 +182,15 @@ class TestStreamEnhancedAudioLifecycle:
 
         types = _get_message_types(ws)
         assert "audio_stream_start" in types
-        assert "audio_chunk" in types
+        assert "audio_chunk_meta" in types
+        assert ws.send_bytes.await_count > 0
         assert "audio_stream_end" in types
         assert "audio_stream_error" not in types
 
         # Ordering: start → all chunks → end
         start_idx = types.index("audio_stream_start")
         end_idx = types.index("audio_stream_end")
-        chunk_indices = [i for i, t in enumerate(types) if t == "audio_chunk"]
+        chunk_indices = [i for i, t in enumerate(types) if t == "audio_chunk_meta"]
         assert all(start_idx < i for i in chunk_indices)
         assert start_idx < end_idx
 
@@ -297,7 +299,11 @@ class TestStreamEnhancedAudioLifecycle:
         proc = _make_processor()
         silence = np.zeros((CHUNK_SAMPLES, CHANNELS), dtype=np.float32)
         proc.process_chunk_safe = AsyncMock(
-            side_effect=[("/tmp/c0.wav", silence), RuntimeError("DSP exploded")]
+            side_effect=[
+                ("/tmp/c0.wav", silence),
+                RuntimeError("DSP exploded"),
+                ("/tmp/c2.wav", silence),
+            ]
         )
         ws = _make_ws()
         with patch.object(Path, "exists", return_value=True):
@@ -310,11 +316,13 @@ class TestStreamEnhancedAudioLifecycle:
         types = [m["type"] for m in messages]
         assert "audio_stream_start" in types
         assert "audio_stream_error" in types
-        assert "audio_stream_end" not in types
+        assert "audio_stream_end" in types
         err = next(m for m in messages if m["type"] == "audio_stream_error")
         # Chunk index 1 failed → recovery_position = 1 × CHUNK_DURATION
         assert "recovery_position" in err["data"]
         assert err["data"]["recovery_position"] == pytest.approx(CHUNK_DURATION)
+        end = next(m for m in messages if m["type"] == "audio_stream_end")
+        assert end["data"]["reason"] == "errored"
 
     @pytest.mark.asyncio
     async def test_chunk_failure_cleans_up(self):
@@ -336,9 +344,10 @@ class TestStreamEnhancedAudioLifecycle:
         """When stream limit is reached, audio_stream_error 'busy' is sent immediately."""
         ws = _make_ws()
         ctrl = _make_controller()
-        with patch(
-            "core.audio_stream_controller.asyncio.wait_for",
-            side_effect=asyncio.TimeoutError(),
+        with patch.object(
+            ctrl._stream_semaphore,
+            "acquire",
+            AsyncMock(side_effect=TimeoutError()),
         ):
             await ctrl.stream_enhanced_audio(
                 track_id=TRACK_ID, preset="balanced", intensity=0.7, websocket=ws
@@ -411,7 +420,8 @@ class TestStreamNormalAudioLifecycle:
         types = _get_message_types(ws)
         assert types[0] == "audio_stream_start"
         assert types[-1] == "audio_stream_end"
-        assert "audio_chunk" in types
+        assert "audio_chunk_meta" in types
+        assert ws.send_bytes.await_count > 0
         assert "audio_stream_error" not in types
 
     @pytest.mark.asyncio
@@ -492,7 +502,7 @@ class TestStreamNormalAudioLifecycle:
 
         async def disconnect_after_some_frames(text):
             msg = json.loads(text)
-            if msg["type"] == "audio_chunk":
+            if msg["type"] == "audio_chunk_meta":
                 send_count[0] += 1
                 # Disconnect after first chunk's frames are all delivered
                 if send_count[0] >= 5:
@@ -539,7 +549,14 @@ class TestStreamNormalAudioLifecycle:
         bad_ctx.__exit__.return_value = False
         bad_ctx.read.side_effect = RuntimeError("Disk I/O error")
 
-        sf_class = MagicMock(side_effect=[meta_ctx, good_ctx, bad_ctx])
+        # Chunk failures are recoverable: chunk 2 is still read and the stream
+        # terminates with reason="errored" rather than claiming completion.
+        final_ctx = MagicMock()
+        final_ctx.__enter__.return_value = final_ctx
+        final_ctx.__exit__.return_value = False
+        final_ctx.read.return_value = chunk_audio.copy()
+
+        sf_class = MagicMock(side_effect=[meta_ctx, good_ctx, bad_ctx, final_ctx])
 
         with (
             patch("soundfile.SoundFile", sf_class),
@@ -552,11 +569,13 @@ class TestStreamNormalAudioLifecycle:
         types = [m["type"] for m in messages]
         assert "audio_stream_start" in types
         assert "audio_stream_error" in types
-        assert "audio_stream_end" not in types
+        assert "audio_stream_end" in types
         err = next(m for m in messages if m["type"] == "audio_stream_error")
         # Chunk 1 failed → recovery_position = 1 × chunk_duration = 15.0 s
         assert "recovery_position" in err["data"]
         assert err["data"]["recovery_position"] == pytest.approx(15.0)
+        end = next(m for m in messages if m["type"] == "audio_stream_end")
+        assert end["data"]["reason"] == "errored"
 
 
 # ---------------------------------------------------------------------------

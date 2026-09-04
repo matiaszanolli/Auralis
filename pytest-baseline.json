@@ -1,8 +1,8 @@
 {
-  "_comment": "Known-failing pytest tests (#4562). CI fails on any failure NOT listed here. Regenerate with: python scripts/check_pytest_baseline.py <junit.xml> --update. #5169 removed tests.test_phase5_rust_benchmark::test_phase5_rust_vs_librosa by hand: fixing the Rust yin made it pass, and --strict-stale (#5091) fails the job on a baselined test that passes. Removed rather than regenerated -- a baseline built outside CI reports spurious new failures.",
+  "_comment": "Known-failing pytest tests (#4562). CI fails on any failure NOT listed here. Regenerate with: python scripts/check_pytest_baseline.py <junit.xml> --update. #5169 and #5290 removed newly passing entries by hand: --strict-stale (#5091) fails the job on a baselined test that passes. Removed rather than regenerated -- a baseline built outside CI reports spurious new failures.",
   "generatedFrom": {
     "totalTests": 6889,
-    "failedTests": 216
+    "failedTests": 211
   },
   "failures": [
     "tests.auralis.analysis.fingerprint.test_rust_fingerprint_glue::test_all_values_finite",
@@ -33,11 +33,6 @@
     "tests.backend.test_api_endpoint_integration::test_playlist_add_tracks_api",
     "tests.backend.test_artists_api.TestGetArtistById::test_get_artist_by_id_success",
     "tests.backend.test_artists_api.TestGetArtistTracks::test_get_artist_tracks_success",
-    "tests.backend.test_audio_stream_lifecycle.TestStreamEnhancedAudioLifecycle::test_chunk_failure_sends_error_with_recovery_position",
-    "tests.backend.test_audio_stream_lifecycle.TestStreamEnhancedAudioLifecycle::test_happy_path_message_order",
-    "tests.backend.test_audio_stream_lifecycle.TestStreamNormalAudioLifecycle::test_chunk_read_failure_sends_error_with_recovery_position",
-    "tests.backend.test_audio_stream_lifecycle.TestStreamNormalAudioLifecycle::test_happy_path_message_order",
-    "tests.backend.test_audio_stream_lifecycle.TestStreamNormalAudioLifecycle::test_stream_start_has_preset_none",
     "tests.backend.test_error_responses.TestHandleQueryError::test_detail_contains_error_message",
     "tests.backend.test_error_responses.TestInternalServerError::test_detail_contains_error_message_when_provided",
     "tests.backend.test_library_api_comprehensive.TestRemoveFavorite::test_remove_favorite_idempotent",
