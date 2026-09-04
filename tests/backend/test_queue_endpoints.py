@@ -22,6 +22,8 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from fastapi.testclient import TestClient
 
+from auralis.player.components.queue_manager import QueueManager
+
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
@@ -43,31 +45,27 @@ def client():
 
 
 @pytest.fixture
-def mock_queue_manager():
-    """Create a mock queue manager with test data"""
-    queue_manager = Mock()
-    queue_manager.get_queue_size.return_value = 5
-    queue_manager.get_queue.return_value = [
+def queue_manager():
+    """Create the real queue component consumed by QueueService (#5175)."""
+    manager = QueueManager()
+    manager.tracks = [
         {"id": 1, "title": "Track 1", "filepath": "/path/1.wav"},
         {"id": 2, "title": "Track 2", "filepath": "/path/2.wav"},
         {"id": 3, "title": "Track 3", "filepath": "/path/3.wav"},
         {"id": 4, "title": "Track 4", "filepath": "/path/4.wav"},
         {"id": 5, "title": "Track 5", "filepath": "/path/5.wav"},
     ]
-    queue_manager.remove_track.return_value = True
-    queue_manager.reorder_tracks.return_value = True
-    queue_manager.shuffle.return_value = None
-    queue_manager.clear.return_value = None
-    return queue_manager
+    manager.current_index = 0
+    return manager
 
 
 class TestRemoveFromQueue:
     """Test DELETE /api/player/queue/:index endpoint"""
 
-    def test_remove_track_success(self, client, mock_queue_manager):
+    def test_remove_track_success(self, client, queue_manager):
         """Test removing a track from the queue"""
         mock_player = Mock()
-        mock_player.queue = mock_queue_manager
+        mock_player.queue = queue_manager
         mock_state = Mock()
         mock_ws = Mock()
         mock_ws.broadcast = AsyncMock()
@@ -83,14 +81,13 @@ class TestRemoveFromQueue:
             data = response.json()
             assert data['message'] == "Track removed from queue"
             assert data['index'] == 2
-            assert mock_queue_manager.remove_track.called
-            assert mock_queue_manager.remove_track.call_args[0][0] == 2
+            assert queue_manager.get_queue_size() == 4
+            assert [track["id"] for track in queue_manager.get_queue()] == [1, 2, 4, 5]
 
-    def test_remove_invalid_index(self, client, mock_queue_manager):
+    def test_remove_invalid_index(self, client, queue_manager):
         """Test removing track with invalid index"""
-        mock_queue_manager.get_queue_size.return_value = 5
         mock_player = Mock()
-        mock_player.queue = mock_queue_manager
+        mock_player.queue = queue_manager
         mock_state = Mock()
 
         with patch.dict('main.globals_dict', {
@@ -102,12 +99,12 @@ class TestRemoveFromQueue:
             assert response.status_code == 400
             assert "Invalid index" in response.json()['detail']
 
-    def test_remove_negative_index(self, client, mock_queue_manager):
+    def test_remove_negative_index(self, client, queue_manager):
         """A negative index is rejected at the path-validation boundary
         (Path(..., ge=0), #3893) rather than reaching the handler's own
         out-of-range check — 422, not the handler's 400."""
         mock_player = Mock()
-        mock_player.queue = mock_queue_manager
+        mock_player.queue = queue_manager
         mock_state = Mock()
 
         with patch.dict('main.globals_dict', {
@@ -127,11 +124,10 @@ class TestRemoveFromQueue:
 class TestReorderQueue:
     """Test PUT /api/player/queue/reorder endpoint"""
 
-    def test_reorder_queue_success(self, client, mock_queue_manager):
+    def test_reorder_queue_success(self, client, queue_manager):
         """Test reordering the queue"""
-        mock_queue_manager.get_queue_size.return_value = 5
         mock_player = Mock()
-        mock_player.queue = mock_queue_manager
+        mock_player.queue = queue_manager
         mock_state = Mock()
         mock_ws = Mock()
         mock_ws.broadcast = AsyncMock()
@@ -149,13 +145,12 @@ class TestReorderQueue:
             assert response.status_code == 200
             data = response.json()
             assert data['message'] == "Queue reordered successfully"
-            assert mock_queue_manager.reorder_tracks.called
+            assert [track["id"] for track in queue_manager.get_queue()] == [5, 4, 3, 2, 1]
 
-    def test_reorder_invalid_length(self, client, mock_queue_manager):
+    def test_reorder_invalid_length(self, client, queue_manager):
         """Test reordering with wrong number of indices"""
-        mock_queue_manager.get_queue_size.return_value = 5
         mock_player = Mock()
-        mock_player.queue = mock_queue_manager
+        mock_player.queue = queue_manager
         mock_state = Mock()
 
         with patch.dict('main.globals_dict', {
@@ -168,11 +163,10 @@ class TestReorderQueue:
             assert response.status_code == 400
             assert "must match queue size" in response.json()['detail']
 
-    def test_reorder_duplicate_indices(self, client, mock_queue_manager):
+    def test_reorder_duplicate_indices(self, client, queue_manager):
         """Test reordering with duplicate indices"""
-        mock_queue_manager.get_queue_size.return_value = 5
         mock_player = Mock()
-        mock_player.queue = mock_queue_manager
+        mock_player.queue = queue_manager
         mock_state = Mock()
 
         with patch.dict('main.globals_dict', {
@@ -185,11 +179,10 @@ class TestReorderQueue:
             assert response.status_code == 400
             assert "exactly once" in response.json()['detail']
 
-    def test_reorder_invalid_indices(self, client, mock_queue_manager):
+    def test_reorder_invalid_indices(self, client, queue_manager):
         """Test reordering with out-of-range indices"""
-        mock_queue_manager.get_queue_size.return_value = 5
         mock_player = Mock()
-        mock_player.queue = mock_queue_manager
+        mock_player.queue = queue_manager
         mock_state = Mock()
 
         with patch.dict('main.globals_dict', {
@@ -205,10 +198,10 @@ class TestReorderQueue:
 class TestClearQueue:
     """Test POST /api/player/queue/clear endpoint"""
 
-    def test_clear_queue_success(self, client, mock_queue_manager):
+    def test_clear_queue_success(self, client, queue_manager):
         """Test clearing the queue"""
         mock_player = Mock()
-        mock_player.queue = mock_queue_manager
+        mock_player.queue = queue_manager
         mock_player.stop = Mock()
         mock_state = Mock()
         mock_state.set_playing = AsyncMock()
@@ -226,7 +219,7 @@ class TestClearQueue:
 
             data = response.json()
             assert data['message'] == "Queue cleared successfully"
-            assert mock_queue_manager.clear.called
+            assert queue_manager.get_queue() == []
 
     def test_clear_no_player(self, client):
         """Test clearing when player is not available"""
@@ -238,33 +231,34 @@ class TestClearQueue:
 class TestShuffleQueue:
     """Test POST /api/player/queue/shuffle endpoint"""
 
-    def test_shuffle_queue_success(self, client, mock_queue_manager):
+    def test_shuffle_queue_success(self, client, queue_manager):
         """Test shuffling the queue"""
-        mock_queue_manager.get_queue_size.return_value = 5
-        mock_queue_manager.get_queue.return_value = [1, 2, 3, 4, 5]
         mock_player = Mock()
-        mock_player.queue = mock_queue_manager
+        mock_player.queue = queue_manager
         mock_state = Mock()
         mock_ws = Mock()
         mock_ws.broadcast = AsyncMock()
 
-        with patch.dict('main.globals_dict', {
+        with patch.object(
+            queue_manager, 'shuffle', wraps=queue_manager.shuffle
+        ) as shuffle_spy, patch.dict('main.globals_dict', {
             'audio_player': mock_player,
             'player_state_manager': mock_state
         }), patch('main.manager', mock_ws):
 
-            response = client.post("/api/player/queue/shuffle")
+            response = client.post("/api/player/queue/shuffle", json={"enabled": True})
             assert response.status_code == 200
 
             data = response.json()
             assert data['message'] == "Queue shuffled successfully"
             assert data['queue_size'] == 5
-            assert mock_queue_manager.shuffle.called
+            shuffle_spy.assert_called_once_with()
+            assert sorted(track["id"] for track in queue_manager.get_queue()) == [1, 2, 3, 4, 5]
 
     def test_shuffle_no_player(self, client):
         """Test shuffling when player is not available"""
         with patch.dict('main.globals_dict', {'audio_player': None}):
-            response = client.post("/api/player/queue/shuffle")
+            response = client.post("/api/player/queue/shuffle", json={"enabled": True})
             assert response.status_code == 503
 
 
@@ -285,13 +279,13 @@ class TestQueueIntegration:
         response = client.post("/api/player/queue/clear")
         assert response.status_code != 404
 
-        response = client.post("/api/player/queue/shuffle")
+        response = client.post("/api/player/queue/shuffle", json={"enabled": True})
         assert response.status_code != 404
 
-    def test_queue_workflow_with_mocks(self, client, mock_queue_manager):
+    def test_queue_workflow_with_queue_manager(self, client, queue_manager):
         """Test a complete queue manipulation workflow"""
         mock_player = Mock()
-        mock_player.queue = mock_queue_manager
+        mock_player.queue = queue_manager
         mock_player.stop = Mock()
         mock_state = Mock()
         mock_state.set_playing = AsyncMock()
@@ -305,25 +299,23 @@ class TestQueueIntegration:
         }), patch('main.manager', mock_ws):
 
             # 1. Remove a track
-            mock_queue_manager.get_queue_size.return_value = 5
             response = client.delete("/api/player/queue/1")
             assert response.status_code == 200
 
             # 2. Reorder queue
-            mock_queue_manager.get_queue_size.return_value = 4  # After removal
             response = client.put("/api/player/queue/reorder", json={
                 "new_order": [3, 2, 1, 0]
             })
             assert response.status_code == 200
 
             # 3. Shuffle queue
-            mock_queue_manager.get_queue.return_value = [1, 2, 3, 4]
-            response = client.post("/api/player/queue/shuffle")
+            response = client.post("/api/player/queue/shuffle", json={"enabled": True})
             assert response.status_code == 200
 
             # 4. Clear queue
             response = client.post("/api/player/queue/clear")
             assert response.status_code == 200
+            assert queue_manager.get_queue() == []
 
 
 # ============================================================

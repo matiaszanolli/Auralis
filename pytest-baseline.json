@@ -1,8 +1,8 @@
 {
-  "_comment": "Known-failing pytest tests (#4562). CI fails on any failure NOT listed here. Regenerate with: python scripts/check_pytest_baseline.py <junit.xml> --update. #5169, #5255, #5257, #5284, #5287, #5288, #5289, #5290, #5291, #5292, and #5295 removed obsolete or newly passing entries by hand: --strict-stale (#5091) fails the job on a baselined test that passes. Removed rather than regenerated -- a baseline built outside CI reports spurious new failures.",
+  "_comment": "Known-failing pytest tests (#4562). CI fails on any failure NOT listed here. Regenerate with: python scripts/check_pytest_baseline.py <junit.xml> --update. #5169, #5175, #5255, #5257, #5284, #5287, #5288, #5289, #5290, #5291, #5292, and #5295 removed obsolete or newly passing entries by hand: --strict-stale (#5091) fails the job on a baselined test that passes. Removed rather than regenerated -- a baseline built outside CI reports spurious new failures.",
   "generatedFrom": {
     "totalTests": 6889,
-    "failedTests": 163
+    "failedTests": 157
   },
   "failures": [
     "tests.auralis.analysis.fingerprint.test_rust_fingerprint_glue::test_all_values_finite",
@@ -44,12 +44,6 @@
     "tests.backend.test_preprocess_upcoming_chunks_5052.TestPrewarmProcessorIsAlwaysClosed::test_processor_closed_even_when_a_chunk_raises_mid_loop",
     "tests.backend.test_processing_parameters.TestProcessingParametersDocumentation::test_parameters_endpoint_has_description",
     "tests.backend.test_processing_parameters.TestProcessingParametersDocumentation::test_parameters_endpoint_in_openapi_schema",
-    "tests.backend.test_queue_endpoints.TestClearQueue::test_clear_queue_success",
-    "tests.backend.test_queue_endpoints.TestQueueIntegration::test_queue_workflow_with_mocks",
-    "tests.backend.test_queue_endpoints.TestRemoveFromQueue::test_remove_track_success",
-    "tests.backend.test_queue_endpoints.TestReorderQueue::test_reorder_queue_success",
-    "tests.backend.test_queue_endpoints.TestShuffleQueue::test_shuffle_no_player",
-    "tests.backend.test_queue_endpoints.TestShuffleQueue::test_shuffle_queue_success",
     "tests.backend.test_streaming_path_validation::test_stream_normal_accepts_valid_in_library_path",
     "tests.backend.test_track_artwork_field_naming.TestAPIContractCompliance::test_track_dict_matches_TrackApiResponse_contract",
     "tests.boundaries.test_audio_processing_boundaries::test_sample_count_invariant",
