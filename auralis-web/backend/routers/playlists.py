@@ -20,6 +20,7 @@ Endpoints:
 
 import asyncio
 from collections.abc import Callable
+from contextvars import ContextVar
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
@@ -128,15 +129,10 @@ class AddTracksResponse(BaseModel):
 # module level; they reach the same callables through FastAPI Depends()
 # instead.
 #
-# _PlaylistsDeps holds the raw callables/objects the factory receives. It is
-# populated exactly once, by create_playlists_router() itself -- same as the
-# old closure, which only ever ran once per process (config/routes.py calls
-# the factory a single time at startup; the test `client` fixture imports
-# the already-built `main.app` once per process too). This is a deliberate
-# simplification, not a new hazard: nothing in this codebase calls
-# create_playlists_router() more than once in the same process. It does NOT
-# reproduce the #4361 module-level-`APIRouter()` hazard, since the router
-# instance itself is now built fresh, per call, inside the factory below.
+# Factory calls can coexist in one process (the live app plus throwaway test
+# apps), so each router publishes its own deps through a request ContextVar.
+# The module-level holder is only the fallback for direct handler calls where
+# no router-level dependency ran (#5262).
 #
 # A handler's Depends() default is only consulted when FastAPI itself
 # invokes it for a real request; a direct unit-test call passes the
@@ -145,15 +141,36 @@ class AddTracksResponse(BaseModel):
 # ============================================================================
 
 class _PlaylistsDeps:
-    get_repository_factory: Callable[[], Any]
-    connection_manager: Any
+    def __init__(
+        self,
+        get_repository_factory: Callable[[], Any] = lambda: None,
+        connection_manager: Any = None,
+    ) -> None:
+        self.get_repository_factory = get_repository_factory
+        self.connection_manager = connection_manager
 
 
 _deps = _PlaylistsDeps()
+_active_deps: ContextVar[_PlaylistsDeps | None] = ContextVar(
+    "_playlists_active_deps", default=None
+)
+
+
+def _current_deps() -> _PlaylistsDeps:
+    return _active_deps.get() or _deps
+
+
+def _make_deps_binder(deps: _PlaylistsDeps) -> Callable[[], Any]:
+    """Publish one router instance's dependencies for its request."""
+
+    async def _bind_deps() -> None:
+        _active_deps.set(deps)
+
+    return _bind_deps
 
 
 def _get_connection_manager() -> Any:
-    return _deps.connection_manager
+    return _current_deps().connection_manager
 
 
 def _get_repos() -> Any:
@@ -164,7 +181,7 @@ def _get_repos() -> Any:
     its 503-on-unavailable guard applied) once per request, not once at
     router-construction time.
     """
-    return require_repository_factory(_deps.get_repository_factory)
+    return require_repository_factory(_current_deps().get_repository_factory)
 
 
 @with_error_handling("get playlists")
@@ -612,10 +629,15 @@ def create_playlists_router(
     Note:
         Phase 6B: Fully migrated to RepositoryFactory pattern (no LibraryManager fallback)
     """
-    _deps.get_repository_factory = get_repository_factory
-    _deps.connection_manager = connection_manager
+    global _deps
 
-    router = APIRouter(tags=["playlists"])
+    deps = _PlaylistsDeps(get_repository_factory, connection_manager)
+    _deps = deps
+
+    router = APIRouter(
+        tags=["playlists"],
+        dependencies=[Depends(_make_deps_binder(deps))],
+    )
 
     router.add_api_route("/api/playlists", get_playlists, methods=["GET"], response_model=PlaylistListResponse)
     router.add_api_route("/api/playlists/{playlist_id}", get_playlist, methods=["GET"], response_model=PlaylistDetailResponse)

@@ -17,6 +17,7 @@ Endpoints:
 import asyncio
 import logging
 from collections.abc import Callable
+from contextvars import ContextVar
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Path
@@ -198,15 +199,10 @@ def _tag_dict_to_db_columns(tag_updates: dict[str, Any]) -> dict[str, Any]:
 # router. Handlers are now module level; they reach the same callables
 # through FastAPI Depends() instead.
 #
-# _MetadataDeps holds the raw callables/objects the factory receives. It is
-# populated exactly once, by create_metadata_router() itself -- same as the
-# old closure, which only ever ran once per process (config/routes.py calls
-# the factory a single time at startup; the test `client` fixture imports
-# the already-built `main.app` once per process too). This is a deliberate
-# simplification, not a new hazard: nothing in this codebase calls
-# create_metadata_router() more than once in the same process. It does NOT
-# reproduce the #4361 module-level-`APIRouter()` hazard, since the router
-# instance itself is still built fresh, per call, inside the factory below.
+# Factory calls can coexist in one process (the live app plus throwaway test
+# apps), so each router publishes its own deps through a request ContextVar.
+# The module-level holder is only the fallback for direct handler calls where
+# no router-level dependency ran (#5262).
 #
 # A handler's Depends() default is only consulted when FastAPI itself
 # invokes it for a real request; a direct unit-test call passes the
@@ -222,24 +218,49 @@ def _tag_dict_to_db_columns(tag_updates: dict[str, Any]) -> dict[str, Any]:
 # ============================================================================
 
 class _MetadataDeps:
-    get_repository_factory: Callable[[], Any]
-    broadcast_manager: Any
-    metadata_editor: MetadataEditor
+    def __init__(
+        self,
+        get_repository_factory: Callable[[], Any] = lambda: None,
+        broadcast_manager: Any = None,
+        metadata_editor: MetadataEditor | None = None,
+    ) -> None:
+        self.get_repository_factory = get_repository_factory
+        self.broadcast_manager = broadcast_manager
+        self.metadata_editor = metadata_editor
 
 
 _deps = _MetadataDeps()
+_active_deps: ContextVar[_MetadataDeps | None] = ContextVar(
+    "_metadata_active_deps", default=None
+)
+
+
+def _current_deps() -> _MetadataDeps:
+    return _active_deps.get() or _deps
+
+
+def _make_deps_binder(deps: _MetadataDeps) -> Callable[[], Any]:
+    """Publish one router instance's dependencies for its request."""
+
+    async def _bind_deps() -> None:
+        _active_deps.set(deps)
+
+    return _bind_deps
 
 
 def _get_repository_factory() -> Callable[[], Any]:
-    return _deps.get_repository_factory
+    return _current_deps().get_repository_factory
 
 
 def _get_broadcast_manager() -> Any:
-    return _deps.broadcast_manager
+    return _current_deps().broadcast_manager
 
 
 def _get_metadata_editor() -> MetadataEditor:
-    return _deps.metadata_editor
+    metadata_editor = _current_deps().metadata_editor
+    if metadata_editor is None:
+        raise HTTPException(status_code=503, detail="Metadata editor not available")
+    return metadata_editor
 
 
 @with_error_handling("get editable fields")
@@ -589,12 +610,16 @@ def create_metadata_router(
     if metadata_editor is None:
         metadata_editor = MetadataEditor()
 
-    _deps.get_repository_factory = get_repository_factory
-    _deps.broadcast_manager = broadcast_manager
-    _deps.metadata_editor = metadata_editor
+    global _deps
+
+    deps = _MetadataDeps(get_repository_factory, broadcast_manager, metadata_editor)
+    _deps = deps
 
     # Create a fresh router instance (important for testing - avoids route pollution)
-    router = APIRouter(tags=["metadata"])
+    router = APIRouter(
+        tags=["metadata"],
+        dependencies=[Depends(_make_deps_binder(deps))],
+    )
 
     router.add_api_route("/api/metadata/tracks/{track_id}/fields", get_editable_fields, methods=["GET"], response_model=EditableFieldsResponse)
     router.add_api_route("/api/metadata/tracks/{track_id}", get_track_metadata, methods=["GET"], response_model=TrackMetadataResponse)

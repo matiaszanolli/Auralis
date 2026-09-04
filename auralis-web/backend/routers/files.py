@@ -20,6 +20,7 @@ import asyncio
 import logging
 import shutil
 import tempfile
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Any, Literal
 from collections.abc import Callable
@@ -129,17 +130,10 @@ class SupportedFormatsResponse(BaseModel):
 # router. Handlers are now module level; they reach the same callables through
 # FastAPI Depends() instead.
 #
-# _FilesDeps holds the raw callables/objects the factory receives. It is
-# populated exactly once, by create_files_router() itself -- same as the old
-# closure, which only ever ran once per process (config/routes.py calls the
-# factory a single time at startup; the test `client` fixture imports the
-# already-built `main.app` once per process too). This is a deliberate
-# simplification, not a new hazard: nothing in this codebase calls
-# create_files_router() more than once in the same process, save
-# tests/backend/test_upload_file_count_cap.py, which builds its own throwaway
-# app and exercises it immediately. It does NOT reproduce the #4361
-# module-level-`APIRouter()` hazard, since the router instance itself is now
-# built fresh, per call, inside the factory below.
+# Factory calls can coexist in one process (the live app plus throwaway test
+# apps), so each router publishes its own deps through a request ContextVar.
+# The module-level holder is only the fallback for direct handler calls where
+# no router-level dependency ran (#5262).
 #
 # A handler's Depends() default is only consulted when FastAPI itself invokes
 # it for a real request; a direct unit-test call passes the dependency
@@ -148,16 +142,37 @@ class SupportedFormatsResponse(BaseModel):
 # ============================================================================
 
 class _FilesDeps:
-    get_repository_factory: Callable[[], Any] | None = None
+    def __init__(
+        self,
+        get_repository_factory: Callable[[], Any] | None = None,
+    ) -> None:
+        self.get_repository_factory = get_repository_factory
 
 
 _deps = _FilesDeps()
+_active_deps: ContextVar[_FilesDeps | None] = ContextVar(
+    "_files_active_deps", default=None
+)
+
+
+def _current_deps() -> _FilesDeps:
+    return _active_deps.get() or _deps
+
+
+def _make_deps_binder(deps: _FilesDeps) -> Callable[[], Any]:
+    """Publish one router instance's dependencies for its request."""
+
+    async def _bind_deps() -> None:
+        _active_deps.set(deps)
+
+    return _bind_deps
 
 
 def _get_repos() -> Any:
     """Get repository factory for accessing repositories."""
-    if _deps.get_repository_factory:
-        return require_repository_factory(_deps.get_repository_factory)
+    get_repository_factory = _current_deps().get_repository_factory
+    if get_repository_factory:
+        return require_repository_factory(get_repository_factory)
     raise HTTPException(status_code=503, detail="Repository factory not available")
 
 
@@ -375,9 +390,15 @@ def create_files_router(
     Note:
         Directory scanning is handled by routers/library.py (fixes #2123).
     """
-    _deps.get_repository_factory = get_repository_factory
+    global _deps
 
-    router = APIRouter(tags=["files"])
+    deps = _FilesDeps(get_repository_factory)
+    _deps = deps
+
+    router = APIRouter(
+        tags=["files"],
+        dependencies=[Depends(_make_deps_binder(deps))],
+    )
 
     router.add_api_route("/api/files/upload", upload_files, methods=["POST"], response_model=UploadResultResponse)
     router.add_api_route("/api/audio/formats", get_supported_formats, methods=["GET"], response_model=SupportedFormatsResponse)

@@ -21,6 +21,7 @@ import tempfile
 import threading
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
@@ -279,15 +280,10 @@ def _get_or_create_thumbnail(
 # without first building the whole router. Handlers are now module level; they
 # reach the same callables through FastAPI Depends() instead.
 #
-# _ArtworkDeps holds the raw callables/objects the factory receives. It is
-# populated exactly once, by create_artwork_router() itself -- same as the
-# old closure, which only ever ran once per process (config/routes.py calls
-# the factory a single time at startup; the test `client` fixture imports
-# the already-built `main.app` once per process too). This is a deliberate
-# simplification, not a new hazard: nothing in this codebase calls
-# create_artwork_router() more than once in the same process. It does NOT
-# reproduce the #4361 module-level-`APIRouter()` hazard, since the router
-# instance itself is still built fresh, per call, inside the factory below.
+# Factory calls can coexist in one process (the live app plus throwaway test
+# apps), so each router publishes its own deps through a request ContextVar.
+# The module-level holder is only the fallback for direct handler calls where
+# no router-level dependency ran (#5262).
 #
 # A handler's Depends() default is only consulted when FastAPI itself
 # invokes it for a real request; a direct unit-test call passes the
@@ -296,15 +292,36 @@ def _get_or_create_thumbnail(
 # ============================================================================
 
 class _ArtworkDeps:
-    connection_manager: Any
-    get_repository_factory: Callable[[], Any]
+    def __init__(
+        self,
+        connection_manager: Any = None,
+        get_repository_factory: Callable[[], Any] = lambda: None,
+    ) -> None:
+        self.connection_manager = connection_manager
+        self.get_repository_factory = get_repository_factory
 
 
 _deps = _ArtworkDeps()
+_active_deps: ContextVar[_ArtworkDeps | None] = ContextVar(
+    "_artwork_active_deps", default=None
+)
+
+
+def _current_deps() -> _ArtworkDeps:
+    return _active_deps.get() or _deps
+
+
+def _make_deps_binder(deps: _ArtworkDeps) -> Callable[[], Any]:
+    """Publish one router instance's dependencies for its request."""
+
+    async def _bind_deps() -> None:
+        _active_deps.set(deps)
+
+    return _bind_deps
 
 
 def _get_connection_manager() -> Any:
-    return _deps.connection_manager
+    return _current_deps().connection_manager
 
 
 async def _broadcast_artwork_updated(
@@ -327,7 +344,7 @@ async def _broadcast_artwork_updated(
 
 def _get_repos() -> Any:
     """Get repository factory for accessing repositories."""
-    return require_repository_factory(_deps.get_repository_factory)
+    return require_repository_factory(_current_deps().get_repository_factory)
 
 
 @with_error_handling("get artwork")
@@ -649,10 +666,15 @@ def create_artwork_router(
     Note:
         Phase 6B: Fully migrated to RepositoryFactory pattern (no LibraryManager fallback)
     """
-    _deps.connection_manager = connection_manager
-    _deps.get_repository_factory = get_repository_factory
+    global _deps
 
-    router = APIRouter(tags=["artwork"])
+    deps = _ArtworkDeps(connection_manager, get_repository_factory)
+    _deps = deps
+
+    router = APIRouter(
+        tags=["artwork"],
+        dependencies=[Depends(_make_deps_binder(deps))],
+    )
 
     # GET stays first: it is the only route on the bare `/artwork` path, and the
     # `/artwork/extract` + `/artwork/download` literals below must keep their
