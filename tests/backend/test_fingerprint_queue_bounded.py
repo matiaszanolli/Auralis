@@ -23,6 +23,8 @@ unconditionally claiming success.
 """
 
 import sys
+import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -31,6 +33,16 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
 from analysis.fingerprint_queue import FingerprintQueue
+
+
+class _SlowContainsSet(set[int]):
+    """Widen the check/mutate race without coupling the test to scheduling."""
+
+    def __contains__(self, item: object) -> bool:
+        present = super().__contains__(item)
+        if not present:
+            time.sleep(0.01)
+        return present
 
 
 def _make_queue() -> FingerprintQueue:
@@ -50,6 +62,19 @@ def test_enqueue_deduplicates_already_queued_track():
     assert queue.enqueue(1) is True
     assert queue.enqueue(1) is False, "same track must not be queued twice"
     assert queue.get_stats()["queued"] == 1
+
+
+def test_enqueue_deduplicates_concurrent_thread_calls():
+    """Threaded route calls must not pass the same check simultaneously (#5261)."""
+    queue = _make_queue()
+    queue._state.queued_set = _SlowContainsSet()
+
+    with ThreadPoolExecutor(max_workers=16) as executor:
+        accepted = list(executor.map(queue.enqueue, [42] * 16))
+
+    assert sum(accepted) == 1
+    assert list(queue._state.queue) == [42]
+    assert queue._state.queued_set == {42}
 
 
 def test_enqueue_rejects_track_currently_processing():
