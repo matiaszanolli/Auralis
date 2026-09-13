@@ -40,6 +40,8 @@
 #   - Trailing `:NN` or `:NN-NN` line ranges are stripped before existence
 #     check (line numbers may drift; the file must still exist).
 #   - Markdown `[text](target)` link targets in the strict doc set.
+#   - Backticked directory refs (tokens ending in `/`) inside .claude/** —
+#     see scan_dir_refs below.
 #
 # Path-reference convention: a path that no longer exists must not be
 # backticked. Deleted modules are named in *italics* instead (see
@@ -247,6 +249,44 @@ scan_refs() {
 
 scan_refs "$strict_hits" "${strict_files[@]}"
 scan_refs "$ratchet_hits" "${ratchet_files[@]}"
+
+# --- Directory refs (.claude/** only) --------------------------------------
+#
+# The extension-based scan above cannot see a backticked directory such as
+# `auralis/library/caching/`, so deleted packages survived in the specialist
+# agents while this gate reported clean. Scoped to .claude/** for now: the
+# authoritative docs also use this token shape for non-paths (git branch
+# prefixes like `fix/`) and carry a few genuine stale directory refs that need
+# their own cleanup before they can be held to it.
+dir_exists() {
+    local p="${1%/}"
+    [[ -d "$p" ]] && return 0
+    # Suffix match against tracked paths, so shorthand like `slices/` resolves.
+    grep -qE "(^|/)${p//./\\.}/" "$all_paths_file"
+}
+
+scan_dir_refs() {
+    local out="$1"; shift
+    local f line_num token p
+    for f in "$@"; do
+        [[ -f "$f" && "$f" == .claude/* ]] || continue
+        while IFS=: read -r line_num token; do
+            token="${token#\`}"
+            token="${token%\`}"
+            while read -r p; do
+                should_skip "$p" && continue
+                checked_count=$((checked_count + 1))
+                if ! dir_exists "$p"; then
+                    printf '%s\t%s\n' "$f" "$p" >> "$out"
+                elif [[ "$VERBOSE" == "1" ]]; then
+                    echo "ok: $f:$line_num — $p"
+                fi
+            done < <(expand_braces "$token")
+        done < <(grep -noE '`[A-Za-z0-9_./{},-]+/`' "$f" || true)
+    done
+}
+
+scan_dir_refs "$strict_hits" "${strict_files[@]}"
 
 # --- Markdown link targets (#4258) -----------------------------------------
 #

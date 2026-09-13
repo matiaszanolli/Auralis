@@ -37,11 +37,11 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 | Play endpoint | Backend | `auralis-web/backend/routers/player.py` |
 | Audio loading | Engine | `auralis/io/unified_loader.py` |
 | Processing | Engine | `auralis/core/hybrid_processor.py` → `simple_mastering.py` |
-| Chunking | Backend | `chunked_processor.py` (15s chunks, 10s interval, 5s overlap crossfade) |
+| Chunking | Backend | `chunked_processor.py` (15s render windows with context, emitted as 10s non-overlapping segments — no crossfade, #4642) |
 | WebSocket stream | Backend | `audio_stream_controller.py` |
 | Audio playback | Frontend | WebSocket hook → Web Audio API |
 
-**Check**: Sample rate consistency from file to playback. Chunk boundaries — do crossfades preserve continuity? WebSocket binary frame format — does the frontend decode it correctly? What happens when processing is slower than playback?
+**Check**: Sample rate consistency from file to playback. Chunk boundaries — do the emitted segments tile exactly, with no gap, overlap or repeated samples at the seams, both in the backend stream and in the frontend PCM buffer? WebSocket binary frame format — does the frontend decode it correctly? What happens when processing is slower than playback?
 
 ### Flow 2: Library Browsing
 
@@ -61,13 +61,14 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 |------|-------|------|
 | User adjusts settings | Frontend | `useEnhancementControl()` local state — the live source of truth (`playerSlice.preset`/`intensity` are dead) |
 | Settings API call | Frontend | `src/services/` |
+| Preset contract | Backend ↔ Frontend | `auralis-web/backend/schemas.py` `VALID_PRESETS` ↔ `auralis-web/frontend/src/types/domain.ts` `EnhancementPreset` — `'adaptive'` only since 2026-09-13 |
 | Enhancement endpoint | Backend | `auralis-web/backend/routers/enhancement.py` |
 | Runtime settings | Backend | shared `enhancement_settings` dict (mutated in place, seeded at startup from UserSettings) |
 | Processing config | Engine | `auralis/core/config/unified_config.py` (UnifiedConfig) — the only config layer since #4918 |
 | DSP pipeline | Engine | `auralis/core/hybrid_processor.py` → DSP modules |
 | Real-time application | Engine | `auralis/player/realtime/` |
 
-**Check**: Config format — do frontend slider values map correctly to engine parameters? Does the transport actually pass the *current* preset/intensity through to playback, or re-read stale Redux state? Range validation — can the frontend send out-of-range values? Real-time vs offline — is the same config used for both paths? Do the enhancement settings participate in the chunk cache key, or can a settings change serve cached audio mastered with the *previous* settings? Latency — does enhancement cause audible gaps?
+**Check**: Config format — do frontend slider values map correctly to engine parameters? Does the transport actually pass the *current* preset/intensity through to playback, or re-read stale Redux state? Range validation — can the frontend send out-of-range values? Preset validation — a legacy stored `default_preset` (e.g. `'warm'`) must degrade to null/`'adaptive'` on both sides rather than be echoed to the UI or passed to the engine. Real-time vs offline — is the same config used for both paths? Do the enhancement settings participate in the chunk cache key, or can a settings change serve cached audio mastered with the *previous* settings? Latency — does enhancement cause audible gaps?
 
 ### Flow 4: Library Scanning
 
@@ -88,10 +89,10 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 
 | Step | Layer | File |
 |------|-------|------|
-| Connection init | Frontend | `src/hooks/websocket/`, `src/contexts/WebSocketContext.tsx` |
+| Connection init | Frontend | `src/hooks/websocket/`, `src/contexts/WebSocketContext.tsx`, `src/contexts/PlaybackSessionContext.tsx` (shared streaming session) |
 | WS accept + checks | Backend | `auralis-web/backend/ws_handlers/connection.py`, `auralis-web/backend/websocket/websocket_security.py` |
 | Message routing | Backend | `auralis-web/backend/ws_handlers/messages.py`, `playback_commands.py`, `playback_control.py` |
-| Protocol contract | Backend | `auralis-web/backend/websocket/websocket_protocol.py`, `auralis-web/backend/core/stream_protocol.py`, `auralis-web/backend/core/stream_messages.py` |
+| Protocol contract | Backend | `auralis-web/backend/websocket/websocket_protocol.py`, `auralis-web/backend/websocket/outbound_messages.py`, `auralis-web/backend/core/stream_protocol.py`, `auralis-web/backend/core/stream_messages.py` |
 | Binary audio frames | Backend | `auralis-web/backend/core/encoding/wav_encoder.py`, `auralis-web/backend/core/audio_stream_controller.py` |
 | Frame decode | Frontend | WebSocket hook → Web Audio API |
 
@@ -132,7 +133,7 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 | Chunk index math | Backend | `auralis-web/backend/core/chunk_boundaries.py` (`content_chunk_count()`, overlap-aware) |
 | Source seek | Backend | `auralis-web/backend/core/seekable_source.py` (converts non-seekable sources once, #4737) |
 | Cache lookup | Backend | `auralis-web/backend/core/chunk_cache.py` + `file_signature.py` |
-| Prefetch / buffer reset | Backend | `auralis-web/backend/core/stream_prefetch.py`, `auralis-web/backend/core/proactive_buffer.py` |
+| Look-ahead / buffer reset | Backend | `auralis-web/backend/core/stream_enhanced_chunks.py` (look-ahead task), `auralis-web/backend/core/proactive_buffer.py` |
 | Level continuity | Backend | `auralis-web/backend/core/level_manager.py` |
 | Resume playback | Frontend | WebSocket hook → Web Audio API |
 

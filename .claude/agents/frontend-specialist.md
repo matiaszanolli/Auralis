@@ -13,7 +13,7 @@ You are the **Frontend Specialist** for Auralis — a React 18 + TypeScript + Vi
 **App shell** (`auralis-web/frontend/src/`):
 - `App.tsx`, `ComfortableApp.tsx` — root components
 - `index.tsx` — bootstrap (there is no *main.tsx*; that duplicate entry point was removed)
-- `contexts/` — `ThemeContext.tsx` and `WebSocketContext.tsx`. **There is no EnhancementContext** — enhancement state lives in the `useEnhancementControl()` hook. Only `WebSocketContext` is globally auto-mocked in tests (see Critical Invariants).
+- `contexts/` — `ThemeContext.tsx`, `WebSocketContext.tsx`, and `PlaybackSessionContext.tsx` (+ `playbackSessionContexts.ts`, the single shared enhanced-audio streaming session). **There is no EnhancementContext** — enhancement state lives in the `useEnhancementControl()` hook. Only `WebSocketContext` is globally auto-mocked in tests (see Critical Invariants).
 
 **Components** (`auralis-web/frontend/src/components/`):
 - Domain-grouped UI (player, library, enhancement, playlist, etc.)
@@ -27,7 +27,7 @@ You are the **Frontend Specialist** for Auralis — a React 18 + TypeScript + Vi
 - `app/`, `audio/`, `fingerprint/`, `shared/` — assorted
 
 **State** (`auralis-web/frontend/src/store/`):
-- `slices/playerSlice.ts` — playback state. Note: its `preset` / `intensity` fields are **dead** — the live enhancement source is `useEnhancementControl()` local state. Don't read enhancement values from Redux.
+- `slices/playerSlice.ts` — playback state. Note: its `preset` / `intensity` fields are **dead** — the live enhancement source is `useEnhancementControl()` local state. Don't read enhancement values from Redux. The preset union is `'adaptive'` only since 2026-09-13 (`EnhancementPreset` in `types/domain.ts`); the local copies in `types/ws/enhancement.ts`, `playerSlice.ts` and `hooks/player/usePlayerStateSync.ts` must agree.
 - `slices/queueSlice.ts` — queue management
 - `slices/cacheSlice.ts` — client-side cache
 - `slices/connectionSlice.ts` — WebSocket connection state
@@ -35,17 +35,17 @@ You are the **Frontend Specialist** for Auralis — a React 18 + TypeScript + Vi
 
 **Design system** (`auralis-web/frontend/src/design-system/`):
 - `tokens.ts` — **the single source of truth for colors, spacing, typography**. NEVER hardcode hex values; always `import { tokens } from '@/design-system'`.
-- `primitives/`, `animations/`, `index.ts`
+- `primitives/`, `tokens/`, `index.ts` (the *animations/* module was deleted)
 
 **Services** (`auralis-web/frontend/src/services/`):
-- REST API clients matching backend schemas, plus `api/`, `audio/`, `fingerprint/` subdirs
+- REST API clients matching backend schemas, plus `api/` and `audio/` subdirs (the *fingerprint/* subdir went with `FingerprintCache` in #5215)
 - `auralis-web/frontend/src/api/transformers/` — payload mapping between wire and domain shapes
 - `auralis-web/frontend/src/types/` — `api.ts`, `domain.ts`, `websocket.ts`, `ws/`
 
 **Test utilities** (`auralis-web/frontend/src/test/`):
 - `auralis-web/frontend/src/test/setup.ts` auto-mocks `contexts/WebSocketContext` globally (see Critical Invariants); `test-utils.tsx` provides `render`; `mocks/` holds shared fixtures.
 - Specs live in `src/__tests__/`, `src/tests/`, and co-located `*.test.tsx`.
-- The suite has a **known baseline of pre-existing failures**. Compare against a clean worktree (`git worktree add`) before calling something a regression — never `git stash` in this repo. Run with `pnpm run test:memory` (2 GB heap).
+- The suite has a **known baseline of pre-existing failures**, listed in `auralis-web/frontend/test-baseline.json` and enforced by CI — read it before calling a failure a regression. A worktree comparison (`git worktree add`, never `git stash`) is the fallback for attributing a failure to a commit. Run with `pnpm run test:memory` (2 GB heap).
 
 ## Critical Invariants
 

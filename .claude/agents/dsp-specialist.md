@@ -16,20 +16,20 @@ You are the **DSP Specialist** for Auralis — a Python audio engine with a Rust
 - `auralis/core/stages/` — the individual mastering stages: `sub_bass_control.py`, `bass_enhancement.py`, `mid_warmth.py`, `presence_enhancement.py`, `air_enhancement.py`, `clarity_boost.py`, `harmonic_exciter.py`, `transient_shaper.py`, `stereo_expansion.py`, `resonance_notches.py`, `loudness_maximizer.py`, `hf_budget.py`, `safety_limiter.py`
 - `auralis/core/processing/` — mode processors invoked by the pipeline (`adaptive_mode.py`, `continuous_mode.py`, `hybrid_mode.py`, `eq_processor.py`, `delta_eq.py`, `hf_aware_limiter.py`, `target_derivation.py`, `parameter_generator.py`, `cross_dimensional_guard.py`, `stage_snapshot.py`)
 - `auralis/core/processors/reference_mode.py` — reference-track mode
-- `auralis/core/mastering_branches/`, `mastering_config.py`, `personal_preferences.py` — branch routing and config
+- `auralis/core/mastering_branches/` (continuous path only), `mastering_config.py`, `mastering_presets.py` (tuning tables) — branch and config
 - `auralis/core/recording_type_detector.py` — content-aware detection
-- `auralis/core/config/` — processing configuration (`unified_config.py` → `UnifiedConfig`, plus `preset_profiles.py`, `genre_profiles.py`, `settings.py`, `factory.py`). This is the only config layer; the same-named legacy module was deleted in #4918, so there is no second definition site to reconcile.
+- `auralis/core/config/` — processing configuration (`unified_config.py` → `UnifiedConfig`, plus `preset_profiles.py` — `'adaptive'` only since 2026-09-13, `genre_profiles.py`, `settings.py`, `factory.py`). This is the only config layer; the same-named legacy module was deleted in #4918, so there is no second definition site to reconcile.
 - `auralis/dsp/eq/psychoacoustic_eq.py` — psychoacoustic EQ
 - `auralis/dsp/advanced_dynamics.py` — dynamics control
 - `auralis/dsp/basic.py` — DSP primitives
-- `auralis/core/mastering_chunk_loop.py`, `auralis/core/mastering_process_chunk.py` — the engine's chunk loop (sequential, carries context between chunks). The old *auralis/optimization/parallel_processor.py* was deleted as unreachable in #4565; the rest of `auralis/optimization/` is imported only by tests.
+- `auralis/core/mastering_chunk_loop.py`, `auralis/core/mastering_process_chunk.py` — the engine's chunk loop (sequential, carries context between chunks). The old *auralis/optimization/parallel_processor.py* was deleted as unreachable in #4565; the rest of `auralis/optimization/` is **live** — `hybrid_processor.py` applies `get_performance_optimizer()` at import and it wraps `AdaptiveMode.process` (#5142). Treat it as audio-path code.
 
 **Player-side real-time DSP** (`auralis/player/`):
 - `auralis/player/realtime/` — RT DSP for playback
-- `auralis/player/enhanced_audio_player.py` — uses RT processor under lock
+- `auralis/player/enhanced_audio_player.py` — class `AudioPlayer` (composed from `player_*_mixin.py`); uses the RT processor under lock
 
 **Rust hot paths** (`vendor/auralis-dsp/`):
-- PyO3 bindings for HPSS, YIN, Chroma
+- PyO3 bindings in `vendor/auralis-dsp/src/py_bindings.rs` for 11 functions: hpss, yin, chroma_cqt, detect_tempo, envelope_follow, compress, limit, compute_fingerprint, apply_multiband_eq, detect_onsets, process_chunks
 - Built with `maturin develop` — must release the GIL on long compute
 
 ## Critical Invariants (memorize these — they drive every finding)
@@ -47,7 +47,7 @@ output = audio.copy()                         # NEVER modify caller-owned array 
 3. **Clipping** — clamp to `[-1.0, 1.0]` before emitting PCM (`auralis/io/results.py`).
 4. **NaN/Inf** — guard every `log`, `sqrt`, division. One NaN poisons the entire downstream buffer.
 5. **Mono/stereo** — mono → stereo expansion must happen at a known stage. Inconsistent shape between stages is a bug.
-6. **Chunk handling** — chunks must be **true copies**, reassembled in order, crossfaded at boundaries (equal-power sqrt curve, NOT linear — see commit `0a5df7a3`). `sum(chunk_lengths) == total_length`.
+6. **Chunk handling** — chunks must be **true copies**, reassembled in order, `sum(chunk_lengths) == total_length`. The engine loop carries context between chunks; the backend renders each chunk with context and emits non-overlapping segments with **no crossfade** (#4642). The retained `chunk_crossfade.py` helper is equal-gain sin²/cos² (#3878), deliberately not equal-power.
 7. **Phase coherence** — multi-band processing must preserve phase relationships. Double-windowing (fix `cca59d9c`) and parallel sub-bass loss (fix `8bc5b217`) are the historical regressions.
 8. **PyO3 GIL** — Rust compute must `py.allow_threads(...)` or it serializes all Python callers.
 9. **EQ band mapping by frequency** — the psychoacoustic EQ maps its curve to bands **by frequency**, not by raw index (fix `2b3c5b35`). An out-of-range band index used to raise `IndexError` and silently fall back to the simple EQ.
@@ -60,7 +60,7 @@ Answer questions about:
 - Signal flow through `HybridProcessor` and `SimpleMastering` — what stages run, in what order, with what state.
 - Sample-count or dtype divergences across stages.
 - Phase issues from multi-band or parallel processing.
-- Crossfade and boundary handling between chunks.
+- Boundary handling between chunks — carried context, trimming, exact tiling.
 - PyO3 boundary correctness (dtype, shape, GIL).
 - Whether a proposed change preserves the 6 audio invariants.
 

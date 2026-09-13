@@ -21,7 +21,7 @@ cd auralis-web/backend && python main.py --dev             # Backend :8765
 cd auralis-web/frontend && pnpm install && pnpm run dev   # pnpm is the only supported JS package manager (#4357)
 
 # Test — scope first, widen once. `-q` keeps passes as dots; `-v` dumps every
-# test name into context for ~6,552 tests.
+# test name into context for ~6,759 tests.
 python -m pytest -q -m "not slow" tests/auralis/dsp     # A domain (the normal inner loop)
 python -m pytest tests/path.py::test_name -vv -s        # Single test
 cd auralis-web/frontend && pnpm run test:memory         # Frontend (2GB heap; OOMs without it)
@@ -66,7 +66,7 @@ cd auralis-web/frontend && pnpm run test:ci && pnpm run test:baseline:update
 Generate a baseline from a **CI artifact**, not a local run — a baseline built
 against a different interpreter or dependency set reports spurious new failures.
 
-`pytest-baseline.json` **is tracked** (216 entries, regenerated 2026-08-19 in
+`pytest-baseline.json` **is tracked** (157 entries as of 2026-09-03 `3e78c75d`; first regenerated 2026-08-19 in
 `7c03249e`) — the "it does not exist yet" note that stood here was true when
 written and is not any more (#4974). `backend-tests.yml` still fails, but on the
 ratchet doing its job rather than on a missing file: the ratchet rejects
@@ -96,12 +96,12 @@ auralis/                          Core Python audio engine
 │   ├── basic.py                    DSP primitives
 │   ├── advanced_dynamics.py        Dynamics control
 │   ├── eq/                         Psychoacoustic EQ (psychoacoustic_eq.py)
-├── analysis/                     Audio analysis (largest module, 57 files)
+├── analysis/                     Audio analysis (largest module, 55 files)
 │   ├── fingerprint/                25D fingerprinting system
 │   │   ├── analyzers/                Batch & streaming analyzers
 │   │   ├── metrics/                  Spectral, harmonic, temporal
 │   │   └── utilities/                DSP ops, backend selection
-│   ├── content/                    Content-aware analysis
+│   ├── quality_assessors/          Quality assessor utilities
 │   ├── ml/                         Genre classification (neural nets)
 │   └── quality/                    Quality assessment (loudness, distortion, DR)
 ├── player/                       Playback engine
@@ -130,8 +130,8 @@ auralis/                          Core Python audio engine
 │                                   (parallel/ + parallel_processor.py deleted #4565;
 │                                    NO rust_integration.py — see #5168)
 ├── services/                     Background services (fingerprint, artwork)
-├── learning/                     Preference engine, reference analysis
-└── utils/                        Logging, helpers, preview creator
+├── learning/                     Preference engine, reference library + seeder
+└── utils/                        Logging, helpers, validation, atomic writes
 
 auralis-web/
 ├── backend/                      FastAPI REST + WebSocket (:8765)
@@ -161,7 +161,7 @@ auralis-web/
 
 vendor/auralis-dsp/               Rust DSP via PyO3 (HPSS, YIN, Chroma)
 desktop/                          Electron wrapper
-tests/                            ~6,552 test functions (576 files) across 18 subdirs (auralis, backend,
+tests/                            ~6,759 test functions (611 files) across 18 subdirs (auralis, backend,
                                     integration, boundaries, concurrency, security, load_stress, regression...)
 docs/                             18 topic dirs (development, features, frontend...)
 ```
@@ -230,13 +230,13 @@ Cached chunk files are 16-bit PCM WAV, not float32.
    Prose deferrals are invisible to any marker sweep, so `/audit-tech-debt` has
    to fall back to a high-recall prose grep that cannot distinguish a deferral
    from an ordinary sentence (#4564). Genuine marker debt in shipped code —
-   `auralis/`, `auralis-web/`, `vendor/` — is **1**: `core/hybrid_processor.py`
-   carries `TODO(#5295)` for the retirement of `DynamicsProcessor.process()`.
-   It was 0 until #5152, which is worth reading as the rule working rather than
-   breaking: that marker replaced the prose "Retiring it is tracked separately",
-   so the count going 0 → 1 records debt that already existed and was
-   unsweepable. `tests/` holds **4**, each citing an OPEN issue (#5172 ×2,
-   #5173, #5174) — #5171 was the fifth until it was fixed and closed. Keep both
+   `auralis/`, `auralis-web/`, `vendor/` — is **0** again: #5152 turned the
+   prose "Retiring it is tracked separately" into a `TODO(#5295)` in
+   `core/hybrid_processor.py` (0 → 1 recorded debt that already existed and was
+   unsweepable), and `134c74ae` then retired the dead dynamics path and the
+   marker with it (1 → 0) — the rule working end to end. `tests/` holds **3**,
+   each citing an OPEN issue (#5172 ×2, #5174) — #5171 and #5173 were fixed and
+   closed, and their markers went with them. Keep both
    figures honest by linking the issue instead of leaving a bare `TODO`.
    The scope matters: that "0" was quoted repo-wide for weeks while every
    genuine marker in the tree sat in `tests/`, uncounted (#5143), so

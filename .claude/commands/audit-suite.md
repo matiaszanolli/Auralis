@@ -53,7 +53,7 @@ See `.claude/commands/_audit-common.md` for project layout, methodology, and con
 ### `security-deep` — Deep security review
 ```
 1. /audit-security             — Full OWASP Top 10
-2. /audit-frontend --focus auth,security  — Frontend auth/security
+2. /audit-frontend --focus 3,6       — WebSocket hooks + API client (the frontend audit has no auth/security dimension)
 3. /audit-integration --flows 1,5   — Playback + WebSocket auth flows
 ```
 **When**: After auth changes, before security review.
@@ -64,7 +64,7 @@ See `.claude/commands/_audit-common.md` for project layout, methodology, and con
 2. /audit-integration --flows 1,3  — Playback + Enhancement flows
 3. /audit-concurrency --focus 1,2  — Player + Processing pipeline
 ```
-**When**: After DSP changes, crossfade modifications, or chunked-mastering updates.
+**When**: After DSP changes, chunk-seam or chunked-mastering updates, or changes to `auralis/optimization/` (live engine code since #5142).
 
 ### `streaming-deep` — Streaming, seek, and cache correctness
 ```
@@ -72,7 +72,7 @@ See `.claude/commands/_audit-common.md` for project layout, methodology, and con
 2. /audit-integration --flows 1,5,8  — Playback + WebSocket lifecycle + Seek & Rebuffer
 3. /audit-concurrency --focus 3      — Backend streaming races
 ```
-**When**: After changes to the stream_* modules, the chunk or thumbnail caches, `seekable_source.py`, or the prefetch/buffer path. These four surfaces share state and their bugs present identically to the user (wrong or missing audio), so auditing one without the others usually misattributes the cause.
+**When**: After changes to the stream_* modules, the chunk or thumbnail caches, `seekable_source.py`, or the look-ahead/buffer path. These four surfaces share state and their bugs present identically to the user (wrong or missing audio), so auditing one without the others usually misattributes the cause.
 
 ## Execution
 
@@ -92,11 +92,13 @@ Print a table showing which audits will run:
 
 ### Step 2: Launch Audits in Parallel
 
-Each audit is independent — they read different files and write separate reports. Launch them ALL simultaneously using the Agent tool.
+Each audit is independent — they read different files and write separate reports. Launch them in parallel using the Agent tool, subject to the batching rule below.
 
 **Parallelization strategy by preset**:
 
-- **`comprehensive`** (8 audits): Launch ALL 8 as background agents in a single message. Each writes to its own report file — no conflicts.
+- **`comprehensive`** (8 audits): Launch in **two batches of 4**, not all 8 at once. Each deep audit spawns its own dimension agents; 8 simultaneous orchestrators saturated the concurrent-subagent limit on 2026-07-25, and deprecation and concurrency had every dimension launch rejected and ran inline with coverage gaps. Batch 1: engine, backend, frontend, integration. Batch 2: security, concurrency, deprecation, tech-debt.
+- **`tech-debt-deep`** (2 audits): Launch both in parallel.
+- **`streaming-deep`** (3 audits): Launch all 3 in parallel.
 - **`pre-release`** (3 audits): Launch all 3 in parallel.
 - **`post-sprint`** (2 audits): Launch both in parallel.
 - **`security-deep`** (3 audits): Launch all 3 in parallel.
@@ -129,7 +131,7 @@ IMPORTANT: Follow the context management rules from `.claude/commands/_audit-com
 ```
 
 **Launch example for `comprehensive`**:
-Send a SINGLE message with 8 Agent tool calls, all with `run_in_background: true`. Do NOT wait for one to finish before launching the next.
+Send one message with the 4 batch-1 Agent tool calls, all with `run_in_background: true`. Launch batch 2 the same way as soon as batch 1 has completed.
 
 ### Step 3: Wait for All Agents to Complete
 
@@ -138,7 +140,7 @@ You will be notified as each background agent completes. As each finishes, note:
 - The report path (if written)
 - The finding count (read the executive summary section)
 
-Wait until ALL agents have completed before proceeding to Step 4.
+Wait until ALL agents have completed before proceeding to Step 4. An orchestrator audit can stall after launching its dimension agents without merging them; if one goes quiet with its dimension files written, nudge it with SendMessage to run its Merge phase.
 
 ### Step 4: Print Final Summary
 
@@ -165,6 +167,6 @@ For each report with NEW findings, run `/audit-publish` in a new conversation:
 
 - Each audit runs as an isolated background agent — it will NOT exhaust this conversation's context.
 - Deep audits (engine, backend, frontend, etc.) internally launch their own sub-agents for each dimension.
-- The `comprehensive` preset launches 8 audits in parallel — typically completes in ~15 min instead of ~60 min.
+- The `comprehensive` preset runs 8 audits in two parallel batches of 4 — much faster than sequential without exhausting the subagent limit.
 - Always review reports before publishing to GitHub with `/audit-publish`.
 - If an audit fails, note the error — other audits continue independently since they run in parallel.

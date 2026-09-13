@@ -30,7 +30,7 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 
 ### Dimension 1: Player Thread Safety
 
-**Key files**: `auralis/player/enhanced_audio_player.py`, `auralis/player/gapless_playback_engine.py`, `auralis/player/queue_controller.py`, `auralis/player/realtime/`
+**Key files**: `auralis/player/enhanced_audio_player.py` (+ its `player_*_mixin.py` siblings), `auralis/player/gapless_playback_engine.py`, `auralis/player/queue_controller.py`, `auralis/player/realtime/`
 
 **Check**:
 - [ ] RLock usage — is every shared state access protected? Are locks properly scoped?
@@ -54,11 +54,11 @@ The engine-side parallel processor (*auralis/optimization/parallel_processor.py*
 - [ ] Rust DSP boundary — does PyO3 correctly handle GIL release during processing? Can concurrent calls corrupt shared state?
 - [ ] HybridProcessor chain — if one stage fails mid-array, is the pipeline state consistent?
 - [ ] Sample count preservation — can the chunked and whole-file paths produce different lengths?
-- [ ] Crossfade between chunks (recent fix `0a5df7a3`) — is the crossfade buffer shared or independent?
+- [ ] Optimizer singleton — `auralis/optimization/performance_optimizer.py` wraps `AdaptiveMode.process` process-wide (#5142). Are its profiling counters and `auralis/optimization/caching/` safe when several backend chunk workers master concurrently?
 
 ### Dimension 3: Backend WebSocket & Streaming
 
-**Key files**: `auralis-web/backend/core/audio_stream_controller.py`, `auralis-web/backend/core/chunked_processor.py`, `auralis-web/backend/core/processing_engine.py`, `auralis-web/backend/core/processor_pool.py`, `auralis-web/backend/core/job_worker.py`, `auralis-web/backend/core/state_manager.py`, `auralis-web/backend/core/proactive_buffer.py`, `auralis-web/backend/core/chunk_cache_manager.py`, `auralis-web/backend/ws_handlers/`, `auralis-web/backend/config/background_workers.py`
+**Key files**: `auralis-web/backend/core/audio_stream_controller.py`, `auralis-web/backend/core/chunked_processor.py`, `auralis-web/backend/core/processing_engine.py` (+ `job_lifecycle.py` / `job_execution.py`), `auralis-web/backend/core/executors.py`, `auralis-web/backend/core/processor_pool.py`, `auralis-web/backend/core/job_worker.py`, `auralis-web/backend/core/state_manager.py`, `auralis-web/backend/core/proactive_buffer.py`, `auralis-web/backend/core/chunk_cache_manager.py`, `auralis-web/backend/core/cache_cleanup.py`, `auralis-web/backend/ws_handlers/`, `auralis-web/backend/services/playback_event_sequencer.py`, `auralis-web/backend/config/background_workers.py`
 
 **Check**:
 - [ ] Multiple WebSocket clients — can two clients request different tracks simultaneously?
@@ -66,9 +66,12 @@ The engine-side parallel processor (*auralis/optimization/parallel_processor.py*
 - [ ] Processor pool — is checkout/return in `auralis-web/backend/core/processor_pool.py` leak-free on every early-exit and exception path?
 - [ ] Job worker lifecycle — can `auralis-web/backend/core/job_worker.py` die silently and leave the queue stalled? Is there a watchdog?
 - [ ] Chunk cache — concurrent writers to the same cache key: torn/partial files, or last-writer-wins? Are writes atomic (temp + rename via `auralis-web/backend/core/encoding/atomic_io.py`), and does the same reasoning hold for `auralis-web/backend/core/thumbnail_cache.py` and `auralis-web/backend/cache/manager.py`?
-- [ ] Seek vs in-flight work — a seek arriving mid-stream must cancel prefetch (`auralis-web/backend/core/stream_prefetch.py`) and drain `auralis-web/backend/core/proactive_buffer.py`. Can a cancelled task still deliver a chunk into the post-seek stream, or write a stale entry into the cache?
+- [ ] Seek vs in-flight work — a seek arriving mid-stream must cancel the look-ahead task (`auralis-web/backend/core/stream_enhanced_chunks.py`) and drain `auralis-web/backend/core/proactive_buffer.py`. Can a cancelled task still deliver a chunk into the post-seek stream, or write a stale entry into the cache?
 - [ ] Controller state via helpers — `auralis-web/backend/core/stream_chunk_ops.py` and `stream_fingerprint.py` take the controller instance and read/write its attributes. Two concurrent streams on one controller: is that state per-connection or shared?
 - [ ] Streaming semaphores — `stream_enhanced.py` / `stream_normal.py` must release in `finally`; are all early exits accounted for?
+- [ ] Executor pools (#5086) — `auralis-web/backend/core/executors.py` reserves a stream pool (`run_in_stream_executor`, per-chunk work only) and installs an I/O pool as the loop default. Can a per-chunk path still fall back to plain `to_thread` and queue behind scan/repository work? Are both pools created inside the running loop and shut down in the lifespan?
+- [ ] Playback event ordering — `auralis-web/backend/services/playback_event_sequencer.py` orders discrete playback WebSocket events process-wide. Can any broadcaster bypass it and deliver events out of order?
+- [ ] Coordinator siblings — the `chunk_*.py` and `job_*.py` siblings mutate the `ChunkedAudioProcessor` / `ProcessingEngine` instance they are handed. A lock taken in the coordinator does not cover a sibling that touches the same attribute from another thread.
 - [ ] Processing engine — shared or per-request instances? Thread safety?
 - [ ] FastAPI async handlers calling sync audio code — are they using `run_in_executor` / `asyncio.to_thread`? Can blocking calls starve the event loop?
 - [ ] Background workers started in the lifespan — are they cancelled and awaited on shutdown?
@@ -85,7 +88,7 @@ The engine-side parallel processor (*auralis/optimization/parallel_processor.py*
 - [ ] Detached-instance races — repositories `expunge()` what they return. A post-commit `refresh()` expires the instance *without* re-applying `selectinload()` options, so another thread touching a relationship then raises `DetachedInstanceError`. Are relationships touched while still attached?
 - [ ] Repository pattern — any raw SQL bypassing the ORM?
 - [ ] Library writes during playback reads — can a scan update a track that's currently playing?
-- [ ] Migration execution — safe to run while the app is serving requests? Migrations use inter-process file locking (`fcntl`/`msvcrt`) plus a same-process `threading.Lock`; the file lock alone does NOT serialize threads in one process — verify both are still present.
+- [ ] Migration execution — safe to run while the app is serving requests? Migrations use inter-process file locking (`fcntl`/`msvcrt`) plus a same-process `threading.Lock`, both in `auralis/library/migration_lock.py`; the file lock alone does NOT serialize threads in one process — verify both are still present.
 
 ### Dimension 5: Frontend State Consistency
 

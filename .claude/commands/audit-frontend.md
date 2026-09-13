@@ -23,9 +23,9 @@ This audit covers ONLY the frontend code:
 
 - **Components**: `auralis-web/frontend/src/components/`
 - **Hooks**: `auralis-web/frontend/src/hooks/` (api, app, audio, enhancement, fingerprint, library, player, shared, websocket)
-- **Contexts**: `auralis-web/frontend/src/contexts/` — `ThemeContext.tsx`, `WebSocketContext.tsx`. There is **no** EnhancementContext; do not report against one.
+- **Contexts**: `auralis-web/frontend/src/contexts/` — `ThemeContext.tsx`, `WebSocketContext.tsx`, `PlaybackSessionContext.tsx` (+ `playbackSessionContexts.ts` — the single shared enhanced-audio streaming session). There is **no** EnhancementContext; do not report against one.
 - **Store**: `auralis-web/frontend/src/store/` (`slices/`, `selectors/`, `middleware/`)
-- **Services**: `auralis-web/frontend/src/services/` (API clients + `api/`, `audio/`, `fingerprint/` subdirs); payload mapping in `auralis-web/frontend/src/api/transformers/`
+- **Services**: `auralis-web/frontend/src/services/` (API clients + `api/`, `audio/` subdirs; the *fingerprint/* subdir was deleted with `FingerprintCache` in #5215); payload mapping in `auralis-web/frontend/src/api/transformers/`
 - **Types**: `auralis-web/frontend/src/types/` (`api.ts`, `domain.ts`, `websocket.ts`, `ws/`)
 - **Design System**: `auralis-web/frontend/src/design-system/` (tokens, theme) and `auralis-web/frontend/src/theme/`
 - **Tests**: `auralis-web/frontend/src/test/` (utils + global setup), plus specs in `auralis-web/frontend/src/__tests__/`, `auralis-web/frontend/src/tests/`, and co-located `*.test.tsx`
@@ -78,6 +78,7 @@ Out of scope: Python backend, audio engine, Rust DSP, database.
 - [ ] WebSocket hooks (`auralis-web/frontend/src/hooks/websocket/`: `useWebSocketConnection.ts`, `useWebSocketMessages.ts`, `useWebSocketErrors.ts`, `websocketConnectionCore.ts`) — reconnection logic, message queue during disconnect, binary frame parsing. Cross-check against `auralis-web/frontend/src/contexts/WebSocketContext.tsx`.
 - [ ] Player hooks (`hooks/player/`) — do they correctly synchronize with backend playback state? Stale position/duration?
 - [ ] API hooks (`hooks/api/`) — cancellation of in-flight requests on unmount? Deduplication of concurrent identical requests?
+- [ ] Streaming session ownership — `auralis-web/frontend/src/contexts/PlaybackSessionContext.tsx` holds the single shared enhanced-audio session. Does any hook or component open its own session or `AudioContext` alongside it?
 
 ### Dimension 4: TypeScript Type Safety
 
@@ -89,6 +90,7 @@ Out of scope: Python backend, audio engine, Rust DSP, database.
 - [ ] Event handler types — are DOM event types correctly specified?
 - [ ] Union exhaustiveness — are switch/if chains over union types exhaustive (use `never` checks)?
 - [ ] Generic constraints — are generic hooks and utilities properly constrained?
+- [ ] Preset union — `EnhancementPreset` in `auralis-web/frontend/src/types/domain.ts` is `'adaptive'` only (2026-09-13). The copies in `types/ws/enhancement.ts`, `store/slices/playerSlice.ts`, `hooks/player/usePlayerStateSync.ts` (`VALID_PRESETS`) and `hooks/enhancement/useEnhancementControl.ts` must agree. A preset typed as bare `string`, or UI still offering a removed preset, is a finding; a single-option preset control is intended.
 
 ### Dimension 5: Design System Adherence
 

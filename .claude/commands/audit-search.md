@@ -30,13 +30,15 @@ Categorize changed files by risk domain:
 | Player | `auralis/player/*` | `/audit-engine`, `/audit-concurrency` |
 | Audio I/O | `auralis/io/*` | `/audit-engine` |
 | Chunked Mastering | `auralis/core/mastering_*.py` | `/audit-engine`, `/audit-concurrency` |
-| Optimization (test-only) | `auralis/optimization/*` | `/audit-tech-debt` — no production importers since #4565 |
+| Optimization (LIVE) | `auralis/optimization/*` | `/audit-engine`, `/audit-concurrency` — live engine code applied by `hybrid_processor.py` at import (#5142); also run `python3 scripts/check_optimization_importers.py` |
 | Caching | `auralis-web/backend/core/chunk_cache*`, `auralis-web/backend/core/thumbnail_cache.py`, `auralis-web/backend/core/file_signature.py`, `auralis-web/backend/cache/*` | `/audit-backend` (dim 10) |
-| Seek & buffering | `auralis-web/backend/core/stream_seek.py`, `auralis-web/backend/core/seekable_source.py`, `auralis-web/backend/core/stream_prefetch.py`, `auralis-web/backend/core/proactive_buffer.py` | `/audit-backend` (dim 11), `/audit-integration` (flow 8) |
+| Seek & buffering | `auralis-web/backend/core/stream_seek.py`, `auralis-web/backend/core/seekable_source.py`, `auralis-web/backend/core/stream_*_chunks.py`, `auralis-web/backend/core/proactive_buffer.py` | `/audit-backend` (dim 11), `/audit-integration` (flow 8) |
 | Analysis/Fingerprint | `auralis/analysis/*` | `/audit-engine` |
 | Library/Database | `auralis/library/*` | `/audit-engine`, `/audit-concurrency` |
 | Backend Routes | `auralis-web/backend/routers/*` | `/audit-backend` |
 | WebSocket/Streaming | `auralis-web/backend/core/audio_stream*`, `auralis-web/backend/core/chunked_processor*`, `auralis-web/backend/core/stream_*`, `auralis-web/backend/core/chunk_*`, `auralis-web/backend/ws_handlers/*`, `auralis-web/backend/websocket/*` | `/audit-backend`, `/audit-integration` |
+| Processing engine & executors | `auralis-web/backend/core/processing_engine.py`, `auralis-web/backend/core/job_*`, `auralis-web/backend/core/executors.py` | `/audit-backend` (dims 4, 8), `/audit-concurrency` (dim 3) |
+| Enhancement presets | `auralis-web/backend/schemas.py`, `auralis-web/backend/core/proactive_buffer.py`, `auralis/core/config/preset_profiles.py`, `auralis-web/frontend/src/types/domain.ts`, `auralis-web/frontend/src/hooks/enhancement/*` | `/audit-integration` (flow 3), `/sync-contracts` |
 | Backend Services | `auralis-web/backend/services/*`, `auralis-web/backend/core/*`, `auralis-web/backend/analysis/*` | `/audit-backend` |
 | Frontend Components | `auralis-web/frontend/src/components/*` | `/audit-frontend` |
 | Frontend Hooks | `auralis-web/frontend/src/hooks/*` | `/audit-frontend`, `/audit-integration` |

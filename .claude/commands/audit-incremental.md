@@ -50,7 +50,8 @@ Group changed files by risk domain:
 | **Backend Security** | `auralis-web/backend/security/*` | HIGH |
 | **Library/Database** | `auralis/library/*` | HIGH |
 | **Analysis** | `auralis/analysis/*` | MEDIUM |
-| **Optimization** | `auralis/optimization/*` | MEDIUM |
+| **Optimization** | `auralis/optimization/*` — live DSP, applied by `hybrid_processor.py` at import (#5142) | HIGH |
+| **Backend Processing** | `auralis-web/backend/core/processing_engine.py`, `auralis-web/backend/core/job_*`, `auralis-web/backend/core/processor_*`, `auralis-web/backend/core/executors.py` | HIGH |
 | **Backend Services** | `auralis-web/backend/services/*`, `auralis-web/backend/analysis/*` | MEDIUM |
 | **Rust DSP** | `vendor/auralis-dsp/*` | HIGH |
 | **Frontend Components** | `auralis-web/frontend/src/components/*` | LOW-MEDIUM |
@@ -70,7 +71,7 @@ For each changed file, read the diff and surrounding context. Check:
 - [ ] **Concurrency**: Shared state without locks? Changed lock scope? RLock still protecting all state?
 - [ ] **Contract breaks**: API endpoint changed — did the frontend update? Schema changed — did callers update?
 - [ ] **Tests**: Corresponding test updates for new/changed code paths?
-- [ ] **DSP correctness**: Phase coherence maintained? Spectral leakage introduced? Crossfade curves correct?
+- [ ] **DSP correctness**: Phase coherence maintained? Spectral leakage introduced? Do backend chunk segments still tile with no crossfade (#4642)?
 
 ## Step 4: Cross-Layer Impact
 
@@ -82,6 +83,8 @@ For each changed file that crosses a layer boundary:
 4. **WebSocket message format changed**: Are both sides in sync?
 5. **Database schema changed**: Is there a migration? Do all repositories handle the new schema?
 6. **Rust DSP changed**: Is the Python binding still correct? Do callers handle the new behavior?
+7. **Coordinator or sibling changed** (`chunked_processor.py` / `chunk_*`, `processing_engine.py` / `job_*`, `enhanced_audio_player.py` / `player_*_mixin.py`): siblings share the coordinator's instance state — re-check the other side of the split.
+8. **Enhancement preset list changed**: do `auralis-web/backend/schemas.py`, `auralis-web/backend/core/proactive_buffer.py` and `auralis-web/frontend/src/types/domain.ts` still agree?
 
 ## Phase 1: Audit
 

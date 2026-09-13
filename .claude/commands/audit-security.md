@@ -37,7 +37,7 @@ For each category, check the specific items listed. Do NOT limit yourself to the
 - [ ] `path_security.py` itself — does containment survive symlinks, `..` after normalization, UNC/drive-relative paths, and case-insensitive filesystems?
 - [ ] Library scanner (`auralis/library/scanner/`) — does it follow symlinks outside allowed directories?
 - [ ] Artwork endpoints — path traversal via metadata manipulation?
-- [ ] Streaming endpoints — can a user stream any file on the filesystem?
+- [ ] Streaming endpoints — can a user stream any file on the filesystem? Stream requests resolve a track and validate its path in `auralis-web/backend/core/stream_track_resolution.py` — is every stream path (enhanced, normal, seek) routed through it?
 
 ### A02: Cryptographic Failures
 - [ ] Are any API keys, tokens, or secrets hardcoded in the codebase?
@@ -60,7 +60,7 @@ For each category, check the specific items listed. Do NOT limit yourself to the
 - [ ] Fingerprint system — can a specially crafted file cause excessive resource consumption?
 
 ### A05: Security Misconfiguration
-- [ ] CORS settings in `auralis-web/backend/config/middleware.py` (NOT `main.py` — it moved) — `allow_credentials=True` with `["*"]` origins? Does the allow-origins builder widen the set more than the localhost/dev-port case requires?
+- [ ] CORS settings in `auralis-web/backend/config/middleware.py` (NOT `main.py` — it moved), with the allowed origins built by `auralis-web/backend/config/origins.py` (loopback origin policy) — `allow_credentials=True` with `["*"]` origins? Does the allow-origins builder widen the set more than the localhost/dev-port case requires?
 - [ ] `SecurityHeadersMiddleware` — which headers does it actually set, and are any (CSP, X-Frame-Options) missing or permissive?
 - [ ] Middleware ordering — `add_middleware` is LIFO. Does a security middleware end up running *after* something it should gate?
 - [ ] Debug/development endpoints accessible in production?
@@ -106,6 +106,8 @@ For each category, check the specific items listed. Do NOT limit yourself to the
 | `auralis-web/backend/config/middleware.py` | CORS, rate limiting, security headers, no-cache (moved out of `main.py`) |
 | `auralis-web/backend/config/routes.py` | Router registration — the authoritative list of exposed surfaces |
 | `auralis-web/backend/config/limits.py` | Rate-limit / request-size budgets |
+| `auralis-web/backend/config/origins.py` | Loopback origin policy — how the allowed-origin set is built |
+| `auralis-web/backend/core/stream_track_resolution.py` | Track lookup + path validation for every WebSocket stream path |
 | `auralis-web/backend/main.py` | Lifespan wiring, StaticFiles mount, `--dev` switch |
 | `auralis-web/backend/security/path_security.py` | Filesystem path containment |
 | `auralis-web/backend/websocket/websocket_security.py` | WebSocket connect-time checks |

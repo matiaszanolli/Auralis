@@ -61,13 +61,10 @@ EXPECTED: dict[tuple[str, str], str] = {
         "_apply_module_optimizations(), so the PerformanceOptimizer singleton "
         "and everything it constructs is live on every mastering call."
     ),
-    ("auralis/dsp/utils/spectral.py", "rust_integration"): (
-        "DEAD BRANCH, intentionally listed. auralis/optimization/rust_integration.py "
-        "does not exist; the ModuleNotFoundError is swallowed by an enclosing "
-        "except Exception, so the Rust tempo fast path never runs (#5168). "
-        "Listed rather than ignored so that creating the module — which would "
-        "silently switch a production code path on — trips this check."
-    ),
+    # auralis/dsp/utils/spectral.py -> rust_integration used to be listed here
+    # as an intentionally-tracked DEAD BRANCH (the module never existed). #5168
+    # removed that branch in 3288441d, so any importer of rust_integration
+    # reappearing is now a NEW importer and fails this check on its own.
 }
 
 

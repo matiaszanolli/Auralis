@@ -22,7 +22,8 @@ Determine scope from arguments:
 
 | Component | Path |
 |-----------|------|
-| Core Pipeline | `auralis/core/hybrid_processor.py`, `simple_mastering.py`, `processing/` |
+| Core Pipeline | `auralis/core/hybrid_processor.py`, `simple_mastering.py`, `processing/`, `stages/` (13 mastering stages) |
+| Optimizer wrapper | `auralis/optimization/performance_optimizer.py` — wraps `AdaptiveMode.process` at import time (#5142), so it sits in the audio path |
 | DSP Modules | `auralis/dsp/eq/psychoacoustic_eq.py`, `auralis/dsp/advanced_dynamics.py`, `auralis/dsp/basic.py` |
 | Audio I/O | `auralis/io/unified_loader.py`, `results.py` |
 | Player RT Processing | `auralis/player/realtime/` |
@@ -40,7 +41,7 @@ Determine scope from arguments:
 - Find every function that takes audio data as input and returns audio data
 - Check that no operation changes the array length: no trimming, padding, resampling, or filtering that alters length
 - Watch for: `np.pad()`, `np.trim_zeros()`, `signal.resample()`, array slicing that changes length, `np.concatenate()` with extra samples
-- Parallel processing: verify `sum(chunk_lengths) == total_length` after reassembly
+- Chunked processing: verify `sum(chunk_lengths) == total_length` after reassembly
 
 **Pass criteria**: Every audio processing function preserves sample count, or explicitly documents why it doesn't (e.g., resampling).
 
@@ -95,7 +96,7 @@ Determine scope from arguments:
 
 ### INV-6: Chunk Safety
 
-**Rule**: True copies (not views), correct reassembly order, continuous carried state, equal-power crossfade at boundaries.
+**Rule**: True copies (not views), correct reassembly order, continuous carried state, exact tiling at boundaries (the backend's emitted path has had no crossfade since #4642).
 
 The engine-side parallel processor was deleted in #4565. Two live chunk paths remain — verify both:
 
@@ -106,7 +107,7 @@ The engine-side parallel processor was deleted in #4565. Two live chunk paths re
 
 **How to verify** — backend processor (`auralis-web/backend/core/chunked_processor.py`, `auralis-web/backend/core/processor_pool.py`):
 - Chunk reassembly: ordering is index-based, not arrival-order
-- Boundary crossfade in `auralis-web/backend/core/chunk_crossfade.py`: overlapping regions use equal-power curves, not linear
+- Segment tiling: each chunk is rendered with context and trimmed to a non-overlapping `CHUNK_INTERVAL` segment (`auralis-web/backend/core/chunk_operations.py`, `auralis-web/backend/core/chunk_render.py`) — no gap, overlap or repeated samples. `auralis-web/backend/core/chunk_crossfade.py` has no production caller; if one reappears, its curve must stay equal-gain sin²/cos² (#3878)
 - No shared mutable state between concurrent workers — mastering targets read by workers must be immutable
 - Chunk geometry comes from `auralis-web/backend/core/chunk_boundaries.py`, never a literal
 
@@ -124,7 +125,7 @@ The engine-side parallel processor was deleted in #4565. Two live chunk paths re
 | INV-3: Dtype Preservation | PASS/FAIL | N | M |
 | INV-4: NaN/Inf Safety | PASS/FAIL | N | M |
 | INV-5: Clipping Prevention | PASS/FAIL | N | M |
-| INV-6: Parallel Safety | PASS/FAIL | N | M |
+| INV-6: Chunk Safety | PASS/FAIL | N | M |
 ```
 
 ### Per-Violation Detail
