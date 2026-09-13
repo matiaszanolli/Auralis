@@ -20,6 +20,7 @@ normalizer's percentile fit.
 from __future__ import annotations
 
 import pytest
+from sqlalchemy import select
 
 from auralis.__version__ import FINGERPRINT_ALGORITHM_VERSION
 from auralis.library.models import Track
@@ -93,19 +94,19 @@ class TestIsCurrentFingerprint:
     def test_placeholder_sentinel_is_not_current(self, session_factory, placeholder_track_id):
         with session_factory() as s:
             from auralis.library.models import TrackFingerprint
-            fp = s.query(TrackFingerprint).filter_by(track_id=placeholder_track_id).one()
+            fp = s.execute(select(TrackFingerprint).filter_by(track_id=placeholder_track_id)).scalars().one()
             assert is_current_fingerprint(fp) is False
 
     def test_stale_version_is_not_current(self, session_factory, stale_version_track_id):
         with session_factory() as s:
             from auralis.library.models import TrackFingerprint
-            fp = s.query(TrackFingerprint).filter_by(track_id=stale_version_track_id).one()
+            fp = s.execute(select(TrackFingerprint).filter_by(track_id=stale_version_track_id)).scalars().one()
             assert is_current_fingerprint(fp) is False
 
     def test_valid_row_is_current(self, session_factory, valid_track_id):
         with session_factory() as s:
             from auralis.library.models import TrackFingerprint
-            fp = s.query(TrackFingerprint).filter_by(track_id=valid_track_id).one()
+            fp = s.execute(select(TrackFingerprint).filter_by(track_id=valid_track_id)).scalars().one()
             assert is_current_fingerprint(fp) is True
 
 

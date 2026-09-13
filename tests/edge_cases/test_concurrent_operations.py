@@ -20,6 +20,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import numpy as np
 import pytest
+from sqlalchemy import select
 
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.config import UnifiedConfig
@@ -225,7 +226,7 @@ class TestConcurrentDatabaseOperations:
                 # Get current count
                 session = temp_db()
                 from auralis.library.models import Track
-                t = session.query(Track).filter_by(id=track_id).first()
+                t = session.execute(select(Track).filter_by(id=track_id)).scalars().first()
                 if t:
                     t.play_count = (t.play_count or 0) + 1
                     session.commit()
@@ -246,7 +247,7 @@ class TestConcurrentDatabaseOperations:
         # Check final count
         session = temp_db()
         from auralis.library.models import Track
-        final_track = session.query(Track).filter_by(id=track_id).first()
+        final_track = session.execute(select(Track).filter_by(id=track_id)).scalars().first()
         final_count = final_track.play_count if final_track else 0
         session.close()
 

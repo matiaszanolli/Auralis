@@ -9,6 +9,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from sqlalchemy import select
 
 from auralis.library.database import LibraryDatabase
 from auralis.library.models import Album, Artist, Playlist, Track
@@ -39,7 +40,7 @@ class TestLibraryDatabaseAdvanced:
 
         # Test session is working
         from auralis.library.models import Track
-        tracks = session.query(Track).all()
+        tracks = session.execute(select(Track)).scalars().all()
         assert isinstance(tracks, list)
 
         session.close()
@@ -66,7 +67,7 @@ class TestLibraryDatabaseAdvanced:
 
         # Get fresh track with relationships loaded
         session = db.get_session()
-        fresh_track = session.query(Track).filter(Track.id == track.id).first()
+        fresh_track = session.execute(select(Track).where(Track.id == track.id)).scalars().first()
         assert len(fresh_track.artists) == 1
         assert fresh_track.artists[0].name == 'Test Artist'
         session.close()

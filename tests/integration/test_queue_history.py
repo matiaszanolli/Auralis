@@ -18,7 +18,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
 # Test database setup
@@ -242,7 +242,7 @@ class TestQueueHistoryUndo:
         from auralis.library.models import QueueHistory, QueueState
         session = queue_history_repo.get_session()
         try:
-            queue_state = session.query(QueueState).first()
+            queue_state = session.execute(select(QueueState)).scalars().first()
             corrupted_entry = QueueHistory(
                 queue_state_id=queue_state.id,
                 operation='set',

@@ -11,7 +11,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import sessionmaker
 
 from auralis.__version__ import __db_schema_version__
@@ -71,7 +71,7 @@ class TestMigrationManager:
 
         # Verify schema_version table exists and has entry
         with manager._get_session() as session:
-            schema_version = session.query(SchemaVersion).first()
+            schema_version = session.execute(select(SchemaVersion)).scalars().first()
             assert schema_version is not None
             assert schema_version.version == __db_schema_version__
             assert schema_version.description == "Initial schema"
@@ -133,7 +133,7 @@ class TestMigrationManager:
 
         # Query schema_version table
         with manager._get_session() as session:
-            versions = session.query(SchemaVersion).all()
+            versions = session.execute(select(SchemaVersion)).scalars().all()
             assert len(versions) == 1
             assert versions[0].version == __db_schema_version__
             assert versions[0].applied_at is not None
@@ -203,7 +203,7 @@ class TestDatabaseBackup:
         Session = sessionmaker(bind=engine)
         session = Session()
 
-        tracks = session.query(Track).all()
+        tracks = session.execute(select(Track)).scalars().all()
         assert len(tracks) == 1
         assert tracks[0].title == "Test Track"
 
@@ -234,7 +234,7 @@ class TestDatabaseBackup:
 
         # Verify modification
         session = Session()
-        assert session.query(Track).count() == 2
+        assert session.scalar(select(func.count()).select_from(Track)) == 2
         session.close()
 
         # Restore from backup
@@ -243,7 +243,7 @@ class TestDatabaseBackup:
 
         # Verify restored database
         session = Session()
-        tracks = session.query(Track).all()
+        tracks = session.execute(select(Track)).scalars().all()
         assert len(tracks) == 1
         assert tracks[0].title == "Test Track"
         session.close()

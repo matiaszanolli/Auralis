@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from sqlalchemy import func, select
 
 # Add paths for imports
 project_root = Path(__file__).parent.parent.parent
@@ -71,7 +72,7 @@ class TestSQLInjectionPrevention:
 
             # Verify no SQL was executed
             # 1. Table still exists (wasn't dropped)
-            count = session.query(Track).count()
+            count = session.scalar(select(func.count()).select_from(Track))
             assert count == 1, f"Table altered by injection: {sql_injection}"
 
             # 2. Search returns safe results (empty or legitimate matches)
@@ -116,7 +117,7 @@ class TestSQLInjectionPrevention:
         session.commit()
 
         # Verify all tracks were stored safely
-        tracks = session.query(Track).all()
+        tracks = session.execute(select(Track)).scalars().all()
         assert len(tracks) == len(malicious_inputs['sql_injection'])
 
         # Verify SQL was stored as literal string, not executed
@@ -161,11 +162,11 @@ class TestSQLInjectionPrevention:
         malicious_title = "' OR '1'='1"
 
         # This should return no results (not bypass the WHERE clause)
-        results = session.query(Track).filter(Track.title == malicious_title).all()
+        results = session.execute(select(Track).where(Track.title == malicious_title)).scalars().all()
         assert len(results) == 0, "Parameterized query prevented injection"
 
         # Verify original data intact
-        all_tracks = session.query(Track).all()
+        all_tracks = session.execute(select(Track)).scalars().all()
         assert len(all_tracks) == 1
         assert all_tracks[0].title == "Safe Track"
 
@@ -206,8 +207,8 @@ class TestSQLInjectionPrevention:
         session.commit()
 
         # Verify database integrity
-        artist_count = session.query(Artist).count()
-        album_count = session.query(Album).count()
+        artist_count = session.scalar(select(func.count()).select_from(Artist))
+        album_count = session.scalar(select(func.count()).select_from(Album))
 
         assert artist_count == 1, "Only one artist created"
         assert album_count == 1, "Only one album created"
@@ -264,7 +265,7 @@ class TestSQLInjectionPrevention:
             assert hasattr(result, 'duration')
 
         # Verify database structure intact
-        track_count = session.query(Track).count()
+        track_count = session.scalar(select(func.count()).select_from(Track))
         assert track_count == 1, "No additional records from UNION"
 
         session.close()

@@ -25,6 +25,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from sqlalchemy import select
 
 from auralis.io.saver import save
 from auralis.library.database import LibraryDatabase
@@ -741,7 +742,7 @@ class TestMetadataOperations:
         from auralis.library.models import Track
 
         with timer() as t:
-            track = session.query(Track).filter_by(id=track_added.id).first()
+            track = session.execute(select(Track).filter_by(id=track_added.id)).scalars().first()
             track.title = 'Updated Title'
             # Note: artists is a relationship, not simple field - skip for latency test
             session.commit()
@@ -780,7 +781,7 @@ class TestMetadataOperations:
 
         with timer() as t:
             for added_track in tracks_added:
-                track = session.query(Track).filter_by(id=track_added.id).first()
+                track = session.execute(select(Track).filter_by(id=track_added.id)).scalars().first()
                 track.play_count = (track.play_count or 0) + 1
             session.commit()
 
@@ -815,7 +816,7 @@ class TestMetadataOperations:
         from auralis.library.models import Track
 
         with timer() as t:
-            track = session.query(Track).filter_by(id=track_added.id).first()
+            track = session.execute(select(Track).filter_by(id=track_added.id)).scalars().first()
             track.favorite = not track.favorite
             session.commit()
 
@@ -851,7 +852,7 @@ class TestMetadataOperations:
         from auralis.library.models import Track
 
         with timer() as t:
-            track = session.query(Track).filter_by(id=track_added.id).first()
+            track = session.execute(select(Track).filter_by(id=track_added.id)).scalars().first()
             track.play_count = (track.play_count or 0) + 1
             track.last_played = datetime.now()
             session.commit()

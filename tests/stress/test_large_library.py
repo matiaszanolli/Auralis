@@ -19,6 +19,7 @@ import numpy as np
 import psutil
 import pytest
 import soundfile as sf
+from sqlalchemy import func, select
 
 
 @pytest.mark.stress
@@ -58,7 +59,7 @@ class TestDatabasePerformanceUnderLoad:
         session = db.get_session()
         try:
             from auralis.library.models import Track
-            track_count = session.query(Track).count()
+            track_count = session.scalar(select(func.count()).select_from(Track))
             assert track_count == 1000
         finally:
             session.close()
@@ -175,10 +176,12 @@ class TestDatabasePerformanceUnderLoad:
         from auralis.library.models import Track
         session = repo.get_session()
         try:
-            results = session.query(Track).filter(
-                Track.year.between(2010, 2015),
-                Track.duration.between(200, 250)
-            ).limit(100).all()
+            results = session.execute(
+                select(Track).where(
+                    Track.year.between(2010, 2015),
+                    Track.duration.between(200, 250)
+                ).limit(100)
+            ).scalars().all()
 
             query_time = time.time() - start
 
@@ -203,9 +206,11 @@ class TestDatabasePerformanceUnderLoad:
 
         session = repo.get_session()
         try:
-            results = session.query(Album).join(Artist).order_by(
-                Artist.name, Album.title
-            ).limit(100).all()
+            results = session.execute(
+                select(Album).join(Artist).order_by(
+                    Artist.name, Album.title
+                ).limit(100)
+            ).scalars().all()
 
             sort_time = time.time() - start
 
@@ -547,11 +552,11 @@ class TestLongRunningOperations:
                 session.commit()
 
         # Verify database integrity
-        total = session.query(Track).count()
+        total = session.scalar(select(func.count()).select_from(Track))
         assert total == 1000, "Track count changed unexpectedly"
 
         # Verify no corruption
-        all_tracks = session.query(Track).all()
+        all_tracks = session.execute(select(Track)).scalars().all()
         for track in all_tracks:
             assert track.filepath is not None
             assert track.title is not None

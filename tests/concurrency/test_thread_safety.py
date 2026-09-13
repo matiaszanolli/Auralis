@@ -15,6 +15,7 @@ import time
 from pathlib import Path
 
 import pytest
+from sqlalchemy import select
 
 from .helpers import detect_race_condition, run_concurrent, run_concurrent_with_barrier
 
@@ -90,7 +91,7 @@ class TestSharedResourceAccess:
         def update_track(track_id, new_title):
             session = temp_db()
             from auralis.library.models import Track
-            track = session.query(Track).filter_by(id=track_id).first()
+            track = session.execute(select(Track).filter_by(id=track_id)).scalars().first()
             if track:
                 track.title = new_title
                 session.commit()
@@ -147,7 +148,7 @@ class TestSharedResourceAccess:
         # "close enough" tolerance to allow for.
         session = temp_db()
         from auralis.library.models import Track
-        final_track = session.query(Track).filter_by(id=track.id).first()
+        final_track = session.execute(select(Track).filter_by(id=track.id)).scalars().first()
         final_count = final_track.play_count
         session.close()
 
@@ -234,7 +235,7 @@ class TestSharedResourceAccess:
         def update_title(track_id, new_title):
             session = temp_db()
             from auralis.library.models import Track
-            t = session.query(Track).filter_by(id=track_id).first()
+            t = session.execute(select(Track).filter_by(id=track_id)).scalars().first()
             if t:
                 t.title = new_title
                 session.commit()
@@ -256,7 +257,7 @@ class TestSharedResourceAccess:
         # Verify track still exists and is not corrupted
         session = temp_db()
         from auralis.library.models import Track
-        final_track = session.query(Track).filter_by(id=track.id).first()
+        final_track = session.execute(select(Track).filter_by(id=track.id)).scalars().first()
         assert final_track is not None
         assert final_track.title is not None
         # All 10 increments must count -- an atomic UPDATE guarantees no lost

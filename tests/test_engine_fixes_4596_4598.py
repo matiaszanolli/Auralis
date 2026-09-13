@@ -23,6 +23,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from sqlalchemy import func, select
 
 
 # ---------------------------------------------------------------------------
@@ -249,8 +250,8 @@ class TestTrackDeleteCascade:
         session.commit()      # previously: IntegrityError NOT NULL track_id
 
         assert session.get(Track, t1_id) is None
-        assert session.query(TrackFingerprint).filter_by(track_id=t1_id).count() == 0
-        assert session.query(SimilarityGraph).filter_by(track_id=t1_id).count() == 0
+        assert session.scalar(select(func.count()).select_from(TrackFingerprint).filter_by(track_id=t1_id)) == 0
+        assert session.scalar(select(func.count()).select_from(SimilarityGraph).filter_by(track_id=t1_id)) == 0
         session.close()
 
     def test_repository_delete_returns_true_for_fingerprinted_track(self):

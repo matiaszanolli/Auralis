@@ -18,6 +18,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 import soundfile as sf
+from sqlalchemy import func, select
 
 
 @pytest.mark.stress
@@ -511,7 +512,7 @@ class TestInvalidInputs:
             from auralis.library.models import Track
 
             test_session = repo.get_session()
-            count = test_session.query(Track).count()
+            count = test_session.scalar(select(func.count()).select_from(Track))
             test_session.close()
             assert count == 0  # no tracks were added in this test
         except SQLAlchemyError:

@@ -24,6 +24,7 @@ import time
 
 import numpy as np
 import pytest
+from sqlalchemy import select
 
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.config import UnifiedConfig
@@ -312,7 +313,7 @@ class TestTypicalUserOperations:
 
         with timer() as t:
             for track_id in track_ids:
-                track = session.query(Track).filter_by(id=track_id).first()
+                track = session.execute(select(Track).filter_by(id=track_id)).scalars().first()
                 track.favorite = True
             session.commit()
 
@@ -503,7 +504,7 @@ class TestMultiTrackAlbumProcessing:
 
         with timer() as t:
             for track_id in track_ids:
-                track = session.query(Track).filter_by(id=track_id).first()
+                track = session.execute(select(Track).filter_by(id=track_id)).scalars().first()
                 track.album_artist = 'Updated Artist'
             session.commit()
 

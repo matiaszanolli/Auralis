@@ -18,6 +18,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import numpy as np
 import pytest
+from sqlalchemy import select
 
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.config import UnifiedConfig
@@ -184,7 +185,7 @@ class TestDatabaseThroughput:
                 # Get track
                 session = populated_db()
                 from auralis.library.models import Track
-                track = session.query(Track).filter_by(id=track_id).first()
+                track = session.execute(select(Track).filter_by(id=track_id)).scalars().first()
                 if track:
                     track.play_count = (track.play_count or 0) + 1
                     session.commit()

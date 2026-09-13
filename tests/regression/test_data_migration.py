@@ -20,7 +20,7 @@ import shutil
 from pathlib import Path
 
 import pytest
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, func, select, text
 
 from auralis.library.models import Album, Artist, Base, Playlist, Track
 
@@ -149,7 +149,7 @@ class TestAlbumMigration:
         session.commit()
 
         # Retrieve
-        retrieved_album = session.query(Album).filter_by(id=album.id).first()
+        retrieved_album = session.execute(select(Album).filter_by(id=album.id)).scalars().first()
 
         assert retrieved_album.year == 1985, "Year should be preserved"
 
@@ -175,7 +175,7 @@ class TestAlbumMigration:
         session.add(album)
         session.commit()
 
-        retrieved = session.query(Album).filter_by(id=album.id).first()
+        retrieved = session.execute(select(Album).filter_by(id=album.id)).scalars().first()
 
         assert retrieved.artwork_path == '/path/to/artwork.jpg', \
             "Artwork path should be preserved"
@@ -201,7 +201,7 @@ class TestAlbumMigration:
         session.add(album)
         session.commit()
 
-        retrieved = session.query(Album).filter_by(id=album.id).first()
+        retrieved = session.execute(select(Album).filter_by(id=album.id)).scalars().first()
 
         assert retrieved.year is None, "NULL year should be allowed"
 
@@ -231,7 +231,7 @@ class TestArtistMigration:
         try:
             session.commit()
             # If succeeded, query should return only one artist
-            count = session.query(Artist).filter_by(name='Unique Artist').count()
+            count = session.scalar(select(func.count()).select_from(Artist).filter_by(name='Unique Artist'))
             # Either 1 (deduplication) or 2 (no constraint)
             assert count >= 1, "At least one artist should exist"
         except Exception:
@@ -260,7 +260,7 @@ class TestArtistMigration:
         session.commit()
 
         # Query albums by artist
-        albums = session.query(Album).filter_by(artist_id=artist.id).all()
+        albums = session.execute(select(Album).filter_by(artist_id=artist.id)).scalars().all()
 
         assert len(albums) == 3, "Artist should have 3 albums"
 
@@ -285,7 +285,7 @@ class TestPlaylistMigration:
         session.add(playlist)
         session.commit()
 
-        retrieved = session.query(Playlist).filter_by(id=playlist.id).first()
+        retrieved = session.execute(select(Playlist).filter_by(id=playlist.id)).scalars().first()
 
         assert retrieved.name == 'Test Playlist'
         assert retrieved.description == 'A test playlist'
@@ -389,7 +389,7 @@ class TestArtworkMigration:
         session.commit()
 
         # Should load successfully even with invalid path
-        retrieved = session.query(Album).filter_by(id=album.id).first()
+        retrieved = session.execute(select(Album).filter_by(id=album.id)).scalars().first()
 
         assert retrieved is not None
         assert retrieved.artwork_path == '/nonexistent/artwork.jpg'

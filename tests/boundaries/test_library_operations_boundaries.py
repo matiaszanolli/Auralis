@@ -30,7 +30,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 
@@ -277,14 +277,14 @@ def test_delete_with_foreign_key_references(track_repo, temp_db):
 
     # Get artist
     session = temp_db()
-    artist = session.query(Artist).first()
+    artist = session.execute(select(Artist)).scalars().first()
     artist_id = artist.id
     session.close()
 
     # Try to delete artist (has track referencing it)
     session = temp_db()
     try:
-        artist_to_delete = session.query(Artist).filter(Artist.id == artist_id).first()
+        artist_to_delete = session.execute(select(Artist).where(Artist.id == artist_id)).scalars().first()
         session.delete(artist_to_delete)
         session.commit()
         # If cascade delete, track should also be deleted or artist reference nulled
@@ -738,7 +738,7 @@ def test_cascade_delete_relationships(track_repo, album_repo, temp_db):
 
     # Delete album
     session = temp_db()
-    album_to_delete = session.query(Album).filter(Album.id == album_id).first()
+    album_to_delete = session.execute(select(Album).where(Album.id == album_id)).scalars().first()
     if album_to_delete:
         session.delete(album_to_delete)
         session.commit()
@@ -764,7 +764,7 @@ def test_update_with_invalid_foreign_key(track_repo, temp_db):
     # Try to update with invalid album_id
     session = temp_db()
     try:
-        track_to_update = session.query(Track).filter(Track.id == track.id).first()
+        track_to_update = session.execute(select(Track).where(Track.id == track.id)).scalars().first()
         if track_to_update:
             track_to_update.album_id = 999999  # Non-existent
             session.commit()
