@@ -27,14 +27,16 @@ from .errors import (
     ServiceUnavailable,
 )
 from .queue_enrichment import QueueEnricher
-from .queue_protocols import AudioPlayerWithQueue, QueueManager
+from .queue_protocols import AudioPlayerWithQueue
 
 logger = logging.getLogger(__name__)
 
-# Re-exported for backwards compatibility: these were defined here before
-# #4260 split them out, and `QueueManager` is referenced by the Protocol's own
-# consumers via this module.
-__all__ = ['AudioPlayerWithQueue', 'QueueManager', 'QueueService']
+# #5232: AudioPlayerWithQueue/QueueManager used to be re-exported from here
+# "for backwards compatibility", but nothing outside this module ever
+# imported either name via queue_service. AudioPlayerWithQueue is still
+# imported below (used internally as a type annotation); QueueManager was
+# never used elsewhere in this file either, so its import was dropped too.
+__all__ = ['QueueService']
 
 
 class QueueService:
