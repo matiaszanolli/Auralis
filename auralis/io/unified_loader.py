@@ -208,9 +208,35 @@ def get_audio_info(file_path: str | Path) -> dict[str, Any]:
     return info_dict
 
 
+def _reject_oversize_probe(
+    file_path: Path,
+    duration: float | None,
+    sample_rate: int | None,
+    channels: int | None,
+) -> None:
+    """Refuse a probe whose reported shape exceeds the decode budget (#5312).
+
+    Imported lazily, as everywhere else in auralis.io, so the module-level
+    ``MAX_DURATION_SECONDS`` stays monkeypatchable and to avoid a circular
+    import with auralis.io.loader.
+    """
+    from auralis.io.loader import oversize_probe_detail
+
+    detail = oversize_probe_detail(duration, sample_rate, channels)
+    if detail:
+        # Same error shape load_audio() raises for the same condition, so a
+        # caller cannot tell whether the ceiling was hit before or after the
+        # decode. Path stays out of the string form (#4806).
+        raise ModuleError(f"{Code.ERROR_CORRUPTED}: {detail}", path=str(file_path))
+
+
 def _get_info_with_soundfile(file_path: Path) -> dict[str, Any]:
     """Get audio info using soundfile"""
     info = sf.info(str(file_path))
+
+    # A probe is not free of the decode budget: whatever duration this reports
+    # drives total_chunks downstream (#5312).
+    _reject_oversize_probe(file_path, info.duration, info.samplerate, info.channels)
 
     return {
         'sample_rate': info.samplerate,
@@ -283,9 +309,16 @@ def _get_info_with_ffprobe(file_path: Path) -> dict[str, Any]:
             except (ValueError, TypeError):
                 return default
 
+        sample_rate = safe_int(audio_stream.get('sample_rate', 0))
+        channels = safe_int(audio_stream.get('channels', 0))
+
+        # The container's own claim is the only thing known here, and it can be
+        # forged or corrupt — cap it exactly as the decode paths do (#5312).
+        _reject_oversize_probe(file_path, duration, sample_rate, channels)
+
         return {
-            'sample_rate': safe_int(audio_stream.get('sample_rate', 0)),
-            'channels': safe_int(audio_stream.get('channels', 0)),
+            'sample_rate': sample_rate,
+            'channels': channels,
             'duration_seconds': duration,
             'codec': audio_stream.get('codec_name', 'Unknown'),
             'bit_rate': safe_int(audio_stream.get('bit_rate', 0))

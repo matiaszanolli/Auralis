@@ -11,6 +11,7 @@ Refactored from Matchering 2.0 by Sergree and contributors
 """
 
 
+import math as _math
 from pathlib import Path
 
 import numpy as np
@@ -100,6 +101,47 @@ def oversize_decode_detail(
         f"{duration_seconds:.0f}s x {sample_rate} Hz x {channels}ch x "
         f"{_BYTES_PER_SAMPLE}B)"
     )
+
+
+def oversize_probe_detail(
+    duration_seconds: float | None,
+    sample_rate: int | None,
+    channels: int | None,
+) -> str | None:
+    """Message describing why a *probed* file must be refused, or None if it is fine.
+
+    The decode paths (:func:`load`, ``unified_loader.load_audio``,
+    ``ffmpeg_loader.load_with_ffmpeg``, ``soundfile_loader``) have always
+    enforced ``MAX_DURATION_SECONDS`` plus :func:`oversize_decode_detail`, but
+    the metadata-only probes did not: ``unified_loader.get_audio_info()`` and
+    the library scanner returned whatever duration the container claimed
+    (#5312). A forged or corrupt header (e.g. a bogus Xing/VBRI frame count)
+    then propagated into ``content_chunk_count()`` and drove an unbounded
+    per-chunk loop of silence, logging and DSP work past real EOF.
+
+    This is the single definition of "the probe says this file is out of
+    bounds" so every probe path applies the identical rule — a probe path that
+    grew its own copy is exactly how the two ffprobe implementations drifted
+    apart in the first place.
+
+    ``sample_rate``/``channels`` may be None or 0 when the probe could not
+    determine them; the decoded-size half then degrades to a no-op and the
+    duration ceiling still applies. A ``None`` duration means "unknown", which
+    is not a rejection — see ffmpeg_loader's size-implied fallback (#4128).
+    """
+    if duration_seconds is None:
+        return None
+    duration = float(duration_seconds)
+    # A forged header can report NaN/Inf, which slips past every `>` comparison
+    # and then blows up int() conversion further down.
+    if not _math.isfinite(duration):
+        return f"Audio file reports a non-finite duration ({duration_seconds!r})"
+    if duration > MAX_DURATION_SECONDS:
+        return (
+            f"Audio file exceeds maximum duration "
+            f"({duration:.0f}s > {MAX_DURATION_SECONDS}s)"
+        )
+    return oversize_decode_detail(duration, sample_rate or 0, channels or 1)
 
 
 def load(file_path: str, file_type: str = "audio") -> tuple[np.ndarray, int]:

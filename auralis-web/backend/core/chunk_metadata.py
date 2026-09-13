@@ -24,9 +24,36 @@ import logging
 from dataclasses import dataclass
 
 from core.chunk_boundaries import content_chunk_count
+from auralis.io import loader as _io_loader
 from auralis.io.unified_loader import get_audio_info, load_audio
 
 logger = logging.getLogger("core.chunked_processor")
+
+
+def _bounded_chunk_count(total_duration: float, filepath: str) -> int:
+    """Chunk count for ``total_duration``, clamped to the decode budget (#5312).
+
+    Defense in depth behind the probe-time cap in ``auralis.io.unified_loader``:
+    a duration is only ever as trustworthy as the container header it came
+    from, and every chunk past real EOF costs a DSP render, a cache write and
+    two ERROR/WARNING log lines. No track may be loaded that is longer than
+    ``MAX_DURATION_SECONDS``, so no stream can legitimately need more chunks
+    than that duration implies. The clamp never binds on a file the loaders
+    would actually accept.
+    """
+    # Read through the module so an AURALIS_MAX_DURATION_SECONDS override (or
+    # a test monkeypatch) of the single source of truth is honoured here too.
+    max_duration = _io_loader.MAX_DURATION_SECONDS
+    total_chunks = content_chunk_count(total_duration)
+    ceiling = content_chunk_count(float(max_duration))
+    if total_chunks > ceiling:
+        logger.warning(
+            f"Duration {total_duration:.0f}s implies {total_chunks} chunks, above the "
+            f"{max_duration}s decode budget ({ceiling} chunks) — clamping. "
+            f"The container's reported duration is likely forged or corrupt: {filepath}"
+        )
+        return ceiling
+    return total_chunks
 
 
 @dataclass(frozen=True)
@@ -62,7 +89,7 @@ def load_audio_metadata(filepath: str) -> AudioMetadata:
         total_duration = float(meta['duration_seconds'])
         # Count only content-carrying chunks under the overlap model
         # (#4124) — see core.chunk_boundaries.content_chunk_count.
-        total_chunks = content_chunk_count(total_duration)
+        total_chunks = _bounded_chunk_count(total_duration, filepath)
         return AudioMetadata(
             sample_rate=sample_rate,
             channels=channels,
@@ -80,7 +107,7 @@ def load_audio_metadata(filepath: str) -> AudioMetadata:
         # clips as mono (#3881).
         channels = 1 if audio.ndim == 1 else audio.shape[1]
         total_duration = audio.shape[0] / sr
-        total_chunks = content_chunk_count(total_duration)
+        total_chunks = _bounded_chunk_count(total_duration, filepath)
         return AudioMetadata(
             sample_rate=sr,
             channels=channels,

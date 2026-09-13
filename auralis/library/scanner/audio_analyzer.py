@@ -14,8 +14,9 @@ from pathlib import Path
 
 import soundfile as sf
 
+from ...io.loader import oversize_probe_detail
 from ...io.loaders.ffmpeg_loader import _probe_audio
-from ...utils.logging import debug
+from ...utils.logging import debug, warning
 from ..scan_models import AudioFileInfo
 from .config import HASH_CHUNK_SIZE
 
@@ -73,6 +74,17 @@ class AudioAnalyzer:
                 if probe['channels'] is not None:
                     info_obj.channels = probe['channels']
                 info_obj.format = path.suffix.lstrip('.').upper()
+
+            # The scan stores whatever the container claims, and every later
+            # consumer (chunk counting, seek geometry, the UI's duration)
+            # trusts it. Apply the decode budget here so a forged or corrupt
+            # header is refused at scan time rather than at playback (#5312).
+            detail = oversize_probe_detail(
+                info_obj.duration, info_obj.sample_rate, info_obj.channels
+            )
+            if detail:
+                warning(f"Refusing {path.name} at scan time: {detail}")
+                return None
 
             # Generate file hash for duplicate detection
             try:
