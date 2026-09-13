@@ -100,7 +100,10 @@ class VolumeChangedPayload(TypedDict):
 
 class QueueChangedPayload(TypedDict):
     action: QueueChangeAction
-    tracks: NotRequired[list[dict[str, Any]]]
+    # TrackPayload, not dict[str, Any] (#5455): an untyped list let raw engine
+    # queue entries — bare filepaths, no id/title — type-check straight onto
+    # the wire.
+    tracks: NotRequired[list[TrackPayload]]
     current_index: NotRequired[int]
     track_id: NotRequired[int]
     position: NotRequired[int | None]

@@ -17,6 +17,7 @@ from websocket.outbound_messages import (
     QueueChangeAction,
     QueueChangedExtras,
     QueueChangedPayload,
+    TrackPayload,
     broadcast_typed,
 )
 
@@ -26,7 +27,7 @@ from .errors import (
     ResourceNotFound,
     ServiceUnavailable,
 )
-from .queue_enrichment import QueueEnricher
+from .queue_enrichment import QueueEnricher, to_track_payload
 from .queue_protocols import AudioPlayerWithQueue
 
 logger = logging.getLogger(__name__)
@@ -105,9 +106,14 @@ class QueueService:
         """Emit a `queue_changed` WS message with the canonical payload that
         the frontend's QueueChangedMessage type expects (fixes #3492).
 
-        Hydrates the current queue from the audio_player's queue dicts (which
-        only carry id + filepath) into full TrackInfo dicts via library
-        lookups. Falls back to the raw dict if hydration fails.
+        Hydrates the engine queue through the same QueueEnricher the REST read
+        path uses (#5455). The old bespoke hydration keyed on an `id` that
+        queues built by POST /api/player/queue never carry (the engine stores
+        bare filepaths), so after any edit it fell back to broadcasting the raw
+        engine entries: absolute filepaths (#3205) and id/title-less rows that
+        blanked the Redux queue. Unresolvable entries are now dropped and
+        `current_index` is re-based past them; if hydration fails outright the
+        payload omits `tracks`, so clients keep their last good queue.
         """
         try:
             if hasattr(self.audio_player, 'queue'):
@@ -127,63 +133,38 @@ class QueueService:
             raw_tracks = []
             current_index = -1
 
-        track_ids: list[int] = []
-        for entry in raw_tracks:
-            if not isinstance(entry, dict):
-                continue
-            tid = entry.get('id')
-            if tid is None:
-                tid = entry.get('track_id')
-            if isinstance(tid, int) and not isinstance(tid, bool):
-                track_ids.append(tid)
-
-        by_id: dict[int, Any] = {}
-        if track_ids and self.library_database is not None:
-            try:
-                unique_ids = list(dict.fromkeys(track_ids))
-                by_id = await asyncio.to_thread(
-                    self.library_database.tracks.get_by_ids, unique_ids
-                ) or {}
-            except Exception as exc:
-                logger.debug(f"queue_changed batch hydration failed: {exc}")
-
-        hydrated: list[dict[str, Any]] = []
-        for entry in raw_tracks:
-            track_dict: dict[str, Any] | None = None
-            try:
-                if isinstance(entry, dict):
-                    tid = entry.get('id')
-                    if tid is None:
-                        tid = entry.get('track_id')
-                    db_track = (
-                        by_id.get(tid)
-                        if isinstance(tid, int) and not isinstance(tid, bool)
-                        else None
+        tracks: list[TrackPayload] = []
+        hydrated = False
+        try:
+            resolved = await self._enricher.resolve_tracks(list(raw_tracks))
+        except Exception as exc:
+            logger.warning(
+                f"queue_changed broadcast: hydration failed, omitting tracks: {exc}"
+            )
+        else:
+            hydrated = True
+            tracks = [to_track_payload(ti) for ti in resolved if ti is not None]
+            if len(tracks) != len(resolved):
+                logger.warning(
+                    f"queue_changed broadcast: dropped {len(resolved) - len(tracks)} "
+                    f"queue entr(y/ies) that resolve to no library track"
+                )
+                if 0 <= current_index < len(resolved):
+                    current_index = (
+                        sum(1 for ti in resolved[:current_index] if ti is not None)
+                        if resolved[current_index] is not None
+                        else -1
                     )
-                    if db_track is not None:
-                        ti = self.create_track_info_fn(db_track)
-                        if ti is not None and hasattr(ti, 'model_dump'):
-                            track_dict = ti.model_dump()
-                if track_dict is None:
-                    # Fall back to raw queue entry shape
-                    if isinstance(entry, dict):
-                        track_dict = dict(entry)
-                    else:
-                        track_dict = {'filepath': entry}
-            except Exception as exc:
-                logger.debug(f"queue_changed hydration skipped one entry: {exc}")
-                if isinstance(entry, dict):
-                    track_dict = dict(entry)
-                else:
-                    track_dict = {'filepath': entry}
-            hydrated.append(track_dict)
 
         payload: QueueChangedPayload = {
-            'tracks': hydrated,
+            'tracks': tracks,
             'current_index': current_index,
             'action': action,
             **extras,
         }
+        if not hydrated:
+            # Omit rather than send an empty queue, which a client would apply.
+            del payload['tracks']
         await broadcast_typed(self.connection_manager, "queue_changed", payload)
 
     async def get_queue_info(self) -> dict[str, Any]:

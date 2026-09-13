@@ -46,6 +46,10 @@ def _build_service(track_ids: list[int]) -> tuple[QueueService, QueueController,
     repo.get_by_ids = MagicMock(
         side_effect=lambda ids: {track_id: tracks[track_id] for track_id in ids if track_id in tracks}
     )
+    by_path = {track.filepath: track for track in tracks.values()}
+    repo.get_by_paths = MagicMock(
+        side_effect=lambda paths: {path: by_path[path] for path in paths if path in by_path}
+    )
     library_database = SimpleNamespace(tracks=repo)
 
     controller = QueueController(lambda: None)
@@ -111,22 +115,58 @@ async def test_move_before_current_preserves_playing_track():
 
 @pytest.mark.regression
 @pytest.mark.asyncio
-async def test_queue_changed_hydrates_ids_with_one_repository_call():
+async def test_queue_changed_hydrates_a_filepath_only_queue_with_one_repository_call():
+    """#5455: POST /api/player/queue hands the engine bare filepaths (no id).
+    The old id-keyed hydration missed every entry and broadcast the raw
+    `{'filepath': ...}` rows, leaking paths (#3205) and blanking Redux."""
     service, queue, repo = _build_service([1, 2])
     queue.set_queue(
         [
-            {'id': 1, 'filepath': '/music/track_1.flac'},
-            {'track_id': 2, 'filepath': '/music/track_2.flac'},
-            {'id': 404, 'filepath': '/music/missing.flac'},
-            {'id': 1, 'filepath': '/music/track_1.flac'},
+            '/music/track_1.flac',
+            '/music/track_2.flac',
+            '/music/missing.flac',
+            '/music/track_1.flac',
         ],
-        start_index=0,
+        start_index=3,
     )
 
-    await service._broadcast_queue_changed(action='test')
+    await service._broadcast_queue_changed(action='reordered')
 
-    repo.get_by_ids.assert_called_once_with([1, 2, 404])
+    repo.get_by_paths.assert_called_once_with(
+        ['/music/track_1.flac', '/music/track_2.flac', '/music/missing.flac']
+    )
     repo.get_by_id.assert_not_called()
     payload = service.connection_manager.broadcast.await_args.args[0]['data']
-    assert [track.get('id') for track in payload['tracks']] == [1, 2, 404, 1]
-    assert payload['tracks'][2] == {'id': 404, 'filepath': '/music/missing.flac'}
+    assert [track['id'] for track in payload['tracks']] == [1, 2, 1]
+    assert all(track['title'] for track in payload['tracks'])
+    assert not any('filepath' in track for track in payload['tracks'])
+    # Engine index 3 re-based past the dropped entry before it.
+    assert payload['current_index'] == 2
+
+
+@pytest.mark.regression
+@pytest.mark.asyncio
+async def test_queue_changed_reports_no_current_track_when_it_resolves_to_nothing():
+    service, queue, _ = _build_service([1])
+    queue.set_queue(['/music/track_1.flac', '/music/missing.flac'], start_index=1)
+
+    await service._broadcast_queue_changed(action='removed')
+
+    payload = service.connection_manager.broadcast.await_args.args[0]['data']
+    assert [track['id'] for track in payload['tracks']] == [1]
+    assert payload['current_index'] == -1
+
+
+@pytest.mark.regression
+@pytest.mark.asyncio
+async def test_queue_changed_omits_tracks_when_hydration_fails():
+    """Clients keep their last good queue rather than receiving raw rows."""
+    service, queue, repo = _build_service([1])
+    repo.get_by_paths.side_effect = RuntimeError("database unavailable")
+    queue.set_queue(['/music/track_1.flac'], start_index=0)
+
+    await service._broadcast_queue_changed(action='added')
+
+    payload = service.connection_manager.broadcast.await_args.args[0]['data']
+    assert 'tracks' not in payload
+    assert payload['current_index'] == 0

@@ -22,8 +22,27 @@ from collections.abc import Callable
 from typing import Any
 
 from player_state import TrackInfo
+from websocket.outbound_messages import TrackPayload
 
 logger = logging.getLogger(__name__)
+
+
+def to_track_payload(track: TrackInfo) -> TrackPayload:
+    """The client-facing wire shape of a TrackInfo (#5455).
+
+    Built field by field rather than from ``model_dump()`` so a WS payload
+    typed as ``TrackPayload`` cannot be handed a raw engine queue dict — and
+    ``filepath``, which #3205 keeps server-side, has no field to land in.
+    """
+    return TrackPayload(
+        id=track.id,
+        title=track.title,
+        artist=track.artist,
+        album=track.album,
+        duration=track.duration,
+        artwork_url=track.artwork_url,
+        format=track.format,
+    )
 
 
 def entry_filepath(entry: Any) -> str | None:
@@ -57,12 +76,21 @@ class QueueEnricher:
     async def enrich_tracks(self, entries: list[Any]) -> list[TrackInfo]:
         """Resolve engine queue entries (filepath dicts) to full TrackInfo.
 
+        Entries that resolve to nothing are dropped rather than emitted as
+        schema-invalid partial dicts (#4374); see resolve_tracks().
+        """
+        return [ti for ti in await self.resolve_tracks(entries) if ti is not None]
+
+    async def resolve_tracks(self, entries: list[Any]) -> list[TrackInfo | None]:
+        """Resolve engine queue entries position-for-position, None where
+        an entry resolves to no track.
+
         Uses the player state manager's TrackInfo queue as an in-memory
         filepath map (it covers the whole queue right after set_queue), and
         falls back to a single batched library lookup for any filepath it does
         not cover (e.g. a track appended via add-track since the last
-        set_queue). Entries that resolve to neither are dropped rather than
-        emitted as schema-invalid partial dicts (#4374).
+        set_queue). Keeping positions lets a caller that also reports an index
+        into the queue re-base it past dropped entries (#5455).
         """
         if not entries:
             return []
@@ -95,13 +123,13 @@ class QueueEnricher:
                 return found
             by_fp.update(await asyncio.to_thread(_lookup))
 
-        # 3) Emit resolved TrackInfo in engine order; drop unresolvable ones.
-        resolved: list[TrackInfo] = []
+        # 3) Resolved TrackInfo in engine order; None for unresolvable ones.
+        resolved: list[TrackInfo | None] = []
         for entry, fp in zip(entries, filepaths):
             if isinstance(entry, TrackInfo):
                 resolved.append(entry)
-            elif fp is not None and fp in by_fp:
-                resolved.append(by_fp[fp])
+            else:
+                resolved.append(by_fp.get(fp) if fp is not None else None)
         return resolved
 
     def resolve_repeat_mode(self, info: dict[str, Any]) -> str:
