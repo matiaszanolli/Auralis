@@ -244,7 +244,8 @@ class TestBatchUpdateAtomicity:
         updates = make_updates(3)
 
         def _backup(filepath):
-            return 'track2' not in filepath  # backup of track2 fails
+            # backup of track2 fails
+            return None if 'track2' in filepath else f'{filepath}.backup-copy'
 
         with patch('os.path.exists', return_value=True), \
              patch.object(editor.backup_manager, 'create_backup', side_effect=_backup), \
@@ -265,9 +266,10 @@ class TestBatchUpdateAtomicity:
 
         def _backup(filepath):
             if 'track3' in filepath:
-                return False
-            backed_up.append(filepath)
-            return True
+                return None
+            backup_path = f'{filepath}.backup-copy'
+            backed_up.append(backup_path)
+            return backup_path
 
         with patch('os.path.exists', return_value=True), \
              patch.object(editor.backup_manager, 'create_backup', side_effect=_backup), \
@@ -275,9 +277,9 @@ class TestBatchUpdateAtomicity:
              patch.object(editor, 'write_metadata', return_value=True):
             editor.batch_update(updates)
 
+        # cleanup_backup takes the exact backup path create_backup returned (#5307)
         cleaned = {c.args[0] for c in mock_cleanup.call_args_list}
-        for path in backed_up:
-            assert path in cleaned
+        assert backed_up and set(backed_up) == cleaned
 
     def test_empty_batch_returns_zeros(self):
         editor = make_editor()
@@ -288,20 +290,26 @@ class TestBatchUpdateAtomicity:
             'results': [], 'rolled_back': False,
         }
 
-    def test_first_file_failing_is_not_restored(self):
-        """If the first (and only) file fails, nothing was applied → no restore."""
+    def test_failing_file_itself_is_restored(self):
+        """The file whose write raised is restored too (#5307).
+
+        A save that fails part-way can leave that file torn, so rollback
+        restores every backed-up file — matching write_metadata, which
+        restores on its own failure — and leaves no backup behind.
+        """
         editor = make_editor()
         updates = make_updates(1)
 
         with patch('os.path.exists', return_value=True), \
-             patch.object(editor.backup_manager, 'create_backup', return_value=True), \
+             patch.object(editor.backup_manager, 'create_backup', return_value='/fake/.track1.bak'), \
              patch.object(editor.backup_manager, 'restore_backup', return_value=True) as mock_restore, \
+             patch.object(editor.backup_manager, 'cleanup_backup', return_value=True) as mock_cleanup, \
              patch.object(editor, 'write_metadata', side_effect=OSError("Error")):
             result = editor.batch_update(updates)
 
-        # Nothing was applied, so nothing to restore
-        mock_restore.assert_not_called()
-        assert result['rolled_back'] is True  # flag still set
+        mock_restore.assert_called_once_with('/fake/track1.mp3', '/fake/.track1.bak')
+        mock_cleanup.assert_not_called()
+        assert result['rolled_back'] is True
         assert result['failed'] == 1
 
 

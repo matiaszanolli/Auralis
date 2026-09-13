@@ -222,17 +222,21 @@ class TestWriteMetadata:
                 temp_file = Path(tmpdir) / 'test.mp3'
                 temp_file.write_bytes(test_file.read_bytes())
 
-                with patch.object(editor, '_create_backup') as mock_backup:
+                create = editor.backup_manager.create_backup
+                with patch.object(
+                    editor.backup_manager, 'create_backup', side_effect=create
+                ) as mock_backup:
                     try:
                         editor.write_metadata(str(temp_file), {'title': 'New Title'}, backup=True)
-                        # Verify backup was called (either with exact path or any call)
-                        assert mock_backup.called or True
                     # narrowed from bare Exception, #5023: write_metadata() re-raises
                     # only ValueError (unsupported file), OSError/FileNotFoundError
                     # (save failure) or a mutagen tag error.
                     except (ValueError, OSError, MutagenError):
                         # If writing fails, that's ok - we just test the interface
                         pass
+                mock_backup.assert_called_once_with(str(temp_file))
+                # Success cleans the backup up; failure restores it (#5307).
+                assert os.listdir(tmpdir) == ['test.mp3']
 
     def test_write_metadata_no_backup(self):
         """Test that write_metadata skips backup when not requested"""
@@ -246,7 +250,7 @@ class TestWriteMetadata:
                 temp_file = Path(tmpdir) / 'test.mp3'
                 temp_file.write_bytes(test_file.read_bytes())
 
-                with patch.object(editor, '_create_backup') as mock_backup:
+                with patch.object(editor.backup_manager, 'create_backup') as mock_backup:
                     try:
                         editor.write_metadata(str(temp_file), {'title': 'New Title'}, backup=False)
                         mock_backup.assert_not_called()
@@ -266,14 +270,13 @@ class TestWriteMetadata:
                 temp_file = Path(tmpdir) / 'test.mp3'
                 temp_file.write_bytes(test_file.read_bytes())
 
-                with patch.object(editor, '_create_backup'):
-                    try:
-                        result = editor.write_metadata(str(temp_file), {'title': 'New Title'})
-                        assert result is True or result is False  # Just verify it returns a bool
-                    # narrowed from bare Exception, #5023
-                    except (ValueError, OSError, MutagenError):
-                        # Metadata writing might fail, just verify we get here
-                        pass
+                try:
+                    result = editor.write_metadata(str(temp_file), {'title': 'New Title'})
+                    assert result is True or result is False  # Just verify it returns a bool
+                # narrowed from bare Exception, #5023
+                except (ValueError, OSError, MutagenError):
+                    # Metadata writing might fail, just verify we get here
+                    pass
 
 
 @pytest.mark.skipif(not MUTAGEN_AVAILABLE, reason="mutagen not installed")
@@ -355,44 +358,56 @@ class TestBatchUpdate:
 class TestBackupRestore:
     """Tests for backup and restore functionality"""
 
-    def test_create_backup(self):
-        """Test creating backup file"""
+    def test_create_backup(self, tmp_path):
+        """Backups are unique hidden siblings, not a fixed <file>.bak (#5307)"""
         editor = MetadataEditor()
+        audio = tmp_path / 'test.mp3'
+        audio.write_bytes(b'original')
 
-        with patch('shutil.copy2') as mock_copy:
-            editor._create_backup('/path/to/test.mp3')
+        first = editor.backup_manager.create_backup(str(audio))
+        second = editor.backup_manager.create_backup(str(audio))
 
-            mock_copy.assert_called_once_with('/path/to/test.mp3', '/path/to/test.mp3.bak')
+        assert first and second and first != second
+        assert Path(first).parent == tmp_path
+        assert Path(first).read_bytes() == b'original'
+        assert not (tmp_path / 'test.mp3.bak').exists()
 
-    def test_create_backup_failure(self):
+    def test_create_backup_failure(self, tmp_path):
         """Test backup creation handles errors gracefully"""
         editor = MetadataEditor()
+        audio = tmp_path / 'test.mp3'
+        audio.write_bytes(b'original')
 
         with patch('shutil.copy2', side_effect=OSError("Permission denied")):
-            # Should not raise, just log warning
-            editor._create_backup('/path/to/test.mp3')
+            # Should not raise, just log warning — and leave no temp file behind
+            assert editor.backup_manager.create_backup(str(audio)) is None
+        assert os.listdir(tmp_path) == ['test.mp3']
 
-    def test_restore_backup(self):
+    def test_restore_backup(self, tmp_path):
         """Test restoring from backup"""
         editor = MetadataEditor()
+        audio = tmp_path / 'test.mp3'
+        audio.write_bytes(b'original')
+        backup_path = editor.backup_manager.create_backup(str(audio))
+        audio.write_bytes(b'modified')
 
-        with patch('pathlib.Path.exists', return_value=True), \
-             patch('shutil.move') as mock_move:
+        assert editor.backup_manager.restore_backup(str(audio), backup_path) is True
 
-            editor._restore_backup('/path/to/test.mp3')
+        assert audio.read_bytes() == b'original'
+        assert os.listdir(tmp_path) == ['test.mp3']
 
-            mock_move.assert_called_once_with('/path/to/test.mp3.bak', '/path/to/test.mp3')
-
-    def test_restore_backup_not_exists(self):
+    def test_restore_backup_not_exists(self, tmp_path):
         """Test restore when backup doesn't exist"""
         editor = MetadataEditor()
+        audio = tmp_path / 'test.mp3'
+        audio.write_bytes(b'modified')
 
-        with patch('pathlib.Path.exists', return_value=False), \
-             patch('shutil.move') as mock_move:
+        with patch('os.replace') as mock_replace:
+            assert editor.backup_manager.restore_backup(
+                str(audio), str(tmp_path / '.missing.bak')
+            ) is False
 
-            editor._restore_backup('/path/to/test.mp3')
-
-            mock_move.assert_not_called()
+            mock_replace.assert_not_called()
 
 
 @pytest.mark.skipif(not MUTAGEN_AVAILABLE, reason="mutagen not installed")

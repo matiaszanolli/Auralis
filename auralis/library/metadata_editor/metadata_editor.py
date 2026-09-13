@@ -24,7 +24,7 @@ except ImportError:
     MutagenFile = None
 
 from ...utils.logging import debug, error, info
-from .backup import BackupManager
+from .backup import BackupManager, lock_files
 from .models import MetadataUpdate
 from .readers import MetadataReaders
 from .tag_mappings import STANDARD_FIELDS, TAG_MAPPINGS, get_format_key
@@ -151,47 +151,57 @@ class MetadataEditor:
         if not Path(filepath).exists():
             raise FileNotFoundError(f"File not found: {filepath}")
 
-        # Create backup if requested
-        if backup:
-            self.backup_manager.create_backup(filepath)
+        # #5307: serialize every write to this file — single-track and batch
+        # alike — so two requests can neither interleave saves nor race on the
+        # backup. Re-entrant, so batch_update can call in while holding it.
+        with lock_files([filepath]):
+            backup_path: str | None = None
+            if backup:
+                backup_path = self.backup_manager.create_backup(filepath)
+                if backup_path is None:
+                    # The caller asked for a safety net; writing without one is
+                    # how a failed save used to clobber the file (#5307).
+                    raise OSError(f"Failed to create backup of {filepath}; metadata not written")
 
-        try:
-            audio_file = MutagenFile(filepath)
-            if audio_file is None:
-                raise ValueError(f"Unsupported or invalid audio file: {filepath}")
+            try:
+                audio_file = MutagenFile(filepath)
+                if audio_file is None:
+                    raise ValueError(f"Unsupported or invalid audio file: {filepath}")
 
-            ext = Path(filepath).suffix.lower().lstrip('.')
+                ext = Path(filepath).suffix.lower().lstrip('.')
 
-            # Write format-specific metadata
-            if isinstance(audio_file, FLAC) or ext == 'flac':
-                self.writers.write_flac_metadata(audio_file, metadata)
-            elif isinstance(audio_file, MP4) or ext in ('m4a', 'aac', 'mp4'):
-                self.writers.write_mp4_metadata(audio_file, metadata)
-            elif isinstance(audio_file, OggOpus) or ext == 'opus':
-                # OPUS uses Vorbis comments, same as OggVorbis (#4130).
-                self.writers.write_ogg_metadata(audio_file, metadata)
-            elif isinstance(audio_file, OggVorbis) or ext in ('ogg', 'oga'):
-                self.writers.write_ogg_metadata(audio_file, metadata)
-            elif isinstance(audio_file, WAVE) or ext == 'wav':
-                # WAV stores tags as embedded ID3 frames (#4130).
-                self.writers.write_mp3_metadata(audio_file, metadata)
-            elif ext == 'mp3':
-                self.writers.write_mp3_metadata(audio_file, metadata)
-            else:
-                # Generic fallback
-                self.writers.write_generic_metadata(audio_file, metadata)
+                # Write format-specific metadata
+                if isinstance(audio_file, FLAC) or ext == 'flac':
+                    self.writers.write_flac_metadata(audio_file, metadata)
+                elif isinstance(audio_file, MP4) or ext in ('m4a', 'aac', 'mp4'):
+                    self.writers.write_mp4_metadata(audio_file, metadata)
+                elif isinstance(audio_file, OggOpus) or ext == 'opus':
+                    # OPUS uses Vorbis comments, same as OggVorbis (#4130).
+                    self.writers.write_ogg_metadata(audio_file, metadata)
+                elif isinstance(audio_file, OggVorbis) or ext in ('ogg', 'oga'):
+                    self.writers.write_ogg_metadata(audio_file, metadata)
+                elif isinstance(audio_file, WAVE) or ext == 'wav':
+                    # WAV stores tags as embedded ID3 frames (#4130).
+                    self.writers.write_mp3_metadata(audio_file, metadata)
+                elif ext == 'mp3':
+                    self.writers.write_mp3_metadata(audio_file, metadata)
+                else:
+                    # Generic fallback
+                    self.writers.write_generic_metadata(audio_file, metadata)
 
-            # Save changes
-            audio_file.save()
+                # Save changes
+                audio_file.save()
+
+            except Exception as e:
+                error(f"Failed to write metadata to {filepath}: {e}")
+                if backup_path is not None:
+                    self.backup_manager.restore_backup(filepath, backup_path)
+                raise
+
+            if backup_path is not None:
+                self.backup_manager.cleanup_backup(backup_path)
             info(f"Updated metadata for {filepath}")
             return True
-
-        except Exception as e:
-            error(f"Failed to write metadata to {filepath}: {e}")
-            # Restore backup if available
-            if backup:
-                self.backup_manager.restore_backup(filepath)
-            raise
 
     def batch_update(self, updates: list[MetadataUpdate]) -> dict[str, Any]:
         """
@@ -256,73 +266,76 @@ class MetadataEditor:
                     'rolled_back': False,
                 }
 
-        # Phase 2 — Back up every file (fail-fast: any backup failure aborts all).
-        backed_up_paths: set[str] = set()
-        if any(u.backup for u in updates):
+        # #5307: hold every file's lock across backup → apply → rollback so a
+        # concurrent single-track write cannot interleave with the batch.
+        with lock_files(u.filepath for u in updates):
+            # Phase 2 — Back up every file (fail-fast: any backup failure aborts
+            # all). Maps each filepath to its own unique backup copy.
+            backups: dict[str, str] = {}
             for update in updates:
-                if update.backup:
-                    if not self.backup_manager.create_backup(update.filepath):
-                        for path in backed_up_paths:
-                            self.backup_manager.cleanup_backup(path)
-                        return {
-                            'total': total,
-                            'successful': 0,
-                            'failed': total,
-                            'results': [
-                                {
-                                    'track_id': u.track_id,
-                                    'success': False,
-                                    'error': (
-                                        "Failed to create backup"
-                                        if u.filepath == update.filepath
-                                        else "Aborted: another batch backup failed"
-                                    ),
-                                }
-                                for u in updates
-                            ],
-                            'rolled_back': False,
-                        }
-                    backed_up_paths.add(update.filepath)
+                if not update.backup or update.filepath in backups:
+                    continue
+                backup_path = self.backup_manager.create_backup(update.filepath)
+                if backup_path is None:
+                    for path in backups.values():
+                        self.backup_manager.cleanup_backup(path)
+                    return {
+                        'total': total,
+                        'successful': 0,
+                        'failed': total,
+                        'results': [
+                            {
+                                'track_id': u.track_id,
+                                'success': False,
+                                'error': (
+                                    "Failed to create backup"
+                                    if u.filepath == update.filepath
+                                    else "Aborted: another batch backup failed"
+                                ),
+                            }
+                            for u in updates
+                        ],
+                        'rolled_back': False,
+                    }
+                backups[update.filepath] = backup_path
 
-        # Phase 3 — Apply all updates (skip per-file backup; batch backup done above).
-        per_file_results: list[dict[str, Any]] = []
-        applied_paths: list[str] = []
-        any_failed = False
+            # Phase 3 — Apply all updates (skip per-file backup; batch backup done above).
+            per_file_results: list[dict[str, Any]] = []
+            any_failed = False
 
-        for update in updates:
-            try:
-                self.write_metadata(update.filepath, update.updates, backup=False)
-                applied_paths.append(update.filepath)
-                per_file_results.append({
-                    'track_id': update.track_id,
-                    'success': True,
-                    'updates': update.updates,
-                })
-            except Exception as e:
-                any_failed = True
-                per_file_results.append({
-                    'track_id': update.track_id,
-                    'success': False,
-                    'error': str(e).replace(update.filepath, Path(update.filepath).name),
-                })
+            for update in updates:
+                try:
+                    self.write_metadata(update.filepath, update.updates, backup=False)
+                    per_file_results.append({
+                        'track_id': update.track_id,
+                        'success': True,
+                        'updates': update.updates,
+                    })
+                except Exception as e:
+                    any_failed = True
+                    per_file_results.append({
+                        'track_id': update.track_id,
+                        'success': False,
+                        'error': str(e).replace(update.filepath, Path(update.filepath).name),
+                    })
 
-        # Phase 4 — Roll back all applied files when the batch was backed up and any failed.
-        rolled_back = False
-        if any_failed and backed_up_paths:
-            for filepath in applied_paths:
-                if filepath in backed_up_paths:
-                    self.backup_manager.restore_backup(filepath)
-            rolled_back = True
-            # Mark previously-succeeded items as rolled back.
-            per_file_results = [
-                {**r, 'success': False, 'rolled_back': True} if r.get('success') else r
-                for r in per_file_results
-            ]
-
-        # Phase 5 — Clean up backups on a fully successful run.
-        if not any_failed:
-            for path in backed_up_paths:
-                self.backup_manager.cleanup_backup(path)
+            # Phase 4 — On any failure, restore EVERY backed-up file — including
+            # the one whose save raised, which may have been left half-written
+            # (write_metadata restores in that case too, #5307). Otherwise
+            # delete the backups; either way none is left behind.
+            rolled_back = False
+            if any_failed and backups:
+                for filepath, backup_path in backups.items():
+                    self.backup_manager.restore_backup(filepath, backup_path)
+                rolled_back = True
+                # Mark previously-succeeded items as rolled back.
+                per_file_results = [
+                    {**r, 'success': False, 'rolled_back': True} if r.get('success') else r
+                    for r in per_file_results
+                ]
+            else:
+                for backup_path in backups.values():
+                    self.backup_manager.cleanup_backup(backup_path)
 
         successful = sum(1 for r in per_file_results if r.get('success'))
         failed = total - successful
@@ -335,27 +348,3 @@ class MetadataEditor:
             'results': per_file_results,
             'rolled_back': rolled_back,
         }
-
-    def _create_backup(self, filepath: str) -> bool:
-        """
-        Create a backup of an audio file before modification
-
-        Args:
-            filepath: Path to audio file
-
-        Returns:
-            True if backup successful, False otherwise
-        """
-        return BackupManager.create_backup(filepath)
-
-    def _restore_backup(self, filepath: str) -> bool:
-        """
-        Restore an audio file from backup
-
-        Args:
-            filepath: Path to audio file to restore
-
-        Returns:
-            True if restore successful, False otherwise
-        """
-        return BackupManager.restore_backup(filepath)
