@@ -326,9 +326,7 @@ export interface PaginatedResponse<T> {
 // Its sole consumer (useLibraryPagination.ts) now imports transformTracks
 // from '@/api/transformers' directly; nothing else referenced either symbol.
 
-// ============================================================================
-// Utility Functions
-// ============================================================================
-
-// Re-export from canonical location for backwards compatibility
-export { formatDuration } from '@/utils/timeFormat';
+// #5234: the formatDuration re-export that used to live here ("for
+// backwards compatibility") had zero consumers — every real caller already
+// imports it from its canonical location (@/utils/timeFormat) or via
+// TrackCardHelpers' own separate re-export chain.
