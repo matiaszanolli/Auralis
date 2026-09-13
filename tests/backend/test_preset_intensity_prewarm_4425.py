@@ -98,36 +98,44 @@ def _patched_prewarm_chain():
     )
 
 
+# Presets were narrowed to 'adaptive' only (c195ac80), so SetPresetRequest
+# rejects every other name with 422 and 'adaptive' is the only value a client
+# can POST. The handler's `old_preset != preset` branch is still reachable
+# when the runtime settings dict holds a name stored before that narrowing,
+# which is what these tests start from.
+_LEGACY_STORED_PRESET = "warm"
+
+
 class TestSetPresetPrewarm:
     def test_preset_change_while_playing_and_enabled_triggers_prewarm(self):
-        settings = {"enabled": True, "preset": "adaptive", "intensity": 1.0}
+        settings = {"enabled": True, "preset": _LEGACY_STORED_PRESET, "intensity": 1.0}
         player_state_manager = _make_playing_state_manager()
         client = _build_client(settings, player_state_manager)
 
         p1, p2, p3, mock_processor = _patched_prewarm_chain()
         with _run_prewarm_synchronously(), p1, p2 as mock_ctor, p3:
             response = client.post(
-                "/api/player/enhancement/preset", json={"preset": "warm"}
+                "/api/player/enhancement/preset", json={"preset": "adaptive"}
             )
 
         assert response.status_code == 200
         mock_ctor.assert_called_once()
         assert mock_processor.get_wav_chunk_path.called
         # Pre-warm must use the NEW preset, not the stale one.
-        assert mock_ctor.call_args.kwargs["preset"] == "warm"
+        assert mock_ctor.call_args.kwargs["preset"] == "adaptive"
 
     def test_no_prewarm_when_enhancement_disabled(self):
         """Matches the frontend's own gate (setPreset only re-issues the
         stream `if (enabledRef.current)`) — pre-warming for a preset that
         isn't driving the active audio path would be wasted work."""
-        settings = {"enabled": False, "preset": "adaptive", "intensity": 1.0}
+        settings = {"enabled": False, "preset": _LEGACY_STORED_PRESET, "intensity": 1.0}
         player_state_manager = _make_playing_state_manager()
         client = _build_client(settings, player_state_manager)
 
         p1, p2, p3, _ = _patched_prewarm_chain()
         with _run_prewarm_synchronously(), p1, p2 as mock_ctor, p3:
             response = client.post(
-                "/api/player/enhancement/preset", json={"preset": "warm"}
+                "/api/player/enhancement/preset", json={"preset": "adaptive"}
             )
 
         assert response.status_code == 200
@@ -135,21 +143,21 @@ class TestSetPresetPrewarm:
 
     def test_no_prewarm_when_preset_unchanged(self):
         """Re-posting the SAME preset must not fire a redundant pre-warm."""
-        settings = {"enabled": True, "preset": "warm", "intensity": 1.0}
+        settings = {"enabled": True, "preset": "adaptive", "intensity": 1.0}
         player_state_manager = _make_playing_state_manager()
         client = _build_client(settings, player_state_manager)
 
         p1, p2, p3, _ = _patched_prewarm_chain()
         with _run_prewarm_synchronously(), p1, p2 as mock_ctor, p3:
             response = client.post(
-                "/api/player/enhancement/preset", json={"preset": "warm"}
+                "/api/player/enhancement/preset", json={"preset": "adaptive"}
             )
 
         assert response.status_code == 200
         mock_ctor.assert_not_called()
 
     def test_no_prewarm_when_nothing_is_playing(self):
-        settings = {"enabled": True, "preset": "adaptive", "intensity": 1.0}
+        settings = {"enabled": True, "preset": _LEGACY_STORED_PRESET, "intensity": 1.0}
         player_state_manager = Mock()
         idle_state = Mock()
         idle_state.current_track = None
@@ -161,7 +169,7 @@ class TestSetPresetPrewarm:
         p1, p2, p3, _ = _patched_prewarm_chain()
         with _run_prewarm_synchronously(), p1, p2 as mock_ctor, p3:
             response = client.post(
-                "/api/player/enhancement/preset", json={"preset": "warm"}
+                "/api/player/enhancement/preset", json={"preset": "adaptive"}
             )
 
         assert response.status_code == 200
