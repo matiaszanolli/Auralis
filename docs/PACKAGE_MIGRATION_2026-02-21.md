@@ -21,7 +21,7 @@ auralis-web/backend/
 │   ├── analysis_extractor.py       ← was: backend root
 │   └── track_analysis_cache.py     ← was: backend root
 ├── services/               ← adaptive learning (existed, 3 new modules added)
-│   ├── learning_system.py          ← was: backend root
+│   ├── learning_system.py          ← was: backend root (deleted, #4750)
 │   ├── self_tuner.py               ← was: backend root
 │   └── audio_content_predictor.py  ← was: backend root
 ├── monitoring/             ← NEW — system observability
@@ -53,7 +53,7 @@ auralis-web/backend/
 | `from fingerprint_queue import X` | `from analysis.fingerprint_queue import X` |
 | `from analysis_extractor import X` | `from analysis.analysis_extractor import X` |
 | `from track_analysis_cache import X` | `from analysis.track_analysis_cache import X` |
-| `from learning_system import X` | `from services.learning_system import X` |
+| `from learning_system import X` | `from services.learning_system import X` (module deleted, #4750) |
 | `from self_tuner import X` | `from services.self_tuner import X` |
 | `from audio_content_predictor import X` | `from services.audio_content_predictor import X` |
 | `from metrics_collector import X` | `from monitoring.metrics_collector import X` |
@@ -70,7 +70,7 @@ auralis-web/backend/
 - `core/chunked_processor.py` — sys.path arithmetic updated (parent.parent instead of parent)
 - `core/proactive_buffer.py` — lazy import of chunked_processor
 - `core/streamlined_worker.py` — lazy import of chunked_processor
-- `services/self_tuner.py` — imports learning_system, memory_monitor, audio_content_predictor
+- `services/self_tuner.py` — imports learning_system (deleted, #4750), memory_monitor, audio_content_predictor
 - *services/learning_system.py* — lazy import of audio_content_predictor (deleted in #4750)
 - `routers/processing_api.py` — imports processing_engine
 
