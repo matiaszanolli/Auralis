@@ -1590,7 +1590,8 @@ class TestPlayerEnhancementEndpoints:
         with patch('main.manager') as mock_ws_manager:
             mock_ws_manager.broadcast = AsyncMock()
 
-            response = client.post("/api/player/enhancement/preset", json={"preset": "warm"})
+            # 'adaptive' is the only preset since c195ac80; others are 422.
+            response = client.post("/api/player/enhancement/preset", json={"preset": "adaptive"})
 
             assert response.status_code == 200
             data = response.json()

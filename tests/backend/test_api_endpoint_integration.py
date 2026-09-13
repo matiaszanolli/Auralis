@@ -249,16 +249,19 @@ def test_enhancement_preset_change_api(client):
 
     Validates:
     - Preset change accepted
-    - Valid presets: adaptive, gentle, warm, bright, punchy
-    - Invalid presets rejected
+    - Valid presets: adaptive only (narrowed in c195ac80)
+    - Invalid presets rejected, including the deleted ones
     """
-    valid_presets = ["adaptive", "gentle", "warm", "bright", "punchy"]
+    # JSON body, not query parameter
+    response = client.post("/api/player/enhancement/preset", json={"preset": "adaptive"})
+    assert response.status_code in [200, 204], "Preset 'adaptive' should be accepted"
 
-    for preset in valid_presets:
-        # JSON body, not query parameter
-        response = client.post("/api/player/enhancement/preset", json={"preset": preset})
-        assert response.status_code in [200, 204], (
-            f"Preset '{preset}' should be accepted"
+    for removed_preset in ["gentle", "warm", "bright", "punchy"]:
+        removed_response = client.post(
+            "/api/player/enhancement/preset", json={"preset": removed_preset}
+        )
+        assert removed_response.status_code in [400, 422], (
+            f"Removed preset '{removed_preset}' should be rejected"
         )
 
     # Test invalid preset
