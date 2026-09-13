@@ -46,7 +46,9 @@ const ALLOWED_ANY_FILES: Record<string, string> = {
   // 'a11y/focusManagement.ts' was here until #4392 deleted the dead
   // getAccessibleName() that was its only `any` use — the surviving
   // FocusManager class has none.
-  'hooks/app/keyboardShortcutDefinitions.ts': 'handler signatures vary per shortcut',
+  // 'hooks/app/keyboardShortcutDefinitions.ts' was here until #5231 deleted
+  // the file wholesale — its config-map machinery (including this `any`)
+  // belonged entirely to a dead "V1" input form of useKeyboardShortcuts.
   'design-system/primitives/Text.tsx': 'polymorphic `as` prop',
   'types/window.d.ts': 'ambient global augmentation',
   'utils/apiRequest.ts': 'the untyped fetch boundary itself',

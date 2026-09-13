@@ -30,6 +30,17 @@ export interface Album {
   tracks?: DetailTrack[];
 }
 
+/** Wire shape of GET /api/albums/{id}/tracks — snake_case, unlike `Album` above. */
+interface AlbumTracksResponse {
+  album_id: number;
+  album_title: string;
+  artist: string;
+  year?: number;
+  genre?: string;
+  total_tracks: number;
+  tracks?: TrackApiResponse[];
+}
+
 export const useAlbumDetails = (albumId: number) => {
   const [album, setAlbum] = useState<Album | null>(null);
   const [loading, setLoading] = useState(true);
@@ -52,7 +63,7 @@ export const useAlbumDetails = (albumId: number) => {
         // Error — a 404 (stale/deleted album link, recoverable) and a 500
         // (possibly transient) rendered the same, with no way for the UI to
         // offer a differentiated recovery action.
-        const data = await get<any>(`/api/albums/${albumId}/tracks`, {
+        const data = await get<AlbumTracksResponse>(`/api/albums/${albumId}/tracks`, {
           signal: controller.signal,
         });
         if (controller.signal.aborted) return;
@@ -67,9 +78,7 @@ export const useAlbumDetails = (albumId: number) => {
         //
         // NOTE: the album-level fields below are genuinely snake_case on this
         // endpoint and are correct as-is — do not "normalise" them.
-        const tracks = transformTracks(
-          (data.tracks ?? []) as TrackApiResponse[]
-        ) as DetailTrack[];
+        const tracks = transformTracks(data.tracks ?? []) as DetailTrack[];
 
         const albumData: Album = {
           id: data.album_id,

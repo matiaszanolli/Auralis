@@ -5,11 +5,11 @@
  * The hook used to have two registration paths with different gating: a
  * `useEffect` gated on `serializedKey` (#2696), and a second `useLayoutEffect`
  * with no dep array that re-registered whenever
- * `shortcutsRef.current !== shortcutsToRegister`. For the config-object form
- * that comparison is true on *every* render, because
- * `configToServiceShortcuts` builds a fresh array each time — so the guard the
- * comment described ("only when the shortcut array identity changes") was a
- * condition that never failed to hold.
+ * `shortcutsRef.current !== shortcutsToRegister`. That second path was
+ * ungated specifically for the hook's now-deleted "config-object" input form
+ * (#5231) — it built a fresh array every render, so the guard the comment
+ * described ("only when the shortcut array identity changes") was a
+ * condition that never failed to hold for that form.
  *
  * It could not simply be deleted: that ungated path was, accidentally, the only
  * thing keeping handler closures current, since the main effect does not re-run
@@ -17,9 +17,10 @@
  * have frozen the handlers inside it.
  *
  * The fix registers a stable trampoline that reads the live handler out of a
- * ref, so registration is gated while handlers stay fresh. These tests pin both
- * halves — asserting the call count rather than inspecting the code, since a
- * `useMemo` with an unstable dep is a no-op that looks like a fix.
+ * ref, so registration is gated while handlers stay fresh. These tests pin
+ * that behavior on the array form — the only input form the hook accepts
+ * since #5231 — asserting the call count rather than inspecting the code,
+ * since a `useMemo` with an unstable dep is a no-op that looks like a fix.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -46,66 +47,7 @@ describe('useKeyboardShortcuts registration gating (#4692)', () => {
     registerSpy = vi.spyOn(keyboardShortcuts, 'register');
   });
 
-  describe('the config-object form (the one the defect was specific to)', () => {
-    it('does not re-register on renders with an unchanged shortcut structure', () => {
-      const { rerender } = renderHook(
-        ({ onPlayPause }) => useKeyboardShortcuts({ onPlayPause }),
-        { initialProps: { onPlayPause: vi.fn() } }
-      );
-
-      const afterFirstRender = registerSpy.mock.calls.length;
-      expect(afterFirstRender).toBeGreaterThan(0);
-
-      // Five re-renders, each with a brand-new handler closure — exactly what
-      // a parent re-render produces, and exactly what used to re-register the
-      // whole shortcut set every time.
-      for (let i = 0; i < 5; i++) {
-        rerender({ onPlayPause: vi.fn() });
-      }
-
-      expect(registerSpy).toHaveBeenCalledTimes(afterFirstRender);
-    });
-
-    it('still invokes the current handler after the closure changes', () => {
-      // The behaviour the ungated effect was accidentally guaranteeing.
-      let seen: number | null = null;
-      const { rerender } = renderHook(
-        ({ value }) =>
-          useKeyboardShortcuts({
-            onPlayPause: () => {
-              seen = value;
-            },
-          }),
-        { initialProps: { value: 1 } }
-      );
-
-      rerender({ value: 2 });
-      rerender({ value: 3 });
-
-      press(' ');
-
-      expect(seen).toBe(3);
-    });
-
-    it('re-registers when a shortcut structure actually changes', () => {
-      const { rerender } = renderHook(
-        ({ withSearch }) =>
-          useKeyboardShortcuts(
-            withSearch
-              ? { onPlayPause: vi.fn(), onFocusSearch: vi.fn() }
-              : { onPlayPause: vi.fn() }
-          ),
-        { initialProps: { withSearch: false } }
-      );
-
-      const beforeChange = registerSpy.mock.calls.length;
-      rerender({ withSearch: true });
-
-      expect(registerSpy.mock.calls.length).toBeGreaterThan(beforeChange);
-    });
-  });
-
-  describe('the array form (unaffected by the defect, must stay correct)', () => {
+  describe('the array form (the hook\'s only input form since #5231)', () => {
     it('does not re-register when a memoized array is passed', () => {
       const shortcuts: KeyboardShortcut[] = [
         { key: 'x', description: 'X', handler: vi.fn() },
@@ -172,6 +114,26 @@ describe('useKeyboardShortcuts registration gating (#4692)', () => {
 
       expect(second).toHaveBeenCalledTimes(1);
       expect(first).not.toHaveBeenCalled();
+    });
+
+    it('re-registers when a shortcut structure actually changes', () => {
+      const { rerender } = renderHook(
+        ({ withSearch }) =>
+          useKeyboardShortcuts(
+            withSearch
+              ? [
+                  { key: 'x', description: 'X', handler: vi.fn() },
+                  { key: '/', description: 'Focus search', handler: vi.fn() },
+                ]
+              : [{ key: 'x', description: 'X', handler: vi.fn() }]
+          ),
+        { initialProps: { withSearch: false } }
+      );
+
+      const beforeChange = registerSpy.mock.calls.length;
+      rerender({ withSearch: true });
+
+      expect(registerSpy.mock.calls.length).toBeGreaterThan(beforeChange);
     });
   });
 });

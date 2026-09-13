@@ -1,69 +1,27 @@
 /**
- * useKeyboardShortcuts Hook (Phase 3a - Unified)
+ * useKeyboardShortcuts Hook
  *
- * Consolidated keyboard shortcuts hook supporting both config-based (V1) and
- * service-based (V2) patterns for backward compatibility.
+ * Registers a caller-supplied array of keyboard shortcuts with the shared
+ * KeyboardShortcutsService, keeping handlers current across re-renders
+ * without re-registering on every render (#4692).
  *
- * Phase 3a consolidation merges V1's flexible config interface with V2's
- * robust service architecture. Prefers V2 pattern but maintains V1 compatibility.
+ * #5231: this used to also accept a `KeyboardShortcutsConfig` object (a
+ * fixed set of named handlers like `onPlayPause`/`onNext`) as a "V1
+ * backward-compatible" input alongside the array form. That branch had zero
+ * production callers — the sole call site (ComfortableApp.tsx) always
+ * passed the array form — and was exercised only by this hook's own test
+ * suite, so it was deleted along with the sibling `KeyboardShortcutsConfig`
+ * config-map machinery in keyboardShortcutDefinitions.ts (also deleted
+ * wholesale, including its `PRESET_SHORTCUTS`/`PRESET_NAMES`, which turned
+ * out to be reachable only through the dead V1 path — not the live
+ * keyboard-shortcut path a prior audit assumed).
  */
 
 import { useEffect, useLayoutEffect, useCallback, useState, useRef } from 'react';
 import { keyboardShortcuts, ShortcutDefinition, ShortcutHandler } from '@/services/keyboardShortcutsService';
-import {
-  SHORTCUT_CONFIG_MAP,
-  PRESET_SHORTCUTS,
-  PRESET_NAMES,
-  createShortcutDefinition
-} from './keyboardShortcutDefinitions';
 
 export interface KeyboardShortcut extends ShortcutDefinition {
   handler: ShortcutHandler;
-}
-
-export interface KeyboardShortcutsConfig {
-  // Playback controls
-  onPlayPause?: () => void;
-  onNext?: () => void;
-  onPrevious?: () => void;
-  onSeekForward?: () => void;
-  onSeekBackward?: () => void;
-  onVolumeUp?: () => void;
-  onVolumeDown?: () => void;
-  onMute?: () => void;
-
-  // Navigation
-  onShowSongs?: () => void;
-  onShowAlbums?: () => void;
-  onShowArtists?: () => void;
-  onShowPlaylists?: () => void;
-  onFocusSearch?: () => void;
-  onEscape?: () => void;
-
-  // Library actions
-  onPlaySelected?: () => void;
-  onToggleFavorite?: () => void;
-  onAddToPlaylist?: () => void;
-  onAddToQueue?: () => void;
-  onShowInfo?: () => void;
-  onDelete?: () => void;
-
-  // Queue management
-  onClearQueue?: () => void;
-  onShuffleQueue?: () => void;
-
-  // Global
-  onShowHelp?: () => void;
-  onOpenSettings?: () => void;
-
-  // Enhancement and display
-  onToggleEnhancement?: () => void;
-  onToggleLyrics?: () => void;
-  onPresetChange?: (preset: string) => void;
-
-  // Options
-  enabled?: boolean;
-  debug?: boolean;
 }
 
 export interface UseKeyboardShortcutsReturn {
@@ -78,103 +36,25 @@ export interface UseKeyboardShortcutsReturn {
 }
 
 /**
- * Convert config-based shortcuts (V1 pattern) to service-based shortcuts (V2 pattern)
- * Phase 3a: Unified handler that maintains backward compatibility
- *
- * Refactored to use configuration-driven approach (90% reduction in lines)
- */
-const configToServiceShortcuts = (config: KeyboardShortcutsConfig): Array<KeyboardShortcut> => {
-  const shortcuts: Array<KeyboardShortcut> = [];
-
-  // Use SHORTCUT_CONFIG_MAP to eliminate repetitive if/push boilerplate
-  SHORTCUT_CONFIG_MAP.forEach((entry) => {
-    const handler = entry.handler(config);
-    if (!handler) return; // Skip if handler not provided
-
-    entry.shortcuts.forEach((shortcutEntry) => {
-      const definition = createShortcutDefinition(shortcutEntry);
-      shortcuts.push({
-        ...definition,
-        handler
-      } as KeyboardShortcut);
-    });
-  });
-
-  // Special case: Preset selection (dynamic preset names)
-  if (config.onPresetChange) {
-    PRESET_SHORTCUTS.forEach((shortcutEntry, index) => {
-      const definition = createShortcutDefinition(shortcutEntry);
-      shortcuts.push({
-        ...definition,
-        handler: () => config.onPresetChange?.(PRESET_NAMES[index])
-      } as KeyboardShortcut);
-    });
-  }
-
-  return shortcuts;
-};
-
-/**
- * Format shortcut for display (Phase 3a: Unified from service)
+ * Format shortcut for display.
  */
 export const formatShortcut = (shortcut: ShortcutDefinition): string => {
   return keyboardShortcuts.formatShortcut(shortcut);
 };
 
 /**
- * Default keyboard shortcuts library for export and testing
- * These are the standard shortcuts available throughout the application
- */
-export const KEYBOARD_SHORTCUTS = [
-  // Playback controls
-  { key: ' ', action: 'Play/Pause', category: 'Playback' },
-  { key: 'ArrowRight', action: 'Next track', category: 'Playback' },
-  { key: 'ArrowLeft', action: 'Previous track', category: 'Playback' },
-  { key: 'ArrowUp', action: 'Volume up', category: 'Playback' },
-  { key: 'ArrowDown', action: 'Volume down', category: 'Playback' },
-  { key: '0', action: 'Mute/Unmute', category: 'Playback' },
-  { key: 'm', ctrl: true, action: 'Mute/Unmute', category: 'Playback' },
-
-  // Navigation
-  { key: '/', action: 'Focus search', category: 'Navigation' },
-  { key: 'k', ctrl: true, action: 'Quick search', category: 'Navigation' },
-  { key: 'k', meta: true, action: 'Quick search (Mac)', category: 'Navigation' },
-  { key: ',', ctrl: true, action: 'Open settings', category: 'Navigation' },
-  { key: ',', meta: true, action: 'Open settings (Mac)', category: 'Navigation' },
-
-  // Presets
-  { key: '1', action: 'Adaptive preset', category: 'Presets' },
-  { key: '2', action: 'Gentle preset', category: 'Presets' },
-  { key: '3', action: 'Warm preset', category: 'Presets' },
-  { key: '4', action: 'Bright preset', category: 'Presets' },
-  { key: '5', action: 'Punchy preset', category: 'Presets' },
-];
-
-/**
- * Main keyboard shortcuts hook - UNIFIED VERSION (Phase 3a)
- *
- * Supports both:
- * - V1 config-based pattern: Pass handlers as config object
- * - V2 service-based pattern: Pass shortcuts array directly
+ * Register `shortcuts` with the shared KeyboardShortcutsService for as long
+ * as this hook is mounted.
  */
 export const useKeyboardShortcuts = (
-  configOrShortcuts?: KeyboardShortcutsConfig | KeyboardShortcut[]
+  shortcuts: KeyboardShortcut[] = []
 ): UseKeyboardShortcutsReturn => {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
-  const [isEnabled, setIsEnabled] = useState(
-    Array.isArray(configOrShortcuts)
-      ? true
-      : (configOrShortcuts?.enabled !== false)
-  );
-
-  // Determine input format and convert to service format
-  const shortcutsToRegister = Array.isArray(configOrShortcuts)
-    ? configOrShortcuts
-    : configToServiceShortcuts(configOrShortcuts || {});
+  const [isEnabled, setIsEnabled] = useState(true);
 
   // Stabilize: only re-register when the set of shortcut keys actually changes,
   // not when handler identity changes (which happens every render).
-  const serializedKey = shortcutsToRegister
+  const serializedKey = shortcuts
     .map((s: KeyboardShortcut) => `${s.key}:${s.ctrl ?? ''}:${s.meta ?? ''}:${s.alt ?? ''}:${s.shift ?? ''}`)
     .join('|');
 
@@ -187,29 +67,22 @@ export const useKeyboardShortcuts = (
   // render stays pure — a render-body side effect double-fired under
   // Concurrent/Strict mode (#4160). It runs before the passive effect below
   // on the same commit, so a structure change sees the new handlers.
-  const shortcutsRef = useRef(shortcutsToRegister);
+  const shortcutsRef = useRef(shortcuts);
   useLayoutEffect(() => {
-    shortcutsRef.current = shortcutsToRegister;
+    shortcutsRef.current = shortcuts;
   });
 
   // Register shortcuts with the service when the shortcut *keys* change.
   //
-  // #4692: this used to be two registration paths with different gating. The
-  // effect below was gated on serializedKey (#2696), while a second layout
-  // effect re-registered whenever `shortcutsRef.current !== shortcutsToRegister`
-  // — a comparison that is true on every render for the config-object form,
-  // since `configToServiceShortcuts` builds a fresh array each time. The
-  // comment above it claimed to re-register only "when the shortcut array
-  // identity changes", which is exactly the condition that never fails to hold.
-  // That ungated path was also, accidentally, the only thing keeping handlers
-  // current, so it could not simply be deleted or memoized away — memoizing the
-  // array on serializedKey would have frozen the handlers inside it.
-  //
-  // The trampoline resolves both at once: registration happens once per
-  // structure change, and the handler it registers reads the latest closure out
-  // of the ref at call time. Index lookup is safe because serializedKey encodes
-  // every shortcut's key and modifiers in order, so any change that could
-  // reorder or resize the array also changes the key and re-runs this effect.
+  // #4692: this used to be two registration paths with different gating,
+  // one of which re-registered on every render for the (now-deleted, #5231)
+  // config-object form because it built a fresh array each render. The
+  // trampoline below resolves both at once: registration happens once per
+  // structure change, and the handler it registers reads the latest closure
+  // out of the ref at call time. Index lookup is safe because serializedKey
+  // encodes every shortcut's key and modifiers in order, so any change that
+  // could reorder or resize the array also changes the key and re-runs this
+  // effect.
   useEffect(() => {
     // Clear any previous shortcuts
     keyboardShortcuts.clear();
@@ -248,7 +121,7 @@ export const useKeyboardShortcuts = (
   const disable = useCallback(() => setIsEnabled(false), []);
 
   return {
-    shortcuts: shortcutsToRegister.map(({ handler, ...definition }) => definition),
+    shortcuts: shortcuts.map(({ handler, ...definition }) => definition),
     isHelpOpen,
     openHelp,
     closeHelp,

@@ -2,12 +2,28 @@
  * Tests for useKeyboardShortcuts Hook
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
- * Tests the global keyboard shortcuts functionality
+ * Tests the global keyboard shortcuts functionality via the hook's array
+ * API. #4692's registration-gating regression (re-register-on-every-render
+ * vs. stale-handler-closure) has its own dedicated coverage in
+ * useKeyboardShortcuts.registration.test.ts — this file covers the
+ * behavior the underlying KeyboardShortcutsService provides through the
+ * hook: input-field skipping and Mac/non-Mac modifier matching aren't
+ * covered by keyboardShortcutsService.test.ts's direct unit tests, so they
+ * stay here rather than being dropped.
+ *
+ * #5231: previously built its shortcut sets via a `KeyboardShortcutsConfig`
+ * object (`useKeyboardShortcuts({ onPlayPause, onNext, ... })`) — the "V1"
+ * input form deleted along with the rest of that dead code path. Rewritten
+ * against the array form the hook now exclusively accepts; the preset
+ * selection and KEYBOARD_SHORTCUTS-export coverage that stood here is gone
+ * too, since both were reachable only through the deleted V1 branch (not,
+ * as previously assumed, a live path — see #5231's investigation).
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook } from '@testing-library/react';
-import { useKeyboardShortcuts, formatShortcut, KEYBOARD_SHORTCUTS } from '../useKeyboardShortcuts';
+import { useKeyboardShortcuts, formatShortcut } from '../useKeyboardShortcuts';
+import type { KeyboardShortcut } from '../useKeyboardShortcuts';
 
 // Helper to create keyboard events
 const createKeyboardEvent = (
@@ -42,8 +58,76 @@ const createKeyboardEvent = (
   return event;
 };
 
+interface Handlers {
+  onPlayPause?: () => void;
+  onNext?: () => void;
+  onPrevious?: () => void;
+  onVolumeUp?: () => void;
+  onVolumeDown?: () => void;
+  onMute?: () => void;
+  onToggleLyrics?: () => void;
+  onToggleEnhancement?: () => void;
+  onFocusSearch?: () => void;
+  onOpenSettings?: () => void;
+}
+
+/**
+ * Build the array form the real app registers (mirrors ComfortableApp.tsx's
+ * shortcut set) from a sparse handler map, so tests read like the old
+ * config-object form while exercising the actual production input shape.
+ */
+const buildShortcuts = (handlers: Handlers): KeyboardShortcut[] => {
+  const isMac = navigator.platform === 'MacIntel';
+  const shortcuts: KeyboardShortcut[] = [];
+  if (handlers.onPlayPause) {
+    shortcuts.push({ key: ' ', description: 'Play/Pause', category: 'Playback', handler: handlers.onPlayPause });
+  }
+  if (handlers.onNext) {
+    shortcuts.push({ key: 'ArrowRight', description: 'Next track', category: 'Playback', handler: handlers.onNext });
+  }
+  if (handlers.onPrevious) {
+    shortcuts.push({ key: 'ArrowLeft', description: 'Previous track', category: 'Playback', handler: handlers.onPrevious });
+  }
+  if (handlers.onVolumeUp) {
+    shortcuts.push({ key: 'ArrowUp', description: 'Volume up', category: 'Playback', handler: handlers.onVolumeUp });
+  }
+  if (handlers.onVolumeDown) {
+    shortcuts.push({ key: 'ArrowDown', description: 'Volume down', category: 'Playback', handler: handlers.onVolumeDown });
+  }
+  if (handlers.onMute) {
+    shortcuts.push({ key: '0', description: 'Mute/Unmute', category: 'Playback', handler: handlers.onMute });
+    shortcuts.push({ key: 'm', ctrl: true, description: 'Mute/Unmute', category: 'Playback', handler: handlers.onMute });
+  }
+  if (handlers.onToggleEnhancement) {
+    shortcuts.push({ key: 'm', description: 'Toggle enhancement', category: 'Global', handler: handlers.onToggleEnhancement });
+  }
+  if (handlers.onToggleLyrics) {
+    shortcuts.push({ key: 'l', description: 'Toggle lyrics', category: 'Global', handler: handlers.onToggleLyrics });
+  }
+  if (handlers.onFocusSearch) {
+    shortcuts.push({ key: '/', description: 'Focus search', category: 'Navigation', handler: handlers.onFocusSearch });
+    shortcuts.push({
+      key: 'k',
+      ...(isMac ? { meta: true } : { ctrl: true }),
+      description: 'Quick search',
+      category: 'Navigation',
+      handler: handlers.onFocusSearch,
+    });
+  }
+  if (handlers.onOpenSettings) {
+    shortcuts.push({
+      key: ',',
+      ...(isMac ? { meta: true } : { ctrl: true }),
+      description: 'Open settings',
+      category: 'Global',
+      handler: handlers.onOpenSettings,
+    });
+  }
+  return shortcuts;
+};
+
 describe('useKeyboardShortcuts', () => {
-  let handlers: Record<string, ReturnType<typeof vi.fn>>;
+  let handlers: Required<{ [K in keyof Handlers]: ReturnType<typeof vi.fn> }>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -59,7 +143,6 @@ describe('useKeyboardShortcuts', () => {
       onToggleEnhancement: vi.fn(),
       onFocusSearch: vi.fn(),
       onOpenSettings: vi.fn(),
-      onPresetChange: vi.fn(),
     };
 
     // Mock navigator.platform
@@ -72,7 +155,7 @@ describe('useKeyboardShortcuts', () => {
 
   describe('Playback controls', () => {
     it('should handle Space key for play/pause', () => {
-      renderHook(() => useKeyboardShortcuts(handlers));
+      renderHook(() => useKeyboardShortcuts(buildShortcuts(handlers)));
 
       const event = createKeyboardEvent(' ', { code: 'Space' });
       document.dispatchEvent(event);
@@ -82,7 +165,7 @@ describe('useKeyboardShortcuts', () => {
     });
 
     it('should handle ArrowRight for next track', () => {
-      renderHook(() => useKeyboardShortcuts(handlers));
+      renderHook(() => useKeyboardShortcuts(buildShortcuts(handlers)));
 
       const event = createKeyboardEvent('ArrowRight');
       document.dispatchEvent(event);
@@ -92,7 +175,7 @@ describe('useKeyboardShortcuts', () => {
     });
 
     it('should handle ArrowLeft for previous track', () => {
-      renderHook(() => useKeyboardShortcuts(handlers));
+      renderHook(() => useKeyboardShortcuts(buildShortcuts(handlers)));
 
       const event = createKeyboardEvent('ArrowLeft');
       document.dispatchEvent(event);
@@ -102,7 +185,7 @@ describe('useKeyboardShortcuts', () => {
     });
 
     it('should not trigger play/pause with modifier keys', () => {
-      renderHook(() => useKeyboardShortcuts(handlers));
+      renderHook(() => useKeyboardShortcuts(buildShortcuts(handlers)));
 
       const eventWithCtrl = createKeyboardEvent(' ', { code: 'Space', ctrlKey: true });
       document.dispatchEvent(eventWithCtrl);
@@ -116,7 +199,7 @@ describe('useKeyboardShortcuts', () => {
 
   describe('Volume controls', () => {
     it('should handle ArrowUp for volume up', () => {
-      renderHook(() => useKeyboardShortcuts(handlers));
+      renderHook(() => useKeyboardShortcuts(buildShortcuts(handlers)));
 
       const event = createKeyboardEvent('ArrowUp');
       document.dispatchEvent(event);
@@ -126,7 +209,7 @@ describe('useKeyboardShortcuts', () => {
     });
 
     it('should handle ArrowDown for volume down', () => {
-      renderHook(() => useKeyboardShortcuts(handlers));
+      renderHook(() => useKeyboardShortcuts(buildShortcuts(handlers)));
 
       const event = createKeyboardEvent('ArrowDown');
       document.dispatchEvent(event);
@@ -136,7 +219,7 @@ describe('useKeyboardShortcuts', () => {
     });
 
     it('should handle 0 key for mute', () => {
-      renderHook(() => useKeyboardShortcuts(handlers));
+      renderHook(() => useKeyboardShortcuts(buildShortcuts(handlers)));
 
       const event = createKeyboardEvent('0');
       document.dispatchEvent(event);
@@ -146,7 +229,7 @@ describe('useKeyboardShortcuts', () => {
     });
 
     it('should handle Cmd/Ctrl+M for mute', () => {
-      renderHook(() => useKeyboardShortcuts(handlers));
+      renderHook(() => useKeyboardShortcuts(buildShortcuts(handlers)));
 
       const event = createKeyboardEvent('m', { ctrlKey: true });
       document.dispatchEvent(event);
@@ -158,7 +241,7 @@ describe('useKeyboardShortcuts', () => {
 
   describe('Enhancement and display toggles', () => {
     it('should handle M key for toggle enhancement', () => {
-      renderHook(() => useKeyboardShortcuts(handlers));
+      renderHook(() => useKeyboardShortcuts(buildShortcuts(handlers)));
 
       const event = createKeyboardEvent('m');
       document.dispatchEvent(event);
@@ -168,7 +251,7 @@ describe('useKeyboardShortcuts', () => {
     });
 
     it('should handle uppercase M for toggle enhancement', () => {
-      renderHook(() => useKeyboardShortcuts(handlers));
+      renderHook(() => useKeyboardShortcuts(buildShortcuts(handlers)));
 
       const event = createKeyboardEvent('M');
       document.dispatchEvent(event);
@@ -177,7 +260,7 @@ describe('useKeyboardShortcuts', () => {
     });
 
     it('should handle L key for toggle lyrics', () => {
-      renderHook(() => useKeyboardShortcuts(handlers));
+      renderHook(() => useKeyboardShortcuts(buildShortcuts(handlers)));
 
       const event = createKeyboardEvent('l');
       document.dispatchEvent(event);
@@ -187,7 +270,7 @@ describe('useKeyboardShortcuts', () => {
     });
 
     it('should handle uppercase L for toggle lyrics', () => {
-      renderHook(() => useKeyboardShortcuts(handlers));
+      renderHook(() => useKeyboardShortcuts(buildShortcuts(handlers)));
 
       const event = createKeyboardEvent('L');
       document.dispatchEvent(event);
@@ -198,7 +281,7 @@ describe('useKeyboardShortcuts', () => {
 
   describe('Navigation', () => {
     it('should handle / key for focus search', () => {
-      renderHook(() => useKeyboardShortcuts(handlers));
+      renderHook(() => useKeyboardShortcuts(buildShortcuts(handlers)));
 
       const event = createKeyboardEvent('/');
       document.dispatchEvent(event);
@@ -210,7 +293,7 @@ describe('useKeyboardShortcuts', () => {
     it('should handle Ctrl+K for quick search on non-Mac', () => {
       Object.defineProperty(navigator, 'platform', { value: 'Win32', writable: true });
 
-      renderHook(() => useKeyboardShortcuts(handlers));
+      renderHook(() => useKeyboardShortcuts(buildShortcuts(handlers)));
 
       const event = createKeyboardEvent('k', { ctrlKey: true });
       document.dispatchEvent(event);
@@ -222,7 +305,7 @@ describe('useKeyboardShortcuts', () => {
     it('should handle Cmd+K for quick search on Mac', () => {
       Object.defineProperty(navigator, 'platform', { value: 'MacIntel', writable: true });
 
-      renderHook(() => useKeyboardShortcuts(handlers));
+      renderHook(() => useKeyboardShortcuts(buildShortcuts(handlers)));
 
       const event = createKeyboardEvent('k', { metaKey: true });
       document.dispatchEvent(event);
@@ -234,7 +317,7 @@ describe('useKeyboardShortcuts', () => {
     it('should handle Ctrl+, for settings on non-Mac', () => {
       Object.defineProperty(navigator, 'platform', { value: 'Linux', writable: true });
 
-      renderHook(() => useKeyboardShortcuts(handlers));
+      renderHook(() => useKeyboardShortcuts(buildShortcuts(handlers)));
 
       const event = createKeyboardEvent(',', { ctrlKey: true });
       document.dispatchEvent(event);
@@ -246,7 +329,7 @@ describe('useKeyboardShortcuts', () => {
     it('should handle Cmd+, for settings on Mac', () => {
       Object.defineProperty(navigator, 'platform', { value: 'MacIntel', writable: true });
 
-      renderHook(() => useKeyboardShortcuts(handlers));
+      renderHook(() => useKeyboardShortcuts(buildShortcuts(handlers)));
 
       const event = createKeyboardEvent(',', { metaKey: true });
       document.dispatchEvent(event);
@@ -255,50 +338,9 @@ describe('useKeyboardShortcuts', () => {
     });
   });
 
-  describe('Preset selection', () => {
-    // Narrowed from keys 1-5 to just key 1 (#4861 follow-up): 'gentle'/
-    // 'warm'/'bright'/'punchy' are no longer valid presets, so keys 2-5 no
-    // longer have anything registered to select.
-    const presets = [
-      { key: '1', name: 'adaptive' },
-    ];
-
-    presets.forEach(({ key, name }) => {
-      it(`should handle ${key} key for ${name} preset`, () => {
-        renderHook(() => useKeyboardShortcuts(handlers));
-
-        const event = createKeyboardEvent(key);
-        document.dispatchEvent(event);
-
-        expect(handlers.onPresetChange).toHaveBeenCalledWith(name);
-        expect(event.defaultPrevented).toBe(true);
-      });
-    });
-
-    it('should not handle keys 2-9', () => {
-      renderHook(() => useKeyboardShortcuts(handlers));
-
-      ['2', '3', '4', '5', '6', '7', '8', '9'].forEach(key => {
-        const event = createKeyboardEvent(key);
-        document.dispatchEvent(event);
-      });
-
-      expect(handlers.onPresetChange).not.toHaveBeenCalled();
-    });
-
-    it('should not trigger preset with modifier keys', () => {
-      renderHook(() => useKeyboardShortcuts(handlers));
-
-      const event = createKeyboardEvent('1', { ctrlKey: true });
-      document.dispatchEvent(event);
-
-      expect(handlers.onPresetChange).not.toHaveBeenCalled();
-    });
-  });
-
   describe('Input field handling', () => {
     it('should not trigger shortcuts in input fields', () => {
-      renderHook(() => useKeyboardShortcuts(handlers));
+      renderHook(() => useKeyboardShortcuts(buildShortcuts(handlers)));
 
       const inputElement = document.createElement('input');
       document.body.appendChild(inputElement);
@@ -318,7 +360,7 @@ describe('useKeyboardShortcuts', () => {
     });
 
     it('should not trigger shortcuts in textarea', () => {
-      renderHook(() => useKeyboardShortcuts(handlers));
+      renderHook(() => useKeyboardShortcuts(buildShortcuts(handlers)));
 
       const textareaElement = document.createElement('textarea');
       document.body.appendChild(textareaElement);
@@ -338,7 +380,7 @@ describe('useKeyboardShortcuts', () => {
     });
 
     it('should not trigger shortcuts in contentEditable elements', () => {
-      renderHook(() => useKeyboardShortcuts(handlers));
+      renderHook(() => useKeyboardShortcuts(buildShortcuts(handlers)));
 
       const divElement = document.createElement('div');
       divElement.contentEditable = 'true';
@@ -360,7 +402,7 @@ describe('useKeyboardShortcuts', () => {
     });
 
     it('should allow / to focus search even from input fields', () => {
-      renderHook(() => useKeyboardShortcuts(handlers));
+      renderHook(() => useKeyboardShortcuts(buildShortcuts(handlers)));
 
       const inputElement = document.createElement('input');
       document.body.appendChild(inputElement);
@@ -381,7 +423,7 @@ describe('useKeyboardShortcuts', () => {
     });
 
     it('should allow / to focus global-search', () => {
-      renderHook(() => useKeyboardShortcuts(handlers));
+      renderHook(() => useKeyboardShortcuts(buildShortcuts(handlers)));
 
       const searchInput = document.createElement('input');
       searchInput.id = 'global-search';
@@ -404,31 +446,33 @@ describe('useKeyboardShortcuts', () => {
   });
 
   describe('Optional handlers', () => {
-    it('should not crash when handlers are undefined', () => {
-      renderHook(() => useKeyboardShortcuts({}));
+    it('should not crash when no shortcuts are registered', () => {
+      renderHook(() => useKeyboardShortcuts([]));
 
       expect(() => {
         document.dispatchEvent(createKeyboardEvent(' ', { code: 'Space' }));
         document.dispatchEvent(createKeyboardEvent('m'));
-        document.dispatchEvent(createKeyboardEvent('1'));
       }).not.toThrow();
     });
 
-    it('should only call defined handlers', () => {
-      const partialHandlers = {
-        onPlayPause: vi.fn(),
-        // onNext not defined
-        onPrevious: vi.fn(),
-      };
+    it('should only call handlers for registered shortcuts', () => {
+      const onPlayPause = vi.fn();
+      const onPrevious = vi.fn();
 
-      renderHook(() => useKeyboardShortcuts(partialHandlers));
+      renderHook(() =>
+        useKeyboardShortcuts([
+          { key: ' ', description: 'Play/Pause', category: 'Playback', handler: onPlayPause },
+          // onNext deliberately absent
+          { key: 'ArrowLeft', description: 'Previous track', category: 'Playback', handler: onPrevious },
+        ])
+      );
 
       document.dispatchEvent(createKeyboardEvent(' ', { code: 'Space' }));
       document.dispatchEvent(createKeyboardEvent('ArrowRight'));
       document.dispatchEvent(createKeyboardEvent('ArrowLeft'));
 
-      expect(partialHandlers.onPlayPause).toHaveBeenCalled();
-      expect(partialHandlers.onPrevious).toHaveBeenCalled();
+      expect(onPlayPause).toHaveBeenCalled();
+      expect(onPrevious).toHaveBeenCalled();
     });
   });
 
@@ -436,7 +480,7 @@ describe('useKeyboardShortcuts', () => {
     it('should remove event listener on unmount', () => {
       const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener');
 
-      const { unmount } = renderHook(() => useKeyboardShortcuts(handlers));
+      const { unmount } = renderHook(() => useKeyboardShortcuts(buildShortcuts(handlers)));
 
       unmount();
 
@@ -444,7 +488,7 @@ describe('useKeyboardShortcuts', () => {
     });
 
     it('should not trigger handlers after unmount', () => {
-      const { unmount } = renderHook(() => useKeyboardShortcuts(handlers));
+      const { unmount } = renderHook(() => useKeyboardShortcuts(buildShortcuts(handlers)));
 
       unmount();
 
@@ -458,7 +502,7 @@ describe('useKeyboardShortcuts', () => {
     it('should detect Mac platform', () => {
       Object.defineProperty(navigator, 'platform', { value: 'MacIntel', writable: true });
 
-      renderHook(() => useKeyboardShortcuts(handlers));
+      renderHook(() => useKeyboardShortcuts(buildShortcuts(handlers)));
 
       // Cmd+K should work on Mac
       const event = createKeyboardEvent('k', { metaKey: true });
@@ -470,7 +514,7 @@ describe('useKeyboardShortcuts', () => {
     it('should detect non-Mac platforms', () => {
       Object.defineProperty(navigator, 'platform', { value: 'Win32', writable: true });
 
-      renderHook(() => useKeyboardShortcuts(handlers));
+      renderHook(() => useKeyboardShortcuts(buildShortcuts(handlers)));
 
       // Ctrl+K should work on Windows
       const event = createKeyboardEvent('k', { ctrlKey: true });
@@ -482,7 +526,7 @@ describe('useKeyboardShortcuts', () => {
 
   describe('Edge cases', () => {
     it('should handle rapid key presses', () => {
-      renderHook(() => useKeyboardShortcuts(handlers));
+      renderHook(() => useKeyboardShortcuts(buildShortcuts(handlers)));
 
       // Rapidly press Space multiple times
       for (let i = 0; i < 10; i++) {
@@ -493,19 +537,17 @@ describe('useKeyboardShortcuts', () => {
     });
 
     it('should handle simultaneous different keys', () => {
-      renderHook(() => useKeyboardShortcuts(handlers));
+      renderHook(() => useKeyboardShortcuts(buildShortcuts(handlers)));
 
       document.dispatchEvent(createKeyboardEvent('ArrowRight'));
       document.dispatchEvent(createKeyboardEvent('m'));
-      document.dispatchEvent(createKeyboardEvent('1'));
 
       expect(handlers.onNext).toHaveBeenCalledTimes(1);
       expect(handlers.onToggleEnhancement).toHaveBeenCalledTimes(1);
-      expect(handlers.onPresetChange).toHaveBeenCalledWith('adaptive');
     });
 
     it('should handle case-insensitive letters', () => {
-      renderHook(() => useKeyboardShortcuts(handlers));
+      renderHook(() => useKeyboardShortcuts(buildShortcuts(handlers)));
 
       document.dispatchEvent(createKeyboardEvent('k', { ctrlKey: true }));
       expect(handlers.onFocusSearch).toHaveBeenCalledTimes(1);
@@ -561,46 +603,5 @@ describe('formatShortcut (Mac/non-Mac modifier symbols)', () => {
     const result = formatShortcut({ key: ' ', description: 'Test', category: 'Global' });
 
     expect(result).toBe('Space');
-  });
-});
-
-describe('KEYBOARD_SHORTCUTS', () => {
-  it('should export list of all shortcuts', () => {
-    expect(KEYBOARD_SHORTCUTS).toBeDefined();
-    expect(Array.isArray(KEYBOARD_SHORTCUTS)).toBe(true);
-    expect(KEYBOARD_SHORTCUTS.length).toBeGreaterThan(0);
-  });
-
-  it('should have valid structure for each shortcut', () => {
-    KEYBOARD_SHORTCUTS.forEach(shortcut => {
-      expect(shortcut).toHaveProperty('key');
-      expect(shortcut).toHaveProperty('action');
-      expect(shortcut).toHaveProperty('category');
-      expect(typeof shortcut.key).toBe('string');
-      expect(typeof shortcut.action).toBe('string');
-      expect(typeof shortcut.category).toBe('string');
-    });
-  });
-
-  it('should include all preset shortcuts', () => {
-    const presetShortcuts = KEYBOARD_SHORTCUTS.filter(s => s.category === 'Presets');
-
-    expect(presetShortcuts).toHaveLength(5);
-    expect(presetShortcuts.map(s => s.key)).toEqual(['1', '2', '3', '4', '5']);
-  });
-
-  it('should include playback controls', () => {
-    const playbackShortcuts = KEYBOARD_SHORTCUTS.filter(s => s.category === 'Playback');
-
-    expect(playbackShortcuts.length).toBeGreaterThan(0);
-    expect(playbackShortcuts.some(s => s.action === 'Play/Pause')).toBe(true);
-    expect(playbackShortcuts.some(s => s.action === 'Next track')).toBe(true);
-  });
-
-  it('should include navigation shortcuts', () => {
-    const navigationShortcuts = KEYBOARD_SHORTCUTS.filter(s => s.category === 'Navigation');
-
-    expect(navigationShortcuts.length).toBeGreaterThan(0);
-    expect(navigationShortcuts.some(s => s.action === 'Focus search')).toBe(true);
   });
 });
