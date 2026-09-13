@@ -270,8 +270,10 @@ class ProcessingEngine:
     # tests/backend/test_processor_return_on_failure.py keeps working
     # unmodified: those tests replace the bound method on the instance, which
     # only works while it's an attribute directly on ProcessingEngine.
-    def _create_processor_config(self, job: ProcessingJob) -> UnifiedConfig:
-        return create_processor_config(job)
+    def _create_processor_config(
+        self, job: ProcessingJob, sample_rate: int
+    ) -> UnifiedConfig:
+        return create_processor_config(job, sample_rate)
 
     async def _prepare_job(
         self, job: ProcessingJob

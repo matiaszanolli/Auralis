@@ -33,6 +33,8 @@ import logging
 from pathlib import Path
 from typing import Any, NamedTuple
 
+from auralis.core.config import UnifiedConfig
+
 from core.chunk_boundaries import ChunkBoundaryManager
 from core.chunk_cache_manager import ChunkCacheManager
 from core.chunk_path_cache import ChunkPathCache
@@ -108,7 +110,8 @@ def init_fingerprint_and_processor(
     filepath: str,
     preset: str | None,
     intensity: float,
-) -> tuple[Any | None, Any | None, Any | None]:
+    sample_rate: int,
+) -> tuple[Any | None, Any | None, Any | None, UnifiedConfig | None]:
     """Load the track's fingerprint/targets and create its shared HybridProcessor.
 
     3-tier fingerprint loading: Database (fastest) -> .25d file -> extract
@@ -122,10 +125,16 @@ def init_fingerprint_and_processor(
     to maintain state — envelope followers, gain reduction tracking — across
     chunks; recreating it per chunk causes audible artifacts at boundaries.
 
-    Returns (fingerprint, mastering_targets, processor).
+    ``sample_rate`` is the track's REAL rate (from ``_load_metadata()``), and
+    the config built from it is returned so the per-chunk render path and the
+    #5274 invalidation path can pass the SAME config object back to the
+    factory — see below.
+
+    Returns (fingerprint, mastering_targets, processor, processor_config).
     """
     fingerprint = None
     mastering_targets = None
+    processor_config: UnifiedConfig | None = None
 
     if preset is not None:
         result = mastering_target_service.load_fingerprint(
@@ -139,14 +148,24 @@ def init_fingerprint_and_processor(
             logger.info(f"✅ Loaded fingerprint/targets via MasteringTargetService for track {track_id}")
 
     if preset is not None:
+        # #5306: the chunk loader decodes at the file's REAL rate
+        # (chunk_operations.load_chunk) and nothing resamples to 44.1 kHz, so
+        # the processor's config must carry that rate or every stage reading
+        # `internal_sample_rate` — psychoacoustic EQ band -> FFT bin, K-weighted
+        # LUFS, HF-aware limiter crossover, ContinuousMode's fingerprint
+        # `orig_sr` — is computed for the wrong rate. The factory deepcopies
+        # this into the processor it owns (#4827); the cache key already varies
+        # with the rate via `UnifiedConfig.to_dict()`, so no invalidation work.
+        processor_config = UnifiedConfig(internal_sample_rate=sample_rate)
         processor = processor_factory.get_or_create(
             track_id=track_id,
             preset=preset,  # narrowed to str by the guard (#4028)
             intensity=intensity,
+            config=processor_config,
             mastering_targets=mastering_targets,
         )
         logger.info(f"🎯 Processor initialized via ProcessorFactory for track {track_id}")
     else:
         processor = None  # No processing for original audio (preset is None)
 
-    return fingerprint, mastering_targets, processor
+    return fingerprint, mastering_targets, processor, processor_config

@@ -98,8 +98,11 @@ async def prepare_job(
 
     await engine._notify_progress(job.job_id, 20.0, "Analyzing audio content...")
 
-    # Create processor config
-    config = engine._create_processor_config(job)
+    # Create processor config. The decoded audio's REAL rate has to reach it
+    # (#5306): nothing between here and the DSP resamples, so a config left at
+    # the 44100 default silently mastered 48/96 kHz material at the wrong EQ
+    # frequencies and the wrong LUFS target.
+    config = engine._create_processor_config(job, sample_rate)
 
     # Get or create processor — exclusively owned until returned (#3201)
     processor = await engine._get_or_create_processor(job.mode, config)

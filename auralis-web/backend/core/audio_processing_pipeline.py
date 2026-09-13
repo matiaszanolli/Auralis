@@ -106,7 +106,8 @@ class AudioProcessingPipeline:
         intensity: float,
         processor_factory: Any,
         track_id: int | None = None,
-        mastering_targets: dict[str, Any] | None = None
+        mastering_targets: dict[str, Any] | None = None,
+        config: Any | None = None
     ) -> Any | None:
         """
         Select appropriate processor based on preset/intensity.
@@ -119,6 +120,12 @@ class AudioProcessingPipeline:
             processor_factory: ProcessorFactory instance (Phase 2: unified factory)
             track_id: Optional track ID for cache key
             mastering_targets: Optional pre-computed mastering targets
+            config: Optional UnifiedConfig carrying the track's REAL sample
+                rate (#5306). None falls back to the factory's default
+                44.1 kHz config, which is correct only for genuinely
+                rate-agnostic callers — every real-audio caller must pass it,
+                and must pass the SAME instance it keyed the processor on, or
+                `_get_config_hash` addresses a different cache entry.
 
         Returns:
             HybridProcessor instance or None if preset is None (original audio)
@@ -133,6 +140,7 @@ class AudioProcessingPipeline:
             track_id=track_id if track_id is not None else 0,  # Use 0 as default for non-track processing
             preset=preset,
             intensity=intensity,
+            config=config,
             mastering_targets=mastering_targets
         )
 
@@ -290,7 +298,8 @@ class AudioProcessingPipeline:
         targets: dict[str, Any] | None = None,
         fast_start: bool = False,
         chunk_index: int | None = None,
-        allow_empty: bool = False
+        allow_empty: bool = False,
+        config: Any | None = None
     ) -> np.ndarray:
         """
         Main unified processing entry point.
@@ -311,6 +320,8 @@ class AudioProcessingPipeline:
             fast_start: Skip fingerprint analysis for first chunk
             chunk_index: Chunk index for fast-start detection
             allow_empty: Allow empty audio arrays
+            config: Optional UnifiedConfig carrying the track's REAL sample
+                rate (#5306) — forwarded to select_processor
 
         Returns:
             Processed audio array
@@ -341,7 +352,8 @@ class AudioProcessingPipeline:
                 intensity=intensity,
                 processor_factory=processor_factory,
                 track_id=track_id,
-                mastering_targets=targets
+                mastering_targets=targets,
+                config=config
             )
 
         # Step 3: Apply enhancement

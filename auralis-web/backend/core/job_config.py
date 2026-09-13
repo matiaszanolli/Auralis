@@ -28,9 +28,19 @@ __all__ = ["create_processor_config"]
 logger = logging.getLogger(__name__)
 
 
-def create_processor_config(job: ProcessingJob) -> UnifiedConfig:
+def create_processor_config(job: ProcessingJob, sample_rate: int) -> UnifiedConfig:
     """
     Create UnifiedConfig from job settings.
+
+    `sample_rate` is the REAL rate of the decoded input audio and is
+    required, not defaulted (#5306). The offline pipeline never resamples —
+    `load_audio()` decodes at the file's own rate — while every DSP stage
+    reads `config.internal_sample_rate`: the psychoacoustic EQ's critical-band
+    -> FFT-bin mapping, every K-weighted LUFS measurement, the HF-aware
+    limiter crossover, and ContinuousMode's fresh-fingerprint resample
+    (`orig_sr`). Falling back to the 44100 default therefore mastered every
+    48 kHz / 96 kHz track as if it were 44.1 kHz, with no error logged. A
+    default here would let a future call site regress that silently again.
 
     Currently supports ONLY adaptive / reference / hybrid mode selection.
     The offline-mastering pipeline (HybridProcessor.process) drives EQ /
@@ -46,7 +56,7 @@ def create_processor_config(job: ProcessingJob) -> UnifiedConfig:
     the UI looked responsive while changing nothing audible.
     """
 
-    config = UnifiedConfig()
+    config = UnifiedConfig(internal_sample_rate=sample_rate)
 
     # Set processing mode
     if job.mode == "adaptive":

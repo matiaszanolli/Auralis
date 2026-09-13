@@ -313,7 +313,8 @@ class HybridProcessor:
         if target_audio.shape[0] < MIN_SAMPLES:
             warning(
                 f"Audio too short to master ({target_audio.shape[0]} samples, "
-                f"~{target_audio.shape[0]/44100*1000:.1f}ms at 44.1kHz); "
+                f"~{target_audio.shape[0] / self.config.internal_sample_rate * 1000:.1f}ms "
+                f"at {self.config.internal_sample_rate / 1000:.1f}kHz); "
                 f"returning it unprocessed (need {MIN_SAMPLES} samples)"
             )
             return target_audio.copy()

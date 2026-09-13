@@ -14,7 +14,11 @@ class _RotatingFactory:
         self.current = object()
         self.invalidations = 0
 
-    def invalidate(self, **_kwargs) -> bool:
+    def invalidate(self, **kwargs) -> bool:
+        # #5306: the key `invalidate` rebuilds includes the config hash, so
+        # the caller must hand back the same config the processor was created
+        # with — omitting it pops nothing and defeats #5274 entirely.
+        assert "config" in kwargs, "invalidate() must be given the processor's config"
         self.invalidations += 1
         self.current = object()
         return True
@@ -38,6 +42,9 @@ def test_retry_uses_fresh_processor_after_post_dsp_write_failure(tmp_path: Path)
         mastering_targets=None,
         targets_hash="none",  # #4666: completes the chunk cache identity
         processor=object(),
+        # #5306: the rate-aware config this track's processor is keyed on.
+        # `invalidate` must receive it or it addresses a different cache entry.
+        processor_config=object(),
         sample_rate=10,
         total_chunks=1,
         total_duration=1.0,

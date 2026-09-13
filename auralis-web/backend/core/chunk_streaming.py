@@ -62,6 +62,12 @@ def _invalidate_after_post_dsp_failure(
         track_id=processor.track_id,
         preset=processor.preset,
         mastering_targets=processor.mastering_targets,
+        # #5306: `invalidate` rebuilds the cache key, and `_get_config_hash`
+        # maps None to "default". Once this track's processor is keyed on a
+        # rate-aware config, omitting it here pops nothing and leaves the
+        # DSP-advanced instance cached for the retry — exactly the #5274
+        # failure this function exists to prevent.
+        config=processor.processor_config,
     )
     # Processing selects from the factory on every call; this is only an
     # observational handle to the instance created during initialization.

@@ -939,7 +939,7 @@ class TestIgnoredSettingsSurfaced:
             job_id="j1", input_path="in.wav", output_path="out.wav",
             settings={"mode": "adaptive", "eq": {"enabled": True}},
         )
-        engine._create_processor_config(job)
+        engine._create_processor_config(job, 44100)
         assert job.ignored_settings == ["eq"]
 
     def test_dynamics_and_level_matching_enabled_are_reported(self, engine):
@@ -951,7 +951,7 @@ class TestIgnoredSettingsSurfaced:
                 "level_matching": {"enabled": True},
             },
         )
-        engine._create_processor_config(job)
+        engine._create_processor_config(job, 44100)
         assert set(job.ignored_settings) == {"dynamics", "level_matching"}
 
     def test_eq_present_but_disabled_is_not_reported(self, engine):
@@ -961,7 +961,7 @@ class TestIgnoredSettingsSurfaced:
             job_id="j3", input_path="in.wav", output_path="out.wav",
             settings={"mode": "adaptive", "eq": {"enabled": False}},
         )
-        engine._create_processor_config(job)
+        engine._create_processor_config(job, 44100)
         assert job.ignored_settings == []
 
     def test_genre_override_set_is_reported(self, engine):
@@ -969,7 +969,7 @@ class TestIgnoredSettingsSurfaced:
             job_id="j4", input_path="in.wav", output_path="out.wav",
             settings={"mode": "adaptive", "genre_override": "rock"},
         )
-        engine._create_processor_config(job)
+        engine._create_processor_config(job, 44100)
         assert job.ignored_settings == ["genre_override"]
 
     def test_genre_override_defaulted_to_none_is_not_reported(self):
@@ -983,7 +983,7 @@ class TestIgnoredSettingsSurfaced:
             job_id="j5", input_path="in.wav", output_path="out.wav",
             settings={"mode": "adaptive", "genre_override": None},
         )
-        engine._create_processor_config(job)
+        engine._create_processor_config(job, 44100)
         assert job.ignored_settings == []
 
     def test_non_default_sample_rate_is_reported(self, engine):
@@ -991,7 +991,7 @@ class TestIgnoredSettingsSurfaced:
             job_id="j6", input_path="in.wav", output_path="out.wav",
             settings={"mode": "adaptive", "sample_rate": 96000},
         )
-        engine._create_processor_config(job)
+        engine._create_processor_config(job, 44100)
         assert job.ignored_settings == ["sample_rate"]
 
     def test_sample_rate_none_keeps_original_and_is_not_reported(self, engine):
@@ -999,7 +999,7 @@ class TestIgnoredSettingsSurfaced:
             job_id="j7", input_path="in.wav", output_path="out.wav",
             settings={"mode": "adaptive", "sample_rate": None},
         )
-        engine._create_processor_config(job)
+        engine._create_processor_config(job, 44100)
         assert job.ignored_settings == []
 
     @pytest.mark.asyncio

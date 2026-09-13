@@ -159,8 +159,27 @@ class ChunkedAudioProcessor:
         # constructed. Building the caches first froze their identity at
         # targets_hash="none", which is how a targets-aware processor could be
         # handed chunks rendered without targets.
-        self.fingerprint, self.mastering_targets, self.processor = init_fingerprint_and_processor(
-            self._mastering_target_service, self._processor_factory, track_id, filepath, self.preset, intensity
+        # Metadata was loaded above, so the `or 44100` fallback is never hit in
+        # practice; it only narrows `int | None` -> `int`.
+        sample_rate_valid: int = self.sample_rate or 44100
+        (
+            self.fingerprint,
+            self.mastering_targets,
+            self.processor,
+            # #5306: the config the factory keyed this track's processor on.
+            # Every later factory lookup for this track (chunk_render's
+            # per-chunk get_or_create, chunk_streaming's #5274 invalidate) MUST
+            # pass this same object, or it computes a different config_hash and
+            # silently addresses a different — 44.1 kHz-assuming — cache entry.
+            self.processor_config,
+        ) = init_fingerprint_and_processor(
+            self._mastering_target_service,
+            self._processor_factory,
+            track_id,
+            filepath,
+            self.preset,
+            intensity,
+            sample_rate_valid,
         )
         # Cache-identity component for the mastering targets (#4666). Derived
         # by the same shared helper ProcessorFactory uses for its processor
@@ -168,9 +187,7 @@ class ChunkedAudioProcessor:
         self.targets_hash: str = get_targets_hash(self.mastering_targets)
 
         # Collaborators (#4245: see chunk_processor_init.build_collaborators).
-        # Metadata was loaded above, so both fallbacks below are never hit in practice.
         total_duration_valid: float = self.total_duration or 0.0
-        sample_rate_valid: int = self.sample_rate or 44100
         (
             self._boundary_manager,
             self._level_manager,
