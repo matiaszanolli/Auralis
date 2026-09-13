@@ -118,7 +118,7 @@ auralis/                          Core Python audio engine
 │   │                                 fingerprint, fingerprint_scheduler, fingerprint_stats,
 │   │                                 queue, queue_history, settings, similarity_graph)
 │   ├── scanner/                    Folder scanning (a package, not a module)
-│   └── migration_manager.py        DB migrations (schema v18)
+│   └── migration_manager.py        DB migrations (schema v19)
 ├── io/                           Audio I/O
 │   ├── unified_loader.py           Unified loading (FFmpeg, SoundFile)
 │   └── results.py                  Output formats (pcm16, pcm24)

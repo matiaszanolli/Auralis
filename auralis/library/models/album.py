@@ -95,7 +95,10 @@ class Album(Base, TimestampMixin):
             'avg_dr_rating': self.avg_dr_rating,
             'avg_lufs': self.avg_lufs,
             'mastering_consistency': self.mastering_consistency,
-            'artist': artist.name if artist else None,
+            # 'Unknown Artist', not None (#5457): the same representation as
+            # GET /api/albums/{id}/tracks and the routers' serializer defaults,
+            # and what the frontend's non-nullable `artist: string` expects.
+            'artist': artist.name if artist else 'Unknown Artist',
             'track_count': track_count,
             'total_duration': total_duration,
             'created_at': self.created_at.isoformat() if self.created_at else None,

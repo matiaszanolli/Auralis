@@ -31,10 +31,32 @@ class TrackRepositoryMutationMixin(BaseRepository):
     # implementations via MRO.
     _get_or_create_artists: Callable[[Session, list[str]], list[Artist]]
     _get_or_create_genres: Callable[[Session, list[str]], list[Genre]]
+    _get_or_create_album: Callable[[Session, str, Any, int | None], Album | None]
 
     def _update_artists(self, session: Session, track: Track, artist_names: list[str]) -> None:
         """Update track artists using normalized name matching"""
         track.artists = self._get_or_create_artists(session, artist_names)
+
+    def _assign_album(self, session: Session, track: Track, album_title: str, year: Any) -> None:
+        """Point the track at its album, owned by the track's own artist (#5457).
+
+        Both update paths used to look an album up by title alone and create a
+        missing one with no ``artist_id``, so a "retag, then rescan" produced an
+        album no artist page lists — and could attach the track to another
+        artist's album that merely shares the title ("Greatest Hits"). They now
+        resolve through the first-scan path's ``_get_or_create_album``, keyed on
+        the track's first artist, exactly as ``add()`` does. Call after any
+        artist update so that artist is the new one.
+
+        A track with no artist still gets an album (created without an owner,
+        serialized as 'Unknown Artist') rather than losing the tag.
+        """
+        artist_id = track.artists[0].id if track.artists else None
+        album = self._get_or_create_album(session, album_title, year, artist_id)
+        if album is None:
+            album = Album(title=album_title, year=year)
+            session.add(album)
+        track.album = album
 
     def _update_genres(self, session: Session, track: Track, genre_names: list[str]) -> None:
         """Update track genres"""
@@ -75,13 +97,9 @@ class TrackRepositoryMutationMixin(BaseRepository):
                 if 'genres' in track_info:
                     self._update_genres(session, track, track_info['genres'])
 
-                # Update album
-                if 'album' in track_info:
-                    album = session.execute(select(Album).where(Album.title == track_info['album'])).scalars().first()
-                    if not album:
-                        album = Album(title=track_info['album'], year=track_info.get('year'))
-                        session.add(album)
-                    track.album = album
+                # Update album (after artists, so it resolves for the new artist)
+                if track_info.get('album'):
+                    self._assign_album(session, track, track_info['album'], track_info.get('year'))
 
                 session.commit()
                 # Re-query with eager loading before detaching from session
@@ -133,15 +151,9 @@ class TrackRepositoryMutationMixin(BaseRepository):
                     if genres:
                         self._update_genres(session, track, genres)
 
-                # Update album if provided
-                if 'album' in track_info:
-                    album_title = track_info['album']
-                    if album_title:
-                        album = session.execute(select(Album).where(Album.title == album_title)).scalars().first()
-                        if not album:
-                            album = Album(title=album_title)
-                            session.add(album)
-                        track.album = album
+                # Update album if provided (after artists — see _assign_album)
+                if track_info.get('album'):
+                    self._assign_album(session, track, track_info['album'], track_info.get('year'))
 
                 session.commit()
                 # Re-query with eager loading before detaching from session
