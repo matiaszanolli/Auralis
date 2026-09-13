@@ -99,9 +99,11 @@ async def test_auto_scan_start_log_omits_full_folder_paths(caplog):
     import services.library_auto_scanner as las_mod
     from unittest.mock import patch
 
+    # No broadcast patch: `connection_manager_safe_broadcast` was removed when
+    # broadcasts were typed (#5293). Any failure after the start log is
+    # swallowed below, and that log is all this test inspects.
     with (
         caplog.at_level(logging.INFO, logger="services.library_auto_scanner"),
-        patch.object(las_mod, "connection_manager_safe_broadcast", AsyncMock()),
         patch("auralis.library.scanner.LibraryScanner") as MockScanner,
     ):
         mock_scanner_instance = Mock()
