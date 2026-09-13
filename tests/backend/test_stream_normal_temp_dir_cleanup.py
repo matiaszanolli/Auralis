@@ -68,24 +68,22 @@ async def test_temp_dir_removed_when_load_audio_fails():
 
 
 @pytest.mark.asyncio
-async def test_temp_dir_cleanup_offloaded_via_to_thread():
-    """#4754: the finally-block shutil.rmtree() of the temp WAV dir (which
-    can hold a full decoded WAV, hundreds of MB) used to run directly on the
-    event loop. Asserted directly against asyncio.to_thread's call args
-    rather than via wall-clock timing (a canary-coroutine race would
-    interleave around stream_normal_audio's other, earlier await points
-    regardless of whether rmtree itself blocks — a timing assertion here
-    would pass even against the pre-fix code for the wrong reason).
+async def test_temp_wav_release_offloaded_via_to_thread():
+    """#4754: releasing the temp WAV (which can delete a full decoded WAV,
+    hundreds of MB) must not run on the event loop. Asserted directly against
+    asyncio.to_thread's call args rather than via wall-clock timing (a
+    canary-coroutine race would interleave around stream_normal_audio's other,
+    earlier await points regardless of whether the delete itself blocks).
 
-    Unlike test_temp_dir_removed_when_load_audio_fails above (where
-    load_audio fails INSIDE convert_to_temp_wav, which cleans up its own
-    directory itself and leaves the outer `temp_dir` None — the cleanup
-    site this test targets never even runs there), this makes
-    convert_to_temp_wav succeed so `temp_dir` is set, then lets a later
-    step fail (sf.SoundFile() on a nonexistent converted path) to reach the
-    finally block with real cleanup work to do.
+    The stream no longer rmtree's the directory itself: the shared registry
+    owns it (#5402) and deletes it on eviction. This makes the conversion
+    succeed, lets a later step fail (sf.SoundFile() on a nonexistent converted
+    path) to reach the finally, and checks the hold is handed back — and that
+    the directory really goes once nothing retains it.
     """
     import tempfile as _tempfile
+
+    from core.seekable_source import converted_wavs
 
     controller = AudioStreamController()
     controller._get_repository_factory = lambda: _make_factory()
@@ -99,20 +97,18 @@ async def test_temp_dir_cleanup_offloaded_via_to_thread():
             "core.seekable_source.convert_to_temp_wav",
             return_value=(fake_temp_dir, fake_wav_path),
         ),
-        patch("shutil.rmtree") as mock_rmtree,
         patch("asyncio.to_thread", wraps=asyncio.to_thread) as mock_to_thread,
     ):
         await stream_normal.stream_normal_audio(controller, TRACK_ID, _make_ws(), 0.0)
 
-    assert mock_rmtree.called, "rmtree was never invoked — test didn't reach cleanup"
-    to_thread_calls_with_rmtree = [
-        call for call in mock_to_thread.call_args_list if call.args and call.args[0] is mock_rmtree
+    released_off_loop = [
+        call for call in mock_to_thread.call_args_list
+        if call.args and call.args[0] == converted_wavs.release
     ]
-    assert to_thread_calls_with_rmtree, (
-        "shutil.rmtree must be offloaded via asyncio.to_thread, not called "
-        "directly on the event loop (#4754)"
+    assert released_off_loop, (
+        "the temp WAV hold must be released via asyncio.to_thread, not on the "
+        "event loop (#4754)"
     )
 
-    # Cleanup the real dir this test created (mock_rmtree never actually ran).
-    import shutil as _shutil
-    _shutil.rmtree(fake_temp_dir, ignore_errors=True)
+    converted_wavs.release_idle()
+    assert not Path(fake_temp_dir).exists(), "the released conversion was never reclaimed"

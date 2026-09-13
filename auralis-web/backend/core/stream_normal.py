@@ -17,7 +17,6 @@ Extracted from audio_stream_controller.py (#4071).
 
 import asyncio
 import logging
-import shutil
 from pathlib import Path
 from typing import Any
 from collections.abc import Callable
@@ -28,6 +27,7 @@ from fastapi.websockets import WebSocketDisconnect
 
 from . import audio_stream_controller as _asc
 from .stream_normal_chunks import pump_normal_chunks
+from .seekable_source import ConversionKey, converted_wavs
 from .stream_track_resolution import resolve_and_validate_track
 from security.path_security import validate_file_path
 
@@ -83,21 +83,17 @@ async def stream_normal_audio(
     # pump_normal_chunks (#5032); the look-ahead task and the consecutive-read-
     # timeout counter moved with the loop that owns them.
 
-    # temp_dir is declared before the guard so the finally cleanup can see it
-    # regardless of where control leaves the try below. It is the *directory*
-    # we remove, never the WAV path — the #4365 rule.
+    # The temp-WAV hold is declared before the guard so the finally can release
+    # it regardless of where control leaves the try below.
     #
-    # That rule now holds in two places. convert_to_temp_wav() (#4737) creates
-    # its directory before decoding and rmtree's it itself if the decode or the
-    # write raises, so a failed conversion leaves temp_dir None here and there
-    # is nothing left to clean. On success it hands the directory back and this
-    # finally owns it for the rest of the stream. The separate temp_wav_path
-    # variable that used to exist alongside this one is gone: it was only ever
-    # written, never read.
-    #
-    # For compressed formats (MP3, M4A, etc.), convert to temp WAV first
-    # since sf.SoundFile only supports PCM formats (#3225).
-    temp_dir: str | None = None
+    # For compressed formats (MP3, M4A, etc.), stream from a converted temp WAV
+    # since sf.SoundFile only supports PCM formats (#3225). The conversion comes
+    # from the shared registry (#5402) rather than being owned by this stream:
+    # every play/seek/resume used to decode the whole file again, and a seek
+    # releases the previous stream's hold just before this one acquires. The
+    # registry owns the directory now, so the #4365 rule (remove the directory,
+    # never just the WAV) lives there, and a failed conversion holds nothing.
+    conversion_key: 'ConversionKey | None' = None
 
     # A single try/finally from here guards the semaphore permit acquired above:
     # it is released exactly once in the finally at the end. The track lookup
@@ -129,16 +125,13 @@ async def stream_normal_audio(
             # would change normal-streaming seek behaviour for the most common
             # library format. Left alone deliberately; see the issue notes.
             from config.limits import stream_temp_prefix
-            from core.seekable_source import convert_to_temp_wav
 
             # PID-tagged so the startup sweep can tell a live instance's temp
             # WAV from a genuinely orphaned one (#4713).
-            converted_dir, converted_wav = await asyncio.to_thread(
-                convert_to_temp_wav, validated_filepath, prefix=stream_temp_prefix()
+            conversion_key, streaming_filepath = await asyncio.to_thread(
+                converted_wavs.acquire, validated_filepath, prefix=stream_temp_prefix()
             )
-            temp_dir = converted_dir
-            streaming_filepath = converted_wav
-            logger.info(f"Converted {file_ext} to temp WAV for normal streaming")
+            logger.info(f"Streaming {file_ext} from a temp WAV for normal streaming")
 
         # Read file metadata only — do NOT load audio data yet (#2121).
         # sf.read() would allocate ~200 MB for a 10-min stereo track; instead
@@ -269,27 +262,11 @@ async def stream_normal_audio(
         # pump_normal_chunks' own finally (#3493 still holds — the task cannot
         # outlive that function).
         controller._stream_semaphore.release()
-        # Clean up temp WAV created for compressed format streaming (#3225).
-        # Clean up the directory, not the WAV path (#4365). convert_to_temp_wav
-        # removes its own directory if the decode/write fails, so reaching here
-        # with temp_dir set means the conversion succeeded and this is the only
-        # owner left (#4737).
-        # Log on failure instead of swallowing it (#3877): an EBUSY/EACCES
-        # holdout is swept and counted at next startup (config/startup.py).
-        if temp_dir:
-            # Offloaded via asyncio.to_thread (#4754) — temp_dir holds a
-            # full decoded WAV (can be hundreds of MB), and this ran
-            # directly on the event loop for every compressed-format
-            # normal stream.
+        # Give back the temp WAV hold taken for compressed-format streaming.
+        # Releasing can delete a full decoded WAV (hundreds of MB) when it
+        # evicts one, so it stays off the event loop (#4754).
+        if conversion_key is not None:
             try:
-                await asyncio.to_thread(
-                    shutil.rmtree,
-                    temp_dir,
-                    onexc=lambda _func, path, exc: logger.warning(
-                        f"Failed to remove temp stream file {path}: {exc}"
-                    ),
-                )
+                await asyncio.to_thread(converted_wavs.release, conversion_key)
             except Exception as cleanup_error:
-                logger.warning(
-                    f"Temp stream cleanup failed for {temp_dir}: {cleanup_error}"
-                )
+                logger.warning(f"Temp stream release failed: {cleanup_error}")

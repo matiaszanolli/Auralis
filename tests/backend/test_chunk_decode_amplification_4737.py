@@ -34,10 +34,20 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
 from core.seekable_source import (  # noqa: E402
+    ConvertedWavRegistry,
     SeekableSource,
     can_seek_natively,
     convert_to_temp_wav,
+    converted_wavs,
 )
+
+
+@pytest.fixture(autouse=True)
+def _no_leftover_conversions():
+    # The shared registry keeps the last released conversion for the next
+    # stream (#5402); don't leave one behind in the temp root.
+    yield
+    converted_wavs.release_idle()
 
 
 @pytest.fixture
@@ -130,11 +140,13 @@ class TestConversionHappensAtMostOnce:
 
 
 class TestTempDirLifecycle:
+    # These use a registry that retains nothing, so close() of the last holder
+    # removes the WAV at once; retention for the next stream is #5402's tests.
     def test_close_removes_the_temp_dir(self, unopenable_file):
         fake_audio = np.zeros((4410, 2), dtype=np.float32)
 
         with patch("auralis.io.unified_loader.load_audio", return_value=(fake_audio, 44100)):
-            source = SeekableSource(unopenable_file)
+            source = SeekableSource(unopenable_file, ConvertedWavRegistry(max_idle=0))
             resolved = Path(source.resolve())
 
         assert resolved.exists()
@@ -146,7 +158,7 @@ class TestTempDirLifecycle:
         fake_audio = np.zeros((4410, 2), dtype=np.float32)
 
         with patch("auralis.io.unified_loader.load_audio", return_value=(fake_audio, 44100)):
-            with SeekableSource(unopenable_file) as source:
+            with SeekableSource(unopenable_file, ConvertedWavRegistry(max_idle=0)) as source:
                 resolved = Path(source.resolve())
                 assert resolved.exists()
         assert not resolved.parent.exists()

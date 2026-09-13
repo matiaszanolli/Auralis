@@ -327,6 +327,14 @@ async def _shutdown_components(globals_dict: dict[str, Any]) -> None:
         except Exception as fp_err:
             logger.warning(f"⚠️  Fingerprint executor shutdown error: {fp_err}")
 
+        # Delete the idle converted temp WAVs kept for the next stream of the
+        # same track (#5402); a stream released after this deletes its own.
+        try:
+            from core.seekable_source import converted_wavs
+            await asyncio.to_thread(converted_wavs.shutdown)
+        except Exception as temp_err:
+            logger.warning(f"⚠️  Seekable temp WAV cleanup error: {temp_err}")
+
         # Shut down the library database last — WAL checkpoint + engine dispose (#3210)
         _teardown_library_database(globals_dict)
 
