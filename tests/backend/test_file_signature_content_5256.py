@@ -51,8 +51,8 @@ def test_same_size_edit_misses_existing_chunk_path_cache(tmp_path: Path) -> None
 
     wav_encoder = MagicMock()
     wav_encoder.get_chunk_path.side_effect = (
-        lambda track_id, file_signature, preset, intensity, chunk_index: tmp_path
-        / f"{track_id}_{file_signature}_{preset}_{intensity}_{chunk_index}.wav"
+        lambda track_id, file_signature, preset, intensity, chunk_index, targets_hash: tmp_path
+        / f"{track_id}_{file_signature}_{preset}_{intensity}_{targets_hash}_{chunk_index}.wav"
     )
     cache_manager = ChunkCacheManager({})
     old_cache = ChunkPathCache(

@@ -76,6 +76,7 @@ from core.chunk_operations import ChunkOperations  # noqa: F401
 from core.chunk_crossfade import apply_crossfade_between_chunks  # noqa: F401
 from core.chunk_mastering import compute_mastering_recommendation
 from core.chunk_processor_init import build_collaborators, init_fingerprint_and_processor
+from core.targets_hash import get_targets_hash
 from core.seekable_source import SeekableSource
 from core.file_signature import FileSignatureService  # Phase 5.1: File signature generation
 from core.level_manager import MAX_LEVEL_CHANGE_DB  # noqa: F401 (re-exported, see below)
@@ -145,6 +146,27 @@ class ChunkedAudioProcessor:
         self.chunk_dir = Path(tempfile.gettempdir()) / CHUNK_TEMP_DIRNAME
         self.chunk_dir.mkdir(exist_ok=True)
 
+        self._processor_factory: Any = get_processor_factory()  # Phase 2: Use singleton
+        self._mastering_target_service: Any = get_mastering_target_service()
+
+        # Fingerprint/targets (3-tier: DB -> .25d file -> extract-on-first-play)
+        # and the shared HybridProcessor instance (state persists across chunks
+        # to avoid compressor-envelope artifacts at chunk boundaries).
+        #
+        # #4666: this MUST precede build_collaborators() — the chunk cache
+        # identity (in-memory key AND on-disk WAV filename) includes a hash of
+        # these targets, so they have to be known before the caches are
+        # constructed. Building the caches first froze their identity at
+        # targets_hash="none", which is how a targets-aware processor could be
+        # handed chunks rendered without targets.
+        self.fingerprint, self.mastering_targets, self.processor = init_fingerprint_and_processor(
+            self._mastering_target_service, self._processor_factory, track_id, filepath, self.preset, intensity
+        )
+        # Cache-identity component for the mastering targets (#4666). Derived
+        # by the same shared helper ProcessorFactory uses for its processor
+        # cache (#3720), so the two tiers can never disagree.
+        self.targets_hash: str = get_targets_hash(self.mastering_targets)
+
         # Collaborators (#4245: see chunk_processor_init.build_collaborators).
         # Metadata was loaded above, so both fallbacks below are never hit in practice.
         total_duration_valid: float = self.total_duration or 0.0
@@ -164,9 +186,8 @@ class ChunkedAudioProcessor:
             file_signature=self.file_signature,
             preset=preset,
             intensity=intensity,
+            targets_hash=self.targets_hash,
         )
-        self._processor_factory: Any = get_processor_factory()  # Phase 2: Use singleton
-        self._mastering_target_service: Any = get_mastering_target_service()
 
         # threading.RLock (not asyncio.Lock): acquired inside asyncio.to_thread()
         # workers (#2388) and re-entered from process_chunk(locked=True) (#3808).
@@ -184,13 +205,6 @@ class ChunkedAudioProcessor:
         # Weighted mastering-profile recommendation cache (real-time UI display).
         self.mastering_recommendation: MasteringRecommendation | None = None
         self.adaptive_mastering_engine: AdaptiveMasteringEngine | None = None
-
-        # Fingerprint/targets (3-tier: DB -> .25d file -> extract-on-first-play)
-        # and the shared HybridProcessor instance (state persists across chunks
-        # to avoid compressor-envelope artifacts at chunk boundaries).
-        self.fingerprint, self.mastering_targets, self.processor = init_fingerprint_and_processor(
-            self._mastering_target_service, self._processor_factory, track_id, filepath, self.preset, intensity
-        )
 
         # Processing state tracking for smooth transitions
         self.chunk_rms_history: list[float] = []

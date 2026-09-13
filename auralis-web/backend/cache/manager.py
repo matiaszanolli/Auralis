@@ -79,7 +79,7 @@ class CachedChunk:
     chunk_path: Path
     # File signature (mtime+size hash, see core/file_signature.py) the chunk
     # was cached under (#5251). Every sibling tier already keys on this —
-    # SimpleChunkCache (core/chunk_cache.py, CACHE_VERSION 4, #4358) and the
+    # SimpleChunkCache (core/chunk_cache.py, #4358) and the
     # on-disk ChunkPathCache/ChunkCacheManager both include it — but this
     # tier, which is consulted BEFORE the signature-aware disk lookup, never
     # got the fix, so an in-place file edit (e.g. a re-master landing at the

@@ -19,6 +19,8 @@ from collections import OrderedDict
 
 import numpy as np
 
+from .targets_hash import NO_TARGETS
+
 logger = logging.getLogger(__name__)
 
 
@@ -27,7 +29,10 @@ class SimpleChunkCache:
 
     # Cache version - increment when chunk processing logic OR the key schema changes
     # This invalidates all cached chunks when we fix bugs in extraction/processing
-    CACHE_VERSION = 4  # v4: key now includes file_signature (#4358); v3: _extract_chunk_segment overlap handling
+    # v5: key now includes the mastering-targets hash (#4666)
+    # v4: key now includes file_signature (#4358)
+    # v3: _extract_chunk_segment overlap handling
+    CACHE_VERSION = 5
 
     def __init__(self, max_chunks: int = 50, max_memory_bytes: int = 512 * 1024 * 1024) -> None:
         """
@@ -44,7 +49,13 @@ class SimpleChunkCache:
         self._lock = threading.Lock()  # Protects cache from concurrent access (fixes #2436)
 
     def _make_key(
-        self, track_id: int, chunk_idx: int, preset: str, intensity: float, file_signature: str = ""
+        self,
+        track_id: int,
+        chunk_idx: int,
+        preset: str,
+        intensity: float,
+        file_signature: str = "",
+        targets_hash: str = NO_TARGETS,
     ) -> str:
         """Generate cache key from parameters.
 
@@ -54,9 +65,18 @@ class SimpleChunkCache:
         it, this in-memory layer would keep serving the previously-processed
         samples and their stored sample_rate for the process lifetime, causing
         stale/wrong-speed audio after a replacement file with a different rate.
+
+        targets_hash (#4666) is part of the key for the same reason the on-disk
+        tier now includes it: mastering targets select a different DSP branch,
+        and a track's targets typically materialise mid-session once the
+        background fingerprint queue completes. Without it, chunks rendered
+        before the targets landed keep being served afterwards.
         """
         # Include CACHE_VERSION to invalidate stale cached chunks when processing logic changes
-        key_str = f"v{self.CACHE_VERSION}:{track_id}:{chunk_idx}:{preset}:{intensity:.2f}:{file_signature}"
+        key_str = (
+            f"v{self.CACHE_VERSION}:{track_id}:{chunk_idx}:{preset}:"
+            f"{intensity:.2f}:{file_signature}:{targets_hash}"
+        )
         return hashlib.md5(key_str.encode()).hexdigest()
 
     def get(
@@ -66,7 +86,8 @@ class SimpleChunkCache:
         preset: str,
         intensity: float,
         *,
-        file_signature: str = ""
+        file_signature: str = "",
+        targets_hash: str = NO_TARGETS,
     ) -> tuple[np.ndarray, int, float] | None:
         """
         Get chunk from cache.
@@ -78,7 +99,9 @@ class SimpleChunkCache:
             cache-hit can restore the true gain_history state instead of 0.0.
         """
         with self._lock:
-            key = self._make_key(track_id, chunk_idx, preset, intensity, file_signature)
+            key = self._make_key(
+                track_id, chunk_idx, preset, intensity, file_signature, targets_hash
+            )
             if key in self.cache:
                 # Move to end (LRU)
                 self.cache.move_to_end(key)
@@ -97,6 +120,7 @@ class SimpleChunkCache:
         *,
         file_signature: str = "",
         gain_db: float = 0.0,
+        targets_hash: str = NO_TARGETS,
     ) -> None:
         """Store chunk in cache.
 
@@ -105,7 +129,9 @@ class SimpleChunkCache:
         state instead of assuming unity.
         """
         with self._lock:
-            key = self._make_key(track_id, chunk_idx, preset, intensity, file_signature)
+            key = self._make_key(
+                track_id, chunk_idx, preset, intensity, file_signature, targets_hash
+            )
 
             chunk_bytes = audio.nbytes
 
@@ -140,7 +166,14 @@ class SimpleChunkCache:
             self._current_bytes = 0
 
     def invalidate_chunk(
-        self, track_id: int, chunk_idx: int, preset: str, intensity: float, *, file_signature: str = ""
+        self,
+        track_id: int,
+        chunk_idx: int,
+        preset: str,
+        intensity: float,
+        *,
+        file_signature: str = "",
+        targets_hash: str = NO_TARGETS,
     ) -> None:
         """Remove a specific chunk from cache after a processing failure.
 
@@ -153,9 +186,13 @@ class SimpleChunkCache:
             intensity: Processing intensity used
             file_signature: File signature the chunk was cached under (#4358) —
                 must match the value passed to put() to target the same entry.
+            targets_hash: Mastering-targets hash the chunk was cached under
+                (#4666) — likewise must match put()'s value.
         """
         with self._lock:
-            key = self._make_key(track_id, chunk_idx, preset, intensity, file_signature)
+            key = self._make_key(
+                track_id, chunk_idx, preset, intensity, file_signature, targets_hash
+            )
             removed = self.cache.pop(key, None)
             if removed is not None:
                 # Sibling of #3192: invalidate_chunk previously dropped the

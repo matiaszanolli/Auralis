@@ -16,6 +16,7 @@ import numpy as np
 
 from auralis.io.saver import save as save_audio
 
+from ..targets_hash import NO_TARGETS
 from .atomic_io import atomic_save_audio, is_partial_path
 
 logger = logging.getLogger(__name__)
@@ -55,9 +56,13 @@ class WAVEncoder:
     # Default bit depth
     DEFAULT_SUBTYPE = 'PCM_16'
 
-    # Cache version - increment when chunk processing logic changes
-    # This invalidates all disk-cached chunks when we fix bugs in extraction/processing
-    CACHE_VERSION = 3  # v3: Added _extract_chunk_segment to process_chunk for proper overlap handling
+    # Cache version - increment when chunk processing logic OR the filename
+    # key schema changes. This invalidates all disk-cached chunks when we fix
+    # bugs in extraction/processing, or when the identity a filename encodes
+    # changes shape.
+    # v4 (#4666): filename now includes the mastering-targets hash
+    # v3: Added _extract_chunk_segment to process_chunk for proper overlap handling
+    CACHE_VERSION = 4
 
     def __init__(self, chunk_dir: Path, default_subtype: str = 'PCM_16'):
         """
@@ -88,7 +93,8 @@ class WAVEncoder:
         file_signature: str,
         preset: str,
         intensity: float,
-        chunk_index: int
+        chunk_index: int,
+        targets_hash: str = NO_TARGETS,
     ) -> Path:
         """
         Generate consistent file path for audio chunk.
@@ -100,16 +106,24 @@ class WAVEncoder:
         Args:
             track_id: Track ID
             file_signature: File signature for cache integrity
-            preset: Processing preset (adaptive, gentle, etc.)
+            preset: Processing preset ('adaptive')
             intensity: Processing intensity (0.0-1.0)
             chunk_index: Chunk index (0-based)
+            targets_hash: Content hash of the mastering targets this chunk was
+                rendered with (core/targets_hash.get_targets_hash), "none" when
+                absent. #4666: this must move in lockstep with
+                ChunkCacheManager.get_chunk_cache_key — the on-disk tier is
+                consulted by a bare path existence check, so folding targets
+                into the in-memory key alone would still serve a stale
+                un-targeted WAV from disk.
 
         Returns:
             Path object for chunk file
         """
         # Include CACHE_VERSION in filename to invalidate stale chunks
         filename = (
-            f"v{self.CACHE_VERSION}_track_{track_id}_{file_signature}_{preset}_{intensity}_chunk_{chunk_index}.wav"
+            f"v{self.CACHE_VERSION}_track_{track_id}_{file_signature}_"
+            f"{preset}_{intensity}_{targets_hash}_chunk_{chunk_index}.wav"
         )
         return self.chunk_dir / filename
 
@@ -181,7 +195,8 @@ class WAVEncoder:
         preset: str,
         intensity: float,
         chunk_index: int,
-        subtype: str | None = None
+        subtype: str | None = None,
+        targets_hash: str = NO_TARGETS,
     ) -> Path:
         """
         Generate path, encode audio, and save in one operation.
@@ -197,6 +212,9 @@ class WAVEncoder:
             intensity: Processing intensity
             chunk_index: Chunk index
             subtype: PCM subtype (uses default if None)
+            targets_hash: Mastering-targets content hash (#4666) — must match
+                what the lookup side (ChunkPathCache) resolves, or the write
+                lands at a path no reader will ever check.
 
         Returns:
             Path to saved file
@@ -206,7 +224,8 @@ class WAVEncoder:
             file_signature=file_signature,
             preset=preset,
             intensity=intensity,
-            chunk_index=chunk_index
+            chunk_index=chunk_index,
+            targets_hash=targets_hash,
         )
 
         self.encode_and_save(audio, sample_rate, chunk_path, subtype)

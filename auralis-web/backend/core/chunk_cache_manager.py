@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from core.encoding.atomic_io import is_wav_complete
+from core.targets_hash import NO_TARGETS
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +42,13 @@ class ChunkCacheManager:
     processing, ensuring consistent cache key patterns and reducing duplication.
 
     Cache keys are structured as:
-    - Chunk: {track_id}_{file_sig}_{preset}_{intensity}_chunk_{chunk_index}
+    - Chunk: {track_id}_{file_sig}_{preset}_{intensity}_{targets_hash}_chunk_{chunk_index}
     - Fingerprint: fingerprint_{track_id}_{file_sig}
+
+    ``targets_hash`` (#4666) keeps the prefix-based clear_track_cache()
+    patterns intact — it sits after intensity, so both the
+    "{track}_{sig}_" and "{track}_{sig}_{preset}_{intensity}_" prefixes
+    still match every chunk of a track.
 
     A chunk and its WAV encoding used to have separate key formats
     (get_chunk_cache_key / get_wav_cache_key), but both process_chunk() and
@@ -62,28 +68,45 @@ class ChunkCacheManager:
         file_signature: str,
         preset: str | None,
         intensity: float,
-        chunk_index: int
+        chunk_index: int,
+        targets_hash: str = NO_TARGETS,
     ) -> str:
         """
         Generate cache key for a processed audio chunk.
 
-        Format: {track_id}_{file_sig}_{preset}_{intensity}_chunk_{chunk_index}
+        Format:
+        {track_id}_{file_sig}_{preset}_{intensity}_{targets_hash}_chunk_{chunk_index}
 
         Args:
             track_id: Database track ID
             file_signature: 8-char file signature (from FileSignatureService)
-            preset: Processing preset (adaptive, gentle, warm, etc.) or None
+            preset: Processing preset ('adaptive') or None
             intensity: Processing intensity (0.0 - 1.0)
             chunk_index: Chunk index (0-based)
+            targets_hash: Content hash of the processor's mastering_targets
+                (core/targets_hash.get_targets_hash), "none" when absent.
+                #4666: targets change the DSP branch
+                AudioProcessingPipeline.apply_enhancement takes, so chunks
+                rendered with targets must not be served to a processor
+                without them (or vice versa). A track's targets typically
+                appear mid-session, once the background fingerprint queue
+                fills in what __init__ deliberately did not extract
+                (extract_if_missing=False) — without this component the
+                pre-targets chunks stayed cached and were mixed with
+                post-targets ones, producing an audible tonal/level shift
+                mid-track.
 
         Returns:
             Cache key string
 
         Examples:
             >>> ChunkCacheManager.get_chunk_cache_key(123, "a3b4c5d6", "adaptive", 0.8, 0)
-            '123_a3b4c5d6_adaptive_0.8_chunk_0'
+            '123_a3b4c5d6_adaptive_0.8_none_chunk_0'
         """
-        return f"{track_id}_{file_signature}_{preset}_{intensity}_chunk_{chunk_index}"
+        return (
+            f"{track_id}_{file_signature}_{preset}_{intensity}_"
+            f"{targets_hash}_chunk_{chunk_index}"
+        )
 
     @staticmethod
     def get_fingerprint_cache_key(track_id: int, file_signature: str) -> str:

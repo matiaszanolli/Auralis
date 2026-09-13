@@ -165,6 +165,8 @@ def process_chunk(
         )
 
         # Saved for durability/caching; the array avoids an immediate readback.
+        # #4666: targets_hash completes the on-disk identity — the write must
+        # land at exactly the path ChunkPathCache.lookup_cached() will check.
         chunk_path = processor._wav_encoder.encode_and_save_from_path(
             audio=extracted_chunk,
             sample_rate=processor.sample_rate,
@@ -174,6 +176,7 @@ def process_chunk(
             intensity=processor.intensity,
             chunk_index=chunk_index,
             subtype='PCM_16',
+            targets_hash=processor.targets_hash,
         )
         processor._path_cache.store(chunk_index, chunk_path)
     except Exception:

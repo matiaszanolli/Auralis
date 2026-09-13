@@ -23,18 +23,24 @@ from typing import Any
 
 from core.chunk_cache_manager import ChunkCacheManager
 from core.encoding.atomic_io import is_wav_complete
+from core.targets_hash import NO_TARGETS
 
 logger = logging.getLogger("core.chunked_processor")
 
 
 class ChunkPathCache:
-    """Resolves chunk paths and checks/records cache hits for one track+preset+intensity.
+    """Resolves chunk paths and checks/records cache hits for one cache identity.
 
     Owns no state beyond the identity tuple (track_id, file_signature, preset,
-    intensity) and references to the collaborators that do the real work
-    (``wav_encoder`` for path generation, ``cache_manager`` for the in-memory
-    tier). The on-disk tier is checked directly here via ``Path.exists()`` +
-    ``is_wav_complete()``.
+    intensity, targets_hash) and references to the collaborators that do the
+    real work (``wav_encoder`` for path generation, ``cache_manager`` for the
+    in-memory tier). The on-disk tier is checked directly here via
+    ``Path.exists()`` + ``is_wav_complete()``.
+
+    ``targets_hash`` (#4666) is part of the identity because mastering targets
+    change the DSP branch that produced the bytes on disk. It is fixed at
+    construction, so ``ChunkedAudioProcessor.__init__`` must load the track's
+    targets BEFORE building this collaborator.
     """
 
     def __init__(
@@ -45,11 +51,13 @@ class ChunkPathCache:
         intensity: float,
         wav_encoder: Any,
         cache_manager: ChunkCacheManager,
+        targets_hash: str = NO_TARGETS,
     ) -> None:
         self.track_id = track_id
         self.file_signature = file_signature
         self.preset = preset
         self.intensity = intensity
+        self.targets_hash = targets_hash
         self._wav_encoder = wav_encoder
         self._cache_manager = cache_manager
 
@@ -61,6 +69,7 @@ class ChunkPathCache:
             preset=self.preset,
             intensity=self.intensity,
             chunk_index=chunk_index,
+            targets_hash=self.targets_hash,
         )
         return Path(path)
 
@@ -71,7 +80,12 @@ class ChunkPathCache:
         recorded by any caller is visible to every other caller (#4792).
         """
         return ChunkCacheManager.get_chunk_cache_key(
-            self.track_id, self.file_signature, self.preset, self.intensity, chunk_index
+            self.track_id,
+            self.file_signature,
+            self.preset,
+            self.intensity,
+            chunk_index,
+            self.targets_hash,
         )
 
     def lookup_cached(self, chunk_index: int) -> Path | None:

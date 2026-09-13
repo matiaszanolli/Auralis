@@ -211,6 +211,7 @@ async def pump_enhanced_chunks(
                         preset=preset,
                         intensity=intensity,
                         file_signature=processor.file_signature,  # #4358
+                        targets_hash=processor.targets_hash,  # #4666
                     )
                 await controller._send_error(
                     websocket,

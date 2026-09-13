@@ -32,8 +32,10 @@ def _write_valid_wav(path: Path) -> None:
 def _make_path_cache(tmp_path, chunk_cache=None):
     wav_encoder = MagicMock()
     wav_encoder.get_chunk_path.side_effect = (
-        lambda track_id, file_signature, preset, intensity, chunk_index: str(
-            tmp_path / f"track_{track_id}_{file_signature}_{preset}_{intensity}_chunk_{chunk_index}.wav"
+        lambda track_id, file_signature, preset, intensity, chunk_index, targets_hash: str(
+            tmp_path
+            / f"track_{track_id}_{file_signature}_{preset}_{intensity}_"
+              f"{targets_hash}_chunk_{chunk_index}.wav"
         )
     )
     cache_manager = ChunkCacheManager(chunk_cache if chunk_cache is not None else {})
@@ -56,7 +58,12 @@ class TestGetChunkPath:
 
         assert isinstance(result, Path)
         wav_encoder.get_chunk_path.assert_called_once_with(
-            track_id=1, file_signature="sig123", preset="adaptive", intensity=1.0, chunk_index=0
+            track_id=1,
+            file_signature="sig123",
+            preset="adaptive",
+            intensity=1.0,
+            chunk_index=0,
+            targets_hash="none",
         )
 
     def test_different_chunk_indices_get_different_paths(self, tmp_path):

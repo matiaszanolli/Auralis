@@ -21,6 +21,7 @@ from copy import deepcopy
 from typing import Any, NamedTuple
 
 from .env_config import get_int_env
+from .targets_hash import get_targets_hash
 
 
 class ProcessorCacheKey(NamedTuple):
@@ -157,20 +158,11 @@ class ProcessorFactory:
             targets_hash=targets_hash,
         )
 
-    def _get_targets_hash(self, mastering_targets: dict[str, Any] | None) -> str:
-        """#3720: content hash of mastering_targets, used in the cache key.
-        Returns "none" when targets are absent so existing callsites that
-        don't supply targets share a single cache entry per (track, preset,
-        config) — preserving the prior cache-hit behaviour for
-        the common case."""
-        if mastering_targets is None:
-            return "none"
-        try:
-            payload = json.dumps(mastering_targets, sort_keys=True, default=str)
-        except (TypeError, ValueError):
-            # Fall back to a stable repr if the dict contains non-JSON values.
-            payload = repr(sorted(mastering_targets.items()))
-        return hashlib.md5(payload.encode()).hexdigest()
+    # #4666: this class's private targets hasher moved to
+    # core/targets_hash.get_targets_hash. The chunk caches (ChunkCacheManager
+    # keys, the WAVEncoder on-disk filename, SimpleChunkCache) now key on
+    # targets too, and every tier must derive the hash IDENTICALLY — so the
+    # one implementation is shared rather than copied per tier.
 
     def _get_config_hash(self, config: Any | None) -> str:
         """
@@ -231,7 +223,7 @@ class ProcessorFactory:
         # processor that another thread was actively iterating chunks
         # on, swapping its DSP parameters mid-track.
         config_hash = self._get_config_hash(config)
-        targets_hash = self._get_targets_hash(mastering_targets)
+        targets_hash = get_targets_hash(mastering_targets)
         cache_key = self._get_cache_key(
             track_id, preset, config_hash, targets_hash
         )
@@ -386,7 +378,7 @@ class ProcessorFactory:
             track_id,
             preset,
             self._get_config_hash(config),
-            self._get_targets_hash(mastering_targets),
+            get_targets_hash(mastering_targets),
         )
         with self._lock:
             processor = self._processor_cache.pop(cache_key, None)

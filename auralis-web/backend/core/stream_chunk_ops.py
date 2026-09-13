@@ -80,6 +80,10 @@ async def process_chunk_only(
                 # #4358: key on the file signature so an in-session file change
                 # (same track_id) misses instead of serving stale audio.
                 file_signature=processor.file_signature,
+                # #4666: same reasoning for mastering targets — they select a
+                # different DSP branch and typically land mid-session, once the
+                # background fingerprint queue completes.
+                targets_hash=processor.targets_hash,
             )
             if cached_result:
                 pcm_samples, sr, cached_gain_db = cached_result
@@ -158,6 +162,7 @@ async def process_chunk_only(
                     sample_rate=sr,
                     file_signature=processor.file_signature,  # #4358
                     gain_db=gain_db,
+                    targets_hash=processor.targets_hash,  # #4666
                 )
         except Exception as e:
             logger.debug(f"Failed to cache chunk (not critical): {e}")

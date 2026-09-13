@@ -164,7 +164,7 @@ async def stream_enhanced_audio(
         # (#3884). Fire-and-forget: buffer_presets_for_track caches each
         # chunk to the same on-disk WAV cache process_chunk_safe() checks
         # (ChunkPathCache, keyed on track_id/file_signature/preset/intensity/
-        # chunk_index), so a later real chunk request hits the pre-rendered
+        # targets_hash/chunk_index), so a later real chunk request hits the pre-rendered
         # file instead of redoing DSP. It is a no-op per chunk that's already
         # cached, so re-issuing the same track (preset switch, WS reconnect)
         # is safe to call again. spawn_background_task logs instead of

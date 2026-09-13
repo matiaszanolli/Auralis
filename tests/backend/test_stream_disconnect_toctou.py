@@ -78,6 +78,10 @@ def _make_processor(total_chunks: int = 5, sample_rate: int = 44100) -> Mock:
     # processor's chunks cannot cache-collide with another test's -- see the
     # module-level comment by _next_file_signature above.
     processor.file_signature = f"testsig-{next(_next_file_signature)}"
+    # #4666: cache keys also include the mastering-targets hash. A bare Mock
+    # would auto-create a per-attribute Mock here, which is unhashable-by-value
+    # and would never match what a put() recorded.
+    processor.targets_hash = "none"
     # process_chunk_safe returns (path, pcm_array)
     pcm = np.zeros((total_chunks * sample_rate, 2), dtype=np.float32)
     processor.process_chunk_safe = AsyncMock(
@@ -155,6 +159,7 @@ class TestProcessAndStreamChunkDisconnectGuard:
         controller.cache_manager.put(
             track_id=1, chunk_idx=0, preset="adaptive", intensity=1.0,
             audio=pcm, sample_rate=44100, file_signature=processor.file_signature,
+            targets_hash=processor.targets_hash,  # #4666
         )
 
         # Should complete without error; _safe_send returns False silently

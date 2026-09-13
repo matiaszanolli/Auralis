@@ -36,6 +36,7 @@ def test_retry_uses_fresh_processor_after_post_dsp_write_failure(tmp_path: Path)
         intensity=1.0,
         fingerprint=object(),
         mastering_targets=None,
+        targets_hash="none",  # #4666: completes the chunk cache identity
         processor=object(),
         sample_rate=10,
         total_chunks=1,

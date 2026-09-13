@@ -6,15 +6,22 @@ ChunkedAudioProcessor Construction Helpers
 
 Two pieces of ``ChunkedAudioProcessor.__init__`` extracted verbatim (#4245):
 
-- ``build_collaborators()`` constructs the boundary/level/encoding/cache
-  collaborators that depend only on already-known metadata (sample rate,
-  duration, chunk dir) and the cache identity (track/signature/preset/
-  intensity) — no track-specific fingerprint work.
 - ``init_fingerprint_and_processor()`` performs the 3-tier fingerprint load
   (via ``MasteringTargetService``) and creates (or skips, for
   ``preset=None``) the shared ``HybridProcessor`` instance for this track.
+- ``build_collaborators()`` constructs the boundary/level/encoding/cache
+  collaborators that depend only on already-known metadata (sample rate,
+  duration, chunk dir) and the cache identity (track/signature/preset/
+  intensity/targets_hash).
 
 Neither is a chunk-streaming concern; both are one-time per-track setup.
+
+Order matters (#4666): the cache identity includes a hash of the track's
+mastering targets, so ``init_fingerprint_and_processor()`` must run FIRST and
+its ``mastering_targets`` result must reach ``build_collaborators()``.
+Constructing the caches before the targets were even loaded froze every chunk
+path and key at ``targets_hash="none"``, which is precisely how a processor
+that HAS targets ended up being served chunks rendered without them.
 
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3
@@ -31,6 +38,7 @@ from core.chunk_cache_manager import ChunkCacheManager
 from core.chunk_path_cache import ChunkPathCache
 from core.encoding import WAVEncoder
 from core.level_manager import LevelManager
+from core.targets_hash import NO_TARGETS
 
 logger = logging.getLogger("core.chunked_processor")
 
@@ -64,8 +72,12 @@ def build_collaborators(
     file_signature: str,
     preset: str | None,
     intensity: float,
+    targets_hash: str = NO_TARGETS,
 ) -> Collaborators:
     """Construct the boundary/level/encoding/cache collaborators for one processor.
+
+    ``targets_hash`` (#4666) completes the cache identity — see the module
+    docstring for why it must already be known by the time this is called.
 
     ``LevelManager`` takes no ``max_level_change_db`` argument: its own
     default IS ``MAX_LEVEL_CHANGE_DB``, so passing it back in was a no-op
@@ -84,6 +96,7 @@ def build_collaborators(
         intensity=intensity,
         wav_encoder=wav_encoder,
         cache_manager=cache_manager,
+        targets_hash=targets_hash,
     )
     return Collaborators(boundary_manager, level_manager, wav_encoder, cache_manager, path_cache)
 
