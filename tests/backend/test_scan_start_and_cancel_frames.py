@@ -14,8 +14,15 @@ auto-scanner, which had the identical bug) translate that into the frame.
 handler's `except Exception` never caught it and there was no `finally`: a
 cancelled scan left with NO terminal frame. `useScanProgress` clears
 `isScanning` only on `scan_complete`/`library_scan_error`, so the panel stayed
-"Scanning…" for the rest of the session with tracks half-imported. The frontend
-cancels this request on unmount and on supersede.
+"Scanning…" for the rest of the session with tracks half-imported.
+
+**#4820** — and the frontend's unmount/supersede aborts never produced that
+cancellation in the first place. The handler took only the parsed body, so it
+could not observe `is_disconnected()`, and closing a fetch does not cancel an
+already-scheduled route coroutine: the scan ran on to completion or its 1-hour
+timeout, holding the single scan slot and 409-ing every scan the user started
+afterwards. The handler now takes the ASGI `Request` too and races the scanner
+thread against a disconnect watcher.
 """
 
 import asyncio
@@ -33,6 +40,7 @@ if _BACKEND not in sys.path:
     sys.path.insert(0, _BACKEND)
 
 from routers.library_scan import create_library_scan_router  # noqa: E402
+from schemas import LibraryScanRequest  # noqa: E402
 
 
 class _CapturingManager:
@@ -93,9 +101,15 @@ class _AcceptingScanner(_BaseScanner):
 class _CancelledScanner(_BaseScanner):
     """Blocks so the request task can be cancelled mid-scan."""
 
+    #: Every instance built by the router, so a test can inspect the scanner
+    #: the handler actually created (#4820).
+    instances: list = []
+
     def __init__(self, _manager) -> None:
         super().__init__(_manager)
         self._stop = threading.Event()
+        self.stopped = False
+        _CancelledScanner.instances.append(self)
 
     def scan_directories(self, directories=(), **_kwargs):
         self._report({'stage': 'started', 'directories': list(directories)})
@@ -103,7 +117,28 @@ class _CancelledScanner(_BaseScanner):
         return SimpleNamespace(rejected=False, added_tracks=[])
 
     def stop_scan(self) -> None:
+        self.stopped = True
         self._stop.set()
+
+
+class _FakeRequest:
+    """Stand-in for the ASGI Request: the handler only uses its receive channel.
+
+    With `disconnect_after` the channel yields `http.disconnect` after that many
+    seconds, like a server whose client closed the connection. The default never
+    disconnects, so a test can prove a connected client's scan is not aborted.
+    """
+
+    def __init__(self, disconnect_after: float | None = None) -> None:
+        self.disconnect_after = disconnect_after
+        self.receives = 0
+
+    async def receive(self):
+        self.receives += 1
+        if self.disconnect_after is None:
+            await asyncio.Event().wait()  # never returns; cancelled by the handler
+        await asyncio.sleep(self.disconnect_after)
+        return {"type": "http.disconnect"}
 
 
 def _client(scanner_cls, monkeypatch):
@@ -196,10 +231,8 @@ class TestCancellationEmitsTerminalFrame:
         handler = next(
             r.endpoint for r in router.routes if getattr(r, "path", "") == "/api/library/scan"
         )
-        from schemas import LibraryScanRequest
-
         task = asyncio.create_task(
-            handler(LibraryScanRequest(directories=[str(tmp_path)]))
+            handler(LibraryScanRequest(directories=[str(tmp_path)]), _FakeRequest())
         )
         # Let the scan reach its blocking wait, then cancel.
         for _ in range(50):
@@ -237,3 +270,220 @@ class TestCancellationEmitsTerminalFrame:
         """TimeoutError is an Exception subclass and keeps its own handler."""
         assert issubclass(asyncio.TimeoutError, Exception)
         assert not issubclass(asyncio.CancelledError, Exception)
+
+
+def _scan_handler(monkeypatch, scanner_cls):
+    """The bare handler plus a frame-capturing manager (no TestClient).
+
+    TestClient runs the request on its own portal, which makes both cancelling
+    the request task and faking a disconnect unreliable.
+    """
+    import auralis.library.scanner as scanner_mod
+
+    monkeypatch.setattr(scanner_mod, "LibraryScanner", scanner_cls)
+    manager = _CapturingManager()
+    router = create_library_scan_router(
+        lambda: SimpleNamespace(), connection_manager=manager
+    )
+    handler = next(
+        r.endpoint for r in router.routes if getattr(r, "path", "") == "/api/library/scan"
+    )
+    return handler, manager
+
+
+class TestClientDisconnectStopsTheScan:
+    """#4820 — an aborted fetch has to reach the scanner thread."""
+
+    @pytest.fixture(autouse=True)
+    def _clean_scanner_registry(self):
+        _CancelledScanner.instances.clear()
+        yield
+        _CancelledScanner.instances.clear()
+
+    @pytest.mark.asyncio
+    async def test_disconnect_stops_the_scanner_and_returns_499(
+        self, monkeypatch, tmp_path
+    ) -> None:
+        from fastapi import HTTPException
+
+        handler, manager = _scan_handler(monkeypatch, _CancelledScanner)
+
+        with pytest.raises(HTTPException) as excinfo:
+            await handler(
+                LibraryScanRequest(directories=[str(tmp_path)]),
+                _FakeRequest(disconnect_after=0.01),
+            )
+
+        assert excinfo.value.status_code == 499
+        assert _CancelledScanner.instances, "handler never built a scanner"
+        assert _CancelledScanner.instances[0].stopped, (
+            "the abort never reached scanner.stop_scan(), so the scan kept "
+            "running and kept the scan slot (#4820)"
+        )
+
+    @pytest.mark.asyncio
+    async def test_disconnect_emits_a_terminal_frame(self, monkeypatch, tmp_path) -> None:
+        """The WebSocket outlives the aborted fetch, so the UI still needs to
+        be told to leave the scanning state."""
+        from fastapi import HTTPException
+
+        handler, manager = _scan_handler(monkeypatch, _CancelledScanner)
+
+        with pytest.raises(HTTPException):
+            await handler(
+                LibraryScanRequest(directories=[str(tmp_path)]),
+                _FakeRequest(disconnect_after=0.01),
+            )
+
+        assert manager.types().count("library_scan_error") == 1
+        assert "scan_complete" not in manager.types()
+
+    @pytest.mark.asyncio
+    async def test_connected_client_scan_completes_normally(
+        self, monkeypatch, tmp_path
+    ) -> None:
+        """The watcher must not abort a scan whose client is still there."""
+        handler, manager = _scan_handler(monkeypatch, _AcceptingScanner)
+
+        result = await handler(
+            LibraryScanRequest(directories=[str(tmp_path)]), _FakeRequest()
+        )
+
+        assert result.files_added == 2
+        assert "scan_complete" in manager.types()
+
+    @pytest.mark.asyncio
+    async def test_watcher_task_is_not_orphaned(self, monkeypatch, tmp_path) -> None:
+        """RETURN VALUE check (#4820): a normally-completing scan leaves no
+        polling task behind."""
+        handler, _manager = _scan_handler(monkeypatch, _AcceptingScanner)
+        before = asyncio.all_tasks()
+
+        await handler(LibraryScanRequest(directories=[str(tmp_path)]), _FakeRequest())
+        # Give a cancelled watcher a chance to actually finish, so a leak shows
+        # up as a live task rather than a scheduling artefact.
+        await asyncio.sleep(0)
+
+        leaked = [
+            t for t in asyncio.all_tasks() - before
+            if not t.done() and "_watch_for_disconnect" in repr(t.get_coro())
+        ]
+        assert leaked == [], f"orphaned disconnect watcher: {leaked}"
+
+
+class TestScanHandlerTakesTheAsgiRequest:
+    """#4820 — the signature is the fix: a body model alone cannot observe a
+    disconnect."""
+
+    def test_handler_accepts_a_request_parameter(self) -> None:
+        import inspect
+
+        import routers.library_scan as mod
+        from fastapi import Request
+
+        router = mod.create_library_scan_router(lambda: SimpleNamespace())
+        handler = next(
+            r.endpoint for r in router.routes if getattr(r, "path", "") == "/api/library/scan"
+        )
+        params = inspect.signature(handler).parameters
+        assert params["http_request"].annotation is Request
+
+
+class TestDisconnectSurvivesTheMiddlewareStack:
+    """The trap this fix nearly fell into.
+
+    `Request.is_disconnected()` peeks at the receive channel from an
+    already-cancelled anyio scope. Every BaseHTTPMiddleware layer (this app
+    stacks four) wraps `receive` in a task group whose exit swallows the
+    message under that cancellation, so the poll answers "still connected"
+    forever — a handler-level unit test passes while production never detects
+    anything. These drive raw ASGI through real middleware to pin the
+    difference.
+    """
+
+    @staticmethod
+    def _probe_app(watch):
+        """A FastAPI app behind four BaseHTTPMiddleware layers whose route
+        reports whether `watch(request)` noticed the disconnect."""
+        from fastapi import FastAPI, Request
+        from starlette.middleware.base import BaseHTTPMiddleware
+
+        class _PassThrough(BaseHTTPMiddleware):
+            async def dispatch(self, request, call_next):
+                return await call_next(request)
+
+        app = FastAPI()
+        for _ in range(4):
+            app.add_middleware(_PassThrough)
+        seen: dict = {}
+
+        @app.post("/probe")
+        async def probe(payload: dict, request: Request):  # noqa: ANN202
+            watcher = asyncio.ensure_future(watch(request))
+            done, _pending = await asyncio.wait({watcher}, timeout=2.0)
+            seen["detected"] = watcher in done
+            if not watcher.done():
+                watcher.cancel()
+            return {"ok": True}
+
+        return app, seen
+
+    @staticmethod
+    async def _drive(app) -> None:
+        """One POST whose client disconnects 0.05s after the body."""
+        import json
+
+        body = json.dumps({"a": 1}).encode()
+        scope = {
+            "type": "http", "asgi": {"version": "3.0", "spec_version": "2.3"},
+            "http_version": "1.1", "method": "POST", "scheme": "http",
+            "path": "/probe", "raw_path": b"/probe", "query_string": b"",
+            "root_path": "",
+            "headers": [
+                (b"host", b"testserver"),
+                (b"content-type", b"application/json"),
+                (b"content-length", str(len(body)).encode()),
+            ],
+            "client": ("127.0.0.1", 1234), "server": ("127.0.0.1", 8765),
+        }
+        sent = False
+
+        async def receive():
+            nonlocal sent
+            if not sent:
+                sent = True
+                return {"type": "http.request", "body": body, "more_body": False}
+            await asyncio.sleep(0.05)
+            return {"type": "http.disconnect"}
+
+        async def send(_message) -> None:
+            return None
+
+        await asyncio.wait_for(app(scope, receive, send), timeout=10)
+
+    @pytest.mark.asyncio
+    async def test_the_shipped_watcher_detects_a_disconnect(self) -> None:
+        import routers.library_scan as mod
+
+        app, seen = self._probe_app(mod._watch_for_disconnect)
+        await self._drive(app)
+
+        assert seen["detected"] is True, (
+            "the disconnect watcher must work through BaseHTTPMiddleware — "
+            "this is the whole of #4820"
+        )
+
+    @pytest.mark.asyncio
+    async def test_is_disconnected_polling_would_not_have_worked(self) -> None:
+        """Regression guard: do not 'simplify' the watcher back to polling."""
+
+        async def poll(request) -> None:
+            while True:
+                if await request.is_disconnected():
+                    return
+                await asyncio.sleep(0.01)
+
+        app, seen = self._probe_app(poll)
+        await self._drive(app)
+
+        assert seen["detected"] is False

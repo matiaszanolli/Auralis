@@ -8,7 +8,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useLibraryScan } from '../useLibraryScan';
+import { useLibraryScan, SCAN_TIMEOUT_MS } from '../useLibraryScan';
 import { useToast } from '@/components/shared/Toast';
 import { DEFAULT_TIMEOUT_MS } from '@/utils/apiRequest';
 
@@ -124,7 +124,8 @@ describe('useLibraryScan (#4185)', () => {
   it('stops scanning with an error toast when the request times out (#5019)', async () => {
     // Pre-#5019 the POST went through a bare fetch(): its AbortController only
     // fired on unmount or supersede, so a hung backend left `scanning` true
-    // (and the scan button disabled) with no toast, indefinitely.
+    // (and the scan button disabled) with no toast, indefinitely. The bound is
+    // SCAN_TIMEOUT_MS, not the shared 30s default — see #4820.
     vi.useFakeTimers();
     try {
       mockFetch.mockImplementation(hangingImpl);
@@ -138,7 +139,7 @@ describe('useLibraryScan (#4185)', () => {
       expect(result.current.scanning).toBe(true);
 
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(DEFAULT_TIMEOUT_MS);
+        await vi.advanceTimersByTimeAsync(SCAN_TIMEOUT_MS);
         await pending;
       });
 
@@ -188,5 +189,29 @@ describe('useLibraryScan (#4185)', () => {
     expect(signals).toHaveLength(2);
     expect(signals[0].aborted).toBe(true); // superseded
     expect(signals[1].aborted).toBe(false);
+  });
+
+  it('does not use the shared 30s timeout, which would now kill real scans (#4820)', async () => {
+    // The backend stops the scanner when this fetch aborts, so a 30s bound
+    // would cancel every scan longer than half a minute.
+    expect(SCAN_TIMEOUT_MS).toBeGreaterThan(DEFAULT_TIMEOUT_MS);
+
+    let timeoutMs: number | undefined;
+    mockFetch.mockImplementation((_url: string, _opts: RequestInit) => {
+      return new Promise(() => {});
+    });
+    const postSpy = vi.spyOn(globalThis, 'setTimeout');
+
+    const { result } = setup();
+    act(() => result.current.setWebFolderPath('/music'));
+    act(() => {
+      void result.current.handleScanFolder();
+    });
+
+    timeoutMs = postSpy.mock.calls
+      .map((call) => call[1] as number)
+      .find((ms) => ms === SCAN_TIMEOUT_MS);
+    expect(timeoutMs).toBe(SCAN_TIMEOUT_MS);
+    postSpy.mockRestore();
   });
 });

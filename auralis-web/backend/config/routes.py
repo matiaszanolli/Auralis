@@ -169,6 +169,10 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
         # looks workers up by the shared BACKGROUND_WORKER_KEYS in the
         # component registry.
         resolve_worker=lambda key: globals_dict.get(key),
+        # #4816: the reset also takes exclusive access to the scan-slot
+        # registry, which no worker key covers — a manual scan is a transient
+        # LibraryScanner, invisible to stop_background_workers().
+        get_library_database=get_component('library_database'),
     )
     app.include_router(library_router)
     logger.debug("✅ Library router registered (stats/browse/reset)")

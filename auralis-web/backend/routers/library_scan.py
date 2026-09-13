@@ -12,12 +12,13 @@ Endpoints:
 """
 
 import asyncio
+import contextlib
 import logging
 import os
 from collections.abc import Callable
 from typing import Any, cast
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from helpers import scan_progress_percentage
 from pydantic import BaseModel, Field
 from schemas import LibraryScanRequest, ScanResultResponse
@@ -31,10 +32,125 @@ from .errors import handle_query_error
 
 logger = logging.getLogger(__name__)
 
+# Grace period for the scanner thread to notice stop_scan() and unwind.
+SCANNER_STOP_GRACE_SECONDS = 5.0
+
+# Nginx's convention for "client closed the request". Nothing can read this
+# response — by definition the client is gone — but the status keeps the
+# handler's exit honest in logs and tests instead of reporting a scan that
+# "succeeded" or a 500 that never happened.
+HTTP_CLIENT_CLOSED_REQUEST = 499
+
+
+class ScanClientGone(Exception):
+    """The client that requested the scan disconnected mid-scan (#4820)."""
+
 
 class ScanStatusResponse(BaseModel):
     """Live scan-slot state, for a client resyncing mid-scan (#4821)."""
     is_scanning: bool = Field(description="True while a directory scan holds the scan slot")
+
+
+async def _watch_for_disconnect(http_request: Request) -> None:
+    """Return once the ASGI server reports the requesting client is gone.
+
+    Blocks on the receive channel instead of polling ``is_disconnected()``,
+    which does NOT work in this app: that helper peeks at the channel from an
+    already-cancelled anyio scope, and every one of our BaseHTTPMiddleware
+    layers (rate limit, security headers, no-cache, origin check) wraps
+    ``receive`` in a task group whose exit swallows the message under that
+    cancellation — so it answers "still connected" forever no matter what the
+    client does. Verified against starlette 1.3.1 with the real stack: polling
+    never fires, awaiting the channel fires in one round trip. Awaiting is also
+    event-driven, so there is no poll interval to trade off.
+
+    The request body was parsed into LibraryScanRequest before the handler ran,
+    so ``http.disconnect`` is the only message left on the channel.
+    """
+    while True:
+        try:
+            message = await http_request.receive()
+        except Exception:  # noqa: BLE001 - a broken channel must not kill the scan
+            logger.debug("Disconnect watch failed; leaving the scan running", exc_info=True)
+            # Report nothing rather than a false disconnect: park until the
+            # caller cancels this watcher.
+            await asyncio.Event().wait()
+        else:
+            if message.get("type") == "http.disconnect":
+                return
+
+
+async def _stop_scanner(scanner: Any, scan_future: "asyncio.Future[Any]") -> None:
+    """Signal the scanner thread to stop and give it a moment to unwind.
+
+    #3710: cancelling the awaitable cannot interrupt `asyncio.to_thread`; only
+    `stop_scan()` reaches the thread, and only the thread can release the scan
+    slot it holds.
+    """
+    scanner.stop_scan()
+    try:
+        await asyncio.wait_for(
+            asyncio.shield(scan_future), timeout=SCANNER_STOP_GRACE_SECONDS
+        )
+    except (asyncio.TimeoutError, asyncio.CancelledError):
+        logger.warning(
+            "Scanner thread did not exit within %ss of stop_scan(); "
+            "thread will continue in background until next checkpoint.",
+            SCANNER_STOP_GRACE_SECONDS,
+        )
+    except Exception:  # noqa: BLE001 - the scan's own failure is reported by the caller
+        logger.debug("Scanner thread raised while stopping", exc_info=True)
+
+
+async def _await_scan(
+    scan_future: "asyncio.Future[Any]",
+    scanner: Any,
+    http_request: Request | None,
+    timeout: float,
+) -> Any:
+    """Await the scanner thread, stopping it if the request ends early.
+
+    Four outcomes, and every early one has to reach the scanner *thread*:
+
+    * the scan finishes -> its ScanResult is returned;
+    * the request task is cancelled (server shutdown) -> re-raised after
+      stop_scan();
+    * the scan exceeds ``timeout`` -> ``asyncio.TimeoutError``;
+    * the client disconnects -> ``ScanClientGone``. Closing a fetch does not
+      cancel an already-scheduled Starlette route coroutine, so the handler
+      has to watch the receive channel itself (#4820).
+
+    The watcher is always cancelled and awaited before returning, so a scan
+    that completes normally leaves no orphaned task behind.
+    """
+    watcher: asyncio.Task[None] | None = None
+    if http_request is not None:
+        watcher = asyncio.ensure_future(_watch_for_disconnect(http_request))
+    try:
+        waiters: set[Any] = {scan_future}
+        if watcher is not None:
+            waiters.add(watcher)
+        try:
+            done, _pending = await asyncio.wait(
+                waiters, timeout=timeout, return_when=asyncio.FIRST_COMPLETED
+            )
+        except asyncio.CancelledError:
+            await _stop_scanner(scanner, scan_future)
+            raise
+
+        if scan_future in done:
+            return scan_future.result()
+
+        # Nothing else can leave that wait with the scan still running.
+        await _stop_scanner(scanner, scan_future)
+        if watcher is not None and watcher in done:
+            raise ScanClientGone()
+        raise asyncio.TimeoutError()
+    finally:
+        if watcher is not None and not watcher.done():
+            watcher.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await watcher
 
 
 def create_library_scan_router(
@@ -62,10 +178,17 @@ def create_library_scan_router(
         return {"is_scanning": library_database.is_scanning()}
 
     @router.post("/api/library/scan", response_model=ScanResultResponse)
-    async def scan_library(request: LibraryScanRequest) -> ScanResultResponse:
+    async def scan_library(
+        request: LibraryScanRequest,
+        http_request: Request,
+    ) -> ScanResultResponse:
         """Scan directories for audio files and add them to the library.
 
         Progress updates are broadcast via WebSocket (see WEBSOCKET_API.md).
+
+        ``http_request`` is the raw ASGI request, taken alongside the parsed
+        body purely so the scan can be stopped when the caller goes away
+        (#4820) — see ``_await_scan``.
         """
         try:
             from auralis.library.scanner import LibraryScanner
@@ -170,8 +293,9 @@ def create_library_scan_router(
 
             scan_timeout = float(os.environ.get("AURALIS_SCAN_TIMEOUT", "3600"))
             # #3710: capture the to_thread future so we can signal the scanner
-            # to stop on cancellation/timeout — asyncio.wait_for cancels the
-            # awaitable but cannot terminate the underlying thread without this.
+            # to stop on cancellation/timeout/disconnect — asyncio.wait_for
+            # cancels the awaitable but cannot terminate the underlying thread
+            # without this.
             scan_future = asyncio.ensure_future(asyncio.to_thread(
                 scanner.scan_directories,
                 directories=request.directories,
@@ -179,18 +303,7 @@ def create_library_scan_router(
                 skip_existing=request.skip_existing,
                 check_modifications=True,
             ))
-            try:
-                result = await asyncio.wait_for(asyncio.shield(scan_future), timeout=scan_timeout)
-            except (asyncio.TimeoutError, asyncio.CancelledError):
-                scanner.stop_scan()
-                try:
-                    await asyncio.wait_for(asyncio.shield(scan_future), timeout=5.0)
-                except (asyncio.TimeoutError, asyncio.CancelledError):
-                    logger.warning(
-                        "Scanner thread did not exit within 5s of stop_scan(); "
-                        "thread will continue in background until next checkpoint."
-                    )
-                raise
+            result = await _await_scan(scan_future, scanner, http_request, scan_timeout)
 
             # Rejected scan (e.g., already in progress) — return 409 (#2870).
             if result.rejected:
@@ -280,6 +393,29 @@ def create_library_scan_router(
                     {"error": f"library scan timed out after {int(scan_timeout)}s"},
                 )
             raise HTTPException(status_code=504, detail=f"Library scan timed out after {scan_timeout}s")
+        except ScanClientGone:
+            # #4820: the frontend aborts this fetch on unmount and when a second
+            # scan supersedes it. That abort used to reach nothing — the handler
+            # took only the parsed body, so it could not observe
+            # `is_disconnected()`, and a closed fetch does not cancel an
+            # already-scheduled route coroutine. The scan ran to completion (or
+            # its 1-hour timeout) holding the scan slot, 409-ing every new scan
+            # the user started. `_await_scan` now stops the scanner thread, which
+            # releases the slot on its way out.
+            #
+            # Same terminal frame as cancellation below: the WebSocket normally
+            # outlives the aborted fetch, so the UI still has to be told to leave
+            # the scanning state.
+            if connection_manager:
+                await broadcast_typed(
+                    connection_manager,
+                    "library_scan_error",
+                    {"error": "library scan cancelled"},
+                )
+            raise HTTPException(
+                status_code=HTTP_CLIENT_CLOSED_REQUEST,
+                detail="Client disconnected; library scan stopped",
+            )
         except asyncio.CancelledError:
             # The one exit #4413 missed. Since Python 3.8 CancelledError derives
             # from BaseException, so `except Exception` below never caught it and
@@ -287,8 +423,9 @@ def create_library_scan_router(
             # frame. `useScanProgress` clears `isScanning` only on scan_complete
             # or library_scan_error, so the panel stayed on "Scanning…" for the
             # rest of the session with tracks half-imported, recoverable only by
-            # a page reload. The frontend has two triggers that cancel this
-            # request (unmount and supersede), plus server shutdown.
+            # a page reload. Genuine cancellation of this task means server
+            # shutdown; the frontend's unmount/supersede aborts surface as
+            # ScanClientGone above (#4820), not as cancellation.
             #
             # Must be ordered before `except Exception` (which cannot catch it
             # anyway) and kept separate from the `except (TimeoutError,

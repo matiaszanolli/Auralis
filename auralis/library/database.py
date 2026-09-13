@@ -217,6 +217,11 @@ class LibraryDatabase:
         # Scan concurrency tracking (#2438)
         self._scan_slots_lock = threading.Lock()
         self._active_scans: int = 0
+        # Destructive-operation exclusion (#4816): POST /api/library/reset holds
+        # this while it deletes every content row. Guarded by the SAME lock as
+        # the scan counter above so "is a scan running?" and "may a scan start?"
+        # have one answer, not two that can disagree under a race.
+        self._exclusive_access: bool = False
 
         # Per-directory scan dedup (#3455 / #4509): must live here, not on
         # LibraryScanner, because every caller (LibraryAutoScanner._do_scan,
@@ -312,6 +317,10 @@ class LibraryDatabase:
             max_scans = 1  # conservative fallback if settings are unavailable
 
         with self._scan_slots_lock:
+            # A destructive reset owns the library; starting a scan now would
+            # re-insert rows the reset is deleting (#4816).
+            if self._exclusive_access:
+                return False, max_scans
             if self._active_scans >= max_scans:
                 return False, max_scans
             self._active_scans += 1
@@ -347,6 +356,36 @@ class LibraryDatabase:
         """Release paths previously reserved by try_reserve_scan_paths()."""
         with self._active_scan_paths_lock:
             self._active_scan_paths.difference_update(paths)
+
+    def try_begin_exclusive_access(self) -> bool:
+        """Atomically reserve the library for a destructive operation (#4816).
+
+        Granted only when no scan holds a slot, and while held it makes
+        ``try_acquire_scan_slot()`` refuse every new scan — so the manual-scan
+        route (``POST /api/library/scan``), the auto-scanner, and the reset
+        route all arbitrate through this one counter instead of each keeping
+        its own idea of whether a scan is in flight.
+
+        A transient manual scan is not a registered background worker, so
+        ``stop_background_workers()`` cannot pause it; without this guard a
+        confirmed reset could delete everything and then be silently undone by
+        the scan thread's next insert.
+
+        Returns:
+            True if exclusive access was granted — the caller MUST then call
+            ``end_exclusive_access()`` in a ``finally``. False means a scan is
+            active and the caller must not proceed.
+        """
+        with self._scan_slots_lock:
+            if self._exclusive_access or self._active_scans > 0:
+                return False
+            self._exclusive_access = True
+            return True
+
+    def end_exclusive_access(self) -> None:
+        """Release exclusive access taken by ``try_begin_exclusive_access()``."""
+        with self._scan_slots_lock:
+            self._exclusive_access = False
 
     def is_scanning(self) -> bool:
         """True if at least one scan currently holds a slot.

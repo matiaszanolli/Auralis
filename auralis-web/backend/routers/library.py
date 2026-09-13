@@ -90,6 +90,7 @@ def create_library_router(
     resolve_worker: Callable[[str], Any] | None = None,
     get_cache_manager: Callable[[], Any] | None = None,
     get_artwork_cache_dir: Callable[[], Path] = artwork_cache_root,
+    get_library_database: Callable[[], Any] | None = None,
 ) -> APIRouter:
     """Factory: general library routes (stats, browse, reset).
 
@@ -101,6 +102,11 @@ def create_library_router(
             so nothing inserts rows mid-reset (#4111).
         get_cache_manager: Returns the shared chunk cache when initialized.
         get_artwork_cache_dir: Returns the source-artwork cache root.
+        get_library_database: Returns the LibraryDatabase, which owns the
+            scan-slot registry. The destructive reset endpoint takes exclusive
+            access through it so an in-flight manual scan — a transient
+            LibraryScanner that is NOT a registered background worker — cannot
+            re-insert rows the reset just deleted (#4816).
 
     Note:
         Phase 6B: Fully migrated to RepositoryFactory pattern.
@@ -169,6 +175,33 @@ def create_library_router(
             stop_background_workers,
         )
 
+        # Take exclusive access to the library BEFORE pausing anything (#4816).
+        # stop_background_workers() only reaches the registered workers; a
+        # manual scan (POST /api/library/scan) is a transient LibraryScanner
+        # under no registry key at all, so it used to keep importing files
+        # straight through the reset and silently undo it. The scan-slot
+        # registry on LibraryDatabase is the one place that knows a scan is
+        # running — the same counter the scan route's own 409 arbitrates on —
+        # so this both rejects a reset that races a scan and blocks any scan
+        # that would start during one.
+        library_database = get_library_database() if get_library_database else None
+        exclusive_held = False
+        if library_database is not None:
+            exclusive_held = library_database.try_begin_exclusive_access()
+            if not exclusive_held:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        "A library scan is in progress. Wait for it to finish "
+                        "(or cancel it) before resetting the library."
+                    ),
+                )
+        else:
+            logger.warning(
+                "Library reset proceeding without the scan-slot guard: "
+                "library database unavailable (#4816)"
+            )
+
         # Pause every background worker (auto_scanner, ondemand + batch
         # fingerprint queues) so none can insert Track/TrackFingerprint rows
         # between the deletes and commit, which would make the reset
@@ -203,6 +236,10 @@ def create_library_router(
         finally:
             # Always restart the workers we paused, even if the reset failed.
             await start_background_workers(resolve, stopped)
+            # Release exclusive access last, so scans stay blocked until the
+            # workers that could feed them are back up (#4816).
+            if exclusive_held and library_database is not None:
+                library_database.end_exclusive_access()
 
         return {"message": "Library has been reset successfully"}
 

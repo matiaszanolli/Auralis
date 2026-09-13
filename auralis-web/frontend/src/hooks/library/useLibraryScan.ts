@@ -30,6 +30,19 @@ export interface UseLibraryScanReturn {
 /** How many failed filenames a toast names before summarising the rest. */
 const MAX_FAILURES_IN_TOAST = 3;
 
+/**
+ * Upper bound for the scan request, in ms — deliberately NOT the shared 30s
+ * `DEFAULT_TIMEOUT_MS`.
+ *
+ * A real library scan runs for minutes, and since #4820 the backend treats an
+ * aborted fetch as "stop the scan": under the shared default, every scan longer
+ * than 30 seconds would abort its own fetch and take the running scan down with
+ * it. The meaningful bound is the backend's own `AURALIS_SCAN_TIMEOUT` (1h),
+ * which answers 504 rather than hanging, so this sits just past it — the request
+ * stays bounded (#5019's point) without being the thing that gives up first.
+ */
+export const SCAN_TIMEOUT_MS = 3_660_000;
+
 
 /** Basename of a path, for a toast that must stay readable. */
 function baseName(filepath: string): string {
@@ -75,6 +88,10 @@ export const useLibraryScan = ({
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      // Since #4820 this abort reaches the backend: the scan handler watches
+      // its receive channel and stops the scanner thread (releasing the scan
+      // slot) when the request's client goes away. Before that it was
+      // client-side only — the scan ran on to completion or its 1h timeout.
       scanAbortRef.current?.abort();
     };
   }, []);
@@ -110,14 +127,15 @@ export const useLibraryScan = ({
     const controller = new AbortController();
     scanAbortRef.current = controller;
     try {
-      // #5019: routed through the shared transport, which composes
-      // DEFAULT_TIMEOUT_MS with the cancellation signal below. The raw fetch()
-      // this replaces had no upper bound, so a hung backend left `scanning`
-      // true (and the button disabled) indefinitely.
+      // #5019: routed through the shared transport, which composes a timeout
+      // with the cancellation signal below. The raw fetch() this replaces had
+      // no upper bound, so a hung backend left `scanning` true (and the button
+      // disabled) indefinitely. The timeout is scan-specific (see
+      // SCAN_TIMEOUT_MS) because aborting now really does stop the scan.
       const result = await post<ScanSummary>(
         '/api/library/scan',
         { directories: [folderPath] },
-        { signal: controller.signal }
+        { signal: controller.signal, timeoutMs: SCAN_TIMEOUT_MS }
       );
 
       // Guard post-success work against unmount (#3987).
