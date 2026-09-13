@@ -30,18 +30,21 @@ import {
   clearQueue,
   setQueue,
   type QueueResponse,
-  type QueueTrack,
 } from '../queueService';
+import type { TrackInfo } from '@/types/websocket';
 
 const mockGet = get as ReturnType<typeof vi.fn>;
 const mockPost = post as ReturnType<typeof vi.fn>;
 const mockPut = put as ReturnType<typeof vi.fn>;
 const mockDel = del as ReturnType<typeof vi.fn>;
 
-const mockQueueTracks: QueueTrack[] = [
-  { id: 1, title: 'Track 1', artist: 'Artist 1', album: 'Album 1', duration: 180, filepath: '/music/track1.mp3' },
-  { id: 2, title: 'Track 2', artist: 'Artist 2', album: 'Album 2', duration: 240, filepath: '/music/track2.mp3' },
-  { id: 3, title: 'Track 3', duration: 200, filepath: '/music/track3.mp3' },
+// #5018: artist/album are always present on the wire (player_state.py's
+// TrackInfo); filepath is never actually sent (Field(exclude=True)) but is
+// kept here as optional test data, matching TrackInfo's own shape.
+const mockQueueTracks: TrackInfo[] = [
+  { id: 1, title: 'Track 1', artist: 'Artist 1', album: 'Album 1', duration: 180 },
+  { id: 2, title: 'Track 2', artist: 'Artist 2', album: 'Album 2', duration: 240 },
+  { id: 3, title: 'Track 3', artist: 'Artist 3', album: 'Album 3', duration: 200 },
 ];
 
 const mockQueueResponse: QueueResponse = {
@@ -90,17 +93,22 @@ describe('QueueService', () => {
       expect(track).toHaveProperty('id');
       expect(track).toHaveProperty('title');
       expect(track).toHaveProperty('duration');
-      expect(track).toHaveProperty('filepath');
+      // #5018: artist/album are always present on the real wire contract
+      // (player_state.py's TrackInfo) — the corrected type reflects that.
+      expect(track).toHaveProperty('artist');
+      expect(track).toHaveProperty('album');
     });
 
-    it('should handle tracks without optional fields', async () => {
+    it('should handle tracks without filepath (the real, always-true case)', async () => {
+      // #5018: filepath is genuinely optional/never sent (Field(exclude=True)
+      // on the backend) — the corrected type/contract this test now covers,
+      // replacing a prior test that (incorrectly) treated artist/album as
+      // the optional fields instead.
       mockGet.mockResolvedValueOnce(mockQueueResponse);
 
       const result = await getQueue();
-      const trackWithoutOptional = result.tracks[2];
 
-      expect(trackWithoutOptional.artist).toBeUndefined();
-      expect(trackWithoutOptional.album).toBeUndefined();
+      expect(result.tracks[0].filepath).toBeUndefined();
     });
 
     it('should propagate errors', async () => {

@@ -13,18 +13,16 @@
 import { ENDPOINTS } from '@/config/api';
 import { createCrudService } from '@/utils/serviceFactory';
 import { isQueueResponseShape } from '@/api/responseGuards';
-
-export interface QueueTrack {
-  id: number;
-  title: string;
-  artist?: string;
-  album?: string;
-  duration: number;
-  filepath: string;
-}
+import type { TrackInfo } from '@/types/websocket';
 
 export interface QueueResponse {
-  tracks: QueueTrack[];
+  // #5018: this used to declare its own local QueueTrack — filepath required,
+  // artist/album optional, the exact inverse of the real backend contract
+  // (player_state.py's TrackInfo: artist/album always present, filepath
+  // Field(exclude=True) so it's never actually sent). Currently dead either
+  // way (getQueue() has no caller outside this file's own tests), but using
+  // the canonical TrackInfo means a future caller doesn't inherit a landmine.
+  tracks: TrackInfo[];
   current_index: number;
   track_count: number;
 }
