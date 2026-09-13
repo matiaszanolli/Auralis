@@ -42,16 +42,22 @@ async def test_get_player_status_callable_with_a_bare_stub_service():
 
 
 async def test_set_volume_callable_with_a_bare_stub_service():
+    # #5050: the service's rounded 0-100 int -- e.g. 42.7 normalized then
+    # denormalized and rounded -- deliberately differs from the fractional
+    # request body below, so a route that (as it used to, #3204) substitutes
+    # body.volume back into the response would disagree with what the
+    # service itself would broadcast over WS for this same call.
     stub_service = MagicMock()
-    stub_service.set_volume = AsyncMock(return_value={"message": "Volume set"})
+    stub_service.set_volume = AsyncMock(return_value={"message": "Volume set", "volume": 43})
 
-    result = await set_volume(SetVolumeRequest(volume=42), service=stub_service)
+    result = await set_volume(SetVolumeRequest(volume=42.7), service=stub_service)
 
-    # 42/100 normalized before the service call, then the response volume is
-    # converted back to the original 0-100 scale (#3204) -- preserved by the
+    # 42.7/100 normalized before the service call; the response volume is
+    # whatever the service returned -- NOT body.volume -- preserved by the
     # extraction, not just the direct-call plumbing.
-    stub_service.set_volume.assert_awaited_once_with(0.42)
-    assert result["volume"] == 42
+    stub_service.set_volume.assert_awaited_once()
+    assert stub_service.set_volume.await_args.args[0] == pytest.approx(0.427)
+    assert result["volume"] == 43
 
 
 async def test_next_track_callable_with_a_bare_stub_service():

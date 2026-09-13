@@ -176,7 +176,9 @@ class SeekResponse(BaseModel):
 class VolumeResponse(BaseModel):
     """Response for POST /api/player/volume."""
     message: str
-    volume: float
+    # int (#5050): matches PlaybackService.set_volume()'s rounded volume_100
+    # and the paired volume_changed WS broadcast, both already ints.
+    volume: int
 
 
 class QueueInfoResponse(BaseModel):
@@ -545,8 +547,12 @@ async def set_volume(
         # Convert 0-100 to 0.0-1.0 for service layer (clamping already done by model)
         normalized_volume = body.volume / 100.0
         result = await service.set_volume(normalized_volume)
-        # Convert back to 0-100 for API response (fixes #3204)
-        result["volume"] = body.volume
+        # #3204 converted the response back to a 0-100 scale by substituting
+        # the caller's raw body.volume — but service.set_volume() already
+        # returns a rounded 0-100 int (the same value broadcast in the paired
+        # volume_changed WS message), so that substitution let a fractional
+        # body.volume disagree with the broadcast by up to 0.5 (#5050).
+        # result["volume"] is already on the right scale; nothing to convert.
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
