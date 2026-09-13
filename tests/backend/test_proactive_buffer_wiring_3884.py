@@ -27,6 +27,7 @@ test_stream_processor_close_on_teardown_5253.py.
 import asyncio
 import json
 import sys
+import threading
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -120,7 +121,11 @@ class TestProactiveBufferFiresOnPlayStart:
             await asyncio.sleep(0)
             await asyncio.sleep(0)
 
-        mock_buffer.assert_called_once_with(TRACK_ID, FILEPATH, INTENSITY, TOTAL_CHUNKS)
+        # #5378 added the owning stream's cooperative-cancel event as a
+        # keyword argument; the four positional arguments are unchanged.
+        assert mock_buffer.call_count == 1
+        assert mock_buffer.call_args.args == (TRACK_ID, FILEPATH, INTENSITY, TOTAL_CHUNKS)
+        assert isinstance(mock_buffer.call_args.kwargs["cancel_event"], threading.Event)
 
     @pytest.mark.asyncio
     async def test_proactive_buffer_failure_does_not_break_the_stream(self):

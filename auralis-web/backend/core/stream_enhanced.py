@@ -93,6 +93,14 @@ async def stream_enhanced_audio(
     # format, since nothing here used to call .close() at all).
     processor: 'ChunkedAudioProcessor | None' = None
 
+    # The proactive-buffer task spawned below (#5378). Declared here, before
+    # anything that can raise, so the outer `finally:` can always cancel it:
+    # nothing outside this function knows about that task, so if it is not
+    # scoped to this stream's lifetime it keeps rendering DSP chunks after the
+    # user has stopped, sought or disconnected, contending with the successor
+    # stream for the same shared ProcessorFactory entry.
+    buffer_task: 'asyncio.Task[Any] | None' = None
+
     # Cooperative-cancel signal for in-flight chunk DSP (#4815). Registered
     # as early as possible — before track lookup/processor construction —
     # so _cancel_prior_task can find and set() it for the whole lifetime of
@@ -161,7 +169,7 @@ async def stream_enhanced_audio(
 
         # Proactively buffer the first few chunks across every preset so a
         # preset switch early in playback doesn't wait the full DSP window
-        # (#3884). Fire-and-forget: buffer_presets_for_track caches each
+        # (#3884). Runs alongside the stream: buffer_presets_for_track caches each
         # chunk to the same on-disk WAV cache process_chunk_safe() checks
         # (ChunkPathCache, keyed on track_id/file_signature/preset/intensity/
         # targets_hash/chunk_index), so a later real chunk request hits the pre-rendered
@@ -171,9 +179,16 @@ async def stream_enhanced_audio(
         # silently dropping the rare exception that reaches it (the
         # function's own try/except already handles per-preset/per-chunk
         # failures internally).
-        spawn_background_task(
+        #
+        # #5378: the task handle is kept (and drained in the finally below) so
+        # the buffering dies with the stream that asked for it, and it shares
+        # this stream's chunk_cancel_event so a render already running in an
+        # executor thread aborts too — cancelling the coroutine alone cannot
+        # stop work already inside process_chunk_safe (the #4815 lesson).
+        buffer_task = spawn_background_task(
             buffer_presets_for_track(
-                track_id, validated_filepath, intensity, processor.total_chunks
+                track_id, validated_filepath, intensity, processor.total_chunks,
+                cancel_event=chunk_cancel_event,
             ),
             name=f"proactive_buffer:{track_id}",
         )
@@ -262,6 +277,13 @@ async def stream_enhanced_audio(
         # The look-ahead drain that used to sit here moved into
         # pump_enhanced_chunks' own finally (#3493 still holds — the task
         # cannot outlive that function).
+        #
+        # #5378: signal the proactive buffer immediately — the awaited drain
+        # happens at the very END of this block, because a cancellation aimed
+        # at THIS task re-raises out of _drain_cancelled_task (#5083) and would
+        # skip everything after it, including the semaphore release below.
+        if buffer_task is not None and not buffer_task.done():
+            buffer_task.cancel()
         controller._stream_semaphore.release()
         # #5253: release the temp WAV this processor may own (SeekableSource,
         # #4737) — a non-natively-seekable format (m4a/aac/wma) converts once
@@ -277,3 +299,7 @@ async def stream_enhanced_audio(
         _ws_id_key = _asc.ws_id(websocket)
         if _stream_chunk_cancel_events.get(_ws_id_key) is chunk_cancel_event:
             _stream_chunk_cancel_events.pop(_ws_id_key, None)
+        # #5378: last, for the re-raise reason given above. Popping the event
+        # from the registry above does not disarm it — buffer_presets_for_track
+        # holds the Event object itself, already set() by whoever cancelled us.
+        await controller._drain_cancelled_task(buffer_task)

@@ -7,6 +7,7 @@ This enables instant preset switching with zero wait time.
 
 import asyncio
 import logging
+import threading
 from pathlib import Path
 from typing import cast
 
@@ -27,7 +28,8 @@ async def buffer_presets_for_track(
     track_id: int,
     filepath: str,
     intensity: float = 1.0,
-    total_chunks: int | None = None
+    total_chunks: int | None = None,
+    cancel_event: threading.Event | None = None,
 ) -> None:
     """
     Proactively buffer first 3 chunks for all presets in background.
@@ -40,7 +42,16 @@ async def buffer_presets_for_track(
         filepath: Path to audio file
         intensity: Processing intensity (0.0-1.0)
         total_chunks: Total number of chunks (if known, to avoid over-buffering)
+        cancel_event: the owning stream's cooperative-cancel signal (#5378).
+            Set by stop/seek/disconnect teardown before the stream task is
+            cancelled; checked between chunks here and, via the processor,
+            inside the DSP itself (#4815), so buffering stops with the stream
+            instead of running on against its successor. ``None`` (the
+            default) keeps every check a no-op for callers without a stream.
     """
+    def _cancelled() -> bool:
+        return cancel_event is not None and cancel_event.is_set()
+
     try:
         # Import here to avoid circular dependency
         from core.chunked_processor import ChunkedAudioProcessor
@@ -57,6 +68,11 @@ async def buffer_presets_for_track(
 
         # Process each preset
         for preset in AVAILABLE_PRESETS:
+            if _cancelled():
+                logger.debug(
+                    f"Proactive buffering abandoned before {preset}: stream cancelled"
+                )
+                return
             processor = None
             try:
                 # Create processor for this preset on a worker thread — the
@@ -71,10 +87,20 @@ async def buffer_presets_for_track(
                     filepath=filepath,
                     preset=preset,
                     intensity=intensity,
+                    cancel_event=cancel_event,
                 )
 
                 # Buffer first N chunks
                 for chunk_idx in range(chunks_to_buffer):
+                    # #5378: bail out between chunks once the owning stream is
+                    # gone. `return`, not `break` — every preset shares the one
+                    # event, so there is nothing left to buffer for any of them.
+                    if _cancelled():
+                        logger.debug(
+                            f"Proactive buffering stopped at {preset} chunk "
+                            f"{chunk_idx}: stream cancelled"
+                        )
+                        return
                     try:
                         # Check if already cached
                         chunk_path = processor._get_chunk_path(chunk_idx)
@@ -93,6 +119,17 @@ async def buffer_presets_for_track(
                         await asyncio.sleep(0.1)
 
                     except Exception as chunk_error:
+                        # A chunk abandoned mid-DSP because the stream was
+                        # cancelled is not a failure — #4815 raises
+                        # ChunkCancelledError out of process_chunk_safe for
+                        # exactly this, and logging it at ERROR would turn a
+                        # routine seek into a scary log line (#5378).
+                        if _cancelled():
+                            logger.debug(
+                                f"Proactive buffering of {preset} chunk {chunk_idx} "
+                                f"abandoned: stream cancelled"
+                            )
+                            return
                         logger.error(f"Failed to buffer {preset} chunk {chunk_idx}: {chunk_error}")
                         continue
 
