@@ -13,10 +13,10 @@ Helper functions for concurrency testing.
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Callable, List, Tuple
+from typing import Any, Callable
 
 
-def run_concurrent(func: Callable, n_threads: int = 10, timeout: float = 30, *args, **kwargs) -> List[Any]:
+def run_concurrent(func: Callable, n_threads: int = 10, timeout: float = 30, *args, **kwargs) -> list[Any]:
     """
     Run function concurrently in n_threads threads.
 
@@ -66,7 +66,7 @@ def run_concurrent(func: Callable, n_threads: int = 10, timeout: float = 30, *ar
 
 def run_concurrent_with_barrier(
     func: Callable, barrier: threading.Barrier, *args, timeout: float = 30, **kwargs
-) -> List[Any]:
+) -> list[Any]:
     """
     Run function concurrently with all threads starting simultaneously.
 
@@ -143,7 +143,7 @@ def measure_concurrency_speedup(
     parallel_func: Callable,
     *args,
     **kwargs
-) -> Tuple[float, float, float]:
+) -> tuple[float, float, float]:
     """
     Measure speedup from parallelization.
 

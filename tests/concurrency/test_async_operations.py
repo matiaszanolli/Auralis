@@ -13,7 +13,6 @@ Tests for FastAPI async patterns, WebSocket concurrency, and background tasks.
 import asyncio
 import inspect
 import time
-from typing import List
 
 import httpx
 import pytest

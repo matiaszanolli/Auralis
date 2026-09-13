@@ -17,7 +17,6 @@ Usage:
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Optional, Tuple
 
 import librosa
 import numpy as np
@@ -27,7 +26,7 @@ from scipy.fft import rfft, rfftfreq
 from auralis.core.simple_mastering import create_simple_mastering_pipeline
 
 
-def measure_spectral_bands(audio: np.ndarray, sr: int) -> Dict[str, float]:
+def measure_spectral_bands(audio: np.ndarray, sr: int) -> dict[str, float]:
     """
     Measure energy in key spectral bands.
 
@@ -71,11 +70,11 @@ class TrackTestCase:
     name: str
     path: str
     # Expected fingerprint ranges (min, max)
-    bass_pct_range: Tuple[float, float]
-    lufs_range: Tuple[float, float]
-    crest_db_range: Tuple[float, float]
+    bass_pct_range: tuple[float, float]
+    lufs_range: tuple[float, float]
+    crest_db_range: tuple[float, float]
     # Stereo width range (optional - for tracks testing stereo expansion)
-    stereo_width_range: Optional[Tuple[float, float]] = None
+    stereo_width_range: tuple[float, float] | None = None
     expects_stereo_expansion: bool = False  # True if track should get stereo_expand stage
     # Output quality thresholds
     max_peak_db: float = -0.1  # Should not clip
@@ -143,7 +142,7 @@ class MasteringRegressionTests:
 
     def __init__(self):
         self.pipeline = create_simple_mastering_pipeline()
-        self.results: Dict[str, dict] = {}
+        self.results: dict[str, dict] = {}
 
     def run_test(self, case: TrackTestCase) -> dict:
         """Run a single test case and return results."""
@@ -301,7 +300,7 @@ class MasteringRegressionTests:
         result["passed"] = len(result["errors"]) == 0
         return result
 
-    def run_all(self) -> Dict[str, dict]:
+    def run_all(self) -> dict[str, dict]:
         """Run all test cases and return results."""
         print("\n" + "=" * 70)
         print("MASTERING REGRESSION TEST SUITE")

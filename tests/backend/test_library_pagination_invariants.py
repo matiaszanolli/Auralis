@@ -32,7 +32,6 @@ See docs/development/TESTING_GUIDELINES.md for complete testing philosophy.
 import sys
 import tempfile
 from pathlib import Path
-from typing import List
 
 import pytest
 from sqlalchemy import create_engine

@@ -75,6 +75,48 @@ def test_no_legacy_py_path_api(path: Path):
     )
 
 
+def test_no_legacy_tmpdir_fixture_injection():
+    """No test or fixture may request pytest's legacy `tmpdir`/`tmpdir_factory`.
+
+    Those yield `py.path.local` — the same surface pytest 9.1 removed (see
+    `test_no_legacy_py_path_api` above). `tmp_path` / `tmp_path_factory` yield
+    `pathlib.Path` and are what the rest of the suite uses.
+
+    This is deliberately an AST check on *parameter lists*, not a grep for the
+    string "tmpdir" (#4624). A plain `grep -rn tmpdir tests/` reports ~114 hits,
+    every one of which is a local variable bound by
+    `with tempfile.TemporaryDirectory() as tmpdir:` — unrelated to the fixture
+    and perfectly fine. Only fixture *injection* is the deprecated thing, and
+    only a parameter list can express it.
+    """
+    legacy = {"tmpdir", "tmpdir_factory"}
+    offenders = []
+    for path in sorted(TESTS_ROOT.rglob("*.py")):
+        try:
+            tree = _tree(path)
+        except SyntaxError:  # pragma: no cover - defensive
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            decorators = [ast.unparse(d) for d in node.decorator_list]
+            is_injected = node.name.startswith("test_") or any(
+                "fixture" in d for d in decorators
+            )
+            if not is_injected:
+                continue  # a plain helper taking its own `tmpdir` arg is not a fixture
+            for arg in node.args.args + node.args.kwonlyargs:
+                if arg.arg in legacy:
+                    offenders.append(
+                        f"{path.relative_to(TESTS_ROOT)}:{node.lineno} "
+                        f"{node.name}({arg.arg})"
+                    )
+    assert not offenders, (
+        "legacy py.path tmpdir fixture requested (use tmp_path/tmp_path_factory): "
+        f"{offenders}"
+    )
+
+
 @pytest.mark.parametrize("path", CONFTESTS, ids=lambda p: str(p.relative_to(TESTS_ROOT)))
 def test_ignore_collect_uses_modern_signature(path: Path):
     """If `pytest_ignore_collect` comes back, it must take `collection_path`."""

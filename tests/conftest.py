@@ -8,7 +8,7 @@ import sys
 import tempfile
 import warnings
 from pathlib import Path
-from typing import Any, Callable, Dict, Tuple
+from typing import Any, Callable
 
 import numpy as np
 import pytest
@@ -395,7 +395,7 @@ def dual_mode_data_source(request, library_database, repository_factory):
         repository_factory: RepositoryFactory fixture
 
     Yields:
-        Union[LibraryManager, RepositoryFactory]: Data source in current mode
+        LibraryManager | RepositoryFactory: Data source in current mode
 
     Example:
         def test_get_tracks_both_modes(dual_mode_data_source):
@@ -523,7 +523,7 @@ def pytest_collection_modifyitems(config, items):
 
     try:
         collected_files = {
-            Path(str(item.fspath)) for item in items if getattr(item, "fspath", None)
+            Path(item.path) for item in items if getattr(item, "path", None)
         }
         baseline = load_baseline()
         new_offenders = {}

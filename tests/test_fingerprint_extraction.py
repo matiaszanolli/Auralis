@@ -15,7 +15,6 @@ Tests the 25D fingerprint extraction pipeline, including:
 
 import json
 from pathlib import Path
-from typing import Dict
 
 import numpy as np
 import pytest
@@ -50,7 +49,7 @@ def fingerprint_repository_mock():
         def __init__(self):
             self.fingerprints = {}
 
-        def upsert(self, track_id: int, fingerprint: Dict) -> bool:
+        def upsert(self, track_id: int, fingerprint: dict) -> bool:
             """Store fingerprint"""
             self.fingerprints[track_id] = fingerprint
             return True

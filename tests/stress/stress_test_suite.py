@@ -26,7 +26,6 @@ import signal
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
 
 import aiohttp
 import psutil
@@ -56,7 +55,7 @@ class StressTestMetrics:
         self.memory_samples.append(process.memory_info().rss / 1024 / 1024)  # MB
         self.cpu_samples.append(process.cpu_percent())
 
-    def get_summary(self) -> Dict:
+    def get_summary(self) -> dict:
         """Get summary statistics"""
         duration = time.time() - self.start_time
         avg_response_time = sum(self.response_times) / len(self.response_times) if self.response_times else 0
@@ -85,7 +84,7 @@ class AuralisStressTest:
     def __init__(self, base_url: str = "http://localhost:8765"):
         self.base_url = base_url
         self.metrics = StressTestMetrics()
-        self.session: Optional[aiohttp.ClientSession] = None
+        self.session: aiohttp.ClientSession | None = None
 
     async def __aenter__(self):
         self.session = aiohttp.ClientSession()

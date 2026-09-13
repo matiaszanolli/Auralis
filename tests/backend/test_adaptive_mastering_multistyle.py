@@ -25,7 +25,6 @@ import sys
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -111,7 +110,7 @@ def find_hires_directory() -> str:
     raise FileNotFoundError("Could not find Hi-Res Masters directory")
 
 
-def load_and_analyze(file_path: str) -> Tuple[np.ndarray, MasteringFingerprint, float]:
+def load_and_analyze(file_path: str) -> tuple[np.ndarray, MasteringFingerprint, float]:
     """Load audio file and extract mastering fingerprint"""
     try:
         audio, sr = load_audio(file_path)
@@ -123,7 +122,7 @@ def load_and_analyze(file_path: str) -> Tuple[np.ndarray, MasteringFingerprint, 
 
 
 def analyze_song_pair(original_path: str, remaster_path: str, song_name: str,
-                     engine: AdaptiveMasteringEngine) -> Optional[RemasterAnalysis]:
+                     engine: AdaptiveMasteringEngine) -> RemasterAnalysis | None:
     """Analyze a before/after remaster pair"""
     try:
         print(f"\n{'='*70}")
@@ -255,7 +254,7 @@ def run_test_suite():
     print("✓ Engine ready")
 
     # Run analyses
-    results: List[RemasterAnalysis] = []
+    results: list[RemasterAnalysis] = []
     print(f"\n{'='*80}")
     print(f"ANALYZING {len(TEST_SONGS)} SONG PAIRS")
     print(f"{'='*80}")

@@ -13,12 +13,12 @@ Helper functions for stress and load testing.
 import gc
 import os
 import time
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable
 
 import psutil
 
 
-def measure_memory_usage(func: Callable, *args, **kwargs) -> Dict[str, Any]:
+def measure_memory_usage(func: Callable, *args, **kwargs) -> dict[str, Any]:
     """
     Measure memory usage of a function.
 
@@ -55,7 +55,7 @@ def simulate_sustained_load(
     interval: float = 1.0,
     *args,
     **kwargs
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Simulate sustained load by calling function repeatedly.
 
@@ -93,7 +93,7 @@ def simulate_sustained_load(
     }
 
 
-def monitor_resource_usage(func: Callable, *args, **kwargs) -> Dict[str, Any]:
+def monitor_resource_usage(func: Callable, *args, **kwargs) -> dict[str, Any]:
     """
     Monitor CPU and memory usage during function execution.
 
@@ -185,7 +185,7 @@ def create_large_test_library(session_maker, n_tracks: int = 1000) -> None:
     session.close()
 
 
-def measure_query_performance(query_func: Callable, iterations: int = 100) -> Dict[str, float]:
+def measure_query_performance(query_func: Callable, iterations: int = 100) -> dict[str, float]:
     """
     Measure query performance over multiple iterations.
 
@@ -221,7 +221,7 @@ def check_memory_leak(
     func: Callable,
     iterations: int = 10,
     threshold_mb: float = 50.0
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Check for memory leaks by running function multiple times.
 
@@ -290,10 +290,10 @@ def wait_for_condition(
 
 def simulate_batch_processing(
     process_func: Callable,
-    items: List[Any],
+    items: list[Any],
     batch_size: int = 10,
     delay: float = 0.1
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Simulate batch processing with delays.
 
@@ -335,7 +335,7 @@ def simulate_batch_processing(
     }
 
 
-def get_system_limits() -> Dict[str, Any]:
+def get_system_limits() -> dict[str, Any]:
     """
     Get current system resource limits.
 

@@ -27,7 +27,6 @@ See docs/development/TESTING_GUIDELINES.md for complete testing philosophy.
 import sys
 import tempfile
 from pathlib import Path
-from typing import Tuple
 
 import numpy as np
 import pytest

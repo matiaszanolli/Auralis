@@ -8,7 +8,7 @@ Utility functions for security testing.
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 
 def is_sql_injection(input_str: str) -> bool:
@@ -172,7 +172,7 @@ def contains_control_characters(input_str: str) -> bool:
     return False
 
 
-def validate_metadata_field(field_name: str, value: Any, constraints: Dict) -> List[str]:
+def validate_metadata_field(field_name: str, value: Any, constraints: dict) -> list[str]:
     """
     Validate metadata field against constraints.
 

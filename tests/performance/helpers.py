@@ -8,13 +8,13 @@ Utility functions for performance testing and benchmarking.
 import gc
 import time
 from contextlib import contextmanager
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable
 
 import numpy as np
 import psutil
 
 
-def benchmark(func: Callable, iterations: int = 10, warmup: int = 2) -> Dict[str, float]:
+def benchmark(func: Callable, iterations: int = 10, warmup: int = 2) -> dict[str, float]:
     """
     Benchmark function with multiple iterations.
 
@@ -228,7 +228,7 @@ def memory_tracker():
             tracker.peak_mb = tracker.after_mb
 
 
-def calculate_percentiles(values: List[float], percentiles: List[int] = None) -> Dict[str, float]:
+def calculate_percentiles(values: list[float], percentiles: list[int] = None) -> dict[str, float]:
     """
     Calculate percentile statistics.
 
@@ -251,7 +251,7 @@ def calculate_percentiles(values: List[float], percentiles: List[int] = None) ->
     return results
 
 
-def compare_performance(baseline: Dict[str, float], optimized: Dict[str, float]) -> Dict[str, Any]:
+def compare_performance(baseline: dict[str, float], optimized: dict[str, float]) -> dict[str, Any]:
     """
     Compare performance metrics between baseline and optimized versions.
 
@@ -283,7 +283,7 @@ def compare_performance(baseline: Dict[str, float], optimized: Dict[str, float])
     return comparison
 
 
-def format_benchmark_results(results: Dict[str, float], unit: str = 's') -> str:
+def format_benchmark_results(results: dict[str, float], unit: str = 's') -> str:
     """
     Format benchmark results for display.
 
@@ -307,7 +307,7 @@ def format_benchmark_results(results: Dict[str, float], unit: str = 's') -> str:
     return '\n'.join(lines)
 
 
-def get_memory_usage() -> Dict[str, float]:
+def get_memory_usage() -> dict[str, float]:
     """
     Get current memory usage statistics.
 

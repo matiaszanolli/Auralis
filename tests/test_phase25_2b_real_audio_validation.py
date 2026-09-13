@@ -20,7 +20,6 @@ import gc
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 import librosa
 import numpy as np
@@ -31,7 +30,7 @@ class RealAudioMetrics:
     """Calculate metrics from real audio files for comparison"""
 
     @staticmethod
-    def calculate_metrics(audio: np.ndarray, sr: int) -> Dict:
+    def calculate_metrics(audio: np.ndarray, sr: int) -> dict:
         """Calculate comprehensive metrics from audio - FAST version without expensive librosa operations"""
         # Basic level metrics
         rms = np.sqrt(np.mean(audio**2))
@@ -64,7 +63,7 @@ class RealAudioMetrics:
         }
 
     @staticmethod
-    def compare_metrics(original: Dict, remastered: Dict) -> Dict:
+    def compare_metrics(original: dict, remastered: dict) -> dict:
         """Compare metrics between original and remastered"""
         return {
             'rms_change_db': remastered['rms_db'] - original['rms_db'],
@@ -99,7 +98,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def _get_matching_tracks(original_dir: Path, remastered_dir: Path) -> List[Tuple[Path, Path]]:
+def _get_matching_tracks(original_dir: Path, remastered_dir: Path) -> list[tuple[Path, Path]]:
     """Find matching tracks between original and remastered versions"""
     # Get track basenames without year prefix
     def get_basename(path: Path) -> str:

@@ -15,7 +15,6 @@ import threading
 import time
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import List
 
 import numpy as np
 import pytest
