@@ -49,6 +49,22 @@ class ChunkCancelledError(Exception):
     observed by a live caller."""
 
 
+def _raise_if_cancelled(processor: "ChunkedAudioProcessor", chunk_index: int) -> None:
+    """Abandon a chunk whose owning stream was cancelled (#4815, #5328).
+
+    ``task.cancel()`` on the streaming coroutine cannot stop DSP already
+    running in an executor thread, so the chunk-rendering functions poll the
+    per-stream cancel event themselves: once before DSP, to skip the work, and
+    again right before the durable write, so a render the stream abandoned
+    mid-DSP is never persisted.
+    """
+    cancel_event = getattr(processor, "_cancel_event", None)
+    if cancel_event is not None and cancel_event.is_set():
+        raise ChunkCancelledError(
+            f"Chunk {chunk_index} abandoned: owning stream was cancelled"
+        )
+
+
 def _invalidate_after_post_dsp_failure(
     processor: "ChunkedAudioProcessor", chunk_index: int
 ) -> None:
@@ -131,11 +147,7 @@ def process_chunk(
     # avoids running 200ms-2s of DSP work (and holding the shared
     # HybridProcessor's _process_lock, blocking any NEW stream reusing the
     # same pooled processor) for a chunk nothing will ever consume.
-    cancel_event = getattr(processor, "_cancel_event", None)
-    if cancel_event is not None and cancel_event.is_set():
-        raise ChunkCancelledError(
-            f"Chunk {chunk_index} abandoned: owning stream was cancelled"
-        )
+    _raise_if_cancelled(processor, chunk_index)
 
     logger.info(f"Processing chunk {chunk_index}/{processor.total_chunks} (preset: {processor.preset}, fast_start: {fast_start})")
 
@@ -170,6 +182,14 @@ def process_chunk(
             total_duration=processor.total_duration,
         )
 
+        # #5328: a seek can land while this DSP is in flight — look-ahead
+        # renders are mid-DSP for most of the pump loop — and the check above
+        # has long passed. The durable cache key carries no stream identity
+        # and a later disk hit is never re-smoothed (#4669), so an abandoned
+        # render written here would bake in gain smoothed against a stream
+        # nobody hears.
+        _raise_if_cancelled(processor, chunk_index)
+
         # Saved for durability/caching; the array avoids an immediate readback.
         # #4666: targets_hash completes the on-disk identity — the write must
         # land at exactly the path ChunkPathCache.lookup_cached() will check.
@@ -185,6 +205,12 @@ def process_chunk(
             targets_hash=processor.targets_hash,
         )
         processor._path_cache.store(chunk_index, chunk_path)
+    except ChunkCancelledError:
+        # Not a failed retry (#5274): nothing re-requests this chunk from the
+        # cancelled stream, and the seek that cancelled it already breaks
+        # processor continuity, exactly as when the look-ahead finished first.
+        processor._dsp_state_advanced = False
+        raise
     except Exception:
         _invalidate_after_post_dsp_failure(processor, chunk_index)
         raise
@@ -255,6 +281,9 @@ def get_wav_chunk_path(processor: "ChunkedAudioProcessor", chunk_index: int) -> 
         # Get WAV output path
         wav_chunk_path = processor._get_wav_chunk_path(chunk_index)
 
+        # #5328 SIBLING: same cancel polling as process_chunk.
+        _raise_if_cancelled(processor, chunk_index)
+
         logger.info(f"Processing chunk {chunk_index} directly to WAV")
 
         processor._dsp_state_advanced = False
@@ -273,6 +302,9 @@ def get_wav_chunk_path(processor: "ChunkedAudioProcessor", chunk_index: int) -> 
                 total_duration=processor.total_duration,
             )
 
+            # #5328: never persist a render its stream abandoned mid-DSP.
+            _raise_if_cancelled(processor, chunk_index)
+
             try:
                 processor._wav_encoder.encode_and_save(
                     audio=extracted_chunk,
@@ -287,6 +319,9 @@ def get_wav_chunk_path(processor: "ChunkedAudioProcessor", chunk_index: int) -> 
 
             # Cache under the same collapsed key process_chunk() uses.
             processor._path_cache.store(chunk_index, wav_chunk_path)
+        except ChunkCancelledError:
+            processor._dsp_state_advanced = False  # see process_chunk
+            raise
         except Exception:
             _invalidate_after_post_dsp_failure(processor, chunk_index)
             raise
