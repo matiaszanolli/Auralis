@@ -101,11 +101,22 @@ async def handle_stop(websocket: WebSocket, state: StreamState) -> None:
             cancel_event = state.chunk_cancel_events.pop(ws_id, None)
         if cancel_event is not None:
             cancel_event.set()
-        if task and not task.done():
+        if task is not None and not task.done():
             task.cancel()
-            await await_cancelled_task(task, logger)
-            logger.info("Cancelled active streaming task")
+        else:
+            task = None
         event_seq = playback_event_sequencer.next_transport_seq()
+    # #5319: await the cancelled task's teardown OUTSIDE transition_lock. That
+    # lock is process-wide — every WS connection's pause/resume/stop and the
+    # REST PlaybackService contend on it — and the teardown is unbounded
+    # (stream_enhanced's `to_thread(processor.close)` queues on IO_EXECUTOR).
+    # The stop's position in the transport order is fixed by the seq drawn
+    # above; the dying task draws no seq of its own, so nothing needs the lock
+    # past this point. Still awaited before `playback_stopped` is sent, so the
+    # old stream has quiesced on this socket by the time the client hears it.
+    if task is not None:
+        await await_cancelled_task(task, logger)
+        logger.info("Cancelled active streaming task")
     await safe_send_text(
         websocket,
         {"type": "playback_stopped", "data": {"state": "stopped", "seq": event_seq}},
