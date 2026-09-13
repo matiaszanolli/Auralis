@@ -6,10 +6,11 @@
  *
  * Test Coverage:
  * - Error detection and categorization
- * - Error tracking and storage
- * - Recovery mechanisms
  * - Error callbacks
- * - Statistics calculation
+ * - Connection error forwarding
+ *
+ * retryAction/getErrorStats/ErrorStore were deleted along with their tests
+ * (#5017) — dead code with no callers outside this file.
  *
  * Phase C.4d: Redux Error Handling Testing
  *
@@ -35,8 +36,6 @@ import {
   createErrorTrackingMiddleware,
   ErrorCategory,
   generateErrorId,
-  getErrorStats,
-  retryAction,
   type TrackedError,
 } from '../errorTrackingMiddleware';
 
@@ -343,50 +342,6 @@ describe('Error Tracking Middleware', () => {
   });
 
   // ============================================================================
-  // Statistics Tests
-  // ============================================================================
-
-  it('should calculate error statistics', () => {
-    const errors: TrackedError[] = [
-      {
-        id: '1',
-        timestamp: Date.now(),
-        category: ErrorCategory.NETWORK,
-        message: 'Network error',
-        action: 'FETCH',
-        retryCount: 0,
-        maxRetries: 3,
-      },
-      {
-        id: '2',
-        timestamp: Date.now(),
-        category: ErrorCategory.VALIDATION,
-        message: 'Invalid input',
-        action: 'VALIDATE',
-        retryCount: 0,
-        maxRetries: 3,
-      },
-      {
-        id: '3',
-        timestamp: Date.now(),
-        category: ErrorCategory.NETWORK,
-        message: 'Timeout',
-        action: 'FETCH',
-        retryCount: 0,
-        maxRetries: 3,
-      },
-    ];
-
-    const stats = getErrorStats(errors);
-
-    expect(stats.total).toBe(3);
-    expect(stats.byCategory[ErrorCategory.NETWORK]).toBe(2);
-    expect(stats.byCategory[ErrorCategory.VALIDATION]).toBe(1);
-    expect(stats.byAction['FETCH']).toBe(2);
-    expect(stats.byAction['VALIDATE']).toBe(1);
-  });
-
-  // ============================================================================
   // Callback Tests
   // ============================================================================
 
@@ -462,60 +417,6 @@ describe('Error Tracking Middleware', () => {
     store.dispatch(playerSetError('Test error'));
 
     expect(onError).toHaveBeenCalledTimes(1);
-  });
-});
-
-// ============================================================================
-// retryAction — #3241 regression coverage
-// ============================================================================
-
-describe('retryAction (#3241)', () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it('returns the executor result on first success without retrying', async () => {
-    const executor = vi.fn(async () => 'ok');
-
-    const result = await retryAction(executor, 3);
-
-    expect(result).toBe('ok');
-    expect(executor).toHaveBeenCalledTimes(1);
-  });
-
-  it('runs the configured number of attempts before giving up', async () => {
-    const executor = vi.fn(async () => {
-      throw new Error('boom');
-    });
-
-    const promise = retryAction(executor, 3);
-    // Drain the exponential backoff sleeps (1s + 2s = 3s between the three
-    // attempts). Pre-#3241 the loop returned on the first iteration so the
-    // executor was only ever called once — this guards against that.
-    await vi.runAllTimersAsync();
-
-    await expect(promise).rejects.toThrow('boom');
-    expect(executor).toHaveBeenCalledTimes(3);
-  });
-
-  it('returns the value from a later attempt when an earlier one fails', async () => {
-    let calls = 0;
-    const executor = vi.fn(async () => {
-      calls += 1;
-      if (calls < 2) throw new Error('transient');
-      return 'recovered';
-    });
-
-    const promise = retryAction(executor, 3);
-    await vi.runAllTimersAsync();
-    const result = await promise;
-
-    expect(result).toBe('recovered');
-    expect(executor).toHaveBeenCalledTimes(2);
   });
 });
 

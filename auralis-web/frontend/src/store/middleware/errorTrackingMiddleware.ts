@@ -3,7 +3,7 @@
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
  * Middleware for centralized error tracking. Monitors Redux actions for
- * errors, categorises them, and records them for inspection.
+ * errors, categorises them, and hands them to `onError`/`logToConsole`.
  *
  * Features:
  * - Automatic error detection from action payloads
@@ -20,9 +20,13 @@
  *   do not import anything from this module; `store/index.ts`'s
  *   `createErrorTrackingMiddleware` call is its only consumer.
  *
- * `retryAction`, `getErrorStats` and `ErrorStore` are real implementations but
- * have no callers outside tests — tracked separately by #5017. Do not read
- * their presence as evidence that retry/analytics are wired into the app.
+ * `retryAction`, `getErrorStats` and `ErrorStore` — a real retry helper, a
+ * stats calculator, and an in-memory accumulator this middleware used to
+ * populate on every tracked error — had no callers outside tests and no
+ * way for an external caller to even retrieve the `ErrorStore` instance
+ * (#5017). All three were deleted; tracked errors are still logged
+ * (`logToConsole`) and handed to `onError` at the point of detection, which
+ * is the only place anything ever consumed them.
  *
  * Phase C.4d: Redux Error Handling
  *
@@ -61,7 +65,6 @@ export interface TrackedError {
 
 export interface ErrorTrackingConfig {
   enabled?: boolean;
-  maxErrors?: number;
   /**
    * Optional allowlist narrowing which actions may be tracked as errors (#4662).
    *
@@ -201,7 +204,6 @@ function generateErrorId(): string {
 
 const defaultConfig: ErrorTrackingConfig = {
   enabled: true,
-  maxErrors: 50,
   // No `errorActions` default: omitted means unrestricted (#4662). The former
   // `['setError', 'setLastError']` default was never read, so it had no
   // behaviour to preserve — and enforcing it literally would have dropped
@@ -228,61 +230,12 @@ export function isAllowedErrorAction(
 }
 
 /**
- * Error store for tracking
- */
-class ErrorStore {
-  private errors: Map<string, TrackedError> = new Map();
-  private maxErrors: number;
-
-  constructor(maxErrors: number = 50) {
-    this.maxErrors = maxErrors;
-  }
-
-  add(error: TrackedError): void {
-    this.errors.set(error.id, error);
-
-    // Keep bounded
-    if (this.errors.size > this.maxErrors) {
-      const firstKey = this.errors.keys().next().value;
-      if (firstKey !== undefined) {
-        this.errors.delete(firstKey);
-      }
-    }
-  }
-
-  get(id: string): TrackedError | undefined {
-    return this.errors.get(id);
-  }
-
-  getAll(): TrackedError[] {
-    return Array.from(this.errors.values());
-  }
-
-  getByAction(action: string): TrackedError[] {
-    return Array.from(this.errors.values()).filter((e) => e.action === action);
-  }
-
-  getByCategory(category: ErrorCategory): TrackedError[] {
-    return Array.from(this.errors.values()).filter((e) => e.category === category);
-  }
-
-  clear(): void {
-    this.errors.clear();
-  }
-
-  size(): number {
-    return this.errors.size;
-  }
-}
-
-/**
  * Create Redux error tracking middleware
  */
 export function createErrorTrackingMiddleware(
   config: ErrorTrackingConfig = {}
 ): Middleware {
   const finalConfig: ErrorTrackingConfig = { ...defaultConfig, ...config };
-  const errorStore = new ErrorStore(finalConfig.maxErrors);
 
   return (store) => {
     // #4430: bumped every time the connection is (re)established. A deferred
@@ -364,9 +317,6 @@ export function createErrorTrackingMiddleware(
             maxRetries: 3,
           };
 
-          // Store error
-          errorStore.add(trackedError);
-
           // Log if enabled
           if (finalConfig.logToConsole) {
             console.error(`[Error Tracked] ${trackedError.category}: ${trackedError.message}`, {
@@ -424,8 +374,6 @@ export function createErrorTrackingMiddleware(
           maxRetries: 3,
         };
 
-        errorStore.add(trackedError);
-
         if (finalConfig.logToConsole) {
           console.error(`[Middleware Error] ${trackedError.category}:`, error);
         }
@@ -447,78 +395,18 @@ export function createErrorTrackingMiddleware(
 }
 
 // ============================================================================
-// Error Recovery Utilities
-// ============================================================================
-
-/**
- * Retry an asynchronous executor with exponential backoff.
- *
- * #3241: previously this function took a plain action object and returned it
- * unmodified on the first iteration, so the loop, catch handler, and backoff
- * were all dead code. The signature now takes a callable so the loop has
- * something to invoke; on success the resolved value is returned, on failure
- * the loop waits 2^attempt seconds and tries again until `maxRetries` is
- * exhausted, then rethrows the last captured error.
- */
-export async function retryAction<T>(
-  executor: () => Promise<T> | T,
-  maxRetries: number = 3
-): Promise<T> {
-  let lastError: Error | undefined;
-
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    try {
-      return await executor();
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-
-      // Don't sleep after the final attempt — the loop is about to exit.
-      if (attempt < maxRetries - 1) {
-        const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s, ...
-        await new Promise((resolve) => setTimeout(resolve, delay));
-      }
-    }
-  }
-
-  throw lastError ?? new Error('Max retries exceeded');
-}
-
-// ============================================================================
-// Error Analytics
-// ============================================================================
-
-/**
- * Calculate error statistics
- */
-export function getErrorStats(errors: TrackedError[]) {
-  return {
-    total: errors.length,
-    byCategory: Object.values(ErrorCategory).reduce(
-      (acc, category) => {
-        acc[category] = errors.filter((e) => e.category === category).length;
-        return acc;
-      },
-      {} as Record<string, number>
-    ),
-    byAction: errors.reduce(
-      (acc, error) => {
-        acc[error.action] = (acc[error.action] || 0) + 1;
-        return acc;
-      },
-      {} as Record<string, number>
-    ),
-    recentErrors: errors.slice(-10),
-    mostRecentError: errors[errors.length - 1],
-  };
-}
-
-// ============================================================================
 // Exports
 // ============================================================================
 
 // #5213: categorizeError dropped from this list — nothing outside this module
 // imported it, and exporting it implied other code categorized errors the same
 // way. It stays a module-private function, still called at the two dispatch
-// sites above. (ErrorStore and generateErrorId are left as-is: ErrorStore's
-// unused-outside-tests status is #5017's scope, not this one's.)
-export { ErrorStore, generateErrorId };
+// sites above.
+//
+// #5017: retryAction, getErrorStats and the ErrorStore class (plus its two
+// `.add()` call sites above) were deleted here — a real retry helper, a
+// stats calculator, and an in-memory accumulator with no callers outside
+// tests and no way for an external caller to even retrieve the ErrorStore
+// instance. Tracked errors are still logged and handed to onError at the
+// point of detection; only the unread accumulation was removed.
+export { generateErrorId };
