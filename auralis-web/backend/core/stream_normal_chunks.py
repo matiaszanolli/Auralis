@@ -27,7 +27,6 @@ holds without the handler needing a second drain in its own finally.
 
 import asyncio
 import logging
-from dataclasses import dataclass, field
 from typing import Any
 from collections.abc import Callable
 
@@ -37,6 +36,7 @@ from fastapi import WebSocket
 
 from . import audio_stream_controller as _asc
 from .executors import run_in_stream_executor
+from .stream_messages import ChunkPumpResult
 
 logger = logging.getLogger(__name__)
 
@@ -50,19 +50,6 @@ logger = logging.getLogger(__name__)
 # for total_chunks x CHUNK_PROCESS_TIMEOUT. Two in a row is enough evidence
 # that the backing file is unreachable rather than one chunk being slow.
 MAX_CONSECUTIVE_READ_TIMEOUTS: int = 2
-
-
-@dataclass
-class ChunkPumpResult:
-    """What the loop delivered, for the caller's completion message.
-
-    These three values are exactly what ``send_stream_completion`` needs to
-    pick ``reason=stopped/errored/completed`` (#4790).
-    """
-
-    stopped_early: bool = False
-    failed_chunks: list[int] = field(default_factory=list)
-    delivered_samples: int = 0
 
 
 async def pump_normal_chunks(

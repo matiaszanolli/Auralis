@@ -26,7 +26,6 @@ without the handler needing a second drain.
 
 import asyncio
 import logging
-from dataclasses import dataclass, field
 from typing import Any
 from collections.abc import Callable
 
@@ -35,21 +34,9 @@ from fastapi import WebSocket
 from . import audio_stream_controller as _asc
 from .chunk_boundaries import emitted_chunk_start
 from .chunk_cache import SimpleChunkCache
+from .stream_messages import ChunkPumpResult
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class ChunkPumpResult:
-    """What the loop delivered, for the caller's completion message.
-
-    These three values are exactly what ``send_stream_completion`` needs to
-    pick ``reason=stopped/errored/completed`` (#4790).
-    """
-
-    stopped_early: bool = False
-    failed_chunks: list[int] = field(default_factory=list)
-    delivered_samples: int = 0
 
 
 async def pump_enhanced_chunks(

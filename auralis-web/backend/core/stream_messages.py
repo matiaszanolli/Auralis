@@ -18,6 +18,7 @@ Extracted from audio_stream_controller.py (#4071).
 """
 
 import logging
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from fastapi import WebSocket
@@ -28,6 +29,21 @@ if TYPE_CHECKING:
     from .audio_stream_controller import AudioStreamController
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ChunkPumpResult:
+    """What a chunk-pump loop delivered, for the caller's completion message.
+
+    These three values are exactly what ``send_stream_completion`` needs to
+    pick ``reason=stopped/errored/completed`` (#4790). Defined once here and
+    returned by all three pumps (stream_normal/enhanced/seek_chunks.py, #5403)
+    so a field added for that contract exists on every stream type.
+    """
+
+    stopped_early: bool = False
+    failed_chunks: list[int] = field(default_factory=list)
+    delivered_samples: int = 0
 
 
 async def send_stream_start(
