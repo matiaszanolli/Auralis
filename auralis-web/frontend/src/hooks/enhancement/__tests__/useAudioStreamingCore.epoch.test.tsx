@@ -233,6 +233,52 @@ describe('useAudioStreamingCore stream epoch (#4563)', () => {
     expect(buffer.append).toHaveBeenCalledTimes(1);
   });
 
+  it('ignores an audio_stream_start older than the adopted one (#5385)', () => {
+    const { result, buffer } = render();
+    const startHandler = vi.fn();
+    result.current.handleStreamStartRef.current = startHandler;
+
+    act(() => { ws.emit('audio_stream_start', streamStart(2)); });
+    act(() => { ws.emit('audio_stream_start', streamStart(1, true)); });
+
+    expect(startHandler).toHaveBeenCalledTimes(1);
+    // The newer stream's chunks still flow; the late older stream's do not.
+    act(() => { result.current.handleChunk(chunk(2, 1) as never); });
+    act(() => { result.current.handleChunk(chunk(1, 2) as never); });
+    expect(buffer.append).toHaveBeenCalledTimes(1);
+  });
+
+  it('adopts an equal or newer epoch', () => {
+    const { result } = render();
+    const startHandler = vi.fn();
+    result.current.handleStreamStartRef.current = startHandler;
+
+    act(() => { ws.emit('audio_stream_start', streamStart(3)); });
+    act(() => { ws.emit('audio_stream_start', streamStart(3, true)); });
+    act(() => { ws.emit('audio_stream_start', streamStart(4, true)); });
+
+    expect(startHandler).toHaveBeenCalledTimes(3);
+  });
+
+  it('accepts a low epoch after a reconnect, since a restarted backend counts from 1', () => {
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <Provider store={store}>{children}</Provider>
+    );
+    const hook = renderHook(
+      ({ socket }) => useAudioStreamingCore(socket as never, OPTIONS),
+      { wrapper, initialProps: { socket: ws } }
+    );
+    const startHandler = vi.fn();
+    hook.result.current.handleStreamStartRef.current = startHandler;
+
+    act(() => { ws.emit('audio_stream_start', streamStart(8)); });
+    hook.rerender({ socket: { ...ws, isConnected: false } });
+    hook.rerender({ socket: { ...ws, isConnected: true } });
+    act(() => { ws.emit('audio_stream_start', streamStart(1)); });
+
+    expect(startHandler).toHaveBeenCalledTimes(2);
+  });
+
   it('clears the epoch on cleanup', () => {
     const { result, buffer } = render();
 

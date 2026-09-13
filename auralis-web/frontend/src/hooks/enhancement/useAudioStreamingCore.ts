@@ -417,11 +417,24 @@ export function useAudioStreamingCore(
         // the same way the callers' handlers do, so a concurrently-mounted core
         // of the other type does not adopt this stream's epoch; dispatch itself
         // is left unfiltered, exactly as before.
-        const forThisStream = acceptsStreamType(start.data?.stream_type);
-        if (forThisStream) {
-          streamEpochRef.current = start.data?.stream_epoch ?? null;
-          handleStreamStartRef.current?.(start);
+        if (!acceptsStreamType(start.data?.stream_type)) return;
+        // #5385: epochs only rise within a backend process, so a start carrying
+        // a LOWER epoch than the adopted one is an older stream arriving late.
+        // Adopting it would make the chunk filter reject the newer stream.
+        // Unreachable while the backend serializes dispatch per connection;
+        // this keeps it harmless if that ever changes. A backend restart
+        // restarts the count, which is why the ref is forgotten on disconnect.
+        const incomingEpoch = start.data?.stream_epoch;
+        const currentEpoch = streamEpochRef.current;
+        if (incomingEpoch != null && currentEpoch != null && incomingEpoch < currentEpoch) {
+          DEBUG && console.warn(`${logPrefix} Ignoring audio_stream_start from a superseded stream:`, {
+            startEpoch: incomingEpoch,
+            currentEpoch,
+          });
+          return;
         }
+        streamEpochRef.current = incomingEpoch ?? null;
+        handleStreamStartRef.current?.(start);
       }
     );
     const unsubscribeChunk = wsContext.subscribe(
@@ -446,7 +459,13 @@ export function useAudioStreamingCore(
     };
     // streamType is a per-instance constant, so listing it cannot cause the
     // resubscribe the comment above warns against.
-  }, [wsContext, clearStreamStartWatchdog, streamType, acceptsStreamType]);
+  }, [wsContext, clearStreamStartWatchdog, streamType, acceptsStreamType, logPrefix]);
+
+  // The next connection may reach a restarted backend whose epoch count starts
+  // over, so the ordering guard above must not compare across connections.
+  useEffect(() => {
+    if (!wsContext.isConnected) streamEpochRef.current = null;
+  }, [wsContext.isConnected]);
 
   const stopPlayback = useCallback(() => {
     playbackEngineRef.current?.stopPlayback();
