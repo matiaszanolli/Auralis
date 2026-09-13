@@ -28,7 +28,7 @@ from fastapi import WebSocket
 
 from . import audio_stream_controller as _asc
 from .chunk_cache import SimpleChunkCache
-from .chunk_streaming import ChunkCancelledError
+from .chunk_streaming import ChunkCancelledError, invalidate_pooled_processor
 
 if TYPE_CHECKING:
     from .audio_stream_controller import AudioStreamController
@@ -122,6 +122,21 @@ async def process_chunk_only(
                 f"Chunk {chunk_index} DSP timed out after {_asc.CHUNK_PROCESS_TIMEOUT}s "
                 f"(track {processor.track_id}, preset {processor.preset})"
             )
+            # #5335: wait_for abandoned the coroutine, not the executor thread,
+            # which may still be advancing the pooled HybridProcessor. Drop it
+            # from the factory so the next stream or seek of this track builds
+            # a fresh one. Best-effort: never mask the timeout itself.
+            try:
+                invalidate_pooled_processor(
+                    processor,
+                    chunk_index,
+                    f"DSP timed out after {_asc.CHUNK_PROCESS_TIMEOUT}s",
+                )
+            except Exception as invalidate_error:
+                logger.warning(
+                    f"Could not invalidate the processor after chunk {chunk_index} "
+                    f"timed out: {invalidate_error}"
+                )
             raise TimeoutError(
                 f"Chunk {chunk_index} processing timed out after {_asc.CHUNK_PROCESS_TIMEOUT}s"
             ) from e

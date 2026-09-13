@@ -31,6 +31,13 @@ than the status quo. Splitting resolves both without compromise:
   `to_thread` site (repository calls in routers, PIL thumbnailing, the
   shielded library scan) at a size that cannot starve the DB pool.
 
+A third, small `JOB_EXECUTOR` runs full-track mastering-job DSP (#5335). A job
+DSP call is bounded by `asyncio.wait_for`, but that cancels only the asyncio
+wrapper — the OS thread keeps running the hung call. On the default pool each
+such timeout pinned one of the 8 DB-sized workers, so a handful of pathological
+files could stall every repository call in the process. On its own pool a hung
+job can only delay other jobs.
+
 Deliberately NOT routed to `STREAM_EXECUTOR`: per-stream setup and teardown —
 track lookup, path validation, temp-WAV conversion, `rmtree`, prefetch,
 fingerprint existence checks. Those run once per stream, not once per chunk,
@@ -86,8 +93,14 @@ def _stream_pool_size() -> int:
 # 8 leaves headroom for the non-repository work sharing this pool.
 IO_POOL_SIZE: int = get_int_env("AURALIS_IO_POOL_WORKERS", 8)
 
+# Mastering-job DSP (#5335). Matches ProcessingEngine(max_concurrent_jobs=2) in
+# config/startup.py: the job semaphore already admits at most that many jobs,
+# so more workers would only ever serve threads a timeout has abandoned.
+JOB_POOL_SIZE: int = get_int_env("AURALIS_JOB_POOL_WORKERS", 2)
+
 _stream_executor: ThreadPoolExecutor | None = None
 _io_executor: ThreadPoolExecutor | None = None
+_job_executor: ThreadPoolExecutor | None = None
 _lock = threading.Lock()
 
 
@@ -108,17 +121,20 @@ def get_io_executor() -> ThreadPoolExecutor | None:
     return _io_executor
 
 
-async def run_in_stream_executor(func: Callable[..., T], /, *args: Any, **kwargs: Any) -> T:
-    """`asyncio.to_thread`, but on the dedicated streaming pool (#5086).
+def get_job_executor() -> ThreadPoolExecutor | None:
+    """The mastering-job pool, or None if `install_executors()` has not run."""
+    return _job_executor
 
-    Falls back to the default executor when no pool is installed, so this is a
-    drop-in replacement for `asyncio.to_thread` at every call site.
+
+async def _run_in(
+    executor: ThreadPoolExecutor | None, func: Callable[..., T], /, *args: Any, **kwargs: Any
+) -> T:
+    """`asyncio.to_thread` on *executor*, or on the default one when None.
 
     Like `to_thread`, the current context is propagated into the worker —
     streaming reads `_stream_type_var` / `_track_id_var` contextvars, so
     dropping that would change logging behaviour.
     """
-    executor = _stream_executor
     if executor is None:
         return await asyncio.to_thread(func, *args, **kwargs)
 
@@ -126,6 +142,23 @@ async def run_in_stream_executor(func: Callable[..., T], /, *args: Any, **kwargs
     ctx = contextvars.copy_context()
     call = functools.partial(ctx.run, func, *args, **kwargs)
     return await loop.run_in_executor(executor, call)
+
+
+async def run_in_stream_executor(func: Callable[..., T], /, *args: Any, **kwargs: Any) -> T:
+    """`asyncio.to_thread`, but on the dedicated streaming pool (#5086).
+
+    Falls back to the default executor when no pool is installed, so this is a
+    drop-in replacement for `asyncio.to_thread` at every call site.
+    """
+    return await _run_in(_stream_executor, func, *args, **kwargs)
+
+
+async def run_in_job_executor(func: Callable[..., T], /, *args: Any, **kwargs: Any) -> T:
+    """`asyncio.to_thread`, but on the dedicated mastering-job pool (#5335).
+
+    Same fallback as `run_in_stream_executor` when no pool is installed.
+    """
+    return await _run_in(_job_executor, func, *args, **kwargs)
 
 
 def install_executors() -> tuple[ThreadPoolExecutor, ThreadPoolExecutor]:
@@ -138,10 +171,14 @@ def install_executors() -> tuple[ThreadPoolExecutor, ThreadPoolExecutor]:
     is per-loop, and installing it against the wrong loop is the silent
     wiring failure #4810's WIRING check warns about.
     """
-    global _stream_executor, _io_executor
+    global _stream_executor, _io_executor, _job_executor
 
     with _lock:
-        if _stream_executor is not None and _io_executor is not None:
+        if (
+            _stream_executor is not None
+            and _io_executor is not None
+            and _job_executor is not None
+        ):
             return _stream_executor, _io_executor
 
         stream_workers = _stream_pool_size()
@@ -151,13 +188,16 @@ def install_executors() -> tuple[ThreadPoolExecutor, ThreadPoolExecutor]:
         _io_executor = ThreadPoolExecutor(
             max_workers=IO_POOL_SIZE, thread_name_prefix="auralis-io"
         )
+        _job_executor = ThreadPoolExecutor(
+            max_workers=JOB_POOL_SIZE, thread_name_prefix="auralis-job"
+        )
 
         asyncio.get_running_loop().set_default_executor(_io_executor)
 
         logger.info(
             f"Thread pools installed: streaming={stream_workers} workers "
             f"(2 x MAX_CONCURRENT_STREAMS), default/IO={IO_POOL_SIZE} workers "
-            f"(<= the 10-connection DB pool)"
+            f"(<= the 10-connection DB pool), jobs={JOB_POOL_SIZE} workers"
         )
         return _stream_executor, _io_executor
 
@@ -171,7 +211,7 @@ def shutdown_executors(wait: bool = False) -> None:
     that abandoned it. Python's interpreter shutdown joins non-daemon pool
     threads regardless; this just avoids blocking the lifespan on them.
     """
-    global _stream_executor, _io_executor
+    global _stream_executor, _io_executor, _job_executor
 
     with _lock:
         # Detach the IO pool from the loop BEFORE shutting it down. Leaving a
@@ -196,7 +236,11 @@ def shutdown_executors(wait: bool = False) -> None:
         except Exception as e:
             logger.debug(f"Could not detach the default executor: {e}")
 
-        for name, executor in (("streaming", _stream_executor), ("IO", _io_executor)):
+        for name, executor in (
+            ("streaming", _stream_executor),
+            ("IO", _io_executor),
+            ("job", _job_executor),
+        ):
             if executor is None:
                 continue
             try:
@@ -208,3 +252,4 @@ def shutdown_executors(wait: bool = False) -> None:
 
         _stream_executor = None
         _io_executor = None
+        _job_executor = None

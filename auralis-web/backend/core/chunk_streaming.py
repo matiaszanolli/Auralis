@@ -72,6 +72,20 @@ def _invalidate_after_post_dsp_failure(
     if not getattr(processor, "_dsp_state_advanced", False):
         return
     processor._dsp_state_advanced = False
+    invalidate_pooled_processor(processor, chunk_index, "failed after DSP state advanced")
+
+
+def invalidate_pooled_processor(
+    processor: "ChunkedAudioProcessor", chunk_index: int, reason: str
+) -> None:
+    """Discard the pooled HybridProcessor this chunk rendered on.
+
+    ProcessorFactory hands one cached instance to every stream of a track, so
+    an instance left in an unknown state must be dropped for the next stream
+    to build a fresh one. Used after a post-DSP failure (#5274) and after a
+    chunk DSP timeout (#5335), where the abandoned executor thread may still
+    be advancing the instance.
+    """
     if processor.preset is None:
         return
     processor._processor_factory.invalidate(
@@ -89,9 +103,9 @@ def _invalidate_after_post_dsp_failure(
     # observational handle to the instance created during initialization.
     processor.processor = None
     logger.error(
-        "Chunk %s failed after DSP state advanced; invalidated the cached "
-        "processor so a retry starts fresh",
+        "Chunk %s %s; invalidated the cached processor so a retry starts fresh",
         chunk_index,
+        reason,
     )
 
 

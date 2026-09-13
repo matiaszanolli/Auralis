@@ -49,6 +49,7 @@ from auralis.io.processing import resample_audio
 from auralis.io.saver import save
 from auralis.io.unified_loader import load_audio
 
+from core.executors import run_in_job_executor
 from core.job_models import ProcessingJob, ProcessingStatus
 
 if TYPE_CHECKING:
@@ -140,7 +141,10 @@ async def execute_job(
 
     # Process audio — CPU-bound; offload to thread (fixes #2319)
     # Wrap with wait_for so a hung DSP/Rust call cannot hold the
-    # semaphore slot indefinitely (fixes #2747).
+    # semaphore slot indefinitely (fixes #2747). wait_for cannot stop the
+    # thread itself, so the DSP runs on the dedicated job pool: a timed-out
+    # call keeps a job worker busy, never one of the DB-sized I/O pool's
+    # (#5335).
     timeout = engine.processing_timeout
     if job.mode == "reference" or job.mode == "hybrid":
         # Load reference audio if needed
@@ -159,7 +163,7 @@ async def execute_job(
                     resample_audio, reference_audio, reference_sr, sample_rate
                 )
             result = await asyncio.wait_for(
-                asyncio.to_thread(processor.process, audio, reference_audio),
+                run_in_job_executor(processor.process, audio, reference_audio),
                 timeout=timeout,
             )
         else:
@@ -181,13 +185,13 @@ async def execute_job(
             )
             processor.config.set_processing_mode("adaptive")
             result = await asyncio.wait_for(
-                asyncio.to_thread(processor.process, audio),
+                run_in_job_executor(processor.process, audio),
                 timeout=timeout,
             )
     else:
         # Adaptive mode
         result = await asyncio.wait_for(
-            asyncio.to_thread(processor.process, audio),
+            run_in_job_executor(processor.process, audio),
             timeout=timeout,
         )
 
