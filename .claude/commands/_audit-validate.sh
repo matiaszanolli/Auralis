@@ -369,6 +369,17 @@ if (( new_count > 0 )); then
     echo
 fi
 
+# WARN-level, non-blocking (#5045): CLAUDE.md/_audit-common.md's test-count
+# line is the fastest-moving number this file checks and drifted three times
+# in a row (#4685, #4982, #5045) despite manual fixes each time. This never
+# affects this script's exit code — check_doc_counts.py always exits 0 — it
+# only surfaces the drift so it doesn't sit unnoticed for weeks again.
+if command -v python3 >/dev/null 2>&1; then
+    echo "=== Doc structural counts (scripts/check_doc_counts.py --check-docs) ==="
+    python3 "$(dirname "${BASH_SOURCE[0]}")/../../scripts/check_doc_counts.py" --check-docs
+    echo
+fi
+
 echo "Checked $checked_count refs across $(( ${#strict_files[@]} + ${#ratchet_files[@]} )) files."
 echo "Checked $link_count markdown links across ${#link_files[@]} doc files."
 echo "Strict scope:  $strict_count stale (must be 0)."
