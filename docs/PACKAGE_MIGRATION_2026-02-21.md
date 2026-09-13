@@ -71,7 +71,7 @@ auralis-web/backend/
 - `core/proactive_buffer.py` — lazy import of chunked_processor
 - `core/streamlined_worker.py` — lazy import of chunked_processor
 - `services/self_tuner.py` — imports learning_system, memory_monitor, audio_content_predictor
-- `services/learning_system.py` — lazy import of audio_content_predictor
+- *services/learning_system.py* — lazy import of audio_content_predictor (deleted in #4750)
 - `routers/processing_api.py` — imports processing_engine
 
 ### Backend — non-moved files updated

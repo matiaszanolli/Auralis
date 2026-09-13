@@ -58,7 +58,7 @@ Run tests by category or specific files, never the full suite.
 
 ### Integration Tests (Large - NOT RECOMMENDED)
 - `performance-large-libraries.test.tsx` - 1116 lines (run alone)
-- `streaming-mse.test.tsx` - 885 lines (run alone)
+- *streaming-mse.test.tsx* - 885 lines (run alone; since deleted)
 - `websocket-realtime.test.tsx` - 707 lines (run alone)
 
 ---
