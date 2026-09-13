@@ -15,6 +15,7 @@ from typing import Any, Protocol, cast
 from websocket.outbound_messages import broadcast_typed
 
 from services.playback_event_sequencer import playback_event_sequencer
+from .errors import ServiceUnavailable
 
 logger = logging.getLogger(__name__)
 
@@ -344,11 +345,16 @@ class PlaybackService:
             dict: Success message and new volume
 
         Raises:
+            ServiceUnavailable: If the audio player is not available (#5268 —
+                a distinct type from the plain ValueError below so the
+                router can map it to 503 instead of 400; ServiceUnavailable
+                subclasses ValueError so this doesn't break a caller still
+                doing a bare `except ValueError`)
             ValueError: If volume out of range
             Exception: If setting volume fails
         """
         if not self.audio_player:
-            raise ValueError("Audio player not available")
+            raise ServiceUnavailable("Audio player not available")
 
         if not (0.0 <= volume <= 1.0):
             raise ValueError("Volume must be between 0.0 and 1.0")

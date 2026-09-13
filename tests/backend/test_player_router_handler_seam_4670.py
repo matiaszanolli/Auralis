@@ -16,6 +16,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from fastapi import HTTPException
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
@@ -26,6 +27,7 @@ from routers.player import (  # noqa: E402
     set_volume,
     SetVolumeRequest,
 )
+from services.errors import ServiceUnavailable  # noqa: E402
 
 pytestmark = pytest.mark.asyncio
 
@@ -58,6 +60,31 @@ async def test_set_volume_callable_with_a_bare_stub_service():
     stub_service.set_volume.assert_awaited_once()
     assert stub_service.set_volume.await_args.args[0] == pytest.approx(0.427)
     assert result["volume"] == 43
+
+
+async def test_set_volume_maps_service_unavailable_to_503():
+    """#5268: the audio-player-unavailable case must reach the client as a
+    retryable 503, not a 400 that implies the request itself was bad."""
+    stub_service = MagicMock()
+    stub_service.set_volume = AsyncMock(side_effect=ServiceUnavailable("Audio player not available"))
+
+    with pytest.raises(HTTPException) as exc_info:
+        await set_volume(SetVolumeRequest(volume=50), service=stub_service)
+
+    assert exc_info.value.status_code == 503
+
+
+async def test_set_volume_maps_plain_value_error_to_400():
+    """Companion to the above: a genuinely bad request (an untyped
+    ValueError from the service) must still map to 400, unaffected by the
+    503 carve-out for ServiceUnavailable."""
+    stub_service = MagicMock()
+    stub_service.set_volume = AsyncMock(side_effect=ValueError("Volume must be between 0.0 and 1.0"))
+
+    with pytest.raises(HTTPException) as exc_info:
+        await set_volume(SetVolumeRequest(volume=50), service=stub_service)
+
+    assert exc_info.value.status_code == 400
 
 
 async def test_next_track_callable_with_a_bare_stub_service():

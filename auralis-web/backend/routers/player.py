@@ -555,7 +555,17 @@ async def set_volume(
         # result["volume"] is already on the right scale; nothing to convert.
         return result
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        # #5268: set_volume() used to raise a plain ValueError for BOTH "audio
+        # player not available" (a transient server-state condition, should be
+        # 503 like the seek route's analogous case above) and "volume out of
+        # range" (a genuine bad-request, 400) — this route couldn't tell them
+        # apart. It now raises ServiceUnavailable for the former, which
+        # raise_for_service_error maps to 503; any other ValueError still
+        # defaults to 400, preserving today's behavior for the range check
+        # (unreachable via this route in practice, since SetVolumeRequest
+        # clamps rather than rejects, but the service validates it
+        # defensively for any future caller that doesn't).
+        raise_for_service_error(e, "set volume")
 
 
 # ============================================================================
