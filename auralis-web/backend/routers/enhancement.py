@@ -22,6 +22,7 @@ from typing import Annotated, Any
 
 from cache import streamlined_cache_manager
 from core import audio_stream_controller as _asc
+from core.executors import run_in_stream_executor
 from core.chunk_boundaries import (  # single source of truth (#2564)
     chunk_for_position,
     content_chunk_count,
@@ -172,6 +173,35 @@ def _get_repository_factory() -> Any:
     return _deps.get_repository_factory()
 
 
+def _track_is_live_streaming(track_id: int) -> bool:
+    """True while any WebSocket connection has a live streaming task for this
+    track (#5323).
+
+    Pre-warm must not run alongside such a stream. Its independent
+    ChunkedAudioProcessor resolves to the SAME shared HybridProcessor through
+    ProcessorFactory (intensity is not part of the key, #4707) and writes to
+    the same deterministic on-disk chunk path the stream later serves as a
+    cache hit — with a fresh LevelManager, so a chunk could be persisted with
+    gain smoothed against the wrong history, and alternating calls interleave
+    the shared processor's envelope state. The live stream renders those
+    chunks itself, and the frontend re-issues it on every mid-playback
+    toggle/preset/intensity change, so skipping loses nothing.
+
+    Event-loop only (no await between read and use), so the registries need
+    no lock. Imported lazily, as core/stream_enhanced.py does, because
+    routers.system pulls in the whole streaming stack.
+    """
+    from routers.system import _active_streaming_tasks, _active_streaming_track_ids
+
+    for ws_id, streaming_track_id in list(_active_streaming_track_ids.items()):
+        if streaming_track_id != track_id:
+            continue
+        task = _active_streaming_tasks.get(ws_id)
+        if task is not None and not task.done():
+            return True
+    return False
+
+
 async def _preprocess_upcoming_chunks(track_id: int, filepath: str, current_time: float, preset: str, intensity: float) -> None:
     """
     Background task to pre-process upcoming chunks when enhancement is enabled mid-playback.
@@ -256,12 +286,22 @@ async def _preprocess_upcoming_chunks(track_id: int, filepath: str, current_time
             for chunk_idx in chunks_to_process:
                 if chunk_idx >= total_chunks:
                     break  # Don't process chunks beyond the track
+                # #5323: a stream for this track can start while pre-warm is
+                # probing or rendering (the frontend re-issues it right after
+                # the settings POST returns). From then on it owns these chunks.
+                if _track_is_live_streaming(track_id):
+                    logger.info(
+                        f"🎯 Stopping pre-processing for track {track_id}: "
+                        "a live stream now covers the upcoming chunks"
+                    )
+                    break
 
                 try:
                     # Process chunk (this will cache the WAV file).
-                    # get_wav_chunk_path does CPU-bound audio processing; run in a
-                    # thread pool to avoid blocking the event loop (fixes #2330).
-                    wav_chunk_path = await asyncio.to_thread(processor.get_wav_chunk_path, chunk_idx)
+                    # get_wav_chunk_path does CPU-bound audio processing; run it
+                    # off the event loop (fixes #2330) on the streaming pool, not
+                    # the default I/O pool, like all other chunk DSP (#5086).
+                    wav_chunk_path = await run_in_stream_executor(processor.get_wav_chunk_path, chunk_idx)
 
                     if os.path.exists(wav_chunk_path):
                         processed_count += 1
@@ -318,6 +358,15 @@ def _maybe_prewarm_upcoming_chunks(
         return
     state = player_state_manager.get_state()
     if not (state.current_track and state.state.value == "playing"):
+        return
+    if _track_is_live_streaming(state.current_track.id):
+        # #5323: the live stream (re-issued by the frontend with these
+        # settings) renders the upcoming chunks itself; a parallel pre-warm
+        # would race it on the shared processor and the durable chunk cache.
+        logger.debug(
+            f"Skipping pre-processing for track {state.current_track.id}: "
+            "it is already streaming"
+        )
         return
     spawn_background_task(
         _preprocess_upcoming_chunks(
