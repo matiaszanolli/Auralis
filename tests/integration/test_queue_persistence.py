@@ -178,6 +178,33 @@ class TestQueueValidation:
             )
             assert result.repeat_mode == repeat_mode
 
+    def test_update_queue_state_track_ids_only_validates_existing_index(self, queue_repo):
+        """#5246: a track_ids-only update() must re-validate the EXISTING
+        current_index against the new, possibly-shorter list — it used to
+        persist an out-of-bounds current_index unchecked because
+        _validate_index was only called inside the 'current_index in
+        updates' branch."""
+        queue_repo.set_queue_state(track_ids=[1, 2, 3], current_index=2)
+
+        with pytest.raises(ValueError, match="out of bounds"):
+            queue_repo.update_queue_state({'track_ids': [1]})
+
+        # The invalid state must not have been committed.
+        queue = queue_repo.get_queue_state()
+        assert json.loads(queue.track_ids) == [1, 2, 3]
+        assert queue.current_index == 2
+
+    def test_update_queue_state_track_ids_only_still_allows_valid_shrink(self, queue_repo):
+        """Companion to the above: shrinking to a list the existing
+        current_index still fits in must keep working."""
+        queue_repo.set_queue_state(track_ids=[1, 2, 3, 4], current_index=1)
+
+        queue_repo.update_queue_state({'track_ids': [10, 20]})
+
+        queue = queue_repo.get_queue_state()
+        assert json.loads(queue.track_ids) == [10, 20]
+        assert queue.current_index == 1
+
 
 class TestQueueDataIntegrity:
     """Test queue data integrity during operations"""

@@ -126,9 +126,14 @@ class QueueRepository(BaseRepository):
                 track_ids_str = queue_state.track_ids if queue_state.track_ids else '[]'
                 track_ids = json.loads(str(track_ids_str))
 
-            # Validate and update current_index
-            if 'current_index' in updates:
-                current_index = updates['current_index']
+            # #5246: validate the EFFECTIVE (track_ids, current_index) pair
+            # whenever either is present in `updates`, not only when
+            # current_index itself is supplied — a track_ids-only update
+            # (e.g. shrinking the queue) used to persist the untouched
+            # existing current_index unchecked against the new, shorter
+            # list, matching set_queue_state()'s unconditional validation.
+            if 'track_ids' in updates or 'current_index' in updates:
+                current_index = updates.get('current_index', queue_state.current_index)
                 self._validate_index(current_index, track_ids)
                 queue_state.current_index = current_index
 
