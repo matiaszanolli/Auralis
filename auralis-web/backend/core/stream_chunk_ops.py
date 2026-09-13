@@ -97,7 +97,16 @@ async def process_chunk_only(
                 note_level = getattr(processor, "note_cached_chunk_level", None)
                 if note_level is not None:
                     try:
-                        await asyncio.to_thread(note_level, pcm_samples, chunk_index, cached_gain_db)
+                        # #5327: this is the per-chunk hot path — the cache-MISS
+                        # DSP call a few lines below already uses the dedicated
+                        # streaming pool (#5086) rather than the shared default
+                        # I/O executor, but this cache-HIT call was missed by
+                        # that split. A plain asyncio.to_thread() here queues
+                        # behind unrelated repository calls or a library scan
+                        # on the shared pool, delaying cache-hit chunk delivery
+                        # long enough to underrun the client's playback buffer.
+                        from .executors import run_in_stream_executor
+                        await run_in_stream_executor(note_level, pcm_samples, chunk_index, cached_gain_db)
                     except Exception as e:
                         logger.debug(f"Cache-hit level recording skipped (not critical): {e}")
     except Exception as e:
