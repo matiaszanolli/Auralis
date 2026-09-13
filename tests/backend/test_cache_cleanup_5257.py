@@ -29,6 +29,8 @@ async def test_clear_all_caches_reaches_every_backend_cache(tmp_path, monkeypatc
         cache_manager,
         artwork_dir,
         clear_source_artwork=True,
+        # #5340: the chunk sweep defaults to the real shared cache directory.
+        chunk_dir=tmp_path / "chunks",
     )
 
     cache_manager.clear_all.assert_awaited_once_with()
@@ -48,7 +50,7 @@ async def test_standard_clear_preserves_database_backed_source_artwork(tmp_path)
     source.write_bytes(b"source")
     (thumb_dir / "thumbnail.png").write_bytes(b"thumb")
 
-    result = await clear_all_caches(None, artwork_dir)
+    result = await clear_all_caches(None, artwork_dir, chunk_dir=tmp_path / "chunks")
 
     assert result.artwork_files_removed == 1
     assert source.read_bytes() == b"source"

@@ -11,6 +11,9 @@ Also collects the HTTP rate-limit and WebSocket-message-limit constants
 ``config/middleware.py`` / ``websocket/websocket_security.py``.
 """
 
+import tempfile
+from pathlib import Path
+
 from core.env_config import get_int_env
 
 # Maximum bytes accepted for a single uploaded file (500 MB). Enforced by
@@ -48,6 +51,18 @@ SEEKABLE_TEMP_PREFIX: str = "auralis_seekable_"
 # `ChunkCacheManager.prune_chunk_directory` iterates every file in the dir and
 # deletes the oldest by mtime, which would eventually eat a marker stored there.
 CHUNK_TEMP_OWNER_FILENAME: str = "auralis_chunks.owner"
+
+
+def chunk_cache_dir() -> Path:
+    """The shared on-disk chunk cache directory every chunk renderer writes to.
+
+    Live playback, the streamlined cache worker and pre-warm all render
+    through ChunkedAudioProcessor into this one directory, so the cache-clear
+    paths sweep it rather than only the files a cache tier happened to record
+    (#5340). Resolved per call, not at import, so a test that redirects
+    ``tempfile.tempdir`` is honoured.
+    """
+    return Path(tempfile.gettempdir()) / CHUNK_TEMP_DIRNAME
 
 
 def stream_temp_prefix(pid: int | None = None) -> str:

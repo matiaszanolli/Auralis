@@ -30,6 +30,8 @@ from core.chunk_boundaries import (  # noqa: F401
     chunk_for_position,
     content_chunk_count,
 )
+from config.limits import chunk_cache_dir
+from core.encoding.wav_encoder import delete_chunk_files
 
 logger = logging.getLogger(__name__)
 
@@ -197,6 +199,11 @@ class StreamlinedCacheManager:
     """
 
     def __init__(self) -> None:
+        # The on-disk chunk directory clear_track() sweeps (#5340). An
+        # attribute rather than a per-call lookup so tests can point it at a
+        # scratch directory instead of the real shared cache.
+        self.chunk_dir: Path = chunk_cache_dir()
+
         # Cache storage: key -> CachedChunk
         self.tier1_cache: dict[str, CachedChunk] = {}
         self.tier2_cache: dict[str, CachedChunk] = {}
@@ -798,8 +805,16 @@ class StreamlinedCacheManager:
         # hold up other cache operations, and the in-memory bookkeeping
         # above is already committed regardless of the disk outcome.
         await asyncio.to_thread(self._unlink_chunk_files, chunk_paths)
+        # #5340: the tiers only record what the streamlined worker cached.
+        # Live playback and pre-warm write the same directory directly and
+        # ChunkPathCache finds their files by name, so sweep every file for
+        # this track too — otherwise the next play serves the same bytes.
+        swept = await asyncio.to_thread(delete_chunk_files, self.chunk_dir, track_id)
 
-        logger.info(f"Cleared cache for track {track_id} ({removed} entries)")
+        logger.info(
+            f"Cleared cache for track {track_id} "
+            f"({removed} entries, {swept} on-disk chunk file(s) swept)"
+        )
         return removed
 
     async def clear_all(self) -> None:

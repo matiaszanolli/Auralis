@@ -30,7 +30,6 @@ so log-capture assertions are unaffected by where the code physically lives.
 import logging
 import math
 import sys
-import tempfile
 import threading
 from pathlib import Path
 from typing import Any
@@ -45,7 +44,7 @@ if backend_path not in sys.path:
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from config.limits import CHUNK_TEMP_DIRNAME
+from config.limits import chunk_cache_dir
 
 # Core modules (new modular architecture)
 from core.chunk_boundaries import (  # noqa: F401 — CONTEXT_DURATION/OVERLAP_DURATION re-exported for callers
@@ -143,7 +142,7 @@ class ChunkedAudioProcessor:
         self.chunk_interval: float = float(CHUNK_INTERVAL)
 
         # Temp directory for chunks
-        self.chunk_dir = Path(tempfile.gettempdir()) / CHUNK_TEMP_DIRNAME
+        self.chunk_dir = chunk_cache_dir()
         self.chunk_dir.mkdir(exist_ok=True)
 
         self._processor_factory: Any = get_processor_factory()  # Phase 2: Use singleton

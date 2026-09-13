@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Protocol
 
 from analysis.track_analysis_cache import clear_global_track_analysis_cache
+from config.limits import chunk_cache_dir
+from core.encoding.wav_encoder import delete_chunk_files
 from core.thumbnail_cache import clear_artwork_cache
 
 
@@ -24,6 +26,7 @@ class CacheClearResult:
     artwork_files_removed: int
     artwork_bytes_reclaimed: int
     analysis_cache_cleared: bool
+    chunk_files_removed: int = 0
 
 
 async def clear_all_caches(
@@ -31,6 +34,7 @@ async def clear_all_caches(
     artwork_dir: Path,
     *,
     clear_source_artwork: bool = False,
+    chunk_dir: Path | None = None,
 ) -> CacheClearResult:
     """Clear chunk, thumbnail, and optional analysis caches.
 
@@ -40,9 +44,17 @@ async def clear_all_caches(
     point at those files; a destructive library reset passes
     ``clear_source_artwork=True`` after deleting those rows. Blocking directory
     work runs off the event loop.
+
+    The on-disk chunk directory (``chunk_dir``, default the shared chunk cache)
+    is swept whether or not ``cache_manager`` exists (#5340): the manager's
+    tiers only record the streamlined worker's chunks, while live playback
+    writes its own files there, found later by name alone.
     """
     if cache_manager is not None:
         await cache_manager.clear_all()
+    chunk_files_removed = await asyncio.to_thread(
+        delete_chunk_files, chunk_dir if chunk_dir is not None else chunk_cache_dir()
+    )
 
     cleanup_root = artwork_dir if clear_source_artwork else artwork_dir / "thumbnails"
     files_removed, bytes_reclaimed = await asyncio.to_thread(clear_artwork_cache, cleanup_root)
@@ -50,4 +62,5 @@ async def clear_all_caches(
         artwork_files_removed=files_removed,
         artwork_bytes_reclaimed=bytes_reclaimed,
         analysis_cache_cleared=clear_global_track_analysis_cache(),
+        chunk_files_removed=chunk_files_removed,
     )
