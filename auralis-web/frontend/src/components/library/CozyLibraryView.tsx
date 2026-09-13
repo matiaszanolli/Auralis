@@ -78,7 +78,7 @@ const CozyLibraryView = memo<CozyLibraryViewProps>(({
     return tracks.filter(track =>
       track.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       track.artist.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      track.album.toLowerCase().includes(searchQuery.toLowerCase())
+      (track.album ?? '').toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [searchQuery, tracks]);
 

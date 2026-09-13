@@ -69,7 +69,7 @@ export interface TrackApiResponse {
   artists?: string[];   // backend primary field
   genres?: string[];    // backend primary field
   artist?: string;      // singular fallback (some serializer paths)
-  album: string;
+  album: string | null;
   duration: number; // seconds
   /**
    * Optional: no transport populates it. Track.to_dict() omits it and
