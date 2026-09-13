@@ -33,28 +33,31 @@ class TestPresetProfiles:
     """Test preset profile definitions"""
 
     def test_all_presets_exist(self):
-        """Verify all 6 presets are defined"""
+        """Only one preset ships today.
+
+        The enhancement preset system was narrowed to a single preset
+        (#4861 follow-up): 'gentle'/'warm'/'bright'/'punchy'/'live' were
+        removed from this table rather than kept unreachable, since
+        config.mastering_profile can only ever be 'adaptive' now.
+        """
         presets = get_available_presets()
-        assert len(presets) == 6
-        assert 'adaptive' in presets
-        assert 'gentle' in presets
-        assert 'warm' in presets
-        assert 'bright' in presets
-        assert 'punchy' in presets
-        assert 'live' in presets
+        assert presets == ['adaptive']
 
     def test_get_preset_profile(self):
         """Test retrieving preset profiles"""
-        profile = get_preset_profile('gentle')
+        profile = get_preset_profile('adaptive')
         assert profile is not None
         assert isinstance(profile, PresetProfile)
-        assert profile.name == "Gentle"
-        assert profile.target_lufs == -16.0
+        assert profile.name == "Adaptive"
+        assert profile.target_lufs == -14.0
 
     def test_invalid_preset_returns_none(self):
-        """Test that invalid preset name returns None"""
-        profile = get_preset_profile('nonexistent')
-        assert profile is None
+        """Test that an invalid (or retired) preset name returns None"""
+        assert get_preset_profile('nonexistent') is None
+        # A name that was a valid preset before the narrowing must degrade
+        # the same way as one that never existed, not raise or fall back to
+        # a stale entry.
+        assert get_preset_profile('gentle') is None
 
     def test_preset_profile_attributes(self):
         """Verify all presets have required attributes"""
@@ -69,26 +72,10 @@ class TestPresetProfiles:
             assert hasattr(profile, 'eq_blend')
             assert hasattr(profile, 'dynamics_blend')
 
-    def test_preset_loudness_ordering(self):
-        """Verify presets have correct loudness ordering.
-
-        The design ladder (by target LUFS): Gentle is the most transparent and
-        therefore the quietest; Bright targets modern presence/clarity and is
-        the loudest; Adaptive sits at the modern-standard −14 default in between.
-        """
-        gentle = get_preset_profile('gentle')
-        adaptive = get_preset_profile('adaptive')
-        bright = get_preset_profile('bright')
-
-        # Gentle (subtle/transparent) is quieter than the adaptive default.
-        assert gentle.target_lufs < adaptive.target_lufs
-        # Bright (modern presence/air) is louder than the adaptive default.
-        assert bright.target_lufs > adaptive.target_lufs
-
-        # Across all presets, Gentle is the quietest and Bright the loudest.
-        all_lufs = [get_preset_profile(p).target_lufs for p in get_available_presets()]
-        assert gentle.target_lufs == min(all_lufs)
-        assert bright.target_lufs == max(all_lufs)
+    # test_preset_loudness_ordering removed: it compared target_lufs across
+    # gentle/adaptive/bright to verify a design ladder across multiple
+    # presets. With only 'adaptive' left (#4861 follow-up), there is nothing
+    # left to order -- the ladder itself no longer exists.
 
     def test_preset_compression_ratios(self):
         """Verify compression ratios are within valid range"""
@@ -115,8 +102,15 @@ class TestUnifiedConfigPresets:
     def test_set_mastering_preset(self):
         """Test setting mastering preset"""
         config = UnifiedConfig()
-        config.set_mastering_preset('gentle')
-        assert config.mastering_profile == 'gentle'
+        config.set_mastering_preset('adaptive')
+        assert config.mastering_profile == 'adaptive'
+
+    def test_set_retired_preset_raises_error(self):
+        """A preset name valid before the narrowing must now raise, exactly
+        like any other unknown name -- not silently succeed."""
+        config = UnifiedConfig()
+        with pytest.raises(ValueError, match="Invalid preset"):
+            config.set_mastering_preset('gentle')
 
     def test_set_invalid_preset_raises_error(self):
         """Test that invalid preset raises ValueError"""
@@ -127,16 +121,26 @@ class TestUnifiedConfigPresets:
     def test_get_preset_profile_from_config(self):
         """Test getting preset profile from config"""
         config = UnifiedConfig()
-        config.mastering_profile = 'punchy'
+        config.mastering_profile = 'adaptive'
         profile = config.get_preset_profile()
-        assert profile.name == "Punchy"
+        assert profile is not None
+        assert profile.name == "Adaptive"
         assert profile.target_lufs == -14.0
+
+    def test_get_preset_profile_from_config_with_a_retired_name(self):
+        """set directly (bypassing set_mastering_preset's own validation),
+        a retired preset name must resolve to None, not a stale profile --
+        both of get_preset_profile()'s real callers already handle a None
+        profile gracefully (adaptive_mode.py, target_generator.py)."""
+        config = UnifiedConfig()
+        config.mastering_profile = 'punchy'
+        assert config.get_preset_profile() is None
 
     def test_preset_case_insensitive(self):
         """Test that preset names are case-insensitive"""
         config = UnifiedConfig()
-        config.set_mastering_preset('GENTLE')
-        assert config.mastering_profile == 'gentle'
+        config.set_mastering_preset('ADAPTIVE')
+        assert config.mastering_profile == 'adaptive'
 
 
 class TestAdaptiveTargetGenerator:
@@ -144,9 +148,9 @@ class TestAdaptiveTargetGenerator:
 
     @pytest.fixture
     def config_with_preset(self):
-        """Create config with preset"""
+        """Create config with preset ('adaptive' is the only one now, #4861 follow-up)"""
         config = UnifiedConfig()
-        config.mastering_profile = 'punchy'
+        config.mastering_profile = 'adaptive'
         return config
 
     @pytest.fixture
@@ -169,9 +173,9 @@ class TestAdaptiveTargetGenerator:
         }
         targets = target_generator.generate_targets(content_profile)
 
-        # Punchy preset should influence target LUFS
+        # The preset should influence target LUFS
         assert 'target_lufs' in targets
-        # Should be close to -11.0 (punchy target) or blended with adaptive
+        # Should be close to -14.0 (adaptive target) or blended with content
 
     def test_targets_include_preset_metadata(self, target_generator):
         """Test that targets include preset metadata"""
@@ -187,7 +191,7 @@ class TestAdaptiveTargetGenerator:
         targets = target_generator.generate_targets(content_profile)
 
         assert 'preset_name' in targets
-        assert targets['preset_name'] == "Punchy"
+        assert targets['preset_name'] == "Adaptive"
         assert 'preset_eq_blend' in targets
         assert 'preset_dynamics_blend' in targets
 
@@ -250,31 +254,26 @@ class TestPresetProcessing:
         audio = np.column_stack([audio, audio])
         return audio, sr
 
-    def test_presets_produce_different_outputs(self, test_audio):
-        """Test that different presets produce different outputs"""
+    def test_preset_produces_reasonable_output(self, test_audio):
+        """Processing with the (only) preset succeeds and lands in a
+        reasonable output range.
+
+        This used to loop over ['gentle', 'adaptive', 'punchy'] to check the
+        same thing for each; its own docstring already noted that simple
+        sine-wave signals often produce near-identical output across presets
+        anyway, so narrowing to the one preset that still exists (#4861
+        follow-up) does not remove any real coverage.
+        """
         audio, sr = test_audio
 
-        results = {}
-        for preset_name in ['gentle', 'adaptive', 'punchy']:
-            config = UnifiedConfig()
-            config.mastering_profile = preset_name
-            processor = HybridProcessor(config)
+        config = UnifiedConfig()
+        config.mastering_profile = 'adaptive'
+        processor = HybridProcessor(config)
 
-            result = processor.process(audio.copy())
-            rms = np.sqrt(np.mean(result ** 2))
-            results[preset_name] = rms
+        result = processor.process(audio.copy())
+        rms = np.sqrt(np.mean(result ** 2))
 
-        # On simple test signals (sine waves), adaptive processing may produce
-        # very similar or even identical results across presets, because there's
-        # not much variation in the content for the adaptive system to respond to.
-        # This is expected behavior - the real differences appear on complex music.
-
-        # The main validation here is that all presets process without errors
-        # and produce reasonable output levels (verified by reaching target LUFS in other tests)
-
-        # Verify all outputs are in reasonable range (not silent, not clipping)
-        for preset_name, rms_value in results.items():
-            assert 0.1 < rms_value < 1.0, f"{preset_name} produced unreasonable RMS: {rms_value}"
+        assert 0.1 < rms < 1.0, f"adaptive produced unreasonable RMS: {rms}"
 
     def test_preset_prevents_clipping(self, test_audio):
         """Test that all presets prevent clipping"""
@@ -356,7 +355,7 @@ class TestPresetEdgeCases:
     def test_very_quiet_audio(self):
         """Test processing very quiet audio"""
         config = UnifiedConfig()
-        config.mastering_profile = 'punchy'
+        config.mastering_profile = 'adaptive'
         processor = HybridProcessor(config)
 
         # Very quiet audio (-60 dB)
@@ -370,7 +369,7 @@ class TestPresetEdgeCases:
     def test_very_loud_audio(self):
         """Test processing already-loud audio"""
         config = UnifiedConfig()
-        config.mastering_profile = 'gentle'
+        config.mastering_profile = 'adaptive'
         processor = HybridProcessor(config)
 
         # Already loud audio (near 0 dBFS)

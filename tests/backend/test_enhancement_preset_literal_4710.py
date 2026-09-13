@@ -85,12 +85,16 @@ class TestSeedEnhancementSettingsGuard:
     """A stored preset outside the closed set must not 500 the status endpoint."""
 
     def test_seeds_a_valid_stored_preset(self):
-        settings = {'preset': 'adaptive', 'intensity': 1.0, 'enabled': True}
+        # 'adaptive' is the only valid preset since the enhancement preset
+        # system was narrowed to one; this still proves the seed path applies
+        # a stored value that IS on the list, distinct from
+        # test_ignores_an_off_list_stored_preset below.
+        settings = {'preset': 'unseeded-placeholder', 'intensity': 1.0, 'enabled': True}
         seed_enhancement_settings(
             settings,
-            SimpleNamespace(default_preset='warm', enhancement_intensity=0.4, auto_enhance=True),
+            SimpleNamespace(default_preset='adaptive', enhancement_intensity=0.4, auto_enhance=True),
         )
-        assert settings['preset'] == 'warm'
+        assert settings['preset'] == 'adaptive'
         assert settings['intensity'] == 0.4
 
     def test_ignores_an_off_list_stored_preset(self):

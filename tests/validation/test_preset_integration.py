@@ -41,7 +41,8 @@ def test_preset_integration():
     # Make stereo
     audio = np.column_stack([audio, audio])
 
-    presets = ['adaptive', 'gentle', 'warm', 'bright', 'punchy']
+    presets = ['adaptive']  # only preset left (#4861 follow-up); the
+    # gentle-vs-punchy comparisons below no longer apply.
     results = {}
 
     print("\nProcessing with each preset...")

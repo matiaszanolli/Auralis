@@ -52,6 +52,20 @@ def create_preset_profiles() -> dict[str, PresetProfile]:
     """
     Create all mastering preset profiles.
 
+    A single preset, 'adaptive', ships today. The 'gentle'/'warm'/'bright'/
+    'punchy'/'live' profiles that used to live here were removed rather than
+    kept as dead entries: config.mastering_profile can only ever be set to
+    'adaptive' now (schemas.VALID_PRESETS/EnhancementPresetLiteral narrowed
+    the same way, and processor_factory.py's ProcessorFactory.get_or_create
+    is the only place that writes mastering_profile, always from that same
+    API-gated value), so the other five were exactly as unreachable as 'live'
+    already was (#4861) -- just via this profile table instead of
+    PreferenceVector.from_preset_name's bias table. get_preset_profile()
+    already returns None (not a fallback profile) for any name not in this
+    dict, and both of its call sites (adaptive_mode.py, target_generator.py)
+    already handle a None profile gracefully, so removing the five entries
+    changes no live behavior.
+
     Returns:
         Dictionary mapping preset names to PresetProfile objects
     """
@@ -86,199 +100,6 @@ def create_preset_profiles() -> dict[str, PresetProfile]:
 
             # Balanced headroom (louder output than before)
             peak_target_db=-0.50,
-        ),
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        "gentle": PresetProfile(
-            name="Gentle",
-            description="Subtle, transparent processing with minimal coloration",
-
-            # Very light EQ adjustments
-            low_shelf_gain=0.3,
-            low_mid_gain=0.0,
-            mid_gain=0.0,
-            high_mid_gain=0.2,
-            high_shelf_gain=0.5,
-
-            # Light compression
-            compression_ratio=1.8,
-            compression_threshold=-20.0,
-            compression_attack=15.0,
-            compression_release=150.0,
-
-            # Conservative limiting
-            limiter_threshold=-2.0,
-            limiter_release=75.0,
-
-            # Reduced processing intensity
-            eq_blend=0.6,
-            dynamics_blend=0.5,
-
-            # Lower target loudness
-            target_lufs=-16.0,
-
-            # Less headroom (louder output, ~1 dB louder than Adaptive)
-            peak_target_db=-0.30,
-        ),
-
-        "warm": PresetProfile(
-            name="Warm",
-            description="Rich analog warmth with enhanced low-mids and smooth highs",
-
-            # Warm EQ curve - boost bass and low-mids, gentle high-end
-            low_shelf_gain=1.5,
-            low_mid_gain=1.2,
-            mid_gain=0.3,
-            high_mid_gain=-0.3,
-            high_shelf_gain=0.8,
-
-            # Smooth compression
-            compression_ratio=2.2,
-            compression_threshold=-19.0,
-            compression_attack=20.0,
-            compression_release=200.0,
-
-            # Smooth limiting
-            limiter_threshold=-1.5,
-            limiter_release=100.0,
-
-            # Full EQ, moderate dynamics
-            eq_blend=1.0,
-            dynamics_blend=0.75,
-
-            # Moderate loudness
-            target_lufs=-13.0,
-
-            # Balanced headroom
-            peak_target_db=-0.35,
-        ),
-
-        "bright": PresetProfile(
-            name="Bright",
-            description="Modern clarity with enhanced presence and air",
-
-            # Bright EQ curve - emphasis on high-mids and highs
-            low_shelf_gain=0.0,
-            low_mid_gain=-0.5,
-            mid_gain=0.5,
-            high_mid_gain=2.0,
-            high_shelf_gain=2.5,
-
-            # Tight, controlled compression
-            compression_ratio=2.8,
-            compression_threshold=-17.0,
-            compression_attack=5.0,
-            compression_release=80.0,
-
-            # Tight limiting
-            limiter_threshold=-0.8,
-            limiter_release=40.0,
-
-            # Strong EQ, full dynamics
-            eq_blend=1.0,
-            dynamics_blend=0.9,
-
-            # Higher target loudness
-            target_lufs=-12.0,
-
-            # Less headroom (louder output)
-            peak_target_db=-0.30,
-        ),
-
-        "punchy": PresetProfile(
-            name="Punchy",
-            description="Heavy music mastering - powerful dynamics for metal and industrial",
-
-            # Punchy EQ curve - bass punch (80-250 Hz), presence (2-4 kHz)
-            # Based on heavy metal Matchering analysis
-            low_shelf_gain=1.8,      # Bass punch without mud
-            low_mid_gain=0.5,        # Body
-            mid_gain=0.0,            # Neutral mids
-            high_mid_gain=1.5,       # Presence and attack
-            high_shelf_gain=0.8,     # Air without harshness
-
-            # Moderate compression for controlled punch
-            # Target: RMS +3 to +4 dB increase, Crest -0.5 to -1.0 dB
-            compression_ratio=2.5,
-            compression_threshold=-18.0,
-            compression_attack=5.0,
-            compression_release=100.0,
-
-            # Moderate limiting - allow dynamics
-            # Target final crest: 13-14 dB
-            limiter_threshold=-2.0,
-            limiter_release=80.0,
-
-            # Balanced processing intensity
-            eq_blend=0.75,
-            dynamics_blend=0.65,
-
-            # Target RMS: -14 dB (heavy music Matchering average)
-            target_lufs=-14.0,
-
-            # Least headroom (loudest output for heavy music)
-            peak_target_db=-0.20,
-        ),
-
-        "live": PresetProfile(
-            name="Live",
-            description="Live recording enhancement - energy and clarity with audience control",
-
-            # Live EQ curve - reduce mud, enhance clarity
-            low_shelf_gain=0.8,      # Controlled low end
-            low_mid_gain=-0.8,       # Reduce 200-500 Hz mud
-            mid_gain=0.5,            # Clarity
-            high_mid_gain=2.0,       # Presence and detail
-            high_shelf_gain=1.5,     # Air and space
-
-            # LIGHT compression - live material already has good dynamics
-            # Matchering shows +2 to +3 dB RMS with -2 dB crest (gentle compression)
-            compression_ratio=1.8,
-            compression_threshold=-22.0,
-            compression_attack=15.0,
-            compression_release=180.0,
-
-            # Very gentle limiting - preserve transients
-            # Target final crest: 11-13 dB
-            limiter_threshold=-3.5,
-            limiter_release=120.0,
-
-            # Reduced processing intensity to preserve live energy
-            eq_blend=0.7,
-            dynamics_blend=0.4,
-
-            # Target RMS: -13.5 dB
-            target_lufs=-13.5,
-
-            # Balanced headroom for live material
-            peak_target_db=-0.30,
         ),
     }
 

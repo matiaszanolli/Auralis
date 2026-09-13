@@ -9,9 +9,9 @@ emitter instead of becoming an undocumented wire-format change.
 import logging
 from typing import Any, Literal, NotRequired, Protocol, TypedDict, overload
 
-logger = logging.getLogger(__name__)
+from schemas import EnhancementPresetLiteral as EnhancementPreset
 
-EnhancementPreset = Literal["adaptive", "gentle", "warm", "bright", "punchy"]
+logger = logging.getLogger(__name__)
 RepeatMode = Literal["off", "all", "one"]
 QueueChangeAction = Literal[
     "added",

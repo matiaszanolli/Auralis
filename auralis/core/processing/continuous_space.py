@@ -105,48 +105,29 @@ class PreferenceVector:
     @classmethod
     def from_preset_name(cls, preset: str) -> PreferenceVector:
         """
-        Convert legacy preset names to preference vectors.
+        Convert a preset name to a preference vector.
 
-        This provides backward compatibility with the old preset system
-        while allowing gradual migration to the continuous space.
+        Auralis ships a single preset today: 'adaptive' (pure content-driven
+        processing, all biases neutral). The 'gentle'/'warm'/'bright'/'punchy'/
+        'live' variants that used to live here were deliberately removed
+        rather than deprecated in place: none was reachable through any live
+        API surface -- 'live' never was (schemas.VALID_PRESETS/
+        EnhancementPresetLiteral never listed it, #4861), and the other four
+        are no longer exposed either, narrowing the whole preset system down
+        to just 'adaptive'. Any name other than 'adaptive' -- including the
+        five retired ones, for backward compatibility with anything still
+        holding an old value -- falls back to the neutral vector below
+        rather than raising, matching this method's existing tolerant
+        contract.
 
         Args:
-            preset: Preset name (adaptive, gentle, warm, bright, punchy, live)
+            preset: Preset name (only 'adaptive' is recognized)
 
         Returns:
             PreferenceVector representing the preset's characteristics
         """
         presets = {
             'adaptive': cls(),  # Neutral - pure content-driven processing
-
-            'gentle': cls(
-                dynamic_bias=0.3,      # Preserve dynamics more
-                loudness_bias=-0.2,    # Quieter output
-            ),
-
-            'warm': cls(
-                spectral_bias=-0.3,    # Darker/warmer tonality
-                bass_boost=0.5,        # More bass
-                treble_boost=-0.2,     # Less treble (smoother highs)
-            ),
-
-            'bright': cls(
-                spectral_bias=0.5,     # Brighter tonality
-                treble_boost=0.7,      # More treble
-                bass_boost=-0.3,       # Less bass
-            ),
-
-            'punchy': cls(
-                bass_boost=0.6,        # More bass punch
-                dynamic_bias=-0.2,     # Allow more compression
-                loudness_bias=0.3,     # Louder output
-            ),
-
-            'live': cls(
-                dynamic_bias=0.4,      # Preserve live dynamics
-                stereo_bias=0.2,       # Wider stereo field
-                bass_boost=-0.2,       # Reduce bass (less mud)
-            ),
         }
 
         return presets.get(preset.lower(), cls())

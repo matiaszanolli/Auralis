@@ -528,8 +528,20 @@ class TestStressScenarios:
     def test_rapid_preset_switching(self, performance_audio_file, timer):
         """
         BENCHMARK: Rapid preset switching should maintain responsiveness.
+
+        Pre-existing bug fixed in passing: called the nonexistent
+        UnifiedConfig.set_preset (the real method is set_mastering_preset),
+        so this always raised AttributeError -- @pytest.mark.slow excludes
+        it from the default `-m "not slow"` run, which is presumably why
+        that went unnoticed.
+
+        There is only one preset to switch to now ('adaptive' -- #4861
+        follow-up), so this measures repeated re-selection of the same
+        preset instead of switching across several; that still exercises
+        the same per-switch HybridProcessor construction cost this
+        benchmark is about.
         """
-        presets = ['adaptive', 'gentle', 'warm', 'bright', 'punchy']
+        presets = ['adaptive', 'adaptive', 'adaptive', 'adaptive', 'adaptive']
 
         audio, sr = load_audio(performance_audio_file)
 
@@ -537,7 +549,7 @@ class TestStressScenarios:
 
         for preset in presets:
             config = UnifiedConfig()
-            config.set_preset(preset)
+            config.set_mastering_preset(preset)
 
             with timer() as t:
                 processor = HybridProcessor(config)

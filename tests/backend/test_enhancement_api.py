@@ -79,25 +79,28 @@ class TestSetEnhancementPreset:
         """Test setting valid preset"""
         # JSON body (SetPresetRequest), not a query param -- see
         # test_toggle_enhancement_enable re: #2485. /api/player/enhancement/*
-        # carries no RateLimitMiddleware rule, so the five iterations need no
-        # reset_rate_limits (only /api/files/upload, /api/processing,
-        # /api/library/scan and /api/similarity are limited).
-        for preset in ["adaptive", "gentle", "warm", "bright", "punchy"]:
-            response = client.post("/api/player/enhancement/preset", json={"preset": preset})
+        # carries no RateLimitMiddleware rule, so no reset_rate_limits needed
+        # (only /api/files/upload, /api/processing, /api/library/scan and
+        # /api/similarity are limited).
+        #
+        # 'adaptive' is the only preset now (VALID_PRESETS/
+        # EnhancementPresetLiteral narrowed from five presets down to one --
+        # 'gentle'/'warm'/'bright'/'punchy' are no longer valid input at all).
+        response = client.post("/api/player/enhancement/preset", json={"preset": "adaptive"})
 
-            assert response.status_code == 200
-            data = response.json()
-            assert data["settings"]["preset"] == preset
+        assert response.status_code == 200
+        data = response.json()
+        assert data["settings"]["preset"] == "adaptive"
 
     def test_set_preset_case_insensitive(self, client):
         """Test that preset names are case-insensitive"""
         # SetPresetRequest.lowercase_preset is a mode="before" validator, so the
         # canonical Literal still enforces the closed set after lowering.
-        response = client.post("/api/player/enhancement/preset", json={"preset": "WARM"})
+        response = client.post("/api/player/enhancement/preset", json={"preset": "ADAPTIVE"})
 
         assert response.status_code == 200
         data = response.json()
-        assert data["settings"]["preset"] == "warm"
+        assert data["settings"]["preset"] == "adaptive"
 
     def test_set_preset_invalid(self, client):
         """Test setting invalid preset"""
@@ -115,8 +118,9 @@ class TestSetEnhancementPreset:
         assert response.status_code == 422
         error = response.json()["errors"][0]
         assert error["field"] == "body.preset"
-        # The Literal's own message enumerates the valid presets.
-        assert "'adaptive'" in error["message"] and "'punchy'" in error["message"]
+        # The Literal now has one member, so Pydantic's message is singular
+        # ("Input should be 'adaptive'") rather than an enumeration.
+        assert "'adaptive'" in error["message"]
 
     def test_set_preset_missing_parameter(self, client):
         """Test preset change without preset parameter"""
@@ -507,8 +511,8 @@ class TestEnhancementIntegration:
         response = client.post("/api/player/enhancement/toggle", json={"enabled": True})
         assert response.status_code == 200
 
-        # 2. Change preset
-        response = client.post("/api/player/enhancement/preset", json={"preset": "warm"})
+        # 2. Change preset ('adaptive' is the only valid one)
+        response = client.post("/api/player/enhancement/preset", json={"preset": "adaptive"})
         assert response.status_code == 200
 
         # 3. Adjust intensity
@@ -520,18 +524,20 @@ class TestEnhancementIntegration:
         assert response.status_code == 200
         data = response.json()
         assert data["enabled"] is True
-        assert data["preset"] == "warm"
+        assert data["preset"] == "adaptive"
         assert data["intensity"] == 0.7
 
     def test_multiple_preset_changes(self, client):
-        """Test changing presets multiple times"""
-        presets = ["gentle", "warm", "bright", "punchy", "adaptive"]
+        """Repeated preset-set calls are idempotent.
 
-        for preset in presets:
-            # JSON body, not a query param (#2485 / #5089).
-            response = client.post("/api/player/enhancement/preset", json={"preset": preset})
+        There is only one valid preset now ('adaptive'), so this can no
+        longer cycle through several distinct values -- it instead pins that
+        setting the same, only preset repeatedly stays correct and stable.
+        """
+        for _ in range(5):
+            response = client.post("/api/player/enhancement/preset", json={"preset": "adaptive"})
             assert response.status_code == 200
-            assert response.json()["settings"]["preset"] == preset
+            assert response.json()["settings"]["preset"] == "adaptive"
 
 # The recommendation/pre-warm paths re-check a DB filepath with
 # validate_file_path before any file I/O (#4817/#4818). These tests exercise

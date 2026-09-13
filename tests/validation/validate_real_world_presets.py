@@ -47,7 +47,7 @@ def analyze_track(audio_path, max_duration=30.0):
     print(f"  Spectral Centroid: {input_centroid:.0f} Hz")
     
     # Process with each preset
-    presets = ['adaptive', 'gentle', 'warm', 'bright', 'punchy']
+    presets = ['adaptive']  # only preset left (#4861 follow-up)
     results = {}
     
     print(f"\n{'Preset':<12} {'Target':<8} {'Output':<8} {'RMS':<10} {'Peak':<10} {'DR':<8} {'Centroid':<10}")

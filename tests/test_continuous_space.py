@@ -195,22 +195,22 @@ class TestPreferenceVector:
     """Test user preference system"""
 
     def test_preset_to_preference_conversion(self):
-        """Test legacy preset conversion to preference vectors"""
-        warm = PreferenceVector.from_preset_name('warm')
-        assert warm.spectral_bias < 0, "Warm should be darker (negative spectral bias)"
-        assert warm.bass_boost > 0, "Warm should boost bass"
+        """Only 'adaptive' is a recognized preset name; it's the neutral vector.
 
-        bright = PreferenceVector.from_preset_name('bright')
-        assert bright.spectral_bias > 0, "Bright should be brighter (positive spectral bias)"
-        assert bright.treble_boost > 0, "Bright should boost treble"
+        The 'gentle'/'warm'/'bright'/'punchy'/'live' variants this used to
+        assert biases for were removed: none was reachable through any live
+        API surface once the enhancement preset system was narrowed to a
+        single preset. Any other name -- including the five retired ones,
+        for backward compatibility with anything still holding an old
+        value -- degrades to this same neutral vector rather than raising.
+        """
+        adaptive = PreferenceVector.from_preset_name('adaptive')
+        assert adaptive == PreferenceVector()
 
-        punchy = PreferenceVector.from_preset_name('punchy')
-        assert punchy.bass_boost > 0, "Punchy should boost bass"
-        assert punchy.loudness_bias > 0, "Punchy should be louder"
-
-        gentle = PreferenceVector.from_preset_name('gentle')
-        assert gentle.dynamic_bias > 0, "Gentle should preserve dynamics"
-        assert gentle.loudness_bias < 0, "Gentle should be quieter"
+        for retired in ('warm', 'bright', 'punchy', 'gentle', 'live', 'unknown-preset'):
+            assert PreferenceVector.from_preset_name(retired) == PreferenceVector(), (
+                f"{retired!r} must degrade to the neutral vector, not raise or bias"
+            )
 
     def test_preference_bias_application(self):
         """Test that preferences bias parameter generation"""

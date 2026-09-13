@@ -136,7 +136,7 @@ def main():
         # CATEGORY 1: Under-leveled Industrial Metal (Static-X)
         {
             'path': '/mnt/Musica/Musica/Static-X/Wisconsin Death Trip/Bled For Days.mp3',
-            'preset': 'punchy',
+            'preset': 'adaptive',
             'expected': {
                 'type': 'under_leveled_industrial',
                 'matchering_rms_change': 5.96,
@@ -156,7 +156,7 @@ def main():
         },
         {
             'path': '/mnt/Musica/Musica/Testament/2000-The Very Best of Testament/04 The New Order.mp3',
-            'preset': 'punchy',
+            'preset': 'adaptive',
             'expected': {
                 'type': 'live_recording',
                 'matchering_rms_change': 2.52,
@@ -167,7 +167,7 @@ def main():
         # CATEGORY 3: Moderate Thrash (Slayer)
         {
             'path': '/mnt/Musica/Musica/VA - 100 Greatest Thrash Metal Songs (2010)/051. South Of Heaven - Slayer.mp3',
-            'preset': 'punchy',
+            'preset': 'adaptive',
             'expected': {
                 'type': 'well_mastered_metal',
                 'matchering_rms_change': 2.80,

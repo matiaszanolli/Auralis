@@ -5,9 +5,11 @@ Regression tests for proactive_buffer event-loop offloading (#3853)
 `buffer_presets_for_track` constructs a ChunkedAudioProcessor per preset.
 The constructor is sync and slow (SoundFile open + fingerprint load +
 HybridProcessor init, ~200-500 ms each). Building it directly in the async
-function stalled the event loop for up to ~2.5 s across 5 presets. The fix
-wraps construction in `asyncio.to_thread`, so it runs on a worker thread and
-the loop stays responsive.
+function stalled the event loop for up to ~2.5 s across the 5 presets that
+existed when this was written (now 1, #4861 follow-up -- the per-construction
+cost and the offloading fix are unchanged). The fix wraps construction in
+`asyncio.to_thread`, so it runs on a worker thread and the loop stays
+responsive.
 
 :copyright: (C) 2026 Auralis Team
 :license: GPLv3, see LICENSE for more details.
@@ -72,10 +74,17 @@ class TestProactiveBufferOffload:
     async def test_event_loop_stays_responsive_during_construction(self, monkeypatch):
         """A concurrent coroutine keeps ticking while constructors block."""
         seen_threads: list[threading.Thread] = []
-        # Each ctor blocks 100ms; 5 presets = ~0.5s of blocking work total.
+        # block_seconds is deliberately independent of len(AVAILABLE_PRESETS):
+        # this used to read block_seconds=0.1 on the assumption of 5 presets
+        # (~0.5s of blocking work total), which silently shrank to ~0.1s when
+        # the preset system was narrowed to one (#4861 follow-up) and started
+        # failing the tick-count floor below on ordinary scheduling jitter.
+        # Scaling by AVAILABLE_PRESETS restores the original ~0.5s total
+        # regardless of how many presets exist now or in the future.
+        block_seconds = 0.5 / max(len(AVAILABLE_PRESETS), 1)
         monkeypatch.setattr(
             "core.chunked_processor.ChunkedAudioProcessor",
-            _fake_processor_factory(seen_threads, block_seconds=0.1),
+            _fake_processor_factory(seen_threads, block_seconds=block_seconds),
         )
 
         ticks = 0

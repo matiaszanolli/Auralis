@@ -114,7 +114,7 @@ class AudioProcessingPipeline:
         Consolidates processor selection logic from chunked_processor and hybrid_processor.
 
         Args:
-            preset: Processing preset (adaptive, gentle, warm, bright, punchy) or None for original
+            preset: Processing preset (only 'adaptive' is valid) or None for original
             intensity: Processing intensity (0.0-1.0)
             processor_factory: ProcessorFactory instance (Phase 2: unified factory)
             track_id: Optional track ID for cache key

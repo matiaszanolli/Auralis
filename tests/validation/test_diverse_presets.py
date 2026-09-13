@@ -42,7 +42,8 @@ TEST_FILES = [
     },
 ]
 
-PRESETS = ['gentle', 'adaptive', 'warm', 'bright', 'punchy']
+PRESETS = ['adaptive']  # only preset left (#4861 follow-up); this script's
+# original multi-preset RMS/DR comparisons below are no longer meaningful.
 
 
 def analyze_audio(file_path: str):

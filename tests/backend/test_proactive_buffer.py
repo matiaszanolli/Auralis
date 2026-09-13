@@ -23,14 +23,14 @@ class TestProactiveBufferConstants:
     """Tests for module constants"""
 
     def test_available_presets(self):
-        """Test AVAILABLE_PRESETS constant"""
+        """Test AVAILABLE_PRESETS constant.
+
+        Only 'adaptive' ships now (#4861 follow-up narrowed the enhancement
+        preset system to a single preset); 'gentle'/'warm'/'bright'/'punchy'
+        are gone, not just unlisted.
+        """
         assert isinstance(AVAILABLE_PRESETS, list)
-        assert len(AVAILABLE_PRESETS) > 0
-        assert "adaptive" in AVAILABLE_PRESETS
-        assert "gentle" in AVAILABLE_PRESETS
-        assert "warm" in AVAILABLE_PRESETS
-        assert "bright" in AVAILABLE_PRESETS
-        assert "punchy" in AVAILABLE_PRESETS
+        assert AVAILABLE_PRESETS == ["adaptive"]
 
     def test_preload_chunks(self):
         """Test PRELOAD_CHUNKS constant"""

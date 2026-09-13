@@ -24,8 +24,17 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 # Canonical list/Literal of valid enhancement presets. Every validating surface
 # (enhancement router, settings PUT, WS playback commands) imports these rather
 # than re-declaring an inline copy, so the definitions cannot drift apart.
-VALID_PRESETS = ["adaptive", "gentle", "warm", "bright", "punchy"]
-EnhancementPresetLiteral = Literal["adaptive", "gentle", "warm", "bright", "punchy"]
+#
+# Narrowed to a single preset: the previous five ('adaptive', 'gentle',
+# 'warm', 'bright', 'punchy') are reduced to just 'adaptive' -- start with one
+# preset rather than the five that were shipped, mirroring the sixth
+# ('live') that was already unreachable through this same surface (#4861).
+# A stored/passed value outside this list degrades to 'adaptive' at each
+# consuming site rather than erroring (see helpers.seed_enhancement_settings,
+# routers/settings.py's SettingsResponse validators) -- existing rows with an
+# old default_preset value keep working, just no longer selectable as new input.
+VALID_PRESETS = ["adaptive"]
+EnhancementPresetLiteral = Literal["adaptive"]
 
 # Canonical constraint for enhancement intensity (#4600). The same quantity used
 # to be validated three different ways: the enhancement router silently CLAMPED

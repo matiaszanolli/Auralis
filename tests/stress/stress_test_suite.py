@@ -185,7 +185,7 @@ class AuralisStressTest:
         start_time = time.time()
         interaction_count = 0
 
-        presets = ['adaptive', 'gentle', 'warm', 'bright', 'punchy']
+        presets = ['adaptive']  # only preset left (#4861 follow-up)
 
         print("🚀 Starting rapid interaction simulation...")
         print("   (preset switches, seeks, volume changes)\n")
@@ -255,7 +255,7 @@ class AuralisStressTest:
 
             # Periodic preset changes
             if iteration % 10 == 0:
-                preset = random.choice(['adaptive', 'gentle', 'warm', 'bright', 'punchy'])
+                preset = 'adaptive'  # only preset left (#4861 follow-up)
                 await self.request('PUT', '/api/player/enhancement/preset', json={'preset': preset})
 
             # Sample memory at intervals

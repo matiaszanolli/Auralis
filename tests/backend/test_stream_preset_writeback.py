@@ -77,53 +77,59 @@ async def _run(settings: dict, payload: dict):
 
 class TestAcceptedValuesAreRecorded:
     async def test_payload_preset_is_written_back(self):
-        settings = {"enabled": True, "preset": "adaptive", "intensity": 1.0}
+        # The enhancement preset system was narrowed to a single preset
+        # ('adaptive') after this test was written -- there is no second
+        # *valid* preset name left to switch to, so the stored/legacy value
+        # here stands in for exactly the case the write-back matters for:
+        # a stale stored value that predates the narrowing.
+        settings = {"enabled": True, "preset": "legacy-preset", "intensity": 1.0}
 
-        await _run(settings, {"preset": "warm"})
+        await _run(settings, {"preset": "adaptive"})
 
-        assert settings["preset"] == "warm", (
-            "the stream runs on 'warm' but the global still said 'adaptive', so "
-            "/api/processing/parameters looked up a key nothing was writing (#4601)"
+        assert settings["preset"] == "adaptive", (
+            "the stream runs on 'adaptive' but the global still said the stale "
+            "stored value, so /api/processing/parameters looked up a key "
+            "nothing was writing (#4601)"
         )
 
     async def test_payload_intensity_is_written_back(self):
         settings = {"enabled": True, "preset": "adaptive", "intensity": 1.0}
 
-        await _run(settings, {"preset": "warm", "intensity": 0.3})
+        await _run(settings, {"preset": "adaptive", "intensity": 0.3})
 
         assert settings["intensity"] == 0.3
 
     async def test_the_settings_dict_is_mutated_in_place(self):
         """Rebinding would be invisible to the routers that share it (#4409)."""
-        settings = {"enabled": True, "preset": "adaptive", "intensity": 1.0}
+        settings = {"enabled": True, "preset": "legacy-preset", "intensity": 1.0}
         same_object = settings
 
-        await _run(settings, {"preset": "punchy"})
+        await _run(settings, {"preset": "adaptive"})
 
         assert same_object is settings
-        assert same_object["preset"] == "punchy"
+        assert same_object["preset"] == "adaptive"
 
 
 class TestFallbacksUnchanged:
     async def test_omitted_preset_keeps_the_stored_one(self):
-        settings = {"enabled": True, "preset": "gentle", "intensity": 0.8}
+        settings = {"enabled": True, "preset": "adaptive", "intensity": 0.8}
 
         await _run(settings, {})
 
-        assert settings["preset"] == "gentle"
+        assert settings["preset"] == "adaptive"
         assert settings["intensity"] == 0.8
 
     async def test_invalid_preset_falls_back_without_corrupting_the_global(self):
-        settings = {"enabled": True, "preset": "gentle", "intensity": 0.8}
+        settings = {"enabled": True, "preset": "adaptive", "intensity": 0.8}
 
         await _run(settings, {"preset": "not-a-preset"})
 
-        assert settings["preset"] == "gentle"
+        assert settings["preset"] == "adaptive"
 
     @pytest.mark.parametrize("bad", [1.5, -0.2, float("nan"), float("inf"), "0.5", None])
     async def test_invalid_intensity_falls_back_without_corrupting_the_global(self, bad):
         """#4600's guarantee, verified through the write-back path (#4601)."""
-        settings = {"enabled": True, "preset": "gentle", "intensity": 0.8}
+        settings = {"enabled": True, "preset": "adaptive", "intensity": 0.8}
 
         await _run(settings, {"intensity": bad})
 
@@ -132,9 +138,9 @@ class TestFallbacksUnchanged:
     async def test_case_is_normalised_before_storing(self):
         settings = {"enabled": True, "preset": "adaptive", "intensity": 1.0}
 
-        await _run(settings, {"preset": "WARM"})
+        await _run(settings, {"preset": "ADAPTIVE"})
 
-        assert settings["preset"] == "warm", (
+        assert settings["preset"] == "adaptive", (
             "the profile map is keyed by lowercased preset, so the stored value "
             "must be lowercased too or the lookup misses"
         )
@@ -146,10 +152,10 @@ class TestPreWarmReadsTheSameValues:
     async def test_global_reflects_the_stream_after_play(self):
         settings = {"enabled": True, "preset": "adaptive", "intensity": 1.0}
 
-        await _run(settings, {"preset": "bright", "intensity": 0.6})
+        await _run(settings, {"preset": "adaptive", "intensity": 0.6})
 
         # This is exactly what routers/enhancement.py passes to the pre-warm.
         assert (
             settings.get("preset", "adaptive"),
             settings.get("intensity", 1.0),
-        ) == ("bright", 0.6)
+        ) == ("adaptive", 0.6)

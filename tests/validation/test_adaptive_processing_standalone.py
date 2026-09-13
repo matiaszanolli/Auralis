@@ -108,7 +108,7 @@ def main():
         {
             'name': 'Static-X - Bled For Days (Under-leveled)',
             'path': '/mnt/Musica/Musica/Static-X/Wisconsin Death Trip/Bled For Days.mp3',
-            'preset': 'punchy',
+            'preset': 'adaptive',
             'expected': {
                 'rms_change': 5.96,  # Matchering: +5.96 dB
                 'crest_change': 1.89,  # Matchering: +1.89 dB
@@ -117,7 +117,7 @@ def main():
         {
             'name': 'Static-X - December (Very under-leveled)',
             'path': '/mnt/Musica/Musica/Static-X/Wisconsin Death Trip/December.mp3',
-            'preset': 'punchy',
+            'preset': 'adaptive',
             'expected': {
                 'rms_change': 3.72,  # Matchering: +3.72 dB
                 'crest_change': 2.43,  # Matchering: +2.43 dB
@@ -126,7 +126,7 @@ def main():
         {
             'name': 'Static-X - Fix (Under-leveled)',
             'path': '/mnt/Musica/Musica/Static-X/Wisconsin Death Trip/Fix.mp3',
-            'preset': 'punchy',
+            'preset': 'adaptive',
             'expected': {
                 'rms_change': 6.73,  # Matchering: +6.73 dB
                 'crest_change': 1.32,  # Matchering: +1.32 dB

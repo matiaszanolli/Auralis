@@ -14,8 +14,12 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-# Available presets for buffering
-AVAILABLE_PRESETS = ["adaptive", "gentle", "warm", "bright", "punchy"]
+# Available presets for buffering. Mirrors schemas.VALID_PRESETS -- not
+# imported directly to avoid this streaming-core module depending on the
+# REST schemas module. Narrowed to a single preset (#4861 follow-up); with
+# only one preset, "instant switching" degenerates to warming that one
+# preset's cache a little earlier, which is still worth doing.
+AVAILABLE_PRESETS = ["adaptive"]
 PRELOAD_CHUNKS = 3  # Buffer first 45 seconds (3 x 15s chunks)
 
 

@@ -404,7 +404,7 @@ async def set_enhancement_preset(
     Change the enhancement preset.
 
     Args:
-        preset: Preset name (adaptive, gentle, warm, bright, punchy)
+        preset: Preset name (only 'adaptive' is valid; see schemas.VALID_PRESETS)
 
     Returns:
         dict: Status message and current settings

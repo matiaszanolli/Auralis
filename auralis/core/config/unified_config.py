@@ -139,7 +139,8 @@ class UnifiedConfig:
             genre_profiles = create_default_genre_profiles()
         self.genre_profiles = genre_profiles
 
-        # Mastering profile/preset (adaptive, gentle, warm, bright, punchy)
+        # Mastering profile/preset (only 'adaptive' is valid; see
+        # preset_profiles.create_preset_profiles)
         self.mastering_profile = "adaptive"
 
         # Continuous processing space (NEW - replaces discrete presets)
@@ -238,7 +239,7 @@ class UnifiedConfig:
         Set the mastering preset.
 
         Args:
-            preset_name: Name of the preset (adaptive, gentle, warm, bright, punchy)
+            preset_name: Name of the preset (only 'adaptive' is valid)
 
         Raises:
             ValueError: If preset name is not valid

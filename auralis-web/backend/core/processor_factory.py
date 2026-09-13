@@ -209,7 +209,7 @@ class ProcessorFactory:
 
         Args:
             track_id: Track ID for cache key (use 0 for non-track processing)
-            preset: Processing preset (adaptive, gentle, warm, bright, punchy)
+            preset: Processing preset (only 'adaptive' is valid)
             intensity: Processing intensity (0.0-1.0). Logged for
                 diagnostics and accepted for API stability, but NOT part
                 of the cache key — it is applied downstream as a dry/wet
