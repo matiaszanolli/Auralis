@@ -69,18 +69,30 @@ class PlayerCallbacksMixin:
         """
         Get comprehensive playback information.
 
-        Returns a flattened view for backward compatibility.
+        Returns a flattened view alongside the full nested structure.
+
+        #5233: despite the name, this isn't preserving compatibility with
+        any external caller — its only in-repo consumer is this mixin's own
+        `_notify_callbacks()`, feeding callbacks registered via
+        `add_callback()`. `auralis-web/backend` never calls either method;
+        WebSocket state pushes go through `audio_stream_controller.py`
+        instead. Remaining callers are test-only. If this callback-
+        registration path (`add_callback`/`_notify_callbacks`/
+        `get_playback_info`) is ever found to have no production consumer
+        at all, it's a dead-code deletion candidate in its own right — not
+        attempted here, since this fix's remit is the misleading framing,
+        not removing the mechanism.
         """
         full_info = self.integration.get_playback_info()
 
-        # Flatten the nested structure for backward compatibility
+        # Flattened top-level keys alongside the full nested structure below
+        # (kept for whatever reads either shape today; see the note above).
         return {
             'state': full_info['playback']['state'],
             'position_seconds': full_info['playback']['position_seconds'],
             'duration_seconds': full_info['playback']['duration_seconds'],
             'current_file': full_info['playback']['current_file'],
             'is_playing': full_info['playback']['is_playing'],
-            # Also include full nested structure for new code that expects it
             'playback': full_info['playback'],
             'queue': full_info['queue'],
             'library': full_info['library'],
