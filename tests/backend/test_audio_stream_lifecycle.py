@@ -144,7 +144,7 @@ def _make_sf_class(total_chunks: int = TOTAL_CHUNKS) -> MagicMock:
     meta_ctx.__exit__.return_value = False
     meta_ctx.samplerate = SAMPLE_RATE
     meta_ctx.channels = CHANNELS
-    meta_ctx.__len__.return_value = total_frames
+    meta_ctx.frames = total_frames
 
     # Per-chunk context manager factory
     def make_chunk_ctx() -> MagicMock:
@@ -535,7 +535,7 @@ class TestStreamNormalAudioLifecycle:
         meta_ctx.__exit__.return_value = False
         meta_ctx.samplerate = SAMPLE_RATE
         meta_ctx.channels = CHANNELS
-        meta_ctx.__len__.return_value = total_frames
+        meta_ctx.frames = total_frames
 
         # Chunk 0: read succeeds
         good_ctx = MagicMock()

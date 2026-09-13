@@ -202,12 +202,12 @@ class TestPrevTailNormalOperation:
             _write_sine(input_path, duration_sec=duration)
 
             with sf.SoundFile(str(input_path)) as f:
-                expected_frames = len(f)
+                expected_frames = f.frames
 
             pipeline.master_file(input_path, output_path, verbose=False)
 
             with sf.SoundFile(output_path) as f:
-                actual_frames = len(f)
+                actual_frames = f.frames
 
             # Allow for a 1-frame rounding delta at chunk boundaries
             assert abs(actual_frames - expected_frames) <= 1, (

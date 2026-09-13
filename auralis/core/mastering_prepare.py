@@ -118,7 +118,7 @@ def prepare_file(
     step_start = time.perf_counter()
     with sf.SoundFile(str(input_path)) as audio_file:
         sr = audio_file.samplerate
-        total_frames = len(audio_file)
+        total_frames = audio_file.frames
         channels = audio_file.channels
         duration = total_frames / sr
 

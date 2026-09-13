@@ -145,7 +145,7 @@ async def stream_normal_audio(
         # we open the SoundFile, record its shape, and close it immediately.
         def _get_audio_info(filepath: str) -> tuple[int, int, int]:
             with sf.SoundFile(filepath) as audio_file:
-                return audio_file.samplerate, audio_file.channels, len(audio_file)
+                return audio_file.samplerate, audio_file.channels, audio_file.frames
 
         sample_rate, channels, total_frames = await asyncio.to_thread(
             _get_audio_info, streaming_filepath

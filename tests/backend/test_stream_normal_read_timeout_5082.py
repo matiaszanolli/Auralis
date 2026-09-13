@@ -67,6 +67,7 @@ class _BlockingSoundFile:
     def __init__(self, filepath, *args, **kwargs):
         self.samplerate = SAMPLE_RATE
         self.channels = CHANNELS
+        self.frames = TOTAL_FRAMES
         self._filepath = filepath
 
     # Instances double as their own context manager, like soundfile's.
@@ -75,9 +76,6 @@ class _BlockingSoundFile:
 
     def __exit__(self, *exc):
         return False
-
-    def __len__(self):
-        return TOTAL_FRAMES
 
     def seek(self, frames):
         return frames

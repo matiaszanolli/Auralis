@@ -168,7 +168,7 @@ def compute_windowed_fingerprint(
             try:
                 import soundfile as _sf
                 with _sf.SoundFile(str(audio_path)) as _f:
-                    _total_s = len(_f) / _f.samplerate
+                    _total_s = _f.frames / _f.samplerate
             except Exception:
                 _total_s = None
 
