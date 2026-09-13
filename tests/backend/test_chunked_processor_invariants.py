@@ -40,8 +40,8 @@ from core.chunked_processor import (
     MAX_LEVEL_CHANGE_DB,
     OVERLAP_DURATION,
     ChunkedAudioProcessor,
-    apply_crossfade_between_chunks,
 )
+from core.chunk_crossfade import apply_crossfade_between_chunks
 
 # Add root to path for auralis imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))

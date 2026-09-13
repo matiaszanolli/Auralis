@@ -30,8 +30,8 @@ from core.chunked_processor import (
     CONTEXT_DURATION,
     OVERLAP_DURATION,
     ChunkedAudioProcessor,
-    apply_crossfade_between_chunks,
 )
+from core.chunk_crossfade import apply_crossfade_between_chunks
 from core.chunk_cache_manager import ChunkCacheManager
 from core.chunk_metadata import AudioMetadata
 from config.limits import CHUNK_TEMP_DIRNAME

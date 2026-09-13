@@ -72,7 +72,6 @@ from core.chunk_fingerprint_registry import (  # noqa: F401
 )
 from core.chunk_metadata import load_audio_metadata
 from core.chunk_operations import ChunkOperations  # noqa: F401
-from core.chunk_crossfade import apply_crossfade_between_chunks  # noqa: F401
 from core.chunk_mastering import compute_mastering_recommendation
 from core.chunk_processor_init import build_collaborators, init_fingerprint_and_processor
 from core.targets_hash import get_targets_hash

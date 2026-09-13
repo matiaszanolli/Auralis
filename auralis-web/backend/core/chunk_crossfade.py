@@ -15,9 +15,9 @@ below, though the math itself was always correct — do NOT switch fade_out/
 fade_in to bare cos(t)/sin(t)).
 
 Extracted from chunked_processor.py (#4245) as a standalone, stateless
-function; re-exported from chunked_processor so existing
-`from core.chunked_processor import apply_crossfade_between_chunks` imports keep
-working.
+function. It used to be re-exported from chunked_processor for backward
+compatibility, but every caller was in tests/ (#5366) — import it from
+here directly.
 
 NOTE (#4245 CONSISTENCY / #4071): audio_stream_controller.py applies NO
 boundary crossfade of its own — #4642 deleted the last remnant

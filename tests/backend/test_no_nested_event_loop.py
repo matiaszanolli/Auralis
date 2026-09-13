@@ -80,7 +80,7 @@ async def test_get_full_processed_audio_path_calls_process_chunk_safe():
     with (
         patch("core.chunk_batch.load_audio", return_value=(fake_audio, 44100)),
         patch("core.chunk_batch.save_audio"),
-        patch("core.chunked_processor.apply_crossfade_between_chunks", side_effect=lambda a, b, _: a),
+        patch("core.chunk_crossfade.apply_crossfade_between_chunks", side_effect=lambda a, b, _: a),
         patch.object(Path, "exists", return_value=False),
     ):
         result = await proc.get_full_processed_audio_path()
@@ -124,7 +124,7 @@ async def test_get_full_processed_audio_path_no_nested_loop():
         patch("asyncio.run", patched_asyncio_run),
         patch("core.chunk_batch.load_audio", return_value=(fake_audio, 44100)),
         patch("core.chunk_batch.save_audio"),
-        patch("core.chunked_processor.apply_crossfade_between_chunks", side_effect=lambda a, b, _: a),
+        patch("core.chunk_crossfade.apply_crossfade_between_chunks", side_effect=lambda a, b, _: a),
         patch.object(Path, "exists", return_value=False),
     ):
         await proc.get_full_processed_audio_path()
