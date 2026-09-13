@@ -185,9 +185,18 @@ class TrackRepositoryMutationMixin(BaseRepository):
                         setattr(track, key, value)
 
                 session.commit()
-                session.refresh(track)
-                session.expunge(track)
+                # Re-query with eager loading before detaching from session
+                # (#5247: refresh() expires the instance without re-applying
+                # query options, so album/artists/genres stayed unloaded and
+                # then raised DetachedInstanceError once expunged — matches
+                # update()/update_by_filepath() above in the same file).
+                track = session.execute(
+                    select(Track)
+                    .options(*_track_eager_options())
+                    .where(Track.id == track_id)
+                ).scalars().unique().first()
                 debug(f"Updated track metadata: {track.title}")
+                session.expunge(track)
                 return track
             except Exception as e:
                 session.rollback()

@@ -80,7 +80,14 @@ def client(monkeypatch):
 
     # validate_file_path is imported at module scope in routers.metadata,
     # so patching the bound name there takes effect immediately.
-    monkeypatch.setattr("routers.metadata.validate_file_path", lambda p: Path(p))
+    # #4925 wrapped the real function to accept an optional `context=` kwarg
+    # (for its rejection-logging decorator) — the stub needs to accept and
+    # discard it too, or a real caller passing `context=` breaks against
+    # this stub with "unexpected keyword argument 'context'".
+    monkeypatch.setattr(
+        "routers.metadata.validate_file_path",
+        lambda p, context=None: Path(p),
+    )
 
     app = FastAPI()
     router = create_metadata_router(
