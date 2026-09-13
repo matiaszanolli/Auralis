@@ -9,13 +9,48 @@ Methods here atomically claim tracks so parallel workers never double-process.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from sqlalchemy import select, text
+from typing import Any, cast
+
+from sqlalchemy import delete, select, text, update
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
 from ...utils.logging import debug, error
 from ...__version__ import FINGERPRINT_ALGORITHM_VERSION
 from ..models import Track, TrackFingerprint
 from .base import BaseRepository
+
+
+def release_claims(session: Session, track_id: int | None = None) -> tuple[int, int]:
+    """Undo in-progress fingerprint claims; the caller commits.
+
+    Reverses both claim sentinels so the track re-enters its queue:
+
+    1. New-track placeholders (lufs=-100.0, #2453) are deleted, so the track
+       matches ``claim_next_unfingerprinted_track`` again.
+    2. Outdated-fingerprint claims (fingerprint_version=0) are reset to
+       version 1, so the row matches ``claim_next_outdated_fingerprint`` again.
+
+    Scoped to one track (a failed extraction, #5308) or, with ``track_id``
+    None, every row (startup crash recovery).
+
+    Returns:
+        (placeholders deleted, outdated claims reset)
+    """
+    # #3711: ORM delete()/update() rather than raw text(), so a table rename
+    # via migrations is caught here.
+    placeholders = delete(TrackFingerprint).where(TrackFingerprint.lufs == -100.0)
+    claimed = update(TrackFingerprint).where(TrackFingerprint.fingerprint_version == 0)
+    if track_id is not None:
+        placeholders = placeholders.where(TrackFingerprint.track_id == track_id)
+        claimed = claimed.where(TrackFingerprint.track_id == track_id)
+    # Bulk DML types as a plain Result; at runtime it is a CursorResult.
+    deleted = cast(CursorResult[Any], session.execute(placeholders)).rowcount
+    reset = cast(
+        CursorResult[Any], session.execute(claimed.values(fingerprint_version=1))
+    ).rowcount
+    return deleted, reset
 
 
 class FingerprintSchedulerRepository(BaseRepository):
@@ -159,7 +194,9 @@ class FingerprintSchedulerRepository(BaseRepository):
                 )
                 session.commit()
 
-                if result.rowcount != 1:
+                # A text() UPDATE types as a plain Result; at runtime it is a
+                # CursorResult, which is what carries rowcount.
+                if cast(CursorResult[Any], result).rowcount != 1:
                     # Another worker got there first
                     debug(f"Track {track_id} outdated fingerprint already claimed")
                     return None
@@ -176,3 +213,24 @@ class FingerprintSchedulerRepository(BaseRepository):
                 return None
             finally:
                 session.expunge_all()
+
+    def release_claim(self, track_id: int) -> bool:
+        """Release this track's claim after its extraction failed (#5308).
+
+        Without this, the claim sentinel written by either claim method stayed
+        in place, matching neither claim query, so the track was never retried
+        until ``cleanup_incomplete_fingerprints`` ran at the next startup. A
+        real fingerprint row that the extraction did manage to store matches
+        neither sentinel and is left untouched.
+
+        Returns:
+            True if a claim was released, False if there was none.
+        """
+        with self._session_scope() as session:
+            try:
+                deleted, reset = release_claims(session, track_id)
+                session.commit()
+            except Exception:
+                session.rollback()
+                raise
+        return bool(deleted or reset)

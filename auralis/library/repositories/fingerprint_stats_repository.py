@@ -11,12 +11,13 @@ Statistics, status tracking, and crash-recovery cleanup for fingerprints.
 from typing import Any
 from datetime import datetime
 
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import func, select, update
 
 from ...utils.logging import error, info
 from ...__version__ import FINGERPRINT_ALGORITHM_VERSION
 from ..models import Track, TrackFingerprint
 from .base import BaseRepository
+from .fingerprint_scheduler_repository import release_claims
 
 
 class FingerprintStatsRepository(BaseRepository):
@@ -146,24 +147,10 @@ class FingerprintStatsRepository(BaseRepository):
         """
         with self._session_scope() as session:
             try:
-                # 1. Delete new-track placeholder rows (lufs=-100.0 sentinel, #2453).
-                result = session.execute(
-                    delete(TrackFingerprint).where(TrackFingerprint.lufs == -100.0)
-                )
-                deleted_count = result.rowcount
-
-                # 2. Reset stale outdated-fingerprint claims (fingerprint_version=0 sentinel).
-                #    These are fingerprints that were claimed for re-extraction but the
-                #    worker crashed before completing. Reset to version 1 so they are
-                #    eligible for re-claiming next time.
-                # #3711: use ORM update() instead of raw text() — table renames via
-                # migrations would catch the change here.
-                reset_result = session.execute(
-                    update(TrackFingerprint)
-                    .where(TrackFingerprint.fingerprint_version == 0)
-                    .values(fingerprint_version=1)
-                )
-                reset_count = reset_result.rowcount
+                # Same release the worker applies to one track after a failed
+                # extraction (#5308), so the two cannot disagree on what a
+                # claim sentinel is.
+                deleted_count, reset_count = release_claims(session)
 
                 total = deleted_count + reset_count
                 if total == 0:

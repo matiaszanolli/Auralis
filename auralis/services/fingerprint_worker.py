@@ -34,8 +34,13 @@ from ..utils.logging import debug, error, info, warning
 
 DEFAULT_TRACK_TIMEOUT_SECONDS: float = 600.0
 
-
-DEFAULT_TRACK_TIMEOUT_SECONDS: float = 600.0
+# Extraction attempts per track per process before its claim is left in place
+# (#5308). A failed attempt releases the claim so the track is retried without
+# a restart; the cap stops a permanently failing file (oversized, undecodable,
+# hanging) from being re-claimed forever — claims are ordered by track id, so
+# an uncapped release would hand the same file straight back to a worker. The
+# claim left behind is cleared by the startup cleanup, as before.
+MAX_EXTRACTION_ATTEMPTS: int = 3
 
 
 def _default_track_timeout() -> float:
@@ -77,6 +82,10 @@ class FingerprintWorkerExecution:
     """
 
     extractor: FingerprintExtractor
+    _get_repository_factory: Callable[[], Any]
+    # track_id -> failed extraction attempts this process (#5308); guarded by
+    # stats_lock.
+    _failed_attempts: dict[int, int]
     track_timeout: float
     processing_semaphore: ResizableSemaphore
     workers: list[threading.Thread]
@@ -234,6 +243,7 @@ class FingerprintWorkerExecution:
                 with self.stats_lock:
                     self.stats['completed'] += 1
                     self.stats['total_time'] += time.time() - job_start
+                    self._failed_attempts.pop(track.id, None)
 
                 info(f"Fingerprint extracted for track {track.id}")
 
@@ -260,12 +270,39 @@ class FingerprintWorkerExecution:
                 'error': str(e)
             })
 
+            self._release_failed_claim(track.id)
+
         finally:
             with self.stats_lock:
                 self.stats['processing'] = max(0, self.stats['processing'] - 1)
 
             # Release semaphore to allow next worker to process
             self.processing_semaphore.release()
+
+    def _release_failed_claim(self, track_id: int) -> None:
+        """Make a failed track claimable again, up to MAX_EXTRACTION_ATTEMPTS (#5308).
+
+        The claim sentinel written before extraction (placeholder row or
+        version-0 marker) otherwise matches neither claim query, so the track
+        sat "pending" until the next app restart. Best-effort: a release that
+        fails just leaves the old behaviour (retry at next startup).
+        """
+        with self.stats_lock:
+            attempts = self._failed_attempts.get(track_id, 0) + 1
+            self._failed_attempts[track_id] = attempts
+
+        if attempts >= MAX_EXTRACTION_ATTEMPTS:
+            warning(
+                f"Track {track_id} failed fingerprinting {attempts} times; "
+                f"not retrying until the next restart"
+            )
+            return
+
+        try:
+            self._get_repository_factory().fingerprint_scheduler.release_claim(track_id)
+            debug(f"Released fingerprint claim for track {track_id} (attempt {attempts})")
+        except Exception as e:
+            error(f"Failed to release fingerprint claim for track {track_id}: {e}")
 
     def _report_progress(self, progress_data: dict[str, Any]) -> None:
         """Report progress to callback if set"""

@@ -114,6 +114,8 @@ class FingerprintExtractionQueue(FingerprintWorkerExecution, AdaptiveScalingMixi
             'scale_events': 0
         }
         self.stats_lock: threading.RLock = threading.RLock()
+        # track_id -> failed extraction attempts this process (#5308).
+        self._failed_attempts: dict[int, int] = {}
 
         self.processing_semaphore: ResizableSemaphore = build_processing_semaphore(
             max_workers
