@@ -5,10 +5,11 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactNode, createElement } from 'react';
 import { useAlbumFingerprint, useAlbumFingerprints } from '../useAlbumFingerprint';
+import { DEFAULT_TIMEOUT_MS } from '@/utils/apiRequest';
 
 const setupFetch = (response: any, status = 200) => {
   global.fetch = vi.fn().mockResolvedValue({
@@ -271,5 +272,53 @@ describe('useAlbumFingerprints batch tolerance (#5122)', () => {
     expect(result.current.fingerprints.get(1)).toBeNull();
     expect(warn).not.toHaveBeenCalled();
     warn.mockRestore();
+  });
+});
+
+/**
+ * #5019: both fingerprint fetchers used a bare fetch() with no signal and no
+ * timeout, so a stalled backend left the query loading forever — and an album
+ * grid issues one request per visible tile.
+ */
+describe('request timeout (#5019)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('bounds the request and surfaces the timeout as an error', async () => {
+    vi.useFakeTimers();
+    try {
+      let captured: AbortSignal | undefined;
+      global.fetch = vi.fn((_url: string, init: RequestInit) => {
+        captured = init.signal as AbortSignal;
+        return new Promise((_resolve, reject) => {
+          init.signal?.addEventListener('abort', () => {
+            reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+          });
+        });
+      }) as unknown as typeof fetch;
+
+      const { result } = renderHook(() => useAlbumFingerprint(4242), {
+        wrapper: createWrapper(),
+      });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1);
+      });
+      // The bare fetch() passed no signal at all; the shared transport always
+      // does, and aborts it once DEFAULT_TIMEOUT_MS elapses.
+      expect(captured).toBeDefined();
+      expect(captured!.aborted).toBe(false);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(DEFAULT_TIMEOUT_MS);
+      });
+
+      expect(captured!.aborted).toBe(true);
+      expect(result.current.isLoading).toBe(false);
+      expect(result.current.error).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

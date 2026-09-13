@@ -12,9 +12,26 @@ import { renderHook, act } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { ReactNode, createElement } from 'react';
 import { createTestStore } from '@/test/test-utils';
+import { DEFAULT_TIMEOUT_MS } from '@/utils/apiRequest';
 import { useAPIHealthPoll } from '../useAPIHealthPoll';
 
 let mockFetch: ReturnType<typeof vi.fn>;
+
+/**
+ * The poll goes through `get()` (#5019), which parses the response body, so a
+ * mock response needs a `json()` — a bare `{ ok: true }` reads as a transport
+ * failure rather than a healthy backend.
+ */
+const okResponse = () => ({ ok: true, status: 200, json: async () => ({ status: 'ok' }) });
+
+/** A request that never settles until the transport's timeout aborts it. */
+const hangingFetch = () =>
+  vi.fn((_url: string, init: RequestInit) =>
+    new Promise((_resolve, reject) => {
+      init.signal?.addEventListener('abort', () => {
+        reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+      });
+    }));
 
 function makeWrapper(store: ReturnType<typeof createTestStore>) {
   return ({ children }: { children: ReactNode }) =>
@@ -44,7 +61,7 @@ afterEach(() => {
 
 describe('useAPIHealthPoll (#5012)', () => {
   it('polls immediately on mount and dispatches connected + latency on success', async () => {
-    mockFetch.mockResolvedValue({ ok: true });
+    mockFetch.mockResolvedValue(okResponse());
     const store = createTestStore();
     renderHook(() => useAPIHealthPoll(5000), { wrapper: makeWrapper(store) });
 
@@ -53,13 +70,18 @@ describe('useAPIHealthPoll (#5012)', () => {
       await vi.advanceTimersByTimeAsync(5000);
     });
 
-    expect(mockFetch).toHaveBeenCalledWith('/api/health', { method: 'GET' });
+    // #5019: through `get()`, so the init now also carries the transport's
+    // headers and its timeout-composed AbortSignal.
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/health',
+      expect.objectContaining({ method: 'GET', signal: expect.any(AbortSignal) })
+    );
     expect(store.getState().connection.apiConnected).toBe(true);
     expect(typeof store.getState().connection.latency).toBe('number');
   });
 
   it('fires on every interval tick', async () => {
-    mockFetch.mockResolvedValue({ ok: true });
+    mockFetch.mockResolvedValue(okResponse());
     const store = createTestStore();
     renderHook(() => useAPIHealthPoll(1000), { wrapper: makeWrapper(store) });
 
@@ -85,8 +107,13 @@ describe('useAPIHealthPoll (#5012)', () => {
     expect(store.getState().connection.latency).toBe(0);
   });
 
-  it('dispatches connected: false when the response is not ok', async () => {
-    mockFetch.mockResolvedValue({ ok: false });
+  it('leaves the connection state alone when the response is not ok', async () => {
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 503,
+      statusText: 'Service Unavailable',
+      json: async () => ({ detail: 'degraded' }),
+    });
     const store = createTestStore({
       connection: { apiConnected: true },
     });
@@ -96,14 +123,16 @@ describe('useAPIHealthPoll (#5012)', () => {
       await vi.advanceTimersByTimeAsync(5000);
     });
 
-    // A non-ok response neither branch dispatches for — success requires
-    // response.ok, failure requires a thrown/rejected fetch — so state is
-    // simply not updated from its seeded value.
+    // A non-ok response neither branch dispatches for — success required
+    // response.ok, failure required a thrown/rejected fetch — so state is
+    // simply not updated from its seeded value. #5019 preserved this: `get()`
+    // throws on a non-2xx, and the catch re-narrows to transport-level
+    // failures (statusCode 0) before marking the API disconnected.
     expect(store.getState().connection.apiConnected).toBe(true);
   });
 
   it('stops polling while the tab is hidden (#3257)', async () => {
-    mockFetch.mockResolvedValue({ ok: true });
+    mockFetch.mockResolvedValue(okResponse());
     const store = createTestStore();
     renderHook(() => useAPIHealthPoll(1000), { wrapper: makeWrapper(store) });
 
@@ -125,7 +154,7 @@ describe('useAPIHealthPoll (#5012)', () => {
   });
 
   it('polls immediately and resumes the interval when the tab becomes visible again (#3257)', async () => {
-    mockFetch.mockResolvedValue({ ok: true });
+    mockFetch.mockResolvedValue(okResponse());
     const store = createTestStore();
     renderHook(() => useAPIHealthPoll(1000), { wrapper: makeWrapper(store) });
 
@@ -149,7 +178,7 @@ describe('useAPIHealthPoll (#5012)', () => {
   });
 
   it('does not dispatch after unmount, even if an in-flight fetch resolves later (#3585)', async () => {
-    let resolveFetch: (value: { ok: boolean }) => void;
+    let resolveFetch: (value: unknown) => void;
     mockFetch.mockReturnValue(
       new Promise((resolve) => {
         resolveFetch = resolve;
@@ -167,7 +196,7 @@ describe('useAPIHealthPoll (#5012)', () => {
 
     unmount();
     await act(async () => {
-      resolveFetch({ ok: true });
+      resolveFetch(okResponse());
       await Promise.resolve();
     });
 
@@ -176,8 +205,33 @@ describe('useAPIHealthPoll (#5012)', () => {
     expect(store.getState().connection.apiConnected).toBe(false);
   });
 
+  it('gives up on a hung request after the shared transport timeout (#5019)', async () => {
+    // The pre-#5019 bare fetch() had no timeout at all: a stalled backend left
+    // one request pending per interval tick, forever, and the indicator kept
+    // reporting whatever it last saw.
+    mockFetch = hangingFetch();
+    vi.stubGlobal('fetch', mockFetch);
+    const store = createTestStore({
+      connection: { apiConnected: true, latency: 42 },
+    });
+    renderHook(() => useAPIHealthPoll(5000), { wrapper: makeWrapper(store) });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+    // Still in flight — nothing has been decided yet.
+    expect(store.getState().connection.apiConnected).toBe(true);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(DEFAULT_TIMEOUT_MS);
+    });
+
+    expect(store.getState().connection.apiConnected).toBe(false);
+    expect(store.getState().connection.latency).toBe(0);
+  });
+
   it('removes the visibilitychange listener on unmount', async () => {
-    mockFetch.mockResolvedValue({ ok: true });
+    mockFetch.mockResolvedValue(okResponse());
     const store = createTestStore();
     const { unmount } = renderHook(() => useAPIHealthPoll(1000), {
       wrapper: makeWrapper(store),

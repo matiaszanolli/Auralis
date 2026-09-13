@@ -10,6 +10,16 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useLibraryScan } from '../useLibraryScan';
 import { useToast } from '@/components/shared/Toast';
+import { DEFAULT_TIMEOUT_MS } from '@/utils/apiRequest';
+
+/** A request that never settles until the transport's timeout aborts it. */
+const hangingImpl = (_url: string, init: RequestInit) =>
+  new Promise((_resolve, reject) => {
+    init.signal?.addEventListener('abort', () => {
+      reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+    });
+  });
+
 
 vi.mock('@/components/shared/Toast', () => ({ useToast: vi.fn() }));
 vi.mock('@/utils/electron', () => ({
@@ -109,6 +119,36 @@ describe('useLibraryScan (#4185)', () => {
     expect(mockError).toHaveBeenCalledWith(expect.stringContaining('3 failed'));
     expect(mockError).toHaveBeenCalledWith(expect.stringContaining('2 skipped'));
     expect(mockSuccess).not.toHaveBeenCalled();
+  });
+
+  it('stops scanning with an error toast when the request times out (#5019)', async () => {
+    // Pre-#5019 the POST went through a bare fetch(): its AbortController only
+    // fired on unmount or supersede, so a hung backend left `scanning` true
+    // (and the scan button disabled) with no toast, indefinitely.
+    vi.useFakeTimers();
+    try {
+      mockFetch.mockImplementation(hangingImpl);
+
+      const { result } = setup();
+      act(() => result.current.setWebFolderPath('/music'));
+      let pending!: Promise<void>;
+      act(() => {
+        pending = result.current.handleScanFolder();
+      });
+      expect(result.current.scanning).toBe(true);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(DEFAULT_TIMEOUT_MS);
+        await pending;
+      });
+
+      expect(result.current.scanning).toBe(false);
+      // A timeout is a transport failure (statusCode 0), so it takes the
+      // "backend unreachable" arm rather than the `Scan failed: <detail>` one.
+      expect(mockError).toHaveBeenCalledWith(expect.stringContaining('Error scanning folder'));
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('aborts the in-flight scan on unmount', async () => {

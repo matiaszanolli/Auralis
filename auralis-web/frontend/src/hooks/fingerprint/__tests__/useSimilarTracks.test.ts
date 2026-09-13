@@ -8,6 +8,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useSimilarTracks } from '../useSimilarTracks';
 import { clearSimilarityCache } from '../similarityCache';
+import { DEFAULT_TIMEOUT_MS } from '@/utils/apiRequest';
 
 // Mock fetch
 const mockFetchResponse = (data: any, ok = true, status = 200) => {
@@ -210,7 +211,10 @@ describe('backend error detail (#4626)', () => {
       await result.current.findSimilar(7).catch(() => {});
     });
 
-    expect(result.current.error).toBe('HTTP 500: Internal Server Error');
+    // #5019: the shared transport formats the detail-less fallback as
+    // "<status> <statusText>" rather than "HTTP <status>: <statusText>". Same
+    // information, one format across every call site.
+    expect(result.current.error).toBe('500 Internal Server Error');
     expect(result.current.errorStatus).toBe(500);
   });
 
@@ -307,5 +311,49 @@ describe('useGraph cache aliasing (#4629)', () => {
 
     // The key gained a dimension; it must not have become cache-busting.
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * #5019: the search went through a bare fetch() whose AbortController only
+ * fired on unmount/supersede, so a hung backend left `loading` true with no
+ * error for as long as the modal stayed open. The shared transport bounds it.
+ */
+describe('request timeout (#5019)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    clearSimilarityCache();
+  });
+
+  it('fails the search after the transport timeout instead of hanging', async () => {
+    vi.useFakeTimers();
+    try {
+      global.fetch = vi.fn((_url: string, init: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          init.signal?.addEventListener('abort', () => {
+            reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+          });
+        })) as unknown as typeof fetch;
+
+      const { result } = renderHook(() => useSimilarTracks());
+      let pending!: Promise<unknown>;
+      act(() => {
+        pending = result.current.findSimilar(4242).catch(() => undefined);
+      });
+      expect(result.current.loading).toBe(true);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(DEFAULT_TIMEOUT_MS);
+        await pending;
+      });
+
+      expect(result.current.loading).toBe(false);
+      expect(result.current.error).toContain('timed out');
+      // A timeout has no HTTP status; errorStatus must stay null rather than
+      // reporting the transport's internal 0.
+      expect(result.current.errorStatus).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

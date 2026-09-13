@@ -11,6 +11,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import { useScanProgress } from '../useScanProgress';
+import { DEFAULT_TIMEOUT_MS } from '@/utils/apiRequest';
 import type { WebSocketMessage } from '@/types/websocket';
 
 vi.mock('@/contexts/WebSocketContext');
@@ -490,6 +491,38 @@ describe('useScanProgress', () => {
       renderHook(() => useScanProgress());
 
       expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('bounds the resync request with the shared transport timeout (#5019)', async () => {
+      // The bare fetch() this replaced had only the disconnect/unmount signal,
+      // so a hung backend left one resync request pending per reconnect.
+      vi.useFakeTimers();
+      try {
+        let captured: AbortSignal | undefined;
+        mockConnected(((_url: string, init: RequestInit) => {
+          captured = init.signal as AbortSignal;
+          return new Promise((_resolve, reject) => {
+            init.signal?.addEventListener('abort', () => {
+              reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+            });
+          });
+        }) as unknown as typeof fetch);
+
+        const { result } = renderHook(() => useScanProgress());
+        expect(captured).toBeDefined();
+        expect(captured!.aborted).toBe(false);
+
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(DEFAULT_TIMEOUT_MS);
+        });
+
+        expect(captured!.aborted).toBe(true);
+        // Best-effort resync: a timeout must leave local state untouched, not
+        // throw or wedge the hook.
+        expect(result.current.isScanning).toBe(false);
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it('tolerates a fetch failure without throwing', async () => {

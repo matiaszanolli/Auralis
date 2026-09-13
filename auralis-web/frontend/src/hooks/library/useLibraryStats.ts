@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { type LibraryStats } from '@/types/domain';
-import { getApiUrl } from '@/config/api';
+import { get } from '@/utils/apiRequest';
+import { isAbortError } from '@/utils/errorGuards';
 
 export type { LibraryStats };
 
@@ -37,12 +38,18 @@ export const useLibraryStats = ({ includeStats }: UseLibraryStatsOptions): UseLi
     setStatsLoading(true);
     setStatsError(null);
     try {
-      const response = await fetch(getApiUrl('/api/library/stats'), { signal: controller.signal });
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      const data: LibraryStats = await response.json();
+      // #5019: routed through the shared transport, which composes
+      // DEFAULT_TIMEOUT_MS with the unmount signal below. The raw fetch() this
+      // replaces had no upper bound, so a hung backend left statsLoading stuck
+      // true for as long as the view stayed mounted.
+      const data = await get<LibraryStats>('/api/library/stats', { signal: controller.signal });
+      if (controller.signal.aborted) return;
       setStats(data);
     } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') return;
+      // get() wraps even a caller-triggered abort into an APIRequestError
+      // rather than preserving AbortError's `.name`, so the signal — not the
+      // error shape — is what authoritatively identifies a cancellation.
+      if (controller.signal.aborted || isAbortError(err)) return;
       const message = err instanceof Error ? err.message : 'Failed to fetch stats';
       console.error('Error fetching library stats:', err);
       setStatsError(message);

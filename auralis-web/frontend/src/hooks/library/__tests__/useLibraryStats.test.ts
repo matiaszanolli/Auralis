@@ -7,6 +7,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
+import { DEFAULT_TIMEOUT_MS } from '@/utils/apiRequest';
 import { useLibraryStats } from '../useLibraryStats';
 
 let mockFetch: ReturnType<typeof vi.fn>;
@@ -54,6 +55,40 @@ describe('useLibraryStats (#4185)', () => {
 
     expect(result.current.statsError).toContain('500');
     expect(result.current.statsLoading).toBe(false);
+  });
+
+  it('clears the loading state with an error when the request times out (#5019)', async () => {
+    // Pre-#5019 this hook called fetch() directly: the AbortController only
+    // fired on unmount, so a hung backend left statsLoading true for as long
+    // as the view stayed mounted. The shared transport bounds it.
+    vi.useFakeTimers();
+    try {
+      mockFetch.mockImplementation(
+        (_url: string, init: RequestInit) =>
+          new Promise((_resolve, reject) => {
+            init.signal?.addEventListener('abort', () => {
+              reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+            });
+          })
+      );
+
+      const { result } = renderHook(() => useLibraryStats({ includeStats: true }));
+      let pending!: Promise<void>;
+      act(() => {
+        pending = result.current.refetchStats();
+      });
+      expect(result.current.statsLoading).toBe(true);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(DEFAULT_TIMEOUT_MS);
+        await pending;
+      });
+
+      expect(result.current.statsLoading).toBe(false);
+      expect(result.current.statsError).toContain('timed out');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('aborts the in-flight stats request on unmount', async () => {

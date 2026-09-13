@@ -14,8 +14,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import type { AudioFingerprint } from '@/utils/fingerprintToGradient';
-import { httpErrorFromResponse } from '@/utils/httpError';
-import { getApiUrl } from '@/config/api';
+import { get, APIRequestError } from '@/utils/apiRequest';
 
 interface TrackFingerprintResponse {
   track_id: number;
@@ -36,19 +35,21 @@ interface TrackFingerprintResponse {
  * `query.error` permanently empty.
  */
 const fetchTrackFingerprint = async (trackId: number): Promise<TrackFingerprintResponse | null> => {
-  const response = await fetch(getApiUrl(`/api/tracks/${trackId}/fingerprint`));
-
-  if (!response.ok) {
+  try {
+    // #5019: shared transport, which bounds the request at DEFAULT_TIMEOUT_MS.
+    // The bare fetch() this replaces had no signal and no timeout, so a stalled
+    // backend left the query loading forever with `refetchInterval` unable to
+    // reach a terminal state.
+    return await get<TrackFingerprintResponse>(`/api/tracks/${trackId}/fingerprint`);
+  } catch (err) {
     // Track doesn't have fingerprint yet (queued for generation)
-    if (response.status === 404) {
+    if (err instanceof APIRequestError && err.statusCode === 404) {
       return null;
     }
-    // Surface the backend's `detail` and status rather than a bare
+    // get() already surfaces the backend's `detail` rather than a bare
     // `statusText`, which is empty over HTTP/2 (#4626).
-    throw await httpErrorFromResponse(response);
+    throw err;
   }
-
-  return await response.json();
 };
 
 /**

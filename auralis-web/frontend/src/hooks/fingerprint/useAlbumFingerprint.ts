@@ -14,8 +14,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import type { AudioFingerprint } from '@/utils/fingerprintToGradient';
-import { httpErrorFromResponse } from '@/utils/httpError';
-import { getApiUrl } from '@/config/api';
+import { get, APIRequestError } from '@/utils/apiRequest';
 
 interface AlbumFingerprintResponse {
   album_id: number;
@@ -43,20 +42,21 @@ interface AlbumFingerprintResponse {
  * that hook's shape rather than inventing a third.
  */
 const fetchAlbumFingerprint = async (albumId: number): Promise<AudioFingerprint | null> => {
-  const response = await fetch(getApiUrl(`/api/albums/${albumId}/fingerprint`));
-
-  if (!response.ok) {
+  try {
+    // #5019: shared transport, which bounds the request at DEFAULT_TIMEOUT_MS.
+    // The bare fetch() this replaces had no signal and no timeout, and a grid
+    // of album tiles issues one of these per tile.
+    const data = await get<AlbumFingerprintResponse>(`/api/albums/${albumId}/fingerprint`);
+    return data.fingerprint;
+  } catch (err) {
     // Album doesn't have fingerprints yet, return null (will use hash fallback)
-    if (response.status === 404) {
+    if (err instanceof APIRequestError && err.statusCode === 404) {
       return null;
     }
-    // Surface the backend's `detail` and status rather than a bare
+    // get() already surfaces the backend's `detail` rather than a bare
     // `statusText`, which is empty over HTTP/2 (#4626).
-    throw await httpErrorFromResponse(response);
+    throw err;
   }
-
-  const data: AlbumFingerprintResponse = await response.json();
-  return data.fingerprint;
 };
 
 /**

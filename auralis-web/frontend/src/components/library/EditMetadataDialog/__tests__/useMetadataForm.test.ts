@@ -11,6 +11,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useMetadataForm } from '../useMetadataForm';
+import { DEFAULT_TIMEOUT_MS } from '@/utils/apiRequest';
+
+/** A request that never settles until the transport's timeout aborts it. */
+const hangingImpl = (_url: string, init: RequestInit) =>
+  new Promise((_resolve, reject) => {
+    init.signal?.addEventListener('abort', () => {
+      reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+    });
+  });
 
 const initial = { title: 'Song' };
 let mockFetch: ReturnType<typeof vi.fn>;
@@ -58,6 +67,56 @@ describe('useMetadataForm.saveMetadata (#4175)', () => {
 
     expect(ret).toBe(true);
     expect(result.current.success).toBe(true);
+    expect(result.current.saving).toBe(false);
+  });
+
+  it('surfaces an error and clears saving when the PUT times out (#5019)', async () => {
+    // The raw fetch() had the unmount signal but no timeout, so a hung backend
+    // left the dialog's spinner on with no error, forever.
+    vi.useFakeTimers();
+    try {
+      mockFetch.mockImplementation(hangingImpl);
+
+      const { result } = renderHook(() => useMetadataForm(1, initial));
+      let savePromise!: Promise<boolean | undefined>;
+      act(() => {
+        savePromise = result.current.saveMetadata() as Promise<boolean | undefined>;
+      });
+      expect(result.current.saving).toBe(true);
+
+      let ret: boolean | undefined;
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(DEFAULT_TIMEOUT_MS);
+        ret = await savePromise;
+      });
+
+      expect(ret).toBe(false);
+      expect(result.current.saving).toBe(false);
+      expect(result.current.success).toBe(false);
+      expect(result.current.error).toContain('timed out');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('sets an error message when the save fails with a backend detail', async () => {
+    // post/put throw on non-2xx instead of returning a response to branch on;
+    // the backend's `detail` must still reach the dialog (#5019).
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 422,
+      statusText: '',
+      json: async () => ({ detail: 'year must be a number' }),
+    });
+
+    const { result } = renderHook(() => useMetadataForm(1, initial));
+    let ret: boolean | undefined;
+    await act(async () => {
+      ret = await result.current.saveMetadata();
+    });
+
+    expect(ret).toBe(false);
+    expect(result.current.error).toBe('year must be a number');
     expect(result.current.saving).toBe(false);
   });
 

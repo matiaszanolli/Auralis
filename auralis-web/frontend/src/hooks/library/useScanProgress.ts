@@ -13,7 +13,7 @@ import type {
   ScanCompleteMessage,
 } from '@/types/websocket';
 import { isLibraryTracksRemovedMessage } from '@/types/ws/guards';
-import { getApiUrl } from '@/config/api';
+import { get } from '@/utils/apiRequest';
 
 export interface ScanProgress {
   isScanning: boolean;
@@ -79,9 +79,12 @@ export function useScanProgress(): ScanStatus {
     if (connectionStatus !== 'connected') return;
 
     const controller = new AbortController();
-    fetch(getApiUrl('/api/library/scan/status'), { signal: controller.signal })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data: { is_scanning?: boolean } | null) => {
+    // #5019: shared transport, so the resync inherits DEFAULT_TIMEOUT_MS on top
+    // of the disconnect/unmount signal. get() rejects on a non-2xx rather than
+    // resolving to null, which the .catch() below already treats as "leave
+    // local state alone" — the same outcome as the old `response.ok ? … : null`.
+    get<{ is_scanning?: boolean }>('/api/library/scan/status', { signal: controller.signal })
+      .then((data) => {
         if (!data) return;
         setState((prev) => {
           if (data.is_scanning) {
@@ -99,8 +102,8 @@ export function useScanProgress(): ScanStatus {
         });
       })
       .catch(() => {
-        // Best-effort resync — a transient fetch failure just leaves local
-        // state as-is until the next (re)connect retries.
+        // Best-effort resync — a transient request failure (including a
+        // timeout) just leaves local state as-is until the next (re)connect.
       });
 
     return () => controller.abort();

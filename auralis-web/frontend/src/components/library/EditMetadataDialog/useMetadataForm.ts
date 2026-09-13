@@ -10,7 +10,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { isAbortError } from '@/utils/errorGuards';
-import { getApiUrl } from '@/config/api';
+import { get, put, APIRequestError } from '@/utils/apiRequest';
 
 export interface MetadataFields {
   title?: string;
@@ -26,6 +26,23 @@ export interface MetadataFields {
   composer?: string;
   publisher?: string;
 }
+
+/**
+ * Message to show for a failed request (#5019).
+ *
+ * The shared transport throws instead of returning a response to branch on, so
+ * each call site that used to read `response.ok` maps the thrown error back to
+ * the string it showed before: the backend's `detail` when there is one (what
+ * the PUT path already did), the generic fallback for a `detail`-less HTTP
+ * failure, and the underlying message for a transport failure (network error or
+ * timeout, both statusCode 0).
+ */
+const messageFor = (err: unknown, fallback: string): string => {
+  if (err instanceof APIRequestError) {
+    return err.detail ?? (err.statusCode === 0 ? err.message : fallback);
+  }
+  return err instanceof Error ? err.message : fallback;
+};
 
 export const useMetadataForm = (
   trackId: number,
@@ -60,12 +77,11 @@ export const useMetadataForm = (
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(getApiUrl(`/api/metadata/tracks/${trackId}`), {
+        // #5019: shared transport — composes DEFAULT_TIMEOUT_MS with the
+        // unmount signal, where the raw fetch() had cancellation but no bound.
+        const data: unknown = await get<unknown>(`/api/metadata/tracks/${trackId}`, {
           signal: controller.signal,
         });
-        if (!response.ok) throw new Error('Failed to fetch metadata');
-
-        const data: unknown = await response.json();
         if (controller.signal.aborted) return;
 
         if (
@@ -78,9 +94,11 @@ export const useMetadataForm = (
         }
         setMetadata((data as { metadata: MetadataFields }).metadata || {});
       } catch (err) {
-        if (isAbortError(err)) return;
+        // get() wraps a caller-triggered abort into an APIRequestError rather
+        // than preserving AbortError's `.name`, so check the signal too.
+        if (controller.signal.aborted || isAbortError(err)) return;
         console.error('Error fetching metadata:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load metadata');
+        setError(messageFor(err, 'Failed to fetch metadata'));
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
@@ -129,23 +147,13 @@ export const useMetadataForm = (
         return;
       }
 
-      const response = await fetch(getApiUrl(`/api/metadata/tracks/${trackId}`), {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updates),
+      // #5019: shared transport — same cancellation as before, plus the
+      // DEFAULT_TIMEOUT_MS bound the raw fetch() lacked.
+      await put(`/api/metadata/tracks/${trackId}`, updates as Record<string, unknown>, {
         signal: controller.signal,
       });
 
       // Bail before any setState if the dialog closed mid-request.
-      if (controller.signal.aborted) return false;
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to save metadata');
-      }
-
       if (controller.signal.aborted) return false;
       setSuccess(true);
 
@@ -156,12 +164,11 @@ export const useMetadataForm = (
 
       return true;
     } catch (err) {
-      // Aborted by unmount — not user-facing.
-      if (isAbortError(err)) return false;
+      // Aborted by unmount — not user-facing. The signal is checked alongside
+      // the error shape because the shared transport rewraps aborts.
+      if (controller.signal.aborted || isAbortError(err)) return false;
       console.error('Error saving metadata:', err);
-      if (!controller.signal.aborted) {
-        setError(err instanceof Error ? err.message : 'Failed to save metadata');
-      }
+      setError(messageFor(err, 'Failed to save metadata'));
       return false;
     } finally {
       if (!controller.signal.aborted) setSaving(false);

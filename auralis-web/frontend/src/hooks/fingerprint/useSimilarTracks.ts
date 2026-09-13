@@ -26,14 +26,24 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { isAbortError } from '@/utils/errorGuards';
-import { httpErrorFromResponse, type HttpStatusError } from '@/utils/httpError';
-import { getApiUrl } from '@/config/api';
+import { get, APIRequestError } from '@/utils/apiRequest';
 // LRU + TTL cache, keyed on every parameter that reaches the wire (#4629).
 import {
   getCacheKey,
   readSimilarityCache,
   writeSimilarityCache,
 } from './similarityCache';
+
+/** Wire shape of GET /api/similarity/tracks/{id}/similar (snake_case). */
+interface RawSimilarTrack {
+  track_id: number;
+  distance: number;
+  similarity_score: number;
+  rank: number;
+  title: string;
+  artist: string;
+  album: string;
+}
 
 /**
  * Similar track response model (matches backend SimilarTrack)
@@ -176,41 +186,21 @@ export function useSimilarTracks(): UseSimilarTracksReturn {
           include_details: includeDetails.toString(),
         });
 
-        // Call backend API
-        const response = await fetch(
-          getApiUrl(`/api/similarity/tracks/${trackId}/similar?${params.toString()}`),
-          {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            signal: controller.signal,
-          }
+        // Call backend API. #5019: through the shared transport, which composes
+        // DEFAULT_TIMEOUT_MS with the cancellation signal below — the raw
+        // fetch() this replaces could leave `loading` true indefinitely.
+        // It also reads the backend's `detail` before the body is discarded
+        // (#4626): similarity.py encodes the actionable part of the failure
+        // there — "Track N does not have a fingerprint. Queued for background
+        // processing." is a different situation from "track not found", and
+        // both arrive as a 404.
+        const data = await get<RawSimilarTrack[]>(
+          `/api/similarity/tracks/${trackId}/similar?${params.toString()}`,
+          { signal: controller.signal }
         );
 
-        if (!response.ok) {
-          // Read the backend's `detail` before the body is discarded (#4626).
-          // similarity.py encodes the actionable part of the failure there —
-          // "Track N does not have a fingerprint. Queued for background
-          // processing." is a different situation from "track not found", and
-          // both arrive as a 404. `statusText` is empty over HTTP/2, so the old
-          // message could degrade to "Similarity search failed: 404 ".
-          throw await httpErrorFromResponse(response);
-        }
-
-        // Parse response (backend uses snake_case, convert to camelCase)
-        const data = await response.json();
-        interface RawSimilarTrack {
-          track_id: number;
-          distance: number;
-          similarity_score: number;
-          rank: number;
-          title: string;
-          artist: string;
-          album: string;
-        }
-
-        const results: SimilarTrack[] = (data as RawSimilarTrack[]).map((item) => ({
+        // Map response (backend uses snake_case, convert to camelCase)
+        const results: SimilarTrack[] = (data ?? []).map((item) => ({
           trackId: item.track_id,
           distance: item.distance,
           similarityScore: item.similarity_score,
@@ -229,7 +219,9 @@ export function useSimilarTracks(): UseSimilarTracksReturn {
 
         return results;
       } catch (err) {
-        if (isAbortError(err)) {
+        // get() wraps a caller-triggered abort into an APIRequestError rather
+        // than preserving AbortError's `.name`, so the signal is authoritative.
+        if (controller.signal.aborted || isAbortError(err)) {
           // Caller cancelled — no state to update, no error to surface.
           throw err;
         }
@@ -239,7 +231,12 @@ export function useSimilarTracks(): UseSimilarTracksReturn {
             err instanceof Error ? err.message : 'Failed to find similar tracks';
           console.error(`[useSimilarTracks] Error finding similar tracks:`, err);
           setError(message);
-          setErrorStatus((err as HttpStatusError)?.status ?? null);
+          // get() reports a transport-level failure (network error, timeout)
+          // as statusCode 0; `errorStatus`'s contract is null for "no HTTP
+          // status", so the two must not be conflated.
+          setErrorStatus(
+            err instanceof APIRequestError ? err.statusCode || null : null
+          );
           setLoading(false);
         }
 
