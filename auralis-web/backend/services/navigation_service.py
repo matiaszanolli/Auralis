@@ -20,8 +20,11 @@ from websocket.outbound_messages import broadcast_typed
 
 from auralis import AudioPlayer
 
+from .queue_enrichment import entry_filepath
+
 if TYPE_CHECKING:
     from config.globals import ConnectionManager
+    from player_state import PlayerState
 
 logger = logging.getLogger(__name__)
 
@@ -110,6 +113,28 @@ class NavigationService:
         self.connection_manager: ConnectionManager = connection_manager
         self.create_track_info_fn: Callable[[Any], Any] = create_track_info_fn
 
+    async def _follow_engine(self, track_index: int) -> PlayerState | None:
+        """Sync PlayerStateManager to the track the engine just moved to (#5456).
+
+        The state manager no longer advances "now playing" on its own
+        wall-clock estimate, so every engine navigation must tell it. Called
+        inside the sequencer lock with the broadcast deferred to the caller.
+        Best-effort: a failed sync is logged, never fails the navigation the
+        engine has already performed.
+        """
+        try:
+            queue = self.audio_player.queue
+            current = None
+            if hasattr(queue, 'get_current_track'):
+                current = await asyncio.to_thread(queue.get_current_track)
+            filepath = entry_filepath(current) if current is not None else None
+            return await self.player_state_manager.follow_navigation(
+                track_index, filepath, broadcast=False
+            )
+        except Exception as e:
+            logger.warning(f"Could not sync player state to track {track_index}: {e}")
+            return None
+
     async def next_track(self) -> dict[str, Any]:
         """
         Skip to next track in queue.
@@ -133,12 +158,16 @@ class NavigationService:
                     success = await asyncio.to_thread(self.audio_player.next_track)
                     track_index = None
                     seq = None
+                    state_snapshot = None
                     if success and self.player_state_manager and hasattr(self.audio_player, 'queue'):
                         if hasattr(self.audio_player.queue, 'current_index'):
                             track_index = self.audio_player.queue.current_index
+                            state_snapshot = await self._follow_engine(track_index)
                             seq = _sequencer.next_seq()
 
                 if success:
+                    if state_snapshot is not None:
+                        await self.player_state_manager.broadcast_state(state_snapshot)
                     if track_index is not None:
                         assert seq is not None
                         # Include the new index so clients can sync
@@ -190,12 +219,16 @@ class NavigationService:
                     success = await asyncio.to_thread(self.audio_player.previous_track)
                     track_index = None
                     seq = None
+                    state_snapshot = None
                     if success and self.player_state_manager and hasattr(self.audio_player, 'queue'):
                         if hasattr(self.audio_player.queue, 'current_index'):
                             track_index = self.audio_player.queue.current_index
+                            state_snapshot = await self._follow_engine(track_index)
                             seq = _sequencer.next_seq()
 
                 if success:
+                    if state_snapshot is not None:
+                        await self.player_state_manager.broadcast_state(state_snapshot)
                     if track_index is not None:
                         assert seq is not None
                         # Include the new index so clients can sync
@@ -273,7 +306,9 @@ class NavigationService:
                 if hasattr(self.audio_player, 'play'):
                     await asyncio.to_thread(self.audio_player.play)
 
-                # Update state
+                # Update state — the jumped-to track first (#5456), so the
+                # set_playing broadcast below already carries it.
+                await self._follow_engine(track_index)
                 await self.player_state_manager.set_playing(True)
                 seq = _sequencer.next_seq()
 

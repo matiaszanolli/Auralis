@@ -168,65 +168,41 @@ class PlayerStateManager:
             await self.broadcast_state(state_snapshot)
         return state_snapshot
 
-    async def next_track(self) -> TrackInfo | None:
-        """Move to next track in queue"""
-        # Determine next track while holding lock (don't await inside lock)
-        new_index: int | None = None
-        next_track: TrackInfo | None = None
-        has_next: bool = False
+    async def follow_navigation(
+        self, queue_index: int, filepath: str | None, *, broadcast: bool = True
+    ) -> PlayerState | None:
+        """Make the track the engine just moved to the new "now playing" (#5456).
 
+        This manager used to own a second notion of "what plays next": it
+        re-indexed its own queue whenever its wall-clock position estimate
+        reached the track's duration, independently of the engine and of the
+        frontend's completion-driven advance (which goes through
+        NavigationService). It no longer advances on its own — NavigationService
+        calls this after the engine has moved, so one path decides.
+
+        The track is matched by ``filepath``: this manager's queue copy can be
+        stale after queue edits, so its index may name a different track. The
+        index is used alone only when the engine reported no filepath. Returns
+        None, changing nothing, when neither identifies a track.
+        """
         async with self._lock:
-            if self.state.queue_index < len(self.state.queue) - 1:
-                new_index = self.state.queue_index + 1
-                next_track = self.state.queue[new_index]
-                has_next = True
-            elif self.state.repeat_mode == "all":
-                new_index = 0
-                next_track = self.state.queue[0] if self.state.queue else None
-                has_next = bool(next_track)  # Has next only if queue is not empty
-
-        # Update state outside lock to avoid deadlock
-        if not has_next:
-            await self.update_state(state=PlaybackState.STOPPED)
+            if filepath is not None:
+                match = next(
+                    (t for t in self.state.queue if t.filepath == filepath), None
+                )
+            elif 0 <= queue_index < len(self.state.queue):
+                match = self.state.queue[queue_index]
+            else:
+                match = None
+        if match is None:
             return None
 
-        await self.update_state(
-            queue_index=new_index,
-            current_track=next_track,
-            current_time=0.0
+        state_snapshot = await self._mutate_state(
+            queue_index=queue_index, current_track=match, current_time=0.0
         )
-        return next_track
-
-    async def previous_track(self) -> TrackInfo | None:
-        """Move to previous track in queue"""
-        # Determine action while holding lock (don't await inside lock)
-        async with self._lock:
-            if self.state.current_time > 3.0:
-                # Restart current track if > 3 seconds
-                should_restart: bool = True
-                current_track_var: TrackInfo | None = self.state.current_track
-                new_index_var: int | None = None
-                prev_track_var: TrackInfo | None = None
-            elif self.state.queue_index > 0:
-                should_restart = False
-                new_index_var = self.state.queue_index - 1
-                prev_track_var = self.state.queue[new_index_var]
-                current_track_var = None
-            else:
-                # No previous track
-                return None
-
-        # Execute state changes outside lock to avoid deadlock
-        if should_restart:
-            await self.set_position(0.0)
-            return current_track_var
-
-        await self.update_state(
-            queue_index=new_index_var,
-            current_track=prev_track_var,
-            current_time=0.0
-        )
-        return prev_track_var
+        if broadcast:
+            await self.broadcast_state(state_snapshot)
+        return state_snapshot
 
     async def _broadcast_state(self, state: PlayerState) -> None:
         """Broadcast state to all WebSocket clients"""
@@ -280,6 +256,11 @@ class PlayerStateManager:
         Recording the wall-clock timestamp of the previous tick and using the
         actual elapsed time prevents the 10-20ms/tick drift that accumulates
         into visible position lag over a 3-minute track (fixes #2171).
+
+        A pure position ticker (#5456): at the track's duration it holds there
+        and stays alive rather than advancing the queue, so the next track is
+        chosen only by navigation (follow_navigation), which resets the
+        position the loop then keeps ticking.
         """
         loop = asyncio.get_running_loop()
         last_tick = loop.time()
@@ -291,14 +272,14 @@ class PlayerStateManager:
                 last_tick = now
 
                 new_time: float | None = None
-                track_ended: bool = False
                 tick_seq: int = 0
 
                 async with self._lock:
                     if self.state.is_playing and self.state.current_track:
                         # Advance by actual elapsed wall-clock time, not a fixed 1.0s
+                        previous_time = self.state.current_time
                         new_time = min(
-                            self.state.current_time + elapsed,
+                            previous_time + elapsed,
                             self.state.duration
                         )
                         self.state.current_time = new_time
@@ -312,39 +293,11 @@ class PlayerStateManager:
                         # stamp always describes the value it travels with.
                         tick_seq = self._update_seq
 
-                        # Check if track ended
-                        if new_time >= self.state.duration:
-                            track_ended = True
-
-                if track_ended:
-                    # #4545: previously this spawned next_track() and returned,
-                    # killing the 1 Hz broadcast for the rest of the session —
-                    # next_track() never calls set_playing(), and
-                    # _start_position_updates() is reachable only from there. The
-                    # advance is now awaited so the loop can inspect the
-                    # resulting state and keep ticking for the new track.
-                    #
-                    # next_track() returns None when the queue is exhausted, and
-                    # sets STOPPED on that path; treat that as "do not restart".
-                    try:
-                        await self.next_track()
-                    except Exception:
-                        # Matches the old spawn_background_task behaviour of
-                        # logging rather than silently stopping the queue
-                        # (#3512 / BE-NEW-54) — but keeps the loop alive.
-                        logger.exception("next_track() failed during auto-advance")
-                        return
-
-                    async with self._lock:
-                        still_playing = (
-                            self.state.is_playing and self.state.current_track is not None
-                        )
-                    if not still_playing:
-                        return
-
-                    # Don't bill the advance's latency to the new track.
-                    last_tick = loop.time()
-                    continue
+                        # Held at the track end (#5456): nothing new to report
+                        # until navigation moves to another track. The loop
+                        # stays alive (#4545) so that track keeps ticking.
+                        if new_time == previous_time:
+                            new_time = None
 
                 # Broadcast lightweight position update (fixes #2570) — avoids
                 # serialising the full queue + track info every second.

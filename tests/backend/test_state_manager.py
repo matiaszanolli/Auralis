@@ -200,103 +200,81 @@ class TestQueueManagement:
         assert state.queue_index == 0
         assert len(state.queue) == 2
 
+    # next_track()/previous_track() were removed (#5456): this manager no
+    # longer decides "what plays next" — it follows the engine's navigation.
+
     @pytest.mark.asyncio
-    async def test_next_track_in_queue(self, state_manager, mock_ws_manager):
-        """Test moving to next track"""
+    async def test_follow_navigation_sets_now_playing(self, state_manager):
         tracks = [
             TrackInfo(id=1, title="Track 1", artist="Artist 1", album="Album 1", duration=180.0, filepath="/path/1.mp3"),
             TrackInfo(id=2, title="Track 2", artist="Artist 2", album="Album 2", duration=200.0, filepath="/path/2.mp3"),
         ]
-
         await state_manager.set_queue(tracks, start_index=0)
-        next_track = await state_manager.next_track()
+        await state_manager.update_state(current_time=42.0)
 
-        assert next_track is not None
-        assert next_track.id == 2
+        snapshot = await state_manager.follow_navigation(1, "/path/2.mp3")
+
+        assert snapshot is not None
         state = state_manager.get_state()
         assert state.queue_index == 1
-
-    @pytest.mark.asyncio
-    async def test_next_track_at_end_no_repeat(self, state_manager):
-        """Test next track at end of queue without repeat"""
-        tracks = [
-            TrackInfo(id=1, title="Track 1", artist="Artist 1", album="Album 1", duration=180.0, filepath="/path/1.mp3"),
-        ]
-
-        await state_manager.set_queue(tracks, start_index=0)
-        next_track = await state_manager.next_track()
-
-        assert next_track is None
-        state = state_manager.get_state()
-        assert state.state == PlaybackState.STOPPED
-
-    @pytest.mark.asyncio
-    async def test_next_track_with_repeat_all(self, state_manager):
-        """Test next track with repeat all mode"""
-        tracks = [
-            TrackInfo(id=1, title="Track 1", artist="Artist 1", album="Album 1", duration=180.0, filepath="/path/1.mp3"),
-            TrackInfo(id=2, title="Track 2", artist="Artist 2", album="Album 2", duration=200.0, filepath="/path/2.mp3"),
-        ]
-
-        await state_manager.set_queue(tracks, start_index=1)
-        await state_manager.update_state(repeat_mode="all")
-
-        next_track = await state_manager.next_track()
-
-        assert next_track is not None
-        assert next_track.id == 1
-        state = state_manager.get_state()
-        assert state.queue_index == 0
-
-    @pytest.mark.asyncio
-    async def test_previous_track_restart_if_past_3_seconds(self, state_manager):
-        """Test previous track restarts current if > 3 seconds"""
-        tracks = [
-            TrackInfo(id=1, title="Track 1", artist="Artist 1", album="Album 1", duration=180.0, filepath="/path/1.mp3"),
-            TrackInfo(id=2, title="Track 2", artist="Artist 2", album="Album 2", duration=200.0, filepath="/path/2.mp3"),
-        ]
-
-        await state_manager.set_queue(tracks, start_index=1)
-        await state_manager.update_state(current_time=5.0)
-
-        prev_track = await state_manager.previous_track()
-
-        assert prev_track is not None
-        assert prev_track.id == 2  # Same track
-        state = state_manager.get_state()
+        assert state.current_track.id == 2
         assert state.current_time == 0.0
+        assert state.duration == 200.0
 
     @pytest.mark.asyncio
-    async def test_previous_track_goes_back(self, state_manager):
-        """Test previous track goes to previous in queue"""
+    async def test_follow_navigation_trusts_filepath_over_a_stale_index(self, state_manager):
+        """After a queue edit this manager's copy can be stale, so its index
+        may name a different track than the engine's."""
         tracks = [
             TrackInfo(id=1, title="Track 1", artist="Artist 1", album="Album 1", duration=180.0, filepath="/path/1.mp3"),
             TrackInfo(id=2, title="Track 2", artist="Artist 2", album="Album 2", duration=200.0, filepath="/path/2.mp3"),
         ]
-
         await state_manager.set_queue(tracks, start_index=1)
-        await state_manager.update_state(current_time=2.0)
 
-        prev_track = await state_manager.previous_track()
+        await state_manager.follow_navigation(0, "/path/2.mp3")
 
-        assert prev_track is not None
-        assert prev_track.id == 1
         state = state_manager.get_state()
+        assert state.current_track.id == 2
         assert state.queue_index == 0
 
     @pytest.mark.asyncio
-    async def test_previous_track_at_start(self, state_manager):
-        """Test previous track at start of queue"""
+    async def test_follow_navigation_without_a_filepath_uses_the_index(self, state_manager):
+        tracks = [
+            TrackInfo(id=1, title="Track 1", artist="Artist 1", album="Album 1", duration=180.0, filepath="/path/1.mp3"),
+            TrackInfo(id=2, title="Track 2", artist="Artist 2", album="Album 2", duration=200.0, filepath="/path/2.mp3"),
+        ]
+        await state_manager.set_queue(tracks, start_index=0)
+
+        await state_manager.follow_navigation(1, None)
+
+        assert state_manager.get_state().current_track.id == 2
+
+    @pytest.mark.asyncio
+    async def test_follow_navigation_ignores_a_track_it_does_not_know(self, state_manager):
         tracks = [
             TrackInfo(id=1, title="Track 1", artist="Artist 1", album="Album 1", duration=180.0, filepath="/path/1.mp3"),
         ]
-
         await state_manager.set_queue(tracks, start_index=0)
-        await state_manager.update_state(current_time=2.0)
 
-        prev_track = await state_manager.previous_track()
+        assert await state_manager.follow_navigation(0, "/elsewhere.mp3") is None
 
-        assert prev_track is None
+        state = state_manager.get_state()
+        assert state.current_track.id == 1
+        assert state.queue_index == 0
+
+    @pytest.mark.asyncio
+    async def test_follow_navigation_can_defer_its_broadcast(self, state_manager, mock_ws_manager):
+        tracks = [
+            TrackInfo(id=1, title="Track 1", artist="Artist 1", album="Album 1", duration=180.0, filepath="/path/1.mp3"),
+            TrackInfo(id=2, title="Track 2", artist="Artist 2", album="Album 2", duration=200.0, filepath="/path/2.mp3"),
+        ]
+        await state_manager.set_queue(tracks, start_index=0)
+        mock_ws_manager.broadcast.reset_mock()
+
+        snapshot = await state_manager.follow_navigation(1, "/path/2.mp3", broadcast=False)
+
+        mock_ws_manager.broadcast.assert_not_called()
+        assert snapshot.current_track.id == 2
 
 
 class TestBroadcasting:
@@ -569,81 +547,82 @@ class TestPositionTickSeq:
         )
 
 
-class TestPositionLoopSurvivesAutoAdvance:
-    """#4545 — the 1 Hz loop must keep running across a queue auto-advance."""
+def _playing_at_end_of_first_of(state_manager, tracks, *, current_time=300.0):
+    state_manager.state.queue = tracks
+    state_manager.state.queue_size = len(tracks)
+    state_manager.state.queue_index = 0
+    state_manager.state.state = PlaybackState.PLAYING
+    state_manager.state.is_playing = True
+    state_manager.state.current_track = tracks[0]
+    state_manager.state.current_time = current_time
+    state_manager.state.duration = 300.0
+
+
+def _frames(mock_ws_manager, message_type):
+    return [
+        c[0][0] for c in mock_ws_manager.broadcast.call_args_list
+        if c[0][0].get("type") == message_type
+    ]
+
+
+class TestPositionLoopIsAPureTicker:
+    """#5456 — the loop only reports position; it never advances the queue.
+
+    It used to re-index the queue when its wall-clock estimate reached the
+    track's duration, a second owner of "what plays next" beside the engine
+    and the frontend's completion-driven navigation. #4545 still holds: the
+    loop stays alive at the track end, so the next track keeps ticking.
+    """
 
     @pytest.mark.asyncio
-    async def test_loop_continues_after_auto_advance(self, state_manager, mock_ws_manager):
-        """Previously the loop `return`ed on track end, killing position
-        broadcasts for the rest of the session."""
-        tracks = [_track(1), _track(2)]
-        state_manager.state.queue = tracks
-        state_manager.state.queue_size = 2
-        state_manager.state.queue_index = 0
-        state_manager.state.state = PlaybackState.PLAYING
-        state_manager.state.is_playing = True
-        state_manager.state.current_track = tracks[0]
-        # Already at the end of track 1 — the first tick triggers the advance.
-        state_manager.state.current_time = 300.0
-        state_manager.state.duration = 300.0
-
-        fake = _FastSleep(max_ticks=4)
-        with patch("core.state_manager.asyncio.sleep", fake):
-            await state_manager._position_update_loop()
-
-        # The advance happened...
-        assert state_manager.state.queue_index == 1
-        assert state_manager.state.current_track.id == 2
-        # ...and the loop kept ticking for the new track rather than exiting.
-        assert fake.ticks > 1, "loop exited at the auto-advance (#4545)"
-
-        ticks = [
-            c[0][0] for c in mock_ws_manager.broadcast.call_args_list
-            if c[0][0].get("type") == "position_changed"
-        ]
-        assert ticks, "no position_changed emitted after the auto-advance (#4545)"
-
-    @pytest.mark.asyncio
-    async def test_loop_exits_when_queue_exhausted(self, state_manager):
-        """Last track ending must stop the loop, not spin forever."""
-        tracks = [_track(1)]
-        state_manager.state.queue = tracks
-        state_manager.state.queue_size = 1
-        state_manager.state.queue_index = 0
-        state_manager.state.state = PlaybackState.PLAYING
-        state_manager.state.is_playing = True
-        state_manager.state.current_track = tracks[0]
-        state_manager.state.current_time = 300.0
-        state_manager.state.duration = 300.0
-
-        fake = _FastSleep(max_ticks=50)
-        with patch("core.state_manager.asyncio.sleep", fake):
-            # Must return on its own, not by exhausting max_ticks.
-            await asyncio.wait_for(state_manager._position_update_loop(), timeout=5.0)
-
-        assert state_manager.state.state == PlaybackState.STOPPED
-        assert fake.ticks < 50, "loop kept spinning after the queue was exhausted"
-
-    @pytest.mark.asyncio
-    async def test_repeat_all_wraps_and_keeps_ticking(self, state_manager):
-        """repeat_mode='all' wraps to index 0 and playback continues."""
-        tracks = [_track(1), _track(2)]
-        state_manager.state.queue = tracks
-        state_manager.state.queue_size = 2
-        state_manager.state.queue_index = 1
-        state_manager.state.repeat_mode = "all"
-        state_manager.state.state = PlaybackState.PLAYING
-        state_manager.state.is_playing = True
-        state_manager.state.current_track = tracks[1]
-        state_manager.state.current_time = 300.0
-        state_manager.state.duration = 300.0
+    async def test_reaching_the_end_does_not_advance_the_queue(self, state_manager, mock_ws_manager):
+        _playing_at_end_of_first_of(state_manager, [_track(1), _track(2)])
 
         fake = _FastSleep(max_ticks=4)
         with patch("core.state_manager.asyncio.sleep", fake):
             await state_manager._position_update_loop()
 
         assert state_manager.state.queue_index == 0
-        assert fake.ticks > 1, "loop exited at the repeat-all wrap (#4545)"
+        assert state_manager.state.current_track.id == 1
+        assert state_manager.state.current_time == 300.0
+        assert fake.ticks > 1, "loop exited at the track end (#4545)"
+        assert _frames(mock_ws_manager, "player_state") == [], (
+            "the loop must not publish a track change of its own (#5456)"
+        )
+
+    @pytest.mark.asyncio
+    async def test_held_at_the_end_it_stops_rebroadcasting_the_same_position(
+        self, state_manager, mock_ws_manager
+    ):
+        _playing_at_end_of_first_of(state_manager, [_track(1)])
+
+        fake = _FastSleep(max_ticks=4)
+        with patch("core.state_manager.asyncio.sleep", fake):
+            await state_manager._position_update_loop()
+
+        assert _frames(mock_ws_manager, "position_changed") == []
+        # Not STOPPED by the loop either: exhaustion is navigation's call.
+        assert state_manager.state.state == PlaybackState.PLAYING
+
+    @pytest.mark.asyncio
+    async def test_the_track_navigation_moves_to_keeps_ticking(self, state_manager, mock_ws_manager):
+        tracks = [_track(1), _track(2)]
+        _playing_at_end_of_first_of(state_manager, tracks)
+
+        fake = _FastSleep(max_ticks=8)
+        with patch("core.state_manager.asyncio.sleep", fake):
+            loop_task = asyncio.create_task(state_manager._position_update_loop())
+            while fake.ticks < 2:
+                await asyncio.sleep(0)
+            await state_manager.follow_navigation(1, tracks[1].filepath)
+            await loop_task
+
+        assert state_manager.state.current_track.id == 2
+        assert state_manager.state.queue_index == 1
+        positions = [f["data"]["position"] for f in _frames(mock_ws_manager, "position_changed")]
+        assert positions and all(p < 300.0 for p in positions), (
+            "the new track's position must tick up from zero"
+        )
 
     @pytest.mark.asyncio
     async def test_single_live_task_after_advance(self, state_manager):
