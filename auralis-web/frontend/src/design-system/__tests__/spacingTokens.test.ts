@@ -58,12 +58,14 @@ describe('the spacing steps used by the migration (#4663)', () => {
  */
 const ALLOWED_SPACING_LITERALS: Record<string, string> = {
   // The 'performance/lazyLoader.tsx' entry that stood here is gone: #4696
-  // deleted src/performance/ wholesale.
+  // deleted src/performance/ wholesale. The 'components/shared/ui/
+  // RadialPresetSelector.tsx' entry is gone the same way: it and its
+  // supporting modules had zero production consumers and were deleted
+  // (#4861 follow-up).
 
   // `margin: '0 auto'` is the horizontal-centering idiom, not a spacing value.
   // There is no token for `auto` and inventing one would obscure the intent.
   'design-system/primitives/Container.tsx': "margin: '0 auto' centering idiom",
-  'components/shared/ui/RadialPresetSelector.tsx': "margin: '0 auto' centering idiom",
   'components/library/Styles/SearchStyles.styles.ts': "margin: '0 auto' centering idiom",
 
   // Genuinely off-scale, kept literal so the control does not change size.

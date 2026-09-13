@@ -25,6 +25,6 @@ export { useEnhancedStreamStart, type CurrentTrackInfo } from './useEnhancedStre
 export { useEnhancedSeek } from './useEnhancedSeek';
 export { useEnhancedPlayCommand, type PlayEnhanced } from './useEnhancedPlayCommand';
 
-// Keyboard shortcuts (Phase 3.4)
-export { useEnhancedPlaybackShortcuts } from './useEnhancedPlaybackShortcuts';
-export type { EnhancedPlaybackShortcutsConfig, UseEnhancedPlaybackShortcutsReturn } from './useEnhancedPlaybackShortcuts';
+// useEnhancedPlaybackShortcuts (Phase 3.4) removed: it was never actually
+// called anywhere (only its types were imported), and its Shift+A/S/W/B/P
+// preset shortcuts named four presets that no longer exist (#4861 follow-up).

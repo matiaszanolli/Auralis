@@ -144,11 +144,11 @@ describe('End-to-End User Flows', () => {
       store.dispatch(playerActions.setCurrentTrack(track));
       store.dispatch(playerActions.setIsPlaying(true));
 
-      // Change preset
-      store.dispatch(playerActions.setPreset('warm'));
+      // Change preset ('adaptive' is the only valid preset -- #4861 follow-up)
+      store.dispatch(playerActions.setPreset('adaptive'));
 
       const state = store.getState();
-      expect(state.player.preset).toBe('warm');
+      expect(state.player.preset).toBe('adaptive');
       expect(state.player.isPlaying).toBe(true);
     });
 

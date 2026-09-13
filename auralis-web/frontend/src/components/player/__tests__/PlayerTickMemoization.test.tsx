@@ -128,7 +128,7 @@ vi.mock('@/hooks/enhancement/usePlayEnhanced', async () => {
 });
 
 vi.mock('@/hooks/enhancement/useEnhancementControl', () => ({
-  useEnhancementControl: () => ({ enabled: true, preset: 'warm', intensity: 0.5 }),
+  useEnhancementControl: () => ({ enabled: true, preset: 'adaptive', intensity: 0.5 }),
 }));
 
 // Queue plumbing pulls REST + WebSocket machinery that jsdom has no analog for.

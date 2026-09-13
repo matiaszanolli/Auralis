@@ -54,7 +54,8 @@ import {
 import type { PresetName } from '@/store/slices/playerSlice';
 import type { RawPlayerStateData, TrackInfo } from '@/types/websocket';
 
-const VALID_PRESETS: readonly string[] = ['adaptive', 'gentle', 'warm', 'bright', 'punchy'];
+// Mirrors types/domain.ts's EnhancementPreset -- only 'adaptive' now (#4861 follow-up).
+const VALID_PRESETS: readonly string[] = ['adaptive'];
 
 /**
  * Hook to sync WebSocket player_state messages to Redux (player + queue)

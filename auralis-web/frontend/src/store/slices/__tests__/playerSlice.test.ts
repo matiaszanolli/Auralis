@@ -155,8 +155,9 @@ describe('playerSlice', () => {
   // ─── Preset / loading / error ──────────────────────────────────
 
   it('setPreset changes preset', () => {
-    const state = reducer(initialState, setPreset('warm'));
-    expect(state.preset).toBe('warm');
+    // 'adaptive' is the only valid preset (#4861 follow-up).
+    const state = reducer(initialState, setPreset('adaptive'));
+    expect(state.preset).toBe('adaptive');
   });
 
   it('setIsLoading sets loading', () => {

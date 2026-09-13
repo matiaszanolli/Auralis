@@ -52,7 +52,7 @@ export interface UsePlayEnhancedReturn {
   /**
    * Start enhanced audio playback for a track
    * @param trackId ID of track to play
-   * @param preset Enhancement preset (adaptive, gentle, warm, bright, punchy)
+   * @param preset Enhancement preset (only 'adaptive' is valid)
    * @param intensity Enhancement intensity (0.0-1.0)
    */
   playEnhanced: (trackId: number, preset: EnhancementPreset, intensity: number) => Promise<void>;

@@ -30,16 +30,14 @@ export const EnhancementSettingsPanel = ({
       <SectionContainer>
         <FormControl fullWidth>
           <InputLabel>Default Preset</InputLabel>
+          {/* Only 'adaptive' is a valid preset now (#4861 follow-up) --
+              'gentle'/'warm'/'bright'/'punchy' removed, not just hidden. */}
           <Select
             value={defaultPreset}
             onChange={(e) => onSettingChange('default_preset', e.target.value)}
             label="Default Preset"
           >
             <MenuItem value="adaptive">Adaptive</MenuItem>
-            <MenuItem value="gentle">Gentle</MenuItem>
-            <MenuItem value="warm">Warm</MenuItem>
-            <MenuItem value="bright">Bright</MenuItem>
-            <MenuItem value="punchy">Punchy</MenuItem>
           </Select>
         </FormControl>
         <SectionDescription>

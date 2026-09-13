@@ -85,8 +85,8 @@ describe('@/types/websocket barrel (#4081)', () => {
     // A real mastering preset must still type-check on the same field.
     const enhancedStreamStart: AudioStreamStartMessage = {
       ...normalStreamStart,
-      data: { ...normalStreamStart.data, preset: 'warm', stream_type: 'enhanced' },
+      data: { ...normalStreamStart.data, preset: 'adaptive', stream_type: 'enhanced' },
     };
-    expect(enhancedStreamStart.data.preset).toBe('warm');
+    expect(enhancedStreamStart.data.preset).toBe('adaptive');
   });
 });

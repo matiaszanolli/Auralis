@@ -483,8 +483,10 @@ describe('usePlayerStateSync – current_preset', () => {
   });
 
   it('sets preset', () => {
-    firePlayerState({ current_preset: 'warm' });
-    expect(store.getState().player.preset).toBe('warm');
+    // 'adaptive' is the only valid preset (#4861 follow-up) --
+    // VALID_PRESETS.includes(...) above would silently drop anything else.
+    firePlayerState({ current_preset: 'adaptive' });
+    expect(store.getState().player.preset).toBe('adaptive');
   });
 
   it('does not dispatch when field is absent (falsy)', () => {
@@ -713,7 +715,7 @@ describe('usePlayerStateSync – complete player_state message', () => {
       duration: 482,
       volume: 75,
       is_muted: false,
-      current_preset: 'punchy',
+      current_preset: 'adaptive', // only valid preset (#4861 follow-up)
       queue: [backendTrack],
       queue_index: 0,
     });
@@ -727,7 +729,7 @@ describe('usePlayerStateSync – complete player_state message', () => {
     expect(playerState.duration).toBe(482);
     expect(playerState.volume).toBe(75);
     expect(playerState.isMuted).toBe(false);
-    expect(playerState.preset).toBe('punchy');
+    expect(playerState.preset).toBe('adaptive');
     expect(queueState.tracks).toHaveLength(1);
     expect(queueState.currentIndex).toBe(0);
   });

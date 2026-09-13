@@ -103,36 +103,14 @@ export const mockPlayerState = {
 };
 
 // Mock Enhancement Presets
+// Narrowed to the one preset that ships (#4861 follow-up):
+// 'gentle'/'warm'/'bright'/'punchy' are gone, not just unlisted.
 export const mockEnhancementPresets = [
   {
     id: 'adaptive',
     name: 'Adaptive',
     description: 'Intelligent content-aware mastering',
     default: true,
-  },
-  {
-    id: 'gentle',
-    name: 'Gentle',
-    description: 'Subtle mastering with minimal processing',
-    default: false,
-  },
-  {
-    id: 'warm',
-    name: 'Warm',
-    description: 'Adds warmth and smoothness',
-    default: false,
-  },
-  {
-    id: 'bright',
-    name: 'Bright',
-    description: 'Enhances clarity and presence',
-    default: false,
-  },
-  {
-    id: 'punchy',
-    name: 'Punchy',
-    description: 'Increases impact and dynamics',
-    default: false,
   },
 ];
 

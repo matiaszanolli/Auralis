@@ -23,7 +23,8 @@ export interface EnhancementSettingsChangedMessage extends WebSocketMessage {
   type: 'enhancement_settings_changed';
   data: {
     enabled: boolean;
-    preset: 'adaptive' | 'gentle' | 'warm' | 'bright' | 'punchy';
+    // Mirrors types/domain.ts's EnhancementPreset -- only 'adaptive' now (#4861 follow-up).
+    preset: 'adaptive';
     intensity: number; // 0.0 - 1.0
   };
 }

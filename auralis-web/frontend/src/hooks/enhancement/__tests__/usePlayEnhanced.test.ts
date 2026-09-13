@@ -862,7 +862,7 @@ describe('usePlayEnhanced – seekTo', () => {
 
     // Call playEnhanced to set currentTrackInfo
     await act(async () => {
-      await result.current.playEnhanced(42, 'warm', 0.8);
+      await result.current.playEnhanced(42, 'adaptive', 0.8);
     });
 
     // Simulate stream_start so buffer/engine refs are populated
@@ -925,7 +925,7 @@ describe('usePlayEnhanced – seekTo', () => {
       data: expect.objectContaining({
         track_id: 42,
         position: 90.5,
-        preset: 'warm',
+        preset: 'adaptive',
         intensity: 0.8,
       }),
     });
@@ -1090,7 +1090,7 @@ describe('usePlayEnhanced – playEnhanced', () => {
     });
 
     await act(async () => {
-      await result.current.playEnhanced(5, 'punchy', 0.9);
+      await result.current.playEnhanced(5, 'adaptive', 0.9);
     });
 
     const streaming = store.getState().player.streaming.enhanced;
@@ -1124,12 +1124,12 @@ describe('usePlayEnhanced – playEnhanced', () => {
     });
 
     await act(async () => {
-      await result.current.playEnhanced(3, 'warm', 0.5);
+      await result.current.playEnhanced(3, 'adaptive', 0.5);
     });
 
     expect(mockSend).toHaveBeenCalledWith({
       type: 'play_enhanced',
-      data: { track_id: 3, preset: 'warm', intensity: 0.5 },
+      data: { track_id: 3, preset: 'adaptive', intensity: 0.5 },
     });
   });
 

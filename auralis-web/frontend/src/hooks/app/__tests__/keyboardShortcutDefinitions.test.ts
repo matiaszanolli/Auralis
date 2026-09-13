@@ -69,12 +69,15 @@ describe('keyboardShortcutDefinitions', () => {
   });
 
   describe('PRESET_SHORTCUTS', () => {
-    it('should have 5 preset entries', () => {
-      expect(PRESET_SHORTCUTS).toHaveLength(5);
+    // Narrowed from 5 keys/presets to 1 (#4861 follow-up): 'gentle'/'warm'/
+    // 'bright'/'punchy' are no longer valid presets, so keys 2-5 no longer
+    // have anything to select.
+    it('should have 1 preset entry', () => {
+      expect(PRESET_SHORTCUTS).toHaveLength(1);
     });
 
-    it('should map keys 1-5', () => {
-      expect(PRESET_SHORTCUTS.map((s) => s.key)).toEqual(['1', '2', '3', '4', '5']);
+    it('should map key 1', () => {
+      expect(PRESET_SHORTCUTS.map((s) => s.key)).toEqual(['1']);
     });
 
     it('should all be in Presets category', () => {
@@ -85,12 +88,12 @@ describe('keyboardShortcutDefinitions', () => {
   });
 
   describe('PRESET_NAMES', () => {
-    it('should have 5 names matching shortcuts', () => {
+    it('should have 1 name matching shortcuts', () => {
       expect(PRESET_NAMES).toHaveLength(PRESET_SHORTCUTS.length);
     });
 
     it('should contain known preset names', () => {
-      expect(PRESET_NAMES).toEqual(['adaptive', 'gentle', 'warm', 'bright', 'punchy']);
+      expect(PRESET_NAMES).toEqual(['adaptive']);
     });
   });
 

@@ -19,13 +19,13 @@
  * } = useEnhancementControl();
  *
  * await toggleEnabled();
- * await setPreset('warm');
+ * await setPreset('adaptive');
  * await setIntensity(0.8);
  * ```
  *
  * Features:
  * - Control enhancement enabled/disabled state
- * - Change enhancement preset (adaptive, gentle, warm, bright, punchy)
+ * - Change enhancement preset (only 'adaptive' is valid)
  * - Adjust intensity (0.0-1.0)
  * - Real-time state sync via WebSocket
  * - Optimistic UI updates with error rollback
@@ -51,7 +51,7 @@ export interface EnhancementState {
   /** Whether enhancement is enabled */
   enabled: boolean;
 
-  /** Current preset: 'adaptive', 'gentle', 'warm', 'bright', 'punchy' */
+  /** Current preset (only 'adaptive' is valid) */
   preset: EnhancementPreset;
 
   /** Enhancement intensity 0.0-1.0 */
@@ -303,15 +303,18 @@ export function useEnhancementControl(): EnhancementControlActions {
   /**
    * Change enhancement preset
    *
-   * @param preset New preset: 'adaptive', 'gentle', 'warm', 'bright', 'punchy'
+   * @param preset New preset (only 'adaptive' is valid)
    * @throws Error if preset change fails
    */
   const setPreset = useCallback(async (preset: EnhancementPreset): Promise<void> => {
     setIsLoading(true);
     setError(null);
 
-    // Validate preset
-    const validPresets: EnhancementPreset[] = ['adaptive', 'gentle', 'warm', 'bright', 'punchy'];
+    // Validate preset. EnhancementPreset is now a single-member literal type
+    // ('adaptive' -- #4861 follow-up), so this can only fail for a caller
+    // that bypasses the type via `as` or an untyped source (e.g. a
+    // WebSocket message); kept as a runtime guard for exactly that case.
+    const validPresets: EnhancementPreset[] = ['adaptive'];
     if (!validPresets.includes(preset)) {
       const apiError = {
         message: `Invalid preset: ${preset}`,

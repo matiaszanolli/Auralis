@@ -393,7 +393,7 @@ describe('WebSocket & Real-time Updates Integration Tests', () => {
       mockWS.simulateMessage({
         type: 'enhancement_settings_changed',
         data: {
-          preset: 'punchy',
+          preset: 'adaptive',
           enabled: true,
           intensity: 0.8,
         },
@@ -405,7 +405,7 @@ describe('WebSocket & Real-time Updates Integration Tests', () => {
           expect.objectContaining({
             type: 'enhancement_settings_changed',
             data: {
-              preset: 'punchy',
+              preset: 'adaptive',
               enabled: true,
               intensity: 0.8,
             },
@@ -433,7 +433,7 @@ describe('WebSocket & Real-time Updates Integration Tests', () => {
         data: {
           intensity: 0.5,
           enabled: true,
-          preset: 'warm',
+          preset: 'adaptive',
         },
       });
 
@@ -445,7 +445,7 @@ describe('WebSocket & Real-time Updates Integration Tests', () => {
             data: {
               intensity: 0.5,
               enabled: true,
-              preset: 'warm',
+              preset: 'adaptive',
             },
           })
         );

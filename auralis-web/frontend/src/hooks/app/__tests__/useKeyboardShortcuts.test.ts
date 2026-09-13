@@ -256,12 +256,11 @@ describe('useKeyboardShortcuts', () => {
   });
 
   describe('Preset selection', () => {
+    // Narrowed from keys 1-5 to just key 1 (#4861 follow-up): 'gentle'/
+    // 'warm'/'bright'/'punchy' are no longer valid presets, so keys 2-5 no
+    // longer have anything registered to select.
     const presets = [
       { key: '1', name: 'adaptive' },
-      { key: '2', name: 'gentle' },
-      { key: '3', name: 'warm' },
-      { key: '4', name: 'bright' },
-      { key: '5', name: 'punchy' },
     ];
 
     presets.forEach(({ key, name }) => {
@@ -276,10 +275,10 @@ describe('useKeyboardShortcuts', () => {
       });
     });
 
-    it('should not handle keys 6-9', () => {
+    it('should not handle keys 2-9', () => {
       renderHook(() => useKeyboardShortcuts(handlers));
 
-      ['6', '7', '8', '9'].forEach(key => {
+      ['2', '3', '4', '5', '6', '7', '8', '9'].forEach(key => {
         const event = createKeyboardEvent(key);
         document.dispatchEvent(event);
       });

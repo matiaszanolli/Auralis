@@ -51,6 +51,11 @@ vi.mock('@/hooks/enhancement/usePlayEnhanced', () => ({
 
 // Current enhancement selection — Player must pass this to playEnhanced on
 // track transitions instead of hardcoded adaptive/1.0 (#4410).
+// 'warm' is a deliberately non-'adaptive' sentinel even though it is no
+// longer a real preset (#4861 follow-up): this mock is what makes the
+// assertion below actually prove pass-through of whatever the hook reports,
+// rather than passing vacuously because the mock and the hardcoded default
+// happen to look the same.
 vi.mock('@/hooks/enhancement/useEnhancementControl', () => ({
   useEnhancementControl: () => ({
     enabled: enhancementSettings.enabled,

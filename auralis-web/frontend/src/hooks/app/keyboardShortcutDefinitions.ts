@@ -215,18 +215,18 @@ export const SHORTCUT_CONFIG_MAP: ConfigHandlerMap[] = [
 ];
 
 /**
- * Special case: Preset selection (1-5 keys map to different presets)
+ * Special case: Preset selection (1 key maps to the one preset)
  * Handled separately because it needs dynamic preset name
+ *
+ * Narrowed from 5 keys/presets to 1 (#4861 follow-up): 'gentle'/'warm'/
+ * 'bright'/'punchy' are no longer valid presets at all, so keys 2-5 no
+ * longer have anything to select.
  */
 export const PRESET_SHORTCUTS: ShortcutConfigEntry[] = [
   { key: '1', category: 'Presets', description: 'Adaptive preset' },
-  { key: '2', category: 'Presets', description: 'Gentle preset' },
-  { key: '3', category: 'Presets', description: 'Warm preset' },
-  { key: '4', category: 'Presets', description: 'Bright preset' },
-  { key: '5', category: 'Presets', description: 'Punchy preset' }
 ];
 
-export const PRESET_NAMES = ['adaptive', 'gentle', 'warm', 'bright', 'punchy'];
+export const PRESET_NAMES = ['adaptive'];
 
 /**
  * Convert config entry and modifiers to ShortcutDefinition

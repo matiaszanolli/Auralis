@@ -22,7 +22,8 @@ import type { StreamingInfo } from './playerStreamingReducers';
 // Re-exported so the slice stays the single import site for player state types.
 export type { StreamingState, StreamType, StreamingInfo } from './playerStreamingReducers';
 
-export type PresetName = 'adaptive' | 'gentle' | 'warm' | 'bright' | 'punchy';
+// Mirrors types/domain.ts's EnhancementPreset -- only 'adaptive' now (#4861 follow-up).
+export type PresetName = 'adaptive';
 
 export interface PlayerState {
   isPlaying: boolean;
@@ -297,10 +298,13 @@ export const selectPlayerState = (state: { player: PlayerState }) => state.playe
 // #5211: nine of the eleven selectors that used to live here had zero
 // references anywhere, tests included. They duplicated a layer that already
 // exists — `store/selectors/player.ts` carries the canonical `selectStreaming`
-// / `selectEnhancedStreamingState` — so nothing ever reached for these, and
-// the one production reader that wants raw streaming state
-// (hooks/enhancement/useEnhancedPlaybackShortcuts.ts) reads
-// `state.player.streaming.enhanced` directly.
+// / `selectEnhancedStreamingState` — so nothing ever reached for these.
+// Real readers of raw streaming state (useAudioVisualization.ts,
+// usePlayEnhanced.ts) read `state.player.streaming.enhanced` directly via
+// this selector -- the #5211 comment that used to stand here named
+// hooks/enhancement/useEnhancedPlaybackShortcuts.ts as "the one production
+// reader", which was already wrong when written (it was never actually
+// called anywhere, and has since been deleted entirely -- #4861 follow-up).
 //
 // Only the selector with a real consumer is kept.
 export const selectEnhancedStreaming = (state: { player: PlayerState }) => state.player.streaming.enhanced;

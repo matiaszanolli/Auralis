@@ -18,10 +18,12 @@
  */
 
 // Buttons & Toggles
-export { default as RadialPresetSelector } from './RadialPresetSelector';
-export { PresetItem } from './PresetItem';
-export { usePresetSelection } from './usePresetSelection';
-export { PRESETS, getPresetByValue, getCirclePosition, type Preset } from './presetConfig';
+// RadialPresetSelector and its supporting modules (PresetItem,
+// RadialCenterHub, RadialDecorations, usePresetSelection, presetConfig)
+// removed: zero production consumers (only this barrel and their own test
+// file referenced them), and the circular 5-preset selector they built had
+// nothing left to arrange in a circle once the preset system was narrowed
+// to one (#4861 follow-up).
 export { default as ThemeToggle } from './ThemeToggle';
 export { EnhancementToggle, ButtonVariant, SwitchVariant } from '@/components/shared/EnhancementToggle';
 

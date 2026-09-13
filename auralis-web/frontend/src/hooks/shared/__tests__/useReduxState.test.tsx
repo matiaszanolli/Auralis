@@ -154,11 +154,12 @@ describe('Redux State Hooks', () => {
     it('should set preset', () => {
       const { result } = renderHook(() => usePlayer(), { wrapper });
 
+      // 'adaptive' is the only valid preset (#4861 follow-up).
       act(() => {
-        result.current.setPreset('warm');
+        result.current.setPreset('adaptive');
       });
 
-      expect(result.current.preset).toBe('warm');
+      expect(result.current.preset).toBe('adaptive');
     });
 
     it('should set track', () => {

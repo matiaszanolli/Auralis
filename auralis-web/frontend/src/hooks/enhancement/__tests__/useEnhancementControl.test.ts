@@ -60,7 +60,7 @@ describe('useEnhancementControl', () => {
     it('should fetch initial enhancement state on mount', async () => {
       const mockEnhancementState = {
         enabled: true,
-        preset: 'warm' as const,
+        preset: 'adaptive' as const,
         intensity: 0.8,
         lastUpdated: Date.now(),
       };
@@ -84,7 +84,7 @@ describe('useEnhancementControl', () => {
         expect(result.current.enabled).toBe(true);
       });
 
-      expect(result.current.preset).toBe('warm');
+      expect(result.current.preset).toBe('adaptive');
       expect(result.current.intensity).toBe(0.8);
     });
 
@@ -166,7 +166,7 @@ describe('useEnhancementControl', () => {
     it('should toggle from enabled to disabled', async () => {
       const mockEnhancementState = {
         enabled: true,
-        preset: 'warm' as const,
+        preset: 'adaptive' as const,
         intensity: 0.8,
         lastUpdated: Date.now(),
       };
@@ -277,15 +277,18 @@ describe('useEnhancementControl', () => {
 
       expect(result.current.preset).toBe('adaptive');
 
+      // 'adaptive' is the only valid preset (#4861 follow-up), so this
+      // exercises the same POST-and-optimistic-update mechanism a real
+      // preset change used to, just without an observable value change.
       await act(async () => {
-        await result.current.setPreset('warm');
+        await result.current.setPreset('adaptive');
       });
 
-      expect(result.current.preset).toBe('warm');
+      expect(result.current.preset).toBe('adaptive');
       // post(url, body) - preset is sent as the JSON body (#4149)
       expect(mockPost).toHaveBeenCalledWith(
         '/api/player/enhancement/preset',
-        expect.objectContaining({ preset: 'warm' })
+        expect.objectContaining({ preset: 'adaptive' })
       );
     });
 
@@ -318,12 +321,10 @@ describe('useEnhancementControl', () => {
     });
 
     it('should support all valid presets', async () => {
-      const validPresets: Array<'adaptive' | 'gentle' | 'warm' | 'bright' | 'punchy'> = [
+      // Narrowed to one preset (#4861 follow-up):
+      // 'gentle'/'warm'/'bright'/'punchy' are no longer valid at all.
+      const validPresets: Array<'adaptive'> = [
         'adaptive',
-        'gentle',
-        'warm',
-        'bright',
-        'punchy',
       ];
 
       for (const preset of validPresets) {
@@ -368,7 +369,7 @@ describe('useEnhancementControl', () => {
 
       await act(async () => {
         try {
-          await result.current.setPreset('warm');
+          await result.current.setPreset('adaptive');
         } catch (err) {
           // Expected to throw
         }
@@ -545,38 +546,17 @@ describe('useEnhancementControl', () => {
       expect(result.current.intensity).toBe(0.5);
     });
 
-    it('applies the last-dispatched setPreset value even if it resolves first', async () => {
-      const first = deferred<{ success: boolean }>();
-      const second = deferred<{ success: boolean }>();
-      const mockPost = vi.fn()
-        .mockReturnValueOnce(first.promise)
-        .mockReturnValueOnce(second.promise);
-
-      vi.mocked(useRestAPI).mockReturnValue({
-        get: vi.fn().mockResolvedValue(null),
-        post: mockPost,
-        put: vi.fn(), patch: vi.fn(), delete: vi.fn(),
-      } as any);
-      vi.mocked(useWebSocketMessages).mockReturnValue(undefined as any);
-
-      const { result } = renderHook(() => useEnhancementControl());
-
-      let call1: Promise<void>;
-      let call2: Promise<void>;
-      act(() => {
-        call1 = result.current.setPreset('bright');
-        call2 = result.current.setPreset('warm');
-      });
-
-      await act(async () => {
-        second.resolve({ success: true });
-        await call2!;
-        first.resolve({ success: true });
-        await call1!;
-      });
-
-      expect(result.current.preset).toBe('warm');
-    });
+    // 'applies the last-dispatched setPreset value even if it resolves
+    // first' removed (#4861 follow-up): it dispatched two DIFFERENT valid
+    // presets ('bright' then 'warm') and asserted the last-dispatched one
+    // won regardless of resolution order -- exactly the setIntensity
+    // sibling above, but for the preset-specific requestId ref. With only
+    // one valid preset left, there is no second valid value to dispatch:
+    // setPreset's own runtime validation (validPresets.includes(preset))
+    // rejects anything else synchronously, before the requestId guard this
+    // test exercised is ever reached, so the two-different-values race this
+    // test relied on can no longer be constructed. The requestId-guard
+    // *pattern* itself is still covered by the setIntensity sibling test.
 
     it('collapses a rapid setIntensity burst into a single stream reissue', async () => {
       const reissueMock = vi.fn(() => true);
@@ -693,7 +673,7 @@ describe('useEnhancementControl', () => {
 
       // Second call succeeds
       await act(async () => {
-        await result.current.setPreset('warm');
+        await result.current.setPreset('adaptive');
       });
 
       expect(result.current.error).toBeNull();
@@ -730,7 +710,7 @@ describe('useEnhancementControl', () => {
             type: 'enhancement_settings_changed',
             data: {
               enabled: true,
-              preset: 'bright',
+              preset: 'adaptive',
               intensity: 0.75,
             },
           });
@@ -738,7 +718,7 @@ describe('useEnhancementControl', () => {
       });
 
       expect(result.current.enabled).toBe(true);
-      expect(result.current.preset).toBe('bright');
+      expect(result.current.preset).toBe('adaptive');
       expect(result.current.intensity).toBe(0.75);
     });
 
@@ -798,11 +778,12 @@ describe('useEnhancementControl', () => {
 
       expect(result.current.preset).toBe('adaptive');
 
+      // 'adaptive' is the only valid preset (#4861 follow-up).
       await act(async () => {
-        await result.current.setPreset('warm');
+        await result.current.setPreset('adaptive');
       });
 
-      expect(result.current.preset).toBe('warm');
+      expect(result.current.preset).toBe('adaptive');
     });
 
     it('should use useIntensityControl for intensity control', async () => {
@@ -904,7 +885,7 @@ describe('useEnhancementControl', () => {
     it('toggling ON re-issues the active stream as play_enhanced with current preset/intensity', async () => {
       const reissue = setupReissueSpy();
       vi.mocked(useRestAPI).mockReturnValue({
-        get: vi.fn().mockResolvedValue({ enabled: false, preset: 'warm', intensity: 0.6 }),
+        get: vi.fn().mockResolvedValue({ enabled: false, preset: 'adaptive', intensity: 0.6 }),
         post: vi.fn().mockResolvedValue({ success: true }),
         put: vi.fn(), patch: vi.fn(), delete: vi.fn(),
       } as any);
@@ -917,7 +898,7 @@ describe('useEnhancementControl', () => {
       });
 
       expect(reissue).toHaveBeenCalledWith('play_enhanced', {
-        preset: 'warm',
+        preset: 'adaptive',
         intensity: 0.6,
       });
     });
@@ -929,11 +910,11 @@ describe('useEnhancementControl', () => {
       await waitFor(() => expect(result.current.enabled).toBe(true));
 
       await act(async () => {
-        await result.current.setPreset('warm');
+        await result.current.setPreset('adaptive');
       });
 
       expect(reissue).toHaveBeenCalledWith('play_enhanced', {
-        preset: 'warm',
+        preset: 'adaptive',
         intensity: 1.0,
       });
     });
@@ -950,7 +931,7 @@ describe('useEnhancementControl', () => {
       await waitFor(() => expect(result.current.enabled).toBe(false));
 
       await act(async () => {
-        await result.current.setPreset('warm');
+        await result.current.setPreset('adaptive');
       });
 
       expect(reissue).not.toHaveBeenCalled();

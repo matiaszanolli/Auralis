@@ -149,35 +149,22 @@ export interface EnhancementSettings {
   intensity: number; // 0.0 - 1.0
 }
 
-export type EnhancementPreset =
-  | 'adaptive'
-  | 'gentle'
-  | 'warm'
-  | 'bright'
-  | 'punchy';
+// Narrowed to a single preset: 'gentle'/'warm'/'bright'/'punchy' are gone,
+// not just unlisted -- the backend's schemas.VALID_PRESETS/
+// EnhancementPresetLiteral (the single source of truth this mirrors) was
+// narrowed the same way (#4861 follow-up).
+export type EnhancementPreset = 'adaptive';
 
 export const ENHANCEMENT_PRESETS: EnhancementPreset[] = [
   'adaptive',
-  'gentle',
-  'warm',
-  'bright',
-  'punchy',
 ];
 
 export const ENHANCEMENT_PRESET_NAMES: Record<EnhancementPreset, string> = {
   adaptive: 'Adaptive',
-  gentle: 'Gentle',
-  warm: 'Warm',
-  bright: 'Bright',
-  punchy: 'Punchy',
 };
 
 export const ENHANCEMENT_PRESET_DESCRIPTIONS: Record<EnhancementPreset, string> = {
   adaptive: 'Automatically optimize for current track',
-  gentle: 'Subtle enhancement with minimal change',
-  warm: 'Enhance warmth and bass',
-  bright: 'Enhance clarity and high frequencies',
-  punchy: 'Maximize energy and dynamics',
 };
 
 // ============================================================================

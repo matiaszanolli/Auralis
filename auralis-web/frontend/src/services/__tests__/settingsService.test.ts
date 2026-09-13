@@ -160,7 +160,7 @@ describe('SettingsService', () => {
 
     it('should update enhancement settings', async () => {
       const updates: SettingsUpdate = {
-        default_preset: 'warm',
+        default_preset: 'adaptive', // only valid preset (#4861 follow-up)
         auto_enhance: false,
         enhancement_intensity: 0.5,
       };
@@ -169,7 +169,7 @@ describe('SettingsService', () => {
       await settingsService.updateSettings(updates);
 
       const callArg = mockPut.mock.calls[0][1];
-      expect(callArg.default_preset).toBe('warm');
+      expect(callArg.default_preset).toBe('adaptive');
       expect(callArg.auto_enhance).toBe(false);
       expect(callArg.enhancement_intensity).toBe(0.5);
     });
