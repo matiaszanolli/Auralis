@@ -27,6 +27,8 @@ from websocket.outbound_messages import (
     broadcast_typed,
 )
 
+from .missing_tracks import prune_missing_tracks
+
 logger = logging.getLogger(__name__)
 
 # Optional watchdog for real-time filesystem events
@@ -339,22 +341,9 @@ class LibraryAutoScanner:
             except Exception as fp_err:
                 logger.warning(f"Fingerprint enqueue failed after auto-scan: {fp_err}")
 
-        # Remove tracks whose files no longer exist on disk
-        removed = 0
-        try:
-            removed = await asyncio.to_thread(
-                self._library_database.tracks.cleanup_missing_files
-            )
-            if removed:
-                logger.info(f"🗑️  Removed {removed} missing tracks from library")
-                await broadcast_typed(
-                    self._connection_manager,
-                    "library_tracks_removed",
-                    {"count": removed},
-                    suppress_errors=True,
-                )
-        except Exception as exc:
-            logger.warning(f"cleanup_missing_files failed: {exc}")
+        # Remove tracks whose files no longer exist on disk (shared with the
+        # manual scan route, #5458).
+        removed = await prune_missing_tracks(self._library_database, self._connection_manager)
 
         # Canonical scan_complete payload (matches the manual-scan emit at
         # routers/library.py and the frontend ScanCompleteMessage type).

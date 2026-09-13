@@ -28,6 +28,8 @@ from websocket.outbound_messages import (
     broadcast_typed,
 )
 
+from services.missing_tracks import prune_missing_tracks
+
 from .errors import handle_query_error
 
 logger = logging.getLogger(__name__)
@@ -331,6 +333,13 @@ def create_library_scan_router(
                             logger.info(f"Enqueued {enqueued} tracks for fingerprinting after scan")
                 except Exception as fp_err:
                     logger.warning(f"Fingerprint enqueue failed after scan: {fp_err}")
+
+            # #5458: prune tracks whose files are gone, exactly as the
+            # auto-scanner does. Only it used to, so users with auto_scan off
+            # (or rescanning by hand after moving files) kept dead entries.
+            # Before scan_complete: useScanProgress counts a removal frame only
+            # while the scan is still in progress.
+            await prune_missing_tracks(library_database, connection_manager)
 
             # Broadcast final result. Field shape matches ScanCompleteMessage and
             # the auto-scanner path (services/library_auto_scanner.py:268-279,
