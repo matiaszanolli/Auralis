@@ -14,6 +14,8 @@ Covers all public methods:
 - Library-backed methods: add_track_from_library, search_and_add, load_playlist
 """
 
+import threading
+import time
 from unittest.mock import MagicMock
 
 import pytest
@@ -627,6 +629,74 @@ class TestLoadPlaylist:
         result = ctrl.load_playlist(1)
 
         assert result is False
+
+
+class TestClearRepopulateAtomicity:
+    """#5355: set_queue()/load_playlist() clear-then-repopulate as one
+    atomic unit under the queue's lock, so a concurrent reader
+    (has_next_track()/peek_next_track(), from the audio thread's
+    end-of-track check or the gapless prebuffer thread) never observes a
+    momentarily empty queue between the clear and the repopulation."""
+
+    def _assert_never_observed_empty(self, ctrl: QueueController, run_mutation) -> None:
+        observed_empty = threading.Event()
+        stop_polling = threading.Event()
+
+        def _poll() -> None:
+            while not stop_polling.is_set():
+                if ctrl.get_track_count() == 0:
+                    observed_empty.set()
+                    return
+
+        poller = threading.Thread(target=_poll)
+        poller.start()
+        try:
+            run_mutation()
+        finally:
+            stop_polling.set()
+            poller.join(timeout=2.0)
+
+        assert not observed_empty.is_set(), (
+            "a concurrent reader observed the queue empty mid-repopulation"
+        )
+
+    def test_set_queue_never_observed_empty_by_a_concurrent_reader(self):
+        ctrl = _loaded_controller(3)
+        real_add_track = ctrl.queue.add_track
+
+        def _slow_add_track(track_info):
+            # Widen the repopulation window deterministically rather than
+            # relying on raw scheduling luck to hit the race.
+            time.sleep(0.002)
+            return real_add_track(track_info)
+
+        ctrl.queue.add_track = _slow_add_track
+        new_tracks = [_track(i) for i in range(100, 110)]
+
+        self._assert_never_observed_empty(ctrl, lambda: ctrl.set_queue(new_tracks))
+        assert ctrl.get_track_count() == 10
+
+    def test_load_playlist_never_observed_empty_by_a_concurrent_reader(self):
+        ctrl, factory = _make_controller()
+        for i in range(1, 4):
+            ctrl.add_track(_track(i))
+        playlist = MagicMock()
+        playlist.name = "Big"
+        playlist.tracks = [MagicMock() for _ in range(10)]
+        for i, t in enumerate(playlist.tracks):
+            t.to_dict.return_value = _track(100 + i)
+        factory.playlists.get_by_id.return_value = playlist
+
+        real_add_track = ctrl.queue.add_track
+
+        def _slow_add_track(track_info):
+            time.sleep(0.002)
+            return real_add_track(track_info)
+
+        ctrl.queue.add_track = _slow_add_track
+
+        self._assert_never_observed_empty(ctrl, lambda: ctrl.load_playlist(1))
+        assert ctrl.get_track_count() == 10
 
 
 class _LockSpy:

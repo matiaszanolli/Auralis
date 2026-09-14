@@ -236,20 +236,28 @@ class QueueController:
                 error(f"Playlist not found: {playlist_id}")
                 return False
 
-            # Clear and reload queue
-            self.queue.clear()
-
-            # Snapshot playlist.tracks before iteration so a concurrent
-            # queue modification cannot cause RuntimeError mid-loop (fixes #2492).
-            for track in list(playlist.tracks):
-                track_info = track.to_dict()
-                self.queue.add_track(track_info)
-
-            # Clamp + write current_index atomically (#4098). The length read and
-            # the write must happen under one held lock (RLock, re-entrant) so a
-            # concurrent queue shrink can't leave the index out of bounds in the
-            # gap between the snapshot and the write.
+            # #5355: hold the queue's lock across the whole clear-repopulate-
+            # and-index-write sequence as one atomic unit — RLock, so the
+            # per-call clear()/add_track() acquisitions below are cheap
+            # re-entries, not a new contention point. Without this, a reader
+            # (has_next_track()/peek_next_track(), from the audio thread's
+            # end-of-track check or the gapless prebuffer thread) could
+            # observe a momentarily empty queue between clear() and the
+            # repopulating add_track() calls.
             with self.queue._lock:
+                # Clear and reload queue
+                self.queue.clear()
+
+                # Snapshot playlist.tracks before iteration so a concurrent
+                # queue modification cannot cause RuntimeError mid-loop (fixes #2492).
+                for track in list(playlist.tracks):
+                    track_info = track.to_dict()
+                    self.queue.add_track(track_info)
+
+                # Clamp + write current_index atomically (#4098): the length
+                # read and the write happen under the same held lock so a
+                # concurrent queue shrink can't leave the index out of bounds
+                # in the gap between the snapshot and the write.
                 track_count = len(self.queue.tracks)
                 if track_count:
                     self.queue.current_index = min(start_index, track_count - 1)
@@ -357,18 +365,22 @@ class QueueController:
 
     def set_queue(self, track_list: list[str | dict[str, Any]], start_index: int = 0) -> None:
         """Set queue with track list (for backward compatibility)"""
-        # Clear existing queue
-        self.queue.clear()
-        # Add new tracks (assuming track_list items are file paths or track info)
-        for track in track_list:
-            if isinstance(track, dict):
-                self.queue.add_track(track)
-            else:
-                # Assume it's a filepath
-                self.queue.add_track({'filepath': track})
-        # Clamp + write current_index atomically under one held lock (#4098) to
-        # avoid the TOCTOU between reading the length and writing the index.
+        # #5355: hold the queue's lock across the whole clear-repopulate-and-
+        # index-write sequence as one atomic unit — see load_playlist() for
+        # the full rationale (same pattern, same fix).
         with self.queue._lock:
+            # Clear existing queue
+            self.queue.clear()
+            # Add new tracks (assuming track_list items are file paths or track info)
+            for track in track_list:
+                if isinstance(track, dict):
+                    self.queue.add_track(track)
+                else:
+                    # Assume it's a filepath
+                    self.queue.add_track({'filepath': track})
+            # Clamp + write current_index atomically (#4098) — the length
+            # read and the write happen under the same held lock to avoid
+            # the TOCTOU between reading the length and writing the index.
             track_count = len(self.queue.tracks)
             if track_count and start_index >= 0:
                 self.queue.current_index = min(start_index, track_count - 1)
