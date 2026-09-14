@@ -17,7 +17,12 @@ class PlayerConfig:
     def __init__(
         self,
         sample_rate: int = 44100,
-        buffer_size: int = 4410,
+        # #5421: matches the only production construction site's explicit
+        # override (config/startup.py) — the previous 4410 (100ms) default
+        # was latent (harmless only because that caller always overrode it)
+        # and would have silently grown the realtime buffer 4x if the
+        # explicit argument were ever dropped.
+        buffer_size: int = 1024,
         enable_level_matching: bool = True,
         enable_frequency_matching: bool = False,
         enable_stereo_width: bool = False,
