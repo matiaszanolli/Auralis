@@ -1207,6 +1207,45 @@ describe('usePlayEnhanced – audio_stream_end reason (#5462)', () => {
 });
 
 // ============================================================================
+// 8d. Chunks queued before audio_stream_start (#5464)
+// ============================================================================
+
+describe('usePlayEnhanced – chunks queued before audio_stream_start (#5464)', () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it('counts a queued content chunk once, not once per sub-frame', () => {
+    setupMocks();
+    const store = createTestStore();
+    renderHook(() => usePlayEnhanced(), { wrapper: makeWrapper(store) });
+    vi.mocked(pcmDecoding.decodeAudioChunkMessage).mockImplementation((message: any) => ({
+      samples: new Float32Array(3),
+      metadata: {
+        chunkIndex: message.data.chunk_index,
+        chunkCount: 10,
+        frameIndex: message.data.frame_index,
+        frameCount: message.data.frame_count,
+        sampleCount: 3,
+        sampleRate: 44100,
+        channels: 2,
+      },
+    }));
+
+    // All three sub-frames of content chunk 0 race ahead of the start message.
+    for (let frame = 0; frame < 3; frame++) {
+      fireHandler('audio_chunk', makeChunkMsg({ chunk_index: 0, frame_index: frame, frame_count: 3 }));
+    }
+    fireHandler('audio_stream_start', makeStreamStartMsg({ total_chunks: 10 }));
+    // A live, non-final sub-frame of chunk 1 publishes the running count.
+    fireHandler('audio_chunk', makeChunkMsg({ chunk_index: 1, frame_index: 0, frame_count: 2 }));
+
+    expect(store.getState().player.streaming.enhanced.processedChunks).toBe(1);
+  });
+});
+
+// ============================================================================
 // 9. playEnhanced
 // ============================================================================
 

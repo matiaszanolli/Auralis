@@ -4,8 +4,9 @@
  *
  * Owns the `audio_stream_start` handler for enhanced playback: it (re)builds the
  * PCMStreamBuffer + AudioPlaybackEngine + AudioContext for a new stream, handles
- * the seek-resume fast path, drains any chunks that raced ahead of stream_start,
- * and starts playback once the engine's minimum buffer is satisfied. The handler
+ * the seek-resume fast path, drains any chunks that raced ahead of stream_start
+ * through the core's chunk path, and starts playback via the core's single
+ * auto-start rule. The handler
  * is registered on `core.handleStreamStartRef` so the shared streaming core
  * dispatches to it.
  *
@@ -25,7 +26,6 @@ import {
   startStreaming,
   setStreamingError,
 } from '@/store/slices/playerSlice';
-import { decodeAudioChunkMessage } from '@/utils/audio/pcmDecoding';
 import type { AudioStreamStartMessage } from '@/contexts/WebSocketContext';
 import type { StreamingCoreReturn } from './useAudioStreamingCore';
 
@@ -184,25 +184,19 @@ export function useEnhancedStreamStart({
         })
       );
 
-      // Process any chunks that arrived before stream_start (race condition handling)
-      if (core.pendingChunksRef.current.length > 0) {
-        DEBUG && console.log('[usePlayEnhanced] Processing queued chunks:', core.pendingChunksRef.current.length);
-        const queuedChunks = [...core.pendingChunksRef.current];
-        core.pendingChunksRef.current = []; // Clear queue before processing
-
-        for (const queuedMessage of queuedChunks) {
-          try {
-            const { samples } = decodeAudioChunkMessage(
-              queuedMessage,
-              message.data.sample_rate,
-              message.data.channels
-            );
-            buffer.append(samples);
-            core.streamingMetadataRef.current!.processedChunks++;
-          } catch (queuedError) {
-            console.error('[usePlayEnhanced] Error processing queued chunk:', queuedError);
-          }
-        }
+      // Drain chunks that arrived before stream_start through the same path as
+      // any other chunk (#5464). The hand-rolled loop that stood here counted
+      // processedChunks once per sub-frame message instead of once per content
+      // chunk — the #4414 rule ingestChunk applies — so startup progress ran
+      // ahead of the audio actually delivered. The core has already adopted
+      // this stream's epoch, so handleChunk also drops any superseded frames.
+      const queuedChunks = core.pendingChunksRef.current;
+      core.pendingChunksRef.current = [];
+      if (queuedChunks.length > 0) {
+        DEBUG && console.log('[usePlayEnhanced] Processing queued chunks:', queuedChunks.length);
+      }
+      for (const queuedMessage of queuedChunks) {
+        core.handleChunk(queuedMessage);
       }
 
       // Start now if the buffer already meets the engine's own minimum (#2478),
@@ -214,8 +208,10 @@ export function useEnhancedStreamStart({
       console.error('[usePlayEnhanced]', errorMsg);
       dispatch(setStreamingError({ streamType: 'enhanced', error: errorMsg }));
     }
+    // handleChunk is listed so the drain above never runs a stale closure; the
+    // other core members used here are refs and stable callbacks.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch]);
+  }, [dispatch, core.handleChunk]);
 
   core.handleStreamStartRef.current = handleStreamStart;
 }
