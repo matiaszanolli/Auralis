@@ -25,7 +25,10 @@ class" check when composed together on the facade.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+from typing import Any, cast
+
 from sqlalchemy import and_, select
+from sqlalchemy.engine import CursorResult
 
 from ...utils.logging import error, warning
 from ..models import TrackFingerprint
@@ -70,10 +73,11 @@ class FingerprintSimilarityMixin(BaseRepository):
         # reference cloud. Two bulk UPDATE statements complete in a single
         # round-trip each. Matches the pattern in `clear_all_reference_flags`.
         from sqlalchemy import update
+        # Bulk DML types as a plain Result; at runtime it is a CursorResult,
+        # which is what carries rowcount (same cast as fingerprint_scheduler_repository).
         flagged_ids = [tid for tid, f in track_ids_flagged.items() if f]
         unflagged_ids = [tid for tid, f in track_ids_flagged.items() if not f]
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             updated = 0
             if flagged_ids:
                 result = session.execute(
@@ -82,7 +86,7 @@ class FingerprintSimilarityMixin(BaseRepository):
                     .where(TrackFingerprint.is_reference == False)  # noqa: E712
                     .values(is_reference=True)
                 )
-                updated += result.rowcount or 0
+                updated += cast(CursorResult[Any], result).rowcount or 0
             if unflagged_ids:
                 result = session.execute(
                     update(TrackFingerprint)
@@ -90,11 +94,9 @@ class FingerprintSimilarityMixin(BaseRepository):
                     .where(TrackFingerprint.is_reference == True)  # noqa: E712
                     .values(is_reference=False)
                 )
-                updated += result.rowcount or 0
+                updated += cast(CursorResult[Any], result).rowcount or 0
             session.commit()
             return updated
-        finally:
-            session.close()
 
     def set_reference_weights(self, weights: dict[int, float]) -> int:
         """Bulk set reference_weight for the given track_ids (#3480 Layer 1).
@@ -113,17 +115,14 @@ class FingerprintSimilarityMixin(BaseRepository):
         if not weights:
             return 0
         from sqlalchemy import case, update
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             result = session.execute(
                 update(TrackFingerprint)
                 .where(TrackFingerprint.track_id.in_(weights.keys()))
                 .values(reference_weight=case(weights, value=TrackFingerprint.track_id))
             )
             session.commit()
-            return int(result.rowcount or 0)
-        finally:
-            session.close()
+            return int(cast(CursorResult[Any], result).rowcount or 0)
 
     def clear_all_reference_flags(self) -> int:
         """Set is_reference=False and reference_weight=0.0 on every fingerprint.
@@ -131,17 +130,14 @@ class FingerprintSimilarityMixin(BaseRepository):
         Returns rows updated.
         """
         from sqlalchemy import update
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             result = session.execute(
                 update(TrackFingerprint)
                 .where(TrackFingerprint.is_reference == True)  # noqa: E712
                 .values(is_reference=False, reference_weight=0.0)
             )
             session.commit()
-            return int(result.rowcount or 0)
-        finally:
-            session.close()
+            return int(cast(CursorResult[Any], result).rowcount or 0)
 
     def get_by_dimension_range(
         self,
@@ -181,7 +177,7 @@ class FingerprintSimilarityMixin(BaseRepository):
             if limit is not None:
                 stmt = stmt.limit(limit)
 
-            fingerprints = session.execute(stmt).scalars().all()
+            fingerprints = list(session.execute(stmt).scalars().all())
             for fp in fingerprints:
                 session.expunge(fp)
             return fingerprints
@@ -229,7 +225,7 @@ class FingerprintSimilarityMixin(BaseRepository):
             if limit is not None:
                 stmt = stmt.limit(limit)
 
-            fingerprints = session.execute(stmt).scalars().all()
+            fingerprints = list(session.execute(stmt).scalars().all())
             for fp in fingerprints:
                 session.expunge(fp)
             return fingerprints
