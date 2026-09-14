@@ -23,6 +23,8 @@ from schemas import (
     TrackResponse,
 )
 
+from auralis.analysis.fingerprint.schema import centroid_to_hz, rolloff_to_hz
+
 from .dependencies import require_repository_factory, with_error_handling
 from .errors import NotFoundError
 from .pagination import PaginationParams, compute_has_more
@@ -356,6 +358,14 @@ async def get_album_fingerprint(album_id: Annotated[int, Path(ge=1)], repos: Any
     for db_col, api_key in db_to_api:
         values = [getattr(fp, db_col, 0.0) for fp in fingerprints]
         median_fingerprint[api_key] = float(np.median(values))
+
+    # spectral_centroid/spectral_rolloff are stored normalized [0, 1]; convert
+    # to Hz to match FingerprintVectorResponse's documented contract (#5470).
+    # Converting after the median (rather than converting each fp's raw value
+    # first) is equivalent -- both helpers are a fixed positive linear scale,
+    # which commutes with median.
+    median_fingerprint['spectral_centroid'] = centroid_to_hz(median_fingerprint['spectral_centroid'])
+    median_fingerprint['spectral_rolloff'] = rolloff_to_hz(median_fingerprint['spectral_rolloff'])
 
     return {
         "album_id": album_id,

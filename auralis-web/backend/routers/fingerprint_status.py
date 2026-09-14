@@ -20,6 +20,7 @@ from collections.abc import Callable
 from fastapi import APIRouter, HTTPException, Path
 from pydantic import BaseModel, Field
 
+from auralis.analysis.fingerprint.schema import centroid_to_hz, rolloff_to_hz
 from auralis.utils.logging import sanitize_log_value
 
 from schemas import FingerprintVectorResponse
@@ -177,9 +178,10 @@ def create_fingerprint_status_router(
                     "rhythm_stability": fp.rhythm_stability,
                     "transient_density": fp.transient_density,
                     "silence_ratio": fp.silence_ratio,
-                    # 3D Spectral shape
-                    "spectral_centroid": fp.spectral_centroid,
-                    "spectral_rolloff": fp.spectral_rolloff,
+                    # 3D Spectral shape -- stored normalized 0-1, converted to Hz
+                    # to match this response's documented contract (#5470).
+                    "spectral_centroid": centroid_to_hz(fp.spectral_centroid),
+                    "spectral_rolloff": rolloff_to_hz(fp.spectral_rolloff),
                     "spectral_flatness": fp.spectral_flatness,
                     # Harmonic content
                     "harmonic_ratio": fp.harmonic_ratio,

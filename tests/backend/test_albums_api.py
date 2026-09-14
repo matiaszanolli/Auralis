@@ -18,6 +18,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from auralis.analysis.fingerprint.schema import CENTROID_NORMALIZATION_HZ, ROLLOFF_NORMALIZATION_HZ
+
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
@@ -535,7 +537,11 @@ class TestGetAlbumFingerprint:
             setattr(fp, col, 0.5)
 
         mock_repos.fingerprints = Mock()
-        mock_repos.fingerprints.get_by_track_id.return_value = fp
+        # get_album_fingerprint() calls get_by_track_ids() (plural) with the
+        # full list of track ids, not get_by_track_id() -- the mock method
+        # name was stale (pre-existing, unrelated to #5470) and left this
+        # test throwing a 500 before it ever reached the assertions below.
+        mock_repos.fingerprints.get_by_track_ids.return_value = [fp]
 
         with patch('routers.albums.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/1/fingerprint")
@@ -546,6 +552,11 @@ class TestGetAlbumFingerprint:
         assert data["fingerprinted_track_count"] == 1
         assert "fingerprint" in data
         assert data["fingerprint"]["lufs"] == 0.5
+        # spectral_centroid/spectral_rolloff are stored normalized [0, 1] but
+        # served in Hz per FingerprintVectorResponse's documented contract
+        # (#5470) -- a raw 0.5 must not leak through unconverted.
+        assert data["fingerprint"]["spectral_centroid"] == pytest.approx(0.5 * CENTROID_NORMALIZATION_HZ)
+        assert data["fingerprint"]["spectral_rolloff"] == pytest.approx(0.5 * ROLLOFF_NORMALIZATION_HZ)
 
     def test_fingerprint_album_not_found(self, client, mock_repos):
         """Unknown album ID returns 404"""
@@ -564,7 +575,7 @@ class TestGetAlbumFingerprint:
         mock_repos.albums.get_by_id.return_value = mock_album
 
         mock_repos.fingerprints = Mock()
-        mock_repos.fingerprints.get_by_track_id.return_value = None
+        mock_repos.fingerprints.get_by_track_ids.return_value = []
 
         with patch('routers.albums.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/1/fingerprint")
