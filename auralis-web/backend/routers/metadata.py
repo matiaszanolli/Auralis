@@ -23,7 +23,11 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Path
 from pydantic import BaseModel, Field
 from schemas import TrackId
-from security.path_security import PathValidationError, validate_file_path
+from security.path_security import (
+    PathMissingError,
+    PathValidationError,
+    validate_file_path,
+)
 from websocket.outbound_messages import broadcast_typed
 
 from auralis.library.metadata_editor import MetadataEditor, MetadataUpdate
@@ -189,6 +193,34 @@ def _tag_dict_to_db_columns(tag_updates: dict[str, Any]) -> dict[str, Any]:
     return {_METADATA_FIELD_TO_COLUMN.get(k, k): v for k, v in tag_updates.items()}
 
 
+def _validate_track_filepath(track_id: int, filepath: Any) -> str:
+    """Validate a DB-stored track filepath, mapping each failure class to its
+    own HTTP status.
+
+    #5080: all three single-track routes below used to collapse every
+    ``PathValidationError`` into a 400, so a track whose file had been
+    deleted, moved, or lives on an unplugged drive answered "Bad Request"
+    instead of "Not Found" — indistinguishable, from the client's side, from a
+    malformed path. ``validate_file_path()`` now raises the
+    ``PathMissingError`` subclass for exactly the exists()/is_file() checks,
+    which maps to 404 here; traversal/containment/unreadable rejections stay
+    400.
+
+    Both details are deliberately generic and path-free: ``PathValidationError``
+    text names the resolved path and every allowed directory (#4807), and
+    ``validate_file_path`` already logs the rejection once via
+    ``_logs_rejections``, so nothing is lost by not reflecting it.
+    """
+    try:
+        return str(validate_file_path(str(filepath)))
+    except PathMissingError:
+        raise NotFoundError(
+            "Audio file", detail=f"Audio file not found for track {track_id}"
+        )
+    except PathValidationError:
+        raise HTTPException(status_code=400, detail="Invalid track filepath")
+
+
 # ============================================================================
 # DEPENDENCY WIRING (#4670)
 #
@@ -289,15 +321,9 @@ async def get_editable_fields(
         if not track:
             raise NotFoundError("Track")
 
-        # Validate DB-retrieved filepath before any file I/O (fixes #2302)
-        try:
-            filepath_str = str(validate_file_path(str(track.filepath)))
-        except PathValidationError:
-            # PathValidationError's own text names the resolved path and
-            # every allowed directory (#4807) -- validate_file_path already
-            # logs it once via _logs_rejections; the client gets a fixed,
-            # generic detail regardless of which check failed.
-            raise HTTPException(status_code=400, detail="Invalid track filepath")
+        # Validate DB-retrieved filepath before any file I/O (fixes #2302).
+        # 404 when the file is simply gone, 400 when the path is rejected (#5080).
+        filepath_str = _validate_track_filepath(track_id, track.filepath)
         editable_fields = await asyncio.to_thread(metadata_editor.get_editable_fields, filepath_str)
 
         # Get current metadata (file I/O — run in thread)
@@ -313,6 +339,11 @@ async def get_editable_fields(
     except HTTPException:
         raise  # Re-raise HTTPException as-is (don't wrap in 500)
     except FileNotFoundError:
+        # Deliberately kept, not deleted (#5080): with the existence check now
+        # raising PathMissingError -> 404 above, this arm covers the remaining
+        # race — the file disappearing between validation and the read/write
+        # below — and answers it with the same 404. Reaching it no longer means
+        # "unreachable dead code"; it means we lost that race.
         raise NotFoundError("Audio file", detail=f"Audio file not found for track {track_id}")
 
 
@@ -342,15 +373,9 @@ async def get_track_metadata(
         if not track:
             raise NotFoundError("Track")
 
-        # Validate DB-retrieved filepath before file I/O (fixes #2302)
-        try:
-            filepath_validated = str(validate_file_path(str(track.filepath)))
-        except PathValidationError:
-            # PathValidationError's own text names the resolved path and
-            # every allowed directory (#4807) -- validate_file_path already
-            # logs it once via _logs_rejections; the client gets a fixed,
-            # generic detail regardless of which check failed.
-            raise HTTPException(status_code=400, detail="Invalid track filepath")
+        # Validate DB-retrieved filepath before file I/O (fixes #2302).
+        # 404 when the file is simply gone, 400 when the path is rejected (#5080).
+        filepath_validated = _validate_track_filepath(track_id, track.filepath)
 
         # Read metadata from file (offloaded to thread to avoid event-loop block, fixes #2317)
         metadata = await asyncio.to_thread(metadata_editor.read_metadata, filepath_validated)
@@ -364,6 +389,11 @@ async def get_track_metadata(
     except HTTPException:
         raise  # Re-raise HTTPException as-is
     except FileNotFoundError:
+        # Deliberately kept, not deleted (#5080): with the existence check now
+        # raising PathMissingError -> 404 above, this arm covers the remaining
+        # race — the file disappearing between validation and the read/write
+        # below — and answers it with the same 404. Reaching it no longer means
+        # "unreachable dead code"; it means we lost that race.
         raise NotFoundError("Audio file", detail=f"Audio file not found for track {track_id}")
 
 
@@ -405,15 +435,9 @@ async def update_track_metadata(
         if not metadata_updates:
             raise HTTPException(status_code=400, detail="No metadata fields provided")
 
-        # Validate DB-retrieved filepath before any file I/O (fixes #2302)
-        try:
-            filepath_validated = str(validate_file_path(str(track.filepath)))
-        except PathValidationError:
-            # PathValidationError's own text names the resolved path and
-            # every allowed directory (#4807) -- validate_file_path already
-            # logs it once via _logs_rejections; the client gets a fixed,
-            # generic detail regardless of which check failed.
-            raise HTTPException(status_code=400, detail="Invalid track filepath")
+        # Validate DB-retrieved filepath before any file I/O (fixes #2302).
+        # 404 when the file is simply gone, 400 when the path is rejected (#5080).
+        filepath_validated = _validate_track_filepath(track_id, track.filepath)
 
         # Write metadata to file (backup always enforced server-side, fixes #2407).
         # Offloaded to thread to avoid blocking the event loop (fixes #2317).
@@ -457,7 +481,7 @@ async def update_track_metadata(
 
         # Read updated metadata (offloaded to thread, fixes #2317)
         # track was refreshed from DB above — re-validate before read (fixes #2302)
-        validated_path_for_read = str(validate_file_path(str(track.filepath)))
+        validated_path_for_read = _validate_track_filepath(track_id, track.filepath)
         updated_metadata = await asyncio.to_thread(metadata_editor.read_metadata, validated_path_for_read)
 
         logger.info(f"Updated metadata for track {track_id}: {list(metadata_updates.keys())}")
@@ -472,6 +496,11 @@ async def update_track_metadata(
     except HTTPException:
         raise
     except FileNotFoundError:
+        # Deliberately kept, not deleted (#5080): with the existence check now
+        # raising PathMissingError -> 404 above, this arm covers the remaining
+        # race — the file disappearing between validation and the read/write
+        # below — and answers it with the same 404. Reaching it no longer means
+        # "unreachable dead code"; it means we lost that race.
         raise NotFoundError("Audio file", detail=f"Audio file not found for track {track_id}")
     except ValueError as e:
         # Invalid metadata error

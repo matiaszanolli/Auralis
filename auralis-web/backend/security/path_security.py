@@ -107,6 +107,26 @@ class PathValidationError(Exception):
     pass
 
 
+class PathMissingError(PathValidationError):
+    """Raised when a path is well-formed and contained, but absent on disk.
+
+    #5080: ``validate_file_path()`` used to report "this path escapes the
+    allowed directories" and "this file no longer exists" with the same
+    exception type, so every caller that mapped ``PathValidationError`` to
+    HTTP 400 answered 400 for a track whose file had been deleted, moved or
+    lives on an unplugged drive — the most common desktop failure mode for a
+    file-backed library, and the one case a client genuinely needs to tell
+    apart (offer relocate/remove vs. report a malformed request).
+
+    Subclassing ``PathValidationError`` keeps every existing
+    ``except PathValidationError`` handler working unchanged; a caller that
+    wants the distinction catches this first. Raised ONLY by the
+    existence/is-a-file checks — a containment, traversal, empty-path or
+    unreadable-path rejection stays a plain ``PathValidationError``.
+    """
+    pass
+
+
 def _logs_rejections(fn: Callable[..., Path]) -> Callable[..., Path]:
     """Emit exactly one warning whenever the wrapped validator rejects a path.
 
@@ -195,7 +215,11 @@ def validate_file_path(
         Resolved absolute Path if valid
 
     Raises:
-        PathValidationError: If path fails validation
+        PathMissingError: If the path is contained but does not exist on disk
+            (or is not a regular file). A ``PathValidationError`` subclass, so
+            callers that do not care about the distinction are unaffected.
+        PathValidationError: If path fails any other validation check
+            (empty, unresolvable, traversal, outside allowed dirs, unreadable)
     """
     if not filepath:
         raise PathValidationError("File path cannot be empty")
@@ -244,11 +268,14 @@ def validate_file_path(
         )
         raise PathValidationError("Path is outside allowed directories")
 
+    # PathMissingError, not a bare PathValidationError (#5080): the path is
+    # well-formed and inside an allowed directory — it simply is not there.
+    # Callers map this to 404, and the containment failures above to 400.
     if not resolved_path.exists():
-        raise PathValidationError(f"File does not exist: {resolved_path}")
+        raise PathMissingError(f"File does not exist: {resolved_path}")
 
     if not resolved_path.is_file():
-        raise PathValidationError(f"Path is not a file: {resolved_path}")
+        raise PathMissingError(f"Path is not a file: {resolved_path}")
 
     if not os.access(resolved_path, os.R_OK):
         raise PathValidationError(f"File is not readable: {resolved_path}")
