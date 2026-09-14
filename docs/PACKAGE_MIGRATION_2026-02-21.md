@@ -76,7 +76,7 @@ auralis-web/backend/
 
 ### Backend — non-moved files updated
 - `main.py` — proactive_buffer, chunked_processor
-- `config/startup.py` — state_manager, fingerprint_generator, fingerprint_queue, processing_api, processing_engine, streamlined_worker
+- *config/startup.py* (since #5236 the `config/startup/` package) — state_manager, fingerprint_generator, fingerprint_queue, processing_api, processing_engine, streamlined_worker
 - `config/routes.py` — processing_api
 - `routers/system.py` — audio_stream_controller, websocket_security, chunked_processor (×2)
 - `routers/library.py` — fingerprint_queue (×2)

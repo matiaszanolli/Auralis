@@ -36,7 +36,11 @@ Key pieces:
 - **Static frontend mount** is skipped in `--dev` because a `StaticFiles` mount at `/` would
   shadow the `/ws` route. Don't "fix" the missing dev mount.
 
-### Lifespan (`config/startup.py`)
+### Lifespan (`config/startup/__init__.py`)
+
+`config/startup` is a package (#5236): `__init__.py` holds `create_lifespan` and the
+rollback boundary; the steps live in its `components`, `fingerprint`, `workers`,
+`tempfiles`, `rollback` and `shutdown` submodules.
 
 Startup builds services in a strict order (all under `if HAS_AURALIS`): temp-chunk cleanup →
 `LibraryDatabase` → `RepositoryFactory` → `FingerprintExtractor` / `FingerprintExtractionQueue`
@@ -44,11 +48,10 @@ Startup builds services in a strict order (all under `if HAS_AURALIS`): temp-chu
 `PlayerStateManager` → `FingerprintSimilarity` (auto-fit in a background daemon) →
 `ProcessingEngine(max_concurrent_jobs=2)` → `StreamlinedCacheWorker`.
 
-`LibraryDatabase` owns the migration, engine, session factory, scan slots and shutdown. The
-globals-dict key it is stored under is still spelled `library_manager` (#5031) — that name
-predates #4619, which replaced the construction of the since-deleted `LibraryManager` facade
-(#4915) with `LibraryDatabase` itself. Grep for `library_manager` to find consumers; grep for
-`LibraryDatabase` to find the class.
+`LibraryDatabase` owns the migration, engine, session factory, scan slots and shutdown. It is
+stored under the globals-dict key `library_database`. That key was spelled `library_manager`
+(#5031) until #5162 renamed it; the old name predated #4619, which replaced construction of the
+since-deleted `LibraryManager` facade (#4915) with `LibraryDatabase` itself.
 
 Three resilience patterns to know:
 

@@ -54,7 +54,7 @@ async def test_chunk_dir_rmtree_offloaded_via_to_thread(tmp_path):
 
     with (
         patch("tempfile.gettempdir", return_value=str(tmp_path)),
-        patch("config.startup.reclaim_leftover_stream_temps"),  # unrelated sweep, quieted
+        patch("config.startup.tempfiles.reclaim_leftover_stream_temps"),  # unrelated sweep, quieted
         patch("shutil.rmtree") as mock_rmtree,
         patch("asyncio.to_thread", wraps=__import__("asyncio").to_thread) as mock_to_thread,
     ):
@@ -82,7 +82,7 @@ async def test_chunk_dir_recreated_after_clearing(tmp_path):
 
     with (
         patch("tempfile.gettempdir", return_value=str(tmp_path)),
-        patch("config.startup.reclaim_leftover_stream_temps"),
+        patch("config.startup.tempfiles.reclaim_leftover_stream_temps"),
     ):
         async with lifespan(FakeApp()):
             pass
@@ -98,7 +98,7 @@ async def test_skipped_entirely_when_chunk_dir_absent(tmp_path):
 
     with (
         patch("tempfile.gettempdir", return_value=str(tmp_path)),
-        patch("config.startup.reclaim_leftover_stream_temps"),
+        patch("config.startup.tempfiles.reclaim_leftover_stream_temps"),
         patch("shutil.rmtree") as mock_rmtree,
     ):
         async with lifespan(FakeApp()):

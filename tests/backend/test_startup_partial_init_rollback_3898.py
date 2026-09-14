@@ -40,7 +40,7 @@ class TestProcessingEngineRollsBackOnPartialFailure:
         globals_dict: dict = {}
 
         with patch(
-            "config.startup.reclaim_stale_temp_entries",
+            "config.startup.workers.reclaim_stale_temp_entries",
             side_effect=RuntimeError("disk read failed"),
         ):
             await _init_processing_engine(True, globals_dict)

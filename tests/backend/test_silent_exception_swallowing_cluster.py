@@ -135,17 +135,17 @@ async def test_proactive_buffer_processor_close_failure_logs_debug(caplog):
 
 
 # ---------------------------------------------------------------------------
-# config/startup.py — get_track_filepath repository lookup
+# config/startup/fingerprint.py — get_track_filepath repository lookup
 # ---------------------------------------------------------------------------
 
 def test_startup_track_filepath_lookup_failure_logs_debug():
-    """The get_track_filepath closure in config/startup.py's on-demand
-    fingerprint-queue setup swallowed lookup failures with a bare pass.
-    This directly exercises the same closure shape via a rebuilt copy —
+    """The get_track_filepath closure in config/startup/fingerprint.py's
+    on-demand fingerprint-queue setup swallowed lookup failures with a bare
+    pass. This directly exercises the same closure shape via a rebuilt copy —
     the closure isn't independently importable, so we assert the pattern
     fix by re-reading the source and confirming logger.debug replaced pass."""
     import inspect
-    import config.startup as startup_mod
+    import config.startup.fingerprint as startup_mod
 
     source = inspect.getsource(startup_mod)
     idx = source.index("def get_track_filepath")

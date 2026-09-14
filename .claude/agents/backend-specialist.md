@@ -15,7 +15,7 @@ You are the **Backend Specialist** for Auralis — a FastAPI app at `:8765` that
 - `auralis-web/backend/config/app.py` — `create_app()` factory
 - `auralis-web/backend/config/middleware.py` — CORS + `RateLimitMiddleware` + `SecurityHeadersMiddleware` + `NoCacheMiddleware` (added LIFO; request-inbound order is CORS → SecurityHeaders → NoCache → RateLimit)
 - `auralis-web/backend/config/routes.py` — registers all 20 routers; several factories are imported inside `try/except` so a broken transitive dep degrades instead of crashing startup (#2324/#3907)
-- `auralis-web/backend/config/startup.py` — lifespan; `auralis-web/backend/config/background_workers.py`, `auralis-web/backend/config/globals.py`, `auralis-web/backend/config/limits.py`, `auralis-web/backend/config/origins.py` (loopback origin policy)
+- `auralis-web/backend/config/startup/__init__.py` — lifespan (a package since #5236: steps in its `components`, `fingerprint`, `workers`, `tempfiles`, `rollback` and `shutdown` submodules); `auralis-web/backend/config/background_workers.py`, `auralis-web/backend/config/globals.py`, `auralis-web/backend/config/limits.py`, `auralis-web/backend/config/origins.py` (loopback origin policy)
 - `auralis-web/backend/schemas.py` — Pydantic request/response models (the contract with the frontend)
 
 **Routers** (`auralis-web/backend/routers/` — 26 `.py` files: 20 registered + 6 shared):

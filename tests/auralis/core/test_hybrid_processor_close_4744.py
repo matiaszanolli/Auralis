@@ -164,7 +164,8 @@ class TestTheDocumentationIsHonest:
             repo / "auralis-web" / "backend" / "core" / "processor_pool.py",
             repo / "auralis-web" / "backend" / "core" / "processor_factory.py",
             repo / "auralis-web" / "backend" / "core" / "processing_engine.py",
-            repo / "auralis-web" / "backend" / "config" / "startup.py",
+            # config/startup became a package (#5236); check all of it.
+            *sorted((repo / "auralis-web" / "backend" / "config" / "startup").glob("*.py")),
         ]
         offenders = []
         for path in files:

@@ -26,7 +26,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from config.startup import _shutdown_components, _watch_critical_worker_task
+from config.startup import _shutdown_components
+from config.startup.workers import _watch_critical_worker_task
 
 
 @pytest.mark.asyncio

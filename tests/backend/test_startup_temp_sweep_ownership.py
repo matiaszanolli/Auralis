@@ -38,7 +38,7 @@ from config.limits import (  # noqa: E402
     owning_pid_from_stream_temp_name,
     stream_temp_prefix,
 )
-from config.startup import (  # noqa: E402
+from config.startup.tempfiles import (  # noqa: E402
     claim_chunk_cache,
     pid_is_alive,
     reclaim_leftover_stream_temps,
@@ -289,7 +289,7 @@ class TestChunkCacheOwnership:
         # A live PID that is not us: pretend the parent process owns it.
         foreign = os.getpid() + 1
         monkeypatch.setattr(
-            "config.startup.pid_is_alive", lambda pid: pid == foreign
+            "config.startup.tempfiles.pid_is_alive", lambda pid: pid == foreign
         )
         marker.write_text(str(foreign))
 
@@ -325,7 +325,7 @@ class TestChunkCacheOwnership:
 class TestNoUnconditionalSweepRemains:
     def test_sweep_is_not_an_unguarded_rmtree_loop(self):
         backend = Path(__file__).parent.parent.parent / "auralis-web" / "backend"
-        source = (backend / "config" / "startup.py").read_text()
+        source = (backend / "config" / "startup" / "tempfiles.py").read_text()
 
         assert 'for leftover in temp_root.glob("auralis_stream_*")' not in source, (
             "the hardcoded, unguarded glob is back — see #4713"

@@ -18,7 +18,7 @@ from pathlib import Path
 
 STARTUP = (
     Path(__file__).parent.parent.parent
-    / "auralis-web" / "backend" / "config" / "startup.py"
+    / "auralis-web" / "backend" / "config" / "startup" / "components.py"
 )
 
 # The two path-logging call sites, keyed by a distinctive substring.

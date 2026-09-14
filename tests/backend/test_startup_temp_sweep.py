@@ -24,7 +24,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
 from config.limits import CHUNK_TEMP_DIRNAME
-from config.startup import reclaim_leftover_stream_temps, reclaim_stale_temp_entries
+from config.startup.tempfiles import reclaim_leftover_stream_temps, reclaim_stale_temp_entries
 
 
 def _age_entry(path: Path, hours: float) -> Path:

@@ -27,7 +27,8 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
 from config.background_workers import BACKGROUND_WORKER_KEYS, WORKER_STOP_KWARGS
-from config.startup import _ROLLBACK_SERVICES_TO_STOP, _shutdown_components
+from config.startup import _shutdown_components
+from config.startup.rollback import _ROLLBACK_SERVICES_TO_STOP
 
 pytestmark = pytest.mark.asyncio
 

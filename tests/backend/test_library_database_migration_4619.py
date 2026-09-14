@@ -36,7 +36,8 @@ def db_path(tmp_path):
 class TestNoDeprecatedConstructionInProduction:
     def test_backend_startup_does_not_construct_library_database(self):
         """AC: the startup path builds a LibraryDatabase, not the deprecated class."""
-        source = (_REPO_ROOT / "auralis-web" / "backend" / "config" / "startup.py").read_text()
+        # config/startup became a package (#5236); the DB is opened in components.py.
+        source = (_REPO_ROOT / "auralis-web" / "backend" / "config" / "startup" / "components.py").read_text()
         assert "LibraryManager()" not in source
         assert "LibraryDatabase()" in source
 

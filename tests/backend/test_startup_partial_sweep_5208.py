@@ -36,7 +36,7 @@ from config.limits import (  # noqa: E402
     CHUNK_TEMP_DIRNAME,
     CHUNK_TEMP_OWNER_FILENAME,
 )
-from config import startup as startup_mod  # noqa: E402
+from config.startup import tempfiles as startup_mod  # noqa: E402
 from core.encoding.atomic_io import (  # noqa: E402
     PARTIAL_MAX_AGE_SECONDS,
     PARTIAL_SUFFIX,

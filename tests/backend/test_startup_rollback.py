@@ -23,11 +23,10 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from config.startup import (
+from config.startup import _rollback_partial_startup, _shutdown_components
+from config.startup.rollback import (
     _ROLLBACK_COMPONENTS_TO_NULL,
     _ROLLBACK_SERVICES_TO_STOP,
-    _rollback_partial_startup,
-    _shutdown_components,
 )
 
 
