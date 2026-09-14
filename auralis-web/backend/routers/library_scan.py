@@ -18,7 +18,7 @@ import os
 from collections.abc import Callable
 from typing import Any, cast
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from helpers import scan_progress_percentage
 from pydantic import BaseModel, Field
 from schemas import LibraryScanRequest, ScanResultResponse
@@ -34,7 +34,6 @@ from services.scanner_stop import stop_scanner
 from .errors import LibraryManagerUnavailableError, handle_query_error
 
 logger = logging.getLogger(__name__)
-
 # Nginx's convention for "client closed the request". Nothing can read this
 # response — by definition the client is gone — but the status keeps the
 # handler's exit honest in logs and tests instead of reporting a scan that
@@ -131,319 +130,391 @@ async def _await_scan(
                 await watcher
 
 
-def create_library_scan_router(
-    get_library_database: Callable[[], Any] | None = None,
-    connection_manager: Any | None = None,
-) -> APIRouter:
-    """Factory: library scan route."""
-    router = APIRouter(tags=["library"])
+# ============================================================================
+# DEPENDENCY WIRING (#5166, following the #4670 precedent set in player.py)
+#
+# create_library_scan_router() used to be a 256-line closure: both handlers
+# below were nested inside it purely to reach get_library_database /
+# connection_manager via closure capture, which made either one impossible to
+# import or call without first building the whole router. Handlers are now
+# module level; they reach the same objects through FastAPI Depends() instead.
+#
+# _LibraryScanDeps holds the raw callable/object the factory receives. It is
+# populated exactly once, by create_library_scan_router() itself -- same as the
+# old closure, which only ever ran once per process (config/routes.py calls the
+# factory a single time at startup). This is a deliberate simplification, not a
+# new hazard: nothing in production calls the factory more than once in the
+# same process. It does NOT reproduce the #4361 module-level-`APIRouter()`
+# hazard, since the router instance itself is still built fresh, per call,
+# inside the factory below.
+#
+# Both attributes default to None -- unlike player.py's _PlayerDeps, this
+# factory's parameters are themselves optional, so "never populated" and
+# "populated with None" have to behave identically (a bare annotation would
+# raise AttributeError instead of resolving to None).
+#
+# A handler's Depends() default is only consulted when FastAPI itself invokes
+# it for a real request; a direct unit-test call passes library_database /
+# connection_manager explicitly as keyword arguments and never touches
+# _LibraryScanDeps at all -- that's the seam #5166 asked for.
+# ============================================================================
 
-    @router.get("/api/library/scan/status", response_model=ScanStatusResponse)
-    async def get_scan_status() -> dict[str, Any]:
-        """Resync point for a client that (re)connects mid-scan or after one
-        finished while its WebSocket was disconnected (#4821).
 
-        Scan lifecycle (`library_scan_started`/`scan_progress`/`scan_complete`/
-        `library_scan_error`) is otherwise broadcast-only — a client offline
-        when the terminal frame goes out never learns the scan ended, and
-        `isScanning` gets stuck. This is a live read of the same scan-slot
-        counter try_acquire_scan_slot()/release_scan_slot() maintain, so it
-        self-heals even after a scan crashed without emitting a terminal frame.
-        """
-        library_database = get_library_database() if get_library_database else None
+class _LibraryScanDeps:
+    get_library_database: Callable[[], Any] | None = None
+    connection_manager: Any = None
+
+
+_deps = _LibraryScanDeps()
+
+
+def _get_library_database() -> Any:
+    """Resolve the LibraryDatabase, or None when the app has none.
+
+    Resolving here (rather than in each handler) keeps the #4656 guard
+    meaningful: handlers check the *resolved* manager for None, which the
+    always-truthy getter callable could never expose.
+    """
+    return _deps.get_library_database() if _deps.get_library_database else None
+
+
+def _get_connection_manager() -> Any:
+    return _deps.connection_manager
+
+
+# ============================================================================
+# SCAN ENDPOINTS
+# ============================================================================
+
+async def get_scan_status(
+    library_database: Any = Depends(_get_library_database),
+) -> dict[str, Any]:
+    """Resync point for a client that (re)connects mid-scan or after one
+    finished while its WebSocket was disconnected (#4821).
+
+    Scan lifecycle (`library_scan_started`/`scan_progress`/`scan_complete`/
+    `library_scan_error`) is otherwise broadcast-only — a client offline
+    when the terminal frame goes out never learns the scan ended, and
+    `isScanning` gets stuck. This is a live read of the same scan-slot
+    counter try_acquire_scan_slot()/release_scan_slot() maintain, so it
+    self-heals even after a scan crashed without emitting a terminal frame.
+    """
+    if library_database is None:
+        raise LibraryManagerUnavailableError()
+    return {"is_scanning": library_database.is_scanning()}
+
+
+async def scan_library(
+    request: LibraryScanRequest,
+    http_request: Request,
+    library_database: Any = Depends(_get_library_database),
+    connection_manager: Any = Depends(_get_connection_manager),
+) -> ScanResultResponse:
+    """Scan directories for audio files and add them to the library.
+
+    Progress updates are broadcast via WebSocket (see WEBSOCKET_API.md).
+
+    ``http_request`` is the raw ASGI request, taken alongside the parsed
+    body purely so the scan can be stopped when the caller goes away
+    (#4820) — see ``_await_scan``.
+    """
+    try:
+        from auralis.library.scanner import LibraryScanner
+
+        # Guard the *resolved* manager, not the getter: the getter is always
+        # truthy, so the previous check never fired and a None manager
+        # reached LibraryScanner as an opaque 500 (#4656).
         if library_database is None:
             raise LibraryManagerUnavailableError()
-        return {"is_scanning": library_database.is_scanning()}
 
-    @router.post("/api/library/scan", response_model=ScanResultResponse)
-    async def scan_library(
-        request: LibraryScanRequest,
-        http_request: Request,
-    ) -> ScanResultResponse:
-        """Scan directories for audio files and add them to the library.
+        scanner = LibraryScanner(library_database)
 
-        Progress updates are broadcast via WebSocket (see WEBSOCKET_API.md).
+        # NOTE: `library_scan_started` is NOT broadcast here (#4602). It used
+        # to be sent unconditionally on entry — before scan_directories() ran
+        # and long before `result.rejected` could be known — so a second scan
+        # request that ended up 409'd had already told the UI a scan began,
+        # and its handler resets every counter, destroying the live progress
+        # of the scan actually running. The scanner now emits a
+        # `stage: 'started'` progress event once it owns the scan slot, and
+        # the callback below translates that into the frame (#2711's intent,
+        # correctly ordered).
 
-        ``http_request`` is the raw ASGI request, taken alongside the parsed
-        body purely so the scan can be stopped when the caller goes away
-        (#4820) — see ``_await_scan``.
-        """
-        try:
-            from auralis.library.scanner import LibraryScanner
+        # Set up progress callback that bridges sync scanner → async broadcast.
+        # asyncio.to_thread runs the scanner in a worker thread, so we use
+        # loop.call_soon_threadsafe to schedule the async broadcast safely.
+        if connection_manager:
+            loop = asyncio.get_running_loop()
 
-            # Guard the *resolved* manager, not the getter: the getter is always
-            # truthy, so the previous check never fired and a None manager
-            # reached LibraryScanner as an opaque 500 (#4656).
-            library_database = get_library_database() if get_library_database else None
-            if library_database is None:
-                raise LibraryManagerUnavailableError()
-
-            scanner = LibraryScanner(library_database)
-
-            # NOTE: `library_scan_started` is NOT broadcast here (#4602). It used
-            # to be sent unconditionally on entry — before scan_directories() ran
-            # and long before `result.rejected` could be known — so a second scan
-            # request that ended up 409'd had already told the UI a scan began,
-            # and its handler resets every counter, destroying the live progress
-            # of the scan actually running. The scanner now emits a
-            # `stage: 'started'` progress event once it owns the scan slot, and
-            # the callback below translates that into the frame (#2711's intent,
-            # correctly ordered).
-
-            # Set up progress callback that bridges sync scanner → async broadcast.
-            # asyncio.to_thread runs the scanner in a worker thread, so we use
-            # loop.call_soon_threadsafe to schedule the async broadcast safely.
-            if connection_manager:
-                loop = asyncio.get_running_loop()
-
-                def _progress_callback(progress_data: dict[str, Any]) -> None:
-                    # Guard against malformed progress_data (e.g. non-dict emitted
-                    # by a scanner bug) so a future exception is logged rather than
-                    # silently swallowed by run_coroutine_threadsafe (fixes #3864).
-                    try:
-                        stage = progress_data.get('stage', 'processing')
-                        # The scanner emits this only once both rejection guards
-                        # have passed, so it is the earliest point at which a
-                        # start frame is truthful (#4602).
-                        if stage == 'started':
-                            # `directories` is the resolved-absolute form of
-                            # what the requesting user picked via a directory
-                            # dialog (LibraryScanRequest.validate_directory_paths) —
-                            # a value the user already knows, not a path the
-                            # server introduced. Deliberately NOT class-name
-                            # redacted like library_scan_error below: that frame
-                            # echoes an *unhandled exception's message*, which
-                            # can name server-internal paths the user never
-                            # chose — a different, broader disclosure surface.
-                            # One policy for the whole scan-frame family (#4651):
-                            # redact only what the user did not themselves supply.
-                            asyncio.run_coroutine_threadsafe(
-                                broadcast_typed(
-                                    connection_manager,
-                                    "library_scan_started",
-                                    {
-                                        "directories": progress_data.get('directories')
-                                        or request.directories,
-                                    },
-                                ),
-                                loop,
-                            )
-                            return
-                        # Prefer the pre-counted total (#4616) — `total_found`
-                        # is the running discovery tally, which tracks
-                        # `processed` in lockstep under the streaming scan.
-                        total = (
-                            progress_data.get('total_expected')
-                            or progress_data.get('total_found', 0)
-                            or progress_data.get('processed', 0)
-                        )
-                        processed = progress_data.get('processed', 0)
-                        # Indeterminate unless the scanner supplies a real fraction
-                        # (streaming scan makes processed/total meaningless) — #4411.
-                        percentage = scan_progress_percentage(progress_data)
+            def _progress_callback(progress_data: dict[str, Any]) -> None:
+                # Guard against malformed progress_data (e.g. non-dict emitted
+                # by a scanner bug) so a future exception is logged rather than
+                # silently swallowed by run_coroutine_threadsafe (fixes #3864).
+                try:
+                    stage = progress_data.get('stage', 'processing')
+                    # The scanner emits this only once both rejection guards
+                    # have passed, so it is the earliest point at which a
+                    # start frame is truthful (#4602).
+                    if stage == 'started':
+                        # `directories` is the resolved-absolute form of
+                        # what the requesting user picked via a directory
+                        # dialog (LibraryScanRequest.validate_directory_paths) —
+                        # a value the user already knows, not a path the
+                        # server introduced. Deliberately NOT class-name
+                        # redacted like library_scan_error below: that frame
+                        # echoes an *unhandled exception's message*, which
+                        # can name server-internal paths the user never
+                        # chose — a different, broader disclosure surface.
+                        # One policy for the whole scan-frame family (#4651):
+                        # redact only what the user did not themselves supply.
                         asyncio.run_coroutine_threadsafe(
                             broadcast_typed(
                                 connection_manager,
-                                "scan_progress",
+                                "library_scan_started",
                                 {
-                                    "current": processed,
-                                    "total": total,
-                                    "percentage": percentage,
-                                    # Same policy as library_scan_started above
-                                    # (#4651): this path lives under a directory
-                                    # the user picked, and the frontend's
-                                    # ScanStatusCard surfaces it verbatim in a
-                                    # tooltip by design — redacting it here
-                                    # would silently break that affordance.
-                                    "current_file": progress_data.get('current_file') or progress_data.get('file'),
-                                    "phase": stage,
+                                    "directories": progress_data.get('directories')
+                                    or request.directories,
                                 },
                             ),
                             loop,
                         )
-                    except Exception:
-                        logger.warning(
-                            "scan_library progress callback failed — malformed progress_data",
-                            exc_info=True,
-                        )
-
-                scanner.set_progress_callback(_progress_callback)
-
-            scan_timeout = float(os.environ.get("AURALIS_SCAN_TIMEOUT", "3600"))
-            # #3710: capture the to_thread future so we can signal the scanner
-            # to stop on cancellation/timeout/disconnect — asyncio.wait_for
-            # cancels the awaitable but cannot terminate the underlying thread
-            # without this.
-            scan_future = asyncio.ensure_future(asyncio.to_thread(
-                scanner.scan_directories,
-                directories=request.directories,
-                recursive=request.recursive,
-                skip_existing=request.skip_existing,
-                check_modifications=True,
-            ))
-            result = await _await_scan(scan_future, scanner, http_request, scan_timeout)
-
-            # Rejected scan (e.g., already in progress) — return 409 (#2870).
-            if result.rejected:
-                raise HTTPException(status_code=409, detail="Scan already in progress")
-
-            # Enqueue newly added tracks for background fingerprinting (#2382).
-            if result.added_tracks:
-                try:
-                    from analysis.fingerprint_queue import get_fingerprint_queue
-                    fp_queue = get_fingerprint_queue()
-                    if fp_queue:
-                        # Offloaded (#4702): this is a comprehension over every
-                        # newly-added track, so unlike the single-track call
-                        # sites its cost scales with scan size — a large import
-                        # would hold the loop for the whole sweep, stalling
-                        # audio streaming and the scan_complete broadcast below.
-                        # The whole loop is offloaded rather than each enqueue,
-                        # matching the batch pattern in fingerprint_queue.py
-                        # (#3335): one hop instead of N.
-                        def _enqueue_added() -> int:
-                            return sum(1 for t in result.added_tracks if fp_queue.enqueue(t.id))
-
-                        enqueued = await asyncio.to_thread(_enqueue_added)
-                        if enqueued:
-                            logger.info(f"Enqueued {enqueued} tracks for fingerprinting after scan")
-                except Exception as fp_err:
-                    logger.warning(f"Fingerprint enqueue failed after scan: {fp_err}")
-
-            # #5458: prune tracks whose files are gone, exactly as the
-            # auto-scanner does. Only it used to, so users with auto_scan off
-            # (or rescanning by hand after moving files) kept dead entries.
-            # Before scan_complete: useScanProgress counts a removal frame only
-            # while the scan is still in progress.
-            await prune_missing_tracks(library_database, connection_manager)
-
-            # Broadcast final result. Field shape matches ScanCompleteMessage and
-            # the auto-scanner path (services/library_auto_scanner.py:268-279,
-            # fixes #3502 — prior `scan_time` was unread by the frontend).
-            if connection_manager:
-                scan_complete_payload: ScanCompletePayload = {
-                    "files_processed": result.files_processed or result.files_found,
-                    "files_added": result.files_added,
-                    "files_updated": result.files_updated,
-                    "files_skipped": result.files_skipped,
-                    "files_failed": result.files_failed,
-                    # #4841: name the failed files, not just the count.
-                    "failures": [
-                        cast(ScanFailurePayload, failure.to_dict())
-                        for failure in result.failures
-                    ],
-                    "duration": result.scan_time,
-                    "directories_scanned": result.directories_scanned,
-                }
-                await broadcast_typed(
-                    connection_manager,
-                    "scan_complete",
-                    scan_complete_payload,
-                )
-                if result.files_added or result.files_updated:
-                    await broadcast_typed(
-                        connection_manager,
-                        "library_updated",
-                        # Fields here must match LibraryUpdatedMessage in
-                        # frontend/src/types/ws/library.ts. `reason` — a
-                        # duplicate of `action` kept for backward compat with
-                        # pre-#3544 clients — was dropped in #4975: Auralis
-                        # ships frontend and backend as one Electron bundle, so
-                        # there is no independently-versioned older client.
-                        {
-                            "action": "scan",
-                            "track_count": result.files_added,
-                        },
+                        return
+                    # Prefer the pre-counted total (#4616) — `total_found`
+                    # is the running discovery tally, which tracks
+                    # `processed` in lockstep under the streaming scan.
+                    total = (
+                        progress_data.get('total_expected')
+                        or progress_data.get('total_found', 0)
+                        or progress_data.get('processed', 0)
+                    )
+                    processed = progress_data.get('processed', 0)
+                    # Indeterminate unless the scanner supplies a real fraction
+                    # (streaming scan makes processed/total meaningless) — #4411.
+                    percentage = scan_progress_percentage(progress_data)
+                    asyncio.run_coroutine_threadsafe(
+                        broadcast_typed(
+                            connection_manager,
+                            "scan_progress",
+                            {
+                                "current": processed,
+                                "total": total,
+                                "percentage": percentage,
+                                # Same policy as library_scan_started above
+                                # (#4651): this path lives under a directory
+                                # the user picked, and the frontend's
+                                # ScanStatusCard surfaces it verbatim in a
+                                # tooltip by design — redacting it here
+                                # would silently break that affordance.
+                                "current_file": progress_data.get('current_file') or progress_data.get('file'),
+                                "phase": stage,
+                            },
+                        ),
+                        loop,
+                    )
+                except Exception:
+                    logger.warning(
+                        "scan_library progress callback failed — malformed progress_data",
+                        exc_info=True,
                     )
 
-            return ScanResultResponse(
-                files_found=result.files_found,
-                files_added=result.files_added,
-                files_updated=result.files_updated,
-                files_skipped=result.files_skipped,
-                files_failed=result.files_failed,
-                failures=[f.to_dict() for f in result.failures],
-                duration=result.scan_time,
-                directories_scanned=result.directories_scanned,
-            )
+            scanner.set_progress_callback(_progress_callback)
 
-        except asyncio.TimeoutError:
-            # Terminal WS frame so a `library_scan_started`-driven UI leaves the
-            # scanning state instead of hanging on "Scanning..." (#4413). Mirrors
-            # the auto-scanner's error broadcast; no OS paths leak (#3543).
-            if connection_manager:
-                await broadcast_typed(
-                    connection_manager,
-                    "library_scan_error",
-                    {"error": f"library scan timed out after {int(scan_timeout)}s"},
-                )
-            raise HTTPException(status_code=504, detail=f"Library scan timed out after {scan_timeout}s")
-        except ScanClientGone:
-            # #4820: the frontend aborts this fetch on unmount and when a second
-            # scan supersedes it. That abort used to reach nothing — the handler
-            # took only the parsed body, so it could not observe
-            # `is_disconnected()`, and a closed fetch does not cancel an
-            # already-scheduled route coroutine. The scan ran to completion (or
-            # its 1-hour timeout) holding the scan slot, 409-ing every new scan
-            # the user started. `_await_scan` now stops the scanner thread, which
-            # releases the slot on its way out.
-            #
-            # Same terminal frame as cancellation below: the WebSocket normally
-            # outlives the aborted fetch, so the UI still has to be told to leave
-            # the scanning state.
-            if connection_manager:
-                await broadcast_typed(
-                    connection_manager,
-                    "library_scan_error",
-                    {"error": "library scan cancelled"},
-                )
-            raise HTTPException(
-                status_code=HTTP_CLIENT_CLOSED_REQUEST,
-                detail="Client disconnected; library scan stopped",
-            )
-        except asyncio.CancelledError:
-            # The one exit #4413 missed. Since Python 3.8 CancelledError derives
-            # from BaseException, so `except Exception` below never caught it and
-            # there was no `finally` — the handler simply left, with no terminal
-            # frame. `useScanProgress` clears `isScanning` only on scan_complete
-            # or library_scan_error, so the panel stayed on "Scanning…" for the
-            # rest of the session with tracks half-imported, recoverable only by
-            # a page reload. Genuine cancellation of this task means server
-            # shutdown; the frontend's unmount/supersede aborts surface as
-            # ScanClientGone above (#4820), not as cancellation.
-            #
-            # Must be ordered before `except Exception` (which cannot catch it
-            # anyway) and kept separate from the `except (TimeoutError,
-            # CancelledError)` at the wait_for above, which re-raises
-            # deliberately after stop_scan(). TimeoutError still reaches its own
-            # handler above: it is an Exception subclass, not this one.
-            if connection_manager:
-                await broadcast_typed(
-                    connection_manager,
-                    "library_scan_error",
-                    {"error": "library scan cancelled"},
-                )
-            # Re-raise: swallowing CancelledError breaks structured cancellation
-            # and uvicorn's shutdown semantics.
-            raise
-        except HTTPException:
-            # Includes the 409 "already in progress" path: another scan owns the
-            # UI state and will emit its own terminal frame, so we must NOT clear
-            # it here.
-            raise
-        except Exception as e:
-            # Class-name-only redaction, matching the auto-scanner (#3543), so a
-            # 500 also releases the scanning state (#4413). Unlike
-            # library_scan_started/scan_progress above, `str(e)` here can name
-            # ANY path the exception happened to touch — not just the
-            # directories the user chose — so this frame stays redacted even
-            # though those two intentionally are not (#4651).
-            if connection_manager:
-                await broadcast_typed(
-                    connection_manager,
-                    "library_scan_error",
-                    {"error": f"{type(e).__name__} during library scan"},
-                )
-            raise handle_query_error("scan library", e)
+        scan_timeout = float(os.environ.get("AURALIS_SCAN_TIMEOUT", "3600"))
+        # #3710: capture the to_thread future so we can signal the scanner
+        # to stop on cancellation/timeout/disconnect — asyncio.wait_for
+        # cancels the awaitable but cannot terminate the underlying thread
+        # without this.
+        scan_future = asyncio.ensure_future(asyncio.to_thread(
+            scanner.scan_directories,
+            directories=request.directories,
+            recursive=request.recursive,
+            skip_existing=request.skip_existing,
+            check_modifications=True,
+        ))
+        result = await _await_scan(scan_future, scanner, http_request, scan_timeout)
 
+        # Rejected scan (e.g., already in progress) — return 409 (#2870).
+        if result.rejected:
+            raise HTTPException(status_code=409, detail="Scan already in progress")
+
+        # Enqueue newly added tracks for background fingerprinting (#2382).
+        if result.added_tracks:
+            try:
+                from analysis.fingerprint_queue import get_fingerprint_queue
+                fp_queue = get_fingerprint_queue()
+                if fp_queue:
+                    # Offloaded (#4702): this is a comprehension over every
+                    # newly-added track, so unlike the single-track call
+                    # sites its cost scales with scan size — a large import
+                    # would hold the loop for the whole sweep, stalling
+                    # audio streaming and the scan_complete broadcast below.
+                    # The whole loop is offloaded rather than each enqueue,
+                    # matching the batch pattern in fingerprint_queue.py
+                    # (#3335): one hop instead of N.
+                    def _enqueue_added() -> int:
+                        return sum(1 for t in result.added_tracks if fp_queue.enqueue(t.id))
+
+                    enqueued = await asyncio.to_thread(_enqueue_added)
+                    if enqueued:
+                        logger.info(f"Enqueued {enqueued} tracks for fingerprinting after scan")
+            except Exception as fp_err:
+                logger.warning(f"Fingerprint enqueue failed after scan: {fp_err}")
+
+        # #5458: prune tracks whose files are gone, exactly as the
+        # auto-scanner does. Only it used to, so users with auto_scan off
+        # (or rescanning by hand after moving files) kept dead entries.
+        # Before scan_complete: useScanProgress counts a removal frame only
+        # while the scan is still in progress.
+        await prune_missing_tracks(library_database, connection_manager)
+
+        # Broadcast final result. Field shape matches ScanCompleteMessage and
+        # the auto-scanner path (services/library_auto_scanner.py:268-279,
+        # fixes #3502 — prior `scan_time` was unread by the frontend).
+        if connection_manager:
+            scan_complete_payload: ScanCompletePayload = {
+                "files_processed": result.files_processed or result.files_found,
+                "files_added": result.files_added,
+                "files_updated": result.files_updated,
+                "files_skipped": result.files_skipped,
+                "files_failed": result.files_failed,
+                # #4841: name the failed files, not just the count.
+                "failures": [
+                    cast(ScanFailurePayload, failure.to_dict())
+                    for failure in result.failures
+                ],
+                "duration": result.scan_time,
+                "directories_scanned": result.directories_scanned,
+            }
+            await broadcast_typed(
+                connection_manager,
+                "scan_complete",
+                scan_complete_payload,
+            )
+            if result.files_added or result.files_updated:
+                await broadcast_typed(
+                    connection_manager,
+                    "library_updated",
+                    # Fields here must match LibraryUpdatedMessage in
+                    # frontend/src/types/ws/library.ts. `reason` — a
+                    # duplicate of `action` kept for backward compat with
+                    # pre-#3544 clients — was dropped in #4975: Auralis
+                    # ships frontend and backend as one Electron bundle, so
+                    # there is no independently-versioned older client.
+                    {
+                        "action": "scan",
+                        "track_count": result.files_added,
+                    },
+                )
+
+        return ScanResultResponse(
+            files_found=result.files_found,
+            files_added=result.files_added,
+            files_updated=result.files_updated,
+            files_skipped=result.files_skipped,
+            files_failed=result.files_failed,
+            failures=[f.to_dict() for f in result.failures],
+            duration=result.scan_time,
+            directories_scanned=result.directories_scanned,
+        )
+
+    except asyncio.TimeoutError:
+        # Terminal WS frame so a `library_scan_started`-driven UI leaves the
+        # scanning state instead of hanging on "Scanning..." (#4413). Mirrors
+        # the auto-scanner's error broadcast; no OS paths leak (#3543).
+        if connection_manager:
+            await broadcast_typed(
+                connection_manager,
+                "library_scan_error",
+                {"error": f"library scan timed out after {int(scan_timeout)}s"},
+            )
+        raise HTTPException(status_code=504, detail=f"Library scan timed out after {scan_timeout}s")
+    except ScanClientGone:
+        # #4820: the frontend aborts this fetch on unmount and when a second
+        # scan supersedes it. That abort used to reach nothing — the handler
+        # took only the parsed body, so it could not observe
+        # `is_disconnected()`, and a closed fetch does not cancel an
+        # already-scheduled route coroutine. The scan ran to completion (or
+        # its 1-hour timeout) holding the scan slot, 409-ing every new scan
+        # the user started. `_await_scan` now stops the scanner thread, which
+        # releases the slot on its way out.
+        #
+        # Same terminal frame as cancellation below: the WebSocket normally
+        # outlives the aborted fetch, so the UI still has to be told to leave
+        # the scanning state.
+        if connection_manager:
+            await broadcast_typed(
+                connection_manager,
+                "library_scan_error",
+                {"error": "library scan cancelled"},
+            )
+        raise HTTPException(
+            status_code=HTTP_CLIENT_CLOSED_REQUEST,
+            detail="Client disconnected; library scan stopped",
+        )
+    except asyncio.CancelledError:
+        # The one exit #4413 missed. Since Python 3.8 CancelledError derives
+        # from BaseException, so `except Exception` below never caught it and
+        # there was no `finally` — the handler simply left, with no terminal
+        # frame. `useScanProgress` clears `isScanning` only on scan_complete
+        # or library_scan_error, so the panel stayed on "Scanning…" for the
+        # rest of the session with tracks half-imported, recoverable only by
+        # a page reload. Genuine cancellation of this task means server
+        # shutdown; the frontend's unmount/supersede aborts surface as
+        # ScanClientGone above (#4820), not as cancellation.
+        #
+        # Must be ordered before `except Exception` (which cannot catch it
+        # anyway) and kept separate from the `except (TimeoutError,
+        # CancelledError)` at the wait_for above, which re-raises
+        # deliberately after stop_scan(). TimeoutError still reaches its own
+        # handler above: it is an Exception subclass, not this one.
+        if connection_manager:
+            await broadcast_typed(
+                connection_manager,
+                "library_scan_error",
+                {"error": "library scan cancelled"},
+            )
+        # Re-raise: swallowing CancelledError breaks structured cancellation
+        # and uvicorn's shutdown semantics.
+        raise
+    except HTTPException:
+        # Includes the 409 "already in progress" path: another scan owns the
+        # UI state and will emit its own terminal frame, so we must NOT clear
+        # it here.
+        raise
+    except Exception as e:
+        # Class-name-only redaction, matching the auto-scanner (#3543), so a
+        # 500 also releases the scanning state (#4413). Unlike
+        # library_scan_started/scan_progress above, `str(e)` here can name
+        # ANY path the exception happened to touch — not just the
+        # directories the user chose — so this frame stays redacted even
+        # though those two intentionally are not (#4651).
+        if connection_manager:
+            await broadcast_typed(
+                connection_manager,
+                "library_scan_error",
+                {"error": f"{type(e).__name__} during library scan"},
+            )
+        raise handle_query_error("scan library", e)
+
+
+def create_library_scan_router(
+    get_library_database: Callable[[], Any] | None = None,
+    connection_manager: Any | None = None,
+) -> APIRouter:
+    """Factory: library scan routes."""
+    _deps.get_library_database = get_library_database
+    _deps.connection_manager = connection_manager
+
+    router = APIRouter(tags=["library"])
+    router.add_api_route(
+        "/api/library/scan/status",
+        get_scan_status,
+        methods=["GET"],
+        response_model=ScanStatusResponse,
+    )
+    router.add_api_route(
+        "/api/library/scan",
+        scan_library,
+        methods=["POST"],
+        response_model=ScanResultResponse,
+    )
     return router

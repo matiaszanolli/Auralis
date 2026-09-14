@@ -159,6 +159,37 @@ def _clear_rate_limit_windows() -> None:
 
 
 @pytest.fixture(autouse=True)
+def _restore_library_scan_router_deps():
+    """Undo a test's clobbering of routers/library_scan.py's dependency holder.
+
+    #5166 moved that router's two handlers out of the factory closure to module
+    level; they now resolve `get_library_database` / `connection_manager`
+    through a module-level `_deps` object that `create_library_scan_router()`
+    populates. Production calls the factory once, but four test files in this
+    directory build their own scan router with stub dependencies -- and that
+    overwrites `_deps` for the rest of the process, so a later test running
+    against the real `main.app` (e.g. test_main_api's scan cases, which patch
+    `main.globals_dict`) would silently be served the earlier test's stubs.
+
+    The restore is skipped when the snapshot is empty, i.e. before `main` has
+    ever been imported: `main`'s import-time route registration is what
+    populates `_deps` for real, and it happens *inside* whichever test first
+    uses the `client` fixture. Restoring an empty snapshot over it would leave
+    every subsequent app-level test with a None library manager.
+    """
+    from routers import library_scan
+
+    before = (
+        library_scan._deps.get_library_database,
+        library_scan._deps.connection_manager,
+    )
+    yield
+    if before[0] is not None or before[1] is not None:
+        library_scan._deps.get_library_database = before[0]
+        library_scan._deps.connection_manager = before[1]
+
+
+@pytest.fixture(autouse=True)
 def _reset_rate_limit_windows():
     """Clear rate-limit state after every test -- see _clear_rate_limit_windows()."""
     yield

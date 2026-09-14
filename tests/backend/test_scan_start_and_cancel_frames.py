@@ -28,6 +28,7 @@ thread against a disconnect watcher.
 import asyncio
 import sys
 import threading
+from functools import partial
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -39,6 +40,7 @@ _BACKEND = str(Path(__file__).resolve().parents[2] / "auralis-web" / "backend")
 if _BACKEND not in sys.path:
     sys.path.insert(0, _BACKEND)
 
+from routers import library_scan  # noqa: E402
 from routers.library_scan import create_library_scan_router  # noqa: E402
 from schemas import LibraryScanRequest  # noqa: E402
 
@@ -223,13 +225,15 @@ class TestCancellationEmitsTerminalFrame:
 
         monkeypatch.setattr(scanner_mod, "LibraryScanner", _CancelledScanner)
         manager = _CapturingManager()
-        router = create_library_scan_router(
-            lambda: SimpleNamespace(), connection_manager=manager
-        )
         # Reach the handler directly: TestClient runs the request on its own
         # portal, which makes cancelling the request task from here unreliable.
-        handler = next(
-            r.endpoint for r in router.routes if getattr(r, "path", "") == "/api/library/scan"
+        # #5166 made scan_library a module-level `async def`, so its
+        # dependencies are passed as plain keyword arguments -- no router, no
+        # Depends() resolution, no _LibraryScanDeps.
+        handler = partial(
+            library_scan.scan_library,
+            library_database=SimpleNamespace(),
+            connection_manager=manager,
         )
         task = asyncio.create_task(
             handler(LibraryScanRequest(directories=[str(tmp_path)]), _FakeRequest())
@@ -262,7 +266,7 @@ class TestCancellationEmitsTerminalFrame:
         import routers.library_scan as mod
 
         src = inspect.getsource(mod)
-        cancelled_at = src.index("except asyncio.CancelledError:\n            # The one exit")
+        cancelled_at = src.index("except asyncio.CancelledError:\n        # The one exit")
         generic_at = src.index("except Exception as e:")
         assert cancelled_at < generic_at
 
@@ -282,11 +286,12 @@ def _scan_handler(monkeypatch, scanner_cls):
 
     monkeypatch.setattr(scanner_mod, "LibraryScanner", scanner_cls)
     manager = _CapturingManager()
-    router = create_library_scan_router(
-        lambda: SimpleNamespace(), connection_manager=manager
-    )
-    handler = next(
-        r.endpoint for r in router.routes if getattr(r, "path", "") == "/api/library/scan"
+    # #5166: the handler is module level, so its dependencies are ordinary
+    # keyword arguments rather than closure captures inside the factory.
+    handler = partial(
+        library_scan.scan_library,
+        library_database=SimpleNamespace(),
+        connection_manager=manager,
     )
     return handler, manager
 
