@@ -72,8 +72,9 @@ class PlayerPropertiesMixin:
 
     @property
     def audio_data(self) -> Any:
-        """Get raw audio data"""
-        return self.file_manager.audio_data
+        """Get raw audio data (locked read, #5329 — matches the setter's lock)"""
+        with self.file_manager._audio_lock:
+            return self.file_manager.audio_data
 
     @audio_data.setter
     def audio_data(self, value: Any) -> None:
@@ -87,8 +88,9 @@ class PlayerPropertiesMixin:
 
     @property
     def reference_data(self) -> Any:
-        """Get raw reference audio data"""
-        return self.file_manager.reference_data
+        """Get raw reference audio data (locked read, #5329 — matches the setter's lock)"""
+        with self.file_manager._audio_lock:
+            return self.file_manager.reference_data
 
     @reference_data.setter
     def reference_data(self, value: Any) -> None:
