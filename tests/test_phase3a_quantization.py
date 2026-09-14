@@ -14,51 +14,55 @@ Tests 8-bit quantization of 25D fingerprints:
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+import logging
+import math
+
 import pytest
 
 from auralis.library.fingerprint_quantizer import FingerprintQuantizer
 
 
+@pytest.fixture
+def sample_fingerprint() -> dict:
+    """Create a sample 25D fingerprint for testing."""
+    return {
+        # Frequency (7D)
+        'sub_bass_pct': 10.5,
+        'bass_pct': 25.3,
+        'low_mid_pct': 20.1,
+        'mid_pct': 30.2,
+        'upper_mid_pct': 8.7,
+        'presence_pct': 3.2,
+        'air_pct': 2.0,
+        # Dynamics (3D)
+        'lufs': -15.5,
+        'crest_db': 12.3,
+        'bass_mid_ratio': 50.0,
+        # Temporal (4D)
+        'tempo_bpm': 120.5,
+        'rhythm_stability': 0.87,
+        'transient_density': 45.2,
+        'silence_ratio': 0.15,
+        # Spectral (3D)
+        'spectral_centroid': 0.65,
+        'spectral_rolloff': 0.72,
+        'spectral_flatness': 0.42,
+        # Harmonic (3D)
+        'harmonic_ratio': 0.78,
+        'pitch_stability': 0.88,
+        'chroma_energy': 0.65,
+        # Variation (3D)
+        'dynamic_range_variation': 0.55,
+        'loudness_variation_std': 8.3,
+        'peak_consistency': 0.92,
+        # Stereo (2D)
+        'stereo_width': 0.85,
+        'phase_correlation': 0.45,
+    }
+
+
 class TestFingerprintQuantization:
     """Test fingerprint quantization and dequantization."""
-
-    @pytest.fixture
-    def sample_fingerprint(self) -> dict:
-        """Create a sample 25D fingerprint for testing."""
-        return {
-            # Frequency (7D)
-            'sub_bass_pct': 10.5,
-            'bass_pct': 25.3,
-            'low_mid_pct': 20.1,
-            'mid_pct': 30.2,
-            'upper_mid_pct': 8.7,
-            'presence_pct': 3.2,
-            'air_pct': 2.0,
-            # Dynamics (3D)
-            'lufs': -15.5,
-            'crest_db': 12.3,
-            'bass_mid_ratio': 50.0,
-            # Temporal (4D)
-            'tempo_bpm': 120.5,
-            'rhythm_stability': 0.87,
-            'transient_density': 45.2,
-            'silence_ratio': 0.15,
-            # Spectral (3D)
-            'spectral_centroid': 0.65,
-            'spectral_rolloff': 0.72,
-            'spectral_flatness': 0.42,
-            # Harmonic (3D)
-            'harmonic_ratio': 0.78,
-            'pitch_stability': 0.88,
-            'chroma_energy': 0.65,
-            # Variation (3D)
-            'dynamic_range_variation': 0.55,
-            'loudness_variation_std': 8.3,
-            'peak_consistency': 0.92,
-            # Stereo (2D)
-            'stereo_width': 0.85,
-            'phase_correlation': 0.45,
-        }
 
     def test_quantize_dequantize_round_trip(self, sample_fingerprint):
         """Test that fingerprint survives quantization round-trip."""
@@ -204,6 +208,51 @@ class TestFingerprintQuantization:
 
         assert quantized_size == 25
         assert compression_ratio == 8.0
+
+
+class TestFingerprintQuantizationNonFinite5350:
+    """NaN/Inf inputs must not silently store as the dimension's maximum (#5350)."""
+
+    def test_nan_falls_back_to_midpoint_not_maximum(self, sample_fingerprint, caplog):
+        fingerprint = dict(sample_fingerprint)
+        fingerprint['lufs'] = float('nan')
+
+        with caplog.at_level(logging.WARNING, logger='auralis.library.fingerprint_quantizer'):
+            quantized = FingerprintQuantizer.quantize(fingerprint)
+        recovered = FingerprintQuantizer.dequantize(quantized)
+
+        min_val, max_val = FingerprintQuantizer.DIMENSION_BOUNDS['lufs']
+        assert recovered['lufs'] == pytest.approx((min_val + max_val) / 2.0, abs=0.5)
+        assert recovered['lufs'] != pytest.approx(max_val, abs=0.5)
+        assert any('lufs' in r.message for r in caplog.records)
+
+    def test_positive_infinity_falls_back_to_midpoint(self, sample_fingerprint):
+        fingerprint = dict(sample_fingerprint)
+        fingerprint['crest_db'] = float('inf')
+
+        quantized = FingerprintQuantizer.quantize(fingerprint)
+        recovered = FingerprintQuantizer.dequantize(quantized)
+
+        min_val, max_val = FingerprintQuantizer.DIMENSION_BOUNDS['crest_db']
+        assert recovered['crest_db'] == pytest.approx((min_val + max_val) / 2.0, abs=0.5)
+
+    def test_negative_infinity_falls_back_to_midpoint(self, sample_fingerprint):
+        fingerprint = dict(sample_fingerprint)
+        fingerprint['tempo_bpm'] = float('-inf')
+
+        quantized = FingerprintQuantizer.quantize(fingerprint)
+        recovered = FingerprintQuantizer.dequantize(quantized)
+
+        min_val, max_val = FingerprintQuantizer.DIMENSION_BOUNDS['tempo_bpm']
+        assert recovered['tempo_bpm'] == pytest.approx((min_val + max_val) / 2.0, abs=0.5)
+
+    def test_finite_values_unaffected(self, sample_fingerprint):
+        """A normal, fully-finite fingerprint quantizes identically to before."""
+        quantized = FingerprintQuantizer.quantize(sample_fingerprint)
+        recovered = FingerprintQuantizer.dequantize(quantized)
+
+        for dim in FingerprintQuantizer.DIMENSION_NAMES:
+            assert math.isfinite(recovered[dim])
 
 
 class TestQuantizationDistance:

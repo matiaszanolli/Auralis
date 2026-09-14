@@ -20,8 +20,12 @@ Accuracy Guarantees:
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+import logging
+import math
 import struct
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 class FingerprintQuantizer:
@@ -109,6 +113,20 @@ class FingerprintQuantizer:
         for dim_name in FingerprintQuantizer.DIMENSION_NAMES:
             value = fingerprint_dict.get(dim_name, 0.0)
             min_val, max_val = FingerprintQuantizer.DIMENSION_BOUNDS[dim_name]
+
+            if not math.isfinite(value):
+                # min(max_val, nan) returns max_val (nan compares False against
+                # everything), so an unclamped NaN/Inf would silently store as
+                # the dimension's maximum. Fall back to the midpoint instead
+                # (#5350) — callers are expected to sanitize non-finite values
+                # upstream (windowed_compute._sanitize_non_finite()); this is
+                # a storage-layer backstop, not a replacement for that.
+                logger.warning(
+                    "FingerprintQuantizer.quantize: non-finite value %r for "
+                    "dimension %r, falling back to midpoint",
+                    value, dim_name,
+                )
+                value = (min_val + max_val) / 2.0
 
             # Clamp value to bounds
             clamped = max(min_val, min(max_val, value))
