@@ -147,7 +147,7 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 | Queue request | Backend | `auralis-web/backend/routers/player.py` |
 | Queue service | Backend | `auralis-web/backend/services/queue_service.py`, `queue_enrichment.py`, `queue_protocols.py` |
 | Engine queue | Engine | `auralis/player/queue_controller.py` (authoritative order) |
-| Persisted queue | Engine | `auralis/library/repositories/` (queue, queue_history) |
+| Persisted queue | Engine | `auralis/library/repositories/queue_history_repository.py` (undo history + its singleton `QueueState` row; the queue itself is not persisted — #5358) |
 | State broadcast | Backend | `auralis-web/backend/core/state_manager.py` → WebSocket |
 | UI update | Frontend | Redux store |
 

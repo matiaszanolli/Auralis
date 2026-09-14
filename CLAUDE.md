@@ -113,10 +113,10 @@ auralis/                          Core Python audio engine
 │   ├── database.py                 LibraryDatabase (engine, migration, sessions, scan slots)
 │                                     Startup stores it under the globals key `library_database`
 │                                     (renamed in #5162; it used to name the class #4915 deleted)
-│   ├── repositories/               13 repos + base.py (BaseRepository) + factory.py
+│   ├── repositories/               12 repos + base.py (BaseRepository) + factory.py
 │   │                                 (track, album, artist, playlist, genre, stats,
 │   │                                 fingerprint, fingerprint_scheduler, fingerprint_stats,
-│   │                                 queue, queue_history, settings, similarity_graph)
+│   │                                 queue_history, settings, similarity_graph)
 │   ├── scanner/                    Folder scanning (a package, not a module)
 │   └── migration_manager.py        DB migrations (schema v19)
 ├── io/                           Audio I/O

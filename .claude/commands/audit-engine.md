@@ -146,7 +146,7 @@ This dimension replaced the old "Parallel Processing" one: *auralis/optimization
 **Key files**: `auralis/library/database.py`, `auralis/library/repositories/`, `auralis/library/models/`, `auralis/library/scanner/`, `auralis/library/migrations/`, `auralis/library/migration_manager.py`, `auralis/library/migration_lock.py`, `auralis/library/sidecar_manager.py`, `auralis/library/resource_monitor.py`
 
 **Check**:
-- [ ] Repository pattern — ALL database access via the 13 repository classes? No raw SQL?
+- [ ] Repository pattern — ALL database access via the 12 repository classes? No raw SQL?
 - [ ] Detached ORM instances — repositories `expunge()` what they return, so any relationship a query did not eager-load raises `DetachedInstanceError` when `to_dict()` touches it. Do read paths carry `selectinload()`, and does `to_dict()` go through `_safe_collection()` / `_safe_scalar()` in `auralis/library/models/core.py`? `refresh()` expires without re-applying query options — post-commit paths must touch the relationship while still attached.
 - [ ] `BaseRepository._session_scope()` — the context manager exists in `auralis/library/repositories/base.py`, but most call sites still hand-roll session lifecycle. Flag leaks/missing rollbacks in the hand-rolled ones (the bulk migration itself is tracked debt, not a new finding).
 - [ ] SQLite config — `check_same_thread=False`, `pool_pre_ping=True` set?

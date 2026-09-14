@@ -209,7 +209,6 @@ and cached by `RepositoryFactory` (`auralis/library/repositories/factory.py`), w
 - **FingerprintStatsRepository** - Fingerprint status/coverage aggregates
 - **FingerprintSchedulerRepository** - Background fingerprint scheduling state
 - **SimilarityGraphRepository** - Track-similarity graph persistence
-- **QueueRepository** - Playback queue state management
 - **QueueHistoryRepository** - Undo/redo history
 - **SettingsRepository** - Application settings
 - **StatsRepository** - Library analytics and statistics

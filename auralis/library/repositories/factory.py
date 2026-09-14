@@ -21,7 +21,6 @@ from .fingerprint_stats_repository import FingerprintStatsRepository
 from .genre_repository import GenreRepository
 from .playlist_repository import PlaylistRepository
 from .queue_history_repository import QueueHistoryRepository
-from .queue_repository import QueueRepository
 from .settings_repository import SettingsRepository
 from .stats_repository import StatsRepository
 from .track_repository import TrackRepository
@@ -76,7 +75,6 @@ class RepositoryFactory:
         self._fingerprint_stats_repo: FingerprintStatsRepository | None = None
         self._stats_repo: StatsRepository | None = None
         self._settings_repo: SettingsRepository | None = None
-        self._queue_repo: QueueRepository | None = None
         self._queue_history_repo: QueueHistoryRepository | None = None
 
     @property
@@ -151,13 +149,6 @@ class RepositoryFactory:
         if not self._settings_repo:
             self._settings_repo = SettingsRepository(self.session_factory)
         return self._settings_repo
-
-    @property
-    def queue(self) -> QueueRepository:
-        """Get or create QueueRepository instance (lazy initialization)."""
-        if not self._queue_repo:
-            self._queue_repo = QueueRepository(self.session_factory)
-        return self._queue_repo
 
     @property
     def queue_history(self) -> QueueHistoryRepository:

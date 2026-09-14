@@ -380,7 +380,6 @@ def mock_repository_factory():
     factory.fingerprints = Mock()
     factory.stats = Mock()
     factory.settings = Mock()
-    factory.queue = Mock()
     factory.queue_history = Mock()
 
     # Mock get_all returns (list, total)

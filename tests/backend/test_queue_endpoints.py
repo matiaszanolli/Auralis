@@ -366,21 +366,10 @@ class TestQueueAPIDualModeParametrized:
     """Phase 5C.3: Parametrized dual-mode tests for queue operations.
 
     These tests automatically run with both LibraryManager and RepositoryFactory
-    via the parametrized mock_data_source fixture. Queue-specific repositories
-    (queue, queue_history) are validated with both patterns.
+    via the parametrized mock_data_source fixture. The queue-specific
+    repository (queue_history) is validated with both patterns; the caller-less
+    QueueRepository and its interface test were deleted in #5358.
     """
-
-    def test_queue_repository_interface(self, mock_data_source):
-        """
-        Parametrized test: Validate queue repository interface for both modes.
-
-        Tests both LibraryManager and RepositoryFactory have queue access.
-        """
-        mode, source = mock_data_source
-
-        assert hasattr(source, 'queue'), f"{mode} missing queue repository"
-        assert hasattr(source.queue, 'get_all'), f"{mode}.queue missing get_all"
-        assert hasattr(source.queue, 'get_by_id'), f"{mode}.queue missing get_by_id"
 
     def test_queue_history_repository_interface(self, mock_data_source):
         """
@@ -394,55 +383,3 @@ class TestQueueAPIDualModeParametrized:
         if mode == "repository_factory":
             assert hasattr(source, 'queue_history'), f"{mode} missing queue_history"
             assert hasattr(source.queue_history, 'get_all'), "queue_history missing get_all"
-
-    def test_queue_get_all_returns_tuple(self, mock_data_source):
-        """
-        Parametrized test: Validate queue.get_all returns (items, total) for both modes.
-
-        Queue items contain track_id and position for playback ordering.
-        """
-        mode, source = mock_data_source
-
-        # Create mock queue items
-        item1 = Mock()
-        item1.id = 1
-        item1.track_id = 101
-        item1.position = 0
-
-        item2 = Mock()
-        item2.id = 2
-        item2.track_id = 102
-        item2.position = 1
-
-        test_queue = [item1, item2]
-        source.queue.get_all = Mock(return_value=(test_queue, 2))
-
-        # Test with both modes
-        queue, total = source.queue.get_all(limit=100)
-
-        assert len(queue) == 2, f"{mode}: Expected 2 queue items"
-        assert total == 2, f"{mode}: Expected total=2"
-        assert queue[0].track_id == 101, f"{mode}: First item track_id mismatch"
-        assert queue[1].track_id == 102, f"{mode}: Second item track_id mismatch"
-
-    def test_queue_get_by_id_interface(self, mock_data_source):
-        """
-        Parametrized test: Validate queue.get_by_id works with both modes.
-
-        Both modes should return queue item with position info.
-        """
-        mode, source = mock_data_source
-
-        queue_item = Mock()
-        queue_item.id = 1
-        queue_item.track_id = 100
-        queue_item.position = 0
-
-        source.queue.get_by_id = Mock(return_value=queue_item)
-
-        result = source.queue.get_by_id(1)
-
-        assert result.id == 1, f"{mode}: Queue item ID mismatch"
-        assert result.track_id == 100, f"{mode}: Queue item track_id mismatch"
-        assert result.position == 0, f"{mode}: Queue item position mismatch"
-        source.queue.get_by_id.assert_called_once_with(1)

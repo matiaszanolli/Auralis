@@ -437,46 +437,6 @@ class TestSettingsRepositoryDetachedAccess:
         assert settings.theme == 'dark'
 
 
-class TestQueueRepositoryDetachedAccess:
-    """Verify QueueRepository methods return safely detached objects.
-
-    QueueState also has no relationships, so these assertions verify the
-    returned object's actual field values rather than just its presence
-    (#4257) — matching the rationale in TestSettingsRepositoryDetachedAccess.
-    """
-
-    def _get_queue_repo(self, repository_factory):
-        return repository_factory.queue
-
-    def test_get_queue_state_accessible(self, repository_factory):
-        """get_queue_state() must return an accessible object with real defaults"""
-        import json
-
-        repo = self._get_queue_repo(repository_factory)
-        state = repo.get_queue_state()
-        assert state is not None
-        assert state.id is not None
-        assert json.loads(state.track_ids) == []
-        assert state.current_index == 0
-
-    def test_set_queue_state_accessible(self, repository_factory):
-        """set_queue_state() must return an accessible object reflecting the write"""
-        import json
-
-        repo = self._get_queue_repo(repository_factory)
-        state = repo.set_queue_state(track_ids=[1, 2, 3], current_index=1)
-        assert state is not None
-        assert json.loads(state.track_ids) == [1, 2, 3]
-        assert state.current_index == 1
-
-    def test_clear_queue_accessible(self, repository_factory):
-        """clear_queue() must return an accessible object with the queue actually cleared"""
-        import json
-
-        repo = self._get_queue_repo(repository_factory)
-        repo.set_queue_state(track_ids=[1, 2, 3], current_index=2)
-
-        state = repo.clear_queue()
-        assert state is not None
-        assert json.loads(state.track_ids) == []
-        assert state.current_index == 0
+# TestQueueRepositoryDetachedAccess was deleted with QueueRepository (#5358).
+# The QueueState row is still returned detached by QueueHistoryRepository.undo(),
+# which tests/integration/test_queue_history.py reads back after expunge.

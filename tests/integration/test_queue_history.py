@@ -9,7 +9,7 @@ Tests verify:
 - Undo restores previous queue state
 - History limit (20 entries) is enforced
 - History persists across application restarts
-- History operations integrate with QueueRepository
+- Undo restores the persisted QueueState row
 - Undo is atomic: queue-state restore and history deletion in one transaction (#2239)
 """
 
@@ -25,6 +25,42 @@ from sqlalchemy.orm import sessionmaker
 TEST_DB_PLACEHOLDER = tempfile.NamedTemporaryFile(suffix='.db', delete=False)
 TEST_DB_PATH = TEST_DB_PLACEHOLDER.name
 TEST_DB_PLACEHOLDER.close()
+
+
+class _QueueStateRow:
+    """Reads and writes the QueueState row directly.
+
+    These tests used QueueRepository for this until #5358 deleted it: nothing
+    in production wrote the row through it. The row itself is live — undo
+    restores it — so the tests still need to seed and inspect it.
+    """
+
+    def __init__(self, session_factory):
+        self._session_factory = session_factory
+
+    @staticmethod
+    def _row(session):
+        from auralis.library.models import QueueState
+        return session.execute(select(QueueState).order_by(QueueState.id)).scalars().first()
+
+    def set_queue_state(self, track_ids, current_index=0, is_shuffled=False, repeat_mode='off'):
+        from auralis.library.models import QueueState
+        with self._session_factory() as session:
+            state = self._row(session)
+            if state is None:
+                state = QueueState()
+                session.add(state)
+            state.track_ids = json.dumps(track_ids)
+            state.current_index = current_index
+            state.is_shuffled = is_shuffled
+            state.repeat_mode = repeat_mode
+            session.commit()
+
+    def get_queue_state(self):
+        with self._session_factory() as session:
+            state = self._row(session)
+            session.expunge(state)
+            return state
 
 
 @pytest.fixture
@@ -56,20 +92,19 @@ def queue_history_repo(test_db):
 
 
 @pytest.fixture
-def queue_repo(test_db):
-    """Create QueueRepository with test database"""
-    from auralis.library.repositories import QueueRepository
+def queue_state_row(test_db):
+    """Direct access to the persisted QueueState row"""
     Session = sessionmaker(bind=create_engine(f'sqlite:///{TEST_DB_PATH}'))
-    return QueueRepository(Session)
+    return _QueueStateRow(Session)
 
 
 class TestQueueHistoryBasics:
     """Test basic queue history operations"""
 
-    def test_push_to_history_creates_entry(self, queue_history_repo, queue_repo):
+    def test_push_to_history_creates_entry(self, queue_history_repo, queue_state_row):
         """Recording queue state should create history entry"""
         # Set initial queue
-        queue_repo.set_queue_state(track_ids=[1, 2, 3], current_index=0)
+        queue_state_row.set_queue_state(track_ids=[1, 2, 3], current_index=0)
 
         # Record state in history
         state_before = {
@@ -145,11 +180,11 @@ class TestQueueHistoryBasics:
 class TestQueueHistoryUndo:
     """Test undo functionality"""
 
-    def test_undo_restores_previous_state(self, queue_history_repo, queue_repo):
+    def test_undo_restores_previous_state(self, queue_history_repo, queue_state_row):
         """Undo should restore previous queue state"""
         # Set initial queue
         initial_state = [1, 2, 3]
-        queue_repo.set_queue_state(track_ids=initial_state, current_index=0)
+        queue_state_row.set_queue_state(track_ids=initial_state, current_index=0)
 
         # Record initial state
         state_snapshot = {
@@ -162,20 +197,20 @@ class TestQueueHistoryUndo:
 
         # Change queue
         modified_state = [4, 5, 6]
-        queue_repo.set_queue_state(track_ids=modified_state, current_index=1)
+        queue_state_row.set_queue_state(track_ids=modified_state, current_index=1)
 
         # Undo - should restore initial state
         restored = queue_history_repo.undo()
 
         assert restored is not None
-        queue_current = queue_repo.get_queue_state()
+        queue_current = queue_state_row.get_queue_state()
         assert json.loads(queue_current.track_ids) == initial_state
         assert queue_current.current_index == 0
 
-    def test_undo_removes_history_entry(self, queue_history_repo, queue_repo):
+    def test_undo_removes_history_entry(self, queue_history_repo, queue_state_row):
         """Undo should consume/remove the history entry"""
         initial_state = [1, 2, 3]
-        queue_repo.set_queue_state(track_ids=initial_state, current_index=0)
+        queue_state_row.set_queue_state(track_ids=initial_state, current_index=0)
 
         state_snapshot = {
             'track_ids': initial_state,
@@ -196,7 +231,7 @@ class TestQueueHistoryUndo:
         history_after = queue_history_repo.get_history()
         assert len(history_after) == 0
 
-    def test_undo_multiple_times(self, queue_history_repo, queue_repo):
+    def test_undo_multiple_times(self, queue_history_repo, queue_state_row):
         """Multiple undos should work sequentially"""
         # Create history chain
         # Note: History records the state BEFORE an operation
@@ -205,38 +240,38 @@ class TestQueueHistoryUndo:
         state2 = {'track_ids': [7, 8, 9], 'current_index': 2, 'is_shuffled': True, 'repeat_mode': 'all'}
 
         # Set initial state
-        queue_repo.set_queue_state(**state0)
+        queue_state_row.set_queue_state(**state0)
 
         # Change to state1 and record previous state (state0) in history
-        queue_repo.set_queue_state(**state1)
+        queue_state_row.set_queue_state(**state1)
         queue_history_repo.push_to_history('set', state0)  # Record state0 as "before" state
 
         # Change to state2 and record previous state (state1) in history
-        queue_repo.set_queue_state(**state2)
+        queue_state_row.set_queue_state(**state2)
         queue_history_repo.push_to_history('set', state1)  # Record state1 as "before" state
 
         # Undo 1 - should restore state1
         queue_history_repo.undo()
-        current = queue_repo.get_queue_state()
+        current = queue_state_row.get_queue_state()
         assert json.loads(current.track_ids) == state1['track_ids']
 
         # Undo 2 - should restore state0
         queue_history_repo.undo()
-        current = queue_repo.get_queue_state()
+        current = queue_state_row.get_queue_state()
         assert json.loads(current.track_ids) == state0['track_ids']
 
-    def test_undo_with_no_history_returns_none(self, queue_history_repo, queue_repo):
+    def test_undo_with_no_history_returns_none(self, queue_history_repo, queue_state_row):
         """Undo with empty history should return None"""
-        queue_repo.set_queue_state(track_ids=[1, 2, 3])
+        queue_state_row.set_queue_state(track_ids=[1, 2, 3])
 
         # No history recorded
         result = queue_history_repo.undo()
 
         assert result is None
 
-    def test_undo_with_corrupted_history_raises_error(self, queue_history_repo, queue_repo):
+    def test_undo_with_corrupted_history_raises_error(self, queue_history_repo, queue_state_row):
         """Undo with corrupted JSON should raise ValueError"""
-        queue_repo.set_queue_state(track_ids=[1, 2, 3])
+        queue_state_row.set_queue_state(track_ids=[1, 2, 3])
 
         # Create corrupted history entry
         from auralis.library.models import QueueHistory, QueueState
@@ -256,6 +291,24 @@ class TestQueueHistoryUndo:
         # Undo should raise error
         with pytest.raises(ValueError, match="Corrupted history entry"):
             queue_history_repo.undo()
+
+
+    def test_restored_state_serializes_for_the_undo_route(self, queue_history_repo, queue_state_row):
+        """The undo route returns restored.to_dict(); it must carry the snapshot.
+
+        test_queue_persistence.py covered QueueState.to_dict() through the
+        deleted QueueRepository; this is the path production actually uses.
+        """
+        queue_state_row.set_queue_state(track_ids=[9], current_index=0)
+        snapshot = {'track_ids': [1, 2, 3], 'current_index': 2, 'is_shuffled': True, 'repeat_mode': 'all'}
+        queue_history_repo.push_to_history('set', snapshot)
+
+        restored = queue_history_repo.undo().to_dict()
+
+        assert restored['track_ids'] == [1, 2, 3]
+        assert restored['current_index'] == 2
+        assert restored['is_shuffled'] is True
+        assert restored['repeat_mode'] == 'all'
 
 
 class TestQueueHistoryLimit:
@@ -299,11 +352,11 @@ class TestQueueHistoryLimit:
 class TestQueueHistoryPersistence:
     """Test history persistence across operations"""
 
-    def test_history_survives_queue_updates(self, queue_history_repo, queue_repo):
+    def test_history_survives_queue_updates(self, queue_history_repo, queue_state_row):
         """History should persist when queue is updated"""
         # Initial state
         initial = [1, 2, 3]
-        queue_repo.set_queue_state(track_ids=initial, current_index=0)
+        queue_state_row.set_queue_state(track_ids=initial, current_index=0)
 
         snapshot = {
             'track_ids': initial,
@@ -314,17 +367,17 @@ class TestQueueHistoryPersistence:
         queue_history_repo.push_to_history('set', snapshot)
 
         # Update queue
-        queue_repo.set_queue_state(track_ids=[4, 5, 6], current_index=0)
+        queue_state_row.set_queue_state(track_ids=[4, 5, 6], current_index=0)
 
         # History should still exist
         history = queue_history_repo.get_history()
         assert len(history) == 1
         assert json.loads(history[0].state_snapshot) == snapshot
 
-    def test_history_different_operations(self, queue_history_repo, queue_repo):
+    def test_history_different_operations(self, queue_history_repo, queue_state_row):
         """Different operation types should be tracked correctly"""
         state = {'track_ids': [1, 2, 3], 'current_index': 0, 'is_shuffled': False, 'repeat_mode': 'off'}
-        queue_repo.set_queue_state(**state)
+        queue_state_row.set_queue_state(**state)
 
         operations = [
             ('set', state),
@@ -419,7 +472,7 @@ class TestUndoAtomicity:
     """
 
     def test_undo_queue_state_and_history_deleted_atomically(
-        self, queue_history_repo, queue_repo
+        self, queue_history_repo, queue_state_row
     ):
         """
         Both queue-state update and history deletion must commit together.
@@ -430,7 +483,7 @@ class TestUndoAtomicity:
         No gaps, no partial state.
         """
         initial = [1, 2, 3]
-        queue_repo.set_queue_state(track_ids=initial, current_index=0)
+        queue_state_row.set_queue_state(track_ids=initial, current_index=0)
 
         snapshot = {
             'track_ids': initial,
@@ -441,7 +494,7 @@ class TestUndoAtomicity:
         queue_history_repo.push_to_history('set', snapshot)
 
         # Change the queue so there's something to undo
-        queue_repo.set_queue_state(track_ids=[9, 8, 7], current_index=2)
+        queue_state_row.set_queue_state(track_ids=[9, 8, 7], current_index=2)
 
         # Perform undo
         restored = queue_history_repo.undo()
@@ -459,7 +512,7 @@ class TestUndoAtomicity:
         )
 
     def test_simulated_crash_leaves_consistent_state(
-        self, queue_history_repo, queue_repo
+        self, queue_history_repo, queue_state_row
     ):
         """
         Simulate a crash after queue update but before history deletion.
@@ -477,7 +530,7 @@ class TestUndoAtomicity:
         call, then verify neither the queue nor the history changed.
         """
         original_tracks = [10, 20, 30]
-        queue_repo.set_queue_state(track_ids=original_tracks, current_index=0)
+        queue_state_row.set_queue_state(track_ids=original_tracks, current_index=0)
 
         snapshot = {
             'track_ids': [1, 2, 3],
@@ -528,21 +581,21 @@ class TestUndoAtomicity:
             "History entry must still exist after a rolled-back undo "
             "(issue #2239): the undo should be replayable."
         )
-        current = queue_repo.get_queue_state()
+        current = queue_state_row.get_queue_state()
         assert _json.loads(current.track_ids) == original_tracks, (
             "Queue state must be unchanged after a rolled-back undo "
             "(issue #2239)."
         )
 
     def test_undo_called_without_queue_repository_argument(
-        self, queue_history_repo, queue_repo
+        self, queue_history_repo, queue_state_row
     ):
         """
         undo() must work when called without the queue_repository argument
         (the parameter is now unused and defaults to None).
         """
         initial = [5, 6, 7]
-        queue_repo.set_queue_state(track_ids=initial, current_index=0)
+        queue_state_row.set_queue_state(track_ids=initial, current_index=0)
         snapshot = {
             'track_ids': initial,
             'current_index': 0,
@@ -550,7 +603,7 @@ class TestUndoAtomicity:
             'repeat_mode': 'off',
         }
         queue_history_repo.push_to_history('set', snapshot)
-        queue_repo.set_queue_state(track_ids=[99], current_index=0)
+        queue_state_row.set_queue_state(track_ids=[99], current_index=0)
 
         # No argument — must not raise
         restored = queue_history_repo.undo()
@@ -563,11 +616,11 @@ class TestUndoAtomicity:
 class TestQueueHistoryIntegration:
     """Test queue history integration with queue operations"""
 
-    def test_full_workflow_with_history(self, queue_history_repo, queue_repo):
+    def test_full_workflow_with_history(self, queue_history_repo, queue_state_row):
         """Complete workflow: set -> add -> undo"""
         # Initial queue
         initial = [1, 2, 3]
-        queue_repo.set_queue_state(track_ids=initial, current_index=0)
+        queue_state_row.set_queue_state(track_ids=initial, current_index=0)
 
         initial_snapshot = {
             'track_ids': initial,
@@ -579,21 +632,21 @@ class TestQueueHistoryIntegration:
 
         # Add track
         modified = [1, 2, 3, 4]
-        queue_repo.set_queue_state(track_ids=modified, current_index=0)
+        queue_state_row.set_queue_state(track_ids=modified, current_index=0)
         queue_history_repo.push_to_history('add', initial_snapshot, {'track_id': 4})
 
         # Verify current state
-        current = queue_repo.get_queue_state()
+        current = queue_state_row.get_queue_state()
         assert json.loads(current.track_ids) == modified
 
         # Undo - restore initial
         queue_history_repo.undo()
-        current = queue_repo.get_queue_state()
+        current = queue_state_row.get_queue_state()
         assert json.loads(current.track_ids) == initial
 
-    def test_history_tracks_shuffle_state_changes(self, queue_history_repo, queue_repo):
+    def test_history_tracks_shuffle_state_changes(self, queue_history_repo, queue_state_row):
         """History should capture shuffle state changes"""
-        queue_repo.set_queue_state(track_ids=[1, 2, 3], is_shuffled=False)
+        queue_state_row.set_queue_state(track_ids=[1, 2, 3], is_shuffled=False)
 
         state_before = {
             'track_ids': [1, 2, 3],
@@ -604,7 +657,7 @@ class TestQueueHistoryIntegration:
         queue_history_repo.push_to_history('shuffle', state_before)
 
         # Toggle shuffle
-        queue_repo.set_queue_state(track_ids=[1, 2, 3], is_shuffled=True)
+        queue_state_row.set_queue_state(track_ids=[1, 2, 3], is_shuffled=True)
 
         history = queue_history_repo.get_history()
         assert len(history) == 1
@@ -612,9 +665,9 @@ class TestQueueHistoryIntegration:
         snapshot = json.loads(history[0].state_snapshot)
         assert snapshot['is_shuffled'] is False
 
-    def test_history_tracks_repeat_mode_changes(self, queue_history_repo, queue_repo):
+    def test_history_tracks_repeat_mode_changes(self, queue_history_repo, queue_state_row):
         """History should capture repeat mode changes"""
-        queue_repo.set_queue_state(track_ids=[1, 2, 3], repeat_mode='off')
+        queue_state_row.set_queue_state(track_ids=[1, 2, 3], repeat_mode='off')
 
         state_before = {
             'track_ids': [1, 2, 3],
@@ -625,7 +678,7 @@ class TestQueueHistoryIntegration:
         queue_history_repo.push_to_history('set', state_before)
 
         # Change repeat mode
-        queue_repo.set_queue_state(track_ids=[1, 2, 3], repeat_mode='all')
+        queue_state_row.set_queue_state(track_ids=[1, 2, 3], repeat_mode='all')
 
         history = queue_history_repo.get_history()
         snapshot = json.loads(history[0].state_snapshot)

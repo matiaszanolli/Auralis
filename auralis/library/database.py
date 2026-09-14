@@ -44,7 +44,6 @@ from .repositories import (
     FingerprintStatsRepository,
     GenreRepository,
     PlaylistRepository,
-    QueueRepository,
     RepositoryFactory,
     StatsRepository,
     TrackRepository,
@@ -282,10 +281,6 @@ class LibraryDatabase:
     @property
     def fingerprint_stats(self) -> FingerprintStatsRepository:
         return self.repositories.fingerprint_stats
-
-    @property
-    def queue(self) -> QueueRepository:
-        return self.repositories.queue
 
     @property
     def settings(self) -> SettingsRepository:

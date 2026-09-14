@@ -12,10 +12,39 @@ import json
 from typing import Any, cast
 
 from sqlalchemy import delete, func, select
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from ..models import QueueHistory, QueueState
 from .base import BaseRepository
+
+# QueueState is a single row the history entries hang off (queue_state_id).
+# Creating it with "select the first row, else insert one" let two concurrent
+# first writers each insert a row, after which reads picked between them
+# arbitrarily (#5358). It is now created at a fixed primary key with
+# INSERT ... ON CONFLICT DO NOTHING, so a racing second insert is a no-op, and
+# every read orders by id so a database that already holds a duplicate still
+# resolves to the same row each time.
+QUEUE_STATE_ID = 1
+
+
+def _current_queue_state(session: Session) -> QueueState | None:
+    """The queue-state row, or None before the first history push."""
+    return session.execute(select(QueueState).order_by(QueueState.id)).scalars().first()
+
+
+def _get_or_create_queue_state(session: Session) -> QueueState:
+    """Return the queue-state row, creating it race-free if it is missing."""
+    queue_state = _current_queue_state(session)
+    if queue_state is None:
+        session.execute(
+            sqlite_insert(QueueState)
+            .values(id=QUEUE_STATE_ID)
+            .on_conflict_do_nothing(index_elements=[QueueState.id])
+        )
+        queue_state = _current_queue_state(session)
+    assert queue_state is not None
+    return queue_state
 
 
 class QueueHistoryRepository(BaseRepository):
@@ -46,11 +75,7 @@ class QueueHistoryRepository(BaseRepository):
 
         with self._session_scope() as session:
             # Get the current queue state to associate with history
-            queue_state = session.execute(select(QueueState)).scalars().first()
-            if not queue_state:
-                queue_state = QueueState()
-                session.add(queue_state)
-                session.flush()
+            queue_state = _get_or_create_queue_state(session)
 
             # Create history entry
             history_entry = QueueHistory(
@@ -65,7 +90,7 @@ class QueueHistoryRepository(BaseRepository):
             session.refresh(history_entry)
 
             # Cleanup old history if exceeding limit
-            self._cleanup_old_history(session, cast(int, queue_state.id))
+            self._cleanup_old_history(session, queue_state.id)
 
             session.expunge(history_entry)
             return history_entry
@@ -81,16 +106,16 @@ class QueueHistoryRepository(BaseRepository):
             List of QueueHistory entries ordered by creation time (newest first)
         """
         with self._session_scope() as session:
-            queue_state = session.execute(select(QueueState)).scalars().first()
+            queue_state = _current_queue_state(session)
             if not queue_state:
                 return []
 
-            entries = session.execute(
+            entries = list(session.execute(
                 select(QueueHistory)
                 .where(QueueHistory.queue_state_id == queue_state.id)
                 .order_by(QueueHistory.created_at.desc())
                 .limit(limit)
-            ).scalars().all()
+            ).scalars().all())
 
             for entry in entries:
                 session.expunge(entry)
@@ -113,7 +138,7 @@ class QueueHistoryRepository(BaseRepository):
             ValueError: If history entry is invalid or corrupted
         """
         with self._session_scope() as session:
-            queue_state = session.execute(select(QueueState)).scalars().first()
+            queue_state = _current_queue_state(session)
             if not queue_state:
                 return None
 
@@ -156,7 +181,7 @@ class QueueHistoryRepository(BaseRepository):
             True if successful, False if no queue state exists
         """
         with self._session_scope() as session:
-            queue_state = session.execute(select(QueueState)).scalars().first()
+            queue_state = _current_queue_state(session)
             if not queue_state:
                 return False
 
@@ -176,7 +201,7 @@ class QueueHistoryRepository(BaseRepository):
             Number of history entries for current queue
         """
         with self._session_scope() as session:
-            queue_state = session.execute(select(QueueState)).scalars().first()
+            queue_state = _current_queue_state(session)
             if not queue_state:
                 return 0
 
