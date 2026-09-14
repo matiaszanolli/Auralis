@@ -10,6 +10,7 @@ from typing import Any
 import numpy as np
 from scipy import signal
 
+from ..dsp.utils.spectral import frames_for_seconds
 from .fingerprint.metrics import MetricUtils, SafeOperations
 
 _HILBERT_MAX_SECONDS = 30
@@ -225,12 +226,18 @@ class PhaseCorrelationAnalyzer:
 
     def _calculate_phase_coherence(self, left: np.ndarray, right: np.ndarray) -> dict[str, Any]:
         """Calculate frequency-dependent phase coherence"""
+        # Anchor the analysis window in time, not a bare sample-count literal,
+        # so the coherence metric is comparable across sample rates (#5418,
+        # the one sample-rate-dependent window site #4308 missed — see
+        # feature_extractor.py for the same pattern).
+        nperseg = frames_for_seconds(self.sample_rate, 1024 / 44100)
+
         # Use welch method for frequency domain analysis
-        f, left_psd = signal.welch(left, self.sample_rate, nperseg=1024)
-        f, right_psd = signal.welch(right, self.sample_rate, nperseg=1024)
+        f, left_psd = signal.welch(left, self.sample_rate, nperseg=nperseg)
+        f, right_psd = signal.welch(right, self.sample_rate, nperseg=nperseg)
 
         # Calculate cross-power spectral density
-        f, cross_psd = signal.csd(left, right, self.sample_rate, nperseg=1024)
+        f, cross_psd = signal.csd(left, right, self.sample_rate, nperseg=nperseg)
 
         # Calculate coherence with safe division
         numerator = np.abs(cross_psd)**2
