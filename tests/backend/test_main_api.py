@@ -1031,14 +1031,14 @@ class TestSettingsEndpoints:
     def test_update_settings_success(self, client):
         """PUT /api/settings updates and returns settings."""
         mock_repo = Mock()
-        mock_repo.update_settings.return_value = self._mock_settings()
+        mock_repo.update_settings_with_previous_folders.return_value = (self._mock_settings(), [])
 
         with patch.dict('main.globals_dict', {'settings_repository': mock_repo}):
             response = _with_trusted_origin(client, "put", "/api/settings", json={"theme": "light"})
 
         assert response.status_code == 200
         assert "Settings updated" in response.json()["message"]
-        mock_repo.update_settings.assert_called_once_with({"theme": "light"})
+        mock_repo.update_settings_with_previous_folders.assert_called_once_with({"theme": "light"})
 
     def test_update_settings_scan_folders_rejects_invalid_path(self, client):
         """PUT /api/settings 400s an invalid scan_folders entry instead of
@@ -1052,7 +1052,7 @@ class TestSettingsEndpoints:
             )
 
         assert response.status_code == 400
-        mock_repo.update_settings.assert_not_called()
+        mock_repo.update_settings_with_previous_folders.assert_not_called()
 
     def test_update_settings_scan_folders_registers_allowed_directory(
         self, client, tmp_path, settings_repository

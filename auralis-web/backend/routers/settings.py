@@ -16,7 +16,6 @@ Endpoints:
 """
 
 import asyncio
-import json
 import logging
 from collections.abc import Callable
 from pathlib import Path
@@ -291,7 +290,8 @@ def create_settings_router(
         settings = await asyncio.to_thread(_repo().get_settings)
         if not settings:
             raise NotFoundError("Settings")
-        return settings.to_dict()
+        data: dict[str, Any] = settings.to_dict()
+        return data
 
     @router.put("/api/settings", response_model=SettingsUpdateResponse)
     @with_error_handling("update settings")
@@ -324,20 +324,18 @@ def create_settings_router(
                 # generic detail regardless of which check failed.
                 raise HTTPException(status_code=400, detail="One or more scan folders failed validation")
 
-        # Snapshot the previous list (if scan_folders is being written) so the
-        # allowlist can be diffed against it after the write — additions get
-        # registered, removals get unregistered, regardless of which route
-        # made the change (fixes the #3842 "no inverse" gap for this route too).
-        previous_folders: set[str] = set()
-        if 'scan_folders' in payload:
-            previous_settings = await asyncio.to_thread(_repo().get_settings)
-            if previous_settings and previous_settings.scan_folders:
-                raw = previous_settings.scan_folders
-                previous_folders = set(json.loads(raw) if isinstance(raw, str) else raw)
-
-        settings = await asyncio.to_thread(_repo().update_settings, payload)
+        # The repository returns the list stored just before this write, read
+        # in the same locked transaction (#5334), so the allowlist diff below
+        # — additions registered, removals unregistered, regardless of which
+        # route made the change (#3842) — cannot run against a list a
+        # concurrent add/remove/reset already replaced. The separate, unlocked
+        # get_settings() snapshot this used to take could.
+        settings, previous_list = await asyncio.to_thread(
+            _repo().update_settings_with_previous_folders, payload
+        )
 
         if 'scan_folders' in payload:
+            previous_folders = set(previous_list)
             new_folders = set(payload['scan_folders'] or [])
             for added in new_folders - previous_folders:
                 register_allowed_directory(Path(added))

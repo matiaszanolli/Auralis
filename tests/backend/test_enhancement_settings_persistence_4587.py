@@ -118,9 +118,18 @@ class _FakeSettingsRepo:
         return _FakeSettingsRow(dict(self._current))
 
     def update_settings(self, payload: dict) -> _FakeSettingsRow:
+        settings, _previous = self.update_settings_with_previous_folders(payload)
+        return settings
+
+    def update_settings_with_previous_folders(
+        self, payload: dict
+    ) -> tuple[_FakeSettingsRow, list[str]]:
+        # What PUT /api/settings calls since #5334: the write plus the scan
+        # folders stored just before it.
+        previous = list(self._current.get('scan_folders') or [])
         self.updated_with = payload
         self._current = {**self._current, **payload}
-        return _FakeSettingsRow(dict(self._current))
+        return _FakeSettingsRow(dict(self._current)), previous
 
     def reset_to_defaults(self) -> _FakeSettingsRow:
         self._current = dict(_DEFAULT_SETTINGS)

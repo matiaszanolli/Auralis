@@ -21,22 +21,35 @@ from .base import BaseRepository
 class SettingsRepository(BaseRepository):
     """Repository for user settings database operations"""
 
-    # Serializes the add_scan_folder/remove_scan_folder read-modify-write
-    # window. `select(...).with_for_update()` compiles to `SELECT ... FOR
+    # Serializes every read-modify-write on the singleton settings row.
+    # `select(...).with_for_update()` compiles to `SELECT ... FOR
     # UPDATE` only on dialects with row-level locking; SQLAlchemy's SQLite
     # dialect silently drops the clause, so it was a no-op there (#4956,
     # regression of #3339). This project is SQLite-only (single-file
     # `~/.auralis/library.db`), so an in-process lock is sufficient — it
     # does not help multi-process/multi-host access, but the desktop app
     # never does that.
-    _scan_folders_lock = threading.RLock()
+    #
+    # Until #5334 only add_scan_folder/remove_scan_folder took it. The other
+    # writers of the same row — update_settings (PUT /api/settings, which can
+    # carry scan_folders), reset_to_defaults (which deletes the row) and
+    # get_settings' default-row creation — ran unlocked, so they could drop a
+    # locked add/remove's edit or delete the row underneath it. Class-level,
+    # so every repository instance shares the one lock.
+    _settings_lock = threading.RLock()
+
+    @staticmethod
+    def _scan_folder_list(settings: UserSettings) -> list[str]:
+        """The stored scan_folders JSON as a list ([] when unset)."""
+        folders: list[str] = json.loads(str(settings.scan_folders)) if settings.scan_folders else []
+        return folders
 
     def get_settings(self) -> UserSettings | None:
         """
         Get user settings (always returns the first/only settings record)
         Creates default settings if none exist
         """
-        with self._session_scope() as session:
+        with self._settings_lock, self._session_scope() as session:
             settings = session.execute(select(UserSettings)).scalars().first()
 
             # Create default settings if none exist
@@ -59,17 +72,36 @@ class SettingsRepository(BaseRepository):
         Returns:
             Updated UserSettings object
         """
+        settings, _previous_folders = self.update_settings_with_previous_folders(updates)
+        return settings
+
+    def update_settings_with_previous_folders(
+        self, updates: dict[str, Any]
+    ) -> tuple[UserSettings, list[str]]:
+        """Apply ``updates`` and return the scan folders stored just before.
+
+        The snapshot and the write happen in one locked transaction, so a
+        caller diffing old against new folders (PUT /api/settings registers
+        added folders and unregisters removed ones) cannot diff against a list
+        a concurrent add/remove/reset has already replaced (#5334). The
+        previous list is only read when ``updates`` writes scan_folders; it is
+        ``[]`` otherwise.
+        """
         # Work on a shallow copy: scan_folders and file_types are removed from
         # the working mapping after their custom serialization, and callers
         # still need the original payload for post-write side effects (#5259).
         updates = dict(updates)
 
-        with self._session_scope() as session:
+        with self._settings_lock, self._session_scope() as session:
             settings = session.execute(select(UserSettings)).scalars().first()
 
             if not settings:
                 settings = UserSettings()
                 session.add(settings)
+
+            previous_folders = (
+                self._scan_folder_list(settings) if 'scan_folders' in updates else []
+            )
 
             # Handle scan_folders separately as it needs JSON serialization
             if 'scan_folders' in updates:
@@ -105,7 +137,7 @@ class SettingsRepository(BaseRepository):
             session.commit()
             session.refresh(settings)
             session.expunge(settings)
-            return settings
+            return settings, previous_folders
 
     def reset_to_defaults(self) -> UserSettings:
         """
@@ -114,7 +146,7 @@ class SettingsRepository(BaseRepository):
         Returns:
             UserSettings object with default values
         """
-        with self._session_scope() as session:
+        with self._settings_lock, self._session_scope() as session:
             # Delete existing settings
             session.execute(delete(UserSettings))
 
@@ -140,14 +172,14 @@ class SettingsRepository(BaseRepository):
 
     def add_scan_folder(self, folder: str) -> UserSettings:
         """Add a new folder to scan list (atomic read-modify-write, #3339, #4956)."""
-        with self._scan_folders_lock, self._session_scope() as session:
+        with self._settings_lock, self._session_scope() as session:
             try:
                 settings = session.execute(select(UserSettings)).scalars().first()
                 if not settings:
                     settings = UserSettings()
                     session.add(settings)
 
-                folders: list[str] = json.loads(str(settings.scan_folders)) if settings.scan_folders else []
+                folders = self._scan_folder_list(settings)
                 if folder not in folders:
                     folders.append(folder)
                     settings.scan_folders = json.dumps(folders)
@@ -162,14 +194,14 @@ class SettingsRepository(BaseRepository):
 
     def remove_scan_folder(self, folder: str) -> UserSettings:
         """Remove a folder from scan list (atomic read-modify-write, #3339, #4956)."""
-        with self._scan_folders_lock, self._session_scope() as session:
+        with self._settings_lock, self._session_scope() as session:
             try:
                 settings = session.execute(select(UserSettings)).scalars().first()
                 if not settings:
                     settings = UserSettings()
                     session.add(settings)
 
-                folders: list[str] = json.loads(str(settings.scan_folders)) if settings.scan_folders else []
+                folders = self._scan_folder_list(settings)
                 if folder in folders:
                     folders.remove(folder)
                     settings.scan_folders = json.dumps(folders)

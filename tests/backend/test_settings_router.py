@@ -84,9 +84,17 @@ class _FakeSettingsRepo:
         return _FakeSettings(_DEFAULT_SETTINGS)
 
     def update_settings(self, payload: dict) -> _FakeSettings:
+        settings, _previous = self.update_settings_with_previous_folders(payload)
+        return settings
+
+    def update_settings_with_previous_folders(
+        self, payload: dict
+    ) -> tuple[_FakeSettings, list[str]]:
+        # The PUT route writes through this and diffs its allowlist against the
+        # returned list, which the real repository reads under its lock (#5334).
         self.updated_with = payload
         merged = {**_DEFAULT_SETTINGS, **payload}
-        return _FakeSettings(merged)
+        return _FakeSettings(merged), list(_DEFAULT_SETTINGS['scan_folders'])
 
 
 @pytest.fixture()
