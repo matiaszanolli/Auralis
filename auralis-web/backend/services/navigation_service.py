@@ -307,12 +307,20 @@ class NavigationService:
                     await asyncio.to_thread(self.audio_player.play)
 
                 # Update state — the jumped-to track first (#5456), so the
-                # set_playing broadcast below already carries it.
+                # set_playing broadcast (deferred below, #5324) already
+                # carries it.
                 await self._follow_engine(track_index)
-                await self.player_state_manager.set_playing(True)
+                # #5324: broadcast=False — next_track/previous_track already
+                # broadcast only after releasing _sequencer.lock; jump_to_track
+                # was the one outlier still awaiting a broadcast (bounded by
+                # BROADCAST_SEND_TIMEOUT per client) while holding it, which
+                # could stall every other next/previous/jump behind one slow
+                # WS client. Snapshot captured here, broadcast after release.
+                state_snapshot = await self.player_state_manager.set_playing(True, broadcast=False)
                 seq = _sequencer.next_seq()
 
-            # Broadcast track change
+            # Broadcast state and track change — both outside _sequencer.lock.
+            await self.player_state_manager.broadcast_state(state_snapshot)
             await broadcast_typed(
                 self.connection_manager,
                 "track_changed",

@@ -61,6 +61,7 @@ def _build_service(*, blocking_attr: str, queue_size: int = 5):
 
     state_manager = MagicMock()
     state_manager.set_playing = AsyncMock()
+    state_manager.broadcast_state = AsyncMock()
 
     connection_manager = MagicMock()
     connection_manager.broadcast = AsyncMock()

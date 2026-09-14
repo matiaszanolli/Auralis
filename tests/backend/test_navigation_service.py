@@ -39,6 +39,7 @@ def _make_service(
 
     state_manager = MagicMock()
     state_manager.set_playing = AsyncMock()
+    state_manager.broadcast_state = AsyncMock()
 
     connection_manager = MagicMock()
     connection_manager.broadcast = AsyncMock()
@@ -133,7 +134,10 @@ class TestJumpToTrack:
         result = await service.jump_to_track(2)
 
         player.queue.set_current_index.assert_called_once_with(2)
-        state_mgr.set_playing.assert_awaited_once_with(True)
+        # #5324: broadcast=False — jump_to_track defers the broadcast until
+        # after _sequencer.lock is released, matching next_track/previous_track.
+        state_mgr.set_playing.assert_awaited_once_with(True, broadcast=False)
+        state_mgr.broadcast_state.assert_awaited_once()
         broadcast_call = conn_mgr.broadcast.call_args[0][0]
         assert broadcast_call["data"]["action"] == "jumped"
         assert broadcast_call["data"]["track_index"] == 2

@@ -43,6 +43,7 @@ def _make_service(index_counter: dict) -> NavigationService:
 
     state_manager = MagicMock()
     state_manager.set_playing = AsyncMock()
+    state_manager.broadcast_state = AsyncMock()
 
     connection_manager = MagicMock()
     connection_manager.broadcast = AsyncMock()
