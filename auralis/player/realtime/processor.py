@@ -14,6 +14,7 @@ from typing import Any
 
 import numpy as np
 
+from ...utils.audio_validation import validate_audio_finite
 from ...utils.logging import info
 from ..config import PlayerConfig
 from .auto_master import AutoMasterProcessor
@@ -173,6 +174,19 @@ class RealtimeProcessor:
             processed = processed * processed.dtype.type(
                 target_peak / max_val
             )
+
+        # #5313: unlike every other pipeline in the engine (HybridProcessor,
+        # ContinuousMode, AdaptiveMode, SimpleMasteringPipeline), this chain
+        # had no finite-value guard anywhere — and the peak clamp just above
+        # is silently defeated by NaN (`max_val > target_peak` is False when
+        # max_val is NaN, so a non-finite chunk skips it entirely and would
+        # otherwise reach the output device unclamped and unlogged). This
+        # final check repairs (or at minimum logs) any non-finite sample
+        # regardless of whether the clamp above caught it, matching
+        # ContinuousMode's `validate_audio_finite(..., repair=True)` pattern.
+        processed = validate_audio_finite(
+            processed, context="realtime chunk output", repair=True
+        )
 
         # Record performance inside the lock so any concurrent reader of
         # performance_monitor stats (e.g. get_processing_info) always sees a

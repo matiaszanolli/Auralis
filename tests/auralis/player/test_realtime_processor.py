@@ -725,6 +725,97 @@ class TestRealtimeProcessorChunkInvariants3744:
         assert out.dtype == np.float64
 
 
+class TestRealtimeProcessorNaNGuard5313:
+    """#5313 — process_chunk repairs non-finite output instead of passing it
+    straight to the audio device.
+
+    Before the fix, the final peak clamp (`if max_val > target_peak`) was
+    silently defeated by NaN — any comparison against NaN is False — so a
+    non-finite chunk reached the return statement completely unguarded,
+    unlike every other DSP pipeline in the engine.
+    """
+
+    def setUp(self):
+        from auralis.player.config import PlayerConfig
+        self.config = PlayerConfig()
+
+    def test_nan_chunk_is_repaired_not_passed_through(self):
+        """A chunk containing NaN must come back fully finite."""
+        from auralis.player.realtime.processor import RealtimeProcessor
+        self.setUp()
+        processor = RealtimeProcessor(self.config)
+        chunk = np.full((1024, 2), 0.5, dtype=np.float32)
+        chunk[100, 0] = np.nan
+        chunk[500, 1] = np.inf
+
+        out = processor.process_chunk(chunk)
+
+        assert np.all(np.isfinite(out)), "non-finite samples reached process_chunk's output"
+
+    def test_nan_repair_logs_a_warning(self):
+        """The repair must be diagnosable, not silent (matches ContinuousMode's
+        validate_audio_finite(repair=True) behavior)."""
+        from auralis.player.config import PlayerConfig
+        from auralis.player.realtime.processor import RealtimeProcessor
+        from auralis.utils.logging import set_log_handler
+
+        processor = RealtimeProcessor(PlayerConfig())
+        chunk = np.full((256, 2), 0.5, dtype=np.float32)
+        chunk[0, 0] = np.nan
+
+        logged: list[str] = []
+        set_log_handler(logged.append)
+        try:
+            processor.process_chunk(chunk)
+        finally:
+            set_log_handler(None)
+
+        assert any("nan" in msg.lower() for msg in logged), "no NaN repair warning was logged"
+
+    def test_all_nan_chunk_repairs_to_silence(self):
+        """A fully non-finite chunk must not slip through the peak clamp
+        (max_val is NaN, so `max_val > target_peak` is unconditionally False)
+        — the trailing guard is the only thing that can catch this case."""
+        from auralis.player.realtime.processor import RealtimeProcessor
+        self.setUp()
+        processor = RealtimeProcessor(self.config)
+        chunk = np.full((512, 2), np.nan, dtype=np.float32)
+
+        out = processor.process_chunk(chunk)
+
+        assert np.all(np.isfinite(out))
+        np.testing.assert_array_equal(out, np.zeros_like(out))
+
+    def test_normal_chunk_unaffected_by_the_new_guard(self):
+        """Regression: the already-clamped-upstream normal path (finite,
+        moderate-level audio) must be byte-identical to before the guard was
+        added — the guard is a no-op safety net, not a behavior change."""
+        from auralis.player.realtime.processor import RealtimeProcessor
+        self.setUp()
+        processor = RealtimeProcessor(self.config)
+        rng = np.random.default_rng(5313)
+        chunk = (rng.standard_normal((1024, 2)) * 0.1).astype(np.float32)
+
+        out = processor.process_chunk(chunk)
+
+        assert np.all(np.isfinite(out))
+        np.testing.assert_array_equal(out, chunk)
+
+    def test_silent_chunk_still_passes_through_cleanly(self):
+        """Regression: an all-zero chunk (the other 'already clamped
+        upstream' source named in the issue) must still process without
+        introducing NaN/Inf via the new guard."""
+        from auralis.player.realtime.processor import RealtimeProcessor
+        self.setUp()
+        processor = RealtimeProcessor(self.config)
+        silent = np.zeros((1024, 2), dtype=np.float32)
+
+        out = processor.process_chunk(silent)
+
+        assert np.all(np.isfinite(out))
+        np.testing.assert_array_equal(out, silent)
+
+
 if __name__ == '__main__':
     import pytest
     pytest.main([__file__])
