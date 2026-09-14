@@ -37,8 +37,13 @@ export interface UseFingerprintStatusReturn {
   fingerprintStatus: FingerprintStatus;
   /** Human-readable analysis message for display, or null. */
   fingerprintMessage: string | null;
-  /** Reset to the idle/empty state (call when a new stream begins). */
-  resetFingerprint: () => void;
+  /**
+   * Reset to the idle/empty state (call when a new stream begins). Pass the
+   * track the new stream plays: `fingerprint_progress` for any other track is
+   * then ignored, so a message still in flight from the previous track cannot
+   * overwrite this one's status (#5380).
+   */
+  resetFingerprint: (trackId?: number | null) => void;
   /**
    * Cancel any pending auto-clear timeout. Exposed so the streaming core can
    * cancel it on WS disconnect (a stale callback must not fire against the next
@@ -58,6 +63,9 @@ export function useFingerprintStatus(
   // Latest handler kept in a ref so the mount-time subscription always calls the
   // current closure without needing to resubscribe.
   const handlerRef = useRef<((m: FingerprintProgressMessage) => void) | null>(null);
+  // Track whose stream this status belongs to; null until a stream starts
+  // (#5380). Same gate as the streaming reducers' trackId check (#4434).
+  const activeTrackIdRef = useRef<number | null>(null);
 
   const cancelFingerprintTimeout = useCallback(() => {
     if (fingerprintTimeoutRef.current !== null) {
@@ -66,13 +74,23 @@ export function useFingerprintStatus(
     }
   }, []);
 
-  const resetFingerprint = useCallback(() => {
+  const resetFingerprint = useCallback((trackId: number | null = null) => {
+    activeTrackIdRef.current = trackId;
     setFingerprintStatus('idle');
     setFingerprintMessage(null);
   }, []);
 
   const handleFingerprintProgress = useCallback((message: FingerprintProgressMessage) => {
-    const { status, message: progressMessage } = message.data || {};
+    const { track_id: trackId, status, message: progressMessage } = message.data || {};
+
+    // A skip resets this hook at click time, but the previous track's message
+    // can still arrive afterwards; drop it rather than show it for the new
+    // track (#5380).
+    const activeTrackId = activeTrackIdRef.current;
+    if (activeTrackId != null && trackId != null && trackId !== activeTrackId) {
+      DEBUG && console.log('[useFingerprintStatus] Ignoring progress for superseded track', { trackId, activeTrackId });
+      return;
+    }
 
     DEBUG && console.log('[useFingerprintStatus] Fingerprint progress:', { status, message: progressMessage });
 

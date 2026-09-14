@@ -38,8 +38,11 @@ export interface UseEnhancedPlayCommandParams {
   dispatch: AppDispatch;
   core: StreamingCoreReturn;
   currentTrackInfoRef: MutableRefObject<CurrentTrackInfo | null>;
-  /** Reset the fingerprint status/message when a new stream begins. */
-  resetFingerprint: () => void;
+  /**
+   * Reset the fingerprint status/message when a new stream begins, scoped to
+   * that stream's track so late messages for the previous track are ignored.
+   */
+  resetFingerprint: (trackId: number) => void;
 }
 
 export type PlaybackWireType = 'enhanced' | 'normal';
@@ -80,8 +83,8 @@ export function useEnhancedPlayCommand({
         // Reset streaming state
         dispatch(resetStreaming('enhanced'));
 
-        // Reset fingerprint status
-        resetFingerprint();
+        // Reset fingerprint status for the new track (#5380)
+        resetFingerprint(trackId);
 
         // Check WebSocket connection before proceeding
         if (!wsContext.isConnected) {

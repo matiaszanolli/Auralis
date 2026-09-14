@@ -75,4 +75,34 @@ describe('useFingerprintStatus', () => {
     expect(result.current.fingerprintStatus).toBe('analyzing');
     expect(result.current.fingerprintMessage).toBe('Analyzing…');
   });
+
+  it("ignores a superseded track's fingerprint_progress after a track switch (#5380)", () => {
+    let handler: ((m: unknown) => void) | undefined;
+    const subscribe = vi.fn((_type: string, h: (m: unknown) => void) => {
+      handler = h;
+      return vi.fn();
+    });
+    const { result } = renderHook(() => useFingerprintStatus(makeWsContext(true, subscribe)));
+
+    act(() => result.current.resetFingerprint(1));
+    act(() => {
+      handler?.({ data: { track_id: 1, status: 'analyzing', message: 'Analyzing track 1' } });
+    });
+    expect(result.current.fingerprintStatus).toBe('analyzing');
+
+    // Skip to track 2; track 1's message was already in flight and lands late.
+    act(() => result.current.resetFingerprint(2));
+    act(() => {
+      handler?.({ data: { track_id: 1, status: 'complete', message: 'Track 1 done' } });
+    });
+    expect(result.current.fingerprintStatus).toBe('idle');
+    expect(result.current.fingerprintMessage).toBeNull();
+
+    // The current track's own progress still applies.
+    act(() => {
+      handler?.({ data: { track_id: 2, status: 'cached', message: 'Track 2 cached' } });
+    });
+    expect(result.current.fingerprintStatus).toBe('cached');
+    expect(result.current.fingerprintMessage).toBe('Track 2 cached');
+  });
 });
