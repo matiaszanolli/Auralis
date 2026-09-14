@@ -40,6 +40,7 @@ import { useRestAPI } from '@/hooks/api/useRestAPI';
 import { useWebSocketMessages } from '@/hooks/websocket/useWebSocketMessages';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import type { ApiError } from '@/types/api';
+import { ENHANCEMENT_PRESETS } from '@/types/domain';
 import type { EnhancementPreset } from '@/types/domain';
 import type { EnhancementSettingsChangedMessage } from '@/types/websocket';
 import { ApiErrorHandler } from '@/types/api';
@@ -314,8 +315,7 @@ export function useEnhancementControl(): EnhancementControlActions {
     // ('adaptive' -- #4861 follow-up), so this can only fail for a caller
     // that bypasses the type via `as` or an untyped source (e.g. a
     // WebSocket message); kept as a runtime guard for exactly that case.
-    const validPresets: EnhancementPreset[] = ['adaptive'];
-    if (!validPresets.includes(preset)) {
+    if (!ENHANCEMENT_PRESETS.includes(preset)) {
       const apiError = {
         message: `Invalid preset: ${preset}`,
         code: 'INVALID_PRESET',
