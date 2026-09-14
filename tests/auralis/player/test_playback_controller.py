@@ -42,7 +42,7 @@ class TestSeekDuringPlaybackRace:
             """Simulates the playback loop calling read_and_advance_position."""
             barrier.wait()
             for _ in range(100):
-                controller.read_and_advance_position(chunk_size)
+                controller.read_and_advance_position(chunk_size, max_samples)
 
         def seeker():
             """Simulates user seeking during playback."""
@@ -77,7 +77,7 @@ class TestSeekDuringPlaybackRace:
         def advancer():
             barrier.wait()
             for _ in range(200):
-                pos = controller.read_and_advance_position(chunk_size)
+                pos = controller.read_and_advance_position(chunk_size, max_samples)
                 with lock:
                     observed_positions.append(pos)
 
@@ -105,10 +105,44 @@ class TestSeekDuringPlaybackRace:
         controller.play()
         controller.seek(1000, 441000)
 
-        pos = controller.read_and_advance_position(4096)
+        pos = controller.read_and_advance_position(4096, 441000)
 
         assert pos == 1000, f"Expected pre-advance position 1000, got {pos}"
         assert controller.position == 1000 + 4096
+
+    def test_stored_position_never_exceeds_total_samples_at_track_end(self):
+        """#5114: the final (short) chunk must clamp the stored position.
+
+        Without the clamp, the last read_and_advance_position() call advances
+        position by the full chunk_size regardless of how much track is left,
+        leaving it transiently > total_samples until the next seek().
+        """
+        controller = PlaybackController()
+        controller.play()
+        chunk_size = 4096
+        total_samples = 10000  # not a multiple of chunk_size
+
+        while True:
+            pos = controller.read_and_advance_position(chunk_size, total_samples)
+            assert controller.position <= total_samples, (
+                f"position {controller.position} exceeded total_samples "
+                f"{total_samples} after reading chunk at offset {pos}"
+            )
+            if pos + chunk_size >= total_samples:
+                break
+
+    def test_read_and_advance_return_value_unaffected_by_clamp(self):
+        """The clamp applies to the stored position only, never the returned
+        pre-advance offset a caller uses as the chunk read start (#5114)."""
+        controller = PlaybackController()
+        controller.play()
+        total_samples = 10000
+        controller.seek(9000, total_samples)
+
+        pos = controller.read_and_advance_position(4096, total_samples)
+
+        assert pos == 9000, "returned offset must be the exact pre-advance position"
+        assert controller.position == total_samples, "stored position must clamp"
 
 
 class TestPlaybackControllerThreadSafety:

@@ -64,7 +64,7 @@ class PlayerQueueNavigationMixin:
         # #3717: the swap and the position reset must be atomic with the audio
         # callback's chunk read. Otherwise the callback can acquire
         # `_audio_lock` between them, call
-        # `read_and_advance_position(chunk_size)` against the new (shorter)
+        # `read_and_advance_position(chunk_size, total_samples)` against the new (shorter)
         # `audio_data` at the OLD position, and return silence — defeating the
         # gapless guarantee.
         #

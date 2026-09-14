@@ -198,21 +198,34 @@ class PlaybackController:
         self._notify_callbacks(state_info)
         return True
 
-    def read_and_advance_position(self, advance_by: int) -> int:
+    def read_and_advance_position(self, advance_by: int, max_samples: int) -> int:
         """Atomically read current position and advance by given amount.
 
         Prevents a concurrent seek() from being overwritten by a stale
         read-modify-write in the playback loop (#2153).
 
+        The stored position is clamped to max_samples (#5114) — the final
+        chunk of a track otherwise advances position past total_samples and
+        it sits there, violating the documented position <= duration
+        invariant, until the async auto-advance's seek(0, ...) closes the
+        window. Same max_samples-threading pattern seek() already uses.
+        Only the stored position is clamped: the *returned* value is always
+        the exact pre-advance position, unclamped, since callers use it as
+        the chunk read offset (clamping it would silently truncate the last
+        chunk's read length). End-of-track detection in the caller compares
+        that returned pre-advance offset against total_samples directly, not
+        the post-advance stored position, so this clamp cannot mask it.
+
         Args:
             advance_by: Number of samples to advance
+            max_samples: Upper bound for the stored position (total track length)
 
         Returns:
             int: The position before advancing (use as chunk read offset)
         """
         with self._lock:
             pos = self.position
-            self.position += advance_by
+            self.position = min(pos + advance_by, max_samples)
             return pos
 
     def get_position_snapshot(self) -> int:

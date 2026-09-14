@@ -83,14 +83,17 @@ class PlayerStreamingMixin:
             if not self.file_manager.is_loaded() or not self.playback.is_playing():
                 return np.zeros((chunk_size, 2), dtype=np.float32)
 
-            # Atomically read position and advance to prevent seek race (#2153)
-            pos = self.playback.read_and_advance_position(chunk_size)
+            # Atomically read position and advance to prevent seek race (#2153).
+            # Clamped to total_samples (#5114) so the stored position never
+            # transiently exceeds track length on the final chunk.
+            total_samples = self.file_manager.get_total_samples()
+            pos = self.playback.read_and_advance_position(chunk_size, total_samples)
 
             # Get raw audio chunk using the captured position
             chunk = self.file_manager.get_audio_chunk(pos, chunk_size)
 
             # Check for end of track — use atomic flag to prevent concurrent auto-advance
-            end_of_track = pos + chunk_size >= self.file_manager.get_total_samples()
+            end_of_track = pos + chunk_size >= total_samples
 
             if end_of_track:
                 # #3692: gate on has_next_track() instead of
