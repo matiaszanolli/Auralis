@@ -9,10 +9,9 @@ one thread could hold a reference to a ContentAnalyzer the facade no longer
 owned while another built a replacement — two divergent stateful analyzers
 producing inconsistent content classification.
 
-All three module-level singleton accessors in the tree now use the same
-double-checked pattern; this one was the only unlocked member of the family
-(`get_parallel_processor` #2314, `get_processor_factory`,
-`get_mastering_target_service`).
+The other module-level singleton accessors (`get_processor_factory`,
+`get_mastering_target_service`) already used the same double-checked pattern;
+this one was the only unlocked member of the family.
 
 NOTE: this code has no production callers today — `get_content_analysis_facade`
 is referenced only from its own module. These tests exercise the accessor

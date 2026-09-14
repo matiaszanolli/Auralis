@@ -104,7 +104,8 @@ class ContentAnalysisFacade:
 
         Double-checked: a fast unlocked read keeps the hot path free of lock
         overhead, then the lock + re-check closes the TOCTOU window on first
-        touch (#4549). Same shape as ``get_parallel_processor`` (#2314).
+        touch (#4549). Same shape as ``get_processor_factory`` and
+        ``get_mastering_target_service`` in ``auralis-web/backend/core/``.
         """
         analyzer = self._content_analyzer
         if analyzer is not None:
@@ -277,9 +278,8 @@ class ContentAnalysisFacade:
 
 
 # Global facade instance and its creation lock (singleton pattern, #4549).
-# Matches get_parallel_processor (#2314), get_processor_factory and
-# get_mastering_target_service — this accessor was the only unlocked member
-# of that family.
+# Matches get_processor_factory and get_mastering_target_service — this
+# accessor was the only unlocked member of that family.
 _global_content_analysis_facade: ContentAnalysisFacade | None = None
 _global_content_analysis_facade_lock: threading.Lock = threading.Lock()
 
