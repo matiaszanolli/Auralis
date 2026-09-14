@@ -302,4 +302,62 @@ describe('createCrudService — request cancellation (#4614)', () => {
 
     expect(vi.mocked(get).mock.calls[0][1]).toEqual({ validate: guard });
   });
+
+  it('rejects a malformed create response through its configured guard', async () => {
+    const { post } = await mocked();
+    const guard = (value: unknown) => (
+      typeof value === 'object'
+      && value !== null
+      && typeof (value as Record<string, unknown>).name === 'string'
+    );
+    vi.mocked(post).mockImplementationOnce(async (_url, _body, options) => {
+      const malformed = { name: 42 };
+      if (options?.validate && !options.validate(malformed)) {
+        throw new Error('Unexpected response shape');
+      }
+      return malformed;
+    });
+    const service = createCrudService({
+      create: '/api/items',
+      guards: { create: guard },
+    });
+
+    await expect(service.create({ name: 'valid request' })).rejects.toThrow(
+      'Unexpected response shape',
+    );
+  });
+
+  it('forwards guards for update, delete, and named custom endpoints', async () => {
+    const { put, del, post } = await mocked();
+    for (const fn of [put, del, post]) vi.mocked(fn).mockClear();
+    const updateGuard = (value: unknown) => Boolean(value);
+    const deleteGuard = (value: unknown) => Boolean(value);
+    const customGuard = (value: unknown) => Boolean(value);
+    const service = createCrudService({
+      update: '/api/items/1',
+      delete: '/api/items/1',
+      custom: { archive: '/api/items/archive' },
+      guards: {
+        update: updateGuard,
+        delete: deleteGuard,
+        custom: { archive: customGuard },
+      },
+    });
+
+    await service.update(1, { name: 'updated' });
+    await service.delete(1);
+    await service.custom('archive', 'post');
+
+    expect(put).toHaveBeenCalledWith(
+      '/api/items/1',
+      { name: 'updated' },
+      { validate: updateGuard },
+    );
+    expect(del).toHaveBeenCalledWith('/api/items/1', { validate: deleteGuard });
+    expect(post).toHaveBeenCalledWith(
+      '/api/items/archive',
+      {},
+      { validate: customGuard },
+    );
+  });
 });

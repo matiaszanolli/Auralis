@@ -408,15 +408,25 @@ def test_position_exactly_duration(tmp_path):
 
 @pytest.mark.boundary
 @pytest.mark.integer
-def test_pagination_max_int_limit():
+def test_pagination_max_int_limit(library_with_100_tracks):
     """
-    BOUNDARY: limit = sys.maxsize (maximum integer).
+    BOUNDARY: limit = sys.maxsize (maximum integer) (#5428).
 
-    Should return all items or reject gracefully.
+    Was a bare `pass` claiming this "would require huge library" -- it
+    doesn't: the concern is whether the SQL layer tolerates an absurdly
+    large LIMIT value at all (SQLite's own integer ceiling), not whether the
+    library actually has that many rows. A small library exercises exactly
+    that: the absurd limit must not be rejected, hang, or silently clamp to
+    something wrong -- it should simply return every row that exists.
     """
-    # Note: Actually testing with MAX_INT would require huge library
-    # This test documents expected behavior
-    pass
+    db, track_ids, _ = library_with_100_tracks
+
+    tracks, total = db.tracks.get_all(limit=sys.maxsize)
+
+    assert total == 100, f"Expected 100 total tracks, got {total}"
+    assert len(tracks) == 100, (
+        f"limit=sys.maxsize should return all 100 rows, got {len(tracks)}"
+    )
 
 
 @pytest.mark.boundary

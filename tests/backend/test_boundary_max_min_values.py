@@ -32,6 +32,7 @@ import os
 # Import the modules under test
 import sys
 import tempfile
+import threading
 import time
 from pathlib import Path
 
@@ -507,22 +508,79 @@ def test_library_with_thousand_tracks(tmp_path):
 @pytest.mark.large_library
 def test_pagination_with_large_offset(tmp_path):
     """
-    BOUNDARY: Pagination with offset=9000 (very large offset).
+    BOUNDARY: Pagination with a large offset (#5428).
+
+    Was a bare `pass` claiming this "would require 10000+ track library" --
+    same false premise #5155 corrected for the sibling test above:
+    TrackRepository.add() stores the path it is given without stat-ing it,
+    so distinct path strings are enough. 1000 tracks (proven <30s by the
+    sibling test) is plenty to exercise an offset near the end of the set.
     """
-    # This would require 10000+ track library
-    # Test documents expected behavior
-    pass
+    db_path = tmp_path / "pagination_offset.db"
+    db = LibraryDatabase(database_path=str(db_path))
+
+    audio_dir = tmp_path / "audio"
+    audio_dir.mkdir()
+
+    for i in range(1000):
+        db.tracks.add({
+            'filepath': str(audio_dir / f"track_{i:04d}.wav"),
+            'title': f'Track {i:04d}',
+            'artists': [f'Artist {i % 100}'],
+        })
+
+    # offset=950 with limit=100 against 1000 rows: only 50 remain, the
+    # classic large-offset-near-the-end boundary (a full page would overrun
+    # the table).
+    tracks, total = db.tracks.get_all(limit=100, offset=950)
+
+    assert total == 1000, f"Expected 1000 total tracks, got {total}"
+    assert len(tracks) == 50, (
+        f"Expected the final 50 tracks at offset=950, got {len(tracks)}"
+    )
+
+    # An offset past the end of the library must return an empty page, not
+    # an error or a wrapped-around result.
+    empty_tracks, empty_total = db.tracks.get_all(limit=50, offset=9000)
+    assert empty_tracks == []
+    assert empty_total == 1000
 
 
 @pytest.mark.boundary
 @pytest.mark.large_library
 def test_search_in_large_library(tmp_path):
     """
-    BOUNDARY: Search performance in large library.
+    BOUNDARY: Search correctness and performance in a large library (#5428).
+
+    Was a bare `pass` claiming this "would test search with 10000+ tracks" --
+    same false premise as above; 1000 distinct-filepath tracks (no real audio
+    files needed, #5155) is enough to exercise both correctness (only the
+    matching subset returned) and a performance ceiling.
     """
-    # Would test search with 10000+ tracks
-    # Test documents expected behavior
-    pass
+    db_path = tmp_path / "search_large.db"
+    db = LibraryDatabase(database_path=str(db_path))
+
+    audio_dir = tmp_path / "audio"
+    audio_dir.mkdir()
+
+    for i in range(1000):
+        # Every 10th track is the needle; the rest share an unrelated title
+        # so the search must actually filter, not just return everything.
+        title = f'Findable Track {i:04d}' if i % 10 == 0 else f'Other Track {i:04d}'
+        db.tracks.add({
+            'filepath': str(audio_dir / f"track_{i:04d}.wav"),
+            'title': title,
+            'artists': [f'Artist {i % 100}'],
+        })
+
+    start_time = time.time()
+    results, total = db.tracks.search('Findable', limit=200)
+    search_time = time.time() - start_time
+
+    assert total == 100, f"Expected 100 matching tracks, got {total}"
+    assert len(results) == 100
+    assert all('Findable' in t.title for t in results)
+    assert search_time < 1.0, f"Search took too long: {search_time:.2f}s"
 
 
 @pytest.mark.boundary
@@ -822,10 +880,50 @@ def test_repeated_processing_no_memory_leak():
 @pytest.mark.performance
 def test_concurrent_track_additions(tmp_path):
     """
-    BOUNDARY: Adding multiple tracks concurrently.
+    BOUNDARY: Adding multiple tracks concurrently (#5428).
 
-    Tests database locking and thread safety.
+    Was a bare `pass` claiming this "would test with threading.Thread" --
+    that's a plain threading test, no large-library fixture needed. Each
+    thread adds a disjoint block of distinct-filepath tracks (#5155's
+    no-real-file technique); the database's connection pooling
+    (`pool_pre_ping=True`, CLAUDE.md) must serialize the writes without
+    losing rows, corrupting the count, or raising.
     """
-    # Would test with threading.Thread
-    # Test documents expected behavior for concurrent operations
-    pass
+    db_path = tmp_path / "concurrent.db"
+    db = LibraryDatabase(database_path=str(db_path))
+
+    audio_dir = tmp_path / "audio"
+    audio_dir.mkdir()
+
+    num_threads = 8
+    tracks_per_thread = 25
+    errors: list[BaseException] = []
+
+    def add_block(thread_index: int) -> None:
+        try:
+            for i in range(tracks_per_thread):
+                idx = thread_index * tracks_per_thread + i
+                db.tracks.add({
+                    'filepath': str(audio_dir / f"concurrent_{idx:04d}.wav"),
+                    'title': f'Concurrent Track {idx:04d}',
+                    'artists': [f'Artist {idx % 10}'],
+                })
+        except BaseException as exc:  # noqa: BLE001 - surfaced via `errors`, not swallowed
+            errors.append(exc)
+
+    threads = [
+        threading.Thread(target=add_block, args=(t,)) for t in range(num_threads)
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=30)
+
+    assert not errors, f"Concurrent add() raised: {errors}"
+
+    _, total = db.tracks.get_all(limit=num_threads * tracks_per_thread + 10)
+    expected = num_threads * tracks_per_thread
+    assert total == expected, (
+        f"Expected {expected} tracks after concurrent adds, got {total} "
+        f"(lost writes or duplicate rows under concurrency)"
+    )

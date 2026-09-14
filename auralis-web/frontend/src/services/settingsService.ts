@@ -80,11 +80,28 @@ export interface SettingsUpdate {
   debug_mode?: boolean;
 }
 
+interface SettingsResponse {
+  message: string;
+  settings: UserSettings;
+}
+
+function isSettingsResponse(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  return isUserSettingsShape((value as Record<string, unknown>).settings);
+}
+
 // Create base CRUD service using factory
 const crudService = createCrudService<UserSettings, SettingsUpdate>({
   list: ENDPOINTS.SETTINGS,
   // Runtime shape check at the boundary (#4607).
-  guards: { list: isUserSettingsShape },
+  guards: {
+    list: isUserSettingsShape,
+    custom: {
+      reset: isSettingsResponse,
+      addScanFolder: isSettingsResponse,
+      removeScanFolder: isSettingsResponse,
+    },
+  },
   update: ENDPOINTS.SETTINGS,
   custom: {
     reset: `${ENDPOINTS.SETTINGS}/reset`,
@@ -116,29 +133,31 @@ export async function updateSettings(updates: SettingsUpdate): Promise<UserSetti
   // UserSettings — crudService.update() has no per-call type override to
   // express that, and returning the raw envelope here silently corrupted
   // caller state (#4783). Call the endpoint directly and unwrap.
-  const result = await put<{ message: string; settings: UserSettings }>(ENDPOINTS.SETTINGS, updates);
+  const result = await put<SettingsResponse>(ENDPOINTS.SETTINGS, updates, {
+    validate: isSettingsResponse,
+  });
   return result.settings;
 }
 
 /**
  * Reset all settings to defaults
  */
-export async function resetSettings(): Promise<{ message: string; settings: UserSettings }> {
-  return crudService.custom<{ message: string; settings: UserSettings }>('reset', 'post', {});
+export async function resetSettings(): Promise<SettingsResponse> {
+  return crudService.custom<SettingsResponse>('reset', 'post', {});
 }
 
 /**
  * Add a scan folder
  */
-export async function addScanFolder(folder: string): Promise<{ message: string; settings: UserSettings }> {
-  return crudService.custom<{ message: string; settings: UserSettings }>('addScanFolder', 'post', { folder });
+export async function addScanFolder(folder: string): Promise<SettingsResponse> {
+  return crudService.custom<SettingsResponse>('addScanFolder', 'post', { folder });
 }
 
 /**
  * Remove a scan folder
  */
-export async function removeScanFolder(folder: string): Promise<{ message: string; settings: UserSettings }> {
-  return crudService.custom<{ message: string; settings: UserSettings }>('removeScanFolder', 'post', { folder });
+export async function removeScanFolder(folder: string): Promise<SettingsResponse> {
+  return crudService.custom<SettingsResponse>('removeScanFolder', 'post', { folder });
 }
 
 /**

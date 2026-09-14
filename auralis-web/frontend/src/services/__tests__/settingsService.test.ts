@@ -109,7 +109,9 @@ describe('SettingsService', () => {
 
       const result = await settingsService.updateSettings(updates);
 
-      expect(mockPut).toHaveBeenCalledWith('/api/settings', updates);
+      expect(mockPut).toHaveBeenCalledWith('/api/settings', updates, {
+        validate: expect.any(Function),
+      });
       // #4783: PUT /api/settings returns a {message, settings} envelope;
       // updateSettings() must unwrap it, not hand the envelope back as if
       // it were the flat UserSettings object (this exact assertion used to
@@ -123,7 +125,9 @@ describe('SettingsService', () => {
 
       await settingsService.updateSettings(updates);
 
-      expect(mockPut).toHaveBeenCalledWith('/api/settings', { volume: 0.5 });
+      expect(mockPut).toHaveBeenCalledWith('/api/settings', { volume: 0.5 }, {
+        validate: expect.any(Function),
+      });
     });
 
     it('should update library settings', async () => {
@@ -179,6 +183,23 @@ describe('SettingsService', () => {
 
       await expect(settingsService.updateSettings({ volume: 0.5 })).rejects.toThrow('Update failed');
     });
+
+    it('should reject a malformed settings response', async () => {
+      mockPut.mockImplementationOnce(async (_url, _body, options) => {
+        const malformed = {
+          message: 'Updated',
+          settings: { ...mockSettings, scan_folders: 'not-an-array' },
+        };
+        if (options?.validate && !options.validate(malformed)) {
+          throw new Error('Unexpected response shape');
+        }
+        return malformed;
+      });
+
+      await expect(settingsService.updateSettings({ volume: 0.5 })).rejects.toThrow(
+        'Unexpected response shape',
+      );
+    });
   });
 
   describe('resetSettings', () => {
@@ -188,7 +209,9 @@ describe('SettingsService', () => {
 
       const result = await settingsService.resetSettings();
 
-      expect(mockPost).toHaveBeenCalledWith('/api/settings/reset', {});
+      expect(mockPost).toHaveBeenCalledWith('/api/settings/reset', {}, {
+        validate: expect.any(Function),
+      });
       expect(result).toEqual(defaultResponse);
     });
 
@@ -210,7 +233,9 @@ describe('SettingsService', () => {
 
       const result = await settingsService.addScanFolder(folder);
 
-      expect(mockPost).toHaveBeenCalledWith('/api/settings/scan-folders', { folder });
+      expect(mockPost).toHaveBeenCalledWith('/api/settings/scan-folders', { folder }, {
+        validate: expect.any(Function),
+      });
       expect(result).toEqual(expectedResponse);
     });
 
@@ -220,7 +245,9 @@ describe('SettingsService', () => {
 
       await settingsService.addScanFolder(folder);
 
-      expect(mockPost).toHaveBeenCalledWith('/api/settings/scan-folders', { folder });
+      expect(mockPost).toHaveBeenCalledWith('/api/settings/scan-folders', { folder }, {
+        validate: expect.any(Function),
+      });
     });
 
     it('should handle Windows paths', async () => {
@@ -252,7 +279,9 @@ describe('SettingsService', () => {
       const result = await settingsService.removeScanFolder(folder);
 
       // Service uses POST to /scan-folders/delete endpoint
-      expect(mockPost).toHaveBeenCalledWith('/api/settings/scan-folders/delete', { folder });
+      expect(mockPost).toHaveBeenCalledWith('/api/settings/scan-folders/delete', { folder }, {
+        validate: expect.any(Function),
+      });
       expect(result).toEqual(expectedResponse);
     });
 

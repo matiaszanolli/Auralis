@@ -74,7 +74,7 @@ export interface CrudEndpoints<
   custom?: Record<string, string | ((params?: P) => string)>;
 
   /**
-   * Optional runtime shape guards for the read endpoints (#4607).
+   * Optional runtime shape guards for each endpoint (#4607, #5123).
    *
    * Without one, `Response.json()`'s `any` is silently narrowed to `T` and
    * backend field drift only surfaces downstream as `undefined` — the failure
@@ -87,6 +87,10 @@ export interface CrudEndpoints<
   guards?: {
     list?: (value: unknown) => boolean;
     get?: (value: unknown) => boolean;
+    create?: (value: unknown) => boolean;
+    update?: (value: unknown) => boolean;
+    delete?: (value: unknown) => boolean;
+    custom?: Record<string, (value: unknown) => boolean>;
   };
 }
 
@@ -141,7 +145,7 @@ export function createCrudService<
       const endpoint = typeof endpoints.create === 'function'
         ? endpoints.create(data)
         : endpoints.create;
-      const opts = requestOptions(undefined, options);
+      const opts = requestOptions(endpoints.guards?.create, options);
       const body = data as Record<string, unknown>;
       return opts ? post(endpoint, body, opts) : post(endpoint, body);
     },
@@ -156,7 +160,7 @@ export function createCrudService<
       const endpoint = typeof endpoints.update === 'function'
         ? endpoints.update(id, data)
         : endpoints.update;
-      const opts = requestOptions(undefined, options);
+      const opts = requestOptions(endpoints.guards?.update, options);
       const body = data as Record<string, unknown>;
       return opts ? put(endpoint, body, opts) : put(endpoint, body);
     },
@@ -171,7 +175,7 @@ export function createCrudService<
       const endpoint = typeof endpoints.delete === 'function'
         ? endpoints.delete(id)
         : endpoints.delete;
-      const opts = requestOptions(undefined, options);
+      const opts = requestOptions(endpoints.guards?.delete, options);
       return opts ? del(endpoint, opts) : del(endpoint);
     },
 
@@ -192,7 +196,7 @@ export function createCrudService<
       const endpoint = typeof endpointDef === 'function'
         ? endpointDef(data)
         : endpointDef;
-      const opts = requestOptions(undefined, options);
+      const opts = requestOptions(endpoints.guards?.custom?.[name], options);
 
       const body = (data ?? {}) as Record<string, unknown>;
 

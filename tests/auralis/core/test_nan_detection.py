@@ -298,13 +298,98 @@ class TestNaNPropagationPrevention:
     """Tests to ensure NaN doesn't propagate through pipeline"""
 
     def test_filter_stability_edge_case(self):
-        """Test that extreme inputs don't cause filter instability"""
-        # This would test actual filter operations that might produce NaN
-        # For now, we verify the detection is in place
-        pass  # Placeholder for integration tests
+        """Extreme inputs (#5428) -- was a bare `pass` claiming this "would
+        test actual filter operations". sosfiltfilt_safe (dsp/utils/filters.py)
+        is exactly that target: it exists specifically to handle signals too
+        short for scipy's sosfiltfilt without crashing or corrupting output,
+        the concrete "filter instability" case this test's docstring names.
+        """
+        from scipy.signal import butter
+
+        from auralis.dsp.utils.filters import (
+            sosfiltfilt_padlen,
+            sosfiltfilt_safe,
+        )
+
+        sos = butter(4, 0.3, output='sos')
+        padlen = sosfiltfilt_padlen(sos)
+
+        # Shorter than the filter's own pad length -- the exact edge case
+        # this helper exists to guard, per its module docstring.
+        too_short = np.random.randn(padlen - 1).astype(np.float32) * 0.5
+        result_short = sosfiltfilt_safe(sos, too_short, context='test')
+        assert np.isfinite(result_short).all()
+        assert result_short.shape == too_short.shape
+
+        # Extreme amplitude, long enough to actually filter -- the filter
+        # itself must not produce NaN/Inf under a large-magnitude input.
+        extreme = (np.random.randn(padlen * 4).astype(np.float32) * 1e6)
+        result_extreme = sosfiltfilt_safe(sos, extreme, context='test')
+        assert np.isfinite(result_extreme).all(), (
+            "sosfiltfilt_safe produced non-finite output for an extreme-"
+            "amplitude input"
+        )
+
+        # A single impulse -- the classic filter-instability stress case.
+        impulse = np.zeros(padlen * 4, dtype=np.float32)
+        impulse[padlen * 2] = 1.0
+        result_impulse = sosfiltfilt_safe(sos, impulse, context='test')
+        assert np.isfinite(result_impulse).all()
 
     def test_crossfade_with_clean_audio(self):
-        """Test that crossfading doesn't introduce NaN"""
-        # This would test the actual crossfading logic
-        # For now, we verify the detection is in place
-        pass  # Placeholder for integration tests
+        """Crossfading doesn't introduce NaN (#5428) -- was a bare `pass`
+        claiming this "would test the actual crossfading logic". The engine's
+        chunk-boundary crossfade lives in mastering_chunk_loop.process_chunks
+        (equal-gain raised-cosine blend, #4966); this drives it end-to-end
+        with a real multi-chunk clean signal through a passthrough pipeline
+        stub, isolating the crossfade math itself from full DSP (already
+        covered by the other classes in this file).
+        """
+        import tempfile
+        from pathlib import Path
+
+        import soundfile as sf
+
+        from auralis.core import mastering_chunk_loop
+
+        sr = 8000
+
+        class _TinyConfig:
+            CROSSFADE_DURATION_SEC = 0.1
+            CHUNK_DURATION_SEC = 1
+            PROGRESS_REPORT_INTERVAL_CHUNKS = 1000
+            TRUE_PEAK_CEILING_DB = -0.3
+
+        class _PassthroughPipeline:
+            def _process(self, audio, fp, peak_db, intensity, sample_rate, verbose):
+                return audio.copy(), {'stages': ['stub']}
+
+        def _make_wav(tmp_path):
+            duration_s = 5.0
+            frames = int(sr * duration_s)
+            t = np.linspace(0, duration_s, frames, endpoint=False, dtype=np.float32)
+            tone = 0.3 * np.sin(2 * np.pi * 220 * t)
+            stereo = np.stack([tone, tone], axis=1)
+            path = tmp_path / 'crossfade_source.wav'
+            sf.write(str(path), stereo, sr)
+            return path, frames
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            source_path, total_frames = _make_wav(tmp_path)
+            out_path = tmp_path / 'crossfade_out.wav'
+
+            # CHUNK_DURATION_SEC=1 against a 5s source forces several chunk
+            # boundaries -- the crossfade code path in process_chunks only
+            # runs when there is more than one chunk.
+            mastering_chunk_loop.process_chunks(
+                _PassthroughPipeline(), source_path, str(out_path), sr,
+                total_frames, {'lufs': -14.0}, 1.0, _TinyConfig(), False,
+            )
+
+            output, out_sr = sf.read(str(out_path))
+
+        assert out_sr == sr
+        assert np.isfinite(output).all(), (
+            "Crossfading between chunks produced non-finite samples"
+        )
