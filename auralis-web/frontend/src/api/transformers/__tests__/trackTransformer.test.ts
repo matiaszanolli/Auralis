@@ -95,6 +95,18 @@ describe('trackTransformer', () => {
       expect(result.dateModified).toBeUndefined();
     });
 
+    it('should normalize an albumless API track to an empty album string', () => {
+      const result = transformTrack({
+        id: 6,
+        title: 'Albumless Track',
+        artist: 'Artist',
+        album: null,
+        duration: 120,
+      });
+
+      expect(result.album).toBe('');
+    });
+
     it('should handle track with minimal metadata', () => {
       const apiTrack: TrackApiResponse = {
         id: 3,

@@ -26,7 +26,9 @@ export function transformTrack(apiTrack: TrackApiResponse): Track {
     id: apiTrack.id,
     title: apiTrack.title,
     artist,
-    album: apiTrack.album,
+    // Albumless tracks are valid backend responses; normalize them at the
+    // API boundary so domain consumers can keep using a string.
+    album: apiTrack.album ?? '',
     duration: apiTrack.duration,
     filepath: apiTrack.filepath,
 

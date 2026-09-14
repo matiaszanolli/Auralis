@@ -185,6 +185,19 @@ describe('CozyLibraryView', () => {
       expect(screen.getByTestId('track-1')).toBeInTheDocument();
       expect(screen.getByTestId('track-2')).toBeInTheDocument();
     });
+
+    it('should filter albumless tracks without throwing', () => {
+      vi.mocked(useLibraryWithStats).mockReturnValue({
+        ...mockLibraryWithStats,
+        tracks: [
+          { id: 1, title: 'Albumless Track', artist: 'Artist', album: null, duration: 180 },
+        ],
+      } as any);
+
+      render(<CozyLibraryView searchQuery="albumless" />);
+
+      expect(screen.getByTestId('track-1')).toBeInTheDocument();
+    });
   });
 
   describe('Enhancement Integration', () => {
