@@ -96,6 +96,12 @@ Default every tech-debt finding to LOW unless one of the above fires. Do **not**
    # directory lists and are unaffected either way — all out of scope here.
    PY_TEST_DIRS=(tests)
    NON_TEST='test|__tests__|\.spec\.|/mocks/'
+   # #5451: grep -n output lines whose source text starts as a comment (`*`
+   # JSDoc body, `//`, `/*`). The 'any' regex matches English prose — "anywhere",
+   # "identity: any reorder", "`Promise<any>`" in a doc comment — and those were
+   # half the non-test count. A trailing `// …any…` after real code still counts;
+   # that is rare and errs toward over-reporting, not hiding debt.
+   TS_COMMENT_LINE='^[^:]+:[0-9]+:\s*(\*|//|/\*)'
    # Known non-marker uses of "XXX": design-system size tokens (xxxl/spacingXXXLarge),
    # the migration filename pattern (migration_vXXX_to_vYYY.sql), issue-number
    # placeholders (#3xxx), and "0.xxxx" digit runs in test strings.
@@ -124,8 +130,9 @@ Default every tech-debt finding to LOW unless one of the above fires. Do **not**
      echo "@ts-ignore/@ts-expect-error: $(grep -RInE '@ts-(ignore|expect-error)' auralis-web/frontend/src | wc -l)"
      # Non-test is the number that matters: specs and mocks are ~95% of the raw
      # hits, and quoting raw argues for a type-safety push the shipped code does
-     # not need (#4564). Raw is kept only for trend continuity.
-     echo "'any' non-test (ts):         $(grep -RInE ':\s*any\b|as any|<any>' auralis-web/frontend/src --include='*.ts' --include='*.tsx' | grep -vE "$NON_TEST" | wc -l)"
+     # not need (#4564). Raw is kept only for trend continuity, so it stays
+     # unfiltered; non-test also drops comment-prose hits (#5451).
+     echo "'any' non-test (ts):         $(grep -RInE ':\s*any\b|as any|<any>' auralis-web/frontend/src --include='*.ts' --include='*.tsx' | grep -vE "$NON_TEST" | grep -vE "$TS_COMMENT_LINE" | wc -l)"
      echo "'any' raw incl. tests (ts):  $(grep -RInE ':\s*any\b|as any|<any>' auralis-web/frontend/src --include='*.ts' --include='*.tsx' | wc -l)"
      echo "skipped tests (py):         $(grep -RInE '@pytest\.mark\.(skip|skipif|xfail)' tests | wc -l)"
      echo "skipped tests (ts):         $(grep -RInE '\b(it|test|describe)\.(skip|todo)\b' auralis-web/frontend/src | wc -l)"
@@ -151,8 +158,8 @@ Default every tech-debt finding to LOW unless one of the above fires. Do **not**
    | `markers, genuine (tests/)` | The same census over the Python `tests/` tree, which `SRC_DIRS` excludes. Not expected to be 0: a marker here is legitimate when it cites an OPEN issue. What *is* a finding is a marker citing a **CLOSED** issue — that is provenance masquerading as tracking, and it is how 7 markers went unswept until #5143. Check each cited number's state before reporting. |
    | `markers, raw` | Diagnostic only. A gap vs `genuine` just means the false-positive filter fired; it is not debt. Never quote this as marker debt. |
    | `prose deferrals` | This repo writes deferrals as prose ("For now, …", "Temporarily …"), so this is where its deferred work lives. High recall, low precision — **read the hits, don't quote the number** as debt. Individually-tracked ones exist (e.g. #4405, #4239); dedup before filing. |
-   | `'any' non-test` | The type-safety debt that ships. Quote this one. |
-   | `'any' raw incl. tests` | Trend continuity only. Specs and mocks dominate it. |
+   | `'any' non-test` | The type-safety debt that ships. Quote this one. Excludes comment lines (#5451) — before that filter, half its hits were prose ("anywhere", "`Promise<any>`" in JSDoc), so a pre-2026-09-14 report's figure is not comparable; diff against it with that in mind. |
+   | `'any' raw incl. tests` | Trend continuity only. Specs and mocks dominate it. Deliberately NOT comment-filtered, so its trend line stays continuous. |
 
    These greps are the definition of the metric — if a future run finds them wrong, fix them **here** rather than correcting the numbers by hand in one report (which is what #4564 was filed for).
 
