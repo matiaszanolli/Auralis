@@ -37,9 +37,11 @@ import { useRestAPI } from '@/hooks/api/useRestAPI';
 import type { ApiError } from '@/types/api';
 import type { Track, Album, Artist } from '@/types/domain';
 import { ApiErrorHandler } from '@/types/api';
-import { transformAlbums, transformArtists, transformTracks } from '@/api/transformers';
-import type { AlbumApiResponse, ArtistApiResponse, TrackApiResponse } from '@/api/transformers';
 import { isAlbumsListShape, isArtistsListShape, isTracksListShape } from '@/api/responseGuards';
+import {
+  buildEndpoint as buildQueryEndpoint,
+  extractItemsFromResponse,
+} from '@/hooks/library/libraryQueryRequest';
 
 /**
  * Query type for library queries
@@ -114,19 +116,6 @@ export interface UseLibraryQueryResult<T> {
   /** Clear error state */
   clearError: () => void;
 }
-
-/**
- * Canonical backend endpoint for each query type (issue #2379).
- *
- * - tracks → /api/library/tracks  (library router)
- * - albums → /api/albums          (albums router — NOT /api/library/albums)
- * - artists → /api/artists        (artists router — NOT /api/library/artists)
- */
-const QUERY_TYPE_ENDPOINT: Record<LibraryQueryType, string> = {
-  tracks: '/api/library/tracks',
-  albums: '/api/albums',
-  artists: '/api/artists',
-};
 
 /**
  * Runtime shape guard per query type (#5026) — these three list responses
@@ -226,74 +215,20 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
   const skip = options.skip || false;
 
   /**
-   * Extract items from response based on query type
-   * Backend returns type-specific field names: tracks, albums, artists
-   *
-   * #3631: `response` typed as Record<string, unknown> (was `any`) and the
-   * switch is exhaustive via a `never` assertion so adding a new
-   * LibraryQueryType triggers a TS error here instead of silently falling
-   * through to `response.items`.
+   * Endpoint for one page of this query. The URL shaping is the pure
+   * `buildEndpoint` in ./libraryQueryRequest (#5043); this binds the hook's
+   * options, so its identity still changes exactly when they do. Takes the
+   * offset as a parameter to avoid a dependency cycle.
    */
-  const extractItemsFromResponse = useCallback(
-    (response: LibraryQueryResponse<T> | Record<string, unknown>, qType: LibraryQueryType): T[] => {
-      const r = response as Record<string, unknown>;
-      // Re-assigned locally so the type narrows for the switch below
-      // (LibraryQueryResponse<T> has no index signature).
-      response = r;
-      switch (qType) {
-        case 'tracks':
-          // Canonical transformer, matching albums/artists below. Previously a
-          // raw cast with zero field conversion, so every camelCase-only field
-          // (artworkUrl/sampleRate/bitDepth/dateAdded/...) came back undefined
-          // against the backend's snake_case payload — silently, with a passing
-          // type-check. #4418 added transformers here but skipped 'tracks' (#4611).
-          return transformTracks(
-            (response.tracks ?? response.items ?? []) as TrackApiResponse[]
-          ) as T[];
-        case 'albums':
-          // Canonical transformer is the single source of truth for snake→camel
-          // album mapping (incl. artworkUrl/artistId); no inline variant (#4418).
-          return transformAlbums(
-            (response.albums ?? response.items ?? []) as AlbumApiResponse[]
-          ) as T[];
-        case 'artists':
-          // Canonical transformer maps every field incl. artworkUrl/dateAdded (#4418).
-          return transformArtists(
-            (response.artists ?? response.items ?? []) as ArtistApiResponse[]
-          ) as T[];
-        default: {
-          const _exhaustive: never = qType;
-          throw new Error(`Unhandled LibraryQueryType: ${String(_exhaustive)}`);
-        }
-      }
-    },
-    []
+  const buildEndpoint = useCallback(
+    (currentOffset: number = 0): string =>
+      buildQueryEndpoint(
+        queryType,
+        { limit, endpoint: options.endpoint, search: options.search, orderBy: options.orderBy },
+        currentOffset
+      ),
+    [queryType, limit, options.endpoint, options.search, options.orderBy]
   );
-
-  /**
-   * Build endpoint from query type and options
-   * Takes offset as a parameter to avoid dependency cycle
-   */
-  const buildEndpoint = useCallback((currentOffset: number = 0): string => {
-    const endpoint = options.endpoint;
-    if (endpoint) return endpoint;
-
-    const baseUrl = QUERY_TYPE_ENDPOINT[queryType];
-    const params = new URLSearchParams();
-
-    params.append('limit', String(limit || 50));
-    params.append('offset', String(currentOffset ?? 0));
-
-    if (options.search) {
-      params.append('search', options.search);
-    }
-
-    if (options.orderBy) {
-      params.append('order_by', options.orderBy);
-    }
-
-    return `${baseUrl}?${params.toString()}`;
-  }, [queryType, limit, options.endpoint, options.search, options.orderBy]);
 
   /**
    * Execute query
@@ -336,7 +271,7 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
           throw new Error('No response from server');
         }
 
-        const items = extractItemsFromResponse(response, queryType);
+        const items = extractItemsFromResponse<T>(response, queryType);
         const newOffset = typeof response.offset === 'number' ? response.offset : 0;
         setTotal(response.total || 0);
         setOffset(newOffset);
@@ -414,7 +349,7 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
       }
 
       if (response) {
-        const items = extractItemsFromResponse(response, queryType);
+        const items = extractItemsFromResponse<T>(response, queryType);
         // Only advance the offset when the page actually returned rows.
         // An empty response must not advance the cursor or it permanently
         // skips `limit` records on the next fetchMore (#3973 / HC-10).
@@ -448,7 +383,7 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
       isFetchingMoreRef.current = false;
       setIsLoadingMore(false);
     }
-  }, [get, offset, limit, hasMore, buildEndpoint, extractItemsFromResponse, queryType]);
+  }, [get, offset, limit, hasMore, buildEndpoint, queryType]);
 
   /**
    * Refetch - Reset and fetch from beginning
