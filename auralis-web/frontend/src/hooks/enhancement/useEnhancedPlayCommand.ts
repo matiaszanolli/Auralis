@@ -51,9 +51,6 @@ export type StartPlayback = (
   wireType?: PlaybackWireType
 ) => Promise<void>;
 
-/** Backward-compatible public name for consumers of the hook barrel. */
-export type PlayEnhanced = StartPlayback;
-
 export function useEnhancedPlayCommand({
   wsContext,
   dispatch,

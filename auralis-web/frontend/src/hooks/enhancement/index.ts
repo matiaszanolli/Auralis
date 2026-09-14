@@ -23,7 +23,7 @@ export type { UsePlayEnhancedReturn } from './usePlayEnhanced';
 export { useFingerprintStatus, type FingerprintStatus } from './useFingerprintStatus';
 export { useEnhancedStreamStart, type CurrentTrackInfo } from './useEnhancedStreamStart';
 export { useEnhancedSeek } from './useEnhancedSeek';
-export { useEnhancedPlayCommand, type PlayEnhanced } from './useEnhancedPlayCommand';
+export { useEnhancedPlayCommand } from './useEnhancedPlayCommand';
 
 // useEnhancedPlaybackShortcuts (Phase 3.4) removed: it was never actually
 // called anywhere (only its types were imported), and its Shift+A/S/W/B/P
