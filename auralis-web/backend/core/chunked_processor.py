@@ -292,9 +292,19 @@ class ChunkedAudioProcessor:
         """Smooth level transitions across chunks. Delegates to chunk_render (#4245)."""
         return chunk_render.smooth_level_transition(self, chunk, chunk_index)
 
-    def note_cached_chunk_level(self, chunk: np.ndarray, chunk_index: int, gain_db: float = 0.0) -> None:
-        """Record a cache-hit chunk's level into LevelManager (#3832). Delegates to chunk_render (#4245)."""
-        chunk_render.note_cached_chunk_level(self, chunk, chunk_index, gain_db)
+    def note_cached_chunk_level(
+        self,
+        chunk: np.ndarray | None,
+        chunk_index: int,
+        gain_db: float = 0.0,
+        rms_db: float | None = None,
+    ) -> None:
+        """Record a cache-hit chunk's level into LevelManager (#3832). Delegates to chunk_render (#4245).
+
+        ``rms_db`` (#4669) records an already-known level without decoding the
+        cached WAV; ``chunk`` may then be None.
+        """
+        chunk_render.note_cached_chunk_level(self, chunk, chunk_index, gain_db, rms_db)
 
     def _process_chunk_core(self, chunk_index: int, fast_start: bool = False) -> np.ndarray:
         """Shared core of process_chunk/get_wav_chunk_path. Delegates to chunk_render (#4245)."""

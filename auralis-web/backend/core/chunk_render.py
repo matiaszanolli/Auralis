@@ -25,6 +25,8 @@ sibling module function, so per-instance mocking (``patch.object(processor,
 from __future__ import annotations
 
 import logging
+import threading
+from collections import OrderedDict
 from typing import TYPE_CHECKING, cast
 
 import numpy as np
@@ -37,6 +39,68 @@ if TYPE_CHECKING:
     from core.chunked_processor import ChunkedAudioProcessor
 
 logger = logging.getLogger("core.chunked_processor")
+
+
+# ---------------------------------------------------------------------------
+# Cache-hit level registry (#4669)
+# ---------------------------------------------------------------------------
+#
+# A chunk served straight from the path cache (the in-memory dict tier or the
+# on-disk WAV tier) never goes through process_chunk_core, so the LevelManager
+# would never see it — see note_cached_chunk_level below for why that breaks
+# the next cache-MISS chunk. Recording it needs two numbers the cached bytes
+# alone don't carry cheaply:
+#
+#   * the RMS of the emitted segment (a decode away, which the path-only
+#     caller get_wav_chunk_path must not pay on a per-chunk path), and
+#   * the trailing gain smooth_transition baked into those samples — #4367
+#     established that recording 0.0 when the real gain is known desyncs the
+#     following chunk's ramp.
+#
+# Both are known at the instant the WAV is written, so chunk_streaming records
+# them here keyed by the collapsed chunk cache key (#4792), which already
+# encodes track / file signature / preset / intensity / targets hash / chunk
+# index — i.e. exactly the identity of the bytes on disk.
+#
+# Process-wide rather than per-processor on purpose: the numbers describe the
+# FILE, while every stream of a track builds its own ChunkedAudioProcessor with
+# its own LevelManager. A per-instance map would miss precisely the
+# cross-stream hits (back-seeks, a second play of the same track) that #4669 is
+# about. Entries are small (two floats) and LRU-bounded.
+#
+# A hit with no remembered entry — the WAV survives on disk from an earlier run
+# of the process — degrades to "unity trailing gain", the same default
+# note_cached_chunk_level has always carried, never to "skip the recording".
+_MAX_REMEMBERED_LEVELS = 4096
+_chunk_levels: "OrderedDict[str, tuple[float, float]]" = OrderedDict()
+_chunk_levels_lock = threading.Lock()
+
+
+def remember_chunk_level(cache_key: str, rms_db: float, gain_db: float) -> None:
+    """Record the level a just-written chunk WAV was encoded at (#4669)."""
+    with _chunk_levels_lock:
+        _chunk_levels[cache_key] = (rms_db, gain_db)
+        _chunk_levels.move_to_end(cache_key)
+        while len(_chunk_levels) > _MAX_REMEMBERED_LEVELS:
+            _chunk_levels.popitem(last=False)
+
+
+def recall_chunk_level(cache_key: str) -> tuple[float, float] | None:
+    """``(rms_db, gain_db)`` for a cached chunk, or None if this process never
+    wrote it (#4669)."""
+    with _chunk_levels_lock:
+        entry = _chunk_levels.get(cache_key)
+        if entry is not None:
+            _chunk_levels.move_to_end(cache_key)
+        return entry
+
+
+def reset_chunk_levels() -> None:
+    """Forget every remembered chunk level. Test hook — the registry is
+    process-wide, so a test that asserts on a cache-hit recording must start
+    from a known state."""
+    with _chunk_levels_lock:
+        _chunk_levels.clear()
 
 
 def load_chunk(
@@ -124,7 +188,11 @@ def smooth_level_transition(
 
 
 def note_cached_chunk_level(
-    processor: "ChunkedAudioProcessor", chunk: np.ndarray, chunk_index: int, gain_db: float = 0.0
+    processor: "ChunkedAudioProcessor",
+    chunk: np.ndarray | None,
+    chunk_index: int,
+    gain_db: float = 0.0,
+    rms_db: float | None = None,
 ) -> None:
     """Record a cache-hit chunk's level into the LevelManager (#3832).
 
@@ -138,12 +206,18 @@ def note_cached_chunk_level(
     touched concurrently. Using the true gain instead of unconditionally
     recording 0.0 keeps a subsequent cache-MISS chunk's ramp baseline
     correct (#4367).
+
+    ``rms_db`` (#4669) lets a caller that already knows the cached chunk's
+    level — from the registry above — record it without decoding the WAV, for
+    the path-only cache-hit branch in get_wav_chunk_path. When it is None the
+    RMS is computed from ``chunk``, which must then be present.
     """
     with processor._processor_lock:
         processor._level_manager.record_cached_level(
             chunk=chunk,
             chunk_index=chunk_index,
             gain_db=gain_db,
+            rms_db=rms_db,
         )
         # Keep the legacy history mirrors in sync (matches smooth_level_transition).
         history = processor._level_manager.history

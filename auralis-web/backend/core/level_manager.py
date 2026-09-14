@@ -287,7 +287,11 @@ class LevelManager:
             return chunk, 0.0, False
 
     def record_cached_level(
-        self, chunk: np.ndarray, chunk_index: int, gain_db: float = 0.0
+        self,
+        chunk: np.ndarray | None,
+        chunk_index: int,
+        gain_db: float = 0.0,
+        rms_db: float | None = None,
     ) -> None:
         """Record a cache-hit chunk's true RMS and trailing gain (#4367).
 
@@ -298,8 +302,19 @@ class LevelManager:
         the cached chunk it followed ended at a non-zero gain. `gain_db` is
         the trailing gain captured when the chunk was originally processed
         and cached, so gain_history stays truthful.
+
+        `rms_db` (#4669) is the cached chunk's already-known RMS, for callers
+        that hold only a path to the cached WAV and must not pay a decode just
+        to record a level. When it is None the RMS is computed from `chunk`,
+        which must then be supplied.
         """
-        current_rms = self.calculate_rms(chunk)
+        if rms_db is None:
+            if chunk is None:
+                raise ValueError(
+                    "record_cached_level requires either `chunk` or a precomputed `rms_db`"
+                )
+            rms_db = self.calculate_rms(chunk)
+        current_rms = rms_db
         is_baseline = chunk_index == 0 or len(self.rms_history) == 0
         self.rms_history.append(current_rms)
         # Clamped (#4729) so a stale/unclamped legacy gain can't poison history.
