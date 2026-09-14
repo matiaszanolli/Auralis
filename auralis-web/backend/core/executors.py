@@ -112,12 +112,25 @@ def get_stream_executor() -> ThreadPoolExecutor | None:
     already treat None as "use the default executor", which is exactly the
     pre-#5086 behaviour. Tests and scripts that drive streaming functions
     directly therefore keep working unchanged.
+
+    Exists for test introspection (`test_executor_sizing_5086.py`'s pool
+    identity/sizing assertions) rather than as a hot-path API: the hot path
+    itself, `run_in_stream_executor`, reads the module-private `_stream_executor`
+    global directly, which is deliberate (#5206) — not an oversight of this
+    getter's existence.
     """
     return _stream_executor
 
 
 def get_io_executor() -> ThreadPoolExecutor | None:
-    """The general I/O pool, or None if `install_executors()` has not run."""
+    """The general I/O pool, or None if `install_executors()` has not run.
+
+    Exists for test introspection (`test_executor_sizing_5086.py`'s pool
+    identity/sizing assertions), matching `get_stream_executor()`'s reasoning
+    (#5206) — production code installs this pool as the loop's default
+    executor (`install_executors()`) and reaches it implicitly through
+    `asyncio.to_thread`/`loop.run_in_executor`, not through this getter.
+    """
     return _io_executor
 
 
