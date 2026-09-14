@@ -35,7 +35,7 @@ from schemas import (
     EnhancementPresetLiteral,
     MasteringRecommendationResponse,
 )
-from security.path_security import PathValidationError, validate_file_path
+from security.path_security import PathMissingError, PathValidationError, validate_file_path
 from websocket.outbound_messages import broadcast_typed
 
 from .dependencies import with_error_handling
@@ -644,6 +644,10 @@ async def get_mastering_recommendation(
     # names the resolved path and every allowed directory (#4807).
     try:
         filepath = str(validate_file_path(str(filepath)))
+    except PathMissingError:
+        # #5483: a deleted/moved file is "not found", not a bad request —
+        # matches the split metadata.py made in #5080.
+        raise NotFoundError("Audio file", detail=f"Audio file not found for track {track_id}")
     except PathValidationError:
         raise HTTPException(
             status_code=400,

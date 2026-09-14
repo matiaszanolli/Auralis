@@ -323,6 +323,37 @@ class TestGetMasteringRecommendation:
         assert "/definitely" not in response.json()["detail"]
         MockProc.assert_not_called()
 
+    def test_returns_404_for_a_deleted_on_disk_track(self, client, repos, monkeypatch, tmp_path):
+        """#5483: a track whose file was moved/deleted answers 404, not 400 —
+        matches the split #5080 made in metadata.py's endpoints. The file
+        must be inside an allowed directory (so containment isn't what
+        rejects it) but not actually exist on disk."""
+        from unittest.mock import Mock, patch
+        from security.path_security import (
+            register_allowed_directory,
+            unregister_allowed_directory,
+            validate_file_path as real_validate,
+        )
+
+        allowed_dir = tmp_path / "Music"
+        allowed_dir.mkdir()
+        register_allowed_directory(allowed_dir)
+        monkeypatch.setattr("routers.enhancement.validate_file_path", real_validate)
+
+        track = Mock()
+        track.filepath = str(allowed_dir / "gone.flac")
+        repos.tracks.get_by_id.return_value = track
+
+        try:
+            with patch("core.chunked_processor.ChunkedAudioProcessor") as MockProc:
+                response = client.get("/api/player/mastering/recommendation/1")
+        finally:
+            unregister_allowed_directory(allowed_dir)
+
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"].lower()
+        MockProc.assert_not_called()
+
     def test_resolves_filepath_from_db(self, client, repos):
         """Call with valid track_id → filepath resolved from DB, not query param"""
         from unittest.mock import Mock, patch
