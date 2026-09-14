@@ -325,7 +325,7 @@ class FingerprintSimilarity:
         ranges = {
             'lufs': (target_fp.lufs - 3.0, target_fp.lufs + 3.0),              # ±3 LUFS
             'crest_db': (target_fp.crest_db - 2.0, target_fp.crest_db + 2.0),  # ±2 dB
-            'bass_pct': (target_fp.bass_pct - 8.0, target_fp.bass_pct + 8.0),  # ±8%
+            'bass_pct': (target_fp.bass_pct - 0.08, target_fp.bass_pct + 0.08),  # ±8% (bass_pct is a 0-1 fraction, not 0-100 -- #5471)
             'tempo_bpm': (target_fp.tempo_bpm - 15.0, target_fp.tempo_bpm + 15.0)  # ±15 BPM
         }
 
