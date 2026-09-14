@@ -304,41 +304,29 @@ class TestMemoryEfficiency:
 class TestGarbageCollection:
     """Measure garbage collection effectiveness."""
 
-    @pytest.mark.skip(reason="Memory measurement unreliable - needs redesign to measure growth over iterations (see #5194)")
-    def test_gc_after_processing(self, performance_audio_file):
+    def test_gc_after_processing(self, performance_audio_file, steady_state_memory):
         """
-        BENCHMARK: GC should reclaim > 70% of processing memory.
+        BENCHMARK: Every steady-state process() run releases > 70% of what it allocated.
 
-        SKIPPED: Memory measurement shows 0% reclaim due to measurement issues.
-        Needs redesign to measure memory growth over multiple iterations instead.
+        Checked per run over several warmed-up runs (#5194), not as one RSS
+        before/after delta. See `measure_steady_state_memory` for why RSS read
+        a spurious 0% here.
         """
         config = UnifiedConfig()
         config.set_processing_mode('adaptive')
         processor = HybridProcessor(config)
+        audio, _ = load_audio(performance_audio_file)
 
-        gc.collect()
-        before_memory = get_memory_usage_mb()
+        runs = steady_state_memory(lambda: processor.process(audio))
 
-        # Process
-        result = processor.process(performance_audio_file)
+        for i, run in enumerate(runs):
+            assert run.reclaim_percentage > 70, (
+                f"steady-state run {i} reclaimed only {run.reclaim_percentage:.1f}% "
+                f"of the {run.allocated_mb:.1f}MB it allocated (expected >70%)"
+            )
 
-        after_processing = get_memory_usage_mb()
-        peak_usage = after_processing - before_memory
-
-        # Force cleanup
-        del result
-        gc.collect()
-
-        after_gc = get_memory_usage_mb()
-        reclaimed = after_processing - after_gc
-
-        reclaim_percentage = (reclaimed / peak_usage) * 100 if peak_usage > 0 else 0
-
-        # BENCHMARK: Should reclaim > 70% of memory (accounts for intentional caching)
-        assert reclaim_percentage > 70, \
-            f"GC only reclaimed {reclaim_percentage:.1f}% of memory (expected >70%)"
-
-        print(f"\n✓ GC effectiveness: {reclaim_percentage:.1f}% reclaimed")
+        worst = min(run.reclaim_percentage for run in runs)
+        print(f"\n✓ GC effectiveness: >= {worst:.1f}% reclaimed per run")
 
     def test_gc_frequency_impact(self, temp_audio_dir):
         """

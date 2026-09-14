@@ -423,26 +423,19 @@ class TestIOComponents:
 class TestUtilityComponents:
     """Test utility components for coverage."""
 
-    def test_checker_comprehensive(self):
-        """Test checker utilities comprehensively."""
-        from auralis.utils.checker import check_file_permissions, is_audio_file
+    def test_is_audio_file(self):
+        """is_audio_file accepts decodable audio and rejects everything else.
 
-        # Test audio file detection
-        assert callable(is_audio_file)
-        assert callable(check_file_permissions)
+        Moved from the deleted auralis/utils/checker.py (#5197) to the one
+        remaining predicate in unified_loader.
+        """
+        from auralis.io.unified_loader import is_audio_file
 
-        # Test with various file extensions
-        test_files = [
-            'test.mp3',
-            'test.wav',
-            'test.flac',
-            'test.txt',
-            'test.doc'
-        ]
+        for filename in ('test.mp3', 'test.wav', 'TEST.FLAC', '/path/to/song.ogg'):
+            assert is_audio_file(filename) is True, filename
 
-        for filename in test_files:
-            result = is_audio_file(filename)
-            assert isinstance(result, bool)
+        for filename in ('test.txt', 'test.doc', 'no_extension', 'cover.jpg'):
+            assert is_audio_file(filename) is False, filename
 
     def test_helpers_comprehensive(self):
         """Test helper utilities comprehensively."""

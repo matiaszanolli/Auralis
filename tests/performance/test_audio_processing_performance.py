@@ -647,46 +647,33 @@ class TestMemoryEfficiency:
 
         print(f"\n✓ Audio buffer overhead: {overhead_ratio:.1f}x")
 
-    @pytest.mark.skip(reason="Memory measurement unreliable - needs redesign to measure growth over iterations (see #5194)")
-    def test_processing_memory_cleanup(self, performance_audio_file):
+    def test_processing_memory_cleanup(self, performance_audio_file, steady_state_memory):
         """
-        BENCHMARK: Memory should be released after processing (>80% reclaimed).
+        BENCHMARK: Repeated processing does not accumulate memory (>80% reclaimed).
 
-        SKIPPED: Memory measurement shows 0% reclaim due to measurement issues.
-        Needs redesign to measure memory growth over multiple iterations instead.
+        Asserts on growth across several warmed-up runs (#5194): everything
+        those runs together still hold must stay under 20% of one run's working
+        set. A leak of even a fraction of each result compounds past that. See
+        `measure_steady_state_memory` for why this replaced an RSS snapshot.
         """
-        try:
-            import psutil
-        except ImportError:
-            pytest.skip("psutil required for memory profiling")
-
-        import gc
-        process = psutil.Process()
-
         config = UnifiedConfig()
         config.set_processing_mode('adaptive')
         processor = HybridProcessor(config)
+        audio, _ = load_audio(performance_audio_file)
 
-        gc.collect()
-        mem_before = process.memory_info().rss / (1024 * 1024)
+        runs = steady_state_memory(lambda: processor.process(audio), runs=5)
 
-        result = processor.process(performance_audio_file)
+        growth_mb = sum(run.retained_mb for run in runs)
+        working_set_mb = max(run.allocated_mb for run in runs)
 
-        mem_peak = process.memory_info().rss / (1024 * 1024)
-        peak_usage = mem_peak - mem_before
+        # BENCHMARK: cumulative growth < 20% of one run's working set
+        assert growth_mb < 0.2 * working_set_mb, (
+            f"traced memory grew {growth_mb:.2f}MB over {len(runs)} steady-state runs, "
+            f"more than 20% of one run's {working_set_mb:.1f}MB working set"
+        )
 
-        del result
-        gc.collect()
-
-        mem_after = process.memory_info().rss / (1024 * 1024)
-        reclaimed = mem_peak - mem_after
-
-        reclaim_pct = (reclaimed / peak_usage * 100) if peak_usage > 0 else 100
-
-        # BENCHMARK: Should reclaim > 80% of peak memory
-        assert reclaim_pct > 80, f"Only reclaimed {reclaim_pct:.1f}% of memory"
-
-        print(f"\n✓ Memory cleanup: {reclaim_pct:.1f}% reclaimed")
+        print(f"\n✓ Memory cleanup: {growth_mb:.2f}MB growth over {len(runs)} runs "
+              f"({working_set_mb:.1f}MB working set)")
 
     def test_concurrent_processing_memory_isolation(self, temp_audio_dir):
         """

@@ -5,11 +5,15 @@ Performance Test Configuration
 Provides fixtures and utilities for performance testing.
 """
 
+import gc
 import os
 import shutil
 import sys
 import tempfile
 import time
+import tracemalloc
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -113,6 +117,72 @@ class Timer:
 def timer():
     """Provide timer utility for benchmarking."""
     return Timer
+
+
+_MB = 1024 * 1024
+
+
+@dataclass(frozen=True)
+class RunMemory:
+    """Traced memory for one measured run of `measure_steady_state_memory`."""
+
+    allocated_mb: float  # peak traced growth while the run executed
+    retained_mb: float  # traced memory the run still held after del + gc.collect()
+
+    @property
+    def reclaim_percentage(self) -> float:
+        if self.allocated_mb <= 0:
+            return 100.0
+        return 100.0 * (1.0 - self.retained_mb / self.allocated_mb)
+
+
+def measure_steady_state_memory(
+    run_once: Callable[[], object], *, runs: int = 4, warmup: int = 2
+) -> list[RunMemory]:
+    """Measure what each of several warmed-up runs allocates and keeps (#5194).
+
+    Uses tracemalloc, not process RSS. glibc keeps freed pages mapped, so RSS
+    read after ``del result`` + ``gc.collect()`` never drops: a one-shot RSS
+    before/after delta reported 0% reclaimed for processing that released
+    everything. tracemalloc counts Python-heap allocations directly, NumPy
+    array buffers included, and is deterministic, with no allocator or
+    background-process noise.
+
+    Warm-up runs are excluded because the first run fills caches that are
+    meant to persist (about 20 MB for HybridProcessor); that is not a leak.
+
+    Blind spot: memory allocated outside Python's allocators, e.g. inside the
+    Rust DSP extension, is not traced.
+    """
+    started_here = not tracemalloc.is_tracing()
+    if started_here:
+        tracemalloc.start()
+    try:
+        for _ in range(warmup):
+            result = run_once()
+            del result
+        gc.collect()
+
+        measured = []
+        for _ in range(runs):
+            before, _ = tracemalloc.get_traced_memory()
+            tracemalloc.reset_peak()
+            result = run_once()
+            _, peak = tracemalloc.get_traced_memory()
+            del result
+            gc.collect()
+            after, _ = tracemalloc.get_traced_memory()
+            measured.append(RunMemory((peak - before) / _MB, (after - before) / _MB))
+        return measured
+    finally:
+        if started_here:
+            tracemalloc.stop()
+
+
+@pytest.fixture
+def steady_state_memory():
+    """Provide measure_steady_state_memory for memory-reclaim benchmarks."""
+    return measure_steady_state_memory
 
 
 @pytest.fixture

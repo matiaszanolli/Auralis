@@ -28,6 +28,7 @@ from websocket.outbound_messages import (
 )
 
 from .missing_tracks import prune_missing_tracks
+from .scanner_stop import stop_scanner
 
 logger = logging.getLogger(__name__)
 
@@ -304,14 +305,10 @@ class LibraryAutoScanner:
         try:
             scan_result = await asyncio.shield(scan_future)
         except asyncio.CancelledError:
-            scanner.stop_scan()
-            try:
-                await asyncio.wait_for(asyncio.shield(scan_future), timeout=5.0)
-            except (asyncio.TimeoutError, asyncio.CancelledError):
-                logger.warning(
-                    "Auto-scanner thread did not exit within 5s of stop_scan(); "
-                    "thread will continue in background until next checkpoint."
-                )
+            # Shared with the manual-scan endpoint (#5196). It also swallows a
+            # scan failure raised during the grace wait, which used to escape
+            # here and replace this CancelledError.
+            await stop_scanner(scanner, scan_future, label="Auto-scanner")
             raise
         except Exception as exc:
             # Log full detail server-side; surface a class-based summary

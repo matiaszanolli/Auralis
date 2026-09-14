@@ -29,13 +29,11 @@ from websocket.outbound_messages import (
 )
 
 from services.missing_tracks import prune_missing_tracks
+from services.scanner_stop import stop_scanner
 
 from .errors import LibraryManagerUnavailableError, handle_query_error
 
 logger = logging.getLogger(__name__)
-
-# Grace period for the scanner thread to notice stop_scan() and unwind.
-SCANNER_STOP_GRACE_SECONDS = 5.0
 
 # Nginx's convention for "client closed the request". Nothing can read this
 # response — by definition the client is gone — but the status keeps the
@@ -82,28 +80,6 @@ async def _watch_for_disconnect(http_request: Request) -> None:
                 return
 
 
-async def _stop_scanner(scanner: Any, scan_future: "asyncio.Future[Any]") -> None:
-    """Signal the scanner thread to stop and give it a moment to unwind.
-
-    #3710: cancelling the awaitable cannot interrupt `asyncio.to_thread`; only
-    `stop_scan()` reaches the thread, and only the thread can release the scan
-    slot it holds.
-    """
-    scanner.stop_scan()
-    try:
-        await asyncio.wait_for(
-            asyncio.shield(scan_future), timeout=SCANNER_STOP_GRACE_SECONDS
-        )
-    except (asyncio.TimeoutError, asyncio.CancelledError):
-        logger.warning(
-            "Scanner thread did not exit within %ss of stop_scan(); "
-            "thread will continue in background until next checkpoint.",
-            SCANNER_STOP_GRACE_SECONDS,
-        )
-    except Exception:  # noqa: BLE001 - the scan's own failure is reported by the caller
-        logger.debug("Scanner thread raised while stopping", exc_info=True)
-
-
 async def _await_scan(
     scan_future: "asyncio.Future[Any]",
     scanner: Any,
@@ -137,14 +113,14 @@ async def _await_scan(
                 waiters, timeout=timeout, return_when=asyncio.FIRST_COMPLETED
             )
         except asyncio.CancelledError:
-            await _stop_scanner(scanner, scan_future)
+            await stop_scanner(scanner, scan_future)
             raise
 
         if scan_future in done:
             return scan_future.result()
 
         # Nothing else can leave that wait with the scan still running.
-        await _stop_scanner(scanner, scan_future)
+        await stop_scanner(scanner, scan_future)
         if watcher is not None and watcher in done:
             raise ScanClientGone()
         raise asyncio.TimeoutError()

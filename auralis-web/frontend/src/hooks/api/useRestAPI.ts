@@ -35,9 +35,25 @@ export interface ResponseValidationOptions {
   validate?: (value: unknown) => boolean;
 }
 
+type QueryParams = Record<string, string | number | boolean>;
+
+/**
+ * The only things that differ between the HTTP verbs (#5198). Everything else
+ * about a request lives once, in `request()`.
+ */
+interface RequestSpec {
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  /** JSON body; sent only when truthy. */
+  payload?: Record<string, unknown>;
+  queryParams?: QueryParams;
+  options?: ResponseValidationOptions;
+  /** Resolve without reading the response body (DELETE). */
+  skipBody?: boolean;
+}
+
 /**
  * REST API client hook.
- * Provides type-safe methods for GET, POST, PUT, DELETE requests.
+ * Provides type-safe methods for GET, POST, PUT, PATCH, DELETE requests.
  */
 export function useRestAPI() {
   // Counter-based loading: each in-flight request increments on entry and decrements
@@ -66,7 +82,7 @@ export function useRestAPI() {
   /**
    * Build full URL from endpoint path with optional query parameters.
    */
-  const buildUrl = useCallback((endpoint: string, queryParams?: Record<string, string | number | boolean>): string => {
+  const buildUrl = useCallback((endpoint: string, queryParams?: QueryParams): string => {
     let url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
 
     if (queryParams && Object.keys(queryParams).length > 0) {
@@ -106,22 +122,28 @@ export function useRestAPI() {
   );
 
   /**
-   * GET request.
+   * The request lifecycle shared by every verb (#5198).
+   *
+   * Each verb used to hand-copy all of this, so every fix to it (#2439, #2467,
+   * #2489, #4831, #4896) had to be applied five times.
    */
-  const get = useCallback(
-    async <T = unknown>(endpoint: string, options?: ResponseValidationOptions): Promise<T> => {
-      const seq = (requestSequences.current.get(endpoint) ?? 0) + 1; requestSequences.current.set(endpoint, seq);
+  const request = useCallback(
+    async <T>(endpoint: string, spec: RequestSpec): Promise<T> => {
+      const { method, payload, queryParams, options, skipBody } = spec;
+      const seq = (requestSequences.current.get(endpoint) ?? 0) + 1;
+      requestSequences.current.set(endpoint, seq);
       inflightCount.current += 1;
       setIsLoading(true);
       setError(null);
 
       try {
-        const url = buildUrl(endpoint);
+        const url = buildUrl(endpoint, queryParams);
         const response = await fetchWithTimeout(url, {
-          method: 'GET',
+          method,
           headers: {
             'Content-Type': 'application/json',
           },
+          ...(payload ? { body: JSON.stringify(payload) } : {}),
         });
 
         if (!response.ok) {
@@ -133,6 +155,10 @@ export function useRestAPI() {
         if (seq !== requestSequences.current.get(endpoint)) {
           response.body?.cancel();
           throw Object.assign(new Error('Stale response'), { name: 'StaleRequestError' });
+        }
+
+        if (skipBody) {
+          return undefined as T;
         }
 
         const data = await response.json();
@@ -156,6 +182,15 @@ export function useRestAPI() {
       }
     },
     [buildUrl, fetchWithTimeout]
+  );
+
+  /**
+   * GET request.
+   */
+  const get = useCallback(
+    <T = unknown>(endpoint: string, options?: ResponseValidationOptions): Promise<T> =>
+      request<T>(endpoint, { method: 'GET', options }),
+    [request]
   );
 
   /**
@@ -176,54 +211,9 @@ export function useRestAPI() {
    *   await api.post('/api/player/queue/shuffle', { enabled: true });
    */
   const post = useCallback(
-    async <T = unknown>(endpoint: string, payload?: Record<string, unknown>, queryParams?: Record<string, string | number | boolean>, options?: ResponseValidationOptions): Promise<T> => {
-      const seq = (requestSequences.current.get(endpoint) ?? 0) + 1; requestSequences.current.set(endpoint, seq);
-      inflightCount.current += 1;
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const url = buildUrl(endpoint, queryParams);
-        const response = await fetchWithTimeout(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: payload ? JSON.stringify(payload) : undefined,
-        });
-
-        if (!response.ok) {
-          // Read the backend's `detail` before discarding the body (#4831).
-          throw await httpErrorFromResponse(response);
-        }
-
-        // Detect stale response (fixes #2439).
-        if (seq !== requestSequences.current.get(endpoint)) {
-          response.body?.cancel();
-          throw Object.assign(new Error('Stale response'), { name: 'StaleRequestError' });
-        }
-
-        const data = await response.json();
-
-        // Runtime shape check at the boundary, when the caller supplied one (#4896).
-        if (options?.validate && !options.validate(data)) {
-          throw new Error(`Unexpected response shape from ${endpoint}`);
-        }
-
-        return data as T;
-      } catch (err) {
-        // AbortError from unmount cleanup or StaleRequestError — don't surface as API error (fixes #2467, #2439)
-        if (err instanceof Error && (err.name === 'AbortError' || err.name === 'StaleRequestError')) {
-          throw err;
-        }
-        const apiError = ApiErrorHandler.parse(err);
-        setError(apiError);
-        throw apiError;
-      } finally {
-        if ((inflightCount.current -= 1) <= 0) { inflightCount.current = 0; setIsLoading(false); }
-      }
-    },
-    [buildUrl, fetchWithTimeout]
+    <T = unknown>(endpoint: string, payload?: Record<string, unknown>, queryParams?: QueryParams, options?: ResponseValidationOptions): Promise<T> =>
+      request<T>(endpoint, { method: 'POST', payload, queryParams, options }),
+    [request]
   );
 
   /**
@@ -231,54 +221,9 @@ export function useRestAPI() {
    * Supports both JSON body and query parameters.
    */
   const put = useCallback(
-    async <T = unknown>(endpoint: string, payload?: Record<string, unknown>, queryParams?: Record<string, string | number | boolean>, options?: ResponseValidationOptions): Promise<T> => {
-      const seq = (requestSequences.current.get(endpoint) ?? 0) + 1; requestSequences.current.set(endpoint, seq);
-      inflightCount.current += 1;
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const url = buildUrl(endpoint, queryParams);
-        const response = await fetchWithTimeout(url, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: payload ? JSON.stringify(payload) : undefined,
-        });
-
-        if (!response.ok) {
-          // Read the backend's `detail` before discarding the body (#4831).
-          throw await httpErrorFromResponse(response);
-        }
-
-        // Detect stale response (fixes #2439).
-        if (seq !== requestSequences.current.get(endpoint)) {
-          response.body?.cancel();
-          throw Object.assign(new Error('Stale response'), { name: 'StaleRequestError' });
-        }
-
-        const data = await response.json();
-
-        // Runtime shape check at the boundary, when the caller supplied one (#4896).
-        if (options?.validate && !options.validate(data)) {
-          throw new Error(`Unexpected response shape from ${endpoint}`);
-        }
-
-        return data as T;
-      } catch (err) {
-        // AbortError from unmount cleanup or StaleRequestError — don't surface as API error (fixes #2467, #2439)
-        if (err instanceof Error && (err.name === 'AbortError' || err.name === 'StaleRequestError')) {
-          throw err;
-        }
-        const apiError = ApiErrorHandler.parse(err);
-        setError(apiError);
-        throw apiError;
-      } finally {
-        if ((inflightCount.current -= 1) <= 0) { inflightCount.current = 0; setIsLoading(false); }
-      }
-    },
-    [buildUrl, fetchWithTimeout]
+    <T = unknown>(endpoint: string, payload?: Record<string, unknown>, queryParams?: QueryParams, options?: ResponseValidationOptions): Promise<T> =>
+      request<T>(endpoint, { method: 'PUT', payload, queryParams, options }),
+    [request]
   );
 
   /**
@@ -286,98 +231,17 @@ export function useRestAPI() {
    * Supports both JSON body and query parameters.
    */
   const patch = useCallback(
-    async <T = unknown>(endpoint: string, payload?: Record<string, unknown>, queryParams?: Record<string, string | number | boolean>, options?: ResponseValidationOptions): Promise<T> => {
-      const seq = (requestSequences.current.get(endpoint) ?? 0) + 1; requestSequences.current.set(endpoint, seq);
-      inflightCount.current += 1;
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const url = buildUrl(endpoint, queryParams);
-        const response = await fetchWithTimeout(url, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: payload ? JSON.stringify(payload) : undefined,
-        });
-
-        if (!response.ok) {
-          // Read the backend's `detail` before discarding the body (#4831).
-          throw await httpErrorFromResponse(response);
-        }
-
-        // Detect stale response (fixes #2439).
-        if (seq !== requestSequences.current.get(endpoint)) {
-          response.body?.cancel();
-          throw Object.assign(new Error('Stale response'), { name: 'StaleRequestError' });
-        }
-
-        const data = await response.json();
-
-        // Runtime shape check at the boundary, when the caller supplied one (#4896).
-        if (options?.validate && !options.validate(data)) {
-          throw new Error(`Unexpected response shape from ${endpoint}`);
-        }
-
-        return data as T;
-      } catch (err) {
-        // AbortError from unmount cleanup or StaleRequestError — don't surface as API error (fixes #2467, #2439)
-        if (err instanceof Error && (err.name === 'AbortError' || err.name === 'StaleRequestError')) {
-          throw err;
-        }
-        const apiError = ApiErrorHandler.parse(err);
-        setError(apiError);
-        throw apiError;
-      } finally {
-        if ((inflightCount.current -= 1) <= 0) { inflightCount.current = 0; setIsLoading(false); }
-      }
-    },
-    [buildUrl, fetchWithTimeout]
+    <T = unknown>(endpoint: string, payload?: Record<string, unknown>, queryParams?: QueryParams, options?: ResponseValidationOptions): Promise<T> =>
+      request<T>(endpoint, { method: 'PATCH', payload, queryParams, options }),
+    [request]
   );
 
   /**
-   * DELETE request.
+   * DELETE request. Resolves without reading the response body.
    */
   const delete_ = useCallback(
-    async (endpoint: string): Promise<void> => {
-      const seq = (requestSequences.current.get(endpoint) ?? 0) + 1; requestSequences.current.set(endpoint, seq);
-      inflightCount.current += 1;
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const url = buildUrl(endpoint);
-        const response = await fetchWithTimeout(url, {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          // Read the backend's `detail` before discarding the body (#4831).
-          throw await httpErrorFromResponse(response);
-        }
-
-        // Detect stale response (fixes #2439).
-        if (seq !== requestSequences.current.get(endpoint)) {
-          response.body?.cancel();
-          throw Object.assign(new Error('Stale response'), { name: 'StaleRequestError' });
-        }
-      } catch (err) {
-        // AbortError from unmount cleanup or StaleRequestError — don't surface as API error (fixes #2467, #2439)
-        if (err instanceof Error && (err.name === 'AbortError' || err.name === 'StaleRequestError')) {
-          throw err;
-        }
-        const apiError = ApiErrorHandler.parse(err);
-        setError(apiError);
-        throw apiError;
-      } finally {
-        if ((inflightCount.current -= 1) <= 0) { inflightCount.current = 0; setIsLoading(false); }
-      }
-    },
-    [buildUrl, fetchWithTimeout]
+    (endpoint: string): Promise<void> => request<void>(endpoint, { method: 'DELETE', skipBody: true }),
+    [request]
   );
 
   /**

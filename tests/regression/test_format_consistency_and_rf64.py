@@ -51,14 +51,18 @@ class TestFormatListConsistency:
         # No working decode path -> must not be scanned.
         assert {'.mp4', '.m4p', '.webm'}.isdisjoint(AUDIO_EXTENSIONS)
 
-    def test_checker_is_superset_of_scanner(self):
-        from auralis.utils.checker import is_audio_file
+    def test_is_audio_file_accepts_every_scanner_format(self):
+        # The file-type predicate must never reject a format the scanner
+        # accepts. It used to live in auralis/utils/checker.py as a divergent
+        # superset copy; that dead module was deleted (#5197), leaving
+        # unified_loader.is_audio_file as the one predicate.
+        from auralis.io.unified_loader import is_audio_file
 
         for ext in AUDIO_EXTENSIONS:
-            assert is_audio_file(f"track{ext}"), f"checker omits scanner format {ext}"
+            assert is_audio_file(f"track{ext}"), f"is_audio_file omits scanner format {ext}"
 
-    def test_checker_no_longer_omits_aac_au(self):
-        from auralis.utils.checker import is_audio_file
+    def test_is_audio_file_no_longer_omits_aac_au(self):
+        from auralis.io.unified_loader import is_audio_file
 
         assert is_audio_file("track.aac")
         assert is_audio_file("track.au")
