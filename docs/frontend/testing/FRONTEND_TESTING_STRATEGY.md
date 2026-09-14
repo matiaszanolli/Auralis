@@ -57,7 +57,7 @@ Run tests by category or specific files, never the full suite.
 - `TrackList.test.tsx` - 680 lines (run alone)
 
 ### Integration Tests (Large - NOT RECOMMENDED)
-- `performance-large-libraries.test.tsx` - 1116 lines (run alone)
+- *performance-large-libraries.test.tsx* - 1116 lines (run alone; since deleted, #5186)
 - *streaming-mse.test.tsx* - 885 lines (run alone; since deleted)
 - `websocket-realtime.test.tsx` - 707 lines (run alone)
 

@@ -237,7 +237,7 @@ CozyLibraryView (390 lines) - Orchestrator
 - `test/utils/test-helpers.ts` (179 lines) - 10 reusable test utilities
 - `test/setup.ts` (81 lines) - MSW lifecycle integration
 - `tests/integration/player-controls.test.tsx` (206 lines) - Component test template
-- `tests/api-integration/library-api.test.ts` (219 lines) - 19 complete API tests ✅
+- *tests/api-integration/library-api.test.ts* (219 lines) - 19 complete API tests ✅ (since deleted, #5186)
 
 **Achievements**:
 - ✅ MSW v2.6.5 integration complete
@@ -257,10 +257,7 @@ CozyLibraryView (390 lines) - Orchestrator
 - Error handlers (3 handlers): 404, 500, network errors
 
 **Test Execution**:
-```bash
-npm test -- --run src/tests/api-integration/library-api.test.ts
-✓ 19 tests passed in 2.18s
-```
+Historical run of the library API spec (deleted in #5186): 19 tests passed in 2.18s.
 
 **Documentation Created**:
 - `DAY1_MSW_SETUP_COMPLETE.md` (complete infrastructure summary)
