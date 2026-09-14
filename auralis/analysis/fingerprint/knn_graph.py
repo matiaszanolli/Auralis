@@ -5,7 +5,7 @@ K-Nearest Neighbors Graph Builder
 Builds and maintains pre-computed similarity graph for fast queries
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from dataclasses import dataclass

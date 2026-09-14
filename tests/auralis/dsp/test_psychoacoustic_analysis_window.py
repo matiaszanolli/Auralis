@@ -10,7 +10,7 @@ path (no #3428 global-offset regression). The filter-application path
 (apply_eq_gains) stays un-windowed.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import numpy as np

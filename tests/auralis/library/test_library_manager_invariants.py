@@ -9,7 +9,7 @@ Critical invariant tests for LibraryDatabase (and the repositories it exposes)
 that validate read-after-write consistency and data integrity properties.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 
 CONTEXT: Library database bugs can cause:
 - Stale reads (showing old metadata after updates)

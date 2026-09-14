@@ -13,7 +13,7 @@ Fix: use ID-based cursor pagination (filter(Track.id > last_id)) so that
 deletes inside a batch never affect the position of subsequent batches.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import sys

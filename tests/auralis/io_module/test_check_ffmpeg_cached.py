@@ -8,7 +8,7 @@ forked N redundant probes. Availability is constant within a process, so it is
 now cached via functools.lru_cache(maxsize=1).
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from unittest.mock import MagicMock, patch

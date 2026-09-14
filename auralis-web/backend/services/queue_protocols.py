@@ -13,7 +13,7 @@ a wider surface than this; only the members QueueService actually calls are
 declared, which keeps the Protocol honest about the coupling that exists.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from typing import Any, Protocol

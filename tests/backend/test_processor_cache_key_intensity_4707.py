@@ -18,7 +18,7 @@ Contrast ``targets_hash``, which #3720 added precisely because targets DO change
 the constructed processor. That is the distinction these tests pin.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import sys

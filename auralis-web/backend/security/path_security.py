@@ -22,7 +22,7 @@ unused alongside this posture and was removed as dead code rather than left
 implying a containment guarantee the app doesn't actually enforce.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import functools

@@ -11,7 +11,7 @@ This module bridges ContentAnalyzer with TrackAnalysisCache to provide:
 3. Reuse of cached analysis across all chunks
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import logging

@@ -24,7 +24,7 @@ module loggers are all named ``"core.chunked_processor"`` (not ``__name__``)
 so log-capture assertions are unaffected by where the code physically lives.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import logging

@@ -20,7 +20,7 @@ These tests drive the real loop with a fake clock rather than sleeping in
 wall-clock, so they assert latency in *scheduled* time and stay fast.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import asyncio

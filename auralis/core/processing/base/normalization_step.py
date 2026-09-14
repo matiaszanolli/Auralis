@@ -6,7 +6,7 @@ Represents a single gain adjustment step in the normalization pipeline.
 Consolidates the measure-adjust-remeasure pattern.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 

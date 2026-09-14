@@ -9,7 +9,7 @@ the input path. Both call sites now insert '--' immediately before the
 path argument.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from pathlib import Path

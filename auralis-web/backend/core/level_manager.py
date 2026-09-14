@@ -6,7 +6,7 @@ Manages RMS levels and smooth transitions between audio chunks.
 Prevents audible volume jumps during chunk transitions.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import logging

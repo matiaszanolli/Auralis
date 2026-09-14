@@ -28,7 +28,7 @@ No genre labels. No bucketing. A track in the middle of two clusters gets
 an interpolated target in the middle of those clusters' shapes.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from __future__ import annotations

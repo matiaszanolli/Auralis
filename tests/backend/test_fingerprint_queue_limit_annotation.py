@@ -12,7 +12,7 @@ schema advertised a non-nullable integer whose documented default is `null`.
 
 These tests pin the annotation and the surviving `ge`/`le` bounds.
 
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import inspect

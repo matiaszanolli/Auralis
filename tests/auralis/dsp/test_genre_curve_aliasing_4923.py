@@ -27,7 +27,7 @@ of the same corrupted buffer, so they are identical *because* of the bug. These
 tests assert against `GENRE_CURVES` itself and against memory independence.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import numpy as np

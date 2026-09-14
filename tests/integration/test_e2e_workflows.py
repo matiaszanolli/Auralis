@@ -9,7 +9,7 @@ Integration tests that validate complete user workflows from start to finish.
 These tests verify that multiple components work together correctly.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 
 CONTEXT: E2E tests validate entire workflows, not individual components.
 They catch integration bugs that unit tests miss, such as:

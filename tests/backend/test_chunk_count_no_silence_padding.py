@@ -18,7 +18,7 @@ penultimate chunk is correctly the last chunk and no silence is padded.
 These tests model the IDEAL (non-capped) context trim — the ``max_trim_fraction``
 cap on very short final buffers is a separate concern (BE-CP-2 / #3807).
 
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import sys

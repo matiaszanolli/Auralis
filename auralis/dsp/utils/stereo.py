@@ -25,7 +25,7 @@ ask "does this instruction widen the signal?", compare the width factor against
 :data:`WIDTH_FACTOR_UNITY` — never against a measurement on scale 1 or 3.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import numpy as np

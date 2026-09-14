@@ -9,7 +9,7 @@ here. Returning aliases violates the project-wide invariant that DSP functions
 produce independent output buffers.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import numpy as np

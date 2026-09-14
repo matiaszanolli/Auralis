@@ -7,7 +7,7 @@ Verifies that DDL changes and the schema_version INSERT execute in the same
 transaction, so a failure in the version write rolls back the DDL too.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import shutil

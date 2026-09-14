@@ -6,7 +6,7 @@ Processing mode using continuous parameter space instead of discrete presets.
 Generates optimal parameters from audio fingerprints.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 
 This file owns one job: turning audio into ``ProcessingParameters``, either from
 a fingerprint and the reference cloud or from a fixed-targets dict. What is then

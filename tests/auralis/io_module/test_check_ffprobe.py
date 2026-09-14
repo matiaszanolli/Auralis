@@ -9,7 +9,7 @@ guarded (check_ffprobe, cached like check_ffmpeg) so its absence surfaces as
 ERROR_FFMPEG_NOT_FOUND, and _probe_audio catches FileNotFoundError defensively.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from pathlib import Path

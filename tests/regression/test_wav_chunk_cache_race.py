@@ -6,7 +6,7 @@ concurrent requests via _sync_cache_lock so the same chunk is not
 processed multiple times.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import inspect

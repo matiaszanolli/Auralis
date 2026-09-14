@@ -8,7 +8,7 @@ Consolidates the pattern: Extract metric → Calculate CV → Convert to stabili
 Used by: rhythm, pitch, and other stability calculations
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import numpy as np

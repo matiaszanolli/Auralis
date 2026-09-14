@@ -5,7 +5,7 @@ Audio Quality Assessment System
 Comprehensive audio quality metrics and assessment
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from .distortion_assessment import DistortionAssessor

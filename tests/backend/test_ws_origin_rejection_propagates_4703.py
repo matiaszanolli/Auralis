@@ -17,7 +17,7 @@ that the single authoritative origin check had no way to stop the handler.
 dropped the way the ignored return value was.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import sys

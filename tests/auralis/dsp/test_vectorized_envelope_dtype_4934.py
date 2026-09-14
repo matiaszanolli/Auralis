@@ -10,7 +10,7 @@ first and only falls back to the vectorized path on exception, the #4225-fixed
 path is the one that almost never actually runs when numba is available.
 
 :copyright: (C) 2026 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import numpy as np

@@ -14,7 +14,7 @@ Test Categories:
 - Edge cases and performance
 
 :copyright: (C) 2025 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import numpy as np

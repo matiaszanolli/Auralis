@@ -18,7 +18,7 @@ Contiguous, but offset by OVERLAP_DURATION from the core timeline for every
 chunk after the first.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import sys

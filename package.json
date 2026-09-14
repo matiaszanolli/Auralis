@@ -31,7 +31,7 @@
     "react"
   ],
   "author": "Auralis Team",
-  "license": "AGPL-3.0",
+  "license": "AGPL-3.0-or-later",
   "bugs": {
     "url": "https://github.com/matiaszanolli/Auralis/issues"
   },

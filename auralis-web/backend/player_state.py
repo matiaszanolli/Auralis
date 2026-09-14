@@ -6,7 +6,7 @@ Single source of truth for player state shared between backend and frontend.
 This ensures consistency across WebSocket and REST endpoints.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from enum import Enum

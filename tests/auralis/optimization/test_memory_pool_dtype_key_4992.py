@@ -24,7 +24,7 @@ never exercised. The wire-up-or-delete decision for this area is tracked by
 pin the corrected behaviour for whichever way that decision goes.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import numpy as np

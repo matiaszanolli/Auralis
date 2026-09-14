@@ -22,7 +22,7 @@ that split is what keeps the blocking disk read off `_audio_lock`, so a test
 mocking the old seam would silently exercise a path production no longer takes.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from unittest.mock import MagicMock

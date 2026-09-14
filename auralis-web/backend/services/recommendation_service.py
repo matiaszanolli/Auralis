@@ -5,7 +5,7 @@ Generates and broadcasts mastering recommendations based on audio analysis.
 Performs background analysis of loaded tracks to suggest optimal audio profiles.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import asyncio

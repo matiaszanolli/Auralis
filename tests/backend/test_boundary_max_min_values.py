@@ -9,7 +9,7 @@ Boundary tests for extreme values: very long/short audio, extreme loudness,
 large libraries, and string length limits.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 
 CONTEXT: Extreme value bugs are production killers:
 - Memory exhaustion with very long audio

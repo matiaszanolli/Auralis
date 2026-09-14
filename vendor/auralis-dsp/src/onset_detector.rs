@@ -2,7 +2,7 @@
 // High-performance onset detection using spectral flux
 //
 // Copyright (C) 2024 Auralis Team
-// License: GPLv3
+// License: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 
 use ndarray::{Array1, ArrayView1};
 use rustfft::{FftPlanner, num_complex::Complex};

@@ -8,7 +8,7 @@ process aren't served under old presets. That call used to run directly on
 the event loop during lifespan startup; it must now be offloaded.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import sys

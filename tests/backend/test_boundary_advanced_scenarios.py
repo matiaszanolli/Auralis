@@ -9,7 +9,7 @@ Boundary tests for advanced scenarios: batch operations, streaming, concurrency,
 and error recovery.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 
 CONTEXT: Advanced scenarios can cause:
 - Race conditions in concurrent operations

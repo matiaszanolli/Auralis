@@ -12,7 +12,7 @@ The authoritative check is `.github/scripts/check_pyproject_deps.py`, wired into
 drift is caught before CI, and pin the specific facts the issue turned on.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import re

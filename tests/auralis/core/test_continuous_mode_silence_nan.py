@@ -9,7 +9,7 @@ which trips validate_audio_finite(repair=False) downstream and crashes the
 stream. _apply_final_normalization now short-circuits on the non-finite fallback.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from types import SimpleNamespace

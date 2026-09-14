@@ -17,7 +17,7 @@ unchanged. Moving code here does NOT change lock acquisition order or scope
 relative to the fixed state of #4141 / #3735 / #5105.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import threading

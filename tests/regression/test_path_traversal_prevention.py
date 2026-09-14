@@ -6,7 +6,7 @@ database lookup instead of accepting raw file paths, preventing path
 traversal attacks like ../../../etc/passwd.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import inspect

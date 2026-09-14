@@ -311,11 +311,11 @@ Chunk Boundary Manager
 Manages chunk boundaries and context windows for audio processing.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 ```
 
-(Note: source headers currently say `:license: GPLv3` while the repo `LICENSE` is AGPL-3.0 — reconciling the two is a separate, source-level task, not covered by this doc.)
+Use exactly that `:license:` line (or `@license …` in TypeScript). The repo is AGPL-3.0 with a commercial dual license; CI rejects any tracked file that reintroduces the old GPL-v3 header text (#5434).
 
 **Function/method docstrings**: Google style (summary first, then `Args:`/`Returns:`/`Raises:`). The `Example:` and `Note:` sections in the template below are **encouraged where they add value, not mandatory** — in practice only a minority of files carry an `Example:` block. Keep `Args`/`Returns`/`Raises` complete; add `Example`/`Note` when the behavior isn't obvious from the signature.
 

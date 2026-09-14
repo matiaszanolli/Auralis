@@ -19,7 +19,7 @@ sharing the same base don't trip mypy's "incompatible definition in base
 class" check when composed together on the facade.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from typing import Any

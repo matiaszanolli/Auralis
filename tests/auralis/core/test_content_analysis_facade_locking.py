@@ -19,7 +19,7 @@ is referenced only from its own module. These tests exercise the accessor
 directly rather than through a call site, because no call site exists.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from __future__ import annotations

@@ -10,7 +10,7 @@ All of these subclass ``ValueError`` so pre-existing ``except ValueError``
 handlers and tests keep working while call sites migrate.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 

@@ -10,7 +10,7 @@ distribution from the data, they only map values through a fixed range using
 an epsilon guard for degenerate denominators.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 

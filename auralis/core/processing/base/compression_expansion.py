@@ -6,7 +6,7 @@ Unified compression and expansion strategies for different processing modes.
 Consolidates compression/expansion logic used across adaptive_mode and continuous_mode.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 

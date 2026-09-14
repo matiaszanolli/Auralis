@@ -13,7 +13,7 @@ Both handlers now spawn the recommendation via ``spawn_background_task``
 analysis through it puts the work on the event loop).
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import asyncio

@@ -14,7 +14,7 @@ globals_dict entries when the watched task finishes for any reason OTHER
 than intentional cancellation (the expected signal from stop_worker()/
 worker.stop() during graceful shutdown).
 
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import asyncio

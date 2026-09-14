@@ -7,7 +7,7 @@ Adaptive Processing Tests
 Test suite for the new adaptive audio processing system
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 
 Comprehensive tests for the unified Auralis adaptive mastering system
 """

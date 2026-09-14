@@ -16,7 +16,7 @@ the shared rationale on why sibling-method calls go through
 ``processor.<method>`` rather than a direct module-to-module call).
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from __future__ import annotations

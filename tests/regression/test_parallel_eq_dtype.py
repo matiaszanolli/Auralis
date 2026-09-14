@@ -5,7 +5,7 @@ Verifies that ParallelEQUtilities preserves dtype (float32) after sosfilt()
 returns float64, and preserves output shape for mono and stereo audio.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import numpy as np

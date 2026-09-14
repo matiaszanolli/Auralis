@@ -14,7 +14,7 @@ These are example tests. Actual Phase 5C.1-5C.3 work will apply these patterns
 to the 9 high-priority HTTP endpoint test files.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from unittest.mock import Mock

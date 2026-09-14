@@ -13,7 +13,7 @@ Both now guard with validate_audio_finite(repair=True) at the top of their
 final-normalization method, matching HybridMode.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from types import SimpleNamespace

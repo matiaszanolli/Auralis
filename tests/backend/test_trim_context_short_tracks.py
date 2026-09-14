@@ -19,7 +19,7 @@ output matches the source *by content*, not just by sample count — a
 length-only assertion would not have caught this bug (the dropped tail and the
 duplicated content are both drop-in length matches).
 
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import sys

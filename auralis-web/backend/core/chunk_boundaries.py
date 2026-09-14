@@ -6,7 +6,7 @@ Manages chunk boundaries and context windows for audio processing.
 Centralizes chunk calculation logic to prevent duplication and ensure consistency.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import logging

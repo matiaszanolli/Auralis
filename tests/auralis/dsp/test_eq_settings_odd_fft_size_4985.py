@@ -16,7 +16,7 @@ even — #4873) — but
 construction site with a clear, fail-fast error instead.
 
 :copyright: (C) 2026 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import pytest

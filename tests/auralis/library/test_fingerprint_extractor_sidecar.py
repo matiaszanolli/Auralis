@@ -15,7 +15,7 @@ They now patch the one seam that actually exists, so "did the slow path run?"
 is a single mock's call count rather than two mocks that could disagree.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import time

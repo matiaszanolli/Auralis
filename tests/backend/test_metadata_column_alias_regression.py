@@ -13,7 +13,7 @@ repository saw and got silently dropped by ``_filter_metadata_fields``
 the DB write silently no-opped for those three fields.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import sys

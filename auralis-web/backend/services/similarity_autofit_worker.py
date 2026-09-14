@@ -20,7 +20,7 @@ loop checks between reads (`FingerprintNormalizer.fit(stop_event=...)`) and
 waits for the thread to observe it and exit.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import asyncio

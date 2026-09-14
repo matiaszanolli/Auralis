@@ -12,7 +12,7 @@ trio, plus the cache-key-then-store pattern duplicated at each of
 cache-write sites.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from __future__ import annotations

@@ -5,7 +5,7 @@ Continuous-Mode Quality Measurement
 Sampled before/after quality comparison for the continuous-space pipeline.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 
 Split out of ``continuous_mode.py`` as a mixin (#4254). Purely observational:
 nothing here selects a processing path, rejects output, or changes what the

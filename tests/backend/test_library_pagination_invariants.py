@@ -9,7 +9,7 @@ Critical invariant tests for library pagination that validate completeness,
 correctness, and consistency of paginated queries.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 
 CONTEXT: Pagination bugs can cause:
 - Missing items (gaps in results)

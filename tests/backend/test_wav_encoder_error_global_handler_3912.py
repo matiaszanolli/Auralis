@@ -14,7 +14,7 @@ WebMEncoderError (the issue's other named type) no longer exists in this
 codebase (its module was removed by #5147) — only WAVEncoderError is mapped.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from __future__ import annotations

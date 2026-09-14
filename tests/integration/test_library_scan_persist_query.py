@@ -33,7 +33,7 @@ tests/auralis/library/test_scanner_concurrency.py; this file focuses on the
 persist -> query half of the pipeline the deleted file used to cover.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import numpy as np

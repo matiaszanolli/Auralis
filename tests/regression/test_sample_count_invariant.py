@@ -6,7 +6,7 @@ A shape mismatch triggers an AssertionError (fail-fast) rather than silently
 producing misaligned gapless audio.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import numpy as np

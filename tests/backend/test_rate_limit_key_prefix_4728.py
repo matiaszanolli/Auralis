@@ -17,7 +17,7 @@ the rule-matching loop, so all requests under one rule share one budget
 regardless of how many distinct resource ids are touched.
 
 :copyright: (C) 2026 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from __future__ import annotations

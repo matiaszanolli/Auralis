@@ -9,7 +9,7 @@ The fix reorders registration so SecurityHeaders (and NoCache) wrap RateLimit;
 this test pins that a throttled response still carries the documented headers.
 
 :copyright: (C) 2026 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from __future__ import annotations

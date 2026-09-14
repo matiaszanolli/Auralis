@@ -9,7 +9,7 @@ electron-log. The success lines are now DEBUG so absolute paths no longer
 appear at INFO in normal operation.
 
 :copyright: (C) 2026 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import logging

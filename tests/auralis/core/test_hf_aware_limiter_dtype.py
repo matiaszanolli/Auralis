@@ -8,7 +8,7 @@ float64 — silently ~2x working-set memory. It now casts back, matching every
 other sosfiltfilt caller.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import numpy as np

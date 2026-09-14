@@ -14,7 +14,7 @@ individually; the lifespan re-implemented the same loop without that protection,
 so the two paths #4111 unified had diverged on error handling.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import inspect

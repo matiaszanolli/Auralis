@@ -14,7 +14,7 @@ Provides a centralized service for:
 This eliminates duplicate cache key patterns and centralizes caching logic.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import logging

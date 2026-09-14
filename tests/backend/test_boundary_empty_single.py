@@ -9,7 +9,7 @@ Boundary tests for edge cases with empty collections and single items.
 These tests catch off-by-one errors, null pointer issues, and empty state bugs.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 
 CONTEXT: Empty and single-item bugs are common:
 - Empty list iteration crashes

@@ -12,7 +12,7 @@ centrally so no call site has to remember to opt in:
     msg/args (covers both f-string and %-style logging).
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import io

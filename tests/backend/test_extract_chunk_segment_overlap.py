@@ -16,7 +16,7 @@ These tests encode each sample's absolute *source* sample index as its value, so
 a backward jump (re-emitted audio) is detectable as a non-monotonic value
 sequence after concatenation.
 
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import sys

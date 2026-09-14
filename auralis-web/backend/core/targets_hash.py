@@ -21,7 +21,7 @@ hashes of the same targets would defeat the point — so the implementation live
 here rather than being copied per tier.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from __future__ import annotations

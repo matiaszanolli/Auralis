@@ -5,7 +5,7 @@ Machine Learning Genre Classification System
 ML-based genre classification with comprehensive feature extraction
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from .feature_extractor import FeatureExtractor

@@ -8,7 +8,7 @@ disconnect teardown. It now clears all four, matching _cancel_prior_task and
 teardown_connection.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import asyncio

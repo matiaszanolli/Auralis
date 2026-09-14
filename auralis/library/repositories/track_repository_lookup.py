@@ -7,7 +7,7 @@ Identity-lookup concerns for :class:`TrackRepository`, split out of
 or by filepath, with the eager-loading every read path requires (#4500).
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from sqlalchemy import select

@@ -14,7 +14,7 @@ stereo) and risking an OOM-kill on first playback of an uncached track. It now
 passes `duration=90.0`, matching every other fingerprint path.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from unittest.mock import patch

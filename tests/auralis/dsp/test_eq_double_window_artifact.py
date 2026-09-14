@@ -12,7 +12,7 @@ Acceptance criterion: amplitude variance of a 1 kHz sine processed through
 VectorizedEQProcessor must be < 0.1 %.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import numpy as np

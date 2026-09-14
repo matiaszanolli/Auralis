@@ -8,7 +8,7 @@ Chunked Audio Processor Invariant Tests
 Critical invariant tests for ChunkedAudioProcessor that would have caught the overlap bug.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 
 CONTEXT: The overlap bug (OVERLAP_DURATION=3s with CHUNK_DURATION=10s) had 100% code coverage
 but zero validation. These tests validate properties that MUST always hold, regardless of

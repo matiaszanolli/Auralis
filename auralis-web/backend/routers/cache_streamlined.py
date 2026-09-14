@@ -5,7 +5,7 @@ Cache Management API Router (Streamlined - Beta.9)
 API endpoints for streamlined two-tier cache management and statistics.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import asyncio

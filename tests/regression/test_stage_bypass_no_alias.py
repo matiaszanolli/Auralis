@@ -12,7 +12,7 @@ For each case: assert the bypass return is a distinct object that does not share
 memory with the input, then mutate the result and assert the input is unchanged.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import numpy as np

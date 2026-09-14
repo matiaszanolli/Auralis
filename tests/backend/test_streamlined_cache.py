@@ -5,7 +5,7 @@ Tests for Streamlined Cache Manager (Beta.9)
 Tests the simplified two-tier cache system.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 
 NOTE (#4691): this module carried a blanket module-level skip reading "Tests
 use APIs incompatible with current implementation". It was not true of the

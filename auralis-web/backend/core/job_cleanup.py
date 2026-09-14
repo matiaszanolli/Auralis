@@ -12,7 +12,7 @@ bugfixes — this is the next safe slice out of it). Two-phase locking and the
 offloaded filesystem sweep are unchanged (preserves #2435, #3327, #4754).
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from __future__ import annotations

@@ -8,7 +8,7 @@ Tests for database performance, memory management, and long-running operations
 with large music libraries (10k-50k tracks).
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import gc

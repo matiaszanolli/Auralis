@@ -17,7 +17,7 @@ allowed it — a hard failure whose only symptom is a console violation.
 Adding a host must now be one edit here, not three edits in three files.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 # Both spellings of loopback. Browsers treat `localhost` and `127.0.0.1` as

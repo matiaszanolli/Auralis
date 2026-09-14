@@ -10,7 +10,7 @@ Replaces the complex multi-tier buffer system (1,459 lines) with a simple,
 predictable caching strategy (~150 lines).
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import asyncio

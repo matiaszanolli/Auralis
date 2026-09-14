@@ -7,7 +7,7 @@ long-running workers exist and how they are stopped/started. Both the lifespan
 shutdown and the library-reset endpoint use it so the sets cannot diverge.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import sys

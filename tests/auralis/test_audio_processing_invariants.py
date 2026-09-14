@@ -9,7 +9,7 @@ Critical invariant tests for core audio processing that validate fundamental
 properties like sample count preservation, amplitude limits, and channel handling.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 
 CONTEXT: Audio processing bugs can cause:
 - Sample count changes (truncation or padding)

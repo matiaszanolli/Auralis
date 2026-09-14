@@ -8,7 +8,7 @@ Provides shared spectrum computation, weighting, band mapping, and analysis
 functions used across sequential and parallel spectrum analyzers.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from typing import Any, cast

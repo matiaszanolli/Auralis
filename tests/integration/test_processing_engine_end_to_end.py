@@ -18,7 +18,7 @@ COMPLETED, downloads via `GET /api/processing/job/{id}/download`, and
 verifies the output is a decodable WAV with the same sample count as the
 input. One test catches the entire class of #3489-style regressions.
 
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import asyncio

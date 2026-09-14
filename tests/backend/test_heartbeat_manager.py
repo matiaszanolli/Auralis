@@ -8,7 +8,7 @@ referencing B.3 protocol classes that were never merged into the codebase;
 those are removed here, leaving only the valid HeartbeatManager tests.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import sys

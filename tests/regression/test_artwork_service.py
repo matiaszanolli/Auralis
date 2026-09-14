@@ -5,7 +5,7 @@ Verifies the multi-source fallback strategy, correct auth header usage,
 and error handling of ArtworkService.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import json

@@ -5,7 +5,7 @@ Centralized global variable declarations and shared utilities like ConnectionMan
 These are initialized during application startup and used throughout the backend.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import asyncio

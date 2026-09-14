@@ -12,7 +12,7 @@ Consolidates duplicate logic from:
 This service eliminates ~200 lines of duplicate fingerprint/target management.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import hashlib

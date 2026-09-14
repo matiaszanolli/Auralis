@@ -7,7 +7,7 @@ chunks for a given (track_id, preset, intensity), so DSP state (compressor
 envelope, EQ history) is preserved at chunk boundaries.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import asyncio

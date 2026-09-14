@@ -5,7 +5,7 @@ Creates and configures the FastAPI application instance with metadata,
 documentation URLs, and default settings.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import logging

@@ -12,7 +12,7 @@ _rollback_partial_startup() must await .stop() on each already-started
 service (tolerating a failing .stop() itself) before nulling it, then null
 the remaining components that never own an async task of their own.
 
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import sys

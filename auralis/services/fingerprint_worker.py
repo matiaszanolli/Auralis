@@ -17,7 +17,7 @@ the real body (#4636), so the class attribute has to stay bound to the actual
 implementation rather than to a delegating stub.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import os

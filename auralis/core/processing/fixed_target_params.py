@@ -7,7 +7,7 @@ sidecar fast path) to the ``ProcessingParameters`` dataclass the continuous-spac
 DSP stages consume.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 
 Split out of ``continuous_mode.py`` (#4254). This is pure dict-to-dataclass
 translation with no dependency on processor state, so it lives on its own rather

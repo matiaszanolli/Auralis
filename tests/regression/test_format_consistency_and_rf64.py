@@ -12,7 +12,7 @@ so a legacy RF64/overflow WAV using the ``0xFFFFFFFF`` size sentinel reported a
 ~4 GB declared size and was wrongly rejected as truncated.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import struct

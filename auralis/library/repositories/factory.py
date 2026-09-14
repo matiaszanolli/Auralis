@@ -6,7 +6,7 @@ Provides centralized factory for creating and caching repository instances.
 Enables dependency injection across the application without global singletons.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from collections.abc import Callable

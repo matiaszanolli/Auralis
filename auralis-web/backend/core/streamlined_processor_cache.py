@@ -12,7 +12,7 @@ The state itself still lives on the worker (``_processor_cache``,
 state, passed explicitly, not a second owner of it.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import asyncio

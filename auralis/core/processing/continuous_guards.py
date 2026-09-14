@@ -6,7 +6,7 @@ Threshold knees and the two small measurement/correction helpers that
 ``ContinuousMode``'s cross-dimensional guards are built from.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 
 Split out of ``continuous_mode.py`` (#4254). The knees are tuning data, not
 pipeline logic — they belong next to each other where the whole guard schedule

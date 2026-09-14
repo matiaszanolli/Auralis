@@ -7,7 +7,7 @@ applies a single DSP operation, then the cross-dimensional guard that keeps that
 operation from disturbing a dimension it was not asked to touch.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 
 Split out of ``continuous_mode.py`` as a mixin (#4254). The class file was 789
 lines holding three separable jobs — parameter resolution, this stage sequence,

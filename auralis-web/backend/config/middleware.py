@@ -5,7 +5,7 @@ Sets up middleware for the FastAPI application including CORS, caching,
 and security headers.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import asyncio

@@ -15,7 +15,7 @@ it is rather than being folded back into compressor.py, since the dedup is what
 the #4309 regression test pins.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from typing import cast

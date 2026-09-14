@@ -22,7 +22,7 @@ orphan cache entry and leaves every chunk rendered by the separate
 the init site cannot tell the real fix from the inert one.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import threading

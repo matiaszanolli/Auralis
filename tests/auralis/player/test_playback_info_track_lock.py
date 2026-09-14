@@ -21,7 +21,7 @@ held, while the returned `library.current_track` must still describe the same
 track as `playback.position_seconds`.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from __future__ import annotations

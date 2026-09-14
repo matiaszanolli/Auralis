@@ -6,7 +6,7 @@ Verifies that the connection pool is properly sized for SQLite and
 that concurrent writes complete without timeout under normal load.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import os

@@ -10,7 +10,7 @@ All three methods (apply_low_shelf_boost, apply_high_shelf_boost,
 apply_bandpass_boost) must preserve the input dtype for both mono and stereo.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import numpy as np

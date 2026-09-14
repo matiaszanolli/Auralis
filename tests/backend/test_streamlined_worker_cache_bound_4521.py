@@ -12,7 +12,7 @@ it and the cache grew for the life of the backend process.
 These tests pin the bound at the *insertion* site so both routes are covered.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import sys

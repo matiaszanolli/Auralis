@@ -9,7 +9,7 @@ Tests for exact boundary values: offset at limit, exact durations,
 limit edge cases, and precision boundaries.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 
 CONTEXT: Exact boundary bugs are subtle:
 - Off-by-one errors at exact limits

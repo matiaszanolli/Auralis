@@ -5,7 +5,7 @@ Configuration Factory Functions
 Convenience functions for creating common configurations
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from typing import Any

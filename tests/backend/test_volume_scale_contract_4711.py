@@ -23,7 +23,7 @@ These tests pin both halves: the bounds, and the presence of a scale marker
 in each model's field metadata so a future field cannot be added without one.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import sys

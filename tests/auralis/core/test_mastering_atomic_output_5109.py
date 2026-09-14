@@ -16,7 +16,7 @@ The render now stages into a sibling temp file and ``os.replace()``s onto the
 final name only after every chunk is written.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from pathlib import Path

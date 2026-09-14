@@ -14,7 +14,7 @@ Refactored from monolithic design into 5 focused components:
 Uses Facade pattern to maintain backward-compatible API.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import threading

@@ -9,7 +9,7 @@ scan from silently undoing a confirmed reset (#4816), failure handling, and the
 repository-layer bulk delete (dependency order, commit/rollback/close).
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import sys

@@ -4,7 +4,7 @@
  * Tests for library scan progress tracking via WebSocket messages.
  *
  * @copyright (C) 2024 Auralis Team
- * @license GPLv3, see LICENSE for more details
+ * @license AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';

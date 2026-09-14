@@ -5,7 +5,7 @@ Imports all router factories and registers them with the FastAPI application.
 Handles dependency injection for each router via lambdas.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import logging

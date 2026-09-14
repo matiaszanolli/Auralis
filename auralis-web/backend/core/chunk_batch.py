@@ -11,7 +11,7 @@ one full-track WAV). Both iterate ``processor.process_chunk_safe`` rather
 than the per-chunk streaming hot path directly.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from __future__ import annotations

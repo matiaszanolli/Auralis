@@ -10,7 +10,7 @@ backend in dev mode — re-enabling Swagger/ReDoc/OpenAPI and widening the
 CORS/WebSocket origin allowlists, with no log signal that it happened.
 
 :copyright: (C) 2026 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import logging

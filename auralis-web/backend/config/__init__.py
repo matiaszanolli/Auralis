@@ -5,7 +5,7 @@ Modular configuration components extracted from monolithic main.py.
 Handles app creation, middleware setup, startup events, and router registration.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from typing import Any

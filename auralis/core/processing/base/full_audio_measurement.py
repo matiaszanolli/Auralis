@@ -6,7 +6,7 @@ Complete audio measurement at any point in processing pipeline.
 Consolidates all measurement types (peak, RMS, crest, LUFS) in one place.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 

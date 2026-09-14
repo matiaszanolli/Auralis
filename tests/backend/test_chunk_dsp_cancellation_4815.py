@@ -17,7 +17,7 @@ the task — same pattern ProcessingEngine._cancel_events already uses for
 FFmpeg decode.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import asyncio

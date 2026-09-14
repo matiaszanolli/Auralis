@@ -7,7 +7,7 @@ Modern FastAPI backend for Auralis audio processing and library management.
 Replaces the Tkinter GUI with a professional web interface.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import logging

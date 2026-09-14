@@ -9,7 +9,7 @@ Integration tests for FastAPI backend endpoints, testing API contracts
 and multi-endpoint workflows.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 
 CONTEXT: API integration tests validate:
 - Endpoint contracts (request/response formats)

@@ -5,7 +5,7 @@ Auralis Artwork Extraction
 Album artwork extraction and management for music library
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import hashlib

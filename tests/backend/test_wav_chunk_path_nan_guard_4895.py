@@ -17,7 +17,7 @@ Fixed by routing get_wav_chunk_path() through the same guarded
 WAVEncoder.encode_and_save() primitive process_chunk() already used.
 
 :copyright: (C) 2026 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import sys

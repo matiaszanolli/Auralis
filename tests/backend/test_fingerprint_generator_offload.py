@@ -9,7 +9,7 @@ accumulated 10-30 s of stalls across 50 tracks. The fix wraps each sync step
 in asyncio.to_thread, so the loop stays responsive.
 
 :copyright: (C) 2026 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import asyncio

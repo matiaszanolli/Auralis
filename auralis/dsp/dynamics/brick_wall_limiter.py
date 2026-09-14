@@ -5,7 +5,7 @@ Brick-Wall Limiter
 True peak limiting with look-ahead for transparent peak control
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 
 A brick-wall limiter catches peaks above a threshold while preserving
 overall loudness. Unlike peak normalization (which scales the entire signal),

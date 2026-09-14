@@ -16,7 +16,7 @@ Both values were already available at guard time (`sf.info()` carries
 `source_sample_rate`/`source_channels`), so the fix costs no extra probing.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import importlib

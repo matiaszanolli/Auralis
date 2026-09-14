@@ -9,7 +9,7 @@ the player load path. It now passes ModuleError through unchanged (sibling of
 the #3695 fix in ffmpeg_loader.py / soundfile_loader.py).
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from unittest.mock import patch

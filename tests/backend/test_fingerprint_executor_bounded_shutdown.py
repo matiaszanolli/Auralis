@@ -10,7 +10,7 @@ asyncio.to_thread so the event loop stays responsive — so a pathologically
 slow computation cannot stall process shutdown indefinitely.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import asyncio

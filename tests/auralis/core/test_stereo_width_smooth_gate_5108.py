@@ -18,7 +18,7 @@ These tests assert the continuous-space invariant directly: sweeping the input
 peak across the knee must move the effective width smoothly, with no step.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import numpy as np

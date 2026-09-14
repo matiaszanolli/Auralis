@@ -9,7 +9,7 @@ vanishing into asyncio's never-retrieved bucket. #3851 migrated the last
 holdout (routers/enhancement.py) to this helper.
 
 :copyright: (C) 2026 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import asyncio

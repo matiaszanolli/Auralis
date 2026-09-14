@@ -14,7 +14,7 @@ this constant, the undercount let real disk usage run ~3.4x past the
 240 MB budget before eviction believed it was necessary.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import sys

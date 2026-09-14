@@ -7,7 +7,7 @@ Spectrum Mapper Module
 Maps content analysis to processing parameters using spectrum-based approach
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from .content_modifiers import apply_content_modifiers

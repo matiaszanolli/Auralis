@@ -10,7 +10,7 @@ must be numerically identical to the previous full-table computation, and
 independent of the batch size.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import threading

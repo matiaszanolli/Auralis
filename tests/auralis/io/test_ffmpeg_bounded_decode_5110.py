@@ -17,7 +17,7 @@ shift the analysed window and change fingerprint values for already-indexed
 tracks (which would require a ``FINGERPRINT_ALGORITHM_VERSION`` bump).
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import shutil

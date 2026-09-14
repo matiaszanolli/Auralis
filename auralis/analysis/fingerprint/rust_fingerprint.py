@@ -32,7 +32,7 @@ silence_ratio, spectral_flatness, harmonic_ratio, pitch_stability, chroma_energy
 peak_consistency, stereo_width, phase_correlation) passes through unchanged.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import math

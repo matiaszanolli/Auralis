@@ -8,7 +8,7 @@ Integration Stress Boundary Tests
 Boundary stress tests for complete workflows and integration scenarios.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 
 CONTEXT: Integration stress scenarios can cause:
 - Resource exhaustion under load

@@ -16,7 +16,7 @@ patch.object(system_module, "stream_audio", ...) patchability, since the
 caller reads the (possibly patched) module global once per connection.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import asyncio

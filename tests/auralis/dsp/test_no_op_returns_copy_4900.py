@@ -18,7 +18,7 @@ to the surviving sites, plus the stage-boundary fix in
 straight past the ``no_op()`` contract every other stage honours.
 
 :copyright: (C) 2026 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from typing import Any, Callable

@@ -12,7 +12,7 @@ tests/auralis/core/test_nan_detection.py, so the public contract is
 preserved.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from typing import TYPE_CHECKING, Any

@@ -7,7 +7,7 @@ embedded CR/LF can forge additional log lines; terminal control sequences can
 corrupt a log viewer. sanitize_log_value escapes those to a single safe line.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from auralis.utils.logging import sanitize_log_value

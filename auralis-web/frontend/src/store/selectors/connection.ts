@@ -5,7 +5,7 @@
  * Split out of store/selectors/index.ts (#4316).
  *
  * @copyright (C) 2024 Auralis Team
- * @license GPLv3, see LICENSE for more details
+ * @license AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
  */
 
 import { createSelector } from '@reduxjs/toolkit';

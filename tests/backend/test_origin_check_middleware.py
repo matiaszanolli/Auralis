@@ -11,7 +11,7 @@ was exploitable blind via a hidden auto-submitting form or
 ConnectionManager.connect already does for WebSocket upgrades.
 
 :copyright: (C) 2026 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from __future__ import annotations

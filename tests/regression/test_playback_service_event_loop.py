@@ -18,7 +18,7 @@ call and measure when the sleep finishes. A blocking implementation prevents the
 canary task from even starting its sleep until the engine call returns.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from __future__ import annotations

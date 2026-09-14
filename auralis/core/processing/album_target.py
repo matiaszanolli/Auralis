@@ -6,7 +6,7 @@ Derive ONE target spectrum for a whole album, so tracks mastered as a set land
 on a common tonality instead of each drifting to its own k-NN destination.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 
 Phase 1 of #3481. Per-track derivation is right for shuffle and queue playback;
 it is wrong for listening to a record top to bottom, where a quiet intro and a

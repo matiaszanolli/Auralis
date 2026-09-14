@@ -8,7 +8,7 @@ Verifies that AudioStreamController properly handles:
 4. Semaphore cleanup after timeout
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import asyncio

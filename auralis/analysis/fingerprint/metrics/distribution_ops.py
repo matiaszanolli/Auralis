@@ -9,7 +9,7 @@ Split out of the robust-scaling family so that the scaling transforms and the
 distribution inspection/remapping transforms stay independently readable.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 

@@ -9,7 +9,7 @@ Critical invariant tests for library scanning that validate correctness,
 completeness, and metadata extraction.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 
 CONTEXT: Scanning bugs can cause:
 - Missing tracks (some files not detected)

@@ -18,7 +18,7 @@ to emit the two keys its reader indexes (`ratio`, `amount`) — so this pins bot
 dicts, not just the one that crashed.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import numpy as np

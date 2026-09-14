@@ -5,7 +5,7 @@ Manages audio queue operations: get, set, add, remove, reorder, shuffle, clear.
 Coordinates with AudioPlayer and PlayerStateManager to keep queue state synchronized.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import asyncio

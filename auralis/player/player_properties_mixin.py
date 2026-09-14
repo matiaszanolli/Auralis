@@ -6,7 +6,7 @@ Backward-compatible property surface for AudioPlayer, extracted from
 enhanced_audio_player.py (#4249).
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from typing import Any

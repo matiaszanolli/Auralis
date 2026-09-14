@@ -60,3 +60,18 @@ jobs:
       # tests/test_optimization_is_live_5142.py in the backend suite.
       - name: Verify the documented auralis/optimization/ importer set
         run: python3 scripts/check_optimization_importers.py
+
+      # #5434: LICENSE is the GNU AGPL v3 (dual-licensed via
+      # COMMERCIAL_LICENSE.md), but ~700 tracked files carried a GPL-v3
+      # `:license:` / `@license` header, and new modules kept copying it from
+      # their neighbours. Fails on any GPL-v3 licence text in the tracked tree.
+      # The character classes stop the pattern from matching this file itself.
+      # docs/archive and docs/audits are historical records that quote the old
+      # header; .claude/ holds issue snapshots that do the same.
+      - name: Reject stale GPL-v3 licence headers
+        run: |
+          if git grep -nE 'GPL[v ]3|GNU General Public License v[3]' -- \
+              ':!docs/archive/**' ':!docs/audits/**' ':!.claude/**'; then
+            echo "::error::GPL-v3 licence text found. Auralis is AGPL-3.0-or-later (dual-licensed); use ':license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)'."
+            exit 1
+          fi

@@ -8,7 +8,7 @@ over an ordered stage list. These tests pin the execution order (5a input gain â
 reorder during future edits is caught, and re-verify the sample-count invariant.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from types import SimpleNamespace

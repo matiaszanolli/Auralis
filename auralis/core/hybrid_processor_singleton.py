@@ -6,7 +6,7 @@ Process-wide cached ``process_adaptive`` / ``process_reference`` /
 ``process_hybrid`` free functions, re-exported from the ``auralis`` package.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 
 These wrap :class:`~auralis.core.hybrid_processor.HybridProcessor` behind a
 bounded LRU cache of already-initialised processors, so a caller that just

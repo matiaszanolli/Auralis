@@ -5,7 +5,7 @@ Genre Weights
 Model weights and genre-specific adjustments for genre classification
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 

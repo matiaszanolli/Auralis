@@ -17,7 +17,7 @@ image paths to cache entries and unlinks them, so the routers can invalidate
 without the repository layer having to touch the filesystem.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from __future__ import annotations

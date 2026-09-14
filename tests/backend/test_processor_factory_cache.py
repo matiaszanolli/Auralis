@@ -7,7 +7,7 @@ Tests for ProcessorFactory config-based caching
 Regression tests for content-based config hashing (issue #2707).
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import threading

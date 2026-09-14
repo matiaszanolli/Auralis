@@ -160,7 +160,7 @@ For research inquiries, collaboration proposals, or dataset requests:
 
 Research materials in this directory are licensed under:
 - **Papers/Documentation**: CC BY 4.0 (Creative Commons Attribution)
-- **Code/Implementation**: GPLv3 (see [LICENSE](../LICENSE))
+- **Code/Implementation**: AGPL-3.0-or-later, dual-licensed (see [LICENSE](../LICENSE) and [COMMERCIAL_LICENSE.md](../COMMERCIAL_LICENSE.md))
 
 ---
 

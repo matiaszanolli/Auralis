@@ -8,7 +8,7 @@ Artwork Management Integration Tests
 Integration tests for album artwork extraction, caching, and serving.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 
 CONTEXT: Artwork management bugs can cause:
 - Missing album art (extraction failures)

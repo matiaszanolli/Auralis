@@ -5,7 +5,7 @@ Soft Clipper
 Gentle saturation-based peak limiting
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 
 Uses hyperbolic tangent (tanh) for smooth, musical peak control
 """

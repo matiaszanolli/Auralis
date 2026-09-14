@@ -13,7 +13,7 @@ mutation, no locking and no broadcasts, which makes it both the largest
 self-contained block in the service and the easiest part to test in isolation.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import asyncio

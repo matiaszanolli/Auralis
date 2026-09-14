@@ -19,7 +19,7 @@ samples" guard in HybridProcessor, so the gap only surfaced when that guard was
 relaxed to preserve sample count.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from __future__ import annotations

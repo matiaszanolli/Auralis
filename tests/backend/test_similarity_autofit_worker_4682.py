@@ -15,7 +15,7 @@ a threading.Event between batches (see test_normalizer_batched_fit.py for
 that half) since an in-flight batch read can't be forcibly cancelled.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import sys

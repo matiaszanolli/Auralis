@@ -10,7 +10,7 @@ Extracted from simple_mastering.py's _contextualize_notches (#4072), used by
 mastering_prepare.prepare_file.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from __future__ import annotations

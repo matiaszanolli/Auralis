@@ -7,7 +7,7 @@ pause, resume, stop, buffer_full, buffer_ready. Extracted verbatim from the
 websocket_endpoint dispatch loop in routers/system.py (#4074).
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import logging

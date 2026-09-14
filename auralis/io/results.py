@@ -12,7 +12,7 @@ distortion is inaudible, and it's only theoretically relevant for very quiet
 passages or long fades in the 16-bit streaming path (#4981).
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 
 Refactored from Matchering 2.0 by Sergree and contributors
 """

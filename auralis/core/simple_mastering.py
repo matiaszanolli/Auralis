@@ -23,7 +23,7 @@ Minimal-dependency mastering facade for CLI tools like auto_master.py.
 Uses existing DSP components without requiring full HybridProcessor setup.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import threading

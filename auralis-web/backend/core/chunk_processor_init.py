@@ -24,7 +24,7 @@ path and key at ``targets_hash="none"``, which is precisely how a processor
 that HAS targets ended up being served chunks rendered without them.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from __future__ import annotations

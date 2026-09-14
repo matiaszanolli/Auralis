@@ -8,7 +8,7 @@ per call (no connection-pool reuse across a bulk artwork backfill), and
 `_save_artwork` wrote to disk synchronously on the event loop.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import sys

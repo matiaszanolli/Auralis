@@ -22,7 +22,7 @@ written next to the user's audio files, which are frequently on a different moun
 (external drive, NAS) than ``/tmp``.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from __future__ import annotations

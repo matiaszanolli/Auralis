@@ -22,7 +22,7 @@ guarantee â€” no in-flight read task survives the loop, however the loop exits â
 holds without the handler needing a second drain in its own finally.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import asyncio

@@ -17,7 +17,7 @@ copy of the same sin²/cos² math; removed rather than reconciled, since nothing
 depended on it (#4245 CONSISTENCY check).
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import logging

@@ -7,7 +7,7 @@ Search/browse concerns for :class:`TrackRepository`, split out of
 recent/popular/favorites/all listings, and simple similarity lookups.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from sqlalchemy import func, or_, select

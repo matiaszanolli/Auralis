@@ -13,7 +13,7 @@ The outlier/quantile helpers live in ``distribution_ops`` and are re-exported
 here so the full statistical operation set stays importable from one module.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 

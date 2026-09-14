@@ -26,7 +26,7 @@ exclusive. A second test below (`test_apply_enhancement_toggle_is_atomic_under_c
 exercises the real `AudioProcessingPipeline.apply_enhancement` production code
 directly, not just the mirrored pattern.
 
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import threading

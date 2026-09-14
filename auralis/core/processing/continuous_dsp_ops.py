@@ -6,7 +6,7 @@ The individual DSP operations the continuous-space stage sequence drives: EQ,
 dynamics, stereo width, and final loudness/peak normalization.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 
 Split out of ``continuous_mode.py`` as a mixin (#4254). These are the "how" to
 ``continuous_stages.py``'s "in what order, and guarded against what" — the two

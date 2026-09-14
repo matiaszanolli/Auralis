@@ -15,7 +15,7 @@ not pure: it mutates `self.last_content_profile`, which is read downstream. On
 a cache hit the body never runs and that field keeps a previous track's profile.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import numpy as np

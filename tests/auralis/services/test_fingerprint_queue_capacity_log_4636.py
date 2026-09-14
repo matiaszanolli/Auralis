@@ -18,7 +18,7 @@ Because the capacity is resizable, no constant can be correct; it has to be read
 at log time. These tests pin that, and that a resize is reflected.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import inspect

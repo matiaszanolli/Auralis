@@ -9,7 +9,7 @@ verifying the complete message lifecycle: start → chunk metadata/binary frames
 Closes issue #2307.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import json

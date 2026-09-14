@@ -15,7 +15,7 @@ one `_lock` acquisition, mirroring `AudioFileManager.get_state_snapshot()`
 (#3474), and the worker re-validates the track id after the await.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from __future__ import annotations

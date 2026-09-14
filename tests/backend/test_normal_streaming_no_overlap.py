@@ -6,7 +6,7 @@ Tests that normal audio streaming sends non-overlapping chunks
 to prevent audio duplication.
 
 :copyright: (C) 2026 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import numpy as np

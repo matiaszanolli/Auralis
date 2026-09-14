@@ -8,7 +8,7 @@ Split out of ``migration_manager.py`` (#4511); ``migration_manager`` re-exports
 ``migration_lock`` so existing imports keep working.
 
 :copyright: (C) 2024 Auralis Team
-:license: GPLv3, see LICENSE for more details.
+:license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import logging
