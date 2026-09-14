@@ -2,8 +2,9 @@
 Hybrid Processor Convenience API
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Process-wide cached ``process_adaptive`` / ``process_reference`` /
-``process_hybrid`` free functions, re-exported from the ``auralis`` package.
+Process-wide cached ``process_adaptive`` / ``process_reference`` free
+functions, re-exported from the ``auralis`` package. A ``process_hybrid``
+sibling had no caller and was never re-exported; it was deleted (#5203).
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
@@ -43,7 +44,7 @@ def _get_or_create_processor(config: UnifiedConfig | None, mode: str) -> HybridP
 
     Args:
         config: Optional custom config, or None to use default
-        mode: Processing mode ("adaptive", "reference", or "hybrid")
+        mode: Processing mode ("adaptive" or "reference")
 
     Returns:
         Cached or newly created HybridProcessor instance
@@ -123,21 +124,6 @@ def process_reference(target: np.ndarray,
     First call initializes components (~500ms), subsequent calls are instant.
     """
     processor = _get_or_create_processor(config, "reference")
-    result = processor.process(target, reference)
-    assert result is not None
-    return result
-
-
-def process_hybrid(target: np.ndarray,
-                  reference: np.ndarray | None = None,
-                  config: UnifiedConfig | None = None) -> np.ndarray:
-    """
-    Quick hybrid processing function (cached)
-
-    Reuses HybridProcessor instances to avoid expensive re-initialization.
-    First call initializes components (~500ms), subsequent calls are instant.
-    """
-    processor = _get_or_create_processor(config, "hybrid")
     result = processor.process(target, reference)
     assert result is not None
     return result

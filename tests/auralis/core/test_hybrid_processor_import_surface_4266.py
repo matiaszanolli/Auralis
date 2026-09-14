@@ -2,7 +2,8 @@
 Import-surface guard for the hybrid-processor free functions (#4266)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-#4266 moved `process_adaptive`/`process_reference`/`process_hybrid` and their
+#4266 moved `process_adaptive`/`process_reference` (and a `process_hybrid`
+sibling, deleted in #5203 as uncalled and never re-exported) and their
 shared LRU processor cache out of `hybrid_processor.py` into
 `hybrid_processor_singleton.py`, leaving the class file holding only
 `HybridProcessor`. The functions are public package API, so the move must be
@@ -35,9 +36,19 @@ class TestPublicImportSurface:
         assert auralis.process_adaptive is singleton_module.process_adaptive
         assert auralis.process_reference is singleton_module.process_reference
 
-    def test_all_three_wrappers_live_in_the_singleton_module(self) -> None:
-        for name in ("process_adaptive", "process_reference", "process_hybrid"):
+    def test_both_wrappers_live_in_the_singleton_module(self) -> None:
+        for name in ("process_adaptive", "process_reference"):
             assert callable(getattr(singleton_module, name)), name
+
+    def test_every_wrapper_is_reexported(self) -> None:
+        """The module docstring promises re-export; hold every public wrapper to
+        it, so an uncalled, unexported sibling cannot accumulate again (#5203)."""
+        public = {
+            name for name in vars(singleton_module)
+            if name.startswith("process_") and callable(getattr(singleton_module, name))
+        }
+        assert public == {"process_adaptive", "process_reference"}
+        assert public <= set(auralis.__all__)
 
 
 class TestClassFileHoldsOnlyTheClass:
@@ -47,7 +58,7 @@ class TestClassFileHoldsOnlyTheClass:
         assert singleton_module.HybridProcessor is class_module.HybridProcessor
 
     def test_class_file_defines_no_process_wrappers(self) -> None:
-        for name in ("process_adaptive", "process_reference", "process_hybrid"):
+        for name in ("process_adaptive", "process_reference"):
             assert not hasattr(class_module, name), (
                 f"{name} is back in hybrid_processor.py — it belongs in "
                 "hybrid_processor_singleton.py (#4266)"
