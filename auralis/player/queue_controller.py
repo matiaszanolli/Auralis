@@ -289,9 +289,18 @@ class QueueController:
         # Route through the locked property setter (#4096) — writing
         # self.queue.shuffle_enabled directly bypassed QueueManager._lock that
         # the shuffle_enabled reader holds.
+        #
+        # #5315: read the prior state BEFORE overwriting the flag, and skip
+        # queue.shuffle() entirely when shuffle was already enabled. Beyond
+        # QueueManager.shuffle()'s own snapshot guard (which stops the
+        # original order from being lost), a repeated set_shuffle(True) —
+        # double click, retried request, UI race — must not even re-shuffle
+        # the already-shuffled queue a second time.
+        already_enabled = self.shuffle_enabled
         self.shuffle_enabled = enabled
         if enabled:
-            self.queue.shuffle()
+            if not already_enabled:
+                self.queue.shuffle()
         else:
             self.queue.unshuffle()
         info(f"Shuffle {'enabled' if enabled else 'disabled'}")

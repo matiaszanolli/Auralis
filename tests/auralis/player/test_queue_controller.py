@@ -302,6 +302,39 @@ class TestShuffleMode:
         assert [t['id'] for t in ctrl.get_queue()] == original_order
         assert ctrl.queue._pre_shuffle_tracks is None
 
+    def test_repeated_set_shuffle_true_does_not_reshuffle_or_resnapshot(self):
+        """#5315: a repeated set_shuffle(True) call (double click, retried
+        request, UI race) while shuffle is already enabled must be a no-op —
+        neither reordering the queue again nor overwriting the snapshot that
+        holds the true original order."""
+        ctrl = _loaded_controller(5)
+
+        ctrl.set_shuffle(True)
+        order_after_first = [t['id'] for t in ctrl.get_queue()]
+        snapshot_after_first = ctrl.queue._pre_shuffle_tracks
+
+        ctrl.set_shuffle(True)
+
+        assert [t['id'] for t in ctrl.get_queue()] == order_after_first, (
+            "second set_shuffle(True) reordered an already-shuffled queue"
+        )
+        assert ctrl.queue._pre_shuffle_tracks == snapshot_after_first, (
+            "second set_shuffle(True) overwrote the pre-shuffle snapshot"
+        )
+
+    def test_double_enable_then_disable_restores_true_original_order(self):
+        """#5315 end-to-end: set_shuffle(True) x2 then set_shuffle(False)
+        must restore the order from before the FIRST shuffle, not the
+        already-shuffled order the second call would have re-snapshotted."""
+        ctrl = _loaded_controller(5)
+        original_order = [t['id'] for t in ctrl.get_queue()]
+
+        ctrl.set_shuffle(True)
+        ctrl.set_shuffle(True)
+        ctrl.set_shuffle(False)
+
+        assert [t['id'] for t in ctrl.get_queue()] == original_order
+
 
 # ---------------------------------------------------------------------------
 # reorder_tracks

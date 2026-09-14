@@ -85,6 +85,31 @@ def test_unshuffle_without_prior_shuffle_returns_false():
     assert q.unshuffle() is False
 
 
+def test_double_shuffle_then_unshuffle_restores_true_original_order():
+    """#5315: a second shuffle() while already shuffled must not overwrite
+    the pre-shuffle snapshot with the (already-shuffled) current order."""
+    q = _queue(4)
+    original_order = [t['id'] for t in q.get_queue()]
+    original_index = q.current_index
+
+    q.shuffle()
+    q.shuffle()  # repeated "enable shuffle" — must not re-snapshot
+
+    assert q.unshuffle() is True
+    assert [t['id'] for t in q.get_queue()] == original_order
+    assert q.current_index == original_index
+
+
+def test_second_shuffle_does_not_replace_the_snapshot_object():
+    q = _queue(4)
+    q.shuffle()
+    first_snapshot = q._pre_shuffle_tracks
+
+    q.shuffle()
+
+    assert q._pre_shuffle_tracks == first_snapshot
+
+
 def test_insert_before_current_track_preserves_current_identity():
     q = QueueManager()
     tracks = [{'filepath': f'/music/{name}.flac'} for name in ('a', 'b', 'c')]

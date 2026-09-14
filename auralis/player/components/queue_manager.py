@@ -337,9 +337,18 @@ class QueueManager:
             if len(self.tracks) <= 1:
                 return
 
-            # Snapshot the original order so unshuffle() can restore it
-            self._pre_shuffle_tracks = list(self.tracks)
-            self._pre_shuffle_index = self.current_index
+            # Snapshot the original order so unshuffle() can restore it.
+            # #5315: only on the not-shuffled -> shuffled transition. A
+            # second shuffle() call while a snapshot is already held would
+            # otherwise re-snapshot the *current* (already-shuffled) order,
+            # permanently losing the true original — unshuffle() would then
+            # restore the wrong order. `_pre_shuffle_tracks is None` is
+            # exactly "no snapshot held", which _invalidate_shuffle_snapshot_
+            # unlocked() (called by every queue-shape mutator) also resets to,
+            # so a mutation-then-reshuffle still re-snapshots correctly.
+            if self._pre_shuffle_tracks is None:
+                self._pre_shuffle_tracks = list(self.tracks)
+                self._pre_shuffle_index = self.current_index
 
             current_track = self._get_current_track_unlocked()
             current_track_id = current_track.get('id') if current_track else None
