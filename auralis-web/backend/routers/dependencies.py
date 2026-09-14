@@ -17,7 +17,12 @@ from fastapi import HTTPException
 
 from auralis import AudioPlayer
 
-from .errors import handle_query_error
+from .errors import (
+    AudioPlayerUnavailableError,
+    ConnectionManagerUnavailableError,
+    PlayerStateUnavailableError,
+    handle_query_error,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +46,7 @@ def require_audio_player(get_audio_player: Callable[[], Any]) -> AudioPlayer:
     """
     audio_player = get_audio_player()
     if not audio_player:
-        raise HTTPException(status_code=503, detail="Audio player not available")
+        raise AudioPlayerUnavailableError()
     return cast(AudioPlayer, audio_player)
 
 
@@ -60,7 +65,7 @@ def require_player_state_manager(get_player_state_manager: Callable[[], Any]) ->
     """
     state_manager = get_player_state_manager()
     if not state_manager:
-        raise HTTPException(status_code=503, detail="Player state manager not available")
+        raise PlayerStateUnavailableError()
     return state_manager
 
 
@@ -78,7 +83,7 @@ def require_connection_manager(connection_manager: Any) -> Any:
         HTTPException: 503 if connection manager is not available
     """
     if not connection_manager:
-        raise HTTPException(status_code=503, detail="Connection manager not available")
+        raise ConnectionManagerUnavailableError()
     return connection_manager
 
 

@@ -47,7 +47,12 @@ from services import (
 from websocket.outbound_messages import broadcast_typed
 
 from .dependencies import with_error_handling
-from .errors import NotFoundError, raise_for_service_error
+from .errors import (
+    AudioPlayerUnavailableError,
+    LibraryManagerUnavailableError,
+    NotFoundError,
+    raise_for_service_error,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -376,7 +381,7 @@ def _get_queue_history_repo(library_database: Any = Depends(_get_library_databas
     no per-instance caching needed for occasional undo/history calls).
     """
     if not library_database:
-        raise HTTPException(status_code=503, detail="Library manager not available")
+        raise LibraryManagerUnavailableError()
     from auralis.library.repositories.queue_history_repository import (
         QueueHistoryRepository,
     )
@@ -431,13 +436,13 @@ async def load_track(
         HTTPException: If track not found, audio player not available, or load fails
     """
     if not audio_player:
-        raise HTTPException(status_code=503, detail="Audio player not available")
+        raise AudioPlayerUnavailableError()
 
     # Security: Query track from database to validate file path (offloaded — sync DB call)
     # This deref sits outside the try: below, so a None manager escaped as an
     # unhandled AttributeError rather than an actionable 503 (#4656).
     if library_database is None:
-        raise HTTPException(status_code=503, detail="Library manager not available")
+        raise LibraryManagerUnavailableError()
 
     track = await asyncio.to_thread(library_database.tracks.get_by_id, request.track_id)
     if not track:

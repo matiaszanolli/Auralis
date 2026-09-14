@@ -30,7 +30,7 @@ from websocket.outbound_messages import (
 
 from services.missing_tracks import prune_missing_tracks
 
-from .errors import handle_query_error
+from .errors import LibraryManagerUnavailableError, handle_query_error
 
 logger = logging.getLogger(__name__)
 
@@ -176,7 +176,7 @@ def create_library_scan_router(
         """
         library_database = get_library_database() if get_library_database else None
         if library_database is None:
-            raise HTTPException(status_code=503, detail="Library manager not available")
+            raise LibraryManagerUnavailableError()
         return {"is_scanning": library_database.is_scanning()}
 
     @router.post("/api/library/scan", response_model=ScanResultResponse)
@@ -200,7 +200,7 @@ def create_library_scan_router(
             # reached LibraryScanner as an opaque 500 (#4656).
             library_database = get_library_database() if get_library_database else None
             if library_database is None:
-                raise HTTPException(status_code=503, detail="Library manager not available")
+                raise LibraryManagerUnavailableError()
 
             scanner = LibraryScanner(library_database)
 
