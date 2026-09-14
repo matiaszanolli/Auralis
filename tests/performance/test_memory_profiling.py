@@ -306,11 +306,15 @@ class TestGarbageCollection:
 
     def test_gc_after_processing(self, performance_audio_file, steady_state_memory):
         """
-        BENCHMARK: Every steady-state process() run releases > 70% of what it allocated.
+        BENCHMARK: Every steady-state process() run releases > 95% of what it allocated.
 
         Checked per run over several warmed-up runs (#5194), not as one RSS
         before/after delta. See `measure_steady_state_memory` for why RSS read
         a spurious 0% here.
+
+        Threshold calibrated against deliberate leaks: a clean run reclaims
+        ~100%, and a processor that keeps its whole output reclaims ~92%, so
+        95% fails on that regression with margin. The old 70% passed it.
         """
         config = UnifiedConfig()
         config.set_processing_mode('adaptive')
@@ -320,9 +324,9 @@ class TestGarbageCollection:
         runs = steady_state_memory(lambda: processor.process(audio))
 
         for i, run in enumerate(runs):
-            assert run.reclaim_percentage > 70, (
+            assert run.reclaim_percentage > 95, (
                 f"steady-state run {i} reclaimed only {run.reclaim_percentage:.1f}% "
-                f"of the {run.allocated_mb:.1f}MB it allocated (expected >70%)"
+                f"of the {run.allocated_mb:.1f}MB it allocated (expected >95%)"
             )
 
         worst = min(run.reclaim_percentage for run in runs)

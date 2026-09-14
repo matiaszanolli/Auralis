@@ -649,12 +649,18 @@ class TestMemoryEfficiency:
 
     def test_processing_memory_cleanup(self, performance_audio_file, steady_state_memory):
         """
-        BENCHMARK: Repeated processing does not accumulate memory (>80% reclaimed).
+        BENCHMARK: Repeated processing does not accumulate memory.
 
         Asserts on growth across several warmed-up runs (#5194): everything
-        those runs together still hold must stay under 20% of one run's working
-        set. A leak of even a fraction of each result compounds past that. See
-        `measure_steady_state_memory` for why this replaced an RSS snapshot.
+        those runs together still hold must stay under 2% of one run's working
+        set. See `measure_steady_state_memory` for why this replaced an RSS
+        snapshot.
+
+        Threshold calibrated against deliberate leaks (tracemalloc is
+        deterministic, so it can be tight): clean runs grow ~0.02MB against a
+        ~0.47MB limit, while keeping each whole output grows ~8.4MB and keeping
+        just 10% of each output grows ~0.9MB. Both fail. A 20% limit missed
+        the 10% leak.
         """
         config = UnifiedConfig()
         config.set_processing_mode('adaptive')
@@ -666,10 +672,10 @@ class TestMemoryEfficiency:
         growth_mb = sum(run.retained_mb for run in runs)
         working_set_mb = max(run.allocated_mb for run in runs)
 
-        # BENCHMARK: cumulative growth < 20% of one run's working set
-        assert growth_mb < 0.2 * working_set_mb, (
+        # BENCHMARK: cumulative growth < 2% of one run's working set
+        assert growth_mb < 0.02 * working_set_mb, (
             f"traced memory grew {growth_mb:.2f}MB over {len(runs)} steady-state runs, "
-            f"more than 20% of one run's {working_set_mb:.1f}MB working set"
+            f"more than 2% of one run's {working_set_mb:.1f}MB working set"
         )
 
         print(f"\n✓ Memory cleanup: {growth_mb:.2f}MB growth over {len(runs)} runs "
