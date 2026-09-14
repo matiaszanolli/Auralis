@@ -69,7 +69,9 @@ export function useEnhancedPlayCommand({
       wireType: PlaybackWireType = 'enhanced'
     ) => {
       try {
-        // Stop any existing playback
+        // Stop any existing playback. Choosing a track means play, so release a
+        // pause hold left by the previous track (#5459).
+        core.pauseHoldRef.current = false;
         core.playbackEngineRef.current?.stopPlayback();
         // Release the prior ~100 MB buffer before dropping the ref (#4147)
         core.pcmBufferRef.current?.dispose();
@@ -186,6 +188,7 @@ export function useEnhancedPlayCommand({
       core.pendingChunksRef,
       core.lastReceivedChunkIndexRef,
       core.abortRef,
+      core.pauseHoldRef,
       core.armStreamStartWatchdog,
     ]
   );

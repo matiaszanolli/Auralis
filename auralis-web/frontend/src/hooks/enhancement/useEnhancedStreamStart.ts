@@ -205,13 +205,10 @@ export function useEnhancedStreamStart({
         }
       }
 
-      // Start playback immediately when stream begins only if the engine's own
-      // minimum is already satisfied — avoids the engine entering 'error' state
-      // when hook threshold (2 s) was below engine threshold (240 000 samples, fixes #2478).
-      if (buffer.getAvailableSamples() >= engine.getMinBufferSamples()) {
-        engine.startPlayback();
-        core.setIsPaused(false);
-      }
+      // Start now if the buffer already meets the engine's own minimum (#2478),
+      // through the core's single auto-start rule, which also honours a pause
+      // hold (#5459).
+      core.startPlaybackWhenBuffered();
     } catch (error) {
       const errorMsg = `Failed to initialize streaming: ${error instanceof Error ? error.message : String(error)}`;
       console.error('[usePlayEnhanced]', errorMsg);

@@ -102,6 +102,9 @@ export interface StreamingCoreReturn {
   flowPausedRef: React.MutableRefObject<boolean>;
   lastReceivedChunkIndexRef: React.MutableRefObject<number>;
   lastDispatchedProgressRef: React.MutableRefObject<number>;
+  /** Set by a user pause; while set, buffered audio never starts on its own (#5459).
+   *  A new play command clears it. */
+  pauseHoldRef: React.MutableRefObject<boolean>;
 
   currentTime: number;
   setCurrentTime: React.Dispatch<React.SetStateAction<number>>;
@@ -114,6 +117,9 @@ export interface StreamingCoreReturn {
   handleChunk: (message: AudioChunkMessage) => void;
   handleStreamEnd: (message: AudioStreamEndMessage) => void;
   handleStreamError: (message: AudioStreamErrorMessage) => void;
+  /** Start the engine if it is idle, not held paused, and buffered past the
+   *  start threshold — the single auto-start rule (#5459). */
+  startPlaybackWhenBuffered: () => void;
 
   stopPlayback: () => void;
   pausePlayback: () => void;
@@ -224,6 +230,30 @@ export function useAudioStreamingCore(
     cleanupStreamingRef.current = cleanupStreaming;
   }, [cleanupStreaming]);
 
+  // #5459: set by a user pause and kept across a seek, a WS reconnect-resume or
+  // an error auto-resume, so a stream that buffers while paused stays paused.
+  // Pause here is client-side only — the backend keeps streaming — and a seek
+  // stops the engine outright, so without this the next buffered chunk started
+  // playback on its own. Cleared by resume, stop and a new play command. The
+  // Redux isPlaying effect below does NOT set it: backend player_state
+  // broadcasts write that flag, and a stray `false` must not wedge the next track.
+  const pauseHoldRef = useRef(false);
+  const getStartThresholdRef = useRef(getStartThreshold);
+  getStartThresholdRef.current = getStartThreshold;
+
+  /** The one auto-start rule (#5459): every path that might begin playback —
+   *  a chunk landing, the stream-start drain, a resume — goes through here. */
+  const startPlaybackWhenBuffered = useCallback(() => {
+    const engine = playbackEngineRef.current;
+    const buffer = pcmBufferRef.current;
+    const metadata = streamingMetadataRef.current;
+    if (!engine || !buffer || !metadata || pauseHoldRef.current || engine.isPlaying()) return;
+    if (buffer.getAvailableSamples() >= getStartThresholdRef.current(metadata, engine)) {
+      engine.startPlayback();
+      setIsPaused(false);
+    }
+  }, []);
+
   // The decode/append/progress arithmetic lives in ./audioChunkIngest as plain
   // functions (#5041); what stays here is acting on their decisions, because
   // that needs the refs, the dispatcher and the socket.
@@ -311,16 +341,7 @@ export function useAudioStreamingCore(
         );
       }
 
-      // Auto-start playback once the caller's threshold is satisfied.
-      const engine = playbackEngineRef.current;
-      if (
-        engine &&
-        !engine.isPlaying() &&
-        result.bufferedSamples >= getStartThreshold(metadata, engine)
-      ) {
-        engine.startPlayback();
-        setIsPaused(false);
-      }
+      startPlaybackWhenBuffered();
 
       DEBUG && console.debug(`${logPrefix} Chunk received:`, {
         chunkIndex: result.chunkIndex,
@@ -333,7 +354,7 @@ export function useAudioStreamingCore(
       console.error(logPrefix, errorMsg);
       dispatch(setStreamingError({ streamType, error: errorMsg }));
     }
-  }, [dispatch, wsContext, streamType, logPrefix, throttleProgress, detectOutOfSequence, getStartThreshold, acceptsStreamType]);
+  }, [dispatch, wsContext, streamType, logPrefix, throttleProgress, detectOutOfSequence, startPlaybackWhenBuffered, acceptsStreamType]);
 
   const handleStreamEnd = useCallback((message: AudioStreamEndMessage) => {
     // Only process messages intended for this stream (#2104)
@@ -488,6 +509,7 @@ export function useAudioStreamingCore(
   }, [wsContext.isConnected]);
 
   const stopPlayback = useCallback(() => {
+    pauseHoldRef.current = false;
     playbackEngineRef.current?.stopPlayback();
     dispatch(resetStreaming(streamType));
     cleanupStreaming();
@@ -496,14 +518,20 @@ export function useAudioStreamingCore(
   }, [dispatch, streamType, cleanupStreaming]);
 
   const pausePlayback = useCallback(() => {
+    pauseHoldRef.current = true;
     playbackEngineRef.current?.pausePlayback();
     setIsPaused(true);
   }, []);
 
   const resumePlayback = useCallback(() => {
+    pauseHoldRef.current = false;
     playbackEngineRef.current?.resumePlayback();
     setIsPaused(false);
-  }, []);
+    // resumePlayback() only restarts a *paused* engine. A seek made while paused
+    // left it stopped with a refilled buffer, and flow control may have halted
+    // delivery, so no further chunk would come along to start it (#5459).
+    startPlaybackWhenBuffered();
+  }, [startPlaybackWhenBuffered]);
 
   const setVolume = useCallback((volume: number) => {
     playbackEngineRef.current?.setVolume(Math.max(0, Math.min(1, volume)));
@@ -539,14 +567,14 @@ export function useAudioStreamingCore(
 
     if (isPlaying) {
       if (isPausedRef.current) {
-        playbackEngineRef.current.resumePlayback();
-        setIsPaused(false);
+        resumePlayback();
       }
     } else {
       playbackEngineRef.current.pausePlayback();
       setIsPaused(true);
     }
-  }, [isPlaying]);
+    // resumePlayback is stable (its only dependency is a []-memoized callback).
+  }, [isPlaying, resumePlayback]);
 
   // Register resume position getter for WS reconnect (#3185)
   useEffect(() => {
@@ -585,6 +613,7 @@ export function useAudioStreamingCore(
     flowPausedRef,
     lastReceivedChunkIndexRef,
     lastDispatchedProgressRef,
+    pauseHoldRef,
     currentTime,
     setCurrentTime,
     isPaused,
@@ -594,6 +623,7 @@ export function useAudioStreamingCore(
     handleChunk,
     handleStreamEnd,
     handleStreamError,
+    startPlaybackWhenBuffered,
     stopPlayback,
     pausePlayback,
     resumePlayback,

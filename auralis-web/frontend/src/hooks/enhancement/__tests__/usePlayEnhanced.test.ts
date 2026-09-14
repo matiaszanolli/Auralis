@@ -1068,6 +1068,102 @@ describe('usePlayEnhanced – playback controls', () => {
 });
 
 // ============================================================================
+// 8b. A user pause survives a seek (#5459)
+// ============================================================================
+
+describe('usePlayEnhanced – pause survives a seek (#5459)', () => {
+  let store: TestStore;
+
+  async function playingStream() {
+    store = createTestStore();
+    const { result } = renderHook(() => usePlayEnhanced(), { wrapper: makeWrapper(store) });
+    await act(async () => {
+      await result.current.playEnhanced(42, 'adaptive', 0.8);
+    });
+    fireHandler('audio_stream_start', makeStreamStartMsg({ track_id: 42 }));
+    return result;
+  }
+
+  function seekStreamBuffered() {
+    fireHandler(
+      'audio_stream_start',
+      makeStreamStartMsg({ track_id: 42, is_seek: true, seek_position: 60 })
+    );
+    mockEngineInstance.startPlayback.mockClear();
+    mockBufferInstance.getAvailableSamples.mockReturnValue(176400); // meets the start threshold
+    mockEngineInstance.isPlaying.mockReturnValue(false);
+    fireHandler('audio_chunk', makeChunkMsg({ chunk_index: 4 }));
+  }
+
+  beforeEach(() => {
+    setupMocks();
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it('a seek made while paused does not start playback once the new stream buffers', async () => {
+    const result = await playingStream();
+    act(() => { result.current.pausePlayback(); });
+    act(() => { result.current.seekTo(60); });
+
+    seekStreamBuffered();
+
+    expect(mockEngineInstance.startPlayback).not.toHaveBeenCalled();
+    expect(result.current.isPaused).toBe(true);
+  });
+
+  it('pressing play afterwards starts the held stream', async () => {
+    const result = await playingStream();
+    act(() => { result.current.pausePlayback(); });
+    act(() => { result.current.seekTo(60); });
+    seekStreamBuffered();
+
+    act(() => { result.current.resumePlayback(); });
+
+    expect(mockEngineInstance.startPlayback).toHaveBeenCalledOnce();
+    expect(result.current.isPaused).toBe(false);
+  });
+
+  it('a seek made while playing still auto-starts', async () => {
+    const result = await playingStream();
+    act(() => { result.current.seekTo(60); });
+
+    seekStreamBuffered();
+
+    expect(mockEngineInstance.startPlayback).toHaveBeenCalledOnce();
+  });
+
+  it('a chunk landing while paused mid-stream does not restart playback', async () => {
+    const result = await playingStream();
+    act(() => { result.current.pausePlayback(); });
+    mockEngineInstance.startPlayback.mockClear();
+    mockBufferInstance.getAvailableSamples.mockReturnValue(176400);
+
+    fireHandler('audio_chunk', makeChunkMsg());
+
+    expect(mockEngineInstance.startPlayback).not.toHaveBeenCalled();
+  });
+
+  it('choosing another track releases the pause', async () => {
+    const result = await playingStream();
+    act(() => { result.current.pausePlayback(); });
+    await act(async () => {
+      await result.current.playEnhanced(43, 'adaptive', 0.8);
+    });
+    fireHandler('audio_stream_start', makeStreamStartMsg({ track_id: 43 }));
+    mockEngineInstance.startPlayback.mockClear();
+    mockBufferInstance.getAvailableSamples.mockReturnValue(176400);
+
+    fireHandler('audio_chunk', makeChunkMsg());
+
+    expect(mockEngineInstance.startPlayback).toHaveBeenCalledOnce();
+  });
+});
+
+// ============================================================================
 // 8c. audio_stream_end reason (#5462)
 // ============================================================================
 
