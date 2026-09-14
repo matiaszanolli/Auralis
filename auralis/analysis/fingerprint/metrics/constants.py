@@ -49,14 +49,7 @@ class FingerprintConstants:
     FINGERPRINT_DIMENSIONS = 25
     EPSILON = 1e-10  # Safe epsilon for division/log operations
 
-    # Normalization constants
-    SPECTRAL_CENTROID_MAX = 8000.0
-    SPECTRAL_ROLLOFF_MAX = 10000.0
-    CHROMA_ENERGY_MAX = 0.4
-    ONSET_DENSITY_MAX = 10.0
-
     # Stability/consistency scaling factors
-    CV_HARMONIC_SCALE = 10.0  # Harmonic pitch stability uses higher sensitivity
     CV_DEFAULT_SCALE = 1.0    # Standard coefficient of variation scaling
 
     @staticmethod

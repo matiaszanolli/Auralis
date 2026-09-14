@@ -22,14 +22,18 @@ from auralis.analysis.fingerprint.metrics import (
     SafeOperations,
     SpectralMetrics,
 )
+from auralis.analysis.fingerprint.metrics.constants import FINGERPRINT_DIMENSION_NAMES
 
 
 class TestFingerprintConstants:
     """Test fingerprint constants and validation."""
 
     def test_fingerprint_dimensions(self):
-        """Test that fingerprint dimensions are correct."""
+        """Test that fingerprint dimensions are correct and match the
+        authoritative dimension-name set (#5352 — repointed off the bare
+        literal so the two cannot silently drift apart, per #4283)."""
         assert FingerprintConstants.FINGERPRINT_DIMENSIONS == 25
+        assert FingerprintConstants.FINGERPRINT_DIMENSIONS == len(FINGERPRINT_DIMENSION_NAMES)
 
     def test_epsilon_value(self):
         """Test epsilon constant is appropriately small."""
