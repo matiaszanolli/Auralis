@@ -21,6 +21,7 @@ import reducer, {
   completeStreaming,
   setStreamingError,
   resetStreaming,
+  setPlaybackStalled,
   setIsPlaying,
 } from '../playerSlice';
 import { initialStreamingInfo } from '../playerStreamingReducers';
@@ -32,6 +33,7 @@ describe('streaming reducer action types (#5042)', () => {
     expect(completeStreaming.type).toBe('player/completeStreaming');
     expect(setStreamingError.type).toBe('player/setStreamingError');
     expect(resetStreaming.type).toBe('player/resetStreaming');
+    expect(setPlaybackStalled.type).toBe('player/setPlaybackStalled');
   });
 
   it('matches the prefix of the flat reducers defined inline in the slice', () => {
@@ -122,6 +124,29 @@ describe('streaming sub-state transitions (#5042)', () => {
     state = reducer(state, resetStreaming('normal'));
 
     expect(state.streaming.normal).toEqual(initialStreamingInfo);
+  });
+
+  it('setPlaybackStalled records a local stall apart from the stream state (#5461)', () => {
+    const live = reducer(
+      base(),
+      startStreaming({ streamType: 'enhanced', trackId: 5, totalChunks: 4, intensity: 1 })
+    );
+
+    const stalled = reducer(live, setPlaybackStalled({ streamType: 'enhanced', stalled: true, trackId: 5 }));
+    expect(stalled.streaming.enhanced).toMatchObject({ stalled: true, state: 'buffering' });
+
+    // A torn-down engine from a track the user skipped away from.
+    expect(
+      reducer(live, setPlaybackStalled({ streamType: 'enhanced', stalled: true, trackId: 9 }))
+        .streaming.enhanced.stalled
+    ).toBe(false);
+
+    // The next stream starts unstalled.
+    const next = reducer(
+      stalled,
+      startStreaming({ streamType: 'enhanced', trackId: 6, totalChunks: 4, intensity: 1 })
+    );
+    expect(next.streaming.enhanced.stalled).toBe(false);
   });
 
   it('stamps lastUpdated from the prepare callback', () => {

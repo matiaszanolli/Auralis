@@ -37,6 +37,10 @@ export interface StreamingInfo {
   totalChunks: number;
   processedChunks: number;
   error: string | null;
+  /** Local playback is stalled: output held silent because delivery fell
+   *  behind real time (#5461). Independent of `state`, which tracks the network
+   *  stream — that stays 'streaming' through a stall. */
+  stalled: boolean;
 }
 
 /** The slice of player state these reducers touch. */
@@ -57,6 +61,7 @@ export const initialStreamingInfo: StreamingInfo = {
   totalChunks: 0,
   processedChunks: 0,
   error: null,
+  stalled: false,
 };
 
 export const streamingReducers = {
@@ -86,6 +91,7 @@ export const streamingReducers = {
       s.progress = 0;
       s.bufferedSamples = 0;
       s.error = null;
+      s.stalled = false;
       state.lastUpdated = action.meta.timestamp;
     },
     prepare(params: {
@@ -94,6 +100,30 @@ export const streamingReducers = {
       totalChunks: number;
       intensity: number;
     }) {
+      return { payload: params, meta: { timestamp: Date.now() } };
+    },
+  },
+
+  /**
+   * Record a local playback stall or its recovery (#5461)
+   */
+  setPlaybackStalled: {
+    reducer(
+      state: StreamingHostState,
+      action: PayloadAction<
+        { streamType: StreamType; stalled: boolean; trackId?: number },
+        string,
+        { timestamp: number }
+      >
+    ) {
+      const s = state.streaming[action.payload.streamType];
+      // An engine torn down by a rapid skip can still report (#4434).
+      if (action.payload.trackId != null && s.trackId !== action.payload.trackId) return;
+      if (s.stalled === action.payload.stalled) return;
+      s.stalled = action.payload.stalled;
+      state.lastUpdated = action.meta.timestamp;
+    },
+    prepare(params: { streamType: StreamType; stalled: boolean; trackId?: number }) {
       return { payload: params, meta: { timestamp: Date.now() } };
     },
   },

@@ -12,13 +12,16 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest';
 import { screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { render } from '@/test/test-utils';
+import { initialStreamingInfo } from '@/store/slices/playerStreamingReducers';
 import Player from '../Player';
 
 // Captured across renders so tests can assert on the exact wire-mode choice.
-const { mockPlayEnhanced, mockPlayNormal, enhancementSettings } = vi.hoisted(() => ({
+const { mockPlayEnhanced, mockPlayNormal, enhancementSettings, session } = vi.hoisted(() => ({
   mockPlayEnhanced: vi.fn(),
   mockPlayNormal: vi.fn(),
   enhancementSettings: { enabled: true },
+  // Mutable so a test can put the mocked session mid-stream.
+  session: { isStreaming: false, streamingState: 'idle' },
 }));
 
 // Heavy hooks remain stubbed — they pull in WebSocket / AudioContext
@@ -37,8 +40,8 @@ vi.mock('@/hooks/enhancement/usePlayEnhanced', () => ({
     pausePlayback: vi.fn(),
     resumePlayback: vi.fn(),
     stopPlayback: vi.fn(),
-    isStreaming: false,
-    streamingState: 'idle',
+    isStreaming: session.isStreaming,
+    streamingState: session.streamingState,
     processedChunks: 0,
     totalChunks: 0,
     currentTime: 0,
@@ -87,6 +90,39 @@ describe('Player', () => {
     enhancementSettings.enabled = true;
     mockPlayEnhanced.mockReset();
     mockPlayNormal.mockReset();
+    session.isStreaming = false;
+    session.streamingState = 'idle';
+  });
+
+  describe('local playback stall (#5461)', () => {
+    function renderStreaming(stalled: boolean, streamingState = 'streaming') {
+      session.isStreaming = streamingState === 'streaming';
+      session.streamingState = streamingState;
+      const enhanced = { ...initialStreamingInfo, state: streamingState, stalled };
+      return renderPlayer(<Player />, {
+        preloadedState: {
+          player: {
+            currentTrack: mockTrack,
+            streaming: { normal: { ...initialStreamingInfo }, enhanced },
+          } as never,
+        },
+      });
+    }
+
+    it('shows the buffering indicator while playback is stalled', () => {
+      renderStreaming(true);
+      expect(screen.getByTestId('buffering-status')).toHaveTextContent('Buffering...');
+    });
+
+    it('shows no buffering status while audio is flowing', () => {
+      renderStreaming(false);
+      expect(screen.queryByTestId('buffering-status')).not.toBeInTheDocument();
+    });
+
+    it('does not report the drain after a completed stream as a stall', () => {
+      renderStreaming(true, 'complete');
+      expect(screen.queryByTestId('buffering-status')).not.toBeInTheDocument();
+    });
   });
 
   it('should render the play button when no track is loaded', () => {

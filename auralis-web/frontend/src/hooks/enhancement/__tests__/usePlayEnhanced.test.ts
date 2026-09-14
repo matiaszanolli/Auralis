@@ -160,6 +160,7 @@ let mockEngineInstance: {
   isPlaying: ReturnType<typeof vi.fn>;
   onStateChanged: ReturnType<typeof vi.fn>;
   onUnderrun: ReturnType<typeof vi.fn>;
+  onStallChange: ReturnType<typeof vi.fn>;
   getCurrentPlaybackTime: ReturnType<typeof vi.fn>;
   getMinBufferSamples: ReturnType<typeof vi.fn>;
   dispose: ReturnType<typeof vi.fn>;
@@ -202,6 +203,7 @@ function setupMocks() {
     isPlaying: vi.fn().mockReturnValue(false),
     onStateChanged: vi.fn(),
     onUnderrun: vi.fn(),
+    onStallChange: vi.fn(),
     getCurrentPlaybackTime: vi.fn().mockReturnValue(0),
     // 2s threshold @ 44100Hz stereo = 176400 samples — matches the auto-start
     // assertions below (buffer >= threshold ⇒ startPlayback).
@@ -1242,6 +1244,33 @@ describe('usePlayEnhanced – chunks queued before audio_stream_start (#5464)', 
     fireHandler('audio_chunk', makeChunkMsg({ chunk_index: 1, frame_index: 0, frame_count: 2 }));
 
     expect(store.getState().player.streaming.enhanced.processedChunks).toBe(1);
+  });
+});
+
+// ============================================================================
+// 8e. Local playback stall (#5461)
+// ============================================================================
+
+describe('usePlayEnhanced – local playback stall (#5461)', () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it('records an engine stall and its recovery in Redux', () => {
+    setupMocks();
+    const store = createTestStore();
+    renderHook(() => usePlayEnhanced(), { wrapper: makeWrapper(store) });
+    fireHandler('audio_stream_start', makeStreamStartMsg());
+
+    expect(mockEngineInstance.onStallChange).toHaveBeenCalledOnce();
+    const reportStall = mockEngineInstance.onStallChange.mock.calls[0][0];
+
+    act(() => { reportStall(true); });
+    expect(store.getState().player.streaming.enhanced.stalled).toBe(true);
+
+    act(() => { reportStall(false); });
+    expect(store.getState().player.streaming.enhanced.stalled).toBe(false);
   });
 });
 

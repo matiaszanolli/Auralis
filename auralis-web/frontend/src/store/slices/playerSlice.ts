@@ -275,6 +275,7 @@ export const {
   completeStreaming,
   setStreamingError,
   resetStreaming,
+  setPlaybackStalled,
 } = playerSlice.actions;
 
 // The setCurrentTrackAndSyncQueue / setDurationAndSyncQueue thunks moved to

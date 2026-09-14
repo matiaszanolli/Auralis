@@ -21,6 +21,9 @@ export interface BufferSchedulerCallbacks {
   /** Script processor fallback reports an incremental samples-played delta. */
   onSamplesPlayedIncrement: (delta: number) => void;
   onUnderrun: () => void;
+  /** Output went silent for lack of audio (`true`) or recovered (`false`) —
+   *  low-water pauses and hard underruns alike, transitions only (#5461). */
+  onStallChange?: (stalled: boolean) => void;
 }
 
 /**
@@ -40,6 +43,7 @@ export class BufferScheduler {
 
   private bufferUnderrunCount: number = 0;
   private isBufferPaused: boolean = false; // Track if we paused due to low buffer
+  private stalled: boolean = false; // Last stall state reported via onStallChange
 
   // Configuration (centralised in audioConstants.ts — #4031)
   private bufferSize: number = PLAYBACK_ENGINE_CONFIG.bufferSize; // samples per process callback
@@ -81,6 +85,15 @@ export class BufferScheduler {
 
   resetBufferHealth(): void {
     this.isBufferPaused = false;
+    this.setStalled(false);
+  }
+
+  /** Report a stall transition. Low-water pauses and hard underruns share this
+   *  one channel so the UI has a single signal to follow (#5461). */
+  private setStalled(stalled: boolean): void {
+    if (stalled === this.stalled) return;
+    this.stalled = stalled;
+    this.callbacks.onStallChange?.(stalled);
   }
 
   /**
@@ -162,8 +175,12 @@ export class BufferScheduler {
         if (data.type === 'underrun') {
           this.bufferUnderrunCount++;
           this.callbacks.onUnderrun();
+          this.setStalled(true);
         } else if (data.type === 'samplesPlayed') {
           this.callbacks.onSamplesPlayedSet(data.count);
+          // The worklet reports progress only while it is writing audio, so
+          // this is the recovery signal for a hard underrun.
+          if (!this.isBufferPaused) this.setStalled(false);
         }
       };
 
@@ -214,6 +231,7 @@ export class BufferScheduler {
   private checkBufferHealth(bufferedSeconds: number, context: 'feed' | 'playback'): boolean {
     if (!this.isBufferPaused && bufferedSeconds < this.lowWaterMarkSeconds) {
       this.isBufferPaused = true;
+      this.setStalled(true);
       console.warn(
         `[BufferScheduler] Buffer critically low (${bufferedSeconds.toFixed(1)}s < ${this.lowWaterMarkSeconds}s). ` +
         `Pausing ${context}...`
@@ -224,6 +242,7 @@ export class BufferScheduler {
     if (this.isBufferPaused) {
       if (bufferedSeconds >= this.highWaterMarkSeconds) {
         this.isBufferPaused = false;
+        this.setStalled(false);
         console.log(
           `[BufferScheduler] Buffer recovered (${bufferedSeconds.toFixed(1)}s >= ${this.highWaterMarkSeconds}s). ` +
           `Resuming ${context}.`
@@ -338,8 +357,11 @@ export class BufferScheduler {
 
       // Notify of underrun
       this.callbacks.onUnderrun();
+      this.setStalled(true);
       return;
     }
+
+    this.setStalled(false);
 
     // If we got fewer samples than requested, we're running low
     if (samples.length < samplesNeeded) {

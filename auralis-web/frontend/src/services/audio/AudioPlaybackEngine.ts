@@ -66,6 +66,7 @@ export class AudioPlaybackEngine {
 
   // Callbacks
   private onBufferUnderrun: () => void = () => {};
+  private onStallChanged: (stalled: boolean) => void = () => {};
 
   constructor(audioContext: AudioContext, buffer: PCMStreamBuffer) {
     this.audioContext = audioContext;
@@ -89,6 +90,7 @@ export class AudioPlaybackEngine {
       onSamplesPlayedSet: (count) => this.positionTracker.setSamplesPlayed(count),
       onSamplesPlayedIncrement: (delta) => this.positionTracker.addSamplesPlayed(delta),
       onUnderrun: () => this.onBufferUnderrun(),
+      onStallChange: (stalled) => this.onStallChanged(stalled),
     });
 
     console.log('[AudioPlaybackEngine] Audio chain connected with visualization analyser');
@@ -271,6 +273,18 @@ export class AudioPlaybackEngine {
     // Return unsubscribe function
     return () => {
       this.onBufferUnderrun = () => {};
+    };
+  }
+
+  /**
+   * Register a callback for local playback stalls (#5461): `true` when output
+   * goes silent for lack of buffered audio (a low-water pause or a hard
+   * underrun), `false` once audio flows again. Fires on transitions only.
+   */
+  onStallChange(callback: (stalled: boolean) => void): () => void {
+    this.onStallChanged = callback;
+    return () => {
+      this.onStallChanged = () => {};
     };
   }
 

@@ -33,6 +33,7 @@ import { usePlaybackControls, usePlaybackProgress } from '@/contexts/PlaybackSes
 // Redux hooks and actions
 import { useSelector } from 'react-redux';
 import { playerSelectors } from '@/store/selectors';
+import { selectEnhancedStreaming } from '@/store/slices/playerSlice';
 
 const Player = () => {
   // Queue panel visibility state
@@ -66,6 +67,12 @@ const Player = () => {
   // Derived buffering state for UI
   const isBuffering = streamingState === 'buffering';
   const hasError = streamingState === 'error';
+  // #5461: output silent because local playback ran out of audio while the
+  // stream is still live. Scoped to 'streaming' so the buffer draining after a
+  // completed stream is not reported as a stall. Kept off the transport
+  // controls so the user can still pause or skip during one.
+  const playbackStalled = useSelector(selectEnhancedStreaming).stalled;
+  const isStalled = streamingState === 'streaming' && playbackStalled;
 
   // Use streaming progress as buffered percentage (chunks received / total chunks)
   const wsBufferedPercentage = totalChunks > 0 ? (processedChunks / totalChunks) * 100 : 0;
@@ -109,7 +116,7 @@ const Player = () => {
       {/* Progress Bar - Full width at top */}
       <Box sx={styles.progressBarContainer}>
         <BufferingIndicator
-          isBuffering={isBuffering || isSeeking}
+          isBuffering={isBuffering || isStalled || isSeeking}
           bufferedPercentage={wsBufferedPercentage}
           isError={hasError}
           errorMessage={isSeeking ? 'Seeking...' : (streamingError ?? undefined)}

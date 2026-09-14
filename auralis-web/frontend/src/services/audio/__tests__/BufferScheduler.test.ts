@@ -28,6 +28,7 @@ function makeCallbacks() {
     onSamplesPlayedSet: vi.fn(),
     onSamplesPlayedIncrement: vi.fn(),
     onUnderrun: vi.fn(),
+    onStallChange: vi.fn(),
   } satisfies BufferSchedulerCallbacks;
 }
 
@@ -258,6 +259,92 @@ describe('BufferScheduler', () => {
       const { ctx, gainNode } = createScriptOnlyContext();
       const scheduler = new BufferScheduler(ctx, makeBuffer(1), gainNode as any, makeCallbacks());
       expect(() => scheduler.resetBufferHealth()).not.toThrow();
+    });
+  });
+
+  describe('stall reporting (#5461)', () => {
+    function emptyThenFlowingBuffer() {
+      const state = { empty: true };
+      const buffer: any = {
+        getMetadata: () => ({ sampleRate: SAMPLE_RATE, channels: CHANNELS }),
+        getAvailableSamples: () => SAMPLE_RATE * 10 * CHANNELS, // above both water marks
+        read: (n: number) => (state.empty ? new Float32Array(0) : new Float32Array(n)),
+      };
+      return { buffer, state };
+    }
+
+    it('reports a low-water pause once, then its recovery once', async () => {
+      const { ctx, gainNode, scriptNode } = createScriptOnlyContext();
+      const callbacks = makeCallbacks();
+      const buffer = makeBuffer(1); // below the 5 s low-water mark
+      const scheduler = new BufferScheduler(ctx, buffer, gainNode as any, callbacks);
+      await scheduler.ensureReady();
+      scheduler.createProcessor();
+
+      scriptNode.onaudioprocess!(makeProcessEvent(256));
+      scriptNode.onaudioprocess!(makeProcessEvent(256));
+      expect(callbacks.onStallChange.mock.calls).toEqual([[true]]);
+
+      buffer.append(new Float32Array(10 * SAMPLE_RATE * CHANNELS)); // past the 8 s high-water mark
+      scriptNode.onaudioprocess!(makeProcessEvent(256));
+      expect(callbacks.onStallChange.mock.calls).toEqual([[true], [false]]);
+    });
+
+    it('treats a hard underrun as a stall until audio flows again', async () => {
+      const { ctx, gainNode, scriptNode } = createScriptOnlyContext();
+      const callbacks = makeCallbacks();
+      const { buffer, state } = emptyThenFlowingBuffer();
+      const scheduler = new BufferScheduler(ctx, buffer, gainNode as any, callbacks);
+      await scheduler.ensureReady();
+      scheduler.createProcessor();
+
+      scriptNode.onaudioprocess!(makeProcessEvent(256));
+      scriptNode.onaudioprocess!(makeProcessEvent(256));
+      expect(callbacks.onStallChange.mock.calls).toEqual([[true]]);
+
+      state.empty = false;
+      scriptNode.onaudioprocess!(makeProcessEvent(256));
+      expect(callbacks.onStallChange.mock.calls).toEqual([[true], [false]]);
+    });
+
+    it('worklet: an underrun stalls and the next progress report recovers', async () => {
+      const port = { postMessage: vi.fn(), onmessage: null as ((e: unknown) => void) | null };
+      class MockAudioWorkletNode {
+        port = port;
+        connect = vi.fn();
+        disconnect = vi.fn();
+        constructor(_ctx: unknown, _name: string, _opts: unknown) {}
+      }
+      vi.stubGlobal('AudioWorkletNode', MockAudioWorkletNode);
+      const ctx: any = { audioWorklet: { addModule: vi.fn().mockResolvedValue(undefined) } };
+      const callbacks = makeCallbacks();
+      const scheduler = new BufferScheduler(
+        ctx, makeBuffer(10), { connect: vi.fn(), disconnect: vi.fn() } as any, callbacks
+      );
+      await scheduler.ensureReady();
+      scheduler.createProcessor();
+
+      port.onmessage!({ data: { type: 'underrun' } } as MessageEvent);
+      port.onmessage!({ data: { type: 'underrun' } } as MessageEvent);
+      expect(callbacks.onStallChange.mock.calls).toEqual([[true]]);
+
+      port.onmessage!({ data: { type: 'samplesPlayed', count: 4096 } } as MessageEvent);
+      expect(callbacks.onStallChange.mock.calls).toEqual([[true], [false]]);
+      scheduler.disconnectProcessor();
+    });
+
+    it('resetBufferHealth reports recovery from a stall', async () => {
+      const { ctx, gainNode, scriptNode } = createScriptOnlyContext();
+      const callbacks = makeCallbacks();
+      const { buffer } = emptyThenFlowingBuffer();
+      const scheduler = new BufferScheduler(ctx, buffer, gainNode as any, callbacks);
+      await scheduler.ensureReady();
+      scheduler.createProcessor();
+      scriptNode.onaudioprocess!(makeProcessEvent(256));
+
+      scheduler.resetBufferHealth();
+
+      expect(callbacks.onStallChange.mock.calls).toEqual([[true], [false]]);
     });
   });
 });

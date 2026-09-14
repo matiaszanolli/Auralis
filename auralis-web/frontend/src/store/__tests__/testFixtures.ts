@@ -120,6 +120,7 @@ const defaultStreamingInfo = {
   totalChunks: 0,
   processedChunks: 0,
   error: null,
+  stalled: false,
 };
 
 export const emptyStoreState: RootState = {

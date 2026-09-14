@@ -25,6 +25,7 @@ import AudioPlaybackEngine from '@/services/audio/AudioPlaybackEngine';
 import {
   startStreaming,
   setStreamingError,
+  setPlaybackStalled,
 } from '@/store/slices/playerSlice';
 import type { AudioStreamStartMessage } from '@/contexts/WebSocketContext';
 import type { StreamingCoreReturn } from './useAudioStreamingCore';
@@ -156,9 +157,13 @@ export function useEnhancedStreamStart({
         }
       });
 
-      // Register underrun callback
-      engine.onUnderrun(() => {
-        DEBUG && console.warn('[usePlayEnhanced] Buffer underrun detected');
+      // A local stall — delivery behind real time, output held silent — used to
+      // reach only the console while the transport kept showing "playing"
+      // (#5461). Record it separately from the network-driven streaming state.
+      const stallTrackId = message.data.track_id;
+      engine.onStallChange((stalled) => {
+        DEBUG && console.warn(`[usePlayEnhanced] Local playback ${stalled ? 'stalled' : 'recovered'}`);
+        dispatch(setPlaybackStalled({ streamType: 'enhanced', stalled, trackId: stallTrackId }));
       });
 
       // Store metadata
