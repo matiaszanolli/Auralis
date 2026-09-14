@@ -19,9 +19,13 @@ pub(crate) fn compute_rms(signal: &[f32]) -> f32 {
 
 /// Estimate LUFS (loudness units relative to full scale) from signal RMS.
 ///
-/// This is a simplified RMS-based approximation, NOT ITU-R BS.1770 certified
-/// (no K-weighting, gating, or integration — see #4123 for the planned proper
-/// implementation).
+/// This is deliberately an RMS proxy, NOT ITU-R BS.1770 (no K-weighting,
+/// gating or integration), and no BS.1770 port is planned. The fingerprint
+/// `lufs` dimension is computed with this same `20*log10(rms)` formula on every
+/// path, including the Python fallback in `windowed_compute._rms_lufs_crest`.
+/// #4123 weighed porting K-weighting and gating here and chose to keep the
+/// proxy so the paths agree (`b9751733`). Callers that need standards-compliant
+/// loudness use `auralis.analysis.loudness_meter.LoudnessMeter` instead.
 ///
 /// The `-0.7` dB calibration constant is the one retained from the fingerprint
 /// path, whose output is a reported *absolute* LUFS value. The variation path
