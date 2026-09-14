@@ -215,9 +215,13 @@ class TestPlaybackLockNotHeldAcrossBroadcast:
                 i for i, ln in enumerate(lines)
                 if "async with self._playback_lock" in ln
             )
+            # The discrete event goes out through broadcast_typed(
+            # self.connection_manager, ...); matching the older direct
+            # `self.connection_manager.broadcast` call found nothing and made
+            # next() raise StopIteration.
             broadcast_line = next(
                 i for i, ln in enumerate(lines)
-                if "self.connection_manager.broadcast" in ln
+                if "broadcast_typed(" in ln
             )
             lock_indent = len(lines[lock_line]) - len(lines[lock_line].lstrip())
             broadcast_indent = (

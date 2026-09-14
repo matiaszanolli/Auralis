@@ -128,7 +128,7 @@ class PlaybackService:
         seam used by the broadcast-timeout regression suite. Normal service
         construction never sets it and always resolves the shared lock.
         """
-        override = getattr(self, "_playback_lock_override", None)
+        override: asyncio.Lock | None = getattr(self, "_playback_lock_override", None)
         if override is not None:
             return override
         return playback_event_sequencer.transition_lock
@@ -183,6 +183,9 @@ class PlaybackService:
                 # PlaybackController._lock; cheap in isolation but the wrap
                 # is identical to QueueService's pattern and guards against
                 # any future heavy work landing inside the engine method.
+                # The call stays inside the transition lock on purpose: the
+                # seq assigned below must match the order in which the engine
+                # actually transitioned (#4751).
                 await asyncio.to_thread(self.audio_player.play)
 
                 # Mutate state and assign seq under the transition lock, but
@@ -315,12 +318,20 @@ class PlaybackService:
 
         try:
             async with self._playback_lock:  # #3734
-                # #3716: offload the sync engine call. seek() is the
-                # load-bearing case — it acquires `file_manager._audio_lock`,
-                # which a concurrent `load_file()` can hold for hundreds of
-                # ms to seconds while decoding a large file. Running this
-                # synchronously on the event loop froze the FastAPI worker
-                # and stalled every other in-flight HTTP request.
+                # #3716: offload the sync engine call. seek() acquires
+                # `file_manager._audio_lock`. When #3716 was written,
+                # `load_file()` decoded while holding that lock, so a seek
+                # could wait seconds and froze the FastAPI worker when run on
+                # the event loop. `AudioFileManager.load_file()` now decodes
+                # outside the lock and only swaps the result in under it
+                # (#5370), so the wait is short and bounded. The offload stays
+                # so any blocking lock wait, or future heavy engine work, can
+                # never run on the event loop.
+                #
+                # Holding the transition lock across this call costs other
+                # transport commands only that short wait, and it keeps a
+                # seek from interleaving with a concurrent stop/play/pause
+                # engine transition.
                 if hasattr(self.audio_player, 'seek'):
                     await asyncio.to_thread(self.audio_player.seek, position)
 
