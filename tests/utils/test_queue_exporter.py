@@ -75,6 +75,52 @@ class TestM3UExport:
         assert '#EXTM3U' in content
         # No tracks, just header
 
+    def test_export_strips_crlf_from_title_to_prevent_line_injection(self):
+        """#5348: a tag value containing CR/LF must not inject an extra
+        M3U line — import_from_string() treats every line as either a
+        directive or a file path, so an injected newline would be
+        misread as a bogus extra path entry on re-import."""
+        tracks = [{
+            'filepath': '/music/song.mp3',
+            'title': 'Evil\r\n/etc/passwd',
+            'artists': ['Artist'],
+            'duration': 100,
+        }]
+
+        content = M3UHandler.export(tracks, extended=True)
+
+        assert '\r' not in content
+        # Exactly one non-comment, non-empty line: the real filepath. If the
+        # injection worked, "/etc/passwd" would appear as its own line too.
+        real_lines = [
+            line for line in content.split('\n')
+            if line and not line.startswith('#')
+        ]
+        assert real_lines == ['/music/song.mp3']
+
+        paths, errors = M3UHandler.import_from_string(content)
+        assert paths == ['/music/song.mp3']
+        assert not errors
+
+    def test_export_strips_crlf_from_artist_and_filepath(self):
+        """CONSISTENCY (#5348): every interpolated field is sanitized, not
+        just title."""
+        tracks = [{
+            'filepath': '/music/clean\r\n/evil.mp3',
+            'title': 'Song',
+            'artists': ['Bad\r\nArtist'],
+            'duration': 50,
+        }]
+
+        content = M3UHandler.export(tracks, extended=True)
+
+        assert '\r' not in content
+        real_lines = [
+            line for line in content.split('\n')
+            if line and not line.startswith('#')
+        ]
+        assert len(real_lines) == 1
+
 
 class TestM3UImport:
     """Test M3U import functionality"""

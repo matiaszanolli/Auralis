@@ -29,6 +29,21 @@ class M3UHandler:
     EXT_ENCODING_PREFIX = '#EXT-X-ENCODING:'
 
     @staticmethod
+    def _sanitize_field(value: str) -> str:
+        """Strip CR/LF so a tag value can never inject an extra M3U line (#5348).
+
+        M3U is line-oriented — import_from_string() treats every line as
+        either a directive or a file path — so an embedded \\r/\\n in an
+        interpolated field would split into an extra line the importer
+        misreads as a separate path entry. Unlike log sanitization
+        (auralis.utils.logging.sanitize_log_value), which escapes control
+        characters for readability in a log stream, this only needs the two
+        characters that break line-splitting removed outright; the value is
+        still meant to display as ordinary playlist metadata.
+        """
+        return value.replace('\r', '').replace('\n', '')
+
+    @staticmethod
     def export(tracks: list[dict[str, Any]], extended: bool = True) -> str:
         """
         Export tracks to M3U format
@@ -56,12 +71,15 @@ class M3UHandler:
 
         # Add tracks
         for track in tracks:
-            filepath = track.get('filepath', '')
+            # #5348: sanitize every interpolated field — CONSISTENCY, not
+            # just the one a repro happens to target — since any of them
+            # can carry attacker-controlled tag data.
+            filepath = M3UHandler._sanitize_field(track.get('filepath', ''))
 
             if extended:
                 # Extended M3U format with metadata
                 duration = int(track.get('duration', 0)) if track.get('duration') else -1
-                title = track.get('title', Path(filepath).stem)
+                title = M3UHandler._sanitize_field(track.get('title', Path(filepath).stem))
                 artist = track.get('artists', ['Unknown'])
 
                 # Format artist string
@@ -69,6 +87,7 @@ class M3UHandler:
                     artist_str = ', '.join(artist) if artist else 'Unknown'
                 else:
                     artist_str = str(artist)
+                artist_str = M3UHandler._sanitize_field(artist_str)
 
                 extinf = f'{M3UHandler.EXTINF_PREFIX}{duration},{artist_str} - {title}'
                 lines.append(extinf)
