@@ -257,11 +257,14 @@ class TestSeekMathUsesSharedConstants:
         assert CHUNK_INTERVAL == CHUNK_DURATION - OVERLAP_DURATION
 
     @pytest.mark.parametrize("module_path", [
-        "cache/manager.py",
+        # _get_current_chunk moved from cache/manager.py (#5238). manager.py
+        # still re-exports chunk_for_position, so checking it would pass
+        # without looking at the derivation at all.
+        "cache/playback_mixin.py",
         "routers/enhancement.py",
     ])
     def test_position_to_chunk_derivations_use_chunk_for_position(self, module_path):
-        """#4791: cache/manager.py's _get_current_chunk and routers/
+        """#4791: the cache's _get_current_chunk and routers/
         enhancement.py's pre-fetch chunk index used to derive the chunk
         index via the naive core-timeline
         ``position // CHUNK_INTERVAL``/``position / CHUNK_INTERVAL`` —

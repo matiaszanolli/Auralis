@@ -61,6 +61,12 @@ hiddenimports = [
     'memory_monitor',
     'cache',
     'cache.manager',
+    'cache.models',
+    'cache.eviction_mixin',
+    'cache.playback_mixin',
+    'cache.status_mixin',
+    'cache.clearing_mixin',
+    'cache.recommendations_mixin',
     'services',
     # Database dependencies
     'sqlalchemy',
