@@ -365,8 +365,3 @@ class SimpleMasteringPipeline:
         intensity: float, sample_rate: int, verbose: bool, hf_lift: float = 1.0,
     ) -> tuple[np.ndarray, dict | None]:
         return air_enhancement.apply(audio, air_pct, spectral_rolloff, intensity, sample_rate, verbose, self.config, hf_lift)
-
-# Factory function
-def create_simple_mastering_pipeline() -> SimpleMasteringPipeline:
-    """Create a simple mastering pipeline instance."""
-    return SimpleMasteringPipeline()

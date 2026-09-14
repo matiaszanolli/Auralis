@@ -17,9 +17,9 @@ import numpy as np
 # `dtype=np.float64` is load-bearing, not decoration (#4923). These literals are
 # Python ints, so without it NumPy infers int64 and every sub-1 dB adjustment a
 # caller adds truncates to zero on assignment — `curve[i] += 0.3 * 2.0 * 0.2`
-# writes 0, not 0.12. The no-genre path in `create_target_curve` builds
-# `np.zeros()` (float64) and behaves correctly, so the truncation appeared only
-# when a genre WAS supplied, i.e. exactly when a shaped curve was wanted.
+# writes 0, not 0.12. A flat curve built with `np.zeros()` (float64) behaves
+# correctly, so the truncation appeared only when a genre curve WAS used, i.e.
+# exactly when a shaped curve was wanted.
 GENRE_CURVES = {
     'rock': np.array([2, 1, 0, 0, 1, 2, 1, 0, -1, 0, 1, 2, 1, 0, 0, 1, 2, 1, 0, -1, 0, 0, 0, 0, 0], dtype=np.float64),
     'pop': np.array([1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0], dtype=np.float64),
@@ -65,7 +65,8 @@ def generate_genre_eq_curve(genre: str, num_bands: int = 25) -> np.ndarray:
         if len(curve) >= num_bands:
             # .copy() is required, not defensive style (#4923). NumPy slicing
             # returns a VIEW, so without it every caller shared one buffer with
-            # the module-level preset table — `create_target_curve` then wrote
+            # the module-level preset table — the former `create_target_curve`
+            # (a test-only wrapper, deleted in #5201) then wrote
             # its brightness/warmth adjustments straight into GENRE_CURVES and
             # they ACCUMULATED across calls for the life of the process. The
             # two branches below already build fresh arrays; this was the lone
@@ -200,42 +201,3 @@ def _apply_spectral_adaptation(gains: np.ndarray,
                 adapted_gains[i] -= 0.5
 
     return adapted_gains
-
-
-def create_target_curve(genre: str | None = None,
-                       brightness: float = 0.0,
-                       warmth: float = 0.0,
-                       num_bands: int = 25) -> np.ndarray:
-    """
-    Create custom target EQ curve
-
-    Args:
-        genre: Optional genre for base curve
-        brightness: Brightness adjustment (-1.0 to 1.0)
-        warmth: Warmth adjustment (-1.0 to 1.0)
-        num_bands: Number of frequency bands
-
-    Returns:
-        Target EQ curve
-    """
-    # Start with genre curve or flat
-    if genre:
-        curve = generate_genre_eq_curve(genre, num_bands)
-    else:
-        curve = np.zeros(num_bands)
-
-    # Apply brightness adjustment (affects high frequencies)
-    if brightness != 0:
-        for i in range(num_bands):
-            # More effect on higher bands
-            high_freq_factor = i / num_bands
-            curve[i] += brightness * 2.0 * high_freq_factor
-
-    # Apply warmth adjustment (affects mid-low frequencies)
-    if warmth != 0:
-        for i in range(num_bands):
-            # More effect on mid-low bands
-            mid_low_factor = 1.0 - abs(i / num_bands - 0.3)
-            curve[i] += warmth * 2.0 * mid_low_factor
-
-    return curve

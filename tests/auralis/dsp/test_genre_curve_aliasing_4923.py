@@ -10,7 +10,9 @@ Two defects in the same function pair, which **masked each other**:
    `GENRE_CURVES` table (slicing 25 of 25 bands does not copy), and
    `create_target_curve` mutated that view in place — writing its
    brightness/warmth adjustments straight into the shared preset, where they
-   accumulated for the life of the process.
+   accumulated for the life of the process. That wrapper had no production
+   caller and was deleted in #5201; the tests below adjust the returned curve
+   directly, which is exactly the write it used to make.
 
 2. `GENRE_CURVES` entries were built from Python ints, so `dtype=int64`, and
    `curve[i] += 0.12` truncated to `+= 0`.
@@ -18,7 +20,7 @@ Two defects in the same function pair, which **masked each other**:
 The masking matters for how this is tested. With the issue's own reproduction
 (`brightness=0.3`) every increment is under 1.0 and truncates to zero, so the
 table appears intact and the corruption is invisible. It only shows once the
-increments clear 1.0 — hence `brightness=1.0` below. Fixing the dtype alone
+increments clear 1.0 — hence the `+= 1.0` below. Fixing the dtype alone
 would have UNMASKED the aliasing and made the corruption worse than it was.
 
 It also invalidates the issue's suggested assertion "call twice, assert the two
@@ -33,11 +35,7 @@ tests assert against `GENRE_CURVES` itself and against memory independence.
 import numpy as np
 import pytest
 
-from auralis.dsp.eq.curves import (
-    GENRE_CURVES,
-    create_target_curve,
-    generate_genre_eq_curve,
-)
+from auralis.dsp.eq.curves import GENRE_CURVES, generate_genre_eq_curve
 
 
 @pytest.fixture(autouse=True)
@@ -66,12 +64,14 @@ class TestNoAliasing:
 
         np.testing.assert_array_equal(GENRE_CURVES['rock'], pristine)
 
-    def test_create_target_curve_does_not_accumulate_across_calls(self):
-        """brightness=1.0, not 0.3: below 1.0 the int truncation hid this."""
+    def test_adjusting_the_result_does_not_accumulate_across_calls(self):
+        """+= 1.0, not 0.3: below 1.0 the int truncation hid this."""
         pristine = GENRE_CURVES['rock'].copy()
 
-        first = create_target_curve('rock', brightness=1.0)
-        second = create_target_curve('rock', brightness=1.0)
+        first = generate_genre_eq_curve('rock')
+        first += 1.0
+        second = generate_genre_eq_curve('rock')
+        second += 1.0
 
         np.testing.assert_array_equal(GENRE_CURVES['rock'], pristine)
         np.testing.assert_allclose(first, second)
@@ -91,21 +91,15 @@ class TestNoIntegerTruncation:
         for genre, curve in GENRE_CURVES.items():
             assert np.issubdtype(curve.dtype, np.floating), f"{genre}: {curve.dtype}"
 
-    def test_sub_one_db_brightness_survives(self):
-        """band 5 of 25 at brightness=0.3 -> +0.12 dB, previously +0."""
-        base = GENRE_CURVES['rock'][5]
-        curve = create_target_curve('rock', brightness=0.3)
+    def test_sub_one_db_adjustment_survives(self):
+        """+0.12 dB on a genre curve (the issue's brightness=0.3 case), previously +0."""
+        for genre, band in (('rock', 5), ('jazz', 10)):
+            base = GENRE_CURVES[genre][band]
+            curve = generate_genre_eq_curve(genre)
+            curve[band] += 0.12
 
-        expected = base + 0.3 * 2.0 * (5 / 25)
-        assert curve[5] == pytest.approx(expected)
-        assert curve[5] != pytest.approx(base), "adjustment truncated away"
-
-    def test_sub_one_db_warmth_survives(self):
-        base = GENRE_CURVES['jazz'][10]
-        curve = create_target_curve('jazz', warmth=0.2)
-
-        expected = base + 0.2 * 2.0 * (1.0 - abs(10 / 25 - 0.3))
-        assert curve[10] == pytest.approx(expected)
+            assert curve[band] == pytest.approx(base + 0.12), genre
+            assert curve[band] != pytest.approx(base), f"{genre}: adjustment truncated away"
 
     def test_generated_curve_is_float_for_every_genre(self):
         for genre in GENRE_CURVES:
@@ -147,7 +141,3 @@ class TestUnchangedBehaviour:
         np.testing.assert_array_equal(
             generate_genre_eq_curve('nonexistent-genre'), np.zeros(25)
         )
-
-    def test_no_genre_path_unaffected(self):
-        curve = create_target_curve(brightness=0.3)
-        assert curve[5] == pytest.approx(0.3 * 2.0 * (5 / 25))

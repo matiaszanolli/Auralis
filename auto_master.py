@@ -27,10 +27,7 @@ import sys
 from pathlib import Path
 from typing import Any, cast
 
-from auralis.core.simple_mastering import (
-    SimpleMasteringPipeline,
-    create_simple_mastering_pipeline,
-)
+from auralis.core.simple_mastering import SimpleMasteringPipeline
 
 # Supported audio formats
 AUDIO_EXTENSIONS = {'.flac', '.wav', '.mp3', '.ogg', '.m4a', '.aac'}
@@ -164,7 +161,7 @@ def main() -> int:
         return 1
 
     try:
-        pipeline = create_simple_mastering_pipeline()
+        pipeline = SimpleMasteringPipeline()
 
         if input_path.is_file():
             # Single file mode

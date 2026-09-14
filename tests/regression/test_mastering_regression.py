@@ -23,7 +23,7 @@ import numpy as np
 import pytest
 from scipy.fft import rfft, rfftfreq
 
-from auralis.core.simple_mastering import create_simple_mastering_pipeline
+from auralis.core.simple_mastering import SimpleMasteringPipeline
 
 
 def measure_spectral_bands(audio: np.ndarray, sr: int) -> dict[str, float]:
@@ -141,7 +141,7 @@ class MasteringRegressionTests:
     """Regression test runner for mastering pipeline."""
 
     def __init__(self):
-        self.pipeline = create_simple_mastering_pipeline()
+        self.pipeline = SimpleMasteringPipeline()
         self.results: dict[str, dict] = {}
 
     def run_test(self, case: TrackTestCase) -> dict:

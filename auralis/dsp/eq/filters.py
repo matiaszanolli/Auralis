@@ -8,12 +8,9 @@ FFT-based EQ filter application with critical band processing
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from typing import Any
-
 import numpy as np
 from scipy.fft import fft, ifft
 
-from ..utils import create_triangular_filterbank
 from .padding import pad_for_fft
 
 
@@ -110,22 +107,3 @@ def apply_eq_mono(audio_mono: np.ndarray,
     processed_audio = np.real(ifft(spectrum))
 
     return np.asarray(processed_audio[:len(audio_mono)], dtype=audio_mono.dtype)
-
-
-def create_filter_bank(critical_bands: list[Any],
-                      sample_rate: int,
-                      fft_size: int) -> np.ndarray:
-    """
-    Create filter bank for critical bands
-
-    Uses vectorized triangular filterbank creation for improved performance.
-
-    Args:
-        critical_bands: List of CriticalBand objects
-        sample_rate: Sample rate in Hz
-        fft_size: FFT size
-
-    Returns:
-        Filter bank matrix (num_bands x fft_bins)
-    """
-    return create_triangular_filterbank(critical_bands, sample_rate, fft_size)

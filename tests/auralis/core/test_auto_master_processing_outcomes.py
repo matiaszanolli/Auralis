@@ -52,7 +52,7 @@ def test_single_file_measurements_cannot_change_exit_code(tmp_path: Path):
     with (
         patch.object(
             auto_master,
-            "create_simple_mastering_pipeline",
+            "SimpleMasteringPipeline",
             return_value=_FakePipeline(),
         ),
         patch(
@@ -81,7 +81,7 @@ def test_folder_exit_code_reflects_processed_file_count(tmp_path: Path):
     with (
         patch.object(
             auto_master,
-            "create_simple_mastering_pipeline",
+            "SimpleMasteringPipeline",
             return_value=_FakePipeline(),
         ),
         patch(
