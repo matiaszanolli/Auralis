@@ -1000,6 +1000,12 @@ pytest -m "not slow"        # Skip slow tests
 pytest -m audio             # Only audio processing tests
 ```
 
+Marker selection alone does not scope the run — each command above still
+collects the whole `tests/` tree. Pass a directory or file (e.g.
+`pytest -m "not slow" tests/auralis/dsp`), and for any tree-wide run exclude
+the two files that hang when run as whole files:
+`--ignore=tests/backend/test_system_api.py --ignore=tests/concurrency/test_thread_safety.py`.
+
 ---
 
 ## Continuous Integration

@@ -319,29 +319,35 @@ desktop/                   # Electron wrapper
 
 ## 🧪 Testing & Quality
 
-The repository contains roughly 5,400 backend and 3,500 frontend tests. The complete suites
-are not currently green; use the recovery audit and release checklist to distinguish
-trustworthy gates from known harness drift.
+Neither complete suite is currently green. CI judges each run against a checked-in
+baseline of known failures (see [CLAUDE.md](CLAUDE.md#ci-gates-and-the-failure-baselines));
+use that, the recovery audit, and the release checklist to distinguish trustworthy gates
+from known harness drift. For current test counts, run `python scripts/check_doc_counts.py`.
 
-- **Backend (Python):** ~5,400 tests covering audio processing, API, security
-- **Frontend (React):** ~3,500 component and integration tests with Vitest
+- **Backend (Python):** pytest — audio processing, API, library, concurrency, security
+- **Frontend (React):** Vitest component and integration tests
 - **Security:** OWASP Top 10 coverage (SQL injection, XSS, etc.)
 
 ### Run Tests
 
 ```bash
-# Backend tests
-python -m pytest tests/ -v
+# Backend — scope to a domain first (the normal inner loop)
+python -m pytest -q -m "not slow" tests/auralis/dsp
 
-# Skip slow tests
-python -m pytest -m "not slow" -v
+# Whole backend suite: takes tens of minutes. These two files HANG when run
+# as whole files, so always exclude them:
+python -m pytest -q -m "not slow" \
+  --ignore=tests/backend/test_system_api.py \
+  --ignore=tests/concurrency/test_thread_safety.py
 
-# Frontend tests
+# With coverage (same exclusions)
+python -m pytest -q -m "not slow" --cov=auralis --cov-report=html \
+  --ignore=tests/backend/test_system_api.py \
+  --ignore=tests/concurrency/test_thread_safety.py
+
+# Frontend tests (2GB heap; OOMs without it)
 cd auralis-web/frontend
-pnpm run test:run
-
-# With coverage
-python -m pytest tests/ --cov=auralis --cov-report=html
+pnpm run test:memory
 ```
 
 See [TESTING_GUIDELINES.md](docs/development/TESTING_GUIDELINES.md) for testing philosophy and standards.
