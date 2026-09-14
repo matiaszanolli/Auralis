@@ -369,35 +369,3 @@ def validate_directory_list(directories: list[str]) -> list[str]:
         except PathValidationError as e:
             raise PathValidationError(f"Invalid directory path '{directory}': {e}") from e
     return validated
-
-
-def sanitize_path_for_response(path: Path | str) -> str:
-    """
-    Sanitize a file path for inclusion in API responses.
-
-    Converts absolute paths to be relative to user's home directory
-    to avoid exposing full system paths.
-
-    Args:
-        path: File path to sanitize
-
-    Returns:
-        Sanitized path string (relative to home if possible)
-
-    Examples:
-        >>> sanitize_path_for_response("/home/user/Music/song.mp3")
-        "~/Music/song.mp3"
-        >>> sanitize_path_for_response("/var/system/file")
-        "/var/system/file"  # Not in home, return as-is
-    """
-    path_obj = Path(path).resolve()
-    home = Path.home()
-
-    try:
-        # Try to make relative to home directory
-        relative = path_obj.relative_to(home)
-        return f"~/{relative}"
-    except ValueError:
-        # Path is not in home directory, return as-is
-        # (This shouldn't happen for music files, but handle gracefully)
-        return str(path_obj)

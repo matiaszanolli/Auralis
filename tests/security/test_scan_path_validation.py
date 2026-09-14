@@ -7,6 +7,9 @@ from a real entry point: LibraryScanRequest (path traversal, system-path,
 mixed-batch, valid-path handling) and validate_file_path (mastering
 endpoint, #2229). validate_scan_path/is_safe_filename were removed as dead
 code with zero call sites (#4799); their coverage went with them.
+sanitize_path_for_response was removed the same way (#5205) — the
+filepath-never-serialized invariant it duplicated is enforced live at the
+`to_dict()`/schema layer instead (#3205).
 
 Fixes #2069: Path traversal in directory scanning endpoint
 
@@ -14,7 +17,6 @@ SECURITY CONTROLS TESTED:
 - Path traversal prevention (../ sequences)
 - Absolute path restriction (paths outside allowed dirs)
 - Non-existent/unreadable path rejection
-- Path sanitization for API responses
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
@@ -34,7 +36,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web/backen
 from security.path_security import (
     PathValidationError,
     get_allowed_directories,
-    sanitize_path_for_response,
     validate_file_path,
 )
 
@@ -64,31 +65,6 @@ class TestAllowedDirectories:
 
                 # Should include XDG_MUSIC_DIR
                 assert any(tmpdir in str(d) for d in allowed)
-
-
-@pytest.mark.security
-class TestPathSanitization:
-    """Test path sanitization for API responses."""
-
-    def test_sanitize_path_in_home(self):
-        """Paths in home directory should be converted to ~/..."""
-        home = Path.home()
-        test_path = home / "Music" / "song.mp3"
-
-        sanitized = sanitize_path_for_response(test_path)
-
-        assert sanitized.startswith("~/")
-        assert "Music/song.mp3" in sanitized
-        assert str(home) not in sanitized  # Full path not exposed
-
-    def test_sanitize_path_outside_home(self):
-        """Paths outside home should be returned as-is."""
-        test_path = Path("/var/lib/music/song.mp3")
-
-        sanitized = sanitize_path_for_response(test_path)
-
-        # Should return absolute path (can't make relative to home)
-        assert sanitized == str(test_path.resolve())
 
 
 @pytest.mark.security
