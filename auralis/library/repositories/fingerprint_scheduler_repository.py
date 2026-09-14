@@ -9,6 +9,8 @@ Methods here atomically claim tracks so parallel workers never double-process.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+import threading
+from collections.abc import Callable
 from typing import Any, cast
 
 from sqlalchemy import delete, select, text, update
@@ -58,7 +60,44 @@ class FingerprintSchedulerRepository(BaseRepository):
 
     Each public method atomically claims exactly one track so concurrent
     workers cannot process the same track twice.
+
+    Claim cursors (#5310): each claim query used to walk its table from the
+    lowest id on every call, past every row already claimed, so a
+    full-library run was O(N^2) (44x slower per claim after 29k claims on a
+    30k-track library). Each queue now remembers the highest track id it has
+    claimed and searches after it. A search that finds nothing retries once
+    from the start, which picks up rows that became eligible behind the
+    cursor: a released claim (#5308), a race lost to another worker, a row
+    re-queued by a version bump. So no eligible track waits longer than one
+    pass. The cursors live on this instance (RepositoryFactory keeps one per
+    process) and start at 0, so every process start is a full pass.
     """
+
+    _UNFINGERPRINTED = "unfingerprinted"
+    _OUTDATED = "outdated"
+
+    def __init__(self, session_factory: Callable[[], Session]) -> None:
+        super().__init__(session_factory)
+        self._cursor_lock = threading.Lock()
+        self._cursors: dict[str, int] = {self._UNFINGERPRINTED: 0, self._OUTDATED: 0}
+
+    def _find_after_cursor(self, queue: str, find: Callable[[int], Any]) -> Any:
+        """Run ``find(after_id)`` from the cursor, wrapping to the start once."""
+        with self._cursor_lock:
+            after = self._cursors[queue]
+        row = find(after)
+        if row is None and after > 0:
+            with self._cursor_lock:
+                # Another claimer may have moved it meanwhile; only rewind ours.
+                if self._cursors[queue] == after:
+                    self._cursors[queue] = 0
+            row = find(0)
+        return row
+
+    def _advance_cursor(self, queue: str, track_id: int) -> None:
+        with self._cursor_lock:
+            if track_id > self._cursors[queue]:
+                self._cursors[queue] = track_id
 
     def claim_next_unfingerprinted_track(self) -> Track | None:
         """Atomically claim the next unfingerprinted track for processing.
@@ -73,23 +112,28 @@ class FingerprintSchedulerRepository(BaseRepository):
         """
         with self._session_scope() as session:
             try:
-                # Find first unfingerprinted track using efficient LEFT JOIN
-                unfingerprinted = session.execute(
-                    select(Track).outerjoin(
-                        TrackFingerprint,
-                        Track.id == TrackFingerprint.track_id
-                    ).where(
-                        TrackFingerprint.id == None,
-                        Track.filepath.isnot(None)
-                    ).order_by(Track.id)
-                ).scalars().first()
+                # Next unfingerprinted track after the cursor, via LEFT JOIN.
+                # Only id and filepath are needed, so no Track row is loaded.
+                def find(after_id: int) -> Any:
+                    return session.execute(
+                        select(Track.id, Track.filepath).outerjoin(
+                            TrackFingerprint,
+                            Track.id == TrackFingerprint.track_id
+                        ).where(
+                            TrackFingerprint.id == None,  # noqa: E711 — SQL IS NULL
+                            Track.filepath.isnot(None),
+                            Track.id > after_id,
+                        ).order_by(Track.id).limit(1)
+                    ).first()
+
+                unfingerprinted = self._find_after_cursor(self._UNFINGERPRINTED, find)
 
                 if not unfingerprinted:
                     return None
 
                 # Save track ID and filepath BEFORE creating placeholder (minimize transaction time)
-                track_id = unfingerprinted.id
-                filepath = unfingerprinted.filepath
+                track_id = int(unfingerprinted[0])
+                filepath = unfingerprinted[1]
 
                 # Try to "claim" this track by creating a placeholder fingerprint.
                 # Minimal initialization — only required fields set, rest will be
@@ -111,6 +155,7 @@ class FingerprintSchedulerRepository(BaseRepository):
                     session.add(placeholder)
                     session.commit()
                     session.expunge_all()  # Clear session immediately after commit
+                    self._advance_cursor(self._UNFINGERPRINTED, track_id)
 
                     # Create a simple Track object with just the essential fields
                     # (avoid keeping session references that slow down claiming)
@@ -160,20 +205,29 @@ class FingerprintSchedulerRepository(BaseRepository):
 
         with self._session_scope() as session:
             try:
-                row = session.execute(
-                    text("""
-                        SELECT tf.track_id, t.filepath
-                        FROM track_fingerprints tf
-                        JOIN tracks t ON t.id = tf.track_id
-                        WHERE tf.fingerprint_version > 0
-                          AND tf.fingerprint_version < :current_ver
-                          AND tf.lufs != -100.0
-                          AND t.filepath IS NOT NULL
-                        ORDER BY tf.track_id
-                        LIMIT 1
-                    """),
-                    {'current_ver': current_version},
-                ).first()
+                # The unary `+` on fingerprint_version keeps SQLite off
+                # idx_fingerprints_version. With that index the planner reads
+                # every eligible row and sorts them by track_id on each claim,
+                # which is O(N) again. Without it, it walks the track_id index
+                # from the cursor and stops at the first match (#5310).
+                def find(after_id: int) -> Any:
+                    return session.execute(
+                        text("""
+                            SELECT tf.track_id, t.filepath
+                            FROM track_fingerprints tf
+                            JOIN tracks t ON t.id = tf.track_id
+                            WHERE +tf.fingerprint_version > 0
+                              AND +tf.fingerprint_version < :current_ver
+                              AND tf.lufs != -100.0
+                              AND t.filepath IS NOT NULL
+                              AND tf.track_id > :after_id
+                            ORDER BY tf.track_id
+                            LIMIT 1
+                        """),
+                        {'current_ver': current_version, 'after_id': after_id},
+                    ).first()
+
+                row = self._find_after_cursor(self._OUTDATED, find)
 
                 if not row:
                     return None
@@ -201,6 +255,7 @@ class FingerprintSchedulerRepository(BaseRepository):
                     debug(f"Track {track_id} outdated fingerprint already claimed")
                     return None
 
+                self._advance_cursor(self._OUTDATED, track_id)
                 claimed = Track()
                 claimed.id = track_id
                 claimed.filepath = filepath
