@@ -8,7 +8,7 @@ Tests for audio file loading with multiple format support
 import tempfile
 import wave
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import patch
 
 import numpy as np
 import pytest
@@ -16,13 +16,11 @@ import pytest
 from auralis.io.unified_loader import (
     FFMPEG_FORMATS,
     SUPPORTED_FORMATS,
-    batch_load_info,
     get_audio_info,
     get_supported_formats,
     is_audio_file,
     load_audio,
     load_reference,
-    load_target,
 )
 from auralis.utils.logging import ModuleError
 
@@ -153,13 +151,6 @@ class TestLoadAudio:
             mock_resample.assert_called_once()
             assert sample_rate == target_rate
 
-    def test_load_target_convenience(self, temp_wav_file):
-        """Test load_target convenience function"""
-        audio_data, sample_rate = load_target(temp_wav_file)
-
-        assert isinstance(audio_data, np.ndarray)
-        assert sample_rate > 0
-
     def test_load_reference_convenience(self, temp_wav_file):
         """Test load_reference convenience function"""
         audio_data, sample_rate = load_reference(temp_wav_file)
@@ -226,41 +217,6 @@ class TestGetAudioInfo:
             assert 'error' in info or 'format' in info
         finally:
             temp_path.unlink()
-
-
-class TestBatchLoadInfo:
-    """Test batch_load_info function"""
-
-    def test_batch_load_single_file(self, temp_wav_file):
-        """Test batch loading with single file"""
-        info_list = batch_load_info([temp_wav_file])
-
-        assert len(info_list) == 1
-        assert 'file_path' in info_list[0]
-
-    def test_batch_load_multiple_files(self, temp_wav_file, temp_mono_wav):
-        """Test batch loading with multiple files"""
-        info_list = batch_load_info([temp_wav_file, temp_mono_wav])
-
-        assert len(info_list) == 2
-        assert all('file_path' in info for info in info_list)
-
-    def test_batch_load_with_errors(self, temp_wav_file):
-        """Test batch loading includes errors for invalid files"""
-        file_list = [temp_wav_file, "nonexistent.wav"]
-
-        info_list = batch_load_info(file_list)
-
-        assert len(info_list) == 2
-        # First should succeed, second should have error
-        assert 'error' not in info_list[0] or 'format' in info_list[0]
-        assert 'error' in info_list[1]
-
-    def test_batch_load_empty_list(self):
-        """Test batch loading with empty list"""
-        info_list = batch_load_info([])
-
-        assert info_list == []
 
 
 class TestHelperFunctions:

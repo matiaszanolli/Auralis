@@ -335,37 +335,7 @@ def _get_info_with_ffprobe(file_path: Path) -> dict[str, Any]:
         raise ModuleError("Invalid FFprobe output")
 
 
-def batch_load_info(file_paths: list[str | Path]) -> list[dict[str, Any]]:
-    """
-    Get information for multiple audio files
-
-    Args:
-        file_paths: List of file paths
-
-    Returns:
-        List of audio info dictionaries
-    """
-    info_list = []
-
-    for file_path in file_paths:
-        try:
-            info_dict = get_audio_info(file_path)
-            info_list.append(info_dict)
-        except Exception as e:
-            info_list.append({
-                'file_path': str(file_path),
-                'error': str(e)
-            })
-
-    return info_list
-
-
 # Convenience functions
-def load_target(file_path: str | Path, **kwargs: Any) -> tuple[np.ndarray, int]:
-    """Load target audio file"""
-    return load_audio(file_path, file_type="target", **kwargs)
-
-
 def load_reference(file_path: str | Path, **kwargs: Any) -> tuple[np.ndarray, int]:
     """Load reference audio file"""
     return load_audio(file_path, file_type="reference", **kwargs)
