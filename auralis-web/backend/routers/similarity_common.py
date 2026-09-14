@@ -112,7 +112,10 @@ async def enqueue_for_fingerprinting(track_id: int) -> bool:
     logged at debug.
 
     Returns:
-        True if the track was handed to the queue.
+        True if the track was newly handed to the queue. False if the queue
+        isn't available, enqueueing raised, or the queue itself rejected the
+        track (already queued or currently processing) — `queue.enqueue()`'s
+        own boolean result is what decides this (#5267).
     """
     try:
         from analysis.fingerprint_queue import get_fingerprint_queue
@@ -120,13 +123,14 @@ async def enqueue_for_fingerprinting(track_id: int) -> bool:
         queue = get_fingerprint_queue()
         if queue is None:
             return False
-        await asyncio.to_thread(queue.enqueue, track_id)
+        added = await asyncio.to_thread(queue.enqueue, track_id)
     except Exception as q_err:  # noqa: BLE001 - never fail the request over this
         logger.debug("Could not enqueue track %s for fingerprinting: %s", track_id, q_err)
         return False
 
-    logger.info("📋 Track %s queued for background fingerprinting", track_id)
-    return True
+    if added:
+        logger.info("📋 Track %s queued for background fingerprinting", track_id)
+    return added
 
 
 async def require_fingerprinted_tracks(repos: Any, *track_ids: int) -> None:

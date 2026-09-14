@@ -38,7 +38,10 @@ sys.path.insert(0, str(_BACKEND))
 
 from routers import similarity as similarity_module  # noqa: E402
 from routers.similarity import EXPLAINABLE_DIMENSIONS  # noqa: E402
-from routers.similarity_common import require_fingerprinted_tracks  # noqa: E402
+from routers.similarity_common import (  # noqa: E402
+    enqueue_for_fingerprinting,
+    require_fingerprinted_tracks,
+)
 
 from auralis.analysis.fingerprint import FingerprintNormalizer  # noqa: E402
 
@@ -405,3 +408,37 @@ class TestHelperUnit:
         _fingerprints_exist(repos, 1)
 
         assert await require_fingerprinted_tracks(repos, 1) is None
+
+
+class TestEnqueueForFingerprintingReturnsQueueResult:
+    """enqueue_for_fingerprinting() must not report success unconditionally (#5267)."""
+
+    @pytest.mark.asyncio
+    async def test_returns_true_when_queue_accepts_the_track(self, queue):
+        queue.enqueue.return_value = True
+
+        assert await enqueue_for_fingerprinting(1) is True
+
+    @pytest.mark.asyncio
+    async def test_returns_false_when_queue_rejects_the_track(self, queue, caplog):
+        """queue.enqueue() returns False for an already-queued/processing track --
+        that must propagate, not be swallowed into an unconditional True."""
+        queue.enqueue.return_value = False
+
+        with caplog.at_level("INFO"):
+            result = await enqueue_for_fingerprinting(1)
+
+        assert result is False
+        assert "queued for background fingerprinting" not in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_returns_false_when_queue_unavailable(self):
+        with patch("analysis.fingerprint_queue.get_fingerprint_queue", return_value=None):
+            assert await enqueue_for_fingerprinting(1) is False
+
+    @pytest.mark.asyncio
+    async def test_returns_false_when_enqueue_raises(self):
+        q = Mock()
+        q.enqueue = Mock(side_effect=RuntimeError("boom"))
+        with patch("analysis.fingerprint_queue.get_fingerprint_queue", return_value=q):
+            assert await enqueue_for_fingerprinting(1) is False
