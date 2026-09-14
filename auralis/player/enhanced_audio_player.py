@@ -49,12 +49,9 @@ class AudioPlayer(
     """
     Real-time audio player with advanced DSP and library integration.
 
-    Facade that coordinates 5 specialized components for clean separation of concerns:
-    - PlaybackController: State machine
-    - AudioFileManager: File I/O
-    - QueueController: Queue/playlist
-    - GaplessPlaybackEngine: Prebuffering
-    - IntegrationManager: Library/callbacks
+    Facade coordinating the 5 components listed in the module docstring above,
+    plus DSP profiles, gapless prebuffering, and RepositoryFactory-backed
+    library integration (no LibraryManager fallback).
 
     File loading, queue navigation, streaming/auto-advance,
     callbacks/introspection, fingerprint-scheduling, and the
@@ -65,18 +62,6 @@ class AudioPlayer(
     class itself keeps only ``__init__``, transport (play/pause/stop/seek),
     and cleanup — every method here or in a mixin touches ``_audio_lock``
     with the exact same acquisition order/scope as before the split.
-
-    Features:
-    - Advanced real-time DSP processing
-    - Automatic mastering with multiple profiles
-    - Queue management and playlist support
-    - Gapless playback with prebuffering
-    - Library integration and auto-reference selection
-    - Performance monitoring and statistics
-
-    API compatible with AudioPlayer.
-
-    Phase 6C: Fully migrated to RepositoryFactory pattern (no LibraryManager fallback)
     """
 
     def __init__(
