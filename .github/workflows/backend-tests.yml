@@ -117,9 +117,14 @@ jobs:
           # regeneration command); --require-hashes makes pip refuse to
           # install anything that doesn't match a listed hash.
           pip install --require-hashes -r requirements-lock.txt
-          # pytest MUST stay at 9.0.x: 9.1 removed the legacy
-          # pytest_ignore_collect(path, config) hook signature that
-          # tests/conftest.py still uses, which crashes collection entirely.
+          # Exact pin for baseline reproducibility, not compatibility:
+          # pytest-baseline.json records failures observed at this version,
+          # and a baseline judged under a different dependency set reports
+          # spurious new failures. 9.0.1 satisfies pyproject's dev floor
+          # (`pytest>=9.0.1`). The old 9.0.x ceiling is gone (#4529 deleted
+          # the legacy pytest_ignore_collect hook that needed it; collection
+          # is verified on 9.1.1), so bumping is safe — but regenerate
+          # pytest-baseline.json from that run's CI artifact in the same change.
           pip install 'pytest==9.0.1' pytest-asyncio pytest-timeout httpx2
 
       # Always exits 0 — a failing suite is expected while the baseline is
