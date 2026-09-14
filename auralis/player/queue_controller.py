@@ -52,12 +52,6 @@ class QueueController:
             "Ensure get_repository_factory is properly configured during startup."
         )
 
-    # Backward compatibility properties for old test code
-    @property
-    def tracks(self) -> list[dict[str, Any]]:
-        """Get list of tracks in queue (already locked via QueueManager.get_queue)."""
-        return self.queue.get_queue()  # type: ignore[no-any-return]
-
     # #3783: route every read/write of QueueManager attributes through the
     # _lock that QueueManager itself uses for its mutators. CPython's GIL
     # kept simple-attribute reads torn-free historically, but free-threaded

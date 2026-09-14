@@ -75,7 +75,7 @@ class TestQueueManager:
 
     def test_queue_manager_initialization(self, queue_manager):
         """Test QueueManager initialization."""
-        assert queue_manager.tracks == []
+        assert queue_manager.queue.get_queue() == []
         assert queue_manager.current_index == -1
         assert queue_manager.shuffle_enabled == False
         assert queue_manager.repeat_enabled == False
@@ -89,8 +89,8 @@ class TestQueueManager:
         }
 
         queue_manager.add_track(track_info)
-        assert len(queue_manager.tracks) == 1
-        assert queue_manager.tracks[0] == track_info
+        assert len(queue_manager.queue.get_queue()) == 1
+        assert queue_manager.queue.get_queue()[0] == track_info
 
         # Add multiple tracks
         track_info2 = {
@@ -99,7 +99,7 @@ class TestQueueManager:
             'file_path': '/test/song2.mp3'
         }
         queue_manager.add_track(track_info2)
-        assert len(queue_manager.tracks) == 2
+        assert len(queue_manager.queue.get_queue()) == 2
 
     def test_queue_navigation_methods(self, queue_manager):
         """Test queue navigation methods."""
