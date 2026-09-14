@@ -32,19 +32,6 @@ import * as cacheActions from '@/store/slices/cacheSlice';
 import * as connectionActions from '@/store/slices/connectionSlice';
 import { ConnectionStatusIndicator } from '../shared/ConnectionStatusIndicator';
 
-// Mock WebSocketContext
-vi.mock('@/contexts/WebSocketContext', () => ({
-  useWebSocketContext: () => ({
-    isConnected: true,
-    connectionStatus: 'connected',
-    send: vi.fn(),
-    subscribe: vi.fn(() => () => {}),
-    subscribeAll: vi.fn(() => () => {}),
-    connect: vi.fn(),
-    disconnect: vi.fn(),
-  }),
-}));
-
 // Mock WebSocket protocol client to prevent initialization errors
 vi.mock('@/services/websocket/protocolClient', () => ({
   MessageType: {
