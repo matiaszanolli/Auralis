@@ -1,5 +1,11 @@
 # Fingerprint Service Integration Guide
 
+**Status**: ⚠️ SUPERSEDED (2026-09-14) — the "Pending: Integration into player code" item below is done; see note
+
+> **Superseded notice (2026-09-14)**: The player now uses `FingerprintService`. `EnhancedAudioPlayer` constructs one (`auralis/player/enhanced_audio_player.py`), and `PlayerFingerprintLoaderMixin._load_fingerprint_for_file()` (`auralis/player/fingerprint_loader_mixin.py`) calls `get_or_compute()` on each track load and applies the result through `RealtimeProcessor.set_fingerprint()` → `AutoMasterProcessor` (`auralis/player/realtime/auto_master.py`). Treat the status checklist and any "three separate implementations" description below as a historical snapshot; the service module itself (`auralis/analysis/fingerprint/fingerprint_service.py`) is the current reference (#5448).
+
+---
+
 ## Overview
 
 A unified `FingerprintService` has been created to consolidate all fingerprinting logic used across the codebase. This eliminates duplication and provides a single interface for fingerprint retrieval with intelligent 3-tier caching.

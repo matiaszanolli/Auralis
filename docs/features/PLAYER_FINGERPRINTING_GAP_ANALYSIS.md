@@ -1,5 +1,11 @@
 # Player Fingerprinting Gap Analysis & Solution
 
+**Status**: ⚠️ SUPERSEDED (2026-09-14) — the gap described below is closed; see note
+
+> **Superseded notice (2026-09-14)**: This document says the player "does NOT use fingerprinting" and proposes integrating `FingerprintService`. That integration is done. `EnhancedAudioPlayer` constructs a `FingerprintService` (`auralis/player/enhanced_audio_player.py`), and on every track load `PlayerFingerprintLoaderMixin._load_fingerprint_for_file()` (`auralis/player/fingerprint_loader_mixin.py`) fetches the 25D fingerprint in a background thread via `get_or_compute()` and hands it to `RealtimeProcessor.set_fingerprint()`, which drives `AutoMasterProcessor`'s adaptive parameters (`auralis/player/realtime/auto_master.py`). Profile-based mastering remains only as the fallback when no fingerprint is available. Kept for historical context on the original analysis only (#5448).
+
+---
+
 ## Executive Summary
 
 The `auto_master.py` script demonstrates proper fingerprinting + adaptive mastering workflow. However, the player code (real-time playback) currently **does NOT use fingerprinting** and instead applies **static profile-based gains**.
