@@ -15,28 +15,11 @@ from .masking import MaskingThresholdCalculator
 from .psychoacoustic_eq import EQSettings, PsychoacousticEQ
 
 
-# Factory function for backward compatibility
-def create_psychoacoustic_eq(sample_rate: int,
-                            fft_size: int = 4096) -> PsychoacousticEQ:
-    """Create psychoacoustic EQ with default settings.
-
-    sample_rate is required (#4622) — a missing/wrong value silently
-    mis-places every critical-band edge for the actual audio.
-    """
-    settings = EQSettings(
-        sample_rate=sample_rate,
-        fft_size=fft_size,
-        smoothing_factor=0.1
-    )
-    return PsychoacousticEQ(settings)
-
-
 __all__ = [
     'PsychoacousticEQ',
     'EQSettings',
     'CriticalBand',
     'MaskingThresholdCalculator',
-    'create_psychoacoustic_eq',
     'generate_genre_eq_curve',
     'create_critical_bands',
     'apply_eq_gains',

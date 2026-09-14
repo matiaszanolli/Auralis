@@ -23,7 +23,6 @@ from auralis.dsp.eq import (
     MaskingThresholdCalculator,
     PsychoacousticEQ,
     create_critical_bands,
-    create_psychoacoustic_eq,
     generate_genre_eq_curve,
 )
 
@@ -149,20 +148,21 @@ class TestEQCurrentAPI:
 
         self.tearDown()
 
-    def test_factory_function(self):
-        """Test create_psychoacoustic_eq factory function"""
+    def test_direct_construction_with_custom_settings(self):
+        """PsychoacousticEQ(EQSettings(...)) with non-default sample_rate/fft_size.
+
+        create_psychoacoustic_eq() (the factory this used to exercise) was a
+        thin, test-only wrapper around exactly this construction — deleted as
+        dead code (#4973); this covers the same custom-parameters case
+        directly against the real constructor.
+        """
         self.setUp()
 
-        # Test with defaults
-        eq = create_psychoacoustic_eq(44100)
-        assert eq is not None
-        assert eq.sample_rate == 44100
-
-        # Test with custom parameters
-        eq_custom = create_psychoacoustic_eq(
+        eq_custom = PsychoacousticEQ(EQSettings(
             sample_rate=48000,
-            fft_size=8192
-        )
+            fft_size=8192,
+            smoothing_factor=0.1
+        ))
         assert eq_custom.sample_rate == 48000
         assert eq_custom.fft_size == 8192
 

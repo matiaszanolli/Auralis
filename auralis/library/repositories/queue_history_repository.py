@@ -96,7 +96,7 @@ class QueueHistoryRepository(BaseRepository):
                 session.expunge(entry)
             return entries
 
-    def undo(self, queue_repository: Any = None) -> QueueState | None:
+    def undo(self) -> QueueState | None:
         """
         Undo the last queue operation by restoring previous state.
 
@@ -105,9 +105,6 @@ class QueueHistoryRepository(BaseRepository):
         so a process crash between the two writes can never leave the history
         in an inconsistent 'already-applied but not yet removed' state
         (issue #2239).
-
-        Args:
-            queue_repository: Unused; kept for backwards-compatible signature.
 
         Returns:
             Restored QueueState, or None if no history available

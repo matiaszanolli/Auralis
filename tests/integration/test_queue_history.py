@@ -165,7 +165,7 @@ class TestQueueHistoryUndo:
         queue_repo.set_queue_state(track_ids=modified_state, current_index=1)
 
         # Undo - should restore initial state
-        restored = queue_history_repo.undo(queue_repo)
+        restored = queue_history_repo.undo()
 
         assert restored is not None
         queue_current = queue_repo.get_queue_state()
@@ -190,7 +190,7 @@ class TestQueueHistoryUndo:
         assert len(history_before) == 1
 
         # Undo
-        queue_history_repo.undo(queue_repo)
+        queue_history_repo.undo()
 
         # History should be consumed
         history_after = queue_history_repo.get_history()
@@ -216,12 +216,12 @@ class TestQueueHistoryUndo:
         queue_history_repo.push_to_history('set', state1)  # Record state1 as "before" state
 
         # Undo 1 - should restore state1
-        queue_history_repo.undo(queue_repo)
+        queue_history_repo.undo()
         current = queue_repo.get_queue_state()
         assert json.loads(current.track_ids) == state1['track_ids']
 
         # Undo 2 - should restore state0
-        queue_history_repo.undo(queue_repo)
+        queue_history_repo.undo()
         current = queue_repo.get_queue_state()
         assert json.loads(current.track_ids) == state0['track_ids']
 
@@ -230,7 +230,7 @@ class TestQueueHistoryUndo:
         queue_repo.set_queue_state(track_ids=[1, 2, 3])
 
         # No history recorded
-        result = queue_history_repo.undo(queue_repo)
+        result = queue_history_repo.undo()
 
         assert result is None
 
@@ -255,7 +255,7 @@ class TestQueueHistoryUndo:
 
         # Undo should raise error
         with pytest.raises(ValueError, match="Corrupted history entry"):
-            queue_history_repo.undo(queue_repo)
+            queue_history_repo.undo()
 
 
 class TestQueueHistoryLimit:
@@ -587,7 +587,7 @@ class TestQueueHistoryIntegration:
         assert json.loads(current.track_ids) == modified
 
         # Undo - restore initial
-        queue_history_repo.undo(queue_repo)
+        queue_history_repo.undo()
         current = queue_repo.get_queue_state()
         assert json.loads(current.track_ids) == initial
 

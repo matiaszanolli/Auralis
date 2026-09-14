@@ -428,12 +428,19 @@ class LibraryScanner:
                     warning(f"on_scan_complete callback raised: {cb_exc}")
 
     def scan_single_directory(self, directory: str, **kwargs: Any) -> ScanResult:
-        """Scan a single directory"""
+        """Convenience wrapper: scan_directories() for exactly one directory."""
         return self.scan_directories([directory], **kwargs)
 
     def scan_folder(self, folder_path: str, recursive: bool = True, **kwargs: Any) -> list[dict[str, Any]]:
         """
-        Backward compatibility method for scanning a folder.
+        Discover audio files under a folder and return their metadata directly.
+
+        Unlike scan_directories()/scan_single_directory(), this performs no
+        database writes — it's a read-only preview of what a scan would find,
+        used today by the scanner's own test suite. Has no production caller
+        as of #4973; kept as a documented convenience method rather than
+        deleted, since it does genuinely distinct work (discovery + metadata,
+        no persistence) rather than merely forwarding to scan_directories().
 
         Args:
             folder_path: Path to folder to scan
@@ -443,8 +450,6 @@ class LibraryScanner:
         Returns:
             List of discovered files with metadata
         """
-        # Use FileDiscovery to find all audio files in the folder
-        # This is compatible with the old test expectations
         files: list[dict[str, Any]] = []
 
         try:
