@@ -80,7 +80,15 @@ describe('integration specs exercise production code (#5119)', () => {
   it('finds the integration trees', () => {
     // Guards the guard: if the globbing silently matches nothing, every
     // assertion below passes vacuously — exactly the failure mode #5119 is about.
-    expect(specs.length).toBeGreaterThan(10);
+    //
+    // #5186 retired the 14 fixture-only files this threshold used to count
+    // (their docstrings each named where the real coverage already lived —
+    // verified before deleting, not assumed) plus the api-integration tree's
+    // one entry, leaving 3 real specs. The floor is set well below that so a
+    // future legitimate addition/removal doesn't require touching this file,
+    // while still catching the actual failure mode: a silently-empty glob
+    // (0) or a regression that deletes the real coverage without noticing.
+    expect(specs.length).toBeGreaterThan(2);
   });
 
   it.each(specs.map((s) => [relative(TESTS_ROOT, s), s]))(
