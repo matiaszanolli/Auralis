@@ -113,16 +113,16 @@ class TestSerializerFilepathConsistency:
 
     def test_orm_to_dict_and_serializer_agree_about_filepath(self):
         from auralis.library.models.core import Track
-        from routers.serializers import serialize_track
+        from routers.serializers import serialize_tracks
 
         track = Track(id=1, title="X", filepath="/music/a.flac", duration=10.0)
         assert "filepath" not in track.to_dict()
-        assert "filepath" not in serialize_track(track)
+        assert "filepath" not in serialize_tracks([track])[0]
 
     def test_serialized_track_still_carries_format(self):
         """The field the queue utilities actually need."""
         from auralis.library.models.core import Track
-        from routers.serializers import serialize_track
+        from routers.serializers import serialize_tracks
 
         track = Track(id=1, title="X", filepath="/music/a.flac", duration=10.0, format="flac")
-        assert serialize_track(track)["format"] == "flac"
+        assert serialize_tracks([track])[0]["format"] == "flac"

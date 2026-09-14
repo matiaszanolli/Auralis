@@ -32,12 +32,10 @@ from routers.serializers import (
     serialize_album,
     serialize_albums,
     serialize_artist,
-    serialize_artists,
     serialize_object,
     serialize_objects,
     serialize_playlist,
     serialize_playlists,
-    serialize_track,
     serialize_tracks,
 )
 
@@ -139,7 +137,7 @@ class TestSerializeObject:
 
 
 # ---------------------------------------------------------------------------
-# serialize_track / serialize_tracks — sensitive field exclusion
+# serialize_tracks — sensitive field exclusion
 # ---------------------------------------------------------------------------
 
 class TestSerializeTrack:
@@ -158,12 +156,12 @@ class TestSerializeTrack:
 
     def test_filepath_absent_from_serialized_track(self):
         track = self._make_track()
-        result = serialize_track(track)
+        result = serialize_tracks([track])[0]
         assert 'filepath' not in result
 
     def test_safe_fields_present(self):
         track = self._make_track()
-        result = serialize_track(track)
+        result = serialize_tracks([track])[0]
         assert result['id'] == 1
         assert result['title'] == 'Test Track'
 
@@ -174,7 +172,7 @@ class TestSerializeTrack:
         obj.title = "Fallback Track"
         obj.duration = 200.0
         obj.format = "MP3"
-        result = serialize_track(obj)
+        result = serialize_tracks([obj])[0]
         assert 'filepath' not in result
 
     def test_serialize_tracks_list(self):
@@ -430,7 +428,7 @@ class TestSerializeArtist:
 
     def test_serialize_artists_list(self):
         artists = [self._make_artist(album_count=i) for i in range(4)]
-        results = serialize_artists(artists)
+        results = [serialize_artist(a) for a in artists]
         assert len(results) == 4
 
 

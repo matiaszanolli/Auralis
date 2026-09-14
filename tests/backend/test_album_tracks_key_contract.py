@@ -23,7 +23,7 @@ import pytest
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT / "auralis-web" / "backend"))
 
-from routers.serializers import DEFAULT_TRACK_FIELDS, serialize_track
+from routers.serializers import DEFAULT_TRACK_FIELDS, serialize_tracks
 
 _TRANSFORMER = (
     _REPO_ROOT / "auralis-web" / "frontend" / "src" / "api" / "transformers" / "trackTransformer.ts"
@@ -61,7 +61,7 @@ def _transformer_source() -> str:
 
 class TestEmittedKeys:
     def test_fallback_serializer_emits_every_required_key(self):
-        data = serialize_track(_FakeTrack())
+        data = serialize_tracks([_FakeTrack()])[0]
 
         missing = _REQUIRED_WIRE_KEYS - set(data)
         assert not missing, f"album-detail keys missing from the payload: {sorted(missing)}"
@@ -74,7 +74,7 @@ class TestEmittedKeys:
     def test_filepath_is_not_emitted(self):
         """#3205/#4586: the server-side path stays server-side."""
         assert "filepath" not in DEFAULT_TRACK_FIELDS
-        assert "filepath" not in serialize_track(_FakeTrack())
+        assert "filepath" not in serialize_tracks([_FakeTrack()])[0]
 
 
 class TestTransformerReadsWhatBackendEmits:

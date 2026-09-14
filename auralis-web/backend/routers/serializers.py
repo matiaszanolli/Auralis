@@ -194,19 +194,6 @@ def serialize_objects(
     return [serialize_object(obj, fallback_fields) for obj in objects]
 
 
-def serialize_track(track: Any) -> dict[str, Any]:
-    """
-    Serialize a track object with default Track fields.
-
-    Args:
-        track: Track object to serialize
-
-    Returns:
-        Dictionary representation of the track
-    """
-    return serialize_object(track, DEFAULT_TRACK_FIELDS)
-
-
 def serialize_tracks(tracks: list[Any]) -> list[dict[str, Any]]:
     """
     Serialize a list of tracks with default Track fields.
@@ -296,19 +283,6 @@ def serialize_artist(artist: Any) -> dict[str, Any]:
     # getattr over DEFAULT_ARTIST_FIELDS, which already carries
     # album_count/track_count defaults.
     return artist_dict
-
-
-def serialize_artists(artists: list[Any]) -> list[dict[str, Any]]:
-    """
-    Serialize a list of artists with default Artist fields.
-
-    Args:
-        artists: List of artist objects to serialize
-
-    Returns:
-        List of artist dictionaries
-    """
-    return [serialize_artist(artist) for artist in artists]
 
 
 def serialize_playlist(playlist: Any) -> dict[str, Any]:

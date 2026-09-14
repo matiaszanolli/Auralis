@@ -224,7 +224,7 @@ class ScanResultResponse(BaseModel):
 
 
 class TrackResponse(BaseModel):
-    """A serialized library track (`serializers.serialize_track`).
+    """A serialized library track (`serializers.serialize_tracks`).
 
     `filepath` is deliberately absent — #3205 made the server-side path
     server-only, and neither serialization path emits it.
