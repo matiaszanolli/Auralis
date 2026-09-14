@@ -33,9 +33,11 @@ class Unit(str, Enum):
     BPM = "BPM"
 
 
-# Centroid is normalized so 1.0 corresponds to this frequency.
-# Matches SpectralOperations.calculate_spectral_centroid (#3xxx) which uses
-# MetricUtils.normalize_to_range(centroid_median, 8000.0, clip=True).
+# Centroid is normalized so 1.0 corresponds to this frequency. The consumer is
+# rust_fingerprint.py, which divides the Rust analyzer's raw Hz value by it
+# (`_clip01(raw / CENTROID_NORMALIZATION_HZ)`); `centroid_to_hz` below is the
+# inverse. (An earlier comment here cited a placeholder issue and a
+# `normalize_to_range` call that never existed, #5345.)
 CENTROID_NORMALIZATION_HZ: float = 8000.0
 
 # Rolloff is normalized against a DIFFERENT frequency to the centroid — 10 kHz,
