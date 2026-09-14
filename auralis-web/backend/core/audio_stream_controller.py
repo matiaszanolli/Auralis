@@ -54,7 +54,9 @@ logger = logging.getLogger(__name__)
 # Per-task stream-type context variable (fixes #2493).
 # Each asyncio Task inherits its own copy of the context, so concurrent
 # stream_enhanced_audio / stream_normal_audio calls in different WebSocket
-# handler tasks cannot overwrite each other's value — unlike self._stream_type.
+# handler tasks cannot overwrite each other's value — unlike the instance
+# attribute it replaced, which was shared by every coroutine on the controller.
+# That dead attribute was deleted in #5425.
 _stream_type_var: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     '_stream_type', default=None
 )
@@ -236,7 +238,6 @@ class AudioStreamController:
         self.cache_manager: StreamlinedCacheManager | SimpleChunkCache = (
             cache_manager if cache_manager is not None else get_fallback_chunk_cache()
         )
-        self._stream_type: str | None = None  # Deprecated; reads now use _stream_type_var.get() (fixes #2493)
         logger.info(f"AudioStreamController initialized with cache manager: {type(self.cache_manager).__name__}")
 
         # NEW (Phase 7.3): Fingerprint generator for on-demand generation

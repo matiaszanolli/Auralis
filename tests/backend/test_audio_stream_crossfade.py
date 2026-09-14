@@ -62,7 +62,6 @@ class TestChunkEmittedVerbatim:
     @pytest.mark.asyncio
     async def test_pcm_is_bit_identical_on_the_wire(self):
         controller = AudioStreamController()
-        controller._stream_type = "enhanced"
 
         original = np.random.randn(44100 * 2, 2).astype(np.float32)
         ws, _metas, binaries = _capturing_websocket()
@@ -82,7 +81,6 @@ class TestChunkEmittedVerbatim:
         fade — every sample must survive untouched.
         """
         controller = AudioStreamController()
-        controller._stream_type = "enhanced"
 
         for chunk_index in range(3):
             amplitude = np.float32(0.5 + 0.1 * chunk_index)
@@ -102,7 +100,6 @@ class TestChunkEmittedVerbatim:
     async def test_stream_processed_chunk_does_not_copy_or_fade(self):
         """The whole stream_processed_chunk path is a pass-through."""
         controller = AudioStreamController()
-        controller._stream_type = "enhanced"
 
         original = np.random.randn(44100, 2).astype(np.float32)
 
@@ -127,7 +124,6 @@ class TestWireContract:
     @pytest.mark.asyncio
     async def test_meta_payload_has_no_crossfade_field(self):
         controller = AudioStreamController()
-        controller._stream_type = "enhanced"
 
         ws, metas, _binaries = _capturing_websocket()
         await controller._send_pcm_chunk(
@@ -163,7 +159,6 @@ class TestSendPcmChunkBackpressure:
     async def test_all_frames_delivered_to_fast_client(self):
         """All frames reach a normally-responding client (no regression)."""
         controller = AudioStreamController()
-        controller._stream_type = "enhanced"
 
         # 2 seconds of stereo audio at 44100 Hz → a few frames
         samples = np.random.randn(44100 * 2, 2).astype(np.float32)
@@ -194,10 +189,11 @@ class TestSendPcmChunkBackpressure:
     @pytest.mark.asyncio
     async def test_producer_stops_early_on_client_disconnect(self):
         """When the client disconnects mid-stream, the producer stops encoding further frames."""
-        from core.audio_stream_controller import _SEND_QUEUE_MAXSIZE
+        # The constant's home is stream_protocol; audio_stream_controller's
+        # re-export was removed in #4645, which broke this import.
+        from core.stream_protocol import _SEND_QUEUE_MAXSIZE
 
         controller = AudioStreamController()
-        controller._stream_type = "enhanced"
 
         # Large chunk → many frames (well above _SEND_QUEUE_MAXSIZE)
         samples = np.random.randn(44100 * 30, 2).astype(np.float32)
@@ -239,7 +235,6 @@ class TestSendPcmChunkBackpressure:
         import asyncio
 
         controller = AudioStreamController()
-        controller._stream_type = "enhanced"
 
         # Use a medium-size chunk (several frames)
         samples = np.random.randn(44100 * 5, 2).astype(np.float32)

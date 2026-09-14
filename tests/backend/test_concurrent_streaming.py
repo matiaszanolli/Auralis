@@ -83,7 +83,6 @@ class TestSendQueueBounds:
     async def test_bounded_queue_prevents_unbounded_growth(self):
         """Producer cannot enqueue unbounded frames when consumer is slow."""
         controller = AudioStreamController()
-        controller._stream_type = "enhanced"
 
         # Create audio that generates many frames
         samples = np.random.randn(44100 * 10, 2).astype(np.float32)
@@ -142,9 +141,20 @@ class TestActiveStreamsTracking:
     # test_stream_disconnect_toctou.py for the full removal rationale.
 
     async def test_stream_type_tracking(self):
-        """Controller must distinguish enhanced vs normal streams."""
-        import inspect
-        source = inspect.getsource(AudioStreamController)
-        assert "stream_type" in source or "_stream_type" in source, (
-            "Controller must track stream type (enhanced/normal)"
-        )
+        """Stream type lives in a per-task ContextVar, not on the controller.
+
+        This used to grep the class source for "stream_type", which the dead
+        ``self._stream_type`` attribute satisfied although nothing read it
+        (#2493 moved every read to ``_stream_type_var``; #5425 deleted the
+        attribute). Assert the real mechanism instead: concurrent tasks keep
+        their own value, and the shared attribute is gone.
+        """
+        from core.audio_stream_controller import _stream_type_var
+
+        async def tag(value: str) -> str | None:
+            _stream_type_var.set(value)
+            await asyncio.sleep(0)  # let the other task set its value
+            return _stream_type_var.get()
+
+        assert await asyncio.gather(tag("enhanced"), tag("normal")) == ["enhanced", "normal"]
+        assert not hasattr(AudioStreamController(), "_stream_type")
