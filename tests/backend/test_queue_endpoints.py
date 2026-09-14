@@ -120,6 +120,42 @@ class TestRemoveFromQueue:
             response = client.delete("/api/player/queue/0")
             assert response.status_code == 503
 
+    def test_remove_uses_the_atomic_check_not_a_separate_read_and_remove(self, client, queue_manager):
+        """#5360 WIRING: remove_track_from_queue must call
+        remove_if_index_matches_current(), not a separate current_index
+        read followed by a plain remove_track() call — the two-step version
+        has a TOCTOU gap a concurrent advance/next/previous could land in."""
+        mock_player = Mock()
+        mock_player.queue = queue_manager
+        mock_state = Mock()
+        mock_ws = Mock()
+        mock_ws.broadcast = AsyncMock()
+
+        real_atomic = queue_manager.remove_if_index_matches_current
+        calls: list[int] = []
+
+        def _spy(index):
+            calls.append(index)
+            return real_atomic(index)
+
+        queue_manager.remove_if_index_matches_current = _spy
+        queue_manager.remove_track = Mock(side_effect=AssertionError(
+            "remove_track_from_queue must not call remove_track() directly "
+            "— it bypasses the atomic was_current check (#5360)"
+        ))
+
+        with patch.dict('main.globals_dict', {
+            'audio_player': mock_player,
+            'player_state_manager': mock_state
+        }), patch('main.manager', mock_ws):
+            # Index 0 == queue_manager.current_index (fixture default) — the
+            # was_current=True path, which is the one this issue is about.
+            response = client.delete("/api/player/queue/0")
+
+        assert response.status_code == 200
+        assert calls == [0]
+        assert queue_manager.remove_track.call_count == 0
+
 
 class TestReorderQueue:
     """Test PUT /api/player/queue/reorder endpoint"""

@@ -121,19 +121,20 @@ class QueueEditMixin(QueueServiceBase):
             if index < 0 or index >= queue_size:
                 raise InvalidRequest(f"Invalid index: {index}")
 
-            # Detect whether the currently-playing track is the one being removed
-            # (fixes #2403: without this check, audio continues from the removed track
-            # while get_current_track() returns the next one — metadata/audio desync).
-            was_current = (index == queue_manager.current_index)
-
             # #5320: invalidate any in-flight set_queue request before
             # mutating the engine, and serialize the mutation itself against
             # set_queue's own engine section — see
             # QueueServiceBase._invalidate_set_queue_generation.
             await self._invalidate_set_queue_generation()
             async with self._set_queue_engine_lock:
-                # Remove track from queue
-                success = queue_manager.remove_track(index)
+                # #5360: check whether the currently-playing track is the one
+                # being removed, and remove it, in one atomic call — a
+                # separate `index == queue_manager.current_index` read
+                # followed by a separate remove_track(index) call left a gap
+                # where auto-advance/next/previous/a second remove could move
+                # current_index in between, staling the #2403 was_current
+                # determination this reload/stop follow-up depends on.
+                success, was_current = queue_manager.remove_if_index_matches_current(index)
                 if not success:
                     raise OperationFailed("Failed to remove track")
 

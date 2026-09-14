@@ -46,6 +46,10 @@ class QueueManager(Protocol):
         """Remove track at index."""
         ...
 
+    def remove_if_index_matches_current(self, index: int) -> tuple[bool, bool]:
+        """Atomically remove a track and report whether it was current (#5360)."""
+        ...
+
     def get_current_track(self) -> dict[str, Any] | None:
         """Get the currently selected queue item."""
         ...

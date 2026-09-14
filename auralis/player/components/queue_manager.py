@@ -256,6 +256,31 @@ class QueueManager:
         with self._lock:
             return self._remove_track_unlocked(index)
 
+    def remove_if_index_matches_current(self, index: int) -> tuple[bool, bool]:
+        """
+        Atomically check whether `index` is the current track and remove it (#5360).
+
+        Closes the TOCTOU gap between reading `current_index == index` and
+        calling `remove_track(index)` as two separate lock acquisitions —
+        auto-advance, next/previous, or a second concurrent remove could
+        move `current_index` in that gap, producing a stale "was current"
+        determination for the #2403 reload/stop follow-up (which relies on
+        knowing whether the just-removed track was the one playing). Same
+        single-acquisition shape as `advance_if_next_matches()`.
+
+        Args:
+            index: Index of the track to remove.
+
+        Returns:
+            (removed, was_current): `removed` is True if the track was
+            removed (index was valid at the instant of removal); `was_current`
+            is True if that track was the current track at that same instant.
+        """
+        with self._lock:
+            was_current = (index == self.current_index)
+            removed = self._remove_track_unlocked(index)
+            return removed, was_current
+
     def remove_tracks(self, indices: list[int]) -> int:
         """
         Remove multiple tracks at specified indices

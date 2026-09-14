@@ -343,6 +343,15 @@ class QueueController:
         """Remove track at specified index"""
         return self.queue.remove_track(index)  # type: ignore[no-any-return]
 
+    def remove_if_index_matches_current(self, index: int) -> tuple[bool, bool]:
+        """Atomically remove a track and report whether it was current (#5360).
+
+        See QueueManager.remove_if_index_matches_current for the race this
+        closes — a two-step "read current_index, then remove" is vulnerable
+        to a concurrent advance/next/previous landing in between.
+        """
+        return self.queue.remove_if_index_matches_current(index)  # type: ignore[no-any-return]
+
     def get_queue(self) -> list[dict[str, Any]]:
         """Get full queue as list"""
         return self.queue.get_queue()  # type: ignore[no-any-return]
