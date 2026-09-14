@@ -2,8 +2,10 @@
 Processor Factory
 ~~~~~~~~~~~~~~~~~~
 
-Unified processor factory consolidating ProcessorManager and
-hybrid_processor_singleton._processor_cache into single source of truth.
+Unified processor factory: the single source of truth for cached
+HybridProcessor instances. It absorbed the track-based cache of a former
+``ProcessorManager`` class (processor_manager.py — no longer in the tree) and
+the config-based hybrid_processor_singleton._processor_cache.
 
 This factory manages HybridProcessor instance lifecycle and caching,
 eliminating ~150 lines of duplicate caching logic across 2 files.
@@ -71,9 +73,9 @@ class ProcessorFactory:
     """
     Unified processor factory for HybridProcessor instances.
 
-    Consolidates caching logic from:
-    - processor_manager.py: ProcessorManager (track-based caching)
-    - hybrid_processor_singleton.py: _processor_cache (config-based caching)
+    Consolidates track-based caching (from the former ProcessorManager, see
+    the module docstring) with config-based caching
+    (hybrid_processor_singleton.py: _processor_cache).
 
     This factory provides:
     - Unified cache key: (track_id, preset, config_hash, targets_hash)
@@ -192,9 +194,8 @@ class ProcessorFactory:
         """
         Get cached processor or create new one.
 
-        Consolidates logic from:
-        - ProcessorManager.get_or_create()
-        - hybrid_processor_singleton._get_or_create_processor()
+        Consolidates logic from hybrid_processor_singleton._get_or_create_processor()
+        and the former ProcessorManager.get_or_create() (see the module docstring).
 
         Reuses the same processor instance to maintain state across chunks
         (compressor envelope followers, gain reduction tracking, etc.).

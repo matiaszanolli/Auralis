@@ -5,7 +5,8 @@ Audio Processing Pipeline
 Unified audio processing pipeline consolidating best practices from:
 - chunked_processor.py (thread-safe processing, fixed targets)
 - hybrid_processor.py (comprehensive validation)
-- realtime_processor.py (quick processing path)
+- auralis/player/realtime/processor.py (quick processing path; formerly
+  re-exported as realtime_processor.py, a shim deleted in #4334)
 
 This utility provides a single source of truth for audio processing orchestration,
 eliminating ~400 lines of duplicate validation and processing logic.
@@ -32,7 +33,7 @@ class AudioProcessingPipeline:
     Consolidates processing orchestration logic from:
     - chunked_processor._process_chunk_core()
     - hybrid_processor.process() / _process_adaptive_mode()
-    - realtime_processor.process_chunk()
+    - RealtimeProcessor.process_chunk() (auralis/player/realtime/processor.py)
 
     This is a static utility class following the Utilities Pattern (Phase 7.2).
     Application code becomes thin wrappers that delegate to this pipeline.
@@ -308,7 +309,7 @@ class AudioProcessingPipeline:
         Replaces:
         - chunked_processor._process_chunk_core()
         - hybrid_processor.process() / _process_adaptive_mode()
-        - realtime_processor.process_chunk()
+        - RealtimeProcessor.process_chunk() (auralis/player/realtime/processor.py)
 
         Args:
             audio: Input audio array

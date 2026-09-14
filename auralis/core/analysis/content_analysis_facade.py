@@ -47,7 +47,7 @@ class ContentAnalysisFacade:
        result = facade.analyze_full(audio)
        ```
     
-    2. Quick Analysis (realtime_processor):
+    2. Quick Analysis (real-time streaming paths):
        ```python
        facade = ContentAnalysisFacade(sample_rate=44100, realtime_mode=True)
        result = facade.analyze_quick(audio)
@@ -174,8 +174,7 @@ class ContentAnalysisFacade:
     ) -> dict[str, Any]:
         """
         Quick analysis for real-time streaming.
-        
-        Consolidates realtime_processor._quick_content_analysis() logic.
+
         Performs minimal computation for low-latency processing.
         
         Args:
