@@ -207,20 +207,16 @@ class TestDisconnectStopsProcessing:
     """
 
     @pytest.mark.asyncio
-    @pytest.mark.xfail(
-        reason="#5176: call_count model undercounts _is_websocket_connected "
-        "calls per chunk by one; only ever passed via cross-test cache "
-        "pollution from an earlier test in this file, confirmed broken in "
-        "true isolation on unmodified HEAD",
-        strict=True,
-    )
     async def test_process_chunk_safe_not_called_after_disconnect_detected(self):
         """
         After disconnect is detected inside _process_and_stream_chunk,
         further calls do not invoke process_chunk_safe.
 
-        Simulates the TOCTOU window: outer loop passed, but WebSocket
-        dropped before the expensive DSP work.
+        Simulates the TOCTOU window this test is named for: the outer loop's
+        own pre-check for chunk 1 still reports connected, but the inner
+        guard inside process_chunk_only (the real #2076 fix, reached only on
+        a cache miss) catches the disconnect first and raises ConnectionError
+        — exactly the race #2076 exists to close, not a clean early break.
         """
         controller = _make_controller()
         num_chunks = 4
@@ -228,21 +224,25 @@ class TestDisconnectStopsProcessing:
 
         call_count = 0
 
-        def _disconnects_on_second_inner_call(_ws=None):
+        def _disconnects_before_chunk_1s_inner_guard(_ws=None):
             """
-            Returns True (connected) for the outer loop checks and the FIRST
-            inner check, then False on subsequent inner checks.
+            Connected for exactly 3 calls, disconnected after (#5176: the
+            threshold itself was already correct — verified by retracing the
+            real chain end to end, outer test-loop check -> process_chunk_only's
+            cache-miss guard, 2 calls per successfully-processed chunk since
+            _send_pcm_chunk is replaced below rather than exercising the real
+            implementation's own connectivity check):
 
-            This simulates: outer loop OK, first chunk OK, disconnect between
-            chunk 0 and chunk 1 such that the inner guard catches it.
+            call 1: outer check, chunk 0 -> connected
+            call 2: inner guard, chunk 0 (cache miss) -> connected, chunk 0 processes
+            call 3: outer check, chunk 1 -> still connected (the TOCTOU window)
+            call 4: inner guard, chunk 1 -> disconnected, raises ConnectionError
             """
             nonlocal call_count
             call_count += 1
-            # First 3 calls: connected (outer loop × 1, inner guard × 1, send check × 1)
-            # After that: disconnected
             return call_count <= 3
 
-        controller._is_websocket_connected = _disconnects_on_second_inner_call
+        controller._is_websocket_connected = _disconnects_before_chunk_1s_inner_guard
 
         send_pcm_calls = 0
 
@@ -255,17 +255,36 @@ class TestDisconnectStopsProcessing:
         for chunk_idx in range(num_chunks):
             if not controller._is_websocket_connected(None):
                 break
-            await controller._process_and_stream_chunk(
-                chunk_index=chunk_idx,
-                processor=processor,
-                websocket=Mock(),
-            )
+            try:
+                await controller._process_and_stream_chunk(
+                    chunk_index=chunk_idx,
+                    processor=processor,
+                    websocket=Mock(),
+                )
+            except ConnectionError:
+                # #5176: the original test had no handler here at all, so
+                # the inner guard's ConnectionError for chunk 1 propagated
+                # uncaught and failed the test outright — the bug was a
+                # missing except clause, not the call-count threshold above.
+                # Matches every real streaming loop's own handling of this
+                # exact guard (stream_normal_chunks.py,
+                # stream_enhanced_chunks.py, stream_seek_chunks.py): a clean
+                # break, not a chunk failure.
+                break
 
-        # process_chunk_safe must not have been called for ALL 4 chunks;
-        # at most chunk 0 was processed before disconnect
-        assert processor.process_chunk_safe.call_count <= 1, (
-            f"process_chunk_safe was called {processor.process_chunk_safe.call_count} times; "
-            "expected at most 1 (the chunk in flight when disconnect happened)"
+        # What the docstring actually claims: process_chunk_safe was never
+        # invoked for a chunk beyond the one in flight when disconnect
+        # happened. Checking the actual chunk indices passed (rather than
+        # just a call count) is what #5176 asks for — it directly verifies
+        # chunk 1 specifically was never attempted, not just that the total
+        # count stayed low.
+        processed_chunks = [
+            call.args[0] if call.args else call.kwargs.get("chunk_index")
+            for call in processor.process_chunk_safe.call_args_list
+        ]
+        assert processed_chunks == [0], (
+            f"process_chunk_safe was called for chunks {processed_chunks}; "
+            "expected only chunk 0 (the one in flight when disconnect happened)"
         )
 
     @pytest.mark.asyncio
