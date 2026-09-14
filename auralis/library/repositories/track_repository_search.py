@@ -13,7 +13,7 @@ recent/popular/favorites/all listings, and simple similarity lookups.
 from sqlalchemy import func, or_, select
 
 from ..models import Album, Artist, Genre, Track
-from .base import BaseRepository
+from .base import BaseRepository, escape_like
 from .track_repository import _VALID_TRACK_ORDER_COLUMNS, _track_eager_options
 
 
@@ -36,7 +36,7 @@ class TrackRepositorySearchMixin(BaseRepository):
         with self._session_scope() as session:
             # Escape LIKE metacharacters so a query containing '%' or '_' does
             # not accidentally match all rows (fixes #2405).
-            escaped = query.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+            escaped = escape_like(query)
             search_term = f"%{escaped}%"
 
             # Build shared filter for count and results statements

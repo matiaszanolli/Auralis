@@ -15,7 +15,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import joinedload, selectinload
 
 from ..models import Genre, Track
-from .base import BaseRepository
+from .base import BaseRepository, escape_like
 
 logger = logging.getLogger(__name__)
 
@@ -269,7 +269,7 @@ class GenreRepository(BaseRepository):
         with self._session_scope() as session:
             # Search for genres matching the query.
             # Escape LIKE metacharacters to prevent full-table scans on '%'/'_' (fixes #2405).
-            escaped = query.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+            escaped = escape_like(query)
             search_filter = Genre.name.ilike(f"%{escaped}%", escape='\\')
             total = session.execute(
                 select(func.count()).select_from(Genre).where(search_filter)

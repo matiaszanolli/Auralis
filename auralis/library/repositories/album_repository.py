@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session, joinedload, selectinload, with_expression
 
 from ..artwork import create_artwork_extractor
 from ..models import Album, Artist, Track
-from .base import BaseRepository
+from .base import BaseRepository, escape_like
 
 
 def _track_count_subquery() -> Any:
@@ -185,7 +185,7 @@ class AlbumRepository(BaseRepository):
         with self._session_scope() as session:
             # Escape LIKE metacharacters so a query containing '%' or '_' does
             # not accidentally match all rows (fixes #2405).
-            escaped = query.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+            escaped = escape_like(query)
             search_term = f"%{escaped}%"
             search_filter = or_(
                 Album.title.ilike(search_term, escape='\\'),

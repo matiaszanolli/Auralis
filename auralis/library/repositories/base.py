@@ -35,11 +35,9 @@ def escape_like(query: str) -> str:
         term = f"%{escape_like(query)}%"
         Model.name.ilike(term, escape='\\')
 
-    Note:
-        ``TrackRepository``, ``AlbumRepository``, ``ArtistRepository`` and
-        ``GenreRepository`` still each carry their own inline copy of this
-        expression. They predate this helper and are unchanged here to keep
-        #5171 to its own scope; migrating them is a mechanical follow-up.
+    ``TrackRepository``, ``AlbumRepository``, ``ArtistRepository`` and
+    ``GenreRepository`` all call this helper directly (#5406) rather than
+    carrying their own inline copy of the expression.
     """
     return query.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
 

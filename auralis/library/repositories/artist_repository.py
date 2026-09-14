@@ -14,7 +14,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload, with_expression
 
 from ..models import Album, Artist, Genre, Track, track_artist, track_genre
-from .base import BaseRepository
+from .base import BaseRepository, escape_like
 
 
 def _track_count_subquery() -> Any:
@@ -221,7 +221,7 @@ class ArtistRepository(BaseRepository):
         with self._session_scope() as session:
             # Escape LIKE metacharacters so a query containing '%' or '_' does
             # not accidentally match all rows (fixes #2405).
-            escaped = query.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+            escaped = escape_like(query)
             search_term = f"%{escaped}%"
 
             # Get total count of matching artists
