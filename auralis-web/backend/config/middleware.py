@@ -356,9 +356,28 @@ class OriginCheckMiddleware(BaseHTTPMiddleware):
     known-vulnerable routes, so a future endpoint doesn't silently reopen
     this gap. GET/HEAD/OPTIONS pass through untouched — OPTIONS must reach
     CORSMiddleware unmodified to answer preflight requests.
+
+    #5067: the origin allowlist is resolved once here, at middleware
+    construction (app startup — Starlette builds the middleware stack once
+    and caches it, so `__init__` runs once per app lifetime, not per
+    request), rather than calling `cors_allowed_origins()` — and therefore
+    `is_dev_mode()` — on every dispatch. `is_dev_mode()` logs a one-shot
+    "dev mode activated" warning intended as a boot notice; calling it per
+    request turned that into per-request log spam whenever
+    AURALIS_DEV_MODE was set. `is_dev_mode()` itself must stay fully
+    dynamic (re-evaluated on every direct call) for #4802's own tests, so
+    the fix is caching the *result* here rather than changing that
+    function's behavior. `CORSMiddleware`'s setup already resolves the same
+    list once at app-construction time (line ~531 below) — this just brings
+    `OriginCheckMiddleware` in line with that existing convention instead of
+    inventing a new one.
     """
 
     _STATE_CHANGING_METHODS = frozenset({"POST", "PUT", "DELETE", "PATCH"})
+
+    def __init__(self, app: Any) -> None:
+        super().__init__(app)
+        self._cached_origins = frozenset(cors_allowed_origins())
 
     async def dispatch(self, request: Request, call_next: Callable[[Request], Any]) -> Response:
         # The try below covers ONLY this middleware's own origin check.
@@ -371,8 +390,9 @@ class OriginCheckMiddleware(BaseHTTPMiddleware):
 
                 origin = request.headers.get("origin", "").lower()
                 if origin:
-                    # Non-empty Origin: must be in the same allowlist CORS uses.
-                    if origin not in cors_allowed_origins():
+                    # Non-empty Origin: must be in the same allowlist CORS uses
+                    # (cached once at construction — see class docstring, #5067).
+                    if origin not in self._cached_origins:
                         logger.warning(
                             f"Rejected {request.method} {request.url.path}: untrusted origin {origin!r}"
                         )

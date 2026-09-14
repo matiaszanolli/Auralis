@@ -134,10 +134,18 @@ class TestOwnLogicExceptionsStillGetAJson500:
         await self._assert_json_500(response)
 
     async def test_origin_check_middleware_own_logic_failure(self):
+        # #5067: the allowlist is now resolved once at construction and
+        # cached on the instance, not re-resolved via cors_allowed_origins()
+        # on every dispatch — so patching that function no longer reaches
+        # any code dispatch() actually runs. Corrupting the cached value
+        # itself is the equivalent own-logic failure post-#5067: dispatch's
+        # `origin not in self._cached_origins` membership check still runs
+        # inside the guarded try, so a broken cache still exercises the same
+        # JSON-500 path this test is about.
         mw = OriginCheckMiddleware(app=MagicMock())
         request = _make_request("/api/processing/foo", method="POST")
 
-        with patch("config.middleware.cors_allowed_origins", side_effect=RuntimeError("allowlist boom")):
+        with patch.object(mw, "_cached_origins", None):
             response = await mw.dispatch(request, _ok_call_next)
 
         await self._assert_json_500(response)
