@@ -14,7 +14,7 @@ import multiprocessing
 import shutil
 import tempfile
 import threading
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from queue import Queue
 
@@ -35,14 +35,6 @@ def thread_pool():
 def small_thread_pool():
     """Small thread pool (4 workers) for testing."""
     pool = ThreadPoolExecutor(max_workers=4)
-    yield pool
-    pool.shutdown(wait=True)
-
-
-@pytest.fixture
-def process_pool():
-    """Process pool for parallel execution."""
-    pool = ProcessPoolExecutor(max_workers=4)
     yield pool
     pool.shutdown(wait=True)
 

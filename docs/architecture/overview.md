@@ -92,6 +92,16 @@ Plus:
 - **All DB access goes through repositories** ([`auralis/library/repositories/`](../../auralis/library/repositories/)) — never raw SQL.
 - **Shared backend state is lock-guarded** — `asyncio.Lock` for event-loop state,
   `threading.RLock` for CPU/thread-pool state, `contextvars` for per-stream isolation.
+- **Multiprocessing IPC is out of scope, by design, not by omission** (#5188).
+  All parallelism is thread-based: Rust/PyO3 releases the GIL for the DSP hot
+  path, and the fingerprint pipeline uses a thread pool off the asyncio event
+  loop for the same reason — see
+  [`fingerprint_generator.py`](../../auralis-web/backend/analysis/fingerprint_generator.py)'s
+  own module docstring for the pickling/spawn/re-import cost this avoids
+  (can exceed a 10s timeout in AppImage environments). `HybridProcessor` holds
+  a `threading.RLock` and is deliberately not made picklable for
+  `ProcessPoolExecutor`; `auralis/optimization/parallel/` (the one prior
+  process-pool implementation) was deleted outright in #4565.
 
 The `verify-dsp` skill checks the six audio invariants across the pipeline.
 
