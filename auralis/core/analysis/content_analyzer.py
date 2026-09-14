@@ -148,12 +148,6 @@ class ContentAnalyzer:
                 fingerprint = self.fingerprint_analyzer.analyze(audio, self.sample_rate)
                 content_profile["fingerprint"] = fingerprint
 
-                # Promote key fingerprint features to top level for backward compatibility
-                # This allows existing code to work while new code can use full fingerprint
-                content_profile["spectral_centroid_normalized"] = fingerprint.get("spectral_centroid", 0.5)
-                content_profile["crest_factor_db"] = fingerprint.get("crest_db", crest_factor_db)
-                content_profile["lufs_fingerprint"] = fingerprint.get("lufs", content_profile["estimated_lufs"])
-
                 debug(f"25D fingerprint extracted: LUFS={fingerprint.get('lufs', 0):.1f}, "
                       f"Crest={fingerprint.get('crest_db', 0):.1f}dB, "
                       f"Tempo={fingerprint.get('tempo_bpm', 0):.0f}BPM")
