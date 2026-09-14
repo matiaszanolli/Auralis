@@ -57,18 +57,24 @@ class QueueEditMixin(QueueServiceBase):
             queue_manager = self.audio_player.queue
             track_info = {'id': track.id, 'filepath': track.filepath}
 
-            # Add to queue at position
-            if position is not None:
-                position = await asyncio.to_thread(
-                    queue_manager.insert_track, position, track_info
-                )
-            else:
-                # QueueController exposes add_track; add_to_queue never existed
-                # and made every default append request fail (#4870).
-                await asyncio.to_thread(queue_manager.add_track, track_info)
+            # #5320: invalidate any in-flight set_queue request before
+            # mutating the engine, and serialize the mutation itself against
+            # set_queue's own engine section — see
+            # QueueServiceBase._invalidate_set_queue_generation.
+            await self._invalidate_set_queue_generation()
+            async with self._set_queue_engine_lock:
+                # Add to queue at position
+                if position is not None:
+                    position = await asyncio.to_thread(
+                        queue_manager.insert_track, position, track_info
+                    )
+                else:
+                    # QueueController exposes add_track; add_to_queue never
+                    # existed and made every default append request fail (#4870).
+                    await asyncio.to_thread(queue_manager.add_track, track_info)
 
-            # Get updated queue for broadcasting
-            updated_queue = await asyncio.to_thread(queue_manager.get_queue)
+                # Get updated queue for broadcasting
+                updated_queue = await asyncio.to_thread(queue_manager.get_queue)
 
             # Broadcast queue update (fixes #3492 — was `queue_updated` which
             # the frontend never subscribed to)
@@ -120,26 +126,32 @@ class QueueEditMixin(QueueServiceBase):
             # while get_current_track() returns the next one — metadata/audio desync).
             was_current = (index == queue_manager.current_index)
 
-            # Remove track from queue
-            success = queue_manager.remove_track(index)
-            if not success:
-                raise OperationFailed("Failed to remove track")
+            # #5320: invalidate any in-flight set_queue request before
+            # mutating the engine, and serialize the mutation itself against
+            # set_queue's own engine section — see
+            # QueueServiceBase._invalidate_set_queue_generation.
+            await self._invalidate_set_queue_generation()
+            async with self._set_queue_engine_lock:
+                # Remove track from queue
+                success = queue_manager.remove_track(index)
+                if not success:
+                    raise OperationFailed("Failed to remove track")
 
-            # If the removed track was playing, stop current audio and load the new
-            # current track (or stop entirely if the queue is now empty).
-            if was_current and self.audio_player:
-                new_current = queue_manager.get_current_track()
-                if new_current and hasattr(self.audio_player, 'load_file'):
-                    file_path = new_current.get('filepath') or new_current.get('file_path')
-                    if file_path:
-                        await asyncio.to_thread(self.audio_player.load_file, file_path)
-                        logger.info(f"Removed current track; loaded next: {new_current.get('id')}")
-                elif hasattr(self.audio_player, 'playback') and hasattr(self.audio_player.playback, 'stop'):
-                    await asyncio.to_thread(self.audio_player.playback.stop)
-                    logger.info("Removed only/last track; stopped playback")
+                # If the removed track was playing, stop current audio and load the
+                # new current track (or stop entirely if the queue is now empty).
+                if was_current and self.audio_player:
+                    new_current = queue_manager.get_current_track()
+                    if new_current and hasattr(self.audio_player, 'load_file'):
+                        file_path = new_current.get('filepath') or new_current.get('file_path')
+                        if file_path:
+                            await asyncio.to_thread(self.audio_player.load_file, file_path)
+                            logger.info(f"Removed current track; loaded next: {new_current.get('id')}")
+                    elif hasattr(self.audio_player, 'playback') and hasattr(self.audio_player.playback, 'stop'):
+                        await asyncio.to_thread(self.audio_player.playback.stop)
+                        logger.info("Removed only/last track; stopped playback")
 
-            # Get updated queue
-            updated_queue = queue_manager.get_queue()
+                # Get updated queue
+                updated_queue = queue_manager.get_queue()
 
             # Broadcast queue update (fixes #3492)
             await self._broadcast_queue_changed(
@@ -177,14 +189,25 @@ class QueueEditMixin(QueueServiceBase):
         try:
             queue_manager = self.audio_player.queue
 
-            # Clear queue
-            queue_manager.clear()
+            # #5320: invalidate any in-flight set_queue request before
+            # mutating the engine, and serialize the mutation itself against
+            # set_queue's own engine section — see
+            # QueueServiceBase._invalidate_set_queue_generation. This is the
+            # exact race the issue describes: without it, a set_queue request
+            # between its generation check and its engine-mutating steps
+            # would still run load_file()/play() after this clear.
+            await self._invalidate_set_queue_generation()
+            async with self._set_queue_engine_lock:
+                # Clear queue
+                queue_manager.clear()
 
-            # Stop playback
-            if hasattr(self.audio_player, 'stop'):
-                await asyncio.to_thread(self.audio_player.stop)
+                # Stop playback
+                if hasattr(self.audio_player, 'stop'):
+                    await asyncio.to_thread(self.audio_player.stop)
 
-            # Update player state
+            # Update player state — outside the engine lock: set_playing/
+            # set_track broadcast internally by default, and #4825 requires
+            # _set_queue_engine_lock never cover a broadcast.
             await self.player_state_manager.set_playing(False)
             await self.player_state_manager.set_track(None, None)
 

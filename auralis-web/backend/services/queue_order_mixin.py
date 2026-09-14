@@ -55,13 +55,19 @@ class QueueOrderMixin(QueueServiceBase):
                     "new_order must contain all indices from 0 to queue_size-1 exactly once"
                 )
 
-            # Reorder queue
-            success = queue_manager.reorder_tracks(new_order)
-            if not success:
-                raise OperationFailed("Failed to reorder queue")
+            # #5320: invalidate any in-flight set_queue request before
+            # mutating the engine, and serialize the mutation itself against
+            # set_queue's own engine section — see
+            # QueueServiceBase._invalidate_set_queue_generation.
+            await self._invalidate_set_queue_generation()
+            async with self._set_queue_engine_lock:
+                # Reorder queue
+                success = queue_manager.reorder_tracks(new_order)
+                if not success:
+                    raise OperationFailed("Failed to reorder queue")
 
-            # Get updated queue
-            updated_queue = queue_manager.get_queue()
+                # Get updated queue
+                updated_queue = queue_manager.get_queue()
 
             # Broadcast queue update (fixes #3492)
             await self._broadcast_queue_changed(
@@ -107,13 +113,20 @@ class QueueOrderMixin(QueueServiceBase):
             if to_index < 0 or to_index >= queue_size:
                 raise InvalidRequest(f"Invalid to_index: {to_index}")
 
-            # Move under QueueManager's lock so the playing track is preserved
-            # by identity and no stale current_index is reapplied (#4776).
-            success = await asyncio.to_thread(
-                queue_manager.move_track, from_index, to_index
-            )
-            if not success:
-                raise OperationFailed("Failed to move track")
+            # #5320: invalidate any in-flight set_queue request before
+            # mutating the engine, and serialize the mutation itself against
+            # set_queue's own engine section — see
+            # QueueServiceBase._invalidate_set_queue_generation.
+            await self._invalidate_set_queue_generation()
+            async with self._set_queue_engine_lock:
+                # Move under QueueManager's lock so the playing track is
+                # preserved by identity and no stale current_index is
+                # reapplied (#4776).
+                success = await asyncio.to_thread(
+                    queue_manager.move_track, from_index, to_index
+                )
+                if not success:
+                    raise OperationFailed("Failed to move track")
 
             # Broadcast queue update (fixes #3492)
             await self._broadcast_queue_changed(
@@ -151,11 +164,17 @@ class QueueOrderMixin(QueueServiceBase):
         try:
             queue_manager = self.audio_player.queue
 
-            # Shuffle queue
-            queue_manager.shuffle()
+            # #5320: invalidate any in-flight set_queue request before
+            # mutating the engine, and serialize the mutation itself against
+            # set_queue's own engine section — see
+            # QueueServiceBase._invalidate_set_queue_generation.
+            await self._invalidate_set_queue_generation()
+            async with self._set_queue_engine_lock:
+                # Shuffle queue
+                queue_manager.shuffle()
 
-            # Get updated queue
-            updated_queue = queue_manager.get_queue()
+                # Get updated queue
+                updated_queue = queue_manager.get_queue()
 
             # Broadcast queue update (fixes #3492 — also emit queue_shuffled
             # so the dedicated frontend subscriber gets the is_shuffled flag)
@@ -195,13 +214,22 @@ class QueueOrderMixin(QueueServiceBase):
         try:
             queue_manager = self.audio_player.queue
 
-            if not queue_manager.unshuffle():
-                return {
-                    "message": "No shuffle to undo",
-                    "queue_size": queue_manager.get_queue_size()
-                }
+            # #5320: invalidate any in-flight set_queue request before
+            # mutating the engine, and serialize the mutation itself against
+            # set_queue's own engine section — see
+            # QueueServiceBase._invalidate_set_queue_generation. Invalidating
+            # even on the "nothing to undo" path is harmless (a no-op
+            # generation bump) and keeps the ordering simple: the check and
+            # the mutation attempt both happen after the invalidation.
+            await self._invalidate_set_queue_generation()
+            async with self._set_queue_engine_lock:
+                if not queue_manager.unshuffle():
+                    return {
+                        "message": "No shuffle to undo",
+                        "queue_size": queue_manager.get_queue_size()
+                    }
 
-            updated_queue = queue_manager.get_queue()
+                updated_queue = queue_manager.get_queue()
 
             await self._broadcast_queue_changed(
                 action="unshuffled",

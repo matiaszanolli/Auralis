@@ -82,6 +82,36 @@ class QueueServiceBase:
         # broadcast and does not block queue-state mutation (#4825).
         self._set_queue_engine_lock = asyncio.Lock()
 
+    async def _invalidate_set_queue_generation(self) -> None:
+        """Supersede any in-flight set_queue request (#5320).
+
+        clear_queue and the other queue-shape mutators (add/remove/reorder/
+        move/shuffle/unshuffle) bypassed set_queue's generation protocol
+        entirely — a mutator landing while _set_queue_impl was between its
+        generation check and its engine-mutating steps still ran
+        load_file()/play() afterward against a queue the mutator had just
+        changed out from under it.
+
+        Bumping _next_set_queue_generation AND setting _set_queue_generation
+        to that new value (rather than just incrementing the latter) means
+        no future set_queue() call can accidentally reuse a generation
+        number this invalidation already claimed. Every one of
+        _set_queue_impl's `generation != self._set_queue_generation` /
+        `generation < self._set_queue_generation` checkpoints then correctly
+        sees itself as superseded and returns before its next engine call —
+        including a checkpoint reached while _set_queue_impl is still
+        inside `_set_queue_engine_lock`, since this only takes the narrower
+        `_set_queue_lock` and does not contend with it.
+
+        Callers should call this before touching the engine (or before
+        acquiring `_set_queue_engine_lock`, whichever comes first in their
+        method), so an in-flight set_queue sees the staleness at its very
+        next checkpoint rather than one call later.
+        """
+        async with self._set_queue_lock:
+            self._next_set_queue_generation += 1
+            self._set_queue_generation = self._next_set_queue_generation
+
     async def _broadcast_queue_changed(
         self,
         action: QueueChangeAction,
