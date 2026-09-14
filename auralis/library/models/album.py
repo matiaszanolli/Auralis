@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from .artist import Artist
     from .track import Track
 
-from sqlalchemy import Float, ForeignKey, Integer, String
+from sqlalchemy import Float, ForeignKey, Index, Integer, String, collate
 from sqlalchemy.orm import Mapped, mapped_column, query_expression, relationship
 
 from ._helpers import _safe_collection, _safe_scalar
@@ -31,6 +31,14 @@ class Album(Base, TimestampMixin):
     title: Mapped[str] = mapped_column(String, nullable=False)
     artist_id: Mapped[int | None] = mapped_column(Integer, ForeignKey('artists.id'))
     year: Mapped[int | None] = mapped_column(Integer)
+
+    # migration_v002_to_v003.sql, declared so fresh databases (create_all)
+    # match upgraded ones (#5321).
+    __table_args__ = (
+        Index('idx_albums_title', collate(title, 'NOCASE')),
+        Index('idx_albums_year', year),
+    )
+
     total_tracks: Mapped[int | None] = mapped_column(Integer)
     total_discs: Mapped[int | None] = mapped_column(Integer)
 

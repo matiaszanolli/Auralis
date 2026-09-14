@@ -100,10 +100,27 @@ class TrackFingerprint(Base, TimestampMixin):
     # Relationship
     track: Mapped[Track] = relationship("Track", back_populates="fingerprint", uselist=False)
 
-    # Partial index on is_reference for fast reference-cloud lookups.
-    # Mirrors the index created in migration_v014_to_v015.sql for upgrades;
-    # this declaration ensures fresh DBs (Base.metadata.create_all) get it too.
+    # A fresh database is built by Base.metadata.create_all and never runs the
+    # SQL migrations, so every index a migration creates on this table must
+    # also be declared here, under the same name and columns. Otherwise new
+    # installs silently lack it. That happened to the v003->v004 indexes below
+    # (#5321): the KNN graph build's per-track dimension-range prefilter did a
+    # full table scan on every fresh install. LibraryDatabase also creates any
+    # declared index missing from an existing database, which repairs the
+    # installs created before these declarations existed.
     __table_args__ = (
+        # migration_v003_to_v004.sql. track_id is already UNIQUE (autoindex);
+        # the explicit index is kept for name parity with upgraded databases.
+        Index('idx_fingerprints_track_id', 'track_id'),
+        Index('idx_fingerprints_bass_pct', 'bass_pct'),
+        Index('idx_fingerprints_mid_pct', 'mid_pct'),
+        Index('idx_fingerprints_lufs', 'lufs'),
+        Index('idx_fingerprints_crest_db', 'crest_db'),
+        Index('idx_fingerprints_tempo_bpm', 'tempo_bpm'),
+        Index('idx_fingerprints_composite', 'lufs', 'crest_db', 'bass_pct', 'tempo_bpm'),
+        Index('idx_fingerprints_version', 'fingerprint_version'),
+        # Partial index on is_reference for fast reference-cloud lookups
+        # (migration_v014_to_v015.sql).
         Index(
             'ix_fingerprints_is_reference',
             'is_reference',
@@ -218,6 +235,12 @@ class SimilarityGraph(Base, TimestampMixin):
     __tablename__ = 'similarity_graph'
     __table_args__ = (
         Index('ix_similarity_graph_track_id_rank', 'track_id', 'rank'),
+        # migration_v004_to_v005.sql, declared so fresh databases match (#5321).
+        # Its idx_similarity_graph_track_id has the same columns as the index
+        # above, so it is not repeated.
+        Index('idx_similarity_graph_similar_track_id', 'similar_track_id'),
+        Index('idx_similarity_graph_distance', 'distance'),
+        Index('idx_similarity_graph_track_rank', 'track_id', 'rank', 'distance'),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

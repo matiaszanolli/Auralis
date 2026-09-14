@@ -14,7 +14,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, TimestampMixin
@@ -31,6 +31,11 @@ class QueueState(Base, TimestampMixin):
     - Repeat mode setting
     """
     __tablename__ = 'queue_state'
+    # migration_v006_to_v007.sql, declared so fresh databases match (#5321).
+    __table_args__ = (
+        Index('idx_queue_state_current_index', 'current_index'),
+        Index('idx_queue_state_synced_at', 'synced_at'),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
 
@@ -90,6 +95,12 @@ class QueueHistory(Base, TimestampMixin):
     for memory efficiency while preserving undo/redo functionality.
     """
     __tablename__ = 'queue_history'
+    # migration_v007_to_v008.sql, declared so fresh databases match (#5321).
+    __table_args__ = (
+        Index('idx_queue_history_queue_state_id', 'queue_state_id'),
+        Index('idx_queue_history_created_at', 'created_at'),
+        Index('idx_queue_history_operation', 'operation'),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
 

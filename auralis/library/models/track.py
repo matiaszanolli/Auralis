@@ -29,6 +29,8 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    collate,
+    desc,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -39,9 +41,6 @@ from .base import Base, TimestampMixin, track_artist, track_genre, track_playlis
 class Track(Base, TimestampMixin):
     """Model for audio tracks."""
     __tablename__ = 'tracks'
-    __table_args__ = (
-        Index('ix_tracks_created_at', 'created_at'),
-    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     title: Mapped[str] = mapped_column(String, nullable=False)
@@ -96,6 +95,26 @@ class Track(Base, TimestampMixin):
     last_played: Mapped[datetime | None] = mapped_column(DateTime)
     skip_count: Mapped[int] = mapped_column(Integer, default=0)
     favorite: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+
+    # Declared after the columns because the collated, descending and partial
+    # indexes need the column objects. The idx_* entries come from
+    # migration_v002_to_v003.sql and migration_v005_to_v006.sql; fresh
+    # databases are built by create_all and never ran those, so they lacked
+    # every one of them (#5321).
+    __table_args__ = (
+        Index('ix_tracks_created_at', 'created_at'),
+        Index('idx_tracks_title', collate(title, 'NOCASE')),
+        Index(
+            'idx_tracks_favorite_title', favorite, collate(title, 'NOCASE'),
+            sqlite_where=(favorite == True),  # noqa: E712 — SQL filter clause
+        ),
+        Index('idx_tracks_last_played', desc(last_played)),
+        Index('idx_tracks_album_id', album_id),
+        Index('idx_tracks_year', year),
+        Index('idx_tracks_fingerprint_status', fingerprint_status),
+        Index('idx_tracks_fingerprint_queue', fingerprint_status, 'created_at'),
+        Index('idx_tracks_fingerprint_computed_at', desc(fingerprint_computed_at)),
+    )
 
     # Relationships
     album: Mapped[Album | None] = relationship("Album", back_populates="tracks")

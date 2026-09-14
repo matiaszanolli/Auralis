@@ -49,6 +49,7 @@ from .repositories import (
     TrackRepository,
 )
 from .repositories.settings_repository import SettingsRepository
+from .schema_indexes import create_missing_declared_indexes
 
 # #4523: the same-process thread lock that used to live here (#4232) moved into
 # `migration_manager.migration_lock`, which now acquires thread *and* process
@@ -181,6 +182,16 @@ class LibraryDatabase:
         # connection, which fires the connect event above and switches the DB to
         # WAL mode — creating the -wal/-shm sidecars.
         Base.metadata.create_all(self.engine)
+
+        # create_all() adds a table's indexes only when it creates the table, so
+        # a database built before an index was declared would never get it
+        # (#5321). An index is an optimization; never block startup on it.
+        try:
+            added_indexes = create_missing_declared_indexes(self.engine)
+            if added_indexes:
+                info(f"Created {len(added_indexes)} missing index(es): {', '.join(added_indexes)}")
+        except Exception as e:  # noqa: BLE001
+            warning(f"Declared-index repair skipped: {e}")
 
         # WAL sidecars are created lazily by SQLite with the process umask (often
         # world/group-readable) and never chmod'd, unlike the main DB above.
