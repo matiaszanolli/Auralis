@@ -145,10 +145,23 @@ cd auralis-web/frontend && pnpm list react react-dom 2>/dev/null | head -5
 
 ## 🎯 Run Your First Development Session
 
-### Option A: Full Web Interface (Recommended)
+The all-in-one root launcher (`launch-auralis-web.py`) is currently blocked by
+[REC-01](docs/audits/AUDIT_RECOVERY_2026-07-24.md#rec-01-there-is-no-usable-single-owner-application-launcher),
+so run the backend and frontend separately.
+
+### Option A: Backend + Frontend (Recommended)
+
+**Terminal 1 — backend:**
 ```bash
-# From project root
-python launch-auralis-web.py --dev
+source .venv/bin/activate
+cd auralis-web/backend
+python main.py --dev
+```
+
+**Terminal 2 — frontend:**
+```bash
+cd auralis-web/frontend
+pnpm run dev
 ```
 
 Then visit:
@@ -159,7 +172,7 @@ Then visit:
 ### Option B: Backend Only
 ```bash
 cd auralis-web/backend
-python -m uvicorn main:app --reload
+python main.py --dev
 # Visit http://localhost:8765/api/docs
 ```
 
@@ -174,11 +187,21 @@ pnpm run dev
 
 ## 🧪 Run Tests to Verify Everything Works
 
-### Backend Tests (Fast, skips slow tests)
+### Backend Tests (skips slow tests)
 ```bash
-python -m pytest tests/ -m "not slow" -v --tb=short
-# Expected: 700+ tests passing in ~1-2 minutes
+# Quick check — one domain (the normal inner loop)
+python -m pytest -q -m "not slow" tests/auralis/dsp
+
+# Whole backend suite: thousands of tests, tens of minutes. These two files
+# HANG when run as whole files, so always exclude them:
+python -m pytest -q -m "not slow" \
+  --ignore=tests/backend/test_system_api.py \
+  --ignore=tests/concurrency/test_thread_safety.py
 ```
+
+The full suite is not green yet — CI compares failures against
+`pytest-baseline.json` rather than expecting zero (see
+[CLAUDE.md](CLAUDE.md#ci-gates-and-the-failure-baselines)).
 
 ### Frontend Tests (Watch mode)
 ```bash
