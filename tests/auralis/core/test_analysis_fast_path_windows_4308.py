@@ -7,14 +7,14 @@ resolution tradeoff across sample rates (same family of bug as the
 already-fixed #4029/#4030). Windows are now anchored in time via
 frames_for_seconds() (auralis/dsp/utils/spectral.py), reproducing the
 historical 44.1kHz literals exactly while scaling proportionally at other
-rates. Now three: the ContentAwareAnalyzer fast path was removed as dead
-code (#4592, zero production callers).
+rates. Now two: the ContentAwareAnalyzer fast path was removed as dead code
+(#4592, zero production callers), and so was ContentAnalysisFacade.analyze_quick
+(#5207, same reason — its window-scaling coverage went with it, same as #4592).
 """
 
 import numpy as np
 
 from auralis.analysis.ml.feature_extractor import FeatureExtractor
-from auralis.core.analysis.content_analysis_facade import ContentAnalysisFacade
 from auralis.dsp.utils.spectral import _tempo_estimate_python, frames_for_seconds
 
 
@@ -35,13 +35,6 @@ def test_frames_for_seconds_scales_with_sample_rate():
     base = frames_for_seconds(44100, 512 / 44100)
     doubled = frames_for_seconds(88200, 512 / 44100)
     assert doubled > base
-
-
-def test_content_analysis_facade_quick_analysis_runs_at_multiple_rates():
-    for sr in (44100, 48000, 96000):
-        facade = ContentAnalysisFacade(sample_rate=sr)
-        result = facade.analyze_quick(_tone(sr))
-        assert np.isfinite(result["spectral_centroid"])
 
 
 def test_feature_extractor_onset_rate_runs_at_multiple_rates():
