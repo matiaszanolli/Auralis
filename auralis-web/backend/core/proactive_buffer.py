@@ -55,6 +55,7 @@ async def buffer_presets_for_track(
     try:
         # Import here to avoid circular dependency
         from core.chunked_processor import ChunkedAudioProcessor
+        from core.processor_factory import PROACTIVE_BUFFER_CONSUMER, get_processor_factory
 
         # Determine how many chunks to buffer (don't exceed total chunks)
         chunks_to_buffer = PRELOAD_CHUNKS
@@ -88,6 +89,9 @@ async def buffer_presets_for_track(
                     preset=preset,
                     intensity=intensity,
                     cancel_event=cancel_event,
+                    # Its own processors, not the live stream's: this runs
+                    # alongside that stream on the same track (#5311).
+                    processor_factory=get_processor_factory(PROACTIVE_BUFFER_CONSUMER),
                 )
 
                 # Buffer first N chunks

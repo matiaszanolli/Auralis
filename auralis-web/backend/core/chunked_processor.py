@@ -102,9 +102,15 @@ class ChunkedAudioProcessor:
         intensity: float = 1.0,
         chunk_cache: dict[str, Any] | None = None,
         cancel_event: threading.Event | None = None,
+        processor_factory: Any | None = None,
     ) -> None:
         """track_id/filepath identify the track; preset=None serves original audio
         unprocessed; chunk_cache is a shared dict of chunk paths across processors.
+
+        processor_factory: the ProcessorFactory this processor resolves its
+        HybridProcessor from, per chunk and on invalidation. None means the
+        live-stream factory. Background builders pass their own consumer's
+        factory so they never advance a live stream's processor state (#5311).
 
         cancel_event: optional cooperative-cancel signal (#4815). The caller
         sets it when this processor's owning stream is torn down (seek,
@@ -144,7 +150,9 @@ class ChunkedAudioProcessor:
         self.chunk_dir = chunk_cache_dir()
         self.chunk_dir.mkdir(exist_ok=True)
 
-        self._processor_factory: Any = get_processor_factory()  # Phase 2: Use singleton
+        self._processor_factory: Any = (
+            processor_factory if processor_factory is not None else get_processor_factory()
+        )
         self._mastering_target_service: Any = get_mastering_target_service()
 
         # Fingerprint/targets (3-tier: DB -> .25d file -> extract-on-first-play)

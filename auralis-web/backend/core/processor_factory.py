@@ -101,8 +101,13 @@ class ProcessorFactory:
         )
     """
 
-    def __init__(self) -> None:
-        """Initialize processor factory."""
+    def __init__(self, max_cached: int | None = None) -> None:
+        """Initialize processor factory.
+
+        ``max_cached`` overrides the LRU cap for this instance; ``None`` keeps
+        ``_PROCESSOR_CACHE_MAX``, read at eviction time so it stays patchable.
+        """
+        self._max_cached = max_cached
         # Unified cache: (track_id, preset, config_hash, targets_hash) -> HybridProcessor.
         # OrderedDict with LRU eviction (fixes #3515 / BE-NEW-57) — `cleanup_track`
         # is never called by production code, so the unbounded dict was
@@ -125,7 +130,10 @@ class ProcessorFactory:
         # Thread-safe lock for cache operations
         self._lock = threading.RLock()
 
-        logger.info(f"ProcessorFactory initialized (LRU cap: {_PROCESSOR_CACHE_MAX})")
+        logger.info(f"ProcessorFactory initialized (LRU cap: {self._cache_cap()})")
+
+    def _cache_cap(self) -> int:
+        return self._max_cached if self._max_cached is not None else _PROCESSOR_CACHE_MAX
 
     def _get_cache_key(
         self,
@@ -273,7 +281,7 @@ class ProcessorFactory:
                 cache_size = len(self._processor_cache)
             else:
                 self._processor_cache[cache_key] = processor
-                while len(self._processor_cache) > _PROCESSOR_CACHE_MAX:
+                while len(self._processor_cache) > self._cache_cap():
                     evicted_key, evicted_processor = self._processor_cache.popitem(
                         last=False
                     )
@@ -336,7 +344,7 @@ class ProcessorFactory:
         # snapshot before constructing so all public factory paths have the
         # same ownership guarantee.
         owned_config = deepcopy(config) if config is not None else UnifiedConfig()
-        owned_config.set_processing_mode(mode)  # type: ignore[arg-type]
+        owned_config.set_processing_mode(mode)
 
         # Use get_or_create with track_id=0 for config-based caching
         return self.get_or_create(
@@ -476,31 +484,60 @@ class ProcessorFactory:
             return self._active_processors.copy()
 
 
-# Global processor factory instance (singleton pattern)
-_global_processor_factory: ProcessorFactory | None = None
+# One factory per consumer that advances a processor's cross-chunk state
+# (#5311). A HybridProcessor carries EQ gain smoothing, limiter gain reduction
+# and dynamics envelopes from one process() call to the next, and its
+# _process_lock serializes calls without ordering them. When the proactive
+# buffer or the Tier-2 cache worker resolved the same (track, preset, config,
+# targets) key as a live stream, all of them fed chunks into one instance, so
+# each inherited the others' state at its chunk seams — and the on-disk chunk
+# cache then kept those seams. Separate factories mean separate instances,
+# each seeing only its own consumer's chunks in that consumer's order.
+STREAM_CONSUMER = "stream"
+PROACTIVE_BUFFER_CONSUMER = "proactive_buffer"
+CACHE_WORKER_CONSUMER = "cache_worker"
+
+# Background consumers only need processors for the track(s) they are working
+# on now, so their LRU caps are small; the live stream keeps
+# AURALIS_PROCESSOR_CACHE_MAX. The cache worker keeps the current and previous
+# track warm (see streamlined_processor_cache._PROCESSOR_CACHE_MAX).
+_CONSUMER_CACHE_MAX: dict[str, int] = {
+    PROACTIVE_BUFFER_CONSUMER: 2,
+    CACHE_WORKER_CONSUMER: 4,
+}
+
+_processor_factories: dict[str, ProcessorFactory] = {}
 _factory_lock = threading.Lock()
 
 
-def get_processor_factory() -> ProcessorFactory:
+def get_processor_factory(consumer: str = STREAM_CONSUMER) -> ProcessorFactory:
     """
-    Get global processor factory instance (singleton).
+    Get the process-wide processor factory for ``consumer`` (created on first use).
 
-    This is the recommended way to access the factory for consistent
-    processor caching across the application.
+    Live streaming uses the default. A background builder must pass its own
+    consumer name so it never shares a stateful processor with a live
+    stream (#5311).
 
     Returns:
-        Global ProcessorFactory instance
+        That consumer's ProcessorFactory instance
     """
-    global _global_processor_factory
-
-    if _global_processor_factory is None:
+    factory = _processor_factories.get(consumer)
+    if factory is None:
         with _factory_lock:
             # Double-check locking pattern
-            if _global_processor_factory is None:
-                _global_processor_factory = ProcessorFactory()
-                logger.info("Global ProcessorFactory instance created")
+            factory = _processor_factories.get(consumer)
+            if factory is None:
+                factory = ProcessorFactory(max_cached=_CONSUMER_CACHE_MAX.get(consumer))
+                _processor_factories[consumer] = factory
+                logger.info(f"ProcessorFactory for consumer '{consumer}' created")
 
-    return _global_processor_factory
+    return factory
+
+
+def all_processor_factories() -> list[ProcessorFactory]:
+    """Every consumer's factory created so far (shutdown clears them all)."""
+    with _factory_lock:
+        return list(_processor_factories.values())
 
 
 def create_processor_factory() -> ProcessorFactory:

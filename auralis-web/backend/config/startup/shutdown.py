@@ -107,9 +107,12 @@ async def _shutdown_components(globals_dict: dict[str, Any]) -> None:
         # actually does now is free the cached instances themselves. The log
         # line says that rather than implying a thread-pool reclaim.
         try:
-            from core.processor_factory import get_processor_factory
-            get_processor_factory().clear_cache()
-            logger.info("✅ Processor factory cache cleared (processors dropped)")
+            # One factory per consumer since #5311 (live stream, proactive
+            # buffer, cache worker); clear every one that was created.
+            from core.processor_factory import all_processor_factories
+            for processor_factory in all_processor_factories():
+                processor_factory.clear_cache()
+            logger.info("✅ Processor factory caches cleared (processors dropped)")
         except Exception as factory_err:
             logger.warning(f"⚠️  Processor factory shutdown error: {factory_err}")
 

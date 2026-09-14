@@ -31,9 +31,9 @@ ProcessorCacheKey = tuple[int, str | None, float]
 # working set: the live track needs two entries (original + processed) and the
 # previous track — kept warm for the back button — needs two more, so 4 is the
 # steady-state floor. 8 leaves room for a preset switch on both tracks without
-# thrashing, and is deliberately smaller than ProcessorFactory's cap of 32
-# because these are wrappers over factory-owned processors, not the processors
-# themselves.
+# thrashing. These are wrappers, not processors: the HybridProcessors behind
+# them live in the worker's own ProcessorFactory (#5311), whose cap is set in
+# processor_factory._CONSUMER_CACHE_MAX.
 #
 # `streamlined_worker` imports this name and reads it at call time, so that
 # module stays the documented patch point for the cap.
@@ -160,6 +160,7 @@ async def get_or_build_processor(
     """
     # Import here to avoid circular dependency
     from core.chunked_processor import ChunkedAudioProcessor
+    from core.processor_factory import CACHE_WORKER_CONSUMER, get_processor_factory
 
     processor = worker._processor_cache.get(cache_key)
     if processor is not None:
@@ -203,7 +204,10 @@ async def get_or_build_processor(
                         # filenames (which embed self.intensity) are
                         # deterministic per bucket instead of depending on
                         # which slider value happened to miss first.
-                        intensity=cache_key[2]
+                        intensity=cache_key[2],
+                        # The worker's own processors, never a live stream's
+                        # (#5311): it renders chunks of the playing track.
+                        processor_factory=get_processor_factory(CACHE_WORKER_CONSUMER),
                     )
                     worker._remember_processor(cache_key, processor)
         finally:
