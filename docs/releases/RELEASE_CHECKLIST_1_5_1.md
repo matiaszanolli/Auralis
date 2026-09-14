@@ -36,7 +36,7 @@
 
   ```bash
   python scripts/validate_release_metadata.py --expected 1.5.1
-  python -m pytest tests/validation/test_release_version_consistency.py -q
+  python -m pytest tests/regression/test_release_version_consistency.py -q
   ```
 
 - [x] Python dependency integrity in the audited environment:
@@ -90,7 +90,7 @@ Only after all prior sections are green:
 ```bash
 python sync_version.py 1.5.1
 python scripts/validate_release_metadata.py --expected 1.5.1
-python -m pytest tests/validation/test_release_version_consistency.py -q
+python -m pytest tests/regression/test_release_version_consistency.py -q
 git diff --check
 git tag -a v1.5.1 -m "Release v1.5.1"
 git push origin v1.5.1

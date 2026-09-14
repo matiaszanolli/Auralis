@@ -15,7 +15,7 @@ on:
       - 'package.json'
       - 'pyproject.toml'
       - 'scripts/validate_release_metadata.py'
-      - 'tests/validation/test_release_version_consistency.py'
+      - 'tests/regression/test_release_version_consistency.py'
       - '.github/workflows/build-release.yml'
   pull_request:
     paths:
@@ -27,7 +27,7 @@ on:
       - 'package.json'
       - 'pyproject.toml'
       - 'scripts/validate_release_metadata.py'
-      - 'tests/validation/test_release_version_consistency.py'
+      - 'tests/regression/test_release_version_consistency.py'
       - '.github/workflows/build-release.yml'
   workflow_dispatch:
     inputs:

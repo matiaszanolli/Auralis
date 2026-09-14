@@ -34,7 +34,7 @@ From the repository root:
 ```bash
 python sync_version.py X.Y.Z
 python scripts/validate_release_metadata.py --expected X.Y.Z
-python -m pytest tests/validation/test_release_version_consistency.py -q
+python -m pytest tests/regression/test_release_version_consistency.py -q
 git diff --check
 ```
 
