@@ -46,18 +46,17 @@ class GaplessPlaybackEngine:
         self.prebuffer_thread: threading.Thread | None = None
 
         # Threading
-        # RLock, not Lock (#3782): advance_with_prebuffer() is only ever
-        # called by enhanced_audio_player.next_track() while it already
-        # holds AudioFileManager._audio_lock, and advance_with_prebuffer()
-        # itself nests file_manager._audio_lock inside update_lock (to swap
-        # audio_data atomically with get_audio_chunk() readers, #2423). The
-        # resulting geometry is `_audio_lock -> update_lock -> _audio_lock`
-        # (reentrant). That inner reentry only works today because
-        # _audio_lock is itself an RLock; making update_lock reentrant too
-        # removes the second half of that fragility so this nesting stays
-        # safe even if a future change touches either lock's acquisition
-        # order. Ordering invariant: _audio_lock is always the outer lock —
-        # never acquire update_lock first and then _audio_lock.
+        # RLock, not Lock (#3782): advance_with_prebuffer() nests
+        # file_manager._audio_lock inside update_lock (to swap audio_data
+        # atomically with get_audio_chunk() readers, #2423).
+        #
+        # #5331: since #5105, next_track() no longer holds _audio_lock on
+        # entry, so the geometry documented here used to be
+        # `_audio_lock -> update_lock -> _audio_lock` (reentrant) is stale —
+        # today the only nesting this file exercises is `update_lock ->
+        # _audio_lock`, the reverse of what that comment said was the
+        # invariant. Ordering invariant, current: update_lock is always the
+        # outer lock — never acquire _audio_lock first and then update_lock.
         self.update_lock = threading.RLock()
         self._thread_lock = threading.Lock()   # guards thread creation (#2075)
         self._shutdown = threading.Event()     # signals worker to exit cleanly (#2075)
