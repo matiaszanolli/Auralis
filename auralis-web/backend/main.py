@@ -13,6 +13,7 @@ Replaces the Tkinter GUI with a professional web interface.
 import logging
 import os
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -51,12 +52,70 @@ from starlette.routing import Match
 # it here would work in a normal dev venv (auralis is pip-installed there)
 # and break the PyInstaller-frozen production case.
 _dev_mode = "--dev" in sys.argv or os.environ.get("AURALIS_DEV_MODE", "").lower() in ("1", "true", "yes")
+
+# Log level (#5065). Resolved ONCE here and applied to both basicConfig just
+# below and uvicorn.run()'s log_level at the bottom of this file.
+#
+# Passing a level to uvicorn alone cannot make `logger.debug` reachable:
+# uvicorn's configure_logging() only calls setLevel() on its own
+# "uvicorn.error"/"uvicorn.access"/"uvicorn.asgi" loggers, and its default
+# LOGGING_CONFIG has no "root" entry, so the root logger every module logger
+# here propagates to is left exactly as basicConfig left it. The basicConfig
+# level is what actually gates DEBUG for the application; uvicorn's log_level
+# only gates uvicorn's own lines. Both come from one value so they can't
+# diverge (before this, uvicorn was pinned to "info" while --dev put the root
+# logger at DEBUG).
+#
+# Default: DEBUG in dev mode, INFO otherwise. The non-dev default must stay
+# INFO -- #4366/#4778 demoted absolute paths (which embed the OS username and
+# the install layout) to DEBUG precisely so INFO output is safe to paste into a
+# public bug report, and raising the packaged default would undo that.
+# AURALIS_LOG_LEVEL is the explicit opt-in for a support session on a packaged
+# build; it is deliberately separate from AURALIS_DEV_MODE, which also enables
+# Swagger/ReDoc and widens the CORS/WebSocket origin allowlists (#4802) -- far
+# too much to turn on just to read DEBUG lines.
+_LOG_LEVELS: dict[str, int] = {
+    "critical": logging.CRITICAL,
+    "error": logging.ERROR,
+    "warning": logging.WARNING,
+    "info": logging.INFO,
+    "debug": logging.DEBUG,
+    # uvicorn's TRACE_LOG_LEVEL (below DEBUG); accepted by its log_level too.
+    "trace": 5,
+}
+
+
+def resolve_log_level(dev_mode: bool, env: Mapping[str, str] | None = None) -> str:
+    """Resolve the process-wide log level name (a valid uvicorn `log_level`).
+
+    AURALIS_LOG_LEVEL wins when it names a known level; otherwise the default is
+    "debug" in dev mode and "info" everywhere else. An unrecognized value falls
+    back to that default instead of raising -- a typo in an environment variable
+    must not stop the backend from starting.
+    """
+    environ = os.environ if env is None else env
+    requested = environ.get("AURALIS_LOG_LEVEL", "").strip().lower()
+    if requested in _LOG_LEVELS:
+        return requested
+    return "debug" if dev_mode else "info"
+
+
+_log_level = resolve_log_level(_dev_mode)
 logging.basicConfig(
-    level=logging.DEBUG if _dev_mode else logging.INFO,
+    level=_LOG_LEVELS[_log_level],
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 
 logger = logging.getLogger(__name__)
+
+_requested_log_level = os.environ.get("AURALIS_LOG_LEVEL", "").strip()
+if _requested_log_level and _requested_log_level.lower() not in _LOG_LEVELS:
+    logger.warning(
+        "Ignoring unrecognized AURALIS_LOG_LEVEL=%r (expected one of %s); using %r",
+        _requested_log_level,
+        ", ".join(sorted(_LOG_LEVELS)),
+        _log_level,
+    )
 
 # Add parent directory to path for Auralis imports
 # Detect execution context and set appropriate path
@@ -376,5 +435,6 @@ if __name__ == "__main__":
         app,  # Pass app directly instead of "main:app" to avoid module duplication
         host="127.0.0.1",
         port=_port,
-        log_level="info"
+        # Same value the root logger was configured with at import time (#5065).
+        log_level=_log_level,
     )
