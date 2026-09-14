@@ -1068,6 +1068,49 @@ describe('usePlayEnhanced – playback controls', () => {
 });
 
 // ============================================================================
+// 8c. audio_stream_end reason (#5462)
+// ============================================================================
+
+describe('usePlayEnhanced – audio_stream_end reason (#5462)', () => {
+  let store: TestStore;
+
+  beforeEach(() => {
+    setupMocks();
+    store = createTestStore();
+    renderHook(() => usePlayEnhanced(), { wrapper: makeWrapper(store) });
+    fireHandler('audio_stream_start', makeStreamStartMsg());
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it('a stopped stream is not reported as a completed track', () => {
+    fireHandler('audio_stream_end', makeStreamEndMsg({ reason: 'stopped' }));
+
+    const streaming = store.getState().player.streaming.enhanced;
+    expect(streaming.state).not.toBe('complete'); // the auto-advance trigger
+    expect(streaming.progress).not.toBe(100);
+  });
+
+  it('an errored stream ends in error, not complete', () => {
+    fireHandler('audio_stream_end', makeStreamEndMsg({ reason: 'errored' }));
+
+    const streaming = store.getState().player.streaming.enhanced;
+    expect(streaming.state).toBe('error');
+    expect(streaming.progress).not.toBe(100);
+    expect(streaming.error).toContain('gaps');
+  });
+
+  it('a completed stream is complete', () => {
+    fireHandler('audio_stream_end', makeStreamEndMsg({ reason: 'completed' }));
+
+    expect(store.getState().player.streaming.enhanced.state).toBe('complete');
+  });
+});
+
+// ============================================================================
 // 9. playEnhanced
 // ============================================================================
 

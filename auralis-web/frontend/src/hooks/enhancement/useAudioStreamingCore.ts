@@ -339,15 +339,35 @@ export function useAudioStreamingCore(
     // Only process messages intended for this stream (#2104)
     if (!acceptsStreamType(message.data.stream_type)) return;
 
+    // A backend older than #4659 sends no reason, and its end always meant completion.
+    const reason = message.data.reason ?? 'completed';
+    const trackId = message.data.track_id;
+
     DEBUG && console.log(`${logPrefix} Stream ended:`, {
-      trackId: message.data.track_id,
+      trackId,
+      reason,
       totalSamples: message.data.total_samples,
       duration: message.data.duration,
     });
 
-    // Pass track_id so a stale 'end' from a superseded track after a rapid
-    // skip doesn't prematurely mark the new track complete (#4434).
-    dispatch(completeStreaming({ streamType, trackId: message.data.track_id }));
+    // #5462: only a stream that delivered the whole track is complete. Marking
+    // an early exit 'complete' showed 100% progress and fed the session's
+    // auto-advance, which keys off that state.
+    if (reason === 'completed') {
+      // Pass track_id so a stale 'end' from a superseded track after a rapid
+      // skip doesn't prematurely mark the new track complete (#4434).
+      dispatch(completeStreaming({ streamType, trackId }));
+    } else if (reason === 'errored') {
+      // The loop reached the end but skipped chunks — each already reported via
+      // audio_stream_error. Keep the stream in error rather than 'complete'.
+      dispatch(setStreamingError({
+        streamType,
+        trackId,
+        error: 'Playback ended with gaps: part of this track could not be processed',
+      }));
+    }
+    // 'stopped': whatever stopped it supersedes it — a new play command, or the
+    // play_normal re-issue that disabling enhancement sends — so nothing to record.
   }, [dispatch, streamType, logPrefix, acceptsStreamType]);
 
   const handleStreamError = useCallback((message: AudioStreamErrorMessage) => {
