@@ -178,27 +178,3 @@ def parse_featured_artists(artist_string: str) -> list[str]:
                     return [p.strip() for p in potential_parts if p.strip()]
 
     return [artist_string]
-
-
-def is_same_artist(name1: str, name2: str) -> bool:
-    """
-    Check if two artist names refer to the same artist.
-
-    Uses normalized comparison to detect duplicates.
-
-    Examples:
-        >>> is_same_artist("AC/DC", "ACDC")
-        True
-        >>> is_same_artist("The Beatles", "Beatles")
-        False
-        >>> is_same_artist("AC-DC", "AC/DC")
-        True
-
-    Args:
-        name1: First artist name
-        name2: Second artist name
-
-    Returns:
-        True if names normalize to the same value
-    """
-    return normalize_artist_name(name1) == normalize_artist_name(name2)
