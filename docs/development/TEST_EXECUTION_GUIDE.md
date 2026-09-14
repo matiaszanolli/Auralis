@@ -3,7 +3,7 @@
 **Date:** July 9, 2026 (originally November 7, 2024)
 **Status:** Living reference
 
-> **On test counts**: This guide previously hardcoded specific totals ("683 total tests", "invariant: 109", "boundary: 79", etc.). Those went badly stale — the suite is now ~5,400 collected tests. Don't trust any hardcoded number here; get live counts with `--collect-only`. Per-marker counts vary widely and some markers are barely used (e.g. `invariant` currently tags exactly **1** test — it is not a general "run all invariant tests" bucket).
+> **On test counts**: This guide previously hardcoded specific totals ("683 total tests", "invariant: 109", "boundary: 79", etc.). Those went badly stale — and so did the replacement "~5,400" figure written here in 2026-07. Don't trust any hardcoded number here; get live counts with `--collect-only`. Per-marker counts vary widely and some markers are barely used (e.g. `invariant` currently tags exactly **1** test — it is not a general "run all invariant tests" bucket).
 
 ```bash
 # Total collected
@@ -14,16 +14,22 @@ python -m pytest -m slow      --collect-only -q 2>/dev/null | tail -1
 python -m pytest -m fast      --collect-only -q 2>/dev/null | tail -1
 ```
 
-Snapshot as of 2026-07-09 (orientation only — re-run the commands): ~5,400 total; `boundary` ~350; `slow` ~178; `fast` ~61; `invariant` 1.
-
 ---
 
 ## Quick Start
 
 ### Run All Tests
 ```bash
-pytest tests/
+# Takes tens of minutes. These two files HANG when run as whole files,
+# so always exclude them from a tree-wide run:
+python -m pytest -q -m "not slow" \
+  --ignore=tests/backend/test_system_api.py \
+  --ignore=tests/concurrency/test_thread_safety.py
 ```
+
+For day-to-day work, scope to a directory or file instead (e.g.
+`python -m pytest -q -m "not slow" tests/auralis/dsp`). Every `-m … tests/` example
+below still collects the whole tree — add the same two `--ignore`s, or narrow the path.
 
 ### Run By Category
 ```bash

@@ -1,6 +1,6 @@
 # Frontend & Integration Test Revamp Strategy
 
-> **Historical snapshot (note added 2026-07-09)**: All counts and failure percentages below are a **December 2024** point-in-time snapshot from when this revamp was planned — they are **not** a current baseline. The suite has since grown well past these figures (now ~5,400 backend tests / 200+ frontend test files; run `python -m pytest --collect-only -q | tail -1` and `find auralis-web/frontend/src -name '*.test.ts*' | wc -l` for live numbers). The named high-failure files (e.g. `GlobalSearch.test.tsx`) still exist, but their quoted failure rates describe Dec 2024, not today. Kept for historical context on the revamp effort.
+> **Historical snapshot (note added 2026-07-09)**: All counts and failure percentages below are a **December 2024** point-in-time snapshot from when this revamp was planned — they are **not** a current baseline. The suite has since grown well past these figures (run `python scripts/check_doc_counts.py` and `find auralis-web/frontend/src -name '*.test.ts*' | wc -l` for live numbers). The named high-failure files (e.g. `GlobalSearch.test.tsx`) still exist, but their quoted failure rates describe Dec 2024, not today. Kept for historical context on the revamp effort.
 
 ## Executive Summary
 

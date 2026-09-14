@@ -35,19 +35,18 @@ uv pip install -r requirements.txt
 # 2. Build the Rust DSP module (REQUIRED before first run)
 cd vendor/auralis-dsp && maturin develop && cd ../..
 
-# 3. Frontend deps
-cd auralis-web/frontend && npm install && cd ../..
-
-# 4. Run everything (backend :8765, frontend :3000)
-python launch-auralis-web.py --dev
+# 3. Frontend deps (pnpm is the only supported JS package manager)
+cd auralis-web/frontend && pnpm install && cd ../..
 ```
 
-Run components individually when iterating:
+Run the backend and frontend in two terminals. The all-in-one root launcher
+(`launch-auralis-web.py`) is currently blocked by
+[REC-01](audits/AUDIT_RECOVERY_2026-07-24.md#rec-01-there-is-no-usable-single-owner-application-launcher).
 
 ```bash
-cd auralis-web/backend && python -m uvicorn main:app --reload   # backend only
-cd auralis-web/frontend && npm run dev                          # frontend only
-cd desktop && npm install && npm run dev                        # Electron shell
+cd auralis-web/backend && python main.py --dev    # terminal 1 — backend :8765
+cd auralis-web/frontend && pnpm run dev           # terminal 2 — frontend :3000
+cd desktop && pnpm install && pnpm run dev        # optional — Electron shell
 ```
 
 > If startup raises `RuntimeError: ... auralis_dsp`, you skipped step 2. The Rust module is not

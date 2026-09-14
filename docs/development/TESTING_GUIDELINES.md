@@ -28,6 +28,8 @@
 Don't hardcode test counts here — they go stale. Get live numbers instead:
 
 ```bash
+# Test files / test functions (static count, no collection — also feeds CLAUDE.md)
+python scripts/check_doc_counts.py
 # Backend: total collected test count
 python -m pytest --collect-only -q 2>/dev/null | tail -1
 # Backend: number of test files / tests/ subdirectories
@@ -36,8 +38,6 @@ ls -d tests/*/ | grep -v __pycache__ | wc -l
 # Frontend: colocated *.test.ts(x) files under src/
 find auralis-web/frontend/src -name "*.test.ts" -o -name "*.test.tsx" | wc -l
 ```
-
-Snapshot as of 2026-07-09 (for orientation only — re-run the commands above): ~5,400 backend tests collected across 378 files / 18 `tests/` subdirectories, plus 204 colocated frontend test files.
 
 **Focus:** Invariant testing, integration testing, property-based testing — quality of validation matters far more than raw count (see the case study below).
 
@@ -1104,7 +1104,8 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Start backend
-        run: python launch-auralis-web.py &
+        # Root launcher is blocked (REC-01); start the backend directly.
+        run: (cd auralis-web/backend && python main.py) &
 
       - name: Run E2E tests
         run: pytest -m e2e --maxfail=3
@@ -1334,7 +1335,7 @@ def test_chunks_concatenate_without_gaps():
 
 ### Implementation Roadmap (historical)
 
-> This roadmap is a 2024 planning artifact. Its targets (up to "2,500+ tests") have all been met and surpassed — the suite is now ~5,400 tests. Kept for context on how the suite grew; not a live plan.
+> This roadmap is a 2024 planning artifact. Its targets (up to "2,500+ tests") have all been met and far surpassed — run `python scripts/check_doc_counts.py` for the live count. Kept for context on how the suite grew; not a live plan.
 
 **Phase 1 (Beta 9.1 - Dec 2024):**
 - Add 500 invariant tests for critical paths

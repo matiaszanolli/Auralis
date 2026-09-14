@@ -565,10 +565,9 @@ npm run dev
 curl http://localhost:8765/api/health
 # Should return: {"status":"healthy"}
 
-# If not running, start backend in another terminal:
-# cd auralis
-# source venv/bin/activate
-# python launch-auralis-web.py --dev
+# If not running, start backend in another terminal (from the repo root):
+# source .venv/bin/activate
+# cd auralis-web/backend && python main.py --dev
 
 # Check .env.local settings
 grep VITE_WS_URL .env.local
@@ -785,17 +784,21 @@ npm run build
 
 ### Make Both Run Together
 
+The all-in-one root launcher (`launch-auralis-web.py`) is currently blocked by
+[REC-01](../audits/AUDIT_RECOVERY_2026-07-24.md#rec-01-there-is-no-usable-single-owner-application-launcher),
+so run the two halves separately, from the repo root:
+
 **Terminal 1 - Backend:**
 ```bash
-cd auralis
-source venv/bin/activate
-python launch-auralis-web.py --dev
+source .venv/bin/activate
+cd auralis-web/backend
+python main.py --dev
 ```
 
 **Terminal 2 - Frontend:**
 ```bash
 cd auralis-web/frontend
-npm run dev
+pnpm run dev
 ```
 
 **Terminal 3 - Tests:**

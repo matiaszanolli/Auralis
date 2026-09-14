@@ -17,12 +17,17 @@ For experienced Python developers, here's the fastest path:
 uv venv --python-preference only-managed && source .venv/bin/activate
 uv pip install -r requirements.txt
 
-# 2. Start backend with hot reload (database auto-initializes on first run)
-python launch-auralis-web.py --dev
+# 2. Start the backend (database auto-initializes on first run)
+cd auralis-web/backend && python main.py --dev
 
-# 4. Open API docs
+# 3. Open API docs
 # Visit: http://localhost:8765/api/docs
 ```
+
+> The all-in-one root launcher (`launch-auralis-web.py`) is currently blocked by
+> [REC-01](../audits/AUDIT_RECOVERY_2026-07-24.md#rec-01-there-is-no-usable-single-owner-application-launcher);
+> every command in this guide runs the backend directly from `auralis-web/backend`.
+> `python main.py --dev` does **not** hot-reload — see [Step 6](#step-6-start-the-backend-server) for a reloading command.
 
 ---
 
@@ -163,7 +168,7 @@ python -c "import fastapi; import sqlalchemy; import numpy; print('All imports O
 **What does this do?**
 Creates the SQLite database and populates it with your music library.
 
-The database initializes automatically on first launch of `python launch-auralis-web.py --dev`. It creates `~/.auralis/library.db` and scans your configured music directory. To reset, delete the file: `rm ~/.auralis/library.db`
+The database initializes automatically the first time the backend starts (`python main.py --dev` from `auralis-web/backend`). It creates `~/.auralis/library.db` and scans your configured music directory. To reset, delete the file: `rm ~/.auralis/library.db`
 
 **Verify database created:**
 ```bash
@@ -182,30 +187,39 @@ sqlite3 ~/.auralis/library.db "SELECT COUNT(*) as track_count FROM tracks;"
 
 > **Correction (2026-07-08)**: This section previously documented a `.env` file with ~15 environment variables (`SERVER_HOST`, `SERVER_PORT`, `DATABASE_URL`, `DATABASE_POOL_SIZE`, cache/WebSocket/hot-reload settings, etc.). None of them are read anywhere in the backend code — there is no `.env.example` in the repo, and the app does not use `os.environ`/`os.getenv`/`pydantic.BaseSettings` for any of these. Setting them has zero effect. The actual configuration surface is much smaller:
 
-- **Host/port**: hardcoded to `127.0.0.1:8765` in `auralis-web/backend/main.py`. To change it, pass `--port` to `launch-auralis-web.py` (see `python launch-auralis-web.py --help`) rather than an env var.
+- **Host/port**: host is hardcoded to `127.0.0.1`; the port defaults to `8765` and is read from `AURALIS_PORT` in `auralis-web/backend/main.py`'s `__main__` block (#4805), e.g. `AURALIS_PORT=8766 python main.py --dev`.
 - **Database**: hardcoded to SQLite at `~/.auralis/library.db` (`auralis/library/constants.py::DEFAULT_DB_PATH`). There is no supported Postgres/MySQL/remote-DB configuration — this is a desktop-only, localhost-only application by design (see CLAUDE.md).
-- **Dev/reload mode**: controlled by the `--dev` flag to `launch-auralis-web.py`, not an env var.
+- **Dev mode**: `python main.py --dev`, or `AURALIS_DEV_MODE=1` (needed when uvicorn, not `main.py`, is the entry point). Dev mode is not hot reload — see Step 6.
 
-If you need a setting that isn't covered above, check `auralis-web/backend/main.py` and `launch-auralis-web.py --help` directly rather than assuming an env var exists for it.
+If you need a setting that isn't covered above, check `auralis-web/backend/main.py` directly rather than assuming an env var exists for it.
 
 ---
 
 ## Step 6: Start the Backend Server
 
-### Run with Hot Reload (Development)
-
-**Hot reload** automatically restarts the server when you change code—essential for development.
+### Run in Dev Mode
 
 ```bash
 # Make sure virtual environment is activated
 # (.venv) should be visible
-
-# Start with hot reload
-python launch-auralis-web.py --dev
+cd auralis-web/backend
+python main.py --dev
 
 # You should see output like:
+# 🚀 Starting Auralis Web Backend on port 8765...
 # INFO:     Uvicorn running on http://127.0.0.1:8765
 # INFO:     Application startup complete
+```
+
+### Run with Hot Reload
+
+`python main.py --dev` does not reload on code changes — `main.py` calls `uvicorn.run(app)`
+without `reload`. For a server that restarts on save, run uvicorn itself from the same
+directory, and set dev mode through the env var (uvicorn's argv has no `--dev`):
+
+```bash
+cd auralis-web/backend
+AURALIS_DEV_MODE=1 python -m uvicorn main:app --reload --host 127.0.0.1 --port 8765
 ```
 
 ### Access API Documentation
@@ -258,8 +272,8 @@ sqlite3 ~/.auralis/library.db "SELECT COUNT(*) as tracks FROM tracks;"
 # ✅ Should show number > 0
 
 # 5. Start server and test
-python launch-auralis-web.py --dev &
-sleep 2
+(cd auralis-web/backend && python main.py --dev) &
+sleep 5
 
 curl http://localhost:8765/api/health
 # ✅ Should return {"status":"healthy","auralis_available":true}
@@ -280,15 +294,13 @@ fg  # Bring server to foreground
 
 **Solution**: Install Python 3.14 or create alias
 
+You don't need a system-wide 3.14: `uv` provisions the interpreter `.python-version` pins.
+Older Pythons will not work — `requires-python = ">=3.14"`, and on 3.13 the PEP 649
+deferred annotations fail at import.
+
 ```bash
-# Check installed Python versions
-ls /usr/bin/python* 2>/dev/null || ls /opt/homebrew/bin/python* 2>/dev/null
-
-# If only Python 3.12 available, use it (may work)
-python3.12 -m venv venv
-
-# Or use system Python and note compatibility
-python3 --version  # Check version
+uv python install 3.14
+uv venv --python-preference only-managed && source .venv/bin/activate
 ```
 
 ### Problem: "No module named 'auralis'"
@@ -298,10 +310,10 @@ python3 --version  # Check version
 ```bash
 # Check activation
 which python
-# Should show: /path/to/venv/bin/python (not /usr/bin/python)
+# Should show: /path/to/Auralis/.venv/bin/python (not /usr/bin/python)
 
 # If not activated, activate it
-source venv/bin/activate
+source .venv/bin/activate
 
 # Then try again
 python -c "import auralis; print('OK')"
@@ -320,8 +332,10 @@ netstat -ano | findstr :8765  # Windows
 kill -9 <PID>  # macOS/Linux
 taskkill /PID <PID> /F  # Windows
 
-# Or use a different port (there is no SERVER_PORT env var — use the CLI flag)
-python launch-auralis-web.py --dev --port 8766
+# Or use a different port (there is no SERVER_PORT env var — main.py reads AURALIS_PORT)
+cd auralis-web/backend && AURALIS_PORT=8766 python main.py --dev
+# Note: the Vite dev proxy (auralis-web/frontend/vite.config.mts) targets 8765,
+# so the frontend dev server will not follow a changed backend port.
 ```
 
 ### Problem: "Database is locked"
@@ -333,7 +347,7 @@ python launch-auralis-web.py --dev --port 8766
 rm ~/.auralis/library.db
 
 # Start server
-python launch-auralis-web.py --dev
+cd auralis-web/backend && python main.py --dev
 ```
 
 ### Problem: "AudioReadError" or audio library issues
@@ -368,20 +382,20 @@ uv pip install --force-reinstall audioread
 
 ```bash
 # 1. Activate virtual environment
-source venv/bin/activate
+source .venv/bin/activate
 
 # 2. Start backend server (in one terminal)
-python launch-auralis-web.py --dev
+cd auralis-web/backend && python main.py --dev
 
 # 3. In another terminal, make code changes
-# - Edit files in auralis/ or auralis_web/backend/
-# - Server auto-reloads on save
+# - Edit files in auralis/ or auralis-web/backend/
+# - Restart the server to pick them up (or use the --reload command from Step 6)
 
 # 4. Test changes
 curl http://localhost:8765/api/endpoint
 
-# 5. Run tests
-pytest tests/ -v
+# 5. Run the tests for what you touched (scoped — see Running Tests)
+python -m pytest -q -m "not slow" tests/backend/test_<area>.py
 
 # 6. When done, stop server
 # Ctrl+C in server terminal
@@ -390,20 +404,23 @@ pytest tests/ -v
 ### Running Tests
 
 ```bash
-# Run all tests
-pytest tests/ -v
+# Scope first — one domain directory (the normal inner loop)
+python -m pytest -q -m "not slow" tests/auralis/dsp
 
-# Run specific test file
-pytest tests/test_library.py -v
+# Single test
+python -m pytest tests/path/test_file.py::test_name -vv -s
 
-# Run tests matching pattern
-pytest -k "search" -v
+# Tests matching a pattern — give -k a directory too, or it collects the whole tree
+python -m pytest -q -k "search" tests/backend
 
-# Run fast tests only (skip slow tests)
-pytest -m "not slow" -v
+# Whole backend suite: tens of minutes. These two files HANG when run as
+# whole files, so always exclude them:
+python -m pytest -q -m "not slow" \
+  --ignore=tests/backend/test_system_api.py \
+  --ignore=tests/concurrency/test_thread_safety.py
 
-# Run with coverage
-pytest tests/ --cov=auralis --cov-report=html
+# With coverage (scope it the same way)
+python -m pytest -q -m "not slow" --cov=auralis --cov-report=html tests/auralis/dsp
 
 # View coverage report
 open htmlcov/index.html  # macOS
@@ -703,7 +720,7 @@ See [PHASE_5_FINAL_COMPLETION_SUMMARY.md](../phases/completed/PHASE_5_FINAL_COMP
 
 > **Correction (2026-07-08)**: The three sub-sections below (`MUSIC_DIRECTORY`, `HOT_RELOAD`, `DATABASE_URL`) documented environment variables that are not read anywhere in the codebase (verified via repo-wide grep) — setting any of them has no effect. Removed rather than "fixed" since there is currently no equivalent working mechanism for any of them:
 > - There is no configurable music-library-directory env var; the library folder is chosen through the app UI/scanner, not at launch.
-> - "Disable hot reload" is just: don't pass `--dev` to `launch-auralis-web.py`.
+> - There is no hot-reload toggle to disable: `python main.py` never reloads; only the uvicorn `--reload` command in Step 6 does.
 > - There is no external-database support. The app is hardcoded to SQLite at `~/.auralis/library.db` (desktop-only, localhost-only by design — see CLAUDE.md). If you need Postgres/MySQL support, that would be new work, not a configuration flag.
 
 ---
@@ -720,13 +737,13 @@ See [PHASE_5_FINAL_COMPLETION_SUMMARY.md](../phases/completed/PHASE_5_FINAL_COMP
 # Select interpreter
 Cmd+Shift+P (macOS) / Ctrl+Shift+P (Windows/Linux)
 Type: "Python: Select Interpreter"
-Choose: ./venv/bin/python
+Choose: ./.venv/bin/python
 
 # Setup debugging
 Create .vscode/launch.json:
 ```
 
-> **Correction (2026-07-08)**: `auralis_web.backend.main:app` is not a valid dotted module path — the real directory is `auralis-web` (hyphen), which Python cannot import as a package. The actual launcher (`launch-auralis-web.py`) avoids this entirely by running uvicorn with `cwd` set to `auralis-web/backend` and importing `main:app` directly (see its own `__main__` comment: "to avoid module duplication"). The configs below use the same `cwd` approach instead of a dotted path.
+> **Correction (2026-07-08)**: `auralis_web.backend.main:app` is not a valid dotted module path — the real directory is `auralis-web` (hyphen), which Python cannot import as a package. The backend is always run from `auralis-web/backend` so `main` imports as a top-level module (`main.py`'s own `__main__` block passes `app` straight to `uvicorn.run` "to avoid module duplication"). The configs below use the same `cwd` approach instead of a dotted path, and set `AURALIS_DEV_MODE` because uvicorn's argv carries no `--dev`.
 
 ```json
 {
@@ -744,6 +761,7 @@ Create .vscode/launch.json:
         "--host", "127.0.0.1",
         "--port", "8765"
       ],
+      "env": { "AURALIS_DEV_MODE": "1" },
       "jinja": true,
       "justMyCode": true
     }
@@ -757,7 +775,7 @@ Then press F5 to start debugging.
 
 1. Open Project → auralis root directory
 2. Configure → Project → Python Interpreter
-3. Add → Existing Environment → Select venv/bin/python
+3. Add → Existing Environment → Select .venv/bin/python
 4. Mark folders:
    - `auralis/` as Sources Root
    - `tests/` as Test Sources Root
@@ -765,6 +783,7 @@ Then press F5 to start debugging.
    - Module: uvicorn
    - Working directory: `auralis-web/backend`
    - Parameters: `main:app --reload`
+   - Environment variables: `AURALIS_DEV_MODE=1`
 
 ---
 
@@ -835,7 +854,7 @@ uv pip install --upgrade -r requirements.txt
 
 ```bash
 rm ~/.auralis/library.db
-# Database auto-initializes on next launch of launch-auralis-web.py
+# Database auto-initializes the next time the backend starts
 ```
 
 ### Update Dependencies
@@ -859,7 +878,7 @@ uv pip install --upgrade fastapi
 
 1. ✅ Backend running locally with hot reload
 2. ✅ API docs accessible at http://localhost:8765/api/docs
-3. ✅ Tests passing (run `pytest tests/` to verify)
+3. ✅ Scoped tests for your area pass (e.g. `python -m pytest -q -m "not slow" tests/auralis/dsp`) — the full suite is not green yet; CI judges it against `pytest-baseline.json`
 
 ### Start Phase B (Backend Foundation)
 
@@ -875,7 +894,7 @@ See [PHASE_A_IMPLEMENTATION_PLAN.md](../phases/phase-1-10/PHASE_A_IMPLEMENTATION
 **Cannot start server?**
 - Check virtual environment is activated: `which python` should show venv path
 - Check port is free: `lsof -i :8765` should be empty
-- Check logs: `LOG_LEVEL=DEBUG python launch-auralis-web.py --dev`
+- Check logs: `cd auralis-web/backend && AURALIS_LOG_LEVEL=debug python main.py --dev`
 
 **Database issues?**
 - Reset database: `rm ~/.auralis/library.db` (auto-reinitializes on next launch)

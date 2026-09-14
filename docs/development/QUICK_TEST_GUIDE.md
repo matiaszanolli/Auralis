@@ -6,11 +6,19 @@
 
 ## 🚀 Start Application
 
-```bash
-cd /mnt/data/src/matchering
-python launch-auralis-web.py
+The root launcher (`launch-auralis-web.py`) is currently blocked by
+[REC-01](../audits/AUDIT_RECOVERY_2026-07-24.md#rec-01-there-is-no-usable-single-owner-application-launcher),
+so start the backend and frontend in two terminals from the repo root:
 
-# Open browser: http://localhost:8765
+```bash
+# Terminal 1 — backend (:8765)
+source .venv/bin/activate
+cd auralis-web/backend && python main.py --dev
+
+# Terminal 2 — frontend (:3000)
+cd auralis-web/frontend && pnpm run dev
+
+# Open browser: http://localhost:3000
 ```
 
 ---
