@@ -1,14 +1,15 @@
 [package]
 name = "auralis-dsp"
 version = "0.1.0"
-edition = "2021"
-# Highest rust-version declared by any direct dependency (rayon 1.11 requires
-# 1.80; ndarray 0.16 needs 1.64, pyo3/numpy 0.23 need 1.63, rustfft 6 needs
-# 1.61, num-complex 0.4 needs 1.60, realfft declares none) -- checked against
-# ~/.cargo/registry, not guessed (#4964). Without this, cargo can't emit its
-# "package requires rustc X" diagnostic on an older toolchain; a contributor
+edition = "2024"
+# Edition 2024 needs Rust 1.85 (#5443), which is now the binding floor. Below it
+# is the highest rust-version declared by any direct dependency (rayon 1.11
+# requires 1.80; ndarray 0.16 needs 1.64, pyo3/numpy 0.23 need 1.63, rustfft 6
+# needs 1.61, num-complex 0.4 needs 1.60, realfft declares none) -- checked
+# against ~/.cargo/registry, not guessed (#4964). Without this, cargo can't emit
+# its "package requires rustc X" diagnostic on an older toolchain; a contributor
 # just gets a raw type/borrow error instead.
-rust-version = "1.80"
+rust-version = "1.85"
 
 [dependencies]
 ndarray = "0.16"
