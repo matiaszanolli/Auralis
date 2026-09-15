@@ -166,8 +166,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             # environment has no Playwright/browser-driven test to verify
             # against before shipping. Worse-than-the-gap-it-closes risk for
             # a LOW-severity, Electron-only (no remote content) finding.
-            # Revisit if Vite's own CSP/nonce plugin support (or a real
-            # browser-driven frontend test suite) lands.
+            # TODO(#5484): revisit if Vite's own CSP/nonce plugin support
+            # (or a real browser-driven frontend test suite) lands.
             #
             # style-src: React/MUI here render styling as inline `style="..."`
             # element attributes (sx props, emotion CSS-in-JS), not `<style>`

@@ -92,10 +92,9 @@ export function useAlbumFingerprint(
     // Kept false, but the original rationale no longer applies: since #5122 a
     // 404 resolves to `null` rather than throwing, so it was never going to be
     // retried anyway. What `false` now suppresses is retrying a genuine 5xx.
-    // Left as-is deliberately — album art is decorative and every tile has a
-    // hash-gradient fallback, so retrying a failing endpoint once per visible
-    // album is not obviously worth the request volume. Revisit with #5122's
-    // close comment if that trade changes.
+    // Settled decision, not a pending revisit: album art is decorative and
+    // every tile has a hash-gradient fallback, so retrying a failing endpoint
+    // once per visible album is not worth the request volume.
     retry: false,
   });
 
