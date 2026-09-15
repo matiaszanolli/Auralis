@@ -15,6 +15,7 @@ both functions so existing imports keep working.
 import logging
 import os
 import sqlite3
+from contextlib import closing
 from datetime import datetime
 from pathlib import Path
 
@@ -68,9 +69,14 @@ def backup_database(db_path: str, backup_dir: str | None = None) -> str:
         os.chmod(backup_file, 0o600)
     except OSError:
         pass
-    with sqlite3.connect(str(db_path_obj)) as src:
-        with sqlite3.connect(str(backup_file)) as dst:
-            src.backup(dst)
+    #
+    # closing(), not the connection's own `with`: that only commits or rolls
+    # back, and never closes. The connection to the live file then lingered
+    # until garbage collection, holding its -wal/-shm open, and a restore
+    # after a failed migration hit "disk I/O error" deleting them (#5316).
+    with closing(sqlite3.connect(str(db_path_obj))) as src, \
+            closing(sqlite3.connect(str(backup_file))) as dst:
+        src.backup(dst)
 
     # Absolute path embeds OS username + install layout (#4351/#4366); keep
     # the event at INFO but the path itself at DEBUG only (#4929).
@@ -113,9 +119,10 @@ def restore_database(backup_path: str, db_path: str) -> bool:
         # Use SQLite Online Backup API (same as backup_database) to restore.
         # This reads through the backup's WAL (if any) and writes a fully
         # consistent main database file.
-        with sqlite3.connect(str(backup_path_obj)) as src:
-            with sqlite3.connect(str(db_path_obj)) as dst:
-                src.backup(dst)
+        # Closed explicitly for the same reason as backup_database (#5316).
+        with closing(sqlite3.connect(str(backup_path_obj))) as src, \
+                closing(sqlite3.connect(str(db_path_obj))) as dst:
+            src.backup(dst)
 
         # Path stays at DEBUG only — see backup_database's rationale (#4929).
         logger.info("✅ Database restored")

@@ -219,6 +219,34 @@ class MigrationManager:
         self.engine.dispose()
 
 
+def _restore_pre_migration_backup(
+    manager: MigrationManager, backup_path: str | None, db_path: str
+) -> None:
+    """Roll a failed migration back to the snapshot taken before it (#5316).
+
+    The backup was always taken, but nothing restored it, so a failed step
+    left the library at an intermediate schema version and every later start
+    failed against it. Logs the outcome at WARNING/ERROR either way. Only the
+    backup's file name goes there; the absolute path stays at DEBUG (#4929).
+    """
+    if backup_path is None:
+        logger.error("❌ No pre-migration backup was taken, so there is nothing to restore")
+        return
+
+    backup_name = Path(backup_path).name
+    logger.debug(f"Pre-migration backup to restore: {backup_path}")
+    # Release the manager's pooled connections first, so none of them holds
+    # the file or a stale view of its WAL while it is overwritten.
+    manager.close()
+    if restore_database(backup_path, db_path):
+        logger.warning(f"⚠️ Restored the database from its pre-migration backup {backup_name}")
+    else:
+        logger.error(
+            f"❌ Could not restore the pre-migration backup {backup_name}; it is still "
+            "beside the library database for manual recovery"
+        )
+
+
 def check_and_migrate_database(db_path: str, auto_backup: bool = True) -> bool:
     """
     Check database version and migrate if needed.
@@ -235,6 +263,7 @@ def check_and_migrate_database(db_path: str, auto_backup: bool = True) -> bool:
     Raises:
         TimeoutError: If migration lock cannot be acquired
     """
+    backup_path: str | None = None
     with MigrationManager(db_path) as manager:
         try:
             current_version = manager.get_current_version()
@@ -276,13 +305,21 @@ def check_and_migrate_database(db_path: str, auto_backup: bool = True) -> bool:
                         logger.error("❌ Aborting migration - backup failed")
                         return False
 
-                # Perform migration
-                success = manager.migrate_to_latest()
+                # Perform migration. Steps are applied one at a time, each
+                # atomically (#2905), so a failure partway leaves the file at an
+                # intermediate version no released app targets. Put the backup
+                # back while still holding the lock (#5316).
+                try:
+                    success = manager.migrate_to_latest()
+                except Exception:
+                    _restore_pre_migration_backup(manager, backup_path, db_path)
+                    raise
 
                 if success:
                     logger.info("✅ Database migration completed successfully")
                 else:
                     logger.error("❌ Database migration failed")
+                    _restore_pre_migration_backup(manager, backup_path, db_path)
 
                 return success
 
