@@ -12,19 +12,39 @@ import logging
 from typing import Any
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import joinedload, selectinload
+from sqlalchemy.orm import joinedload, selectinload, with_expression
 
-from ..models import Genre, Track
+from ..models import Genre, Track, track_genre
 from .base import BaseRepository, escape_like
 
 logger = logging.getLogger(__name__)
 
+
+def _track_count_subquery() -> Any:
+    """Correlated COUNT of a genre's tracks (#5111).
+
+    Same shape as ArtistRepository's (#5084) and AlbumRepository's (#4777).
+    A genre with no tracks yields 0, not NULL, so no COALESCE is needed.
+    """
+    return (
+        select(func.count())
+        .select_from(track_genre)
+        .where(track_genre.c.genre_id == Genre.id)
+        .correlate(Genre)
+        .scalar_subquery()
+    )
+
+
 # Every method below expunges the Genre it returns, and Genre.to_dict()
-# reports `track_count: len(self.tracks)`. Without this option the lazy
+# reports a track count. Detail paths load the collection: without it the lazy
 # `tracks` relationship raises DetachedInstanceError on the caller's side
 # (#4641). Centralised so a new read path cannot silently omit it — the same
 # shape used by album_repository/artist_repository.
 _GENRE_LOAD_OPTIONS = (selectinload(Genre.tracks),)
+
+# List paths need only the count, so they read it from a correlated subquery on
+# the genre SELECT instead of hydrating every Track row the genre owns (#5111).
+_GENRE_LIST_OPTIONS = (with_expression(Genre.track_count_expr, _track_count_subquery()),)
 
 
 class GenreRepository(BaseRepository):
@@ -91,7 +111,7 @@ class GenreRepository(BaseRepository):
             order_column = getattr(Genre, order_by, Genre.name)
             genres = session.execute(
                 select(Genre)
-                .options(*_GENRE_LOAD_OPTIONS)
+                .options(*_GENRE_LIST_OPTIONS)
                 .order_by(order_column.asc())
                 .limit(limit)
                 .offset(offset)
@@ -101,7 +121,7 @@ class GenreRepository(BaseRepository):
             for genre in genres:
                 session.expunge(genre)
 
-            return genres, total
+            return list(genres), total
 
     def get_tracks_by_genre(
         self,
@@ -148,7 +168,7 @@ class GenreRepository(BaseRepository):
             for track in tracks:
                 session.expunge(track)
 
-            return tracks, total
+            return list(tracks), total
 
     def create(self, name: str, preferred_profile: str | None = None, **kwargs: Any) -> Genre:
         """
@@ -278,7 +298,7 @@ class GenreRepository(BaseRepository):
             genres = session.execute(
                 select(Genre)
                 .where(search_filter)
-                .options(*_GENRE_LOAD_OPTIONS)
+                .options(*_GENRE_LIST_OPTIONS)
                 .order_by(Genre.name)
                 .limit(limit)
                 .offset(offset)
@@ -288,4 +308,4 @@ class GenreRepository(BaseRepository):
             for genre in genres:
                 session.expunge(genre)
 
-            return genres, total
+            return list(genres), total

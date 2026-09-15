@@ -223,8 +223,58 @@ def test_album_update_artwork_path_survives_detach(album_repository, track_repos
     assert result['artist'] == 'Artwork Artist'
 
 
+def _genre_list_statements(genre_repository, session_factory, read):
+    """Run *read* and return every SQL statement it emitted."""
+    statements: list[str] = []
+    from sqlalchemy import event
+
+    session = session_factory()
+    engine = session.get_bind()
+    session.close()
+
+    def _record(_conn, _cursor, statement, *_args):
+        statements.append(statement)
+
+    event.listen(engine, 'before_cursor_execute', _record)
+    try:
+        result = read()
+    finally:
+        event.remove(engine, 'before_cursor_execute', _record)
+    return result, statements
+
+
+@pytest.mark.parametrize('read', ['get_all', 'search'])
+def test_genre_list_paths_never_select_tracks(
+    genre_repository, seeded_genre, session_factory, caplog, read
+):
+    """The count comes from track_count_expr, not a Track hydration (#5111)."""
+    call = (
+        (lambda: genre_repository.get_all(limit=50)) if read == 'get_all'
+        else (lambda: genre_repository.search('DetachGenre'))
+    )
+    (genres, _total), statements = _genre_list_statements(
+        genre_repository, session_factory, call
+    )
+
+    assert not any('FROM tracks' in s for s in statements), '\n'.join(statements)
+    genre = next(g for g in genres if g.id == seeded_genre.id)
+    assert genre.track_count_expr == 2
+    assert _to_dict_without_backstop(genre, caplog)['track_count'] == 2
+
+
+def test_empty_genre_count_comes_from_the_expression(genre_repository, caplog):
+    """0 from the subquery, not from a silently degraded fallback (#5111)."""
+    created = genre_repository.create('EmptyListGenre')
+
+    genres, _total = genre_repository.search('EmptyListGenre')
+    genre = next(g for g in genres if g.id == created.id)
+
+    assert genre.track_count_expr == 0
+    assert _to_dict_without_backstop(genre, caplog)['track_count'] == 0
+
+
 def test_get_all_is_not_n_plus_one(genre_repository, session_factory):
-    """selectinload issues a bounded number of queries, not one per genre."""
+    """The track count is a scalar subquery, not a query per genre."""
     for i in range(6):
         genre_repository.create(f'NPlusOneGenre{i}')
 
@@ -245,8 +295,8 @@ def test_get_all_is_not_n_plus_one(genre_repository, session_factory):
         event.remove(engine, 'before_cursor_execute', _record)
 
     assert len(genres) >= 6
-    # count + genre SELECT + one IN-clause SELECT for the tracks collection.
-    assert len(statements) <= 4, (
+    # count + genre SELECT (the track count is in its column list, #5111).
+    assert len(statements) <= 2, (
         f"expected a bounded query count, got {len(statements)}:\n"
         + "\n".join(statements)
     )
@@ -324,7 +374,8 @@ def test_to_dict_degrades_on_unloaded_relationship(key, unloaded_rows):
     if key == 'artist':
         assert result['album_count'] == 0
     if key == 'album':
-        assert result['artist'] is None
+        # The frontend's non-nullable `artist: string` placeholder (#5457).
+        assert result['artist'] == 'Unknown Artist'
         assert result['total_duration'] == 0
     if key == 'playlist':
         assert result['total_duration'] == 0

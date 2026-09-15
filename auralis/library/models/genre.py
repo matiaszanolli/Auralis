@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from .track import Track
 
 from sqlalchemy import Integer, String
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, query_expression, relationship
 
 from ._helpers import _safe_collection
 from .base import Base, TimestampMixin, track_genre
@@ -37,16 +37,27 @@ class Genre(Base, TimestampMixin):
     # Relationships
     tracks: Mapped[list[Track]] = relationship("Track", secondary=track_genre, back_populates="genres")
 
+    # Populated by GenreRepository.get_all()/.search() via with_expression(), so
+    # a list page reports the count without hydrating every Track row a genre
+    # owns (#5111, mirroring Artist/#5084 and Album/#4777). None on queries that
+    # do not ask for it (get_by_id/get_by_name load the collection instead), in
+    # which case to_dict() falls back to walking `tracks`.
+    track_count_expr: Mapped[int | None] = query_expression()
+
     def to_dict(self) -> dict[str, Any]:
         """Convert genre to dictionary"""
+        if self.track_count_expr is not None:
+            track_count = self.track_count_expr
+        else:
+            # Guarded relationship read (#4641) — see Album.to_dict.
+            track_count = len(_safe_collection(self, 'tracks'))
         return {
             'id': self.id,
             'name': self.name,
             'preferred_profile': self.preferred_profile,
             'typical_dr_range': self.typical_dr_range,
             'typical_lufs_range': self.typical_lufs_range,
-            # Guarded relationship read (#4641) — see Album.to_dict.
-            'track_count': len(_safe_collection(self, 'tracks')),
+            'track_count': track_count,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }
