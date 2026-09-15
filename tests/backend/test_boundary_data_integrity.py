@@ -548,13 +548,10 @@ def test_failed_add_doesnt_corrupt_database(tmp_path):
     })
 
     # Try to add an invalid track. TrackRepository.add() rejects a track_info
-    # with no usable 'filepath' by returning None; it does NOT raise, and
-    # (unlike the deleted LibraryManager.add_track() facade) it does not check
-    # that the file exists on disk (#4915), so the missing-filepath case is the
-    # one the repository layer actually refuses.
-    # TODO(#5172): the '/nonexistent/file.wav' rejection this test used to
-    # exercise no longer exists anywhere; restore it in TrackRepository.add()
-    # if on-disk validation is still wanted.
+    # with no usable 'filepath' by returning None; it does NOT raise. It also
+    # deliberately does not check that the file exists on disk (#5172, see
+    # test_boundary_advanced_scenarios.py), so the missing-filepath case is the
+    # one the repository layer refuses.
     assert db.tracks.add({'title': 'Invalid'}) is None
 
     # Database should still have exactly 1 track — the rejected add must not

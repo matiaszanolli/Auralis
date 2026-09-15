@@ -645,13 +645,12 @@ def test_invalid_file_path_handling(tmp_path):
     db_path = tmp_path / "test.db"
     db = LibraryDatabase(database_path=str(db_path))
 
-    # TrackRepository.add() does NOT check that the file exists on disk — the
-    # FileNotFoundError came from the LibraryManager.add_track() facade, which
-    # was deleted with the rest of that legacy wrapper (#4915). Adding a row for
-    # a missing file must therefore not raise, and must not corrupt the DB.
-    # TODO(#5172): nothing validates on-disk existence at the repository layer
-    # anymore. If that guard is wanted back it belongs in TrackRepository.add(),
-    # and this assertion should become `pytest.raises(FileNotFoundError)` again.
+    # TrackRepository.add() deliberately does not check that the file exists on
+    # disk (#5172). The scanner inserts paths it has just walked, a stat at
+    # insert time would race the filesystem anyway, and a missing file already
+    # surfaces at playback. (The old FileNotFoundError came from the
+    # LibraryManager.add_track() facade deleted in #4915.) Adding a row for a
+    # missing file must therefore not raise, and must not corrupt the DB.
     db.tracks.add({
         'filepath': '/nonexistent/path/track.wav',
         'title': 'Invalid Track',
