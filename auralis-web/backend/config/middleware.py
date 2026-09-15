@@ -237,6 +237,31 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # inside the block (#3329). Single-threaded asyncio makes the lock
         # nearly free under normal conditions.
         self._lock: asyncio.Lock = asyncio.Lock()
+        # {client_key: (last_warning_at, rejections_since_that_warning)} for
+        # _log_rejection (#5375). Keys are a subset of _windows' and are
+        # dropped with them in _evict_stale_keys.
+        self._rejection_log: dict[str, tuple[float, int]] = {}
+
+    def _log_rejection(
+        self, key: str, client_ip: str, rule: str, window_sec: int, retry_after: int, now: float
+    ) -> None:
+        """WARN about a 429, at most once per client and rule per window (#5375).
+
+        Every other rejection path in the backend logs one, and without it a
+        lockout left nothing in the persisted log to explain the failures. A
+        client held at the limit is rejected on every request, so logging each
+        one would turn the rate limiter into a log flood. Suppressed
+        rejections are counted and reported on the next warning instead.
+        """
+        last = self._rejection_log.get(key)
+        if last is not None and now - last[0] < window_sec:
+            self._rejection_log[key] = (last[0], last[1] + 1)
+            return
+        self._rejection_log[key] = (now, 0)
+        suppressed = f" ({last[1]} more rejection(s) since the last warning)" if last and last[1] else ""
+        logger.warning(
+            f"Rate limit exceeded for {client_ip} on {rule}; retry after {retry_after}s{suppressed}"
+        )
 
     def _evict_stale_keys(self, now: float) -> None:
         """Remove dict entries whose timestamps have all expired, then
@@ -257,6 +282,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # this is true LRU, not merely insertion order.
         while len(self._windows) > self._MAX_WINDOW_ENTRIES:
             self._windows.popitem(last=False)
+
+        # A throttle entry outlives nothing it throttles (#5375).
+        for k in [k for k in self._rejection_log if k not in self._windows]:
+            del self._rejection_log[k]
 
     async def dispatch(self, request: Request, call_next: Callable[[Request], Any]) -> Response:
         # The try below covers ONLY this middleware's own rate-limit
@@ -318,6 +347,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                         # active and must not be evicted ahead of quiet keys.
                         self._windows.move_to_end(key)
                         retry_after = int(window_sec - (now - timestamps[0])) + 1
+                        self._log_rejection(
+                            key, client_ip, matched_prefix, window_sec, retry_after, now
+                        )
                         return JSONResponse(
                             status_code=429,
                             content={
@@ -340,7 +372,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         except Exception as exc:
             return _middleware_error_response(exc, "RateLimitMiddleware")
 
-        return await call_next(request)
+        return cast(Response, await call_next(request))
 
 
 class OriginCheckMiddleware(BaseHTTPMiddleware):
@@ -415,7 +447,7 @@ class OriginCheckMiddleware(BaseHTTPMiddleware):
         except Exception as exc:
             return _middleware_error_response(exc, "OriginCheckMiddleware")
 
-        return await call_next(request)
+        return cast(Response, await call_next(request))
 
 
 def cors_allowed_origins() -> list[str]:
