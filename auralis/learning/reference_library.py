@@ -278,58 +278,6 @@ REFERENCE_LIBRARY: dict[Genre, list[ReferenceTrack]] = {
 
 
 # =============================================================================
-# Quality Benchmarks by Genre
-# =============================================================================
-
-GENRE_QUALITY_BENCHMARKS: dict[Genre, dict[str, float]] = {
-    Genre.PROGRESSIVE_ROCK: {
-        "target_lufs": -14.0,      # Moderate loudness, preserves dynamics
-        "min_dynamic_range": 12.0,  # DR12+ expected
-        "max_rms": -12.0,          # Room for dynamics
-        "stereo_width_min": 0.7,   # Wide stereo field
-        "bass_rolloff_hz": 35,     # Extended low end
-        "treble_extension_khz": 18, # Extended highs
-    },
-
-    Genre.GRUNGE: {
-        "target_lufs": -12.0,      # Louder, punchier
-        "min_dynamic_range": 10.0,  # DR10-11 typical
-        "max_rms": -10.5,
-        "stereo_width_min": 0.6,
-        "bass_rolloff_hz": 40,
-        "treble_extension_khz": 16,
-    },
-
-    Genre.METAL: {
-        "target_lufs": -9.0,       # Modern metal is loud
-        "min_dynamic_range": 7.0,   # DR7-9 typical
-        "max_rms": -8.5,           # Heavy compression
-        "stereo_width_min": 0.5,   # Centered, powerful
-        "bass_rolloff_hz": 50,     # Tight low end
-        "treble_extension_khz": 14, # Controlled highs
-    },
-
-    Genre.POP: {
-        "target_lufs": -11.0,      # Streaming-optimized
-        "min_dynamic_range": 8.0,   # DR8-10
-        "max_rms": -10.0,
-        "stereo_width_min": 0.6,
-        "bass_rolloff_hz": 45,
-        "treble_extension_khz": 16,
-    },
-
-    Genre.ELECTRONIC: {
-        "target_lufs": -8.0,       # Loud for clubs/streaming
-        "min_dynamic_range": 6.0,   # DR6-8 (EDM is compressed)
-        "max_rms": -7.5,
-        "stereo_width_min": 0.7,   # Wide electronic soundstage
-        "bass_rolloff_hz": 30,     # Deep bass
-        "treble_extension_khz": 18,
-    },
-}
-
-
-# =============================================================================
 # Engineer Profiles - What Makes Each Master Unique
 # =============================================================================
 
@@ -386,51 +334,6 @@ ENGINEER_PROFILES: dict[MasteringEngineer, dict[str, str]] = {
 }
 
 
-def get_references_for_genre(genre: Genre) -> list[ReferenceTrack]:
-    """Get all reference tracks for a specific genre."""
-    return REFERENCE_LIBRARY.get(genre, [])
-
-
-def get_quality_benchmark(genre: Genre) -> dict[str, float]:
-    """Get quality benchmarks for a specific genre."""
-    return GENRE_QUALITY_BENCHMARKS.get(genre, {})
-
-
-def list_all_references() -> list[ReferenceTrack]:
-    """Get all reference tracks across all genres."""
-    all_refs = []
-    for genre_refs in REFERENCE_LIBRARY.values():
-        all_refs.extend(genre_refs)
-    return all_refs
-
-
-def get_high_priority_references() -> list[ReferenceTrack]:
-    """
-    Get highest priority references for learning optimal targets.
-
-    Priority criteria:
-    1. Steven Wilson remasters (audiophile standard)
-    2. Quincy Jones productions (pop perfection)
-    3. High DR masters (>12 DR)
-    4. Modern remasters (2015+)
-    """
-    all_refs = list_all_references()
-
-    high_priority = []
-    for ref in all_refs:
-        # Steven Wilson is always high priority
-        if ref.engineer == MasteringEngineer.STEVEN_WILSON:
-            high_priority.append(ref)
-        # Quincy Jones is always high priority
-        elif ref.engineer == MasteringEngineer.QUINCY_JONES:
-            high_priority.append(ref)
-        # Modern remasters
-        elif ref.is_remaster and ref.remaster_year and ref.remaster_year >= 2015:
-            high_priority.append(ref)
-
-    return high_priority
-
-
 if __name__ == "__main__":
     # Print reference library summary
     print("=== AURALIS REFERENCE LIBRARY ===\n")
@@ -445,8 +348,7 @@ if __name__ == "__main__":
             if ref.is_remaster:
                 print(f"    Remaster: {ref.remaster_year} ({ref.bit_depth}-bit/{ref.sample_rate}Hz)")
 
-    print(f"\n\nTotal references: {len(list_all_references())}")
-    print(f"High priority: {len(get_high_priority_references())}")
+    print(f"\n\nTotal references: {sum(len(refs) for refs in REFERENCE_LIBRARY.values())}")
 
     print("\n\n=== ENGINEER PROFILES ===\n")
     for engineer, profile in ENGINEER_PROFILES.items():
