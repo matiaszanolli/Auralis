@@ -55,6 +55,8 @@
     "files": [
       "main.js",
       "preload.js",
+      "url-safety.js",
+      "backend-env.js",
       "assets/**/*",
       "error.html"
     ],
