@@ -14,7 +14,7 @@ instead of a per-repository sweep.
 """
 
 from collections.abc import Callable, Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 
 from sqlalchemy.orm import Session
 
@@ -59,18 +59,31 @@ class BaseRepository:
 
     @contextmanager
     def _session_scope(self) -> Iterator[Session]:
-        """Yield a session and guarantee it is closed.
+        """Yield a session, rolling back if an exception escapes, and close it.
 
         Use for read paths that only need automatic ``close()``::
 
             with self._session_scope() as session:
                 return session.execute(...).scalars().all()
 
-        Callers remain responsible for ``commit()``/``rollback()`` semantics
-        on write paths.
+        Callers remain responsible for ``commit()`` on write paths. A failed
+        commit that escapes the block is rolled back here before the exception
+        re-raises unchanged, so a method no longer needs its own
+        ``except Exception: session.rollback(); raise`` (#2238) to leave the
+        session clean (#5117). ``close()`` would roll back implicitly anyway;
+        this makes it explicit for every write path in one place instead of in
+        some methods and not others. Only exceptions that leave the block
+        trigger it, so a method that catches its own failure and returns keeps
+        the objects it has not yet returned attached (the #2624 hazard).
         """
         session = self.get_session()
         try:
             yield session
+        except BaseException:
+            # A rollback that fails too (a dropped connection, say) must not
+            # replace the exception the caller actually needs to see.
+            with suppress(Exception):
+                session.rollback()
+            raise
         finally:
             session.close()
