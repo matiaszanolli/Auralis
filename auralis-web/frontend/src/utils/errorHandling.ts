@@ -1,15 +1,13 @@
 /**
  * Error Handling Utilities for Frontend Services
  *
- * Provides standardized error handling patterns across services:
+ * Provides:
  * - Retry policies with exponential backoff
  * - WebSocket error handling and reconnection
- * - Error recovery strategies
- * - Timeout management
  *
- * Used by: (no current consumers — processingService, the sole importer, was
- * deleted as dead code in #4470)
- * WebSocket streaming: handled by usePlayEnhanced hook + WebSocketContext
+ * Used by: WebSocketManager — hooks/websocket (websocketConnectionCore,
+ * useWebSocketConnection). isRetryableError / retryWithBackoff have no
+ * production caller; wiring them in or deleting them is #5387.
  */
 
 import { APIRequestError } from '@/utils/apiRequest';
@@ -37,23 +35,6 @@ export interface WebSocketErrorConfig {
   onMaxAttemptsExceeded?: () => void;
 }
 
-export interface ErrorRecoveryStrategy {
-  name: string;
-  canRecover: (error: Error) => boolean;
-  recover: () => Promise<void>;
-}
-
-export type ErrorSeverity = 'low' | 'medium' | 'high' | 'critical';
-
-export interface ErrorContext {
-  error: Error;
-  context: string;
-  severity: ErrorSeverity;
-  timestamp: number;
-  retryCount?: number;
-  lastAttemptTime?: number;
-}
-
 // ============================================================================
 // Default Configurations
 // ============================================================================
@@ -66,7 +47,7 @@ export const DEFAULT_RETRY_POLICY: RetryPolicy = {
   jitterFraction: 0.1,
 };
 
-export const DEFAULT_WEBSOCKET_CONFIG: WebSocketErrorConfig = {
+const DEFAULT_WEBSOCKET_CONFIG: WebSocketErrorConfig = {
   maxReconnectAttempts: 10,
   initialReconnectDelayMs: 1000,
   maxReconnectDelayMs: 30000,
@@ -299,37 +280,8 @@ export class WebSocketManager {
 }
 
 // ============================================================================
-// Error Classification & Recovery
+// Error Classification
 // ============================================================================
-
-/**
- * Classify error severity based on error type
- */
-export function classifyErrorSeverity(error: Error): ErrorSeverity {
-  const message = error.message.toLowerCase();
-
-  if (
-    message.includes('network') ||
-    message.includes('connection') ||
-    message.includes('timeout')
-  ) {
-    return 'medium';
-  }
-
-  if (
-    message.includes('authentication') ||
-    message.includes('unauthorized') ||
-    message.includes('forbidden')
-  ) {
-    return 'high';
-  }
-
-  if (message.includes('fatal') || message.includes('critical')) {
-    return 'critical';
-  }
-
-  return 'low';
-}
 
 /**
  * Determine if an error is retryable.
@@ -363,81 +315,7 @@ export function isRetryableError(error: Error): boolean {
     .some((pattern) => message.includes(pattern));
 }
 
-/**
- * Create a timeout promise that rejects after specified time
- */
-export function createTimeoutPromise<T>(
-  promise: Promise<T>,
-  timeoutMs: number,
-  timeoutMessage: string = 'Operation timed out'
-): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs)
-    ),
-  ]);
-}
-
-// ============================================================================
-// Error Recovery Strategies
-// ============================================================================
-
-// ============================================================================
-// Error Logging & Monitoring
-// ============================================================================
-
-export class ErrorLogger {
-  private errors: ErrorContext[] = [];
-  private maxErrors = 1000;
-
-  /**
-   * Log an error
-   */
-  log(error: Error, context: string): ErrorContext {
-    const errorContext: ErrorContext = {
-      error,
-      context,
-      severity: classifyErrorSeverity(error),
-      timestamp: Date.now(),
-    };
-
-    this.errors.push(errorContext);
-
-    // Keep only recent errors
-    if (this.errors.length > this.maxErrors) {
-      this.errors = this.errors.slice(-this.maxErrors);
-    }
-
-    console.error(`[Error] ${context}: ${error.message}`, error);
-
-    return errorContext;
-  }
-
-  /**
-   * Get error history
-   */
-  getHistory(limit: number = 100): ErrorContext[] {
-    return this.errors.slice(-limit);
-  }
-
-  /**
-   * Clear history
-   */
-  clear(): void {
-    this.errors = [];
-  }
-
-  /**
-   * Get errors by severity
-   */
-  getErrorsBySeverity(severity: ErrorSeverity): ErrorContext[] {
-    return this.errors.filter(e => e.severity === severity);
-  }
-}
-
-// ============================================================================
-// Global Error Logger Instance
-// ============================================================================
-
-export const globalErrorLogger = new ErrorLogger();
+// #5388: classifyErrorSeverity, createTimeoutPromise, ErrorLogger and
+// globalErrorLogger were deleted, along with the ErrorSeverity / ErrorContext /
+// ErrorRecoveryStrategy types only they used. None had a caller in src/, tests
+// included; errors are reported through console + toasts, not a logger store.
