@@ -11,8 +11,14 @@
  * Handles:
  * - ArrayBuffer to Float32 PCM conversion (binary mode)
  * - Base64 to binary conversion (legacy mode)
- * - Channel layout conversion (mono to stereo, etc.)
  * - Sample rate and channel metadata
+ *
+ * #5392: monoToStereo, stereoInterleavedToChannels, resamplePCM,
+ * durationToSampleCount, sampleCountToDuration, validatePCMSamples and
+ * clipPCMSamples were deleted — only their own tests called them. No
+ * client-side validate/clip pass was wired in instead: the backend is the
+ * sample-integrity authority, and its realtime chain already replaces
+ * non-finite output before emission (#5313).
  */
 
 import type { AudioChunkMessage } from '@/types/websocket';
@@ -85,169 +91,6 @@ export function decodePCMBase64(base64Data: string): Float32Array {
     }
     throw error;
   }
-}
-
-/**
- * Convert mono PCM to stereo by duplicating the channel
- *
- * @param mono Float32Array with mono samples
- * @returns Float32Array with stereo samples (L,R,L,R,...)
- *
- * @example
- * const mono = new Float32Array([0.1, 0.2, 0.3]);
- * const stereo = monoToStereo(mono);
- * // stereo = [0.1, 0.1, 0.2, 0.2, 0.3, 0.3]
- */
-export function monoToStereo(mono: Float32Array): Float32Array {
-  const stereo = new Float32Array(mono.length * 2);
-  for (let i = 0; i < mono.length; i++) {
-    stereo[i * 2] = mono[i];     // Left channel
-    stereo[i * 2 + 1] = mono[i]; // Right channel
-  }
-  return stereo;
-}
-
-/**
- * Convert stereo interleaved PCM to separate channel arrays
- *
- * Interleaved format: L,R,L,R,L,R,...
- * Output: [left_array, right_array]
- *
- * @param interleaved Float32Array with interleaved stereo samples
- * @returns Tuple of [left, right] channel arrays
- * @throws Error if sample count is not even
- *
- * @example
- * const stereo = new Float32Array([0.1, 0.2, 0.3, 0.4]);
- * const [left, right] = stereoInterleavedToChannels(stereo);
- * // left = [0.1, 0.3], right = [0.2, 0.4]
- */
-export function stereoInterleavedToChannels(
-  interleaved: Float32Array
-): [Float32Array, Float32Array] {
-  if (interleaved.length % 2 !== 0) {
-    throw new Error(
-      `Stereo interleaved PCM must have even sample count, got ${interleaved.length}`
-    );
-  }
-
-  const sampleCount = interleaved.length / 2;
-  const left = new Float32Array(sampleCount);
-  const right = new Float32Array(sampleCount);
-
-  for (let i = 0; i < sampleCount; i++) {
-    left[i] = interleaved[i * 2];
-    right[i] = interleaved[i * 2 + 1];
-  }
-
-  return [left, right];
-}
-
-/**
- * Validate PCM samples are within valid range and finite
- *
- * Audio samples should be in [-1.0, 1.0] range for float32 PCM.
- * Values outside this range may cause clipping or distortion.
- *
- * @param samples Float32Array to validate
- * @returns true if all samples are finite and in valid range
- *
- * @example
- * const pcm = new Float32Array([0.1, 0.5, -0.3]);
- * if (!validatePCMSamples(pcm)) {
- *   console.warn('PCM samples out of range');
- * }
- */
-export function validatePCMSamples(samples: Float32Array): boolean {
-  for (let i = 0; i < samples.length; i++) {
-    const sample = samples[i];
-
-    // Check if finite (not NaN or Infinity)
-    if (!isFinite(sample)) {
-      console.warn(`Invalid PCM sample at index ${i}: ${sample}`);
-      return false;
-    }
-
-    // Check if in valid range (allow slight overshoot for headroom)
-    if (sample < -1.5 || sample > 1.5) {
-      console.warn(
-        `PCM sample out of range at index ${i}: ${sample.toFixed(3)}`
-      );
-      return false;
-    }
-  }
-
-  return true;
-}
-
-/**
- * Clip PCM samples to [-1.0, 1.0] range to prevent distortion
- *
- * Soft clipping (tanh-like) would be more musical, but hard clipping
- * is faster and acceptable for most audio.
- *
- * @param samples Float32Array to clip (modified in place)
- * @returns The same Float32Array for chaining
- *
- * @example
- * const pcm = new Float32Array([0.5, 1.2, -0.8]);
- * clipPCMSamples(pcm);
- * // pcm = [0.5, 1.0, -0.8]
- */
-export function clipPCMSamples(samples: Float32Array): Float32Array {
-  for (let i = 0; i < samples.length; i++) {
-    if (samples[i] > 1.0) {
-      samples[i] = 1.0;
-    } else if (samples[i] < -1.0) {
-      samples[i] = -1.0;
-    }
-  }
-  return samples;
-}
-
-/**
- * Resample PCM data from one sample rate to another
- *
- * Uses linear interpolation for simplicity and speed.
- * For high-quality resampling, consider using a library like audioworklet-polyfill.
- *
- * @param samples Float32Array with samples at sourceSampleRate
- * @param sourceSampleRate Original sample rate (e.g., 48000)
- * @param targetSampleRate Target sample rate (e.g., 44100)
- * @returns Float32Array resampled to targetSampleRate
- *
- * @example
- * const pcm48k = new Float32Array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6]);
- * const pcm44k = resamplePCM(pcm48k, 48000, 44100);
- * // pcm44k has ~5.5 samples instead of 6
- */
-export function resamplePCM(
-  samples: Float32Array,
-  sourceSampleRate: number,
-  targetSampleRate: number
-): Float32Array {
-  if (sourceSampleRate === targetSampleRate) {
-    return samples.slice(); // Return copy
-  }
-
-  // Calculate resampling ratio
-  const ratio = targetSampleRate / sourceSampleRate;
-  const targetLength = Math.ceil(samples.length * ratio);
-  const resampled = new Float32Array(targetLength);
-
-  for (let i = 0; i < targetLength; i++) {
-    const sourceIndex = i / ratio;
-    const sourceFloor = Math.floor(sourceIndex);
-    const sourceCeil = Math.min(sourceFloor + 1, samples.length - 1);
-    const fraction = sourceIndex - sourceFloor;
-
-    // Linear interpolation
-    resampled[i] =
-      samples[sourceFloor] * (1 - fraction) +
-      samples[sourceCeil] * fraction;
-  }
-
-  return resampled;
 }
 
 /**
@@ -329,38 +172,4 @@ export function decodeAudioChunkMessage(
   };
 
   return { samples, metadata };
-}
-
-/**
- * Calculate sample count from duration and sample rate
- *
- * @param duration Duration in seconds
- * @param sampleRate Sample rate in Hz (e.g., 48000)
- * @returns Number of samples
- *
- * @example
- * const samples = durationToSampleCount(1.0, 48000); // 48000
- */
-export function durationToSampleCount(
-  duration: number,
-  sampleRate: number
-): number {
-  return Math.ceil(duration * sampleRate);
-}
-
-/**
- * Calculate duration from sample count and sample rate
- *
- * @param sampleCount Number of samples
- * @param sampleRate Sample rate in Hz
- * @returns Duration in seconds
- *
- * @example
- * const duration = sampleCountToDuration(48000, 48000); // 1.0
- */
-export function sampleCountToDuration(
-  sampleCount: number,
-  sampleRate: number
-): number {
-  return sampleCount / sampleRate;
 }
