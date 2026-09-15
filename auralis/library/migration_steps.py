@@ -14,13 +14,50 @@ thin delegation to ``run_migration_step``.
 
 import logging
 import re
+import sqlite3
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
-__all__ = ['run_migration_step', 'validate_migration_sql', 'apply_migration_sql']
+__all__ = [
+    'run_migration_step',
+    'validate_migration_sql',
+    'apply_migration_sql',
+    'split_sql_statements',
+]
+
+
+def split_sql_statements(sql: str) -> list[str]:
+    """Split a migration script into its individual SQL statements.
+
+    Uses ``sqlite3.complete_statement``, which knows where SQLite's own parser
+    ends a statement: a ``;`` inside a ``--`` comment, a string literal or a
+    trigger body does not end one. A plain ``sql.split(';')`` treated a
+    semicolon in a comment as a separator, so migration_v018_to_v019.sql's
+    header ("...always has; this repairs...") became a statement starting
+    "this repairs" and failed with a syntax error, stranding every v18
+    library (#5457 follow-up). Comment-only remainders are dropped.
+    """
+    statements: list[str] = []
+    buffer = ""
+    for line in sql.splitlines(keepends=True):
+        buffer += line
+        if sqlite3.complete_statement(buffer):
+            statements.append(buffer.strip())
+            buffer = ""
+    if _strip_sql_comments(buffer):
+        statements.append(buffer.strip())
+    return statements
+
+
+def _strip_sql_comments(text: str) -> str:
+    """Text left once whole-line ``--`` comments and blank lines are removed."""
+    return "\n".join(
+        line for line in text.splitlines()
+        if line.strip() and not line.lstrip().startswith("--")
+    ).strip()
 
 
 def run_migration_step(
@@ -144,8 +181,8 @@ def apply_migration_sql(
         try:
             cursor.execute("BEGIN")
 
-            # Apply DDL statements
-            statements = [s.strip() for s in sql.split(';') if s.strip()]
+            # Apply DDL statements, split where SQLite itself ends them.
+            statements = split_sql_statements(sql)
             for statement in statements:
                 if statement:
                     try:
