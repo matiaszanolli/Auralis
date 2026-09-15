@@ -25,6 +25,7 @@ from config.limits import (
     CHUNK_TEMP_OWNER_FILENAME,
     SEEKABLE_TEMP_PREFIX,
     STREAM_TEMP_PREFIX,
+    create_secure_temp_dir,
     owning_pid_from_stream_temp_name,
 )
 from core.encoding.atomic_io import PARTIAL_MAX_AGE_SECONDS, cleanup_partial_files
@@ -232,7 +233,7 @@ async def _cleanup_temp_directories() -> None:
         if chunk_dir.exists():
             try:
                 await asyncio.to_thread(shutil.rmtree, chunk_dir)
-                chunk_dir.mkdir(exist_ok=True)
+                await asyncio.to_thread(create_secure_temp_dir, chunk_dir)
                 logger.info(f"🧹 Cleared chunk directory: {chunk_dir.name}")
             except Exception as e:
                 logger.warning(f"Failed to clear chunk directory: {e}")

@@ -11,6 +11,7 @@ Also collects the HTTP rate-limit and WebSocket-message-limit constants
 ``config/middleware.py`` / ``websocket/websocket_security.py``.
 """
 
+import os
 import tempfile
 from pathlib import Path
 
@@ -65,6 +66,48 @@ def chunk_cache_dir() -> Path:
     return Path(tempfile.gettempdir()) / CHUNK_TEMP_DIRNAME
 
 
+def create_secure_temp_dir(path: Path) -> None:
+    """Create `path` as an owner-only (0o700) directory, refusing to follow a
+    pre-planted symlink (#4855).
+
+    Every one of the fixed-name temp dirs above (auralis_chunks/_processing/
+    _uploads) is created with a predictable name directly under the
+    OS-shared temp root. Plain ``path.mkdir(exist_ok=True)`` has two gaps a
+    co-resident local process/account can exploit:
+
+    - Its default mode is subject to the process umask (0o775/0o755 under
+      common umasks) — world-readable, so filenames under it (which track
+      names / presets currently playing) leak to any other local account.
+    - ``exist_ok=True``'s existence check follows symlinks (a directory
+      symlink stats as a directory), so a symlink planted at this path
+      before first launch — or after any ``/tmp`` clear — silently
+      redirects every future write into whatever directory the symlink
+      target names, with no error.
+
+    ``path.is_symlink()`` uses ``lstat()`` (does not follow the link), which
+    is exactly the check ``exist_ok=True`` skips — this closes that gap
+    before ``mkdir()`` ever runs. Mirrors the ``0o700`` hardening
+    ``library/database.py`` already applies to ``~/.auralis`` (#4824/#4347),
+    including the same re-chmod-after-the-fact: ``mkdir(mode=)`` is ignored
+    when the directory already exists, so a pre-existing world-readable
+    directory from before this fix must be re-restricted explicitly, not
+    just newly-created ones.
+
+    Raises:
+        RuntimeError: `path` already exists as a symlink.
+    """
+    if path.is_symlink():
+        raise RuntimeError(
+            f"Refusing to use {path} for temp storage: it is a symlink, not "
+            "a directory (possible local symlink attack, #4855)"
+        )
+    path.mkdir(parents=True, exist_ok=True, mode=0o700)
+    try:
+        os.chmod(path, 0o700)
+    except OSError:
+        pass
+
+
 def stream_temp_prefix(pid: int | None = None) -> str:
     """Temp-dir prefix for this process's stream WAVs, PID-tagged (#4713).
 
@@ -77,7 +120,6 @@ def stream_temp_prefix(pid: int | None = None) -> str:
     Args:
         pid: Override the PID, for tests. Defaults to the current process.
     """
-    import os
     return f"{STREAM_TEMP_PREFIX}{os.getpid() if pid is None else pid}_"
 
 

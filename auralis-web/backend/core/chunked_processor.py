@@ -44,7 +44,7 @@ if backend_path not in sys.path:
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from config.limits import chunk_cache_dir
+from config.limits import chunk_cache_dir, create_secure_temp_dir
 
 # Core modules (new modular architecture)
 from core.chunk_boundaries import (  # noqa: F401 — CONTEXT_DURATION/OVERLAP_DURATION re-exported for callers
@@ -148,7 +148,7 @@ class ChunkedAudioProcessor:
 
         # Temp directory for chunks
         self.chunk_dir = chunk_cache_dir()
-        self.chunk_dir.mkdir(exist_ok=True)
+        create_secure_temp_dir(self.chunk_dir)
 
         self._processor_factory: Any = (
             processor_factory if processor_factory is not None else get_processor_factory()

@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 # Upload security constants (#2560). Single source of truth in config.limits (#4033).
 from config.limits import MAX_UPLOAD_BYTES as _MAX_UPLOAD_BYTES
-from config.limits import UPLOAD_TEMP_DIRNAME
+from config.limits import UPLOAD_TEMP_DIRNAME, create_secure_temp_dir
 # Derived from the single source of truth (auralis.io.formats) so the upload
 # allowlist tracks exactly what the loader can decode (#4109).
 from auralis.io.formats import AUDIO_EXTENSIONS as _ALLOWED_AUDIO_EXTENSIONS
@@ -48,7 +48,7 @@ def _write_upload(temp_dir: Path, input_path: Path, content: bytes) -> None:
     fail with FileExistsError instead of following a symlink planted at the
     path between name selection and open (#2170).
     """
-    temp_dir.mkdir(exist_ok=True)
+    create_secure_temp_dir(temp_dir)
     with open(input_path, "xb") as f:
         f.write(content)
 

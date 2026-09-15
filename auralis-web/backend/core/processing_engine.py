@@ -33,7 +33,7 @@ from auralis.core.hybrid_processor import HybridProcessor
 # them without a circular dependency; re-exported here so existing
 # `from core.processing_engine import ProcessingJob, ProcessingStatus` keeps
 # working (#4250).
-from config.limits import PROCESSING_TEMP_DIRNAME, UPLOAD_TEMP_DIRNAME
+from config.limits import PROCESSING_TEMP_DIRNAME, UPLOAD_TEMP_DIRNAME, create_secure_temp_dir
 from core.job_cleanup import cleanup_expired_jobs
 
 # _safe_error_message lives in job_error_mapping so it (and its mapping
@@ -114,7 +114,7 @@ class ProcessingEngine:
 
         # Temporary file management
         self.temp_dir: Path = Path(tempfile.gettempdir()) / PROCESSING_TEMP_DIRNAME
-        self.temp_dir.mkdir(exist_ok=True)
+        create_secure_temp_dir(self.temp_dir)
 
         # Progress-callback fan-out (#4250: extracted to ProgressNotifier).
         # Shares this engine's jobs dict / _jobs_lock by reference so a
