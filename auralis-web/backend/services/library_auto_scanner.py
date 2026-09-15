@@ -323,6 +323,17 @@ class LibraryAutoScanner:
             )
             return
 
+        if scan_result.rejected:
+            # Lost the scan-slot race to a concurrent scan (manual or another
+            # auto-scan cycle) — that scan owns the slot and will broadcast
+            # its own truthful scan_complete when it finishes. Broadcasting
+            # one here too would reset the UI's view of the scan that is
+            # actually still running with an all-zero result (#5465). Mirrors
+            # the manual router's `if result.rejected: raise HTTPException(409)`
+            # and scanner.py:424's `not result.rejected` guard.
+            logger.debug("Auto-scan cycle rejected (scan slot held elsewhere); skipping this cycle")
+            return
+
         files_added = scan_result.files_added if scan_result else 0
         logger.info(f"✅ Auto-scan complete: {files_added} files added")
 
