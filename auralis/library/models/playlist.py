@@ -82,6 +82,4 @@ class Playlist(Base, TimestampMixin):
             'total_duration': total_duration,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
-            # Alias for frontend compatibility — frontend Playlist type uses modified_at (fixes #2269)
-            'modified_at': self.updated_at.isoformat() if self.updated_at else None,
         }

@@ -337,8 +337,6 @@ class PlaylistResponse(BaseModel):
     total_duration: float | None = Field(default=None, description="Summed track duration in seconds")
     created_at: str | None = Field(default=None, description="Creation timestamp (ISO 8601)")
     updated_at: str | None = Field(default=None, description="Update timestamp (ISO 8601)")
-    # Alias of updated_at kept for the frontend Playlist type (#2269).
-    modified_at: str | None = Field(default=None, description="Alias of updated_at")
 
 
 class FingerprintVectorResponse(BaseModel):
