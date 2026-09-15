@@ -193,6 +193,7 @@ describe('useScanProgress', () => {
         filesRemoved: 0,
         filesFailed: 0,
         filesSkipped: 0,
+        failures: [],
         duration: 3.5,
       });
     });
@@ -300,6 +301,7 @@ describe('useScanProgress', () => {
         filesRemoved: 7,
         filesFailed: 0,
         filesSkipped: 0,
+        failures: [],
         duration: 1,
       });
     });
@@ -319,6 +321,7 @@ describe('useScanProgress', () => {
         filesRemoved: 2,
         filesFailed: 0,
         filesSkipped: 0,
+        failures: [],
         duration: 0,
       });
     });

@@ -12,6 +12,7 @@ import type {
   ScanProgressMessage,
   ScanCompleteMessage,
 } from '@/types/websocket';
+import type { ScanFailure } from '@/types/ws/library';
 import { isLibraryTracksRemovedMessage } from '@/types/ws/guards';
 import { get } from '@/utils/apiRequest';
 
@@ -35,6 +36,12 @@ export interface ScanResult {
   filesFailed: number;
   /** Files skipped (already present / unchanged) (#4412). */
   filesSkipped: number;
+  /**
+   * Which files failed and why, capped backend-side (#4841, carried through
+   * here for #5466 so ScanStatusCard can name them like useLibraryScan's
+   * toast already does). Can be shorter than `filesFailed`.
+   */
+  failures: ScanFailure[];
   duration: number;
 }
 
@@ -140,6 +147,7 @@ export function useScanProgress(): ScanStatus {
             filesRemoved: hadRemovals ? (prev.lastResult?.filesRemoved ?? 0) : 0,
             filesFailed: msg.data.files_failed ?? 0,
             filesSkipped: msg.data.files_skipped ?? 0,
+            failures: msg.data.failures ?? [],
             duration: msg.data.duration,
           },
         }));
@@ -155,7 +163,7 @@ export function useScanProgress(): ScanStatus {
           ...prev,
           lastResult: prev.lastResult
             ? { ...prev.lastResult, filesRemoved: message.data.count }
-            : { filesAdded: 0, filesRemoved: message.data.count, filesFailed: 0, filesSkipped: 0, duration: 0 },
+            : { filesAdded: 0, filesRemoved: message.data.count, filesFailed: 0, filesSkipped: 0, failures: [], duration: 0 },
         }));
       }
     }

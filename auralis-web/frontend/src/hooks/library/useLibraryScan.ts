@@ -4,6 +4,7 @@ import { isElectron, getElectronAPI } from '@/utils/electron';
 import type { ScanFailure } from '@/types/ws/library';
 import { post, APIRequestError } from '@/utils/apiRequest';
 import { isAbortError } from '@/utils/errorGuards';
+import { describeFailures } from '@/utils/scanFailures';
 
 /** Wire shape of POST /api/library/scan's summary. */
 interface ScanSummary {
@@ -27,9 +28,6 @@ export interface UseLibraryScanReturn {
   scanAbortRef: React.MutableRefObject<AbortController | null>;
 }
 
-/** How many failed filenames a toast names before summarising the rest. */
-const MAX_FAILURES_IN_TOAST = 3;
-
 /**
  * Upper bound for the scan request, in ms — deliberately NOT the shared 30s
  * `DEFAULT_TIMEOUT_MS`.
@@ -42,30 +40,6 @@ const MAX_FAILURES_IN_TOAST = 3;
  * stays bounded (#5019's point) without being the thing that gives up first.
  */
 export const SCAN_TIMEOUT_MS = 3_660_000;
-
-
-/** Basename of a path, for a toast that must stay readable. */
-function baseName(filepath: string): string {
-  const parts = filepath.split(/[/\\]/);
-  return parts[parts.length - 1] || filepath;
-}
-
-/**
- * Append the failed filenames to a scan summary (#4841).
- *
- * Shows a few names rather than all of them: a folder of corrupt files would
- * otherwise produce a toast nobody can read. The count in the summary is
- * already exact, so this is about making the failures *findable*.
- */
-function describeFailures(failures: ScanFailure[] | undefined, failedCount: number): string {
-  if (!failures?.length) return '';
-
-  const shown = failures.slice(0, MAX_FAILURES_IN_TOAST);
-  const names = shown.map((f) => baseName(f.filepath)).join(', ');
-  const remaining = failedCount - shown.length;
-
-  return `\n${names}${remaining > 0 ? ` and ${remaining} more` : ''}`;
-}
 
 
 export const useLibraryScan = ({

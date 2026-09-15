@@ -17,6 +17,7 @@ import FolderOffIcon from '@mui/icons-material/FolderOff';
 import { Button } from '@/design-system';
 import { tokens } from '@/design-system';
 import { useScanProgress } from '@/hooks/library/useScanProgress';
+import { describeFailures } from '@/utils/scanFailures';
 import { themeVars } from '@/theme/semanticTheme';
 
 interface ScanStatusCardProps {
@@ -127,6 +128,24 @@ export const ScanStatusCard = ({ disabled = false, onScanNow }: ScanStatusCardPr
               {lastResult.filesRemoved > 0 && (
                 <Typography variant="body2" sx={{ color: tokens.colors.semantic.error }}>
                   −{lastResult.filesRemoved} removed
+                </Typography>
+              )}
+              {/* #5466: this surface used to silently drop failed/skipped
+                  counts the backend already sends, unlike the Library
+                  view's "Scan Folder" flow (#4841). */}
+              {lastResult.filesFailed > 0 && (
+                <Tooltip
+                  title={describeFailures(lastResult.failures, lastResult.filesFailed) || undefined}
+                  placement="bottom-start"
+                >
+                  <Typography variant="body2" sx={{ color: tokens.colors.semantic.error }}>
+                    {lastResult.filesFailed} failed
+                  </Typography>
+                </Tooltip>
+              )}
+              {lastResult.filesSkipped > 0 && (
+                <Typography variant="body2" sx={{ color: themeVars.textMuted }}>
+                  {lastResult.filesSkipped} skipped
                 </Typography>
               )}
               <Typography variant="body2" sx={{ color: themeVars.textMuted }}>
