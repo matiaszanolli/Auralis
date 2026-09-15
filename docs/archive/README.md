@@ -18,6 +18,7 @@ It is kept for provenance and archaeology, **not** as current developer referenc
 | `fixes/` | Individual bug-fix write-ups |
 | `refactoring/` | Refactoring plans and completion reports |
 | `development-history/` | `PHASE*`/completion reports that used to live in `docs/development/` |
+| `testing/` | Retired testing practices (mutmut mutation testing — its tests and target module were deleted; #5440) |
 
 ## Why archived
 
