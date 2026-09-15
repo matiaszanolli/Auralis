@@ -8,6 +8,12 @@ version = "1.5.1"  # PEP 440 mirror of the auralis/version.py source of truth
 description = "Professional-grade media player with real-time audio remastering capabilities"
 readme = "README.md"
 requires-python = ">=3.14"
+# PEP 639 (#5441): SPDX expression + license files, replacing the deprecated
+# "License :: OSI Approved :: ..." classifier (the two may not coexist). The
+# open-source terms are AGPL-3.0-or-later, as every source header states;
+# COMMERCIAL_LICENSE.md describes the separately negotiated alternative.
+license = "AGPL-3.0-or-later"
+license-files = ["LICENSE", "COMMERCIAL_LICENSE.md"]
 authors = [
     { name = "Matías Zanolli" },
 ]
@@ -17,7 +23,6 @@ classifiers = [
     "Topic :: Multimedia :: Sound/Audio :: Players",
     "Topic :: Multimedia :: Sound/Audio :: Analysis",
     "Topic :: Multimedia :: Sound/Audio :: Conversion",
-    "License :: OSI Approved :: GNU Affero General Public License v3",
     "Programming Language :: Python :: 3.14",
 ]
 # Regenerated from requirements.txt in #4528, which is the de-facto source of
