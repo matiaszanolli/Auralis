@@ -435,6 +435,43 @@ class TestFileDiscoverySymlinkSafety:
                 f"Expected 1 result for song.flac, got {len(flac_files)}: {flac_files}"
             )
 
+    def test_symlink_escaping_the_scan_root_is_followed_no_containment(self):
+        """No containment check on a symlink's resolved target (#4823).
+
+        Deliberate, documented policy — not a bug: matches
+        validate_user_chosen_directory()'s explicit "trust the user's
+        choice" stance (single-user desktop app, no privilege boundary
+        crossed), and symlinked libraries spanning multiple volumes are a
+        legitimate use case containment would break. This regression test
+        locks in that the current behavior stays current behavior; if
+        containment is ever added as a product decision, this assertion
+        should flip along with it.
+        """
+        from auralis.library.scanner.file_discovery import FileDiscovery
+
+        with tempfile.TemporaryDirectory() as scan_root, \
+                tempfile.TemporaryDirectory() as outside_root:
+            # A file genuinely outside the scan root, in a wholly separate
+            # temp directory tree (not merely a sibling subdirectory of the
+            # same tmp_dir, unlike test_normal_symlink_to_non_circular_target_works).
+            outside_file = os.path.join(outside_root, "escaped.flac")
+            open(outside_file, "wb").close()
+
+            link_path = os.path.join(scan_root, "escape_hatch")
+            os.symlink(outside_root, link_path)
+
+            discovery = FileDiscovery()
+            found = list(discovery.discover_audio_files(scan_root, recursive=True))
+
+            resolved_outside_file = str(Path(outside_file).resolve())
+            found_resolved = [str(Path(f).resolve()) for f in found]
+            assert resolved_outside_file in found_resolved, (
+                "A symlinked subdirectory pointing outside the scan root "
+                "must still be followed and its files recorded (accepted "
+                "behavior, #4823) -- if this now fails, containment was "
+                "added and this test's expectation should be inverted."
+            )
+
 
 if __name__ == '__main__':
     import pytest

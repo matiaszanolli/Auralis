@@ -120,6 +120,22 @@ class FileDiscovery:
         and skipped with a warning rather than causing an infinite loop.
         A globally-shared visited set also prevents the same physical directory
         from being emitted twice when multiple symlinks point to it.
+
+        Deliberately no containment check: a symlinked subdirectory is
+        followed even when its resolved target lies outside the originally
+        scanned root, with no comparison against that root anywhere in this
+        function (#4823). This is intentional, not an oversight — it matches
+        `validate_user_chosen_directory()`'s explicit policy of trusting a
+        user-selected scan folder without restricting to predefined media
+        directories (single-user desktop app, no privilege boundary crossed).
+        Symlinked libraries spanning multiple physical volumes are a
+        legitimate use case this would otherwise break. The concrete side
+        effect this produces — a `Track.filepath` that can fall outside
+        `get_allowed_directories()`, readable via routes that skip
+        `validate_file_path` while rejected by routes that call it — is
+        addressed by making every DB-filepath consumer call
+        `validate_file_path` consistently (#4814/#4817/#4818/#4345, all
+        fixed), not by adding containment here.
         """
         if depth > MAX_SCAN_DEPTH:
             warning(f"Max scan depth ({MAX_SCAN_DEPTH}) exceeded at: {directory}")
