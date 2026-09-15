@@ -234,9 +234,9 @@ Cached chunk files are 16-bit PCM WAV, not float32.
    prose "Retiring it is tracked separately" into a `TODO(#5295)` in
    `core/hybrid_processor.py` (0 → 1 recorded debt that already existed and was
    unsweepable), and `134c74ae` then retired the dead dynamics path and the
-   marker with it (1 → 0) — the rule working end to end. `tests/` holds **3**,
-   each citing an OPEN issue (#5172 ×2, #5174) — #5171 and #5173 were fixed and
-   closed, and their markers went with them. Keep both
+   marker with it (1 → 0) — the rule working end to end. `tests/` holds **0**
+   too: #5171 and #5173 were fixed, #5174 was fixed, and #5172 was resolved by
+   recording the decision in place of its two markers. Keep both
    figures honest by linking the issue instead of leaving a bare `TODO`.
    The scope matters: that "0" was quoted repo-wide for weeks while every
    genuine marker in the tree sat in `tests/`, uncounted (#5143), so

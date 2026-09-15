@@ -35,7 +35,7 @@ from sqlalchemy.orm import sessionmaker
 
 from ..utils.logging import error, info, warning
 from .constants import DEFAULT_DB_PATH
-from .migration_manager import check_and_migrate_database
+from .migration_manager import MigrationError, check_and_migrate_database
 from .models import Base
 from .repositories import (
     AlbumRepository,
@@ -92,7 +92,7 @@ class LibraryDatabase:
                 ``~/.auralis/library.db``.
 
         Raises:
-            Exception: If the schema migration fails — the caller must not
+            MigrationError: If the schema migration fails — the caller must not
                 proceed against a half-migrated database.
         """
         # #4824: harden ~/.auralis whenever the database lives at the default
@@ -120,7 +120,7 @@ class LibraryDatabase:
         info("Checking database version...")
         if not check_and_migrate_database(database_path, auto_backup=True):
             error("Database migration failed!")
-            raise Exception("Failed to migrate database to current version")
+            raise MigrationError("Failed to migrate database to current version")
 
         # Configure SQLite for safe, frequent fingerprint writes
         # WAL mode + synchronous=NORMAL enables fast writes with durability guarantees

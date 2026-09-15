@@ -35,9 +35,8 @@ import sqlite3
 import tempfile
 from pathlib import Path
 
-from sqlalchemy.exc import SQLAlchemyError
-
 from auralis.library.database import LibraryDatabase
+from auralis.library.migration_manager import MigrationError
 
 # ============================================================================
 # Fixtures
@@ -335,15 +334,21 @@ def test_migration_handles_old_schema_gracefully(temp_db_dir):
         db = LibraryDatabase(database_path=str(db_path))
         # Should not crash
 
-    # narrowed from bare Exception, #5023. TODO(#5174): LibraryDatabase.__init__
-    # signals a failed migration by raising a *bare* ``Exception`` (see
-    # auralis/library/database.py: `raise Exception("Failed to migrate database
-    # to current version")`), which cannot be caught more narrowly than
-    # `Exception` itself. Catching the plausible family instead: the migration
-    # lock raises TimeoutError, an unreadable/foreign schema raises
-    # sqlite3.DatabaseError, and engine/schema work raises SQLAlchemyError. If
-    # database.py is ever given a dedicated MigrationError, add it here.
-    except (TimeoutError, sqlite3.DatabaseError, SQLAlchemyError):
+    # LibraryDatabase.__init__ signals a failed migration with MigrationError
+    # (#5174, pinned by test_failed_migration_raises_migration_error), so this no
+    # longer has to enumerate a plausible family of exception types the way the
+    # #5023 narrowing did.
+    except MigrationError:
         # Some implementations may not support automatic migration
         # That's acceptable as long as it doesn't crash silently
         pass
+
+
+def test_failed_migration_raises_migration_error(temp_db_dir, monkeypatch):
+    """A failed migration is a typed, narrowly catchable error (#5174)."""
+    import auralis.library.database as database_module
+
+    monkeypatch.setattr(database_module, "check_and_migrate_database", lambda *_a, **_kw: False)
+
+    with pytest.raises(MigrationError, match="Failed to migrate database"):
+        LibraryDatabase(database_path=str(temp_db_dir / "unmigratable.db"))

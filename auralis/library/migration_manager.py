@@ -13,12 +13,13 @@ existing import of this module keeps working.
 """
 
 import logging
+from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
 from sqlalchemy import select
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 
 from auralis.__version__ import __db_schema_version__
 from auralis.library.models import Base, SchemaVersion
@@ -31,12 +32,22 @@ from .migration_steps import run_migration_step
 logger = logging.getLogger(__name__)
 
 __all__ = [
+    'MigrationError',
     'MigrationManager',
     'check_and_migrate_database',
     'migration_lock',
     'backup_database',
     'restore_database',
 ]
+
+
+class MigrationError(RuntimeError):
+    """The library schema could not be brought to the current version.
+
+    Raised by ``LibraryDatabase`` when ``check_and_migrate_database`` reports
+    failure, so a caller can handle exactly that case instead of catching
+    ``Exception`` and swallowing unrelated bugs with it (#5174).
+    """
 
 
 class MigrationManager:
@@ -55,7 +66,7 @@ class MigrationManager:
         self.migrations_dir = Path(__file__).parent / "migrations"
 
     @contextmanager
-    def _get_session(self):
+    def _get_session(self) -> Iterator[Session]:
         """Yield a short-lived session that is always closed."""
         session = self._SessionFactory()
         try:
@@ -200,9 +211,8 @@ class MigrationManager:
     def __enter__(self) -> "MigrationManager":
         return self
 
-    def __exit__(self, exc_type: type | None, exc_val: BaseException | None, exc_tb: object) -> bool:
+    def __exit__(self, exc_type: type | None, exc_val: BaseException | None, exc_tb: object) -> None:
         self.close()
-        return False
 
     def close(self) -> None:
         """Dispose engine and release all connections (issue #2395)."""
@@ -283,5 +293,3 @@ def check_and_migrate_database(db_path: str, auto_backup: bool = True) -> bool:
         except Exception as e:
             logger.error(f"❌ Error during migration check: {e}")
             return False
-
-    return False  # unreachable, satisfies type checker
