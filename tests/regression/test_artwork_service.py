@@ -161,6 +161,9 @@ class TestArtworkURLSafety:
             "http://192.168.1.10/art.jpg",
             "file:///etc/passwd",
             "https://upload.wikimedia.org.evil.example/art.jpg",
+            # A trusted host is still refused over plaintext (#5337).
+            "http://coverartarchive.org/release/example/front.jpg",
+            "http://is1-ssl.mzstatic.com/example/art.jpg",
         ],
     )
     def test_validator_rejects_local_and_untrusted_urls(self, url):

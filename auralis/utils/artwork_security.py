@@ -22,10 +22,16 @@ TRUSTED_ARTWORK_DOMAINS = frozenset({
 
 
 def validate_artwork_url(url: str) -> bool:
-    """Return whether *url* uses HTTP(S) on a trusted artwork host."""
+    """Return whether *url* uses HTTPS on a trusted artwork host.
+
+    Plaintext ``http`` is refused even for a trusted host (#5337). Every URL
+    Auralis builds itself is ``https``; the ones it does not build (API
+    response fields, redirect targets) are exactly where an on-path attacker
+    could downgrade the scheme to read or swap the image.
+    """
     try:
         parsed = urlparse(url)
-        if parsed.scheme not in ("https", "http") or not parsed.hostname:
+        if parsed.scheme != "https" or not parsed.hostname:
             return False
 
         hostname = parsed.hostname.lower()
