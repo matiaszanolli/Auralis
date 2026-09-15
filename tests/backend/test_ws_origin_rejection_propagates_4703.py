@@ -76,6 +76,19 @@ class TestConnectRaisesOnRejection:
         assert ws not in manager.active_connections
         assert manager.active_connections == []
 
+    @pytest.mark.asyncio
+    async def test_file_scheme_origin_raises(self):
+        """#5066: file:// used to be in build_ws_origins() but not
+        cors_allowed_origins() -- a locally-opened HTML file could open a
+        WebSocket the equivalent REST call would 403. Matches REST's
+        behavior for the same origin now."""
+        manager = ConnectionManager()
+        ws = _ws("file://")
+        with pytest.raises(WebSocketOriginRejected):
+            await manager.connect(ws)
+        ws.close.assert_awaited_once_with(code=1008)
+        ws.accept.assert_not_awaited()
+
 
 class TestAcceptedHandshakeUnchanged:
     @pytest.mark.asyncio

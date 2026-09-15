@@ -93,14 +93,16 @@ class TestExistingBehaviourUnchanged:
         schemes = {src.split("://", 1)[0] for src in cors_allowed_origins()}
         assert schemes == {"http", "https"}
 
-    def test_ws_origins_still_include_file_scheme(self):
-        # Packaged Electron renderers send `Origin: file://`.
-        assert "file://" in build_ws_origins()
+    def test_ws_origins_do_not_include_file_scheme(self):
+        # #5066: no supported launch path produces a `file://` renderer
+        # origin, and cors_allowed_origins() (which claims the identical
+        # dev-gating contract) never emitted it either -- carrying it here
+        # let a locally-opened HTML file open a WebSocket the equivalent
+        # REST call would 403.
+        assert "file://" not in build_ws_origins()
 
     def test_ws_origins_still_emit_all_four_schemes(self):
-        schemes = {
-            src.split("://", 1)[0] for src in build_ws_origins() if src != "file://"
-        }
+        schemes = {src.split("://", 1)[0] for src in build_ws_origins()}
         assert schemes == {"http", "https", "ws", "wss"}
 
     def test_backend_port_present_in_both_allowlists(self):

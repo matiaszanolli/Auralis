@@ -24,22 +24,27 @@ logger = logging.getLogger(__name__)
 # non-browser clients (native apps, tests) may not.
 #
 # Generated programmatically over the same host x port matrix as CORS
-# (see config/middleware.py), plus `file://` for packaged Electron builds
-# whose renderer Origin header is `file://`.
+# (see config/middleware.py) — no `file://` entry (#5066): no supported
+# launch path produces a `file://` renderer origin talking to the backend
+# (desktop/main.js always loads http://localhost:{8765,3000}; its only
+# loadFile() calls load the static error.html, which never does), and
+# cors_allowed_origins() — which claims the identical dev-gating contract —
+# never emitted it either. Carrying it here let a locally-opened HTML file
+# open a WebSocket the equivalent REST call would 403.
 def build_ws_origins() -> frozenset[str]:
     """Build the allowed WebSocket origins.
 
     The Vite dev ports (3000-3006) are only legitimate in dev — gate them on
     is_dev_mode() so a packaged build won't accept WS upgrades from those origins
-    (#4350). 8765 (the backend) and file:// (Electron renderer) are always
-    allowed. Shares the dev-gating contract with middleware.cors_allowed_origins.
+    (#4350). 8765 (the backend) is always allowed. Shares the dev-gating
+    contract with middleware.cors_allowed_origins.
 
     The host x port matrix itself lives in config/origins.py — shared with
     cors_allowed_origins() and the CSP connect-src directive so the three
     cannot drift apart again (#4712).
     """
     from .origins import origin_matrix
-    return frozenset(origin_matrix(("http", "https", "ws", "wss")) + ["file://"])
+    return frozenset(origin_matrix(("http", "https", "ws", "wss")))
 
 
 # Frozen at import time: dev/prod mode is fixed for the process lifetime (set by

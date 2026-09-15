@@ -3,7 +3,7 @@
 The Vite dev ports (3000-3006) are only legitimate in development. A packaged
 build never serves the frontend from them, so both the CORS allow-origins list
 and the WebSocket origin allowlist must exclude them when is_dev_mode() is false,
-leaving only the backend port (8765) and file:// (Electron renderer).
+leaving only the backend port (8765).
 """
 
 import sys
@@ -52,7 +52,7 @@ def test_ws_origins_exclude_dev_ports_in_production(monkeypatch):
     origins = build_ws_origins()
     assert "http://localhost:8765" in origins
     assert "wss://127.0.0.1:8765" in origins
-    assert "file://" in origins
+    assert "file://" not in origins  # #5066: no supported launch path produces it
     for port in range(3000, 3007):
         assert f"http://localhost:{port}" not in origins
         assert f"ws://localhost:{port}" not in origins
@@ -63,7 +63,7 @@ def test_ws_origins_include_dev_ports_in_dev(monkeypatch):
     origins = build_ws_origins()
     assert "http://localhost:3000" in origins
     assert "ws://127.0.0.1:3006" in origins
-    assert "file://" in origins
+    assert "file://" not in origins  # #5066: no supported launch path produces it
     assert "http://localhost:8765" in origins
 
 
