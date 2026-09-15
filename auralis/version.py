@@ -29,11 +29,6 @@ DISPLAY_VERSION = f"Auralis v{__version__}"
 from auralis.__version__ import __db_schema_version__ as DB_SCHEMA_VERSION
 
 
-def get_version() -> str:
-    """Get the current version string."""
-    return __version__
-
-
 def get_version_info() -> dict[str, Any]:
     """
     Get detailed version information.
@@ -64,26 +59,6 @@ def get_version_info() -> dict[str, Any]:
         "db_schema_version": DB_SCHEMA_VERSION,
         "display": DISPLAY_VERSION,
     }
-
-
-def is_prerelease() -> bool:
-    """Check if this is a prerelease version."""
-    return bool(VERSION_PRERELEASE)
-
-
-def is_beta() -> bool:
-    """Check if this is a beta release."""
-    return "beta" in VERSION_PRERELEASE.lower()
-
-
-def is_rc() -> bool:
-    """Check if this is a release candidate."""
-    return "rc" in VERSION_PRERELEASE.lower()
-
-
-def get_short_version() -> str:
-    """Get short version without prerelease/build info."""
-    return f"{VERSION_MAJOR}.{VERSION_MINOR}.{VERSION_PATCH}"
 
 
 if __name__ == "__main__":
