@@ -169,6 +169,29 @@ ignore_missing_imports = true
 # always been checked under the top-level [tool.mypy] flags. Pointing it at the
 # real import names now would loosen that.
 
+# Moved from pytest.ini, which coverage.py never reads (#5438).
+[tool.coverage.run]
+branch = true
+omit = [
+    "*/site-packages/*",
+    "*/__pycache__/*",
+    "*/tests/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+]
+precision = 2
+# No fail_under: the old 85 was never applied or measured. Set it from a
+# measured CI coverage run, not a guess.
+
 [tool.hatch.build.targets.wheel]
 packages = ["auralis"]
 
