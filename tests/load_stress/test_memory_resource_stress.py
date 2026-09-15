@@ -186,19 +186,24 @@ class TestResourceCleanup:
         """
         STRESS: Verify database connections are released.
         Target: No connection leaks.
+
+        #5419: this passed a bare string to Session.execute(), which SQLAlchemy
+        2.0 rejects with ArgumentError, so it failed on its first iteration and
+        measured nothing (hidden by the failure baseline). It now asserts on
+        the pool directly: a connection is held while the session is in use
+        and returned once it closes.
         """
-        from auralis.library.repositories import TrackRepository
+        from sqlalchemy import text
 
-        track_repo = TrackRepository(temp_db)
+        engine = temp_db.session_factory.kw['bind']
 
-        # Create and release 100 connections
-        for i in range(100):
+        for _ in range(100):
             session = temp_db()
-            # Use session
-            session.execute("SELECT 1")
+            session.execute(text("SELECT 1"))
+            assert engine.pool.checkedout() == 1, "the query should hold a pooled connection"
             session.close()
+            assert engine.pool.checkedout() == 0, "close() did not return the connection"
 
-        # Should not run out of connections
         print("✓ 100 database connections released")
 
 

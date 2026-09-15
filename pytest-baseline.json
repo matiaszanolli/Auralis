@@ -104,7 +104,6 @@
     "tests.load_stress.test_memory_resource_stress.TestGarbageCollection::test_garbage_collection_effectiveness",
     "tests.load_stress.test_memory_resource_stress.TestPeakResourceUsage::test_peak_memory_with_concurrent_processing",
     "tests.load_stress.test_memory_resource_stress.TestPeakResourceUsage::test_peak_memory_with_large_audio",
-    "tests.load_stress.test_memory_resource_stress.TestResourceCleanup::test_database_connections_released",
     "tests.performance.test_audio_processing_performance.TestComponentPerformance::test_combined_pipeline_performance",
     "tests.performance.test_audio_processing_performance.TestComponentPerformance::test_eq_processing_performance",
     "tests.performance.test_audio_processing_performance.TestComponentPerformance::test_loudness_measurement_performance",
