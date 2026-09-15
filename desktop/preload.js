@@ -6,11 +6,24 @@ const { contextBridge, ipcRenderer } = require('electron');
 // control; this second check means that if a navigation ever does slip past
 // it, the remote document still gets no IPC surface at all.
 //
-// The renderer only ever legitimately runs on http://localhost:{8765,3000}.
-// The frontend feature-detects via `window.electronAPI !== undefined`
-// (utils/electron.ts), so withholding it degrades to plain-web behaviour
-// rather than throwing. error.html (file://) does not use the API.
-if (window.location.hostname !== 'localhost') {
+// The renderer only ever legitimately runs on the app origin, plus the Vite
+// dev origin when unpackaged. The check compares the full origin, not the
+// hostname: any other process listening on a localhost port must not receive
+// the API either (#5356). The frontend feature-detects via
+// `window.electronAPI !== undefined` (utils/electron.ts), so withholding it
+// degrades to plain-web behaviour rather than throwing. error.html (file://)
+// does not use the API.
+//
+// A sandboxed preload can only require('electron'), so these repeat
+// url-safety.js's APP_ORIGIN, DEV_ORIGIN and DEV_ORIGIN_FLAG; preload.test.js
+// pins the copies together. main.js passes the flag only when unpackaged.
+const APP_ORIGIN = 'http://localhost:8765';
+const DEV_ORIGIN = 'http://localhost:3000';
+const DEV_ORIGIN_FLAG = '--auralis-allow-dev-origin';
+const allowDevOrigin = Array.isArray(process.argv) && process.argv.includes(DEV_ORIGIN_FLAG);
+const pageOrigin = window.location.origin;
+
+if (pageOrigin !== APP_ORIGIN && !(allowDevOrigin && pageOrigin === DEV_ORIGIN)) {
   console.warn(
     `Auralis preload: refusing to expose electronAPI on non-local origin ${window.location.origin}`
   );

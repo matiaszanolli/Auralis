@@ -79,8 +79,27 @@ test('rejects javascript: and data: navigation', () => {
   assert.equal(isAllowedAppNavigation('data:text/html,<script>alert(1)</script>'), false);
 });
 
-test('allows file: so the bundled offline error page still renders', () => {
-  assert.equal(isAllowedAppNavigation('file:///opt/Auralis/error.html'), true);
+const { pathToFileURL } = require('node:url');
+const nodePath = require('node:path');
+const { ERROR_PAGE_PATH } = require('./url-safety');
+
+test('allows the bundled offline error page', () => {
+  assert.equal(isAllowedAppNavigation(pathToFileURL(ERROR_PAGE_PATH).href), true);
+});
+
+test('rejects every other file: URL (#5356)', () => {
+  assert.equal(isAllowedAppNavigation('file:///etc/passwd'), false);
+  // Same file name, different directory.
+  assert.equal(isAllowedAppNavigation('file:///opt/Auralis/error.html'), false);
+  assert.equal(
+    isAllowedAppNavigation(pathToFileURL(nodePath.join(nodePath.dirname(ERROR_PAGE_PATH), 'main.js')).href),
+    false
+  );
+  // Traversal that resolves somewhere else.
+  assert.equal(
+    isAllowedAppNavigation(pathToFileURL(ERROR_PAGE_PATH).href.replace('/error.html', '/../error.html')),
+    false
+  );
 });
 
 test('rejects unparseable input', () => {

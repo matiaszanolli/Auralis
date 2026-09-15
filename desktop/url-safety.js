@@ -1,5 +1,8 @@
 'use strict';
 
+const path = require('node:path');
+const { fileURLToPath } = require('node:url');
+
 // Schemes safe to hand to the OS shell via shell.openExternal. Unchecked
 // openExternal is a known Electron local-code-execution vector: custom/
 // vendor URI-scheme handlers (search-ms:, ms-msdt:) can execute code or
@@ -25,6 +28,25 @@ function isSafeExternalUrl(url) {
 const APP_ORIGIN = 'http://localhost:8765';
 const DEV_ORIGIN = 'http://localhost:3000';
 
+// Passed to the renderer via webPreferences.additionalArguments only when
+// unpackaged, so the sandboxed preload (which cannot require this module or
+// see app.isPackaged) knows whether DEV_ORIGIN may receive electronAPI.
+const DEV_ORIGIN_FLAG = '--auralis-allow-dev-origin';
+
+// The one local document the window legitimately shows: the offline error
+// page main.js opens with loadFile() from this same directory.
+const ERROR_PAGE_PATH = path.join(__dirname, 'error.html');
+
+function isErrorPageUrl(parsed) {
+  // A host means a UNC share (file://server/...), never the bundled page.
+  if (parsed.host !== '') return false;
+  try {
+    return path.resolve(fileURLToPath(parsed)) === ERROR_PAGE_PATH;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * True if `url` is an origin the main window may navigate to in-place.
  *
@@ -37,10 +59,11 @@ const DEV_ORIGIN = 'http://localhost:3000';
  * pickers returning absolute paths, window controls — to a remote origin
  * (#4858).
  *
- * `file:` is permitted because the offline error page is loaded via
- * `loadFile(error.html)`. That is main-process-initiated and so does not emit
- * `will-navigate` today, but allowing it keeps the predicate honest about the
- * set of documents this window legitimately displays.
+ * The only `file:` URL permitted is the bundled offline error page, loaded
+ * via `loadFile(error.html)`. That is main-process-initiated and so does not
+ * emit `will-navigate` today, but allowing it keeps the predicate honest about
+ * the set of documents this window legitimately displays. Any other local
+ * file is refused (#5356).
  */
 function isAllowedAppNavigation(url, { isDevelopment = false } = {}) {
   let parsed;
@@ -49,7 +72,7 @@ function isAllowedAppNavigation(url, { isDevelopment = false } = {}) {
   } catch {
     return false;
   }
-  if (parsed.protocol === 'file:') return true;
+  if (parsed.protocol === 'file:') return isErrorPageUrl(parsed);
   if (parsed.origin === APP_ORIGIN) return true;
   return isDevelopment && parsed.origin === DEV_ORIGIN;
 }
@@ -60,4 +83,6 @@ module.exports = {
   isAllowedAppNavigation,
   APP_ORIGIN,
   DEV_ORIGIN,
+  DEV_ORIGIN_FLAG,
+  ERROR_PAGE_PATH,
 };

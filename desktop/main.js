@@ -4,7 +4,7 @@ const log = require('electron-log/main');
 const { spawn, exec } = require('node:child_process');
 const path = require('node:path');
 const fs = require('node:fs');
-const { isSafeExternalUrl, isAllowedAppNavigation } = require('./url-safety');
+const { isSafeExternalUrl, isAllowedAppNavigation, DEV_ORIGIN_FLAG } = require('./url-safety');
 const { buildBackendEnv } = require('./backend-env');
 
 // Configure logging for auto-updater
@@ -353,6 +353,9 @@ class AuralisApp {
         contextIsolation: true,
         sandbox: true,
         preload: path.join(__dirname, 'preload.js'),
+        // Lets the preload expose electronAPI to the Vite dev origin only
+        // when unpackaged (#5356); the packaged app gets the app origin alone.
+        additionalArguments: this.isDevelopment ? [DEV_ORIGIN_FLAG] : [],
         webSecurity: true
       }
     });
