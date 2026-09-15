@@ -217,7 +217,8 @@ class ScanProgressPayload(TypedDict):
 
 
 class ScanFailurePayload(TypedDict):
-    filepath: str
+    # A bare file name: this is broadcast to every subscriber (#5341).
+    filename: str
     reason: str
 
 

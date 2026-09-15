@@ -59,7 +59,7 @@ describe('ScanStatusCard', () => {
           filesRemoved: 0,
           filesFailed: 3,
           filesSkipped: 2,
-          failures: [{ filepath: '/music/bad.flac', reason: 'decode error' }],
+          failures: [{ filename: 'bad.flac', reason: 'decode error' }],
           duration: 1.5,
         },
       })

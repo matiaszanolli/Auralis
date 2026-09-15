@@ -51,10 +51,23 @@ class TestScanResultRecordsFailures:
         assert result.files_failed == MAX_RECORDED_FAILURES + 25
         assert len(result.failures) == MAX_RECORDED_FAILURES
 
-    def test_serialises_for_the_wire(self):
-        assert ScanFailure('/a.mp3', 'why').to_dict() == {
-            'filepath': '/a.mp3', 'reason': 'why'
+    def test_serialises_the_name_not_the_absolute_path(self):
+        """to_dict() feeds the scan_complete broadcast every WS subscriber gets (#5341)."""
+        assert ScanFailure('/home/alice/Music/a.mp3', 'why').to_dict() == {
+            'filename': 'a.mp3', 'reason': 'why'
         }
+
+    def test_redacts_the_path_from_the_reason(self):
+        """BatchProcessor falls back to str(exception), which can quote the path."""
+        path = '/home/alice/Music/Album/a.mp3'
+        failure = ScanFailure(path, f"Error opening '{path}': Format not recognised")
+
+        payload = failure.to_dict()
+
+        assert payload == {
+            'filename': 'a.mp3', 'reason': "Error opening 'a.mp3': Format not recognised"
+        }
+        assert '/home/alice' not in str(payload)
 
 
 def _processor(*, extract_returns=None, extract_raises=None, add_returns=None):

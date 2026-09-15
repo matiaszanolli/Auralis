@@ -12,12 +12,6 @@ import type { ScanFailure } from '@/types/ws/library';
 /** How many failed filenames a summary names before summarising the rest. */
 export const MAX_FAILURES_SHOWN = 3;
 
-/** Basename of a path, for a summary that must stay readable. */
-export function baseName(filepath: string): string {
-  const parts = filepath.split(/[/\\]/);
-  return parts[parts.length - 1] || filepath;
-}
-
 /**
  * Describe failed files for a scan summary (#4841).
  *
@@ -29,7 +23,7 @@ export function describeFailures(failures: ScanFailure[] | undefined, failedCoun
   if (!failures?.length) return '';
 
   const shown = failures.slice(0, MAX_FAILURES_SHOWN);
-  const names = shown.map((f) => baseName(f.filepath)).join(', ');
+  const names = shown.map((f) => f.filename).join(', ');
   const remaining = failedCount - shown.length;
 
   return `\n${names}${remaining > 0 ? ` and ${remaining} more` : ''}`;

@@ -8,6 +8,7 @@ Data models for library scanning
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+import os
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -33,7 +34,15 @@ class ScanFailure:
     reason: str
 
     def to_dict(self) -> dict[str, str]:
-        return {'filepath': self.filepath, 'reason': self.reason}
+        """Wire shape for the REST response and the scan_complete broadcast.
+
+        Carries the file's name, never its absolute path (#5341). The broadcast
+        reaches every WebSocket subscriber, and server-side paths stay
+        server-side (#3205). A reason built from an exception message can embed
+        the path too, so it is redacted to the same name.
+        """
+        filename = os.path.basename(os.path.normpath(self.filepath))
+        return {'filename': filename, 'reason': self.reason.replace(self.filepath, filename)}
 
 
 @dataclass

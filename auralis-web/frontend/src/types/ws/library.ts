@@ -137,9 +137,12 @@ export interface ScanCompleteMessage extends WebSocketMessage {
 }
 
 
-/** One file a scan could not process, and the reason (#4841). */
+/**
+ * One file a scan could not process, and the reason (#4841). The backend sends
+ * the file's name only, never its absolute path (#5341).
+ */
 export interface ScanFailure {
-  filepath: string;
+  filename: string;
   reason: string;
 }
 

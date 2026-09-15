@@ -197,7 +197,8 @@ class ScanResultResponse(BaseModel):
     files_failed: int
     duration: float
     directories_scanned: int
-    # #4841: a bounded list of {filepath, reason} for the files that failed.
+    # #4841: a bounded list of {filename, reason} for the files that failed
+    # (a bare name, never the absolute path, #5341).
     # `files_failed` stays the exact count; this names the first N so the UI can
     # tell the user *which* files to look at instead of only how many.
     failures: list[dict[str, str]] = Field(default_factory=list)
