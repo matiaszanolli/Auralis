@@ -19,7 +19,6 @@ from ..scan_models import MAX_RECORDED_FAILURES, ScanResult
 from .audio_analyzer import AudioAnalyzer
 from .batch_processor import BatchProcessor
 from .config import DEFAULT_BATCH_SIZE
-from .duplicate_detector import DuplicateDetector
 from .file_discovery import FileDiscovery
 from .metadata_extractor import MetadataExtractor
 
@@ -45,7 +44,6 @@ class LibraryScanner:
     - Recursive directory scanning
     - Audio format detection and analysis
     - Metadata extraction
-    - Duplicate detection
     - Progress tracking
     - Intelligent file filtering
     """
@@ -95,11 +93,6 @@ class LibraryScanner:
             library_database,
             self.audio_analyzer,
             self.metadata_extractor
-        )
-        self.duplicate_detector: Any = DuplicateDetector(
-            self.file_discovery,
-            self.audio_analyzer,
-            library_database
         )
 
     def set_progress_callback(self, callback: Callable[[dict[str, Any]], None]) -> None:
@@ -475,18 +468,6 @@ class LibraryScanner:
             warning(f"Error discovering audio files in {folder_path}: {e}")
 
         return files
-
-    def find_duplicates(self, directories: list[str] | None = None) -> list[list[str]]:
-        """
-        Find duplicate audio files based on content hash
-
-        Args:
-            directories: Specific directories to check, or None for entire library
-
-        Returns:
-            List of lists, where each inner list contains paths of duplicate files
-        """
-        return self.duplicate_detector.find_duplicates(directories)  # type: ignore[no-any-return]
 
     def _report_progress(self, progress_data: dict[str, Any]) -> None:
         """Report progress to callback if set"""

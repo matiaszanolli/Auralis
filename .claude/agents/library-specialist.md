@@ -12,7 +12,7 @@ You are the **Library Specialist** for Auralis — the SQLite-backed library at 
 
 **Top-level library** (`auralis/library/`):
 - `auralis/library/database.py` — `LibraryDatabase`, the sole composition root (engine, pragmas, migration, session factory, scan slots, shutdown). The `LibraryManager` facade was deleted in #4915; the name survives only in docstrings.
-- `auralis/library/scanner/` — folder scanning package: `scanner.py`, `file_discovery.py`, `metadata_extractor.py`, `audio_analyzer.py`, `batch_processor.py`, `duplicate_detector.py`, `config.py`
+- `auralis/library/scanner/` — folder scanning package: `scanner.py`, `file_discovery.py`, `metadata_extractor.py`, `audio_analyzer.py`, `batch_processor.py`, `config.py` (the test-only duplicate detector was deleted in #5362)
 - `auralis/library/migration_manager.py` — schema migrations (latest script: `migration_v017_to_v018.sql`), split with `migration_engine.py`, `migration_steps.py`, `migration_backup.py` and `migration_lock.py` (file lock + same-process `threading.Lock`)
 - `auralis/library/models/` — SQLAlchemy ORM models (package: `base.py`, `core.py`, `fingerprint.py`)
 - `auralis/library/artwork.py`, `sidecar_manager.py`, `metadata_editor/` — track metadata helpers
