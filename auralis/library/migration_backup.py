@@ -13,6 +13,7 @@ both functions so existing imports keep working.
 """
 
 import logging
+import os
 import sqlite3
 from datetime import datetime
 from pathlib import Path
@@ -56,6 +57,17 @@ def backup_database(db_path: str, backup_dir: str | None = None) -> str:
     # file (i.e. data sitting in the -wal file).  sqlite3.backup() reads
     # through both the main file and the WAL, producing a fully consistent
     # point-in-time snapshot of all committed data.
+    #
+    # The backup holds the whole library, so it gets the live DB's owner-only
+    # mode (#2577, #4347) before any page is written (#5333). SQLite gives its
+    # journal the database file's mode, so creating the file first covers the
+    # journal too; the chmod also tightens a same-second file that already
+    # existed, which os.open's mode would leave as it was.
+    os.close(os.open(backup_file, os.O_WRONLY | os.O_CREAT, 0o600))
+    try:
+        os.chmod(backup_file, 0o600)
+    except OSError:
+        pass
     with sqlite3.connect(str(db_path_obj)) as src:
         with sqlite3.connect(str(backup_file)) as dst:
             src.backup(dst)

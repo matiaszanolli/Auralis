@@ -3,7 +3,9 @@ Tests for database migration system
 """
 
 import multiprocessing
+import os
 import shutil
+import stat
 import tempfile
 import time
 from datetime import datetime
@@ -211,6 +213,21 @@ class TestDatabaseBackup:
 
         # Cleanup backup
         Path(backup_path).unlink()
+
+    @pytest.mark.skipif(os.name != "posix", reason="POSIX permission bits")
+    def test_backup_database_is_owner_only(self, temp_db_with_data):
+        """The backup holds the whole library, like the live DB it copies, so
+        it gets the same 0o600 mode regardless of the process umask (#5333)."""
+        old_umask = os.umask(0o022)
+        try:
+            backup_path = backup_database(temp_db_with_data)
+        finally:
+            os.umask(old_umask)
+
+        try:
+            assert stat.S_IMODE(os.stat(backup_path).st_mode) == 0o600
+        finally:
+            Path(backup_path).unlink()
 
     def test_restore_database(self, temp_db_with_data):
         """Test restoring database from backup"""
