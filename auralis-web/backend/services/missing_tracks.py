@@ -46,3 +46,36 @@ async def prune_missing_tracks(library_database: Any, connection_manager: Any | 
                 suppress_errors=True,
             )
     return removed
+
+
+async def prune_tracks_under_folder(
+    library_database: Any, folder: str, connection_manager: Any | None
+) -> int:
+    """Delete tracks under a removed scan folder and broadcast the removal (#5467).
+
+    Sibling of `prune_missing_tracks`, same best-effort/broadcast shape: a
+    removed scan folder revokes path trust for its files
+    (`unregister_allowed_directory`), and this keeps the library's Track
+    rows in sync with that instead of leaving them visible-but-broken.
+
+    Returns:
+        Number of tracks removed
+    """
+    try:
+        removed = int(
+            await asyncio.to_thread(library_database.tracks.remove_tracks_under_folder, folder)
+        )
+    except Exception as exc:
+        logger.warning(f"remove_tracks_under_folder failed for {folder}: {exc}")
+        return 0
+
+    if removed:
+        logger.info(f"🗑️  Removed {removed} tracks under removed scan folder {folder}")
+        if connection_manager is not None:
+            await broadcast_typed(
+                connection_manager,
+                "library_tracks_removed",
+                {"count": removed},
+                suppress_errors=True,
+            )
+    return removed

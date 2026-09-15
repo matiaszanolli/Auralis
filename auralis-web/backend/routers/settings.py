@@ -43,6 +43,7 @@ from websocket.outbound_messages import broadcast_typed
 
 from .dependencies import with_error_handling
 from .errors import NotFoundError
+from services.missing_tracks import prune_tracks_under_folder
 
 logger = logging.getLogger(__name__)
 
@@ -209,6 +210,7 @@ def create_settings_router(
     get_auto_scanner: Callable[[], Any] | None = None,
     get_enhancement_settings: Callable[[], dict[str, Any]] | None = None,
     connection_manager: Any = None,
+    get_library_database: Callable[[], Any] | None = None,
 ) -> APIRouter:
     """
     Factory function to create the settings router.
@@ -229,6 +231,11 @@ def create_settings_router(
                           broadcast `enhancement_settings_changed` after a
                           re-seed. No-op (re-seed only, no broadcast) if not
                           given.
+        get_library_database: Optional callable returning the LibraryDatabase
+                          instance. When given, removing a scan folder also
+                          prunes Track rows under it (#5467) instead of
+                          leaving them visible but path-untrusted. No-op
+                          (folder removed from settings only) if not given.
 
     Returns:
         APIRouter: Configured router instance
@@ -380,6 +387,14 @@ def create_settings_router(
         # stops trusting this folder for the rest of the session (fixes #3842),
         # instead of only reverting on the next backend restart.
         unregister_allowed_directory(Path(body.folder))
+        # #5467: path trust for this folder is gone as of the line above, but
+        # its Track rows would otherwise stay visible in the library while
+        # every path-validated endpoint (metadata, tracks, enhancement)
+        # starts rejecting them with an unexplained 400. Prune them and
+        # announce it, same shape as prune_missing_tracks.
+        library_database = get_library_database() if get_library_database else None
+        if library_database is not None:
+            await prune_tracks_under_folder(library_database, body.folder, connection_manager)
         await _notify_scanner()
         return {"message": f"Scan folder removed: {body.folder}", "settings": settings.to_dict()}
 

@@ -122,6 +122,7 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
         get_auto_scanner=get_component('auto_scanner'),
         get_enhancement_settings=lambda: enhancement_settings,
         connection_manager=manager,
+        get_library_database=get_component('library_database'),
     )
     app.include_router(settings_router)
     logger.debug("✅ Settings router registered")

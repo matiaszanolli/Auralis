@@ -11,6 +11,7 @@ audio file has gone missing.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+from pathlib import Path
 from typing import Any, cast
 
 from sqlalchemy import CursorResult, delete, func, select, update
@@ -136,8 +137,6 @@ class TrackRepositoryMaintenanceMixin(BaseRepository):
         Raises:
             Exception: If cleanup fails
         """
-        from pathlib import Path
-
         with self._session_scope() as session:
             try:
                 removed_count = 0
@@ -195,4 +194,67 @@ class TrackRepositoryMaintenanceMixin(BaseRepository):
             except Exception as e:
                 session.rollback()
                 error(f"Failed to cleanup missing files: {e}")
+                raise
+
+    def remove_tracks_under_folder(self, folder: str, batch_size: int = 1000) -> int:
+        """
+        Remove tracks whose file lives under `folder` (#5467).
+
+        Removing a scan folder revokes filesystem path trust for it
+        (`unregister_allowed_directory`), so any Track row still pointing
+        there would otherwise stay visible in the library — browsable,
+        searchable, queueable — while every path-validated endpoint
+        (metadata, tracks, enhancement) starts rejecting it with a 400 and
+        no explanation, since the folder is no longer trusted.
+
+        Unlike `cleanup_missing_files`, this does not check whether the file
+        still exists on disk: `folder` may still be a perfectly valid
+        directory, just no longer a trusted scan root. Path comparison uses
+        `Path.is_relative_to()` on resolved paths, matching
+        `security/path_security.py`'s own trust-check convention so both
+        agree on exactly which tracks a removed folder covers.
+
+        Args:
+            folder: The removed scan folder (absolute path)
+            batch_size: Number of tracks to load per batch
+
+        Returns:
+            Number of tracks removed
+
+        Raises:
+            Exception: If removal fails
+        """
+        folder_path = Path(folder).resolve()
+
+        with self._session_scope() as session:
+            try:
+                removed_count = 0
+                last_id = 0  # cursor: fetch rows with id > last_id, same as cleanup_missing_files
+
+                while True:
+                    rows = session.execute(
+                        select(Track.id, Track.filepath)
+                        .where(Track.id > last_id)
+                        .order_by(Track.id)
+                        .limit(batch_size)
+                    ).all()
+                    if not rows:
+                        break
+
+                    matching_ids = [
+                        row.id for row in rows
+                        if Path(str(row.filepath)).resolve().is_relative_to(folder_path)
+                    ]
+                    if matching_ids:
+                        session.execute(delete(Track).where(Track.id.in_(matching_ids)))
+                        session.commit()
+                        removed_count += len(matching_ids)
+
+                    last_id = rows[-1].id  # advance cursor past this batch
+
+                debug(f"Removed {removed_count} tracks under removed scan folder {folder_path}")
+                return removed_count
+            except Exception as e:
+                session.rollback()
+                error(f"Failed to remove tracks under folder {folder}: {e}")
                 raise
