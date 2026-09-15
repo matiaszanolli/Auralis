@@ -26,8 +26,8 @@ Key properties:
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Mapping
 
 from .cross_dimensional_guard import smooth_gate
 

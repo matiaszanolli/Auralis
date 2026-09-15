@@ -35,8 +35,9 @@ from __future__ import annotations
 
 import logging
 import math
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -201,7 +202,7 @@ def _z_distance(a: Any, b: Any, stats: DistanceStats) -> float:
     return math.sqrt(acc)
 
 
-def _softmax_weights(distances) -> list[float]:
+def _softmax_weights(distances: Iterable[float]) -> list[float]:
     """softmax(-d / τ) with adaptive τ = mean(distances) + EPSILON.
 
     Adaptive τ makes the weighting scale-free: a tight cluster of nearby

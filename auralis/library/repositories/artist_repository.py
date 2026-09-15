@@ -8,7 +8,9 @@ Data access layer for artist operations
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from typing import Any, Sequence
+from collections.abc import Sequence
+from datetime import datetime, timezone
+from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload, with_expression
@@ -205,7 +207,7 @@ class ArtistRepository(BaseRepository):
 
             for artist in artists:
                 session.expunge(artist)
-            return artists, total
+            return list(artists), total
 
     def search(self, query: str, limit: int = 50, offset: int = 0) -> tuple[list[Artist], int]:
         """Search artists by name with pagination
@@ -247,7 +249,7 @@ class ArtistRepository(BaseRepository):
 
             for artist in artists:
                 session.expunge(artist)
-            return artists, total
+            return list(artists), total
 
     def get_all_artists(self) -> list[Artist]:
         """Get all artists without pagination (for batch operations)
@@ -277,14 +279,14 @@ class ArtistRepository(BaseRepository):
             )
             for artist in artists:
                 session.expunge(artist)
-            return artists
+            return list(artists)
 
     def update_artwork(
         self,
         artist_id: int,
         artwork_url: str,
         artwork_source: str,
-        artwork_fetched_at: object | None = None
+        artwork_fetched_at: datetime | None = None
     ) -> bool:
         """Update artist artwork information
 
@@ -297,8 +299,6 @@ class ArtistRepository(BaseRepository):
         Returns:
             True if update successful, False if artist not found or update failed
         """
-        from datetime import datetime, timezone
-
         with self._session_scope() as session:
             try:
                 artist = session.execute(
