@@ -27,10 +27,6 @@ from ..utils.logging import debug, error, info, warning
 MAX_FINGERPRINT_FILE_SIZE_MB = 300.0
 
 
-class CorruptedTrackError(Exception):
-    """Exception raised when a track file is corrupted and will be deleted"""
-
-
 class FingerprintExtractor:
     """
     Extracts audio fingerprints for library tracks
