@@ -11,6 +11,7 @@ Format-specific audio loading implementations
 from .ffmpeg_loader import (
     check_ffmpeg,
     check_ffprobe,
+    ffprobe_command,
     load_with_ffmpeg,
     redact_subprocess_output,
     reject_protocol_path,
@@ -22,6 +23,7 @@ __all__ = [
     'load_with_ffmpeg',
     'check_ffmpeg',
     'check_ffprobe',
+    'ffprobe_command',
     'reject_protocol_path',
     'redact_subprocess_output',
 ]

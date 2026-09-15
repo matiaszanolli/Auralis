@@ -10,6 +10,7 @@ Audio loading using FFmpeg for MP3/M4A/AAC/OGG/WMA
 
 import asyncio
 import functools
+import json
 import os
 import re
 import subprocess
@@ -17,6 +18,7 @@ import tempfile
 import threading
 import time
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -54,6 +56,36 @@ def reject_protocol_path(file_path_str: str) -> None:
             f"{Code.ERROR_UNSUPPORTED_FORMAT}: URL/protocol inputs are not allowed",
             path=file_path_str,
         )
+
+
+# Pinned on every ffmpeg/ffprobe input so the only protocol FFmpeg may open is
+# a plain file (#5326). Without it, whether a content-sniffed HLS/concat
+# playlist can reach http:// or other local files rests on FFmpeg's own
+# default whitelist and extension checks, which vary by build and version.
+# The option dates from FFmpeg 3.0, so MINIMUM_FFMPEG_VERSION supports it.
+_PROTOCOL_WHITELIST_ARGS = ['-protocol_whitelist', 'file']
+
+
+def ffprobe_command(file_path_str: str) -> list[str]:
+    """Return the ffprobe argv for probing *file_path_str*.
+
+    The single definition both probe paths run (``_probe_audio`` here and
+    ``unified_loader._get_info_with_ffprobe``), so the protocol guard, the
+    whitelist and the ``--`` path isolation (#4826) cannot drift apart between
+    them again (#5326). Rejects a protocol-shaped path before building
+    anything, so no caller can reach ffprobe without the guard.
+    """
+    reject_protocol_path(file_path_str)
+    return [
+        'ffprobe',
+        '-v', 'quiet',
+        *_PROTOCOL_WHITELIST_ARGS,
+        '-print_format', 'json',
+        '-show_format',
+        '-show_streams',
+        '--',
+        file_path_str,
+    ]
 
 
 _STDERR_TAIL_MAX_CHARS = 200
@@ -229,7 +261,7 @@ def check_ffprobe() -> bool:
         return False
 
 
-def _probe_audio(file_path: Path) -> dict:
+def _probe_audio(file_path: Path) -> dict[str, Any]:
     """
     Probe audio file with ffprobe.
 
@@ -237,21 +269,14 @@ def _probe_audio(file_path: Path) -> dict:
         duration    float | None  – total duration in seconds
         sample_rate int  | None  – native sample rate (Hz)
         channels    int  | None  – number of channels
+
+    Raises ``ModuleError`` for a protocol-shaped path. Callers such as the
+    scanner and windowed fingerprinting call this directly, without the guard
+    ``load_with_ffmpeg`` applies first (#5326).
     """
-    result_dict: dict = {'duration': None, 'sample_rate': None, 'channels': None}
+    result_dict: dict[str, Any] = {'duration': None, 'sample_rate': None, 'channels': None}
+    ffprobe_cmd = ffprobe_command(str(file_path))
     try:
-        import json
-
-        ffprobe_cmd = [
-            'ffprobe',
-            '-v', 'quiet',
-            '-print_format', 'json',
-            '-show_format',
-            '-show_streams',
-            '--',
-            str(file_path)
-        ]
-
         result = subprocess.run(
             ffprobe_cmd,
             capture_output=True,
@@ -423,7 +448,7 @@ def load_with_ffmpeg(
         # Gating here matches `soundfile_loader`, which downmixes only when
         # `shape[1] > 2`.
         needs_downmix = source_channels > 2
-        ffmpeg_cmd = ['ffmpeg']
+        ffmpeg_cmd = ['ffmpeg', *_PROTOCOL_WHITELIST_ARGS]
         # -ss BEFORE -i is input seeking: ffmpeg jumps to the offset instead of
         # decoding and discarding everything ahead of it (#5110).
         if offset is not None and offset > 0:

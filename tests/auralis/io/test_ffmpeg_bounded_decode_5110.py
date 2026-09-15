@@ -93,6 +93,13 @@ class TestCommandConstruction:
         assert "-t" in cmd
         assert cmd.index("-t") > cmd.index("-i")
 
+    def test_input_protocols_are_pinned_to_plain_files(self, monkeypatch):
+        """#5326: an input option, so it has to come before -i to apply."""
+        cmd = self._captured_cmd(monkeypatch, offset=300.0)
+        whitelist = cmd.index("-protocol_whitelist")
+        assert cmd[whitelist + 1] == "file"
+        assert whitelist < cmd.index("-i")
+
     def test_zero_offset_is_not_emitted(self, monkeypatch):
         """offset=0 is a full-file read; no need for a redundant -ss 0."""
         cmd = self._captured_cmd(monkeypatch, offset=0.0)

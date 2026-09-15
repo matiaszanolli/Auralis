@@ -23,10 +23,10 @@ from ..utils.logging import Code, ModuleError, debug, info, warning
 from .formats import FFMPEG_FORMATS, SUPPORTED_FORMATS
 from .loaders import (
     check_ffprobe,
+    ffprobe_command,
     load_with_ffmpeg,
     load_with_soundfile,
     redact_subprocess_output,
-    reject_protocol_path,
 )
 # check_ffmpeg is unused within this module's own logic (post-#4119, the
 # ffprobe guard uses check_ffprobe exclusively — see #4540) but is re-exported
@@ -256,21 +256,12 @@ def _get_info_with_ffprobe(file_path: Path) -> dict[str, Any]:
     if not check_ffprobe():
         raise ModuleError(f"{Code.ERROR_FFMPEG_NOT_FOUND}: FFprobe required")
 
-    # This second ffprobe call site had no protocol guard at all (#4834) —
-    # ffmpeg_loader._probe_audio gained one in #4119, but it never reached here.
-    reject_protocol_path(str(file_path))
+    # The argv, including the protocol guard (#4834) and whitelist, is shared
+    # with ffmpeg_loader._probe_audio: two hand-written copies of it had
+    # already drifted apart once (#5326).
+    ffprobe_cmd = ffprobe_command(str(file_path))
 
     try:
-        ffprobe_cmd = [
-            'ffprobe',
-            '-v', 'quiet',
-            '-print_format', 'json',
-            '-show_format',
-            '-show_streams',
-            '--',
-            str(file_path)
-        ]
-
         result = subprocess.run(
             ffprobe_cmd,
             capture_output=True,
