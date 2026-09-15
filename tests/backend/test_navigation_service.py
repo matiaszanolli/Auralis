@@ -14,6 +14,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
+from services.errors import InvalidRequest, ServiceUnavailable
 from services.navigation_service import NavigationService
 
 
@@ -153,4 +154,54 @@ class TestJumpToTrack:
     async def test_jump_to_out_of_bounds_raises_value_error(self):
         service, _, _, _ = _make_service(queue_size=3)
         with pytest.raises(ValueError, match="Invalid track index"):
+            await service.jump_to_track(10)
+
+
+class TestTypedExceptions5338:
+    """next_track/previous_track/jump_to_track raise typed ServiceError
+    subclasses, not bare ValueError, so the router can map an outage
+    (ServiceUnavailable -> 503) and bad input (InvalidRequest -> 400)
+    correctly by type instead of guessing one status per call site (#5338).
+    Both subclass ValueError, so the existing pytest.raises(ValueError, ...)
+    tests above keep passing unchanged.
+    """
+
+    @pytest.mark.asyncio
+    async def test_next_track_raises_service_unavailable_not_bare_value_error(self):
+        service, _, _, _ = _make_service()
+        service.audio_player = None  # type: ignore[assignment]
+        with pytest.raises(ServiceUnavailable):
+            await service.next_track()
+
+    @pytest.mark.asyncio
+    async def test_previous_track_raises_service_unavailable_not_bare_value_error(self):
+        service, _, _, _ = _make_service()
+        service.audio_player = None  # type: ignore[assignment]
+        with pytest.raises(ServiceUnavailable):
+            await service.previous_track()
+
+    @pytest.mark.asyncio
+    async def test_jump_to_track_raises_service_unavailable_when_player_missing(self):
+        service, _, _, _ = _make_service()
+        service.audio_player = None  # type: ignore[assignment]
+        with pytest.raises(ServiceUnavailable):
+            await service.jump_to_track(0)
+
+    @pytest.mark.asyncio
+    async def test_jump_to_track_raises_service_unavailable_when_state_manager_missing(self):
+        service, _, _, _ = _make_service()
+        service.player_state_manager = None  # type: ignore[assignment]
+        with pytest.raises(ServiceUnavailable):
+            await service.jump_to_track(0)
+
+    @pytest.mark.asyncio
+    async def test_jump_to_negative_index_raises_invalid_request(self):
+        service, _, _, _ = _make_service(queue_size=5)
+        with pytest.raises(InvalidRequest):
+            await service.jump_to_track(-1)
+
+    @pytest.mark.asyncio
+    async def test_jump_to_out_of_bounds_raises_invalid_request(self):
+        service, _, _, _ = _make_service(queue_size=3)
+        with pytest.raises(InvalidRequest):
             await service.jump_to_track(10)

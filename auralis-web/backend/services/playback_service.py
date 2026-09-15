@@ -15,7 +15,7 @@ from typing import Any, Protocol, cast
 from websocket.outbound_messages import broadcast_typed
 
 from services.playback_event_sequencer import playback_event_sequencer
-from .errors import ServiceUnavailable
+from .errors import InvalidRequest, ServiceUnavailable
 
 logger = logging.getLogger(__name__)
 
@@ -153,7 +153,7 @@ class PlaybackService:
             Exception: If unable to retrieve status
         """
         if not self.player_state_manager:
-            raise ValueError("Player state manager not available")
+            raise ServiceUnavailable("Player state manager not available")
 
         try:
             state = self.player_state_manager.get_state()
@@ -173,9 +173,9 @@ class PlaybackService:
             Exception: If playback start fails
         """
         if not self.audio_player:
-            raise ValueError("Audio player not available")
+            raise ServiceUnavailable("Audio player not available")
         if not self.player_state_manager:
-            raise ValueError("Player state manager not available")
+            raise ServiceUnavailable("Player state manager not available")
 
         try:
             async with self._playback_lock:  # #3734
@@ -225,9 +225,9 @@ class PlaybackService:
             Exception: If pause fails
         """
         if not self.audio_player:
-            raise ValueError("Audio player not available")
+            raise ServiceUnavailable("Audio player not available")
         if not self.player_state_manager:
-            raise ValueError("Player state manager not available")
+            raise ServiceUnavailable("Player state manager not available")
 
         try:
             async with self._playback_lock:  # #3734
@@ -266,7 +266,7 @@ class PlaybackService:
             Exception: If stop fails
         """
         if not self.audio_player:
-            raise ValueError("Audio player not available")
+            raise ServiceUnavailable("Audio player not available")
 
         try:
             state_snapshot: Any = None
@@ -308,13 +308,15 @@ class PlaybackService:
             dict: Success message and new position
 
         Raises:
+            ServiceUnavailable: If the audio player is not available (#5338)
+            InvalidRequest: If position is negative (#5338)
             Exception: If seek fails
         """
         if not self.audio_player:
-            raise ValueError("Audio player not available")
+            raise ServiceUnavailable("Audio player not available")
 
         if position < 0:
-            raise ValueError("Position must be non-negative")
+            raise InvalidRequest("Position must be non-negative")
 
         try:
             async with self._playback_lock:  # #3734
@@ -357,18 +359,18 @@ class PlaybackService:
 
         Raises:
             ServiceUnavailable: If the audio player is not available (#5268 —
-                a distinct type from the plain ValueError below so the
-                router can map it to 503 instead of 400; ServiceUnavailable
-                subclasses ValueError so this doesn't break a caller still
-                doing a bare `except ValueError`)
-            ValueError: If volume out of range
+                a distinct type from InvalidRequest below so the router can
+                map it to 503 instead of 400; both subclass ValueError so
+                this doesn't break a caller still doing a bare
+                `except ValueError`)
+            InvalidRequest: If volume out of range (#5338)
             Exception: If setting volume fails
         """
         if not self.audio_player:
             raise ServiceUnavailable("Audio player not available")
 
         if not (0.0 <= volume <= 1.0):
-            raise ValueError("Volume must be between 0.0 and 1.0")
+            raise InvalidRequest("Volume must be between 0.0 and 1.0")
 
         try:
             # #3722: volume is a CLIENT-SIDE concern. The backend never

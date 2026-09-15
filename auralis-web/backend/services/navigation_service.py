@@ -20,6 +20,7 @@ from websocket.outbound_messages import broadcast_typed
 
 from auralis import AudioPlayer
 
+from .errors import InvalidRequest, ServiceUnavailable
 from .queue_enrichment import entry_filepath
 
 if TYPE_CHECKING:
@@ -143,10 +144,11 @@ class NavigationService:
             dict: Success message and track info if available
 
         Raises:
+            ServiceUnavailable: If the audio player is not available (#5338)
             Exception: If operation fails
         """
         if not self.audio_player:
-            raise ValueError("Audio player not available")
+            raise ServiceUnavailable("Audio player not available")
 
         try:
             # Check if player has next_track method
@@ -204,10 +206,11 @@ class NavigationService:
             dict: Success message and track info if available
 
         Raises:
+            ServiceUnavailable: If the audio player is not available (#5338)
             Exception: If operation fails
         """
         if not self.audio_player:
-            raise ValueError("Audio player not available")
+            raise ServiceUnavailable("Audio player not available")
 
         try:
             # Check if player has previous_track method
@@ -268,24 +271,27 @@ class NavigationService:
             dict: Success message and track info
 
         Raises:
-            Exception: If index invalid or operation fails
+            ServiceUnavailable: If the audio player, player state manager, or
+                queue is not available (#5338)
+            InvalidRequest: If track_index is out of range (#5338)
+            Exception: If operation fails
         """
         if not self.audio_player:
-            raise ValueError("Audio player not available")
+            raise ServiceUnavailable("Audio player not available")
         if not self.player_state_manager:
-            raise ValueError("Player state manager not available")
+            raise ServiceUnavailable("Player state manager not available")
 
         try:
             # Get current queue
             if not hasattr(self.audio_player, 'queue'):
-                raise ValueError("Queue not available")
+                raise ServiceUnavailable("Queue not available")
 
             queue_manager = self.audio_player.queue
             queue_size = await asyncio.to_thread(queue_manager.get_queue_size)
 
             # Validate index
             if track_index < 0 or track_index >= queue_size:
-                raise ValueError(f"Invalid track index: {track_index}")
+                raise InvalidRequest(f"Invalid track index: {track_index}")
 
             # Serialize the same mutate-and-tag step as next/previous (#4582)
             # — see _TrackChangeSequencer — so a Jump racing a rapid Next/

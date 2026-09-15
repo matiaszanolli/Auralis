@@ -24,10 +24,16 @@ from routers.player import (  # noqa: E402
     get_player_status,
     next_track,
     previous_track,
+    QueueHistoryStateSnapshot,
+    RecordQueueHistoryRequest,
+    record_queue_history,
+    seek_position,
+    SeekRequest,
     set_volume,
     SetVolumeRequest,
+    undo_queue_operation,
 )
-from services.errors import ServiceUnavailable  # noqa: E402
+from services.errors import InvalidRequest, ServiceUnavailable  # noqa: E402
 
 pytestmark = pytest.mark.asyncio
 
@@ -103,3 +109,111 @@ async def test_previous_track_callable_with_a_bare_stub_service():
     result = await previous_track(service=stub_service)
 
     assert result == {"message": "Skipped back"}
+
+
+# ---------------------------------------------------------------------------
+# #5338: the 6 remaining hard-coded-status sites now go through
+# raise_for_service_error (or BadRequestError for the two repository-level
+# sites), mirroring set_volume's #5268 fix above instead of guessing one
+# fixed status per call site regardless of the actual failure.
+# ---------------------------------------------------------------------------
+
+async def test_get_player_status_maps_service_unavailable_to_503():
+    stub_service = MagicMock()
+    stub_service.get_status = AsyncMock(
+        side_effect=ServiceUnavailable("Player state manager not available")
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await get_player_status(service=stub_service)
+
+    assert exc_info.value.status_code == 503
+
+
+async def test_seek_maps_service_unavailable_to_503():
+    stub_service = MagicMock()
+    stub_service.seek = AsyncMock(side_effect=ServiceUnavailable("Audio player not available"))
+
+    with pytest.raises(HTTPException) as exc_info:
+        await seek_position(
+            SeekRequest(position=30.0), player_state_manager=None, service=stub_service
+        )
+
+    assert exc_info.value.status_code == 503
+
+
+async def test_seek_negative_position_maps_to_400_not_503():
+    """The headline bug (#5338): a negative-position rejection is bad
+    input, not a service outage -- it must reach the client as 400, not the
+    503 every ValueError used to get here regardless of cause. Pydantic's
+    own SeekRequest validator already rejects a negative position with 422
+    before this handler ever runs (see SeekRequest.validate_position), so
+    this exercises the router's mapping logic directly against what the
+    service itself would raise for any caller that reaches it -- proving
+    the dispatch is type-based, not just coincidentally still 503."""
+    stub_service = MagicMock()
+    stub_service.seek = AsyncMock(side_effect=InvalidRequest("Position must be non-negative"))
+
+    with pytest.raises(HTTPException) as exc_info:
+        await seek_position(
+            SeekRequest(position=30.0), player_state_manager=None, service=stub_service
+        )
+
+    assert exc_info.value.status_code == 400
+
+
+async def test_next_track_maps_service_unavailable_to_503():
+    stub_service = MagicMock()
+    stub_service.next_track = AsyncMock(side_effect=ServiceUnavailable("Audio player not available"))
+
+    with pytest.raises(HTTPException) as exc_info:
+        await next_track(service=stub_service)
+
+    assert exc_info.value.status_code == 503
+
+
+async def test_previous_track_maps_service_unavailable_to_503():
+    stub_service = MagicMock()
+    stub_service.previous_track = AsyncMock(
+        side_effect=ServiceUnavailable("Audio player not available")
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await previous_track(service=stub_service)
+
+    assert exc_info.value.status_code == 503
+
+
+def _history_request(operation: str = "set") -> RecordQueueHistoryRequest:
+    return RecordQueueHistoryRequest(
+        operation=operation,
+        state_snapshot=QueueHistoryStateSnapshot(track_ids=[1, 2, 3], current_index=0),
+    )
+
+
+async def test_record_queue_history_maps_repo_value_error_to_400():
+    """Repository-level ValueError (not a typed ServiceError) stays 400,
+    now via BadRequestError rather than a bare HTTPException(400) -- same
+    status, consistent construction (#5338)."""
+    repo = MagicMock()
+    repo.push_to_history = MagicMock(side_effect=ValueError("bad snapshot"))
+
+    with pytest.raises(HTTPException) as exc_info:
+        await record_queue_history(_history_request(), repo=repo)
+
+    assert exc_info.value.status_code == 400
+
+
+async def test_undo_queue_operation_maps_repo_value_error_to_400():
+    repo = MagicMock()
+    repo.undo = MagicMock(side_effect=ValueError("corrupt history entry"))
+
+    with pytest.raises(HTTPException) as exc_info:
+        await undo_queue_operation(
+            repo=repo,
+            queue_service=MagicMock(),
+            player_state_manager=None,
+            connection_manager=MagicMock(),
+        )
+
+    assert exc_info.value.status_code == 400

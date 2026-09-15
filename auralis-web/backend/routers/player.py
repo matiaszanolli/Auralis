@@ -49,6 +49,7 @@ from websocket.outbound_messages import broadcast_typed
 from .dependencies import with_error_handling
 from .errors import (
     AudioPlayerUnavailableError,
+    BadRequestError,
     LibraryManagerUnavailableError,
     NotFoundError,
     raise_for_service_error,
@@ -408,7 +409,7 @@ async def get_player_status(
     try:
         return await service.get_status()
     except ValueError as e:
-        raise HTTPException(status_code=503, detail=str(e))
+        raise_for_service_error(e, "get player status")
 
 
 @with_error_handling("load track")
@@ -528,7 +529,7 @@ async def seek_position(
         result = await service.seek(position)
         return result
     except ValueError as e:
-        raise HTTPException(status_code=503, detail=str(e))
+        raise_for_service_error(e, "seek")
 
 
 @with_error_handling("set volume")
@@ -640,7 +641,11 @@ async def record_queue_history(
     except HTTPException:
         raise
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        # Repository-level ValueError (not a typed ServiceError), so this
+        # stays a plain 400 rather than going through raise_for_service_error
+        # -- BadRequestError just for consistency with the typed exceptions
+        # used elsewhere in this file (#5338).
+        raise BadRequestError(str(e))
 
 
 @with_error_handling("undo queue operation")
@@ -697,7 +702,9 @@ async def undo_queue_operation(
     except HTTPException:
         raise
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        # Repository-level ValueError (repo.undo()), not a typed ServiceError
+        # -- see record_queue_history's identical note (#5338).
+        raise BadRequestError(str(e))
 
 
 @with_error_handling("clear queue history")
@@ -819,7 +826,7 @@ async def next_track(service: NavigationService = Depends(_get_navigation_servic
     try:
         return await service.next_track()
     except ValueError as e:
-        raise HTTPException(status_code=503, detail=str(e))
+        raise_for_service_error(e, "skip to next track")
 
 
 @with_error_handling("skip track")
@@ -828,7 +835,7 @@ async def previous_track(service: NavigationService = Depends(_get_navigation_se
     try:
         return await service.previous_track()
     except ValueError as e:
-        raise HTTPException(status_code=503, detail=str(e))
+        raise_for_service_error(e, "skip to previous track")
 
 
 def create_player_router(
