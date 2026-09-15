@@ -187,6 +187,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 # CORS and WebSocket allowlists again (#4712) — it listed only
                 # `localhost`, blocking the WS for a page opened via 127.0.0.1.
                 f"connect-src {csp_connect_src()}; "
+                # default-src is not a fallback for either of these (#5363).
+                # Without them an injected <form action> could post off-origin
+                # and an injected <base href> would re-point every relative URL.
+                "form-action 'self'; "
+                "base-uri 'self'; "
                 "media-src 'self' blob:;"
             )
 

@@ -130,6 +130,14 @@ class TestOtherDirectivesUnchanged:
         assert "'self'" in _directive("default-src")
 
 
+class TestDirectivesWithoutDefaultSrcFallback:
+    """default-src does not cover these, so each is set explicitly (#5363)."""
+
+    @pytest.mark.parametrize("directive", ["form-action", "base-uri"])
+    def test_restricted_to_self(self, directive: str):
+        assert _directive(directive) == ["'self'"]
+
+
 class TestArtistArtworkContract:
     """`Artist.artwork_url` is the deliberate external-URL exception."""
 
