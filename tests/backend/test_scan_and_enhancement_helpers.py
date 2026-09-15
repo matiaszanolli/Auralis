@@ -60,20 +60,37 @@ class TestSeedEnhancementSettings:
         return {"preset": "adaptive", "intensity": 1.0, "enabled": True}
 
     def test_maps_all_three_fields(self):
-        enh = self._base()
+        # 'adaptive' is the only valid preset (#5332), so start from an unseeded
+        # preset and a flipped `enabled` to prove every field is written.
+        enh = {"preset": None, "intensity": 1.0, "enabled": True}
         seed_enhancement_settings(
             enh,
-            SimpleNamespace(default_preset="warm", enhancement_intensity=0.6, auto_enhance=True),
+            SimpleNamespace(default_preset="adaptive", enhancement_intensity=0.6, auto_enhance=False),
         )
-        assert enh == {"preset": "warm", "intensity": 0.6, "enabled": True}
+        assert enh == {"preset": "adaptive", "intensity": 0.6, "enabled": False}
 
     def test_auto_enhance_false_disables(self):
         enh = self._base()
         seed_enhancement_settings(
             enh,
-            SimpleNamespace(default_preset="gentle", enhancement_intensity=0.3, auto_enhance=False),
+            SimpleNamespace(default_preset="adaptive", enhancement_intensity=0.3, auto_enhance=False),
         )
         assert enh["enabled"] is False
+
+    def test_retired_stored_preset_keeps_the_current_preset(self, caplog):
+        """A row still holding a pre-narrowing preset ('warm') must not be
+        seeded into the runtime dict — it degrades to the current value with a
+        warning, while the other two fields still seed normally."""
+        import logging
+
+        enh = self._base()
+        with caplog.at_level(logging.WARNING):
+            seed_enhancement_settings(
+                enh,
+                SimpleNamespace(default_preset="warm", enhancement_intensity=0.4, auto_enhance=False),
+            )
+        assert enh == {"preset": "adaptive", "intensity": 0.4, "enabled": False}
+        assert "'warm' is not one of" in caplog.text
 
     def test_none_settings_is_noop(self):
         enh = self._base()
@@ -81,12 +98,13 @@ class TestSeedEnhancementSettings:
         assert enh == {"preset": "adaptive", "intensity": 1.0, "enabled": True}
 
     def test_mutates_in_place(self):
-        enh = self._base()
+        enh = {"preset": None, "intensity": 1.0, "enabled": True}
         result = seed_enhancement_settings(
-            enh, SimpleNamespace(default_preset="bright", enhancement_intensity=0.9, auto_enhance=True)
+            enh, SimpleNamespace(default_preset="adaptive", enhancement_intensity=0.9, auto_enhance=True)
         )
         assert result is None  # in-place, no return
-        assert enh["preset"] == "bright"
+        assert enh["preset"] == "adaptive"
+        assert enh["intensity"] == 0.9
 
 
 def test_user_settings_auto_enhance_defaults_true():

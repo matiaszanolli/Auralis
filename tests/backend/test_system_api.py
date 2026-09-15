@@ -597,34 +597,48 @@ class TestWebSocketPlayback:
             "the fallback is firing when it should not"
         )
 
+    # 'adaptive' is the only shipped preset since c195ac80 (#5332), and it is
+    # also the fallback default, so "the stored preset won", "the client preset
+    # won" and "the default won" would all look identical. The two preset tests
+    # below register a second, hypothetical preset for their duration so each
+    # outcome is distinguishable.
+    _EXTRA_PRESET = "second_preset"
+
+    def _with_extra_preset(self):
+        import ws_handlers.playback_commands as playback_commands
+
+        return patch.object(
+            playback_commands, "VALID_PRESETS", [*VALID_PRESETS, self._EXTRA_PRESET]
+        )
+
     def test_play_enhanced_invalid_preset(self, client):
         """An unknown preset falls back to the stored preset (#4600).
 
         Isolated from the enhancement-disabled gate via force:True, so the
         observed behaviour reflects preset handling and not the gate's error.
+        The invalid value is the retired 'warm', so this also pins that a
+        pre-narrowing preset is treated as unknown.
         """
-        resolved = self._resolved_stream_kwargs(
-            client,
-            {
-                "track_id": 1, "preset": "invalid_preset_name",
-                "intensity": 1.0, "force": True,
-            },
-            stored={"enabled": False, "preset": "warm", "intensity": 1.0},
-        )
-        assert resolved["preset"] == "warm", (
+        with self._with_extra_preset():
+            resolved = self._resolved_stream_kwargs(
+                client,
+                {"track_id": 1, "preset": "warm", "intensity": 1.0, "force": True},
+                stored={"enabled": False, "preset": self._EXTRA_PRESET, "intensity": 1.0},
+            )
+        assert resolved["preset"] == self._EXTRA_PRESET, (
             f"invalid preset resolved to {resolved['preset']!r}; the stored "
             "preset must win, and the raw invalid value must never pass through"
         )
-        assert resolved["preset"] in VALID_PRESETS
 
     def test_play_enhanced_valid_preset_is_honoured(self, client):
         """Control: a valid client preset must NOT be replaced by the stored one."""
-        resolved = self._resolved_stream_kwargs(
-            client,
-            {"track_id": 1, "preset": "punchy", "intensity": 1.0, "force": True},
-            stored={"enabled": False, "preset": "warm", "intensity": 1.0},
-        )
-        assert resolved["preset"] == "punchy"
+        with self._with_extra_preset():
+            resolved = self._resolved_stream_kwargs(
+                client,
+                {"track_id": 1, "preset": "adaptive", "intensity": 1.0, "force": True},
+                stored={"enabled": False, "preset": self._EXTRA_PRESET, "intensity": 1.0},
+            )
+        assert resolved["preset"] == "adaptive"
 
     def test_pause_playback(self, client):
         """Test pause message"""

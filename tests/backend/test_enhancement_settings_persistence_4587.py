@@ -17,6 +17,11 @@ vs. persisted UserSettings" gap in opposite directions:
 Mirrors the fixture patterns already established in
 test_settings_router.py (direction 1) and test_preset_intensity_prewarm_4425.py
 (direction 2) rather than inventing new ones.
+
+'adaptive' is the only valid preset since c195ac80 (#5332). A preset *change*
+therefore starts from an unseeded runtime preset (None) in these tests: that
+still drives every "the value moved" branch, which is what these regressions
+guard. Retired presets ('warm', ...) appear only as rejected input.
 """
 
 import json
@@ -139,9 +144,12 @@ class _FakeSettingsRepo:
 @pytest.fixture()
 def settings_sync_client():
     """A settings-router client wired with a live enhancement_settings dict
-    and a mock connection manager, so the sync half can be asserted on."""
+    and a mock connection manager, so the sync half can be asserted on.
+
+    The runtime preset starts unseeded (None) so a synced 'adaptive' is
+    distinguishable from the starting value."""
     repo = _FakeSettingsRepo()
-    enhancement_settings = {"enabled": False, "preset": "adaptive", "intensity": 1.0}
+    enhancement_settings = {"enabled": False, "preset": None, "intensity": 1.0}
     connection_manager = Mock()
     connection_manager.broadcast = AsyncMock()
 
@@ -160,12 +168,12 @@ def settings_sync_client():
 
 class TestSettingsPutSyncsRuntimeDict:
     def test_preset_change_reaches_the_live_session_without_restart(self, settings_sync_client):
-        """The exact scenario in the issue: Default Preset -> "warm" must
-        affect playback in THIS session, not just the next backend start."""
-        resp = settings_sync_client.put("/api/settings", json={"default_preset": "warm"})
+        """The exact scenario in the issue: a Default Preset save must affect
+        playback in THIS session, not just the next backend start."""
+        resp = settings_sync_client.put("/api/settings", json={"default_preset": "adaptive"})
 
         assert resp.status_code == 200
-        assert settings_sync_client._enhancement_settings["preset"] == "warm"
+        assert settings_sync_client._enhancement_settings["preset"] == "adaptive"
 
     def test_intensity_and_auto_enhance_also_sync(self, settings_sync_client):
         resp = settings_sync_client.put(
@@ -178,12 +186,23 @@ class TestSettingsPutSyncsRuntimeDict:
         assert settings_sync_client._enhancement_settings["enabled"] is True
 
     def test_enhancement_change_broadcasts_to_live_clients(self, settings_sync_client):
-        settings_sync_client.put("/api/settings", json={"default_preset": "bright"})
+        settings_sync_client.put("/api/settings", json={"default_preset": "adaptive"})
 
         settings_sync_client._connection_manager.broadcast.assert_awaited_once()
         message = settings_sync_client._connection_manager.broadcast.await_args.args[0]
         assert message["type"] == "enhancement_settings_changed"
-        assert message["data"]["preset"] == "bright"
+        assert message["data"]["preset"] == "adaptive"
+
+    def test_retired_preset_is_rejected_without_resync_or_broadcast(self, settings_sync_client):
+        """A retired preset 422s at the request model, so neither the runtime
+        dict nor live clients may see it."""
+        before = dict(settings_sync_client._enhancement_settings)
+
+        resp = settings_sync_client.put("/api/settings", json={"default_preset": "warm"})
+
+        assert resp.status_code == 422
+        assert settings_sync_client._enhancement_settings == before
+        settings_sync_client._connection_manager.broadcast.assert_not_awaited()
 
     def test_unrelated_field_does_not_touch_enhancement_settings_or_broadcast(
         self, settings_sync_client
@@ -203,7 +222,6 @@ class TestSettingsPutSyncsRuntimeDict:
         """reset_to_defaults() has no `updates` dict to key a guard on — the
         re-seed must fire unconditionally, not only when some tracked field
         set happens to be present."""
-        settings_sync_client._enhancement_settings["preset"] = "punchy"
         settings_sync_client._enhancement_settings["intensity"] = 0.2
         settings_sync_client._enhancement_settings["enabled"] = True
 
@@ -224,7 +242,7 @@ class TestSettingsPutSyncsRuntimeDict:
         app.include_router(create_settings_router(get_settings_repo=lambda: repo))
         tc = TestClient(app)
 
-        resp = tc.put("/api/settings", json={"default_preset": "warm"})
+        resp = tc.put("/api/settings", json={"default_preset": "adaptive"})
 
         assert resp.status_code == 200
 
@@ -233,10 +251,10 @@ class TestSettingsPutSyncsRuntimeDict:
         successful DB write into a 500."""
         settings_sync_client._connection_manager.broadcast.side_effect = RuntimeError("boom")
 
-        resp = settings_sync_client.put("/api/settings", json={"default_preset": "gentle"})
+        resp = settings_sync_client.put("/api/settings", json={"default_preset": "adaptive"})
 
         assert resp.status_code == 200
-        assert settings_sync_client._enhancement_settings["preset"] == "gentle"
+        assert settings_sync_client._enhancement_settings["preset"] == "adaptive"
 
 
 # ============================================================================
@@ -268,14 +286,14 @@ def _build_enhancement_client(enhancement_settings: dict, repos=None) -> TestCli
 
 class TestEnhancementEndpointsPersist:
     def test_preset_change_persists_to_settings_repository(self):
-        settings = {"enabled": True, "preset": "adaptive", "intensity": 1.0}
+        settings = {"enabled": True, "preset": None, "intensity": 1.0}
         repos = _FakeRepositoryFactory()
         client = _build_enhancement_client(settings, repos)
 
-        resp = client.post("/api/player/enhancement/preset", json={"preset": "warm"})
+        resp = client.post("/api/player/enhancement/preset", json={"preset": "adaptive"})
 
         assert resp.status_code == 200
-        repos.settings.update_settings.assert_called_once_with({"default_preset": "warm"})
+        repos.settings.update_settings.assert_called_once_with({"default_preset": "adaptive"})
 
     def test_intensity_change_persists_to_settings_repository(self):
         settings = {"enabled": True, "preset": "adaptive", "intensity": 1.0}
@@ -301,38 +319,50 @@ class TestEnhancementEndpointsPersist:
         """Matches the pre-warm guard's own "avoid redundant work when a
         client re-POSTs the same value" principle (#4425's fix note) —
         applied here to persistence instead of pre-warming."""
-        settings = {"enabled": True, "preset": "warm", "intensity": 1.0}
+        settings = {"enabled": True, "preset": "adaptive", "intensity": 1.0}
+        repos = _FakeRepositoryFactory()
+        client = _build_enhancement_client(settings, repos)
+
+        resp = client.post("/api/player/enhancement/preset", json={"preset": "adaptive"})
+
+        assert resp.status_code == 200
+        repos.settings.update_settings.assert_not_called()
+
+    def test_retired_preset_is_rejected_without_touching_runtime_or_db(self):
+        settings = {"enabled": True, "preset": "adaptive", "intensity": 1.0}
         repos = _FakeRepositoryFactory()
         client = _build_enhancement_client(settings, repos)
 
         resp = client.post("/api/player/enhancement/preset", json={"preset": "warm"})
 
-        assert resp.status_code == 200
+        assert resp.status_code == 422
+        assert settings["preset"] == "adaptive"
         repos.settings.update_settings.assert_not_called()
 
     def test_persist_failure_does_not_fail_the_request(self):
         """The runtime change (this endpoint's primary effect) must survive
         a DB hiccup — mirrors settings.py's own broadcast-failure tolerance."""
-        settings = {"enabled": True, "preset": "adaptive", "intensity": 1.0}
+        settings = {"enabled": True, "preset": None, "intensity": 1.0}
         repos = _FakeRepositoryFactory()
         repos.settings.update_settings.side_effect = RuntimeError("db is down")
         client = _build_enhancement_client(settings, repos)
 
-        resp = client.post("/api/player/enhancement/preset", json={"preset": "bright"})
+        resp = client.post("/api/player/enhancement/preset", json={"preset": "adaptive"})
 
         assert resp.status_code == 200
-        assert settings["preset"] == "bright"
+        assert settings["preset"] == "adaptive"
+        repos.settings.update_settings.assert_called_once()
 
     def test_no_repository_factory_given_skips_persistence_without_error(self):
         """Backward compatibility: the pre-#4587 call shape (no
         get_repository_factory) must keep working exactly as before."""
-        settings = {"enabled": True, "preset": "adaptive", "intensity": 1.0}
+        settings = {"enabled": True, "preset": None, "intensity": 1.0}
         client = _build_enhancement_client(settings, repos=None)
 
-        resp = client.post("/api/player/enhancement/preset", json={"preset": "punchy"})
+        resp = client.post("/api/player/enhancement/preset", json={"preset": "adaptive"})
 
         assert resp.status_code == 200
-        assert settings["preset"] == "punchy"
+        assert settings["preset"] == "adaptive"
 
 
 # ============================================================================
@@ -343,31 +373,34 @@ class TestEnhancementEndpointsPersist:
 
 class TestRoundTrip:
     def test_preset_set_via_enhancement_endpoint_survives_a_fresh_seed(self):
-        """POST /api/player/enhancement/preset "bright", then run
+        """POST /api/player/enhancement/preset, then run
         seed_enhancement_settings() against the persisted row exactly as
         config/startup.py does on the next process start, and assert the
         value written by direction 2 is what direction-1's seed reads back —
         the acceptance criterion from the issue's Test Plan."""
         from helpers import seed_enhancement_settings
 
-        repo = _FakeSettingsRepo()
+        # The row starts without a preset, so only direction 2's write can put
+        # 'adaptive' there for the seed to read back.
+        repo = _FakeSettingsRepo({**_DEFAULT_SETTINGS, "default_preset": None})
 
         class _FactoryOverDbRepo:
             def __init__(self, settings_repo):
                 self.settings = settings_repo
 
         repos = _FactoryOverDbRepo(repo)
-        settings = {"enabled": True, "preset": "adaptive", "intensity": 1.0}
+        settings = {"enabled": True, "preset": None, "intensity": 1.0}
         client = _build_enhancement_client(settings, repos)
 
-        resp = client.post("/api/player/enhancement/preset", json={"preset": "bright"})
+        resp = client.post("/api/player/enhancement/preset", json={"preset": "adaptive"})
         assert resp.status_code == 200
+        assert repo.updated_with == {"default_preset": "adaptive"}
 
         # Simulate the next backend startup's one-time seed.
-        fresh_runtime_dict = {"enabled": True, "preset": "adaptive", "intensity": 1.0}
+        fresh_runtime_dict = {"enabled": True, "preset": None, "intensity": 1.0}
         seed_enhancement_settings(fresh_runtime_dict, repo.get_settings())
 
-        assert fresh_runtime_dict["preset"] == "bright"
+        assert fresh_runtime_dict["preset"] == "adaptive"
 
 
 if __name__ == "__main__":

@@ -40,7 +40,7 @@ def _connection_manager():
 
 async def test_get_enhancement_status_callable_with_a_bare_settings_dict():
     """No router, no _EnhancementDeps, no app -- just the handler and a dict."""
-    settings = {"enabled": True, "preset": "warm", "intensity": 0.5}
+    settings = {"enabled": True, "preset": "adaptive", "intensity": 0.5}
 
     result = await get_enhancement_status(enhancement_settings=settings)
 
@@ -69,7 +69,9 @@ async def test_toggle_enhancement_callable_with_bare_stubs():
 async def test_set_enhancement_preset_notifies_the_buffer_manager():
     """The multi-tier buffer + state manager are passed in directly here --
     the branch-prediction call the old closure reached via get_multi_tier_buffer()."""
-    settings = {"enabled": True, "preset": "adaptive", "intensity": 0.7}
+    # 'adaptive' is the only valid preset (#5332), so the change the buffer
+    # manager learns from starts from an unseeded preset.
+    settings = {"enabled": True, "preset": None, "intensity": 0.7}
     cm = _connection_manager()
 
     buffer_manager = MagicMock()
@@ -82,24 +84,34 @@ async def test_set_enhancement_preset_notifies_the_buffer_manager():
     player_state_manager.get_state = MagicMock(return_value=state)
 
     result = await set_enhancement_preset(
-        SetPresetRequest(preset="WARM"),  # lowercased by the request model
+        SetPresetRequest(preset="ADAPTIVE"),  # lowercased by the request model
         enhancement_settings=settings,
         buffer_manager=buffer_manager,
         player_state_manager=player_state_manager,
         connection_manager=cm,
     )
 
-    assert settings["preset"] == "warm"
-    assert result["message"] == "Preset changed to warm"
+    assert settings["preset"] == "adaptive"
+    assert result["message"] == "Preset changed to adaptive"
     buffer_manager.update_position.assert_awaited_once_with(
-        track_id=7, position=12.5, preset="warm", intensity=0.7
+        track_id=7, position=12.5, preset="adaptive", intensity=0.7
     )
+
+
+async def test_set_preset_request_rejects_a_retired_preset():
+    """The request model is the boundary: a retired preset never reaches the
+    handler, whatever its casing."""
+    from pydantic import ValidationError
+
+    for retired in ("warm", "WARM"):
+        with pytest.raises(ValidationError):
+            SetPresetRequest(preset=retired)
 
 
 async def test_set_enhancement_intensity_skips_buffer_when_unwired():
     """With no buffer manager (the optional dependency resolving to None),
     the handler still mutates + broadcasts rather than raising."""
-    settings = {"enabled": True, "preset": "bright", "intensity": 1.0}
+    settings = {"enabled": True, "preset": "adaptive", "intensity": 1.0}
     cm = _connection_manager()
 
     result = await set_enhancement_intensity(

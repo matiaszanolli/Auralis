@@ -184,9 +184,17 @@ def test_update_settings_rejects_invalid_preset(client: TestClient) -> None:
 
 def test_update_settings_accepts_valid_preset(client: TestClient) -> None:
     """A canonical preset from the shared enum passes validation (#4424)."""
-    resp = client.put("/api/settings", json={"default_preset": "warm"})
+    resp = client.put("/api/settings", json={"default_preset": "adaptive"})
     assert resp.status_code == 200
-    assert client._repo.updated_with == {"default_preset": "warm"}  # type: ignore[attr-defined]
+    assert client._repo.updated_with == {"default_preset": "adaptive"}  # type: ignore[attr-defined]
+
+
+def test_update_settings_rejects_a_retired_preset(client: TestClient) -> None:
+    """'warm' was valid input until the adaptive-only narrowing (c195ac80);
+    it must now 422 like any other off-list value, not reach the repo (#5332)."""
+    resp = client.put("/api/settings", json={"default_preset": "warm"})
+    assert resp.status_code == 422
+    assert client._repo.updated_with is None  # type: ignore[attr-defined]
 
 
 def test_get_settings_returns_typed_shape(client: TestClient) -> None:
@@ -217,18 +225,23 @@ def test_response_schema_advertises_the_preset_enum_and_intensity_bounds() -> No
     app.include_router(create_settings_router(lambda: _FakeSettingsRepo()))
     props = app.openapi()["components"]["schemas"]["SettingsResponse"]["properties"]
 
+    # A one-value Literal is published as `const`, not a one-item `enum`, so
+    # collect both spellings.
     preset_enum = {
-        v for option in props["default_preset"]["anyOf"] for v in option.get("enum", [])
+        v
+        for option in props["default_preset"]["anyOf"]
+        for v in option.get("enum", [option["const"]] if "const" in option else [])
     }
-    assert preset_enum == {"adaptive", "gentle", "warm", "bright", "punchy"}
+    # Narrowed to a single preset in c195ac80 (#4861, #5332).
+    assert preset_enum == {"adaptive"}
 
     bounded = [o for o in props["enhancement_intensity"]["anyOf"] if o.get("type") == "number"]
     assert bounded and bounded[0]["minimum"] == 0.0 and bounded[0]["maximum"] == 1.0
 
 
 def test_canonical_stored_values_pass_through() -> None:
-    body = _client_with_row(default_preset="warm", enhancement_intensity=0.4).get("/api/settings").json()
-    assert body["default_preset"] == "warm"
+    body = _client_with_row(default_preset="adaptive", enhancement_intensity=0.4).get("/api/settings").json()
+    assert body["default_preset"] == "adaptive"
     assert body["enhancement_intensity"] == 0.4
 
 

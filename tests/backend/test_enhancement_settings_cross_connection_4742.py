@@ -10,6 +10,11 @@ still-open connection's subsequent `seek`.
 The fix: `handle_play_enhanced` records what it resolved onto
 `StreamState.active_stream_settings`, keyed by ws_id, and `handle_seek` reads
 its OWN connection's entry from there instead of the shared global.
+
+'adaptive' is the only valid preset since c195ac80 (#5332), so two connections
+cannot pick distinct presets any more. The tests that need two distinguishable
+settings tell them apart by intensity, which travels through exactly the same
+snapshot as the preset.
 """
 
 import asyncio
@@ -87,24 +92,24 @@ async def test_second_connections_play_enhanced_does_not_retarget_first_connecti
     ws_a = _ws()
     ws_b = _ws()
 
-    # Connection A starts an enhanced stream with "adaptive".
+    # Connection A starts an enhanced stream at intensity 1.0.
     await handle_play_enhanced(
         ws_a,
         {"type": "play_enhanced", "data": {"track_id": 1, "preset": "adaptive", "intensity": 1.0}},
         state,
         deps,
     )
-    # Connection B starts a DIFFERENT stream with "punchy" — this used to
+    # Connection B starts a DIFFERENT stream at intensity 0.6 — this used to
     # rewrite the shared global that A's seek reads from.
     await handle_play_enhanced(
         ws_b,
-        {"type": "play_enhanced", "data": {"track_id": 2, "preset": "punchy", "intensity": 0.6}},
+        {"type": "play_enhanced", "data": {"track_id": 2, "preset": "adaptive", "intensity": 0.6}},
         state,
         deps,
     )
-    assert global_settings["preset"] == "punchy"  # confirms the shared global did change
+    assert global_settings["intensity"] == 0.6  # confirms the shared global did change
 
-    # Connection A seeks — must stay on its OWN "adaptive" preset, not B's.
+    # Connection A seeks — must stay on its OWN intensity, not B's.
     await _seek_and_await(
         ws_a,
         {"type": "seek", "data": {"track_id": 1, "position": 20.0}},
@@ -132,7 +137,7 @@ async def test_single_connection_play_enhanced_then_seek_uses_its_own_settings()
 
     await handle_play_enhanced(
         websocket,
-        {"type": "play_enhanced", "data": {"track_id": 5, "preset": "warm", "intensity": 0.7}},
+        {"type": "play_enhanced", "data": {"track_id": 5, "preset": "adaptive", "intensity": 0.7}},
         state,
         deps,
     )
@@ -144,15 +149,50 @@ async def test_single_connection_play_enhanced_then_seek_uses_its_own_settings()
     )
 
     assert len(seek_calls) == 1
-    assert seek_calls[0]["preset"] == "warm"
+    assert seek_calls[0]["preset"] == "adaptive"
     assert seek_calls[0]["intensity"] == 0.7
+
+
+async def test_retired_preset_from_a_client_is_not_what_the_seek_replays():
+    """A preset outside VALID_PRESETS (here the retired 'punchy') is dropped
+    when play_enhanced resolves its settings, so the connection's snapshot, and
+    every seek that replays it, carries the stored preset instead. The valid
+    intensity sent alongside it is still honoured."""
+    global_settings = {"enabled": True, "preset": "adaptive", "intensity": 1.0}
+    state = _state()
+
+    seek_calls: list[dict] = []
+
+    async def stream_from_position(*_args, **kwargs):
+        seek_calls.append(kwargs)
+
+    deps = _deps(global_settings, stream_from_position=stream_from_position)
+    websocket = _ws()
+
+    await handle_play_enhanced(
+        websocket,
+        {"type": "play_enhanced", "data": {"track_id": 3, "preset": "punchy", "intensity": 0.5}},
+        state,
+        deps,
+    )
+    await _seek_and_await(
+        websocket,
+        {"type": "seek", "data": {"track_id": 3, "position": 5.0}},
+        state,
+        deps,
+    )
+
+    assert len(seek_calls) == 1
+    assert seek_calls[0]["preset"] == "adaptive"
+    assert seek_calls[0]["intensity"] == 0.5
 
 
 async def test_seek_falls_back_to_global_when_no_prior_play_enhanced_on_this_connection():
     """A seek that arrives before any play_enhanced on this connection has no
     per-connection entry yet — it must still fall back to the stored global
-    default rather than erroring."""
-    global_settings = {"enabled": True, "preset": "bright", "intensity": 0.9}
+    default rather than erroring. The global's 0.9 intensity (not the 1.0
+    default) proves the value came from the global."""
+    global_settings = {"enabled": True, "preset": "adaptive", "intensity": 0.9}
     state = _state()
 
     seek_calls: list[dict] = []
@@ -171,7 +211,7 @@ async def test_seek_falls_back_to_global_when_no_prior_play_enhanced_on_this_con
     )
 
     assert len(seek_calls) == 1
-    assert seek_calls[0]["preset"] == "bright"
+    assert seek_calls[0]["preset"] == "adaptive"
     assert seek_calls[0]["intensity"] == 0.9
 
 
@@ -230,7 +270,7 @@ async def test_seek_after_disabling_mastering_routes_with_enabled_false_not_a_st
 async def test_seek_before_any_play_enhanced_still_reads_enabled_from_the_live_global():
     """Sibling of test_seek_falls_back_to_global_when_no_prior_play_enhanced_on_this_connection,
     covering the `enabled` field specifically after #5075's fix."""
-    global_settings = {"enabled": False, "preset": "bright", "intensity": 0.9}
+    global_settings = {"enabled": False, "preset": "adaptive", "intensity": 0.9}
     state = _state()
 
     seek_calls: list[dict] = []
