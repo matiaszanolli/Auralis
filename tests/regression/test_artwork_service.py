@@ -8,12 +8,20 @@ and error handling of ArtworkService.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+import http.server
 import json
+import threading
+import urllib.error
+import urllib.request
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from auralis.services.artwork_service import ArtworkService
+from auralis.services.artwork_service import (
+    ArtworkService,
+    _artwork_opener,
+    _TrustedArtworkRedirectHandler,
+)
 from auralis.utils.artwork_security import (
     MAX_ARTWORK_PAYLOAD_BYTES,
     validate_artwork_url,
@@ -257,9 +265,50 @@ class TestArtworkURLSafety:
 
         with patch(
             "auralis.services.artwork_service.urllib.request.urlopen",
-            side_effect=[search_cm, cover_cm],
+            side_effect=[search_cm],
+        ), patch(
+            "auralis.services.artwork_service._artwork_opener.open",
+            return_value=cover_cm,
         ):
             assert svc._fetch_album_from_musicbrainz("Album") is None
+
+    def test_untrusted_redirect_hop_is_never_requested(self):
+        """#5330: urlopen used to follow the chain before geturl() was checked."""
+        requested: list[str] = []
+
+        class _Redirector(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                requested.append(self.path)
+                self.send_response(302)
+                self.send_header("Location", "/internal-admin")
+                self.end_headers()
+
+            def log_message(self, format, *args):
+                pass
+
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _Redirector)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        try:
+            # Open the loopback start URL directly: only the redirect handler
+            # decides here whether the next hop is requested.
+            with pytest.raises(urllib.error.HTTPError, match="Untrusted artwork redirect"):
+                _artwork_opener.open(
+                    f"http://127.0.0.1:{server.server_port}/front", timeout=5
+                )
+        finally:
+            server.shutdown()
+            server.server_close()
+
+        assert requested == ["/front"]
+
+    def test_trusted_redirect_hop_is_followed(self):
+        handler = _TrustedArtworkRedirectHandler()
+        req = urllib.request.Request("https://coverartarchive.org/release-group/x/front")
+        mirror = "https://ia801.us.archive.org/items/x/front.jpg"
+
+        follow = handler.redirect_request(req, None, 307, "Temporary Redirect", {}, mirror)
+
+        assert follow is not None and follow.full_url == mirror
 
     def test_metadata_response_read_is_size_limited(self):
         svc = ArtworkService(discogs_token="token")
@@ -306,7 +355,10 @@ class TestFetchAlbumArtwork:
         caa.geturl.return_value = "https://coverartarchive.org/release/abc/front-500.jpg"
         with patch(
             "auralis.services.artwork_service.urllib.request.urlopen",
-            side_effect=[self._cm(search), self._cm(caa)],
+            side_effect=[self._cm(search)],
+        ), patch(
+            "auralis.services.artwork_service._artwork_opener.open",
+            return_value=self._cm(caa),
         ):
             result = svc.fetch_album_artwork("Some Album", "Some Artist")
         assert result == {
@@ -333,6 +385,9 @@ class TestFetchAlbumArtwork:
         http_404 = urllib.error.HTTPError("url", 404, "Not Found", {}, None)
         with patch(
             "auralis.services.artwork_service.urllib.request.urlopen",
-            side_effect=[self._cm(search), http_404],
+            side_effect=[self._cm(search)],
+        ), patch(
+            "auralis.services.artwork_service._artwork_opener.open",
+            side_effect=http_404,
         ):
             assert svc.fetch_album_artwork("Album With No Cover") is None

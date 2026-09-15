@@ -17,7 +17,10 @@ Features:
 import asyncio
 import hashlib
 import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import urljoin
 
 import aiohttp
 
@@ -45,6 +48,48 @@ logger = logging.getLogger(__name__)
 # adding another fallback source cannot multiply the worst case again.
 _ARTWORK_REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=15, connect=5)
 _ARTWORK_LOOKUP_BUDGET_S = 45.0
+
+_REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
+# Cover Art Archive needs two hops (coverartarchive.org -> archive.org ->
+# an ia*.us.archive.org mirror); anything far past that is not a CDN.
+_MAX_ARTWORK_REDIRECTS = 5
+
+
+@asynccontextmanager
+async def _get_trusted_artwork(
+    session: aiohttp.ClientSession,
+    url: str,
+    source: str,
+    headers: dict[str, str] | None = None,
+) -> AsyncIterator[aiohttp.ClientResponse | None]:
+    """GET an artwork image, validating each redirect hop before requesting it.
+
+    aiohttp follows redirects by default, so the old check on the final
+    ``resp.url`` ran only after every intermediate hop had already been sent a
+    real request, loopback and LAN addresses included (#5330). Redirects are
+    followed here one hop at a time instead. Yields the 200 response, or None
+    when a hop is untrusted, the chain is too long, or the final status is not
+    200.
+    """
+    for _ in range(_MAX_ARTWORK_REDIRECTS + 1):
+        if not _validate_artwork_url(url):
+            logger.warning(f"Rejecting untrusted {source} artwork URL: {url!r}")
+            break
+        async with session.get(url, headers=headers, allow_redirects=False) as resp:
+            location = (
+                resp.headers.get("Location")
+                if resp.status in _REDIRECT_STATUSES
+                else None
+            )
+            if location is None:
+                yield resp if resp.status == 200 else None
+                return
+        url = urljoin(url, location)
+    else:
+        logger.warning(
+            f"{source} artwork exceeded {_MAX_ARTWORK_REDIRECTS} redirects"
+        )
+    yield None
 
 
 class ArtworkDownloader:
@@ -200,13 +245,11 @@ class ArtworkDownloader:
             # Get cover art
             coverart_url = f"{self.coverart_api}/release/{release_id}/front"
 
-            async with session.get(coverart_url, headers=headers) as resp:
-                if resp.status != 200:
-                    return None
-
-                # Validate final URL after redirects (SSRF mitigation #2576)
-                if not _validate_artwork_url(str(resp.url)):
-                    logger.warning(f"Rejecting untrusted MusicBrainz redirect: {resp.url!r}")
+            # Every redirect hop is validated before it is requested (#2576, #5330).
+            async with _get_trusted_artwork(
+                session, coverart_url, "MusicBrainz", headers
+            ) as resp:
+                if resp is None:
                     return None
 
                 # Size-limited read to prevent memory exhaustion (#2576)
@@ -274,19 +317,11 @@ class ArtworkDownloader:
                 # Request larger artwork (600x600)
                 artwork_url = artwork_url.replace("100x100", "600x600")
 
-                # Validate artwork URL against trusted domains (fixes #2416: SSRF mitigation)
-                if not _validate_artwork_url(artwork_url):
-                    logger.warning(f"Rejecting untrusted artwork URL: {artwork_url!r}")
-                    return None
-
-            # Download artwork (size-limited, #2576)
-            async with session.get(artwork_url) as resp:
-                if resp.status != 200:
-                    return None
-
-                # Re-check the final URL after aiohttp follows redirects.
-                if not _validate_artwork_url(str(resp.url)):
-                    logger.warning(f"Rejecting untrusted iTunes redirect: {resp.url!r}")
+            # Download artwork (size-limited, #2576). The response-supplied URL
+            # and every redirect hop are validated before being requested
+            # (#2416, #5330).
+            async with _get_trusted_artwork(session, artwork_url, "iTunes") as resp:
+                if resp is None:
                     return None
 
                 content_length = resp.content_length or 0

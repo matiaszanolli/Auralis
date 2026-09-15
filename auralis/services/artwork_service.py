@@ -50,6 +50,36 @@ def _validated_artwork_result(
     return {"artwork_url": artwork_url, "source": source}
 
 
+class _TrustedArtworkRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Refuse a redirect to an untrusted host before requesting it (#5330).
+
+    ``urlopen`` follows redirects on its own, so validating ``geturl()``
+    afterwards only saw the last hop: a loopback or LAN hop in the middle of
+    the chain had already been sent a real GET by then.
+    """
+
+    def redirect_request(
+        self,
+        req: urllib.request.Request,
+        fp: Any,
+        code: int,
+        msg: str,
+        headers: Any,
+        newurl: str,
+    ) -> urllib.request.Request | None:
+        if not validate_artwork_url(newurl):
+            logger.warning("Rejecting untrusted artwork redirect: %r", newurl)
+            raise urllib.error.HTTPError(
+                newurl, code, "Untrusted artwork redirect", headers, fp
+            )
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+# Opener for requests to image hosts, whose redirects are followed.
+# Metadata API calls still use plain urlopen.
+_artwork_opener = urllib.request.build_opener(_TrustedArtworkRedirectHandler)
+
+
 class ArtworkService:
     """
     Service for fetching artist and album artwork from external sources.
@@ -355,7 +385,7 @@ class ArtworkService:
             caa_req.add_header('User-Agent', self.user_agent)
 
             try:
-                with urllib.request.urlopen(caa_req, timeout=self.timeout) as caa_response:
+                with _artwork_opener.open(caa_req, timeout=self.timeout) as caa_response:
                     resolved_url = caa_response.geturl()
             except urllib.error.HTTPError as http_err:
                 if http_err.code == 404:
