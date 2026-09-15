@@ -48,7 +48,7 @@ dependencies = [
     # 2.5.1, then backtracks numba all the way to 0.53.1 — a 2021 release with
     # no numpy cap in its metadata and no wheel for Python 3.14 — and the
     # install dies building llvmlite 0.36 from source. Verified against a clean
-    # 3.14 venv. requirements.txt's `numpy==2.3.5` sits inside this range.
+    # 3.14 venv. requirements.txt's `numpy==2.4.6` sits inside this range.
     # Revisit when numba supports numpy 2.5.
     "numpy>=2.4,<2.5",
     "scipy>=1.18",

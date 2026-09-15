@@ -19,14 +19,16 @@
 # (see build-release.yml) so this can't flip silently between local dev and
 # release builds.
 #
-# Bumping pyo3/numpy to 0.29 to lift the cap properly is NOT the fix: it
-# compiles, but every array-accepting call then throws
+# Bumping pyo3/numpy to 0.29 lifts the cap properly and deletes this flag. It
+# was held because on 2026-07-16, against NumPy 2.3.5, every array-accepting
+# call on a 0.29 build threw
 #   TypeError: 'ndarray' object is not an instance of 'ndarray'
-# because numpy-rs 0.29 targets NumPy's "ABI v2" and is incompatible with the
-# NumPy 2.3.x pinned in requirements.txt. That reproduces on 3.13 too, so it is
-# a numpy-rs problem, not a Python-version one. Staying on 0.23 + this flag
-# builds a working cp314 wheel today; verified by running the array-accepting
-# entry points and the DSP suites on 3.14.
+# (numpy-rs 0.29 targets NumPy's "ABI v2"; it reproduced on 3.13 too).
+# Re-tested 2026-09-15 against NumPy 2.4.6, the version every manifest now pins
+# (#5442): that error no longer reproduces. A 0.29 build passes all 11
+# array-accepting entry points, with outputs bit-identical to this 0.23 build.
+# The bump itself is tracked in #5485; until it lands, 0.23 + this flag is what
+# ships.
 #
 # Setting it here rather than in the shell means `maturin develop` and
 # `cargo build` both pick it up with no env-var ritual.

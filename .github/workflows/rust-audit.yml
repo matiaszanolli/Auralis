@@ -71,9 +71,10 @@ jobs:
         # Two pyo3 0.23 advisories are --ignore'd because (a) neither vulnerable
         # API is reachable from our crate (verified: no PyString::from_object,
         # no PyCFunction::new_closure — we use only prelude/PyModule/PyDict) and
-        # (b) the fixes require pyo3 >=0.24.1 / >=0.29.0, currently blocked by a
-        # rust-numpy ABI runtime bug. Tracked in vendor/auralis-dsp/UPGRADE_PLAN.md;
-        # remove these ignores when the bump lands. Any OTHER advisory still fails.
+        # (b) the fixes require pyo3 >=0.24.1 / >=0.29.0. The rust-numpy ABI bug
+        # that held that bump no longer reproduces against NumPy 2.4.6 (#5442);
+        # the bump itself is #5485 (see vendor/auralis-dsp/UPGRADE_PLAN.md).
+        # Remove these ignores when it lands. Any OTHER advisory still fails.
         run: >-
           cargo audit --file vendor/auralis-dsp/Cargo.lock
           --ignore RUSTSEC-2025-0020
