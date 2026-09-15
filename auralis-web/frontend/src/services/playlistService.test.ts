@@ -217,42 +217,6 @@ describe('PlaylistService', () => {
     })
   })
 
-  describe('addTrackToPlaylist', () => {
-    it('adds track successfully', async () => {
-      vi.mocked(apiRequest.post).mockResolvedValue({})
-
-      await playlistService.addTrackToPlaylist(1, 5)
-
-      expect(apiRequest.post).toHaveBeenCalledWith('/api/playlists/1/tracks', { track_ids: [5] })
-    })
-
-    it('throws error when track already in playlist', async () => {
-      vi.mocked(apiRequest.post).mockRejectedValue(new Error('Track already in playlist'))
-
-      await expect(playlistService.addTrackToPlaylist(1, 5)).rejects.toThrow(
-        'Track already in playlist'
-      )
-    })
-  })
-
-  describe('removeTrackFromPlaylist', () => {
-    it('removes track successfully', async () => {
-      vi.mocked(apiRequest.del).mockResolvedValue({})
-
-      await playlistService.removeTrackFromPlaylist(1, 5)
-
-      expect(apiRequest.del).toHaveBeenCalledWith('/api/playlists/1/tracks/5')
-    })
-
-    it('throws error when track not in playlist', async () => {
-      vi.mocked(apiRequest.del).mockRejectedValue(new Error('Track not found in playlist'))
-
-      await expect(playlistService.removeTrackFromPlaylist(1, 999)).rejects.toThrow(
-        'Track not found in playlist'
-      )
-    })
-  })
-
   describe('Error Handling', () => {
     it('handles malformed JSON response', async () => {
       vi.mocked(apiRequest.get).mockRejectedValue(new Error('Invalid JSON'))

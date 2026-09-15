@@ -9,7 +9,7 @@
  * Refactored using Service Factory Pattern (Phase 5a) to reduce code duplication.
  */
 
-import { post, del } from '@/utils/apiRequest';
+import { post } from '@/utils/apiRequest';
 import { ENDPOINTS } from '@/config/api';
 import { createCrudService } from '@/utils/serviceFactory';
 import { isPlaylistShape, isPlaylistsListShape } from '@/api/responseGuards';
@@ -215,17 +215,7 @@ export async function deletePlaylist(playlistId: number): Promise<void> {
 }
 
 /**
- * Add a single track to playlist
- */
-export async function addTrackToPlaylist(
-  playlistId: number,
-  trackId: number
-): Promise<void> {
-  await post(ENDPOINTS.ADD_PLAYLIST_TRACK(playlistId), { track_ids: [trackId] });
-}
-
-/**
- * Add multiple tracks to playlist
+ * Add tracks to playlist (pass a one-element array for a single track)
  */
 export async function addTracksToPlaylist(
   playlistId: number,
@@ -238,16 +228,13 @@ export async function addTracksToPlaylist(
   return data.added_count;
 }
 
-/**
- * Remove a track from playlist
- */
-export async function removeTrackFromPlaylist(
-  playlistId: number,
-  trackId: number
-): Promise<void> {
-  await del(ENDPOINTS.REMOVE_PLAYLIST_TRACK(playlistId, trackId));
-}
-
+// #5395: addTrackToPlaylist() and removeTrackFromPlaylist() were deleted —
+// neither had a caller outside tests. Single adds go through
+// addTracksToPlaylist([id]) (context menu) or the positional
+// /tracks/add route (drag-drop). Removal has no UI to wire into: selecting a
+// playlist in the sidebar still shows the library track list, because no
+// view renders a playlist's own tracks yet. Re-add the wrapper with that view.
+//
 // #5214: clearPlaylist() was deleted — tested, backed by a working
 // DELETE /api/playlists/{id}/tracks, but never called from any UI. Nothing
 // offers the user a "clear all tracks" action, so the wrapper sat unreachable.
@@ -261,7 +248,5 @@ export default {
   createPlaylist,
   updatePlaylist,
   deletePlaylist,
-  addTrackToPlaylist,
   addTracksToPlaylist,
-  removeTrackFromPlaylist,
 };

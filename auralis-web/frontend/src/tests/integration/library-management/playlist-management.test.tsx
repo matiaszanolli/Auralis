@@ -6,7 +6,7 @@
  *
  * Test Categories:
  * 1. Playlist CRUD Operations (6 tests)
- * 2. Track Management in Playlists (5 tests)
+ * 2. Track Management in Playlists (2 tests)
  * 3. Playlist Display & Navigation (3 tests)
  * 4. Drag & Drop Reordering (3 tests)
  * 5. Playlist Playback (2 tests)
@@ -203,21 +203,10 @@ describe('Playlist Management Integration Tests', () => {
   });
 
   // ==========================================
-  // 2. Track Management in Playlists (5 tests)
+  // 2. Track Management in Playlists (2 tests)
   // ==========================================
 
   describe('Track Management in Playlists', () => {
-    it('should add a single track to playlist', async () => {
-      // Arrange
-      const addTrackSpy = vi.spyOn(playlistService, 'addTrackToPlaylist');
-
-      // Act - Call API directly (integration test of service layer)
-      await playlistService.addTrackToPlaylist(1, 101);
-
-      // Assert - API was called with correct parameters
-      expect(addTrackSpy).toHaveBeenCalledWith(1, 101);
-    });
-
     it('should add multiple tracks to playlist', async () => {
       // Arrange
       const addTracksSpy = vi.spyOn(playlistService, 'addTracksToPlaylist');
@@ -228,17 +217,6 @@ describe('Playlist Management Integration Tests', () => {
       // Assert - API returns added count
       expect(addTracksSpy).toHaveBeenCalledWith(1, [101, 102, 103]);
       expect(result).toBe(3); // MSW returns added_count: trackIds.length
-    });
-
-    it('should remove a track from playlist', async () => {
-      // Arrange
-      const removeTrackSpy = vi.spyOn(playlistService, 'removeTrackFromPlaylist');
-
-      // Act - Remove track
-      await playlistService.removeTrackFromPlaylist(1, 101);
-
-      // Assert - API was called correctly
-      expect(removeTrackSpy).toHaveBeenCalledWith(1, 101);
     });
 
     it('should move track to different position within playlist', async () => {

@@ -281,16 +281,10 @@ describe('myService', () => {
 - [x] ✅ updatePlaylist() throws when not found
 - [x] ✅ deletePlaylist() deletes successfully
 - [x] ✅ deletePlaylist() throws when not found
-- [x] ✅ addTrackToPlaylist() adds successfully
-- [x] ✅ addTrackToPlaylist() throws when duplicate
-- [x] ✅ removeTrackFromPlaylist() removes successfully
-- [x] ✅ removeTrackFromPlaylist() throws when not found
-- [x] ✅ clearPlaylist() clears successfully
-- [x] ✅ clearPlaylist() throws when not found
 - [x] ✅ Handles malformed JSON response
 - [x] ✅ Provides default error message
 
-**Total**: 20 tests
+**Total**: 14 tests
 
 ---
 
