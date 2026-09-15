@@ -16,18 +16,20 @@ with zero production importers (#4738).
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from .manager import (
-    CHUNK_DURATION,
-    CHUNK_INTERVAL,
+# Import each name from the module that defines it. cache.manager only
+# re-imports the chunk geometry and the tier/record types, and under the strict
+# mypy override for cache.* (#5437) a pass-through import is not an export.
+from core.chunk_boundaries import CHUNK_DURATION, CHUNK_INTERVAL
+
+from .manager import StreamlinedCacheManager, streamlined_cache_manager
+from .models import (
     CHUNK_SIZE_MB,
     TIER1_MAX_CHUNKS,
     TIER1_MAX_SIZE_MB,
     TIER2_MAX_SIZE_MB,
     TIER2_MAX_TRACKS,
     CachedChunk,
-    StreamlinedCacheManager,
     TrackCacheStatus,
-    streamlined_cache_manager,
 )
 from .monitoring import (
     CacheAlert,

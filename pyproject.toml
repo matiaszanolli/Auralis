@@ -141,14 +141,15 @@ show_error_context = true
 module = "auralis.*"
 strict = true
 
-# Backend services type checking (strict - our new code)
+# Backend services and cache type checking (strict).
+# #5437: these patterns used to read "auralis-web.backend.services.*" and
+# "auralis-web.backend.cache.*". A mypy module pattern is an import name, and
+# auralis-web/backend has no __init__.py (pytest.ini and uvicorn put it on
+# sys.path), so its packages import, and mypy names them, as services.* and
+# cache.*. The hyphenated patterns never matched, and warn_unused_configs said
+# so on every run.
 [[tool.mypy.overrides]]
-module = "auralis-web.backend.services.*"
-strict = true
-
-# Backend cache type checking (strict)
-[[tool.mypy.overrides]]
-module = "auralis-web.backend.cache.*"
+module = ["services.*", "cache.*"]
 strict = true
 
 # PyYAML ships no py.typed and no stubs are declared as a dependency (#4397).
@@ -162,12 +163,11 @@ strict = true
 module = "yaml"
 ignore_missing_imports = true
 
-# Optional: Gradual typing for other backend modules (less strict during migration)
-[[tool.mypy.overrides]]
-module = "auralis-web.backend.*"
-ignore_missing_imports = true
-disallow_untyped_defs = false
-disallow_incomplete_defs = false
+# #5437: a "gradual typing" block for "auralis-web.backend.*" (untyped defs
+# allowed) stood here. It was deleted, not retargeted: like the two above it never
+# matched, so every other backend module (core.*, routers.*, config.*, ...) has
+# always been checked under the top-level [tool.mypy] flags. Pointing it at the
+# real import names now would loosen that.
 
 [tool.hatch.build.targets.wheel]
 packages = ["auralis"]
