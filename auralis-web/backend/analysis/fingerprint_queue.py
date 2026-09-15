@@ -31,16 +31,6 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class QueueStats:
-    """Statistics for the fingerprint queue."""
-    queued: int = 0
-    processing: int | None = None
-    completed: int = 0
-    failed: int = 0
-    started_at: datetime | None = None
-
-
-@dataclass
 class FingerprintQueueState:
     """Internal state for the fingerprint queue."""
     queue: deque[int] = field(default_factory=deque)
