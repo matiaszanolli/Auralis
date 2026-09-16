@@ -52,7 +52,7 @@ There is **no** `wav_streaming` router — audio streaming goes over WebSocket v
 
 **Security / support**:
 - `auralis-web/backend/security/path_security.py` — filesystem path containment for file-serving routes
-- `auralis-web/backend/analysis/` — `analysis_extractor.py`, `fingerprint_generator.py`, `fingerprint_queue.py`, `track_analysis_cache.py`
+- `auralis-web/backend/analysis/` — `fingerprint_generator.py`, `fingerprint_queue.py` (per-track fingerprint/target caching is `core/mastering_target_service.py`, #5085)
 - `auralis-web/backend/core/encoding/` (`wav_encoder.py`, `atomic_io.py`) — encoding (the *monitoring/* package was deleted as unreachable in #4766)
 
 **Services** (`auralis-web/backend/services/`):

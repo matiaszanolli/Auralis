@@ -18,8 +18,8 @@ auralis-web/backend/
 │   ├── __init__.py
 │   ├── fingerprint_generator.py    ← was: backend root
 │   ├── fingerprint_queue.py        ← was: backend root
-│   ├── analysis_extractor.py       ← was: backend root
-│   └── track_analysis_cache.py     ← was: backend root
+│   ├── analysis_extractor.py       ← was: backend root (deleted, #5085)
+│   └── track_analysis_cache.py     ← was: backend root (deleted, #5085)
 ├── services/               ← adaptive learning (existed, 3 new modules added)
 │   ├── learning_system.py          ← was: backend root (deleted, #4750)
 │   ├── self_tuner.py               ← was: backend root
@@ -51,8 +51,8 @@ auralis-web/backend/
 | `from streamlined_worker import X` | `from core.streamlined_worker import X` |
 | `from fingerprint_generator import X` | `from analysis.fingerprint_generator import X` |
 | `from fingerprint_queue import X` | `from analysis.fingerprint_queue import X` |
-| `from analysis_extractor import X` | `from analysis.analysis_extractor import X` |
-| `from track_analysis_cache import X` | `from analysis.track_analysis_cache import X` |
+| `from analysis_extractor import X` | `from analysis.analysis_extractor import X` (module deleted, #5085) |
+| `from track_analysis_cache import X` | `from analysis.track_analysis_cache import X` (module deleted, #5085) |
 | `from learning_system import X` | `from services.learning_system import X` (module deleted, #4750) |
 | `from self_tuner import X` | `from services.self_tuner import X` |
 | `from audio_content_predictor import X` | `from services.audio_content_predictor import X` |
@@ -106,8 +106,8 @@ auralis-web/backend/
 - `chunked_processor.py` had a hard-coded `sys.path` block to locate the
   backend root; updated from `Path(__file__).parent` to
   `Path(__file__).parent.parent` now that the file lives in `core/`.
-- `analysis_extractor.py` already used a relative import
+- *analysis_extractor.py* already used a relative import
   (`from .track_analysis_cache import …`); this now works correctly
-  inside the `analysis/` package.
+  inside the `analysis/` package. (Both modules were later deleted, #5085.)
 - `pytest.ini` `pythonpath = auralis-web/backend` unchanged — tests still
   resolve all packages correctly via the backend root.

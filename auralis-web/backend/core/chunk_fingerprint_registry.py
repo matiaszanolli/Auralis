@@ -11,8 +11,8 @@ reports a misresolved component registry. Extracted from chunked_processor.py
 
 ``_default_get_fingerprints_repository`` / ``_reset_registry_miss_warning`` are
 re-exported from ``core.chunked_processor`` (its historical home) so existing
-imports — ``core/mastering_target_service.py`` and several
-``tests/backend/test_*`` files — keep working unchanged.
+imports — several ``tests/backend/test_*`` files — keep working unchanged.
+``core/mastering_target_service.py`` imports it from here directly (#5085).
 
 The module logger is deliberately named ``core.chunked_processor`` rather than
 ``__name__`` (see :mod:`core.chunked_processor` module docstring note): several

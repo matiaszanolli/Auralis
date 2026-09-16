@@ -234,7 +234,10 @@ class MasteringTargetService:
                 logger.debug(f"Audio loaded: {len(audio_array)} samples, SR={sr}, CH={channels}")
 
                 # Call PyO3 Rust fingerprinting (schema-conformant via the glue)
-                fingerprint_data = compute_fingerprint_schema(audio_array, sr, channels)
+                # dict[str, Any]: the '_metadata' entry added below is a dict.
+                fingerprint_data: dict[str, Any] = compute_fingerprint_schema(
+                    audio_array, sr, channels
+                )
                 logger.info(f"✅ PyO3 Rust extracted fingerprint for {Path(filepath).name}")
 
             except (ImportError, Exception) as e:
@@ -245,34 +248,31 @@ class MasteringTargetService:
                 analyzer = AudioFingerprintAnalyzer()
                 fingerprint_data = analyzer.analyze(full_audio, sr)
 
-            if fingerprint_data is not None:
-                # Add metadata for .25d file
-                try:
-                    audio_file = MutagenFile(filepath)
-                    duration_value: float = (
-                        float(audio_file.info.length) if audio_file else len(full_audio) / sr
-                    )
-                except Exception as e:
-                    logger.debug(f"Mutagen duration probe failed, falling back to computed duration: {e}", exc_info=True)
-                    duration_value = len(full_audio) / sr
+            # Add metadata for .25d file. Both extractors above return a dict,
+            # never None, so there is no empty-result branch here.
+            try:
+                audio_file = MutagenFile(filepath)
+                duration_value: float = (
+                    float(audio_file.info.length) if audio_file else len(full_audio) / sr
+                )
+            except Exception as e:
+                logger.debug(f"Mutagen duration probe failed, falling back to computed duration: {e}", exc_info=True)
+                duration_value = len(full_audio) / sr
 
-                fingerprint_data['_metadata'] = {
-                    'duration': duration_value,
-                    'sample_rate': sr
-                }
+            fingerprint_data['_metadata'] = {
+                'duration': duration_value,
+                'sample_rate': sr
+            }
 
-                # Generate mastering targets from fingerprint
-                mastering_targets = self.generate_targets_from_fingerprint(fingerprint_data)
+            # Generate mastering targets from fingerprint
+            mastering_targets = self.generate_targets_from_fingerprint(fingerprint_data)
 
-                # Save to .25d file if requested
-                if save_to_file:
-                    FingerprintStorage.save(Path(filepath), fingerprint_data, mastering_targets)
-                    logger.info(f"💾 Saved fingerprint to .25d file for {Path(filepath).name}")
+            # Save to .25d file if requested
+            if save_to_file:
+                FingerprintStorage.save(Path(filepath), fingerprint_data, mastering_targets)
+                logger.info(f"💾 Saved fingerprint to .25d file for {Path(filepath).name}")
 
-                return (fingerprint_data, mastering_targets)
-            else:
-                logger.error(f"Fingerprint extraction returned None for {filepath}")
-                return None
+            return (fingerprint_data, mastering_targets)
 
         except Exception as e:
             logger.error(f"Fingerprint extraction failed for {filepath}: {e}")
@@ -474,10 +474,27 @@ def get_mastering_target_service() -> MasteringTargetService:
                 # Wire Tier-1 DB lookup via the global repository factory so the
                 # singleton isn't a latent Tier-1-dead trap (#3836 / BE-PE-3).
                 # Lazy import avoids a circular import at module load time.
-                from core.chunked_processor import _default_get_fingerprints_repository
+                from core.chunk_fingerprint_registry import _default_get_fingerprints_repository
                 _global_mastering_target_service = MasteringTargetService(
                     get_fingerprints_repository=_default_get_fingerprints_repository,
                 )
                 logger.info("Global MasteringTargetService instance created")
 
     return _global_mastering_target_service
+
+
+def clear_global_mastering_target_cache() -> bool:
+    """Clear the singleton's per-track fingerprint/target cache, if it exists.
+
+    This is the backend's track-analysis cache tier: ``clear_all_caches()``
+    calls it so a cache clear or library reset cannot leave stale fingerprints
+    and targets behind (#5085). It does not create the singleton.
+
+    Returns:
+        True if a live service was cleared, False if none had been created.
+    """
+    service = _global_mastering_target_service
+    if service is None:
+        return False
+    service.clear_cache()
+    return True

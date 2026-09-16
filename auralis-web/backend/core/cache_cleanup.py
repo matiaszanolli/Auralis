@@ -7,9 +7,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from analysis.track_analysis_cache import clear_global_track_analysis_cache
 from config.limits import chunk_cache_dir
+
 from core.encoding.wav_encoder import delete_chunk_files
+from core.mastering_target_service import clear_global_mastering_target_cache
 from core.thumbnail_cache import clear_artwork_cache
 
 
@@ -36,14 +37,16 @@ async def clear_all_caches(
     clear_source_artwork: bool = False,
     chunk_dir: Path | None = None,
 ) -> CacheClearResult:
-    """Clear chunk, thumbnail, and optional analysis caches.
+    """Clear chunk, thumbnail, and track-analysis caches.
 
     ``cache_manager`` may be absent during a library reset when the streamlined
     cache feature is disabled; the filesystem and analysis tiers are still
-    cleared. Source artwork is retained by default because live album rows
-    point at those files; a destructive library reset passes
-    ``clear_source_artwork=True`` after deleting those rows. Blocking directory
-    work runs off the event loop.
+    cleared. The analysis tier is MasteringTargetService's per-track
+    fingerprint/target cache (#5085); ``analysis_cache_cleared`` is False only
+    when that service was never created in this process. Source artwork is
+    retained by default because live album rows point at those files; a
+    destructive library reset passes ``clear_source_artwork=True`` after
+    deleting those rows. Blocking directory work runs off the event loop.
 
     The on-disk chunk directory (``chunk_dir``, default the shared chunk cache)
     is swept whether or not ``cache_manager`` exists (#5340): the manager's
@@ -61,6 +64,6 @@ async def clear_all_caches(
     return CacheClearResult(
         artwork_files_removed=files_removed,
         artwork_bytes_reclaimed=bytes_reclaimed,
-        analysis_cache_cleared=clear_global_track_analysis_cache(),
+        analysis_cache_cleared=clear_global_mastering_target_cache(),
         chunk_files_removed=chunk_files_removed,
     )

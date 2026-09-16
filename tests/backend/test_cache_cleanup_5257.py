@@ -8,8 +8,9 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parents[2] / "auralis-web" / "backend"))
 
-from core.cache_cleanup import clear_all_caches  # noqa: E402
-from analysis import track_analysis_cache  # noqa: E402
+from core import mastering_target_service
+from core.cache_cleanup import clear_all_caches
+from core.mastering_target_service import MasteringTargetService
 
 
 @pytest.mark.asyncio
@@ -20,10 +21,10 @@ async def test_clear_all_caches_reaches_every_backend_cache(tmp_path, monkeypatc
     (artwork_dir / "source.jpg").write_bytes(b"source")
     (thumb_dir / "thumbnail.png").write_bytes(b"thumb")
     cache_manager = AsyncMock()
-    monkeypatch.setattr(track_analysis_cache, "_track_analysis_cache", None)
-    track_analysis_cache.init_track_analysis_cache()
-    analysis_cache = track_analysis_cache.get_track_analysis_cache()
-    analysis_cache.put(1, {"fingerprint": {"tempo": 120.0}})
+    # #5085: the analysis tier is the live per-track fingerprint/target cache.
+    service = MasteringTargetService()
+    monkeypatch.setattr(mastering_target_service, "_global_mastering_target_service", service)
+    service.cache["fingerprint_1_abcd1234"] = (object(), {"target_lufs": -14.0})
 
     result = await clear_all_caches(
         cache_manager,
@@ -37,8 +38,19 @@ async def test_clear_all_caches_reaches_every_backend_cache(tmp_path, monkeypatc
     assert result.artwork_files_removed == 2
     assert result.artwork_bytes_reclaimed == 11
     assert result.analysis_cache_cleared is True
-    assert analysis_cache.has(1) is False
+    assert len(service.cache) == 0
     assert list(artwork_dir.rglob("*")) == []
+
+
+@pytest.mark.asyncio
+async def test_clear_reports_no_analysis_tier_when_service_never_created(tmp_path, monkeypatch):
+    """Clearing must not build the singleton just to report on it (#5085)."""
+    monkeypatch.setattr(mastering_target_service, "_global_mastering_target_service", None)
+
+    result = await clear_all_caches(None, tmp_path / "artwork", chunk_dir=tmp_path / "chunks")
+
+    assert result.analysis_cache_cleared is False
+    assert mastering_target_service._global_mastering_target_service is None
 
 
 @pytest.mark.asyncio

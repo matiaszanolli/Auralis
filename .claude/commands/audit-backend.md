@@ -164,7 +164,7 @@ Out of scope: React frontend, audio engine internals (`auralis/`), Rust DSP. How
 
 Three independent caches now exist, each with its own key derivation, eviction policy, and staleness failure mode. A bug here serves *wrong audio or wrong artwork*, which is user-visible and hard to attribute.
 
-**Key files**: `auralis-web/backend/core/chunk_cache.py`, `auralis-web/backend/core/chunk_cache_manager.py`, `auralis-web/backend/core/file_signature.py`, `auralis-web/backend/core/thumbnail_cache.py`, `auralis-web/backend/cache/manager.py`, `auralis-web/backend/cache/monitoring.py`, `auralis-web/backend/routers/cache_streamlined.py`, `auralis-web/backend/analysis/track_analysis_cache.py`
+**Key files**: `auralis-web/backend/core/chunk_cache.py`, `auralis-web/backend/core/chunk_cache_manager.py`, `auralis-web/backend/core/file_signature.py`, `auralis-web/backend/core/thumbnail_cache.py`, `auralis-web/backend/cache/manager.py`, `auralis-web/backend/cache/monitoring.py`, `auralis-web/backend/routers/cache_streamlined.py`, `auralis-web/backend/core/mastering_target_service.py` (per-track fingerprint/target cache)
 
 **Check**:
 - [ ] Key completeness — does every cache key include everything that changes the cached bytes? Chunk keys must cover the file signature (mtime+size) **and** the mastering parameters; a key that omits enhancement settings serves enhanced audio for an unenhanced request (and the reverse).
