@@ -236,10 +236,10 @@ def process_chunk_core(
     This is a thin wrapper that:
     1. Loads chunk with context
     2. Delegates to unified pipeline for processing
-    3. Trims context and smooths levels
+    3. Trims context, extracts the emitted segment, and smooths levels
 
     Returns:
-        Processed audio chunk (context trimmed, intensity blended, levels smoothed)
+        The emitted segment: context trimmed, overlap skipped, levels smoothed
     """
     processor._validate_chunk_index(chunk_index)
     assert processor.sample_rate is not None
@@ -276,13 +276,24 @@ def process_chunk_core(
     if len(processed_chunk) == 0:
         logger.error(f"Chunk {chunk_index} is empty after context trimming. Returning silence.")
         num_channels = audio_chunk.shape[1] if audio_chunk.ndim > 1 else 2
-        assert processor.sample_rate is not None
         # Preserve the input dtype rather than hardcoding float32 (#3831
         # sibling) so the fallback matches a float64 pipeline if present.
         processed_chunk = np.zeros((processor.sample_rate // 10, num_channels), dtype=audio_chunk.dtype)  # 100ms silence
 
-    # CRITICAL FIX: Smooth level transitions between chunks
-    # This prevents volume jumps by limiting maximum RMS changes
+    # Extract the emitted segment BEFORE smoothing (#5051): LevelManager ramps
+    # from sample 0, and on the trimmed buffer that ramp fell in the overlap
+    # head extraction discards, so the heard boundary was a hard step. It also
+    # makes a cache MISS record RMS over the same bytes a cache HIT does.
+    assert processor.total_chunks is not None and processor.total_duration is not None
+    processed_chunk = ChunkOperations.extract_chunk_segment(
+        processed_chunk=processed_chunk,
+        chunk_index=chunk_index,
+        sample_rate=processor.sample_rate,  # geometry: chunk_boundaries defaults
+        total_chunks=processor.total_chunks,
+        total_duration=processor.total_duration,
+    )
+
+    # Limit the RMS change across the boundary (gain ramped in, #3831).
     processed_chunk = processor._smooth_level_transition(processed_chunk, chunk_index)
 
     return processed_chunk

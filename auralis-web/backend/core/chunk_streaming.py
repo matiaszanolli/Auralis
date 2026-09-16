@@ -28,9 +28,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from core import chunk_render
-from core.chunk_boundaries import CHUNK_DURATION, CHUNK_INTERVAL, OVERLAP_DURATION
 from core.chunk_content_profile import store_content_profile
-from core.chunk_operations import ChunkOperations
 from core.encoding import WAVEncoderError
 
 if TYPE_CHECKING:
@@ -118,10 +116,9 @@ def _remember_written_chunk_level(
     Stored against the collapsed chunk cache key so a later cache HIT — in
     this stream or any other stream of the same track — can feed the
     LevelManager without decoding the file. The RMS is taken from the
-    EXTRACTED segment (the bytes actually written), not from
-    chunk_rms_history[-1], which describes the wider pre-extraction render
-    window; matching the file is what makes the registry value and a decode
-    interchangeable. The gain is the trailing value smooth_transition left in
+    EXTRACTED segment (the bytes actually written). chunk_rms_history[-1]
+    describes that same window since #5051, but measuring the bytes
+    themselves is what makes the registry value and a decode interchangeable. The gain is the trailing value smooth_transition left in
     chunk_gain_history, exactly as stream_chunk_ops captures it for the
     in-memory tier (#4367).
 
@@ -276,24 +273,10 @@ def process_chunk(
     processor._dsp_state_advanced = False
     try:
         # Process chunk using shared core logic
-        processed_chunk = processor._process_chunk_core(chunk_index, fast_start)
-
-        # Extract the emitted, non-overlapping segment before durable encoding.
-        assert (
-            processor.sample_rate is not None
-            and processor.total_chunks is not None
-            and processor.total_duration is not None
-        )
-        extracted_chunk = ChunkOperations.extract_chunk_segment(
-            processed_chunk=processed_chunk,
-            chunk_index=chunk_index,
-            sample_rate=processor.sample_rate,
-            chunk_duration=CHUNK_DURATION,
-            chunk_interval=CHUNK_INTERVAL,
-            overlap_duration=OVERLAP_DURATION,
-            total_chunks=processor.total_chunks,
-            total_duration=processor.total_duration,
-        )
+        # Already the emitted, non-overlapping segment: the core extracts it
+        # before smoothing so the gain ramp is audible (#5051).
+        extracted_chunk = processor._process_chunk_core(chunk_index, fast_start)
+        assert processor.sample_rate is not None
 
         # #5328: a seek can land while this DSP is in flight — look-ahead
         # renders are mid-DSP for most of the pump loop — and the check above
@@ -409,18 +392,8 @@ def get_wav_chunk_path(processor: "ChunkedAudioProcessor", chunk_index: int) -> 
         processor._dsp_state_advanced = False
         try:
             # Use shared core processing logic (eliminates duplicate code)
-            processed_chunk = processor._process_chunk_core(chunk_index, fast_start=False)
-
-            extracted_chunk = ChunkOperations.extract_chunk_segment(
-                processed_chunk=processed_chunk,
-                chunk_index=chunk_index,
-                sample_rate=processor.sample_rate,
-                chunk_duration=CHUNK_DURATION,
-                chunk_interval=CHUNK_INTERVAL,
-                overlap_duration=OVERLAP_DURATION,
-                total_chunks=processor.total_chunks,
-                total_duration=processor.total_duration,
-            )
+            # The emitted segment, extracted before smoothing (#5051).
+            extracted_chunk = processor._process_chunk_core(chunk_index, fast_start=False)
 
             # #5328: never persist a render its stream abandoned mid-DSP.
             _raise_if_cancelled(processor, chunk_index)

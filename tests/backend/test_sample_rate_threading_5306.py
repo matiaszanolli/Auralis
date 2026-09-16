@@ -242,6 +242,10 @@ def test_chunk_render_forwards_the_processors_own_config():
         preset="adaptive",
         intensity=1.0,
         sample_rate=48000,
+        # A single-chunk track exactly as long as `audio`, so the emitted
+        # segment process_chunk_core now extracts (#5051) is all of it.
+        total_chunks=1,
+        total_duration=len(audio) / 48000,
         mastering_targets=None,
         processor_config=config,
         _processor_factory=factory,
