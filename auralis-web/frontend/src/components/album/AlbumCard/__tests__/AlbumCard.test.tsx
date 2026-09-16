@@ -14,6 +14,11 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, screen } from '@/test/test-utils';
 import { AlbumCard } from '../AlbumCard';
 
+// No onClick is passed, so the card has no open button (#5101); hover it
+// through the play control, which is always rendered inside the card.
+const hoverCard = (title: string) =>
+  fireEvent.mouseEnter(screen.getByRole('button', { name: `Play ${title}` }));
+
 describe('AlbumCard', () => {
   it('calls onHoverEnter with (albumId, title, artist) on hover', () => {
     const onHoverEnter = vi.fn();
@@ -27,7 +32,7 @@ describe('AlbumCard', () => {
       />
     );
 
-    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Test Album by Test Artist' }));
+    hoverCard('Test Album');
 
     expect(onHoverEnter).toHaveBeenCalledWith(42, 'Test Album', 'Test Artist');
   });
@@ -46,15 +51,13 @@ describe('AlbumCard', () => {
       <AlbumCard albumId={1} title="A" artist="B" onHoverEnter={onHoverEnter} />
     );
 
-    fireEvent.mouseEnter(screen.getByRole('button', { name: 'A by B' }));
+    hoverCard('A');
     expect(onHoverEnter).toHaveBeenCalledWith(1, 'A', 'B');
   });
 
   it('does not call onHoverEnter when not provided', () => {
     render(<AlbumCard albumId={1} title="A" artist="B" />);
     // Should not throw when hovered without a handler.
-    expect(() =>
-      fireEvent.mouseEnter(screen.getByRole('button', { name: 'A by B' }))
-    ).not.toThrow();
+    expect(() => hoverCard('A')).not.toThrow();
   });
 });

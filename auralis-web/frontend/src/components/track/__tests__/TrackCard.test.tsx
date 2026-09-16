@@ -86,12 +86,10 @@ describe('TrackCard', () => {
     it('should call onPlay with track id when clicked', async () => {
       const user = userEvent.setup();
       const onPlay = vi.fn();
-      const { container } = render(<TrackCard {...defaultProps} onPlay={onPlay} />);
+      render(<TrackCard {...defaultProps} onPlay={onPlay} />);
 
-      const card = container.querySelector('[class*="MuiCard"]') || container.firstChild;
-      if (card) {
-        await user.click(card as Element);
-      }
+      // The card's full-size open button (#5101), not the Play overlay.
+      await user.click(screen.getByRole('button', { name: 'Beautiful Song by Amazing Artist' }));
 
       expect(onPlay).toHaveBeenCalledWith(1);
     });

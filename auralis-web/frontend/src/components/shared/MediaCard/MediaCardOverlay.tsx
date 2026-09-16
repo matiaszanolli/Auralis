@@ -68,6 +68,9 @@ export const MediaCardOverlay = ({
           top: '50%',
           left: '50%',
           transform: 'translate(-50%, -50%)',
+          // Above MediaCard's full-card open button, so a click on the play
+          // control plays rather than opens (#5101).
+          zIndex: tokens.zIndex.elevated,
           opacity: showOverlay ? 1 : 0,
           transition: tokens.transitions.base,
         }}

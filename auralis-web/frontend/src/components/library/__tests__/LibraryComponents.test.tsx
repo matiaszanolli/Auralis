@@ -111,7 +111,7 @@ describe('AlbumCard', () => {
     const user = userEvent.setup();
     const mockOnClick = vi.fn();
 
-    const { container } = render(
+    render(
       <AlbumCard
         albumId={mockAlbum.id}
         title={mockAlbum.title}
@@ -123,8 +123,10 @@ describe('AlbumCard', () => {
       />
     );
 
-    const card = container.firstChild as HTMLElement;
-    await user.click(card);
+    // The card's full-size open button (#5101), not the Play overlay.
+    await user.click(
+      screen.getByRole('button', { name: `${mockAlbum.title} by ${mockAlbum.artist}` })
+    );
 
     expect(mockOnClick).toHaveBeenCalled();
   });

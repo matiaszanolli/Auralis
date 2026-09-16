@@ -11,6 +11,7 @@
  * - Artwork with placeholder fallback
  * - Hover interactions
  * - Play button overlay
+ * - Open button covering the whole card (see the note on the Card below)
  * - Metadata display
  *
  * Architecture:
@@ -20,7 +21,8 @@
  * - useMediaCardState: Hover state management
  */
 
-import { KeyboardEvent, MouseEvent, memo } from 'react';
+import { MouseEvent, memo } from 'react';
+import { Box } from '@mui/material';
 import { Card } from '@/design-system';
 import { tokens } from '@/design-system';
 import { formatDuration } from '@/utils/timeFormat';
@@ -127,7 +129,7 @@ export const MediaCard = memo(function MediaCard(props: MediaCardProps) {
         position: 'relative',
         borderRadius: tokens.borderRadius.xl,        // 20px - softer, more organic curves (Design Language v1.2.0)
         overflow: 'hidden',
-        cursor: 'pointer',
+        cursor: props.onClick ? 'pointer' : undefined,
         transition: `${tokens.transitions.slow_inOut}, backdrop-filter ${tokens.transitions.base}`,
 
         // Continuous surface (calm by default - Design Language §1.3, §4.1)
@@ -174,31 +176,49 @@ export const MediaCard = memo(function MediaCard(props: MediaCardProps) {
           },
         },
 
-        // Keyboard focus indicator (WCAG 2.4.7)
-        '&:focus-visible': {
-          outline: `2px solid ${tokens.colors.accent.primary}`,
-          outlineOffset: '2px',
-        },
-
         // Active/pressed state - tactile feedback (Design Language §5)
         '&:active': {
           transform: 'scale(0.98)',                  // Press inward for tactile feel
           transition: `${tokens.transitions.fast}`,  // Faster response (150ms)
         },
       }}
-      tabIndex={0}
-      role="button"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      onClick={props.onClick}
-      onKeyDown={(e: KeyboardEvent) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          props.onClick?.();
-        }
-      }}
-      aria-label={`${props.title}${'artist' in props && props.artist ? ` by ${props.artist}` : ''}`}
     >
+      {/*
+        The card is a plain container, not a role="button": it holds the play
+        IconButton, and an interactive control must not contain another one
+        (axe nested-interactive, #5101). "Open" is instead a native button
+        stretched over the whole card, as a sibling of the play control, which
+        sits above it (MediaCardOverlay). Clicking anywhere still opens the
+        card, and each control has its own Tab stop and accessible name.
+        It comes first in the DOM, so Tab reaches "open" before "play".
+      */}
+      {props.onClick && (
+        <Box
+          component="button"
+          type="button"
+          onClick={props.onClick}
+          aria-label={`${props.title}${'artist' in props && props.artist ? ` by ${props.artist}` : ''}`}
+          sx={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: tokens.zIndex.content,
+            padding: 0,
+            border: 0,
+            background: 'transparent',
+            borderRadius: 'inherit',
+            cursor: 'pointer',
+            // Keyboard focus indicator (WCAG 2.4.7). Inset, because the
+            // card's overflow: hidden would clip an outline drawn outside it.
+            '&:focus-visible': {
+              outline: `2px solid ${tokens.colors.accent.primary}`,
+              outlineOffset: '-2px',
+            },
+          }}
+        />
+      )}
+
       {/* Artwork Section */}
       <MediaCardArtwork
         artworkUrl={props.artworkUrl}

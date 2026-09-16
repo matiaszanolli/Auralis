@@ -21,6 +21,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
+import userEvent from '@testing-library/user-event';
 import { render, screen } from '@/test/test-utils';
 import {
   expectNoA11yViolations,
@@ -127,45 +128,38 @@ describe('a11y: QueuePanel (#4637)', () => {
 });
 
 describe('a11y: MediaCard family (#4637)', () => {
-  // MediaCard has one KNOWN violation, filed as #5101 and found by this very
-  // spec: the card wrapper is role="button" tabIndex={0} and contains a
-  // focusable IconButton, so axe reports `nested-interactive`.
-  //
-  // It is pinned rather than left failing. The frontend CI gate is a baseline
-  // ratchet whose list may shrink but never grow (#4640), so landing new
-  // failures would work against it; and asserting the exact known violation
-  // means the test fails loudly the moment #5101 is fixed, telling the next
-  // author to flip it to a plain assertion. `disableRules` would have hidden it.
-  const KNOWN = 'nested-interactive';
-
+  // #5101: the card used to be role="button" around a focusable play
+  // IconButton (axe nested-interactive). "Open" is now a sibling button.
   const CASES: Array<[string, React.ReactElement]> = [
-    ['track variant', <MediaCard variant="track" id={1} title="Song" artist="Artist" album="Album" />],
-    ['album variant', <MediaCard variant="album" id={1} title="Album" artist="Artist" trackCount={9} year={2001} />],
-    ['playing state', <MediaCard variant="track" id={1} title="Song" artist="Artist" album="Album" isPlaying />],
+    ['track variant', <MediaCard variant="track" id={1} title="Song" artist="Artist" album="Album" onClick={vi.fn()} />],
+    ['album variant', <MediaCard variant="album" id={1} title="Album" artist="Artist" trackCount={9} year={2001} onClick={vi.fn()} />],
+    ['playing state', <MediaCard variant="track" id={1} title="Song" artist="Artist" album="Album" isPlaying onClick={vi.fn()} />],
+    ['without onClick', <MediaCard variant="track" id={1} title="Song" artist="Artist" album="Album" onPlay={vi.fn()} />],
   ];
 
-  it.each(CASES)('%s has no violations beyond the known #5101 one', async (_name, element) => {
+  it.each(CASES)('%s has no violations', async (_name, element) => {
     const { container } = render(element);
-
-    const ids = (await getA11yViolations(container)).map((v) => v.id);
-
-    expect(ids.filter((id) => id !== KNOWN)).toEqual([]);
+    await expectNoA11yViolations(container);
   });
 
-  it.each(CASES)('%s still exhibits #5101 (flip these to a plain assertion when fixed)', async (_name, element) => {
-    const { container } = render(element);
-
-    const ids = (await getA11yViolations(container)).map((v) => v.id);
-
-    expect(ids).toContain(KNOWN);
-  });
-
-  it('MediaCard is at least keyboard reachable', async () => {
-    const { container } = render(
-      <MediaCard variant="track" id={1} title="Song" artist="Artist" album="Album" />
+  it('reaches open, then play, with Tab — each with its own name (#5101)', async () => {
+    const user = userEvent.setup();
+    const onClick = vi.fn();
+    const onPlay = vi.fn();
+    render(
+      <MediaCard variant="track" id={7} title="Song" artist="Artist" album="Album" onClick={onClick} onPlay={onPlay} />
     );
 
-    expect(findUnfocusableInteractiveRoles(container)).toEqual([]);
+    await user.tab();
+    expect(screen.getByRole('button', { name: 'Song by Artist' })).toHaveFocus();
+    await user.keyboard('{Enter}');
+    expect(onClick).toHaveBeenCalledTimes(1);
+
+    await user.tab();
+    expect(screen.getByRole('button', { name: 'Play Song' })).toHaveFocus();
+    await user.keyboard(' ');
+    expect(onPlay).toHaveBeenCalledWith(7);
+    expect(onClick).toHaveBeenCalledTimes(1);
   });
 });
 
