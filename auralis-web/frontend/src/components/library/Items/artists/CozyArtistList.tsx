@@ -72,6 +72,13 @@ export const CozyArtistList = ({ onArtistClick }: CozyArtistListProps) => {
     handleContextMenu(event);
   }, [handleContextMenu]);
 
+  // Stable identity so opening/closing the menu does not hand
+  // ArtistListContent a fresh prop on every render (#5389).
+  const handleContextMenuClose = useCallback(() => {
+    setContextMenuArtist(null);
+    handleCloseContextMenu();
+  }, [handleCloseContextMenu]);
+
   const { actions: contextActions, modal: infoModal } = useContextMenuActions({
     artist: contextMenuArtist,
     onArtistClick,
@@ -103,10 +110,7 @@ export const CozyArtistList = ({ onArtistClick }: CozyArtistListProps) => {
         contextActions={contextActions}
         onArtistClick={handleArtistClick}
         onContextMenuOpen={handleContextMenuOpen}
-        onContextMenuClose={() => {
-          setContextMenuArtist(null);
-          handleCloseContextMenu();
-        }}
+        onContextMenuClose={handleContextMenuClose}
       />
       <ArtistInfoModal
         open={infoModal.open}

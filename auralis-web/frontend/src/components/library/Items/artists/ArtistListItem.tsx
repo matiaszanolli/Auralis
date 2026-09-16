@@ -1,4 +1,4 @@
-import { MouseEvent } from 'react';
+import { MouseEvent, memo } from 'react';
 import { Box } from '@mui/material';
 import {
   StyledListItem,
@@ -22,7 +22,7 @@ interface ArtistListItemProps {
  * - Album and track count metadata
  * - Glass card with hover effects for starfield visibility
  */
-export const ArtistListItem = ({
+const ArtistListItemImpl = ({
   artist,
   onClick,
   onContextMenu
@@ -64,5 +64,16 @@ export const ArtistListItem = ({
     </StyledListItem>
   );
 };
+
+/**
+ * Memoized like the sibling virtualized rows (ArtistTrackRow,
+ * TrackTableRowItem; #4472): ArtistListContent passes stable callbacks
+ * (#3607), so a context-menu open/close re-renders no row (#5389).
+ */
+export const ArtistListItem = memo(ArtistListItemImpl, (prev, next) =>
+  prev.artist === next.artist &&
+  prev.onClick === next.onClick &&
+  prev.onContextMenu === next.onContextMenu
+);
 
 export default ArtistListItem;

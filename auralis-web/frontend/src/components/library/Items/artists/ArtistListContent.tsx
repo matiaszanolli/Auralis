@@ -108,14 +108,24 @@ export const ArtistListContent = ({
     setScrollReady(scrollElementRef.current !== null);
   }, []);
 
+  // getItemKey must keep its identity between renders. virtual-core re-renders
+  // (notify -> onChange) from inside getVirtualItems() whenever getItemKey
+  // changes, so a fresh closure on every render re-rendered forever: any
+  // re-render after mount (opening the context menu, a new page) hit React's
+  // "Too many re-renders" (#5389). It now changes only when `rows` does.
+  const getItemKey = useCallback((index: number) => rows[index]?.key ?? index, [rows]);
+  const estimateSize = useCallback(
+    (index: number) => (rows[index]?.kind === 'header' ? HEADER_HEIGHT : ROW_HEIGHT),
+    [rows]
+  );
+
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollElementRef.current,
-    estimateSize: (index) =>
-      rows[index]?.kind === 'header' ? HEADER_HEIGHT : ROW_HEIGHT,
+    estimateSize,
     overscan: 8,
     scrollMargin: containerRef.current?.offsetTop ?? 0,
-    getItemKey: (index) => rows[index]?.key ?? index,
+    getItemKey,
   });
 
   const virtualRows = virtualizer.getVirtualItems();
