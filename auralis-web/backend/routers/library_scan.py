@@ -394,11 +394,7 @@ async def scan_library(
                     connection_manager,
                     "library_updated",
                     # Fields here must match LibraryUpdatedMessage in
-                    # frontend/src/types/ws/library.ts. `reason` — a
-                    # duplicate of `action` kept for backward compat with
-                    # pre-#3544 clients — was dropped in #4975: Auralis
-                    # ships frontend and backend as one Electron bundle, so
-                    # there is no independently-versioned older client.
+                    # frontend/src/types/ws/library.ts.
                     {
                         "action": "scan",
                         "track_count": result.files_added,

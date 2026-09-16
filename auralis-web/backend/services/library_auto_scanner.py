@@ -380,18 +380,13 @@ class LibraryAutoScanner:
             suppress_errors=True,
         )
 
-        # Notify frontend to refresh library views when content changed
-        # (#2871). Payload matches the manual-scan emit (#3544 / BE-NEW-86)
-        # — action + counts that the frontend LibraryUpdatedMessage type
-        # actually declares.
+        # Fields here must match LibraryUpdatedMessage in
+        # frontend/src/types/ws/library.ts.
         if files_added or removed:
             await broadcast_typed(
                 self._connection_manager,
                 "library_updated",
                 {
-                    # `reason` (a duplicate of `action`, kept for backward
-                    # compat with pre-#3544 clients) dropped in #4975 —
-                    # see the matching emitter in routers/library_scan.py.
                     "action": "scan",
                     "track_count": files_added,
                 },
