@@ -104,7 +104,9 @@ export interface AudioStreamEndMessage extends WebSocketMessage {
  * Note: in production the backend emits {@link AudioChunkMetaMessage}
  * (a text JSON frame) followed by a binary PCM frame. WebSocketContext
  * fuses them into this synthetic `audio_chunk` shape with `pcm_binary`
- * populated. The `samples` base64 path remains for legacy clients only.
+ * populated. The base64 `samples` transport was removed in #5423 -- Auralis
+ * ships frontend and backend as one Electron bundle, so there is no
+ * independently-versioned older client that could still send it.
  */
 export interface AudioChunkMessage extends WebSocketMessage {
   type: 'audio_chunk';
@@ -123,13 +125,10 @@ export interface AudioChunkMessage extends WebSocketMessage {
     chunk_count: number;
     frame_index: number;
     frame_count: number;
-    /** Base64-encoded float32 PCM (legacy transport). Optional because the
-     *  binary transport path (pcm_binary) does not include this field (#3944). */
-    samples?: string;
     sample_count: number;
     stream_type?: 'enhanced' | 'normal';
-    /** Raw float32 PCM ArrayBuffer (binary transport, preferred over base64). Injected
-     *  at runtime by WebSocketContext when a binary frame follows audio_chunk_meta (fixes #2764). */
+    /** Raw float32 PCM ArrayBuffer. Injected at runtime by WebSocketContext
+     *  when a binary frame follows audio_chunk_meta (fixes #2764). */
     pcm_binary?: ArrayBuffer;
   };
 }

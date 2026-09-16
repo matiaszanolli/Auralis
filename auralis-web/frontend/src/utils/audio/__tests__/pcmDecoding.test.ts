@@ -1,61 +1,22 @@
 /**
  * PCM Decoding Utilities Tests
  *
- * Tests for base64 decoding and audio_chunk message decoding
+ * Tests for audio_chunk message decoding (binary pcm_binary transport only,
+ * #5423 -- the base64 `samples` fallback and its decoder were removed).
  */
 
 import { describe, it, expect } from 'vitest';
 import type { AudioChunkMessage } from '@/types/websocket';
-import {
-  decodePCMBase64,
-  decodeAudioChunkMessage,
-} from '../pcmDecoding';
+import { decodeAudioChunkMessage } from '../pcmDecoding';
 
 // The cases below deliberately build partial or malformed messages that the
 // strict AudioChunkMessage type would reject at compile time.
 const asChunk = (message: unknown) => message as AudioChunkMessage;
 
 describe('PCM Decoding Utilities', () => {
-  describe('decodePCMBase64', () => {
-    it('should decode base64-encoded PCM data correctly', () => {
-      // Create test data: [1.0, 0.5, -0.5, 0.0]
-      const testData = new Float32Array([1.0, 0.5, -0.5, 0.0]);
-      const bytes = new Uint8Array(testData.buffer);
-      const base64 = btoa(String.fromCharCode(...bytes));
-
-      const decoded = decodePCMBase64(base64);
-
-      expect(decoded.length).toBe(4);
-      expect(decoded[0]).toBeCloseTo(1.0, 5);
-      expect(decoded[1]).toBeCloseTo(0.5, 5);
-      expect(decoded[2]).toBeCloseTo(-0.5, 5);
-      expect(decoded[3]).toBeCloseTo(0.0, 5);
-    });
-
-    it('should handle empty base64 string', () => {
-      const decoded = decodePCMBase64('');
-      expect(decoded.length).toBe(0);
-    });
-
-    it('should throw on invalid base64', () => {
-      expect(() => decodePCMBase64('invalid!!!base64')).toThrow();
-    });
-
-    it('should throw on non-divisible sample count', () => {
-      // Create 3 bytes (not divisible by 4)
-      const bytes = new Uint8Array([1, 2, 3]);
-      const base64 = btoa(String.fromCharCode(...bytes));
-
-      expect(() => decodePCMBase64(base64)).toThrow();
-    });
-  });
-
   describe('decodeAudioChunkMessage', () => {
     it('should decode complete audio chunk message', () => {
-      // Create test PCM data
       const testData = new Float32Array([0.1, 0.2, 0.3, 0.4]);
-      const bytes = new Uint8Array(testData.buffer);
-      const base64 = btoa(String.fromCharCode(...bytes));
 
       const message = {
         type: 'audio_chunk',
@@ -64,7 +25,7 @@ describe('PCM Decoding Utilities', () => {
           chunk_count: 5,
           frame_index: 0,
           frame_count: 1,
-          samples: base64,
+          pcm_binary: testData.buffer,
           sample_count: 4,
         },
       };
@@ -79,13 +40,11 @@ describe('PCM Decoding Utilities', () => {
 
     it('should handle missing optional fields with defaults', () => {
       const testData = new Float32Array([0.1, 0.2]);
-      const bytes = new Uint8Array(testData.buffer);
-      const base64 = btoa(String.fromCharCode(...bytes));
 
       const message = {
         type: 'audio_chunk',
         data: {
-          samples: base64,
+          pcm_binary: testData.buffer,
           sample_count: 2,
         },
       };
@@ -105,12 +64,27 @@ describe('PCM Decoding Utilities', () => {
       expect(() => decodeAudioChunkMessage(asChunk(invalidMessage), 48000, 2)).toThrow();
     });
 
-    it('should throw on missing samples field', () => {
+    it('should throw on missing pcm_binary field', () => {
       const invalidMessage = {
         type: 'audio_chunk',
         data: {
           sample_count: 10,
-          // Missing samples field
+          // Missing pcm_binary field
+        },
+      };
+
+      expect(() => decodeAudioChunkMessage(asChunk(invalidMessage), 48000, 2)).toThrow();
+    });
+
+    it('should throw on a stray base64 samples string instead of decoding it (#5423)', () => {
+      // A malformed frame carrying the pre-#2764 legacy field but no
+      // pcm_binary must fail loudly, not silently decode base64 garbage.
+      const invalidMessage = {
+        type: 'audio_chunk',
+        data: {
+          samples: 'AAAAAAAAAA==',
+          sample_count: 2,
+          // Missing pcm_binary field
         },
       };
 
@@ -119,13 +93,11 @@ describe('PCM Decoding Utilities', () => {
 
     it('should throw on invalid sample count', () => {
       const testData = new Float32Array([0.1, 0.2]);
-      const bytes = new Uint8Array(testData.buffer);
-      const base64 = btoa(String.fromCharCode(...bytes));
 
       const message = {
         type: 'audio_chunk',
         data: {
-          samples: base64,
+          pcm_binary: testData.buffer,
           sample_count: -1, // Invalid
         },
       };
@@ -135,13 +107,11 @@ describe('PCM Decoding Utilities', () => {
 
     it('should warn on sample count mismatch', () => {
       const testData = new Float32Array([0.1, 0.2]);
-      const bytes = new Uint8Array(testData.buffer);
-      const base64 = btoa(String.fromCharCode(...bytes));
 
       const message = {
         type: 'audio_chunk',
         data: {
-          samples: base64,
+          pcm_binary: testData.buffer,
           sample_count: 999, // Mismatch: actually 2
         },
       };
