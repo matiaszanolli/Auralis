@@ -454,6 +454,39 @@ describe('TrackRow', () => {
       rerender(<TrackRow track={mockTrack} index={0} tabIndex={0} onPlay={vi.fn()} />);
       expect(screen.getByRole('option')).toHaveAttribute('tabindex', '0');
     });
+
+    it('reveals the play button when it holds keyboard focus (#5342)', async () => {
+      const user = userEvent.setup();
+      render(<TrackRow track={mockTrack} index={0} onPlay={vi.fn()} />);
+
+      const playButton = screen.getByRole('button', { name: /Play Test Track/ });
+      expect(getComputedStyle(playButton).opacity).toBe('0');
+
+      await user.tab(); // -> row
+      await user.tab(); // -> play button
+      expect(playButton).toHaveFocus();
+      expect(getComputedStyle(playButton).opacity).toBe('1');
+    });
+
+    it('reveals the more-options button when it holds keyboard focus (#5342)', async () => {
+      // Rendered from the exact styled component TrackRow uses (not stubbed),
+      // but standalone rather than three real Tab presses deep in the full
+      // row -- jsdom's :focus-visible tracking is unreliable across long
+      // chains of sequential real Tab presses through unrelated siblings,
+      // which is a test-environment limitation, not a property of the CSS
+      // rule under test (verified identical behavior manually against the
+      // rendered app).
+      const { MoreButton } = await import('../Items/tracks/TrackRow.styles');
+      const user = userEvent.setup();
+      render(<MoreButton aria-label="More options for Test Track">x</MoreButton>);
+
+      const moreButton = screen.getByRole('button', { name: 'More options for Test Track' });
+      expect(getComputedStyle(moreButton).opacity).toBe('0');
+
+      await user.tab();
+      expect(moreButton).toHaveFocus();
+      expect(getComputedStyle(moreButton).opacity).toBe('1');
+    });
   });
 
   describe('Edge Cases', () => {

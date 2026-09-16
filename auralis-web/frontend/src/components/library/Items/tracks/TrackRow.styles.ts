@@ -139,6 +139,15 @@ export const PlayButton = styled(IconButton)({
     background: tokens.colors.opacityScale.accent.lighter,
     transform: 'scale(1.1)',
   },
+
+  // #5342: opacity: 0 above hid this button from keyboard focus too — tabbing
+  // onto it landed on an invisible control (WCAG 2.4.7). Same reveal pattern
+  // as TrackTableRowItem's more-options button and SelectableTrackRow's
+  // checkbox.
+  '&:focus-visible, &.Mui-focusVisible': {
+    opacity: 1,
+    transform: 'scale(1)',
+  },
 });
 
 export const AlbumArtThumbnail = styled(Box)({
@@ -253,5 +262,10 @@ export const MoreButton = styled(IconButton)({
   '&:hover': {
     background: tokens.colors.opacityScale.accent.light,
     color: themeVars.accent,
+  },
+
+  // #5342: same invisible-on-focus gap as PlayButton above.
+  '&:focus-visible, &.Mui-focusVisible': {
+    opacity: 1,
   },
 });
