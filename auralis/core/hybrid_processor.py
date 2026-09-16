@@ -7,11 +7,11 @@ Unified processor supporting both reference-based and adaptive mastering
 Component construction and input-validation/reference-mode dispatch split out
 to hybrid_setup.py / hybrid_stage_dispatch.py (#5463), following the
 coordinator/sibling pattern #4250 established for ProcessingEngine (599 ->
-402 LOC). `_process_adaptive_mode()` / `_process_hybrid_mode()` stay inline
+415 LOC). `_process_adaptive_mode()` / `_process_hybrid_mode()` stay inline
 rather than moving too: tests/regression/test_sample_count_invariant.py
 inspects their source directly via `inspect.getsource()`, so the sample-count
 assertion has to live in the bound method's own body, not a helper it calls.
-402 LOC is this file's explicit waiver ceiling (matching the
+415 LOC is this file's explicit waiver ceiling (matching the
 processing_engine.py precedent, #5454) -- the remainder is those two
 test-pinned methods, `close()`'s docstring (two tests assert specific
 substrings in it), and delegation methods carrying real locking rationale,
