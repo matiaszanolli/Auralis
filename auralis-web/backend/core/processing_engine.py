@@ -7,6 +7,15 @@ Processing Engine for Auralis Web Backend
 Handles audio processing jobs using the HybridProcessor from the core Auralis system.
 Manages job queue, progress tracking, and result caching.
 
+Coordinator over the job_*/processor_pool sibling modules; every method body
+here is either real queue/lock bookkeeping or a thin delegate kept as a bound
+method so tests can `patch.object(engine, ...)` it. #4250 waived this file at
+365 LOC when it closed; #5454 re-affirms a 330 LOC waiver ceiling after
+trimming re-documentation duplicated in the sibling modules' own docstrings
+(379 -> 316) -- further reduction would mean cutting load-bearing behavioral
+notes (e.g. submit_job's QueueFull contract, #3886, #2217), not more
+duplication.
+
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
@@ -29,29 +38,18 @@ sys.path.append(str(Path(__file__).parent.parent.parent))
 from auralis.core.config import UnifiedConfig
 from auralis.core.hybrid_processor import HybridProcessor
 
-# ProcessingJob / ProcessingStatus live in job_models so the worker can import
-# them without a circular dependency; re-exported here so existing
-# `from core.processing_engine import ProcessingJob, ProcessingStatus` keeps
-# working (#4250).
+# ProcessingJob/ProcessingStatus/_safe_error_message re-exported here so
+# existing `from core.processing_engine import ...` callers keep working
+# (#4250 follow-up).
 from config.limits import PROCESSING_TEMP_DIRNAME, UPLOAD_TEMP_DIRNAME, create_secure_temp_dir
 from core.job_cleanup import cleanup_expired_jobs
-
-# _safe_error_message lives in job_error_mapping so it (and its mapping
-# tables) can be tested/imported independently; re-exported here for the
-# same reason ProcessingJob/ProcessingStatus are (#4250 follow-up).
 from core.job_config import create_processor_config
 from core.job_error_mapping import _safe_error_message
 
-# _prepare_job/_execute_job's bodies live in job_execution.py (load_audio()/
-# save() calls and all) so a test can intercept those calls at
-# 'core.job_execution.load_audio' / 'core.job_execution.save' — see that
-# module's docstring (#4250 follow-up).
+# A test patches load_audio()/save() at 'core.job_execution.load_audio' /
+# '.save' — see that module's docstring (#4250 follow-up).
 from core.job_execution import execute_job, prepare_job
 from core.job_finalize import finalize_job
-
-# create_job/process_job/cancel_job's bodies live in job_lifecycle.py;
-# the ProcessingEngine methods below are thin delegating methods
-# (#4250 follow-up).
 from core.job_lifecycle import cancel_job as _cancel_job_impl
 from core.job_lifecycle import create_job as _create_job_impl
 from core.job_lifecycle import process_job as _process_job_impl
@@ -72,14 +70,11 @@ logger = logging.getLogger(__name__)
 
 
 class ProcessingEngine:
-    """
-    Audio processing engine that manages the job queue and executes
-    adaptive mastering using the HybridProcessor
-    """
+    """Audio processing engine managing the job queue and adaptive
+    mastering via HybridProcessor."""
 
-    # Default ceiling for a single processor.process() call (seconds).
-    # Generous enough for long tracks; short enough to unblock the queue
-    # if a Rust/PyO3 call hangs (fixes #2747).
+    # Ceiling for a single processor.process() call (seconds) -- unblocks
+    # the queue if a Rust/PyO3 call hangs (fixes #2747).
     DEFAULT_PROCESSING_TIMEOUT: float = 300.0
 
     def __init__(
@@ -97,16 +92,11 @@ class ProcessingEngine:
             processing_timeout if processing_timeout is not None else self.DEFAULT_PROCESSING_TIMEOUT
         )
 
-        # Processor instance cache (#4250: extracted to ProcessorPool). The
-        # factory keeps HybridProcessor instantiation in this module so tests
-        # patching core.processing_engine.HybridProcessor still intercept it.
+        # Processor cache / worker loop: see ProcessorPool / JobWorker (#4250).
         self._pool: ProcessorPool = ProcessorPool(self._construct_processor)
-
-        # Queue / concurrency / dispatch loop (#4250: extracted to JobWorker).
         self._worker: JobWorker = JobWorker(self, max_concurrent_jobs, max_queue_size)
-        # Expose the worker's queue as a plain (settable) attribute — same object,
-        # so submit_job/get_queue_status and the worker share one queue, while a
-        # legacy test that assigns engine.job_queue still works.
+        # Same object as self._worker.job_queue — a legacy test that assigns
+        # engine.job_queue directly still works.
         self.job_queue: "asyncio.Queue[ProcessingJob]" = self._worker.job_queue
 
         # Guards concurrent access to jobs / progress_callbacks (fixes #2435)
@@ -116,23 +106,15 @@ class ProcessingEngine:
         self.temp_dir: Path = Path(tempfile.gettempdir()) / PROCESSING_TEMP_DIRNAME
         create_secure_temp_dir(self.temp_dir)
 
-        # Progress-callback fan-out (#4250: extracted to ProgressNotifier).
-        # Shares this engine's jobs dict / _jobs_lock by reference so a
-        # progress tick still updates the same job objects create_job() and
-        # cancel_job() mutate.
+        # Progress-callback fan-out: see ProgressNotifier (#4250 follow-up).
         self._progress: ProgressNotifier = ProgressNotifier(self.jobs, self._jobs_lock)
 
-        # Per-job cooperative cancellation tokens (#4496). A job's input/reference
-        # FFmpeg decode runs in a `to_thread` worker that `task.cancel()` cannot
-        # interrupt; `cancel_job()` sets this event so the loader terminates the
-        # in-flight FFmpeg child and frees the thread-pool slot promptly. Keyed by
-        # job_id; created in `_prepare_job`, removed when the job finishes.
+        # Per-job cooperative cancellation tokens; see job_execution.py /
+        # job_lifecycle.py (#4496/#4759).
         self._cancel_events: dict[str, threading.Event] = {}
 
-    # --- Worker/pool state exposed for the engine's public methods and for
-    # tests that reach directly into these (e.g. test_cancel_job_stops_processing
-    # mutates ._tasks / .job_queue). They delegate to the worker's objects, whose
-    # identity is stable, so in-place mutation works (#4250). ---
+    # Delegate to the worker's objects (stable identity, so a test that
+    # mutates ._tasks / .job_queue directly still works, #4250).
 
     @property
     def _tasks(self) -> dict[str, "asyncio.Task[None]"]:
@@ -165,10 +147,9 @@ class ProcessingEngine:
         self._progress.callbacks = value
 
     async def _construct_processor(self, config: UnifiedConfig) -> HybridProcessor:
-        """Factory for the ProcessorPool. Kept on the engine so HybridProcessor
-        is resolved from this module (patchable in tests). Construction is
-        CPU-bound (200-500 ms) — offloaded to a thread so the event loop stays
-        responsive while the pool lock is held."""
+        """Factory for the ProcessorPool, kept on the engine so HybridProcessor
+        stays patchable in tests. Offloaded to a thread: construction is
+        CPU-bound (200-500 ms) and the pool lock is held during the call."""
         return await asyncio.to_thread(HybridProcessor, config)
 
     async def create_job(
@@ -178,10 +159,7 @@ class ProcessingEngine:
         mode: str = "adaptive",
         reference_path: str | None = None
     ) -> ProcessingJob:
-        """Create a new processing job.
-
-        Thin delegate over job_lifecycle.create_job() (#4250 follow-up).
-        """
+        """Create a new processing job. Thin delegate; see job_lifecycle.py."""
         return await _create_job_impl(self, input_path, settings, mode, reference_path)
 
     async def submit_job(self, job: ProcessingJob) -> str:
@@ -204,9 +182,7 @@ class ProcessingEngine:
         async with self._jobs_lock:
             return self.jobs.get(job_id)
 
-    # Progress-callback fan-out delegates to self._progress (#4250 follow-up).
-    # Thin wrappers are kept so any caller/test using the engine-level names
-    # still works.
+    # Thin wrappers delegating to self._progress (#4250 follow-up).
     async def register_progress_callback(self, job_id: str, callback: Callable[..., Any]) -> None:
         """Add a callback for job progress updates. See ProgressNotifier.register."""
         await self._progress.register(job_id, callback)
@@ -221,8 +197,7 @@ class ProcessingEngine:
         """Notify every subscriber registered for this job. See ProgressNotifier.notify."""
         await self._progress.notify(job_id, progress, message)
 
-    # Processor-pool operations delegate to self._pool (#4250). Thin wrappers are
-    # kept so any caller/test using the engine-level names still works.
+    # Thin wrappers delegating to self._pool (#4250).
     def _get_processor_cache_key(self, mode: str, config: UnifiedConfig) -> str:
         return self._pool.cache_key(mode, config)
 
@@ -237,15 +212,8 @@ class ProcessingEngine:
         await self._pool.discard(processor)
 
     async def close_processor_pool(self) -> None:
-        """Drain and close every cached HybridProcessor on shutdown (#5061).
-
-        Thin wrapper over self._pool.close_all() — the engine's own processor
-        cache had no equivalent to ProcessorFactory's shutdown-time
-        clear_cache(), so up to _max_cached instances were never dropped on
-        restart. Inert while HybridProcessor.close() releases nothing (#4744);
-        this is the plumbing for when it does not. Called from startup.py's
-        shutdown handler.
-        """
+        """Drain and close every cached processor on shutdown. Thin delegate;
+        see ProcessorPool.close_all() (#5061). Called from startup.py."""
         await self._pool.close_all()
 
     async def _cleanup_processor(
@@ -255,21 +223,12 @@ class ProcessingEngine:
         processor: HybridProcessor,
         poisoned: bool,
     ) -> None:
-        """Return or discard an owned processor without leaking it.
-
-        Thin delegate over self._pool.cleanup() (#4250 follow-up).
-        """
+        """Return or discard an owned processor. Thin delegate; see ProcessorPool.cleanup()."""
         await self._pool.cleanup(job.job_id, job.mode, config, processor, poisoned)
 
-    # _create_processor_config/_prepare_job/_execute_job/_finalize_job delegate
-    # to job_config.py/job_execution.py/job_finalize.py (#4250 follow-up). Thin
-    # wrappers are kept — rather than importing those functions directly into
-    # process_job — so `patch.object(engine, "_prepare_job"/"_execute_job"/
-    # "_finalize_job"/"_create_processor_config", ...)` in
-    # tests/backend/test_process_job_nonblocking.py and
-    # tests/backend/test_processor_return_on_failure.py keeps working
-    # unmodified: those tests replace the bound method on the instance, which
-    # only works while it's an attribute directly on ProcessingEngine.
+    # Thin delegates to job_config.py/job_execution.py/job_finalize.py, kept
+    # as bound methods for patch.object() in test_process_job_nonblocking.py
+    # / test_processor_return_on_failure.py (#4250 follow-up).
     def _create_processor_config(
         self, job: ProcessingJob, sample_rate: int
     ) -> UnifiedConfig:
@@ -299,34 +258,20 @@ class ProcessingEngine:
         finalize_job(job, audio_data, sample_rate, processor)
 
     async def process_job(self, job: ProcessingJob) -> None:
-        """Process a single job using the HybridProcessor.
-
-        Thin delegate over job_lifecycle.process_job() (#4250 follow-up).
-        Kept as a real bound method — rather than importing the function
-        directly into callers — so `patch.object(engine, "process_job", ...)`
-        in tests/backend/test_cancel_job_stops_processing.py and the plain
-        `await engine.process_job(job)` call sites across the backend test
-        suite and core/job_worker.py's dispatch loop keep working unmodified.
-        """
+        """Process a single job. Thin delegate; kept as a bound method for
+        patch.object(engine, "process_job", ...) — see job_lifecycle.py."""
         await _process_job_impl(self, job)
 
     async def stop_worker(self) -> None:
-        """Stop the worker loop and cancel all in-progress jobs (#4250: delegated
-        to JobWorker)."""
+        """Stop the worker loop and cancel all in-progress jobs. See JobWorker."""
         await self._worker.stop()
 
     async def start_worker(self) -> None:
-        """Start the job processing worker (#4250: delegated to JobWorker).
-
-        Jobs are dispatched as concurrent tasks up to max_concurrent_jobs; the
-        semaphore inside the worker governs how many execute simultaneously and
-        the loop never blocks on a running job (#2746)."""
+        """Start the job processing worker. See JobWorker."""
         await self._worker.start()
 
     async def cancel_job(self, job_id: str) -> bool:
-        """Cancel a job.
-
-        Thin delegate over job_lifecycle.cancel_job() (#4250 follow-up).
+        """Cancel a job. Thin delegate; see job_lifecycle.py.
 
         For QUEUED jobs: marks the status so process_job() skips it.
         For PROCESSING jobs: cancels the asyncio Task, which injects
@@ -335,9 +280,8 @@ class ProcessingEngine:
         return await _cancel_job_impl(self, job_id)
 
     async def cleanup_old_jobs(self, max_age_hours: float = 24) -> int:
-        """Clean up old completed jobs and their files (#4250 follow-up:
-        delegated to job_cleanup.cleanup_expired_jobs). See that function's
-        docstring for the locking/offload details (#2435, #3327, #4754).
+        """Clean up old completed jobs and their files. Thin delegate; see
+        job_cleanup.cleanup_expired_jobs().
 
         Returns:
             int: Number of jobs removed
@@ -352,17 +296,10 @@ class ProcessingEngine:
         return list(self.jobs.values())
 
     def get_queue_status(self) -> dict[str, Any]:
-        """Get current queue status.
-
-        Populates both `total`/`cancelled` (the fields QueueStatusResponse
-        declares) and `total_jobs` (the pre-existing extra field several
-        callers/tests already read) so the two no longer disagree (#3886) --
-        the schema's `extra="allow"` meant a client saw `total=0` next to
-        `total_jobs=N` and `cancelled=0` even when cancelled jobs existed,
-        with no way to know which was authoritative. `total_jobs` is kept
-        rather than removed: it predates the schema fields and is still the
-        one asserted by existing tests/callers.
-        """
+        """Get current queue status. Populates both `total`/`cancelled` (the
+        QueueStatusResponse fields) and `total_jobs` (the older extra field
+        callers/tests already read) so the two agree instead of the client
+        seeing `total=0` next to a populated `total_jobs` (#3886)."""
         # Snapshot to avoid RuntimeError if cleanup_old_jobs mutates self.jobs concurrently (#2435)
         jobs = list(self.jobs.values())
         return {
