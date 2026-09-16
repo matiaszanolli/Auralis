@@ -4,24 +4,14 @@
 Chunked Audio Processor
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-Processes audio in 15-second render windows (CHUNK_DURATION) with 5 seconds
-of context on each side (CONTEXT_DURATION), for fast streaming start and
-instant toggle. Each rendered chunk is trimmed and emitted as a 10-second
-non-overlapping segment (CHUNK_INTERVAL) — chunks tile the timeline exactly,
-with no boundary crossfade anywhere in the emitted path (crossfade removed in
-#2750/#3514/#4642). `core/chunk_boundaries.py` is the single source of truth
-for these geometry constants; never hardcode them here.
+Renders 15 s windows (CHUNK_DURATION) with 5 s context each side and emits them
+as 10 s non-overlapping segments (CHUNK_INTERVAL), with no boundary crossfade
+(#2750/#3514/#4642). `core/chunk_boundaries.py` owns the geometry constants.
 
-``ChunkedAudioProcessor`` is a coordinator (#4245): construction and the
-public API stay here; logic is delegated to focused sibling modules —
-``chunk_fingerprint_registry``, ``chunk_metadata``, ``chunk_processor_init``,
-``chunk_path_cache``, ``chunk_content_profile``, ``chunk_render``,
-``chunk_streaming``, ``chunk_batch``, plus the pre-existing ``chunk_crossfade``
-/ ``chunk_mastering`` — each taking this instance as its first argument and
-reading/writing its state directly, so per-instance test patching
-(``patch.object(processor, "_method", ...)``) keeps working unchanged. Their
-module loggers are all named ``"core.chunked_processor"`` (not ``__name__``)
-so log-capture assertions are unaffected by where the code physically lives.
+A coordinator (#4245): logic lives in sibling ``chunk_*`` modules that take this
+instance as their first argument; every method stays a thin delegator so
+``patch.object(processor, ...)`` works, and those modules log as
+``"core.chunked_processor"``.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
@@ -46,7 +36,7 @@ if project_root not in sys.path:
 
 from config.limits import chunk_cache_dir, create_secure_temp_dir
 
-# Core modules (new modular architecture)
+# Chunk geometry and MAX_LEVEL_CHANGE_DB are re-exported, not redeclared (#4024/#4284).
 from core.chunk_boundaries import (  # noqa: F401 — CONTEXT_DURATION/OVERLAP_DURATION re-exported for callers
     CHUNK_DURATION,
     CHUNK_INTERVAL,
@@ -54,12 +44,9 @@ from core.chunk_boundaries import (  # noqa: F401 — CONTEXT_DURATION/OVERLAP_D
     CONTEXT_DURATION,
 )
 from core import chunk_batch, chunk_render, chunk_streaming
-# The names below are all re-exported (not used directly in this module) so
-# that pre-#4245 test patch targets — both plain `patch("core.chunked_processor.
-# X", ...)` and class-attribute patches like `...ChunkOperations.extract_chunk_
-# segment` (which mutate the class itself, so any import path resolves the same
-# object) — and `import core.chunked_processor as cp; cp.X` module-global reads
-# keep working unchanged after the logic that used to live here moved out.
+# The `noqa: F401` names below are re-exported so pre-#4245 test patch targets
+# (`patch("core.chunked_processor.X")`, class-attribute patches) and
+# `import core.chunked_processor as cp; cp.X` reads keep resolving.
 from core.audio_processing_pipeline import AudioProcessingPipeline  # noqa: F401
 from core.chunk_content_profile import (  # noqa: F401
     _last_content_profiles,
@@ -77,15 +64,13 @@ from core.chunk_processor_init import build_collaborators, init_fingerprint_and_
 from core.targets_hash import get_targets_hash
 from core.seekable_source import SeekableSource
 from core.file_signature import FileSignatureService  # Phase 5.1: File signature generation
-from core.level_manager import MAX_LEVEL_CHANGE_DB  # noqa: F401 (re-exported, see below)
+from core.level_manager import MAX_LEVEL_CHANGE_DB  # noqa: F401
 from core.mastering_target_service import get_mastering_target_service  # Singleton (#4749)
 from core.processor_factory import get_processor_factory  # Singleton (injected, not constructed here)
 
 from auralis.analysis.adaptive_mastering_engine import AdaptiveMasteringEngine, MasteringRecommendation
 
 logger = logging.getLogger(__name__)
-
-# Chunk geometry / MAX_LEVEL_CHANGE_DB: re-exported, not redeclared (#4024/#4284).
 
 
 class ChunkedAudioProcessor:
@@ -104,22 +89,12 @@ class ChunkedAudioProcessor:
         cancel_event: threading.Event | None = None,
         processor_factory: Any | None = None,
     ) -> None:
-        """track_id/filepath identify the track; preset=None serves original audio
-        unprocessed; chunk_cache is a shared dict of chunk paths across processors.
+        """preset=None serves original audio; chunk_cache is shared across processors.
 
-        processor_factory: the ProcessorFactory this processor resolves its
-        HybridProcessor from, per chunk and on invalidation. None means the
-        live-stream factory. Background builders pass their own consumer's
-        factory so they never advance a live stream's processor state (#5311).
-
-        cancel_event: optional cooperative-cancel signal (#4815). The caller
-        sets it when this processor's owning stream is torn down (seek,
-        track change, disconnect); chunk_streaming.process_chunk checks it
-        before starting DSP so an already-abandoned chunk bails out instead
-        of running to completion unreferenced. None (the default) means "no
-        cancellation signal available" — every check degrades to a no-op,
-        so callers that don't have a per-stream event (e.g. the prefetch
-        path) keep working unchanged.
+        processor_factory: None means the live-stream factory; background builders
+        pass their own so they never advance a live stream's state (#5311).
+        cancel_event: set when the owning stream is torn down so chunk_streaming
+        skips DSP for an abandoned chunk (#4815); None disables the check.
         """
         self.track_id = track_id
         self.filepath = filepath
@@ -128,14 +103,11 @@ class ChunkedAudioProcessor:
         self.chunk_cache = chunk_cache if chunk_cache is not None else {}
         self._cancel_event = cancel_event
 
-        # Resolves `filepath` to a seekable path on first chunk load, at most
-        # once per track (#4737); lazy so a caller wanting only
-        # get_mastering_recommendation() never triggers a decode. Owns a temp
-        # dir only after a conversion — see close().
+        # Resolves `filepath` to a seekable path lazily, at most once per track
+        # (#4737), so get_mastering_recommendation() alone never decodes. Owns a
+        # temp dir only after a conversion — see close().
         self._source = SeekableSource(filepath)
-
-        # Generate file signature for cache integrity
-        self.file_signature = FileSignatureService.generate(filepath)
+        self.file_signature = FileSignatureService.generate(filepath)  # cache integrity
 
         self.sample_rate: int | None = None
         self.total_duration: float | None = None
@@ -146,7 +118,6 @@ class ChunkedAudioProcessor:
         # Expose canonical chunk interval so consumers don't need getattr fallbacks (#2848)
         self.chunk_interval: float = float(CHUNK_INTERVAL)
 
-        # Temp directory for chunks
         self.chunk_dir = chunk_cache_dir()
         create_secure_temp_dir(self.chunk_dir)
 
@@ -155,28 +126,19 @@ class ChunkedAudioProcessor:
         )
         self._mastering_target_service: Any = get_mastering_target_service()
 
-        # Fingerprint/targets (3-tier: DB -> .25d file -> extract-on-first-play)
-        # and the shared HybridProcessor instance (state persists across chunks
-        # to avoid compressor-envelope artifacts at chunk boundaries).
-        #
-        # #4666: this MUST precede build_collaborators() — the chunk cache
-        # identity (in-memory key AND on-disk WAV filename) includes a hash of
-        # these targets, so they have to be known before the caches are
-        # constructed. Building the caches first froze their identity at
-        # targets_hash="none", which is how a targets-aware processor could be
-        # handed chunks rendered without targets.
-        # Metadata was loaded above, so the `or 44100` fallback is never hit in
-        # practice; it only narrows `int | None` -> `int`.
+        # Fingerprint/targets (DB -> .25d file -> extract-on-first-play) and the
+        # shared HybridProcessor, whose state persists across chunks.
+        # #4666: MUST precede build_collaborators() — the chunk cache identity
+        # (memory key and WAV filename) hashes these targets.
+        # `or 44100` only narrows `int | None`; metadata is already loaded.
         sample_rate_valid: int = self.sample_rate or 44100
         (
             self.fingerprint,
             self.mastering_targets,
             self.processor,
-            # #5306: the config the factory keyed this track's processor on.
-            # Every later factory lookup for this track (chunk_render's
-            # per-chunk get_or_create, chunk_streaming's #5274 invalidate) MUST
-            # pass this same object, or it computes a different config_hash and
-            # silently addresses a different — 44.1 kHz-assuming — cache entry.
+            # #5306: every later factory lookup for this track (chunk_render,
+            # chunk_streaming's #5274 invalidate) MUST pass this same config, or
+            # it hashes to a different, 44.1 kHz-assuming cache entry.
             self.processor_config,
         ) = init_fingerprint_and_processor(
             self._mastering_target_service,
@@ -187,9 +149,7 @@ class ChunkedAudioProcessor:
             intensity,
             sample_rate_valid,
         )
-        # Cache-identity component for the mastering targets (#4666). Derived
-        # by the same shared helper ProcessorFactory uses for its processor
-        # cache (#3720), so the two tiers can never disagree.
+        # Same helper ProcessorFactory keys its cache on (#3720/#4666).
         self.targets_hash: str = get_targets_hash(self.mastering_targets)
 
         # Collaborators (#4245: see chunk_processor_init.build_collaborators).
@@ -212,17 +172,14 @@ class ChunkedAudioProcessor:
             targets_hash=self.targets_hash,
         )
 
-        # threading.RLock (not asyncio.Lock): acquired inside asyncio.to_thread()
-        # workers (#2388) and re-entered from process_chunk(locked=True) (#3808).
-        # Prevents concurrent processor.process() calls from corrupting shared
-        # DSP state (envelope followers, gain reduction tracking).
+        # RLock, not asyncio.Lock: taken in asyncio.to_thread() workers (#2388)
+        # and re-entered by process_chunk(locked=True) (#3808). Serialises
+        # processor.process() so shared DSP state is never corrupted.
         self._processor_lock = threading.RLock()
-        # Per-attempt marker set immediately after the stateful DSP call.
-        # chunk_streaming clears it on durable success or invalidates the
-        # pooled processor when a later step fails (#5274).
+        # Set right after the stateful DSP call; chunk_streaming clears it on
+        # durable success or invalidates the pooled processor (#5274).
         self._dsp_state_advanced = False
-        # Serialises get_wav_chunk_path()'s check→process→cache cycle so two
-        # concurrent thread-pool calls for the same chunk can't both miss+process it.
+        # Serialises get_wav_chunk_path()'s check→process→cache cycle per chunk.
         self._sync_cache_lock = threading.Lock()
 
         # Weighted mastering-profile recommendation cache (real-time UI display).
@@ -282,10 +239,7 @@ class ChunkedAudioProcessor:
         return self._get_chunk_path(chunk_index)
 
     def _lookup_cached_chunk(self, chunk_index: int) -> Path | None:
-        """Check the in-memory cache, then the on-disk WAV cache, for chunk_index.
-
-        Delegates to ChunkPathCache (#4245; on-disk-vs-memory rationale: #4792).
-        """
+        """In-memory, then on-disk WAV cache lookup. Delegates to ChunkPathCache (#4245, #4792)."""
         return self._path_cache.lookup_cached(chunk_index)
 
     def load_chunk(self, chunk_index: int, with_context: bool = True) -> tuple[np.ndarray, float, float]:
@@ -301,17 +255,9 @@ class ChunkedAudioProcessor:
         return chunk_render.smooth_level_transition(self, chunk, chunk_index)
 
     def note_cached_chunk_level(
-        self,
-        chunk: np.ndarray | None,
-        chunk_index: int,
-        gain_db: float = 0.0,
-        rms_db: float | None = None,
+        self, chunk: np.ndarray | None, chunk_index: int, gain_db: float = 0.0, rms_db: float | None = None
     ) -> None:
-        """Record a cache-hit chunk's level into LevelManager (#3832). Delegates to chunk_render (#4245).
-
-        ``rms_db`` (#4669) records an already-known level without decoding the
-        cached WAV; ``chunk`` may then be None.
-        """
+        """Record a cache-hit chunk's level (#3832); a known ``rms_db`` lets ``chunk`` be None (#4669)."""
         chunk_render.note_cached_chunk_level(self, chunk, chunk_index, gain_db, rms_db)
 
     def _process_chunk_core(self, chunk_index: int, fast_start: bool = False) -> np.ndarray:
@@ -321,36 +267,19 @@ class ChunkedAudioProcessor:
     def process_chunk(
         self, chunk_index: int, fast_start: bool = False, locked: bool = False
     ) -> tuple[str, np.ndarray]:
-        """Process a chunk and save to WAV; returns (path, audio). Delegates to chunk_streaming (#4245).
-
-        Args:
-            locked: If True, hold _processor_lock for the whole chunk so
-                concurrent calls serialise (used by process_chunk_safe via a
-                thread pool — #2388).
-        """
+        """Process a chunk to WAV, returning (path, audio); ``locked`` holds _processor_lock (#2388)."""
         return chunk_streaming.process_chunk(self, chunk_index, fast_start, locked)
 
     async def process_chunk_safe(self, chunk_index: int, fast_start: bool = False) -> tuple[str, np.ndarray]:
-        """Thread-pool-offloaded process_chunk (keeps the event loop free — #2388).
-
-        Delegates to chunk_streaming (#4245).
-        """
+        """Thread-pool-offloaded process_chunk (#2388). Delegates to chunk_streaming (#4245)."""
         return await chunk_streaming.process_chunk_safe(self, chunk_index, fast_start)
 
     def close(self) -> None:
-        """Release the temp WAV this processor may own (#4737).
-
-        Only the seekable-source temp dir — never ``self.processor``, a
-        *shared* HybridProcessor owned by the ProcessorFactory singleton with
-        its own lifecycle. Idempotent; a no-op when no conversion happened.
-        """
+        """Release the seekable-source temp WAV (#4737), never the shared ``self.processor``. Idempotent."""
         self._source.close()
 
     def get_mastering_recommendation(self, confidence_threshold: float = 0.4) -> Any | None:
-        """Weighted mastering profile recommendation for this track.
-
-        Delegates to chunk_mastering (#4245) — not a chunk-streaming concern.
-        """
+        """Weighted mastering profile recommendation. Delegates to chunk_mastering (#4245)."""
         return compute_mastering_recommendation(self, confidence_threshold)
 
     async def process_all_chunks_async(self) -> None:
