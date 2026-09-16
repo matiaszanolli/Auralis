@@ -1,0 +1,5 @@
+# pnpm 11+ no longer reads settings from package.json's `pnpm` field --
+# they must live here instead (#5407). Moved from package.json's
+# `pnpm.overrides` verbatim; keep in sync if the advisory pin changes.
+overrides:
+  rollup: '>=4.59.0'

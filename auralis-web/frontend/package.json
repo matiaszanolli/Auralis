@@ -64,13 +64,5 @@
     "vite": "^7.3.5",
     "vite-tsconfig-paths": "^4.3.2",
     "vitest": "^4.1.7"
-  },
-  "overrides": {
-    "rollup": ">=4.59.0"
-  },
-  "pnpm": {
-    "overrides": {
-      "rollup": ">=4.59.0"
-    }
   }
 }

@@ -1,0 +1,8 @@
+# pnpm 11+ no longer reads settings from package.json's `pnpm` field --
+# they must live here instead (#5407). Moved from package.json's
+# `pnpm.overrides` verbatim; keep in sync if an advisory pin changes.
+overrides:
+  app-builder-lib: '26.15.7'
+  electron-builder-squirrel-windows: '26.15.7'
+  fast-uri: '^3.1.5'
+  js-yaml: '^4.3.1'
