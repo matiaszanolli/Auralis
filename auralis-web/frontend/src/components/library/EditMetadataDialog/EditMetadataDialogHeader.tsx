@@ -18,7 +18,9 @@ export const EditMetadataDialogHeader = ({ loading }: EditMetadataDialogHeaderPr
   return (
     <DialogTitleStyled>
       <DialogHeaderBox>
-        <Typography variant="h6">Edit Metadata</Typography>
+        <Typography variant="h6" component="span">
+          Edit Metadata
+        </Typography>
         {loading && <CircularProgress size={24} />}
       </DialogHeaderBox>
     </DialogTitleStyled>

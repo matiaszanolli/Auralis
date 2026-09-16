@@ -1,4 +1,4 @@
-import { styled, Box } from '@mui/material';
+import { styled, Box, DialogTitle } from '@mui/material';
 import { tokens } from '@/design-system';
 import { themeVars } from '@/theme/semanticTheme';
 
@@ -8,7 +8,9 @@ export const DialogHeaderBox = styled(Box)({
   justifyContent: 'space-between',
 });
 
-export const DialogTitleStyled = styled(Box)({
+// A real DialogTitle, not a Box: MUI gives DialogTitle the id the Dialog's
+// aria-labelledby points at, which is the dialog's accessible name (#5102).
+export const DialogTitleStyled = styled(DialogTitle)({
   color: themeVars.textPrimary,
   borderBottom: `1px solid ${tokens.colors.opacityScale.accent.ultraLight}`,
 });

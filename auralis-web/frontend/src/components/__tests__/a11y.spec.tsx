@@ -21,7 +21,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { render } from '@/test/test-utils';
+import { render, screen } from '@/test/test-utils';
 import {
   expectNoA11yViolations,
   findUnfocusableInteractiveRoles,
@@ -183,42 +183,18 @@ describe('a11y: dialogs (#4637)', () => {
     await expectNoA11yViolations(baseElement);
   });
 
-  // EditMetadataDialog has one KNOWN violation, filed as #5102 and found by this
-  // spec: its Dialog's aria-labelledby points at an id that resolves to nothing,
-  // so the modal has no accessible name. Pinned for the same reasons as #5101.
-  const DIALOG_KNOWN = 'aria-dialog-name';
+  it('EditMetadataDialog has no violations, and its name is the visible title (#5102)', async () => {
+    const { baseElement } = render(
+      <EditMetadataDialog
+        open
+        trackId={1}
+        currentMetadata={{ title: 'T', artist: 'A', album: 'B' }}
+        onClose={vi.fn()}
+      />
+    );
 
-  const renderEditDialog = () => render(
-    <EditMetadataDialog
-      open
-      trackId={1}
-      currentMetadata={{ title: 'T', artist: 'A', album: 'B' }}
-      onClose={vi.fn()}
-    />
-  );
-
-  it('EditMetadataDialog has no violations beyond the known #5102 one', async () => {
-    const { baseElement } = renderEditDialog();
-
-    const ids = (await getA11yViolations(baseElement)).map((v) => v.id);
-
-    expect(ids.filter((id) => id !== DIALOG_KNOWN)).toEqual([]);
-  });
-
-  it('EditMetadataDialog still exhibits #5102 (flip when fixed)', async () => {
-    const { baseElement } = renderEditDialog();
-
-    const ids = (await getA11yViolations(baseElement)).map((v) => v.id);
-
-    expect(ids).toContain(DIALOG_KNOWN);
-  });
-
-  it('SettingsDialog does NOT exhibit #5102 — the contrast the fix should follow', async () => {
-    const { baseElement } = render(<SettingsDialog open onClose={vi.fn()} />);
-
-    const ids = (await getA11yViolations(baseElement)).map((v) => v.id);
-
-    expect(ids).not.toContain(DIALOG_KNOWN);
+    await expectNoA11yViolations(baseElement);
+    expect(screen.getByRole('dialog', { name: 'Edit Metadata' })).toBeInTheDocument();
   });
 });
 
