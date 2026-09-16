@@ -17,7 +17,12 @@ import { isPlaylistShape, isPlaylistsListShape } from '@/api/responseGuards';
 export interface Playlist {
   id: number;
   name: string;
-  description: string;
+  // Backend PlaylistResponse (schemas/library.py) declares this `str | None`
+  // -- a playlist the user didn't describe has no description, not an
+  // empty string (#5046). This is the one surviving Playlist declaration;
+  // the api.ts and domain.ts copies this issue originally found were
+  // already consolidated away by other work before this fix landed.
+  description: string | null;
   is_smart: boolean;
   smart_criteria: string | null;
   auto_master_enabled: boolean;

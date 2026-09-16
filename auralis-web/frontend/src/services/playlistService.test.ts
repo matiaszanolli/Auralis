@@ -8,6 +8,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import * as playlistService from './playlistService'
 import * as apiRequest from '../utils/apiRequest'
+import type { Playlist } from './playlistService'
 
 // Mock the apiRequest module
 vi.mock('../utils/apiRequest', () => ({
@@ -132,6 +133,31 @@ describe('PlaylistService', () => {
       vi.mocked(apiRequest.get).mockRejectedValue(new Error('Playlist not found'))
 
       await expect(playlistService.getPlaylist(999)).rejects.toThrow('Playlist not found')
+    })
+
+    it('accepts a null description, matching the backend PlaylistResponse contract (#5046)', async () => {
+      // Playlist.description is `str | None` in schemas/library.py -- a
+      // playlist the user didn't describe has no description at all, not
+      // an empty string. The explicit `: Playlist` annotation below is
+      // load-bearing: it's what makes `pnpm run type-check` catch a
+      // regression back to a required `string` (the pre-fix shape rejected
+      // this literal at compile time; a plain `const` here would not).
+      const undescribed: Playlist = {
+        ...mockPlaylist,
+        description: null,
+        auto_master_enabled: false,
+        mastering_profile: 'adaptive',
+        normalize_levels: true,
+        smart_criteria: null,
+        is_smart: false,
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-01-01T00:00:00Z',
+      }
+      vi.mocked(apiRequest.get).mockResolvedValue(undescribed)
+
+      const result = await playlistService.getPlaylist(1)
+
+      expect(result.description).toBeNull()
     })
   })
 
