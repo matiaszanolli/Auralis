@@ -28,12 +28,6 @@ export const colors = {
       level2: '#151D2F',       // Surfaces (subtle lift)
       level3: '#1A2338',       // Raised elements (cards as surfaces)
       level4: '#1F2940',       // Modals, overlays
-      // Backwards compatibility
-      primary: '#0B1020',
-      secondary: '#101729',
-      tertiary: '#151D2F',
-      elevated: '#1A2338',
-      overlay: 'rgba(11, 16, 32, 0.95)',
     },
 
     // Brand colors (Soft Violet + Teal/Cyan + Warm Amber)
