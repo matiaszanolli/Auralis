@@ -44,6 +44,16 @@ class ProcessingSettings(BaseModel):
     # Genre override
     genre_override: str | None = None
 
+    @property
+    def requires_reference(self) -> bool:
+        """True for the modes whose whole point is matching a reference.
+
+        A job in one of these modes with no reference is rejected at submit
+        time (#4735 for reference, #5058 for hybrid), rather than degrading to
+        adaptive-mastered audio labelled as a reference/hybrid job.
+        """
+        return self.mode in ("reference", "hybrid")
+
     @model_validator(mode="after")
     def _validate_format_bit_depth_combo(self) -> ProcessingSettings:
         """Reject (output_format, bit_depth) pairs libsndfile cannot

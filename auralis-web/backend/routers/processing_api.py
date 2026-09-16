@@ -96,14 +96,14 @@ async def process_audio(
         # validate_file_path logs it once with the context above (#4925).
         raise HTTPException(status_code=400, detail="Invalid or inaccessible input path")
 
-    # A "reference" job with no reference is not a meaningful adaptive
-    # fallback — the caller asked for their reference to be matched.
-    # Fail fast and say so, rather than silently returning
-    # adaptive-mastered audio labelled as a reference job (#4735).
-    if request.settings.mode == "reference" and not request.reference_path:
+    # A reference or hybrid job with no reference is not a meaningful
+    # adaptive fallback — the caller asked for their reference to be matched.
+    # Fail fast and say so, rather than silently returning adaptive-mastered
+    # audio labelled as a reference job (#4735; hybrid too since #5058).
+    if request.settings.requires_reference and not request.reference_path:
         raise HTTPException(
             status_code=422,
-            detail="mode='reference' requires a reference_path",
+            detail=f"mode={request.settings.mode!r} requires a reference_path",
         )
 
     validated_reference: Path | None = None

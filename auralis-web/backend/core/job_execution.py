@@ -174,20 +174,30 @@ async def execute_job(
             # calling process(audio) without ALSO moving the config back
             # raised ValueError instead of falling back at all (#4735).
             #
-            # The router now rejects mode="reference" with no reference at
-            # submit time, so this is the narrow race where the file
-            # vanished between request and execution; make it degrade
+            # The router now rejects reference and hybrid jobs with no
+            # reference at submit time, so this is the narrow race where the
+            # file vanished between request and execution; make it degrade
             # rather than crash, and say so in the log.
             logger.warning(
                 "Job %s: mode=%s but reference %r is unavailable; "
                 "falling back to adaptive processing.",
                 job.job_id, job.mode, reference_path,
             )
+            # The switch is scoped to this call (#5058). The processor is
+            # pooled and HybridProcessor keeps its config by reference, so a
+            # mode left at "adaptive" went back into the pool under the
+            # reference/hybrid key, and the next job with a real reference
+            # silently ran adaptive. A timed-out instance is discarded
+            # (#4727), so restoring under a still-running orphan is harmless.
+            original_mode = processor.config.adaptive.mode
             processor.config.set_processing_mode("adaptive")
-            result = await asyncio.wait_for(
-                run_in_job_executor(processor.process, audio),
-                timeout=timeout,
-            )
+            try:
+                result = await asyncio.wait_for(
+                    run_in_job_executor(processor.process, audio),
+                    timeout=timeout,
+                )
+            finally:
+                processor.config.set_processing_mode(original_mode)
     else:
         # Adaptive mode
         result = await asyncio.wait_for(

@@ -95,6 +95,15 @@ async def upload_and_process(
         processing_settings = ProcessingSettings(**settings_dict)
     except (TypeError, ValidationError) as e:
         raise HTTPException(status_code=400, detail=f"Invalid processing settings: {e}")
+    # This endpoint takes no reference file, so a reference or hybrid job
+    # could only ever run as adaptive under the wrong label (#5058). Same
+    # 422 as process_audio's missing-reference rejection.
+    if processing_settings.requires_reference:
+        raise HTTPException(
+            status_code=422,
+            detail=f"mode={processing_settings.mode!r} requires a reference_path, "
+            "which upload does not accept",
+        )
 
     # Save uploaded file to temp location
     temp_dir = Path(tempfile.gettempdir()) / UPLOAD_TEMP_DIRNAME
