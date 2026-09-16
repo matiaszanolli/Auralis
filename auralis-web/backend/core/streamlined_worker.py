@@ -30,6 +30,7 @@ from core.streamlined_processor_cache import (
     _PROCESSOR_CACHE_MAX,
     ProcessorCacheKey,
     close_dropped_processor,
+    discard_timed_out_processor,
     get_or_build_processor,
     remember_processor,
 )
@@ -37,6 +38,11 @@ from core.streamlined_processor_cache import intensity_key as _intensity_key
 
 
 logger = logging.getLogger(__name__)
+
+# Per-tier limit on one chunk render, in seconds. Tier 1 (the next chunk to
+# play) is urgent; tier 2 is the background full-track build.
+_CHUNK_TIMEOUT_SECONDS: dict[str, float] = {"tier1": 20, "tier2": 60}
+
 
 class StreamlinedCacheWorker:
     """
@@ -221,12 +227,18 @@ class StreamlinedCacheWorker:
             processor = await get_or_build_processor(self, cache_key, track.filepath)
 
             # Process chunk with timeout (using thread-safe async method)
-            timeout_seconds = 20 if tier == "tier1" else 60  # Tier 1 is urgent
+            timeout_seconds = _CHUNK_TIMEOUT_SECONDS[tier]
 
+            # The render runs as its own task behind a shield, so a timeout
+            # leaves a handle on it: the processor is evicted now and closed
+            # when the orphaned render actually finishes (#5059).
+            render: asyncio.Future[tuple[str | None, Any]] = asyncio.ensure_future(
+                processor.process_chunk_safe(chunk_idx)
+            )
             try:
                 # process_chunk_safe now returns (path, audio_array) tuple
                 chunk_path, audio_array = await asyncio.wait_for(
-                    processor.process_chunk_safe(chunk_idx),
+                    asyncio.shield(render),
                     timeout=timeout_seconds
                 )
             except TimeoutError:
@@ -234,7 +246,12 @@ class StreamlinedCacheWorker:
                     f"[{tier}] Timeout processing chunk {chunk_idx} "
                     f"(exceeded {timeout_seconds}s limit)"
                 )
+                discard_timed_out_processor(self, cache_key, processor, render)
                 return None
+            except asyncio.CancelledError:
+                # Worker shutdown: cancel the render as the unshielded call did.
+                render.cancel()
+                raise
             except FileNotFoundError as e:
                 logger.error(f"[{tier}] File not found: {e}")
                 return None

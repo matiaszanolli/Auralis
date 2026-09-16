@@ -57,10 +57,10 @@ def close_dropped_processor(cache_key: ProcessorCacheKey, processor: Any) -> Non
     """Release a dropped processor's temp WAV, if it made one (#4737).
 
     The single close-on-drop point for every path that removes an entry
-    from ``_processor_cache`` — LRU eviction in :func:`remember_processor` and
-    the track-change prune in :func:`prune_processors_for_track` (#5062) — so a
-    future third removal path can't reintroduce the leak by forgetting to
-    close. Never allowed to raise: a cleanup failure here would otherwise break
+    from ``_processor_cache`` — LRU eviction in :func:`remember_processor`, the
+    track-change prune in :func:`prune_processors_for_track` (#5062) and the
+    timeout eviction in :func:`discard_timed_out_processor` (#5059) — so a
+    future removal path can't reintroduce the leak by forgetting to close. Never allowed to raise: a cleanup failure here would otherwise break
     the caller's eviction/prune loop.
     """
     try:
@@ -144,6 +144,42 @@ def prune_processors_for_track(
         if k[0] == track_id or k in build_waiters
     }
     return kept_cache, kept_locks
+
+
+def discard_timed_out_processor(
+    worker: Any,
+    cache_key: ProcessorCacheKey,
+    processor: Any,
+    pending: asyncio.Future[Any],
+) -> None:
+    """Evict a processor whose chunk render timed out; close it once that render ends (#5059).
+
+    ``asyncio.wait_for`` cancels only the awaiting side: the thread running
+    ``process_chunk`` keeps going inside ``processor``. Left cached, the next
+    1 Hz tick handed that same busy instance straight back out, and the orphan
+    could still write its level history after the worker had moved on. The
+    same poison-and-discard rule as ``ProcessorPool.discard()`` (#4727).
+
+    Closing is deferred to ``pending``'s completion, because ``close()`` would
+    otherwise pull the temp WAV (#4737) out from under the running render.
+    Only an entry this call actually removes is closed here: LRU eviction and
+    the track-change prune close what they drop themselves.
+    """
+    evicted = worker._processor_cache.get(cache_key) is processor
+    if evicted:
+        del worker._processor_cache[cache_key]
+        if cache_key not in worker._build_waiters:
+            worker._processor_build_locks.pop(cache_key, None)
+
+    def _on_render_done(fut: asyncio.Future[Any]) -> None:
+        # Retrieve the outcome so a late failure is not reported as "never
+        # retrieved"; the timeout itself was already logged by the caller.
+        if not fut.cancelled() and fut.exception() is not None:
+            logger.debug(f"Timed-out render for {cache_key} later failed: {fut.exception()}")
+        if evicted:
+            close_dropped_processor(cache_key, processor)
+
+    pending.add_done_callback(_on_render_done)
 
 
 async def get_or_build_processor(
