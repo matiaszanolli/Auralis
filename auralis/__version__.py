@@ -8,7 +8,7 @@ independent and must only change with their respective formats.
 
 __version__ = "1.5.1"
 __version_info__ = (1, 5, 1, "", 0)
-__db_schema_version__ = 19  # backfill albums.artist_id left NULL by rescan album creation (#5457)
+__db_schema_version__ = 20  # processing_jobs: jobs survive a backend restart (#5278)
 
 # Fingerprint algorithm version — increment this whenever the 25D extraction
 # algorithm changes in a way that produces different values for the same audio.

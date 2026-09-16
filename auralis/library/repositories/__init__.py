@@ -17,6 +17,7 @@ from .fingerprint_scheduler_repository import FingerprintSchedulerRepository
 from .fingerprint_stats_repository import FingerprintStatsRepository
 from .genre_repository import GenreRepository
 from .playlist_repository import PlaylistRepository
+from .processing_job_repository import ProcessingJobRepository
 from .queue_history_repository import QueueHistoryRepository
 from .settings_repository import SettingsRepository
 from .similarity_graph_repository import SimilarityGraphRepository
@@ -36,6 +37,7 @@ __all__ = [
     'FingerprintStatsRepository',
     'SettingsRepository',
     'QueueHistoryRepository',
+    'ProcessingJobRepository',
     'SimilarityGraphRepository',
     'RepositoryFactory',
 ]

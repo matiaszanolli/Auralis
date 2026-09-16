@@ -55,6 +55,7 @@ from core.job_lifecycle import create_job as _create_job_impl
 from core.job_lifecycle import process_job as _process_job_impl
 from core.job_models import ProcessingJob, ProcessingStatus
 from core.job_progress import ProgressNotifier
+from core.job_store import JobStore
 from core.job_worker import JobWorker
 from core.processor_pool import ProcessorPool
 
@@ -76,6 +77,7 @@ class ProcessingEngine:
     # Ceiling for a single processor.process() call (seconds) -- unblocks
     # the queue if a Rust/PyO3 call hangs (fixes #2747).
     DEFAULT_PROCESSING_TIMEOUT: float = 300.0
+    job_store: JobStore = JobStore()  # durable copy of `jobs` (#5278); no-op until wired
 
     def __init__(
         self,
@@ -83,8 +85,10 @@ class ProcessingEngine:
         max_queue_size: int = 20,
         completed_job_ttl_hours: float = 1.0,
         processing_timeout: float | None = None,
+        job_store: JobStore | None = None,
     ) -> None:
         self.jobs: dict[str, ProcessingJob] = {}
+        self.job_store = job_store or JobStore()
         self.max_concurrent_jobs: int = max_concurrent_jobs
         self.max_queue_size: int = max_queue_size
         self.completed_job_ttl_hours: float = completed_job_ttl_hours
@@ -174,8 +178,17 @@ class ProcessingEngine:
         except asyncio.QueueFull:
             async with self._jobs_lock:
                 self.jobs.pop(job.job_id, None)
+            await self.job_store.forget([job.job_id])
             raise
         return job.job_id
+
+    async def restore_jobs(self) -> int:
+        """Reload persisted jobs after a restart (#5278). See JobStore.restore."""
+        restored = await self.job_store.restore(self.completed_job_ttl_hours)
+        async with self._jobs_lock:
+            for job in restored:
+                self.jobs.setdefault(job.job_id, job)
+        return len(restored)
 
     async def get_job(self, job_id: str) -> ProcessingJob | None:
         """Get job by ID"""
@@ -288,7 +301,8 @@ class ProcessingEngine:
         """
         upload_dir = Path(tempfile.gettempdir()) / UPLOAD_TEMP_DIRNAME
         return await cleanup_expired_jobs(
-            self.jobs, self._jobs_lock, self.progress_callbacks, upload_dir, max_age_hours
+            self.jobs, self._jobs_lock, self.progress_callbacks, upload_dir, max_age_hours,
+            on_removed=self.job_store.forget,
         )
 
     def get_all_jobs(self) -> list[ProcessingJob]:

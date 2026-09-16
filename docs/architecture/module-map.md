@@ -45,7 +45,7 @@ auralis/
 │   └── quality/                  Quality assessment (loudness, DR, distortion)
 ├── library/                    SQLite library (~/.auralis/library.db)
 │   ├── database.py               LibraryDatabase (engine, migration, sessions, scan slots)
-│   ├── repositories/             12 repos + base.py (BaseRepository) + factory.py
+│   ├── repositories/             13 repos + base.py (BaseRepository) + factory.py
 │   ├── scanner/                  Folder scanning (a package, not a module)
 │   ├── sidecar_manager.py        Per-file .25d sidecars
 │   └── migration_manager.py      DB migrations (schema v18)

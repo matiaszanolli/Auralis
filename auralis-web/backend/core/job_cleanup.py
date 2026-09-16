@@ -19,12 +19,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from core.job_models import ProcessingJob, ProcessingStatus
+from core.job_models import TERMINAL_STATUSES, ProcessingJob
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +35,7 @@ async def cleanup_expired_jobs(
     progress_callbacks: dict[str, list[Callable[..., Any]]],
     upload_dir: Path,
     max_age_hours: float,
+    on_removed: Callable[[list[str]], Awaitable[None]] | None = None,
 ) -> int:
     """Clean up old completed jobs and their files.
 
@@ -53,6 +54,8 @@ async def cleanup_expired_jobs(
             under this directory are eligible for deletion, so a job whose
             input lives outside it (e.g. a library track) is left alone.
         max_age_hours: Age threshold, measured from `job.completed_at`.
+        on_removed: Awaited with the removed job ids, so the persisted
+            records expire with the live ones (#5278).
 
     Returns:
         int: Number of jobs removed
@@ -66,7 +69,7 @@ async def cleanup_expired_jobs(
 
     async with jobs_lock:
         for job_id, job in jobs.items():
-            if job.status in (ProcessingStatus.COMPLETED, ProcessingStatus.FAILED, ProcessingStatus.CANCELLED):
+            if job.status in TERMINAL_STATUSES:
                 if job.completed_at is not None:
                     age_hours = (now - job.completed_at).total_seconds() / 3600
                     if age_hours > max_age_hours:
@@ -99,5 +102,7 @@ async def cleanup_expired_jobs(
                 logger.warning(f"Failed to delete {file_path}: {e}")
 
     await asyncio.to_thread(_delete_expired_files)
+    if on_removed is not None and jobs_to_remove:
+        await on_removed(jobs_to_remove)
 
     return len(jobs_to_remove)

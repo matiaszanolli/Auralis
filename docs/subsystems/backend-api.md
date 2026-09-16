@@ -191,7 +191,7 @@ and `ProcessorFactory` lifecycle.
 | Path | Class | Use |
 |------|-------|-----|
 | **WS streaming** | `ChunkedAudioProcessor` ([`core/chunked_processor.py`](../../auralis-web/backend/core/chunked_processor.py)) | Live playback. DSP offloaded via `asyncio.to_thread`, serialized by a `threading.Lock`, keeping the event loop free for heartbeats/pause/seek (#2388) |
-| **REST batch job** | `ProcessingEngine` ([`core/processing_engine.py`](../../auralis-web/backend/core/processing_engine.py)) | Full-file jobs. State machine QUEUED→PROCESSING→COMPLETED/FAILED/CANCELLED; `processor.process()` wrapped in `asyncio.wait_for(asyncio.to_thread(...), timeout)` so a hung Rust DSP can't hold a slot (#2747). `max_concurrent_jobs=2` |
+| **REST batch job** | `ProcessingEngine` ([`core/processing_engine.py`](../../auralis-web/backend/core/processing_engine.py)) | Full-file jobs. State machine QUEUED→PROCESSING→COMPLETED/FAILED/CANCELLED; each transition is written to the library's `processing_jobs` table (`core/job_store.py`), and on startup the engine reloads it, marking jobs left QUEUED/PROCESSING as INTERRUPTED (#5278); `processor.process()` wrapped in `asyncio.wait_for(asyncio.to_thread(...), timeout)` so a hung Rust DSP can't hold a slot (#2747). `max_concurrent_jobs=2` |
 | **REST WAV chunk** | *(removed)* | There is no longer a REST chunk endpoint: the router and its `GET /api/stream/{id}/chunk/{idx}` route were deleted, along with the `X-Sample-Rate` / `X-Total-Samples` / `X-Playable-Samples` / `X-Overlap-Samples` / `X-Start-Sample-Offset` placement headers. Chunk delivery is WebSocket-only |
 
 > **Default overlap is 5 s, everywhere.** Both the WS and REST WAV paths default to

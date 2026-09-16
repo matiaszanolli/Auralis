@@ -58,6 +58,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.job_error_mapping import _safe_error_message
 from core.job_models import ProcessingJob, ProcessingStatus
+from core.job_store import persist
 
 if TYPE_CHECKING:
     from core.processing_engine import ProcessingEngine
@@ -102,6 +103,9 @@ async def create_job(
 
     async with engine._jobs_lock:
         engine.jobs[job_id] = job
+    # Durable from the moment it exists, so a restart before it runs still
+    # reports it (as interrupted) instead of 404 (#5278).
+    await persist(engine, job)
 
     return job
 
@@ -204,6 +208,10 @@ async def process_job(engine: "ProcessingEngine", job: ProcessingJob) -> None:
             # Never let a cancellation during cleanup skip registry
             # removal (#4496/#4759).
             engine._cancel_events.pop(job.job_id, None)
+            # Every exit path above leaves a terminal status; record it
+            # (#5278). If this write is lost, the next startup reports the
+            # job as interrupted rather than dropping it.
+            await persist(engine, job)
 
 
 async def cancel_job(engine: "ProcessingEngine", job_id: str) -> bool:
@@ -239,4 +247,7 @@ async def cancel_job(engine: "ProcessingEngine", job_id: str) -> bool:
     task = engine._tasks.get(job_id)
     if task and not task.done():
         task.cancel()
+    # A queued job never reaches process_job's finally, so this is its only
+    # record of the cancellation (#5278).
+    await persist(engine, job)
     return True

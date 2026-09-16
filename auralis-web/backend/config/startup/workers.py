@@ -109,9 +109,19 @@ async def _init_processing_engine(HAS_PROCESSING: bool, globals_dict: dict[str, 
         logger.warning("⚠️  Processing engine not available")
         return
     try:
+        from core.job_store import JobStore
         from core.processing_engine import ProcessingEngine
 
-        globals_dict['processing_engine'] = ProcessingEngine(max_concurrent_jobs=2)
+        def _job_repository() -> Any:
+            factory = globals_dict.get('repository_factory')
+            return factory.processing_jobs if factory is not None else None
+
+        globals_dict['processing_engine'] = ProcessingEngine(
+            max_concurrent_jobs=2, job_store=JobStore(_job_repository)
+        )
+        # Reload the jobs a previous run persisted, marking the ones it left
+        # queued or running as interrupted (#5278).
+        await globals_dict['processing_engine'].restore_jobs()
 
         # Age-sweep auralis_processing/auralis_uploads: cleanup_old_jobs()
         # is driven off the in-memory jobs registry, which is empty right

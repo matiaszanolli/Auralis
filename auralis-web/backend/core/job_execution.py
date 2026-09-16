@@ -51,6 +51,7 @@ from auralis.io.unified_loader import load_audio
 
 from core.executors import run_in_job_executor
 from core.job_models import ProcessingJob, ProcessingStatus
+from core.job_store import persist
 
 if TYPE_CHECKING:
     from core.processing_engine import ProcessingEngine
@@ -85,6 +86,7 @@ async def prepare_job(
     does so on every exit path."""
     job.status = ProcessingStatus.PROCESSING
     job.started_at = datetime.now()
+    await persist(engine, job)  # durable "running" state (#5278)
 
     await engine._notify_progress(job.job_id, 0.0, "Loading audio file...")
 

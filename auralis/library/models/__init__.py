@@ -25,6 +25,9 @@ from .core import (
 # Fingerprint and similarity
 from .fingerprint import SimilarityGraph, TrackFingerprint
 
+# Processing jobs (#5278)
+from .processing_job import ProcessingJobRecord
+
 # Schema versioning
 from .schema import SchemaVersion
 
@@ -57,6 +60,8 @@ __all__ = [
     # Fingerprint
     'TrackFingerprint',
     'SimilarityGraph',
+    # Processing jobs
+    'ProcessingJobRecord',
     # Schema
     'SchemaVersion',
 ]

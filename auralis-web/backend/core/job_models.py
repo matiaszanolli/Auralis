@@ -27,6 +27,18 @@ class ProcessingStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
+    # Queued or running when the backend stopped; set on the next startup
+    # from the persisted record (#5278). Terminal, like the three above.
+    INTERRUPTED = "interrupted"
+
+
+# Statuses a job never leaves; the expiry sweep removes only these.
+TERMINAL_STATUSES: frozenset[ProcessingStatus] = frozenset({
+    ProcessingStatus.COMPLETED,
+    ProcessingStatus.FAILED,
+    ProcessingStatus.CANCELLED,
+    ProcessingStatus.INTERRUPTED,
+})
 
 
 class ProcessingJob:

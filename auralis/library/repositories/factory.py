@@ -20,6 +20,7 @@ from .fingerprint_scheduler_repository import FingerprintSchedulerRepository
 from .fingerprint_stats_repository import FingerprintStatsRepository
 from .genre_repository import GenreRepository
 from .playlist_repository import PlaylistRepository
+from .processing_job_repository import ProcessingJobRepository
 from .queue_history_repository import QueueHistoryRepository
 from .settings_repository import SettingsRepository
 from .stats_repository import StatsRepository
@@ -76,6 +77,7 @@ class RepositoryFactory:
         self._stats_repo: StatsRepository | None = None
         self._settings_repo: SettingsRepository | None = None
         self._queue_history_repo: QueueHistoryRepository | None = None
+        self._processing_job_repo: ProcessingJobRepository | None = None
 
     @property
     def tracks(self) -> TrackRepository:
@@ -156,6 +158,13 @@ class RepositoryFactory:
         if not self._queue_history_repo:
             self._queue_history_repo = QueueHistoryRepository(self.session_factory)
         return self._queue_history_repo
+
+    @property
+    def processing_jobs(self) -> ProcessingJobRepository:
+        """Get ProcessingJobRepository instance (#5278)"""
+        if not self._processing_job_repo:
+            self._processing_job_repo = ProcessingJobRepository(self.session_factory)
+        return self._processing_job_repo
 
     def reset_library(self) -> None:
         """Atomically delete the entire library in a single transaction.
