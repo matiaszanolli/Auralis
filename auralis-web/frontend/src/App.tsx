@@ -10,6 +10,7 @@ import ComfortableApp from './ComfortableApp';
 import { usePlayerStateSync } from '@/hooks/player/usePlayerStateSync';
 import { useWebSocketErrors } from '@/hooks/websocket/useWebSocketErrors';
 import { store } from './store';
+import { shouldRetryQuery } from '@/utils/errorHandling';
 
 // Create QueryClient instance
 const queryClient = new QueryClient({
@@ -17,7 +18,8 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 1000 * 60 * 5, // 5 minutes
       refetchOnWindowFocus: false,
-      retry: 1,
+      // Status-aware: transport failures, 408/429 and 5xx only (#5387).
+      retry: shouldRetryQuery,
     },
   },
 });

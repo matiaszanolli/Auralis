@@ -1,5 +1,11 @@
 # Phase 3c: Error Handling Extraction Guide
 
+> **Superseded (2026-09-16).** Historical record only. `errorHandling.ts` now holds just
+> `WebSocketManager`, `isRetryableError` and `shouldRetryQuery` (the React Query `retry`
+> callback in `App.tsx`). `retryWithBackoff`, `RetryPolicy` and `DEFAULT_RETRY_POLICY` were
+> deleted in #5387, and the error logger in #5388; the services this guide planned to
+> refactor no longer exist.
+
 ## Overview
 
 Phase 3c centralizes error handling patterns across four complex services into a single, reusable utility module (`errorHandling.ts`), reducing code duplication and improving consistency.

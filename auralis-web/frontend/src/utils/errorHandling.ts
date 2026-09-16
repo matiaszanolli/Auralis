@@ -2,12 +2,15 @@
  * Error Handling Utilities for Frontend Services
  *
  * Provides:
- * - Retry policies with exponential backoff
  * - WebSocket error handling and reconnection
+ * - The status-aware retry rule for React Query (isRetryableError,
+ *   shouldRetryQuery)
  *
  * Used by: WebSocketManager — hooks/websocket (websocketConnectionCore,
- * useWebSocketConnection). isRetryableError / retryWithBackoff have no
- * production caller; wiring them in or deleting them is #5387.
+ * useWebSocketConnection); shouldRetryQuery — App.tsx's QueryClient (#5387).
+ * retryWithBackoff / DEFAULT_RETRY_POLICY were deleted in #5387: they had no
+ * caller, and React Query already applies exponential backoff between the
+ * retries shouldRetryQuery allows.
  */
 
 import { APIRequestError } from '@/utils/apiRequest';
@@ -16,15 +19,6 @@ import { toError } from '@/utils/errorGuards';
 // ============================================================================
 // Types
 // ============================================================================
-
-export interface RetryPolicy {
-  maxRetries: number;
-  initialDelayMs: number;
-  maxDelayMs: number;
-  backoffMultiplier: number;
-  jitterFraction: number;
-  shouldRetry?: (error: Error) => boolean;
-}
 
 export interface WebSocketErrorConfig {
   maxReconnectAttempts: number;
@@ -39,68 +33,12 @@ export interface WebSocketErrorConfig {
 // Default Configurations
 // ============================================================================
 
-export const DEFAULT_RETRY_POLICY: RetryPolicy = {
-  maxRetries: 3,
-  initialDelayMs: 100,
-  maxDelayMs: 10000,
-  backoffMultiplier: 2,
-  jitterFraction: 0.1,
-};
-
 const DEFAULT_WEBSOCKET_CONFIG: WebSocketErrorConfig = {
   maxReconnectAttempts: 10,
   initialReconnectDelayMs: 1000,
   maxReconnectDelayMs: 30000,
   backoffMultiplier: 1.5,
 };
-
-// ============================================================================
-// Retry Logic with Exponential Backoff
-// ============================================================================
-
-/**
- * Retry a function with exponential backoff
- */
-export async function retryWithBackoff<T>(
-  fn: () => Promise<T>,
-  policy: Partial<RetryPolicy> = {}
-): Promise<T> {
-  const config = { ...DEFAULT_RETRY_POLICY, ...policy };
-  let lastError: Error | null = null;
-
-  for (let attempt = 0; attempt < config.maxRetries; attempt++) {
-    try {
-      return await fn();
-    } catch (err) {
-      lastError = toError(err);
-
-      // Check if we should retry this error
-      if (config.shouldRetry && !config.shouldRetry(lastError)) {
-        throw lastError;
-      }
-
-      // If this is the last attempt, throw
-      if (attempt === config.maxRetries - 1) {
-        throw lastError;
-      }
-
-      // Calculate delay with exponential backoff + jitter
-      const exponentialDelay = config.initialDelayMs * Math.pow(config.backoffMultiplier, attempt);
-      const cappedDelay = Math.min(exponentialDelay, config.maxDelayMs);
-      const jitter = cappedDelay * config.jitterFraction * Math.random();
-      const delay = Math.floor(cappedDelay + jitter);
-
-      console.warn(
-        `[Retry] Attempt ${attempt + 1}/${config.maxRetries} failed. ` +
-        `Retrying in ${delay}ms. Error: ${lastError.message}`
-      );
-
-      await new Promise(resolve => setTimeout(resolve, delay));
-    }
-  }
-
-  throw lastError || new Error('Retry failed: Unknown error');
-}
 
 // ============================================================================
 // WebSocket Connection Management
@@ -319,3 +257,15 @@ export function isRetryableError(error: Error): boolean {
 // globalErrorLogger were deleted, along with the ErrorSeverity / ErrorContext /
 // ErrorRecoveryStrategy types only they used. None had a caller in src/, tests
 // included; errors are reported through console + toasts, not a logger store.
+
+/** Retries React Query allows after the first failure (#5387). */
+export const MAX_QUERY_RETRIES = 1;
+
+/**
+ * React Query `retry` callback (#5387): retry at most MAX_QUERY_RETRIES
+ * times, and only errors isRetryableError accepts. A 404/400 fails at once
+ * instead of costing a second identical round trip.
+ */
+export function shouldRetryQuery(failureCount: number, error: unknown): boolean {
+  return failureCount < MAX_QUERY_RETRIES && isRetryableError(toError(error));
+}
