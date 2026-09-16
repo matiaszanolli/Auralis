@@ -12,18 +12,6 @@ export interface AppMainContentProps {
    * Typically the library view (CozyLibraryView or similar).
    */
   children: ReactNode;
-
-  /**
-   * Optional callback when a track is clicked to play.
-   * Receives the track ID.
-   */
-  onPlayTrack?: (trackId: number) => void;
-
-  /**
-   * Optional callback when a track is queued.
-   * Receives the track ID.
-   */
-  onQueueTrack?: (trackId: number) => void;
 }
 
 /**
@@ -33,7 +21,10 @@ export interface AppMainContentProps {
  * - Wrap library view component
  * - Provide proper padding and spacing for player bar
  * - Handle layout and scrolling
- * - Manage track interaction callbacks
+ *
+ * Track play/queue actions are wired inside the library views themselves;
+ * this wrapper takes no track callbacks (the unused onPlayTrack/onQueueTrack
+ * props were removed in #5396).
  *
  * Layout Structure:
  * ```
@@ -52,18 +43,14 @@ export interface AppMainContentProps {
  * ```tsx
  * function App() {
  *   return (
- *     <AppMainContent onPlayTrack={handlePlayTrack}>
+ *     <AppMainContent>
  *       <CozyLibraryView {...props} />
  *     </AppMainContent>
  *   );
  * }
  * ```
  */
-export const AppMainContent = ({
-  children,
-  onPlayTrack: _onPlayTrack,
-  onQueueTrack: _onQueueTrack,
-}: AppMainContentProps) => {
+export const AppMainContent = ({ children }: AppMainContentProps) => {
   return (
     <Box
       component="main"
