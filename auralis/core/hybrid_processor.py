@@ -4,6 +4,19 @@ Hybrid Audio Processor
 
 Unified processor supporting both reference-based and adaptive mastering
 
+Component construction and input-validation/reference-mode dispatch split out
+to hybrid_setup.py / hybrid_stage_dispatch.py (#5463), following the
+coordinator/sibling pattern #4250 established for ProcessingEngine (599 ->
+402 LOC). `_process_adaptive_mode()` / `_process_hybrid_mode()` stay inline
+rather than moving too: tests/regression/test_sample_count_invariant.py
+inspects their source directly via `inspect.getsource()`, so the sample-count
+assertion has to live in the bound method's own body, not a helper it calls.
+402 LOC is this file's explicit waiver ceiling (matching the
+processing_engine.py precedent, #5454) -- the remainder is those two
+test-pinned methods, `close()`'s docstring (two tests assert specific
+substrings in it), and delegation methods carrying real locking rationale,
+not further-splittable bulk.
+
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 
@@ -11,30 +24,30 @@ Main processing engine that bridges Matchering and Auralis systems
 """
 
 import threading
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from ..analysis.fingerprint import AudioFingerprintAnalyzer
-from ..dsp.advanced_dynamics import DynamicsMode, create_dynamics_processor
-from ..dsp.dynamics import create_brick_wall_limiter
-from ..dsp.eq.psychoacoustic_eq import EQSettings, PsychoacousticEQ
 from ..io.results import Result
-from ..learning.preference_engine import create_preference_engine
-from ..optimization.performance_optimizer import get_performance_optimizer
 from ..utils.audio_validation import validate_audio_finite
-from ..utils.logging import debug, info, warning
-from .analysis import AdaptiveTargetGenerator, ContentAnalyzer
-from .analysis.spectrum_mapper import SpectrumMapper
+from ..utils.logging import debug, info
+from .analysis import AdaptiveTargetGenerator, ContentAnalyzer  # re-exported: tests/test_adaptive_processing.py
 from .config import UnifiedConfig
-from .hybrid import DynamicsManager, PreferenceManager
-from .processing import (
-    AdaptiveMode,
-    ContinuousMode,
-    EQProcessor,
-    HybridMode,
-)
-from .processors import apply_reference_matching
+from .hybrid_setup import apply_module_optimizations, build_hybrid_components
+from .hybrid_stage_dispatch import process_reference_mode, validate_and_normalize_input
+
+if TYPE_CHECKING:
+    # Only needed for the class-level attribute annotations below — the
+    # attributes themselves are constructed in hybrid_setup.py (#5463).
+    from ..analysis.fingerprint import AudioFingerprintAnalyzer
+    from ..dsp.advanced_dynamics import DynamicsProcessor
+    from ..dsp.dynamics.brick_wall_limiter import BrickWallLimiter
+    from ..dsp.eq.psychoacoustic_eq import PsychoacousticEQ
+    from ..learning.preference_engine import PreferenceLearningEngine
+    from ..optimization.performance_optimizer import PerformanceOptimizer
+    from .analysis.spectrum_mapper import SpectrumMapper
+    from .hybrid import DynamicsManager, PreferenceManager
+    from .processing import AdaptiveMode, ContinuousMode, EQProcessor, HybridMode
 
 
 #: Attributes that are process-wide singletons rather than resources this
@@ -56,102 +69,38 @@ class HybridProcessor:
     - RealtimeProcessor: Low-latency chunk processing for streaming
     """
 
+    # Declared here, not assigned here: every attribute below is set by
+    # build_hybrid_components() in hybrid_setup.py (#5463), which __init__
+    # calls. Declaring them at class scope keeps mypy/pyright aware of the
+    # attributes despite construction living in a sibling module.
+    content_analyzer: "ContentAnalyzer"
+    target_generator: "AdaptiveTargetGenerator"
+    spectrum_mapper: "SpectrumMapper"
+    fingerprint_analyzer: "AudioFingerprintAnalyzer"
+    psychoacoustic_eq: "PsychoacousticEQ"
+    dynamics_processor: "DynamicsProcessor"
+    brick_wall_limiter: "BrickWallLimiter"
+    preference_engine: "PreferenceLearningEngine"
+    dynamics_manager: "DynamicsManager"
+    preference_manager: "PreferenceManager"
+    eq_processor: "EQProcessor"
+    adaptive_mode: "AdaptiveMode"
+    continuous_mode: "ContinuousMode"
+    hybrid_mode: "HybridMode"
+    current_user_id: str | None
+    performance_optimizer: "PerformanceOptimizer"
+    _process_lock: threading.RLock
+    _closed: bool
+    current_targets: dict[str, Any] | None
+    processing_history: list[Any]
+    last_content_profile: dict[str, Any]
+
     def __init__(self, config: UnifiedConfig):
         self.config = config
-
-        # Initialize analyzers
-        self.content_analyzer = ContentAnalyzer(config.internal_sample_rate)
-        self.target_generator = AdaptiveTargetGenerator(config, self)
-        self.spectrum_mapper = SpectrumMapper()
-        self.fingerprint_analyzer = AudioFingerprintAnalyzer()
-
-        # Initialize psychoacoustic EQ
-        eq_settings = EQSettings(
-            sample_rate=config.internal_sample_rate,
-            fft_size=config.fft_size,
-            adaptation_speed=config.adaptive.adaptation_strength
-        )
-        self.psychoacoustic_eq = PsychoacousticEQ(eq_settings)
-
-        # Dynamics management facade.
-        #
-        # #4873 deleted RealtimeDSPPipeline, the only caller of the old
-        # DynamicsProcessor execution chain. #5295 retired that dead chain;
-        # this object survives only for
-        # the `reset_dynamics()`/`set_dynamics_mode()`/`get_dynamics_info()`
-        # public API (`processing_engine._reset_processor_state` calls the
-        # first). Do NOT insert it into the offline chain to "make it live":
-        # ContinuousMode.process runs its own full-signal, fingerprint-driven
-        # continuous-space dynamics (ContinuousMode._apply_dynamics), and adding
-        # this on top would double-compress, fight the continuous-space LUFS
-        # target with its own -14 LUFS makeup gain, and confound the
-        # cross-dimensional guards.
-        self.dynamics_processor = create_dynamics_processor(
-            mode=DynamicsMode.ADAPTIVE,
-            sample_rate=config.internal_sample_rate,
-            target_lufs=-14.0
-        )
-        self.dynamics_processor.settings.enable_gate = False
-        self.dynamics_processor.settings.enable_compressor = True
-
-        # Initialize brick-wall limiter for final peak control
-        self.brick_wall_limiter = create_brick_wall_limiter(
-            threshold_db=-0.3,
-            lookahead_ms=2.0,
-            release_ms=50.0,
-            sample_rate=config.internal_sample_rate
-        )
-
-        # Initialize preference learning engine
-        self.preference_engine = create_preference_engine()
-
-        # Initialize component managers
-        self.dynamics_manager = DynamicsManager(self.dynamics_processor)
-        self.preference_manager = PreferenceManager(self.preference_engine)
-
-        # Initialize mode processors
-        self.eq_processor = EQProcessor(self.psychoacoustic_eq)
-        self.adaptive_mode = AdaptiveMode(
-            config, self.content_analyzer, self.target_generator,
-            self.spectrum_mapper
-        )
-        self.continuous_mode = ContinuousMode(
-            config, self.content_analyzer, self.fingerprint_analyzer
-        )
-        self.hybrid_mode = HybridMode(
-            config, self.content_analyzer, self.target_generator,
-            self.adaptive_mode
-        )
-        # Shared state (backwards compatibility)
-        self.current_user_id: str | None = None
-
-        # Initialize performance optimizer (optimizations applied once at module level)
-        self.performance_optimizer = get_performance_optimizer()
-
-        # Per-instance lock: serialises all public state mutations and
-        # process() invocations on the same HybridProcessor instance.
-        # The cached-processor cache (ProcessorFactory / _processor_cache)
-        # legitimately shares one instance across callers — every
-        # mutating entry point MUST acquire this lock so two callers
-        # don't observe a half-applied mastering_targets / fingerprint /
-        # profile update.
-        # - #3349: initial process() serialization.
-        # - #3714: extended to set_fixed_mastering_targets and the other
-        #   public setters so cache-hit re-apply / mid-stream fingerprint
-        #   load can't mutate the instance while another thread is
-        #   iterating chunks.
-        # RLock so process()->_process_impl re-acquisition is safe.
-        self._process_lock = threading.RLock()
-
-        # Set by close(); see its docstring. Guards against double-close and
-        # makes a release that currently frees nothing observable (#4744).
-        self._closed = False
-
-        # Processing state
-        self.current_targets: dict[str, Any] | None = None
-        self.processing_history: list[Any] = []
-        self.last_content_profile: dict[str, Any] = {}
-
+        # Sub-component construction lives in hybrid_setup.py (#5463); it
+        # sets every attribute below directly on `self`, exactly as this
+        # constructor's inline body used to.
+        build_hybrid_components(config, self)
         debug(f"Hybrid processor initialized in {config.adaptive.mode} mode with psychoacoustic EQ")
 
     def close(self) -> None:
@@ -164,27 +113,23 @@ class HybridProcessor:
 
         Right now it has nothing to let go of, and saying so is the point
         (#4744). #3746 added this because `fingerprint_analyzer` owned a
-        5-thread executor — up to 50 idle threads across a 10-entry cache.
-        `AudioFingerprintAnalyzer` was later rewritten as a thin facade over
-        the in-process Rust engine and its `close()` became a documented
-        no-op, but the comments at every call site went on describing a thread
-        pool being reclaimed. The hook is kept rather than deleted because
-        removing it would mean the *next* resource needs both a new `close()`
-        and a re-plumbing of all seven eviction sites.
+        5-thread executor (up to 50 idle threads across a 10-entry cache)
+        that was later rewritten into a thin Rust facade whose `close()` is a
+        documented no-op — kept rather than deleted so the *next* resource
+        that needs releasing doesn't also need a new hook plumbed through
+        seven eviction sites.
 
-        The forwarding is deliberately generic: every *owned* attribute
-        exposing a callable `close()` is closed, rather than
-        `fingerprint_analyzer` being named. That is what stops a future
-        sub-component from silently inheriting a no-op release path — the
-        failure mode #4744 was filed about. Sub-component failures are logged
-        and swallowed: eviction runs on shutdown and cache-clear paths where
-        one bad component must not abort the rest.
+        The forwarding is deliberately generic (every *owned* attribute
+        exposing a callable `close()` is closed, not `fingerprint_analyzer`
+        by name) so a future sub-component can't silently inherit a no-op
+        release path. Sub-component failures are logged and swallowed:
+        eviction runs on shutdown/cache-clear paths where one bad component
+        must not abort the rest.
 
         Idempotent — `_closed` makes a second call a no-op and makes the
-        first observable, since "did close() run?" is otherwise unanswerable
-        for a function that does nothing. It is set *before* the loop so a
-        sub-component holding a back-reference (``target_generator`` is built
-        with ``self``) cannot recurse.
+        first observable. Set *before* the loop so a sub-component holding a
+        back-reference (``target_generator`` is built with ``self``) can't
+        recurse.
         """
         if self._closed:
             return
@@ -205,33 +150,19 @@ class HybridProcessor:
 
     def set_fixed_mastering_targets(self, targets: dict[str, Any] | None) -> None:
         """
-        Set fixed mastering targets to use for all chunks (Beta.9 optimization)
+        Set fixed mastering targets to use for all chunks (Beta.9 optimization).
 
-        When fixed targets are set, content analysis is skipped and the pre-computed
-        targets are used directly. This enables 8x faster processing and instant preset
-        switching.
+        When fixed targets are set, content analysis is skipped and the
+        pre-computed targets (target_lufs, target_crest_db,
+        eq_adjustments_db, compression) are used directly — 8x faster
+        processing and instant preset switching. `None` disables fixed-target
+        mode and restores normal content analysis.
 
         #3714: this is a public mutator on a potentially-shared instance
-        (see ProcessorFactory cache). It MUST acquire `_process_lock` so
-        a concurrent `process()` call cannot read `self.current_targets`
-        mid-update. The RLock allows re-entry from `process()` if a
-        future refactor calls this from within the processing chain.
-
-        Args:
-            targets: Mastering targets dict with keys:
-                - target_lufs: Target loudness in LUFS
-                - target_crest_db: Target crest factor in dB
-                - eq_adjustments_db: Dict of frequency band adjustments
-                - compression: Dict with ratio and amount
-                Set to None to disable fixed-target mode and use normal content analysis.
-
-        Example:
-            processor.set_fixed_mastering_targets({
-                'target_lufs': -14.0,
-                'target_crest_db': 12.0,
-                'eq_adjustments_db': {'sub_bass': -1.5, 'bass': 0.5, ...},
-                'compression': {'ratio': 2.5, 'amount': 0.6}
-            })
+        (see ProcessorFactory cache). It MUST acquire `_process_lock` so a
+        concurrent `process()` call cannot read `self.current_targets`
+        mid-update. The RLock allows re-entry from `process()` if a future
+        refactor calls this from within the processing chain.
         """
         with self._process_lock:
             self.current_targets = targets
@@ -270,62 +201,13 @@ class HybridProcessor:
         """Inner implementation called under _process_lock."""
         info(f"Starting hybrid processing in {self.config.adaptive.mode} mode")
 
-        # Callers pass a pre-loaded NumPy array (#4035).
-        target_audio = target
-
-        # Validate audio array
-        if not isinstance(target_audio, np.ndarray):
-            raise ValueError(f"Target audio must be a NumPy array, got {type(target_audio)}")
-
-        # Convert mono to stereo if needed.
-        #
-        # This runs BEFORE the empty-audio check (#4976). With the order
-        # reversed, an empty mono buffer returned 1-D `(0,)` while every other
-        # path — including the all-zeros return a few lines below, which sits
-        # after this conversion — returned 2-D `(N, 2)`. A caller that indexes
-        # `result[:, 0]`, reasonable given the shape this processor otherwise
-        # always guarantees, hit an IndexError only on the empty-mono path.
-        if target_audio.ndim == 1:
-            target_audio = np.column_stack([target_audio, target_audio])
-            debug(f"Converted mono audio to stereo: shape now {target_audio.shape}")
-
-        # Handle empty audio before any further processing. Post-conversion
-        # this returns (0, 2) for mono and stereo alike.
-        if len(target_audio) == 0:
-            return target_audio.copy()
-
-        # Audio shorter than one analysis window (1024 samples, ~23ms at
-        # 44.1kHz) is returned unprocessed rather than rejected (#4520).
-        #
-        # This used to `raise ValueError`, which broke the pipeline's core
-        # invariant — `len(output) == len(input)`, load-bearing for gapless
-        # playback — for any short buffer, and made a caller's only options
-        # "crash" or "pre-check the length itself". Returning it untouched is
-        # what the empty-audio and silence branches immediately above already
-        # do, and no meaningful mastering decision can be made from 23ms
-        # anyway: the fingerprint stage alone needs 11025 samples.
-        #
-        # The raise was originally defensive against Rust FFT panics on tiny
-        # audio. Those are fixed at the source — vendor/auralis-dsp hpss.rs
-        # short-circuits below one FFT frame, verified here for n=0..2048 —
-        # so the guard now only blocks work the DSP layer handles correctly.
-        MIN_SAMPLES = 1024
-        if target_audio.shape[0] < MIN_SAMPLES:
-            warning(
-                f"Audio too short to master ({target_audio.shape[0]} samples, "
-                f"~{target_audio.shape[0] / self.config.internal_sample_rate * 1000:.1f}ms "
-                f"at {self.config.internal_sample_rate / 1000:.1f}kHz); "
-                f"returning it unprocessed (need {MIN_SAMPLES} samples)"
-            )
-            return target_audio.copy()
-
-        # Handle silence (all zeros) - return as-is to avoid NaN production in downstream processing
-        if np.allclose(target_audio, 0.0, atol=1e-10):
-            return target_audio.copy()
-
-        # Validate input audio for NaN/Inf (fail fast on corrupted input)
-        target_audio = validate_audio_finite(target_audio, context="input audio", repair=False)
-        debug("Input audio validated: no NaN/Inf detected")
+        # Callers pass a pre-loaded NumPy array (#4035). Validation/mono-to-
+        # stereo/empty/too-short/silence handling lives in
+        # hybrid_stage_dispatch.py (#5463) — see validate_and_normalize_input's
+        # docstring for why each check is ordered the way it is.
+        target_audio, early_result = validate_and_normalize_input(self, target)
+        if early_result is not None:
+            return early_result
 
         # Process based on mode
         if self.config.is_reference_mode() and reference is not None:
@@ -340,27 +222,9 @@ class HybridProcessor:
     def _process_reference_mode(self, target_audio: np.ndarray,
                                reference: np.ndarray,
                                results: Any) -> np.ndarray:
-        """Process using traditional reference-based matching"""
-        info("Processing in reference mode")
-
-        # Reference is a pre-loaded NumPy array (#4035).
-        reference_audio = reference
-
-        # Delegate to reference matching
-        processed = apply_reference_matching(target_audio, reference_audio)
-
-        # Apply brick-wall limiter for final peak control (same as adaptive/hybrid)
-        processed = self.brick_wall_limiter.process(processed)
-        assert processed.shape == target_audio.shape, (
-            f"Sample count mismatch after limiter (reference): "
-            f"expected {target_audio.shape}, got {processed.shape}"
-        )
-
-        # Fail fast on NaN/Inf in mastering output — surface DSP bugs rather than
-        # silently masking them with zero-replacement (fixes #2520).
-        processed = validate_audio_finite(processed, context="reference mode output", repair=False)
-
-        return processed
+        """Process using traditional reference-based matching. See
+        hybrid_stage_dispatch.process_reference_mode() (#5463)."""
+        return process_reference_mode(self, target_audio, reference, results)
 
     def _process_adaptive_mode(self, target_audio: np.ndarray, results: Any) -> np.ndarray:
         """
@@ -462,17 +326,12 @@ class HybridProcessor:
             self.dynamics_manager.reset()
 
     def reset_psychoacoustic_eq(self) -> None:
-        """Reset the main adaptive/continuous psychoacoustic EQ smoothing state.
-
-        This is the EQ used by the adaptive and continuous processing paths
-        (via ``self.eq_processor``). Its ``current_gains``/``target_gains``
-        gain-smoothing state persists across ``process()`` calls for
-        intra-track streaming continuity; resetting it at a track/job boundary
-        keeps one master from bleeding the previous track's EQ curve into the
-        next. Was distinct from ``reset_realtime_eq()``, which reset the
-        *separate* psychoacoustic EQ owned by the real-time EQ path (#2400);
-        that path and its reset went with #4873, so this is now the only
-        psychoacoustic-EQ reset."""
+        """Reset the adaptive/continuous psychoacoustic EQ's gain-smoothing
+        state (``current_gains``/``target_gains``, persisted across
+        ``process()`` calls for intra-track continuity) at a track/job
+        boundary, so one master's EQ curve can't bleed into the next. The
+        separate real-time-EQ reset path (#2400) went with #4873, so this is
+        the only psychoacoustic-EQ reset left."""
         with self._process_lock:
             self.psychoacoustic_eq.reset()
 
@@ -550,50 +409,7 @@ class HybridProcessor:
             debug(f"Processing mode changed to: {mode}")
 
 
-# ===== Module-level performance optimizations (applied once) =====
-
-def _apply_module_optimizations() -> None:
-    """
-    Apply performance optimizations at module level (once, not per-instance)
-
-    This prevents redundant wrapping of methods every time HybridProcessor is created.
-    Optimizations are cached and reused across all instances.
-
-    Guarded by an idempotency flag so repeated calls (e.g., in worker
-    processes that re-import the module) do not double-wrap (#3353).
-    """
-    if getattr(AdaptiveMode, '_optimized', False):
-        return
-
-    try:
-        perf_opt = get_performance_optimizer()
-
-        # Wrap AdaptiveMode.process with PROFILING ONLY — never memoization
-        # (#4524). `optimize_real_time_processing` also layers a SmartCache on
-        # top, and `AdaptiveMode.process` is not a pure function: it mutates
-        # `self.last_content_profile`, which `adaptive_mode.py` reads later to
-        # derive bass_pct / transient_density. On a cache hit the body never
-        # runs, so that field keeps a *previous track's* profile. A generic
-        # memoizing decorator is the wrong tool for this method regardless of
-        # how good the key is, and mastering is not a hot inner loop — the
-        # memoization bought little while risking wrong-audio output.
-        original_process = AdaptiveMode.process
-        AdaptiveMode.process = perf_opt.profiler.time_function(  # type: ignore[method-assign]
-            original_process.__name__
-        )(original_process)
-        AdaptiveMode._optimized = True  # type: ignore[attr-defined]
-
-        # Note: we don't optimize HybridProcessor.process() at module level
-        # because it's an instance method. It will use the optimizer's cached methods
-        # if called frequently (the optimizer tracks hot methods internally).
-
-        # Note: ContentAnalyzer.analyze_content caching is managed by the
-        # performance_optimizer internally for cache coherency
-
-        info("Module-level performance optimizations applied (one-time)")
-    except Exception as e:
-        debug(f"Warning: Could not apply module optimizations: {e}")
-
-
-# Apply optimizations once at module import time
-_apply_module_optimizations()
+# Apply performance optimizations once at module import time. See
+# hybrid_setup.apply_module_optimizations() (#5463) for the full rationale
+# (why profiling-only, never memoization; idempotency guard for re-import).
+apply_module_optimizations()
