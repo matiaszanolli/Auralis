@@ -1,5 +1,5 @@
-import { KeyboardEvent, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useDialogAccessibility } from '@/hooks/shared/useDialogAccessibility';
 import { tokens } from '@/design-system/tokens';
 import { themeVars } from '@/theme/semanticTheme';
 
@@ -9,33 +9,11 @@ interface ClearQueueDialogProps {
 }
 
 export const ClearQueueDialog = ({ onConfirm, onCancel }: ClearQueueDialogProps) => {
-  const dialogRef = useRef<HTMLDivElement>(null);
-
-  // Focus trap: keep Tab/Shift+Tab within the dialog (#3007)
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (e.key === 'Escape') { onCancel(); return; }
-    if (e.key !== 'Tab') return;
-
-    const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-    );
-    if (!focusable || focusable.length === 0) return;
-
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-
-    if (e.shiftKey) {
-      if (document.activeElement === first) { e.preventDefault(); last.focus(); }
-    } else {
-      if (document.activeElement === last) { e.preventDefault(); first.focus(); }
-    }
-  }, [onCancel]);
-
-  // Restore focus on unmount
-  const triggerRef = useRef(document.activeElement as HTMLElement | null);
-  useEffect(() => {
-    return () => { triggerRef.current?.focus(); };
-  }, []);
+  // Shared focus trap (#3007, #5394): Tab/Shift+Tab wrap, Escape cancels,
+  // focus moves to the first button (Cancel) and returns to the trigger on
+  // unmount, the same hook ConfirmationDialog and QueueSearchPanel use. The
+  // parent mounts this only while open, so the default isActive applies.
+  const dialogRef = useDialogAccessibility(onCancel);
 
   // #3573: Render via portal so position:fixed is anchored to the viewport.
   // Without this, the Player's `backdrop-filter` creates a new containing
@@ -58,7 +36,6 @@ export const ClearQueueDialog = ({ onConfirm, onCancel }: ClearQueueDialogProps)
         role="dialog"
         aria-modal="true"
         aria-labelledby="clear-queue-dialog-title"
-        onKeyDown={handleKeyDown}
         style={{
           background: themeVars.surfaceRaised,
           borderRadius: tokens.borderRadius.md,
@@ -82,7 +59,6 @@ export const ClearQueueDialog = ({ onConfirm, onCancel }: ClearQueueDialogProps)
         </h2>
         <div style={{ display: 'flex', gap: tokens.spacing.sm, justifyContent: 'flex-end' }}>
           <button
-            autoFocus
             onClick={onCancel}
             style={{
               padding: `${tokens.spacing.xs} ${tokens.spacing.md}`,

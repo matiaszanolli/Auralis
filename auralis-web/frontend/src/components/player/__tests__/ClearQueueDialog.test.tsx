@@ -88,4 +88,38 @@ describe('ClearQueueDialog', () => {
     const heading = screen.getByText('Clear the entire queue?');
     expect(heading.tagName).toBe('H2');
   });
+
+  describe('focus management via useDialogAccessibility (#5394)', () => {
+    it('moves focus to Cancel on open', () => {
+      render(<ClearQueueDialog {...defaultProps} />);
+      expect(screen.getByText('Cancel')).toHaveFocus();
+    });
+
+    it('wraps Tab from Clear to Cancel and Shift+Tab from Cancel to Clear', async () => {
+      const user = userEvent.setup();
+      render(<ClearQueueDialog {...defaultProps} />);
+      const cancel = screen.getByText('Cancel');
+      const clear = screen.getByText('Clear');
+
+      await user.tab();
+      expect(clear).toHaveFocus();
+      await user.tab();
+      expect(cancel).toHaveFocus();
+      await user.tab({ shift: true });
+      expect(clear).toHaveFocus();
+    });
+
+    it('returns focus to the element that opened it when unmounted', () => {
+      const trigger = document.createElement('button');
+      document.body.appendChild(trigger);
+      trigger.focus();
+
+      const { unmount } = render(<ClearQueueDialog {...defaultProps} />);
+      expect(screen.getByText('Cancel')).toHaveFocus();
+      unmount();
+
+      expect(trigger).toHaveFocus();
+      trigger.remove();
+    });
+  });
 });
