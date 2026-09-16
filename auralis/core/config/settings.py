@@ -40,36 +40,31 @@ class AdaptiveConfig:
 
     # Content analysis settings
     enable_genre_detection: bool = True
-    enable_tempo_analysis: bool = True
-    enable_energy_analysis: bool = True
 
     # Adaptation settings
     adaptation_strength: float = 0.8  # 0.0 = no adaptation, 1.0 = full adaptation
-    parameter_smoothing: float = 0.1  # Smoothing factor for parameter changes
 
     # Real-time processing
     chunk_size_ms: float = 20.0  # Processing chunk size in milliseconds
     latency_budget_ms: float = 20.0  # Maximum allowed latency
 
-    # Quality control
-    enable_quality_monitoring: bool = True
-    auto_quality_adjustment: bool = True
-    min_quality_level: Literal["basic", "medium", "high", "maximum"] = "medium"
-
     # User learning
     enable_user_learning: bool = True
     learning_rate: float = 0.05  # How quickly to adapt to user preferences
 
-    # Psychoacoustic modeling
-    enable_psychoacoustic_eq: bool = True
     # No `critical_bands` knob (#4613): the EQ's band layout is the fixed
     # 25-band Bark-scale table in auralis/dsp/eq/critical_bands.py, which
     # PsychoacousticEQ builds with no arguments. A validated-but-ignored field
     # (default 26, range 8-64) used to sit here and looked tunable.
+    #
+    # #5302 removed seven more fields that nothing read, so each looked like a
+    # switch that did nothing: enable_tempo_analysis, enable_energy_analysis,
+    # parameter_smoothing (and its 0-1 assert), enable_quality_monitoring,
+    # auto_quality_adjustment, min_quality_level and enable_psychoacoustic_eq.
+    # Re-add one only together with the code that honours it.
 
     def __post_init__(self) -> None:
         assert 0.0 <= self.adaptation_strength <= 1.0, "Adaptation strength must be 0-1"
-        assert 0.0 <= self.parameter_smoothing <= 1.0, "Parameter smoothing must be 0-1"
         assert 5.0 <= self.chunk_size_ms <= 100.0, "Chunk size must be 5-100ms"
         assert 10.0 <= self.latency_budget_ms <= 100.0, "Latency budget must be 10-100ms"
         assert 0.0 <= self.learning_rate <= 1.0, "Learning rate must be 0-1"
