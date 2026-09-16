@@ -10,7 +10,7 @@ that let `Track.to_dict()`'s field gaps and the album-detail casing bugs sit
 unnoticed, since the fallback map looked authoritative.
 
 #4708 corrected those comments in place rather than renaming the maps: they
-are a real (if rarely-taken) path, and both `schemas.py`'s response models and
+are a real (if rarely-taken) path, and both `schemas/library.py`'s response models and
 `test_response_model_coverage.py` deliberately treat the *union* of the two
 shapes as the contract, because a `response_model` filters anything it does
 not declare.

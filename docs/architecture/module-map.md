@@ -72,7 +72,7 @@ backend/
 ├── main.py                 Thin orchestrator (lifespan → app → middleware → routers)
 ├── config/                 App assembly
 │   ├── app.py                create_app + global exception handlers
-│   ├── middleware.py         CORS / SecurityHeaders / NoCache / RateLimit
+│   ├── middleware/           CORS / SecurityHeaders / NoCache / RateLimit / OriginCheck
 │   ├── routes.py             Router registration + DI (get_component lambdas)
 │   ├── startup.py            Lifespan (startup order, rollback, watchdog, shutdown)
 │   └── globals.py            ConnectionManager + globals_dict + WS origin allowlist
@@ -88,7 +88,7 @@ backend/
 │   ├── audio_stream_controller.py + stream_*.py   WS streaming (god-file split)
 │   └── encoding/              Output encoders
 ├── services/               library_auto_scanner, playback/queue, recommendation, artwork
-└── schemas.py              Pydantic request/response models
+└── schemas/                Pydantic request/response models, by domain
 ```
 
 **Deep dive:** [backend-api.md](../subsystems/backend-api.md).

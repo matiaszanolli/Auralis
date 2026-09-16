@@ -38,7 +38,7 @@ Categorize changed files by risk domain:
 | Backend Routes | `auralis-web/backend/routers/*` | `/audit-backend` |
 | WebSocket/Streaming | `auralis-web/backend/core/audio_stream*`, `auralis-web/backend/core/chunked_processor*`, `auralis-web/backend/core/stream_*`, `auralis-web/backend/core/chunk_*`, `auralis-web/backend/ws_handlers/*`, `auralis-web/backend/websocket/*` | `/audit-backend`, `/audit-integration` |
 | Processing engine & executors | `auralis-web/backend/core/processing_engine.py`, `auralis-web/backend/core/job_*`, `auralis-web/backend/core/executors.py` | `/audit-backend` (dims 4, 8), `/audit-concurrency` (dim 3) |
-| Enhancement presets | `auralis-web/backend/schemas.py`, `auralis-web/backend/core/proactive_buffer.py`, `auralis/core/config/preset_profiles.py`, `auralis-web/frontend/src/types/domain.ts`, `auralis-web/frontend/src/hooks/enhancement/*` | `/audit-integration` (flow 3), `/sync-contracts` |
+| Enhancement presets | `auralis-web/backend/schemas/enhancement.py`, `auralis-web/backend/core/proactive_buffer.py`, `auralis/core/config/preset_profiles.py`, `auralis-web/frontend/src/types/domain.ts`, `auralis-web/frontend/src/hooks/enhancement/*` | `/audit-integration` (flow 3), `/sync-contracts` |
 | Backend Services | `auralis-web/backend/services/*`, `auralis-web/backend/core/*`, `auralis-web/backend/analysis/*` | `/audit-backend` |
 | Frontend Components | `auralis-web/frontend/src/components/*` | `/audit-frontend` |
 | Frontend Hooks | `auralis-web/frontend/src/hooks/*` | `/audit-frontend`, `/audit-integration` |

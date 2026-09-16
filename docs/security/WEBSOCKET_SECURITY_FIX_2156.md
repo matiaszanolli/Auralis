@@ -56,7 +56,7 @@ Comprehensive security tests (200+ lines):
 
 ### Modified Files
 
-#### 1. `auralis-web/backend/schemas.py`
+#### 1. *auralis-web/backend/schemas.py* (now `auralis-web/backend/schemas/websocket.py`, #5479)
 Added WebSocket message schemas:
 - `WebSocketMessageType` enum - Whitelist of valid message types (24 members as of 2026-07-09; was 17 at the time of this fix)
 - `WebSocketMessageBase` - Base message schema with validation
@@ -147,7 +147,7 @@ python -m pytest tests/security/test_websocket_security.py -v -m security
 All acceptance criteria from issue #2156 met:
 
 - ✅ **Message size limited to 64KB**: Implemented in `validate_and_parse_message()`
-- ✅ **Message structure validated against schema**: Pydantic schemas in `schemas.py`
+- ✅ **Message structure validated against schema**: Pydantic schemas in `schemas/websocket.py`
 - ✅ **Unknown message types rejected with error**: `WebSocketMessageType` enum whitelist
 - ✅ **Rate limiting per connection**: `WebSocketRateLimiter` with per-connection tracking
 

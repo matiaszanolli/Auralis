@@ -207,11 +207,18 @@ class TestDomainModelFieldCoverage:
         """
         import schemas as schemas_module
 
-        offenders = {
-            f"{name}.{field}"
+        # schemas is a package split by domain since #5479; its models live
+        # in submodules and are re-exported, so match the package prefix.
+        models = {
+            name: model
             for name, model in vars(schemas_module).items()
             if isinstance(model, type) and issubclass(model, BaseModel)
-            and model.__module__ == schemas_module.__name__
+            and model.__module__.startswith(f"{schemas_module.__name__}.")
+        }
+        assert "AlbumResponse" in models, "the scan found no schemas models"
+        offenders = {
+            f"{name}.{field}"
+            for name, model in models.items()
             for field in model.model_fields
             if any(char.isupper() for char in field)
         }
@@ -238,7 +245,9 @@ class TestFingerprintVectorCoverage:
         source = (_BACKEND / "routers" / "fingerprint_status.py").read_text()
         block = source[source.index('"fingerprint": {'):]
         block = block[: block.index("},")]
-        keys = set(re.findall(r'"([a-z_0-9]+)":\s*fp\.', block))
+        # A value may be wrapped in a unit conversion, e.g.
+        # `centroid_to_hz(fp.spectral_centroid)` since #5470.
+        keys = set(re.findall(r'"([a-z_0-9]+)":\s*(?:[a-z_]+\()?fp\.', block))
         assert len(keys) == 25, f"expected 25 fingerprint dimensions, parsed {len(keys)}"
         return keys
 

@@ -75,7 +75,7 @@ Answer questions about:
 2. **Trace one render**: pick a leaf component and walk up — props, hooks, selectors, slice — to understand the data flow.
 3. **Token compliance scan**: `grep -rnE "#[0-9a-fA-F]{3,8}\b|rgb\(" src/` finds hardcoded colors that should be tokens.
 4. **Component size scan**: `wc -l src/components/**/*.tsx | awk '$1 > 300'` finds oversized components.
-5. **Schema cross-check**: pair every API response type with the matching `auralis-web/backend/schemas.py` model.
+5. **Schema cross-check**: pair every API response type with the matching `auralis-web/backend/schemas/` model.
 6. **Disprove your finding**: try to construct a UI state where the supposed bug doesn't fire. If you can't, it's a finding.
 
 ## What You Don't Do

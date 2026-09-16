@@ -111,28 +111,36 @@ class TestExistingBehaviourUnchanged:
             assert f"ws://{host}:8765" in build_ws_origins()
 
 
+def _middleware_source() -> str:
+    """config/middleware is a package since #5479; read every module of it."""
+    package = Path(_BACKEND) / "config" / "middleware"
+    files = sorted(package.glob("*.py"))
+    assert len(files) > 1, f"expected the config/middleware package, found {files}"
+    return "\n".join(f.read_text() for f in files)
+
+
 class TestSingleSourceOfTruth:
     """WIRING: all three allowlists must consume the shared helper."""
 
     def test_no_hardcoded_localhost_only_connect_src_remains(self):
-        source = (Path(_BACKEND) / "config" / "middleware.py").read_text()
+        source = _middleware_source()
 
         assert "ws://localhost:* http://localhost:*" not in source, (
             "CSP connect-src hardcoded again — see #4712"
         )
 
     def test_the_three_consumers_all_import_from_origins(self):
-        middleware = (Path(_BACKEND) / "config" / "middleware.py").read_text()
+        middleware = _middleware_source()
         globals_src = (Path(_BACKEND) / "config" / "globals.py").read_text()
 
-        # CSP + CORS live in middleware.py, the WS allowlist in globals.py.
+        # CSP + CORS live in config/middleware/, the WS allowlist in globals.py.
         assert "csp_connect_src" in middleware
         assert "origin_matrix" in middleware
         assert "origin_matrix" in globals_src
 
     def test_middleware_no_longer_respells_the_host_pair(self):
         """Adding a host should be one edit in origins.py, not three."""
-        source = (Path(_BACKEND) / "config" / "middleware.py").read_text()
+        source = _middleware_source()
         # Strip comment lines: the file explains the both-spellings contract in
         # prose, which is documentation rather than a second copy of the policy.
         code = "\n".join(
@@ -140,7 +148,7 @@ class TestSingleSourceOfTruth:
         )
 
         assert '"127.0.0.1"' not in code, (
-            "middleware.py re-spells the host list instead of using origin_matrix()"
+            "config/middleware re-spells the host list instead of using origin_matrix()"
         )
 
     def test_globals_loopback_hosts_stays_a_distinct_concept(self):

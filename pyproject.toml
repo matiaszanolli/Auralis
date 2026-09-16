@@ -66,7 +66,7 @@ dependencies = [
     # suspend under backpressure — see requirements.txt's uvicorn comment.
     "uvicorn[standard]>=0.52.1",
     "pydantic>=2.13",
-    # Imported directly (config/middleware.py, main.py, ws_handlers/messages.py):
+    # Imported directly (config/middleware/, main.py, ws_handlers/messages.py):
     # BaseHTTPMiddleware, TrustedHostMiddleware, Request/Response, routing.Match,
     # WebSocketState. FastAPI re-exports only part of this, so it is a real
     # direct dependency, not just FastAPI's transitive — and it was declared

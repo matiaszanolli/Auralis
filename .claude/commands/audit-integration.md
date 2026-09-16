@@ -51,7 +51,7 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 | REST requests | Frontend | `src/services/` API client |
 | Library endpoints | Backend | `routers/` (albums, artists, playlists, tracks) |
 | Database queries | Engine | `auralis/library/database.py` (`LibraryDatabase`) → `repositories/` |
-| Response format | Backend | `schemas.py` |
+| Response format | Backend | `schemas/` (package) |
 
 **Check**: Pagination — consistent between frontend expectations and backend response? Field naming — camelCase (frontend) vs snake_case (backend)? Null handling — what happens when optional metadata is missing? Large libraries — does the frontend handle 100k+ tracks?
 
@@ -61,7 +61,7 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 |------|-------|------|
 | User adjusts settings | Frontend | `useEnhancementControl()` local state — the live source of truth (`playerSlice.preset`/`intensity` are dead) |
 | Settings API call | Frontend | `src/services/` |
-| Preset contract | Backend ↔ Frontend | `auralis-web/backend/schemas.py` `VALID_PRESETS` ↔ `auralis-web/frontend/src/types/domain.ts` `EnhancementPreset` — `'adaptive'` only since 2026-09-13 |
+| Preset contract | Backend ↔ Frontend | `auralis-web/backend/schemas/enhancement.py` `VALID_PRESETS` ↔ `auralis-web/frontend/src/types/domain.ts` `EnhancementPreset` — `'adaptive'` only since 2026-09-13 |
 | Enhancement endpoint | Backend | `auralis-web/backend/routers/enhancement.py` |
 | Runtime settings | Backend | shared `enhancement_settings` dict (mutated in place, seeded at startup from UserSettings) |
 | Processing config | Engine | `auralis/core/config/unified_config.py` (UnifiedConfig) — the only config layer since #4918 |
@@ -107,7 +107,7 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 | Fingerprint queue/status | Backend | `auralis-web/backend/routers/fingerprint_queue.py`, `auralis-web/backend/routers/fingerprint_status.py`, `auralis-web/backend/analysis/fingerprint_generator.py` |
 | Fingerprint engine | Engine | `auralis/analysis/fingerprint/` |
 | Database lookup | Engine | `auralis/library/repositories/` (fingerprint, similarity repos) |
-| Results format | Backend | `schemas.py` |
+| Results format | Backend | `schemas/` (package) |
 
 **Check**: Fingerprint format — is it consistent between compute and lookup? Similarity scores — range and precision? Missing fingerprints — graceful fallback? Batch vs single — consistent API?
 

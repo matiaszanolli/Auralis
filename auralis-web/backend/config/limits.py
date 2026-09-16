@@ -8,7 +8,7 @@ multiple files with no enforcement that they stayed in sync.
 
 Also collects the HTTP rate-limit and WebSocket-message-limit constants
 (#3902) that used to live as bare, undocumented magic numbers directly in
-``config/middleware.py`` / ``websocket/websocket_security.py``.
+``config/middleware/rate_limit.py`` / ``websocket/websocket_security.py``.
 """
 
 import os
@@ -143,7 +143,7 @@ def owning_pid_from_stream_temp_name(name: str) -> int | None:
 
 
 # ============================================================================
-# HTTP rate limiting (config/middleware.py's RateLimitMiddleware) (#2575)
+# HTTP rate limiting (config/middleware/rate_limit.py's RateLimitMiddleware) (#2575)
 # ============================================================================
 
 # Per-path-prefix (max_requests, window_seconds) rate limits. Each pair is

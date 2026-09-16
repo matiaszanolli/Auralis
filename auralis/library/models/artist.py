@@ -50,8 +50,8 @@ class Artist(Base, TimestampMixin):
     # consuming it must not assume a same-origin path — see `withArtworkSize()`
     # in the frontend, which now requires an `/api/` prefix for exactly this
     # reason. The browser is allowed to load these hosts by the `img-src`
-    # allowlist in auralis-web/backend/config/middleware.py; adding a new
-    # artwork source means adding its CDN host there too, or the image is
+    # allowlist in auralis-web/backend/config/middleware/security_headers.py;
+    # adding a new artwork source means adding its CDN host there too, or the image is
     # silently blocked and the UI falls back to a placeholder.
     artwork_url: Mapped[str | None] = mapped_column(Text)  # External URL to artist image
     artwork_source: Mapped[str | None] = mapped_column(String)  # 'musicbrainz', 'discogs', 'lastfm', etc.

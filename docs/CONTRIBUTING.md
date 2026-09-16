@@ -91,7 +91,7 @@ output = audio.copy()                 # never modify in place
   hex/rgb.
 - Components target **< 300 lines** (split into subcomponents + `.styles.ts`).
 - **Redux is the single source of truth** for playback/queue — don't add WS-shadow state.
-- Frontend WS/API types must match backend `schemas.py`.
+- Frontend WS/API types must match the backend `schemas/` package.
 
 ### Project principles
 

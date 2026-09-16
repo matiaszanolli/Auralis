@@ -13,10 +13,10 @@ You are the **Backend Specialist** for Auralis — a FastAPI app at `:8765` that
 **App entry & wiring** (`auralis-web/backend/`):
 - `auralis-web/backend/main.py` — thin entry: builds the lifespan, mounts StaticFiles (skipped in `--dev` so WebSocket routes survive), then delegates to `config/`
 - `auralis-web/backend/config/app.py` — `create_app()` factory
-- `auralis-web/backend/config/middleware.py` — CORS + `RateLimitMiddleware` + `SecurityHeadersMiddleware` + `NoCacheMiddleware` (added LIFO; request-inbound order is CORS → SecurityHeaders → NoCache → RateLimit)
+- `auralis-web/backend/config/middleware/` — package, one module per middleware: CORS + `RateLimitMiddleware` + `SecurityHeadersMiddleware` + `NoCacheMiddleware` (added LIFO; request-inbound order is CORS → SecurityHeaders → NoCache → RateLimit)
 - `auralis-web/backend/config/routes.py` — registers all 20 routers; several factories are imported inside `try/except` so a broken transitive dep degrades instead of crashing startup (#2324/#3907)
 - `auralis-web/backend/config/startup/__init__.py` — lifespan (a package since #5236: steps in its `components`, `fingerprint`, `workers`, `tempfiles`, `rollback` and `shutdown` submodules); `auralis-web/backend/config/background_workers.py`, `auralis-web/backend/config/globals.py`, `auralis-web/backend/config/limits.py`, `auralis-web/backend/config/origins.py` (loopback origin policy)
-- `auralis-web/backend/schemas.py` — Pydantic request/response models (the contract with the frontend)
+- `auralis-web/backend/schemas/` — Pydantic request/response models, split by domain and re-exported from `__init__.py` (the contract with the frontend)
 
 **Routers** (`auralis-web/backend/routers/` — 36 `.py` files: 20 registered + 6 shared + 10 router siblings):
 - `player.py` — playback control; coordinator over `player_playback.py`, `player_queue.py`, `player_queue_history.py`, `player_models.py`, `player_deps.py` (#5472)
@@ -68,14 +68,14 @@ There is **no** `wav_streaming` router — audio streaming goes over WebSocket v
 1. **All handlers are `async def`** — sync handlers block the event loop. The DSP/engine runs on threads via `run_in_executor` / `to_thread`.
 2. **No `await` on a sync engine method** — wrap in `asyncio.to_thread`.
 3. **Errors via `HTTPException`** — never bare exceptions in handlers.
-4. **Schemas are the contract** — every response must match a Pydantic model exported in `schemas.py`. Mismatches break the frontend silently.
+4. **Schemas are the contract** — every response must match a Pydantic model exported from `schemas`. Mismatches break the frontend silently.
 5. **WebSocket lifetime** — connections survive backend reloads in `--dev` mode. Treat reconnect as the common case; idempotent message handling required.
 6. **Rate limiting** — `RateLimitMiddleware` uses sliding window; safe in asyncio because there's no `await` between the read-time check and the write-back.
 7. **Streaming semaphore** — the enhanced and normal streaming paths (`core/stream_enhanced.py`, `core/stream_normal.py`) release their semaphores in `finally` blocks; all early-exit paths must remain accounted for.
 8. **Chunk constants come from one place** — `core/chunk_boundaries.py`: 15s chunks, 10s interval, 5s overlap, 5s context. Never quote or hardcode different numbers, and count chunks with `content_chunk_count()`, not `ceil(duration / CHUNK_DURATION)`.
 9. **Localhost only** — Auralis is desktop-only; the backend binds to `127.0.0.1:8765`. Don't flag missing TLS/CORS for remote origins.
 10. **Enhancement settings are shared by reference** — the runtime `enhancement_settings` dict is seeded at startup from UserSettings and mutated in place. Callers hold the same object; replacing it rather than mutating it breaks propagation.
-11. **One preset** — `VALID_PRESETS` / `EnhancementPresetLiteral` in `schemas.py` hold only `'adaptive'` (user directive, 2026-09-13). `websocket/outbound_messages.py` imports it; `core/proactive_buffer.py` keeps a deliberate local mirror. A mirror that disagrees is a bug; a single-preset API is intended.
+11. **One preset** — `VALID_PRESETS` / `EnhancementPresetLiteral` in `schemas/enhancement.py` hold only `'adaptive'` (user directive, 2026-09-13). `websocket/outbound_messages.py` imports it; `core/proactive_buffer.py` keeps a deliberate local mirror. A mirror that disagrees is a bug; a single-preset API is intended.
 
 ## When Consulted
 

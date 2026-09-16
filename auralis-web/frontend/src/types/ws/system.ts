@@ -43,7 +43,7 @@ export interface CacheClearedMessage extends WebSocketMessage {
  * Emitted by `ws_handlers/messages.py::handle_subscribe_job_progress` to the
  * connections that sent a `subscribe_job_progress` frame for that `job_id`;
  * the backend has declared it as `WebSocketMessageType.JOB_PROGRESS` in
- * `schemas.py` since it was written.
+ * `schemas/` since it was written.
  *
  * #4680: it had no frontend counterpart at all. The only thing that ever read
  * it was a raw string compare in `services/processingService.ts`, which

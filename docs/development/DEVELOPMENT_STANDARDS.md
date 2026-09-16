@@ -1394,7 +1394,7 @@ const typography = {
 
 ### Request/Response Format
 
-Response envelopes are defined in `auralis-web/backend/schemas.py` — that file is the source of truth. `timestamp` is a **top-level** field (there is no `meta` wrapper and no `version` field). For paginated responses, `pagination` is a top-level sibling of `data`, not nested inside it.
+Response envelopes are defined in the `auralis-web/backend/schemas/` package — it is the source of truth. `timestamp` is a **top-level** field (there is no `meta` wrapper and no `version` field). For paginated responses, `pagination` is a top-level sibling of `data`, not nested inside it.
 
 **Success** (`SuccessResponse` / `PaginatedResponse`):
 

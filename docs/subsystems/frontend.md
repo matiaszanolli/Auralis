@@ -136,7 +136,7 @@ provider remounts. `resetWebSocketSingletons()` exists for tests.
   `in`-checks so partial messages can't write `undefined`/`NaN`.
 - **Message type registry** ([`types/ws/registry.ts`](../../auralis-web/frontend/src/types/ws/registry.ts)):
   the `WebSocketMessageType` union (34 types) has a **compile-time exhaustiveness assert**.
-  Frontend WS types must match backend `schemas.py`.
+  Frontend WS types must match the backend `schemas/` package.
 
 ---
 

@@ -73,7 +73,7 @@ class TestRateLimitMiddlewareSourcesFromLimitsModule:
     constants, not re-hardcoded.
 
     Deliberately does NOT read config.limits' current attribute values here:
-    `from .limits import X` in config/middleware.py bound `X` once, at
+    `from ..limits import X` in config/middleware/rate_limit.py bound `X` once, at
     whatever time config.middleware was first imported (module-level names
     are independent objects, not live references) -- so the class attribute
     below reflects that one-time snapshot regardless of how many times

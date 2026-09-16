@@ -82,7 +82,7 @@ auralis-web/backend/
 - `routers/library.py` — fingerprint_queue (×2)
 - `routers/similarity.py` — fingerprint_queue (×4)
 - `routers/enhancement.py` — path_security, chunked_processor (×2), get_last_content_profile
-- `schemas.py` — path_security
+- *schemas.py* (now the `auralis-web/backend/schemas/` package, #5479) — path_security
 - `services/navigation_service.py` — state_manager
 - `services/recommendation_service.py` — chunked_processor (×2)
 
@@ -94,9 +94,9 @@ auralis-web/backend/
 | File | Reason |
 |---|---|
 | `main.py` | App entry point |
-| `schemas.py` | API contract, imported everywhere |
+| *schemas.py* (a package since #5479) | API contract, imported everywhere |
 | `helpers.py` | Shared pagination/response utilities |
-| `middleware.py` | App-level HTTP middleware |
+| *middleware.py* (since moved to `auralis-web/backend/config/middleware/`) | App-level HTTP middleware |
 | `player_state.py` | Shared Pydantic model (state + TrackInfo) |
 | `version.py` | Version constant |
 

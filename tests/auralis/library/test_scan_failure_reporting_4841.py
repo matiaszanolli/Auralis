@@ -283,7 +283,7 @@ class TestWireShape:
     def test_rest_response_model_declares_failures(self):
         from pathlib import Path
 
-        source = Path("auralis-web/backend/schemas.py").read_text()
+        source = Path("auralis-web/backend/schemas/library.py").read_text()
 
         # response_model FILTERS undeclared keys, so an omission here would
         # silently strip the field from the REST reply.

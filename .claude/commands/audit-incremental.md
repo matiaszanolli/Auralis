@@ -84,7 +84,7 @@ For each changed file that crosses a layer boundary:
 5. **Database schema changed**: Is there a migration? Do all repositories handle the new schema?
 6. **Rust DSP changed**: Is the Python binding still correct? Do callers handle the new behavior?
 7. **Coordinator or sibling changed** (`chunked_processor.py` / `chunk_*`, `processing_engine.py` / `job_*`, `enhanced_audio_player.py` / `player_*_mixin.py`): siblings share the coordinator's instance state — re-check the other side of the split.
-8. **Enhancement preset list changed**: do `auralis-web/backend/schemas.py`, `auralis-web/backend/core/proactive_buffer.py` and `auralis-web/frontend/src/types/domain.ts` still agree?
+8. **Enhancement preset list changed**: do `auralis-web/backend/schemas/enhancement.py`, `auralis-web/backend/core/proactive_buffer.py` and `auralis-web/frontend/src/types/domain.ts` still agree?
 
 ## Phase 1: Audit
 

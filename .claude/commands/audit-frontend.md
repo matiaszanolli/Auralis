@@ -85,7 +85,7 @@ Out of scope: Python backend, audio engine, Rust DSP, database.
 **Check**:
 - [ ] `any` usage — are there `any` types that bypass safety? Should they be `unknown` or properly typed?
 - [ ] Type assertions (`as`) — are there unsafe casts that could mask runtime errors?
-- [ ] API response types — do they match the actual backend response schemas in `auralis-web/backend/schemas.py`?
+- [ ] API response types — do they match the actual backend response schemas in `auralis-web/backend/schemas/`?
 - [ ] WebSocket message types — are binary and text message types correctly discriminated?
 - [ ] Event handler types — are DOM event types correctly specified?
 - [ ] Union exhaustiveness — are switch/if chains over union types exhaustive (use `never` checks)?

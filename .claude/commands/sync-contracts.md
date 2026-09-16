@@ -22,7 +22,7 @@ Scan all router files in `auralis-web/backend/routers/`. For each endpoint, extr
 
 ### Pydantic Schemas
 
-Read `auralis-web/backend/schemas.py` and any schema files in `auralis-web/backend/core/`:
+Read the `auralis-web/backend/schemas/` package and any schema files in `auralis-web/backend/core/`:
 - Model names, field names, types, and defaults
 - Nested model references
 - `Config` settings (especially `alias_generator`, `populate_by_name`)

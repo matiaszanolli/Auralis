@@ -60,7 +60,7 @@ For each category, check the specific items listed. Do NOT limit yourself to the
 - [ ] Fingerprint system — can a specially crafted file cause excessive resource consumption?
 
 ### A05: Security Misconfiguration
-- [ ] CORS settings in `auralis-web/backend/config/middleware.py` (NOT `main.py` — it moved), with the allowed origins built by `auralis-web/backend/config/origins.py` (loopback origin policy) — `allow_credentials=True` with `["*"]` origins? Does the allow-origins builder widen the set more than the localhost/dev-port case requires?
+- [ ] CORS settings in `auralis-web/backend/config/middleware/` (`__init__.py` wires CORSMiddleware, `hosts.py` builds the list; NOT `main.py` — it moved), with the allowed origins built by `auralis-web/backend/config/origins.py` (loopback origin policy) — `allow_credentials=True` with `["*"]` origins? Does the allow-origins builder widen the set more than the localhost/dev-port case requires?
 - [ ] `SecurityHeadersMiddleware` — which headers does it actually set, and are any (CSP, X-Frame-Options) missing or permissive?
 - [ ] Middleware ordering — `add_middleware` is LIFO. Does a security middleware end up running *after* something it should gate?
 - [ ] Debug/development endpoints accessible in production?
@@ -80,7 +80,7 @@ For each category, check the specific items listed. Do NOT limit yourself to the
 - [ ] WebSocket auth — `auralis-web/backend/websocket/websocket_security.py` exists: is it validated on connect AND on each message, or only at handshake?
 - [ ] Can any *local* process connect to port 8765 and control playback? Is the bind address actually `127.0.0.1` and never `0.0.0.0`?
 - [ ] Desktop app — does it restrict connections to localhost only?
-- [ ] Rate limiting — `RateLimitMiddleware` in `auralis-web/backend/config/middleware.py`: which routes does it cover, what are the limits in `auralis-web/backend/config/limits.py`, and can the window be reset or evaded?
+- [ ] Rate limiting — `RateLimitMiddleware` in `auralis-web/backend/config/middleware/rate_limit.py`: which routes does it cover, what are the limits in `auralis-web/backend/config/limits.py`, and can the window be reset or evaded?
 
 ### A08: Software and Data Integrity Failures
 - [ ] Database migrations (`migration_manager.py`) — are they validated before applying?
@@ -103,7 +103,7 @@ For each category, check the specific items listed. Do NOT limit yourself to the
 
 | File | Purpose |
 |------|---------|
-| `auralis-web/backend/config/middleware.py` | CORS, rate limiting, security headers, no-cache (moved out of `main.py`) |
+| `auralis-web/backend/config/middleware/` | CORS, rate limiting, security headers, no-cache, origin check — one module each (moved out of `main.py`) |
 | `auralis-web/backend/config/routes.py` | Router registration — the authoritative list of exposed surfaces |
 | `auralis-web/backend/config/limits.py` | Rate-limit / request-size budgets |
 | `auralis-web/backend/config/origins.py` | Loopback origin policy — how the allowed-origin set is built |

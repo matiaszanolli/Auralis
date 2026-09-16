@@ -32,7 +32,7 @@ mocked-router style needs). Before deleting it:
     not-found, respectively) — not re-ported as near-duplicates. A literal
     port of test_zero_k_neighbors (POST .../graph/build?k=0) was tried and
     dropped: it hits the same pre-existing Origin-check 403 from
-    config/middleware.py that already accounts for most of this file's
+    config/middleware/rate_limit.py that already accounts for most of this file's
     pytest-baseline.json entries for POST/DELETE routes under TestClient —
     unrelated to this consolidation, not fixed here.
   - test_find_similar_response_time / test_graph_query_faster_than_realtime

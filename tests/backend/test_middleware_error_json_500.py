@@ -128,7 +128,7 @@ class TestOwnLogicExceptionsStillGetAJson500:
         mw = RateLimitMiddleware(app=MagicMock())
         request = _make_request("/api/processing/foo", method="GET")
 
-        with patch("config.middleware.time.monotonic", side_effect=RuntimeError("clock boom")):
+        with patch("config.middleware.rate_limit.time.monotonic", side_effect=RuntimeError("clock boom")):
             response = await mw.dispatch(request, _ok_call_next)
 
         await self._assert_json_500(response)

@@ -70,7 +70,7 @@ class TestAllowedDirectories:
 @pytest.mark.security
 @pytest.mark.integration
 class TestLibraryScanRequestValidation:
-    """Test schemas.py LibraryScanRequest validation (library scan endpoint).
+    """Test schemas LibraryScanRequest validation (library scan endpoint).
 
     Fixes #2181: Library scan endpoint bypasses path validation.
     Fixes #2182: Renamed from ScanRequest to LibraryScanRequest to eliminate

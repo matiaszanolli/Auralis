@@ -267,7 +267,7 @@ Every agent prompt MUST include:
 - CLAUDE.md "Codebase Map" and `_audit-common.md` "Project Layout" counts (router/repo/analysis-file/test totals) — recompute from the live tree and flag any mismatch instead of trusting the documented number.
 - Docstrings / comments referencing renamed or deleted symbols (grep the named symbol; if it has no definition, the doc is stale).
 - README / docs command examples that no longer work (changed flags, moved entry points; cross-check against the verified facts — e.g. entry point is `launch-auralis-web.py`).
-- `auralis-web/backend/WEBSOCKET_API.md` message-shape descriptions that no longer match `auralis-web/backend/schemas.py` or the emitted payloads (cross-reference `/sync-contracts`).
+- `auralis-web/backend/WEBSOCKET_API.md` message-shape descriptions that no longer match `auralis-web/backend/schemas/` or the emitted payloads (cross-reference `/sync-contracts`).
 - **Convention**: backticked path refs in `audit-*.md` claim "this path exists now". Forward-looking or deleted refs must NOT use backticks (the validate gate enforces this).
 **Output**: `/tmp/audit/tech-debt/dim_7.md`
 

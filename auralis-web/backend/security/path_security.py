@@ -9,7 +9,7 @@ Fixes #2069: Path traversal in directory scanning endpoint
 Trust model (#4799): Auralis is a single-user desktop app where directories
 come from the user's own file picker, not an untrusted network client. Every
 real directory entry point (``LibraryScanRequest.validate_directory_paths``
-in ``schemas.py``, ``POST /api/settings/scan-folders``) validates through
+in ``schemas/library.py``, ``POST /api/settings/scan-folders``) validates through
 ``validate_user_chosen_directory()`` / ``validate_directory_list()``, which
 enforce basic safety (no traversal, no operating-system roots, must exist and
 be readable) but

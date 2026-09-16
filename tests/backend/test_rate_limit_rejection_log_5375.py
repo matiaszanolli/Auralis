@@ -26,7 +26,7 @@ from httpx import ASGITransport
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-import config.middleware as middleware_module
+import config.middleware.rate_limit as middleware_module  # owns `time` and the logger (#5479)
 from config.limits import RATE_LIMIT_SCAN_MAX, RATE_LIMIT_SCAN_WINDOW
 from config.middleware import RateLimitMiddleware
 

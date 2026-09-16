@@ -109,7 +109,7 @@ class TestSetEnhancementPreset:
         )
 
         # 422, not 400: the preset constraint is `EnhancementPresetLiteral`
-        # (#4424 made it the single source of truth in schemas.py), so an
+        # (#4424 made it the single source of truth in schemas/), so an
         # unknown value is rejected by Pydantic during request validation and
         # surfaces through config/app.py's RequestValidationError handler as
         # {"detail": "Validation error", "errors": [...]}. The handler never

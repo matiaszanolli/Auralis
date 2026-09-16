@@ -68,7 +68,7 @@ Three resilience patterns to know:
 
 ---
 
-## 2. Middleware (`config/middleware.py`)
+## 2. Middleware (`config/middleware/`)
 
 Starlette runs middleware in **reverse** add order, so the inbound chain is:
 
@@ -135,7 +135,7 @@ next broadcast. Handle these idempotently.
 **Receive loop:** every message passes through a `WebSocketRateLimiter` (10 msg/s) →
 `validate_and_parse_message` (size/structure) → `dispatch_message` (routes by `type`).
 
-**Client → server** (validated subset in `schemas.py::WebSocketMessageType`, inbound-only):
+**Client → server** (validated subset in `schemas/websocket.py::WebSocketMessageType`, inbound-only):
 `ping/pong/heartbeat`, `play_enhanced`, `play_normal`, `pause/resume/stop/seek`,
 `buffer_full/buffer_ready`, `subscribe_job_progress`, `processing_settings_update`,
 `ab_track_loaded`.
@@ -203,7 +203,7 @@ chunk dir is **wiped on every startup** to avoid serving stale-preset chunks.
 
 ---
 
-## 6. Schemas & the `response_model` gap (`schemas.py`)
+## 6. Schemas & the `response_model` gap (`schemas/`)
 
 Pydantic v2. Generic wrappers: `SuccessResponse[T]`, `ErrorResponse`,
 `PaginatedResponse[T]` + `PaginationMeta`, `CacheAwareResponse[T]`. Batch models, entity bases
@@ -274,7 +274,7 @@ release concurrency slots.
 - **Port 8765 / `127.0.0.1` only** — desktop app, no remote/LAN/TLS. Don't flag missing TLS or
   remote-CORS.
 - **`create_app` version "1.0.0" ≠ product version** ([`auralis/version.py`](../../auralis/version.py)).
-- **Update both origin allowlists** (CORS in `middleware.py`, WS in `globals.py`) when adding
+- **Update both origin allowlists** (CORS in `config/middleware/hosts.py`, WS in `globals.py`) when adding
   an origin.
 - **`player_state` / `enhancement_settings_changed` are pushed on every connect** — handle
   idempotently.

@@ -7,7 +7,7 @@ You are the **Backend Specialist** for Auralis — a FastAPI app at `:8765` that
 
 **App entry & middleware** (`auralis-web/backend/`):
 - `auralis-web/backend/main.py` — FastAPI app, CORS, middleware, router registration
-- `auralis-web/backend/schemas.py` — Pydantic request/response models (the contract with the frontend)
+- `auralis-web/backend/schemas/` — Pydantic request/response models, split by domain and re-exported from `__init__.py` (the contract with the frontend)
 - `auralis-web/backend/config/` — startup config, `LibraryAutoScanner` service registration
 
 **Routers** (`auralis-web/backend/routers/` — 19 handlers):
@@ -45,7 +45,7 @@ You are the **Backend Specialist** for Auralis — a FastAPI app at `:8765` that
 1. **All handlers are `async def`** — sync handlers block the event loop. The DSP/engine runs on threads via `run_in_executor` / `to_thread`.
 2. **No `await` on a sync engine method** — wrap in `asyncio.to_thread`.
 3. **Errors via `HTTPException`** — never bare exceptions in handlers.
-4. **Schemas are the contract** — every response must match a Pydantic model exported in `schemas.py`. Mismatches break the frontend silently.
+4. **Schemas are the contract** — every response must match a Pydantic model exported from `schemas`. Mismatches break the frontend silently.
 5. **WebSocket lifetime** — connections survive backend reloads in `--dev` mode. Treat reconnect as the common case; idempotent message handling required.
 6. **Rate limiting** — `RateLimitMiddleware` uses sliding window; safe in asyncio because there's no `await` between the read-time check and the write-back.
 7. **Streaming semaphore** — `stream_enhanced_audio` and `stream_normal_audio` release their semaphores in `finally` blocks; all early-exit paths must remain accounted for.

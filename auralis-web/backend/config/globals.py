@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 # non-browser clients (native apps, tests) may not.
 #
 # Generated programmatically over the same host x port matrix as CORS
-# (see config/middleware.py) — no `file://` entry (#5066): no supported
+# (see config/middleware/hosts.py) — no `file://` entry (#5066): no supported
 # launch path produces a `file://` renderer origin talking to the backend
 # (desktop/main.js always loads http://localhost:{8765,3000}; its only
 # loadFile() calls load the static error.html, which never does), and

@@ -34,7 +34,7 @@ Utils:               auralis/utils/                          logging, helpers, p
 Backend:             auralis-web/backend/                    FastAPI :8765
 Backend Routers:     auralis-web/backend/routers/            19 route handlers (24 .py files incl. dependencies/errors/serializers/pagination helpers)
 Backend Streaming:   auralis-web/backend/core/               chunked_processor.py, audio_stream_controller.py, processing_engine.py
-Backend Schemas:     auralis-web/backend/schemas.py
+Backend Schemas:     auralis-web/backend/schemas/
 Backend Services:    auralis-web/backend/services/
 Backend Config:      auralis-web/backend/config/             startup.py (lifespan); LibraryAutoScanner now in services/library_auto_scanner.py
 Backend Core:        auralis-web/backend/core/

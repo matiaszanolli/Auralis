@@ -19,7 +19,7 @@ Both directives were investigated for a hash/nonce replacement:
   allowlist `<script>`/`<style>` ELEMENTS, never the `style=` attribute --
   there is no mechanism that covers this case at all.
 
-This file doesn't re-attempt the removal (see config/middleware.py's CSP
+This file doesn't re-attempt the removal (see config/middleware/security_headers.py's CSP
 comment for the full reasoning) -- it pins the current, intentional CSP
 values and the presence of that reasoning, so any future edit that quietly
 drops the explanation (or the directives themselves) without re-examining

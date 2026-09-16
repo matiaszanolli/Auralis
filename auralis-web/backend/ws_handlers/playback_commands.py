@@ -202,7 +202,7 @@ async def handle_play_enhanced(
     # out-of-range/NaN intensity on a *streaming command* falls back to the
     # stored setting rather than 422-ing, because refusing to start playback
     # over a bad slider value is worse than playing at the stored intensity.
-    # The REST surfaces reject instead — see EnhancementIntensity in schemas.py.
+    # The REST surfaces reject instead — see EnhancementIntensity in schemas/enhancement.py.
     # What is NOT acceptable, and was the actual bug, is silent coercion to
     # maximum: `is_valid_intensity` rejects NaN and ±inf, so neither can reach
     # the runtime settings dict from here. Both rules now live in

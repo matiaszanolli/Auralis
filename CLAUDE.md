@@ -147,7 +147,7 @@ auralis-web/
 │   │   ├── stream_*.py               normal/enhanced/seek streaming paths
 │   │   ├── chunk_boundaries.py       Sole chunk-geometry authority
 │   │   └── executors.py              Streaming + I/O thread pools (#5086)
-│   ├── schemas.py                  Request/response schemas
+│   ├── schemas/                    Request/response schemas (by domain)
 │   └── services/, config/          Service layer, startup/config
 └── frontend/                     React 18 + TypeScript + Vite + Redux
     └── src/

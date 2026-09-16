@@ -13,7 +13,7 @@ The clamp was the dangerous one. ``max(0.0, min(1.0, nan))`` evaluates to
 intensity was silently coerced to MAXIMUM enhancement and written into the
 runtime settings dict, while the settings route rejected the identical input.
 
-Both REST surfaces now share ``EnhancementIntensity`` from ``schemas.py``,
+Both REST surfaces now share ``EnhancementIntensity`` from ``schemas``,
 mirroring how ``preset`` was unified in #4424. The WS path deliberately keeps
 its fallback — refusing to start playback over a bad slider value is worse than
 playing at the stored intensity — but routes its bounds check through the same
