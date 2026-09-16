@@ -157,7 +157,18 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 # parameter (track_id, job_id, ...) — keying on the full path gave
                 # each distinct resource its own fresh, effectively-unlimited
                 # budget instead of the shared one the docstring promises.
-                key = f"{client_ip}:{matched_prefix}"
+                #
+                # Also key on the HTTP method (#5318): OriginCheckMiddleware only
+                # gates POST/PUT/DELETE/PATCH, so a GET under one of these prefixes
+                # (e.g. GET /api/library/scan/status, a read-only poll) needs no
+                # trusted Origin and never triggers a CORS preflight. Without the
+                # method in the key, an unauthenticated cross-origin page could
+                # flood that GET and exhaust the budget the guarded state-changing
+                # POST relies on. Splitting the bucket per method keeps a
+                # legitimately rate-limited GET (e.g. the similarity-query route
+                # itself, #4728) limited on its own terms without it being able to
+                # drain, or be drained by, a different method's budget.
+                key = f"{client_ip}:{request.method}:{matched_prefix}"
                 now = time.monotonic()
 
                 # Critical section (#3329): eviction + sliding-window get/check/write
