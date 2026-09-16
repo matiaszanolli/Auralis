@@ -297,13 +297,15 @@ class EQProcessor:
         bass_gain_db = targets.get("bass_boost_db", 0.0)
         treble_gain_db = targets.get("treble_enhancement_db", 0.0)
 
-        # Apply very gentle adjustments (limited for safety)
+        # Apply very gentle adjustments (limited for safety). float()-wrapped:
+        # np.clip() returns a numpy.float64 scalar, which under NEP 50 would
+        # promote the float32 `processed` array it's multiplied into (#5106).
         if abs(bass_gain_db) > 0.5:
-            bass_gain_linear = 10 ** (np.clip(bass_gain_db, -6, 6) / 20)
+            bass_gain_linear = float(10 ** (np.clip(bass_gain_db, -6, 6) / 20))
             processed = processed * (1.0 + (bass_gain_linear - 1.0) * 0.1)
 
         if abs(treble_gain_db) > 0.5:
-            treble_gain_linear = 10 ** (np.clip(treble_gain_db, -6, 6) / 20)
+            treble_gain_linear = float(10 ** (np.clip(treble_gain_db, -6, 6) / 20))
             processed = processed * (1.0 + (treble_gain_linear - 1.0) * 0.1)
 
         return processed

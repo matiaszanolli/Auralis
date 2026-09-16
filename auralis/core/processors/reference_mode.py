@@ -35,8 +35,11 @@ def apply_reference_matching(target_audio: np.ndarray,
     # Calculate gain to match RMS levels
     if target_rms > 0:
         gain_factor = reference_rms / target_rms
-        # Limit gain to reasonable range
-        gain_factor = np.clip(gain_factor, 0.1, 10.0)
+        # Limit gain to reasonable range. float()-wrapped: np.clip() returns
+        # a numpy.float64 scalar even for plain-float inputs, and under
+        # NEP 50 that strong dtype would promote the float32 audio array
+        # it's multiplied into below (#5106).
+        gain_factor = float(np.clip(gain_factor, 0.1, 10.0))
     else:
         gain_factor = 1.0
 
