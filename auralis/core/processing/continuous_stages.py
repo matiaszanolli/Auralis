@@ -23,7 +23,7 @@ from typing import Any
 
 import numpy as np
 
-from ...dsp.basic import amplify, rms
+from ...dsp.basic import amplify
 from ...dsp.utils.adaptive import calculate_loudness_units
 from ...utils.logging import debug
 from .continuous_dsp_ops import ContinuousDSPOpsMixin
@@ -222,28 +222,23 @@ class ContinuousStagesMixin(ContinuousQualityMixin, ContinuousDSPOpsMixin):
     def _stage_normalization(
         self, processed_audio: np.ndarray, params: Any, journal: PipelineJournal
     ) -> np.ndarray:
-        """5e. Apply final normalization, then guard against crest crush.
+        """5e. Apply final normalization.
 
-        Normalization + limiter should not crush crest beyond intent — restore up
-        to 3 dB, then re-clamp peaks to -0.3 dBFS.
+        #5309: this stage used to also run a "crest preservation" guard that
+        called `amplify()` (a uniform scalar gain) whenever the limiter
+        crushed crest factor by more than 4 dB. A uniform gain multiplies
+        peak and RMS by the same factor, so crest (`peak_db - rms_db`) is
+        invariant under it by construction — the guard could never restore
+        crest, and its only real effect was pulling the whole track up to
+        3 dB below its computed `target_lufs` while logging a "Crest
+        preservation" message describing a correction that never happened.
+        Removed rather than reworked: a genuine fix would need to feed back
+        into the pre-limiter gain that produced the crush, before
+        normalization runs, which this stage has no way to do after the
+        fact with a single scalar. The other three cross-dimensional guards
+        in this pipeline (EQ->LUFS, dynamics->tilt, stereo->phase) are
+        unaffected — each corrects the quantity it measures.
         """
-        pre_norm_crest = journal.get(STAGE_STEREO)
         processed_audio = self._apply_final_normalization(processed_audio, params)
-        if self.config.enable_cross_dimensional_guard and pre_norm_crest is not None:
-            post_crest = rms(processed_audio)
-            if post_crest > 1e-9:
-                post_peak_db = 20.0 * np.log10(max(np.max(np.abs(processed_audio)), 1e-9))
-                post_rms_db = 20.0 * np.log10(post_crest)
-                post_crest_db = post_peak_db - post_rms_db
-                crest_crush = post_crest_db - pre_norm_crest.crest_db
-                if crest_crush < -4.0:
-                    pullback_db = max(-3.0, crest_crush + 4.0)  # Restore up to 3 dB
-                    processed_audio = amplify(processed_audio, pullback_db)
-                    # Re-clamp peaks to -0.3 dBFS after pullback
-                    peak = np.max(np.abs(processed_audio))
-                    ceiling = 10.0 ** (-0.3 / 20.0)  # ~0.966
-                    if peak > ceiling:
-                        processed_audio = processed_audio * (ceiling / peak)
-                    debug(f"[Guard] Crest preservation: {pullback_db:+.1f} dB pullback (crush was {crest_crush:+.1f})")
         journal.snapshot(processed_audio, STAGE_NORMALIZATION)
         return processed_audio
