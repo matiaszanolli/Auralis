@@ -39,6 +39,11 @@ vi.mock('../../shared/Toast', () => {
       info: vi.fn(),
       warning: vi.fn(),
     }),
+    // AllProviders (via @/test/test-utils) wraps every render in the real
+    // ToastProvider -- omitting it here breaks the module resolution vitest
+    // shares with this test's '../../shared/Toast' mock, crashing every test
+    // that uses `render()` with "No ToastProvider export is defined".
+    ToastProvider: ({ children }: any) => children,
   };
 });
 vi.mock('../../../services/playlistService', () => {
@@ -422,6 +427,32 @@ describe('TrackRow', () => {
 
       await user.tab();
       expect(screen.getByRole('option')).toHaveFocus();
+    });
+
+    it('reflects isSelected via aria-selected (#5011)', () => {
+      render(
+        <TrackRow track={mockTrack} index={0} isSelected onPlay={vi.fn()} />
+      );
+
+      expect(screen.getByRole('option')).toHaveAttribute('aria-selected', 'true');
+    });
+
+    it('defaults aria-selected to false when isSelected is not passed', () => {
+      render(
+        <TrackRow track={mockTrack} index={0} onPlay={vi.fn()} />
+      );
+
+      expect(screen.getByRole('option')).toHaveAttribute('aria-selected', 'false');
+    });
+
+    it('supports the roving-tabindex tabIndex prop (#5011)', () => {
+      const { rerender } = render(
+        <TrackRow track={mockTrack} index={0} tabIndex={-1} onPlay={vi.fn()} />
+      );
+      expect(screen.getByRole('option')).toHaveAttribute('tabindex', '-1');
+
+      rerender(<TrackRow track={mockTrack} index={0} tabIndex={0} onPlay={vi.fn()} />);
+      expect(screen.getByRole('option')).toHaveAttribute('tabindex', '0');
     });
   });
 

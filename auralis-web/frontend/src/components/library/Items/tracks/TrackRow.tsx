@@ -24,6 +24,15 @@ interface TrackRowProps {
   isPlaying?: boolean;
   isCurrent?: boolean;
   isAnyPlaying?: boolean; // Phase 1: Global playback state for dimming non-current rows
+  /** Batch-selection state (#5011) — reflected as aria-selected, distinct
+   *  from roving-tabindex focus below. */
+  isSelected?: boolean;
+  /** Roving-tabindex focus stop (#5011): exactly one row in the listbox is
+   *  tabIndex=0 at a time; the rest are -1 so Tab enters/exits the list in
+   *  one stop while ArrowUp/ArrowDown/Home/End move focus between options,
+   *  per the WAI-ARIA APG listbox pattern. Defaults to 0 for callers (e.g.
+   *  existing tests) that don't manage roving focus. */
+  tabIndex?: number;
   onPlay: (trackId: number) => void;
   onPause?: () => void;
   onDoubleClick?: (trackId: number) => void;
@@ -42,6 +51,8 @@ const TrackRowComponent = ({
   isPlaying = false,
   isCurrent = false,
   isAnyPlaying = false, // Phase 1: Default to false (no global playback)
+  isSelected = false,
+  tabIndex = 0,
   onPlay,
   onPause,
   onDoubleClick,
@@ -103,9 +114,11 @@ const TrackRowComponent = ({
   return (
     <>
       <RowContainer
-        tabIndex={0}
+        tabIndex={tabIndex}
         role="option"
         aria-label={`${track.title} by ${track.artist}`}
+        aria-selected={isSelected}
+        data-track-index={index}
         iscurrent={isCurrentStr}
         isanyplaying={isAnyPlayingStr}
         onClick={handleRowClick}

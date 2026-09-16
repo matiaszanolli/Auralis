@@ -27,6 +27,8 @@ interface SelectableTrackRowProps {
   track: Track;
   index: number;
   isSelected: boolean;
+  /** Roving-tabindex focus stop (#5011) — see TrackRow's doc. */
+  tabIndex?: number;
   onToggleSelect: (trackId: number, event: MouseEvent) => void;
   isPlaying?: boolean;
   isCurrent?: boolean;
@@ -47,6 +49,7 @@ const SelectableTrackRow = ({
   track,
   index,
   isSelected,
+  tabIndex,
   onToggleSelect,
   isPlaying,
   isCurrent,
@@ -92,6 +95,8 @@ const SelectableTrackRow = ({
           isPlaying={isPlaying}
           isCurrent={isCurrent}
           isAnyPlaying={isAnyPlaying}
+          isSelected={isSelected}
+          tabIndex={tabIndex}
           onPlay={onPlay}
           onPause={onPause}
           onDoubleClick={onDoubleClick}
