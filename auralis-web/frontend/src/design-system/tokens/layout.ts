@@ -27,7 +27,7 @@ export const spacing = {
     xxxxl: '80px',   // Maximum breathing room (new)
 
     // Organic spacing (variable gaps)
-    cluster: '8px',  // Items in natural clusters (library items, playlist tracks)
+    cluster: '8px',  // Items in natural clusters (library items, playlist tracks); also MUI's spacing unit (#5384)
     group: '16px',   // Between groups within sections
     section: '32px', // Between major sections (Library, Playlists, Settings)
 } as const;

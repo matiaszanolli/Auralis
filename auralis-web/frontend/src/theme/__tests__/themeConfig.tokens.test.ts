@@ -12,7 +12,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { tokens } from '@/design-system';
-import { glassEffects, darkColors, gradients } from '../themeConfig';
+import { glassEffects, darkColors, gradients, createAuralisTheme } from '../themeConfig';
 
 describe('glassEffects backgrounds derive from glass tokens (#3948)', () => {
   it('strong glass uses tokens.glass.strong.background{Dark,Light}', () => {
@@ -48,5 +48,20 @@ describe('palette accents derive from tokens (#3949)', () => {
 
   it('DS-12: the auroraReverse gradient references the primaryDark token (single source)', () => {
     expect(gradients.auroraReverse).toContain(tokens.colors.accent.primaryDark);
+  });
+});
+
+describe('MUI numeric spacing derives from tokens.spacing (#5384)', () => {
+  it.each(['dark', 'light'] as const)('%s theme maps spacing steps onto tokens', (mode) => {
+    const theme = createAuralisTheme(mode);
+    expect(theme.spacing(1)).toBe(tokens.spacing.cluster);
+    expect(theme.spacing(2)).toBe(tokens.spacing.group);
+    expect(theme.spacing(4)).toBe(tokens.spacing.section);
+    expect(theme.spacing(0.5)).toBe(tokens.spacing.xs);
+    expect(theme.spacing(1.5)).toBe(tokens.spacing.md);
+  });
+
+  it('keeps the rendered 8px unit (no visual change)', () => {
+    expect(createAuralisTheme('dark').spacing(3)).toBe('24px');
   });
 });
