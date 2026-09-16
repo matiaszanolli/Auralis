@@ -91,7 +91,9 @@ const Title = styled(Typography)({
   marginBottom: tokens.spacing.md, // More breathing room (was sm)
   lineHeight: 1.1, // Tighter line height for better presence
   letterSpacing: '0.01em', // Subtle letter spacing for refinement
-});
+  // styled() drops Typography's polymorphic `component` prop from the type;
+  // the cast restores it so the heading level can be set (#5391).
+}) as typeof Typography;
 
 const Subtitle = styled(Typography)({
   fontFamily: tokens.typography.fontFamily.header,  // Manrope for subtitle hierarchy (R4)
@@ -100,7 +102,7 @@ const Subtitle = styled(Typography)({
   marginBottom: tokens.spacing.md,
   fontWeight: tokens.typography.fontWeight.semibold,
   letterSpacing: '-0.01em',                          // Tight tracking for headers
-});
+}) as typeof Typography;
 
 const ActionsContainer = styled(Box)({
   display: 'flex',
@@ -129,11 +131,14 @@ export const DetailViewHeader = ({
 
       <InfoSection>
         <Box>
-          <Title variant="h2">
+          {/* The view's sole <h1> (#5391): detail views are rendered without
+              ViewContainer, so this title is their level-one heading. The
+              variants keep the visual sizes; `component` sets the level. */}
+          <Title variant="h2" component="h1">
             {title}
           </Title>
           {subtitle && (
-            <Subtitle variant="h5">
+            <Subtitle variant="h5" component="h2">
               {subtitle}
             </Subtitle>
           )}
