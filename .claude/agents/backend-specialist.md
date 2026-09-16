@@ -18,15 +18,15 @@ You are the **Backend Specialist** for Auralis — a FastAPI app at `:8765` that
 - `auralis-web/backend/config/startup/__init__.py` — lifespan (a package since #5236: steps in its `components`, `fingerprint`, `workers`, `tempfiles`, `rollback` and `shutdown` submodules); `auralis-web/backend/config/background_workers.py`, `auralis-web/backend/config/globals.py`, `auralis-web/backend/config/limits.py`, `auralis-web/backend/config/origins.py` (loopback origin policy)
 - `auralis-web/backend/schemas.py` — Pydantic request/response models (the contract with the frontend)
 
-**Routers** (`auralis-web/backend/routers/` — 26 `.py` files: 20 registered + 6 shared):
-- `player.py` — playback control
+**Routers** (`auralis-web/backend/routers/` — 36 `.py` files: 20 registered + 6 shared + 10 router siblings):
+- `player.py` — playback control; coordinator over `player_playback.py`, `player_queue.py`, `player_queue_history.py`, `player_models.py`, `player_deps.py` (#5472)
 - `library.py`, `albums.py`, `artists.py`, `playlists.py`, `tracks.py` — library browse; `library_scan.py` — scan control
 - `enhancement.py` — enhancement settings & application
 - `metadata.py`, `artwork.py` — track metadata & artwork
 - `system.py`, `health.py` — system info, health
 - `similarity.py`, `similarity_graph.py` — similarity queries
 - `fingerprint_queue.py`, `fingerprint_status.py` — fingerprint pipeline
-- `processing_api.py` — direct processing endpoints
+- `processing_api.py` — direct processing endpoints; coordinator over `processing_upload.py`, `processing_jobs.py`, `processing_parameters.py`, `processing_models.py`, `processing_deps.py` (#5472)
 - `files.py`, `settings.py`, `cache_streamlined.py` — assorted
 - `dependencies.py`, `errors.py`, `pagination.py`, `serializers.py`, `similarity_common.py` — shared router infra (not registered)
 

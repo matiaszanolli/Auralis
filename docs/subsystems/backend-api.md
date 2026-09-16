@@ -108,14 +108,15 @@ an `APIRouter(prefix=...)`.
 
 | Group | Routers |
 |-------|---------|
-| **Player / playback** | `player.py` (`/api/player/*` — the exemplar, 19 routes all typed), `enhancement.py` (`/api/player/enhancement/*`) |
+| **Player / playback** | `player.py` (`/api/player/*` — the exemplar, 19 routes all typed; since #5472 it registers them from `player_playback.py`, `player_queue.py` and `player_queue_history.py`, with models in `player_models.py` and providers in `player_deps.py`), `enhancement.py` (`/api/player/enhancement/*`) |
 | **Library browse** | `library.py`, `tracks.py`, `albums.py`, `artists.py`, `playlists.py`, `library_scan.py`, `fingerprint_status.py` |
 | **Metadata / artwork** | `metadata.py`, `artwork.py` |
-| **Streaming / processing** | `processing_api.py`, `cache_streamlined.py`. (The REST chunk-delivery router was removed; chunk delivery is WebSocket-only — see below.) |
+| **Streaming / processing** | `processing_api.py` (registers `/api/processing/*` from itself plus `processing_upload.py`, `processing_jobs.py` and `processing_parameters.py`, with `processing_models.py` / `processing_deps.py`; #5472), `cache_streamlined.py`. (The REST chunk-delivery router was removed; chunk delivery is WebSocket-only — see below.) |
 | **System / infra** | `system.py` (**WebSocket `/ws` only**, no HTTP), `health.py` (`/api/health`, `/api/version`), `similarity.py`, `files.py`, `settings.py` |
 
 Shared router infra (not routers): `dependencies.py`, `errors.py`, `pagination.py`,
-`serializers.py`.
+`serializers.py`. The `player_*.py` and `processing_*.py` siblings are not
+registered on their own either; their router factories import them.
 
 ---
 

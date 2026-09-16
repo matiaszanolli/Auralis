@@ -46,10 +46,13 @@ _HAND_ROLLED_RE = re.compile(
     r'(Library manager|Audio player|Player state manager|Connection manager) not available"\)'
 )
 
+# routers/player.py was split into player_*.py siblings (#5472); the check
+# covers all of them, since the 503 guards moved into player_deps.py /
+# player_playback.py.
 _CHECKED_FILES = [
     "routers/dependencies.py",
     "routers/library_scan.py",
-    "routers/player.py",
+    *sorted(str(p.relative_to(_BACKEND)) for p in (_BACKEND / "routers").glob("player*.py")),
 ]
 
 
@@ -57,6 +60,7 @@ def test_no_hand_rolled_message_duplicates_a_typed_class():
     """Acceptance criterion: no hand-rolled string duplicates a message a
     typed class already encodes, in any of the 3 router files this issue
     named."""
+    assert {"routers/player.py", "routers/player_deps.py"} <= set(_CHECKED_FILES)
     for rel in _CHECKED_FILES:
         source = (_BACKEND / rel).read_text()
         assert not _HAND_ROLLED_RE.search(source), (

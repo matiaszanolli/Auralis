@@ -44,8 +44,10 @@ class TestPathTraversalPrevention:
         from routers.player import load_track
         source = inspect.getsource(load_track)
 
+        # The broadcast goes through broadcast_typed(connection_manager, ...)
+        # since the typed-outbound-message migration.
         broadcast_source = source[
-            source.index("connection_manager.broadcast"):
+            source.index("broadcast_typed("):
             source.index("background_tasks.add_task")
         ]
         assert '"track_id"' in broadcast_source or "'track_id'" in broadcast_source, (

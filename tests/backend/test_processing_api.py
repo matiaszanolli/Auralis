@@ -75,12 +75,9 @@ class TestProcessingPresets:
         assert response.status_code == 200
         data = response.json()
 
-        assert "presets" in data
-        assert "adaptive" in data["presets"]
-        assert "gentle" in data["presets"]
-        assert "warm" in data["presets"]
-        assert "bright" in data["presets"]
-        assert "punchy" in data["presets"]
+        # 'adaptive' is the only preset the engine ships since the
+        # enhancement presets were narrowed (c195ac80).
+        assert set(data["presets"]) == {"adaptive"}
 
     def test_presets_match_the_engines_profiles(self, client, mock_engine):
         """Every value comes from create_preset_profiles(), in its units (#5220).
@@ -98,7 +95,7 @@ class TestProcessingPresets:
         presets = client.get("/api/processing/presets").json()["presets"]
 
         assert set(presets) == set(profiles), "endpoint and engine disagree on the catalog"
-        assert "live" in presets, "the engine's 6th preset must not be dropped"
+        assert presets, "the catalog must not come back empty"
 
         for name, profile in profiles.items():
             payload = presets[name]
@@ -131,14 +128,15 @@ class TestProcessingPresets:
         """Pins the unit change specifically (#5220).
 
         The fabricated payload used small unitless integers; the engine's are
-        dB gains and real thresholds. `gentle` is the clearest case.
+        dB gains and real thresholds. This pinned `gentle` until that preset
+        was removed (c195ac80); `adaptive` shows the same thing.
         """
-        gentle = client.get("/api/processing/presets").json()["presets"]["gentle"]
+        adaptive = client.get("/api/processing/presets").json()["presets"]["adaptive"]
 
-        assert gentle["settings"]["eq"]["low"] == 0.3          # was 1
-        assert gentle["settings"]["eq"]["high"] == 0.5         # was 2
-        assert gentle["settings"]["dynamics"]["compressor"]["ratio"] == 1.8      # was 2
-        assert gentle["settings"]["dynamics"]["compressor"]["threshold"] == -20.0  # was -24
+        assert adaptive["settings"]["eq"]["low"] == 2.5
+        assert adaptive["settings"]["eq"]["high"] == 0.8
+        assert adaptive["settings"]["dynamics"]["compressor"]["ratio"] == 1.5
+        assert adaptive["settings"]["dynamics"]["compressor"]["threshold"] == -26.0
 
     def test_preset_structure(self, client, mock_engine):
         """Test preset data structure"""
@@ -191,11 +189,11 @@ class TestProcessingPresets:
         response = client.get("/api/processing/presets")
         presets = response.json()["presets"]
 
-        gentle_eq = presets["gentle"]["settings"]["eq"]
-        assert "low_mid" in gentle_eq
-        assert "high_mid" in gentle_eq
-        assert "lowMid" not in gentle_eq
-        assert "highMid" not in gentle_eq
+        adaptive_eq = presets["adaptive"]["settings"]["eq"]
+        assert "low_mid" in adaptive_eq
+        assert "high_mid" in adaptive_eq
+        assert "lowMid" not in adaptive_eq
+        assert "highMid" not in adaptive_eq
 
         level_matching = presets["adaptive"]["settings"]["level_matching"]
         assert "target_lufs" in level_matching
@@ -684,17 +682,16 @@ class TestErrorHandling:
 class TestPresetApplication:
     """Test applying presets"""
 
-    def test_apply_gentle_preset(self, client, mock_engine):
-        """Test applying gentle preset"""
+    def test_apply_adaptive_preset(self, client, mock_engine):
+        """A preset's settings payload is accepted by upload-and-process."""
         audio_data = b"RIFF" + b"\x00" * 40
         files = {"file": ("test.wav", io.BytesIO(audio_data), "audio/wav")}
 
-        # Get gentle preset settings
         presets_response = client.get("/api/processing/presets")
         presets = presets_response.json()["presets"]
-        gentle_settings = presets["gentle"]["settings"]
+        adaptive_settings = presets["adaptive"]["settings"]
 
-        data = {"settings": json.dumps(gentle_settings)}
+        data = {"settings": json.dumps(adaptive_settings)}
 
         response = client.post(
             "/api/processing/upload-and-process",
