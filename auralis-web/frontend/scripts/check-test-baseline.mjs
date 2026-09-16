@@ -9,10 +9,20 @@
  * baseline can shrink but never grow.
  *
  * Usage:
- *   node scripts/check-test-baseline.mjs <results.json>          # verify
- *   node scripts/check-test-baseline.mjs <results.json> --update # rewrite baseline
+ *   node scripts/check-test-baseline.mjs <results.json>               # verify
+ *   node scripts/check-test-baseline.mjs <results.json> --update       # rewrite baseline
+ *   node scripts/check-test-baseline.mjs <results.json> --strict-stale # also fail on stale entries
  *
- * Exit codes: 0 = no new failures, 1 = new failures (or unusable input).
+ * Stale entries are the other half of the ratchet (#5344, mirroring the
+ * backend's #5091 fix in check_pytest_baseline.py): a baselined test that
+ * starts passing but keeps its entry silently re-permits that exact failure,
+ * so the test can regress and CI stays green. Staleness is always *reported*;
+ * --strict-stale makes it *fail*, and counts only tests actually present in
+ * the report (ran, whether it passed or failed), so a scoped run that never
+ * touched a baselined spec cannot trip it.
+ *
+ * Exit codes: 0 = no new failures, 1 = new failures (or unusable input),
+ * 1 = stale entries when --strict-stale is set.
  */
 
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -21,13 +31,20 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FRONTEND_ROOT = resolve(HERE, '..');
-const BASELINE_PATH = resolve(FRONTEND_ROOT, 'test-baseline.json');
+// Overridable so a test can exercise this script (a CLI with argv-driven
+// process.exit() calls, not an importable module) against a throwaway
+// baseline via a subprocess, instead of monkeypatching the real
+// test-baseline.json (#5344).
+const BASELINE_PATH = process.env.TEST_BASELINE_PATH
+  ? resolve(process.env.TEST_BASELINE_PATH)
+  : resolve(FRONTEND_ROOT, 'test-baseline.json');
 
 const [, , resultsArg, ...flags] = process.argv;
 const UPDATE = flags.includes('--update');
+const STRICT_STALE = flags.includes('--strict-stale');
 
 if (!resultsArg) {
-  console.error('usage: check-test-baseline.mjs <vitest-json-results> [--update]');
+  console.error('usage: check-test-baseline.mjs <vitest-json-results> [--update] [--strict-stale]');
   process.exit(1);
 }
 
@@ -86,6 +103,30 @@ function collectFailures(results) {
   return failures;
 }
 
+/**
+ * Every test id that actually ran in this report, regardless of outcome
+ * (#5344) — used to tell "baselined and now passing" (stale) apart from
+ * "baselined but absent from this report" (a scoped run, an --ignore'd file,
+ * or a renamed/deleted test), which a bare `!current.has(id)` check cannot
+ * distinguish. Mirrors collectFailures' suite-failed-to-collect handling so
+ * a synthetic `<suite failed to run>` entry is only ever "present" when that
+ * suite actually reported something this run.
+ */
+function collectPresent(results) {
+  const present = new Set();
+  for (const suite of results.testResults) {
+    const file = relative(FRONTEND_ROOT, suite.name).split('\\').join('/');
+    const assertions = suite.assertionResults ?? [];
+    for (const assertion of assertions) {
+      present.add(`${file}::${assertion.fullName}`);
+    }
+    if (suite.status === 'failed' && !assertions.some((a) => a.status === 'failed')) {
+      present.add(`${file}::<suite failed to run>`);
+    }
+  }
+  return present;
+}
+
 const results = readResults(resultsArg);
 const current = collectFailures(results);
 
@@ -113,19 +154,39 @@ try {
   process.exit(1);
 }
 
+const present = collectPresent(results);
 const added = [...current].filter((id) => !baseline.has(id)).sort();
-const fixed = [...baseline].filter((id) => !current.has(id)).sort();
+// Split what the old code lumped together as "no longer fails" (#5344,
+// mirroring #5091's backend fix): a baselined test that ran and PASSED is
+// stale and must be removed; one absent from this report was simply not run
+// (scoped run, --ignore'd, renamed/deleted) and this report cannot prove it
+// passes.
+const stale = [...baseline].filter((id) => present.has(id) && !current.has(id)).sort();
+const notRun = [...baseline].filter((id) => !present.has(id)).sort();
 
 console.log(
   `Vitest: ${results.numPassedTests} passed, ${results.numFailedTests} failed ` +
   `(baseline allows ${baseline.size}).`
 );
 
-if (fixed.length) {
-  console.log(`\n✔ ${fixed.length} baseline failure(s) no longer fail:`);
-  for (const id of fixed.slice(0, 20)) console.log(`    ${id}`);
-  if (fixed.length > 20) console.log(`    ... and ${fixed.length - 20} more`);
-  console.log('  Run `pnpm run test:baseline:update` and commit to tighten the gate.');
+if (stale.length) {
+  console.log(`\n✔ ${stale.length} baseline failure(s) ran and PASSED — stale:`);
+  for (const id of stale.slice(0, 20)) console.log(`    ${id}`);
+  if (stale.length > 20) console.log(`    ... and ${stale.length - 20} more`);
+  console.log(
+    '  Each one silently re-permits that exact failure: the test can regress and CI stays green.\n' +
+    '  Remove them, or run `pnpm run test:baseline:update` and commit to tighten the gate.'
+  );
+}
+
+if (notRun.length) {
+  console.log(
+    `\nℹ ${notRun.length} baseline entry(ies) were not in this report ` +
+    '(scoped run, --ignore\'d file, or renamed/deleted test).'
+  );
+  for (const id of notRun.slice(0, 20)) console.log(`    ${id}`);
+  if (notRun.length > 20) console.log(`    ... and ${notRun.length - 20} more`);
+  console.log('  Not treated as stale — this report cannot prove they pass.');
 }
 
 if (added.length) {
@@ -134,6 +195,14 @@ if (added.length) {
   console.error(
     '\nFix them, or — only if the failure is genuinely pre-existing and was ' +
     'merely unmasked — run `pnpm run test:baseline:update` and explain why in the PR.'
+  );
+  process.exit(1);
+}
+
+if (stale.length && STRICT_STALE) {
+  console.error(
+    `\n✖ --strict-stale: ${stale.length} baselined test(s) now pass. ` +
+    'The ratchet may shrink, never grow — tighten it.'
   );
   process.exit(1);
 }

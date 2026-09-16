@@ -64,9 +64,11 @@ jobs:
 
       # Fails the job on any failure not present in test-baseline.json, and
       # also fails if the JSON report is missing or reports 0 collected tests,
-      # so a crashed runner cannot pass as green.
+      # so a crashed runner cannot pass as green. --strict-stale (#5344,
+      # mirroring the backend's #5091 fix) also fails the job when a baselined
+      # test ran and passed, so a shrinking ratchet doesn't silently regrow.
       - name: Compare against known-failure baseline
-        run: pnpm run test:baseline
+        run: pnpm run test:baseline -- --strict-stale
 
       - name: Upload test results
         if: always()
