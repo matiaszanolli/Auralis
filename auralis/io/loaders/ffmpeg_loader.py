@@ -455,7 +455,13 @@ def load_with_ffmpeg(
             ffmpeg_cmd += ['-ss', f'{offset:.6f}']
         ffmpeg_cmd += [
             '-i', file_path_str,
-            '-acodec', 'pcm_s16le',            # 16-bit PCM
+            # 32-bit float PCM, not 16-bit (#5317): a source with more than
+            # 16 bits of real precision (24-bit ALAC-in-M4A, WMA Lossless)
+            # was being truncated to ~96 dB of dynamic range before any DSP
+            # or fingerprinting ran. load_with_soundfile() below always reads
+            # the temp WAV back as float32 regardless of its sample format,
+            # so this loses nothing and needs no bits_per_raw_sample probe.
+            '-acodec', 'pcm_f32le',
             '-ar', str(source_sample_rate),    # Preserve native sample rate
         ]
         if duration is not None and duration > 0:
