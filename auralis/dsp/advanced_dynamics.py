@@ -20,20 +20,14 @@ from ..utils.logging import debug
 # Import from refactored modules
 from .dynamics import (
     AdaptiveCompressor,
-    CompressorSettings,
     DynamicsMode,
     DynamicsSettings,
-    EnvelopeFollower,
 )
 
 # Re-export for backward compatibility
 __all__ = [
-    "AdaptiveCompressor",
-    "CompressorSettings",
     "DynamicsMode",
     "DynamicsProcessor",
-    "DynamicsSettings",
-    "EnvelopeFollower",
     "create_dynamics_processor",
 ]
 
