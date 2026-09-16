@@ -25,10 +25,11 @@ export const useSimilarTracksModal = ({ tracks, onPlayTrack }: UseSimilarTracksM
     setSimilarTracksModalOpen(true);
   }, [tracks]);
 
+  // Only `open` flips on close (#5397). CozyLibraryView mounts the modal while
+  // similarTrackId is set, so clearing the id and title here too unmounted it
+  // before MUI's exit transition ran; they are replaced on the next open.
   const handleCloseSimilarTracksModal = useCallback(() => {
     setSimilarTracksModalOpen(false);
-    setSimilarTrackId(null);
-    setSimilarTrackTitle('');
   }, []);
 
   // #3617: stable onTrackPlay for SimilarTracksModal — was an inline arrow

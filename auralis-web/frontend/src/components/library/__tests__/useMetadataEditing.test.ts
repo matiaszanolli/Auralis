@@ -40,6 +40,23 @@ describe('useMetadataEditing', () => {
       expect(result.current.editMetadataDialogOpen).toBe(false);
       expect(result.current.editingTrackId).toBeNull();
     });
+
+    it('starts a new edit session on every open, not on close (#5397)', () => {
+      const { result } = renderHook(() => useMetadataEditing(mockOnFetchTracks));
+      const initial = result.current.editSession;
+
+      act(() => result.current.handleEditMetadata(1));
+      const first = result.current.editSession;
+      expect(first).not.toBe(initial);
+
+      // Closing keeps the key, so the same dialog instance animates out.
+      act(() => result.current.handleCloseEditDialog());
+      expect(result.current.editSession).toBe(first);
+
+      // Reopening the same track remounts the dialog with a fresh form.
+      act(() => result.current.handleEditMetadata(1));
+      expect(result.current.editSession).not.toBe(first);
+    });
   });
 
   describe('handleEditMetadata', () => {
@@ -78,7 +95,7 @@ describe('useMetadataEditing', () => {
   });
 
   describe('handleCloseEditDialog', () => {
-    it('should close dialog and reset trackId', async () => {
+    it('should close dialog but keep trackId so the exit transition can play (#5397)', async () => {
       const { result } = renderHook(() =>
         useMetadataEditing(mockOnFetchTracks)
       );
@@ -97,7 +114,26 @@ describe('useMetadataEditing', () => {
       });
 
       expect(result.current.editMetadataDialogOpen).toBe(false);
-      expect(result.current.editingTrackId).toBeNull();
+      // CozyLibraryView mounts the dialog while editingTrackId is set; clearing
+      // it here unmounted the dialog before MUI's fade-out ran (#5397).
+      expect(result.current.editingTrackId).toBe(1);
+    });
+
+    it('starts a new edit session on every open, not on close (#5397)', () => {
+      const { result } = renderHook(() => useMetadataEditing(mockOnFetchTracks));
+      const initial = result.current.editSession;
+
+      act(() => result.current.handleEditMetadata(1));
+      const first = result.current.editSession;
+      expect(first).not.toBe(initial);
+
+      // Closing keeps the key, so the same dialog instance animates out.
+      act(() => result.current.handleCloseEditDialog());
+      expect(result.current.editSession).toBe(first);
+
+      // Reopening the same track remounts the dialog with a fresh form.
+      act(() => result.current.handleEditMetadata(1));
+      expect(result.current.editSession).not.toBe(first);
     });
   });
 
@@ -248,7 +284,7 @@ describe('useMetadataEditing', () => {
       });
 
       expect(result.current.editMetadataDialogOpen).toBe(false);
-      expect(result.current.editingTrackId).toBeNull();
+      expect(result.current.editingTrackId).toBe(123); // kept for the exit transition (#5397)
     });
 
     it('should allow cancel without saving', () => {

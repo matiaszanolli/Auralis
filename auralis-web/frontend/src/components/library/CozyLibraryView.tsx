@@ -116,6 +116,7 @@ const CozyLibraryView = memo<CozyLibraryViewProps>(({
   const {
     editMetadataDialogOpen,
     editingTrackId,
+    editSession,
     handleCloseEditDialog,
     handleSaveMetadata,
     handleEditMetadata,
@@ -259,10 +260,12 @@ const CozyLibraryView = memo<CozyLibraryViewProps>(({
           />
         )}
 
-        {/* Edit Metadata Dialog — lazy-loaded (#3956) */}
-        {editingTrackId && (
+        {/* Edit Metadata Dialog — lazy-loaded (#3956). Mounted from the first
+            open on and hidden via `open`, so the exit transition plays (#5397). */}
+        {editingTrackId !== null && (
           <Suspense fallback={null}>
             <EditMetadataDialog
+              key={editSession}
               open={editMetadataDialogOpen}
               trackId={editingTrackId}
               onClose={handleCloseEditDialog}
@@ -271,8 +274,9 @@ const CozyLibraryView = memo<CozyLibraryViewProps>(({
           </Suspense>
         )}
 
-        {/* Phase 5: Similar Tracks Modal — lazy-loaded, only mounted when open (#3956) */}
-        {similarTracksModalOpen && (
+        {/* Similar Tracks Modal — lazy-loaded, not mounted before its first open
+            (#3956); stays mounted after close so the exit transition plays (#5397). */}
+        {similarTrackId !== null && (
           <Suspense fallback={null}>
             <SimilarTracksModal
               open={similarTracksModalOpen}
