@@ -4,7 +4,14 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useToast } from '@/components/shared/Toast';
 import { transformTracks, type TrackApiResponse } from '@/api/transformers';
 import type { LibraryTrack } from '@/types/domain';
-import { getApiUrl } from '@/config/api';
+import { get, APIRequestError } from '@/utils/apiRequest';
+import { isTracksListShape } from '@/api/responseGuards';
+
+interface TracksPageResponse {
+  tracks?: TrackApiResponse[];
+  has_more?: boolean;
+  total?: number;
+}
 
 export interface UseLibraryPaginationOptions {
   view: string;
@@ -72,6 +79,12 @@ export const useLibraryPagination = ({ view }: UseLibraryPaginationOptions): Use
         setTotalTracks(0);
       }
 
+      // Declared outside the try so the catch block can tell "this request
+      // was deliberately aborted (supersession or unmount)" apart from a
+      // genuine failure without depending on error type/name, which get()
+      // does not preserve (#5346 — see the file-level comment on loadMore's
+      // matching hoist).
+      let controller: AbortController | undefined;
       try {
         const limit = 50;
         const currentOffset = resetPagination ? 0 : offsetRef.current;
@@ -81,46 +94,51 @@ export const useLibraryPagination = ({ view }: UseLibraryPaginationOptions): Use
             : `/api/library/tracks?limit=${limit}&offset=${currentOffset}`;
 
         fetchAbortRef.current?.abort();
-        const controller = new AbortController();
+        controller = new AbortController();
         fetchAbortRef.current = controller;
 
-        const response = await fetch(getApiUrl(endpoint), { signal: controller.signal });
+        // Routed through get() with the same isTracksListShape guard
+        // useLibraryQuery.ts uses (#5346) — a malformed/renamed `tracks` key
+        // now throws instead of silently defaulting to an empty list.
+        const data = await get<TracksPageResponse>(endpoint, {
+          signal: controller.signal,
+          validate: isTracksListShape,
+        });
         if (isStale()) return;
 
-        if (response.ok) {
-          const data: { tracks?: TrackApiResponse[]; has_more?: boolean; total?: number } = await response.json();
-          if (isStale()) return;
+        const transformedTracks: LibraryTrack[] = transformTracks(data.tracks || []);
 
-          const transformedTracks: LibraryTrack[] = transformTracks(data.tracks || []);
+        setHasMore(data.has_more || false);
+        setTotalTracks(data.total || 0);
 
-          setHasMore(data.has_more || false);
-          setTotalTracks(data.total || 0);
-
-          if (resetPagination) {
-            setTracks(transformedTracks);
-          } else {
-            setTracks((prev) => [...prev, ...transformedTracks]);
-          }
-
-          DEBUG && console.log('Loaded', data.tracks?.length || 0, view === 'favourites' ? 'favorite tracks' : 'tracks from library');
-          DEBUG && console.log(`Pagination: ${currentOffset + (data.tracks?.length || 0)}/${data.total || 0}, has_more: ${data.has_more}`);
-
-          if (resetPagination && data.tracks && data.tracks.length > 0) {
-            toastRef.current.success(`Loaded ${data.tracks.length} of ${data.total} ${view === 'favourites' ? 'favorites' : 'tracks'}`);
-          } else if (resetPagination && view === 'favourites') {
-            toastRef.current.info('No favorites yet. Click the heart icon on tracks to add them!');
-          }
+        if (resetPagination) {
+          setTracks(transformedTracks);
         } else {
-          console.error('Failed to fetch tracks');
-          setError('Failed to load library');
-          toastRef.current.toastError('Failed to load library');
+          setTracks((prev) => [...prev, ...transformedTracks]);
+        }
+
+        DEBUG && console.log('Loaded', data.tracks?.length || 0, view === 'favourites' ? 'favorite tracks' : 'tracks from library');
+        DEBUG && console.log(`Pagination: ${currentOffset + (data.tracks?.length || 0)}/${data.total || 0}, has_more: ${data.has_more}`);
+
+        if (resetPagination && data.tracks && data.tracks.length > 0) {
+          toastRef.current.success(`Loaded ${data.tracks.length} of ${data.total} ${view === 'favourites' ? 'favorites' : 'tracks'}`);
+        } else if (resetPagination && view === 'favourites') {
+          toastRef.current.info('No favorites yet. Click the heart icon on tracks to add them!');
         }
       } catch (err) {
-        if (err instanceof DOMException && err.name === 'AbortError') return;
+        if (controller?.signal.aborted) return;
         if (isStale()) return;
 
         console.error('Error fetching tracks:', err);
-        const errorMsg = 'Failed to connect to server';
+        // statusCode 0 is get()'s marker for a connection-level failure
+        // (network/timeout, never reached the server); any other value,
+        // including a shape-validation failure, means the server responded
+        // but not usefully (#5346) — same bucket the old `!response.ok`
+        // branch used, so the two friendly messages below are unchanged.
+        const errorMsg =
+          err instanceof APIRequestError && err.statusCode === 0
+            ? 'Failed to connect to server'
+            : 'Failed to load library';
         setError(errorMsg);
         toastRef.current.toastError(errorMsg);
       } finally {
@@ -147,6 +165,10 @@ export const useLibraryPagination = ({ view }: UseLibraryPaginationOptions): Use
     const isStale = () => requestIdRef.current !== requestId;
     setIsLoadingMore(true);
 
+    // See fetchTracks' matching hoist for why: get() does not preserve the
+    // original error's type/name, so abort detection reads the controller's
+    // own signal instead (#5346).
+    let controller: AbortController | undefined;
     try {
       const limit = 50;
       // Read live offset via ref — avoids stale closure capturing page-0 offset (#3378).
@@ -157,41 +179,36 @@ export const useLibraryPagination = ({ view }: UseLibraryPaginationOptions): Use
           : `/api/library/tracks?limit=${limit}&offset=${newOffset}`;
 
       fetchAbortRef.current?.abort();
-      const controller = new AbortController();
+      controller = new AbortController();
       fetchAbortRef.current = controller;
 
-      const response = await fetch(getApiUrl(endpoint), { signal: controller.signal });
+      // Same guard as fetchTracks (#5346) — this is the loadMore call site
+      // the issue's WIRING check named explicitly.
+      const data = await get<TracksPageResponse>(endpoint, {
+        signal: controller.signal,
+        validate: isTracksListShape,
+      });
       if (isStale()) return;
 
-      if (response.ok) {
-        const data: { tracks?: TrackApiResponse[]; has_more?: boolean; total?: number } = await response.json();
-        if (isStale()) return;
+      const transformedTracks: LibraryTrack[] = transformTracks(data.tracks || []);
 
-        const transformedTracks: LibraryTrack[] = transformTracks(data.tracks || []);
+      // Commit offset advance only after successful fetch
+      setOffset(newOffset);
+      setTracks((prev) => [...prev, ...transformedTracks]);
+      setHasMore(data.has_more || false);
+      setTotalTracks(data.total || 0);
 
-        // Commit offset advance only after successful fetch
-        setOffset(newOffset);
-        setTracks((prev) => [...prev, ...transformedTracks]);
-        setHasMore(data.has_more || false);
-        setTotalTracks(data.total || 0);
-
-        DEBUG && console.log(`Loaded more: ${newOffset + transformedTracks.length}/${data.total || 0}`);
-      } else {
-        // Mirror fetchTracks' non-OK handling (#4173): surface the error and
-        // clear hasMore so the infinite-scroll trigger stops re-firing into a
-        // retry storm against a struggling server. A manual refetch (which
-        // resets hasMore on success) recovers.
-        console.error('Failed to load more tracks');
-        setError('Failed to load more tracks');
-        toastRef.current.toastError('Failed to load more tracks');
-        setHasMore(false);
-      }
+      DEBUG && console.log(`Loaded more: ${newOffset + transformedTracks.length}/${data.total || 0}`);
     } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') return;
+      if (controller?.signal.aborted) return;
       if (isStale()) return;
 
       console.error('Error loading more tracks:', err);
-      const errorMsg = 'Failed to connect to server';
+      // Same statusCode-0-vs-other bucketing as fetchTracks (#5346).
+      const errorMsg =
+        err instanceof APIRequestError && err.statusCode === 0
+          ? 'Failed to connect to server'
+          : 'Failed to load more tracks';
       setError(errorMsg);
       toastRef.current.toastError(errorMsg);
       // Stop the scroll trigger from looping on a transient network failure.

@@ -62,12 +62,31 @@ describe('useLibraryPagination.loadMore (#4173)', () => {
     expect(result.current.hasMore).toBe(false);
   });
 
-  it('stays silent on AbortError (no error, no toast)', async () => {
-    mockFetch.mockRejectedValue(new DOMException('aborted', 'AbortError'));
+  it('stays silent when unmounted mid-loadMore (#5346)', async () => {
+    // Post-#5346, loadMore is routed through get()/apiRequest.ts, which wraps
+    // every rejection (including a raw AbortError) into an APIRequestError —
+    // so a synthetic `mockRejectedValue(new DOMException(..., 'AbortError'))`
+    // no longer reaches the hook with its name intact, and abort detection
+    // now reads the request's own AbortController instead (see
+    // useLibraryPagination.ts). Exercise the real mechanism: reject only
+    // when the signal this request was actually given aborts.
+    mockFetch.mockImplementation((_url: string, opts: RequestInit) => {
+      return new Promise((_resolve, reject) => {
+        opts.signal?.addEventListener('abort', () =>
+          reject(new DOMException('The operation was aborted.', 'AbortError'))
+        );
+      });
+    });
 
-    const { result } = renderHook(() => useLibraryPagination({ view: 'all' }));
+    const { result, unmount } = renderHook(() => useLibraryPagination({ view: 'all' }));
+    let pending!: Promise<void>;
+    act(() => {
+      pending = result.current.loadMore();
+    });
+
+    unmount();
     await act(async () => {
-      await result.current.loadMore();
+      await pending;
     });
 
     expect(result.current.error).toBeNull();
@@ -184,6 +203,58 @@ describe('useLibraryPagination track transform (#4830)', () => {
     });
 
     expect(result.current.tracks[0].genre).toBe('Rock');
+  });
+});
+
+describe('useLibraryPagination response-shape guard (#5346)', () => {
+  it('surfaces an error instead of silently rendering an empty list when `tracks` is missing (initial fetch)', async () => {
+    // The exact class of drift the guard exists to catch: a renamed/dropped
+    // `tracks` key. Pre-fix, `data.tracks || []` swallowed this into a
+    // silent empty library with no error and no toast.
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ total: 5, has_more: false }),
+    });
+
+    const { result } = renderHook(() => useLibraryPagination({ view: 'all' }));
+    await act(async () => {
+      await result.current.fetchTracks(true);
+    });
+
+    expect(result.current.tracks).toEqual([]);
+    expect(result.current.error).toBe('Failed to load library');
+    expect(mockToastError).toHaveBeenCalledWith('Failed to load library');
+  });
+
+  it('surfaces an error instead of silently rendering an empty page when `tracks` is missing (loadMore)', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ total: 5, has_more: true }),
+    });
+
+    const { result } = renderHook(() => useLibraryPagination({ view: 'all' }));
+    await act(async () => {
+      await result.current.loadMore();
+    });
+
+    expect(result.current.error).toBe('Failed to load more tracks');
+    expect(mockToastError).toHaveBeenCalledWith('Failed to load more tracks');
+    // Offset must not silently advance past a page that was never validated.
+    expect(result.current.offset).toBe(0);
+  });
+
+  it('validates the favourites endpoint response the same way as the main list', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ tracks: 'not-an-array' }),
+    });
+
+    const { result } = renderHook(() => useLibraryPagination({ view: 'favourites' }));
+    await act(async () => {
+      await result.current.fetchTracks(true);
+    });
+
+    expect(result.current.error).toBe('Failed to load library');
   });
 });
 

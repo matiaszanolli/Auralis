@@ -118,11 +118,15 @@ export interface UseLibraryQueryResult<T> {
 }
 
 /**
- * Runtime shape guard per query type (#5026) — these three list responses
- * are this hook's only fetch call sites, so wiring them here is the one
- * place that covers every consumer (useLibraryQuery, useTracksQuery,
- * useAlbumsQuery, useArtistsQuery, useInfiniteScroll) at once. See
- * `@/api/responseGuards` for what each guard checks.
+ * Runtime shape guard per query type (#5026) — covers every consumer of
+ * *this* hook (useLibraryQuery, useTracksQuery, useAlbumsQuery,
+ * useArtistsQuery, useInfiniteScroll) at once, since these three list
+ * responses are its only fetch call sites. It is NOT the only place tracks
+ * are fetched, though: the main library track list is fed by the separate
+ * useLibraryPagination.ts stack, which has (since #5346) its own
+ * isTracksListShape guard on both of its call sites. Guard coverage here is
+ * opt-in per hook, not automatic for every consumer of `/api/library/tracks`.
+ * See `@/api/responseGuards` for what each guard checks.
  */
 const QUERY_TYPE_GUARD: Record<LibraryQueryType, (v: unknown) => boolean> = {
   tracks: isTracksListShape,
