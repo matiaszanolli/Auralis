@@ -44,6 +44,29 @@ function formatValidationDetail(entries: unknown[]): string | undefined {
   return parts.length > 0 ? parts.join('; ') : undefined;
 }
 
+/**
+ * Render this backend's own custom 422 shape
+ * (`{detail: "Validation error", errors: [{field, message}]}` — see
+ * `config/app.py`'s `validation_exception_handler`) as one readable line,
+ * the same way {@link formatValidationDetail} renders FastAPI's *default*
+ * `detail` array shape (#5351). A sibling function, not an extension of
+ * that one: the two shapes use different key names (`field`/`message` vs
+ * `loc`/`msg`) and live at different places in the body (top-level `errors`
+ * vs `detail` itself).
+ */
+function formatFieldErrorsDetail(entries: unknown[]): string | undefined {
+  const parts = entries
+    .map((entry) => {
+      if (typeof entry !== 'object' || entry === null) return undefined;
+      const { field, message } = entry as { field?: unknown; message?: unknown };
+      if (typeof message !== 'string' || !message) return undefined;
+      return typeof field === 'string' && field ? `${field}: ${message}` : message;
+    })
+    .filter((part): part is string => Boolean(part));
+
+  return parts.length > 0 ? parts.join('; ') : undefined;
+}
+
 /** Coerce whatever sits under `detail` / `message` into a display string. */
 function coerceDetail(value: unknown): string | undefined {
   if (typeof value === 'string') return value || undefined;
@@ -75,8 +98,21 @@ export async function readHttpErrorBody(response: Response): Promise<HttpErrorBo
     return { parsed: true };
   }
 
-  const { detail, message } = body as { detail?: unknown; message?: unknown };
-  return { parsed: true, detail: coerceDetail(detail) ?? coerceDetail(message) };
+  const { detail, message, errors } = body as {
+    detail?: unknown;
+    message?: unknown;
+    errors?: unknown;
+  };
+  // This backend's own `errors` array (#5351), when present and formattable,
+  // is more specific than the accompanying bare `detail: "Validation error"`
+  // string, so it wins. FastAPI's own default 422 shape has no top-level
+  // `errors` key at all -- there `detail` IS the array -- so that existing
+  // path (coerceDetail -> formatValidationDetail) is unaffected.
+  const fieldErrorsDetail = Array.isArray(errors) ? formatFieldErrorsDetail(errors) : undefined;
+  return {
+    parsed: true,
+    detail: fieldErrorsDetail ?? coerceDetail(detail) ?? coerceDetail(message),
+  };
 }
 
 /** An `Error` that carries the HTTP status it was built from. */
