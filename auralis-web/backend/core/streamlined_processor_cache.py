@@ -24,8 +24,15 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
-# (track_id, preset, bucketed intensity) — the identity of a cached processor.
-ProcessorCacheKey = tuple[int, str | None, float]
+# (track_id, preset, bucketed intensity, file_signature) — the identity of a
+# cached processor. file_signature was added in #5349: without it, an
+# in-place file edit (e.g. a tag rewrite) went undetected here even though
+# every lookup path (streamlined_tiers.py, cache.manager) recomputes a fresh
+# signature on every check — the warm, now-stale processor kept being reused
+# and its chunks kept being recorded under its frozen, no-longer-current
+# signature. track_id stays at index 0: prune_processors_for_track filters on
+# `k[0]`, unaffected by appending a 4th element.
+ProcessorCacheKey = tuple[int, str | None, float, str]
 
 # LRU cap for `_processor_cache` (#4521). Sized against the worker's actual
 # working set: the live track needs two entries (original + processed) and the

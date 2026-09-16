@@ -24,9 +24,13 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "ba
 
 from core import streamlined_worker
 from core.streamlined_worker import StreamlinedCacheWorker
+from core.file_signature import FileSignatureService
 
 TRACK_ID = 7
-KEY = (TRACK_ID, "adaptive", 0.5)
+# The cache key now includes file_signature (#5349); track.filepath below is
+# always set to __file__ ("any file that exists"), so its signature is
+# computed once here to match.
+KEY = (TRACK_ID, "adaptive", 0.5, FileSignatureService.generate(__file__))
 
 
 class _Processor:

@@ -21,6 +21,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
 from core.streamlined_worker import StreamlinedCacheWorker
+from core.file_signature import FileSignatureService
 
 
 @pytest.fixture
@@ -162,14 +163,16 @@ class TestProcessorReuse:
 
             track = Mock()
             track.filepath = "/tmp/test.wav"
+            # Cache key includes file_signature (#5349).
+            sig = FileSignatureService.generate(track.filepath)
 
             # Populate cache for track 1
             await worker._process_chunk(
                 track, track_id=1, chunk_idx=0,
                 preset="balanced", intensity=0.5, tier="tier2"
             )
-            assert (1, "balanced", 0.5) in worker._processor_cache
-            old_processor = worker._processor_cache[(1, "balanced", 0.5)]
+            assert (1, "balanced", 0.5, sig) in worker._processor_cache
+            old_processor = worker._processor_cache[(1, "balanced", 0.5, sig)]
 
             # Simulate track change via _build_tier2_cache state reset
             worker._building_track_id = 1  # was building track 1
@@ -185,7 +188,7 @@ class TestProcessorReuse:
                                             preset="balanced", intensity=0.5)
 
             # Old track's processor should be evicted
-            assert (1, "balanced", 0.5) not in worker._processor_cache
+            assert (1, "balanced", 0.5, sig) not in worker._processor_cache
             # #5062: dropping it must close it too — this is the second
             # removal path from _processor_cache (alongside LRU eviction in
             # _remember_processor, #4737), and it leaked a temp WAV per
@@ -208,12 +211,14 @@ class TestProcessorReuse:
 
             track = Mock()
             track.filepath = "/tmp/test.wav"
+            # Cache key includes file_signature (#5349).
+            sig = FileSignatureService.generate(track.filepath)
 
             await worker._process_chunk(
                 track, track_id=1, chunk_idx=0,
                 preset="balanced", intensity=0.5, tier="tier2"
             )
-            assert (1, "balanced", 0.5) in worker._processor_cache
+            assert (1, "balanced", 0.5, sig) in worker._processor_cache
 
             worker._building_track_id = 1
             status = Mock()
@@ -227,7 +232,7 @@ class TestProcessorReuse:
             await worker._build_tier2_cache(track, track_id=2, current_chunk=0,
                                             preset="balanced", intensity=0.5)
 
-            assert (1, "balanced", 0.5) not in worker._processor_cache
+            assert (1, "balanced", 0.5, sig) not in worker._processor_cache
             exploding.close.assert_called_once()
 
 
@@ -373,3 +378,59 @@ class TestConcurrentBuildDedup:
 
             # Two distinct keys → two processors built.
             assert MockProcessor.call_count == 2
+
+
+class TestFileSignatureInvalidation:
+    """The processor cache key includes file_signature (#5349).
+
+    Every lookup path outside this cache (streamlined_tiers.py, cache.manager)
+    recomputes a fresh signature on every check. Without file_signature in
+    THIS key, a warm processor built before an in-place file edit (e.g. a tag
+    rewrite) kept being reused after the edit, and the chunks it rebuilt kept
+    being recorded under its frozen, now-stale signature — so no lookup with
+    the correct (post-edit) signature could ever hit them.
+    """
+
+    @pytest.mark.asyncio
+    async def test_file_edit_between_chunks_builds_a_fresh_processor(self, worker):
+        """Same (track_id, preset, intensity); the file changes in between."""
+        created = []
+
+        def track_creation(**kwargs):
+            inst = Mock(process_chunk_safe=AsyncMock(return_value=("/tmp/chunk.wav", None)))
+            created.append(inst)
+            return inst
+
+        with patch("core.streamlined_worker.Path") as mock_path, \
+             patch("core.chunked_processor.ChunkedAudioProcessor", side_effect=track_creation), \
+             patch.object(FileSignatureService, "generate", side_effect=["sig-before", "sig-after"]):
+            mock_path.return_value.exists.return_value = True
+            track = Mock()
+            track.filepath = "/tmp/test.wav"
+
+            await worker._process_chunk(
+                track, track_id=1, chunk_idx=0,
+                preset="balanced", intensity=0.5, tier="tier2"
+            )
+            # Simulate an in-place edit (e.g. a tag rewrite via
+            # routers/metadata.py) landing between the two chunk builds: the
+            # next signature computed for the same path differs.
+            await worker._process_chunk(
+                track, track_id=1, chunk_idx=1,
+                preset="balanced", intensity=0.5, tier="tier2"
+            )
+
+        assert len(created) == 2, (
+            "the second call reused the pre-edit processor instead of "
+            "building a fresh one for the new signature (#5349)"
+        )
+        assert (1, "balanced", 0.5, "sig-before") in worker._processor_cache
+        assert (1, "balanced", 0.5, "sig-after") in worker._processor_cache
+
+        # The rebuilt chunk must be recorded under the CURRENT signature, not
+        # carried over from the stale processor that built it before #5349.
+        recorded_signatures = [
+            call.kwargs["file_signature"]
+            for call in worker.cache_manager.add_chunk.call_args_list
+        ]
+        assert recorded_signatures == ["sig-before", "sig-after"]

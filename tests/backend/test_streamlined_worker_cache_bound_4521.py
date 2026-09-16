@@ -29,6 +29,7 @@ from core.streamlined_worker import (  # noqa: E402
     StreamlinedCacheWorker,
     _intensity_key,
 )
+from core.file_signature import FileSignatureService  # noqa: E402
 
 
 @pytest.fixture
@@ -218,6 +219,8 @@ class TestBuildLockBound:
         ):
             mock_path.return_value.exists.return_value = True
             track = Mock(filepath="/tmp/t.wav")
+            # Cache key includes file_signature (#5349).
+            sig = FileSignatureService.generate(track.filepath)
             first = asyncio.create_task(
                 worker._process_chunk(track, 3, 0, "balanced", 0.5, "tier1")
             )
@@ -228,7 +231,7 @@ class TestBuildLockBound:
             await asyncio.sleep(0)  # let `second` queue on the build lock
 
             # While a build is in flight the lock must be retained.
-            assert worker._build_waiters[(3, "balanced", 0.5)] == 2
+            assert worker._build_waiters[(3, "balanced", 0.5, sig)] == 2
 
             gate.set()
             await asyncio.gather(first, second)
@@ -266,12 +269,14 @@ class TestIntensityBucketing:
         self, worker, stub_processor
     ):
         """The cached processor matches the key it is stored under."""
+        filepath = "/tmp/t.wav"
         await worker._process_chunk(
-            Mock(filepath="/tmp/t.wav"), 42, 0, "balanced", 0.4951, "tier1"
+            Mock(filepath=filepath), 42, 0, "balanced", 0.4951, "tier1"
         )
 
         (key,) = worker._processor_cache.keys()
-        assert key == (42, "balanced", 0.5)
+        # Cache key includes file_signature (#5349).
+        assert key == (42, "balanced", 0.5, FileSignatureService.generate(filepath))
         assert stub_processor.instances[0].intensity == 0.5
 
 

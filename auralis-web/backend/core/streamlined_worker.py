@@ -26,6 +26,7 @@ from typing import Any
 from helpers import spawn_background_task
 
 from core import streamlined_tiers
+from core.file_signature import FileSignatureService
 from core.streamlined_processor_cache import (
     _PROCESSOR_CACHE_MAX,
     ProcessorCacheKey,
@@ -223,7 +224,18 @@ class StreamlinedCacheWorker:
             # EQ history) carries over at chunk boundaries (fixes #2737). The
             # get-or-build dance (LRU recency, per-key build lock, waiter
             # accounting) lives in core/streamlined_processor_cache.py.
-            cache_key = (track_id, preset, _intensity_key(intensity))
+            #
+            # file_signature is folded into the key (#5349): every lookup
+            # path (streamlined_tiers.py, cache.manager) recomputes a fresh
+            # signature on every check, but this cache_key previously didn't
+            # — so a warm processor built before an in-place file edit (e.g.
+            # a tag rewrite) kept being reused after it, and its chunks kept
+            # being recorded under its now-stale, frozen signature. Computed
+            # once per call here rather than threaded in from each of the
+            # three callers, so no future caller can add a fourth path that
+            # forgets to pass it.
+            file_signature = FileSignatureService.generate(track.filepath)
+            cache_key = (track_id, preset, _intensity_key(intensity), file_signature)
             processor = await get_or_build_processor(self, cache_key, track.filepath)
 
             # Process chunk with timeout (using thread-safe async method)
@@ -268,11 +280,14 @@ class StreamlinedCacheWorker:
                     preset=preset,
                     intensity=intensity,
                     tier=tier,
-                    # #5251: carry the signature through so an in-place file
-                    # edit produces a fresh key on the next lookup instead of
-                    # a stale hit — processor.file_signature was already
-                    # computed by ChunkedAudioProcessor.__init__.
-                    file_signature=processor.file_signature,
+                    # #5251/#5349: the file_signature computed above, not
+                    # processor.file_signature — cache_key now includes
+                    # file_signature (#5349), so a processor reused from the
+                    # cache is guaranteed to have been built for this exact
+                    # signature and the two are equal; using the local
+                    # variable keeps that guarantee visible here instead of
+                    # relying on it silently.
+                    file_signature=file_signature,
                 )
 
                 if success:
