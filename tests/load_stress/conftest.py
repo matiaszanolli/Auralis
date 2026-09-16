@@ -81,16 +81,19 @@ def large_track_dataset(temp_db):
     """
     from auralis.library.models import Album, Artist
     from auralis.library.repositories import AlbumRepository, TrackRepository
+    from auralis.library.utils.artist_normalizer import normalize_artist_name
 
     def _create_tracks(count: int):
         """Create N tracks in database."""
         track_repo = TrackRepository(temp_db)
         session = temp_db()
 
-        # Create artists
+        # Create artists. normalized_name must be set (#5225): TrackRepository.add()
+        # resolves artists by it, so a NULL here made every add() collide on the
+        # unique name, roll back and return None, leaving the dataset empty.
         artists = []
         for i in range(min(count // 10, 100)):  # Max 100 artists
-            artist = Artist(name=f'Artist {i}')
+            artist = Artist(name=f'Artist {i}', normalized_name=normalize_artist_name(f'Artist {i}'))
             session.add(artist)
             artists.append(artist)
         session.commit()

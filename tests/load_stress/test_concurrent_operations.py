@@ -350,17 +350,15 @@ class TestConnectionPooling:
 
         large_track_dataset(100)
         track_repo = TrackRepository(temp_db)
+        # #5225: this only printed "no connection leaks". Check the pool itself,
+        # the same way test_database_connections_released does (#5419).
+        engine = temp_db.session_factory.kw['bind']
 
-        # Run 1000 queries
-        for i in range(1000):
-            result = track_repo.get_all(limit=10, offset=0)
+        for _ in range(1000):
+            tracks, total = track_repo.get_all(limit=10, offset=0)
+            assert len(tracks) == 10 and total == 100
+            assert engine.pool.checkedout() == 0, "get_all() left a pooled connection checked out"
 
-            if isinstance(result, tuple):
-                tracks, total = result
-            else:
-                tracks = result
-
-        # Should not crash or leak connections
         print("✓ 1000 sequential queries, no connection leaks")
 
 

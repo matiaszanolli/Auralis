@@ -33,6 +33,21 @@ class TestPhase6LibraryCharacterization:
     # Library paths
     REMASTERS_DIR = Path("/mnt/audio/Audio/Remasters")
 
+    @staticmethod
+    def _assert_measurements_sane(measurements):
+        """#5225: these characterizations only printed. Pin that each measurement is real.
+
+        A missing fingerprint key would read as the ``.get(..., 0)`` default, so
+        zero centroid or crest is treated as a failure, not a quiet track.
+        """
+        for m in measurements:
+            label = m.get('track', m.get('artist'))
+            for key in ('centroid', 'bass_mid', 'stereo_width', 'crest_db'):
+                assert np.isfinite(m[key]), f"{label}: {key} is {m[key]}"
+            assert m['centroid'] > 0, f"{label}: no spectral centroid"
+            assert m['crest_db'] > 0, f"{label}: no crest factor"
+            assert m['stereo_width'] >= 0, f"{label}: negative stereo width"
+
     def test_characterize_deep_purple_catalog(self, fingerprint_analyzer):
         """Analyze all available Deep Purple tracks in library."""
         dp_dir = self.REMASTERS_DIR / "Deep Purple - In Rock"
@@ -159,6 +174,10 @@ class TestPhase6LibraryCharacterization:
                 print(f"  Centroid: {centroid:7.0f} Hz | Bass-Mid: {bass_mid:+6.2f} dB | "
                       f"Stereo: {stereo_width:.2f} | Crest: {crest_db:6.2f} dB")
 
+        if not measurements:
+            pytest.skip(f"No Iron Maiden albums found under {self.REMASTERS_DIR}")
+        self._assert_measurements_sane(measurements)
+
         if measurements:
             print(f"\n{'='*80}")
             print(f"IRON MAIDEN STATISTICS")
@@ -239,6 +258,10 @@ class TestPhase6LibraryCharacterization:
                 print(f"  Centroid: {centroid:7.0f} Hz | Bass-Mid: {bass_mid:+6.2f} dB | "
                       f"Stereo: {stereo_width:.2f} | Crest: {crest_db:6.2f} dB")
 
+        if not measurements:
+            pytest.skip(f"No Porcupine Tree albums found under {self.REMASTERS_DIR}")
+        self._assert_measurements_sane(measurements)
+
         if measurements:
             print(f"\n{'='*80}")
             print(f"PORCUPINE TREE STATISTICS")
@@ -282,6 +305,7 @@ class TestPhase6LibraryCharacterization:
         print(f"{'='*80}\n")
 
         all_measurements = []
+        errors = []
 
         # Scan multiple artists
         artists = [
@@ -328,7 +352,14 @@ class TestPhase6LibraryCharacterization:
                     })
                 except Exception as e:
                     print(f"  ⚠ Error processing {audio_file.name}: {e}")
+                    errors.append(f"{artist_dir_name}/{audio_file.name}: {e!r}")
                     continue
+
+        # #5225: a track that fails to analyse used to be printed and skipped.
+        assert not errors, f"{len(errors)} track(s) failed to analyse: {errors}"
+        if not all_measurements:
+            pytest.skip(f"None of the sampled albums were found under {self.REMASTERS_DIR}")
+        self._assert_measurements_sane(all_measurements)
 
         if all_measurements:
             print(f"\n{'='*80}")

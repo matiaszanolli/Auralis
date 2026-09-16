@@ -788,31 +788,3 @@ def test_single_sample_audio(temp_audio_dir):
     except Exception as e:
         # Single sample may be too short, which is acceptable
         pytest.skip(f"Single sample audio not supported: {e}")
-
-
-# ============================================================================
-# Summary Statistics
-# ============================================================================
-
-def test_chunked_processing_boundaries_summary():
-    """
-    Print summary of chunked processing boundary tests.
-    """
-    print("\n" + "=" * 80)
-    print("CHUNKED PROCESSING BOUNDARY TEST SUMMARY")
-    print("=" * 80)
-    print(f"Exact Chunk Boundaries: 6 tests")
-    print(f"Partial Last Chunks: 6 tests")
-    print(f"Single Chunk Edge Cases: 6 tests")
-    print(f"Very Long Audio: 6 tests")
-    print(f"Minimum Duration: 6 tests")
-    print("=" * 80)
-    print(f"TOTAL: 30 boundary tests")
-    print("=" * 80)
-    print("\nThese tests validate edge cases and boundaries for:")
-    print("1. Exact chunk duration boundaries (30s, 60s, 90s)")
-    print("2. Partial last chunks (0.1s to 29s)")
-    print("3. Single chunk audio (0.1s to 29.9s)")
-    print("4. Very long audio (1-2 hours, 120-240 chunks)")
-    print("5. Minimum duration limits (1 sample to 3s)")
-    print("=" * 80 + "\n")

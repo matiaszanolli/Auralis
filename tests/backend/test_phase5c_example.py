@@ -335,32 +335,3 @@ class TestIndividualRepositories:
         # Verify
         assert result.id == 1
         assert result.name == "Artist 1"
-
-
-# ============================================================
-# Summary Statistics
-# ============================================================
-
-@pytest.mark.unit
-def test_phase5c_example_summary():
-    """Print summary of Phase 5C example tests."""
-    print("\n" + "=" * 70)
-    print("PHASE 5C EXAMPLE TESTS - SUMMARY")
-    print("=" * 70)
-    print("Total example test classes: 4")
-    print("Total example test methods: 15")
-    print("\nTest categories:")
-    print("  - MockLibraryManager tests: 4")
-    print("  - MockRepositoryFactory tests: 4")
-    print("  - DualMode parametrized tests: 4 (run 2x = 8 actual tests)")
-    print("  - Individual repository tests: 3")
-    print("\nKey features demonstrated:")
-    print("  ✓ Mock fixture usage")
-    print("  ✓ Parametrized dual-mode testing")
-    print("  ✓ Repository interface mocking")
-    print("  ✓ Mock verification")
-    print("\nPhase 5C.1 next steps:")
-    print("  1. Apply patterns to test_artists_api.py")
-    print("  2. Apply patterns to test_albums_api.py")
-    print("  3. Apply patterns to test_queue_endpoints.py")
-    print("=" * 70)

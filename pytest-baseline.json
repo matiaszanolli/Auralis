@@ -1,5 +1,5 @@
 {
-  "_comment": "Known-failing pytest tests (#4562). CI fails on any failure NOT listed here. Regenerate with: python scripts/check_pytest_baseline.py <junit.xml> --update. #5169, #5175, #5255, #5257, #5284, #5287, #5288, #5289, #5290, #5291, #5292, and #5295 removed obsolete or newly passing entries by hand: --strict-stale (#5091) fails the job on a baselined test that passes. Removed rather than regenerated -- a baseline built outside CI reports spurious new failures.",
+  "_comment": "Known-failing pytest tests (#4562). CI fails on any failure NOT listed here. Regenerate with: python scripts/check_pytest_baseline.py <junit.xml> --update. #5169, #5175, #5255, #5257, #5284, #5287, #5288, #5289, #5290, #5291, #5292, #5295, #5419, and #5225 removed obsolete or newly passing entries by hand: --strict-stale (#5091) fails the job on a baselined test that passes. Removed rather than regenerated -- a baseline built outside CI reports spurious new failures.",
   "generatedFrom": {
     "totalTests": 6889,
     "failedTests": 157
@@ -90,14 +90,7 @@
     "tests.integration.test_repositories.TestTrackRepository::test_update_metadata_modifies_only_provided_fields",
     "tests.integration.test_repositories.TestTrackRepository::test_update_metadata_returns_none_for_missing_track",
     "tests.load_stress.test_concurrent_operations.TestConcurrentAudioProcessing::test_concurrent_audio_analysis",
-    "tests.load_stress.test_concurrent_operations.TestConcurrentDatabaseAccess::test_concurrent_write_operations",
-    "tests.load_stress.test_concurrent_operations.TestConcurrentDatabaseAccess::test_mixed_read_write_concurrency",
-    "tests.load_stress.test_concurrent_operations.TestRaceConditions::test_concurrent_favorite_toggle_race",
     "tests.load_stress.test_concurrent_operations.TestRaceConditions::test_concurrent_play_count_race",
-    "tests.load_stress.test_concurrent_operations.TestThreadSafety::test_repository_thread_safety",
-    "tests.load_stress.test_large_library_stress.TestCachePerformanceAtScale::test_cache_invalidation_performance",
-    "tests.load_stress.test_large_library_stress.TestLargeLibraryQueries::test_query_all_tracks_from_10k_library",
-    "tests.load_stress.test_large_library_stress.TestLargeLibraryUpdates::test_bulk_play_count_increment",
     "tests.load_stress.test_large_library_stress.TestLargeLibraryUpdates::test_mass_favorite_toggle",
     "tests.load_stress.test_long_running_operations.TestProgressiveLoad::test_progressive_library_growth",
     "tests.load_stress.test_memory_resource_stress.TestCPUUtilization::test_cpu_usage_during_processing",
@@ -111,7 +104,6 @@
     "tests.performance.test_audio_processing_performance.TestMemoryEfficiency::test_concurrent_processing_memory_isolation",
     "tests.performance.test_audio_processing_performance.TestMemoryEfficiency::test_processing_memory_per_second",
     "tests.performance.test_library_operations_performance.TestCachePerformance::test_cache_memory_overhead",
-    "tests.performance.test_library_operations_performance.TestCachePerformance::test_concurrent_cache_access",
     "tests.performance.test_library_operations_performance.TestDatabaseQueryPerformance::test_album_aggregation_performance",
     "tests.performance.test_library_operations_performance.TestDatabaseQueryPerformance::test_artist_aggregation_performance",
     "tests.performance.test_library_operations_performance.TestDatabaseQueryPerformance::test_sorted_query_performance",

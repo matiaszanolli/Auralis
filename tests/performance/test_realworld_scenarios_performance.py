@@ -587,19 +587,26 @@ class TestStressScenarios:
         def query_tracks(offset):
             return track_repo.get_all(limit=50, offset=offset)
 
+        offsets = [0, 100, 200, 300, 400]
+
         # Sequential baseline
         start = time.perf_counter()
-        for offset in [0, 100, 200, 300, 400]:
-            query_tracks(offset)
+        sequential = [query_tracks(offset) for offset in offsets]
         sequential_time = time.perf_counter() - start
 
         # Concurrent
         start = time.perf_counter()
         with ThreadPoolExecutor(max_workers=5) as executor:
-            list(executor.map(query_tracks, [0, 100, 200, 300, 400]))
+            concurrent = list(executor.map(query_tracks, offsets))
         concurrent_time = time.perf_counter() - start
 
-        speedup = sequential_time / concurrent_time if concurrent_time > 0 else 1
+        # #5225: this only printed a speedup, which the GIL makes unreliable to
+        # gate on. Assert the concurrent reads return exactly the sequential pages.
+        def ids(pages):
+            return [[t.id for t in tracks] for tracks, _total in pages]
 
-        # BENCHMARK: Concurrent should be faster (or at least not slower)
+        assert ids(concurrent) == ids(sequential)
+        assert all(len(tracks) == 50 and total == 5000 for tracks, total in concurrent)
+
+        speedup = sequential_time / concurrent_time if concurrent_time > 0 else 1
         print(f"\n✓ Concurrent operations speedup: {speedup:.2f}x")

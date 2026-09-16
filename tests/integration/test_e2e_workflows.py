@@ -1026,33 +1026,3 @@ def test_update_track_artwork(temp_library, sample_audio_file):
 
     assert updated_track is not None
     assert updated_track.title == 'Updated Title'
-
-
-# ============================================================================
-# Summary Statistics
-# ============================================================================
-
-def test_e2e_summary_stats():
-    """
-    Print summary of E2E workflow tests.
-    """
-    print("\n" + "=" * 80)
-    print("E2E WORKFLOW TEST SUMMARY")
-    print("=" * 80)
-    print(f"Workflow 1 - Add Track to Library: 5 tests")
-    print(f"Workflow 2 - Play Track with Enhancement: 5 tests")
-    print(f"Workflow 3 - Switch Presets Mid-Playback: 5 tests")
-    print(f"Workflow 4 - Paginate Large Library: 5 tests")
-    print(f"Workflow 5 - Search and Filter: 5 tests")
-    print(f"Workflow 6 - Artwork Management: 5 tests")
-    print("=" * 80)
-    print(f"TOTAL E2E WORKFLOWS: 30 tests")
-    print("=" * 80)
-    print("\nThese tests validate complete user workflows:")
-    print("1. Adding tracks to library with metadata extraction")
-    print("2. Processing audio with different presets")
-    print("3. Switching presets and preset management")
-    print("4. Pagination of large libraries (100-200 tracks)")
-    print("5. Search and filtering by title/artist")
-    print("6. Artwork extraction and management")
-    print("=" * 80 + "\n")

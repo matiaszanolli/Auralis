@@ -46,7 +46,7 @@ class TestAudioProcessingThroughput:
 
         # Process
         with timer() as t:
-            result = processor.process(performance_audio_file)
+            result = processor.process(audio)
 
         assert result is not None
 
@@ -74,7 +74,7 @@ class TestAudioProcessingThroughput:
 
         # Process
         with timer() as t:
-            result = processor.process(large_audio_file)
+            result = processor.process(audio)
 
         samples_per_second = total_samples / t.elapsed
 
@@ -102,11 +102,14 @@ class TestAudioProcessingThroughput:
             save(filepath, audio, 44100, subtype='PCM_16')
             files.append(filepath)
 
+        # Decode up front so the timer measures processing only.
+        targets = [load_audio(f)[0] for f in files]
+
         # Process batch
         with timer() as t:
             results = []
-            for filepath in files:
-                result = processor.process(filepath)
+            for target in targets:
+                result = processor.process(target)
                 results.append(result)
 
         files_per_second = num_files / t.elapsed
@@ -299,8 +302,13 @@ class TestIOThroughput:
 
         operations_per_second = num_files / t.elapsed
 
-        # BENCHMARK: Concurrent should be faster than sequential
-        # (At least 50% improvement from parallelism)
+        # #5225: this only printed a rate. Speedup is too GIL- and disk-dependent
+        # to gate on, so assert that every concurrent read came back intact.
+        assert len(results) == num_files
+        for audio, sr in results:
+            assert sr == 44100
+            assert audio.shape == (int(2.0 * 44100), 2)
+
         print(f"\n✓ Concurrent I/O: {operations_per_second:.1f} ops/sec")
 
 
@@ -324,8 +332,10 @@ class TestScalabilityThroughput:
             filepath = os.path.join(temp_audio_dir, f'scale_{duration}s.wav')
             save(filepath, audio, 44100, subtype='PCM_16')
 
+            target, _ = load_audio(filepath)
+
             start = time.perf_counter()
-            processor.process(filepath)
+            processor.process(target)
             end = time.perf_counter()
 
             processing_time = end - start
@@ -360,7 +370,7 @@ class TestScalabilityThroughput:
 
         def process_file(filepath):
             processor = HybridProcessor(config)
-            return processor.process(filepath)
+            return processor.process(load_audio(filepath)[0])
 
         # Test with different worker counts
         for num_workers in [1, 2, 4]:
@@ -374,6 +384,14 @@ class TestScalabilityThroughput:
             elapsed = end - start
 
             throughput = num_files / elapsed
+
+            # #5225: gate on correctness, not on scaling (the GIL makes that
+            # unreliable): every file processed, sample count intact.
+            assert len(results) == num_files
+            for result in results:
+                assert result is not None
+                assert len(result) == int(3.0 * 44100)
+                assert np.all(np.isfinite(result))
 
             print(f"  {num_workers} workers: {throughput:.2f} files/sec")
 

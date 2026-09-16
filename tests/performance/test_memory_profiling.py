@@ -72,11 +72,14 @@ class TestMemoryUsage:
         config.set_processing_mode('adaptive')
         processor = HybridProcessor(config)
 
+        # process() takes decoded audio; decode before the baseline reading.
+        target, _ = load_audio(large_audio_file)
+
         gc.collect()
         before_memory = get_memory_usage_mb()
 
         # Process
-        result = processor.process(large_audio_file)
+        result = processor.process(target)
 
         gc.collect()
         after_memory = get_memory_usage_mb()
@@ -143,12 +146,14 @@ class TestMemoryLeaks:
         filepath = os.path.join(temp_audio_dir, 'leak_test.wav')
         save(filepath, audio, 44100, subtype='PCM_16')
 
+        target, _ = load_audio(filepath)
+
         gc.collect()
         initial_memory = get_memory_usage_mb()
 
         # Process 50 times
         for i in range(50):
-            result = processor.process(filepath)
+            result = processor.process(target)
             del result
 
             if i % 10 == 0:
@@ -348,12 +353,14 @@ class TestGarbageCollection:
             save(filepath, audio, 44100, subtype='PCM_16')
             files.append(filepath)
 
+        targets = [load_audio(f)[0] for f in files]
+
         # Test without frequent GC
         gc.collect()
         before_no_gc = get_memory_usage_mb()
 
-        for filepath in files:
-            result = processor.process(filepath)
+        for target in targets:
+            result = processor.process(target)
             del result
 
         after_no_gc = get_memory_usage_mb()
@@ -363,15 +370,21 @@ class TestGarbageCollection:
         gc.collect()
         before_with_gc = get_memory_usage_mb()
 
-        for filepath in files:
-            result = processor.process(filepath)
+        for target in targets:
+            result = processor.process(target)
             del result
             gc.collect()
 
         after_with_gc = get_memory_usage_mb()
         growth_with_gc = after_with_gc - before_with_gc
 
-        # BENCHMARK: Frequent GC should reduce growth by > 30%
+        # #5225: this only printed. The old "> 30% reduction" target cannot be
+        # gated on: a healthy run grows by ~0 MB either way (measured
+        # 2026-09-16: -1.0 MB / 0.0 MB), so there is nothing to reduce. Gate on
+        # the docstring's actual claim instead. 20 MB is below what keeping
+        # all 20 processed outputs alive would cost.
+        assert growth_no_gc < 20, f"{growth_no_gc:.1f}MB growth over 20 runs without explicit GC"
+        assert growth_with_gc < 20, f"{growth_with_gc:.1f}MB growth over 20 runs with explicit GC"
         reduction = ((growth_no_gc - growth_with_gc) / growth_no_gc) * 100 if growth_no_gc > 0 else 0
 
         print(f"\n✓ GC impact: {reduction:.1f}% memory reduction with frequent GC")
@@ -390,6 +403,8 @@ class TestMemoryPressure:
         config.set_processing_mode('adaptive')
         processor = HybridProcessor(config)
 
+        target, _ = load_audio(performance_audio_file)
+
         # Create memory pressure with large allocations
         pressure_arrays = []
         try:
@@ -402,17 +417,19 @@ class TestMemoryPressure:
 
         # Try to process under pressure
         try:
-            result = processor.process(performance_audio_file)
-            success = True
+            result = processor.process(target)
         except MemoryError:
-            success = False
+            pytest.skip("this machine cannot hold the pressure buffers plus a processing run")
         finally:
             del pressure_arrays
             gc.collect()
 
-        # BENCHMARK: Should either succeed or fail gracefully
-        # (Not crash or hang)
-        print(f"\n✓ Processing under pressure: {'succeeded' if success else 'failed gracefully'}")
+        # #5225: "completes under pressure" means an intact result, not just
+        # "did not raise". A MemoryError is an environment limit, so it skips.
+        assert result is not None
+        assert len(result) == len(target), "processing must preserve the sample count"
+        assert np.all(np.isfinite(result))
+        print("\n✓ Processing under pressure: succeeded")
 
     def test_large_library_memory_pressure(self, temp_db):
         """

@@ -6,6 +6,7 @@ Validates that low-confidence tracks get blended recommendations.
 """
 
 import json
+import math
 from pathlib import Path
 
 import pytest
@@ -139,6 +140,19 @@ def test_weighted_recommendation_remember_the_time():
         print(f"  Loudness: {weighted_rec.predicted_loudness_change:+.2f} dB (actual: {song_data['loudness_change_db']:+.2f})")
         print(f"  Crest: {weighted_rec.predicted_crest_change:+.2f} dB (actual: {song_data['crest_change_db']:+.2f})")
         print(f"  Centroid: {weighted_rec.predicted_centroid_change:+.1f} Hz (actual: {song_data['centroid_change_hz']:+.1f})")
+
+    # #5225: this printed its analysis and asserted nothing. The docstring's
+    # claim is that a ~51% confidence track gets a blend at a 0.52 threshold.
+    assert single_rec.confidence_score < 0.52, "the track must sit below the blending threshold"
+    assert weighted_rec.weighted_profiles, "a below-threshold track should get a blended recommendation"
+    assert abs(sum(pw.weight for pw in weighted_rec.weighted_profiles) - 1.0) < 1e-6, \
+        "blend weights should sum to 1"
+    for predicted in (
+        weighted_rec.predicted_loudness_change,
+        weighted_rec.predicted_crest_change,
+        weighted_rec.predicted_centroid_change,
+    ):
+        assert math.isfinite(predicted)
 
     print(f"\n✅ Test completed: Analyzed hybrid mastering in Remember The Time")
 

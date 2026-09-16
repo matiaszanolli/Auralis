@@ -644,17 +644,21 @@ class TestCachePerformance:
 
         print(f"\n✓ Query memory: {cache_memory:.1f}MB")
 
-    def test_concurrent_cache_access(self):
+    def test_concurrent_cache_access(self, tmp_path):
         """
         BENCHMARK: Concurrent query access should not degrade performance significantly.
 
         #4915: was routed through the (now removed) legacy query cache;
         it now measures concurrent repository reads directly.
+
+        #5225: uses a file database. LibraryDatabase's pooled engine rejects
+        ':memory:' (SingletonThreadPool takes no max_overflow), so this used to
+        fail before it measured anything.
         """
         import time
         from concurrent.futures import ThreadPoolExecutor
 
-        db = LibraryDatabase(database_path=':memory:')
+        db = LibraryDatabase(database_path=str(tmp_path / 'library.db'))
 
         # Populate
         for i in range(1000):
@@ -670,21 +674,29 @@ class TestCachePerformance:
         def query_tracks(offset):
             return db.tracks.get_all(limit=50, offset=offset)
 
+        offsets = [0, 50, 100, 150, 200]
+
         # Sequential
         start = time.perf_counter()
-        for offset in [0, 50, 100, 150, 200]:
-            query_tracks(offset)
+        sequential = [query_tracks(offset) for offset in offsets]
         sequential_time = time.perf_counter() - start
 
         # Concurrent
         start = time.perf_counter()
         with ThreadPoolExecutor(max_workers=5) as executor:
-            list(executor.map(query_tracks, [0, 50, 100, 150, 200]))
+            concurrent = list(executor.map(query_tracks, offsets))
         concurrent_time = time.perf_counter() - start
 
-        # BENCHMARK: Concurrent should be at least 2x faster (or similar if limited by GIL)
-        speedup = sequential_time / concurrent_time if concurrent_time > 0 else 1
+        # #5225: this only printed a speedup. The GIL makes a real speedup
+        # unreliable to gate on, so assert what concurrency must not break:
+        # every thread gets the same, complete page the sequential pass got.
+        def ids(pages):
+            return [[t.id for t in tracks] for tracks, _total in pages]
 
+        assert ids(concurrent) == ids(sequential)
+        assert all(len(tracks) == 50 and total == 1000 for tracks, total in concurrent)
+
+        speedup = sequential_time / concurrent_time if concurrent_time > 0 else 1
         print(f"\n✓ Concurrent query speedup: {speedup:.1f}x")
 
 
