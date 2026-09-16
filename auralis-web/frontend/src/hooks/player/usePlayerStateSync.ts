@@ -53,6 +53,7 @@ import {
 } from '@/store/slices/queueSlice';
 import type { PresetName } from '@/store/slices/playerSlice';
 import type { RawPlayerStateData, TrackInfo } from '@/types/websocket';
+import { mapTrackInfoToTrack } from './trackInfoMapper';
 
 // Mirrors types/domain.ts's EnhancementPreset -- only 'adaptive' now (#4861 follow-up).
 const VALID_PRESETS: readonly string[] = ['adaptive'];
@@ -129,16 +130,7 @@ export function usePlayerStateSync() {
         if ('current_track' in state) {
           const track = state.current_track;
           if (track) {
-            dispatch(
-              setCurrentTrack({
-                id: track.id,
-                title: track.title,
-                artist: track.artist,
-                album: track.album || '',
-                duration: track.duration || 0,
-                artworkUrl: track.artwork_url,
-              })
-            );
+            dispatch(setCurrentTrack(mapTrackInfoToTrack(track)));
           } else {
             dispatch(setCurrentTrack(null));
           }
@@ -181,15 +173,7 @@ export function usePlayerStateSync() {
 
         // Queue state
         if (state.queue && Array.isArray(state.queue)) {
-          const tracks = state.queue.map((t: TrackInfo) => ({
-            id: t.id,
-            title: t.title,
-            artist: t.artist,
-            album: t.album || '',
-            duration: t.duration || 0,
-            artworkUrl: t.artwork_url,
-          }));
-          dispatch(setQueue(tracks));
+          dispatch(setQueue(state.queue.map((t: TrackInfo) => mapTrackInfoToTrack(t))));
         }
 
         if ('queue_index' in state && typeof state.queue_index === 'number') {

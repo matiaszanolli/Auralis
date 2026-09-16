@@ -15,7 +15,7 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { useQueueFetch } from '../useQueueFetch';
-import queueReducer, { selectIsShuffled } from '@/store/slices/queueSlice';
+import queueReducer, { selectIsShuffled, selectQueueTracks } from '@/store/slices/queueSlice';
 import * as useRestAPIModule from '@/hooks/api/useRestAPI';
 
 const createStore = () => configureStore({ reducer: { queue: queueReducer } });
@@ -110,6 +110,59 @@ describe('useQueueFetch', () => {
 
     await waitFor(() => {
       expect(selectIsShuffled(store.getState())).toBe(true);
+    });
+  });
+
+  describe('track field mapping (#5009)', () => {
+    it('maps snake_case artwork_url to camelCase artworkUrl, not a raw cast', async () => {
+      mockRestAPI(vi.fn().mockResolvedValue({
+        tracks: [
+          { id: 1, title: 'A', artist: 'X', album: 'Al', duration: 180, artwork_url: '/art/1.jpg' },
+        ],
+        current_index: 0,
+        shuffle_enabled: false,
+        repeat_mode: 'off',
+      }));
+
+      const store = createStore();
+      renderHook(() => useQueueFetch(), { wrapper: wrapperFor(store) });
+
+      await waitFor(() => {
+        expect(selectQueueTracks(store.getState())).toHaveLength(1);
+      });
+      const [track] = selectQueueTracks(store.getState());
+      expect(track).toMatchObject({
+        id: 1,
+        title: 'A',
+        artist: 'X',
+        album: 'Al',
+        duration: 180,
+        artworkUrl: '/art/1.jpg',
+      });
+      // The bug this pins: a raw cast left the snake_case key on the
+      // dispatched object instead of translating it.
+      expect(track).not.toHaveProperty('artwork_url');
+    });
+
+    it('defaults album/duration the same way the WS mapping does for a sparse track', async () => {
+      mockRestAPI(vi.fn().mockResolvedValue({
+        tracks: [{ id: 2, title: 'B', artist: 'Y' }],
+        current_index: 0,
+        shuffle_enabled: false,
+        repeat_mode: 'off',
+      }));
+
+      const store = createStore();
+      renderHook(() => useQueueFetch(), { wrapper: wrapperFor(store) });
+
+      await waitFor(() => {
+        expect(selectQueueTracks(store.getState())).toHaveLength(1);
+      });
+      expect(selectQueueTracks(store.getState())[0]).toMatchObject({
+        id: 2,
+        album: '',
+        duration: 0,
+      });
     });
   });
 });

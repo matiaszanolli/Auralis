@@ -20,8 +20,9 @@ import {
   setRepeatMode as reduxSetRepeatMode,
   isRepeatMode,
 } from '@/store/slices/queueSlice';
-import type { Track, QueueTrack } from '@/types/domain';
 import type { AppDispatch } from '@/store';
+import type { TrackInfo } from '@/types/websocket';
+import { mapTrackInfoToTrack } from './trackInfoMapper';
 
 /**
  * Fetch the current queue from the backend on mount and seed Redux with it.
@@ -45,8 +46,13 @@ export function useQueueFetch(): void {
         });
 
         if (response && isActive) {
-          // Backend sends snake_case; map to our state shape
-          dispatch(reduxSetQueue((response.tracks as (Track | QueueTrack)[]) || []));
+          // Backend sends snake_case (#5009: mapped via the same helper
+          // usePlayerStateSync uses, not a raw cast — the resulting Redux
+          // queue.tracks entries are read as-is by the track_changed WS
+          // handler, so a caller-mapped shape here directly determines what
+          // that live path dispatches).
+          const rawTracks = (response.tracks as TrackInfo[] | undefined) ?? [];
+          dispatch(reduxSetQueue(rawTracks.map(mapTrackInfoToTrack)));
           dispatch(reduxSetCurrentIndex(
             (response.current_index as number) ?? (response.currentIndex as number) ?? 0
           ));
