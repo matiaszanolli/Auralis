@@ -13,8 +13,8 @@
  * - Drag-and-drop playlist selection
  *
  * Uses:
- * - usePlaylistWebSocket hook for real-time updates
- * - usePlaylistOperations hook for CRUD operations
+ * - usePlaylistData hook for the list, loading flag and real-time updates
+ * - usePlaylistOperations hook for deletion
  * - usePlaylistContextActions hook for context menu
  * - PlaylistListHeader for header section
  * - PlaylistListContent for list rendering
@@ -28,7 +28,7 @@
  * ```
  */
 
-import { MouseEvent, useEffect, useRef, useState } from 'react';
+import { MouseEvent, useCallback, useState } from 'react';
 import { Box } from '@mui/material';
 import Add from '@mui/icons-material/Add';
 import * as playlistService from '@/services/playlistService';
@@ -38,11 +38,21 @@ import EditPlaylistDialog from './EditPlaylistDialog';
 import { PlaylistSection } from './PlaylistList.styles';
 import { PlaylistListHeader } from './PlaylistListHeader';
 import { PlaylistListContent } from './PlaylistListContent';
-import { usePlaylistWebSocket } from './usePlaylistWebSocket';
+import { usePlaylistData } from './usePlaylistData';
 import { usePlaylistOperations } from './usePlaylistOperations';
 import { usePlaylistContextActions } from './usePlaylistContextActions';
 import { tokens } from '@/design-system';
 import { themeVars } from '@/theme/semanticTheme';
+
+// At most one of the create dialog, edit dialog and context menu is active;
+// one union makes that an invariant instead of three independent flags (#5480).
+type PlaylistOverlay =
+  | { kind: 'none' }
+  | { kind: 'create' }
+  | { kind: 'edit'; playlist: playlistService.Playlist }
+  | { kind: 'contextMenu'; playlist: playlistService.Playlist };
+
+const NO_OVERLAY: PlaylistOverlay = { kind: 'none' };
 
 interface PlaylistListProps {
   onPlaylistSelect?: (playlistId: number) => void;
@@ -55,115 +65,53 @@ export const PlaylistList = ({
   selectedPlaylistId,
   hideHeader = false,
 }: PlaylistListProps) => {
-  // State management
-  const [playlists, setPlaylists] = useState<playlistService.Playlist[]>([]);
   const [expanded, setExpanded] = useState(true);
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [editingPlaylist, setEditingPlaylist] = useState<playlistService.Playlist | null>(null);
-  const [contextMenuPlaylist, setContextMenuPlaylist] = useState<playlistService.Playlist | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [overlay, setOverlay] = useState<PlaylistOverlay>(NO_OVERLAY);
+  const { playlists, loading, refresh, addPlaylist, removePlaylist } = usePlaylistData();
 
-  // Guard post-await setState against unmount: the mount fetch and the WS
-  // callbacks can resolve/fire after the component unmounts (#4156).
-  const isMountedRef = useRef(true);
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-    };
+  const { contextMenuState, handleContextMenu, handleCloseContextMenu } = useContextMenu();
+  const { handleDelete } = usePlaylistOperations({ selectedPlaylistId, onPlaylistSelect });
+
+  const openCreateDialog = () => setOverlay({ kind: 'create' });
+  // Closing one overlay must not dismiss another that replaced it, so only
+  // reset when `kind` is still the one being closed.
+  const closeOverlay = useCallback((kind: PlaylistOverlay['kind']) => {
+    setOverlay((current) => (current.kind === kind ? NO_OVERLAY : current));
   }, []);
 
-  // Context menu and utilities
-  const { contextMenuState, handleContextMenu, handleCloseContextMenu } = useContextMenu();
-
-  // Custom hooks for operations
-  const { fetchPlaylists: fetchPlaylistsAsync, handleDelete } = usePlaylistOperations({
-    selectedPlaylistId,
-    onPlaylistSelect,
-  });
-
-  // Load playlists on mount
-  useEffect(() => {
-    const loadPlaylists = async () => {
-      setLoading(true);
-      const loaded = await fetchPlaylistsAsync();
-      if (!isMountedRef.current) return;
-      setPlaylists(loaded);
-      setLoading(false);
-    };
-    loadPlaylists();
-  }, [fetchPlaylistsAsync]);
-
-  // WebSocket subscriptions for real-time updates
-  usePlaylistWebSocket({
-    onPlaylistCreated: async () => {
-      const loaded = await fetchPlaylistsAsync();
-      if (!isMountedRef.current) return;
-      setPlaylists(loaded);
-    },
-    onPlaylistUpdated: (playlistId, updates) => {
-      setPlaylists((prev) =>
-        prev.map((p) =>
-          p.id === playlistId ? { ...p, ...updates } : p
-        )
-      );
-    },
-    onPlaylistDeleted: (playlistId) => {
-      setPlaylists((prev) => prev.filter((p) => p.id !== playlistId));
-    },
-    onPlaylistsRefresh: async () => {
-      const loaded = await fetchPlaylistsAsync();
-      if (!isMountedRef.current) return;
-      setPlaylists(loaded);
-    },
-  });
-
-  // Playlist creation handler
   const handlePlaylistCreated = (playlist: playlistService.Playlist) => {
-    setPlaylists((prev) => [...prev, playlist]);
+    addPlaylist(playlist);
     if (onPlaylistSelect) {
       onPlaylistSelect(playlist.id);
     }
   };
 
-  // Playlist deletion handler
   const handleDeleteClick = async (playlistId: number, playlistName: string) => {
     const deleted = await handleDelete(playlistId, playlistName);
     if (deleted) {
-      setPlaylists((prev) => prev.filter((p) => p.id !== playlistId));
+      removePlaylist(playlistId);
     }
   };
 
-  // Playlist updated handler
-  const handlePlaylistUpdated = async () => {
-    const loaded = await fetchPlaylistsAsync();
-    if (!isMountedRef.current) return;
-    setPlaylists(loaded);
-  };
-
-  // Context menu handlers
   const handleContextMenuOpen = (e: MouseEvent, playlist: playlistService.Playlist) => {
     e.preventDefault();
     e.stopPropagation();
-    setContextMenuPlaylist(playlist);
+    setOverlay({ kind: 'contextMenu', playlist });
     handleContextMenu(e);
   };
 
+  // ContextMenu runs an action's onClick and THEN onClose, so the Edit
+  // action's switch to { kind: 'edit' } must survive this close.
   const handleContextMenuClose = () => {
-    setContextMenuPlaylist(null);
+    closeOverlay('contextMenu');
     handleCloseContextMenu();
   };
 
-  // Context menu actions
   const contextActions = usePlaylistContextActions({
-    playlist: contextMenuPlaylist,
+    playlist: overlay.kind === 'contextMenu' ? overlay.playlist : null,
     onPlaylistSelect,
     onDelete: handleDeleteClick,
-    onEdit: (playlist) => {
-      setEditingPlaylist(playlist);
-      setEditDialogOpen(true);
-    },
+    onEdit: (playlist) => setOverlay({ kind: 'edit', playlist }),
   });
 
   return (
@@ -173,7 +121,7 @@ export const PlaylistList = ({
           playlistCount={playlists.length}
           expanded={expanded}
           onExpandToggle={() => setExpanded(!expanded)}
-          onCreateClick={() => setCreateDialogOpen(true)}
+          onCreateClick={openCreateDialog}
         />
       )}
 
@@ -197,7 +145,7 @@ export const PlaylistList = ({
         <Box
           component="button"
           type="button"
-          onClick={() => setCreateDialogOpen(true)}
+          onClick={openCreateDialog}
           aria-label="Create new playlist"
           sx={{
             display: 'flex',
@@ -225,19 +173,16 @@ export const PlaylistList = ({
       )}
 
       <CreatePlaylistDialog
-        open={createDialogOpen}
-        onClose={() => setCreateDialogOpen(false)}
+        open={overlay.kind === 'create'}
+        onClose={() => closeOverlay('create')}
         onPlaylistCreated={handlePlaylistCreated}
       />
 
       <EditPlaylistDialog
-        open={editDialogOpen}
-        onClose={() => {
-          setEditDialogOpen(false);
-          setEditingPlaylist(null);
-        }}
-        playlist={editingPlaylist}
-        onPlaylistUpdated={handlePlaylistUpdated}
+        open={overlay.kind === 'edit'}
+        onClose={() => closeOverlay('edit')}
+        playlist={overlay.kind === 'edit' ? overlay.playlist : null}
+        onPlaylistUpdated={refresh}
       />
     </PlaylistSection>
   );

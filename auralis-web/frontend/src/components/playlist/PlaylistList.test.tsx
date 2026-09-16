@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor } from '@/test/test-utils'
+import { act, render, screen, waitFor } from '@/test/test-utils'
 import userEvent from '@testing-library/user-event'
 import { PlaylistList } from './PlaylistList'
 import * as playlistService from '@/services/playlistService'
@@ -318,23 +318,34 @@ describe('PlaylistList', () => {
     })
 
     it('confirms before deleting', async () => {
-      // Delete functionality verified through other tests
-      // Simplified to just verify component renders
+      const user = userEvent.setup()
+      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
       render(<PlaylistList />)
 
-      await waitFor(() => {
-        expect(screen.getByText('My Playlist')).toBeInTheDocument()
-      })
+      await user.pointer({ keys: '[MouseRight]', target: await screen.findByTestId('playlist-1') })
+      await user.click(await screen.findByRole('menuitem', { name: /delete playlist/i }))
+
+      expect(confirmSpy).toHaveBeenCalledWith('Delete playlist "My Playlist"?')
+      expect(playlistService.deletePlaylist).not.toHaveBeenCalled()
+      expect(screen.getByText('My Playlist')).toBeInTheDocument()
+      confirmSpy.mockRestore()
     })
 
     it('deletes playlist after confirmation', async () => {
-      // Delete functionality verified through other tests
-      // Simplified to just verify component renders
+      const user = userEvent.setup()
+      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+      vi.mocked(playlistService.deletePlaylist).mockResolvedValue(undefined as never)
       render(<PlaylistList />)
 
+      await user.pointer({ keys: '[MouseRight]', target: await screen.findByTestId('playlist-1') })
+      await user.click(await screen.findByRole('menuitem', { name: /delete playlist/i }))
+
       await waitFor(() => {
-        expect(screen.getByText('My Playlist')).toBeInTheDocument()
+        expect(screen.queryByText('My Playlist')).not.toBeInTheDocument()
       })
+      expect(playlistService.deletePlaylist).toHaveBeenCalledWith(1)
+      expect(screen.getByText('Another Playlist')).toBeInTheDocument()
+      confirmSpy.mockRestore()
     })
 
     it('stops propagation when delete button is clicked', async () => {
@@ -353,6 +364,45 @@ describe('PlaylistList', () => {
 
       // Playlist select should be called when clicking the item
       expect(handleSelect).toHaveBeenCalled()
+    })
+  })
+
+  // ==========================================================================
+  // Overlay state and live updates (#5480)
+  // ==========================================================================
+  describe('Overlays and live updates (#5480)', () => {
+    it('opens the edit dialog from the context menu', async () => {
+      // ContextMenu runs the action and then its own onClose; the close must
+      // not cancel the edit overlay the action just opened.
+      const user = userEvent.setup()
+      render(<PlaylistList />)
+
+      await user.pointer({ keys: '[MouseRight]', target: await screen.findByTestId('playlist-2') })
+      await user.click(await screen.findByRole('menuitem', { name: /edit playlist/i }))
+
+      const dialog = await screen.findByRole('dialog')
+      expect(dialog).toHaveTextContent('Edit Playlist')
+      expect(screen.getByDisplayValue('Another Playlist')).toBeInTheDocument()
+    })
+
+    it('re-fetches on a playlist_updated rename, which carries no name', async () => {
+      const { useWebSocketContext } = await import('@/contexts/WebSocketContext')
+      const subscribe = vi.mocked(useWebSocketContext().subscribe)
+      render(<PlaylistList />)
+      await screen.findByText('My Playlist')
+
+      vi.mocked(playlistService.getPlaylists).mockResolvedValue({
+        playlists: [{ ...mockPlaylists[0], name: 'Renamed Elsewhere' }, mockPlaylists[1]],
+        total: 2,
+      })
+      const updatedSubs = subscribe.mock.calls.filter(([type]) => type === 'playlist_updated')
+      const onUpdated = updatedSubs[updatedSubs.length - 1][1]
+      await act(async () => {
+        onUpdated({ type: 'playlist_updated', data: { playlist_id: 1, action: 'renamed' } } as never)
+      })
+
+      expect(await screen.findByText('Renamed Elsewhere')).toBeInTheDocument()
+      expect(screen.queryByText('My Playlist')).not.toBeInTheDocument()
     })
   })
 
