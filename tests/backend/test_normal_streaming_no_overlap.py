@@ -2,238 +2,206 @@
 Tests for Normal Streaming Without Overlap (#2099)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Tests that normal audio streaming sends non-overlapping chunks
-to prevent audio duplication.
+Normal (unprocessed) streaming must send non-overlapping chunks: #2099 was
+audio played twice because chunks were read at an interval shorter than their
+length.
+
+These tests drive the real ``core.stream_normal.stream_normal_audio`` over a
+real WAV file and inspect the PCM it hands to ``_send_pcm_chunk``. Every
+sample of the file holds its own frame index, so the emitted stream can be
+compared with the file sample for sample: a duplicated, dropped or shifted
+frame shows up as a mismatch (#5094). The suite used to restate the chunk
+geometry in local variables and assert those against each other, which could
+not fail whatever the streaming code did.
+
+Chunk geometry comes from ``core.chunk_boundaries``, never from literals.
 
 :copyright: (C) 2026 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+import inspect
+import sys
+from itertools import pairwise
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import numpy as np
 import pytest
+import soundfile as sf
+
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
+
+from core import chunk_boundaries, stream_normal, stream_protocol
+from core.audio_stream_controller import AudioStreamController
+from core.chunk_boundaries import CHUNK_DURATION, CHUNK_INTERVAL
+
+# A low rate keeps the files small; the geometry is rate-independent.
+SAMPLE_RATE = 8000
+CHUNK_SAMPLES = int(CHUNK_DURATION * SAMPLE_RATE)
+TRACK_ID = 2099
+
+# Sample value = frame index / INDEX_SCALE. A power of two keeps the value
+# exact in float32 for any index below 2**24, and below 1.0 for any file
+# shorter than INDEX_SCALE frames (262 s at SAMPLE_RATE).
+INDEX_SCALE = 2**21
+
+
+def _write_indexed_wav(path: Path, duration: float, channels: int = 2) -> int:
+    frames = int(duration * SAMPLE_RATE)
+    assert frames < INDEX_SCALE
+    ramp = (np.arange(frames, dtype=np.float64) / INDEX_SCALE).astype(np.float32)
+    sf.write(str(path), np.repeat(ramp[:, None], channels, axis=1), SAMPLE_RATE, subtype="FLOAT")
+    return frames
+
+
+def _frame_indices(chunk: np.ndarray) -> np.ndarray:
+    """Recover the file frame index each emitted sample came from."""
+    assert np.array_equal(chunk[:, 0], chunk[:, -1]), "channels were misaligned"
+    return np.rint(chunk[:, 0].astype(np.float64) * INDEX_SCALE).astype(np.int64)
+
+
+async def _stream(path: Path, start_position: float = 0.0) -> list[np.ndarray]:
+    """Run the real normal-stream handler and return the chunks it sent."""
+    sent: list[np.ndarray] = []
+
+    async def capture(
+        _ws: object, *, pcm_samples: np.ndarray, chunk_index: int, total_chunks: int
+    ) -> bool:
+        sent.append(np.array(pcm_samples, copy=True))
+        return True
+
+    controller = AudioStreamController()
+    controller._send_stream_start = AsyncMock(return_value=True)
+    controller._send_stream_completion = AsyncMock()
+    controller._send_error = AsyncMock()
+    controller._send_pcm_chunk = capture
+    controller._is_websocket_connected = MagicMock(return_value=True)
+    track = MagicMock(filepath=str(path))
+    factory = MagicMock()
+    factory.tracks.get_by_id.return_value = track
+    controller._get_repository_factory = MagicMock(return_value=factory)
+
+    with patch.object(stream_normal, "validate_file_path", side_effect=lambda p, **_kw: p), \
+         patch.dict(sys.modules, {"routers.system": MagicMock(
+             _stream_pause_events={}, _stream_flow_events={})}):
+        await stream_normal.stream_normal_audio(
+            controller=controller, track_id=TRACK_ID, websocket=MagicMock(),
+            start_position=start_position,
+        )
+
+    controller._send_error.assert_not_called()
+    return sent
+
+
+def _plan(frames: int, start_position: float = 0.0) -> chunk_boundaries.NormalStreamPlan:
+    return chunk_boundaries.normal_stream_plan(frames, SAMPLE_RATE, start_position)
 
 
 class TestNormalStreamingChunkCalculation:
-    """Test chunk calculation for normal streaming"""
+    """The chunk plan the normal path streams from."""
 
-    def test_no_overlap_in_chunk_intervals(self):
-        """Test that normal streaming chunks don't overlap"""
-        # Simulate normal streaming chunk calculation
-        sample_rate = 44100
-        chunk_duration = 15.0  # 15 seconds
-        chunk_samples = int(chunk_duration * sample_rate)
+    async def test_no_overlap_in_chunk_intervals(self, tmp_path: Path) -> None:
+        """Each chunk starts on the frame right after the previous one ends."""
+        path = tmp_path / "t.wav"
+        _write_indexed_wav(path, 4 * CHUNK_DURATION)
 
-        # CRITICAL: interval_samples should equal chunk_samples (no overlap)
-        interval_samples = chunk_samples
+        chunks = [_frame_indices(c) for c in await _stream(path)]
 
-        # Verify no overlap
-        assert interval_samples == chunk_samples, \
-            "Normal streaming should have interval = duration (no overlap)"
+        assert len(chunks) == 4
+        for k, (prev, nxt) in enumerate(pairwise(chunks)):
+            assert nxt[0] == prev[-1] + 1, f"chunk {k + 1} does not follow chunk {k}"
 
-        # Calculate chunk boundaries for a 60-second file
-        audio_duration = 60.0
-        total_samples = int(audio_duration * sample_rate)
+    @pytest.mark.parametrize("seconds", [CHUNK_DURATION, 2 * CHUNK_DURATION + 7.3, 11 * CHUNK_DURATION + 1.0])
+    async def test_total_duration_matches_file_duration(self, tmp_path: Path, seconds: float) -> None:
+        """Delivered audio is exactly the file's length, and the plan counts
+        ceil(frames / chunk) chunks for it."""
+        path = tmp_path / "t.wav"
+        frames = _write_indexed_wav(path, seconds)
 
-        # Calculate chunks
-        total_chunks = max(1, int(np.ceil(total_samples / interval_samples)))
+        chunks = await _stream(path)
 
-        # Verify chunk boundaries don't overlap
-        for chunk_idx in range(total_chunks - 1):  # Exclude last chunk
-            start_sample = chunk_idx * interval_samples
-            end_sample = min(start_sample + chunk_samples, total_samples)
+        assert sum(len(c) for c in chunks) == frames
+        assert len(chunks) == _plan(frames).total_chunks == int(np.ceil(frames / CHUNK_SAMPLES))
 
-            next_start_sample = (chunk_idx + 1) * interval_samples
+    def test_enhanced_vs_normal_streaming_overlap(self) -> None:
+        """The enhanced model advances by CHUNK_INTERVAL (< CHUNK_DURATION);
+        the normal plan must advance by the full chunk instead."""
+        assert CHUNK_INTERVAL < CHUNK_DURATION, "enhanced path is expected to overlap"
 
-            # Current chunk should end exactly where next chunk starts (no gap, no overlap)
-            assert next_start_sample == end_sample or next_start_sample <= total_samples, \
-                f"Chunk {chunk_idx} overlaps with chunk {chunk_idx + 1}"
+        plan = _plan(10 * CHUNK_SAMPLES)
 
-    def test_total_duration_matches_file_duration(self):
-        """Test that total playback duration matches file duration"""
-        sample_rate = 44100
-        chunk_duration = 15.0
-        chunk_samples = int(chunk_duration * sample_rate)
+        assert plan.chunk_duration == CHUNK_DURATION
+        assert plan.chunk_samples == CHUNK_SAMPLES
+        assert plan.interval_samples == plan.chunk_samples
+        assert plan.interval_samples != int(CHUNK_INTERVAL * SAMPLE_RATE)
+        assert plan.total_chunks == 10
 
-        # No overlap for normal streaming
-        interval_samples = chunk_samples
-
-        # Test with various file durations
-        test_durations = [30.0, 60.0, 90.0, 180.0]  # 30s, 1min, 1.5min, 3min
-
-        for audio_duration in test_durations:
-            total_samples = int(audio_duration * sample_rate)
-            total_chunks = max(1, int(np.ceil(total_samples / interval_samples)))
-
-            # Calculate actual playback duration
-            # Last chunk might be shorter, but no overlap means total duration = file duration
-            playback_samples = 0
-            for chunk_idx in range(total_chunks):
-                start_sample = chunk_idx * interval_samples
-                end_sample = min(start_sample + chunk_samples, total_samples)
-                chunk_length = end_sample - start_sample
-                playback_samples += chunk_length
-
-            playback_duration = playback_samples / sample_rate
-
-            # Should match file duration (within rounding error)
-            assert abs(playback_duration - audio_duration) < 0.1, \
-                f"Playback duration {playback_duration}s doesn't match file duration {audio_duration}s"
-
-    def test_enhanced_vs_normal_streaming_overlap(self):
-        """Test that enhanced streaming has overlap but normal doesn't"""
-        sample_rate = 44100
-
-        # Enhanced streaming (with ChunkedProcessor)
-        enhanced_chunk_duration = 30.0  # 30s chunks
-        enhanced_overlap_duration = 5.0  # 5s overlap
-        enhanced_chunk_interval = enhanced_chunk_duration - enhanced_overlap_duration  # 25s
-
-        enhanced_chunk_samples = int(enhanced_chunk_duration * sample_rate)
-        enhanced_interval_samples = int(enhanced_chunk_interval * sample_rate)
-
-        # Enhanced path HAS overlap
-        assert enhanced_interval_samples < enhanced_chunk_samples, \
-            "Enhanced streaming should have overlap (interval < duration)"
-
-        overlap_samples = enhanced_chunk_samples - enhanced_interval_samples
-        overlap_duration = overlap_samples / sample_rate
-        assert abs(overlap_duration - enhanced_overlap_duration) < 0.01, \
-            "Enhanced streaming should have 5s overlap"
-
-        # Normal streaming (without processing)
-        normal_chunk_duration = 15.0  # 15s chunks
-        normal_chunk_samples = int(normal_chunk_duration * sample_rate)
-        normal_interval_samples = normal_chunk_samples  # No overlap
-
-        # Normal path has NO overlap
-        assert normal_interval_samples == normal_chunk_samples, \
-            "Normal streaming should have NO overlap (interval = duration)"
-
-    def test_no_crossfade_parameter_on_the_send_path(self):
+    def test_no_crossfade_parameter_on_the_send_path(self) -> None:
         """
         Normal streaming applies no crossfade, and neither does any other path
         — so `crossfade_samples` no longer exists on the send API at all
-        (#4642). Previously this test asserted `0 == 0` against a local
-        variable, which proved nothing about the code under test.
+        (#4642).
         """
-        import inspect
-        from core import stream_protocol
-
         params = inspect.signature(stream_protocol.send_pcm_chunk).parameters
         assert 'crossfade_samples' not in params
 
 
 class TestNormalStreamingAudioDuplication:
-    """Test that normal streaming doesn't duplicate audio"""
+    """The emitted stream is the file, once."""
 
-    def test_no_duplicated_samples_in_chunk_sequence(self):
-        """Test that consecutive chunks don't contain duplicated samples"""
-        sample_rate = 44100
-        chunk_duration = 15.0
-        chunk_samples = int(chunk_duration * sample_rate)
+    async def test_no_duplicated_samples_in_chunk_sequence(self, tmp_path: Path) -> None:
+        """Concatenated chunks equal the file sample for sample: no frame
+        repeated (the #2099 bug), none skipped."""
+        path = tmp_path / "t.wav"
+        frames = _write_indexed_wav(path, 3 * CHUNK_DURATION + 4.0, channels=1)
 
-        # No overlap for normal streaming
-        interval_samples = chunk_samples
+        emitted = np.concatenate([_frame_indices(c) for c in await _stream(path)])
 
-        # Create a test audio signal (60 seconds)
-        audio_duration = 60.0
-        total_samples = int(audio_duration * sample_rate)
-        audio_data = np.random.randn(total_samples, 2).astype(np.float32)  # Stereo
+        np.testing.assert_array_equal(emitted, np.arange(frames))
 
-        # Calculate chunks
-        total_chunks = max(1, int(np.ceil(total_samples / interval_samples)))
+    async def test_playback_duration_not_inflated_by_overlap(self, tmp_path: Path) -> None:
+        """A 3-minute file plays for 3 minutes. With chunks read every
+        CHUNK_INTERVAL instead, it would last about CHUNK_DURATION / CHUNK_INTERVAL
+        times longer."""
+        path = tmp_path / "t.wav"
+        frames = _write_indexed_wav(path, 180.0)
 
-        # Extract chunks and verify no duplication
-        all_extracted_samples = []
-        for chunk_idx in range(total_chunks):
-            start_sample = chunk_idx * interval_samples
-            end_sample = min(start_sample + chunk_samples, total_samples)
+        chunks = await _stream(path)
 
-            chunk_audio = audio_data[start_sample:end_sample]
-            all_extracted_samples.extend(range(start_sample, end_sample))
-
-        # Check that no sample index appears more than once
-        unique_samples = set(all_extracted_samples)
-        assert len(all_extracted_samples) == len(unique_samples), \
-            "Normal streaming should not extract any sample more than once (duplication detected)"
-
-        # Verify we extracted all samples (no gaps)
-        assert len(unique_samples) == total_samples, \
-            f"Should extract all {total_samples} samples, got {len(unique_samples)}"
-
-    def test_playback_duration_not_inflated_by_overlap(self):
-        """Test that playback duration isn't inflated by overlap"""
-        sample_rate = 44100
-        chunk_duration = 15.0
-        chunk_samples = int(chunk_duration * sample_rate)
-
-        # No overlap for normal streaming
-        interval_samples = chunk_samples
-
-        # Test with 3-minute file
-        audio_duration = 180.0  # 3 minutes
-        total_samples = int(audio_duration * sample_rate)
-
-        # Calculate total chunks
-        total_chunks = max(1, int(np.ceil(total_samples / interval_samples)))
-
-        # If there WAS overlap (old bug), duration would be inflated
-        # Example: 15s chunks at 10s intervals = 5s overlap per chunk
-        # For 180s file: ~18 chunks × 5s overlap = ~90s extra = 270s total (WRONG!)
-
-        # With our fix (no overlap): duration should be exactly 180s
-        playback_samples = 0
-        for chunk_idx in range(total_chunks):
-            start_sample = chunk_idx * interval_samples
-            end_sample = min(start_sample + chunk_samples, total_samples)
-            chunk_length = end_sample - start_sample
-            playback_samples += chunk_length
-
-        playback_duration = playback_samples / sample_rate
-
-        # Should be ~180s, not ~270s
-        assert abs(playback_duration - audio_duration) < 1.0, \
-            f"Playback duration should be ~180s, got {playback_duration}s"
-
-        # Definitely should NOT be inflated to 270s (the old bug)
-        assert playback_duration < 200.0, \
-            "Playback duration should not be inflated by overlap"
+        assert sum(len(c) for c in chunks) / SAMPLE_RATE == pytest.approx(frames / SAMPLE_RATE)
 
 
 class TestChunkBoundaryArtifacts:
-    """Test that chunk boundaries don't cause artifacts"""
+    """Chunk edges, including the first chunk after a seek."""
 
-    def test_chunk_boundaries_are_clean(self):
-        """Test that chunk boundaries align perfectly without gaps or overlaps"""
-        sample_rate = 44100
-        chunk_duration = 15.0
-        chunk_samples = int(chunk_duration * sample_rate)
+    async def test_chunk_boundaries_are_clean(self, tmp_path: Path) -> None:
+        """Every chunk but the last is exactly one chunk long and starts on a
+        chunk boundary; the last is the true remainder, not padded (#2124)."""
+        path = tmp_path / "t.wav"
+        frames = _write_indexed_wav(path, 3 * CHUNK_DURATION + 2.5)
 
-        # No overlap for normal streaming
-        interval_samples = chunk_samples
+        chunks = [_frame_indices(c) for c in await _stream(path)]
 
-        # Test with various file durations
-        test_durations = [45.0, 90.0, 135.0]  # Multiples and non-multiples of 15s
+        for k, chunk in enumerate(chunks[:-1]):
+            assert len(chunk) == CHUNK_SAMPLES
+            assert chunk[0] == k * CHUNK_SAMPLES
+        assert len(chunks[-1]) == frames - (len(chunks) - 1) * CHUNK_SAMPLES
 
-        for audio_duration in test_durations:
-            total_samples = int(audio_duration * sample_rate)
-            total_chunks = max(1, int(np.ceil(total_samples / interval_samples)))
+    async def test_seek_resumes_at_the_position_without_replay(self, tmp_path: Path) -> None:
+        """A mid-chunk seek emits from the requested frame, and the next chunk
+        is back on its boundary: nothing before the seek point is replayed
+        (#4560), nothing after it is duplicated."""
+        path = tmp_path / "t.wav"
+        frames = _write_indexed_wav(path, 3 * CHUNK_DURATION)
+        position = CHUNK_DURATION + 6.25
+        seek_frame = int(position * SAMPLE_RATE)
 
-            # Check each chunk boundary
-            for chunk_idx in range(total_chunks - 1):
-                current_start = chunk_idx * interval_samples
-                current_end = min(current_start + chunk_samples, total_samples)
+        chunks = [_frame_indices(c) for c in await _stream(path, start_position=position)]
 
-                next_start = (chunk_idx + 1) * interval_samples
-                next_end = min(next_start + chunk_samples, total_samples)
-
-                # No gap between chunks
-                assert next_start == current_end or next_start <= total_samples, \
-                    f"Gap detected between chunk {chunk_idx} and {chunk_idx + 1}"
-
-                # No overlap between chunks
-                assert next_start >= current_end, \
-                    f"Overlap detected between chunk {chunk_idx} and {chunk_idx + 1}"
+        assert chunks[0][0] == seek_frame
+        assert chunks[1][0] == 2 * CHUNK_SAMPLES
+        np.testing.assert_array_equal(np.concatenate(chunks), np.arange(seek_frame, frames))
 
 
 if __name__ == "__main__":
