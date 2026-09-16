@@ -6,6 +6,7 @@
 
 import { Box, Skeleton } from '@mui/material';
 import Grid2 from '@mui/material/Grid';
+import { tokens } from '@/design-system';
 
 export const AlbumGridLoadingState = () => {
   return (
@@ -25,7 +26,7 @@ export const AlbumGridLoadingState = () => {
                 variant="rectangular"
                 width="100%"
                 height={200}
-                sx={{ borderRadius: '8px', marginBottom: '12px' }}
+                sx={{ borderRadius: tokens.borderRadius.sm, marginBottom: tokens.spacing.md }}
               />
               <Skeleton variant="text" width="80%" />
               <Skeleton variant="text" width="60%" />

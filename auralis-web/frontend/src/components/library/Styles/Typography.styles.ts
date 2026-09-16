@@ -38,7 +38,7 @@ export const SectionLabel = styled(Typography)({
 export const SectionDescription = styled(Typography)({
   fontSize: tokens.typography.fontSize.xs,
   color: themeVars.textSecondary,
-  marginTop: '2px',
+  marginTop: tokens.spacing.xxs,
 });
 
 /**

@@ -144,7 +144,7 @@ export const PlayButton = styled(IconButton)({
 export const AlbumArtThumbnail = styled(Box)({
   width: '40px',
   height: '40px',
-  marginRight: '12px',
+  marginRight: tokens.spacing.md,
   borderRadius: tokens.borderRadius.sm,
   overflow: 'hidden',
   flexShrink: 0,

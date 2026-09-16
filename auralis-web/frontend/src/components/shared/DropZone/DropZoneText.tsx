@@ -56,7 +56,7 @@ export const DropZoneText = ({ isDragging, scanning }: DropZoneTextProps) => {
             mt: 2,
             // #4635: 11px informational text, not decoration — AA 4.5:1.
             color: themeVars.textMuted,
-            fontSize: 11,
+            fontSize: tokens.typography.fontSize.xs,
           }}
         >
           Supported: MP3, FLAC, WAV, OGG, M4A, AAC, WMA

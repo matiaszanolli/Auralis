@@ -18,10 +18,10 @@ export const ArtistListLoading = () => {
         {[...Array(15)].map((_, index) => (
           <ListItem key={index}>
             <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', padding: `${tokens.spacing.group} ${tokens.spacing.lg}` }}>
-              <Skeleton variant="circular" width={56} height={56} sx={{ marginRight: '20px' }} />
+              <Skeleton variant="circular" width={56} height={56} sx={{ marginRight: tokens.spacing.lg }} />
               <Box sx={{ flex: 1 }}>
                 <Skeleton variant="text" width="30%" height={24} />
-                <Skeleton variant="text" width="50%" height={20} sx={{ marginTop: '8px' }} />
+                <Skeleton variant="text" width="50%" height={20} sx={{ marginTop: tokens.spacing.cluster }} />
               </Box>
             </Box>
           </ListItem>

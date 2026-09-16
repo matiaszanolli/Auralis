@@ -8,7 +8,7 @@ export const StyledListItemButton = styled(ListItemButton, {
   shouldForwardProp: (prop) => prop !== 'isDraggingOver' && prop !== 'selected',
 })<{ isDraggingOver?: boolean; selected?: boolean }>(({ isDraggingOver, selected }) => ({
   borderRadius: tokens.spacing.xs,
-  marginBottom: '2px',
+  marginBottom: tokens.spacing.xxs,
   padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,
   transition: tokens.transitions.hover_out,
   backgroundColor: isDraggingOver
