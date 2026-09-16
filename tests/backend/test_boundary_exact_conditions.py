@@ -361,22 +361,17 @@ def test_intensity_exactly_zero_point_five():
 
 @pytest.mark.boundary
 @pytest.mark.precision
-@pytest.mark.skip(
-    reason="Predates current AudioPlayer API: needs get_repository_factory + "
-    "load_track_from_library(track_id)/seek() (the old load_track(path)/"
-    "seek_to_position() were removed). Import path fixed under #4044; full "
-    "rewrite to the library-backed player API is tracked by #4548."
-)
-def test_position_exactly_duration(tmp_path):
+def test_position_exactly_duration(tmp_path, get_repository_factory_callable):
     """
     BOUNDARY: Seek to position exactly equals duration.
 
-    Should go to end, not crash.
+    Should land on the last sample, not crash or wrap. Rewritten against the
+    current AudioPlayer API (#5226): the old load_track(path) /
+    seek_to_position() calls no longer exist, and the skip that replaced them
+    cited #4548, a closed issue that never tracked this rewrite.
     """
-    from auralis.core.config import UnifiedConfig
-    from auralis.player import AudioPlayer as EnhancedPlayer
+    from auralis.player import AudioPlayer
 
-    # Create test audio
     audio_dir = tmp_path / "audio"
     audio_dir.mkdir()
 
@@ -388,18 +383,17 @@ def test_position_exactly_duration(tmp_path):
     filepath = audio_dir / "test.wav"
     save_audio(str(filepath), audio, sample_rate, subtype='PCM_16')
 
-    # Create player
-    player = EnhancedPlayer(UnifiedConfig())
-    player.load_track(str(filepath))
+    player = AudioPlayer(get_repository_factory=get_repository_factory_callable)
+    assert player.load_file(str(filepath))
+    total = player.file_manager.get_total_samples()
+    assert total > 0
 
-    # Seek to exact duration
-    try:
-        player.seek_to_position(duration)
-        # Should not crash, should be at end
-    except (AssertionError, ZeroDivisionError, IndexError):
-        raise  # never mask a real bug behind a skip (#4969)
-    except Exception as e:
-        pytest.skip(f"Seek to exact duration not implemented: {e}")
+    assert player.seek(duration)
+    assert player.playback.position == total, "seek to exact duration must land on the end"
+
+    # Just past the end clamps to the same place rather than overrunning.
+    assert player.seek(duration + 1.0)
+    assert player.playback.position == total
 
 
 # ============================================================================
