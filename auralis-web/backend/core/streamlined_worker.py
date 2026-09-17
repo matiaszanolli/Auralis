@@ -216,7 +216,10 @@ class StreamlinedCacheWorker:
             logger.debug(f"[{tier}] Processing chunk {chunk_idx} ({preset_str})")
 
             # Check if file exists
-            if not Path(track.filepath).exists():
+            # File I/O below is offloaded: this runs on the worker's ~1 s
+            # event-loop tick, and a network-mounted library can block for
+            # far longer than that on a stat or a read (#5490).
+            if not await asyncio.to_thread(Path(track.filepath).exists):
                 logger.error(f"File not found: {track.filepath}")
                 return None
 
@@ -234,7 +237,9 @@ class StreamlinedCacheWorker:
             # once per call here rather than threaded in from each of the
             # three callers, so no future caller can add a fourth path that
             # forgets to pass it.
-            file_signature = FileSignatureService.generate(track.filepath)
+            file_signature = await asyncio.to_thread(
+                FileSignatureService.generate, track.filepath
+            )
             cache_key = (track_id, preset, _intensity_key(intensity), file_signature)
             processor = await get_or_build_processor(self, cache_key, track.filepath)
 

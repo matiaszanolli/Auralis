@@ -115,7 +115,8 @@ async def ensure_tier1_chunk(
     # #5251: this tier is consulted before the signature-aware disk lookup,
     # so a lookup without the current file signature would keep hitting a
     # stale in-memory entry after the source file changes on disk.
-    file_signature = FileSignatureService.generate(track.filepath)
+    # Offloaded: generate() opens, reads and hashes the file (#5490).
+    file_signature = await asyncio.to_thread(FileSignatureService.generate, track.filepath)
 
     # Check if original chunk is cached
     original_path, tier = await worker.cache_manager.get_chunk(

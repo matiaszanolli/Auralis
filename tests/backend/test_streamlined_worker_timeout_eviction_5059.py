@@ -113,6 +113,11 @@ class TestTimeoutEviction:
     ) -> None:
         monkeypatch.setattr(streamlined_worker, "_CHUNK_TIMEOUT_SECONDS", {"tier1": 30, "tier2": 30})
         task = asyncio.ensure_future(_process(worker, 0))
+        # Poll rather than step a fixed number of times: _process_chunk hops
+        # through worker threads (#5490) before it builds the processor.
+        async with asyncio.timeout(5):
+            while not built:
+                await asyncio.sleep(0.001)
         for _ in range(5):
             await asyncio.sleep(0)
 

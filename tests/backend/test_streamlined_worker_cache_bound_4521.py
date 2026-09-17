@@ -224,14 +224,18 @@ class TestBuildLockBound:
             first = asyncio.create_task(
                 worker._process_chunk(track, 3, 0, "balanced", 0.5, "tier1")
             )
-            await asyncio.sleep(0)  # let `first` reach the ctor
             second = asyncio.create_task(
                 worker._process_chunk(track, 3, 1, "balanced", 0.5, "tier1")
             )
-            await asyncio.sleep(0)  # let `second` queue on the build lock
+            # Poll rather than step a fixed number of times: _process_chunk
+            # hops through worker threads (#5490) before it reaches the lock.
+            key = (3, "balanced", 0.5, sig)
+            async with asyncio.timeout(5):
+                while worker._build_waiters.get(key) != 2:
+                    await asyncio.sleep(0.001)
 
             # While a build is in flight the lock must be retained.
-            assert worker._build_waiters[(3, "balanced", 0.5, sig)] == 2
+            assert worker._build_waiters[key] == 2
 
             gate.set()
             await asyncio.gather(first, second)
