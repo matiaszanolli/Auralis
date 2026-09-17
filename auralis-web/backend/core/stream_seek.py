@@ -29,6 +29,7 @@ from .chunk_boundaries import (
     SEEK_MIN_CHUNK_REMAINDER,
     chunk_for_position,
 )
+from .job_error_mapping import _safe_error_message
 from .stream_seek_chunks import pump_seek_chunks
 from .stream_track_resolution import resolve_and_validate_track
 from security.path_security import validate_file_path
@@ -275,7 +276,10 @@ async def stream_enhanced_audio_from_position(
         logger.error(f"Seek streaming failed: {e}", exc_info=True)
         if controller._is_websocket_connected(websocket):
             await controller._send_error(
-                websocket, track_id, "Audio streaming failed", error_code="SEEK_ERROR"
+                websocket, track_id,
+                # #5488: surface the specific category, not a blanket string.
+                _safe_error_message(e, default="Audio streaming failed"),
+                error_code="SEEK_ERROR",
             )
     finally:
         # The look-ahead drain that used to sit here moved into

@@ -171,11 +171,14 @@ class TestSeekStreamErrorCode:
         processor = _make_processor()
         sent: list[dict] = []
         controller, ws = _wire_controller(processor, sent)
-        controller._stream_semaphore.acquire = AsyncMock(
-            side_effect=__import__("asyncio").TimeoutError()
-        )
-
-        await _run_seek_stream(controller, ws)
+        # patch.object, not assignment: _stream_semaphore is the process-wide
+        # _global_stream_semaphore, so a bare assignment leaked a permanently
+        # "full" semaphore into every later streaming test in the run.
+        with patch.object(
+            controller._stream_semaphore, "acquire",
+            new=AsyncMock(side_effect=__import__("asyncio").TimeoutError()),
+        ):
+            await _run_seek_stream(controller, ws)
 
         errors = _error_frames(sent)
         assert errors, "Expected an audio_stream_error message"

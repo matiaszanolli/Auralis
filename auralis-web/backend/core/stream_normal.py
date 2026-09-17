@@ -26,6 +26,7 @@ from fastapi import WebSocket
 from fastapi.websockets import WebSocketDisconnect
 
 from . import audio_stream_controller as _asc
+from .job_error_mapping import _safe_error_message
 from .stream_normal_chunks import pump_normal_chunks
 from .seekable_source import ConversionKey, converted_wavs
 from .stream_track_resolution import resolve_and_validate_track
@@ -256,7 +257,11 @@ async def stream_normal_audio(
         logger.error(f"Normal audio streaming failed: {e}", exc_info=True)
         # Only try to send error if WebSocket is still connected
         if controller._is_websocket_connected(websocket):
-            await controller._send_error(websocket, track_id, "Audio streaming failed")
+            await controller._send_error(
+                websocket, track_id,
+                # #5488: surface the specific category, not a blanket string.
+                _safe_error_message(e, default="Audio streaming failed"),
+            )
     finally:
         # The look-ahead drain that used to sit here moved into
         # pump_normal_chunks' own finally (#3493 still holds — the task cannot

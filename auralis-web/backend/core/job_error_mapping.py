@@ -65,8 +65,14 @@ _MODULE_ERROR_CATEGORIES: list[tuple[str, str]] = [
 ]
 
 
-def _safe_error_message(exc: Exception) -> str:
+def _safe_error_message(
+    exc: Exception,
+    default: str = "An unexpected error occurred during processing",
+) -> str:
     """Return a user-safe error category for *exc*.
+
+    *default* is returned when *exc* matches no category — the streaming
+    entry points pass their own wording (#5488).
 
     The raw exception is intentionally NOT included — callers must log
     it separately so internal paths / library internals stay server-side.
@@ -82,4 +88,4 @@ def _safe_error_message(exc: Exception) -> str:
     for exc_type, message in _ERROR_CATEGORIES:
         if isinstance(exc, exc_type):
             return message
-    return "An unexpected error occurred during processing"
+    return default
