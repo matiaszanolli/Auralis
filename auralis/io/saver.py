@@ -13,6 +13,7 @@ Refactored from Matchering 2.0 by Sergree and contributors
 import numpy as np
 import soundfile as sf
 
+from ..utils.audio_validation import validate_audio_finite
 from ..utils.logging import debug, info
 
 
@@ -35,6 +36,13 @@ def save(file_path: str, audio_data: np.ndarray, sample_rate: int, subtype: str 
         # not a truncation bug (#4981).
         if audio_data.dtype != np.float32:
             audio_data = audio_data.astype(np.float32)
+
+        # np.clip below leaves NaN untouched, and libsndfile then writes an
+        # undefined, build-dependent sample. This is the last point engine
+        # audio reaches disk, so repair here whatever the caller did (#5507).
+        audio_data = validate_audio_finite(
+            audio_data, context=f"saver.save({file_path})", repair=True
+        )
 
         # Clamp to the PCM-valid range before encoding. libsndfile clamps
         # out-of-range PCM samples in current builds, but historically
