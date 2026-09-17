@@ -8,6 +8,7 @@ import { PlaybackSessionProvider } from './contexts/PlaybackSessionContext';
 import { AudioReactiveStarfield } from './components/background';
 import ComfortableApp from './ComfortableApp';
 import { usePlayerStateSync } from '@/hooks/player/usePlayerStateSync';
+import { useServerRestartNotice } from '@/hooks/player/useServerRestartNotice';
 import { useWebSocketErrors } from '@/hooks/websocket/useWebSocketErrors';
 import { store } from './store';
 import { shouldRetryQuery } from '@/utils/errorHandling';
@@ -33,6 +34,8 @@ function PlayerStateSync() {
   usePlayerStateSync();
   // Surface WS security errors (rate-limit, schema validation) via toast (#2874)
   useWebSocketErrors();
+  // Say so when a backend restart dropped the playback session (#5487)
+  useServerRestartNotice();
   return null;
 }
 

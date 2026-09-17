@@ -34,6 +34,9 @@ export interface RawPlayerStateData {
   // outside its state lock, so snapshots can arrive out of order; consumers
   // must drop any message whose `seq` is lower than the highest already seen.
   seq?: number;
+  // Per-process backend id (#5487). A change between snapshots means the
+  // backend restarted and the in-memory session was lost.
+  server_instance_id?: string;
   // 'error' is declared on the backend enum (PlaybackState.ERROR) but not
   // currently emitted by any production code path; included for forward
   // compatibility so downstream switches narrow correctly (#3546 / BE-NEW-88).

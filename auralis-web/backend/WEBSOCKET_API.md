@@ -33,25 +33,36 @@ All WebSocket messages follow this standard structure:
 ### Player State Messages
 
 #### `player_state`
-Broadcast every second during playback with complete player state.
+Complete player state snapshot (`PlayerState` in `player_state.py`, typed as
+`PlayerStatePayload` in `websocket/outbound_messages.py`).
 
-**Trigger**: Automatic (1Hz during playback)
+**Trigger**: every `PlayerStateManager.update_state()`, and once on each
+(re)connect. The 1 Hz position tick is the separate `position_changed` message.
 
 **Payload**:
 ```typescript
 {
   "type": "player_state",
   "data": {
-    "currentTrack": TrackInfo | null,
-    "isPlaying": boolean,
-    "volume": number,              // 0.0 - 1.0
-    "position": number,             // Seconds
+    "seq": number,                  // Monotonic; drop snapshots older than the last applied
+    "server_instance_id": string,   // Per backend process; a change means the backend
+                                    // restarted and the in-memory session was lost (#5487)
+    "state": "playing" | "paused" | "stopped" | "loading" | "error",
+    "is_playing": boolean,
+    "is_paused": boolean,
+    "current_track": TrackInfo | null,
+    "current_time": number,         // Seconds
     "duration": number,             // Seconds
+    "volume": number,               // 0 - 100
+    "is_muted": boolean,
     "queue": TrackInfo[],
-    "queueIndex": number,
-    "gapless_enabled": boolean,
-    "crossfade_enabled": boolean,
-    "crossfade_duration": number    // Seconds
+    "queue_index": number,
+    "queue_size": number,
+    "shuffle_enabled": boolean,
+    "repeat_mode": "off" | "one" | "all",
+    "mastering_enabled": boolean,
+    "current_preset": "adaptive",
+    "analysis": object | null
   }
 }
 ```

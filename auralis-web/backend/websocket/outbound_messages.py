@@ -45,6 +45,7 @@ class TrackPayload(TypedDict, total=False):
 
 class PlayerStatePayload(TypedDict):
     seq: int
+    server_instance_id: str
     state: Literal["playing", "paused", "stopped", "loading", "error"]
     is_playing: bool
     is_paused: bool

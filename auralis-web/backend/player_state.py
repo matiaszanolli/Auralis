@@ -9,12 +9,20 @@ This ensures consistency across WebSocket and REST endpoints.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+import uuid
 from enum import Enum
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
 from schemas import EnhancementPresetLiteral
+
+
+# Minted once per backend process (#5487). The session itself (queue, current
+# track, position) lives only in memory, so a restart hands a reconnecting
+# client an empty snapshot; a changed id is how the client tells that apart
+# from "nothing was playing".
+SERVER_INSTANCE_ID: str = uuid.uuid4().hex
 
 
 class PlaybackState(str, Enum):
@@ -59,6 +67,9 @@ class PlayerState(BaseModel):
     # messages out of order; the frontend drops snapshots with
     # seq < last-seen instead of relying on in-order delivery.
     seq: int = 0
+
+    # Identifies the backend process that produced this snapshot (#5487).
+    server_instance_id: str = SERVER_INSTANCE_ID
 
     # Playback state
     state: PlaybackState = PlaybackState.STOPPED
