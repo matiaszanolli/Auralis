@@ -114,23 +114,26 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
-    esbuild: {
-      // Strip console.* and debugger statements from production bundles.
-      // The injected loader script (raw HTML) is unaffected — its two
-      // console.error calls in the fatal-error catch block are intentional.
-      drop: mode === 'production' ? ['console', 'debugger'] : [],
-    },
     build: {
       target: 'esnext',
       outDir: 'dist',
       sourcemap: false,
-      rollupOptions: {
+      rolldownOptions: {
         output: {
           // Separate vendor chunk for better module initialization order.
           // Defined in vite.manualChunks.ts so it is unit-testable — read the
-          // rationale there before changing it (#4697).
-          manualChunks: vendorChunk,
+          // rationale there before changing it (#4697). A `name` function
+          // group is Rolldown's direct equivalent of Rollup's manualChunks.
+          codeSplitting: { groups: [{ name: vendorChunk }] },
           chunkFileNames: '[name]-[hash].js',
+          // Strip console.* and debugger statements from production bundles.
+          // Vite 8 no longer honours `esbuild.drop` (its esbuild-to-Oxc
+          // conversion ignores it), so this is done by the Oxc minifier (#5433).
+          // The injected loader script (raw HTML) is unaffected — its two
+          // console.error calls in the fatal-error catch block are intentional.
+          ...(mode === 'production'
+            ? { minify: { compress: { dropConsole: true, dropDebugger: true }, mangle: true } }
+            : {}),
         },
       },
       // The `vendor` chunk is intentionally large (~705 kB raw / ~215 kB gzip

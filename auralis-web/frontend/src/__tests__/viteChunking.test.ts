@@ -52,6 +52,6 @@ describe('vendor chunk rule (#4697)', () => {
     const config = await import('../../vite.config.mts?raw');
 
     expect(config.default).toContain("from './vite.manualChunks'");
-    expect(config.default).toContain('manualChunks: vendorChunk');
+    expect(config.default).toContain('codeSplitting: { groups: [{ name: vendorChunk }] }');
   });
 });

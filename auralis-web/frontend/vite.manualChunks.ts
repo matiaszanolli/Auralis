@@ -1,5 +1,6 @@
 /**
- * Rollup `manualChunks` rule for the production build.
+ * Vendor chunk rule for the production build (a Rolldown `codeSplitting`
+ * group `name` function — the successor of Rollup's `manualChunks`, #5433).
  *
  * Lives in its own module so it can be unit-tested without importing
  * vite.config.mts (which drags esbuild into the jsdom test environment).
@@ -36,7 +37,7 @@
  * no benefit.
  *
  * @param id Resolved module id
- * @returns Chunk name, or undefined to let Rollup decide
+ * @returns Chunk name, or undefined to let Rolldown decide
  */
 export function vendorChunk(id: string): string | undefined {
   // Explicitly put vendor libraries in vendor chunk
