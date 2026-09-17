@@ -57,9 +57,18 @@ PACKAGE = "optimization"
 # the drift this file exists to catch.
 EXPECTED: dict[tuple[str, str], str] = {
     ("auralis/core/hybrid_processor.py", "performance_optimizer"): (
-        "LIVE. Applied unconditionally at module-import time via "
-        "_apply_module_optimizations(), so the PerformanceOptimizer singleton "
-        "and everything it constructs is live on every mastering call."
+        "LIVE. hybrid_processor.py still calls apply_module_optimizations() "
+        "unconditionally at its own module-import time (#5463 moved the "
+        "function's body, not the call site), so the PerformanceOptimizer "
+        "singleton and everything it constructs is live on every mastering "
+        "call."
+    ),
+    ("auralis/core/hybrid_setup.py", "performance_optimizer"): (
+        "LIVE. #5463 split HybridProcessor's setup logic out of "
+        "hybrid_processor.py into this sibling, taking "
+        "apply_module_optimizations() and its get_performance_optimizer() "
+        "calls with it; hybrid_processor.py still invokes it unconditionally "
+        "at module-import time (see the sibling entry above)."
     ),
     # auralis/dsp/utils/spectral.py -> rust_integration used to be listed here
     # as an intentionally-tracked DEAD BRANCH (the module never existed). #5168
