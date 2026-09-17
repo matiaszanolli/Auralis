@@ -22,8 +22,6 @@ relaxed to preserve sample count.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from __future__ import annotations
-
 import numpy as np
 from scipy.signal import sosfiltfilt
 

@@ -15,8 +15,6 @@ method so `patch.object(engine, "_create_processor_config", ...)` in
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from __future__ import annotations
-
 import logging
 
 from auralis.core.config import UnifiedConfig

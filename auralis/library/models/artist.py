@@ -8,8 +8,6 @@ ORM model for artists (#4511 split of `models/core.py`).
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from __future__ import annotations
-
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 

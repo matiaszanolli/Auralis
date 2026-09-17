@@ -70,7 +70,7 @@ class SimilarityAutoFitWorker:
             return
         try:
             await asyncio.wait_for(asyncio.shield(self._task), timeout=_STOP_TIMEOUT_SECONDS)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning(
                 "Similarity auto-fit did not stop within "
                 f"{_STOP_TIMEOUT_SECONDS}s of being signalled; abandoning it "

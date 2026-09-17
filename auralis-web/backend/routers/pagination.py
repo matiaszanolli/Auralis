@@ -8,8 +8,6 @@ reducing boilerplate and ensuring consistency.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from __future__ import annotations
-
 
 def compute_has_more(offset: int, item_count: int, total: int) -> bool:
     """

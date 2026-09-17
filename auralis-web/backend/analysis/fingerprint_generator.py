@@ -124,7 +124,7 @@ async def shutdown_fingerprint_executor_bounded(timeout: float = 10.0) -> None:
             timeout=timeout,
         )
         logger.info("✅ Fingerprint ThreadPoolExecutor shut down")
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.warning(
             f"⚠️  Fingerprint ThreadPoolExecutor shutdown exceeded {timeout}s bound — "
             "an in-flight computation may still be running; continuing shutdown"

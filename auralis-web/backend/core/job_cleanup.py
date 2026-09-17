@@ -15,8 +15,6 @@ offloaded filesystem sweep are unchanged (preserves #2435, #3327, #4754).
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from __future__ import annotations
-
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable

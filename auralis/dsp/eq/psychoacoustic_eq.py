@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import Any, cast
 
 import numpy as np
+from scipy.signal.windows import hann
 
 from ...utils.logging import debug
 from ..utils.adaptive import smooth_parameter_transition
@@ -102,7 +103,7 @@ class PsychoacousticEQ:
         # keeps the absolute magnitude scale equal to the un-windowed path, so
         # adaptive gains — and the output LUFS/crest the fingerprint model
         # consumes — are not shifted (no #3428/#2518 regression).
-        self._analysis_window = np.hanning(self.fft_size)
+        self._analysis_window = hann(self.fft_size)
         self._analysis_window_gain = float(self._analysis_window.mean())
 
         # Initialize critical bands (26 bands based on Bark scale)

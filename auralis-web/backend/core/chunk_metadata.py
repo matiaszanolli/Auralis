@@ -18,8 +18,6 @@ processor's historical logger name.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from __future__ import annotations
-
 import logging
 from dataclasses import dataclass
 

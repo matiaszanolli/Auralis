@@ -82,7 +82,7 @@ async def stream_enhanced_audio_from_position(
             controller._stream_semaphore.acquire(),
             timeout=_asc.STREAM_ACQUIRE_TIMEOUT_SECONDS,
         )
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.warning(
             f"Stream limit ({_asc.MAX_CONCURRENT_STREAMS}) reached, rejecting track {track_id}"
         )

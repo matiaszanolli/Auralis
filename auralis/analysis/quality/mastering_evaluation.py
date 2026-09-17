@@ -1,7 +1,5 @@
 """Continuous mastering measurements without classification or gating."""
 
-from __future__ import annotations
-
 from collections.abc import Mapping, Sequence
 from typing import Any
 

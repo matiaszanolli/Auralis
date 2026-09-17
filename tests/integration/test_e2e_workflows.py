@@ -301,12 +301,10 @@ def test_process_multiple_presets_workflow(sample_audio_file):
 @pytest.mark.e2e
 @pytest.mark.integration
 @pytest.mark.audio
-def test_process_preserves_file_integrity(sample_audio_file):
+def test_process_preserves_file_integrity(sample_audio_file, tmp_path):
     """
     E2E: Load → process → save → reload → verify integrity.
     """
-    import tempfile
-
     from auralis.io.unified_loader import load_audio
 
     # Load original
@@ -319,7 +317,7 @@ def test_process_preserves_file_integrity(sample_audio_file):
     processed = processor.process(original_audio)
 
     # Save to temp file
-    temp_output = tempfile.mktemp(suffix=".wav")
+    temp_output = tmp_path / "processed.wav"
     save_audio(temp_output, processed, sr, subtype='PCM_16')
 
     # Reload
@@ -332,9 +330,6 @@ def test_process_preserves_file_integrity(sample_audio_file):
     # Allow minor differences due to WAV encoding/decoding
     assert np.allclose(reloaded, processed, rtol=0.01, atol=0.01), \
         "Reloaded audio should match processed audio (within WAV precision)"
-
-    # Cleanup
-    os.remove(temp_output)
 
 
 @pytest.mark.e2e

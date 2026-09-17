@@ -146,7 +146,7 @@ class LibraryAutoScanner:
             self._task.cancel()
             try:
                 await asyncio.wait_for(self._task, timeout=10.0)
-            except (asyncio.CancelledError, asyncio.TimeoutError):
+            except (asyncio.CancelledError, TimeoutError):
                 pass
         logger.info("✅ LibraryAutoScanner stopped")
 
@@ -406,7 +406,7 @@ class LibraryAutoScanner:
         self._trigger_event.clear()
         try:
             await asyncio.wait_for(self._trigger_event.wait(), timeout=float(seconds))
-        except asyncio.TimeoutError:
+        except TimeoutError:
             pass  # Normal: slept the full interval
 
     # ------------------------------------------------------------------

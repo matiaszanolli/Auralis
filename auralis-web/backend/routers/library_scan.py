@@ -92,7 +92,7 @@ async def _await_scan(
     * the scan finishes -> its ScanResult is returned;
     * the request task is cancelled (server shutdown) -> re-raised after
       stop_scan();
-    * the scan exceeds ``timeout`` -> ``asyncio.TimeoutError``;
+    * the scan exceeds ``timeout`` -> ``TimeoutError``;
     * the client disconnects -> ``ScanClientGone``. Closing a fetch does not
       cancel an already-scheduled Starlette route coroutine, so the handler
       has to watch the receive channel itself (#4820).
@@ -122,7 +122,7 @@ async def _await_scan(
         await stop_scanner(scanner, scan_future)
         if watcher is not None and watcher in done:
             raise ScanClientGone()
-        raise asyncio.TimeoutError()
+        raise TimeoutError()
     finally:
         if watcher is not None and not watcher.done():
             watcher.cancel()
@@ -412,7 +412,7 @@ async def scan_library(
             directories_scanned=result.directories_scanned,
         )
 
-    except asyncio.TimeoutError:
+    except TimeoutError:
         # Terminal WS frame so a `library_scan_started`-driven UI leaves the
         # scanning state instead of hanging on "Scanning..." (#4413). Mirrors
         # the auto-scanner's error broadcast; no OS paths leak (#3543).

@@ -13,8 +13,6 @@ chunk-streaming pipeline itself.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from __future__ import annotations
-
 import threading
 from typing import Any
 
@@ -45,7 +43,7 @@ def get_last_content_profile(preset: str) -> dict[str, Any] | None:
     Used by /api/processing/parameters endpoint to show real processing data.
 
     Args:
-        preset: Preset name (e.g., "adaptive", "gentle", "warm", etc.)
+        preset: Preset name (currently ``"adaptive"``).
 
     Returns:
         Last content profile dict or None if not available

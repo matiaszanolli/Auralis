@@ -1,7 +1,5 @@
 """Harmonic Exciter Stage — generate upper-octave harmonics when HF is sparse."""
 
-from __future__ import annotations
-
 from typing import TYPE_CHECKING, Any
 
 import numpy as np

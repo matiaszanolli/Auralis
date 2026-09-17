@@ -17,8 +17,6 @@ import them directly from here.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from __future__ import annotations
-
 from ._helpers import _safe_collection, _safe_scalar
 from .album import Album
 from .artist import Artist

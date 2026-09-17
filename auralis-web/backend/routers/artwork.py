@@ -419,7 +419,7 @@ async def get_album_artwork(
     # Detect MIME type from file extension first, then fall back to magic bytes
     # so that PNG files with unrecognized/missing extensions are not served
     # as image/jpeg (fixes #2510).
-    media_type, _ = mimetypes.guess_type(str(requested_path))
+    media_type, _ = mimetypes.guess_file_type(requested_path)
     if not media_type or not media_type.startswith("image/"):
         # Read the first 12 bytes to identify the format via magic bytes
         def _read_header() -> bytes:

@@ -1,7 +1,5 @@
 """Unified lifecycle boundary for every backend cache tier (#5257)."""
 
-from __future__ import annotations
-
 import asyncio
 from dataclasses import dataclass
 from pathlib import Path

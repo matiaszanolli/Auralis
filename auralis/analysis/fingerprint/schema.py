@@ -18,8 +18,6 @@ Use the constants and helpers here instead of hard-coding magic numbers.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from __future__ import annotations
-
 from enum import Enum
 
 

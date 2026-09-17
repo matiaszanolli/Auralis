@@ -6,8 +6,6 @@ sequencer owned by either path therefore cannot order the other one.  This
 module-level singleton is the shared ordering boundary for both paths (#5294).
 """
 
-from __future__ import annotations
-
 import asyncio
 
 

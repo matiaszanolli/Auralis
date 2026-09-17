@@ -8,8 +8,6 @@ both extremes: near-empty HF has little musical foundation to amplify, and
 already-bright material needs little additional energy.
 """
 
-from __future__ import annotations
-
 import math
 
 HF_NEED_CENTER = 0.35

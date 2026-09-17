@@ -55,7 +55,7 @@ async def stop_scanner(
         await asyncio.wait_for(
             asyncio.shield(scan_future), timeout=SCANNER_STOP_GRACE_SECONDS
         )
-    except (asyncio.TimeoutError, asyncio.CancelledError):
+    except (TimeoutError, asyncio.CancelledError):
         logger.warning(
             "%s thread did not exit within %ss of stop_scan(); "
             "thread will continue in background until next checkpoint.",

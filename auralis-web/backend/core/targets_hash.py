@@ -24,8 +24,6 @@ here rather than being copied per tier.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from __future__ import annotations
-
 import hashlib
 import json
 from typing import Any

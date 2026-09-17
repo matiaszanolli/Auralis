@@ -594,12 +594,12 @@ class TestFileLocking:
 class TestDatabaseFileIssues:
     """Test handling of database file issues."""
 
-    def test_corrupted_database(self):
+    def test_corrupted_database(self, tmp_path):
         """
         INVARIANT: Corrupted database should be detected.
         Test: Create invalid database file.
         """
-        temp_db_path = tempfile.mktemp(suffix='.db')
+        temp_db_path = tmp_path / "corrupted.db"
 
         # Create corrupted database file
         with open(temp_db_path, 'wb') as f:
@@ -616,12 +616,6 @@ class TestDatabaseFileIssues:
             failed = False
         except Exception:
             failed = True
-        finally:
-            try:
-                os.unlink(temp_db_path)
-            except:
-                pass
-
         # INVARIANT: Should detect corrupted database
         assert failed, "Should detect corrupted database"
 

@@ -15,8 +15,6 @@ Without normalization, high-range dimensions dominate distance calculations.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from __future__ import annotations
-
 import json
 import threading
 from dataclasses import dataclass
