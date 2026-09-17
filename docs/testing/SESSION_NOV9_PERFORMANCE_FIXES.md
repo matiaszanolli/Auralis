@@ -188,7 +188,7 @@ assert rt_factor > 7.0, \
 5. `tests/performance/test_audio_processing_performance.py` - 1 skip decorator
 6. `tests/performance/test_realtime_performance.py` - 1 threshold (pipeline speedup)
 7. `docs/testing/PHASE2_WEEK8_COMPLETE.md` - Pass rate update + fixes documentation
-8. `docs/testing/PHASE2_COMPLETE.md` - Final Phase 2 summary
+8. *docs/testing/PHASE2_COMPLETE.md* (gitignored, no longer tracked) - Final Phase 2 summary
 
 ## Documentation Updates
 
@@ -359,7 +359,7 @@ track_ids.append(track.id)  # Not track
 
 **Related Documents**:
 - [PHASE2_WEEK8_COMPLETE.md](PHASE2_WEEK8_COMPLETE.md) - Week 8 performance testing complete
-- [PHASE2_COMPLETE.md](PHASE2_COMPLETE.md) - Phase 2 comprehensive summary
+- *PHASE2_COMPLETE.md* (gitignored, no longer tracked) - Phase 2 comprehensive summary
 - [PHASE2_WEEK8_FAILURE_ANALYSIS.md](PHASE2_WEEK8_FAILURE_ANALYSIS.md) - Original failure analysis
 - [TEST_IMPLEMENTATION_ROADMAP.md](../development/TEST_IMPLEMENTATION_ROADMAP.md) - Overall testing roadmap
 
