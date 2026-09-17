@@ -148,6 +148,7 @@ class ChunkedAudioProcessor:
             self.preset,
             intensity,
             sample_rate_valid,
+            file_signature=self.file_signature,
         )
         # Same helper ProcessorFactory keys its cache on (#3720/#4666).
         self.targets_hash: str = get_targets_hash(self.mastering_targets)

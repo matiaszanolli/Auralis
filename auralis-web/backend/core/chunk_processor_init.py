@@ -111,6 +111,7 @@ def init_fingerprint_and_processor(
     preset: str | None,
     intensity: float,
     sample_rate: int,
+    file_signature: str | None = None,
 ) -> tuple[Any | None, Any | None, Any | None, UnifiedConfig | None]:
     """Load the track's fingerprint/targets and create its shared HybridProcessor.
 
@@ -142,6 +143,7 @@ def init_fingerprint_and_processor(
             filepath=filepath,
             extract_if_missing=False,  # Don't extract on init, only on first chunk playback
             save_extracted=True,
+            file_signature=file_signature,
         )
         if result is not None:
             fingerprint, mastering_targets = result

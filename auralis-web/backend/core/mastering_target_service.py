@@ -15,7 +15,6 @@ This service eliminates ~200 lines of duplicate fingerprint/target management.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-import hashlib
 import logging
 import threading
 import traceback
@@ -29,6 +28,8 @@ from auralis.analysis.fingerprint import AudioFingerprintAnalyzer, FingerprintSt
 from auralis.analysis.mastering_fingerprint import MasteringFingerprint
 from auralis.io.unified_loader import load_audio
 from mutagen import File as MutagenFile
+
+from core.file_signature import FileSignatureService
 
 logger = logging.getLogger(__name__)
 
@@ -81,11 +82,19 @@ class MasteringTargetService:
         while len(self.cache) > self._max_cache_entries:
             self.cache.popitem(last=False)
 
-    def _get_cache_key(self, track_id: int, filepath: str) -> str:
-        """Generate cache key for fingerprint."""
-        # Use both track_id and file signature for uniqueness
-        file_hash = hashlib.md5(filepath.encode()).hexdigest()[:8]
-        return f"fingerprint_{track_id}_{file_hash}"
+    def _get_cache_key(
+        self, track_id: int, filepath: str, file_signature: str | None = None
+    ) -> str:
+        """Generate cache key for fingerprint.
+
+        Keyed on the file's content signature, like every sibling cache
+        (chunk_cache.py, streamlined_processor_cache.py): a key built from
+        the path alone kept serving pre-edit targets after the file was
+        replaced in place (#5489).
+        """
+        if file_signature is None:
+            file_signature = FileSignatureService.generate(filepath)
+        return f"fingerprint_{track_id}_{file_signature}"
 
     def load_fingerprint_from_database(
         self,
@@ -284,7 +293,8 @@ class MasteringTargetService:
         track_id: int,
         filepath: str,
         extract_if_missing: bool = True,
-        save_extracted: bool = True
+        save_extracted: bool = True,
+        file_signature: str | None = None,
     ) -> tuple[Any, dict[str, Any] | None] | None:
         """
         Load fingerprint using 3-tier hierarchy.
@@ -298,12 +308,14 @@ class MasteringTargetService:
             filepath: Path to audio file
             extract_if_missing: If True, extract from audio if not cached
             save_extracted: If True, save extracted fingerprint to .25d file
+            file_signature: The file's FileSignatureService signature, when
+                the caller already computed it; generated here otherwise.
 
         Returns:
             Tuple of (fingerprint, mastering_targets) or None if not found
         """
         # Check cache first
-        cache_key = self._get_cache_key(track_id, filepath)
+        cache_key = self._get_cache_key(track_id, filepath, file_signature)
         with self._lock:
             if cache_key in self.cache:
                 cached = self.cache[cache_key]
