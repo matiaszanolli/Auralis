@@ -19,7 +19,9 @@ import numpy as np
 import pytest
 
 import auralis.analysis.fingerprint.audio_fingerprint_analyzer as afa
-from auralis.analysis.fingerprint.audio_fingerprint_analyzer import AudioFingerprintAnalyzer
+from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
+    AudioFingerprintAnalyzer,
+)
 from auralis.core.processing.continuous_space import ProcessingSpaceMapper
 
 # Every dimension the space mapper reads.

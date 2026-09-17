@@ -149,9 +149,10 @@ def compute_windowed_fingerprint(
                 # fingerprint_extractor.py's claim that this function "never
                 # materialises the whole decoded file" false for exactly the
                 # formats most libraries are made of.
+                import tempfile
+
                 from auralis.io.loaders import load_with_ffmpeg
                 from auralis.io.loaders.ffmpeg_loader import _probe_audio
-                import tempfile
 
                 def _decode_window(
                     tmp_dir: str, offset_s: float | None, dur_s: float | None
