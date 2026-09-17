@@ -102,12 +102,11 @@ class MasteringFingerprint:
             # delegates here, so it is bounded by the same cap.
             #
             # librosa.load() can't decode M4A/AAC/WMA via soundfile (0.14.0's
-            # available_formats() has no entry for any of them) and silently
-            # falls through to the audioread backend instead — slower, a
-            # UserWarning per track, 16-bit precision truncation, and a
-            # backend librosa marks for hard removal in 1.0 (#4890). Route
-            # those extensions through the same FFmpeg loader
-            # windowed_compute.py's fingerprint path already uses.
+            # available_formats() has no entry for any of them). librosa 0.x
+            # fell through to audioread (#4890); librosa 1.0 removed that
+            # backend and raises instead (#5414). Route those extensions
+            # through the same FFmpeg loader windowed_compute.py's
+            # fingerprint path already uses.
             audio_path = Path(file_path)
             if audio_path.suffix.lower() in FFMPEG_FORMATS:
                 import tempfile

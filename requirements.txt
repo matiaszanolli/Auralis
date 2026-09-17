@@ -17,7 +17,7 @@
 numpy==2.4.6
 scipy==1.18.0
 soundfile==0.14.0
-librosa==0.11.0
+librosa==1.0.0
 resampy==0.4.3
 mutagen==1.48.1
 

@@ -53,7 +53,7 @@ dependencies = [
     "numpy>=2.4,<2.5",
     "scipy>=1.18",
     "soundfile>=0.14",
-    "librosa>=0.11",
+    "librosa>=1.0",          # 1.0 dropped the audioread backend (#5414)
     "resampy>=0.4",          # auralis/io/processing.py resampling path
     "mutagen>=1.48",         # tag reading/writing across the scanner + metadata router
     # Backend

@@ -350,7 +350,11 @@ rm ~/.auralis/library.db
 cd auralis-web/backend && python main.py --dev
 ```
 
-### Problem: "AudioReadError" or audio library issues
+### Problem: `LibsndfileError` or audio library issues
+
+librosa 1.0 no longer falls back to audioread, so a format libsndfile cannot
+open raises instead of decoding slowly. MP3/M4A/AAC/OGG/OPUS/WMA go through
+FFmpeg (`auralis/io/formats.py`), so check that `ffmpeg` is on your `PATH`.
 
 **Solution**: Install missing audio libraries
 
@@ -369,9 +373,9 @@ sudo apt install libflac-dev libvorbis-dev libopus-dev
 sudo apt install libflac-dev libvorbis-dev libopus-dev
 ```
 
-Then reinstall audioread:
+Then reinstall soundfile:
 ```bash
-uv pip install --force-reinstall audioread
+uv pip install --force-reinstall soundfile
 ```
 
 ---

@@ -12,11 +12,10 @@
 ```toml
 requires-python = ">=3.14"
 dependencies = [
-    "librosa>=0.9.0",      # Supports 3.13 now
+    "librosa>=1.0",        # 1.0 dropped audioread (#5414)
     "numpy>=1.20.0",       # Supports 3.13/3.14
     "scipy>=1.7.0",        # Supports 3.13/3.14
     "soundfile>=0.10.0",   # Supports 3.13/3.14
-    "audioread>=3.0.0",    # Supports 3.13/3.14
     ...
 ]
 
@@ -37,9 +36,8 @@ classifiers = [
 |---------|---------|-----------|-----------|-----------|--------|
 | **NumPy** | >=1.20.0 | ✅ | ✅ | ✅ | Full support |
 | **SciPy** | >=1.7.0 | ✅ | ✅ | ✅ | Full support |
-| **librosa** | >=0.9.0 | ✅ | ✅ (with caveats) | ✅ | See notes |
+| **librosa** | >=1.0 | ✅ | ✅ (with caveats) | ✅ | See notes |
 | **soundfile** | >=0.10.0 | ✅ | ✅ | ✅ | Full support |
-| **audioread** | >=3.0.0 | ✅ | ✅ | ✅ | Full support |
 | **FastAPI** | >=0.68.0 | ✅ | ✅ | ✅ | Full support |
 | **Uvicorn** | >=0.15.0 | ✅ | ✅ | ✅ | Full support |
 
