@@ -43,7 +43,6 @@ _MUTATIONS = [
     ("shuffle", lambda c: c.shuffle()),
     ("set_queue", lambda c: c.set_queue([_track(7), _track(8)])),
     ("clear_queue", lambda c: c.clear_queue()),
-    ("clear", lambda c: c.clear()),
     ("set_shuffle", lambda c: c.set_shuffle(True)),
     ("set_repeat", lambda c: c.set_repeat(True)),
 ]

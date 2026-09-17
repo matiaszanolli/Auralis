@@ -123,10 +123,6 @@ class QueueController:
         for track_info in track_list:
             self.add_track(track_info)
 
-    def clear(self) -> None:
-        """Clear all tracks from queue (backward compatibility alias)"""
-        self.clear_queue()
-
     def next_track(self) -> dict[str, Any] | None:
         """
         Get next track from queue.

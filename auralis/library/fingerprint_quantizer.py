@@ -33,7 +33,7 @@ class FingerprintQuantizer:
     Quantizes and dequantizes 25D audio fingerprints.
 
     Each dimension is normalized to [0, 255] using predefined bounds:
-    - Percentage dimensions (0-100): direct scaling
+    - Frequency-distribution dimensions (0-1 fractions): direct scaling
     - Normalized dimensions (0-1): direct scaling
     - Bounded ranges: min-max normalization with domain knowledge
     """
@@ -45,14 +45,14 @@ class FingerprintQuantizer:
     # Format: 'dimension_name': (min_value, max_value)
     # These bounds are chosen to minimize quantization error while handling extremes
     DIMENSION_BOUNDS: dict[str, tuple[float, float]] = {
-        # Frequency Distribution (7D) - percentages 0-100
-        'sub_bass_pct': (0.0, 100.0),
-        'bass_pct': (0.0, 100.0),
-        'low_mid_pct': (0.0, 100.0),
-        'mid_pct': (0.0, 100.0),
-        'upper_mid_pct': (0.0, 100.0),
-        'presence_pct': (0.0, 100.0),
-        'air_pct': (0.0, 100.0),
+        # Frequency Distribution (7D) - fractions summing to approximately 1.
+        'sub_bass_pct': (0.0, 1.0),
+        'bass_pct': (0.0, 1.0),
+        'low_mid_pct': (0.0, 1.0),
+        'mid_pct': (0.0, 1.0),
+        'upper_mid_pct': (0.0, 1.0),
+        'presence_pct': (0.0, 1.0),
+        'air_pct': (0.0, 1.0),
 
         # Dynamics (3D)
         'lufs': (-60.0, 0.0),           # Loudness range: -60 to 0 LUFS

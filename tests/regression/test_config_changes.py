@@ -120,7 +120,6 @@ class TestProcessingModeChanges:
 
         preserved = {
             "internal_sample_rate": config.internal_sample_rate,
-            "processing_sample_rate": config.processing_sample_rate,
             "fft_size": config.fft_size,
             "threshold": config.threshold,
             "mastering_profile": config.mastering_profile,

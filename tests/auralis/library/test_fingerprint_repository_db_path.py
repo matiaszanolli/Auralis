@@ -108,7 +108,7 @@ class TestUpsertUsesSession:
 class TestStoreFingerprintUsesSession:
     def _call(self, repo):
         fp = _SAMPLE_FINGERPRINT
-        repo.store_fingerprint(
+        return repo.store_fingerprint(
             track_id=2,
             sub_bass_pct=fp['sub_bass_pct'], bass_pct=fp['bass_pct'],
             low_mid_pct=fp['low_mid_pct'], mid_pct=fp['mid_pct'],
@@ -135,6 +135,12 @@ class TestStoreFingerprintUsesSession:
         r, session = repo
         self._call(r)
         session.commit.assert_called_once()
+
+    def test_returns_fingerprint_on_success(self, repo):
+        r, _ = repo
+        fingerprint = self._call(r)
+        assert fingerprint is not None
+        assert fingerprint.track_id == 2
 
     def test_rollback_on_failure(self, repo):
         r, session = repo

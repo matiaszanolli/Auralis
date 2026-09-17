@@ -215,14 +215,22 @@ def _render_to_sink(
                 # below assumes _process() preserves the time axis. A future
                 # DSP regression (resampling, time-stretch, IIR padding bug)
                 # would otherwise silently corrupt the chunk boundary.
-                assert processed_chunk.shape[1] == chunk.shape[1], (
-                    f"DSP sample-count violation: input {chunk.shape[1]} "
-                    f"-> output {processed_chunk.shape[1]}"
-                )
+                if processed_chunk.shape[1] != chunk.shape[1]:
+                    raise RuntimeError(
+                        f"DSP sample-count violation: input {chunk.shape[1]} "
+                        f"-> output {processed_chunk.shape[1]}"
+                    )
 
-                # Update info from first chunk
+                # Retain the first chunk's metadata, but report every stage
+                # that ran anywhere in the file. Stages are de-duplicated in
+                # execution order so a stage run on several chunks is still
+                # represented once in this diagnostic summary.
                 if chunks_processed == 0:
                     info = chunk_info
+                else:
+                    for stage in chunk_info.get('stages', []):
+                        if stage not in info['stages']:
+                            info['stages'].append(stage)
 
                 # Assemble output with crossfading at chunk boundaries.
                 # new_tail stages the next prev_tail value and is only committed
@@ -271,10 +279,11 @@ def _render_to_sink(
                             body = processed_chunk[:, head_len:core_samples]
                             write_region = np.concatenate([crossfaded, body], axis=1)
                             # Guard against silent sample drift at chunk boundaries (#2515)
-                            assert write_region.shape[1] == core_samples, (
-                                f"Crossfade write_region mismatch: expected {core_samples} "
-                                f"samples, got {write_region.shape[1]}"
-                            )
+                            if write_region.shape[1] != core_samples:
+                                raise RuntimeError(
+                                    f"Crossfade write_region mismatch: expected {core_samples} "
+                                    f"samples, got {write_region.shape[1]}"
+                                )
                             new_tail = processed_chunk[:, core_samples:].copy()
                 else:
                     # No previous tail (safety fallback)

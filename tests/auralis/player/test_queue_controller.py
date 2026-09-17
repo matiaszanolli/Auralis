@@ -422,9 +422,9 @@ class TestClear:
         ctrl.clear_queue()
         assert ctrl.current_index == -1
 
-    def test_clear_alias_works(self):
+    def test_clear_queue_works(self):
         ctrl = _loaded_controller(3)
-        ctrl.clear()
+        ctrl.clear_queue()
         assert ctrl.is_queue_empty()
 
 

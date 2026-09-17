@@ -176,8 +176,9 @@ class FingerprintUpsertMixin(BaseRepository):
                 )
                 session.commit()
 
+                fingerprint = TrackFingerprint(track_id=track_id, **fingerprint_dict)
                 info(f"Stored fingerprint for track {track_id} (quantized blob: 25 bytes)")
-                return None
+                return fingerprint
 
             except Exception as e:
                 session.rollback()

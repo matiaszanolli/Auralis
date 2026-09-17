@@ -113,7 +113,7 @@ class TestAudioPlayerComprehensive:
         assert current is not None
 
         # Test clear
-        queue.clear()
+        queue.clear_queue()
         assert len(queue.get_queue()) == 0
 
     def test_queue_manager_edge_cases(self, queue_controller, test_audio_files):
@@ -121,7 +121,7 @@ class TestAudioPlayerComprehensive:
         queue = queue_controller
 
         # Test operations on empty queue - clear first to ensure empty state
-        queue.clear()
+        queue.clear_queue()
         queue_list = queue.get_queue()
         assert len(queue_list) == 0 or queue_list is None or queue_list == []
 
@@ -130,7 +130,7 @@ class TestAudioPlayerComprehensive:
         queue.current_index = 0
 
         # Test with different queue states
-        queue.clear()
+        queue.clear_queue()
         queue.add_track({'title': 'Track 1', 'filepath': test_audio_files['track1'], 'id': 1})
         queue.add_track({'title': 'Track 2', 'filepath': test_audio_files['track2'], 'id': 2})
 
@@ -528,7 +528,7 @@ class TestEnhancedPlayerWithFixtures:
         assert queue_controller is not None
 
         # Test basic queue operations
-        queue_controller.clear()  # Start with empty queue
+        queue_controller.clear_queue()  # Start with empty queue
 
         track_info = {
             'id': 1,
