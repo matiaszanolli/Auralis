@@ -25,8 +25,6 @@ describe('trackTransformer', () => {
         bit_depth: 24,
         format: 'flac',
         loudness: -8.5,
-        crest_factor: 12.3,
-        centroid: 2500,
         date_added: '2023-01-15T10:30:00Z',
         date_modified: '2023-02-20T14:15:00Z',
       };
@@ -48,8 +46,6 @@ describe('trackTransformer', () => {
         bitDepth: 24,
         format: 'flac',
         loudness: -8.5,
-        crestFactor: 12.3,
-        centroid: 2500,
         dateAdded: '2023-01-15T10:30:00Z',
         dateModified: '2023-02-20T14:15:00Z',
       };
@@ -89,8 +85,6 @@ describe('trackTransformer', () => {
       expect(result.bitDepth).toBeUndefined();
       expect(result.format).toBeUndefined();
       expect(result.loudness).toBeUndefined();
-      expect(result.crestFactor).toBeUndefined();
-      expect(result.centroid).toBeUndefined();
       expect(result.dateAdded).toBeUndefined();
       expect(result.dateModified).toBeUndefined();
     });
@@ -557,7 +551,7 @@ describe('trackTransformer', () => {
       expect(result).not.toHaveProperty('bit_depth');
     });
 
-    it('should convert crest_factor to crestFactor', () => {
+    it('does not expose analysis fields absent from the track API contract', () => {
       const apiTrack: TrackApiResponse = {
         id: 1,
         title: 'Test',
@@ -581,8 +575,8 @@ describe('trackTransformer', () => {
 
       const result = transformTrack(apiTrack);
 
-      expect(result.crestFactor).toBe(15.2);
-      expect(result).not.toHaveProperty('crest_factor');
+      expect(result).not.toHaveProperty('crestFactor');
+      expect(result).not.toHaveProperty('centroid');
     });
 
     it('should convert date_added to dateAdded', () => {

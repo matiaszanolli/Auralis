@@ -14,7 +14,7 @@ import type { Track } from '@/types/domain';
  * - sample_rate, bit_depth, crest_factor, date_added, date_modified
  *
  * Frontend domain (camelCase):
- * - sampleRate, bitDepth, crestFactor, dateAdded, dateModified
+ * - sampleRate, bitDepth, dateAdded, dateModified
  */
 export function transformTrack(apiTrack: TrackApiResponse): Track {
   // Backend sends artists/genres as arrays; fall back to singular fields if present.
@@ -55,8 +55,6 @@ export function transformTrack(apiTrack: TrackApiResponse): Track {
 
     // Analysis properties (null → undefined)
     loudness: apiTrack.loudness ?? undefined,
-    crestFactor: apiTrack.crest_factor ?? undefined,
-    centroid: apiTrack.centroid ?? undefined,
 
     // Timestamps (snake → camel, null → undefined). Track.to_dict() — the real
     // ORM path — emits created_at/updated_at; date_added/date_modified come from

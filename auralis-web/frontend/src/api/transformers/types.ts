@@ -63,6 +63,9 @@ export interface ArtistsApiResponse {
 // ============================================================================
 
 export interface TrackApiResponse {
+  // Track serializers may add fields during rolling backend/frontend deploys;
+  // explicit properties below remain the supported contract.
+  [key: string]: unknown;
   id: number;
   title: string;
   // Backend to_dict() returns arrays; singular forms kept for backward compat (fixes #2263)
@@ -99,8 +102,6 @@ export interface TrackApiResponse {
 
   // Analysis properties
   loudness?: number | null;
-  crest_factor?: number | null; // snake_case
-  centroid?: number | null;
 
   /**
    * Timestamps. `Track.to_dict()` (the real ORM path) emits created_at /

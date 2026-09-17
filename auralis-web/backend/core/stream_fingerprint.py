@@ -175,7 +175,7 @@ async def check_or_queue_fingerprint(
             from analysis.fingerprint_queue import get_fingerprint_queue
             queue = get_fingerprint_queue()
             if queue:
-                added = queue.enqueue(track_id)
+                added = await asyncio.to_thread(queue.enqueue, track_id)
                 if added:
                     logger.info(f"📋 Track {track_id} queued for background fingerprinting")
                 else:

@@ -343,7 +343,11 @@ class LibraryAutoScanner:
                 from analysis.fingerprint_queue import get_fingerprint_queue
                 fp_queue = get_fingerprint_queue()
                 if fp_queue:
-                    enqueued = sum(1 for t in scan_result.added_tracks if fp_queue.enqueue(t.id))
+                    enqueued = await asyncio.to_thread(
+                        lambda: sum(
+                            1 for t in scan_result.added_tracks if fp_queue.enqueue(t.id)
+                        )
+                    )
                     if enqueued:
                         logger.info(f"Enqueued {enqueued} tracks for fingerprinting")
             except Exception as fp_err:

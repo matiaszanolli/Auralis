@@ -200,7 +200,7 @@ class QueueEditMixin(QueueServiceBase):
             await self._invalidate_set_queue_generation()
             async with self._set_queue_engine_lock:
                 # Clear queue
-            queue_manager.clear_queue()
+                queue_manager.clear_queue()
 
                 # Stop playback
                 if hasattr(self.audio_player, 'stop'):

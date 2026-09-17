@@ -82,6 +82,7 @@ async def test_untrusted_intermediate_hop_is_never_requested(tmp_path):
     assert await downloader._try_musicbrainz("Artist", "Album", 1) is None
 
     assert lan not in session.requested
+    assert session.redirect_flags[0] is False
     downloader._save_artwork.assert_not_awaited()
 
 
@@ -95,6 +96,7 @@ async def test_loopback_redirect_is_never_requested(tmp_path):
     assert await downloader._try_itunes("Artist", "Album", 1) is None
 
     assert session.requested == [ITUNES_SEARCH, ITUNES_ART]
+    assert session.redirect_flags == [False, False]
     art.content.read.assert_not_awaited()
 
 

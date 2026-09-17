@@ -1324,7 +1324,6 @@ describe('useLibraryQuery', () => {
       expect(track.bitDepth).toBe(24);
       expect(track.dateAdded).toBe('2026-01-01');
       expect(track.dateModified).toBe('2026-02-02');
-      expect(track.crestFactor).toBe(8.5);
       expect(track.albumId).toBe(7);
       expect(track.trackNumber).toBe(3);
       expect(track.discNumber).toBe(2);

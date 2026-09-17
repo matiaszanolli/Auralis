@@ -43,8 +43,6 @@ export interface Track {
 
   // Analysis properties
   loudness?: number | null; // LUFS
-  crestFactor?: number | null; // dB (camelCase)
-  centroid?: number | null; // Hz
 
   // Timestamps
   dateAdded?: string | null; // ISO 8601 (camelCase)
