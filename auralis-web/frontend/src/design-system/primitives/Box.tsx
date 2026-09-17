@@ -1,4 +1,4 @@
-import { CSSProperties, ElementType, MouseEvent, ReactNode, forwardRef } from 'react';
+import { CSSProperties, ElementType, type JSX, MouseEvent, ReactNode, forwardRef } from 'react';
 import { tokens } from '@/design-system/tokens';
 
 export interface BoxProps {

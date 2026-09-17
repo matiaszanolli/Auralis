@@ -12,6 +12,7 @@
  * fallback pattern wired into ComfortableApp.
  */
 
+import type { JSX } from 'react';
 import { render, screen, fireEvent } from '@/test/test-utils';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ErrorBoundary } from '../ErrorBoundary';
