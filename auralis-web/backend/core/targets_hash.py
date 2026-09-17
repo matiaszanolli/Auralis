@@ -13,8 +13,8 @@ targets applied, per-chunk fingerprint analysis disabled), so two callers
 requesting the same (track, preset, intensity) with DIFFERENT targets must not
 share a cached artifact. That reasoning was applied only to
 ``ProcessorFactory``'s processor cache; #4666 extends it to the chunk caches
-(``ChunkCacheManager`` in-memory keys, the ``WAVEncoder`` on-disk filename, and
-``SimpleChunkCache``).
+(``ChunkCacheManager`` in-memory keys and the ``WAVEncoder`` on-disk filename;
+the in-memory ``SimpleChunkCache`` that also carried it was deleted in #5492).
 
 Every one of those tiers must derive the hash IDENTICALLY — two different
 hashes of the same targets would defeat the point — so the implementation lives

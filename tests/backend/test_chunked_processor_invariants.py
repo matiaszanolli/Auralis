@@ -552,9 +552,8 @@ def test_cached_chunks_are_reused(processor):
 def test_process_chunk_reuses_on_disk_wav_with_empty_memory_cache(processor, test_audio_file):
     """
     INVARIANT (#4792): process_chunk() must check the on-disk WAV cache, not
-    just the in-memory dict. Every new stream constructs a fresh in-memory
-    cache (AudioStreamController hands each stream a fresh SimpleChunkCache),
-    so relying on the in-memory dict alone means every replay re-runs the
+    just the in-memory dict. Every new stream constructs a fresh processor
+    with an empty in-memory dict, so relying on it alone means every replay re-runs the
     full DSP pipeline even though a byte-identical, signature/preset/intensity
     -keyed WAV from a previous stream is already sitting on disk.
     """

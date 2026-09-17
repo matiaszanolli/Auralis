@@ -33,7 +33,6 @@ from fastapi import WebSocket
 
 from . import audio_stream_controller as _asc
 from .chunk_boundaries import emitted_chunk_start
-from .chunk_cache import SimpleChunkCache
 from .stream_messages import ChunkPumpResult
 
 logger = logging.getLogger(__name__)
@@ -189,17 +188,6 @@ async def pump_enhanced_chunks(
                 # first sample this chunk actually delivers, so recovering there
                 # replayed 5s of already-heard audio.
                 recovery_position: float = emitted_chunk_start(chunk_idx)
-                # Evict any stale cache entry for the failed chunk so a retry
-                # processes it fresh rather than replaying corrupt data (issue #2085)
-                if isinstance(controller.cache_manager, SimpleChunkCache):
-                    controller.cache_manager.invalidate_chunk(
-                        track_id=track_id,
-                        chunk_idx=chunk_idx,
-                        preset=preset,
-                        intensity=intensity,
-                        file_signature=processor.file_signature,  # #4358
-                        targets_hash=processor.targets_hash,  # #4666
-                    )
                 await controller._send_error(
                     websocket,
                     track_id,

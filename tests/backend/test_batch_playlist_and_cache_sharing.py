@@ -1,7 +1,7 @@
 """
 Regression tests for:
-  #3855 — AudioStreamController cache_manager is accepted and not silently
-           replaced with a fresh SimpleChunkCache per request.
+  #3855 — AudioStreamController cache_manager is accepted as-is (the
+           SimpleChunkCache it once fell back to was deleted in #5492).
   #3856 — PlaylistRepository.add_tracks() inserts all tracks in a single
            transaction (batch), assigning correct sequential positions.
 """
@@ -167,15 +167,15 @@ class TestAudioStreamControllerCacheSharing:
         )
         assert ctrl.cache_manager is shared_cache, (
             "AudioStreamController must use the provided cache_manager, "
-            "not create a fresh SimpleChunkCache (#3855)"
+            "not replace it (#3855)"
         )
 
-    def test_no_cache_manager_falls_back_to_simple_cache(self):
-        """Without a cache_manager, the controller falls back to SimpleChunkCache."""
-        from core.audio_stream_controller import AudioStreamController, SimpleChunkCache
+    def test_no_cache_manager_stays_none(self):
+        """Without a cache_manager there is no in-memory fallback any more (#5492)."""
+        from core.audio_stream_controller import AudioStreamController
 
         ctrl = AudioStreamController(
             chunked_processor_class=None,
             get_repository_factory=None,
         )
-        assert isinstance(ctrl.cache_manager, SimpleChunkCache)
+        assert ctrl.cache_manager is None

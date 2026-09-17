@@ -170,7 +170,7 @@ class ProcessorFactory:
 
     # #4666: this class's private targets hasher moved to
     # core/targets_hash.get_targets_hash. The chunk caches (ChunkCacheManager
-    # keys, the WAVEncoder on-disk filename, SimpleChunkCache) now key on
+    # keys, the WAVEncoder on-disk filename) now key on
     # targets too, and every tier must derive the hash IDENTICALLY — so the
     # one implementation is shared rather than copied per tier.
 

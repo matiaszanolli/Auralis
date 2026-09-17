@@ -9,8 +9,7 @@ Unified architecture: single WebSocket endpoint for all audio streaming.
 
 This module holds the AudioStreamController orchestrator plus the shared
 module-level state (contextvars, timeouts, semaphore) the extracted
-streaming submodules key off of: chunk_cache.py (SimpleChunkCache),
-stream_protocol.py (wire send + PCM framing), stream_messages.py (JSON
+streaming submodules key off of: stream_protocol.py (wire send + PCM framing), stream_messages.py (JSON
 control messages), stream_fingerprint.py (fingerprint readiness),
 stream_chunk_ops.py (per-chunk helpers), and stream_enhanced.py /
 stream_normal.py / stream_seek.py (the three entry points).
@@ -33,7 +32,6 @@ import asyncio
 import contextvars
 import itertools
 import logging
-import threading
 import uuid
 from typing import Any
 from collections.abc import Callable
@@ -46,7 +44,6 @@ from analysis.fingerprint_generator import FingerprintGenerator
 
 from auralis.library.repositories.factory import RepositoryFactory
 
-from .chunk_cache import SimpleChunkCache
 from .env_config import get_int_env
 
 logger = logging.getLogger(__name__)
@@ -143,45 +140,6 @@ CHUNK_PROCESS_TIMEOUT: float = 30.0
 # editing three files in lockstep with nothing to catch a missed one.
 STREAM_ACQUIRE_TIMEOUT_SECONDS: float = 5.0
 
-# Degraded-mode fallback cache, shared across ALL AudioStreamController
-# instances for the same reason _global_stream_semaphore is (#2469, #5087).
-#
-# routers/system.py builds a fresh controller per stream request, passing
-# `get_cache_manager()` — which returns None for every request once the
-# `streamlined_cache` global fails to initialise, or after its worker dies and
-# #4318's failure path nulls it. The old `cache_manager or SimpleChunkCache()`
-# fallback then handed each controller its own private cache, silently undoing
-# #3855's cross-request sharing: chunks were never reused between requests
-# (every scrub/replay a miss) and the memory ceiling multiplied by the number
-# of concurrent streams (~50 chunks x ~5.3MB x up to MAX_CONCURRENT_STREAMS
-# ~= 2.6GB), with nothing logged to say degraded mode was active.
-#
-# SimpleChunkCache guards its own state with a threading.Lock (#2436), so one
-# shared instance is safe for concurrent streams.
-_fallback_chunk_cache: 'SimpleChunkCache | None' = None
-_fallback_cache_lock = threading.Lock()
-
-
-def get_fallback_chunk_cache() -> SimpleChunkCache:
-    """Return the process-wide degraded-mode chunk cache, creating it once.
-
-    Logs a WARNING the first time it is used so the degraded state is
-    observable rather than silent (#5087).
-    """
-    global _fallback_chunk_cache
-    with _fallback_cache_lock:
-        if _fallback_chunk_cache is None:
-            logger.warning(
-                "No streamlined cache manager available — falling back to a shared "
-                "in-memory SimpleChunkCache. Chunk caching is degraded: this is the "
-                "path taken when the streamlined cache failed to initialise at "
-                "startup or its worker died (#4318). Streams will still play, but "
-                "cache capacity and hit rate are reduced."
-            )
-            _fallback_chunk_cache = SimpleChunkCache()
-        return _fallback_chunk_cache
-
-
 def ws_id(websocket: WebSocket) -> str:
     """Return a stable UUID for this websocket, assigned on first call.
 
@@ -213,7 +171,7 @@ class AudioStreamController:
         self,
         chunked_processor_class: type[ChunkedAudioProcessor] | None = None,
         get_repository_factory: Callable[[], RepositoryFactory] | None = None,
-        cache_manager: StreamlinedCacheManager | SimpleChunkCache | None = None,
+        cache_manager: StreamlinedCacheManager | None = None,
         get_enhancement_enabled: Callable[[], bool] | None = None,
     ) -> None:
         """
@@ -231,14 +189,10 @@ class AudioStreamController:
         self._get_repository_factory: Callable[[], RepositoryFactory] | None = get_repository_factory
         self._get_enhancement_enabled = get_enhancement_enabled
 
-        # Use the provided cache manager, or the process-wide degraded-mode
-        # fallback — never a fresh per-instance one, which would silently undo
-        # #3855's cross-request sharing whenever get_cache_manager() returns
-        # None (#5087). See get_fallback_chunk_cache().
-        self.cache_manager: StreamlinedCacheManager | SimpleChunkCache = (
-            cache_manager if cache_manager is not None else get_fallback_chunk_cache()
-        )
-        logger.info(f"AudioStreamController initialized with cache manager: {type(self.cache_manager).__name__}")
+        # #5492 deleted the in-memory SimpleChunkCache this attribute used to
+        # select; chunk caching is the on-disk tier inside ChunkedAudioProcessor.
+        # TODO(#5504): nothing reads this any more — drop it and its plumbing.
+        self.cache_manager: StreamlinedCacheManager | None = cache_manager
 
         # NEW (Phase 7.3): Fingerprint generator for on-demand generation
         self.fingerprint_generator: FingerprintGenerator | None = None

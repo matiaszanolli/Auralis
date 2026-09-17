@@ -2,13 +2,13 @@
 audio cache (#4758).
 
 `cache/adapter.py`'s `_temp_chunk_cache` dict had no size/byte cap or
-eviction, unlike its live counterpart `SimpleChunkCache` (capped at 50
-chunks / 512 MB) — a dormant memory-leak hazard, reachable only if a future
+eviction, unlike its then-live counterpart SimpleChunkCache (capped at 50
+chunks / 512 MB; itself deleted in #5492) — a dormant memory-leak hazard, reachable only if a future
 caller wired the class in via its `cache/__init__.py` re-export. The class
 had zero production callers (grep across auralis-web/ and tests/ found only
 the definition and the __init__.py export), so it was removed outright per
 the project's No-variants principle rather than given a bounded cache to
-maintain in parallel with SimpleChunkCache.
+maintain in parallel with it.
 """
 
 import sys

@@ -13,36 +13,16 @@ equivalent assertion replaces them.)
 
 import asyncio
 import gc
-import itertools
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, Mock, patch, call
+from unittest.mock import AsyncMock, Mock, patch, call
 
 import numpy as np
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from core.audio_stream_controller import AudioStreamController, SimpleChunkCache
-
-# #4941: _make_controller() builds a bare AudioStreamController(), which
-# defaults `cache_manager` to get_fallback_chunk_cache() -- a lazily created,
-# process-wide singleton shared by every test in this file, not a fresh
-# per-controller cache. Every _make_processor() call used to hardcode the
-# same file_signature ("testsig"), so two tests using the same
-# track_id/chunk_index/preset/intensity (the defaults, used almost
-# everywhere) could collide on the SAME cache entry depending on execution
-# order -- observed as test_no_cpu_waste_on_immediate_disconnect silently
-# getting a cache HIT (skipping the disconnect guard it exists to test)
-# because test_process_chunk_safe_not_called_after_disconnect_detected had
-# run first and legitimately cached chunk 0 under the identical key.
-# file_signature is exactly the field the cache's own key schema added for
-# this (#4358: "an in-session file change ... still MISSES") -- so rather
-# than reaching for a broader cache-clearing fixture, _make_processor() now
-# mints a unique signature per call, giving each test's processor its own
-# slice of the shared cache without changing any other test's caching
-# behavior.
-_next_file_signature = itertools.count()
+from core.audio_stream_controller import AudioStreamController
 
 
 # ---------------------------------------------------------------------------
@@ -74,13 +54,7 @@ def _make_processor(total_chunks: int = 5, sample_rate: int = 44100) -> Mock:
     processor.chunk_duration = 10.0
     processor.preset = "adaptive"
     processor.intensity = 1.0
-    # #4358: cache keys include this. Unique per call (#4941) so this
-    # processor's chunks cannot cache-collide with another test's -- see the
-    # module-level comment by _next_file_signature above.
-    processor.file_signature = f"testsig-{next(_next_file_signature)}"
-    # #4666: cache keys also include the mastering-targets hash. A bare Mock
-    # would auto-create a per-attribute Mock here, which is unhashable-by-value
-    # and would never match what a put() recorded.
+    processor.file_signature = "testsig"
     processor.targets_hash = "none"
     # process_chunk_safe returns (path, pcm_array)
     pcm = np.zeros((total_chunks * sample_rate, 2), dtype=np.float32)
@@ -142,34 +116,6 @@ class TestProcessAndStreamChunkDisconnectGuard:
             )
 
         processor.process_chunk_safe.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_cache_hit_still_checks_send_when_disconnected(self):
-        """
-        A cache hit bypasses process_chunk_safe but _send_pcm_chunk handles
-        the disconnected case via _safe_send internally (no crash expected).
-        """
-        controller = _make_controller()
-        processor = _make_processor(total_chunks=1)
-        ws = _make_websocket(connected=False)
-
-        # Pre-populate cache. Must use the processor's file_signature so the
-        # production get() (which now keys on it, #4358) actually hits.
-        pcm = np.zeros((100, 2), dtype=np.float32)
-        controller.cache_manager.put(
-            track_id=1, chunk_idx=0, preset="adaptive", intensity=1.0,
-            audio=pcm, sample_rate=44100, file_signature=processor.file_signature,
-            targets_hash=processor.targets_hash,  # #4666
-        )
-
-        # Should complete without error; _safe_send returns False silently
-        with patch.object(
-            controller, "_send_pcm_chunk", new_callable=AsyncMock
-        ):
-            await controller._process_and_stream_chunk(
-                chunk_index=0, processor=processor, websocket=ws
-            )
-        # No exception — pass
 
 
 # ---------------------------------------------------------------------------

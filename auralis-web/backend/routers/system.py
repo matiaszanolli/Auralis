@@ -98,10 +98,7 @@ async def stream_audio(
                 if (get_enhancement_settings is not None and not force)
                 else None
             ),
-            # Reuse the process-wide chunk cache so scrub/replay
-            # hits cache instead of rebuilding DSP from scratch
-            # (fixes #3855 — per-stream SimpleChunkCache prevented
-            # cross-request sharing).
+            # TODO(#5504): unused by the controller since #5492.
             cache_manager=get_cache_manager() if get_cache_manager else None,
         )
 

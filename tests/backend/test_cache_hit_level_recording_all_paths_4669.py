@@ -23,7 +23,7 @@ Also covers the #4367 gain convention (record the TRUE trailing gain, never
 import inspect
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import numpy as np
 import pytest
@@ -298,35 +298,3 @@ def test_a_cache_miss_never_records_a_cached_level(audio_file):
         proc.process_chunk(0)
         proc.get_wav_chunk_path(1)
     spy.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_in_memory_tier_hit_and_path_cache_hit_are_mutually_exclusive():
-    """RETURN VALUE completeness check: stream_chunk_ops' #3832 recording and
-    the new one in process_chunk cannot both fire for one fetch — the former
-    returns before process_chunk_safe is ever called."""
-    from core.chunk_cache import SimpleChunkCache
-    from core.stream_chunk_ops import process_chunk_only
-
-    cache = SimpleChunkCache()
-    cache.put(
-        track_id=1, chunk_idx=0, preset="adaptive", intensity=1.0,
-        audio=np.zeros((2048, 2), dtype=np.float32), sample_rate=SR,
-        file_signature="sig", gain_db=-1.5, targets_hash="none",
-    )
-    controller = MagicMock()
-    controller.cache_manager = cache
-
-    processor = MagicMock()
-    processor.track_id = 1
-    processor.total_chunks = 1
-    processor.preset = "adaptive"
-    processor.intensity = 1.0
-    processor.file_signature = "sig"
-    processor.targets_hash = "none"
-    processor.sample_rate = SR
-    processor.process_chunk_safe = AsyncMock()
-
-    await process_chunk_only(controller, 0, processor)
-
-    processor.process_chunk_safe.assert_not_called()

@@ -26,7 +26,7 @@ import soundfile as sf
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from core.audio_stream_controller import AudioStreamController, SimpleChunkCache
+from core.audio_stream_controller import AudioStreamController
 
 
 # ============================================================================
@@ -162,47 +162,6 @@ class TestChunkFailureRecovery:
             f"expected recovery_position={expected_position}, got {err['recovery_position']}"
 
     @pytest.mark.asyncio
-    async def test_stale_cache_entry_evicted_after_failure(self):
-        """A cached entry for the failed chunk must be removed after failure.
-
-        If the chunk was previously cached (e.g. from a prior run), calling
-        stream_enhanced_audio again must not replay the same corrupt chunk.
-        """
-        sent: list[dict] = []
-        ws = _make_websocket(sent)
-
-        # Pre-populate the cache with a fake entry for the chunk that will fail
-        cache = SimpleChunkCache()
-        fake_audio = np.zeros((100, 2), dtype=np.float32)
-        cache.put(
-            track_id=TRACK_ID,
-            chunk_idx=FAIL_AT_CHUNK,
-            preset=PRESET,
-            intensity=INTENSITY,
-            audio=fake_audio,
-            sample_rate=SAMPLE_RATE,
-        )
-        # Confirm the entry is there before the test
-        assert cache.get(TRACK_ID, FAIL_AT_CHUNK, PRESET, INTENSITY) is not None
-
-        # Make the cached chunk also fail when streamed: override _send_pcm_chunk
-        # to raise on the failing chunk (simulating a corrupt cached payload).
-        # For this test we bypass the cache-hit path and directly test invalidate_chunk.
-        controller = AudioStreamController(cache_manager=cache)
-
-        # Direct call to invalidate_chunk (the method added in issue #2085 fix)
-        controller.cache_manager.invalidate_chunk(
-            track_id=TRACK_ID,
-            chunk_idx=FAIL_AT_CHUNK,
-            preset=PRESET,
-            intensity=INTENSITY,
-        )
-
-        # The cache entry must be gone
-        assert cache.get(TRACK_ID, FAIL_AT_CHUNK, PRESET, INTENSITY) is None, \
-            "invalidate_chunk must evict the stale entry (issue #2085)"
-
-    @pytest.mark.asyncio
     async def test_error_contains_track_id_and_stream_type(self):
         """Error payload must carry track_id and stream_type for client routing."""
         sent: list[dict] = []
@@ -239,18 +198,6 @@ class TestChunkFailureRecovery:
         assert err_data["track_id"] == TRACK_ID
         assert err_data["stream_type"] == "enhanced"
         assert err_data["code"] == "STREAMING_ERROR"
-
-    @pytest.mark.asyncio
-    async def test_invalidate_chunk_noop_when_not_cached(self):
-        """invalidate_chunk must not raise when the chunk is not in the cache."""
-        cache = SimpleChunkCache()
-        # Should not raise even if the key does not exist
-        cache.invalidate_chunk(
-            track_id=99,
-            chunk_idx=0,
-            preset="adaptive",
-            intensity=1.0,
-        )
 
 
 # ============================================================================

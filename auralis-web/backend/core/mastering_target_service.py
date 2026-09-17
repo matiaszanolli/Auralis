@@ -88,7 +88,7 @@ class MasteringTargetService:
         """Generate cache key for fingerprint.
 
         Keyed on the file's content signature, like every sibling cache
-        (chunk_cache.py, streamlined_processor_cache.py): a key built from
+        (chunk_cache_manager.py, streamlined_processor_cache.py): a key built from
         the path alone kept serving pre-edit targets after the file was
         replaced in place (#5489).
         """

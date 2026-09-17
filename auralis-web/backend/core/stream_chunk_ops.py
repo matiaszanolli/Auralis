@@ -10,8 +10,7 @@ the normal (unprocessed) streaming path, which reads chunks directly from
 disk without DSP.
 
 Extracted from audio_stream_controller.py (#4071). Functions take the
-AudioStreamController instance as `controller` since they read/write
-controller.cache_manager etc.
+AudioStreamController instance as `controller`.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
@@ -27,7 +26,6 @@ import numpy as np
 from fastapi import WebSocket
 
 from . import audio_stream_controller as _asc
-from .chunk_cache import SimpleChunkCache
 from .chunk_streaming import ChunkCancelledError, invalidate_pooled_processor
 
 if TYPE_CHECKING:
@@ -44,7 +42,7 @@ async def process_chunk_only(
     websocket: WebSocket | None = None,
 ) -> tuple[np.ndarray, int]:
     """
-    Process a single chunk (cache check + DSP) without streaming.
+    Process a single chunk (the processor's disk-cache check + DSP) without streaming.
 
     Returns the processed PCM samples and sample rate. Used by the
     look-ahead pipeline so chunk N+1 can be processed while chunk N
@@ -66,132 +64,64 @@ async def process_chunk_only(
         f"(fast_start={fast_start})"
     )
 
-    # Try to get from cache first
-    pcm_samples: np.ndarray | None = None
-    sr: int | None = None
-
+    # Cache hits are served inside processor.process_chunk_safe() by the
+    # on-disk chunk tier, which also restores level history (#5492 removed
+    # the in-memory SimpleChunkCache that used to sit in front of it).
+    #
+    # Guard: don't waste CPU on DSP if the client disconnected (fixes #2076)
+    if websocket is not None and not controller._is_websocket_connected(websocket):
+        raise ConnectionError(f"WebSocket disconnected before processing chunk {chunk_index}")
+    # Bound the per-chunk DSP so a hung thread can't wedge the stream
+    # forever (#3852). TimeoutError is an Exception subclass, so it
+    # flows into the caller's skip-failed-chunk recovery branch.
     try:
-        if isinstance(controller.cache_manager, SimpleChunkCache):
-            cached_result: tuple[np.ndarray, int, float] | None = controller.cache_manager.get(
-                track_id=processor.track_id,
-                chunk_idx=chunk_index,
-                preset=processor.preset,
-                intensity=processor.intensity,
-                # #4358: key on the file signature so an in-session file change
-                # (same track_id) misses instead of serving stale audio.
-                file_signature=processor.file_signature,
-                # #4666: same reasoning for mastering targets — they select a
-                # different DSP branch and typically land mid-session, once the
-                # background fingerprint queue completes.
-                targets_hash=processor.targets_hash,
-            )
-            if cached_result:
-                pcm_samples, sr, cached_gain_db = cached_result
-                logger.info(f"Cache HIT: chunk {chunk_index}, preset {processor.preset}")
-                # #3832: record the cached chunk's level so the LevelManager
-                # history stays chronologically consistent — otherwise a
-                # later cache-MISS chunk smooths against the wrong previous
-                # RMS. cached_gain_db (#4367) restores the true trailing gain
-                # baked into these samples instead of assuming unity.
-                # Best-effort: state-sync only, never fails the stream.
-                note_level = getattr(processor, "note_cached_chunk_level", None)
-                if note_level is not None:
-                    try:
-                        # #5327: this is the per-chunk hot path — the cache-MISS
-                        # DSP call a few lines below already uses the dedicated
-                        # streaming pool (#5086) rather than the shared default
-                        # I/O executor, but this cache-HIT call was missed by
-                        # that split. A plain asyncio.to_thread() here queues
-                        # behind unrelated repository calls or a library scan
-                        # on the shared pool, delaying cache-hit chunk delivery
-                        # long enough to underrun the client's playback buffer.
-                        from .executors import run_in_stream_executor
-                        await run_in_stream_executor(note_level, pcm_samples, chunk_index, cached_gain_db)
-                    except Exception as e:
-                        logger.debug(f"Cache-hit level recording skipped (not critical): {e}")
-    except Exception as e:
-        logger.debug(f"Cache lookup failed (not critical): {e}")
-
-    # Process chunk if not cached
-    if pcm_samples is None:
-        # Guard: don't waste CPU on DSP if the client disconnected (fixes #2076)
-        if websocket is not None and not controller._is_websocket_connected(websocket):
-            raise ConnectionError(f"WebSocket disconnected before processing chunk {chunk_index}")
-        logger.debug(f"Cache MISS: Processing chunk {chunk_index}")
-        # Bound the per-chunk DSP so a hung thread can't wedge the stream
-        # forever (#3852). TimeoutError is an Exception subclass, so it
-        # flows into the caller's skip-failed-chunk recovery branch.
-        try:
-            _chunk_path, pcm_samples = await asyncio.wait_for(
-                processor.process_chunk_safe(chunk_index, fast_start=fast_start),
-                timeout=_asc.CHUNK_PROCESS_TIMEOUT,
-            )
-        except TimeoutError as e:
-            logger.error(
-                f"Chunk {chunk_index} DSP timed out after {_asc.CHUNK_PROCESS_TIMEOUT}s "
-                f"(track {processor.track_id}, preset {processor.preset})"
-            )
-            # #5335: wait_for abandoned the coroutine, not the executor thread,
-            # which may still be advancing the pooled HybridProcessor. Drop it
-            # from the factory so the next stream or seek of this track builds
-            # a fresh one. Best-effort: never mask the timeout itself.
-            try:
-                invalidate_pooled_processor(
-                    processor,
-                    chunk_index,
-                    f"DSP timed out after {_asc.CHUNK_PROCESS_TIMEOUT}s",
-                )
-            except Exception as invalidate_error:
-                logger.warning(
-                    f"Could not invalidate the processor after chunk {chunk_index} "
-                    f"timed out: {invalidate_error}"
-                )
-            raise TimeoutError(
-                f"Chunk {chunk_index} processing timed out after {_asc.CHUNK_PROCESS_TIMEOUT}s"
-            ) from e
-        except ChunkCancelledError:
-            # #4815: the owning stream was cancelled (seek/track-change/
-            # disconnect) and chunk_streaming.process_chunk bailed out before
-            # starting DSP. In practice the awaiting task has usually already
-            # unwound via asyncio.CancelledError by the time this is even
-            # reachable — but if it IS reached, this must NOT be logged or
-            # retried as a processing failure. Re-raised as ConnectionError so
-            # it flows into the callers' existing "client disconnected — clean
-            # exit" handling (stream_enhanced.py/stream_seek.py already treat
-            # ConnectionError this way; no new except clause needed there).
-            logger.debug(f"Chunk {chunk_index} abandoned: stream cancelled")
-            raise ConnectionError(
-                f"Chunk {chunk_index} abandoned: owning stream was cancelled"
-            )
-        sr = processor.sample_rate
-
-        logger.debug(
-            f"Chunk {chunk_index}: processed {len(pcm_samples)} samples at {sr}Hz"
+        _chunk_path, pcm_samples = await asyncio.wait_for(
+            processor.process_chunk_safe(chunk_index, fast_start=fast_start),
+            timeout=_asc.CHUNK_PROCESS_TIMEOUT,
         )
-
-        # Store in cache for future use
+    except TimeoutError as e:
+        logger.error(
+            f"Chunk {chunk_index} DSP timed out after {_asc.CHUNK_PROCESS_TIMEOUT}s "
+            f"(track {processor.track_id}, preset {processor.preset})"
+        )
+        # #5335: wait_for abandoned the coroutine, not the executor thread,
+        # which may still be advancing the pooled HybridProcessor. Drop it
+        # from the factory so the next stream or seek of this track builds
+        # a fresh one. Best-effort: never mask the timeout itself.
         try:
-            if isinstance(controller.cache_manager, SimpleChunkCache) and sr is not None:
-                # #4367: capture the trailing gain this chunk was smoothed to,
-                # so a later cache hit can restore the true gain_history state
-                # instead of assuming unity (0.0).
-                gain_history = getattr(processor, "chunk_gain_history", None)
-                gain_db = gain_history[-1] if gain_history else 0.0
-                controller.cache_manager.put(
-                    track_id=processor.track_id,
-                    chunk_idx=chunk_index,
-                    preset=processor.preset,
-                    intensity=processor.intensity,
-                    audio=pcm_samples,
-                    sample_rate=sr,
-                    file_signature=processor.file_signature,  # #4358
-                    gain_db=gain_db,
-                    targets_hash=processor.targets_hash,  # #4666
-                )
-        except Exception as e:
-            logger.debug(f"Failed to cache chunk (not critical): {e}")
+            invalidate_pooled_processor(
+                processor,
+                chunk_index,
+                f"DSP timed out after {_asc.CHUNK_PROCESS_TIMEOUT}s",
+            )
+        except Exception as invalidate_error:
+            logger.warning(
+                f"Could not invalidate the processor after chunk {chunk_index} "
+                f"timed out: {invalidate_error}"
+            )
+        raise TimeoutError(
+            f"Chunk {chunk_index} processing timed out after {_asc.CHUNK_PROCESS_TIMEOUT}s"
+        ) from e
+    except ChunkCancelledError:
+        # #4815: the owning stream was cancelled (seek/track-change/
+        # disconnect) and chunk_streaming.process_chunk bailed out before
+        # starting DSP. In practice the awaiting task has usually already
+        # unwound via asyncio.CancelledError by the time this is even
+        # reachable — but if it IS reached, this must NOT be logged or
+        # retried as a processing failure. Re-raised as ConnectionError so
+        # it flows into the callers' existing "client disconnected — clean
+        # exit" handling (stream_enhanced.py/stream_seek.py already treat
+        # ConnectionError this way; no new except clause needed there).
+        logger.debug(f"Chunk {chunk_index} abandoned: stream cancelled")
+        raise ConnectionError(
+            f"Chunk {chunk_index} abandoned: owning stream was cancelled"
+        )
+    sr = processor.sample_rate
 
-    assert pcm_samples is not None
+    logger.debug(
+        f"Chunk {chunk_index}: processed {len(pcm_samples)} samples at {sr}Hz"
+    )
+
     assert sr is not None
     return pcm_samples, sr
 
