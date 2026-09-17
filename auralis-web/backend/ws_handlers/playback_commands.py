@@ -304,7 +304,6 @@ async def handle_play_enhanced(
             websocket,
             deps.get_repository_factory,
             deps.get_enhancement_settings,
-            deps.get_cache_manager,
             track_id=track_id,
             preset=preset,
             intensity=intensity,
@@ -360,7 +359,6 @@ async def handle_play_normal(
         task = asyncio.create_task(deps.stream_normal(
             websocket,
             deps.get_repository_factory,
-            deps.get_cache_manager,
             track_id=track_id,
             start_position=start_position,
             ws_id=ws_id,
@@ -485,7 +483,6 @@ async def handle_seek(
             websocket,
             deps.get_repository_factory,
             deps.get_enhancement_settings,
-            deps.get_cache_manager,
             track_id=track_id,
             preset=preset,
             intensity=intensity,

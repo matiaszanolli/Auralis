@@ -39,7 +39,6 @@ async def test_same_track_reissue_replaces_task_and_applies_new_parameters():
     deps = WSDeps(
         get_repository_factory=None,
         get_enhancement_settings=lambda: settings,
-        get_cache_manager=None,
         get_processing_engine=MagicMock(),
         stream_audio=stream_audio,
         stream_normal=AsyncMock(),

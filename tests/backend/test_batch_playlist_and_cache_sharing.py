@@ -149,33 +149,18 @@ class TestAddTracksBatch:
 
 
 # ---------------------------------------------------------------------------
-# #3855: AudioStreamController accepts shared cache_manager
+# #5504: AudioStreamController has no dead cache-manager dependency
 # ---------------------------------------------------------------------------
 
 class TestAudioStreamControllerCacheSharing:
-    """AudioStreamController must store the provided cache_manager, not replace it."""
+    """Chunk caching is owned by ChunkedAudioProcessor, not this facade."""
 
-    def test_provided_cache_manager_is_stored(self):
-        """When a cache_manager is passed, the controller stores it as-is."""
-        from core.audio_stream_controller import AudioStreamController
-
-        shared_cache = MagicMock()
-        ctrl = AudioStreamController(
-            chunked_processor_class=None,
-            get_repository_factory=None,
-            cache_manager=shared_cache,
-        )
-        assert ctrl.cache_manager is shared_cache, (
-            "AudioStreamController must use the provided cache_manager, "
-            "not replace it (#3855)"
-        )
-
-    def test_no_cache_manager_stays_none(self):
-        """Without a cache_manager there is no in-memory fallback any more (#5492)."""
+    def test_controller_has_no_dead_cache_manager_dependency(self):
+        """The retired in-memory cache must not remain on the controller."""
         from core.audio_stream_controller import AudioStreamController
 
         ctrl = AudioStreamController(
             chunked_processor_class=None,
             get_repository_factory=None,
         )
-        assert ctrl.cache_manager is None
+        assert not hasattr(ctrl, "cache_manager")

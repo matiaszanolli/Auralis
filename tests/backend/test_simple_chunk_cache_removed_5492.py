@@ -39,7 +39,7 @@ def test_module_and_fallback_are_deleted():
 async def test_every_chunk_goes_through_the_processor(cache_manager):
     """Healthy and degraded mode take the same path: the processor's own
     (disk-cached) process_chunk_safe()."""
-    controller = audio_stream_controller.AudioStreamController(cache_manager=cache_manager)
+    controller = audio_stream_controller.AudioStreamController()
     pcm = np.zeros((16, 2), dtype=np.float32)
     processor = MagicMock(sample_rate=44100, total_chunks=1)
     processor.process_chunk_safe = AsyncMock(return_value=(Path("/tmp/c.wav"), pcm))

@@ -61,7 +61,6 @@ def _deps(settings, *, stream_from_position=None, stream_audio=None):
     return WSDeps(
         get_repository_factory=None,
         get_enhancement_settings=(lambda: settings) if settings is not None else None,
-        get_cache_manager=None,
         get_processing_engine=MagicMock(),
         stream_audio=stream_audio or AsyncMock(),
         stream_normal=AsyncMock(),

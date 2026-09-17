@@ -71,7 +71,6 @@ async def stream_audio(
     websocket: WebSocket,
     get_repository_factory: Callable[..., Any] | None,
     get_enhancement_settings: Callable[[], dict[str, Any]] | None,
-    get_cache_manager: Callable[[], Any] | None,
     *,
     track_id: int = 0,
     preset: str = "adaptive",
@@ -98,8 +97,6 @@ async def stream_audio(
                 if (get_enhancement_settings is not None and not force)
                 else None
             ),
-            # TODO(#5504): unused by the controller since #5492.
-            cache_manager=get_cache_manager() if get_cache_manager else None,
         )
 
         if controller.fingerprint_generator:
@@ -172,7 +169,6 @@ async def stream_audio(
 async def stream_normal(
     websocket: WebSocket,
     get_repository_factory: Callable[..., Any] | None,
-    get_cache_manager: Callable[[], Any] | None,
     *,
     track_id: int = 0,
     start_position: float = 0.0,
@@ -185,7 +181,6 @@ async def stream_normal(
         controller = AudioStreamController(
             chunked_processor_class=None,
             get_repository_factory=get_repository_factory,
-            cache_manager=get_cache_manager() if get_cache_manager else None,
         )
         await controller.stream_normal_audio(
             track_id=track_id,
@@ -224,7 +219,6 @@ async def stream_from_position(
     websocket: WebSocket,
     get_repository_factory: Callable[..., Any] | None,
     get_enhancement_settings: Callable[[], dict[str, Any]] | None,
-    get_cache_manager: Callable[[], Any] | None,
     *,
     track_id: int = 0,
     preset: str = "adaptive",
@@ -248,7 +242,6 @@ async def stream_from_position(
                 if get_enhancement_settings is not None
                 else None
             ),
-            cache_manager=get_cache_manager() if get_cache_manager else None,
         )
 
         if enhancement_enabled:
@@ -305,7 +298,6 @@ def create_system_router(
     get_repository_factory: Callable[..., Any] | None = None,
     get_state_manager: Callable[..., Any] | None = None,
     get_enhancement_settings: Callable[[], dict[str, Any]] | None = None,
-    get_cache_manager: Callable[[], Any] | None = None,
 ) -> APIRouter:
     """Create system router (WebSocket endpoint only).
 
@@ -358,7 +350,6 @@ def create_system_router(
             deps = WSDeps(
                 get_repository_factory=get_repository_factory,
                 get_enhancement_settings=get_enhancement_settings,
-                get_cache_manager=get_cache_manager,
                 get_processing_engine=get_processing_engine,
                 stream_audio=stream_audio,
                 stream_normal=stream_normal,
@@ -472,4 +463,3 @@ def create_system_router(
                 heartbeat_task.cancel()
 
     return router
-

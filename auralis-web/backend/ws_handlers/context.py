@@ -63,7 +63,6 @@ class WSDeps:
 
     get_repository_factory: Callable[..., Any] | None
     get_enhancement_settings: Callable[[], dict[str, Any]] | None
-    get_cache_manager: Callable[[], Any] | None
     get_processing_engine: Callable[..., Any]
     stream_audio: Callable[..., Any]
     stream_normal: Callable[..., Any]

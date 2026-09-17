@@ -67,7 +67,6 @@ def _deps(settings: dict, stream_from_position=None):
     return WSDeps(
         get_repository_factory=None,
         get_enhancement_settings=lambda: settings,
-        get_cache_manager=None,
         get_processing_engine=MagicMock(),
         stream_audio=AsyncMock(),
         stream_normal=AsyncMock(),

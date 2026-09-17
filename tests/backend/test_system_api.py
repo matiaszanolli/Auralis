@@ -500,7 +500,7 @@ class TestWebSocketPlayback:
 
         async def recording_stream_audio(
             websocket, get_repository_factory, get_enhancement_settings,
-            get_cache_manager, *, track_id, preset, intensity, force,
+            *, track_id, preset, intensity, force,
             start_position, ws_id,
         ):
             captured.append({
@@ -705,7 +705,7 @@ class TestWebSocketPlayback:
 
         async def slow_stream_from_position(
             websocket, get_repository_factory, get_enhancement_settings,
-            get_cache_manager, *, track_id, preset, intensity, position,
+            *, track_id, preset, intensity, position,
             enhancement_enabled, ws_id,
         ):
             try:
@@ -792,7 +792,7 @@ class TestWebSocketPlayback:
 
         async def slow_stream_audio(
             websocket, get_repository_factory, get_enhancement_settings,
-            get_cache_manager, *, track_id, preset, intensity, force,
+            *, track_id, preset, intensity, force,
             start_position, ws_id,
         ):
             stream_audio_calls.append(track_id)

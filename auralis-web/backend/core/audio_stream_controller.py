@@ -37,7 +37,6 @@ from typing import Any
 from collections.abc import Callable
 
 import numpy as np
-from cache.manager import StreamlinedCacheManager
 from core.chunked_processor import ChunkedAudioProcessor
 from fastapi import WebSocket
 from analysis.fingerprint_generator import FingerprintGenerator
@@ -171,7 +170,6 @@ class AudioStreamController:
         self,
         chunked_processor_class: type[ChunkedAudioProcessor] | None = None,
         get_repository_factory: Callable[[], RepositoryFactory] | None = None,
-        cache_manager: StreamlinedCacheManager | None = None,
         get_enhancement_enabled: Callable[[], bool] | None = None,
     ) -> None:
         """
@@ -180,7 +178,6 @@ class AudioStreamController:
         Args:
             chunked_processor_class: ChunkedAudioProcessor class for processing
             get_repository_factory: Callable that returns RepositoryFactory for track lookup
-            cache_manager: Optional cache manager for chunk caching.
             get_enhancement_enabled: Callable that returns whether enhancement is currently
                 enabled. The streaming loop checks this each iteration so toggling
                 enhancement off stops in-flight chunks promptly (fixes #2866).
@@ -188,11 +185,6 @@ class AudioStreamController:
         self.chunked_processor_class: type[ChunkedAudioProcessor] | None = chunked_processor_class
         self._get_repository_factory: Callable[[], RepositoryFactory] | None = get_repository_factory
         self._get_enhancement_enabled = get_enhancement_enabled
-
-        # #5492 deleted the in-memory SimpleChunkCache this attribute used to
-        # select; chunk caching is the on-disk tier inside ChunkedAudioProcessor.
-        # TODO(#5504): nothing reads this any more — drop it and its plumbing.
-        self.cache_manager: StreamlinedCacheManager | None = cache_manager
 
         # NEW (Phase 7.3): Fingerprint generator for on-demand generation
         self.fingerprint_generator: FingerprintGenerator | None = None
