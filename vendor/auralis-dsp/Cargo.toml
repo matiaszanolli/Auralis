@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 # Edition 2024 needs Rust 1.85 (#5443), which is now the binding floor. Below it
 # is the highest rust-version declared by any direct dependency (rayon 1.11
-# requires 1.80; ndarray 0.16 needs 1.64, pyo3/numpy 0.23 need 1.63, rustfft 6
+# requires 1.80; ndarray 0.16 needs 1.64, pyo3/numpy 0.29 need 1.83, rustfft 6
 # needs 1.61, num-complex 0.4 needs 1.60, realfft declares none) -- checked
 # against ~/.cargo/registry, not guessed (#4964). Without this, cargo can't emit
 # its "package requires rustc X" diagnostic on an older toolchain; a contributor
@@ -17,8 +17,8 @@ num-complex = "0.4"
 rayon = "1.7"
 rustfft = "6.1"
 realfft = "3.3"
-pyo3 = { version = "0.23", features = ["extension-module"] }
-numpy = "0.23"
+pyo3 = { version = "0.29", features = ["extension-module"] }
+numpy = "0.29"
 
 [lib]
 name = "auralis_dsp"

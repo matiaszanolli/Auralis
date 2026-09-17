@@ -15,10 +15,10 @@ how to test and ship a change. For architecture, start at
 | **Node** | 24+ | Frontend + Electron |
 | **Rust** | stable + `maturin` | Required — the DSP module has no Python fallback |
 
-> The free-threaded CPython 3.14 build (`python3.14t`) is **not supported**: `pyo3-ffi` 0.23.5's
-> build script hard-fails on it with no workaround (`PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1`, which
-> makes the pinned pyo3 0.23 work on the regular 3.14 build, is explicitly rejected on
-> free-threaded interpreters — see [`vendor/auralis-dsp/.cargo/config.toml`](../vendor/auralis-dsp/.cargo/config.toml)).
+> The free-threaded CPython 3.14 build (`python3.14t`) is **not supported**. Since the pyo3 0.29
+> bump (#5485) the Rust DSP module compiles against it, but no CI job builds or tests that
+> interpreter, and the rest of the Python stack has not been checked on it (see
+> [`vendor/auralis-dsp/UPGRADE_PLAN.md`](../vendor/auralis-dsp/UPGRADE_PLAN.md)).
 > `requires-python = ">=3.14"` technically admits `3.14t`; use the standard GIL-enabled build.
 
 ---

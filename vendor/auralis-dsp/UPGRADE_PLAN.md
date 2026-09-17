@@ -8,57 +8,73 @@ The `cargo audit` CI gate (`.github/workflows/rust-audit.yml`) covers the
 
 | Crate     | Pinned  | Latest major available | Status |
 |-----------|---------|------------------------|--------|
-| `pyo3`    | `0.23`  | 0.29                   | unblocked, bump tracked in #5485 |
-| `numpy`   | `0.23`  | 0.29                   | unblocked, locked to pyo3 |
+| `pyo3`    | `0.29`  | 0.29                   | ✅ current (bumped from 0.23, #5485) |
+| `numpy`   | `0.29`  | 0.29                   | ✅ current (bumped with pyo3, #5485) |
 | `ndarray` | `0.16`  | 0.16                   | ✅ current (bumped from 0.15) |
 
 `pyo3` and `numpy` (the `rust-numpy` crate) are version-locked to each other and
-must be bumped together; `ndarray` was already advanced to 0.16 independently.
+must be bumped together; `ndarray` was advanced to 0.16 independently and is
+still the single `ndarray` in the graph (`cargo tree -d`).
 
-## Status: UNBLOCKED, bump pending (#5485)
+## Status: CURRENT (#5485)
 
-### The blocker, and its re-test
+### History of the 0.23 → 0.29 bump
 
 On 2026-07-16 the bump to `pyo3`/`numpy` 0.29 compiled but hit a
 **`rust-numpy` / NumPy ABI runtime bug**. Every array-accepting call raised
 `TypeError: 'ndarray' object is not an instance of 'ndarray'` against NumPy
-2.3.5, on both Python 3.13 and 3.14.
+2.3.5, on both Python 3.13 and 3.14. The crate stayed on 0.23 and reached
+Python 3.14 (2026-07-28) by building with `PYO3_USE_ABI3_FORWARD_COMPATIBILITY`,
+which silently compiled pyo3-ffi against the limited C API (#4911) and ruled out
+free-threaded 3.14t (#4962).
 
-**Re-tested 2026-09-15 (#5442) against NumPy 2.4.6**, the version every manifest
-now pins (`requirements.txt`, `auralis-web/backend/requirements.txt`,
-`requirements-lock.txt`), on CPython 3.14.0 with Rust 1.96.0. The error **no
-longer reproduces**:
+Re-tested 2026-09-15 (#5442) against NumPy 2.4.6, the version every manifest
+pins, the error no longer reproduced. The bump landed on 2026-09-17 (#5485):
 
-- A 0.29 build (with no forward-compat flag) passes all 11 array-accepting entry
-  points: `hpss`, `yin`, `chroma_cqt`, `detect_tempo`, `envelope_follow`,
+- `pyo3` 0.23.5 → 0.29.2, `numpy` 0.23.0 → 0.29.0. Their `rust-version` is
+  1.83, below the crate's edition-2024 floor of 1.85, so `rust-version` is
+  unchanged.
+- `Python::allow_threads` → `Python::detach` (11 call sites in
+  `src/py_bindings.rs`), and the three `PyObject` returns (`compress`, `limit`,
+  `compute_fingerprint`) became `Py<PyDict>`.
+- `.cargo/config.toml` and its `PYO3_USE_ABI3_FORWARD_COMPATIBILITY` env block
+  were deleted. `Cargo.toml` requests no `abi3` feature, so the release wheel is
+  now a full-API `cp314-cp314` build. `build-release.yml` asserts that shape.
+- Verified on CPython 3.14.0, NumPy 2.4.6, Rust 1.96.0: all 11 array-accepting
+  entry points (`hpss`, `yin`, `chroma_cqt`, `detect_tempo`, `envelope_follow`,
   `compress`, `limit`, `compute_fingerprint`, `apply_multiband_eq`,
-  `detect_onsets` and `process_chunks`.
-- Its outputs are bit-identical to the shipped 0.23 build on the same inputs:
-  50 output arrays and scalars compared, none differ.
-- It needs two mechanical code changes. `Python::allow_threads` becomes
-  `Python::detach` (12 sites in `src/py_bindings.rs`), and three `PyObject`
-  return types become `Py<PyDict>`.
+  `detect_onsets`, `process_chunks`) return outputs bit-identical to the 0.23
+  build on the same deterministic inputs.
+- One user-visible difference: an array of the wrong dtype (for example float32
+  passed to `hpss`) still raises `TypeError`, but 0.29 words it as
+  `'ndarray' object is not an instance of 'ndarray'` instead of
+  `argument 'audio': 'ndarray' object cannot be converted to 'PyArray<T, D>'`.
+  That is the same text as the July "ABI" error, so if it appears, check the
+  caller's dtype first. No code depends on the message.
 
-The Python 3.14 migration no longer depends on this bump. It finished
-2026-07-28 by building 0.23 with `PYO3_USE_ABI3_FORWARD_COMPATIBILITY` (see
-`.cargo/config.toml`). The bump is still worth doing: it clears both advisories
-below, drops that flag and its limited-API build, and removes the hard failure
-on free-threaded 3.14t (#4962). The full checklist is in #5485.
+### Advisories
 
-### Known advisories against the current pins (from `cargo audit`, 2026-07-19)
+`cargo audit` is clean with no `--ignore` flags. The two pyo3 0.23 advisories
+the gate used to ignore are fixed by the bump:
 
-| Advisory | Crate | Fixed in | Reachable here? |
-|----------|-------|----------|-----------------|
-| [RUSTSEC-2025-0020](https://rustsec.org/advisories/RUSTSEC-2025-0020) — buffer overflow in `PyString::from_object` | pyo3 0.23.5 | >= 0.24.1 | **No** — we never call `PyString::from_object` |
-| [RUSTSEC-2026-0177](https://rustsec.org/advisories/RUSTSEC-2026-0177) — missing `Sync` bound on `PyCFunction::new_closure` | pyo3 0.23.5 | >= 0.29.0 | **No** — we never call `PyCFunction::new_closure` |
+| Advisory | Crate | Fixed in |
+|----------|-------|----------|
+| [RUSTSEC-2025-0020](https://rustsec.org/advisories/RUSTSEC-2025-0020) — buffer overflow in `PyString::from_object` | pyo3 0.23.5 | >= 0.24.1 |
+| [RUSTSEC-2026-0177](https://rustsec.org/advisories/RUSTSEC-2026-0177) — missing `Sync` bound on `PyCFunction::new_closure` | pyo3 0.23.5 | >= 0.29.0 |
 
-Our crate uses only `pyo3::prelude`, `PyModule`, and `PyDict`, so neither
-vulnerable API is on our call surface — the practical exposure is nil. Both are
-therefore `--ignore`'d in the `cargo audit` CI step (see the workflow) so the
-gate stays green for *new* advisories rather than being permanently red on two
-unreachable ones. **These ignores must be removed the moment the pyo3 bump
-lands** (#5485). RUSTSEC-2026-0177's fix requires pyo3 0.29, the version the
-re-test above cleared.
+Neither API was ever on this crate's call surface.
+
+### Free-threaded CPython (3.14t)
+
+pyo3 0.29 no longer hard-fails the build on a free-threaded interpreter (#4962).
+Since pyo3 0.28, free-threaded support is opt-out: `#[pymodule]` without
+`gil_used = true` declares the module safe to import without the GIL, and this
+crate relies on that default. That is plausible here, because the crate has no
+`static`, interior-mutability or `unsafe` state, and every wrapper copies its
+input array before `detach`. It is still untested. No CI job builds or runs
+3.14t, and the rest of the Python stack (numba, for example) has not been
+checked on it. The project therefore still supports only the GIL-enabled build
+(`docs/CONTRIBUTING.md`).
 
 ## Re-evaluation trigger
 
@@ -66,11 +82,11 @@ Revisit when **any** of these becomes true:
 
 1. The `cargo audit` gate flags an advisory against a pinned crate → bump becomes
    urgent; pin forward to the patched version even if a major jump is required.
-2. ~~`rust-numpy` ships a release confirmed compatible with our NumPy on
-   3.13/3.14 (clears the ABI blocker).~~ **Met 2026-09-15** (#5442): 0.29 works
-   against NumPy 2.4.6.
-3. ~~The Python 3.14 migration lands.~~ Landed 2026-07-28 without the bump (see
-   above).
-
-With trigger 2 met, the remaining work is the bump itself (#5485), not another
-re-evaluation.
+2. A new `pyo3`/`numpy` minor ships (0.x minors are breaking). Bump both
+   together, rebuild with `maturin develop`, and re-run the Rust validation
+   tests (`tests/test_*_rust_validation.py`,
+   `tests/test_pyo3_channel_axis_guards_4502.py`,
+   `tests/vendor/test_rust_panic_handler.py`).
+3. Bumping `ndarray` to 0.17. `numpy` 0.29 accepts `>=0.15, <=0.17`, so the two
+   stay unified, but re-check `cargo tree -d` so the graph never ends up with two
+   `ndarray` versions.

@@ -7,8 +7,8 @@ name: Rust Security Audit
 # push/PR that touches it, and weekly, and FAILS the job on any security
 # vulnerability. Unmaintained/yanked warnings are reported but non-blocking.
 #
-# See vendor/auralis-dsp/UPGRADE_PLAN.md for the tracked (currently deferred)
-# pyo3/ndarray/numpy major-version bump plan.
+# See vendor/auralis-dsp/UPGRADE_PLAN.md for the pyo3/ndarray/numpy
+# version-bump plan.
 
 on:
   push:
@@ -68,14 +68,8 @@ jobs:
         # --file targets the crate's own lockfile (not the repo root). Default
         # exit is non-zero on any security vulnerability, failing the build.
         #
-        # Two pyo3 0.23 advisories are --ignore'd because (a) neither vulnerable
-        # API is reachable from our crate (verified: no PyString::from_object,
-        # no PyCFunction::new_closure — we use only prelude/PyModule/PyDict) and
-        # (b) the fixes require pyo3 >=0.24.1 / >=0.29.0. The rust-numpy ABI bug
-        # that held that bump no longer reproduces against NumPy 2.4.6 (#5442);
-        # the bump itself is #5485 (see vendor/auralis-dsp/UPGRADE_PLAN.md).
-        # Remove these ignores when it lands. Any OTHER advisory still fails.
-        run: >-
-          cargo audit --file vendor/auralis-dsp/Cargo.lock
-          --ignore RUSTSEC-2025-0020
-          --ignore RUSTSEC-2026-0177
+        # No advisories are ignored. The pyo3 0.23 ignores (RUSTSEC-2025-0020,
+        # RUSTSEC-2026-0177) were dropped when the crate moved to pyo3 0.29
+        # (#5485); keep this list empty unless an advisory is both unreachable
+        # and unfixable, and record why here if so.
+        run: cargo audit --file vendor/auralis-dsp/Cargo.lock

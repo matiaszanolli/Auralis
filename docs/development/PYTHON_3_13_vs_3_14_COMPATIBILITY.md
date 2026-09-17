@@ -222,11 +222,13 @@ python -m pytest tests/ -v
 
 > **Update (2026-07-28): the 3.14 migration is DONE — the pyo3 bump was never actually required.** The two problems above are separable. The pyo3 0.23 version cap is only a *build-time assertion*, and PyO3 ships an escape hatch for exactly this case: `PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1` tells it to build against a newer CPython anyway. Staying on `pyo3`/`numpy` **0.23** and setting that flag produces a working `cp314` wheel — so the numpy-rs 0.29 ABI-v2 breakage described above is sidestepped entirely rather than solved, because 0.29 is never used.
 >
-> The flag now lives in [`vendor/auralis-dsp/.cargo/config.toml`](../../vendor/auralis-dsp/.cargo/config.toml) under `[env]`, so `maturin develop` and `cargo build` both pick it up with no shell ritual.
+> The flag lived in `vendor/auralis-dsp/.cargo/config.toml` under `[env]`, so `maturin develop` and `cargo build` both picked it up with no shell ritual. That file was deleted in #5485 (see the 2026-09-17 update below).
 >
 > Verified on 3.14.0: every array-accepting entry point (`limit`, `compress`, `envelope_follow`, …) returns normally with no `'ndarray' object is not an instance of 'ndarray'`; `tests/security` + `tests/audio` give a byte-identical 9 failed / 163 passed on 3.13.9 and 3.14 (those 9 are pre-existing); and `auto_master.py` produces the same quality-gate verdict and the same regressed metrics on both. `.python-version` now pins 3.14, matching `requires-python`.
 >
 > The 0.29 bump remains blocked for the reasons above, but it is no longer on the critical path for anything. Phase 2 (free-threading) is still untried.
+
+> **Update (2026-09-17, #5485): `pyo3`/`numpy` are on 0.29.** The crate no longer uses `PYO3_USE_ABI3_FORWARD_COMPATIBILITY`, so the wheel is a full-API `cp314` build rather than a limited-API one. Its outputs are bit-identical to the 0.23 build. The free-threaded build no longer hard-fails at compile time. Under pyo3's opt-out default (since 0.28), the module declares that it is safe to import without the GIL. Phase 2 is still untried and untested in CI.
 
 ### Phase 2: Enable Free-Threading (Week 1-2)
 

@@ -158,22 +158,32 @@ jobs:
           cd vendor/auralis-dsp
           maturin build --release --locked
           pip install target/wheels/*.whl
-        env:
-          # pyo3 0.23's abi3 feature caps at Python 3.13; this opts into
-          # trusting it against 3.14 (matches the last known-working workflow).
-          PYO3_USE_ABI3_FORWARD_COMPATIBILITY: 1
 
-      - name: Assert Rust DSP module built against the limited API (#4911)
-        # PYO3_USE_ABI3_FORWARD_COMPATIBILITY silently compiles pyo3-ffi
-        # against Py_LIMITED_API with no abi3 floor pinned in Cargo.toml. If a
-        # future toolchain/pyo3 change makes that stop happening, the release
-        # wheel would silently flip ABI shape with no signal. Fail loudly
-        # instead of shipping that unnoticed.
+      - name: Assert Rust DSP module built against the full CPython 3.14 API (#5485)
+        # Cargo.toml requests no pyo3 `abi3` feature, and since pyo3 0.29 the
+        # build no longer sets PYO3_USE_ABI3_FORWARD_COMPATIBILITY, which
+        # silently forced a limited-API build (#4911). The wheel must therefore
+        # be a version-specific, GIL-enabled cp314-cp314 build with
+        # Py_LIMITED_API off. If a toolchain, pyo3 or env change flips that,
+        # fail here instead of shipping a different ABI unnoticed.
+        # Match the whole `cargo:rustc-cfg=` line: pyo3-ffi always prints a
+        # `cargo:rustc-check-cfg=cfg(Py_LIMITED_API)` declaration, so a bare
+        # grep for the name matches every build (the #4911 check did that).
         run: |
-          out=$(find vendor/auralis-dsp/target/release/build/pyo3-ffi-*/output)
-          test -n "$out" || { echo "::error::no pyo3-ffi build script output found"; exit 1; }
-          grep -q 'Py_LIMITED_API' "$out" || {
-            echo "::error::expected Py_LIMITED_API in $out — abi3 forward-compat build no longer producing a limited-API wheel"
+          shopt -s nullglob
+          outs=(vendor/auralis-dsp/target/release/build/pyo3-ffi-*/output)
+          test ${#outs[@]} -gt 0 || { echo "::error::no pyo3-ffi build script output found"; exit 1; }
+          if grep -qx 'cargo:rustc-cfg=Py_LIMITED_API' "${outs[@]}"; then
+            echo "::error::pyo3-ffi was built against Py_LIMITED_API; expected a full-API build"
+            exit 1
+          fi
+          grep -qx 'cargo:rustc-cfg=Py_3_14' "${outs[@]}" || {
+            echo "::error::pyo3-ffi was not configured for CPython 3.14"
+            exit 1
+          }
+          wheels=(vendor/auralis-dsp/target/wheels/auralis_dsp-*-cp314-cp314-*.whl)
+          test ${#wheels[@]} -eq 1 || {
+            echo "::error::expected exactly one cp314-cp314 wheel, found: $(ls vendor/auralis-dsp/target/wheels)"
             exit 1
           }
 
@@ -309,23 +319,31 @@ jobs:
           maturin build --release --locked
           $wheel = Get-ChildItem target/wheels/*.whl | Select-Object -First 1
           pip install $wheel.FullName
-        env:
-          # pyo3 0.23's abi3 feature caps at Python 3.13; this opts into
-          # trusting it against 3.14 (matches the last known-working workflow).
-          PYO3_USE_ABI3_FORWARD_COMPATIBILITY: 1
 
-      - name: Assert Rust DSP module built against the limited API (#4911)
-        # PYO3_USE_ABI3_FORWARD_COMPATIBILITY silently compiles pyo3-ffi
-        # against Py_LIMITED_API with no abi3 floor pinned in Cargo.toml. If a
-        # future toolchain/pyo3 change makes that stop happening, the release
-        # wheel would silently flip ABI shape with no signal. Fail loudly
-        # instead of shipping that unnoticed.
+      - name: Assert Rust DSP module built against the full CPython 3.14 API (#5485)
+        # Cargo.toml requests no pyo3 `abi3` feature, and since pyo3 0.29 the
+        # build no longer sets PYO3_USE_ABI3_FORWARD_COMPATIBILITY, which
+        # silently forced a limited-API build (#4911). The wheel must therefore
+        # be a version-specific, GIL-enabled cp314-cp314 build with
+        # Py_LIMITED_API off. If a toolchain, pyo3 or env change flips that,
+        # fail here instead of shipping a different ABI unnoticed.
+        # Match the whole `cargo:rustc-cfg=` line: pyo3-ffi always prints a
+        # `cargo:rustc-check-cfg=cfg(Py_LIMITED_API)` declaration, so a bare
+        # grep for the name matches every build (the #4911 check did that).
         shell: pwsh
         run: |
-          $out = Get-ChildItem vendor/auralis-dsp/target/release/build/pyo3-ffi-*/output -ErrorAction SilentlyContinue | Select-Object -First 1
-          if (-not $out) { throw "no pyo3-ffi build script output found" }
-          if (-not (Select-String -Path $out -Pattern 'Py_LIMITED_API' -Quiet)) {
-            throw "expected Py_LIMITED_API in $out — abi3 forward-compat build no longer producing a limited-API wheel"
+          $outs = @(Get-ChildItem vendor/auralis-dsp/target/release/build/pyo3-ffi-*/output -ErrorAction SilentlyContinue)
+          if ($outs.Count -eq 0) { throw "no pyo3-ffi build script output found" }
+          $lines = @($outs | Get-Content)
+          if ($lines -contains 'cargo:rustc-cfg=Py_LIMITED_API') {
+            throw "pyo3-ffi was built against Py_LIMITED_API; expected a full-API build"
+          }
+          if ($lines -notcontains 'cargo:rustc-cfg=Py_3_14') {
+            throw "pyo3-ffi was not configured for CPython 3.14"
+          }
+          $wheels = @(Get-ChildItem vendor/auralis-dsp/target/wheels/auralis_dsp-*-cp314-cp314-*.whl -ErrorAction SilentlyContinue)
+          if ($wheels.Count -ne 1) {
+            throw "expected exactly one cp314-cp314 wheel, found: $((Get-ChildItem vendor/auralis-dsp/target/wheels).Name -join ', ')"
           }
 
       - name: Build frontend
@@ -445,22 +463,32 @@ jobs:
           cd vendor/auralis-dsp
           maturin build --release --locked
           pip install target/wheels/*.whl
-        env:
-          # pyo3 0.23's abi3 feature caps at Python 3.13; this opts into
-          # trusting it against 3.14 (matches the last known-working workflow).
-          PYO3_USE_ABI3_FORWARD_COMPATIBILITY: 1
 
-      - name: Assert Rust DSP module built against the limited API (#4911)
-        # PYO3_USE_ABI3_FORWARD_COMPATIBILITY silently compiles pyo3-ffi
-        # against Py_LIMITED_API with no abi3 floor pinned in Cargo.toml. If a
-        # future toolchain/pyo3 change makes that stop happening, the release
-        # wheel would silently flip ABI shape with no signal. Fail loudly
-        # instead of shipping that unnoticed.
+      - name: Assert Rust DSP module built against the full CPython 3.14 API (#5485)
+        # Cargo.toml requests no pyo3 `abi3` feature, and since pyo3 0.29 the
+        # build no longer sets PYO3_USE_ABI3_FORWARD_COMPATIBILITY, which
+        # silently forced a limited-API build (#4911). The wheel must therefore
+        # be a version-specific, GIL-enabled cp314-cp314 build with
+        # Py_LIMITED_API off. If a toolchain, pyo3 or env change flips that,
+        # fail here instead of shipping a different ABI unnoticed.
+        # Match the whole `cargo:rustc-cfg=` line: pyo3-ffi always prints a
+        # `cargo:rustc-check-cfg=cfg(Py_LIMITED_API)` declaration, so a bare
+        # grep for the name matches every build (the #4911 check did that).
         run: |
-          out=$(find vendor/auralis-dsp/target/release/build/pyo3-ffi-*/output)
-          test -n "$out" || { echo "::error::no pyo3-ffi build script output found"; exit 1; }
-          grep -q 'Py_LIMITED_API' "$out" || {
-            echo "::error::expected Py_LIMITED_API in $out — abi3 forward-compat build no longer producing a limited-API wheel"
+          shopt -s nullglob
+          outs=(vendor/auralis-dsp/target/release/build/pyo3-ffi-*/output)
+          test ${#outs[@]} -gt 0 || { echo "::error::no pyo3-ffi build script output found"; exit 1; }
+          if grep -qx 'cargo:rustc-cfg=Py_LIMITED_API' "${outs[@]}"; then
+            echo "::error::pyo3-ffi was built against Py_LIMITED_API; expected a full-API build"
+            exit 1
+          fi
+          grep -qx 'cargo:rustc-cfg=Py_3_14' "${outs[@]}" || {
+            echo "::error::pyo3-ffi was not configured for CPython 3.14"
+            exit 1
+          }
+          wheels=(vendor/auralis-dsp/target/wheels/auralis_dsp-*-cp314-cp314-*.whl)
+          test ${#wheels[@]} -eq 1 || {
+            echo "::error::expected exactly one cp314-cp314 wheel, found: $(ls vendor/auralis-dsp/target/wheels)"
             exit 1
           }
 

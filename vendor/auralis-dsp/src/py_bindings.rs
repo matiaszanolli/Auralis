@@ -108,7 +108,7 @@ fn hpss_wrapper(
 
     // Release the GIL for the duration of the CPU-bound Rust computation so that
     // other Python threads (e.g. parallel fingerprint workers) can run (#2447).
-    let (harmonic, percussive) = py.allow_threads(|| std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+    let (harmonic, percussive) = py.detach(|| std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         hpss::hpss(&audio_vec, &config)
     })))
     .map_err(|e| {
@@ -155,7 +155,7 @@ fn yin_wrapper(
     let audio_vec: Vec<f64> = audio.as_array().to_vec();
 
     // Release GIL during CPU-bound computation (#2447).
-    let f0 = py.allow_threads(|| std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+    let f0 = py.detach(|| std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         yin::yin(&audio_vec, sr, fmin, fmax)
     })))
     .map_err(|e| {
@@ -198,7 +198,7 @@ fn chroma_cqt_wrapper(
     let audio_vec: Vec<f64> = audio.as_array().to_vec();
 
     // Release GIL during CPU-bound computation (#2447).
-    let chroma = py.allow_threads(|| std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+    let chroma = py.detach(|| std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         chroma::chroma_cqt(&audio_vec, sr)
     })))
     .map_err(|e| {
@@ -269,7 +269,7 @@ fn detect_tempo_wrapper(
     }
 
     // Release GIL during CPU-bound computation (#2447).
-    let estimated_tempo = py.allow_threads(|| std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+    let estimated_tempo = py.detach(|| std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         tempo::detect_tempo(&audio_vec, sr, &config)
     })))
     .map_err(|e| {
@@ -314,7 +314,7 @@ fn envelope_follow_wrapper(
     let levels_vec: Vec<f32> = input_levels.as_array().to_vec();
 
     // Release GIL during CPU-bound computation (#2447).
-    let envelope = py.allow_threads(|| std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+    let envelope = py.detach(|| std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         envelope::envelope_follow(&levels_vec, sample_rate, attack_ms, release_ms)
     })))
     .map_err(|e| {
@@ -383,7 +383,7 @@ fn compress_wrapper(
     enable_lookahead: bool,
     lookahead_ms: f32,
     detection_mode: &str,
-) -> PyResult<(Py<PyArray1<f32>>, PyObject)> {
+) -> PyResult<(Py<PyArray1<f32>>, Py<PyDict>)> {
     // Convert numpy array to Rust vec
     let audio_vec: Vec<f32> = audio.as_array().to_vec();
 
@@ -411,7 +411,7 @@ fn compress_wrapper(
     };
 
     // Release GIL during CPU-bound computation (#2447).
-    let (compressed, info) = py.allow_threads(|| std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+    let (compressed, info) = py.detach(|| std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         compressor::compress(&audio_vec, &config, mode)
     })))
     .map_err(|e| {
@@ -476,7 +476,7 @@ fn limit_wrapper(
     lookahead_ms: f32,
     isr_enabled: bool,
     oversampling: usize,
-) -> PyResult<(Py<PyArray1<f32>>, PyObject)> {
+) -> PyResult<(Py<PyArray1<f32>>, Py<PyDict>)> {
     // Convert numpy array to Rust vec
     let audio_vec: Vec<f32> = audio.as_array().to_vec();
 
@@ -498,7 +498,7 @@ fn limit_wrapper(
     };
 
     // Release GIL during CPU-bound computation (#2447).
-    let (limited, info) = py.allow_threads(|| std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+    let (limited, info) = py.detach(|| std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         limiter::limit(&audio_vec, &config)
     })))
     .map_err(|e| {
@@ -552,7 +552,7 @@ fn compute_fingerprint_wrapper(
     audio: PyReadonlyArray1<'_, f32>,
     sample_rate: u32,
     channels: u32,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyDict>> {
     // Convert numpy array to Rust vec
     let audio_vec: Vec<f32> = audio.as_array().to_vec();
 
@@ -576,8 +576,8 @@ fn compute_fingerprint_wrapper(
 
     // Release GIL during CPU-bound computation (#2447).
     // The inner Result uses Box<dyn Error> which is not Send/Ungil, so convert
-    // to String (which is) before the allow_threads boundary.
-    let fingerprint = py.allow_threads(|| std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+    // to String (which is) before the detach boundary.
+    let fingerprint = py.detach(|| std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         fingerprint_compute::compute_complete_fingerprint(&audio_vec, sample_rate, channels)
             .map_err(|e| e.to_string())
     })))
@@ -686,7 +686,7 @@ fn apply_multiband_eq_wrapper(
     );
 
     // Release GIL during CPU-bound computation (#2447).
-    let output = py.allow_threads(|| std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+    let output = py.detach(|| std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         eq.process_stereo(&audio_array.view())
     })))
     .map_err(|e| {
@@ -723,7 +723,7 @@ fn detect_onsets_wrapper(
 
     // Release GIL during CPU-bound computation (#2447).
     let detector = onset_detector::OnsetDetector::new(sr as f64, 2048, hop_length);
-    let result = py.allow_threads(|| std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+    let result = py.detach(|| std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         detector.detect(&audio_array.view())
     })))
     .map_err(|e| {
@@ -790,7 +790,7 @@ fn process_chunks_wrapper(
     let mut processor = chunk_processor::ChunkProcessor::new(config);
 
     // Release GIL during CPU-bound computation (#2447).
-    let output = py.allow_threads(|| std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+    let output = py.detach(|| std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         processor.process_chunks(&audio_array.view(), |chunk| chunk.to_owned())
     })))
     .map_err(|e| {

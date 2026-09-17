@@ -113,15 +113,15 @@ Audit the entire Auralis codebase for deprecated APIs, libraries, patterns, and 
 
 **Key locations**: `vendor/auralis-dsp/`
 
-**Current pins** (`vendor/auralis-dsp/Cargo.toml`): edition 2021, `pyo3 = 0.23`, `numpy = 0.23`, `ndarray = 0.16`.
+**Current pins** (`vendor/auralis-dsp/Cargo.toml`): edition 2024, `pyo3 = 0.29`, `numpy = 0.29`, `ndarray = 0.16`.
 
 **Check**:
-- [ ] Deprecated Rust standard library APIs (check edition 2021 → 2024 migration)
+- [ ] Deprecated Rust standard library APIs (the crate is on edition 2024 since #5443)
 - [ ] PyO3 deprecated macros or API patterns (`#[pyfunction]`, `#[pymethods]` signature changes)
 - [ ] Deprecated `Cargo.toml` keys or dependency specification syntax
 - [ ] Deprecated crate features or APIs in dependencies
 - [ ] `maturin` deprecated configuration options
-- [ ] **Do NOT recommend bumping `numpy`/`pyo3` to 0.29 as a routine upgrade.** That bump compiles but hits a numpy-rs 0.29 / NumPy 2.3.x ABI runtime failure on both 3.13 and 3.14. The working configuration is staying on 0.23 and building with `PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1` against Python 3.14. Report it as a known-blocked upgrade with that context, not as a stale pin.
+- [ ] `pyo3`/`numpy` are on 0.29 (#5485), and the `PYO3_USE_ABI3_FORWARD_COMPATIBILITY` flag is gone, so the wheel is a full-API `cp314` build. Flag any reintroduction of that flag, or any `pyo3` deprecation warning in `cargo check` output (for example `allow_threads`/`with_gil` instead of `detach`/`attach`, or the removed `PyObject` alias). The July 2026 "ABI v2" blocker is history; see `vendor/auralis-dsp/UPGRADE_PLAN.md`.
 - [ ] `Cargo.lock` — is it tracked? An untracked lockfile has previously hidden a real dependency conflict (ndarray 0.15/0.16) until a release build broke.
 
 ### Dimension 7: Internal Codebase Deprecations

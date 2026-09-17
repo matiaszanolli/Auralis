@@ -167,13 +167,12 @@ class BuildManager {
       return;
     }
 
-    // Build with maturin (release mode, ABI3 compat for Python 3.13)
+    // Build with maturin (release mode, full-API wheel for the running CPython)
     await this.runCommand(
       'maturin',
       ['build', '--release'],
       this.vendorDspDir,
-      'Building Rust DSP with maturin',
-      { PYO3_USE_ABI3_FORWARD_COMPATIBILITY: '1' }
+      'Building Rust DSP with maturin'
     );
 
     // Install the built wheel
