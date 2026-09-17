@@ -35,8 +35,31 @@ class QueueController:
         Args:
             get_repository_factory: Callable that returns RepositoryFactory instance (REQUIRED)
         """
-        self.queue: Any = QueueManager()
+        self.queue: QueueManager = QueueManager()
         self.get_repository_factory = get_repository_factory
+        self._on_change: Callable[[], None] | None = None
+
+    def set_change_listener(self, listener: Callable[[], None] | None) -> None:
+        """Register a callback run after every change to the queue's contents,
+        order or wrap-around (#5508).
+
+        AudioPlayer registers ``gapless.invalidate_prebuffer``: the backend
+        edits the queue through this controller, never through AudioPlayer's
+        own wrappers, so a stale prebuffered "next" track survived every
+        reorder/remove/insert. The listener runs after QueueManager._lock is
+        released — the gapless engine takes its update_lock before the queue
+        lock, so calling it under the queue lock would invert that order.
+        """
+        self._on_change = listener
+
+    def _notify_changed(self) -> None:
+        listener = self._on_change
+        if listener is None:
+            return
+        try:
+            listener()
+        except Exception as e:
+            error(f"Queue change listener failed: {e}")
 
     def _get_repos(self) -> Any:
         """Get repository factory for data access."""
@@ -63,7 +86,7 @@ class QueueController:
     def current_index(self) -> int:
         """Get current track index (#3783: locked via QueueManager._lock)."""
         with self.queue._lock:
-            return self.queue.current_index  # type: ignore[no-any-return]
+            return self.queue.current_index
 
     @current_index.setter
     def current_index(self, value: int) -> None:
@@ -75,7 +98,7 @@ class QueueController:
     def shuffle_enabled(self) -> bool:
         """Get shuffle mode status (#3783: locked)."""
         with self.queue._lock:
-            return self.queue.shuffle_enabled  # type: ignore[no-any-return]
+            return self.queue.shuffle_enabled
 
     @shuffle_enabled.setter
     def shuffle_enabled(self, value: bool) -> None:
@@ -87,7 +110,7 @@ class QueueController:
     def repeat_enabled(self) -> bool:
         """Get repeat mode status (#3783: locked)."""
         with self.queue._lock:
-            return self.queue.repeat_enabled  # type: ignore[no-any-return]
+            return self.queue.repeat_enabled
 
     @repeat_enabled.setter
     def repeat_enabled(self, value: bool) -> None:
@@ -111,12 +134,12 @@ class QueueController:
         Returns:
             Track info dict or None if queue empty
         """
-        next_track: Any = self.queue.next_track()
+        next_track = self.queue.next_track()
         if next_track:
             info(f"Advancing to next track: {next_track.get('title', 'Unknown')}")
         else:
             info("No next track in queue")
-        return next_track  # type: ignore[no-any-return]
+        return next_track
 
     def advance_if_next_matches(self, expected: dict[str, Any]) -> dict[str, Any] | None:
         """
@@ -128,10 +151,10 @@ class QueueController:
         track on success, None if the queue mutated between peek and commit
         so the slot no longer holds the expected track.
         """
-        advanced: Any = self.queue.advance_if_next_matches(expected)
+        advanced = self.queue.advance_if_next_matches(expected)
         if advanced:
             info(f"Advancing to next track: {advanced.get('title', 'Unknown')}")
-        return advanced  # type: ignore[no-any-return]
+        return advanced
 
     def previous_track(self) -> dict[str, Any] | None:
         """
@@ -140,12 +163,12 @@ class QueueController:
         Returns:
             Track info dict or None if at start
         """
-        prev_track: Any = self.queue.previous_track()
+        prev_track = self.queue.previous_track()
         if prev_track:
             info(f"Moved to previous track: {prev_track.get('title', 'Unknown')}")
         else:
             info("No previous track in queue")
-        return prev_track  # type: ignore[no-any-return]
+        return prev_track
 
     def rollback_index(self, saved_index: int) -> None:
         """#3668: locked rollback of the queue's current_index for use by
@@ -161,7 +184,7 @@ class QueueController:
 
     def get_current_track(self) -> dict[str, Any] | None:
         """Get current track from queue"""
-        return self.queue.get_current_track()  # type: ignore[no-any-return]
+        return self.queue.get_current_track()
 
     def peek_next_track(self) -> dict[str, Any] | None:
         """
@@ -169,16 +192,18 @@ class QueueController:
 
         Useful for prebuffering the next track.
         """
-        return self.queue.peek_next()  # type: ignore[no-any-return]
+        return self.queue.peek_next()
 
     def add_track(self, track_info: dict[str, Any]) -> None:
         """Add a track to the queue"""
         self.queue.add_track(track_info)
+        self._notify_changed()
         info(f"Added to queue: {track_info.get('title', 'Unknown')}")
 
     def insert_track(self, index: int, track_info: dict[str, Any]) -> int:
         """Insert a track and return its normalized queue position."""
         position: int = self.queue.insert_track(index, track_info)
+        self._notify_changed()
         info(f"Inserted into queue at {position}: {track_info.get('title', 'Unknown')}")
         return position
 
@@ -261,6 +286,7 @@ class QueueController:
                 track_count = len(self.queue.tracks)
                 if track_count:
                     self.queue.current_index = min(start_index, track_count - 1)
+            self._notify_changed()
 
             if track_count:
                 info(f"Loaded playlist: {playlist.name} ({track_count} tracks)")
@@ -276,6 +302,7 @@ class QueueController:
     def clear_queue(self) -> None:
         """Clear all tracks from queue"""
         self.queue.clear()
+        self._notify_changed()
         info("Queue cleared")
 
     def get_queue_info(self) -> dict[str, Any]:
@@ -311,12 +338,15 @@ class QueueController:
                 self.queue.shuffle()
         else:
             self.queue.unshuffle()
+        self._notify_changed()
         info(f"Shuffle {'enabled' if enabled else 'disabled'}")
 
     def set_repeat(self, enabled: bool) -> None:
         """Enable/disable repeat mode"""
         # Route through the locked property setter (#4096), as with set_shuffle.
         self.repeat_enabled = enabled
+        # Repeat decides whether "next" wraps to the start.
+        self._notify_changed()
         info(f"Repeat {'enabled' if enabled else 'disabled'}")
 
     def is_queue_empty(self) -> bool:
@@ -341,7 +371,10 @@ class QueueController:
 
     def remove_track(self, index: int) -> bool:
         """Remove track at specified index"""
-        return self.queue.remove_track(index)  # type: ignore[no-any-return]
+        removed: bool = self.queue.remove_track(index)
+        if removed:
+            self._notify_changed()
+        return removed
 
     def remove_if_index_matches_current(self, index: int) -> tuple[bool, bool]:
         """Atomically remove a track and report whether it was current (#5360).
@@ -350,27 +383,40 @@ class QueueController:
         closes — a two-step "read current_index, then remove" is vulnerable
         to a concurrent advance/next/previous landing in between.
         """
-        return self.queue.remove_if_index_matches_current(index)  # type: ignore[no-any-return]
+        result: tuple[bool, bool] = self.queue.remove_if_index_matches_current(index)
+        if result[0]:
+            self._notify_changed()
+        return result
 
     def get_queue(self) -> list[dict[str, Any]]:
         """Get full queue as list"""
-        return self.queue.get_queue()  # type: ignore[no-any-return]
+        return self.queue.get_queue()
 
     def shuffle(self) -> None:
         """Shuffle the queue, keeping the current track in place."""
         self.queue.shuffle()
+        self._notify_changed()
 
     def unshuffle(self) -> bool:
         """Restore the pre-shuffle queue order. Returns True if restored."""
-        return self.queue.unshuffle()
+        restored: bool = self.queue.unshuffle()
+        if restored:
+            self._notify_changed()
+        return restored
 
     def reorder_tracks(self, new_order: list[int]) -> bool:
         """Reorder tracks according to new index order"""
-        return self.queue.reorder_tracks(new_order)  # type: ignore[no-any-return]
+        reordered: bool = self.queue.reorder_tracks(new_order)
+        if reordered:
+            self._notify_changed()
+        return reordered
 
     def move_track(self, from_index: int, to_index: int) -> bool:
         """Move one track while preserving the currently selected track."""
-        return self.queue.move_track(from_index, to_index)  # type: ignore[no-any-return]
+        moved: bool = self.queue.move_track(from_index, to_index)
+        if moved:
+            self._notify_changed()
+        return moved
 
     def set_queue(self, track_list: list[str | dict[str, Any]], start_index: int = 0) -> None:
         """Set queue with track list (for backward compatibility)"""
@@ -393,3 +439,4 @@ class QueueController:
             track_count = len(self.queue.tracks)
             if track_count and start_index >= 0:
                 self.queue.current_index = min(start_index, track_count - 1)
+        self._notify_changed()

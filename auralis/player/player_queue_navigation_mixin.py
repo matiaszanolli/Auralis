@@ -247,4 +247,3 @@ class PlayerQueueNavigationMixin:
     def clear_queue(self) -> None:
         """Clear the playback queue"""
         self.queue.clear_queue()
-        self.gapless.invalidate_prebuffer()

@@ -108,14 +108,11 @@ class PlayerCallbacksMixin:
 
     def set_shuffle(self, enabled: bool) -> None:
         """Enable/disable shuffle mode"""
+        # QueueController invalidates the prebuffer itself (#2154, #5508).
         self.queue.set_shuffle(enabled)
-        # Shuffle reorders the queue, so the prebuffered next track is stale (fixes #2154)
-        self.gapless.invalidate_prebuffer()
         self.integration._notify_callbacks({'action': 'shuffle_changed', 'enabled': enabled})
 
     def set_repeat(self, enabled: bool) -> None:
         """Enable/disable repeat mode"""
         self.queue.set_repeat(enabled)
-        # Repeat changes what the "next" track is (wraps to start) — invalidate (fixes #2154)
-        self.gapless.invalidate_prebuffer()
         self.integration._notify_callbacks({'action': 'repeat_changed', 'enabled': enabled})

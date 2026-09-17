@@ -92,6 +92,9 @@ class AudioPlayer(
         self.queue = QueueController(get_repository_factory)
         self.processor = RealtimeProcessor(config)
         self.gapless = GaplessPlaybackEngine(self.file_manager, self.queue)
+        # Every queue edit — including the backend's, which go straight to
+        # QueueController — drops the stale prebuffered next track (#5508).
+        self.queue.set_change_listener(self.gapless.invalidate_prebuffer)
         self.integration = IntegrationManager(
             self.playback,
             self.file_manager,
@@ -102,7 +105,7 @@ class AudioPlayer(
 
         # Fingerprinting service for adaptive mastering
         self.fingerprint_service = FingerprintService()
-        self._current_fingerprint: dict | None = None
+        self._current_fingerprint: dict[str, Any] | None = None
         # Protects _current_fingerprint against a background loader writing
         # concurrently with the playback thread reading it for adaptive DSP
         # parameters (fixes #2491).

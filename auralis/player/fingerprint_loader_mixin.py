@@ -11,6 +11,7 @@ extracted from AudioPlayer (#4249).
 
 import threading
 from pathlib import Path
+from typing import Any
 
 from ..analysis.fingerprint.fingerprint_service import FingerprintService
 from ..utils.logging import debug, info, warning
@@ -33,7 +34,7 @@ class PlayerFingerprintLoaderMixin:
 
     fingerprint_service: FingerprintService
     processor: RealtimeProcessor
-    _current_fingerprint: dict | None
+    _current_fingerprint: dict[str, Any] | None
     _fingerprint_lock: threading.Lock
     _track_generation: int
 
