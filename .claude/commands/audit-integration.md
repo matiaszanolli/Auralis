@@ -132,7 +132,7 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 | Seek stream path | Backend | `auralis-web/backend/core/stream_seek.py`, `auralis-web/backend/core/stream_chunk_ops.py` |
 | Chunk index math | Backend | `auralis-web/backend/core/chunk_boundaries.py` (`content_chunk_count()`, overlap-aware) |
 | Source seek | Backend | `auralis-web/backend/core/seekable_source.py` (converts non-seekable sources once, #4737) |
-| Cache lookup | Backend | `auralis-web/backend/core/chunk_cache.py` + `file_signature.py` |
+| Cache lookup | Backend | `auralis-web/backend/core/chunk_path_cache.py` + `chunk_cache_manager.py` + `file_signature.py` |
 | Look-ahead / buffer reset | Backend | `auralis-web/backend/core/stream_enhanced_chunks.py` (look-ahead task), `auralis-web/backend/core/proactive_buffer.py` |
 | Level continuity | Backend | `auralis-web/backend/core/level_manager.py` |
 | Resume playback | Frontend | WebSocket hook → Web Audio API |

@@ -32,11 +32,11 @@ You are the **Backend Specialist** for Auralis — a FastAPI app at `:8765` that
 
 There is **no** `wav_streaming` router — audio streaming goes over WebSocket via `core/audio_stream_controller.py` and the `stream_*.py` family.
 
-**Core processing & streaming** (`auralis-web/backend/core/` — 57 modules; the large coordinators are split into sibling families that take the coordinator instance and mutate its state):
+**Core processing & streaming** (`auralis-web/backend/core/` — 54 modules; the large coordinators are split into sibling families that take the coordinator instance and mutate its state):
 - `audio_stream_controller.py` — WebSocket audio streaming
 - `chunked_processor.py` — coordinator (#4245) over `chunk_render.py`, `chunk_streaming.py`, `chunk_batch.py`, `chunk_metadata.py`, `chunk_path_cache.py`, `chunk_processor_init.py`, `chunk_content_profile.py`, `chunk_fingerprint_registry.py`. Chunks are rendered over a 15s window with context and emitted as **10s non-overlapping segments — no boundary crossfade** (#4642). `chunk_crossfade.py` survives with no production caller; its curve is equal-gain sin²/cos² (#3878), not equal-power.
 - `chunk_boundaries.py` — **single source of truth** for `CHUNK_DURATION` (15.0), `CHUNK_INTERVAL` (10.0), `OVERLAP_DURATION` (5.0), `CONTEXT_DURATION` (5.0), and the overlap-aware `content_chunk_count()`
-- `chunk_cache.py`, `chunk_cache_manager.py`, `chunk_mastering.py`, `chunk_operations.py` (render-with-context + trim) — chunk plumbing. Cached chunk files are **16-bit PCM WAV**, not float32.
+- `chunk_cache_manager.py`, `chunk_path_cache.py`, `chunk_mastering.py`, `chunk_operations.py` (render-with-context + trim) — chunk plumbing. Cached chunk files are **16-bit PCM WAV**, not float32.
 - `stream_enhanced.py`, `stream_normal.py`, `stream_seek.py` + their per-chunk pumps (`stream_enhanced_chunks.py` — also owns the look-ahead task, `stream_normal_chunks.py`, `stream_seek_chunks.py`), `stream_track_resolution.py`, `stream_protocol.py`, `stream_messages.py`, `stream_chunk_ops.py`, `stream_fingerprint.py` — streaming paths
 - `processing_engine.py`, `audio_processing_pipeline.py` — processing orchestration and pipeline assembly
 - `processor_factory.py`, `processor_pool.py`, `job_worker.py`, `job_models.py` — worker construction and job execution; `processing_engine.py` is a coordinator (#4250) over `job_lifecycle.py`, `job_execution.py`, `job_config.py`, `job_progress.py`, `job_finalize.py`, `job_cleanup.py`, `job_error_mapping.py`
