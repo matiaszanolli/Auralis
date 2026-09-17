@@ -28,7 +28,9 @@ import math
 import numpy as np
 import pytest
 
-from auralis.analysis.fingerprint.windowed_compute import _sanitize_non_finite
+from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
+    sanitize_non_finite as _sanitize_non_finite,
+)
 
 
 class TestSanitizeNonFinite:

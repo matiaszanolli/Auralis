@@ -12,6 +12,8 @@ audio.
 """
 
 import logging
+import math
+from typing import Any
 
 import numpy as np
 
@@ -22,6 +24,58 @@ logger = logging.getLogger(__name__)
 # Normalize every input to a fixed rate before analysis so the same file yields
 # the same fingerprint regardless of how it was loaded (#3657).
 _TARGET_SR = 22050
+
+
+def sanitize_non_finite(fingerprint: dict[str, Any], label: str) -> list[str]:
+    """Replace NaN/Inf dimensions with 0.0 in place; return the names replaced.
+
+    Reinstates the guard added for #2531, which lived in
+    ``AudioFingerprintAnalyzer.analyze()`` until ``871356f7`` ("route
+    fingerprinting through in-process Rust engine") replaced that analyzer
+    wholesale without porting it (#5103). Nothing downstream re-checked, so a
+    single NaN sample in decoded audio reached ``track_fingerprints`` unguarded
+    and stayed there: ``_prepare_for_storage()`` validates dimension *count*
+    only, ``upsert()`` validates column *names* only, and the read-time
+    ``_band_pct_valid()`` check inspects only the 7 band percentages — so a NaN
+    ``lufs`` reads back as "valid" forever.
+
+    The Rust layer cannot catch this on its own: ``estimate_lufs()``'s silence
+    early-return is ``if rms < 1e-10``, and ``NaN < 1e-10`` is false in
+    IEEE-754, so NaN flows straight past it and ``.clamp(-120.0, 0.0)`` is a
+    no-op on NaN (``vendor/auralis-dsp/src/dsp_math.rs:11-40``).
+
+    It runs at the end of :meth:`AudioFingerprintAnalyzer.analyze`, which
+    every producer calls — including live mastering (``ContinuousMode``),
+    which never went through ``windowed_compute`` and so turned a NaN
+    dimension into NaN parameters and a silent master (#5505).
+    ``compute_windowed_fingerprint()`` calls it again after replacing
+    ``lufs``/``crest_db`` with its own window medians.
+
+    Replace-and-warn rather than reject: it preserves the "always produce a
+    fingerprint" contract every caller is written against, so a poisoned file
+    degrades to a comparable-but-wrong row that is logged, rather than
+    retry-looping forever in ``FingerprintExtractionQueue``.
+    """
+    replaced: list[str] = []
+    for key, value in fingerprint.items():
+        if not isinstance(value, (int, float, np.number)) or isinstance(value, bool):
+            continue
+        try:
+            if not math.isfinite(float(value)):
+                fingerprint[key] = 0.0
+                replaced.append(key)
+        except (TypeError, ValueError, OverflowError):
+            # Non-coercible values are not fingerprint dimensions; leave them
+            # for the completeness/schema checks to reject.
+            continue
+
+    if replaced:
+        logger.warning(
+            f"Fingerprint for {label} contained {len(replaced)} non-finite "
+            f"dimension(s), replaced with 0.0: {sorted(replaced)}. "
+            f"Check the source file and the contributing analyzers."
+        )
+    return replaced
 
 
 class AudioFingerprintAnalyzer:
@@ -43,7 +97,16 @@ class AudioFingerprintAnalyzer:
 
         Returns:
             dict of the 25 schema dimensions, or ``{}`` for empty/invalid/too-short audio.
+            Non-finite dimensions are replaced with 0.0 (see
+            :func:`sanitize_non_finite`).
         """
+        fingerprint = self._analyze_unchecked(audio, sr)
+        if fingerprint:
+            sanitize_non_finite(fingerprint, "in-memory audio")
+        return fingerprint
+
+    def _analyze_unchecked(self, audio: np.ndarray, sr: int) -> dict[str, float]:
+        """Validate, resample and marshal ``audio`` to the Rust engine."""
         try:
             if audio is None or getattr(audio, "size", 0) == 0:
                 logger.warning("Fingerprint skipped: empty or None audio")

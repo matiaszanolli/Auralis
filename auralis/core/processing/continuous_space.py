@@ -16,8 +16,15 @@ from dataclasses import dataclass
 
 
 def _smooth_unit(value: float, center: float, scale: float) -> float:
-    """Map an unbounded measurement smoothly into the open interval ``(0, 1)``."""
-    return 0.5 + 0.5 * math.tanh((float(value) - center) / (2.0 * scale))
+    """Map an unbounded measurement smoothly into the open interval ``(0, 1)``.
+
+    A non-finite measurement maps to the neutral midpoint: ``tanh(nan)`` is
+    ``nan``, and one NaN coordinate makes every generated parameter NaN (#5505).
+    """
+    value = float(value)
+    if not math.isfinite(value):
+        return 0.5
+    return 0.5 + 0.5 * math.tanh((value - center) / (2.0 * scale))
 
 
 @dataclass
@@ -209,9 +216,11 @@ class ProcessingSpaceMapper:
             + fp['presence_pct']
             + fp['air_pct']
         )
-        log_high_low = math.log(
-            (high_energy + self._ENERGY_EPSILON)
-            / (low_energy + self._ENERGY_EPSILON)
+        ratio = (high_energy + self._ENERGY_EPSILON) / (low_energy + self._ENERGY_EPSILON)
+        # A non-finite band value gives a NaN or non-positive ratio; NaN makes
+        # _smooth_unit fall back to its neutral midpoint (#5505).
+        log_high_low = (
+            math.log(ratio) if math.isfinite(ratio) and ratio > 0 else math.nan
         )
 
         band_coordinate = _smooth_unit(

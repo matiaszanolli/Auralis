@@ -119,7 +119,7 @@ class FingerprintQuantizer:
                 # everything), so an unclamped NaN/Inf would silently store as
                 # the dimension's maximum. Fall back to the midpoint instead
                 # (#5350) — callers are expected to sanitize non-finite values
-                # upstream (windowed_compute._sanitize_non_finite()); this is
+                # upstream (audio_fingerprint_analyzer.sanitize_non_finite()); this is
                 # a storage-layer backstop, not a replacement for that.
                 logger.warning(
                     "FingerprintQuantizer.quantize: non-finite value %r for "
