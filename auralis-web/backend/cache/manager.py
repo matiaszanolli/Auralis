@@ -36,6 +36,7 @@ from config.limits import chunk_cache_dir
 # Chunk geometry comes from chunk_boundaries — the single source of truth (#4025)
 # — instead of a third local copy that would drift and cause cache-index errors.
 # Re-exported (cache/__init__.py forwards these) so callers keep resolving them.
+from core.encoding.atomic_io import is_wav_complete
 from core.chunk_boundaries import (  # noqa: F401
     CHUNK_DURATION,
     CHUNK_INTERVAL,
@@ -156,21 +157,24 @@ class StreamlinedCacheManager(
         """
         cache_key = CachedChunk.make_key(track_id, chunk_idx, preset, intensity, file_signature)
 
-        # Check Tier 1 first (hot)
-        if cache_key in self.tier1_cache:
-            chunk = self.tier1_cache[cache_key]
+        # Tier 1 (hot) first, then Tier 2 (warm).
+        for tier, cache in (("tier1", self.tier1_cache), ("tier2", self.tier2_cache)):
+            chunk = cache.get(cache_key)
+            if chunk is None:
+                continue
+            # #5493: the bytes live in a directory that ChunkCacheManager's
+            # process-wide reaper also sweeps, with no knowledge of these
+            # dicts — verify before serving, as ChunkCacheManager does.
+            if not await asyncio.to_thread(is_wav_complete, chunk.chunk_path):
+                await self._drop_stale_chunk(tier, cache_key, chunk)
+                continue
             chunk.mark_accessed()
-            self.tier1_hits += 1
-            logger.debug(f"Tier 1 HIT: {cache_key}")
-            return chunk.chunk_path, "tier1"
-
-        # Check Tier 2 (warm)
-        if cache_key in self.tier2_cache:
-            chunk = self.tier2_cache[cache_key]
-            chunk.mark_accessed()
-            self.tier2_hits += 1
-            logger.debug(f"Tier 2 HIT: {cache_key}")
-            return chunk.chunk_path, "tier2"
+            if tier == "tier1":
+                self.tier1_hits += 1
+            else:
+                self.tier2_hits += 1
+            logger.debug(f"{tier} HIT: {cache_key}")
+            return chunk.chunk_path, tier
 
         # Both tiers were checked and missed. Each tier exposes its own miss
         # counter, while the overall stats below count this request once.
@@ -178,6 +182,18 @@ class StreamlinedCacheManager(
         self.tier2_misses += 1
         logger.debug(f"Cache MISS: {cache_key}")
         return None, "miss"
+
+    async def _drop_stale_chunk(self, tier: str, cache_key: str, chunk: CachedChunk) -> None:
+        """Evict an entry whose file is gone or truncated (#5493)."""
+        async with self._lock:
+            cache = self.tier1_cache if tier == "tier1" else self.tier2_cache
+            # Identity check: a concurrent add_chunk may have replaced it.
+            if cache.get(cache_key) is not chunk:
+                return
+            del cache[cache_key]
+            if tier == "tier2":
+                self._forget_tier2_chunk(chunk)
+        logger.warning(f"{tier} entry {cache_key} lost its file on disk; evicted")
 
     async def add_chunk(
         self,

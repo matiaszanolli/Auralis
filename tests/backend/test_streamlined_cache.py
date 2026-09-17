@@ -33,6 +33,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
+import numpy as np
+import soundfile as sf
+
 from core.chunk_boundaries import chunk_for_position, content_chunk_count
 from cache.monitoring import CacheMonitor
 from cache.manager import (
@@ -42,6 +45,13 @@ from cache.manager import (
     StreamlinedCacheManager,
     TrackCacheStatus,
 )
+
+
+def _wav(path: Path) -> Path:
+    """Write a tiny complete WAV: get_chunk only serves entries whose file is
+    still on disk and intact (#5493)."""
+    sf.write(str(path), np.zeros((64, 2), dtype=np.float32), 8000, subtype="PCM_16")
+    return path
 
 
 class TestCachedChunk:
@@ -306,9 +316,9 @@ class TestStreamlinedCacheManager:
         assert len(cache_manager.tier1_cache) == 0
 
     @pytest.mark.asyncio
-    async def test_get_chunk_tier1_hit(self, cache_manager):
+    async def test_get_chunk_tier1_hit(self, cache_manager, tmp_path):
         """Test getting chunk from Tier 1."""
-        chunk_path = Path("/tmp/chunk_0.webm")
+        chunk_path = _wav(tmp_path / "chunk_0.wav")
         await cache_manager.add_chunk(1, 0, chunk_path, "adaptive", 1.0, tier="tier1")
 
         result_path, tier = await cache_manager.get_chunk(1, 0, "adaptive", 1.0)
@@ -319,9 +329,9 @@ class TestStreamlinedCacheManager:
         assert cache_manager.tier1_misses == 0
 
     @pytest.mark.asyncio
-    async def test_get_chunk_tier2_hit(self, cache_manager):
+    async def test_get_chunk_tier2_hit(self, cache_manager, tmp_path):
         """Test getting chunk from Tier 2."""
-        chunk_path = Path("/tmp/chunk_5.webm")
+        chunk_path = _wav(tmp_path / "chunk_5.wav")
         await cache_manager.add_chunk(1, 5, chunk_path, "adaptive", 1.0, tier="tier2")
 
         result_path, tier = await cache_manager.get_chunk(1, 5, "adaptive", 1.0)
@@ -342,11 +352,11 @@ class TestStreamlinedCacheManager:
         assert cache_manager.tier2_misses == 1
 
     @pytest.mark.asyncio
-    async def test_get_chunk_signature_mismatch_is_a_miss(self, cache_manager):
+    async def test_get_chunk_signature_mismatch_is_a_miss(self, cache_manager, tmp_path):
         """#5251: a chunk cached under one file_signature must not be served
         for a lookup under a different one — the exact scenario an in-place
         file edit (same track_id, new content) produces."""
-        chunk_path = Path("/tmp/chunk_0.webm")
+        chunk_path = _wav(tmp_path / "chunk_0.wav")
         await cache_manager.add_chunk(
             1, 0, chunk_path, "adaptive", 1.0, tier="tier1", file_signature="aaaaaaaa"
         )
@@ -367,6 +377,46 @@ class TestStreamlinedCacheManager:
         )
         assert result_path == chunk_path
         assert tier == "tier1"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("tier", ["tier1", "tier2"])
+    async def test_get_chunk_evicts_entry_whose_file_was_reaped(self, cache_manager, tmp_path, tier):
+        """#5493: ChunkCacheManager's reaper can delete a file this manager
+        still tracks. The lookup must miss and drop the entry, and a Tier 2
+        loss must stop the track reporting itself as fully cached."""
+        duration = 20.0
+        await cache_manager.update_position(1, 0.0, "adaptive", 1.0, duration)
+        paths = []
+        for idx in range(content_chunk_count(duration)):
+            for preset in (None, "adaptive"):
+                path = _wav(tmp_path / f"c{idx}_{preset}.wav")
+                paths.append(path)
+                await cache_manager.add_chunk(1, idx, path, preset, 1.0, tier=tier)
+        if tier == "tier2":
+            assert cache_manager.is_track_fully_cached(1) is True
+
+        victim = paths[-1]  # last chunk, "adaptive"
+        victim.unlink()
+        last = content_chunk_count(duration) - 1
+
+        result_path, result_tier = await cache_manager.get_chunk(1, last, "adaptive", 1.0)
+
+        assert (result_path, result_tier) == (None, "miss")
+        cache = getattr(cache_manager, f"{tier}_cache")
+        assert all(chunk.chunk_path != victim for chunk in cache.values())
+        assert cache_manager.is_track_fully_cached(1) is False
+        if tier == "tier2":
+            assert last not in cache_manager.track_status[1].cached_chunks_processed
+
+    @pytest.mark.asyncio
+    async def test_get_chunk_treats_truncated_file_as_miss(self, cache_manager, tmp_path):
+        """A partially-written WAV is as stale as a missing one (#4576, #5493)."""
+        path = _wav(tmp_path / "c0.wav")
+        path.write_bytes(path.read_bytes()[:60])
+        await cache_manager.add_chunk(1, 0, path, "adaptive", 1.0, tier="tier1")
+
+        assert await cache_manager.get_chunk(1, 0, "adaptive", 1.0) == (None, "miss")
+        assert cache_manager.tier1_cache == {}
 
     @pytest.mark.asyncio
     async def test_add_chunk_tier1_auto_detect(self, cache_manager):
@@ -440,13 +490,13 @@ class TestStreamlinedCacheManager:
         assert cache_manager.is_track_fully_cached(1) is True
 
     @pytest.mark.asyncio
-    async def test_get_stats(self, cache_manager):
+    async def test_get_stats(self, cache_manager, tmp_path):
         """Test cache statistics."""
         await cache_manager.update_position(1, 0.0, "adaptive", 1.0, 60.0)
 
         # Add some chunks
-        await cache_manager.add_chunk(1, 0, Path("/tmp/c0.webm"), "adaptive", 1.0, tier="tier1")
-        await cache_manager.add_chunk(1, 5, Path("/tmp/c5.webm"), "adaptive", 1.0, tier="tier2")
+        await cache_manager.add_chunk(1, 0, _wav(tmp_path / "c0.wav"), "adaptive", 1.0, tier="tier1")
+        await cache_manager.add_chunk(1, 5, _wav(tmp_path / "c5.wav"), "adaptive", 1.0, tier="tier2")
 
         # Generate some hits/misses
         await cache_manager.get_chunk(1, 0, "adaptive", 1.0)  # Tier 1 hit
@@ -468,13 +518,13 @@ class TestStreamlinedCacheManager:
         assert 1 in stats["tracks"]
 
     @pytest.mark.asyncio
-    async def test_tier2_hit_rate_uses_only_tier2_attempts(self, cache_manager):
+    async def test_tier2_hit_rate_uses_only_tier2_attempts(self, cache_manager, tmp_path):
         """Tier-1 traffic must not dilute the reported Tier-2 rate (#5252)."""
         await cache_manager.add_chunk(
-            1, 5, Path("/tmp/tier2.webm"), "adaptive", 1.0, tier="tier2"
+            1, 5, _wav(tmp_path / "tier2.wav"), "adaptive", 1.0, tier="tier2"
         )
         await cache_manager.add_chunk(
-            1, 0, Path("/tmp/tier1.webm"), "adaptive", 1.0, tier="tier1"
+            1, 0, _wav(tmp_path / "tier1.wav"), "adaptive", 1.0, tier="tier1"
         )
 
         for _ in range(2):
@@ -628,17 +678,18 @@ class TestCacheMemoryManagement:
         # Track 1 may or may not be there depending on eviction
 
     @pytest.mark.asyncio
-    async def test_original_and_processed_separate_cache_keys(self, cache_manager):
+    async def test_original_and_processed_separate_cache_keys(self, cache_manager, tmp_path):
         """Test original and processed chunks have different cache keys."""
-        await cache_manager.add_chunk(1, 0, Path("/tmp/c0_orig.webm"), None, 1.0, tier="tier1")
-        await cache_manager.add_chunk(1, 0, Path("/tmp/c0_proc.webm"), "adaptive", 1.0, tier="tier1")
+        orig, proc = _wav(tmp_path / "c0_orig.wav"), _wav(tmp_path / "c0_proc.wav")
+        await cache_manager.add_chunk(1, 0, orig, None, 1.0, tier="tier1")
+        await cache_manager.add_chunk(1, 0, proc, "adaptive", 1.0, tier="tier1")
 
         # Both should be cached separately
         orig_path, tier = await cache_manager.get_chunk(1, 0, None, 1.0)
         proc_path, tier = await cache_manager.get_chunk(1, 0, "adaptive", 1.0)
 
-        assert orig_path == Path("/tmp/c0_orig.webm")
-        assert proc_path == Path("/tmp/c0_proc.webm")
+        assert orig_path == orig
+        assert proc_path == proc
         assert len(cache_manager.tier1_cache) == 2
 
 

@@ -101,19 +101,23 @@ class CacheEvictionMixin:
         # per-chunk LRU within it so a single long track's budget is still
         # enforced (#4793) instead of growing without bound.
         lru_key = min(self.tier2_cache.keys(), key=lambda k: self.tier2_cache[k].last_access)
-        evicted = self.tier2_cache.pop(lru_key)
-
-        status = self.track_status.get(evicted.track_id)
-        if status is not None:
-            if evicted.is_original():
-                status.cached_chunks_original.discard(evicted.chunk_idx)
-            else:
-                status.cached_chunks_processed.discard(evicted.chunk_idx)
-            status.cache_complete = False
+        self._forget_tier2_chunk(self.tier2_cache.pop(lru_key))
 
         logger.debug(
             f"Evicted chunk from Tier 2 (intra-track LRU, single-track budget): {lru_key}"
         )
+
+    def _forget_tier2_chunk(self, chunk: CachedChunk) -> None:
+        """Un-record a removed Tier 2 chunk from its track's status, so the
+        track stops reporting itself as fully cached."""
+        status = self.track_status.get(chunk.track_id)
+        if status is None:
+            return
+        if chunk.is_original():
+            status.cached_chunks_original.discard(chunk.chunk_idx)
+        else:
+            status.cached_chunks_processed.discard(chunk.chunk_idx)
+        status.cache_complete = False
 
     async def _clear_tier1_cache(self) -> None:
         """Clear entire Tier 1 cache."""
