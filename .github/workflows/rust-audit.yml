@@ -48,7 +48,7 @@ jobs:
           version=$(grep -m1 '^channel' vendor/auralis-dsp/rust-toolchain.toml | cut -d '"' -f2)
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
-      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # master @ 2026-08-14
+      - uses: dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f # master @ 2026-08-14
         with:
           toolchain: ${{ steps.rust-toolchain.outputs.version }}
 
