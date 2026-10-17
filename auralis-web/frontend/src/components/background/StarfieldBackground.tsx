@@ -1,13 +1,29 @@
 /**
  * StarfieldBackground - WebGL Procedural Starfield
  *
- * GPU-accelerated starfield with parallax, audio reactivity, and tab-pause.
- * GLSL shaders extracted to starfield.shaders.ts.
+ * GPU-accelerated starfield with parallax and audio reactivity. GLSL shaders
+ * extracted to starfield.shaders.ts.
+ *
+ * Render loop (#5661): one rAF loop drives both the analyser sampling
+ * (sampleAudioVisualization) and the draw, capped to ~30fps while animating.
+ * When nothing is moving — audio inactive and settled, prefers-reduced-motion,
+ * a hidden tab, or the light theme — the loop is cancelled after one static
+ * frame and restarted by the corresponding change event; it never spins on
+ * early returns.
  */
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { VERTEX_SHADER, FRAGMENT_SHADER } from './starfield.shaders';
-import { getAudioVisualization } from '@/hooks/audio/audioVisualization';
+import {
+  getAudioVisualization,
+  sampleAudioVisualization,
+  subscribeToIsActive,
+} from '@/hooks/audio/audioVisualization';
+import { useAudioVisualization } from '@/hooks/audio/useAudioVisualization';
+import { useTheme } from '@/contexts/ThemeContext';
+
+/** Draw cap while animating: the shader is ~30 noise evaluations per pixel. */
+const FRAME_INTERVAL_MS = 1000 / 30;
 
 interface StarfieldBackgroundProps {
   enableParallax?: boolean;
@@ -15,6 +31,24 @@ interface StarfieldBackgroundProps {
   speed?: number;
   zIndex?: number;
   className?: string;
+  /** Feed the starfield from the audio visualization store (default: true) */
+  enableAudioReactivity?: boolean;
+}
+
+/** Tracks the OS reduced-motion preference, re-evaluated when it changes. */
+function usePrefersReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(
+    () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
+
+  useEffect(() => {
+    const query = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const onChange = () => setReduced(query.matches);
+    query.addEventListener('change', onChange);
+    return () => query.removeEventListener('change', onChange);
+  }, []);
+
+  return reduced;
 }
 
 export const StarfieldBackground = ({
@@ -23,15 +57,28 @@ export const StarfieldBackground = ({
   speed = 1.0,
   zIndex = -1,
   className,
+  enableAudioReactivity = true,
 }: StarfieldBackgroundProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const glRef = useRef<WebGLRenderingContext | null>(null);
   const programRef = useRef<WebGLProgram | null>(null);
-  const animationFrameRef = useRef<number>(0);
+  const uniformsRef = useRef<Record<string, WebGLUniformLocation | null>>({});
   const startTimeRef = useRef<number>(Date.now());
   const mouseRef = useRef<{ x: number; y: number }>({ x: 0.5, y: 0.5 });
-  const isVisibleRef = useRef<boolean>(true);
-  const uniformsRef = useRef<Record<string, WebGLUniformLocation | null>>({});
+
+  // Wire playback state to the visualization store this loop samples.
+  useAudioVisualization(enableAudioReactivity);
+
+  // Restart the (cancelled) loop when the store's isActive flips.
+  const [audioIsActive, setAudioIsActive] = useState(getAudioVisualization().isActive);
+  useEffect(
+    () =>
+      subscribeToIsActive(() => setAudioIsActive(getAudioVisualization().isActive)),
+    []
+  );
+
+  const { mode } = useTheme();
+  const prefersReducedMotion = usePrefersReducedMotion();
 
   const compileShader = useCallback((
     gl: WebGLRenderingContext,
@@ -114,15 +161,11 @@ export const StarfieldBackground = ({
     return true;
   }, [compileShader]);
 
-  const render = useCallback(() => {
+  const draw = useCallback((now: number) => {
     const gl = glRef.current;
     const program = programRef.current;
     const canvas = canvasRef.current;
-
-    if (!gl || !program || !canvas || !isVisibleRef.current) {
-      animationFrameRef.current = requestAnimationFrame(render);
-      return;
-    }
+    if (!gl || !program || !canvas) return;
 
     const width = canvas.clientWidth;
     const height = canvas.clientHeight;
@@ -135,15 +178,12 @@ export const StarfieldBackground = ({
     gl.useProgram(program);
 
     const u = uniformsRef.current;
-    const timeElapsed = (Date.now() - startTimeRef.current) / 1000 * speed;
+    const timeElapsed = (now - startTimeRef.current) / 1000 * speed;
     gl.uniform1f(u.u_time, timeElapsed);
     gl.uniform2f(u.u_resolution, width, height);
     gl.uniform2f(u.u_mouse, mouseRef.current.x, mouseRef.current.y);
     gl.uniform1f(u.u_parallaxStrength, enableParallax ? parallaxStrength : 0);
 
-    // Read the live values from the shared visualization store — the same
-    // object every frame, mutated in place by sampleAudioVisualization()
-    // (#5664). No React state in this path.
     const audio = getAudioVisualization();
     gl.uniform1f(u.u_bass, audio.bass);
     gl.uniform1f(u.u_mid, audio.mid);
@@ -153,8 +193,6 @@ export const StarfieldBackground = ({
     gl.uniform1f(u.u_isPlaying, audio.isActive ? 1.0 : 0.0);
 
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-
-    animationFrameRef.current = requestAnimationFrame(render);
   }, [enableParallax, parallaxStrength, speed]);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
@@ -165,30 +203,77 @@ export const StarfieldBackground = ({
     };
   }, [enableParallax]);
 
-  const handleVisibilityChange = useCallback(() => {
-    isVisibleRef.current = !document.hidden;
-  }, []);
-
   useEffect(() => {
-    const success = initWebGL();
-    if (success) {
-      animationFrameRef.current = requestAnimationFrame(render);
+    // The light theme composites the canvas at 3.5% opacity for the same GPU
+    // cost — skip the context entirely there (#5661).
+    if (mode === 'light') return;
+
+    if (!initWebGL()) return;
+
+    let rafId = 0;
+    let running = false;
+    let settledIdle = false; // sampler reached zero while audio was inactive
+    let lastDraw = -Infinity;
+
+    const tick = (now: number) => {
+      // A hidden tab resumes through the visibilitychange restart below;
+      // the loop is cancelled here, not spinning on early returns.
+      if (document.hidden) {
+        running = false;
+        return;
+      }
+
+      const settled = sampleAudioVisualization(now);
+      if (now - lastDraw >= FRAME_INTERVAL_MS) {
+        draw(now);
+        lastDraw = now;
+      }
+
+      if (settled && !getAudioVisualization().isActive) {
+        running = false;
+        settledIdle = true;
+        return;
+      }
+      rafId = requestAnimationFrame(tick);
+    };
+
+    const start = () => {
+      if (running) return;
+      settledIdle = false;
+      running = true;
+      rafId = requestAnimationFrame(tick);
+    };
+
+    if (prefersReducedMotion) {
+      // One static frame with the current store values; no animation at all.
+      sampleAudioVisualization(performance.now());
+      draw(performance.now());
+      settledIdle = true;
+    } else {
+      start();
     }
 
+    const handleVisibilityChange = () => {
+      if (!document.hidden && !running && !settledIdle) start();
+    };
     window.addEventListener('mousemove', handleMouseMove, { passive: true });
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      cancelAnimationFrame(animationFrameRef.current);
-      window.removeEventListener('mousemove', handleMouseMove);
+      running = false;
+      cancelAnimationFrame(rafId);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('mousemove', handleMouseMove);
 
       const gl = glRef.current;
       if (gl && programRef.current) {
         gl.deleteProgram(programRef.current);
+        programRef.current = null;
       }
     };
-  }, [initWebGL, render, handleMouseMove, handleVisibilityChange]);
+  }, [initWebGL, draw, handleMouseMove, prefersReducedMotion, mode, audioIsActive]);
+
+  if (mode === 'light') return null;
 
   return (
     <canvas

@@ -5,7 +5,7 @@ import { ToastProvider } from './components/shared/Toast';
 import { WebSocketProvider } from './contexts/WebSocketContext';
 import { PlaybackSessionProvider } from './contexts/PlaybackSessionContext';
 
-import { AudioReactiveStarfield } from './components/background';
+import { StarfieldBackground } from './components/background';
 import ComfortableApp from './ComfortableApp';
 import { usePlayerStateSync } from '@/hooks/player/usePlayerStateSync';
 import { useServerRestartNotice } from '@/hooks/player/useServerRestartNotice';
@@ -45,8 +45,10 @@ function PlayerStateSync() {
 function AppContent() {
   return (
     <ThemeProvider>
-      {/* GPU-accelerated starfield background with audio reactivity */}
-      <AudioReactiveStarfield className="app-ambient-background" />
+      {/* GPU-accelerated starfield background with audio reactivity. Hosts the
+          visualization wiring itself since #5661; AudioReactiveStarfield was a
+          pass-through wrapper with nothing left to wrap. */}
+      <StarfieldBackground className="app-ambient-background" />
       <ToastProvider maxToasts={3}>
         <WebSocketProvider>
           {/* PlayerStateSync hook must be inside WebSocketProvider */}

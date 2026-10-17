@@ -5,6 +5,5 @@
  */
 
 export { StarfieldBackground } from './StarfieldBackground';
-export { AudioReactiveStarfield } from './AudioReactiveStarfield';
 export { default } from './StarfieldBackground';
 export type { AudioVisualizationData } from '@/hooks/audio/audioVisualization';

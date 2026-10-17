@@ -125,6 +125,10 @@ let audioActive = false;
 
 export function setAudioVisualizationActive(active: boolean): void {
   audioActive = active;
+  // isActive transitions are what wake the starfield's (cancelled) render
+  // loop back up, so flag changes notify here too — otherwise a loop that
+  // stopped after settling would never restart on play (#5661).
+  setActive(active);
 }
 
 /**
