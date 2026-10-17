@@ -73,46 +73,20 @@ const TrackDisplayComponent = ({
     return parts.join(' • ');
   }, [title, artist, album, ariaLabel]);
 
-  // Display loading state
-  if (isLoading) {
-    return (
-      <div
-        className={className}
-        data-testid="track-display"
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: tokens.spacing.xs,
-          minWidth: '0',
-        }}
-        aria-label={finalAriaLabel}
-      >
-        <div
-          style={{
-            height: '20px',
-            backgroundColor: themeVars.surfaceRaised,
-            borderRadius: '4px',
-            animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-          }}
-          data-testid="track-display-loading"
-        />
-        {artist && (
-          <div
-            style={{
-              height: '16px',
-              backgroundColor: themeVars.surfaceRaised,
-              borderRadius: '4px',
-              width: '70%',
-              animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-            }}
-          />
-        )}
-      </div>
-    );
-  }
+  // Screen-reader live region for track changes (fixes #2362). The region and
+  // its wrapper render in BOTH branches (#5667): the region used to sit only
+  // in the loaded branch, so every track change — which passes through
+  // buffering — unmounted it and re-inserted it already containing its text,
+  // which screen readers announce inconsistently or not at all. A region that
+  // stays mounted and has its text updated is always announced.
+  const announcement = `Now playing: ${title}${artist ? ` by ${artist}` : ''}${album ? ` from ${album}` : ''}`;
 
   return (
+    // role="group" gives the decorative aria-label a semantics-bearing
+    // element (#5667): a plain div ignores aria-label.
     <div
+      role="group"
+      aria-label={finalAriaLabel}
       className={className}
       data-testid="track-display"
       style={{
@@ -121,52 +95,78 @@ const TrackDisplayComponent = ({
         gap: tokens.spacing.xs,
         minWidth: '0',
       }}
-      aria-label={finalAriaLabel}
     >
-      {/* Screen-reader live region for track changes (fixes #2362) */}
       <div
         aria-live="polite"
         aria-atomic="true"
         style={{ position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clipPath: 'inset(50%)', whiteSpace: 'nowrap' }}
       >
-        {`Now playing: ${title}${artist ? ` by ${artist}` : ''}${album ? ` from ${album}` : ''}`}
+        {announcement}
       </div>
 
-      {/* Track Title */}
-      <div
-        style={{
-          fontSize: tokens.typography.fontSize.md,
-          fontWeight: tokens.typography.fontWeight.bold,
-          color: themeVars.textPrimary,
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          lineHeight: '1.4',
-        }}
-        data-testid="track-display-title"
-        title={title}
-      >
-        {title}
-      </div>
+      {isLoading ? (
+        /* Display loading state */
+        <>
+          <div
+            style={{
+              height: '20px',
+              backgroundColor: themeVars.surfaceRaised,
+              borderRadius: '4px',
+              animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            }}
+            data-testid="track-display-loading"
+          />
+          {artist && (
+            <div
+              style={{
+                height: '16px',
+                backgroundColor: themeVars.surfaceRaised,
+                borderRadius: '4px',
+                width: '70%',
+                animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              }}
+            />
+          )}
+        </>
+      ) : (
+        <>
+          {/* Track Title */}
+          <div
+            style={{
+              fontSize: tokens.typography.fontSize.md,
+              fontWeight: tokens.typography.fontWeight.bold,
+              color: themeVars.textPrimary,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              lineHeight: '1.4',
+            }}
+            data-testid="track-display-title"
+            title={title}
+          >
+            {title}
+          </div>
 
-      {/* Artist and Album Info */}
-      {(artist || album) && (
-        <div
-          style={{
-            fontSize: tokens.typography.fontSize.sm,
-            color: themeVars.textSecondary,
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            lineHeight: '1.4',
-          }}
-          data-testid="track-display-meta"
-          title={[artist, album].filter(Boolean).join(' • ')}
-        >
-          {artist && <span data-testid="track-display-artist">{artist}</span>}
-          {artist && album && <span> • </span>}
-          {album && <span data-testid="track-display-album">{album}</span>}
-        </div>
+          {/* Artist and Album Info */}
+          {(artist || album) && (
+            <div
+              style={{
+                fontSize: tokens.typography.fontSize.sm,
+                color: themeVars.textSecondary,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                lineHeight: '1.4',
+              }}
+              data-testid="track-display-meta"
+              title={[artist, album].filter(Boolean).join(' • ')}
+            >
+              {artist && <span data-testid="track-display-artist">{artist}</span>}
+              {artist && album && <span> • </span>}
+              {album && <span data-testid="track-display-album">{album}</span>}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

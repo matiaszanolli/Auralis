@@ -268,6 +268,30 @@ describe('TrackDisplay', () => {
       const container = screen.getByTestId('track-display');
       expect(container).toHaveAttribute('aria-label', 'Custom label');
     });
+
+    // #5667: the live region used to render only in the loaded branch, so
+    // every track change — which passes through buffering — remounted it
+    // already containing its text, and screen readers announced nothing.
+    it('keeps the same aria-live node across buffering and updates its text', () => {
+      const { rerender } = render(
+        <TrackDisplay title="First Song" artist="Artist" isLoading />
+      );
+
+      const regionWhileLoading = screen.getByTestId('track-display').querySelector('[aria-live]');
+      expect(regionWhileLoading).not.toBeNull();
+
+      rerender(<TrackDisplay title="Second Song" artist="Artist" />);
+
+      const regionAfter = screen.getByTestId('track-display').querySelector('[aria-live]');
+      expect(regionAfter).toBe(regionWhileLoading);
+      expect(regionAfter).toHaveTextContent('Now playing: Second Song by Artist');
+    });
+
+    it('exposes the live region while buffering', () => {
+      render(<TrackDisplay title="Song" isLoading />);
+
+      expect(screen.getByTestId('track-display').querySelector('[aria-live="polite"]')).not.toBeNull();
+    });
   });
 
   describe('CSS & Styling', () => {
