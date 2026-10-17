@@ -67,7 +67,7 @@ def process_chunks(
     # crashed with a shape mismatch on the first stereo write (#4494).
     out_channels = 2
 
-    # Stage into a sibling temp file and os.replace() onto the final name only
+    # Stage on the same filesystem, then os.replace() onto the final name only
     # after every chunk is written (#5109).
     #
     # The loop below has no per-chunk try/except, so any raise — the
@@ -90,26 +90,29 @@ def process_chunks(
     # on the web backend from auralis/ would invert the layering.
     final_path = Path(output_path)
     final_path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_fd, tmp_name = tempfile.mkstemp(
-        dir=str(final_path.parent),
-        prefix=f".{final_path.stem}.",
-        suffix=f".part{final_path.suffix}",
-    )
-    os.close(tmp_fd)
-    tmp_path = Path(tmp_name)
-
-    try:
+    # mkstemp always makes its inode mode 0600. Since os.replace preserves that
+    # inode, published masters also become owner-only regardless of umask
+    # (#5592). Create the file at 0666 inside a private 0700 stage directory:
+    # os.open applies the current process umask atomically, without reading or
+    # temporarily changing the process-wide (and thread-sensitive) umask.
+    with tempfile.TemporaryDirectory(
+        dir=str(final_path.parent), prefix=f".{final_path.stem}."
+    ) as stage_dir:
+        tmp_path = Path(stage_dir) / f"render.part{final_path.suffix}"
+        tmp_fd = os.open(tmp_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666)
+        os.close(tmp_fd)
         info, chunks_processed = _render_to_sink(
             pipeline, input_path, tmp_path, sr, total_frames, fingerprint,
             intensity, config, verbose, crossfade_samples, chunk_size,
             out_channels,
         )
+        # The renderer has closed SoundFile by now. Flush the complete staged
+        # bytes before replacing the visible destination (cf. #4576).
+        with tmp_path.open("rb") as staged:
+            os.fsync(staged.fileno())
         os.replace(tmp_path, final_path)
-    except BaseException:
-        # BaseException, not Exception: a KeyboardInterrupt mid-render must not
-        # leave the staged file behind either.
-        tmp_path.unlink(missing_ok=True)
-        raise
+        # TemporaryDirectory also removes staged files on all exceptions,
+        # including KeyboardInterrupt, while leaving an earlier master intact.
 
     return info, chunks_processed
 
