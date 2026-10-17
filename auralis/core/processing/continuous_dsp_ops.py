@@ -21,7 +21,11 @@ from typing import Any
 import numpy as np
 
 from ...dsp.basic import amplify, rms
-from ...dsp.utils.adaptive import calculate_loudness_units
+from ...dsp.utils.adaptive import (
+    MAX_NORMALIZATION_GAIN_DB,
+    SILENCE_FLOOR_LUFS,
+    calculate_loudness_units,
+)
 from ...dsp.utils.stereo import (
     WIDTH_FACTOR_UNITY,
     adjust_stereo_width_multiband,
@@ -199,23 +203,26 @@ class ContinuousDSPOpsMixin:
         # ~+25 dB over-boost that Step 2 clawed back to the ceiling. It is now
         # genuinely K-weighted per BS.1770-4 and the two sides share a scale.
         current_lufs = calculate_loudness_units(audio, self.config.internal_sample_rate)
-        if not np.isfinite(current_lufs):
-            # Fall back to RMS for very short or silent segments where
-            # LUFS gating discards every block.
-            from ...dsp.basic import rms as calculate_rms
-            current_rms = calculate_rms(audio.ravel() if audio.ndim == 2 else audio)
-            current_lufs = DBConversion.to_db(current_rms)
-            # #4104: pure silence (rms == 0) -> to_db returns -inf. Without this
-            # guard, adjustment = target_lufs - (-inf) = +inf and
-            # amplify(silence, +inf) = 0.0 * inf = NaN across the whole buffer,
-            # which then trips validate_audio_finite(repair=False) downstream and
-            # crashes the stream. Silence needs no normalization — return it
-            # unchanged (mirrors HybridProcessor's all-zeros early return).
-            if not np.isfinite(current_lufs):
-                return audio
+
+        # Silence / near-silence needs no normalisation. The meter floors
+        # silence at a finite -70 LUFS (it never returns -inf), so the old
+        # `isfinite` guard (#4104) was unreachable after #5221 and a quiet but
+        # non-zero chunk was raised by up to +140 dB to programme loudness
+        # (#5551). Compare against an explicit floor instead; this also keeps
+        # #4104's invariant that silence never yields an inf/NaN gain.
+        if not np.isfinite(current_lufs) or current_lufs <= SILENCE_FLOOR_LUFS:
+            debug(
+                f"[LUFS Normalization] SKIPPED - {current_lufs:.1f} LUFS is at or "
+                f"below the silence floor ({SILENCE_FLOOR_LUFS:.0f} LUFS)"
+            )
+            return audio
 
         target_lufs = params.target_lufs
-        adjustment = target_lufs - current_lufs
+        adjustment = float(np.clip(
+            target_lufs - current_lufs,
+            -MAX_NORMALIZATION_GAIN_DB,
+            MAX_NORMALIZATION_GAIN_DB,
+        ))
 
         if abs(adjustment) > 0.5:
             audio = amplify(audio, adjustment)

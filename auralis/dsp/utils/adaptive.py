@@ -71,6 +71,19 @@ def smooth_parameter_transition(current_value: float,
     return current_value + (target_value - current_value) * smoothing_factor
 
 
+# calculate_loudness_units() reports silence as this finite floor, never -inf.
+LOUDNESS_FLOOR_LUFS = -70.0
+
+# Normalisation guard rails (#5551). Because the meter floors silence at a
+# finite value, "is it silent?" can no longer be answered with isfinite(); a
+# buffer at or below SILENCE_FLOOR_LUFS (dither, room tone, a decoded-MP3 gap)
+# is left alone rather than raised to programme loudness, and no buffer is
+# ever moved by more than MAX_NORMALIZATION_GAIN_DB. Shared so the live chunk
+# path and any other loudness-targeting stage use one definition.
+SILENCE_FLOOR_LUFS = -50.0
+MAX_NORMALIZATION_GAIN_DB = 24.0
+
+
 def calculate_loudness_units(audio: np.ndarray, sample_rate: int) -> float:
     """
     Measure programme loudness in LUFS, K-weighted per ITU-R BS.1770-4.
@@ -118,7 +131,7 @@ def calculate_loudness_units(audio: np.ndarray, sample_rate: int) -> float:
         Loudness in LUFS, floored at -70.0 for silence.
     """
     if audio.size == 0:
-        return -70.0
+        return LOUDNESS_FLOOR_LUFS
 
     # Measure on a stereo view: the meter's per-channel sum is only correct for
     # mono/stereo. A single-column (N, 1) array is mono exactly like 1-D (#5550);
@@ -143,5 +156,5 @@ def calculate_loudness_units(audio: np.ndarray, sample_rate: int) -> float:
     # Silence gives -inf; callers subtract from this value and feed it to tanh
     # curves, so hand back the same finite floor the old implementation used.
     if not np.isfinite(lufs):
-        return -70.0
+        return LOUDNESS_FLOOR_LUFS
     return float(lufs)
