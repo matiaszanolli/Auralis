@@ -67,6 +67,33 @@ export function isMacPlatform(): boolean {
   return /Mac/i.test(navigator.userAgent ?? '');
 }
 
+/**
+ * Keys a focused composite widget uses to move within itself (WAI-ARIA APG).
+ */
+const WIDGET_NAVIGATION_KEYS = new Set([
+  'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown',
+]);
+
+const roleSelector = (roles: string[]) => roles.map((role) => `[role="${role}"]`).join(',');
+
+/** Widgets that own the navigation keys while they hold focus. */
+const NAVIGATION_WIDGET_SELECTOR = roleSelector([
+  'slider', 'listbox', 'option', 'tablist', 'tab', 'menu', 'menuitem', 'menuitemcheckbox',
+  'menuitemradio', 'radiogroup', 'radio', 'spinbutton', 'combobox', 'grid', 'tree', 'treeitem',
+]);
+
+/**
+ * Controls that Space activates. A slider is deliberately absent: it does not
+ * use Space, so Space on the focused seek bar still toggles playback.
+ */
+const SPACE_ACTIVATED_SELECTOR = `button, a[href], summary, ${roleSelector([
+  'button', 'tab', 'menuitem', 'menuitemcheckbox', 'menuitemradio', 'option', 'checkbox',
+  'switch', 'radio', 'treeitem',
+])}`;
+
+/** An open modal dialog or menu: everything behind it must not react to keys. */
+const OVERLAY_SELECTOR = '[aria-modal="true"], [role="dialog"], [role="alertdialog"], [role="menu"]';
+
 class KeyboardShortcutsService {
   private shortcuts: Map<string, RegisteredShortcut> = new Map();
   private enabled: boolean = true;
@@ -93,6 +120,29 @@ class KeyboardShortcutsService {
     const isInput = ['input', 'textarea', 'select'].includes(tagName);
     const isContentEditable = target.contentEditable === 'true';
     return isInput || isContentEditable;
+  }
+
+  /**
+   * Whether the key belongs to something other than the global shortcut table.
+   *
+   * The listener sits on `window`, so it sees every keydown after the focused
+   * widget has handled it. Without this check ArrowRight on the focused seek
+   * bar seeked AND skipped the track, Space on a focused button had its
+   * activation cancelled by `preventDefault()` while toggling playback, and
+   * every shortcut stayed live behind an open dialog (#5656).
+   */
+  private yieldsToFocusedWidget(event: KeyboardEvent): boolean {
+    // A widget (or React handler) that handled the key says so by preventing
+    // its default; React's synthetic handlers run before this window listener.
+    if (event.defaultPrevented) return true;
+    if (document.querySelector(OVERLAY_SELECTOR)) return true;
+
+    const target = event.target;
+    if (!(target instanceof Element)) return false;
+    if (WIDGET_NAVIGATION_KEYS.has(event.key) && target.closest(NAVIGATION_WIDGET_SELECTOR)) {
+      return true;
+    }
+    return event.key === ' ' && target.closest(SPACE_ACTIVATED_SELECTOR) !== null;
   }
 
   /**
@@ -170,6 +220,7 @@ class KeyboardShortcutsService {
     // Allow "/" (focus search) to work even in input fields
     const isSearchKey = event.key === '/' && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey;
     if (!isSearchKey && this.isInputElement(event.target)) return;
+    if (this.yieldsToFocusedWidget(event)) return;
 
     const key = this.generateKey(
       event.key,
