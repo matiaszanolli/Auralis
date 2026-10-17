@@ -114,8 +114,11 @@ class TestLoadAndPrepareAudio:
         assert ch == 2
         assert sr == 48000
         assert arr.dtype == np.float32
-        # Fortran flatten interleaves: L1,L2,R1,R2 -> column-major of (frames,ch)
-        assert np.allclose(arr, np.array([1.0, 3.0, 2.0, 4.0], dtype=np.float32))
+        # Interleaved L1,R1,L2,R2 (row-major of (frames, ch)), which is what the
+        # Rust engine reads. This used to assert [1, 3, 2, 4] — all of L then all
+        # of R — i.e. it pinned the order='F' bug of #5556 as if it were
+        # interleaving.
+        assert np.allclose(arr, np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32))
 
     @pytest.mark.asyncio
     async def test_audio_load_runs_off_thread(self):

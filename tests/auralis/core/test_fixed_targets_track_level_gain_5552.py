@@ -108,7 +108,7 @@ def test_legacy_sidecar_targets_are_rederived_from_the_fingerprint(
 
     legacy = {'target_lufs': -16.0, 'compression': {'ratio': 2.5, 'amount': 0.6}}
     monkeypatch.setattr(
-        mts.FingerprintStorage, 'load', staticmethod(lambda _p: ({'lufs': -21.0}, dict(legacy)))
+        mts.FingerprintStorage, 'load', staticmethod(lambda _p: ({'lufs': -21.0, 'fingerprint_version': 99}, dict(legacy)))
     )
     _fingerprint, targets = mts.MasteringTargetService().load_fingerprint_from_file(str(tmp_path / 'a.flac'))
     assert targets['source_lufs'] == -21.0
@@ -118,6 +118,6 @@ def test_legacy_sidecar_targets_are_rederived_from_the_fingerprint(
 def test_empty_sidecar_targets_stay_empty(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     import core.mastering_target_service as mts
 
-    monkeypatch.setattr(mts.FingerprintStorage, 'load', staticmethod(lambda _p: ({'lufs': -21.0}, {})))
+    monkeypatch.setattr(mts.FingerprintStorage, 'load', staticmethod(lambda _p: ({'lufs': -21.0, 'fingerprint_version': 99}, {})))
     _fingerprint, targets = mts.MasteringTargetService().load_fingerprint_from_file(str(tmp_path / 'a.flac'))
     assert targets == {}

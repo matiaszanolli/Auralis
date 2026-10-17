@@ -147,22 +147,14 @@ def _load_and_prepare_audio(filepath: str) -> tuple[np.ndarray, int, int]:
         (audio_array, sample_rate, channels) — audio_array is float32, with
         stereo interleaved as L1,R1,L2,R2,...
     """
+    # Imported here, like compute_fingerprint_schema below, so the package
+    # import cost is paid on this worker thread rather than at module import.
+    from auralis.analysis.fingerprint.rust_fingerprint import prepare_rust_audio
+
     audio, sample_rate = load_audio(filepath)
 
-    # Handle stereo/mono
-    if audio.ndim == 1:
-        channels = 1
-        audio_array = audio
-    else:
-        channels = audio.shape[1] if audio.ndim == 2 else 1
-        # For stereo, interleave L,R channels
-        if channels == 2 and audio.ndim == 2:
-            audio_array = audio.flatten(order='F')  # Interleave: L1,R1,L2,R2...
-        else:
-            audio_array = audio
-
-    # Ensure proper dtype (float32)
-    audio_array = np.asarray(audio_array, dtype=np.float32)
+    # Stereo is interleaved L1,R1,L2,R2,... (one shared marshalling, #5556).
+    audio_array, channels = prepare_rust_audio(audio)
     return audio_array, int(sample_rate), int(channels)
 
 

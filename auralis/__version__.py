@@ -56,7 +56,14 @@ __db_schema_version__ = 20  # processing_jobs: jobs survive a backend restart (#
 #             change — but the version is global, so this bump recomputes
 #             everything. v7 rows are not comparable to v8 rows for
 #             FFmpeg-routed sources and must be recomputed.
-FINGERPRINT_ALGORITHM_VERSION = 8
+# v9 (#5556): the backend producers (FingerprintGenerator and
+#             MasteringTargetService.extract_fingerprint_from_audio) fed the Rust
+#             engine stereo as [all L, all R] (flatten(order='F')) instead of
+#             interleaved L/R, so every stereo row measured the wrong signal
+#             (spectral bands, tempo, stereo_width, phase_correlation). Rows
+#             written by them are not comparable to v9 rows and must be
+#             recomputed.
+FINGERPRINT_ALGORITHM_VERSION = 9
 
 # Version history
 # 1.0.0 - Initial release with adaptive mastering, web UI, and desktop app

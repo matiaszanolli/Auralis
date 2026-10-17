@@ -24,6 +24,7 @@ from collections.abc import Callable
 
 import numpy as np
 
+from auralis.__version__ import FINGERPRINT_ALGORITHM_VERSION
 from auralis.analysis.fingerprint import AudioFingerprintAnalyzer, FingerprintStorage
 from auralis.analysis.mastering_fingerprint import MasteringFingerprint
 from auralis.io.unified_loader import load_audio
@@ -184,6 +185,19 @@ class MasteringTargetService:
             cached_data = FingerprintStorage.load(Path(filepath))
             if cached_data:
                 fingerprint, mastering_targets = cached_data
+                # Sidecars from an older fingerprint algorithm (or from before
+                # the version was stamped) measured different signals, e.g. the
+                # [all L, all R] stereo layout of #5556: re-extract instead.
+                stored_version = (
+                    int(fingerprint.get('fingerprint_version', 1))
+                    if isinstance(fingerprint, dict) else 1
+                )
+                if stored_version < FINGERPRINT_ALGORITHM_VERSION:
+                    logger.info(
+                        f".25d fingerprint for {Path(filepath).name} is v{stored_version} "
+                        f"(current v{FINGERPRINT_ALGORITHM_VERSION}), re-extracting"
+                    )
+                    return None
                 # Targets are a pure function of the fingerprint, so re-derive them
                 # rather than trusting the persisted copy. Sidecars written before
                 # #5554 hold EQ targets computed with percent-scaled ideals (every
@@ -229,25 +243,14 @@ class MasteringTargetService:
             try:
                 from auralis.analysis.fingerprint.rust_fingerprint import (
                     compute_fingerprint_schema,
+                    prepare_rust_audio,
                 )
 
                 # Load audio file (unified loader handles FFMPEG formats)
                 full_audio, sr = load_audio(filepath)
 
-                # Handle stereo/mono
-                if full_audio.ndim == 1:
-                    channels = 1
-                    audio_array = full_audio
-                else:
-                    channels = full_audio.shape[1] if full_audio.ndim == 2 else 1
-                    # For stereo, interleave L,R channels
-                    if channels == 2 and full_audio.ndim == 2:
-                        audio_array = full_audio.flatten(order='F')
-                    else:
-                        audio_array = full_audio
-
-                # Rust FFI requires float32 C-contiguous array
-                audio_array = np.ascontiguousarray(audio_array, dtype=np.float32)
+                # Stereo is interleaved L1,R1,L2,R2,... (one shared marshalling, #5556)
+                audio_array, channels = prepare_rust_audio(full_audio)
                 logger.debug(f"Audio loaded: {len(audio_array)} samples, SR={sr}, CH={channels}")
 
                 # Call PyO3 Rust fingerprinting (schema-conformant via the glue)
@@ -280,6 +283,9 @@ class MasteringTargetService:
                 'duration': duration_value,
                 'sample_rate': sr
             }
+            # Stamp the algorithm version so a later algorithm change makes
+            # load_fingerprint_from_file reject this sidecar (#5556).
+            fingerprint_data['fingerprint_version'] = FINGERPRINT_ALGORITHM_VERSION
 
             # Generate mastering targets from fingerprint
             mastering_targets = self.generate_targets_from_fingerprint(fingerprint_data)

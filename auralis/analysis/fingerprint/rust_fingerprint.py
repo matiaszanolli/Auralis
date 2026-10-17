@@ -38,6 +38,8 @@ peak_consistency, stereo_width, phase_correlation) passes through unchanged.
 import math
 from typing import Any
 
+import numpy as np
+
 from .schema import CENTROID_NORMALIZATION_HZ, ROLLOFF_NORMALIZATION_HZ
 # Dynamic-range variation reaches half response at a 6 dB standard deviation.
 DRV_HALF_RESPONSE_DB: float = 6.0
@@ -113,6 +115,34 @@ def rust_fingerprint_to_schema(raw: dict[str, Any]) -> dict[str, float]:
     return out
 
 
+def prepare_rust_audio(audio: np.ndarray) -> tuple[np.ndarray, int]:
+    """Marshal a samples-first buffer for :func:`compute_fingerprint_schema`.
+
+    The Rust engine reads stereo as *interleaved* L/R ``(2n,)``. A C-order
+    ravel of an ``(n, 2)`` array is exactly that; ``flatten(order='F')`` is the
+    opposite (all of L, then all of R), which silently fed the engine the wrong
+    signal and persisted wrong fingerprints at two backend call sites (#5556).
+    This is the one place that layout is decided for samples-first loader
+    output (``(n,)`` or ``(n, channels)``).
+
+    Args:
+        audio: ``(n,)`` mono or ``(n, channels)`` samples-first audio.
+
+    Returns:
+        ``(buffer, channels)``: float32 C-contiguous, mono ``(n,)`` with
+        ``channels=1`` or interleaved ``(2n,)`` with ``channels=2``. A single
+        column is treated as mono, and more than two channels are averaged to
+        mono (as ``AudioFingerprintAnalyzer`` does).
+    """
+    if audio.ndim == 1:
+        return np.ascontiguousarray(audio, dtype=np.float32), 1
+    if audio.shape[1] == 2:
+        return np.ascontiguousarray(audio, dtype=np.float32).reshape(-1), 2
+    if audio.shape[1] == 1:
+        return np.ascontiguousarray(audio[:, 0], dtype=np.float32), 1
+    return np.ascontiguousarray(audio.mean(axis=1), dtype=np.float32), 1
+
+
 def compute_fingerprint_schema(
     audio: Any, sample_rate: int, channels: int = 1
 ) -> dict[str, float]:
@@ -124,8 +154,7 @@ def compute_fingerprint_schema(
 
     Args:
         audio: float32 C-contiguous samples. Mono ``(n,)`` or, for ``channels==2``,
-               interleaved L/R ``(2n,)`` (see ``mastering_target_service`` for the
-               interleave convention).
+               interleaved L/R ``(2n,)`` (build it with :func:`prepare_rust_audio`).
         sample_rate: Hz.
         channels: 1 or 2.
 
