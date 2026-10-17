@@ -31,6 +31,8 @@ class AuralisPlaybackProcessor extends AudioWorkletProcessor {
     this._active = true;
     /** Paused: output silence, consume nothing, count nothing (#5657) */
     this._paused = false;
+    /** The queue ran dry at the last render (an underrun is in progress) */
+    this._starved = false;
     /** Number of interleaved channels (set via setChannels command, fixes #2842) */
     this._channels = 2;
 
@@ -90,6 +92,12 @@ class AuralisPlaybackProcessor extends AudioWorkletProcessor {
     if (this._available < samplesNeeded) {
       // Underrun — output silence
       for (let ch = 0; ch < output.length; ch++) output[ch].fill(0);
+      // Progress is otherwise reported every ~0.37 s, so the last report can be
+      // that far short of where playback actually stopped. Send the exact count
+      // as the queue runs dry — at the end of a track this is what lets the
+      // position reach the duration.
+      if (!this._starved && this._samplesPlayed > 0) this._reportProgress();
+      this._starved = true;
       this.port.postMessage({ type: 'underrun' });
       return true;
     }
@@ -122,6 +130,8 @@ class AuralisPlaybackProcessor extends AudioWorkletProcessor {
         this._readOffset = 0;
       }
     }
+
+    this._starved = false;
 
     // Fill remaining with silence if buffer ran short
     for (let i = written; i < framesNeeded; i++) {

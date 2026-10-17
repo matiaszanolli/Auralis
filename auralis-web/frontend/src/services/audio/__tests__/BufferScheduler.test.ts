@@ -519,4 +519,84 @@ describe('BufferScheduler', () => {
       expect(ctx.createScriptProcessor).toHaveBeenCalledTimes(2);
     });
   });
+  describe('end of stream (tail of the track)', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('script path: holds output below the low-water mark until the stream is marked ended', async () => {
+      const { ctx, gainNode, scriptNode } = createScriptOnlyContext();
+      const callbacks = makeCallbacks();
+      // 2 s left in the ring: under the 5 s low-water mark, and nothing more is coming.
+      const scheduler = new BufferScheduler(ctx, makeBuffer(2), gainNode as any, callbacks);
+      await scheduler.ensureReady();
+      scheduler.createProcessor();
+
+      scriptNode.onaudioprocess!(makeProcessEvent(256));
+      expect(callbacks.onSamplesPlayedIncrement).not.toHaveBeenCalled(); // stranded
+
+      scheduler.markStreamEnded();
+      scriptNode.onaudioprocess!(makeProcessEvent(256));
+
+      expect(callbacks.onSamplesPlayedIncrement).toHaveBeenCalledWith(256);
+    });
+
+    it('script path: plays the whole tail down to the last sample', async () => {
+      const { ctx, gainNode, scriptNode } = createScriptOnlyContext();
+      const callbacks = makeCallbacks();
+      const scheduler = new BufferScheduler(ctx, makeBuffer(1), gainNode as any, callbacks);
+      await scheduler.ensureReady();
+      scheduler.createProcessor();
+      scheduler.markStreamEnded();
+
+      for (let i = 0; i < SAMPLE_RATE / 256 + 4; i++) scriptNode.onaudioprocess!(makeProcessEvent(256));
+
+      const played = callbacks.onSamplesPlayedIncrement.mock.calls.reduce((n, [d]) => n + d, 0);
+      expect(played).toBe(SAMPLE_RATE); // 1 s, not stranded at the 5 s mark
+    });
+
+    it('worklet path: keeps feeding the tail after the stream ends', async () => {
+      vi.useFakeTimers();
+      const port = { postMessage: vi.fn(), onmessage: null as ((e: unknown) => void) | null };
+      class MockAudioWorkletNode {
+        port = port;
+        connect = vi.fn();
+        disconnect = vi.fn();
+        constructor(_ctx: unknown, _name: string, _opts: unknown) {}
+      }
+      vi.stubGlobal('AudioWorkletNode', MockAudioWorkletNode);
+      const ctx: any = { audioWorklet: { addModule: vi.fn().mockResolvedValue(undefined) } };
+      const scheduler = new BufferScheduler(
+        ctx, makeBuffer(2), { connect: vi.fn(), disconnect: vi.fn() } as any, makeCallbacks()
+      );
+      await scheduler.ensureReady();
+      scheduler.createProcessor();
+      const sent = () =>
+        port.postMessage.mock.calls.reduce(
+          (n, [m]) => n + (m.samples ? m.samples.length / CHANNELS : 0), 0
+        );
+
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(sent()).toBe(0); // 2 s < 5 s low-water: nothing is ever fed
+
+      scheduler.markStreamEnded();
+      await vi.advanceTimersByTimeAsync(1_000);
+
+      expect(sent()).toBe(2 * SAMPLE_RATE); // the entire tail
+    });
+
+    it('resetStreamEnded restores the water-mark gating for the next stream', async () => {
+      const { ctx, gainNode, scriptNode } = createScriptOnlyContext();
+      const callbacks = makeCallbacks();
+      const scheduler = new BufferScheduler(ctx, makeBuffer(2), gainNode as any, callbacks);
+      await scheduler.ensureReady();
+      scheduler.createProcessor();
+      scheduler.markStreamEnded();
+
+      scheduler.resetStreamEnded();
+      scriptNode.onaudioprocess!(makeProcessEvent(256));
+
+      expect(callbacks.onSamplesPlayedIncrement).not.toHaveBeenCalled();
+    });
+  });
 });

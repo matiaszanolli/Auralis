@@ -137,4 +137,37 @@ describe('audio-worklet-processor (#5657)', () => {
 
     expect(render(p).processed).toBe(false);
   });
+  it('reports its exact position as the queue runs dry, once per starvation', () => {
+    send(p, { samples: ramp(0, FRAMES * 2) });
+    render(p);
+    render(p);
+    p.port.postMessage.mockClear();
+
+    render(p); // queue empty
+    render(p);
+    render(p);
+
+    const samplesPlayed = messages(p).filter((m) => m.type === 'samplesPlayed');
+    expect(samplesPlayed).toEqual([{ type: 'samplesPlayed', count: FRAMES * 2, available: 0 }]);
+    expect(messages(p).filter((m) => m.type === 'underrun')).toHaveLength(3);
+  });
+
+  it('reports again when it runs dry a second time', () => {
+    send(p, { samples: ramp(0, FRAMES) });
+    render(p);
+    render(p); // dry -> report
+    send(p, { samples: ramp(0, FRAMES) });
+    render(p);
+    p.port.postMessage.mockClear();
+
+    render(p); // dry again
+
+    expect(messages(p).filter((m) => m.type === 'samplesPlayed')).toHaveLength(1);
+  });
+
+  it('sends no position report for an underrun before anything has played', () => {
+    render(p);
+
+    expect(messages(p)).toEqual([{ type: 'underrun' }]);
+  });
 });

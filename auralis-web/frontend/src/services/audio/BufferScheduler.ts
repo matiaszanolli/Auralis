@@ -49,6 +49,10 @@ export class BufferScheduler {
 
   private bufferUnderrunCount: number = 0;
   private isBufferPaused: boolean = false; // Track if we paused due to low buffer
+  // True once the backend has delivered everything it will (stream end). The
+  // water marks then no longer apply: nothing more is coming to refill above
+  // the low mark, so holding output would strand the tail of the track.
+  private streamEnded: boolean = false;
   private stalled: boolean = false; // Last stall state reported via onStallChange
 
   // Configuration (centralised in audioConstants.ts — #4031)
@@ -87,6 +91,22 @@ export class BufferScheduler {
 
   resetUnderrunCount(): void {
     this.bufferUnderrunCount = 0;
+  }
+
+  /**
+   * The stream has delivered its last chunk. Play out whatever is buffered
+   * instead of waiting for a refill to the high-water mark that cannot come —
+   * otherwise the final seconds sit unplayed in the ring and the track never
+   * reaches its end.
+   */
+  markStreamEnded(): void {
+    this.streamEnded = true;
+    this.isBufferPaused = false;
+  }
+
+  /** Forget a previous stream's end (stop / seek restart the same engine). */
+  resetStreamEnded(): void {
+    this.streamEnded = false;
   }
 
   resetBufferHealth(): void {
@@ -306,6 +326,8 @@ export class BufferScheduler {
     context: 'feed' | 'playback',
     reportStall: boolean = true
   ): boolean {
+    if (this.streamEnded) return true;
+
     if (!this.isBufferPaused && bufferedSeconds < this.lowWaterMarkSeconds) {
       this.isBufferPaused = true;
       if (reportStall) this.setStalled(true);

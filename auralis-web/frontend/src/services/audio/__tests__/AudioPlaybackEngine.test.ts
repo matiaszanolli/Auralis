@@ -398,4 +398,33 @@ describe('AudioPlaybackEngine', () => {
       expect(commands()).toContain('clear');
     });
   });
+  describe('end of stream', () => {
+    it('plays out a buffered tail below the low-water mark once the stream is marked ended', async () => {
+      const { ctx, scriptNode } = createMockAudioContext();
+      // Past the start threshold (~1 s) but under the 5 s low-water mark.
+      const engine = new AudioPlaybackEngine(ctx, makeBuffer(2));
+      await engine.startPlayback();
+
+      scriptNode.onaudioprocess!(makeProcessEvent(256));
+      expect(engine.getStats().samplesPlayed).toBe(0); // held at the low-water mark
+
+      engine.markStreamEnded();
+      scriptNode.onaudioprocess!(makeProcessEvent(256));
+
+      expect(engine.getStats().samplesPlayed).toBe(256);
+    });
+
+    it('stopPlayback forgets the end so the next stream is gated again', async () => {
+      const { ctx, scriptNode } = createMockAudioContext();
+      const buffer = makeBuffer(2);
+      const engine = new AudioPlaybackEngine(ctx, buffer);
+      engine.markStreamEnded();
+      engine.stopPlayback();
+
+      await engine.startPlayback();
+      scriptNode.onaudioprocess!(makeProcessEvent(256));
+
+      expect(engine.getStats().samplesPlayed).toBe(0);
+    });
+  });
 });

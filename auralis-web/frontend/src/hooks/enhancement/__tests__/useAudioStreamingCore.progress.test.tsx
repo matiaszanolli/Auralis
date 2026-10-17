@@ -160,4 +160,41 @@ describe('useAudioStreamingCore progress accounting (#4414)', () => {
 
     expect(result.current.streamingMetadataRef.current!.processedChunks).toBe(2);
   });
+  describe('stream end → engine (tail of the track)', () => {
+    const endMessage = (reason?: string) => ({
+      type: 'audio_stream_end',
+      data: { stream_type: 'enhanced', track_id: 1, total_samples: 0, duration: 1, ...(reason && { reason }) },
+    });
+
+    function renderWithEngine() {
+      const hook = render(1);
+      const engine = { markStreamEnded: vi.fn() };
+      hook.result.current.playbackEngineRef.current = engine as never;
+      return { hook, engine };
+    }
+
+    it.each(['completed', 'errored'])('lets the engine play out the buffered tail on a %s end', (reason) => {
+      const { hook, engine } = renderWithEngine();
+
+      act(() => { hook.result.current.handleStreamEnd(endMessage(reason) as never); });
+
+      expect(engine.markStreamEnded).toHaveBeenCalledOnce();
+    });
+
+    it('treats an end without a reason (older backend) as completion', () => {
+      const { hook, engine } = renderWithEngine();
+
+      act(() => { hook.result.current.handleStreamEnd(endMessage() as never); });
+
+      expect(engine.markStreamEnded).toHaveBeenCalledOnce();
+    });
+
+    it('does not mark a superseded (stopped) stream as ended', () => {
+      const { hook, engine } = renderWithEngine();
+
+      act(() => { hook.result.current.handleStreamEnd(endMessage('stopped') as never); });
+
+      expect(engine.markStreamEnded).not.toHaveBeenCalled();
+    });
+  });
 });

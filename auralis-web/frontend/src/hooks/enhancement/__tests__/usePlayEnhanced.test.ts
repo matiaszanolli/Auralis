@@ -163,6 +163,7 @@ let mockEngineInstance: {
   onStallChange: ReturnType<typeof vi.fn>;
   getCurrentPlaybackTime: ReturnType<typeof vi.fn>;
   getMinBufferSamples: ReturnType<typeof vi.fn>;
+  markStreamEnded: ReturnType<typeof vi.fn>;
   dispose: ReturnType<typeof vi.fn>;
 };
 
@@ -208,6 +209,7 @@ function setupMocks() {
     // 2s threshold @ 44100Hz stereo = 176400 samples — matches the auto-start
     // assertions below (buffer >= threshold ⇒ startPlayback).
     getMinBufferSamples: vi.fn().mockReturnValue(176400),
+    markStreamEnded: vi.fn(),
     dispose: vi.fn(),
   };
   // `function` form so `new AudioPlaybackEngine()` constructs (see note above, #3933).
@@ -1190,6 +1192,8 @@ describe('usePlayEnhanced – audio_stream_end reason (#5462)', () => {
     const streaming = store.getState().player.streaming.enhanced;
     expect(streaming.state).not.toBe('complete'); // the auto-advance trigger
     expect(streaming.progress).not.toBe(100);
+    // A superseded stream's engine is replaced or reset; it must not be marked ended.
+    expect(mockEngineInstance.markStreamEnded).not.toHaveBeenCalled();
   });
 
   it('an errored stream ends in error, not complete', () => {
@@ -1199,12 +1203,15 @@ describe('usePlayEnhanced – audio_stream_end reason (#5462)', () => {
     expect(streaming.state).toBe('error');
     expect(streaming.progress).not.toBe(100);
     expect(streaming.error).toContain('gaps');
+    // It still delivered everything it will, so the engine plays the tail out.
+    expect(mockEngineInstance.markStreamEnded).toHaveBeenCalledOnce();
   });
 
   it('a completed stream is complete', () => {
     fireHandler('audio_stream_end', makeStreamEndMsg({ reason: 'completed' }));
 
     expect(store.getState().player.streaming.enhanced.state).toBe('complete');
+    expect(mockEngineInstance.markStreamEnded).toHaveBeenCalledOnce();
   });
 });
 

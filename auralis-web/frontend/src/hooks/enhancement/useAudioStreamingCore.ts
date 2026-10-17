@@ -371,6 +371,14 @@ export function useAudioStreamingCore(
       duration: message.data.duration,
     });
 
+    // Whatever the reason, a stream that ended by finishing (or finishing with
+    // gaps) has sent all it will: let the engine play out the buffered tail
+    // instead of holding it under the low-water mark. 'stopped' is a superseded
+    // stream, whose engine is replaced or reset anyway.
+    if (reason === 'completed' || reason === 'errored') {
+      playbackEngineRef.current?.markStreamEnded();
+    }
+
     // #5462: only a stream that delivered the whole track is complete. Marking
     // an early exit 'complete' showed 100% progress and fed the session's
     // auto-advance, which keys off that state.

@@ -189,10 +189,19 @@ export class AudioPlaybackEngine {
   }
 
   /**
+   * The stream has delivered its last chunk: play out the buffered tail rather
+   * than holding it below the low-water mark.
+   */
+  markStreamEnded(): void {
+    this.bufferScheduler.markStreamEnded();
+  }
+
+  /**
    * Stop playback completely
    */
   stopPlayback(): void {
     this.bufferScheduler.disconnectProcessor();
+    this.bufferScheduler.resetStreamEnded();
 
     this.positionTracker.reset();
     this.bufferScheduler.resetUnderrunCount();
