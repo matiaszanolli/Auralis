@@ -23,7 +23,6 @@ interface TrackRowProps {
   index: number;
   isPlaying?: boolean;
   isCurrent?: boolean;
-  isAnyPlaying?: boolean; // Phase 1: Global playback state for dimming non-current rows
   /** Batch-selection state (#5011) — reflected as aria-selected, distinct
    *  from roving-tabindex focus below. */
   isSelected?: boolean;
@@ -50,7 +49,6 @@ const TrackRowComponent = ({
   index,
   isPlaying = false,
   isCurrent = false,
-  isAnyPlaying = false, // Phase 1: Default to false (no global playback)
   isSelected = false,
   tabIndex = 0,
   onPlay,
@@ -105,7 +103,6 @@ const TrackRowComponent = ({
   });
 
   const isCurrentStr = isCurrent ? 'true' : 'false';
-  const isAnyPlayingStr = isAnyPlaying ? 'true' : 'false'; // Phase 1: Convert to string for styled-components
 
   // The row thumbnail is 40×40; request an ~80px (retina) variant so the browser
   // doesn't decode/hold the full-resolution album bitmap per row (#4447).
@@ -120,7 +117,6 @@ const TrackRowComponent = ({
         aria-selected={isSelected}
         data-track-index={index}
         iscurrent={isCurrentStr}
-        isanyplaying={isAnyPlayingStr}
         onClick={handleRowClick}
         onDoubleClick={handleRowDoubleClick}
         onContextMenu={handleTrackContextMenu}

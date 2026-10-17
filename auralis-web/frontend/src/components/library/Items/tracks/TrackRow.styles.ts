@@ -4,8 +4,8 @@ import { themeVars } from '@/theme/semanticTheme';
 import { IconButton } from '@/design-system';
 import { Box, Typography, styled } from '@mui/material';
 
-export const RowContainer = styled(Box)<{ iscurrent?: string; isanyplaying?: string }>(
-  ({ iscurrent, isanyplaying }) => ({
+export const RowContainer = styled(Box)<{ iscurrent?: string }>(
+  ({ iscurrent }) => ({
     display: 'flex',
     alignItems: 'center',
     height: '44px',                                      // Phase 2: Tighter vertical rhythm (was 48px)
@@ -16,8 +16,13 @@ export const RowContainer = styled(Box)<{ iscurrent?: string; isanyplaying?: str
     position: 'relative',
     marginBottom: tokens.spacing.xs,                     // Phase 2: Tighter spacing (was sm)
 
-    // Playback Dominance (Phase 1): Dim non-playing rows when any track is playing
-    opacity: isanyplaying === 'true' && iscurrent === 'false' ? 0.6 : 1,
+    // Playback Dominance (Phase 1): Dim non-playing rows when any track is
+    // playing. Read from the list container's data attribute (#5660) instead
+    // of a per-row prop — a per-row prop re-rendered every row on each
+    // play/pause toggle, the one transition this list sees most often.
+    '[data-any-playing="true"] &': {
+      opacity: iscurrent === 'false' ? 0.6 : 1,
+    },
 
     // Current track: Enhanced presence with glow and gradient (Phase 1)
     ...(iscurrent === 'true' && {

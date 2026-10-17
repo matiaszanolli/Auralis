@@ -32,7 +32,6 @@ interface SelectableTrackRowProps {
   onToggleSelect: (trackId: number, event: MouseEvent) => void;
   isPlaying?: boolean;
   isCurrent?: boolean;
-  isAnyPlaying?: boolean; // Phase 1: Global playback state
   onPlay: (trackId: number) => void;
   onPause?: () => void;
   onDoubleClick?: (trackId: number) => void;
@@ -53,7 +52,6 @@ const SelectableTrackRow = ({
   onToggleSelect,
   isPlaying,
   isCurrent,
-  isAnyPlaying,
   onPlay,
   onPause,
   onDoubleClick,
@@ -94,7 +92,6 @@ const SelectableTrackRow = ({
           index={index}
           isPlaying={isPlaying}
           isCurrent={isCurrent}
-          isAnyPlaying={isAnyPlaying}
           isSelected={isSelected}
           tabIndex={tabIndex}
           onPlay={onPlay}

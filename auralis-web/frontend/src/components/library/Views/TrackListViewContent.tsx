@@ -174,6 +174,10 @@ export const TrackListViewContent = ({
         role="listbox"
         aria-label="Track list"
         aria-multiselectable="true"
+        // Row dimming reads this instead of a per-row isAnyPlaying prop
+        // (#5660): one attribute flip on the container leaves every row's
+        // props untouched, so memo'd rows do not re-render on play/pause.
+        data-any-playing={isPlaying ? 'true' : undefined}
         onKeyDown={handleListboxKeyDown}
         onFocus={handleListboxFocus}
       >
@@ -206,7 +210,6 @@ export const TrackListViewContent = ({
                   onToggleSelect={onToggleSelect}
                   isPlaying={isPlaying && currentTrackId === track.id}
                   isCurrent={currentTrackId === track.id}
-                  isAnyPlaying={isPlaying}
                   onPlay={handlePlay}
                   onPause={onPause}
                   onEditMetadata={onEditMetadata}
