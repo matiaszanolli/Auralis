@@ -49,6 +49,8 @@ export class WebSocketManager {
   private reconnectAttempts = 0;
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
   private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+  /** Set by close(): an intentional disconnect must never schedule a retry (#5602). */
+  private closed = false;
   private config: WebSocketErrorConfig;
   private url: string;
   private onOpen: (() => void) | null = null;
@@ -63,15 +65,24 @@ export class WebSocketManager {
 
   /**
    * Connect to WebSocket with automatic reconnection
+   *
+   * Retries are driven solely by the socket's `close` event via
+   * attemptReconnect(); the returned promise only reports this attempt's
+   * outcome to the caller (#5602). A refused connection fires `error` then
+   * `close`, so scheduling from both used to burn the retry budget twice per
+   * failure and leave several timers (and live sockets) racing.
    */
   async connect(): Promise<void> {
+    this.closed = false;
+    this.detachSocket();
     return new Promise((resolve, reject) => {
       try {
-        this.ws = new WebSocket(this.url);
+        const ws = new WebSocket(this.url);
+        this.ws = ws;
         // Receive binary frames as ArrayBuffer (not Blob) for zero-copy PCM decoding
-        this.ws.binaryType = 'arraybuffer';
+        ws.binaryType = 'arraybuffer';
 
-        this.ws.onopen = () => {
+        ws.onopen = () => {
           console.log('[WebSocketManager] Connected');
           this.reconnectAttempts = 0;
           this.startHeartbeat();
@@ -79,32 +90,56 @@ export class WebSocketManager {
           resolve();
         };
 
-        this.ws.onerror = (error) => {
+        ws.onerror = (error) => {
           console.error('[WebSocketManager] Error:', error);
           this.onError?.(error);
           reject(error);
         };
 
-        this.ws.onmessage = (event) => {
+        ws.onmessage = (event) => {
           this.onMessage?.(event);
         };
 
-        this.ws.onclose = () => {
+        ws.onclose = () => {
           console.log('[WebSocketManager] Disconnected');
           this.stopHeartbeat();
           this.onClose?.();
           this.attemptReconnect();
         };
       } catch (err) {
+        // No socket was created, so no close event will ever drive a retry.
+        this.attemptReconnect();
         reject(err);
       }
     });
   }
 
   /**
-   * Attempt to reconnect with exponential backoff
+   * Detach and close the current socket so a replaced one cannot dispatch
+   * messages, fire onOpen, or schedule reconnects behind the new socket's back.
+   */
+  private detachSocket(): void {
+    const ws = this.ws;
+    if (!ws) return;
+    ws.onclose = null;
+    ws.onopen = null;
+    ws.onerror = null;
+    ws.onmessage = null;
+    if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+      ws.close();
+    }
+    this.ws = null;
+  }
+
+  /**
+   * Attempt to reconnect with exponential backoff.
+   *
+   * Idempotent: at most one retry timer is pending, and nothing is scheduled
+   * after close().
    */
   private attemptReconnect(): void {
+    if (this.closed || this.reconnectTimeout !== null) return;
+
     if (this.reconnectAttempts >= this.config.maxReconnectAttempts) {
       console.error('[WebSocketManager] Max reconnection attempts exceeded');
       this.config.onMaxAttemptsExceeded?.();
@@ -121,9 +156,11 @@ export class WebSocketManager {
     this.config.onReconnectAttempt?.(this.reconnectAttempts, delay);
 
     this.reconnectTimeout = setTimeout(() => {
+      this.reconnectTimeout = null;
+      // The failed attempt's close event schedules the next retry; this catch
+      // only keeps the rejection from surfacing as unhandled.
       this.connect().catch(err => {
         console.error('[WebSocketManager] Reconnection failed:', err);
-        this.attemptReconnect();
       });
     }, delay);
   }
@@ -132,6 +169,7 @@ export class WebSocketManager {
    * Start heartbeat to detect stale connections
    */
   private startHeartbeat(): void {
+    this.stopHeartbeat();
     this.heartbeatInterval = setInterval(() => {
       if (this.ws && this.ws.readyState === WebSocket.OPEN) {
         try {
@@ -194,19 +232,15 @@ export class WebSocketManager {
    * Close connection
    */
   close(): void {
-    if (this.reconnectTimeout) {
+    this.closed = true;
+    if (this.reconnectTimeout !== null) {
       clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
     }
     this.stopHeartbeat();
-    if (this.ws) {
-      // Null out onclose before closing to prevent reconnection attempts
-      // triggered by the close event — intentional disconnects should not reconnect
-      this.ws.onclose = null;
-      this.ws.onopen = null;
-      this.ws.onerror = null;
-      this.ws.onmessage = null;
-      this.ws.close();
-    }
+    // Handlers are nulled before closing so the close event cannot trigger a
+    // reconnect — intentional disconnects must not retry.
+    this.detachSocket();
   }
 
   /**
