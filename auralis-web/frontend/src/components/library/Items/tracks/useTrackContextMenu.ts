@@ -1,8 +1,8 @@
 import { useState, useCallback, useMemo } from 'react';
 import { getTrackContextActions } from '@/components/shared/ContextMenu';
 import { useToast } from '@/components/shared/Toast';
-import { useQueue } from '@/hooks/shared/useReduxState';
 import * as playlistService from '@/services/playlistService';
+import { addTrackToQueue } from '@/services/queueService';
 import type { LibraryTrack as Track } from '@/types/domain';
 
 export interface UseTrackContextMenuProps {
@@ -46,7 +46,6 @@ export const useTrackContextMenu = ({
   // Lets a consumer tell "failed to load" from "no playlists" (#5645).
   const [playlistsFailed, setPlaylistsFailed] = useState(false);
   const { success, info, error } = useToast();
-  const queue = useQueue();
 
   const fetchPlaylists = useCallback(async () => {
     setIsLoadingPlaylists(true);
@@ -86,26 +85,20 @@ export const useTrackContextMenu = ({
     [track.id, success, error]
   );
 
-  const handleAddToQueue = useCallback(() => {
+  // #5612: this used to dispatch to the Redux queue only, so the engine never
+  // heard about the track yet a success toast was shown. The backend call is
+  // the source of truth; its queue_changed broadcast updates Redux, and the
+  // toast waits for it.
+  const handleAddToQueue = useCallback(async () => {
     try {
-      // Convert track to queue track format
-      const queueTrack = {
-        id: track.id,
-        title: track.title,
-        artist: track.artist,
-        album: track.album ?? '',
-        duration: track.duration,
-      };
-
-      // Add track to queue
-      queue.addMany([queueTrack]);
+      await addTrackToQueue(track.id);
       success(`Added "${track.title}" to queue`);
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : 'Failed to add track to queue';
       error(errorMessage);
     }
-  }, [track.id, track.title, track.album, track.duration, queue, success, error]);
+  }, [track.id, track.title, success, error]);
 
   const handleMoreClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();

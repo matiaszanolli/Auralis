@@ -11,6 +11,7 @@
  */
 
 import { ENDPOINTS } from '@/config/api';
+import { post } from '@/utils/apiRequest';
 import { createCrudService } from '@/utils/serviceFactory';
 import { isQueueResponseShape } from '@/api/responseGuards';
 import type { TrackInfo } from '@/types/websocket';
@@ -106,6 +107,20 @@ export async function setQueue(trackIds: number[], startIndex: number = 0): Prom
   });
 }
 
+/**
+ * Append a track to the engine queue (or insert it at `position`).
+ *
+ * The backend answers with a `queue_changed` broadcast, which
+ * `useQueueSubscription` mirrors into Redux — callers must NOT also write the
+ * Redux queue, or the track appears twice until the next snapshot (#5612).
+ */
+export async function addTrackToQueue(trackId: number, position?: number): Promise<void> {
+  await post(ENDPOINTS.QUEUE_ADD_TRACK, {
+    track_id: trackId,
+    ...(position !== undefined && { position }),
+  });
+}
+
 export default {
   getQueue,
   removeTrackFromQueue,
@@ -113,4 +128,5 @@ export default {
   shuffleQueue,
   clearQueue,
   setQueue,
+  addTrackToQueue,
 };

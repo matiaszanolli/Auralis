@@ -1,9 +1,9 @@
 import { useMemo, useCallback, useState } from 'react';
 import { getArtistContextActions } from '@/components/shared/ContextMenu';
 import { useToast } from '@/components/shared/Toast';
+import { usePlaybackControls } from '@/contexts/PlaybackSessionContext';
 import { getArtistTracks } from '@/services/libraryService';
-import { useQueue } from '@/hooks/shared/useReduxState';
-import { usePlayerActions } from '@/hooks/shared/useReduxState';
+import { addTrackToQueue, setQueue } from '@/services/queueService';
 import type { Artist } from '@/types/domain';
 
 interface UseContextMenuActionsProps {
@@ -17,16 +17,19 @@ interface UseContextMenuActionsProps {
  * Creates artist actions with toast notifications and callbacks.
  * Manages artist info modal state.
  * Memoized to prevent unnecessary re-renders.
+ *
+ * Queue actions go to the backend (the engine queue is authoritative); its
+ * broadcasts mirror the result into Redux. They used to dispatch to the Redux
+ * queue alone, so the engine never changed, "Play All" started no stream, and a
+ * success toast was shown anyway (#5612).
  */
 export const useContextMenuActions = ({
   artist,
   onArtistClick,
 }: UseContextMenuActionsProps) => {
   const { success, error: showError } = useToast();
-  const queue = useQueue();
-  // Action-only player hook so this doesn't re-render at 1Hz during playback
-  // (usePlayer bundles currentTime) (#4176).
-  const player = usePlayerActions();
+  // Controls only: the 10Hz position tick lives in a separate context (#5006).
+  const { startTrack } = usePlaybackControls();
   const [infoModalOpen, setInfoModalOpen] = useState(false);
 
   const handlePlayAll = useCallback(async () => {
@@ -41,25 +44,11 @@ export const useContextMenuActions = ({
         return;
       }
 
-      // Convert API tracks to queue track format
-      const tracks = response.tracks.map((track) => ({
-        id: track.id,
-        title: track.title,
-        artist: artist.name,
-        album: track.album,
-        duration: track.duration,
-        // #4586: carry the format through; without it the queue's
-        // format-aware recommendations/statistics see only 'unknown'
-        // for every artist-sourced track.
-        format: track.format,
-      }));
-
-      // Clear existing queue and set new tracks
-      queue.clear();
-      queue.setQueue(tracks);
-
-      // Start playback
-      player.play();
+      // Replace the engine queue, then stream the first track. The browser
+      // session streams from the track id; setIsPlaying alone starts nothing.
+      const trackIds = response.tracks.map((track) => track.id);
+      await setQueue(trackIds, 0);
+      await startTrack(trackIds[0]);
 
       success(`Playing all songs by ${artist.name}`);
     } catch (err) {
@@ -67,7 +56,7 @@ export const useContextMenuActions = ({
         err instanceof Error ? err.message : 'Failed to play artist tracks';
       showError(errorMessage);
     }
-  }, [artist, queue, player, success, showError]);
+  }, [artist, startTrack, success, showError]);
 
   const handleAddToQueue = useCallback(async () => {
     if (!artist) return;
@@ -75,25 +64,26 @@ export const useContextMenuActions = ({
     try {
       // Fetch all tracks for the artist
       const response = await getArtistTracks(artist.id);
-      const tracks = response.tracks.map((track) => ({
-        id: track.id,
-        title: track.title,
-        artist: artist.name,
-        album: track.album,
-        duration: track.duration,
-        // #4586: carry the format through; without it the queue's
-        // format-aware recommendations/statistics see only 'unknown'
-        // for every artist-sourced track.
-        format: track.format,
-      }));
 
-      if (tracks.length === 0) {
+      if (response.tracks.length === 0) {
         showError(`No tracks found for ${artist.name}`);
         return;
       }
 
-      // Add all tracks to queue
-      queue.addMany(tracks);
+      // One at a time, so the artist's tracks keep album order in the queue.
+      // A failure part-way reports how far it got instead of a false success.
+      const total = response.tracks.length;
+      let added = 0;
+      try {
+        for (const track of response.tracks) {
+          await addTrackToQueue(track.id);
+          added += 1;
+        }
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : 'Failed to add artist tracks to queue';
+        showError(added > 0 ? `Added ${added} of ${total} tracks to queue: ${reason}` : reason);
+        return;
+      }
 
       // Show success only after the tracks are actually added — previously this
       // fired before the fetch, so a failure/empty result produced a false
@@ -105,7 +95,7 @@ export const useContextMenuActions = ({
         err instanceof Error ? err.message : 'Failed to add artist tracks to queue';
       showError(errorMessage);
     }
-  }, [artist, queue, success, showError]);
+  }, [artist, success, showError]);
 
   return useMemo(() => {
     if (!artist) {

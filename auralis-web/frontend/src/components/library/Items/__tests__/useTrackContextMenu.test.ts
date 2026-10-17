@@ -44,11 +44,16 @@ vi.mock('@/services/playlistService', () => ({
   createPlaylist: vi.fn(),
 }));
 
+vi.mock('@/services/queueService', () => ({
+  addTrackToQueue: vi.fn(),
+}));
+
 vi.mock('@/components/shared/ContextMenu', () => ({
   getTrackContextActions: vi.fn(() => mockContextActions),
 }));
 
 import * as playlistService from '@/services/playlistService';
+import { addTrackToQueue } from '@/services/queueService';
 import { getTrackContextActions } from '@/components/shared/ContextMenu';
 
 // Create a test store
@@ -422,6 +427,56 @@ describe('useTrackContextMenu', () => {
 
       // Same track should maintain referential equality
       expect(result.current.contextActions).toBe(initialActions);
+    });
+  });
+
+  describe('Add to Queue (#5612)', () => {
+    /** The onAddToQueue handler the hook hands to getTrackContextActions. */
+    const renderAddToQueue = () => {
+      const store = createTestStore();
+      const wrapper = ({ children }: { children: ReactNode }) =>
+        createElement(Provider, { store, children });
+      renderHook(() => useTrackContextMenu({ track: mockTrack, onPlay: mockOnPlay }), { wrapper });
+      const handlers = vi.mocked(getTrackContextActions).mock.calls.at(-1)![2];
+      return { store, onAddToQueue: handlers.onAddToQueue as () => Promise<void> };
+    };
+
+    it('asks the backend to queue the track, then shows success', async () => {
+      vi.mocked(addTrackToQueue).mockResolvedValue(undefined);
+      const { onAddToQueue } = renderAddToQueue();
+
+      await act(async () => {
+        await onAddToQueue();
+      });
+
+      expect(addTrackToQueue).toHaveBeenCalledWith(mockTrack.id);
+      expect(mockToastSuccess).toHaveBeenCalledWith('Added "Test Track" to queue');
+      expect(vi.mocked(addTrackToQueue).mock.invocationCallOrder[0]).toBeLessThan(
+        mockToastSuccess.mock.invocationCallOrder[0]
+      );
+    });
+
+    it('does not write the Redux queue itself (the queue_changed broadcast owns that)', async () => {
+      vi.mocked(addTrackToQueue).mockResolvedValue(undefined);
+      const { store, onAddToQueue } = renderAddToQueue();
+
+      await act(async () => {
+        await onAddToQueue();
+      });
+
+      expect(store.getState().queue.tracks).toEqual([]);
+    });
+
+    it('shows the failure, and no success toast, when the backend rejects', async () => {
+      vi.mocked(addTrackToQueue).mockRejectedValue(new Error('Track 1 not found'));
+      const { onAddToQueue } = renderAddToQueue();
+
+      await act(async () => {
+        await onAddToQueue();
+      });
+
+      expect(mockToastSuccess).not.toHaveBeenCalled();
+      expect(mockToastError).toHaveBeenCalledWith('Track 1 not found');
     });
   });
 });
