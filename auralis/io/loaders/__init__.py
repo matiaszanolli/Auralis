@@ -9,6 +9,7 @@ Format-specific audio loading implementations
 """
 
 from .ffmpeg_loader import (
+    SUBPROCESS_TEXT_KWARGS,
     check_ffmpeg,
     check_ffprobe,
     ffprobe_command,
@@ -19,6 +20,7 @@ from .ffmpeg_loader import (
 from .soundfile_loader import load_with_soundfile
 
 __all__ = [
+    'SUBPROCESS_TEXT_KWARGS',
     'load_with_soundfile',
     'load_with_ffmpeg',
     'check_ffmpeg',

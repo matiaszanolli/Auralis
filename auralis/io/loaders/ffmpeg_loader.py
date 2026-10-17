@@ -66,6 +66,15 @@ def reject_protocol_path(file_path_str: str) -> None:
 _PROTOCOL_WHITELIST_ARGS = ['-protocol_whitelist', 'file']
 
 
+# Every ffmpeg/ffprobe capture decodes with these. Bare ``text=True`` uses the
+# locale codec in strict mode, and FFmpeg echoes input metadata and the input
+# filename into stderr verbatim: an ID3v1 tag (always Latin-1) or a filename
+# with a raw non-UTF-8 byte made ``subprocess.run`` raise UnicodeDecodeError on
+# a perfectly decodable file (#5555). ``errors='replace'`` keeps the diagnostic
+# readable and the process result intact.
+SUBPROCESS_TEXT_KWARGS: dict[str, Any] = {'text': True, 'encoding': 'utf-8', 'errors': 'replace'}
+
+
 def ffprobe_command(file_path_str: str) -> list[str]:
     """Return the ffprobe argv for probing *file_path_str*.
 
@@ -170,7 +179,7 @@ def _run_ffmpeg_cancellable(
     a clean cancellation rather than a spurious decode failure.
     """
     if cancel_event is None:
-        return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        return subprocess.run(cmd, capture_output=True, timeout=timeout, **SUBPROCESS_TEXT_KWARGS)
 
     if cancel_event.is_set():
         raise asyncio.CancelledError()
@@ -178,7 +187,9 @@ def _run_ffmpeg_cancellable(
     # FFmpeg writes the decoded WAV to a file (not stdout), so stdout stays
     # empty and stderr carries only modest progress text — the pipe buffers
     # never fill, so repeated poll-timeout communicate() calls cannot deadlock.
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    proc = subprocess.Popen(
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **SUBPROCESS_TEXT_KWARGS
+    )
     start = time.monotonic()
     poll_interval = 0.1
     while True:
@@ -221,8 +232,8 @@ def check_ffmpeg() -> bool:
         result = subprocess.run(
             ['ffmpeg', '-version'],
             capture_output=True,
-            text=True,
-            timeout=10
+            timeout=10,
+            **SUBPROCESS_TEXT_KWARGS,
         )
         if result.returncode != 0:
             return False
@@ -280,8 +291,8 @@ def _probe_audio(file_path: Path) -> dict[str, Any]:
         result = subprocess.run(
             ffprobe_cmd,
             capture_output=True,
-            text=True,
-            timeout=30
+            timeout=30,
+            **SUBPROCESS_TEXT_KWARGS,
         )
 
         if result.returncode != 0:
