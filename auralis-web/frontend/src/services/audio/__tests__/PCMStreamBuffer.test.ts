@@ -4,7 +4,7 @@
  * Tests for circular buffer implementation with crossfading support
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import PCMStreamBuffer from '../PCMStreamBuffer';
 
 describe('PCMStreamBuffer', () => {
@@ -339,6 +339,69 @@ describe('PCMStreamBuffer', () => {
 
       // Should have read some data
       expect(allData.length).toBeGreaterThan(0);
+    });
+  });
+
+  // #5663: reset() is O(1) — the live range is defined by the read/write
+  // positions, so zeroing the backing array was a main-thread full-buffer
+  // memset per seek with no observable effect.
+  describe('reset without zero-fill (#5663)', () => {
+    it('does not touch the backing array on reset', () => {
+      buffer.initialize(48000, 2);
+      buffer.append(new Float32Array([0.1, 0.2, 0.3]));
+
+      const fillSpy = vi.spyOn(Float32Array.prototype, 'fill');
+      buffer.reset();
+      expect(fillSpy).not.toHaveBeenCalled();
+      fillSpy.mockRestore();
+    });
+
+    it('reports empty after reset and reads exactly what is appended after', () => {
+      buffer.initialize(48000, 2);
+
+      buffer.append(new Float32Array([0.9, 0.9, 0.9, 0.9]));
+      buffer.reset();
+      expect(buffer.getAvailableSamples()).toBe(0);
+      expect(buffer.read(10).length).toBe(0);
+
+      const fresh = new Float32Array([0.1, 0.2, 0.3]);
+      buffer.append(fresh);
+      const result = buffer.read(3);
+      expect(result[0]).toBeCloseTo(0.1, 5);
+      expect(result[1]).toBeCloseTo(0.2, 5);
+      expect(result[2]).toBeCloseTo(0.3, 5);
+      expect(buffer.getMetadata().totalAppended).toBe(3);
+    });
+
+    it('keeps data integrity through append-reset-append across a wrap boundary', () => {
+      const smallBuffer = new PCMStreamBuffer();
+      smallBuffer.initialize(48000, 2, 1024); // 256 samples
+
+      smallBuffer.append(new Float32Array(200).fill(0.5));
+      smallBuffer.read(150); // wrap the write pointer
+      smallBuffer.reset();
+
+      smallBuffer.append(new Float32Array([0.25, 0.5, 0.75]));
+      expect(Array.from(smallBuffer.read(3))).toEqual([0.25, 0.5, 0.75]);
+    });
+  });
+
+  describe('capacityForStream (#5663)', () => {
+    it('sizes a 30s clip proportionally, not at 100MB', () => {
+      const bytes = PCMStreamBuffer.capacityForStream(30, 44100, 2);
+      expect(bytes).toBe(30 * 44100 * 2 * 4 * 1.5);
+      expect(bytes).toBeLessThan(20 * 1024 * 1024);
+    });
+
+    it('caps long tracks at the 100MB ceiling', () => {
+      const bytes = PCMStreamBuffer.capacityForStream(600, 44100, 2);
+      expect(bytes).toBe(PCMStreamBuffer.MAX_CAPACITY_BYTES);
+    });
+
+    it('floors unknown-duration streams at 1MB', () => {
+      expect(PCMStreamBuffer.capacityForStream(0, 44100, 2)).toBe(
+        PCMStreamBuffer.MIN_CAPACITY_BYTES
+      );
     });
   });
 });

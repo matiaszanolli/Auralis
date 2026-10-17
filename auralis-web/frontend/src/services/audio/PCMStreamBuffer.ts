@@ -25,7 +25,8 @@ export interface BufferMetadata {
  * PCMStreamBuffer - Circular buffer for streaming audio
  *
  * Design:
- * - Default 5MB capacity (~6 seconds at 48kHz stereo)
+ * - Capacity sized from the stream's own length (see capacityForStream);
+ *   the default constructor argument is only a legacy fallback
  * - Circular write/read pointers with wrap-around
  * - Thread-safe (single-threaded via event loop)
  *
@@ -38,6 +39,11 @@ export interface BufferMetadata {
  * been removed along with the crossfade_samples wire field.
  */
 export class PCMStreamBuffer {
+  /** Ceiling: ~5 minutes @ 44.1kHz stereo. Long tracks cap here like before. */
+  static readonly MAX_CAPACITY_BYTES = 100 * 1024 * 1024;
+  /** Floor: ~2.7s @ 48kHz stereo, so tiny clips keep some headroom. */
+  static readonly MIN_CAPACITY_BYTES = 1024 * 1024;
+
   private buffer: Float32Array | null = null;
   private writePos: number = 0;
   private readPos: number = 0;
@@ -52,14 +58,34 @@ export class PCMStreamBuffer {
 
   /**
    * Create a new PCMStreamBuffer
-   * @param capacity - Buffer capacity in bytes (default 100MB for ~5 minutes @ 44.1kHz stereo)
-   *
-   * Calculation: 44100 Hz × 2 channels × 4 bytes × 300 seconds = ~105MB
-   * We use 100MB to safely buffer most tracks without overflow.
-   * This prevents the audio position jumping issue caused by discarding unplayed audio.
+   * @param capacity - Buffer capacity in bytes. Prefer sizing with
+   *   capacityForStream() from the stream-start metadata; the 100MB default
+   *   was a blanket cost on every stream regardless of its length (#5663).
    */
-  constructor(capacity: number = 100 * 1024 * 1024) {
+  constructor(capacity: number = PCMStreamBuffer.MAX_CAPACITY_BYTES) {
     this.capacity = capacity;
+  }
+
+  /**
+   * Size a buffer for a stream of the given length (#5663).
+   *
+   * 50% slack above the stream's own bytes keeps the percentage-based flow
+   * control (75% pause / 50% resume of capacity) from pausing delivery for a
+   * track that fits whole, and absorbs chunks still in flight around a
+   * buffer_full; the 100MB cap and 1MB floor bound both ends. A 30s clip
+   * allocates ~13MB instead of 100MB.
+   */
+  static capacityForStream(
+    durationSeconds: number,
+    sampleRate: number,
+    channels: number
+  ): number {
+    const streamBytes = Math.max(durationSeconds, 0) * sampleRate * channels * 4;
+    const withSlack = streamBytes + streamBytes / 2;
+    return Math.min(
+      PCMStreamBuffer.MAX_CAPACITY_BYTES,
+      Math.max(withSlack, PCMStreamBuffer.MIN_CAPACITY_BYTES)
+    );
   }
 
   /**
@@ -206,6 +232,12 @@ export class PCMStreamBuffer {
 
   /**
    * Reset buffer (clear all samples)
+   *
+   * O(1): the read/write positions alone define the live range — nothing
+   * ever reads outside [readPos, writePos), so zeroing the backing array was
+   * a full-buffer memset on the main thread per seek for no observable
+   * effect (#5663). Stale bytes are never exposed: appends overwrite them
+   * before the positions make them readable again.
    */
   reset(): void {
     this.writePos = 0;
@@ -213,10 +245,6 @@ export class PCMStreamBuffer {
 
     this.totalAppended = 0;
     this.totalRead = 0;
-
-    if (this.buffer) {
-      this.buffer.fill(0);
-    }
   }
 
   /**

@@ -102,9 +102,16 @@ export function useEnhancedStreamStart({
       }
 
       // Initialize PCMStreamBuffer. Dispose any prior buffer first so replacing
-      // the ref never strands a ~100 MB Float32Array for GC (#4147).
+      // the ref never strands a large Float32Array for GC (#4147). Sized from
+      // the stream's own metadata (#5663) — a 30s clip no longer pins 100MB.
       core.pcmBufferRef.current?.dispose();
-      const buffer = new PCMStreamBuffer();
+      const buffer = new PCMStreamBuffer(
+        PCMStreamBuffer.capacityForStream(
+          message.data.total_duration ?? 0,
+          message.data.sample_rate,
+          message.data.channels
+        )
+      );
       buffer.initialize(message.data.sample_rate, message.data.channels);
       core.pcmBufferRef.current = buffer;
 

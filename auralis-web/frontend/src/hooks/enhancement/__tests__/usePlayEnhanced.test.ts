@@ -39,7 +39,19 @@ vi.mock('@/contexts/WebSocketContext', async (importOriginal) => {
   return { ...actual, useWebSocketContext: vi.fn() };
 });
 
-vi.mock('@/services/audio/PCMStreamBuffer', () => ({ default: vi.fn() }));
+vi.mock('@/services/audio/PCMStreamBuffer', async (importOriginal) => {
+  // Constructor mocked; the real statics stay — capacityForStream (#5663) is
+  // pure sizing math, asserted in PCMStreamBuffer.test.ts. Copied explicitly:
+  // class static methods are non-enumerable, so Object.assign skips them.
+  const real = await importOriginal<typeof import('@/services/audio/PCMStreamBuffer')>();
+  return {
+    default: Object.assign(vi.fn(), {
+      capacityForStream: real.default.capacityForStream,
+      MAX_CAPACITY_BYTES: real.default.MAX_CAPACITY_BYTES,
+      MIN_CAPACITY_BYTES: real.default.MIN_CAPACITY_BYTES,
+    }),
+  };
+});
 vi.mock('@/services/audio/AudioPlaybackEngine', () => ({ default: vi.fn() }));
 vi.mock('@/utils/audio/pcmDecoding', () => ({ decodeAudioChunkMessage: vi.fn() }));
 
