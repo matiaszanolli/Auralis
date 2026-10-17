@@ -1,11 +1,11 @@
 {
     "schema_version": 1,
-    "commit": "400fa61211adf990315d19b19453b9f99e09f439",
-    "indexed_at": "2026-09-17T23:13:03Z",
+    "commit": "a800893e0908991dd7ec11347be0d650104406e3",
+    "indexed_at": "2026-10-17T00:35:35Z",
     "project": "mnt-data-src-matchering",
-    "nodes": 43115,
-    "edges": 151101,
-    "original_size": 113049600,
-    "compressed_size": 21278017,
+    "nodes": 0,
+    "edges": 0,
+    "original_size": 102400,
+    "compressed_size": 1396,
     "compression_level": 3
 }

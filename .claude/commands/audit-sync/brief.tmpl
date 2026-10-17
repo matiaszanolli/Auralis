@@ -1,0 +1,53 @@
+# Audit-skill re-sync brief
+
+Repo: the current working tree (HEAD = {{HEAD}}). Skills live in `.claude/commands/*.md` (`audit-*.md`, `verify-*.md`,
+`sync-contracts.md`, `trace-flow.md`, `gen-test.md`, `fix-issue.md`) plus the shared `_audit-common.md`,
+`_audit-severity.md`, `_audit-validate.sh` and `_audit-validate-baseline.txt`. Specialist agents live in
+`.claude/agents/*.md`. Project layout and the source-of-truth hierarchy are in `CLAUDE.md`.
+Last sync baseline: `{{BASE}}` ({{BASE_DATE}}); {{NCOMMITS}} commits since. Fix commits close issues and change
+behaviour without touching the skill files, so the skills drift. Your job is to bring the ones you own back in step.
+
+## Goal
+Make each skill you own accurately describe the CURRENT code, so a future auditor isn't misled. Only fix what is
+wrong or stale. Do not invent new audit dimensions or fix code. If you spot an unowned coverage gap or a real
+code bug, REPORT it.
+
+## Method (in order of yield)
+1. **Issue-state check (highest yield; the main source of drift is closed issues the skills still call open).**
+   Check the state of every `#NNNN` your skills cite. Precomputed files are in `{{SCRATCH}}`:
+   - `open.txt`: every issue that was OPEN when prep ran. A cited number missing from it is closed. The file is a
+     snapshot, so run `gh issue view N --json state` before you write "open".
+   - `closed_since.tsv`: issues closed since the baseline, with their titles.
+   - `cited_closed_recent_map.txt`: lines of the form `#N: file …`, one for each cited issue closed since the baseline.
+   Correct any text that frames a closed issue as open, known-open, unfixed or pending. Find the fixing commit
+   (`git log --oneline --grep '#NNNN'`), read what it changed, and restate the current behaviour, citing the
+   short hash. Where a guard test exists, keep the item as "regression guard: fixed in <hash>, pinned by <test>".
+   An issue closed long before the baseline but still called open is just as stale: check every citation, not only the recent ones.
+2. **Delta read.** Run `git log --oneline {{BASE}}..HEAD -- <path prefixes for your group>` (the prefixes are on
+   your `groups.txt` line; `audit-search.md` has the wider domain→audit table). Read the diffs that touch anything
+   your skill asserts: counts, constants, function/test/file names, invariants, file splits, router or schema names.
+3. **Premise check.** Re-measure numeric claims (file counts, router counts, LOC, test names, schema version) against
+   the live tree with grep or wc. `python3 scripts/check_doc_counts.py` recomputes the structural counts shared with
+   `CLAUDE.md`. Never copy a number from another doc.
+4. **Paths.** Fix stale file paths and symbols that file splits renamed or moved.
+
+## Rules
+- Edit ONLY the files you are assigned. For any other file, propose the edit in your final report.
+- No sub-agents. Do not start the backend, the Electron app or the frontend dev server.
+- Do NOT run the whole pytest or vitest suite (`CLAUDE.md`: it takes tens of minutes and two files hang). A scoped
+  `python -m pytest -q <one file>` is fine and rarely needed.
+- **Git is read-only for you.** No `git add`, `commit`, `push`, `stash`, `checkout`, `reset` or `restore`. Other
+  agents and the user's own terminals share this working tree and its index.
+- Backticked paths must resolve in the live tree (`_audit-validate.sh` enforces this). Write historical or
+  deleted names, and memory slugs, in italics rather than backticks.
+- Python and TypeScript tests/scripts read some skill files; see "Skill-reading checks" in
+  `.claude/commands/audit-sync.md`. If you edit text one of them matches on, read that check first and keep it passing.
+- Match each skill's existing style and density. Correct in place; don't append changelog prose.
+- When you finish: `bash .claude/commands/_audit-validate.sh 2>&1 | grep -E 'FAIL|STALE|OK:'`. Your edits must
+  introduce no failures. (The `Doc structural counts` section is warn-only.)
+
+## Final report (keep it under ~400 words)
+1. Per file: what was wrong and what you changed, one line each.
+2. Proposed edits to files you don't own (path, edit).
+3. Real code gaps or bugs you noticed (not filed, not fixed).
+4. "Fixed in code but issue still open": the issue number plus the fixing commit.

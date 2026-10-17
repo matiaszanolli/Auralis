@@ -1,0 +1,16 @@
+# /audit-sync agent groups: one background agent per non-comment line.
+# Format: <group-name>: <command> <command> ... | <delta path prefixes, space-separated>
+#   command = the file's basename minus `.md` (e.g. audit-engine, verify-dsp, sync-contracts)
+# Every `.claude/commands/*.md` that does not start with `_` must appear exactly once (prep.sh checks).
+# The `meta` group also owns the shared `_audit-*` files, `_audit-validate-baseline.txt` and `.claude/agents/*.md`.
+# Path prefixes feed prep.sh's per-group weight (changed files under them) — they are routing hints for
+# the agent's delta read, not an ownership map; a file may count toward several groups.
+# Rebalance by the weights prep.sh prints: split a group whose changed-file count dwarfs the rest.
+engine: audit-engine verify-dsp | auralis/core auralis/dsp auralis/analysis auralis/io auralis/player auralis/library auralis/optimization auralis/services auralis/learning vendor/auralis-dsp
+backend: audit-backend | auralis-web/backend
+frontend: audit-frontend | auralis-web/frontend
+integration: audit-integration sync-contracts trace-flow | auralis-web/backend/routers auralis-web/backend/schemas auralis-web/backend/websocket auralis-web/backend/ws_handlers auralis-web/frontend/src/hooks auralis-web/frontend/src/services auralis-web/frontend/src/types
+safety: audit-concurrency audit-security | auralis/player auralis/library auralis-web/backend/security auralis-web/backend/config auralis-web/backend/core/executors.py auralis-web/backend/main.py desktop
+debt: audit-tech-debt audit-deprecation | pyproject.toml requirements.txt uv.lock auralis-web/frontend/package.json vendor/auralis-dsp/Cargo.toml docs
+regression: audit-regression gen-test fix-issue | tests pytest-baseline.json auralis-web/frontend/test-baseline.json
+meta: audit-search audit-incremental audit-publish audit-suite audit-sync verify-release | .claude scripts .github CLAUDE.md AGENTS.md
