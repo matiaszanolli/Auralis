@@ -46,4 +46,20 @@ describe('useSimilarTracksModal (#5397)', () => {
     expect(result.current.similarTrackId).toBe(8);
     expect(result.current.similarTrackTitle).toBe('Glory Box');
   });
+
+  // #5660: handleFindSimilar reaches every library row, so a new identity per
+  // render defeated the rows' memo on every page append and search keystroke.
+  it('keeps handleFindSimilar identity across track-list changes and finds in the latest list', () => {
+    const { result, rerender } = renderHook(
+      ({ t }) => useSimilarTracksModal({ tracks: t, onPlayTrack: vi.fn() }),
+      { initialProps: { t: tracks } }
+    );
+    const first = result.current.handleFindSimilar;
+
+    rerender({ t: [...tracks, { id: 9, title: 'Overrated' } as LibraryTrack] });
+    expect(result.current.handleFindSimilar).toBe(first);
+
+    act(() => result.current.handleFindSimilar(9));
+    expect(result.current.similarTrackTitle).toBe('Overrated');
+  });
 });

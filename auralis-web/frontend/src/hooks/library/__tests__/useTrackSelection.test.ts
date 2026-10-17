@@ -245,4 +245,46 @@ describe('useTrackSelection', () => {
       expect(result.current.isSelected(20)).toBe(true);
     });
   });
+
+  // #5660: toggleTrack is handed to every library row; a new identity per
+  // render (tracks/lastSelectedId deps) defeated the rows' memo on every page
+  // append, selection click and search keystroke.
+  describe('stable callback identity (#5660)', () => {
+    it('keeps toggleTrack identity across list changes and selection clicks', () => {
+      const { result, rerender } = renderHook(
+        ({ t }) => useTrackSelection(t),
+        { initialProps: { t: tracks } }
+      );
+      const first = result.current.toggleTrack;
+
+      act(() => {
+        result.current.toggleTrack(2);
+      });
+      rerender({ t: [...tracks, { id: 6 }, { id: 7 }] });
+
+      expect(result.current.toggleTrack).toBe(first);
+    });
+
+    it('shift-range selection still sees the latest list and last selection', () => {
+      const { result, rerender } = renderHook(
+        ({ t }) => useTrackSelection(t),
+        { initialProps: { t: tracks } }
+      );
+
+      // A page append lands, then the user clicks a new row and shift-clicks
+      // another new one — the range must resolve against the appended list.
+      rerender({ t: [...tracks, { id: 6 }, { id: 7 }] });
+
+      act(() => {
+        result.current.toggleTrack(6);
+      });
+      act(() => {
+        result.current.toggleTrack(7, mouseEvent({ shiftKey: true }));
+      });
+
+      expect(result.current.isSelected(6)).toBe(true);
+      expect(result.current.isSelected(7)).toBe(true);
+      expect(result.current.selectedCount).toBe(2);
+    });
+  });
 });

@@ -24,7 +24,7 @@
  * - Efficient Set-based selection tracking
  */
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import type { TrackRef } from '@/types/domain';
 
 type Track = TrackRef;
@@ -47,6 +47,16 @@ export const useTrackSelection = (tracks: Track[]): UseTrackSelectionReturn => {
   const [selectedTracks, setSelectedTracks] = useState<Set<number>>(new Set());
   const [lastSelectedId, setLastSelectedId] = useState<number | null>(null);
 
+  // toggleTrack reads both through refs so its identity never changes. It is
+  // handed to every library row, and a new identity per render defeated the
+  // rows' memo on every page append, selection click and search keystroke
+  // (#5660). The refs are read at call time, so shift-range selection still
+  // sees the latest list and last-selected id.
+  const tracksRef = useRef(tracks);
+  tracksRef.current = tracks;
+  const lastSelectedIdRef = useRef(lastSelectedId);
+  lastSelectedIdRef.current = lastSelectedId;
+
   // Check if a track is selected
   const isSelected = useCallback(
     (trackId: number): boolean => {
@@ -58,13 +68,15 @@ export const useTrackSelection = (tracks: Track[]): UseTrackSelectionReturn => {
   // Toggle single track selection
   const toggleTrack = useCallback(
     (trackId: number, event?: React.MouseEvent) => {
+      const lastSelected = lastSelectedIdRef.current;
+      const trackIds = tracksRef.current.map(t => t.id);
+
       setSelectedTracks((prev) => {
         const newSelection = new Set(prev);
 
-        if (event?.shiftKey && lastSelectedId !== null) {
+        if (event?.shiftKey && lastSelected !== null) {
           // Shift+Click: Select range
-          const trackIds = tracks.map(t => t.id);
-          const startIndex = trackIds.indexOf(lastSelectedId);
+          const startIndex = trackIds.indexOf(lastSelected);
           const endIndex = trackIds.indexOf(trackId);
 
           if (startIndex !== -1 && endIndex !== -1) {
@@ -96,7 +108,7 @@ export const useTrackSelection = (tracks: Track[]): UseTrackSelectionReturn => {
         return newSelection;
       });
     },
-    [tracks, lastSelectedId]
+    []
   );
 
   // Select range of tracks
