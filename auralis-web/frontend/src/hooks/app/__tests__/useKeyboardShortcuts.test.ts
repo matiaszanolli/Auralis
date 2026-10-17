@@ -401,7 +401,10 @@ describe('useKeyboardShortcuts', () => {
       document.body.removeChild(divElement);
     });
 
-    it('should allow / to focus search even from input fields', () => {
+    // '/' used to bypass the input guard so it could focus search from
+    // anywhere, but that made the character untypable in every text field
+    // ("AC/DC" was impossible) — the exemption is gone since #5662.
+    it('should not fire / from an input field and leave it typeable', () => {
       renderHook(() => useKeyboardShortcuts(buildShortcuts(handlers)));
 
       const inputElement = document.createElement('input');
@@ -416,13 +419,13 @@ describe('useKeyboardShortcuts', () => {
 
       inputElement.dispatchEvent(event);
 
-      expect(handlers.onFocusSearch).toHaveBeenCalledTimes(1);
-      expect(event.defaultPrevented).toBe(true);
+      expect(handlers.onFocusSearch).not.toHaveBeenCalled();
+      expect(event.defaultPrevented).toBe(false);
 
       document.body.removeChild(inputElement);
     });
 
-    it('should allow / to focus global-search', () => {
+    it('should not fire / from the search input itself', () => {
       renderHook(() => useKeyboardShortcuts(buildShortcuts(handlers)));
 
       const searchInput = document.createElement('input');
@@ -438,8 +441,8 @@ describe('useKeyboardShortcuts', () => {
 
       searchInput.dispatchEvent(event);
 
-      // Should still call onFocusSearch even from the search input itself
-      expect(handlers.onFocusSearch).toHaveBeenCalledTimes(1);
+      expect(handlers.onFocusSearch).not.toHaveBeenCalled();
+      expect(event.defaultPrevented).toBe(false);
 
       document.body.removeChild(searchInput);
     });

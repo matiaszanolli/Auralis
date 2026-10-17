@@ -31,7 +31,10 @@ export const AppTopBarSearchInput = ({
   onClear,
 }: AppTopBarSearchInputProps) => {
   return (
-    <SearchContainer focused={isSearchFocused} sx={{ minWidth }}>
+    // role="search" marks the field as the app's search landmark. role (not
+    // component="search") because SearchContainer is a styled(Box) whose typed
+    // props don't expose `component`.
+    <SearchContainer role="search" focused={isSearchFocused} sx={{ minWidth }}>
       <SearchIcon
         sx={{
           color: themeVars.textMuted,
@@ -44,6 +47,12 @@ export const AppTopBarSearchInput = ({
         onChange={onSearchChange}
         onFocus={onFocus}
         onBlur={onBlur}
+        // data-search-input is the stable hook the "/" shortcut focuses
+        // (#5662); a placeholder-substring lookup silently broke when the
+        // copy changed.
+        slotProps={{
+          htmlInput: { 'aria-label': 'Search library', 'data-search-input': true },
+        }}
         sx={{
           flex: 1,
           '& .MuiOutlinedInput-root': {

@@ -7,6 +7,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
+import { useState } from 'react';
 import { render, screen } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
 import { AppTopBarSearchInput } from '../AppTopBarSearchInput';
@@ -50,5 +51,47 @@ describe('AppTopBarSearchInput clear button (#4449)', () => {
     expect(
       screen.queryByRole('button', { name: /clear search/i })
     ).not.toBeInTheDocument();
+  });
+});
+
+describe('AppTopBarSearchInput search landmark and shortcut hook (#5662)', () => {
+  it('names the searchbox and places it in a search landmark', () => {
+    renderInput({ searchQuery: '' });
+
+    const landmark = screen.getByRole('search');
+    expect(landmark).toContainElement(screen.getByRole('textbox', { name: 'Search library' }));
+  });
+
+  it('exposes data-search-input for the "/" shortcut to focus', () => {
+    renderInput({ searchQuery: '' });
+
+    expect(document.querySelector('input[data-search-input]')).toBe(
+      screen.getByRole('textbox', { name: 'Search library' })
+    );
+  });
+
+  it('accepts "/" while typing: "AC/DC" stays "AC/DC"', async () => {
+    const user = userEvent.setup();
+
+    function Holder() {
+      const [query, setQuery] = useState('');
+      return (
+        <AppTopBarSearchInput
+          searchQuery={query}
+          isSearchFocused={false}
+          minWidth={200}
+          onSearchChange={(e) => setQuery(e.target.value)}
+          onFocus={vi.fn()}
+          onBlur={vi.fn()}
+          onClear={vi.fn()}
+        />
+      );
+    }
+    render(<Holder />);
+
+    const input = screen.getByRole('textbox', { name: 'Search library' });
+    await user.type(input, 'AC/DC');
+
+    expect(input).toHaveValue('AC/DC');
   });
 });

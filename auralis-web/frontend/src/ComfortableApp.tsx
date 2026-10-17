@@ -192,7 +192,10 @@ function ComfortableApp() {
       description: 'Focus search',
       category: 'Navigation',
       handler: () => {
-        const searchInput = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement;
+        // data-search-input is set on the top-bar search field (#5662);
+        // the previous placeholder-substring lookup broke whenever the
+        // placeholder copy changed.
+        const searchInput = document.querySelector<HTMLInputElement>('input[data-search-input]');
         if (searchInput) {
           searchInput.focus();
           searchInput.select();

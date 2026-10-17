@@ -217,9 +217,7 @@ class KeyboardShortcutsService {
   private handleKeyDown = (event: KeyboardEvent): void => {
     if (!this.enabled) return;
 
-    // Allow "/" (focus search) to work even in input fields
-    const isSearchKey = event.key === '/' && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey;
-    if (!isSearchKey && this.isInputElement(event.target)) return;
+    if (this.isInputElement(event.target)) return;
     if (this.yieldsToFocusedWidget(event)) return;
 
     const key = this.generateKey(
