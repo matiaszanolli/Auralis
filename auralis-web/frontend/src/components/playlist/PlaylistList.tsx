@@ -67,7 +67,7 @@ export const PlaylistList = ({
 }: PlaylistListProps) => {
   const [expanded, setExpanded] = useState(true);
   const [overlay, setOverlay] = useState<PlaylistOverlay>(NO_OVERLAY);
-  const { playlists, loading, refresh, addPlaylist, removePlaylist } = usePlaylistData();
+  const { playlists, loading, error, refresh, addPlaylist, removePlaylist } = usePlaylistData();
 
   const { contextMenuState, handleContextMenu, handleCloseContextMenu } = useContextMenu();
   const { handleDelete } = usePlaylistOperations({ selectedPlaylistId, onPlaylistSelect });
@@ -128,6 +128,8 @@ export const PlaylistList = ({
       <PlaylistListContent
         playlists={playlists}
         loading={loading}
+        error={error}
+        onRetry={refresh}
         expanded={hideHeader ? true : expanded}
         selectedPlaylistId={selectedPlaylistId}
         contextMenuState={contextMenuState}

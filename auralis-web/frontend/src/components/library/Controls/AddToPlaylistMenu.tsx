@@ -4,6 +4,9 @@
  * Fetches the user's playlists when opened and lets them pick one to add
  * the current selection to. Fixes #4240 — this action previously showed a
  * "Coming soon!" toast with no API call.
+ *
+ * A failed fetch is reported as a failure with a Retry item, never as an empty
+ * list: "No playlists yet" would tell the user to create a duplicate (#5645).
  */
 
 import { useEffect, useState } from 'react';
@@ -25,6 +28,9 @@ export const AddToPlaylistMenu = ({
 }: AddToPlaylistMenuProps) => {
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+  // Bumped by the Retry item to re-run the fetch while the menu stays open.
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     if (!anchorEl) return;
@@ -34,13 +40,14 @@ export const AddToPlaylistMenu = ({
     // completion with no consumer.
     const controller = new AbortController();
     setLoading(true);
+    setLoadFailed(false);
     getPlaylists(undefined, controller.signal)
       .then((response) => {
         if (!controller.signal.aborted) setPlaylists(response.playlists);
       })
       .catch(() => {
         // An abort is expected on close/reopen — not a user-facing failure.
-        if (!controller.signal.aborted) setPlaylists([]);
+        if (!controller.signal.aborted) setLoadFailed(true);
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false);
@@ -48,7 +55,7 @@ export const AddToPlaylistMenu = ({
     return () => {
       controller.abort();
     };
-  }, [anchorEl]);
+  }, [anchorEl, attempt]);
 
   const handleSelect = (playlist: Playlist) => {
     onClose();
@@ -80,7 +87,21 @@ export const AddToPlaylistMenu = ({
         </MenuItem>
       )}
 
-      {!loading && playlists.length === 0 && (
+      {!loading && loadFailed && (
+        <MenuItem disabled>
+          <Typography variant="body2" sx={{ color: themeVars.textMuted }}>
+            Couldn&apos;t load playlists
+          </Typography>
+        </MenuItem>
+      )}
+
+      {!loading && loadFailed && (
+        <MenuItem onClick={() => setAttempt((n) => n + 1)} sx={{ color: themeVars.textStrong }}>
+          Retry
+        </MenuItem>
+      )}
+
+      {!loading && !loadFailed && playlists.length === 0 && (
         <MenuItem disabled>
           <Typography variant="body2" sx={{ color: themeVars.textMuted }}>
             No playlists yet
@@ -88,7 +109,7 @@ export const AddToPlaylistMenu = ({
         </MenuItem>
       )}
 
-      {!loading &&
+      {!loading && !loadFailed &&
         playlists.map((playlist) => (
           <MenuItem
             key={playlist.id}

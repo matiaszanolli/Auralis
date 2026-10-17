@@ -1,6 +1,6 @@
 import { MouseEvent } from 'react';
 import { Box, Collapse } from '@mui/material';
-import { List } from '@/design-system';
+import { Button, List } from '@/design-system';
 import { ContextMenu, ContextMenuAction } from '@/components/shared/ContextMenu';
 import { DroppablePlaylist } from './DroppablePlaylist';
 import { EmptyState } from './PlaylistList.styles';
@@ -9,6 +9,9 @@ import * as playlistService from '@/services/playlistService';
 interface PlaylistListContentProps {
   playlists: playlistService.Playlist[];
   loading: boolean;
+  /** Set when the last (re)load failed; the existing list, if any, is kept. */
+  error?: string | null;
+  onRetry?: () => void;
   expanded: boolean;
   selectedPlaylistId?: number;
   contextMenuState: {
@@ -25,7 +28,7 @@ interface PlaylistListContentProps {
  * PlaylistListContent - Renders playlist list with context menu
  *
  * Displays:
- * - Loading state or empty message
+ * - Loading state, load-error state with retry, or empty message
  * - List of droppable playlists
  * - Context menu for playlist actions
  *
@@ -40,6 +43,8 @@ interface PlaylistListContentProps {
 export const PlaylistListContent = ({
   playlists,
   loading,
+  error,
+  onRetry,
   expanded,
   selectedPlaylistId,
   contextMenuState,
@@ -54,6 +59,17 @@ export const PlaylistListContent = ({
         <List sx={{ py: 0 }}>
           {loading ? (
             <EmptyState>Loading playlists...</EmptyState>
+          ) : playlists.length === 0 && error ? (
+            // A failed load is not an empty library (#5645).
+            <EmptyState role="alert">
+              {error}
+              {onRetry && (
+                <>
+                  <br />
+                  <Button variant="ghost" size="sm" onClick={onRetry}>Retry</Button>
+                </>
+              )}
+            </EmptyState>
           ) : playlists.length === 0 ? (
             <EmptyState>
               No playlists yet

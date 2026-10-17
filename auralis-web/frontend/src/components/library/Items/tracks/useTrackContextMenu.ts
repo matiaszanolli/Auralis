@@ -43,6 +43,8 @@ export const useTrackContextMenu = ({
   } | null>(null);
   const [playlists, setPlaylists] = useState<playlistService.Playlist[]>([]);
   const [isLoadingPlaylists, setIsLoadingPlaylists] = useState(false);
+  // Lets a consumer tell "failed to load" from "no playlists" (#5645).
+  const [playlistsFailed, setPlaylistsFailed] = useState(false);
   const { success, info, error } = useToast();
   const queue = useQueue();
 
@@ -51,8 +53,10 @@ export const useTrackContextMenu = ({
     try {
       const response = await playlistService.getPlaylists();
       setPlaylists(response.playlists);
+      setPlaylistsFailed(false);
     } catch (err) {
       console.error('Failed to load playlists:', err);
+      setPlaylistsFailed(true);
     } finally {
       setIsLoadingPlaylists(false);
     }
@@ -194,6 +198,7 @@ export const useTrackContextMenu = ({
     contextMenuPosition,
     playlists,
     isLoadingPlaylists,
+    playlistsFailed,
     handleMoreClick,
     handleTrackContextMenu,
     handleCloseContextMenu,

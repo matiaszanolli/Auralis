@@ -16,6 +16,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import userEvent from '@testing-library/user-event';
 import { render, screen, waitFor } from '@/test/test-utils';
 import { AddToPlaylistMenu } from '../AddToPlaylistMenu';
 
@@ -139,5 +140,38 @@ describe('AddToPlaylistMenu — cancellation (#4614)', () => {
 
     expect(await screen.findByText('Focus (12)')).toBeInTheDocument();
     expect(screen.getByText('Late Night (4)')).toBeInTheDocument();
+  });
+});
+
+describe('AddToPlaylistMenu — failed load is not an empty list (#5645)', () => {
+  it('reports the failure with a Retry item, not "No playlists yet"', async () => {
+    vi.mocked(getPlaylists).mockRejectedValue(new Error('timeout'));
+
+    render(<AddToPlaylistMenu anchorEl={anchor()} onClose={vi.fn()} onAddToPlaylist={vi.fn()} />);
+
+    expect(await screen.findByText(/Couldn.t load playlists/)).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Retry' })).toBeInTheDocument();
+    expect(screen.queryByText('No playlists yet')).not.toBeInTheDocument();
+  });
+
+  it('Retry refetches and shows the playlists on success', async () => {
+    vi.mocked(getPlaylists)
+      .mockRejectedValueOnce(new Error('timeout'))
+      .mockResolvedValueOnce({ playlists: mockPlaylists, total: 2 } as never);
+
+    render(<AddToPlaylistMenu anchorEl={anchor()} onClose={vi.fn()} onAddToPlaylist={vi.fn()} />);
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Retry' }));
+
+    expect(await screen.findByText(/Focus/)).toBeInTheDocument();
+    expect(screen.queryByText(/Couldn.t load playlists/)).not.toBeInTheDocument();
+    expect(getPlaylists).toHaveBeenCalledTimes(2);
+  });
+
+  it('still says "No playlists yet" when the load succeeded with nothing', async () => {
+    vi.mocked(getPlaylists).mockResolvedValue({ playlists: [], total: 0 } as never);
+
+    render(<AddToPlaylistMenu anchorEl={anchor()} onClose={vi.fn()} onAddToPlaylist={vi.fn()} />);
+
+    expect(await screen.findByText('No playlists yet')).toBeInTheDocument();
   });
 });

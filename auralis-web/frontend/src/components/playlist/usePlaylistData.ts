@@ -2,26 +2,25 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import * as playlistService from '@/services/playlistService';
 import { usePlaylistWebSocket } from './usePlaylistWebSocket';
 
-const fetchPlaylists = async (): Promise<playlistService.Playlist[]> => {
-  try {
-    const response = await playlistService.getPlaylists();
-    return response.playlists;
-  } catch (fetchError) {
-    console.error('Failed to load playlists:', fetchError);
-    return [];
-  }
-};
+const LOAD_ERROR = 'Failed to load playlists';
 
 /**
  * usePlaylistData - Owns the sidebar playlist list (#5480)
  *
- * Holds `playlists` and `loading`, loads the list on mount, and keeps it in
- * sync with the playlist_* WebSocket events. Components apply their own local
- * changes through `addPlaylist` / `removePlaylist` / `refresh`.
+ * Holds `playlists`, `loading` and `error`, loads the list on mount, and keeps
+ * it in sync with the playlist_* WebSocket events. Components apply their own
+ * local changes through `addPlaylist` / `removePlaylist` / `refresh`.
+ *
+ * A failed fetch never touches `playlists` (#5645): it used to resolve to `[]`,
+ * so one transient failure on a WebSocket-triggered refetch erased a list that
+ * had loaded fine and the sidebar claimed "No playlists yet". `error` carries
+ * the failure instead, and the next successful `refresh` clears it. `refresh`
+ * itself never rejects, so it is safe as a bare WebSocket callback.
  */
 export const usePlaylistData = () => {
   const [playlists, setPlaylists] = useState<playlistService.Playlist[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Guard post-await setState against unmount: the mount fetch and the WS
   // callbacks can resolve/fire after the component unmounts (#4156).
@@ -34,9 +33,16 @@ export const usePlaylistData = () => {
   }, []);
 
   const refresh = useCallback(async () => {
-    const loaded = await fetchPlaylists();
-    if (!isMountedRef.current) return;
-    setPlaylists(loaded);
+    try {
+      const response = await playlistService.getPlaylists();
+      if (!isMountedRef.current) return;
+      setPlaylists(response.playlists);
+      setError(null);
+    } catch (fetchError) {
+      console.error('Failed to load playlists:', fetchError);
+      if (!isMountedRef.current) return;
+      setError(LOAD_ERROR);
+    }
   }, []);
 
   const addPlaylist = useCallback((playlist: playlistService.Playlist) => {
@@ -50,13 +56,12 @@ export const usePlaylistData = () => {
   useEffect(() => {
     const loadPlaylists = async () => {
       setLoading(true);
-      const loaded = await fetchPlaylists();
+      await refresh();
       if (!isMountedRef.current) return;
-      setPlaylists(loaded);
       setLoading(false);
     };
     loadPlaylists();
-  }, []);
+  }, [refresh]);
 
   usePlaylistWebSocket({
     onPlaylistCreated: refresh,
@@ -68,5 +73,5 @@ export const usePlaylistData = () => {
     onPlaylistsRefresh: refresh,
   });
 
-  return { playlists, loading, refresh, addPlaylist, removePlaylist };
+  return { playlists, loading, error, refresh, addPlaylist, removePlaylist };
 };
