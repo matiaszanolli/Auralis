@@ -39,8 +39,10 @@ class AuralisPlaybackProcessor extends AudioWorkletProcessor {
     this.port.onmessage = (event) => {
       const { data } = event;
       if (data.samples) {
-        // Receive interleaved PCM samples from main thread
-        this._buffers.push(new Float32Array(data.samples));
+        // Receive interleaved PCM samples from the main thread. The buffer is
+        // transferred (not cloned) since #5665 — use it directly; copying it
+        // here allocated on the audio rendering thread per block.
+        this._buffers.push(data.samples);
         this._available += data.samples.length;
       } else if (data.command === 'stop') {
         this._active = false;
@@ -92,13 +94,19 @@ class AuralisPlaybackProcessor extends AudioWorkletProcessor {
     if (this._available < samplesNeeded) {
       // Underrun — output silence
       for (let ch = 0; ch < output.length; ch++) output[ch].fill(0);
-      // Progress is otherwise reported every ~0.37 s, so the last report can be
-      // that far short of where playback actually stopped. Send the exact count
-      // as the queue runs dry — at the end of a track this is what lets the
-      // position reach the duration.
-      if (!this._starved && this._samplesPlayed > 0) this._reportProgress();
-      this._starved = true;
-      this.port.postMessage({ type: 'underrun' });
+
+      if (!this._starved) {
+        // Progress is otherwise reported every ~0.37 s, so the last report can be
+        // that far short of where playback actually stopped. Send the exact count
+        // as the queue runs dry — at the end of a track this is what lets the
+        // position reach the duration.
+        if (this._samplesPlayed > 0) this._reportProgress();
+        // One underrun message per stall, not one per render quantum (#5665) —
+        // process() runs ~345x/s. _starved clears when audio is produced below,
+        // so a second stall after recovery posts again (#5461's signal).
+        this.port.postMessage({ type: 'underrun' });
+        this._starved = true;
+      }
       return true;
     }
 

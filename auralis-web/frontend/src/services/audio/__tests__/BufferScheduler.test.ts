@@ -400,6 +400,20 @@ describe('BufferScheduler', () => {
       expect(framesSent()).toBeLessThanOrEqual(LOOKAHEAD_FRAMES);
     });
 
+    // #5665: blocks are transferred, not structured-cloned — the worklet was
+    // paying a second full copy of every block, twice per feed.
+    it('sends each block with its ArrayBuffer in a transfer list', async () => {
+      const { port } = await makeWorkletScheduler(120);
+
+      await vi.advanceTimersByTimeAsync(200);
+
+      const samplePosts = port.postMessage.mock.calls.filter(([msg]) => msg.samples);
+      expect(samplePosts.length).toBeGreaterThan(0);
+      for (const [msg, transfer] of samplePosts) {
+        expect(transfer).toEqual([msg.samples.buffer]);
+      }
+    });
+
     it('feeds only what the worklet has played since (a real-time consumer stays at the lookahead)', async () => {
       const { framesSent, report } = await makeWorkletScheduler(120);
       const framesPerTick = Math.round((SAMPLE_RATE * FEED_MS) / 1000);

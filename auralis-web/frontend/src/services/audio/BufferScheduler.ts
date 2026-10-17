@@ -305,8 +305,12 @@ export class BufferScheduler {
 
       const samples = this.buffer.read(creditFrames * bufferChannels);
       if (samples.length > 0) {
-        this.workletNode.port.postMessage({ samples });
-        this.workletFramesSent += samples.length / bufferChannels;
+        const frames = samples.length / bufferChannels;
+        // Transfer the ArrayBuffer instead of letting structured-clone copy
+        // it (#5665). `samples` is a fresh array from read() and dead after
+        // this line — the transfer detaches it, so the length is read first.
+        this.workletNode.port.postMessage({ samples }, [samples.buffer]);
+        this.workletFramesSent += frames;
       }
     }, PLAYBACK_ENGINE_CONFIG.feedIntervalMs);
   }

@@ -149,7 +149,23 @@ describe('audio-worklet-processor (#5657)', () => {
 
     const samplesPlayed = messages(p).filter((m) => m.type === 'samplesPlayed');
     expect(samplesPlayed).toEqual([{ type: 'samplesPlayed', count: FRAMES * 2, available: 0 }]);
-    expect(messages(p).filter((m) => m.type === 'underrun')).toHaveLength(3);
+    // #5665: one underrun per stall, not one per render quantum.
+    expect(messages(p).filter((m) => m.type === 'underrun')).toHaveLength(1);
+  });
+
+  it('posts one underrun per stall and again only after recovery (#5665)', () => {
+    // A sustained stall of 100 render quanta posts exactly one message.
+    for (let i = 0; i < 100; i++) render(p);
+    expect(messages(p).filter((m) => m.type === 'underrun')).toHaveLength(1);
+
+    // Audio is produced again, clearing the starved state...
+    send(p, { samples: ramp(0, FRAMES) });
+    render(p);
+    p.port.postMessage.mockClear();
+
+    // ...so a second stall posts again.
+    for (let i = 0; i < 10; i++) render(p);
+    expect(messages(p).filter((m) => m.type === 'underrun')).toHaveLength(1);
   });
 
   it('reports again when it runs dry a second time', () => {
