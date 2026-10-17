@@ -11,6 +11,7 @@ Utilities for adaptive and intelligent audio processing
 import numpy as np
 
 from ...analysis.loudness_meter import LoudnessMeter
+from ...io.processing import downmix_to_stereo, requires_layout_aware_downmix
 from ..basic import rms  # noqa: F401  — re-exported; tests/validation imports it from here
 from .audio_info import mono_to_stereo
 
@@ -119,8 +120,16 @@ def calculate_loudness_units(audio: np.ndarray, sample_rate: int) -> float:
     if audio.size == 0:
         return -70.0
 
+    # Measure on a stereo view: the meter's per-channel sum is only correct for
+    # mono/stereo. A single-column (N, 1) array is mono exactly like 1-D (#5550);
+    # canonical 5.1/7.1 uses the shared BS.775 downmix; other layouts keep the
+    # plain per-channel sum, since channel roles cannot be inferred from count.
     if audio.ndim == 1:
         audio = mono_to_stereo(audio)
+    elif audio.shape[1] == 1:
+        audio = mono_to_stereo(audio[:, 0])
+    elif audio.shape[1] > 2 and not requires_layout_aware_downmix(audio.shape[1]):
+        audio = downmix_to_stereo(audio)
 
     # A fresh meter per call. `apply_k_weighting()` carries filter state
     # (pre_filter_zi/rlb_filter_zi) across calls, so a shared instance would

@@ -137,19 +137,19 @@ class LoudnessMeter:
             return k_weighted
 
         else:
-            # Stereo - apply to each channel
+            # Multichannel (including a single-column (N, 1) array) - one
+            # filter state column per channel, sized from the actual channel
+            # count rather than assumed to be two (#5550).
             if self.pre_filter_zi is None:
                 pre_zi = signal.lfilter_zi(self.pre_filter_b, self.pre_filter_a)
                 rlb_zi = signal.lfilter_zi(self.rlb_filter_b, self.rlb_filter_a)
                 # Scale initial conditions by first sample per channel
-                self.pre_filter_zi = np.column_stack([
-                    pre_zi * audio_chunk[0, 0],
-                    pre_zi * audio_chunk[0, 1]
-                ])
-                self.rlb_filter_zi = np.column_stack([
-                    rlb_zi * audio_chunk[0, 0],
-                    rlb_zi * audio_chunk[0, 1]
-                ])
+                self.pre_filter_zi = np.column_stack(
+                    [pre_zi * audio_chunk[0, ch] for ch in range(audio_chunk.shape[1])]
+                )
+                self.rlb_filter_zi = np.column_stack(
+                    [rlb_zi * audio_chunk[0, ch] for ch in range(audio_chunk.shape[1])]
+                )
 
             k_weighted = np.zeros_like(audio_chunk)
 
@@ -178,12 +178,11 @@ class LoudnessMeter:
             # Mono
             mean_square = np.mean(k_weighted_audio**2)
         else:
-            # Stereo - ITU-R BS.1770-4 channel weighting
-            left_ms = np.mean(k_weighted_audio[:, 0]**2)
-            right_ms = np.mean(k_weighted_audio[:, 1]**2)
-
-            # Channel weighting: L=1.0, R=1.0 for stereo
-            mean_square = left_ms + right_ms
+            # ITU-R BS.1770-4: sum the per-channel mean squares with a weight
+            # of 1.0 per channel (correct for mono and L/R stereo). Surround
+            # channels would need the 1.41 weight and LFE exclusion, which
+            # needs layout metadata; callers must downmix those first (#5550).
+            mean_square = float(np.sum(np.mean(k_weighted_audio**2, axis=0)))
 
         # Convert to LUFS
         if mean_square > 0:
