@@ -7,6 +7,8 @@ argument-hint: "[--base <rev>]"
 
 Audit skills describe the code: file and router counts, test names, schema versions, known-open issues. Fix commits change the code without touching those files, so the skills go stale (#5492 and #5044 are the typical shape: a deleted module or repository survived in several skills for weeks). Most of the rot is closed issues still described as open. This skill brings every `.claude/commands/*.md` (the `audit-*`, `verify-*`, `sync-contracts`, `trace-flow`, `gen-test` and `fix-issue` commands), the shared `_audit-*` files and the `.claude/agents/*.md` specialists back in line with HEAD. It does not audit the code and does not fix it: real bugs that surface are reported to the user, not fixed.
 
+The command files are also mirrored for ZCode into `.agents/commands/` (plus the four `.agents/skills/source-command-audit-*` wrappers) by `scripts/sync_agent_commands.sh`. `.claude/commands` is the single source of truth: edit here, then re-mirror — never hand-edit both sides.
+
 `_audit-validate.sh` catches a stale *path*; it cannot catch a stale *claim*. This skill is the claim-level counterpart.
 
 Files in `.claude/commands/audit-sync/`:
@@ -46,7 +48,7 @@ Launch one background `general-purpose` agent per `groups.txt` line, all in a si
 - any hot spots: issues from `cited_closed_recent_map.txt`, or a recent refactor in the area (`git log --oneline <base>..HEAD --grep '^refactor\|^fix'`).
 
 The `meta` group also owns the following:
-- `_audit-common.md`, `_audit-severity.md`, `_audit-validate.sh` and `_audit-validate-baseline.txt`;
+- `_audit-common.md`, `_audit-severity.md`, `_audit-validate.sh` and `_audit-validate-baseline.txt`, plus the `.agents/commands/` mirror and the `.agents/skills/source-command-audit-*` wrappers they feed (`scripts/sync_agent_commands.sh` maintains both — re-run it without `--check` after editing the `.claude` originals);
 - the `.claude/agents/*.md` specialists (`backend-specialist`, `dsp-specialist`, `frontend-specialist`, `library-specialist`). Their layout facts must point at `CLAUDE.md` and `docs/architecture` instead of hand-typed trees wherever possible, and `scripts/check_doc_counts.py` already warns on their repository counts;
 - the domain→audit routing table in `audit-search.md`, which is the only ownership map this repo has. A new top-level package or a split module needs a row there.
 
@@ -65,10 +67,11 @@ A group that goes quiet with its files edited but no report may have stopped aft
 
 ```bash
 bash .claude/commands/_audit-validate.sh 2>&1 | grep -E 'FAIL|STALE|OK:'
-git diff --stat -- .claude
+bash scripts/sync_agent_commands.sh --check || bash scripts/sync_agent_commands.sh
+git diff --stat -- .claude .agents
 ```
 
-The validator's `Doc structural counts` section is warn-only, but read it: it is the cheapest check on the counts the agents just re-measured.
+The validator's `Doc structural counts` section is warn-only, but read it: it is the cheapest check on the counts the agents just re-measured. The sync script's `--check` fails when a `.claude/commands` edit was not re-mirrored; re-running it without the flag refreshes `.agents/commands/` and the skill wrappers — review that diff before committing.
 
 Skill-reading checks: rerun any whose matched text was touched.
 
@@ -87,4 +90,4 @@ To re-derive the list: `git grep -n '\.claude/commands' -- '*.py' '*.ts' '*.tsx'
    - one line per file on what was wrong and what changed;
    - **real code gaps or bugs to file**, after checking each one yourself;
    - **issues fixed in code but still open**, with their fixing commits. A `Fix #A, #B` subject auto-closes only `#A`.
-3. Commit only when the user asks: `docs(audit): re-sync audit skills against <base>..<head>`. Stage only `.claude/` paths: the tree usually carries unrelated WIP (`.codebase-memory/`, `activate.sh`).
+3. Commit only when the user asks: `docs(audit): re-sync audit skills against <base>..<head>`. Stage only `.claude/` and `.agents/` paths: the tree usually carries unrelated WIP (`.codebase-memory/`, `activate.sh`).

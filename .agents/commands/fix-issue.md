@@ -1,0 +1,154 @@
+---
+description: "Fetch a GitHub issue, investigate, plan, implement, test, commit, and close"
+argument-hint: "<issue-number-or-url>"
+---
+
+# Automated Issue Remediation
+
+Read a GitHub issue, investigate root cause, implement the fix, run tests, commit, and close.
+
+**Input**: `$ARGUMENTS` = issue number (e.g. `2613`) or URL.
+
+## Phase 1: Fetch & Snapshot
+
+```bash
+ISSUE="${ARGUMENTS}"
+ISSUE="${ISSUE##*/}"
+mkdir -p ".claude/issues/$ISSUE"
+gh issue view "$ISSUE" --json number,title,body,labels,comments,state \
+  > ".claude/issues/$ISSUE/ISSUE.json"
+gh issue view "$ISSUE" > ".claude/issues/$ISSUE/ISSUE.md"
+```
+
+If the issue is already CLOSED, inform the user and stop.
+
+If `.claude/issues/$ISSUE/ISSUE.md` already exists from a prior run, use it as additional context — it may contain investigation notes worth carrying forward.
+
+## Phase 2: Classify Domain
+
+Map the issue to a codebase domain using labels and content:
+
+| Domain | Labels | Key Paths | Consult Specialist |
+|--------|--------|-----------|-------------------|
+| Audio Core | `audio-integrity`, `dsp` | `auralis/core/`, `auralis/dsp/` | `dsp-specialist` |
+| Player | `player` | `auralis/player/` | `dsp-specialist` |
+| Audio I/O | `audio-integrity` | `auralis/io/` | `dsp-specialist` |
+| Library/DB | `library` | `auralis/library/` | `library-specialist` |
+| Analysis | `fingerprint` | `auralis/analysis/` | `dsp-specialist` |
+| Backend | `backend`, `streaming`, `websocket` | `auralis-web/backend/` | `backend-specialist` |
+| Frontend | `frontend` | `auralis-web/frontend/src/` | `frontend-specialist` |
+| Rust DSP | `dsp` | `vendor/auralis-dsp/` | `dsp-specialist` |
+| Concurrency | `concurrency` | Cross-cutting | (depends on subsystem) |
+| Security | `security` | Cross-cutting | `backend-specialist` |
+
+If the issue body mentions specific files or line numbers, start there. Otherwise, search by keywords from the issue title and description.
+
+## Phase 3: Investigate Root Cause
+
+**CRITICAL RULE**: Never start implementing before fully understanding the root cause.
+
+1. Read the files mentioned in the issue evidence.
+2. Trace the code path from entry point to the bug location.
+3. Identify WHY the bug occurs, not just WHERE.
+4. Check for sibling bugs — same pattern in adjacent files (see `_audit-common.md` "Sibling Detection" table).
+5. Check `git blame` on the affected lines to understand the intent of existing code.
+6. Look for existing tests that should have caught this.
+7. **Specialists are a last resort, not a default.** Each one is a fresh context window — only delegate (`subagent_type: dsp-specialist | backend-specialist | frontend-specialist | library-specialist`) when the issue genuinely spans a subsystem you can't trace yourself. When you do, ask for a conclusion (file:line + root cause), not file dumps.
+
+Don't re-read files already in context, and don't pre-read a whole package — stay on the code path.
+
+**INVESTIGATION.md is optional.** Skip it for single-site fixes — the commit body covers those. Write the 3-5 sentence root-cause analysis only when the investigation surfaced something non-obvious worth preserving (cross-file interaction, a wrong-looking-but-correct invariant).
+
+## Phase 4: Scope Check
+
+Count how many files need changes. If **more than 5 files** need modification:
+
+1. STOP and summarize the plan:
+   - List each file and what changes it needs.
+   - Explain the fix strategy.
+   - Note any risks or side effects.
+2. Ask the user to confirm before proceeding.
+
+If 5 or fewer files, proceed directly.
+
+## Phase 5: Implement the Fix
+
+Follow project conventions from CLAUDE.md:
+
+- **DRY**: Improve existing code, never duplicate logic.
+- **Modular**: Keep files under 300 lines, single responsibility.
+- **Repository pattern**: All DB access via `auralis/library/repositories/`.
+- **Audio DSP**: `audio.copy()` before modify, preserve sample count, preserve dtype.
+- **Python backend**: `async def` handlers, errors via `HTTPException`, `RLock` for shared state.
+- **React frontend**: `@/` imports only, colors from `tokens`, components < 300 lines.
+
+## Phase 6: Run Tests
+
+Scope first, widen once at the end. Use `-q` (not `-v`) so passes collapse to dots
+and only failures print in full — `-v` dumps every test name into context. Scope
+both pytest and mypy to what the fix touched; run the full suite a single time as
+the final gate, not per iteration.
+
+```bash
+# Inner loop — the matching tests/ subdir (e.g. tests/backend, tests/audio,
+# tests/concurrency, tests/security) or the specific test module for the fix:
+python -m pytest -q -m "not slow" tests/<subdir> 2>&1 | tail -30
+mypy <changed-dirs-or-files> --ignore-missing-imports 2>&1 | tail -20
+
+# Final gate — full suite, ONCE before commit:
+python -m pytest -q -m "not slow" 2>&1 | tail -30
+```
+
+For a fix confined to one domain, the scoped run is sufficient evidence — note
+that you scoped it in the commit. If frontend files were changed:
+```bash
+cd auralis-web/frontend && npm run test:memory 2>&1 | tail -30
+```
+
+If tests fail:
+1. Read the failure output carefully.
+2. Determine if the failure is related to your fix or pre-existing.
+3. If related: fix the issue and re-run.
+4. If pre-existing: note it but proceed (and mention in the commit).
+
+## Phase 7: Completeness Checks
+
+Before committing, verify each keyed check. Reference these tags in the commit if applicable:
+
+- [ ] **COPY**: If audio code is touched — `audio.copy()` before any in-place NumPy op?
+- [ ] **SAMPLE**: `len(output) == len(input)` preserved at every stage?
+- [ ] **DTYPE**: `float32` / `float64` preserved? No silent casts?
+- [ ] **NAN**: Division / log / sqrt guarded against NaN/Inf?
+- [ ] **CLIP**: Output clamped to `[-1.0, 1.0]` before PCM emission?
+- [ ] **PARALLEL**: True copies in parallel processing, correct reassembly order, equal-power crossfade?
+- [ ] **SIBLING**: Same bug pattern checked in related files (see `_audit-common.md` Sibling Detection table)?
+- [ ] **REPO**: All DB access via `auralis/library/repositories/`? No raw SQL added?
+- [ ] **LOCK**: Any new lock acquired in canonical order? No lock held across `await` or callback?
+- [ ] **GIL**: Rust PyO3 long compute releases the GIL?
+- [ ] **SCHEMA**: If a Pydantic model changed, frontend types match?
+- [ ] **TOKEN**: If frontend code touched, no raw hex colors (use `tokens`)?
+- [ ] **TEST**: Regression test added when applicable?
+- [ ] **LOC**: If this issue is a god-file/oversized-module split, re-run `wc -l` on the target file before closing (#4673) — close only when it's under the project's 300-LOC rule, otherwise re-scope the issue (update its body with the current LOC and what remains) and leave it open rather than closing on partial progress. Four issues (#4245, #4249, #4250, #4254) were closed in 2026-07 while their targets stayed 2.3-2.7x over the limit, understating the real backlog until re-audited.
+
+## Phase 8: Commit and Close
+
+Stage and commit with the conventional format:
+
+```bash
+git add <specific-files>
+git commit -m "fix: <description> (#$ISSUE)"
+gh issue close "$ISSUE" --comment "Fixed in $(git rev-parse --short HEAD). <brief summary>"
+```
+
+Append the close comment to the local snapshot:
+```bash
+echo "Closed: $(date -Iseconds) — $(git rev-parse --short HEAD)" \
+  >> ".claude/issues/$ISSUE/CLOSED.md"
+```
+
+## Error Handling
+
+- If the issue description is unclear, ask the user for clarification before investigating.
+- If the root cause is in a dependency (not project code), report this to the user instead of fixing.
+- If the fix requires architectural changes, summarize the options and ask the user to choose.
+- If tests reveal other bugs unrelated to this issue, note them but don't fix them.

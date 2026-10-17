@@ -1,0 +1,210 @@
+---
+description: "Audit for deprecated APIs, libraries, patterns, language features across Python, TS/React, Rust, third-party deps"
+argument-hint: "[--focus python|frontend|rust|deps] [--depth shallow|deep]"
+---
+
+# Deprecation Audit
+
+Audit the entire Auralis codebase for deprecated APIs, libraries, patterns, and language features across Python, TypeScript/React, Rust, and all third-party dependencies. Then create GitHub issues for every new confirmed finding.
+
+**Shared protocol**: Read `.claude/commands/_audit-common.md` first for project layout, severity framework, methodology, deduplication rules, and GitHub issue template.
+
+## Severity Examples
+
+| Severity | Deprecation-Specific Examples |
+|----------|------------------------------|
+| **CRITICAL** | Python 3.14 removed module still imported, React 18 removed API still called (e.g. `ReactDOM.render`), Pydantic V1 syntax on V2 |
+| **HIGH** | `datetime.utcnow()` (deprecated 3.12), SQLAlchemy 1.x `Query` API, MUI deprecated component props |
+| **MEDIUM** | Legacy React lifecycle methods, deprecated Node.js APIs, old Vite config keys |
+| **LOW** | Old naming conventions, superseded utility functions, stale type patterns |
+
+## Audit Dimensions
+
+### Dimension 1: Python Standard Library & Language
+
+**Key locations**: All `.py` files under `auralis/`, `auralis-web/backend/`, `tests/`
+
+**Check**:
+- [ ] `datetime.utcnow()` / `datetime.utcfromtimestamp()` — deprecated since 3.12, use `datetime.now(timezone.utc)` instead
+- [ ] `asyncio.get_event_loop()` without running loop — deprecated, use `asyncio.get_running_loop()` or `asyncio.Runner`
+- [ ] `typing` module legacy imports — `Optional[X]` vs `X | None`, `List`/`Dict`/`Tuple` vs `list`/`dict`/`tuple` (PEP 585/604)
+- [ ] `pkg_resources` — deprecated in favor of `importlib.resources` / `importlib.metadata`
+- [ ] `distutils` — removed in Python 3.12+
+- [ ] `os.path` patterns where `pathlib.Path` is preferred and the codebase already uses `pathlib` elsewhere
+- [ ] `unittest` legacy assertions (`assertEquals`, `assertNotEquals`) — deprecated aliases
+- [ ] `configparser` legacy methods (`readfp`, `has_key`)
+- [ ] `collections` ABCs imported from `collections` instead of `collections.abc`
+- [ ] `imp` module — removed in 3.12, use `importlib`
+- [ ] Thread/process `daemon` property set after `start()` — deprecated
+- [ ] `ssl` deprecated functions/constants (e.g., `ssl.PROTOCOL_TLS`)
+- [ ] `locale.getdefaultlocale()` — deprecated since 3.11
+
+### Dimension 2: NumPy / SciPy / Audio Libraries
+
+**Key locations**: `auralis/core/`, `auralis/dsp/`, `auralis/analysis/`, `auralis/io/`
+
+**Check**:
+- [ ] `np.bool`, `np.int`, `np.float`, `np.complex`, `np.object`, `np.str` — removed in NumPy 1.24+, use Python builtins
+- [ ] `np.product` → `np.prod`, `np.cumproduct` → `np.cumprod`, `np.sometrue` → `np.any`, `np.alltrue` → `np.all`
+- [ ] `np.in1d` → `np.isin`
+- [ ] `np.row_stack` → `np.vstack`
+- [ ] `np.AxisError` imported from wrong location
+- [ ] `scipy.fft` vs `scipy.fftpack` — `fftpack` is legacy
+- [ ] `scipy.signal` deprecated function signatures (e.g., old `windows` parameter names)
+- [ ] `librosa` deprecated parameters or function names (if used). librosa is on 1.0 (#5414), which dropped the `audioread` backend, so `librosa.load()` only opens what libsndfile can. Flag any direct `librosa.load()` that is not gated on `FFMPEG_FORMATS` (`auralis/io/formats.py`) and routed through `load_with_ffmpeg` for M4A/AAC/WMA, and any reintroduced `audioread` or `standard-aifc`/`standard-chunk`/`standard-sunau`/`audioop-lts` backport pin
+- [ ] `soundfile` deprecated APIs
+- [ ] Deprecated NumPy dtype strings or casting behavior
+
+### Dimension 3: FastAPI / Pydantic / SQLAlchemy
+
+**Key locations**: `auralis-web/backend/`
+
+**Check**:
+- [ ] **Pydantic V1 vs V2** — `class Config:` → `model_config = ConfigDict(...)`, `.dict()` → `.model_dump()`, `.json()` → `.model_dump_json()`, `validator` → `field_validator`, `root_validator` → `model_validator`
+- [ ] `from pydantic import validator` — deprecated, use `field_validator` with `mode='before'`/`'after'`
+- [ ] `schema_extra` → `json_schema_extra`
+- [ ] `orm_mode = True` → `from_attributes = True`
+- [ ] `@app.on_event("startup")` / `@app.on_event("shutdown")` — deprecated in FastAPI, use lifespan context manager
+- [ ] `Response.media_type` deprecated patterns
+- [ ] **SQLAlchemy 1.x patterns** — `session.query(Model)` → `select(Model)` + `session.execute()`, `Query.filter()` → `select().where()`
+- [ ] `declarative_base()` → `DeclarativeBase` class (SQLAlchemy 2.0)
+- [ ] `engine.execute()` — removed in SQLAlchemy 2.0
+- [ ] `Column()` → `mapped_column()` with `Mapped[]` type annotations
+- [ ] `relationship()` without `Mapped[]` annotation
+- [ ] `sessionmaker` deprecated `bind` parameter pattern
+- [ ] `autocommit` mode — deprecated in SQLAlchemy 2.0
+
+### Dimension 4: React / Redux / Frontend Libraries
+
+**Key locations**: `auralis-web/frontend/src/`
+
+**Check**:
+- [ ] `ReactDOM.render()` — removed in React 18, use `createRoot()`
+- [ ] `componentWillMount`, `componentWillReceiveProps`, `componentWillUpdate` — deprecated since React 16.3
+- [ ] `findDOMNode` — deprecated, use refs
+- [ ] `defaultProps` on function components — deprecated in React 18.3+
+- [ ] `React.FC` / `React.FunctionComponent` — discouraged pattern (implicit children prop removed in React 18)
+- [ ] String refs (`ref="myRef"`) — deprecated, use `useRef` / `createRef`
+- [ ] `UNSAFE_` lifecycle methods still present
+- [ ] Legacy context API (`contextTypes`, `childContextTypes`) — use `createContext`
+- [ ] `react-redux` deprecated APIs — `connect()` HOC where hooks (`useSelector`, `useDispatch`) are available
+- [ ] `createStore` → `configureStore` (Redux Toolkit)
+- [ ] **MUI deprecated props/components** — `makeStyles` (JSS) vs `sx` prop / `styled`, deprecated component props per MUI version
+- [ ] `@mui/styles` — deprecated in MUI v5, replaced by `@mui/system` or `styled-components`/`emotion`
+- [ ] Deprecated Vite config options (e.g., `optimizeDeps.include` syntax changes)
+- [ ] Deprecated `tsconfig.json` options (e.g., `moduleResolution: "node"` vs `"bundler"`)
+- [ ] `PropTypes` — deprecated when TypeScript is used project-wide
+
+### Dimension 5: Node.js / npm / Build Tools
+
+**Key locations**: `auralis-web/frontend/package.json`, `desktop/package.json`, build configs
+
+**Check**:
+- [ ] Deprecated npm packages — check for packages marked deprecated on npm registry
+- [ ] `node:` protocol — are Node.js built-ins imported with the `node:` prefix where applicable?
+- [ ] Deprecated Node.js APIs (`fs.exists`, `url.parse` → `new URL()`, `querystring` → `URLSearchParams`)
+- [ ] `package.json` deprecated fields (`main` without `exports`, `engines` mismatches)
+- [ ] Deprecated ESLint config format (`.eslintrc.*` → flat config in *eslint.config.js*)
+- [ ] Deprecated testing library APIs (`cleanup` auto-behavior, `waitFor` patterns)
+- [ ] Deprecated Vitest configuration options
+- [ ] Electron deprecated APIs (if using older Electron patterns in `desktop/`)
+
+### Dimension 6: Rust / PyO3 / Cargo
+
+**Key locations**: `vendor/auralis-dsp/`
+
+**Current pins** (`vendor/auralis-dsp/Cargo.toml`): edition 2024, `pyo3 = 0.29`, `numpy = 0.29`, `ndarray = 0.16`.
+
+**Check**:
+- [ ] Deprecated Rust standard library APIs (the crate is on edition 2024 since #5443)
+- [ ] PyO3 deprecated macros or API patterns (`#[pyfunction]`, `#[pymethods]` signature changes)
+- [ ] Deprecated `Cargo.toml` keys or dependency specification syntax
+- [ ] Deprecated crate features or APIs in dependencies
+- [ ] `maturin` deprecated configuration options
+- [ ] `pyo3`/`numpy` are on 0.29 (#5485), and the `PYO3_USE_ABI3_FORWARD_COMPATIBILITY` flag is gone, so the wheel is a full-API `cp314` build. Flag any reintroduction of that flag, or any `pyo3` deprecation warning in `cargo check` output (for example `allow_threads`/`with_gil` instead of `detach`/`attach`, or the removed `PyObject` alias). The July 2026 "ABI v2" blocker is history; see `vendor/auralis-dsp/UPGRADE_PLAN.md`.
+- [ ] `Cargo.lock` — is it tracked? An untracked lockfile has previously hidden a real dependency conflict (ndarray 0.15/0.16) until a release build broke.
+
+### Dimension 7: Internal Codebase Deprecations
+
+**Key locations**: Entire codebase
+
+**Check**:
+- [ ] `@deprecated` decorators or `# deprecated` comments — are callers still using deprecated internal APIs?
+- [ ] `DeprecationWarning` emissions — is the codebase raising warnings that indicate migration is incomplete?
+- [ ] TODO/FIXME comments referencing deprecation or migration
+- [ ] Duplicate utility functions where an older version should have been removed
+- [ ] Old configuration keys still accepted for backwards compatibility that should be sunset
+- [ ] Stale version pins in `requirements.txt` / `package.json` that block upgrades
+- [ ] Dead code that only exists for backwards compatibility with removed features
+
+### Dimension 8: Configuration & CI/CD
+
+**Key locations**: `pyproject.toml`, `pytest.ini`, `.github/`, `Makefile`, `*.cfg`
+
+**Toolchain baseline**: Python tooling is **uv**, not pyenv (`.python-version` holds a plain version string). `pyproject.toml` declares `requires-python = ">=3.14"` and `.python-version` now pins 3.14 to match — the old 3.13.9 gap is closed, so re-reporting it is a stale finding. JS package manager is **pnpm** only. Node 24+.
+
+**Check**:
+- [ ] Any *setup.cfg* / *setup.py* left over — should they be consolidated into `pyproject.toml`? (Neither exists today; flag only if one reappears.)
+- [ ] `pytest.ini` deprecated options or marker syntax
+- [ ] **pytest version floor** — RESOLVED, do not re-report. The legacy `pytest_ignore_collect(path, config)` hook was deleted from `tests/conftest.py` (it guarded 8 files that no longer exist) and the markers pytest 9.1 rejects under `--strict-markers` are now declared in `pytest.ini` (#4529). The floor is `pytest>=9.0.1`, mirroring `minversion` in `pytest.ini`, and collection succeeds on 9.1.1. Flag only a *new* divergence between the `pyproject.toml` floor and `pytest.ini`'s `minversion`.
+- [ ] Version drift: `auralis/version.py` is the source of truth and `sync_version.py` propagates it. Flag any `package.json`/`pyproject.toml` quoting a different version instead of hand-editing them.
+- [ ] GitHub Actions deprecated action versions (`actions/checkout@v2` → `@v4`, `actions/setup-python@v3` → `@v5`) across all 9 workflows in `.github/workflows/`
+- [ ] `pnpm/action-setup` must NOT carry a `version:` input — every `package.json` here declares `packageManager`, and supplying both makes the action hard-error before installing anything. A `version:` reappearing is a regression, not a modernization.
+- [ ] Backend CI must stay on Python 3.14 — on 3.13 this codebase's PEP 649 deferred annotations fail at import and the suite collects zero tests. Flag any workflow that lowers it.
+- [ ] Baseline-gated workflows (`backend-tests.yml`, `frontend-test.yml`) exit 0 on the test step and let the *baseline* step decide the job. Verify the gate scripts (`scripts/check_pytest_baseline.py`, `auralis-web/frontend/scripts/check-test-baseline.mjs`) are still invoked and still fail on a missing report or 0 collected tests — a gate that silently passes a crashed runner is worse than no gate.
+- [ ] Guard workflows still wired: `action-pin-guard.yml`, `lockfile-guard.yml`, `requirements-pin-guard.yml`, `rust-audit.yml`, `path-references.yml` (runs `.claude/commands/_audit-validate.sh` and `scripts/check_optimization_importers.py`), and `.github/scripts/check_pyproject_deps.py`
+- [ ] No Docker/container config should reappear — Auralis ships as a desktop Electron app; the *Dockerfile* was deleted deliberately
+- [ ] `mypy` deprecated configuration options
+- [ ] `black` / `ruff` deprecated configuration options or rules
+- [ ] Deprecated pip features or install flags
+
+## Methodology
+
+For each finding:
+1. **Identify** the deprecated API/pattern and the file(s) using it
+2. **Verify** it is actually deprecated — check official docs, changelogs, or deprecation warnings
+3. **Determine** the replacement — what is the modern equivalent?
+4. **Assess scope** — how many files/call sites are affected?
+5. **Evaluate risk** — is this blocking an upgrade? Emitting warnings? Will it break?
+
+## Phase 1: Audit
+
+Write your report to: **`docs/audits/AUDIT_DEPRECATION_<TODAY>.md`** (use today's date, format YYYY-MM-DD).
+
+### Report Structure
+
+1. **Executive Summary** — Total findings by severity, key upgrade blockers, recommended migration order
+2. **Findings** — Grouped by severity (CRITICAL first), using the per-finding format below
+3. **Dependency Upgrade Roadmap** — Which packages need upgrading, in what order, and what breaks
+4. **Migration Effort Estimate** — Small (< 10 call sites), Medium (10-50), Large (50+) per finding
+
+### Per-Finding Format
+
+```
+### <ID>: <Short Title>
+- **Severity**: CRITICAL | HIGH | MEDIUM | LOW
+- **Dimension**: Python Stdlib | NumPy/SciPy | FastAPI/Pydantic/SQLAlchemy | React/Redux/MUI | Node/npm/Build | Rust/PyO3 | Internal | Config/CI
+- **Location**: `<file-path>:<line-range>` (+ count of affected files if widespread)
+- **Status**: NEW | Existing: #NNN | Regression of #NNN
+- **Deprecated API**: Exact function/class/method/pattern that is deprecated
+- **Deprecated Since**: Version where deprecation was introduced
+- **Removal Version**: Version where it will be / was removed (if known)
+- **Replacement**: The modern equivalent API/pattern
+- **Affected Files**: Count and list of files using the deprecated pattern
+- **Evidence**: Code snippet showing current usage
+- **Migration Path**: Step-by-step instructions to migrate
+- **Risk**: What breaks if we don't migrate, and when
+```
+
+## Phase 2: Report Finalization
+
+1. Save the report to `docs/audits/AUDIT_DEPRECATION_<TODAY>.md`
+2. Do NOT create GitHub issues directly
+3. Inform the user the report is ready and suggest:
+   ```
+   /audit-publish docs/audits/AUDIT_DEPRECATION_<TODAY>.md
+   ```
+
+## Labels
+
+Use labels when publishing: severity label + `deprecation` + layer labels (`backend`, `frontend`, `audio-engine`, `rust-dsp`, `config`) + `maintenance`

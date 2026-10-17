@@ -1,0 +1,120 @@
+---
+description: "Recommend which audit(s) to run based on recent changes and audit history — the starting point, not an audit itself"
+argument-hint: "[--since <date>] [--limit <N>]"
+---
+
+# Audit Advisor & Orchestrator
+
+Analyze recent changes and audit history to recommend which audit(s) to run, in what order, and with what focus. This is NOT an audit itself — it's the starting point that tells you what to audit.
+
+See `.claude/commands/_audit-common.md` for project layout, methodology, and context management rules.
+
+## Parameters (from $ARGUMENTS)
+
+- `--since <ref>`: Git ref or date to analyze changes from (default: last 2 weeks)
+- `--full`: Skip change analysis and recommend the full audit suite
+
+## Step 1: Gather Change Intelligence
+
+```bash
+cd /mnt/data/src/matchering
+git log --oneline --since="2 weeks ago"
+git diff HEAD~20..HEAD --name-only
+```
+
+Categorize changed files by risk domain:
+
+| Domain | File Patterns | Maps to Audit |
+|--------|--------------|---------------|
+| Audio Core/DSP | `auralis/core/*`, `auralis/dsp/*` | `/audit-engine` |
+| Player | `auralis/player/*` | `/audit-engine`, `/audit-concurrency` |
+| Audio I/O | `auralis/io/*` | `/audit-engine` |
+| Chunked Mastering | `auralis/core/mastering_*.py` | `/audit-engine`, `/audit-concurrency` |
+| Optimization (LIVE) | `auralis/optimization/*` | `/audit-engine`, `/audit-concurrency` — live engine code applied by `hybrid_processor.py` at import (#5142); also run `python3 scripts/check_optimization_importers.py` |
+| Caching | `auralis-web/backend/core/chunk_cache*`, `auralis-web/backend/core/thumbnail_cache.py`, `auralis-web/backend/core/file_signature.py`, `auralis-web/backend/cache/*` | `/audit-backend` (dim 10) |
+| Seek & buffering | `auralis-web/backend/core/stream_seek.py`, `auralis-web/backend/core/seekable_source.py`, `auralis-web/backend/core/stream_*_chunks.py`, `auralis-web/backend/core/proactive_buffer.py` | `/audit-backend` (dim 11), `/audit-integration` (flow 8) |
+| Analysis/Fingerprint | `auralis/analysis/*` | `/audit-engine` |
+| Library/Database | `auralis/library/*` | `/audit-engine`, `/audit-concurrency` |
+| Backend Routes | `auralis-web/backend/routers/*` | `/audit-backend` |
+| WebSocket/Streaming | `auralis-web/backend/core/audio_stream*`, `auralis-web/backend/core/chunked_processor*`, `auralis-web/backend/core/stream_*`, `auralis-web/backend/core/chunk_*`, `auralis-web/backend/ws_handlers/*`, `auralis-web/backend/websocket/*` | `/audit-backend`, `/audit-integration` |
+| Processing engine & executors | `auralis-web/backend/core/processing_engine.py`, `auralis-web/backend/core/job_*`, `auralis-web/backend/core/executors.py` | `/audit-backend` (dims 4, 8), `/audit-concurrency` (dim 3) |
+| Enhancement presets | `auralis-web/backend/schemas/enhancement.py`, `auralis-web/backend/core/proactive_buffer.py`, `auralis/core/config/preset_profiles.py`, `auralis-web/frontend/src/types/domain.ts`, `auralis-web/frontend/src/hooks/enhancement/*` | `/audit-integration` (flow 3), `/sync-contracts` |
+| Backend Services | `auralis-web/backend/services/*`, `auralis-web/backend/core/*`, `auralis-web/backend/analysis/*` | `/audit-backend` |
+| Frontend Components | `auralis-web/frontend/src/components/*` | `/audit-frontend` |
+| Frontend Hooks | `auralis-web/frontend/src/hooks/*` | `/audit-frontend`, `/audit-integration` |
+| Frontend Store | `auralis-web/frontend/src/store/*` | `/audit-frontend` |
+| Rust DSP | `vendor/auralis-dsp/*` | `/audit-engine`, `/audit-security` |
+| Config/Middleware | `auralis-web/backend/config/*` (CORS, rate limit, security headers, routes, lifespan), `auralis-web/backend/main.py` | `/audit-security`, `/audit-backend` |
+| Security modules | `auralis-web/backend/security/*`, `auralis-web/backend/websocket/websocket_security.py` | `/audit-security` |
+
+## Step 2: Check Audit Coverage History
+
+Read `docs/audits/` to see what's been audited recently:
+
+```bash
+ls -lt docs/audits/AUDIT_*.md | head -15
+```
+
+For each recent report, note the date, type, and finding count. Build a coverage freshness table:
+
+```
+| Audit Type    | Last Run   | Days Ago | Status      |
+|---------------|------------|----------|-------------|
+| engine        | 2026-03-15 | 4        | FRESH       |
+| security      | 2026-03-01 | 18       | STALE       |
+| backend       | never      | —        | NEVER RUN   |
+| ...           | ...        | ...      | ...         |
+```
+
+Freshness rules: FRESH = <5 days, OK = 5-14 days, STALE = 14-30 days, NEVER RUN = no report found.
+
+## Step 3: Cross-Reference Open Issues
+
+```bash
+gh issue list --limit 200 --state open --json labels --jq '.[].labels[].name' | sort | uniq -c | sort -rn
+```
+
+Identify which domains have the most open issues — high counts may indicate diminishing returns from re-auditing vs. fixing.
+
+## Step 4: Generate Recommendations
+
+Based on changes, coverage freshness, and open issues, output a concrete audit plan.
+
+### Output Format
+
+```
+## Audit Recommendation — <DATE>
+
+### Change Summary
+- N commits, M files changed
+- Key domains: <list domains with changes>
+
+### Recommended Audit Sequence
+
+| Priority | Command | Reason | Suggested Focus |
+|----------|---------|--------|-----------------|
+| 1 | `/audit-security` | CORS/middleware changed + 18 days stale | `--focus A01,A05,A07` |
+| 2 | `/audit-engine` | DSP pipeline modified, player changes | `--focus 1,2,5` |
+| 3 | `/audit-regression` | 10 days since last run, 5 new fixes merged | — |
+| SKIP | `/audit-frontend` | Ran 3 days ago, no component changes | — |
+
+### Quick Wins
+- `/audit-incremental` — 15 commits since last run, fast to execute
+
+### Coverage Gaps
+- `/audit-deprecation` has NEVER been run. Consider after next dependency update.
+
+### Open Issue Hotspots
+- `concurrency`: 8 open — consider fixing backlog before re-auditing
+- `security`: 3 open — audit may find more
+```
+
+## Important Rules
+
+- Do NOT perform any audit yourself. Your job is to ADVISE, not audit.
+- Do NOT create GitHub issues. That's for `/audit-publish`.
+- Base recommendations on evidence (git log, file diffs, audit history), not assumptions.
+- If `--full` is passed, recommend the full suite: `/audit-suite --preset comprehensive`.
+- Always recommend `/audit-incremental` as a quick win if there are unaudited commits.
+- Recommend `/audit-tech-debt` (or `/audit-suite --preset tech-debt-deep`) when a milestone just closed, after a large refactor, or when `AUDIT_TECH_DEBT_*.md` has never run / is >90 days stale — it targets debt (markers, dead code, duplication, oversized files), not correctness, so it complements rather than overlaps the bug-hunting audits.
+- **Note**: Deep audits now use subagent architecture internally — they will not exhaust the context window.
