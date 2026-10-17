@@ -51,7 +51,7 @@ Audit the entire Auralis codebase for deprecated APIs, libraries, patterns, and 
 - [ ] `np.AxisError` imported from wrong location
 - [ ] `scipy.fft` vs `scipy.fftpack` — `fftpack` is legacy
 - [ ] `scipy.signal` deprecated function signatures (e.g., old `windows` parameter names)
-- [ ] `librosa` deprecated parameters or function names (if used)
+- [ ] `librosa` deprecated parameters or function names (if used). librosa is on 1.0 (#5414), which dropped the `audioread` backend, so `librosa.load()` only opens what libsndfile can. Flag any direct `librosa.load()` that is not gated on `FFMPEG_FORMATS` (`auralis/io/formats.py`) and routed through `load_with_ffmpeg` for M4A/AAC/WMA, and any reintroduced `audioread` or `standard-aifc`/`standard-chunk`/`standard-sunau`/`audioop-lts` backport pin
 - [ ] `soundfile` deprecated APIs
 - [ ] Deprecated NumPy dtype strings or casting behavior
 
