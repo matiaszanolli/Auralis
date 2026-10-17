@@ -33,7 +33,7 @@ async def prune_missing_tracks(library_database: Any, connection_manager: Any | 
     try:
         removed = int(await asyncio.to_thread(library_database.tracks.cleanup_missing_files))
     except Exception as exc:
-        logger.warning(f"cleanup_missing_files failed: {exc}")
+        logger.error(f"cleanup_missing_files failed: {exc}")
         return 0
 
     if removed:
@@ -66,7 +66,7 @@ async def prune_tracks_under_folder(
             await asyncio.to_thread(library_database.tracks.remove_tracks_under_folder, folder)
         )
     except Exception as exc:
-        logger.warning(f"remove_tracks_under_folder failed for {folder}: {exc}")
+        logger.error(f"remove_tracks_under_folder failed for {folder}: {exc}")
         return 0
 
     if removed:

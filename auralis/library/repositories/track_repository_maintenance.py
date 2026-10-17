@@ -14,12 +14,13 @@ audio file has gone missing.
 from pathlib import Path
 from typing import Any, cast
 
-from sqlalchemy import CursorResult, delete, func, select, update
+from sqlalchemy import CursorResult, func, select, update
 
 from ...utils.logging import debug, error, info
 from ..models import Track
 from ..path_key import make_filepath_key
 from .base import BaseRepository
+from .track_deletion import delete_tracks_by_ids
 
 
 class TrackRepositoryMaintenanceMixin(BaseRepository):
@@ -181,11 +182,9 @@ class TrackRepositoryMaintenanceMixin(BaseRepository):
                             if not Path(str(row.filepath)).exists()
                         ]
                         if still_missing:
-                            session.execute(
-                                delete(Track).where(Track.id.in_(still_missing))
-                            )
+                            deleted = delete_tracks_by_ids(session, still_missing)
                             session.commit()
-                            removed_count += len(still_missing)
+                            removed_count += deleted
 
                     last_id = rows[-1].id  # advance cursor past this batch
 
@@ -246,9 +245,9 @@ class TrackRepositoryMaintenanceMixin(BaseRepository):
                         if Path(str(row.filepath)).resolve().is_relative_to(folder_path)
                     ]
                     if matching_ids:
-                        session.execute(delete(Track).where(Track.id.in_(matching_ids)))
+                        deleted = delete_tracks_by_ids(session, matching_ids)
                         session.commit()
-                        removed_count += len(matching_ids)
+                        removed_count += deleted
 
                     last_id = rows[-1].id  # advance cursor past this batch
 

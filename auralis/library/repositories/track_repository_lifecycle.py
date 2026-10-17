@@ -11,10 +11,9 @@ adding or deleting a track row itself.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from typing import Any, cast
+from typing import Any
 
-from sqlalchemy import and_, delete, select
-from sqlalchemy.engine import CursorResult
+from sqlalchemy import and_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -24,13 +23,11 @@ from ..models import (
     Artist,
     Genre,
     Track,
-    track_artist,
-    track_genre,
-    track_playlist,
 )
 from ..path_key import make_filepath_key
 from ..utils.artist_normalizer import normalize_artist_name
 from .base import BaseRepository
+from .track_deletion import delete_tracks_by_ids
 from .track_repository import _track_eager_options
 
 
@@ -220,13 +217,15 @@ class TrackRepositoryLifecycleMixin(BaseRepository):
                         warning(f"Failed to extract artwork for album {album.title}: {artwork_error}")
 
                 # Re-query with eager loading before detaching from session
-                track = session.execute(
+                reloaded = session.execute(
                     select(Track)
                     .options(*_track_eager_options())
                     .where(Track.id == track.id)
                 ).scalars().unique().first()
-                session.expunge(track)
-                return track
+                if reloaded is None:
+                    raise LookupError(f"Track {track.id} disappeared before it could be reloaded")
+                session.expunge(reloaded)
+                return reloaded
 
             except Exception as e:
                 session.rollback()
@@ -253,21 +252,11 @@ class TrackRepositoryLifecycleMixin(BaseRepository):
                 # A single conditional DELETE makes the return value atomic:
                 # concurrent callers cannot all observe the row and report
                 # success before their individual DELETE statements run
-                # (#5173). session.execute() is typed as Result, although a
-                # DML statement returns CursorResult with rowcount.
-                # The three association tables predate ON DELETE CASCADE, so
-                # remove those rows explicitly in the same transaction before
-                # deleting the parent (the ORM unit of work did this for the
-                # former session.delete(track) implementation).
-                for association in (track_playlist, track_genre, track_artist):
-                    session.execute(
-                        delete(association).where(association.c.track_id == track_id)
-                    )
-                result = cast(CursorResult[Any], session.execute(
-                    delete(Track).where(Track.id == track_id)
-                ))
+                # (#5173). delete_tracks_by_ids also clears the three association tables
+                # (they predate ON DELETE CASCADE) in the same transaction.
+                deleted_rows = delete_tracks_by_ids(session, [track_id])
                 session.commit()
-                deleted = result.rowcount == 1
+                deleted = deleted_rows == 1
                 if deleted:
                     debug(f"Deleted track id={track_id}")
                 return deleted
