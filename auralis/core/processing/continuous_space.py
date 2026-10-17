@@ -73,6 +73,13 @@ class ProcessingParameters:
     # Stereo processing
     stereo_width_target: float            # Target stereo width (0.0 to 1.0)
 
+    # Track-level source loudness, when the targets came from a whole-track
+    # fingerprint (fixed-targets path). With it, final normalisation applies
+    # ONE gain (target_lufs - source_lufs) to every chunk instead of
+    # re-levelling each chunk to target_lufs, which flattened intra-track
+    # dynamics (#5552). None means "unknown": measure per chunk.
+    source_lufs: float | None = None
+
     def __str__(self) -> str:
         return (f"ProcessingParameters("
                 f"LUFS={self.target_lufs:.1f}, "

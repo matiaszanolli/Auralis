@@ -16,6 +16,7 @@ This service eliminates ~200 lines of duplicate fingerprint/target management.
 """
 
 import logging
+import math
 import threading
 import traceback
 from pathlib import Path
@@ -184,6 +185,13 @@ class MasteringTargetService:
             cached_data = FingerprintStorage.load(Path(filepath))
             if cached_data:
                 fingerprint, mastering_targets = cached_data
+                # Sidecars written before #5552 carry targets without
+                # source_lufs; derive it from the stored fingerprint so they
+                # get the constant track-level gain too.
+                if mastering_targets and 'source_lufs' not in mastering_targets:
+                    stored_lufs = fingerprint.get('lufs') if isinstance(fingerprint, dict) else None
+                    if isinstance(stored_lufs, (int, float)) and math.isfinite(stored_lufs):
+                        mastering_targets = {**mastering_targets, 'source_lufs': float(stored_lufs)}
                 logger.info(f"✅ Loaded fingerprint from .25d file for {Path(filepath).name}")
                 return (fingerprint, mastering_targets)
             else:
@@ -429,6 +437,11 @@ class MasteringTargetService:
 
         return {
             'target_lufs': target_lufs,
+            # Track-level source loudness (fingerprint scale). Final
+            # normalisation applies the single gain target_lufs - source_lufs
+            # to every chunk, so quiet and loud sections keep their relative
+            # level (#5552).
+            'source_lufs': current_lufs,
             'target_crest_db': target_crest,
             'eq_adjustments_db': eq_adjustments,
             'compression': {

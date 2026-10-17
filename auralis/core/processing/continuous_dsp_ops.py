@@ -182,6 +182,42 @@ class ContinuousDSPOpsMixin:
 
         return audio
 
+    def _normalize_chunk_loudness(self, audio: np.ndarray, target_lufs: float) -> np.ndarray:
+        """Per-chunk LUFS normalisation, for targets with no track-level source loudness.
+
+        Used when the chunk is all we know about the track (the per-chunk
+        fingerprint path, and legacy fixed targets without ``source_lufs``).
+        """
+        current_lufs = calculate_loudness_units(audio, self.config.internal_sample_rate)
+
+        # Silence / near-silence needs no normalisation. The meter floors
+        # silence at a finite -70 LUFS (it never returns -inf), so the old
+        # `isfinite` guard (#4104) was unreachable after #5221 and a quiet but
+        # non-zero chunk was raised by up to +140 dB to programme loudness
+        # (#5551). Compare against an explicit floor instead; this also keeps
+        # #4104's invariant that silence never yields an inf/NaN gain.
+        if not np.isfinite(current_lufs) or current_lufs <= SILENCE_FLOOR_LUFS:
+            debug(
+                f"[LUFS Normalization] SKIPPED - {current_lufs:.1f} LUFS is at or "
+                f"below the silence floor ({SILENCE_FLOOR_LUFS:.0f} LUFS)"
+            )
+            return audio
+
+        adjustment = float(np.clip(
+            target_lufs - current_lufs,
+            -MAX_NORMALIZATION_GAIN_DB,
+            MAX_NORMALIZATION_GAIN_DB,
+        ))
+
+        if abs(adjustment) > 0.5:
+            audio = amplify(audio, adjustment)
+            new_lufs = calculate_loudness_units(audio, self.config.internal_sample_rate)
+            debug(
+                f"[LUFS Normalization] {current_lufs:.1f} → {new_lufs:.1f} LUFS "
+                f"({adjustment:+.1f} dB, target {target_lufs:.1f})"
+            )
+        return audio
+
     def _apply_final_normalization(self, audio: np.ndarray, params: Any) -> np.ndarray:
         """Apply final loudness and peak normalization using unified pipeline"""
 
@@ -202,35 +238,28 @@ class ContinuousDSPOpsMixin:
         # ~25 LU below `target_lufs`'s true-LUFS scale and this step became a
         # ~+25 dB over-boost that Step 2 clawed back to the ceiling. It is now
         # genuinely K-weighted per BS.1770-4 and the two sides share a scale.
-        current_lufs = calculate_loudness_units(audio, self.config.internal_sample_rate)
-
-        # Silence / near-silence needs no normalisation. The meter floors
-        # silence at a finite -70 LUFS (it never returns -inf), so the old
-        # `isfinite` guard (#4104) was unreachable after #5221 and a quiet but
-        # non-zero chunk was raised by up to +140 dB to programme loudness
-        # (#5551). Compare against an explicit floor instead; this also keeps
-        # #4104's invariant that silence never yields an inf/NaN gain.
-        if not np.isfinite(current_lufs) or current_lufs <= SILENCE_FLOOR_LUFS:
-            debug(
-                f"[LUFS Normalization] SKIPPED - {current_lufs:.1f} LUFS is at or "
-                f"below the silence floor ({SILENCE_FLOOR_LUFS:.0f} LUFS)"
-            )
-            return audio
-
         target_lufs = params.target_lufs
-        adjustment = float(np.clip(
-            target_lufs - current_lufs,
-            -MAX_NORMALIZATION_GAIN_DB,
-            MAX_NORMALIZATION_GAIN_DB,
-        ))
+        source_lufs = getattr(params, 'source_lufs', None)
 
-        if abs(adjustment) > 0.5:
-            audio = amplify(audio, adjustment)
-            new_lufs = calculate_loudness_units(audio, self.config.internal_sample_rate)
+        if source_lufs is not None and np.isfinite(source_lufs):
+            # Fixed-targets path: the targets describe the WHOLE track, so move
+            # every chunk by the same gain. Re-measuring each chunk and pulling
+            # it to the track-wide target made a -36 LUFS verse and a -11 LUFS
+            # chorus both land at -14 (#5552). Silence needs no special case:
+            # a constant gain on zeros is zeros.
+            adjustment = float(np.clip(
+                target_lufs - source_lufs,
+                -MAX_NORMALIZATION_GAIN_DB,
+                MAX_NORMALIZATION_GAIN_DB,
+            ))
+            if abs(adjustment) > 1e-3:
+                audio = amplify(audio, adjustment)
             debug(
-                f"[LUFS Normalization] {current_lufs:.1f} → {new_lufs:.1f} LUFS "
-                f"({adjustment:+.1f} dB, target {target_lufs:.1f})"
+                f"[LUFS Normalization] track-level gain {adjustment:+.2f} dB "
+                f"(source {source_lufs:.1f}, target {target_lufs:.1f})"
             )
+        else:
+            audio = self._normalize_chunk_loudness(audio, target_lufs)
 
         # Step 2: Peak normalization (DISABLED - use LUFS normalization instead)
         # Peak normalization can cause excessive gain when EQ processing has

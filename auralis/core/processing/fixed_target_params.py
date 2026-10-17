@@ -27,7 +27,8 @@ def convert_targets_to_parameters(targets: dict[str, Any]) -> ProcessingParamete
     continuous mode's ProcessingParameters dataclass.
 
     Args:
-        targets: Dict with keys: target_lufs, target_crest_db, eq_adjustments_db, compression
+        targets: Dict with keys: target_lufs, target_crest_db, eq_adjustments_db, compression,
+            and optionally source_lufs (the track-level source loudness, #5552)
 
     Returns:
         ProcessingParameters object
@@ -88,5 +89,6 @@ def convert_targets_to_parameters(targets: dict[str, Any]) -> ProcessingParamete
         expansion_params=expansion_params,
         dynamics_blend=compression.get('amount', 0.6),
         limiter_params=limiter_params,
-        stereo_width_target=1.0  # Default: preserve width
+        stereo_width_target=1.0,  # Default: preserve width
+        source_lufs=targets.get('source_lufs'),
     )
