@@ -16,7 +16,6 @@ This service eliminates ~200 lines of duplicate fingerprint/target management.
 """
 
 import logging
-import math
 import threading
 import traceback
 from pathlib import Path
@@ -185,13 +184,14 @@ class MasteringTargetService:
             cached_data = FingerprintStorage.load(Path(filepath))
             if cached_data:
                 fingerprint, mastering_targets = cached_data
-                # Sidecars written before #5552 carry targets without
-                # source_lufs; derive it from the stored fingerprint so they
-                # get the constant track-level gain too.
-                if mastering_targets and 'source_lufs' not in mastering_targets:
-                    stored_lufs = fingerprint.get('lufs') if isinstance(fingerprint, dict) else None
-                    if isinstance(stored_lufs, (int, float)) and math.isfinite(stored_lufs):
-                        mastering_targets = {**mastering_targets, 'source_lufs': float(stored_lufs)}
+                # Targets are a pure function of the fingerprint, so re-derive them
+                # rather than trusting the persisted copy. Sidecars written before
+                # #5554 hold EQ targets computed with percent-scaled ideals (every
+                # band saturated at the clamp), and those written before #5552
+                # lack source_lufs. An empty dict means "not derived yet" and is
+                # left for callers to fill.
+                if mastering_targets and isinstance(fingerprint, dict):
+                    mastering_targets = self.generate_targets_from_fingerprint(fingerprint)
                 logger.info(f"✅ Loaded fingerprint from .25d file for {Path(filepath).name}")
                 return (fingerprint, mastering_targets)
             else:
@@ -413,25 +413,25 @@ class MasteringTargetService:
         # EQ adjustments based on frequency balance
         eq_adjustments = {
             'sub_bass': self._calculate_eq_adjustment(
-                fp_dict.get('sub_bass_pct', freq.get('sub_bass_pct', 5.0)), ideal=5.0
+                fp_dict.get('sub_bass_pct', freq.get('sub_bass_pct', 0.05)), ideal=0.05
             ),
             'bass': self._calculate_eq_adjustment(
-                fp_dict.get('bass_pct', freq.get('bass_pct', 15.0)), ideal=15.0
+                fp_dict.get('bass_pct', freq.get('bass_pct', 0.15)), ideal=0.15
             ),
             'low_mid': self._calculate_eq_adjustment(
-                fp_dict.get('low_mid_pct', freq.get('low_mid_pct', 18.0)), ideal=18.0
+                fp_dict.get('low_mid_pct', freq.get('low_mid_pct', 0.18)), ideal=0.18
             ),
             'mid': self._calculate_eq_adjustment(
-                fp_dict.get('mid_pct', freq.get('mid_pct', 22.0)), ideal=22.0
+                fp_dict.get('mid_pct', freq.get('mid_pct', 0.22)), ideal=0.22
             ),
             'upper_mid': self._calculate_eq_adjustment(
-                fp_dict.get('upper_mid_pct', freq.get('upper_mid_pct', 20.0)), ideal=20.0
+                fp_dict.get('upper_mid_pct', freq.get('upper_mid_pct', 0.20)), ideal=0.20
             ),
             'presence': self._calculate_eq_adjustment(
-                fp_dict.get('presence_pct', freq.get('presence_pct', 13.0)), ideal=13.0
+                fp_dict.get('presence_pct', freq.get('presence_pct', 0.13)), ideal=0.13
             ),
             'air': self._calculate_eq_adjustment(
-                fp_dict.get('air_pct', freq.get('air_pct', 7.0)), ideal=7.0
+                fp_dict.get('air_pct', freq.get('air_pct', 0.07)), ideal=0.07
             ),
         }
 
@@ -450,23 +450,28 @@ class MasteringTargetService:
             }
         }
 
-    def _calculate_eq_adjustment(self, current_pct: float, ideal: float) -> float:
+    def _calculate_eq_adjustment(self, current_fraction: float, ideal: float) -> float:
         """
-        Calculate EQ adjustment in dB to reach ideal percentage.
+        Calculate EQ adjustment in dB to reach the ideal band share.
 
         Consolidates logic from chunked_processor._calculate_eq_adjustment().
 
         Args:
-            current_pct: Current frequency percentage
-            ideal: Ideal frequency percentage
+            current_fraction: Current band energy as a FRACTION of the total
+                (0-1; the fingerprint's ``*_pct`` fields are fractions, not
+                percentages).
+            ideal: Ideal band energy fraction, same units.
 
         Returns:
             EQ adjustment in dB (clamped to ±6 dB)
         """
         # Simple proportional adjustment
-        diff = ideal - current_pct
-        # ±1% difference = ±0.5 dB adjustment (gentle)
-        adjustment = diff * 0.5
+        diff = ideal - current_fraction
+        # ±1 percentage point (0.01) difference = ±0.5 dB adjustment (gentle).
+        # This used to take diff*0.5 directly on 0-1 fractions, which treated
+        # them as percentages: any band 0.12 off its ideal saturated the ±6 dB
+        # clamp, so every track got the same near-maximal tilt (#5554).
+        adjustment = diff * 100.0 * 0.5
         # Clamp to reasonable range
         return max(-6.0, min(6.0, adjustment))
 
