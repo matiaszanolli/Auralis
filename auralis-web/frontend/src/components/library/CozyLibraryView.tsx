@@ -22,9 +22,7 @@ import BatchActionsToolbar from './Controls/BatchActionsToolbar';
 // Lazy-load the on-demand dialogs so their (~760 LOC + transitive deps) bundle
 // stays out of the initial CozyLibraryView chunk (#3956).
 const EditMetadataDialog = lazy(() => import('./EditMetadataDialog/EditMetadataDialog'));
-const SimilarTracksModal = lazy(() =>
-  import('@/components/shared/SimilarTracksModal').then((m) => ({ default: m.SimilarTracksModal }))
-);
+const SimilarTracksModal = lazy(() => import('@/components/shared/SimilarTracksModal').then((m) => ({ default: m.SimilarTracksModal })));
 import { useTrackSelection } from '@/hooks/library/useTrackSelection';
 import { useLibraryWithStats } from '@/hooks/library/useLibraryWithStats';
 import type { ViewMode } from '@/components/navigation/ViewToggle';
@@ -39,6 +37,7 @@ import { useNavigationState } from './useNavigationState';
 import { useMetadataEditing } from './useMetadataEditing';
 import { usePlaybackState } from './usePlaybackState';
 import { useSimilarTracksModal } from './useSimilarTracksModal';
+import { SearchResultsAnnouncement } from './SearchResultsAnnouncement';
 import { tokens } from '@/design-system';
 
 interface CozyLibraryViewProps {
@@ -49,15 +48,21 @@ interface CozyLibraryViewProps {
   viewMode?: ViewMode;
 }
 
+// View title and icon based on current view — static, so it lives at module
+// scope instead of being rebuilt (with new identities) every render.
+const VIEW_CONFIG: Record<string, { icon: string; title: string; subtitle: string }> = {
+  songs: { icon: '🎵', title: 'Songs', subtitle: 'All tracks in your library' },
+  favourites: { icon: '❤️', title: 'Favorites', subtitle: 'Your favorite tracks' },
+  recent: { icon: '🕐', title: 'Recently Played', subtitle: 'Tracks you played recently' },
+  playlists: { icon: '📋', title: 'Playlists', subtitle: 'Your custom playlists' },
+};
+
 const CozyLibraryView = memo<CozyLibraryViewProps>(({
   view = 'songs',
   searchQuery = '',
   viewMode = 'grid',
 }) => {
-
-  // ============================================================
-  // DATA LAYER
-  // ============================================================
+  // ── DATA LAYER ──
   const {
     tracks,
     loading,
@@ -159,9 +164,7 @@ const CozyLibraryView = memo<CozyLibraryViewProps>(({
     onClearSelectionInfo: () => {}
   });
 
-  // ============================================================
-  // RENDER - View Routing
-  // ============================================================
+  // ── RENDER - View Routing ──
 
   // Render routed view for albums/artists or when navigating album/artist details
   if (view === 'albums' || view === 'artists' || selectedAlbumId !== null || selectedArtistId !== null) {
@@ -179,17 +182,10 @@ const CozyLibraryView = memo<CozyLibraryViewProps>(({
     );
   }
 
-  // ============================================================
-  // RENDER - Main Track List View
-  // ============================================================
+  // ── RENDER - Main Track List View ──
 
   // View title and icon based on current view
-  const viewConfig = {
-    songs: { icon: '🎵', title: 'Songs', subtitle: 'All tracks in your library' },
-    favourites: { icon: '❤️', title: 'Favorites', subtitle: 'Your favorite tracks' },
-    recent: { icon: '🕐', title: 'Recently Played', subtitle: 'Tracks you played recently' },
-    playlists: { icon: '📋', title: 'Playlists', subtitle: 'Your custom playlists' },
-  }[view] || { icon: '🎵', title: 'Songs', subtitle: 'All tracks in your library' };
+  const viewConfig = VIEW_CONFIG[view] ?? VIEW_CONFIG.songs;
 
   return (
     <ViewContainer
@@ -220,6 +216,10 @@ const CozyLibraryView = memo<CozyLibraryViewProps>(({
       )}
 
       <Box sx={{ py: tokens.spacing.md }}>
+        {/* Search result counts, "no results" and loading, for screen readers
+            (#5668). Always mounted so the region exists before it changes. */}
+        <SearchResultsAnnouncement resultCount={filteredTracks.length} query={searchQuery} loading={loading} />
+
         {/* Track List or Empty State */}
         {filteredTracks.length === 0 && !loading ? (
           <>

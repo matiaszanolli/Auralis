@@ -13,6 +13,7 @@ import { SkeletonBox } from '@/components/library/Styles/Skeleton.styles';
 export const TrackRowSkeleton = () => {
   return (
     <Box
+      aria-busy="true"
       sx={{
         display: 'flex',
         alignItems: 'center',

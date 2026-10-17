@@ -43,7 +43,9 @@ export const EmptyState = ({
   const IconComponent = iconMap[icon];
 
   return (
-    <Container>
+    // role="status" announces the empty state when it appears (#5668) — the
+    // "no results" / "no favorites" transitions were previously silent.
+    <Container role="status">
       <IconContainer>
         {customIcon || <IconComponent />}
       </IconContainer>

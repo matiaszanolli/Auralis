@@ -9,8 +9,8 @@
  * - useLibraryWithStats for data fetching
  */
 
-import { vi } from 'vitest';
-import { render, screen } from '@/test/test-utils';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, act } from '@/test/test-utils';
 import CozyLibraryView from '../library/CozyLibraryView';
 import { useLibraryWithStats } from '@/hooks/library/useLibraryWithStats';
 vi.mock('@/hooks/library/useLibraryWithStats', () => ({
@@ -213,6 +213,56 @@ describe('CozyLibraryView', () => {
 
       // AlbumCharacterPane should be rendered with enhancement props
       expect(screen.getByTestId('album-character-pane')).toBeInTheDocument();
+    });
+  });
+
+  // #5668: search counts, "no results" and loading were previously silent
+  // to screen readers. The debounced status region lives in the container.
+  describe('Search results announcement (#5668)', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('announces the result count after typing settles', async () => {
+      render(<CozyLibraryView searchQuery="Track" />);
+
+      // Not announced immediately (debounced against typing)
+      expect(screen.getByRole('status')).toHaveTextContent('');
+
+      await act(async () => {
+        vi.advanceTimersByTime(500);
+      });
+
+      expect(screen.getByRole('status')).toHaveTextContent('2 tracks');
+    });
+
+    it('announces no results for the query', async () => {
+      render(<CozyLibraryView searchQuery="zzz no match" />);
+
+      await act(async () => {
+        vi.advanceTimersByTime(500);
+      });
+
+      expect(screen.getByRole('status')).toHaveTextContent('No results for zzz no match');
+    });
+
+    it('announces loading', async () => {
+      vi.mocked(useLibraryWithStats).mockReturnValue({
+        ...mockLibraryWithStats,
+        loading: true,
+      } as any);
+
+      render(<CozyLibraryView searchQuery="Track" />);
+
+      await act(async () => {
+        vi.advanceTimersByTime(500);
+      });
+
+      expect(screen.getByRole('status')).toHaveTextContent('Loading tracks');
     });
   });
 });

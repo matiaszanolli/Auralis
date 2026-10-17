@@ -17,7 +17,7 @@ export const LibraryGridSkeleton = ({
   count = 12,
 }: LibraryGridSkeletonProps) => {
   return (
-    <Grid2 container spacing={3}>
+    <Grid2 container spacing={3} aria-busy="true">
       {Array.from({ length: count }).map((_, index) => (
         <Grid2
           key={index}
