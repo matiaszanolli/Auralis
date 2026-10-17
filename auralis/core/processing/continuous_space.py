@@ -71,7 +71,7 @@ class ProcessingParameters:
     limiter_params: dict[str, float]      # Limiter settings
 
     # Stereo processing
-    stereo_width_target: float            # Target stereo width (0.0 to 1.0)
+    stereo_width_target: float            # Width FACTOR, 0.0-1.0 (0.5 = unity, 1.0 = max widening)
 
     # Track-level source loudness, when the targets came from a whole-track
     # fingerprint (fixed-targets path). With it, final normalisation applies

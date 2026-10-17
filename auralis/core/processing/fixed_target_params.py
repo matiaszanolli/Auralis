@@ -16,6 +16,7 @@ than as a method that only looked like one.
 
 from typing import Any
 
+from ...dsp.utils.stereo import WIDTH_FACTOR_UNITY
 from .continuous_space import ProcessingParameters
 
 
@@ -89,6 +90,8 @@ def convert_targets_to_parameters(targets: dict[str, Any]) -> ProcessingParamete
         expansion_params=expansion_params,
         dynamics_blend=compression.get('amount', 0.6),
         limiter_params=limiter_params,
-        stereo_width_target=1.0,  # Default: preserve width
+        # A width FACTOR (side-gain axis): WIDTH_FACTOR_UNITY (0.5) leaves the
+        # image unchanged, 1.0 is the maximum widening (#5553).
+        stereo_width_target=WIDTH_FACTOR_UNITY,
         source_lufs=targets.get('source_lufs'),
     )
