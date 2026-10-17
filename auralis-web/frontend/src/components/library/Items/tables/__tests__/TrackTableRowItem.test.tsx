@@ -78,4 +78,18 @@ describe('TrackTableRowItem', () => {
 
     expect(onTrackClick).toHaveBeenCalledWith(track);
   });
+
+  // #5658: the row's keydown handler used to preventDefault() Enter/Space
+  // from the nested More button, so the menu could not be opened by keyboard.
+  it('opens the More menu from Enter on the More button without playing', async () => {
+    const onTrackClick = vi.fn();
+    renderRow(onTrackClick);
+
+    const moreButton = screen.getByRole('button', { name: 'More options for Test Track' });
+    moreButton.focus();
+    await userEvent.keyboard('{Enter}');
+
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+    expect(onTrackClick).not.toHaveBeenCalled();
+  });
 });

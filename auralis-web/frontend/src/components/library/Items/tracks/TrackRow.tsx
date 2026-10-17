@@ -125,10 +125,11 @@ const TrackRowComponent = ({
         onDoubleClick={handleRowDoubleClick}
         onContextMenu={handleTrackContextMenu}
         onKeyDown={(e: KeyboardEvent) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            handleRowClick();
-          } else if (e.key === ' ') {
+          // Keydown from the nested Play/More buttons bubbles to the row.
+          // Their keyboard activation must reach the buttons themselves
+          // (#5658) — only Enter/Space on the row starts playback.
+          if (e.target !== e.currentTarget) return;
+          if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             handleRowClick();
           }

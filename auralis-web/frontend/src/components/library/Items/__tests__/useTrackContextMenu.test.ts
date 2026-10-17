@@ -138,7 +138,48 @@ describe('useTrackContextMenu', () => {
   });
 
   describe('handleMoreClick', () => {
-    it('should set context menu position', async () => {
+    // Anchored to the button's rect since #5658: a keyboard-activated click
+    // reports clientX/clientY 0, so the pointer coordinates cannot be used.
+    const makeButtonEvent = (left: number, top: number, bottom: number) =>
+      ({
+        stopPropagation: vi.fn(),
+        currentTarget: {
+          getBoundingClientRect: () => ({
+            left,
+            top,
+            bottom,
+            right: left + 24,
+            width: 24,
+            height: bottom - top,
+            x: left,
+            y: top,
+          }),
+        },
+      }) as unknown as MouseEvent;
+
+    it('should anchor the context menu to the button rect', async () => {
+      const { result } = renderHook(() =>
+        useTrackContextMenu({
+          track: mockTrack,
+          onPlay: mockOnPlay,
+        }),
+        { wrapper: createWrapper() }
+      );
+
+      const mockEvent = makeButtonEvent(100, 30, 54);
+
+      await act(async () => {
+        result.current.handleMoreClick(mockEvent);
+      });
+
+      expect(result.current.contextMenuPosition).toEqual({
+        left: 100,
+        top: 54,
+      });
+      expect(mockEvent.stopPropagation).toHaveBeenCalled();
+    });
+
+    it('should anchor at the button, not the (zero) pointer coords, for a keyboard click', async () => {
       const { result } = renderHook(() =>
         useTrackContextMenu({
           track: mockTrack,
@@ -148,9 +189,10 @@ describe('useTrackContextMenu', () => {
       );
 
       const mockEvent = {
-        clientX: 100,
-        clientY: 50,
-        stopPropagation: vi.fn(),
+        ...makeButtonEvent(0, 200, 224),
+        // Keyboard-activated clicks carry zeroed coordinates.
+        clientX: 0,
+        clientY: 0,
       } as unknown as MouseEvent;
 
       await act(async () => {
@@ -158,10 +200,9 @@ describe('useTrackContextMenu', () => {
       });
 
       expect(result.current.contextMenuPosition).toEqual({
-        left: 100,
-        top: 50,
+        left: 0,
+        top: 224,
       });
-      expect(mockEvent.stopPropagation).toHaveBeenCalled();
     });
   });
 
@@ -209,6 +250,9 @@ describe('useTrackContextMenu', () => {
         clientX: 100,
         clientY: 50,
         stopPropagation: vi.fn(),
+        currentTarget: {
+          getBoundingClientRect: () => ({ left: 100, top: 30, bottom: 50, right: 124, width: 24, height: 20 }),
+        },
       } as unknown as MouseEvent;
 
       // First open the menu
@@ -376,16 +420,22 @@ describe('useTrackContextMenu', () => {
         { wrapper: createWrapper() }
       );
 
+      const rectAt = (left: number, top: number) => ({
+        getBoundingClientRect: () => ({ left, top, bottom: top + 24, right: left + 24, width: 24, height: 24 }),
+      });
+
       const mockEvent1 = {
         clientX: 100,
         clientY: 50,
         stopPropagation: vi.fn(),
+        currentTarget: rectAt(100, 50),
       } as unknown as MouseEvent;
 
       const mockEvent2 = {
         clientX: 200,
         clientY: 150,
         stopPropagation: vi.fn(),
+        currentTarget: rectAt(200, 150),
       } as unknown as MouseEvent;
 
       await act(async () => {
@@ -395,11 +445,11 @@ describe('useTrackContextMenu', () => {
 
       expect(result1.current.contextMenuPosition).toEqual({
         left: 100,
-        top: 50,
+        top: 74, // rect.bottom for a button at top 50 with height 24
       });
       expect(result2.current.contextMenuPosition).toEqual({
         left: 200,
-        top: 150,
+        top: 174, // rect.bottom for a button at top 150 with height 24
       });
     });
   });

@@ -59,6 +59,10 @@ const TrackTableRowItemImpl = ({
         tabIndex={0}
         aria-label={`Play ${track.title}`}
         onKeyDown={(e: KeyboardEvent) => {
+          // Keydown from the nested More button bubbles to the row; its
+          // keyboard activation must reach the button (#5658) — only
+          // Enter/Space on the row itself plays the track.
+          if (e.target !== e.currentTarget) return;
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             onTrackClick(track);

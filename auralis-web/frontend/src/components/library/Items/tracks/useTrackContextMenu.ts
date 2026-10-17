@@ -100,9 +100,13 @@ export const useTrackContextMenu = ({
     }
   }, [track.id, track.title, success, error]);
 
+  // Anchored to the button, not the pointer: a keyboard-activated click
+  // reports clientX/clientY 0, which flung the menu to the viewport origin
+  // (#5658). For a pointer click the button is where the click landed anyway.
   const handleMoreClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    setContextMenuPosition({ top: e.clientY, left: e.clientX });
+    const rect = e.currentTarget.getBoundingClientRect();
+    setContextMenuPosition({ top: rect.bottom, left: rect.left });
   }, []);
 
   const handleTrackContextMenu = useCallback((e: React.MouseEvent) => {
