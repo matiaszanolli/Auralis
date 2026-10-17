@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useToast } from '@/components/shared/Toast';
+import { SCAN_TIMEOUT_MS } from '@/config/api';
 import { isElectron, getElectronAPI } from '@/utils/electron';
 import type { ScanFailure } from '@/types/ws/library';
 import { post, APIRequestError } from '@/utils/apiRequest';
@@ -28,18 +29,6 @@ export interface UseLibraryScanReturn {
   scanAbortRef: React.MutableRefObject<AbortController | null>;
 }
 
-/**
- * Upper bound for the scan request, in ms — deliberately NOT the shared 30s
- * `DEFAULT_TIMEOUT_MS`.
- *
- * A real library scan runs for minutes, and since #4820 the backend treats an
- * aborted fetch as "stop the scan": under the shared default, every scan longer
- * than 30 seconds would abort its own fetch and take the running scan down with
- * it. The meaningful bound is the backend's own `AURALIS_SCAN_TIMEOUT` (1h),
- * which answers 504 rather than hanging, so this sits just past it — the request
- * stays bounded (#5019's point) without being the thing that gives up first.
- */
-export const SCAN_TIMEOUT_MS = 3_660_000;
 
 
 export const useLibraryScan = ({

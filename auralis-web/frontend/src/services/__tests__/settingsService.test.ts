@@ -22,6 +22,7 @@ vi.mock('../../utils/apiRequest', () => ({
 }));
 
 import { get, post, put } from '@/utils/apiRequest';
+import { SCAN_TIMEOUT_MS } from '@/config/api';
 import settingsService, { type UserSettings, type SettingsUpdate } from '../settingsService';
 
 const mockGet = get as ReturnType<typeof vi.fn>;
@@ -299,6 +300,20 @@ describe('SettingsService', () => {
       mockPost.mockRejectedValueOnce(new Error('Folder not found'));
 
       await expect(settingsService.removeScanFolder('/nonexistent')).rejects.toThrow('Folder not found');
+    });
+  });
+  describe('triggerLibraryScan (#5643)', () => {
+    it('posts the scan with the long scan timeout, not the 30s default', async () => {
+      mockPost.mockResolvedValueOnce({});
+
+      await settingsService.triggerLibraryScan(['/music']);
+
+      expect(mockPost).toHaveBeenCalledWith(
+        '/api/library/scan',
+        { directories: ['/music'], recursive: true, skip_existing: true },
+        { timeoutMs: SCAN_TIMEOUT_MS },
+      );
+      expect(SCAN_TIMEOUT_MS).toBeGreaterThan(30_000);
     });
   });
 });

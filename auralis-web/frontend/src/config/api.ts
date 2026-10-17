@@ -21,6 +21,21 @@ export const API_BASE_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV
 export const WS_BASE_URL = import.meta.env.VITE_WS_URL ?? 'ws://localhost:8765';
 
 /**
+ * Upper bound for a library-scan request, in ms — deliberately NOT the shared
+ * 30s `DEFAULT_TIMEOUT_MS`.
+ *
+ * A real library scan runs for minutes, and since #4820 the backend treats an
+ * aborted fetch as "stop the scan": under the shared default, every scan longer
+ * than 30 seconds would abort its own fetch and take the running scan down with
+ * it. The meaningful bound is the backend's own `AURALIS_SCAN_TIMEOUT` (1h),
+ * which answers 504 rather than hanging, so this sits just past it — the request
+ * stays bounded (#5019's point) without being the thing that gives up first.
+ *
+ * Every caller of POST `ENDPOINTS.LIBRARY_SCAN` must pass this (#5643).
+ */
+export const SCAN_TIMEOUT_MS = 3_660_000;
+
+/**
  * Get full API URL for an endpoint
  */
 export function getApiUrl(path: string): string {

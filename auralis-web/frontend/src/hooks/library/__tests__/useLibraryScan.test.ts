@@ -8,7 +8,8 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useLibraryScan, SCAN_TIMEOUT_MS } from '../useLibraryScan';
+import { useLibraryScan } from '../useLibraryScan';
+import { SCAN_TIMEOUT_MS } from '@/config/api';
 import { useToast } from '@/components/shared/Toast';
 import { DEFAULT_TIMEOUT_MS } from '@/utils/apiRequest';
 
