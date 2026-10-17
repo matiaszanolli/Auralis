@@ -35,8 +35,11 @@ export const AudioSettingsPanel = ({
     <Box>
       <SectionContainer>
         <FormControl fullWidth>
-          <InputLabel>Output Device</InputLabel>
+          {/* labelId names the combobox for assistive tech (#5666): without it
+              MUI's Select is announced by its value alone. */}
+          <InputLabel id="settings-audio-output-device-label">Output Device</InputLabel>
           <Select
+            labelId="settings-audio-output-device-label"
             value={outputDevice}
             onChange={(e) => onSettingChange('output_device', e.target.value)}
             label="Output Device"
@@ -51,8 +54,9 @@ export const AudioSettingsPanel = ({
 
       <SectionContainer>
         <FormControl fullWidth>
-          <InputLabel>Bit Depth</InputLabel>
+          <InputLabel id="settings-audio-bit-depth-label">Bit Depth</InputLabel>
           <Select
+            labelId="settings-audio-bit-depth-label"
             value={bitDepth}
             onChange={(e) => onSettingChange('bit_depth', e.target.value)}
             label="Bit Depth"
@@ -71,8 +75,9 @@ export const AudioSettingsPanel = ({
 
       <SectionContainer>
         <FormControl fullWidth>
-          <InputLabel>Sample Rate</InputLabel>
+          <InputLabel id="settings-audio-sample-rate-label">Sample Rate</InputLabel>
           <Select
+            labelId="settings-audio-sample-rate-label"
             value={sampleRate}
             onChange={(e) => onSettingChange('sample_rate', e.target.value)}
             label="Sample Rate"

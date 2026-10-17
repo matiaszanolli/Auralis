@@ -58,10 +58,13 @@ export const AutoScanSettings = ({
       {autoScan && (
         <SectionContainer>
           <SectionLabel>Scan Interval</SectionLabel>
+          {/* No visible InputLabel here (the SectionLabel fronts it), so the
+              name comes straight from the display element (#5666). */}
           <FormControl fullWidth size="small">
             <Select
               value={selectedInterval}
               onChange={(e) => onSettingChange('scan_interval', e.target.value)}
+              SelectDisplayProps={{ 'aria-label': 'Scan interval' }}
             >
               {INTERVAL_OPTIONS.map((opt) => (
                 <MenuItem key={opt.seconds} value={opt.seconds}>

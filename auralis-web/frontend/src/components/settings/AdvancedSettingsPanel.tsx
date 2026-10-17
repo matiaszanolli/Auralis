@@ -64,7 +64,7 @@ export const AdvancedSettingsPanel = ({
           fullWidth
           value={cacheSize}
           onChange={(e) => onSettingChange('cache_size', parseInt(e.target.value))}
-          slotProps={{ htmlInput: { min: 128, max: 8192 } }}
+          slotProps={{ htmlInput: { min: 128, max: 8192, 'aria-label': 'Cache size (MB)' } }}
         />
         <SectionDescription>
           Amount of disk space for processed audio cache
@@ -91,7 +91,7 @@ export const AdvancedSettingsPanel = ({
           fullWidth
           value={maxConcurrentScans}
           onChange={(e) => onSettingChange('max_concurrent_scans', parseInt(e.target.value))}
-          slotProps={{ htmlInput: { min: 1, max: 16 } }}
+          slotProps={{ htmlInput: { min: 1, max: 16, 'aria-label': 'Max concurrent scans' } }}
         />
         <SectionDescription>
           Number of parallel threads for library scanning

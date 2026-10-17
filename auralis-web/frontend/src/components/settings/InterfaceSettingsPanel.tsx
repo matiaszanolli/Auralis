@@ -37,8 +37,9 @@ export const InterfaceSettingsPanel = ({
     <Box>
       <SectionContainer>
         <FormControl fullWidth>
-          <InputLabel>Theme</InputLabel>
+          <InputLabel id="settings-interface-theme-label">Theme</InputLabel>
           <Select
+            labelId="settings-interface-theme-label"
             value={theme}
             onChange={(e) => onSettingChange('theme', e.target.value)}
             label="Theme"

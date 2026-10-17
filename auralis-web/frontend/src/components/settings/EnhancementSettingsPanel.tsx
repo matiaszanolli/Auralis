@@ -29,10 +29,11 @@ export const EnhancementSettingsPanel = ({
     <Box>
       <SectionContainer>
         <FormControl fullWidth>
-          <InputLabel>Default Preset</InputLabel>
+          <InputLabel id="settings-enhancement-default-preset-label">Default Preset</InputLabel>
           {/* Only 'adaptive' is a valid preset now (#4861 follow-up) --
               'gentle'/'warm'/'bright'/'punchy' removed, not just hidden. */}
           <Select
+            labelId="settings-enhancement-default-preset-label"
             value={defaultPreset}
             onChange={(e) => onSettingChange('default_preset', e.target.value)}
             label="Default Preset"
