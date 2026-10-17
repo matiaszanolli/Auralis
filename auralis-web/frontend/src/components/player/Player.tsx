@@ -45,7 +45,7 @@ const Player = () => {
   const playerIsMuted = useSelector(playerSelectors.selectIsMuted);
 
   const {
-    isStreaming,
+    isPlaybackActive,
     streamingState,
     isPaused,
     isSeeking,
@@ -149,7 +149,7 @@ const Player = () => {
 
         {/* Center: Playback Controls */}
         <PlaybackControls
-          isPlaying={isStreaming && !isPaused}
+          isPlaying={isPlaybackActive && !isPaused}
           onPlay={handlePlayPause}
           onPause={handlePlayPause}
           onNext={handleNext}

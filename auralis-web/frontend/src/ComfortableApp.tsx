@@ -64,7 +64,7 @@ function ComfortableApp() {
   // 'play_normal' (the old usePlaybackControl.play()) cancelled the user's
   // own in-flight enhanced stream server-side with no visible error.
   const session = usePlaybackControls();
-  const isPlaying = session.isStreaming && !session.isPaused;
+  const isPlaying = session.isPlaybackActive && !session.isPaused;
   const togglePlayPause = session.handlePlayPause;
   const nextTrack = session.handleNext;
   const previousTrack = session.handlePrevious;

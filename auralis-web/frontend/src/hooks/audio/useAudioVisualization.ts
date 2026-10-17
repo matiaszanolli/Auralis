@@ -133,8 +133,10 @@ export function useAudioVisualization(enabled: boolean = true): AudioVisualizati
   const isPlaying = useSelector(playerSelectors.selectIsPlaying);
   const streamingState = useSelector(playerSelectors.selectEnhancedStreamingState);
 
-  // Audio is active when either regular playback or streaming is active
-  const isAudioActive = isPlaying || streamingState === 'streaming';
+  // Audio is active when either regular playback or streaming is active.
+  // 'complete' means delivery finished, not playback: the buffered tail keeps
+  // playing (and feeding the analyser) until the track ends (#5603).
+  const isAudioActive = isPlaying || streamingState === 'streaming' || streamingState === 'complete';
 
   // Refs for animation frame and smoothed values
   const animationFrameRef = useRef<number | null>(null);

@@ -79,6 +79,17 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
     intensity: enhancementIntensity,
   } = useEnhancementControl();
 
+  // Delivery ('complete') finishes well before playback ends, and the engine
+  // keeps playing the buffered tail. Treat that tail as an active session so
+  // play/pause toggles it instead of restarting the track (#5603). The boolean
+  // only flips at the track end, so the controls value stays stable across the
+  // 10Hz currentTime tick (#5006). An unknown duration cannot be judged, so it
+  // keeps the previous behaviour (not active).
+  const trackDuration = currentTrack?.duration ?? 0;
+  const playbackEnded = trackDuration > 0 && currentTime >= trackDuration - 0.5;
+  const isPlaybackActive =
+    isStreaming || (streamingState === 'complete' && trackDuration > 0 && !playbackEnded);
+
   const startTrackForSettings = useCallback(
     (trackId: number) => enhancementEnabled
       ? playEnhanced(trackId, enhancementPreset, enhancementIntensity)
@@ -167,9 +178,9 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      // If already streaming, toggle pause/resume against the SAME session
-      // instead of issuing a play_normal that would cancel it (#4541).
-      if (isStreaming) {
+      // If a session is already active, toggle pause/resume against the SAME
+      // session instead of issuing a play_normal that would cancel it (#4541).
+      if (isPlaybackActive) {
         if (isPaused) {
           resumePlayback();
         } else {
@@ -182,7 +193,7 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
       console.error('[PlaybackSession] Play/Pause command error:', err);
     }
   }), [
-    currentTrack?.id, isStreaming, isPaused, resumePlayback, pausePlayback,
+    currentTrack?.id, isPlaybackActive, isPaused, resumePlayback, pausePlayback,
     runTransportCommand, startTrackForSettings,
   ]);
 
@@ -214,7 +225,6 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
   // working regardless of which UI is mounted — the session is the source
   // of truth, not a side effect of one component's render tree.
   const hasAutoAdvancedRef = useRef(false);
-  const trackDuration = currentTrack?.duration ?? 0;
 
   useEffect(() => {
     hasAutoAdvancedRef.current = false;
@@ -237,6 +247,7 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
   // ProgressBar actually need.
   const controlsValue = useMemo<PlaybackControlsContextValue>(() => ({
     isStreaming,
+    isPlaybackActive,
     streamingState,
     isPaused,
     isSeeking,
@@ -250,7 +261,7 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
     handleVolumeChange,
     handleMuteToggle,
   }), [
-    isStreaming, streamingState, isPaused, isSeeking, isCommandPending, error,
+    isStreaming, isPlaybackActive, streamingState, isPaused, isSeeking, isCommandPending, error,
     startTrack, handleSeek, handlePlayPause, handleNext, handlePrevious,
     handleVolumeChange, handleMuteToggle,
   ]);

@@ -18,31 +18,35 @@ import { usePlaybackControls } from '@/contexts/PlaybackSessionContext';
 import type { PlaybackControlsContextValue } from '@/contexts/playbackSessionContexts';
 import { selectVolume, selectIsMuted } from '@/store/slices/playerSlice';
 
-const { mockPlayEnhanced, mockPlayNormal, mockStopPlayback, mockSetVolume, enhancementSettings, session } =
-  vi.hoisted(() => ({
-    mockPlayEnhanced: vi.fn(),
-    mockPlayNormal: vi.fn(),
-    mockStopPlayback: vi.fn(),
-    mockSetVolume: vi.fn(),
-    enhancementSettings: { enabled: true },
-    // Mutable so a test can drive streamingState/currentTime across a rerender.
-    session: { isStreaming: false, streamingState: 'idle' as string, currentTime: 0 },
-  }));
+const {
+  mockPlayEnhanced, mockPlayNormal, mockStopPlayback, mockSetVolume,
+  mockPausePlayback, mockResumePlayback, enhancementSettings, session,
+} = vi.hoisted(() => ({
+  mockPlayEnhanced: vi.fn(),
+  mockPlayNormal: vi.fn(),
+  mockStopPlayback: vi.fn(),
+  mockSetVolume: vi.fn(),
+  mockPausePlayback: vi.fn(),
+  mockResumePlayback: vi.fn(),
+  enhancementSettings: { enabled: true },
+  // Mutable so a test can drive streamingState/currentTime across a rerender.
+  session: { isStreaming: false, isPaused: false, streamingState: 'idle' as string, currentTime: 0 },
+}));
 
 vi.mock('@/hooks/enhancement/usePlayEnhanced', () => ({
   usePlayEnhanced: () => ({
     playEnhanced: mockPlayEnhanced,
     playNormal: mockPlayNormal,
     seekTo: vi.fn(),
-    pausePlayback: vi.fn(),
-    resumePlayback: vi.fn(),
+    pausePlayback: mockPausePlayback,
+    resumePlayback: mockResumePlayback,
     stopPlayback: mockStopPlayback,
     isStreaming: session.isStreaming,
     streamingState: session.streamingState,
     processedChunks: 0,
     totalChunks: 0,
     currentTime: session.currentTime,
-    isPaused: false,
+    isPaused: session.isPaused,
     isSeeking: false,
     setVolume: mockSetVolume,
     error: null,
@@ -75,6 +79,9 @@ describe('PlaybackSessionContext transport logic (#5399)', () => {
     mockPlayNormal.mockReset();
     mockStopPlayback.mockReset();
     mockSetVolume.mockReset();
+    mockPausePlayback.mockReset();
+    mockResumePlayback.mockReset();
+    session.isPaused = false;
     session.isStreaming = false;
     session.streamingState = 'idle';
     session.currentTime = 0;
@@ -164,6 +171,96 @@ describe('PlaybackSessionContext transport logic (#5399)', () => {
 
       // The second, coalesced call must not have issued its own command.
       expect(mockPlayEnhanced).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('handlePlayPause (#5603)', () => {
+    // Delivery ('complete') finishes well before playback does; the engine keeps
+    // playing the buffered tail, so Play/Pause must toggle that session rather
+    // than restart the track from 0:00.
+    function renderMidTrack(streamingState: string, currentTime: number) {
+      session.streamingState = streamingState;
+      session.isStreaming = streamingState === 'streaming' || streamingState === 'buffering';
+      session.currentTime = currentTime;
+      const out: { value?: PlaybackControlsContextValue } = {};
+      render(<ControlsCapture out={out} />, {
+        preloadedState: {
+          player: { currentTrack: mockTrack } as never,
+          // Single-track queue: the auto-advance effect must not interfere.
+          queue: { tracks: [mockTrack], currentIndex: 0 } as never,
+        },
+      });
+      return out;
+    }
+
+    it('pauses a streaming session instead of restarting it', async () => {
+      const out = renderMidTrack('streaming', 50);
+
+      await act(async () => { await out.value!.handlePlayPause(); });
+
+      expect(mockPausePlayback).toHaveBeenCalledTimes(1);
+      expect(mockPlayEnhanced).not.toHaveBeenCalled();
+    });
+
+    it('pauses (does not restart) while delivery is complete but the tail is still playing', async () => {
+      const out = renderMidTrack('complete', 50);
+      expect(out.value!.isPlaybackActive).toBe(true);
+      expect(out.value!.isStreaming).toBe(false);
+
+      await act(async () => { await out.value!.handlePlayPause(); });
+
+      expect(mockPausePlayback).toHaveBeenCalledTimes(1);
+      expect(mockPlayEnhanced).not.toHaveBeenCalled();
+      expect(mockPlayNormal).not.toHaveBeenCalled();
+      expect(mockStopPlayback).not.toHaveBeenCalled();
+    });
+
+    it('resumes a paused session in the complete tail', async () => {
+      session.isPaused = true;
+      const out = renderMidTrack('complete', 50);
+
+      await act(async () => { await out.value!.handlePlayPause(); });
+
+      expect(mockResumePlayback).toHaveBeenCalledTimes(1);
+      expect(mockPausePlayback).not.toHaveBeenCalled();
+      expect(mockPlayEnhanced).not.toHaveBeenCalled();
+    });
+
+    it('restarts the track once playback has reached its end', async () => {
+      const out = renderMidTrack('complete', 199.8); // >= duration(200) - 0.5
+      expect(out.value!.isPlaybackActive).toBe(false);
+
+      await act(async () => { await out.value!.handlePlayPause(); });
+
+      expect(mockPausePlayback).not.toHaveBeenCalled();
+      expect(mockPlayEnhanced).toHaveBeenCalledWith(mockTrack.id, 'warm', 0.5);
+    });
+
+    it('starts the track from idle', async () => {
+      const out = renderMidTrack('idle', 0);
+      expect(out.value!.isPlaybackActive).toBe(false);
+
+      await act(async () => { await out.value!.handlePlayPause(); });
+
+      expect(mockPlayEnhanced).toHaveBeenCalledWith(mockTrack.id, 'warm', 0.5);
+      expect(mockPausePlayback).not.toHaveBeenCalled();
+    });
+
+    it('cannot judge a complete session whose track duration is unknown, so it restarts', async () => {
+      session.streamingState = 'complete';
+      session.currentTime = 50;
+      const out: { value?: PlaybackControlsContextValue } = {};
+      render(<ControlsCapture out={out} />, {
+        preloadedState: {
+          player: { currentTrack: { ...mockTrack, duration: 0 } } as never,
+          queue: { tracks: [mockTrack], currentIndex: 0 } as never,
+        },
+      });
+
+      expect(out.value!.isPlaybackActive).toBe(false);
+      await act(async () => { await out.value!.handlePlayPause(); });
+      expect(mockPausePlayback).not.toHaveBeenCalled();
+      expect(mockPlayEnhanced).toHaveBeenCalledWith(mockTrack.id, 'warm', 0.5);
     });
   });
 

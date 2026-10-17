@@ -125,6 +125,34 @@ describe('Player', () => {
     });
   });
 
+  describe('transport icon during the delivered tail (#5603)', () => {
+    // Delivery finishes ('complete') well before playback does; the button
+    // must keep offering Pause for the tail the user is still listening to.
+    function renderWithState(streamingState: string) {
+      session.isStreaming = streamingState === 'streaming';
+      session.streamingState = streamingState;
+      return renderPlayer(<Player />, {
+        preloadedState: { player: { currentTrack: mockTrack } as never },
+      });
+    }
+
+    it('shows Pause while streaming', () => {
+      renderWithState('streaming');
+      expect(screen.getByRole('button', { name: 'Pause' })).toBeInTheDocument();
+    });
+
+    it('shows Pause once delivery is complete but playback is still mid-track', () => {
+      renderWithState('complete');
+      expect(screen.getByRole('button', { name: 'Pause' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Play' })).not.toBeInTheDocument();
+    });
+
+    it('shows Play when idle', () => {
+      renderWithState('idle');
+      expect(screen.getByRole('button', { name: 'Play' })).toBeInTheDocument();
+    });
+  });
+
   it('should render the play button when no track is loaded', () => {
     renderPlayer(<Player />);
     expect(screen.getByRole('button', { name: /play/i })).toBeInTheDocument();

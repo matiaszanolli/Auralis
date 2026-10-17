@@ -30,8 +30,15 @@
 import { createContext, useContext } from 'react';
 
 export interface PlaybackControlsContextValue {
-  /** True while a chunk is streaming or buffering. */
+  /** True while a chunk is streaming or buffering (delivery in progress). */
   isStreaming: boolean;
+  /**
+   * True while audio is being delivered OR the already-delivered tail is still
+   * playing. Delivery ('complete') usually finishes well before playback does,
+   * so transport UI and play/pause must key off this, not `isStreaming` (#5603).
+   * Flips only at track boundaries, never on the 10Hz position tick.
+   */
+  isPlaybackActive: boolean;
   /** Streaming state machine (idle, buffering, streaming, error, complete). */
   streamingState: 'idle' | 'buffering' | 'streaming' | 'error' | 'complete';
   isPaused: boolean;
