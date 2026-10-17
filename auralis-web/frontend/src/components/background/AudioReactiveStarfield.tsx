@@ -1,20 +1,15 @@
 /**
  * AudioReactiveStarfield
  *
- * Wrapper component that connects the audio visualization hook to StarfieldBackground.
- * When music is playing, the starfield reacts to:
- * - Bass (20-250Hz): Nebula pulse/glow
- * - Mid (250-4000Hz): Aurora intensity
- * - Treble (4000-20000Hz): Star sparkle/twinkle
- * - Loudness: Overall brightness and forward drift
- * - Peak: Flash effect on transients/beats
+ * Hosts the audio-visualization wiring (analyser + active flag) next to the
+ * starfield that renders it. Since #5664 the values themselves travel through
+ * the mutable visualization store — the starfield reads them in its own rAF
+ * loop — so this wrapper passes no data props any more.
  *
  * @component
  */
 
-import { useMemo } from 'react';
 import { StarfieldBackground } from './StarfieldBackground';
-import type { AudioReactivityData } from './StarfieldBackground';
 import { useAudioVisualization } from '@/hooks/audio/useAudioVisualization';
 
 interface AudioReactiveStarfieldProps {
@@ -40,19 +35,9 @@ export const AudioReactiveStarfield = ({
   className,
   enableAudioReactivity = true,
 }: AudioReactiveStarfieldProps) => {
-  // Get real-time audio analysis data from Web Audio API
-  const audioData = useAudioVisualization(enableAudioReactivity);
-
-  // Memoize to avoid creating a new object on every render (~30fps).
-  // Values are primitives, so useMemo correctly skips when data is unchanged.
-  const audioReactivity: AudioReactivityData = useMemo(() => ({
-    bass: audioData.bass,
-    mid: audioData.mid,
-    treble: audioData.treble,
-    loudness: audioData.loudness,
-    peak: audioData.peak,
-    isActive: audioData.isActive,
-  }), [audioData.bass, audioData.mid, audioData.treble, audioData.loudness, audioData.peak, audioData.isActive]);
+  // Wire playback state to the visualization store; the starfield's render
+  // loop consumes it.
+  useAudioVisualization(enableAudioReactivity);
 
   return (
     <StarfieldBackground
@@ -61,7 +46,6 @@ export const AudioReactiveStarfield = ({
       speed={speed}
       zIndex={zIndex}
       className={className}
-      audioReactivity={audioReactivity}
     />
   );
 };

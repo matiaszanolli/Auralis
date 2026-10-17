@@ -7,16 +7,7 @@
 
 import { useEffect, useRef, useCallback } from 'react';
 import { VERTEX_SHADER, FRAGMENT_SHADER } from './starfield.shaders';
-
-/** Audio reactivity data from useAudioVisualization hook */
-export interface AudioReactivityData {
-  bass: number;
-  mid: number;
-  treble: number;
-  loudness: number;
-  peak: number;
-  isActive: boolean;
-}
+import { getAudioVisualization } from '@/hooks/audio/audioVisualization';
 
 interface StarfieldBackgroundProps {
   enableParallax?: boolean;
@@ -24,7 +15,6 @@ interface StarfieldBackgroundProps {
   speed?: number;
   zIndex?: number;
   className?: string;
-  audioReactivity?: AudioReactivityData;
 }
 
 export const StarfieldBackground = ({
@@ -33,7 +23,6 @@ export const StarfieldBackground = ({
   speed = 1.0,
   zIndex = -1,
   className,
-  audioReactivity,
 }: StarfieldBackgroundProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const glRef = useRef<WebGLRenderingContext | null>(null);
@@ -43,9 +32,6 @@ export const StarfieldBackground = ({
   const mouseRef = useRef<{ x: number; y: number }>({ x: 0.5, y: 0.5 });
   const isVisibleRef = useRef<boolean>(true);
   const uniformsRef = useRef<Record<string, WebGLUniformLocation | null>>({});
-  const audioRef = useRef<AudioReactivityData>({
-    bass: 0, mid: 0, treble: 0, loudness: 0, peak: 0, isActive: false
-  });
 
   const compileShader = useCallback((
     gl: WebGLRenderingContext,
@@ -155,7 +141,10 @@ export const StarfieldBackground = ({
     gl.uniform2f(u.u_mouse, mouseRef.current.x, mouseRef.current.y);
     gl.uniform1f(u.u_parallaxStrength, enableParallax ? parallaxStrength : 0);
 
-    const audio = audioRef.current;
+    // Read the live values from the shared visualization store — the same
+    // object every frame, mutated in place by sampleAudioVisualization()
+    // (#5664). No React state in this path.
+    const audio = getAudioVisualization();
     gl.uniform1f(u.u_bass, audio.bass);
     gl.uniform1f(u.u_mid, audio.mid);
     gl.uniform1f(u.u_treble, audio.treble);
@@ -179,11 +168,6 @@ export const StarfieldBackground = ({
   const handleVisibilityChange = useCallback(() => {
     isVisibleRef.current = !document.hidden;
   }, []);
-
-  // Update audio ref directly — rAF loop reads from the ref.
-  if (audioReactivity) {
-    audioRef.current = audioReactivity;
-  }
 
   useEffect(() => {
     const success = initWebGL();
