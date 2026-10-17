@@ -129,8 +129,12 @@ export const ContextMenu = ({
         )}
       </StyledMenu>
 
-      {/* Create Playlist Dialog */}
-      {trackId && (
+      {/* Create Playlist Dialog. Mounted only while the menu is open or the
+          create flow is in progress: every library row renders its own
+          ContextMenu, so an unconditional mount put a closed dialog in every
+          row (#5659). It must survive the menu closing — opening the create
+          flow closes the menu first (handleCreateNewPlaylist). */}
+      {(open || createDialogOpen) && trackId && (
         <CreatePlaylistDialog
           open={createDialogOpen}
           onClose={() => setCreateDialogOpen(false)}
