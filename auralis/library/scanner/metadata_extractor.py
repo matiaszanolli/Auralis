@@ -49,16 +49,16 @@ class MetadataExtractor:
 
     # Tag mappings for different audio formats
     TAG_MAPPINGS = {
-        'title': ['TIT2', 'TITLE', '\xa9nam'],
-        'artist': ['TPE1', 'ARTIST', '\xa9ART'],
-        'album': ['TALB', 'ALBUM', '\xa9alb'],
-        'albumartist': ['TPE2', 'ALBUMARTIST', 'aART'],
-        'date': ['TDRC', 'DATE', '\xa9day'],
-        'year': ['TDRC', 'DATE', '\xa9day', 'YEAR'],
-        'genre': ['TCON', 'GENRE', '\xa9gen'],
-        'track': ['TRCK', 'TRACKNUMBER', 'trkn'],
-        'disc': ['TPOS', 'DISCNUMBER', 'disk'],
-        'comment': ['COMM::eng', 'COMMENT', '\xa9cmt']
+        'title': ['TIT2', 'TITLE', '\xa9nam', 'Title'],
+        'artist': ['TPE1', 'ARTIST', '\xa9ART', 'Author'],
+        'album': ['TALB', 'ALBUM', '\xa9alb', 'WM/AlbumTitle'],
+        'albumartist': ['TPE2', 'ALBUMARTIST', 'aART', 'WM/AlbumArtist'],
+        'date': ['TDRC', 'DATE', '\xa9day', 'WM/Year'],
+        'year': ['TDRC', 'DATE', '\xa9day', 'YEAR', 'WM/Year'],
+        'genre': ['TCON', 'GENRE', '\xa9gen', 'WM/Genre'],
+        'track': ['TRCK', 'TRACKNUMBER', 'trkn', 'WM/TrackNumber'],
+        'disc': ['TPOS', 'DISCNUMBER', 'disk', 'WM/PartOfSet'],
+        'comment': ['COMM::eng', 'COMMENT', '\xa9cmt', 'Description']
     }
 
     def extract_metadata_from_file(self, file_path: str) -> dict[str, Any] | None:
@@ -141,13 +141,21 @@ class MetadataExtractor:
             Normalized value or None if normalization fails
         """
         try:
+            if hasattr(value, 'value'):
+                value = value.value
+
             if field in ['track', 'disc']:
-                # Handle track/disc numbers
-                if '/' in str(value):
-                    value = int(str(value).split('/')[0])
+                # Handle track/disc numbers (tuple/list for MP4, string for Vorbis/ID3/ASF)
+                if isinstance(value, (tuple, list)):
+                    track_no = int(value[0]) if value else 0
+                    return track_no if track_no > 0 else None
+
+                val_str = str(value).strip()
+                if '/' in val_str:
+                    num = int(val_str.split('/')[0])
                 else:
-                    value = int(value)
-                return value
+                    num = int(val_str)
+                return num if num > 0 else None
 
             elif field in ['year', 'date']:
                 # Handle year/date
