@@ -40,6 +40,12 @@ export class BufferScheduler {
   private workletNode: AudioWorkletNode | null = null;
   private feedInterval: ReturnType<typeof setInterval> | null = null;
   private workletReady: boolean = false;
+  // Worklet lookahead accounting (#5657). The worklet queue is unbounded and sits
+  // out of sight of the PCMStreamBuffer, so the feeder tracks what it has sent
+  // against the played count the worklet reports back, and tops the queue up to
+  // a fixed lookahead instead of pushing faster than real time.
+  private workletFramesSent: number = 0;
+  private workletFramesPlayed: number = 0;
 
   private bufferUnderrunCount: number = 0;
   private isBufferPaused: boolean = false; // Track if we paused due to low buffer
@@ -135,6 +141,43 @@ export class BufferScheduler {
   }
 
   /**
+   * Hold output without losing audio, for pause.
+   *
+   * The worklet keeps its queue and played count while paused; tearing it down
+   * (disconnectProcessor) discarded that lookahead after the ring had already
+   * advanced past it, so resume skipped it, and the replacement worklet restarted
+   * its played count at 0 so the reported position jumped back (#5657). The
+   * ScriptProcessorNode fallback pulls on demand — nothing is queued in it — so
+   * it can simply be disconnected.
+   */
+  pauseOutput(): void {
+    if (this.workletNode) {
+      this.stopFeeding();
+      this.workletNode.port.postMessage({ command: 'pause' });
+    } else {
+      this.disconnectProcessor();
+    }
+  }
+
+  /** Counterpart of pauseOutput(): continue from exactly where output was held. */
+  resumeOutput(): void {
+    if (this.workletNode) {
+      this.workletNode.port.postMessage({ command: 'resume' });
+      this.startFeeding();
+    } else {
+      this.createProcessor();
+    }
+  }
+
+  /**
+   * Frames queued inside the worklet but not yet played (an upper bound: the
+   * played count arrives about every 0.37 s, so this never under-reports).
+   */
+  private getWorkletLookaheadFrames(): number {
+    return Math.max(0, this.workletFramesSent - this.workletFramesPlayed);
+  }
+
+  /**
    * Load AudioWorklet module (one-time initialization)
    * @returns true if AudioWorklet is available and module loaded
    */
@@ -157,7 +200,13 @@ export class BufferScheduler {
    * Falls back to ScriptProcessorNode on failure.
    */
   private createWorkletNode(): void {
-    if (this.workletNode) return;
+    if (this.workletNode) {
+      // Idempotent, and also the way out of a soft pause: a worklet held by
+      // pauseOutput() is still alive, so "create" has to mean "make it play".
+      this.workletNode.port.postMessage({ command: 'resume' });
+      this.startFeeding();
+      return;
+    }
 
     try {
       const channels = this.buffer.getMetadata().channels || 2;
@@ -170,6 +219,10 @@ export class BufferScheduler {
       // Tell the worklet how many channels to deinterleave (#2842)
       this.workletNode.port.postMessage({ command: 'setChannels', channels });
 
+      // A fresh worklet starts with an empty queue and a played count of 0.
+      this.workletFramesSent = 0;
+      this.workletFramesPlayed = 0;
+
       this.workletNode.port.onmessage = (event: MessageEvent) => {
         const { data } = event;
         if (data.type === 'underrun') {
@@ -177,6 +230,7 @@ export class BufferScheduler {
           this.callbacks.onUnderrun();
           this.setStalled(true);
         } else if (data.type === 'samplesPlayed') {
+          this.workletFramesPlayed = data.count;
           this.callbacks.onSamplesPlayedSet(data.count);
           // The worklet reports progress only while it is writing audio, so
           // this is the recovery signal for a hard underrun.
@@ -196,28 +250,43 @@ export class BufferScheduler {
   }
 
   /**
-   * Push samples from PCMStreamBuffer to AudioWorklet at regular intervals
+   * Push samples from PCMStreamBuffer to AudioWorklet at regular intervals.
+   *
+   * Each tick tops the worklet queue up to `workletLookaheadSeconds` (#5657).
+   * It used to send 4096 frames every 50 ms regardless — about 1.7-1.86x real
+   * time — into a queue with no bound, so the queue grew with track length and
+   * the water marks (which only saw the ring) never reflected what was really
+   * buffered.
    */
   private startFeeding(): void {
     if (this.feedInterval) return;
 
-    const channels = this.buffer.getMetadata().channels || 2;
-    const feedChunkSize = this.bufferSize * channels; // interleaved samples per feed
-
     this.feedInterval = setInterval(() => {
       if (!this.workletNode) return;
 
-      const bufferChannels = this.buffer.getMetadata().channels || 2;
-      const sampleRate = this.buffer.getMetadata().sampleRate || 44100;
-      const available = this.buffer.getAvailableSamples();
-      const bufferedSeconds = available / (sampleRate * bufferChannels);
+      const { sampleRate: rate, channels: ch } = this.buffer.getMetadata();
+      const sampleRate = rate || 44100;
+      const bufferChannels = ch || 2;
+      const lookaheadFrames = this.getWorkletLookaheadFrames();
+      const ringFrames = this.buffer.getAvailableSamples() / bufferChannels;
+      // Everything not yet played: still in the ring plus already in the worklet.
+      const bufferedSeconds = (ringFrames + lookaheadFrames) / sampleRate;
 
-      if (!this.checkBufferHealth(bufferedSeconds, 'feed')) return;
+      // The worklet reports a stall itself once its queue runs dry, so a
+      // low-water pause here must not flag one while it is still playing.
+      if (!this.checkBufferHealth(bufferedSeconds, 'feed', false)) return;
 
-      // Read and send samples to worklet
-      const samples = this.buffer.read(feedChunkSize);
+      const targetFrames = Math.round(PLAYBACK_ENGINE_CONFIG.workletLookaheadSeconds * sampleRate);
+      const creditFrames = Math.min(
+        targetFrames - lookaheadFrames,
+        PLAYBACK_ENGINE_CONFIG.maxFeedFramesPerTick
+      );
+      if (creditFrames <= 0) return;
+
+      const samples = this.buffer.read(creditFrames * bufferChannels);
       if (samples.length > 0) {
-        this.workletNode!.port.postMessage({ samples });
+        this.workletNode.port.postMessage({ samples });
+        this.workletFramesSent += samples.length / bufferChannels;
       }
     }, PLAYBACK_ENGINE_CONFIG.feedIntervalMs);
   }
@@ -227,11 +296,19 @@ export class BufferScheduler {
    * return whether the caller should proceed to read/feed samples. Shared
    * by both the worklet feed loop and the ScriptProcessorNode callback so
    * the low/high water-mark hysteresis lives in exactly one place.
+   *
+   * `reportStall` is false for the worklet feed loop: there a low-water pause
+   * only stops feeding, audio already queued in the worklet keeps playing, and
+   * the stall surfaces through the worklet's own underrun message.
    */
-  private checkBufferHealth(bufferedSeconds: number, context: 'feed' | 'playback'): boolean {
+  private checkBufferHealth(
+    bufferedSeconds: number,
+    context: 'feed' | 'playback',
+    reportStall: boolean = true
+  ): boolean {
     if (!this.isBufferPaused && bufferedSeconds < this.lowWaterMarkSeconds) {
       this.isBufferPaused = true;
-      this.setStalled(true);
+      if (reportStall) this.setStalled(true);
       console.warn(
         `[BufferScheduler] Buffer critically low (${bufferedSeconds.toFixed(1)}s < ${this.lowWaterMarkSeconds}s). ` +
         `Pausing ${context}...`

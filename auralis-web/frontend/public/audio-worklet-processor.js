@@ -6,8 +6,13 @@
  *
  * Communication protocol:
  * - Main thread sends PCM samples via port.postMessage({ samples: Float32Array })
- * - Main thread sends control messages: { command: 'stop' | 'setVolume' | 'setChannels' | 'clear' }
+ * - Main thread sends control messages:
+ *   { command: 'stop' | 'setVolume' | 'setChannels' | 'clear' | 'pause' | 'resume' }
+ *   'pause' keeps the queued PCM and the played count and outputs silence until
+ *   'resume' (#5657); 'clear' discards the queue (stop / seek).
  * - Processor sends state updates: { type: 'underrun' | 'samplesPlayed', ... }
+ *   `samplesPlayed` carries the absolute frame count and the frames still queued
+ *   here; the main thread uses them to cap how much it feeds ahead (#5657).
  */
 
 class AuralisPlaybackProcessor extends AudioWorkletProcessor {
@@ -24,6 +29,8 @@ class AuralisPlaybackProcessor extends AudioWorkletProcessor {
     this._samplesPlayed = 0;
     /** Whether to output audio */
     this._active = true;
+    /** Paused: output silence, consume nothing, count nothing (#5657) */
+    this._paused = false;
     /** Number of interleaved channels (set via setChannels command, fixes #2842) */
     this._channels = 2;
 
@@ -41,8 +48,22 @@ class AuralisPlaybackProcessor extends AudioWorkletProcessor {
         this._readOffset = 0;
       } else if (data.command === 'setChannels') {
         this._channels = data.channels || 2;
+      } else if (data.command === 'pause') {
+        this._paused = true;
+        // Exact position for the main thread: reports are otherwise ~0.37 s apart.
+        this._reportProgress();
+      } else if (data.command === 'resume') {
+        this._paused = false;
       }
     };
+  }
+
+  _reportProgress() {
+    this.port.postMessage({
+      type: 'samplesPlayed',
+      count: this._samplesPlayed,
+      available: this._available,
+    });
   }
 
   /**
@@ -59,6 +80,12 @@ class AuralisPlaybackProcessor extends AudioWorkletProcessor {
     const channels = this._channels;
     const framesNeeded = output[0].length;
     const samplesNeeded = framesNeeded * channels;
+
+    if (this._paused) {
+      // Held, not underrun: the queue is intact and playback resumes from it.
+      for (let ch = 0; ch < output.length; ch++) output[ch].fill(0);
+      return true;
+    }
 
     if (this._available < samplesNeeded) {
       // Underrun — output silence
@@ -105,11 +132,7 @@ class AuralisPlaybackProcessor extends AudioWorkletProcessor {
 
     // Periodically report progress
     if (this._samplesPlayed % (4096 * 4) < framesNeeded) {
-      this.port.postMessage({
-        type: 'samplesPlayed',
-        count: this._samplesPlayed,
-        available: this._available,
-      });
+      this._reportProgress();
     }
 
     return true;

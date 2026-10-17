@@ -333,4 +333,69 @@ describe('AudioPlaybackEngine', () => {
       expect(engine.getStats().samplesPlayed).toBe(frames);
     });
   });
+  describe('pause / resume on the AudioWorklet path (#5657)', () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    async function startWithWorklet() {
+      const port = { postMessage: vi.fn(), onmessage: null as ((e: unknown) => void) | null };
+      const created = vi.fn();
+      class MockAudioWorkletNode {
+        port = port;
+        connect = vi.fn();
+        disconnect = vi.fn();
+        constructor(_ctx: unknown, _name: string, _opts: unknown) {
+          created();
+        }
+      }
+      vi.stubGlobal('AudioWorkletNode', MockAudioWorkletNode);
+      const { ctx } = createMockAudioContext();
+      ctx.audioWorklet = { addModule: vi.fn().mockResolvedValue(undefined) };
+      const engine = new AudioPlaybackEngine(ctx, makeBuffer(10));
+      await engine.startPlayback();
+      const report = (count: number) =>
+        port.onmessage!({ data: { type: 'samplesPlayed', count, available: 0 } } as MessageEvent);
+      const commands = () =>
+        port.postMessage.mock.calls.map(([msg]) => msg.command).filter(Boolean);
+      return { engine, port, created, report, commands };
+    }
+
+    it('pausing holds the worklet instead of tearing it down', async () => {
+      const { engine, created, commands } = await startWithWorklet();
+
+      engine.pausePlayback();
+
+      expect(engine.isPlaying()).toBe(false);
+      expect(commands()).toContain('pause');
+      // 'clear' would discard the queued lookahead the ring has already moved past.
+      expect(commands()).not.toContain('clear');
+      expect(created).toHaveBeenCalledOnce();
+    });
+
+    it('resuming continues on the same worklet at the same position', async () => {
+      const { engine, created, report, commands } = await startWithWorklet();
+      report(SAMPLE_RATE * 2); // 2 s played
+      expect(engine.getCurrentPlaybackTime()).toBeCloseTo(2, 5);
+
+      engine.pausePlayback();
+      engine.resumePlayback();
+
+      expect(engine.isPlaying()).toBe(true);
+      expect(commands()).toContain('resume');
+      expect(created).toHaveBeenCalledOnce(); // a new node restarted the count at 0
+      expect(engine.getCurrentPlaybackTime()).toBeCloseTo(2, 5);
+
+      report(SAMPLE_RATE * 2 + 4800); // the same worklet keeps counting
+      expect(engine.getCurrentPlaybackTime()).toBeCloseTo(2.1, 5);
+    });
+
+    it('stopping still discards the queue', async () => {
+      const { engine, commands } = await startWithWorklet();
+
+      engine.stopPlayback();
+
+      expect(commands()).toContain('clear');
+    });
+  });
 });

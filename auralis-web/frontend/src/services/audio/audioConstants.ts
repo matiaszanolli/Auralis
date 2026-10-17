@@ -28,4 +28,13 @@ export const PLAYBACK_ENGINE_CONFIG = {
   highWaterMarkSeconds: 8.0,
   /** Polling interval (ms) for the buffer feed loop. */
   feedIntervalMs: 50,
+  /**
+   * How much audio the feeder keeps queued inside the AudioWorklet. The worklet
+   * queue has no bound of its own, so the main thread tops it up to this level
+   * instead of pushing faster than real time (#5657). Must stay well below
+   * lowWaterMarkSeconds, which is measured over ring + worklet queue.
+   */
+  workletLookaheadSeconds: 3.0,
+  /** Frames sent to the worklet per feed tick at most (4 process blocks). */
+  maxFeedFramesPerTick: 16384,
 } as const;

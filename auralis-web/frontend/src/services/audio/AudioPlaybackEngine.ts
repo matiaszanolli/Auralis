@@ -167,8 +167,8 @@ export class AudioPlaybackEngine {
     // Record pause time for resuming
     this.positionTracker.setPausedTime(this.getCurrentPlaybackTime());
 
-    // Disconnect processor (worklet or script)
-    this.bufferScheduler.disconnectProcessor();
+    // Hold output (worklet) or disconnect (script) without discarding audio (#5657)
+    this.bufferScheduler.pauseOutput();
 
     this.positionTracker.setState('paused');
     console.log('[AudioPlaybackEngine] Playback paused at', this.getCurrentPlaybackTime().toFixed(2), 's');
@@ -182,8 +182,8 @@ export class AudioPlaybackEngine {
       return;
     }
 
-    // Resume from paused time
-    this.bufferScheduler.createProcessor();
+    // Resume from the held position
+    this.bufferScheduler.resumeOutput();
     this.positionTracker.setState('playing');
     console.log('[AudioPlaybackEngine] Playback resumed from', this.getCurrentPlaybackTime().toFixed(2), 's');
   }
