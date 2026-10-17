@@ -152,3 +152,61 @@ class TestScannerMetadataM4AWMA5568:
         assert extractor._normalize_field_value('track', 0) is None
         assert extractor._normalize_field_value('disc', 0) is None
         assert extractor._normalize_field_value('year', '') is None
+
+    def test_wma_disc_part_of_set_single_and_compound_values(self, extractor):
+        """WM/PartOfSet correctly handles single, compound, and numeric word attributes."""
+        from mutagen.asf import ASFDWordAttribute, ASFWordAttribute
+
+        # Compound string e.g. '2/3'
+        compound_file = MockAudioFile({'WM/PartOfSet': [ASFUnicodeAttribute('2/3')]})
+        assert extractor.extract_metadata(compound_file)['disc'] == 2
+
+        # Single string e.g. '2'
+        single_file = MockAudioFile({'WM/PartOfSet': [ASFUnicodeAttribute('2')]})
+        assert extractor.extract_metadata(single_file)['disc'] == 2
+
+        # Padded compound string e.g. ' 03 / 05 '
+        padded_file = MockAudioFile({'WM/PartOfSet': [ASFUnicodeAttribute(' 03 / 05 ')]})
+        assert extractor.extract_metadata(padded_file)['disc'] == 3
+
+        # Word int attribute e.g. ASFWordAttribute(4)
+        word_file = MockAudioFile({'WM/PartOfSet': [ASFWordAttribute(4)]})
+        assert extractor.extract_metadata(word_file)['disc'] == 4
+
+        # DWord int attribute e.g. ASFDWordAttribute(5)
+        dword_file = MockAudioFile({'WM/PartOfSet': [ASFDWordAttribute(5)]})
+        assert extractor.extract_metadata(dword_file)['disc'] == 5
+
+        # Unset zero values are omitted
+        zero_word = MockAudioFile({'WM/PartOfSet': [ASFWordAttribute(0)]})
+        assert 'disc' not in extractor.extract_metadata(zero_word)
+
+        zero_str = MockAudioFile({'WM/PartOfSet': [ASFUnicodeAttribute('0/0')]})
+        assert 'disc' not in extractor.extract_metadata(zero_str)
+
+    def test_wma_boolean_and_binary_attributes_rejected(self, extractor):
+        """Boolean and binary ASF attributes are not treated as valid metadata."""
+        from mutagen.asf import ASFBoolAttribute, ASFByteArrayAttribute
+
+        # Boolean attributes on text and numeric fields
+        bool_file = MockAudioFile({
+            'Title': [ASFBoolAttribute(True)],
+            'WM/TrackNumber': [ASFBoolAttribute(True)],
+            'WM/PartOfSet': [ASFBoolAttribute(False)],
+            'WM/Year': [ASFBoolAttribute(True)],
+        })
+        assert extractor.extract_metadata(bool_file) == {}
+
+        # Binary byte array attributes
+        binary_file = MockAudioFile({
+            'Title': [ASFByteArrayAttribute(b'\x01\x02\x03\x04')],
+            'WM/TrackNumber': [ASFByteArrayAttribute(b'\x00\x01')],
+        })
+        assert extractor.extract_metadata(binary_file) == {}
+
+        # Empty and whitespace-only attributes are omitted
+        empty_file = MockAudioFile({
+            'Title': [ASFUnicodeAttribute('')],
+            'Author': [ASFUnicodeAttribute('   ')],
+        })
+        assert extractor.extract_metadata(empty_file) == {}

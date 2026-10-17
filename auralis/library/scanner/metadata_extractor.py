@@ -145,6 +145,10 @@ class MetadataExtractor:
                 value = value.value
 
             if field in ['track', 'disc']:
+                # Disallow boolean or binary attributes as track/disc numbers
+                if isinstance(value, (bool, bytes, bytearray)):
+                    return None
+
                 # Handle track/disc numbers (tuple/list for MP4, string for Vorbis/ID3/ASF)
                 if isinstance(value, (tuple, list)):
                     track_no = int(value[0]) if value else 0
@@ -159,12 +163,18 @@ class MetadataExtractor:
 
             elif field in ['year', 'date']:
                 # Handle year/date
-                year_str = str(value)[:4]
-                return int(year_str)
+                if isinstance(value, (bool, bytes, bytearray)):
+                    return None
+                year_str = str(value).strip()[:4]
+                year_num = int(year_str)
+                return year_num if year_num > 0 else None
 
             else:
                 # String fields
-                return str(value)
+                if isinstance(value, (bool, bytes, bytearray)):
+                    return None
+                val_str = str(value).strip()
+                return val_str if val_str else None
 
         except (ValueError, TypeError):
             return None
