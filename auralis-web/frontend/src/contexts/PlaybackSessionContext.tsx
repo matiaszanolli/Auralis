@@ -141,7 +141,7 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
       // atomically (#3587 — the previous nextTrack() + setCurrentTrack()
       // pair could observe an intermediate state between dispatches).
       stopPlayback();
-      dispatch(setCurrentTrackAndSyncQueue(nextTrackData));
+      dispatch(setCurrentTrackAndSyncQueue(nextTrackData, nextIndex));
 
       await startTrackForSettings(nextTrackData.id);
     } catch (err) {
@@ -163,7 +163,7 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
       // Stop current playback, then sync queue index + player.currentTrack
       // atomically (#3587).
       stopPlayback();
-      dispatch(setCurrentTrackAndSyncQueue(prevTrackData));
+      dispatch(setCurrentTrackAndSyncQueue(prevTrackData, prevIndex));
 
       await startTrackForSettings(prevTrackData.id);
     } catch (err) {

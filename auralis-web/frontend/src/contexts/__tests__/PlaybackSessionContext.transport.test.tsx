@@ -264,6 +264,57 @@ describe('PlaybackSessionContext transport logic (#5399)', () => {
     });
   });
 
+  describe('handleNext with duplicate queue entries (#5600)', () => {
+    it('visits every slot of [A, B, A, C] instead of looping on the first A', async () => {
+      const out: { value?: PlaybackControlsContextValue } = {};
+      const { store } = render(<ControlsCapture out={out} />, {
+        preloadedState: {
+          player: { currentTrack: mockTrack2 } as never,
+          queue: { tracks: [mockTrack, mockTrack2, mockTrack, mockTrack3], currentIndex: 1 } as never,
+        },
+      });
+
+      const visited: number[] = [];
+      for (let i = 0; i < 2; i++) {
+        await act(async () => { await out.value!.handleNext(); });
+        visited.push(store.getState().queue.currentIndex);
+      }
+
+      expect(visited).toEqual([2, 3]);
+      expect(mockPlayEnhanced.mock.calls.map((c) => c[0])).toEqual([mockTrack.id, mockTrack3.id]);
+    });
+
+    it('Previous from the second copy lands on B, not on slot 0', async () => {
+      const out: { value?: PlaybackControlsContextValue } = {};
+      const { store } = render(<ControlsCapture out={out} />, {
+        preloadedState: {
+          player: { currentTrack: mockTrack } as never,
+          queue: { tracks: [mockTrack, mockTrack2, mockTrack, mockTrack3], currentIndex: 2 } as never,
+        },
+      });
+
+      await act(async () => { await out.value!.handlePrevious(); });
+
+      expect(store.getState().queue.currentIndex).toBe(1);
+      expect(mockPlayEnhanced).toHaveBeenCalledWith(mockTrack2.id, 'warm', 0.5);
+    });
+
+    it('auto-advance at the end of the second copy goes on to C', async () => {
+      const out: { value?: PlaybackControlsContextValue } = {};
+      session.streamingState = 'complete';
+      session.currentTime = 199.9;
+      const { store } = render(<ControlsCapture out={out} />, {
+        preloadedState: {
+          player: { currentTrack: mockTrack } as never,
+          queue: { tracks: [mockTrack, mockTrack2, mockTrack, mockTrack3], currentIndex: 2 } as never,
+        },
+      });
+
+      expect(store.getState().queue.currentIndex).toBe(3);
+      expect(mockPlayEnhanced).toHaveBeenCalledWith(mockTrack3.id, 'warm', 0.5);
+    });
+  });
+
   describe('handleMuteToggle', () => {
     it('mutes by zeroing volume and restores the exact pre-mute volume on unmute (0-1/0-100 round trip)', async () => {
       const out: { value?: PlaybackControlsContextValue } = {};

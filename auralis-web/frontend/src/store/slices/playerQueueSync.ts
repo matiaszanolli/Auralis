@@ -31,22 +31,56 @@ import { setCurrentTrack, setDuration } from '@/store/slices/playerSlice';
  * If the track is not in the queue (e.g. ad-hoc play), the queue index
  * stays put and the desync window is moot (no queue-derived selector
  * matches anyway).
+ *
+ * #5600: a queue may legitimately hold the same track more than once, and
+ * `findIndex` by id always returns the first slot — Next from `[A, B, A, C]`
+ * at B wrote index 0, looping Next/auto-advance and making C unreachable.
+ * Callers that know the slot they are moving to (Next/Previous/auto-advance)
+ * pass `index`; id-only callers (a library row click) fall back to the
+ * matching slot nearest the current index, preferring the later one on a tie.
  */
 export const setCurrentTrackAndSyncQueue =
-  (track: PlayerTrack | null) =>
+  (track: PlayerTrack | null, index?: number) =>
   (
     dispatch: (action: unknown) => unknown,
-    getState: () => { queue?: { tracks: { id: number }[] } },
+    getState: () => { queue?: { tracks: { id: number }[]; currentIndex?: number } },
   ) => {
     dispatch(setCurrentTrack(track));
     if (track == null) return;
     const queue = getState().queue;
     if (!queue?.tracks?.length) return;
-    const idx = queue.tracks.findIndex((t) => t.id === track.id);
+    const idx = resolveQueueIndex(queue.tracks, track.id, index, queue.currentIndex);
     if (idx >= 0) {
       dispatch(setCurrentIndex(idx));
     }
   };
+
+/**
+ * The slot of `trackId` in `tracks`: the caller's `index` when it really holds
+ * that track, otherwise the matching slot nearest `currentIndex` (later wins a
+ * tie), or -1 when the track is not queued.
+ */
+function resolveQueueIndex(
+  tracks: { id: number }[],
+  trackId: number,
+  index: number | undefined,
+  currentIndex: number | undefined,
+): number {
+  if (index !== undefined && tracks[index]?.id === trackId) return index;
+
+  const anchor = currentIndex ?? 0;
+  let best = -1;
+  let bestDistance = Infinity;
+  tracks.forEach((t, i) => {
+    if (t.id !== trackId) return;
+    const distance = Math.abs(i - anchor);
+    if (distance < bestDistance || (distance === bestDistance && i > best)) {
+      best = i;
+      bestDistance = distance;
+    }
+  });
+  return best;
+}
 
 /**
  * #4580: dispatch `setDuration(duration)` AND patch the queue's copy of the
