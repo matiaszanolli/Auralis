@@ -10,7 +10,7 @@ Models for 25D audio fingerprints and similarity graph
 
 from typing import Any
 
-from sqlalchemy import Boolean, Float, ForeignKey, Index, Integer, LargeBinary
+from sqlalchemy import Boolean, Float, ForeignKey, Index, Integer, LargeBinary, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, TimestampMixin
@@ -77,18 +77,23 @@ class TrackFingerprint(Base, TimestampMixin):
     phase_correlation: Mapped[float] = mapped_column(Float, nullable=False) # Phase correlation
 
     # Metadata
-    fingerprint_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    # server_default keeps fresh installs (Base.metadata.create_all, which
+    # never runs the SQL migrations) identical to migrated databases for the
+    # NOT NULL columns a raw INSERT may omit (#5530). Values mirror
+    # migration_v003_to_v004 / v014_to_v015 / v016_to_v017 exactly; text()
+    # renders them unquoted so the DDL matches the ALTER TABLE defaults too.
+    fingerprint_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default=text("1"))
 
     # Reference cloud membership (schema v15). True if this track's spectral
     # shape contributes to the soft k-NN target derivation in the mastering
     # pipeline. Set programmatically by auralis/learning/reference_seeder.py.
-    is_reference: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_reference: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("0"))
 
     # Reference weight (schema v17, #3480 Layer 1). How strongly this
     # reference pulls the soft k-NN target toward itself — base quality
     # score scaled by listening behavior (play_count, favorite). 0.0 for
     # non-references and any reference not yet reweighted by a seeder run.
-    reference_weight: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    reference_weight: Mapped[float] = mapped_column(Float, nullable=False, default=0.0, server_default=text("0.0"))
 
     # Phase 3A: 8-bit quantized fingerprint storage (25 bytes, 8x compression)
     # Stores quantized uint8 values for space efficiency

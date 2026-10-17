@@ -29,6 +29,7 @@ from sqlalchemy import (
     Text,
     collate,
     desc,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -89,7 +90,9 @@ class Track(Base, TimestampMixin):
     lyrics: Mapped[str | None] = mapped_column(Text)  # Plain text or LRC format lyrics
 
     # Playback statistics
-    play_count: Mapped[int] = mapped_column(Integer, default=0, index=True)
+    # server_default mirrors the initial schema's `play_count INTEGER DEFAULT 0`
+    # so fresh create_all() installs match migrated ones (#5530).
+    play_count: Mapped[int] = mapped_column(Integer, default=0, index=True, server_default=text("0"))
     last_played: Mapped[datetime | None] = mapped_column(DateTime)
     skip_count: Mapped[int] = mapped_column(Integer, default=0)
     favorite: Mapped[bool] = mapped_column(Boolean, default=False, index=True)

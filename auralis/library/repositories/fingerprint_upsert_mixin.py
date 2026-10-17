@@ -66,11 +66,13 @@ class FingerprintUpsertMixin(BaseRepository):
         # ON CONFLICT updates only the listed columns in-place and is also
         # atomic, which closes the concurrent-insert race (#3467, #3459).
         #
-        # On INSERT we must supply `fingerprint_version` because it is
-        # NOT NULL and its default is a Python-side ORM default (not a
-        # SQL default), so raw INSERT does not see it. On UPDATE we only
-        # refresh the 25 dimension columns — `fingerprint_blob` and
-        # `fingerprint_version` stay as whatever store_fingerprint set.
+        # On INSERT we must supply `fingerprint_version`, `is_reference` and
+        # `reference_weight` because they are NOT NULL and their defaults are
+        # Python-side ORM defaults (not SQL defaults on every install), so a
+        # raw INSERT does not see them (#5530). On UPDATE we only refresh the
+        # 25 dimension columns — `fingerprint_blob`, `fingerprint_version` and
+        # the reference flag/weight stay as whatever set them (a dimension
+        # refresh must never clobber reference-cloud membership).
         update_clause = ', '.join(f"{col} = excluded.{col}" for col in cols)
 
         with self._session_scope() as session:
@@ -78,13 +80,16 @@ class FingerprintUpsertMixin(BaseRepository):
                 params: dict[str, Any] = {
                     'track_id': track_id,
                     'fp_version': FINGERPRINT_ALGORITHM_VERSION,
+                    'is_reference': 0,
+                    'reference_weight': 0.0,
                     **fingerprint_data,
                 }
 
                 session.execute(
                     text(
-                        f"INSERT INTO track_fingerprints (track_id, fingerprint_version, {cols_str}) "
-                        f"VALUES (:track_id, :fp_version, {named_placeholders}) "
+                        f"INSERT INTO track_fingerprints "
+                        f"(track_id, fingerprint_version, is_reference, reference_weight, {cols_str}) "
+                        f"VALUES (:track_id, :fp_version, :is_reference, :reference_weight, {named_placeholders}) "
                         f"ON CONFLICT (track_id) DO UPDATE SET {update_clause}"
                     ),
                     params,
@@ -149,7 +154,9 @@ class FingerprintUpsertMixin(BaseRepository):
         # ON CONFLICT DO UPDATE keeps the `id` PK stable and the existing
         # `created_at` intact (cf. #3467 sibling); only the listed columns
         # are written. fingerprint_blob and fingerprint_version are listed
-        # here, so they're always refreshed on update.
+        # here, so they're always refreshed on update. is_reference /
+        # reference_weight are INSERT-only (#5530): a store must not clobber
+        # reference-cloud membership set by the seeder.
         all_cols = cols + ['fingerprint_blob', 'fingerprint_version']
         update_clause = ', '.join(f"{col} = excluded.{col}" for col in all_cols)
 
@@ -162,14 +169,16 @@ class FingerprintUpsertMixin(BaseRepository):
                     'track_id': track_id,
                     'fingerprint_blob': quantized_blob,
                     'fp_version': FINGERPRINT_ALGORITHM_VERSION,
+                    'is_reference': 0,
+                    'reference_weight': 0.0,
                     **fingerprint_dict,
                 }
 
                 session.execute(
                     text(f"""
                         INSERT INTO track_fingerprints
-                        (track_id, {cols_str}, fingerprint_blob, fingerprint_version)
-                        VALUES (:track_id, {named_placeholders}, :fingerprint_blob, :fp_version)
+                        (track_id, {cols_str}, fingerprint_blob, fingerprint_version, is_reference, reference_weight)
+                        VALUES (:track_id, {named_placeholders}, :fingerprint_blob, :fp_version, :is_reference, :reference_weight)
                         ON CONFLICT (track_id) DO UPDATE SET {update_clause}
                     """),
                     params,
