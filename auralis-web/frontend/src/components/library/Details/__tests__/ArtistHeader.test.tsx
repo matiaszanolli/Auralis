@@ -14,6 +14,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
+import { act } from '@/test/test-utils';
 
 // The design-system Button/IconButton emit `border: 1px solid var(--app-…)`,
 // and the jsdom/cssstyle pairing in this repo throws parsing a border
@@ -58,6 +59,44 @@ describe('ArtistHeader (#5153)', () => {
   it('does not render the placeholder literal', () => {
     renderHeader();
     expect(screen.queryByText('Artist')).toBeNull();
+  });
+
+  // #5520: a failing artwork image used to be hidden with display:none,
+  // leaving a blank circle instead of the initial-letter avatar.
+  it('falls back to the initial avatar when the artwork fails to load', () => {
+    renderHeader(artist({ artworkUrl: 'https://example.invalid/p.jpg' }));
+
+    // React delegates onError at the root, so the event must bubble, and the
+    // resulting state update needs act() to flush.
+    act(() => {
+      screen.getByAltText('Portishead').dispatchEvent(
+        new Event('error', { bubbles: true })
+      );
+    });
+
+    expect(screen.getByText('P')).toBeInTheDocument();
+    expect(screen.queryByAltText('Portishead')).toBeNull();
+  });
+
+  it('retries the image when another artist has a different URL', () => {
+    const { rerender } = renderHeader(
+      artist({ id: 1, artworkUrl: 'https://example.invalid/bad.jpg' })
+    );
+    act(() => {
+      screen.getByAltText('Portishead').dispatchEvent(
+        new Event('error', { bubbles: true })
+      );
+    });
+
+    rerender(
+      <ArtistHeader
+        artist={artist({ id: 2, name: 'Bijelo Dugme', artworkUrl: 'https://example.ok/good.jpg' })}
+        onPlayAll={vi.fn()}
+        onShuffle={vi.fn()}
+      />
+    );
+
+    expect(screen.getByAltText('Bijelo Dugme')).toBeInTheDocument();
   });
 
   it('still renders the artist name and the primary stats line', () => {

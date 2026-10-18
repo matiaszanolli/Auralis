@@ -1,4 +1,5 @@
 
+import { useState } from 'react';
 import PlayArrow from '@mui/icons-material/PlayArrow';
 import Shuffle from '@mui/icons-material/Shuffle';
 import MoreVert from '@mui/icons-material/MoreVert';
@@ -35,11 +36,19 @@ export const ArtistHeader = ({
     return name.charAt(0).toUpperCase();
   };
 
+  // Track the URL whose load failed (not a boolean) so navigating to another
+  // artist with a different URL retries the image (#5520).
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const showImage = Boolean(artist.artworkUrl) && failedUrl !== artist.artworkUrl;
+
   return (
     <DetailViewHeader
       artwork={
-        artist.artworkUrl ? (
-          // Real artist image (Phase 2)
+        showImage && artist.artworkUrl ? (
+          // Real artist image (Phase 2). Off-allowlist CDN hosts are blocked
+          // by the CSP and always fire onError (the common case per
+          // security_headers.py) — fall back to the avatar, never a blank
+          // void (#5520).
           <Box
             component="img"
             src={artist.artworkUrl}
@@ -52,10 +61,7 @@ export const ArtistHeader = ({
               border: `2px solid ${tokens.colors.border.light}`,
               boxShadow: tokens.shadows.md,
             }}
-            onError={(e) => {
-              // Fallback to placeholder on image load error
-              e.currentTarget.style.display = 'none';
-            }}
+            onError={() => setFailedUrl(artist.artworkUrl ?? null)}
           />
         ) : (
           // Fallback to placeholder
