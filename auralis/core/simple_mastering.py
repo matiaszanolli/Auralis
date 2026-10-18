@@ -179,10 +179,16 @@ class SimpleMasteringPipeline:
         _tmp_dir: _tempfile.TemporaryDirectory | None = None
         if orig_path.suffix.lower() in FFMPEG_FORMATS:
             from ..io.loaders import load_with_ffmpeg
+            from ..io.saver import save as save_audio
             _tmp_dir = _tempfile.TemporaryDirectory()
             _tmp_wav = Path(_tmp_dir.name) / (orig_path.stem + "_dec.wav")
             _raw, _raw_sr = load_with_ffmpeg(orig_path, _tmp_dir.name)
-            sf.write(str(_tmp_wav), _raw, _raw_sr, subtype="PCM_24")
+            # Through saver.save, not a bare sf.write (#5532): load_with_ffmpeg
+            # has no finiteness/range guard, and once quantized to PCM_24 a NaN
+            # stops being NaN — the downstream fail-fast finite check could
+            # never catch the garbage libsndfile substituted. saver.save()
+            # repairs non-finite samples to silence and clips to [-1, 1].
+            save_audio(str(_tmp_wav), _raw, _raw_sr, subtype="PCM_24")
             resolved_input_path = _tmp_wav
         else:
             resolved_input_path = orig_path
