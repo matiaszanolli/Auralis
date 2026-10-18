@@ -31,7 +31,7 @@ def test_no_docstring_claims_process_isolation():
     targets = [
         fg,  # module docstring
         fg.FingerprintGenerator,
-        fg._compute_fingerprint_in_thread,
+        fg._compute_windowed_fingerprint_in_thread,
         fg.FingerprintGenerator._generate_via_rust,
     ]
     forbidden = ("in a subprocess", "separate process", "completely isolated",
@@ -46,6 +46,9 @@ def test_no_docstring_claims_process_isolation():
 
 
 def test_in_thread_helper_named_and_callable():
-    """The former _compute_fingerprint_in_process is renamed to _in_thread."""
-    assert hasattr(fg, "_compute_fingerprint_in_thread")
+    """The worker task must be the _in_thread variant (#4377). #5531 renamed
+    it from _compute_fingerprint_in_thread (raw full-file schema call) to
+    _compute_windowed_fingerprint_in_thread (shared windowed pipeline)."""
+    assert hasattr(fg, "_compute_windowed_fingerprint_in_thread")
     assert not hasattr(fg, "_compute_fingerprint_in_process")
+    assert not hasattr(fg, "_compute_fingerprint_in_thread")
