@@ -56,16 +56,48 @@ class TestPrepareRustAudio:
         np.testing.assert_array_equal(buf[0::2], audio[:, 0])
 
 
-def test_backend_loader_matches_the_analyzer(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_backend_producers_route_through_the_windowed_pipeline() -> None:
+    """#5531: the raw, unsanitized compute_fingerprint_schema glue has exactly
+    one legitimate caller — AudioFingerprintAnalyzer._analyze_unchecked. Both
+    backend producers must go through the shared windowed pipeline instead
+    (sanitization + duration cap + batch parity in one place)."""
     import analysis.fingerprint_generator as fg
+    import core.mastering_target_service as mts
 
-    audio = _stereo()
-    monkeypatch.setattr(fg, 'load_audio', lambda _p: (audio, SR))
-    buf, sr, channels = fg._load_and_prepare_audio('x.wav')
-    via_backend = compute_fingerprint_schema(buf, sr, channels)
-    via_analyzer = AudioFingerprintAnalyzer().analyze(audio, SR)
-    for key in ('spectral_centroid', 'stereo_width', 'phase_correlation', 'bass_pct', 'mid_pct'):
-        assert via_backend[key] == pytest.approx(via_analyzer[key], rel=1e-3, abs=1e-4), key
+    for module in (fg, mts):
+        src = Path(module.__file__).read_text()
+        assert 'compute_fingerprint_schema' not in src, module.__name__
+        assert 'compute_windowed_fingerprint' in src, module.__name__
+
+
+def test_generator_producer_sanitizes_a_nan_rust_result(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The issue's probe: a NaN dimension from the Rust engine must come out
+    sanitized through the generator's executor task (#5531). The analyzer
+    binds the glue at import time, so patch that module's reference."""
+    import soundfile as sf
+
+    import analysis.fingerprint_generator as fg
+    import auralis.analysis.fingerprint.audio_fingerprint_analyzer as afa
+
+    wav = tmp_path / 'x.wav'
+    sf.write(wav, _stereo(), SR, subtype='FLOAT')
+
+    real_schema = afa.compute_fingerprint_schema
+
+    def _nan_schema(audio, sr, channels):
+        out = dict(real_schema(audio, sr, channels))
+        out['lufs'] = float('nan')
+        return out
+
+    monkeypatch.setattr(afa, 'compute_fingerprint_schema', _nan_schema)
+
+    out = fg._compute_windowed_fingerprint_in_thread(str(wav))
+    assert out is not None
+    for key, value in out.items():
+        if isinstance(value, (int, float)):
+            assert value == value and abs(value) != float('inf'), key  # finite
 
 
 def test_no_fortran_order_flatten_left_in_backend_producers() -> None:

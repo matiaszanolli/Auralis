@@ -22,15 +22,28 @@ from pathlib import Path
 from typing import Any
 from collections.abc import Callable
 
-import numpy as np
-
 from auralis.__version__ import FINGERPRINT_ALGORITHM_VERSION
 from auralis.analysis.fingerprint import AudioFingerprintAnalyzer, FingerprintStorage
 from auralis.analysis.mastering_fingerprint import MasteringFingerprint
-from auralis.io.unified_loader import load_audio
 from mutagen import File as MutagenFile
 
 from core.file_signature import FileSignatureService
+
+
+def _probe_file_properties(filepath: str) -> tuple[float, int]:
+    """Cheap (duration_s, sample_rate) from a soundfile header read — no decode.
+
+    The windowed fingerprint pipeline never materialises the full audio, so
+    there is no decoded buffer to divide for the old len(audio)/sr fallback.
+    FFmpeg-only formats (m4a/aac/wma) fail the header read and get
+    (0.0, 22050); the windowed analysis itself decodes those independently.
+    """
+    try:
+        import soundfile as sf
+        with sf.SoundFile(str(filepath)) as f:
+            return f.frames / f.samplerate, int(f.samplerate)
+    except Exception:
+        return 0.0, 22050
 
 logger = logging.getLogger(__name__)
 
@@ -225,11 +238,15 @@ class MasteringTargetService:
         """
         Extract fingerprint from audio file (Tier 3 - slow).
 
-        Uses PyO3 Rust fingerprinting for fast, accurate analysis.
+        Runs the shared windowed pipeline (compute_windowed_fingerprint):
+        bounded 90s-body + 2x30s-probe decoding, #4595 LUFS/crest bias
+        correction, and non-finite sanitization — identical to the batch
+        library-scan fingerprint for the same file.
 
         Args:
             filepath: Path to audio file
-            sample_rate: Optional target sample rate for loading
+            sample_rate: Unused (the windowed pipeline fixes its own analysis
+                rate); kept for signature compatibility
             save_to_file: If True, save extracted fingerprint to .25d file
 
         Returns:
@@ -238,46 +255,35 @@ class MasteringTargetService:
         try:
             logger.info(f"🔍 Extracting fingerprint from audio: {Path(filepath).name}")
 
-            # Try to use PyO3 Rust fingerprinting (via the schema glue so the
-            # output uses the schema keys/units the downstream expects — #13).
-            try:
-                from auralis.analysis.fingerprint.rust_fingerprint import (
-                    compute_fingerprint_schema,
-                    prepare_rust_audio,
-                )
+            # Shared windowed pipeline (#5531): bounded 90s-body + 2x30s-probe
+            # loading (no full-file decode of a multi-hour file), the #4595
+            # body+probe LUFS/crest bias correction, and sanitize_non_finite
+            # (via AudioFingerprintAnalyzer.analyze). The two fingerprint
+            # producers used to call the raw Rust schema glue on a full-file
+            # decode here — unsanitized, uncapped, and disagreeing with the
+            # batch-scan fingerprint of the same track.
+            from auralis.analysis.fingerprint.windowed_compute import (
+                compute_windowed_fingerprint,
+            )
 
-                # Load audio file (unified loader handles FFMPEG formats)
-                full_audio, sr = load_audio(filepath)
+            fingerprint_data: dict[str, Any] | None = compute_windowed_fingerprint(
+                AudioFingerprintAnalyzer(), Path(filepath)
+            )
+            if not fingerprint_data:
+                logger.warning(f"Windowed fingerprint extraction failed for {Path(filepath).name}")
+                return None
+            logger.info(f"✅ Extracted windowed fingerprint for {Path(filepath).name}")
 
-                # Stereo is interleaved L1,R1,L2,R2,... (one shared marshalling, #5556)
-                audio_array, channels = prepare_rust_audio(full_audio)
-                logger.debug(f"Audio loaded: {len(audio_array)} samples, SR={sr}, CH={channels}")
-
-                # Call PyO3 Rust fingerprinting (schema-conformant via the glue)
-                # dict[str, Any]: the '_metadata' entry added below is a dict.
-                fingerprint_data: dict[str, Any] = compute_fingerprint_schema(
-                    audio_array, sr, channels
-                )
-                logger.info(f"✅ PyO3 Rust extracted fingerprint for {Path(filepath).name}")
-
-            except (ImportError, Exception) as e:
-                logger.warning(f"PyO3 fingerprinting failed ({e}), falling back to Python analyzer...")
-
-                # Fallback to Python-based analyzer
-                full_audio, sr = load_audio(filepath, target_sample_rate=sample_rate)
-                analyzer = AudioFingerprintAnalyzer()
-                fingerprint_data = analyzer.analyze(full_audio, sr)
-
-            # Add metadata for .25d file. Both extractors above return a dict,
-            # never None, so there is no empty-result branch here.
+            # Add metadata for .25d file. Duration/sample rate come from a
+            # cheap header read — the windowed pipeline never materialises
+            # the full audio to compute them from a decoded buffer.
+            duration_value, sr = _probe_file_properties(filepath)
             try:
                 audio_file = MutagenFile(filepath)
-                duration_value: float = (
-                    float(audio_file.info.length) if audio_file else len(full_audio) / sr
-                )
+                if audio_file:
+                    duration_value = float(audio_file.info.length)
             except Exception as e:
-                logger.debug(f"Mutagen duration probe failed, falling back to computed duration: {e}", exc_info=True)
-                duration_value = len(full_audio) / sr
+                logger.debug(f"Mutagen duration probe failed, keeping header probe: {e}", exc_info=True)
 
             fingerprint_data['_metadata'] = {
                 'duration': duration_value,

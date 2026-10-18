@@ -22,13 +22,12 @@ import atexit
 import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from typing import Any
 from collections.abc import Callable
 
-import numpy as np
 from sqlalchemy.orm import Session
 
-from auralis.io.unified_loader import load_audio
 from core.env_config import get_int_env
 
 logger = logging.getLogger(__name__)
@@ -136,55 +135,35 @@ async def shutdown_fingerprint_executor_bounded(timeout: float = 10.0) -> None:
 atexit.register(shutdown_fingerprint_executor)
 
 
-def _load_and_prepare_audio(filepath: str) -> tuple[np.ndarray, int, int]:
-    """Load an audio file and prepare it for Rust fingerprinting.
+def _compute_windowed_fingerprint_in_thread(filepath: str) -> dict[str, Any] | None:
+    """Run the shared windowed fingerprint pipeline on an executor worker.
 
-    Runs the sync, CPU/IO-heavy work (full-file decode + interleave + dtype
-    cast) so it can be offloaded via asyncio.to_thread and not stall the event
-    loop (#3854).
+    #5531: this used to be a full-file decode followed by a raw call to the
+    Rust schema glue — unsanitized (a NaN/Inf Rust result was stored verbatim
+    and poisoned every later read), uncapped (a multi-hour file was decoded in
+    full), and without the #4595 body+probe LUFS/crest bias correction, so it
+    disagreed with the same track's batch-scan fingerprint.
+    compute_windowed_fingerprint() closes all three at once and returns the
+    exact fingerprint the batch path produces.
 
-    Returns:
-        (audio_array, sample_rate, channels) — audio_array is float32, with
-        stereo interleaved as L1,R1,L2,R2,...
-    """
-    # Imported here, like compute_fingerprint_schema below, so the package
-    # import cost is paid on this worker thread rather than at module import.
-    from auralis.analysis.fingerprint.rust_fingerprint import prepare_rust_audio
-
-    audio, sample_rate = load_audio(filepath)
-
-    # Stereo is interleaved L1,R1,L2,R2,... (one shared marshalling, #5556).
-    audio_array, channels = prepare_rust_audio(audio)
-    return audio_array, int(sample_rate), int(channels)
-
-
-def _compute_fingerprint_in_thread(
-    audio_data: np.ndarray,
-    sample_rate: int,
-    channels: int
-) -> dict[str, Any] | None:
-    """
-    Compute a fingerprint from prepared audio on a ThreadPoolExecutor worker.
-
-    Kept at module level (not a closure) so executor submission stays simple.
-    Runs in a worker thread of the current process — the PyO3 Rust call releases
-    the GIL, so it does not block the event loop or playback threads.
-
-    Args:
-        audio_data: Audio samples as float32 numpy array
-        sample_rate: Sample rate in Hz
-        channels: Number of audio channels
+    Kept at module level so executor submission stays simple. Runs in a worker
+    thread of the current process — the PyO3 Rust engine releases the GIL, so
+    it does not block the event loop or playback threads.
 
     Returns:
-        Dict with 25 fingerprint dimensions, or None if computation fails
+        Dict with 25 sanitized fingerprint dimensions, or None on failure.
     """
-    # Import inside the function so the (one-time) import cost is paid on the
-    # worker thread rather than at module import.
     try:
-        from auralis.analysis.fingerprint.rust_fingerprint import compute_fingerprint_schema
-        return compute_fingerprint_schema(audio_data, sample_rate, channels)
+        from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
+            AudioFingerprintAnalyzer,
+        )
+        from auralis.analysis.fingerprint.windowed_compute import (
+            compute_windowed_fingerprint,
+        )
+
+        return compute_windowed_fingerprint(AudioFingerprintAnalyzer(), Path(filepath))
     except Exception as e:
-        logging.getLogger(__name__).error(f"Fingerprint computation failed on worker thread: {e}")
+        logging.getLogger(__name__).error(f"Windowed fingerprint computation failed: {e}")
         return None
 
 
@@ -302,30 +281,19 @@ class FingerprintGenerator:
         """
 
         try:
-            # Load + prepare audio off the event loop — full-file decode plus
-            # numpy interleave/cast is ~200-500ms of sync work that would
-            # otherwise stall the loop before the Rust step (#3854).
-            logger.debug(f"Loading audio file: {filepath}")
-            audio_array, sample_rate, channels = await asyncio.to_thread(
-                _load_and_prepare_audio, filepath
-            )
-            logger.debug(f"Audio loaded: {len(audio_array)} samples, SR={sample_rate}, CH={channels}, dtype={audio_array.dtype}")
-
-            # Run fingerprint computation in a thread pool worker.
-            # PyO3 Rust releases the GIL so this gives true parallelism
-            # without ProcessPoolExecutor's serialization overhead.
+            # Run the shared windowed pipeline in a thread pool worker:
+            # bounded decoding + Rust analysis (GIL-releasing) keep the event
+            # loop and playback threads responsive (#3854, #5531).
             executor = _get_fingerprint_executor()
             loop = asyncio.get_running_loop()
 
-            logger.debug(f"🔄 Submitting fingerprint computation to ThreadPoolExecutor for track {track_id}")
+            logger.debug(f"🔄 Submitting windowed fingerprint computation to ThreadPoolExecutor for track {track_id}")
 
             fingerprint = await asyncio.wait_for(
                 loop.run_in_executor(
                     executor,
-                    _compute_fingerprint_in_thread,
-                    audio_array,
-                    int(sample_rate),
-                    int(channels)
+                    _compute_windowed_fingerprint_in_thread,
+                    filepath,
                 ),
                 timeout=self.TIMEOUT
             )
@@ -334,7 +302,7 @@ class FingerprintGenerator:
                 logger.error(f"Fingerprint computation returned None for track {track_id}")
                 return None
 
-            logger.info(f"✅ PyO3 Rust generated fingerprint for track {track_id}")
+            logger.info(f"✅ Generated windowed fingerprint for track {track_id}")
             return fingerprint
 
         except FileNotFoundError:
