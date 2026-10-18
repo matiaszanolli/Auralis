@@ -138,6 +138,7 @@ const Player = () => {
             title={currentTrack?.title ?? 'No track'}
             artist={currentTrack?.artist}
             album={currentTrack?.album}
+            artworkUrl={currentTrack?.artworkUrl}
             isLoading={isBuffering}
             className="player-track-display"
           />

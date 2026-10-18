@@ -12,7 +12,7 @@
  * />
  */
 
-import { useMemo, memo } from 'react';
+import { useMemo, memo, useState } from 'react';
 import { tokens } from '@/design-system/tokens';
 import { themeVars } from '@/theme/semanticTheme';
 
@@ -31,6 +31,13 @@ export interface TrackDisplayProps {
    * Album name
    */
   album?: string;
+
+  /**
+   * Album artwork URL for the current track. The backend emits it on the
+   * player_state/queue TrackInfo; null/absent renders a ♪ placeholder.
+   * (#5521 wired this into the player bar; #5528 made the backend null-safe.)
+   */
+  artworkUrl?: string | null;
 
   /**
    * Whether track info is loading
@@ -52,16 +59,24 @@ export interface TrackDisplayProps {
 /**
  * TrackDisplay Component
  *
- * Renders track title, artist, and album information with proper text overflow handling.
+ * Renders the current track's artwork thumbnail, title, artist, and album
+ * with proper overflow handling.
  */
 const TrackDisplayComponent = ({
   title,
   artist,
   album,
+  artworkUrl,
   isLoading = false,
   className = '',
   ariaLabel,
 }: TrackDisplayProps) => {
+  // Track the URL whose load failed (per-URL, like ArtistHeader #5520) so a
+  // blocked/failed image falls back to the placeholder and a different
+  // track's artwork is retried.
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const showArtwork = Boolean(artworkUrl) && failedUrl !== artworkUrl;
+
   // Final aria label
   const finalAriaLabel = useMemo(() => {
     if (ariaLabel) {
@@ -81,6 +96,12 @@ const TrackDisplayComponent = ({
   // stays mounted and has its text updated is always announced.
   const announcement = `Now playing: ${title}${artist ? ` by ${artist}` : ''}${album ? ` from ${album}` : ''}`;
 
+  const skeletonStyle = {
+    backgroundColor: themeVars.surfaceRaised,
+    borderRadius: '4px',
+    animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+  } as const;
+
   return (
     // role="group" gives the decorative aria-label a semantics-bearing
     // element (#5667): a plain div ignores aria-label.
@@ -91,8 +112,9 @@ const TrackDisplayComponent = ({
       data-testid="track-display"
       style={{
         display: 'flex',
-        flexDirection: 'column',
-        gap: tokens.spacing.xs,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: tokens.spacing.sm,
         minWidth: '0',
       }}
     >
@@ -104,70 +126,111 @@ const TrackDisplayComponent = ({
         {announcement}
       </div>
 
+      {/* Album artwork thumbnail (#5521) */}
       {isLoading ? (
-        /* Display loading state */
-        <>
-          <div
-            style={{
-              height: '20px',
-              backgroundColor: themeVars.surfaceRaised,
-              borderRadius: '4px',
-              animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-            }}
-            data-testid="track-display-loading"
-          />
-          {artist && (
-            <div
-              style={{
-                height: '16px',
-                backgroundColor: themeVars.surfaceRaised,
-                borderRadius: '4px',
-                width: '70%',
-                animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-              }}
-            />
-          )}
-        </>
+        <div
+          style={{
+            ...skeletonStyle,
+            width: 44,
+            height: 44,
+            flexShrink: 0,
+            borderRadius: '6px',
+          }}
+          data-testid="track-display-artwork-loading"
+        />
+      ) : showArtwork && artworkUrl ? (
+        <img
+          src={artworkUrl}
+          alt=""
+          style={{
+            width: 44,
+            height: 44,
+            flexShrink: 0,
+            borderRadius: '6px',
+            objectFit: 'cover',
+          }}
+          data-testid="track-display-artwork"
+          onError={() => setFailedUrl(artworkUrl ?? null)}
+        />
       ) : (
-        <>
-          {/* Track Title */}
-          <div
-            style={{
-              fontSize: tokens.typography.fontSize.md,
-              fontWeight: tokens.typography.fontWeight.bold,
-              color: themeVars.textPrimary,
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              lineHeight: '1.4',
-            }}
-            data-testid="track-display-title"
-            title={title}
-          >
-            {title}
-          </div>
+        <div
+          aria-hidden="true"
+          style={{
+            width: 44,
+            height: 44,
+            flexShrink: 0,
+            borderRadius: '6px',
+            backgroundColor: themeVars.surfaceRaised,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: themeVars.textMuted,
+            fontSize: tokens.typography.fontSize.lg,
+          }}
+          data-testid="track-display-artwork-placeholder"
+        >
+          ♪
+        </div>
+      )}
 
-          {/* Artist and Album Info */}
-          {(artist || album) && (
+      {/* Track details column */}
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: tokens.spacing.xs,
+          minWidth: '0',
+        }}
+      >
+        {isLoading ? (
+          /* Display loading state */
+          <>
+            <div style={{ ...skeletonStyle, height: '20px' }} data-testid="track-display-loading" />
+            {artist && (
+              <div style={{ ...skeletonStyle, height: '16px', width: '70%' }} />
+            )}
+          </>
+        ) : (
+          <>
+            {/* Track Title */}
             <div
               style={{
-                fontSize: tokens.typography.fontSize.sm,
-                color: themeVars.textSecondary,
+                fontSize: tokens.typography.fontSize.md,
+                fontWeight: tokens.typography.fontWeight.bold,
+                color: themeVars.textPrimary,
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 lineHeight: '1.4',
               }}
-              data-testid="track-display-meta"
-              title={[artist, album].filter(Boolean).join(' • ')}
+              data-testid="track-display-title"
+              title={title}
             >
-              {artist && <span data-testid="track-display-artist">{artist}</span>}
-              {artist && album && <span> • </span>}
-              {album && <span data-testid="track-display-album">{album}</span>}
+              {title}
             </div>
-          )}
-        </>
-      )}
+
+            {/* Artist and Album Info */}
+            {(artist || album) && (
+              <div
+                style={{
+                  fontSize: tokens.typography.fontSize.sm,
+                  color: themeVars.textSecondary,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  lineHeight: '1.4',
+                }}
+                data-testid="track-display-meta"
+                title={[artist, album].filter(Boolean).join(' • ')}
+              >
+                {artist && <span data-testid="track-display-artist">{artist}</span>}
+                {artist && album && <span> • </span>}
+                {album && <span data-testid="track-display-album">{album}</span>}
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 };

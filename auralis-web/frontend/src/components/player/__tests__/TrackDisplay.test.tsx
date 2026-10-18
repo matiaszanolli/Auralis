@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@/test/test-utils';
+import { render, screen, act } from '@/test/test-utils';
 import TrackDisplay from '../TrackDisplay';
 
 describe('TrackDisplay', () => {
@@ -294,6 +294,53 @@ describe('TrackDisplay', () => {
     });
   });
 
+  // #5521: the player bar never showed the artwork the backend emits on the
+  // player_state/queue TrackInfo. The orphaned TrackInfo.tsx variant was
+  // deleted; TrackDisplay is the one implementation.
+  describe('artwork thumbnail (#5521)', () => {
+    it('renders the artwork image when a URL is provided', () => {
+      render(<TrackDisplay title="Song" artworkUrl="/api/albums/1/artwork" />);
+
+      expect(screen.getByTestId('track-display-artwork')).toHaveAttribute(
+        'src',
+        '/api/albums/1/artwork'
+      );
+      expect(screen.queryByTestId('track-display-artwork-placeholder')).toBeNull();
+    });
+
+    it('renders a placeholder when no URL is provided', () => {
+      render(<TrackDisplay title="Song" />);
+
+      expect(screen.getByTestId('track-display-artwork-placeholder')).toBeInTheDocument();
+      expect(screen.queryByTestId('track-display-artwork')).toBeNull();
+    });
+
+    it('falls back to the placeholder when the image fails, and retries a new URL', () => {
+      const { rerender } = render(
+        <TrackDisplay title="Song" artworkUrl="https://blocked.invalid/a.jpg" />
+      );
+      act(() => {
+        screen
+          .getByTestId('track-display-artwork')
+          .dispatchEvent(new Event('error', { bubbles: true }));
+      });
+
+      expect(screen.getByTestId('track-display-artwork-placeholder')).toBeInTheDocument();
+
+      rerender(<TrackDisplay title="Song" artworkUrl="/api/albums/2/artwork" />);
+      expect(screen.getByTestId('track-display-artwork')).toHaveAttribute(
+        'src',
+        '/api/albums/2/artwork'
+      );
+    });
+
+    it('shows an artwork skeleton while loading', () => {
+      render(<TrackDisplay title="Song" isLoading />);
+
+      expect(screen.getByTestId('track-display-artwork-loading')).toBeInTheDocument();
+    });
+  });
+
   describe('CSS & Styling', () => {
     it('should accept custom className', () => {
       const { container } = render(
@@ -316,7 +363,8 @@ describe('TrackDisplay', () => {
       const display = screen.getByTestId('track-display');
       const styles = window.getComputedStyle(display);
       expect(styles.display).toBe('flex');
-      expect(styles.flexDirection).toBe('column');
+      // Row since #5521: artwork thumbnail on the left of the text column.
+      expect(styles.flexDirection).toBe('row');
     });
 
     it('should have proper test IDs', () => {
