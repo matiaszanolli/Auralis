@@ -75,9 +75,12 @@ export const SettingsDialogContentComponent = ({
 
       {activeTab === 4 && (
         <EnhancementSettingsPanel
-          defaultPreset={getValue('default_preset')}
+          // Legacy-degraded values arrive as null (#5517): fall back to the
+          // same defaults the panel's single Select option implies, mirroring
+          // the scanFolders ?? [] guard above.
+          defaultPreset={getValue('default_preset') ?? 'adaptive'}
           autoEnhance={getValue('auto_enhance')}
-          enhancementIntensity={getValue('enhancement_intensity')}
+          enhancementIntensity={getValue('enhancement_intensity') ?? 1.0}
           onSettingChange={onSettingChange}
         />
       )}

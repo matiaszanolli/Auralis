@@ -11,6 +11,7 @@ import { render, screen } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import SettingsDialog from '../SettingsDialog';
+import SettingsDialogContent from '../SettingsDialogContent';
 
 // Mock the settings service
 vi.mock('../../../services/settingsService', () => ({
@@ -134,6 +135,34 @@ describe('SettingsDialog', () => {
 
       // Dialog component renders without crashing (content may be in portal)
       expect(container).toBeInTheDocument();
+    });
+  });
+
+  // #5517: the backend degrades a legacy/out-of-range stored default_preset
+  // or enhancement_intensity to null on the wire; the dialog must fall back
+  // to sane defaults instead of feeding null to the Select/Slider.
+  describe('legacy-degraded settings fall back (#5517)', () => {
+    it('renders the Enhancement tab with adaptive/1.0 when both are null', () => {
+      render(
+        <SettingsDialogContent
+          activeTab={4}
+          getValue={(key) =>
+            key === 'default_preset' || key === 'enhancement_intensity' ? null : undefined
+          }
+          onSettingChange={vi.fn()}
+          onAddFolder={vi.fn()}
+          onRemoveFolder={vi.fn()}
+          onScanNow={vi.fn()}
+        />
+      );
+
+      expect(screen.getByRole('combobox', { name: 'Default Preset' })).toHaveTextContent(
+        'Adaptive'
+      );
+      expect(screen.getByRole('slider', { name: 'Enhancement intensity' })).toHaveAttribute(
+        'aria-valuenow',
+        '1'
+      );
     });
   });
 });

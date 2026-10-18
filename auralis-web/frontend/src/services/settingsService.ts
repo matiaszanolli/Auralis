@@ -35,9 +35,13 @@ export interface UserSettings {
   show_visualizations: boolean;
   mini_player_on_close: boolean;
   // Enhancement
-  default_preset: string;
+  // The backend deliberately degrades an out-of-range/legacy stored value to
+  // null on the wire (SettingsResponse._degrade_unknown_preset /
+  // _degrade_invalid_intensity) instead of echoing it — callers must fall
+  // back (#5517).
+  default_preset: string | null;
   auto_enhance: boolean;
-  enhancement_intensity: number;
+  enhancement_intensity: number | null;
   // Advanced
   cache_size: number;
   max_concurrent_scans: number;
