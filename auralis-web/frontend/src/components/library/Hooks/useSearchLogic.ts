@@ -79,8 +79,13 @@ export const useSearchLogic = (
       interface SearchTrackResponse {
         id: number;
         title: string;
-        artist: string;
-        album: string;
+        // Track.to_dict() emits artists[] (the singular `artist` key exists
+        // only in the Mock fallback path) — read it like trackTransformer
+        // does (#2263); the old inline `artist: string` rendered
+        // "undefined • Album" for every real track (#5516).
+        artists?: string[];
+        artist?: string;
+        album?: string | null;
         album_id?: number;
       }
       interface SearchAlbumResponse {
@@ -113,13 +118,16 @@ export const useSearchLogic = (
 
       if (controller.signal.aborted) return;
 
-      const tracks: SearchResult[] = (tracksData.tracks ?? []).map((track) => ({
-        type: 'track' as const,
-        id: track.id,
-        title: track.title,
-        subtitle: `${track.artist} • ${track.album}`,
-        albumId: track.album_id,
-      }));
+      const tracks: SearchResult[] = (tracksData.tracks ?? []).map((track) => {
+        const artist = track.artists?.[0] ?? track.artist;
+        return {
+          type: 'track' as const,
+          id: track.id,
+          title: track.title,
+          subtitle: [artist, track.album].filter(Boolean).join(' • '),
+          albumId: track.album_id,
+        };
+      });
 
       const albums: SearchResult[] = (albumsData.albums ?? []).map((album) => ({
         type: 'album' as const,

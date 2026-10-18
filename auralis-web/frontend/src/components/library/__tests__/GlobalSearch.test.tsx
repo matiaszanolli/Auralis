@@ -24,6 +24,23 @@ vi.mock('../../album/AlbumArt', () => ({
   },
 }));
 
+// API responses default to a realistic Track.to_dict() payload shape
+// (artists[] — the backend never emits a singular `artist` for real rows).
+const mockApiResponses: Record<string, unknown> = {};
+vi.mock('@/utils/apiRequest', () => ({
+  get: vi.fn((url: string) => {
+    for (const prefix of Object.keys(mockApiResponses)) {
+      if (url.includes(prefix)) return Promise.resolve(mockApiResponses[prefix]);
+    }
+    return Promise.resolve({});
+  }),
+}));
+
+function mockSearchResponses(responses: Record<string, unknown>) {
+  Object.keys(mockApiResponses).forEach((k) => delete mockApiResponses[k]);
+  Object.assign(mockApiResponses, responses);
+}
+
 describe('GlobalSearch', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -226,6 +243,54 @@ describe('GlobalSearch', () => {
         render(<GlobalSearch />);
       });
       expect(screen.getByPlaceholderText(/search/i)).toBeInTheDocument();
+    });
+  });
+
+  // #5516: the search hook read a singular `artist` field the backend never
+  // sends for real rows (Track.to_dict emits artists[]), so every track
+  // subtitle rendered "undefined • Album".
+  describe('Track results use the real payload shape (#5516)', () => {
+    async function searchFor(query: string) {
+      const user = userEvent.setup();
+      await act(async () => {
+        render(<GlobalSearch />);
+      });
+      await user.type(screen.getByPlaceholderText(/search/i), query);
+      // The 300ms debounce plus the (mocked) fetch settle before findByText's
+      // polling window ends.
+    }
+
+    it('renders the artist name from artists[] in the subtitle', async () => {
+      mockSearchResponses({
+        'library/tracks': {
+          tracks: [
+            {
+              id: 1,
+              title: 'One More Time',
+              artists: ['Daft Punk'],
+              album: 'Discovery',
+              album_id: 7,
+            },
+          ],
+        },
+        'library/albums': { albums: [] },
+        'library/artists': { artists: [] },
+      });
+
+      await searchFor('one more');
+      expect(await screen.findByText('Daft Punk • Discovery')).toBeInTheDocument();
+    });
+
+    it('falls back gracefully when artists[] and album are absent', async () => {
+      mockSearchResponses({
+        'library/tracks': { tracks: [{ id: 2, title: 'Untitled' }] },
+        'library/albums': { albums: [] },
+        'library/artists': { artists: [] },
+      });
+
+      await searchFor('untitled');
+      expect(await screen.findByText('Untitled')).toBeInTheDocument();
+      expect(screen.queryByText(/undefined/)).not.toBeInTheDocument();
     });
   });
 });
