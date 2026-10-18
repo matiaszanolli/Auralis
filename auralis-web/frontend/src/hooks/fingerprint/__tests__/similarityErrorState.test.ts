@@ -63,6 +63,35 @@ describe('classifySimilarityError', () => {
     });
   });
 
+  describe('the queue-rejected 404 (#5518)', () => {
+    const REJECTED_DETAIL =
+      'Track 7 does not have a fingerprint. ' +
+      'Not queued — the background queue is busy; try again shortly.';
+
+    it('is distinguished from the queued 404', () => {
+      const rejected = classifySimilarityError(REJECTED_DETAIL, 404);
+      const queued = classifySimilarityError(QUEUED_DETAIL, 404);
+
+      expect(rejected.kind).toBe('queue-rejected');
+      expect(rejected.kind).not.toBe(queued.kind);
+    });
+
+    it('is retryable but not calm progress — no false "few seconds" ETA', () => {
+      const state = classifySimilarityError(REJECTED_DETAIL, 404);
+
+      expect(state.retryable).toBe(true);
+      expect(state.transient).toBe(false);
+      expect(state.title).toMatch(/could not queue/i);
+    });
+
+    it('checks "not queued" before the bare "queued" substring', () => {
+      // "Not queued" contains "queued"; the wrong branch order would render
+      // the rejection as calm progress again — the exact #5518 bug.
+      const state = classifySimilarityError(REJECTED_DETAIL, 404);
+      expect(state.kind).not.toBe('queued');
+    });
+  });
+
   describe('the 503 — similarity system still initialising', () => {
     it('is retryable and distinct from every 404', () => {
       const state = classifySimilarityError(NOT_INITIALISED_DETAIL, 503);

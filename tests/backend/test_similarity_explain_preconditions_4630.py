@@ -253,6 +253,34 @@ class TestSiblingRoutesShareOnePolicy:
 
         assert client.get(SIMILAR.format(a=999)).status_code == 404
 
+    # #5518: the 404's detail must reflect the enqueue's real result — the
+    # frontend keys its calm retryable state on the word "queued".
+
+    @patch("routers.similarity.require_repository_factory")
+    def test_queued_enqueue_says_queued(self, require_repos, client, repos, queue):
+        require_repos.return_value = repos
+        _tracks_exist(repos, 1)
+        _fingerprints_exist(repos)  # none
+        queue.enqueue.return_value = True
+
+        detail = client.get(SIMILAR.format(a=1)).json()["detail"]
+
+        assert "queued for background processing" in detail.lower()
+
+    @patch("routers.similarity.require_repository_factory")
+    def test_rejected_enqueue_says_not_queued(self, require_repos, client, repos, queue):
+        """A full/claim-rejected enqueue must not advertise a self-healing
+        queue entry that does not exist."""
+        require_repos.return_value = repos
+        _tracks_exist(repos, 1)
+        _fingerprints_exist(repos)  # none
+        queue.enqueue.return_value = False
+
+        detail = client.get(SIMILAR.format(a=1)).json()["detail"]
+
+        assert "not queued" in detail.lower()
+        assert "queued for background processing" not in detail.lower()
+
     def test_all_three_routes_use_the_shared_helper(self):
         """A copy left behind would recreate the divergence this issue is about."""
         # Module source, not create_similarity_router's: #4670 hoisted the

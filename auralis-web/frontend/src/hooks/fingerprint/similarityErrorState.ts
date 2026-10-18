@@ -18,7 +18,12 @@
  */
 
 /** Which of the backend's distinct failure states a response represents. */
-export type SimilarityErrorKind = 'queued' | 'initialising' | 'not-found' | 'failed';
+export type SimilarityErrorKind =
+  | 'queued'
+  | 'queue-rejected'
+  | 'initialising'
+  | 'not-found'
+  | 'failed';
 
 export interface SimilarityErrorState {
   kind: SimilarityErrorKind;
@@ -48,6 +53,14 @@ export interface SimilarityErrorState {
 const QUEUED_MARKER = 'queued';
 
 /**
+ * Marker for the third 404 (#5518): the router tried to queue the track and
+ * the queue refused (full, or already being processed). Checked BEFORE
+ * QUEUED_MARKER — "not queued" contains that word as a substring — and
+ * matched as a phrase so "queued" alone can never trigger it.
+ */
+const NOT_QUEUED_MARKER = 'not queued';
+
+/**
  * Turn `(error message, HTTP status)` from `useSimilarTracks` into a renderable
  * state.
  *
@@ -70,6 +83,19 @@ export function classifySimilarityError(
   }
 
   if (status === 404) {
+    if (message.toLowerCase().includes(NOT_QUEUED_MARKER)) {
+      // #5518: the backend tried to queue the track and the queue refused.
+      // A retry is plausible (the queue drains) but not "a few seconds" —
+      // render it as a real failure state, not calm progress.
+      return {
+        kind: 'queue-rejected',
+        title: 'Could not queue this track',
+        hint: 'The background analysis queue is busy. Try again in a few minutes.',
+        retryable: true,
+        transient: false,
+      };
+    }
+
     if (message.toLowerCase().includes(QUEUED_MARKER)) {
       return {
         kind: 'queued',

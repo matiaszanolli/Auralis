@@ -160,11 +160,18 @@ async def require_fingerprinted_tracks(repos: Any, *track_ids: int) -> None:
 
     for track_id in track_ids:
         if not await asyncio.to_thread(repos.fingerprints.exists, track_id):
-            await enqueue_for_fingerprinting(track_id)
-            raise NotFoundError(
-                "Track",
-                detail=(
+            # #5518: vary the message by the enqueue's real result — the
+            # frontend's classifySimilarityError keys on the word "queued"
+            # for its calm retryable state, which was wrong when the queue
+            # rejected the track (full, or already being processed).
+            queued = await enqueue_for_fingerprinting(track_id)
+            detail = (
+                f"Track {track_id} does not have a fingerprint. "
+                "Queued for background processing."
+                if queued
+                else (
                     f"Track {track_id} does not have a fingerprint. "
-                    "Queued for background processing."
-                ),
+                    "Not queued — the background queue is busy; try again shortly."
+                )
             )
+            raise NotFoundError("Track", detail=detail)
