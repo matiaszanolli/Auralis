@@ -19,13 +19,12 @@ import time
 from pathlib import Path
 from unittest.mock import Mock
 
-import numpy as np
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
 import analysis.fingerprint_generator as fpg
-from analysis.fingerprint_generator import FingerprintGenerator, _load_and_prepare_audio
+from analysis.fingerprint_generator import FingerprintGenerator
 
 
 def _make_generator(get_by_track_id):
@@ -96,52 +95,62 @@ class TestDbLookupOffload:
         )
 
 
-class TestLoadAndPrepareAudio:
-    def test_helper_interleaves_stereo_as_float32(self):
-        """_load_and_prepare_audio interleaves stereo and casts to float32."""
-        stereo = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float64)  # (frames, ch)
+class TestWindowedComputeOffload:
+    """#5531: the heavy sync work in _generate_via_rust is now one bounded
+    windowed-pipeline task on the executor (decode + Rust analysis), instead
+    of a full-file load followed by a raw schema call."""
 
-        def _fake_load(_fp):
-            return stereo, 48000
+    def test_executor_task_delegates_to_the_windowed_pipeline(self, monkeypatch):
+        """_compute_windowed_fingerprint_in_thread runs the shared windowed
+        pipeline and returns its result verbatim."""
+        expected = {"lufs": -14.0, "bass_pct": 0.2}
+        recorded: list[Path] = []
 
-        orig = fpg.load_audio
-        fpg.load_audio = _fake_load
-        try:
-            arr, sr, ch = _load_and_prepare_audio("/fake.wav")
-        finally:
-            fpg.load_audio = orig
+        def _fake_windowed(_analyzer, path):
+            recorded.append(path)
+            return expected
 
-        assert ch == 2
-        assert sr == 48000
-        assert arr.dtype == np.float32
-        # Interleaved L1,R1,L2,R2 (row-major of (frames, ch)), which is what the
-        # Rust engine reads. This used to assert [1, 3, 2, 4] — all of L then all
-        # of R — i.e. it pinned the order='F' bug of #5556 as if it were
-        # interleaving.
-        assert np.allclose(arr, np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32))
+        import auralis.analysis.fingerprint.windowed_compute as wc
+
+        monkeypatch.setattr(wc, "compute_windowed_fingerprint", _fake_windowed)
+
+        result = fpg._compute_windowed_fingerprint_in_thread("/fake.wav")
+
+        assert result is expected
+        assert recorded and recorded[0] == Path("/fake.wav")
+
+    def test_executor_task_returns_none_when_the_pipeline_fails(self, monkeypatch):
+        import auralis.analysis.fingerprint.windowed_compute as wc
+
+        def _boom(_analyzer, _path):
+            raise RuntimeError("decode failed")
+
+        monkeypatch.setattr(wc, "compute_windowed_fingerprint", _boom)
+
+        assert fpg._compute_windowed_fingerprint_in_thread("/fake.wav") is None
 
     @pytest.mark.asyncio
-    async def test_audio_load_runs_off_thread(self):
-        """_generate_via_rust loads audio on a worker thread, not the loop."""
+    async def test_fingerprint_compute_runs_off_thread(self):
+        """_generate_via_rust runs the compute on an executor worker, not the
+        event loop."""
         main_thread = threading.current_thread()
         seen: list[threading.Thread] = []
 
-        def _fake_load(_fp):
+        def _fake_compute(_filepath):
             seen.append(threading.current_thread())
-            return np.zeros((1000, 2), dtype=np.float32), 44100
+            return {"lufs": -14.0}
 
         gen = FingerprintGenerator(session_factory=Mock(), get_repository_factory=Mock())
 
-        orig = fpg.load_audio
-        fpg.load_audio = _fake_load
+        orig = fpg._compute_windowed_fingerprint_in_thread
+        fpg._compute_windowed_fingerprint_in_thread = _fake_compute
         try:
-            # Returns None without a real Rust module — we only assert the
-            # audio load ran off the event-loop thread.
-            await gen._generate_via_rust(filepath="/fake.wav", track_id=1)
+            result = await gen._generate_via_rust(filepath="/fake.wav", track_id=1)
         finally:
-            fpg.load_audio = orig
+            fpg._compute_windowed_fingerprint_in_thread = orig
 
-        assert seen, "load_audio was called"
+        assert result == {"lufs": -14.0}
+        assert seen, "the windowed compute was called"
         assert seen[0] is not main_thread, (
-            "load_audio must run via asyncio.to_thread, not on the event-loop thread"
+            "the fingerprint compute must run on an executor worker, not the event-loop thread"
         )
