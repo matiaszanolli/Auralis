@@ -16,12 +16,19 @@ from dataclasses import dataclass
 def _smooth_unit(value: float, center: float, scale: float) -> float:
     """Map an unbounded measurement smoothly into the open interval ``(0, 1)``.
 
-    A non-finite measurement maps to the neutral midpoint: ``tanh(nan)`` is
-    ``nan``, and one NaN coordinate makes every generated parameter NaN (#5505).
+    NaN maps to the neutral midpoint: ``tanh(nan)`` is ``nan``, and one NaN
+    coordinate makes every generated parameter NaN (#5505). ±Inf saturates to
+    the interval's ends, exactly like a large-but-finite input already does
+    through ``tanh`` — collapsing Inf to the midpoint conflated "undefined"
+    with "extreme" (#5534).
     """
     value = float(value)
-    if not math.isfinite(value):
+    if math.isnan(value):
         return 0.5
+    if value == math.inf:
+        return 1.0
+    if value == -math.inf:
+        return 0.0
     return 0.5 + 0.5 * math.tanh((value - center) / (2.0 * scale))
 
 
@@ -221,12 +228,28 @@ class ProcessingSpaceMapper:
             + fp['presence_pct']
             + fp['air_pct']
         )
-        ratio = (high_energy + self._ENERGY_EPSILON) / (low_energy + self._ENERGY_EPSILON)
-        # A non-finite band value gives a NaN or non-positive ratio; NaN makes
-        # _smooth_unit fall back to its neutral midpoint (#5505).
-        log_high_low = (
-            math.log(ratio) if math.isfinite(ratio) and ratio > 0 else math.nan
-        )
+        low_total = low_energy + self._ENERGY_EPSILON
+        high_total = high_energy + self._ENERGY_EPSILON
+        # The band fractions are sanitized (no NaN/Inf) but not clamped, so a
+        # tiny negative sum can push a total through zero (#5534). Each side
+        # of the ratio saturates monotonically toward its asymptote as it
+        # approaches zero (log -> ±Inf -> _smooth_unit's end values), so
+        # continue that saturation instead of dividing by zero or jumping to
+        # the neutral fallback. NaN energies keep falling through to the NaN
+        # branch and stay neutral (#5505).
+        if low_total <= 0.0:
+            log_high_low = math.inf
+        elif high_total <= 0.0:
+            log_high_low = -math.inf
+        else:
+            ratio = high_total / low_total
+            if math.isnan(ratio):
+                log_high_low = math.nan
+            elif ratio <= 0.0:
+                # Tiny/huge underflow: the limit of the curve, not an error.
+                log_high_low = -math.inf
+            else:
+                log_high_low = math.log(ratio)
 
         band_coordinate = _smooth_unit(
             log_high_low,
