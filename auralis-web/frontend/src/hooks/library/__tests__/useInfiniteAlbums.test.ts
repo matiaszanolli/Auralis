@@ -3,6 +3,11 @@
  *
  * Tests for TanStack Query-based infinite album scrolling.
  *
+ * #5519: the query function went through a bare fetch() with no timeout (a
+ * stalled backend left the grid's loading states pending forever — #5019's
+ * bug class); it now uses the shared `get()` transport, so these tests mock
+ * `@/utils/apiRequest` instead of globalThis.fetch.
+ *
  * @module hooks/library/__tests__/useInfiniteAlbums.test
  */
 
@@ -15,10 +20,9 @@ vi.mock('@/api/transformers', () => ({
   transformAlbumsResponse: vi.fn((data: any) => data),
 }));
 
-vi.mock('@/config/api', () => ({
-  API_BASE_URL: 'http://localhost:8765',
-  // Hook migrated from API_BASE_URL concat to getApiUrl() (#3988)
-  getApiUrl: (path: string) => `http://localhost:8765${path}`,
+const { getMock } = vi.hoisted(() => ({ getMock: vi.fn() }));
+vi.mock('@/utils/apiRequest', () => ({
+  get: getMock,
 }));
 
 import { useInfiniteAlbums } from '../useInfiniteAlbums';
@@ -58,15 +62,12 @@ function mockAlbumsPage(offset: number, limit: number, total: number) {
 describe('useInfiniteAlbums', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.restoreAllMocks();
+    getMock.mockResolvedValue({});
   });
 
   it('should fetch initial page of albums', async () => {
     const page = mockAlbumsPage(0, 50, 100);
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve(page),
-    } as Response);
+    getMock.mockResolvedValueOnce(page);
     vi.mocked(transformAlbumsResponse).mockReturnValueOnce(page as any);
 
     const { result } = renderHook(() => useInfiniteAlbums(), {
@@ -82,11 +83,7 @@ describe('useInfiniteAlbums', () => {
 
   it('should respect custom limit option', async () => {
     const page = mockAlbumsPage(0, 20, 30);
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve(page),
-    } as Response);
-    vi.mocked(transformAlbumsResponse).mockReturnValueOnce(page as any);
+    getMock.mockResolvedValueOnce(page);
 
     const { result } = renderHook(() => useInfiniteAlbums({ limit: 20 }), {
       wrapper: createWrapper(),
@@ -94,17 +91,13 @@ describe('useInfiniteAlbums', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-    const fetchUrl = vi.mocked(globalThis.fetch).mock.calls[0][0] as string;
-    expect(fetchUrl).toContain('limit=20');
+    const endpoint = getMock.mock.calls[0][0] as string;
+    expect(endpoint).toContain('limit=20');
   });
 
   it('should include search parameter in fetch URL', async () => {
     const page = mockAlbumsPage(0, 50, 1);
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve(page),
-    } as Response);
-    vi.mocked(transformAlbumsResponse).mockReturnValueOnce(page as any);
+    getMock.mockResolvedValueOnce(page);
 
     const { result } = renderHook(() => useInfiniteAlbums({ search: 'abbey' }), {
       wrapper: createWrapper(),
@@ -112,17 +105,13 @@ describe('useInfiniteAlbums', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-    const fetchUrl = vi.mocked(globalThis.fetch).mock.calls[0][0] as string;
-    expect(fetchUrl).toContain('search=abbey');
+    const endpoint = getMock.mock.calls[0][0] as string;
+    expect(endpoint).toContain('search=abbey');
   });
 
   it('should report hasNextPage when more data available', async () => {
     const page = mockAlbumsPage(0, 50, 100);
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve(page),
-    } as Response);
-    vi.mocked(transformAlbumsResponse).mockReturnValueOnce(page as any);
+    getMock.mockResolvedValueOnce(page);
 
     const { result } = renderHook(() => useInfiniteAlbums(), {
       wrapper: createWrapper(),
@@ -135,11 +124,7 @@ describe('useInfiniteAlbums', () => {
 
   it('should report no next page when all data loaded', async () => {
     const page = mockAlbumsPage(0, 50, 10);
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve(page),
-    } as Response);
-    vi.mocked(transformAlbumsResponse).mockReturnValueOnce(page as any);
+    getMock.mockResolvedValueOnce(page);
 
     const { result } = renderHook(() => useInfiniteAlbums(), {
       wrapper: createWrapper(),
@@ -150,16 +135,10 @@ describe('useInfiniteAlbums', () => {
     expect(result.current.hasNextPage).toBe(false);
   });
 
-  it('surfaces the backend detail on a fetch error (#4626)', async () => {
-    // Was `Failed to fetch albums: ${statusText}`, which discarded the body —
-    // and rendered as a bare "Failed to fetch albums: " over HTTP/2, where
-    // statusText is empty.
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
-      ok: false,
-      status: 500,
-      statusText: '',
-      json: () => Promise.resolve({ detail: 'Library database is locked' }),
-    } as unknown as Response);
+  it('propagates the transport error with the backend detail (#4626)', async () => {
+    // apiRequest parses the body's detail and throws with it; the hook must
+    // surface that message, not wrap or discard it.
+    getMock.mockRejectedValueOnce(new Error('Library database is locked'));
 
     const { result } = renderHook(() => useInfiniteAlbums(), {
       wrapper: createWrapper(),
@@ -170,13 +149,10 @@ describe('useInfiniteAlbums', () => {
     expect(result.current.error?.message).toBe('Library database is locked');
   });
 
-  it('falls back to the status line when the body carries no detail', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
-      ok: false,
-      status: 500,
-      statusText: 'Internal Server Error',
-      json: () => Promise.reject(new Error('not json')),
-    } as unknown as Response);
+  it('a rejected transport promise becomes a retryable error state', async () => {
+    // The #5519 point: the shared transport rejects on timeout, which
+    // TanStack Query can retry — a hung bare fetch() never rejected at all.
+    getMock.mockRejectedValueOnce(new Error('Request timed out after 30000ms'));
 
     const { result } = renderHook(() => useInfiniteAlbums(), {
       wrapper: createWrapper(),
@@ -184,15 +160,10 @@ describe('useInfiniteAlbums', () => {
 
     await waitFor(() => expect(result.current.isError).toBe(true));
 
-    expect(result.current.error?.message).toBe('HTTP 500: Internal Server Error');
+    expect(result.current.error?.message).toContain('timed out');
   });
 
   it('should not fetch when enabled is false', async () => {
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve(mockAlbumsPage(0, 50, 0)),
-    } as Response);
-
     const { result } = renderHook(() => useInfiniteAlbums({ enabled: false }), {
       wrapper: createWrapper(),
     });
@@ -200,12 +171,12 @@ describe('useInfiniteAlbums', () => {
     // Flush microtasks to ensure any async effects have settled
     await act(async () => {});
 
-    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(getMock).not.toHaveBeenCalled();
     expect(result.current.data).toBeUndefined();
   });
 
   it('should handle network failure', async () => {
-    vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new Error('Network error'));
+    getMock.mockRejectedValueOnce(new TypeError('Network error'));
 
     const { result } = renderHook(() => useInfiniteAlbums(), {
       wrapper: createWrapper(),
@@ -217,7 +188,7 @@ describe('useInfiniteAlbums', () => {
   });
 
   it('should start in loading state', () => {
-    vi.spyOn(globalThis, 'fetch').mockReturnValue(new Promise(() => {})); // never resolves
+    getMock.mockReturnValue(new Promise(() => {})); // never resolves
 
     const { result } = renderHook(() => useInfiniteAlbums(), {
       wrapper: createWrapper(),
@@ -231,10 +202,7 @@ describe('useInfiniteAlbums', () => {
     const rawPage = mockAlbumsPage(0, 50, 5);
     const transformedPage = { ...rawPage, albums: rawPage.albums.map((a) => ({ ...a, transformed: true })) };
 
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve(rawPage),
-    } as Response);
+    getMock.mockResolvedValueOnce(rawPage);
     vi.mocked(transformAlbumsResponse).mockReturnValueOnce(transformedPage as any);
 
     const { result } = renderHook(() => useInfiniteAlbums(), {
@@ -248,11 +216,7 @@ describe('useInfiniteAlbums', () => {
 
   it('should use correct query key based on search and limit', async () => {
     const page = mockAlbumsPage(0, 25, 5);
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve(page),
-    } as Response);
-    vi.mocked(transformAlbumsResponse).mockReturnValueOnce(page as any);
+    getMock.mockResolvedValueOnce(page);
 
     // Render with specific options - the query key should include them
     const { result } = renderHook(() => useInfiniteAlbums({ limit: 25, search: 'test' }), {
@@ -261,9 +225,9 @@ describe('useInfiniteAlbums', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-    const fetchUrl = vi.mocked(globalThis.fetch).mock.calls[0][0] as string;
-    expect(fetchUrl).toContain('limit=25');
-    expect(fetchUrl).toContain('search=test');
-    expect(fetchUrl).toContain('offset=0');
+    const endpoint = getMock.mock.calls[0][0] as string;
+    expect(endpoint).toContain('limit=25');
+    expect(endpoint).toContain('search=test');
+    expect(endpoint).toContain('offset=0');
   });
 });

@@ -12,8 +12,7 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { transformAlbumsResponse } from '@/api/transformers';
 import type { AlbumsApiResponse } from '@/api/transformers';
-import { getApiUrl } from '@/config/api';
-import { httpErrorFromResponse } from '@/utils/httpError';
+import { get } from '@/utils/apiRequest';
 
 interface UseInfiniteAlbumsOptions {
   limit?: number;
@@ -43,15 +42,11 @@ async function fetchAlbums({
     params.append('search', search);
   }
 
-  const response = await fetch(getApiUrl(`/api/albums?${params}`));
-
-  if (!response.ok) {
-    // Same `statusText`-only discard as the fingerprint hooks (#4626).
-    throw await httpErrorFromResponse(response);
-  }
-
-  // Return raw API response (snake_case) - transformation happens in useInfiniteAlbums
-  return response.json();
+  // Shared transport (#5519, sibling of #5019's sweep): composes the 30s
+  // default timeout with the query's AbortSignal. TanStack Query only
+  // retries *rejected* promises, so the old bare fetch() left the grid's
+  // loading states pending forever when the backend stalled.
+  return get<AlbumsApiResponse>(`/api/albums?${params}`);
 }
 
 /**
