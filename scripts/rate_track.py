@@ -16,13 +16,13 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-import librosa
 import numpy as np
 
 from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
     AudioFingerprintAnalyzer,
 )
 from auralis.core.recording_type_detector import RecordingTypeDetector
+from auralis.io.unified_loader import load_audio
 
 
 def rate_track(
@@ -61,9 +61,10 @@ def rate_track(
     print(f"Analyzing: {audio_path.name}...", end=" ", flush=True)
 
     try:
-        audio, sr = librosa.load(
-            str(audio_path), sr=44100, mono=False
-        )
+        # Shared production loader (#5535): routes FFmpeg-only formats
+        # (m4a/aac/wma) through load_with_ffmpeg. librosa 1.0 dropped the
+        # audioread fallback, so a direct librosa.load() fails on those.
+        audio, sr = load_audio(audio_path, target_sample_rate=44100)
     except Exception as e:
         print(f"\n✗ Could not load audio: {e}")
         return
