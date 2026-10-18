@@ -115,10 +115,12 @@ def process_reference_mode(
 
     # Apply brick-wall limiter for final peak control (same as adaptive/hybrid)
     processed = processor.brick_wall_limiter.process(processed)
-    assert processed.shape == target_audio.shape, (
-        f"Sample count mismatch after limiter (reference): "
-        f"expected {target_audio.shape}, got {processed.shape}"
-    )
+    # raise, not assert — asserts vanish under python -O (#5533, cf. #5511).
+    if processed.shape != target_audio.shape:
+        raise RuntimeError(
+            f"Sample count mismatch after limiter (reference): "
+            f"expected {target_audio.shape}, got {processed.shape}"
+        )
 
     # Fail fast on NaN/Inf in mastering output — surface DSP bugs rather than
     # silently masking them with zero-replacement (fixes #2520).

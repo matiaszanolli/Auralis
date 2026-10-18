@@ -2,7 +2,8 @@
 Regression test: runtime sample count assertion in HybridProcessor (#2369, #2519)
 
 Verifies that the brick-wall limiter in HybridProcessor preserves sample count.
-A shape mismatch triggers an AssertionError (fail-fast) rather than silently
+A shape mismatch raises RuntimeError (fail-fast, and immune to python -O,
+#5533) rather than silently
 producing misaligned gapless audio.
 
 :copyright: (C) 2024 Auralis Team
@@ -17,22 +18,29 @@ from unittest.mock import MagicMock, patch
 class TestSampleCountInvariant:
     """Regression: limiter must preserve sample count (#2519)."""
 
-    def test_assertion_present_in_source(self):
-        """Verify the assertion exists in the source code."""
+    def test_invariant_check_present_in_source(self):
+        """Verify the sample-count check exists in adaptive mode (#5533: it
+        must be a raise, not an assert — asserts vanish under python -O)."""
         import inspect
         from auralis.core.hybrid_processor import HybridProcessor
         source = inspect.getsource(HybridProcessor._process_adaptive_mode)
-        assert "processed.shape == target_audio.shape" in source, (
-            "Sample-count assertion missing from _process_adaptive_mode"
+        assert "if processed.shape != target_audio.shape:" in source, (
+            "Sample-count check missing from _process_adaptive_mode"
+        )
+        assert "raise RuntimeError(" in source, (
+            "Sample-count check must raise, not assert"
         )
 
-    def test_assertion_present_in_hybrid_mode(self):
-        """Verify the assertion exists in hybrid mode too."""
+    def test_invariant_check_present_in_hybrid_mode(self):
+        """Verify the sample-count check exists in hybrid mode too."""
         import inspect
         from auralis.core.hybrid_processor import HybridProcessor
         source = inspect.getsource(HybridProcessor._process_hybrid_mode)
-        assert "processed.shape == target_audio.shape" in source, (
-            "Sample-count assertion missing from _process_hybrid_mode"
+        assert "if processed.shape != target_audio.shape:" in source, (
+            "Sample-count check missing from _process_hybrid_mode"
+        )
+        assert "raise RuntimeError(" in source, (
+            "Sample-count check must raise, not assert"
         )
 
     def test_limiter_preserves_shape_mono(self):

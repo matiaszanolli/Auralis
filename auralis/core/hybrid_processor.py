@@ -270,11 +270,13 @@ class HybridProcessor:
         # Apply brick-wall limiter for final peak control
         # Ensures output never clips and stays within safe range
         processed = self.brick_wall_limiter.process(processed)
-        # Sample-count invariant: limiter must preserve length (fixes #2519)
-        assert processed.shape == target_audio.shape, (
-            f"Sample count mismatch after limiter (adaptive): "
-            f"expected {target_audio.shape}, got {processed.shape}"
-        )
+        # Sample-count invariant: limiter must preserve length (fixes #2519).
+        # raise, not assert — asserts vanish under python -O (#5533, cf. #5511).
+        if processed.shape != target_audio.shape:
+            raise RuntimeError(
+                f"Sample count mismatch after limiter (adaptive): "
+                f"expected {target_audio.shape}, got {processed.shape}"
+            )
 
         # Fail fast on NaN/Inf in mastering output — surface DSP bugs rather than
         # silently masking them with zero-replacement (fixes #2520).
@@ -297,11 +299,13 @@ class HybridProcessor:
         # Apply brick-wall limiter for final peak control
         # Ensures output never clips and stays within safe range
         processed = self.brick_wall_limiter.process(processed)
-        # Sample-count invariant: limiter must preserve length (fixes #2519)
-        assert processed.shape == target_audio.shape, (
-            f"Sample count mismatch after limiter (hybrid): "
-            f"expected {target_audio.shape}, got {processed.shape}"
-        )
+        # Sample-count invariant: limiter must preserve length (fixes #2519).
+        # raise, not assert — asserts vanish under python -O (#5533, cf. #5511).
+        if processed.shape != target_audio.shape:
+            raise RuntimeError(
+                f"Sample count mismatch after limiter (hybrid): "
+                f"expected {target_audio.shape}, got {processed.shape}"
+            )
 
         # Fail fast on NaN/Inf in mastering output — surface DSP bugs rather than
         # silently masking them with zero-replacement (fixes #2520).

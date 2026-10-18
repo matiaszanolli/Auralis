@@ -112,9 +112,11 @@ def apply_hf_aware_limiter(
     # Preserve dtype/shape exactly (sosfilt can upcast float32 -> float64).
     if restored.dtype != in_dtype:
         restored = restored.astype(in_dtype, copy=False)
-    assert restored.shape == in_shape, (
-        f"HF-aware limiter shape changed: in={in_shape}, out={restored.shape}"
-    )
+    # raise, not assert — asserts vanish under python -O (#5533, cf. #5511).
+    if restored.shape != in_shape:
+        raise RuntimeError(
+            f"HF-aware limiter shape changed: in={in_shape}, out={restored.shape}"
+        )
     return restored, True
 
 
