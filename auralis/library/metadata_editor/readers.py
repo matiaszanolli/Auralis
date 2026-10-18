@@ -115,6 +115,33 @@ class MetadataReaders:
         return MetadataReaders.read_flac_metadata(audio_file)
 
     @staticmethod
+    def read_asf_metadata(audio_file: Any) -> dict[str, str | None]:
+        """
+        Read metadata from an ASF/WMA file (#5536).
+
+        Reads the real ASF attribute names (Title, Author, WM/*) — the old
+        generic fallthrough lowercased raw keys and missed 'Author' and every
+        'WM/'-prefixed standard field entirely.
+
+        Args:
+            audio_file: Mutagen ASF file object
+
+        Returns:
+            Dictionary of metadata fields
+        """
+        metadata: dict[str, str | None] = {}
+        tag_map: dict[str, str] = TAG_MAPPINGS['wma']
+
+        for field, tag_key in tag_map.items():
+            if tag_key in audio_file:
+                value = audio_file[tag_key]
+                if isinstance(value, list) and value:
+                    value = value[0]
+                metadata[field] = str(value) if value else None
+
+        return metadata
+
+    @staticmethod
     def read_generic_metadata(audio_file: Any) -> dict[str, str | None]:
         """
         Read metadata using generic method

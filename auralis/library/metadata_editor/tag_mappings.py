@@ -84,6 +84,27 @@ TAG_MAPPINGS: dict[str, dict[str, str]] = {
         'publisher': 'PUBLISHER',
         'lyrics': 'LYRICS',
         'copyright': 'COPYRIGHT'
+    },
+    'wma': {
+        # ASF/WMA attribute names (#5536). Title/Author/Copyright are the
+        # spec's top-level content-description fields; everything else lives
+        # in the WM/ namespace. Writing the app's lowercase field names as
+        # raw keys (the old generic-writer fallthrough) was invisible to
+        # every other player.
+        'title': 'Title',
+        'artist': 'Author',
+        'album': 'WM/AlbumTitle',
+        'albumartist': 'WM/AlbumArtist',
+        'year': 'WM/Year',
+        'genre': 'WM/Genre',
+        'track': 'WM/TrackNumber',
+        'disc': 'WM/PartOfSet',
+        'comment': 'COMMENT',
+        'bpm': 'WM/BeatsPerMinute',
+        'composer': 'WM/Composer',
+        'publisher': 'WM/Publisher',
+        'lyrics': 'WM/Lyrics',
+        'copyright': 'Copyright'
     }
 }
 
@@ -95,7 +116,8 @@ EXTENSION_FORMAT_MAP: dict[str, str] = {
     'aac': 'm4a',
     'mp4': 'm4a',
     'ogg': 'ogg',
-    'oga': 'ogg'
+    'oga': 'ogg',
+    'wma': 'wma'
 }
 
 

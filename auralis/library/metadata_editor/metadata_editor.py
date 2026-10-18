@@ -13,6 +13,7 @@ from typing import Any
 
 try:
     from mutagen import File as MutagenFile
+    from mutagen.asf import ASF
     from mutagen.flac import FLAC
     from mutagen.mp4 import MP4
     from mutagen.oggopus import OggOpus
@@ -65,7 +66,7 @@ class MetadataEditor:
 
     def get_supported_formats(self) -> list[str]:
         """Get list of supported audio formats"""
-        return ['mp3', 'flac', 'm4a', 'aac', 'ogg', 'wav']
+        return ['mp3', 'flac', 'm4a', 'aac', 'ogg', 'wav', 'wma']
 
     def get_editable_fields(self, filepath: str) -> list[str]:
         """
@@ -119,6 +120,10 @@ class MetadataEditor:
             elif isinstance(audio_file, WAVE) or ext == 'wav':
                 # WAV stores tags as embedded ID3 frames (#4130).
                 metadata = self.readers.read_mp3_metadata(audio_file)
+            elif isinstance(audio_file, ASF) or ext == 'wma':
+                # Real ASF attribute names (#5536); the generic fallthrough
+                # lowercase-matched raw keys and missed Author/WM/* fields.
+                metadata = self.readers.read_asf_metadata(audio_file)
             elif ext == 'mp3':
                 metadata = self.readers.read_mp3_metadata(audio_file)
             else:
@@ -183,6 +188,10 @@ class MetadataEditor:
                 elif isinstance(audio_file, WAVE) or ext == 'wav':
                     # WAV stores tags as embedded ID3 frames (#4130).
                     self.writers.write_mp3_metadata(audio_file, metadata)
+                elif isinstance(audio_file, ASF) or ext == 'wma':
+                    # Real ASF attribute names (#5536); the generic fallthrough
+                    # wrote bogus lowercase keys no other player reads.
+                    self.writers.write_asf_metadata(audio_file, metadata)
                 elif ext == 'mp3':
                     self.writers.write_mp3_metadata(audio_file, metadata)
                 else:
