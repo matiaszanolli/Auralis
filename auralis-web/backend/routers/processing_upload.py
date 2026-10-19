@@ -108,7 +108,12 @@ async def upload_and_process(
     # Save uploaded file to temp location
     temp_dir = Path(tempfile.gettempdir()) / UPLOAD_TEMP_DIRNAME
 
-    # Enforce size limit before reading the whole body (#2560)
+    # Reject oversized uploads (#2560). Starlette's multipart parser has
+    # already spooled the whole body into the UploadFile by the time this
+    # handler runs (memory up to its spool threshold, then disk), so this
+    # checks size on that already-materialized content — it bounds what this
+    # handler reads into memory, not what came off the wire (#5270). The +1
+    # lets us detect overflow via length compare.
     content = await file.read(_MAX_UPLOAD_BYTES + 1)
     if len(content) > _MAX_UPLOAD_BYTES:
         raise HTTPException(

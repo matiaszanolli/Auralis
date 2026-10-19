@@ -243,11 +243,13 @@ async def upload_files(
                 continue
 
             # Save uploaded file to temporary location.
-            # Cap the read at the source instead of buffering the whole
-            # body first (fixes #3494 / BE-NEW-36 — prior code did
-            # `await file.read()` with no size limit and only checked the
-            # cap AFTER reading, so a 2 GB POST OOM'd the backend before
-            # rejection). +1 lets us detect overflow via length compare.
+            # Cap the handler's in-memory read (fixes #3494 / BE-NEW-36 —
+            # prior code did `await file.read()` with no size limit and only
+            # checked the cap AFTER reading, so a 2 GB POST OOM'd the backend
+            # before rejection). Starlette has already spooled the whole
+            # multipart body into the UploadFile before this runs (#5270), so
+            # this bounds what we materialize into memory, not what came off
+            # the wire. +1 lets us detect overflow via length compare.
             suffix = Path(file.filename).suffix if file.filename else ""
             content = await file.read(_MAX_UPLOAD_BYTES + 1)
             if len(content) > _MAX_UPLOAD_BYTES:
