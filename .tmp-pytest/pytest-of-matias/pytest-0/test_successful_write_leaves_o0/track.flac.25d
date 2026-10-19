@@ -1,0 +1,16 @@
+{
+  "format_version": "2.0",
+  "fingerprint_algorithm_version": 9,
+  "auralis_version": "1.5.1",
+  "generated_at": "2026-10-19T22:02:24.910348+00:00",
+  "audio_file": {
+    "path": "track.flac",
+    "size_bytes": 50,
+    "modified_at": "2026-10-20T03:32:24.910212"
+  },
+  "fingerprint": {
+    "a": 1.0
+  },
+  "processing_cache": {},
+  "metadata": {}
+}

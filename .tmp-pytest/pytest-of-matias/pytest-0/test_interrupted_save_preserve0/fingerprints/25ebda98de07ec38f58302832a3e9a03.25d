@@ -1,0 +1,14 @@
+{
+  "cache_key": "25ebda98de07ec38f58302832a3e9a03",
+  "duration_seconds": 0.0,
+  "extracted_at": "2026-10-19T22:02:24.913387+00:00",
+  "fingerprint": {
+    "lufs": -14.0
+  },
+  "mastering_targets": {
+    "gain": 1.0
+  },
+  "sample_rate": 44100,
+  "source_file": "/mnt/data/src/matchering/.tmp-pytest/pytest-of-matias/pytest-0/test_interrupted_save_preserve0/track.flac",
+  "version": "2.0"
+}
