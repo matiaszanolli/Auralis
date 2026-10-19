@@ -540,23 +540,26 @@ class TestLongRunningOperations:
 
         repo = TrackRepository(large_library_db)
 
-        # Perform many operations
+        # Perform many read/update cycles. #5304: this referenced an
+        # undefined `session`. Updates go through record_play() — the
+        # production play-count path — because get_all() returns detached
+        # instances, so mutating one in place could never persist, and
+        # play_count is deliberately not writable via update_metadata (#4555).
         for i in range(100):
-            # Read
             tracks, _ = repo.get_all(limit=10, offset=i * 10)
-
-            # Update (modify play count)
             if tracks:
-                track = tracks[0]
-                track.play_count = (track.play_count or 0) + 1
-                session.commit()
+                repo.record_play(tracks[0].id)
 
         # Verify database integrity
-        total = session.scalar(select(func.count()).select_from(Track))
-        assert total == 1000, "Track count changed unexpectedly"
+        session = large_library_db()
+        try:
+            total = session.scalar(select(func.count()).select_from(Track))
+            assert total == 1000, "Track count changed unexpectedly"
 
-        # Verify no corruption
-        all_tracks = session.execute(select(Track)).scalars().all()
-        for track in all_tracks:
-            assert track.filepath is not None
-            assert track.title is not None
+            # Verify no corruption
+            all_tracks = session.execute(select(Track)).scalars().all()
+            for track in all_tracks:
+                assert track.filepath is not None
+                assert track.title is not None
+        finally:
+            session.close()
