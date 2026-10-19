@@ -220,6 +220,19 @@ def validate_file_path(
             callers that do not care about the distinction are unaffected.
         PathValidationError: If path fails any other validation check
             (empty, unresolvable, traversal, outside allowed dirs, unreadable)
+
+    Deliberate non-callers (#5303, #5322): the playback load path
+    (``services/queue_set_mixin.py`` / ``queue_edit_mixin.py`` /
+    ``services/navigation_service.py`` → the player's ``load_file``) and the
+    streamlined cache worker (``core/streamlined_worker.py``) intentionally do
+    NOT validate DB-sourced track filepaths. The scanner's accepted policy is
+    to follow symlinked subdirectories with no containment (#4823, closed as
+    "keep current behavior" — symlinked libraries spanning volumes are a
+    legitimate use case), so a library track's stored path can legitimately
+    resolve outside ``get_allowed_directories()``. Those tracks must play;
+    validating here would break exactly that. The asymmetry is accepted:
+    request-scoped REST features (lyrics, metadata, WAV streaming) reject
+    symlink-escaped tracks while playback serves them.
     """
     if not filepath:
         raise PathValidationError("File path cannot be empty")

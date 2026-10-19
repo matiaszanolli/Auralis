@@ -145,6 +145,12 @@ class QueueSetMixin(QueueServiceBase):
                     if track_snapshot is not None:
                         deferred_snapshots.append(track_snapshot)
 
+                    # current_track.filepath is deliberately NOT passed through
+                    # validate_file_path (#5303): the accepted #4823 scanner
+                    # policy follows symlinked subdirectories with no
+                    # containment, so a legitimate library track can resolve
+                    # outside get_allowed_directories() — and it must play.
+                    # See validate_file_path's "Deliberate non-callers" note.
                     await asyncio.to_thread(
                         self.audio_player.load_file, current_track.filepath
                     )

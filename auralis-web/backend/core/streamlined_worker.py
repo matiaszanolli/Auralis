@@ -219,6 +219,15 @@ class StreamlinedCacheWorker:
             # File I/O below is offloaded: this runs on the worker's ~1 s
             # event-loop tick, and a network-mounted library can block for
             # far longer than that on a stat or a read (#5490).
+            #
+            # track.filepath is deliberately NOT passed through
+            # validate_file_path (#5322, sibling of #5303): this worker only
+            # ever decodes the currently-playing track, whose load path is
+            # already a recorded exception — the accepted #4823 scanner policy
+            # lets library tracks resolve outside get_allowed_directories(),
+            # and revoking a folder must not silently break caching for the
+            # track the user is still playing. See validate_file_path's
+            # "Deliberate non-callers" note.
             if not await asyncio.to_thread(Path(track.filepath).exists):
                 logger.error(f"File not found: {track.filepath}")
                 return None
