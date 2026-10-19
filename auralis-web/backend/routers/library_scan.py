@@ -363,8 +363,12 @@ async def scan_library(
         # auto-scanner does. Only it used to, so users with auto_scan off
         # (or rescanning by hand after moving files) kept dead entries.
         # Before scan_complete: useScanProgress counts a removal frame only
-        # while the scan is still in progress.
-        await prune_missing_tracks(library_database, connection_manager)
+        # while the scan is still in progress. The count is folded into the
+        # library_updated condition below (#5515) — a prune-only rescan
+        # (files deleted on disk, none added/updated) must still refresh the
+        # open library view, same as the auto-scanner's `files_added or
+        # removed` guard.
+        removed = await prune_missing_tracks(library_database, connection_manager)
 
         # Broadcast final result. Field shape matches ScanCompleteMessage and
         # the auto-scanner path (services/library_auto_scanner.py:268-279,
@@ -389,7 +393,7 @@ async def scan_library(
                 "scan_complete",
                 scan_complete_payload,
             )
-            if result.files_added or result.files_updated:
+            if result.files_added or result.files_updated or removed:
                 await broadcast_typed(
                     connection_manager,
                     "library_updated",

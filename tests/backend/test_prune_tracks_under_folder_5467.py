@@ -2,9 +2,10 @@
 prune_tracks_under_folder() service-level tests (#5467)
 
 Sibling of prune_missing_tracks (#5458): best-effort delegation to the
-repository, broadcasting library_tracks_removed only when something was
-actually removed, and never raising into the caller on a repository
-failure.
+repository, broadcasting only when something was actually removed —
+library_tracks_removed for the scan-result counter plus library_updated so
+the open library view refetches (#5515) — and never raising into the
+caller on a repository failure.
 """
 
 import sys
@@ -31,7 +32,12 @@ async def test_broadcasts_when_tracks_removed():
 
     assert removed == 3
     library_database.tracks.remove_tracks_under_folder.assert_called_once_with("/music/old")
-    assert manager.frames == [{"type": "library_tracks_removed", "data": {"count": 3}}]
+    assert manager.frames == [
+        {"type": "library_tracks_removed", "data": {"count": 3}},
+        # #5515: the library view refetches on library_updated, not on
+        # library_tracks_removed (which only feeds the scan counter).
+        {"type": "library_updated", "data": {"action": "update", "track_count": 0}},
+    ]
 
 
 @pytest.mark.asyncio

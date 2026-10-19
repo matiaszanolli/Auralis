@@ -78,4 +78,14 @@ async def prune_tracks_under_folder(
                 {"count": removed},
                 suppress_errors=True,
             )
+            # #5515: library_tracks_removed alone only feeds the scan-result
+            # counter (useScanProgress); the library view refetches on
+            # library_updated, so folder removal must announce it too or the
+            # just-deleted rows stay visible until a manual reload.
+            await broadcast_typed(
+                connection_manager,
+                "library_updated",
+                {"action": "update", "track_count": 0},
+                suppress_errors=True,
+            )
     return removed
