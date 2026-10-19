@@ -65,3 +65,54 @@ def detect_image_extension(data: bytes, default: str = "jpg") -> str:
     if data[:6] in (b"GIF87a", b"GIF89a"):
         return "gif"
     return default
+
+
+# Longest allowed side for stored artwork, shared by both write paths (#4439,
+# #5522): a highly-compressible PNG can be far under the payload cap while
+# having an enormous pixel size, and the un-parameterised GET serves the file
+# at full resolution.
+MAX_ARTWORK_DIMENSION = 2048
+
+
+def bound_artwork_dimensions(data: bytes) -> bytes:
+    """Downscale artwork whose largest side exceeds MAX_ARTWORK_DIMENSION.
+
+    Shared by both artwork write paths (#5522): online downloads
+    (``auralis-web/backend/services/artwork_downloader.py``) and
+    embedded/folder extraction (``auralis/library/artwork.py``). Bounds
+    oversized images so they are neither stored nor later streamed at full
+    resolution. Best-effort: any failure (Pillow missing, unsupported or
+    corrupt image) returns the original bytes unchanged so artwork is never
+    dropped.
+
+    Args:
+        data: Raw image bytes.
+
+    Returns:
+        Downscaled image bytes, or the original bytes if no resize was needed
+        or possible.
+    """
+    import io
+
+    from PIL import Image
+
+    try:
+        with Image.open(io.BytesIO(data)) as image:
+            if max(image.size) <= MAX_ARTWORK_DIMENSION:
+                return data
+            # thumbnail() preserves aspect ratio and only ever downsizes.
+            image.thumbnail((MAX_ARTWORK_DIMENSION, MAX_ARTWORK_DIMENSION))
+            # Re-encode in the format Pillow itself detected rather than a
+            # caller-supplied extension (#4849) — forcing every non-PNG
+            # format to JPEG here silently produced JPEG bytes under a
+            # .webp/.gif filename whenever a large WebP/GIF cover needed
+            # downscaling, reproducing the Content-Type mismatch for exactly
+            # the oversized case.
+            fmt = image.format or "JPEG"
+            if fmt == "JPEG" and image.mode not in ("RGB", "L"):
+                image = image.convert("RGB")
+            buffer = io.BytesIO()
+            image.save(buffer, format=fmt)
+            return buffer.getvalue()
+    except Exception:
+        return data

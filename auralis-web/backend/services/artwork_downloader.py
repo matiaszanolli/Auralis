@@ -27,6 +27,7 @@ import aiohttp
 from auralis.utils.artwork_security import (
     MAX_ARTWORK_PAYLOAD_BYTES as _MAX_ARTWORK_BYTES,
 )
+from auralis.utils.artwork_security import bound_artwork_dimensions as _bound_artwork_dimensions
 from auralis.utils.artwork_security import detect_image_extension as _detect_image_extension
 from auralis.utils.artwork_security import validate_artwork_url as _validate_artwork_url
 from auralis.utils.logging import sanitize_log_value
@@ -369,9 +370,14 @@ class ArtworkDownloader:
         filename = f"album_{album_id}_{data_hash}.{ext}"
         filepath = self.cache_dir / filename
 
-        # Offload the blocking write so the event loop isn't stalled during
-        # bulk artwork backfills (#3915).
-        await asyncio.to_thread(filepath.write_bytes, data)
+        # Bound the pixel dimensions like the extraction path does (#4439,
+        # shared helper since #5522): the 5 MiB payload cap does not bound
+        # pixel size, and the un-parameterised GET serves this file at full
+        # resolution. Runs inside the same off-loop call as the write (#3915).
+        def _bound_and_write() -> None:
+            filepath.write_bytes(_bound_artwork_dimensions(data))
+
+        await asyncio.to_thread(_bound_and_write)
 
         return str(filepath)
 

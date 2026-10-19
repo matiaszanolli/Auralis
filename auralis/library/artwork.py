@@ -17,6 +17,7 @@ from mutagen.flac import FLAC, Picture
 from mutagen.id3 import ID3
 from mutagen.mp4 import MP4, MP4Cover
 
+from ..utils.artwork_security import bound_artwork_dimensions
 from ..utils.artwork_security import detect_image_extension
 from ..utils.logging import debug, error, info
 
@@ -243,46 +244,22 @@ class ArtworkExtractor:
         return None, None
 
     def _bound_dimensions(self, artwork_data: bytes) -> bytes:
-        """Downscale artwork whose largest side exceeds ``_MAX_ARTWORK_DIMENSION``.
+        """Downscale artwork whose largest side exceeds the shared dimension cap.
 
         Bounds arbitrarily large embedded/folder covers (#4439) so oversized
-        images are neither stored nor later streamed at full resolution.
-        Best-effort: any failure (Pillow missing, unsupported/corrupt image)
-        returns the original bytes unchanged so artwork is never dropped.
-
-        Args:
-            artwork_data: Raw image bytes.
-
-        Returns:
-            Downscaled image bytes, or the original bytes if no resize was
-            needed or possible.
+        images are neither stored nor later streamed at full resolution. The
+        logic lives in ``auralis.utils.artwork_security`` so the online-download
+        writer shares the exact same policy (#5522); this thin delegate keeps
+        the extractor's call sites (and tests) unchanged.
         """
-        try:
-            import io
-
-            from PIL import Image
-
-            with Image.open(io.BytesIO(artwork_data)) as image:
-                if max(image.size) <= _MAX_ARTWORK_DIMENSION:
-                    return artwork_data
-                # thumbnail() preserves aspect ratio and only ever downsizes.
-                image.thumbnail((_MAX_ARTWORK_DIMENSION, _MAX_ARTWORK_DIMENSION))
-                # Re-encode in the format Pillow itself detected rather than a
-                # caller-supplied extension (#4849) -- forcing every non-PNG
-                # format to JPEG here silently produced JPEG bytes under a
-                # .webp/.gif filename whenever a large WebP/GIF cover needed
-                # downscaling, reproducing this same issue's Content-Type
-                # mismatch for exactly the oversized case.
-                fmt = image.format or 'JPEG'
-                if fmt == 'JPEG' and image.mode not in ('RGB', 'L'):
-                    image = image.convert('RGB')
-                buffer = io.BytesIO()
-                image.save(buffer, format=fmt)
-                debug(f"Downscaled oversized artwork to <= {_MAX_ARTWORK_DIMENSION}px")
-                return buffer.getvalue()
-        except Exception as e:
-            debug(f"Artwork dimension-bounding skipped: {e}")
-            return artwork_data
+        bounded = bound_artwork_dimensions(artwork_data)
+        if bounded is not artwork_data:
+            debug(
+                f"Downscaled oversized artwork to <= {_MAX_ARTWORK_DIMENSION}px"
+            )
+        else:
+            debug("Artwork dimension-bounding skipped or not needed")
+        return bounded
 
     def _save_artwork(self, artwork_data: bytes, album_id: int, mime_type: str | None) -> str | None:
         """
