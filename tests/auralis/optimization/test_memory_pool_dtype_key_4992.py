@@ -14,14 +14,15 @@ a different object than the `id()` the pool had recorded in
     `id()` — would then accept into a possibly-mismatched bucket.
 
 NOTE ON REACHABILITY: this whole cluster is dead. `MemoryPool` is only
-constructed by `PerformanceOptimizer.__init__`, and
-`PerformanceOptimizer.get_audio_buffer`/`return_audio_buffer` have no callers
-in `auralis/` or `auralis-web/`. `PerformanceOptimizer` itself *is*
-constructed at import time by `hybrid_processor.py`, but only to wrap
-`AdaptiveMode.process` with a profiler (#4524) — the pool is allocated and
-never exercised. The wire-up-or-delete decision for this area is tracked by
-#4873; #4992 fixed the latent defect without pre-empting it, and these tests
-pin the corrected behaviour for whichever way that decision goes.
+constructed by `PerformanceOptimizer.__init__`, and the optimizer methods
+that exercised it (`get_audio_buffer`/`return_audio_buffer`) had no callers
+in `auralis/` or `auralis-web/` and were deleted by #5325 — the wire-up-or-
+delete decision this file's note used to defer to (#4873). #5325 took the
+delete direction: `PerformanceOptimizer` is still constructed at import time
+by `hybrid_setup.py`, but only to wrap `AdaptiveMode.process` with a profiler
+(#4524) — the pool is allocated purely so `get_optimization_stats()` can
+report on it. These tests keep pinning the corrected component behaviour for
+whenever a real caller is wired in.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)

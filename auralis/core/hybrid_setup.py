@@ -149,8 +149,11 @@ def apply_module_optimizations() -> None:
         perf_opt = get_performance_optimizer()
 
         # Wrap AdaptiveMode.process with PROFILING ONLY — never memoization
-        # (#4524). `optimize_real_time_processing` also layers a SmartCache on
-        # top, and `AdaptiveMode.process` is not a pure function: it mutates
+        # (#4524). The memoizing apply-point (`optimize_real_time_processing`,
+        # which layered a SmartCache on top) was deleted with the rest of the
+        # unused optimizer surface (#5325), and this is the invariant that
+        # keeps it from coming back: `AdaptiveMode.process` is not a pure
+        # function: it mutates
         # `self.last_content_profile`, which `adaptive_mode.py` reads later to
         # derive bass_pct / transient_density. On a cache hit the body never
         # runs, so that field keeps a *previous track's* profile. A generic

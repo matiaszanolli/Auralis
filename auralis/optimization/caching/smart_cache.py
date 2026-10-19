@@ -21,9 +21,12 @@ from auralis.utils.logging import debug
 
 #: Returned by :meth:`SmartCache._generate_key` when an argument cannot be
 #: identified faithfully, meaning the call MUST NOT be cached (#4524). It is a
-#: distinct sentinel rather than ``None`` because ``None`` already means "cache
-#: miss" to ``PerformanceOptimizer.cached_function``, and a miss still writes
-#: the result back — which is exactly what must not happen here.
+#: distinct sentinel rather than ``None`` because ``None`` conventionally means
+#: "cache miss" to callers, and a miss still writes the result back — which is
+#: exactly what must not happen here. (The one caller that consumed this
+#: sentinel, ``PerformanceOptimizer.cached_function``, was deleted with the
+#: rest of the unused optimizer surface in #5325; the sentinel and the refusal
+#: rules stay pinned so any future caller inherits the contract.)
 UNCACHEABLE: Final[str] = "\x00uncacheable\x00"
 
 # Types whose repr() is a faithful, complete identity.

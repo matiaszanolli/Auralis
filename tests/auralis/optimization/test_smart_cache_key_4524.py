@@ -22,8 +22,6 @@ import numpy as np
 import pytest
 
 from auralis.optimization.caching import UNCACHEABLE, SmartCache
-from auralis.optimization.config import PerformanceConfig
-from auralis.optimization.performance_optimizer import PerformanceOptimizer
 
 
 @pytest.fixture
@@ -107,7 +105,8 @@ class TestUncacheableArguments:
         assert cache._generate_key('process', (instance, audio), {}) is UNCACHEABLE
 
     def test_uncacheable_is_not_none(self):
-        """`None` already means 'cache miss' to cached_function."""
+        """`None` conventionally means 'cache miss' to cache callers, and a
+        miss still stores — so the refusal sentinel must be distinct."""
         assert UNCACHEABLE is not None
         assert isinstance(UNCACHEABLE, str)
 
@@ -140,52 +139,6 @@ class TestFaithfulScalars:
         arr = np.zeros(4, dtype=np.float32)
         forged = f"ndarray({arr.shape},{arr.dtype.str},x)"
         assert cache._generate_key('f', (arr,), {}) != cache._generate_key('f', (forged,), {})
-
-
-class TestCachedFunctionBypass:
-    """UNCACHEABLE must bypass, not 'miss then store'."""
-
-    def test_uncacheable_call_never_stores(self):
-        opt = PerformanceOptimizer(PerformanceConfig(enable_caching=True))
-        calls = []
-
-        class Opaque:
-            pass
-
-        @opt.cached_function('f')
-        def f(obj):
-            calls.append(obj)
-            return len(calls)
-
-        obj = Opaque()
-        assert f(obj) == 1
-        assert f(obj) == 2, "a cached result was returned for an uncacheable call"
-        assert len(opt.cache.cache) == 0, "an uncacheable call was stored"
-
-    def test_cacheable_call_still_caches(self):
-        opt = PerformanceOptimizer(PerformanceConfig(enable_caching=True))
-        calls = []
-
-        @opt.cached_function('g')
-        def g(audio):
-            calls.append(1)
-            return audio.sum() + len(calls)
-
-        audio = np.ones(5000, dtype=np.float32)
-        first = g(audio)
-        second = g(audio.copy())
-        assert first == second
-        assert len(calls) == 1, "content-identical arrays should hit the cache"
-
-    def test_different_arrays_do_not_collide_through_the_decorator(self):
-        opt = PerformanceOptimizer(PerformanceConfig(enable_caching=True))
-        a, b = _silence_padded_pair(n=200_000, pad=1000)
-
-        @opt.cached_function('h')
-        def h(audio):
-            return float(np.abs(audio).mean())
-
-        assert h(a) != h(b), "one track's result was served for another's audio"
 
 
 class TestAdaptiveModeIsNotMemoized:
