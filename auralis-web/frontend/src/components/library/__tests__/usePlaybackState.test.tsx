@@ -4,12 +4,14 @@
  * Tests for library playback state management:
  * - Redux-derived currentTrackId / isPlaying (single source of truth)
  * - handlePlayTrack delegates to the shared usePlayTrack hook (#3940)
- * - handlePause sends a pause WebSocket message
+ * - handlePlayPause delegates to the shared session toggle (#5514)
  *
  * (Rewritten for #3940: the hook now reads state from Redux and delegates the
  * play flow to usePlayTrack instead of taking an onTrackPlay callback, so the
  * tests render under a real <Provider> and assert delegation. The previous
- * suite predated the Redux usage and failed for lack of a Provider.)
+ * suite predated the Redux usage and failed for lack of a Provider.
+ * Rewritten for #5514: the raw WS `pause` sender is gone — the library view
+ * toggles the shared session exactly like the transport bar.)
  */
 
 import React from 'react';
@@ -29,15 +31,12 @@ vi.mock('@/hooks/player/usePlayTrack', () => ({
   usePlayTrack: () => ({ playTrack: mockPlayTrack }),
 }));
 
-const mockWebSocketContext = {
-  send: vi.fn(),
-  subscribe: vi.fn(() => vi.fn()),
-  unsubscribe: vi.fn(),
-  isConnected: true,
-};
-vi.mock('@/contexts/WebSocketContext', () => ({
-  useWebSocketContext: () => mockWebSocketContext,
-  WebSocketProvider: ({ children }: { children: React.ReactNode }) => children,
+// handlePlayPause must be the transport bar's session toggle (#5514) — not a
+// raw WS `pause` frame, which had no matching resume sender and stalled the
+// backend stream mid-track.
+const mockHandlePlayPause = vi.fn();
+vi.mock('@/contexts/PlaybackSessionContext', () => ({
+  usePlaybackControls: () => ({ handlePlayPause: mockHandlePlayPause }),
 }));
 
 const mockTrack = {
@@ -99,28 +98,28 @@ describe('usePlaybackState', () => {
     });
   });
 
-  describe('handlePause', () => {
-    it('sends a pause WebSocket message', () => {
+  describe('handlePlayPause', () => {
+    it('delegates to the shared session toggle (#5514)', () => {
       const { wrapper } = makeWrapper();
       const { result } = renderHook(() => usePlaybackState(), { wrapper });
 
       act(() => {
-        result.current.handlePause();
+        result.current.handlePlayPause();
       });
 
-      expect(mockWebSocketContext.send).toHaveBeenCalledWith({ type: 'pause' });
+      expect(mockHandlePlayPause).toHaveBeenCalledTimes(1);
     });
   });
 
   describe('Handler memoization', () => {
-    it('keeps handlePause stable across rerenders', () => {
+    it('keeps handlePlayPause stable across rerenders', () => {
       const { wrapper } = makeWrapper();
       const { result, rerender } = renderHook(() => usePlaybackState(), { wrapper });
 
-      const initialPause = result.current.handlePause;
+      const initialPause = result.current.handlePlayPause;
       rerender();
 
-      expect(result.current.handlePause).toBe(initialPause);
+      expect(result.current.handlePlayPause).toBe(initialPause);
     });
   });
 });

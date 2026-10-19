@@ -11,7 +11,7 @@
  *   isSelected={isSelected(track.id)}
  *   onToggleSelect={(e) => toggleTrack(track.id, e)}
  *   onPlay={handlePlay}
- *   onPause={handlePause}
+ *   onPause={handlePlayPause}
  * />
  * ```
  */

@@ -3,8 +3,12 @@ import { useCallback } from 'react';
 export interface UseTrackRowHandlersProps {
   trackId: number;
   isCurrent: boolean;
-  isPlaying: boolean;
   onPlay: (trackId: number) => void;
+  /**
+   * Toggles the shared playback session (the transport bar's handlePlayPause,
+   * #5514). Called for ANY click on the current track's row — playing pauses,
+   * paused resumes from the pause position instead of restarting from 0.
+   */
   onPause?: () => void;
   onDoubleClick?: (trackId: number) => void;
 }
@@ -20,26 +24,29 @@ export interface UseTrackRowHandlersProps {
 export const useTrackRowHandlers = ({
   trackId,
   isCurrent,
-  isPlaying,
   onPlay,
   onPause,
   onDoubleClick,
 }: UseTrackRowHandlersProps) => {
+  const toggleOrPlay = useCallback(() => {
+    if (isCurrent && onPause) {
+      onPause();
+    } else {
+      onPlay(trackId);
+    }
+  }, [trackId, isCurrent, onPlay, onPause]);
+
   const handlePlayClick = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
-      if (isCurrent && isPlaying && onPause) {
-        onPause();
-      } else {
-        onPlay(trackId);
-      }
+      toggleOrPlay();
     },
-    [trackId, isCurrent, isPlaying, onPlay, onPause]
+    [toggleOrPlay]
   );
 
   const handleRowClick = useCallback(() => {
-    onPlay(trackId);
-  }, [trackId, onPlay]);
+    toggleOrPlay();
+  }, [toggleOrPlay]);
 
   const handleRowDoubleClick = useCallback(() => {
     onDoubleClick?.(trackId);

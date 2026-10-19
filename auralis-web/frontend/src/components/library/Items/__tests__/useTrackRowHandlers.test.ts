@@ -5,6 +5,10 @@
  * - Play/pause button clicks
  * - Row selection and double-click
  * - Event propagation prevention
+ *
+ * #5514: ANY click on the current track's row toggles the shared session
+ * (onPause = the transport bar's handlePlayPause) — a paused current row
+ * resumes from the pause position instead of restarting from 0.
  */
 
 import { vi } from 'vitest';
@@ -26,7 +30,6 @@ describe('useTrackRowHandlers', () => {
         useTrackRowHandlers({
           trackId: 1,
           isCurrent: false,
-          isPlaying: false,
           onPlay: mockOnPlay,
         })
       );
@@ -38,12 +41,11 @@ describe('useTrackRowHandlers', () => {
   });
 
   describe('handlePlayClick', () => {
-    it('should call onPlay when track is not currently playing', () => {
+    it('should call onPlay when track is not the current track', () => {
       const { result } = renderHook(() =>
         useTrackRowHandlers({
           trackId: 1,
           isCurrent: false,
-          isPlaying: false,
           onPlay: mockOnPlay,
           onPause: mockOnPause,
         })
@@ -60,12 +62,11 @@ describe('useTrackRowHandlers', () => {
       expect(mockEvent.stopPropagation).toHaveBeenCalled();
     });
 
-    it('should call onPause when track is currently playing', () => {
+    it('should call onPause when track is the current track and playing', () => {
       const { result } = renderHook(() =>
         useTrackRowHandlers({
           trackId: 1,
           isCurrent: true,
-          isPlaying: true,
           onPlay: mockOnPlay,
           onPause: mockOnPause,
         })
@@ -82,12 +83,50 @@ describe('useTrackRowHandlers', () => {
       expect(mockEvent.stopPropagation).toHaveBeenCalled();
     });
 
+    it('should resume via onPause — not restart via onPlay — when the current track is paused (#5514)', () => {
+      const { result } = renderHook(() =>
+        useTrackRowHandlers({
+          trackId: 1,
+          isCurrent: true,
+          onPlay: mockOnPlay,
+          onPause: mockOnPause,
+        })
+      );
+
+      const mockEvent = {
+        stopPropagation: vi.fn(),
+      } as unknown as React.MouseEvent;
+
+      result.current.handlePlayClick(mockEvent);
+
+      expect(mockOnPause).toHaveBeenCalled();
+      expect(mockOnPlay).not.toHaveBeenCalled();
+    });
+
+    it('should fall back to onPlay when the current row has no toggle handler', () => {
+      const { result } = renderHook(() =>
+        useTrackRowHandlers({
+          trackId: 1,
+          isCurrent: true,
+          onPlay: mockOnPlay,
+          // onPause is not provided
+        })
+      );
+
+      const mockEvent = {
+        stopPropagation: vi.fn(),
+      } as unknown as React.MouseEvent;
+
+      result.current.handlePlayClick(mockEvent);
+
+      expect(mockOnPlay).toHaveBeenCalledWith(1);
+    });
+
     it('should prevent default event propagation', () => {
       const { result } = renderHook(() =>
         useTrackRowHandlers({
           trackId: 1,
           isCurrent: false,
-          isPlaying: false,
           onPlay: mockOnPlay,
         })
       );
@@ -108,7 +147,6 @@ describe('useTrackRowHandlers', () => {
         useTrackRowHandlers({
           trackId: 42,
           isCurrent: false,
-          isPlaying: false,
           onPlay: mockOnPlay,
         })
       );
@@ -116,6 +154,22 @@ describe('useTrackRowHandlers', () => {
       result.current.handleRowClick();
 
       expect(mockOnPlay).toHaveBeenCalledWith(42);
+    });
+
+    it('should resume the session instead of restarting when the current paused row is clicked (#5514)', () => {
+      const { result } = renderHook(() =>
+        useTrackRowHandlers({
+          trackId: 42,
+          isCurrent: true,
+          onPlay: mockOnPlay,
+          onPause: mockOnPause,
+        })
+      );
+
+      result.current.handleRowClick();
+
+      expect(mockOnPause).toHaveBeenCalled();
+      expect(mockOnPlay).not.toHaveBeenCalled();
     });
   });
 
@@ -125,7 +179,6 @@ describe('useTrackRowHandlers', () => {
         useTrackRowHandlers({
           trackId: 1,
           isCurrent: false,
-          isPlaying: false,
           onPlay: mockOnPlay,
           onDoubleClick: mockOnDoubleClick,
         })
@@ -141,7 +194,6 @@ describe('useTrackRowHandlers', () => {
         useTrackRowHandlers({
           trackId: 1,
           isCurrent: false,
-          isPlaying: false,
           onPlay: mockOnPlay,
           // onDoubleClick is not provided
         })
@@ -156,18 +208,16 @@ describe('useTrackRowHandlers', () => {
   describe('Handler Stability', () => {
     it('should maintain referential equality across renders', () => {
       const { result, rerender } = renderHook(
-        ({ trackId, isCurrent, isPlaying }) =>
+        ({ trackId, isCurrent }) =>
           useTrackRowHandlers({
             trackId,
             isCurrent,
-            isPlaying,
             onPlay: mockOnPlay,
           }),
         {
           initialProps: {
             trackId: 1,
             isCurrent: false,
-            isPlaying: false,
           },
         }
       );
@@ -179,7 +229,7 @@ describe('useTrackRowHandlers', () => {
       };
 
       // Rerender with same props
-      rerender({ trackId: 1, isCurrent: false, isPlaying: false });
+      rerender({ trackId: 1, isCurrent: false });
 
       expect(result.current.handlePlayClick).toBe(initialHandlers.play);
       expect(result.current.handleRowClick).toBe(initialHandlers.row);
@@ -188,18 +238,16 @@ describe('useTrackRowHandlers', () => {
 
     it('should update handlers when dependencies change', () => {
       const { result, rerender } = renderHook(
-        ({ trackId, isCurrent, isPlaying }) =>
+        ({ trackId, isCurrent }) =>
           useTrackRowHandlers({
             trackId,
             isCurrent,
-            isPlaying,
             onPlay: mockOnPlay,
           }),
         {
           initialProps: {
             trackId: 1,
             isCurrent: false,
-            isPlaying: false,
           },
         }
       );
@@ -207,7 +255,7 @@ describe('useTrackRowHandlers', () => {
       const initialPlayHandler = result.current.handlePlayClick;
 
       // Rerender with different trackId
-      rerender({ trackId: 2, isCurrent: false, isPlaying: false });
+      rerender({ trackId: 2, isCurrent: false });
 
       // Handlers should be recreated when trackId changes
       expect(result.current.handlePlayClick).not.toBe(initialPlayHandler);

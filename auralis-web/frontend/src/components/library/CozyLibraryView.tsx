@@ -114,7 +114,7 @@ const CozyLibraryView = memo<CozyLibraryViewProps>(({
     currentTrackId,
     isPlaying,
     handlePlayTrack,
-    handlePause,
+    handlePlayPause,
   } = usePlaybackState();
 
   // Metadata editing
@@ -253,7 +253,7 @@ const CozyLibraryView = memo<CozyLibraryViewProps>(({
             isSelected={isSelected}
             onToggleSelect={toggleTrack}
             onTrackPlay={handlePlayTrack}
-            onPause={handlePause}
+            onPause={handlePlayPause}
             onEditMetadata={handleEditMetadata}
             onFindSimilar={handleFindSimilar}
             onLoadMore={loadMore}

@@ -70,7 +70,6 @@ const TrackRowComponent = ({
     useTrackRowHandlers({
       trackId: track.id,
       isCurrent,
-      isPlaying,
       onPlay,
       onPause,
       onDoubleClick,
