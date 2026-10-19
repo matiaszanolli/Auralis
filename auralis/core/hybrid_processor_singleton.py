@@ -110,7 +110,9 @@ def process_adaptive(target: np.ndarray,
     """
     processor = _get_or_create_processor(config, "adaptive")
     result = processor.process(target)
-    assert result is not None
+    if result is None:
+        # raise, not assert: asserts vanish under python -O (#5511)
+        raise RuntimeError("HybridProcessor.process() returned None in adaptive mode")
     return result
 
 
@@ -125,5 +127,7 @@ def process_reference(target: np.ndarray,
     """
     processor = _get_or_create_processor(config, "reference")
     result = processor.process(target, reference)
-    assert result is not None
+    if result is None:
+        # raise, not assert: asserts vanish under python -O (#5511)
+        raise RuntimeError("HybridProcessor.process() returned None in reference mode")
     return result
