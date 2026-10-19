@@ -119,7 +119,7 @@ auralis/                          Core Python audio engine
 │   │                                 queue_history, settings, similarity_graph,
 │   │                                 processing_job)
 │   ├── scanner/                    Folder scanning (a package, not a module)
-│   └── migration_manager.py        DB migrations (schema v20)
+│   └── migration_manager.py        DB migrations (schema v21)
 ├── io/                           Audio I/O
 │   ├── unified_loader.py           Unified loading (FFmpeg, SoundFile)
 │   └── results.py                  Output formats (pcm16, pcm24)
