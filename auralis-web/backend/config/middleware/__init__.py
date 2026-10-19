@@ -82,10 +82,12 @@ def setup_middleware(app: FastAPI) -> None:
     # budget, and before any route handler.
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=trusted_hosts())
 
-    # Origin validation for state-changing REST requests (#4893) — wraps
-    # TrustedHost (so the Host header is already known-good) and RateLimit
-    # (so a rejected CSRF-shaped request never consumes rate budget), wrapped
-    # by SecurityHeaders so its 403 still carries the documented headers.
+    # Origin validation for state-changing REST requests (#4893) — runs
+    # before TrustedHost on the request-inbound path, so it cannot rely on
+    # the Host header having been validated yet (#5275); wraps RateLimit
+    # (so a rejected CSRF-shaped request never consumes rate budget) and is
+    # wrapped by SecurityHeaders so its 403 still carries the documented
+    # headers.
     app.add_middleware(OriginCheckMiddleware)
 
     # No-cache middleware for frontend assets
