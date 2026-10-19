@@ -43,9 +43,9 @@ def process_chunks(
     Process the whole file in chunks and write the result to output_path.
 
     Returns:
-        (info, chunks_processed) — info is the processing-stages dict from
-        the first chunk (matches original behavior: info is only updated
-        once, from chunk 0).
+        (info, chunks_processed) — info is chunk 0's processing dict with
+        the stages run by later chunks merged in (de-duplicated), so a
+        stage that only engaged on a loud later chunk is still reported.
     """
     # Equal-gain (raised-cosine) crossfade between chunks for seamless
     # transitions. Adjacent chunks both process the *same* overlap region of
