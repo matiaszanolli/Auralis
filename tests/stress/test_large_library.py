@@ -499,7 +499,7 @@ class TestLongRunningOperations:
         assert player.queue.get_queue_size() == 1000  # Size doesn't change on next
 
         # Cleanup
-        player.queue.clear()
+        player.queue.clear_queue()
         gc.collect()
 
     def test_library_rescan_durability(self, tmp_path, large_library_db):

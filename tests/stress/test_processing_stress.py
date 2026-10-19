@@ -125,7 +125,7 @@ class TestHighVolumeProcessing:
         assert player.queue.get_queue_size() == 1000
 
         # Clear queue
-        player.queue.clear()
+        player.queue.clear_queue()
         assert player.queue.get_queue_size() == 0
 
     def test_processing_sustained_load(self, tmp_path, stress_test_timeout):
