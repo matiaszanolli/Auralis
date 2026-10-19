@@ -22,7 +22,7 @@ import asyncio
 import logging
 from typing import Any
 
-from schemas import VALID_PRESETS
+from schemas import INTENSITY_MAX, VALID_PRESETS, is_valid_intensity
 
 logger = logging.getLogger(__name__)
 
@@ -126,5 +126,18 @@ def seed_enhancement_settings(
             )
     intensity = getattr(user_settings, 'enhancement_intensity', None)
     if intensity is not None:
-        enhancement_settings['intensity'] = float(intensity)
+        # `enhancement_intensity` is a plain Float column, so a legacy or
+        # hand-edited row can hold a value outside the canonical range —
+        # the same hazard the preset guard above exists for. Seeding it
+        # unvalidated would hand an out-of-range (or NaN) intensity to the
+        # DSP pipeline; degrade to the current runtime value instead, the
+        # same tolerance settings.py's response validator applies (#5271).
+        if is_valid_intensity(intensity):
+            enhancement_settings['intensity'] = float(intensity)
+        else:
+            logger.warning(
+                f"Stored enhancement_intensity {intensity!r} is outside "
+                f"0.0-{INTENSITY_MAX}; keeping "
+                f"{enhancement_settings.get('intensity', 1.0)!r}"
+            )
     enhancement_settings['enabled'] = bool(getattr(user_settings, 'auto_enhance', True))

@@ -92,6 +92,56 @@ class TestSeedEnhancementSettings:
         assert enh == {"preset": "adaptive", "intensity": 0.4, "enabled": False}
         assert "'warm' is not one of" in caplog.text
 
+    def test_out_of_range_stored_intensity_keeps_the_current_intensity(self, caplog):
+        """#5271: `enhancement_intensity` is a plain Float column, so a legacy
+        or hand-edited row can hold a value outside 0.0-1.0. It must degrade
+        to the current runtime value with a warning — the same tolerance the
+        preset guard applies — rather than seed unvalidated into the DSP
+        pipeline."""
+        import logging
+
+        enh = self._base()
+        with caplog.at_level(logging.WARNING):
+            seed_enhancement_settings(
+                enh,
+                SimpleNamespace(default_preset="adaptive", enhancement_intensity=5.0, auto_enhance=True),
+            )
+        assert enh["intensity"] == 1.0
+        assert "outside 0.0-1.0" in caplog.text
+
+    def test_nan_and_negative_stored_intensity_are_rejected(self):
+        """NaN fails the range comparison chain and -0.5 fails the lower
+        bound (#4600); neither may reach the runtime dict (#5271)."""
+        enh = self._base()
+        seed_enhancement_settings(
+            enh,
+            SimpleNamespace(default_preset="adaptive", enhancement_intensity=float("nan"), auto_enhance=True),
+        )
+        assert enh["intensity"] == 1.0
+
+        enh = self._base()
+        seed_enhancement_settings(
+            enh,
+            SimpleNamespace(default_preset="adaptive", enhancement_intensity=-0.5, auto_enhance=True),
+        )
+        assert enh["intensity"] == 1.0
+
+    def test_boundary_intensities_still_seed(self):
+        """0.0 and 1.0 are valid — and 0.0 must survive the `is not None`
+        guard, not be mistaken for a missing value."""
+        enh = self._base()
+        seed_enhancement_settings(
+            enh,
+            SimpleNamespace(default_preset="adaptive", enhancement_intensity=0.0, auto_enhance=True),
+        )
+        assert enh["intensity"] == 0.0
+
+        seed_enhancement_settings(
+            enh,
+            SimpleNamespace(default_preset="adaptive", enhancement_intensity=1.0, auto_enhance=True),
+        )
+        assert enh["intensity"] == 1.0
+
     def test_none_settings_is_noop(self):
         enh = self._base()
         seed_enhancement_settings(enh, None)
