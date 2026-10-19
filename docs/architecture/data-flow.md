@@ -105,7 +105,7 @@ prevents whole classes of bugs:
 | Direction | Mechanism | Example |
 |-----------|-----------|---------|
 | **Client → Server** | REST calls + WS commands | `play_enhanced`, `seek`, `POST /api/playlists` |
-| **Server → Client** | WS broadcasts | `player_state`, `position_changed`, `scan_progress`, `job_progress` |
+| **Server → Client** | WS broadcasts | `player_state`, `position_changed`, `scan_progress` |
 
 > **Rule of thumb:** the backend is authoritative for playback/queue state. The frontend
 > optimistically updates for responsiveness (enhancement toggle, #optimistic rollback) but

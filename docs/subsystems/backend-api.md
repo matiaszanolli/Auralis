@@ -137,8 +137,8 @@ next broadcast. Handle these idempotently.
 
 **Client → server** (validated subset in `schemas/websocket.py::WebSocketMessageType`, inbound-only):
 `ping/pong/heartbeat`, `play_enhanced`, `play_normal`, `pause/resume/stop/seek`,
-`buffer_full/buffer_ready`, `subscribe_job_progress`, `processing_settings_update`,
-`ab_track_loaded`.
+`buffer_full/buffer_ready`, `processing_settings_update`, `ab_track_loaded`.
+(`subscribe_job_progress` was retired in #5525 — no client ever sent it.)
 
 **Server → client streaming protocol:**
 
@@ -255,8 +255,9 @@ release concurrency slots.
   `get_repository_factory()()` → `asyncio.to_thread(repos.X.get_by_id, …)` → SQLite → serialize
   → JSON.
 - **REST processing job:** `POST /api/processing/process` → `ProcessingEngine.submit_job` →
-  worker `process_job` → `to_thread(HybridProcessor.process)` → save → WS `job_progress`
-  (client subscribes with `subscribe_job_progress`).
+  worker `process_job` → `to_thread(HybridProcessor.process)` → save. Job progress is
+  readable via the job-status REST endpoints; the WS `job_progress` push was retired
+  in #5525 (no client ever subscribed).
 - **WS audio stream:** client `play_enhanced` → `dispatch_message` →
   `handle_play_enhanced` → spawn `stream_audio` task → `AudioStreamController` → per chunk:
   `ChunkedAudioProcessor.process_chunk_safe` (`to_thread` → `ProcessorFactory` →

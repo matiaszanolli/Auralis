@@ -14,7 +14,6 @@ Coverage:
   - pause
   - stop
   - seek
-  - subscribe_job_progress
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
@@ -1020,94 +1019,6 @@ class TestWebSocketFlowControl:
             websocket.send_text(json.dumps({"type": "ping"}))
             data = self._recv_until_type(websocket, "pong")
             assert data["type"] == "pong"
-
-
-class TestWebSocketJobProgress:
-    """Test WebSocket job progress subscription.
-
-    NOTE: the original version of this test patched 'main.processing_engine',
-    an attribute that no longer exists after the globals_dict refactor — it
-    failed at collection time (AttributeError) rather than actually
-    exercising the handler. Rewritten to patch main.globals_dict, matching
-    the pattern used by every other processing_engine-dependent test in this
-    file, and to send job_id nested under "data" (the shape
-    subscribe_job_progress actually reads — the original top-level
-    "job_id": ... was never read by the handler either).
-    """
-
-    @staticmethod
-    def _recv_until_type(websocket, target: str, max_reads: int = 10) -> dict:
-        for _ in range(max_reads):
-            data = json.loads(websocket.receive_text())
-            if data.get("type") == target:
-                return data
-        raise AssertionError(f"No {target!r} message received within {max_reads} reads")
-
-    def test_subscribe_job_progress_registers_callback(self, client):
-        """A valid job_id registers a progress callback with the engine."""
-        mock_engine = Mock()
-        mock_engine.register_progress_callback = AsyncMock()
-
-        import main as main_module
-        with patch.dict(main_module.globals_dict, {'processing_engine': mock_engine}):
-            with client.websocket_connect("/ws") as websocket:
-                websocket.send_text(json.dumps({
-                    "type": "subscribe_job_progress",
-                    "data": {"job_id": "test-job-123"}
-                }))
-                websocket.send_text(json.dumps({"type": "ping"}))
-                data = self._recv_until_type(websocket, "pong")
-                assert data["type"] == "pong"
-
-        mock_engine.register_progress_callback.assert_awaited_once()
-        called_job_id = mock_engine.register_progress_callback.await_args[0][0]
-        assert called_job_id == "test-job-123"
-
-    def test_progress_callback_self_unregisters_after_disconnect(self, client):
-        """Fixes #3826 / BE-RH-9.
-
-        The registered progress_callback closure must not attempt
-        websocket.send_text() once the socket has disconnected — it must
-        check client_state and self-unregister from the engine instead.
-        Without the fix, invoking the closure after disconnect raises
-        (send on a closed connection); the engine's own catch-all in
-        _notify_progress only removes the callback AFTER it raises once,
-        so there's a real window where a dead-socket send is attempted.
-        """
-        mock_engine = Mock()
-        mock_engine.register_progress_callback = AsyncMock()
-        mock_engine.unregister_progress_callback = AsyncMock()
-
-        import main as main_module
-        with patch.dict(main_module.globals_dict, {'processing_engine': mock_engine}):
-            with client.websocket_connect("/ws") as websocket:
-                websocket.send_text(json.dumps({
-                    "type": "subscribe_job_progress",
-                    "data": {"job_id": "test-job-456"}
-                }))
-                websocket.send_text(json.dumps({"type": "ping"}))
-                self._recv_until_type(websocket, "pong")
-            # `with` block exited — the websocket is now disconnected.
-
-        assert mock_engine.register_progress_callback.await_args is not None
-        progress_callback = mock_engine.register_progress_callback.await_args[0][1]
-        # The server's own disconnect-cleanup loop already unregistered this
-        # job_id once by the time the `with` block above exits — reset the
-        # mock so the assertion below is specifically about the closure's
-        # own self-unregister behavior, not the pre-existing cleanup path.
-        mock_engine.unregister_progress_callback.reset_mock()
-
-        # Invoking the closure post-disconnect must not raise, and must
-        # self-unregister rather than attempt a send on the dead socket.
-        import asyncio
-        asyncio.run(progress_callback("test-job-456", 50.0, "halfway"))
-
-        # Unregisters ITSELF, not the whole job_id (#3868) — a bare
-        # unregister(job_id) would evict every other connection subscribed to
-        # the same job.
-        mock_engine.unregister_progress_callback.assert_awaited_once_with(
-            "test-job-456", progress_callback
-        )
 
 
 class TestWebSocketCleanup:

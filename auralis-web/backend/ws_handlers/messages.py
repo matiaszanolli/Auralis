@@ -3,9 +3,12 @@ WebSocket Misc Message Handlers
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Handlers for message types that don't touch streaming-task state: ping,
-pong, heartbeat, subscribe_job_progress, and the unknown-type fallback.
-Extracted verbatim from the websocket_endpoint dispatch loop in
-routers/system.py (#4074).
+pong, heartbeat, and the unknown-type fallback. Extracted verbatim from the
+websocket_endpoint dispatch loop in routers/system.py (#4074). The
+subscribe_job_progress handler lived here too until #5525 retired it: no
+frontend ever sent the frame or consumed `job_progress`, so the whole
+per-connection subscription surface was removed rather than carried as dead
+protocol.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
@@ -15,13 +18,10 @@ import logging
 from typing import Any
 
 from fastapi import WebSocket
-from starlette.websockets import WebSocketState
 
 from core.stream_protocol import safe_send_text
 from websocket.websocket_protocol import HeartbeatManager
 from websocket.websocket_security import send_error_response
-
-from .context import WSDeps
 
 logger = logging.getLogger(__name__)
 
@@ -44,64 +44,6 @@ def handle_heartbeat(heartbeat: HeartbeatManager, connection_id: str) -> None:
     # Keepalive from RealTimeAnalysisStream — use mark_alive (not
     # mark_pong) so an outstanding ping is not masked (#3866 / BE-WS-5).
     heartbeat.mark_alive(connection_id)
-
-
-async def handle_subscribe_job_progress(
-    websocket: WebSocket,
-    message: dict[str, Any],
-    deps: WSDeps,
-    job_subscriptions: dict[str, Any],
-) -> None:
-    """Subscribe this connection to `job_progress` events for one job.
-
-    `job_subscriptions` maps job_id -> this connection's callback, so
-    teardown can unregister exactly its own subscription and leave other
-    connections subscribed to the same job untouched (#3868).
-    """
-    data = message.get("data", {})
-    job_id = data.get("job_id")
-    # Validate job_id — prior code accepted any value, opening a slow
-    # per-session leak and non-string payloads to other WS subscribers
-    # (#3520 / BE-NEW-62).
-    if not isinstance(job_id, str) or not job_id or len(job_id) > 64:
-        await send_error_response(websocket, "invalid_job_id", "Invalid job_id (must be non-empty string, ≤64 chars)")
-        return
-    processing_engine = deps.get_processing_engine()
-    if not processing_engine:
-        return
-
-    async def progress_callback(job_id: str, progress: float, message: str) -> None:
-        # Skip (and self-unregister) once the socket is no longer
-        # connected — closing this window matters because the
-        # engine's own catch-all in _notify_progress only removes
-        # a callback AFTER it raises, so without this guard every
-        # progress tick between disconnect and cleanup still
-        # attempts a send on a dead socket (fixes #3826 / BE-RH-9).
-        #
-        # Unregisters ITSELF, not the whole job_id (#3868): a bare
-        # unregister(job_id) here would drop every other connection's
-        # subscription to the same job as collateral.
-        if websocket.client_state != WebSocketState.CONNECTED:
-            await processing_engine.unregister_progress_callback(job_id, progress_callback)
-            return
-        await safe_send_text(websocket, {
-            "type": "job_progress",
-            "data": {"job_id": job_id, "progress": progress, "message": message}
-        })
-
-    # A repeat subscribe for the same job on the same connection replaces the
-    # old closure rather than stacking a second one, which would deliver every
-    # tick twice to this socket (#3868).
-    previous = job_subscriptions.get(job_id)
-    if previous is not None:
-        await processing_engine.unregister_progress_callback(job_id, previous)
-
-    # Track subscription intent BEFORE registering with the engine
-    # (not after) so the disconnect-cleanup loop below always knows
-    # to unregister this job_id even if this task is cancelled
-    # mid-await inside register_progress_callback.
-    job_subscriptions[job_id] = progress_callback
-    await processing_engine.register_progress_callback(job_id, progress_callback)
 
 
 async def handle_unknown(websocket: WebSocket, message: dict[str, Any]) -> None:

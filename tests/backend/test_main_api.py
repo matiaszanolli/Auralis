@@ -662,11 +662,10 @@ class TestWebSocketConnection:
             assert response["type"] == "pong"
 
     # test_websocket_subscribe_job_progress removed (#4781): it sent job_id at
-    # the top level instead of nested under "data" (the shape the handler
-    # actually reads — see ws_handlers/messages.py), so it always hit the
-    # rejection branch, and it asserted nothing regardless. The real,
-    # assertion-bearing version is
-    # test_system_api.py::TestWebSocketJobProgress::test_subscribe_job_progress_registers_callback.
+    # the top level instead of nested under "data", so it always hit the
+    # rejection branch, and it asserted nothing regardless. The
+    # assertion-bearing handler tests it pointed at went away with the
+    # handler itself in #5525 (no frontend sender, no consumer).
 
     def test_websocket_multiple_connections(self, client):
         """Test multiple simultaneous WebSocket connections"""

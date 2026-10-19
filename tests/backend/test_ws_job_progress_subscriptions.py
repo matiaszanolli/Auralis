@@ -1,14 +1,12 @@
 """Multi-subscriber job progress (#3868) and a guarded heartbeat ping (#3870).
 
-Both bugs lived in the `/ws` job-progress path and both were silent:
-
 * **#3868** — `ProcessingEngine.progress_callbacks` was `dict[str, Callable]`,
-  a *single* value per job. Every `subscribe_job_progress` overwrote the
-  previous subscriber's closure, so with two subscribers (multi-window
-  Electron, or one client subscribing twice) all but the newest stopped
-  receiving `job_progress` with no error on either side. The disconnect paths
-  were the mirror image: `unregister_progress_callback(job_id)` dropped the
-  whole entry, so one client closing its socket unsubscribed everyone else.
+  a *single* value per job, so with two subscribers all but the newest stopped
+  receiving progress with no error on either side. The engine-level registry
+  tests below pin the additive fan-out. The `/ws` handler-level half
+  (`subscribe_job_progress` frames, per-connection bookkeeping, disconnect
+  cleanup) was retired in #5525: no frontend ever sent the frame or consumed
+  `job_progress`, and the tests for that plumbing went with it.
 
 * **#3870** — `run_heartbeat_loop` (a closure named `_heartbeat_loop`
   until #4843 extracted it) sent its ping with a bare
@@ -32,7 +30,6 @@ sys.path.insert(0, str(_BACKEND))
 from starlette.websockets import WebSocketState  # noqa: E402
 
 from ws_handlers import connection as ws_connection  # noqa: E402
-from ws_handlers import messages as msg_handlers  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -176,7 +173,7 @@ class TestFailingSubscriberIsolation:
 
 
 # ---------------------------------------------------------------------------
-# Handler-level subscription bookkeeping (#3868)
+# Heartbeat ping guard (#3870)
 # ---------------------------------------------------------------------------
 
 
@@ -185,139 +182,6 @@ def _ws(state=WebSocketState.CONNECTED):
     ws.client_state = state
     ws.send_text = AsyncMock()
     return ws
-
-
-def _deps(processing_engine):
-    deps = Mock()
-    deps.get_processing_engine = Mock(return_value=processing_engine)
-    return deps
-
-
-class TestHandlerSubscriptionBookkeeping:
-    """`job_subscriptions` records this connection's own callback per job."""
-
-    async def test_subscription_is_recorded_against_the_registered_callback(self, engine):
-        subs: dict = {}
-        await msg_handlers.handle_subscribe_job_progress(
-            _ws(), {"data": {"job_id": "job-1"}}, _deps(engine), subs
-        )
-
-        assert set(subs) == {"job-1"}
-        # The tracked object is exactly what the engine holds — that identity is
-        # what lets teardown unregister only this connection's subscription.
-        assert engine.progress_callbacks["job-1"] == [subs["job-1"]]
-
-    async def test_resubscribing_same_job_replaces_rather_than_stacks(self, engine):
-        subs: dict = {}
-        ws = _ws()
-        for _ in range(3):
-            await msg_handlers.handle_subscribe_job_progress(
-                ws, {"data": {"job_id": "job-1"}}, _deps(engine), subs
-            )
-
-        # One subscriber, not three — otherwise this socket gets every tick 3x.
-        assert len(engine.progress_callbacks["job-1"]) == 1
-        assert engine.progress_callbacks["job-1"] == [subs["job-1"]]
-
-    async def test_two_connections_on_one_job_are_tracked_independently(self, engine):
-        subs_a: dict = {}
-        subs_b: dict = {}
-        await msg_handlers.handle_subscribe_job_progress(
-            _ws(), {"data": {"job_id": "job-1"}}, _deps(engine), subs_a
-        )
-        await msg_handlers.handle_subscribe_job_progress(
-            _ws(), {"data": {"job_id": "job-1"}}, _deps(engine), subs_b
-        )
-
-        assert subs_a["job-1"] is not subs_b["job-1"]
-        assert len(engine.progress_callbacks["job-1"]) == 2
-
-    async def test_invalid_job_id_registers_nothing(self, engine):
-        subs: dict = {}
-        with patch("ws_handlers.messages.send_error_response", new=AsyncMock()) as err:
-            await msg_handlers.handle_subscribe_job_progress(
-                _ws(), {"data": {"job_id": ""}}, _deps(engine), subs
-            )
-        err.assert_awaited_once()
-        assert subs == {}
-        assert engine.progress_callbacks == {}
-
-    async def test_disconnected_socket_self_unregisters_only_its_own_callback(self, engine):
-        """The closure's disconnect path must not evict the other subscriber."""
-        _job(engine)
-        subs_live: dict = {}
-        subs_dead: dict = {}
-        ws_dead = _ws(WebSocketState.DISCONNECTED)
-
-        await msg_handlers.handle_subscribe_job_progress(
-            _ws(), {"data": {"job_id": "job-1"}}, _deps(engine), subs_live
-        )
-        await msg_handlers.handle_subscribe_job_progress(
-            ws_dead, {"data": {"job_id": "job-1"}}, _deps(engine), subs_dead
-        )
-
-        await engine._notify_progress("job-1", 30.0, "")
-
-        assert engine.progress_callbacks["job-1"] == [subs_live["job-1"]]
-        ws_dead.send_text.assert_not_awaited()
-
-
-class TestTeardownUnregistersOnlyItsOwn:
-    """`teardown_connection` leaves other connections' subscriptions intact."""
-
-    async def test_teardown_leaves_the_other_connection_subscribed(self, engine):
-        subs_a: dict = {}
-        subs_b: dict = {}
-        await msg_handlers.handle_subscribe_job_progress(
-            _ws(), {"data": {"job_id": "job-1"}}, _deps(engine), subs_a
-        )
-        await msg_handlers.handle_subscribe_job_progress(
-            _ws(), {"data": {"job_id": "job-1"}}, _deps(engine), subs_b
-        )
-
-        await _teardown(engine, subs_a)
-
-        # Pre-#3868 this popped "job-1" outright, silently unsubscribing B.
-        assert engine.progress_callbacks["job-1"] == [subs_b["job-1"]]
-
-    async def test_teardown_of_the_last_subscriber_clears_the_job(self, engine):
-        subs: dict = {}
-        await msg_handlers.handle_subscribe_job_progress(
-            _ws(), {"data": {"job_id": "job-1"}}, _deps(engine), subs
-        )
-
-        await _teardown(engine, subs)
-
-        assert "job-1" not in engine.progress_callbacks
-
-
-async def _teardown(engine, job_subscriptions):
-    """Drive teardown_connection with everything but the subscription cleanup
-    stubbed out — that step is what these tests are about."""
-    heartbeat_task = asyncio.create_task(asyncio.sleep(3600))
-    state = Mock()
-    state.active_tasks_lock = asyncio.Lock()
-    state.active_tasks = {}
-    state.active_track_ids = {}
-    state.pause_events = {}
-    state.flow_events = {}
-    state.active_stream_settings = {}
-    manager = Mock()
-    manager.disconnect = AsyncMock()
-    await ws_connection.teardown_connection(
-        _ws(),
-        heartbeat_task,
-        state,
-        lambda: engine,
-        job_subscriptions,
-        manager,
-        Mock(),
-    )
-
-
-# ---------------------------------------------------------------------------
-# Heartbeat ping guard (#3870)
-# ---------------------------------------------------------------------------
 
 
 class TestHeartbeatPingIsGuarded:

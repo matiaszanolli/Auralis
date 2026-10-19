@@ -19,18 +19,21 @@ import type { AudioStreamStartMessage } from '@/types/websocket';
 
 describe('@/types/websocket barrel (#4081)', () => {
   it('re-exports the message-type tables', () => {
-    // 35 public subscription types: 'audio_chunk_meta' was removed (#4167) — it
+    // 34 public subscription types: 'audio_chunk_meta' was removed (#4167) — it
     // is consumed internally by WebSocketContext and never dispatched.
     // 'cache_cleared' was added (#4585) — it was broadcast by the backend but
     // never registered, so the dispatcher dropped it silently.
     // #4680 traded one for one: 'job_progress' added (emitted by the backend
     // with no declaration anywhere), 'queue_updated' removed (declared here
     // with no emitter since #3492).
-    expect(ws.ALL_MESSAGE_TYPES).toHaveLength(35);
+    // #5525 removed 'job_progress' again — the subscribe_job_progress handler
+    // had no frontend sender and no consumer, so the whole protocol surface
+    // was retired on both sides.
+    expect(ws.ALL_MESSAGE_TYPES).toHaveLength(34);
     expect(ws.ALL_MESSAGE_TYPES).not.toContain('audio_chunk_meta');
     expect(ws.ALL_MESSAGE_TYPES).not.toContain('queue_updated');
+    expect(ws.ALL_MESSAGE_TYPES).not.toContain('job_progress');
     expect(ws.ALL_MESSAGE_TYPES).toContain('cache_cleared');
-    expect(ws.ALL_MESSAGE_TYPES).toContain('job_progress');
     expect(ws.ALL_MESSAGE_TYPES).toContain('player_state');
     expect(ws.ALL_MESSAGE_TYPES).toContain('error');
     expect(ws.ALL_MESSAGE_TYPES).toContain('playback_started');

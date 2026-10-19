@@ -605,17 +605,6 @@ Broadcast when tracks are removed from the library. `{ "data": { "count": number
 Broadcast by `POST /api/cache/clear` (`routers/cache_streamlined.py`) after both
 cache tiers are dropped. `{ "data": { "message": string } }`
 
-#### `job_progress`
-Per-tick progress for one background processing job, sent only to the
-connections that subscribed to that `job_id` via the `subscribe_job_progress`
-command (`ws_handlers/messages.py`).
-`{ "data": { "job_id": string, "progress": number /* 0.0-1.0 */, "message": string } }`
-
-Registered in the frontend union by #4680. It has no subscriber yet — the one
-consumer that ever read it did so via a raw string compare in a since-deleted
-service, bypassing the registry — so registering it is what makes a type-safe
-subscriber possible rather than the fix being complete on its own.
-
 #### `fingerprint_progress`
 Broadcast by `audio_stream_controller.py` while computing a track fingerprint.
 `{ "data": { "track_id": number, "status": "analyzing" | "complete" | "failed" | "error" | "cached" | "queued", "message": string, "stream_type?": "enhanced" | "normal" } }`
@@ -862,7 +851,7 @@ Complete TypeScript types for all WebSocket messages are available in:
 
 **Frontend**: [auralis-web/frontend/src/types/websocket.ts](../frontend/src/types/websocket.ts) — a barrel re-export (#4081); the canonical source is [`auralis-web/frontend/src/types/ws/registry.ts`](../frontend/src/types/ws/registry.ts)
 
-The complete `WebSocketMessageType` union (35 members) is reproduced here for quick reference. This block is hand-maintained and has drifted from the real union before (#4991); `tests/backend/test_ws_type_registry_drift_4680.py` now checks it against both the backend's emitted literals and `registry.ts`, so a stale copy fails CI rather than misleading the next reader. Note `audio_chunk_meta` is intentionally excluded from this union — it's a JSON text frame fused with the following binary frame into a synthetic `audio_chunk` event by `WebSocketContext` before reaching consumers (see `ws/streaming.ts`):
+The complete `WebSocketMessageType` union (34 members) is reproduced here for quick reference. This block is hand-maintained and has drifted from the real union before (#4991); `tests/backend/test_ws_type_registry_drift_4680.py` now checks it against both the backend's emitted literals and `registry.ts`, so a stale copy fails CI rather than misleading the next reader. Note `audio_chunk_meta` is intentionally excluded from this union — it's a JSON text frame fused with the following binary frame into a synthetic `audio_chunk` event by `WebSocketContext` before reaching consumers (see `ws/streaming.ts`):
 
 ```typescript
 export type WebSocketMessageType =
@@ -910,7 +899,6 @@ export type WebSocketMessageType =
   | 'library_scan_error'
   | 'library_tracks_removed'
   | 'cache_cleared'
-  | 'job_progress'
   // Error messages
   | 'error';
 ```
@@ -922,7 +910,7 @@ export type WebSocketMessageType =
 | Player state | `player_state`, `playback_started`, `playback_paused`, `playback_resumed`, `playback_stopped`, `track_loaded`, `track_changed`, `position_changed`, `volume_changed` |
 | Queue | `queue_changed`, `queue_shuffled`, `repeat_mode_changed` |
 | Library | `library_updated`, `library_scan_started`, `library_scan_error`, `library_tracks_removed` |
-| System | `cache_cleared`, `job_progress` |
+| System | `cache_cleared` |
 | Metadata | `metadata_updated`, `metadata_batch_updated` |
 | Playlists | `playlist_created`, `playlist_updated`, `playlist_deleted` |
 | Enhancement | `enhancement_settings_changed`, `mastering_recommendation` |

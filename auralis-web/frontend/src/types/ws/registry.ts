@@ -57,7 +57,6 @@ import type {
 import type {
   SystemMessageType,
   CacheClearedMessage,
-  JobProgressMessage,
 } from './system';
 
 import type {
@@ -117,7 +116,6 @@ export type AnyWebSocketMessage =
   | LibraryScanErrorMessage
   | LibraryTracksRemovedMessage
   | CacheClearedMessage
-  | JobProgressMessage
   | WebSocketErrorMessage;
 
 
@@ -159,7 +157,6 @@ export const ALL_MESSAGE_TYPES: readonly WebSocketMessageType[] = [
   'library_scan_error',
   'library_tracks_removed',
   'cache_cleared',
-  'job_progress',
   'error',
 ] as const satisfies readonly WebSocketMessageType[];
 

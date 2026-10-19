@@ -323,11 +323,6 @@ def create_system_router(
         # attempt a teardown that needs them (#4771).
         heartbeat_task: asyncio.Task[None] | None = None
         state: StreamState | None = None
-        # This WS's own job-progress subscriptions (job_id -> callback), for
-        # cleanup on disconnect (#3325). A dict rather than a set of job_ids so
-        # teardown unregisters exactly this connection's callback and leaves
-        # other connections subscribed to the same job alone (#3868).
-        job_subscriptions: dict[str, Callable[..., Any]] = {}
 
         try:
             # setup_connection() now runs INSIDE the try (was previously
@@ -413,7 +408,7 @@ def create_system_router(
 
                 try:
                     await ws_connection.dispatch_message(
-                        websocket, message, state, deps, heartbeat, connection_id, job_subscriptions
+                        websocket, message, state, deps, heartbeat, connection_id
                     )
                 except (WebSocketDisconnect, RuntimeError):
                     # Genuinely fatal transport errors — let the outer
@@ -454,7 +449,7 @@ def create_system_router(
             if state is not None and heartbeat_task is not None:
                 await ws_connection.teardown_connection(
                     websocket, heartbeat_task, state, get_processing_engine,
-                    job_subscriptions, manager, _rate_limiter,
+                    manager, _rate_limiter,
                 )
             elif heartbeat_task is not None:
                 # setup_connection() returned a heartbeat_task but raised

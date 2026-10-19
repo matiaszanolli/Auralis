@@ -174,7 +174,6 @@ async def dispatch_message(
     deps: WSDeps,
     heartbeat: HeartbeatManager,
     connection_id: str,
-    job_subscriptions: dict[str, Callable[..., Any]],
 ) -> None:
     """Route one parsed WS message to its handler by `type`."""
     msg_type = message.get("type")
@@ -201,8 +200,6 @@ async def dispatch_message(
         await playback_control.handle_stop(websocket, state)
     elif msg_type == "seek":
         await playback_commands.handle_seek(websocket, message, state, deps)
-    elif msg_type == "subscribe_job_progress":
-        await msg_handlers.handle_subscribe_job_progress(websocket, message, deps, job_subscriptions)
     else:
         await msg_handlers.handle_unknown(websocket, message)
 
@@ -212,7 +209,6 @@ async def teardown_connection(
     heartbeat_task: asyncio.Task[None],
     state: StreamState,
     get_processing_engine: Callable[..., Any],
-    job_subscriptions: dict[str, Callable[..., Any]],
     manager: Any,
     rate_limiter: WebSocketRateLimiter,
 ) -> None:
@@ -283,22 +279,6 @@ async def teardown_connection(
             rate_limiter.force_cleanup(ws_id)
         except Exception:
             logger.warning("Rate-limiter fallback cleanup also failed", exc_info=True)
-
-    # Remove stale progress callbacks on WS disconnect (#3325).
-    # Wrap each unregister so one failure doesn't skip the rest.
-    #
-    # Unregisters THIS connection's own callback per job, not the job_id
-    # wholesale (#3868) — other connections may still be subscribed to the
-    # same job, and evicting them here would silently stop their
-    # `job_progress` events with no error on either side.
-    if job_subscriptions:
-        processing_engine = get_processing_engine()
-        if processing_engine:
-            for jid, callback in list(job_subscriptions.items()):
-                try:
-                    await processing_engine.unregister_progress_callback(jid, callback)
-                except Exception:
-                    logger.warning(f"Failed to unregister progress callback for {jid}", exc_info=True)
 
     # Remove from connection manager
     try:

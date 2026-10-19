@@ -57,10 +57,6 @@ class WebSocketMessageType(str, Enum):
     # seconds, >=0), preset?: str, intensity?: float} — same preset/
     # intensity precedence as PLAY_ENHANCED (#4677).
     SEEK_STARTED = "seek_started"  # server->client only; see class docstring.
-    SUBSCRIBE_JOB_PROGRESS = "subscribe_job_progress"
-    # data: {job_id: str (required)}. Subscribes this connection to
-    # `job_progress` broadcasts for the named job.
-    JOB_PROGRESS = "job_progress"  # server->client only; see class docstring.
     AUDIO_STREAM_ERROR = "audio_stream_error"  # server->client only; see class docstring.
     RESUME = "resume"  # data: ignored (handle_resume takes no message/data param).
     BUFFER_FULL = "buffer_full"  # data: ignored — flow-control signal only.

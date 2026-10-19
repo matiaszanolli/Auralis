@@ -147,9 +147,11 @@ class TestBothDirections:
 class TestTheSpecificDriftedTypes:
     """Named checks, so a regression says which one came back."""
 
-    def test_job_progress_is_declared(self, emitted, registry):
-        assert "job_progress" in emitted
-        assert "job_progress" in registry
+    def test_job_progress_is_gone_from_both_sides(self, emitted, registry):
+        # Retired with its handler in #5525 (no sender, no consumer); same
+        # shape as the queue_updated check below.
+        assert "job_progress" not in emitted, "an emitter came back — #5525 removed it"
+        assert "job_progress" not in registry
 
     def test_cache_cleared_stays_declared(self, emitted, registry):
         assert "cache_cleared" in emitted
