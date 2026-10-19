@@ -309,7 +309,6 @@ There are **two separate processor caches**: the module-level convenience cache 
 | Knob | Default | Effect |
 |------|---------|--------|
 | `internal_sample_rate` | 44100 | Internal processing rate |
-| `processing_sample_rate` | 48000 | I/O downsample target |
 | `fft_size` | 4096 | Asserted power of 2 |
 | `mastering_profile` | `"adaptive"` | Named preset |
 | `use_continuous_space` | `True` | ContinuousMode vs legacy AdaptiveMode |
