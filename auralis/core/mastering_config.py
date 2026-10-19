@@ -23,6 +23,13 @@ from .mastering_presets import MasteringPresetDefaults
 
 __all__ = ["SimpleMasteringConfig", "MasteringPresetDefaults"]
 
+# Chunk-seam safety ratio (#5339): a one-pole envelope is ~99.3% settled after
+# 5 time constants, and the 4x margin on top leaves room for the equal-power
+# crossfade's own ramp. Today's constants sit at 50x the slowest time constant
+# — 2.5x headroom over this floor.
+_SEAM_SETTLE_TAUS = 5.0
+_SEAM_SAFETY_FACTOR = 4.0
+
 
 @dataclass
 class SimpleMasteringConfig(MasteringPresetDefaults):
@@ -62,7 +69,12 @@ class SimpleMasteringConfig(MasteringPresetDefaults):
     """Duration of each processing chunk in seconds"""
 
     CROSSFADE_DURATION_SEC: float = 3.0
-    """Duration of crossfade between chunks in seconds"""
+    """Duration of crossfade between chunks in seconds. CHUNK-SEAM COUPLING
+    (#5339): the loudness limiter (LOUDNESS_LIMITER_RELEASE_MS) and the
+    transient shaper (TRANSIENT_SLOW_MS) restart their envelopes fresh on
+    every chunk, so this crossfade must outlast their settle time or every
+    seam becomes an audible step. Enforced in __post_init__ below — change
+    those constants together with this one, never in isolation."""
 
     QUALITY_EVALUATION_ENABLED: bool = True
     """Attach advisory before/after measurements to file-master results."""
@@ -72,6 +84,22 @@ class SimpleMasteringConfig(MasteringPresetDefaults):
 
     QUALITY_EVALUATION_WINDOW_COUNT: int = 5
     """Number of source/output windows included in the measurement."""
+
+    def __post_init__(self) -> None:
+        slowest_tau_ms = max(
+            self.TRANSIENT_SLOW_MS, self.LOUDNESS_LIMITER_RELEASE_MS
+        )
+        min_crossfade_sec = (
+            _SEAM_SETTLE_TAUS * _SEAM_SAFETY_FACTOR * slowest_tau_ms / 1000.0
+        )
+        assert self.CROSSFADE_DURATION_SEC >= min_crossfade_sec, (
+            f"CROSSFADE_DURATION_SEC ({self.CROSSFADE_DURATION_SEC}s) is below "
+            f"{_SEAM_SETTLE_TAUS * _SEAM_SAFETY_FACTOR:.0f}x the slowest "
+            f"per-chunk-reset envelope time constant ({slowest_tau_ms:.0f} ms — "
+            f"TRANSIENT_SLOW_MS / LOUDNESS_LIMITER_RELEASE_MS): chunk boundaries "
+            f"would become audible steps (#5339). Raise the crossfade or shorten "
+            f"the envelope constants together."
+        )
 
     # =========================================================================
     # Pre-EQ Headroom

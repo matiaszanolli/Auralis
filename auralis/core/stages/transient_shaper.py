@@ -77,6 +77,8 @@ def apply(
             band_low_hz=config.TRANSIENT_BASS_LOW_HZ,
             band_high_hz=config.TRANSIENT_BASS_HIGH_HZ,
             attack_boost_db=bass_band_boost,
+            fast_ms=config.TRANSIENT_FAST_MS,
+            slow_ms=config.TRANSIENT_SLOW_MS,
         )
 
     # Lo-mid band — slightly gentler boost (lo-mid attacks are less critical)
@@ -86,6 +88,8 @@ def apply(
             band_low_hz=config.TRANSIENT_LO_MID_LOW_HZ,
             band_high_hz=config.TRANSIENT_LO_MID_HIGH_HZ,
             attack_boost_db=boost_db * 0.7,
+            fast_ms=config.TRANSIENT_FAST_MS,
+            slow_ms=config.TRANSIENT_SLOW_MS,
         )
 
     if verbose:

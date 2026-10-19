@@ -30,10 +30,13 @@ CROSSFADE_SEC = 0.02    # 20 ms crossfade
 
 
 def _make_pipeline() -> SimpleMasteringPipeline:
-    config = SimpleMasteringConfig(
-        CHUNK_DURATION_SEC=CHUNK_SEC,
-        CROSSFADE_DURATION_SEC=CROSSFADE_SEC,
-    )
+    # Construct first, then shrink the geometry by assignment: __post_init__
+    # enforces the #5339 seam ratio for real masters, and this harness
+    # deliberately uses a 20 ms crossfade so the chunk loop iterates fast on
+    # synthetic audio (same escape hatch as test_crossfade_zero_length_boundary).
+    config = SimpleMasteringConfig()
+    config.CHUNK_DURATION_SEC = CHUNK_SEC
+    config.CROSSFADE_DURATION_SEC = CROSSFADE_SEC
     pipeline = SimpleMasteringPipeline(config=config)
     # Same pattern as test_prev_tail_corruption_guard.py: set the private
     # attribute behind the read-only fingerprint_service property.

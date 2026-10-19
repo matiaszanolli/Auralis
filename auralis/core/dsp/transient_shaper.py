@@ -68,7 +68,13 @@ class TransientShaper:
                 attack times you want to preserve (5 ms catches drum hits).
             slow_ms: Slow envelope time constant. Should be longer than typical
                 attack times but shorter than typical decay times (50 ms tracks
-                the overall band level).
+                the overall band level). CHUNK-SEAM COUPLING (#5339): both
+                envelopes restart fresh on every mastering chunk, so these
+                constants feed the crossfade-vs-settle-time ratio enforced in
+                SimpleMasteringConfig.__post_init__ — tune them via
+                TRANSIENT_FAST_MS/TRANSIENT_SLOW_MS in mastering_presets.py,
+                which routes them here, rather than by moving these defaults
+                in isolation.
             order: Bandpass filter order (default 2, gentle slope).
 
         Returns:

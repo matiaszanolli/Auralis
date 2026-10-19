@@ -102,6 +102,18 @@ class MasteringPresetDefaults:
     TRANSIENT_MAX_BOOST_DB: float = 5.0
     """Maximum attack boost at peak transient moments (×intensity)"""
 
+    TRANSIENT_FAST_MS: float = 5.0
+    """Fast envelope time constant of the transient shaper (ms). Hoisted here
+    from TransientShaper.apply()'s function default so the chunk-seam safety
+    check in SimpleMasteringConfig.__post_init__ (#5339) can see it — the
+    shaper's envelopes restart fresh on every chunk, so CROSSFADE_DURATION_SEC
+    must outlast their settle time."""
+
+    TRANSIENT_SLOW_MS: float = 50.0
+    """Slow envelope time constant of the transient shaper (ms). The slow
+    envelope is the shaper's longest, so it is the binding constant for the
+    chunk-seam check in SimpleMasteringConfig.__post_init__ (#5339)."""
+
     TRANSIENT_ACTIVATE_CREST_DB: float = 20.0
     """Below this overall-crest, transients are considered worth shaping.
     Most real-world tracks have crest 10-18 dB; 20 dB threshold ensures we
@@ -279,7 +291,11 @@ class MasteringPresetDefaults:
 
     LOUDNESS_LIMITER_RELEASE_MS: float = 60.0
     """Limiter release. Long enough to avoid pumping on sustained low end,
-    short enough to recover between transients on punchy rock material."""
+    short enough to recover between transients on punchy rock material. The
+    limiter's envelope restarts fresh on every chunk, so this constant is one
+    of the two inputs to the chunk-seam safety ratio enforced in
+    SimpleMasteringConfig.__post_init__ (#5339) — lengthen it only together
+    with CROSSFADE_DURATION_SEC (mastering_config.py)."""
 
     # =========================================================================
     # Progress Reporting
