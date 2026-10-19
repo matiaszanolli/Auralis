@@ -62,8 +62,6 @@ export interface TrackInfo {
   bit_depth?: number;
   format?: string;
   loudness?: number;
-  crest_factor?: number;
-  centroid?: number;
   date_added?: string;
   date_modified?: string;
 }

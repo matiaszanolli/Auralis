@@ -11,7 +11,7 @@ import type { Track } from '@/types/domain';
  * Transform a single track from API response to domain model
  *
  * Backend contract (snake_case):
- * - sample_rate, bit_depth, crest_factor, date_added, date_modified
+ * - sample_rate, bit_depth, date_added, date_modified
  *
  * Frontend domain (camelCase):
  * - sampleRate, bitDepth, dateAdded, dateModified
