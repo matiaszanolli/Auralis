@@ -77,7 +77,11 @@ def test_removes_tracks_under_the_removed_folder(tmp_path):
         )
         assert response.status_code == 200
         remove_tracks_under_folder.assert_called_once_with(str(removed_dir))
-        assert manager.frames == [{"type": "library_tracks_removed", "data": {"count": 4}}]
+        assert manager.frames == [
+            {"type": "library_tracks_removed", "data": {"count": 4}},
+            # #5515: the library view refetches on library_updated.
+            {"type": "library_updated", "data": {"action": "update", "track_count": 0}},
+        ]
 
     _with_registered_dir(tmp_path, _run)
 

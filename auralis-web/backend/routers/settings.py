@@ -232,10 +232,12 @@ def create_settings_router(
                           re-seed. No-op (re-seed only, no broadcast) if not
                           given.
         get_library_database: Optional callable returning the LibraryDatabase
-                          instance. When given, removing a scan folder also
-                          prunes Track rows under it (#5467) instead of
-                          leaving them visible but path-untrusted. No-op
-                          (folder removed from settings only) if not given.
+                          instance. When given, removing a scan folder — via
+                          the dedicated delete endpoint or a PUT /api/settings
+                          scan_folders diff — also prunes Track rows under it
+                          (#5467, #5523) instead of leaving them visible but
+                          path-untrusted. No-op (folder removed from settings
+                          only) if not given.
 
     Returns:
         APIRouter: Configured router instance
@@ -289,6 +291,19 @@ def create_settings_router(
             )
         except Exception as exc:
             logger.warning(f"Failed to broadcast enhancement_settings_changed: {exc}")
+
+    async def _revoke_folder(folder: str) -> None:
+        """Unregister a folder's path trust and prune its Track rows.
+
+        Shared by remove_scan_folder and update_settings' scan_folders diff:
+        the two routes must behave identically for this column, and revoking
+        trust without the prune leaves the folder's rows visible-but-broken
+        (#5467 fixed the dedicated endpoint only; #5523 is the generic one).
+        """
+        unregister_allowed_directory(Path(folder))
+        library_database = get_library_database() if get_library_database else None
+        if library_database is not None:
+            await prune_tracks_under_folder(library_database, folder, connection_manager)
 
     @router.get("/api/settings", response_model=SettingsResponse)
     @with_error_handling("get settings")
@@ -347,7 +362,11 @@ def create_settings_router(
             for added in new_folders - previous_folders:
                 register_allowed_directory(Path(added))
             for removed in previous_folders - new_folders:
-                unregister_allowed_directory(Path(removed))
+                # Same revoke+prune as the dedicated delete endpoint (#5523):
+                # unregistering trust alone left the removed folder's tracks
+                # in the library while every path-validated endpoint started
+                # rejecting their files with an unexplained 400.
+                await _revoke_folder(removed)
 
         await _notify_scanner()
 
@@ -385,16 +404,10 @@ def create_settings_router(
         settings = await asyncio.to_thread(_repo().remove_scan_folder, body.folder)
         # Undo the registration made in add_scan_folder so validate_file_path()
         # stops trusting this folder for the rest of the session (fixes #3842),
-        # instead of only reverting on the next backend restart.
-        unregister_allowed_directory(Path(body.folder))
-        # #5467: path trust for this folder is gone as of the line above, but
-        # its Track rows would otherwise stay visible in the library while
-        # every path-validated endpoint (metadata, tracks, enhancement)
-        # starts rejecting them with an unexplained 400. Prune them and
-        # announce it, same shape as prune_missing_tracks.
-        library_database = get_library_database() if get_library_database else None
-        if library_database is not None:
-            await prune_tracks_under_folder(library_database, body.folder, connection_manager)
+        # instead of only reverting on the next backend restart, and prune the
+        # folder's Track rows (#5467) — revoke+prune is one shared step so this
+        # endpoint and PUT /api/settings' scan_folders diff can't drift (#5523).
+        await _revoke_folder(body.folder)
         await _notify_scanner()
         return {"message": f"Scan folder removed: {body.folder}", "settings": settings.to_dict()}
 
