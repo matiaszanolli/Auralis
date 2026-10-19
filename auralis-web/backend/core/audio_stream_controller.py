@@ -253,7 +253,7 @@ class AudioStreamController:
         self, websocket: WebSocket, track_id: int, status: str, message: str
     ) -> None:
         from . import stream_messages
-        await stream_messages.send_fingerprint_progress(websocket, track_id, status, message)
+        await stream_messages.send_fingerprint_progress(self, websocket, track_id, status, message)
 
 
     async def _ensure_fingerprint_available(

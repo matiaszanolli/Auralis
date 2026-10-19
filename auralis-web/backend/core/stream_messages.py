@@ -200,11 +200,10 @@ async def send_error(
     if recovery_position is not None:
         data["recovery_position"] = recovery_position
     message: dict[str, Any] = {"type": "audio_stream_error", "data": data}
-    try:
-        import json
-        await websocket.send_text(json.dumps(message))
-    except Exception as e:
-        logger.error(f"Failed to send error message: {e}")
+    # safe_send classifies the outcome by connection state (#5273): a client
+    # disconnect racing the send logs at debug, a genuine failure at warning —
+    # never at ERROR, which triaged as a server-side fault.
+    await controller._safe_send(websocket, message)
 
 
 async def send_stream_completion(
@@ -285,6 +284,7 @@ async def send_stream_completion(
 
 
 async def send_fingerprint_progress(
+    controller: 'AudioStreamController',
     websocket: WebSocket,
     track_id: int,
     status: str,
@@ -294,6 +294,9 @@ async def send_fingerprint_progress(
     Send fingerprint_progress message to client.
 
     Args:
+        controller: AudioStreamController instance — the send routes through
+            ``controller._safe_send`` so a benign client disconnect racing
+            the progress update logs at debug, not ERROR (#5273).
         websocket: WebSocket connection
         track_id: Track ID being analyzed
         status: Progress status (analyzing, complete, failed, error)
@@ -308,9 +311,5 @@ async def send_fingerprint_progress(
             "stream_type": _asc._stream_type_var.get(),
         },
     }
-    try:
-        import json
-        await websocket.send_text(json.dumps(progress_message))
+    if await controller._safe_send(websocket, progress_message):
         logger.debug(f"Sent fingerprint_progress: track={track_id}, status={status}")
-    except Exception as e:
-        logger.error(f"Failed to send fingerprint_progress message: {e}")
