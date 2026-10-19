@@ -47,12 +47,16 @@ class TestDatabasePerformanceUnderLoad:
         scanner = LibraryScanner(db)
 
         start_time = time.time()
-        results = scanner.scan_folder(str(audio_dir))
+        # #5305: the persistent scan API returns a ScanResult dataclass;
+        # scan_folder() is the read-only discovery preview (a list of per-file
+        # dicts) and performs no database writes, so the old dict indexing
+        # both crashed and would never have populated the library.
+        result = scanner.scan_single_directory(str(audio_dir))
         scan_time = time.time() - start_time
 
         # Performance assertions
-        assert results['success'] is True
-        assert results['files_scanned'] == 1000
+        assert result.files_found == 1000
+        assert result.files_added == 1000
         assert scan_time < 30.0, f"Scan took {scan_time:.2f}s (expected < 30s)"
 
         # Verify all tracks in database
