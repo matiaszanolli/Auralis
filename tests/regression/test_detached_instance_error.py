@@ -438,5 +438,4 @@ class TestSettingsRepositoryDetachedAccess:
 
 
 # TestQueueRepositoryDetachedAccess was deleted with QueueRepository (#5358).
-# The QueueState row is still returned detached by QueueHistoryRepository.undo(),
-# which tests/integration/test_queue_history.py reads back after expunge.
+# The QueueHistoryRepository integration tests went with queue undo (#5526).

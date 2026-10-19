@@ -13,7 +13,6 @@ dependency_overrides keyed on routers.player providers keep working.
 - player_deps.py           Depends() providers (#4670)
 - player_playback.py       status, load, seek, volume, next, previous
 - player_queue.py          queue read/replace/mutation, repeat mode
-- player_queue_history.py  queue history and undo (#3805)
 
 Audio streaming is WebSocket-only; no REST streaming endpoints remain.
 
@@ -36,7 +35,6 @@ from .player_deps import (  # noqa: F401
     _get_navigation_service,
     _get_playback_service,
     _get_player_state_manager,
-    _get_queue_history_repo,
     _get_queue_service,
     _get_recommendation_service,
     _PlayerDeps,
@@ -49,12 +47,8 @@ from .player_models import (  # noqa: F401
     MessageResponse,
     MoveQueueTrackRequest,
     MoveQueueTrackResponse,
-    QueueHistoryEntryResponse,
-    QueueHistoryListResponse,
-    QueueHistoryStateSnapshot,
     QueueInfoResponse,
     QueueSizeResponse,
-    RecordQueueHistoryRequest,
     RemoveFromQueueResponse,
     ReorderQueueRequest,
     RepeatModeRequest,
@@ -64,7 +58,6 @@ from .player_models import (  # noqa: F401
     SetQueueResponse,
     SetVolumeRequest,
     ShuffleRequest,
-    UndoQueueResponse,
     VolumeResponse,
 )
 from .player_playback import (
@@ -85,12 +78,6 @@ from .player_queue import (
     set_queue,
     set_repeat_mode,
     shuffle_queue,
-)
-from .player_queue_history import (
-    clear_queue_history,
-    get_queue_history,
-    record_queue_history,
-    undo_queue_operation,
 )
 
 
@@ -142,13 +129,6 @@ def create_player_router(
     # QUEUE
     router.add_api_route("/api/player/queue", get_queue, methods=["GET"], response_model=QueueInfoResponse)
     router.add_api_route("/api/player/queue", set_queue, methods=["POST"], response_model=SetQueueResponse)
-
-    # QUEUE HISTORY / UNDO (#3805) — registered before the `/queue/{index}`
-    # DELETE route below; see the note in player_queue_history.py.
-    router.add_api_route("/api/player/queue/history", get_queue_history, methods=["GET"], response_model=QueueHistoryListResponse)
-    router.add_api_route("/api/player/queue/history", record_queue_history, methods=["POST"], response_model=QueueHistoryEntryResponse)
-    router.add_api_route("/api/player/queue/undo", undo_queue_operation, methods=["POST"], response_model=UndoQueueResponse)
-    router.add_api_route("/api/player/queue/history", clear_queue_history, methods=["DELETE"], response_model=MessageResponse)
 
     router.add_api_route("/api/player/queue/{index}", remove_from_queue, methods=["DELETE"], response_model=RemoveFromQueueResponse)
     router.add_api_route("/api/player/queue/reorder", reorder_queue, methods=["PUT"], response_model=QueueSizeResponse)

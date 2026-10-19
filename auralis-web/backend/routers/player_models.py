@@ -102,21 +102,6 @@ class RepeatModeRequest(BaseModel):
     mode: Literal["off", "all", "one"]
 
 
-class QueueHistoryStateSnapshot(BaseModel):
-    """Queue state snapshot carried by a history entry (#3805)."""
-    track_ids: TrackIdList
-    current_index: QueueIndex = 0
-    is_shuffled: bool = False
-    repeat_mode: Literal["off", "all", "one"] = "off"
-
-
-class RecordQueueHistoryRequest(BaseModel):
-    """Request model for POST /api/player/queue/history (#3805)."""
-    operation: Literal["set", "add", "remove", "reorder", "shuffle", "clear"]
-    state_snapshot: QueueHistoryStateSnapshot
-    operation_metadata: dict[str, Any] = {}
-
-
 # ============================================================================
 # RESPONSE MODELS (#2751 — OpenAPI schema documentation)
 # ============================================================================
@@ -206,24 +191,4 @@ class MoveQueueTrackResponse(BaseModel):
     queue_size: int
 
 
-class QueueHistoryEntryResponse(BaseModel):
-    """Single queue history entry (#3805)."""
-    id: int
-    operation: str
-    state_snapshot: dict[str, Any]
-    operation_metadata: dict[str, Any]
-    created_at: str | None = None
 
-    model_config = ConfigDict(extra='allow')
-
-
-class QueueHistoryListResponse(BaseModel):
-    """Response for GET /api/player/queue/history (#3805)."""
-    history: list[QueueHistoryEntryResponse]
-    count: int
-
-
-class UndoQueueResponse(BaseModel):
-    """Response for POST /api/player/queue/undo (#3805)."""
-    message: str
-    queue_state: dict[str, Any]

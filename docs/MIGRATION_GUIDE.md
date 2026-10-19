@@ -215,7 +215,6 @@ The `RepositoryFactory` provides access to 14 repositories, each with specific m
 - **`factory.stats`** - Library statistics (get_library_stats, etc.)
 - **`factory.queue`** - Queue management
 - **`factory.settings`** - Settings storage
-- **`factory.queue_history`** - Queue history tracking
 
 ---
 

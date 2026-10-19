@@ -2,8 +2,7 @@
 Player Router Dependency Wiring
 
 The Depends() providers every /api/player handler resolves its services
-through (#4670), shared by routers/player.py, player_queue.py and
-player_queue_history.py (#5472).
+through (#4670), shared by the routers/player.py modules (#5472).
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
@@ -126,18 +125,3 @@ def _get_navigation_service(
     )
 
 
-def _get_queue_history_repo(library_database: Any = Depends(_get_library_database)) -> Any:
-    """Lazy repository initialization (#3805).
-
-    Constructed directly from the library manager's session factory
-    rather than via RepositoryFactory — this router only receives
-    get_library_database, not get_repository_factory. QueueHistoryRepository
-    is cheap to construct (BaseRepository just holds the session factory;
-    no per-instance caching needed for occasional undo/history calls).
-    """
-    if not library_database:
-        raise LibraryManagerUnavailableError()
-    from auralis.library.repositories.queue_history_repository import (
-        QueueHistoryRepository,
-    )
-    return QueueHistoryRepository(library_database.SessionLocal)

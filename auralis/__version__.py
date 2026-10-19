@@ -8,7 +8,7 @@ independent and must only change with their respective formats.
 
 __version__ = "1.5.1"
 __version_info__ = (1, 5, 1, "", 0)
-__db_schema_version__ = 20  # processing_jobs: jobs survive a backend restart (#5278)
+__db_schema_version__ = 21  # drop queue_state/queue_history: queue undo retired (#5526)
 
 # Fingerprint algorithm version — increment this whenever the 25D extraction
 # algorithm changes in a way that produces different values for the same audio.
@@ -82,3 +82,8 @@ FINGERPRINT_ALGORITHM_VERSION = 9
 # Schema v14 - Added indexes on favorite, play_count, created_at, similarity_graph (2026-03-05)
 # Schema v15 - Added is_reference flag on track_fingerprints for mastering reference cloud (2026-05-24)
 # Schema v16 - track_playlist: UNIQUE(track_id, playlist_id) + position column to eliminate concurrent add_track races (2026-05-27)
+# Schema v17 - Added reference_weight to track_fingerprints for listening-behavior-weighted reference selection (2026-08-03)
+# Schema v18 - Added tracks.filepath_key, the value path lookups compare against (2026-08-13)
+# Schema v19 - Backfill albums.artist_id for albums created without one by the rescan paths (2026-09-13)
+# Schema v20 - Added processing_jobs: durable job records survive a backend restart (#5278) (2026-09-16)
+# Schema v21 - Drop queue_state/queue_history: queue undo retired unwired (#5526)

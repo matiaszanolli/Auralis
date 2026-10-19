@@ -24,14 +24,10 @@ from routers.player import (  # noqa: E402
     get_player_status,
     next_track,
     previous_track,
-    QueueHistoryStateSnapshot,
-    RecordQueueHistoryRequest,
-    record_queue_history,
     seek_position,
     SeekRequest,
     set_volume,
     SetVolumeRequest,
-    undo_queue_operation,
 )
 from services.errors import InvalidRequest, ServiceUnavailable  # noqa: E402
 
@@ -182,38 +178,3 @@ async def test_previous_track_maps_service_unavailable_to_503():
         await previous_track(service=stub_service)
 
     assert exc_info.value.status_code == 503
-
-
-def _history_request(operation: str = "set") -> RecordQueueHistoryRequest:
-    return RecordQueueHistoryRequest(
-        operation=operation,
-        state_snapshot=QueueHistoryStateSnapshot(track_ids=[1, 2, 3], current_index=0),
-    )
-
-
-async def test_record_queue_history_maps_repo_value_error_to_400():
-    """Repository-level ValueError (not a typed ServiceError) stays 400,
-    now via BadRequestError rather than a bare HTTPException(400) -- same
-    status, consistent construction (#5338)."""
-    repo = MagicMock()
-    repo.push_to_history = MagicMock(side_effect=ValueError("bad snapshot"))
-
-    with pytest.raises(HTTPException) as exc_info:
-        await record_queue_history(_history_request(), repo=repo)
-
-    assert exc_info.value.status_code == 400
-
-
-async def test_undo_queue_operation_maps_repo_value_error_to_400():
-    repo = MagicMock()
-    repo.undo = MagicMock(side_effect=ValueError("corrupt history entry"))
-
-    with pytest.raises(HTTPException) as exc_info:
-        await undo_queue_operation(
-            repo=repo,
-            queue_service=MagicMock(),
-            player_state_manager=None,
-            connection_manager=MagicMock(),
-        )
-
-    assert exc_info.value.status_code == 400

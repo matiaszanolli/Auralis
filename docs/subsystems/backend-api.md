@@ -108,7 +108,7 @@ an `APIRouter(prefix=...)`.
 
 | Group | Routers |
 |-------|---------|
-| **Player / playback** | `player.py` (`/api/player/*` — the exemplar, 19 routes all typed; since #5472 it registers them from `player_playback.py`, `player_queue.py` and `player_queue_history.py`, with models in `player_models.py` and providers in `player_deps.py`), `enhancement.py` (`/api/player/enhancement/*`) |
+| **Player / playback** | `player.py` (`/api/player/*` — the exemplar, 19 routes all typed; since #5472 it registers them from `player_playback.py` and `player_queue.py` (queue history/undo was retired unwired in #5526), with models in `player_models.py` and providers in `player_deps.py`), `enhancement.py` (`/api/player/enhancement/*`) |
 | **Library browse** | `library.py`, `tracks.py`, `albums.py`, `artists.py`, `playlists.py`, `library_scan.py`, `fingerprint_status.py` |
 | **Metadata / artwork** | `metadata.py`, `artwork.py` |
 | **Streaming / processing** | `processing_api.py` (registers `/api/processing/*` from itself plus `processing_upload.py`, `processing_jobs.py` and `processing_parameters.py`, with `processing_models.py` / `processing_deps.py`; #5472), `cache_streamlined.py`. (The REST chunk-delivery router was removed; chunk delivery is WebSocket-only — see below.) |

@@ -22,7 +22,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from auralis.player.components.queue_manager import QueueManager
+from auralis.player.queue_controller import QueueController
 
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
@@ -46,17 +46,23 @@ def client():
 
 @pytest.fixture
 def queue_manager():
-    """Create the real queue component consumed by QueueService (#5175)."""
-    manager = QueueManager()
-    manager.tracks = [
+    """The real queue controller the QueueService drives.
+
+    Production wires audio_player.queue as a QueueController — the raw
+    QueueManager only has clear(), which is exactly the #5513 alias trap —
+    so the clear-queue service's clear_queue() call needs the controller.
+    Tracks are seeded on the controller's inner QueueManager as before.
+    """
+    controller = QueueController(lambda: None)
+    controller.queue.tracks = [
         {"id": 1, "title": "Track 1", "filepath": "/path/1.wav"},
         {"id": 2, "title": "Track 2", "filepath": "/path/2.wav"},
         {"id": 3, "title": "Track 3", "filepath": "/path/3.wav"},
         {"id": 4, "title": "Track 4", "filepath": "/path/4.wav"},
         {"id": 5, "title": "Track 5", "filepath": "/path/5.wav"},
     ]
-    manager.current_index = 0
-    return manager
+    controller.current_index = 0
+    return controller
 
 
 class TestRemoveFromQueue:
@@ -357,29 +363,3 @@ class TestQueueIntegration:
 # ============================================================
 # Phase 5C: Dual-Mode Backend Testing Patterns
 # ============================================================
-# The following tests demonstrate how to use Phase 5C fixtures
-# from conftest.py for dual-mode parametrized testing with
-# queue-specific repository interfaces.
-
-@pytest.mark.phase5c
-class TestQueueAPIDualModeParametrized:
-    """Phase 5C.3: Parametrized dual-mode tests for queue operations.
-
-    These tests automatically run with both LibraryManager and RepositoryFactory
-    via the parametrized mock_data_source fixture. The queue-specific
-    repository (queue_history) is validated with both patterns; the caller-less
-    QueueRepository and its interface test were deleted in #5358.
-    """
-
-    def test_queue_history_repository_interface(self, mock_data_source):
-        """
-        Parametrized test: Validate queue_history repository for RepositoryFactory mode.
-
-        RepositoryFactory has queue_history; LibraryManager may not.
-        Both should have basic repository interface.
-        """
-        mode, source = mock_data_source
-
-        if mode == "repository_factory":
-            assert hasattr(source, 'queue_history'), f"{mode} missing queue_history"
-            assert hasattr(source.queue_history, 'get_all'), "queue_history missing get_all"

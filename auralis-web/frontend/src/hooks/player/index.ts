@@ -12,7 +12,6 @@ export { usePlayTrack } from './usePlayTrack';
 export type { PlayableTrack } from './usePlayTrack';
 // Use Redux selectors (playerSlice / queueSlice) as the single source of
 // truth for playback state.
-export { useQueueHistory } from './useQueueHistory';
 export { useQueueRecommendations } from './useQueueRecommendations';
 export { useQueueSearch } from './useQueueSearch';
 export { useQueueStatistics } from './useQueueStatistics';
