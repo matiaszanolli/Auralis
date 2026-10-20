@@ -94,8 +94,25 @@ def build_hybrid_components(config: UnifiedConfig, processor: "HybridProcessor")
         config, processor.content_analyzer, processor.target_generator,
         processor.spectrum_mapper
     )
+    # #5560: resolve the fingerprint repository so ContinuousMode's Phase 4
+    # reference-cloud derivation (derive_target/compute_delta_eq) actually
+    # runs in the shipped app. The registry lives backend-side; read it
+    # lazily the same way chunk_fingerprint_registry does — None (bare
+    # unit-test context) and missing keys degrade to no repository, which
+    # keeps ContinuousMode on the legacy deficit EQ rather than raising.
+    fingerprint_repository = None
+    try:
+        from config.globals import get_component_registry
+
+        registry = get_component_registry()
+        if registry is not None and registry.get('library_database') is not None:
+            fingerprint_repository = registry['library_database'].fingerprints
+    except Exception as e:
+        debug(f"Fingerprint repository unavailable for ContinuousMode: {e}")
+
     processor.continuous_mode = ContinuousMode(
-        config, processor.content_analyzer, processor.fingerprint_analyzer
+        config, processor.content_analyzer, processor.fingerprint_analyzer,
+        fingerprint_repository=fingerprint_repository,
     )
     processor.hybrid_mode = HybridMode(
         config, processor.content_analyzer, processor.target_generator,
