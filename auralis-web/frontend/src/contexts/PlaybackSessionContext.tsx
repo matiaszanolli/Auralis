@@ -150,7 +150,11 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
     seekTo(position);
   }, [isStreaming, currentTrack?.id, seekTo]);
 
-  const handleNext = useCallback(() => runTransportCommand(async () => {
+  // The three transport handlers await-and-discard runTransportCommand's
+  // started boolean (#5613): coalescing is their desired behaviour, so a
+  // drop needs no reaction — they only keep the Promise<void> contract.
+  const handleNext = useCallback(async () => {
+    await runTransportCommand(async () => {
     try {
       let nextIndex = currentQueueIndex + 1;
       if (nextIndex >= queueTracks.length) {
@@ -178,9 +182,11 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error('[PlaybackSession] Next command error:', err);
     }
-  }), [currentQueueIndex, queueTracks, repeatMode, stopPlayback, dispatch, runTransportCommand, startTrackForSettings]);
+    });
+  }, [currentQueueIndex, queueTracks, repeatMode, stopPlayback, dispatch, runTransportCommand, startTrackForSettings]);
 
-  const handlePrevious = useCallback(() => runTransportCommand(async () => {
+  const handlePrevious = useCallback(async () => {
+    await runTransportCommand(async () => {
     try {
       let prevIndex = currentQueueIndex - 1;
       if (prevIndex < 0) {
@@ -204,9 +210,11 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error('[PlaybackSession] Previous command error:', err);
     }
-  }), [currentQueueIndex, queueTracks, repeatMode, stopPlayback, dispatch, runTransportCommand, startTrackForSettings]);
+    });
+  }, [currentQueueIndex, queueTracks, repeatMode, stopPlayback, dispatch, runTransportCommand, startTrackForSettings]);
 
-  const handlePlayPause = useCallback(() => runTransportCommand(async () => {
+  const handlePlayPause = useCallback(async () => {
+    await runTransportCommand(async () => {
     if (!currentTrack?.id) {
       DEBUG && console.warn('[PlaybackSession] No track loaded, cannot play');
       return;
@@ -227,7 +235,8 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error('[PlaybackSession] Play/Pause command error:', err);
     }
-  }), [
+    });
+  }, [
     currentTrack?.id, isPlaybackActive, isPaused, resumePlayback, pausePlayback,
     runTransportCommand, startTrackForSettings,
   ]);
