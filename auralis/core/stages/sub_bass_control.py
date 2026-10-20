@@ -27,7 +27,7 @@ def apply(
 
     High sub-bass → tighten (reduce rumble). Inside the tolerance band
     (sub_bass_pct ≤ SUB_TOL_HIGH) no action is taken. HP filter reserved
-    for pathological rumble (> SUB_HP_ACTIVATE_PCT).
+    for elevated sub-bass (depth ramping in from SUB_HP_RAMP_START_PCT).
 
     Args:
         audio: Audio array [channels, samples]
@@ -54,9 +54,16 @@ def apply(
             sample_rate=sample_rate,
         )
 
-    # HP only for severely excessive sub-bass (well above musical kick/bass range)
+    # HP depth ramps with sub-bass content (#5580): the hard >= 0.33 gate
+    # toggled an audible filter on a 0.002 change in sub_bass_pct. ramp
+    # 0.25->0.45 keeps the far-field behaviour (none below ~0.25, full above
+    # ~0.45) while making the depth continuous, matching the shelf cut's
+    # ramp above.
     applied_hp = False
-    if sub_bass_pct >= config.SUB_HP_ACTIVATE_PCT:
+    hp_depth = SmoothCurveUtilities.ramp_to_s_curve(
+        sub_bass_pct, config.SUB_HP_RAMP_START_PCT, config.SUB_HP_RAMP_FULL_PCT
+    )
+    if hp_depth > 0.0:
         nyq = sample_rate / 2.0
         # Floor is a numerical-stability minimum, NOT a musical cutoff. The old
         # 0.005 floor mapped to 110 Hz @ 44.1 kHz, so the 25 Hz rumble HP
@@ -67,9 +74,12 @@ def apply(
         axis = -1 if processed.ndim > 1 else 0
         # Zero-phase (sosfiltfilt) so the rumble HP does not add group delay that
         # smears low-frequency transients — matching every sibling DSP stage
-        # (#3469/#3470/#3661/#3664/#3666). The HP only fires on pathological
+        # (#3469/#3470/#3661/#3664/#3666). The HP only fires on elevated
         # sub-bass, so the doubled filter cost is acceptable (#4097).
-        processed = np.asarray(sosfiltfilt(hp_sos, processed, axis=axis), dtype=processed.dtype)
+        filtered = np.asarray(sosfiltfilt(hp_sos, processed, axis=axis), dtype=processed.dtype)
+        processed = (
+            hp_depth * filtered + (1.0 - hp_depth) * processed
+        ).astype(processed.dtype, copy=False)
         applied_hp = True
 
     if abs(reduction_db) < 0.1 and not applied_hp:

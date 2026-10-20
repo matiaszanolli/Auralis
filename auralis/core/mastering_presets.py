@@ -229,11 +229,17 @@ class MasteringPresetDefaults:
     """Maximum sub-bass parallel cut. Slightly gentler than before because
     the tolerance band already filters out most legitimate sub content."""
 
-    SUB_HP_ACTIVATE_PCT: float = 0.33
-    """HP only fires above this sub-content threshold — well above the p90
-    of the reference distribution (22.9%) and into 'truly excessive' rumble
-    territory. Previously 0.25, which still triggered on dense electronic
-    tracks; 0.33 reserves it for genuine sub-rumble pathology."""
+    SUB_HP_RAMP_START_PCT: float = 0.25
+    """Sub-bass level where the rumble HP begins to fade in. #5580 replaced
+    the hard SUB_HP_ACTIVATE_PCT = 0.33 gate (a 0.002 sub_bass_pct change
+    toggled an audible filter) with a continuous depth ramp; 0.25 keeps the
+    original far-field floor — no HP below it."""
+
+    SUB_HP_RAMP_FULL_PCT: float = 0.45
+    """Sub-bass level where the rumble HP reaches full depth. Above the old
+    0.33 activation point and well above the p90 of the reference
+    distribution (22.9%), so full-depth HP stays reserved for genuine
+    sub-rumble pathology."""
 
     SUBBASS_HP_FREQ_HZ: float = 25.0
     """High-pass cutoff for rumble removal. Lowered from 35 to 25 Hz so

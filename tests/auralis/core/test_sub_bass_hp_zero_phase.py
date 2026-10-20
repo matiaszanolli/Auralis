@@ -7,8 +7,8 @@ pre-echo). This pins the HP to zero-phase behaviour, preserved dtype, and
 preserved sample count.
 
 Setup note: `intensity=0.0` zeroes the low-shelf reduction so ONLY the HP runs
-(`sub_bass_pct=0.5 >= SUB_HP_ACTIVATE_PCT=0.33` fires it), isolating the filter
-under test.
+(`sub_bass_pct=0.5` reaches full HP depth per the #5580 ramp, 0.25→0.45),
+isolating the filter under test.
 """
 
 import numpy as np
@@ -39,7 +39,7 @@ def _make_signal() -> np.ndarray:
 
 def _apply_hp(audio: np.ndarray) -> np.ndarray:
     cfg = SimpleMasteringConfig()
-    # sub_bass_pct above SUB_HP_ACTIVATE_PCT, intensity 0 → HP only, no shelf.
+    # sub_bass_pct 0.5 = full HP depth (#5580 ramp), intensity 0 → HP only, no shelf.
     out, info = sub_bass_control.apply(audio, 0.5, 0.3, 0.0, SR, False, cfg)
     assert info is not None and info['hp_applied'] is True
     return out
@@ -95,3 +95,42 @@ def test_hp_preserves_sample_count_mono_and_stereo():
     out = _apply_hp(stereo)
     assert out.shape == stereo.shape
     assert out.dtype == np.float32
+
+
+def test_hp_depth_ramps_continuously_with_sub_bass_pct():
+    """#5580: the HP was a hard >= 0.33 gate — 0.329 vs 0.331 sub_bass_pct
+    produced audibly different bass floors. Depth is now a continuous ramp
+    (none at 0.25, full at 0.45), so adjacent sub_bass_pct values get
+    adjacent filter depths."""
+    cfg = SimpleMasteringConfig()
+    sig = _make_signal()
+    sos = _hp_sos(cfg)
+    full = np.asarray(sosfiltfilt(sos, sig), dtype=np.float32)
+
+    def rumble_level(pct: float):
+        out, info = sub_bass_control.apply(sig.copy(), pct, 0.3, 0.0, SR, False, cfg)
+        return out, info
+
+    raw_rms = float(np.sqrt(np.mean(sig.astype(np.float64) ** 2)))
+
+    # Below ramp start (0.25): no HP at all — no-op, signal untouched.
+    below, below_info = rumble_level(0.20)
+    assert below_info is None
+    assert below == pytest.approx(sig, rel=1e-5)
+
+    at_start, start_info = rumble_level(0.30)  # just inside the ramp
+    assert start_info is not None and start_info['hp_applied'] is True
+    at_start = float(np.sqrt(np.mean(at_start.astype(np.float64) ** 2)))
+
+    mid, _ = rumble_level(0.35)
+    mid = float(np.sqrt(np.mean(mid.astype(np.float64) ** 2)))
+
+    at_full, _ = rumble_level(0.50)
+    at_full = float(np.sqrt(np.mean(at_full.astype(np.float64) ** 2)))
+
+    # Each step deeper removes more rumble.
+    assert at_start < raw_rms
+    assert mid < at_start
+    assert at_full < mid
+    # At/above full depth the result is the pure zero-phase filter output.
+    assert at_full == pytest.approx(float(np.sqrt(np.mean(full.astype(np.float64) ** 2))), rel=1e-4)
