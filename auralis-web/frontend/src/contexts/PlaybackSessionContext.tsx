@@ -25,7 +25,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import type { AppDispatch } from '@/store';
 import { usePlayEnhanced } from '@/hooks/enhancement/usePlayEnhanced';
 import { useEnhancementControl } from '@/hooks/enhancement/useEnhancementControl';
-import { selectQueueTracks, selectCurrentIndex } from '@/store/slices/queueSlice';
+import { selectQueueTracks, selectCurrentIndex, selectRepeatMode } from '@/store/slices/queueSlice';
 import { setVolume as setVolumeAction } from '@/store/slices/playerSlice';
 import { setCurrentTrackAndSyncQueue } from '@/store/slices/playerQueueSync';
 import { playerSelectors } from '@/store/selectors';
@@ -46,10 +46,12 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
   const playerIsMuted = useSelector(playerSelectors.selectIsMuted);
   const queueTracks = useSelector(selectQueueTracks);
   const currentQueueIndex = useSelector(selectCurrentIndex);
+  const repeatMode = useSelector(selectRepeatMode);
 
   // Store pre-mute volume so unmute restores the user's prior level.
   const preMuteVolumeRef = useRef<number>(0.5);
   const commandPendingRef = useRef(false);
+  const pendingCommandRef = useRef<Promise<void> | null>(null);
   const [isCommandPending, setIsCommandPending] = useState(false);
 
   const {
@@ -99,22 +101,44 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
 
   // The ref closes the gap before React can render disabled controls. This
   // coalesces double-clicks and keyboard repeats into the first command while
-  // its playback request is still pending (#4835).
-  const runTransportCommand = useCallback(async (command: () => void | Promise<void>) => {
-    if (commandPendingRef.current) return;
+  // its playback request is still pending (#4835). Returns whether the command
+  // started (false = dropped because another is pending) — user-initiated
+  // track selection must react to a drop, transport next/previous treat
+  // coalescing as the desired behaviour (#5613).
+  const runTransportCommand = useCallback(async (command: () => void | Promise<void>): Promise<boolean> => {
+    if (commandPendingRef.current) return false;
 
     commandPendingRef.current = true;
     setIsCommandPending(true);
+    const execution = (async () => {
+      try {
+        await command();
+      } finally {
+        commandPendingRef.current = false;
+        setIsCommandPending(false);
+      }
+    })();
+    pendingCommandRef.current = execution;
     try {
-      await command();
+      await execution;
     } finally {
-      commandPendingRef.current = false;
-      setIsCommandPending(false);
+      if (pendingCommandRef.current === execution) pendingCommandRef.current = null;
     }
+    return true;
   }, []);
 
   const startTrack = useCallback(
-    (trackId: number) => runTransportCommand(() => startTrackForSettings(trackId)),
+    async (trackId: number) => {
+      const started = await runTransportCommand(() => startTrackForSettings(trackId));
+      if (started) return;
+
+      // #5613: by the time startTrack runs, the queue POST for this track has
+      // already succeeded — silently dropping the start left the backend queue
+      // on this track while the previous one kept playing. Wait out the
+      // in-flight command and retry once.
+      await pendingCommandRef.current;
+      await runTransportCommand(() => startTrackForSettings(trackId));
+    },
     [runTransportCommand, startTrackForSettings]
   );
 
@@ -128,10 +152,17 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
 
   const handleNext = useCallback(() => runTransportCommand(async () => {
     try {
-      const nextIndex = currentQueueIndex + 1;
+      let nextIndex = currentQueueIndex + 1;
       if (nextIndex >= queueTracks.length) {
-        DEBUG && console.log('[PlaybackSession] Already at last track in queue');
-        return;
+        // Manual navigation follows the displayed order, so wrapping behaves
+        // identically under shuffle — the queue slice already holds the
+        // shuffled sequence. repeat 'one' is a track-END mode, not a
+        // navigation mode: Next still advances off the last track (#5605).
+        if (repeatMode !== 'all' || queueTracks.length === 0) {
+          DEBUG && console.log('[PlaybackSession] Already at last track in queue');
+          return;
+        }
+        nextIndex = 0;
       }
 
       const nextTrackData = queueTracks[nextIndex];
@@ -147,14 +178,18 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error('[PlaybackSession] Next command error:', err);
     }
-  }), [currentQueueIndex, queueTracks, stopPlayback, dispatch, runTransportCommand, startTrackForSettings]);
+  }), [currentQueueIndex, queueTracks, repeatMode, stopPlayback, dispatch, runTransportCommand, startTrackForSettings]);
 
   const handlePrevious = useCallback(() => runTransportCommand(async () => {
     try {
-      const prevIndex = currentQueueIndex - 1;
+      let prevIndex = currentQueueIndex - 1;
       if (prevIndex < 0) {
-        DEBUG && console.log('[PlaybackSession] Already at first track in queue');
-        return;
+        // Wrap to the last track under repeat 'all' (#5605); otherwise clamp.
+        if (repeatMode !== 'all' || queueTracks.length === 0) {
+          DEBUG && console.log('[PlaybackSession] Already at first track in queue');
+          return;
+        }
+        prevIndex = queueTracks.length - 1;
       }
 
       const prevTrackData = queueTracks[prevIndex];
@@ -169,7 +204,7 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error('[PlaybackSession] Previous command error:', err);
     }
-  }), [currentQueueIndex, queueTracks, stopPlayback, dispatch, runTransportCommand, startTrackForSettings]);
+  }), [currentQueueIndex, queueTracks, repeatMode, stopPlayback, dispatch, runTransportCommand, startTrackForSettings]);
 
   const handlePlayPause = useCallback(() => runTransportCommand(async () => {
     if (!currentTrack?.id) {
@@ -226,20 +261,38 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
   // of truth, not a side effect of one component's render tree.
   const hasAutoAdvancedRef = useRef(false);
 
+  // Reset the auto-advance latch when a new track starts OR playback leaves
+  // the completed state — the repeat-'one' restart (#5605) re-plays the same
+  // id, so the id-change reset alone would leave the latch stuck set.
+  // Resetting only while NOT complete preserves the one-trigger-per-completion
+  // guard: during a single completion window the state stays 'complete'.
   useEffect(() => {
-    hasAutoAdvancedRef.current = false;
-  }, [currentTrack?.id]);
+    if (streamingState !== 'complete') {
+      hasAutoAdvancedRef.current = false;
+    }
+  }, [currentTrack?.id, streamingState]);
 
   useEffect(() => {
     const isComplete = streamingState === 'complete';
     const nearEnd = trackDuration > 0 && currentTime >= trackDuration - 0.5;
-    const hasMoreTracks = currentQueueIndex < queueTracks.length - 1;
+    if (!isComplete || !nearEnd || hasAutoAdvancedRef.current) return;
 
-    if (isComplete && nearEnd && hasMoreTracks && !hasAutoAdvancedRef.current) {
+    // #5605: repeat 'one' restarts the current track at its beginning;
+    // otherwise advance, wrapping to index 0 under repeat 'all' (handleNext
+    // owns the wrap). repeat 'off' keeps the old behaviour: the queue ends.
+    if (repeatMode === 'one') {
+      if (currentTrack?.id == null) return;
+      hasAutoAdvancedRef.current = true;
+      startTrack(currentTrack.id);
+      return;
+    }
+
+    const hasMoreTracks = currentQueueIndex < queueTracks.length - 1;
+    if (hasMoreTracks || (repeatMode === 'all' && queueTracks.length > 0)) {
       hasAutoAdvancedRef.current = true;
       handleNext();
     }
-  }, [streamingState, currentTime, trackDuration, currentQueueIndex, queueTracks.length, handleNext]);
+  }, [streamingState, currentTime, trackDuration, currentQueueIndex, queueTracks.length, repeatMode, currentTrack?.id, startTrack, handleNext]);
 
   // #5006: split from one combined value into two, so a consumer that only
   // needs controls (ComfortableApp, usePlayTrack, usePlaylistContextActions)

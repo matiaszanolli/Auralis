@@ -446,4 +446,127 @@ describe('PlaybackSessionContext transport logic (#5399)', () => {
       expect(mockPlayEnhanced).not.toHaveBeenCalled();
     });
   });
+
+  describe('repeat mode (#5605)', () => {
+    it("repeat 'one': auto-advance restarts the current track instead of advancing", async () => {
+      const out: { value?: PlaybackControlsContextValue } = {};
+      session.streamingState = 'complete';
+      session.currentTime = 199.9;
+
+      const { store } = render(<ControlsCapture out={out} />, {
+        preloadedState: {
+          player: { currentTrack: mockTrack } as never,
+          queue: { tracks: [mockTrack, mockTrack2], currentIndex: 0, repeatMode: 'one' } as never,
+        },
+      });
+
+      expect(mockPlayEnhanced).toHaveBeenCalledWith(mockTrack.id, 'warm', 0.5);
+      expect(store.getState().queue.currentIndex).toBe(0);
+      expect(mockStopPlayback).not.toHaveBeenCalled();
+    });
+
+    it("repeat 'all': auto-advance at the last track wraps to index 0", async () => {
+      const out: { value?: PlaybackControlsContextValue } = {};
+      session.streamingState = 'complete';
+      session.currentTime = 199.9;
+
+      const { store } = render(<ControlsCapture out={out} />, {
+        preloadedState: {
+          player: { currentTrack: mockTrack2 } as never,
+          queue: { tracks: [mockTrack, mockTrack2], currentIndex: 1, repeatMode: 'all' } as never,
+        },
+      });
+
+      expect(store.getState().queue.currentIndex).toBe(0);
+      expect(mockPlayEnhanced).toHaveBeenCalledWith(mockTrack.id, 'warm', 0.5);
+    });
+
+    it("repeat 'off': auto-advance at the last track does nothing (unchanged)", async () => {
+      const out: { value?: PlaybackControlsContextValue } = {};
+      session.streamingState = 'complete';
+      session.currentTime = 199.9;
+
+      const { store } = render(<ControlsCapture out={out} />, {
+        preloadedState: {
+          player: { currentTrack: mockTrack2 } as never,
+          queue: { tracks: [mockTrack, mockTrack2], currentIndex: 1, repeatMode: 'off' } as never,
+        },
+      });
+
+      expect(store.getState().queue.currentIndex).toBe(1);
+      expect(mockPlayEnhanced).not.toHaveBeenCalled();
+    });
+
+    it("repeat 'all': manual Next from the last track wraps to index 0", async () => {
+      const out: { value?: PlaybackControlsContextValue } = {};
+      const { store } = render(<ControlsCapture out={out} />, {
+        preloadedState: {
+          player: { currentTrack: mockTrack2 } as never,
+          queue: { tracks: [mockTrack, mockTrack2], currentIndex: 1, repeatMode: 'all' } as never,
+        },
+      });
+
+      await act(async () => {
+        await out.value!.handleNext();
+      });
+
+      expect(store.getState().queue.currentIndex).toBe(0);
+      expect(mockPlayEnhanced).toHaveBeenCalledWith(mockTrack.id, 'warm', 0.5);
+    });
+
+    it("repeat 'all': manual Previous from the first track wraps to the last", async () => {
+      const out: { value?: PlaybackControlsContextValue } = {};
+      const { store } = render(<ControlsCapture out={out} />, {
+        preloadedState: {
+          player: { currentTrack: mockTrack } as never,
+          queue: { tracks: [mockTrack, mockTrack2], currentIndex: 0, repeatMode: 'all' } as never,
+        },
+      });
+
+      await act(async () => {
+        await out.value!.handlePrevious();
+      });
+
+      expect(store.getState().queue.currentIndex).toBe(1);
+      expect(mockPlayEnhanced).toHaveBeenCalledWith(mockTrack2.id, 'warm', 0.5);
+    });
+  });
+
+  describe('startTrack drop-retry (#5613)', () => {
+    it('retries a dropped startTrack after the in-flight command finishes, so the clicked track plays', async () => {
+      let resolveFirst!: () => void;
+      mockPlayEnhanced.mockImplementationOnce(
+        () => new Promise<void>((resolve) => { resolveFirst = resolve; })
+      );
+
+      const out: { value?: PlaybackControlsContextValue } = {};
+      render(<ControlsCapture out={out} />, {
+        preloadedState: {
+          player: { currentTrack: mockTrack } as never,
+          queue: { tracks: [mockTrack, mockTrack2], currentIndex: 0 } as never,
+        },
+      });
+
+      let next!: Promise<void>;
+      let play!: Promise<void>;
+      act(() => {
+        // Track 2's queue POST already succeeded (that happens in usePlayTrack
+        // before startTrack); handleNext holds the transport pending.
+        next = out.value!.handleNext();
+        play = out.value!.startTrack(mockTrack2.id);
+      });
+
+      // Only handleNext's command ran so far; startTrack was dropped.
+      expect(mockPlayEnhanced).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        resolveFirst();
+        await Promise.all([next, play]);
+      });
+
+      // The retry must have started the clicked track — not stayed silent.
+      expect(mockPlayEnhanced).toHaveBeenCalledTimes(2);
+      expect(mockPlayEnhanced).toHaveBeenLastCalledWith(mockTrack2.id, 'warm', 0.5);
+    });
+  });
 });
