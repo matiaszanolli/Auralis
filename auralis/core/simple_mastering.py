@@ -192,6 +192,26 @@ class SimpleMasteringPipeline:
             resolved_input_path = _tmp_wav
         else:
             resolved_input_path = orig_path
+            # #5569: libsndfile-native multichannel sources (5.1/7.1 WAV,
+            # FLAC, AIFF) must be downmixed BEFORE prepare_file's
+            # measurements and the chunk loop — the loop would otherwise
+            # truncate to L+R, silently dropping Center/LFE/surround (the
+            # defect class #3743 removed from the loaders). AudioFileInfo
+            # already knows the channel count, so the check is free;
+            # load_with_soundfile applies the BS.775 downmix for canonical
+            # layouts and routes non-canonical ones through FFmpeg (#5242).
+            try:
+                import soundfile as _sf
+                if _sf.info(str(orig_path)).channels > 2:
+                    from ..io.loaders import load_with_soundfile
+                    from ..io.saver import save as save_audio
+                    _tmp_dir = _tempfile.TemporaryDirectory()
+                    _tmp_wav = Path(_tmp_dir.name) / (orig_path.stem + "_stereo.wav")
+                    _raw, _raw_sr = load_with_soundfile(orig_path)
+                    save_audio(str(_tmp_wav), _raw, _raw_sr, subtype="PCM_24")
+                    resolved_input_path = _tmp_wav
+            except _sf.error:
+                pass  # not a libsndfile-readable file — the chunk loop will report it
         try:
             prep = mastering_prepare.prepare_file(
                 self, orig_path, resolved_input_path, output_path, verbose

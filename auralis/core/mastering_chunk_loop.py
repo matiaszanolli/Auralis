@@ -179,8 +179,15 @@ def _render_to_sink(
                 if chunk.ndim == 1:
                     chunk = np.stack([chunk, chunk]).T
                 elif chunk.ndim == 2 and chunk.shape[1] > 2:
-                    # Multi-channel (e.g. 5.1 surround): take L+R only.
-                    # soundfile yields (samples, channels) at this point.
+                    # Defensive only (#5569): _master_file_impl pre-downmixes
+                    # multichannel sources, so this branch should be
+                    # unreachable. Warn rather than silently dropping
+                    # Center/LFE/surround.
+                    warning(
+                        f"Chunk has {chunk.shape[1]} channels; taking L+R — "
+                        "multichannel sources should have been downmixed "
+                        "before the chunk loop (#5569)"
+                    )
                     chunk = chunk[:, :2]
 
                 # Convert to (channels, samples) for processing.
