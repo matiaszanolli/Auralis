@@ -40,6 +40,16 @@ const DEFAULT_WEBSOCKET_CONFIG: WebSocketErrorConfig = {
   backoffMultiplier: 1.5,
 };
 
+/**
+ * Close codes whose rejection is permanent policy rather than transient
+ * failure: the server refused this client and will refuse every retry, so
+ * reconnecting cannot succeed (#5469). The backend closes with 1008 (Policy
+ * Violation) for an untrusted or empty non-loopback Origin
+ * (auralis-web/backend/config/globals.py). Transient codes (1000/1001/1006,
+ * server errors) keep the normal retry path.
+ */
+const POLICY_CLOSE_CODES: ReadonlySet<number> = new Set([1008]);
+
 // ============================================================================
 // WebSocket Connection Management
 // ============================================================================
@@ -100,10 +110,19 @@ export class WebSocketManager {
           this.onMessage?.(event);
         };
 
-        ws.onclose = () => {
-          console.log('[WebSocketManager] Disconnected');
+        ws.onclose = (event: CloseEvent) => {
+          console.log(`[WebSocketManager] Disconnected (code ${event.code})`);
           this.stopHeartbeat();
           this.onClose?.();
+          if (POLICY_CLOSE_CODES.has(event.code)) {
+            // Retry-futile rejection: signal permanent failure immediately
+            // through the same channel as exhausting the retry budget, so the
+            // hook retires the singleton and surfaces its 'error' status
+            // instead of looping a connection the server will keep rejecting.
+            console.error(`[WebSocketManager] Close code ${event.code} is permanent — not reconnecting`);
+            this.config.onMaxAttemptsExceeded?.();
+            return;
+          }
           this.attemptReconnect();
         };
       } catch (err) {

@@ -22,7 +22,7 @@ class FakeWebSocket {
   readyState = FakeWebSocket.CONNECTING;
   binaryType = 'blob';
   onopen: (() => void) | null = null;
-  onclose: (() => void) | null = null;
+  onclose: ((e: { code: number }) => void) | null = null;
   onerror: ((e: Event) => void) | null = null;
   onmessage: ((e: MessageEvent) => void) | null = null;
   sent: unknown[] = [];
@@ -44,7 +44,7 @@ class FakeWebSocket {
   fail(): void {
     this.readyState = FakeWebSocket.CLOSED;
     this.onerror?.(new Event('error'));
-    this.onclose?.();
+    this.onclose?.({ code: 1006 });
   }
 
   open(): void {
@@ -55,7 +55,14 @@ class FakeWebSocket {
   /** The server went away after a successful connection. */
   drop(): void {
     this.readyState = FakeWebSocket.CLOSED;
-    this.onclose?.();
+    this.onclose?.({ code: 1006 });
+  }
+
+  /** The server rejected this connection by policy (e.g. untrusted Origin). */
+  rejectPolicy(): void {
+    this.readyState = FakeWebSocket.CLOSED;
+    this.onerror?.(new Event('error'));
+    this.onclose?.({ code: 1008 });
   }
 }
 
@@ -206,6 +213,34 @@ describe('WebSocketManager (real class)', () => {
     });
   });
 
+  describe('close-code handling (#5469)', () => {
+    it('gives up immediately on a 1008 policy rejection without spending a retry', async () => {
+      const { manager, onMax, onAttempt } = makeManager();
+      startConnect(manager);
+
+      sockets()[0].rejectPolicy();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(onMax).toHaveBeenCalledTimes(1);
+      expect(onAttempt).not.toHaveBeenCalled();
+      expect(vi.getTimerCount()).toBe(0);
+      vi.advanceTimersByTime(60_000);
+      expect(sockets()).toHaveLength(1);
+    });
+
+    it('keeps retrying a transient abnormal (1006) closure', async () => {
+      const { manager, onMax, onAttempt } = makeManager();
+      startConnect(manager);
+
+      await failSocket(0);
+
+      expect(onMax).not.toHaveBeenCalled();
+      expect(onAttempt).toHaveBeenCalledTimes(1);
+      expect(vi.getTimerCount()).toBe(1);
+    });
+  });
+
   describe('close()', () => {
     it('cancels the pending retry so no socket opens afterwards', async () => {
       const { manager } = makeManager();
@@ -227,7 +262,7 @@ describe('WebSocketManager (real class)', () => {
       ws.open();
 
       manager.close();
-      ws.onclose?.(); // a late close event, if the handler were still attached
+      ws.onclose?.({ code: 1000 }); // a late close event, if the handler were still attached
 
       expect(onAttempt).not.toHaveBeenCalled();
       expect(vi.getTimerCount()).toBe(0);
