@@ -270,12 +270,15 @@ export class PCMStreamBuffer {
       return;
     }
 
+    // Calculate available space before write. Subtract the slot initialize()
+    // reserved to disambiguate full from empty (#5477): without the -1, writes
+    // totalling the backing length were accepted, landing writePos back on
+    // readPos — a full buffer that getAvailableSamples() then reported as
+    // empty, silently dropping everything.
     const bufferCapacity = this.buffer.length;
     const sampleCount = pcm.length;
-
-    // Calculate available space before write
     const currentlyUsed = this.getAvailableSamples();
-    const freeSpace = bufferCapacity - currentlyUsed;
+    const freeSpace = bufferCapacity - currentlyUsed - 1;
 
     // Check if write would overflow
     if (sampleCount > freeSpace) {

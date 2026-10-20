@@ -189,6 +189,33 @@ describe('PCMStreamBuffer', () => {
       expect(allData[128]).toBeCloseTo(0.1, 5);
       expect(allData[255]).toBeCloseTo(0.1, 5);
     });
+
+    it('accepts a write of exactly the logical capacity and reports full, not empty (#5477)', () => {
+      // Logical capacity 256; the backing array holds one extra (257) so the
+      // full and empty pointer states stay distinguishable.
+      const exact = new Float32Array(256);
+      for (let i = 0; i < 256; i++) exact[i] = 0.25;
+      buffer.append(exact);
+
+      expect(buffer.isEmpty()).toBe(false);
+      expect(buffer.getFillPercentage()).toBe(100);
+    });
+
+    it('rejects writes totalling the backing length so full never reads as empty (#5477)', () => {
+      // 200 + 57 == 257 == the backing array's length. Pre-fix the second
+      // write was accepted, landing writePos back on readPos and making the
+      // 257-sample buffer report itself as empty.
+      const first = new Float32Array(200);
+      for (let i = 0; i < 200; i++) first[i] = 0.5;
+      buffer.append(first);
+      const second = new Float32Array(57);
+      for (let i = 0; i < 57; i++) second[i] = 0.75;
+      buffer.append(second);
+
+      expect(buffer.isEmpty()).toBe(false);
+      expect(buffer.getAvailableSamples()).toBe(200);
+      expect(buffer.getMetadata().totalAppended).toBe(200);
+    });
   });
 
   describe('metadata tracking', () => {
