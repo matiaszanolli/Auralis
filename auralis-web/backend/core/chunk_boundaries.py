@@ -161,24 +161,38 @@ def normal_stream_plan(
     front of ``start_chunk``'s read so playback lands exactly on
     ``start_position`` — the server-side trim #4560 made authoritative
     (``seek_offset`` is informational only; no client ever consumed it).
+
+    A position at or past the end is clamped back to
+    ``duration - SEEK_MIN_CHUNK_REMAINDER`` (#5409) — the normal-path twin of
+    the #5254 fix in ``chunk_for_position``. Unclamped, the seek sample lands
+    past ``total_frames`` where ``sf.SoundFile.seek()`` raises and the stream
+    ends in an ``audio_stream_error`` frame instead of on the last audible
+    instant (a saved playback position at the very end of a track hits this
+    on every resume).
     """
     chunk_duration = float(CHUNK_DURATION)
     chunk_samples = int(chunk_duration * sample_rate)
     interval_samples = chunk_samples  # No overlap for the normal path.
 
     total_chunks = max(1, int(np.ceil(total_frames / interval_samples)))
+    duration = total_frames / sample_rate
 
+    pos = min(max(0.0, float(start_position)), max(0.0, duration - SEEK_MIN_CHUNK_REMAINDER))
+
+    # #5446: round(), not int() — the module's #2327 sample-boundary
+    # convention, matching the enhanced path's seek trim
+    # (stream_seek_chunks.py). One rounded index feeds BOTH the chunk index
+    # and the trim: computing the chunk from a truncated index while the trim
+    # rounded would let the trim spill one sample past start_chunk's
+    # interval, sending the first read one sample into the next chunk.
     start_chunk = 0
-    if start_position > 0:
-        start_sample = int(start_position * sample_rate)
+    first_chunk_trim_samples = 0
+    start_sample = round(pos * sample_rate)
+    if start_sample > 0:
         start_chunk = min(start_sample // interval_samples, total_chunks - 1)
+        first_chunk_trim_samples = start_sample - (start_chunk * interval_samples)
 
-    seek_offset = start_position - (start_chunk * chunk_duration)
-    first_chunk_trim_samples = (
-        int(start_position * sample_rate) - (start_chunk * interval_samples)
-        if start_position > 0
-        else 0
-    )
+    seek_offset = pos - (start_chunk * chunk_duration)
 
     return NormalStreamPlan(
         duration=total_frames / sample_rate,

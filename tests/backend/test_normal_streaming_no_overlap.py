@@ -204,5 +204,86 @@ class TestChunkBoundaryArtifacts:
         np.testing.assert_array_equal(np.concatenate(chunks), np.arange(seek_frame, frames))
 
 
+class TestSeekPastEndOfTrack:
+    """A seek/resume at or past the end clamps to the last audible instant
+    instead of erroring the stream (#5409) — the normal-path twin of the
+    #5254 fix in chunk_for_position."""
+
+    def test_plan_clamps_position_past_duration(self) -> None:
+        """A position beyond the end produces a plan whose first read stays
+        inside the file: start_sample < total_frames, trim inside its chunk."""
+        frames = 3 * CHUNK_SAMPLES + 1
+        plan = _plan(frames, start_position=99.0)
+
+        start_sample = plan.start_chunk * plan.interval_samples + plan.first_chunk_trim_samples
+        assert start_sample < frames, "seek landed at or past EOF"
+        assert 0 <= plan.first_chunk_trim_samples < plan.interval_samples
+
+    def test_plan_on_a_tiny_track_clamps_to_zero(self) -> None:
+        """A track shorter than SEEK_MIN_CHUNK_REMAINDER clamps to position 0
+        rather than a negative sample index."""
+        plan = _plan(int(0.3 * SAMPLE_RATE), start_position=99.0)
+
+        assert plan.start_chunk == 0
+        assert plan.first_chunk_trim_samples == 0
+
+    async def test_seek_past_eof_streams_the_last_instant_without_error(self, tmp_path: Path) -> None:
+        """The real handler over a real WAV: a seek past the end used to die
+        in sf.SoundFile.seek() with LibsndfileError and end in an error frame;
+        it must instead deliver the final chunk of audio."""
+        path = tmp_path / "t.wav"
+        frames = _write_indexed_wav(path, 2 * CHUNK_DURATION + 3.5)
+
+        chunks = await _stream(path, start_position=2 * CHUNK_DURATION + 3.5 + 5.0)
+
+        first_frame = round((2 * CHUNK_DURATION + 3.0) * SAMPLE_RATE)  # duration - 0.5s
+        assert chunks, "no audio delivered for an at-EOF seek"
+        assert chunks[0].shape[0] > 0
+        assert _frame_indices(chunks[0])[0] == first_frame
+
+    async def test_resume_exactly_at_duration_streams_without_error(self, tmp_path: Path) -> None:
+        """position == duration (a saved position at the very end of a track)
+        previously produced a start sample exactly at total_frames, which
+        soundfile accepts but reads zero frames from."""
+        path = tmp_path / "t.wav"
+        frames = _write_indexed_wav(path, 2 * CHUNK_DURATION + 3.5)
+
+        chunks = await _stream(path, start_position=2 * CHUNK_DURATION + 3.5)
+
+        assert chunks and chunks[0].shape[0] > 0
+        assert _frame_indices(chunks[0])[0] == round((2 * CHUNK_DURATION + 3.0) * SAMPLE_RATE)
+
+
+class TestSeekTrimRounding:
+    """The seek trim uses the module's #2327 round() sample-boundary
+    convention, not int() truncation (#5446)."""
+
+    def test_trim_rounds_instead_of_truncating(self) -> None:
+        """A position whose sample index has a fractional part >= 0.5 must
+        round up, matching stream_seek_chunks.py's enhanced-path trim."""
+        # 178056.7 samples → int() would trim to 178056, round() lands on 178057.
+        position = CHUNK_DURATION + 7 + 2056.7 / SAMPLE_RATE
+        frames = int(3 * CHUNK_DURATION * SAMPLE_RATE)
+
+        plan = _plan(frames, start_position=position)
+
+        expected_start = round(position * SAMPLE_RATE)
+        assert plan.start_chunk * plan.interval_samples + plan.first_chunk_trim_samples == expected_start
+
+    def test_chunk_index_and_trim_stay_inside_the_chunk(self) -> None:
+        """Whatever the fractional part, the trim never spills past
+        start_chunk's interval (one rounded index feeds both)."""
+        for fraction in (0.0, 0.3, 0.5, 0.7, 0.999):
+            position = CHUNK_DURATION + 2 + fraction
+            plan = _plan(int(4 * CHUNK_DURATION * SAMPLE_RATE), start_position=position)
+
+            assert 0 <= plan.first_chunk_trim_samples < plan.interval_samples, (
+                f"trim {plan.first_chunk_trim_samples} out of chunk range for fraction {fraction}"
+            )
+            assert plan.start_chunk * plan.interval_samples + plan.first_chunk_trim_samples == round(
+                position * SAMPLE_RATE
+            )
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
