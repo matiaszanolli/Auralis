@@ -322,29 +322,11 @@ class TestRealtimeProcessorComprehensive:
         processor = AutoMasterProcessor(self.config)
 
         assert processor.config == self.config
-        assert processor.profile == "balanced"  # Default profile
         assert processor.enabled == False  # Disabled by default
         assert hasattr(processor, 'compressor')  # Stateful compressor (Oct 25 fix)
-        assert hasattr(processor, 'profiles')  # Available profiles
-
-        self.tearDown()
-
-    def test_auto_master_processor_profile_setting(self):
-        """Test AutoMasterProcessor profile setting"""
-        self.setUp()
-
-        processor = AutoMasterProcessor(self.config)
-
-        # Test setting different profiles (available profiles: balanced, warm, bright, punchy)
-        profiles = ['balanced', 'warm', 'bright', 'punchy']
-
-        for profile in profiles:
-            processor.set_profile(profile)
-            assert processor.profile == profile
-
-        # Test setting invalid profile (should fallback to balanced)
-        processor.set_profile('invalid_profile')
-        assert processor.profile == 'balanced'  # Should fallback to default
+        # #5586: the retired profile table is gone from the surface.
+        assert not hasattr(processor, 'profiles')
+        assert not hasattr(processor, 'set_profile')
 
         self.tearDown()
 
@@ -354,16 +336,13 @@ class TestRealtimeProcessorComprehensive:
 
         processor = AutoMasterProcessor(self.config)
 
-        # Test processing with different profiles
-        profiles = ['pop', 'rock', 'jazz']
+        # Test processing runs with the fingerprint-less fallback (unity
+        # gain since #5586 retired the profile table)
+        processed_audio = processor.process(self.test_audio)
 
-        for profile in profiles:
-            processor.set_profile(profile)
-            processed_audio = processor.process(self.test_audio)
-
-            assert isinstance(processed_audio, np.ndarray)
-            assert processed_audio.shape == self.test_audio.shape
-            # Processing may or may not change the audio depending on implementation
+        assert isinstance(processed_audio, np.ndarray)
+        assert processed_audio.shape == self.test_audio.shape
+        # Processing may or may not change the audio depending on implementation
 
         # Test processing with different audio types
         test_signals = [self.test_audio, self.quiet_audio, self.loud_audio]
@@ -386,11 +365,11 @@ class TestRealtimeProcessorComprehensive:
         stats = processor.get_stats()
 
         assert isinstance(stats, dict)
-        assert 'profile' in stats
         assert 'enabled' in stats
-        assert 'available_profiles' in stats
-        assert stats['profile'] == 'balanced'  # Default profile
-        assert len(stats['available_profiles']) == 4  # balanced, warm, bright, punchy
+        # #5586: the retired warm/bright/punchy profile table is gone — no
+        # profile/available_profiles keys advertising a deleted vocabulary.
+        assert 'profile' not in stats
+        assert 'available_profiles' not in stats
 
         self.tearDown()
 
@@ -466,20 +445,16 @@ class TestRealtimeProcessorComprehensive:
 
         self.tearDown()
 
-    def test_realtime_processor_profile_management(self):
-        """Test RealtimeProcessor mastering profile management"""
+    def test_realtime_processor_fingerprint_management(self):
+        """#5586: the retired mastering-profile setter is gone from the
+        processor surface; fingerprint management remains."""
         self.setUp()
 
         processor = RealtimeProcessor(self.config)
 
-        # Test setting mastering profile (new profiles: balanced, warm, bright, punchy)
-        profiles = ['balanced', 'warm', 'bright', 'punchy']
-
-        for profile in profiles:
-            processor.set_auto_master_profile(profile)
-            # Should pass to auto_master processor
-            if processor.auto_master:
-                assert processor.auto_master.profile == profile
+        assert not hasattr(processor, 'set_auto_master_profile')
+        processor.set_fingerprint({'lufs': -14.0, 'crest_db': 12.0})
+        processor.set_fingerprint(None)
 
         self.tearDown()
 
@@ -623,7 +598,6 @@ class TestRealtimeProcessorComprehensive:
         # Configure all components using new API
         if processor.auto_master:
             processor.set_effect_enabled('auto_mastering', True)
-            processor.set_auto_master_profile('balanced')
 
         processor.set_reference_audio(self.reference_audio)
         if processor.level_matcher:

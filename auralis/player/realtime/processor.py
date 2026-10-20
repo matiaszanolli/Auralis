@@ -88,12 +88,6 @@ class RealtimeProcessor:
 
                 info(f"Effect {effect_name}: {'enabled' if enabled else 'disabled'}")
 
-    def set_auto_master_profile(self, profile: str) -> None:
-        """Set auto-mastering profile"""
-        with self.lock:
-            if self.auto_master:
-                self.auto_master.set_profile(profile)
-
     def set_fingerprint(self, fingerprint: dict[str, Any] | None) -> None:
         """
         Set or clear the 25D fingerprint used for adaptive processing.
@@ -224,7 +218,6 @@ class RealtimeProcessor:
                 self.level_matcher.reset()
 
             if self.auto_master:
-                self.auto_master.set_profile("balanced")
                 self.auto_master.set_enabled(False)
 
             # Reset effect states

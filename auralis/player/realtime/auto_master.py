@@ -34,19 +34,10 @@ class AutoMasterProcessor:
         self._lock = threading.Lock()
         self.config = config
         self.enabled = False
-        self.profile = "balanced"  # balanced, warm, bright, punchy
 
         # Fingerprint and adaptive parameters
         self.fingerprint: dict[str, Any] | None = None
         self.adaptive_params: dict[str, Any] | None = None
-
-        # Fallback profile-based EQ parameters
-        self.profiles = {
-            "balanced": {"low_gain": 1.0, "mid_gain": 1.0, "high_gain": 1.0},
-            "warm": {"low_gain": 1.1, "mid_gain": 0.95, "high_gain": 0.9},
-            "bright": {"low_gain": 0.9, "mid_gain": 1.0, "high_gain": 1.15},
-            "punchy": {"low_gain": 1.05, "mid_gain": 1.1, "high_gain": 1.05},
-        }
 
         # Initialize proper stateful compressor to prevent gain pumping
         # Settings prioritize transient preservation to avoid kick/bass harmonic overlap
@@ -67,22 +58,12 @@ class AutoMasterProcessor:
         self.transient_enhancer = LowMidTransientEnhancer(sample_rate=config.sample_rate)
         self.use_transient_enhancement = True  # Can be toggled via set_use_transient_enhancement()
 
-        debug(f"AutoMasterProcessor initialized with profile: {self.profile}")
+        debug("AutoMasterProcessor initialized")
 
     def set_enabled(self, enabled: bool) -> None:
         """Thread-safe setter for enabled flag (#3356)."""
         with self._lock:
             self.enabled = enabled
-
-    def set_profile(self, profile: str) -> None:
-        """Set mastering profile"""
-        with self._lock:
-            if profile in self.profiles:
-                self.profile = profile
-                info(f"Auto-master profile set to: {profile}")
-            else:
-                warning(f"Unknown profile: {profile}, using balanced")
-                self.profile = "balanced"
 
     def set_use_transient_enhancement(self, enabled: bool) -> None:
         """Enable/disable low-mid transient enhancement"""
@@ -177,13 +158,11 @@ class AutoMasterProcessor:
             makeup_gain_db = self.adaptive_params['makeup_gain_db']
             debug(f"Applying adaptive gain: {makeup_gain_db:.1f} dB")
         else:
-            # Fallback to profile-based gain
-            settings = self.profiles[self.profile]
-            profile_gain = (settings["low_gain"] + settings["mid_gain"] + settings["high_gain"]) / 3
-
-            # Convert to dB for consistency
-            makeup_gain_db = 20 * np.log10(profile_gain) if profile_gain > 0 else 0
-            debug(f"Using profile-based gain ({self.profile}): {makeup_gain_db:.1f} dB")
+            # No fingerprint yet: unity gain. (#5586: the retired warm/bright/
+            # punchy profile table averaged to exactly this for 'balanced',
+            # so the audible fallback is unchanged by its removal.)
+            makeup_gain_db = 0.0
+            debug("No fingerprint set: applying unity gain")
 
         # Apply gain with clipping protection measured on post-compression audio,
         # not the raw input — using the pre-compression peak would over-penalise
@@ -249,8 +228,6 @@ class AutoMasterProcessor:
     def _get_stats_locked(self) -> dict[str, Any]:
         return {
             'enabled': self.enabled,
-            'profile': self.profile,
-            'available_profiles': list(self.profiles.keys()),
             'has_fingerprint': self.fingerprint is not None,
             'adaptive_params': self.adaptive_params,
             'transient_enhancement_enabled': self.use_transient_enhancement,

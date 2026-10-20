@@ -335,20 +335,12 @@ class IntegrationManager:
             warning(f"Auto reference selection failed: {e}")
 
     def set_effect_enabled(self, effect_name: str, enabled: bool) -> None:
-        """Enable/disable specific DSP effect"""
+        """Set specific DSP effect"""
         self.processor.set_effect_enabled(effect_name, enabled)
         self._notify_callbacks({
             'action': 'effect_changed',
             'effect': effect_name,
             'enabled': enabled
-        })
-
-    def set_auto_master_profile(self, profile: str) -> None:
-        """Set auto-mastering profile"""
-        self.processor.set_auto_master_profile(profile)
-        self._notify_callbacks({
-            'action': 'profile_changed',
-            'profile': profile
         })
 
     def get_playback_info(self) -> dict[str, Any]:

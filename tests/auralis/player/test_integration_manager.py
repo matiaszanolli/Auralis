@@ -536,20 +536,6 @@ class TestEffectAndProfile:
         assert event['effect'] == 'eq'
         assert event['enabled'] is False
 
-    def test_set_auto_master_profile_delegates_to_processor(self):
-        m = _make_manager()
-        m.set_auto_master_profile("transparent")
-        m.processor.set_auto_master_profile.assert_called_once_with("transparent")
-
-    def test_set_auto_master_profile_fires_callback(self):
-        m = _make_manager()
-        cb = MagicMock()
-        m.add_callback(cb)
-        m.set_auto_master_profile("warm")
-        event = cb.call_args[0][0]
-        assert event['action'] == 'profile_changed'
-        assert event['profile'] == 'warm'
-
 
 # ---------------------------------------------------------------------------
 # get_playback_info

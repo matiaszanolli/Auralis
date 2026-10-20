@@ -38,10 +38,6 @@ class PlayerCallbacksMixin:
         """Enable/disable specific DSP effects"""
         self.integration.set_effect_enabled(effect_name, enabled)
 
-    def set_auto_master_profile(self, profile: str) -> None:
-        """Set auto-mastering profile"""
-        self.integration.set_auto_master_profile(profile)
-
     # ========== Callbacks and State (delegates to various components) ==========
 
     def add_callback(self, callback: Callable[..., Any]) -> None:
