@@ -209,12 +209,18 @@ class ContinuousDSPOpsMixin:
             MAX_NORMALIZATION_GAIN_DB,
         ))
 
-        if abs(adjustment) > 0.5:
-            audio = amplify(audio, adjustment)
+        # #5578: ramp tiny corrections to zero instead of a hard >0.5 dB gate
+        # (the last hard gain guard #4860 didn't convert). A 0.49 dB error
+        # applied nothing while 0.51 dB applied in full — a categorical
+        # 0.5 dB output step between near-identical chunks/tracks.
+        effective_adjustment = adjustment * smooth_gate(abs(adjustment), 0.0, 0.5)
+        if abs(effective_adjustment) > 1e-6:
+            audio = amplify(audio, effective_adjustment)
             new_lufs = calculate_loudness_units(audio, self.config.internal_sample_rate)
             debug(
                 f"[LUFS Normalization] {current_lufs:.1f} → {new_lufs:.1f} LUFS "
-                f"({adjustment:+.1f} dB, target {target_lufs:.1f})"
+                f"({effective_adjustment:+.2f} dB of {adjustment:+.2f} dB, "
+                f"target {target_lufs:.1f})"
             )
         return audio
 
