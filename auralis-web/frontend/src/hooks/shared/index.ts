@@ -23,6 +23,5 @@ export {
   useIsLoading,
   useAppErrors,
   useConnectionHealth,
-  usePlaybackProgress,
   useQueueTimeRemaining,
 } from './useReduxState';

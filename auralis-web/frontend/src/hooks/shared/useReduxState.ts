@@ -9,7 +9,7 @@
  * file re-exports all of them so existing `@/hooks/shared/useReduxState`
  * imports keep working. New code can import the domain module directly.
  *
- * - usePlayerRedux:     usePlayerState, usePlayerActions, usePlayer, usePlaybackProgress
+ * - usePlayerRedux:     usePlayerState, usePlayerActions, usePlayer
  * - useQueueRedux:      useQueueState, useQueue, useQueueTimeRemaining
  * - useCacheRedux:      useCacheState, useCache
  * - useConnectionRedux: useConnectionState, useConnection, useConnectionHealth

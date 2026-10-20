@@ -38,7 +38,6 @@ import {
   useIsLoading,
   useAppErrors,
   useConnectionHealth,
-  usePlaybackProgress,
 } from '../useReduxState';
 import type React from 'react';
 
@@ -160,17 +159,6 @@ describe('Redux State Hooks', () => {
       });
 
       expect(result.current.preset).toBe('adaptive');
-    });
-
-    it('should set track', () => {
-      const { result } = renderHook(() => usePlayer(), { wrapper });
-      const track = { id: 1, title: 'Test', artist: 'Artist', duration: 180 };
-
-      act(() => {
-        result.current.setTrack(track);
-      });
-
-      expect(result.current.currentTrack).toEqual(track);
     });
   });
 
@@ -406,25 +394,6 @@ describe('Redux State Hooks', () => {
 
       expect(result.current.connected).toBe(false);
       expect(result.current.health).toBe('disconnected');
-    });
-
-    it('usePlaybackProgress should calculate progress', () => {
-      const { result: playerResult } = renderHook(() => usePlayer(), { wrapper });
-      const { result: progressResult } = renderHook(() => usePlaybackProgress(), {
-        wrapper,
-      });
-
-      act(() => {
-        playerResult.current.setTrack({
-          id: 1,
-          title: 'Test',
-          artist: 'Artist',
-          duration: 180,
-        });
-        playerResult.current.seek(90);
-      });
-
-      expect(progressResult.current).toBe(0.5); // 90/180 = 0.5
     });
   });
 

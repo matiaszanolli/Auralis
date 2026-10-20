@@ -12,7 +12,6 @@
 import { useSelector, useDispatch, useStore, shallowEqual } from 'react-redux';
 import { useCallback, useMemo } from 'react';
 import type { RootState, AppDispatch } from '@/store';
-import type { PlayerTrack } from '@/types/domain';
 import * as playerActions from '@/store/slices/playerSlice';
 
 /**
@@ -61,14 +60,10 @@ export const usePlayerActions = () => {
     (p: playerActions.PresetName) => dispatch(playerActions.setPreset(p)),
     [dispatch]
   );
-  const setTrack = useCallback(
-    (track: PlayerTrack | null) => dispatch(playerActions.setCurrentTrack(track)),
-    [dispatch]
-  );
 
   return useMemo(() => ({
-    play, pause, togglePlay, seek, setVolume, setMuted, toggleMute, setPreset, setTrack,
-  }), [play, pause, togglePlay, seek, setVolume, setMuted, toggleMute, setPreset, setTrack]);
+    play, pause, togglePlay, seek, setVolume, setMuted, toggleMute, setPreset,
+  }), [play, pause, togglePlay, seek, setVolume, setMuted, toggleMute, setPreset]);
 };
 
 /**
@@ -108,13 +103,4 @@ export const usePlayer = () => {
     isPlaying, currentTrack, currentTime, duration, volume, isMuted, preset,
     isLoading, error, actions,
   ]);
-};
-
-/**
- * Get current playback progress (0-1)
- */
-export const usePlaybackProgress = () => {
-  const currentTime = useSelector((state: RootState) => state.player.currentTime);
-  const duration = useSelector((state: RootState) => state.player.duration);
-  return duration > 0 ? currentTime / duration : 0;
 };
