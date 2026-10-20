@@ -130,9 +130,15 @@ class AdaptiveCompressor:
         # Pure NumPy vectorized gain reduction per sample (fixes #2596)
         target_gain_reduction = self._calculate_gain_reduction_vectorized(sample_levels_db)
 
-        # Smooth gain reduction with the envelope follower (per-sample)
-        smoothed_gain_reduction = self.gain_follower.process_buffer(
-            target_gain_reduction.astype(np.float32)
+        # Smooth gain reduction with the envelope follower (per-sample).
+        # #5579: the follower's branch treats `input > envelope` as attack,
+        # which is correct for magnitudes — gain reduction is dB <= 0, so
+        # growing compression moves the value DOWN and used to take the slow
+        # release coefficient while recovery took the fast attack one (audit
+        # step-response probe: 63% in 99.5 ms, recovery in 10 ms — swapped).
+        # Feed the magnitude and negate the result.
+        smoothed_gain_reduction = -self.gain_follower.process_buffer(
+            (-target_gain_reduction).astype(np.float32)
         )
 
         # Track average reduction for reporting
