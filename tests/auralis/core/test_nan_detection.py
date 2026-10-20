@@ -361,6 +361,10 @@ class TestNaNPropagationPrevention:
             TRUE_PEAK_CEILING_DB = -0.3
 
         class _PassthroughPipeline:
+            # prepare_file() seeds this before process_chunks (#4970); a
+            # passthrough stub keeps gain 1.0 (no TP attenuation).
+            _song_peak_db = None
+
             def _process(self, audio, fp, peak_db, intensity, sample_rate, verbose):
                 return audio.copy(), {'stages': ['stub']}
 

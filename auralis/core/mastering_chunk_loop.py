@@ -21,7 +21,13 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import soundfile as sf
 
+from ..utils.logging import warning
 from .mastering_process_chunk import compute_peak_db
+
+# Measured 4x-oversample reconstruction overshoot the TP guard absorbs
+# (#4970). The June 2026 study measured outputs averaging +0.77 dBTP when
+# unguarded; ~0.27 dB of headroom above the -0.5 dBFS ceiling covers it.
+_TRUE_PEAK_OVERSHOOT_RATIO = 10 ** (0.27 / 20)
 
 if TYPE_CHECKING:
     from .mastering_config import SimpleMasteringConfig
@@ -200,16 +206,35 @@ def _render_to_sink(
                 # because the harmonic exciter generates near-Nyquist content
                 # that causes intersample reconstruction peaks even when sample
                 # peaks are held at 0.97.  4× oversampled peak measurement +
-                # proportional gain reduction caps True Peak at -0.5 dBFS.
-                try:
-                    from scipy.signal import resample_poly as _rsp
-                    _TP_CEILING = 10 ** (-0.5 / 20)     # −0.5 dBFS = 0.9441
-                    _chunk_4x = _rsp(processed_chunk, 4, 1, axis=1)
-                    _tp = float(np.max(np.abs(_chunk_4x)))
-                    if _tp > _TP_CEILING:
-                        processed_chunk = processed_chunk * (_TP_CEILING / _tp)
-                except Exception:
-                    pass   # best-effort; never let this path break the pipeline
+                # gain reduction caps True Peak at -0.5 dBFS.
+                #
+                # #4970: the gain is derived from the whole-song peak
+                # (_song_peak_db, measured by prepare_file's pre-scan) rather
+                # than the per-chunk 4x peak — a per-chunk ratio varied
+                # between adjacent chunks and produced soft level steps at
+                # boundaries. Because the song peak can exceed any single
+                # chunk's peak, the fixed -0.5 dBFS overshoot term is
+                # applied on top: gain = song_ceiling / (song_peak * 4x
+                # overshoot ratio), constant across all chunks.
+                _tp_ceiling = 10 ** (-0.5 / 20)     # −0.5 dBFS = 0.9441
+                _tp_overshoot = _TRUE_PEAK_OVERSHOOT_RATIO
+                if pipeline._song_peak_db is not None:
+                    _song_peak_linear = 10 ** (pipeline._song_peak_db / 20)
+                    _tp_gain = _tp_ceiling / (_song_peak_linear * _tp_overshoot)
+                    if _tp_gain < 1.0:
+                        processed_chunk = processed_chunk * _tp_gain
+                else:
+                    # No pre-scan (direct _process() test path): keep the
+                    # per-chunk measurement so the ceiling still holds, and
+                    # surface any failure instead of swallowing it (#4970).
+                    try:
+                        from scipy.signal import resample_poly as _rsp
+                        _chunk_4x = _rsp(processed_chunk, 4, 1, axis=1)
+                        _tp = float(np.max(np.abs(_chunk_4x)))
+                        if _tp > _tp_ceiling:
+                            processed_chunk = processed_chunk * (_tp_ceiling / _tp)
+                    except Exception as e:
+                        warning(f"True-peak guard failed; ceiling not enforced: {e}")
 
                 # #3700: sample-count invariant — crossfade slice arithmetic
                 # below assumes _process() preserves the time axis. A future

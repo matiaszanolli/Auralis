@@ -63,6 +63,9 @@ def _pipeline(fail_on_chunk=None):
     pipeline = MagicMock()
     pipeline._process = _process
     pipeline._calls = calls
+    # prepare_file() seeds this before process_chunks (#4970): the TP guard
+    # derives its constant whole-song gain from it.
+    pipeline._song_peak_db = -6.0
     return pipeline
 
 
