@@ -25,7 +25,10 @@ import PCMStreamBuffer from '@/services/audio/PCMStreamBuffer';
 import AudioPlaybackEngine from '@/services/audio/AudioPlaybackEngine';
 import * as pcmDecoding from '@/utils/audio/pcmDecoding';
 import * as WebSocketContextModule from '@/contexts/WebSocketContext';
-import playerReducer from '@/store/slices/playerSlice';
+import playerReducer, {
+  setVolume as setVolumeAction,
+  setMuted as setMutedAction,
+} from '@/store/slices/playerSlice';
 import queueReducer from '@/store/slices/queueSlice';
 import cacheReducer from '@/store/slices/cacheSlice';
 import connectionReducer from '@/store/slices/connectionSlice';
@@ -383,6 +386,38 @@ describe('usePlayEnhanced – audio_stream_start', () => {
     const [ctxArg, bufArg] = vi.mocked(AudioPlaybackEngine).mock.calls[0];
     expect(ctxArg).toBe(mockAudioContextInstance);
     expect(bufArg).toBe(mockBufferInstance);
+  });
+
+  it('seeds a new engine with the Redux volume converted to gain (#5607)', () => {
+    store.dispatch(setVolumeAction(30));
+    mockEngineInstance.setVolume.mockClear();
+
+    fireHandler('audio_stream_start', makeStreamStartMsg());
+
+    // 30 (0-100 Redux) → 0.3 engine gain, not the constructor's 1.0 default.
+    expect(mockEngineInstance.setVolume).toHaveBeenCalledWith(0.3);
+  });
+
+  it('seeds a new engine at gain 0 while muted (#5607)', () => {
+    store.dispatch(setMutedAction(true));
+    mockEngineInstance.setVolume.mockClear();
+
+    fireHandler('audio_stream_start', makeStreamStartMsg());
+
+    expect(mockEngineInstance.setVolume).toHaveBeenCalledWith(0);
+  });
+
+  it('re-applies the gain to the current engine when Redux volume changes (#5607)', () => {
+    fireHandler('audio_stream_start', makeStreamStartMsg());
+    mockEngineInstance.setVolume.mockClear();
+
+    act(() => {
+      store.dispatch(setVolumeAction(50));
+    });
+
+    // Covers WS-sourced volume (volume_changed / player_state.volume): they
+    // dispatch to Redux only, and this re-apply is what reaches the engine.
+    expect(mockEngineInstance.setVolume).toHaveBeenCalledWith(0.5);
   });
 
   it('dispatches startStreaming with correct track_id and total_chunks', () => {

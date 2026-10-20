@@ -19,6 +19,7 @@ const DEBUG = import.meta.env.DEV;
 
 import { useCallback } from 'react';
 import type { AppDispatch } from '@/store';
+import { engineGainFromPlayerState } from '@/store/slices/playerSlice';
 import PCMStreamBuffer from '@/services/audio/PCMStreamBuffer';
 import AudioPlaybackEngine from '@/services/audio/AudioPlaybackEngine';
 import {
@@ -42,6 +43,10 @@ export interface CurrentTrackInfo {
 export interface UseEnhancedStreamStartParams {
   core: StreamingCoreReturn;
   dispatch: AppDispatch;
+  /** Authoritative Redux volume (0-100), re-applied to each new engine (#5607). */
+  playerVolume: number;
+  /** Authoritative Redux mute — applied as gain 0 (#5607). */
+  playerIsMuted: boolean;
   setIsSeeking: (seeking: boolean) => void;
 }
 
@@ -52,6 +57,8 @@ export interface UseEnhancedStreamStartParams {
 export function useEnhancedStreamStart({
   core,
   dispatch,
+  playerVolume,
+  playerIsMuted,
   setIsSeeking,
 }: UseEnhancedStreamStartParams): void {
   const handleStreamStart = useCallback((message: AudioStreamStartMessage) => {
@@ -147,6 +154,17 @@ export function useEnhancedStreamStart({
       );
       core.playbackEngineRef.current = engine;
 
+      // #5607: the engine's gain node defaults to 1.0, and every stream start
+      // builds a fresh engine — without this the first track of a session and
+      // every track change played at full level while the slider said 30% or
+      // "muted". Seed the gain from the authoritative Redux volume/mute (the
+      // gain-change effect in useAudioStreamingCore keeps it current after
+      // this, including WS-sourced changes).
+      engine.setVolume(engineGainFromPlayerState({
+        volume: playerVolume,
+        isMuted: playerIsMuted,
+      }));
+
       // When streaming resumes from a seek position, tell the engine where to
       // start its time counter so the UI shows the correct position instead of
       // always starting from 0:00 (fixes #2259).
@@ -224,8 +242,9 @@ export function useEnhancedStreamStart({
     }
     // handleChunk is listed so the drain above never runs a stale closure; the
     // other core members used here are refs and stable callbacks.
+    // playerVolume/playerIsMuted keep the engine-seeding gain current (#5607).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch, core.handleChunk]);
+  }, [dispatch, core.handleChunk, playerVolume, playerIsMuted]);
 
   core.handleStreamStartRef.current = handleStreamStart;
 }

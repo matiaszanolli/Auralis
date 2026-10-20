@@ -37,6 +37,9 @@ import {
   setStreamingError,
   resetStreaming,
   selectIsPlaying,
+  selectIsMuted,
+  selectVolume,
+  engineGainFromPlayerState,
 } from '@/store/slices/playerSlice';
 import {
   classifyChunk,
@@ -544,6 +547,22 @@ export function useAudioStreamingCore(
   const setVolume = useCallback((volume: number) => {
     playbackEngineRef.current?.setVolume(Math.max(0, Math.min(1, volume)));
   }, []);
+
+  // #5607: WS-sourced volume changes (volume_changed / player_state.volume)
+  // and mute toggles reach only Redux — the imperative slider path above is
+  // the only thing that touched the engine directly. Re-apply whenever the
+  // authoritative gain changes so the current engine always matches the UI,
+  // whatever the source. (Each NEW engine is seeded from the same
+  // engineGainFromPlayerState conversion in useEnhancedStreamStart.)
+  const playerVolume = useSelector(selectVolume);
+  const playerIsMuted = useSelector(selectIsMuted);
+  const engineGain = engineGainFromPlayerState({
+    volume: playerVolume,
+    isMuted: playerIsMuted,
+  });
+  useEffect(() => {
+    playbackEngineRef.current?.setVolume(engineGain);
+  }, [engineGain]);
 
   // Update playback time periodically. Gated on isPlaying so the 10Hz
   // interval doesn't fire setCurrentTime gratuitously when idle (#3970).

@@ -37,6 +37,8 @@ import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import {
   resetStreaming,
   selectEnhancedStreaming,
+  selectIsMuted,
+  selectVolume,
 } from '@/store/slices/playerSlice';
 import type { EnhancementPreset } from '@/types/domain';
 import { useAudioStreamingCore } from './useAudioStreamingCore';
@@ -156,7 +158,15 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
   });
 
   // Register the enhanced audio_stream_start handler on the core.
-  useEnhancedStreamStart({ core, dispatch, setIsSeeking });
+  const playerVolume = useSelector(selectVolume);
+  const playerIsMuted = useSelector(selectIsMuted);
+  useEnhancedStreamStart({
+    core,
+    dispatch,
+    playerVolume,
+    playerIsMuted,
+    setIsSeeking,
+  });
 
   const { seekTo } = useEnhancedSeek({ wsContext, core, currentTrackInfoRef, setIsSeeking });
 

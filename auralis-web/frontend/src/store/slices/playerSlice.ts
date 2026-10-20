@@ -294,6 +294,19 @@ export const selectIsLoading = (state: { player: PlayerState }) => state.player.
 export const selectError = (state: { player: PlayerState }) => state.player.error;
 export const selectPlayerState = (state: { player: PlayerState }) => state.player;
 
+/**
+ * Convert Redux player volume/mute into the AudioPlaybackEngine gain (0-1)
+ * (#5607). Redux is 0-100 (#2251), the engine is 0-1 (#2116), and mute is
+ * gain 0. Single source so every apply-point — engine construction and the
+ * Redux subscription — converts identically.
+ */
+export function engineGainFromPlayerState(player: {
+  volume: number;
+  isMuted: boolean;
+}): number {
+  return player.isMuted ? 0 : Math.max(0, Math.min(1, player.volume / 100));
+}
+
 // Streaming selectors (Phase 2.2)
 //
 // #5211: nine of the eleven selectors that used to live here had zero
