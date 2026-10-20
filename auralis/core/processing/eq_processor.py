@@ -59,8 +59,13 @@ class EQProcessor:
         except (AssertionError, ValueError, TypeError):
             raise  # Programming errors must not be swallowed
         except Exception as e:
-            warning(f"Psychoacoustic EQ failed, falling back to simple EQ: {e}")
-            return self._apply_simple_eq_fallback(audio, targets)
+            # #4972: the old "simple EQ fallback" was a wideband scalar
+            # multiply masquerading as spectral shaping — a silent tonal
+            # no-op that looked like it worked. The #4217 root cause that
+            # made it the NORMAL path is gone, so an unexpected EQ failure
+            # now propagates and surfaces the underlying bug instead.
+            warning(f"Psychoacoustic EQ failed: {e}")
+            raise
 
     def _targets_to_eq_curve(self, targets: dict[str, Any],
                             content_profile: dict[str, Any] | None = None) -> dict[str, float]:
@@ -301,32 +306,3 @@ class EQProcessor:
 
         return target_curve
 
-    def _apply_simple_eq_fallback(self, audio: np.ndarray, targets: dict[str, Any]) -> np.ndarray:
-        """
-        Fallback simple EQ implementation for safety
-
-        Args:
-            audio: Input audio
-            targets: Processing targets
-
-        Returns:
-            EQ-processed audio (simple fallback)
-        """
-        processed = audio.copy()
-
-        # Very basic frequency adjustment using simple filtering
-        bass_gain_db = targets.get("bass_boost_db", 0.0)
-        treble_gain_db = targets.get("treble_enhancement_db", 0.0)
-
-        # Apply very gentle adjustments (limited for safety). float()-wrapped:
-        # np.clip() returns a numpy.float64 scalar, which under NEP 50 would
-        # promote the float32 `processed` array it's multiplied into (#5106).
-        if abs(bass_gain_db) > 0.5:
-            bass_gain_linear = float(10 ** (np.clip(bass_gain_db, -6, 6) / 20))
-            processed = processed * (1.0 + (bass_gain_linear - 1.0) * 0.1)
-
-        if abs(treble_gain_db) > 0.5:
-            treble_gain_linear = float(10 ** (np.clip(treble_gain_db, -6, 6) / 20))
-            processed = processed * (1.0 + (treble_gain_linear - 1.0) * 0.1)
-
-        return processed

@@ -42,36 +42,5 @@ class TestReferenceModePreservesDtype:
         assert type(clipped) is float
 
 
-class TestEqFallbackPreservesDtype:
-    @pytest.fixture
-    def eq_processor(self) -> EQProcessor:
-        settings = EQSettings(sample_rate=44100, fft_size=2048, adaptation_speed=0.5)
-        return EQProcessor(PsychoacousticEQ(settings))
-
-    def test_bass_boost_preserves_float32(self, eq_processor: EQProcessor):
-        rng = np.random.default_rng(1)
-        audio = (rng.standard_normal((4096, 2)) * 0.1).astype(np.float32)
-
-        result = eq_processor._apply_simple_eq_fallback(audio, {"bass_boost_db": 3.0})
-
-        assert result.dtype == np.float32
-
-    def test_treble_enhancement_preserves_float32(self, eq_processor: EQProcessor):
-        rng = np.random.default_rng(2)
-        audio = (rng.standard_normal((4096, 2)) * 0.1).astype(np.float32)
-
-        result = eq_processor._apply_simple_eq_fallback(
-            audio, {"treble_enhancement_db": 3.0}
-        )
-
-        assert result.dtype == np.float32
-
-    def test_both_bands_preserve_float32(self, eq_processor: EQProcessor):
-        rng = np.random.default_rng(3)
-        audio = (rng.standard_normal((4096, 2)) * 0.1).astype(np.float32)
-
-        result = eq_processor._apply_simple_eq_fallback(
-            audio, {"bass_boost_db": 3.0, "treble_enhancement_db": -3.0}
-        )
-
-        assert result.dtype == np.float32
+# #4972: TestEqFallbackPreservesDtype removed with the fallback itself —
+# _apply_simple_eq_fallback no longer exists; EQ failures propagate.
