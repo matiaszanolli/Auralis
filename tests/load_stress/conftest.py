@@ -12,7 +12,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import scoped_session, sessionmaker
 
 from auralis.library.models import Base
@@ -78,35 +78,61 @@ def large_track_dataset(temp_db):
     Create large dataset of tracks for load testing.
 
     Returns function that generates N tracks.
+
+    Idempotent and batch-aware (#5486): the progressive-growth test calls
+    this repeatedly on the SAME database, so artists/albums are resolved
+    rather than re-inserted (a second 'Artist 0' INSERT collided on the
+    unique name and rolled the whole call back), and filepaths are offset
+    per call so each batch adds genuinely new tracks instead of hitting
+    add()'s filepath dedup and returning the previous batch.
     """
     from auralis.library.models import Album, Artist
     from auralis.library.repositories import AlbumRepository, TrackRepository
     from auralis.library.utils.artist_normalizer import normalize_artist_name
 
+    call_counter = {'batch': 0}
+
     def _create_tracks(count: int):
         """Create N tracks in database."""
         track_repo = TrackRepository(temp_db)
         session = temp_db()
+        batch = call_counter['batch']
+        call_counter['batch'] += 1
 
-        # Create artists. normalized_name must be set (#5225): TrackRepository.add()
-        # resolves artists by it, so a NULL here made every add() collide on the
-        # unique name, roll back and return None, leaving the dataset empty.
+        # Resolve or create artists. normalized_name must be set (#5225):
+        # TrackRepository.add() resolves artists by it, so a NULL here made
+        # every add() collide on the unique name, roll back and return None,
+        # leaving the dataset empty.
         artists = []
         for i in range(min(count // 10, 100)):  # Max 100 artists
-            artist = Artist(name=f'Artist {i}', normalized_name=normalize_artist_name(f'Artist {i}'))
-            session.add(artist)
+            name = f'Artist {i}'
+            normalized = normalize_artist_name(name)
+            artist = session.execute(
+                select(Artist).where(Artist.normalized_name == normalized)
+            ).scalars().first()
+            if not artist:
+                artist = Artist(name=name, normalized_name=normalized)
+                session.add(artist)
             artists.append(artist)
         session.commit()
 
-        # Create albums
+        # Resolve or create albums (same repeat-call safety as artists).
         albums = []
         for i in range(min(count // 5, 200)):  # Max 200 albums
-            album = Album(
-                title=f'Album {i}',
-                artist_id=artists[i % len(artists)].id,
-                year=2000 + (i % 25)
-            )
-            session.add(album)
+            title = f'Album {i}'
+            album = session.execute(
+                select(Album).where(
+                    Album.title == title,
+                    Album.artist_id == artists[i % len(artists)].id,
+                )
+            ).scalars().first()
+            if not album:
+                album = Album(
+                    title=title,
+                    artist_id=artists[i % len(artists)].id,
+                    year=2000 + (i % 25)
+                )
+                session.add(album)
             albums.append(album)
         session.commit()
 
@@ -119,8 +145,8 @@ def large_track_dataset(temp_db):
         created_tracks = []
         for i in range(count):
             track_info = {
-                'filepath': f'/tmp/load_test_track_{i}.flac',
-                'title': f'Load Test Track {i}',
+                'filepath': f'/tmp/load_test_track_{batch * count + i}.flac',
+                'title': f'Load Test Track {batch * count + i}',
                 'artists': [artist_names[i % len(artist_names)]],
                 'album': album_titles[i % len(album_titles)],
                 'year': 2000 + (i % 25),

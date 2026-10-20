@@ -310,8 +310,13 @@ class TestPeakResourceUsage:
         config = UnifiedConfig()
         processor = HybridProcessor(config)
 
+        # Decode up front so process() gets the NumPy array it requires
+        # (#5486 — same fix as #5225 applied to the performance suite).
+        from auralis.io.unified_loader import load_audio
+        audio, _sr = load_audio(filepath)
+
         with resource_monitor() as monitor:
-            result = processor.process(filepath)
+            result = processor.process(audio)
             monitor.update()
 
             peak_memory = monitor.peak_memory_mb
@@ -331,11 +336,15 @@ class TestPeakResourceUsage:
         from auralis.core.hybrid_processor import HybridProcessor
         from auralis.core.config import UnifiedConfig
 
+        # Decode up front: process() requires a NumPy array (#5486, cf #5225).
+        from auralis.io.unified_loader import load_audio
+        audio, _sr = load_audio(test_audio_file)
+
         def process_file():
             """Process file."""
             config = UnifiedConfig()
             processor = HybridProcessor(config)
-            result = processor.process(test_audio_file)
+            result = processor.process(audio)
             return len(result)
 
         tasks = [process_file for _ in range(5)]
@@ -375,11 +384,15 @@ class TestCPUUtilization:
         config = UnifiedConfig()
         processor = HybridProcessor(config)
 
+        # Decode up front: process() requires a NumPy array (#5486, cf #5225).
+        from auralis.io.unified_loader import load_audio
+        audio, _sr = load_audio(test_audio_file)
+
         # Start CPU monitoring
         process.cpu_percent()  # Initialize
 
         # Process
-        result = processor.process(test_audio_file)
+        result = processor.process(audio)
 
         # Get CPU usage
         cpu_percent = process.cpu_percent(interval=0.1)
@@ -410,6 +423,10 @@ class TestGarbageCollection:
         config = UnifiedConfig()
         processor = HybridProcessor(config)
 
+        # Decode up front: process() requires a NumPy array (#5486, cf #5225).
+        from auralis.io.unified_loader import load_audio
+        audio, _sr = load_audio(test_audio_file)
+
         # Baseline
         gc.collect()
         baseline_memory = process.memory_info().rss / 1024 / 1024
@@ -417,7 +434,7 @@ class TestGarbageCollection:
         # Allocate memory
         results = []
         for i in range(50):
-            result = processor.process(test_audio_file)
+            result = processor.process(audio)
             results.append(result)
 
         peak_memory = process.memory_info().rss / 1024 / 1024
@@ -434,11 +451,17 @@ class TestGarbageCollection:
         after_gc_memory = process.memory_info().rss / 1024 / 1024
         memory_reclaimed = peak_memory - after_gc_memory
 
-        reclaim_percent = (memory_reclaimed / memory_used * 100) if memory_used > 0 else 0
+        # The "> 50% reclaimed" gate cannot be asserted on: with the decoded
+        # audio reused across iterations a healthy run allocates ~0 MB above
+        # baseline, and 0/0 guards read as 0% reclaimed (#5486 — the same
+        # environment-dependent-claim problem #5225 fixed in
+        # test_gc_frequency_impact). Gate on the actual resource invariant
+        # instead: 50 processing iterations must not leak, i.e. post-GC RSS
+        # stays within a bounded margin of the baseline.
+        memory_growth_after_gc = after_gc_memory - baseline_memory
+        assert memory_growth_after_gc < 100, \
+            f"50 iterations grew RSS by {memory_growth_after_gc:.1f}MB even after GC — leak?"
 
-        # Should reclaim significant memory
-        # Note: May not reclaim 100% due to fragmentation
-        assert reclaim_percent > 50, \
-            f"GC should reclaim > 50% memory, reclaimed {reclaim_percent:.1f}%"
-
-        print(f"✓ GC reclaimed {reclaim_percent:.1f}% of {memory_used:.1f}MB")
+        print(f"✓ GC test: {memory_used:.1f}MB transient, "
+              f"{memory_reclaimed:.1f}MB reclaimed, "
+              f"{memory_growth_after_gc:.1f}MB retained after GC")

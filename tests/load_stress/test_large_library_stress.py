@@ -219,9 +219,12 @@ class TestLargeLibraryUpdates:
 
         start = time.time()
 
-        # Toggle favorite on all tracks
+        # Toggle favorite on all tracks. set_favorite() is the production
+        # write path (routers/tracks.py); update() deliberately refuses
+        # 'favorite' (not in its field allowlist), so the old
+        # update(id, {'favorite': True}) loop silently no-opped (#5486).
         for track in tracks:
-            track_repo.update(track.id, {'favorite': True})
+            track_repo.set_favorite(track.id, True)
 
         elapsed = time.time() - start
 

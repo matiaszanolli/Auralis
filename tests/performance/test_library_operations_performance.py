@@ -383,19 +383,16 @@ class TestDatabaseQueryPerformance:
         album_repo = AlbumRepository(temp_db)
         track_repo = TrackRepository(temp_db)
 
-        # Create 1000 albums with 10 tracks each
+        # Create 1000 albums with 10 tracks each. AlbumRepository has no
+        # add() (#5486): track_repo.add() resolves/creates the album and
+        # artist from the track info, which is also how production seeds them.
         for album_idx in range(1000):
-            album_id = album_repo.add({
-                'title': f'Album {album_idx}',
-                'artist': f'Artist {album_idx % 50}'
-            })
-
             for track_idx in range(10):
                 track_repo.add({
                     'filepath': f'/tmp/album_{album_idx}_track_{track_idx}.flac',
                     'title': f'Track {track_idx}',
                     'artists': [f'Artist {album_idx % 50}'],
-                    'album_id': album_id,
+                    'album': f'Album {album_idx}',
                     'format': 'FLAC',
                     'sample_rate': 44100,
                     'channels': 2
@@ -423,10 +420,9 @@ class TestDatabaseQueryPerformance:
         artist_repo = ArtistRepository(temp_db)
         track_repo = TrackRepository(temp_db)
 
-        # Create 500 artists with multiple tracks
+        # Create 500 artists with multiple tracks. ArtistRepository has no
+        # add() (#5486); track_repo.add() resolves/creates the artists.
         for artist_idx in range(500):
-            artist_id = artist_repo.add({'name': f'Artist {artist_idx}'})
-
             for track_idx in range(20):
                 track_repo.add({
                     'filepath': f'/tmp/artist_{artist_idx}_track_{track_idx}.flac',
@@ -538,7 +534,7 @@ class TestDatabaseQueryPerformance:
 
         for sort_by in sort_orders:
             start = time.perf_counter()
-            tracks, total = track_repo.get_all(limit=100, offset=0, sort_by=sort_by)
+            tracks, total = track_repo.get_all(limit=100, offset=0, order_by=sort_by)
             latency_ms = (time.perf_counter() - start) * 1000
             latencies.append(latency_ms)
 
@@ -598,13 +594,16 @@ class TestCachePerformance:
 
         benchmark_results['cache_speedup'] = speedup
 
-    def test_cache_memory_overhead(self):
+    def test_cache_memory_overhead(self, tmp_path):
         """
         BENCHMARK: Paginated queries should use <50MB for 10k query results.
 
         #4915: the legacy library-manager query cache this measured was dead
         code and has been removed; the benchmark now bounds the memory held by
         repeated paginated repository reads.
+
+        #5225/#5486: uses a file database — LibraryDatabase's pooled engine
+        rejects ':memory:' (SingletonThreadPool takes no max_overflow).
         """
         try:
             import psutil
@@ -613,7 +612,7 @@ class TestCachePerformance:
 
         import gc
 
-        db = LibraryDatabase(database_path=':memory:')
+        db = LibraryDatabase(database_path=str(tmp_path / 'library.db'))
         process = psutil.Process()
 
         # Populate library
@@ -718,7 +717,9 @@ class TestMetadataOperations:
             filepath = os.path.join(temp_audio_dir, f'meta_{i:03d}.wav')
             save(filepath, audio, 44100, subtype='PCM_16')
 
-        db = LibraryDatabase(database_path=':memory:')
+        # #5486: file database — the pooled engine rejects ':memory:'
+        # (SingletonThreadPool takes no max_overflow), same fix as #5225.
+        db = LibraryDatabase(database_path=os.path.join(temp_audio_dir, 'library.db'))
         scanner = LibraryScanner(db)
 
         with timer() as t:
@@ -749,9 +750,15 @@ class TestMetadataOperations:
             'channels': 2
         })
 
-        # Measure update
+        # Measure update. Warm up first (#5486): the very first query on a
+        # cold session pays connection acquisition, which is environment
+        # noise, not the "single track metadata update" this benchmark names.
         session = temp_db()
         from auralis.library.models import Track
+
+        warm = session.execute(select(Track).filter_by(id=track_added.id)).scalars().first()
+        warm.title = 'Warmup Title'
+        session.commit()
 
         with timer() as t:
             track = session.execute(select(Track).filter_by(id=track_added.id)).scalars().first()

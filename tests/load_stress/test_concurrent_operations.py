@@ -201,7 +201,9 @@ class TestConcurrentAudioProcessing:
         def analyze_audio():
             """Analyze audio spectrum."""
             analyzer = SpectrumAnalyzer()
-            spectrum = analyzer.analyze(audio, sr)
+            # SpectrumAnalyzer's API is analyze_file(audio_data, sample_rate);
+            # this used to call a nonexistent .analyze() (#5486).
+            spectrum = analyzer.analyze_file(audio, sr)
             return spectrum is not None
 
         tasks = [analyze_audio for _ in range(10)]
@@ -471,6 +473,7 @@ class TestRaceConditions:
         STRESS: Concurrent favorite toggles shouldn't corrupt state.
         Target: Final state is consistent (all True or all False).
         """
+        from auralis.library.models import Track
         from auralis.library.repositories import TrackRepository
 
         tracks = large_track_dataset(10)
@@ -505,6 +508,7 @@ class TestRaceConditions:
         STRESS: Concurrent play count increments may have race conditions.
         Test: Document the behavior (may lose some increments).
         """
+        from auralis.library.models import Track
         from auralis.library.repositories import TrackRepository
 
         tracks = large_track_dataset(10)
@@ -515,9 +519,18 @@ class TestRaceConditions:
         track_repo.update(target_track.id, {'play_count': 0})
 
         def increment_play_count():
-            """Increment play count (classic race condition)."""
-            track = track_repo.get_by_id(target_track.id)
-            track_repo.update(track.id, {'play_count': track.play_count + 1})
+            """Increment play count (classic read-modify-write race).
+
+            Goes through the ORM session directly: TrackRepository.update()
+            deliberately refuses play_count (not in its field allowlist) and
+            no production path increments it (#5486) — the race this test
+            documents is the ORM-level read-modify-write, not a repository
+            method that does not exist.
+            """
+            session = temp_db()
+            track = session.get(Track, target_track.id)
+            track.play_count = (track.play_count or 0) + 1
+            session.commit()
             return True
 
         # 50 concurrent increments

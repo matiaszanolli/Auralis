@@ -215,96 +215,40 @@ class TestAudioPlayerCore:
         except ImportError:
             pytest.skip("Enhanced audio player not available")
 
-    def test_player_state_management(self, mock_config):
-        """Test player state management."""
+    def test_player_state_management(self, mock_config, get_repository_factory_callable):
+        """Test player state management against the real component surface."""
         try:
             from auralis.player.enhanced_audio_player import (
                 AudioPlayer,
                 PlaybackState,
             )
-
-            try:
-                player = AudioPlayer(mock_config)
-
-                # Test state changes
-                state_methods = ['play', 'pause', 'stop']
-                for method_name in state_methods:
-                    if hasattr(player, method_name):
-                        method = getattr(player, method_name)
-                        if callable(method):
-                            try:
-                                method()
-                                # State should change appropriately
-                            except (RuntimeError, ValueError):
-                                # Method might need loaded audio
-                                pass
-
-                # Test state property if exists
-                if hasattr(player, 'get_state'):
-                    state = player.get_state()
-                    assert isinstance(state, PlaybackState)
-
-            except (ValueError, RuntimeError):
-                # Player creation failed
-                pass
-
         except ImportError:
             pytest.skip("Enhanced audio player not available")
 
-    def test_volume_and_controls(self, mock_config):
-        """Test volume and control methods."""
         try:
-            from auralis.player.enhanced_audio_player import AudioPlayer
+            # AudioPlayer now requires a repository factory (#4141); these six
+            # tests built AudioPlayer(mock_config) without it until #5486, so
+            # the constructor ValueError they caught made every one a no-op.
+            player = AudioPlayer(
+                config=mock_config,
+                get_repository_factory=get_repository_factory_callable,
+            )
+        except RuntimeError as e:
+            pytest.skip(f"Audio subsystem unavailable: {e}")
 
-            try:
-                player = AudioPlayer(mock_config)
+        assert player.state == PlaybackState.STOPPED
+        assert player.is_playing() is False
 
-                # Test volume controls
-                volume_methods = [
-                    ('set_volume', 0.8),
-                    ('get_volume', None),
-                    ('mute', None),
-                    ('unmute', None)
-                ]
+        # stop() on an idle player is a valid no-op and must stay STOPPED.
+        player.stop()
+        assert player.state == PlaybackState.STOPPED
+        assert player.is_playing() is False
 
-                for method_name, param in volume_methods:
-                    if hasattr(player, method_name):
-                        method = getattr(player, method_name)
-                        if callable(method):
-                            try:
-                                if param is not None:
-                                    result = method(param)
-                                else:
-                                    result = method()
-                                # Method executed successfully
-                            except (TypeError, ValueError, RuntimeError):
-                                # Method might need specific setup
-                                pass
-
-                # Test position controls
-                position_methods = [
-                    ('seek', 30.0),  # Seek to 30 seconds
-                    ('get_position', None),
-                    ('get_duration', None)
-                ]
-
-                for method_name, param in position_methods:
-                    if hasattr(player, method_name):
-                        method = getattr(player, method_name)
-                        if callable(method):
-                            try:
-                                if param is not None:
-                                    result = method(param)
-                                else:
-                                    result = method()
-                            except (TypeError, ValueError, RuntimeError):
-                                pass
-
-            except (ValueError, RuntimeError):
-                pass
-
-        except ImportError:
-            pytest.skip("Enhanced audio player not available")
+    # test_volume_and_controls was deleted in #5486: AudioPlayer has no
+    # volume/mute/position-method surface to probe (set_volume/get_volume/
+    # mute/unmute never existed on it), and volume is a frontend/WebAudio
+    # concern (#5607). It only ever passed by catching the constructor's
+    # ValueError.
 
 
 class TestEnhancedPlayerProcessing:
@@ -312,85 +256,83 @@ class TestEnhancedPlayerProcessing:
 
     @pytest.fixture
     def mock_config(self):
-        """Create mock config."""
-        mock_config = Mock()
-        mock_config.sample_rate = 44100
-        mock_config.buffer_size = 1024
-        mock_config.processing_enabled = True
-        return mock_config
+        """Real PlayerConfig — RealtimeProcessor.process_chunk reads typed
+        config fields (e.g. realtime_safety_peak) that a Mock cannot satisfy
+        (found when #5486 wired these tests to a real player)."""
+        from auralis.player.config import PlayerConfig
+        config = PlayerConfig()
+        config.processing_enabled = True
+        return config
 
-    def test_enhancement_controls(self, mock_config):
-        """Test audio enhancement controls."""
+    def test_enhancement_controls(self, mock_config, get_repository_factory_callable):
+        """Test enhancement controls through the real processor surface."""
+        import numpy as np
+
         try:
             from auralis.player.enhanced_audio_player import AudioPlayer
-
-            try:
-                player = AudioPlayer(mock_config)
-
-                # Test enhancement methods
-                enhancement_methods = [
-                    ('enable_enhancement', None),
-                    ('disable_enhancement', None),
-                    ('toggle_enhancement', None),
-                    ('set_enhancement_strength', 0.7),
-                    ('get_enhancement_strength', None),
-                    ('set_enhancement_profile', 'vocal'),
-                    ('get_enhancement_profile', None)
-                ]
-
-                for method_name, param in enhancement_methods:
-                    if hasattr(player, method_name):
-                        method = getattr(player, method_name)
-                        if callable(method):
-                            try:
-                                if param is not None:
-                                    result = method(param)
-                                else:
-                                    result = method()
-                                print(f"Enhancement method {method_name} executed")
-                            except Exception as e:
-                                print(f"Enhancement method {method_name} failed: {e}")
-
-                # Test enhancement state
-                if hasattr(player, 'enhancement_enabled'):
-                    # Should be boolean
-                    assert isinstance(player.enhancement_enabled, bool)
-
-            except (ValueError, RuntimeError):
-                pass
-
         except ImportError:
             pytest.skip("Enhanced audio player not available")
 
-    def test_realtime_processor_integration(self, mock_config):
-        """Test real-time processor integration."""
+        try:
+            # AudioPlayer now requires a repository factory (#4141); until
+            # #5486 this test built AudioPlayer(mock_config), caught the
+            # ValueError and probed enhancement methods the player never had.
+            player = AudioPlayer(
+                config=mock_config,
+                get_repository_factory=get_repository_factory_callable,
+            )
+        except RuntimeError as e:
+            pytest.skip(f"Audio subsystem unavailable: {e}")
+
+        processor = player.processor
+        assert processor is not None
+
+        silence = np.zeros((1024, 2), dtype=np.float32)
+        passthrough = processor.process_chunk(silence, mock_config.sample_rate)
+        assert passthrough.shape == silence.shape
+
+        # Effect toggles round-trip through the processor's real API.
+        processor.set_effect_enabled('mute', True)
+        processor.set_effect_enabled('mute', False)
+        processor.reset_all_effects()
+
+        info_result = processor.get_processing_info()
+        assert isinstance(info_result, dict)
+
+        # The effect change must leave a silence passthrough intact and finite.
+        after = processor.process_chunk(silence, mock_config.sample_rate)
+        assert after.shape == silence.shape
+        assert np.isfinite(after).all()
+
+    def test_realtime_processor_integration(self, mock_config, get_repository_factory_callable):
+        """Test real-time processor integration through the player."""
+        import numpy as np
+
         try:
             from auralis.player.enhanced_audio_player import AudioPlayer
-
-            try:
-                player = AudioPlayer(mock_config)
-
-                # Test processor access
-                if hasattr(player, 'processor') or hasattr(player, 'realtime_processor'):
-                    processor = getattr(player, 'processor', None) or getattr(player, 'realtime_processor', None)
-
-                    if processor is not None:
-                        # Test processor methods
-                        processor_methods = ['start', 'stop', 'reset', 'get_latency']
-                        for method_name in processor_methods:
-                            if hasattr(processor, method_name):
-                                method = getattr(processor, method_name)
-                                if callable(method):
-                                    try:
-                                        result = method()
-                                    except (TypeError, ValueError, RuntimeError):
-                                        pass
-
-            except (ValueError, RuntimeError):
-                pass
-
         except ImportError:
             pytest.skip("Enhanced audio player not available")
+
+        try:
+            # AudioPlayer now requires a repository factory (#4141); until
+            # #5486 this test built AudioPlayer(mock_config), caught the
+            # ValueError and probed start/stop/reset/get_latency, none of
+            # which RealtimeProcessor has.
+            player = AudioPlayer(
+                config=mock_config,
+                get_repository_factory=get_repository_factory_callable,
+            )
+        except RuntimeError as e:
+            pytest.skip(f"Audio subsystem unavailable: {e}")
+
+        processor = player.processor
+        assert processor is not None
+
+        # A chunk through the processor keeps its shape and stays finite.
+        chunk = np.random.randn(1024, 2).astype(np.float32) * 0.1
+        processed = processor.process_chunk(chunk, mock_config.sample_rate)
+        assert processed.shape == chunk.shape
+        assert np.isfinite(processed).all()
 
 
 class TestEnhancedPlayerLibraryIntegration:
@@ -456,64 +398,37 @@ class TestEnhancedPlayerLibraryIntegration:
         except ImportError:
             pytest.skip("Enhanced audio player or library not available")
 
-    def test_queue_integration(self, mock_config):
-        """Test queue integration."""
+    def test_queue_integration(self, mock_config, get_repository_factory_callable):
+        """Test queue integration through the player's real QueueController."""
         try:
             from auralis.player.enhanced_audio_player import AudioPlayer
-
-            try:
-                player = AudioPlayer(mock_config)
-
-                # Test queue methods
-                if hasattr(player, 'queue') or hasattr(player, 'queue_manager'):
-                    queue = getattr(player, 'queue', None) or getattr(player, 'queue_manager', None)
-
-                    if queue is not None:
-                        # Test queue operations
-                        test_track = {
-                            'title': 'Test Song',
-                            'artist': 'Test Artist',
-                            'file_path': '/test/song.mp3'
-                        }
-
-                        if hasattr(queue, 'add_track'):
-                            queue.add_track(test_track)
-
-                        queue_methods = ['next_track', 'previous_track', 'clear_queue']
-                        for method_name in queue_methods:
-                            if hasattr(queue, method_name):
-                                method = getattr(queue, method_name)
-                                if callable(method):
-                                    try:
-                                        result = method()
-                                    except (IndexError, RuntimeError, TypeError):
-                                        pass
-
-                # Test player queue methods
-                player_queue_methods = [
-                    ('add_to_queue', {'title': 'Test', 'file_path': '/test.mp3'}),
-                    ('play_next', None),
-                    ('play_previous', None),
-                    ('clear_queue', None)
-                ]
-
-                for method_name, param in player_queue_methods:
-                    if hasattr(player, method_name):
-                        method = getattr(player, method_name)
-                        if callable(method):
-                            try:
-                                if param is not None:
-                                    result = method(param)
-                                else:
-                                    result = method()
-                            except (TypeError, ValueError, RuntimeError):
-                                pass
-
-            except (ValueError, RuntimeError):
-                pass
-
         except ImportError:
             pytest.skip("Enhanced audio player not available")
+
+        try:
+            # AudioPlayer now requires a repository factory (#4141); until
+            # #5486 this test built AudioPlayer(mock_config), caught the
+            # ValueError and never touched a queue.
+            player = AudioPlayer(
+                config=mock_config,
+                get_repository_factory=get_repository_factory_callable,
+            )
+        except RuntimeError as e:
+            pytest.skip(f"Audio subsystem unavailable: {e}")
+
+        queue = player.queue
+        assert queue is not None
+        assert queue.get_queue_size() == 0
+
+        test_track = {'title': 'Test Song', 'artist': 'Test Artist', 'file_path': '/test/song.mp3'}
+        queue.add_track(test_track)
+        assert queue.get_queue_size() == 1
+        # Adding does not imply playback: the cursor stays pre-queue until
+        # something starts a track.
+        assert queue.current_index == -1
+
+        queue.clear_queue()
+        assert queue.get_queue_size() == 0
 
 
 class TestEnhancedPlayerAdvanced:
@@ -521,50 +436,35 @@ class TestEnhancedPlayerAdvanced:
 
     @pytest.fixture
     def mock_config(self):
-        """Create mock config."""
-        mock_config = Mock()
-        mock_config.sample_rate = 44100
-        mock_config.buffer_size = 1024
-        mock_config.enable_monitoring = True
-        return mock_config
+        """Real PlayerConfig (see TestEnhancedPlayerProcessing.mock_config)."""
+        from auralis.player.config import PlayerConfig
+        config = PlayerConfig()
+        config.enable_monitoring = True
+        return config
 
-    def test_error_handling(self, mock_config):
-        """Test error handling capabilities."""
+    def test_error_handling(self, mock_config, get_repository_factory_callable):
+        """Test error handling for invalid input on the real components."""
         try:
             from auralis.player.enhanced_audio_player import AudioPlayer
-
-            try:
-                player = AudioPlayer(mock_config)
-
-                # Test error methods
-                error_methods = [
-                    ('get_last_error', None),
-                    ('clear_errors', None),
-                    ('get_error_count', None)
-                ]
-
-                for method_name, param in error_methods:
-                    if hasattr(player, method_name):
-                        method = getattr(player, method_name)
-                        if callable(method):
-                            try:
-                                if param is not None:
-                                    result = method(param)
-                                else:
-                                    result = method()
-                            except (TypeError, ValueError, RuntimeError):
-                                pass
-
-                # Test loading invalid file
-                if hasattr(player, 'load_file'):
-                    try:
-                        player.load_file('/nonexistent/file.mp3')
-                    except (OSError, ValueError):
-                        # Expected error for invalid file
-                        pass
-
-            except (ValueError, RuntimeError):
-                pass
-
         except ImportError:
             pytest.skip("Enhanced audio player not available")
+
+        try:
+            # AudioPlayer now requires a repository factory (#4141); until
+            # #5486 this test built AudioPlayer(mock_config), caught the
+            # ValueError and probed get_last_error/clear_errors/get_error_count
+            # methods the player never had.
+            player = AudioPlayer(
+                config=mock_config,
+                get_repository_factory=get_repository_factory_callable,
+            )
+        except RuntimeError as e:
+            pytest.skip(f"Audio subsystem unavailable: {e}")
+
+        # Loading a nonexistent file must fail gracefully: False, or an
+        # OSError family exception — never a silent success.
+        try:
+            loaded = player.file_manager.load_file('/nonexistent/file.mp3')
+            assert loaded is False
+        except (OSError, ValueError):
+            pass
