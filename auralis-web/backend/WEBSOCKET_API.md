@@ -634,7 +634,7 @@ Request enhanced (auto-mastered) audio streaming for a track.
   "type": "play_enhanced",
   "data": {
     "track_id": number,          // Required. Positive integer.
-    "preset"?: string,           // Optional. One of: adaptive, gentle, warm, bright, punchy.
+    "preset"?: string,           // Optional. Only 'adaptive' is valid — see VALID_PRESETS in schemas/enhancement.py.
     "intensity"?: number,        // Optional. 0.0 - 1.0.
     "start_position"?: number,   // Optional. Resume offset in seconds (WS reconnect).
     "force"?: boolean            // Optional. Default false. See precedence below.
@@ -670,6 +670,70 @@ gate to apply.
 }
 ```
 
+The remaining routed commands (`ws_handlers/connection.py` `dispatch_message`
+is the authoritative router). Everything below takes **no `data` payload**
+unless shown; every control frame is rate-limited like the play commands.
+
+#### `pause`
+
+Pause the active stream. Responds `playback_paused` with
+`{ "state": "paused", "seq": number }`.
+
+#### `resume`
+
+Resume a paused stream. Responds `playback_resumed` with
+`{ "state": "playing", "seq": number }`.
+
+#### `stop`
+
+Cancel the active streaming task and clear the connection's stream state.
+Responds `playback_stopped` with `{ "state": "stopped", "seq": number }`
+after the cancelled task has quiesced.
+
+#### `seek`
+
+Scrub the active stream to a new offset. Payload:
+
+```typescript
+{
+  "type": "seek",
+  "data": {
+    "track_id": number,     // Required. Positive integer.
+    "position": number,     // Required. Seconds, >= 0, finite.
+    "preset"?: string,      // Optional. 'adaptive' only; invalid values fall back
+                            // to the connection's stream settings, then the stored
+                            // settings — seek degrades, it does not reject (#4600).
+    "intensity"?: number    // Optional. 0.0 - 1.0. Same fallback order as preset.
+  }
+}
+```
+
+Acknowledges with `seek_started` `{ "track_id": number, "position": number }`,
+then re-issues the stream frames from the new position (`audio_stream_start` →
+chunks → `audio_stream_end`).
+
+#### `buffer_full` / `buffer_ready`
+
+Client-side flow control: `buffer_full` pauses the server's chunk delivery,
+`buffer_ready` resumes it. No payload, no response frame.
+
+#### `ping`
+
+Client-initiated liveness probe. Responds `{ "type": "pong" }` and marks the
+connection alive. Does **not** clear a server-issued pending ping (#3866) — use
+`pong` for that.
+
+#### `pong`
+
+Answers a server-issued `ping`, clearing its pending-pong slot. No response.
+The server force-closes the connection (~60 s) if a pending ping is never
+cleared.
+
+#### `heartbeat`
+
+Liveness keepalive only. Marks the connection alive but, like `ping`, never
+clears a pending server ping (#3866 / #4406).
+
 ---
 
 ## Frontend Usage
@@ -683,30 +747,14 @@ interface WebSocketMessage {
   data: any;
 }
 
-// Player state
-interface PlayerState {
-  currentTrack: TrackInfo | null;
-  isPlaying: boolean;
-  volume: number;
-  position: number;
-  duration: number;
-  queue: TrackInfo[];
-  queueIndex: number;
-  gapless_enabled: boolean;
-  crossfade_enabled: boolean;
-  crossfade_duration: number;
-}
-
-// Track info
-interface TrackInfo {
-  id: number;
-  title: string;
-  artist: string;
-  album: string;
-  duration: number;
-  filepath: string;
-  // ... other fields
-}
+// Player state and track shapes are deliberately NOT reproduced here: a
+// hand-copied camelCase "PlayerState" used to live in this section and was
+// fictitious — the wire payload is snake_case with `seq`/`state`/`current_time`
+// and a 0-100 `volume` (#5476). Consume the canonical types instead, both
+// re-exported through the src/types/websocket.ts barrel:
+//   - RawPlayerStateData — src/types/ws/player.ts (matches PlayerStatePayload
+//     in websocket/outbound_messages.py)
+//   - TrackInfo          — src/types/ws/base.ts
 ```
 
 ### Subscription Example
