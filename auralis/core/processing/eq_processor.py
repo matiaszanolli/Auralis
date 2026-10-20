@@ -204,6 +204,7 @@ class EQProcessor:
         # (#4852), and as a side effect also cancels the ~0.0004 residual COLA
         # ripple from using a symmetric (not periodic) Hann everywhere else.
         window_norm = np.zeros(original_length + chunk_size, dtype=audio.dtype)
+        first_frame_eq: np.ndarray | None = None
 
         for i in range(0, original_length, hop_size):
             end_idx = min(i + chunk_size, original_length)
@@ -230,15 +231,35 @@ class EQProcessor:
                 processed_audio[i:i + chunk_size] += processed_chunk[:chunk_size] * wola_window
             window_norm[i:i + chunk_size] += wola_window
 
-        # Normalize by the accumulated window weight (guarded against the
-        # near-zero coverage right at output index 0, where only the very
-        # first window sample — exactly 0.0 for a Hann window — has landed).
+            # #5575: frame 0 is the only frame covering output sample 0, and
+            # the Hann window is exactly 0.0 there — the OLA sum and the
+            # accumulated weight are both 0 at that sample, so the weight
+            # normalisation below would return 0 instead of the signal. Keep
+            # frame 0's unwindowed EQ output to restore those samples.
+            if i == 0:
+                first_frame_eq = processed_chunk[:chunk_size].copy()
+
+        # Normalize by the accumulated window weight. Output sample 0 is
+        # covered only by frame 0 at window position 0, where a Hann window
+        # is exactly 0.0 — accumulated weight AND numerator are both 0 there,
+        # so the eps divide would return 0 instead of the signal (#5575).
+        # Restore zero-coverage samples from frame 0's unwindowed EQ output
+        # (at weight 0 the synthesis window does nothing, so that output IS
+        # the desired sample).
         eps = np.finfo(audio.dtype).eps
-        safe_norm = np.maximum(window_norm, eps)
+        zero_coverage = window_norm[:original_length] <= eps
+        safe_norm = np.maximum(window_norm[:original_length], eps)
         if audio.ndim == 2:
-            processed_audio /= safe_norm[:, np.newaxis]
+            processed_audio[:original_length] /= safe_norm[:, np.newaxis]
         else:
-            processed_audio /= safe_norm
+            processed_audio[:original_length] /= safe_norm
+
+        if zero_coverage.any() and first_frame_eq is not None:
+            idx = np.nonzero(zero_coverage)[0]
+            if audio.ndim == 2:
+                processed_audio[idx] = first_frame_eq[idx]
+            else:
+                processed_audio[idx] = first_frame_eq[idx]
 
         return processed_audio[:original_length]
 
