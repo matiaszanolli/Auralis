@@ -278,12 +278,12 @@ class ContinuousDSPOpsMixin:
         else:
             debug(f"[Peak Normalization] SKIPPED - audio peak at {current_peak_db:.2f} dB is safe")
 
-        # Step 3: HF-aware safety limiter (Phase 5). Pre/de-emphasis around
-        # the wideband soft-clip preserves cymbal/sibilance transient char
-        # that the naive wideband path used to flatten — the second half of
-        # the user's "Iron Maiden HF overdrive" complaint.
-        from .hf_aware_limiter import apply_hf_aware_limiter
-        audio, limiter_applied = apply_hf_aware_limiter(audio, self.config.internal_sample_rate)
+        # Step 3 (an HF-aware safety limiter, Phase 5) was removed in #5577:
+        # Step 2 clamps the peak to -0.3 dBFS while the limiter bypassed
+        # above -0.1 dBFS, so it could never fire — dead in production since
+        # it was added. hf_aware_limiter.py itself remains (own test suite),
+        # just not wired into this path. Peak control stays the Step 2
+        # whole-buffer gain; revisit if peaky-chunk loudness loss matters.
 
         # Final measurements
         final_peak = np.max(np.abs(audio))
