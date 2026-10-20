@@ -25,10 +25,6 @@ import {
 } from './audioVisualization';
 
 export type { AudioVisualizationData } from './audioVisualization';
-export {
-  registerAudioContext,
-  connectToVisualizer,
-} from './audioVisualization';
 
 /**
  * Hook that keeps the visualization store fed while audio is active.

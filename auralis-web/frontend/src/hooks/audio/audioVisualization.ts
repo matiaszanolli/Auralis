@@ -243,24 +243,3 @@ export function resetAudioVisualizationModuleForTests(): void {
   audioActive = false;
   isActiveListeners.clear();
 }
-
-/**
- * Register an AudioContext for visualization.
- * Call this when creating the main audio context.
- */
-export function registerAudioContext(audioContext: AudioContext): void {
-  window.__auralisAudioContext = audioContext;
-}
-
-/**
- * Connect an audio node to the visualization analyser.
- * Call this to insert the analyser into the audio chain.
- */
-export function connectToVisualizer(sourceNode: AudioNode, destinationNode: AudioNode): void {
-  const audioContext = sourceNode.context as AudioContext;
-  const analyser = getOrCreateAnalyser(audioContext);
-
-  // Insert analyser between source and destination
-  sourceNode.connect(analyser);
-  analyser.connect(destinationNode);
-}

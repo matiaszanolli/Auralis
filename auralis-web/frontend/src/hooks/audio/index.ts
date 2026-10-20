@@ -4,7 +4,5 @@
 
 export {
   useAudioVisualization,
-  registerAudioContext,
-  connectToVisualizer,
   type AudioVisualizationData,
 } from './useAudioVisualization';
