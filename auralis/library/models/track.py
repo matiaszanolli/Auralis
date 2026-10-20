@@ -63,6 +63,11 @@ class Track(Base, TimestampMixin):
     channels: Mapped[int | None] = mapped_column(Integer)
     format: Mapped[str | None] = mapped_column(String)
     filesize: Mapped[int | None] = mapped_column(Integer)
+    # Scanner change-detection watermark: the file's mtime as epoch seconds,
+    # written by the scanner on every add/update (#5574). NULL = unknown
+    # (pre-v22 rows), which makes the next rescan refresh the row once.
+    # Never use updated_at for this — repository writes bump it (#5574).
+    file_mtime: Mapped[float | None] = mapped_column(Float)
 
     # Audio analysis data
     peak_level: Mapped[float | None] = mapped_column(Float)

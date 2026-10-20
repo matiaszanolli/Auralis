@@ -84,8 +84,9 @@ class TrackRepositoryMutationMixin(BaseRepository):
 
                 # Update basic fields
                 for key in ['title', 'duration', 'sample_rate', 'bit_depth', 'channels',
-                           'format', 'filesize', 'peak_level', 'rms_level', 'dr_rating',
-                           'lufs_level', 'track_number', 'disc_number', 'year', 'comments']:
+                           'format', 'filesize', 'file_mtime', 'peak_level', 'rms_level',
+                           'dr_rating', 'lufs_level', 'track_number', 'disc_number',
+                           'year', 'comments']:
                     if key in track_info:
                         setattr(track, key, track_info[key])
 

@@ -1,0 +1,23 @@
+-- Migration v021 to v022
+-- Adds tracks.file_mtime: the scanner's change-detection watermark. Date: 2026-10-20
+--
+-- #5574: rescan change detection compared the file's mtime against
+-- tracks.updated_at, but TimestampMixin.updated_at carries an `onupdate`
+-- bump from every repository write — record_play(), set_favorite() and
+-- fingerprint-status updates all advanced it. A file edited after its last
+-- scan but played afterwards was therefore skipped on every future rescan,
+-- and the library drifted from the files for exactly the tracks the user
+-- plays most.
+--
+-- The new column is the SCANNER's own watermark (file mtime as epoch
+-- seconds, written by batch_processor on every add/update). It is left
+-- NULL by this migration deliberately: a NULL watermark means "unknown",
+-- and the next rescan refreshes each row once, after which the watermark
+-- takes over. filesize already exists (v0?); the scanner now also compares
+-- it as a cheap secondary signal.
+--
+-- No backfill from updated_at: that column is precisely the value that was
+-- being corrupted by non-scanner writes, so seeding the watermark from it
+-- would resurrect the bug for played tracks.
+
+ALTER TABLE tracks ADD COLUMN file_mtime REAL;

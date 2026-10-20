@@ -8,7 +8,6 @@ Batch processing of audio files for library scanning
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -116,18 +115,20 @@ class BatchProcessor:
             existing_track = tracks_repo.get_by_path(file_path) if skip_existing else None
             if existing_track:
                 if check_modifications:
-                    # Check if file was modified since last scan
-                    file_stat = Path(file_path).stat()
-                    file_mtime = datetime.fromtimestamp(file_stat.st_mtime, tz=timezone.utc)
-
-                    # `updated_at` round-trips through SQLite as a naive datetime
-                    # holding UTC wall-clock numbers (#4881) — reattach tzinfo
-                    # so both sides compare on the same clock basis.
-                    updated_at = existing_track.updated_at
-                    if updated_at and updated_at.tzinfo is None:
-                        updated_at = updated_at.replace(tzinfo=timezone.utc)
-                    if updated_at and updated_at >= file_mtime:
-                        return 'skipped', None, None  # File hasn't been modified
+                    # #5574: compare against the SCANNER's watermark
+                    # (tracks.file_mtime, written below on every add/update),
+                    # not tracks.updated_at — the latter carries an `onupdate`
+                    # bump from every repository write (record_play,
+                    # set_favorite, fingerprint-status updates), so a file
+                    # edited after its last scan but played afterwards was
+                    # skipped forever. A NULL watermark (pre-v22 rows) means
+                    # "unknown": proceed, so the row is refreshed exactly
+                    # once and the watermark takes over. Epoch seconds on
+                    # both sides — no naive-datetime tz hazards (#4881).
+                    scanner_watermark = existing_track.file_mtime
+                    if scanner_watermark is not None:
+                        if Path(file_path).stat().st_mtime <= scanner_watermark:
+                            return 'skipped', None, None  # File hasn't been modified
                 else:
                     return 'skipped', None, None  # Skip existing files
 
@@ -145,6 +146,17 @@ class BatchProcessor:
 
             # Convert to track info format
             track_info = self.metadata_extractor.audio_info_to_track_info(audio_info)
+
+            # #5574: stamp the scanner's change-detection watermark (and the
+            # file size as a cheap secondary signal) onto the row so the next
+            # rescan compares against THIS sync, not against updated_at.
+            # Tolerates a vanished file: the extraction failure above already
+            # reports the real reason.
+            try:
+                track_info['file_mtime'] = Path(file_path).stat().st_mtime
+                track_info.setdefault('filesize', Path(file_path).stat().st_size)
+            except OSError:
+                pass
 
             # Add or update track in library
             if existing_track:

@@ -180,6 +180,7 @@ class TrackRepositoryLifecycleMixin(BaseRepository):
                     channels=track_info.get('channels'),
                     format=track_info.get('format'),
                     filesize=track_info.get('filesize'),
+                    file_mtime=track_info.get('file_mtime'),
                     peak_level=track_info.get('peak_level'),
                     rms_level=track_info.get('rms_level'),
                     dr_rating=track_info.get('dr_rating'),
