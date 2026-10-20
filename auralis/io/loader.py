@@ -15,12 +15,11 @@ import math as _math
 from pathlib import Path
 
 import numpy as np
-import soundfile as sf
 
-from ..utils.logging import ModuleError, debug, info, warning
+from ..utils.logging import debug, info
 from .formats import FFMPEG_FORMATS
-from .loaders import load_with_ffmpeg
-from .processing import downmix_to_stereo, requires_layout_aware_downmix
+from .loaders import load_with_ffmpeg, load_with_soundfile
+from .processing import validate_audio
 
 
 # Maximum audio duration (seconds) that can be loaded into RAM.
@@ -146,7 +145,7 @@ def oversize_probe_detail(
 
 def load(file_path: str, file_type: str = "audio") -> tuple[np.ndarray, int]:
     """
-    Load an audio file
+    Load an audio file for the player: validated, float32, stereo 2-D.
 
     Args:
         file_path: Path to the audio file
@@ -156,88 +155,38 @@ def load(file_path: str, file_type: str = "audio") -> tuple[np.ndarray, int]:
         tuple: (audio_data, sample_rate)
 
     Raises:
-        RuntimeError: If the file exceeds MAX_DURATION_SECONDS, or if its
-            estimated decoded size exceeds MAX_DECODED_BYTES (#4875, #5104)
+        ModuleError: From the shared decode paths — truncation, budget and
+            duration ceilings, decode failures (#4114 passthrough).
     """
     debug(f"Loading {file_type} file: {file_path}")
 
-    try:
-        # Route FFmpeg-required formats (M4A, AAC, WMA, OPUS, MP3, OGG)
-        # through FFmpeg; use SoundFile for natively supported formats
-        file_ext = Path(file_path).suffix.lower()
-        if file_ext in FFMPEG_FORMATS:
-            audio_data, sample_rate = load_with_ffmpeg(Path(file_path))
-            # Guard FFmpeg path: check duration after decode (#3300)
-            duration = len(audio_data) / max(sample_rate, 1)
-            if duration > MAX_DURATION_SECONDS:
-                raise RuntimeError(
-                    f"Audio file exceeds maximum duration "
-                    f"({duration:.0f}s > {MAX_DURATION_SECONDS}s): {file_path}"
-                )
-        else:
-            file_info = sf.info(file_path)
-            # Guard against OOM: reject files that would exhaust RAM (#3300)
-            if file_info.duration > MAX_DURATION_SECONDS:
-                raise RuntimeError(
-                    f"Audio file exceeds maximum duration "
-                    f"({file_info.duration:.0f}s > {MAX_DURATION_SECONDS}s): {file_path}"
-                )
-            # Duration alone does not bound memory (#4875). #4875 applied the
-            # byte budget to soundfile_loader/ffmpeg_loader/unified_loader but
-            # not to this function — the loader auralis/player/ imports directly
-            # — so a 192 kHz stereo WAV under the duration cap was accepted here
-            # and rejected by every other decode path (#5104). sf.info already
-            # carries samplerate and channels, so the check is free.
-            detail = oversize_decode_detail(
-                file_info.duration, file_info.samplerate, file_info.channels
-            )
-            if detail:
-                raise RuntimeError(f"{detail}: {file_path}")
-            if requires_layout_aware_downmix(file_info.channels):
-                warning(
-                    f"Routing {file_info.channels}-channel audio through FFmpeg; "
-                    "native downmix only supports canonical 5.1/7.1 channel ordering"
-                )
-                audio_data, sample_rate = load_with_ffmpeg(Path(file_path))
-            else:
-                audio_data, sample_rate = sf.read(
-                    file_path, dtype=np.float32, always_2d=True
-                )
-                if len(audio_data) < file_info.frames:
-                    raise RuntimeError(
-                        f"Truncated audio file '{file_path}': "
-                        f"expected {file_info.frames} frames, got {len(audio_data)}"
-                    )
+    # Route FFmpeg-required formats (M4A, AAC, WMA, OPUS, MP3, OGG) through
+    # FFmpeg; use the shared soundfile loader for natively supported formats.
+    # #5589: this function used to keep its own sf.read branch, which skipped
+    # every check the shared paths apply — a truncated WAV played as a short
+    # clip with no diagnostic (libsndfile adjusts frame counts to the data
+    # actually present, so this branch's frames comparison could never fire
+    # for WAV), NaN/Inf samples reached the playback chain, and a zero-frame
+    # file loaded as an empty buffer. The shared loaders carry the RIFF/FLAC
+    # truncation detection, the duration and decoded-size budgets and the
+    # layout-aware routing; validate_audio then applies the same empty /
+    # NaN-sanitising / dtype checks unified_loader.load_audio makes for every
+    # other decode.
+    file_ext = Path(file_path).suffix.lower()
+    if file_ext in FFMPEG_FORMATS:
+        audio_data, sample_rate = load_with_ffmpeg(Path(file_path))
+    else:
+        audio_data, sample_rate = load_with_soundfile(Path(file_path))
 
-        # Ensure float32
-        if audio_data.dtype != np.float32:
-            audio_data = audio_data.astype(np.float32)
+    audio_data, sample_rate = validate_audio(audio_data, sample_rate, file_type)
 
-        # Ensure stereo (2D)
-        if audio_data.ndim == 1:
-            # Mono 1D → stereo 2D
-            audio_data = np.column_stack([audio_data, audio_data])
-        elif audio_data.shape[1] == 1:
-            # Mono 2D → stereo 2D
-            audio_data = np.column_stack([audio_data[:, 0], audio_data[:, 0]])
-        elif audio_data.shape[1] > 2:
-            # #3743: ITU-R BS.775 downmix for multichannel sources.
-            # Previously this took the first two channels via
-            # `audio_data[:, :2].copy()`, which silently dropped Center
-            # (vocals/dialogue), LFE, and surround content on 5.1 / 7.1
-            # WAVs. The FFmpeg path (#3672) already applies the standard
-            # matrix; downmix_to_stereo keeps the native loader
-            # consistent with that behavior.
-            audio_data = downmix_to_stereo(audio_data)
+    # Player contract: stereo 2-D float32 (validate_audio normalised dtype).
+    if audio_data.ndim == 1:
+        # Mono 1D → stereo 2D
+        audio_data = np.column_stack([audio_data, audio_data])
+    elif audio_data.shape[1] == 1:
+        # Mono 2D → stereo 2D
+        audio_data = np.column_stack([audio_data[:, 0], audio_data[:, 0]])
 
-        info(f"Loaded {file_type}: {audio_data.shape[0]} samples, {sample_rate} Hz")
-        return audio_data, sample_rate
-
-    except ModuleError:
-        # #4114: don't re-wrap already-specific ModuleError raises from the
-        # loaders (ERROR_FFMPEG_TIMEOUT, ERROR_TRUNCATED_FILE, …) — propagate
-        # them unchanged so callers/UI keep the diagnostic code. Sibling of
-        # the #3695 passthrough in ffmpeg_loader.py / soundfile_loader.py.
-        raise
-    except Exception as e:
-        raise RuntimeError(f"Failed to load {file_type} file '{file_path}': {e}")
+    info(f"Loaded {file_type}: {audio_data.shape[0]} samples, {sample_rate} Hz")
+    return audio_data, sample_rate

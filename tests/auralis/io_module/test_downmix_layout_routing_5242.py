@@ -23,28 +23,30 @@ def _file_info(channels: int) -> SimpleNamespace:
     )
 
 
-@pytest.mark.parametrize("channels", [4, 5, 7])
-def test_player_loader_routes_unknown_layout_before_native_decode(
-    channels: int, monkeypatch
+def test_player_loader_delegates_native_formats_to_the_shared_loader(
+    monkeypatch,
 ) -> None:
+    """#5589: the player loader delegates native formats to the shared
+    soundfile loader — the layout-aware routing lives there now (pinned by
+    test_soundfile_loader_routes_unknown_layout_before_native_decode above,
+    which exercises the real chain). This pins the delegation contract
+    itself: the player loader picks the delegate by extension and performs
+    no native sf.read of its own."""
     expected = np.full((48, 2), 0.25, dtype=np.float32)
-    ffmpeg_decode = Mock(return_value=(expected, 48_000))
-    native_decode = Mock()
-    warnings: list[str] = []
+    soundfile_decode = Mock(return_value=(expected, 48_000))
+    ffmpeg_decode = Mock()
 
-    monkeypatch.setattr(player_loader.sf, "info", lambda _path: _file_info(channels))
-    monkeypatch.setattr(player_loader.sf, "read", native_decode)
+    monkeypatch.setattr(player_loader, "load_with_soundfile", soundfile_decode)
     monkeypatch.setattr(player_loader, "load_with_ffmpeg", ffmpeg_decode)
-    monkeypatch.setattr(player_loader, "warning", warnings.append)
 
     audio, sample_rate = player_loader.load("surround.wav")
 
-    ffmpeg_decode.assert_called_once_with(player_loader.Path("surround.wav"))
-    native_decode.assert_not_called()
-    assert audio is expected
+    soundfile_decode.assert_called_once_with(player_loader.Path("surround.wav"))
+    ffmpeg_decode.assert_not_called()
+    # validate_audio runs on the delegated result, so the returned array is
+    # the decoded one (finite float32 passes through unchanged in value).
+    assert np.array_equal(audio, expected)
     assert sample_rate == 48_000
-    assert str(channels) in warnings[0]
-    assert "canonical 5.1/7.1" in warnings[0]
 
 
 @pytest.mark.parametrize("channels", [4, 5, 7])

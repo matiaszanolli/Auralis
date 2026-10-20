@@ -40,12 +40,16 @@ def test_truncated_file_code_preserved():
     assert str(Code.ERROR_TRUNCATED_FILE) in str(exc_info.value)
 
 
-def test_non_moduleerror_still_wraps_in_runtimeerror():
-    """Plain exceptions still surface as RuntimeError with context."""
+def test_non_moduleerror_propagates_unwrapped():
+    """#5589: load() no longer keeps its own except-all → RuntimeError wrap.
+
+    It delegates to the shared loaders, whose errors (ModuleError or not)
+    propagate unchanged — the callers (AudioFileManager, the gapless engine)
+    catch Exception broadly, so a diagnostic ValueError from a decode reaches
+    them with its original type instead of a re-wrapped message."""
     with patch("auralis.io.loader.load_with_ffmpeg", side_effect=ValueError("bad data")):
-        with pytest.raises(RuntimeError) as exc_info:
+        with pytest.raises(ValueError) as exc_info:
             load("track.mp3")
 
     assert not isinstance(exc_info.value, ModuleError)
-    assert "Failed to load" in str(exc_info.value)
     assert "bad data" in str(exc_info.value)

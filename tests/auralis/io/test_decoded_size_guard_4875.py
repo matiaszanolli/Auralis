@@ -23,10 +23,13 @@ import importlib
 
 import pytest
 
+from auralis.utils.logging import ModuleError
+
 from auralis.io.loader import (
     MAX_DECODED_BYTES,
     MAX_DURATION_SECONDS,
     estimated_decoded_bytes,
+    load,
     oversize_decode_detail,
 )
 
@@ -206,6 +209,12 @@ class TestPlaybackLoaderGuardWiring:
     `auralis/player/gapless_playback_engine.py` import directly, bypassing
     `unified_loader.load_audio` (which did carry the fix). So the one decode
     path on the playback thread was the one path without the guard.
+
+    #5589: `load()` no longer keeps its own sf.info/sf.read branch — it
+    delegates native formats to `load_with_soundfile`, which has carried the
+    same duration + decoded-size guards since #4875/#4119. These tests now
+    pin the guard on the shared loader, reached through the player path, and
+    expect ModuleError (the shared loaders' error type).
     """
 
     # 6 GiB / (192000 Hz x 2ch x 4B) = 4194 s, so 5000 s of 192 kHz stereo is
@@ -226,7 +235,7 @@ class TestPlaybackLoaderGuardWiring:
 
     def test_rejects_high_res_before_reading(self, monkeypatch, tmp_path):
         """192 kHz stereo at ~83 min: under the duration cap, over the budget."""
-        import auralis.io.loader as loader_module
+        import auralis.io.loaders.soundfile_loader as soundfile_loader
 
         source = tmp_path / "source.wav"
         source.write_bytes(b"RIFF" + b"\x00" * 64)
@@ -235,19 +244,19 @@ class TestPlaybackLoaderGuardWiring:
             raise AssertionError("sf.read must not run — that read IS the OOM")
 
         monkeypatch.setattr(
-            loader_module.sf, "info", lambda *_a, **_k: self._info(192000, 2)
+            soundfile_loader.sf, "info", lambda *_a, **_k: self._info(192000, 2)
         )
-        monkeypatch.setattr(loader_module.sf, "read", fake_read)
+        monkeypatch.setattr(soundfile_loader.sf, "read", fake_read)
 
-        with pytest.raises(RuntimeError, match="exceeds maximum decoded size"):
-            loader_module.load(str(source))
+        with pytest.raises(ModuleError, match="exceeds maximum decoded size"):
+            load(str(source))
 
     def test_ordinary_file_is_not_rejected(self, monkeypatch, tmp_path):
         """No false positive: 44.1 kHz stereo at the same duration is ~1.2 GiB.
 
         Reaching sf.read is the assertion — it means the guard let it through.
         """
-        import auralis.io.loader as loader_module
+        import auralis.io.loaders.soundfile_loader as soundfile_loader
 
         source = tmp_path / "source.wav"
         source.write_bytes(b"RIFF" + b"\x00" * 64)
@@ -259,36 +268,36 @@ class TestPlaybackLoaderGuardWiring:
             raise _Reached()
 
         monkeypatch.setattr(
-            loader_module.sf, "info", lambda *_a, **_k: self._info(44100, 2)
+            soundfile_loader.sf, "info", lambda *_a, **_k: self._info(44100, 2)
         )
-        monkeypatch.setattr(loader_module.sf, "read", fake_read)
+        monkeypatch.setattr(soundfile_loader.sf, "read", fake_read)
 
         with pytest.raises(Exception) as excinfo:
-            loader_module.load(str(source))
+            load(str(source))
 
         assert reached["n"] == 1, "the guard rejected a legitimate 44.1 kHz file"
         assert "exceeds maximum decoded size" not in str(excinfo.value)
 
     def test_duration_cap_still_fires_first(self, monkeypatch, tmp_path):
         """The pre-existing #3300 duration check is unchanged by the addition."""
-        import auralis.io.loader as loader_module
+        import auralis.io.loaders.soundfile_loader as soundfile_loader
 
         source = tmp_path / "source.wav"
         source.write_bytes(b"RIFF" + b"\x00" * 64)
 
         monkeypatch.setattr(
-            loader_module.sf,
+            soundfile_loader.sf,
             "info",
             lambda *_a, **_k: self._info(44100, 2, duration=99999.0),
         )
         monkeypatch.setattr(
-            loader_module.sf,
+            soundfile_loader.sf,
             "read",
             lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("must not read")),
         )
 
-        with pytest.raises(RuntimeError, match="exceeds maximum duration"):
-            loader_module.load(str(source))
+        with pytest.raises(ModuleError, match="exceeds maximum duration"):
+            load(str(source))
 
 
 class _Reached(Exception):
