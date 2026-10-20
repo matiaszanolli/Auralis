@@ -121,7 +121,6 @@ class TestProcessingModeChanges:
         preserved = {
             "internal_sample_rate": config.internal_sample_rate,
             "fft_size": config.fft_size,
-            "threshold": config.threshold,
             "mastering_profile": config.mastering_profile,
         }
 
@@ -351,7 +350,6 @@ class TestConfigFileFormat:
         required = {
             "internal_sample_rate",
             "fft_size",
-            "threshold",
             "processing_mode",
             "adaptation_strength",
         }
@@ -375,7 +373,6 @@ class TestConfigFileFormat:
 
         assert restored.internal_sample_rate == original.internal_sample_rate
         assert restored.fft_size == original.fft_size
-        assert restored.threshold == original.threshold
         assert restored.adaptive.mode == "hybrid", \
             "Processing mode must survive the round trip"
 

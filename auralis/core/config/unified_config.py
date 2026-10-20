@@ -34,23 +34,10 @@ class UnifiedConfig:
 
     def __init__(
         self,
-        # Core audio settings (from original Matchering)
+        # Core audio settings
         internal_sample_rate: int = 44100,
         max_length: float = 15 * 60,  # 15 minutes
-        max_piece_size: float = 15,  # 15 seconds
-        threshold: float = 0.98,  # Peak threshold
-        min_value: float = 1e-6,
         fft_size: int = 4096,
-
-        # Advanced settings (from original Matchering)
-        lin_log_oversampling: int = 4,
-        rms_correction_steps: int = 4,
-        clipping_samples_threshold: int = 8,
-        limited_samples_threshold: int = 128,
-        allow_equality: bool = False,
-        lowess_frac: float = 0.0375,
-        lowess_it: int = 0,
-        lowess_delta: float = 0.001,
 
         # System settings
         temp_folder: str | None = None,
@@ -69,44 +56,9 @@ class UnifiedConfig:
         assert max_length > 0
         self.max_length = max_length
 
-        assert max_piece_size > 0
-        assert max_piece_size < max_length
-        self.max_piece_size = max_piece_size * internal_sample_rate
-
-        # Handle threshold (can be in dB or linear)
-        if threshold < 0:
-            threshold = 10 ** (threshold / 20)  # Convert dB to linear
-        assert 0 < threshold <= 1
-        self.threshold = float(threshold)
-
-        assert 0 < min_value < 0.1
-        self.min_value = min_value
-
         # FFT size must be power of 2
         assert fft_size > 1 and math.log2(fft_size).is_integer()
         self.fft_size = fft_size
-
-        # Advanced processing settings
-        assert lin_log_oversampling > 0 and isinstance(lin_log_oversampling, int)
-        self.lin_log_oversampling = lin_log_oversampling
-
-        assert rms_correction_steps >= 0 and isinstance(rms_correction_steps, int)
-        self.rms_correction_steps = rms_correction_steps
-
-        assert clipping_samples_threshold >= 0 and isinstance(clipping_samples_threshold, int)
-        assert limited_samples_threshold > clipping_samples_threshold
-        self.clipping_samples_threshold = clipping_samples_threshold
-        self.limited_samples_threshold = limited_samples_threshold
-
-        self.allow_equality = bool(allow_equality)
-
-        # LOWESS filtering settings
-        assert lowess_frac > 0
-        assert lowess_it >= 0 and isinstance(lowess_it, int)
-        assert lowess_delta >= 0
-        self.lowess_frac = lowess_frac
-        self.lowess_it = lowess_it
-        self.lowess_delta = lowess_delta
 
         # System settings
         self.temp_folder = temp_folder
@@ -244,9 +196,6 @@ class UnifiedConfig:
         return {
             "internal_sample_rate": self.internal_sample_rate,
             "max_length": self.max_length,
-            "max_piece_size": self.max_piece_size / self.internal_sample_rate,
-            "threshold": self.threshold,
-            "min_value": self.min_value,
             "fft_size": self.fft_size,
             "processing_mode": self.adaptive.mode,
             "adaptation_strength": self.adaptive.adaptation_strength,
