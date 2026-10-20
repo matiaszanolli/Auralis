@@ -172,9 +172,19 @@ class AudioPlayer(
         # user explicitly requested a pause, so a resume already in flight
         # (next_track()/previous_track()) can detect and honor it instead of
         # silently overriding it back to PLAYING.
+        #
+        # #5588: set the flag BEFORE the transition, mirroring stop()'s
+        # flag-then-transition order. The reverse order raced a concurrent
+        # play(): T1 pause() transitions, T2 play() transitions and clears
+        # the flag, T1 then set()s it — leaving PLAYING with the flag armed,
+        # so the next track boundary paused though the user last pressed
+        # play. With set-first, play()'s clear after its own transition wins
+        # every interleaving; a pause() that fails (not playing) clears the
+        # speculative set so a stale flag cannot persist.
+        self._pause_requested.set()
         paused = self.playback.pause()
-        if paused:
-            self._pause_requested.set()
+        if not paused:
+            self._pause_requested.clear()
         return paused
 
     def stop(self) -> bool:
