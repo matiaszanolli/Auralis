@@ -291,7 +291,14 @@ class IntegrationManager:
             if track.recommended_reference and Path(track.recommended_reference).exists():
                 # The truthiness check above already narrows this to `str`, so
                 # the cast mypy used to need here is now redundant.
-                if self.file_manager.load_reference(track.recommended_reference) is not None:
+                ref_data = self.file_manager.load_reference(track.recommended_reference)
+                if ref_data is not None:
+                    # #5585: wire the audio into the processor exactly as the
+                    # explicit load_reference path does. Without this the
+                    # decode fed only the broadcast — the real-time level
+                    # matcher (enabled solely by set_reference_audio) stayed
+                    # off and file_manager.reference_data had no consumer.
+                    self.processor.set_reference_audio(ref_data)
                     info(f"Using recommended reference: {track.recommended_reference}")
                     self._notify_callbacks({
                         'action': 'reference_loaded',
@@ -309,7 +316,11 @@ class IntegrationManager:
 
             for ref_track in references:
                 if Path(cast(str, ref_track.filepath)).exists():
-                    if self.file_manager.load_reference(cast(str, ref_track.filepath)) is not None:
+                    ref_data = self.file_manager.load_reference(cast(str, ref_track.filepath))
+                    if ref_data is not None:
+                        # #5585: same wiring as the recommended-reference
+                        # branch above.
+                        self.processor.set_reference_audio(ref_data)
                         ref_name = f"{ref_track.title} by {ref_track.artists[0].name if ref_track.artists else 'Unknown'}"
                         info(f"Auto-selected reference: {ref_name}")
                         self._notify_callbacks({

@@ -334,6 +334,40 @@ class TestAutoSelectReference:
         assert event['action'] == 'reference_loaded'
         assert event['reference_file'] == ref_path
 
+    def test_recommended_reference_reaches_the_processor(self):
+        """#5585: the auto-selected reference audio must be handed to
+        processor.set_reference_audio (the only thing that enables the
+        real-time level matcher). Without that wiring the decode fed only
+        the broadcast, and file_manager.reference_data had no consumer."""
+        ref_path = "/music/reference.flac"
+        track = _make_track(recommended_reference=ref_path)
+        factory = MagicMock()
+        factory.tracks.find_similar.return_value = []
+        m = _make_manager(factory_returns=factory)
+        ref_data = MagicMock()
+        m.file_manager.load_reference.return_value = ref_data
+
+        with patch("pathlib.Path.exists", return_value=True):
+            m._auto_select_reference(track)
+
+        m.processor.set_reference_audio.assert_called_once_with(ref_data)
+
+    def test_similar_track_reference_reaches_the_processor(self):
+        """#5585: same wiring on the find_similar fallback branch."""
+        ref_track = _make_track(track_id=7, filepath="/music/similar.flac")
+        track = _make_track(recommended_reference=None)
+        factory = MagicMock()
+        factory.tracks.find_similar.return_value = [ref_track]
+        m = _make_manager(factory_returns=factory)
+        ref_data = MagicMock()
+        m.file_manager.load_reference.return_value = ref_data
+
+        with patch("pathlib.Path.exists", return_value=True):
+            m._auto_select_reference(track)
+
+        m.file_manager.load_reference.assert_called_once_with("/music/similar.flac")
+        m.processor.set_reference_audio.assert_called_once_with(ref_data)
+
     def test_skips_recommended_reference_when_file_missing(self):
         """When recommended_reference path does not exist, fall through to similar."""
         ref_path = "/music/missing.flac"
