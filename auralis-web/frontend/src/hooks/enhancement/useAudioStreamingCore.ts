@@ -20,115 +20,51 @@
  * they differ too much (seek offset, fingerprint reset, preset/intensity) to
  * share safely.
  *
+ * The concern modules this hook composes (#5041, #5478): the pure chunk
+ * arithmetic in ./audioChunkIngest, the watchdog in ./useStreamStartWatchdog,
+ * the message handlers + subscription wiring in ./useStreamMessageHandlers,
+ * the transport/position effects in ./usePlaybackTransport, and the shared
+ * types in ./streamingCoreTypes. This file owns the refs and the composition;
+ * sub-hooks must be called in the order the sections originally appeared —
+ * effect order is behavior.
+ *
  * @module hooks/enhancement/useAudioStreamingCore
  */
 
-const DEBUG = import.meta.env.DEV;
-
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch } from 'react-redux';
 import type { AppDispatch } from '@/store';
 import type { useWebSocketContext } from '@/contexts/WebSocketContext';
 import PCMStreamBuffer from '@/services/audio/PCMStreamBuffer';
 import AudioPlaybackEngine from '@/services/audio/AudioPlaybackEngine';
-import {
-  updateStreamingProgress,
-  completeStreaming,
-  setStreamingError,
-  resetStreaming,
-  selectIsPlaying,
-  selectIsMuted,
-  selectVolume,
-  engineGainFromPlayerState,
-} from '@/store/slices/playerSlice';
-import {
-  classifyChunk,
-  ingestChunk,
-  isOutOfSequence,
-  shouldDispatchProgress,
-} from './audioChunkIngest';
+import { setStreamingError } from '@/store/slices/playerSlice';
+import { useStreamMessageHandlers } from './useStreamMessageHandlers';
+import { useStreamSubscriptions } from './useStreamSubscriptions';
+import { usePlaybackTransport } from './usePlaybackTransport';
 import { STREAM_START_WATCHDOG_MS, useStreamStartWatchdog } from './useStreamStartWatchdog';
 import type {
   AudioStreamStartMessage,
   AudioChunkMessage,
-  AudioStreamEndMessage,
-  AudioStreamErrorMessage,
 } from '@/contexts/WebSocketContext';
+import type {
+  StreamingCoreOptions,
+  StreamingCoreReturn,
+  StreamingMetadata,
+  StreamType,
+} from './streamingCoreTypes';
 
 // Re-exported, not redefined: the timer itself now lives in
 // useStreamStartWatchdog (#5041), but tests import the constant from here.
 export { STREAM_START_WATCHDOG_MS } from './useStreamStartWatchdog';
 
-export interface StreamingMetadata {
-  sampleRate: number;
-  channels: number;
-  totalChunks: number;
-  processedChunks: number;
-}
-
-export type StreamType = 'normal' | 'enhanced';
-
-export interface StreamingCoreOptions {
-  /** Redux streaming slice this stream drives ('normal' | 'enhanced'). */
-  streamType: StreamType;
-  /** Let one shared session consume normal PCM as well as enhanced PCM. */
-  acceptNormalStream?: boolean;
-  /** Key used for `wsContext.setResumePositionGetter` (e.g. 'play_normal'). */
-  sendType: string;
-  /** Console log prefix, e.g. '[usePlayNormal]'. */
-  logPrefix: string;
-  /** Buffered-sample threshold at which playback auto-starts. */
-  getStartThreshold: (metadata: StreamingMetadata, engine: AudioPlaybackEngine) => number;
-  /** Enhanced-only: dispatch progress at most every 10% instead of every chunk (#2535). */
-  throttleProgress: boolean;
-  /** Enhanced-only: detect and recover from out-of-order chunks after a missed stream_start. */
-  detectOutOfSequence: boolean;
-  /** Normal-only: close the AudioContext on every stop/error, not just unmount. */
-  closeContextOnCleanup: boolean;
-  /** Extra cleanup to run at the end of cleanupStreaming() (e.g. enhanced's isSeeking reset). */
-  onCleanupExtra?: () => void;
-  /** Extra work to run when the WebSocket disconnects (e.g. enhanced's fingerprint-timeout clear). */
-  onDisconnectExtra?: () => void;
-}
-
-export interface StreamingCoreReturn {
-  // Populated by the caller every render: `handleStreamStartRef.current = handleStreamStart`.
-  handleStreamStartRef: React.MutableRefObject<(message: AudioStreamStartMessage) => void>;
-
-  // Refs the caller's handleStreamStart/start-function populate directly.
-  pcmBufferRef: React.MutableRefObject<PCMStreamBuffer | null>;
-  playbackEngineRef: React.MutableRefObject<AudioPlaybackEngine | null>;
-  audioContextRef: React.MutableRefObject<AudioContext | null>;
-  abortRef: React.MutableRefObject<AbortController | undefined>;
-  pendingChunksRef: React.MutableRefObject<AudioChunkMessage[]>;
-  streamingMetadataRef: React.MutableRefObject<StreamingMetadata | null>;
-  flowPausedRef: React.MutableRefObject<boolean>;
-  lastReceivedChunkIndexRef: React.MutableRefObject<number>;
-  lastDispatchedProgressRef: React.MutableRefObject<number>;
-  /** Set by a user pause; while set, buffered audio never starts on its own (#5459).
-   *  A new play command clears it. */
-  pauseHoldRef: React.MutableRefObject<boolean>;
-
-  currentTime: number;
-  setCurrentTime: React.Dispatch<React.SetStateAction<number>>;
-  isPaused: boolean;
-  setIsPaused: React.Dispatch<React.SetStateAction<boolean>>;
-
-  cleanupStreaming: () => void;
-  /** Arm the first-stream-message watchdog; call right after sending a play command (#4433). */
-  armStreamStartWatchdog: () => void;
-  handleChunk: (message: AudioChunkMessage) => void;
-  handleStreamEnd: (message: AudioStreamEndMessage) => void;
-  handleStreamError: (message: AudioStreamErrorMessage) => void;
-  /** Start the engine if it is idle, not held paused, and buffered past the
-   *  start threshold — the single auto-start rule (#5459). */
-  startPlaybackWhenBuffered: () => void;
-
-  stopPlayback: () => void;
-  pausePlayback: () => void;
-  resumePlayback: () => void;
-  setVolume: (volume: number) => void;
-}
+// Re-exported for the existing importers of this module; the definitions
+// live in ./streamingCoreTypes (#5478).
+export type {
+  StreamingMetadata,
+  StreamType,
+  StreamingCoreOptions,
+  StreamingCoreReturn,
+} from './streamingCoreTypes';
 
 /**
  * Shared PCM streaming core. See module docstring for what's shared vs.
@@ -158,8 +94,9 @@ export function useAudioStreamingCore(
     onDisconnectExtra,
   } = options;
 
+  // The watchdog's timeout handler dispatches the error; the message-handler
+  // sub-hook gets its own (identical) dispatcher.
   const dispatch = useDispatch<AppDispatch>();
-  const isPlaying = useSelector(selectIsPlaying);
 
   const pcmBufferRef = useRef<PCMStreamBuffer | null>(null);
   const playbackEngineRef = useRef<AudioPlaybackEngine | null>(null);
@@ -179,6 +116,13 @@ export function useAudioStreamingCore(
 
   const [currentTime, setCurrentTime] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+
+  // #3588/#2532: ref indirection so handler identity changes don't force a
+  // resubscribe — the only valid resubscribe trigger is wsContext changing
+  // (i.e. a WS reconnect). handleStreamStartRef is populated by the caller
+  // (`core.handleStreamStartRef.current = handleStreamStart`) since it's
+  // defined hook-side, not by this core.
+  const handleStreamStartRef = useRef<(message: AudioStreamStartMessage) => void>(() => {});
 
   const acceptsStreamType = useCallback(
     (incoming: StreamType | undefined) =>
@@ -257,377 +201,66 @@ export function useAudioStreamingCore(
     }
   }, []);
 
-  // The decode/append/progress arithmetic lives in ./audioChunkIngest as plain
-  // functions (#5041); what stays here is acting on their decisions, because
-  // that needs the refs, the dispatcher and the socket.
-  const handleChunk = useCallback((message: AudioChunkMessage) => {
-    try {
-      const rejection = classifyChunk({
-        message,
-        currentEpoch: streamEpochRef.current,
-        initialized: Boolean(pcmBufferRef.current && streamingMetadataRef.current),
-        acceptsStreamType,
-      });
-
-      if (rejection === 'wrong-stream-type') return;
-
-      if (rejection === 'superseded-epoch') {
-        DEBUG && console.warn(`${logPrefix} Dropping chunk from superseded stream:`, {
-          chunkEpoch: message.data.stream_epoch,
-          currentEpoch: streamEpochRef.current,
-          chunkIndex: message.data?.chunk_index,
-        });
-        return;
-      }
-
-      const incomingChunkIndex = message.data?.chunk_index ?? 0;
-
-      if (rejection === 'not-initialized') {
-        // Queue rather than drop — audio_stream_start may still be in flight.
-        DEBUG && console.log(`${logPrefix} Queuing chunk until stream initialized:`, {
-          chunkIndex: incomingChunkIndex,
-          queueLength: pendingChunksRef.current.length + 1,
-        });
-        pendingChunksRef.current.push(message);
-        return;
-      }
-
-      const buffer = pcmBufferRef.current!;
-      const metadata = streamingMetadataRef.current!;
-
-      if (detectOutOfSequence) {
-        if (isOutOfSequence(lastReceivedChunkIndexRef.current, incomingChunkIndex)) {
-          DEBUG && console.warn(`${logPrefix} Out-of-sequence chunk detected:`, {
-            expected: lastReceivedChunkIndexRef.current + 1,
-            received: incomingChunkIndex,
-            message: 'New stream may have started without audio_stream_start. This can cause audio discontinuity.',
-          });
-          // Reset the buffer to prevent audio glitches from stale data
-          buffer.reset();
-          setCurrentTime(0);
-          lastReceivedChunkIndexRef.current = -1;
-        }
-        lastReceivedChunkIndexRef.current = incomingChunkIndex;
-      }
-
-      const result = ingestChunk({
-        message,
-        buffer,
-        metadata,
-        flowPaused: flowPausedRef.current,
-      });
-
-      if (result.flowControl === 'pause') {
-        flowPausedRef.current = true;
-        wsContext.send({ type: 'buffer_full', data: {} });
-      } else if (result.flowControl === 'resume') {
-        flowPausedRef.current = false;
-        wsContext.send({ type: 'buffer_ready', data: {} });
-      }
-
-      if (
-        shouldDispatchProgress(
-          result.clampedProgress,
-          lastDispatchedProgressRef.current,
-          throttleProgress
-        )
-      ) {
-        if (throttleProgress) lastDispatchedProgressRef.current = result.clampedProgress;
-        dispatch(
-          updateStreamingProgress({
-            streamType,
-            processedChunks: metadata.processedChunks,
-            bufferedSamples: result.bufferedSamples,
-            progress: result.clampedProgress,
-            trackId: message.data.track_id, // drop stale updates after a skip (#4434)
-          })
-        );
-      }
-
-      startPlaybackWhenBuffered();
-
-      DEBUG && console.debug(`${logPrefix} Chunk received:`, {
-        chunkIndex: result.chunkIndex,
-        frames: `${result.frameIndex + 1}/${result.frameCount}`,
-        samples: result.sampleCount,
-        buffered: `${(result.bufferedSamples / metadata.sampleRate).toFixed(1)}s`,
-      });
-    } catch (error) {
-      const errorMsg = `Failed to process audio chunk: ${error instanceof Error ? error.message : String(error)}`;
-      console.error(logPrefix, errorMsg);
-      dispatch(setStreamingError({ streamType, error: errorMsg }));
-    }
-  }, [dispatch, wsContext, streamType, logPrefix, throttleProgress, detectOutOfSequence, startPlaybackWhenBuffered, acceptsStreamType]);
-
-  const handleStreamEnd = useCallback((message: AudioStreamEndMessage) => {
-    // Only process messages intended for this stream (#2104)
-    if (!acceptsStreamType(message.data.stream_type)) return;
-
-    // A backend older than #4659 sends no reason, and its end always meant completion.
-    const reason = message.data.reason ?? 'completed';
-    const trackId = message.data.track_id;
-
-    DEBUG && console.log(`${logPrefix} Stream ended:`, {
-      trackId,
-      reason,
-      totalSamples: message.data.total_samples,
-      duration: message.data.duration,
-    });
-
-    // Whatever the reason, a stream that ended by finishing (or finishing with
-    // gaps) has sent all it will: let the engine play out the buffered tail
-    // instead of holding it under the low-water mark. 'stopped' is a superseded
-    // stream, whose engine is replaced or reset anyway.
-    if (reason === 'completed' || reason === 'errored') {
-      playbackEngineRef.current?.markStreamEnded();
-    }
-
-    // #5462: only a stream that delivered the whole track is complete. Marking
-    // an early exit 'complete' showed 100% progress and fed the session's
-    // auto-advance, which keys off that state.
-    if (reason === 'completed') {
-      // Pass track_id so a stale 'end' from a superseded track after a rapid
-      // skip doesn't prematurely mark the new track complete (#4434).
-      dispatch(completeStreaming({ streamType, trackId }));
-    } else if (reason === 'errored') {
-      // The loop reached the end but skipped chunks — each already reported via
-      // audio_stream_error. Keep the stream in error rather than 'complete'.
-      dispatch(setStreamingError({
-        streamType,
-        trackId,
-        error: 'Playback ended with gaps: part of this track could not be processed',
-      }));
-    }
-    // 'stopped': whatever stopped it supersedes it — a new play command, or the
-    // play_normal re-issue that disabling enhancement sends — so nothing to record.
-  }, [dispatch, streamType, logPrefix, acceptsStreamType]);
-
-  const handleStreamError = useCallback((message: AudioStreamErrorMessage) => {
-    // Only process messages intended for this stream (#2104)
-    if (!acceptsStreamType(message.data.stream_type)) return;
-
-    const errorMsg = `Streaming error: ${message.data.error} (${message.data.code})`;
-    console.error(logPrefix, errorMsg);
-    // Pass track_id so a stale error from a superseded track after a rapid
-    // skip isn't shown on the new track (#4434).
-    dispatch(setStreamingError({ streamType, error: errorMsg, trackId: message.data.track_id }));
-    cleanupStreaming();
-
-    // #4655: when the backend names a safe resume offset, auto-resume the
-    // stream from there instead of leaving playback dead after a mid-stream
-    // chunk failure. Bounded to one attempt per distinct (trackId,
-    // recovery_position) pair — a persistently failing chunk would otherwise
-    // keep re-arriving with the SAME recovery_position and loop forever.
-    const { recovery_position: recoveryPosition, track_id: trackId } = message.data;
-    const alreadyAttempted =
-      lastRecoveryAttemptRef.current?.trackId === trackId &&
-      lastRecoveryAttemptRef.current?.position === recoveryPosition;
-
-    if (typeof recoveryPosition === 'number' && Number.isFinite(recoveryPosition) && !alreadyAttempted) {
-      lastRecoveryAttemptRef.current = { trackId, position: recoveryPosition };
-      // message.data.stream_type is the PRODUCER's label (absent on some
-      // error paths) — 'normal' means play_normal, everything else
-      // (including undefined, since the enhanced/seek paths are this
-      // stream's default) re-issues as play_enhanced.
-      const reissueType = message.data.stream_type === 'normal' ? 'play_normal' : 'play_enhanced';
-      const reissued = wsContext.reissueActiveStreamAs(reissueType, {}, recoveryPosition);
-      if (reissued) {
-        DEBUG && console.log(
-          `${logPrefix} Auto-resuming from recovery_position=${recoveryPosition}s after chunk failure`
-        );
-      }
-    }
-  }, [dispatch, streamType, logPrefix, cleanupStreaming, acceptsStreamType, wsContext]);
-
-  // #3588/#2532: ref indirection so handler identity changes don't force a
-  // resubscribe — the only valid resubscribe trigger is wsContext changing
-  // (i.e. a WS reconnect). handleStreamStartRef is populated by the caller
-  // (`core.handleStreamStartRef.current = handleStreamStart`) since it's
-  // defined hook-side, not by this core.
-  const handleStreamStartRef = useRef<(message: AudioStreamStartMessage) => void>(() => {});
-  const handleChunkRef = useRef(handleChunk);
-  const handleStreamEndRef = useRef(handleStreamEnd);
-  const handleStreamErrorRef = useRef(handleStreamError);
-  handleChunkRef.current = handleChunk;
-  handleStreamEndRef.current = handleStreamEnd;
-  handleStreamErrorRef.current = handleStreamError;
-
-  useEffect(() => {
-    // Any incoming stream message means the backend is responding, so disarm
-    // the first-stream watchdog (#4433).
-    const unsubscribeStart = wsContext.subscribe(
-      'audio_stream_start',
-      (m) => {
-        clearStreamStartWatchdog();
-        const start = m as AudioStreamStartMessage;
-        // Record the epoch here rather than in the callers' handleStreamStart
-        // (#4563): this wrapper is the one choke point every stream type passes
-        // through, so enhanced, normal, seek and reconnect-resume are all
-        // covered without each having to remember. Must happen BEFORE the
-        // caller's handler runs — that handler may synchronously flush queued
-        // chunks through handleChunk, which reads this ref. Gate on stream_type
-        // the same way the callers' handlers do, so a concurrently-mounted core
-        // of the other type does not adopt this stream's epoch; dispatch itself
-        // is left unfiltered, exactly as before.
-        if (!acceptsStreamType(start.data?.stream_type)) return;
-        // #5385: epochs only rise within a backend process, so a start carrying
-        // a LOWER epoch than the adopted one is an older stream arriving late.
-        // Adopting it would make the chunk filter reject the newer stream.
-        // Unreachable while the backend serializes dispatch per connection;
-        // this keeps it harmless if that ever changes. A backend restart
-        // restarts the count, which is why the ref is forgotten on disconnect.
-        const incomingEpoch = start.data?.stream_epoch;
-        const currentEpoch = streamEpochRef.current;
-        if (incomingEpoch != null && currentEpoch != null && incomingEpoch < currentEpoch) {
-          DEBUG && console.warn(`${logPrefix} Ignoring audio_stream_start from a superseded stream:`, {
-            startEpoch: incomingEpoch,
-            currentEpoch,
-          });
-          return;
-        }
-        streamEpochRef.current = incomingEpoch ?? null;
-        handleStreamStartRef.current?.(start);
-      }
-    );
-    const unsubscribeChunk = wsContext.subscribe(
-      'audio_chunk',
-      (m) => { clearStreamStartWatchdog(); handleChunkRef.current?.(m as AudioChunkMessage); }
-    );
-    const unsubscribeEnd = wsContext.subscribe(
-      'audio_stream_end',
-      (m) => { clearStreamStartWatchdog(); handleStreamEndRef.current?.(m as AudioStreamEndMessage); }
-    );
-    const unsubscribeError = wsContext.subscribe(
-      'audio_stream_error',
-      (m) => { clearStreamStartWatchdog(); handleStreamErrorRef.current?.(m as AudioStreamErrorMessage); }
-    );
-
-    return () => {
-      clearStreamStartWatchdog();
-      unsubscribeStart();
-      unsubscribeChunk();
-      unsubscribeEnd();
-      unsubscribeError();
-    };
-    // streamType is a per-instance constant, so listing it cannot cause the
-    // resubscribe the comment above warns against.
-  }, [wsContext, clearStreamStartWatchdog, streamType, acceptsStreamType, logPrefix]);
-
-  // The next connection may reach a restarted backend whose epoch count starts
-  // over, so the ordering guard above must not compare across connections.
-  useEffect(() => {
-    if (!wsContext.isConnected) streamEpochRef.current = null;
-  }, [wsContext.isConnected]);
-
-  const stopPlayback = useCallback(() => {
-    pauseHoldRef.current = false;
-    playbackEngineRef.current?.stopPlayback();
-    dispatch(resetStreaming(streamType));
-    cleanupStreaming();
-    setCurrentTime(0);
-    setIsPaused(false);
-  }, [dispatch, streamType, cleanupStreaming]);
-
-  const pausePlayback = useCallback(() => {
-    pauseHoldRef.current = true;
-    playbackEngineRef.current?.pausePlayback();
-    setIsPaused(true);
-  }, []);
-
-  const resumePlayback = useCallback(() => {
-    pauseHoldRef.current = false;
-    playbackEngineRef.current?.resumePlayback();
-    setIsPaused(false);
-    // resumePlayback() only restarts a *paused* engine. A seek made while paused
-    // left it stopped with a refilled buffer, and flow control may have halted
-    // delivery, so no further chunk would come along to start it (#5459).
-    startPlaybackWhenBuffered();
-  }, [startPlaybackWhenBuffered]);
-
-  const setVolume = useCallback((volume: number) => {
-    playbackEngineRef.current?.setVolume(Math.max(0, Math.min(1, volume)));
-  }, []);
-
-  // #5607: WS-sourced volume changes (volume_changed / player_state.volume)
-  // and mute toggles reach only Redux — the imperative slider path above is
-  // the only thing that touched the engine directly. Re-apply whenever the
-  // authoritative gain changes so the current engine always matches the UI,
-  // whatever the source. (Each NEW engine is seeded from the same
-  // engineGainFromPlayerState conversion in useEnhancedStreamStart.)
-  const playerVolume = useSelector(selectVolume);
-  const playerIsMuted = useSelector(selectIsMuted);
-  const engineGain = engineGainFromPlayerState({
-    volume: playerVolume,
-    isMuted: playerIsMuted,
+  // Chunk/end/error handling + the four stream-message subscriptions. Called
+  // exactly where these sections used to live — effect order is behavior.
+  const { handleChunk, handleStreamEnd, handleStreamError } = useStreamMessageHandlers({
+    wsContext,
+    dispatch,
+    streamType,
+    logPrefix,
+    throttleProgress,
+    detectOutOfSequence,
+    pcmBufferRef,
+    playbackEngineRef,
+    pendingChunksRef,
+    streamingMetadataRef,
+    flowPausedRef,
+    lastReceivedChunkIndexRef,
+    lastDispatchedProgressRef,
+    streamEpochRef,
+    lastRecoveryAttemptRef,
+    acceptsStreamType,
+    startPlaybackWhenBuffered,
+    cleanupStreaming,
+    setCurrentTime,
   });
-  useEffect(() => {
-    playbackEngineRef.current?.setVolume(engineGain);
-  }, [engineGain]);
 
-  // Update playback time periodically. Gated on isPlaying so the 10Hz
-  // interval doesn't fire setCurrentTime gratuitously when idle (#3970).
-  useEffect(() => {
-    if (!isPlaying) return;
+  useStreamSubscriptions({
+    wsContext,
+    streamType,
+    logPrefix,
+    streamEpochRef,
+    handleStreamStartRef,
+    acceptsStreamType,
+    clearStreamStartWatchdog,
+    handleChunk,
+    handleStreamEnd,
+    handleStreamError,
+  });
 
-    const interval = setInterval(() => {
-      const time = playbackEngineRef.current?.getCurrentPlaybackTime() || 0;
-      setCurrentTime((prev) => (time === prev ? prev : time));
-    }, 100);
-
-    return () => clearInterval(interval);
-  }, [isPlaying]);
-
-  // Watch Redux isPlaying state and control AudioPlaybackEngine accordingly,
-  // so a pause/stop command stops the engine immediately without waiting for
-  // buffered audio to drain (#2252).
-  //
-  // #3624: isPaused is read via a ref so it doesn't drive a re-run of this
-  // effect; including it in deps caused two pausePlayback() calls per
-  // transition because setIsPaused(true) re-fired the effect.
-  const isPausedRef = useRef(isPaused);
-  useEffect(() => {
-    isPausedRef.current = isPaused;
-  }, [isPaused]);
-
-  useEffect(() => {
-    if (!playbackEngineRef.current) return;
-
-    if (isPlaying) {
-      if (isPausedRef.current) {
-        resumePlayback();
-      }
-    } else {
-      playbackEngineRef.current.pausePlayback();
-      setIsPaused(true);
-    }
-    // resumePlayback is stable (its only dependency is a []-memoized callback).
-  }, [isPlaying, resumePlayback]);
-
-  // Register resume position getter for WS reconnect (#3185)
-  useEffect(() => {
-    const getPosition = () =>
-      playbackEngineRef.current?.getCurrentPlaybackTime() ?? 0;
-    wsContext.setResumePositionGetter(sendType, getPosition);
-    if (acceptNormalStream) {
-      wsContext.setResumePositionGetter('play_normal', getPosition);
-    }
-    return () => {
-      wsContext.setResumePositionGetter(sendType, null);
-      if (acceptNormalStream) {
-        wsContext.setResumePositionGetter('play_normal', null);
-      }
-    };
-  }, [wsContext, sendType, acceptNormalStream]);
-
-  // On WS disconnect: preserve playback engine and buffer so buffered audio
-  // continues playing while reconnect happens (#3185, replaces #2847 teardown).
-  useEffect(() => {
-    if (!wsContext.isConnected && playbackEngineRef.current) {
-      DEBUG && console.log(`${logPrefix} WebSocket disconnected - keeping playback engine alive`);
-      onDisconnectExtra?.();
-      // DO NOT destroy engine/buffer/state — let buffered audio play through.
-    }
-  }, [wsContext.isConnected, logPrefix, onDisconnectExtra]);
+  // Transport (stop/pause/resume/volume), position polling, resume-getter
+  // registration and the Redux isPlaying watch — same position as the
+  // original sections.
+  const {
+    stopPlayback,
+    pausePlayback,
+    resumePlayback,
+    setVolume,
+  } = usePlaybackTransport({
+    wsContext,
+    streamType,
+    sendType,
+    logPrefix,
+    acceptNormalStream,
+    onDisconnectExtra,
+    playbackEngineRef,
+    pauseHoldRef,
+    isPaused,
+    setIsPaused,
+    setCurrentTime,
+    cleanupStreaming,
+    startPlaybackWhenBuffered,
+  });
 
   return {
     handleStreamStartRef,

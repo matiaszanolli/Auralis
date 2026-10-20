@@ -15,11 +15,13 @@
 import type { Track, Album, Artist } from '@/types/domain';
 import { transformAlbums, transformArtists, transformTracks } from '@/api/transformers';
 import type { AlbumApiResponse, ArtistApiResponse, TrackApiResponse } from '@/api/transformers';
+import { ApiErrorHandler } from '@/types/api';
+import type { ApiError } from '@/types/api';
 import type {
   LibraryQueryOptions,
   LibraryQueryResponse,
   LibraryQueryType,
-} from '@/hooks/library/useLibraryQuery';
+} from './libraryQueryTypes';
 
 /**
  * Canonical backend endpoint for each query type (issue #2379).
@@ -102,5 +104,66 @@ export function extractItemsFromResponse<T extends Track | Album | Artist>(
       const _exhaustive: never = queryType;
       throw new Error(`Unhandled LibraryQueryType: ${String(_exhaustive)}`);
     }
+  }
+}
+
+/** Outcome of one page fetch, classified for the hook's callers. */
+export type PageFetchResult<T> =
+  | { kind: 'ok'; response: LibraryQueryResponse<T> }
+  | { kind: 'stale' }
+  | { kind: 'aborted' }
+  | { kind: 'error'; error: ApiError };
+
+/**
+ * Fetch one page and classify the outcome.
+ *
+ * The shared core of executeQuery and fetchMore (#5478): the request-id
+ * staleness contract (#4609/#4885) and the error classification both used to
+ * be duplicated across the two callbacks. Order matters and is preserved:
+ * an AbortError wins over staleness (cancellation is not a failure), a
+ * superseded request's failure is swallowed (a newer render must not be
+ * replaced by a stale error), and only a live request's failure is parsed.
+ *
+ * `requireResponse` mirrors the two callers' historical difference:
+ * executeQuery treated a null response as a QUERY_ERROR, fetchMore as a
+ * no-op page.
+ */
+export async function fetchLibraryPage<T>(deps: {
+  get: <R>(url: string, init?: { validate?: (v: unknown) => boolean }) => Promise<R | null>;
+  url: string;
+  validate: (v: unknown) => boolean;
+  isStale: () => boolean;
+  errorCode: 'QUERY_ERROR' | 'FETCH_MORE_ERROR';
+  requireResponse: boolean;
+}): Promise<PageFetchResult<T>> {
+  const { get, url, validate, isStale, errorCode, requireResponse } = deps;
+
+  try {
+    const response = await get<LibraryQueryResponse<T>>(url, { validate });
+
+    if (isStale()) {
+      // A newer query has taken over — abandon this response entirely rather
+      // than rendering results for a term the user has moved past.
+      return { kind: 'stale' };
+    }
+
+    if (!response && requireResponse) {
+      throw new Error('No response from server');
+    }
+
+    return { kind: 'ok', response: response as LibraryQueryResponse<T> };
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      // Request was cancelled - don't update state
+      return { kind: 'aborted' };
+    }
+
+    if (isStale()) {
+      // Superseded request failed — surfacing its error would replace a
+      // newer successful render with a stale failure.
+      return { kind: 'stale' };
+    }
+
+    return { kind: 'error', error: ApiErrorHandler.parseWithCode(err, errorCode) };
   }
 }

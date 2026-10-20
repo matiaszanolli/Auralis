@@ -2,154 +2,47 @@
  * useLibraryQuery Hook
  * ~~~~~~~~~~~~~~~~~~~~
  *
- * Provides type-safe library queries for tracks, albums, and artists.
- * Handles pagination, search, and infinite scroll patterns.
+ * Type-safe paginated library queries for tracks, albums, and artists:
+ * pagination (limit/offset), search, infinite scroll via fetchMore()/hasMore,
+ * auto-fetch on mount, in-flight deduplication, and out-of-order-response
+ * protection. See the hook's JSDoc below for usage.
  *
- * Usage:
- * ```typescript
- * // Get tracks with pagination
- * const { data, isLoading, error, fetchMore, hasMore } = useLibraryQuery('tracks', {
- *   limit: 50,
- *   search: 'beatles'
- * });
- *
- * // Get albums
- * const albums = useLibraryQuery('albums', { limit: 20 });
- *
- * // Get artists
- * const artists = useLibraryQuery('artists');
- * ```
- *
- * Features:
- * - Type-safe queries for tracks, albums, artists
- * - Pagination with limit/offset
- * - Search support
- * - Infinite scroll with fetchMore() + hasMore flag
- * - Auto-fetch on mount
- * - Caching with deduplication
- * - Error handling with retry
+ * The pure request/response shaping and the shared page-fetch machinery live
+ * in ./libraryQueryRequest; the query types, shape guards and deriveHasMore
+ * in ./libraryQueryTypes; the per-entity convenience hooks
+ * (useTracksQuery/useAlbumsQuery/useArtistsQuery/useInfiniteScroll) in
+ * ./useLibraryQueries — all split out of this file (#5043, #5478). This file
+ * holds only the stateful hook.
  *
  * @module hooks/library/useLibraryQuery
  */
 
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { useRestAPI } from '@/hooks/api/useRestAPI';
 import type { ApiError } from '@/types/api';
 import type { Track, Album, Artist } from '@/types/domain';
-import { ApiErrorHandler } from '@/types/api';
-import { isAlbumsListShape, isArtistsListShape, isTracksListShape } from '@/api/responseGuards';
 import {
   buildEndpoint as buildQueryEndpoint,
   extractItemsFromResponse,
+  fetchLibraryPage,
 } from '@/hooks/library/libraryQueryRequest';
+import {
+  QUERY_TYPE_GUARD,
+  deriveHasMore,
+  type LibraryQueryOptions,
+  type LibraryQueryType,
+  type UseLibraryQueryResult,
+} from '@/hooks/library/libraryQueryTypes';
 
-/**
- * Query type for library queries
- */
-export type LibraryQueryType = 'tracks' | 'albums' | 'artists';
+// Re-exported for the existing importers of this module; the definitions
+// live in ./libraryQueryTypes (#5478).
+export type {
+  LibraryQueryType,
+  LibraryQueryOptions,
+  LibraryQueryResponse,
+  UseLibraryQueryResult,
+} from '@/hooks/library/libraryQueryTypes';
 
-/**
- * Query options for library queries
- */
-export interface LibraryQueryOptions {
-  /** Maximum results per page (default: 50) */
-  limit?: number;
-
-  /** Offset for pagination (default: 0) */
-  offset?: number;
-
-  /** Search query string */
-  search?: string;
-
-  /** Field to order by (default: 'created_at') */
-  orderBy?: string;
-
-  /** Skip initial fetch (for manual triggers) */
-  skip?: boolean;
-
-  /** Custom endpoint (overrides default) */
-  endpoint?: string;
-}
-
-/**
- * Response data from library query
- */
-export interface LibraryQueryResponse<T> {
-  items: T[];
-  total: number;
-  offset: number;
-  limit: number;
-  hasMore: boolean;
-}
-
-/**
- * Return type for useLibraryQuery hook
- */
-export interface UseLibraryQueryResult<T> {
-  /** Query results (tracks, albums, or artists) */
-  data: T[];
-
-  /** Total count of items matching query */
-  total: number;
-
-  /** True while initial fetch is in progress */
-  isLoading: boolean;
-
-  /** True while fetchMore pagination request is in progress */
-  isLoadingMore: boolean;
-
-  /** Last error from query */
-  error: ApiError | null;
-
-  /** Current offset in pagination */
-  offset: number;
-
-  /** Whether more results are available */
-  hasMore: boolean;
-
-  /** Fetch next page (for infinite scroll) */
-  fetchMore: () => Promise<void>;
-
-  /** Reset query and refetch */
-  refetch: () => Promise<void>;
-
-  /** Clear error state */
-  clearError: () => void;
-}
-
-/**
- * Runtime shape guard per query type (#5026) — covers every consumer of
- * *this* hook (useLibraryQuery, useTracksQuery, useAlbumsQuery,
- * useArtistsQuery, useInfiniteScroll) at once, since these three list
- * responses are its only fetch call sites. It is NOT the only place tracks
- * are fetched, though: the main library track list is fed by the separate
- * useLibraryPagination.ts stack, which has (since #5346) its own
- * isTracksListShape guard on both of its call sites. Guard coverage here is
- * opt-in per hook, not automatic for every consumer of `/api/library/tracks`.
- * See `@/api/responseGuards` for what each guard checks.
- */
-const QUERY_TYPE_GUARD: Record<LibraryQueryType, (v: unknown) => boolean> = {
-  tracks: isTracksListShape,
-  albums: isAlbumsListShape,
-  artists: isArtistsListShape,
-};
-
-/**
- * Derive `hasMore` from a page response, preferring the backend `has_more`
- * contract — the same one useLibraryPagination uses — so the two track
- * pagination stacks no longer disagree (#4422 / F2-01). Falls back to a cursor
- * comparison only when the backend omits the flag.
- */
-function deriveHasMore(
-  response: Record<string, unknown>,
-  pageOffset: number,
-  pageLength: number
-): boolean {
-  const backend = response.has_more ?? response.hasMore;
-  if (typeof backend === 'boolean') return backend;
-  const total = typeof response.total === 'number' ? response.total : 0;
-  return pageOffset + pageLength < total;
-}
 
 /**
  * Hook for querying library (tracks, albums, artists)
@@ -160,19 +53,7 @@ function deriveHasMore(
  *
  * @example
  * ```typescript
- * // Get first 50 tracks
  * const { data: tracks, isLoading, hasMore, fetchMore } = useLibraryQuery('tracks');
- *
- * // Search tracks
- * const { data: results } = useLibraryQuery('tracks', { search: 'beatles' });
- *
- * // Infinite scroll
- * const { data: items, hasMore, fetchMore } = useLibraryQuery('tracks', { limit: 20 });
- * const handleScroll = () => {
- *   if (hasMore && !isLoading) {
- *     fetchMore();
- *   }
- * };
  * ```
  */
 export function useLibraryQuery<T extends Track | Album | Artist = Track>(
@@ -218,20 +99,19 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
   const limit = options.limit || 50;
   const skip = options.skip || false;
 
-  /**
-   * Endpoint for one page of this query. The URL shaping is the pure
-   * `buildEndpoint` in ./libraryQueryRequest (#5043); this binds the hook's
-   * options, so its identity still changes exactly when they do. Takes the
-   * offset as a parameter to avoid a dependency cycle.
-   */
-  const buildEndpoint = useCallback(
-    (currentOffset: number = 0): string =>
-      buildQueryEndpoint(
-        queryType,
-        { limit, endpoint: options.endpoint, search: options.search, orderBy: options.orderBy },
-        currentOffset
-      ),
-    [queryType, limit, options.endpoint, options.search, options.orderBy]
+  // The option list is exactly what buildQueryEndpoint shapes the URL from,
+  // so executeQuery/fetchMore re-memoize precisely when the endpoint would
+  // change (the old `buildEndpoint` useCallback bought nothing extra). The
+  // memo is load-bearing: a fresh literal each render would re-memoize
+  // executeQuery every render and re-fire the auto-fetch effect (#4164).
+  const endpointOptions = useMemo(
+    () => ({
+      limit,
+      endpoint: options.endpoint,
+      search: options.search,
+      orderBy: options.orderBy,
+    }),
+    [limit, options.endpoint, options.search, options.orderBy]
   );
 
   /**
@@ -239,7 +119,7 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
    */
   const executeQuery = useCallback(
     async (targetOffset: number = 0, append: boolean = false) => {
-      const url = buildEndpoint(targetOffset);
+      const url = buildQueryEndpoint(queryType, endpointOptions, targetOffset);
 
       // Generate query key for deduplication
       const queryKey = `${queryType}:${url}:${targetOffset}`;
@@ -261,20 +141,22 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
       setError(null);
 
       try {
-        const response = await get<LibraryQueryResponse<T>>(url, {
+        const result = await fetchLibraryPage<T>({
+          get,
+          url,
           validate: QUERY_TYPE_GUARD[queryType],
+          isStale,
+          errorCode: 'QUERY_ERROR',
+          requireResponse: true,
         });
 
-        if (isStale()) {
-          // A newer query has taken over — abandon this response entirely
-          // rather than rendering results for a term the user has moved past.
+        if (result.kind === 'error') {
+          setError(result.error);
           return;
         }
+        if (result.kind !== 'ok') return; // stale or aborted
 
-        if (!response) {
-          throw new Error('No response from server');
-        }
-
+        const response = result.response;
         const items = extractItemsFromResponse<T>(response, queryType);
         const newOffset = typeof response.offset === 'number' ? response.offset : 0;
         setTotal(response.total || 0);
@@ -288,21 +170,6 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
           // Replace data (first load or refetch)
           setData(items);
         }
-      } catch (err) {
-        if (err instanceof Error && err.name === 'AbortError') {
-          // Request was cancelled - don't update state
-          return;
-        }
-
-        if (isStale()) {
-          // Superseded request failed — surfacing its error would replace a
-          // newer successful render with a stale failure.
-          return;
-        }
-
-        const apiError = ApiErrorHandler.parseWithCode(err, 'QUERY_ERROR');
-
-        setError(apiError);
       } finally {
         // Only the newest request owns the shared in-flight/loading state.
         // Clearing it from a superseded request would drop the spinner while
@@ -313,7 +180,7 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
         }
       }
     },
-    [get, buildEndpoint, queryType]
+    [get, queryType, endpointOptions]
   );
 
   /**
@@ -342,42 +209,32 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
     const nextOffset = offset + limit;
 
     try {
-      const response = await get<LibraryQueryResponse<T>>(buildEndpoint(nextOffset), {
+      const result = await fetchLibraryPage<T>({
+        get,
+        url: buildQueryEndpoint(queryType, endpointOptions, nextOffset),
         validate: QUERY_TYPE_GUARD[queryType],
+        isStale,
+        errorCode: 'FETCH_MORE_ERROR',
+        requireResponse: false,
       });
 
-      if (isStale()) {
-        // A newer query has taken over — discard this page rather than
-        // appending it onto data that already belongs to a different query.
+      if (result.kind === 'error') {
+        setError(result.error);
         return;
       }
+      if (result.kind !== 'ok' || !result.response) return; // stale/aborted/no page
 
-      if (response) {
-        const items = extractItemsFromResponse<T>(response, queryType);
-        // Only advance the offset when the page actually returned rows.
-        // An empty response must not advance the cursor or it permanently
-        // skips `limit` records on the next fetchMore (#3973 / HC-10).
-        if (items.length > 0) {
-          setOffset(nextOffset);
-          setData(prev => [...prev, ...items]);
-        }
-        setTotal(response.total);
-        setHasMore(deriveHasMore(response as unknown as Record<string, unknown>, nextOffset, items.length));
+      const response = result.response;
+      const items = extractItemsFromResponse<T>(response, queryType);
+      // Only advance the offset when the page actually returned rows.
+      // An empty response must not advance the cursor or it permanently
+      // skips `limit` records on the next fetchMore (#3973 / HC-10).
+      if (items.length > 0) {
+        setOffset(nextOffset);
+        setData(prev => [...prev, ...items]);
       }
-    } catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') {
-        return;
-      }
-
-      if (isStale()) {
-        // Superseded request failed — surfacing its error would replace a
-        // newer successful render with a stale failure.
-        return;
-      }
-
-      const apiError = ApiErrorHandler.parseWithCode(err, 'FETCH_MORE_ERROR');
-
-      setError(apiError);
+      setTotal(response.total);
+      setHasMore(deriveHasMore(response as unknown as Record<string, unknown>, nextOffset, items.length));
     } finally {
       // Always clear this call's own fetching flags, regardless of
       // staleness — unlike executeQuery's isFetchingRef/isLoading (shared
@@ -387,7 +244,7 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
       isFetchingMoreRef.current = false;
       setIsLoadingMore(false);
     }
-  }, [get, offset, limit, hasMore, buildEndpoint, queryType]);
+  }, [get, offset, limit, hasMore, queryType, endpointOptions]);
 
   /**
    * Refetch - Reset and fetch from beginning
@@ -434,81 +291,7 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
   };
 }
 
-/**
- * Convenience hook for track queries only
- *
- * @example
- * ```typescript
- * const { data: tracks, hasMore, fetchMore } = useTracksQuery({
- *   search: 'beatles',
- *   limit: 50
- * });
- * ```
- */
-export function useTracksQuery(options?: LibraryQueryOptions) {
-  return useLibraryQuery<Track>('tracks', options);
-}
-
-/**
- * Convenience hook for album queries only
- *
- * @example
- * ```typescript
- * const { data: albums } = useAlbumsQuery({ limit: 20 });
- * ```
- */
-export function useAlbumsQuery(options?: LibraryQueryOptions) {
-  return useLibraryQuery<Album>('albums', options);
-}
-
-/**
- * Convenience hook for artist queries only
- *
- * @example
- * ```typescript
- * const { data: artists } = useArtistsQuery();
- * ```
- */
-export function useArtistsQuery(options?: LibraryQueryOptions) {
-  return useLibraryQuery<Artist>('artists', options);
-}
-
-/**
- * Hook for infinite scroll pagination
- *
- * Automatically manages fetching and appending more items as user scrolls.
- *
- * @example
- * ```typescript
- * const { items, isLoading, hasMore, getMoreItems } = useInfiniteScroll(
- *   'tracks',
- *   { limit: 50 }
- * );
- *
- * // In scroll handler:
- * const handleScroll = () => {
- *   if (hasMore && !isLoading) {
- *     getMoreItems();
- *   }
- * };
- * ```
- */
-export function useInfiniteScroll<T extends Track | Album | Artist = Track>(
-  queryType: LibraryQueryType,
-  options?: LibraryQueryOptions
-) {
-  const { data, isLoading, isLoadingMore, error, hasMore, fetchMore, clearError } = useLibraryQuery<T>(
-    queryType,
-    { ...options, skip: options?.skip ?? false }
-  );
-
-  return {
-    items: data,
-    isLoading,
-    isLoadingMore,
-    error,
-    hasMore,
-    getMoreItems: fetchMore,
-    clearError,
-  };
-}
+// Convenience hooks (useTracksQuery / useAlbumsQuery / useArtistsQuery /
+// useInfiniteScroll) live in ./useLibraryQueries (#5478); re-exported here so
+// existing `from './useLibraryQuery'` imports keep working.
+export { useTracksQuery, useAlbumsQuery, useArtistsQuery, useInfiniteScroll } from './useLibraryQueries';
