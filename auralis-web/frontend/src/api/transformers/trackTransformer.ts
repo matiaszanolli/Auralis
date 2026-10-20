@@ -29,7 +29,11 @@ export function transformTrack(apiTrack: TrackApiResponse): Track {
     // Albumless tracks are valid backend responses; normalize them at the
     // API boundary so domain consumers can keep using a string.
     album: apiTrack.album ?? '',
-    duration: apiTrack.duration,
+    // Backend TrackResponse.duration is `float | None` — the REST path
+    // reaches this mapper through an untyped response.json(), so a null
+    // would poison player.duration (setCurrentTime clamps with
+    // Math.min(x, null) === 0) (#5606). Normalize like album above.
+    duration: apiTrack.duration ?? 0,
     filepath: apiTrack.filepath,
 
     // Optional metadata (null → undefined)

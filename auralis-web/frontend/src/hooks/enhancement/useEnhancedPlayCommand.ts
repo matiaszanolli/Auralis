@@ -27,6 +27,7 @@ import {
   resetStreaming,
 } from '@/store/slices/playerSlice';
 import { setCurrentTrackAndSyncQueue } from '@/store/slices/playerQueueSync';
+import { transformTrack } from '@/api/transformers';
 import type { EnhancementPreset } from '@/types/domain';
 import type { StreamingCoreReturn } from './useAudioStreamingCore';
 import type { CurrentTrackInfo } from './useEnhancedStreamStart';
@@ -100,7 +101,12 @@ export function useEnhancedPlayCommand({
             signal: core.abortRef.current.signal,
           });
           if (response.ok) {
-            const track = await response.json();
+            // #5606: the REST body is the snake_case TrackResponse (artists:
+            // string[], album: string | null, duration possibly null) — the
+            // compiler stayed silent only because response.json() is any.
+            // transformTrack is the API-boundary mapper every other REST
+            // consumer uses (#5009 covered the WS shapes; this site slipped).
+            const track = transformTrack(await response.json());
             // #3587: keep queue.currentIndex aligned with player.currentTrack
             // for the duration before backend WS confirmation arrives.
             dispatch(setCurrentTrackAndSyncQueue(track));

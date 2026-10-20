@@ -13,6 +13,8 @@ import { post } from '@/utils/apiRequest';
 import { ENDPOINTS } from '@/config/api';
 import { createCrudService } from '@/utils/serviceFactory';
 import { isPlaylistShape, isPlaylistsListShape } from '@/api/responseGuards';
+import { transformTracks } from '@/api/transformers';
+import type { TrackApiResponse } from '@/api/transformers';
 
 export interface Playlist {
   id: number;
@@ -181,13 +183,26 @@ export async function getPlaylists(
 /**
  * Get playlist by ID with all tracks
  *
+ * The backend's `tracks` are raw `Track.to_dict()` snake_case rows
+ * (`artists: string[]`, no singular artist) even though the Playlist type
+ * claims the camelCase domain Track — apply transformTracks at the boundary
+ * so every consumer, including "Play playlist"'s setQueue, gets mapped
+ * tracks (#5606).
+ *
  * @param signal - Optional AbortSignal for cancelling the request (#4614).
  */
 export async function getPlaylist(
   playlistId: number,
   signal?: AbortSignal,
 ): Promise<Playlist> {
-  return crudService.getOne(playlistId, { signal });
+  const playlist = await crudService.getOne(playlistId, { signal });
+  if (Array.isArray(playlist.tracks)) {
+    // The declared Track[] is the lie #5606 documents: off the wire these are
+    // raw Track.to_dict() rows. Cast back to the wire type for the mapper.
+    const wireTracks = playlist.tracks as unknown as TrackApiResponse[];
+    return { ...playlist, tracks: transformTracks(wireTracks) };
+  }
+  return playlist;
 }
 
 /**

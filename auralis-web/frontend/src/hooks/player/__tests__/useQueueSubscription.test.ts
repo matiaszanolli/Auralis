@@ -112,6 +112,30 @@ describe('useQueueSubscription', () => {
     expect(queue().tracks.map((t) => t.id)).toEqual([1, 2, 3]);
   });
 
+  it('maps queue_changed tracks through the snake_case→camelCase mapper (#5606)', () => {
+    renderSubscription();
+
+    // A raw backend TrackPayload: snake_case artwork_url, exactly what the
+    // wire carries. Dispatching it raw left queue entries without artworkUrl.
+    deliver({
+      type: 'queue_changed',
+      data: {
+        tracks: [{
+          id: 9,
+          title: 'Wire Track',
+          artist: 'Artist',
+          album: 'Album',
+          duration: 240,
+          artwork_url: 'http://art/9',
+        }],
+      },
+    });
+
+    const [entry] = queue().tracks;
+    expect(entry?.artworkUrl).toBe('http://art/9');
+    expect((entry as Record<string, unknown>).artwork_url).toBeUndefined();
+  });
+
   it('applies snake_case current_index', () => {
     renderSubscription();
 

@@ -23,6 +23,7 @@ import {
   setRepeatMode as reduxSetRepeatMode,
   isRepeatMode,
 } from '@/store/slices/queueSlice';
+import { mapTrackInfoToTrack } from './trackInfoMapper';
 import type { AppDispatch } from '@/store';
 
 type QueueWSMessage =
@@ -47,9 +48,12 @@ export function useQueueSubscription(): void {
         case 'queue_changed': {
           // `data` is required by the type but arrives off the wire — a frame
           // without it must not throw out of the shared WS dispatch loop
-          // (#4639).
+          // (#4639). tracks go through the shared snake_case→camelCase mapper
+          // (#5606, same contract as useQueueFetch/usePlayerStateSync — #5009):
+          // dispatching them raw left every queue entry without artworkUrl,
+          // and track_changed then copied such an entry into player.currentTrack.
           const data = msg.data ?? ({} as QueueChangedMessage['data']);
-          if (data.tracks) dispatch(reduxSetQueue(data.tracks));
+          if (data.tracks) dispatch(reduxSetQueue(data.tracks.map(mapTrackInfoToTrack)));
           if (data.current_index != null) dispatch(reduxSetCurrentIndex(data.current_index));
           else if (data.currentIndex != null) dispatch(reduxSetCurrentIndex(data.currentIndex));
           break;
@@ -59,7 +63,7 @@ export function useQueueSubscription(): void {
           const data = msg.data ?? ({} as QueueShuffledMessage['data']);
           if (data.is_shuffled != null) dispatch(reduxSetIsShuffled(data.is_shuffled));
           else if (data.isShuffled != null) dispatch(reduxSetIsShuffled(data.isShuffled));
-          if (data.tracks) dispatch(reduxSetQueue(data.tracks));
+          if (data.tracks) dispatch(reduxSetQueue(data.tracks.map(mapTrackInfoToTrack)));
           break;
         }
 
