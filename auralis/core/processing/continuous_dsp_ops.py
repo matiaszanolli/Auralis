@@ -37,7 +37,6 @@ from ..config import UnifiedConfig
 from .base import (
     CompressionStrategies,
     DBConversion,
-    ExpansionStrategies,
     StereoWidthProcessor,
 )
 from .continuous_guards import WIDTH_PEAK_KNEE_END, WIDTH_PEAK_KNEE_START
@@ -85,9 +84,9 @@ class ContinuousDSPOpsMixin:
         """Apply offline dynamics from continuous fingerprint measurements.
 
         The offline path deliberately uses its OWN dynamics here
-        (``CompressionStrategies.apply_clip_blend_compression`` /
-        ``ExpansionStrategies.apply_rms_reduction_expansion``, tuned by the
-        continuous-space coordinates) rather than
+        (``CompressionStrategies.apply_clip_blend_compression``, tuned by
+        the continuous-space coordinates; the RMS-reduction expansion
+        stage was removed in #5561) rather than
         ``HybridProcessor.dynamics_processor``. That ``DynamicsProcessor`` is the
         *realtime* streaming engine; this stage is instead integrated with the
         continuous-space ``PipelineJournal`` / ``CrossDimensionalGuard`` and the
@@ -97,11 +96,15 @@ class ContinuousDSPOpsMixin:
         """
 
         compression_params = params.compression_params.copy()
-        expansion_params = params.expansion_params.copy()
 
         audio = self._apply_compression(audio, compression_params)
-        audio = self._apply_expansion(audio, expansion_params)
 
+        # #5561: the expansion stage (apply_rms_reduction_expansion) was a
+        # scalar gain — peak and RMS moved together, so crest factor was
+        # invariant and the downstream LUFS normalization re-boosted the
+        # attenuation. Removed following #5309's precedent for the same
+        # class of placebo stage; the generator's expansion_params remain
+        # available as reporting data.
         return audio
 
     def _apply_compression(self, audio: np.ndarray, comp_params: dict[str, Any]) -> np.ndarray:
@@ -112,10 +115,6 @@ class ContinuousDSPOpsMixin:
             return audio  # Return as-is if empty
 
         return CompressionStrategies.apply_clip_blend_compression(audio, comp_params)
-
-    def _apply_expansion(self, audio: np.ndarray, exp_params: dict[str, Any]) -> np.ndarray:
-        """Apply expansion to increase crest factor (de-mastering)"""
-        return ExpansionStrategies.apply_rms_reduction_expansion(audio, exp_params)
 
     def _apply_stereo_width(self, audio: np.ndarray, params: Any) -> np.ndarray:
         """Apply the continuously generated stereo-width target."""
