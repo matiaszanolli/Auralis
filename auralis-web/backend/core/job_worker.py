@@ -224,8 +224,10 @@ class JobWorker:
         is mutated from ``_run_job`` without synchronisation, and ``cancel()``
         is only safe on the loop that owns the task. From a worker thread
         (``asyncio.to_thread``, ``threading.Thread``) schedule the whole call
-        via ``loop.call_soon_threadsafe`` instead. Every current caller —
-        ``ProcessingEngine.cancel_job()`` — already runs on the loop.
+        via ``loop.call_soon_threadsafe`` instead. The only caller —
+        ``job_lifecycle.cancel_job()``, the impl behind
+        ``ProcessingEngine.cancel_job()`` — already runs on the loop (#5417:
+        it routes through this method rather than duplicating the lookup).
 
         Silently does nothing when ``job_id`` is unknown or its task already
         finished.

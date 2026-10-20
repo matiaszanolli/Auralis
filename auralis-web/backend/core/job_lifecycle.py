@@ -240,11 +240,11 @@ async def cancel_job(engine: "ProcessingEngine", job_id: str) -> bool:
     if cancel_event is not None:
         cancel_event.set()
 
-    # Cancel the asyncio Task outside the lock — task.cancel() is
-    # thread-safe and the await would block under the lock.
-    task = engine._tasks.get(job_id)
-    if task and not task.done():
-        task.cancel()
+    # Cancel the asyncio Task outside the lock — the await would block under
+    # the lock. cancel_task() is the single lookup-and-cancel implementation
+    # (#5417); like every caller here it runs on the event loop, the thread
+    # its #4575 contract requires.
+    engine._worker.cancel_task(job_id)
     # A queued job never reaches process_job's finally, so this is its only
     # record of the cancellation (#5278).
     await persist(engine, job)

@@ -17,6 +17,7 @@ thread — the docstring invited an unsafe call site (#4575).
 """
 
 import asyncio
+import contextlib
 import inspect
 import re
 import sys
@@ -27,6 +28,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
+from core.job_lifecycle import cancel_job
+from core.job_models import ProcessingStatus
 from core.job_worker import JobWorker
 from core.streamlined_worker import StreamlinedCacheWorker
 
@@ -178,6 +181,38 @@ class TestCancelTaskThreadingContract:
                     f"{module}:{node.lineno} {node.name}() claims thread-safety "
                     f"without a lock or call_soon_threadsafe"
                 )
+
+
+class TestCancelJobCancelsInFlightTask:
+    """#5417 — job_lifecycle.cancel_job() routes through cancel_task()."""
+
+    async def test_cancel_job_cancels_inflight_task(self):
+        """A PROCESSING job's asyncio task is cancelled via the shared path."""
+        engine = _engine_stub()
+        engine._jobs_lock = asyncio.Lock()
+        engine._cancel_events = {}
+
+        job = _Job()
+        job.status = ProcessingStatus.PROCESSING
+        engine.jobs[job.job_id] = job
+
+        worker = JobWorker(engine, max_concurrent_jobs=1, max_queue_size=4)
+        engine._worker = worker
+        task = asyncio.get_running_loop().create_task(asyncio.sleep(3600))
+        worker._tasks[job.job_id] = task
+
+        assert await cancel_job(engine, job.job_id) is True
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+        assert task.cancelled(), "cancel_job left the in-flight task running"
+        assert job.status == ProcessingStatus.CANCELLED
+
+    async def test_cancel_job_unknown_id_returns_false(self):
+        engine = _engine_stub()
+        engine._jobs_lock = asyncio.Lock()
+        engine._worker = JobWorker(engine, max_concurrent_jobs=1, max_queue_size=4)
+
+        assert await cancel_job(engine, "no-such-job") is False
 
 
 # ============================================================================
