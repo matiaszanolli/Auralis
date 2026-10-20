@@ -246,9 +246,11 @@ def test_load_track_apply_preset_workflow(sample_audio_file):
     assert len(audio) > 0, "Audio should be loaded"
     assert sr == 44100, "Sample rate should match file"
 
-    # Step 2: Create processor with preset
+    # Step 2: Create processor with preset. The named presets ('gentle',
+    # 'warm', 'bright', 'punchy') were retired on 2026-09-13 (#5405);
+    # 'adaptive' is the only remaining valid name.
     config = UnifiedConfig()
-    config.set_mastering_preset("Gentle")  # Use gentle preset
+    config.set_mastering_preset("adaptive")
 
     processor = HybridProcessor(config)
 
@@ -268,34 +270,31 @@ def test_load_track_apply_preset_workflow(sample_audio_file):
 @pytest.mark.slow
 def test_process_multiple_presets_workflow(sample_audio_file):
     """
-    E2E: Process same audio with different presets → verify different results.
+    E2E: 'adaptive' processes the same audio, retired preset names are rejected.
+
+    The named presets were retired on 2026-09-13 (#5405); the engine raises
+    ValueError for them exactly like any other unknown name, so the old
+    "different presets produce different results" comparison has nothing
+    left to compare.
     """
     from auralis.io.unified_loader import load_audio
 
     audio, sr = load_audio(sample_audio_file)
 
-    # Process with different presets
-    presets = ["Gentle", "Warm", "Bright"]
-    results = {}
+    config = UnifiedConfig()
+    config.set_processing_mode("adaptive")
+    config.set_mastering_preset("adaptive")
 
-    for preset_name in presets:
-        config = UnifiedConfig()
-        config.set_processing_mode("adaptive")
-        config.set_mastering_preset(preset_name)
+    processor = HybridProcessor(config)
+    processed = processor.process(audio.copy())
 
-        processor = HybridProcessor(config)
-        processed = processor.process(audio.copy())
+    assert len(processed) == len(audio)
+    assert not np.any(np.isnan(processed))
 
-        results[preset_name] = processed
-
-    # Verify different presets produce different results
-    # (not exactly the same output)
-    gentle_vs_warm = np.allclose(results["Gentle"], results["Warm"], rtol=0.01)
-    gentle_vs_bright = np.allclose(results["Gentle"], results["Bright"], rtol=0.01)
-
-    # At least one should be different
-    assert not (gentle_vs_warm and gentle_vs_bright), \
-        "Different presets should produce measurably different results"
+    # Retired names must be rejected at the config boundary, not accepted.
+    for retired in ("Gentle", "Warm", "Bright", "Punchy"):
+        with pytest.raises(ValueError, match="Invalid preset"):
+            UnifiedConfig().set_mastering_preset(retired)
 
 
 @pytest.mark.e2e
@@ -422,32 +421,34 @@ def test_process_handles_different_formats(temp_library):
 @pytest.mark.slow
 def test_switch_preset_workflow(sample_audio_file):
     """
-    E2E: Start processing with Preset A → switch to Preset B → verify transition.
+    E2E: Process sequential halves through fresh processors → verify continuity.
 
-    Note: This simulates preset switching, actual mid-playback switching
-    requires the player/streaming infrastructure.
+    Preset A→B switching collapsed when the named presets were retired
+    on 2026-09-13 (#5405); what remains of this workflow is that two
+    consecutive processors on adjacent halves of a track each produce
+    clean, length-preserving audio.
     """
     from auralis.io.unified_loader import load_audio
 
     audio, sr = load_audio(sample_audio_file)
 
-    # Process first half with Preset A
+    # Process first half
     half_point = len(audio) // 2
     first_half = audio[:half_point]
 
     config_a = UnifiedConfig()
     config_a.set_processing_mode("adaptive")
-    config_a.set_mastering_preset("Gentle")
+    config_a.set_mastering_preset("adaptive")
 
     processor_a = HybridProcessor(config_a)
     processed_first = processor_a.process(first_half)
 
-    # Process second half with Preset B
+    # Process second half
     second_half = audio[half_point:]
 
     config_b = UnifiedConfig()
     config_b.set_processing_mode("adaptive")
-    config_b.set_mastering_preset("Bright")
+    config_b.set_mastering_preset("adaptive")
 
     processor_b = HybridProcessor(config_b)
     processed_second = processor_b.process(second_half)
@@ -465,20 +466,21 @@ def test_switch_preset_workflow(sample_audio_file):
 @pytest.mark.integration
 def test_preset_list_availability():
     """
-    E2E: Query available presets → verify standard presets exist.
+    E2E: The one surviving preset is accepted, retired names are rejected.
+
+    'adaptive' is the only preset since the 2026-09-13 narrowing (#5405);
+    the retired names must raise like any other unknown name, mirroring
+    tests/test_preset_system.py.
     """
     config = UnifiedConfig()
 
-    # Get available presets (this would typically be exposed via API)
-    # For now, test that we can set known presets
-    known_presets = ["Gentle", "Warm", "Bright", "Punchy"]
+    # The surviving preset sets cleanly.
+    config.set_mastering_preset("adaptive")
+    assert config.mastering_profile == "adaptive"
 
-    for preset_name in known_presets:
-        # Should not raise exception
-        config.set_mastering_preset(preset_name)
-
-        # Verify preset was set (would need getter in actual implementation)
-        # This is more of a smoke test
+    for retired in ("Gentle", "Warm", "Bright", "Punchy"):
+        with pytest.raises(ValueError, match="Invalid preset"):
+            config.set_mastering_preset(retired)
 
 
 @pytest.mark.e2e
@@ -486,21 +488,26 @@ def test_preset_list_availability():
 @pytest.mark.audio
 def test_preset_switch_preserves_continuity(sample_audio_file):
     """
-    E2E: Switching presets should not introduce discontinuities (clicks/pops).
+    E2E: Repeated processing through fresh processors stays clean (no clicks
+    from NaN/Inf/clipping).
+
+    The Gentle/Warm A/B this test used to compare collapsed when the named
+    presets were retired on 2026-09-13 (#5405); the continuity property it
+    still guards is that consecutive 'adaptive' runs produce valid audio.
     """
     from auralis.io.unified_loader import load_audio
 
     audio, sr = load_audio(sample_audio_file)
 
-    # Process with preset A
+    # First pass through a fresh processor
     config_a = UnifiedConfig()
-    config_a.set_mastering_preset("Gentle")
+    config_a.set_mastering_preset("adaptive")
     processor_a = HybridProcessor(config_a)
     result_a = processor_a.process(audio)
 
-    # Process with preset B
+    # Second pass through another fresh processor
     config_b = UnifiedConfig()
-    config_b.set_mastering_preset("Warm")
+    config_b.set_mastering_preset("adaptive")
     processor_b = HybridProcessor(config_b)
     result_b = processor_b.process(audio)
 
