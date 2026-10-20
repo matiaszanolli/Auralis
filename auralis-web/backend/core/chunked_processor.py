@@ -115,8 +115,11 @@ class ChunkedAudioProcessor:
         self.channels: int | None = None
         self._load_metadata()
 
-        # Expose canonical chunk interval so consumers don't need getattr fallbacks (#2848)
-        self.chunk_interval: float = float(CHUNK_INTERVAL)
+        # (#5056: the old `self.chunk_interval` exposure was removed — no
+        # production reader; chunk position math goes through
+        # chunk_boundaries.emitted_chunk_start(), and chunk_operations
+        # defaults its own `chunk_interval` parameter from CHUNK_INTERVAL
+        # directly.)
 
         self.chunk_dir = chunk_cache_dir()
         create_secure_temp_dir(self.chunk_dir)
@@ -190,7 +193,8 @@ class ChunkedAudioProcessor:
         # Processing state tracking for smooth transitions
         self.chunk_rms_history: list[float] = []
         self.chunk_gain_history: list[float] = []
-        self.previous_chunk_tail: np.ndarray | None = None  # Last samples of previous chunk
+        # (#5056: `previous_chunk_tail` removed — assigned, never read; the
+        # crossfade/tail machinery it belonged to went with #4642/#3880.)
 
         logger.info(
             f"ChunkedAudioProcessor initialized: track_id={track_id}, "
