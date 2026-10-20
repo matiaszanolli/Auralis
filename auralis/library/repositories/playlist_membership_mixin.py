@@ -14,7 +14,7 @@ reorder) — together they cover track membership and position management
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from sqlalchemy import delete, insert, select, text
+from sqlalchemy import delete, insert, select, text, func, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -129,11 +129,20 @@ class PlaylistMembershipMixin(BaseRepository):
                 if current_pos is not None:
                     if position is None or current_pos == position:
                         return True
-                    # Re-position via atomic DELETE then proceed to INSERT.
+                    # Re-position: remove the row and close the gap it leaves
+                    # (#5573) so later inserts don't build on a hole. The
+                    # caller-supplied `position` is resolved AFTER this
+                    # removal, against the shrunken list.
                     session.execute(
                         delete(track_playlist)
                         .where(track_playlist.c.playlist_id == playlist_id)
                         .where(track_playlist.c.track_id == track_id)
+                    )
+                    session.execute(
+                        update(track_playlist)
+                        .where(track_playlist.c.playlist_id == playlist_id)
+                        .where(track_playlist.c.position > current_pos)
+                        .values(position=track_playlist.c.position - 1)
                     )
 
                 # Resolve target position. When position is None, fold the
@@ -163,10 +172,23 @@ class PlaylistMembershipMixin(BaseRepository):
                         return False
                     position = int(landed_position)
                 else:
-                    # Explicit position requested. INSERT OR IGNORE handles
-                    # the composite-PK race; the explicit position bypasses
-                    # the contiguous-positions invariant intentionally
-                    # because the caller asked for a specific slot.
+                    # Explicit position requested (#5573): shift rows at/after
+                    # the slot down by one so the insert keeps positions
+                    # contiguous (the old direct insert produced duplicate
+                    # positions and undefined order), and clamp the slot to
+                    # the current list size so an out-of-range request
+                    # appends instead of writing a hole.
+                    row_count = session.scalar(
+                        select(func.count()).select_from(track_playlist)
+                        .where(track_playlist.c.playlist_id == playlist_id)
+                    ) or 0
+                    position = max(0, min(position, row_count))
+                    session.execute(
+                        update(track_playlist)
+                        .where(track_playlist.c.playlist_id == playlist_id)
+                        .where(track_playlist.c.position >= position)
+                        .values(position=track_playlist.c.position + 1)
+                    )
                     stmt = insert(track_playlist).prefix_with('OR IGNORE').values(
                         track_id=track_id,
                         playlist_id=playlist_id,

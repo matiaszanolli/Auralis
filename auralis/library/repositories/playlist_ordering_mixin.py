@@ -142,60 +142,39 @@ class PlaylistOrderingMixin(BaseRepository):
 
         with self._session_scope() as session:
             try:
-                # Resolve the moving track + the playlist size in one go.
-                moving_track_id = session.scalar(
+                # #5581/#5573: resolve rows by LOGICAL index in position
+                # order instead of matching position == from_index exactly.
+                # Writers now keep positions contiguous, but playlists
+                # written before that fix can carry gaps
+                # (e.g. (A,0),(C,2) after a library delete), which made
+                # from_index lookups miss and left playlists un-reorderable.
+                ordered_track_ids = session.execute(
                     select(track_playlist.c.track_id)
                     .where(track_playlist.c.playlist_id == playlist_id)
-                    .where(track_playlist.c.position == from_index)
-                )
-                if moving_track_id is None:
-                    error(f"Invalid from_index: {from_index} (no row in playlist {playlist_id})")
-                    return False
+                    .order_by(track_playlist.c.position, track_playlist.c.track_id)
+                ).scalars().all()
 
-                size = session.scalar(
-                    select(func.count()).select_from(track_playlist)
-                    .where(track_playlist.c.playlist_id == playlist_id)
-                ) or 0
+                size = len(ordered_track_ids)
+                if not (0 <= from_index < size):
+                    error(f"Invalid from_index: {from_index} (playlist size {size})")
+                    return False
                 if not (0 <= to_index < size):
                     error(f"Invalid to_index: {to_index} (playlist size {size})")
                     return False
 
-                # Move the row OUT of the way (sentinel position = -1) so
-                # the shift UPDATE below doesn't trip the unique
-                # constraint with its own row mid-rewrite.
-                session.execute(
-                    update(track_playlist)
-                    .where(track_playlist.c.playlist_id == playlist_id)
-                    .where(track_playlist.c.track_id == moving_track_id)
-                    .values(position=-1)
-                )
+                moving_track_id = ordered_track_ids[from_index]
+                # Pop the mover from the logical order and re-insert at the
+                # target slot; the resulting order is written back as
+                # contiguous positions 0..N-1 (also healing legacy gaps).
+                ordered_track_ids.insert(to_index, ordered_track_ids.pop(from_index))
 
-                if to_index > from_index:
-                    # Shift the rows in (from_index, to_index] down by 1.
+                for new_position, track_id in enumerate(ordered_track_ids):
                     session.execute(
                         update(track_playlist)
                         .where(track_playlist.c.playlist_id == playlist_id)
-                        .where(track_playlist.c.position > from_index)
-                        .where(track_playlist.c.position <= to_index)
-                        .values(position=track_playlist.c.position - 1)
+                        .where(track_playlist.c.track_id == track_id)
+                        .values(position=new_position)
                     )
-                else:
-                    # Shift the rows in [to_index, from_index) up by 1.
-                    session.execute(
-                        update(track_playlist)
-                        .where(track_playlist.c.playlist_id == playlist_id)
-                        .where(track_playlist.c.position >= to_index)
-                        .where(track_playlist.c.position < from_index)
-                        .values(position=track_playlist.c.position + 1)
-                    )
-
-                # Slot the moving row into its target position.
-                session.execute(
-                    update(track_playlist)
-                    .where(track_playlist.c.playlist_id == playlist_id)
-                    .where(track_playlist.c.track_id == moving_track_id)
-                    .values(position=to_index)
-                )
 
                 session.commit()
                 debug(

@@ -22,7 +22,7 @@ similarity-graph children are removed by the database's ``ondelete='CASCADE'``.
 from collections.abc import Sequence
 from typing import Any, cast
 
-from sqlalchemy import CursorResult, delete
+from sqlalchemy import CursorResult, delete, update, select
 from sqlalchemy.orm import Session
 
 from ..models import Track, track_artist, track_genre, track_playlist
@@ -42,8 +42,35 @@ def delete_tracks_by_ids(session: Session, track_ids: Sequence[int]) -> int:
     """
     if not track_ids:
         return 0
+
+    # Capture the playlists that are about to lose rows so their positions
+    # can be re-compacted after the delete (#5573): the association rows are
+    # removed without shifting, which left positions like (A,0),(C,2) and
+    # made reorder_track's from_index lookups miss.
+    affected_playlists = session.execute(
+        select(track_playlist.c.playlist_id)
+        .where(track_playlist.c.track_id.in_(track_ids))
+        .distinct()
+    ).scalars().all()
+
     for association in _TRACK_ASSOCIATIONS:
         session.execute(delete(association).where(association.c.track_id.in_(track_ids)))
+
+    # Compact track_playlist positions for every affected playlist: renumber
+    # the surviving rows 0..N-1 in their current order.
+    for playlist_id in affected_playlists:
+        surviving = session.execute(
+            select(track_playlist.c.track_id)
+            .where(track_playlist.c.playlist_id == playlist_id)
+            .order_by(track_playlist.c.position)
+        ).scalars().all()
+        for new_position, survivor_id in enumerate(surviving):
+            session.execute(
+                update(track_playlist)
+                .where(track_playlist.c.playlist_id == playlist_id)
+                .where(track_playlist.c.track_id == survivor_id)
+                .values(position=new_position)
+            )
     # session.execute() is typed as Result although a DML statement returns a
     # CursorResult with rowcount.
     result = cast(CursorResult[Any], session.execute(delete(Track).where(Track.id.in_(track_ids))))
