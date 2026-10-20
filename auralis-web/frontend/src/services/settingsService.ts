@@ -11,6 +11,7 @@ import { ENDPOINTS, SCAN_TIMEOUT_MS } from '@/config/api';
 import { post, put } from '@/utils/apiRequest';
 import { createCrudService } from '@/utils/serviceFactory';
 import { isUserSettingsShape } from '@/api/responseGuards';
+import type { EnhancementPreset } from '@/types/domain';
 
 export interface UserSettings {
   id: number;
@@ -38,8 +39,8 @@ export interface UserSettings {
   // The backend deliberately degrades an out-of-range/legacy stored value to
   // null on the wire (SettingsResponse._degrade_unknown_preset /
   // _degrade_invalid_intensity) instead of echoing it — callers must fall
-  // back (#5517).
-  default_preset: string | null;
+  // back (#5517). Derived from the canonical EnhancementPreset (#5610).
+  default_preset: EnhancementPreset | null;
   auto_enhance: boolean;
   enhancement_intensity: number | null;
   // Advanced
@@ -74,7 +75,7 @@ export interface SettingsUpdate {
   show_visualizations?: boolean;
   mini_player_on_close?: boolean;
   // Enhancement
-  default_preset?: string;
+  default_preset?: EnhancementPreset;
   auto_enhance?: boolean;
   enhancement_intensity?: number;
   // Advanced

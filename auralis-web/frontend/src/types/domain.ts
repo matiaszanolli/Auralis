@@ -157,6 +157,15 @@ export const ENHANCEMENT_PRESETS: EnhancementPreset[] = [
   'adaptive',
 ];
 
+/**
+ * Runtime guard for a preset off the wire, derived from ENHANCEMENT_PRESETS so
+ * it cannot drift from the union (#5610). Recreated by #5610 (a former
+ * isEnhancementPreset was removed when the list narrowed); every plain-string
+ * wire field narrows through this instead of an `as EnhancementPreset` cast.
+ */
+export const isEnhancementPreset = (value: unknown): value is EnhancementPreset =>
+  ENHANCEMENT_PRESETS.includes(value as EnhancementPreset);
+
 export const ENHANCEMENT_PRESET_NAMES: Record<EnhancementPreset, string> = {
   adaptive: 'Adaptive',
 };

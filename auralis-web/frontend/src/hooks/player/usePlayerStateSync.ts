@@ -51,12 +51,9 @@ import {
   setRepeatMode,
   isRepeatMode,
 } from '@/store/slices/queueSlice';
-import type { PresetName } from '@/store/slices/playerSlice';
 import type { RawPlayerStateData, TrackInfo } from '@/types/websocket';
+import { isEnhancementPreset } from '@/types/domain';
 import { mapTrackInfoToTrack } from './trackInfoMapper';
-
-// Mirrors types/domain.ts's EnhancementPreset -- only 'adaptive' now (#4861 follow-up).
-const VALID_PRESETS: readonly string[] = ['adaptive'];
 
 /**
  * Hook to sync WebSocket player_state messages to Redux (player + queue)
@@ -167,8 +164,10 @@ export function usePlayerStateSync() {
           dispatch(setMuted(state.is_muted));
         }
 
-        if (state.current_preset && VALID_PRESETS.includes(state.current_preset)) {
-          dispatch(setPreset(state.current_preset as PresetName));
+        // isEnhancementPreset narrows the wire string, so no `as` cast is
+        // needed and the guard cannot drift from the canonical list (#5610).
+        if (state.current_preset && isEnhancementPreset(state.current_preset)) {
+          dispatch(setPreset(state.current_preset));
         }
 
         // Queue state

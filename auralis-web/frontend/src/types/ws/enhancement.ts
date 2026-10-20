@@ -6,6 +6,7 @@
 
 
 import type { WebSocketMessage } from './base';
+import type { EnhancementPreset } from '@/types/domain';
 
 /** Message-type literals owned by the enhancement domain. */
 export type EnhancementMessageType =
@@ -23,8 +24,8 @@ export interface EnhancementSettingsChangedMessage extends WebSocketMessage {
   type: 'enhancement_settings_changed';
   data: {
     enabled: boolean;
-    // Mirrors types/domain.ts's EnhancementPreset -- only 'adaptive' now (#4861 follow-up).
-    preset: 'adaptive';
+    // Derived from the canonical EnhancementPreset, not redeclared (#5610).
+    preset: EnhancementPreset;
     intensity: number; // 0.0 - 1.0
   };
 }

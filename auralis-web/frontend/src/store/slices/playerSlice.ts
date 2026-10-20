@@ -15,15 +15,16 @@
  */
 
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import type { PlayerTrack } from '@/types/domain';
+import type { EnhancementPreset, PlayerTrack } from '@/types/domain';
 import { initialStreamingInfo, streamingReducers } from './playerStreamingReducers';
 import type { StreamingInfo } from './playerStreamingReducers';
 
 // Re-exported so the slice stays the single import site for player state types.
 export type { StreamingState, StreamType, StreamingInfo } from './playerStreamingReducers';
 
-// Mirrors types/domain.ts's EnhancementPreset -- only 'adaptive' now (#4861 follow-up).
-export type PresetName = 'adaptive';
+// Derived from the canonical EnhancementPreset, not redeclared (#5610) --
+// a hand-mirrored literal here could drift from types/domain.ts.
+export type PresetName = EnhancementPreset;
 
 export interface PlayerState {
   isPlaying: boolean;

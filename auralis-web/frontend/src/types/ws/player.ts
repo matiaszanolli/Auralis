@@ -6,6 +6,7 @@
 
 
 import type { WebSocketMessage, TrackInfo } from './base';
+import type { EnhancementPreset } from '@/types/domain';
 
 /** Message-type literals owned by the player domain. */
 export type PlayerMessageType =
@@ -54,7 +55,10 @@ export interface RawPlayerStateData {
   shuffle_enabled: boolean;
   repeat_mode: 'off' | 'all' | 'one';
   mastering_enabled: boolean;
-  current_preset: string;
+  // The backend's PlayerStatePayload types this EnhancementPresetLiteral;
+  // #5610 mirrors that here instead of a plain string. usePlayerStateSync's
+  // isEnhancementPreset guard remains the runtime defence for legacy rows.
+  current_preset: EnhancementPreset;
   analysis?: Record<string, unknown> | null;
   // Enhancement/gapless fields (optional — not always present).
   //
