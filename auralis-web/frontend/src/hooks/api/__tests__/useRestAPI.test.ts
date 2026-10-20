@@ -980,4 +980,161 @@ describe('useRestAPI Hook', () => {
       expect(result.current.error).toBeNull();
     });
   });
+
+  // ==========================================================================
+  // STALE-RESPONSE GUARD SCOPE (#5608) AND TIMEOUT MAPPING (#5609)
+  // ==========================================================================
+
+  describe('Stale-response guard scope (#5608)', () => {
+    /**
+     * Deferred-promise fetch mock: requests resolve only when the test
+     * releases them, so responses can interleave deterministically. MSW
+     * wraps the call into a single Request argument (see getCallInit), but
+     * the resolvers don't care about the args.
+     */
+    const mockDeferredFetch = () => {
+      const gates: Array<(v: Response) => void> = [];
+      mockFetch.mockImplementation(
+        () => new Promise<Response>((resolve) => gates.push(resolve))
+      );
+      return gates;
+    };
+
+    /**
+     * React's scheduler dispatches the fetch on a macrotask, so a microtask
+     * flush is not enough inside act() — release it on a macrotask.
+     */
+    const flushDispatch = () => act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    it('lets two overlapping POSTs to the same endpoint both resolve — mutations are never discarded', async () => {
+      const gates = mockDeferredFetch();
+
+      const { result } = renderHook(() => useRestAPI());
+
+      let first!: Promise<unknown>;
+      let second!: Promise<unknown>;
+      act(() => {
+        first = result.current.post('/api/player/queue/shuffle', { enabled: true });
+        second = result.current.post('/api/player/queue/shuffle', { enabled: false });
+      });
+      await flushDispatch();
+      // Second response lands before the first's.
+      gates[1](createMockResponse({ applied: 2 }, { ok: true, status: 200, statusText: 'OK' }));
+      gates[0](createMockResponse({ applied: 1 }, { ok: true, status: 200, statusText: 'OK' }));
+
+      await act(async () => {
+        expect(await first).toEqual({ applied: 1 });
+        expect(await second).toEqual({ applied: 2 });
+      });
+      expect(result.current.error).toBeNull();
+    });
+
+    it('still discards a GET superseded by a newer GET to the same URL (#2439 unchanged)', async () => {
+      const gates = mockDeferredFetch();
+
+      const { result } = renderHook(() => useRestAPI());
+
+      let older!: Promise<unknown>;
+      let newer!: Promise<unknown>;
+      act(() => {
+        older = result.current.get('/api/test');
+        newer = result.current.get('/api/test');
+      });
+      await flushDispatch();
+      gates[1](createMockResponse({ v: 'new' }, { ok: true, status: 200, statusText: 'OK' }));
+      gates[0](createMockResponse({ v: 'old' }, { ok: true, status: 200, statusText: 'OK' }));
+
+      await act(async () => {
+        await expect(older).rejects.toMatchObject({ name: 'StaleRequestError' });
+        await expect(newer).resolves.toEqual({ v: 'new' });
+      });
+    });
+
+    it('does not let a mutation cancel an in-flight GET to the same endpoint', async () => {
+      const gates = mockDeferredFetch();
+
+      const { result } = renderHook(() => useRestAPI());
+
+      let read!: Promise<unknown>;
+      let mutate!: Promise<unknown>;
+      act(() => {
+        read = result.current.get('/api/player/queue');
+        mutate = result.current.post('/api/player/queue', { tracks: [1] });
+      });
+      await flushDispatch();
+      gates[0](createMockResponse({ queue: [] }, { ok: true, status: 200, statusText: 'OK' }));
+      gates[1](createMockResponse({ ok: true }, { ok: true, status: 200, statusText: 'OK' }));
+
+      await act(async () => {
+        await expect(read).resolves.toEqual({ queue: [] });
+        await expect(mutate).resolves.toEqual({ ok: true });
+      });
+      expect(result.current.error).toBeNull();
+    });
+  });
+
+  describe('Timeout mapping (#5609)', () => {
+    /** Fetch mock that rejects with AbortError when its signal fires. */
+    const mockAbortingFetch = () => {
+      mockFetch.mockImplementation(
+        (input: RequestInfo | URL, init?: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            // MSW wraps the (url, init) call into a single Request.
+            const signal = init?.signal
+              ?? (input instanceof Request ? input.signal : undefined);
+            if (!signal) {
+              reject(new Error('no signal in test mock'));
+              return;
+            }
+            signal.addEventListener('abort', () => {
+              const e = new Error('The operation was aborted');
+              e.name = 'AbortError';
+              reject(e);
+            });
+          })
+      );
+    };
+
+    it('maps a timeout to APIRequestError (statusCode 0) instead of AbortError and sets error state', async () => {
+      // /api/… URL with no MSW handler, so the request passes through to the
+      // fetch mock instead of being served by the default library handlers.
+      vi.useFakeTimers();
+      mockAbortingFetch();
+
+      const { result } = renderHook(() => useRestAPI());
+
+      let caught: Error | undefined;
+      await act(async () => {
+        void result.current.get('/api/restapi-timeout-probe').catch((e: Error) => { caught = e; });
+        await vi.advanceTimersByTimeAsync(0); // dispatch
+        await vi.advanceTimersByTimeAsync(30_000); // fire the timeout
+      });
+
+      expect(caught).toBeDefined();
+      // request() rethrows through ApiErrorHandler.parse: the timeout arrives
+      // as a non-abort error with status 0 — never as AbortError, which
+      // callers treat as a silent cancel.
+      expect((caught as any).name).not.toBe('AbortError');
+      expect((caught as any).status).toBe(0);
+      expect(caught!.message).toContain('timed out');
+      // The hook must surface it — a timed-out query may not vanish silently.
+      expect(result.current.error).toMatchObject({ status: 0 });
+    });
+
+    it('keeps an unmount-style abort silent (no error state)', async () => {
+      const abortErr = new Error('Aborted');
+      abortErr.name = 'AbortError';
+      mockFetch.mockRejectedValueOnce(abortErr);
+
+      const { result } = renderHook(() => useRestAPI());
+
+      await act(async () => {
+        await expect(result.current.get('/api/test')).rejects.toMatchObject({ name: 'AbortError' });
+      });
+
+      expect(result.current.error).toBeNull();
+    });
+  });
 });

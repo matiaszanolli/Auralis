@@ -13,6 +13,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { ApiError } from '@/types/api';
 import { ApiErrorHandler } from '@/types/api';
+import { APIRequestError } from '@/utils/apiRequest';
 import { API_BASE_URL } from '@/config/api';
 import { httpErrorFromResponse } from '@/utils/httpError';
 const REQUEST_TIMEOUT = 30000; // 30 seconds
@@ -68,9 +69,11 @@ export function useRestAPI() {
   // (fixes #2467: no hook-level abort on unmount caused setState on dead state).
   const activeControllers = useRef(new Set<AbortController>());
 
-  // Per-endpoint sequence counters to detect stale responses (fixes #2439, #3055).
-  // Scoped per endpoint so concurrent requests to different endpoints don't
-  // invalidate each other.
+  // GET-only stale-response detection (#2439, #3055; narrowed to GET by
+  // #5608). Keyed on method + full URL, so two GETs that differ only by
+  // query string don't cancel each other. Mutations are never discarded —
+  // their server-side effect has already happened by the time the response
+  // arrives.
   const requestSequences = useRef(new Map<string, number>());
 
   useEffect(() => {
@@ -104,7 +107,16 @@ export function useRestAPI() {
   const fetchWithTimeout = useCallback(
     async (url: string, options: RequestInit = {}): Promise<Response> => {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+      // didTimeout distinguishes OUR timeout from an unmount/supersession
+      // abort: both reject fetch with the same AbortError, but a timeout must
+      // surface as an error (#5609) — callers treat AbortError as a silent
+      // cancel, which left timed-out library queries rendering empty with no
+      // error. Mirrors utils/apiRequest.ts's identical mapping (#5019).
+      let didTimeout = false;
+      const timeoutId = setTimeout(() => {
+        didTimeout = true;
+        controller.abort();
+      }, REQUEST_TIMEOUT);
       activeControllers.current.add(controller);
 
       try {
@@ -113,6 +125,11 @@ export function useRestAPI() {
           signal: controller.signal,
         });
         return response;
+      } catch (err) {
+        if (didTimeout) {
+          throw new APIRequestError(`Request timed out after ${REQUEST_TIMEOUT}ms`, 0);
+        }
+        throw err;
       } finally {
         clearTimeout(timeoutId);
         activeControllers.current.delete(controller);
@@ -130,14 +147,26 @@ export function useRestAPI() {
   const request = useCallback(
     async <T>(endpoint: string, spec: RequestSpec): Promise<T> => {
       const { method, payload, queryParams, options, skipBody } = spec;
-      const seq = (requestSequences.current.get(endpoint) ?? 0) + 1;
-      requestSequences.current.set(endpoint, seq);
+      const url = buildUrl(endpoint, queryParams);
+
+      // Stale-response detection is a GET-only concern (#2439): a newer GET
+      // to the same URL supersedes the older in-flight response. When the
+      // verbs merged into this shared lifecycle (#5198), the guard silently
+      // started covering mutations too — a second POST to the same endpoint
+      // made the first throw "Stale response" even though the server had
+      // already applied it (#5608). Key on the full URL (query string
+      // included), not the bare endpoint.
+      let seq: number | undefined;
+      if (method === 'GET') {
+        seq = (requestSequences.current.get(url) ?? 0) + 1;
+        requestSequences.current.set(url, seq);
+      }
+
       inflightCount.current += 1;
       setIsLoading(true);
       setError(null);
 
       try {
-        const url = buildUrl(endpoint, queryParams);
         const response = await fetchWithTimeout(url, {
           method,
           headers: {
@@ -151,8 +180,9 @@ export function useRestAPI() {
           throw await httpErrorFromResponse(response);
         }
 
-        // Detect stale response: if a newer request started after this one, discard this response (fixes #2439).
-        if (seq !== requestSequences.current.get(endpoint)) {
+        // Detect stale response: if a newer GET started after this one, discard
+        // this response (fixes #2439). Mutations never take this branch (#5608).
+        if (seq !== undefined && seq !== requestSequences.current.get(url)) {
           response.body?.cancel();
           throw Object.assign(new Error('Stale response'), { name: 'StaleRequestError' });
         }
