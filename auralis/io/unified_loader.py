@@ -34,7 +34,7 @@ from .loaders import (
 # so test_ffprobe_error_masking_4540.py can monkeypatch unified_loader.check_ffmpeg
 # to isolate that regression guard from real ffmpeg-binary detection in CI (#4888).
 from .loaders import check_ffmpeg  # noqa: F401
-from .processing import resample_audio, validate_audio
+from .processing import peak_amplitude, resample_audio, validate_audio
 
 # SUPPORTED_FORMATS / FFMPEG_FORMATS live in auralis.io.formats (the single
 # source of truth) and are re-exported here for backward compatibility with
@@ -147,13 +147,12 @@ def load_audio(
         debug("Converted mono to stereo")
 
     if normalize_on_load:
-        # #3749: dtype-preserving normalize. `np.max(np.abs(audio_data))`
-        # returns a numpy scalar (typically float64 even on float32
-        # input), so `audio_data / peak * 0.98` can silently promote
-        # under older NumPy promotion rules. Cast `peak` to the input
-        # dtype defensively — same drift class as #3658 / #3659 /
-        # #3744 / #3752.
-        peak = np.max(np.abs(audio_data))
+        # #3749: dtype-preserving normalize. A numpy-scalar peak (float64
+        # even on float32 input) can silently promote under older NumPy
+        # promotion rules, so `peak` is cast to the input dtype defensively —
+        # same drift class as #3658 / #3659 / #3744 / #3752.
+        # peak_amplitude also avoids the full-size np.abs temporary (#5591).
+        peak = peak_amplitude(audio_data)
         if peak > 0:
             peak_typed = audio_data.dtype.type(peak)
             audio_data = audio_data / peak_typed * audio_data.dtype.type(0.98)

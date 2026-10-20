@@ -16,6 +16,21 @@ from ..utils.logging import Code, ModuleError, debug, warning
 _NATIVE_DOWNMIX_CHANNELS = frozenset({6, 8})
 
 
+def peak_amplitude(audio_data: np.ndarray) -> float:
+    """Return max(|sample|) without allocating a temporary (#5591).
+
+    ``np.max(np.abs(audio))`` materialises a second full-size array — on a
+    decode near the #5312 budget that doubles peak memory. ``max``/``min``
+    are allocation-free reductions; both are finite after ``sanitize_audio``,
+    which every caller of this helper runs (or needs) beforehand. A float
+    return also avoids the numpy-scalar promotion pitfall noted in
+    unified_loader's normalize branch.
+    """
+    if audio_data.size == 0:
+        return 0.0
+    return max(float(audio_data.max()), -float(audio_data.min()))
+
+
 def requires_layout_aware_downmix(n_channels: int) -> bool:
     """Return whether channel roles cannot be inferred safely from count alone."""
     return n_channels > 2 and n_channels not in _NATIVE_DOWNMIX_CHANNELS
@@ -53,13 +68,19 @@ def validate_audio(audio_data: np.ndarray, sample_rate: int, file_type: str) -> 
         warning(f"Very long audio: {duration_seconds/60:.1f} minutes")
 
     # Check for silence
-    max_amplitude = np.max(np.abs(audio_data))
+    max_amplitude = peak_amplitude(audio_data)
     if max_amplitude < 1e-6:
         warning(f"Audio appears to be silent (peak: {max_amplitude:.2e})")
 
     # Check for clipping
     if max_amplitude >= 0.99:
-        clipped_samples = np.sum(np.abs(audio_data) >= 0.99)
+        # Two comparisons over the existing buffer instead of np.abs's
+        # full-size temporary (#5591) — the decode budget is sized for the
+        # decoded buffer alone.
+        clipped_samples = int(
+            np.count_nonzero(audio_data >= 0.99)
+            + np.count_nonzero(audio_data <= -0.99)
+        )
         clipping_percentage = (clipped_samples / audio_data.size) * 100
         if clipping_percentage > 0.1:
             warning(f"Audio may be clipped ({clipping_percentage:.2f}% of samples)")
@@ -212,8 +233,9 @@ def downmix_to_stereo(audio_data: np.ndarray) -> np.ndarray:
     # Renormalize so the downmix peak doesn't exceed the input peak —
     # prevents surprise clipping when the matrix sum pushes a sample
     # above ±1.0 (or above the int range for integer sources).
-    input_peak = float(np.max(np.abs(audio))) if audio.size else 0.0
-    out_peak = float(np.max(np.abs(stereo))) if stereo.size else 0.0
+    # peak_amplitude avoids a full-size temporary on these big buffers (#5591).
+    input_peak = peak_amplitude(audio)
+    out_peak = peak_amplitude(stereo)
     if out_peak > 0.0 and out_peak > input_peak > 0.0:
         stereo = stereo * np.float32(input_peak / out_peak)
 
