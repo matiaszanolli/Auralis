@@ -73,6 +73,39 @@ class TestPortIsThreadedThrough:
         assert 'get_int_env("AURALIS_PORT", 8765)' in main_py
 
 
+class TestDevModeIsClearedForNonDevLaunches:
+    """AURALIS_DEV_MODE used to be only ever ADDED to the child env (#5432),
+    so a value inherited from an earlier dev session silently kept dev-mode
+    CORS/WS origin widening and /api/docs enabled on a launch the caller
+    asked to be non-dev. AURALIS_PORT was always overwritten; dev mode now
+    is too."""
+
+    def test_inherited_dev_mode_is_cleared_when_dev_mode_is_false(self, launch_module, monkeypatch):
+        monkeypatch.setenv("AURALIS_DEV_MODE", "1")
+        with patch("subprocess.Popen") as mock_popen:
+            mock_popen.return_value = MagicMock(pid=12345)
+            launch_module.start_backend(port=8765, dev_mode=False)
+
+        _, kwargs = mock_popen.call_args
+        assert kwargs["env"]["AURALIS_DEV_MODE"] == "0"
+
+    def test_inherited_value_is_overridden_when_dev_mode_is_true(self, launch_module, monkeypatch):
+        monkeypatch.setenv("AURALIS_DEV_MODE", "0")
+        with patch("subprocess.Popen") as mock_popen:
+            mock_popen.return_value = MagicMock(pid=12345)
+            launch_module.start_backend(port=8765, dev_mode=True)
+
+        _, kwargs = mock_popen.call_args
+        assert kwargs["env"]["AURALIS_DEV_MODE"] == "1"
+
+    def test_matches_the_desktop_launcher_reference(self):
+        """CONSISTENCY: desktop/backend-env.js::buildBackendEnv is the
+        sanctioned reference implementation — it sets AURALIS_DEV_MODE='0'
+        when not in development. Both launchers must keep agreeing."""
+        desktop_js = (REPO_ROOT / "desktop" / "backend-env.js").read_text()
+        assert "AURALIS_DEV_MODE" in desktop_js and "'0'" in desktop_js
+
+
 class TestFrontendUsesPnpmNotNpm:
     def test_missing_node_modules_triggers_pnpm_install(self, launch_module):
         def _exists(path_self):

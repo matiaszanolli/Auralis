@@ -74,8 +74,16 @@ def start_backend(port=8765, dev_mode=False):
     # (since sys.argv won't work reliably through subprocess).
     # Namespaced AURALIS_DEV_MODE (#4802) — must stay in sync with
     # config/app.py::is_dev_mode(), which reads this same name.
+    # #5432: explicitly clear it for a non-dev launch. It is only ever
+    # ADDED here, so a value inherited from an earlier dev session's
+    # environment silently kept dev-mode CORS/WS origin widening and
+    # /api/docs enabled on a run the caller asked to be non-dev — the
+    # sibling gap #4898/#4802/#4350 fixed in desktop/backend-env.js, whose
+    # buildBackendEnv() sets AURALIS_DEV_MODE = '0' the same way.
     if dev_mode:
         env["AURALIS_DEV_MODE"] = "1"
+    else:
+        env["AURALIS_DEV_MODE"] = "0"
 
     process = subprocess.Popen(
         [sys.executable, "main.py"],
