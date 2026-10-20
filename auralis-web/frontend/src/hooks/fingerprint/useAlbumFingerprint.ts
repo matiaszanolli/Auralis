@@ -12,7 +12,7 @@
  * - Returns partial fingerprint for safe gradient generation
  */
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueries } from '@tanstack/react-query';
 import type { AudioFingerprint } from '@/utils/fingerprintToGradient';
 import { get, APIRequestError } from '@/utils/apiRequest';
 
@@ -41,12 +41,16 @@ interface AlbumFingerprintResponse {
  * `useTrackFingerprint`; this is the half that sweep missed, and it converges on
  * that hook's shape rather than inventing a third.
  */
-const fetchAlbumFingerprint = async (albumId: number): Promise<AudioFingerprint | null> => {
+const fetchAlbumFingerprint = async (
+  albumId: number,
+  signal?: AbortSignal
+): Promise<AudioFingerprint | null> => {
   try {
     // #5019: shared transport, which bounds the request at DEFAULT_TIMEOUT_MS.
     // The bare fetch() this replaces had no signal and no timeout, and a grid
-    // of album tiles issues one of these per tile.
-    const data = await get<AlbumFingerprintResponse>(`/api/albums/${albumId}/fingerprint`);
+    // of album tiles issues one of these per tile. The caller's query signal
+    // is forwarded so unmount/invalidation aborts in-flight requests (#5611).
+    const data = await get<AlbumFingerprintResponse>(`/api/albums/${albumId}/fingerprint`, { signal });
     return data.fingerprint;
   } catch (err) {
     // Album doesn't have fingerprints yet, return null (will use hash fallback)
@@ -106,57 +110,63 @@ export function useAlbumFingerprint(
 }
 
 /**
- * Batch fetch multiple album fingerprints
- * More efficient than individual queries when rendering many albums
- *
- * Note: This is a simplified version. For production, consider implementing
- * a batch endpoint like GET /api/albums/fingerprints?ids=1,2,3
- */
-/**
- * #3644: chunk-based concurrency cap. The Electron-local FastAPI serves
- * all requests serially in the ASGI loop, so firing 200 requests at once
- * starves audio-streaming requests of I/O time. Resolve in groups of N
- * sequentially; within each group requests still fan out.
+ * #3644: concurrency cap. The Electron-local FastAPI serves all requests
+ * serially in the ASGI loop, so firing 200 requests at once starves
+ * audio-streaming requests of I/O time. A promise-pool gate (rather than the
+ * old chunk-sequential loop) keeps at most N requests in flight while letting
+ * per-album queries start in any order (#5611).
  */
 const FINGERPRINT_BATCH_CONCURRENCY = 10;
 
+let fingerprintSlotsInUse = 0;
+const fingerprintSlotWaiters: Array<() => void> = [];
+
+async function withFingerprintSlot<T>(fn: () => Promise<T>): Promise<T> {
+  while (fingerprintSlotsInUse >= FINGERPRINT_BATCH_CONCURRENCY) {
+    await new Promise<void>((release) => fingerprintSlotWaiters.push(release));
+  }
+  fingerprintSlotsInUse++;
+  try {
+    return await fn();
+  } finally {
+    fingerprintSlotsInUse--;
+    fingerprintSlotWaiters.shift()?.();
+  }
+}
+
 export function useAlbumFingerprints(albumIds: number[]) {
-  const queries = useQuery({
-    queryKey: ['album-fingerprints-batch', [...albumIds].sort().join(',')],
-    queryFn: async () => {
-      const fingerprintMap = new Map<number, AudioFingerprint | null>();
+  // #5611: one query per album, keyed exactly like useAlbumFingerprint so the
+  // two hooks share a cache — not one batch query keyed by the whole id list.
+  // The old single key changed on every infinite-scroll page, so each page
+  // refetched every album from scratch (O(N²/50) requests over a scroll) and
+  // the hook returned an empty Map while it ran, blanking every tile's
+  // fingerprint colouring. Per-album keys are stable under any list growth:
+  // scrolling only starts queries for albums not already cached. Each query
+  // still goes through the #3644 gate, so the concurrency cap survives.
+  const queries = useQueries({
+    queries: albumIds.map((albumId) => ({
+      queryKey: ['album-fingerprint', albumId],
+      queryFn: ({ signal }: { signal?: AbortSignal }) =>
+        withFingerprintSlot(() => fetchAlbumFingerprint(albumId, signal)),
+      staleTime: 5 * 60 * 1000,
+      gcTime: 30 * 60 * 1000,
+      // Same settled decision as the single-album hook: album art is
+      // decorative and every tile has a hash-gradient fallback.
+      retry: false,
+    })),
+  });
 
-      for (let i = 0; i < albumIds.length; i += FINGERPRINT_BATCH_CONCURRENCY) {
-        const chunk = albumIds.slice(i, i + FINGERPRINT_BATCH_CONCURRENCY);
-        const results = await Promise.allSettled(
-          chunk.map(id => fetchAlbumFingerprint(id))
-        );
-        results.forEach((result, index) => {
-          const albumId = chunk[index];
-          if (result.status === 'rejected') {
-            // Per-album tolerance is correct HERE and only here: one bad album
-            // must not empty a whole grid, and every tile has a hash gradient to
-            // fall back on. Before #5122 this branch was dead code, because
-            // fetchAlbumFingerprint caught its own errors and always fulfilled.
-            console.warn(`Failed to fetch fingerprint for album ${albumId}:`, result.reason);
-          }
-          fingerprintMap.set(
-            albumId,
-            result.status === 'fulfilled' ? result.value : null
-          );
-        });
-      }
-
-      return fingerprintMap;
-    },
-    staleTime: 5 * 60 * 1000,
-    gcTime: 30 * 60 * 1000,
-    enabled: albumIds.length > 0,
+  // Rebuilt per render — cheap at grid sizes, and the old hook likewise
+  // returned a fresh Map each render. Cached albums are present immediately,
+  // so adding a page never blanks the existing tiles.
+  const fingerprints = new Map<number, AudioFingerprint | null>();
+  albumIds.forEach((albumId, index) => {
+    fingerprints.set(albumId, queries[index]?.data ?? null);
   });
 
   return {
-    fingerprints: queries.data ?? new Map(),
-    isLoading: queries.isLoading,
-    error: queries.error,
+    fingerprints,
+    isLoading: queries.some(query => query.isLoading),
+    error: queries.find(query => query.error)?.error ?? null,
   };
 }

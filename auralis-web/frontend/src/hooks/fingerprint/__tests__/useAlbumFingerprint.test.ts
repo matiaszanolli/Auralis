@@ -140,6 +140,41 @@ describe('useAlbumFingerprints (batch)', () => {
 
     expect(result.current.fingerprints.size).toBe(0);
   });
+
+  it('adds a scroll page without refetching cached albums or blanking the map (#5611)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(mockAlbumFpResponse),
+    });
+    global.fetch = fetchMock;
+
+    const { result, rerender } = renderHook(
+      ({ ids }: { ids: number[] }) => useAlbumFingerprints(ids),
+      { wrapper: createWrapper(), initialProps: { ids: [1, 2, 3] } }
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+
+    // Infinite scroll delivers two more albums. Cached albums must neither be
+    // refetched nor vanish from the map while the new queries run — the old
+    // whole-list key refetched everything and returned an empty Map, blanking
+    // every tile's fingerprint colouring on each page.
+    rerender({ ids: [1, 2, 3, 4, 5] });
+    expect(result.current.fingerprints.get(1)).toBeTruthy();
+    expect(result.current.fingerprints.get(2)).toBeTruthy();
+    expect(result.current.fingerprints.get(3)).toBeTruthy();
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(5);
+    expect(result.current.fingerprints.get(4)).toBeTruthy();
+    expect(result.current.fingerprints.get(5)).toBeTruthy();
+  });
 });
 
 /**
@@ -225,15 +260,14 @@ describe('useAlbumFingerprints batch tolerance (#5122)', () => {
       wrapper: createWrapper(),
     });
 
-    await waitFor(() => expect(result.current.fingerprints.size).toBe(3));
     // One bad album must not empty the grid — every tile still gets an entry,
     // and the failed one falls back to the hash gradient via null.
-    expect(result.current.fingerprints.get(1)).toBeTruthy();
+    await waitFor(() => expect(result.current.fingerprints.get(1)).toBeTruthy());
     expect(result.current.fingerprints.get(2)).toBeNull();
     expect(result.current.fingerprints.get(3)).toBeTruthy();
   });
 
-  it('does not fail the whole batch query when an album errors', async () => {
+  it('surfaces a failing album as an error without taking down the map (#5611)', async () => {
     global.fetch = vi.fn().mockResolvedValue(failure(500, 'boom'));
 
     const { result } = renderHook(() => useAlbumFingerprints([1, 2]), {
@@ -241,11 +275,16 @@ describe('useAlbumFingerprints batch tolerance (#5122)', () => {
     });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(result.current.error).toBeNull();
+    // Per-album queries make failures independent by construction: the error
+    // is visible on the hook, and the map still carries every requested id
+    // (failed albums as null → hash-gradient fallback per tile).
+    expect(result.current.error).not.toBeNull();
     expect(result.current.fingerprints.size).toBe(2);
+    expect(result.current.fingerprints.get(1)).toBeNull();
+    expect(result.current.fingerprints.get(2)).toBeNull();
   });
 
-  it('logs the per-album failure that used to be invisible', async () => {
+  it('exposes a per-album failure as query error instead of swallowing it', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     global.fetch = vi.fn().mockResolvedValue(failure(500, 'boom'));
 
@@ -254,9 +293,10 @@ describe('useAlbumFingerprints batch tolerance (#5122)', () => {
     });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-    // Pre-fix the 'rejected' branch was dead code: fetchAlbumFingerprint caught
-    // its own errors and always fulfilled.
-    expect(warn).toHaveBeenCalled();
+    // Pre-#5122 the failure was invisible (resolved to null). The per-album
+    // query now rejects, so the failure is observable as an error.
+    expect(result.current.error).not.toBeNull();
+    expect(warn).not.toHaveBeenCalled();
     warn.mockRestore();
   });
 

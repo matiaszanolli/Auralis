@@ -84,8 +84,8 @@ export const RecentlyTouchedSection = ({
   // NOTE: this hook MUST be called unconditionally (Rules of Hooks). The
   // empty-list guard below must come AFTER every hook call, otherwise the
   // hook count changes between renders and React throws on the empty↔non-empty
-  // transition (same bug class as #3924). useAlbumFingerprints is a no-op for
-  // an empty array (enabled: albumIds.length > 0).
+  // transition (same bug class as #3924). useAlbumFingerprints issues no
+  // queries for an empty array (a per-album useQueries list of length zero).
   const albumIds = displayedAlbums.map(album => album.albumId);
   const { fingerprints } = useAlbumFingerprints(albumIds);
 
