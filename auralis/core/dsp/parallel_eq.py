@@ -13,7 +13,8 @@ enabling precise spectral shaping.
 """
 
 import numpy as np
-from scipy.signal import butter, sosfiltfilt
+from scipy.signal import butter
+from ...dsp.utils.filters import sosfiltfilt_safe
 
 
 class ParallelEQUtilities:
@@ -97,10 +98,15 @@ class ParallelEQUtilities:
         # already fixed in #3469 / #3470 / #3468).
         # Cast to audio.dtype immediately: sosfiltfilt() returns float64
         # regardless of input dtype (issue #2158).
+        # #5116: sosfiltfilt_safe — the chunk loop's final iteration can hand
+        # a chunk shorter than padlen, which raised ValueError and aborted
+        # mastering for the whole file. The band shapes the signal in place,
+        # so too-short degrades to passthrough ("no shaping applied"); the
+        # cast keeps the #2158 float32 contract.
         if audio.ndim == 1:
-            band = sosfiltfilt(sos_filter, audio).astype(audio.dtype)
+            band = sosfiltfilt_safe(sos_filter, audio, context="parallel_eq band").astype(audio.dtype)
         else:
-            band = sosfiltfilt(sos_filter, audio, axis=1).astype(audio.dtype)
+            band = sosfiltfilt_safe(sos_filter, audio, axis=1, context="parallel_eq band").astype(audio.dtype)
 
         # Calculate parallel boost amount
         # boost_linear = 1.0 means no change
@@ -171,10 +177,12 @@ class ParallelEQUtilities:
         sos_filter = butter(order, normalized_freq, btype='high', output='sos')
 
         # Extract high-frequency band; cast for dtype preservation (issue #2158).
+        # #5116 sibling: sosfiltfilt_safe, same padlen rationale as the band
+        # extraction above.
         if audio.ndim == 1:
-            band = sosfiltfilt(sos_filter, audio).astype(audio.dtype)
+            band = sosfiltfilt_safe(sos_filter, audio, context="parallel_eq HP band").astype(audio.dtype)
         else:
-            band = sosfiltfilt(sos_filter, audio, axis=1).astype(audio.dtype)
+            band = sosfiltfilt_safe(sos_filter, audio, axis=1, context="parallel_eq HP band").astype(audio.dtype)
 
         # Calculate parallel boost amount
         boost_linear = 10 ** (boost_db / 20)
@@ -248,10 +256,11 @@ class ParallelEQUtilities:
         sos_filter = butter(order, [low_norm, high_norm], btype='band', output='sos')
 
         # Extract mid-range band; cast for dtype preservation (issue #2158).
+        # #5116 sibling: sosfiltfilt_safe, same padlen rationale as above.
         if audio.ndim == 1:
-            band = sosfiltfilt(sos_filter, audio).astype(audio.dtype)
+            band = sosfiltfilt_safe(sos_filter, audio, context="parallel_eq bandpass").astype(audio.dtype)
         else:
-            band = sosfiltfilt(sos_filter, audio, axis=1).astype(audio.dtype)
+            band = sosfiltfilt_safe(sos_filter, audio, axis=1, context="parallel_eq bandpass").astype(audio.dtype)
 
         # Calculate parallel boost amount
         boost_linear = 10 ** (boost_db / 20)

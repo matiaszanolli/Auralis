@@ -5,7 +5,8 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from . import no_op
-from scipy.signal import butter, sosfiltfilt
+from scipy.signal import butter
+from ...dsp.utils.filters import sosfiltfilt_safe
 
 from ..dsp import ParallelEQUtilities
 from ..utils import SmoothCurveUtilities
@@ -76,7 +77,12 @@ def apply(
         # smears low-frequency transients — matching every sibling DSP stage
         # (#3469/#3470/#3661/#3664/#3666). The HP only fires on elevated
         # sub-bass, so the doubled filter cost is acceptable (#4097).
-        filtered = np.asarray(sosfiltfilt(hp_sos, processed, axis=axis), dtype=processed.dtype)
+        # #5116: sosfiltfilt_safe — a final chunk shorter than padlen used to
+        # raise ValueError and abort mastering for the whole file. The HP
+        # removes rumble, so too-short degrades to passthrough (no HP), the
+        # same semantics as hp_depth == 0.
+        filtered = sosfiltfilt_safe(hp_sos, processed, axis=axis,
+                                    context="sub_bass rumble HP").astype(processed.dtype)
         processed = (
             hp_depth * filtered + (1.0 - hp_depth) * processed
         ).astype(processed.dtype, copy=False)
