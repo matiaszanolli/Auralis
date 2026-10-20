@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createCrudService, createEndpointGenerator } from '../serviceFactory';
+import { createCrudService } from '../serviceFactory';
 
 // Mock the apiRequest module
 vi.mock('../apiRequest', () => ({
@@ -102,28 +102,6 @@ describe('serviceFactory', () => {
       });
       const result = await service.custom('byTag', 'get', 'rock');
       expect(result).toEqual({ url: '/api/items?tag=rock', method: 'GET' });
-    });
-  });
-
-  describe('createEndpointGenerator', () => {
-    it('withId should append id to base URL', () => {
-      const gen = createEndpointGenerator('/api/items');
-      expect(gen.withId(42)).toBe('/api/items/42');
-    });
-
-    it('withParam should add single query param', () => {
-      const gen = createEndpointGenerator('/api/items');
-      expect(gen.withParam('page', 3)).toBe('/api/items?page=3');
-    });
-
-    it('withParams should add multiple query params', () => {
-      const gen = createEndpointGenerator('/api/items');
-      expect(gen.withParams({ page: 1, limit: 10 })).toBe('/api/items?page=1&limit=10');
-    });
-
-    it('withParams should return base URL for empty params', () => {
-      const gen = createEndpointGenerator('/api/items');
-      expect(gen.withParams({})).toBe('/api/items');
     });
   });
 });
