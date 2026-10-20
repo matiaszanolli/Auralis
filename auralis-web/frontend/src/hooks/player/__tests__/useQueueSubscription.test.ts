@@ -22,6 +22,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Provider } from 'react-redux';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import { createTestStore } from '@/test/test-utils';
+import { setCurrentTrack } from '@/store/slices/playerSlice';
+import { setCurrentIndex } from '@/store/slices/queueSlice';
 import { useQueueSubscription } from '../useQueueSubscription';
 import type { QueueTrack } from '@/types/domain';
 
@@ -191,6 +193,23 @@ describe('useQueueSubscription', () => {
 
     expect(queue().tracks).toHaveLength(3);
     expect(queue().currentIndex).toBe(1);
+  });
+
+  it("does not regress the index to the engine's stale pointer after a local skip (#5601)", () => {
+    // Local Next twice: the session plays TRACKS[2] and Redux points there.
+    // The backend engine's pointer never moved (#5460), so the next
+    // queue_changed — e.g. from a drag — still carries current_index: 0.
+    store.dispatch(setCurrentTrack(makeTrack(3)));
+    store.dispatch(setCurrentIndex(2));
+    renderSubscription();
+
+    deliver({
+      type: 'queue_changed',
+      data: { tracks: TRACKS, current_index: 0 },
+    });
+
+    // The highlight follows the audio (slot 2), not the stale engine pointer.
+    expect(queue().currentIndex).toBe(2);
   });
 
   // --------------------------------------------------------------------

@@ -54,6 +54,7 @@ import {
 import type { RawPlayerStateData, TrackInfo } from '@/types/websocket';
 import { isEnhancementPreset } from '@/types/domain';
 import { mapTrackInfoToTrack } from './trackInfoMapper';
+import { reconcileQueueIndex } from './queueIndexReconciliation';
 
 /**
  * Hook to sync WebSocket player_state messages to Redux (player + queue)
@@ -124,9 +125,22 @@ export function usePlayerStateSync() {
 
         // Player state — guarded on field presence so partial messages do not
         // overwrite valid state with undefined/NaN. React 18 batches these.
+        //
+        // #5601: the engine's snapshot can lag a client-authoritative local
+        // skip — the engine pointer only moves on the next play command
+        // (#5460 tracks that backend drift). When the snapshot's track
+        // differs from the track the session is playing, it is that stale
+        // pointer speaking: keep the local track, and reconcile queue_index
+        // below to the local track's slot instead of regressing both. A cold
+        // start (no local track) adopts the snapshot as before. Position and
+        // duration fields are deliberately untouched by this gate — their
+        // staleness is pre-existing and self-limiting, not this issue.
+        const playingTrackId = store.getState().player.currentTrack?.id ?? null;
         if ('current_track' in state) {
           const track = state.current_track;
-          if (track) {
+          if (track && playingTrackId != null && track.id !== playingTrackId) {
+            import.meta.env.DEV && console.log('[usePlayerStateSync] Ignoring stale engine track', track.id, '— playing', playingTrackId, '(#5601)');
+          } else if (track) {
             dispatch(setCurrentTrack(mapTrackInfoToTrack(track)));
           } else {
             dispatch(setCurrentTrack(null));
@@ -176,7 +190,15 @@ export function usePlayerStateSync() {
         }
 
         if ('queue_index' in state && typeof state.queue_index === 'number') {
-          dispatch(setCurrentIndex(state.queue_index));
+          // #5601: reconcile the engine pointer against the playing track —
+          // after a local skip it still points at the old one, and adopting
+          // it raw jumped the queue highlight back while the audio continued.
+          const reconciled = reconcileQueueIndex(
+            store.getState().queue.tracks,
+            state.queue_index,
+            store.getState().player.currentTrack?.id ?? null,
+          );
+          if (reconciled != null) dispatch(setCurrentIndex(reconciled));
         }
 
         // #3586: sync shuffle/repeat from the reconnect snapshot.
@@ -294,6 +316,12 @@ export function usePlayerStateSync() {
 
       const index = data.track_index;
       const tracks = store.getState().queue.tracks;
+      // Deliberately NOT #5601-reconciled: track_changed is a backend-driven
+      // navigation event (NavigationService's next/previous/jumped), where the
+      // ENGINE is the authority the client follows. Nothing emits it today
+      // (PLAYER_NEXT/PREVIOUS have no frontend callers), but gating it would
+      // break that contract for the day it is wired. The stale-pointer writers
+      // are queue_changed and player_state, which both reconcile.
       if (index >= 0 && index < tracks.length) {
         dispatch(setCurrentIndex(index));
         dispatch(setCurrentTrack(tracks[index]));

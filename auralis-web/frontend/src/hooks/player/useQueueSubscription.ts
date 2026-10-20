@@ -9,7 +9,7 @@
  * @module hooks/player/useQueueSubscription
  */
 
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { useWebSocketMessages } from '@/hooks/websocket/useWebSocketMessages';
 import type {
   QueueChangedMessage,
@@ -23,7 +23,10 @@ import {
   setRepeatMode as reduxSetRepeatMode,
   isRepeatMode,
 } from '@/store/slices/queueSlice';
+import { playerSelectors } from '@/store/selectors';
+import { selectQueueTracks } from '@/store/slices/queueSlice';
 import { mapTrackInfoToTrack } from './trackInfoMapper';
+import { reconcileQueueIndex } from './queueIndexReconciliation';
 import type { AppDispatch } from '@/store';
 
 type QueueWSMessage =
@@ -38,6 +41,11 @@ type QueueWSMessage =
  */
 export function useQueueSubscription(): void {
   const dispatch = useDispatch<AppDispatch>();
+  // The track the session is actually playing — the authority the engine's
+  // stale queue pointer gets reconciled against (#5601). queueTracks serves
+  // the same reconciliation when a frame carries only an index.
+  const playingTrackId = useSelector(playerSelectors.selectCurrentTrack)?.id;
+  const queueTracks = useSelector(selectQueueTracks);
 
   useWebSocketMessages(
     ['queue_changed', 'queue_shuffled', 'repeat_mode_changed'],
@@ -53,9 +61,24 @@ export function useQueueSubscription(): void {
           // dispatching them raw left every queue entry without artworkUrl,
           // and track_changed then copied such an entry into player.currentTrack.
           const data = msg.data ?? ({} as QueueChangedMessage['data']);
-          if (data.tracks) dispatch(reduxSetQueue(data.tracks.map(mapTrackInfoToTrack)));
-          if (data.current_index != null) dispatch(reduxSetCurrentIndex(data.current_index));
-          else if (data.currentIndex != null) dispatch(reduxSetCurrentIndex(data.currentIndex));
+          const mappedTracks = data.tracks?.map(mapTrackInfoToTrack);
+          const engineIndex = data.current_index ?? data.currentIndex;
+          // setQueue FIRST: setCurrentIndex's reducer silently drops any index
+          // outside the current tracks array, so an empty/replaced queue must
+          // land before the index does.
+          if (mappedTracks) dispatch(reduxSetQueue(mappedTracks));
+          if (engineIndex != null) {
+            // #5601: engineIndex is the ENGINE's pointer, which still sits on
+            // the pre-skip track after a local Next/Previous. Reconcile it
+            // against what the session is playing — against the incoming
+            // tracks when the frame carries them, else the live queue.
+            const reconciled = reconcileQueueIndex(
+              mappedTracks ?? queueTracks,
+              engineIndex,
+              playingTrackId,
+            );
+            if (reconciled != null) dispatch(reduxSetCurrentIndex(reconciled));
+          }
           break;
         }
 
