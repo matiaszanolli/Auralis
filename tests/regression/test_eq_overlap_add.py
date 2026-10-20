@@ -156,8 +156,9 @@ class TestEQWolaHeadNormalization:
         with p1, p2:
             result = processor._process_with_psychoacoustic_eq(audio, {})
 
-        # Sample 0 is the one irreducible Hann-window zero (see class docstring).
-        assert result[0] == pytest.approx(0.0, abs=1e-9)
+        # #5575: sample 0 — the one irreducible Hann-window zero — is now
+        # restored from frame 0's unwindowed EQ output instead of 0.0.
+        assert result[0] == pytest.approx(1.0, abs=1e-9)
         # Every other sample in the old fade-in region must now be exact —
         # before the fix this ramped linearly from 0.0 to ~1.0 across [0, hop).
         np.testing.assert_allclose(
@@ -176,8 +177,9 @@ class TestEQWolaHeadNormalization:
         with p1, p2:
             result = processor._process_with_psychoacoustic_eq(audio, {})
 
-        assert result[0, 0] == pytest.approx(0.0, abs=1e-9)
-        assert result[0, 1] == pytest.approx(0.0, abs=1e-9)
+        # #5575: sample 0 restored from frame 0's unwindowed EQ output.
+        assert result[0, 0] == pytest.approx(1.0, abs=1e-9)
+        assert result[0, 1] == pytest.approx(1.0, abs=1e-9)
         np.testing.assert_allclose(
             result[1:hop], np.ones((hop - 1, 2)),
             atol=1e-6,
@@ -221,7 +223,8 @@ class TestEQWolaHeadNormalization:
             result = processor._process_with_psychoacoustic_eq(audio, {})
 
         assert len(result) == short_len
-        assert result[0] == pytest.approx(0.0, abs=1e-9)
+        # #5575: sample 0 restored (0.7 in, 0.7 out).
+        assert result[0] == pytest.approx(0.7, abs=1e-9)
         np.testing.assert_allclose(
             result[1:], np.full(short_len - 1, 0.7),
             atol=1e-6,
