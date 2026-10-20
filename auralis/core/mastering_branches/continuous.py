@@ -221,14 +221,41 @@ class ContinuousMasteringBranch(ProcessingBranch):
         # target_peak is 0.85 (loud) … 0.90 (quiet).
         adapted_peak = float(np.clip(target_peak - 0.01, 0.84, 0.89))
 
-        if verbose:
-            print(
-                f"   Normalize: {adapted_peak*100:.0f}% peak "
-                "(true-peak headroom, crest-preserving)"
-            )
+        # #5559: derive a FILE-level gain from prepare_file's whole-song peak
+        # scan instead of normalizing each chunk to its own peak — the
+        # per-chunk normalize raised a quiet movement/fade-out/near-silent
+        # tail to the loudest section's level, erasing macro-dynamics and
+        # raising noise floors. A constant gain preserves relative levels
+        # between sections while capping the loudest at adapted_peak.
+        # Falls back to the per-chunk normalize only when no pre-scan ran
+        # (direct _process() test path).
+        song_peak_db = getattr(self.pipeline, '_song_peak_db', None)
+        if song_peak_db is not None:
+            song_peak_linear = 10 ** (song_peak_db / 20)
+            file_gain = adapted_peak / song_peak_linear \
+                if song_peak_linear > 0 else 1.0
+        else:
+            file_gain = None
 
-        processed = normalize(processed, adapted_peak)
-        recorder.add({'stage': 'normalize', 'target_peak': adapted_peak})
+        if verbose:
+            if file_gain is not None:
+                print(
+                    f"   Normalize: file-level gain {20 * np.log10(max(file_gain, 1e-9)):+.1f} dB "
+                    "(true-peak headroom, crest-preserving, macro-dynamics preserved)"
+                )
+            else:
+                print(
+                    f"   Normalize: {adapted_peak*100:.0f}% peak "
+                    "(true-peak headroom, crest-preserving)"
+                )
+
+        if file_gain is not None:
+            processed = processed * file_gain
+            recorder.add({'stage': 'normalize', 'file_gain': file_gain,
+                          'target_peak': adapted_peak})
+        else:
+            processed = normalize(processed, adapted_peak)
+            recorder.add({'stage': 'normalize', 'target_peak': adapted_peak})
 
         processed = self._assert_finite(
             processed, "continuous path after soft-clip/stereo/normalize"
