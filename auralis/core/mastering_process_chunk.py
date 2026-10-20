@@ -19,7 +19,6 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from ..dsp.basic import normalize
 from ..dsp.dynamics.soft_clipper import soft_clip
 from ..utils.audio_validation import sanitize_audio, validate_audio_finite
 from .mastering_branches import ContinuousMasteringBranch
@@ -136,23 +135,11 @@ def process_chunk(
     )
 
     info['stages'].extend(path_info.get('stages', []))
-    needs_output_normalize = path_info.get('needs_output_normalize', False)
 
-    # STAGE 3: Optional unified output normalization.
-    if needs_output_normalize:
-        # Target slightly below 0 dBFS to leave headroom for playback
-        output_target = 0.95
-
-        current_peak = np.max(np.abs(processed))
-        # Normalize in both directions — boost quiet material AND reduce hot
-        # peaks above the target ceiling (fixes #2306: was only normalizing UP).
-        if current_peak > 0:
-            processed = normalize(processed, output_target)
-            if verbose:
-                gain_db = 20 * np.log10(output_target / current_peak)
-                direction = "+" if gain_db >= 0 else ""
-                print(f"   Output normalize: {direction}{gain_db:.1f} dB → {output_target*100:.0f}% peak")
-            info['stages'].append({'stage': 'output_normalize', 'target_peak': output_target})
+    # STAGE 3 (output normalization) was removed in #5245: the
+    # `needs_output_normalize` gate was permanently False — ContinuousMasteringBranch
+    # is the only branch and performs its own final normalization inside
+    # apply() (normalize(processed, adapted_peak)). Final output validation:
 
     # Validate output for NaN/Inf (graceful handling for production resilience)
     processed = sanitize_audio(processed, context="simple mastering output")

@@ -234,7 +234,8 @@ class ContinuousMasteringBranch(ProcessingBranch):
             processed, "continuous path after soft-clip/stereo/normalize"
         )
 
-        # This path performs its own final normalization.
+        # This path performs its own final normalization (the normalize()
+        # call above); #5245 removed process_chunk's dead
+        # needs_output_normalize stage, so no flag is needed here either.
         info = recorder.to_dict()
-        info['needs_output_normalize'] = False
         return processed, info
