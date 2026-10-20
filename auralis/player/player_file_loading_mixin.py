@@ -58,18 +58,21 @@ class PlayerFileLoadingMixin:
         Returns:
             bool: True if successful
         """
-        if self.file_manager.load_file(file_path):
-            # #3667: hold _audio_lock while the playback controller resets
-            # position so no concurrent get_audio_chunk() can observe the
-            # new audio_data at the old position. file_manager.load_file
-            # has already swapped audio_data inside _audio_lock — re-taking
-            # the RLock here (it's reentrant) keeps swap+reset visible to
-            # readers as a single critical section.
-            # #3781: defer_notifications() outer so load_and_stop()'s notify
-            # fires after _audio_lock releases (see seek() for full rationale).
-            with self.playback.defer_notifications(), self.file_manager._audio_lock:
-                self.playback.load_and_stop()
-
+        # #5581: pass the position reset as an on_loaded hook so it runs in
+        # the SAME _audio_lock critical section as the buffer swap inside
+        # file_manager.load_file. The previous two-step form (load_file
+        # swaps under the lock and releases; the mixin re-took the RLock for
+        # load_and_stop) left a window where a concurrent get_audio_chunk()
+        # saw the new track's audio at the old position.
+        # #3781 (unchanged): defer_notifications() stays OUTER — the hook
+        # runs under _audio_lock, so its notify must be queued and flushed
+        # only after the lock releases (callbacks under _audio_lock are the
+        # AB-BA deadlock defer_notifications exists to prevent).
+        with self.playback.defer_notifications():
+            loaded = self.file_manager.load_file(
+                file_path, on_loaded=self.playback.load_and_stop
+            )
+        if loaded:
             self._schedule_fingerprint_load(file_path)
 
             # Start prebuffering next track
@@ -113,21 +116,28 @@ class PlayerFileLoadingMixin:
         Returns:
             bool: True if successful
         """
-        if self.integration.load_track_from_library(track_id):
-            # Mirror load_file (#3667): hold _audio_lock so the position
-            # reset is atomic with the audio swap already done by
-            # integration.load_track_from_library -> file_manager.load_file.
-            # The DB session is closed before we reach here, so no
-            # lock-ordering issue.
-            # #3781: defer_notifications() outer so load_and_stop()'s notify
-            # fires after _audio_lock releases (see seek() for full rationale).
-            # #3785: capture current_file inside the same _audio_lock section
-            # rather than as a separate raw read after it releases — closes
-            # the window where a concurrent load/advance could swap
-            # current_file between load_and_stop() and the read.
-            with self.playback.defer_notifications(), self.file_manager._audio_lock:
-                self.playback.load_and_stop()
-                current_file = self.file_manager.current_file
+        # #5581 (mirror of load_file): pass the position reset as an on_loaded
+        # hook so it runs inside file_manager.load_file's swap critical
+        # section — swap+reset is atomic for chunk readers. The reset fires
+        # before integration's post-load steps (set_current_track,
+        # record_play, reference auto-selection) rather than after all of
+        # them; the chunk-reader invariant the old re-lock guarded is
+        # swap-vs-position, which this closes at the swap itself. #3785: the
+        # hook captures current_file inside the same critical section.
+        current_file: str | None = None
+
+        def _on_loaded() -> None:
+            nonlocal current_file
+            self.playback.load_and_stop()
+            current_file = self.file_manager.current_file
+
+        # #3781: defer_notifications() outer — the hook runs under
+        # _audio_lock, so its notify must be queued and flushed only after
+        # the lock releases.
+        with self.playback.defer_notifications():
+            loaded = self.integration.load_track_from_library(track_id, on_loaded=_on_loaded)
+
+        if loaded:
             # IntegrationManager.load_track_from_library() calls
             # file_manager.load_file() internally, which sets current_file.
             # Schedule the fingerprint loader here (the player wrapper

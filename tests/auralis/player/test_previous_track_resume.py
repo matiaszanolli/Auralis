@@ -36,7 +36,13 @@ def _make_player(load_succeeds: bool = True) -> AudioPlayer:
 
     file_manager = MagicMock()
     file_manager._audio_lock = threading.RLock()
-    file_manager.load_file.return_value = load_succeeds
+    # Model the real load_file contract (#5581): the on_loaded hook runs
+    # inside the call, so playback.load_and_stop actually executes.
+    def _load_file(path, on_loaded=None):
+        if on_loaded is not None:
+            on_loaded()
+        return load_succeeds
+    file_manager.load_file.side_effect = _load_file
     file_manager.current_file = PREV_TRACK["file_path"]
     file_manager.get_total_samples.return_value = 44100
     player.file_manager = file_manager
@@ -189,8 +195,12 @@ class TestConcurrentPauseDuringPrevious:
         # in to *this* mock (rather than after load_file() returns) is what
         # actually reproduces the race instead of pausing a track already
         # forced to STOPPED, where PlaybackController.pause() would no-op.
-        def load_file_racing_a_pause(_path: str) -> bool:
+        def load_file_racing_a_pause(_path: str, on_loaded=None) -> bool:
+            # Lands while state is still PLAYING — the real race window.
             player.pause()
+            # The swap-section reset, as the real file manager runs it (#5581).
+            if on_loaded is not None:
+                on_loaded()
             return True
 
         player.file_manager.load_file.side_effect = load_file_racing_a_pause

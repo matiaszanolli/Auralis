@@ -238,12 +238,17 @@ class IntegrationManager:
             })
         self._notify_callbacks(state_info)
 
-    def load_track_from_library(self, track_id: int) -> bool:
+    def load_track_from_library(
+        self, track_id: int, on_loaded: Callable[[], None] | None = None
+    ) -> bool:
         """
         Load a track from the library by ID.
 
         Args:
             track_id: Database ID of track
+            on_loaded: Optional callback forwarded to
+                ``file_manager.load_file`` so the caller's playback-state
+                reset runs inside the buffer-swap critical section (#5581).
 
         Returns:
             bool: True if successful
@@ -256,7 +261,9 @@ class IntegrationManager:
                 return False
 
             # Load the audio file
-            if not self.file_manager.load_file(cast(str, track.filepath)):
+            if not self.file_manager.load_file(
+                cast(str, track.filepath), on_loaded=on_loaded
+            ):
                 return False
 
             # #3786: write `current_track` under the same lock used by

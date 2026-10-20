@@ -10,7 +10,7 @@ Responsibilities:
 
 import threading
 from pathlib import Path
-from typing import cast
+from typing import Callable, cast
 
 import numpy as np
 
@@ -41,12 +41,19 @@ class AudioFileManager:
         self.reference_data: np.ndarray | None = None
         self.reference_file: str | None = None
 
-    def load_file(self, file_path: str) -> bool:
+    def load_file(self, file_path: str, on_loaded: Callable[[], None] | None = None) -> bool:
         """
         Load an audio file for playback.
 
         Args:
             file_path: Path to the audio file
+            on_loaded: Optional callback run inside the same ``_audio_lock``
+                critical section as the buffer swap. Callers use it to reset
+                playback state atomically with the new audio — without it, a
+                concurrent ``get_audio_chunk()`` could observe the new track
+                at the old position (#5581). Must not fire notifications:
+                callbacks running under ``_audio_lock`` are the AB-BA
+                deadlock ``defer_notifications`` exists to prevent (#3781).
 
         Returns:
             bool: True if successful
@@ -62,6 +69,8 @@ class AudioFileManager:
                 self.audio_data = audio_data
                 self.current_file = file_path
                 self.sample_rate = loaded_sample_rate
+                if on_loaded is not None:
+                    on_loaded()
 
             info(f"Loaded audio file: {file_path}")
             info(f"Duration: {self.get_duration():.1f}s")

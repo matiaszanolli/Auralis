@@ -39,9 +39,12 @@ class TestFingerprintScheduling:
     def test_load_track_from_library_schedules_fingerprint(self, player_with_mocks):
         player, schedule = player_with_mocks
         # Simulate IntegrationManager.load_track_from_library() setting
-        # current_file as a side effect.
-        def fake_load_track(track_id: int) -> bool:
+        # current_file as a side effect, running the caller's on_loaded hook
+        # (#5581) inside the swap section like the real file manager does.
+        def fake_load_track(track_id: int, on_loaded=None) -> bool:
             player.file_manager.current_file = f"/library/track_{track_id}.flac"
+            if on_loaded is not None:
+                on_loaded()
             return True
 
         with patch.object(player.integration, "load_track_from_library",

@@ -56,11 +56,14 @@ def _make_player():
     # Integration manager — simulate a load that takes 50ms
     intg = MagicMock()
 
-    def _slow_load(track_id):
-        # Acquire audio_lock briefly to simulate file_manager.load_file()
+    def _slow_load(track_id, on_loaded=None):
+        # Simulate file_manager.load_file(): swap under audio_lock, and run
+        # the caller's on_loaded hook (#5581) inside the same section.
         with fm._audio_lock:
             fm.audio_data = np.zeros(44100, dtype=np.float32)
             fm.sample_rate = 44100
+            if on_loaded is not None:
+                on_loaded()
         return True
 
     intg.load_track_from_library.side_effect = _slow_load
@@ -117,8 +120,8 @@ def test_no_audio_position_race():
 
     original_load = player.integration.load_track_from_library.side_effect
 
-    def _instrumented_load(track_id):
-        result = original_load(track_id)
+    def _instrumented_load(track_id, on_loaded=None):
+        result = original_load(track_id, on_loaded=on_loaded)
         swap_done.set()
         return result
 
