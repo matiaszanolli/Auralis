@@ -46,11 +46,18 @@ fn apply_hann_window(signal: &mut [Complex<f32>]) {
     }
 }
 
-/// Compute power spectral density from frequency bins
+/// Compute power spectral density from frequency bins.
+///
+/// #5570: no per-bin floor. The old absolute `1e-10` floor set most bins on
+/// quiet material, making the 7-band fractions depend on loudness instead of
+/// spectral shape (pink noise at -37 dBFS read air=0.24 vs 0.05 at -14 dBFS).
+/// The consumer normalises by the band sum, which is guarded by
+/// `total > 0.0` (pure silence falls back to the uniform distribution), so
+/// the floor bought nothing but level dependence.
 fn compute_psd(spectrum: &[Complex<f32>]) -> Vec<f32> {
     spectrum
         .iter()
-        .map(|c| (c.norm_sqr() / (spectrum.len() as f32).powi(2)).max(1e-10))
+        .map(|c| c.norm_sqr() / (spectrum.len() as f32).powi(2))
         .collect()
 }
 

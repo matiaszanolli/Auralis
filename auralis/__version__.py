@@ -63,7 +63,7 @@ __db_schema_version__ = 21  # drop queue_state/queue_history: queue undo retired
 #             (spectral bands, tempo, stereo_width, phase_correlation). Rows
 #             written by them are not comparable to v9 rows and must be
 #             recomputed.
-FINGERPRINT_ALGORITHM_VERSION = 9
+FINGERPRINT_ALGORITHM_VERSION = 10
 
 # Version history
 # 1.0.0 - Initial release with adaptive mastering, web UI, and desktop app

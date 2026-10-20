@@ -129,44 +129,46 @@ fn compute_bass_mid_ratio(audio: &[f32], sample_rate: u32) -> f32 {
         return 0.5;
     }
 
-    let fft_size = (audio.len().next_power_of_two()).min(65536);
-    let mut fft_input: Vec<Complex<f32>> = vec![Complex { re: 0.0, im: 0.0 }; fft_size];
+    // #5571: analyse the same 30 s span the band analysis uses (averaged
+    // frames), instead of at most 65536 samples (~3 s) — the dimensions of
+    // one fingerprint must not have inconsistent scopes.
+    let analysis_len = ((30.0 * sample_rate as f32) as usize).min(audio.len());
+    let analysis_audio = &audio[..analysis_len];
 
-    for (i, &sample) in audio.iter().enumerate().take(fft_size) {
-        fft_input[i].re = sample;
-    }
-
-    // Apply Hann window
-    let n = audio.len().min(fft_size) as f32;
-    for (i, sample) in fft_input.iter_mut().enumerate().take(audio.len().min(fft_size)) {
-        let window = 0.5 * (1.0 - ((2.0 * PI * i as f32) / n).cos());
-        sample.re *= window;
-    }
-
-    // FFT
+    let fft_size = (analysis_len as usize).next_power_of_two().min(65536);
     let mut planner = FftPlanner::new();
     let fft = planner.plan_fft_forward(fft_size);
-    fft.process(&mut fft_input);
 
-    // Energy distribution
     let bass_bin = hz_to_bin(200.0, sample_rate, fft_size);
     let mid_bin = hz_to_bin(2000.0, sample_rate, fft_size);
 
-    let bass_energy: f32 = fft_input[..bass_bin]
-        .iter()
-        .map(|c| c.norm_sqr())
-        .sum();
-    let mid_energy: f32 = fft_input[bass_bin..mid_bin]
-        .iter()
-        .map(|c| c.norm_sqr())
-        .sum();
+    let mut bass_total: f32 = 0.0;
+    let mut mid_total: f32 = 0.0;
+    let mut frame_count: u32 = 0;
 
-    let total = bass_energy + mid_energy;
+    for frame in analysis_audio.chunks(fft_size) {
+        let mut fft_input: Vec<Complex<f32>> = vec![Complex { re: 0.0, im: 0.0 }; fft_size];
+        let n = frame.len() as f32;
+        for (i, &sample) in frame.iter().enumerate() {
+            // Hann window over the actual frame length.
+            let window = 0.5 * (1.0 - ((2.0 * PI * i as f32) / n).cos());
+            fft_input[i].re = sample * window;
+        }
+
+        fft.process(&mut fft_input);
+
+        bass_total += fft_input[..bass_bin].iter().map(|c| c.norm_sqr()).sum::<f32>();
+        mid_total += fft_input[bass_bin..mid_bin].iter().map(|c| c.norm_sqr()).sum::<f32>();
+        frame_count += 1;
+    }
+    let _ = frame_count;
+
+    let total = bass_total + mid_total;
     if total < 1e-10 {
         return 0.5;
     }
 
-    (bass_energy / total).clamp(0.0, 1.0)
+    (bass_total / total).clamp(0.0, 1.0)
 }
 
 /// Convert Hz to FFT bin index
@@ -465,28 +467,52 @@ fn estimate_pitch_stability(audio: &[f32], sample_rate: u32) -> f32 {
     (1.0 - cv).clamp(0.0, 1.0)
 }
 
-/// Estimate transient density (percussive content)
+/// Estimate transient density (percussive content).
+///
+/// #5571: the old implementation counted absolute sample deltas
+/// (`|x[n+1]-x[n]| > 0.01`) over only the FIRST SECOND of the window —
+/// that measures HF content times absolute level, not onsets (a pure sine
+/// measured 0.64-0.98; a tone with its first 1.5 s silenced measured 0.0).
+/// Now: frame the WHOLE analysis window, count frames whose RMS jumps
+/// >1.5x versus the previous frame (a level-independent onset-strength
+/// ratio), and express onsets per second normalised to 0-1 with ~8
+/// onsets/s treated as maximal percussive density.
 fn estimate_transient_density(audio: &[f32], sample_rate: u32) -> f32 {
-    if audio.len() < 2 {
+    if audio.len() < 2 || sample_rate == 0 {
         return 0.0;
     }
 
-    // Compute high-frequency content as proxy for transient density
-    let frame_size = (sample_rate as usize).max(512); // At least 1 second of analysis
-    let mut energy = 0.0f32;
-    let mut prev = 0.0f32;
+    let frame_size = 1024usize.min(audio.len());
+    if frame_size < 2 {
+        return 0.0;
+    }
 
-    let diff_count = audio
-        .windows(2)
-        .take(frame_size.min(audio.len() - 1))
-        .filter(|w| {
-            let diff = (w[1] - w[0]).abs();
-            diff > 0.01 // Significant change
-        })
-        .count();
+    let mut frame_rms: Vec<f32> = Vec::new();
+    for frame in audio.chunks(frame_size) {
+        if frame.len() < 2 {
+            break;
+        }
+        let sum: f32 = frame.iter().map(|s| s * s).sum();
+        frame_rms.push((sum / frame.len() as f32).sqrt());
+    }
+    if frame_rms.len() < 2 {
+        return 0.0;
+    }
 
-    // Normalize to 0-1
-    (diff_count as f32 / frame_size as f32).clamp(0.0, 1.0)
+    let mut onsets: u32 = 0;
+    let mut prev_rms = frame_rms[0];
+    for &rms in &frame_rms[1..] {
+        // An onset is a sharp energy RISE — including the first sound after
+        // silence (prev ≈ 0), which the plain ratio branch would miss.
+        if rms > prev_rms * 1.5 || (prev_rms <= 1e-6 && rms > 1e-6) {
+            onsets += 1;
+        }
+        prev_rms = rms;
+    }
+
+    let seconds = (audio.len() as f32 / sample_rate as f32).max(1.0);
+    let onsets_per_second = onsets as f32 / seconds;
+    (onsets_per_second / 8.0).clamp(0.0, 1.0)
 }
 
 /// Estimate harmonic ratio (harmonic vs percussive energy)
