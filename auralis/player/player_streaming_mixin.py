@@ -78,6 +78,7 @@ class PlayerStreamingMixin:
         # duplicate advance threads (#3434 — Event.is_set + .set is TOCTOU).
         # Spawning a thread doesn't block, so we never deadlock; the advance
         # thread acquires the lock independently when it runs.
+        reached_end_without_advance = False
         with self.file_manager._audio_lock:
             # Return silence if not playing
             if not self.file_manager.is_loaded() or not self.playback.is_playing():
@@ -114,6 +115,27 @@ class PlayerStreamingMixin:
                         )
                         self._advance_thread = advance_thread  # joined in cleanup() (#3694)
                         advance_thread.start()
+                else:
+                    # #5584: no advance possible (last track / auto_advance
+                    # off, repeat off). Flag the finish and handle it after
+                    # the lock — stop() must not run under _audio_lock (same
+                    # lock-order rule PlayerFileLoadingMixin/seek() document).
+                    reached_end_without_advance = True
+
+        if reached_end_without_advance:
+            # #5584: end-of-queue half of #5114. Without this the state
+            # machine stayed PLAYING at EOF forever, returning silence with
+            # the position pinned at total_samples, and no consumer polling
+            # state/is_playing could learn the queue finished. stop() makes
+            # the early is_playing() return above swallow every subsequent
+            # call, so the stop and the notification fire exactly once.
+            self.playback.stop()
+            self.integration._notify_callbacks({
+                'action': 'playback_finished',
+                # The pre-materialised current-track dict is the documented
+                # read path (integration_manager #4552).
+                'track': self.integration._current_track_dict,
+            })
 
         # Apply advanced real-time processing (outside the lock — pure CPU
         # work on the captured chunk, no shared state touched).
