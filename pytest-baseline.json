@@ -2,7 +2,7 @@
   "_comment": "Known-failing pytest tests (#4562). CI fails on any failure NOT listed here. Regenerate with: python scripts/check_pytest_baseline.py <junit.xml> --update. #5169, #5175, #5255, #5257, #5284, #5287, #5288, #5289, #5290, #5291, #5292, #5295, #5419, and #5225 removed obsolete or newly passing entries by hand: --strict-stale (#5091) fails the job on a baselined test that passes. Removed rather than regenerated -- a baseline built outside CI reports spurious new failures.",
   "generatedFrom": {
     "totalTests": 6889,
-    "failedTests": 157
+    "failedTests": 149
   },
   "failures": [
     "tests.auralis.analysis.fingerprint.test_rust_fingerprint_glue::test_all_values_finite",
@@ -53,14 +53,6 @@
     "tests.edge_cases.test_filesystem_errors.TestMissingFiles::test_process_nonexistent_file",
     "tests.edge_cases.test_resource_exhaustion.TestResourceLimitConfiguration::test_graceful_degradation_under_pressure",
     "tests.edge_cases.test_resource_exhaustion.TestResourceLimitConfiguration::test_processing_with_memory_limit",
-    "tests.integration.test_api_integration::test_api_cache_clear",
-    "tests.integration.test_api_integration::test_api_cache_stats",
-    "tests.integration.test_api_integration::test_api_enhancement_settings_set",
-    "tests.integration.test_api_integration::test_api_invalid_method_405",
-    "tests.integration.test_api_integration::test_api_malformed_json_422",
-    "tests.integration.test_api_integration::test_api_player_volume_get",
-    "tests.integration.test_api_integration::test_api_player_volume_set",
-    "tests.integration.test_api_integration::test_api_player_volume_validation",
     "tests.integration.test_end_to_end_processing::test_e2e_handles_invalid_audio_data",
     "tests.integration.test_end_to_end_processing::test_e2e_process_very_quiet_input",
     "tests.integration.test_repositories.TestAlbumRepository::test_get_all_pagination",

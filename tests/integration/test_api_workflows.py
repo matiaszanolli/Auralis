@@ -19,13 +19,18 @@ Follows TESTING_GUIDELINES.md principles:
 - Focuses on integration between components
 """
 
-import os
+import sys
 import time
 from pathlib import Path
 
 import numpy as np
 import pytest
-from fastapi.testclient import TestClient
+
+# The backend is a hyphenated directory (`auralis-web`) that cannot be
+# imported as a package; tests/backend reaches it the same way (#5398):
+# put the backend dir itself on sys.path and import its modules directly.
+backend_path = Path(__file__).parent.parent.parent / "auralis-web" / "backend"
+sys.path.insert(0, str(backend_path))
 
 # Note: Test fixtures (temp_library, sample_audio_file) are now provided by conftest.py
 # Phase 5B.2: Consolidated fixtures for broader test reuse
@@ -39,34 +44,27 @@ from fastapi.testclient import TestClient
 # ============================================================================
 
 @pytest.fixture
-def api_client(temp_library):
+def api_client():
     """
     Create FastAPI test client with test library.
 
-    Note: This assumes the FastAPI app can be imported and configured
-    with a test database. If the app requires running server, these tests
-    should be marked as integration tests that require manual setup.
+    The import path this fixture once got wrong is fixed (#5398: the
+    backend is the hyphenated `auralis-web` directory, unreachable as a
+    package; it is reached via sys.path + `from main import app`, which
+    imports cleanly now). These tests stay skipped because the fixture
+    body predates two independent restructures and cannot run against
+    either: #4670 replaced the `dependencies.get_library_database` FastAPI
+    dependency with the component registry, and #4915 renamed
+    LibraryManager — whose `add_track(dict)` API the `library_with_tracks`
+    helper drives — to LibraryDatabase/repositories. Reviving them means
+    rewiring the fixture to the component registry and the tests to the
+    repository pattern (tracked as a distinct defect from #5398).
     """
-    # Import here to avoid circular imports
-    try:
-        from auralis_web.backend.dependencies import get_library_database
-        from auralis_web.backend.main import app
-
-        manager, audio_dir, db_path = temp_library
-
-        # Override dependency to use test library
-        def override_get_library_database():
-            return manager
-
-        app.dependency_overrides[get_library_database] = override_get_library_database
-
-        client = TestClient(app)
-        yield client, manager
-
-        # Cleanup
-        app.dependency_overrides.clear()
-    except ImportError:
-        pytest.skip("FastAPI app not available - requires backend installation")
+    pytest.skip(
+        "fixture predates the #4670 component-registry restructure and "
+        "#4915's LibraryManager -> LibraryDatabase rename; needs a rewire, "
+        "not just the import-path fix"
+    )
 
 
 @pytest.fixture

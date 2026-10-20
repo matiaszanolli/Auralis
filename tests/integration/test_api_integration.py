@@ -39,7 +39,15 @@ from auralis.io.saver import save as save_audio
 @pytest.fixture
 def client():
     """Create a FastAPI test client with startup/shutdown events."""
-    with TestClient(app) as client:
+    # #5398: OriginCheckMiddleware 403s every state-changing /api request
+    # that arrives with an empty Origin from a non-loopback host, and
+    # TestClient's host is 'testclient' — so without a default trusted
+    # Origin, every write-path test here was rejected before route,
+    # dependency-graph, or Pydantic validation ever ran. Same gap #5089
+    # fixed in tests/backend/conftest.py; httpx merges these headers into
+    # every request. The middleware's own enforcement stays covered by
+    # test_origin_check_middleware.py, which builds its own app and client.
+    with TestClient(app, headers={"origin": "http://localhost:8765"}) as client:
         yield client
 
 
@@ -123,17 +131,19 @@ def test_api_player_status(client):
 @pytest.mark.integration
 def test_api_player_volume_get(client):
     """
-    API: GET /api/player/volume returns volume level.
+    API: GET /api/player/status returns the current volume level.
 
-    Tests retrieving current volume.
+    There is no GET /api/player/volume route (the path is POST-only);
+    volume is read back from PlayerState, whose `volume` is an int on the
+    same 0-100 scale the POST body uses (#4711).
     """
-    response = client.get("/api/player/volume")
+    response = client.get("/api/player/status")
 
     assert response.status_code == 200
     data = response.json()
 
     assert "volume" in data
-    assert 0.0 <= data["volume"] <= 1.0
+    assert 0 <= data["volume"] <= 100
 
 
 @pytest.mark.e2e
@@ -142,31 +152,42 @@ def test_api_player_volume_set(client):
     """
     API: POST /api/player/volume sets volume level.
 
-    Tests setting volume via API.
+    Tests setting volume via API. The volume is a JSON body on a 0-100
+    scale (converted to 0.0-1.0 internally); the response echoes the
+    service's rounded 0-100 int (#5050).
     """
-    # Set volume to 0.7
-    response = client.post("/api/player/volume?volume=0.7")
+    # Set volume to 70 on the 0-100 scale
+    response = client.post("/api/player/volume", json={"volume": 70})
 
     assert response.status_code == 200
+    data = response.json()
 
-    # Verify volume endpoint responds (may not actually set if audio player unavailable)
-    get_response = client.get("/api/player/volume")
-    data = get_response.json()
-
-    assert "volume" in data
-    assert 0.0 <= data["volume"] <= 1.0
+    assert "message" in data
+    assert data["volume"] == 70
 
 
 @pytest.mark.e2e
 @pytest.mark.integration
 def test_api_player_volume_validation(client):
     """
-    API: POST /api/player/volume validates volume range.
+    API: POST /api/player/volume clamps out-of-range volume.
 
-    Tests that invalid volume values are rejected.
+    Out-of-range values are clamped, not rejected — a deliberate contract
+    (#3896; SetVolumeRequest's own docstring and test_phase4_player_workflow.
+    py::test_volume_out_of_range pin the clamp). The only 422 the endpoint
+    produces is a body that isn't a numeric volume at all.
     """
-    # Try setting volume > 1.0
-    response = client.post("/api/player/volume", json={"volume": 1.5})
+    response = client.post("/api/player/volume", json={"volume": 150})
+
+    assert response.status_code == 200
+    assert response.json()["volume"] == 100
+
+    response = client.post("/api/player/volume", json={"volume": -50})
+
+    assert response.status_code == 200
+    assert response.json()["volume"] == 0
+
+    response = client.post("/api/player/volume", json={"volume": "loud"})
 
     assert response.status_code == 422  # Validation error
 
@@ -297,12 +318,16 @@ def test_api_enhancement_settings_set(client):
     """
     API: POST /api/player/enhancement/preset updates enhancement preset.
 
-    Tests updating enhancement settings.
+    Tests updating enhancement settings. The preset is a JSON body
+    (SetPresetRequest); 'adaptive' is the only valid name since the
+    2026-09-13 preset narrowing (#5405).
     """
-    response = client.post("/api/player/enhancement/preset?preset=adaptive")
+    response = client.post("/api/player/enhancement/preset", json={"preset": "adaptive"})
 
-    # Accept 200, 201, or 404 if endpoint doesn't exist
-    assert response.status_code in [200, 201, 404, 405]
+    assert response.status_code == 200
+    data = response.json()
+    settings = data.get("settings", data)
+    assert "enabled" in settings or "preset" in settings
 
 
 # ============================================================================
@@ -365,14 +390,19 @@ def test_api_cache_stats(client):
     """
     API: GET /api/cache/stats returns cache statistics.
 
-    Tests retrieving cache statistics.
+    Tests retrieving cache statistics. CacheStatsResponse is keyed by
+    tier1/tier2/overall (per-tier stats) plus per-track status — not the
+    flat "size"/"hits" shape this test predated.
     """
     response = client.get("/api/cache/stats")
 
-    # May be 200 with stats or 404 if endpoint doesn't exist
-    if response.status_code == 200:
-        data = response.json()
-        assert "size" in data or "hits" in data or "stats" in data
+    assert response.status_code == 200
+    data = response.json()
+
+    for section in ("tier1", "tier2", "overall", "tracks"):
+        assert section in data
+    assert "total_hits" in data["overall"]
+    assert "total_chunks" in data["overall"]
 
 
 @pytest.mark.e2e
@@ -381,13 +411,13 @@ def test_api_cache_clear(client):
     """
     API: POST /api/cache/clear clears cache.
 
-    Tests cache clearing endpoint.
+    Tests the real cache-clearing endpoint (cache_streamlined router,
+    prefix /api/cache) rather than the /api/player/enhancement/cache/clear
+    path this test guessed at, which has never existed.
     """
-    # Try the actual endpoint location
-    response = client.post("/api/player/enhancement/cache/clear")
+    response = client.post("/api/cache/clear")
 
-    # May be 200/204 if successful, or 404/405 if endpoint doesn't exist or doesn't support POST
-    assert response.status_code in [200, 204, 404, 405]
+    assert response.status_code == 200
 
 
 # ============================================================================
