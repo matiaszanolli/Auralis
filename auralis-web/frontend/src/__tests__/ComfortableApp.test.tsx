@@ -15,9 +15,23 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { act } from '@testing-library/react';
+import { act, screen } from '@testing-library/react';
 import { render } from '@/test/test-utils';
 import ComfortableApp from '../ComfortableApp';
+import { useWebSocketContext } from '@/contexts/WebSocketContext';
+import { tokens } from '@/design-system';
+
+// Probe for the top bar's status dot (#5468): render the color it receives as
+// an attribute so tests can assert which status AppTopBar was handed without
+// parsing emotion-generated CSS.
+vi.mock('../components/core/AppTopBarStatusIndicator', () => ({
+  AppTopBarStatusIndicator: ({ color }: { color: string }) => (
+    <div data-testid="status-indicator" data-color={color} />
+  ),
+  default: ({ color }: { color: string }) => (
+    <div data-testid="status-indicator" data-color={color} />
+  ),
+}));
 
 const {
   mockPlayEnhanced,
@@ -246,5 +260,22 @@ describe('ComfortableApp global shortcuts (#4541)', () => {
       resolvePlayEnhanced();
       await Promise.resolve();
     });
+  });
+});
+
+describe('ComfortableApp connection-status passthrough (#5468)', () => {
+  it('passes the hook status through un-collapsed: error reaches the top bar, not connecting', () => {
+    const contextMock = vi.mocked(useWebSocketContext);
+    const defaults = contextMock();
+    contextMock.mockReturnValue({ ...defaults, connectionStatus: 'error' });
+
+    try {
+      renderApp();
+
+      expect(screen.getByTestId('status-indicator').getAttribute('data-color'))
+        .toBe(tokens.colors.status.disconnected);
+    } finally {
+      contextMock.mockReturnValue(defaults);
+    }
   });
 });

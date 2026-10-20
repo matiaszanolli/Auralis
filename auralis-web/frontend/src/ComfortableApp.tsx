@@ -51,7 +51,10 @@ function ComfortableApp() {
 
   // WebSocket connection for real-time updates (using shared WebSocketContext)
   const wsContext = useWebSocketContext();
-  const { isConnected } = wsContext;
+  // The hook's full 4-state status, not a boolean collapse: a permanently
+  // failed connection must render as error/disconnected, not as an eternal
+  // "connecting" (#5468).
+  const { connectionStatus } = wsContext;
 
   // Toast notifications
   const { success, info } = useToast();
@@ -289,7 +292,7 @@ function ComfortableApp() {
             onSearch={setSearchQuery}
             onOpenMobileDrawer={() => setMobileDrawerOpen(true)}
             title="Your Music"
-            connectionStatus={isConnected ? 'connected' : 'connecting'}
+            connectionStatus={connectionStatus}
             isMobile={isMobile}
             onSearchClear={() => setSearchQuery('')}
             {...(['songs', 'favourites', 'recent'].includes(currentView) ? {

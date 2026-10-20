@@ -5,6 +5,7 @@ import AppTopBarSearchInput from './AppTopBarSearchInput';
 import AppTopBarStatusIndicator from './AppTopBarStatusIndicator';
 import { useSearchInput } from './useSearchInput';
 import { useConnectionStatus } from './useConnectionStatus';
+import type { ConnectionStatus } from '@/hooks/websocket/websocketConnectionCore';
 import { ViewToggle, type ViewMode } from '@/components/navigation/ViewToggle';
 
 /**
@@ -30,9 +31,10 @@ export interface AppTopBarProps {
 
   /**
    * Connection status to show in header.
-   * 'connected', 'connecting', or 'disconnected'.
+   * The full ConnectionStatus union from the WS connection hook, so a
+   * permanently failed connection renders distinctly from "connecting" (#5468).
    */
-  connectionStatus: 'connected' | 'connecting' | 'disconnected';
+  connectionStatus: ConnectionStatus;
 
   /**
    * Whether current screen is mobile (<900px).
