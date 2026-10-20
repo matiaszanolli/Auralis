@@ -9,11 +9,11 @@
  * file re-exports all of them so existing `@/hooks/shared/useReduxState`
  * imports keep working. New code can import the domain module directly.
  *
- * - usePlayerRedux:     usePlayerState, usePlayerActions, usePlayer
+ * - usePlayerRedux:     usePlayerState, usePlayerActions
  * - useQueueRedux:      useQueueState, useQueue, useQueueTimeRemaining
- * - useCacheRedux:      useCacheState, useCache
+ * - useCacheRedux:      useCacheState
  * - useConnectionRedux: useConnectionState, useConnection, useConnectionHealth
- * - useAppRedux:        useAppState, useIsLoading, useAppErrors (cross-slice)
+ * - useAppRedux:        useAppState (cross-slice)
  *
  * @copyright (C) 2024 Auralis Team
  * @license AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)

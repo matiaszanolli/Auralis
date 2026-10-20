@@ -21,12 +21,20 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { configureStore } from '@reduxjs/toolkit';
 import playerReducer, {
-  setError as playerSetError,
   setVolume,
   setStreamingError,
 } from '@/store/slices/playerSlice';
-import queueReducer, { setError as queueSetError } from '@/store/slices/queueSlice';
-import cacheReducer, { setError as cacheSetError } from '@/store/slices/cacheSlice';
+import queueReducer from '@/store/slices/queueSlice';
+import cacheReducer from '@/store/slices/cacheSlice';
+
+// #5354: the player/queue/cache setError actions were deleted from their
+// slices (never dispatched in production). The middleware contract under test
+// here matches error actions by action-type pattern, not by slice wiring, so
+// these tests dispatch plain actions of the same type/payload shape; the
+// reducers simply ignore the unknown types.
+const playerSetError = (message: string) => ({ type: 'player/setError', payload: message });
+const queueSetError = (message: string) => ({ type: 'queue/setError', payload: message });
+const cacheSetError = (message: string) => ({ type: 'cache/setError', payload: message });
 import connectionReducer, {
   setError as connectionSetError,
   setWSConnected,
@@ -390,12 +398,15 @@ describe('Error Tracking Middleware', () => {
         ),
     });
 
-    store.dispatch(playerSetError('Test error'));
+    // #5354: the passthrough check used to dispatch the (deleted) player
+    // setError and read player.error; connection/setError is the error action
+    // with a live reducer, so it now carries the check.
+    store.dispatch(connectionSetError('Test error'));
 
     // With tracking disabled the onError callback must never fire...
     expect(onError).not.toHaveBeenCalled();
     // ...but the action itself must still reach the reducer (pure passthrough).
-    expect(store.getState().player.error).toBe('Test error');
+    expect(store.getState().connection.lastError).toBe('Test error');
   });
 
   it('tracks when enabled is true (#4453 counterpart)', () => {

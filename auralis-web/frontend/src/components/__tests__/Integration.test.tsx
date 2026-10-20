@@ -576,24 +576,16 @@ describe('Component Integration Tests', () => {
   // Error State Management Tests
   // ============================================================================
 
-  it('should handle and clear errors across slices', () => {
-    store.dispatch(playerActions.setError('Playback failed'));
-    store.dispatch(queueActions.setError('Queue load failed'));
+  it('should handle and clear connection errors (#5354: the player/queue/cache error state was deleted — nothing ever dispatched it)', () => {
     store.dispatch(connectionActions.setError('Connection lost'));
 
     let state = store.getState();
-    expect(state.player.error).toBe('Playback failed');
-    expect(state.queue.error).toBe('Queue load failed');
     expect(state.connection.lastError).toBe('Connection lost');
 
-    // Clear errors
-    store.dispatch(playerActions.clearError());
-    store.dispatch(queueActions.clearError());
+    // Clear error
     store.dispatch(connectionActions.clearError());
 
     state = store.getState();
-    expect(state.player.error).toBeNull();
-    expect(state.queue.error).toBeNull();
     expect(state.connection.lastError).toBeNull();
   });
 

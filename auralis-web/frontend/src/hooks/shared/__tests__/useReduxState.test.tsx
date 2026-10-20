@@ -26,17 +26,14 @@ import queueReducer from '@/store/slices/queueSlice';
 import cacheReducer from '@/store/slices/cacheSlice';
 import connectionReducer from '@/store/slices/connectionSlice';
 import {
-  usePlayer,
   useQueue,
-  useCache,
   useConnection,
+  usePlayerActions,
   usePlayerState,
   useQueueState,
   useCacheState,
   useConnectionState,
   useAppState,
-  useIsLoading,
-  useAppErrors,
   useConnectionHealth,
 } from '../useReduxState';
 import type React from 'react';
@@ -62,105 +59,9 @@ describe('Redux State Hooks', () => {
   // Player Hooks Tests
   // ============================================================================
 
-  describe('usePlayer', () => {
-    it('should return player state and actions', () => {
-      const { result } = renderHook(() => usePlayer(), { wrapper });
-
-      expect(result.current.isPlaying).toBe(false);
-      expect(result.current.volume).toBe(70);
-      expect(result.current.preset).toBe('adaptive');
-      expect(result.current.currentTrack).toBeNull();
-    });
-
-    it('should play track', () => {
-      const { result } = renderHook(() => usePlayer(), { wrapper });
-
-      act(() => {
-        result.current.play();
-      });
-
-      expect(result.current.isPlaying).toBe(true);
-    });
-
-    it('should pause track', () => {
-      const { result } = renderHook(() => usePlayer(), { wrapper });
-
-      act(() => {
-        result.current.play();
-      });
-
-      expect(result.current.isPlaying).toBe(true);
-
-      act(() => {
-        result.current.pause();
-      });
-
-      expect(result.current.isPlaying).toBe(false);
-    });
-
-    it('should toggle play', () => {
-      const { result } = renderHook(() => usePlayer(), { wrapper });
-
-      act(() => {
-        result.current.togglePlay();
-      });
-
-      expect(result.current.isPlaying).toBe(true);
-
-      act(() => {
-        result.current.togglePlay();
-      });
-
-      expect(result.current.isPlaying).toBe(false);
-    });
-
-    it('should seek to position', () => {
-      const { result } = renderHook(() => usePlayer(), { wrapper });
-
-      act(() => {
-        result.current.seek(120);
-      });
-
-      expect(result.current.currentTime).toBe(120);
-    });
-
-    it('should set volume', () => {
-      const { result } = renderHook(() => usePlayer(), { wrapper });
-
-      act(() => {
-        result.current.setVolume(50);
-      });
-
-      expect(result.current.volume).toBe(50);
-    });
-
-    it('should toggle mute', () => {
-      const { result } = renderHook(() => usePlayer(), { wrapper });
-
-      act(() => {
-        result.current.toggleMute();
-      });
-
-      expect(result.current.isMuted).toBe(true);
-
-      act(() => {
-        result.current.toggleMute();
-      });
-
-      expect(result.current.isMuted).toBe(false);
-    });
-
-    it('should set preset', () => {
-      const { result } = renderHook(() => usePlayer(), { wrapper });
-
-      // 'adaptive' is the only valid preset (#4861 follow-up).
-      act(() => {
-        result.current.setPreset('adaptive');
-      });
-
-      expect(result.current.preset).toBe('adaptive');
-    });
-  });
+  // #5354: the usePlayer() describe block was deleted with the hook itself —
+  // zero production callers, surfacing isLoading/error fields that could
+  // never change. usePlayerActions keeps its own dedicated test file.
 
   // ============================================================================
   // Queue Hooks Tests
@@ -260,70 +161,9 @@ describe('Redux State Hooks', () => {
   // Cache Hooks Tests
   // ============================================================================
 
-  describe('useCache', () => {
-    it('should return cache state and actions', () => {
-      const { result } = renderHook(() => useCache(), { wrapper });
-
-      expect(result.current.stats).toBeNull();
-      expect(result.current.health).toBeNull();
-      expect(result.current.isLoading).toBe(false);
-      expect(result.current.error).toBeNull();
-    });
-
-    it('should set cache stats', () => {
-      const { result } = renderHook(() => useCache(), { wrapper });
-      const stats = {
-        tier1: { chunks: 4, size_mb: 6, hits: 100, misses: 5, hit_rate: 0.95 },
-        tier2: { chunks: 8, size_mb: 120, hits: 50, misses: 50, hit_rate: 0.5 },
-        overall: {
-          total_chunks: 12,
-          total_size_mb: 225,
-          total_hits: 150,
-          total_misses: 55,
-          overall_hit_rate: 0.73,
-          tracks_cached: 42,
-        },
-        tracks: {},
-      };
-
-      act(() => {
-        result.current.setStats(stats);
-      });
-
-      expect(result.current.stats).toEqual(stats);
-      expect(result.current.hitRate).toBe(0.73);
-      expect(result.current.totalSize).toBe(225);
-    });
-
-    it('should clear cache', () => {
-      const { result } = renderHook(() => useCache(), { wrapper });
-      const stats = {
-        tier1: { chunks: 4, size_mb: 6, hits: 100, misses: 5, hit_rate: 0.95 },
-        tier2: { chunks: 8, size_mb: 120, hits: 50, misses: 50, hit_rate: 0.5 },
-        overall: {
-          total_chunks: 12,
-          total_size_mb: 225,
-          total_hits: 150,
-          total_misses: 55,
-          overall_hit_rate: 0.73,
-          tracks_cached: 42,
-        },
-        tracks: {},
-      };
-
-      act(() => {
-        result.current.setStats(stats);
-      });
-
-      expect(result.current.totalChunks).toBe(12);
-
-      act(() => {
-        result.current.clear();
-      });
-
-      expect(result.current.stats?.overall.total_chunks).toBe(0);
-    });
-  });
+  // #5354: the useCache() describe block was deleted with the hook itself —
+  // zero production callers, surfacing isLoading/error/clearError on state
+  // nothing ever dispatched.
 
   // ============================================================================
   // Connection Hooks Tests
@@ -375,19 +215,8 @@ describe('Redux State Hooks', () => {
   // ============================================================================
 
   describe('Convenience Hooks', () => {
-    it('useIsLoading should detect loading state', () => {
-      const { result: loadingResult } = renderHook(() => useIsLoading(), {
-        wrapper,
-      });
-
-      expect(loadingResult.current).toBe(false);
-    });
-
-    it('useAppErrors should detect errors', () => {
-      const { result: errorResult } = renderHook(() => useAppErrors(), { wrapper });
-
-      expect(errorResult.current.hasErrors).toBe(false);
-    });
+    // #5354: useIsLoading/useAppErrors tests were deleted with the hooks —
+    // they could only ever report "idle, no errors".
 
     it('useConnectionHealth should provide detailed status', () => {
       const { result } = renderHook(() => useConnectionHealth(), { wrapper });
@@ -412,11 +241,11 @@ describe('Redux State Hooks', () => {
     });
 
     it('should reflect changes across slices', () => {
-      const { result: playerHookResult } = renderHook(() => usePlayer(), { wrapper });
+      const { result: actionsResult } = renderHook(() => usePlayerActions(), { wrapper });
       const { result: appStateResult } = renderHook(() => useAppState(), { wrapper });
 
       act(() => {
-        playerHookResult.current.play();
+        actionsResult.current.play();
       });
 
       expect(appStateResult.current.player.isPlaying).toBe(true);

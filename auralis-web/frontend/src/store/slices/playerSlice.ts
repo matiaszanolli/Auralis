@@ -34,8 +34,6 @@ export interface PlayerState {
   volume: number;
   isMuted: boolean;
   preset: PresetName;
-  isLoading: boolean;
-  error: string | null;
   lastUpdated: number;
   streaming: {
     normal: StreamingInfo;
@@ -51,8 +49,6 @@ const initialState: PlayerState = {
   volume: 80,  // matches backend PlayerState default (issue #2251)
   isMuted: false,
   preset: 'adaptive',
-  isLoading: false,
-  error: null,
   lastUpdated: 0,
   streaming: {
     normal: { ...initialStreamingInfo },
@@ -185,45 +181,6 @@ const playerSlice = createSlice({
     },
 
     /**
-     * Set loading state
-     */
-    setIsLoading: {
-      reducer(state, action: PayloadAction<boolean, string, { timestamp: number }>) {
-        state.isLoading = action.payload;
-        state.lastUpdated = action.meta.timestamp;
-      },
-      prepare(isLoading: boolean) {
-        return { payload: isLoading, meta: { timestamp: Date.now() } };
-      },
-    },
-
-    /**
-     * Set error message
-     */
-    setError: {
-      reducer(state, action: PayloadAction<string | null, string, { timestamp: number }>) {
-        state.error = action.payload;
-        state.lastUpdated = action.meta.timestamp;
-      },
-      prepare(error: string | null) {
-        return { payload: error, meta: { timestamp: Date.now() } };
-      },
-    },
-
-    /**
-     * Clear error
-     *
-     * No production dispatch sites (#4921) for THIS slice; cacheSlice's and
-     * connectionSlice's same-named actions ARE dispatched, from useCacheRedux.ts / useConnectionRedux.ts — kept as an idiomatic
-     * Redux action. Live sync uses field-level dispatches; see the note on
-     * resetPlayer in playerSlice.ts for why the bulk-update siblings were
-     * deleted rather than documented.
-     */
-    clearError(state) {
-      state.error = null;
-    },
-
-    /**
      * Reset player state
      *
      * No production dispatch sites (#4921) — kept as a store-reset helper, which components/__tests__/Integration.test.tsx:425 uses. Live WebSocket sync
@@ -267,9 +224,6 @@ export const {
   toggleMute,
   setMuted,
   setPreset,
-  setIsLoading,
-  setError,
-  clearError,
   resetPlayer,
   startStreaming,
   updateStreamingProgress,
@@ -291,9 +245,11 @@ export const selectDuration = (state: { player: PlayerState }) => state.player.d
 export const selectVolume = (state: { player: PlayerState }) => state.player.volume;
 export const selectIsMuted = (state: { player: PlayerState }) => state.player.isMuted;
 export const selectPreset = (state: { player: PlayerState }) => state.player.preset;
-export const selectIsLoading = (state: { player: PlayerState }) => state.player.isLoading;
-export const selectError = (state: { player: PlayerState }) => state.player.error;
 export const selectPlayerState = (state: { player: PlayerState }) => state.player;
+
+// #5354: selectIsLoading/selectError and the isLoading/error state they read
+// were deleted — no production code ever dispatched the actions that would
+// change them, so they could never leave their initial values.
 
 /**
  * Convert Redux player volume/mute into the AudioPlaybackEngine gain (0-1)

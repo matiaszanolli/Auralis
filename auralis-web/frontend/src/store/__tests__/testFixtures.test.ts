@@ -27,7 +27,6 @@ import {
   connectedWithTrackState,
   playingWithQueueState,
   healthyCacheState,
-  loadingState,
   errorState,
   offlineState,
   createTestStore,
@@ -165,14 +164,7 @@ describe('Redux Test Fixtures', () => {
       expect(healthyCacheState.cache.health?.healthy).toBe(true);
     });
 
-    it('should have loading state fixture', () => {
-      expect(loadingState.player.isLoading).toBe(true);
-      expect(loadingState.queue.isLoading).toBe(true);
-    });
-
     it('should have error state fixture', () => {
-      expect(errorState.player.error).toBeTruthy();
-      expect(errorState.queue.error).toBeTruthy();
       expect(errorState.connection.lastError).toBeTruthy();
     });
 
@@ -277,7 +269,9 @@ describe('Redux Test Fixtures', () => {
       expect(testScenarios.connectedWithTrack).toBeDefined();
       expect(testScenarios.playingWithQueue).toBeDefined();
       expect(testScenarios.healthyCache).toBeDefined();
-      expect(testScenarios.loading).toBeDefined();
+      // #5354: the loading scenario was deleted with the never-dispatched
+      // isLoading state it exercised.
+      expect(testScenarios.loading).toBeUndefined();
       expect(testScenarios.error).toBeDefined();
       expect(testScenarios.offline).toBeDefined();
       expect(testScenarios.reconnecting).toBeDefined();

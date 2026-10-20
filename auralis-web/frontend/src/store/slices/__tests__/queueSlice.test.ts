@@ -12,17 +12,12 @@ import reducer, {
   clearQueue,
   setQueue,
   setCurrentIndex,
-  setIsLoading,
-  setError,
-  clearError,
   setIsShuffled,
   setRepeatMode,
   resetQueue,
   selectQueueTracks,
   selectCurrentIndex,
   selectQueueLength,
-  selectIsLoading,
-  selectError,
 } from '../queueSlice';
 import { selectCurrentQueueTrack } from '@/store/selectors';
 import type { QueueState } from '../queueSlice';
@@ -31,8 +26,6 @@ import type { QueueTrack } from '@/types/domain';
 const initialState: QueueState = {
   tracks: [],
   currentIndex: 0,
-  isLoading: false,
-  error: null,
   lastUpdated: 0,
   isShuffled: false,
   repeatMode: 'off',
@@ -52,8 +45,6 @@ describe('queueSlice', () => {
     const state = reducer(undefined, { type: 'unknown' });
     expect(state.tracks).toEqual([]);
     expect(state.currentIndex).toBe(0);
-    expect(state.isLoading).toBe(false);
-    expect(state.error).toBeNull();
   });
 
   // ─── Add/Remove ───────────────────────────────────────────────
@@ -214,33 +205,17 @@ describe('queueSlice', () => {
     expect(state.currentIndex).toBe(0);
   });
 
-  // ─── Loading/Error ────────────────────────────────────────────
-
-  it('setIsLoading sets loading state', () => {
-    const state = reducer(initialState, setIsLoading(true));
-    expect(state.isLoading).toBe(true);
-  });
-
-  it('setError sets error message', () => {
-    const state = reducer(initialState, setError('fail'));
-    expect(state.error).toBe('fail');
-  });
-
-  it('clearError clears error', () => {
-    let state = reducer(initialState, setError('fail'));
-    state = reducer(state, clearError());
-    expect(state.error).toBeNull();
-  });
+  // #5354: the setIsLoading/setError/clearError tests were deleted with the
+  // actions — nothing dispatched them in production, so the state could never
+  // leave its initial values.
 
   // ─── Reset ────────────────────────────────────────────────────
 
   it('resetQueue returns to initial state', () => {
     let state = reducer(initialState, addTracks([mockTrack(1), mockTrack(2)]));
-    state = reducer(state, setError('fail'));
     state = reducer(state, resetQueue());
     expect(state.tracks).toEqual([]);
     expect(state.currentIndex).toBe(0);
-    expect(state.error).toBeNull();
   });
 
   // ─── Selectors ────────────────────────────────────────────────
@@ -254,8 +229,6 @@ describe('queueSlice', () => {
     expect(selectCurrentIndex(root)).toBe(1);
     expect(selectCurrentQueueTrack(root as any)?.id).toBe(2);
     expect(selectQueueLength(root)).toBe(2);
-    expect(selectIsLoading(root)).toBe(false);
-    expect(selectError(root)).toBeNull();
   });
 
   it('selectCurrentQueueTrack returns null for empty queue', () => {

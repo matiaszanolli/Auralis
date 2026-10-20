@@ -7,7 +7,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { configureStore } from '@reduxjs/toolkit';
-import queueReducer, { addTrack, setIsLoading as setQueueLoading } from '../queueSlice';
+import queueReducer, { addTrack, setIsShuffled } from '../queueSlice';
 import playerReducer, { setIsPlaying, setVolume } from '../playerSlice';
 import cacheReducer, { setCacheStats } from '../cacheSlice';
 import connectionReducer, { setWSConnected } from '../connectionSlice';
@@ -73,7 +73,10 @@ describe('Deterministic Timestamps (fixes #2232)', () => {
       store.dispatch(action);
       store.getState().queue;
 
-      store.dispatch(setQueueLoading(false));
+      // Interleave another timestamped action (#5354: the setIsLoading action
+      // this used to dispatch was deleted with the never-dispatched loading
+      // state; setIsShuffled carries the same prepare/timestamp contract).
+      store.dispatch(setIsShuffled(false));
       store.dispatch(action);
       const state2 = store.getState().queue;
 

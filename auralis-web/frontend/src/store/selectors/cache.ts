@@ -14,8 +14,6 @@ import type { RootState } from '@/store/index';
 export const cacheSelectors = {
   selectCacheStats: (state: RootState) => state.cache.stats,
   selectCacheHealth: (state: RootState) => state.cache.health,
-  selectCacheLoading: (state: RootState) => state.cache.isLoading,
-  selectCacheError: (state: RootState) => state.cache.error,
 };
 
 export const selectCacheMetrics = createSelector(

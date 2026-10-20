@@ -15,8 +15,6 @@ import type { RootState } from '@/store/index';
 export const queueSelectors = {
   selectQueueTracks: (state: RootState) => state.queue.tracks,
   selectCurrentIndex: (state: RootState) => state.queue.currentIndex,
-  selectQueueLoading: (state: RootState) => state.queue.isLoading,
-  selectQueueError: (state: RootState) => state.queue.error,
 };
 
 export const selectCurrentQueueTrack = createSelector(

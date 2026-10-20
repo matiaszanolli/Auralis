@@ -7,16 +7,11 @@
 import reducer, {
   setCacheStats,
   setCacheHealth,
-  setIsLoading,
-  setError,
-  clearError,
   clearCacheLocal,
   resetCache,
   selectCacheStats,
   selectCacheHealth,
   selectIsHealthy,
-  selectIsLoading,
-  selectError,
 } from '../cacheSlice';
 import type { CacheState } from '../cacheSlice';
 import type { CacheStats, CacheHealth } from '@/services/api/standardizedAPIClient';
@@ -24,8 +19,6 @@ import type { CacheStats, CacheHealth } from '@/services/api/standardizedAPIClie
 const initialState: CacheState = {
   stats: null,
   health: null,
-  isLoading: false,
-  error: null,
   lastUpdated: 0,
 };
 
@@ -61,8 +54,6 @@ describe('cacheSlice', () => {
     const state = reducer(undefined, { type: 'unknown' });
     expect(state.stats).toBeNull();
     expect(state.health).toBeNull();
-    expect(state.isLoading).toBe(false);
-    expect(state.error).toBeNull();
   });
 
   // ─── Stats/Health setters ─────────────────────────────────────
@@ -96,26 +87,9 @@ describe('cacheSlice', () => {
     expect(state.stats!.overall.tracks_cached).toBe(7);
   });
 
-  // ─── Loading/Error ────────────────────────────────────────────
-
-  it('setIsLoading sets loading state and bumps lastUpdated (#4458)', () => {
-    const state = reducer(initialState, setIsLoading(true));
-    expect(state.isLoading).toBe(true);
-    expect(state.lastUpdated).toBeGreaterThan(0);
-  });
-
-  it('setError sets error message and bumps lastUpdated (#4458)', () => {
-    const state = reducer(initialState, setError('cache error'));
-    expect(state.error).toBe('cache error');
-    expect(state.lastUpdated).toBeGreaterThan(0);
-  });
-
-  it('clearError clears error and bumps lastUpdated (#4458)', () => {
-    let state = reducer(initialState, setError('err'));
-    state = reducer(state, clearError());
-    expect(state.error).toBeNull();
-    expect(state.lastUpdated).toBeGreaterThan(0);
-  });
+  // #5354: the setIsLoading/setError/clearError tests were deleted with the
+  // actions — nothing dispatched them in production, so the state could never
+  // leave its initial values.
 
   // ─── Clear/Reset ──────────────────────────────────────────────
 
@@ -133,11 +107,9 @@ describe('cacheSlice', () => {
   it('resetCache returns to initial state', () => {
     let state = reducer(initialState, setCacheStats(mockStats));
     state = reducer(state, setCacheHealth(mockHealth));
-    state = reducer(state, setError('err'));
     state = reducer(state, resetCache());
     expect(state.stats).toBeNull();
     expect(state.health).toBeNull();
-    expect(state.error).toBeNull();
   });
 
   // ─── Selectors ────────────────────────────────────────────────
@@ -146,16 +118,12 @@ describe('cacheSlice', () => {
     const state: CacheState = {
       stats: mockStats,
       health: mockHealth,
-      isLoading: true,
-      error: 'err',
       lastUpdated: 1000,
     };
     const root = { cache: state };
 
     expect(selectCacheStats(root)).toEqual(mockStats);
     expect(selectCacheHealth(root)).toEqual(mockHealth);
-    expect(selectIsLoading(root)).toBe(true);
-    expect(selectError(root)).toBe('err');
   });
 
   it('selectIsHealthy derives from health.healthy', () => {

@@ -517,17 +517,19 @@ describe('optimizedSelectors aggregate', () => {
     expect(metrics.totalChunks).toBe(0);
   });
 
-  it('appSnapshot exposes its real fields, not loading and error-free on a fresh store (#4485)', () => {
+  it('appSnapshot exposes its real fields on a fresh store (#4485, #5354)', () => {
     // The previous name promised an `isReady` field that selectAppSnapshot has
     // never had, and the body only asserted `typeof snap === 'object'`.
+    // #5354 dropped the isLoading/hasErrors aggregation when the never-
+    // dispatched player/queue/cache loading/error state was deleted.
     const snap = optimizedSelectors.appSnapshot(store.getState() as RootState);
 
     expect(Object.keys(snap).sort()).toEqual(
-      ['cache', 'connection', 'hasErrors', 'isLoading', 'playback', 'queue']
+      ['cache', 'connection', 'playback', 'queue']
     );
     expect(snap).not.toHaveProperty('isReady');
-    expect(snap.isLoading).toBe(false);
-    expect(snap.hasErrors).toBe(false);
+    expect(snap).not.toHaveProperty('isLoading');
+    expect(snap).not.toHaveProperty('hasErrors');
     // It is the same memoized selector exported from combined.ts, not a copy.
     expect(optimizedSelectors.appSnapshot).toBe(selectAppSnapshot);
   });

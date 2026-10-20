@@ -19,16 +19,12 @@ import type { CacheStats, CacheHealth } from '@/services/api/standardizedAPIClie
 export interface CacheState {
   stats: CacheStats | null;
   health: CacheHealth | null;
-  isLoading: boolean;
-  error: string | null;
   lastUpdated: number;
 }
 
 const initialState: CacheState = {
   stats: null,
   health: null,
-  isLoading: false,
-  error: null,
   lastUpdated: 0,
 };
 
@@ -67,45 +63,6 @@ const cacheSlice = createSlice({
       },
       prepare(health: CacheHealth) {
         return { payload: health, meta: { timestamp: Date.now() } };
-      },
-    },
-
-    /**
-     * Set loading state
-     */
-    setIsLoading: {
-      reducer(state, action: PayloadAction<boolean, string, { timestamp: number }>) {
-        state.isLoading = action.payload;
-        state.lastUpdated = action.meta.timestamp;
-      },
-      prepare(isLoading: boolean) {
-        return { payload: isLoading, meta: { timestamp: Date.now() } };
-      },
-    },
-
-    /**
-     * Set error message
-     */
-    setError: {
-      reducer(state, action: PayloadAction<string | null, string, { timestamp: number }>) {
-        state.error = action.payload;
-        state.lastUpdated = action.meta.timestamp;
-      },
-      prepare(error: string | null) {
-        return { payload: error, meta: { timestamp: Date.now() } };
-      },
-    },
-
-    /**
-     * Clear error
-     */
-    clearError: {
-      reducer(state, action: PayloadAction<void, string, { timestamp: number }>) {
-        state.error = null;
-        state.lastUpdated = action.meta.timestamp;
-      },
-      prepare() {
-        return { payload: undefined, meta: { timestamp: Date.now() } };
       },
     },
 
@@ -151,9 +108,6 @@ const cacheSlice = createSlice({
 export const {
   setCacheStats,
   setCacheHealth,
-  setIsLoading,
-  setError,
-  clearError,
   clearCacheLocal,
   resetCache,
 } = cacheSlice.actions;
@@ -163,8 +117,10 @@ export const selectCacheStats = (state: { cache: CacheState }) => state.cache.st
 export const selectCacheHealth = (state: { cache: CacheState }) => state.cache.health;
 export const selectIsHealthy = (state: { cache: CacheState }) =>
   state.cache.health?.healthy ?? false;
-export const selectIsLoading = (state: { cache: CacheState }) => state.cache.isLoading;
-export const selectError = (state: { cache: CacheState }) => state.cache.error;
+
+// #5354: selectIsLoading/selectError and the isLoading/error state they read
+// were deleted — no production code ever dispatched the actions that would
+// change them, so they could never leave their initial values.
 
 // #5212: selectOverallHitRate / selectTotalCacheSize / selectTotalChunks /
 // selectTracksCached were deleted — no useSelector anywhere, only same-named

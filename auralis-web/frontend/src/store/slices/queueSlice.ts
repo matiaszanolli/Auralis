@@ -30,8 +30,6 @@ export interface QueueState {
   currentIndex: number;
   isShuffled: boolean;
   repeatMode: RepeatMode;
-  isLoading: boolean;
-  error: string | null;
   lastUpdated: number;
 }
 
@@ -40,8 +38,6 @@ const initialState: QueueState = {
   currentIndex: 0,
   isShuffled: false,
   repeatMode: 'off',
-  isLoading: false,
-  error: null,
   lastUpdated: 0,
 };
 
@@ -234,45 +230,6 @@ const queueSlice = createSlice({
     },
 
     /**
-     * Set loading state
-     */
-    setIsLoading: {
-      reducer(state, action: PayloadAction<boolean, string, { timestamp: number }>) {
-        state.isLoading = action.payload;
-        state.lastUpdated = action.meta.timestamp;
-      },
-      prepare(isLoading: boolean) {
-        return { payload: isLoading, meta: { timestamp: Date.now() } };
-      },
-    },
-
-    /**
-     * Set error message
-     */
-    setError: {
-      reducer(state, action: PayloadAction<string | null, string, { timestamp: number }>) {
-        state.error = action.payload;
-        state.lastUpdated = action.meta.timestamp;
-      },
-      prepare(error: string | null) {
-        return { payload: error, meta: { timestamp: Date.now() } };
-      },
-    },
-
-    /**
-     * Clear error
-     *
-     * No production dispatch sites (#4921) for THIS slice; cacheSlice's and
-     * connectionSlice's same-named actions ARE dispatched, from useCacheRedux.ts / useConnectionRedux.ts — kept as an idiomatic
-     * Redux action. Live sync uses field-level dispatches; see the note on
-     * resetPlayer in playerSlice.ts for why the bulk-update siblings were
-     * deleted rather than documented.
-     */
-    clearError(state) {
-      state.error = null;
-    },
-
-    /**
      * Set shuffle state
      */
     setIsShuffled: {
@@ -323,9 +280,6 @@ export const {
   setQueue,
   updateTrackById,
   setCurrentIndex,
-  setIsLoading,
-  setError,
-  clearError,
   setIsShuffled,
   setRepeatMode,
   resetQueue,
@@ -338,9 +292,10 @@ export const selectIsShuffled = (state: { queue: QueueState }) => state.queue.is
 export const selectRepeatMode = (state: { queue: QueueState }) => state.queue.repeatMode;
 // selectCurrentQueueTrack: use the memoized version from store/selectors/index.ts (#3382)
 export const selectQueueLength = (state: { queue: QueueState }) => state.queue.tracks.length;
-export const selectIsLoading = (state: { queue: QueueState }) => state.queue.isLoading;
-export const selectError = (state: { queue: QueueState }) => state.queue.error;
 export const selectLastUpdated = (state: { queue: QueueState }) => state.queue.lastUpdated;
+// #5354: selectIsLoading/selectError and the isLoading/error state they read
+// were deleted — no production code ever dispatched the actions that would
+// change them, so they could never leave their initial values.
 // selectQueueState is exported from store/selectors/index.ts (memoized).
 
 // Derived selectors (selectRemainingTime, selectTotalQueueTime) are memoized

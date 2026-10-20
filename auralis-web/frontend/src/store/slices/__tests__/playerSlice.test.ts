@@ -13,9 +13,6 @@ import reducer, {
   toggleMute,
   setMuted,
   setPreset,
-  setIsLoading,
-  setError,
-  clearError,
   resetPlayer,
   startStreaming,
   updateStreamingProgress,
@@ -158,17 +155,9 @@ describe('playerSlice', () => {
     expect(state.preset).toBe('adaptive');
   });
 
-  it('setIsLoading sets loading', () => {
-    const state = reducer(initialState, setIsLoading(true));
-    expect(state.isLoading).toBe(true);
-  });
-
-  it('setError and clearError manage error state', () => {
-    let state = reducer(initialState, setError('Something broke'));
-    expect(state.error).toBe('Something broke');
-    state = reducer(state, clearError());
-    expect(state.error).toBeNull();
-  });
+  // #5354: the setIsLoading/setError/clearError tests were deleted with the
+  // actions — nothing dispatched them in production, so the state could never
+  // leave its initial values.
 
   // ─── resetPlayer ──────────────────────────────────────────────
 

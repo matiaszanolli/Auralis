@@ -11,17 +11,13 @@ export { useGroupedArtists } from './useGroupedArtists';
 // Redux state hooks - exported from useReduxState.ts
 export {
   usePlayerState,
-  usePlayer,
   usePlayerActions,
   useQueueState,
   useQueue,
   useCacheState,
-  useCache,
   useConnectionState,
   useConnection,
   useAppState,
-  useIsLoading,
-  useAppErrors,
   useConnectionHealth,
   useQueueTimeRemaining,
 } from './useReduxState';

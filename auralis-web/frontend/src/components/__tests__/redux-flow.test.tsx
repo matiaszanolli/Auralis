@@ -350,69 +350,31 @@ describe('End-to-End User Flows', () => {
   // ============================================================================
 
   describe('Error Recovery Flow', () => {
-    it('should handle playback errors gracefully', () => {
-      const track = { id: 1, title: 'Test', artist: 'Artist', duration: 180 };
-
-      // Load and play track
-      store.dispatch(playerActions.setCurrentTrack(track));
-      store.dispatch(playerActions.setIsPlaying(true));
-
-      // Simulate playback error
-      store.dispatch(playerActions.setError('Audio playback failed'));
+    // #5354: the player/queue/cache error-state tests were deleted with the
+    // never-dispatched setError/clearError actions. The connection slice's
+    // error flow — the one with live dispatchers — keeps coverage here.
+    it('should handle connection errors with recovery', () => {
+      store.dispatch(connectionActions.setError('Connection lost'));
 
       let state = store.getState();
-      expect(state.player.error).toBe('Audio playback failed');
+      expect(state.connection.lastError).toBe('Connection lost');
 
-      // Pause playback
-      store.dispatch(playerActions.setIsPlaying(false));
-
-      // Clear error
-      store.dispatch(playerActions.clearError());
+      store.dispatch(connectionActions.clearError());
 
       state = store.getState();
-      expect(state.player.error).toBeNull();
-      expect(state.player.isPlaying).toBe(false);
+      expect(state.connection.lastError).toBeNull();
     });
 
-    it('should handle queue errors with recovery', () => {
-      // Add tracks successfully
-      const track1 = { id: 1, title: 'Track 1', artist: 'Artist 1', duration: 180 };
-      store.dispatch(queueActions.addTrack(track1));
+    it('playback keeps working after a connection error', () => {
+      store.dispatch(connectionActions.setError('Connection lost'));
 
-      // Simulate queue loading error
-      store.dispatch(queueActions.setError('Failed to load queue'));
-
-      let state = store.getState();
-      expect(state.queue.error).toBe('Failed to load queue');
-
-      // Attempt recovery - clear error and retry
-      store.dispatch(queueActions.clearError());
-      const track2 = { id: 2, title: 'Track 2', artist: 'Artist 2', duration: 200 };
-      store.dispatch(queueActions.addTrack(track2));
-
-      state = store.getState();
-      expect(state.queue.error).toBeNull();
-      expect(state.queue.tracks).toHaveLength(2);
-    });
-
-    it('should handle cache errors with graceful degradation', () => {
-      // Simulate cache load error
-      store.dispatch(cacheActions.setError('Cache stats unavailable'));
-
-      let state = store.getState();
-      expect(state.cache.error).toBe('Cache stats unavailable');
-      expect(state.cache.stats).toBeNull();
-
-      // Playback should still work
       const track = { id: 1, title: 'Test', artist: 'Artist', duration: 180 };
       store.dispatch(playerActions.setCurrentTrack(track));
       store.dispatch(playerActions.setIsPlaying(true));
 
-      state = store.getState();
+      const state = store.getState();
       expect(state.player.isPlaying).toBe(true);
-
-      // Cache error doesn't affect playback
-      expect(state.cache.error).toBe('Cache stats unavailable');
+      expect(state.connection.lastError).toBe('Connection lost');
     });
   });
 

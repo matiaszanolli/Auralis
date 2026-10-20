@@ -26,10 +26,11 @@ export const usePlayerState = () => {
  *
  * The returned object is stable across renders (every callback depends only on
  * the stable `dispatch`/`store` references), so action-only consumers don't
- * re-render on state changes. usePlayer() bundles `currentTime`, so it returns a
- * new object on every 1Hz position tick during playback; consumers that only
- * need callbacks (e.g. a context menu's "play") should use this instead to avoid
- * 1Hz render churn (#4176).
+ * re-render on state changes. Consumers that only need callbacks (e.g. a
+ * context menu's "play") should use this; anything subscribing to player
+ * state should read granular fields via usePlayerState or per-field
+ * useSelector (#4176 — the former usePlayer() convenience bundle re-rendered
+ * on every 1Hz position tick, and was deleted with #5354).
  */
 export const usePlayerActions = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -66,41 +67,6 @@ export const usePlayerActions = () => {
   }), [play, pause, togglePlay, seek, setVolume, setMuted, toggleMute, setPreset]);
 };
 
-/**
- * Access player playback controls and state
- */
-export const usePlayer = () => {
-  // Reuse the stable action callbacks (#4176) so they're defined in one place.
-  const actions = usePlayerActions();
-
-  // Granular selectors — each only triggers a re-render when its specific field
-  // changes, preventing the full player slice subscription from causing cascading
-  // re-renders on every WebSocket position update (fixes #2537).
-  const isPlaying = useSelector((state: RootState) => state.player.isPlaying);
-  const currentTrack = useSelector((state: RootState) => state.player.currentTrack);
-  const currentTime = useSelector((state: RootState) => state.player.currentTime);
-  const duration = useSelector((state: RootState) => state.player.duration);
-  const volume = useSelector((state: RootState) => state.player.volume);
-  const isMuted = useSelector((state: RootState) => state.player.isMuted);
-  const preset = useSelector((state: RootState) => state.player.preset);
-  const isLoading = useSelector((state: RootState) => state.player.isLoading);
-  const error = useSelector((state: RootState) => state.player.error);
-
-  // Memoize the returned object so consumers only re-render when state they
-  // actually use changes, not on every render of this hook (fixes #2537).
-  return useMemo(() => ({
-    isPlaying,
-    currentTrack,
-    currentTime,
-    duration,
-    volume,
-    isMuted,
-    preset,
-    isLoading,
-    error,
-    ...actions,
-  }), [
-    isPlaying, currentTrack, currentTime, duration, volume, isMuted, preset,
-    isLoading, error, actions,
-  ]);
-};
+// #5354: usePlayer() was deleted — it had zero production callers, and the
+// isLoading/error fields it surfaced could never leave their initial values
+// (nothing dispatched the actions that would change them).

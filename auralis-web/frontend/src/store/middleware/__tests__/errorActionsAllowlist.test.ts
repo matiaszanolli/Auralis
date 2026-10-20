@@ -25,10 +25,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { configureStore } from '@reduxjs/toolkit';
 import playerReducer, {
-  setError as playerSetError,
   setStreamingError,
   setVolume,
 } from '@/store/slices/playerSlice';
+
+// #5354: player/setError no longer exists as a slice action (never dispatched
+// in production); the allowlist under test matches on the action-type string,
+// so dispatch a plain action of the same shape.
+const playerSetError = (message: string) => ({ type: 'player/setError', payload: message });
 import connectionReducer from '@/store/slices/connectionSlice';
 import {
   createErrorTrackingMiddleware,

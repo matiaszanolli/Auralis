@@ -131,8 +131,6 @@ export const emptyStoreState: RootState = {
     volume: 70,
     isMuted: false,
     preset: 'adaptive',
-    isLoading: false,
-    error: null,
     lastUpdated: 0,
     streaming: {
       normal: { ...defaultStreamingInfo },
@@ -142,15 +140,11 @@ export const emptyStoreState: RootState = {
   queue: {
     tracks: [],
     currentIndex: 0,
-    isLoading: false,
-    error: null,
     lastUpdated: 0,
   },
   cache: {
     stats: null,
     health: null,
-    isLoading: false,
-    error: null,
     lastUpdated: 0,
   },
   connection: {
@@ -221,41 +215,14 @@ export const healthyCacheState: RootState = {
 };
 
 /**
- * Loading state
- */
-export const loadingState: RootState = {
-  ...emptyStoreState,
-  player: {
-    ...emptyStoreState.player,
-    isLoading: true,
-  },
-  queue: {
-    ...emptyStoreState.queue,
-    isLoading: true,
-  },
-  cache: {
-    ...emptyStoreState.cache,
-    isLoading: true,
-  },
-};
-
-/**
  * Error state
+ *
+ * #5354: the player/queue/cache isLoading/error deltas this fixture used to
+ * set were deleted along with the never-dispatched state itself; only the
+ * connection slice has a live error field.
  */
 export const errorState: RootState = {
   ...emptyStoreState,
-  player: {
-    ...emptyStoreState.player,
-    error: 'Playback failed',
-  },
-  queue: {
-    ...emptyStoreState.queue,
-    error: 'Failed to load queue',
-  },
-  cache: {
-    ...emptyStoreState.cache,
-    error: 'Cache unavailable',
-  },
   connection: {
     ...emptyStoreState.connection,
     lastError: 'Connection lost',
@@ -374,9 +341,6 @@ export function assertQueueState(
  * Verify no errors in state
  */
 export function assertNoErrors(state: RootState) {
-  if (state.player.error) throw new Error(`Player error: ${state.player.error}`);
-  if (state.queue.error) throw new Error(`Queue error: ${state.queue.error}`);
-  if (state.cache.error) throw new Error(`Cache error: ${state.cache.error}`);
   if (state.connection.lastError) throw new Error(`Connection error: ${state.connection.lastError}`);
 }
 
@@ -442,7 +406,6 @@ export const testScenarios = {
   connectedWithTrack: connectedWithTrackState,
   playingWithQueue: playingWithQueueState,
   healthyCache: healthyCacheState,
-  loading: loadingState,
   error: errorState,
   offline: offlineState,
   reconnecting: reconnectingState,

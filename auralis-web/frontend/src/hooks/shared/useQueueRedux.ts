@@ -81,8 +81,6 @@ export const useQueue = () => {
       currentIndex: state.currentIndex,
       currentTrack: state.tracks[state.currentIndex] || null,
       queueLength: state.tracks.length,
-      isLoading: state.isLoading,
-      error: state.error,
       remainingTime,
       totalTime,
       add,
@@ -96,8 +94,6 @@ export const useQueue = () => {
     [
       state.tracks,
       state.currentIndex,
-      state.isLoading,
-      state.error,
       remainingTime,
       totalTime,
       add,

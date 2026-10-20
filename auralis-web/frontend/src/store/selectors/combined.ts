@@ -10,7 +10,6 @@
  */
 
 import { createSelector } from '@reduxjs/toolkit';
-import type { RootState } from '@/store/index';
 import { playerSelectors, selectPlaybackProgress, selectFormattedTime, selectPlaybackState } from './player';
 import {
   queueSelectors,
@@ -31,21 +30,16 @@ export const selectAppSnapshot = createSelector(
     selectQueueState,
     selectCacheMetrics,
     selectConnectionStatus,
-    (state: RootState) => state.player.isLoading,
-    (state: RootState) => state.queue.isLoading,
-    (state: RootState) => state.cache.isLoading,
-    (state: RootState) => state.player.error,
-    (state: RootState) => state.queue.error,
-    (state: RootState) => state.cache.error,
   ],
-  (playback, queue, cache, connection, playerLoading, queueLoading, cacheLoading, playerError, queueError, cacheError) => ({
+  (playback, queue, cache, connection) => ({
     playback,
     queue,
     cache,
     connection,
-    isLoading: playerLoading || queueLoading || cacheLoading,
-    hasErrors: !!(playerError || queueError || cacheError),
   })
+  // #5354: the isLoading/hasErrors aggregation was dropped along with the
+  // player/queue/cache isLoading/error state it read — those fields could
+  // never leave their initial values, so the flags were constant.
 );
 
 export const selectors = {
