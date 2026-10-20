@@ -31,7 +31,6 @@ export type StreamType = 'normal' | 'enhanced';
 export interface StreamingInfo {
   state: StreamingState;
   trackId: number | null;
-  intensity: number;
   progress: number; // 0-100
   bufferedSamples: number;
   totalChunks: number;
@@ -55,7 +54,6 @@ export interface StreamingHostState {
 export const initialStreamingInfo: StreamingInfo = {
   state: 'idle',
   trackId: null,
-  intensity: 1.0,
   progress: 0,
   bufferedSamples: 0,
   totalChunks: 0,
@@ -76,7 +74,6 @@ export const streamingReducers = {
           streamType: StreamType;
           trackId: number;
           totalChunks: number;
-          intensity: number;
         },
         string,
         { timestamp: number }
@@ -86,7 +83,6 @@ export const streamingReducers = {
       s.state = 'buffering';
       s.trackId = action.payload.trackId;
       s.totalChunks = action.payload.totalChunks;
-      s.intensity = action.payload.intensity;
       s.processedChunks = 0;
       s.progress = 0;
       s.bufferedSamples = 0;
@@ -98,7 +94,6 @@ export const streamingReducers = {
       streamType: StreamType;
       trackId: number;
       totalChunks: number;
-      intensity: number;
     }) {
       return { payload: params, meta: { timestamp: Date.now() } };
     },

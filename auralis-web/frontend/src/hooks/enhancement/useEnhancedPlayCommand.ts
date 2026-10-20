@@ -131,7 +131,6 @@ export function useEnhancedPlayCommand({
           streamType: 'enhanced',
           trackId,
           totalChunks: 0, // Will be updated when stream starts
-          intensity,
         }));
 
         // One browser audio session consumes either backend stream. Route the

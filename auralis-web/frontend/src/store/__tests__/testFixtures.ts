@@ -114,7 +114,6 @@ export const createMockCacheHealth = (overrides?: Partial<any>) => ({
 const defaultStreamingInfo = {
   state: 'idle' as const,
   trackId: null,
-  intensity: 1.0,
   progress: 0,
   bufferedSamples: 0,
   totalChunks: 0,

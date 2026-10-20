@@ -102,7 +102,6 @@ export function useEnhancedStreamStart({
           streamType: 'enhanced',
           trackId: message.data.track_id,
           totalChunks: message.data.total_chunks,
-          intensity: 1.0,
         }));
         return;
       }
@@ -209,10 +208,6 @@ export function useEnhancedStreamStart({
           streamType: 'enhanced',
           trackId: message.data.track_id,
           totalChunks: message.data.total_chunks,
-          // The backend echoes the values it actually resolved for this
-          // stream (#5604) — the authoritative applied intensity, current
-          // across live preset/intensity changes (reissued streams).
-          intensity: message.data.intensity,
         })
       );
 

@@ -48,14 +48,13 @@ describe('streaming sub-state transitions (#5042)', () => {
   it('startStreaming arms the requested stream and leaves its sibling alone', () => {
     const next = reducer(
       base(),
-      startStreaming({ streamType: 'enhanced', trackId: 7, totalChunks: 12, intensity: 0.5 })
+      startStreaming({ streamType: 'enhanced', trackId: 7, totalChunks: 12 })
     );
 
     expect(next.streaming.enhanced).toMatchObject({
       state: 'buffering',
       trackId: 7,
       totalChunks: 12,
-      intensity: 0.5,
       processedChunks: 0,
       progress: 0,
       error: null,
@@ -66,7 +65,7 @@ describe('streaming sub-state transitions (#5042)', () => {
   it('updateStreamingProgress promotes buffering to streaming once samples land', () => {
     let state = reducer(
       base(),
-      startStreaming({ streamType: 'normal', trackId: 1, totalChunks: 4, intensity: 1 })
+      startStreaming({ streamType: 'normal', trackId: 1, totalChunks: 4 })
     );
     state = reducer(
       state,
@@ -85,7 +84,7 @@ describe('streaming sub-state transitions (#5042)', () => {
   it('drops progress, completion and errors from a superseded track (#4434)', () => {
     const armed = reducer(
       base(),
-      startStreaming({ streamType: 'enhanced', trackId: 1, totalChunks: 4, intensity: 1 })
+      startStreaming({ streamType: 'enhanced', trackId: 1, totalChunks: 4 })
     );
 
     const stale = reducer(
@@ -119,7 +118,7 @@ describe('streaming sub-state transitions (#5042)', () => {
   it('resetStreaming restores the initial sub-state', () => {
     let state = reducer(
       base(),
-      startStreaming({ streamType: 'normal', trackId: 3, totalChunks: 9, intensity: 1 })
+      startStreaming({ streamType: 'normal', trackId: 3, totalChunks: 9 })
     );
     state = reducer(state, resetStreaming('normal'));
 
@@ -129,7 +128,7 @@ describe('streaming sub-state transitions (#5042)', () => {
   it('setPlaybackStalled records a local stall apart from the stream state (#5461)', () => {
     const live = reducer(
       base(),
-      startStreaming({ streamType: 'enhanced', trackId: 5, totalChunks: 4, intensity: 1 })
+      startStreaming({ streamType: 'enhanced', trackId: 5, totalChunks: 4 })
     );
 
     const stalled = reducer(live, setPlaybackStalled({ streamType: 'enhanced', stalled: true, trackId: 5 }));
@@ -144,7 +143,7 @@ describe('streaming sub-state transitions (#5042)', () => {
     // The next stream starts unstalled.
     const next = reducer(
       stalled,
-      startStreaming({ streamType: 'enhanced', trackId: 6, totalChunks: 4, intensity: 1 })
+      startStreaming({ streamType: 'enhanced', trackId: 6, totalChunks: 4 })
     );
     expect(next.streaming.enhanced.stalled).toBe(false);
   });

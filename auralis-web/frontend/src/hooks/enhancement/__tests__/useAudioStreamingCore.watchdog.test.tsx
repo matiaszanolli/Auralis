@@ -80,7 +80,7 @@ describe('useAudioStreamingCore watchdog (#4433)', () => {
     const { result } = render();
 
     act(() => {
-      store.dispatch(startStreaming({ streamType: 'enhanced', trackId: 1, totalChunks: 0, intensity: 50 }));
+      store.dispatch(startStreaming({ streamType: 'enhanced', trackId: 1, totalChunks: 0 }));
     });
     expect(store.getState().player.streaming.enhanced.state).toBe('buffering');
 
@@ -100,7 +100,7 @@ describe('useAudioStreamingCore watchdog (#4433)', () => {
     const { result } = render();
 
     act(() => {
-      store.dispatch(startStreaming({ streamType: 'enhanced', trackId: 1, totalChunks: 0, intensity: 50 }));
+      store.dispatch(startStreaming({ streamType: 'enhanced', trackId: 1, totalChunks: 0 }));
       result.current.armStreamStartWatchdog();
     });
 
@@ -118,7 +118,7 @@ describe('useAudioStreamingCore watchdog (#4433)', () => {
   it('re-arming replaces the prior timer (no double-fire)', () => {
     const { result } = render();
     act(() => {
-      store.dispatch(startStreaming({ streamType: 'enhanced', trackId: 1, totalChunks: 0, intensity: 50 }));
+      store.dispatch(startStreaming({ streamType: 'enhanced', trackId: 1, totalChunks: 0 }));
     });
 
     act(() => { result.current.armStreamStartWatchdog(); });

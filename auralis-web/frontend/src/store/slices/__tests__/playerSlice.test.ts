@@ -41,7 +41,6 @@ const initialState: PlayerState = {
     normal: {
       state: 'idle',
       trackId: null,
-      intensity: 1.0,
       progress: 0,
       bufferedSamples: 0,
       totalChunks: 0,
@@ -51,7 +50,6 @@ const initialState: PlayerState = {
     enhanced: {
       state: 'idle',
       trackId: null,
-      intensity: 1.0,
       progress: 0,
       bufferedSamples: 0,
       totalChunks: 0,
@@ -193,14 +191,12 @@ describe('playerSlice', () => {
           streamType: 'enhanced',
           trackId: 42,
           totalChunks: 10,
-          intensity: 0.9,
         }),
       );
       const s = state.streaming.enhanced;
       expect(s.state).toBe('buffering');
       expect(s.trackId).toBe(42);
       expect(s.totalChunks).toBe(10);
-      expect(s.intensity).toBe(0.9);
       expect(s.processedChunks).toBe(0);
       expect(s.progress).toBe(0);
       expect(s.error).toBeNull();
@@ -209,7 +205,7 @@ describe('playerSlice', () => {
     it('updateStreamingProgress transitions buffering → streaming', () => {
       let state = reducer(
         initialState,
-        startStreaming({ streamType: 'normal', trackId: 1, totalChunks: 5, intensity: 1 }),
+        startStreaming({ streamType: 'normal', trackId: 1, totalChunks: 5 }),
       );
       state = reducer(
         state,
@@ -229,7 +225,7 @@ describe('playerSlice', () => {
     it('completeStreaming sets state=complete and progress=100', () => {
       let state = reducer(
         initialState,
-        startStreaming({ streamType: 'enhanced', trackId: 1, totalChunks: 3, intensity: 1 }),
+        startStreaming({ streamType: 'enhanced', trackId: 1, totalChunks: 3 }),
       );
       state = reducer(state, completeStreaming('enhanced'));
       expect(state.streaming.enhanced.state).toBe('complete');
@@ -239,7 +235,7 @@ describe('playerSlice', () => {
     it('setStreamingError sets state=error with message', () => {
       let state = reducer(
         initialState,
-        startStreaming({ streamType: 'enhanced', trackId: 1, totalChunks: 3, intensity: 1 }),
+        startStreaming({ streamType: 'enhanced', trackId: 1, totalChunks: 3 }),
       );
       state = reducer(
         state,
@@ -252,7 +248,7 @@ describe('playerSlice', () => {
     it('resetStreaming clears all sub-fields', () => {
       let state = reducer(
         initialState,
-        startStreaming({ streamType: 'normal', trackId: 99, totalChunks: 8, intensity: 0.5 }),
+        startStreaming({ streamType: 'normal', trackId: 99, totalChunks: 8 }),
       );
       state = reducer(state, resetStreaming('normal'));
       expect(state.streaming.normal.state).toBe('idle');
@@ -265,11 +261,11 @@ describe('playerSlice', () => {
     it('normal and enhanced streams are independent', () => {
       let state = reducer(
         initialState,
-        startStreaming({ streamType: 'normal', trackId: 1, totalChunks: 5, intensity: 1 }),
+        startStreaming({ streamType: 'normal', trackId: 1, totalChunks: 5 }),
       );
       state = reducer(
         state,
-        startStreaming({ streamType: 'enhanced', trackId: 2, totalChunks: 8, intensity: 0.7 }),
+        startStreaming({ streamType: 'enhanced', trackId: 2, totalChunks: 8 }),
       );
       expect(state.streaming.normal.trackId).toBe(1);
       expect(state.streaming.enhanced.trackId).toBe(2);
@@ -287,7 +283,7 @@ describe('playerSlice', () => {
     const started = () =>
       reducer(
         initialState,
-        startStreaming({ streamType: 'enhanced', trackId: 1, totalChunks: 10, intensity: 1 }),
+        startStreaming({ streamType: 'enhanced', trackId: 1, totalChunks: 10 }),
       );
 
     it('updateStreamingProgress ignores a mismatched trackId', () => {

@@ -1352,7 +1352,7 @@ describe('usePlayEnhanced – playEnhanced', () => {
     vi.unstubAllGlobals();
   });
 
-  it('dispatches startStreaming with correct trackId and intensity', async () => {
+  it('dispatches startStreaming with the requested trackId', async () => {
     const { result } = renderHook(() => usePlayEnhanced(), {
       wrapper: makeWrapper(store),
     });
@@ -1363,7 +1363,7 @@ describe('usePlayEnhanced – playEnhanced', () => {
 
     const streaming = store.getState().player.streaming.enhanced;
     expect(streaming.trackId).toBe(5);
-    expect(streaming.intensity).toBe(0.9);
+    expect(streaming.state).toBe('buffering');
   });
 
   it('resets prior streaming state before starting a new stream', async () => {
