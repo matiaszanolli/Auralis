@@ -20,6 +20,8 @@ import logging
 from collections import OrderedDict
 from typing import Any
 
+from core.chunk_cache_manager import intensity_cache_key
+
 
 logger = logging.getLogger(__name__)
 
@@ -46,18 +48,17 @@ ProcessorCacheKey = tuple[int, str | None, float, str]
 # module stays the documented patch point for the cap.
 _PROCESSOR_CACHE_MAX = 8
 
-# Intensity is quantised into the cache key at one decimal (#4521), matching
-# `cache.manager.CachedChunk.key()`'s `{self.intensity:.1f}`. The chunk cache
-# already treats every intensity inside a 0.1 bucket as the same cached chunk,
-# so building one processor per bucket is the consistent choice — without this,
-# a UI slider drag mints a distinct processor per intermediate float while the
+# Intensity is quantised into the cache key at the chunk cache's canonical 0.1
+# granularity (#4521, formatter shared with every tier since #5474). The chunk
+# cache treats every intensity inside a 0.1 bucket as the same cached chunk, so
+# building one processor per bucket is the consistent choice — without this, a
+# UI slider drag mints a distinct processor per intermediate float while the
 # chunks they produce all collapse onto the same cache entry.
-_INTENSITY_KEY_DECIMALS = 1
 
 
 def intensity_key(intensity: float) -> float:
     """Bucket an intensity to the chunk cache's own 0.1 granularity (#4521)."""
-    return round(float(intensity), _INTENSITY_KEY_DECIMALS)
+    return intensity_cache_key(intensity)
 
 
 def close_dropped_processor(cache_key: ProcessorCacheKey, processor: Any) -> None:

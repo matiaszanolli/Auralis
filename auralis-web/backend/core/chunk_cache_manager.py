@@ -33,6 +33,20 @@ logger = logging.getLogger(__name__)
 MAX_CHUNK_DISK_BYTES = 512 * 1024 * 1024  # 512 MB
 PRUNE_EVERY_N_WRITES = 32  # amortise the directory scan across writes
 
+# Canonical intensity precision for every chunk-cache key and on-disk filename
+# (#5474). Each tier used to format intensity at its own precision — .1f in
+# cache/models.py, the raw float in the on-disk key and WAV filename — so two
+# requests in the same 0.1 bucket could be served audio rendered for a
+# different off-grid intensity, and float noise (0.30000000000000004) minted
+# its own unreachable disk entries. Quantise once here; every consumer imports
+# this function rather than formatting intensity itself.
+INTENSITY_KEY_DECIMALS = 1
+
+
+def intensity_cache_key(intensity: float) -> float:
+    """Bucket an intensity to the chunk cache's canonical 0.1 granularity."""
+    return round(float(intensity), INTENSITY_KEY_DECIMALS)
+
 
 class ChunkCacheManager:
     """
@@ -104,7 +118,7 @@ class ChunkCacheManager:
             '123_a3b4c5d6_adaptive_0.8_none_chunk_0'
         """
         return (
-            f"{track_id}_{file_signature}_{preset}_{intensity}_"
+            f"{track_id}_{file_signature}_{preset}_{intensity_cache_key(intensity)}_"
             f"{targets_hash}_chunk_{chunk_index}"
         )
 
@@ -424,10 +438,12 @@ class ChunkCacheManager:
             >>> removed
             15
         """
-        # Build prefix pattern for matching
+        # Build prefix pattern for matching. The intensity component must be
+        # formatted exactly as get_chunk_cache_key formats it (#5474), so the
+        # prefix matches entries recorded under float-noise inputs too.
         if preset is not None and intensity is not None:
             # Clear specific preset/intensity combination
-            prefix = f"{track_id}_{file_signature}_{preset}_{intensity}_"
+            prefix = f"{track_id}_{file_signature}_{preset}_{intensity_cache_key(intensity)}_"
         else:
             # Clear all entries for this track
             prefix = f"{track_id}_{file_signature}_"

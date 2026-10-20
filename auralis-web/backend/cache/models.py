@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 from core.chunk_boundaries import CHUNK_DURATION
+from core.chunk_cache_manager import intensity_cache_key
 
 # Configuration
 #
@@ -102,7 +103,10 @@ class CachedChunk:
         key format, so a lookup (which has no CachedChunk instance yet) and
         an insert (which does, via .key()) can never drift apart."""
         preset_key = "original" if preset is None else preset
-        return f"{track_id}_{preset_key}_{intensity:.1f}_{chunk_idx}_{file_signature}"
+        return (
+            f"{track_id}_{preset_key}_{intensity_cache_key(intensity):.1f}"
+            f"_{chunk_idx}_{file_signature}"
+        )
 
     def key(self) -> str:
         """Generate unique cache key."""

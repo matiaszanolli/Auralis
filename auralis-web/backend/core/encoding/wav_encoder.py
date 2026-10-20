@@ -16,6 +16,7 @@ import numpy as np
 
 from auralis.io.saver import save as save_audio
 
+from ..chunk_cache_manager import intensity_cache_key
 from ..targets_hash import NO_TARGETS
 from .atomic_io import atomic_save_audio, is_partial_path
 
@@ -120,10 +121,14 @@ class WAVEncoder:
         Returns:
             Path object for chunk file
         """
-        # Include CACHE_VERSION in filename to invalidate stale chunks
+        # Include CACHE_VERSION in filename to invalidate stale chunks.
+        # intensity goes through the canonical intensity_cache_key so the
+        # filename moves in lockstep with ChunkCacheManager.get_chunk_cache_key
+        # for off-grid / float-noise intensities too (#5474; the #4792/#4666
+        # lockstep requirement).
         filename = (
             f"v{self.CACHE_VERSION}_track_{track_id}_{file_signature}_"
-            f"{preset}_{intensity}_{targets_hash}_chunk_{chunk_index}.wav"
+            f"{preset}_{intensity_cache_key(intensity)}_{targets_hash}_chunk_{chunk_index}.wav"
         )
         return self.chunk_dir / filename
 
