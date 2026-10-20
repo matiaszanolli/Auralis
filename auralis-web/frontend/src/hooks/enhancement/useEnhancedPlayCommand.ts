@@ -112,12 +112,13 @@ export function useEnhancedPlayCommand({
           // Continue anyway - playback will still work
         }
 
-        // Store track info for seek operations
-        currentTrackInfoRef.current = {
-          trackId,
-          preset,
-          intensity,
-        };
+        // Store the track this stream is for, so seekTo can restart it.
+        // Deliberately trackId-only (#5604): preset/intensity used to be
+        // snapshotted here and re-sent on seek, re-mastering the seek stream
+        // with play-time values after a live slider change. Seek now omits
+        // them and the backend resolves from the connection's active stream
+        // settings, which the live-change reissue path keeps current.
+        currentTrackInfoRef.current = { trackId };
 
         // Set buffering state immediately for instant user feedback
         dispatch(startStreaming({

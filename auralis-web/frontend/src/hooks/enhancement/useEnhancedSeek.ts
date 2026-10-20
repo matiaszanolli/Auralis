@@ -56,7 +56,7 @@ export function useEnhancedSeek({
       return;
     }
 
-    const { trackId, preset, intensity } = currentTrackInfoRef.current;
+    const { trackId } = currentTrackInfoRef.current;
 
     DEBUG && console.log('[usePlayEnhanced] Seeking to:', position, 'seconds');
 
@@ -76,14 +76,17 @@ export function useEnhancedSeek({
     core.pendingChunksRef.current = [];
     core.lastReceivedChunkIndexRef.current = -1;
 
-    // Send seek message to backend
+    // preset/intensity are deliberately OMITTED (#5604): the backend resolves
+    // them from this connection's active_stream_settings (#4742), which the
+    // live preset/intensity reissue path (useEnhancementControl) keeps
+    // current. The play-time snapshot in currentTrackInfoRef is stale the
+    // moment the user moves a slider — sending it here re-mastered the seek
+    // stream with the old values and un-did the live change.
     wsContext.send({
       type: 'seek',
       data: {
         track_id: trackId,
         position,
-        preset,
-        intensity,
       },
     });
   }, [wsContext, currentTrackInfoRef, setIsSeeking, core.playbackEngineRef, core.pcmBufferRef, core.streamingMetadataRef, core.pendingChunksRef, core.lastReceivedChunkIndexRef]);

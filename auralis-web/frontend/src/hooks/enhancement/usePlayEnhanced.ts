@@ -156,7 +156,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
   });
 
   // Register the enhanced audio_stream_start handler on the core.
-  useEnhancedStreamStart({ core, dispatch, currentTrackInfoRef, setIsSeeking });
+  useEnhancedStreamStart({ core, dispatch, setIsSeeking });
 
   const { seekTo } = useEnhancedSeek({ wsContext, core, currentTrackInfoRef, setIsSeeking });
 

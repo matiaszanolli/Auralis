@@ -941,10 +941,17 @@ describe('usePlayEnhanced – seekTo', () => {
       data: expect.objectContaining({
         track_id: 42,
         position: 90.5,
-        preset: 'adaptive',
-        intensity: 0.8,
       }),
     });
+    // #5604: preset/intensity are deliberately omitted — the backend resolves
+    // them from the connection's active stream settings (kept current by the
+    // live-change reissue path), not from the stale play-time snapshot.
+    const seekFrame = mockSend.mock.calls.find(
+      (call) => (call[0] as { type: string }).type === 'seek'
+    );
+    const seekData = (seekFrame?.[0] as { data: Record<string, unknown> }).data;
+    expect(seekData).not.toHaveProperty('preset');
+    expect(seekData).not.toHaveProperty('intensity');
   });
 
   it('does nothing when no track info is available', () => {

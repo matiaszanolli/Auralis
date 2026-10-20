@@ -18,7 +18,6 @@
 const DEBUG = import.meta.env.DEV;
 
 import { useCallback } from 'react';
-import type { MutableRefObject } from 'react';
 import type { AppDispatch } from '@/store';
 import PCMStreamBuffer from '@/services/audio/PCMStreamBuffer';
 import AudioPlaybackEngine from '@/services/audio/AudioPlaybackEngine';
@@ -30,18 +29,19 @@ import {
 import type { AudioStreamStartMessage } from '@/contexts/WebSocketContext';
 import type { StreamingCoreReturn } from './useAudioStreamingCore';
 
-/** Track parameters retained so a seek can restart the stream (shared by the
- *  enhanced play/seek/stream-start hooks). */
+/** The track the current enhanced stream is for, retained so a seek can
+ *  restart it. Deliberately trackId-only (#5604): preset/intensity used to be
+ *  snapshotted here at play time, but they are the backend's to resolve —
+ *  seek omits them and handle_seek reads this connection's
+ *  active_stream_settings, which the live-change reissue path keeps current.
+ *  A client-side snapshot of them is stale the moment a slider moves. */
 export interface CurrentTrackInfo {
   trackId: number;
-  preset: string;
-  intensity: number;
 }
 
 export interface UseEnhancedStreamStartParams {
   core: StreamingCoreReturn;
   dispatch: AppDispatch;
-  currentTrackInfoRef: MutableRefObject<CurrentTrackInfo | null>;
   setIsSeeking: (seeking: boolean) => void;
 }
 
@@ -52,7 +52,6 @@ export interface UseEnhancedStreamStartParams {
 export function useEnhancedStreamStart({
   core,
   dispatch,
-  currentTrackInfoRef,
   setIsSeeking,
 }: UseEnhancedStreamStartParams): void {
   const handleStreamStart = useCallback((message: AudioStreamStartMessage) => {
@@ -192,7 +191,10 @@ export function useEnhancedStreamStart({
           streamType: 'enhanced',
           trackId: message.data.track_id,
           totalChunks: message.data.total_chunks,
-          intensity: currentTrackInfoRef.current?.intensity ?? 1.0,
+          // The backend echoes the values it actually resolved for this
+          // stream (#5604) — the authoritative applied intensity, current
+          // across live preset/intensity changes (reissued streams).
+          intensity: message.data.intensity,
         })
       );
 
