@@ -192,7 +192,13 @@ class PlayerQueueNavigationMixin:
                         self.playback.pause()
                 return True
             # File load failed — roll back queue index under lock.
-            self.queue.rollback_index(saved_index)
+            # #5582: the load above is blocking and lock-free, so a queue edit
+            # in that window can move current_index elsewhere. Compare-and-set
+            # against the index previous_track() moved to (saved_index - 1):
+            # an untouched queue restores the saved slot, an edited one keeps
+            # wherever the edit left it instead of writing a possibly
+            # out-of-range stale value back.
+            self.queue.rollback_index(saved_index, expected_current=saved_index - 1)
         return False
 
     def add_to_queue(self, track_info: dict[str, Any]) -> None:

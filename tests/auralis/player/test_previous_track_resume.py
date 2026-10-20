@@ -134,13 +134,15 @@ class TestPreviousTrackFailurePaths:
         assert player.playback.state is PlaybackState.PLAYING
 
     def test_failed_load_rolls_back_index_and_does_not_resume(self):
-        """#3442: a failed load restores the queue index instead of resuming."""
+        """#3442: a failed load restores the queue index instead of resuming.
+        #5582: the rollback is a compare-and-set against the index
+        previous_track() moved to (snapshot 3 → moved to 2)."""
         player = _make_player(load_succeeds=False)
         player.playback.state = PlaybackState.PLAYING
 
         assert player.previous_track() is False
 
-        player.queue.rollback_index.assert_called_once_with(3)
+        player.queue.rollback_index.assert_called_once_with(3, expected_current=2)
         assert player.is_playing() is False
 
 

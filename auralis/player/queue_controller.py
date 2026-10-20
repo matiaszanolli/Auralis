@@ -166,10 +166,12 @@ class QueueController:
             info("No previous track in queue")
         return prev_track
 
-    def rollback_index(self, saved_index: int) -> None:
+    def rollback_index(self, saved_index: int, expected_current: int | None = None) -> bool:
         """#3668: locked rollback of the queue's current_index for use by
-        previous_track() when a file load fails."""
-        self.queue.rollback_index(saved_index)
+        previous_track() when a file load fails. #5582: compare-and-set —
+        pass the index previous_track() moved to as *expected_current* and
+        the restore only applies if nothing moved the index since."""
+        return self.queue.rollback_index(saved_index, expected_current)
 
     def snapshot_index(self) -> int:
         """#3726: atomic locked read of the queue's current_index. Use as

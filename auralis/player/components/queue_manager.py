@@ -197,7 +197,7 @@ class QueueManager:
         with self._lock:
             return self.current_index
 
-    def rollback_index(self, saved_index: int) -> None:
+    def rollback_index(self, saved_index: int, expected_current: int | None = None) -> bool:
         """
         Restore current_index to a saved value under self._lock.
 
@@ -206,9 +206,22 @@ class QueueManager:
         saved_index` directly. The bare write bypassed self._lock and could
         clobber a concurrent next_track() / remove_track() / reorder_tracks()
         modification. This method makes the rollback locked and explicit.
+
+        #5582: the write is now a compare-and-set. previous_track() moves the
+        index and then does a blocking load with no lock held; a queue edit in
+        that window can move current_index somewhere else (the probe: remove
+        the track before the saved slot and the unconditional write landed
+        current_index == len(tracks), a state with no current track). Pass
+        *expected_current* — the index previous_track() moved to — and the
+        restore happens only if current_index still holds it. The restored
+        value is clamped to the live queue bounds either way. Returns whether
+        the rollback was applied.
         """
         with self._lock:
-            self.current_index = saved_index
+            if expected_current is not None and self.current_index != expected_current:
+                return False
+            self.current_index = max(-1, min(saved_index, len(self.tracks) - 1))
+            return True
 
     def clear(self) -> None:
         """Clear the queue"""
