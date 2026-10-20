@@ -87,7 +87,13 @@ def ffprobe_command(file_path_str: str) -> list[str]:
     reject_protocol_path(file_path_str)
     return [
         'ffprobe',
-        '-v', 'quiet',
+        # -v error, not quiet (#5590): quiet discards every diagnostic, so a
+        # non-zero exit arrived with empty stderr and every probe failure read
+        # "FFprobe failed: (no output)" — a missing moov atom was
+        # indistinguishable from a bad header or a directory. error level
+        # prints the one-line failure reason, which redact_subprocess_output
+        # already reduces and path-strips for user-facing messages.
+        '-v', 'error',
         *_PROTOCOL_WHITELIST_ARGS,
         '-print_format', 'json',
         '-show_format',
@@ -296,7 +302,15 @@ def _probe_audio(file_path: Path) -> dict[str, Any]:
         )
 
         if result.returncode != 0:
-            warning(f"ffprobe failed: {result.stderr}")
+            # -v error (#5590) means stderr now carries the failure reason —
+            # with the echoed input path on the same line. Route it through
+            # the shared redaction (last line, path stripped) so the WARNING
+            # doesn't leak the absolute path, the leak #4806 removed from the
+            # other stderr sites.
+            warning(
+                "ffprobe failed: "
+                f"{redact_subprocess_output(result.stderr, known_path=str(file_path))}"
+            )
             return result_dict
 
         probe_data = json.loads(result.stdout)
