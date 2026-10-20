@@ -304,6 +304,29 @@ class TestShuffleMode:
         assert [t['id'] for t in ctrl.get_queue()] == original_order
         assert ctrl.queue._pre_shuffle_tracks is None
 
+    def test_shuffle_sets_the_flag_true(self):
+        """#5587: QueueController.shuffle() (what QueueService.shuffle_queue
+        calls) reordered the queue but never wrote shuffle_enabled, so
+        get_queue_info() reported False over an actually-shuffled order."""
+        ctrl = _loaded_controller(5)
+        ctrl.shuffle()
+        assert ctrl.get_queue_info()['shuffle_enabled'] is True
+
+    def test_unshuffle_sets_the_flag_false(self):
+        """#5587: a successful unshuffle() after set_shuffle(True) left the
+        flag True over the restored order."""
+        ctrl = _loaded_controller(5)
+        ctrl.set_shuffle(True)
+
+        assert ctrl.unshuffle() is True
+        assert ctrl.get_queue_info()['shuffle_enabled'] is False
+
+    def test_failed_unshuffle_leaves_the_flag_alone(self):
+        """Nothing to undo (never shuffled): no order change, flag untouched."""
+        ctrl = _loaded_controller(5)
+        assert ctrl.unshuffle() is False
+        assert ctrl.get_queue_info()['shuffle_enabled'] is False
+
     def test_repeated_set_shuffle_true_does_not_reshuffle_or_resnapshot(self):
         """#5315: a repeated set_shuffle(True) call (double click, retried
         request, UI race) while shuffle is already enabled must be a no-op —

@@ -391,12 +391,20 @@ class QueueController:
     def shuffle(self) -> None:
         """Shuffle the queue, keeping the current track in place."""
         self.queue.shuffle()
+        # #5587: keep the flag consistent with the order. Only set_shuffle
+        # wrote it, so a REST shuffle (QueueService.shuffle_queue → this
+        # method) left get_queue_info()['shuffle_enabled'] False while the
+        # queue was actually shuffled — and an unshuffle() after
+        # set_shuffle(True) left it True over the restored order. The locked
+        # property setter is the same route set_shuffle uses (#4096).
+        self.shuffle_enabled = True
         self._notify_changed()
 
     def unshuffle(self) -> bool:
         """Restore the pre-shuffle queue order. Returns True if restored."""
         restored: bool = self.queue.unshuffle()
         if restored:
+            self.shuffle_enabled = False
             self._notify_changed()
         return restored
 
