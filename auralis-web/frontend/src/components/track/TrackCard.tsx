@@ -12,6 +12,7 @@
 import { memo } from 'react';
 import { MediaCard } from '@/components/shared/MediaCard';
 import { withArtworkSize } from '@/services/artworkService';
+import { useArtworkRevision } from '@/hooks/library/useArtworkUpdates';
 
 interface TrackCardProps {
   id: number;
@@ -49,6 +50,12 @@ export const TrackCard = memo(function TrackCard({
     onPlay(id);
   };
 
+  // Cache-bust on artwork_updated like the album views do (#5473) — without
+  // this a mounted card keeps the old (or broken) image after the album's
+  // artwork is extracted, downloaded, or deleted. Revision 0 (no album) is a
+  // no-op in withArtworkSize.
+  const artworkRevision = useArtworkRevision(albumId ?? 0);
+
   return (
     <MediaCard
       variant="track"
@@ -58,7 +65,7 @@ export const TrackCard = memo(function TrackCard({
       album={album}
       albumId={albumId}
       duration={duration}
-      artworkUrl={withArtworkSize(albumArt, artworkSize)}
+      artworkUrl={withArtworkSize(albumArt, artworkSize, artworkRevision)}
       isPlaying={isPlaying}
       onPlay={onPlay}
       onClick={handleClick}

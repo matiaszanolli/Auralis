@@ -42,10 +42,18 @@ export function getArtworkUrl(albumId: number, options: ArtworkUrlOptions = {}):
 }
 
 /**
- * Append a thumbnail `size` hint to an already-built artwork URL (e.g. a
- * backend-provided `track.artworkUrl`). No-op for empty/undefined URLs (#4447).
+ * Append a thumbnail `size` hint and/or cache-busting `v` revision to an
+ * already-built artwork URL (e.g. a backend-provided `track.artworkUrl`).
+ * No-op for empty/undefined URLs and when both additions are absent (#4447).
+ *
+ * The revision (from `useArtworkRevision`) lets track-scoped views cache-bust
+ * on `artwork_updated` broadcasts the same way album-scoped views do (#5473).
  */
-export function withArtworkSize(url: string | undefined, size: number): string | undefined {
+export function withArtworkSize(
+  url: string | undefined,
+  size: number,
+  revision = 0
+): string | undefined {
   // Only append to OUR artwork endpoints, which understand `size`. Leave data
   // URIs, already-sized URLs, and any absolute URL untouched.
   //
@@ -56,9 +64,14 @@ export function withArtworkSize(url: string | undefined, size: number): string |
   // path segment is enough — would have had `?size=N` appended and been sent to
   // a third-party host that does not understand it. Requiring the `/api/`
   // prefix makes same-origin the actual condition rather than a coincidence.
-  if (!url || !size || size <= 0) return url;
+  if (!url) return url;
   if (!url.startsWith('/api/')) return url;
-  if (!url.includes('/artwork') || /[?&]size=/.test(url)) return url;
+  if (!url.includes('/artwork')) return url;
+  const params = new URLSearchParams();
+  if (size > 0 && !/[?&]size=/.test(url)) params.set('size', String(Math.round(size)));
+  if (revision > 0 && !/[?&]v=/.test(url)) params.set('v', String(revision));
+  const query = params.toString();
+  if (!query) return url;
   const separator = url.includes('?') ? '&' : '?';
-  return `${url}${separator}size=${Math.round(size)}`;
+  return `${url}${separator}${query}`;
 }

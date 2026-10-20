@@ -15,6 +15,7 @@ import { useTrackRowHandlers } from './useTrackRowHandlers';
 import { useTrackContextMenu } from './useTrackContextMenu';
 import { useTrackImage } from './useTrackImage';
 import { withArtworkSize } from '@/services/artworkService';
+import { useArtworkRevision } from '@/hooks/library/useArtworkUpdates';
 import { useTrackFormatting } from './useTrackFormatting';
 import type { LibraryTrack } from '@/types/domain';
 
@@ -105,7 +106,10 @@ const TrackRowComponent = ({
 
   // The row thumbnail is 40×40; request an ~80px (retina) variant so the browser
   // doesn't decode/hold the full-resolution album bitmap per row (#4447).
-  const rowArtworkUrl = withArtworkSize(track.artworkUrl ?? undefined, 80);
+  // Cache-bust on artwork_updated like the album views do (#5473); revision 0
+  // (track without an album) is a no-op in withArtworkSize.
+  const artworkRevision = useArtworkRevision(track.albumId ?? 0);
+  const rowArtworkUrl = withArtworkSize(track.artworkUrl ?? undefined, 80, artworkRevision);
 
   return (
     <>

@@ -8,10 +8,12 @@
  * - Duration formatting
  */
 
-import { vi } from 'vitest';
-import { render, screen } from '@/test/test-utils';
+import { vi, afterEach } from 'vitest';
+import { render, screen, act } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
 import { TrackCard } from '../TrackCard';
+import { useWebSocketContext } from '@/contexts/WebSocketContext';
+import { _internal as artworkInternal } from '@/hooks/library/useArtworkUpdates';
 
 const defaultProps = {
   id: 1,
@@ -198,6 +200,67 @@ describe('TrackCard', () => {
         />
       );
       expect(screen.getByText('Different Song')).toBeInTheDocument();
+    });
+  });
+
+  describe('artwork cache-busting (#5473)', () => {
+    /** Capturing subscribe wired over the global context mock. */
+    let capturedCallback: ((message: any) => void) | null;
+    let defaults: any;
+
+    beforeEach(() => {
+      artworkInternal.reset();
+      capturedCallback = null;
+      const contextMock = vi.mocked(useWebSocketContext);
+      defaults = contextMock();
+      contextMock.mockReturnValue({
+        ...defaults,
+        // The provider tree subscribes to several message types; capture only
+        // the artwork_updated handler so broadcasts reach the right one.
+        subscribe: vi.fn((type: string, handler: (message: any) => void) => {
+          if (type === 'artwork_updated') capturedCallback = handler;
+          return () => undefined;
+        }),
+      });
+    });
+
+    afterEach(() => {
+      vi.mocked(useWebSocketContext).mockReturnValue(defaults);
+      artworkInternal.reset();
+    });
+
+    it('cache-busts the artwork URL when artwork_updated arrives for the album', () => {
+      const { container } = render(
+        <TrackCard {...defaultProps} albumArt="/api/albums/1/artwork" />
+      );
+      expect(container.querySelector('img')).toHaveAttribute(
+        'src',
+        '/api/albums/1/artwork?size=216'
+      );
+
+      act(() => {
+        capturedCallback!({ type: 'artwork_updated', data: { album_id: 1 } });
+      });
+
+      expect(container.querySelector('img')).toHaveAttribute(
+        'src',
+        '/api/albums/1/artwork?size=216&v=1'
+      );
+    });
+
+    it('ignores artwork_updated for a different album', () => {
+      const { container } = render(
+        <TrackCard {...defaultProps} albumArt="/api/albums/1/artwork" />
+      );
+
+      act(() => {
+        capturedCallback!({ type: 'artwork_updated', data: { album_id: 99 } });
+      });
+
+      expect(container.querySelector('img')).toHaveAttribute(
+        'src',
+        '/api/albums/1/artwork?size=216'
+      );
     });
   });
 });

@@ -122,3 +122,48 @@ describe('withArtworkSize (#4447)', () => {
     );
   });
 });
+
+// ============================================================================
+// withArtworkSize revision — track-scoped cache busting (#5473)
+// ============================================================================
+
+describe('withArtworkSize — revision param (#5473)', () => {
+  it('appends v alongside size when both are requested', () => {
+    expect(withArtworkSize('/api/albums/9/artwork', 80, 3)).toBe(
+      '/api/albums/9/artwork?size=80&v=3'
+    );
+  });
+
+  it('appends only v when the URL is already size-hinted or size is 0', () => {
+    expect(withArtworkSize('/api/albums/9/artwork?size=80', 80, 3)).toBe(
+      '/api/albums/9/artwork?size=80&v=3'
+    );
+    expect(withArtworkSize('/api/albums/9/artwork', 0, 3)).toBe(
+      '/api/albums/9/artwork?v=3'
+    );
+  });
+
+  it('treats revision 0 as a no-op (pre-#5473 behaviour preserved)', () => {
+    expect(withArtworkSize('/api/albums/9/artwork', 80, 0)).toBe(
+      '/api/albums/9/artwork?size=80'
+    );
+    expect(withArtworkSize('/api/albums/9/artwork', 0, 0)).toBe(
+      '/api/albums/9/artwork'
+    );
+  });
+
+  it('does not duplicate an existing v param', () => {
+    expect(withArtworkSize('/api/albums/9/artwork?v=2', 0, 5)).toBe(
+      '/api/albums/9/artwork?v=2'
+    );
+  });
+
+  it('never appends v to external or data URLs', () => {
+    expect(withArtworkSize('data:image/png;base64,AAAA', 0, 3)).toBe(
+      'data:image/png;base64,AAAA'
+    );
+    expect(withArtworkSize('https://i.discogs.com/artwork/xyz.jpeg', 0, 3)).toBe(
+      'https://i.discogs.com/artwork/xyz.jpeg'
+    );
+  });
+});
