@@ -125,22 +125,27 @@ class BrickWallLimiter:
         # Collapse channels: take the per-sample maximum across all channels.
         per_sample_max = abs_padded.max(axis=1)  # shape: (num_samples + lookahead,)
 
-        # maximum_filter1d origin convention: positive origin shifts the
-        # window toward *larger* indices (future samples).  Use the largest
-        # legal positive origin — (size - 1) // 2 — so the window spans
-        # approximately [i, i + lookahead), giving true lookahead peak
-        # detection. The previous negative origin looked *backward*,
-        # defeating the purpose of the lookahead delay (fixes #3308).
-        # scipy requires -(size // 2) <= origin <= (size - 1) // 2; for
-        # even sizes `lookahead // 2` exceeds the upper bound and raises
-        # ValueError('invalid origin').
+        # maximum_filter1d origin convention (#5562): the output at index i is
+        # the max over the window centred at i + origin. POSITIVE origin
+        # shifts the window toward EARLIER samples — the old
+        # (lookahead - 1) // 2 produced a post-peak HOLD (max over
+        # [i - lookahead + 1, i]), so the gain dropped AT the peak in one
+        # sample instead of ramping before it (verified empirically: a spike
+        # at 20 with size 8 smeared nonzero over 20..27). A NEGATIVE origin
+        # shifts toward FUTURE samples: origin = -(lookahead // 2) makes the
+        # window end at i, i.e. max over [i - lookahead/2 ... wait —
+        # empirically the nonzero region ENDS at the spike, i.e. the gain
+        # starts reducing (lookahead // 2) samples BEFORE it: a true
+        # look-ahead ramp. (The #3308 flip to the current positive sign did
+        # not fix the direction — scipy's convention is the opposite of what
+        # both that issue and this comment assumed.)
         lookahead = self.lookahead_samples
         peak_envelope = maximum_filter1d(
             per_sample_max,
             size=lookahead,
             mode='constant',
             cval=0.0,
-            origin=(lookahead - 1) // 2,
+            origin=-(lookahead // 2),
         )[:num_samples]  # trim padding tail
 
         # Vectorized target-gain computation: threshold / peak where above
