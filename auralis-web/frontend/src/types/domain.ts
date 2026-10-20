@@ -103,49 +103,8 @@ export interface Artist {
 }
 
 // ============================================================================
-// Queue
-// ============================================================================
-
-export interface Queue {
-  tracks: Track[];
-  currentIndex: number;
-  isShuffled: boolean;
-  repeatMode: 'off' | 'all' | 'one';
-}
-
-// ============================================================================
-// Player State
-// ============================================================================
-
-export interface PlayerState {
-  currentTrack: Track | null;
-  isPlaying: boolean;
-  // 0-100 integer scale (#3894). Was documented as "0.0 - 1.0", which never
-  // matched anything: the backend clamps to 0-100 and defaults to 80, the
-  // Redux slice clamps to 0-100, and ws/player.PlayerStateData says 0-100 too.
-  volume: number;
-  position: number; // Seconds
-  duration: number; // Seconds
-  queue: Track[];
-  queueIndex: number;
-  isLoading: boolean;
-  error: string | null;
-
-  // Playback settings (camelCase to match the rest of the domain model — #3946)
-  gaplessEnabled: boolean;
-  crossfadeEnabled: boolean;
-  crossfadeDuration: number; // Seconds
-}
-
-// ============================================================================
 // Enhancement Settings
 // ============================================================================
-
-export interface EnhancementSettings {
-  enabled: boolean;
-  preset: EnhancementPreset;
-  intensity: number; // 0.0 - 1.0
-}
 
 // Narrowed to a single preset: 'gentle'/'warm'/'bright'/'punchy' are gone,
 // not just unlisted -- the backend's schemas.VALID_PRESETS/
@@ -165,26 +124,6 @@ export const ENHANCEMENT_PRESETS: EnhancementPreset[] = [
  */
 export const isEnhancementPreset = (value: unknown): value is EnhancementPreset =>
   ENHANCEMENT_PRESETS.includes(value as EnhancementPreset);
-
-export const ENHANCEMENT_PRESET_NAMES: Record<EnhancementPreset, string> = {
-  adaptive: 'Adaptive',
-};
-
-export const ENHANCEMENT_PRESET_DESCRIPTIONS: Record<EnhancementPreset, string> = {
-  adaptive: 'Automatically optimize for current track',
-};
-
-// ============================================================================
-// Mastering Recommendation
-// ============================================================================
-
-// Single source of truth lives in types/ws/enhancement (#4166). The old local
-// shape made weighted_profiles REQUIRED, which threw when iterating it for
-// non-hybrid profiles. Alias the canonical type (weighted_profiles optional)
-// and re-export it so existing importers keep resolving.
-export type { MasteringRecommendationData } from '@/types/ws/enhancement';
-import type { MasteringRecommendationData } from '@/types/ws/enhancement';
-export type MasteringRecommendation = MasteringRecommendationData;
 
 // ============================================================================
 // Audio Fingerprint
@@ -218,113 +157,14 @@ export interface LibraryStats {
   avg_lufs?: number | null;
 }
 
-// ============================================================================
-// Scan Progress
-// ============================================================================
-
-export interface ScanProgress {
-  current: number; // Files processed
-  total: number; // Total files to process
-  percentage: number; // 0-100
-  current_file?: string;
-  eta_seconds?: number;
-}
-
-// ============================================================================
-// Application State
-// ============================================================================
-
-export interface AppState {
-  // UI
-  isSidebarOpen: boolean;
-  currentView: 'library' | 'playlists' | 'queue' | 'settings';
-  isEnhancementPaneOpen: boolean;
-
-  // Playback
-  player: PlayerState;
-  enhancement: EnhancementSettings;
-
-  // Library
-  libraryStats: LibraryStats | null;
-  isLibraryScanning: boolean;
-  scanProgress: ScanProgress | null;
-
-  // Recommendations
-  currentRecommendation: MasteringRecommendation | null;
-
-  // Error handling
-  errors: AppError[];
-  connectionStatus: ConnectionStatus;
-}
-
-export type ConnectionStatus =
-  | 'connected'
-  | 'connecting'
-  | 'disconnected'
-  | 'error';
-
-// ============================================================================
-// Error Models
-// ============================================================================
-
-export interface AppError {
-  id: string; // Unique ID for dismissing
-  type: 'error' | 'warning' | 'info' | 'success';
-  message: string;
-  details?: string;
-  timestamp: number;
-  duration?: number; // Auto-dismiss after ms (null = manual)
-}
-
-export enum AppErrorType {
-  NETWORK_ERROR = 'NETWORK_ERROR',
-  NOT_FOUND = 'NOT_FOUND',
-  VALIDATION_ERROR = 'VALIDATION_ERROR',
-  UNAUTHORIZED = 'UNAUTHORIZED',
-  CONFLICT = 'CONFLICT',
-  SERVER_ERROR = 'SERVER_ERROR',
-  UNKNOWN = 'UNKNOWN',
-}
-
-// ============================================================================
-// Selection & Filtering
-// ============================================================================
-
-export interface Selection {
-  ids: Set<number>;
-  count: number;
-}
-
-export interface FilterOptions {
-  search?: string;
-  genre?: string;
-  year?: number;
-  artist?: string;
-  album?: string;
-  format?: string;
-  isCorrupted?: boolean;
-}
-
-export interface SortOptions {
-  field: 'title' | 'artist' | 'album' | 'duration' | 'date_added' | 'loudness';
-  order: 'asc' | 'desc';
-}
-
-// ============================================================================
-// Pagination
-// ============================================================================
-
-export interface PaginationState {
-  limit: number;
-  offset: number;
-  total: number;
-  hasMore: boolean;
-}
-
-export interface PaginatedResponse<T> {
-  data: T[];
-  pagination: PaginationState;
-}
+// #5371: the dead app-shell types that used to fill the rest of this file
+// (Queue, PlayerState, EnhancementSettings, ENHANCEMENT_PRESET_NAMES/
+// _DESCRIPTIONS, MasteringRecommendation, ScanProgress, AppState,
+// ConnectionStatus, AppError/AppErrorType, Selection, FilterOptions,
+// SortOptions, PaginationState, PaginatedResponse) had zero importers and
+// several shadowed same-named live types elsewhere (playerSlice's PlayerState,
+// useScanProgress's ScanProgress, websocketConnectionCore's ConnectionStatus).
+// Deleted as drift hazards; revive none of them without a real importer.
 
 // #4830: the local TrackApiResponse/transformBackendTrack pair that used to
 // live here duplicated (and diverged from) the canonical transformer at

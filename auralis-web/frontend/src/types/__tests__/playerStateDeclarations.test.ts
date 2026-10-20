@@ -18,9 +18,11 @@
  * (PlayerPlayRequest/PlayerSeekRequest/PlayerVolumeRequest/etc.) — zero real
  * importers, the same "nothing imported it" finding this file's own docstring
  * already made about api.ts's PlayerState. api.ts no longer declares any
- * player-state-adjacent type, so it dropped out of the "surviving
- * declarations state the 0-100 scale" check below; only domain.ts and
- * ws/player.ts remain to check.
+ * player-state-adjacent type. #5371 then deleted domain.ts's PlayerState too
+ * (also zero importers — the live shape lives on playerSlice's PlayerState,
+ * and the wire shape on ws/player.ts), so ws/player.ts's PlayerStateData is
+ * now the sole wire-facing declaration, and both former duplicates are
+ * checked to stay gone below.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -55,13 +57,13 @@ describe('player state type declarations (#3894)', () => {
     expect(exportedInterfaces(wsPlayerTypes)).toContain('RawPlayerStateData');
   });
 
-  it('exactly one of the two type modules declares PlayerState', () => {
+  it('neither former duplicate module declares PlayerState anymore', () => {
     const declaring = [
       ['api.ts', apiTypes],
       ['domain.ts', domainTypes],
     ].filter(([, src]) => exportedInterfaces(src as string).includes('PlayerState'));
 
-    expect(declaring.map(([name]) => name)).toEqual(['domain.ts']);
+    expect(declaring.map(([name]) => name)).toEqual([]);
   });
 
   it('no player type still documents volume as a 0.0-1.0 scale', () => {
@@ -77,8 +79,7 @@ describe('player state type declarations (#3894)', () => {
     }
   });
 
-  it('the surviving player-state declarations state the 0-100 scale', () => {
-    expect(domainTypes).toMatch(/0-100/);
+  it('the surviving player-state declaration states the 0-100 scale', () => {
     expect(wsPlayerTypes).toMatch(/0-100/);
   });
 });
