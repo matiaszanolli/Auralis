@@ -192,8 +192,15 @@ def test_top_ref_ids_returned_for_debug():
     stats = DistanceStats.from_references(refs)
     result = derive_target(_fp(tempo_bpm=120.0), refs, stats, k=3)
     assert result is not None
-    assert len(result.top_ref_ids) == 3
-    assert all(rid in {10, 11, 12, 13, 14} for rid in result.top_ref_ids)
+    # #5113: the beyond-k tail is re-admitted with smoothly tapered weights
+    # (rank-ordered), so top_ref_ids now carries all 5 — the in-k three
+    # first, then the tail in distance order.
+    assert result.top_ref_ids[:3] == (12, 11, 13)
+    assert result.top_ref_ids[3:] == (10, 14)
+    # The in-k references dominate: tail weights stay below the k-th
+    # reference's weight.
+    assert result.weights[3] < result.weights[2]
+    assert result.weights[4] < result.weights[2]
 
 
 def test_softmax_does_not_overflow_on_large_distances():

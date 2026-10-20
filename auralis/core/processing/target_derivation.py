@@ -156,6 +156,29 @@ def derive_target(
     if use_reference_weights:
         weights = _apply_reference_weights(weights, nearest)
 
+    # #5113: soften the hard rank cutoff. A reference just past rank k is
+    # architecturally as near as the k-th one, yet the slice dropped it to
+    # exactly zero. Re-admit the beyond-k tail with weights tapered by a
+    # smooth gate over (rank - k), so participation decays continuously
+    # instead of stepping. τ_tail = k/4 ranks keeps the tail contribution
+    # small (a boundary reference starts at ~50% of its softmax weight and
+    # decays over ~k/4 ranks) without changing the in-k distribution.
+    tail = distances[len(nearest):]
+    if tail and nearest:
+        kth_distance = nearest[-1][0]
+        for tail_rank, (d, ref) in enumerate(tail, start=1):
+            taper = _smooth_taper(tail_rank, k / 4.0)
+            if taper <= 0.0:
+                break
+            base = _softmax_weights([d, kth_distance])[0] if kth_distance > 0 else 0.0
+            weights.append(base * taper)
+            nearest.append((d, ref))
+
+    # Renormalize so the (possibly re-admitted) weights still sum to 1.0.
+    total = sum(weights)
+    if total > 0:
+        weights = [w / total for w in weights]
+
     target: dict[str, float] = {}
     for feat in TARGET_FEATURES:
         target[feat] = sum(
@@ -198,6 +221,14 @@ def _z_distance(a: Any, b: Any, stats: DistanceStats) -> float:
         zb = (_safe_get(b, feat, mean) - mean) / std
         acc += (za - zb) ** 2
     return math.sqrt(acc)
+
+
+def _smooth_taper(rank_past_k: int, tau_ranks: float) -> float:
+    """Exponential decay for a reference `rank_past_k` positions beyond the
+    soft cutoff: exp(-rank / tau_ranks), floor at zero. #5113."""
+    if tau_ranks <= 0:
+        return 0.0
+    return math.exp(-rank_past_k / tau_ranks)
 
 
 def _softmax_weights(distances: Iterable[float]) -> list[float]:
