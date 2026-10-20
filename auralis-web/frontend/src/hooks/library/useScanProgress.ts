@@ -11,6 +11,7 @@ import { useWebSocketMessages } from '@/hooks/websocket/useWebSocketMessages';
 import type {
   ScanProgressMessage,
   ScanCompleteMessage,
+  ScanPhase,
 } from '@/types/websocket';
 import type { ScanFailure } from '@/types/ws/library';
 import { isLibraryTracksRemovedMessage } from '@/types/ws/guards';
@@ -26,7 +27,7 @@ export interface ScanProgress {
   percentage: number | null;
   currentFile: string | null;
   /** `'fingerprinting'` removed in #4648 — no reachable emitter. */
-  phase: 'discovering' | 'processing';
+  phase: ScanPhase;
 }
 
 export interface ScanResult {

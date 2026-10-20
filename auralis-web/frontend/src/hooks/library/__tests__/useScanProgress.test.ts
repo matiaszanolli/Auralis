@@ -169,6 +169,19 @@ describe('useScanProgress', () => {
 
       expect(result.current.percentage).toBeNull();
     });
+
+    it('accepts the scanner pre-count pass counting phase (#5475)', () => {
+      const { result } = renderHook(() => useScanProgress());
+
+      act(() => {
+        manager.deliver({
+          type: 'scan_progress',
+          data: { current: 0, total: 0, percentage: null, phase: 'counting' },
+        });
+      });
+
+      expect(result.current.phase).toBe('counting');
+    });
   });
 
   describe('scan_complete', () => {

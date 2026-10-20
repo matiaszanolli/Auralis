@@ -93,6 +93,14 @@ export interface PlaylistDeletedMessage extends WebSocketMessage {
 // System Messages
 // ============================================================================
 
+/**
+ * The `phase` value the scanner's progress frames carry, forwarded verbatim by
+ * both backend bridges. The scanner's pre-count pass emits `'counting'`
+ * (auralis/library/scanner/scanner.py); its `'started'` stage is consumed
+ * bridge-side and never forwarded as a phase (#5475).
+ */
+export type ScanPhase = 'discovering' | 'counting' | 'processing';
+
 export interface ScanProgressMessage extends WebSocketMessage {
   type: 'scan_progress';
   data: {
@@ -113,7 +121,7 @@ export interface ScanProgressMessage extends WebSocketMessage {
      * edit: without those the bridge computes `current: 0, total: 0` and the UI
      * snaps back to "0 of 0" after a completed scan.
      */
-    phase?: 'discovering' | 'processing';
+    phase?: ScanPhase;
   };
 }
 

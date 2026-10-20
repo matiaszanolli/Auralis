@@ -214,7 +214,10 @@ class ScanProgressPayload(TypedDict):
     total: int
     percentage: float | None
     current_file: str | None
-    phase: Literal["discovering", "processing"]
+    # `'counting'` is the scanner's pre-count pass (scanner.py), forwarded
+    # verbatim by both bridges; `'started'` is consumed bridge-side and never
+    # forwarded as a phase (#5475).
+    phase: Literal["discovering", "counting", "processing"]
 
 
 class ScanFailurePayload(TypedDict):
