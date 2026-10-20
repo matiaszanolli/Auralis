@@ -93,8 +93,13 @@ class AudioPlayer(
         self.processor = RealtimeProcessor(config)
         self.gapless = GaplessPlaybackEngine(self.file_manager, self.queue)
         # Every queue edit — including the backend's, which go straight to
-        # QueueController — drops the stale prebuffered next track (#5508).
-        self.queue.set_change_listener(self.gapless.invalidate_prebuffer)
+        # QueueController — re-validates the prebuffered next track (#5508).
+        # #5583: on_queue_changed keeps the buffer when the edit left the
+        # next track untouched (invalidate_prebuffer alone cleared it after
+        # every edit and nothing re-armed it, forcing the blocking-decode
+        # fallback on the next transition) and re-arms prebuffering when it
+        # did change.
+        self.queue.set_change_listener(self.gapless.on_queue_changed)
         self.integration = IntegrationManager(
             self.playback,
             self.file_manager,

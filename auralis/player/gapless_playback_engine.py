@@ -129,65 +129,80 @@ class GaplessPlaybackEngine:
             return
 
         try:
-            # Get next track from queue (without advancing)
-            next_track = self.queue.peek_next_track()
-            if not next_track:
-                info("No next track to prebuffer")
-                return
+            # #5583: loop so a queue edit during the blocking load re-peeks
+            # and loads the fresh next track instead of storing (and then
+            # being discarded for) a stale one. Each iteration re-checks
+            # _shutdown before its blocking work.
+            while not self._shutdown.is_set():
+                # Get next track from queue (without advancing)
+                next_track = self.queue.peek_next_track()
+                if not next_track:
+                    info("No next track to prebuffer")
+                    return
 
-            file_path = next_track.get('file_path') or next_track.get('path')
-            if not file_path:
-                warning("Next track has no file path")
-                return
+                file_path = next_track.get('file_path') or next_track.get('path')
+                if not file_path:
+                    warning("Next track has no file path")
+                    return
 
-            # Check before the potentially long blocking load (#2075)
-            if self._shutdown.is_set():
-                return
-
-            info(f"Prebuffering next track: {file_path}")
-
-            # Run the blocking load in an inner daemon thread so cleanup() can
-            # preempt it at shutdown without the process hanging indefinitely
-            # on a slow/stalled filesystem (#2456).  The outer (non-daemon) thread
-            # polls _shutdown every 200 ms; the inner daemon thread is abandoned
-            # (and dies with the process) if we exit early.
-            _load_result: list[tuple[np.ndarray, int]] = []
-            _load_exc: list[BaseException] = []
-
-            def _do_load() -> None:
-                try:
-                    _load_result.append(load(file_path, "target"))
-                except Exception as exc:  # noqa: BLE001
-                    _load_exc.append(exc)
-
-            _loader = threading.Thread(
-                target=_do_load,
-                daemon=True,
-                name="GaplessPlayback-Prebuffer-IO",
-            )
-            _loader.start()
-            while _loader.is_alive():
+                # Check before the potentially long blocking load (#2075)
                 if self._shutdown.is_set():
-                    return  # abandon; inner daemon thread dies with the process
-                _loader.join(timeout=0.2)
+                    return
 
-            if _load_exc:
-                raise _load_exc[0]
+                info(f"Prebuffering next track: {file_path}")
 
-            audio_data, sample_rate = _load_result[0]
+                # Run the blocking load in an inner daemon thread so cleanup() can
+                # preempt it at shutdown without the process hanging indefinitely
+                # on a slow/stalled filesystem (#2456).  The outer (non-daemon) thread
+                # polls _shutdown every 200 ms; the inner daemon thread is abandoned
+                # (and dies with the process) if we exit early.
+                _load_result: list[tuple[np.ndarray, int]] = []
+                _load_exc: list[BaseException] = []
 
-            # Check again: don't store results if shutdown was requested during load
-            if self._shutdown.is_set():
+                def _do_load() -> None:
+                    try:
+                        _load_result.append(load(file_path, "target"))
+                    except Exception as exc:  # noqa: BLE001
+                        _load_exc.append(exc)
+
+                _loader = threading.Thread(
+                    target=_do_load,
+                    daemon=True,
+                    name="GaplessPlayback-Prebuffer-IO",
+                )
+                _loader.start()
+                while _loader.is_alive():
+                    if self._shutdown.is_set():
+                        return  # abandon; inner daemon thread dies with the process
+                    _loader.join(timeout=0.2)
+
+                if _load_exc:
+                    raise _load_exc[0]
+
+                audio_data, sample_rate = _load_result[0]
+
+                # Check again: don't store results if shutdown was requested during load
+                if self._shutdown.is_set():
+                    return
+
+                # #5583: re-peek before storing. The peek that started this load
+                # happened before it; a queue edit during the blocking decode may
+                # have changed the next track. Storing the stale result would
+                # leave a buffer advance_with_prebuffer would discard anyway
+                # (#2303 match rule) while the real next track never got
+                # buffered — loop to re-peek and load the fresh one.
+                latest = self.queue.peek_next_track()
+                if not self._entries_match(latest, next_track):
+                    debug("Queue changed during prebuffer load; re-peeking")
+                    continue
+                with self.update_lock:
+                    self.next_track_buffer = audio_data
+                    self.next_track_info = latest
+                    self.next_track_sample_rate = sample_rate
+
+                info(f"Prebuffered: {file_path} ({len(audio_data) / sample_rate:.1f}s)")
+                self._notify_prebuffer_callbacks(next_track)
                 return
-
-            # Store in buffer (thread-safe)
-            with self.update_lock:
-                self.next_track_buffer = audio_data
-                self.next_track_info = next_track
-                self.next_track_sample_rate = sample_rate
-
-            info(f"Prebuffered: {file_path} ({len(audio_data) / sample_rate:.1f}s)")
-            self._notify_prebuffer_callbacks(next_track)
 
         except Exception as e:
             warning(f"Prebuffering failed: {e}")
@@ -282,9 +297,10 @@ class GaplessPlaybackEngine:
 
             # Check for prebuffered track — validate it matches the expected
             # next track before using it (fixes #2303: queue modified after
-            # prebuffering started). Read both audio_data and next_track_info in
-            # a single lock scope to prevent TOCTOU: invalidate_prebuffer() could
-            # clear the buffer between two separate acquisitions (#2589).
+            # prebuffering started). Read audio_data and next_track_info in
+            # a single lock scope and match inside it (#5583 shared helper)
+            # to prevent TOCTOU: invalidate_prebuffer() could clear the
+            # buffer between two separate acquisitions (#2589).
             with self.update_lock:
                 if (self.next_track_buffer is not None and
                         self.next_track_info is not None):
@@ -295,15 +311,7 @@ class GaplessPlaybackEngine:
                     audio_data = None
                     sample_rate = None
                     prebuffered_info = None
-            prebuffer_matches = (
-                audio_data is not None
-                and sample_rate is not None
-                and prebuffered_info is not None
-                and (prebuffered_info.get('id') == next_track.get('id')
-                     or (prebuffered_info.get('file_path')
-                         or prebuffered_info.get('path'))
-                     == file_path)
-            )
+                prebuffer_matches = self._prebuffer_matches(next_track)
 
             if prebuffer_matches:
                 # Validate sample rate matches current playback (#2408)
@@ -428,6 +436,55 @@ class GaplessPlaybackEngine:
             self.next_track_info = None
             self.next_track_sample_rate = None
         info("Prebuffer invalidated")
+
+    @staticmethod
+    def _entries_match(a: dict[str, Any] | None, b: dict[str, Any] | None) -> bool:
+        """Same queue entry: equal id, or equal file path when both carry one
+        (#2303's contract, shared by advance_with_prebuffer and the #5583
+        re-peek check). The path branch requires a non-None path on both
+        sides — two entries that carry neither key must not match on
+        ``None == None``."""
+        if a is None or b is None:
+            return False
+        a_id = a.get('id')
+        if a_id is not None and a_id == b.get('id'):
+            return True
+        a_path = a.get('file_path') or a.get('path')
+        b_path = b.get('file_path') or b.get('path')
+        return a_path is not None and a_path == b_path
+
+    def _prebuffer_matches(self, expected_next: dict[str, Any] | None) -> bool:
+        """Whether the stored prebuffer is still valid for *expected_next*.
+
+        Callers must hold ``update_lock`` — the method reads the stored
+        next_track_* fields.
+        """
+        if self.next_track_buffer is None:
+            return False
+        return self._entries_match(self.next_track_info, expected_next)
+
+    def on_queue_changed(self) -> None:
+        """Queue-change listener (the #5508 slot).
+
+        #5583: the previous listener was ``invalidate_prebuffer`` bare —
+        every edit cleared the buffer, including appends that leave the next
+        track untouched, and nothing re-armed it, so the next transition
+        always took the blocking-decode fallback. Re-validate instead: keep
+        the buffer when the peek still matches it, otherwise invalidate and
+        re-arm. A live worker makes ``start_prebuffering()`` a no-op; the
+        worker re-peeks before storing (#5583) so the fresh next track is
+        what ends up buffered.
+        """
+        next_track = self.queue.peek_next_track()
+        with self.update_lock:
+            if self._prebuffer_matches(next_track):
+                debug("Queue changed; prebuffered next track still matches — keeping it")
+                return
+            self.next_track_buffer = None
+            self.next_track_info = None
+            self.next_track_sample_rate = None
+        # Outside update_lock: start_prebuffering takes its own thread lock.
+        self.start_prebuffering()
 
     def cleanup(self) -> None:
         """Clean up threads and resources.
