@@ -25,6 +25,7 @@ class" check when composed together on the facade.
 from sqlalchemy import select
 
 from ...utils.logging import debug, error, info, warning
+from ...__version__ import FINGERPRINT_ALGORITHM_VERSION
 from ..models import TrackFingerprint
 from .base import BaseRepository
 
@@ -54,9 +55,15 @@ class FingerprintCrudMixin(BaseRepository):
                     debug(f"Fingerprint already exists for track {track_id}, updating")
                     return self.update(track_id, fingerprint_data)
 
-                # Create new fingerprint
+                # Create new fingerprint. #5572: stamp the current
+                # algorithm version — reads (get_by_track_id/exists) treat a
+                # row as usable only when fingerprint_version >=
+                # FINGERPRINT_ALGORITHM_VERSION, so an unstamped row (ORM
+                # default 1) was freshly computed but permanently invisible
+                # to the cache. The dict may override explicitly.
                 fingerprint = TrackFingerprint(
                     track_id=track_id,
+                    fingerprint_version=FINGERPRINT_ALGORITHM_VERSION,
                     **fingerprint_data
                 )
 
@@ -103,6 +110,12 @@ class FingerprintCrudMixin(BaseRepository):
                 for key, value in fingerprint_data.items():
                     if hasattr(fingerprint, key):
                         setattr(fingerprint, key, value)
+
+                # #5572: promote the row to the current algorithm version so
+                # the freshly written dimensions are visible to reads (same
+                # rationale as add() above). A stale-version row rewritten
+                # here used to stay stale forever.
+                fingerprint.fingerprint_version = FINGERPRINT_ALGORITHM_VERSION
 
                 session.commit()
                 session.refresh(fingerprint)

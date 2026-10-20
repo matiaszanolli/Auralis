@@ -69,11 +69,17 @@ class FingerprintUpsertMixin(BaseRepository):
         # On INSERT we must supply `fingerprint_version`, `is_reference` and
         # `reference_weight` because they are NOT NULL and their defaults are
         # Python-side ORM defaults (not SQL defaults on every install), so a
-        # raw INSERT does not see them (#5530). On UPDATE we only refresh the
-        # 25 dimension columns — `fingerprint_blob`, `fingerprint_version` and
-        # the reference flag/weight stay as whatever set them (a dimension
-        # refresh must never clobber reference-cloud membership).
-        update_clause = ', '.join(f"{col} = excluded.{col}" for col in cols)
+        # raw INSERT does not see them (#5530). On UPDATE we refresh the 25
+        # dimension columns AND `fingerprint_version` — #5572: reads treat a
+        # row as usable only when its version >= FINGERPRINT_ALGORITHM_VERSION,
+        # so a rewrite that left the old version kept the row permanently
+        # invisible to the cache (the "self-healing" outdated-row rewrite
+        # never healed). `fingerprint_blob` and the reference flag/weight
+        # stay as whatever set them (a dimension refresh must never clobber
+        # reference-cloud membership).
+        update_clause = ', '.join(
+            f"{col} = excluded.{col}" for col in cols
+        ) + ', fingerprint_version = excluded.fingerprint_version'
 
         with self._session_scope() as session:
             try:
