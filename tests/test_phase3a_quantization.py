@@ -37,11 +37,11 @@ def sample_fingerprint() -> dict:
         # Dynamics (3D)
         'lufs': -15.5,
         'crest_db': 12.3,
-        'bass_mid_ratio': 50.0,
+        'bass_mid_ratio': 15.0,
         # Temporal (4D)
         'tempo_bpm': 120.5,
         'rhythm_stability': 0.87,
-        'transient_density': 45.2,
+        'transient_density': 0.45,
         'silence_ratio': 0.15,
         # Spectral (3D)
         'spectral_centroid': 0.65,
@@ -106,10 +106,13 @@ class TestFingerprintQuantization:
 
     def test_boundary_values(self):
         """Test quantization at boundary values."""
-        # Test minimum values
-        min_fingerprint = {
-            dim: 0.0 for dim in FingerprintQuantizer.DIMENSION_NAMES
-        }
+        # Test minimum values (per-dimension bounds — e.g. bass_mid_ratio's
+        # minimum is -60 dB, not 0, since #5509 put it on the signed-dB scale)
+        min_fingerprint = {}
+        for dim in FingerprintQuantizer.DIMENSION_NAMES:
+            min_val, _ = FingerprintQuantizer.DIMENSION_BOUNDS[dim]
+            min_fingerprint[dim] = min_val
+
         quantized_min = FingerprintQuantizer.quantize(min_fingerprint)
         assert len(quantized_min) == 25
 
@@ -156,11 +159,11 @@ class TestFingerprintQuantization:
             # Negative extremes (LUFS)
             'lufs': -60.0,
             'crest_db': 24.0,
-            'bass_mid_ratio': 100.0,
+            'bass_mid_ratio': 60.0,
             # Extremes
             'tempo_bpm': 240.0,
             'rhythm_stability': 1.0,
-            'transient_density': 100.0,
+            'transient_density': 1.0,
             'silence_ratio': 1.0,
             'spectral_centroid': 1.0,
             'spectral_rolloff': 1.0,
@@ -265,8 +268,8 @@ class TestQuantizationDistance:
             'sub_bass_pct': 0.10, 'bass_pct': 0.25, 'low_mid_pct': 0.20,
             'mid_pct': 0.30, 'upper_mid_pct': 0.08, 'presence_pct': 0.03,
             'air_pct': 0.02, 'lufs': -15.0, 'crest_db': 12.0,
-            'bass_mid_ratio': 50.0, 'tempo_bpm': 120.0, 'rhythm_stability': 0.87,
-            'transient_density': 45.0, 'silence_ratio': 0.15, 'spectral_centroid': 0.65,
+            'bass_mid_ratio': 3.5, 'tempo_bpm': 120.0, 'rhythm_stability': 0.87,
+            'transient_density': 0.45, 'silence_ratio': 0.15, 'spectral_centroid': 0.65,
             'spectral_rolloff': 0.72, 'spectral_flatness': 0.42, 'harmonic_ratio': 0.78,
             'pitch_stability': 0.88, 'chroma_energy': 0.65, 'dynamic_range_variation': 0.55,
             'loudness_variation_std': 8.0, 'peak_consistency': 0.92, 'stereo_width': 0.85,
@@ -277,8 +280,8 @@ class TestQuantizationDistance:
             'sub_bass_pct': 0.12, 'bass_pct': 0.23, 'low_mid_pct': 0.21,
             'mid_pct': 0.29, 'upper_mid_pct': 0.09, 'presence_pct': 0.04,
             'air_pct': 0.018, 'lufs': -16.0, 'crest_db': 11.5,
-            'bass_mid_ratio': 52.0, 'tempo_bpm': 122.0, 'rhythm_stability': 0.85,
-            'transient_density': 43.0, 'silence_ratio': 0.16, 'spectral_centroid': 0.67,
+            'bass_mid_ratio': 5.5, 'tempo_bpm': 124.0, 'rhythm_stability': 0.85,
+            'transient_density': 0.53, 'silence_ratio': 0.16, 'spectral_centroid': 0.67,
             'spectral_rolloff': 0.70, 'spectral_flatness': 0.44, 'harmonic_ratio': 0.76,
             'pitch_stability': 0.86, 'chroma_energy': 0.67, 'dynamic_range_variation': 0.53,
             'loudness_variation_std': 8.5, 'peak_consistency': 0.90, 'stereo_width': 0.83,

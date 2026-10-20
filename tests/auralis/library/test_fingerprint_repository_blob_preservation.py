@@ -36,7 +36,11 @@ _SAMPLE_FP: dict = {
 
 def _store(fp_repo, track_id: int, fp: dict = _SAMPLE_FP) -> None:
     """Call store_fingerprint with the 25 dims unpacked as kwargs."""
-    fp_repo.store_fingerprint(track_id=track_id, **fp)
+    stored = fp_repo.store_fingerprint(track_id=track_id, **fp)
+    assert stored is not None, (
+        "store_fingerprint must return the stored TrackFingerprint on success (#5509)"
+    )
+    assert stored.track_id == track_id
 
 
 def _track_row(session_factory, track_id: int) -> dict:

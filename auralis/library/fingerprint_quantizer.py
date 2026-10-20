@@ -57,12 +57,15 @@ class FingerprintQuantizer:
         # Dynamics (3D)
         'lufs': (-60.0, 0.0),           # Loudness range: -60 to 0 LUFS
         'crest_db': (0.0, 24.0),        # Crest factor: 0-24 dB
-        'bass_mid_ratio': (0.0, 100.0), # Ratio 0-100
+        # 10*log10(bass/mid) in dB. The producer (rust_fingerprint.py) clamps
+        # the log-ratio to ±60 dB; the old (0, 100) "ratio 0-100" bound here
+        # clamped every bass-lighter-than-mid track to the minimum (#5509).
+        'bass_mid_ratio': (-60.0, 60.0),
 
         # Temporal (4D)
         'tempo_bpm': (40.0, 240.0),     # Tempo: 40-240 BPM
         'rhythm_stability': (0.0, 1.0), # Normalized 0-1
-        'transient_density': (0.0, 100.0),  # Transients per second (0-100)
+        'transient_density': (0.0, 1.0),  # Normalized 0-1 (schema Unit.NORMALIZED)
         'silence_ratio': (0.0, 1.0),    # Normalized 0-1
 
         # Spectral (3D)
