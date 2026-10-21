@@ -260,4 +260,13 @@ describe('Player', () => {
       screen.queryByTestId?.('queue-toggle');
     expect(queueButton).toBeTruthy();
   });
+
+  it('does not advertise a keyboard shortcut the app does not have (#5632)', () => {
+    renderPlayer(<Player />);
+    // The tooltip used to say "Toggle queue (Q)" with no Q handler anywhere
+    // in src. Re-adding a key hint requires registering the handler in
+    // ComfortableApp's shortcut table in the same change.
+    const queueButton = screen.getByRole('button', { name: /queue/i });
+    expect(queueButton).not.toHaveAttribute('title', expect.stringMatching(/\(\w\)/));
+  });
 });

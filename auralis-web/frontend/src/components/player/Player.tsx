@@ -169,12 +169,16 @@ const Player = () => {
             disabled={hasError}
           />
 
-          {/* Queue Button - Compact with glass effects */}
+          {/* Queue Button - Compact with glass effects. No keyboard shortcut:
+              the advertised "(Q)" was removed (#5632) — no Q handler exists
+              anywhere, and wiring one means lifting this component-local
+              queuePanelOpen into the app shell. Re-add the hint only together
+              with a real handler registered in ComfortableApp's table. */}
           <Box
             component="button"
             onClick={handleQueueToggle}
             sx={queueButtonSx}
-            title="Toggle queue (Q)"
+            title="Toggle queue"
             aria-label="Toggle queue"
             aria-expanded={queuePanelOpen}
             aria-controls="queue-panel-region"
