@@ -118,7 +118,6 @@ interface AlbumsViewProps {
 const AlbumsView = ({ onAlbumClick }: AlbumsViewProps) => {
   const [hoveredAlbumId, setHoveredAlbumId] = useState<number | null>(null);
   const [hoveredAlbumTitle, setHoveredAlbumTitle] = useState<string | undefined>(undefined);
-  const [hoveredAlbumArtist, setHoveredAlbumArtist] = useState<string | undefined>(undefined);
   const [sortBy, setSortBy] = useState<AlbumSortOption>('az');
 
   // Recently touched albums tracking
@@ -130,25 +129,31 @@ const AlbumsView = ({ onAlbumClick }: AlbumsViewProps) => {
     { enabled: hoveredAlbumId !== null }
   );
 
-  const handleAlbumHover = useCallback((albumId: number, albumTitle?: string, albumArtist?: string) => {
+  // albumArtist is accepted-and-dropped: only the pane's title is consumed.
+  const handleAlbumHover = useCallback((albumId: number, albumTitle?: string) => {
     setHoveredAlbumId(albumId);
     setHoveredAlbumTitle(albumTitle);
-    setHoveredAlbumArtist(albumArtist);
   }, []);
 
   const handleAlbumHoverEnd = useCallback(() => {
     setHoveredAlbumId(null);
     setHoveredAlbumTitle(undefined);
-    setHoveredAlbumArtist(undefined);
   }, []);
 
-  // Click handler that tracks album access using hover state info
-  const handleAlbumClick = useCallback((albumId: number) => {
-    if (hoveredAlbumTitle) {
-      touchAlbum(albumId, hoveredAlbumTitle, hoveredAlbumArtist ?? 'Unknown Artist');
-    }
-    onAlbumClick(albumId);
-  }, [onAlbumClick, touchAlbum, hoveredAlbumTitle, hoveredAlbumArtist]);
+  // Track album access from the click's own payload, not hover state
+  // (#5633): keyboard and touch activation fire onClick with no prior
+  // mouseenter, so the hover-sourced title used to be undefined and those
+  // opens were never recorded in "recently touched". Hover state still
+  // drives the AlbumCharacterPane; it no longer gates tracking.
+  const handleAlbumClick = useCallback(
+    (albumId: number, albumTitle?: string, albumArtist?: string) => {
+      if (albumTitle) {
+        touchAlbum(albumId, albumTitle, albumArtist ?? 'Unknown Artist');
+      }
+      onAlbumClick(albumId);
+    },
+    [onAlbumClick, touchAlbum]
+  );
 
   return (
     <ViewContainer

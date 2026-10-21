@@ -26,7 +26,7 @@ import { themeVars } from '@/theme/semanticTheme';
 interface RecentAlbumCardProps {
   album: RecentlyTouchedEntry;
   fingerprint?: ComponentProps<typeof AlbumCard>['fingerprint'];
-  onAlbumClick?: (albumId: number) => void;
+  onAlbumClick?: (albumId: number, albumTitle?: string, albumArtist?: string) => void;
   onAlbumHover?: (albumId: number, albumTitle?: string, albumArtist?: string) => void;
   onAlbumHoverEnd?: () => void;
 }
@@ -46,7 +46,7 @@ const RecentAlbumCard = memo(function RecentAlbumCard({
         artist={album.artist}
         hasArtwork={true}
         fingerprint={fingerprint}
-        onClick={() => onAlbumClick?.(album.albumId)}
+        onClick={(id) => onAlbumClick?.(id, album.albumTitle, album.artist)}
         onHoverEnter={(id) => onAlbumHover?.(id, album.albumTitle, album.artist)}
         onHoverLeave={onAlbumHoverEnd}
       />

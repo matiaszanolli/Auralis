@@ -82,7 +82,9 @@ describe('AlbumsTab accessibility (#4537)', () => {
     await user.keyboard('{Enter}');
 
     expect(onAlbumClick).toHaveBeenCalledTimes(1);
-    expect(onAlbumClick).toHaveBeenCalledWith(ALBUMS[0].id);
+    // #5633: activation carries the album identity so keyboard opens are
+    // trackable without hover state.
+    expect(onAlbumClick).toHaveBeenCalledWith(ALBUMS[0].id, 'Oktubre', 'Patricio Rey');
   });
 
   it('activates the focused card with Space', async () => {
@@ -93,7 +95,7 @@ describe('AlbumsTab accessibility (#4537)', () => {
     await user.keyboard(' ');
 
     expect(onAlbumClick).toHaveBeenCalledTimes(1);
-    expect(onAlbumClick).toHaveBeenCalledWith(ALBUMS[0].id);
+    expect(onAlbumClick).toHaveBeenCalledWith(ALBUMS[0].id, 'Oktubre', 'Patricio Rey');
   });
 
   it('passes the id of the card that was actually activated, not the first', async () => {
@@ -106,7 +108,11 @@ describe('AlbumsTab accessibility (#4537)', () => {
     await user.keyboard('{Enter}');
 
     expect(onAlbumClick).toHaveBeenCalledTimes(1);
-    expect(onAlbumClick).toHaveBeenCalledWith(ALBUMS[1].id);
+    expect(onAlbumClick).toHaveBeenCalledWith(
+      ALBUMS[1].id,
+      expect.any(String),
+      expect.any(String)
+    );
   });
 
   it('still navigates on mouse click (regression)', async () => {
@@ -116,7 +122,7 @@ describe('AlbumsTab accessibility (#4537)', () => {
     await user.click(cardFor(ALBUMS[0]));
 
     expect(onAlbumClick).toHaveBeenCalledTimes(1);
-    expect(onAlbumClick).toHaveBeenCalledWith(ALBUMS[0].id);
+    expect(onAlbumClick).toHaveBeenCalledWith(ALBUMS[0].id, 'Oktubre', 'Patricio Rey');
   });
 
   it('renders the empty state without any card buttons', () => {

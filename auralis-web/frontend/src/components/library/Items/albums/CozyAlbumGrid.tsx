@@ -34,7 +34,7 @@ import { tokens } from '@/design-system';
 export type AlbumSortOption = 'az' | 'year' | 'era';
 
 interface CozyAlbumGridProps {
-  onAlbumClick?: (albumId: number) => void;
+  onAlbumClick?: (albumId: number, albumTitle?: string, albumArtist?: string) => void;
   onAlbumHover?: (albumId: number, albumTitle?: string, albumArtist?: string) => void;
   onAlbumHoverEnd?: () => void;
   /** Sort mode: 'az' (alphabetical), 'year' (newest first), 'era' (grouped by era) */

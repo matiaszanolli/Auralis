@@ -7,7 +7,7 @@ export interface VirtualizedGridSharedProps {
   fingerprints: Map<number, import('@/utils/fingerprintToGradient').AudioFingerprint | null>;
   hasNextPage: boolean;
   onLoadMore: () => void;
-  onAlbumClick?: (albumId: number) => void;
+  onAlbumClick?: (albumId: number, albumTitle?: string, albumArtist?: string) => void;
   onAlbumHover?: (albumId: number, albumTitle?: string, albumArtist?: string) => void;
   onAlbumHoverEnd?: () => void;
 }

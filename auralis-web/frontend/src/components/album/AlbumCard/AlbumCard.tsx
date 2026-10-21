@@ -30,7 +30,13 @@ export interface AlbumCardProps {
   duration?: number;
   year?: number;
   fingerprint?: Partial<AudioFingerprint>;
-  onClick?: (albumId: number) => void;
+  /**
+   * Receives the full (albumId, title, artist) — mirroring `onHoverEnter`
+   * below — so activation can be tracked without coupling to hover state:
+   * keyboard and touch activation fire onClick with no prior mouseenter,
+   * which is exactly how "recently touched" used to miss them (#5633).
+   */
+  onClick?: (albumId: number, title: string, artist: string) => void;
   onArtworkUpdated?: () => void;
   /**
    * Accepts the full (albumId, title, artist) signature so callers can pass
@@ -83,7 +89,7 @@ export const AlbumCard = memo(function AlbumCard({
       artworkUrl={artworkUrl}
       hasArtwork={hasArtwork}
       fingerprint={fingerprint}
-      onClick={onClick ? () => onClick(albumId) : undefined}
+      onClick={onClick ? () => onClick(albumId, title, artist) : undefined}
       onArtworkUpdated={onArtworkUpdated}
       onHoverEnter={onHoverEnter ? () => onHoverEnter(albumId, title, artist) : undefined}
       onHoverLeave={onHoverLeave}
