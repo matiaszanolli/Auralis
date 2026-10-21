@@ -46,7 +46,7 @@ function ComfortableApp() {
   } = useAppLayout();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [currentView, setCurrentView] = useState('songs'); // songs, favourites, recent, etc.
+  const [currentView, setCurrentView] = useState('songs'); // songs, favourites, artist-N/album-N/playlist-N detail views
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -157,7 +157,9 @@ function ComfortableApp() {
             connectionStatus={connectionStatus}
             isMobile={isMobile}
             onSearchClear={() => setSearchQuery('')}
-            {...(['songs', 'favourites', 'recent'].includes(currentView) ? {
+            // 'recent' is gone (#5620): it had no data path and rendered the whole
+            // library under a false heading.
+            {...(['songs', 'favourites'].includes(currentView) ? {
               viewMode,
               onViewModeChange: setViewMode,
             } : {})}

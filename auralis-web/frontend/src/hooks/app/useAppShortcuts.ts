@@ -153,15 +153,10 @@ export function useAppShortcuts({
         info('Artists view');
       }
     },
-    {
-      key: '4',
-      description: 'Show Playlists',
-      category: 'Navigation',
-      handler: () => {
-        setCurrentView('playlists');
-        info('Playlists view');
-      }
-    },
+    // No '4' shortcut: it set currentView='playlists', a view that does not
+    // exist — CozyLibraryView rendered the entire unfiltered library under a
+    // "Playlists" heading (#5620). Playlists live in the sidebar's
+    // PlaylistList; picking one routes to the playlist-N view.
     {
       key: '/',
       description: 'Focus search',

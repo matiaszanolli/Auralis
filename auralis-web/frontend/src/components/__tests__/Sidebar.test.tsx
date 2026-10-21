@@ -30,7 +30,9 @@ describe('Sidebar', () => {
     render(<Sidebar />)
 
     expect(screen.getByText('Favourites')).toBeInTheDocument()
-    expect(screen.getByText('Recently Played')).toBeInTheDocument()
+    // 'Recently Played' was removed with the view (#5620): it had no data
+    // path and rendered the entire library under a false heading.
+    expect(screen.queryByText('Recently Played')).not.toBeInTheDocument()
   })
 
   it('renders settings button', () => {

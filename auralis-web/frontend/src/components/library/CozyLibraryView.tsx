@@ -50,11 +50,13 @@ interface CozyLibraryViewProps {
 
 // View title and icon based on current view — static, so it lives at module
 // scope instead of being rebuilt (with new identities) every render.
+// 'recent' and 'playlists' are deliberately absent (#5620): neither had a
+// data path, so both rendered the entire unfiltered library under a false
+// heading. Unknown views (e.g. a stale persisted 'recent') fall back to the
+// honest Songs config below.
 const VIEW_CONFIG: Record<string, { icon: string; title: string; subtitle: string }> = {
   songs: { icon: '🎵', title: 'Songs', subtitle: 'All tracks in your library' },
   favourites: { icon: '❤️', title: 'Favorites', subtitle: 'Your favorite tracks' },
-  recent: { icon: '🕐', title: 'Recently Played', subtitle: 'Tracks you played recently' },
-  playlists: { icon: '📋', title: 'Playlists', subtitle: 'Your custom playlists' },
 };
 
 const CozyLibraryView = memo<CozyLibraryViewProps>(({

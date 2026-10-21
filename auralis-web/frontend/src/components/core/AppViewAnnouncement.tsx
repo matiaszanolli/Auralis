@@ -1,12 +1,13 @@
 import { screenReaderOnly } from './accessibilityStyles';
 
+// No 'recent'/'playlists' labels (#5620): those views never had a data path
+// and were removed; a stale persisted value announces its generic fallback
+// rather than a library view that does not exist.
 const VIEW_LABELS: Record<string, string> = {
   songs: 'Songs',
   albums: 'Albums',
   artists: 'Artists',
   favourites: 'Favourites',
-  recent: 'Recently played',
-  playlists: 'Playlists',
 };
 
 function getViewLabel(view: string): string {

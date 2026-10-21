@@ -7,7 +7,6 @@ import LibraryMusic from '@mui/icons-material/LibraryMusic';
 import Album from '@mui/icons-material/Album';
 import Person from '@mui/icons-material/Person';
 import Favorite from '@mui/icons-material/Favorite';
-import History from '@mui/icons-material/History';
 import { tokens } from '@/design-system';
 import { SectionLabel } from './SidebarStyles';
 import NavigationSection from './NavigationSection';
@@ -25,10 +24,6 @@ export const SidebarContent = ({ selectedItem, onItemClick }: SidebarContentProp
     { id: 'albums', label: 'Albums', icon: <Album /> },
     { id: 'artists', label: 'Artists', icon: <Person /> },
     { id: 'favourites', label: 'Favourites', icon: <Favorite /> },
-  ];
-
-  const recentlyPlayedItem = [
-    { id: 'recent', label: 'Recently Played', icon: <History /> },
   ];
 
   return (
@@ -62,17 +57,8 @@ export const SidebarContent = ({ selectedItem, onItemClick }: SidebarContentProp
         />
       </Box>
 
-      {/* Recently Played - Separate section with breathing room */}
-      <Box sx={{ marginBottom: tokens.spacing.section }}> {/* 32px section break */}
-        <NavigationSection
-          items={recentlyPlayedItem}
-          selectedItem={selectedItem}
-          onItemClick={onItemClick}
-        />
-      </Box>
-
       {/* Playlists Section - Major section break */}
-      <Box sx={{ marginTop: tokens.spacing.group }}> {/* 16px group spacing before playlists */}
+      <Box sx={{ marginTop: tokens.spacing.group }}> {/* 16px group spacing before playlists (the playlists live here, not as a main view — #5620) */}
         <PlaylistList
           selectedPlaylistId={selectedItem.startsWith('playlist-') ? parseInt(selectedItem.replace('playlist-', '')) : undefined}
           onPlaylistSelect={(playlistId) => onItemClick(`playlist-${playlistId}`)}
