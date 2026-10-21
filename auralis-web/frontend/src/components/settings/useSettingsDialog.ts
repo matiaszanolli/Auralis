@@ -27,13 +27,6 @@ export const useSettingsDialog = ({ open, onSettingsChange }: UseSettingsDialogP
   // Folder pending removal — non-null means confirm dialog is open
   const [removeConfirmFolder, setRemoveConfirmFolder] = useState<string | null>(null);
 
-  // Load settings when dialog opens
-  useEffect(() => {
-    if (open) {
-      loadSettings();
-    }
-  }, [open]);
-
   const loadSettings = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -47,6 +40,22 @@ export const useSettingsDialog = ({ open, onSettingsChange }: UseSettingsDialogP
       setLoading(false);
     }
   }, []);
+
+  // Load settings when the dialog opens; discard unsaved edits when it closes.
+  useEffect(() => {
+    if (open) {
+      loadSettings();
+    } else {
+      // #5618: Cancel, Esc and the backdrop click all just close the dialog
+      // (SettingsDialog wires onCancel={onClose}), and ComfortableApp keeps
+      // this hook mounted for the app lifetime — so without this, cancelled
+      // edits survived in pendingChanges, getValue re-displayed them as if
+      // stored, and the next Save silently committed them.
+      setPendingChanges({});
+      setError(null);
+      setRemoveConfirmFolder(null);
+    }
+  }, [open, loadSettings]);
 
   const handleSettingChange = useCallback((key: keyof SettingsUpdate, value: SettingsUpdate[keyof SettingsUpdate]) => {
     setPendingChanges((prev) => ({ ...prev, [key]: value }));
