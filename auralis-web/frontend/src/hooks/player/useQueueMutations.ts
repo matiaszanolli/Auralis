@@ -11,7 +11,7 @@
  */
 
 import { useCallback, useMemo, useState, useRef } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch, useStore } from 'react-redux';
 import { useRestAPI } from '@/hooks/api/useRestAPI';
 import {
   setQueue as reduxSetQueue,
@@ -78,17 +78,37 @@ export interface QueueMutations {
 export function useQueueMutations(): QueueMutations {
   const { post, put, delete: apiDelete } = useRestAPI();
   const dispatch = useDispatch<AppDispatch>();
+  const store = useStore();
 
-  const tracks = useSelector(selectQueueTracks);
-  const currentIndex = useSelector(selectCurrentIndex);
-  const isShuffled = useSelector(selectIsShuffled);
-  const repeatMode = useSelector(selectRepeatMode);
-
-  const [isLoading, setIsLoading] = useState(false);
+  // In-flight count, not a boolean (#5624): one shared boolean was cleared by
+  // whichever mutation finished first, so with two overlapping mutations the
+  // spinner dropped while the second was still in flight.
+  const [inFlight, setInFlight] = useState(0);
+  const isLoading = inFlight > 0;
   const [error, setError] = useState<ApiError | null>(null);
 
-  const stateRef = useRef<RollbackState>({ tracks, currentIndex, isShuffled, repeatMode });
-  stateRef.current = { tracks, currentIndex, isShuffled, repeatMode };
+  const beginInFlight = useCallback(() => setInFlight((n) => n + 1), []);
+  const endInFlight = useCallback(() => setInFlight((n) => n - 1), []);
+
+  /**
+   * Call-time snapshot of the queue fields (#5624).
+   *
+   * The snapshot used to come from a render-time ref, so two mutations
+   * started in the same tick both captured the pre-first-mutation state: the
+   * newest mutation's failure then rolled back past the earlier mutation's
+   * already-applied-and-maybe-succeeded change. Reading the store at call
+   * time sees every optimistically-applied mutation that preceded this one,
+   * so a rollback restores exactly its own pre-state.
+   */
+  const snapshot = useCallback((): RollbackState => {
+    const state = store.getState();
+    return {
+      tracks: selectQueueTracks(state),
+      currentIndex: selectCurrentIndex(state),
+      isShuffled: selectIsShuffled(state),
+      repeatMode: selectRepeatMode(state),
+    };
+  }, [store]);
 
   /**
    * Per-field generation counters guarding stale rollbacks (#4836).
@@ -122,7 +142,7 @@ export function useQueueMutations(): QueueMutations {
    *
    * `apply` dispatches the change to Redux immediately so the UI reflects it
    * before the request resolves; if the request rejects, the pre-mutation
-   * snapshot taken from `stateRef` is restored and the parsed `ApiError` is
+   * snapshot taken at call time from the store is restored and the parsed `ApiError` is
    * re-thrown to the caller.
    *
    * Every mutation that touches `tracks`/`currentIndex` goes through here, so
@@ -139,11 +159,10 @@ export function useQueueMutations(): QueueMutations {
       request: () => Promise<unknown>,
       errorCode: string
     ): Promise<void> => {
-      setIsLoading(true);
+      beginInFlight();
       setError(null);
 
-      const previousTracks = stateRef.current.tracks;
-      const previousIndex = stateRef.current.currentIndex;
+      const { tracks: previousTracks, currentIndex: previousIndex } = snapshot();
       const generation = beginMutation('queue');
 
       apply();
@@ -163,10 +182,10 @@ export function useQueueMutations(): QueueMutations {
         setError(apiError);
         throw apiError;
       } finally {
-        setIsLoading(false);
+        endInFlight();
       }
     },
-    [dispatch, beginMutation, isNewestMutation]
+    [dispatch, beginMutation, isNewestMutation, beginInFlight, endInFlight, snapshot]
   );
 
   const setQueue = useCallback(
@@ -232,7 +251,7 @@ export function useQueueMutations(): QueueMutations {
     (newOrder: number[]): Promise<void> =>
       runOptimistic(
         () => {
-          const previous = stateRef.current.tracks;
+          const { tracks: previous, currentIndex: previousIndex } = snapshot();
           // `newOrder` is a permutation of indices; mirror the backend's
           // `[tracks[i] for i in new_order]`. Anything the backend would
           // reject is left un-applied so the request produces the error
@@ -243,7 +262,7 @@ export function useQueueMutations(): QueueMutations {
 
           // The backend keeps the current pointer on the same *track*
           // (queue_manager.reorder_tracks, #2159) rather than the same index.
-          const currentId = previous[stateRef.current.currentIndex]?.id;
+          const currentId = previous[previousIndex]?.id;
           dispatch(reduxSetQueue(reordered));
           const nextIndex =
             currentId === undefined ? 0 : reordered.findIndex((t) => t.id === currentId);
@@ -255,15 +274,16 @@ export function useQueueMutations(): QueueMutations {
           }),
         'REORDER_QUEUE_ERROR'
       ),
-    [put, dispatch, runOptimistic]
+    [put, dispatch, runOptimistic, snapshot]
   );
 
   const toggleShuffle = useCallback(async (): Promise<void> => {
-    setIsLoading(true);
+    beginInFlight();
     setError(null);
 
-    const newShuffle = !stateRef.current.isShuffled;
-    const previousShuffle = stateRef.current.isShuffled;
+    const { isShuffled: currentShuffle } = snapshot();
+    const newShuffle = !currentShuffle;
+    const previousShuffle = currentShuffle;
     const generation = beginMutation('shuffle');
 
     dispatch(reduxSetIsShuffled(newShuffle));
@@ -284,9 +304,9 @@ export function useQueueMutations(): QueueMutations {
       setError(apiError);
       throw apiError;
     } finally {
-      setIsLoading(false);
+      endInFlight();
     }
-  }, [post, dispatch, beginMutation, isNewestMutation]);
+  }, [post, dispatch, beginMutation, isNewestMutation, beginInFlight, endInFlight, snapshot]);
 
   const setRepeatMode = useCallback(
     async (mode: 'off' | 'all' | 'one'): Promise<void> => {
@@ -303,10 +323,10 @@ export function useQueueMutations(): QueueMutations {
         throw apiError;
       }
 
-      setIsLoading(true);
+      beginInFlight();
       setError(null);
 
-      const previousMode = stateRef.current.repeatMode;
+      const { repeatMode: previousMode } = snapshot();
       const generation = beginMutation('repeat');
       dispatch(reduxSetRepeatMode(mode));
 
@@ -322,10 +342,10 @@ export function useQueueMutations(): QueueMutations {
         setError(apiError);
         throw apiError;
       } finally {
-        setIsLoading(false);
+        endInFlight();
       }
     },
-    [post, dispatch, beginMutation, isNewestMutation]
+    [post, dispatch, beginMutation, isNewestMutation, beginInFlight, endInFlight, snapshot]
   );
 
   const clearQueue = useCallback(
