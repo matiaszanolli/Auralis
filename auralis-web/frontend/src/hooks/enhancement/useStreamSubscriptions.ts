@@ -74,8 +74,7 @@ export function useStreamSubscriptions(deps: StreamSubscriptionDeps) {
   useEffect(() => {
     // Any incoming stream message means the backend is responding, so disarm
     // the first-stream watchdog (#4433).
-    const unsubscribeStart = wsContext.subscribe(
-      'audio_stream_start',
+    const unsubscribeStart = wsContext.subscribe(      'audio_stream_start',
       (m) => {
         clearStreamStartWatchdog();
         const start = m as AudioStreamStartMessage;
@@ -122,15 +121,25 @@ export function useStreamSubscriptions(deps: StreamSubscriptionDeps) {
     );
 
     return () => {
-      clearStreamStartWatchdog();
+      // Deliberately NO clearStreamStartWatchdog() here (#5621): the watchdog
+      // hook owns unmount cleanup (useStreamStartWatchdog's own effect), and
+      // this effect re-running on a WS status flicker must not disarm a
+      // watchdog that is mid-flight across the flap — that is the lost-
+      // watchdog bug. Unsubscribe/resubscribe is synchronous within one
+      // commit, so no messages are lost.
       unsubscribeStart();
       unsubscribeChunk();
       unsubscribeEnd();
       unsubscribeError();
     };
     // streamType is a per-instance constant, so listing it cannot cause the
-    // resubscribe the comment above warns against.
-  }, [wsContext, clearStreamStartWatchdog, streamType, acceptsStreamType, logPrefix, streamEpochRef, handleStreamStartRef]);
+    // resubscribe the comment above warns against. `subscribe` (not the whole
+    // wsContext) is the only valid trigger — the context object's identity
+    // changes with every isConnected/connectionStatus flicker, and each of
+    // those used to tear down and re-register all four subscriptions,
+    // disarming the stream-start watchdog on the way (#4668's missed
+    // sibling, #5621).
+  }, [wsContext.subscribe, clearStreamStartWatchdog, streamType, acceptsStreamType, logPrefix, streamEpochRef, handleStreamStartRef]);
 
   // The next connection may reach a restarted backend whose epoch count starts
   // over, so the ordering guard above must not compare across connections.

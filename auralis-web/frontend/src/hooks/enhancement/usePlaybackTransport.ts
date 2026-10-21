@@ -157,21 +157,26 @@ export function usePlaybackTransport(deps: PlaybackTransportDeps) {
     // resumePlayback is stable (its only dependency is a []-memoized callback).
   }, [isPlaying, resumePlayback, playbackEngineRef, setIsPaused]);
 
-  // Register resume position getter for WS reconnect (#3185)
+  // Register resume position getter for WS reconnect (#3185).
+  // Depends on setResumePositionGetter (stable, #3730), not the whole
+  // wsContext object — the object's identity changes on every WS status
+  // flicker, which used to unregister/re-register the getters for no reason
+  // (#4668's missed sibling, #5621).
   useEffect(() => {
+    const { setResumePositionGetter } = wsContext;
     const getPosition = () =>
       playbackEngineRef.current?.getCurrentPlaybackTime() ?? 0;
-    wsContext.setResumePositionGetter(sendType, getPosition);
+    setResumePositionGetter(sendType, getPosition);
     if (acceptNormalStream) {
-      wsContext.setResumePositionGetter('play_normal', getPosition);
+      setResumePositionGetter('play_normal', getPosition);
     }
     return () => {
-      wsContext.setResumePositionGetter(sendType, null);
+      setResumePositionGetter(sendType, null);
       if (acceptNormalStream) {
-        wsContext.setResumePositionGetter('play_normal', null);
+        setResumePositionGetter('play_normal', null);
       }
     };
-  }, [wsContext, sendType, acceptNormalStream, playbackEngineRef]);
+  }, [wsContext.setResumePositionGetter, sendType, acceptNormalStream, playbackEngineRef]);
 
   // On WS disconnect: preserve playback engine and buffer so buffered audio
   // continues playing while reconnect happens (#3185, replaces #2847 teardown).
