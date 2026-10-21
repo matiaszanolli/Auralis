@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   Box,
   TextField,
@@ -19,6 +19,62 @@ interface AdvancedSettingsPanelProps {
   enableAnalytics: boolean;
   debugMode: boolean;
   onSettingChange: (key: keyof SettingsUpdate, value: SettingsUpdate[keyof SettingsUpdate]) => void;
+}
+
+interface NumericSettingFieldProps {
+  label: string;
+  ariaLabel: string;
+  description: string;
+  value: number;
+  min: number;
+  max: number;
+  onCommit: (value: number) => void;
+}
+
+/**
+ * Numeric field that edits a local draft string and commits a clamped number
+ * only when the draft parses (#5635). parseInt('') is NaN, which a controlled
+ * TextField renders as the React NaN warning and JSON.stringify serialises as
+ * null in the Save body; a cleared draft instead just stops committing until
+ * the field parses again, and the last committed value rides out the gap.
+ */
+function NumericSettingField({
+  label,
+  ariaLabel,
+  description,
+  value,
+  min,
+  max,
+  onCommit,
+}: NumericSettingFieldProps) {
+  const [draft, setDraft] = useState(String(value));
+
+  useEffect(() => {
+    // Re-sync only when the committed value changed elsewhere (settings
+    // loaded/reset); the parent round-tripping the value just typed must not
+    // clobber the draft mid-edit.
+    setDraft((prev) => (Number.parseInt(prev, 10) === value ? prev : String(value)));
+  }, [value]);
+
+  return (
+    <SectionContainer>
+      <SectionLabel>{label}</SectionLabel>
+      <TextField
+        type="number"
+        fullWidth
+        value={draft}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          const parsed = Number.parseInt(e.target.value, 10);
+          if (!Number.isNaN(parsed)) {
+            onCommit(Math.min(max, Math.max(min, parsed)));
+          }
+        }}
+        slotProps={{ htmlInput: { min, max, 'aria-label': ariaLabel } }}
+      />
+      <SectionDescription>{description}</SectionDescription>
+    </SectionContainer>
+  );
 }
 
 /**
@@ -57,19 +113,15 @@ export const AdvancedSettingsPanel = ({
 
   return (
     <Box>
-      <SectionContainer>
-        <SectionLabel>Cache Size (MB)</SectionLabel>
-        <TextField
-          type="number"
-          fullWidth
-          value={cacheSize}
-          onChange={(e) => onSettingChange('cache_size', parseInt(e.target.value))}
-          slotProps={{ htmlInput: { min: 128, max: 8192, 'aria-label': 'Cache size (MB)' } }}
-        />
-        <SectionDescription>
-          Amount of disk space for processed audio cache
-        </SectionDescription>
-      </SectionContainer>
+      <NumericSettingField
+        label="Cache Size (MB)"
+        ariaLabel="Cache size (MB)"
+        description="Amount of disk space for processed audio cache"
+        value={cacheSize}
+        min={128}
+        max={8192}
+        onCommit={(v) => onSettingChange('cache_size', v)}
+      />
 
       <Divider sx={{ my: 3 }} />
 
@@ -84,19 +136,15 @@ export const AdvancedSettingsPanel = ({
 
       <Divider sx={{ my: 3 }} />
 
-      <SectionContainer>
-        <SectionLabel>Max Concurrent Scans</SectionLabel>
-        <TextField
-          type="number"
-          fullWidth
-          value={maxConcurrentScans}
-          onChange={(e) => onSettingChange('max_concurrent_scans', parseInt(e.target.value))}
-          slotProps={{ htmlInput: { min: 1, max: 16, 'aria-label': 'Max concurrent scans' } }}
-        />
-        <SectionDescription>
-          Number of parallel threads for library scanning
-        </SectionDescription>
-      </SectionContainer>
+      <NumericSettingField
+        label="Max Concurrent Scans"
+        ariaLabel="Max concurrent scans"
+        description="Number of parallel threads for library scanning"
+        value={maxConcurrentScans}
+        min={1}
+        max={16}
+        onCommit={(v) => onSettingChange('max_concurrent_scans', v)}
+      />
 
       <Divider sx={{ my: 3 }} />
 
