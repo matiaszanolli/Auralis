@@ -23,9 +23,13 @@ import type { LibraryTracksRemovedMessage } from './library';
 // Type Guards
 // ============================================================================
 
-// Mirrors WebSocketMessage (not the stricter AnyWebSocketMessage) so it accepts
-// the WebSocketMessage handed to useWebSocketMessages callbacks (#4197).
-export function isLibraryTracksRemovedMessage(msg: WebSocketMessage): msg is LibraryTracksRemovedMessage {
+// Accepts the full handler union (AnyWebSocketMessage | WebSocketMessage) so
+// direct context-subscribe handlers can call it too (#5622) — mirroring
+// isWebSocketErrorMessage below. The useWebSocketMessages-only parameter
+// (#4197) predates consumers subscribing outside that helper.
+export function isLibraryTracksRemovedMessage(
+  msg: AnyWebSocketMessage | WebSocketMessage
+): msg is LibraryTracksRemovedMessage {
   return msg.type === 'library_tracks_removed';
 }
 

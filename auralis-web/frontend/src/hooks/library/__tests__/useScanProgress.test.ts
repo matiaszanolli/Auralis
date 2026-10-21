@@ -10,7 +10,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
-import { useScanProgress } from '../useScanProgress';
+import { useScanProgress, _internal } from '../useScanProgress';
 import { DEFAULT_TIMEOUT_MS } from '@/utils/apiRequest';
 import type { WebSocketMessage } from '@/types/websocket';
 
@@ -48,6 +48,9 @@ describe('useScanProgress', () => {
   let manager: ReturnType<typeof createMockManager>;
 
   beforeEach(() => {
+    // #5622: the status store is module-level (shared across consumers and
+    // remounts), so tests must start from a clean store.
+    _internal.reset();
     manager = createMockManager();
     vi.mocked(useWebSocketContext).mockReturnValue({ subscribe: manager.subscribe } as any);
   });
@@ -391,6 +394,59 @@ describe('useScanProgress', () => {
       // Previous result preserved
       expect(result.current.isScanning).toBe(false);
       expect(result.current.lastResult?.filesAdded).toBe(10);
+    });
+  });
+
+  describe('shared store across remounts (#5622)', () => {
+    it('retains the last result across an unmount/remount of the only consumer', () => {
+      const first = renderHook(() => useScanProgress());
+
+      act(() => {
+        manager.deliver({ type: 'library_scan_started' } as WebSocketMessage);
+      });
+      act(() => {
+        manager.deliver({
+          type: 'scan_complete',
+          data: { files_added: 12, files_failed: 2, duration: 3.5 },
+        } as unknown as WebSocketMessage);
+      });
+      expect(first.result.current.lastResult?.filesAdded).toBe(12);
+      first.unmount();
+
+      // ScanStatusCard remounts whenever its settings tab does.
+      const second = renderHook(() => useScanProgress());
+      expect(second.result.current.lastResult).toEqual(
+        expect.objectContaining({ filesAdded: 12, filesFailed: 2 })
+      );
+      expect(second.result.current.isScanning).toBe(false);
+      second.unmount();
+    });
+
+    it('a second consumer sees live progress immediately and shares one subscription', () => {
+      const first = renderHook(() => useScanProgress());
+
+      act(() => {
+        manager.deliver({ type: 'library_scan_started' } as WebSocketMessage);
+      });
+      act(() => {
+        manager.deliver({
+          type: 'scan_progress',
+          data: { current: 7, total: 42, percentage: 17, current_file: '/music/x.flac' },
+        } as unknown as WebSocketMessage);
+      });
+
+      // ScanStatusCard mounting mid-scan (dialog reopened on the Library tab).
+      const second = renderHook(() => useScanProgress());
+      expect(second.result.current.isScanning).toBe(true);
+      expect(second.result.current.current).toBe(7);
+      expect(second.result.current.total).toBe(42);
+      expect(second.result.current.percentage).toBe(17);
+      expect(second.result.current.currentFile).toBe('/music/x.flac');
+
+      // Refcount: five message types subscribed ONCE, not once per consumer.
+      expect(manager.subscribe).toHaveBeenCalledTimes(5);
+      first.unmount();
+      second.unmount();
     });
   });
 
