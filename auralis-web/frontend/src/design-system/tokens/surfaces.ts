@@ -95,7 +95,9 @@ export const glass = {
       // Per-mode backgrounds for the glassEffects.minimal utility (#3948),
       // which runs slightly more opaque than the base medium background.
       backgroundDark: 'rgba(21, 29, 47, 0.45)',
-      backgroundLight: 'rgba(255, 255, 255, 0.6)',
+      // #5641: 0.9 (was 0.6) — this fill carries muted text over arbitrary
+      // artwork in light mode and needs >= 4.5:1 against it.
+      backgroundLight: 'rgba(255, 255, 255, 0.9)',
       backdropFilter: 'blur(8px) saturate(1.08)',
       border: 'none',
       // Bevel: outer shadow + top highlight + bottom shadow
@@ -108,7 +110,9 @@ export const glass = {
       // Per-mode backgrounds for the glassEffects.strong utility (#3948),
       // which runs more opaque than the base strong background for solid presence.
       backgroundDark: 'rgba(21, 29, 47, 0.65)',
-      backgroundLight: 'rgba(255, 255, 255, 0.85)',
+      // #5641: 0.94 (was 0.85) — keeps secondary text >= 4.5:1 through the
+      // dialog scrim in light mode.
+      backgroundLight: 'rgba(255, 255, 255, 0.94)',
       backdropFilter: 'blur(12px) saturate(1.1)',
       border: 'none',
       // Bevel: outer shadow + top highlight + bottom shadow

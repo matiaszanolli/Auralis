@@ -72,7 +72,8 @@ export const AddToPlaylistMenu = ({
       slotProps={{
         paper: {
           sx: {
-            background: tokens.gradients.darkSubtle,
+            // #5641: theme-aware menu surface (was the fixed dark gradient).
+            background: themeVars.menuSurface,
             border: `1px solid ${tokens.colors.opacityScale.accent.standard}`,
             borderRadius: '12px',
             mt: 1,

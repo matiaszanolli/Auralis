@@ -17,6 +17,18 @@ export interface SemanticTheme {
   surfaceRaised: string;
   surfaceOverlay: string;
   surfaceTranslucent: string;
+  /** Popover/menu surface — theme-aware so menu text keeps its contrast (#5641). */
+  menuSurface: string;
+  /** Glass fill for prominent overlays (modals). */
+  glassFillStrong: string;
+  /** Glass fill for overlays at rest (track-card duration badge). */
+  glassFill: string;
+  /** Glass fill for hovered overlays — runs more opaque than glassFill. */
+  glassFillHover: string;
+  /** Two-state switch thumb, off state. */
+  switchThumb: string;
+  /** Two-state switch track, off state. */
+  switchTrack: string;
   textPrimary: string;
   textStrong: string;
   textSecondary: string;
@@ -49,6 +61,14 @@ const darkSemanticTheme: SemanticTheme = {
   surfaceRaised: tokens.colors.bg.level3,
   surfaceOverlay: tokens.colors.bg.level4,
   surfaceTranslucent: tokens.glass.starfield.strong,
+  // #5641: these are the values the five glass/gradient surfaces already used
+  // in dark mode, bound to semantic names so light mode can resolve its own.
+  menuSurface: tokens.gradients.darkSubtle,
+  glassFillStrong: tokens.glass.strong.background,
+  glassFill: tokens.glass.starfield.medium,
+  glassFillHover: tokens.glass.starfield.sharp,
+  switchThumb: tokens.colors.opacityScale.white.veryStrong,
+  switchTrack: tokens.colors.opacityScale.white.lighter,
   textPrimary: tokens.colors.text.primary,
   textStrong: tokens.colors.text.primaryFull,
   textSecondary: tokens.colors.text.secondary,
@@ -81,6 +101,17 @@ const lightSemanticTheme: SemanticTheme = {
   surfaceRaised: tokens.colors.lightMode.background.secondary,
   surfaceOverlay: tokens.colors.lightMode.background.hover,
   surfaceTranslucent: tokens.colors.lightMode.background.glass,
+  // #5641: light-mode fills for the roles the glass/gradient surfaces used to
+  // take from fixed dark-only tokens. White-alphas are the dark ink's partner
+  // — the same pair the dark palette forms with its white-alphas — so every
+  // fill keeps >= 4.5:1 against the text that sits on it (>= 3:1 for the
+  // switch, per the acceptance criteria in #5641).
+  menuSurface: tokens.colors.lightMode.background.secondary,
+  glassFillStrong: tokens.glass.strong.backgroundLight,
+  glassFill: tokens.glass.medium.backgroundLight,
+  glassFillHover: tokens.glass.strong.backgroundLight,
+  switchThumb: tokens.colors.opacityScale.dark.nearOpaque,
+  switchTrack: tokens.colors.opacityScale.dark.lighter,
   textPrimary: tokens.colors.lightMode.text.primary,
   textStrong: tokens.colors.lightMode.text.primary,
   textSecondary: tokens.colors.lightMode.text.secondary,
@@ -119,6 +150,12 @@ export const themeVars = {
   surfaceRaised: 'var(--app-surface-raised)',
   surfaceOverlay: 'var(--app-surface-overlay)',
   surfaceTranslucent: 'var(--app-surface-translucent)',
+  menuSurface: 'var(--app-menu-surface)',
+  glassFillStrong: 'var(--app-glass-fill-strong)',
+  glassFill: 'var(--app-glass-fill)',
+  glassFillHover: 'var(--app-glass-fill-hover)',
+  switchThumb: 'var(--app-switch-thumb)',
+  switchTrack: 'var(--app-switch-track)',
   textPrimary: 'var(--app-text-primary)',
   textStrong: 'var(--app-text-strong)',
   textSecondary: 'var(--app-text-secondary)',
@@ -153,6 +190,12 @@ export const getSemanticCssVariables = (mode: ThemeMode): Record<string, string>
     '--app-surface-raised': theme.surfaceRaised,
     '--app-surface-overlay': theme.surfaceOverlay,
     '--app-surface-translucent': theme.surfaceTranslucent,
+    '--app-menu-surface': theme.menuSurface,
+    '--app-glass-fill-strong': theme.glassFillStrong,
+    '--app-glass-fill': theme.glassFill,
+    '--app-glass-fill-hover': theme.glassFillHover,
+    '--app-switch-thumb': theme.switchThumb,
+    '--app-switch-track': theme.switchTrack,
     '--app-text-primary': theme.textPrimary,
     '--app-text-strong': theme.textStrong,
     '--app-text-secondary': theme.textSecondary,

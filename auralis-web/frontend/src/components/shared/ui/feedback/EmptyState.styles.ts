@@ -29,7 +29,9 @@ export const IconContainer = styled(Box)({
   },
 
   '&:hover .MuiSvgIcon-root': {
-    color: tokens.colors.accent.secondary,
+    // #5641 sibling: fixed cyan #47D6FF is ~1.6:1 on a light tint; the accent
+    // is the readable-on-both-modes brand color.
+    color: themeVars.accent,
     transform: 'scale(1.1)',
   },
 });

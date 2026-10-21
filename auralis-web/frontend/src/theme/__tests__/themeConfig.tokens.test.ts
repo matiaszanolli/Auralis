@@ -27,9 +27,10 @@ describe('glassEffects backgrounds derive from glass tokens (#3948)', () => {
 
   it('preserves the original rendered values (no visual change)', () => {
     expect(tokens.glass.strong.backgroundDark).toBe('rgba(21, 29, 47, 0.65)');
-    expect(tokens.glass.strong.backgroundLight).toBe('rgba(255, 255, 255, 0.85)');
+    // #5641 raised both from 0.85/0.6 — the fills carry live text now.
+    expect(tokens.glass.strong.backgroundLight).toBe('rgba(255, 255, 255, 0.94)');
     expect(tokens.glass.medium.backgroundDark).toBe('rgba(21, 29, 47, 0.45)');
-    expect(tokens.glass.medium.backgroundLight).toBe('rgba(255, 255, 255, 0.6)');
+    expect(tokens.glass.medium.backgroundLight).toBe('rgba(255, 255, 255, 0.9)');
   });
 });
 

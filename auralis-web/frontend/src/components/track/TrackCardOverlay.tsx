@@ -82,9 +82,9 @@ export const TrackCardOverlay = ({
       <DurationBadge
         sx={{
           opacity: isHovered ? 1 : 0.6, // Fade in on hover
-          background: isHovered
-            ? tokens.glass.starfield.sharp // #3950: unified starfield glass (sharper on hover)
-            : tokens.glass.starfield.medium, // #3950: unified starfield glass (subtle at rest)
+          // #5641: theme-aware glass fills (the fixed starfield alphas left
+          // the duration text at 1-2.6:1 in light mode).
+          background: isHovered ? themeVars.glassFillHover : themeVars.glassFill,
         }}
       >
         <Typography

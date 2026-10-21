@@ -40,15 +40,17 @@ export const SwitchVariant = memo<EnhancementToggleProps>(({
             onChange={(e) => onToggle(e.target.checked)}
             disabled={isProcessing}
             sx={{
-              // Subtle switch styling - not visually loud
+              // Subtle switch styling - not visually loud.
+              // #5641: theme-aware off-state colors — the fixed white alphas
+              // rendered an invisible white-on-white switch in light mode.
               '& .MuiSwitch-switchBase': {
-                color: tokens.colors.opacityScale.white.veryStrong,
+                color: themeVars.switchThumb,
               },
               '& .MuiSwitch-switchBase.Mui-checked': {
                 color: tokens.colors.opacityScale.accent.vivid,
               },
               '& .MuiSwitch-track': {
-                backgroundColor: tokens.colors.opacityScale.white.lighter,
+                backgroundColor: themeVars.switchTrack,
               },
               '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
                 backgroundColor: tokens.colors.opacityScale.accent.strong,

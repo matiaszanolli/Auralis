@@ -105,8 +105,10 @@ export const SimilarTracksModal = ({
       slotProps={{
         paper: {
           sx: {
-            // Glass effect for modal (Design Language v1.2.0 §4.2)
-            background: tokens.glass.strong.background,
+            // Glass effect for modal (Design Language v1.2.0 §4.2).
+            // #5641: theme-aware fill — glass.strong's fixed dark background
+            // put light-mode text at ~2.2:1 on it.
+            background: themeVars.glassFillStrong,
             backdropFilter: tokens.glass.strong.backdropFilter,   // 40px blur
             border: tokens.glass.strong.border,                   // 22% white opacity
             boxShadow: tokens.glass.strong.boxShadow,

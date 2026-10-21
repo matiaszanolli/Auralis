@@ -41,7 +41,9 @@ export const BatchActionsMoreMenu = ({
       slotProps={{
         paper: {
           sx: {
-            background: tokens.gradients.darkSubtle,
+            // #5641: theme-aware menu surface — the fixed dark gradient left
+            // dark ink unreadable on it in light mode.
+            background: themeVars.menuSurface,
             border: `1px solid ${tokens.colors.opacityScale.accent.standard}`,
             borderRadius: '12px',
             mt: 1,
