@@ -41,14 +41,6 @@ vi.mock('../Views/TrackListViewContent', () => ({
   },
 }));
 
-vi.mock('../Views/useQueueOperations', () => ({
-  useQueueOperations: () => ({
-    handleRemoveTrack: vi.fn(),
-    handleReorderQueue: vi.fn(),
-    handleShuffleQueue: vi.fn(),
-    handleClearQueue: vi.fn(),
-  }),
-}));
 
 // Mock skeleton loaders
 vi.mock('../../shared/ui/loaders', () => ({

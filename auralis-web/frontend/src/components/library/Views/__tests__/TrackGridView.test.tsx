@@ -33,12 +33,7 @@ function makeTracks(count: number): LibraryTrack[] {
 const noop = async () => {};
 
 const baseProps = {
-  hasMore: false,
   onTrackPlay: vi.fn(),
-  onRemoveTrack: noop,
-  onReorderQueue: noop,
-  onShuffleQueue: noop,
-  onClearQueue: noop,
 };
 
 /** Mirrors the mocking pattern in TrackList.virtualization.test.tsx: the

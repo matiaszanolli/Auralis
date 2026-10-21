@@ -26,13 +26,7 @@ const ENTRY_ANIMATION_STYLES: Array<{ animationDelay: string; animationFillMode:
 
 export interface TrackGridViewProps {
   tracks: Track[];
-  hasMore: boolean;
-  currentTrackId?: number;
   onTrackPlay: (track: Track) => void;
-  onRemoveTrack: (index: number) => Promise<void>;
-  onReorderQueue: (newOrder: number[]) => Promise<void>;
-  onShuffleQueue: () => Promise<void>;
-  onClearQueue: () => Promise<void>;
 }
 
 /**
@@ -52,15 +46,7 @@ export interface TrackGridViewProps {
  * inline arrow doing `tracks.find(...)` per click. The stable identity also
  * preserves `TrackCard`'s `React.memo` across renders.
  */
-export const TrackGridView = ({
-  tracks,
-  currentTrackId: _currentTrackId,
-  onTrackPlay,
-  onRemoveTrack: _onRemoveTrack,
-  onReorderQueue: _onReorderQueue,
-  onShuffleQueue: _onShuffleQueue,
-  onClearQueue: _onClearQueue,
-}: TrackGridViewProps) => {
+export const TrackGridView = ({ tracks, onTrackPlay }: TrackGridViewProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrollElement, setScrollElement] = useState<HTMLElement | null>(null);
 

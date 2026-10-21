@@ -22,7 +22,6 @@ import { ListLoadingContainer } from '@/components/library/Styles/Grid.styles';
 import GridLoadingState from '@/components/library/Items/utilities/GridLoadingState';
 import TrackGridView from './TrackGridView';
 import TrackListViewContent from './TrackListViewContent';
-import { useQueueOperations } from './useQueueOperations';
 import type { LibraryTrack } from '@/types/domain';
 
 export type ViewMode = 'grid' | 'list';
@@ -73,14 +72,6 @@ export const TrackListView = ({
   onFindSimilar,
   onLoadMore,
 }: TrackListViewProps) => {
-  // Queue operations with toast feedback
-  const {
-    handleRemoveTrack,
-    handleReorderQueue,
-    handleShuffleQueue,
-    handleClearQueue,
-  } = useQueueOperations({});
-
   // Show loading skeletons
   if (loading) {
     return viewMode === 'grid' ? (
@@ -105,16 +96,7 @@ export const TrackListView = ({
         scrollableTarget="app-main-content-scroll"
         scrollThreshold={0.8}
       >
-        <TrackGridView
-          tracks={tracks}
-          hasMore={false}
-          currentTrackId={currentTrackId}
-          onTrackPlay={onTrackPlay}
-          onRemoveTrack={handleRemoveTrack}
-          onReorderQueue={handleReorderQueue}
-          onShuffleQueue={handleShuffleQueue}
-          onClearQueue={handleClearQueue}
-        />
+        <TrackGridView tracks={tracks} onTrackPlay={onTrackPlay} />
       </InfiniteScroll>
     );
   }
