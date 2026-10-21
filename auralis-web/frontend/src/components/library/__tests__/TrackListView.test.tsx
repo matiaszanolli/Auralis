@@ -89,6 +89,36 @@ describe('TrackListView', () => {
   });
 
   describe('Rendering', () => {
+    it('keeps a populated list mounted while loading is true (#5626)', () => {
+      // A post-mutation refresh (metadata save, bulk action, library_updated)
+      // used to tear the virtualized list down to a skeleton, losing scroll,
+      // focus, selection and loaded pages. Skeleton only for an empty list.
+      act(() => {
+        render(
+          <TrackListView
+            {...defaultProps}
+            tracks={[
+              { id: 1, title: 'Song One', artist: 'A', album: 'Al', duration: 100, filepath: '/1.flac' },
+              { id: 2, title: 'Song Two', artist: 'A', album: 'Al', duration: 101, filepath: '/2.flac' },
+            ]}
+            loading
+          />
+        );
+      });
+
+      expect(screen.getByTestId('track-list-view-content')).toBeInTheDocument();
+      expect(screen.getByText('Song One')).toBeInTheDocument();
+      expect(screen.queryByTestId('list-loading-container')).not.toBeInTheDocument();
+    });
+
+    it('still shows the skeleton for a loading empty list (#5626)', () => {
+      act(() => {
+        render(<TrackListView {...defaultProps} loading />);
+      });
+
+      expect(screen.getByTestId('list-loading-container')).toBeInTheDocument();
+    });
+
     it('should render without crashing', () => {
       let container: any;
       act(() => {

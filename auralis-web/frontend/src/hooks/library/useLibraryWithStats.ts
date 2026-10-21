@@ -35,6 +35,8 @@ export interface UseLibraryWithStatsReturn {
   statsLoading: boolean;
   statsError: string | null;
   fetchTracks: (resetPagination?: boolean) => Promise<void>;
+  /** In-place refresh of loaded pages — never empties the list (#5626). */
+  refreshTracks: () => Promise<void>;
   loadMore: () => Promise<void>;
   handleScanFolder: () => Promise<void>;
   refetchStats: () => Promise<void>;
@@ -52,11 +54,13 @@ export const useLibraryWithStats = ({
   // return; each sub-hook owns its own abort lifecycle (it aborts its previous
   // request on every new call AND on unmount), so the parent no longer aborts
   // them (#4193 — the old parent cleanup was a redundant double-abort).
-  const { fetchTracks, loadMore, fetchAbortRef: _fetchAbortRef, ...paginationState } = useLibraryPagination({ view });
+  const { fetchTracks, refreshTracks, loadMore, fetchAbortRef: _fetchAbortRef, ...paginationState } = useLibraryPagination({ view });
   const { refetchStats, statsAbortRef: _statsAbortRef, ...statsState } = useLibraryStats({ includeStats });
   const { handleScanFolder, scanAbortRef: _scanAbortRef, ...scanState } = useLibraryScan({
     includeStats,
-    fetchTracks,
+    // #5626: a finished scan refreshes in place — fetchTracks() would tear
+    // the list down to a skeleton and drop the user back to page 1.
+    fetchTracks: refreshTracks,
     refetchStats,
   });
 
@@ -70,10 +74,12 @@ export const useLibraryWithStats = ({
   }, [view, autoLoad, includeStats, fetchTracks, refetchStats]);
 
   // Refresh library data when backend broadcasts library_updated (#2871).
+  // #5626: in-place — a scan finishing elsewhere must not skeleton-tear the
+  // list the user is scrolled into.
   const handleLibraryUpdated = useCallback(() => {
-    fetchTracks();
+    refreshTracks();
     if (includeStats) refetchStats();
-  }, [fetchTracks, includeStats, refetchStats]);
+  }, [refreshTracks, includeStats, refetchStats]);
 
   useWebSocketMessages(['library_updated'], handleLibraryUpdated);
 
@@ -82,6 +88,7 @@ export const useLibraryWithStats = ({
     ...statsState,
     ...scanState,
     fetchTracks,
+    refreshTracks,
     loadMore,
     handleScanFolder,
     refetchStats,

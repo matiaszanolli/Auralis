@@ -67,7 +67,7 @@ const CozyLibraryView = memo<CozyLibraryViewProps>(({
     tracks,
     loading,
     scanning,
-    fetchTracks,
+    refreshTracks,
     handleScanFolder,
     hasMore,
     totalTracks,
@@ -125,7 +125,9 @@ const CozyLibraryView = memo<CozyLibraryViewProps>(({
     handleCloseEditDialog,
     handleSaveMetadata,
     handleEditMetadata,
-  } = useMetadataEditing(fetchTracks);
+  // #5626: post-mutation refreshes happen in place — the list keeps
+  // scroll, focus, selection and loaded pages.
+  } = useMetadataEditing(refreshTracks);
 
   // Phase 5: Similar tracks modal state
   const {
@@ -147,7 +149,7 @@ const CozyLibraryView = memo<CozyLibraryViewProps>(({
   } = useBatchOperations({
     selectedTracks,
     selectedCount,
-    onFetchTracks: fetchTracks,
+    onFetchTracks: refreshTracks,
     onClearSelection: clearSelection,
     // #5118: bulk favorite needs each track's current state to pick POST vs
     // DELETE — the backend has no toggle endpoint.

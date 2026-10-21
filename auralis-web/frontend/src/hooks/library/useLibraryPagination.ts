@@ -26,6 +26,8 @@ export interface UseLibraryPaginationReturn {
   offset: number;
   isLoadingMore: boolean;
   fetchTracks: (resetPagination?: boolean) => Promise<void>;
+  /** In-place refresh of the loaded pages — never empties the list (#5626). */
+  refreshTracks: () => Promise<void>;
   loadMore: () => Promise<void>;
   fetchAbortRef: React.MutableRefObject<AbortController | null>;
 }
@@ -52,6 +54,11 @@ export const useLibraryPagination = ({ view }: UseLibraryPaginationOptions): Use
   // every page advance and prevents re-render loops (#3378).
   const offsetRef = useRef(0);
   offsetRef.current = offset;
+
+  // Mirror tracks.length so refreshTracks can size its re-fetch without
+  // depending on `tracks` (same identity-stability reasoning as offsetRef).
+  const tracksLengthRef = useRef(0);
+  tracksLengthRef.current = tracks.length;
 
   const { success, error: toastError, info } = useToast();
   // Mirror toast fns into a ref so fetchTracks deps stay stable across renders
@@ -154,6 +161,86 @@ export const useLibraryPagination = ({ view }: UseLibraryPaginationOptions): Use
     [view]
   );
 
+  /**
+   * Re-fetch the already-loaded pages in place (#5626).
+   *
+   * Post-mutation refreshes (metadata save, bulk actions, library_updated,
+   * scan complete) used to go through fetchTracks(), which empties the list,
+   * raises the full-screen `loading`, and drops everything past page 1 — the
+   * virtualized list was torn down to a skeleton and the user lost scroll,
+   * focus, selection and pagination on every save. This re-fetches exactly
+   * as many pages as are loaded, replaces the array wholesale (never
+   * appends — no duplicates), and never touches `loading`: the list stays
+   * mounted and the old rows ride out the request. A failure keeps the old
+   * list and surfaces the toast error.
+   */
+  const refreshTracks = useCallback(async () => {
+    const loaded = tracksLengthRef.current;
+    if (loaded === 0) {
+      // Nothing mounted yet — the initial-load path is the right UX here.
+      return fetchTracks(true);
+    }
+
+    const requestId = ++requestIdRef.current;
+    const isStale = () => requestIdRef.current !== requestId;
+    fetchInProgressRef.current = true;
+    setError(null);
+
+    let controller: AbortController | undefined;
+    try {
+      const limit = 50;
+      const refreshed: LibraryTrack[] = [];
+      let newOffset = 0;
+      let more = true;
+      let latestTotal = 0;
+      // Re-fetch exactly as many pages as are loaded: the visible rows are
+      // replaced with current data AND pagination continuity is kept —
+      // loadMore continues from the refresh's last offset.
+      while (refreshed.length < loaded && more) {
+        const endpoint =
+          view === 'favourites'
+            ? `/api/library/tracks/favorites?limit=${limit}&offset=${newOffset}`
+            : `/api/library/tracks?limit=${limit}&offset=${newOffset}`;
+
+        fetchAbortRef.current?.abort();
+        controller = new AbortController();
+        fetchAbortRef.current = controller;
+
+        const data = await get<TracksPageResponse>(endpoint, {
+          signal: controller.signal,
+          validate: isTracksListShape,
+        });
+        if (isStale()) return;
+
+        refreshed.push(...transformTracks(data.tracks || []));
+        more = data.has_more || false;
+        latestTotal = data.total || 0;
+        newOffset += limit;
+      }
+
+      setTracks(refreshed);
+      setOffset(newOffset);
+      setHasMore(more);
+      setTotalTracks(latestTotal);
+    } catch (err) {
+      if (controller?.signal.aborted) return;
+      if (isStale()) return;
+
+      console.error('Error refreshing tracks:', err);
+      const errorMsg =
+        err instanceof APIRequestError && err.statusCode === 0
+          ? 'Failed to connect to server'
+          : 'Failed to refresh library';
+      setError(errorMsg);
+      toastRef.current.toastError(errorMsg);
+      // The previously-loaded list stays exactly as it was.
+    } finally {
+      if (!isStale()) {
+        fetchInProgressRef.current = false;
+      }
+    }
+  }, [view, fetchTracks]);
+
   const loadMore = useCallback(async () => {
     if (loadMoreInProgressRef.current || fetchInProgressRef.current) {
       DEBUG && console.log('[useLibraryPagination] loadMore already in progress, skipping');
@@ -219,5 +306,5 @@ export const useLibraryPagination = ({ view }: UseLibraryPaginationOptions): Use
     }
   }, [view]);
 
-  return { tracks, loading, error, hasMore, totalTracks, offset, isLoadingMore, fetchTracks, loadMore, fetchAbortRef };
+  return { tracks, loading, error, hasMore, totalTracks, offset, isLoadingMore, fetchTracks, refreshTracks, loadMore, fetchAbortRef };
 };

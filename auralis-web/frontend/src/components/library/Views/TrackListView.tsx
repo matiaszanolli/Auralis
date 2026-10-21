@@ -72,8 +72,11 @@ export const TrackListView = ({
   onFindSimilar,
   onLoadMore,
 }: TrackListViewProps) => {
-  // Show loading skeletons
-  if (loading) {
+  // Show loading skeletons — ONLY for an empty list (#5626): a refetch of a
+  // populated list happens in place (refreshTracks), so `loading` true with
+  // rows present must not tear the virtualized list (scroll, focus,
+  // selection, loaded pages) down to a skeleton.
+  if (loading && tracks.length === 0) {
     return viewMode === 'grid' ? (
       <LibraryGridSkeleton count={12} />
     ) : (
