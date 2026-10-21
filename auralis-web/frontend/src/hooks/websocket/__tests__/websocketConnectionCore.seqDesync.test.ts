@@ -15,6 +15,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   connState,
   handleSocketFrame,
+  replayQueueAndResume,
   resetConnectionSingletons,
 } from '../websocketConnectionCore';
 import type { WebSocketManager } from '@/utils/errorHandling';
@@ -129,5 +130,61 @@ describe('websocketConnectionCore audio_chunk_meta.seq desync detection (#3774)'
 
     expect(connState.pendingMeta).not.toBeNull();
     expect(connState.pendingMeta?.data.seq).toBe(5);
+  });
+
+  // #5619: the backend's stream_epoch counter is per-process, so after a
+  // backend restart a resumed first stream arrives with the SAME epoch the
+  // stale expectedSeq was tracking. Tracking must reset with the connection,
+  // or the resumed stream is falsely torn down by a DESYNC.
+  describe('across a disconnect/reconnect (#5619)', () => {
+    it('a restarted backend reusing epoch 1 does not trigger a false DESYNC', () => {
+      const dispatch = vi.fn();
+
+      // First stream of the session: epoch 1, frames 0..3.
+      handleSocketFrame(metaFrame(0), manager, dispatch);
+      handleSocketFrame(metaFrame(1), manager, dispatch);
+      handleSocketFrame(metaFrame(2), manager, dispatch);
+      handleSocketFrame(metaFrame(3), manager, dispatch);
+      expect(dispatch).not.toHaveBeenCalled();
+
+      // Backend restart + WS reconnect (the open handler runs
+      // replayQueueAndResume). The new process's first stream is again
+      // epoch 1, seq 0 — the stale expectedSeq must not fire.
+      replayQueueAndResume(manager, []);
+
+      handleSocketFrame(metaFrame(0), manager, dispatch);
+      expect(dispatch).not.toHaveBeenCalled();
+    });
+
+    it('a genuine in-stream gap after a reconnect still dispatches DESYNC', () => {
+      const dispatch = vi.fn();
+      vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      handleSocketFrame(metaFrame(0), manager, dispatch);
+      replayQueueAndResume(manager, []);
+
+      handleSocketFrame(metaFrame(1), manager, dispatch);
+      handleSocketFrame(metaFrame(3), manager, dispatch); // dropped 2
+
+      expect(dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'audio_stream_error',
+          data: expect.objectContaining({ code: 'DESYNC' }),
+        })
+      );
+    });
+
+    it('resets pendingMeta too — an unpaired meta cannot meet its frame on the new socket', () => {
+      const dispatch = vi.fn();
+
+      handleSocketFrame(metaFrame(0), manager, dispatch);
+      expect(connState.pendingMeta).not.toBeNull();
+
+      replayQueueAndResume(manager, []);
+
+      expect(connState.pendingMeta).toBeNull();
+      expect(connState.expectedSeq).toBeNull();
+      expect(connState.seqStreamEpoch).toBeNull();
+    });
   });
 });

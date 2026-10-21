@@ -106,6 +106,22 @@ export function closeCurrentManager(): void {
 }
 
 /**
+ * Reset the per-stream frame tracking that must not survive a connection
+ * (#5619). Called when a (re)connect opens: the backend's stream_epoch counter
+ * is per-process (`itertools.count(1)`), so after a backend restart a resumed
+ * first stream arrives with the SAME epoch number the stale `expectedSeq` was
+ * tracking — epoch equality cannot distinguish a continuation from a fresh
+ * process, and the stale counter would falsely DESYNC the resumed stream and
+ * tear it down. `pendingMeta` goes with it: an unpaired meta stashed just
+ * before the drop can never meet its binary frame on the new socket (#4782).
+ */
+export function resetStreamFrameTracking(): void {
+  connState.pendingMeta = null;
+  connState.expectedSeq = null;
+  connState.seqStreamEpoch = null;
+}
+
+/**
  * Reset the connection singletons — ONLY FOR TESTING. Called by the provider's
  * resetWebSocketSingletons() (which also clears the subscription maps) between
  * tests to prevent memory leaks from accumulated connections.
@@ -119,9 +135,7 @@ export function resetConnectionSingletons(): void {
   for (const key of Object.keys(connState.resumeGetters)) {
     delete connState.resumeGetters[key];
   }
-  connState.pendingMeta = null;
-  connState.expectedSeq = null;
-  connState.seqStreamEpoch = null;
+  resetStreamFrameTracking();
 }
 
 // ============================================================================
@@ -286,11 +300,17 @@ export function handleSocketFrame(
  * stream so audio resumes after a drop (#2385) from the current playback
  * position (#3185). Skips the re-issue if the queue already carried a fresh
  * play/stop command, so a stale play is not replayed over it (#3345).
+ *
+ * Starts by resetting the stream frame tracking (#5619): the socket just
+ * (re)opened, so whatever `expectedSeq`/`seqStreamEpoch` a previous connection
+ * — possibly against a previous backend process — tracked can only be stale.
  */
 export function replayQueueAndResume(
   manager: WebSocketManager,
   queue: OutgoingWebSocketMessage[]
 ): void {
+  resetStreamFrameTracking();
+
   // Send queued messages (commands sent while disconnected). Track whether any
   // queued message supersedes the saved stream command so we don't re-issue a
   // stale play after reconnect (#3345).
