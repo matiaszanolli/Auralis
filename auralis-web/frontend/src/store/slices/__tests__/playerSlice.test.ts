@@ -97,6 +97,19 @@ describe('playerSlice', () => {
     expect(state.currentTrack).toBeNull();
   });
 
+  // #5623: the null branch used to leave duration/currentTime at the previous
+  // track's values, so selectPlaybackProgress kept reporting a cleared track.
+  it('setCurrentTrack(null) resets duration and currentTime (#5623)', () => {
+    const playing = reducer(initialState, setCurrentTrack(mockTrack));
+    const advanced = reducer(playing, setCurrentTime(50));
+    expect(advanced.currentTime).toBe(50);
+
+    const state = reducer(advanced, setCurrentTrack(null));
+    expect(state.currentTrack).toBeNull();
+    expect(state.duration).toBe(0);
+    expect(state.currentTime).toBe(0);
+  });
+
   it('setCurrentTime clamps to duration', () => {
     let state = reducer(initialState, setDuration(100));
     state = reducer(state, setCurrentTime(150));

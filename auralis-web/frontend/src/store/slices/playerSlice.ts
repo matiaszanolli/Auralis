@@ -82,6 +82,14 @@ const playerSlice = createSlice({
         if (action.payload) {
           state.duration = action.payload.duration;
           state.currentTime = 0;
+        } else {
+          // #5623: clearing the track must clear its times too, or
+          // selectPlaybackProgress/selectFormattedTime keep reporting the
+          // previous track's progress after a queue clear. The snapshot's own
+          // duration/current_time fields (dispatched after this by
+          // usePlayerStateSync) still overwrite both when present.
+          state.duration = 0;
+          state.currentTime = 0;
         }
         state.lastUpdated = action.meta.timestamp;
       },
