@@ -356,24 +356,114 @@ describe('ProgressBar', () => {
   });
 
   describe('Dragging', () => {
-    it('should handle drag start', () => {
-      const mockSeek = vi.fn();
-      render(
-        <ProgressBar
-          currentTime={0}
-          duration={100}
-          onSeek={mockSeek}
-        />
+    // jsdom rects are all zeros; a measurable bar makes the drag positions
+    // exact (clientX 90 on a 100px bar at duration 100 → position 90).
+    const measureBar = (element: Element) => {
+      vi.spyOn(element, 'getBoundingClientRect').mockReturnValue({
+        width: 100,
+        height: 12,
+        left: 0,
+        top: 0,
+        right: 100,
+        bottom: 12,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      } as DOMRect);
+    };
+
+    const renderBar = (mockSeek = vi.fn()) => {
+      const utils = render(
+        <ProgressBar currentTime={0} duration={100} onSeek={mockSeek} />
       );
+      const bar = screen.getByTestId('progress-bar-container');
+      measureBar(bar);
+      return { mockSeek, bar, ...utils };
+    };
 
-      const progressBarContainer = screen.getByTestId('progress-bar-container');
-      const rect = progressBarContainer.getBoundingClientRect();
+    it('should handle drag start', () => {
+      // #5625: mousedown no longer seeks — it only starts the gesture. The
+      // old behavior fired a stream-restarting seek on mousedown, again on
+      // every mousemove, and a third time on the trailing click.
+      const { mockSeek, bar } = renderBar();
 
-      fireEvent.mouseDown(progressBarContainer, {
-        clientX: rect.left + rect.width / 2,
-      });
+      fireEvent.mouseDown(bar, { clientX: 50 });
 
-      expect(mockSeek).toHaveBeenCalled();
+      expect(mockSeek).not.toHaveBeenCalled();
+    });
+
+    it('commits exactly one seek on release, at the last dragged position', () => {
+      const { mockSeek, bar } = renderBar();
+
+      fireEvent.mouseDown(bar, { clientX: 10 });
+      fireEvent.mouseMove(document, { clientX: 40 });
+      fireEvent.mouseMove(document, { clientX: 65 });
+      fireEvent.mouseMove(document, { clientX: 90 });
+      fireEvent.mouseUp(document);
+
+      expect(mockSeek).toHaveBeenCalledTimes(1);
+      expect(mockSeek).toHaveBeenCalledWith(90);
+    });
+
+    it('a plain click still seeks once', () => {
+      const { mockSeek, bar } = renderBar();
+
+      fireEvent.mouseDown(bar, { clientX: 30 });
+      fireEvent.mouseUp(document);
+      fireEvent.click(bar, { clientX: 30 });
+
+      expect(mockSeek).toHaveBeenCalledTimes(1);
+      expect(mockSeek).toHaveBeenCalledWith(30);
+    });
+
+    it('the trailing click after a drag does not seek again', () => {
+      const { mockSeek, bar } = renderBar();
+
+      fireEvent.mouseDown(bar, { clientX: 10 });
+      fireEvent.mouseMove(document, { clientX: 90 });
+      fireEvent.mouseUp(document);
+      // Browsers dispatch click on the container after mouseup.
+      fireEvent.click(bar, { clientX: 90 });
+
+      expect(mockSeek).toHaveBeenCalledTimes(1);
+    });
+
+    it('updates the visual position during the drag without seeking', () => {
+      const { bar } = renderBar();
+
+      fireEvent.mouseDown(bar, { clientX: 10 });
+      fireEvent.mouseMove(document, { clientX: 75 });
+
+      // The played range follows the pointer while the seek is still pending.
+      expect(screen.getByTestId('progress-bar-played')).toHaveStyle('width: 75%');
+      expect(screen.queryByTestId('region-error-fallback')).toBeNull();
+    });
+
+    it('touch drag commits one seek on touchend at the last position', () => {
+      const { mockSeek, bar } = renderBar();
+
+      fireEvent.touchStart(bar, { touches: [{ clientX: 10 }] });
+      fireEvent.touchMove(bar, { touches: [{ clientX: 45 }] });
+      fireEvent.touchMove(bar, { touches: [{ clientX: 80 }] });
+      fireEvent.touchEnd(bar);
+
+      expect(mockSeek).toHaveBeenCalledTimes(1);
+      expect(mockSeek).toHaveBeenCalledWith(80);
+
+      // The synthetic click some browsers fire after a moved touch must not
+      // seek a second time.
+      fireEvent.click(bar, { clientX: 80 });
+      expect(mockSeek).toHaveBeenCalledTimes(1);
+    });
+
+    it('a touch tap seeks once even if no synthetic click arrives', () => {
+      const { mockSeek, bar } = renderBar();
+
+      fireEvent.touchStart(bar, { touches: [{ clientX: 42 }] });
+      fireEvent.touchEnd(bar);
+
+      expect(mockSeek).toHaveBeenCalledTimes(1);
+      expect(mockSeek).toHaveBeenCalledWith(42);
     });
 
     it('should expand thumb during drag', () => {
