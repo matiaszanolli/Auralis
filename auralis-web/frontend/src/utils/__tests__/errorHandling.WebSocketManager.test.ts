@@ -11,6 +11,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { WebSocketManager } from '../errorHandling';
 
+// #5639: `on()` keys its handler on the event name, so a handler requiring an
+// argument its event never passes must not compile. These lines are the test:
+// they only stay green while the mapped signature holds (`pnpm run
+// type-check` fails with an "unused @ts-expect-error" the moment `on()`
+// reverts to accepting any handler for any event).
+type OnSignature = WebSocketManager['on'];
+const onAcceptsMismatchedHandlers = null as OnSignature | null;
+if (onAcceptsMismatchedHandlers) {
+  // @ts-expect-error 'open' handlers receive no arguments
+  onAcceptsMismatchedHandlers('open', (_e: MessageEvent) => {});
+  // @ts-expect-error 'close' handlers receive no arguments
+  onAcceptsMismatchedHandlers('close', (_e: Event) => {});
+  // A `message` handler of `() => void` still compiles — fewer parameters is
+  // ordinary function variance, and the smoke test below exercises it.
+}
+
 class FakeWebSocket {
   static CONNECTING = 0;
   static OPEN = 1;

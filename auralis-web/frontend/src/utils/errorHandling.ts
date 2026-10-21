@@ -54,6 +54,21 @@ const POLICY_CLOSE_CODES: ReadonlySet<number> = new Set([1008]);
 // WebSocket Connection Management
 // ============================================================================
 
+/**
+ * Handler shapes per event (#5639). `on()` keys its parameters on this map,
+ * so registering a handler whose shape doesn't match its event — a `message`
+ * handler of `() => void`, an `open` handler expecting an event — is a
+ * compile error instead of something the old switch force-cast into place.
+ * Fewer parameters still compiles (any `() => void` handler is valid for
+ * `message` too), which is ordinary function variance, not a loophole.
+ */
+export interface WebSocketEventHandlers {
+  open: () => void;
+  close: () => void;
+  message: (event: MessageEvent) => void;
+  error: (error: Event) => void;
+}
+
 export class WebSocketManager {
   private ws: WebSocket | null = null;
   private reconnectAttempts = 0;
@@ -63,10 +78,8 @@ export class WebSocketManager {
   private closed = false;
   private config: WebSocketErrorConfig;
   private url: string;
-  private onOpen: (() => void) | null = null;
-  private onClose: (() => void) | null = null;
-  private onMessage: ((event: MessageEvent) => void) | null = null;
-  private onError: ((error: Event) => void) | null = null;
+  /** One handler slot per event, keyed by name (#5639). */
+  private handlers: Partial<WebSocketEventHandlers> = {};
 
   constructor(url: string, config: Partial<WebSocketErrorConfig> = {}) {
     this.url = url;
@@ -96,24 +109,24 @@ export class WebSocketManager {
           console.log('[WebSocketManager] Connected');
           this.reconnectAttempts = 0;
           this.startHeartbeat();
-          this.onOpen?.();
+          this.handlers.open?.();
           resolve();
         };
 
         ws.onerror = (error) => {
           console.error('[WebSocketManager] Error:', error);
-          this.onError?.(error);
+          this.handlers.error?.(error);
           reject(error);
         };
 
         ws.onmessage = (event) => {
-          this.onMessage?.(event);
+          this.handlers.message?.(event);
         };
 
         ws.onclose = (event: CloseEvent) => {
           console.log(`[WebSocketManager] Disconnected (code ${event.code})`);
           this.stopHeartbeat();
-          this.onClose?.();
+          this.handlers.close?.();
           if (POLICY_CLOSE_CODES.has(event.code)) {
             // Retry-futile rejection: signal permanent failure immediately
             // through the same channel as exhausting the retry budget, so the
@@ -211,24 +224,19 @@ export class WebSocketManager {
   }
 
   /**
-   * Register event handlers
+   * Register the handler for an event (#5639).
+   *
+   * The mapped signature ties `handler` to `event`: `on('message', handler)`
+   * requires a `(event: MessageEvent) => void` handler, `on('open', ...)`
+   * a `() => void` one. Assigning into the same-keyed record needs no cast —
+   * the old `(eventName, any-handler)` union signature forced one `as` per
+   * switch arm and accepted every mismatch silently.
    */
-  on(event: 'open' | 'close' | 'message' | 'error',
-     handler: (() => void) | ((event: MessageEvent | Event) => void)): void {
-    switch (event) {
-      case 'open':
-        this.onOpen = handler as () => void;
-        break;
-      case 'close':
-        this.onClose = handler as () => void;
-        break;
-      case 'message':
-        this.onMessage = handler as (event: MessageEvent) => void;
-        break;
-      case 'error':
-        this.onError = handler as (error: Event) => void;
-        break;
-    }
+  on<E extends keyof WebSocketEventHandlers>(
+    event: E,
+    handler: WebSocketEventHandlers[E]
+  ): void {
+    this.handlers[event] = handler;
   }
 
   /**
