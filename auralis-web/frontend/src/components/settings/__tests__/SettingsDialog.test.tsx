@@ -165,4 +165,58 @@ describe('SettingsDialog', () => {
       );
     });
   });
+
+  // #5638: the getValue prop used to be typed `=> any`, which erased the null
+  // the hook returns while settings are unloaded. With the prop now typed
+  // `SettingsUpdate[K] | null`, every panel must survive a null-for-every-key
+  // dialog: controls stay controlled (no uncontrolled-to-controlled React
+  // warnings) and display their explicit fallbacks.
+  describe('unloaded settings stay controlled (#5638)', () => {
+    it('renders every tab with an all-null getValue without React warnings', () => {
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      try {
+        for (let tab = 0; tab < 6; tab++) {
+          const { unmount } = render(
+            <SettingsDialogContent
+              activeTab={tab}
+              getValue={() => null}
+              onSettingChange={vi.fn()}
+              onAddFolder={vi.fn()}
+              onRemoveFolder={vi.fn()}
+              onScanNow={vi.fn()}
+            />
+          );
+          unmount();
+        }
+
+        const controlledWarnings = consoleError.mock.calls
+          .map((args) => args.join(' '))
+          .filter((text) => /uncontrolled|controlled/i.test(text));
+        expect(controlledWarnings).toEqual([]);
+      } finally {
+        consoleError.mockRestore();
+      }
+    });
+
+    it('shows the null fallbacks on the Enhancement tab', () => {
+      render(
+        <SettingsDialogContent
+          activeTab={4}
+          getValue={() => null}
+          onSettingChange={vi.fn()}
+          onAddFolder={vi.fn()}
+          onRemoveFolder={vi.fn()}
+          onScanNow={vi.fn()}
+        />
+      );
+
+      expect(screen.getByRole('combobox', { name: 'Default Preset' })).toHaveTextContent(
+        'Adaptive'
+      );
+      expect(screen.getByRole('slider', { name: 'Enhancement intensity' })).toHaveAttribute(
+        'aria-valuenow',
+        '1'
+      );
+    });
+  });
 });
