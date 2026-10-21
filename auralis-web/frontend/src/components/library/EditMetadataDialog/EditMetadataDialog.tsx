@@ -17,6 +17,7 @@
  * - Loading states during operations
  */
 
+import { useEffect, useRef } from 'react';
 import { Dialog, DialogContent } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 import CloseIcon from '@mui/icons-material/Close';
@@ -50,11 +51,26 @@ export const EditMetadataDialog = ({
   const { metadata, loading, saving, error, success, updateField, saveMetadata, setSuccess } =
     useMetadataForm(trackId, currentMetadata, onSave);
 
+  // #5397 keeps this dialog mounted (hidden via `open`), so the success
+  // auto-close timer below survives a manual close and would fire
+  // handleCloseEditDialog for whichever editor is open a second later —
+  // cancelling a save's pending timer on every open-state change (#5634).
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current !== null) {
+        clearTimeout(closeTimerRef.current);
+        closeTimerRef.current = null;
+      }
+    };
+  }, [open]);
+
   const handleSave = async () => {
     const result = await saveMetadata();
     if (result) {
       // Close dialog after a brief delay to show success message
-      setTimeout(() => {
+      closeTimerRef.current = setTimeout(() => {
+        closeTimerRef.current = null;
         onClose();
       }, 1000);
     }

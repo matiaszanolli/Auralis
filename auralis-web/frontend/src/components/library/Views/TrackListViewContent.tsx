@@ -8,6 +8,11 @@ import type { LibraryTrack as Track } from '@/types/domain';
 
 const ROW_HEIGHT = 56; // 44px row + 4px margin + 8px selectable padding
 
+// Frames the roving-focus retry may wait for scrollToIndex to mount a row
+// outside the overscan window. A handful is generous; more means the row is
+// never coming and retrying would only spin at frame rate (#5634).
+const MAX_FOCUS_RETRY_FRAMES = 5;
+
 export interface TrackListViewContentProps {
   tracks: Track[];
   hasMore: boolean;
@@ -107,25 +112,39 @@ export const TrackListViewContent = ({
   // the clamp effect above adjusts activeIndex after the list shrinks,
   // neither of which should steal focus from wherever the user actually is.
   // scrollToIndex may need a frame to mount a row outside the current
-  // overscan window, so retry once via requestAnimationFrame rather than
+  // overscan window, so retry via requestAnimationFrame rather than
   // assuming it's already in the DOM synchronously after the state update
-  // that requested it.
+  // that requested it. The retry is bounded and cancelled: an unbounded
+  // loop kept polling at frame rate if the row never mounted (list
+  // unmounted mid-navigation) (#5634).
   const shouldFocusRef = useRef(false);
+  const focusFrameRef = useRef<number | null>(null);
   useEffect(() => {
     if (!shouldFocusRef.current) return;
     shouldFocusRef.current = false;
     const targetIndex = activeIndex;
+    let attempts = 0;
+    let cancelled = false;
     const tryFocus = () => {
+      if (cancelled) return;
       const row = listContainerRef.current?.querySelector<HTMLElement>(
         `[data-track-index="${targetIndex}"]`
       );
       if (row) {
         row.focus();
-      } else {
-        requestAnimationFrame(tryFocus);
+      } else if (attempts < MAX_FOCUS_RETRY_FRAMES) {
+        attempts += 1;
+        focusFrameRef.current = requestAnimationFrame(tryFocus);
       }
     };
     tryFocus();
+    return () => {
+      cancelled = true;
+      if (focusFrameRef.current !== null) {
+        cancelAnimationFrame(focusFrameRef.current);
+        focusFrameRef.current = null;
+      }
+    };
   }, [activeIndex]);
 
   const handleListboxKeyDown = useCallback((e: KeyboardEvent<HTMLDivElement>) => {
