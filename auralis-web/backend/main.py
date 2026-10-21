@@ -153,6 +153,20 @@ from config.routes import setup_routers
 from config.startup import create_lifespan
 from core.env_config import get_int_env
 
+# #5393: the sanitizing LogRecordFactory (auralis.utils.logging, imported at
+# config import time) covers message/args, but traceback text from
+# exc_info/logger.exception() is rendered by the handler's Formatter, which
+# basicConfig instantiated as a plain Formatter. Re-wrap those handlers so
+# attacker-controlled text inside an exception message cannot forge log
+# lines in the persisted electron-log output. This must wait until after the
+# sys.path bootstrap above — importing auralis.* before it breaks the
+# PyInstaller-frozen case, per the config.app note at the top.
+from auralis.utils.logging import install_sanitizing_formatter
+
+install_sanitizing_formatter(
+    fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+
 # Import state management
 from player_state import create_track_info
 

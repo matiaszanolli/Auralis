@@ -27,6 +27,13 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
+# #5393: traceback text bypasses the sanitizing LogRecordFactory — re-wrap
+# basicConfig's handlers so exception output gets the same escaping.
+from auralis.utils.logging import install_sanitizing_formatter
+
+install_sanitizing_formatter(
+    fmt='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 

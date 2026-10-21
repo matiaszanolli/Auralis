@@ -11,7 +11,9 @@ Refactored from Matchering 2.0 by Sergree and contributors
 """
 
 import logging as _stdlib_logging
+import traceback as _traceback
 from collections.abc import Callable
+from types import TracebackType
 
 # Control characters that must not reach a log line verbatim: C0 range
 # (0x00-0x1F) except tab, plus DEL (0x7F) and the C1 range (0x80-0x9F).
@@ -161,23 +163,117 @@ def debug_line() -> None:
 # sanitizes explicitly.
 _original_log_record_factory = _stdlib_logging.getLogRecordFactory()
 
+# Args of these types pass through the LogRecordFactory untouched: their
+# str()/repr() is control-character-free by construction, and %-formatting
+# needs the object itself ("%d" % ("5",) raises TypeError). Everything else
+# — Path, Exception, anything with a custom __str__ that can carry raw
+# attacker-controlled text (#5393) — is str()-coerced and sanitized now,
+# rather than left opaque for getMessage() to interpolate after
+# sanitization has already run.
+_ARG_PASSTHROUGH_TYPES = (int, float, complex, type(None), bytes, bytearray)
+
+
+def _sanitized_log_arg(arg: object) -> object:
+    """Sanitize one %-style logging arg, preserving numeric format specifiers."""
+    if isinstance(arg, str):
+        return sanitize_log_value(arg)
+    if isinstance(arg, _ARG_PASSTHROUGH_TYPES):
+        return arg
+    return sanitize_log_value(arg)
+
 
 def _sanitizing_log_record_factory(*args: object, **kwargs: object) -> _stdlib_logging.LogRecord:
     """LogRecordFactory wrapper that sanitizes a record's message/args in place.
 
     Covers %-style logging (``logger.info("...%s...", value)``) as well as
-    pre-interpolated f-strings, without touching exception tracebacks (those
-    are formatted separately by the handler's Formatter, not via getMessage()).
+    pre-interpolated f-strings. Non-str args are sanitized too (#5393): a
+    ``Path`` or ``Exception`` arg interpolates attacker-controlled text via
+    getMessage()'s %-formatting, which runs AFTER this factory, so the object
+    is str()-coerced and escaped here instead. Traceback text still bypasses
+    this factory (it is formatted separately by the handler's Formatter) —
+    ``SanitizingFormatter`` below covers that half.
     """
     record = _original_log_record_factory(*args, **kwargs)
     if isinstance(record.msg, str):
         record.msg = sanitize_log_value(record.msg)
     if isinstance(record.args, tuple):
-        record.args = tuple(
-            sanitize_log_value(arg) if isinstance(arg, str) else arg
-            for arg in record.args
-        )
+        record.args = tuple(_sanitized_log_arg(arg) for arg in record.args)
+    elif isinstance(record.args, dict):  # %(key)s style: sanitize the values
+        record.args = {key: _sanitized_log_arg(value) for key, value in record.args.items()}
     return record
 
 
 _stdlib_logging.setLogRecordFactory(_sanitizing_log_record_factory)
+
+
+class SanitizingFormatter(_stdlib_logging.Formatter):
+    """Formatter that sanitizes attacker-controlled traceback text (#5393).
+
+    ``exc_info`` / ``logger.exception()`` output never passes through
+    getMessage() or the sanitizing LogRecordFactory above — the Formatter
+    renders it via the traceback module, whose final ``{Type}: {message}``
+    line is exactly ``str(exc)``. A loader exception embedding a crafted
+    path could therefore reach the persisted log with its CR/LFs intact.
+
+    A post-render escape cannot fix this: by the time the text is split
+    into lines, an embedded ``\\n`` has already become a line boundary. So
+    the traceback is rebuilt from the stdlib's own frame rendering
+    (``traceback.format_tb``, structural, not attacker-controlled) while
+    the exception summary line — the only attacker-controlled part — goes
+    through ``sanitize_log_value()``. Cause/context chains are rendered
+    recursively, matching the stdlib's structure.
+    """
+
+    _CAUSE_DIVIDER = (
+        "\nThe above exception was the direct cause of the following exception:\n\n"
+    )
+    _CONTEXT_DIVIDER = (
+        "\nDuring handling of the above exception, another exception occurred:\n\n"
+    )
+
+    def formatException(
+        self,
+        exc_info: tuple[type[BaseException], BaseException, TracebackType | None]
+        | tuple[None, None, None],
+    ) -> str:
+        return self._format_chain(exc_info[1], exc_info[2], set())
+
+    def _format_chain(
+        self,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+        seen: set[int],
+    ) -> str:
+        if exc is None or id(exc) in seen:
+            return ""
+        seen.add(id(exc))
+        parts: list[str] = []
+        if exc.__cause__ is not None:
+            parts.append(self._format_chain(exc.__cause__, exc.__cause__.__traceback__, seen))
+            parts.append(self._CAUSE_DIVIDER)
+        elif exc.__context__ is not None and not exc.__suppress_context__:
+            parts.append(self._format_chain(exc.__context__, exc.__context__.__traceback__, seen))
+            parts.append(self._CONTEXT_DIVIDER)
+        parts.append("Traceback (most recent call last):\n")
+        for line in _traceback.format_tb(tb):
+            parts.append(sanitize_log_value(line))
+        # The one attacker-controlled line: fully sanitized (including any
+        # embedded \r\n) before it is ever joined into the output.
+        parts.append(sanitize_log_value(f"{type(exc).__name__}: {exc}") + "\n")
+        return "".join(parts)
+
+
+def install_sanitizing_formatter(
+    logger: _stdlib_logging.Logger | None = None, fmt: str | None = None
+) -> None:
+    """Swap a SanitizingFormatter onto every handler of `logger` (root default).
+
+    basicConfig() instantiates a plain Formatter internally and accepts no
+    custom Formatter class, so this re-wraps the handlers it created. When
+    `fmt` is omitted, each handler's existing format string is reused.
+    Handlers created later still need setFormatter() themselves.
+    """
+    target = _stdlib_logging.getLogger() if logger is None else logger
+    for handler in target.handlers:
+        format_string = fmt if fmt is not None else getattr(handler.formatter, "_fmt", None)
+        handler.setFormatter(SanitizingFormatter(format_string))
