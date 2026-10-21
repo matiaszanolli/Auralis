@@ -28,9 +28,10 @@
      * and `tracks[i]` indexing runs through the player and queue code, and the
      * bounds checks there are by convention rather than compiler-enforced.
      *
-     * Measured cost of turning it on, 2026-08-13:
+     * Measured cost of turning it on, 2026-08-13 (re-baselined 2026-10-21
+     * after #5640 fixed the test-file errors, so `type-check` now reports 0):
      *   production (`type-check:prod`):  0 -> 146 errors
-     *   all sources (`type-check`):    101 -> 578 errors
+     *   all sources (`type-check`):      0 -> 470 errors
      *
      * Production going non-zero breaks `frontend-typecheck.yml` on the first
      * commit, so this cannot be folded into another change — it needs its own
@@ -49,6 +50,12 @@
     /* Testing */
     "types": ["vitest/globals"]
   },
-  "include": ["src"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "include": ["src"]
+
+  // No "references" to tsconfig.node.json: a project reference makes imports
+  // of vite.manualChunks.ts resolve to that composite project's built .d.ts,
+  // which nothing builds before `tsc --noEmit` runs — viteChunking.test.ts
+  // failed on exactly that (TS6305, #5640). The file is plain TS with no
+  // node-only APIs, so the main project type-checks its source directly.
+  // tsconfig.node.json still stands alone for editor/IDE tooling.
 }

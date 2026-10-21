@@ -48,7 +48,10 @@ function TestApp({ showDialog, onClose }: { showDialog: boolean; onClose: () => 
 // ---------------------------------------------------------------------------
 
 describe('useDialogAccessibility', () => {
-  let onClose: ReturnType<typeof vi.fn>;
+  // Not ReturnType<typeof vi.fn>: on vi.fn's overloads that resolves to
+  // Mock<Procedure | Constructable>, whose construct signature is not
+  // assignable to any `() => void` prop (#5640).
+  let onClose: () => void;
 
   beforeEach(() => {
     onClose = vi.fn();

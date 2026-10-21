@@ -97,10 +97,12 @@ describe('serviceFactory', () => {
     });
 
     it('custom() should support function endpoints', async () => {
-      const service = createCrudService({
-        custom: { byTag: (tag: string) => `/api/items?tag=${tag}` },
+      // Endpoint builders receive `P` (the params object), not a bare string
+      // (#5640).
+      const service = createCrudService<unknown, unknown, number, { tag: string }>({
+        custom: { byTag: (p) => `/api/items?tag=${p?.tag}` },
       });
-      const result = await service.custom('byTag', 'get', 'rock');
+      const result = await service.custom('byTag', 'get', { tag: 'rock' });
       expect(result).toEqual({ url: '/api/items?tag=rock', method: 'GET' });
     });
   });

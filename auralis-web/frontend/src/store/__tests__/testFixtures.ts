@@ -140,6 +140,9 @@ export const emptyStoreState: RootState = {
   queue: {
     tracks: [],
     currentIndex: 0,
+    // #5640: both required on QueueState since the shuffle/repeat UI shipped.
+    isShuffled: false,
+    repeatMode: 'off',
     lastUpdated: 0,
   },
   cache: {

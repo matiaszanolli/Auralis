@@ -7,12 +7,17 @@
  * @license AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useOptimisticUpdate } from '../useOptimisticUpdate';
 
 describe('useOptimisticUpdate', () => {
-  let asyncOp: ReturnType<typeof vi.fn>;
+  // Not ReturnType<typeof vi.fn>: on vi.fn's overloads that resolves to
+  // Mock<Procedure | Constructable>, whose construct signature no function
+  // parameter accepts (#5640). The Mock wrapper keeps the mock* methods while
+  // `Promise<any>` stays assignable to every per-test Promise<T> the hook is
+  // invoked with.
+  let asyncOp: Mock<(...args: any[]) => Promise<any>>;
 
   beforeEach(() => {
     asyncOp = vi.fn();

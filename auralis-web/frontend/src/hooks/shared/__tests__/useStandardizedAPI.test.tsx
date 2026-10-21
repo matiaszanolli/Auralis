@@ -155,7 +155,7 @@ describe('cache telemetry polling (#4486)', () => {
     server.use(
       http.get(path, () => {
         hits.count += 1;
-        return HttpResponse.json(body);
+        return HttpResponse.json(body as Record<string, unknown>);
       })
     );
     return hits;

@@ -4,8 +4,10 @@
   // The base tsconfig.json includes every file under src/, so `tsc --noEmit`
   // also reports errors in test files. This config inherits all strict
   // settings but excludes test code so CI can gate on PRODUCTION type safety
-  // (which must stay at zero errors). Test-file type errors are tracked
-  // separately and are NOT yet part of the blocking gate.
+  // (which must stay at zero errors). Since #5640 the test files are clean too
+  // and the full `type-check` is a second blocking step in
+  // frontend-typecheck.yml; this file's excludes still define that gate's
+  // production scope.
   "extends": "./tsconfig.json",
   "exclude": [
     "src/**/__tests__/**",

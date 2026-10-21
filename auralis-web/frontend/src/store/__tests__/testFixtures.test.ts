@@ -271,7 +271,7 @@ describe('Redux Test Fixtures', () => {
       expect(testScenarios.healthyCache).toBeDefined();
       // #5354: the loading scenario was deleted with the never-dispatched
       // isLoading state it exercised.
-      expect(testScenarios.loading).toBeUndefined();
+      expect((testScenarios as Record<string, unknown>).loading).toBeUndefined();
       expect(testScenarios.error).toBeDefined();
       expect(testScenarios.offline).toBeDefined();
       expect(testScenarios.reconnecting).toBeDefined();

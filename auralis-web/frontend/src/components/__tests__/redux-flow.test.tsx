@@ -95,9 +95,9 @@ describe('End-to-End User Flows', () => {
   describe('Complete Playback Flow', () => {
     it('should complete full playback workflow', async () => {
       const tracks = [
-        { id: 1, title: 'Track 1', artist: 'Artist 1', duration: 180 },
-        { id: 2, title: 'Track 2', artist: 'Artist 2', duration: 200 },
-        { id: 3, title: 'Track 3', artist: 'Artist 3', duration: 150 },
+        { id: 1, title: 'Track 1', artist: 'Artist 1', album: 'Test Album', artworkUrl: null, duration: 180 },
+        { id: 2, title: 'Track 2', artist: 'Artist 2', album: 'Test Album', artworkUrl: null, duration: 200 },
+        { id: 3, title: 'Track 3', artist: 'Artist 3', album: 'Test Album', artworkUrl: null, duration: 150 },
       ];
 
       // 1. Add tracks to queue
@@ -139,7 +139,7 @@ describe('End-to-End User Flows', () => {
     });
 
     it('should handle preset changes during playback', () => {
-      const track = { id: 1, title: 'Test', artist: 'Artist', duration: 180 };
+      const track = { id: 1, title: 'Test', artist: 'Artist', album: 'Test Album', artworkUrl: null, duration: 180 };
 
       store.dispatch(playerActions.setCurrentTrack(track));
       store.dispatch(playerActions.setIsPlaying(true));
@@ -177,9 +177,9 @@ describe('End-to-End User Flows', () => {
 
   describe('Queue Management Flow', () => {
     it('should complete full queue management workflow', () => {
-      const track1 = { id: 1, title: 'Track 1', artist: 'Artist 1', duration: 180 };
-      const track2 = { id: 2, title: 'Track 2', artist: 'Artist 2', duration: 200 };
-      const track3 = { id: 3, title: 'Track 3', artist: 'Artist 3', duration: 150 };
+      const track1 = { id: 1, title: 'Track 1', artist: 'Artist 1', album: 'Test Album', artworkUrl: null, duration: 180 };
+      const track2 = { id: 2, title: 'Track 2', artist: 'Artist 2', album: 'Test Album', artworkUrl: null, duration: 200 };
+      const track3 = { id: 3, title: 'Track 3', artist: 'Artist 3', album: 'Test Album', artworkUrl: null, duration: 150 };
 
       // 1. Add tracks
       store.dispatch(queueActions.addTrack(track1));
@@ -368,7 +368,7 @@ describe('End-to-End User Flows', () => {
     it('playback keeps working after a connection error', () => {
       store.dispatch(connectionActions.setError('Connection lost'));
 
-      const track = { id: 1, title: 'Test', artist: 'Artist', duration: 180 };
+      const track = { id: 1, title: 'Test', artist: 'Artist', album: 'Test Album', artworkUrl: null, duration: 180 };
       store.dispatch(playerActions.setCurrentTrack(track));
       store.dispatch(playerActions.setIsPlaying(true));
 
@@ -385,8 +385,8 @@ describe('End-to-End User Flows', () => {
   describe('Complex Multi-Feature Workflows', () => {
     it('should handle simultaneous playback, queue, and connection state changes', () => {
       const tracks = [
-        { id: 1, title: 'Track 1', artist: 'Artist 1', duration: 180 },
-        { id: 2, title: 'Track 2', artist: 'Artist 2', duration: 200 },
+        { id: 1, title: 'Track 1', artist: 'Artist 1', album: 'Test Album', artworkUrl: null, duration: 180 },
+        { id: 2, title: 'Track 2', artist: 'Artist 2', album: 'Test Album', artworkUrl: null, duration: 200 },
       ];
 
       // 1. Connect
@@ -427,7 +427,7 @@ describe('End-to-End User Flows', () => {
     });
 
     it('should recover from disconnection while playing', () => {
-      const track = { id: 1, title: 'Test', artist: 'Artist', duration: 180 };
+      const track = { id: 1, title: 'Test', artist: 'Artist', album: 'Test Album', artworkUrl: null, duration: 180 };
 
       // 1. Connected and playing
       store.dispatch(connectionActions.setWSConnected(true));
@@ -457,9 +457,9 @@ describe('End-to-End User Flows', () => {
 
     it('should handle queue changes while playing', () => {
       const tracks = [
-        { id: 1, title: 'Track 1', artist: 'Artist 1', duration: 180 },
-        { id: 2, title: 'Track 2', artist: 'Artist 2', duration: 200 },
-        { id: 3, title: 'Track 3', artist: 'Artist 3', duration: 150 },
+        { id: 1, title: 'Track 1', artist: 'Artist 1', album: 'Test Album', artworkUrl: null, duration: 180 },
+        { id: 2, title: 'Track 2', artist: 'Artist 2', album: 'Test Album', artworkUrl: null, duration: 200 },
+        { id: 3, title: 'Track 3', artist: 'Artist 3', album: 'Test Album', artworkUrl: null, duration: 150 },
       ];
 
       // Start playing

@@ -30,8 +30,6 @@ function makeTracks(count: number): LibraryTrack[] {
   return Array.from({ length: count }, (_, i) => makeTrack(i + 1));
 }
 
-const noop = async () => {};
-
 const baseProps = {
   onTrackPlay: vi.fn(),
 };

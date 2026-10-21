@@ -78,7 +78,7 @@ describe('Redux State Hooks', () => {
 
     it('should add track to queue', () => {
       const { result } = renderHook(() => useQueue(), { wrapper });
-      const track = { id: 1, title: 'Track', artist: 'Artist', duration: 180 };
+      const track = { id: 1, title: 'Track', artist: 'Artist', album: 'Test Album', artworkUrl: null, duration: 180 };
 
       act(() => {
         result.current.add(track);
@@ -91,8 +91,8 @@ describe('Redux State Hooks', () => {
     it('should add multiple tracks', () => {
       const { result } = renderHook(() => useQueue(), { wrapper });
       const tracks = [
-        { id: 1, title: 'Track 1', artist: 'Artist', duration: 180 },
-        { id: 2, title: 'Track 2', artist: 'Artist', duration: 200 },
+        { id: 1, title: 'Track 1', artist: 'Artist', album: 'Test Album', artworkUrl: null, duration: 180 },
+        { id: 2, title: 'Track 2', artist: 'Artist', album: 'Test Album', artworkUrl: null, duration: 200 },
       ];
 
       act(() => {
@@ -105,8 +105,8 @@ describe('Redux State Hooks', () => {
     it('should remove track from queue', () => {
       const { result } = renderHook(() => useQueue(), { wrapper });
       const tracks = [
-        { id: 1, title: 'Track 1', artist: 'Artist', duration: 180 },
-        { id: 2, title: 'Track 2', artist: 'Artist', duration: 200 },
+        { id: 1, title: 'Track 1', artist: 'Artist', album: 'Test Album', artworkUrl: null, duration: 180 },
+        { id: 2, title: 'Track 2', artist: 'Artist', album: 'Test Album', artworkUrl: null, duration: 200 },
       ];
 
       act(() => {
@@ -125,9 +125,9 @@ describe('Redux State Hooks', () => {
     it('should calculate remaining time', () => {
       const { result } = renderHook(() => useQueue(), { wrapper });
       const tracks = [
-        { id: 1, title: 'Track 1', artist: 'Artist', duration: 180 },
-        { id: 2, title: 'Track 2', artist: 'Artist', duration: 200 },
-        { id: 3, title: 'Track 3', artist: 'Artist', duration: 150 },
+        { id: 1, title: 'Track 1', artist: 'Artist', album: 'Test Album', artworkUrl: null, duration: 180 },
+        { id: 2, title: 'Track 2', artist: 'Artist', album: 'Test Album', artworkUrl: null, duration: 200 },
+        { id: 3, title: 'Track 3', artist: 'Artist', album: 'Test Album', artworkUrl: null, duration: 150 },
       ];
 
       act(() => {
@@ -141,7 +141,7 @@ describe('Redux State Hooks', () => {
 
     it('should clear queue', () => {
       const { result } = renderHook(() => useQueue(), { wrapper });
-      const track = { id: 1, title: 'Track', artist: 'Artist', duration: 180 };
+      const track = { id: 1, title: 'Track', artist: 'Artist', album: 'Test Album', artworkUrl: null, duration: 180 };
 
       act(() => {
         result.current.add(track);

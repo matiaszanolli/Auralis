@@ -14,6 +14,7 @@ import { vi } from 'vitest';
 import { render, screen, fireEvent } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
 import TrackRow from '../Items/tracks/TrackRow';
+import type { LibraryTrack } from '@/types/domain';
 import { useTrackSelection } from '@/hooks/library/useTrackSelection';
 
 // Mock hooks and components
@@ -58,24 +59,34 @@ vi.mock('../../album/AlbumArt', () => {
   };
 });
 
-const mockTrack = {
+// LibraryTrack-shaped: the row reads album/albumId/filepath/artworkUrl/genre/
+// year/favorite, so the fixture carries all of them (#5640).
+const mockTrack: LibraryTrack = {
   id: 1,
   title: 'Test Track',
   artist: 'Test Artist',
   album: 'Test Album',
+  albumId: 10,
   duration: 180,
-  artwork: 'http://example.com/art.jpg',
+  artworkUrl: 'http://example.com/art.jpg',
   filepath: '/path/to/track.mp3',
+  genre: 'Rock',
+  year: 2020,
+  favorite: false,
 };
 
-const mockTrack2 = {
+const mockTrack2: LibraryTrack = {
   id: 2,
   title: 'Another Track',
   artist: 'Another Artist',
   album: 'Another Album',
+  albumId: 10,
   duration: 240,
-  artwork: 'http://example.com/art2.jpg',
+  artworkUrl: 'http://example.com/art2.jpg',
   filepath: '/path/to/track2.mp3',
+  genre: 'Rock',
+  year: 2020,
+  favorite: false,
 };
 
 const mockSelectionContext = {
@@ -282,7 +293,8 @@ describe('TrackRow', () => {
       const user = userEvent.setup();
       const onPlay = vi.fn();
 
-      const unavailableTrack = { ...mockTrack, filepath: null };
+      // #4586 made filepath optional-undefined (never null on the wire).
+      const unavailableTrack: LibraryTrack = { ...mockTrack, filepath: undefined };
 
       render(
         <TrackRow track={unavailableTrack} onPlay={onPlay} index={0} />
@@ -521,7 +533,7 @@ describe('TrackRow', () => {
     it('should handle missing artwork', () => {
       const noArtworkTrack = {
         ...mockTrack,
-        artwork: null,
+        artworkUrl: null,
       };
 
       render(

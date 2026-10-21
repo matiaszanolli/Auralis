@@ -11,7 +11,7 @@ import queueReducer, { addTrack, setIsShuffled } from '../queueSlice';
 import playerReducer, { setIsPlaying, setVolume } from '../playerSlice';
 import cacheReducer, { setCacheStats } from '../cacheSlice';
 import connectionReducer, { setWSConnected } from '../connectionSlice';
-import type { Track } from '../playerSlice';
+import type { Track } from '@/types/domain';
 import type { CacheStats } from '@/services/api/standardizedAPIClient';
 
 describe('Deterministic Timestamps (fixes #2232)', () => {
@@ -30,6 +30,7 @@ describe('Deterministic Timestamps (fixes #2232)', () => {
         id: 1,
         title: 'Test Track',
         artist: 'Test Artist',
+        album: 'Test Album',
         duration: 180,
       };
 
@@ -60,6 +61,7 @@ describe('Deterministic Timestamps (fixes #2232)', () => {
         id: 1,
         title: 'Test Track',
         artist: 'Test Artist',
+        album: 'Test Album',
         duration: 180,
       };
 
@@ -214,6 +216,7 @@ describe('Deterministic Timestamps (fixes #2232)', () => {
         id: 1,
         title: 'Test',
         artist: 'Artist',
+        album: 'Test Album',
         duration: 100,
       };
 

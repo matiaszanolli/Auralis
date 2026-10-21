@@ -48,7 +48,7 @@ describe('transformPlayerState (regression: #2650)', () => {
 
   it('provides sensible defaults for missing optional fields', () => {
     const minimal: RawPlayerStateData = {
-      state: 'idle',
+      state: 'stopped',
       is_playing: false,
       is_paused: false,
       current_track: null,

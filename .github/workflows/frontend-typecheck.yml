@@ -6,9 +6,10 @@ name: Frontend Type Check
 # test files) on every push and pull request and FAILS the job on any error,
 # so production type errors can no longer regress silently.
 #
-# Test-file type errors are intentionally out of scope of this blocking gate
-# for now (tracked separately); extend `tsconfig.build.json`'s excludes / add a
-# `type-check` (full) step once those are cleared.
+# #5640: the full `type-check` (all sources, tests included) is now a second
+# blocking step. It used to be "tracked separately" because 22 test files
+# carried ~130 stale-shape errors; those are fixed and the count is gated at
+# zero, so test fixtures can no longer drift from production types unnoticed.
 
 on:
   push:
@@ -49,3 +50,6 @@ jobs:
 
       - name: TypeScript type-check (production)
         run: pnpm run type-check:prod
+
+      - name: TypeScript type-check (all sources, tests included)
+        run: pnpm run type-check

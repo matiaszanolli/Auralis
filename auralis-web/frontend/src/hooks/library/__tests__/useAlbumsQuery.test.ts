@@ -6,20 +6,25 @@
  * @module hooks/library/__tests__/useAlbumsQuery.test
  */
 
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useAlbumsQuery } from '../useAlbumsQuery';
 import { useLibraryQuery } from '../useLibraryQuery';
+import type { UseLibraryQueryResult } from '../libraryQueryTypes';
+import type { Track, Album, Artist } from '@/types/domain';
 
 // Mock the underlying useLibraryQuery hook
 vi.mock('../useLibraryQuery', () => ({
   useLibraryQuery: vi.fn(),
 }));
 
-const mockResult = {
+// Typed as the hook's real result so the mocked useLibraryQuery accepts
+// every per-test override (#5640).
+const mockResult: UseLibraryQueryResult<Track | Album | Artist> = {
   data: [],
   total: 0,
   isLoading: false,
+  isLoadingMore: false,
   error: null,
   offset: 0,
   hasMore: false,

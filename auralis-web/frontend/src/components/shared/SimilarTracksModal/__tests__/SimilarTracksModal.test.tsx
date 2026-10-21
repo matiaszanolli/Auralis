@@ -1,20 +1,25 @@
 import { render, screen, fireEvent } from '@/test/test-utils';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { SimilarTracksModal } from '../SimilarTracksModal';
+import type { UseSimilarTracksReturn } from '@/hooks/fingerprint/useSimilarTracks';
 
-// Mock the fingerprint hooks module
+// Mock the fingerprint hooks module. Typed as the hook's real return type so
+// mockReturnValue can swap similarTracks between null and populated lists —
+// an untyped vi.fn locks its return to the first literal, `similarTracks:
+// null`, and rejects every other shape (#5640).
 const mockFindSimilar = vi.fn().mockResolvedValue([]);
 const mockClear = vi.fn();
-const mockUseSimilarTracks = vi.fn(() => ({
+const mockUseSimilarTracks = vi.fn<() => UseSimilarTracksReturn>(() => ({
   similarTracks: null,
   loading: false,
   error: null,
+  errorStatus: null,
   findSimilar: mockFindSimilar,
   clear: mockClear,
 }));
 
 vi.mock('@/hooks/fingerprint', () => ({
-  useSimilarTracks: (...args: unknown[]) => mockUseSimilarTracks(...args),
+  useSimilarTracks: () => mockUseSimilarTracks(),
 }));
 
 const defaultProps = {
@@ -42,6 +47,7 @@ describe('SimilarTracksModal', () => {
       similarTracks: null,
       loading: false,
       error: null,
+      errorStatus: null,
       findSimilar: mockFindSimilar,
       clear: mockClear,
     });
@@ -76,6 +82,7 @@ describe('SimilarTracksModal', () => {
       similarTracks: null,
       loading: true,
       error: null,
+      errorStatus: null,
       findSimilar: mockFindSimilar,
       clear: mockClear,
     });
@@ -91,6 +98,7 @@ describe('SimilarTracksModal', () => {
       similarTracks: null,
       loading: false,
       error: 'Connection failed',
+      errorStatus: null,
       findSimilar: mockFindSimilar,
       clear: mockClear,
     });
@@ -154,6 +162,7 @@ describe('SimilarTracksModal', () => {
       similarTracks: [],
       loading: false,
       error: null,
+      errorStatus: null,
       findSimilar: mockFindSimilar,
       clear: mockClear,
     });
@@ -168,6 +177,7 @@ describe('SimilarTracksModal', () => {
       similarTracks: sampleTracks,
       loading: false,
       error: null,
+      errorStatus: null,
       findSimilar: mockFindSimilar,
       clear: mockClear,
     });
@@ -188,6 +198,7 @@ describe('SimilarTracksModal', () => {
       similarTracks: sampleTracks,
       loading: false,
       error: null,
+      errorStatus: null,
       findSimilar: mockFindSimilar,
       clear: mockClear,
     });

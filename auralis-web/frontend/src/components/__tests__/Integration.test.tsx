@@ -187,6 +187,8 @@ describe('Component Integration Tests', () => {
       id: 1,
       title: 'Test Track',
       artist: 'Test Artist',
+      album: 'Test Album',
+      artworkUrl: null,
       duration: 180,
     };
 
@@ -271,6 +273,8 @@ describe('Component Integration Tests', () => {
       id: 1,
       title: 'Track',
       artist: 'Artist',
+      album: 'Test Album',
+      artworkUrl: null,
       duration: 180,
     }));
 
@@ -286,8 +290,8 @@ describe('Component Integration Tests', () => {
   // ============================================================================
 
   it('should handle queue operations in sequence', () => {
-    const track1 = { id: 1, title: 'Track 1', artist: 'Artist 1', duration: 180 };
-    const track2 = { id: 2, title: 'Track 2', artist: 'Artist 2', duration: 200 };
+    const track1 = { id: 1, title: 'Track 1', artist: 'Artist 1', album: 'Test Album', artworkUrl: null, duration: 180 };
+    const track2 = { id: 2, title: 'Track 2', artist: 'Artist 2', album: 'Test Album', artworkUrl: null, duration: 200 };
 
     // Add tracks
     store.dispatch(queueActions.addTrack(track1));
@@ -306,9 +310,9 @@ describe('Component Integration Tests', () => {
 
   it('should handle queue reordering', () => {
     const tracks = [
-      { id: 1, title: 'Track 1', artist: 'Artist 1', duration: 180 },
-      { id: 2, title: 'Track 2', artist: 'Artist 2', duration: 200 },
-      { id: 3, title: 'Track 3', artist: 'Artist 3', duration: 150 },
+      { id: 1, title: 'Track 1', artist: 'Artist 1', album: 'Test Album', artworkUrl: null, duration: 180 },
+      { id: 2, title: 'Track 2', artist: 'Artist 2', album: 'Test Album', artworkUrl: null, duration: 200 },
+      { id: 3, title: 'Track 3', artist: 'Artist 3', album: 'Test Album', artworkUrl: null, duration: 150 },
     ];
 
     tracks.forEach((t) => store.dispatch(queueActions.addTrack(t)));
@@ -325,9 +329,9 @@ describe('Component Integration Tests', () => {
 
   it('should adjust current index when removing track before current position', () => {
     const tracks = [
-      { id: 1, title: 'Track 1', artist: 'Artist 1', duration: 180 },
-      { id: 2, title: 'Track 2', artist: 'Artist 2', duration: 200 },
-      { id: 3, title: 'Track 3', artist: 'Artist 3', duration: 150 },
+      { id: 1, title: 'Track 1', artist: 'Artist 1', album: 'Test Album', artworkUrl: null, duration: 180 },
+      { id: 2, title: 'Track 2', artist: 'Artist 2', album: 'Test Album', artworkUrl: null, duration: 200 },
+      { id: 3, title: 'Track 3', artist: 'Artist 3', album: 'Test Album', artworkUrl: null, duration: 150 },
     ];
 
     tracks.forEach((t) => store.dispatch(queueActions.addTrack(t)));
@@ -346,8 +350,8 @@ describe('Component Integration Tests', () => {
 
   it('should handle clearing entire queue', () => {
     const tracks = [
-      { id: 1, title: 'Track 1', artist: 'Artist 1', duration: 180 },
-      { id: 2, title: 'Track 2', artist: 'Artist 2', duration: 200 },
+      { id: 1, title: 'Track 1', artist: 'Artist 1', album: 'Test Album', artworkUrl: null, duration: 180 },
+      { id: 2, title: 'Track 2', artist: 'Artist 2', album: 'Test Album', artworkUrl: null, duration: 200 },
     ];
 
     tracks.forEach((t) => store.dispatch(queueActions.addTrack(t)));
@@ -364,7 +368,7 @@ describe('Component Integration Tests', () => {
   // ============================================================================
 
   it('should handle playback state transitions', () => {
-    const track = { id: 1, title: 'Test', artist: 'Artist', duration: 180 };
+    const track = { id: 1, title: 'Test', artist: 'Artist', album: 'Test Album', artworkUrl: null, duration: 180 };
 
     // Load track
     store.dispatch(playerActions.setCurrentTrack(track));
@@ -389,7 +393,7 @@ describe('Component Integration Tests', () => {
   });
 
   it('should enforce current time bounds', () => {
-    const track = { id: 1, title: 'Test', artist: 'Artist', duration: 180 };
+    const track = { id: 1, title: 'Test', artist: 'Artist', album: 'Test Album', artworkUrl: null, duration: 180 };
     store.dispatch(playerActions.setCurrentTrack(track));
 
     // Try to set time beyond duration
@@ -401,7 +405,7 @@ describe('Component Integration Tests', () => {
   });
 
   it('should reset player state', () => {
-    const track = { id: 1, title: 'Test', artist: 'Artist', duration: 180 };
+    const track = { id: 1, title: 'Test', artist: 'Artist', album: 'Test Album', artworkUrl: null, duration: 180 };
     store.dispatch(playerActions.setCurrentTrack(track));
     store.dispatch(playerActions.setVolume(50));
     store.dispatch(playerActions.setIsPlaying(true));
@@ -522,8 +526,8 @@ describe('Component Integration Tests', () => {
   // ============================================================================
 
   it('should handle concurrent updates to multiple slices', () => {
-    const track = { id: 1, title: 'Test', artist: 'Artist', duration: 180 };
-    const queueTrack = { id: 2, title: 'Queue Track', artist: 'Artist 2', duration: 200 };
+    const track = { id: 1, title: 'Test', artist: 'Artist', album: 'Test Album', artworkUrl: null, duration: 180 };
+    const queueTrack = { id: 2, title: 'Queue Track', artist: 'Artist 2', album: 'Test Album', artworkUrl: null, duration: 200 };
 
     // Update multiple slices simultaneously
     store.dispatch(playerActions.setCurrentTrack(track));
@@ -545,6 +549,8 @@ describe('Component Integration Tests', () => {
       id: 1,
       title: 'Track',
       artist: 'Artist',
+      album: 'Test Album',
+      artworkUrl: null,
       duration: 180,
     }));
     // `setIsLoading` is a UI flag and deliberately does not stamp `lastUpdated`
@@ -594,7 +600,7 @@ describe('Component Integration Tests', () => {
   // ============================================================================
 
   it('should provide correct selectors for player state', () => {
-    const track = { id: 1, title: 'Test', artist: 'Artist', duration: 180 };
+    const track = { id: 1, title: 'Test', artist: 'Artist', album: 'Test Album', artworkUrl: null, duration: 180 };
     store.dispatch(playerActions.setCurrentTrack(track));
     store.dispatch(playerActions.setVolume(60));
 
@@ -607,8 +613,8 @@ describe('Component Integration Tests', () => {
   });
 
   it('should provide correct selectors for queue state', () => {
-    const track1 = { id: 1, title: 'Track 1', artist: 'Artist 1', duration: 180 };
-    const track2 = { id: 2, title: 'Track 2', artist: 'Artist 2', duration: 200 };
+    const track1 = { id: 1, title: 'Track 1', artist: 'Artist 1', album: 'Test Album', artworkUrl: null, duration: 180 };
+    const track2 = { id: 2, title: 'Track 2', artist: 'Artist 2', album: 'Test Album', artworkUrl: null, duration: 200 };
 
     store.dispatch(queueActions.addTrack(track1));
     store.dispatch(queueActions.addTrack(track2));

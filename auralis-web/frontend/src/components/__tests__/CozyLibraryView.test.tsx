@@ -201,17 +201,12 @@ describe('CozyLibraryView', () => {
   });
 
   describe('Enhancement Integration', () => {
-    it('should render with enhancement controls', () => {
-      const onEnhancementToggle = vi.fn();
+    it('renders the album character pane (enhancement state lives there now)', () => {
+      // The view-level isEnhancementEnabled/onEnhancementToggle props were
+      // removed when the pane took ownership of the toggle state; the view
+      // only hosts the pane (#5640).
+      render(<CozyLibraryView />);
 
-      render(
-        <CozyLibraryView
-          isEnhancementEnabled={true}
-          onEnhancementToggle={onEnhancementToggle}
-        />
-      );
-
-      // AlbumCharacterPane should be rendered with enhancement props
       expect(screen.getByTestId('album-character-pane')).toBeInTheDocument();
     });
   });

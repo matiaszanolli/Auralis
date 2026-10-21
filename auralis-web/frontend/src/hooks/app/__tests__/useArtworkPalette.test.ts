@@ -125,7 +125,12 @@ describe('useArtworkPalette', () => {
   it('re-extracts and caches a distinct palette after artwork_updated (#4530)', async () => {
     const revisedPalette: ArtworkPalette = {
       ...fakePalette,
-      vibrant: { ...fakePalette.vibrant, hex: '#ff5500' },
+      // vibrant is optional on ArtworkPalette; the spread of a possibly-null
+      // member reads back as partials, so type the replacement explicitly.
+      vibrant: {
+        ...(fakePalette.vibrant as NonNullable<ArtworkPalette['vibrant']>),
+        hex: '#ff5500',
+      },
     };
     mockExtract
       .mockResolvedValueOnce(fakePalette)

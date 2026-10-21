@@ -127,7 +127,10 @@ const buildShortcuts = (handlers: Handlers): KeyboardShortcut[] => {
 };
 
 describe('useKeyboardShortcuts', () => {
-  let handlers: Required<{ [K in keyof Handlers]: ReturnType<typeof vi.fn> }>;
+  // Typed by Handlers' own signatures: `ReturnType<typeof vi.fn>` is
+  // Mock<Procedure | Constructable>, whose constructable half is not
+  // assignable to any `() => void` handler (#5640).
+  let handlers: { [K in keyof Handlers]-?: Handlers[K] };
 
   beforeEach(() => {
     vi.clearAllMocks();

@@ -97,7 +97,7 @@ describe('WebSocketContext - unregistered message types (#4617)', () => {
   }
 
   const warnings = () =>
-    warnSpy.mock.calls.map((c) => String(c[0])).filter((m) => m.includes('[WebSocket]'));
+    warnSpy.mock.calls.map((c: unknown[]) => String(c[0])).filter((m: string) => m.includes('[WebSocket]'));
 
   it('warns once for a type that is on no registry', async () => {
     await setup();

@@ -80,7 +80,8 @@ export interface SimilarityOptions {
 /**
  * Hook return type
  */
-interface UseSimilarTracksReturn {
+/** Exported for tests that mock the hook's exact shape (#5640). */
+export interface UseSimilarTracksReturn {
   /** List of similar tracks (null if not loaded) */
   similarTracks: SimilarTrack[] | null;
   /** Is similarity search in progress? */

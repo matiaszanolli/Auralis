@@ -41,7 +41,10 @@ export interface ResponseValidationOptions<T = unknown> {
   validate?: (value: unknown) => value is T;
 }
 
-type QueryParams = Record<string, string | number | boolean>;
+// null/undefined entries are allowed and skipped by buildUrl's guard — the
+// hook's own contract, exercised by useRestAPI.test's param filtering test
+// (#5640). Entries with a value must be primitive.
+type QueryParams = Record<string, string | number | boolean | null | undefined>;
 
 /**
  * The only things that differ between the HTTP verbs (#5198). Everything else

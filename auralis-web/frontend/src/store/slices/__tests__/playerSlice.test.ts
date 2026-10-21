@@ -21,7 +21,8 @@ import reducer, {
   resetStreaming,
 } from '../playerSlice';
 import { setCurrentTrackAndSyncQueue } from '../playerQueueSync';
-import type { PlayerState, Track } from '../playerSlice';
+import type { PlayerState } from '../playerSlice';
+import type { Track } from '@/types/domain';
 
 const initialState: PlayerState = {
   isPlaying: false,
@@ -31,8 +32,7 @@ const initialState: PlayerState = {
   volume: 80,
   isMuted: false,
   preset: 'adaptive',
-  isLoading: false,
-  error: null,
+  // isLoading/error were removed from PlayerState by #5354 (never read).
   lastUpdated: 0,
   streaming: {
     normal: {
@@ -43,6 +43,7 @@ const initialState: PlayerState = {
       totalChunks: 0,
       processedChunks: 0,
       error: null,
+      stalled: false,
     },
     enhanced: {
       state: 'idle',
@@ -52,6 +53,7 @@ const initialState: PlayerState = {
       totalChunks: 0,
       processedChunks: 0,
       error: null,
+      stalled: false,
     },
   },
 };

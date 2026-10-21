@@ -50,7 +50,7 @@ describe('useKeyboardShortcuts registration gating (#4692)', () => {
   describe('the array form (the hook\'s only input form since #5231)', () => {
     it('does not re-register when a memoized array is passed', () => {
       const shortcuts: KeyboardShortcut[] = [
-        { key: 'x', description: 'X', handler: vi.fn() },
+        { key: 'x', description: 'X', category: 'Global', handler: vi.fn() },
       ];
 
       const { rerender } = renderHook(() => useKeyboardShortcuts(shortcuts));
@@ -66,7 +66,7 @@ describe('useKeyboardShortcuts registration gating (#4692)', () => {
       // Previously this form was safe only because callers memoized. A fresh
       // array with the same structure must not re-register either.
       const { rerender } = renderHook(() =>
-        useKeyboardShortcuts([{ key: 'x', description: 'X', handler: vi.fn() }])
+        useKeyboardShortcuts([{ key: 'x', description: 'X', category: 'Global', handler: vi.fn() }])
       );
       const afterFirstRender = registerSpy.mock.calls.length;
 
@@ -85,6 +85,7 @@ describe('useKeyboardShortcuts registration gating (#4692)', () => {
             {
               key: 'x',
               description: 'X',
+              category: 'Global',
               handler: () => {
                 seen = value;
               },
@@ -105,8 +106,8 @@ describe('useKeyboardShortcuts registration gating (#4692)', () => {
       const second = vi.fn();
       renderHook(() =>
         useKeyboardShortcuts([
-          { key: 'x', description: 'X', handler: first },
-          { key: 'y', description: 'Y', handler: second },
+          { key: 'x', description: 'X', category: 'Global', handler: first },
+          { key: 'y', description: 'Y', category: 'Global', handler: second },
         ])
       );
 
@@ -122,10 +123,10 @@ describe('useKeyboardShortcuts registration gating (#4692)', () => {
           useKeyboardShortcuts(
             withSearch
               ? [
-                  { key: 'x', description: 'X', handler: vi.fn() },
-                  { key: '/', description: 'Focus search', handler: vi.fn() },
+                  { key: 'x', description: 'X', category: 'Global', handler: vi.fn() },
+                  { key: '/', description: 'Focus search', category: 'Global', handler: vi.fn() },
                 ]
-              : [{ key: 'x', description: 'X', handler: vi.fn() }]
+              : [{ key: 'x', description: 'X', category: 'Global', handler: vi.fn() }]
           ),
         { initialProps: { withSearch: false } }
       );

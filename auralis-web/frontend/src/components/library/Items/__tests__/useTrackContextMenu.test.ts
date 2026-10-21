@@ -487,7 +487,9 @@ describe('useTrackContextMenu', () => {
       const wrapper = ({ children }: { children: ReactNode }) =>
         createElement(Provider, { store, children });
       renderHook(() => useTrackContextMenu({ track: mockTrack, onPlay: mockOnPlay }), { wrapper });
-      const handlers = vi.mocked(getTrackContextActions).mock.calls.at(-1)![2];
+      // `.at(-1)` needs lib es2022; the tsconfig targets es2020 (#5640).
+      const calls = vi.mocked(getTrackContextActions).mock.calls;
+      const handlers = calls[calls.length - 1]![2];
       return { store, onAddToQueue: handlers.onAddToQueue as () => Promise<void> };
     };
 
