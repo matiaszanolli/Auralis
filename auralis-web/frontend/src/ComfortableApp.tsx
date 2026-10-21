@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
+import { useState, useCallback, useRef, lazy, Suspense } from 'react';
 import { Box } from '@mui/material';
 import { useSelector } from 'react-redux';
 import { usePlaybackControls } from '@/contexts/PlaybackSessionContext';
@@ -19,7 +19,7 @@ import {
   AppMainContent,
 } from './components/core';
 import { ErrorBoundary } from './components/core/ErrorBoundary';
-import { tokens } from '@/design-system';
+import { RegionErrorFallback } from './components/core/RegionErrorFallback';
 import { themeVars } from '@/theme/semanticTheme';
 import DesktopPlatformNotice from '@/components/platform/DesktopPlatformNotice';
 import { AppViewAnnouncement } from '@/components/core/AppViewAnnouncement';
@@ -27,10 +27,11 @@ import { AppViewAnnouncement } from '@/components/core/AppViewAnnouncement';
 // Custom hooks for business logic
 import { useAppLayout } from '@/hooks/app/useAppLayout';
 import { useAppDragDrop } from '@/hooks/app/useAppDragDrop';
+import { useAppShortcuts } from '@/hooks/app/useAppShortcuts';
 
 import { useWebSocketContext } from './contexts/WebSocketContext';
 import { useToast } from './components/shared/Toast';
-import { useKeyboardShortcuts, KeyboardShortcut } from '@/hooks/app/useKeyboardShortcuts';
+import { useKeyboardShortcuts } from '@/hooks/app/useKeyboardShortcuts';
 import { selectVolume } from './store/slices/playerSlice';
 import type { ViewMode } from '@/components/navigation/ViewToggle';
 
@@ -82,166 +83,27 @@ function ComfortableApp() {
   // Drag-drop handler (useAppDragDrop handles all queue/playlist operations)
   const { handleDragEnd } = useAppDragDrop({ info, success });
 
-  // Keyboard shortcuts - FIXED FOR BETA.11.1
-  // Using new service-based architecture to avoid minification issues
-  const keyboardShortcutsArray: KeyboardShortcut[] = useMemo(() => [
-    // Playback controls
-    {
-      key: ' ',
-      description: 'Play/Pause',
-      category: 'Playback',
-      handler: () => {
-        // #5008: runTransportCommand's shared commandPendingRef silently
-        // drops this command if a different transport command (Next/
-        // Previous/Play-Pause) is still in flight — checking isCommandPending
-        // here stops the confirmation toast from firing on a dropped command
-        // the mouse-path buttons already refuse via the same flag.
-        if (session.isCommandPending) return;
-        togglePlayPause();
-        info(isPlaying ? 'Paused' : 'Playing');
-      }
-    },
-    {
-      key: 'ArrowRight',
-      description: 'Next track',
-      category: 'Playback',
-      handler: () => {
-        if (session.isCommandPending) return;
-        nextTrack();
-        info('Next track');
-      }
-    },
-    {
-      key: 'ArrowLeft',
-      description: 'Previous track',
-      category: 'Playback',
-      handler: () => {
-        if (session.isCommandPending) return;
-        previousTrack();
-        info('Previous track');
-      }
-    },
-    {
-      key: 'ArrowUp',
-      description: 'Volume up',
-      category: 'Playback',
-      handler: () => {
-        const newVolume = Math.min(volume + 10, 100);
-        setVolume(newVolume);
-        info(`Volume: ${newVolume}%`);
-      }
-    },
-    {
-      key: 'ArrowDown',
-      description: 'Volume down',
-      category: 'Playback',
-      handler: () => {
-        const newVolume = Math.max(volume - 10, 0);
-        setVolume(newVolume);
-        info(`Volume: ${newVolume}%`);
-      }
-    },
-    {
-      key: 'm',
-      description: 'Mute/Unmute',
-      category: 'Playback',
-      handler: () => {
-        // Shares Player.tsx's mute/unmute semantics (restore pre-mute volume
-        // rather than a hardcoded 80%) so both surfaces agree (#4541).
-        session.handleMuteToggle().then((nowMuted) => {
-          info(nowMuted ? 'Muted' : 'Unmuted');
-        });
-      }
-    },
-    // Navigation shortcuts
-    {
-      key: '1',
-      description: 'Show Songs',
-      category: 'Navigation',
-      handler: () => {
-        setCurrentView('songs');
-        info('Songs view');
-      }
-    },
-    {
-      key: '2',
-      description: 'Show Albums',
-      category: 'Navigation',
-      handler: () => {
-        setCurrentView('albums');
-        info('Albums view');
-      }
-    },
-    {
-      key: '3',
-      description: 'Show Artists',
-      category: 'Navigation',
-      handler: () => {
-        setCurrentView('artists');
-        info('Artists view');
-      }
-    },
-    {
-      key: '4',
-      description: 'Show Playlists',
-      category: 'Navigation',
-      handler: () => {
-        setCurrentView('playlists');
-        info('Playlists view');
-      }
-    },
-    {
-      key: '/',
-      description: 'Focus search',
-      category: 'Navigation',
-      handler: () => {
-        // data-search-input is set on the top-bar search field (#5662);
-        // the previous placeholder-substring lookup broke whenever the
-        // placeholder copy changed.
-        const searchInput = document.querySelector<HTMLInputElement>('input[data-search-input]');
-        if (searchInput) {
-          searchInput.focus();
-          searchInput.select();
-        }
-      }
-    },
-    {
-      key: 'Escape',
-      description: 'Clear search / Close dialogs',
-      category: 'Navigation',
-      handler: () => {
-        if (searchQuery) {
-          setSearchQuery('');
-          info('Search cleared');
-        } else if (settingsOpen) {
-          setSettingsOpen(false);
-        }
-      }
-    },
-    // Global shortcuts
-    {
-      key: '?',
-      description: 'Show keyboard shortcuts',
-      category: 'Global',
-      handler: () => {
-        openHelpRef.current?.();
-      }
-    },
-    {
-      key: ',',
-      ctrl: true,
-      description: 'Open settings',
-      category: 'Global',
-      handler: () => {
-        setSettingsOpen(true);
-      }
-    }
-  ], [togglePlayPause, isPlaying, nextTrack, previousTrack, volume, setVolume, session,
-      searchQuery, setSearchQuery, settingsOpen, setSettingsOpen, setCurrentView, info]);
-
-  // Ref to break circular dependency: array references openHelp, but
-  // openHelp comes from the hook that receives the array (fixes #3077).
+  // Ref to break circular dependency: the shortcut array references openHelp,
+  // but openHelp comes from the hook that receives the array (fixes #3077).
   const openHelpRef = useRef<(() => void) | null>(null);
+
+  // Keyboard shortcuts — table extracted to useAppShortcuts (#5631).
+  const keyboardShortcutsArray = useAppShortcuts({
+    session,
+    togglePlayPause,
+    isPlaying,
+    nextTrack,
+    previousTrack,
+    volume,
+    setVolume,
+    info,
+    searchQuery,
+    setSearchQuery,
+    settingsOpen,
+    setSettingsOpen,
+    setCurrentView,
+    openHelpRef,
+  });
 
   // Keyboard shortcuts via unified hook
   const {
@@ -303,26 +165,19 @@ function ComfortableApp() {
 
           {/* Main content area with library view.
               Wrapped in a dedicated ErrorBoundary (#3583) so a library render
-              crash doesn't kill the entire app — player/sidebar remain usable. */}
+              crash doesn't kill the entire app — player/sidebar remain usable.
+              #5627: the fallback offers a working retry, and switching views
+              resets the boundary, so a transient crash no longer needs a
+              reload or even a click. */}
           <AppMainContent>
             <ErrorBoundary
-              fallback={
-                <Box
-                  sx={{
-                    p: tokens.spacing.lg,
-                    background: themeVars.errorSoft,
-                    border: `1px solid ${themeVars.error}`,
-                    borderRadius: tokens.borderRadius.md,
-                    color: themeVars.textPrimary,
-                    fontSize: tokens.typography.fontSize.sm,
-                    textAlign: 'center',
-                    m: tokens.spacing.lg,
-                  }}
-                >
-                  Library failed to render. The rest of the app (player, sidebar,
-                  settings) is still available. Refresh the page to retry.
-                </Box>
-              }
+              resetKeys={[currentView]}
+              fallback={(_error, retry) => (
+                <RegionErrorFallback
+                  message="Library failed to render. The rest of the app (player, sidebar, settings) is still available."
+                  retry={retry}
+                />
+              )}
             >
               <Suspense fallback={null}>
                 <CozyLibraryView
@@ -345,23 +200,12 @@ function ComfortableApp() {
           the whole app — library/player remain usable. Suspense alone does
           not catch render errors. */}
       <ErrorBoundary
-        fallback={
-          <Box
-            sx={{
-              p: tokens.spacing.lg,
-              background: themeVars.errorSoft,
-              border: `1px solid ${themeVars.error}`,
-              borderRadius: tokens.borderRadius.md,
-              color: themeVars.textPrimary,
-              fontSize: tokens.typography.fontSize.sm,
-              textAlign: 'center',
-              m: tokens.spacing.lg,
-            }}
-          >
-            Settings failed to render. The rest of the app (library, player,
-            sidebar) is still available. Refresh the page to retry.
-          </Box>
-        }
+        fallback={(_error, retry) => (
+          <RegionErrorFallback
+            message="Settings failed to render. The rest of the app (library, player, sidebar) is still available."
+            retry={retry}
+          />
+        )}
       >
         <Suspense fallback={null}>
           <SettingsDialog
@@ -379,23 +223,12 @@ function ComfortableApp() {
           Wrapped in a dedicated ErrorBoundary (#4880) for the same reason as
           SettingsDialog above. */}
       <ErrorBoundary
-        fallback={
-          <Box
-            sx={{
-              p: tokens.spacing.lg,
-              background: themeVars.errorSoft,
-              border: `1px solid ${themeVars.error}`,
-              borderRadius: tokens.borderRadius.md,
-              color: themeVars.textPrimary,
-              fontSize: tokens.typography.fontSize.sm,
-              textAlign: 'center',
-              m: tokens.spacing.lg,
-            }}
-          >
-            Keyboard shortcuts help failed to render. The rest of the app is
-            still available. Refresh the page to retry.
-          </Box>
-        }
+        fallback={(_error, retry) => (
+          <RegionErrorFallback
+            message="Keyboard shortcuts help failed to render. The rest of the app is still available."
+            retry={retry}
+          />
+        )}
       >
         <Suspense fallback={null}>
           <KeyboardShortcutsHelp
@@ -409,23 +242,18 @@ function ComfortableApp() {
 
       {/* Bottom Player Bar - Fixed at bottom of viewport, not inside flex layout.
           Wrapped in a dedicated ErrorBoundary (#3115) so a Player render crash
-          doesn't kill the entire app — library/queue/settings remain usable. */}
+          doesn't kill the entire app — library/queue/settings remain usable.
+          QueuePanel has its own boundary INSIDE Player (#5627), so a queue
+          render error no longer takes the transport controls with it. */}
       <Box sx={{ flexShrink: 0 }}>
         <ErrorBoundary
-          fallback={
-            <Box
-              sx={{
-                p: tokens.spacing.md,
-                background: themeVars.errorSoft,
-                borderTop: `1px solid ${themeVars.error}`,
-                color: themeVars.textPrimary,
-                fontSize: tokens.typography.fontSize.sm,
-                textAlign: 'center',
-              }}
-            >
-              Player encountered an error. Refresh the page to restart playback.
-            </Box>
-          }
+          fallback={(_error, retry) => (
+            <RegionErrorFallback
+              message="Player encountered an error."
+              retry={retry}
+              variant="bottomBar"
+            />
+          )}
         >
           <Player />
         </ErrorBoundary>

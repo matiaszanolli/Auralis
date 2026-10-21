@@ -8,7 +8,7 @@
  * @see docs/UI_DESIGN_GUIDELINES.md
  */
 
-export { Box, Container, ErrorBoundary, List } from './layout';
+export { Box, Container, List } from './layout';
 export type { BoxProps, ListProps } from './layout';
 
 export { Text } from './typography';

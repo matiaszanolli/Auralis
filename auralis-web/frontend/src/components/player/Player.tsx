@@ -8,6 +8,8 @@ import { useState, useCallback, useMemo } from 'react';
 import { Box } from '@mui/material';
 import { styles } from './Player.styles';
 import { themeVars } from '@/theme/semanticTheme';
+import { ErrorBoundary } from '@/components/core/ErrorBoundary';
+import { RegionErrorFallback } from '@/components/core/RegionErrorFallback';
 
 // Phase 4 UI Components
 import TimeDisplay from './TimeDisplay';
@@ -193,10 +195,25 @@ const Player = () => {
         id="queue-panel-region"
         sx={queuePanelWrapperSx}
       >
-        <QueuePanel
-          collapsed={false}
-          onToggleCollapse={handleCloseQueue}
-        />
+        {/* #5627: QueuePanel gets its own boundary — mounted inside Player, a
+            queue render error used to bubble to this file's outer boundary
+            and take the transport bar, seek bar and volume with it while the
+            stream kept playing with no controls. With the local boundary,
+            playback controls survive a queue crash and "Try again" recovers
+            the panel without a reload. */}
+        <ErrorBoundary
+          fallback={(_error, retry) => (
+            <RegionErrorFallback
+              message="The queue failed to render. Playback controls are still available."
+              retry={retry}
+            />
+          )}
+        >
+          <QueuePanel
+            collapsed={false}
+            onToggleCollapse={handleCloseQueue}
+          />
+        </ErrorBoundary>
       </Box>
 
       {/* Error State Indicator */}

@@ -10,7 +10,6 @@ export type { BoxProps } from './Box';
 
 export { Container } from './Container';
 
-export { ErrorBoundary } from './ErrorBoundary';
 
 export { List } from './List';
 export type { ListProps } from './List';

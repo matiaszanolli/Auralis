@@ -16,12 +16,27 @@ import { initialStreamingInfo } from '@/store/slices/playerStreamingReducers';
 import Player from '../Player';
 
 // Captured across renders so tests can assert on the exact wire-mode choice.
-const { mockPlayEnhanced, mockPlayNormal, enhancementSettings, session } = vi.hoisted(() => ({
+const { mockPlayEnhanced, mockPlayNormal, enhancementSettings, session, queuePanelState } =
+  vi.hoisted(() => ({
   mockPlayEnhanced: vi.fn(),
   mockPlayNormal: vi.fn(),
   enhancementSettings: { enabled: true },
   // Mutable so a test can put the mocked session mid-stream.
   session: { isStreaming: false, streamingState: 'idle' },
+  // Mutable so the QueuePanel-crash test can arm the mock below.
+  queuePanelState: { shouldThrow: false },
+}));
+
+// #5627: QueuePanel must sit behind its own boundary INSIDE Player. The mock
+// renders null when healthy (existing tests only need Player's own controls)
+// and throws on demand for the crash-isolation test.
+vi.mock('../QueuePanel', () => ({
+  default: () => {
+    if (queuePanelState.shouldThrow) {
+      throw new Error('queue render crash');
+    }
+    return null;
+  },
 }));
 
 // Heavy hooks remain stubbed — they pull in WebSocket / AudioContext
@@ -268,5 +283,27 @@ describe('Player', () => {
     // ComfortableApp's shortcut table in the same change.
     const queueButton = screen.getByRole('button', { name: /queue/i });
     expect(queueButton).not.toHaveAttribute('title', expect.stringMatching(/\(\w\)/));
+  });
+
+  it('a QueuePanel render crash leaves the transport controls usable (#5627)', () => {
+    const consoleErr = vi.spyOn(console, 'error').mockImplementation(() => {});
+    queuePanelState.shouldThrow = true;
+    try {
+      renderPlayer(<Player />);
+
+      // The queue region shows its recovery fallback...
+      expect(screen.getByTestId('region-error-fallback')).toHaveTextContent(
+        /queue failed to render/i
+      );
+      // ...while Player's own transport surface survives the crash: the
+      // outer boundary must NOT fire (its message says "Player encountered
+      // an error"), and the queue toggle button is still mounted.
+      expect(screen.queryAllByTestId('region-error-fallback')).toHaveLength(1);
+      expect(screen.getByRole('button', { name: /queue/i })).toBeInTheDocument();
+      expect(screen.getByTitle('Toggle queue')).toBeInTheDocument();
+    } finally {
+      queuePanelState.shouldThrow = false;
+      consoleErr.mockRestore();
+    }
   });
 });
