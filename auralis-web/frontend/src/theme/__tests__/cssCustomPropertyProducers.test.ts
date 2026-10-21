@@ -10,10 +10,12 @@
  * light/dark toggle entirely. Nothing failed loudly — the fallback *is* the
  * failure mode.
  *
- * There are exactly two producers of custom properties in this app:
- *   - `getSemanticCssVariables()`, written onto the document root by
- *     ThemeContext (the `--app-*` set, re-resolved per theme mode)
- *   - the `:root` block in `index.css` (static, mode-independent)
+ * The only producer of CSS custom properties in this app is
+ * `getSemanticCssVariables()`, written onto the document root by ThemeContext
+ * (the `--app-*` set, re-resolved per theme mode). `src/index.css` used to be
+ * listed as a second, "static" producer — but it has not been imported since
+ * be0f3619 (2025-11-22), so nothing it declared ever shipped; both it and its
+ * only consumer (ShuffleModeSelector) are deleted (#5642).
  *
  * A `var()` naming anything else resolves to its fallback forever, which means
  * it cannot react to the theme. This guard is repo-wide so the next CSS module
@@ -22,7 +24,6 @@
 
 import { describe, it, expect } from 'vitest';
 import { getSemanticCssVariables } from '../semanticTheme';
-import indexCss from '@/index.css?raw';
 
 // Every CSS module in the app, keyed by path. `eager` so this stays synchronous.
 const cssModules = import.meta.glob('../../**/*.module.css', {
@@ -30,15 +31,6 @@ const cssModules = import.meta.glob('../../**/*.module.css', {
   import: 'default',
   eager: true,
 }) as Record<string, string>;
-
-/** `--name:` declarations in index.css — the static producer set. */
-function indexCssProducers(): Set<string> {
-  const names = new Set<string>();
-  for (const m of indexCss.matchAll(/(--[a-zA-Z0-9-]+)\s*:/g)) {
-    names.add(m[1]);
-  }
-  return names;
-}
 
 /** Custom properties produced by the theme contract (identical keys per mode). */
 function semanticProducers(): Set<string> {
@@ -55,18 +47,22 @@ function consumedVars(css: string): string[] {
   return [...stripComments(css).matchAll(/var\(\s*(--[a-zA-Z0-9-]+)/g)].map((m) => m[1]);
 }
 
-const producers = new Set<string>([...indexCssProducers(), ...semanticProducers()]);
+const producers = semanticProducers();
 
 describe('CSS custom property producers (#4535)', () => {
   it('discovers the CSS modules it claims to guard', () => {
-    // A glob that silently matches nothing would make every assertion below
-    // vacuously true — the exact way this class of test rots.
-    expect(Object.keys(cssModules).length).toBeGreaterThan(0);
+    // #5642: ShuffleModeSelector.module.css — the tree's last CSS module — was
+    // deleted, so there are no subjects and the it.each below runs zero times.
+    // This pin is a tripwire, not decoration: adding the first .module.css
+    // fails it, forcing whoever adds the module to remove the pin and put the
+    // file back under the orphan scan (proven live by the "guards the guard"
+    // test below) instead of letting the scan go silently vacuous.
+    expect(Object.keys(cssModules)).toEqual([]);
   });
 
-  it('both producer sets are non-empty', () => {
-    expect(indexCssProducers().size).toBeGreaterThan(0);
-    expect(semanticProducers().size).toBeGreaterThan(0);
+  it('the theme contract is the only producer and is non-empty', () => {
+    expect(producers.size).toBeGreaterThan(0);
+    expect([...producers].every((name) => name.startsWith('--app-'))).toBe(true);
   });
 
   it.each(Object.keys(cssModules))('%s references only produced properties', (path) => {
@@ -74,26 +70,16 @@ describe('CSS custom property producers (#4535)', () => {
       .filter((name) => !producers.has(name))
       .sort();
 
-    expect(orphans, `${path} consumes custom properties with no producer. Use an --app-* var from getSemanticCssVariables() or a var declared in index.css.`).toEqual([]);
+    expect(orphans, `${path} consumes custom properties with no producer. Use an --app-* var from getSemanticCssVariables().`).toEqual([]);
   });
 
-  it('the theme contract still produces the properties ShuffleModeSelector needs', () => {
-    // Pins the specific names the #4535 rewrite moved onto, so removing one
-    // from the contract fails here rather than silently un-theming the file.
-    const semantic = semanticProducers();
-    for (const name of [
-      '--app-surface-secondary',
-      '--app-surface-overlay',
-      '--app-surface-raised',
-      '--app-text-primary',
-      '--app-text-secondary',
-      '--app-accent',
-      '--app-accent-hover',
-      '--app-on-accent',
-      '--app-border-subtle',
-    ]) {
-      expect(semantic).toContain(name);
-    }
+  it('a module consuming a var outside the contract would fail (guards the guard)', () => {
+    // Pins the orphan detection itself: an --space-style name with no producer
+    // must be reported, not silently resolved to a fallback (#5642's failure
+    // mode — index.css "produced" vars nothing ever shipped).
+    const orphanCss = '.x { gap: var(--space-md); }';
+    const orphans = [...new Set(consumedVars(orphanCss))].filter((name) => !producers.has(name));
+    expect(orphans).toEqual(['--space-md']);
   });
 
   it('the --app-* set is identical across modes, so no var goes unresolved on toggle', () => {
