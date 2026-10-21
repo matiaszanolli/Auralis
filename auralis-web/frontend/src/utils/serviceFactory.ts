@@ -39,10 +39,10 @@ export type CrudRequestOptions = Pick<RequestOptions, 'signal'>;
  * *arity* — the property #4607 established, which the existing
  * `playlistService` tests assert via `toHaveBeenCalledWith(url)`.
  */
-function requestOptions(
-  guard?: (value: unknown) => boolean,
+function requestOptions<T>(
+  guard?: (value: unknown) => value is T,
   options?: CrudRequestOptions,
-): RequestOptions | undefined {
+): RequestOptions<T> | undefined {
   if (!guard && !options?.signal) return undefined;
   return {
     ...(options?.signal ? { signal: options.signal } : {}),
@@ -56,11 +56,20 @@ function requestOptions(
  * #3595: generic ID parameter so each derived service can declare its ID
  * type (e.g. number for playlists/tracks, string for fingerprints) and
  * passing a string where a number is expected becomes a TS error.
+ *
+ * `T` is the single-item shape and `TList` the shape `list()` resolves to.
+ * They differ for the endpoints whose list is an envelope or a single object
+ * rather than a bare array (#5637): `GET /api/playlists` answers
+ * `{playlists: [...]}`, `GET /api/settings` a single settings object, and
+ * `GET /api/player/queue` a single queue snapshot. Declaring the real shape
+ * beats the old `Promise<T[]>` lie that every such service had to cast around.
  */
 export interface CrudEndpoints<
   ID = number,
   P extends Record<string, unknown> = Record<string, unknown>,
   U = unknown,
+  T = unknown,
+  TList = T,
 > {
   list?: string | ((params?: P) => string);
   get?: string | ((id: ID) => string);
@@ -81,16 +90,24 @@ export interface CrudEndpoints<
    * mode behind #3593/#3976/#4440/#4441. Supplying a guard turns that into an
    * `APIRequestError` naming the endpoint.
    *
+   * Each guard is a type predicate tied to that endpoint's result type
+   * (#5637), so a guard asserting the wrong shape doesn't compile. The
+   * `custom` guards can't be tied to a type here — `custom()`'s result type
+   * is chosen per call — so they stay predicates on the widest type and are
+   * checked against the caller's `R` at the boundary.
+   *
    * Services without guards behave exactly as before, so adoption is incremental.
    * See `@/api/responseGuards` for the available guards.
    */
   guards?: {
-    list?: (value: unknown) => boolean;
-    get?: (value: unknown) => boolean;
-    create?: (value: unknown) => boolean;
-    update?: (value: unknown) => boolean;
-    delete?: (value: unknown) => boolean;
-    custom?: Record<string, (value: unknown) => boolean>;
+    list?: (value: unknown) => value is TList;
+    get?: (value: unknown) => value is T;
+    create?: (value: unknown) => value is T;
+    update?: (value: unknown) => value is T;
+    // DELETE resolves to `void` and never reads a body (204 by contract), so
+    // no meaningful guard exists — typed for symmetry only.
+    delete?: (value: unknown) => value is void;
+    custom?: Record<string, (value: unknown) => value is any>;
   };
 }
 
@@ -105,12 +122,13 @@ export function createCrudService<
   U = unknown,
   ID = number,
   P extends Record<string, unknown> = Record<string, unknown>,
->(endpoints: CrudEndpoints<ID, P, U>) {
+  TList = T,
+>(endpoints: CrudEndpoints<ID, P, U, T, TList>) {
   return {
     /**
      * GET list of items
      */
-    async list(params?: P, options?: CrudRequestOptions): Promise<T[]> {
+    async list(params?: P, options?: CrudRequestOptions): Promise<TList> {
       if (!endpoints.list) {
         throw new Error('list endpoint not configured');
       }
@@ -118,7 +136,7 @@ export function createCrudService<
         ? endpoints.list(params)
         : endpoints.list;
       const opts = requestOptions(endpoints.guards?.list, options);
-      return opts ? get(endpoint, opts) : get(endpoint);
+      return opts ? get<TList>(endpoint, opts) : get<TList>(endpoint);
     },
 
     /**
@@ -132,7 +150,7 @@ export function createCrudService<
         ? endpoints.get(id)
         : endpoints.get;
       const opts = requestOptions(endpoints.guards?.get, options);
-      return opts ? get(endpoint, opts) : get(endpoint);
+      return opts ? get<T>(endpoint, opts) : get<T>(endpoint);
     },
 
     /**
@@ -147,7 +165,7 @@ export function createCrudService<
         : endpoints.create;
       const opts = requestOptions(endpoints.guards?.create, options);
       const body = data as Record<string, unknown>;
-      return opts ? post(endpoint, body, opts) : post(endpoint, body);
+      return opts ? post<T>(endpoint, body, opts) : post<T>(endpoint, body);
     },
 
     /**
@@ -162,7 +180,7 @@ export function createCrudService<
         : endpoints.update;
       const opts = requestOptions(endpoints.guards?.update, options);
       const body = data as Record<string, unknown>;
-      return opts ? put(endpoint, body, opts) : put(endpoint, body);
+      return opts ? put<T>(endpoint, body, opts) : put<T>(endpoint, body);
     },
 
     /**
@@ -196,6 +214,10 @@ export function createCrudService<
       const endpoint = typeof endpointDef === 'function'
         ? endpointDef(data)
         : endpointDef;
+      // The custom guard's predicate is `value is any` (per-call `R` can't be
+      // named in the guards record), so `opts` here carries `any` — the
+      // boundary still runs it, but the result keeps `custom()`'s own
+      // compile-time-only `R`.
       const opts = requestOptions(endpoints.guards?.custom?.[name], options);
 
       const body = (data ?? {}) as Record<string, unknown>;

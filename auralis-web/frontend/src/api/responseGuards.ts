@@ -16,10 +16,25 @@
  * Extends the `isCacheStatsShape`/`isCacheHealthShape` pattern established for
  * #4440 in services/api/standardizedAPIClient.ts.
  *
+ * Every guard is a type predicate tied to its wire type (#5637): passing a
+ * guard to a call typed with a different response shape is a compile error,
+ * and a passing guard narrows the parsed body so `apiRequest` can return it
+ * without an unchecked `as T`. The predicates assert the full wire type while
+ * runtime-checking only the subset documented per guard — the same
+ * verified-subset convention as before, now visible in the signature. The
+ * imported wire types are type-only, so none of these imports exist at
+ * runtime and no import cycle is created.
+ *
  * Pass one via the `validate` option on any `apiRequest`-backed call:
  * @example
  * get('/api/player/queue', { validate: isQueueResponseShape });
  */
+
+import type { AlbumsApiResponse, ArtistsApiResponse, TracksApiResponse } from '@/api/transformers';
+import type { ArtistTracksResponse } from '@/services/libraryService';
+import type { Playlist, PlaylistWire, PlaylistsResponse } from '@/services/playlistService';
+import type { QueueResponse } from '@/services/queueService';
+import type { UserSettings } from '@/services/settingsService';
 
 /** Narrow an unknown value to an indexable object. */
 function asObject(v: unknown): Record<string, unknown> | null {
@@ -65,14 +80,24 @@ function makeListGuard(collectionKey: string) {
   };
 }
 
+const tracksListOk = makeListGuard('tracks');
+const albumsListOk = makeListGuard('albums');
+const artistsListOk = makeListGuard('artists');
+
 /** `GET /api/library/tracks` — see #4611 for the transformer this feeds. */
-export const isTracksListShape = makeListGuard('tracks');
+export function isTracksListShape(v: unknown): v is TracksApiResponse {
+  return tracksListOk(v);
+}
 
 /** `GET /api/albums` — see `useLibraryQuery.ts`'s `QUERY_TYPE_ENDPOINT` (NOT `/api/library/albums`, renamed per #2379). */
-export const isAlbumsListShape = makeListGuard('albums');
+export function isAlbumsListShape(v: unknown): v is AlbumsApiResponse {
+  return albumsListOk(v);
+}
 
 /** `GET /api/artists` — see `useLibraryQuery.ts`'s `QUERY_TYPE_ENDPOINT` (NOT `/api/library/artists`, renamed per #2379). */
-export const isArtistsListShape = makeListGuard('artists');
+export function isArtistsListShape(v: unknown): v is ArtistsApiResponse {
+  return artistsListOk(v);
+}
 
 /**
  * `GET /api/player/queue`.
@@ -82,7 +107,7 @@ export const isArtistsListShape = makeListGuard('artists');
  * response for a hardcoded empty queue (#4441). Guarding it means that class of
  * mismatch fails loudly at the boundary instead of rendering an empty queue.
  */
-export function isQueueResponseShape(v: unknown): boolean {
+export function isQueueResponseShape(v: unknown): v is QueueResponse {
   const o = asObject(v);
   if (!o) return false;
   if (!isItemArray(o.tracks)) return false;
@@ -96,7 +121,7 @@ export function isQueueResponseShape(v: unknown): boolean {
 }
 
 /** `GET /api/artists/{id}/tracks` — consumers read `tracks` and `name`. */
-export function isArtistTracksResponseShape(v: unknown): boolean {
+export function isArtistTracksResponseShape(v: unknown): v is ArtistTracksResponse {
   const o = asObject(v);
   if (!o) return false;
   if (typeof o.id !== 'number') return false;
@@ -105,7 +130,7 @@ export function isArtistTracksResponseShape(v: unknown): boolean {
 }
 
 /** A single playlist — consumers read `id`, `name` and `track_count`. */
-export function isPlaylistShape(v: unknown): boolean {
+export function isPlaylistShape(v: unknown): v is PlaylistWire {
   const o = asObject(v);
   if (!o) return false;
   if (typeof o.id !== 'number') return false;
@@ -117,11 +142,12 @@ export function isPlaylistShape(v: unknown): boolean {
 /**
  * `GET /api/playlists`.
  *
- * Accepts a bare array or a `{ playlists: [...] }` envelope — the factory's
- * `list()` is typed `Promise<T[]>` while several endpoints return an object,
- * the same mismatch class as #4441.
+ * Accepts a bare array or a `{ playlists: [...] }` envelope — several endpoints
+ * changed their envelope shape over the app's life, and the runtime tolerance
+ * is pinned by playlistService's own tests. The asserted union mirrors that:
+ * callers narrowing with `Array.isArray` get both halves typed (#5637).
  */
-export function isPlaylistsListShape(v: unknown): boolean {
+export function isPlaylistsListShape(v: unknown): v is PlaylistsResponse | Playlist[] {
   if (Array.isArray(v)) return v.every(isPlaylistShape);
   const o = asObject(v);
   if (!o) return false;
@@ -133,10 +159,12 @@ export function isPlaylistsListShape(v: unknown): boolean {
  * `GET /api/settings`.
  *
  * Checks only the handful of fields consumers branch on; the settings payload
- * is broad and mostly optional, so a strict check would be brittle.
+ * is broad and mostly optional, so a strict check would be brittle. The
+ * endpoint returns a single object (`response_model=SettingsResponse`), so an
+ * array payload fails the guard rather than passing the old array tolerance —
+ * the same fail-loudly-at-the-boundary rule as #4441.
  */
-export function isUserSettingsShape(v: unknown): boolean {
-  if (Array.isArray(v)) return v.every(isUserSettingsShape);
+export function isUserSettingsShape(v: unknown): v is UserSettings {
   const o = asObject(v);
   if (!o) return false;
   if (o.scan_folders !== undefined && !Array.isArray(o.scan_folders)) return false;

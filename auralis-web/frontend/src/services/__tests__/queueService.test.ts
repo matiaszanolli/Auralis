@@ -21,7 +21,7 @@ vi.mock('../../utils/apiRequest', () => ({
   },
 }));
 
-import { get, post, put, del } from '@/utils/apiRequest';
+import { get, post, put, del, APIRequestError } from '@/utils/apiRequest';
 import {
   getQueue,
   removeTrackFromQueue,
@@ -77,12 +77,18 @@ describe('QueueService', () => {
       expect(result.tracks).toHaveLength(3);
     });
 
-    it('should return empty queue when server returns empty array', async () => {
-      mockGet.mockResolvedValueOnce([]);
+    it('surfaces a boundary error when the wire shape is not a queue (#5637)', async () => {
+      // GET /api/player/queue returns a single QueueInfoResponse object, never
+      // an array. The old getQueue() had an Array.isArray fallback that turned
+      // any array into a hardcoded empty queue — the exact silent-guess
+      // behavior #4441 removed and the TList typing (#5637) made untypeable.
+      // At the real boundary the list guard rejects the payload; pin the
+      // service's contract by propagating that failure.
+      mockGet.mockRejectedValueOnce(
+        new APIRequestError('Unexpected response shape from /api/player/queue', 200)
+      );
 
-      const result = await getQueue();
-
-      expect(result).toEqual({ tracks: [], current_index: 0, track_count: 0 });
+      await expect(getQueue()).rejects.toThrow('Unexpected response shape');
     });
 
     it('should return tracks with all fields', async () => {

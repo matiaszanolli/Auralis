@@ -13,7 +13,17 @@
  * WIRING: intentionally does NOT `vi.mock('@/utils/apiRequest')`.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from 'vitest';
+
+/**
+ * vitest's Mock<T> call signature flattens a predicate implementation to
+ * `(...args) => boolean`, which no longer assigns to a predicate-typed
+ * `validate` option (#5637). Same runtime function, restored declared view.
+ */
+function asGuard<T extends (value: unknown) => boolean>(mock: Mock<T>): T {
+  return mock as T;
+}
+
 import { apiRequest, get, APIRequestError } from '../apiRequest';
 import {
   isQueueResponseShape,
@@ -73,10 +83,11 @@ describe('apiRequest validate option (#4607)', () => {
   });
 
   it('does NOT invoke the guard on a 204 No Content response', async () => {
-    const guard = vi.fn(() => false);
+    const guard = vi.fn<(v: unknown) => v is never>();
+    guard.mockReturnValue(false);
     (global.fetch as any).mockResolvedValue(makeResponse({ ok: true, status: 204 }));
 
-    const result = await apiRequest('/api/something', { validate: guard });
+    const result = await apiRequest('/api/something', { validate: asGuard(guard) });
 
     expect(guard).not.toHaveBeenCalled();
     expect(result).toBeUndefined();

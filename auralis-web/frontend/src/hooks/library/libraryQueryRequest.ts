@@ -75,15 +75,17 @@ export function buildEndpoint(
  * `artists`), with `items` as the fallback, and every list goes through its
  * canonical snake→camel transformer.
  *
- * #3631: `response` is typed as a record (was `any`) and the switch is
- * exhaustive via a `never` assertion, so adding a new LibraryQueryType is a TS
- * error here instead of silently falling through to `response.items`.
+ * #3631: the switch is exhaustive via a `never` assertion, so adding a new
+ * LibraryQueryType is a TS error here instead of silently falling through to
+ * `response.items`. The response is the wire union (#5637); each arm reads
+ * the collection key its own guard has already verified at the boundary.
  */
 export function extractItemsFromResponse<T extends Track | Album | Artist>(
-  response: LibraryQueryResponse<T> | Record<string, unknown>,
+  response: LibraryQueryResponse | Record<string, unknown>,
   queryType: LibraryQueryType
 ): T[] {
-  // LibraryQueryResponse<T> has no index signature, so narrow to a record.
+  // Narrow to a record so the `items` fallback key reads uniformly; the union
+  // includes Record<string, unknown>, so this cast is a member extraction.
   const r = response as Record<string, unknown>;
   switch (queryType) {
     case 'tracks':
@@ -107,9 +109,15 @@ export function extractItemsFromResponse<T extends Track | Album | Artist>(
   }
 }
 
-/** Outcome of one page fetch, classified for the hook's callers. */
-export type PageFetchResult<T> =
-  | { kind: 'ok'; response: LibraryQueryResponse<T> }
+/**
+ * Outcome of one page fetch, classified for the hook's callers.
+ *
+ * `response` is null only when `requireResponse` was false and the server
+ * answered with no body (fetchMore's no-op page); executeQuery sets
+ * `requireResponse` and treats that same case as an error.
+ */
+export type PageFetchResult =
+  | { kind: 'ok'; response: LibraryQueryResponse | null }
   | { kind: 'stale' }
   | { kind: 'aborted' }
   | { kind: 'error'; error: ApiError };
@@ -127,19 +135,22 @@ export type PageFetchResult<T> =
  * `requireResponse` mirrors the two callers' historical difference:
  * executeQuery treated a null response as a QUERY_ERROR, fetchMore as a
  * no-op page.
+ *
+ * The response is the wire union (#5637); the caller's domain item type comes
+ * out of `extractItemsFromResponse`, not from here.
  */
-export async function fetchLibraryPage<T>(deps: {
-  get: <R>(url: string, init?: { validate?: (v: unknown) => boolean }) => Promise<R | null>;
+export async function fetchLibraryPage(deps: {
+  get: <R>(url: string, init?: { validate?: (v: unknown) => v is R }) => Promise<R | null>;
   url: string;
-  validate: (v: unknown) => boolean;
+  validate: (v: unknown) => v is LibraryQueryResponse;
   isStale: () => boolean;
   errorCode: 'QUERY_ERROR' | 'FETCH_MORE_ERROR';
   requireResponse: boolean;
-}): Promise<PageFetchResult<T>> {
+}): Promise<PageFetchResult> {
   const { get, url, validate, isStale, errorCode, requireResponse } = deps;
 
   try {
-    const response = await get<LibraryQueryResponse<T>>(url, { validate });
+    const response = await get<LibraryQueryResponse>(url, { validate });
 
     if (isStale()) {
       // A newer query has taken over — abandon this response entirely rather
@@ -151,7 +162,7 @@ export async function fetchLibraryPage<T>(deps: {
       throw new Error('No response from server');
     }
 
-    return { kind: 'ok', response: response as LibraryQueryResponse<T> };
+    return { kind: 'ok', response };
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
       // Request was cancelled - don't update state

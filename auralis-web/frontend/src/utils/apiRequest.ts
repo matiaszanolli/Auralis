@@ -53,7 +53,7 @@ export class APIRequestError extends Error {
   }
 }
 
-export interface RequestOptions extends Omit<RequestInit, 'body'> {
+export interface RequestOptions<T = unknown> extends Omit<RequestInit, 'body'> {
   body?: Record<string, any>;
   /**
    * AbortSignal for cancelling in-flight requests (e.g. on component unmount).
@@ -82,16 +82,23 @@ export interface RequestOptions extends Omit<RequestInit, 'body'> {
    * a downstream `undefined`/NaN far from its cause (#3593, #3976, #4440,
    * #4441), never at the boundary.
    *
+   * A type predicate tied to the call's `T` (#5637): the guard's asserted type
+   * must match (or narrow to) the requested `T`, so pairing a guard for one
+   * shape with `get<AnotherShape>()` is a compile error, and a passing guard
+   * lets {@link apiRequest} return the body as the guarded type instead of an
+   * unchecked `as T`. Guards live in `@/api/responseGuards`.
+   *
    * When supplied and the body fails the guard, {@link apiRequest} throws an
    * {@link APIRequestError} naming the endpoint. Endpoints without a guard
-   * behave exactly as before, so adoption is incremental.
+   * behave exactly as before (the compile-time-only contract), so adoption is
+   * incremental.
    *
    * Not invoked for 204 No Content, which resolves to `undefined` by contract.
    *
    * @example
    * get('/api/library/tracks', { validate: isTracksListShape });
    */
-  validate?: (value: unknown) => boolean;
+  validate?: (value: unknown) => value is T;
 }
 
 /**
@@ -156,7 +163,7 @@ async function fetchWithTimeout(
  */
 export async function apiRequest<T = unknown>(
   endpoint: string,
-  options: RequestOptions = {}
+  options: RequestOptions<T> = {}
 ): Promise<T> {
   const url = getApiUrl(endpoint);
   const { body, headers = {}, signal, timeoutMs = DEFAULT_TIMEOUT_MS, validate, ...fetchOptions } = options;
@@ -190,19 +197,26 @@ export async function apiRequest<T = unknown>(
         return undefined as T;
       }
 
-      const parsed = await response.json();
+      const parsed: unknown = await response.json();
 
       // Runtime shape check at the boundary, when the caller supplied one.
       // Turns silent field drift into a loud, located failure (#4607).
-      if (validate && !validate(parsed)) {
-        throw new APIRequestError(
-          `Unexpected response shape from ${endpoint}`,
-          response.status,
-          'The server response did not match the expected shape. This usually ' +
-            'means the backend contract changed and the frontend types are stale.'
-        );
+      if (validate) {
+        if (!validate(parsed)) {
+          throw new APIRequestError(
+            `Unexpected response shape from ${endpoint}`,
+            response.status,
+            'The server response did not match the expected shape. This usually ' +
+              'means the backend contract changed and the frontend types are stale.'
+          );
+        }
+        // The guard's predicate narrows the body to the call's `T` — no cast
+        // needed (#5637).
+        return parsed;
       }
 
+      // No guard: the compile-time-only contract pre-dating #4607. The `as T`
+      // here is exactly what a `validate` guard is the antidote for.
       return parsed as T;
     }
 
@@ -227,7 +241,7 @@ export async function apiRequest<T = unknown>(
  * Make a GET request
  * @example const data = await get('/playlists');
  */
-export async function get<T = unknown>(endpoint: string, options?: RequestOptions): Promise<T> {
+export async function get<T = unknown>(endpoint: string, options?: RequestOptions<T>): Promise<T> {
   return apiRequest<T>(endpoint, { ...options, method: 'GET' });
 }
 
@@ -238,7 +252,7 @@ export async function get<T = unknown>(endpoint: string, options?: RequestOption
 export async function post<T = unknown>(
   endpoint: string,
   body?: Record<string, any>,
-  options?: RequestOptions
+  options?: RequestOptions<T>
 ): Promise<T> {
   return apiRequest<T>(endpoint, { ...options, method: 'POST', body });
 }
@@ -250,7 +264,7 @@ export async function post<T = unknown>(
 export async function put<T = unknown>(
   endpoint: string,
   body?: Record<string, any>,
-  options?: RequestOptions
+  options?: RequestOptions<T>
 ): Promise<T> {
   return apiRequest<T>(endpoint, { ...options, method: 'PUT', body });
 }
@@ -262,7 +276,7 @@ export async function put<T = unknown>(
 export async function patch<T = unknown>(
   endpoint: string,
   body?: Record<string, any>,
-  options?: RequestOptions
+  options?: RequestOptions<T>
 ): Promise<T> {
   return apiRequest<T>(endpoint, { ...options, method: 'PATCH', body });
 }
@@ -271,7 +285,7 @@ export async function patch<T = unknown>(
  * Make a DELETE request
  * @example await del('/playlists/1');
  */
-export async function del<T = unknown>(endpoint: string, options?: RequestOptions): Promise<T> {
+export async function del<T = unknown>(endpoint: string, options?: RequestOptions<T>): Promise<T> {
   return apiRequest<T>(endpoint, { ...options, method: 'DELETE' });
 }
 

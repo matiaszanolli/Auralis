@@ -141,7 +141,7 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
       setError(null);
 
       try {
-        const result = await fetchLibraryPage<T>({
+        const result = await fetchLibraryPage({
           get,
           url,
           validate: QUERY_TYPE_GUARD[queryType],
@@ -157,11 +157,12 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
         if (result.kind !== 'ok') return; // stale or aborted
 
         const response = result.response;
+        if (!response) return; // unreachable with requireResponse (null became an error above)
         const items = extractItemsFromResponse<T>(response, queryType);
         const newOffset = typeof response.offset === 'number' ? response.offset : 0;
         setTotal(response.total || 0);
         setOffset(newOffset);
-        setHasMore(deriveHasMore(response as unknown as Record<string, unknown>, newOffset, items.length));
+        setHasMore(deriveHasMore(response, newOffset, items.length));
 
         if (append) {
           // Append to existing data (infinite scroll)
@@ -209,7 +210,7 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
     const nextOffset = offset + limit;
 
     try {
-      const result = await fetchLibraryPage<T>({
+      const result = await fetchLibraryPage({
         get,
         url: buildQueryEndpoint(queryType, endpointOptions, nextOffset),
         validate: QUERY_TYPE_GUARD[queryType],
@@ -234,7 +235,7 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
         setData(prev => [...prev, ...items]);
       }
       setTotal(response.total);
-      setHasMore(deriveHasMore(response as unknown as Record<string, unknown>, nextOffset, items.length));
+      setHasMore(deriveHasMore(response, nextOffset, items.length));
     } finally {
       // Always clear this call's own fetching flags, regardless of
       // staleness — unlike executeQuery's isFetchingRef/isLoading (shared

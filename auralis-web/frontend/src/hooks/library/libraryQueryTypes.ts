@@ -8,6 +8,7 @@
  */
 
 import type { ApiError } from '@/types/api';
+import type { AlbumsApiResponse, ArtistsApiResponse, TracksApiResponse } from '@/api/transformers';
 import { isAlbumsListShape, isArtistsListShape, isTracksListShape } from '@/api/responseGuards';
 
 /**
@@ -39,15 +40,16 @@ export interface LibraryQueryOptions {
 }
 
 /**
- * Response data from library query
+ * Wire shape of one paginated library page (#5637): the backend's canonical
+ * `{ tracks | albums | artists: [...], total, offset, limit, has_more }`.
+ * Which member arrives is chosen by the query type at runtime (see
+ * QUERY_TYPE_ENDPOINT); the matching QUERY_TYPE_GUARD entry is the runtime
+ * half of that association, and the items are the post-transform domain
+ * `T` only after `extractItemsFromResponse` runs. This replaces the old
+ * `LibraryQueryResponse<T>`, which declared `items`/`hasMore` fields that
+ * never existed on the wire — any consumer trusting them read `undefined`.
  */
-export interface LibraryQueryResponse<T> {
-  items: T[];
-  total: number;
-  offset: number;
-  limit: number;
-  hasMore: boolean;
-}
+export type LibraryQueryResponse = TracksApiResponse | AlbumsApiResponse | ArtistsApiResponse;
 
 /**
  * Return type for useLibraryQuery hook
@@ -95,7 +97,7 @@ export interface UseLibraryQueryResult<T> {
  * opt-in per hook, not automatic for every consumer of `/api/library/tracks`.
  * See `@/api/responseGuards` for what each guard checks.
  */
-export const QUERY_TYPE_GUARD: Record<LibraryQueryType, (v: unknown) => boolean> = {
+export const QUERY_TYPE_GUARD: Record<LibraryQueryType, (v: unknown) => v is LibraryQueryResponse> = {
   tracks: isTracksListShape,
   albums: isAlbumsListShape,
   artists: isArtistsListShape,
@@ -106,9 +108,12 @@ export const QUERY_TYPE_GUARD: Record<LibraryQueryType, (v: unknown) => boolean>
  * contract — the same one useLibraryPagination uses — so the two track
  * pagination stacks no longer disagree (#4422 / F2-01). Falls back to a cursor
  * comparison only when the backend omits the flag.
+ *
+ * The argument is the two fields this function actually reads, so every wire
+ * shape (and a plain record, for tests) is callable without a cast (#5637).
  */
 export function deriveHasMore(
-  response: Record<string, unknown>,
+  response: { has_more?: unknown; hasMore?: unknown; total?: unknown },
   pageOffset: number,
   pageLength: number
 ): boolean {

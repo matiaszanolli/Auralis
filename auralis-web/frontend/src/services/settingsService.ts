@@ -90,12 +90,18 @@ interface SettingsResponse {
   settings: UserSettings;
 }
 
-function isSettingsResponse(value: unknown): boolean {
+function isSettingsResponse(value: unknown): value is SettingsResponse {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
   return isUserSettingsShape((value as Record<string, unknown>).settings);
 }
 
 // Create base CRUD service using factory
+//
+// TList = UserSettings: GET /api/settings answers a single object
+// (`response_model=SettingsResponse`), not an array — the old
+// `Promise<UserSettings[]>` declaration is what forced getSettings() to cast
+// and runtime-guess the envelope (#3977/#5637). A drifted array payload now
+// fails the list guard loudly at the boundary instead.
 const crudService = createCrudService<UserSettings, SettingsUpdate>({
   list: ENDPOINTS.SETTINGS,
   // Runtime shape check at the boundary (#4607).
@@ -119,14 +125,7 @@ const crudService = createCrudService<UserSettings, SettingsUpdate>({
  * Get current user settings
  */
 export async function getSettings(): Promise<UserSettings> {
-  // crudService.list() is typed Promise<UserSettings[]>, but the settings
-  // endpoint actually returns a single object — handle both at runtime (#3977).
-  const result = await crudService.list() as UserSettings[] | UserSettings;
-  if (Array.isArray(result)) {
-    if (result.length > 0) return result[0];
-    throw new Error('No settings found');
-  }
-  return result;
+  return crudService.list();
 }
 
 /**

@@ -21,7 +21,17 @@
  */
 
 import { renderHook, act } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
+
+/**
+ * vitest's Mock<T> call signature flattens a predicate implementation to
+ * `(...args) => boolean`, which no longer assigns to a predicate-typed
+ * `validate` option (#5637). Same runtime function, restored declared view.
+ */
+function asGuard<T extends (value: unknown) => boolean>(mock: Mock<T>): T {
+  return mock as T;
+}
+
 import { useRestAPI } from '../useRestAPI';
 
 // Mock fetch globally
@@ -456,11 +466,13 @@ describe('useRestAPI Hook', () => {
       mockFetchSuccess({ id: 1, name: 'Test' });
 
       const { result } = renderHook(() => useRestAPI());
-      const validate = vi.fn().mockReturnValue(true);
+      const validate = vi.fn(
+        (v: unknown): v is Record<string, unknown> => v !== null && typeof v === 'object'
+      );
 
       let response;
       await act(async () => {
-        response = await result.current.get('/api/test', { validate });
+        response = await result.current.get('/api/test', { validate: asGuard(validate) });
       });
 
       expect(validate).toHaveBeenCalledWith({ id: 1, name: 'Test' });
@@ -472,7 +484,7 @@ describe('useRestAPI Hook', () => {
       mockFetchSuccess({ unexpected: 'shape' });
 
       const { result } = renderHook(() => useRestAPI());
-      const validate = (v: unknown) =>
+      const validate = (v: unknown): v is Record<string, unknown> =>
         typeof v === 'object' && v !== null && 'id' in v;
 
       await act(async () => {
@@ -489,11 +501,12 @@ describe('useRestAPI Hook', () => {
       mockFetchSuccess({ wrong: true });
 
       const { result } = renderHook(() => useRestAPI());
-      const validate = vi.fn().mockReturnValue(false);
+      const validate = vi.fn<(v: unknown) => v is Record<string, unknown>>();
+      validate.mockReturnValue(false);
 
       await act(async () => {
         await expect(
-          result.current.post('/api/test', { name: 'x' }, undefined, { validate })
+          result.current.post('/api/test', { name: 'x' }, undefined, { validate: asGuard(validate) })
         ).rejects.toBeDefined();
       });
 
@@ -504,11 +517,12 @@ describe('useRestAPI Hook', () => {
       mockFetchSuccess({ wrong: true });
 
       const { result } = renderHook(() => useRestAPI());
-      const validate = vi.fn().mockReturnValue(false);
+      const validate = vi.fn<(v: unknown) => v is Record<string, unknown>>();
+      validate.mockReturnValue(false);
 
       await act(async () => {
         await expect(
-          result.current.put('/api/test', { name: 'x' }, undefined, { validate })
+          result.current.put('/api/test', { name: 'x' }, undefined, { validate: asGuard(validate) })
         ).rejects.toBeDefined();
       });
 
@@ -519,11 +533,12 @@ describe('useRestAPI Hook', () => {
       mockFetchSuccess({ wrong: true });
 
       const { result } = renderHook(() => useRestAPI());
-      const validate = vi.fn().mockReturnValue(false);
+      const validate = vi.fn<(v: unknown) => v is Record<string, unknown>>();
+      validate.mockReturnValue(false);
 
       await act(async () => {
         await expect(
-          result.current.patch('/api/test', { name: 'x' }, undefined, { validate })
+          result.current.patch('/api/test', { name: 'x' }, undefined, { validate: asGuard(validate) })
         ).rejects.toBeDefined();
       });
 

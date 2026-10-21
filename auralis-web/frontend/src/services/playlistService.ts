@@ -39,6 +39,15 @@ export interface Playlist {
 
 import type { Track } from '@/types/domain';
 
+/**
+ * The playlist payload as it actually arrives from the API (#5637): the
+ * declared `tracks` are raw `Track.to_dict()` snake_case rows, not the
+ * camelCase domain `Track[]` the public {@link Playlist} type promises —
+ * {@link getPlaylist} applies `transformTracks` at the boundary so consumers
+ * never see the raw rows (#5606). Everything else matches `Playlist`.
+ */
+export type PlaylistWire = Omit<Playlist, 'tracks'> & { tracks?: TrackApiResponse[] };
+
 export interface PlaylistsResponse {
   playlists: Playlist[];
   /** Total number of playlists on the server, not the length of this page. */
@@ -76,7 +85,13 @@ export interface UpdatePlaylistRequest {
 }
 
 // Create base CRUD service using factory
-const crudService = createCrudService<Playlist, CreatePlaylistRequest, number, PlaylistListParams>({
+//
+// TList = PlaylistsResponse | Playlist[]: GET /api/playlists answers the
+// paginated envelope; the bare-array shape is the legacy serializer the
+// runtime tolerance (and the service's own tests) still accept. Declaring the
+// union is what lets fetchPlaylistsPage narrow with Array.isArray instead of
+// casting (#4554/#5637).
+const crudService = createCrudService<PlaylistWire, CreatePlaylistRequest, number, PlaylistListParams, PlaylistsResponse | Playlist[]>({
   list: (params) => {
     const search = new URLSearchParams({
       limit: String(params?.limit ?? PLAYLISTS_PAGE_LIMIT),
@@ -101,20 +116,17 @@ async function fetchPlaylistsPage(
   signal: AbortSignal | undefined,
 ): Promise<PlaylistsResponse> {
   const response = await crudService.list(params, { signal });
-  // Runtime shape validation — response may be a bare array or {playlists: [...]}
-  const envelope = (!Array.isArray(response) && response && typeof response === 'object')
-    ? response as unknown as PlaylistsResponse
-    : null;
-  const playlistsArray = Array.isArray(response)
-    ? response
-    : (envelope && Array.isArray(envelope.playlists))
-      ? envelope.playlists
-      : [];
+  // Runtime shape tolerance — the wire may be a bare array (older serializer)
+  // or the `{playlists: [...]}` envelope; the TList union types both halves,
+  // so Array.isArray narrows instead of casting (#5637).
+  const [playlistsArray, envelope] = Array.isArray(response)
+    ? [response, null]
+    : [response.playlists, response];
 
   // Prefer the server's COUNT — with pagination the page length is no longer
   // the collection size (#4554). Fall back to the page length only when the
   // response is a bare array (older backend) or omits `total`.
-  const total = typeof envelope?.total === 'number' ? envelope.total : playlistsArray.length;
+  const total = envelope && typeof envelope.total === 'number' ? envelope.total : playlistsArray.length;
 
   return {
     playlists: playlistsArray,
@@ -181,13 +193,19 @@ export async function getPlaylists(
 }
 
 /**
+ * Map a wire playlist to the public domain shape: the raw `Track.to_dict()`
+ * rows go through `transformTracks` so consumers never see snake_case fields
+ * (#5606). Shared by every service function that returns a playlist.
+ */
+function toDomainPlaylist(playlist: PlaylistWire): Playlist {
+  return {
+    ...playlist,
+    tracks: Array.isArray(playlist.tracks) ? transformTracks(playlist.tracks) : undefined,
+  };
+}
+
+/**
  * Get playlist by ID with all tracks
- *
- * The backend's `tracks` are raw `Track.to_dict()` snake_case rows
- * (`artists: string[]`, no singular artist) even though the Playlist type
- * claims the camelCase domain Track — apply transformTracks at the boundary
- * so every consumer, including "Play playlist"'s setQueue, gets mapped
- * tracks (#5606).
  *
  * @param signal - Optional AbortSignal for cancelling the request (#4614).
  */
@@ -195,14 +213,7 @@ export async function getPlaylist(
   playlistId: number,
   signal?: AbortSignal,
 ): Promise<Playlist> {
-  const playlist = await crudService.getOne(playlistId, { signal });
-  if (Array.isArray(playlist.tracks)) {
-    // The declared Track[] is the lie #5606 documents: off the wire these are
-    // raw Track.to_dict() rows. Cast back to the wire type for the mapper.
-    const wireTracks = playlist.tracks as unknown as TrackApiResponse[];
-    return { ...playlist, tracks: transformTracks(wireTracks) };
-  }
-  return playlist;
+  return toDomainPlaylist(await crudService.getOne(playlistId, { signal }));
 }
 
 /**
@@ -212,9 +223,9 @@ export async function createPlaylist(request: CreatePlaylistRequest): Promise<Pl
   const data = await crudService.create(request);
   // Response may be {playlist: {...}} or a bare Playlist object
   if (data && typeof data === 'object' && 'playlist' in data) {
-    return (data as { playlist: Playlist }).playlist;
+    return toDomainPlaylist(data.playlist as PlaylistWire);
   }
-  return data;
+  return toDomainPlaylist(data);
 }
 
 /**

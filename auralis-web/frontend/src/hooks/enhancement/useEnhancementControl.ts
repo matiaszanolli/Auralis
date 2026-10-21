@@ -116,15 +116,19 @@ const INITIAL_STATE: EnhancementState = {
 // Only the in-flight promise is shared — it is cleared once settled, so a later
 // mount re-fetches fresh state. The WS `enhancement_settings_changed` broadcast
 // keeps every mounted consumer in sync after the initial load.
-let _sharedStatusPromise: Promise<EnhancementState | null> | null = null;
+//
+// The wire payload is EnhancementState minus lastUpdated — that field is set
+// client-side by every consumer, so typing the fetch as the full state used to
+// promise a `lastUpdated` the server never sends (#5637).
+let _sharedStatusPromise: Promise<Omit<EnhancementState, 'lastUpdated'> | null> | null = null;
 
 function _fetchEnhancementStatusOnce(
   getter: <T>(url: string) => Promise<T | null>,
-): Promise<EnhancementState | null> {
+): Promise<Omit<EnhancementState, 'lastUpdated'> | null> {
   if (_sharedStatusPromise) {
     return _sharedStatusPromise;
   }
-  const promise = getter<EnhancementState>('/api/player/enhancement/status')
+  const promise = getter<Omit<EnhancementState, 'lastUpdated'>>('/api/player/enhancement/status')
     .finally(() => {
       // Clear once settled so the next (non-concurrent) mount fetches fresh.
       if (_sharedStatusPromise === promise) _sharedStatusPromise = null;

@@ -16,6 +16,12 @@ import { createCrudService } from '@/utils/serviceFactory';
 import { isQueueResponseShape } from '@/api/responseGuards';
 import type { TrackInfo } from '@/types/websocket';
 
+/**
+ * Wire shape of `GET /api/player/queue` — the backend's QueueInfoResponse
+ * (routers/player_models.py). The optional fields mirror its `| None = None`
+ * members: consumers must treat everything below the first three as possibly
+ * absent rather than relying on the server to populate it.
+ */
 export interface QueueResponse {
   // #5018: this used to declare its own local QueueTrack — filepath required,
   // artist/album optional, the exact inverse of the real backend contract
@@ -25,7 +31,15 @@ export interface QueueResponse {
   // the canonical TrackInfo means a future caller doesn't inherit a landmine.
   tracks: TrackInfo[];
   current_index: number;
-  track_count: number;
+  track_count: number | null;
+  current_track?: TrackInfo | null;
+  has_next?: boolean | null;
+  has_previous?: boolean | null;
+  // #4787: shuffle_enabled is the one true field name QueueManager emits —
+  // is_shuffled/isShuffled were phantom keys the backend never sent.
+  shuffle_enabled?: boolean | null;
+  // repeat_mode, not the engine's repeat_enabled bool (#3896).
+  repeat_mode?: 'off' | 'all' | 'one' | null;
 }
 
 export interface SetQueueRequest {
@@ -34,6 +48,11 @@ export interface SetQueueRequest {
 }
 
 // Create base CRUD service using factory
+//
+// TList = QueueResponse: GET /api/player/queue returns a single
+// QueueInfoResponse object, never an array — the old `Promise<QueueResponse[]>`
+// declaration is what made getQueue() cast around and, before that, discard
+// every real response for a hardcoded empty queue (#4441/#5637).
 const crudService = createCrudService<QueueResponse, SetQueueRequest>({
   list: ENDPOINTS.QUEUE,
   // Guard the exact drift that caused #4441 — a response-shape mismatch here
@@ -52,18 +71,7 @@ const crudService = createCrudService<QueueResponse, SetQueueRequest>({
  * Get current queue
  */
 export async function getQueue(): Promise<QueueResponse> {
-  // crudService.list() is typed Promise<QueueResponse[]>, but GET /api/player/queue
-  // actually returns a single QueueInfoResponse object, never an array — so the old
-  // `Array.isArray` check was always false and unconditionally discarded the real
-  // response for a hardcoded empty queue. Handle both shapes at runtime, mirroring
-  // settingsService.getSettings() (#3977 / #4441).
-  const result = (await crudService.list()) as QueueResponse[] | QueueResponse;
-  if (Array.isArray(result)) {
-    if (result.length > 0) return result[0];
-    // Empty array → no queue data; return the empty default.
-    return { tracks: [], current_index: 0, track_count: 0 };
-  }
-  return result;
+  return crudService.list();
 }
 
 /**

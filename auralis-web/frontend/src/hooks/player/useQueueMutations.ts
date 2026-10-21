@@ -12,6 +12,7 @@
 
 import { useCallback, useMemo, useState, useRef } from 'react';
 import { useDispatch, useStore } from 'react-redux';
+import type { Store } from '@reduxjs/toolkit';
 import { useRestAPI } from '@/hooks/api/useRestAPI';
 import {
   setQueue as reduxSetQueue,
@@ -30,7 +31,7 @@ import {
 import type { Track, QueueTrack } from '@/types/domain';
 import type { ApiError } from '@/types/api';
 import { ApiErrorHandler } from '@/types/api';
-import type { AppDispatch } from '@/store';
+import type { AppDispatch, RootState } from '@/store';
 
 interface RollbackState {
   tracks: (Track | QueueTrack)[];
@@ -78,7 +79,10 @@ export interface QueueMutations {
 export function useQueueMutations(): QueueMutations {
   const { post, put, delete: apiDelete } = useRestAPI();
   const dispatch = useDispatch<AppDispatch>();
-  const store = useStore();
+  // Same pattern as usePlayerStateSync: bare useStore() types getState() as
+  // unknown, which the `{ queue: QueueState }`-typed selectors reject — the
+  // call-time snapshot (#5624) shipped without this and broke type-check:prod.
+  const store = useStore() as Store<RootState>;
 
   // In-flight count, not a boolean (#5624): one shared boolean was cleared by
   // whichever mutation finished first, so with two overlapping mutations the

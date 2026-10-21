@@ -29,11 +29,16 @@ const REQUEST_TIMEOUT = 30000; // 30 seconds
  * endpoint instead of returning a silently-wrong `T`. Endpoints that don't
  * pass one behave exactly as before.
  *
+ * A type predicate tied to the call's `T` (#5637), matching `apiRequest`'s
+ * option: a guard asserting a different shape than the call declares doesn't
+ * compile, and a passing guard narrows the parsed body so the verb returns
+ * it without the unchecked `as T`.
+ *
  * @example
  * const queue = await get('/api/player/queue', { validate: isQueueResponseShape });
  */
-export interface ResponseValidationOptions {
-  validate?: (value: unknown) => boolean;
+export interface ResponseValidationOptions<T = unknown> {
+  validate?: (value: unknown) => value is T;
 }
 
 type QueryParams = Record<string, string | number | boolean>;
@@ -42,12 +47,12 @@ type QueryParams = Record<string, string | number | boolean>;
  * The only things that differ between the HTTP verbs (#5198). Everything else
  * about a request lives once, in `request()`.
  */
-interface RequestSpec {
+interface RequestSpec<T = unknown> {
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   /** JSON body; sent only when truthy. */
   payload?: Record<string, unknown>;
   queryParams?: QueryParams;
-  options?: ResponseValidationOptions;
+  options?: ResponseValidationOptions<T>;
   /** Resolve without reading the response body (DELETE). */
   skipBody?: boolean;
 }
@@ -145,7 +150,7 @@ export function useRestAPI() {
    * #2489, #4831, #4896) had to be applied five times.
    */
   const request = useCallback(
-    async <T>(endpoint: string, spec: RequestSpec): Promise<T> => {
+    async <T>(endpoint: string, spec: RequestSpec<T>): Promise<T> => {
       const { method, payload, queryParams, options, skipBody } = spec;
       const url = buildUrl(endpoint, queryParams);
 
@@ -191,11 +196,15 @@ export function useRestAPI() {
           return undefined as T;
         }
 
-        const data = await response.json();
+        const data: unknown = await response.json();
 
         // Runtime shape check at the boundary, when the caller supplied one (#4896).
-        if (options?.validate && !options.validate(data)) {
-          throw new Error(`Unexpected response shape from ${endpoint}`);
+        // A predicate guard narrows the body to the call's `T` — no cast (#5637).
+        if (options?.validate) {
+          if (!options.validate(data)) {
+            throw new Error(`Unexpected response shape from ${endpoint}`);
+          }
+          return data;
         }
 
         return data as T;
@@ -218,7 +227,7 @@ export function useRestAPI() {
    * GET request.
    */
   const get = useCallback(
-    <T = unknown>(endpoint: string, options?: ResponseValidationOptions): Promise<T> =>
+    <T = unknown>(endpoint: string, options?: ResponseValidationOptions<T>): Promise<T> =>
       request<T>(endpoint, { method: 'GET', options }),
     [request]
   );
@@ -241,7 +250,7 @@ export function useRestAPI() {
    *   await api.post('/api/player/queue/shuffle', { enabled: true });
    */
   const post = useCallback(
-    <T = unknown>(endpoint: string, payload?: Record<string, unknown>, queryParams?: QueryParams, options?: ResponseValidationOptions): Promise<T> =>
+    <T = unknown>(endpoint: string, payload?: Record<string, unknown>, queryParams?: QueryParams, options?: ResponseValidationOptions<T>): Promise<T> =>
       request<T>(endpoint, { method: 'POST', payload, queryParams, options }),
     [request]
   );
@@ -251,7 +260,7 @@ export function useRestAPI() {
    * Supports both JSON body and query parameters.
    */
   const put = useCallback(
-    <T = unknown>(endpoint: string, payload?: Record<string, unknown>, queryParams?: QueryParams, options?: ResponseValidationOptions): Promise<T> =>
+    <T = unknown>(endpoint: string, payload?: Record<string, unknown>, queryParams?: QueryParams, options?: ResponseValidationOptions<T>): Promise<T> =>
       request<T>(endpoint, { method: 'PUT', payload, queryParams, options }),
     [request]
   );
@@ -261,7 +270,7 @@ export function useRestAPI() {
    * Supports both JSON body and query parameters.
    */
   const patch = useCallback(
-    <T = unknown>(endpoint: string, payload?: Record<string, unknown>, queryParams?: QueryParams, options?: ResponseValidationOptions): Promise<T> =>
+    <T = unknown>(endpoint: string, payload?: Record<string, unknown>, queryParams?: QueryParams, options?: ResponseValidationOptions<T>): Promise<T> =>
       request<T>(endpoint, { method: 'PATCH', payload, queryParams, options }),
     [request]
   );

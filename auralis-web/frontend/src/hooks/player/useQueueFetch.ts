@@ -21,8 +21,8 @@ import {
   isRepeatMode,
 } from '@/store/slices/queueSlice';
 import type { AppDispatch } from '@/store';
-import type { TrackInfo } from '@/types/websocket';
 import { mapTrackInfoToTrack } from './trackInfoMapper';
+import type { QueueResponse } from '@/services/queueService';
 
 /**
  * Fetch the current queue from the backend on mount and seed Redux with it.
@@ -41,7 +41,11 @@ export function useQueueFetch(): void {
 
     const fetchInitialQueue = async () => {
       try {
-        const response = await get<Record<string, unknown>>('/api/player/queue', {
+        // Typed as the wire shape (queueService.QueueResponse) so the fields
+        // read directly — this used to be `get<Record<string, unknown>>` with
+        // a per-field `as` before every read, which is how the phantom
+        // is_shuffled/isShuffled keys survived for months (#4787/#5637).
+        const response = await get<QueueResponse>('/api/player/queue', {
           validate: isQueueResponseShape,
         });
 
@@ -51,27 +55,17 @@ export function useQueueFetch(): void {
           // queue.tracks entries are read as-is by the track_changed WS
           // handler, so a caller-mapped shape here directly determines what
           // that live path dispatches).
-          const rawTracks = (response.tracks as TrackInfo[] | undefined) ?? [];
-          dispatch(reduxSetQueue(rawTracks.map(mapTrackInfoToTrack)));
-          dispatch(reduxSetCurrentIndex(
-            (response.current_index as number) ?? (response.currentIndex as number) ?? 0
-          ));
+          dispatch(reduxSetQueue((response.tracks ?? []).map(mapTrackInfoToTrack)));
+          dispatch(reduxSetCurrentIndex(response.current_index ?? 0));
           // Backend (QueueManager.get_queue_info) only ever emits
           // shuffle_enabled — is_shuffled/isShuffled are phantom keys the
           // backend never sends, so reading them always resolved to the
           // `?? false` fallback regardless of actual server state (#4787).
           // Kept as a fallback in case a legacy payload shape is ever seen.
-          dispatch(reduxSetIsShuffled(
-            (response.shuffle_enabled as boolean)
-            ?? (response.is_shuffled as boolean)
-            ?? (response.isShuffled as boolean)
-            ?? false
-          ));
+          dispatch(reduxSetIsShuffled(response.shuffle_enabled ?? false));
           const initialRepeatMode = isRepeatMode(response.repeat_mode)
             ? response.repeat_mode
-            : isRepeatMode(response.repeatMode)
-              ? response.repeatMode
-              : 'off';
+            : 'off';
           dispatch(reduxSetRepeatMode(initialRepeatMode));
         }
       } catch (err) {

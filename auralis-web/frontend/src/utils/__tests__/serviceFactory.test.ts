@@ -257,7 +257,7 @@ describe('createCrudService — request cancellation (#4614)', () => {
     const { get } = await mocked();
     vi.mocked(get).mockClear();
     const controller = new AbortController();
-    const guard = (v: unknown) => Array.isArray(v);
+    const guard = (v: unknown): v is unknown[] => Array.isArray(v);
     const service = createCrudService({ list: '/api/items', guards: { list: guard } });
 
     await service.list(undefined, { signal: controller.signal });
@@ -273,7 +273,7 @@ describe('createCrudService — request cancellation (#4614)', () => {
     // pass `validate` and defeat the #4607 shape checks.
     const { get } = await mocked();
     vi.mocked(get).mockClear();
-    const guard = (v: unknown) => Array.isArray(v);
+    const guard = (v: unknown): v is unknown[] => Array.isArray(v);
     const service = createCrudService({ list: '/api/items', guards: { list: guard } });
 
     await service.list(undefined, { validate: () => true } as never);
@@ -283,7 +283,7 @@ describe('createCrudService — request cancellation (#4614)', () => {
 
   it('rejects a malformed create response through its configured guard', async () => {
     const { post } = await mocked();
-    const guard = (value: unknown) => (
+    const guard = (value: unknown): value is { name: string } => (
       typeof value === 'object'
       && value !== null
       && typeof (value as Record<string, unknown>).name === 'string'
@@ -308,9 +308,13 @@ describe('createCrudService — request cancellation (#4614)', () => {
   it('forwards guards for update, delete, and named custom endpoints', async () => {
     const { put, del, post } = await mocked();
     for (const fn of [put, del, post]) vi.mocked(fn).mockClear();
-    const updateGuard = (value: unknown) => Boolean(value);
-    const deleteGuard = (value: unknown) => Boolean(value);
-    const customGuard = (value: unknown) => Boolean(value);
+    // Guards are predicates now (#5637); these forwarders only assert that
+    // the options object carries them through, so the asserted types don't
+    // matter — `unknown` for update (its asserted type must match T), `void`
+    // for delete (DELETE resolves void), `any` for custom (per-call R).
+    const updateGuard = (value: unknown): value is unknown => Boolean(value);
+    const deleteGuard = (value: unknown): value is void => Boolean(value);
+    const customGuard = (value: unknown): value is any => Boolean(value);
     const service = createCrudService({
       update: '/api/items/1',
       delete: '/api/items/1',

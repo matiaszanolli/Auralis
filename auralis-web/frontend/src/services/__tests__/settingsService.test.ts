@@ -21,7 +21,7 @@ vi.mock('../../utils/apiRequest', () => ({
   },
 }));
 
-import { get, post, put } from '@/utils/apiRequest';
+import { get, post, put, APIRequestError } from '@/utils/apiRequest';
 import { SCAN_TIMEOUT_MS } from '@/config/api';
 import settingsService, { type UserSettings, type SettingsUpdate } from '../settingsService';
 
@@ -65,7 +65,10 @@ describe('SettingsService', () => {
 
   describe('getSettings', () => {
     it('should get current settings successfully', async () => {
-      mockGet.mockResolvedValueOnce([mockSettings]);
+      // GET /api/settings answers a single object (SettingsResponse), not an
+      // array — the old array mocks matched the factory's wrong Promise<T[]>
+      // declaration, which getSettings had to cast around (#3977/#5637).
+      mockGet.mockResolvedValueOnce(mockSettings);
 
       const result = await settingsService.getSettings();
 
@@ -76,14 +79,20 @@ describe('SettingsService', () => {
       expect(result).toEqual(mockSettings);
     });
 
-    it('should throw when no settings are returned', async () => {
-      mockGet.mockResolvedValueOnce([]);
+    it('surfaces a boundary error when the wire shape is not settings (#5637)', async () => {
+      // The endpoint always answers one object; a drifted payload fails the
+      // list guard at the apiRequest boundary and the service propagates it
+      // (the old getSettings turned an array into a silent [] or 'No settings
+      // found' — the guessing the TList typing removed).
+      mockGet.mockRejectedValueOnce(
+        new APIRequestError('Unexpected response shape from /api/settings', 200)
+      );
 
-      await expect(settingsService.getSettings()).rejects.toThrow('No settings found');
+      await expect(settingsService.getSettings()).rejects.toThrow('Unexpected response shape');
     });
 
     it('should return valid settings structure', async () => {
-      mockGet.mockResolvedValueOnce([mockSettings]);
+      mockGet.mockResolvedValueOnce(mockSettings);
 
       const result = await settingsService.getSettings();
 
