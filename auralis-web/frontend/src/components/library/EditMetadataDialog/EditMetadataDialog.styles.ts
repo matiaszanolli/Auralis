@@ -26,6 +26,3 @@ export const AlertContainer = styled(Box)({
   mb: 2,
 });
 
-export const ContentBox = styled(Box)({
-  mt: 2,
-});

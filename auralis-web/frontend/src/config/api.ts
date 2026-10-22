@@ -45,14 +45,6 @@ export function getApiUrl(path: string): string {
 }
 
 /**
- * Get WebSocket URL
- */
-export function getWsUrl(path: string): string {
-  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-  return `${WS_BASE_URL}${normalizedPath}`;
-}
-
-/**
  * Common API endpoints
  * Use these constants instead of hardcoding endpoint strings
  */

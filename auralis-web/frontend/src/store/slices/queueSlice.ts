@@ -291,7 +291,6 @@ export const selectCurrentIndex = (state: { queue: QueueState }) => state.queue.
 export const selectIsShuffled = (state: { queue: QueueState }) => state.queue.isShuffled;
 export const selectRepeatMode = (state: { queue: QueueState }) => state.queue.repeatMode;
 // selectCurrentQueueTrack: use the memoized version from store/selectors/index.ts (#3382)
-export const selectQueueLength = (state: { queue: QueueState }) => state.queue.tracks.length;
 export const selectLastUpdated = (state: { queue: QueueState }) => state.queue.lastUpdated;
 // #5354: selectIsLoading/selectError and the isLoading/error state they read
 // were deleted — no production code ever dispatched the actions that would

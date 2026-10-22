@@ -10,8 +10,6 @@
  * - Button shadows: Hover/active state glows
  * - Card shadows: Card elevation and hover effects
  * - Container shadows: Search results, dropdowns, modals
- * - Focus shadows: Input focus rings
- * - Glow shadows: Aurora glow effects (purple)
  */
 
 import { tokens } from '@/design-system';
@@ -56,51 +54,4 @@ export const containerShadows = {
   dropdown: `0 8px 32px ${tokens.colors.opacityScale.dark.veryStrong}`,
   // Search results container shadow (same as results panel)
   resultsPanel: `0 8px 32px ${tokens.colors.opacityScale.dark.veryStrong}`,
-};
-
-/**
- * Focus shadow presets - Used for input focus states
- */
-export const focusShadows = {
-  // Input focus ring shadow (3px spread)
-  ring: `0 0 0 3px ${tokens.colors.opacityScale.accent.veryLight}`,
-  // Input glow on focus (12px blur)
-  glow: `0 0 12px ${tokens.colors.opacityScale.accent.strong}`,
-  // Strong focus glow (20px blur)
-  glowStrong: `0 0 20px ${tokens.colors.opacityScale.accent.veryStrong}`,
-};
-
-/**
- * Glow shadow presets - Used for aurora/ambient glow effects
- */
-export const glowShadows = {
-  // Aurora purple glow (medium)
-  purple: `0 8px 32px ${tokens.colors.opacityScale.accent.strong}`,
-  // Aurora purple glow (strong)
-  purpleStrong: `0 8px 32px ${tokens.colors.opacityScale.accent.veryStrong}`,
-  // Subtle ambient glow
-  subtle: `0 4px 12px ${tokens.colors.opacityScale.accent.strong}`,
-  // Strong ambient glow
-  strong: `0 4px 12px ${tokens.colors.opacityScale.accent.veryStrong}`,
-};
-
-/**
- * Notification shadow presets - Used for toasts, alerts, notifications
- */
-export const notificationShadows = {
-  // Toast/notification shadow (4px offset, 12px blur)
-  toast: `0 4px 12px ${tokens.colors.opacityScale.dark.strong}`,
-};
-
-/**
- * Compound shadow presets - Complex multi-layer shadows
- */
-// Compound shadows use auroraOpacity (accent #7366F0) instead of deprecated #667eea (fixes #2356).
-export const compoundShadows = {
-  // Player button shadow (large base + subtle top)
-  playerButton: `0 4px 16px ${tokens.colors.opacityScale.accent.standard}, 0 0 24px ${tokens.colors.opacityScale.accent.veryLight}`,
-  // Player button hover (large base + strong top)
-  playerButtonHover: `0 8px 24px ${tokens.colors.opacityScale.accent.strong}, 0 0 32px ${tokens.colors.opacityScale.accent.standard}`,
-  // Player container (negative Y for top-facing shadow)
-  playerContainer: `0 -8px 32px ${tokens.colors.opacityScale.accent.lighter}, 0 -2px 8px ${tokens.colors.opacityScale.accent.veryLight}`,
 };

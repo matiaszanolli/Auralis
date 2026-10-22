@@ -115,7 +115,7 @@ export function closeCurrentManager(): void {
  * tear it down. `pendingMeta` goes with it: an unpaired meta stashed just
  * before the drop can never meet its binary frame on the new socket (#4782).
  */
-export function resetStreamFrameTracking(): void {
+function resetStreamFrameTracking(): void {
   connState.pendingMeta = null;
   connState.expectedSeq = null;
   connState.seqStreamEpoch = null;

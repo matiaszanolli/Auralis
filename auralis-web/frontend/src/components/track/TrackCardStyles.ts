@@ -5,32 +5,8 @@
  */
 
 import { tokens } from '@/design-system';
-import { Card } from '@/design-system';
 import { Box, CardContent, styled } from '@mui/material';
 import { themeVars } from '@/theme/semanticTheme';
-
-export const StyledTrackCard = styled(Card, {
-  shouldForwardProp: (prop) => prop !== 'isPlaying',
-})<{ isPlaying?: boolean }>(({ isPlaying }) => ({
-  position: 'relative',
-  borderRadius: 12,
-  overflow: 'hidden',
-  cursor: 'pointer',
-  transition: tokens.transitions.state_inOut,
-  background: isPlaying ? themeVars.surfaceOverlay : themeVars.surfaceSecondary,
-  // Visual anchor for currently playing track - stronger elevation
-  boxShadow: isPlaying
-    ? `0 4px 16px ${tokens.colors.opacityScale.dark.strong}, 0 0 0 1px ${tokens.colors.accent.primary}40` // Elevated + subtle accent glow
-    : `0 2px 8px ${tokens.colors.opacityScale.dark.lighter}`, // Normal resting shadow
-  transform: isPlaying ? 'translateY(-2px)' : 'none', // Slight lift for playing track
-  '&:hover': {
-    transform: 'translateY(-4px)',
-    boxShadow: isPlaying
-      ? `0 8px 28px ${tokens.colors.opacityScale.dark.strong}, 0 0 0 1px ${tokens.colors.accent.primary}60` // Enhanced glow on hover
-      : `0 8px 24px ${tokens.colors.opacityScale.dark.strong}`,
-    background: themeVars.surfaceOverlay,
-  },
-}));
 
 export const ArtworkContainer = styled(Box)({
   position: 'relative',

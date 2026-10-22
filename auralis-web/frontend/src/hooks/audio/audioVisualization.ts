@@ -60,7 +60,7 @@ function setActive(isActive: boolean): void {
   for (const listener of [...isActiveListeners]) listener();
 }
 
-export function resetAudioVisualization(): void {
+function resetAudioVisualization(): void {
   Object.assign(data, makeDefaultVisualizationData());
   setActive(false);
 }

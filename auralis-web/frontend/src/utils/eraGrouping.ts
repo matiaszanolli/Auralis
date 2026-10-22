@@ -105,18 +105,3 @@ export function groupAlbumsByEra<T extends { id: number; year?: number }>(
   return eraGroups;
 }
 
-/**
- * Get era label for a single year
- *
- * @param year - Album year
- * @param eraSpan - Number of years per era (default: 5)
- * @returns Era label string
- */
-export function getEraLabel(year: number | undefined, eraSpan: number = DEFAULT_ERA_SPAN): string {
-  if (!year || year < 1900) {
-    return 'Unknown Year';
-  }
-  const startYear = getEraStart(year, eraSpan);
-  const endYear = startYear + eraSpan - 1;
-  return `${startYear} - ${endYear}`;
-}

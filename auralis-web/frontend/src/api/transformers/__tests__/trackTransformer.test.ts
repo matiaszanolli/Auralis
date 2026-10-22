@@ -2,9 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   transformTrack,
   transformTracks,
-  transformTracksResponse,
 } from '../trackTransformer';
-import type { TrackApiResponse, TracksApiResponse } from '../types';
+import type { TrackApiResponse } from '../types';
 import type { Track } from '@/types/domain';
 
 describe('trackTransformer', () => {
@@ -354,115 +353,6 @@ describe('trackTransformer', () => {
 
       expect(result).toHaveLength(1);
       expect(result[0].title).toBe('Solo Track');
-    });
-  });
-
-  describe('transformTracksResponse', () => {
-    it('should transform complete paginated response', () => {
-      const apiResponse: TracksApiResponse = {
-        tracks: [
-          {
-            id: 1,
-            title: 'Track 1',
-            artist: 'Artist 1',
-            album: 'Album 1',
-            duration: 180,
-            filepath: '/track1.mp3',
-            artwork_url: null,
-            genre: null,
-            year: null,
-            bitrate: null,
-            sample_rate: null,
-            bit_depth: null,
-            format: null,
-            loudness: null,
-            crest_factor: null,
-            centroid: null,
-            date_added: null,
-            date_modified: null,
-          },
-        ],
-        total: 500,
-        offset: 0,
-        limit: 100,
-        has_more: true,
-      };
-
-      const result = transformTracksResponse(apiResponse);
-
-      expect(result.tracks).toHaveLength(1);
-      expect(result.total).toBe(500);
-      expect(result.offset).toBe(0);
-      expect(result.limit).toBe(100);
-      expect(result.hasMore).toBe(true);
-    });
-
-    it('should handle last page (has_more false)', () => {
-      const apiResponse: TracksApiResponse = {
-        tracks: [],
-        total: 100,
-        offset: 100,
-        limit: 100,
-        has_more: false,
-      };
-
-      const result = transformTracksResponse(apiResponse);
-
-      expect(result.tracks).toEqual([]);
-      expect(result.hasMore).toBe(false);
-    });
-
-    it('should convert snake_case pagination fields to camelCase', () => {
-      const apiResponse: TracksApiResponse = {
-        tracks: [],
-        total: 0,
-        offset: 0,
-        limit: 100,
-        has_more: false,
-      };
-
-      const result = transformTracksResponse(apiResponse);
-
-      // Verify camelCase conversion
-      expect(result).toHaveProperty('hasMore');
-      expect(result).not.toHaveProperty('has_more');
-    });
-
-    it('should preserve pagination metadata', () => {
-      const apiResponse: TracksApiResponse = {
-        tracks: [
-          {
-            id: 1,
-            title: 'Test',
-            artist: 'Test',
-            album: 'Test',
-            duration: 100,
-            filepath: '/test.mp3',
-            artwork_url: null,
-            genre: null,
-            year: null,
-            bitrate: null,
-            sample_rate: null,
-            bit_depth: null,
-            format: null,
-            loudness: null,
-            crest_factor: null,
-            centroid: null,
-            date_added: null,
-            date_modified: null,
-          },
-        ],
-        total: 5000,
-        offset: 500,
-        limit: 100,
-        has_more: true,
-      };
-
-      const result = transformTracksResponse(apiResponse);
-
-      expect(result.total).toBe(5000);
-      expect(result.offset).toBe(500);
-      expect(result.limit).toBe(100);
     });
   });
 

@@ -253,7 +253,6 @@ export const selectDuration = (state: { player: PlayerState }) => state.player.d
 export const selectVolume = (state: { player: PlayerState }) => state.player.volume;
 export const selectIsMuted = (state: { player: PlayerState }) => state.player.isMuted;
 export const selectPreset = (state: { player: PlayerState }) => state.player.preset;
-export const selectPlayerState = (state: { player: PlayerState }) => state.player;
 
 // #5354: selectIsLoading/selectError and the isLoading/error state they read
 // were deleted — no production code ever dispatched the actions that would

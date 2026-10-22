@@ -1,5 +1,5 @@
 import { styled } from '@mui/material/styles';
-import { Paper, Box } from '@mui/material';
+import { Paper } from '@mui/material';
 import { tokens } from '@/design-system';
 
 export const ListViewContainer = styled(Paper)(({ theme }) => ({
@@ -9,9 +9,3 @@ export const ListViewContainer = styled(Paper)(({ theme }) => ({
   padding: tokens.spacing.sm,
 }));
 
-export const TrackItemWrapper = styled(Box)({
-  animation: 'fadeInLeft 0.5s ease-out forwards',
-  '&:not(:last-child)': {
-    marginBottom: 0,
-  },
-});

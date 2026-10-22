@@ -2,9 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   transformArtist,
   transformArtists,
-  transformArtistsResponse,
 } from '../artistTransformer';
-import type { ArtistApiResponse, ArtistsApiResponse } from '../types';
+import type { ArtistApiResponse } from '../types';
 import type { Artist } from '@/types/domain';
 
 describe('artistTransformer', () => {
@@ -154,91 +153,6 @@ describe('artistTransformer', () => {
 
       expect(result).toHaveLength(1);
       expect(result[0].name).toBe('Solo Artist');
-    });
-  });
-
-  describe('transformArtistsResponse', () => {
-    it('should transform complete paginated response', () => {
-      const apiResponse: ArtistsApiResponse = {
-        artists: [
-          {
-            id: 1,
-            name: 'Artist 1',
-            artwork_url: '/art1.jpg',
-            track_count: 50,
-            album_count: 5,
-            created_at: '2023-01-01T00:00:00Z',
-          },
-        ],
-        total: 200,
-        offset: 0,
-        limit: 50,
-        has_more: true,
-      };
-
-      const result = transformArtistsResponse(apiResponse);
-
-      expect(result.artists).toHaveLength(1);
-      expect(result.total).toBe(200);
-      expect(result.offset).toBe(0);
-      expect(result.limit).toBe(50);
-      expect(result.hasMore).toBe(true);
-    });
-
-    it('should handle last page (has_more false)', () => {
-      const apiResponse: ArtistsApiResponse = {
-        artists: [],
-        total: 50,
-        offset: 50,
-        limit: 50,
-        has_more: false,
-      };
-
-      const result = transformArtistsResponse(apiResponse);
-
-      expect(result.artists).toEqual([]);
-      expect(result.hasMore).toBe(false);
-    });
-
-    it('should convert snake_case pagination fields to camelCase', () => {
-      const apiResponse: ArtistsApiResponse = {
-        artists: [],
-        total: 0,
-        offset: 0,
-        limit: 50,
-        has_more: false,
-      };
-
-      const result = transformArtistsResponse(apiResponse);
-
-      // Verify camelCase conversion
-      expect(result).toHaveProperty('hasMore');
-      expect(result).not.toHaveProperty('has_more');
-    });
-
-    it('should preserve pagination metadata', () => {
-      const apiResponse: ArtistsApiResponse = {
-        artists: [
-          {
-            id: 1,
-            name: 'Test',
-            artwork_url: null,
-            track_count: 1,
-            album_count: 1,
-            created_at: null,
-          },
-        ],
-        total: 1000,
-        offset: 300,
-        limit: 100,
-        has_more: true,
-      };
-
-      const result = transformArtistsResponse(apiResponse);
-
-      expect(result.total).toBe(1000);
-      expect(result.offset).toBe(300);
-      expect(result.limit).toBe(100);
     });
   });
 

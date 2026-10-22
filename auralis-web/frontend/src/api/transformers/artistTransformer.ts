@@ -4,7 +4,7 @@
  * Transforms backend API artist data (snake_case) to frontend domain models (camelCase).
  */
 
-import type { ArtistApiResponse, ArtistsApiResponse, ArtistDetailApiResponse } from './types';
+import type { ArtistApiResponse, ArtistDetailApiResponse } from './types';
 import type { Artist } from '@/types/domain';
 
 /**
@@ -39,19 +39,6 @@ export function transformArtist(apiArtist: ArtistApiResponse): Artist {
  */
 export function transformArtists(apiArtists: ArtistApiResponse[]): Artist[] {
   return apiArtists.map(transformArtist);
-}
-
-/**
- * Transform complete artists API response (with pagination)
- */
-export function transformArtistsResponse(apiResponse: ArtistsApiResponse) {
-  return {
-    artists: transformArtists(apiResponse.artists),
-    total: apiResponse.total,
-    offset: apiResponse.offset,
-    limit: apiResponse.limit,
-    hasMore: apiResponse.has_more, // snake → camel
-  };
 }
 
 /**

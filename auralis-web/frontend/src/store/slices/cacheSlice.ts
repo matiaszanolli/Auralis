@@ -115,9 +115,6 @@ export const {
 // Selectors
 export const selectCacheStats = (state: { cache: CacheState }) => state.cache.stats;
 export const selectCacheHealth = (state: { cache: CacheState }) => state.cache.health;
-export const selectIsHealthy = (state: { cache: CacheState }) =>
-  state.cache.health?.healthy ?? false;
-
 // #5354: selectIsLoading/selectError and the isLoading/error state they read
 // were deleted — no production code ever dispatched the actions that would
 // change them, so they could never leave their initial values.

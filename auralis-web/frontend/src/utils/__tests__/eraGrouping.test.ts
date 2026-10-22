@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { groupAlbumsByEra, getEraLabel } from '../eraGrouping';
+import { groupAlbumsByEra } from '../eraGrouping';
 
 const album = (id: number, year?: number) => ({ id, year });
 
@@ -83,21 +83,4 @@ describe('eraGrouping', () => {
     });
   });
 
-  describe('getEraLabel', () => {
-    it('should return era label for a valid year', () => {
-      expect(getEraLabel(2023)).toBe('2020 - 2024');
-    });
-
-    it('should return Unknown Year for undefined', () => {
-      expect(getEraLabel(undefined)).toBe('Unknown Year');
-    });
-
-    it('should return Unknown Year for year < 1900', () => {
-      expect(getEraLabel(1800)).toBe('Unknown Year');
-    });
-
-    it('should support custom era span', () => {
-      expect(getEraLabel(2023, 10)).toBe('2020 - 2029');
-    });
-  });
 });

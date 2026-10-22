@@ -4,7 +4,7 @@
  * Transforms backend API track data (snake_case) to frontend domain models (camelCase).
  */
 
-import type { TrackApiResponse, TracksApiResponse } from './types';
+import type { TrackApiResponse } from './types';
 import type { Track } from '@/types/domain';
 
 /**
@@ -75,15 +75,3 @@ export function transformTracks(apiTracks: TrackApiResponse[]): Track[] {
   return apiTracks.map(transformTrack);
 }
 
-/**
- * Transform complete tracks API response (with pagination)
- */
-export function transformTracksResponse(apiResponse: TracksApiResponse) {
-  return {
-    tracks: transformTracks(apiResponse.tracks),
-    total: apiResponse.total,
-    offset: apiResponse.offset,
-    limit: apiResponse.limit,
-    hasMore: apiResponse.has_more, // snake → camel
-  };
-}

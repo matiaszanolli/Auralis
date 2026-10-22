@@ -193,28 +193,4 @@ export function formatSecondToTime(seconds: number, showHours = false): string {
   return formatTime(seconds, showHours);
 }
 
-/**
- * Calculate progress percentage
- * Can be used outside of React hooks
- */
-export function calculateProgressPercentage(
-  currentTime: number,
-  duration: number
-): number {
-  if (!Number.isFinite(duration) || duration <= 0) {
-    return 0;
-  }
-  const percentage = (currentTime / duration) * 100;
-  return Math.min(Math.max(percentage, 0), 100);
-}
-
-/**
- * Format buffered percentage for display
- * Can be used outside of React hooks
- */
-export function formatBufferedPercentage(bufferedPercentage: number): string {
-  const clamped = Math.min(Math.max(bufferedPercentage, 0), 100);
-  return `${Math.round(clamped)}%`;
-}
-
 export default usePlayerDisplay;

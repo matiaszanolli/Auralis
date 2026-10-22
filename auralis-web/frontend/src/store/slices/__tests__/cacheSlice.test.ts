@@ -11,7 +11,6 @@ import reducer, {
   resetCache,
   selectCacheStats,
   selectCacheHealth,
-  selectIsHealthy,
 } from '../cacheSlice';
 import type { CacheState } from '../cacheSlice';
 import type { CacheStats, CacheHealth } from '@/services/api/standardizedAPIClient';
@@ -124,12 +123,6 @@ describe('cacheSlice', () => {
 
     expect(selectCacheStats(root)).toEqual(mockStats);
     expect(selectCacheHealth(root)).toEqual(mockHealth);
-  });
-
-  it('selectIsHealthy derives from health.healthy', () => {
-    expect(selectIsHealthy({ cache: { ...initialState, health: mockHealth } })).toBe(true);
-    expect(selectIsHealthy({ cache: { ...initialState, health: { ...mockHealth, healthy: false } } })).toBe(false);
-    expect(selectIsHealthy({ cache: initialState })).toBe(false); // null health
   });
 
 });

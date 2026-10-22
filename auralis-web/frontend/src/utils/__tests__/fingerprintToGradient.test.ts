@@ -3,7 +3,6 @@ import {
   AudioFingerprint,
   fingerprintToGradient,
   fingerprintToGradientSafe,
-  computeMedianFingerprint,
 } from '../fingerprintToGradient';
 
 /** Minimal valid fingerprint with all required fields */
@@ -106,52 +105,4 @@ describe('fingerprintToGradient', () => {
     });
   });
 
-  describe('computeMedianFingerprint', () => {
-    it('should throw on empty array', () => {
-      expect(() => computeMedianFingerprint([])).toThrow('Cannot compute median of empty fingerprint array');
-    });
-
-    it('should return the single element for array of length 1', () => {
-      const result = computeMedianFingerprint([baseFp]);
-      expect(result).toBe(baseFp);
-    });
-
-    it('should compute median for odd-length array', () => {
-      const fps = [fp({ lufs: -30 }), fp({ lufs: -20 }), fp({ lufs: -10 })];
-      const result = computeMedianFingerprint(fps);
-      expect(result.lufs).toBe(-20);
-    });
-
-    it('should compute average of two middle values for even-length array', () => {
-      const fps = [fp({ lufs: -30 }), fp({ lufs: -20 }), fp({ lufs: -10 }), fp({ lufs: 0 })];
-      const result = computeMedianFingerprint(fps);
-      expect(result.lufs).toBe(-15);
-    });
-
-    it('should compute median independently per dimension', () => {
-      const fps = [
-        fp({ bass: 0.1, mid: 0.9 }),
-        fp({ bass: 0.5, mid: 0.5 }),
-        fp({ bass: 0.9, mid: 0.1 }),
-      ];
-      const result = computeMedianFingerprint(fps);
-      expect(result.bass).toBe(0.5);
-      expect(result.mid).toBe(0.5);
-    });
-
-    it('should include all 18 required dimensions in result', () => {
-      const result = computeMedianFingerprint([baseFp, baseFp]);
-      const requiredKeys: (keyof AudioFingerprint)[] = [
-        'sub_bass', 'bass', 'low_mid', 'mid', 'upper_mid', 'presence', 'air',
-        'lufs', 'crest_db', 'bass_mid_ratio',
-        'spectral_centroid', 'spectral_rolloff', 'spectral_flatness',
-        'harmonic_ratio', 'pitch_confidence', 'chroma_energy_mean',
-        'stereo_width', 'stereo_correlation',
-      ];
-      for (const key of requiredKeys) {
-        expect(result).toHaveProperty(key);
-        expect(typeof result[key]).toBe('number');
-      }
-    });
-  });
 });

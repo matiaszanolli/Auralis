@@ -78,15 +78,3 @@ export function formatHoursMinutes(seconds: number, style: 'short' | 'long' = 's
   const [h, m] = style === 'long' ? [' hr', ' min'] : ['h', 'm'];
   return hours > 0 ? `${hours}${h} ${mins}${m}` : `${mins}${m}`;
 }
-
-/**
- * Get percentage of progress through a track
- * @param current Current time in seconds
- * @param total Total duration in seconds
- * @returns Percentage as 0-100
- * @example getProgress(30, 120) // 25
- */
-export function getProgress(current: number, total: number): number {
-  if (total <= 0) return 0;
-  return Math.min(100, (current / total) * 100);
-}

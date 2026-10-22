@@ -429,8 +429,11 @@ export function transformTracks(apiTracks: TrackApiResponse[]): Track[] {
 
 ### Handling Pagination
 
+An illustrative pattern (there is no shared `transformTracksResponse`; the query
+hooks map the pagination envelope themselves):
+
 ```typescript
-export function transformTracksResponse(apiResponse: TracksApiResponse) {
+function toTracksPage(apiResponse: TracksApiResponse) {
   return {
     tracks: transformTracks(apiResponse.tracks),
     total: apiResponse.total,
@@ -547,9 +550,7 @@ src/
 │   └── domain.ts                     # Domain models (camelCase)
 ├── hooks/
 │   └── library/
-│       ├── useInfiniteAlbums.ts      # Uses transformAlbumsResponse
-│       ├── useInfiniteArtists.ts     # Uses transformArtistsResponse
-│       └── useInfiniteTracks.ts      # Uses transformTracksResponse
+│       └── useInfiniteAlbums.ts      # Uses transformAlbumsResponse
 └── components/
     └── library/
         └── Items/

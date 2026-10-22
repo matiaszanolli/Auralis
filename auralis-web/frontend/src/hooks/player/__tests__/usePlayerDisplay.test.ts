@@ -20,8 +20,6 @@ import { describe, it, expect } from 'vitest';
 import {
   usePlayerDisplay,
   formatSecondToTime,
-  calculateProgressPercentage,
-  formatBufferedPercentage,
 } from '../usePlayerDisplay';
 
 describe('usePlayerDisplay Hook', () => {
@@ -478,26 +476,6 @@ describe('usePlayerDisplay Hook', () => {
       expect(formatSecondToTime(90, true)).toBe('0:01:30');
     });
 
-    it('should calculate progress percentage', () => {
-      expect(calculateProgressPercentage(50, 100)).toBe(50);
-      expect(calculateProgressPercentage(0, 100)).toBe(0);
-      expect(calculateProgressPercentage(100, 100)).toBe(100);
-      expect(calculateProgressPercentage(150, 100)).toBe(100); // Clamped
-    });
-
-    it('should handle zero duration in progress', () => {
-      expect(calculateProgressPercentage(50, 0)).toBe(0);
-      expect(calculateProgressPercentage(50, Infinity)).toBe(0);
-    });
-
-    it('should format buffered percentage', () => {
-      expect(formatBufferedPercentage(50)).toBe('50%');
-      expect(formatBufferedPercentage(0)).toBe('0%');
-      expect(formatBufferedPercentage(100)).toBe('100%');
-      expect(formatBufferedPercentage(33.7)).toBe('34%'); // Rounded
-      expect(formatBufferedPercentage(-50)).toBe('0%'); // Clamped
-      expect(formatBufferedPercentage(150)).toBe('100%'); // Clamped
-    });
   });
 
   describe('Edge Cases', () => {
