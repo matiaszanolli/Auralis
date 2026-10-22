@@ -25,6 +25,7 @@ from .player_deps import (
 )
 from .player_models import (
     AddTrackToQueueRequest,
+    AddTracksToQueueRequest,
     MoveQueueTrackRequest,
     ReorderQueueRequest,
     RepeatModeRequest,
@@ -97,6 +98,22 @@ async def add_track_to_queue(
         return await service.add_track_to_queue(request.track_id, request.position)
     except ValueError as e:
         raise_for_service_error(e, "add track to queue")
+
+
+@with_error_handling("add tracks to queue")
+async def add_tracks_to_queue(
+    request: AddTracksToQueueRequest,
+    service: QueueService = Depends(_get_queue_service),
+) -> dict[str, Any]:
+    """Add multiple tracks to the queue in selection order (#5651).
+
+    One atomic append + one `queue_changed` broadcast, unlike N single-add
+    requests whose append order raced their DB lookups.
+    """
+    try:
+        return await service.add_tracks_to_queue(request.track_ids)
+    except ValueError as e:
+        raise_for_service_error(e, "add tracks to queue")
 
 
 @with_error_handling("move track")

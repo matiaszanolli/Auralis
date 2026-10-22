@@ -38,6 +38,10 @@ class QueueManager(Protocol):
         """Append an item to the queue."""
         ...
 
+    def add_tracks(self, items: list[dict[str, Any]]) -> None:
+        """Append several items in list order (#5651 batch add)."""
+        ...
+
     def insert_track(self, index: int, item: dict[str, Any]) -> int:
         """Insert an item and return its normalized position."""
         ...

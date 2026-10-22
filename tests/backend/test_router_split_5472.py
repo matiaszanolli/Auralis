@@ -30,6 +30,7 @@ PLAYER_ROUTES = [
     ("/api/player/queue/reorder", "PUT", "reorder_queue"),
     ("/api/player/queue/clear", "POST", "clear_queue"),
     ("/api/player/queue/add-track", "POST", "add_track_to_queue"),
+    ("/api/player/queue/add-tracks", "POST", "add_tracks_to_queue"),
     ("/api/player/queue/move", "PUT", "move_queue_track"),
     ("/api/player/queue/shuffle", "POST", "shuffle_queue"),
     ("/api/player/queue/repeat", "POST", "set_repeat_mode"),

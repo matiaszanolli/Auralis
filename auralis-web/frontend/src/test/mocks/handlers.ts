@@ -812,6 +812,19 @@ export const handlers = [
     });
   }),
 
+  http.post(`${API_RELATIVE}/player/queue/add-tracks`, async ({ request }) => {
+    const body = await request.json();
+    await delay(100);
+    const requested: number[] = (body as any).track_ids ?? [];
+    return HttpResponse.json({
+      success: true,
+      message: `Added ${requested.length} track(s) to queue`,
+      added_count: requested.length,
+      requested_count: requested.length,
+      queue_size: 5 + requested.length
+    });
+  }),
+
   // Library endpoints - relative paths
   http.get(`${API_RELATIVE}/library/tracks`, async ({ request }) => {
     const url = new URL(request.url);

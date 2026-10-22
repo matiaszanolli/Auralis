@@ -3,6 +3,7 @@ import { post, del } from '@/utils/apiRequest';
 import { ENDPOINTS } from '@/config/api';
 import { useToast } from '@/components/shared/Toast';
 import { addTracksToPlaylist } from '@/services/playlistService';
+import { addTracksToQueue } from '@/services/queueService';
 
 interface UseBatchOperationsProps {
   selectedTracks: Set<number>;
@@ -73,17 +74,32 @@ export const useBatchOperations = ({
 
   const handleBulkAddToQueue = useCallback(() => runExclusive(async () => {
     const trackIds = Array.from(selectedTracks);
-    const results = await Promise.allSettled(
-      trackIds.map(trackId => post(ENDPOINTS.QUEUE_ADD_TRACK, { track_id: trackId }))
-    );
+    // #5651: one batch request, not N concurrent single-adds. Each single-add
+    // awaited its DB lookup before taking the engine lock, so N parallel
+    // requests appended in thread-pool completion order — the queue order was
+    // not the selection order — and broadcast N whole-queue updates. The
+    // batch endpoint appends in `trackIds` order under one lock, one
+    // broadcast. Order still matters for favorites/remove, so those keep
+    // their fan-out.
+    if (trackIds.length === 0) {
+      onClearSelection();
+      return;
+    }
 
-    reportBatchResult(
-      results,
-      n => `Added ${n} track${n !== 1 ? 's' : ''} to queue`,
-      'Failed to add tracks to queue',
-      success,
-      error
-    );
+    let result: Awaited<ReturnType<typeof addTracksToQueue>>;
+    try {
+      result = await addTracksToQueue(trackIds);
+    } catch {
+      error('Failed to add tracks to queue');
+      return;
+    }
+
+    const skipped = result.requested_count - result.added_count;
+    if (skipped > 0) {
+      error(`Added ${result.added_count} track${result.added_count !== 1 ? 's' : ''} to queue — ${skipped} not found`);
+    } else {
+      success(`Added ${result.added_count} track${result.added_count !== 1 ? 's' : ''} to queue`);
+    }
 
     onClearSelection();
   }), [runExclusive, selectedTracks, onClearSelection, success, error]);

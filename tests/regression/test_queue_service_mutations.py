@@ -170,3 +170,55 @@ async def test_queue_changed_omits_tracks_when_hydration_fails():
     payload = service.connection_manager.broadcast.await_args.args[0]['data']
     assert 'tracks' not in payload
     assert payload['current_index'] == 0
+
+
+@pytest.mark.regression
+@pytest.mark.asyncio
+async def test_batch_add_appends_in_selection_order_with_one_broadcast():
+    """#5651: N concurrent single-add requests each resolved their DB lookup
+    via asyncio.to_thread before taking the engine lock, so appends landed in
+    thread-pool completion order — not selection order — with one whole-queue
+    broadcast per track. The batch endpoint resolves every track in one
+    offloaded pass and appends under a single lock, so [3, 1, 2] lands as
+    [3, 1, 2] with exactly one `queue_changed` broadcast."""
+    service, queue, _ = _build_service([1, 2, 3])
+    queue.set_queue([], start_index=0)
+
+    result = await service.add_tracks_to_queue([3, 1, 2])
+
+    assert [track['id'] for track in queue.get_queue()] == [3, 1, 2]
+    assert result['added_count'] == 3
+    assert result['requested_count'] == 3
+    assert result['queue_size'] == 3
+    assert service.connection_manager.broadcast.await_count == 1
+    payload = service.connection_manager.broadcast.await_args.args[0]['data']
+    assert payload['action'] == 'added'
+    assert payload['queue_size'] == 3
+
+
+@pytest.mark.regression
+@pytest.mark.asyncio
+async def test_batch_add_skips_missing_tracks_and_reports_counts():
+    """Same skip-missing contract as the playlist batch add: a track removed
+    by a scan between selection and submit is dropped, not a batch failure."""
+    service, queue, _ = _build_service([1, 2])
+    queue.set_queue([], start_index=0)
+
+    result = await service.add_tracks_to_queue([1, 99, 2])
+
+    assert [track['id'] for track in queue.get_queue()] == [1, 2]
+    assert result['added_count'] == 2
+    assert result['requested_count'] == 3
+    assert service.connection_manager.broadcast.await_count == 1
+
+
+@pytest.mark.regression
+@pytest.mark.asyncio
+async def test_batch_add_rejects_an_empty_selection():
+    """An empty batch is a caller bug, not a silent success."""
+    service, _, _ = _build_service([1])
+
+    with pytest.raises(Exception):
+        await service.add_tracks_to_queue([])
+
+    service.connection_manager.broadcast.assert_not_awaited()

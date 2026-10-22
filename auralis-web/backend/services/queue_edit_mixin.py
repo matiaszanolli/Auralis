@@ -97,6 +97,91 @@ class QueueEditMixin(QueueServiceBase):
             logger.error(f"Failed to add track to queue: {e}")
             raise
 
+    async def add_tracks_to_queue(self, track_ids: list[int]) -> dict[str, Any]:
+        """
+        Add multiple tracks to the queue, appending in the order given.
+
+        Batch equivalent of `add_track_to_queue` used by the library's bulk
+        "Add to queue" (#5651). Firing N single-add requests races their
+        `asyncio.to_thread` DB lookups, so tracks appended in thread-pool
+        completion order rather than selection order, and each request
+        broadcast its own whole-queue `queue_changed`. Here the tracks are
+        resolved in one offloaded batch and appended under a single engine
+        lock with one broadcast.
+
+        Missing tracks (removed by a scan between selection and submit) are
+        skipped rather than failing the batch — same contract as the
+        playlist batch add.
+
+        Args:
+            track_ids: Ordered track IDs to append.
+
+        Returns:
+            dict: Counts and updated queue size.
+
+        Raises:
+            ServiceUnavailable: If the queue manager or library is unavailable.
+            InvalidRequest: If track_ids is empty.
+            ResourceNotFound: If no requested track exists.
+        """
+        if not self.audio_player or not hasattr(self.audio_player, 'queue'):
+            raise ServiceUnavailable("Queue manager not available")
+        if not self.library_database:
+            raise ServiceUnavailable("Library manager not available")
+        if not track_ids:
+            raise InvalidRequest("track_ids must not be empty")
+
+        try:
+            tracks_db = self.library_database.tracks
+
+            def resolve() -> list[dict[str, Any]]:
+                # Sequential inside one worker thread: order is the request's
+                # order by construction, unlike N concurrent to_thread calls.
+                found = []
+                for track_id in track_ids:
+                    track = tracks_db.get_by_id(track_id)
+                    if track:
+                        found.append({'id': track.id, 'filepath': track.filepath})
+                return found
+
+            track_infos = await asyncio.to_thread(resolve)
+            if not track_infos:
+                raise ResourceNotFound("None of the requested tracks were found")
+
+            queue_manager = self.audio_player.queue
+
+            # #5320: invalidate any in-flight set_queue request before
+            # mutating the engine, and serialize the mutation itself against
+            # set_queue's own engine section — see
+            # QueueServiceBase._invalidate_set_queue_generation.
+            await self._invalidate_set_queue_generation()
+            async with self._set_queue_engine_lock:
+                # QueueController.add_tracks appends in list order.
+                await asyncio.to_thread(queue_manager.add_tracks, track_infos)
+
+                # Get updated queue for broadcasting
+                updated_queue = await asyncio.to_thread(queue_manager.get_queue)
+
+            # One broadcast for the whole batch (#5651) — N single-adds
+            # produced N whole-queue broadcasts each.
+            await self._broadcast_queue_changed(
+                action="added",
+                queue_size=len(updated_queue),
+            )
+
+            added = len(track_infos)
+            logger.info(f"Added {added} track(s) to queue ({len(track_ids)} requested)")
+            return {
+                "message": f"Added {added} track(s) to queue",
+                "added_count": added,
+                "requested_count": len(track_ids),
+                "queue_size": len(updated_queue),
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to add tracks to queue: {e}")
+            raise
+
     async def remove_track_from_queue(self, index: int) -> dict[str, Any]:
         """
         Remove track from queue at specified index.

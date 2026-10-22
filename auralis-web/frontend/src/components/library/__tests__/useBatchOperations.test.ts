@@ -59,10 +59,22 @@ describe('useBatchOperations', () => {
   });
 
   describe('handleBulkAddToQueue', () => {
-    it('should add all selected tracks to queue', async () => {
+    it('sends one batch request carrying the selection in order (#5651)', async () => {
+      const bodies: Array<{ track_ids: number[] }> = [];
+      server.use(
+        http.post('/api/player/queue/add-tracks', async ({ request }) => {
+          bodies.push(await request.json() as { track_ids: number[] });
+          return HttpResponse.json({
+            added_count: 3,
+            requested_count: 3,
+            queue_size: 8,
+          });
+        })
+      );
+
       const { result } = renderHook(() =>
         useBatchOperations({
-          selectedTracks: new Set([1, 2, 3]),
+          selectedTracks: new Set([7, 2, 9]),
           selectedCount: 3,
           onFetchTracks: mockOnFetchTracks,
           onClearSelection: mockOnClearSelection,
@@ -73,8 +85,10 @@ describe('useBatchOperations', () => {
         await result.current.handleBulkAddToQueue();
       });
 
-      // Verify tracks were added (MSW default handler returns success)
-      expect(mockOnClearSelection).toHaveBeenCalled();
+      // Exactly one request — not one per track — and its payload preserves
+      // the selection order the backend must append in.
+      expect(bodies).toEqual([{ track_ids: [7, 2, 9] }]);
+      expect(mockOnClearSelection).toHaveBeenCalledTimes(1);
     });
 
     it('should show success toast', async () => {
@@ -101,6 +115,42 @@ describe('useBatchOperations', () => {
       });
 
       expect(mockToastSuccess).toHaveBeenCalledWith('Added 2 tracks to queue');
+    });
+
+    it('should report skipped tracks when the backend adds fewer than requested', async () => {
+      const mockToastError = vi.fn();
+      vi.mocked(useToast).mockReturnValue({
+        showToast: vi.fn(),
+        success: vi.fn(),
+        error: mockToastError,
+        info: vi.fn(),
+        warning: vi.fn(),
+      });
+
+      server.use(
+        http.post('/api/player/queue/add-tracks', () => {
+          return HttpResponse.json({
+            added_count: 1,
+            requested_count: 2,
+            queue_size: 6,
+          });
+        })
+      );
+
+      const { result } = renderHook(() =>
+        useBatchOperations({
+          selectedTracks: new Set([1, 2]),
+          selectedCount: 2,
+          onFetchTracks: mockOnFetchTracks,
+          onClearSelection: mockOnClearSelection,
+        })
+      );
+
+      await act(async () => {
+        await result.current.handleBulkAddToQueue();
+      });
+
+      expect(mockToastError).toHaveBeenCalledWith('Added 1 track to queue — 1 not found');
     });
 
     it('should clear selection after adding', async () => {
@@ -132,7 +182,7 @@ describe('useBatchOperations', () => {
 
       // Override handler to simulate error
       server.use(
-        http.post('/api/player/queue/add-track', () => {
+        http.post('/api/player/queue/add-tracks', () => {
           return HttpResponse.error();
         })
       );
@@ -154,16 +204,16 @@ describe('useBatchOperations', () => {
     });
 
     it('is a no-op when re-entered while a batch is already in flight (#4443)', async () => {
-      // Count how many add-track requests actually reach the server, and hold
+      // Count how many batch requests actually reach the server, and hold
       // them open until we release, so both handler calls overlap in flight.
-      let addTrackCalls = 0;
+      let batchCalls = 0;
       let release!: () => void;
       const gate = new Promise<void>((resolve) => { release = resolve; });
       server.use(
-        http.post('/api/player/queue/add-track', async () => {
-          addTrackCalls += 1;
+        http.post('/api/player/queue/add-tracks', async () => {
+          batchCalls += 1;
           await gate;
-          return HttpResponse.json({ success: true });
+          return HttpResponse.json({ added_count: 3, requested_count: 3, queue_size: 8 });
         })
       );
 
@@ -181,13 +231,13 @@ describe('useBatchOperations', () => {
       await act(async () => {
         const first = handler();   // starts the batch, sets the in-flight guard
         const second = handler();  // re-entrant → must short-circuit to a no-op
-        release();                 // let the in-flight requests complete
+        release();                 // let the in-flight request complete
         await Promise.all([first, second]);
       });
 
-      // Exactly one batch of 3 requests fired — not 6 — and the selection was
+      // Exactly one batch request fired — not two — and the selection was
       // cleared once, not twice.
-      expect(addTrackCalls).toBe(3);
+      expect(batchCalls).toBe(1);
       expect(mockOnClearSelection).toHaveBeenCalledTimes(1);
     });
   });

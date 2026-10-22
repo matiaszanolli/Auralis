@@ -46,6 +46,16 @@ class AddTrackToQueueRequest(BaseModel):
     position: QueueIndex | None = None  # None = append to end
 
 
+class AddTracksToQueueRequest(BaseModel):
+    """Request model for the bulk queue add (#5651).
+
+    ``track_ids`` is order-significant: the service appends in exactly this
+    order under one engine lock, unlike N single-add requests whose appends
+    land in thread-pool completion order.
+    """
+    track_ids: TrackIdList
+
+
 class LoadTrackRequest(BaseModel):
     """Request model for loading a track"""
     track_id: TrackId
@@ -173,6 +183,14 @@ class AddTrackToQueueResponse(BaseModel):
     message: str
     track_id: int
     position: int | None
+    queue_size: int
+
+
+class AddTracksToQueueResponse(BaseModel):
+    """Response for POST /api/player/queue/add-tracks."""
+    message: str
+    added_count: int
+    requested_count: int
     queue_size: int
 
 

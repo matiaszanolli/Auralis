@@ -68,6 +68,7 @@ export const ENDPOINTS = {
   QUEUE: '/api/player/queue',
   QUEUE_TRACK: (index: number) => `/api/player/queue/${index}`,
   QUEUE_ADD_TRACK: '/api/player/queue/add-track',
+  QUEUE_ADD_TRACKS: '/api/player/queue/add-tracks',
   QUEUE_REORDER: '/api/player/queue/reorder',
   QUEUE_SHUFFLE: '/api/player/queue/shuffle',
   QUEUE_CLEAR: '/api/player/queue/clear',

@@ -42,6 +42,8 @@ from .player_deps import (  # noqa: F401
 from .player_models import (  # noqa: F401
     AddTrackToQueueRequest,
     AddTrackToQueueResponse,
+    AddTracksToQueueRequest,
+    AddTracksToQueueResponse,
     LoadTrackRequest,
     LoadTrackResponse,
     MessageResponse,
@@ -70,6 +72,7 @@ from .player_playback import (
 )
 from .player_queue import (
     add_track_to_queue,
+    add_tracks_to_queue,
     clear_queue,
     get_queue,
     move_queue_track,
@@ -134,6 +137,7 @@ def create_player_router(
     router.add_api_route("/api/player/queue/reorder", reorder_queue, methods=["PUT"], response_model=QueueSizeResponse)
     router.add_api_route("/api/player/queue/clear", clear_queue, methods=["POST"], response_model=MessageResponse)
     router.add_api_route("/api/player/queue/add-track", add_track_to_queue, methods=["POST"], response_model=AddTrackToQueueResponse)
+    router.add_api_route("/api/player/queue/add-tracks", add_tracks_to_queue, methods=["POST"], response_model=AddTracksToQueueResponse)
     router.add_api_route("/api/player/queue/move", move_queue_track, methods=["PUT"], response_model=MoveQueueTrackResponse)
     router.add_api_route("/api/player/queue/shuffle", shuffle_queue, methods=["POST"], response_model=QueueSizeResponse)
     router.add_api_route("/api/player/queue/repeat", set_repeat_mode, methods=["POST"], response_model=MessageResponse)
