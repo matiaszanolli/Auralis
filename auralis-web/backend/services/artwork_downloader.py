@@ -222,7 +222,7 @@ class ArtworkDownloader:
             session = self._get_session()
             # Search for release
             search_url = f"{self.musicbrainz_api}/release/"
-            params = {
+            params: dict[str, str | int] = {
                 "query": f'artist:"{artist}" AND release:"{album}"',
                 "fmt": "json",
                 "limit": 1
@@ -233,7 +233,7 @@ class ArtworkDownloader:
 
             async with session.get(
                 search_url, params=params, headers=headers, allow_redirects=False
-            ) as resp:  # type: ignore[arg-type]
+            ) as resp:
                 if resp.status != 200:
                     return None
 
@@ -295,7 +295,7 @@ class ArtworkDownloader:
         try:
             session = self._get_session()
             # Search iTunes
-            params = {
+            params: dict[str, str | int] = {
                 "term": f"{artist} {album}",
                 "media": "music",
                 "entity": "album",
@@ -304,7 +304,7 @@ class ArtworkDownloader:
 
             async with session.get(
                 self.itunes_api, params=params, allow_redirects=False
-            ) as resp:  # type: ignore[arg-type]
+            ) as resp:
                 if resp.status != 200:
                     return None
 

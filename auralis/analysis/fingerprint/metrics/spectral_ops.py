@@ -9,6 +9,8 @@ Consolidates spectral normalization and processing patterns.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+from typing import cast
+
 import numpy as np
 
 from .safe_operations import SafeOperations
@@ -72,7 +74,8 @@ class SpectralMetrics:
         # Flatness = geom_mean / arith_mean
         flatness = SafeOperations.safe_divide(geom_mean, arith_mean)
 
-        return np.clip(flatness, 0, 1)
+        # cast(): np.clip is typed Any for these inputs; it returns an ndarray.
+        return cast(np.ndarray, np.clip(flatness, 0, 1))
 
     @staticmethod
     def spectral_centroid_safe(

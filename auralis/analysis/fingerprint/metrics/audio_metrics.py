@@ -55,7 +55,7 @@ class AudioMetrics:
 
         ref_val: float = ref if ref is not None else (np.max(np.abs(rms_array)) if np.any(rms_array) else 1.0)
 
-        return librosa.amplitude_to_db(rms_array, ref=ref_val)  # type: ignore[no-any-return]
+        return librosa.amplitude_to_db(rms_array, ref=ref_val)
 
     @staticmethod
     def loudness_variation(
