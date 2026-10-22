@@ -151,7 +151,7 @@ class TestProactiveBufferDiesWithItsStream:
         with patch("core.stream_enhanced.Path.exists", return_value=True), \
              patch.object(controller, "_check_or_queue_fingerprint",
                           new=AsyncMock(return_value=False)), \
-             patch("core.stream_enhanced.pump_enhanced_chunks", new=_hang), \
+             patch("core.stream_enhanced.pump_chunks", new=_hang), \
              patch("core.stream_enhanced.buffer_presets_for_track", new=probe):
             task = await _run_until_buffering_started(controller, ws, probe)
 
@@ -182,7 +182,7 @@ class TestProactiveBufferDiesWithItsStream:
         with patch("core.stream_enhanced.Path.exists", return_value=True), \
              patch.object(controller, "_check_or_queue_fingerprint",
                           new=AsyncMock(return_value=False)), \
-             patch("core.stream_enhanced.pump_enhanced_chunks", new=_hang), \
+             patch("core.stream_enhanced.pump_chunks", new=_hang), \
              patch("core.stream_enhanced.buffer_presets_for_track", new=probe):
             task = await _run_until_buffering_started(controller, ws, probe)
             task.cancel()
@@ -218,7 +218,7 @@ class TestProactiveBufferDiesWithItsStream:
              patch.object(controller, "_check_or_queue_fingerprint",
                           new=AsyncMock(return_value=False)), \
              patch.object(controller, "_send_stream_completion", new=AsyncMock()), \
-             patch("core.stream_enhanced.pump_enhanced_chunks", new=_complete), \
+             patch("core.stream_enhanced.pump_chunks", new=_complete), \
              patch("core.stream_enhanced.buffer_presets_for_track", new=probe):
             await controller.stream_enhanced_audio(
                 track_id=TRACK_ID, preset=PRESET, intensity=INTENSITY, websocket=ws,
@@ -247,7 +247,7 @@ class TestProactiveBufferSharesTheStreamsCancelEvent:
         with patch("core.stream_enhanced.Path.exists", return_value=True), \
              patch.object(controller, "_check_or_queue_fingerprint",
                           new=AsyncMock(return_value=False)), \
-             patch("core.stream_enhanced.pump_enhanced_chunks", new=_hang), \
+             patch("core.stream_enhanced.pump_chunks", new=_hang), \
              patch("core.stream_enhanced.buffer_presets_for_track", new=probe):
             task = await _run_until_buffering_started(controller, ws, probe)
             registered = _stream_chunk_cancel_events.get(_ws_id(ws))

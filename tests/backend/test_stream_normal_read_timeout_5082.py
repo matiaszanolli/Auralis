@@ -132,9 +132,7 @@ async def _run_stream(controller, ws, release, reads, block_reads=True):
          patch.object(stream_normal_chunks, "sf", fake_sf), \
          patch.object(stream_normal._asc, "CHUNK_PROCESS_TIMEOUT", FAST_TIMEOUT), \
          patch.object(stream_normal, "validate_file_path",
-                      side_effect=lambda p, **_kwargs: p), \
-         patch.dict(sys.modules, {"routers.system": MagicMock(
-             _stream_pause_events={}, _stream_flow_events={})}):
+                      side_effect=lambda p, **_kwargs: p):
         await stream_normal.stream_normal_audio(
             controller=controller, track_id=TRACK_ID, websocket=ws,
         )

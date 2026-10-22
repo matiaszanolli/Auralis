@@ -26,7 +26,7 @@ from fastapi.websockets import WebSocketDisconnect
 
 from . import audio_stream_controller as _asc
 from .job_error_mapping import _safe_error_message
-from .stream_enhanced_chunks import pump_enhanced_chunks
+from .stream_enhanced_chunks import pump_chunks, validate_processor_metadata
 from .proactive_buffer import buffer_presets_for_track
 from .stream_track_resolution import resolve_and_validate_track
 from helpers import spawn_background_task
@@ -82,7 +82,7 @@ async def stream_enhanced_audio(
         await controller._send_error(websocket, track_id, "Server busy - too many active streams")
         return
 
-    # The look-ahead task moved into pump_enhanced_chunks with the loop that
+    # The look-ahead task moved into pump_chunks with the loop that
     # owns it (#5032); #3493's drain now lives in that function's own finally.
     #
     # `processor` still needs the unbound-var guard here, for the same reason
@@ -162,11 +162,8 @@ async def stream_enhanced_audio(
             await controller._send_error(websocket, track_id, error_msg)
             return
 
-        # Ensure processor has loaded metadata (raise instead of assert
-        # so guards work under python -O / PyInstaller, fixes #2735)
-        for _attr in ('total_chunks', 'sample_rate', 'channels', 'duration'):
-            if getattr(processor, _attr) is None:
-                raise ValueError(f"Processor metadata missing: {_attr} is None")
+        # Ensure processor has loaded metadata (fixes #2735)
+        validate_processor_metadata(processor)
 
         # Proactively buffer the first few chunks across every preset so a
         # preset switch early in playback doesn't wait the full DSP window
@@ -234,13 +231,11 @@ async def stream_enhanced_audio(
 
         # The process/send loop lives in stream_enhanced_chunks (#5032); what
         # stays here is the semaphore/cancel/finally skeleton around it.
-        pump = await pump_enhanced_chunks(
+        pump = await pump_chunks(
             controller,
             websocket,
             track_id=track_id,
             processor=processor,
-            preset=preset,
-            intensity=intensity,
             on_progress=on_progress,
         )
         stopped_early = pump.stopped_early
@@ -280,7 +275,7 @@ async def stream_enhanced_audio(
             )
     finally:
         # The look-ahead drain that used to sit here moved into
-        # pump_enhanced_chunks' own finally (#3493 still holds — the task
+        # pump_chunks' own finally (#3493 still holds — the task
         # cannot outlive that function).
         #
         # #5378: signal the proactive buffer immediately — the awaited drain

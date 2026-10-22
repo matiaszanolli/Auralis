@@ -108,7 +108,7 @@ class TestStreamTerminatesWithinBounds:
         ):
             result = load_audio_metadata("/library/forged.mp3")
 
-        # Stand-in for stream_enhanced_chunks / stream_seek_chunks, both of
-        # which iterate range(processor.total_chunks).
+        # Stand-in for stream_enhanced_chunks, which iterates
+        # range(start_chunk_idx, processor.total_chunks).
         rendered = list(range(result.total_chunks))
         assert len(rendered) <= _ceiling()

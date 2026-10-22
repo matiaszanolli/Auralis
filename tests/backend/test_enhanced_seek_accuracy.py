@@ -246,7 +246,7 @@ class TestSeekMathUsesSharedConstants:
         # module, and the recovery positions are computed inside that loop —
         # so the guard follows them there. The handlers themselves no longer
         # compute a recovery position at all.
-        for module in ("stream_seek_chunks.py", "stream_enhanced_chunks.py"):
+        for module in ("stream_enhanced_chunks.py",):
             source = (Path(_BACKEND) / "core" / module).read_text()
             assert "emitted_chunk_start" in source, (
                 f"{module} must compute recovery positions from the emitted "

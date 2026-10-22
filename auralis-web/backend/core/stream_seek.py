@@ -30,7 +30,7 @@ from .chunk_boundaries import (
     chunk_for_position,
 )
 from .job_error_mapping import _safe_error_message
-from .stream_seek_chunks import pump_seek_chunks
+from .stream_enhanced_chunks import pump_chunks, validate_processor_metadata
 from .stream_track_resolution import resolve_and_validate_track
 from security.path_security import validate_file_path
 
@@ -88,7 +88,7 @@ async def stream_enhanced_audio_from_position(
         )
         await controller._send_error(websocket, track_id, "Server busy - too many active streams")
         return
-    # The look-ahead task moved into pump_seek_chunks with the loop that owns
+    # The look-ahead task moved into pump_chunks with the loop that owns
     # it (#5032); #3493's drain now lives in that function's own finally.
     #
     # `processor` still needs the unbound-var guard here, for the same reason
@@ -154,19 +154,8 @@ async def stream_enhanced_audio_from_position(
             await controller._send_error(websocket, track_id, error_msg, error_code="SEEK_ERROR")
             return
 
-        # Ensure processor has loaded metadata (raise instead of assert
-        # so guards work under python -O / PyInstaller, fixes #2735)
-        if processor is None:
-            raise ValueError("Audio processor initialization returned None")
-        if processor.total_chunks is None:
-            raise ValueError("Processor metadata missing: total_chunks is None")
-        if processor.sample_rate is None:
-            raise ValueError("Processor metadata missing: sample_rate is None")
-        if processor.channels is None:
-            raise ValueError("Processor metadata missing: channels is None")
-        if processor.duration is None:
-            raise ValueError("Processor metadata missing: duration is None")
-
+        # Ensure processor has loaded metadata (fixes #2735)
+        meta = validate_processor_metadata(processor)
 
         # Map the requested position onto the chunk that actually EMITS it
         # (#4557). This used to be `int(start_position / chunk_interval)` with
@@ -183,14 +172,14 @@ async def stream_enhanced_audio_from_position(
         # effective_position, which is what the client must be told.
         start_chunk_idx, seek_offset, effective_position = chunk_for_position(
             start_position,
-            processor.total_chunks,
-            total_duration=processor.duration,
+            meta.total_chunks,
+            total_duration=meta.duration,
         )
 
-        if start_position >= processor.duration:
+        if start_position >= meta.duration:
             logger.info(
                 f"Seek: requested {start_position:.2f}s is at/past the "
-                f"{processor.duration:.2f}s track end; clamping to "
+                f"{meta.duration:.2f}s track end; clamping to "
                 f"{effective_position:.2f}s so audible audio is delivered"
             )
         elif effective_position != start_position:
@@ -238,9 +227,9 @@ async def stream_enhanced_audio_from_position(
         # (`lookahead_task` is declared at function scope so the outer
         # `finally:` can drain it on every exit path — fixes #3493.)
 
-        # The process/send loop lives in stream_seek_chunks (#5032); what stays
+        # The process/send loop lives in stream_enhanced_chunks (#5032); what stays
         # here is the semaphore/cancel/finally skeleton around it.
-        pump = await pump_seek_chunks(
+        pump = await pump_chunks(
             controller,
             websocket,
             track_id=track_id,
@@ -248,6 +237,8 @@ async def stream_enhanced_audio_from_position(
             start_chunk_idx=start_chunk_idx,
             seek_offset=seek_offset,
             effective_position=effective_position,
+            error_code="SEEK_ERROR",
+            label="seek stream",
             on_progress=on_progress,
         )
         stopped_early = pump.stopped_early
@@ -283,7 +274,7 @@ async def stream_enhanced_audio_from_position(
             )
     finally:
         # The look-ahead drain that used to sit here moved into
-        # pump_seek_chunks' own finally (#3493 still holds — the task cannot
+        # pump_chunks' own finally (#3493 still holds — the task cannot
         # outlive that function).
         controller._stream_semaphore.release()
         # #5253: release the temp WAV this processor may own (SeekableSource,

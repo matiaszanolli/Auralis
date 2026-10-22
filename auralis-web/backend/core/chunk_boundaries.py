@@ -181,7 +181,7 @@ def normal_stream_plan(
 
     # #5446: round(), not int() — the module's #2327 sample-boundary
     # convention, matching the enhanced path's seek trim
-    # (stream_seek_chunks.py). One rounded index feeds BOTH the chunk index
+    # (stream_enhanced_chunks.py). One rounded index feeds BOTH the chunk index
     # and the trim: computing the chunk from a truncated index while the trim
     # rounded would let the trim spill one sample past start_chunk's
     # interval, sending the first read one sample into the next chunk.

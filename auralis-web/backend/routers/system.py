@@ -16,6 +16,7 @@ from collections.abc import Callable
 from config.globals import WebSocketOriginRejected
 from core.audio_stream_controller import AudioStreamController, ws_id as _ws_id
 from core.processing_engine import _safe_error_message
+from core.stream_gates import stream_flow_events, stream_pause_events
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from websocket.websocket_security import (
     WebSocketRateLimiter,
@@ -33,14 +34,10 @@ _active_streaming_tasks_lock = asyncio.Lock()  # Protects all _active_streaming_
 # Track which track ID is currently streaming per WS (for deduplication)
 _active_streaming_track_ids: dict[str, int] = {}
 
-# Per-WebSocket pause events: when clear, streaming loops sleep; when set, they proceed.
-# This avoids destroying the streaming task on pause (#2106).
-_stream_pause_events: dict[str, asyncio.Event] = {}
-
-# Per-WebSocket flow control events: when clear, backend stops sending chunks
-# (frontend buffer is full); when set, backend continues streaming.
-# Separate from pause events — pause is user-initiated, flow is buffer-driven.
-_stream_flow_events: dict[str, asyncio.Event] = {}
+# Pause/flow registries live in core.stream_gates, next to the pumps that wait
+# on them (#5761); this module only hands them to the WebSocket handlers.
+_stream_pause_events = stream_pause_events
+_stream_flow_events = stream_flow_events
 
 # Per-WebSocket cooperative-cancel signal for in-flight chunk DSP (#4815).
 # stream_enhanced.py/stream_seek.py create one threading.Event per active

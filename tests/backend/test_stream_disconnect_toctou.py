@@ -214,7 +214,7 @@ class TestDisconnectStopsProcessing:
                 # missing except clause, not the call-count threshold above.
                 # Matches every real streaming loop's own handling of this
                 # exact guard (stream_normal_chunks.py,
-                # stream_enhanced_chunks.py, stream_seek_chunks.py): a clean
+                # stream_enhanced_chunks.py): a clean
                 # break, not a chunk failure.
                 break
 

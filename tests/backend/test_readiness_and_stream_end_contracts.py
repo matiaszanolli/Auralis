@@ -377,7 +377,7 @@ class TestStreamEndReason:
             )
             assert "delivered_samples" in source, f"{name} does not count delivered audio"
 
-        pumps = ("stream_normal_chunks.py", "stream_enhanced_chunks.py", "stream_seek_chunks.py")
+        pumps = ("stream_normal_chunks.py", "stream_enhanced_chunks.py")
         for name in pumps:
             source = (_BACKEND / "core" / name).read_text()
             assert "stopped_early" in source, f"{name} does not track early exit"

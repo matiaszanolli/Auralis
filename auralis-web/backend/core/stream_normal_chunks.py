@@ -36,6 +36,7 @@ from fastapi import WebSocket
 
 from . import audio_stream_controller as _asc
 from .executors import run_in_stream_executor
+from .stream_gates import wait_for_stream_gates
 from .stream_messages import ChunkPumpResult
 
 logger = logging.getLogger(__name__)
@@ -105,15 +106,8 @@ async def pump_normal_chunks(
         # Stream chunks with look-ahead: read chunk N+1 from disk while
         # streaming chunk N to eliminate I/O gaps.
         for chunk_idx in range(start_chunk, total_chunks):
-            # Honour pause/resume events from the WebSocket handler (#2106).
-            from routers.system import _stream_pause_events, _stream_flow_events
-            pause_evt = _stream_pause_events.get(_asc.ws_id(websocket))
-            if pause_evt is not None:
-                await pause_evt.wait()
-            # Honour flow control: wait if frontend buffer is full.
-            flow_evt = _stream_flow_events.get(_asc.ws_id(websocket))
-            if flow_evt is not None:
-                await flow_evt.wait()
+            # Honour pause/resume (#2106) and flow control (frontend buffer full).
+            await wait_for_stream_gates(websocket)
 
             if not controller._is_websocket_connected(websocket):
                 logger.info(f"WebSocket disconnected, stopping stream")

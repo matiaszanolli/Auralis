@@ -32,6 +32,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
 from core.audio_stream_controller import AudioStreamController
+from core.chunk_boundaries import emitted_chunk_start
 
 CHUNK_DURATION = 30.0
 CHUNK_INTERVAL = 10.0
@@ -150,6 +151,31 @@ class TestChunkTimeoutAbortsStream:
         error_msgs = [m for m in sent if m.get("type") == "audio_stream_error"]
         assert error_msgs, "Expected an audio_stream_error message"
         assert "timed out" in error_msgs[0]["data"]["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_timeout_error_carries_the_emitted_recovery_position(self):
+        """#5761: the enhanced pump was a hand-synced copy of the seek pump and
+        its TimeoutError branch sent no recovery_position, unlike every other
+        error branch in either copy — so a client that hit a chunk DSP timeout
+        on plain enhanced playback could not resume from the failed chunk."""
+        calls: list[int] = []
+        processor = _make_processor(calls, timeout_at=TIMEOUT_AT_CHUNK)
+        sent: list[dict] = []
+        controller, ws = _wire_controller(processor, sent)
+
+        with patch("core.stream_enhanced.Path.exists", return_value=True), \
+             patch.object(controller, "_check_or_queue_fingerprint",
+                          new=AsyncMock(return_value=False)):
+            await controller.stream_enhanced_audio(
+                track_id=TRACK_ID, preset=PRESET, intensity=INTENSITY, websocket=ws,
+            )
+
+        error_msgs = [m for m in sent if m.get("type") == "audio_stream_error"]
+        assert error_msgs, "Expected an audio_stream_error message"
+        data = error_msgs[0]["data"]
+        assert data["recovery_position"] == emitted_chunk_start(TIMEOUT_AT_CHUNK)
+        # Plain enhanced playback keeps the generic code; only seek reports SEEK_ERROR.
+        assert data["code"] == "STREAMING_ERROR"
 
     @pytest.mark.asyncio
     async def test_stream_end_reports_stopped_not_completed(self):

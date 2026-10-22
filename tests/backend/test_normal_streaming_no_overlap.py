@@ -82,9 +82,7 @@ async def _stream(path: Path, start_position: float = 0.0) -> list[np.ndarray]:
     factory.tracks.get_by_id.return_value = track
     controller._get_repository_factory = MagicMock(return_value=factory)
 
-    with patch.object(stream_normal, "validate_file_path", side_effect=lambda p, **_kw: p), \
-         patch.dict(sys.modules, {"routers.system": MagicMock(
-             _stream_pause_events={}, _stream_flow_events={})}):
+    with patch.object(stream_normal, "validate_file_path", side_effect=lambda p, **_kw: p):
         await stream_normal.stream_normal_audio(
             controller=controller, track_id=TRACK_ID, websocket=MagicMock(),
             start_position=start_position,
@@ -260,7 +258,7 @@ class TestSeekTrimRounding:
 
     def test_trim_rounds_instead_of_truncating(self) -> None:
         """A position whose sample index has a fractional part >= 0.5 must
-        round up, matching stream_seek_chunks.py's enhanced-path trim."""
+        round up, matching stream_enhanced_chunks.py's seek trim."""
         # 178056.7 samples → int() would trim to 178056, round() lands on 178057.
         position = CHUNK_DURATION + 7 + 2056.7 / SAMPLE_RATE
         frames = int(3 * CHUNK_DURATION * SAMPLE_RATE)
