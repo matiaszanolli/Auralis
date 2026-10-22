@@ -15,7 +15,6 @@ import os
 import sys
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
 
 import uvicorn
 from fastapi import Request, WebSocket
@@ -171,44 +170,15 @@ install_sanitizing_formatter(
 # Import state management
 from player_state import create_track_info
 
-# Check feature availability via real import probes (fixes #3534 /
-# BE-NEW-76 — prior code had empty try: pass blocks that could never
-# flip the flag, so HAS_STREAMLINED_CACHE / HAS_SIMILARITY were
-# hard-coded True regardless of actual import success).
+# The engine, processing, cache and similarity packages are imported unguarded
+# by the modules loaded above (and by the routers registered below), so this
+# process has no degraded mode to probe for. The flags remain in `deps` as the
+# startup/router seam: tests start the lifespan and build routers with a
+# component switched off.
 HAS_AURALIS = True
 HAS_PROCESSING = True
 HAS_STREAMLINED_CACHE = True
 HAS_SIMILARITY = True
-
-# #4684: HAS_AURALIS was the one flag #3534 left as a bare literal, so the
-# demo-mode branch it gates in startup could never run. Probe it like the
-# others. Note this only answers "is the engine importable"; whether it came up
-# is a runtime question /api/health now answers from the live component.
-try:
-    import auralis as _auralis_probe  # noqa: F401
-except ImportError:
-    HAS_AURALIS = False
-    logger.warning("⚠️  Auralis engine not available")
-
-# Import core components for router setup
-ProcessingEngine: Any = None
-try:
-    import core.chunked_processor as _processing_probe  # noqa: F401
-except ImportError:
-    HAS_PROCESSING = False
-    logger.warning("⚠️  Processing components not available")
-
-try:
-    import cache as _cache_probe  # noqa: F401
-except ImportError:
-    HAS_STREAMLINED_CACHE = False
-    logger.warning("⚠️  Streamlined cache not available")
-
-try:
-    from auralis.analysis.fingerprint import FingerprintSimilarity as _similarity_probe  # noqa: F401
-except ImportError:
-    HAS_SIMILARITY = False
-    logger.warning("⚠️  Similarity system not available")
 
 # Create global state dictionary with all dependencies
 manager = ConnectionManager()

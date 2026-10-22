@@ -50,11 +50,6 @@ def test_the_database_is_read_live_on_each_request():
     assert client.get("/api/health").json()["auralis_available"] is True
 
 
-def test_has_auralis_is_probed_not_hardcoded():
-    source = (Path(__file__).parent.parent.parent / "auralis-web" / "backend" / "main.py").read_text()
-    assert "import auralis as _auralis_probe" in source
-
-
 def test_demo_mode_branch_is_reachable(caplog):
     from config.startup import _init_auralis_components
 
