@@ -17,20 +17,7 @@ from sqlalchemy.orm import Session, joinedload, selectinload, with_expression
 
 from ..artwork import create_artwork_extractor
 from ..models import Album, Artist, Track
-from .base import BaseRepository, escape_like
-
-
-def _track_count_subquery() -> Any:
-    """Correlated COUNT of an album's tracks, evaluated per row by the DB
-    engine — no JOIN, no row multiplication. Albums with no tracks yield 0
-    (not NULL), so no COALESCE is needed. Mirrors the pattern already used
-    in ArtistRepository.get_all() / PlaylistRepository.get_all() (#4777)."""
-    return (
-        select(func.count(Track.id))
-        .where(Track.album_id == Album.id)
-        .correlate(Album)
-        .scalar_subquery()
-    )
+from .base import BaseRepository, correlated_count, escape_like
 
 
 def _total_duration_subquery() -> Any:
@@ -68,7 +55,7 @@ _ALBUM_DETAIL_OPTIONS = (
 # the list serializer needs — no eager Album.tracks (fixes #4777's N+1).
 _ALBUM_LIST_OPTIONS = (
     joinedload(Album.artist),
-    with_expression(Album.track_count_expr, _track_count_subquery()),
+    with_expression(Album.track_count_expr, correlated_count(Track, Track.album_id, Album)),
     with_expression(Album.total_duration_expr, _total_duration_subquery()),
 )
 
@@ -136,13 +123,13 @@ class AlbumRepository(BaseRepository):
             if order_by not in VALID_ORDER_COLUMNS:
                 order_by = 'title'
             order_column = getattr(Album, order_by, Album.title)
-            albums = session.execute(
+            albums = list(session.execute(
                 select(Album)
                 .options(*_ALBUM_LIST_OPTIONS)
                 .order_by(order_column.asc())
                 .limit(limit)
                 .offset(offset)
-            ).scalars().unique().all()
+            ).scalars().unique().all())
 
             # Expunge every album AND its eagerly-loaded artist (fixes #2406 /
             # #4236 — a per-item expunge(album) does not cascade to related
@@ -157,13 +144,13 @@ class AlbumRepository(BaseRepository):
     def get_recent(self, limit: int = 50, offset: int = 0) -> list[Album]:
         """Get recently added albums with pagination"""
         with self._session_scope() as session:
-            albums = session.execute(
+            albums = list(session.execute(
                 select(Album)
                 .options(*_ALBUM_LIST_OPTIONS)
                 .order_by(Album.created_at.desc())
                 .limit(limit)
                 .offset(offset)
-            ).scalars().unique().all()
+            ).scalars().unique().all())
             if albums:
                 session.expunge_all()
             return albums
@@ -204,7 +191,7 @@ class AlbumRepository(BaseRepository):
                 order_by = 'title'
             order_column = getattr(Album, order_by, Album.title)
 
-            results = session.execute(
+            results = list(session.execute(
                 select(Album)
                 .join(Album.artist, isouter=True)
                 .where(search_filter)
@@ -216,13 +203,13 @@ class AlbumRepository(BaseRepository):
                 # other two expressions are identical to _ALBUM_LIST_OPTIONS.
                 .options(
                     selectinload(Album.artist),
-                    with_expression(Album.track_count_expr, _track_count_subquery()),
+                    with_expression(Album.track_count_expr, correlated_count(Track, Track.album_id, Album)),
                     with_expression(Album.total_duration_expr, _total_duration_subquery()),
                 )
                 .order_by(order_column.asc())
                 .limit(limit)
                 .offset(offset)
-            ).scalars().unique().all()
+            ).scalars().unique().all())
 
             if results:
                 session.expunge_all()

@@ -15,7 +15,9 @@ instead of a per-repository sweep.
 
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager, suppress
+from typing import Any
 
+from sqlalchemy import ScalarSelect, func, select
 from sqlalchemy.orm import Session
 
 # Backslash is the escape character every repository passes as
@@ -40,6 +42,24 @@ def escape_like(query: str) -> str:
     carrying their own inline copy of the expression.
     """
     return query.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+
+
+def correlated_count(source: Any, fk_column: Any, parent: Any) -> ScalarSelect[int]:
+    """Per-row COUNT of *source* rows whose *fk_column* points at *parent*.
+
+    Evaluated by the database as a correlated scalar subquery — no JOIN and no
+    row multiplication, so a parent with no children yields 0 (never NULL; no
+    COALESCE needed). *source* is the association table or child model counted
+    and *fk_column* its column referencing ``parent.id``. One definition for
+    the artist/album/genre/playlist list reads (#4777, #5084, #5111).
+    """
+    return (
+        select(func.count())
+        .select_from(source)
+        .where(fk_column == parent.id)
+        .correlate(parent)
+        .scalar_subquery()
+    )
 
 
 class BaseRepository:

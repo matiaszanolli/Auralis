@@ -15,24 +15,9 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import joinedload, selectinload, with_expression
 
 from ..models import Genre, Track, track_genre
-from .base import BaseRepository, escape_like
+from .base import BaseRepository, correlated_count, escape_like
 
 logger = logging.getLogger(__name__)
-
-
-def _track_count_subquery() -> Any:
-    """Correlated COUNT of a genre's tracks (#5111).
-
-    Same shape as ArtistRepository's (#5084) and AlbumRepository's (#4777).
-    A genre with no tracks yields 0, not NULL, so no COALESCE is needed.
-    """
-    return (
-        select(func.count())
-        .select_from(track_genre)
-        .where(track_genre.c.genre_id == Genre.id)
-        .correlate(Genre)
-        .scalar_subquery()
-    )
 
 
 # Every method below expunges the Genre it returns, and Genre.to_dict()
@@ -44,7 +29,7 @@ _GENRE_LOAD_OPTIONS = (selectinload(Genre.tracks),)
 
 # List paths need only the count, so they read it from a correlated subquery on
 # the genre SELECT instead of hydrating every Track row the genre owns (#5111).
-_GENRE_LIST_OPTIONS = (with_expression(Genre.track_count_expr, _track_count_subquery()),)
+_GENRE_LIST_OPTIONS = (with_expression(Genre.track_count_expr, correlated_count(track_genre, track_genre.c.genre_id, Genre)),)
 
 
 class GenreRepository(BaseRepository):

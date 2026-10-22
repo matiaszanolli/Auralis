@@ -19,7 +19,7 @@ from sqlalchemy.sql.selectable import ScalarSelect
 
 from ..models import Playlist, Track
 from ..models.base import track_playlist
-from .base import BaseRepository, escape_like
+from .base import BaseRepository, correlated_count, escape_like
 
 
 class PlaylistQueryMixin(BaseRepository):
@@ -58,7 +58,7 @@ class PlaylistQueryMixin(BaseRepository):
             # Correlated subqueries, shared with search() so both paths
             # attach identical per-row aggregates. Mirrors the pattern already
             # used in ArtistRepository.get_all().
-            track_count = self._track_count_subquery()
+            track_count = correlated_count(track_playlist, track_playlist.c.playlist_id, Playlist)
             total_duration = self._total_duration_subquery()
 
             playlists = session.execute(
@@ -80,20 +80,6 @@ class PlaylistQueryMixin(BaseRepository):
             # pre-loaded here) raised DetachedInstanceError.
             session.expunge_all()
             return list(playlists), total
-
-    def _track_count_subquery(self) -> ScalarSelect[int]:
-        """Correlated COUNT of a playlist's tracks, evaluated per row.
-
-        No JOIN and no row multiplication; playlists with no tracks yield 0
-        (not NULL), so no COALESCE is needed.
-        """
-        return (
-            select(func.count())
-            .select_from(track_playlist)
-            .where(track_playlist.c.playlist_id == Playlist.id)
-            .correlate(Playlist)
-            .scalar_subquery()
-        )
 
     def _total_duration_subquery(self) -> ScalarSelect[float]:
         """Correlated SUM of a playlist's track durations.
@@ -147,7 +133,7 @@ class PlaylistQueryMixin(BaseRepository):
             playlists = session.execute(
                 select(Playlist)
                 .options(
-                    with_expression(Playlist.track_count_expr, self._track_count_subquery()),
+                    with_expression(Playlist.track_count_expr, correlated_count(track_playlist, track_playlist.c.playlist_id, Playlist)),
                     with_expression(Playlist.total_duration_expr, self._total_duration_subquery()),
                 )
                 .where(search_filter)

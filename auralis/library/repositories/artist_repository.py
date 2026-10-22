@@ -10,39 +10,12 @@ Data access layer for artist operations
 
 from collections.abc import Sequence
 from datetime import datetime, timezone
-from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload, with_expression
 
 from ..models import Album, Artist, Genre, Track, track_artist, track_genre
-from .base import BaseRepository, escape_like
-
-
-def _track_count_subquery() -> Any:
-    """Correlated COUNT of an artist's tracks (#5084).
-
-    Same shape as the `order_by='track_count'` ordering expression in
-    get_all(), and as AlbumRepository's _track_count_subquery (#4777). Artists
-    with no tracks yield 0, not NULL, so no COALESCE is needed.
-    """
-    return (
-        select(func.count())
-        .select_from(track_artist)
-        .where(track_artist.c.artist_id == Artist.id)
-        .correlate(Artist)
-        .scalar_subquery()
-    )
-
-
-def _album_count_subquery() -> Any:
-    """Correlated COUNT of an artist's albums (#5084)."""
-    return (
-        select(func.count(Album.id))
-        .where(Album.artist_id == Artist.id)
-        .correlate(Artist)
-        .scalar_subquery()
-    )
+from .base import BaseRepository, correlated_count, escape_like
 
 
 def _attach_genre_names(session: Session, artists: Sequence[Artist]) -> None:
@@ -117,8 +90,8 @@ _ARTIST_DETAIL_OPTIONS = (
 # to "what the serializer reads"; the residue was that even that scoped load
 # was a full-Track hydration for a count-and-name-only consumer.
 _ARTIST_LIST_OPTIONS = (
-    with_expression(Artist.track_count_expr, _track_count_subquery()),
-    with_expression(Artist.album_count_expr, _album_count_subquery()),
+    with_expression(Artist.track_count_expr, correlated_count(track_artist, track_artist.c.artist_id, Artist)),
+    with_expression(Artist.album_count_expr, correlated_count(Album, Album.artist_id, Artist)),
 )
 
 
