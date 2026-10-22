@@ -13,21 +13,23 @@ existing import of this module keeps working.
 """
 
 import logging
-from collections.abc import Iterator
-from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import sessionmaker
 
 from auralis.__version__ import __db_schema_version__
-from auralis.library.models import Base, SchemaVersion
+from auralis.library.models import Base
 
-from .migration_backup import backup_database, restore_database  # re-exported (#4511)
+from .migration_backup import (  # re-exported (#4511)
+    backup_database,
+    restore_database,
+    restore_pre_migration_backup,
+)
 from .migration_engine import create_migration_engine
 from .migration_lock import migration_lock  # re-exported (#4511)
 from .migration_steps import run_migration_step
+from .migration_versions import SchemaVersionStoreMixin
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +52,7 @@ class MigrationError(RuntimeError):
     """
 
 
-class MigrationManager:
+class MigrationManager(SchemaVersionStoreMixin):
     """Manages database schema migrations."""
 
     def __init__(self, db_path: str):
@@ -64,59 +66,6 @@ class MigrationManager:
         self.engine = create_migration_engine(self.db_path)
         self._SessionFactory = sessionmaker(self.engine)
         self.migrations_dir = Path(__file__).parent / "migrations"
-
-    @contextmanager
-    def _get_session(self) -> Iterator[Session]:
-        """Yield a short-lived session that is always closed."""
-        session = self._SessionFactory()
-        try:
-            yield session
-            session.commit()
-        except Exception:
-            session.rollback()
-            raise
-        finally:
-            session.close()
-
-    def get_current_version(self) -> int:
-        """
-        Get current database schema version.
-
-        Returns:
-            Current schema version number, or 0 if no version table exists
-        """
-        try:
-            with self._get_session() as session:
-                result = session.execute(
-                    select(SchemaVersion).order_by(SchemaVersion.version.desc())
-                ).scalars().first()
-
-                if result:
-                    return int(result.version)
-                else:
-                    # Table exists but is empty - this is a fresh database
-                    return 0
-        except Exception as e:
-            logger.debug(f"Schema version table not found: {e}")
-            return 0
-
-    def _record_migration(self, version: int, description: str, migration_script: str = "") -> None:
-        """
-        Record a migration in the schema_version table.
-
-        Args:
-            version: Schema version number
-            description: Description of the migration
-            migration_script: Name of the migration script file
-        """
-        with self._get_session() as session:
-            schema_version = SchemaVersion(
-                version=version,
-                description=description,
-                migration_script=migration_script
-            )
-            session.add(schema_version)
-        logger.info(f"✅ Recorded migration to v{version}: {description}")
 
     def apply_migration(self, from_version: int, to_version: int) -> bool:
         """
@@ -219,34 +168,6 @@ class MigrationManager:
         self.engine.dispose()
 
 
-def _restore_pre_migration_backup(
-    manager: MigrationManager, backup_path: str | None, db_path: str
-) -> None:
-    """Roll a failed migration back to the snapshot taken before it (#5316).
-
-    The backup was always taken, but nothing restored it, so a failed step
-    left the library at an intermediate schema version and every later start
-    failed against it. Logs the outcome at WARNING/ERROR either way. Only the
-    backup's file name goes there; the absolute path stays at DEBUG (#4929).
-    """
-    if backup_path is None:
-        logger.error("❌ No pre-migration backup was taken, so there is nothing to restore")
-        return
-
-    backup_name = Path(backup_path).name
-    logger.debug(f"Pre-migration backup to restore: {backup_path}")
-    # Release the manager's pooled connections first, so none of them holds
-    # the file or a stale view of its WAL while it is overwritten.
-    manager.close()
-    if restore_database(backup_path, db_path):
-        logger.warning(f"⚠️ Restored the database from its pre-migration backup {backup_name}")
-    else:
-        logger.error(
-            f"❌ Could not restore the pre-migration backup {backup_name}; it is still "
-            "beside the library database for manual recovery"
-        )
-
-
 def check_and_migrate_database(db_path: str, auto_backup: bool = True) -> bool:
     """
     Check database version and migrate if needed.
@@ -312,14 +233,14 @@ def check_and_migrate_database(db_path: str, auto_backup: bool = True) -> bool:
                 try:
                     success = manager.migrate_to_latest()
                 except Exception:
-                    _restore_pre_migration_backup(manager, backup_path, db_path)
+                    restore_pre_migration_backup(manager, backup_path, db_path)
                     raise
 
                 if success:
                     logger.info("✅ Database migration completed successfully")
                 else:
                     logger.error("❌ Database migration failed")
-                    _restore_pre_migration_backup(manager, backup_path, db_path)
+                    restore_pre_migration_backup(manager, backup_path, db_path)
 
                 return success
 

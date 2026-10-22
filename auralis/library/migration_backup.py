@@ -18,10 +18,14 @@ import sqlite3
 from contextlib import closing
 from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .migration_manager import MigrationManager
 
 logger = logging.getLogger(__name__)
 
-__all__ = ['backup_database', 'restore_database']
+__all__ = ['backup_database', 'restore_database', 'restore_pre_migration_backup']
 
 
 def backup_database(db_path: str, backup_dir: str | None = None) -> str:
@@ -132,3 +136,31 @@ def restore_database(backup_path: str, db_path: str) -> bool:
     except Exception as e:
         logger.error(f"❌ Failed to restore database: {e}")
         return False
+
+
+def restore_pre_migration_backup(
+    manager: "MigrationManager", backup_path: str | None, db_path: str
+) -> None:
+    """Roll a failed migration back to the snapshot taken before it (#5316).
+
+    The backup was always taken, but nothing restored it, so a failed step
+    left the library at an intermediate schema version and every later start
+    failed against it. Logs the outcome at WARNING/ERROR either way. Only the
+    backup's file name goes there; the absolute path stays at DEBUG (#4929).
+    """
+    if backup_path is None:
+        logger.error("❌ No pre-migration backup was taken, so there is nothing to restore")
+        return
+
+    backup_name = Path(backup_path).name
+    logger.debug(f"Pre-migration backup to restore: {backup_path}")
+    # Release the manager's pooled connections first, so none of them holds
+    # the file or a stale view of its WAL while it is overwritten.
+    manager.close()
+    if restore_database(backup_path, db_path):
+        logger.warning(f"⚠️ Restored the database from its pre-migration backup {backup_name}")
+    else:
+        logger.error(
+            f"❌ Could not restore the pre-migration backup {backup_name}; it is still "
+            "beside the library database for manual recovery"
+        )

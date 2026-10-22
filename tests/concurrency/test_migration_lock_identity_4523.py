@@ -93,7 +93,8 @@ class TestLockFilePersists:
         """
         import ast
 
-        import auralis.library.migration_manager as mm
+        # migration_lock lives in migration_lock.py since the #4511 split
+        import auralis.library.migration_lock as mm
 
         tree = ast.parse(Path(mm.__file__).read_text())
         (fn,) = [

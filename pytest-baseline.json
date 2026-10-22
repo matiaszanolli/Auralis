@@ -34,7 +34,6 @@
     "tests.backend.test_track_artwork_field_naming.TestAPIContractCompliance::test_track_dict_matches_TrackApiResponse_contract",
     "tests.boundaries.test_audio_processing_boundaries::test_sample_count_invariant",
     "tests.concurrency.test_async_operations.TestFastAPIAsyncPatterns::test_async_file_operations",
-    "tests.concurrency.test_migration_lock_identity_4523.TestLockFilePersists::test_migration_lock_never_unlinks",
     "tests.concurrency.test_parallel_processing.TestBatchProcessing::test_batch_processing_cancellation",
     "tests.edge_cases.test_filesystem_errors.TestMissingFiles::test_process_nonexistent_file",
     "tests.edge_cases.test_resource_exhaustion.TestResourceLimitConfiguration::test_graceful_degradation_under_pressure",

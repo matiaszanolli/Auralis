@@ -20,7 +20,7 @@ import pytest
 from sqlalchemy import create_engine
 
 from auralis.__version__ import __db_schema_version__
-from auralis.library import migration_manager
+from auralis.library import migration_backup, migration_manager
 from auralis.library.migration_manager import (
     MigrationManager,
     check_and_migrate_database,
@@ -76,9 +76,9 @@ def _loud_messages(caplog) -> list[str]:
 
 
 def test_a_failed_step_restores_the_backup(old_db, tmp_path, caplog):
-    caplog.set_level(logging.DEBUG, logger=migration_manager.logger.name)
+    caplog.set_level(logging.DEBUG, logger=migration_backup.logger.name)
     restore = patch.object(
-        migration_manager, "restore_database", wraps=migration_manager.restore_database
+        migration_backup, "restore_database", wraps=migration_backup.restore_database
     )
     with patch.object(MigrationManager, "apply_migration", _first_step_lands_then(False)), \
             restore as restore_spy:
@@ -105,9 +105,9 @@ def test_a_step_that_raises_restores_the_backup(old_db):
 
 
 def test_a_failed_restore_is_reported_as_an_error(old_db, caplog):
-    caplog.set_level(logging.WARNING, logger=migration_manager.logger.name)
+    caplog.set_level(logging.WARNING, logger=migration_backup.logger.name)
     with patch.object(MigrationManager, "apply_migration", _first_step_lands_then(False)), \
-            patch.object(migration_manager, "restore_database", return_value=False):
+            patch.object(migration_backup, "restore_database", return_value=False):
         assert check_and_migrate_database(old_db, auto_backup=True) is False
 
     errors = [r.getMessage() for r in caplog.records if r.levelno >= logging.ERROR]
@@ -116,9 +116,9 @@ def test_a_failed_restore_is_reported_as_an_error(old_db, caplog):
 
 
 def test_without_a_backup_nothing_is_restored(old_db, caplog):
-    caplog.set_level(logging.ERROR, logger=migration_manager.logger.name)
+    caplog.set_level(logging.ERROR, logger=migration_backup.logger.name)
     with patch.object(MigrationManager, "apply_migration", _first_step_lands_then(False)), \
-            patch.object(migration_manager, "restore_database") as restore:
+            patch.object(migration_backup, "restore_database") as restore:
         assert check_and_migrate_database(old_db, auto_backup=False) is False
 
     restore.assert_not_called()
