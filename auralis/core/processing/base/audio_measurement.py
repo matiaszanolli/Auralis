@@ -103,18 +103,3 @@ class MeasurementUtilities:
 
         if additional_info:
             debug(f"[{step_name}] {additional_info}")
-
-    @staticmethod
-    def crest_delta_info(before: AudioMeasurement, after: AudioMeasurement) -> str:
-        """
-        Get human-readable crest factor change info.
-
-        Args:
-            before: Measurement before processing
-            after: Measurement after processing
-
-        Returns:
-            Formatted string describing the crest change
-        """
-        crest_delta = after.crest - before.crest
-        return f"Crest {before.crest:.2f} → {after.crest:.2f} dB (Δ {crest_delta:+.2f} dB)"

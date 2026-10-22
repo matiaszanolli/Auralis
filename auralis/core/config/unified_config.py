@@ -135,15 +135,6 @@ class UnifiedConfig:
         self.adaptive.mode = mode
         debug(f"Processing mode changed to: {mode}")
 
-    def update_adaptive_settings(self, **kwargs: Any) -> None:
-        """Update adaptive processing settings"""
-        for key, value in kwargs.items():
-            if hasattr(self.adaptive, key):
-                setattr(self.adaptive, key, value)
-                debug(f"Updated adaptive setting: {key} = {value}")
-            else:
-                debug(f"Warning: Unknown adaptive setting '{key}'")
-
     def get_chunk_size_samples(self) -> int:
         """Get processing chunk size in samples"""
         return int(self.adaptive.chunk_size_ms * self.internal_sample_rate / 1000)

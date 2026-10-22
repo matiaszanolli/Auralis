@@ -40,16 +40,6 @@ class ProcessingLogger:
             print(f"[{reason}]")
 
     @staticmethod
-    def stereo_width_change(stage_name: str, before_width: float, after_width: float,
-                           before_peak_db: float | None = None, after_peak_db: float | None = None) -> None:
-        """Log stereo width adjustments."""
-        if before_peak_db is not None and after_peak_db is not None:
-            print(f"[{stage_name}] Peak: {before_peak_db:.2f} → {after_peak_db:.2f} dB "
-                  f"(width: {before_width:.2f} → {after_width:.2f})")
-        else:
-            print(f"[{stage_name}] {before_width:.2f} → {after_width:.2f} (target: {after_width:.2f})")
-
-    @staticmethod
     def gain_applied(stage_name: str, gain_db: float, target_db: float | None = None) -> None:
         """Log gain/boost application."""
         if target_db is not None:

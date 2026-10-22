@@ -60,24 +60,6 @@ class GaplessPlaybackEngine:
         self.update_lock = threading.RLock()
         self._thread_lock = threading.Lock()   # guards thread creation (#2075)
         self._shutdown = threading.Event()     # signals worker to exit cleanly (#2075)
-        self.prebuffer_callbacks: list[Callable[[dict[str, Any]], None]] = []
-
-    def add_prebuffer_callback(self, callback: Callable[[dict[str, Any]], None]) -> None:
-        """Register callback when prebuffering completes"""
-        with self.update_lock:
-            self.prebuffer_callbacks.append(callback)
-
-    def _notify_prebuffer_callbacks(self, track_info: dict[str, Any]) -> None:
-        """Notify callbacks that prebuffering completed"""
-        # Snapshot under lock so concurrent add_prebuffer_callback calls
-        # cannot mutate the list while we iterate (#2412).
-        with self.update_lock:
-            callbacks = list(self.prebuffer_callbacks)
-        for callback in callbacks:
-            try:
-                callback(track_info)
-            except Exception as e:
-                debug(f"Prebuffer callback error: {e}")
 
     def start_prebuffering(self) -> None:
         """
@@ -201,7 +183,6 @@ class GaplessPlaybackEngine:
                     self.next_track_sample_rate = sample_rate
 
                 info(f"Prebuffered: {file_path} ({len(audio_data) / sample_rate:.1f}s)")
-                self._notify_prebuffer_callbacks(next_track)
                 return
 
         except Exception as e:

@@ -34,10 +34,10 @@ class AdaptiveLoudnessControl:
     def calculate_adaptive_gain(
         source_lufs: float,
         intensity: float = 1.0,
-        crest_factor_db: float = None,
-        bass_pct: float = None,
-        transient_density: float = None,
-        peak_db: float = None
+        crest_factor_db: float | None = None,
+        bass_pct: float | None = None,
+        transient_density: float | None = None,
+        peak_db: float | None = None
     ) -> tuple[float, str]:
         """
         Calculate adaptive makeup gain based on source LUFS, dynamic range, bass content, transients, and peak.
@@ -172,68 +172,3 @@ class AdaptiveLoudnessControl:
             target_peak = 0.90
             target_peak_db = 20 * np.log10(target_peak)
             return target_peak, target_peak_db
-
-    @staticmethod
-    def should_apply_makeup_gain(
-        source_lufs: float,
-        current_rms_db: float,
-        rms_diff_from_target: float
-    ) -> tuple[bool, float, str]:
-        """
-        Determine if makeup gain should be applied based on source characteristics.
-
-        Args:
-            source_lufs: Source loudness in LUFS
-            current_rms_db: Current RMS level in dB
-            rms_diff_from_target: Difference from target RMS in dB
-
-        Returns:
-            Tuple of (should_apply, gain_amount, reasoning)
-        """
-        # Use LUFS-based adaptive gain instead of RMS-based threshold
-        makeup_gain, reasoning = AdaptiveLoudnessControl.calculate_adaptive_gain(source_lufs)
-
-        if makeup_gain > 0.5:
-            return True, makeup_gain, reasoning
-        else:
-            return False, 0.0, reasoning
-
-    @staticmethod
-    def get_adaptive_processing_params(
-        source_lufs: float,
-        intensity: float = 1.0,
-        crest_factor_db: float = None,
-        bass_pct: float = None,
-        transient_density: float = None
-    ) -> dict:
-        """
-        Get complete adaptive processing parameters based on source LUFS, dynamics, bass, and transients.
-
-        Args:
-            source_lufs: Source loudness in LUFS
-            intensity: Processing intensity (0.0-1.0)
-            crest_factor_db: Peak-to-RMS ratio in dB (optional, for transient preservation)
-            bass_pct: Bass energy percentage 0.0-1.0 (optional, for bass-heavy material)
-            transient_density: Transient density 0.0-1.0 (optional, for bass-transient interaction)
-
-        Returns:
-            Dictionary with adaptive parameters
-        """
-        makeup_gain, gain_reasoning = AdaptiveLoudnessControl.calculate_adaptive_gain(
-            source_lufs, intensity, crest_factor_db, bass_pct, transient_density
-        )
-        target_peak, target_peak_db = AdaptiveLoudnessControl.calculate_adaptive_peak_target(
-            source_lufs
-        )
-
-        return {
-            'makeup_gain_db': makeup_gain,
-            'target_peak_linear': target_peak,
-            'target_peak_db': target_peak_db,
-            'source_lufs': source_lufs,
-            'crest_factor_db': crest_factor_db,
-            'bass_pct': bass_pct,
-            'transient_density': transient_density,
-            'reasoning': gain_reasoning,
-            'intensity': intensity,
-        }

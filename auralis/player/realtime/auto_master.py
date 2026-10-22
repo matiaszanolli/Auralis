@@ -56,7 +56,7 @@ class AutoMasterProcessor:
         # Initialize optional transient enhancer for low-mid punch restoration
         # Used for quiet, dynamic material (< -13 LUFS with crest > 14 dB)
         self.transient_enhancer = LowMidTransientEnhancer(sample_rate=config.sample_rate)
-        self.use_transient_enhancement = True  # Can be toggled via set_use_transient_enhancement()
+        self.use_transient_enhancement = True
 
         debug("AutoMasterProcessor initialized")
 
@@ -64,12 +64,6 @@ class AutoMasterProcessor:
         """Thread-safe setter for enabled flag (#3356)."""
         with self._lock:
             self.enabled = enabled
-
-    def set_use_transient_enhancement(self, enabled: bool) -> None:
-        """Enable/disable low-mid transient enhancement"""
-        with self._lock:
-            self.use_transient_enhancement = enabled
-            info(f"Transient enhancement {'enabled' if enabled else 'disabled'}")
 
     def set_fingerprint(self, fingerprint: dict[str, Any]) -> None:
         """

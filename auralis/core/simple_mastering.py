@@ -46,7 +46,6 @@ from .stages import (
     loudness_maximizer,
     mid_warmth,
     presence_enhancement,
-    safety_limiter,
     stereo_expansion,
     sub_bass_control,
     transient_shaper,
@@ -301,11 +300,6 @@ class SimpleMasteringPipeline:
         test_nan_detection.py calls pipeline._process(...) directly.
         """
         return process_chunk(self, audio, fp, peak_db, intensity, sample_rate, verbose)
-
-    def _apply_safety_limiter(
-        self, audio: np.ndarray, verbose: bool, ceiling: float = 0.98
-    ) -> np.ndarray:
-        return safety_limiter.apply(audio, verbose, ceiling=ceiling)
 
     def _apply_loudness_maximizer(
         self, audio: np.ndarray, source_lufs: float, source_crest_db: float,
