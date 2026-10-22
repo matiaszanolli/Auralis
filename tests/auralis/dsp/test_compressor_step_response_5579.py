@@ -9,7 +9,6 @@ to 37% in ~10 ms (release 100 ms). Feeding the magnitude fixes both.
 """
 
 import numpy as np
-import pytest
 
 from auralis.dsp.dynamics.compressor import AdaptiveCompressor
 from auralis.dsp.dynamics.compressor import CompressorSettings
@@ -43,13 +42,10 @@ def _step_reduction(compressor: AdaptiveCompressor) -> np.ndarray:
         if hasattr(compressor.gain_reduction, '__len__') else None
 
 
-@pytest.mark.parametrize("follower_path", ["vectorized", "envelope"])
-def test_step_response_reaches_63pct_within_attack_order(follower_path):
+def test_step_response_reaches_63pct_within_attack_order():
     """Growing compression must engage at the ATTACK rate: ~63% of the final
     reduction within roughly the attack time constant (10 ms -> a few ms of
     samples), not the 100 ms release one."""
-    from auralis.dsp.dynamics import vectorized_envelope
-
     sr = 44100
     comp = _make_compressor()
 

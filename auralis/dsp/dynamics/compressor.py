@@ -8,22 +8,12 @@ Content-aware compressor with a linked peak envelope
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from typing import Any
-
 import numpy as np
 
 from ...utils.logging import debug
+from .envelope import EnvelopeFollower
 from .lookahead_buffer import LookaheadBuffer
 from .settings import CompressorSettings
-
-# Use vectorized envelope follower for 40-70x speedup
-EnvelopeFollower: Any  # Will be assigned below
-try:
-    from .vectorized_envelope import VectorizedEnvelopeFollower as EnvelopeFollower
-except ImportError:
-    # Fallback to original if vectorized version not available
-    from .envelope import EnvelopeFollower
-    debug("Vectorized envelope not available, using standard version")
 
 
 class AdaptiveCompressor:
