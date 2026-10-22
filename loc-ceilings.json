@@ -34,6 +34,17 @@
     "auralis/io/loaders/ffmpeg_loader.py": 299,
     "auralis/io/loaders/ffmpeg_probe.py": 299,
     "auralis/io/loaders/ffmpeg_process.py": 299,
-    "auralis/player/enhanced_audio_player.py": 299
+    "auralis/player/components/queue_manager.py": 299,
+    "auralis/player/components/queue_navigation.py": 299,
+    "auralis/player/components/queue_shuffle.py": 299,
+    "auralis/player/enhanced_audio_player.py": 299,
+    "auralis/player/gapless_playback_engine.py": 299,
+    "auralis/player/gapless_prebuffer.py": 299,
+    "auralis/player/integration_library.py": 299,
+    "auralis/player/integration_manager.py": 299,
+    "auralis/player/integration_reporting.py": 299,
+    "auralis/player/queue_controller.py": 299,
+    "auralis/player/queue_loading.py": 299,
+    "auralis/player/queue_locked_state.py": 299
   }
 }
