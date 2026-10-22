@@ -95,7 +95,9 @@ class TestUnknownArtistRepresentation:
 
 class TestOrphanBackfillMigration:
     def test_schema_version_reaches_the_backfill(self):
-        assert __db_schema_version__ == 19
+        # At or past the version that introduced the backfill (v18 -> v19); an
+        # equality check went stale the first time the schema moved on.
+        assert __db_schema_version__ >= 19
         assert MIGRATION.exists()
         assert validate_migration_sql(MIGRATION.read_text(), MIGRATION.name)
 

@@ -34,7 +34,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker
 
 from ..utils.logging import error, info, warning
-from .constants import DEFAULT_DB_PATH
+from .constants import DEFAULT_DB_PATH, SQLITE_BUSY_TIMEOUT_MS, SQLITE_CONNECT_TIMEOUT_S
 from .migration_manager import MigrationError, check_and_migrate_database
 from .models import Base
 from .repositories import (
@@ -125,7 +125,7 @@ class LibraryDatabase:
         # Configure SQLite for safe, frequent fingerprint writes
         # WAL mode + synchronous=NORMAL enables fast writes with durability guarantees
         connect_args = {
-            'timeout': 15,  # 15s busy timeout (WAL makes contention rare)
+            'timeout': SQLITE_CONNECT_TIMEOUT_S,  # WAL makes contention rare
             'check_same_thread': False,
         }
 
@@ -173,7 +173,7 @@ class LibraryDatabase:
             # Increase max page count for larger working set
             cursor.execute("PRAGMA max_page_count=1073741823")  # ~4GB max database
             # Explicit busy timeout at PRAGMA level for consistent behavior (#2091)
-            cursor.execute("PRAGMA busy_timeout=60000")  # 60s
+            cursor.execute(f"PRAGMA busy_timeout={SQLITE_BUSY_TIMEOUT_MS}")
             cursor.close()
 
         self.SessionLocal = sessionmaker(self.engine)

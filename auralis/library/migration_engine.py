@@ -20,6 +20,8 @@ from typing import Any
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 
+from .constants import SQLITE_BUSY_TIMEOUT_MS, SQLITE_CONNECT_TIMEOUT_S
+
 logger = logging.getLogger(__name__)
 
 __all__ = ['create_migration_engine']
@@ -38,7 +40,7 @@ def create_migration_engine(db_path: Path) -> Engine:
     engine = create_engine(
         f'sqlite:///{db_path}',
         connect_args={
-            'timeout': 15,          # 15s busy timeout matches LibraryDatabase
+            'timeout': SQLITE_CONNECT_TIMEOUT_S,
             'check_same_thread': False,
         },
         # #3702: verify connection before use to avoid stale-connection
@@ -56,7 +58,7 @@ def create_migration_engine(db_path: Path) -> Engine:
         cursor.execute("PRAGMA foreign_keys=ON")
         # Explicit busy timeout at PRAGMA level for consistent behavior
         # under concurrent migration access (#3312, matches LibraryDatabase #2091).
-        cursor.execute("PRAGMA busy_timeout=60000")  # 60s
+        cursor.execute(f"PRAGMA busy_timeout={SQLITE_BUSY_TIMEOUT_MS}")
         cursor.close()
 
     return engine

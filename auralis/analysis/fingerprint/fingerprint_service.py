@@ -28,6 +28,7 @@ from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
 from auralis.analysis.fingerprint.fingerprint_storage import FingerprintStorage
 from auralis.analysis.fingerprint.schema import DIMENSION_NAMES, band_pct_valid
 from auralis.analysis.fingerprint.windowed_compute import compute_windowed_fingerprint
+from auralis.library.constants import SQLITE_BUSY_TIMEOUT_MS, SQLITE_CONNECT_TIMEOUT_S
 from auralis.library.repositories.fingerprint_repository import FingerprintRepository
 from auralis.library.repositories.track_repository import TrackRepository
 
@@ -42,7 +43,7 @@ def _make_engine(db_path: Path) -> Engine:
     engine = create_engine(
         f"sqlite:///{db_path}",
         echo=False,
-        connect_args={'timeout': 15, 'check_same_thread': False},
+        connect_args={'timeout': SQLITE_CONNECT_TIMEOUT_S, 'check_same_thread': False},
         pool_pre_ping=True,
     )
 
@@ -51,7 +52,7 @@ def _make_engine(db_path: Path) -> Engine:
         cursor = dbapi_conn.cursor()
         cursor.execute("PRAGMA journal_mode=WAL")
         cursor.execute("PRAGMA synchronous=NORMAL")
-        cursor.execute("PRAGMA busy_timeout=60000")
+        cursor.execute(f"PRAGMA busy_timeout={SQLITE_BUSY_TIMEOUT_MS}")
         # #4510: foreign-key enforcement is per-connection in SQLite, and the
         # other two engines on this same library.db (database.py,
         # migration_engine.py) both enable it. Without it, fingerprint writes
