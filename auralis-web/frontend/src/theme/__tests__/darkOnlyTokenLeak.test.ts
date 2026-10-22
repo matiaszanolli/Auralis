@@ -38,7 +38,15 @@ import { describe, expect, it } from 'vitest';
 // relative path, so semanticTheme.ts arrives as '../semanticTheme.ts', not
 // '../../theme/semanticTheme.ts'. Suffix-matching a directory path silently
 // matches nothing, which would have made the exemption a no-op.
-const MAPPING_LAYER = ['semanticTheme.ts', 'themeConfig.ts'];
+// themeConfig.ts's palette/typography/component groups moved to sibling
+// files in #5841; they are the same MUI mapping layer.
+const MAPPING_LAYER = [
+  'semanticTheme.ts',
+  'themeConfig.ts',
+  'themePalette.ts',
+  'themeTypography.ts',
+  'themeComponents.ts',
+];
 
 const basename = (path: string): string => path.slice(path.lastIndexOf('/') + 1);
 
