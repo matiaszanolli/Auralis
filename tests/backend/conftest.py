@@ -184,16 +184,17 @@ def _isolated_library_db(tmp_path_factory):
     ``auralis.library.constants.DEFAULT_DB_PATH`` -- the developer's own
     ``~/.auralis/library.db`` -- migrating it and writing a backup beside it,
     and made every test that wanted "a track from the library" depend on
-    whatever that file happened to hold. ``database`` imported the constant by
-    name, so both bindings are patched.
+    whatever that file happened to hold. ``database_engine`` (where the path is
+    resolved, since #5837) imported the constant by name, so both bindings are
+    patched.
     """
     import auralis.library.constants as constants
-    import auralis.library.database as database
+    import auralis.library.database_engine as database_engine
 
     path = tmp_path_factory.mktemp("auralis_library") / "library.db"
     patcher = pytest.MonkeyPatch()
     patcher.setattr(constants, "DEFAULT_DB_PATH", path)
-    patcher.setattr(database, "DEFAULT_DB_PATH", path)
+    patcher.setattr(database_engine, "DEFAULT_DB_PATH", path)
     yield path
     patcher.undo()
 
