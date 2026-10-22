@@ -24,6 +24,7 @@ from typing import Any
 import numpy as np
 
 from ...utils.logging import debug, error, info, warning
+from .schema import DIMENSION_NAMES
 
 
 @dataclass
@@ -82,24 +83,9 @@ class FingerprintNormalizer:
         normalizer.load('stats.json')
     """
 
-    # Dimension names in order (must match TrackFingerprint.to_vector())
-    DIMENSION_NAMES = [
-        # Frequency (7D)
-        'sub_bass_pct', 'bass_pct', 'low_mid_pct', 'mid_pct',
-        'upper_mid_pct', 'presence_pct', 'air_pct',
-        # Dynamics (3D)
-        'lufs', 'crest_db', 'bass_mid_ratio',
-        # Temporal (4D)
-        'tempo_bpm', 'rhythm_stability', 'transient_density', 'silence_ratio',
-        # Spectral (3D)
-        'spectral_centroid', 'spectral_rolloff', 'spectral_flatness',
-        # Harmonic (3D)
-        'harmonic_ratio', 'pitch_stability', 'chroma_energy',
-        # Variation (3D)
-        'dynamic_range_variation', 'loudness_variation_std', 'peak_consistency',
-        # Stereo (2D)
-        'stereo_width', 'phase_correlation',
-    ]
+    # Dimension names in order (must match TrackFingerprint.to_vector()); derived
+    # from the schema so it cannot drift (#5786).
+    DIMENSION_NAMES: list[str] = list(DIMENSION_NAMES)
 
     def __init__(self, use_robust: bool = True, percentile_range: tuple[float, float] = (5.0, 95.0)):
         """

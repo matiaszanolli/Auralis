@@ -18,7 +18,9 @@ Use the constants and helpers here instead of hard-coding magic numbers.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+from collections.abc import Mapping
 from enum import Enum
+from typing import Any
 
 
 class Unit(str, Enum):
@@ -89,6 +91,30 @@ DIMENSION_SCHEMA: dict[str, tuple[Unit, float, float]] = {
     'stereo_width':              (Unit.NORMALIZED, 0.0, 1.0),
     'phase_correlation':         (Unit.NORMALIZED, 0.0, 1.0),
 }
+
+
+# The 25 dimension names, in vector order (the order the quantizer, the
+# normalizer and TrackFingerprint.to_vector() depend on). Derived from
+# DIMENSION_SCHEMA so adding or reordering a dimension is one edit; every other
+# list of these names in the codebase must be built from this, not retyped (#5786).
+DIMENSION_NAMES: tuple[str, ...] = tuple(DIMENSION_SCHEMA)
+
+# The seven spectral-band fractions (they sum to ~1.0 in a valid fingerprint).
+BAND_PCT_KEYS: tuple[str, ...] = tuple(name for name in DIMENSION_NAMES if name.endswith('_pct'))
+
+# Tolerance on the band-fraction sum: Rust's band split loses a little energy
+# to the bins outside its edges, so a valid fingerprint is 1 +- 0.05.
+_BAND_SUM_TOLERANCE = 0.05
+
+
+def band_pct_valid(fingerprint: Mapping[str, Any]) -> bool:
+    """True if the seven band fractions sum to 1 +- 0.05.
+
+    The one definition shared by the stored-fingerprint check in
+    FingerprintService and the freshly-computed check in windowed_compute.
+    """
+    total = float(sum(fingerprint.get(key, 0.0) for key in BAND_PCT_KEYS))
+    return (1.0 - _BAND_SUM_TOLERANCE) <= total <= (1.0 + _BAND_SUM_TOLERANCE)
 
 
 # Bands of the 7-band fingerprint energy split, in Hz. Useful for EQ targeting.

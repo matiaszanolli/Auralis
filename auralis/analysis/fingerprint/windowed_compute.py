@@ -41,24 +41,11 @@ from .audio_fingerprint_analyzer import sanitize_non_finite
 
 logger = logging.getLogger(__name__)
 
-# Frequency band keys that must sum to ~1.0 in a valid fingerprint.
-_BAND_PCT_KEYS: tuple[str, ...] = (
-    'sub_bass_pct', 'bass_pct', 'low_mid_pct', 'mid_pct',
-    'upper_mid_pct', 'presence_pct', 'air_pct',
-)
-
-
 # Seconds decoded ahead of a bounded FFmpeg window and then trimmed off, so the
 # samples handed to the analyzer are identical to the same span of a full decode
 # (#5110). 0.5 s was measured as sufficient for bit-exact agreement on MP3;
 # 1.0 s carries margin for other codecs at negligible cost against a 90 s window.
 _SEEK_PREROLL_S = 1.0
-
-
-def _band_pct_valid(fp: dict[str, Any]) -> bool:
-    """Return True if the seven frequency-band fractions sum to 1 ± 0.05."""
-    total = float(sum(fp.get(k, 0.0) for k in _BAND_PCT_KEYS))
-    return 0.95 <= total <= 1.05
 
 
 def _numpy_to_python(obj: Any) -> Any:

@@ -25,6 +25,8 @@ import math
 import struct
 from typing import Any
 
+from ..analysis.fingerprint.schema import DIMENSION_NAMES
+
 logger = logging.getLogger(__name__)
 
 
@@ -88,17 +90,9 @@ class FingerprintQuantizer:
         'phase_correlation': (-1.0, 1.0),      # Phase correlation -1 to +1
     }
 
-    # Dimension order (must match TrackFingerprint.to_vector())
-    DIMENSION_NAMES = [
-        'sub_bass_pct', 'bass_pct', 'low_mid_pct', 'mid_pct',
-        'upper_mid_pct', 'presence_pct', 'air_pct',
-        'lufs', 'crest_db', 'bass_mid_ratio',
-        'tempo_bpm', 'rhythm_stability', 'transient_density', 'silence_ratio',
-        'spectral_centroid', 'spectral_rolloff', 'spectral_flatness',
-        'harmonic_ratio', 'pitch_stability', 'chroma_energy',
-        'dynamic_range_variation', 'loudness_variation_std', 'peak_consistency',
-        'stereo_width', 'phase_correlation',
-    ]
+    # Dimension order (must match TrackFingerprint.to_vector()); derived from the
+    # schema so it cannot drift (#5786).
+    DIMENSION_NAMES: list[str] = list(DIMENSION_NAMES)
 
     @staticmethod
     def quantize(fingerprint_dict: dict[str, float]) -> bytes:

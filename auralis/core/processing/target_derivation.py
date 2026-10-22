@@ -37,6 +37,8 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from ...analysis.fingerprint.schema import BAND_PCT_KEYS
+
 logger = logging.getLogger(__name__)
 
 
@@ -58,8 +60,7 @@ DISTANCE_FEATURES: tuple[str, ...] = (
 # Features extracted from the matched references to form the EQ target.
 # These ARE the things we want to drive the source toward.
 TARGET_FEATURES: tuple[str, ...] = (
-    'sub_bass_pct', 'bass_pct', 'low_mid_pct', 'mid_pct',
-    'upper_mid_pct', 'presence_pct', 'air_pct',
+    *BAND_PCT_KEYS,
     'spectral_centroid', 'spectral_rolloff', 'bass_mid_ratio',
 )
 

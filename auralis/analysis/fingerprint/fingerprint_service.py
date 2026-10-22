@@ -15,16 +15,18 @@ Replaces:
 
 import logging
 from collections.abc import Callable
+from typing import Any
 from pathlib import Path
 
 import numpy as np
-from sqlalchemy import create_engine, event
+from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 
 from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
     AudioFingerprintAnalyzer,
 )
 from auralis.analysis.fingerprint.fingerprint_storage import FingerprintStorage
+from auralis.analysis.fingerprint.schema import DIMENSION_NAMES, band_pct_valid
 from auralis.analysis.fingerprint.windowed_compute import compute_windowed_fingerprint
 from auralis.library.repositories.fingerprint_repository import FingerprintRepository
 from auralis.library.repositories.track_repository import TrackRepository
@@ -32,18 +34,10 @@ from auralis.library.repositories.track_repository import TrackRepository
 logger = logging.getLogger(__name__)
 
 # All 25 fingerprint dimension keys — must match TrackFingerprint column names.
-_FP_KEYS: tuple[str, ...] = (
-    'sub_bass_pct', 'bass_pct', 'low_mid_pct', 'mid_pct', 'upper_mid_pct',
-    'presence_pct', 'air_pct', 'lufs', 'crest_db', 'bass_mid_ratio',
-    'tempo_bpm', 'rhythm_stability', 'transient_density', 'silence_ratio',
-    'spectral_centroid', 'spectral_rolloff', 'spectral_flatness',
-    'harmonic_ratio', 'pitch_stability', 'chroma_energy',
-    'dynamic_range_variation', 'loudness_variation_std', 'peak_consistency',
-    'stereo_width', 'phase_correlation',
-)
+_FP_KEYS: tuple[str, ...] = DIMENSION_NAMES
 
 
-def _make_engine(db_path: Path):
+def _make_engine(db_path: Path) -> Engine:
     """Create a minimal SQLAlchemy engine matching LibraryDatabase's configuration."""
     engine = create_engine(
         f"sqlite:///{db_path}",
@@ -53,7 +47,7 @@ def _make_engine(db_path: Path):
     )
 
     @event.listens_for(engine, "connect")
-    def _set_pragmas(dbapi_conn, _record):
+    def _set_pragmas(dbapi_conn: Any, _record: Any) -> None:
         cursor = dbapi_conn.cursor()
         cursor.execute("PRAGMA journal_mode=WAL")
         cursor.execute("PRAGMA synchronous=NORMAL")
@@ -99,6 +93,7 @@ class FingerprintService:
         self.db_path = Path(db_path)
         self.analyzer = AudioFingerprintAnalyzer()
 
+        self._engine: Engine | None
         if session_factory is None:
             self._engine = _make_engine(self.db_path)
             session_factory = sessionmaker(self._engine)
@@ -131,7 +126,7 @@ class FingerprintService:
         except Exception:
             pass
 
-    def get_or_compute(self, audio_path: Path, audio: np.ndarray | None = None, sr: int | None = None) -> dict | None:
+    def get_or_compute(self, audio_path: Path, audio: np.ndarray | None = None, sr: int | None = None) -> dict[str, Any] | None:
         """
         Get fingerprint using 3-tier cache strategy, or compute new one.
 
@@ -180,7 +175,7 @@ class FingerprintService:
             logger.error(f"Fingerprint retrieval failed: {e}")
             return None
 
-    def _load_from_database(self, filepath: str) -> dict | None:
+    def _load_from_database(self, filepath: str) -> dict[str, Any] | None:
         """Load fingerprint from database via FingerprintRepository."""
         try:
             if not self.db_path.exists():
@@ -204,7 +199,7 @@ class FingerprintService:
                 return None
 
             result = {key: getattr(fp, key) for key in _FP_KEYS}
-            if not self._band_pct_valid(result):
+            if not band_pct_valid(result):
                 # Filename only, matching this file's other INFO logs (#4929) —
                 # the full path leaks OS-username/install-layout info (#4351/#4366).
                 logger.info(f"Discarding stale DB fingerprint (band-pct sum != 1): {Path(filepath).name}")
@@ -215,25 +210,13 @@ class FingerprintService:
             logger.debug(f"Database fingerprint lookup failed: {e}")
             return None
 
-    # Frequency band keys that must sum to ~1.0 in a valid fingerprint.
-    _BAND_PCT_KEYS: tuple[str, ...] = (
-        'sub_bass_pct', 'bass_pct', 'low_mid_pct', 'mid_pct',
-        'upper_mid_pct', 'presence_pct', 'air_pct',
-    )
-
-    @staticmethod
-    def _band_pct_valid(fp: dict) -> bool:
-        """Return True if the seven frequency-band fractions sum to 1 ± 0.05."""
-        total = sum(fp.get(k, 0.0) for k in FingerprintService._BAND_PCT_KEYS)
-        return 0.95 <= total <= 1.05
-
-    def _load_from_file_cache(self, audio_path: Path) -> dict | None:
+    def _load_from_file_cache(self, audio_path: Path) -> dict[str, Any] | None:
         """Load fingerprint from .25d file cache, discarding stale entries."""
         try:
             cached_data = FingerprintStorage.load(audio_path)
             if cached_data:
                 fingerprint, _ = cached_data
-                if not self._band_pct_valid(fingerprint):
+                if not band_pct_valid(fingerprint):
                     logger.info(
                         f"Discarding stale .25d cache (band-pct sum != 1): {audio_path.name}"
                     )
@@ -249,7 +232,7 @@ class FingerprintService:
         audio_path: Path,
         audio: np.ndarray | None = None,
         sr: int | None = None
-    ) -> dict | None:
+    ) -> dict[str, Any] | None:
         """Compute fingerprint using the shared windowed implementation.
 
         #4595: the body+probe windowing that used to live here is now the single
@@ -260,7 +243,7 @@ class FingerprintService:
         """
         return compute_windowed_fingerprint(self.analyzer, audio_path, audio, sr)
 
-    def _save_to_database(self, filepath: str, fingerprint: dict) -> bool:
+    def _save_to_database(self, filepath: str, fingerprint: dict[str, Any]) -> bool:
         """Save fingerprint to database via FingerprintRepository."""
         try:
             if not self.db_path.exists():
@@ -277,34 +260,3 @@ class FingerprintService:
         except Exception as e:
             logger.debug(f"Database save failed: {e}")
             return False
-
-    @staticmethod
-    def _numpy_to_python(obj):
-        """Recursively convert NumPy types to native Python types.
-
-        #3765: previously `else: return obj` swallowed unhandled NumPy
-        types (e.g. `np.complex128`, `np.datetime64`) — they'd be
-        passed through verbatim and then silently break JSON
-        serialisation downstream of any future analyzer that emitted
-        them. Native Python primitives pass through; NumPy types
-        outside the handled set fail loud.
-        """
-        if isinstance(obj, dict):
-            return {k: FingerprintService._numpy_to_python(v) for k, v in obj.items()}
-        elif isinstance(obj, (list, tuple)):
-            return type(obj)(FingerprintService._numpy_to_python(v) for v in obj)
-        elif isinstance(obj, np.ndarray):
-            return obj.tolist()
-        elif isinstance(obj, (np.floating, np.integer)):
-            return float(obj) if isinstance(obj, np.floating) else int(obj)
-        elif isinstance(obj, (np.bool_)):
-            return bool(obj)
-        elif isinstance(obj, np.generic):
-            # Any other NumPy scalar (np.complex128, np.datetime64,
-            # np.str_, ...) — raise loud rather than pass through.
-            raise TypeError(
-                f"Cannot serialise NumPy type {type(obj).__name__}; "
-                f"add an explicit branch to _numpy_to_python()."
-            )
-        else:
-            return obj

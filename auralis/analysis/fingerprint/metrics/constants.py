@@ -10,6 +10,8 @@ Single source of truth for all fingerprint-related constants.
 
 from typing import Any
 
+from ..schema import DIMENSION_NAMES
+
 # The 25 fingerprint dimensions, by name. Lives beside
 # FingerprintConstants.FINGERPRINT_DIMENSIONS (the count) so the two cannot
 # drift — previously only the count was centralised here while the names were
@@ -21,22 +23,7 @@ from typing import Any
 #
 # Anything an analyzer emits that is NOT listed here is metadata (e.g.
 # '_harmonic_analysis_method') and must not be persisted as a dimension.
-FINGERPRINT_DIMENSION_NAMES: frozenset[str] = frozenset({
-    # 7-band spectral distribution
-    'sub_bass_pct', 'bass_pct', 'low_mid_pct', 'mid_pct',
-    'upper_mid_pct', 'presence_pct', 'air_pct',
-    # Level / dynamics
-    'lufs', 'crest_db', 'bass_mid_ratio',
-    # Temporal
-    'tempo_bpm', 'rhythm_stability', 'transient_density', 'silence_ratio',
-    # Spectral shape
-    'spectral_centroid', 'spectral_rolloff', 'spectral_flatness',
-    # Harmonic
-    'harmonic_ratio', 'pitch_stability', 'chroma_energy',
-    # Stereo / consistency
-    'stereo_width', 'phase_correlation', 'dynamic_range_variation',
-    'loudness_variation_std', 'peak_consistency',
-})
+FINGERPRINT_DIMENSION_NAMES: frozenset[str] = frozenset(DIMENSION_NAMES)
 
 
 class FingerprintConstants:

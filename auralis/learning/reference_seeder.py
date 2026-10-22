@@ -23,7 +23,10 @@ scoring logic can be tested without a live database.
 import logging
 import math
 from dataclasses import dataclass
+from collections.abc import Callable
 from typing import Any, Protocol
+
+from ..analysis.fingerprint.schema import BAND_PCT_KEYS
 
 logger = logging.getLogger(__name__)
 
@@ -69,10 +72,7 @@ class SeederConfig:
 
 
 # The seven band fields whose distribution we audit for extreme outliers.
-BAND_FIELDS: tuple[str, ...] = (
-    'sub_bass_pct', 'bass_pct', 'low_mid_pct', 'mid_pct',
-    'upper_mid_pct', 'presence_pct', 'air_pct',
-)
+BAND_FIELDS: tuple[str, ...] = BAND_PCT_KEYS
 
 
 def score_fingerprint(fp: Any, config: SeederConfig = SeederConfig()) -> float:
@@ -121,7 +121,7 @@ def score_fingerprint(fp: Any, config: SeederConfig = SeederConfig()) -> float:
     # Balance: penalize concentration. max_band=0.65 -> 0; max_band=0.20 -> 1.
     balance_score = max(0.0, 1.0 - (max_band - 0.20) / (config.max_band_fraction - 0.20))
 
-    return (lufs_score + crest_score + balance_score) / 3.0
+    return float((lufs_score + crest_score + balance_score) / 3.0)
 
 
 def compute_reference_weight(fp: Any, base_score: float) -> float:
@@ -228,7 +228,7 @@ def refresh_cloud(
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-def _attr_getter(fp: Any):
+def _attr_getter(fp: Any) -> Callable[[str], Any]:
     """Return a function that pulls a field by name from fp (attr or dict)."""
     if hasattr(fp, '__getitem__') and not hasattr(fp, '__table__'):
         # Dict-like (but not an ORM row which can be confusingly subscriptable).

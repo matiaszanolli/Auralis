@@ -36,7 +36,7 @@ def sanitize_non_finite(fingerprint: dict[str, Any], label: str) -> list[str]:
     single NaN sample in decoded audio reached ``track_fingerprints`` unguarded
     and stayed there: ``_prepare_for_storage()`` validates dimension *count*
     only, ``upsert()`` validates column *names* only, and the read-time
-    ``_band_pct_valid()`` check inspects only the 7 band percentages — so a NaN
+    ``band_pct_valid()`` check inspects only the 7 band percentages — so a NaN
     ``lufs`` reads back as "valid" forever.
 
     The Rust layer cannot catch this on its own: ``estimate_lufs()``'s silence
