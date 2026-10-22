@@ -11,16 +11,14 @@ Mastering Processing Branches
     NOT ``core/processing/continuous_mode.py``'s ``ContinuousMode``, which is
     what the shipped app actually runs.
 
-Shared base and the single continuous mastering path.
+The single continuous mastering path.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from .base import ProcessingBranch
 from .continuous import ContinuousMasteringBranch
 
 __all__ = [
     "ContinuousMasteringBranch",
-    "ProcessingBranch",
 ]

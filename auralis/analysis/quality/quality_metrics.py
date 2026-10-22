@@ -13,7 +13,7 @@ from typing import Any
 
 import numpy as np
 
-from ..base_spectrum_analyzer import SpectrumAnalyzer, SpectrumSettings
+from ..spectrum_analyzer import SpectrumAnalyzer, SpectrumSettings
 from ..dynamic_range import DynamicRangeAnalyzer
 from ..loudness_meter import LoudnessMeter
 from ..phase_correlation import PhaseCorrelationAnalyzer

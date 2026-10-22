@@ -1,17 +1,18 @@
 """
-Base Spectrum Analyzer
-~~~~~~~~~~~~~~~~~~~~~~
+Spectrum Analyzer
+~~~~~~~~~~~~~~~~~
 
-Abstract base class for spectrum analysis implementations.
+Spectrum analysis for audio chunks and whole files: windowed FFT, mapping onto
+perceptual frequency bands, weighting and smoothing.
 
-Defines the common interface and shared functionality for all spectrum
-analyzer implementations (sequential, parallel, real-time, etc.).
+This used to be an abstract ``BaseSpectrumAnalyzer`` plus a ``SpectrumAnalyzer``
+that was its only subclass, in one file whose name still said "base" (#5806).
+No second implementation ever appeared, so the two are one class.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
 
@@ -37,12 +38,12 @@ class SpectrumSettings:
     max_frequency: float = 20000.0
 
 
-class BaseSpectrumAnalyzer(ABC):
-    """Abstract base class for spectrum analyzers"""
+class SpectrumAnalyzer:
+    """Spectrum analyzer with real-time and file analysis capabilities"""
 
     def __init__(self, settings: SpectrumSettings | None = None) -> None:
         """
-        Initialize base spectrum analyzer
+        Initialize the spectrum analyzer
 
         Args:
             settings: SpectrumSettings configuration object
@@ -71,7 +72,6 @@ class BaseSpectrumAnalyzer(ABC):
             self.settings.frequency_weighting
         )
 
-    @abstractmethod
     def analyze_chunk(self, audio_chunk: np.ndarray, channel: int = 0) -> dict[str, Any]:
         """
         Analyze a chunk of audio data
@@ -90,8 +90,8 @@ class BaseSpectrumAnalyzer(ABC):
             - total_energy: Total spectral energy
             - settings: Analysis settings used
         """
+        return self._create_chunk_result(audio_chunk, channel, self.settings.sample_rate)
 
-    @abstractmethod
     def analyze_file(self, audio_data: np.ndarray, sample_rate: int | None = None) -> dict[str, Any]:
         """
         Analyze an entire audio file
@@ -112,6 +112,58 @@ class BaseSpectrumAnalyzer(ABC):
             - analysis_duration: Duration analyzed in seconds
             - settings: Analysis settings used
         """
+        if sample_rate:
+            self.settings.sample_rate = sample_rate
+
+        # "Analyze a whole file" must not inherit smoothing state from the
+        # previous file under any caller (#4539). QualityMetrics resets this
+        # explicitly too, but doing it here makes the guarantee a property of
+        # the analyzer rather than something every caller has to remember —
+        # `smoothing_buffer` has leaked across boundaries three times already
+        # (#3448, #3433, #2890).
+        self.reset_smoothing()
+
+        hop_size = int(self.settings.fft_size * (1 - self.settings.overlap))
+        num_chunks = (len(audio_data) - self.settings.fft_size) // hop_size + 1
+        chunk_results = []
+
+        for i in range(num_chunks):
+            start_idx = i * hop_size
+            end_idx = start_idx + self.settings.fft_size
+            if end_idx <= len(audio_data):
+                chunk = audio_data[start_idx:end_idx]
+                if audio_data.ndim == 2:
+                    chunk = chunk.reshape(-1, audio_data.shape[1])
+                chunk_results.append(self.analyze_chunk(chunk))
+
+        if not chunk_results:
+            return {}
+
+        aggregated = SpectrumOperations.aggregate_analysis_results(chunk_results)
+        return {
+            'spectrum': aggregated['spectrum'].tolist(),
+            'frequency_bins': self.frequency_bins.tolist(),
+            'peak_frequency': float(AggregationUtils.aggregate_frames_to_track(
+                np.array([r['peak_frequency'] for r in chunk_results]), method='mean'
+            )),
+            'spectral_centroid': float(AggregationUtils.aggregate_frames_to_track(
+                np.array([r['spectral_centroid'] for r in chunk_results]), method='mean'
+            )),
+            'spectral_rolloff': float(AggregationUtils.aggregate_frames_to_track(
+                np.array([r['spectral_rolloff'] for r in chunk_results]), method='mean'
+            )),
+            'total_energy': float(AggregationUtils.aggregate_frames_to_track(
+                np.array([r['total_energy'] for r in chunk_results]), method='mean'
+            )),
+            'num_chunks_analyzed': len(chunk_results),
+            'analysis_duration': len(audio_data) / self.settings.sample_rate,
+            'settings': {
+                'fft_size': self.settings.fft_size,
+                'frequency_bands': self.settings.frequency_bands,
+                'weighting': self.settings.frequency_weighting,
+                'overlap': self.settings.overlap,
+            },
+        }
 
     def _create_chunk_result(self,
                             audio_chunk: np.ndarray,
@@ -120,7 +172,7 @@ class BaseSpectrumAnalyzer(ABC):
         """
         Create analysis result for a single audio chunk
 
-        This is a helper method for subclasses to use.
+        Shared by analyze_chunk() and anything that needs a single-chunk result.
 
         Args:
             audio_chunk: Audio data to analyze
@@ -224,64 +276,3 @@ class BaseSpectrumAnalyzer(ABC):
 
         # Reset smoothing buffer
         self.reset_smoothing()
-
-
-class SpectrumAnalyzer(BaseSpectrumAnalyzer):
-    """Spectrum analyzer with real-time and file analysis capabilities"""
-
-    def analyze_chunk(self, audio_chunk: np.ndarray, channel: int = 0) -> dict[str, Any]:
-        return self._create_chunk_result(audio_chunk, channel, self.settings.sample_rate)
-
-    def analyze_file(self, audio_data: np.ndarray, sample_rate: int | None = None) -> dict[str, Any]:
-        if sample_rate:
-            self.settings.sample_rate = sample_rate
-
-        # "Analyze a whole file" must not inherit smoothing state from the
-        # previous file under any caller (#4539). QualityMetrics resets this
-        # explicitly too, but doing it here makes the guarantee a property of
-        # the analyzer rather than something every caller has to remember —
-        # `smoothing_buffer` has leaked across boundaries three times already
-        # (#3448, #3433, #2890).
-        self.reset_smoothing()
-
-        hop_size = int(self.settings.fft_size * (1 - self.settings.overlap))
-        num_chunks = (len(audio_data) - self.settings.fft_size) // hop_size + 1
-        chunk_results = []
-
-        for i in range(num_chunks):
-            start_idx = i * hop_size
-            end_idx = start_idx + self.settings.fft_size
-            if end_idx <= len(audio_data):
-                chunk = audio_data[start_idx:end_idx]
-                if audio_data.ndim == 2:
-                    chunk = chunk.reshape(-1, audio_data.shape[1])
-                chunk_results.append(self.analyze_chunk(chunk))
-
-        if not chunk_results:
-            return {}
-
-        aggregated = SpectrumOperations.aggregate_analysis_results(chunk_results)
-        return {
-            'spectrum': aggregated['spectrum'].tolist(),
-            'frequency_bins': self.frequency_bins.tolist(),
-            'peak_frequency': float(AggregationUtils.aggregate_frames_to_track(
-                np.array([r['peak_frequency'] for r in chunk_results]), method='mean'
-            )),
-            'spectral_centroid': float(AggregationUtils.aggregate_frames_to_track(
-                np.array([r['spectral_centroid'] for r in chunk_results]), method='mean'
-            )),
-            'spectral_rolloff': float(AggregationUtils.aggregate_frames_to_track(
-                np.array([r['spectral_rolloff'] for r in chunk_results]), method='mean'
-            )),
-            'total_energy': float(AggregationUtils.aggregate_frames_to_track(
-                np.array([r['total_energy'] for r in chunk_results]), method='mean'
-            )),
-            'num_chunks_analyzed': len(chunk_results),
-            'analysis_duration': len(audio_data) / self.settings.sample_rate,
-            'settings': {
-                'fft_size': self.settings.fft_size,
-                'frequency_bands': self.settings.frequency_bands,
-                'weighting': self.settings.frequency_weighting,
-                'overlap': self.settings.overlap,
-            },
-        }

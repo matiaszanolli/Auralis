@@ -12,7 +12,7 @@ from .dynamic_range import DynamicRangeAnalyzer
 from .loudness_meter import LoudnessMeter, LUFSMeasurement
 from .phase_correlation import PhaseCorrelationAnalyzer
 from .quality.quality_metrics import QualityMetrics, QualityScores
-from .base_spectrum_analyzer import SpectrumAnalyzer, SpectrumSettings
+from .spectrum_analyzer import SpectrumAnalyzer, SpectrumSettings
 
 __all__ = [
     'SpectrumAnalyzer',

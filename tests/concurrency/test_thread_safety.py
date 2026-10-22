@@ -525,7 +525,7 @@ class TestAudioProcessingThreadSafety:
         #5156: re-pointed — the constructor takes an optional SpectrumSettings,
         not a sample_rate; the rate is passed per call to analyze_file().
         """
-        from auralis.analysis.base_spectrum_analyzer import SpectrumAnalyzer
+        from auralis.analysis.spectrum_analyzer import SpectrumAnalyzer
         from auralis.io.unified_loader import load_audio
 
         def analyze_spectrum(filepath):

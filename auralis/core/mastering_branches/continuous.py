@@ -8,21 +8,24 @@ One measurement-driven processing path for every source.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from ...dsp.basic import amplify, normalize
 from ...dsp.utils.adaptive_loudness import AdaptiveLoudnessControl
+from ...utils.audio_validation import validate_audio_finite
 from ..mastering_config import SimpleMasteringConfig
 from ..processing.continuous_space import ProcessingSpaceMapper
 from ..stages.hf_budget import hf_lift_factor
 from ..utils import FingerprintUnpacker, StageRecorder
-from .base import ProcessingBranch
 from .soft_clip_params import compute_soft_clip_threshold
 
+if TYPE_CHECKING:
+    from ..simple_mastering import SimpleMasteringPipeline
 
-class ContinuousMasteringBranch(ProcessingBranch):
+
+class ContinuousMasteringBranch:
     """
     Apply one continuous signal path without classifying the source.
 
@@ -39,7 +42,36 @@ class ContinuousMasteringBranch(ProcessingBranch):
 
     The strength of each stage is derived from numeric fingerprint measurements.
     No whole-track label chooses a branch or prevents processing.
+
+    This is the only processing branch: ``SimpleMasteringPipeline._process()``
+    performs the safety pre-stage, then calls ``apply()`` for every source. An
+    abstract ``ProcessingBranch`` base used to sit above it with this as its sole
+    implementation (#5806); its constructor and finite-audio guard live here now.
     """
+
+    def __init__(self, pipeline: "SimpleMasteringPipeline"):
+        """
+        Args:
+            pipeline: SimpleMasteringPipeline instance for enhancement method delegation
+        """
+        self.pipeline = pipeline
+
+    def _assert_finite(self, audio: np.ndarray, stage: str) -> np.ndarray:
+        """Inter-stage NaN/Inf spot-check (#4099).
+
+        The pipeline validates only at entry and (with repair) at exit, so a
+        non-finite value produced by any one of the ~10 intermediate stages
+        propagates silently to the end, where ``sanitize_audio`` zeros the whole
+        output — erasing which stage was at fault. Calling this at stage-group
+        boundaries with ``repair=False`` raises immediately, naming the group,
+        so the root-cause stage is localized. The all-finite fast path is two
+        cheap array scans. The final ``sanitize_audio`` boundary is unchanged,
+        preserving production resilience.
+
+        Returns ``audio`` unchanged (for inline use:
+        ``processed = self._assert_finite(processed, "...")``).
+        """
+        return validate_audio_finite(audio, context=f"SimpleMastering {stage}", repair=False)
 
     def apply(
         self,

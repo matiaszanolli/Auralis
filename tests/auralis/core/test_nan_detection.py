@@ -280,7 +280,7 @@ class TestSimpleMasteringInterStageGuard:
         assert np.isfinite(result).all()
 
     def test_assert_finite_helper_passes_finite_and_raises_nonfinite(self):
-        """Direct unit test of the shared guard helper on ProcessingBranch."""
+        """Direct unit test of the inter-stage guard helper on ContinuousMasteringBranch."""
         from auralis.core.mastering_branches import ContinuousMasteringBranch
         branch = ContinuousMasteringBranch(SimpleMasteringPipeline())
 
