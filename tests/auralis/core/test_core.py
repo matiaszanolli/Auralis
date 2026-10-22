@@ -437,29 +437,9 @@ class TestUtilityComponents:
         for filename in ('test.txt', 'test.doc', 'no_extension', 'cover.jpg'):
             assert is_audio_file(filename) is False, filename
 
-    def test_helpers_comprehensive(self):
-        """Test helper utilities comprehensively."""
-        from auralis.utils.helpers import format_duration, format_filesize
-
-        # Test duration formatting with various inputs
-        durations = [0, 30, 75, 125, 3661]  # 0s, 30s, 1:15, 2:05, 1:01:01
-
-        for duration in durations:
-            formatted = format_duration(duration)
-            assert isinstance(formatted, str)
-            assert len(formatted) > 0
-
-        # Test file size formatting
-        sizes = [0, 1024, 1048576, 1073741824]  # 0B, 1KB, 1MB, 1GB
-
-        for size in sizes:
-            formatted = format_filesize(size)
-            assert isinstance(formatted, str)
-            assert len(formatted) > 0
-
     def test_logging_comprehensive(self):
         """Test logging utilities comprehensively."""
-        from auralis.utils.logging import debug, error, info, set_log_level, warning
+        from auralis.utils.logging import debug, error, info, warning
 
         # Test all logging functions
         log_functions = [info, warning, error, debug]
@@ -471,15 +451,6 @@ class TestUtilityComponents:
             except Exception as e:
                 # Logging might not be fully configured
                 assert 'log' in str(e).lower()
-
-        # Test log level setting
-        try:
-            set_log_level('DEBUG')
-            set_log_level('INFO')
-            set_log_level('WARNING')
-        except Exception as e:
-            # Log level setting might not be implemented
-            assert 'level' in str(e).lower() or 'log' in str(e).lower()
 
 
 class TestModelRelationships:

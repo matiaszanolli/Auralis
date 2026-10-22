@@ -92,28 +92,14 @@ class ModuleError(Exception):
         super().__init__(f"Module error: {code}")
 
 
-# Global log handler and level
+# Global log handler
 _log_handler: Callable[[str], None] | None = None
-_log_level: str = "INFO"
 
 
 def set_log_handler(handler: Callable[[str], None] | None) -> None:
     """Set the global log handler function"""
     global _log_handler
     _log_handler = handler
-
-
-def set_log_level(level: str) -> None:
-    """Set the global log level"""
-    global _log_level
-    valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR"]
-    if level.upper() in valid_levels:
-        _log_level = level.upper()
-
-
-def get_log_level() -> str:
-    """Get the current log level"""
-    return _log_level
 
 
 def debug(message: str) -> None:
@@ -138,12 +124,6 @@ def error(message: str) -> None:
     """Log an error message"""
     if _log_handler:
         _log_handler(f"ERROR: {sanitize_log_value(message)}")
-
-
-def debug_line() -> None:
-    """Log a debug separator line"""
-    if _log_handler:
-        _log_handler("-" * 50)
 
 
 # #4828: the explicit sanitize_log_value() call sites from #4363 (4 files) left

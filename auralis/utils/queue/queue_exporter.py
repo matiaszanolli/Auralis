@@ -96,12 +96,8 @@ class QueueExporter:
             # Auto-detect format from extension if not specified
             format_lower = format
             if format_lower is None:
-                if M3UHandler.supports_format(str(file_path)):
-                    format_lower = 'm3u'
-                elif XSPFHandler.supports_format(str(file_path)):
-                    format_lower = 'xspf'
-                else:
-                    format_lower = QueueExporter.DEFAULT_FORMAT
+                detected = QueueExporter.detect_format(str(file_path))
+                format_lower = QueueExporter.DEFAULT_FORMAT if detected == 'unknown' else detected
 
             # Create parent directories if needed
             file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -181,11 +177,8 @@ class QueueExporter:
             # Auto-detect format from extension if not specified
             format_lower = format
             if format_lower is None:
-                if M3UHandler.supports_format(str(file_path)):
-                    format_lower = 'm3u'
-                elif XSPFHandler.supports_format(str(file_path)):
-                    format_lower = 'xspf'
-                else:
+                format_lower = QueueExporter.detect_format(str(file_path))
+                if format_lower == 'unknown':
                     raise ValueError(f'Cannot auto-detect format for file: {filepath}')
 
             format_lower = format_lower.lower()

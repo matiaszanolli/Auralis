@@ -37,7 +37,6 @@ from auralis.analysis.fingerprint.metrics import (
     FingerprintConstants,
     MetricUtils,
     SafeOperations,
-    SpectralMetrics,
 )
 from auralis.analysis.fingerprint.distance import DimensionWeights, FingerprintDistance
 from auralis.analysis.fingerprint.fingerprint_storage import FingerprintStorage
@@ -67,5 +66,4 @@ __all__ = [
     'MetricUtils',
     'AudioMetrics',
     'AggregationUtils',
-    'SpectralMetrics',
 ]

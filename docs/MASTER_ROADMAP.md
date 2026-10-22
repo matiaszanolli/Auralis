@@ -110,8 +110,6 @@ deferred LARGE items and known gaps:
 already tracked):
 
 - `phase_correlation` — schema says 0–1, analyzer returns −1..+1.
-- Variation dims have two different default-value sets (`auralis/analysis/fingerprint/metrics/variation_metrics.py`'s
-  `VariationMetrics` vs the orchestrator's `_get_default_fingerprint`).
 - `25D_SIDECAR_FORMAT_SPEC.md` diverges from the as-built format (nested vs flat, 0–100 vs 0–1
   band fractions, SHA-256 vs size+mtime validation) — spec should be reconciled or marked
   design-only.

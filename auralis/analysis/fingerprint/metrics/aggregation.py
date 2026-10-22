@@ -57,27 +57,3 @@ class AggregationUtils:
             return float(np.percentile(frame_values, 95))
         else:
             raise ValueError(f"Unknown aggregation method: {method}")
-
-    @staticmethod
-    def aggregate_multiple(
-        frame_values: np.ndarray,
-        methods: list[str] | None = None
-    ) -> dict[str, float]:
-        """
-        Aggregate frame values using multiple methods.
-
-        Useful for feature extraction where multiple perspectives are needed.
-
-        Args:
-            frame_values: Array of per-frame values
-            methods: List of methods to apply (default: ['median', 'std'])
-
-        Returns:
-            Dictionary with aggregation method as key
-        """
-        method_list: list[str] = methods if methods is not None else ["median", "std"]
-
-        return {
-            method: AggregationUtils.aggregate_frames_to_track(frame_values, method)
-            for method in method_list
-        }

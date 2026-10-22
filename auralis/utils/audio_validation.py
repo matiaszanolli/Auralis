@@ -67,19 +67,6 @@ def validate_audio_finite(
         raise ModuleError(error_msg)
 
 
-def check_audio_finite(audio: np.ndarray) -> bool:
-    """
-    Check if audio contains only finite values (no NaN or Inf).
-
-    Args:
-        audio: Audio array to check
-
-    Returns:
-        True if all values are finite, False otherwise
-    """
-    return bool(np.all(np.isfinite(audio)))
-
-
 def sanitize_audio(audio: np.ndarray, context: str = "audio") -> np.ndarray:
     """
     Sanitize audio by replacing NaN/Inf with silence (zero).

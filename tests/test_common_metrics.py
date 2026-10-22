@@ -20,7 +20,6 @@ from auralis.analysis.fingerprint.metrics import (
     FingerprintConstants,
     MetricUtils,
     SafeOperations,
-    SpectralMetrics,
 )
 from auralis.analysis.fingerprint.metrics.constants import FINGERPRINT_DIMENSION_NAMES
 
@@ -39,28 +38,6 @@ class TestFingerprintConstants:
         """Test epsilon constant is appropriately small."""
         assert FingerprintConstants.EPSILON == 1e-10
         assert FingerprintConstants.EPSILON > 0
-
-    def test_validate_vector_correct_dimensions(self):
-        """Test validation passes for 25-element vector."""
-        vector = np.random.randn(25)
-        assert FingerprintConstants.validate_vector(vector)
-
-    def test_validate_vector_wrong_dimensions(self):
-        """Test validation fails for wrong dimensions."""
-        vector = np.random.randn(24)
-        with pytest.raises(ValueError):
-            FingerprintConstants.validate_vector(vector)
-
-    def test_validate_vector_custom_dimensions(self):
-        """Test validation with custom expected dimensions."""
-        vector = np.random.randn(10)
-        assert FingerprintConstants.validate_vector(vector, expected_dims=10)
-
-    def test_validate_vector_custom_dimensions_mismatch(self):
-        """Test validation fails with mismatched custom dimensions."""
-        vector = np.random.randn(10)
-        with pytest.raises(ValueError):
-            FingerprintConstants.validate_vector(vector, expected_dims=15)
 
 
 class TestSafeOperations:
@@ -97,29 +74,6 @@ class TestSafeOperations:
         assert result[0] == 5.0
         assert result[1] == 0.0  # Fallback
         assert result[2] == 5.0
-
-    def test_safe_log_normal(self):
-        """Test safe log with normal values."""
-        result = SafeOperations.safe_log(10.0)
-        expected = np.log(10.0)
-        assert np.isclose(result, expected)
-
-    def test_safe_log_zero(self):
-        """Test safe log of zero returns fallback."""
-        result = SafeOperations.safe_log(0.0, fallback=-np.inf)
-        assert result == -np.inf
-
-    def test_safe_log_very_small(self):
-        """Test safe log of very small value."""
-        result = SafeOperations.safe_log(1e-15, fallback=-np.inf)
-        assert result == -np.inf  # Too small, returns fallback
-
-    def test_safe_log_array(self):
-        """Test safe log with array."""
-        values = np.array([1.0, 10.0, 100.0])
-        result = SafeOperations.safe_log(values)
-        expected = np.log(values)
-        np.testing.assert_array_almost_equal(result, expected)
 
     def test_safe_power_normal(self):
         """Test safe power operation."""
@@ -256,25 +210,6 @@ class TestAudioMetrics:
         # Should be around 0.5 (2 out of 4 are quiet)
         assert 0.4 < ratio < 0.6
 
-    def test_peak_to_rms_ratio_sine(self):
-        """Test peak-to-RMS ratio for sine wave."""
-        # Sine wave has peak ≈ sqrt(2) * RMS
-        t = np.linspace(0, 1, 1000)
-        audio = np.sin(2 * np.pi * t)
-
-        ratio = AudioMetrics.peak_to_rms_ratio(audio)
-
-        # Should be close to sqrt(2) ≈ 1.414
-        assert 1.3 < ratio < 1.5
-
-    def test_peak_to_rms_ratio_silence(self):
-        """Test peak-to-RMS ratio for silent signal."""
-        audio = np.zeros(1000)
-        ratio = AudioMetrics.peak_to_rms_ratio(audio)
-
-        # Silent signal returns default 1.0
-        assert ratio == 1.0
-
 
 class TestAggregationUtils:
     """Test aggregation utility functions."""
@@ -331,94 +266,9 @@ class TestAggregationUtils:
         result = AggregationUtils.aggregate_frames_to_track(values, method="median")
         assert result == 0.5  # Default for empty
 
-    def test_aggregate_multiple(self):
-        """Test multiple aggregation methods."""
-        values = np.array([1, 2, 3, 4, 5])
-        results = AggregationUtils.aggregate_multiple(
-            values, methods=["median", "mean", "std"]
-        )
-
-        assert len(results) == 3
-        assert results["median"] == 3.0
-        assert results["mean"] == 3.0
-        assert results["std"] > 0
-
-
-class TestSpectralMetrics:
-    """Test spectral analysis operations."""
-
-    def test_normalize_magnitude(self):
-        """Test magnitude spectrum normalization."""
-        magnitude = np.array([[1.0, 2.0], [3.0, 4.0]])
-
-        # Normalize along frequency axis (axis=0)
-        normalized = SpectralMetrics.normalize_magnitude(magnitude, axis=0)
-
-        # Each column should sum to 1
-        col_sums = np.sum(normalized, axis=0)
-        np.testing.assert_array_almost_equal(col_sums, [1.0, 1.0])
-
-    def test_spectral_flatness_white_noise(self):
-        """Test spectral flatness for white noise (should be reasonably consistent)."""
-        # White noise has relatively flat spectrum
-        np.random.seed(42)
-        magnitude = np.random.rand(512, 100) + 0.1  # Add offset to avoid zeros
-
-        flatness = SpectralMetrics.spectral_flatness(magnitude)
-
-        # Flatness should be positive and bounded
-        assert np.all(flatness >= 0)
-        assert np.all(flatness <= 1)
-
-    def test_spectral_flatness_sine(self):
-        """Test spectral flatness for sine (should be low)."""
-        # Sine has peaked spectrum
-        freqs = np.fft.rfftfreq(1024)
-        magnitude = np.abs(np.fft.rfft(np.sin(2 * np.pi * 0.1 * np.arange(1024))))
-        magnitude = magnitude.reshape(-1, 1)  # Make 2D
-
-        flatness = SpectralMetrics.spectral_flatness(magnitude)
-
-        # Flatness should be low for pure tone
-        assert flatness[0] < 0.5
-
-    def test_spectral_centroid_low_frequency(self):
-        """Test spectral centroid calculation."""
-        # Create simple spectrum with energy in low frequencies
-        magnitude = np.array([1.0, 0.5, 0.1, 0.01])
-        frequencies = np.array([0, 100, 200, 300])
-
-        centroid = SpectralMetrics.spectral_centroid_safe(magnitude, frequencies)
-
-        # Centroid should be closer to 0 than to 300
-        assert centroid < 150
-
 
 class TestIntegration:
     """Integration tests combining multiple utilities."""
-
-    def test_full_metric_pipeline(self):
-        """Test complete metric extraction pipeline."""
-        # Create synthetic audio
-        t = np.linspace(0, 1, 22050)  # 1 second at 22050 Hz
-        audio = 0.3 * np.sin(2 * np.pi * 440 * t)  # 440 Hz sine
-
-        # Extract metrics
-        peak_to_rms = AudioMetrics.peak_to_rms_ratio(audio)
-        assert peak_to_rms > 1.0
-
-    def test_fingerprint_validation_pipeline(self):
-        """Test fingerprint creation and validation."""
-        # Create valid fingerprint
-        fingerprint = np.random.rand(25)
-
-        # Validate
-        assert FingerprintConstants.validate_vector(fingerprint)
-
-        # Try to validate with wrong dimensions
-        fingerprint_bad = np.random.rand(24)
-        with pytest.raises(ValueError):
-            FingerprintConstants.validate_vector(fingerprint_bad)
 
     def test_normalization_pipeline(self):
         """Test complete normalization pipeline."""

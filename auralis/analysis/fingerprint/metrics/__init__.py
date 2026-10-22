@@ -10,10 +10,6 @@ This package provides a collection of utility classes for audio fingerprinting:
 - Audio metrics: RMS, loudness, dB conversions
 - Normalization: Statistical normalization methods
 - Aggregation: Frame-to-track aggregation
-- Spectral operations: Spectral analysis utilities
-- Variation metrics: Variation calculation pipelines
-- Stability metrics: Stability calculation patterns
-- Band normalization: EQ band mapping
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
@@ -21,13 +17,9 @@ This package provides a collection of utility classes for audio fingerprinting:
 
 from .aggregation import AggregationUtils
 from .audio_metrics import AudioMetrics
-from .band_normalization import BandNormalizationTable
 from .constants import FingerprintConstants
 from .normalization import MetricUtils
 from .safe_operations import SafeOperations
-from .spectral_ops import SpectralMetrics
-from .stability_metrics import StabilityMetrics
-from .variation_metrics import VariationMetrics
 
 __all__ = [
     "FingerprintConstants",
@@ -35,8 +27,4 @@ __all__ = [
     "AudioMetrics",
     "MetricUtils",
     "AggregationUtils",
-    "SpectralMetrics",
-    "VariationMetrics",
-    "StabilityMetrics",
-    "BandNormalizationTable",
 ]

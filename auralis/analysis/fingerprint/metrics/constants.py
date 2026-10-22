@@ -8,7 +8,6 @@ Single source of truth for all fingerprint-related constants.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from typing import Any
 
 from ..schema import DIMENSION_NAMES
 
@@ -38,27 +37,3 @@ class FingerprintConstants:
 
     # Stability/consistency scaling factors
     CV_DEFAULT_SCALE = 1.0    # Standard coefficient of variation scaling
-
-    @staticmethod
-    def validate_vector(vector: Any, expected_dims: int | None = None) -> bool:
-        """
-        Validate fingerprint vector dimensions.
-
-        Args:
-            vector: Vector to validate
-            expected_dims: Expected dimensions (default: FINGERPRINT_DIMENSIONS)
-
-        Returns:
-            True if valid
-
-        Raises:
-            ValueError: If dimensions don't match
-        """
-        dims: int = expected_dims if expected_dims is not None else FingerprintConstants.FINGERPRINT_DIMENSIONS
-
-        if len(vector) != dims:
-            raise ValueError(
-                f"Expected {dims}-element vector, got {len(vector)}"
-            )
-
-        return True

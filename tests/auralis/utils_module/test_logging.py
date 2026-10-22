@@ -16,12 +16,9 @@ from auralis.utils.logging import (
     Code,
     ModuleError,
     debug,
-    debug_line,
     error,
-    get_log_level,
     info,
     set_log_handler,
-    set_log_level,
     warning,
 )
 
@@ -167,40 +164,6 @@ def test_log_handler_receives_all_levels():
 
 # ===== Log Level Tests =====
 
-def test_set_log_level_valid():
-    """Test setting valid log levels"""
-    for level in ["DEBUG", "INFO", "WARNING", "ERROR"]:
-        set_log_level(level)
-        assert get_log_level() == level
-
-
-def test_set_log_level_case_insensitive():
-    """Test setting log level is case insensitive"""
-    set_log_level("debug")
-    assert get_log_level() == "DEBUG"
-
-    set_log_level("Info")
-    assert get_log_level() == "INFO"
-
-    set_log_level("warning")
-    assert get_log_level() == "WARNING"
-
-
-def test_set_log_level_invalid():
-    """Test setting invalid log level"""
-    original_level = get_log_level()
-
-    # Invalid level should not change current level
-    set_log_level("INVALID_LEVEL")
-    assert get_log_level() == original_level
-
-
-def test_get_log_level_default():
-    """Test default log level"""
-    # Reset to default by setting INFO
-    set_log_level("INFO")
-    assert get_log_level() in ["DEBUG", "INFO", "WARNING", "ERROR"]
-
 
 # ===== Logging Function Tests =====
 
@@ -252,18 +215,6 @@ def test_error_function():
     assert "This is an error message" in messages[0]
 
 
-def test_debug_line_function():
-    """Test debug line separator"""
-    messages = []
-    set_log_handler(lambda msg: messages.append(msg))
-
-    debug_line()
-
-    assert len(messages) == 1
-    assert "-" in messages[0]
-    assert len(messages[0]) > 10  # Should be a line of dashes
-
-
 def test_logging_without_handler():
     """Test logging without handler set"""
     set_log_handler(None)
@@ -273,7 +224,6 @@ def test_logging_without_handler():
     info("test")
     warning("test")
     error("test")
-    debug_line()
 
 
 # ===== Integration Tests =====
@@ -288,23 +238,19 @@ def test_full_logging_workflow():
     # Set handler
     set_log_handler(capture_handler)
 
-    # Set level
-    set_log_level("DEBUG")
-
     # Log various messages
     debug("Starting process")
     info(Code.INFO_LOADING)
-    debug_line()
     warning("Low memory")
-    debug_line()
     error(Code.ERROR_VALIDATION)
 
     # Verify all messages captured
-    assert len(messages) == 6
+    assert len(messages) == 4
     assert any("Starting process" in msg for msg in messages)
     assert any(Code.INFO_LOADING in msg for msg in messages)
     assert any("Low memory" in msg for msg in messages)
     assert any(Code.ERROR_VALIDATION in msg for msg in messages)
+
 
 
 def test_exception_handling_with_logging():

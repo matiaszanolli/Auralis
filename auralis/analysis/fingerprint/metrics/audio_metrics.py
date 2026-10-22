@@ -13,7 +13,6 @@ import librosa
 import numpy as np
 
 from ....utils.logging import warning
-from .safe_operations import SafeOperations
 
 
 class AudioMetrics:
@@ -100,24 +99,3 @@ class AudioMetrics:
         silent_frames: np.intp = np.sum(rms_db < threshold_db)
 
         return float(silent_frames / len(rms_db))
-
-    @staticmethod
-    def peak_to_rms_ratio(
-        audio: np.ndarray
-    ) -> float:
-        """
-        Calculate peak-to-RMS ratio (dynamic range indicator).
-
-        Args:
-            audio: Audio signal
-
-        Returns:
-            Ratio of peak amplitude to RMS (typically 3-20)
-        """
-        peak = np.max(np.abs(audio))
-        rms_val = np.sqrt(np.mean(audio ** 2))
-
-        if rms_val <= SafeOperations.EPSILON:
-            return 1.0
-
-        return float(peak / rms_val)

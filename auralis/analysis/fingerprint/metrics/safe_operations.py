@@ -62,40 +62,6 @@ class SafeOperations:
         return result
 
     @staticmethod
-    def safe_log(
-        value: np.ndarray,
-        fallback: float = -np.inf
-    ) -> np.ndarray:
-        """
-        Safe logarithm operation.
-
-        Prevents log(0) and handles small values gracefully.
-
-        Args:
-            value: Value or array to take log of
-            fallback: Value to use for log(x <= epsilon)
-
-        Returns:
-            Logarithm with fallback for invalid inputs
-        """
-        value = np.asarray(value)
-
-        # Create safe value with epsilon guard
-        safe_value = np.maximum(value, SafeOperations.EPSILON)
-
-        # Compute log
-        result = np.log(safe_value)
-
-        # Use fallback where original value was too small
-        result = np.where(
-            value <= SafeOperations.EPSILON,
-            fallback,
-            result
-        )
-
-        return result
-
-    @staticmethod
     def safe_power(
         base: np.ndarray,
         exponent: float,

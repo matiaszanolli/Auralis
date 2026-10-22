@@ -12,7 +12,6 @@ import numpy as np
 import pytest
 
 from auralis.utils.audio_validation import (
-    check_audio_finite,
     sanitize_audio,
     validate_audio_finite,
 )
@@ -112,23 +111,6 @@ class TestAudioValidation:
         assert repaired[200, 1] == 0.0
         assert repaired[300, 0] == 0.0
         assert repaired[400, 1] == 0.0
-
-    def test_check_audio_finite_clean(self):
-        """Test check_audio_finite returns True for clean audio"""
-        audio = np.random.randn(1000, 2).astype(np.float32)
-        assert check_audio_finite(audio) is True
-
-    def test_check_audio_finite_with_nan(self):
-        """Test check_audio_finite returns False with NaN"""
-        audio = np.random.randn(1000, 2).astype(np.float32)
-        audio[500, 0] = np.nan
-        assert check_audio_finite(audio) is False
-
-    def test_check_audio_finite_with_inf(self):
-        """Test check_audio_finite returns False with Inf"""
-        audio = np.random.randn(1000, 2).astype(np.float32)
-        audio[500, 1] = np.inf
-        assert check_audio_finite(audio) is False
 
     def test_sanitize_audio_clean(self):
         """Test that sanitize_audio preserves clean audio"""
