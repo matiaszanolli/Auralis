@@ -118,7 +118,7 @@ class TestExtractFromMP4:
             mock_audio = MagicMock()
             mock_audio.tags = {'covr': [mock_cover_obj]}
 
-            with patch('auralis.library.artwork.MP4Cover.FORMAT_JPEG', 13):
+            with patch('auralis.library.artwork_tags.MP4Cover.FORMAT_JPEG', 13):
                 data, mime = extractor._extract_from_mp4(mock_audio)
 
                 assert data == b'jpeg_data'
@@ -141,7 +141,7 @@ class TestExtractFromMP4:
             mock_audio = MagicMock()
             mock_audio.tags = {'covr': [mock_cover_obj]}
 
-            with patch('auralis.library.artwork.MP4Cover.FORMAT_PNG', 14):
+            with patch('auralis.library.artwork_tags.MP4Cover.FORMAT_PNG', 14):
                 data, mime = extractor._extract_from_mp4(mock_audio)
 
                 assert data == b'png_data'
