@@ -21,8 +21,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter
-from helpers import seed_enhancement_settings
+from fastapi import APIRouter, Depends
 
 from security.path_security import (
     PathValidationError,
@@ -32,11 +31,17 @@ from security.path_security import (
     validate_directory_list,
     validate_user_chosen_directory,
 )
-from websocket.outbound_messages import broadcast_typed
 
-from .dependencies import require_service, with_error_handling
+from .dependencies import with_error_handling
 from .errors import BadRequestError, NotFoundError
 from services.missing_tracks import prune_tracks_under_folder
+from .settings_sync import _notify_scanner, _sync_enhancement_settings
+from .settings_deps import (  # noqa: F401
+    _SettingsDeps,
+    _deps,
+    _get_deps,
+    _get_repo,
+)
 from .settings_models import (  # noqa: F401
     SettingsResponse,
     SettingsUpdateRequest,
@@ -46,6 +51,167 @@ from .settings_models import (  # noqa: F401
 )
 
 logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# SHARED STEPS
+# ============================================================================
+
+
+async def _revoke_folder(deps: _SettingsDeps, folder: str) -> None:
+    """Unregister a folder's path trust and prune its Track rows.
+
+    Shared by remove_scan_folder and update_settings' scan_folders diff:
+    the two routes must behave identically for this column, and revoking
+    trust without the prune leaves the folder's rows visible-but-broken
+    (#5467 fixed the dedicated endpoint only; #5523 is the generic one).
+    """
+    unregister_allowed_directory(Path(folder))
+    library_database = deps.get_library_database() if deps.get_library_database else None
+    if library_database is not None:
+        await prune_tracks_under_folder(library_database, folder, deps.connection_manager)
+
+
+# ============================================================================
+# HANDLERS
+# ============================================================================
+
+
+@with_error_handling("get settings")
+async def get_settings(repo: Any = Depends(_get_repo)) -> dict[str, Any]:
+    """Get current user settings."""
+    settings = await asyncio.to_thread(repo.get_settings)
+    if not settings:
+        raise NotFoundError("Settings")
+    data: dict[str, Any] = settings.to_dict()
+    return data
+
+
+@with_error_handling("update settings")
+async def update_settings(
+    updates: SettingsUpdateRequest,
+    repo: Any = Depends(_get_repo),
+    deps: _SettingsDeps = Depends(_get_deps),
+) -> dict[str, Any]:
+    """
+    Update user settings.
+
+    Accepts a partial, typed set of settings fields. Unknown field names are
+    rejected with HTTP 422 (``extra='forbid'``) instead of silently no-op'ing
+    through the SettingsRepository whitelist (#3837 / BE-SCH-2). Only fields the
+    client actually sent are applied (``exclude_unset``), preserving partial-update
+    semantics.
+
+    ``scan_folders`` is the same column POST /api/settings/scan-folders writes,
+    so it gets the identical path validation and allowlist-registration
+    treatment here (#4765) — otherwise a folder added via this generic route
+    skips both, and files under it 400 as "invalid filepath" until restart.
+    """
+    payload = updates.model_dump(exclude_unset=True)
+
+    if 'scan_folders' in payload and payload['scan_folders'] is not None:
+        try:
+            payload['scan_folders'] = validate_directory_list(payload['scan_folders'])
+        except PathValidationError:
+            # str(e) used to be reflected verbatim -- validate_file_path's
+            # variant of this exception names every allowed directory,
+            # i.e. the user's entire configured library layout (#4807).
+            # validate_directory_list's own validator already logs the
+            # rejection once (_logs_rejections); the client gets a fixed,
+            # generic detail regardless of which check failed.
+            raise BadRequestError("One or more scan folders failed validation")
+
+    # The repository returns the list stored just before this write, read
+    # in the same locked transaction (#5334), so the allowlist diff below
+    # — additions registered, removals unregistered, regardless of which
+    # route made the change (#3842) — cannot run against a list a
+    # concurrent add/remove/reset already replaced. The separate, unlocked
+    # get_settings() snapshot this used to take could.
+    settings, previous_list = await asyncio.to_thread(
+        repo.update_settings_with_previous_folders, payload
+    )
+
+    if 'scan_folders' in payload:
+        previous_folders = set(previous_list)
+        new_folders = set(payload['scan_folders'] or [])
+        for added in new_folders - previous_folders:
+            register_allowed_directory(Path(added))
+        for removed in previous_folders - new_folders:
+            # Same revoke+prune as the dedicated delete endpoint (#5523):
+            # unregistering trust alone left the removed folder's tracks
+            # in the library while every path-validated endpoint started
+            # rejecting their files with an unexplained 400.
+            await _revoke_folder(deps, removed)
+
+    await _notify_scanner(deps)
+
+    # #4587: only re-seed/broadcast when this save actually touched an
+    # enhancement-related field — an unrelated save (e.g. theme) should
+    # not fire a WS message enhancement consumers have no reason to see.
+    if _ENHANCEMENT_SETTINGS_FIELDS & payload.keys():
+        await _sync_enhancement_settings(deps, settings)
+
+    return {"message": "Settings updated", "settings": settings.to_dict()}
+
+
+@with_error_handling("add scan folder")
+async def add_scan_folder(
+    body: _ScanFolderRequest,
+    repo: Any = Depends(_get_repo),
+    deps: _SettingsDeps = Depends(_get_deps),
+) -> dict[str, Any]:
+    """Add a folder to the list of scanned directories."""
+    if not body.folder or not body.folder.strip():
+        raise BadRequestError("folder must be a non-empty path")
+    try:
+        validated = validate_user_chosen_directory(body.folder.strip())
+    except PathValidationError:
+        # str(e) used to be reflected verbatim (#4807). validate_user_chosen_directory
+        # already logs the rejection once (_logs_rejections); the client
+        # gets a fixed, generic detail regardless of which check failed.
+        raise BadRequestError("Invalid or inaccessible folder path")
+    settings = await asyncio.to_thread(repo.add_scan_folder, str(validated))
+    # Register so validate_file_path accepts files under this folder
+    register_allowed_directory(validated)
+    await _notify_scanner(deps)
+    return {"message": f"Scan folder added: {body.folder}", "settings": settings.to_dict()}
+
+
+@with_error_handling("remove scan folder")
+async def remove_scan_folder(
+    body: _ScanFolderRequest,
+    repo: Any = Depends(_get_repo),
+    deps: _SettingsDeps = Depends(_get_deps),
+) -> dict[str, Any]:
+    """Remove a folder from the list of scanned directories."""
+    settings = await asyncio.to_thread(repo.remove_scan_folder, body.folder)
+    # Undo the registration made in add_scan_folder so validate_file_path()
+    # stops trusting this folder for the rest of the session (fixes #3842),
+    # instead of only reverting on the next backend restart, and prune the
+    # folder's Track rows (#5467) — revoke+prune is one shared step so this
+    # endpoint and PUT /api/settings' scan_folders diff can't drift (#5523).
+    await _revoke_folder(deps, body.folder)
+    await _notify_scanner(deps)
+    return {"message": f"Scan folder removed: {body.folder}", "settings": settings.to_dict()}
+
+
+@with_error_handling("reset settings")
+async def reset_settings(
+    repo: Any = Depends(_get_repo),
+    deps: _SettingsDeps = Depends(_get_deps),
+) -> dict[str, Any]:
+    """Reset all settings to their default values."""
+    settings = await asyncio.to_thread(repo.reset_to_defaults)
+    # reset_to_defaults wipes the configured scan_folders list, so no
+    # previously-registered extra directory should remain trusted (#3842).
+    clear_extra_allowed_directories()
+    await _notify_scanner(deps)
+    # #4587: reset_to_defaults() always rewrites every column (unlike the
+    # partial-update PUT above), so the enhancement fields are always
+    # touched here — re-seed/broadcast unconditionally rather than
+    # checking payload keys, since there is no payload to check.
+    await _sync_enhancement_settings(deps, settings)
+    return {"message": "Settings reset to defaults", "settings": settings.to_dict()}
 
 
 def create_settings_router(
@@ -85,188 +251,33 @@ def create_settings_router(
     Returns:
         APIRouter: Configured router instance
     """
-    router = APIRouter(tags=["settings"])
-
-    def _repo() -> Any:
-        repo = get_settings_repo()
-        repo = require_service(repo, "Settings")
-        return repo
-
-    async def _notify_scanner() -> None:
-        """Tell the auto-scanner to reload its config immediately."""
-        if get_auto_scanner is None:
-            return
-        scanner = get_auto_scanner()
-        if scanner and hasattr(scanner, 'reload_config'):
-            try:
-                await scanner.reload_config()
-            except Exception as exc:
-                logger.warning(f"Failed to notify auto-scanner of settings change: {exc}")
-
-    async def _sync_enhancement_settings(settings: Any) -> None:
-        """Re-seed the live runtime dict from just-persisted settings and
-        broadcast (#4587) — the DB-to-runtime half of keeping the Settings
-        dialog and the Enhancement Panel in sync. Mirrors
-        config/startup.py's one-time seed at process start, using the exact
-        same `seed_enhancement_settings` helper so the two can never drift
-        onto different mapping/validation logic.
-
-        `enhancement_settings` is mutated in place (seed_enhancement_settings's
-        own contract) — every router holding a reference to it (system,
-        enhancement) observes the new values without re-fetching anything.
-        """
-        if get_enhancement_settings is None:
-            return
-        live_settings = get_enhancement_settings()
-        seed_enhancement_settings(live_settings, settings)
-        if connection_manager is None:
-            return
-        try:
-            await broadcast_typed(
-                connection_manager,
-                "enhancement_settings_changed",
-                {
-                    "enabled": live_settings["enabled"],
-                    "preset": live_settings["preset"],
-                    "intensity": live_settings["intensity"],
-                },
-            )
-        except Exception as exc:
-            logger.warning(f"Failed to broadcast enhancement_settings_changed: {exc}")
-
-    async def _revoke_folder(folder: str) -> None:
-        """Unregister a folder's path trust and prune its Track rows.
-
-        Shared by remove_scan_folder and update_settings' scan_folders diff:
-        the two routes must behave identically for this column, and revoking
-        trust without the prune leaves the folder's rows visible-but-broken
-        (#5467 fixed the dedicated endpoint only; #5523 is the generic one).
-        """
-        unregister_allowed_directory(Path(folder))
-        library_database = get_library_database() if get_library_database else None
-        if library_database is not None:
-            await prune_tracks_under_folder(library_database, folder, connection_manager)
-
-    @router.get("/api/settings", response_model=SettingsResponse)
-    @with_error_handling("get settings")
-    async def get_settings() -> dict[str, Any]:
-        """Get current user settings."""
-        settings = await asyncio.to_thread(_repo().get_settings)
-        if not settings:
-            raise NotFoundError("Settings")
-        data: dict[str, Any] = settings.to_dict()
-        return data
-
-    @router.put("/api/settings", response_model=SettingsUpdateResponse)
-    @with_error_handling("update settings")
-    async def update_settings(updates: SettingsUpdateRequest) -> dict[str, Any]:
-        """
-        Update user settings.
-
-        Accepts a partial, typed set of settings fields. Unknown field names are
-        rejected with HTTP 422 (``extra='forbid'``) instead of silently no-op'ing
-        through the SettingsRepository whitelist (#3837 / BE-SCH-2). Only fields the
-        client actually sent are applied (``exclude_unset``), preserving partial-update
-        semantics.
-
-        ``scan_folders`` is the same column POST /api/settings/scan-folders writes,
-        so it gets the identical path validation and allowlist-registration
-        treatment here (#4765) — otherwise a folder added via this generic route
-        skips both, and files under it 400 as "invalid filepath" until restart.
-        """
-        payload = updates.model_dump(exclude_unset=True)
-
-        if 'scan_folders' in payload and payload['scan_folders'] is not None:
-            try:
-                payload['scan_folders'] = validate_directory_list(payload['scan_folders'])
-            except PathValidationError:
-                # str(e) used to be reflected verbatim -- validate_file_path's
-                # variant of this exception names every allowed directory,
-                # i.e. the user's entire configured library layout (#4807).
-                # validate_directory_list's own validator already logs the
-                # rejection once (_logs_rejections); the client gets a fixed,
-                # generic detail regardless of which check failed.
-                raise BadRequestError("One or more scan folders failed validation")
-
-        # The repository returns the list stored just before this write, read
-        # in the same locked transaction (#5334), so the allowlist diff below
-        # — additions registered, removals unregistered, regardless of which
-        # route made the change (#3842) — cannot run against a list a
-        # concurrent add/remove/reset already replaced. The separate, unlocked
-        # get_settings() snapshot this used to take could.
-        settings, previous_list = await asyncio.to_thread(
-            _repo().update_settings_with_previous_folders, payload
-        )
-
-        if 'scan_folders' in payload:
-            previous_folders = set(previous_list)
-            new_folders = set(payload['scan_folders'] or [])
-            for added in new_folders - previous_folders:
-                register_allowed_directory(Path(added))
-            for removed in previous_folders - new_folders:
-                # Same revoke+prune as the dedicated delete endpoint (#5523):
-                # unregistering trust alone left the removed folder's tracks
-                # in the library while every path-validated endpoint started
-                # rejecting their files with an unexplained 400.
-                await _revoke_folder(removed)
-
-        await _notify_scanner()
-
-        # #4587: only re-seed/broadcast when this save actually touched an
-        # enhancement-related field — an unrelated save (e.g. theme) should
-        # not fire a WS message enhancement consumers have no reason to see.
-        if _ENHANCEMENT_SETTINGS_FIELDS & payload.keys():
-            await _sync_enhancement_settings(settings)
-
-        return {"message": "Settings updated", "settings": settings.to_dict()}
-
-    @router.post("/api/settings/scan-folders", response_model=SettingsUpdateResponse)
-    @with_error_handling("add scan folder")
-    async def add_scan_folder(body: _ScanFolderRequest) -> dict[str, Any]:
-        """Add a folder to the list of scanned directories."""
-        if not body.folder or not body.folder.strip():
-            raise BadRequestError("folder must be a non-empty path")
-        try:
-            validated = validate_user_chosen_directory(body.folder.strip())
-        except PathValidationError:
-            # str(e) used to be reflected verbatim (#4807). validate_user_chosen_directory
-            # already logs the rejection once (_logs_rejections); the client
-            # gets a fixed, generic detail regardless of which check failed.
-            raise BadRequestError("Invalid or inaccessible folder path")
-        settings = await asyncio.to_thread(_repo().add_scan_folder, str(validated))
-        # Register so validate_file_path accepts files under this folder
-        register_allowed_directory(validated)
-        await _notify_scanner()
-        return {"message": f"Scan folder added: {body.folder}", "settings": settings.to_dict()}
-
-    @router.post("/api/settings/scan-folders/delete", response_model=SettingsUpdateResponse)
-    @with_error_handling("remove scan folder")
-    async def remove_scan_folder(body: _ScanFolderRequest) -> dict[str, Any]:
-        """Remove a folder from the list of scanned directories."""
-        settings = await asyncio.to_thread(_repo().remove_scan_folder, body.folder)
-        # Undo the registration made in add_scan_folder so validate_file_path()
-        # stops trusting this folder for the rest of the session (fixes #3842),
-        # instead of only reverting on the next backend restart, and prune the
-        # folder's Track rows (#5467) — revoke+prune is one shared step so this
-        # endpoint and PUT /api/settings' scan_folders diff can't drift (#5523).
-        await _revoke_folder(body.folder)
-        await _notify_scanner()
-        return {"message": f"Scan folder removed: {body.folder}", "settings": settings.to_dict()}
-
-    @router.post("/api/settings/reset", response_model=SettingsUpdateResponse)
-    @with_error_handling("reset settings")
-    async def reset_settings() -> dict[str, Any]:
-        """Reset all settings to their default values."""
-        settings = await asyncio.to_thread(_repo().reset_to_defaults)
-        # reset_to_defaults wipes the configured scan_folders list, so no
-        # previously-registered extra directory should remain trusted (#3842).
-        clear_extra_allowed_directories()
-        await _notify_scanner()
-        # #4587: reset_to_defaults() always rewrites every column (unlike the
-        # partial-update PUT above), so the enhancement fields are always
-        # touched here — re-seed/broadcast unconditionally rather than
-        # checking payload keys, since there is no payload to check.
-        await _sync_enhancement_settings(settings)
-        return {"message": "Settings reset to defaults", "settings": settings.to_dict()}
-
+    deps = _SettingsDeps(
+        get_settings_repo,
+        get_auto_scanner,
+        get_enhancement_settings,
+        connection_manager,
+        get_library_database,
+    )
+    router = APIRouter(tags=["settings"], dependencies=[Depends(_deps.bind(deps))])
+    router.add_api_route(
+        "/api/settings", get_settings, methods=["GET"], response_model=SettingsResponse
+    )
+    router.add_api_route(
+        "/api/settings", update_settings, methods=["PUT"], response_model=SettingsUpdateResponse
+    )
+    router.add_api_route(
+        "/api/settings/scan-folders",
+        add_scan_folder,
+        methods=["POST"],
+        response_model=SettingsUpdateResponse,
+    )
+    router.add_api_route(
+        "/api/settings/scan-folders/delete",
+        remove_scan_folder,
+        methods=["POST"],
+        response_model=SettingsUpdateResponse,
+    )
+    router.add_api_route(
+        "/api/settings/reset", reset_settings, methods=["POST"], response_model=SettingsUpdateResponse
+    )
     return router
