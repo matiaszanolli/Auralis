@@ -37,4 +37,15 @@ describe('MediaCardArtwork onError fallback (#4437)', () => {
     );
     expect(queryByRole('img')).not.toBeInTheDocument();
   });
+
+  it('keeps the top-corner radius as valid CSS (#5644)', () => {
+    // tokens.borderRadius.lg is the string '16px'; interpolating it with a
+    // further 'px' suffix used to emit '16pxpx', which the browser (and the
+    // CSS parser below) drops, losing the artwork's top-corner rounding.
+    const { getByRole } = render(
+      <MediaCardArtwork artworkUrl="/api/albums/1/artwork" fallbackText="Album" variant="album" />
+    );
+    const container = getByRole('img').parentElement as HTMLElement;
+    expect(getComputedStyle(container).borderRadius).toBe('16px 16px 0 0');
+  });
 });

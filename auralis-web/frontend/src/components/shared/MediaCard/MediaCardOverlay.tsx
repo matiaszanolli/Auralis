@@ -105,7 +105,7 @@ export const MediaCardOverlay = ({
             position: 'absolute',
             bottom: tokens.spacing.sm,
             right: tokens.spacing.sm,
-            padding: `${tokens.spacing.xs}px ${tokens.spacing.sm}px`,
+            padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,
             borderRadius: tokens.borderRadius.sm,
             background: tokens.colors.opacityScale.dark.nearOpaque,
             backdropFilter: 'blur(8px)',

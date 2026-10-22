@@ -79,8 +79,8 @@ const CenteredContainer = styled(Box)({
   flexDirection: 'column',
   alignItems: 'center',
   justifyContent: 'center',
-  gap: `${tokens.spacing.md}px`,
-  padding: `${tokens.spacing.xxxl}px`,
+  gap: tokens.spacing.md,
+  padding: tokens.spacing.xxxl,
   minHeight: '200px',
 });
 

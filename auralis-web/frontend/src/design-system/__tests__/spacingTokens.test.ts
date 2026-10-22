@@ -115,3 +115,32 @@ describe('no new raw spacing literals (#4663)', () => {
     expect(source).not.toMatch(/padding: '/);
   });
 });
+
+/**
+ * No doubled unit suffix after a px-valued token (#5644).
+ *
+ * The spacing/borderRadius scales are strings that already carry `px`
+ * (`'12px'`), so `${tokens.spacing.md}px` emits `12pxpx`, which the browser
+ * drops as invalid CSS. Four such sites shipped this way (MediaCardArtwork's
+ * top-corner radius was visibly lost); the same class was fixed once before
+ * in PlaylistList (#2357).
+ */
+describe('no doubled px after a px-valued token (#5644)', () => {
+  it('no `${tokens.spacing|borderRadius.*}px` interpolation exists', async () => {
+    const modules = import.meta.glob('/src/**/*.{ts,tsx}', {
+      query: '?raw',
+      import: 'default',
+      eager: true,
+    }) as Record<string, string>;
+
+    const offenders: string[] = [];
+    const doubled = /tokens\.(?:spacing|borderRadius)\.[A-Za-z0-9]+\}px/;
+
+    for (const [path, source] of Object.entries(modules)) {
+      if (path.includes('__tests__') || /\.test\.tsx?$/.test(path)) continue;
+      if (doubled.test(source)) offenders.push(path.replace(/^\/src\//, ''));
+    }
+
+    expect(offenders).toEqual([]);
+  });
+});

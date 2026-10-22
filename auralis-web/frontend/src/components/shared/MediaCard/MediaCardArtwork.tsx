@@ -98,7 +98,7 @@ export const MediaCardArtwork = ({
       sx={{
         position: 'relative',
         paddingTop: '100%', // 1:1 aspect ratio
-        borderRadius: `${tokens.borderRadius.lg}px ${tokens.borderRadius.lg}px 0 0`,
+        borderRadius: `${tokens.borderRadius.lg} ${tokens.borderRadius.lg} 0 0`,
         overflow: 'hidden',
         background: showImage
           ? undefined
