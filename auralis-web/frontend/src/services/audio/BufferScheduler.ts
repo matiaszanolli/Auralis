@@ -7,13 +7,19 @@
  * progress and underruns to its caller via callbacks; knows nothing about
  * playback state or position formatting.
  *
+ * The AudioWorklet path lives in WorkletOutput.ts and the water-mark
+ * hysteresis in bufferHealth.ts (#5840); this class keeps the public surface,
+ * the ScriptProcessorNode fallback, and the choice between the two.
+ *
  * @copyright (C) 2024 Auralis Team
  * @license AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
  */
 
 import PCMStreamBuffer from './PCMStreamBuffer';
 import { PLAYBACK_ENGINE_CONFIG } from './audioConstants';
+import { BufferHealth } from './bufferHealth';
 import { deinterleaveToOutput } from './deinterleaveToOutput';
+import { WorkletOutput } from './WorkletOutput';
 
 export interface BufferSchedulerCallbacks {
   /** Worklet reports an absolute samples-played count. */
@@ -37,33 +43,13 @@ export class BufferScheduler {
   private callbacks: BufferSchedulerCallbacks;
 
   private scriptNode: ScriptProcessorNode | null = null;
-  private workletNode: AudioWorkletNode | null = null;
-  private feedInterval: ReturnType<typeof setInterval> | null = null;
   private workletReady: boolean = false;
-  // Worklet lookahead accounting (#5657). The worklet queue is unbounded and sits
-  // out of sight of the PCMStreamBuffer, so the feeder tracks what it has sent
-  // against the played count the worklet reports back, and tops the queue up to
-  // a fixed lookahead instead of pushing faster than real time.
-  private workletFramesSent: number = 0;
-  private workletFramesPlayed: number = 0;
-
-  private bufferUnderrunCount: number = 0;
-  private isBufferPaused: boolean = false; // Track if we paused due to low buffer
-  // True once the backend has delivered everything it will (stream end). The
-  // water marks then no longer apply: nothing more is coming to refill above
-  // the low mark, so holding output would strand the tail of the track.
-  private streamEnded: boolean = false;
-  private stalled: boolean = false; // Last stall state reported via onStallChange
+  private worklet: WorkletOutput;
+  private health: BufferHealth;
 
   // Configuration (centralised in audioConstants.ts — #4031)
   private bufferSize: number = PLAYBACK_ENGINE_CONFIG.bufferSize; // samples per process callback
   private minBufferSamples: number = PLAYBACK_ENGINE_CONFIG.minBufferSamples; // ~1s at 48kHz stereo — start playback quickly; water marks handle recovery
-
-  // Buffer health thresholds (in seconds of audio). Water marks stay below the
-  // backend chunk interval (CHUNK_INTERVAL = 10 s) so a single late chunk does
-  // not trigger an avoidable pause. See audioConstants.ts.
-  private lowWaterMarkSeconds: number = PLAYBACK_ENGINE_CONFIG.lowWaterMarkSeconds;  // Pause when < 5 seconds buffered
-  private highWaterMarkSeconds: number = PLAYBACK_ENGINE_CONFIG.highWaterMarkSeconds; // Resume when > 8 seconds buffered
 
   constructor(
     audioContext: AudioContext,
@@ -75,6 +61,11 @@ export class BufferScheduler {
     this.buffer = buffer;
     this.gainNode = gainNode;
     this.callbacks = callbacks;
+    this.health = new BufferHealth((stalled) => this.callbacks.onStallChange?.(stalled));
+    this.worklet = new WorkletOutput(audioContext, buffer, gainNode, this.health, {
+      onSamplesPlayedSet: (count) => this.callbacks.onSamplesPlayedSet(count),
+      onUnderrun: () => this.callbacks.onUnderrun(),
+    });
   }
 
   /**
@@ -86,11 +77,11 @@ export class BufferScheduler {
   }
 
   getUnderrunCount(): number {
-    return this.bufferUnderrunCount;
+    return this.health.getUnderrunCount();
   }
 
   resetUnderrunCount(): void {
-    this.bufferUnderrunCount = 0;
+    this.health.resetUnderrunCount();
   }
 
   /**
@@ -100,26 +91,16 @@ export class BufferScheduler {
    * reaches its end.
    */
   markStreamEnded(): void {
-    this.streamEnded = true;
-    this.isBufferPaused = false;
+    this.health.markStreamEnded();
   }
 
   /** Forget a previous stream's end (stop / seek restart the same engine). */
   resetStreamEnded(): void {
-    this.streamEnded = false;
+    this.health.resetStreamEnded();
   }
 
   resetBufferHealth(): void {
-    this.isBufferPaused = false;
-    this.setStalled(false);
-  }
-
-  /** Report a stall transition. Low-water pauses and hard underruns share this
-   *  one channel so the UI has a single signal to follow (#5461). */
-  private setStalled(stalled: boolean): void {
-    if (stalled === this.stalled) return;
-    this.stalled = stalled;
-    this.callbacks.onStallChange?.(stalled);
+    this.health.reset();
   }
 
   /**
@@ -129,7 +110,7 @@ export class BufferScheduler {
    */
   async ensureReady(): Promise<void> {
     if (!this.workletReady) {
-      this.workletReady = await this.initWorklet();
+      this.workletReady = await this.worklet.init();
     }
   }
 
@@ -138,7 +119,11 @@ export class BufferScheduler {
    */
   createProcessor(): void {
     if (this.workletReady) {
-      this.createWorkletNode();
+      // Falls back to a ScriptProcessorNode when the worklet node can't be built.
+      if (!this.worklet.create()) {
+        this.workletReady = false;
+        this.createScriptProcessor();
+      }
     } else {
       this.createScriptProcessor();
     }
@@ -148,12 +133,7 @@ export class BufferScheduler {
    * Disconnect active processor (worklet or script) and stop feeding
    */
   disconnectProcessor(): void {
-    this.stopFeeding();
-    if (this.workletNode) {
-      this.workletNode.port.postMessage({ command: 'clear' });
-      this.workletNode.disconnect();
-      this.workletNode = null;
-    }
+    this.worklet.disconnect();
     if (this.scriptNode) {
       this.scriptNode.disconnect();
       this.scriptNode = null;
@@ -171,9 +151,8 @@ export class BufferScheduler {
    * it can simply be disconnected.
    */
   pauseOutput(): void {
-    if (this.workletNode) {
-      this.stopFeeding();
-      this.workletNode.port.postMessage({ command: 'pause' });
+    if (this.worklet.isActive) {
+      this.worklet.pause();
     } else {
       this.disconnectProcessor();
     }
@@ -181,190 +160,10 @@ export class BufferScheduler {
 
   /** Counterpart of pauseOutput(): continue from exactly where output was held. */
   resumeOutput(): void {
-    if (this.workletNode) {
-      this.workletNode.port.postMessage({ command: 'resume' });
-      this.startFeeding();
+    if (this.worklet.isActive) {
+      this.worklet.resume();
     } else {
       this.createProcessor();
-    }
-  }
-
-  /**
-   * Frames queued inside the worklet but not yet played (an upper bound: the
-   * played count arrives about every 0.37 s, so this never under-reports).
-   */
-  private getWorkletLookaheadFrames(): number {
-    return Math.max(0, this.workletFramesSent - this.workletFramesPlayed);
-  }
-
-  /**
-   * Load AudioWorklet module (one-time initialization)
-   * @returns true if AudioWorklet is available and module loaded
-   */
-  private async initWorklet(): Promise<boolean> {
-    try {
-      if (!this.audioContext.audioWorklet) {
-        return false;
-      }
-      await this.audioContext.audioWorklet.addModule('/audio-worklet-processor.js');
-      console.log('[BufferScheduler] AudioWorklet module loaded successfully');
-      return true;
-    } catch (error) {
-      console.warn('[BufferScheduler] AudioWorklet not available, using ScriptProcessorNode fallback:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Create AudioWorkletNode for off-main-thread audio processing (#2347)
-   * Falls back to ScriptProcessorNode on failure.
-   */
-  private createWorkletNode(): void {
-    if (this.workletNode) {
-      // Idempotent, and also the way out of a soft pause: a worklet held by
-      // pauseOutput() is still alive, so "create" has to mean "make it play".
-      this.workletNode.port.postMessage({ command: 'resume' });
-      this.startFeeding();
-      return;
-    }
-
-    try {
-      const channels = this.buffer.getMetadata().channels || 2;
-      this.workletNode = new AudioWorkletNode(
-        this.audioContext,
-        'auralis-playback-processor',
-        { outputChannelCount: [channels] }
-      );
-
-      // Tell the worklet how many channels to deinterleave (#2842)
-      this.workletNode.port.postMessage({ command: 'setChannels', channels });
-
-      // A fresh worklet starts with an empty queue and a played count of 0.
-      this.workletFramesSent = 0;
-      this.workletFramesPlayed = 0;
-
-      this.workletNode.port.onmessage = (event: MessageEvent) => {
-        const { data } = event;
-        if (data.type === 'underrun') {
-          this.bufferUnderrunCount++;
-          this.callbacks.onUnderrun();
-          this.setStalled(true);
-        } else if (data.type === 'samplesPlayed') {
-          this.workletFramesPlayed = data.count;
-          this.callbacks.onSamplesPlayedSet(data.count);
-          // The worklet reports progress only while it is writing audio, so
-          // this is the recovery signal for a hard underrun.
-          if (!this.isBufferPaused) this.setStalled(false);
-        }
-      };
-
-      this.workletNode.connect(this.gainNode);
-      this.startFeeding();
-
-      console.log('[BufferScheduler] AudioWorkletNode created (off-main-thread processing)');
-    } catch (error) {
-      console.error('[BufferScheduler] Failed to create AudioWorkletNode, falling back:', error);
-      this.workletReady = false;
-      this.createScriptProcessor();
-    }
-  }
-
-  /**
-   * Push samples from PCMStreamBuffer to AudioWorklet at regular intervals.
-   *
-   * Each tick tops the worklet queue up to `workletLookaheadSeconds` (#5657).
-   * It used to send 4096 frames every 50 ms regardless — about 1.7-1.86x real
-   * time — into a queue with no bound, so the queue grew with track length and
-   * the water marks (which only saw the ring) never reflected what was really
-   * buffered.
-   */
-  private startFeeding(): void {
-    if (this.feedInterval) return;
-
-    this.feedInterval = setInterval(() => {
-      if (!this.workletNode) return;
-
-      const { sampleRate: rate, channels: ch } = this.buffer.getMetadata();
-      const sampleRate = rate || 44100;
-      const bufferChannels = ch || 2;
-      const lookaheadFrames = this.getWorkletLookaheadFrames();
-      const ringFrames = this.buffer.getAvailableSamples() / bufferChannels;
-      // Everything not yet played: still in the ring plus already in the worklet.
-      const bufferedSeconds = (ringFrames + lookaheadFrames) / sampleRate;
-
-      // The worklet reports a stall itself once its queue runs dry, so a
-      // low-water pause here must not flag one while it is still playing.
-      if (!this.checkBufferHealth(bufferedSeconds, 'feed', false)) return;
-
-      const targetFrames = Math.round(PLAYBACK_ENGINE_CONFIG.workletLookaheadSeconds * sampleRate);
-      const creditFrames = Math.min(
-        targetFrames - lookaheadFrames,
-        PLAYBACK_ENGINE_CONFIG.maxFeedFramesPerTick
-      );
-      if (creditFrames <= 0) return;
-
-      const samples = this.buffer.read(creditFrames * bufferChannels);
-      if (samples.length > 0) {
-        const frames = samples.length / bufferChannels;
-        // Transfer the ArrayBuffer instead of letting structured-clone copy
-        // it (#5665). `samples` is a fresh array from read() and dead after
-        // this line — the transfer detaches it, so the length is read first.
-        this.workletNode.port.postMessage({ samples }, [samples.buffer]);
-        this.workletFramesSent += frames;
-      }
-    }, PLAYBACK_ENGINE_CONFIG.feedIntervalMs);
-  }
-
-  /**
-   * Update buffer-health pause state given currently buffered seconds, and
-   * return whether the caller should proceed to read/feed samples. Shared
-   * by both the worklet feed loop and the ScriptProcessorNode callback so
-   * the low/high water-mark hysteresis lives in exactly one place.
-   *
-   * `reportStall` is false for the worklet feed loop: there a low-water pause
-   * only stops feeding, audio already queued in the worklet keeps playing, and
-   * the stall surfaces through the worklet's own underrun message.
-   */
-  private checkBufferHealth(
-    bufferedSeconds: number,
-    context: 'feed' | 'playback',
-    reportStall: boolean = true
-  ): boolean {
-    if (this.streamEnded) return true;
-
-    if (!this.isBufferPaused && bufferedSeconds < this.lowWaterMarkSeconds) {
-      this.isBufferPaused = true;
-      if (reportStall) this.setStalled(true);
-      console.warn(
-        `[BufferScheduler] Buffer critically low (${bufferedSeconds.toFixed(1)}s < ${this.lowWaterMarkSeconds}s). ` +
-        `Pausing ${context}...`
-      );
-      return false;
-    }
-
-    if (this.isBufferPaused) {
-      if (bufferedSeconds >= this.highWaterMarkSeconds) {
-        this.isBufferPaused = false;
-        this.setStalled(false);
-        console.log(
-          `[BufferScheduler] Buffer recovered (${bufferedSeconds.toFixed(1)}s >= ${this.highWaterMarkSeconds}s). ` +
-          `Resuming ${context}.`
-        );
-      } else {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-  /**
-   * Stop feeding samples to AudioWorklet
-   */
-  private stopFeeding(): void {
-    if (this.feedInterval) {
-      clearInterval(this.feedInterval);
-      this.feedInterval = null;
     }
   }
 
@@ -434,7 +233,7 @@ export class BufferScheduler {
     const availableSamples = this.buffer.getAvailableSamples();
     const bufferedSeconds = availableSamples / (sampleRate * bufferChannels);
 
-    if (!this.checkBufferHealth(bufferedSeconds, 'playback')) {
+    if (!this.health.check(bufferedSeconds, 'playback')) {
       // Paused or still recovering - output silence
       for (let ch = 0; ch < channelCount; ch++) {
         output.getChannelData(ch).fill(0);
@@ -447,9 +246,9 @@ export class BufferScheduler {
 
     if (samples.length === 0) {
       // Buffer underrun - no samples available (shouldn't happen with health monitoring)
-      this.bufferUnderrunCount++;
+      const underrunCount = this.health.countUnderrun();
       console.warn(
-        `[BufferScheduler] Buffer underrun #${this.bufferUnderrunCount}. ` +
+        `[BufferScheduler] Buffer underrun #${underrunCount}. ` +
         `Expected ${samplesNeeded} samples, got 0`
       );
 
@@ -460,11 +259,11 @@ export class BufferScheduler {
 
       // Notify of underrun
       this.callbacks.onUnderrun();
-      this.setStalled(true);
+      this.health.setStalled(true);
       return;
     }
 
-    this.setStalled(false);
+    this.health.setStalled(false);
 
     // If we got fewer samples than requested, we're running low
     if (samples.length < samplesNeeded) {
