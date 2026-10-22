@@ -160,8 +160,8 @@ class RepositoryFactory:
     def reset_library(self) -> None:
         """Atomically delete the entire library in a single transaction.
 
-        Removes all tracks, fingerprints, queue state/history, playlists,
-        albums, artists, genres, and their association rows. Keeps the bulk
+        Removes all tracks, fingerprints, playlists, albums, artists, genres,
+        and their association rows. Keeps the bulk
         delete inside the repository layer so routers never construct a raw
         session (#4111). Callers must pause background workers first so no rows
         are inserted between the deletes and the commit.

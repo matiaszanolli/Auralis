@@ -286,8 +286,10 @@ class TestRepositoryResetLibrary:
         session = MagicMock()
         self._factory(session).reset_library()
 
-        # 3 association-table deletes + 8 entity/child deletes = 11 execute calls.
-        assert session.execute.call_count == 11
+        # 3 association-table deletes + 6 entity/child deletes (fingerprints, tracks,
+        # playlists, albums, artists, genres) = 9 execute calls. The two queue
+        # tables went with the queue-history feature (#5526).
+        assert session.execute.call_count == 9
 
     def test_rolls_back_and_reraises_on_failure(self):
         session = MagicMock()

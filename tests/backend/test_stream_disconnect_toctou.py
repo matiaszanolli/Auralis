@@ -501,6 +501,7 @@ class _FakeSoundFile:
         self._data = data
         self.samplerate = sample_rate
         self.channels = data.shape[1]
+        self.frames = data.shape[0]  # stream_normal reads .frames, not len()
         self._pos = 0
 
     def __enter__(self):

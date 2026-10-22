@@ -208,7 +208,6 @@ class TestCancelSignalsSetBeforeTaskCancel:
             heartbeat_task,
             state,
             get_processing_engine=lambda: None,
-            job_subscriptions={},
             manager=manager,
             rate_limiter=rate_limiter,
         )

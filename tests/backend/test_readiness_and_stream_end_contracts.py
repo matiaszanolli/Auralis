@@ -98,7 +98,8 @@ class TestPlayerLoadGuardsLibraryManager:
     """`player.py` dereferenced outside its try:, so None escaped (#4656)."""
 
     def test_none_check_precedes_the_dereference(self):
-        source = (_BACKEND / "routers" / "player.py").read_text()
+        # The load handler moved to player_playback.py in the #5472 router split.
+        source = (_BACKEND / "routers" / "player_playback.py").read_text()
         guard_at = source.find("if library_database is None:")
         deref_at = source.find("library_database.tracks.get_by_id")
         assert guard_at != -1, "the None guard added in #4656 is missing"
