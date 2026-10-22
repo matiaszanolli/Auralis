@@ -119,7 +119,7 @@ class TestStreamlinedWorkerIsRunning:
         backend = Path(__file__).parent.parent.parent / "auralis-web" / "backend"
         offenders = []
         for path in backend.rglob("*.py"):
-            if path.name in ("streamlined_worker.py", "job_worker.py", "fingerprint_queue.py"):
+            if path.name in ("streamlined_worker.py", "streamlined_lifecycle.py", "job_worker.py", "fingerprint_queue.py"):
                 continue  # the owning classes may touch their own attribute
             for lineno, line in enumerate(path.read_text().splitlines(), 1):
                 # Attribute access only — `_watch_critical_worker_task(...)`
