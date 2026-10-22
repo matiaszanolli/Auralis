@@ -17,34 +17,13 @@ This service eliminates ~200 lines of duplicate fingerprint/target management.
 
 import logging
 import threading
-import traceback
-from pathlib import Path
-from typing import Any
 from collections.abc import Callable
-
-from auralis.__version__ import FINGERPRINT_ALGORITHM_VERSION
-from auralis.analysis.fingerprint import AudioFingerprintAnalyzer, FingerprintStorage
-from auralis.analysis.fingerprint.windows import FINGERPRINT_SAMPLE_RATE
-from auralis.analysis.mastering_fingerprint import MasteringFingerprint
-from mutagen import File as MutagenFile
+from typing import Any
 
 from core.file_signature import FileSignatureService
 
-
-def _probe_file_properties(filepath: str) -> tuple[float, int]:
-    """Cheap (duration_s, sample_rate) from a soundfile header read — no decode.
-
-    The windowed fingerprint pipeline never materialises the full audio, so
-    there is no decoded buffer to divide for the old len(audio)/sr fallback.
-    FFmpeg-only formats (m4a/aac/wma) fail the header read and get
-    (0.0, FINGERPRINT_SAMPLE_RATE); the windowed analysis itself decodes those independently.
-    """
-    try:
-        import soundfile as sf
-        with sf.SoundFile(str(filepath)) as f:
-            return f.frames / f.samplerate, int(f.samplerate)
-    except Exception:
-        return 0.0, FINGERPRINT_SAMPLE_RATE
+from . import fingerprint_loading
+from .mastering_target_generation import generate_targets_from_fingerprint
 
 logger = logging.getLogger(__name__)
 
@@ -111,200 +90,27 @@ class MasteringTargetService:
             file_signature = FileSignatureService.generate(filepath)
         return f"fingerprint_{track_id}_{file_signature}"
 
-    def load_fingerprint_from_database(
-        self,
-        track_id: int
-    ) -> Any | None:
-        """
-        Load fingerprint from database (Tier 1 - fastest).
-
-        Consolidates logic from chunked_processor._load_fingerprint_from_database().
-
-        Args:
-            track_id: Track ID to look up
-
-        Returns:
-            MasteringFingerprint instance or None if not found
-        """
-        # Require repository factory (dependency injection pattern)
-        if self._get_fingerprints_repository is None:
-            logger.debug("No fingerprints repository provided - skipping database lookup")
-            return None
-
-        try:
-            # Get repository via dependency injection
-            fingerprints_repo = self._get_fingerprints_repository()
-
-            # Try to get fingerprint from database
-            fp_record = fingerprints_repo.get_by_track_id(track_id)
-
-            if fp_record:
-                # Convert database record to MasteringFingerprint
-                fp_dict = {
-                    'sub_bass_pct': fp_record.sub_bass_pct,
-                    'bass_pct': fp_record.bass_pct,
-                    'low_mid_pct': fp_record.low_mid_pct,
-                    'mid_pct': fp_record.mid_pct,
-                    'upper_mid_pct': fp_record.upper_mid_pct,
-                    'presence_pct': fp_record.presence_pct,
-                    'air_pct': fp_record.air_pct,
-                    'lufs': fp_record.lufs,
-                    'crest_db': fp_record.crest_db,
-                    'bass_mid_ratio': fp_record.bass_mid_ratio,
-                    'tempo_bpm': fp_record.tempo_bpm,
-                    'rhythm_stability': fp_record.rhythm_stability,
-                    'transient_density': fp_record.transient_density,
-                    'silence_ratio': fp_record.silence_ratio,
-                    'spectral_centroid': fp_record.spectral_centroid,
-                    'spectral_rolloff': fp_record.spectral_rolloff,
-                    'spectral_flatness': fp_record.spectral_flatness,
-                    'harmonic_ratio': fp_record.harmonic_ratio,
-                    'pitch_stability': fp_record.pitch_stability,
-                    'chroma_energy': fp_record.chroma_energy,
-                    'dynamic_range_variation': fp_record.dynamic_range_variation,
-                    'loudness_variation_std': fp_record.loudness_variation_std,
-                    'peak_consistency': fp_record.peak_consistency,
-                    'stereo_width': fp_record.stereo_width,
-                    'phase_correlation': fp_record.phase_correlation,
-                }
-
-                fingerprint = MasteringFingerprint(**fp_dict)
-                logger.info(
-                    f"✅ Loaded fingerprint from database for track {track_id} "
-                    f"(LUFS: {fp_record.lufs:.1f}, Crest: {fp_record.crest_db:.1f})"
-                )
-                return fingerprint
-            else:
-                logger.debug(f"No fingerprint in database for track {track_id}")
-                return None
-
-        except Exception as e:
-            logger.debug(f"Database fingerprint lookup failed for track {track_id}: {e}")
-            return None
+    def load_fingerprint_from_database(self, track_id: int) -> Any | None:
+        """Tier 1 (database); see :func:`fingerprint_loading.load_from_database`."""
+        return fingerprint_loading.load_from_database(
+            self._get_fingerprints_repository, track_id
+        )
 
     def load_fingerprint_from_file(
-        self,
-        filepath: str
+        self, filepath: str
     ) -> tuple[Any, dict[str, Any] | None] | None:
-        """
-        Load fingerprint from .25d file (Tier 2 - fast).
-
-        Args:
-            filepath: Path to audio file (will look for .25d sidecar)
-
-        Returns:
-            Tuple of (fingerprint, mastering_targets) or None if not found
-        """
-        try:
-            cached_data = FingerprintStorage.load(Path(filepath))
-            if cached_data:
-                fingerprint, mastering_targets = cached_data
-                # Sidecars from an older fingerprint algorithm (or from before
-                # the version was stamped) measured different signals, e.g. the
-                # [all L, all R] stereo layout of #5556: re-extract instead.
-                stored_version = (
-                    int(fingerprint.get('fingerprint_version', 1))
-                    if isinstance(fingerprint, dict) else 1
-                )
-                if stored_version < FINGERPRINT_ALGORITHM_VERSION:
-                    logger.info(
-                        f".25d fingerprint for {Path(filepath).name} is v{stored_version} "
-                        f"(current v{FINGERPRINT_ALGORITHM_VERSION}), re-extracting"
-                    )
-                    return None
-                # Targets are a pure function of the fingerprint, so re-derive them
-                # rather than trusting the persisted copy. Sidecars written before
-                # #5554 hold EQ targets computed with percent-scaled ideals (every
-                # band saturated at the clamp), and those written before #5552
-                # lack source_lufs. An empty dict means "not derived yet" and is
-                # left for callers to fill.
-                if mastering_targets and isinstance(fingerprint, dict):
-                    mastering_targets = self.generate_targets_from_fingerprint(fingerprint)
-                logger.info(f"✅ Loaded fingerprint from .25d file for {Path(filepath).name}")
-                return (fingerprint, mastering_targets)
-            else:
-                logger.debug(f"No .25d file found for {Path(filepath).name}")
-                return None
-
-        except Exception as e:
-            logger.debug(f".25d file loading failed for {filepath}: {e}")
-            return None
+        """Tier 2 (.25d sidecar); see :func:`fingerprint_loading.load_from_file`."""
+        return fingerprint_loading.load_from_file(
+            filepath, self.generate_targets_from_fingerprint
+        )
 
     def extract_fingerprint_from_audio(
-        self,
-        filepath: str,
-        save_to_file: bool = True
+        self, filepath: str, save_to_file: bool = True
     ) -> tuple[Any, dict[str, Any] | None] | None:
-        """
-        Extract fingerprint from audio file (Tier 3 - slow).
-
-        Runs the shared windowed pipeline (compute_windowed_fingerprint):
-        bounded 90s-body + 2x30s-probe decoding, #4595 LUFS/crest bias
-        correction, and non-finite sanitization — identical to the batch
-        library-scan fingerprint for the same file.
-
-        Args:
-            filepath: Path to audio file
-            save_to_file: If True, save extracted fingerprint to .25d file
-
-        Returns:
-            Tuple of (fingerprint, mastering_targets) or None if extraction fails
-        """
-        try:
-            logger.info(f"🔍 Extracting fingerprint from audio: {Path(filepath).name}")
-
-            # Shared windowed pipeline (#5531): bounded 90s-body + 2x30s-probe
-            # loading (no full-file decode of a multi-hour file), the #4595
-            # body+probe LUFS/crest bias correction, and sanitize_non_finite
-            # (via AudioFingerprintAnalyzer.analyze). The two fingerprint
-            # producers used to call the raw Rust schema glue on a full-file
-            # decode here — unsanitized, uncapped, and disagreeing with the
-            # batch-scan fingerprint of the same track.
-            from auralis.analysis.fingerprint.windowed_compute import (
-                compute_windowed_fingerprint,
-            )
-
-            fingerprint_data: dict[str, Any] | None = compute_windowed_fingerprint(
-                AudioFingerprintAnalyzer(), Path(filepath)
-            )
-            if not fingerprint_data:
-                logger.warning(f"Windowed fingerprint extraction failed for {Path(filepath).name}")
-                return None
-            logger.info(f"✅ Extracted windowed fingerprint for {Path(filepath).name}")
-
-            # Add metadata for .25d file. Duration/sample rate come from a
-            # cheap header read — the windowed pipeline never materialises
-            # the full audio to compute them from a decoded buffer.
-            duration_value, sr = _probe_file_properties(filepath)
-            try:
-                audio_file = MutagenFile(filepath)
-                if audio_file:
-                    duration_value = float(audio_file.info.length)
-            except Exception as e:
-                logger.debug(f"Mutagen duration probe failed, keeping header probe: {e}", exc_info=True)
-
-            fingerprint_data['_metadata'] = {
-                'duration': duration_value,
-                'sample_rate': sr
-            }
-            # Stamp the algorithm version so a later algorithm change makes
-            # load_fingerprint_from_file reject this sidecar (#5556).
-            fingerprint_data['fingerprint_version'] = FINGERPRINT_ALGORITHM_VERSION
-
-            # Generate mastering targets from fingerprint
-            mastering_targets = self.generate_targets_from_fingerprint(fingerprint_data)
-
-            # Save to .25d file if requested
-            if save_to_file:
-                FingerprintStorage.save(Path(filepath), fingerprint_data, mastering_targets)
-                logger.info(f"💾 Saved fingerprint to .25d file for {Path(filepath).name}")
-
-            return (fingerprint_data, mastering_targets)
-
-        except Exception as e:
-            logger.error(f"Fingerprint extraction failed for {filepath}: {e}")
-            logger.debug(traceback.format_exc())
-            return None
+        """Tier 3 (decode + analyse); see :func:`fingerprint_loading.extract_from_audio`."""
+        return fingerprint_loading.extract_from_audio(
+            filepath, self.generate_targets_from_fingerprint, save_to_file
+        )
 
     def load_fingerprint(
         self,
@@ -381,109 +187,12 @@ class MasteringTargetService:
         logger.debug(f"No fingerprint found for track {track_id}")
         return None
 
-    def generate_targets_from_fingerprint(
-        self,
-        fingerprint: Any
-    ) -> dict[str, Any]:
+    def generate_targets_from_fingerprint(self, fingerprint: Any) -> dict[str, Any]:
+        """Derive mastering targets from a 25D fingerprint.
+
+        See :func:`mastering_target_generation.generate_targets_from_fingerprint`.
         """
-        Generate mastering targets from 25D fingerprint.
-
-        Consolidates logic from chunked_processor._generate_targets_from_fingerprint().
-
-        This converts acoustic characteristics into processing parameters.
-        Targets remain fixed for the entire track, enabling fast processing.
-
-        Args:
-            fingerprint: MasteringFingerprint instance or dict
-
-        Returns:
-            Dictionary of mastering targets
-        """
-        # Handle both dict and MasteringFingerprint objects
-        if hasattr(fingerprint, '__dict__'):
-            fp_dict = fingerprint.__dict__
-        else:
-            fp_dict = fingerprint
-
-        # Get frequency and dynamics data
-        freq = fp_dict.get('frequency', {})
-        dynamics = fp_dict.get('dynamics', {})
-
-        # Target loudness: nudge toward streaming standard (-14 LUFS) while
-        # preserving the track's original loudness character (fixes #2726).
-        current_lufs = fp_dict.get('lufs', dynamics.get('lufs', -14.0))
-        streaming_target = -14.0
-        # Blend 60% toward streaming target, 40% original character
-        target_lufs = current_lufs * 0.4 + streaming_target * 0.6
-
-        # Target crest factor (preserve dynamic range character)
-        current_crest = fp_dict.get('crest_db', dynamics.get('crest_db', 12.0))
-        target_crest = max(10.0, current_crest * 0.85)  # Slight reduction
-
-        # EQ adjustments based on frequency balance
-        eq_adjustments = {
-            'sub_bass': self._calculate_eq_adjustment(
-                fp_dict.get('sub_bass_pct', freq.get('sub_bass_pct', 0.05)), ideal=0.05
-            ),
-            'bass': self._calculate_eq_adjustment(
-                fp_dict.get('bass_pct', freq.get('bass_pct', 0.15)), ideal=0.15
-            ),
-            'low_mid': self._calculate_eq_adjustment(
-                fp_dict.get('low_mid_pct', freq.get('low_mid_pct', 0.18)), ideal=0.18
-            ),
-            'mid': self._calculate_eq_adjustment(
-                fp_dict.get('mid_pct', freq.get('mid_pct', 0.22)), ideal=0.22
-            ),
-            'upper_mid': self._calculate_eq_adjustment(
-                fp_dict.get('upper_mid_pct', freq.get('upper_mid_pct', 0.20)), ideal=0.20
-            ),
-            'presence': self._calculate_eq_adjustment(
-                fp_dict.get('presence_pct', freq.get('presence_pct', 0.13)), ideal=0.13
-            ),
-            'air': self._calculate_eq_adjustment(
-                fp_dict.get('air_pct', freq.get('air_pct', 0.07)), ideal=0.07
-            ),
-        }
-
-        return {
-            'target_lufs': target_lufs,
-            # Track-level source loudness (fingerprint scale). Final
-            # normalisation applies the single gain target_lufs - source_lufs
-            # to every chunk, so quiet and loud sections keep their relative
-            # level (#5552).
-            'source_lufs': current_lufs,
-            'target_crest_db': target_crest,
-            'eq_adjustments_db': eq_adjustments,
-            'compression': {
-                'ratio': 2.5,
-                'amount': 0.6
-            }
-        }
-
-    def _calculate_eq_adjustment(self, current_fraction: float, ideal: float) -> float:
-        """
-        Calculate EQ adjustment in dB to reach the ideal band share.
-
-        Consolidates logic from chunked_processor._calculate_eq_adjustment().
-
-        Args:
-            current_fraction: Current band energy as a FRACTION of the total
-                (0-1; the fingerprint's ``*_pct`` fields are fractions, not
-                percentages).
-            ideal: Ideal band energy fraction, same units.
-
-        Returns:
-            EQ adjustment in dB (clamped to ±6 dB)
-        """
-        # Simple proportional adjustment
-        diff = ideal - current_fraction
-        # ±1 percentage point (0.01) difference = ±0.5 dB adjustment (gentle).
-        # This used to take diff*0.5 directly on 0-1 fractions, which treated
-        # them as percentages: any band 0.12 off its ideal saturated the ±6 dB
-        # clamp, so every track got the same near-maximal tilt (#5554).
-        adjustment = diff * 100.0 * 0.5
-        # Clamp to reasonable range
-        return max(-6.0, min(6.0, adjustment))
+        return generate_targets_from_fingerprint(fingerprint)
 
     def clear_cache(self) -> None:
         """Clear all cached fingerprints."""

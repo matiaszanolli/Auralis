@@ -62,9 +62,9 @@ def test_backend_producers_route_through_the_windowed_pipeline() -> None:
     backend producers must go through the shared windowed pipeline instead
     (sanitization + duration cap + batch parity in one place)."""
     import analysis.fingerprint_generator as fg
-    import core.mastering_target_service as mts
+    import core.fingerprint_loading as fl  # the service's extraction tier (#5833)
 
-    for module in (fg, mts):
+    for module in (fg, fl):
         src = Path(module.__file__).read_text()
         assert 'compute_fingerprint_schema' not in src, module.__name__
         assert 'compute_windowed_fingerprint' in src, module.__name__
@@ -113,6 +113,7 @@ def test_algorithm_version_was_bumped_for_the_layout_fix() -> None:
 
 def test_stale_sidecar_is_rejected_and_current_one_accepted(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     import core.mastering_target_service as mts
+    from auralis.analysis.fingerprint import FingerprintStorage
 
     base = {'lufs': -20.0}
     targets = {'target_lufs': -16.0}
@@ -122,5 +123,5 @@ def test_stale_sidecar_is_rejected_and_current_one_accepted(monkeypatch: pytest.
         ({**base, 'fingerprint_version': FINGERPRINT_ALGORITHM_VERSION - 1}, False),
         ({**base, 'fingerprint_version': FINGERPRINT_ALGORITHM_VERSION}, True),
     ):
-        monkeypatch.setattr(mts.FingerprintStorage, 'load', staticmethod(lambda _p, fp=fp: (fp, dict(targets))))
+        monkeypatch.setattr(FingerprintStorage, 'load', staticmethod(lambda _p, fp=fp: (fp, dict(targets))))
         assert (svc.load_fingerprint_from_file(str(tmp_path / 'a.flac')) is not None) is expected_loaded

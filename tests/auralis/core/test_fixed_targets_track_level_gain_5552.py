@@ -105,10 +105,11 @@ def test_legacy_sidecar_targets_are_rederived_from_the_fingerprint(
 ) -> None:
     """Sidecars from before source_lufs existed get it (and fresh EQ targets)."""
     import core.mastering_target_service as mts
+    from auralis.analysis.fingerprint import FingerprintStorage
 
     legacy = {'target_lufs': -16.0, 'compression': {'ratio': 2.5, 'amount': 0.6}}
     monkeypatch.setattr(
-        mts.FingerprintStorage, 'load', staticmethod(lambda _p: ({'lufs': -21.0, 'fingerprint_version': 99}, dict(legacy)))
+        FingerprintStorage, 'load', staticmethod(lambda _p: ({'lufs': -21.0, 'fingerprint_version': 99}, dict(legacy)))
     )
     _fingerprint, targets = mts.MasteringTargetService().load_fingerprint_from_file(str(tmp_path / 'a.flac'))
     assert targets['source_lufs'] == -21.0
@@ -117,7 +118,8 @@ def test_legacy_sidecar_targets_are_rederived_from_the_fingerprint(
 
 def test_empty_sidecar_targets_stay_empty(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     import core.mastering_target_service as mts
+    from auralis.analysis.fingerprint import FingerprintStorage
 
-    monkeypatch.setattr(mts.FingerprintStorage, 'load', staticmethod(lambda _p: ({'lufs': -21.0, 'fingerprint_version': 99}, {})))
+    monkeypatch.setattr(FingerprintStorage, 'load', staticmethod(lambda _p: ({'lufs': -21.0, 'fingerprint_version': 99}, {})))
     _fingerprint, targets = mts.MasteringTargetService().load_fingerprint_from_file(str(tmp_path / 'a.flac'))
     assert targets == {}
