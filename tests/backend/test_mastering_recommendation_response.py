@@ -22,7 +22,7 @@ from auralis.analysis.adaptive_mastering_engine import (
     MasteringRecommendation,
     ProfileWeight,
 )
-from auralis.analysis.mastering_profile import (
+from auralis.analysis.mastering_profiles_builtin import (
     PROFILE_WARM_MASTERS,
     PROFILE_BRIGHT_MASTERS,
 )
