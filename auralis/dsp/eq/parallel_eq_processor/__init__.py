@@ -8,10 +8,8 @@ High-performance vectorized processing for psychoacoustic EQ
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from .factory import create_vectorized_eq_processor
 from .vectorized_processor import VectorizedEQProcessor
 
 __all__ = [
     'VectorizedEQProcessor',
-    'create_vectorized_eq_processor',
 ]

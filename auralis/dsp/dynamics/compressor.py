@@ -199,18 +199,3 @@ class AdaptiveCompressor:
         self.gain_reduction = 0.0
         self.previous_gain = 1.0
         self._lookahead.reset()
-
-
-def create_adaptive_compressor(settings: CompressorSettings,
-                               sample_rate: int) -> AdaptiveCompressor:
-    """
-    Factory function to create adaptive compressor
-
-    Args:
-        settings: Compressor configuration
-        sample_rate: Audio sample rate
-
-    Returns:
-        Configured AdaptiveCompressor instance
-    """
-    return AdaptiveCompressor(settings, sample_rate)

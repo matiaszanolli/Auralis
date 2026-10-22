@@ -53,19 +53,3 @@ class EnvelopeFollower:
     def reset(self) -> None:
         """Reset envelope state"""
         self.envelope = 0.0
-
-
-def create_envelope_follower(sample_rate: int, attack_ms: float,
-                             release_ms: float) -> EnvelopeFollower:
-    """
-    Factory function to create envelope follower
-
-    Args:
-        sample_rate: Audio sample rate
-        attack_ms: Attack time in milliseconds
-        release_ms: Release time in milliseconds
-
-    Returns:
-        Configured EnvelopeFollower instance
-    """
-    return EnvelopeFollower(sample_rate, attack_ms, release_ms)

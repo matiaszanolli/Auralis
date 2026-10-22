@@ -483,13 +483,3 @@ class QueueManager:
                 self.current_index = index
                 return self._get_current_track_unlocked()
             return None
-
-
-def create_queue_manager() -> QueueManager:
-    """
-    Factory function to create queue manager
-
-    Returns:
-        QueueManager instance
-    """
-    return QueueManager()

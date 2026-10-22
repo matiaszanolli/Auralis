@@ -21,8 +21,6 @@ __copyright__ = "Copyright (C) 2024 Auralis Team"
 from .core.config import (
     PresetProfile,
     UnifiedConfig,
-    create_adaptive_config,
-    create_reference_config,
     get_preset_profile,
 )
 from .core.hybrid_processor import HybridProcessor
@@ -46,8 +44,6 @@ __all__ = [
     "Result", "pcm16", "pcm24",  # Output formats
     "log",               # Logging
     # Modern system
-    "create_adaptive_config",
-    "create_reference_config",
     "PresetProfile",
     "get_preset_profile",
     "HybridProcessor",

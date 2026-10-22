@@ -176,34 +176,6 @@ def crest_factor(audio: np.ndarray) -> float:
         return 0.0
 
 
-def energy_profile(audio: np.ndarray, window_size: int = 1024) -> np.ndarray:
-    """
-    Calculate energy profile of audio signal
-
-    Returns the energy envelope over time using overlapping windows.
-
-    Args:
-        audio: Input audio signal
-        window_size: Size of analysis window in samples
-
-    Returns:
-        Array of energy values over time
-    """
-    if audio.ndim == 2:
-        audio = np.mean(audio, axis=1)
-
-    # Calculate energy in overlapping windows
-    hop_size = window_size // 2
-    energy_values = []
-
-    for i in range(0, len(audio) - window_size, hop_size):
-        window = audio[i:i + window_size]
-        energy = np.sum(window ** 2)
-        energy_values.append(energy)
-
-    return np.array(energy_values)
-
-
 def tempo_estimate(audio: np.ndarray, sample_rate: int) -> float:
     """
     Rough tempo estimation using onset detection

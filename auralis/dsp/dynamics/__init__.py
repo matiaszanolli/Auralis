@@ -13,8 +13,8 @@ from .brick_wall_limiter import (
     BrickWallLimiterSettings,
     create_brick_wall_limiter,
 )
-from .compressor import AdaptiveCompressor, create_adaptive_compressor
-from .envelope import EnvelopeFollower, create_envelope_follower
+from .compressor import AdaptiveCompressor
+from .envelope import EnvelopeFollower
 from .settings import (
     CompressorSettings,
     DynamicsMode,
@@ -34,7 +34,5 @@ __all__ = [
     'BrickWallLimiter',
 
     # Factory functions
-    'create_envelope_follower',
-    'create_adaptive_compressor',
     'create_brick_wall_limiter',
 ]

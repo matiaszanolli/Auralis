@@ -392,20 +392,3 @@ class ContentAnalyzer:
             return float(np.clip(dynamic_range, 0, 60))
         else:
             return 20.0
-
-
-def create_content_analyzer(sample_rate: int = 44100,
-                           use_ml_classification: bool = True,
-                           use_tempo_detection: bool = True) -> ContentAnalyzer:
-    """
-    Factory function to create content analyzer
-
-    Args:
-        sample_rate: Audio sample rate
-        use_ml_classification: Whether to use ML-based genre classification
-        use_tempo_detection: Whether to perform tempo detection (can be disabled for speed)
-
-    Returns:
-        Configured ContentAnalyzer instance
-    """
-    return ContentAnalyzer(sample_rate, use_ml_classification, use_tempo_detection=use_tempo_detection)

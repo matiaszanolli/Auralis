@@ -375,18 +375,3 @@ class AdaptiveTargetGenerator:
               f"Stereo width {enhanced.get('stereo_width', 0):.2f}")
 
         return enhanced
-
-
-def create_adaptive_target_generator(config: UnifiedConfig,
-                                     processor: Any | None = None) -> AdaptiveTargetGenerator:
-    """
-    Factory function to create adaptive target generator
-
-    Args:
-        config: Unified configuration object
-        processor: Optional reference to main processor
-
-    Returns:
-        Configured AdaptiveTargetGenerator instance
-    """
-    return AdaptiveTargetGenerator(config, processor)

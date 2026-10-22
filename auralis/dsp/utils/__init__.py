@@ -36,7 +36,6 @@ from .interpolation_helpers import (
 )
 from .spectral import (
     crest_factor,
-    energy_profile,
     spectral_centroid,
     spectral_rolloff,
     tempo_estimate,
@@ -67,7 +66,6 @@ __all__ = [
     'spectral_rolloff',
     'zero_crossing_rate',
     'crest_factor',
-    'energy_profile',
     'tempo_estimate',
     # Adaptive processing
     'adaptive_gain_calculation',

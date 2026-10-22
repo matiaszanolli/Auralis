@@ -88,8 +88,3 @@ def get_performance_optimizer(config: PerformanceConfig | None = None) -> Perfor
             if _global_optimizer is None:
                 _global_optimizer = PerformanceOptimizer(config)
     return _global_optimizer
-
-
-def create_performance_optimizer(config: PerformanceConfig | None = None) -> PerformanceOptimizer:
-    """Create new performance optimizer instance"""
-    return PerformanceOptimizer(config)

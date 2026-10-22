@@ -8,12 +8,10 @@ Content analysis and adaptive target generation
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from .content_analyzer import ContentAnalyzer, create_content_analyzer
-from .target_generator import AdaptiveTargetGenerator, create_adaptive_target_generator
+from .content_analyzer import ContentAnalyzer
+from .target_generator import AdaptiveTargetGenerator
 
 __all__ = [
     'ContentAnalyzer',
-    'create_content_analyzer',
     'AdaptiveTargetGenerator',
-    'create_adaptive_target_generator',
 ]
