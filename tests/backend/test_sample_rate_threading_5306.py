@@ -6,8 +6,7 @@ Regression tests: the track's REAL sample rate reaches UnifiedConfig (#5306)
 construction path used to override it, so every 48 kHz / 96 kHz track was
 mastered as if it were 44.1 kHz: the psychoacoustic EQ's critical-band ->
 FFT-bin mapping lands ~8.8% off at 48 kHz (2.18x at 96 kHz), every K-weighted
-LUFS measurement targets the wrong loudness, the HF-aware limiter crossover
-sits at the wrong frequency, and ContinuousMode's fresh-fingerprint fallback
+LUFS measurement targets the wrong loudness, and ContinuousMode's fresh-fingerprint fallback
 resamples to 22050 Hz from the wrong `orig_sr` — feeding a pitch/time-distorted
 signal into the 25D fingerprint that drives parameter generation. Nothing in
 either pipeline resamples to 44.1 kHz, so the buffers really are at the file's

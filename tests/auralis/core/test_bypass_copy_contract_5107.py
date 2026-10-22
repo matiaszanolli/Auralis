@@ -27,7 +27,6 @@ import pytest
 
 from auralis.core.mastering_process_chunk import reduce_peaks
 from auralis.core.processing.base.peak_management import PeakNormalizer, SafetyLimiter
-from auralis.core.processing.hf_aware_limiter import apply_hf_aware_limiter
 
 
 def _quiet_stereo():
@@ -52,27 +51,6 @@ class TestSafetyLimiterBypass:
     def test_shape_and_dtype_preserved(self):
         audio = _quiet_stereo()
         out, _ = SafetyLimiter.apply_if_needed(audio)
-        assert out.shape == audio.shape
-        assert out.dtype == audio.dtype
-
-
-class TestHFAwareLimiterBypass:
-    def test_returns_a_copy_not_the_input(self):
-        audio = _quiet_stereo()
-        out, applied = apply_hf_aware_limiter(audio, sample_rate=44100, shelf_db=3.0)
-        assert applied is False
-        assert out is not audio
-        assert np.array_equal(out, audio)
-
-    def test_writing_to_the_result_does_not_touch_the_input(self):
-        audio = _quiet_stereo()
-        out, _ = apply_hf_aware_limiter(audio, sample_rate=44100, shelf_db=3.0)
-        out[:] = 0.9
-        assert np.allclose(audio, 0.1)
-
-    def test_shape_and_dtype_preserved(self):
-        audio = _quiet_stereo()
-        out, _ = apply_hf_aware_limiter(audio, sample_rate=44100, shelf_db=3.0)
         assert out.shape == audio.shape
         assert out.dtype == audio.dtype
 

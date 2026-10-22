@@ -204,7 +204,8 @@ def test_bass_heavy_source_can_get_bass_cut(config):
 def test_hf_crest_preserved_through_full_pipeline(config):
     """End-to-end: a source with strong HF transients should retain its
     HF crest factor after going through the pipeline (within 2 dB), because
-    the HF-aware limiter doesn't compress cymbals the way wideband would."""
+    the pipeline's peak control doesn't compress cymbals the way a wideband
+    limiter would."""
     from scipy.signal import butter, sosfilt
 
     cloud = _balanced_cloud()
@@ -237,5 +238,5 @@ def test_hf_crest_preserved_through_full_pipeline(config):
     # such material. Post-Phase-5, expect crush < 2 dB.
     assert crush < 2.0, (
         f"HF crest crush of {crush:+.2f} dB exceeds 2 dB threshold "
-        f"(src={src_crest:.2f}, out={out_crest:.2f}) — HF-aware limiter regression"
+        f"(src={src_crest:.2f}, out={out_crest:.2f}) — HF crest regression"
     )

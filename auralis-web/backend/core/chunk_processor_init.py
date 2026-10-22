@@ -152,7 +152,7 @@ def init_fingerprint_and_processor(
         # (chunk_operations.load_chunk) and nothing resamples to 44.1 kHz, so
         # the processor's config must carry that rate or every stage reading
         # `internal_sample_rate` — psychoacoustic EQ band -> FFT bin, K-weighted
-        # LUFS, HF-aware limiter crossover, ContinuousMode's fingerprint
+        # LUFS, ContinuousMode's fingerprint
         # `orig_sr` — is computed for the wrong rate. The factory deepcopies
         # this into the processor it owns (#4827); the cache key already varies
         # with the rate via `UnifiedConfig.to_dict()`, so no invalidation work.
