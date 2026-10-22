@@ -306,11 +306,13 @@ version_mgr.export_history("history.json")
 
 ```python
 from auralis.analysis.adaptive_mastering_engine import AdaptiveMasteringEngine
+from auralis.analysis.mastering_fingerprint import MasteringFingerprint
 
 engine = AdaptiveMasteringEngine()
 
 # Get recommendation
-rec = engine.analyze_and_recommend("new_track.flac")
+fingerprint = MasteringFingerprint.from_audio_file("new_track.flac")
+rec = engine.recommend(fingerprint)
 
 # Display summary
 print(rec.summary())

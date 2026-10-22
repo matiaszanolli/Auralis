@@ -13,7 +13,6 @@ The adaptive engine compares incoming fingerprints against profiles to find
 the best matching mastering strategy, rather than using preset configurations.
 """
 
-import json
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from typing import Any
@@ -155,14 +154,6 @@ class MasteringProfile:
             'notes': self.notes,
         }
 
-    def to_yaml_str(self) -> str:
-        """Convert to YAML string (or JSON if YAML not available)."""
-        data = self.to_dict()
-        if yaml:
-            return str(yaml.dump(data, default_flow_style=False, sort_keys=False))
-        else:
-            return json.dumps(data, indent=2)
-
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> 'MasteringProfile':
         """Create from dictionary."""
@@ -185,12 +176,6 @@ class MasteringProfile:
             era_estimate=data.get('era_estimate'),
             notes=data.get('notes', ''),
         )
-
-    @classmethod
-    def from_yaml_str(cls, yaml_str: str) -> 'MasteringProfile':
-        """Create from YAML string."""
-        data = yaml.safe_load(yaml_str)
-        return cls.from_dict(data)
 
 
 class MasteringProfileDatabase:
@@ -234,11 +219,6 @@ class MasteringProfileDatabase:
         rankings.sort(key=lambda x: x[1], reverse=True)
 
         return rankings[:top_k]
-
-    def find_best_profile(self, fingerprint: Any) -> tuple[MasteringProfile, float] | None:
-        """Find the single best matching profile."""
-        rankings = self.rank_profiles(fingerprint, top_k=1)
-        return rankings[0] if rankings else None
 
     def to_yaml_file(self, file_path: str) -> None:
         """Save all profiles to a YAML file."""

@@ -24,14 +24,6 @@ class MasteringEvaluator:
         self.sample_rate = sample_rate
         self.quality_metrics = quality_metrics
 
-    def evaluate_audio(
-        self,
-        before_audio: np.ndarray,
-        after_audio: np.ndarray,
-    ) -> MasteringEvaluationReport:
-        """Assess one aligned input/output audio pair."""
-        return self.evaluate_windows([before_audio], [after_audio])
-
     def evaluate_windows(
         self,
         before_windows: Sequence[np.ndarray],

@@ -113,36 +113,6 @@ class DimensionWeights:
         # Normalize to sum=1.0
         return np.asarray(weights / weights.sum(), dtype=np.float32)
 
-    @classmethod
-    def equal_weights(cls) -> DimensionWeights:
-        """Create equal weights for all dimensions (1/25 each)"""
-        weight = 1.0 / 25.0
-        return cls(**{field: weight for field in cls.__dataclass_fields__})
-
-    @classmethod
-    def frequency_focused(cls) -> DimensionWeights:
-        """Create weights emphasizing frequency distribution"""
-        weights = cls()
-        # Double frequency weights
-        weights.sub_bass_pct *= 2.0
-        weights.bass_pct *= 2.0
-        weights.low_mid_pct *= 2.0
-        weights.mid_pct *= 2.0
-        weights.upper_mid_pct *= 2.0
-        weights.presence_pct *= 2.0
-        weights.air_pct *= 2.0
-        return weights
-
-    @classmethod
-    def dynamics_focused(cls) -> DimensionWeights:
-        """Create weights emphasizing dynamics"""
-        weights = cls()
-        # Double dynamics weights
-        weights.lufs *= 2.0
-        weights.crest_db *= 2.0
-        weights.bass_mid_ratio *= 2.0
-        return weights
-
 
 class FingerprintDistance:
     """

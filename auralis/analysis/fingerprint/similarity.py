@@ -60,10 +60,6 @@ class FingerprintSimilarity:
 
         # Find similar tracks
         results = similarity.find_similar(track_id=123, n=10)
-
-        # Save/load normalizer
-        similarity.save_normalizer('stats.json')
-        similarity.load_normalizer('stats.json')
     """
 
     def __init__(
@@ -344,33 +340,6 @@ class FingerprintSimilarity:
 
         debug(f"Pre-filtering: {len(candidates)} candidates (from ranges)")
         return candidates
-
-    def save_normalizer(self, filepath: str) -> bool:
-        """
-        Save normalization statistics to file
-
-        Args:
-            filepath: Path to save statistics
-
-        Returns:
-            True if successful, False otherwise
-        """
-        return self.normalizer.save(filepath)
-
-    def load_normalizer(self, filepath: str) -> bool:
-        """
-        Load normalization statistics from file
-
-        Args:
-            filepath: Path to load statistics from
-
-        Returns:
-            True if successful, False otherwise
-        """
-        success = self.normalizer.load(filepath)
-        if success:
-            self.fitted = True
-        return success
 
     def is_fitted(self) -> bool:
         """Check if similarity system is fitted and ready"""

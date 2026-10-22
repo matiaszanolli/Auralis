@@ -20,7 +20,6 @@ Key Metrics:
 - peak_dbfs: Peak level (headroom indicator)
 """
 
-import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -183,10 +182,6 @@ class MasteringFingerprint:
     def to_dict(self) -> dict[str, float]:
         """Convert to dictionary for storage/comparison."""
         return asdict(self)
-
-    def to_json(self) -> str:
-        """Convert to JSON string."""
-        return json.dumps(self.to_dict(), indent=2)
 
     @classmethod
     def from_dict(cls, data: dict[str, float]) -> MasteringFingerprint:

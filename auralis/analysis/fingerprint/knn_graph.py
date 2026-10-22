@@ -57,9 +57,6 @@ class KNNGraphBuilder:
 
         # Build graph for all tracks
         stats = builder.build_graph(k=10)
-
-        # Update graph for new tracks
-        builder.update_graph([new_track_id1, new_track_id2])
     """
 
     def __init__(
@@ -196,60 +193,6 @@ class KNNGraphBuilder:
 
         except Exception as e:
             error(f"Failed to build graph: {e}")
-            raise
-
-    def update_graph(
-        self,
-        track_ids: list[int],
-        k: int = 10
-    ) -> int:
-        """
-        Update graph for specific tracks (e.g., newly added tracks)
-
-        Args:
-            track_ids: List of track IDs to update
-            k: Number of nearest neighbors
-
-        Returns:
-            Number of edges added/updated
-        """
-        info(f"Updating K-NN graph for {len(track_ids)} tracks...")
-
-        try:
-            edges_updated = 0
-
-            for track_id in track_ids:
-                # Remove existing edges for this track
-                self.graph_repo.delete_by_track_id(track_id)
-
-                # Find new k nearest neighbors
-                results = self.similarity.find_similar(
-                    track_id=track_id,
-                    n=k,
-                    use_prefilter=True
-                )
-
-                # Prepare new edges
-                edge_data_list = []
-                for rank, result in enumerate(results, start=1):
-                    edge_data = {
-                        'track_id': track_id,
-                        'similar_track_id': result.track_id,
-                        'distance': result.distance,
-                        'similarity_score': result.similarity_score,
-                        'rank': rank
-                    }
-                    edge_data_list.append(edge_data)
-
-                # Add new edges
-                if edge_data_list:
-                    edges_updated += self.graph_repo.add_edges(edge_data_list)
-
-            info(f"Updated {edges_updated} edges for {len(track_ids)} tracks")
-            return edges_updated
-
-        except Exception as e:
-            error(f"Failed to update graph: {e}")
             raise
 
     def get_neighbors(

@@ -79,27 +79,3 @@ class AudioFeatures:
         vector.extend(self.tonnetz)
 
         return vector
-
-    def get_feature_names(self) -> list[str]:
-        """Get names of all features in vector form"""
-        names = [
-            'rms', 'peak', 'crest_factor_db', 'zero_crossing_rate',
-            'spectral_centroid', 'spectral_rolloff', 'spectral_bandwidth',
-            'spectral_flatness', 'tempo', 'tempo_stability', 'onset_rate',
-            'harmonic_ratio', 'fundamental_frequency',
-            'energy_low', 'energy_mid', 'energy_high'
-        ]
-
-        # Add spectral contrast bands
-        names.extend([f'spectral_contrast_{i}' for i in range(len(self.spectral_contrast))])
-
-        # Add MFCC coefficients
-        names.extend([f'mfcc_{i}' for i in range(len(self.mfcc))])
-
-        # Add chroma bins
-        names.extend([f'chroma_{i}' for i in range(len(self.chroma))])
-
-        # Add tonnetz dimensions
-        names.extend([f'tonnetz_{i}' for i in range(len(self.tonnetz))])
-
-        return names

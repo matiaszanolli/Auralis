@@ -248,21 +248,6 @@ class FingerprintNormalizer:
 
         return normalized
 
-    def normalize_batch(self, vectors: list[list[float]]) -> np.ndarray:
-        """
-        Normalize multiple fingerprint vectors
-
-        Args:
-            vectors: List of 25-element fingerprint vectors
-
-        Returns:
-            Normalized vectors (N x 25 numpy array)
-        """
-        if not self.fitted:
-            raise ValueError("Normalizer not fitted. Call fit() first.")
-
-        return np.array([self.normalize(v) for v in vectors])
-
     def denormalize(self, normalized_vector: np.ndarray) -> np.ndarray:
         """
         Convert normalized vector back to original scale
@@ -357,27 +342,6 @@ class FingerprintNormalizer:
         except Exception as e:
             error(f"Failed to load normalization statistics: {e}")
             return False
-
-    def get_stats_summary(self) -> dict[str, dict[str, float]]:
-        """
-        Get summary of normalization statistics
-
-        Returns:
-            Dictionary mapping dimension names to stats
-        """
-        if not self.fitted:
-            return {}
-
-        return {
-            name: {
-                'min': stats.min_val,
-                'max': stats.max_val,
-                'mean': stats.mean,
-                'std': stats.std,
-                'range': stats.max_val - stats.min_val
-            }
-            for name, stats in self.stats.items()
-        }
 
     def is_fitted(self) -> bool:
         """Check if normalizer has been fitted"""

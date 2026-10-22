@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-from .mastering_fingerprint import MasteringFingerprint, analyze_album
+from .mastering_fingerprint import MasteringFingerprint
 from .mastering_profile import (
     PROFILE_BRIGHT_MASTERS,
     PROFILE_DAMAGED_RESTORATION,
@@ -331,45 +331,6 @@ class AdaptiveMasteringEngine:
 
         return reasoning
 
-    def analyze_and_recommend(self, audio_file: str) -> MasteringRecommendation:
-        """
-        Analyze an audio file and recommend mastering profile.
-
-        Args:
-            audio_file: Path to audio file
-
-        Returns:
-            MasteringRecommendation
-        """
-        fingerprint = MasteringFingerprint.from_audio_file(audio_file)
-        if not fingerprint:
-            return self._fallback_recommendation(None)
-        return self.recommend(fingerprint)
-
-    def analyze_album_and_recommend(self, album_dir: str) -> dict[str, MasteringRecommendation]:
-        """
-        Analyze all tracks in an album and get recommendations.
-
-        Args:
-            album_dir: Directory containing audio files
-
-        Returns:
-            Dictionary mapping track names to recommendations
-        """
-        album_analysis = analyze_album(album_dir)
-        recommendations = {}
-
-        for track_name, track_data in album_analysis['tracks'].items():
-            fingerprint = MasteringFingerprint.from_dict(track_data)
-            rec = self.recommend(fingerprint)
-            recommendations[track_name] = rec
-
-        return recommendations
-
-    def get_profile_database(self) -> MasteringProfileDatabase:
-        """Access the underlying profile database."""
-        return self.profile_db
-
     def add_profile(self, profile: MasteringProfile) -> None:
         """Add a new profile to the engine."""
         self.profile_db.add_profile(profile)
@@ -381,14 +342,6 @@ class AdaptiveMasteringEngine:
     def describe_profile(self, profile_id: str) -> str:
         """Get description of a specific profile."""
         return self.profile_db.describe_profile(profile_id)
-
-    def export_profiles(self, file_path: str) -> None:
-        """Export profiles to YAML file."""
-        self.profile_db.to_yaml_file(file_path)
-
-    def import_profiles(self, file_path: str) -> None:
-        """Import profiles from YAML file."""
-        self.profile_db = MasteringProfileDatabase.from_yaml_file(file_path)
 
 
 # Example usage and testing
