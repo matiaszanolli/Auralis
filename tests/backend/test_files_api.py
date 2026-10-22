@@ -25,7 +25,6 @@ from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from fastapi.testclient import TestClient
 
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
@@ -106,10 +105,25 @@ class TestScanDirectory:
             json={"directories": ["/etc/passwd"]}
         )
 
-        # Rejected by the same field_validator as the traversal case above
-        # (/etc/passwd exists but is a file, not a directory) -- 422, not
-        # 400/403 (#5089: this test used the wrong field name and therefore
-        # never actually reached path validation before).
+        # Rejected by the same field_validator as the traversal case above --
+        # 422, not 400/403 (#5089: this test used the wrong field name and
+        # therefore never actually reached path validation before). /etc is
+        # an operating-system tree, so the system-directory check fires
+        # before the is-a-directory check can.
+        assert response.status_code == 422
+        detail = response.json()["errors"][0]["message"]
+        assert "Operating-system directories" in detail
+
+    def test_scan_directory_regular_file_rejected(self, client, tmp_path):
+        """A path that exists but is a file is not a valid scan root."""
+        a_file = tmp_path / "not_a_dir.txt"
+        a_file.write_text("x")
+
+        response = client.post(
+            "/api/library/scan",
+            json={"directories": [str(a_file)]}
+        )
+
         assert response.status_code == 422
         detail = response.json()["errors"][0]["message"]
         assert "not a directory" in detail

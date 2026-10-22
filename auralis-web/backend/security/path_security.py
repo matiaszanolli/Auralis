@@ -328,17 +328,18 @@ def validate_user_chosen_directory(directory: str) -> Path:
     except (ValueError, TypeError) as e:
         raise PathValidationError(f"Invalid path format: {e}")
 
+    if ".." in path.parts:
+        raise PathValidationError(
+            "Path traversal sequences (..) are not allowed. "
+            "Please use absolute paths."
+        )
+
     try:
         resolved_path = path.resolve(strict=True)
     except FileNotFoundError:
         raise PathValidationError(f"Directory does not exist: {path}")
     except (OSError, RuntimeError) as e:
         raise PathValidationError(f"Failed to resolve path: {e}")
-
-    if not _is_subpath_of_any_allowed_dir(resolved_path):
-        raise PathValidationError(
-            "Directory is outside allowed scan roots"
-        )
 
     if _is_system_directory(resolved_path):
         raise PathValidationError(
