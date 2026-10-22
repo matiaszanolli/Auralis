@@ -37,25 +37,16 @@ from typing import Any
 
 import numpy as np
 
-from .audio_fingerprint_analyzer import sanitize_non_finite
-from .windows import (
-    FINGERPRINT_BODY_POSITION,
-    FINGERPRINT_BODY_WINDOW_S,
-    FINGERPRINT_PROBE_POSITIONS,
-    FINGERPRINT_PROBE_WINDOW_S,
-    FINGERPRINT_SAMPLE_RATE,
-    window_offset_s,
-)
 from ...dsp.utils.audio_info import to_mono
+from .audio_fingerprint_analyzer import sanitize_non_finite
+from .windowed_loading import (
+    WindowSet,
+    crop_preloaded_windows,
+    load_ffmpeg_windows,
+    load_librosa_windows,
+)
 
 logger = logging.getLogger(__name__)
-
-# Seconds decoded ahead of a bounded FFmpeg window and then trimmed off, so the
-# samples handed to the analyzer are identical to the same span of a full decode
-# (#5110). 0.5 s was measured as sufficient for bit-exact agreement on MP3;
-# 1.0 s carries margin for other codecs at negligible cost against a 90 s window.
-_SEEK_PREROLL_S = 1.0
-
 
 def _numpy_to_python(obj: Any) -> Any:
     """Recursively convert NumPy types to native Python types.
@@ -81,6 +72,78 @@ def _numpy_to_python(obj: Any) -> Any:
     return obj
 
 
+def _load_windows(audio_path: Path, audio: np.ndarray | None, sr: int | None) -> WindowSet:
+    """Body window + probe windows, from the file or from a pre-loaded buffer.
+
+    Multi-window fingerprinting strategy (empirically validated June 2026):
+
+    Loading only a single 90 s window from the track creates a systematic
+    negative LUFS bias when that window lands on an ambient/instrumental intro.
+    Validation study (34 tracks) showed single-window RMSE vs actual LUFS =
+    1.96 dB, max error = 9.2 dB (Gilmour Shine On: -23.5 vs -14.3 LUFS).
+
+    Fix: run the full 25D analysis on the BODY window (50 % of track duration),
+    then probe two additional 30 s windows at 25 % and 75 %. Replace
+    fp['lufs'] and fp['crest_db'] with the median across all three probes.
+    Result: RMSE drops to 1.07 dB (-45 %), max error to 3.6 dB (-61 %).
+
+    The body window is used for the full spectral analysis because it is most
+    likely to represent the track's timbral character. The probes are mono +
+    fast -- no full 25D analysis needed. Geometry (rate, window lengths,
+    positions) lives in .windows (#5797).
+    """
+    if audio is not None and sr is not None:
+        return crop_preloaded_windows(audio, sr)
+
+    from auralis.io.formats import FFMPEG_FORMATS
+    if audio_path.suffix.lower() in FFMPEG_FORMATS:
+        # libsndfile can't decode AAC/MP3/etc -- load via ffmpeg.
+        return load_ffmpeg_windows(audio_path)
+    return load_librosa_windows(audio_path)
+
+
+def _rms_lufs_crest(a: np.ndarray) -> tuple[float, float]:
+    """Return (lufs_approx, crest_db) from a mono/stereo array."""
+    mono = to_mono(a, 'channels_samples')  # librosa layout: (channels, samples)
+    rms = float(np.sqrt(np.mean(mono.astype(np.float64) ** 2)))
+    if rms < 1e-9:
+        return -70.0, 0.0
+    peak = float(np.max(np.abs(mono)))
+    lufs = 20.0 * np.log10(rms) - 0.691   # K-weighted proxy
+    crest = 20.0 * np.log10(peak / max(rms, 1e-9))
+    return lufs, crest
+
+
+def _apply_probe_correction(
+    fingerprint: dict[str, Any], audio: np.ndarray, probe_audios: list[np.ndarray]
+) -> None:
+    """Replace the body-window LUFS/crest with the median across body + probes.
+
+    Validated empirically: reduces LUFS RMSE from 1.96 -> 1.07 dB, max error
+    from 9.2 -> 3.6 dB (June 2026 study, 31 tracks). Best-effort: the body
+    window alone is fine, so any failure here leaves the fingerprint as is.
+    """
+    try:
+        if not (probe_audios and fingerprint):
+            return
+        # Body window (already analyzed)
+        lufs_body, crest_body = _rms_lufs_crest(audio.astype(np.float64))
+        all_lufs = [lufs_body]
+        all_crest = [crest_body]
+
+        for probe in probe_audios:
+            probe_lufs, probe_crest = _rms_lufs_crest(probe.astype(np.float64))
+            if probe_lufs > -70.0:   # skip silent probes
+                all_lufs.append(probe_lufs)
+                all_crest.append(probe_crest)
+
+        if len(all_lufs) >= 2:
+            fingerprint['lufs'] = float(np.median(all_lufs))
+            fingerprint['crest_db'] = float(np.median(all_crest))
+    except Exception:
+        pass
+
+
 def compute_windowed_fingerprint(
     analyzer: Any,
     audio_path: Path,
@@ -89,221 +152,15 @@ def compute_windowed_fingerprint(
 ) -> dict[str, Any] | None:
     """Compute fingerprint using AudioFingerprintAnalyzer."""
     try:
-        import librosa
-
-        # Load audio if not provided.
-        # Use 22050 Hz (librosa's native analysis rate) to halve data for 44.1 kHz files.
-        # Cap at 90 s — sufficient for a stable 25D fingerprint with the sampling strategy.
-        #
-        # Multi-window fingerprinting strategy (empirically validated June 2026):
-        #
-        # Loading only a single 90 s window from the track creates a systematic
-        # negative LUFS bias when that window lands on an ambient/instrumental intro.
-        # Validation study (34 tracks) showed single-window RMSE vs actual LUFS =
-        # 1.96 dB, max error = 9.2 dB (Gilmour Shine On: -23.5 vs -14.3 LUFS).
-        #
-        # Fix: run the full 25D analysis on the BODY window (50 % of track duration),
-        # then probe two additional 30 s windows at 25 % and 75 %. Replace fp['lufs']
-        # and fp['crest_db'] with the median across all three probes.
-        # Result: RMSE drops to 1.07 dB (-45 %), max error to 3.6 dB (-61 %).
-        #
-        # The body window (50 %) is used for the full spectral analysis because
-        # it is most likely to represent the track's timbral character.  The 25 %
-        # and 75 % probes are mono + fast — no full 25D analysis needed.
-        # Geometry (rate, window lengths, positions) lives in .windows (#5797).
-        _target_sr = FINGERPRINT_SAMPLE_RATE
-        _probe_s = FINGERPRINT_PROBE_WINDOW_S
-        _body_s = FINGERPRINT_BODY_WINDOW_S
-
-        if audio is None or sr is None:
-            # Get total duration without loading audio
-            try:
-                import soundfile as _sf
-                with _sf.SoundFile(str(audio_path)) as _f:
-                    _total_s = _f.frames / _f.samplerate
-            except Exception:
-                _total_s = None
-
-            # Body window: centred on 50 % of track duration
-            if _total_s is not None:
-                _body_offset = window_offset_s(FINGERPRINT_BODY_POSITION, _total_s, _body_s)
-            else:
-                _body_offset = 0.0
-
-            from auralis.io.formats import FFMPEG_FORMATS
-            if audio_path.suffix.lower() in FFMPEG_FORMATS:
-                # libsndfile can't decode AAC/MP3/etc — load via ffmpeg.
-                #
-                # #5110: decode only the windows actually analysed. This branch
-                # used to decode the ENTIRE file, resample the ENTIRE buffer,
-                # and only then crop to 150 s — the opposite of the two sibling
-                # branches (the libsndfile one seeks via librosa.load's
-                # offset/duration; the pre-loaded one crops before resampling,
-                # with a docstring about avoiding full-duration allocation). For
-                # a 2-hour podcast that was up to ~50x the necessary CPU with a
-                # peak footprint in the GB range, multiplied by the extraction
-                # queue's concurrency. It also made
-                # fingerprint_extractor.py's claim that this function "never
-                # materialises the whole decoded file" false for exactly the
-                # formats most libraries are made of.
-                import tempfile
-
-                from auralis.io.loaders import load_with_ffmpeg
-                from auralis.io.loaders.ffmpeg_probe import _probe_audio
-
-                def _decode_window(
-                    tmp_dir: str, offset_s: float | None, dur_s: float | None
-                ) -> np.ndarray:
-                    """Decode one bounded span and return it as (channels, samples).
-
-                    Decodes _SEEK_PREROLL_S ahead of the window and trims it off
-                    by exact sample count. A bounded MP3/AAC decode starting
-                    cold at the seek point differs from the same span of a full
-                    decode — the codec needs a few frames to converge (bit
-                    reservoir, filterbank state). Measured on a real MP3, a
-                    zero-pre-roll window drifted up to 1.1% on crest_db and
-                    ~1% on transient_density; with 0.5 s of pre-roll the samples
-                    are bit-identical to the full-decode span.
-
-                    That is what keeps this a pure performance change: stored
-                    fingerprints stay comparable with newly computed ones, so no
-                    FINGERPRINT_ALGORITHM_VERSION bump (and no library-wide
-                    re-fingerprint) is required.
-                    """
-                    preroll = 0.0
-                    if offset_s is not None and offset_s > 0:
-                        preroll = min(_SEEK_PREROLL_S, offset_s)
-                        offset_s = offset_s - preroll
-                        if dur_s is not None:
-                            dur_s = dur_s + preroll
-
-                    win, win_sr = load_with_ffmpeg(
-                        audio_path, tmp_dir, offset=offset_s, duration=dur_s
-                    )
-                    # Trim at the NATIVE rate, before resampling — resampling
-                    # would make the sample count no longer map to preroll.
-                    if preroll > 0:
-                        win = win[int(round(preroll * win_sr)):]
-                    if win.ndim == 2:
-                        win = win.T
-                    if win_sr != _target_sr:
-                        if win.ndim == 2:
-                            win = np.stack([
-                                librosa.resample(
-                                    win[ch].astype(np.float32),
-                                    orig_sr=win_sr, target_sr=_target_sr,
-                                )
-                                for ch in range(win.shape[0])
-                            ])
-                        else:
-                            win = librosa.resample(
-                                win.astype(np.float32),
-                                orig_sr=win_sr, target_sr=_target_sr,
-                            )
-                    return win
-
-                # Duration from ffprobe rather than from a decoded buffer — the
-                # window offsets need it *before* anything is decoded, and the
-                # soundfile probe above cannot open these containers.
-                _probe = _probe_audio(audio_path)
-                _total_s = _probe.get('duration')
-
-                with tempfile.TemporaryDirectory() as tmp:
-                    if not _total_s or _total_s <= 0:
-                        # ffprobe gave no duration (rare: true-VBR without a
-                        # header). Fall back to decoding from the start and
-                        # bounding by length — still avoids the full file.
-                        logger.debug(
-                            f"No probed duration for {audio_path.name}; "
-                            f"decoding a bounded head window instead"
-                        )
-                        audio = _decode_window(tmp, None, _body_s)
-                        _probe_audios = []
-                    else:
-                        _body_offset = window_offset_s(FINGERPRINT_BODY_POSITION, _total_s, _body_s)
-                        audio = _decode_window(tmp, _body_offset, _body_s)
-                        # Lightweight LUFS/crest probes at 25 % and 75 %
-                        _probe_audios = [
-                            _decode_window(
-                                tmp,
-                                window_offset_s(_frac, _total_s, _probe_s),
-                                _probe_s,
-                            )
-                            for _frac in FINGERPRINT_PROBE_POSITIONS
-                        ]
-
-                # Rounding safety at the target rate (works for 1-D and 2-D).
-                audio = audio[..., :int(_target_sr * _body_s)]
-                sr = _target_sr
-            else:
-                audio, loaded_sr = librosa.load(
-                    str(audio_path), sr=_target_sr, mono=False,
-                    offset=_body_offset, duration=_body_s,
-                )
-                sr = int(loaded_sr)
-                # Lightweight probes: mono is sufficient for LUFS/crest estimation
-                _probe_audios = []
-                if _total_s is not None:
-                    for _frac in FINGERPRINT_PROBE_POSITIONS:
-                        _poff = window_offset_s(_frac, _total_s, _probe_s)
-                        try:
-                            _pa, _ = librosa.load(
-                                str(audio_path), sr=_target_sr, mono=True,
-                                offset=_poff, duration=_probe_s,
-                            )
-                            _probe_audios.append(_pa)
-                        except Exception:
-                            pass
-        else:
-            # #4994: share the exact body+probe windowing strategy the
-            # fresh-load branch above uses, instead of the less-accurate
-            # start-crop + no correction this branch used to do — the two
-            # branches disagreeing defeated #4595's "cannot drift again"
-            # guarantee for any future caller that passes pre-loaded audio.
-            _orig_sr = sr
-            _raw_audio = audio
-            _total_s = _raw_audio.shape[-1] / _orig_sr
-
-            def _crop_and_resample(buf: np.ndarray, offset_s: float, dur_s: float) -> np.ndarray:
-                """Crop [offset_s, offset_s + dur_s) at the ORIGINAL sample
-                rate, then resample to _target_sr. Crop-before-resample
-                avoids an O(duration) resample + full-duration float32
-                allocation on a multi-hour buffer — the same #4116/#4499
-                OOM/latency class the old start-crop-only code avoided."""
-                start = int(_orig_sr * offset_s)
-                end = start + int(_orig_sr * dur_s)
-                cropped = buf[..., start:end]
-                if _orig_sr == _target_sr:
-                    return cropped
-                if cropped.ndim == 1:
-                    return librosa.resample(cropped.astype(np.float32), orig_sr=_orig_sr, target_sr=_target_sr)
-                return np.stack([
-                    librosa.resample(cropped[ch].astype(np.float32), orig_sr=_orig_sr, target_sr=_target_sr)
-                    for ch in range(cropped.shape[0])
-                ])
-
-            # Body window: centred on 50 % of duration, same as fresh-load.
-            _body_offset = window_offset_s(FINGERPRINT_BODY_POSITION, _total_s, _body_s)
-            audio = _crop_and_resample(_raw_audio, _body_offset, _body_s)
-            sr = _target_sr
-            # Rounding safety at the target rate (works for 1-D and 2-D).
-            audio = audio[..., :int(_target_sr * _body_s)]
-
-            # Lightweight LUFS/crest probes at 25 % / 75 %, cropped from the
-            # same pre-loaded buffer — feeds the multi-window correction
-            # below exactly like the fresh-load branch's _probe_audios.
-            _probe_audios = []
-            for _frac in FINGERPRINT_PROBE_POSITIONS:
-                _poff = window_offset_s(_frac, _total_s, _probe_s)
-                _probe_audios.append(_crop_and_resample(_raw_audio, _poff, _probe_s))
+        audio, sr, probe_audios = _load_windows(audio_path, audio, sr)
 
         # Ensure float64 for PyO3 compatibility
         audio = audio.astype(np.float64)
 
         # Downmix >2-channel audio to stereo before fingerprinting.
         # librosa.load(mono=False) returns (channels, samples) for any channel count.
-        # The fingerprint analyzer only handles mono/stereo — its shape-detection
-        # heuristic (shape[0] <= 2 → channels-first) misclassifies a 6-ch array
+        # The fingerprint analyzer only handles mono/stereo -- its shape-detection
+        # heuristic (shape[0] <= 2 -> channels-first) misclassifies a 6-ch array
         # as having 6 samples, causing a false "too short" rejection.
         # Taking the first two channels (L+R) is sufficient for timbral analysis;
         # the C/Ls/Rs channels are correlated with L+R in well-mixed surround content.
@@ -313,49 +170,15 @@ def compute_windowed_fingerprint(
         # Compute fingerprint from the body window
         fingerprint = analyzer.analyze(audio, sr)
 
-        # Multi-window LUFS/crest correction — replace the body-window
-        # estimates with the median across the body + two probe windows.
-        # Validated empirically: reduces LUFS RMSE from 1.96 → 1.07 dB,
-        # max error from 9.2 → 3.6 dB (June 2026 study, 31 tracks).
-        try:
-            if '_probe_audios' in dir() and _probe_audios and fingerprint:
-                def _rms_lufs_crest(a: np.ndarray) -> tuple[float, float]:
-                    """Return (lufs_approx, crest_db) from a mono/stereo array."""
-                    mono = to_mono(a, 'channels_samples')  # librosa layout: (channels, samples)
-                    rms = float(np.sqrt(np.mean(mono.astype(np.float64) ** 2)))
-                    if rms < 1e-9:
-                        return -70.0, 0.0
-                    peak = float(np.max(np.abs(mono)))
-                    lufs = 20.0 * np.log10(rms) - 0.691   # K-weighted proxy
-                    crest = 20.0 * np.log10(peak / max(rms, 1e-9))
-                    return lufs, crest
+        _apply_probe_correction(fingerprint, audio, probe_audios)
 
-                # Body window (already analyzed)
-                lufs_body, crest_body = _rms_lufs_crest(audio.astype(np.float64))
-                all_lufs  = [lufs_body]
-                all_crest = [crest_body]
-
-                for _pa in _probe_audios:
-                    _pl, _pc = _rms_lufs_crest(_pa.astype(np.float64))
-                    if _pl > -70.0:   # skip silent probes
-                        all_lufs.append(_pl)
-                        all_crest.append(_pc)
-
-                if len(all_lufs) >= 2:
-                    fingerprint['lufs']     = float(np.median(all_lufs))
-                    fingerprint['crest_db'] = float(np.median(all_crest))
-        except Exception:
-            pass   # multi-window correction is best-effort; body window is fine
-
-        # #3767: validate completeness before returning. `analyze()`
-        # returns {} from its outer except-all on any exception
-        # (audio_fingerprint_analyzer.py:314). The downstream
-        # `get_or_compute` check `if fingerprint:` already skips
-        # empty dicts (so they don't reach the cache), but an
-        # incomplete fingerprint (e.g., 12 of 25 dimensions) would
-        # be truthy and get cached as if valid. The official
-        # fingerprint dimensionality is 25; anything less is a
-        # partial result that should be re-tried, not cached.
+        # #3767: validate completeness before returning. `analyze()` returns {}
+        # from its outer except-all on any exception. The downstream
+        # `get_or_compute` check `if fingerprint:` already skips empty dicts (so
+        # they don't reach the cache), but an incomplete fingerprint (e.g., 12 of
+        # 25 dimensions) would be truthy and get cached as if valid. The official
+        # fingerprint dimensionality is 25; anything less is a partial result
+        # that should be re-tried, not cached.
         if fingerprint and len(fingerprint) < 25:
             logger.warning(
                 f"Incomplete fingerprint for {audio_path.name}: "
@@ -364,8 +187,8 @@ def compute_windowed_fingerprint(
             return None
 
         # #5103: last guard before the value leaves this function. Every
-        # persistence path — the DB row via _prepare_for_storage/upsert, the
-        # .25d sidecar, and mastering-target selection — converges here, and
+        # persistence path -- the DB row via _prepare_for_storage/upsert, the
+        # .25d sidecar, and mastering-target selection -- converges here, and
         # none of them re-check finiteness downstream.
         if fingerprint:
             sanitize_non_finite(fingerprint, audio_path.name)

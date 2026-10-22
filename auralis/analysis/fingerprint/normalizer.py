@@ -15,53 +15,17 @@ Without normalization, high-range dimensions dominate distance calculations.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-import json
 import threading
-from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 import numpy as np
 
-from ...utils.logging import debug, error, info, warning
+from ...utils.logging import debug, error, info
+from .normalizer_stats import DimensionStats, NormalizerPersistenceMixin
 from .schema import DIMENSION_NAMES
 
 
-@dataclass
-class DimensionStats:
-    """Statistics for a single fingerprint dimension"""
-    name: str
-    min_val: float
-    max_val: float
-    mean: float
-    std: float
-    count: int  # Number of samples used to calculate stats
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary"""
-        return {
-            'name': self.name,
-            'min': self.min_val,
-            'max': self.max_val,
-            'mean': self.mean,
-            'std': self.std,
-            'count': self.count
-        }
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> DimensionStats:
-        """Create from dictionary"""
-        return cls(
-            name=data['name'],
-            min_val=data['min'],
-            max_val=data['max'],
-            mean=data['mean'],
-            std=data['std'],
-            count=data['count']
-        )
-
-
-class FingerprintNormalizer:
+class FingerprintNormalizer(NormalizerPersistenceMixin):
     """
     Normalizes fingerprint vectors for similarity comparison
 
@@ -277,71 +241,6 @@ class FingerprintNormalizer:
             denormalized[i] = norm_value * range_val + stats.min_val
 
         return denormalized
-
-    def save(self, filepath: str) -> bool:
-        """
-        Save normalization statistics to JSON file
-
-        Args:
-            filepath: Path to save statistics
-
-        Returns:
-            True if successful, False otherwise
-        """
-        if not self.fitted:
-            warning("Normalizer not fitted, nothing to save")
-            return False
-
-        try:
-            data = {
-                'use_robust': self.use_robust,
-                'percentile_range': list(self.percentile_range),
-                'dimensions': {
-                    name: stats.to_dict()
-                    for name, stats in self.stats.items()
-                }
-            }
-
-            Path(filepath).parent.mkdir(parents=True, exist_ok=True)
-
-            with open(filepath, 'w') as f:
-                json.dump(data, f, indent=2)
-
-            info(f"Normalization statistics saved to {filepath}")
-            return True
-
-        except Exception as e:
-            error(f"Failed to save normalization statistics: {e}")
-            return False
-
-    def load(self, filepath: str) -> bool:
-        """
-        Load normalization statistics from JSON file
-
-        Args:
-            filepath: Path to load statistics from
-
-        Returns:
-            True if successful, False otherwise
-        """
-        try:
-            with open(filepath) as f:
-                data = json.load(f)
-
-            self.use_robust = data['use_robust']
-            self.percentile_range = tuple(data['percentile_range'])
-            self.stats = {
-                name: DimensionStats.from_dict(stats_data)
-                for name, stats_data in data['dimensions'].items()
-            }
-
-            self.fitted = True
-            info(f"Normalization statistics loaded from {filepath}")
-            return True
-
-        except Exception as e:
-            error(f"Failed to load normalization statistics: {e}")
-            return False
 
     def is_fitted(self) -> bool:
         """Check if normalizer has been fitted"""
