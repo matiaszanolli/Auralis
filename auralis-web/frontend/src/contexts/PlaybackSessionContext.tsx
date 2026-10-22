@@ -20,7 +20,7 @@
  * @module contexts/PlaybackSessionContext
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useRef, type ReactNode } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import type { AppDispatch } from '@/store';
 import { usePlayEnhanced } from '@/hooks/enhancement/usePlayEnhanced';
@@ -35,6 +35,7 @@ import {
   type PlaybackControlsContextValue,
   type PlaybackProgressContextValue,
 } from './playbackSessionContexts';
+import { useAutoAdvance, useStartTrackRetry, useTransportCommand } from './usePlaybackSessionHooks';
 
 const DEBUG = import.meta.env.DEV;
 
@@ -50,9 +51,8 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
 
   // Store pre-mute volume so unmute restores the user's prior level.
   const preMuteVolumeRef = useRef<number>(0.5);
-  const commandPendingRef = useRef(false);
-  const pendingCommandRef = useRef<Promise<void> | null>(null);
-  const [isCommandPending, setIsCommandPending] = useState(false);
+  const gate = useTransportCommand();
+  const { runTransportCommand, isCommandPending } = gate;
 
   const {
     playEnhanced,
@@ -99,48 +99,7 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
     [enhancementEnabled, enhancementPreset, enhancementIntensity, playEnhanced, playNormal]
   );
 
-  // The ref closes the gap before React can render disabled controls. This
-  // coalesces double-clicks and keyboard repeats into the first command while
-  // its playback request is still pending (#4835). Returns whether the command
-  // started (false = dropped because another is pending) — user-initiated
-  // track selection must react to a drop, transport next/previous treat
-  // coalescing as the desired behaviour (#5613).
-  const runTransportCommand = useCallback(async (command: () => void | Promise<void>): Promise<boolean> => {
-    if (commandPendingRef.current) return false;
-
-    commandPendingRef.current = true;
-    setIsCommandPending(true);
-    const execution = (async () => {
-      try {
-        await command();
-      } finally {
-        commandPendingRef.current = false;
-        setIsCommandPending(false);
-      }
-    })();
-    pendingCommandRef.current = execution;
-    try {
-      await execution;
-    } finally {
-      if (pendingCommandRef.current === execution) pendingCommandRef.current = null;
-    }
-    return true;
-  }, []);
-
-  const startTrack = useCallback(
-    async (trackId: number) => {
-      const started = await runTransportCommand(() => startTrackForSettings(trackId));
-      if (started) return;
-
-      // #5613: by the time startTrack runs, the queue POST for this track has
-      // already succeeded — silently dropping the start left the backend queue
-      // on this track while the previous one kept playing. Wait out the
-      // in-flight command and retry once.
-      await pendingCommandRef.current;
-      await runTransportCommand(() => startTrackForSettings(trackId));
-    },
-    [runTransportCommand, startTrackForSettings]
-  );
+  const startTrack = useStartTrackRetry(gate, startTrackForSettings);
 
   const handleSeek = useCallback((position: number) => {
     if (!isStreaming && !currentTrack?.id) {
@@ -264,44 +223,17 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
     return true;
   }, [playerVolume, playerIsMuted, handleVolumeChange]);
 
-  // Auto-advance to the next queue track once streaming completes near the
-  // end of the current one. Lives here (not in Player.tsx) so it keeps
-  // working regardless of which UI is mounted — the session is the source
-  // of truth, not a side effect of one component's render tree.
-  const hasAutoAdvancedRef = useRef(false);
-
-  // Reset the auto-advance latch when a new track starts OR playback leaves
-  // the completed state — the repeat-'one' restart (#5605) re-plays the same
-  // id, so the id-change reset alone would leave the latch stuck set.
-  // Resetting only while NOT complete preserves the one-trigger-per-completion
-  // guard: during a single completion window the state stays 'complete'.
-  useEffect(() => {
-    if (streamingState !== 'complete') {
-      hasAutoAdvancedRef.current = false;
-    }
-  }, [currentTrack?.id, streamingState]);
-
-  useEffect(() => {
-    const isComplete = streamingState === 'complete';
-    const nearEnd = trackDuration > 0 && currentTime >= trackDuration - 0.5;
-    if (!isComplete || !nearEnd || hasAutoAdvancedRef.current) return;
-
-    // #5605: repeat 'one' restarts the current track at its beginning;
-    // otherwise advance, wrapping to index 0 under repeat 'all' (handleNext
-    // owns the wrap). repeat 'off' keeps the old behaviour: the queue ends.
-    if (repeatMode === 'one') {
-      if (currentTrack?.id == null) return;
-      hasAutoAdvancedRef.current = true;
-      startTrack(currentTrack.id);
-      return;
-    }
-
-    const hasMoreTracks = currentQueueIndex < queueTracks.length - 1;
-    if (hasMoreTracks || (repeatMode === 'all' && queueTracks.length > 0)) {
-      hasAutoAdvancedRef.current = true;
-      handleNext();
-    }
-  }, [streamingState, currentTime, trackDuration, currentQueueIndex, queueTracks.length, repeatMode, currentTrack?.id, startTrack, handleNext]);
+  useAutoAdvance({
+    streamingState,
+    currentTime,
+    trackDuration,
+    repeatMode,
+    currentTrackId: currentTrack?.id,
+    currentQueueIndex,
+    queueLength: queueTracks.length,
+    startTrack,
+    handleNext,
+  });
 
   // #5006: split from one combined value into two, so a consumer that only
   // needs controls (ComfortableApp, usePlayTrack, usePlaylistContextActions)
