@@ -44,6 +44,6 @@
     "concurrently": "^8.2.2"
   },
   "dependencies": {
-    "shell-quote": "1.9.0"
+    "shell-quote": "1.11.0"
   }
 }
