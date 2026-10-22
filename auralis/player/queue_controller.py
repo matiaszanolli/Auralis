@@ -11,12 +11,13 @@ Responsibilities:
 from collections.abc import Callable
 from typing import Any
 
-from ..utils.logging import error, info, warning
+from ..utils.logging import error, info
 from .components import QueueManager
-from .repository_access import resolve_repository_factory
+from .queue_loading import QueueLoadingMixin
+from .queue_locked_state import QueueLockedStateMixin
 
 
-class QueueController:
+class QueueController(QueueLockedStateMixin, QueueLoadingMixin):
     """
     Manages playback queue and track navigation.
 
@@ -60,58 +61,6 @@ class QueueController:
             listener()
         except Exception as e:
             error(f"Queue change listener failed: {e}")
-
-    def _get_repos(self) -> Any:
-        """Get repository factory for data access."""
-        return resolve_repository_factory(self.get_repository_factory)
-
-    # #3783: route every read/write of QueueManager attributes through the
-    # _lock that QueueManager itself uses for its mutators. CPython's GIL
-    # kept simple-attribute reads torn-free historically, but free-threaded
-    # builds (PEP 703) need explicit synchronization here, and the previous
-    # raw `self.queue.current_index` accesses violated the QueueManager
-    # invariant that the lock protects the full state transition.
-
-    @property
-    def current_index(self) -> int:
-        """Get current track index (#3783: locked via QueueManager._lock)."""
-        with self.queue._lock:
-            return self.queue.current_index
-
-    @current_index.setter
-    def current_index(self, value: int) -> None:
-        """Set current track index (#3783: locked)."""
-        with self.queue._lock:
-            self.queue.current_index = value
-
-    @property
-    def shuffle_enabled(self) -> bool:
-        """Get shuffle mode status (#3783: locked)."""
-        with self.queue._lock:
-            return self.queue.shuffle_enabled
-
-    @shuffle_enabled.setter
-    def shuffle_enabled(self, value: bool) -> None:
-        """Set shuffle mode (#3783: locked)."""
-        with self.queue._lock:
-            self.queue.shuffle_enabled = value
-
-    @property
-    def repeat_enabled(self) -> bool:
-        """Get repeat mode status (#3783: locked)."""
-        with self.queue._lock:
-            return self.queue.repeat_enabled
-
-    @repeat_enabled.setter
-    def repeat_enabled(self, value: bool) -> None:
-        """Set repeat mode (#3783: locked)."""
-        with self.queue._lock:
-            self.queue.repeat_enabled = value
-
-    def add_tracks(self, track_list: list[dict[str, Any]]) -> None:
-        """Add multiple tracks to queue"""
-        for track_info in track_list:
-            self.add_track(track_info)
 
     def next_track(self) -> dict[str, Any] | None:
         """
@@ -194,80 +143,6 @@ class QueueController:
         self._notify_changed()
         info(f"Inserted into queue at {position}: {track_info.get('title', 'Unknown')}")
         return position
-
-    def add_track_from_library(self, track_id: int) -> bool:
-        """
-        Add a track from library by ID.
-
-        Returns:
-            bool: True if successful
-        """
-        try:
-            repos = self._get_repos()
-            track = repos.tracks.get_by_id(track_id)
-            if track:
-                self.add_track(track.to_dict())
-                return True
-            return False
-        except Exception as e:
-            error(f"Failed to add track from library: {e}")
-            return False
-
-    def load_playlist(self, playlist_id: int, start_index: int = 0) -> bool:
-        """
-        Load a playlist from library.
-
-        Args:
-            playlist_id: Database ID of playlist
-            start_index: Index of track to start at
-
-        Returns:
-            bool: True if successful
-        """
-        try:
-            repos = self._get_repos()
-            playlist = repos.playlists.get_by_id(playlist_id)
-            if not playlist:
-                error(f"Playlist not found: {playlist_id}")
-                return False
-
-            # #5355: hold the queue's lock across the whole clear-repopulate-
-            # and-index-write sequence as one atomic unit — RLock, so the
-            # per-call clear()/add_track() acquisitions below are cheap
-            # re-entries, not a new contention point. Without this, a reader
-            # (has_next_track()/peek_next_track(), from the audio thread's
-            # end-of-track check or the gapless prebuffer thread) could
-            # observe a momentarily empty queue between clear() and the
-            # repopulating add_track() calls.
-            with self.queue._lock:
-                # Clear and reload queue
-                self.queue.clear()
-
-                # Snapshot playlist.tracks before iteration so a concurrent
-                # queue modification cannot cause RuntimeError mid-loop (fixes #2492).
-                for track in list(playlist.tracks):
-                    track_info = track.to_dict()
-                    self.queue.add_track(track_info)
-
-                # Clamp + write current_index atomically (#4098): the length
-                # read and the write happen under the same held lock so a
-                # concurrent queue shrink can't leave the index out of bounds
-                # in the gap between the snapshot and the write.
-                track_count = len(self.queue.tracks)
-                if track_count:
-                    self.queue.current_index = min(start_index, track_count - 1)
-            self._notify_changed()
-
-            if track_count:
-                info(f"Loaded playlist: {playlist.name} ({track_count} tracks)")
-                return True
-
-            warning(f"Playlist is empty: {playlist.name}")
-            return False
-
-        except Exception as e:
-            error(f"Failed to load playlist: {e}")
-            return False
 
     def clear_queue(self) -> None:
         """Clear all tracks from queue"""
@@ -396,25 +271,3 @@ class QueueController:
             self._notify_changed()
         return moved
 
-    def set_queue(self, track_list: list[str | dict[str, Any]], start_index: int = 0) -> None:
-        """Set queue with track list (for backward compatibility)"""
-        # #5355: hold the queue's lock across the whole clear-repopulate-and-
-        # index-write sequence as one atomic unit — see load_playlist() for
-        # the full rationale (same pattern, same fix).
-        with self.queue._lock:
-            # Clear existing queue
-            self.queue.clear()
-            # Add new tracks (assuming track_list items are file paths or track info)
-            for track in track_list:
-                if isinstance(track, dict):
-                    self.queue.add_track(track)
-                else:
-                    # Assume it's a filepath
-                    self.queue.add_track({'filepath': track})
-            # Clamp + write current_index atomically (#4098) — the length
-            # read and the write happen under the same held lock to avoid
-            # the TOCTOU between reading the length and writing the index.
-            track_count = len(self.queue.tracks)
-            if track_count and start_index >= 0:
-                self.queue.current_index = min(start_index, track_count - 1)
-        self._notify_changed()

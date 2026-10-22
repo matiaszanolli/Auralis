@@ -111,13 +111,15 @@ class TestPlayerRepositoryAccess:
             resolve_repository_factory(getter)
 
     def test_both_engine_classes_share_it(self) -> None:
-        from auralis.player.integration_manager import IntegrationManager
-        from auralis.player.queue_controller import QueueController
+        # The resolver call sits in the module that owns each class's library
+        # access: QueueController's moved to queue_loading.py (#5836).
+        import auralis.player.integration_manager as integration_manager
+        import auralis.player.queue_loading as queue_loading
 
-        for cls in (IntegrationManager, QueueController):
-            src = Path(__import__(cls.__module__, fromlist=["x"]).__file__).read_text()
-            assert "resolve_repository_factory(self.get_repository_factory)" in src, cls.__name__
-            assert "Ensure get_repository_factory is properly configured" not in src, cls.__name__
+        for module in (integration_manager, queue_loading):
+            src = Path(module.__file__).read_text()
+            assert "resolve_repository_factory(self.get_repository_factory)" in src, module.__name__
+            assert "Ensure get_repository_factory is properly configured" not in src, module.__name__
 
 
 def test_no_router_hand_raises_503_or_400() -> None:
