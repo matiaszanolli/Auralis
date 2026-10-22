@@ -16,8 +16,15 @@
 
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { createElement, type ReactNode } from 'react';
 import { useAlbumDetails } from '../useAlbumDetails';
 import { ApiErrorHandler } from '@/types/api';
+import { ToastProvider } from '@/components/shared/Toast';
+
+// The hook surfaces favorite-mutation failures through useToast (#5647), so
+// every render needs the provider — bare renderHook would throw on mount.
+const toastWrapper = ({ children }: { children: ReactNode }) =>
+  createElement(ToastProvider, null, children);
 
 const ALBUM_TRACKS_RESPONSE = {
   album_id: 1,
@@ -67,7 +74,7 @@ describe('useAlbumDetails', () => {
   });
 
   const load = async () => {
-    const { result } = renderHook(() => useAlbumDetails(1));
+    const { result } = renderHook(() => useAlbumDetails(1), { wrapper: toastWrapper });
     await waitFor(() => expect(result.current.loading).toBe(false));
     return result;
   };
@@ -168,6 +175,54 @@ describe('useAlbumDetails', () => {
       });
 
       expect(result.current.isFavorite).toBe(false);
+    });
+  });
+
+  // #5647: a failed favorite toggle used to write into the same `error` state
+  // the load effect owns, and AlbumDetailView renders `error || !album` as the
+  // full-page "Error Loading Album" screen — so one failed heart click blanked
+  // the album already on screen. Favorite failures now surface through the
+  // toast, and the load error stays null.
+  describe('favorite mutation failures (#5647)', () => {
+    it('keeps album and load error intact when the favorite POST rejects', async () => {
+      global.fetch = vi.fn().mockImplementation((url: string) => {
+        if (String(url).includes('/favorite')) {
+          return Promise.resolve({
+            ok: false,
+            status: 503,
+            statusText: 'Service Unavailable',
+            json: async () => ({ detail: 'Backend unavailable' }),
+          });
+        }
+        return Promise.resolve({ ok: true, json: async () => ALBUM_TRACKS_RESPONSE });
+      }) as unknown as typeof fetch;
+
+      const result = await load();
+      expect(result.current.album).not.toBeNull();
+
+      await act(async () => {
+        await result.current.toggleFavorite();
+      });
+
+      expect(result.current.error).toBeNull();
+      expect(result.current.album).not.toBeNull();
+      expect(result.current.savingFavorite).toBe(false);
+    });
+
+    it('does not touch the load error when the album has no tracks to favorite', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ album_id: 2, album_title: 'Empty', total_tracks: 0 }),
+      }) as unknown as typeof fetch;
+
+      const result = await load();
+
+      await act(async () => {
+        await result.current.toggleFavorite();
+      });
+
+      expect(result.current.error).toBeNull();
+      expect(result.current.album).not.toBeNull();
     });
   });
 
@@ -272,7 +327,7 @@ describe('useAlbumDetails', () => {
           })
       ) as unknown as typeof fetch;
 
-      const { result, unmount } = renderHook(() => useAlbumDetails(1));
+      const { result, unmount } = renderHook(() => useAlbumDetails(1), { wrapper: toastWrapper });
       unmount(); // triggers the effect cleanup's controller.abort()
 
       // Give the rejected promise a tick to settle before asserting.

@@ -17,6 +17,7 @@ import { ApiErrorHandler } from '@/types/api';
 import { ENDPOINTS } from '@/config/api';
 import { get, post, del } from '@/utils/apiRequest';
 import { isAbortError } from '@/utils/errorGuards';
+import { useToast } from '@/components/shared/Toast';
 
 export interface Album {
   id: number;
@@ -47,6 +48,7 @@ export const useAlbumDetails = (albumId: number) => {
   const [error, setError] = useState<ApiError | null>(null);
   const [isFavorite, setIsFavorite] = useState(false);
   const [savingFavorite, setSavingFavorite] = useState(false);
+  const { error: errorToast } = useToast();
 
   // #3601: AbortController on the fetch so we don't setState on a dead
   // component if the user navigates away mid-request, and so the in-flight
@@ -124,7 +126,11 @@ export const useAlbumDetails = (albumId: number) => {
       // Use first track's ID to toggle favorite (albums don't have direct favorite endpoints)
       const trackId = album?.tracks?.[0]?.id;
       if (!trackId) {
-        setError({ status: 400, message: 'Cannot favorite album: no tracks available' });
+        // #5647: a mutation failure must not touch the load `error` — that
+        // state drives the full-page "Error Loading Album" branch in
+        // AlbumDetailView, so a failed heart click used to blank the album
+        // already on screen. Favorite problems surface as a toast instead.
+        errorToast('Cannot favorite album: no tracks available');
         return;
       }
 
@@ -143,7 +149,7 @@ export const useAlbumDetails = (albumId: number) => {
       );
     } catch (err) {
       console.error('Error toggling favorite:', err);
-      setError(ApiErrorHandler.parse(err));
+      errorToast(ApiErrorHandler.parse(err).message);
     } finally {
       setSavingFavorite(false);
     }
@@ -156,6 +162,5 @@ export const useAlbumDetails = (albumId: number) => {
     isFavorite,
     savingFavorite,
     toggleFavorite,
-    setError,
   };
 };
