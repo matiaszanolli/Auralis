@@ -13,6 +13,8 @@ handlers and tests keep working while call sites migrate.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+from typing import Any
+
 
 class ServiceError(ValueError):
     """Base class for service-layer failures with a known HTTP classification."""
@@ -34,7 +36,28 @@ class OperationFailed(ServiceError):
     """A downstream operation reported failure for no caller-attributable reason → 500."""
 
 
+_COLLABORATOR_LABELS = {
+    'audio_player': 'Audio player',
+    'player_state_manager': 'Player state manager',
+    'library_manager': 'Library manager',
+    'queue_manager': 'Queue manager',
+}
+
+
+def require_collaborators(**collaborators: Any) -> None:
+    """Raise `ServiceUnavailable` for the first collaborator that is not set.
+
+    Keyword names select the message ("audio_player" -> "Audio player not
+    available"); order is the order of the keywords, so callers keep the guard
+    precedence they had when each check was written out by hand.
+    """
+    for name, value in collaborators.items():
+        if not value:
+            raise ServiceUnavailable(f"{_COLLABORATOR_LABELS[name]} not available")
+
+
 __all__ = [
+    'require_collaborators',
     'ServiceError',
     'ServiceUnavailable',
     'InvalidRequest',

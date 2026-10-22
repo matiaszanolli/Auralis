@@ -18,7 +18,7 @@ from websocket.outbound_messages import broadcast_typed
 
 from auralis import AudioPlayer
 
-from .errors import InvalidRequest, ServiceUnavailable
+from .errors import InvalidRequest, ServiceUnavailable, require_collaborators
 from .queue_enrichment import entry_filepath
 
 if TYPE_CHECKING:
@@ -145,8 +145,7 @@ class NavigationService:
             ServiceUnavailable: If the audio player is not available (#5338)
             Exception: If operation fails
         """
-        if not self.audio_player:
-            raise ServiceUnavailable("Audio player not available")
+        require_collaborators(audio_player=self.audio_player)
 
         try:
             # Check if player has next_track method
@@ -207,8 +206,7 @@ class NavigationService:
             ServiceUnavailable: If the audio player is not available (#5338)
             Exception: If operation fails
         """
-        if not self.audio_player:
-            raise ServiceUnavailable("Audio player not available")
+        require_collaborators(audio_player=self.audio_player)
 
         try:
             # Check if player has previous_track method
@@ -274,10 +272,7 @@ class NavigationService:
             InvalidRequest: If track_index is out of range (#5338)
             Exception: If operation fails
         """
-        if not self.audio_player:
-            raise ServiceUnavailable("Audio player not available")
-        if not self.player_state_manager:
-            raise ServiceUnavailable("Player state manager not available")
+        require_collaborators(audio_player=self.audio_player, player_state_manager=self.player_state_manager)
 
         try:
             # Get current queue

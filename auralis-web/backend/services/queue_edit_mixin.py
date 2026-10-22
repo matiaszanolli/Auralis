@@ -17,7 +17,7 @@ from .errors import (
     InvalidRequest,
     OperationFailed,
     ResourceNotFound,
-    ServiceUnavailable,
+    require_collaborators,
 )
 from .queue_service_base import QueueServiceBase
 
@@ -41,10 +41,8 @@ class QueueEditMixin(QueueServiceBase):
         Raises:
             Exception: If track not found or operation fails
         """
-        if not self.audio_player or not hasattr(self.audio_player, 'queue'):
-            raise ServiceUnavailable("Queue manager not available")
-        if not self.library_database:
-            raise ServiceUnavailable("Library manager not available")
+        self._require_queue()
+        require_collaborators(library_manager=self.library_database)
 
         try:
             # Get track from library — sync DB call, offload (#3554).
@@ -57,12 +55,7 @@ class QueueEditMixin(QueueServiceBase):
             queue_manager = self.audio_player.queue
             track_info = {'id': track.id, 'filepath': track.filepath}
 
-            # #5320: invalidate any in-flight set_queue request before
-            # mutating the engine, and serialize the mutation itself against
-            # set_queue's own engine section — see
-            # QueueServiceBase._invalidate_set_queue_generation.
-            await self._invalidate_set_queue_generation()
-            async with self._set_queue_engine_lock:
+            async with self._queue_mutation():
                 # Add to queue at position
                 if position is not None:
                     position = await asyncio.to_thread(
@@ -124,10 +117,8 @@ class QueueEditMixin(QueueServiceBase):
             InvalidRequest: If track_ids is empty.
             ResourceNotFound: If no requested track exists.
         """
-        if not self.audio_player or not hasattr(self.audio_player, 'queue'):
-            raise ServiceUnavailable("Queue manager not available")
-        if not self.library_database:
-            raise ServiceUnavailable("Library manager not available")
+        self._require_queue()
+        require_collaborators(library_manager=self.library_database)
         if not track_ids:
             raise InvalidRequest("track_ids must not be empty")
 
@@ -150,12 +141,7 @@ class QueueEditMixin(QueueServiceBase):
 
             queue_manager = self.audio_player.queue
 
-            # #5320: invalidate any in-flight set_queue request before
-            # mutating the engine, and serialize the mutation itself against
-            # set_queue's own engine section — see
-            # QueueServiceBase._invalidate_set_queue_generation.
-            await self._invalidate_set_queue_generation()
-            async with self._set_queue_engine_lock:
+            async with self._queue_mutation():
                 # QueueController.add_tracks appends in list order.
                 await asyncio.to_thread(queue_manager.add_tracks, track_infos)
 
@@ -195,8 +181,7 @@ class QueueEditMixin(QueueServiceBase):
         Raises:
             Exception: If index invalid or operation fails
         """
-        if not self.audio_player or not hasattr(self.audio_player, 'queue'):
-            raise ServiceUnavailable("Queue manager not available")
+        self._require_queue()
 
         try:
             queue_manager = self.audio_player.queue
@@ -206,12 +191,7 @@ class QueueEditMixin(QueueServiceBase):
             if index < 0 or index >= queue_size:
                 raise InvalidRequest(f"Invalid index: {index}")
 
-            # #5320: invalidate any in-flight set_queue request before
-            # mutating the engine, and serialize the mutation itself against
-            # set_queue's own engine section — see
-            # QueueServiceBase._invalidate_set_queue_generation.
-            await self._invalidate_set_queue_generation()
-            async with self._set_queue_engine_lock:
+            async with self._queue_mutation():
                 # #5360: check whether the currently-playing track is the one
                 # being removed, and remove it, in one atomic call — a
                 # separate `index == queue_manager.current_index` read
@@ -267,23 +247,13 @@ class QueueEditMixin(QueueServiceBase):
         Raises:
             Exception: If operation fails
         """
-        if not self.audio_player or not hasattr(self.audio_player, 'queue'):
-            raise ServiceUnavailable("Queue manager not available")
-        if not self.player_state_manager:
-            raise ServiceUnavailable("Player state manager not available")
+        self._require_queue()
+        require_collaborators(player_state_manager=self.player_state_manager)
 
         try:
             queue_manager = self.audio_player.queue
 
-            # #5320: invalidate any in-flight set_queue request before
-            # mutating the engine, and serialize the mutation itself against
-            # set_queue's own engine section — see
-            # QueueServiceBase._invalidate_set_queue_generation. This is the
-            # exact race the issue describes: without it, a set_queue request
-            # between its generation check and its engine-mutating steps
-            # would still run load_file()/play() after this clear.
-            await self._invalidate_set_queue_generation()
-            async with self._set_queue_engine_lock:
+            async with self._queue_mutation():
                 # Clear queue
                 queue_manager.clear_queue()
 

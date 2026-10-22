@@ -15,7 +15,7 @@ from typing import Any
 
 from websocket.outbound_messages import broadcast_typed
 
-from .errors import InvalidRequest, OperationFailed, ServiceUnavailable
+from .errors import InvalidRequest, OperationFailed
 from .queue_service_base import QueueServiceBase
 
 logger = logging.getLogger(__name__)
@@ -37,8 +37,7 @@ class QueueOrderMixin(QueueServiceBase):
         Raises:
             Exception: If order invalid or operation fails
         """
-        if not self.audio_player or not hasattr(self.audio_player, 'queue'):
-            raise ServiceUnavailable("Queue manager not available")
+        self._require_queue()
 
         try:
             queue_manager = self.audio_player.queue
@@ -55,12 +54,7 @@ class QueueOrderMixin(QueueServiceBase):
                     "new_order must contain all indices from 0 to queue_size-1 exactly once"
                 )
 
-            # #5320: invalidate any in-flight set_queue request before
-            # mutating the engine, and serialize the mutation itself against
-            # set_queue's own engine section — see
-            # QueueServiceBase._invalidate_set_queue_generation.
-            await self._invalidate_set_queue_generation()
-            async with self._set_queue_engine_lock:
+            async with self._queue_mutation():
                 # Reorder queue
                 success = queue_manager.reorder_tracks(new_order)
                 if not success:
@@ -99,8 +93,7 @@ class QueueOrderMixin(QueueServiceBase):
         Raises:
             Exception: If indices invalid or operation fails
         """
-        if not self.audio_player or not hasattr(self.audio_player, 'queue'):
-            raise ServiceUnavailable("Queue manager not available")
+        self._require_queue()
 
         try:
             queue_manager = self.audio_player.queue
@@ -113,12 +106,7 @@ class QueueOrderMixin(QueueServiceBase):
             if to_index < 0 or to_index >= queue_size:
                 raise InvalidRequest(f"Invalid to_index: {to_index}")
 
-            # #5320: invalidate any in-flight set_queue request before
-            # mutating the engine, and serialize the mutation itself against
-            # set_queue's own engine section — see
-            # QueueServiceBase._invalidate_set_queue_generation.
-            await self._invalidate_set_queue_generation()
-            async with self._set_queue_engine_lock:
+            async with self._queue_mutation():
                 # Move under QueueManager's lock so the playing track is
                 # preserved by identity and no stale current_index is
                 # reapplied (#4776).
@@ -158,18 +146,12 @@ class QueueOrderMixin(QueueServiceBase):
         Raises:
             Exception: If operation fails
         """
-        if not self.audio_player or not hasattr(self.audio_player, 'queue'):
-            raise ServiceUnavailable("Queue manager not available")
+        self._require_queue()
 
         try:
             queue_manager = self.audio_player.queue
 
-            # #5320: invalidate any in-flight set_queue request before
-            # mutating the engine, and serialize the mutation itself against
-            # set_queue's own engine section — see
-            # QueueServiceBase._invalidate_set_queue_generation.
-            await self._invalidate_set_queue_generation()
-            async with self._set_queue_engine_lock:
+            async with self._queue_mutation():
                 # Shuffle queue
                 queue_manager.shuffle()
 
@@ -208,21 +190,12 @@ class QueueOrderMixin(QueueServiceBase):
         Raises:
             Exception: If operation fails
         """
-        if not self.audio_player or not hasattr(self.audio_player, 'queue'):
-            raise ServiceUnavailable("Queue manager not available")
+        self._require_queue()
 
         try:
             queue_manager = self.audio_player.queue
 
-            # #5320: invalidate any in-flight set_queue request before
-            # mutating the engine, and serialize the mutation itself against
-            # set_queue's own engine section — see
-            # QueueServiceBase._invalidate_set_queue_generation. Invalidating
-            # even on the "nothing to undo" path is harmless (a no-op
-            # generation bump) and keeps the ordering simple: the check and
-            # the mutation attempt both happen after the invalidation.
-            await self._invalidate_set_queue_generation()
-            async with self._set_queue_engine_lock:
+            async with self._queue_mutation():
                 if not queue_manager.unshuffle():
                     return {
                         "message": "No shuffle to undo",

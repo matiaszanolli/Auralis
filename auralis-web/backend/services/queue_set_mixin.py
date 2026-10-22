@@ -14,7 +14,7 @@ import asyncio
 import logging
 from typing import Any
 
-from .errors import InvalidRequest, ServiceUnavailable
+from .errors import InvalidRequest, require_collaborators
 from .queue_service_base import QueueServiceBase
 
 logger = logging.getLogger(__name__)
@@ -41,12 +41,7 @@ class QueueSetMixin(QueueServiceBase):
         Raises:
             Exception: If operation fails
         """
-        if not self.audio_player:
-            raise ServiceUnavailable("Audio player not available")
-        if not self.player_state_manager:
-            raise ServiceUnavailable("Player state manager not available")
-        if not self.library_database:
-            raise ServiceUnavailable("Library manager not available")
+        require_collaborators(audio_player=self.audio_player, player_state_manager=self.player_state_manager, library_manager=self.library_database)
 
         async with self._set_queue_lock:
             self._next_set_queue_generation += 1

@@ -15,7 +15,7 @@ from typing import Any, Protocol, cast
 from websocket.outbound_messages import BroadcastManager, broadcast_typed
 
 from services.playback_event_sequencer import playback_event_sequencer
-from .errors import InvalidRequest, ServiceUnavailable
+from .errors import InvalidRequest, require_collaborators
 
 logger = logging.getLogger(__name__)
 
@@ -144,8 +144,7 @@ class PlaybackService:
         Raises:
             Exception: If unable to retrieve status
         """
-        if not self.player_state_manager:
-            raise ServiceUnavailable("Player state manager not available")
+        require_collaborators(player_state_manager=self.player_state_manager)
 
         try:
             state = self.player_state_manager.get_state()
@@ -164,10 +163,7 @@ class PlaybackService:
         Raises:
             Exception: If playback start fails
         """
-        if not self.audio_player:
-            raise ServiceUnavailable("Audio player not available")
-        if not self.player_state_manager:
-            raise ServiceUnavailable("Player state manager not available")
+        require_collaborators(audio_player=self.audio_player, player_state_manager=self.player_state_manager)
 
         try:
             async with self._playback_lock:  # #3734
@@ -216,10 +212,7 @@ class PlaybackService:
         Raises:
             Exception: If pause fails
         """
-        if not self.audio_player:
-            raise ServiceUnavailable("Audio player not available")
-        if not self.player_state_manager:
-            raise ServiceUnavailable("Player state manager not available")
+        require_collaborators(audio_player=self.audio_player, player_state_manager=self.player_state_manager)
 
         try:
             async with self._playback_lock:  # #3734
@@ -257,8 +250,7 @@ class PlaybackService:
         Raises:
             Exception: If stop fails
         """
-        if not self.audio_player:
-            raise ServiceUnavailable("Audio player not available")
+        require_collaborators(audio_player=self.audio_player)
 
         try:
             state_snapshot: Any = None
@@ -304,8 +296,7 @@ class PlaybackService:
             InvalidRequest: If position is negative (#5338)
             Exception: If seek fails
         """
-        if not self.audio_player:
-            raise ServiceUnavailable("Audio player not available")
+        require_collaborators(audio_player=self.audio_player)
 
         if position < 0:
             raise InvalidRequest("Position must be non-negative")
@@ -358,8 +349,7 @@ class PlaybackService:
             InvalidRequest: If volume out of range (#5338)
             Exception: If setting volume fails
         """
-        if not self.audio_player:
-            raise ServiceUnavailable("Audio player not available")
+        require_collaborators(audio_player=self.audio_player)
 
         if not (0.0 <= volume <= 1.0):
             raise InvalidRequest("Volume must be between 0.0 and 1.0")

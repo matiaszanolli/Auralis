@@ -74,7 +74,7 @@ class QueueManager(Protocol):
         """Restore the pre-shuffle queue order."""
         ...
 
-    def clear(self) -> None:
+    def clear_queue(self) -> None:
         """Clear queue."""
         ...
 

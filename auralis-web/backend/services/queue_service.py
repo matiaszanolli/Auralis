@@ -22,7 +22,7 @@ The one read operation, get_queue_info, lives here.
 import logging
 from typing import Any
 
-from .errors import ServiceUnavailable
+from .errors import require_collaborators
 from .queue_edit_mixin import QueueEditMixin
 from .queue_order_mixin import QueueOrderMixin
 from .queue_set_mixin import QueueSetMixin
@@ -53,8 +53,7 @@ class QueueService(QueueSetMixin, QueueEditMixin, QueueOrderMixin):
         Raises:
             Exception: If unable to retrieve queue
         """
-        if not self.audio_player:
-            raise ServiceUnavailable("Audio player not available")
+        require_collaborators(audio_player=self.audio_player)
 
         try:
             queue_obj = getattr(self.audio_player, 'queue', None)

@@ -12,7 +12,8 @@ build on this class; ``services.queue_service.QueueService`` composes them
 
 import asyncio
 import logging
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
+from contextlib import asynccontextmanager
 from typing import Any, Unpack
 
 from websocket.outbound_messages import (
@@ -23,6 +24,7 @@ from websocket.outbound_messages import (
     broadcast_typed,
 )
 
+from .errors import ServiceUnavailable
 from .queue_enrichment import QueueEnricher, to_track_payload
 from .queue_protocols import AudioPlayerWithQueue
 
@@ -111,6 +113,30 @@ class QueueServiceBase:
         async with self._set_queue_lock:
             self._next_set_queue_generation += 1
             self._set_queue_generation = self._next_set_queue_generation
+
+    def _require_queue(self) -> None:
+        """Raise ServiceUnavailable unless the audio player exposes a queue."""
+        if not self.audio_player or not hasattr(self.audio_player, 'queue'):
+            raise ServiceUnavailable("Queue manager not available")
+
+    @asynccontextmanager
+    async def _queue_mutation(self) -> AsyncIterator[None]:
+        """Scope for one engine-queue mutation (#5320).
+
+        Supersedes any in-flight set_queue request before the engine is
+        touched, then serialises the mutation itself against set_queue's own
+        engine section. Every queue-shape mutator (add/remove/clear/reorder/
+        move/shuffle/unshuffle) runs its engine calls inside this, so a new one
+        gets the protocol by using it rather than by remembering to copy it.
+
+        The engine lock never covers a broadcast (#4825): do state-manager
+        updates and ``_broadcast_queue_changed`` after leaving the block.
+        Invalidating even on a "nothing to do" path is harmless (a no-op
+        generation bump).
+        """
+        await self._invalidate_set_queue_generation()
+        async with self._set_queue_engine_lock:
+            yield
 
     async def _broadcast_queue_changed(
         self,
