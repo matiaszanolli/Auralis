@@ -1,14 +1,16 @@
 /**
  * useAlbumsQuery Hook Tests
  *
- * Tests for the convenience wrapper around useLibraryQuery('albums').
+ * Tests for the convenience wrapper around useLibraryQuery('albums'). The hook
+ * has one definition, in useLibraryQueries.ts (the second copy that lived in
+ * useAlbumsQuery.ts was removed in #5788).
  *
- * @module hooks/library/__tests__/useAlbumsQuery.test
+ * @module hooks/library/__tests__/useLibraryQueries.albums.test
  */
 
 import { renderHook } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { useAlbumsQuery } from '../useAlbumsQuery';
+import { useAlbumsQuery } from '../useLibraryQueries';
 import { useLibraryQuery } from '../useLibraryQuery';
 import type { UseLibraryQueryResult } from '../libraryQueryTypes';
 import type { Track, Album, Artist } from '@/types/domain';
