@@ -74,6 +74,15 @@ _PROTOCOL_WHITELIST_ARGS = ['-protocol_whitelist', 'file']
 # readable and the process result intact.
 SUBPROCESS_TEXT_KWARGS: dict[str, Any] = {'text': True, 'encoding': 'utf-8', 'errors': 'replace'}
 
+# Subprocess time budgets, in seconds. The ffprobe one is shared with
+# unified_loader.get_audio_info: two hand-written copies of that probe had
+# already drifted once (#5326) and their timeouts were still separate literals
+# (#5798).
+FFPROBE_TIMEOUT_S = 30           # one ffprobe call describing one file
+FFMPEG_VERSION_CHECK_TIMEOUT_S = 10   # `ffmpeg -version` / `ffprobe -version` availability probes
+FFMPEG_DECODE_TIMEOUT_S = 300    # one whole ffmpeg decode (5 minutes, regardless of file length)
+FFMPEG_TERMINATE_GRACE_S = 5     # terminate() -> kill() grace for a cancelled child
+
 
 def ffprobe_command(file_path_str: str) -> list[str]:
     """Return the ffprobe argv for probing *file_path_str*.
@@ -158,10 +167,10 @@ def _terminate_process(proc: "subprocess.Popen[str]") -> None:
     try:
         proc.terminate()
         try:
-            proc.wait(timeout=5)
+            proc.wait(timeout=FFMPEG_TERMINATE_GRACE_S)
         except subprocess.TimeoutExpired:
             proc.kill()
-            proc.wait(timeout=5)
+            proc.wait(timeout=FFMPEG_TERMINATE_GRACE_S)
     except Exception:
         pass
 
@@ -238,7 +247,7 @@ def check_ffmpeg() -> bool:
         result = subprocess.run(
             ['ffmpeg', '-version'],
             capture_output=True,
-            timeout=10,
+            timeout=FFMPEG_VERSION_CHECK_TIMEOUT_S,
             **SUBPROCESS_TEXT_KWARGS,
         )
         if result.returncode != 0:
@@ -271,7 +280,7 @@ def check_ffprobe() -> bool:
         result = subprocess.run(
             ['ffprobe', '-version'],
             capture_output=True,
-            timeout=10
+            timeout=FFMPEG_VERSION_CHECK_TIMEOUT_S,
         )
         return result.returncode == 0
     except (FileNotFoundError, subprocess.TimeoutExpired):
@@ -297,7 +306,7 @@ def _probe_audio(file_path: Path) -> dict[str, Any]:
         result = subprocess.run(
             ffprobe_cmd,
             capture_output=True,
-            timeout=30,
+            timeout=FFPROBE_TIMEOUT_S,
             **SUBPROCESS_TEXT_KWARGS,
         )
 
@@ -511,7 +520,7 @@ def load_with_ffmpeg(
 
         result = _run_ffmpeg_cancellable(
             ffmpeg_cmd,
-            timeout=300,  # 5 minute timeout
+            timeout=FFMPEG_DECODE_TIMEOUT_S,
             cancel_event=cancel_event,
         )
 

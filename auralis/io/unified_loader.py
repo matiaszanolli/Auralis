@@ -22,6 +22,7 @@ import soundfile as sf
 from ..utils.logging import Code, ModuleError, debug, info, warning
 from .formats import FFMPEG_FORMATS, SUPPORTED_FORMATS
 from .loaders import (
+    FFPROBE_TIMEOUT_S,
     SUBPROCESS_TEXT_KWARGS,
     check_ffprobe,
     ffprobe_command,
@@ -260,7 +261,7 @@ def _get_info_with_ffprobe(file_path: Path) -> dict[str, Any]:
         result = subprocess.run(
             ffprobe_cmd,
             capture_output=True,
-            timeout=30,
+            timeout=FFPROBE_TIMEOUT_S,
             **SUBPROCESS_TEXT_KWARGS,
         )
 
