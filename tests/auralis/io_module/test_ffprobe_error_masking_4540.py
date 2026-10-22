@@ -77,7 +77,6 @@ def test_guard_uses_check_ffprobe_not_check_ffmpeg(tmp_path, monkeypatch):
     path = tmp_path / "track.mp3"
     path.write_bytes(b"\x00" * 512)
 
-    monkeypatch.setattr(unified_loader, "check_ffmpeg", lambda: True)
     monkeypatch.setattr(unified_loader, "check_ffprobe", lambda: False)
 
     called = False

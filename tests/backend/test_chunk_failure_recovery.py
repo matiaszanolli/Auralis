@@ -139,7 +139,7 @@ class TestChunkFailureRecovery:
         controller._get_repository_factory = MagicMock(return_value=factory)
 
         # Bypass fingerprint queue to avoid import errors in test environment
-        with patch("core.stream_enhanced.Path.exists", return_value=True), \
+        with patch("pathlib.Path.exists", return_value=True), \
              patch.object(controller, "_check_or_queue_fingerprint",
                           new=AsyncMock(return_value=False)):
             await controller.stream_enhanced_audio(
@@ -181,7 +181,7 @@ class TestChunkFailureRecovery:
         factory.fingerprints.exists.return_value = False
         controller._get_repository_factory = MagicMock(return_value=factory)
 
-        with patch("core.stream_enhanced.Path.exists", return_value=True), \
+        with patch("pathlib.Path.exists", return_value=True), \
              patch.object(controller, "_check_or_queue_fingerprint",
                           new=AsyncMock(return_value=False)):
             await controller.stream_enhanced_audio(
@@ -230,7 +230,7 @@ class TestChunkFailureDoesNotReportCompleted:
         factory.fingerprints.exists.return_value = False
         controller._get_repository_factory = MagicMock(return_value=factory)
 
-        with patch("core.stream_enhanced.Path.exists", return_value=True), \
+        with patch("pathlib.Path.exists", return_value=True), \
              patch.object(controller, "_check_or_queue_fingerprint",
                           new=AsyncMock(return_value=False)):
             await controller.stream_enhanced_audio(
@@ -322,7 +322,7 @@ class TestSeekChunkFailureDoesNotReportCompleted:
         factory.fingerprints.exists.return_value = False
         controller._get_repository_factory = MagicMock(return_value=factory)
 
-        with patch("core.stream_seek.Path.exists", return_value=True):
+        with patch("pathlib.Path.exists", return_value=True):
             await controller.stream_enhanced_audio_from_position(
                 track_id=TRACK_ID,
                 preset=PRESET,

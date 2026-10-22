@@ -17,7 +17,6 @@ Extracted from audio_stream_controller.py (#4071).
 import asyncio
 import logging
 import threading
-from pathlib import Path  # noqa: F401 — kept for module-attribute patching in tests (core.stream_enhanced.Path)
 from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
 

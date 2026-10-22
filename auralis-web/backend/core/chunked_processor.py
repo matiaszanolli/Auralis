@@ -36,35 +36,17 @@ if project_root not in sys.path:
 
 from config.limits import chunk_cache_dir, create_secure_temp_dir
 
-# Chunk geometry and MAX_LEVEL_CHANGE_DB are re-exported, not redeclared (#4024/#4284).
-from core.chunk_boundaries import (  # noqa: F401 — CONTEXT_DURATION/OVERLAP_DURATION re-exported for callers
-    CHUNK_DURATION,
-    CHUNK_INTERVAL,
-    OVERLAP_DURATION,
-    CONTEXT_DURATION,
-)
+# Chunk geometry lives in chunk_boundaries and is imported, never redeclared
+# (#4024); tests import the constants (and the other helpers this module used
+# to re-export) from where they are defined (#5775).
+from core.chunk_boundaries import CHUNK_DURATION
 from core import chunk_batch, chunk_render, chunk_streaming
-# The `noqa: F401` names below are re-exported so pre-#4245 test patch targets
-# (`patch("core.chunked_processor.X")`, class-attribute patches) and
-# `import core.chunked_processor as cp; cp.X` reads keep resolving.
-from core.audio_processing_pipeline import AudioProcessingPipeline  # noqa: F401
-from core.chunk_content_profile import (  # noqa: F401
-    _last_content_profiles,
-    _last_content_profiles_lock,
-    get_last_content_profile,
-)
-from core.chunk_fingerprint_registry import (  # noqa: F401
-    _default_get_fingerprints_repository,
-    _reset_registry_miss_warning,
-)
 from core.chunk_metadata import load_audio_metadata
-from core.chunk_operations import ChunkOperations  # noqa: F401
 from core.chunk_mastering import compute_mastering_recommendation
 from core.chunk_processor_init import build_collaborators, init_fingerprint_and_processor
 from core.targets_hash import get_targets_hash
 from core.seekable_source import SeekableSource
 from core.file_signature import FileSignatureService  # Phase 5.1: File signature generation
-from core.level_manager import MAX_LEVEL_CHANGE_DB  # noqa: F401
 from core.mastering_target_service import get_mastering_target_service  # Singleton (#4749)
 from core.processor_factory import get_processor_factory  # Singleton (injected, not constructed here)
 

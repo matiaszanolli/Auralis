@@ -22,7 +22,8 @@ if _BACKEND not in sys.path:
     sys.path.insert(0, _BACKEND)
 
 import core.mastering_target_service as mts_module  # noqa: E402
-from core.chunked_processor import CHUNK_INTERVAL, ChunkedAudioProcessor  # noqa: E402
+from core.chunked_processor import ChunkedAudioProcessor  # noqa: E402
+from core.chunk_boundaries import CHUNK_INTERVAL  # noqa: E402
 
 FAKE_SR = 44100
 FAKE_CHANNELS = 1
@@ -77,7 +78,7 @@ class TestMasteringTargetServiceIsShared:
         """The singleton wires the same Tier-1 DB accessor a per-instance
         service would have used (#3836) — confirms the fix didn't silently
         drop that wiring."""
-        from core.chunked_processor import _default_get_fingerprints_repository
+        from core.chunk_fingerprint_registry import _default_get_fingerprints_repository
 
         proc = _make_processor(track_id=1)
         assert proc._mastering_target_service._get_fingerprints_repository is _default_get_fingerprints_repository

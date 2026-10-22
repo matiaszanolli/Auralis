@@ -25,11 +25,8 @@ import pytest
 backend_path = Path(__file__).parent.parent.parent / "auralis-web" / "backend"
 sys.path.insert(0, str(backend_path))
 
-from core.chunked_processor import (
-    CHUNK_DURATION,
-    OVERLAP_DURATION,
-    ChunkedAudioProcessor,
-)
+from core.chunked_processor import ChunkedAudioProcessor
+from core.chunk_boundaries import CHUNK_DURATION, OVERLAP_DURATION
 
 from auralis.io.saver import save as save_audio
 
@@ -266,7 +263,7 @@ def test_very_long_audio_one_hour():
     Note: 3600s / 10s CHUNK_INTERVAL = 360 chunks
     """
     from unittest.mock import patch
-    from core.chunked_processor import CHUNK_INTERVAL
+    from core.chunk_boundaries import CHUNK_INTERVAL
 
     duration = 3600.0  # 1 hour
     expected_chunks = int(np.ceil(duration / CHUNK_INTERVAL))
@@ -305,7 +302,7 @@ def test_two_hour_audio_chunk_count():
     Uses mocked metadata to avoid creating a multi-GB WAV file.
     Note: 7200s / 10s CHUNK_INTERVAL = 720 chunks
     """
-    from core.chunked_processor import CHUNK_INTERVAL
+    from core.chunk_boundaries import CHUNK_INTERVAL
 
     duration = 7200.0  # 2 hours
     expected_chunks = int(np.ceil(duration / CHUNK_INTERVAL))

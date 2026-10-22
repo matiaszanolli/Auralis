@@ -107,7 +107,7 @@ class TestProcessorClosedOnCleanCompletion:
         processor = _make_single_chunk_processor()
         controller, ws = _wire_controller(processor)
 
-        with patch("core.stream_enhanced.Path.exists", return_value=True), \
+        with patch("pathlib.Path.exists", return_value=True), \
              patch.object(controller, "_check_or_queue_fingerprint",
                           new=AsyncMock(return_value=False)):
             await controller.stream_enhanced_audio(
@@ -121,7 +121,7 @@ class TestProcessorClosedOnCleanCompletion:
         processor = _make_single_chunk_processor()
         controller, ws = _wire_controller(processor)
 
-        with patch("core.stream_seek.Path.exists", return_value=True), \
+        with patch("pathlib.Path.exists", return_value=True), \
              patch.object(controller, "_check_or_queue_fingerprint",
                           new=AsyncMock(return_value=False)):
             await controller.stream_enhanced_audio_from_position(
@@ -146,7 +146,7 @@ class TestProcessorClosedOnChunkFailure:
         processor.process_chunk_safe = _raise
         controller, ws = _wire_controller(processor)
 
-        with patch("core.stream_enhanced.Path.exists", return_value=True), \
+        with patch("pathlib.Path.exists", return_value=True), \
              patch.object(controller, "_check_or_queue_fingerprint",
                           new=AsyncMock(return_value=False)):
             await controller.stream_enhanced_audio(
@@ -165,7 +165,7 @@ class TestProcessorClosedOnChunkFailure:
         processor.process_chunk_safe = _raise
         controller, ws = _wire_controller(processor)
 
-        with patch("core.stream_seek.Path.exists", return_value=True), \
+        with patch("pathlib.Path.exists", return_value=True), \
              patch.object(controller, "_check_or_queue_fingerprint",
                           new=AsyncMock(return_value=False)):
             await controller.stream_enhanced_audio_from_position(

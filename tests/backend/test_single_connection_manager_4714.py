@@ -31,7 +31,7 @@ sys.path.insert(0, str(_REPO_ROOT / "auralis-web" / "backend"))
 
 import config.globals as globals_mod  # noqa: E402
 from config.globals import ConnectionManager  # noqa: E402
-from core.chunked_processor import (  # noqa: E402
+from core.chunk_fingerprint_registry import (
     _default_get_fingerprints_repository,
     _reset_registry_miss_warning,
 )

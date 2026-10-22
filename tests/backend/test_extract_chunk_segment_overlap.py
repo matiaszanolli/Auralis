@@ -28,7 +28,11 @@ backend_path = Path(__file__).parent.parent.parent / "auralis-web" / "backend"
 sys.path.insert(0, str(backend_path))
 
 from core.chunk_operations import ChunkOperations
-from core.chunked_processor import CHUNK_DURATION, CHUNK_INTERVAL, OVERLAP_DURATION
+from core.chunk_boundaries import (
+    CHUNK_DURATION,
+    CHUNK_INTERVAL,
+    OVERLAP_DURATION,
+)
 
 SR = 8000  # low rate keeps arrays small and source indices exactly float-representable
 

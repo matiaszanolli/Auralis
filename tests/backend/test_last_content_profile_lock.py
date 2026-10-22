@@ -31,30 +31,30 @@ def _create_test_audio(duration_seconds: float, sample_rate: int = 44100) -> np.
 
 class TestLockExists:
     def test_last_content_profiles_lock_is_a_threading_lock(self):
-        import core.chunked_processor as cp
+        import core.chunk_content_profile as ccp
 
-        assert isinstance(cp._last_content_profiles_lock, type(threading.Lock()))
+        assert isinstance(ccp._last_content_profiles_lock, type(threading.Lock()))
 
 
 class TestReadWriteGuarded:
     def test_get_last_content_profile_returns_none_for_unknown_preset(self):
-        import core.chunked_processor as cp
+        import core.chunk_content_profile as ccp
 
-        assert cp.get_last_content_profile("nonexistent-preset-xyz") is None
+        assert ccp.get_last_content_profile("nonexistent-preset-xyz") is None
 
     def test_get_last_content_profile_returns_stored_dict(self):
-        import core.chunked_processor as cp
+        import core.chunk_content_profile as ccp
 
-        with cp._last_content_profiles_lock:
-            cp._last_content_profiles["punchy"] = {"loudness": -14.0}
+        with ccp._last_content_profiles_lock:
+            ccp._last_content_profiles["punchy"] = {"loudness": -14.0}
 
-        assert cp.get_last_content_profile("PUNCHY") == {"loudness": -14.0}
+        assert ccp.get_last_content_profile("PUNCHY") == {"loudness": -14.0}
 
     def test_concurrent_writes_and_reads_raise_nothing(self):
         """Mirrors the issue's test plan: concurrently invoke writes across
         two presets and read via get_last_content_profile; assert no
         exception and no partially-updated/cross-preset value."""
-        import core.chunked_processor as cp
+        import core.chunk_content_profile as ccp
 
         stop = threading.Event()
         errors: list[BaseException] = []
@@ -62,8 +62,8 @@ class TestReadWriteGuarded:
         def _writer(preset: str, profile: dict):
             while not stop.is_set():
                 try:
-                    with cp._last_content_profiles_lock:
-                        cp._last_content_profiles[preset] = profile
+                    with ccp._last_content_profiles_lock:
+                        ccp._last_content_profiles[preset] = profile
                 except BaseException as exc:  # noqa: BLE001
                     errors.append(exc)
                     return
@@ -71,7 +71,7 @@ class TestReadWriteGuarded:
         def _reader(preset: str, expected_keys: set):
             for _ in range(500):
                 try:
-                    value = cp.get_last_content_profile(preset)
+                    value = ccp.get_last_content_profile(preset)
                     if value is not None:
                         assert set(value.keys()) == expected_keys, (
                             f"cross-preset/partial value observed for {preset}: {value}"
@@ -114,6 +114,7 @@ class TestEndToEndWriteSite:
 
     def test_get_wav_chunk_path_populates_last_content_profile(self, temp_audio_dir):
         import core.chunked_processor as cp
+        import core.chunk_content_profile as ccp
 
         audio = _create_test_audio(2.0)
         filepath = temp_audio_dir / "test_audio.wav"
@@ -131,5 +132,5 @@ class TestEndToEndWriteSite:
         if processor.processor is not None and getattr(
             processor.processor, 'last_content_profile', None
         ):
-            stored = cp.get_last_content_profile("adaptive")
+            stored = ccp.get_last_content_profile("adaptive")
             assert isinstance(stored, dict)

@@ -111,7 +111,7 @@ class TestSeekChunkTimeoutAbortsStream:
         sent: list[dict] = []
         controller, ws = _wire_controller(processor, sent)
 
-        with patch("core.stream_seek.Path.exists", return_value=True), \
+        with patch("pathlib.Path.exists", return_value=True), \
              patch.object(controller, "_check_or_queue_fingerprint",
                           new=AsyncMock(return_value=False)):
             await controller.stream_enhanced_audio_from_position(
@@ -137,7 +137,7 @@ class TestSeekChunkTimeoutAbortsStream:
         sent: list[dict] = []
         controller, ws = _wire_controller(processor, sent)
 
-        with patch("core.stream_seek.Path.exists", return_value=True), \
+        with patch("pathlib.Path.exists", return_value=True), \
              patch.object(controller, "_check_or_queue_fingerprint",
                           new=AsyncMock(return_value=False)):
             await controller.stream_enhanced_audio_from_position(
@@ -158,7 +158,7 @@ class TestSeekChunkTimeoutAbortsStream:
         sent: list[dict] = []
         controller, ws = _wire_controller(processor, sent)
 
-        with patch("core.stream_seek.Path.exists", return_value=True), \
+        with patch("pathlib.Path.exists", return_value=True), \
              patch.object(controller, "_check_or_queue_fingerprint",
                           new=AsyncMock(return_value=False)):
             await controller.stream_enhanced_audio_from_position(
@@ -190,7 +190,7 @@ class TestSeekChunkTimeoutAbortsStream:
         sent: list[dict] = []
         controller, ws = _wire_controller(processor, sent)
 
-        with patch("core.stream_seek.Path.exists", return_value=True), \
+        with patch("pathlib.Path.exists", return_value=True), \
              patch.object(controller, "_check_or_queue_fingerprint",
                           new=AsyncMock(return_value=False)):
             await controller.stream_enhanced_audio_from_position(

@@ -108,7 +108,7 @@ class TestProactiveBufferFiresOnPlayStart:
         processor = _make_single_chunk_processor()
         controller, ws = _wire_controller(processor)
 
-        with patch("core.stream_enhanced.Path.exists", return_value=True), \
+        with patch("pathlib.Path.exists", return_value=True), \
              patch.object(controller, "_check_or_queue_fingerprint",
                           new=AsyncMock(return_value=False)), \
              patch("core.stream_enhanced.buffer_presets_for_track",
@@ -138,7 +138,7 @@ class TestProactiveBufferFiresOnPlayStart:
         async def _explode(*args, **kwargs):
             raise RuntimeError("proactive buffering exploded")
 
-        with patch("core.stream_enhanced.Path.exists", return_value=True), \
+        with patch("pathlib.Path.exists", return_value=True), \
              patch.object(controller, "_check_or_queue_fingerprint",
                           new=AsyncMock(return_value=False)), \
              patch("core.stream_enhanced.buffer_presets_for_track", side_effect=_explode):
@@ -159,7 +159,7 @@ class TestProactiveBufferFiresOnPlayStart:
         processor = _make_single_chunk_processor()
         controller, ws = _wire_controller(processor)
 
-        with patch("core.stream_seek.Path.exists", return_value=True), \
+        with patch("pathlib.Path.exists", return_value=True), \
              patch.object(controller, "_check_or_queue_fingerprint",
                           new=AsyncMock(return_value=False)), \
              patch("core.stream_enhanced.buffer_presets_for_track",

@@ -34,13 +34,13 @@ import pytest
 backend_path = Path(__file__).parent.parent.parent / "auralis-web" / "backend"
 sys.path.insert(0, str(backend_path))
 
-from core.chunked_processor import (
+from core.chunked_processor import ChunkedAudioProcessor
+from core.chunk_boundaries import (
     CHUNK_DURATION,
     CONTEXT_DURATION,
-    MAX_LEVEL_CHANGE_DB,
     OVERLAP_DURATION,
-    ChunkedAudioProcessor,
 )
+from core.level_manager import MAX_LEVEL_CHANGE_DB
 
 # Add root to path for auralis imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -163,7 +163,7 @@ def test_max_level_change_is_reasonable():
 
 @pytest.mark.unit
 def test_max_level_change_has_a_single_owner():
-    """INVARIANT: level_manager owns MAX_LEVEL_CHANGE_DB; others re-export it (#4284).
+    """INVARIANT: level_manager owns MAX_LEVEL_CHANGE_DB; nobody else declares it (#4284).
 
     chunked_processor used to redeclare `MAX_LEVEL_CHANGE_DB = 1.5` verbatim,
     re-supplying LevelManager's own default. Values matched, so nothing broke —
@@ -174,8 +174,12 @@ def test_max_level_change_has_a_single_owner():
     """
     from core import chunked_processor, level_manager
 
-    assert chunked_processor.MAX_LEVEL_CHANGE_DB is level_manager.MAX_LEVEL_CHANGE_DB, (
-        "chunked_processor re-declares MAX_LEVEL_CHANGE_DB instead of re-exporting "
+    # Absent is fine (the constant is no longer re-exported, #5775); a separate
+    # copy of it is not.
+    assert getattr(
+        chunked_processor, "MAX_LEVEL_CHANGE_DB", level_manager.MAX_LEVEL_CHANGE_DB
+    ) is level_manager.MAX_LEVEL_CHANGE_DB, (
+        "chunked_processor re-declares MAX_LEVEL_CHANGE_DB instead of using "
         "level_manager's — the two can now drift apart (#4284)"
     )
 
@@ -249,7 +253,7 @@ def test_chunk_boundaries_are_continuous(processor):
     - Each chunk starts at: chunk_idx * CHUNK_INTERVAL
     - Each chunk ends at: chunk_idx * CHUNK_INTERVAL + CHUNK_DURATION
     """
-    from core.chunked_processor import CHUNK_INTERVAL
+    from core.chunk_boundaries import CHUNK_INTERVAL
 
     for chunk_idx in range(processor.total_chunks - 1):
         _, chunk_start, chunk_end = processor.load_chunk(chunk_idx, with_context=False)
@@ -315,7 +319,7 @@ def test_chunk_count_calculation(processor):
     """
     import math
 
-    from core.chunked_processor import CHUNK_INTERVAL
+    from core.chunk_boundaries import CHUNK_INTERVAL
     expected_chunks = math.ceil(processor.total_duration / CHUNK_INTERVAL)
 
     assert processor.total_chunks == expected_chunks, (
@@ -398,7 +402,7 @@ def test_processed_chunks_concatenate_to_correct_duration(processor):
 
     # With 5s overlaps between chunks, total should be roughly:
     # original_duration + (num_chunks - 1) * overlap_duration
-    from core.chunked_processor import CHUNK_INTERVAL
+    from core.chunk_boundaries import CHUNK_INTERVAL
     expected_overlap_seconds = max(0, (processor.total_chunks - 1) * OVERLAP_DURATION)
     rough_expected = processor.total_duration + expected_overlap_seconds
 
@@ -505,7 +509,7 @@ def test_process_chunk_reuses_on_disk_wav_with_empty_memory_cache(processor, tes
     )
 
     with patch(
-        "core.chunked_processor.AudioProcessingPipeline.process_audio"
+        "core.audio_processing_pipeline.AudioProcessingPipeline.process_audio"
     ) as mock_process_audio:
         path2, _ = fresh_processor.process_chunk(0)
 
@@ -527,7 +531,7 @@ def test_process_chunk_and_get_wav_chunk_path_share_one_cache_key(processor):
     process_chunk_path, _ = processor.process_chunk(0)
 
     with patch(
-        "core.chunked_processor.AudioProcessingPipeline.process_audio"
+        "core.audio_processing_pipeline.AudioProcessingPipeline.process_audio"
     ) as mock_process_audio:
         wav_chunk_path = processor.get_wav_chunk_path(0)
 
@@ -818,7 +822,7 @@ def test_handles_exactly_one_chunk_interval():
     """
     import tempfile
 
-    from core.chunked_processor import CHUNK_INTERVAL
+    from core.chunk_boundaries import CHUNK_INTERVAL
 
     duration = float(CHUNK_INTERVAL)  # Exactly 10 seconds (one CHUNK_INTERVAL)
     sample_rate = 44100

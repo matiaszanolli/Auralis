@@ -104,7 +104,7 @@ async def test_enhanced_stream_stops_without_counting_failed_chunk():
     controller = _make_processed_stream_controller(processor)
 
     with (
-        patch("core.stream_enhanced.Path.exists", return_value=True),
+        patch("pathlib.Path.exists", return_value=True),
         patch.object(
             controller,
             "_check_or_queue_fingerprint",
@@ -126,7 +126,7 @@ async def test_seek_stream_stops_without_counting_failed_chunk():
     processor = _make_processor()
     controller = _make_processed_stream_controller(processor)
 
-    with patch("core.stream_seek.Path.exists", return_value=True):
+    with patch("pathlib.Path.exists", return_value=True):
         await controller.stream_enhanced_audio_from_position(
             track_id=42,
             preset="adaptive",

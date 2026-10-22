@@ -32,7 +32,11 @@ sys.path.insert(0, str(backend_path))
 
 from core.chunk_boundaries import content_chunk_count
 from core.chunk_operations import ChunkOperations
-from core.chunked_processor import CHUNK_DURATION, CHUNK_INTERVAL, OVERLAP_DURATION
+from core.chunk_boundaries import (
+    CHUNK_DURATION,
+    CHUNK_INTERVAL,
+    OVERLAP_DURATION,
+)
 
 SR = 1000  # low rate keeps arrays small; durations stay sample-exact at this rate
 

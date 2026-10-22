@@ -24,7 +24,7 @@ sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_REPO_ROOT / "auralis-web" / "backend"))
 
 import config.globals as globals_mod  # noqa: E402
-from core.chunked_processor import _default_get_fingerprints_repository  # noqa: E402
+from core.chunk_fingerprint_registry import _default_get_fingerprints_repository  # noqa: E402
 
 
 @pytest.fixture

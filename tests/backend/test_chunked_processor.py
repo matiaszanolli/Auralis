@@ -24,12 +24,12 @@ import pytest
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from core.chunked_processor import (
+from core.chunked_processor import ChunkedAudioProcessor
+from core.chunk_boundaries import (
     CHUNK_DURATION,
     CHUNK_INTERVAL,
     CONTEXT_DURATION,
     OVERLAP_DURATION,
-    ChunkedAudioProcessor,
 )
 from core.chunk_cache_manager import ChunkCacheManager
 from core.chunk_metadata import AudioMetadata

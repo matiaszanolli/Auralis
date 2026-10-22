@@ -12,7 +12,6 @@ import numpy as np
 
 from ...analysis.loudness_meter import LoudnessMeter
 from ...io.processing import downmix_to_stereo, requires_layout_aware_downmix
-from ..basic import rms  # noqa: F401  — re-exported; tests/validation imports it from here
 from .audio_info import mono_to_stereo
 
 

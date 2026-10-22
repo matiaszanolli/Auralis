@@ -216,10 +216,8 @@ def test_audio_exactly_chunk_duration(tmp_path):
     """
     BOUNDARY: Audio exactly CHUNK_DURATION seconds (no partial chunks).
     """
-    from core.chunked_processor import (
-        CHUNK_DURATION,
-        ChunkedAudioProcessor,
-    )
+    from core.chunked_processor import ChunkedAudioProcessor
+    from core.chunk_boundaries import CHUNK_DURATION
 
     audio_dir = tmp_path / "audio"
     audio_dir.mkdir()
@@ -256,10 +254,8 @@ def test_audio_one_sample_over_chunk_duration(tmp_path):
 
     Should create 2 chunks (not round down).
     """
-    from core.chunked_processor import (
-        CHUNK_DURATION,
-        ChunkedAudioProcessor,
-    )
+    from core.chunked_processor import ChunkedAudioProcessor
+    from core.chunk_boundaries import CHUNK_DURATION
 
     audio_dir = tmp_path / "audio"
     audio_dir.mkdir()
@@ -293,10 +289,8 @@ def test_audio_one_sample_under_chunk_duration(tmp_path):
     """
     BOUNDARY: Audio 1 sample shorter than CHUNK_DURATION.
     """
-    from core.chunked_processor import (
-        CHUNK_DURATION,
-        ChunkedAudioProcessor,
-    )
+    from core.chunked_processor import ChunkedAudioProcessor
+    from core.chunk_boundaries import CHUNK_DURATION
 
     audio_dir = tmp_path / "audio"
     audio_dir.mkdir()
@@ -546,11 +540,8 @@ def test_chunk_at_exact_overlap_boundary(tmp_path):
     """
     BOUNDARY: Chunk boundaries at exact OVERLAP_DURATION.
     """
-    from core.chunked_processor import (
-        CHUNK_DURATION,
-        OVERLAP_DURATION,
-        ChunkedAudioProcessor,
-    )
+    from core.chunked_processor import ChunkedAudioProcessor
+    from core.chunk_boundaries import CHUNK_DURATION, OVERLAP_DURATION
 
     audio_dir = tmp_path / "audio"
     audio_dir.mkdir()

@@ -148,7 +148,7 @@ class TestProactiveBufferDiesWithItsStream:
         async def _hang(*args, **kwargs):
             await asyncio.sleep(3600)
 
-        with patch("core.stream_enhanced.Path.exists", return_value=True), \
+        with patch("pathlib.Path.exists", return_value=True), \
              patch.object(controller, "_check_or_queue_fingerprint",
                           new=AsyncMock(return_value=False)), \
              patch("core.stream_enhanced.pump_chunks", new=_hang), \
@@ -179,7 +179,7 @@ class TestProactiveBufferDiesWithItsStream:
         async def _hang(*args, **kwargs):
             await asyncio.sleep(3600)
 
-        with patch("core.stream_enhanced.Path.exists", return_value=True), \
+        with patch("pathlib.Path.exists", return_value=True), \
              patch.object(controller, "_check_or_queue_fingerprint",
                           new=AsyncMock(return_value=False)), \
              patch("core.stream_enhanced.pump_chunks", new=_hang), \
@@ -214,7 +214,7 @@ class TestProactiveBufferDiesWithItsStream:
             result.delivered_samples = SAMPLE_RATE
             return result
 
-        with patch("core.stream_enhanced.Path.exists", return_value=True), \
+        with patch("pathlib.Path.exists", return_value=True), \
              patch.object(controller, "_check_or_queue_fingerprint",
                           new=AsyncMock(return_value=False)), \
              patch.object(controller, "_send_stream_completion", new=AsyncMock()), \
@@ -244,7 +244,7 @@ class TestProactiveBufferSharesTheStreamsCancelEvent:
         async def _hang(*args, **kwargs):
             await asyncio.sleep(3600)
 
-        with patch("core.stream_enhanced.Path.exists", return_value=True), \
+        with patch("pathlib.Path.exists", return_value=True), \
              patch.object(controller, "_check_or_queue_fingerprint",
                           new=AsyncMock(return_value=False)), \
              patch("core.stream_enhanced.pump_chunks", new=_hang), \
