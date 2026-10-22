@@ -31,6 +31,26 @@ describe('useAppDragDrop', () => {
     );
   });
 
+  /** Record every drag-drop request the hook sends (method, path, JSON body). */
+  const recordRequests = () => {
+    const requests: { method: string; path: string; body: unknown }[] = [];
+    const record = async ({ request }: { request: Request }) => {
+      requests.push({
+        method: request.method,
+        path: new URL(request.url).pathname,
+        body: await request.json(),
+      });
+      return HttpResponse.json({ success: true });
+    };
+    server.use(
+      http.post('/api/player/queue/add-track', record),
+      http.put('/api/player/queue/move', record),
+      http.post('/api/playlists/:id/tracks/add', record),
+      http.put('/api/playlists/:id/tracks/reorder', record)
+    );
+    return requests;
+  };
+
   const createDropResult = (
     source: { droppableId: string; index: number },
     destination: { droppableId: string; index: number } | null,
@@ -58,267 +78,190 @@ describe('useAppDragDrop', () => {
 
   describe('dropped outside valid area', () => {
     it('ignores drop with no destination', async () => {
+      const requests = recordRequests();
       const { result } = renderHook(() =>
         useAppDragDrop({ info: mockInfo, success: mockSuccess })
       );
 
-      const dropResult = createDropResult(
-        { droppableId: 'library', index: 0 },
-        null // No destination
-      );
-
       await act(async () => {
-        await result.current.handleDragEnd(dropResult);
+        await result.current.handleDragEnd(
+          createDropResult({ droppableId: 'library', index: 0 }, null)
+        );
       });
 
-      // MSW will not handle the request, but that's OK - the hook should still work
+      expect(requests).toEqual([]);
+      expect(mockInfo).not.toHaveBeenCalled();
+      expect(mockSuccess).not.toHaveBeenCalled();
     });
   });
 
   describe('dropped in same position', () => {
     it('ignores drop in same position', async () => {
+      const requests = recordRequests();
       const { result } = renderHook(() =>
         useAppDragDrop({ info: mockInfo, success: mockSuccess })
       );
 
-      const dropResult = createDropResult(
-        { droppableId: 'queue', index: 0 },
-        { droppableId: 'queue', index: 0 } // Same position
-      );
-
       await act(async () => {
-        await result.current.handleDragEnd(dropResult);
+        await result.current.handleDragEnd(
+          createDropResult(
+            { droppableId: 'queue', index: 0 },
+            { droppableId: 'queue', index: 0 }
+          )
+        );
       });
 
-      // MSW will not handle the request, but that's OK - the hook should still work
+      expect(requests).toEqual([]);
+      expect(mockInfo).not.toHaveBeenCalled();
+      expect(mockSuccess).not.toHaveBeenCalled();
     });
   });
 
   describe('add to queue', () => {
     it('adds track to queue on drop', async () => {
-      // MSW handlers are set up in beforeEach
-
+      const requests = recordRequests();
       const { result } = renderHook(() =>
         useAppDragDrop({ info: mockInfo, success: mockSuccess })
       );
 
-      const dropResult = createDropResult(
-        { droppableId: 'library', index: 0 },
-        { droppableId: 'queue', index: 2 },
-        'track-123'
-      );
-
       await act(async () => {
-        await result.current.handleDragEnd(dropResult);
+        await result.current.handleDragEnd(
+          createDropResult(
+            { droppableId: 'library', index: 0 },
+            { droppableId: 'queue', index: 2 },
+            'track-123'
+          )
+        );
       });
 
-      // MSW intercepts the fetch, so we just verify the success callback was called
-
-      // Hook executes drag end without crashing
-      expect(result.current.handleDragEnd).toBeDefined();
+      expect(requests).toEqual([
+        { method: 'POST', path: '/api/player/queue/add-track', body: { track_id: 123, position: 2 } },
+      ]);
+      expect(mockSuccess).toHaveBeenCalledWith('Added track to queue at position 3');
     });
 
     it('handles queue add error', async () => {
-      // MSW handler will return error when configured for error case
-
+      server.use(
+        http.post('/api/player/queue/add-track', () =>
+          HttpResponse.json({}, { status: 500 })
+        )
+      );
       const { result } = renderHook(() =>
         useAppDragDrop({ info: mockInfo, success: mockSuccess })
       );
-
-      const dropResult = createDropResult(
-        { droppableId: 'library', index: 0 },
-        { droppableId: 'queue', index: 0 }
-      );
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       await act(async () => {
-        await result.current.handleDragEnd(dropResult);
+        await result.current.handleDragEnd(
+          createDropResult(
+            { droppableId: 'library', index: 0 },
+            { droppableId: 'queue', index: 0 }
+          )
+        );
       });
 
-      // Hook handles error gracefully without throwing
-      expect(result.current).toBeDefined();
+      // A body-less 500 shows the handler's own message, and no success toast
+      expect(mockInfo).toHaveBeenCalledWith('Failed to add track to queue');
+      expect(mockSuccess).not.toHaveBeenCalled();
+      consoleErrorSpy.mockRestore();
     });
   });
 
   describe('add to playlist', () => {
     it('adds track to playlist on drop', async () => {
-      // MSW handlers are set up in beforeEach
-
+      const requests = recordRequests();
       const { result } = renderHook(() =>
         useAppDragDrop({ info: mockInfo, success: mockSuccess })
       );
 
-      const dropResult = createDropResult(
-        { droppableId: 'library', index: 0 },
-        { droppableId: 'playlist-5', index: 1 },
-        'track-42'
-      );
-
       await act(async () => {
-        await result.current.handleDragEnd(dropResult);
+        await result.current.handleDragEnd(
+          createDropResult(
+            { droppableId: 'library', index: 0 },
+            { droppableId: 'playlist-5', index: 1 },
+            'track-42'
+          )
+        );
       });
 
-      // MSW intercepts the fetch, so we just verify the success callback was called
-
-      // Hook executes without crashing
-      expect(result.current).toBeDefined();
+      expect(requests).toEqual([
+        { method: 'POST', path: '/api/playlists/5/tracks/add', body: { track_id: 42, position: 1 } },
+      ]);
+      expect(mockSuccess).toHaveBeenCalledWith('Added track to playlist');
     });
 
     it('handles playlist add error', async () => {
-      // MSW handler will return error when configured for error case
-
+      server.use(
+        http.post('/api/playlists/:id/tracks/add', () =>
+          HttpResponse.json({}, { status: 500 })
+        )
+      );
       const { result } = renderHook(() =>
         useAppDragDrop({ info: mockInfo, success: mockSuccess })
       );
-
-      const dropResult = createDropResult(
-        { droppableId: 'library', index: 0 },
-        { droppableId: 'playlist-5', index: 0 }
-      );
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       await act(async () => {
-        await result.current.handleDragEnd(dropResult);
+        await result.current.handleDragEnd(
+          createDropResult(
+            { droppableId: 'library', index: 0 },
+            { droppableId: 'playlist-5', index: 0 }
+          )
+        );
       });
 
-      // Hook handles error gracefully without throwing
-      expect(result.current).toBeDefined();
-    });
-  });
-
-  describe('reorder queue', () => {
-    it('reorders tracks in queue', async () => {
-      // MSW handlers are set up in beforeEach
-
-      const { result } = renderHook(() =>
-        useAppDragDrop({ info: mockInfo, success: mockSuccess })
-      );
-
-      const dropResult = createDropResult(
-        { droppableId: 'queue', index: 1 },
-        { droppableId: 'queue', index: 3 }
-      );
-
-      await act(async () => {
-        await result.current.handleDragEnd(dropResult);
-      });
-
-      // MSW intercepts the fetch, so we just verify the info callback was called
-
-      // Hook executes queue reorder without throwing
-      expect(result.current).toBeDefined();
-    });
-
-    it('handles queue reorder error', async () => {
-      // MSW handler will return error when configured for error case
-
-      const { result } = renderHook(() =>
-        useAppDragDrop({ info: mockInfo, success: mockSuccess })
-      );
-
-      const dropResult = createDropResult(
-        { droppableId: 'queue', index: 0 },
-        { droppableId: 'queue', index: 1 }
-      );
-
-      await act(async () => {
-        await result.current.handleDragEnd(dropResult);
-      });
-
-      // Hook handles error gracefully without throwing
-      expect(result.current).toBeDefined();
-    });
-  });
-
-  describe('reorder playlist', () => {
-    it('reorders tracks in playlist', async () => {
-      // MSW handlers are set up in beforeEach
-
-      const { result } = renderHook(() =>
-        useAppDragDrop({ info: mockInfo, success: mockSuccess })
-      );
-
-      const dropResult = createDropResult(
-        { droppableId: 'playlist-5', index: 0 },
-        { droppableId: 'playlist-5', index: 2 }
-      );
-
-      await act(async () => {
-        await result.current.handleDragEnd(dropResult);
-      });
-
-      // MSW handles the API call, just verify the UI callback was called
-      // Hook executes playlist reorder without throwing
-      expect(result.current).toBeDefined();
-    });
-
-    it('handles playlist reorder error', async () => {
-      // MSW handler will return error when configured for error case
-
-      const { result } = renderHook(() =>
-        useAppDragDrop({ info: mockInfo, success: mockSuccess })
-      );
-
-      const dropResult = createDropResult(
-        { droppableId: 'playlist-5', index: 0 },
-        { droppableId: 'playlist-5', index: 1 }
-      );
-
-      await act(async () => {
-        await result.current.handleDragEnd(dropResult);
-      });
-
-      // Hook handles error gracefully without throwing
-      expect(result.current).toBeDefined();
+      expect(mockInfo).toHaveBeenCalledWith('Failed to add track to playlist');
+      expect(mockSuccess).not.toHaveBeenCalled();
+      consoleErrorSpy.mockRestore();
     });
   });
 
   describe('track ID extraction', () => {
     it('extracts track ID from draggable ID', async () => {
-      // MSW handlers are set up in beforeEach
-
+      const requests = recordRequests();
       const { result } = renderHook(() =>
         useAppDragDrop({ info: mockInfo, success: mockSuccess })
       );
 
-      const dropResult = createDropResult(
-        { droppableId: 'library', index: 0 },
-        { droppableId: 'queue', index: 0 },
-        'track-999'
-      );
-
       await act(async () => {
-        await result.current.handleDragEnd(dropResult);
+        await result.current.handleDragEnd(
+          createDropResult(
+            { droppableId: 'library', index: 0 },
+            { droppableId: 'queue', index: 0 },
+            'track-999'
+          )
+        );
       });
 
-      // Verify the API call was made successfully (MSW handles it)
-      // Adding to queue calls success callback, not info
-      expect(mockSuccess).toHaveBeenCalled();
+      expect(requests[0].body).toEqual({ track_id: 999, position: 0 });
     });
   });
 
   describe('error handling', () => {
     it('handles network errors gracefully', async () => {
-      // Set up MSW handler for error case
       server.use(
         http.post('/api/player/queue/add-track', () => {
           return HttpResponse.json({ error: 'Network error' }, { status: 500 });
         })
       );
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       const { result } = renderHook(() =>
         useAppDragDrop({ info: mockInfo, success: mockSuccess })
       );
 
-      const dropResult = createDropResult(
-        { droppableId: 'library', index: 0 },
-        { droppableId: 'queue', index: 0 }
-      );
-
       await act(async () => {
-        await result.current.handleDragEnd(dropResult);
+        await result.current.handleDragEnd(
+          createDropResult(
+            { droppableId: 'library', index: 0 },
+            { droppableId: 'queue', index: 0 }
+          )
+        );
       });
 
-      // Hook handles error gracefully without throwing
-      expect(result.current).toBeDefined();
+      // The error is turned into a toast rather than thrown at the caller
+      expect(mockInfo).toHaveBeenCalledWith('Failed to add track to queue');
+      consoleErrorSpy.mockRestore();
     });
 
     it('logs errors to console', async () => {
@@ -410,10 +353,10 @@ describe('useAppDragDrop', () => {
     // never reaches handleReorderQueue / handleReorderPlaylist — it calls the
     // ADD endpoint instead, duplicating the track rather than moving it.
     //
-    // The pre-existing 'reorders tracks in queue' / 'reorders tracks in
-    // playlist' tests above assert only `expect(result.current).toBeDefined()`,
-    // which is why this went unnoticed. Pinned here so the gap is visible;
-    // when #5189 fixes the routing these expectations flip to the move/reorder
+    // The earlier 'reorders tracks in queue' / 'reorders tracks in playlist'
+    // tests asserted only `expect(result.current).toBeDefined()`, which is why
+    // this went unnoticed; they were replaced by the two tests below. When
+    // #5189 fixes the routing these expectations flip to the move/reorder
     // endpoints.
 
     const recordEndpoint = (hits: string[]) => {
