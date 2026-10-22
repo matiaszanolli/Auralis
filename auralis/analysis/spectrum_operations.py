@@ -295,57 +295,6 @@ class SpectrumOperations:
         return float(cast(np.ndarray, frequency_bins[rolloff_idx]))
 
     @staticmethod
-    def calculate_spectral_spread(frequency_bins: np.ndarray,
-                                 spectrum: np.ndarray,
-                                 centroid: float | None = None) -> float:
-        """
-        Calculate spectral spread (standard deviation around centroid)
-
-        Args:
-            frequency_bins: Frequency bin centers
-            spectrum: Spectrum magnitude values
-            centroid: Spectral centroid (computed if not provided)
-
-        Returns:
-            Spectral spread in Hz
-        """
-        if centroid is None:
-            centroid = SpectrumOperations.calculate_spectral_centroid(frequency_bins, spectrum)
-
-        denominator = np.sum(spectrum)
-        if denominator == 0:
-            return 0.0
-
-        variance = np.sum(spectrum * (frequency_bins - centroid) ** 2) / denominator
-        return float(np.sqrt(max(0, variance)))
-
-    @staticmethod
-    def calculate_spectral_flatness(spectrum: np.ndarray) -> float:
-        """
-        Calculate spectral flatness (Wiener entropy)
-
-        Ratio of geometric mean to arithmetic mean of spectrum.
-        1.0 = perfectly flat, 0.0 = highly peaked
-
-        Args:
-            spectrum: Spectrum magnitude values (linear, not dB)
-
-        Returns:
-            Spectral flatness (0-1)
-        """
-        # Ensure positive values
-        spectrum = np.maximum(spectrum, 1e-10)
-
-        geometric_mean = np.exp(np.mean(np.log(spectrum)))
-        arithmetic_mean = np.mean(spectrum)
-
-        if arithmetic_mean == 0:
-            return 0.0
-
-        flatness = geometric_mean / arithmetic_mean
-        return float(np.clip(flatness, 0, 1))
-
-    @staticmethod
     def get_band_names(frequency_bins: np.ndarray) -> list[str]:
         """
         Get human-readable frequency band names

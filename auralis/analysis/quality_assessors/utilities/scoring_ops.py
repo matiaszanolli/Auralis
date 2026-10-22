@@ -150,55 +150,6 @@ class ScoringOperations:
         return float(weighted_sum / total_weight)
 
     @staticmethod
-    def percentile_score(value: float, percentiles: dict[int, tuple[float, float]]) -> float:
-        """
-        Score based on percentile distribution
-
-        Percentiles dict should have format:
-        {
-            5: (value_at_p5, score_at_p5),
-            25: (value_at_p25, score_at_p25),
-            50: (value_at_p50, score_at_p50),  # Median
-            75: (value_at_p75, score_at_p75),
-            95: (value_at_p95, score_at_p95),
-        }
-
-        Args:
-            value: The value to score
-            percentiles: Dictionary of percentiles to (value, score) tuples
-
-        Returns:
-            Interpolated score 0-100
-        """
-        if not percentiles:
-            return 50.0
-
-        # Convert to sorted list of (percentile, value, score)
-        sorted_percentiles = sorted(
-            [(p, v, s) for p, (v, s) in percentiles.items()]
-        )
-
-        # Find surrounding percentiles
-        for i, (p, v, s) in enumerate(sorted_percentiles):
-            if value <= v:
-                if i == 0:
-                    return float(s)
-
-                # Interpolate between previous and current
-                _p_prev, v_prev, s_prev = sorted_percentiles[i - 1]
-                if v == v_prev:
-                    return float((s + s_prev) / 2)
-
-                # Linear interpolation
-                progress = (value - v_prev) / (v - v_prev)
-                interpolated_score = s_prev + (s - s_prev) * progress
-                return float(np.clip(interpolated_score, 0, 100))
-
-        # Beyond highest percentile
-        _, _, last_score = sorted_percentiles[-1]
-        return float(last_score)
-
-    @staticmethod
     def band_score(value: float, bands: list[tuple[float, float]]) -> float:
         """
         Score using frequency bands

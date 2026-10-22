@@ -191,13 +191,3 @@ class AssessmentConstants:
             },
         }
         return standards.get(standard.lower(), {})
-
-    @classmethod
-    def is_compliant_with_standard(cls, standard: str, **kwargs: Any) -> bool:
-        """Check if values meet standard compliance"""
-        targets = cls.get_standard_compliance_targets(standard)
-        if not targets:
-            return False
-
-        # Default check: required keys present
-        return all(key in targets for key in kwargs.keys())
