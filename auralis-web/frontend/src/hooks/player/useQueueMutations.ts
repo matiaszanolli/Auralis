@@ -10,9 +10,8 @@
  * @module hooks/player/useQueueMutations
  */
 
-import { useCallback, useMemo, useState, useRef } from 'react';
-import { useDispatch, useStore } from 'react-redux';
-import type { Store } from '@reduxjs/toolkit';
+import { useCallback, useMemo, useState } from 'react';
+import { useDispatch } from 'react-redux';
 import { useRestAPI } from '@/hooks/api/useRestAPI';
 import {
   setQueue as reduxSetQueue,
@@ -23,53 +22,15 @@ import {
   addTrack as reduxAddTrack,
   removeTrack as reduxRemoveTrack,
   reorderTrack as reduxReorderTrack,
-  selectQueueTracks,
-  selectCurrentIndex,
-  selectIsShuffled,
-  selectRepeatMode,
 } from '@/store/slices/queueSlice';
-import type { Track, QueueTrack } from '@/types/domain';
+import type { Track } from '@/types/domain';
 import type { ApiError } from '@/types/api';
 import { ApiErrorHandler } from '@/types/api';
-import type { AppDispatch, RootState } from '@/store';
+import type { AppDispatch } from '@/store';
+import { useQueueMutationGuards } from './queueMutationGuards';
+import type { QueueMutations } from './queueMutationTypes';
 
-interface RollbackState {
-  tracks: (Track | QueueTrack)[];
-  currentIndex: number;
-  isShuffled: boolean;
-  repeatMode: 'off' | 'all' | 'one';
-}
-
-export interface QueueMutations {
-  /** Set entire queue and optional start position */
-  setQueue: (tracks: Track[], startIndex?: number) => Promise<void>;
-  /** Add single track to queue */
-  addTrack: (track: Track, position?: number) => Promise<void>;
-  /** Remove track at index */
-  removeTrack: (index: number) => Promise<void>;
-  /** Reorder track from one position to another */
-  reorderTrack: (fromIndex: number, toIndex: number) => Promise<void>;
-  /**
-   * Reorder the entire queue.
-   *
-   * `newOrder` is a permutation of queue *indices*, not track IDs — the
-   * backend validates `set(new_order) == set(range(queue_size))` and builds
-   * the new queue as `[tracks[i] for i in new_order]`.
-   */
-  reorderQueue: (newOrder: number[]) => Promise<void>;
-  /** Toggle shuffle mode */
-  toggleShuffle: () => Promise<void>;
-  /** Set repeat mode */
-  setRepeatMode: (mode: 'off' | 'all' | 'one') => Promise<void>;
-  /** Clear entire queue */
-  clearQueue: () => Promise<void>;
-  /** True while a command is executing */
-  isLoading: boolean;
-  /** Last error from a command */
-  error: ApiError | null;
-  /** Clear error state */
-  clearError: () => void;
-}
+export type { QueueMutations } from './queueMutationTypes';
 
 /**
  * Queue mutation actions, with optimistic Redux updates rolled back on
@@ -79,67 +40,9 @@ export interface QueueMutations {
 export function useQueueMutations(): QueueMutations {
   const { post, put, delete: apiDelete } = useRestAPI();
   const dispatch = useDispatch<AppDispatch>();
-  // Same pattern as usePlayerStateSync: bare useStore() types getState() as
-  // unknown, which the `{ queue: QueueState }`-typed selectors reject — the
-  // call-time snapshot (#5624) shipped without this and broke type-check:prod.
-  const store = useStore() as Store<RootState>;
-
-  // In-flight count, not a boolean (#5624): one shared boolean was cleared by
-  // whichever mutation finished first, so with two overlapping mutations the
-  // spinner dropped while the second was still in flight.
-  const [inFlight, setInFlight] = useState(0);
-  const isLoading = inFlight > 0;
+  const { isLoading, beginInFlight, endInFlight, snapshot, beginMutation, isNewestMutation } =
+    useQueueMutationGuards();
   const [error, setError] = useState<ApiError | null>(null);
-
-  const beginInFlight = useCallback(() => setInFlight((n) => n + 1), []);
-  const endInFlight = useCallback(() => setInFlight((n) => n - 1), []);
-
-  /**
-   * Call-time snapshot of the queue fields (#5624).
-   *
-   * The snapshot used to come from a render-time ref, so two mutations
-   * started in the same tick both captured the pre-first-mutation state: the
-   * newest mutation's failure then rolled back past the earlier mutation's
-   * already-applied-and-maybe-succeeded change. Reading the store at call
-   * time sees every optimistically-applied mutation that preceded this one,
-   * so a rollback restores exactly its own pre-state.
-   */
-  const snapshot = useCallback((): RollbackState => {
-    const state = store.getState();
-    return {
-      tracks: selectQueueTracks(state),
-      currentIndex: selectCurrentIndex(state),
-      isShuffled: selectIsShuffled(state),
-      repeatMode: selectRepeatMode(state),
-    };
-  }, [store]);
-
-  /**
-   * Per-field generation counters guarding stale rollbacks (#4836).
-   *
-   * A rollback restores a snapshot taken *before* its own mutation applied, so
-   * if a later mutation has since applied (and possibly already succeeded), the
-   * earlier mutation's failure would undo it too — for the queue that means a
-   * whole-array overwrite discarding the later change entirely.
-   *
-   * Each mutation stamps its field's counter on entry and only rolls back if it
-   * is still the newest mutation for that field. Counters are per-field rather
-   * than global so a queue mutation cannot suppress a shuffle rollback, or vice
-   * versa. A suppressed rollback still surfaces its error to the caller; the
-   * server's `queue_changed` broadcast is what reconciles the state.
-   */
-  const generationRef = useRef({ queue: 0, shuffle: 0, repeat: 0 });
-
-  const beginMutation = useCallback(
-    (field: keyof typeof generationRef.current): number => (generationRef.current[field] += 1),
-    []
-  );
-
-  const isNewestMutation = useCallback(
-    (field: keyof typeof generationRef.current, generation: number): boolean =>
-      generationRef.current[field] === generation,
-    []
-  );
 
   /**
    * Run a queue-array mutation optimistically (#4583).
