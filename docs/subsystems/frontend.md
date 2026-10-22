@@ -33,8 +33,9 @@ Electron Chromium process via the Web Audio API. The `@` alias maps to `./src`.
   components that use `styled(...)` — a deliberate ordering fix to avoid emotion init crashes.
   Renders under `StrictMode`.
 - **Provider tree** ([`App.tsx`](../../auralis-web/frontend/src/App.tsx)):
-  `Redux Provider` → `QueryClientProvider` → `ThemeProvider` → `AudioReactiveStarfield` →
-  `ToastProvider` → `WebSocketProvider` → `PlayerStateSync` + `ComfortableApp`.
+  `Redux Provider` → `QueryClientProvider` → `ThemeProvider` → `StarfieldBackground` (a sibling
+  of the providers below, not a wrapper) + `ToastProvider` → `WebSocketProvider` →
+  `PlayerStateSync` + `PlaybackSessionProvider` → `ComfortableApp`.
 - **No React Router routing in the app shell.** `react-router-dom` is a dependency but
   [`ComfortableApp.tsx`](../../auralis-web/frontend/src/ComfortableApp.tsx) switches views with
   local `useState` (`currentView`: songs/albums/artists/playlists). `BrowserRouter` appears only
@@ -159,8 +160,10 @@ typography, motion, radii, and fixed audio-semantic colors.
 
 > **Rule:** no hardcoded hex/rgb — colors and spacing come from `tokens`. **Compliance is
 > imperfect:** ~105 literals remain in `components/**` (mostly gradient/visualization values),
-> and there's an open convention decision (#4203) on `semantics.ts` token composition. Token
-> parity is guarded by `design-system/__tests__/cssVariablesTokenParity.test.ts`.
+> and there's an open convention decision (#4203) on `semantics.ts` token composition. Theme
+> derivation is guarded by `theme/__tests__/themeConfig.tokens.test.ts` and every CSS custom
+> property a CSS module reads must have a producer
+> (`theme/__tests__/cssCustomPropertyProducers.test.ts`).
 
 ---
 
@@ -168,7 +171,7 @@ typography, motion, radii, and fixed audio-semantic colors.
 
 265 non-test `.tsx` files, domain-grouped: `player/`, `library/` (+ `CozyLibraryView`,
 `AlbumCharacterPane`), `enhancement/` + `enhancement-pane/`, `playlist/`, `track/`, `album/`,
-`navigation/`, `settings/`, `shared/`, `background/` (AudioReactiveStarfield), `core/` (app
+`navigation/`, `settings/`, `shared/`, `background/` (StarfieldBackground), `core/` (app
 shell: `AppContainer`/`AppSidebar`/`AppTopBar`/`AppMainContent`/`ErrorBoundary`).
 
 Many components use co-located `.styles.ts` files to keep JSX lean.

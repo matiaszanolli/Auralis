@@ -51,7 +51,7 @@ This creates significant duplication in `PlaybackControls`, `ProgressBar`, and `
 **Duration**: 1-2 hours | **Impact**: Unblock broken code
 
 #### 1.1 Fix player/TrackInfo.tsx Bug
-- **Location**: `player/TrackInfo.tsx`, line 101
+- **Location**: *player/TrackInfo.tsx*, line 101
 - **Issue**: References undefined `AlbumArtContainer` styled component
 - **Action**: Add styled component definition or replace with Box wrapper
 - **Test**: Verify TrackInfo renders without console errors
@@ -101,7 +101,7 @@ This creates significant duplication in `PlaybackControls`, `ProgressBar`, and `
   - Keep: `player-bar-v2/progress/` components
 
 #### 2.3 Consolidate TrackInfo
-- **Action**: Merge `player/TrackInfo.tsx` and `player-bar-v2/TrackInfo.tsx`
+- **Action**: Merge *player/TrackInfo.tsx* and `player-bar-v2/TrackInfo.tsx`
 - **Changes Needed**:
   - Start with V2 implementation (uses design tokens)
   - Add lyrics toggle feature from V1 (on/off callback)
@@ -114,7 +114,7 @@ This creates significant duplication in `PlaybackControls`, `ProgressBar`, and `
   - Test favorite button toggle
   - Test lyrics button toggle (if included)
 - **Files Affected**:
-  - Delete: `player/TrackInfo.tsx`
+  - Delete: *player/TrackInfo.tsx*
   - Modify: `player-bar-v2/TrackInfo.tsx` (add V1 features + tokens)
   - Modify: Any imports from old location
 

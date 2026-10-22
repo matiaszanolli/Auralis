@@ -167,7 +167,7 @@ Maintenance Hours/Year:
 ### What Gets DELETED
 - ✂️ `player/PlayerControls.tsx` (duplicate of player-bar-v2/)
 - ✂️ `player/ProgressBar.tsx` (duplicate of player-bar-v2/)
-- ✂️ `player/TrackInfo.tsx` (merging into player-bar-v2/)
+- ✂️ *player/TrackInfo.tsx* (merging into player-bar-v2/)
 
 ### What Gets MOVED
 - 📦 `player/LyricsPanel.tsx` → `player-bar-v2/lyrics/`

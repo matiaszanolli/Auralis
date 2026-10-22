@@ -271,7 +271,7 @@ export const SelectorContainer = styled.div`
 ### Issue 3.3: Font Family Conflicts (HIGH)
 
 **Current State**:
-- `index.css`: Montserrat, Inter
+- *index.css*: Montserrat, Inter
 - `tokens.ts`: Inter, Plus Jakarta Sans
 - `designSystem.ts`: Montserrat, Fira Code
 
@@ -456,7 +456,7 @@ focus: {
 ### Must Modify (High Priority)
 6. `auralis-web/frontend/src/components/library/Views/TrackListView.tsx`
 7. `auralis-web/frontend/src/components/library/Items/albums/CozyAlbumGrid.tsx`
-8. `auralis-web/frontend/src/components/player/ShuffleModeSelector.module.css` → DELETE
+8. *auralis-web/frontend/src/components/player/ShuffleModeSelector.module.css* → DELETE
 9. `auralis-web/frontend/src/design-system/tokens.ts` (add breakpoints, focus)
 
 ### Must Delete (After Migration)

@@ -27,7 +27,7 @@ Comprehensive UI overhaul implementing 100% design token compliance across all m
 **Files Created**:
 - `PlayerBarV2.tsx` (113 lines) - Main container with CSS Grid
 - `ProgressBar.tsx` (173 lines) - Seek bar with crossfade visualization
-- `TrackInfo.tsx` (105 lines) - Track display with album art
+- *TrackInfo.tsx* (105 lines) - Track display with album art
 - `PlaybackControls.tsx` (127 lines) - Animated play/pause/prev/next
 - `VolumeControl.tsx` (122 lines) - Volume slider with mute
 - `EnhancementToggle.tsx` (79 lines) - Enhancement toggle

@@ -29,7 +29,7 @@ Run tests by category or specific files, never the full suite.
 | `QueueSearchPanel.test.tsx` | 563 lines | 18 | Search UI component |
 | `QueueStatisticsPanel.test.tsx` | 590 lines | 18 | Statistics UI |
 | `QueueRecommendationsPanel.test.tsx` | 420 lines | 16 | Recommendations UI |
-| `ShuffleModeSelector.test.tsx` | 321 lines | 15 | Shuffle selector UI |
+| *ShuffleModeSelector.test.tsx* | 321 lines | 15 | Shuffle selector UI |
 | `useQueueSearch.test.ts` | 502 lines | 22 | Search hook |
 | `useQueueStatistics.test.ts` | 359 lines | 16 | Statistics hook |
 | `useQueueRecommendations.test.ts` | 392 lines | 16 | Recommendations hook |
