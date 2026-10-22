@@ -91,7 +91,8 @@ auralis/                          Core Python audio engine
 │   ├── simple_mastering.py         SimpleMastering algorithm
 │   ├── processing/                 Mode processors (adaptive, continuous, hybrid, realtime pipeline)
 │   ├── config/                     Processing configuration (UnifiedConfig)
-│   └── recording_type_detector.py  Content type detection
+│   └── recording_type_detector.py  OFFLINE scripts only (rate_track, analyze_feedback); not on the
+│                                     app's audio path — kept on purpose, see #4873 / #5780
 ├── dsp/                          Signal processing
 │   ├── basic.py                    DSP primitives
 │   ├── advanced_dynamics.py        Dynamics control

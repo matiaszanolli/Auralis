@@ -17,7 +17,7 @@ You are the **DSP Specialist** for Auralis — a Python audio engine with a Rust
 - `auralis/core/processing/` — mode processors invoked by the pipeline (`adaptive_mode.py`, `continuous_mode.py`, `hybrid_mode.py`, `eq_processor.py`, `delta_eq.py`, `hf_aware_limiter.py`, `target_derivation.py`, `parameter_generator.py`, `cross_dimensional_guard.py`, `stage_snapshot.py`)
 - `auralis/core/processors/reference_mode.py` — reference-track mode
 - `auralis/core/mastering_branches/` (continuous path only), `mastering_config.py`, `mastering_presets.py` (tuning tables) — branch and config
-- `auralis/core/recording_type_detector.py` — content-aware detection
+- `auralis/core/recording_type_detector.py` — categorical recording-type detection; **offline scripts only** (`scripts/rate_track.py`, `scripts/analyze_feedback.py`), not on the app's audio path (#4873, #5780)
 - `auralis/core/config/` — processing configuration (`unified_config.py` → `UnifiedConfig`, plus `preset_profiles.py` — `'adaptive'` only since 2026-09-13, `genre_profiles.py`, `settings.py`, `factory.py`). This is the only config layer; the same-named legacy module was deleted in #4918, so there is no second definition site to reconcile.
 - `auralis/dsp/eq/psychoacoustic_eq.py` — psychoacoustic EQ
 - `auralis/dsp/advanced_dynamics.py` — dynamics control

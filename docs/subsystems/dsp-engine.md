@@ -71,7 +71,7 @@ HybridProcessor.process_realtime_chunk()   # real-time chunk   (:406)
 
 - A **fast path** — if a `.25d` sidecar supplies `fixed_params`, it skips fingerprint
   extraction (~8× faster).
-- A **full path** — extract fingerprint → `RecordingTypeDetector.detect` →
+- A **full path** — extract fingerprint →
   `map_fingerprint_to_space` → optional reference-cloud target derivation →
   `generate_parameters`.
 
