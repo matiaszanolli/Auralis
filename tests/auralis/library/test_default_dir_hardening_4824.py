@@ -13,6 +13,7 @@ import sys
 import pytest
 
 import auralis.library.database as dbmod
+import auralis.library.database_engine as engine_mod
 
 pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="POSIX permissions")
 
@@ -24,7 +25,8 @@ def _mode(path) -> int:
 @pytest.fixture
 def fake_default(tmp_path, monkeypatch):
     path = tmp_path / "home" / ".auralis" / "library.db"
-    monkeypatch.setattr(dbmod, "DEFAULT_DB_PATH", path)
+    # DEFAULT_DB_PATH is read where the path is resolved (#5837 moved that out of database.py)
+    monkeypatch.setattr(engine_mod, "DEFAULT_DB_PATH", path)
     return path
 
 

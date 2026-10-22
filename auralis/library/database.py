@@ -15,32 +15,24 @@ the repositories on top of it.
 """
 
 import atexit
-import os
 import threading
-from pathlib import Path
 from typing import Any
 
-from sqlalchemy import create_engine, event, text
+from sqlalchemy import text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker
 
 from ..utils.logging import error, info, warning
-from .constants import DEFAULT_DB_PATH, SQLITE_BUSY_TIMEOUT_MS, SQLITE_CONNECT_TIMEOUT_S
-from .migration_manager import MigrationError, check_and_migrate_database
-from .models import Base
-from .repositories import (
-    AlbumRepository,
-    ArtistRepository,
-    FingerprintRepository,
-    FingerprintStatsRepository,
-    GenreRepository,
-    PlaylistRepository,
-    RepositoryFactory,
-    StatsRepository,
-    TrackRepository,
+from .database_accessors import RepositoryAccessorsMixin
+from .database_engine import (
+    create_library_engine,
+    create_schema,
+    resolve_database_path,
+    restrict_wal_sidecars,
 )
-from .repositories.settings_repository import SettingsRepository
-from .schema_indexes import create_missing_declared_indexes
+from .migration_manager import MigrationError, check_and_migrate_database
+from .repositories import RepositoryFactory
+from .scan_coordinator import ScanCoordinator
 
 # #4523: the same-process thread lock that used to live here (#4232) moved into
 # `migration_manager.migration_lock`, which now acquires thread *and* process
@@ -50,7 +42,7 @@ from .schema_indexes import create_missing_declared_indexes
 # never passed through this constructor.
 
 
-class LibraryDatabase:
+class LibraryDatabase(RepositoryAccessorsMixin):
     """
     The library's SQLite database and everything needed to talk to it.
 
@@ -86,23 +78,7 @@ class LibraryDatabase:
             MigrationError: If the schema migration fails — the caller must not
                 proceed against a half-migrated database.
         """
-        # #4824: harden ~/.auralis whenever the database lives at the default
-        # location, not only when the caller omitted the path. fetch_artwork.py
-        # passes DEFAULT_DB_PATH explicitly, so it skipped this block and the
-        # directory was created later by migration_lock's plain mkdir at the
-        # process umask (typically 0o755). A caller-chosen location elsewhere
-        # is deliberately left alone — that directory is not ours to chmod.
-        if database_path is None or os.path.realpath(database_path) == os.path.realpath(DEFAULT_DB_PATH):
-            DEFAULT_DB_PATH.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-            # mkdir(mode=) is ignored when the dir already exists, so re-restrict
-            # it to owner-only even for a pre-existing ~/.auralis (#4347).
-            try:
-                os.chmod(DEFAULT_DB_PATH.parent, 0o700)
-            except OSError:
-                pass
-        if database_path is None:
-            database_path = str(DEFAULT_DB_PATH)
-
+        database_path = resolve_database_path(database_path)
         self.database_path = database_path
 
         # Check and migrate database before initializing engine. `migration_lock`
@@ -113,89 +89,12 @@ class LibraryDatabase:
             error("Database migration failed!")
             raise MigrationError("Failed to migrate database to current version")
 
-        # Configure SQLite for safe, frequent fingerprint writes
-        # WAL mode + synchronous=NORMAL enables fast writes with durability guarantees
-        connect_args = {
-            'timeout': SQLITE_CONNECT_TIMEOUT_S,  # WAL makes contention rare
-            'check_same_thread': False,
-        }
-
-        # SQLite allows only one writer at a time. With WAL mode, readers don't
-        # block writers (and vice versa), so a small pool is sufficient even under
-        # heavy concurrent load. Sessions are short-lived (session-per-method),
-        # so connections are returned quickly. (#2086)
         # `Engine | None` because shutdown() clears it (#3769) — __del__ gates
         # its own shutdown attempt on the None.
-        self.engine: Engine | None = create_engine(
-            f"sqlite:///{database_path}",
-            echo=False,
-            connect_args=connect_args,
-            pool_pre_ping=True,  # Verify connections before use
-            pool_size=5,  # Sufficient for SQLite with WAL concurrent readers
-            max_overflow=5,  # Up to 10 total connections
-        )
-
-        # Restrict database file permissions to owner-only (#2577)
-        db_path = Path(database_path)
-        if db_path.exists():
-            try:
-                os.chmod(db_path, 0o600)
-            except OSError:
-                pass
-
-        # Configure SQLite pragmas for reliable fingerprinting persistence
-        @event.listens_for(self.engine, "connect")
-        def set_sqlite_pragma(dbapi_connection: Any, connection_record: Any) -> None:
-            """Set SQLite pragmas for safe, fast writes"""
-            cursor = dbapi_connection.cursor()
-            # Enable Write-Ahead Logging for better concurrent write performance
-            cursor.execute("PRAGMA journal_mode=WAL")
-            # Set synchronous to NORMAL (safer than OFF, faster than FULL)
-            # Ensures fingerprints are durably written to WAL before returning
-            cursor.execute("PRAGMA synchronous=NORMAL")
-            # SQLite applies cache_size PER CONNECTION, not as an aggregate. With
-            # pool_size=5 + max_overflow=5 (up to 10 connections), 8MB/connection
-            # caps the worst-case aggregate at 80MB instead of 640MB. (#4779)
-            cursor.execute("PRAGMA cache_size=-8192")  # 8MB cache per connection
-            # Optimize for frequent writes
-            cursor.execute("PRAGMA temp_store=MEMORY")
-            # Foreign key enforcement for data integrity
-            cursor.execute("PRAGMA foreign_keys=ON")
-            # Increase max page count for larger working set
-            cursor.execute("PRAGMA max_page_count=1073741823")  # ~4GB max database
-            # Explicit busy timeout at PRAGMA level for consistent behavior (#2091)
-            cursor.execute(f"PRAGMA busy_timeout={SQLITE_BUSY_TIMEOUT_MS}")
-            cursor.close()
-
+        self.engine: Engine | None = create_library_engine(database_path)
         self.SessionLocal = sessionmaker(self.engine)
-
-        # Create tables if they don't exist (for fresh databases). This opens a
-        # connection, which fires the connect event above and switches the DB to
-        # WAL mode — creating the -wal/-shm sidecars.
-        Base.metadata.create_all(self.engine)
-
-        # create_all() adds a table's indexes only when it creates the table, so
-        # a database built before an index was declared would never get it
-        # (#5321). An index is an optimization; never block startup on it.
-        try:
-            added_indexes = create_missing_declared_indexes(self.engine)
-            if added_indexes:
-                info(f"Created {len(added_indexes)} missing index(es): {', '.join(added_indexes)}")
-        except Exception as e:  # noqa: BLE001
-            warning(f"Declared-index repair skipped: {e}")
-
-        # WAL sidecars are created lazily by SQLite with the process umask (often
-        # world/group-readable) and never chmod'd, unlike the main DB above.
-        # Restrict them to owner-only so recently-played/library data isn't
-        # readable by other local accounts on a custom path or a pre-existing
-        # loose ~/.auralis (#4347).
-        for _suffix in ("-wal", "-shm"):
-            _sidecar = Path(database_path + _suffix)
-            if _sidecar.exists():
-                try:
-                    os.chmod(_sidecar, 0o600)
-                except OSError:
-                    pass
+        create_schema(self.engine)
+        restrict_wal_sidecars(database_path)
 
         # Single source of repositories. Everything that needs the DB goes
         # through here — no component builds its own factory off SessionLocal.
@@ -215,25 +114,11 @@ class LibraryDatabase:
         # Thread-safe locking for delete operations (prevents race conditions)
         self._delete_lock = threading.RLock()
 
-        # Scan concurrency tracking (#2438)
-        self._scan_slots_lock = threading.Lock()
-        self._active_scans: int = 0
-        # Destructive-operation exclusion (#4816): POST /api/library/reset holds
-        # this while it deletes every content row. Guarded by the SAME lock as
-        # the scan counter above so "is a scan running?" and "may a scan start?"
-        # have one answer, not two that can disagree under a race.
-        self._exclusive_access: bool = False
-
-        # Per-directory scan dedup (#3455 / #4509): must live here, not on
-        # LibraryScanner, because every caller (LibraryAutoScanner._do_scan, the
-        # scan router) constructs a FRESH LibraryScanner
-        # per invocation — an instance attribute would never be shared
-        # between two overlapping scans, so the guard would only ever see
-        # its own empty set. This object is the one thing already shared
-        # across those call sites (it's what the #2438 scan-slot counter
-        # above uses for the same reason).
-        self._active_scan_paths_lock = threading.Lock()
-        self._active_scan_paths: set[str] = set()
+        # Scan slots, per-directory dedup and destructive-operation exclusion
+        # live on one coordinator (#2438, #3455, #4509, #4816). It must hang off
+        # this object, not LibraryScanner: every caller constructs a FRESH
+        # scanner per invocation, and this is the one thing they share.
+        self._scans = ScanCoordinator(lambda: self.settings.get_settings())
 
         # Clean up incomplete fingerprints from interrupted sessions (crash recovery)
         self._cleanup_incomplete_fingerprints()
@@ -244,157 +129,36 @@ class LibraryDatabase:
         info(f"Auralis library database opened: {database_path}")
 
     # ------------------------------------------------------------------
-    # Repository access
-    # ------------------------------------------------------------------
-
-    @property
-    def session_factory(self) -> Any:
-        """The SQLAlchemy sessionmaker, under the RepositoryFactory's name."""
-        return self.SessionLocal
-
-    @property
-    def tracks(self) -> TrackRepository:
-        return self.repositories.tracks
-
-    @property
-    def albums(self) -> AlbumRepository:
-        return self.repositories.albums
-
-    @property
-    def artists(self) -> ArtistRepository:
-        return self.repositories.artists
-
-    @property
-    def genres(self) -> GenreRepository:
-        return self.repositories.genres
-
-    @property
-    def playlists(self) -> PlaylistRepository:
-        return self.repositories.playlists
-
-    @property
-    def stats(self) -> StatsRepository:
-        return self.repositories.stats
-
-    @property
-    def fingerprints(self) -> FingerprintRepository:
-        return self.repositories.fingerprints
-
-    @property
-    def fingerprint_stats(self) -> FingerprintStatsRepository:
-        return self.repositories.fingerprint_stats
-
-    @property
-    def settings(self) -> SettingsRepository:
-        return self.repositories.settings
-
-    def get_session(self) -> Any:
-        """Get a new database session."""
-        return self.SessionLocal()
-
-    # ------------------------------------------------------------------
-    # Scan concurrency (#2438)
+    # Scan concurrency (#2438) -- state lives on ScanCoordinator
     # ------------------------------------------------------------------
 
     def try_acquire_scan_slot(self) -> tuple[bool, int]:
-        """
-        Atomically reserve a concurrent scan slot (#2438).
-
-        Reads max_concurrent_scans from settings on every call so that user
-        changes take effect for the next scan without a restart.
-
-        Returns:
-            (acquired, max_allowed)
-            acquired=False means the caller must not start a scan.
-        """
-        try:
-            settings = self.settings.get_settings()
-            max_scans: int = max(1, (settings.max_concurrent_scans or 1) if settings else 1)
-        except Exception:
-            max_scans = 1  # conservative fallback if settings are unavailable
-
-        with self._scan_slots_lock:
-            # A destructive reset owns the library; starting a scan now would
-            # re-insert rows the reset is deleting (#4816).
-            if self._exclusive_access:
-                return False, max_scans
-            if self._active_scans >= max_scans:
-                return False, max_scans
-            self._active_scans += 1
-            return True, max_scans
+        """Atomically reserve a concurrent scan slot; see :class:`ScanCoordinator`."""
+        return self._scans.try_acquire_scan_slot()
 
     def release_scan_slot(self) -> None:
-        """Release a slot previously acquired by try_acquire_scan_slot()."""
-        with self._scan_slots_lock:
-            self._active_scans = max(0, self._active_scans - 1)
+        """Release a slot previously acquired by :meth:`try_acquire_scan_slot`."""
+        self._scans.release_scan_slot()
 
     def try_reserve_scan_paths(self, paths: list[str]) -> list[str]:
-        """
-        Atomically reserve directory paths for an exclusive scan (#3455 / #4509).
-
-        Args:
-            paths: Normalized (os.path.normpath(os.path.abspath(...))) directory
-                paths the caller is about to scan.
-
-        Returns:
-            The subset of `paths` already reserved by another in-flight scan.
-            Empty means none clashed and all of `paths` are now reserved for
-            the caller — who must call `release_scan_paths(paths)` when done,
-            success or failure alike.
-        """
-        with self._active_scan_paths_lock:
-            clashing = [p for p in paths if p in self._active_scan_paths]
-            if clashing:
-                return clashing
-            self._active_scan_paths.update(paths)
-            return []
+        """Reserve directories for a scan; returns the ones already reserved."""
+        return self._scans.try_reserve_scan_paths(paths)
 
     def release_scan_paths(self, paths: list[str]) -> None:
-        """Release paths previously reserved by try_reserve_scan_paths()."""
-        with self._active_scan_paths_lock:
-            self._active_scan_paths.difference_update(paths)
+        """Release paths reserved by :meth:`try_reserve_scan_paths`."""
+        self._scans.release_scan_paths(paths)
 
     def try_begin_exclusive_access(self) -> bool:
-        """Atomically reserve the library for a destructive operation (#4816).
-
-        Granted only when no scan holds a slot, and while held it makes
-        ``try_acquire_scan_slot()`` refuse every new scan — so the manual-scan
-        route (``POST /api/library/scan``), the auto-scanner, and the reset
-        route all arbitrate through this one counter instead of each keeping
-        its own idea of whether a scan is in flight.
-
-        A transient manual scan is not a registered background worker, so
-        ``stop_background_workers()`` cannot pause it; without this guard a
-        confirmed reset could delete everything and then be silently undone by
-        the scan thread's next insert.
-
-        Returns:
-            True if exclusive access was granted — the caller MUST then call
-            ``end_exclusive_access()`` in a ``finally``. False means a scan is
-            active and the caller must not proceed.
-        """
-        with self._scan_slots_lock:
-            if self._exclusive_access or self._active_scans > 0:
-                return False
-            self._exclusive_access = True
-            return True
+        """Reserve the library for a destructive operation (#4816)."""
+        return self._scans.try_begin_exclusive_access()
 
     def end_exclusive_access(self) -> None:
-        """Release exclusive access taken by ``try_begin_exclusive_access()``."""
-        with self._scan_slots_lock:
-            self._exclusive_access = False
+        """Release exclusive access taken by :meth:`try_begin_exclusive_access`."""
+        self._scans.end_exclusive_access()
 
     def is_scanning(self) -> bool:
-        """True if at least one scan currently holds a slot.
-
-        Live read of the same counter try_acquire_scan_slot()/
-        release_scan_slot() maintain — used by GET /api/library/scan/status
-        so a client that reconnects mid-scan (or after one finished while it
-        was offline) can resync `isScanning` instead of relying solely on a
-        WebSocket broadcast it may have missed (#4821).
-        """
-        with self._scan_slots_lock:
-            return self._active_scans > 0
+        """True if at least one scan currently holds a slot (#4821)."""
+        return self._scans.is_scanning()
 
     # ------------------------------------------------------------------
     # Lifecycle
