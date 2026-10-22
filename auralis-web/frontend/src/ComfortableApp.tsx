@@ -213,10 +213,8 @@ function ComfortableApp() {
           <SettingsDialog
             open={settingsOpen}
             onClose={() => setSettingsOpen(false)}
-            onSettingsChange={(settings) => {
-              console.log('Settings changed:', settings);
-              success('Settings saved successfully');
-            }}
+            onSettingsChange={() => success('Settings saved successfully')}
+            onSettingsReset={() => success('Settings reset to defaults')}
           />
         </Suspense>
       </ErrorBoundary>

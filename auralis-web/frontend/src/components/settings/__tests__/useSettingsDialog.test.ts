@@ -123,3 +123,51 @@ describe('useSettingsDialog cancelled-edit reset (#5618)', () => {
     expect(onClose).toHaveBeenCalled();
   });
 });
+
+describe('useSettingsDialog save vs reset notifications (#5804)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(settingsService.getSettings).mockResolvedValue(mockSettings);
+  });
+
+  it('reports a save through onSettingsChange only', async () => {
+    const saved = { ...mockSettings, cache_size: 512 };
+    vi.mocked(settingsService.updateSettings).mockResolvedValue(saved);
+    const onSettingsChange = vi.fn();
+    const onSettingsReset = vi.fn();
+    const { result } = renderHook(() =>
+      useSettingsDialog({ open: true, onSettingsChange, onSettingsReset })
+    );
+
+    await act(async () => {});
+    act(() => result.current.handleSettingChange('cache_size', 512));
+    await act(async () => {
+      await result.current.handleSave(vi.fn());
+    });
+
+    expect(onSettingsChange).toHaveBeenCalledWith(saved);
+    expect(onSettingsReset).not.toHaveBeenCalled();
+  });
+
+  it('reports a reset through onSettingsReset, not as a save', async () => {
+    // The app used to toast "Settings saved successfully" for a reset because
+    // both went through onSettingsChange.
+    vi.mocked(settingsService.resetSettings).mockResolvedValue({
+      message: 'reset',
+      settings: mockSettings,
+    } as Awaited<ReturnType<typeof settingsService.resetSettings>>);
+    const onSettingsChange = vi.fn();
+    const onSettingsReset = vi.fn();
+    const { result } = renderHook(() =>
+      useSettingsDialog({ open: true, onSettingsChange, onSettingsReset })
+    );
+
+    await act(async () => {});
+    await act(async () => {
+      await result.current.handleReset();
+    });
+
+    expect(onSettingsReset).toHaveBeenCalledWith(mockSettings);
+    expect(onSettingsChange).not.toHaveBeenCalled();
+  });
+});

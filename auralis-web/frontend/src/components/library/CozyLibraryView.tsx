@@ -164,8 +164,6 @@ const CozyLibraryView = memo<CozyLibraryViewProps>(({
     hasSelection,
     onSelectAll: selectAll,
     onClearSelection: clearSelection,
-    onSelectAllInfo: () => {},
-    onClearSelectionInfo: () => {}
   });
 
   // ── RENDER - View Routing ──

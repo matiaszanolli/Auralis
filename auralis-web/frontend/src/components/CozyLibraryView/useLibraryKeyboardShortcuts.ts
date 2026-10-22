@@ -5,8 +5,9 @@ interface UseLibraryKeyboardShortcutsProps {
   hasSelection: boolean;
   onSelectAll: () => void;
   onClearSelection: () => void;
-  onSelectAllInfo: (message: string) => void;
-  onClearSelectionInfo: (message: string) => void;
+  /** Optional announcers: omit them rather than passing no-ops (a fresh `() => {}` each render re-subscribed the keydown listener). */
+  onSelectAllInfo?: (message: string) => void;
+  onClearSelectionInfo?: (message: string) => void;
 }
 
 /**
@@ -40,14 +41,14 @@ export const useLibraryKeyboardShortcuts = ({
       if ((event.ctrlKey || event.metaKey) && event.key === 'a' && filteredTracksCount > 0) {
         event.preventDefault();
         onSelectAll();
-        onSelectAllInfo(`Selected all ${filteredTracksCount} tracks`);
+        onSelectAllInfo?.(`Selected all ${filteredTracksCount} tracks`);
       }
 
       // Escape: Clear selection
       if (event.key === 'Escape' && hasSelection) {
         event.preventDefault();
         onClearSelection();
-        onClearSelectionInfo('Selection cleared');
+        onClearSelectionInfo?.('Selection cleared');
       }
     };
 

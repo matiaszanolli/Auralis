@@ -22,13 +22,17 @@ import { useScanProgress } from '@/hooks/library/useScanProgress';
 interface SettingsDialogProps {
   open: boolean;
   onClose: () => void;
+  /** Called after a successful save. */
   onSettingsChange?: (settings: UserSettings) => void;
+  /** Called after settings are reset to defaults (not a save, so not `onSettingsChange`). */
+  onSettingsReset?: (settings: UserSettings) => void;
 }
 
 export const SettingsDialog = ({
   open,
   onClose,
   onSettingsChange,
+  onSettingsReset,
 }: SettingsDialogProps) => {
   const [activeTab, setActiveTab] = useState(0);
 
@@ -46,7 +50,7 @@ export const SettingsDialog = ({
     handleScanNow,
     getValue,
     error,
-  } = useSettingsDialog({ open, onSettingsChange });
+  } = useSettingsDialog({ open, onSettingsChange, onSettingsReset });
 
   const { isScanning } = useScanProgress();
 

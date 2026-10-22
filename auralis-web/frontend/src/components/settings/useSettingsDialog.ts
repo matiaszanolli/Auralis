@@ -5,6 +5,7 @@ import { getElectronAPI } from '@/utils/electron';
 export interface UseSettingsDialogProps {
   open: boolean;
   onSettingsChange?: (settings: UserSettings) => void;
+  onSettingsReset?: (settings: UserSettings) => void;
 }
 
 /**
@@ -18,7 +19,7 @@ export interface UseSettingsDialogProps {
  * - Folder operations (add, remove with confirm state)
  * - Triggering an immediate library scan
  */
-export const useSettingsDialog = ({ open, onSettingsChange }: UseSettingsDialogProps) => {
+export const useSettingsDialog = ({ open, onSettingsChange, onSettingsReset }: UseSettingsDialogProps) => {
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [pendingChanges, setPendingChanges] = useState<SettingsUpdate>({});
@@ -92,12 +93,12 @@ export const useSettingsDialog = ({ open, onSettingsChange }: UseSettingsDialogP
       const result = await settingsService.resetSettings();
       setSettings(result.settings);
       setPendingChanges({});
-      onSettingsChange?.(result.settings);
+      onSettingsReset?.(result.settings);
     } catch (err) {
       console.error('Failed to reset settings:', err);
       setError('Failed to reset settings');
     }
-  }, [onSettingsChange]);
+  }, [onSettingsReset]);
 
   const handleAddScanFolder = useCallback(async () => {
     let folder: string | null = null;

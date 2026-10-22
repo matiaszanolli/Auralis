@@ -69,7 +69,7 @@ export const AlbumCharacterPane = ({
   showPlayingTrack = true,
 }: AlbumCharacterPaneProps) => {
   // Enhancement state from unified hook (eliminates prop drilling, fixes #2765)
-  const { enabled: isEnhancementEnabled, setEnabled: onEnhancementToggle } = useEnhancementControl();
+  const { enabled: isEnhancementEnabled, setEnabled } = useEnhancementControl();
 
   // Get playback state from Redux
   const isPlayingRaw = useSelector(playerSelectors.selectIsPlaying);
@@ -158,7 +158,7 @@ export const AlbumCharacterPane = ({
       <EnhancementToggle
         variant="switch"
         isEnabled={isEnhancementEnabled}
-        onToggle={onEnhancementToggle ?? (() => {})}
+        onToggle={setEnabled}
         label="Auto-Mastering"
         description={isEnhancementEnabled ? 'Enhancing playback' : 'Original audio'}
         showDescription
