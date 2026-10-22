@@ -39,6 +39,17 @@ from ws_handlers.playback_commands import (  # noqa: E402
 )
 
 
+@pytest.fixture(autouse=True)
+def _several_valid_presets(monkeypatch):
+    """The precedence rule is about WHICH SOURCE wins, which is only observable
+    when more than one value is valid. VALID_PRESETS has been narrowed to
+    ['adaptive'] (2026-09-13), so these tests inject a wider set into the resolver
+    instead of depending on the product's current preset menu."""
+    monkeypatch.setattr(
+        playback_commands, "VALID_PRESETS", ["adaptive", "gentle", "warm", "bright", "punchy"]
+    )
+
+
 def _ws():
     websocket = MagicMock()
     websocket.send_text = AsyncMock()
