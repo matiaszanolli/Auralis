@@ -182,7 +182,13 @@ class LoudnessMeter:
             # of 1.0 per channel (correct for mono and L/R stereo). Surround
             # channels would need the 1.41 weight and LFE exclusion, which
             # needs layout metadata; callers must downmix those first (#5550).
-            mean_square = float(np.sum(np.mean(k_weighted_audio**2, axis=0)))
+            # Summed channel by channel, in this order, exactly as the stereo-only
+            # version did: np.mean(..., axis=0) over the whole array accumulates in a
+            # different order, and the last-bit difference is enough to flip blocks
+            # sitting on the relative gate (test_loudness_integrated_regression).
+            mean_square = sum(
+                np.mean(k_weighted_audio[:, ch] ** 2) for ch in range(k_weighted_audio.shape[1])
+            )
 
         # Convert to LUFS
         if mean_square > 0:
