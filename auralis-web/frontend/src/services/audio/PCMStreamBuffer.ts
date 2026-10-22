@@ -10,6 +10,8 @@
  * @license AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
  */
 
+import { MAX_CAPACITY_BYTES, MIN_CAPACITY_BYTES, capacityForStream, readRing, writeRing } from './pcmRingOps';
+
 export interface BufferMetadata {
   sampleRate: number;
   channels: number;
@@ -40,9 +42,9 @@ export interface BufferMetadata {
  */
 export class PCMStreamBuffer {
   /** Ceiling: ~5 minutes @ 44.1kHz stereo. Long tracks cap here like before. */
-  static readonly MAX_CAPACITY_BYTES = 100 * 1024 * 1024;
+  static readonly MAX_CAPACITY_BYTES = MAX_CAPACITY_BYTES;
   /** Floor: ~2.7s @ 48kHz stereo, so tiny clips keep some headroom. */
-  static readonly MIN_CAPACITY_BYTES = 1024 * 1024;
+  static readonly MIN_CAPACITY_BYTES = MIN_CAPACITY_BYTES;
 
   private buffer: Float32Array | null = null;
   private writePos: number = 0;
@@ -66,27 +68,8 @@ export class PCMStreamBuffer {
     this.capacity = capacity;
   }
 
-  /**
-   * Size a buffer for a stream of the given length (#5663).
-   *
-   * 50% slack above the stream's own bytes keeps the percentage-based flow
-   * control (75% pause / 50% resume of capacity) from pausing delivery for a
-   * track that fits whole, and absorbs chunks still in flight around a
-   * buffer_full; the 100MB cap and 1MB floor bound both ends. A 30s clip
-   * allocates ~13MB instead of 100MB.
-   */
-  static capacityForStream(
-    durationSeconds: number,
-    sampleRate: number,
-    channels: number
-  ): number {
-    const streamBytes = Math.max(durationSeconds, 0) * sampleRate * channels * 4;
-    const withSlack = streamBytes + streamBytes / 2;
-    return Math.min(
-      PCMStreamBuffer.MAX_CAPACITY_BYTES,
-      Math.max(withSlack, PCMStreamBuffer.MIN_CAPACITY_BYTES)
-    );
-  }
+  /** Size a buffer for a stream of the given length (#5663); see pcmRingOps.capacityForStream. */
+  static capacityForStream = capacityForStream;
 
   /**
    * Initialize buffer with audio parameters
@@ -160,19 +143,8 @@ export class PCMStreamBuffer {
       return new Float32Array(0);
     }
 
-    const result = new Float32Array(toRead);
     const bufferCapacity = this.buffer.length;
-
-    // Handle wrap-around case
-    if (this.readPos + toRead <= bufferCapacity) {
-      // Simple case: no wrap-around
-      result.set(this.buffer.subarray(this.readPos, this.readPos + toRead));
-    } else {
-      // Wrap-around case
-      const firstPart = bufferCapacity - this.readPos;
-      result.set(this.buffer.subarray(this.readPos, bufferCapacity), 0);
-      result.set(this.buffer.subarray(0, toRead - firstPart), firstPart);
-    }
+    const result = readRing(this.buffer, this.readPos, toRead);
 
     // Advance read position
     this.readPos = (this.readPos + toRead) % bufferCapacity;
@@ -294,16 +266,7 @@ export class PCMStreamBuffer {
       return;
     }
 
-    // Handle wrap-around
-    if (this.writePos + sampleCount <= bufferCapacity) {
-      // Simple case: no wrap-around
-      this.buffer.set(pcm, this.writePos);
-    } else {
-      // Wrap-around case
-      const firstPart = bufferCapacity - this.writePos;
-      this.buffer.set(pcm.subarray(0, firstPart), this.writePos);
-      this.buffer.set(pcm.subarray(firstPart), 0);
-    }
+    writeRing(this.buffer, this.writePos, pcm);
 
     // Advance write position
     this.writePos = (this.writePos + sampleCount) % bufferCapacity;
