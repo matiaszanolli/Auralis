@@ -228,10 +228,11 @@ class TestScannerCarriesFailuresUp:
         )
 
     def test_scanner_respects_the_cap_when_aggregating(self, monkeypatch):
-        import auralis.library.scanner.scanner as scanner_module
+        import auralis.library.scanner.scan_stages as stages_module
         from auralis.library.scanner.scanner import LibraryScanner
 
-        monkeypatch.setattr(scanner_module, 'MAX_RECORDED_FAILURES', 3)
+        # The batch aggregation lives in scan_stages.BatchFeeder (#5837).
+        monkeypatch.setattr(stages_module, 'MAX_RECORDED_FAILURES', 3)
 
         library_database = MagicMock()
         library_database.try_acquire_scan_slot.return_value = (True, 1)
