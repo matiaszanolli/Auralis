@@ -24,6 +24,8 @@ import numpy as np
 from scipy.signal import find_peaks, sosfiltfilt, tf2sos
 from scipy.signal.windows import hann
 
+from ...dsp.utils.audio_info import to_mono
+
 # PSD analysis window anchored in TIME, not samples (#4030). A fixed 16384-sample
 # window gave sample-rate-dependent frequency resolution (~1.35 Hz/bin at 22 kHz
 # vs ~5.9 Hz/bin at 96 kHz). 0.37 s reproduces the historical N=16384 at 44.1 kHz
@@ -41,7 +43,7 @@ class Notch:
     @property
     def gain_linear(self) -> float:
         """Linear gain to apply at the notch frequency (< 1.0)."""
-        return 10.0 ** (self.depth_db / 20.0)
+        return float(10.0 ** (self.depth_db / 20.0))
 
 
 class ResonanceNotcher:
@@ -78,15 +80,8 @@ class ResonanceNotcher:
             List of Notch objects, sorted by descending prominence.
         """
         # Reduce to mono (analysis only — we don't return modified audio here)
-        if audio.ndim == 2:
-            # Could be (channels, samples) or (samples, channels). Take whichever
-            # axis has 2 and average across it.
-            if audio.shape[0] == 2:
-                mono = audio.mean(axis=0)
-            else:
-                mono = audio.mean(axis=1)
-        else:
-            mono = audio
+        # Callers hand over (samples, channels) or a 1-D mono signal.
+        mono = to_mono(audio)
 
         # Welch-style averaged PSD. Window size scales with the sample rate so
         # the frequency resolution stays ~constant (#4030); next power of two for

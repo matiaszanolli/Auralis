@@ -18,6 +18,7 @@ from typing import Any
 import numpy as np
 
 from auralis.analysis.fingerprint.rust_fingerprint import compute_fingerprint_schema
+from auralis.dsp.utils.audio_info import ChannelLayout, to_mono
 
 logger = logging.getLogger(__name__)
 
@@ -147,8 +148,10 @@ class AudioFingerprintAnalyzer:
                     left, right = audio[:, 0], audio[:, 1]
                 else:
                     # >2 channels or a singleton axis — downmix to mono.
-                    mono_axis = 0 if audio.shape[0] < audio.shape[-1] else -1
-                    mono = np.ascontiguousarray(np.mean(audio, axis=mono_axis), dtype=np.float32)
+                    # This entry point accepts either layout (hence the shape
+                    # heuristic); the reduction itself is the shared to_mono().
+                    layout: ChannelLayout = 'channels_samples' if audio.shape[0] < audio.shape[-1] else 'samples_channels'
+                    mono = np.ascontiguousarray(to_mono(audio, layout), dtype=np.float32)
                     return compute_fingerprint_schema(mono, sr, 1)
                 interleaved = np.empty(len(left) * 2, dtype=np.float32)
                 interleaved[0::2] = left

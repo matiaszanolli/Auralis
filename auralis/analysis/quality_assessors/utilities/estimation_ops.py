@@ -14,6 +14,8 @@ to ensure consistency and reduce code duplication.
 
 import numpy as np
 
+from ....dsp.utils.audio_info import to_mono
+
 
 class EstimationOperations:
     """Common signal estimation patterns"""
@@ -35,10 +37,7 @@ class EstimationOperations:
         Returns:
             Estimated THD as ratio (0-1)
         """
-        if audio.ndim == 2:
-            audio_mono = np.mean(audio, axis=1)
-        else:
-            audio_mono = audio
+        audio_mono = to_mono(audio)
 
         # Use middle section for analysis (avoid silence at start/end)
         mid_start = len(audio_mono) // 4
@@ -130,10 +129,7 @@ class EstimationOperations:
         Returns:
             Noise floor in dB
         """
-        if audio.ndim == 2:
-            audio_mono = np.mean(audio, axis=1)
-        else:
-            audio_mono = audio
+        audio_mono = to_mono(audio)
 
         # Find quiet sections (bottom percentile by amplitude)
         sorted_abs = np.sort(np.abs(audio_mono))
@@ -204,10 +200,7 @@ class EstimationOperations:
         if sr is None:
             sr = 44100
 
-        if audio.ndim == 2:
-            audio_mono = np.mean(audio, axis=1)
-        else:
-            audio_mono = audio
+        audio_mono = to_mono(audio)
 
         # Frame audio
         frame_size = int(sr * frame_duration)
@@ -356,10 +349,7 @@ class EstimationOperations:
         Returns:
             Tuple of (frequency_hz, fft_bin_index)
         """
-        if audio.ndim == 2:
-            audio_mono = np.mean(audio, axis=1)
-        else:
-            audio_mono = audio
+        audio_mono = to_mono(audio)
 
         # Use middle section
         mid_start = len(audio_mono) // 4

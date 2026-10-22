@@ -16,7 +16,7 @@ pure once-per-file setup, run before the chunked processing loop
 
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import soundfile as sf
@@ -24,6 +24,7 @@ import soundfile as sf
 from . import mastering_diagnostics
 from .dsp import ResonanceNotcher
 from .mastering_notch_context import contextualize_notches
+from ..dsp.utils.audio_info import to_mono
 
 if TYPE_CHECKING:
     from .simple_mastering import SimpleMasteringPipeline
@@ -64,7 +65,7 @@ def measure_window_loudness(
         if not np.isfinite(lufs):
             return None, None
 
-        mono = np.mean(window, axis=1) if window.ndim == 2 else window
+        mono = to_mono(window)
         rms = float(np.sqrt(np.mean(mono.astype(np.float64) ** 2)))
         peak = float(np.max(np.abs(mono)))
         crest = (20.0 * np.log10(peak / rms)) if rms > 1e-9 and peak > 0 else None
@@ -79,7 +80,7 @@ def prepare_file(
     input_path: Path,
     output_path: str,
     verbose: bool,
-) -> dict:
+) -> dict[str, Any]:
     """
     Run once-per-file setup: fingerprint, metadata, resonance-notch
     detection + band-context scaling, accurate loudness measurement, and a

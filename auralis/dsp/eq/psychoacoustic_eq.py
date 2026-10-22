@@ -25,6 +25,7 @@ from .critical_bands import (
 from .curves import apply_content_adaptation
 from .filters import apply_eq_gains
 from .masking import MaskingThresholdCalculator
+from ..utils.audio_info import to_mono
 
 # Use vectorized EQ processor for 1.7x speedup
 try:
@@ -150,11 +151,7 @@ class PsychoacousticEQ:
                 - masking_thresholds: Masking thresholds per band
                 - spectrum: Complex spectrum
         """
-        if audio_chunk.ndim == 2:
-            # Convert stereo to mono for analysis
-            audio_mono = np.mean(audio_chunk, axis=1)
-        else:
-            audio_mono = audio_chunk
+        audio_mono = to_mono(audio_chunk)
 
         # Ensure we have enough samples
         if len(audio_mono) < self.fft_size:

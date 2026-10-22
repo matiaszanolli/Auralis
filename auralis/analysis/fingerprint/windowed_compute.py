@@ -38,6 +38,7 @@ from typing import Any
 import numpy as np
 
 from .audio_fingerprint_analyzer import sanitize_non_finite
+from ...dsp.utils.audio_info import to_mono
 
 logger = logging.getLogger(__name__)
 
@@ -313,7 +314,7 @@ def compute_windowed_fingerprint(
             if '_probe_audios' in dir() and _probe_audios and fingerprint:
                 def _rms_lufs_crest(a: np.ndarray) -> tuple[float, float]:
                     """Return (lufs_approx, crest_db) from a mono/stereo array."""
-                    mono = np.mean(a, axis=0) if a.ndim == 2 else a
+                    mono = to_mono(a, 'channels_samples')  # librosa layout: (channels, samples)
                     rms = float(np.sqrt(np.mean(mono.astype(np.float64) ** 2)))
                     if rms < 1e-9:
                         return -70.0, 0.0

@@ -18,6 +18,8 @@ from typing import Any
 import numpy as np
 from scipy.signal.windows import hann
 
+from ...dsp.utils.audio_info import to_mono
+
 
 class BaseAssessor(ABC):
     """Abstract base class for quality assessors"""
@@ -86,20 +88,6 @@ class BaseAssessor(ABC):
 
         return audio
 
-    def _to_mono(self, audio_data: np.ndarray) -> np.ndarray:
-        """
-        Convert stereo audio to mono
-
-        Args:
-            audio_data: Audio data (mono or stereo)
-
-        Returns:
-            Mono audio array
-        """
-        if audio_data.ndim == 2:
-            return np.mean(audio_data, axis=1)  # type: ignore[no-any-return]
-        return audio_data
-
     def _get_stereo_channels(self, audio_data: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """
         Extract left and right channels from stereo audio
@@ -161,10 +149,7 @@ class BaseAssessor(ABC):
         Returns:
             Array of RMS values
         """
-        if audio_data.ndim == 2:
-            audio_mono = np.mean(audio_data, axis=1)
-        else:
-            audio_mono = audio_data
+        audio_mono = to_mono(audio_data)
 
         frame_size = int(sr * frame_duration)
         if frame_size < 1:
@@ -192,10 +177,7 @@ class BaseAssessor(ABC):
         Returns:
             Tuple of (frequencies, magnitudes, magnitude_db)
         """
-        if audio_data.ndim == 2:
-            audio_mono = np.mean(audio_data, axis=1)
-        else:
-            audio_mono = audio_data
+        audio_mono = to_mono(audio_data)
 
         # Use middle section for analysis
         mid_start = len(audio_mono) // 4

@@ -19,6 +19,7 @@ from ...dsp.utils.adaptive import calculate_loudness_units
 from ...dsp.utils.spectral import crest_factor, spectral_centroid, spectral_rolloff, tempo_estimate, zero_crossing_rate
 from ...dsp.utils.stereo import stereo_width_analysis
 from ...utils.logging import debug
+from ...dsp.utils.audio_info import to_mono
 
 
 class ContentAnalyzer:
@@ -77,11 +78,7 @@ class ContentAnalyzer:
         """
         debug("Analyzing audio content for adaptive processing")
 
-        if audio.ndim == 2:
-            # Convert stereo to mono for analysis
-            mono_audio = np.mean(audio, axis=1)
-        else:
-            mono_audio = audio
+        mono_audio = to_mono(audio)
 
         # Basic audio features
         rms_value = rms(audio)
@@ -275,10 +272,7 @@ class ContentAnalyzer:
         """Rule-based genre classification (fallback method)"""
 
         # Convert to mono for analysis
-        if audio.ndim == 2:
-            mono_audio = np.mean(audio, axis=1)
-        else:
-            mono_audio = audio
+        mono_audio = to_mono(audio)
 
         # Extract basic features
         centroid = spectral_centroid(mono_audio, self.sample_rate)

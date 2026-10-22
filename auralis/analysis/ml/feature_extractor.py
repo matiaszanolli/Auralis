@@ -23,6 +23,7 @@ from ...dsp.utils import create_mel_triangular_filters
 from ...utils.logging import debug
 from ..fingerprint.metrics import SafeOperations
 from .features import AudioFeatures
+from ...dsp.utils.audio_info import to_mono
 
 
 class FeatureExtractor:
@@ -59,10 +60,7 @@ class FeatureExtractor:
         # The codebase convention is (channels, samples), so axis=0 averages
         # across channels and produces the expected (n_samples,) mono signal.
         # axis=1 would average across samples, yielding only a 2-element array (#2452).
-        if audio.ndim == 2:
-            mono_audio = np.mean(audio, axis=0)
-        else:
-            mono_audio = audio
+        mono_audio = to_mono(audio, 'channels_samples')
 
         # Ensure minimum length
         if len(mono_audio) < self.sample_rate:
