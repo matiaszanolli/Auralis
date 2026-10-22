@@ -124,29 +124,18 @@ class AudioPlayer(
         self._auto_advancing = threading.Event()
         self._advance_generation = 0  # Monotonic counter for compare-and-clear (#3350)
         self._stop_requested = threading.Event()  # Prevents auto-advance after stop() (#3296)
-        # #5240: mirrors `_stop_requested` for the equivalent pause-race window.
-        # next_track()/previous_track() capture `was_playing` before a blocking
-        # track transition, then unconditionally resume via `playback.play()`
-        # afterward. `_stop_requested` lets that resume be overridden by a
-        # concurrent stop() — but pause() had no equivalent signal, so a user
-        # pausing mid-transition was silently overridden back to PLAYING. Set
-        # in pause(), cleared in play(), checked (like _stop_requested) both
-        # before attempting the resume and again immediately after.
+        # #5240: the pause analogue of `_stop_requested`. next_track()/
+        # previous_track() resume playback after a blocking transition; this
+        # lets a pause() issued mid-transition override that resume. Set in
+        # pause(), cleared in play(), checked before and after the resume.
         self._pause_requested = threading.Event()
-        # #3694: hold a reference to the most recently spawned auto-advance
-        # thread so cleanup() can join it. Without this, an in-flight advance
-        # thread that has already passed its _stop_requested check can call
-        # load_file() *after* cleanup() returns, leaving audio_data non-None
-        # post-teardown (test flakiness; benign in Electron production where
-        # the process exits immediately after cleanup).
+        # #3694: the most recently spawned auto-advance thread, so cleanup()
+        # can join it (an in-flight advance past its _stop_requested check
+        # could otherwise call load_file() after cleanup() returns).
         self._advance_thread: threading.Thread | None = None
-        # #3727: covers the timeout path of #3694. cleanup() sets this
-        # before the join; _auto_advance_next() checks it after the
-        # is_playing() guard so a thread that gets past the
-        # _stop_requested check (timeout window in cleanup) still aborts
-        # before invoking next_track() and the subsequent audio_data
-        # swap. Without this, a 2 s join timeout on slow I/O could
-        # leave audio_data non-None after cleanup() returns.
+        # #3727: set by cleanup() before the join; _auto_advance_next() checks
+        # it so a thread that outlives the join timeout still aborts before
+        # swapping audio_data.
         self._cleanup_in_progress = threading.Event()
 
         info("Enhanced AudioPlayer initialized (refactored architecture, RepositoryFactory support enabled, fingerprinting enabled)")
@@ -173,19 +162,13 @@ class AudioPlayer(
 
     def pause(self) -> bool:
         """Pause playback"""
-        # #5240: mirrors `_stop_requested.set()` in stop() — records that the
-        # user explicitly requested a pause, so a resume already in flight
-        # (next_track()/previous_track()) can detect and honor it instead of
-        # silently overriding it back to PLAYING.
-        #
-        # #5588: set the flag BEFORE the transition, mirroring stop()'s
-        # flag-then-transition order. The reverse order raced a concurrent
-        # play(): T1 pause() transitions, T2 play() transitions and clears
-        # the flag, T1 then set()s it — leaving PLAYING with the flag armed,
-        # so the next track boundary paused though the user last pressed
-        # play. With set-first, play()'s clear after its own transition wins
-        # every interleaving; a pause() that fails (not playing) clears the
-        # speculative set so a stale flag cannot persist.
+        # #5240: record the explicit pause so an in-flight resume
+        # (next_track()/previous_track()) honors it.
+        # #5588: set the flag BEFORE the transition, like stop(): the reverse
+        # order raced a concurrent play() (T1 pause() transitions, T2 play()
+        # transitions and clears, T1 then sets) and left PLAYING with the flag
+        # armed. With set-first, play()'s clear wins every interleaving; a
+        # pause() that fails clears the speculative set.
         self._pause_requested.set()
         paused = self.playback.pause()
         if not paused:

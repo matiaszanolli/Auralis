@@ -161,6 +161,11 @@ jobs:
       - name: Check for new zero-assertion tests
         run: python scripts/check_weak_assertions.py --zero
 
+      # Split targets that were closed under 300 lines and kept regrowing
+      # (#5830); loc-ceilings.json holds the line count each may not exceed.
+      - name: Check split targets did not regrow
+        run: python scripts/check_loc_ratchet.py
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
