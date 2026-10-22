@@ -32,8 +32,8 @@ export interface PlayerDisplayInfo {
   fullTimeWithRemaining: string; // e.g., "1:30 / 3:45 (-2:15)"
 }
 
-// Use the shared formatDuration (shows hours when > 0) as formatTime
-const formatTime = (seconds: number, _showHours = false): string => formatDuration(seconds);
+// The shared formatDuration shows hours only when there are some.
+const formatTime = formatDuration;
 
 /**
  * Configuration for display hook
@@ -60,12 +60,6 @@ export interface UsePlayerDisplayConfig {
    * Default: 0
    */
   bufferedPercentage?: number;
-
-  /**
-   * Show hours in time display even if 0
-   * Default: false (only show h:mm:ss if duration > 1 hour)
-   */
-  forceShowHours?: boolean;
 }
 
 /**
@@ -98,16 +92,15 @@ export function usePlayerDisplay({
   duration,
   isPlaying = false,
   bufferedPercentage = 0,
-  forceShowHours = false,
 }: UsePlayerDisplayConfig): PlayerDisplayInfo {
   // Format time strings
   const currentTimeStr = useMemo(() => {
-    return formatTime(currentTime, forceShowHours || duration >= 3600);
-  }, [currentTime, forceShowHours, duration]);
+    return formatTime(currentTime);
+  }, [currentTime]);
 
   const durationStr = useMemo(() => {
-    return formatTime(duration, forceShowHours || duration >= 3600);
-  }, [duration, forceShowHours]);
+    return formatTime(duration);
+  }, [duration]);
 
   // Calculate progress percentage
   const progressPercentage = useMemo(() => {
@@ -131,8 +124,8 @@ export function usePlayerDisplay({
     if (remaining <= 0) {
       return '0:00';
     }
-    return `-${formatTime(remaining, forceShowHours || duration >= 3600)}`;
-  }, [timeRemaining, forceShowHours, duration]);
+    return `-${formatTime(remaining)}`;
+  }, [timeRemaining]);
 
   // Buffered percentage string
   const bufferedPercentageStr = useMemo(() => {
@@ -189,8 +182,8 @@ export function usePlayerDisplay({
  * const timeStr = formatSecondToTime(125);  // "2:05"
  * ```
  */
-export function formatSecondToTime(seconds: number, showHours = false): string {
-  return formatTime(seconds, showHours);
+export function formatSecondToTime(seconds: number): string {
+  return formatTime(seconds);
 }
 
 export default usePlayerDisplay;

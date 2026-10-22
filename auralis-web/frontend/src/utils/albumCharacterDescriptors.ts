@@ -204,7 +204,7 @@ function analyzeEnergyTags(fp: AudioFingerprint): CharacterTag[] {
 /**
  * Generate textual description from fingerprint
  */
-function generateDescription(fp: AudioFingerprint, _tags: CharacterTag[]): string {
+function generateDescription(fp: AudioFingerprint): string {
   const energy = analyzeEnergy(fp);
   const stereoWidth = fp.stereo_width;
 
@@ -365,7 +365,7 @@ export function computeAlbumCharacter(fingerprint: AudioFingerprint): AlbumChara
   const energyLevel = analyzeEnergy(fingerprint);
 
   // Generate description
-  const description = generateDescription(fingerprint, selectedTags);
+  const description = generateDescription(fingerprint);
 
   // Generate rotating descriptions for playback mode
   const rotatingDescriptions = generateRotatingDescriptions(fingerprint);

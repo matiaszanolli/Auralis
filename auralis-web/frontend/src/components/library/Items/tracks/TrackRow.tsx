@@ -64,7 +64,7 @@ const TrackRowComponent = ({
   onDelete,
 }: TrackRowProps) => {
   // Image state management
-  const { imageError: _imageError, handleImageError, shouldShowImage } = useTrackImage();
+  const { handleImageError, shouldShowImage } = useTrackImage();
 
   // Play/pause and row click handlers
   const { handlePlayClick, handleRowClick, handleRowDoubleClick } =

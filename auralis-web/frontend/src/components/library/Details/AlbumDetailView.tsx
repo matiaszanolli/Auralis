@@ -49,7 +49,7 @@ export const AlbumDetailView = ({
   const { fingerprint, isLoading: fingerprintLoading } = useAlbumFingerprint(albumId);
 
   // Phase 4: Extract artwork colors for theming
-  const { palette: _palette, gradient, glow } = useArtworkPalette(albumId, !loading && !error);
+  const { gradient, glow } = useArtworkPalette(albumId, !loading && !error);
 
   // Phase 5: Similar tracks modal state
   const [similarTracksModalOpen, setSimilarTracksModalOpen] = useState(false);

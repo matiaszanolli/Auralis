@@ -51,7 +51,7 @@ export const ProgressBar = ({
 
   // Format hover time
   const hoverTimeStr = useMemo(() => {
-    return formatSecondToTime(hoverPosition, duration >= 3600);
+    return formatSecondToTime(hoverPosition);
   }, [hoverPosition, duration]);
 
   // Aria labels and values
@@ -63,7 +63,7 @@ export const ProgressBar = ({
   }, [ariaLabel]);
 
   const ariaValueText = useMemo(() => {
-    return `${formatSecondToTime(currentTime, duration >= 3600)} of ${formatSecondToTime(duration, duration >= 3600)}`;
+    return `${formatSecondToTime(currentTime)} of ${formatSecondToTime(duration)}`;
   }, [currentTime, duration]);
 
   return (
@@ -73,7 +73,7 @@ export const ProgressBar = ({
           urgent interruption; assertive should be reserved for errors. */}
       <div aria-live="polite" aria-atomic="true" style={pbs.srOnly}>
         {liveSeekTime !== null
-          ? `Seeking to ${formatSecondToTime(liveSeekTime, duration >= 3600)}`
+          ? `Seeking to ${formatSecondToTime(liveSeekTime)}`
           : ''}
       </div>
 

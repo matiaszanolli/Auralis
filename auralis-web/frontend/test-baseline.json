@@ -1,8 +1,8 @@
 {
-  "_comment": "Known-failing vitest specs (#4640). CI fails on any failure NOT listed here. Regenerate with: pnpm run test:baseline:update #5811 hand-removed two entries for a describe block (usePlayer) that #5354 deleted; --strict-stale cannot see tests that no longer exist.",
+  "_comment": "Known-failing vitest specs (#4640). CI fails on any failure NOT listed here. Regenerate with: pnpm run test:baseline:update #5811 hand-removed two entries for a describe block (usePlayer) that #5354 deleted; --strict-stale cannot see tests that no longer exist. #5822 hand-removed two entries for usePlayerDisplay tests of the deleted forceShowHours/showHours flag.",
   "generatedFrom": {
     "totalTests": 3349,
-    "failedTests": 101
+    "failedTests": 97
   },
   "failures": [
     "src/components/__tests__/Sidebar.test.tsx::Sidebar renders in collapsed state",
@@ -100,9 +100,7 @@
     "src/hooks/player/__tests__/usePlaybackQueue.test.ts::usePlaybackQueue should provide view-only queue access",
     "src/hooks/player/__tests__/usePlayerDisplay.test.ts::usePlayerDisplay Hook Edge Cases should handle NaN values",
     "src/hooks/player/__tests__/usePlayerDisplay.test.ts::usePlayerDisplay Hook Edge Cases should handle negative currentTime",
-    "src/hooks/player/__tests__/usePlayerDisplay.test.ts::usePlayerDisplay Hook Long Duration Formatting should force show hours when requested",
     "src/hooks/player/__tests__/usePlayerDisplay.test.ts::usePlayerDisplay Hook Realistic Scenarios should handle podcast playback (multi-hour)",
-    "src/hooks/player/__tests__/usePlayerDisplay.test.ts::usePlayerDisplay Hook Utility Functions should format with hours when requested",
     "src/hooks/shared/__tests__/useReduxState.test.tsx::Redux State Hooks State Selectors usePlayerState should return player slice"
   ]
 }

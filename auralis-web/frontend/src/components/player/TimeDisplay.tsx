@@ -66,7 +66,7 @@ export const TimeDisplay = ({
 
   // Format current time
   const currentTimeStr = useMemo(() => {
-    return formatSecondToTime(currentTime, duration >= 3600);
+    return formatSecondToTime(currentTime);
   }, [currentTime, duration]);
 
   // Calculate and format duration or remaining time
@@ -77,10 +77,10 @@ export const TimeDisplay = ({
 
     if (showRemaining) {
       const remaining = Math.max(0, duration - currentTime);
-      return `-${formatSecondToTime(remaining, duration >= 3600)}`;
+      return `-${formatSecondToTime(remaining)}`;
     }
 
-    return formatSecondToTime(duration, duration >= 3600);
+    return formatSecondToTime(duration);
   }, [duration, currentTime, showRemaining, isLiveContent]);
 
   // Full display string

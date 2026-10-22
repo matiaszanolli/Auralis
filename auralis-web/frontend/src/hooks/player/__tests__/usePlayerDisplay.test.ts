@@ -109,19 +109,6 @@ describe('usePlayerDisplay Hook', () => {
       expect(result.current.durationStr).toBe('3:00:00');
     });
 
-    it('should force show hours when requested', () => {
-      const { result } = renderHook(() =>
-        usePlayerDisplay({
-          currentTime: 90, // 1:30
-          duration: 225, // 3:45
-          forceShowHours: true,
-        })
-      );
-
-      expect(result.current.currentTimeStr).toBe('0:01:30');
-      expect(result.current.durationStr).toBe('0:03:45');
-    });
-
     it('should auto-enable hours for durations >= 1 hour', () => {
       const { result } = renderHook(() =>
         usePlayerDisplay({
@@ -471,9 +458,8 @@ describe('usePlayerDisplay Hook', () => {
       expect(formatSecondToTime(5)).toBe('0:05');
     });
 
-    it('should format with hours when requested', () => {
-      expect(formatSecondToTime(3661, true)).toBe('1:01:01');
-      expect(formatSecondToTime(90, true)).toBe('0:01:30');
+    it('should include hours from an hour up', () => {
+      expect(formatSecondToTime(3661)).toBe('1:01:01');
     });
 
   });
