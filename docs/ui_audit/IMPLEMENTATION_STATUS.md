@@ -201,7 +201,7 @@ CozyLibraryView (390 lines) - Orchestrator
 - `LoadingState.tsx` (48 lines) - Analyzing state with animation
 - `EmptyState.tsx` (48 lines) - No track loaded state
 - `InfoBox.tsx` (42 lines) - Information panel
-- `ParameterChip.tsx` (36 lines) - Reusable chip component
+- *ParameterChip.tsx* (36 lines) - Reusable chip component
 - `index.ts` (17 lines) - Public API
 
 **Achievements**:
