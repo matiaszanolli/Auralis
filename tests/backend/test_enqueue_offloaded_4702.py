@@ -118,7 +118,7 @@ class TestTheKnownCallSitesAreCovered:
             p.name for p in _router_modules() if any(_enqueue_references(p))
         }
         assert "fingerprint_status.py" in with_calls
-        assert "library_scan.py" in with_calls
+        assert "library_scan_events.py" in with_calls
         assert "fingerprint_queue.py" in with_calls
 
     def test_offloaded_sites_use_await(self):

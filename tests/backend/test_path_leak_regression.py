@@ -124,8 +124,8 @@ class TestMetadata404DetailSanitisation:
         repos = self._make_repos(abs_path)
 
         with (
-            patch("routers.metadata.require_repository_factory", return_value=repos),
-            patch("routers.metadata.validate_file_path", side_effect=FileNotFoundError(
+            patch("routers.dependencies.require_repository_factory", return_value=repos),
+            patch("routers.metadata_deps.validate_file_path", side_effect=FileNotFoundError(
                 f"[Errno 2] No such file or directory: '{abs_path}'"
             )),
         ):
@@ -148,8 +148,8 @@ class TestMetadata404DetailSanitisation:
         repos = self._make_repos(abs_path)
 
         with (
-            patch("routers.metadata.require_repository_factory", return_value=repos),
-            patch("routers.metadata.validate_file_path", side_effect=FileNotFoundError(
+            patch("routers.dependencies.require_repository_factory", return_value=repos),
+            patch("routers.metadata_deps.validate_file_path", side_effect=FileNotFoundError(
                 f"[Errno 2] No such file or directory: '{abs_path}'"
             )),
         ):
@@ -171,8 +171,8 @@ class TestMetadata404DetailSanitisation:
         repos = self._make_repos(abs_path)
 
         with (
-            patch("routers.metadata.require_repository_factory", return_value=repos),
-            patch("routers.metadata.validate_file_path", side_effect=FileNotFoundError(
+            patch("routers.dependencies.require_repository_factory", return_value=repos),
+            patch("routers.metadata_deps.validate_file_path", side_effect=FileNotFoundError(
                 f"[Errno 2] No such file or directory: '{abs_path}'"
             )),
         ):
@@ -219,8 +219,8 @@ class TestPathValidationErrorRouteSanitisation:
         repos = _make_metadata_repos("/home/alice/private/music/secret.flac")
 
         with (
-            patch("routers.metadata.require_repository_factory", return_value=repos),
-            patch("routers.metadata.validate_file_path", side_effect=PathValidationError(_BAIT_MESSAGE)),
+            patch("routers.dependencies.require_repository_factory", return_value=repos),
+            patch("routers.metadata_deps.validate_file_path", side_effect=PathValidationError(_BAIT_MESSAGE)),
         ):
             with TestClient(app, raise_server_exceptions=False) as client:
                 response = client.get("/api/metadata/tracks/1/fields")
@@ -239,8 +239,8 @@ class TestPathValidationErrorRouteSanitisation:
         repos = _make_metadata_repos("/home/alice/private/music/secret.flac")
 
         with (
-            patch("routers.metadata.require_repository_factory", return_value=repos),
-            patch("routers.metadata.validate_file_path", side_effect=PathValidationError(_BAIT_MESSAGE)),
+            patch("routers.dependencies.require_repository_factory", return_value=repos),
+            patch("routers.metadata_deps.validate_file_path", side_effect=PathValidationError(_BAIT_MESSAGE)),
         ):
             with TestClient(app, raise_server_exceptions=False) as client:
                 response = client.get("/api/metadata/tracks/1")
@@ -258,8 +258,8 @@ class TestPathValidationErrorRouteSanitisation:
         repos = _make_metadata_repos("/home/alice/private/music/secret.flac")
 
         with (
-            patch("routers.metadata.require_repository_factory", return_value=repos),
-            patch("routers.metadata.validate_file_path", side_effect=PathValidationError(_BAIT_MESSAGE)),
+            patch("routers.dependencies.require_repository_factory", return_value=repos),
+            patch("routers.metadata_deps.validate_file_path", side_effect=PathValidationError(_BAIT_MESSAGE)),
         ):
             with TestClient(app, raise_server_exceptions=False) as client:
                 response = client.put("/api/metadata/tracks/1", json={"title": "Test"})

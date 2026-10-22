@@ -30,6 +30,7 @@ from auralis.io.saver import save as save_audio
 # where routers.artwork lives.
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'auralis-web' / 'backend'))
 import routers.artwork as artwork_module  # noqa: E402
+import routers.artwork_thumbnails as artwork_thumbnails  # noqa: E402
 
 # ============================================================================
 # Fixtures
@@ -205,7 +206,7 @@ def test_artwork_cache_hit_faster_than_extraction(tmp_path):
         render_calls.append(1)
         return real_render(*args, **kwargs)
 
-    with patch.object(artwork_module, "_render_thumbnail", side_effect=_counting_render):
+    with patch.object(artwork_thumbnails, "_render_thumbnail", side_effect=_counting_render):
         first = artwork_module._get_or_create_thumbnail(src, 256, "image/jpeg", thumb_dir)
         assert first is not None
         assert len(render_calls) == 1, "first request must actually render"

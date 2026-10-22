@@ -261,7 +261,7 @@ class TestSeekMathUsesSharedConstants:
         # still re-exports chunk_for_position, so checking it would pass
         # without looking at the derivation at all.
         "cache/playback_mixin.py",
-        "routers/enhancement.py",
+        "routers/enhancement_prewarm.py",
     ])
     def test_position_to_chunk_derivations_use_chunk_for_position(self, module_path):
         """#4791: the cache's _get_current_chunk and routers/

@@ -267,7 +267,7 @@ class TestWireShape:
     """Both emitters must carry the field, or the UI sees it on one path only."""
 
     @pytest.mark.parametrize("module_path", [
-        "auralis-web/backend/routers/library_scan.py",
+        "auralis-web/backend/routers/library_scan_events.py",
         "auralis-web/backend/services/library_auto_scanner.py",
     ])
     def test_scan_complete_broadcast_includes_failures(self, module_path):

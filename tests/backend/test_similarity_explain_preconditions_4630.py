@@ -108,7 +108,7 @@ def _fingerprints_exist(repos, *ids: int) -> None:
 class TestExplainNamesTheMissingTrack:
     """Acceptance: a 404 that says *which* track is missing."""
 
-    @patch("routers.similarity.require_repository_factory")
+    @patch("routers.dependencies.require_repository_factory")
     def test_nonexistent_first_track_is_named(self, require_repos, client, repos, queue):
         require_repos.return_value = repos
         _tracks_exist(repos, 2)
@@ -122,7 +122,7 @@ class TestExplainNamesTheMissingTrack:
             "the generic 'Could not generate explanation' (#4630)"
         )
 
-    @patch("routers.similarity.require_repository_factory")
+    @patch("routers.dependencies.require_repository_factory")
     def test_nonexistent_second_track_is_named(self, require_repos, client, repos, queue):
         require_repos.return_value = repos
         _tracks_exist(repos, 1)
@@ -132,7 +132,7 @@ class TestExplainNamesTheMissingTrack:
         assert response.status_code == 404
         assert "998" in response.json()["detail"]
 
-    @patch("routers.similarity.require_repository_factory")
+    @patch("routers.dependencies.require_repository_factory")
     def test_missing_track_is_not_reported_as_missing_fingerprint(
         self, require_repos, client, repos, queue
     ):
@@ -156,7 +156,7 @@ class TestExplainNamesTheMissingTrack:
 class TestExplainEnqueuesMissingFingerprints:
     """Acceptance: the explain path self-heals, matching /similar."""
 
-    @patch("routers.similarity.require_repository_factory")
+    @patch("routers.dependencies.require_repository_factory")
     def test_missing_fingerprint_yields_a_distinct_404(
         self, require_repos, client, repos, queue
     ):
@@ -172,7 +172,7 @@ class TestExplainEnqueuesMissingFingerprints:
             f"missing-fingerprint 404 does not identify the cause: {detail!r}"
         )
 
-    @patch("routers.similarity.require_repository_factory")
+    @patch("routers.dependencies.require_repository_factory")
     def test_missing_fingerprint_is_enqueued(self, require_repos, client, repos, queue):
         require_repos.return_value = repos
         _tracks_exist(repos, 1, 2)
@@ -185,7 +185,7 @@ class TestExplainEnqueuesMissingFingerprints:
             "is permanent — the same track under /similar repairs itself (#4630)"
         )
 
-    @patch("routers.similarity.require_repository_factory")
+    @patch("routers.dependencies.require_repository_factory")
     def test_second_track_missing_fingerprint_is_enqueued(
         self, require_repos, client, repos, queue
     ):
@@ -197,7 +197,7 @@ class TestExplainEnqueuesMissingFingerprints:
 
         queue.enqueue.assert_called_once_with(2)
 
-    @patch("routers.similarity.require_repository_factory")
+    @patch("routers.dependencies.require_repository_factory")
     def test_an_unavailable_queue_does_not_turn_the_404_into_a_500(
         self, require_repos, client, repos
     ):
@@ -218,7 +218,7 @@ class TestExplainEnqueuesMissingFingerprints:
 class TestSiblingRoutesShareOnePolicy:
     """CONSISTENCY: one helper, not three open-coded policies."""
 
-    @patch("routers.similarity.require_repository_factory")
+    @patch("routers.dependencies.require_repository_factory")
     def test_compare_also_enqueues_a_missing_fingerprint(
         self, require_repos, client, repos, queue
     ):
@@ -232,7 +232,7 @@ class TestSiblingRoutesShareOnePolicy:
         assert response.status_code == 404
         queue.enqueue.assert_called_once_with(1)
 
-    @patch("routers.similarity.require_repository_factory")
+    @patch("routers.dependencies.require_repository_factory")
     def test_similar_still_enqueues(self, require_repos, client, repos, queue):
         """The one route that already self-healed must not have regressed."""
         require_repos.return_value = repos
@@ -244,7 +244,7 @@ class TestSiblingRoutesShareOnePolicy:
         assert response.status_code == 404
         queue.enqueue.assert_called_once_with(1)
 
-    @patch("routers.similarity.require_repository_factory")
+    @patch("routers.dependencies.require_repository_factory")
     def test_similar_still_404s_on_a_nonexistent_track(
         self, require_repos, client, repos, queue
     ):
@@ -256,7 +256,7 @@ class TestSiblingRoutesShareOnePolicy:
     # #5518: the 404's detail must reflect the enqueue's real result — the
     # frontend keys its calm retryable state on the word "queued".
 
-    @patch("routers.similarity.require_repository_factory")
+    @patch("routers.dependencies.require_repository_factory")
     def test_queued_enqueue_says_queued(self, require_repos, client, repos, queue):
         require_repos.return_value = repos
         _tracks_exist(repos, 1)
@@ -267,7 +267,7 @@ class TestSiblingRoutesShareOnePolicy:
 
         assert "queued for background processing" in detail.lower()
 
-    @patch("routers.similarity.require_repository_factory")
+    @patch("routers.dependencies.require_repository_factory")
     def test_rejected_enqueue_says_not_queued(self, require_repos, client, repos, queue):
         """A full/claim-rejected enqueue must not advertise a self-healing
         queue entry that does not exist."""
@@ -286,7 +286,14 @@ class TestSiblingRoutesShareOnePolicy:
         # Module source, not create_similarity_router's: #4670 hoisted the
         # handlers out of the factory closure to module level, so the factory
         # is now only the ~20-line assembler that registers them.
-        source = inspect.getsource(similarity_module)
+        # The handlers live in similarity_query.py / similarity_explain.py
+        # (#5831), so read the handler modules (not similarity_common, which
+        # defines the helper).
+        router_dir = Path(similarity_module.__file__).parent
+        source = "\n".join(
+            (router_dir / name).read_text()
+            for name in ("similarity.py", "similarity_query.py", "similarity_explain.py")
+        )
 
         assert source.count("require_fingerprinted_tracks(") == 3, (
             "expected /similar, /compare and /explain to each call the shared "
@@ -336,7 +343,7 @@ class TestSiblingRoutesShareOnePolicy:
 class TestExplainRemainingFailureIsNarrowed:
     """RETURN VALUE: a falsy engine return now has exactly one meaning."""
 
-    @patch("routers.similarity.require_repository_factory")
+    @patch("routers.dependencies.require_repository_factory")
     def test_engine_failure_message_blames_the_engine(
         self, require_repos, client, repos, queue
     ):
@@ -348,7 +355,7 @@ class TestExplainRemainingFailureIsNarrowed:
         system.is_fitted = Mock(return_value=True)
         system.get_similarity_explanation = Mock(return_value=None)
 
-        with patch("routers.similarity.require_similarity_system", return_value=system):
+        with patch("routers.similarity_explain.require_similarity_system", return_value=system):
             response = client.get(EXPLAIN.format(a=1, b=2))
 
         assert response.status_code == 404
@@ -376,7 +383,7 @@ class TestTopNBoundIsDerived:
         )
         assert "le=25" not in source, "top_n still hard-codes today's count"
 
-    @patch("routers.similarity.require_repository_factory")
+    @patch("routers.dependencies.require_repository_factory")
     def test_top_n_at_the_bound_is_accepted(self, require_repos, client, repos, queue):
         """Accepted by validation — the 404 below is the precondition, not 422."""
         require_repos.return_value = repos
@@ -391,7 +398,7 @@ class TestTopNBoundIsDerived:
             "dimensions existing"
         )
 
-    @patch("routers.similarity.require_repository_factory")
+    @patch("routers.dependencies.require_repository_factory")
     def test_top_n_above_the_bound_is_rejected(self, require_repos, client, repos, queue):
         require_repos.return_value = repos
         _tracks_exist(repos)

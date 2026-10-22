@@ -22,7 +22,7 @@ import logging
 import pytest
 
 # tests/backend/conftest.py puts auralis-web/backend on sys.path.
-from routers import library_scan
+from routers import library_scan_lifecycle
 from services import library_auto_scanner, scanner_stop
 
 
@@ -36,7 +36,7 @@ class _Scanner:
 
 def test_both_scan_paths_call_the_shared_helper():
     # Compared by name, not identity: the reload test below rebinds the function.
-    for module in (library_scan, library_auto_scanner):
+    for module in (library_scan_lifecycle, library_auto_scanner):
         helper = module.stop_scanner
         assert (helper.__module__, helper.__qualname__) == ("services.scanner_stop", "stop_scanner")
 

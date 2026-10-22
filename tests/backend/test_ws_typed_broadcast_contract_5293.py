@@ -122,6 +122,6 @@ def test_production_emitters_use_literal_discriminators() -> None:
 
 
 def test_playlist_reorder_uses_the_frontend_contract_literal() -> None:
-    source = (_BACKEND / "routers" / "playlists.py").read_text()
+    source = (_BACKEND / "routers" / "playlists_tracks.py").read_text()
     assert '"action": "reordered"' in source
     assert "tracks_reordered" not in source

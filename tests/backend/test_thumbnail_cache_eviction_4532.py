@@ -212,7 +212,7 @@ class TestThumbnailCacheBackstop:
     def test_render_miss_invokes_the_size_backstop(self, thumb_dir, tmp_path):
         source = _png(tmp_path / "cover.png")
 
-        with patch("routers.artwork.prune_thumbnail_cache") as prune:
+        with patch("routers.artwork_thumbnails.prune_thumbnail_cache") as prune:
             result = _get_or_create_thumbnail(source, 256, "image/png", thumb_dir)
 
         assert result is not None
@@ -248,14 +248,14 @@ class TestPurgeResolvesLikeTheRenderPath:
         monkeypatch.chdir(tmp_path)
         _seed_generation(thumb_dir, real.resolve())
 
-        with patch("routers.artwork._artwork_dirs", return_value=(thumb_dir.parent, thumb_dir)):
+        with patch("routers.artwork_thumbnails._artwork_dirs", return_value=(thumb_dir.parent, thumb_dir)):
             removed = _purge_album_thumbnails("cover.png")
 
         assert removed == len(_THUMB_BUCKETS)
         assert list(thumb_dir.glob(f"{thumb_path_hash(real.resolve())}_*")) == []
 
     def test_unresolvable_source_does_not_raise(self, thumb_dir):
-        with patch("routers.artwork._artwork_dirs", return_value=(thumb_dir.parent, thumb_dir)):
+        with patch("routers.artwork_thumbnails._artwork_dirs", return_value=(thumb_dir.parent, thumb_dir)):
             with patch.object(Path, "resolve", side_effect=OSError("bad path")):
                 assert _purge_album_thumbnails("whatever.png") == 0
 
@@ -275,7 +275,7 @@ class TestGenerationReplacement:
         # download would — and purge, as the routers now do.
         time.sleep(0.01)
         _png(source, size=128)
-        with patch("routers.artwork._artwork_dirs", return_value=(thumb_dir.parent, thumb_dir)):
+        with patch("routers.artwork_thumbnails._artwork_dirs", return_value=(thumb_dir.parent, thumb_dir)):
             _purge_album_thumbnails(source, source)
 
         # Re-request every bucket for generation 2.
@@ -330,7 +330,7 @@ class TestDeleteRoutePurges:
         manager.broadcast = _broadcast
 
         with patch(
-            "routers.artwork._artwork_dirs", return_value=(thumb_dir.parent, thumb_dir)
+            "routers.artwork_thumbnails._artwork_dirs", return_value=(thumb_dir.parent, thumb_dir)
         ):
             await delete_album_artwork(
                 album_id=1, repos=repos, connection_manager=manager

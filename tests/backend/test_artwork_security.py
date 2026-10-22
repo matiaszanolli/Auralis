@@ -47,7 +47,7 @@ class TestArtworkPathTraversalProtection:
         mock_repos = Mock()
         mock_repos.albums.get_by_id.return_value = mock_album
 
-        with patch('routers.artwork.require_repository_factory', return_value=mock_repos):
+        with patch('routers.artwork_deps.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/1/artwork")
 
             assert response.status_code == 200
@@ -67,7 +67,7 @@ class TestArtworkPathTraversalProtection:
         mock_repos = Mock()
         mock_repos.albums.get_by_id.return_value = mock_album
 
-        with patch('routers.artwork.require_repository_factory', return_value=mock_repos):
+        with patch('routers.artwork_deps.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/1/artwork")
 
             # Debug: print response to understand what's happening
@@ -91,7 +91,7 @@ class TestArtworkPathTraversalProtection:
         mock_repos = Mock()
         mock_repos.albums.get_by_id.return_value = mock_album
 
-        with patch('routers.artwork.require_repository_factory', return_value=mock_repos):
+        with patch('routers.artwork_deps.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/1/artwork")
 
             # Should return 403 Forbidden (resolved path outside allowed directory)
@@ -120,7 +120,7 @@ class TestArtworkPathTraversalProtection:
         mock_repos.albums.get_by_id.return_value = mock_album
 
         try:
-            with patch('routers.artwork.require_repository_factory', return_value=mock_repos):
+            with patch('routers.artwork_deps.require_repository_factory', return_value=mock_repos):
                 response = client.get("/api/albums/1/artwork")
 
                 # Should return 403 Forbidden (resolved path outside allowed directory)
@@ -143,7 +143,7 @@ class TestArtworkPathTraversalProtection:
         mock_repos = Mock()
         mock_repos.albums.get_by_id.return_value = mock_album
 
-        with patch('routers.artwork.require_repository_factory', return_value=mock_repos):
+        with patch('routers.artwork_deps.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/1/artwork")
 
             # Should return 404 Not Found (file doesn't exist)
@@ -156,7 +156,7 @@ class TestArtworkPathTraversalProtection:
         mock_repos = Mock()
         mock_repos.albums.get_by_id.return_value = None
 
-        with patch('routers.artwork.require_repository_factory', return_value=mock_repos):
+        with patch('routers.artwork_deps.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/999999/artwork")
 
             assert response.status_code == 404
@@ -173,7 +173,7 @@ class TestArtworkPathTraversalProtection:
         mock_repos = Mock()
         mock_repos.albums.get_by_id.return_value = mock_album
 
-        with patch('routers.artwork.require_repository_factory', return_value=mock_repos):
+        with patch('routers.artwork_deps.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/1/artwork")
 
             assert response.status_code == 404
@@ -198,7 +198,7 @@ class TestArtworkPathTraversalProtection:
         mock_repos.albums.get_by_id.return_value = mock_album
 
         try:
-            with patch('routers.artwork.require_repository_factory', return_value=mock_repos):
+            with patch('routers.artwork_deps.require_repository_factory', return_value=mock_repos):
                 response = client.get("/api/albums/1/artwork")
 
                 assert response.status_code == 200
@@ -222,7 +222,7 @@ class TestArtworkPathTraversalProtection:
         mock_repos = Mock()
         mock_repos.albums.get_by_id.return_value = mock_album
 
-        with patch('routers.artwork.require_repository_factory', return_value=mock_repos):
+        with patch('routers.artwork_deps.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/1/artwork")
 
             # Should return 404 or 403 (invalid path)
@@ -256,7 +256,7 @@ class TestArtworkPathValidationIntegration:
             mock_repos = Mock()
             mock_repos.albums.get_by_id.return_value = mock_album
 
-            with patch('routers.artwork.require_repository_factory', return_value=mock_repos):
+            with patch('routers.artwork_deps.require_repository_factory', return_value=mock_repos):
                 response = client.get("/api/albums/1/artwork")
 
                 assert response.status_code != 200, (

@@ -80,7 +80,7 @@ def _run_prewarm_synchronously():
             raise outcome["error"]
         return MagicMock()
 
-    return patch("routers.enhancement.spawn_background_task", side_effect=_sync_spawn)
+    return patch("routers.enhancement_prewarm.spawn_background_task", side_effect=_sync_spawn)
 
 
 def _patched_prewarm_chain():
@@ -229,5 +229,5 @@ class TestSetIntensityPrewarm:
 @pytest.fixture(autouse=True)
 def _accept_fabricated_track_paths(monkeypatch):
     from pathlib import Path as _Path
-    monkeypatch.setattr("routers.enhancement.validate_file_path", lambda filepath, *a, **k: _Path(filepath))
+    monkeypatch.setattr("routers.enhancement_prewarm.validate_file_path", lambda filepath, *a, **k: _Path(filepath))
 

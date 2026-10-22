@@ -57,7 +57,7 @@ async def test_extract_album_artwork_callable_with_bare_stubs(monkeypatch):
     repos.albums.extract_and_save_artwork = MagicMock(return_value="/new/cover.jpg")
     connection_manager = MagicMock()
     connection_manager.broadcast = AsyncMock()
-    monkeypatch.setattr("routers.artwork._purge_album_thumbnails", lambda *a: 0)
+    monkeypatch.setattr("routers.artwork_manage._purge_album_thumbnails", lambda *a: 0)
 
     result = await extract_album_artwork(
         album_id=7, repos=repos, connection_manager=connection_manager
@@ -79,7 +79,7 @@ async def test_delete_album_artwork_callable_with_bare_stubs(monkeypatch):
     connection_manager.broadcast = AsyncMock()
     purged: list = []
     monkeypatch.setattr(
-        "routers.artwork._purge_album_thumbnails", lambda *a: purged.extend(a) or 0
+        "routers.artwork_manage._purge_album_thumbnails", lambda *a: purged.extend(a) or 0
     )
 
     result = await delete_album_artwork(

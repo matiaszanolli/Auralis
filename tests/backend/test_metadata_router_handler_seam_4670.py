@@ -52,7 +52,7 @@ async def test_get_editable_fields_callable_with_bare_stubs():
     editor.get_editable_fields.return_value = ["title", "artist"]
     editor.read_metadata.return_value = {"title": "T"}
 
-    with patch("routers.metadata.validate_file_path", new=lambda p: p):
+    with patch("routers.metadata_deps.validate_file_path", new=lambda p: p):
         result = await get_editable_fields(
             track_id=1,
             get_repository_factory=lambda: repos,
@@ -70,7 +70,7 @@ async def test_get_track_metadata_callable_with_bare_stubs():
     editor = MagicMock()
     editor.read_metadata.return_value = {"title": "T", "artist": "A"}
 
-    with patch("routers.metadata.validate_file_path", new=lambda p: p):
+    with patch("routers.metadata_deps.validate_file_path", new=lambda p: p):
         result = await get_track_metadata(
             track_id=1,
             get_repository_factory=lambda: repos,
@@ -89,7 +89,7 @@ async def test_update_track_metadata_callable_with_bare_stubs():
     broadcast = MagicMock()
     broadcast.broadcast = AsyncMock()
 
-    with patch("routers.metadata.validate_file_path", new=lambda p: p):
+    with patch("routers.metadata_deps.validate_file_path", new=lambda p: p):
         result = await update_track_metadata(
             track_id=1,
             request=MetadataUpdateRequest(title="T", track=5, disc=1, comment="hi"),
@@ -123,7 +123,7 @@ async def test_batch_update_metadata_callable_with_bare_stubs():
     broadcast = MagicMock()
     broadcast.broadcast = AsyncMock()
 
-    with patch("routers.metadata.validate_file_path", new=lambda p, context=None: p):
+    with patch("routers.metadata_deps.validate_file_path", new=lambda p, context=None: p):
         result = await batch_update_metadata(
             request=BatchMetadataRequest(
                 updates=[{"track_id": 1, "metadata": {"title": "T"}}]

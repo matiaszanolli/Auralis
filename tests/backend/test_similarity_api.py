@@ -70,7 +70,7 @@ def mock_repos():
 class TestGetSimilarTracks:
     """Test GET /api/similarity/tracks/{track_id}/similar"""
 
-    @patch('routers.similarity.require_repository_factory')
+    @patch('routers.dependencies.require_repository_factory')
     def test_get_similar_tracks_not_found(self, mock_require_repos, client, mock_repos):
         """Test getting similar tracks for non-existent track"""
         mock_require_repos.return_value = mock_repos
@@ -80,7 +80,7 @@ class TestGetSimilarTracks:
 
         assert response.status_code == 404
 
-    @patch('routers.similarity.require_repository_factory')
+    @patch('routers.dependencies.require_repository_factory')
     def test_get_similar_tracks_no_fingerprint(self, mock_require_repos, client, mock_repos):
         """Test getting similar tracks when track has no fingerprint"""
         mock_require_repos.return_value = mock_repos
@@ -137,7 +137,7 @@ class TestGetSimilarTracks:
 class TestCompareTracks:
     """Test GET /api/similarity/tracks/{track_id1}/compare/{track_id2}"""
 
-    @patch('routers.similarity.require_repository_factory')
+    @patch('routers.dependencies.require_repository_factory')
     def test_compare_tracks_first_not_found(self, mock_require_repos, client, mock_repos):
         """Test comparing when first track doesn't exist"""
         mock_require_repos.return_value = mock_repos
@@ -164,7 +164,7 @@ class TestCompareTracks:
 class TestExplainSimilarity:
     """Test GET /api/similarity/tracks/{track_id1}/explain/{track_id2}"""
 
-    @patch('routers.similarity.require_repository_factory')
+    @patch('routers.dependencies.require_repository_factory')
     def test_explain_similarity_not_found(self, mock_require_repos, client, mock_repos):
         """Test explaining similarity when tracks don't exist"""
         mock_require_repos.return_value = mock_repos
@@ -566,8 +566,8 @@ class TestBlockingCallsOffloaded:
         async def fake_to_thread(func, *args, **kwargs):
             return func(*args, **kwargs)
 
-        with patch("routers.similarity.asyncio.to_thread", side_effect=fake_to_thread) as mock_to_thread, \
-             patch("routers.similarity.require_repository_factory", return_value=mock_repos):
+        with patch("routers.similarity_explain.asyncio.to_thread", side_effect=fake_to_thread) as mock_to_thread, \
+             patch("routers.dependencies.require_repository_factory", return_value=mock_repos):
 
             await handler(min_samples=10)
 

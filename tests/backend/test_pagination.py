@@ -103,7 +103,7 @@ class TestRouterQueryReferencesTheCanonicalCap:
     500) was deleted for the same reason — two definitions of "the" pagination
     cap is exactly how a drift like that goes unnoticed."""
 
-    @pytest.mark.parametrize("router_module", ["albums", "artists", "tracks", "playlists"])
+    @pytest.mark.parametrize("router_module", ["albums", "artists", "tracks", "playlists_crud"])
     def test_query_declarations_reference_max_limit_by_name(self, router_module):
         import inspect
         import importlib

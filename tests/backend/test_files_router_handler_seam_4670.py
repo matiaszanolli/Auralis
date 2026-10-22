@@ -22,10 +22,10 @@ from fastapi import HTTPException, UploadFile
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
 from routers.files import (  # noqa: E402
-    _MAX_UPLOAD_FILES,
     get_supported_formats,
     upload_files,
 )
+from routers.files_upload import _MAX_UPLOAD_FILES  # noqa: E402
 
 pytestmark = pytest.mark.asyncio
 
@@ -55,7 +55,7 @@ async def test_upload_files_callable_with_a_bare_stub_repo_provider():
 
     wav = b"RIFF" + b"\x00" * 4 + b"WAVEfmt " + b"\x00" * 32
 
-    import routers.files as files_module
+    import routers.files_upload as files_module
 
     # load_audio is the only engine call in the success path; patching it
     # keeps this a pure handler test (a 44-byte stub WAV is not decodable).

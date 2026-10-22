@@ -74,8 +74,8 @@ def graph_builder() -> Mock:
 async def _call(graph_builder: Mock, similarity: Mock, limit: int):
     """Invoke the endpoint with the preconditions and detail lookup stubbed."""
     handler = _handler(graph_builder, similarity)
-    with patch("routers.similarity.require_repository_factory", return_value=Mock()), \
-         patch("routers.similarity.require_fingerprinted_tracks", new_callable=AsyncMock):
+    with patch("routers.dependencies.require_repository_factory", return_value=Mock()), \
+         patch("routers.similarity_query.require_fingerprinted_tracks", new_callable=AsyncMock):
         return await handler(
             track_id=1, limit=limit, use_graph=True, include_details=False
         )

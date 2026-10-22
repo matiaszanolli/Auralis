@@ -23,7 +23,7 @@ from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _TRACK_ROUTER = _REPO_ROOT / "auralis-web" / "backend" / "routers" / "fingerprint_status.py"
-_ALBUM_ROUTER = _REPO_ROOT / "auralis-web" / "backend" / "routers" / "albums.py"
+_ALBUM_ROUTER = _REPO_ROOT / "auralis-web" / "backend" / "routers" / "albums_fingerprint.py"
 _FE_TYPE = (
     _REPO_ROOT / "auralis-web" / "frontend" / "src" / "utils" / "fingerprintToGradient.ts"
 )

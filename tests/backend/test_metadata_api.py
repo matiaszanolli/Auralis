@@ -113,7 +113,7 @@ def client(client):
 class TestGetEditableFields:
     """Test GET /api/metadata/tracks/{track_id}/fields"""
 
-    @patch('routers.metadata.require_repository_factory')
+    @patch('routers.dependencies.require_repository_factory')
     def test_get_editable_fields_track_not_found(self, mock_require_repos, client, mock_repos):
         """Test getting editable fields for non-existent track"""
         mock_require_repos.return_value = mock_repos
@@ -124,7 +124,7 @@ class TestGetEditableFields:
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
 
-    @patch('routers.metadata.require_repository_factory')
+    @patch('routers.dependencies.require_repository_factory')
     def test_get_editable_fields_file_not_found(self, mock_require_repos, client, mock_repos, mock_track):
         """Test getting editable fields when audio file doesn't exist"""
         mock_require_repos.return_value = mock_repos
@@ -147,7 +147,7 @@ class TestGetEditableFields:
 class TestGetTrackMetadata:
     """Test GET /api/metadata/tracks/{track_id}"""
 
-    @patch('routers.metadata.require_repository_factory')
+    @patch('routers.dependencies.require_repository_factory')
     def test_get_metadata_track_not_found(self, mock_require_repos, client, mock_repos):
         """Test getting metadata for non-existent track"""
         mock_require_repos.return_value = mock_repos
@@ -157,7 +157,7 @@ class TestGetTrackMetadata:
 
         assert response.status_code == 404
 
-    @patch('routers.metadata.require_repository_factory')
+    @patch('routers.dependencies.require_repository_factory')
     def test_get_metadata_file_not_found(self, mock_require_repos, client, mock_repos, mock_track):
         """Test getting metadata when audio file doesn't exist"""
         mock_require_repos.return_value = mock_repos
@@ -179,7 +179,7 @@ class TestGetTrackMetadata:
 class TestUpdateTrackMetadata:
     """Test PUT /api/metadata/tracks/{track_id}"""
 
-    @patch('routers.metadata.require_repository_factory')
+    @patch('routers.dependencies.require_repository_factory')
     def test_update_metadata_track_not_found(self, mock_require_repos, client, mock_repos):
         """Test updating metadata for non-existent track"""
         mock_require_repos.return_value = mock_repos
@@ -192,7 +192,7 @@ class TestUpdateTrackMetadata:
 
         assert response.status_code == 404
 
-    @patch('routers.metadata.require_repository_factory')
+    @patch('routers.dependencies.require_repository_factory')
     def test_update_metadata_no_fields(self, mock_require_repos, client, mock_repos, mock_track):
         """Test update with no metadata fields provided"""
         mock_require_repos.return_value = mock_repos
@@ -203,7 +203,7 @@ class TestUpdateTrackMetadata:
         assert response.status_code == 400
         assert "No metadata fields" in response.json()["detail"]
 
-    @patch('routers.metadata.require_repository_factory')
+    @patch('routers.dependencies.require_repository_factory')
     def test_update_metadata_unknown_field(self, mock_require_repos, client, mock_repos, mock_track):
         """Test update with unknown/extra fields"""
         mock_require_repos.return_value = mock_repos
@@ -218,7 +218,7 @@ class TestUpdateTrackMetadata:
         # Should be rejected by Pydantic validation
         assert response.status_code == 422
 
-    @patch('routers.metadata.require_repository_factory')
+    @patch('routers.dependencies.require_repository_factory')
     def test_update_metadata_invalid_year(self, mock_require_repos, client, mock_repos, mock_track):
         """Test update with invalid year type"""
         mock_require_repos.return_value = mock_repos
@@ -231,7 +231,7 @@ class TestUpdateTrackMetadata:
 
         assert response.status_code == 422
 
-    @patch('routers.metadata.require_repository_factory')
+    @patch('routers.dependencies.require_repository_factory')
     def test_update_metadata_file_not_found(self, mock_require_repos, client, mock_repos, mock_track):
         """Test update when audio file doesn't exist"""
         mock_require_repos.return_value = mock_repos
@@ -256,7 +256,7 @@ class TestUpdateTrackMetadata:
         # POST to this endpoint should fail (it's the batch endpoint)
         assert response.status_code in [404, 405]
 
-    @patch('routers.metadata.require_repository_factory')
+    @patch('routers.dependencies.require_repository_factory')
     def test_update_metadata_backup_parameter(self, mock_require_repos, client, mock_repos, mock_track):
         """Test backup parameter in update request"""
         mock_require_repos.return_value = mock_repos
@@ -293,7 +293,7 @@ class TestBatchUpdateMetadata:
 
         assert response.status_code == 422
 
-    @patch('routers.metadata.require_repository_factory')
+    @patch('routers.dependencies.require_repository_factory')
     def test_batch_update_invalid_track_id(self, mock_require_repos, client, mock_repos):
         """Test batch update with non-existent track"""
         mock_require_repos.return_value = mock_repos
@@ -316,7 +316,7 @@ class TestBatchUpdateMetadata:
         # results set, never a failure status.
         assert response.status_code == 200
 
-    @patch('routers.metadata.require_repository_factory')
+    @patch('routers.dependencies.require_repository_factory')
     def test_batch_update_mixed_success_failure(self, mock_require_repos, client, mock_repos):
         """Test batch update with mix of valid and invalid tracks"""
         mock_require_repos.return_value = mock_repos
@@ -346,7 +346,7 @@ class TestBatchUpdateMetadata:
         # exceptions) — the endpoint always returns 200.
         assert response.status_code == 200
 
-    @patch('routers.metadata.require_repository_factory')
+    @patch('routers.dependencies.require_repository_factory')
     def test_batch_update_backup_disabled(self, mock_require_repos, client, mock_repos):
         """Test batch update with backup disabled"""
         mock_require_repos.return_value = mock_repos
@@ -392,7 +392,7 @@ class TestBatchUpdateMetadata:
 class TestMetadataValidation:
     """Test metadata field validation"""
 
-    @patch('routers.metadata.require_repository_factory')
+    @patch('routers.dependencies.require_repository_factory')
     def test_update_valid_field_types(self, mock_require_repos, client, mock_repos, mock_track):
         """Test that valid field types are accepted"""
         mock_require_repos.return_value = mock_repos
@@ -422,7 +422,7 @@ class TestMetadataValidation:
         # Should NOT be validation error (422)
         assert response.status_code != 422
 
-    @patch('routers.metadata.require_repository_factory')
+    @patch('routers.dependencies.require_repository_factory')
     def test_update_partial_metadata(self, mock_require_repos, client, mock_repos, mock_track):
         """Test updating only some metadata fields"""
         mock_require_repos.return_value = mock_repos
@@ -443,7 +443,7 @@ class TestMetadataValidation:
 class TestMetadataSecurityValidation:
     """Security-focused tests for metadata endpoints"""
 
-    @patch('routers.metadata.require_repository_factory')
+    @patch('routers.dependencies.require_repository_factory')
     def test_metadata_sql_injection_attempt(self, mock_require_repos, client, mock_repos, mock_track):
         """Test that SQL injection attempts are safely handled"""
         mock_require_repos.return_value = mock_repos
@@ -460,7 +460,7 @@ class TestMetadataSecurityValidation:
         # always rejects it — deterministically 400.
         assert response.status_code == 400
 
-    @patch('routers.metadata.require_repository_factory')
+    @patch('routers.dependencies.require_repository_factory')
     def test_metadata_xss_attempt(self, mock_require_repos, client, mock_repos, mock_track):
         """Test that XSS attempts are safely handled"""
         mock_require_repos.return_value = mock_repos
@@ -477,7 +477,7 @@ class TestMetadataSecurityValidation:
         # validate_file_path() always rejects it — deterministically 400.
         assert response.status_code == 400
 
-    @patch('routers.metadata.require_repository_factory')
+    @patch('routers.dependencies.require_repository_factory')
     def test_metadata_extremely_long_strings(self, mock_require_repos, client, mock_repos, mock_track):
         """Test handling of extremely long metadata strings"""
         mock_require_repos.return_value = mock_repos
@@ -500,7 +500,7 @@ class TestMetadataSecurityValidation:
 class TestMetadataIntegration:
     """Integration tests for metadata endpoints"""
 
-    @patch('routers.metadata.require_repository_factory')
+    @patch('routers.dependencies.require_repository_factory')
     def test_workflow_get_fields_then_update(self, mock_require_repos, client, mock_repos, mock_track):
         """Test workflow: get editable fields → update metadata"""
         mock_require_repos.return_value = mock_repos
@@ -521,7 +521,7 @@ class TestMetadataIntegration:
         assert fields_response.status_code == 400
         assert update_response.status_code == 400
 
-    @patch('routers.metadata.require_repository_factory')
+    @patch('routers.dependencies.require_repository_factory')
     def test_workflow_single_then_batch_update(self, mock_require_repos, client, mock_repos):
         """Test workflow: single update → batch update"""
         mock_require_repos.return_value = mock_repos

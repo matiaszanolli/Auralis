@@ -20,7 +20,8 @@ _BACKEND = str(Path(__file__).resolve().parents[2] / "auralis-web" / "backend")
 if _BACKEND not in sys.path:
     sys.path.insert(0, _BACKEND)
 
-from routers.files import create_files_router, _MAX_UPLOAD_FILES  # noqa: E402
+from routers.files import create_files_router  # noqa: E402
+from routers.files_upload import _MAX_UPLOAD_FILES  # noqa: E402
 
 
 def _client() -> TestClient:

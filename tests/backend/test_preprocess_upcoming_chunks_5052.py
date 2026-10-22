@@ -95,7 +95,7 @@ def _run_prewarm_synchronously():
             raise outcome["error"]
         return MagicMock()
 
-    return patch("routers.enhancement.spawn_background_task", side_effect=_sync_spawn)
+    return patch("routers.enhancement_prewarm.spawn_background_task", side_effect=_sync_spawn)
 
 
 class TestPrewarmProbesFfmpegOnlyFormats:
@@ -198,7 +198,7 @@ class TestPrewarmProcessorIsAlwaysClosed:
 @pytest.fixture(autouse=True)
 def _accept_fabricated_track_paths(monkeypatch):
     from pathlib import Path as _Path
-    monkeypatch.setattr("routers.enhancement.validate_file_path", lambda filepath, *a, **k: _Path(filepath))
+    monkeypatch.setattr("routers.enhancement_prewarm.validate_file_path", lambda filepath, *a, **k: _Path(filepath))
 
 
 
@@ -207,7 +207,7 @@ def test_prewarm_skips_a_stored_path_outside_allowed_directories(monkeypatch):
     short-circuits before probing or constructing a processor (WIRING check)."""
     from security.path_security import validate_file_path as real_validate
 
-    monkeypatch.setattr("routers.enhancement.validate_file_path", real_validate)
+    monkeypatch.setattr("routers.enhancement_prewarm.validate_file_path", real_validate)
     settings = {"enabled": False, "preset": "adaptive", "intensity": 1.0}
     client = _build_client(
         settings, _make_playing_state_manager("/definitely/not/allowed/track.m4a")

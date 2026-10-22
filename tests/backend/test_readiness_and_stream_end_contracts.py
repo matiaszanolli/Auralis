@@ -68,18 +68,27 @@ class TestRequireSimilaritySystem:
         assert require_similarity_system(lambda: system) is system
 
 
+def _similarity_handler_source() -> str:
+    """Handlers live in the split similarity_* modules (#5831), not similarity.py."""
+    routers = _BACKEND / "routers"
+    return "".join(
+        (routers / f"similarity_{name}.py").read_text()
+        for name in ("query", "explain", "graph")
+    )
+
+
 class TestSimilarityRoutesUseTheGuard:
     """No unguarded `get_similarity_system()` deref may remain (#4656 WIRING)."""
 
     def test_no_bare_dereference_left_in_similarity_router(self):
-        source = (_BACKEND / "routers" / "similarity.py").read_text()
+        source = _similarity_handler_source()
         assert "= get_similarity_system()" not in source, (
             "an unguarded get_similarity_system() deref reintroduces the "
             "AttributeError -> 500 path fixed in #4656"
         )
 
     def test_guard_is_actually_called(self):
-        source = (_BACKEND / "routers" / "similarity.py").read_text()
+        source = _similarity_handler_source()
         assert source.count("require_similarity_system(get_similarity_system)") >= 3
 
 

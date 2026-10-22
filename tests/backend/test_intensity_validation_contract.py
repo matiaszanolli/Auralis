@@ -170,10 +170,10 @@ class TestSingleDefinition:
         assert shared == {("ge", 0.0), ("le", 1.0)}
 
     def test_both_routers_reference_the_shared_type(self):
-        import routers.enhancement as enh
-        import routers.settings as settings_mod
+        import routers.enhancement_models as enh_models
+        import routers.settings_models as settings_mod
 
-        for module in (enh, settings_mod):
+        for module in (enh_models, settings_mod):
             src = Path(str(module.__file__)).read_text()
             assert "EnhancementIntensity" in src, (
                 f"{module.__name__} must use the shared constraint, not a local copy"

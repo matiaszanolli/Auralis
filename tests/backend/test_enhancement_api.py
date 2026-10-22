@@ -311,7 +311,7 @@ class TestGetMasteringRecommendation:
         from unittest.mock import Mock, patch
         from security.path_security import validate_file_path as real_validate
 
-        monkeypatch.setattr("routers.enhancement.validate_file_path", real_validate)
+        monkeypatch.setattr("routers.enhancement_recommendation.validate_file_path", real_validate)
         track = Mock()
         track.filepath = "/definitely/not/an/allowed/dir/song.flac"
         repos.tracks.get_by_id.return_value = track
@@ -338,7 +338,7 @@ class TestGetMasteringRecommendation:
         allowed_dir = tmp_path / "Music"
         allowed_dir.mkdir()
         register_allowed_directory(allowed_dir)
-        monkeypatch.setattr("routers.enhancement.validate_file_path", real_validate)
+        monkeypatch.setattr("routers.enhancement_recommendation.validate_file_path", real_validate)
 
         track = Mock()
         track.filepath = str(allowed_dir / "gone.flac")
@@ -458,7 +458,7 @@ class TestGetMasteringRecommendation:
             coro.close()
             raise TimeoutError
 
-        with patch("routers.enhancement.asyncio.wait_for", side_effect=_timeout_side_effect):
+        with patch("routers.enhancement_recommendation.asyncio.wait_for", side_effect=_timeout_side_effect):
             response = client.get("/api/player/mastering/recommendation/1")
 
         assert response.status_code == 500
@@ -578,5 +578,5 @@ class TestEnhancementIntegration:
 @pytest.fixture(autouse=True)
 def _accept_fabricated_track_paths(monkeypatch):
     from pathlib import Path as _Path
-    monkeypatch.setattr("routers.enhancement.validate_file_path", lambda filepath, *a, **k: _Path(filepath))
+    monkeypatch.setattr("routers.enhancement_recommendation.validate_file_path", lambda filepath, *a, **k: _Path(filepath))
 

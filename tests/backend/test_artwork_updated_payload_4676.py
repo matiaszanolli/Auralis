@@ -71,7 +71,7 @@ async def test_extract_route_broadcasts_via_shared_helper(monkeypatch):
     repos.albums.extract_and_save_artwork = MagicMock(return_value="/new/cover.jpg")
     connection_manager = MagicMock()
     connection_manager.broadcast = AsyncMock()
-    monkeypatch.setattr("routers.artwork._purge_album_thumbnails", lambda *a: 0)
+    monkeypatch.setattr("routers.artwork_manage._purge_album_thumbnails", lambda *a: 0)
 
     await extract_album_artwork(album_id=7, repos=repos, connection_manager=connection_manager)
 
@@ -86,7 +86,7 @@ async def test_delete_route_broadcasts_via_shared_helper(monkeypatch):
     repos.albums.delete_artwork = MagicMock(return_value=True)
     connection_manager = MagicMock()
     connection_manager.broadcast = AsyncMock()
-    monkeypatch.setattr("routers.artwork._purge_album_thumbnails", lambda *a: 0)
+    monkeypatch.setattr("routers.artwork_manage._purge_album_thumbnails", lambda *a: 0)
 
     await delete_album_artwork(album_id=3, repos=repos, connection_manager=connection_manager)
 
@@ -104,7 +104,7 @@ async def test_download_route_broadcasts_via_shared_helper(monkeypatch):
     repos.albums.update_artwork_path = MagicMock(return_value=album)
     connection_manager = MagicMock()
     connection_manager.broadcast = AsyncMock()
-    monkeypatch.setattr("routers.artwork._purge_album_thumbnails", lambda *a: 0)
+    monkeypatch.setattr("routers.artwork_manage._purge_album_thumbnails", lambda *a: 0)
 
     mock_downloader = AsyncMock()
     mock_downloader.download_artwork.return_value = "/downloaded/cover.jpg"
@@ -136,6 +136,9 @@ def test_no_inline_artwork_updated_literal_remains():
     """Static check (issue's Test Plan #3): every emit site must go through
     the shared helper, not an inline dict literal."""
     assert artwork_router.__file__ is not None
-    source = Path(artwork_router.__file__).read_text()
+    # The router is split across artwork*.py (#5831): check every module.
+    source = "\n".join(
+        path.read_text() for path in sorted(Path(artwork_router.__file__).parent.glob("artwork*.py"))
+    )
     assert not re.findall(r'"type":\s*"artwork_updated"', source)
     assert len(re.findall(r'broadcast_typed\(.*?"artwork_updated"', source, re.S)) == 1

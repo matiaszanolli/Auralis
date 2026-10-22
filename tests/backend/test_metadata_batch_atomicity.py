@@ -357,11 +357,11 @@ def _batch_repos(*track_ids: int) -> Mock:
 # to the identity keeps these tests about what they claim to be about -- how
 # the route surfaces rolled_back and drives the DB write -- while letting the
 # real prep loop run. Path validation has its own coverage elsewhere.
-@patch('routers.metadata.validate_file_path', new=lambda p, **_kwargs: p)
+@patch('routers.metadata_deps.validate_file_path', new=lambda p, **_kwargs: p)
 class TestBatchEndpointAtomicity:
     """/api/metadata/batch endpoint correctly surfaces rolled_back."""
 
-    @patch('routers.metadata.require_repository_factory')
+    @patch('routers.dependencies.require_repository_factory')
     @patch('auralis.library.metadata_editor.MetadataEditor.batch_update')
     def test_success_response_has_success_true(
         self, mock_batch, mock_repos_fn, client
@@ -397,7 +397,7 @@ class TestBatchEndpointAtomicity:
         assert data['rolled_back'] is False
         assert all('filepath' not in result for result in data['results'])
 
-    @patch('routers.metadata.require_repository_factory')
+    @patch('routers.dependencies.require_repository_factory')
     @patch('auralis.library.metadata_editor.MetadataEditor.batch_update')
     def test_partial_failure_response_has_success_false(
         self, mock_batch, mock_repos_fn, client
@@ -433,7 +433,7 @@ class TestBatchEndpointAtomicity:
         assert data['rolled_back'] is True
         assert all('filepath' not in result for result in data['results'])
 
-    @patch('routers.metadata.require_repository_factory')
+    @patch('routers.dependencies.require_repository_factory')
     @patch('auralis.library.metadata_editor.MetadataEditor.batch_update')
     def test_rolled_back_response_skips_db_updates(
         self, mock_batch, mock_repos_fn, client
@@ -464,7 +464,7 @@ class TestBatchEndpointAtomicity:
         # (#3857 / c7e7684e).
         mock_repos.tracks.update_metadata_batch.assert_not_called()
 
-    @patch('routers.metadata.require_repository_factory')
+    @patch('routers.dependencies.require_repository_factory')
     @patch('auralis.library.metadata_editor.MetadataEditor.batch_update')
     def test_no_rollback_response_updates_db_for_successful_tracks(
         self, mock_batch, mock_repos_fn, client
@@ -497,7 +497,7 @@ class TestBatchEndpointAtomicity:
             [(1, {'title': 'T1'}), (2, {'title': 'T2'})]
         )
 
-    @patch('routers.metadata.require_repository_factory')
+    @patch('routers.dependencies.require_repository_factory')
     @patch('auralis.library.metadata_editor.MetadataEditor.batch_update')
     def test_response_includes_per_file_results(
         self, mock_batch, mock_repos_fn, client

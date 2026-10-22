@@ -233,8 +233,8 @@ class TestFingerprintVectorCoverage:
     """Both fingerprint emitters agree with the one shared model (#2477)."""
 
     def _album_router_api_keys(self) -> set[str]:
-        """The api-side names from albums.py's `db_to_api` rename table."""
-        source = (_BACKEND / "routers" / "albums.py").read_text()
+        """The api-side names from albums_fingerprint.py's `db_to_api` rename table."""
+        source = (_BACKEND / "routers" / "albums_fingerprint.py").read_text()
         block = source[source.index("db_to_api"):source.index("median_fingerprint = {}")]
         keys = set(re.findall(r"\(\s*'[a-z_0-9]+'\s*,\s*'([a-z_0-9]+)'\s*\)", block))
         assert len(keys) == 25, f"expected 25 fingerprint dimensions, parsed {len(keys)}"

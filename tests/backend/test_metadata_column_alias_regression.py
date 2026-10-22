@@ -85,7 +85,7 @@ def client(monkeypatch):
     # discard it too, or a real caller passing `context=` breaks against
     # this stub with "unexpected keyword argument 'context'".
     monkeypatch.setattr(
-        "routers.metadata.validate_file_path",
+        "routers.metadata_deps.validate_file_path",
         lambda p, context=None: Path(p),
     )
 

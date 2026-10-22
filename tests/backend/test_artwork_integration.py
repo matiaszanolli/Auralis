@@ -321,7 +321,7 @@ def test_serve_cached_artwork(tmp_path):
 
     request = MagicMock(headers={})
 
-    with patch("routers.artwork._artwork_dirs", return_value=(artwork_dir, thumb_dir)):
+    with patch("routers.artwork_thumbnails._artwork_dirs", return_value=(artwork_dir, thumb_dir)):
         response = asyncio.run(
             _artwork_get_handler()(album_id=1, request=request, size=None, repos=repos)
         )
@@ -334,7 +334,7 @@ def test_serve_cached_artwork(tmp_path):
     # Repeat request with a matching If-None-Match must be served from cache
     # as a 304, not re-sent.
     request_cached = MagicMock(headers={"if-none-match": etag})
-    with patch("routers.artwork._artwork_dirs", return_value=(artwork_dir, thumb_dir)):
+    with patch("routers.artwork_thumbnails._artwork_dirs", return_value=(artwork_dir, thumb_dir)):
         cached_response = asyncio.run(
             _artwork_get_handler()(album_id=1, request=request_cached, size=None, repos=repos)
         )
@@ -368,7 +368,7 @@ def test_serve_artwork_with_fallback(tmp_path):
     # The backend has no default-image asset to fall back to server-side — the
     # contract clients rely on for their own fallback UI is a clean 404 rather
     # than a crash or an ambiguous empty body.
-    with patch("routers.artwork._artwork_dirs", return_value=(artwork_dir, thumb_dir)):
+    with patch("routers.artwork_thumbnails._artwork_dirs", return_value=(artwork_dir, thumb_dir)):
         with pytest.raises(HTTPException) as exc_info:
             asyncio.run(
                 _artwork_get_handler()(album_id=1, request=request, size=None, repos=repos)
@@ -470,7 +470,7 @@ def test_handle_corrupted_artwork(tmp_path):
     # corrupted bytes (_get_or_create_thumbnail catches the decode failure
     # and returns None) — the endpoint must not 500, it must fall back to
     # serving the original file as-is.
-    with patch("routers.artwork._artwork_dirs", return_value=(artwork_dir, thumb_dir)):
+    with patch("routers.artwork_thumbnails._artwork_dirs", return_value=(artwork_dir, thumb_dir)):
         response = asyncio.run(
             _artwork_get_handler()(album_id=1, request=request, size=256, repos=repos)
         )
@@ -504,7 +504,7 @@ def test_handle_missing_artwork_file(tmp_path):
     repos.albums.get_by_id.return_value = album
     request = MagicMock(headers={})
 
-    with patch("routers.artwork._artwork_dirs", return_value=(artwork_dir, thumb_dir)):
+    with patch("routers.artwork_thumbnails._artwork_dirs", return_value=(artwork_dir, thumb_dir)):
         with pytest.raises(HTTPException) as exc_info:
             asyncio.run(
                 _artwork_get_handler()(album_id=1, request=request, size=None, repos=repos)

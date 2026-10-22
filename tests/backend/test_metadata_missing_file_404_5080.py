@@ -79,7 +79,7 @@ def _responses_for(filepath: str):
     app = _make_app()
     repos = _make_repos(filepath)
 
-    with patch("routers.metadata.require_repository_factory", return_value=repos):
+    with patch("routers.dependencies.require_repository_factory", return_value=repos):
         with TestClient(app, raise_server_exceptions=False) as client:
             return {
                 "fields": client.get("/api/metadata/tracks/1/fields"),

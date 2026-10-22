@@ -36,7 +36,7 @@ TRACK_ID = 1  # _make_playing_state_manager's current track
 @pytest.fixture(autouse=True)
 def _allow_fake_paths(monkeypatch):
     from pathlib import Path as _Path
-    monkeypatch.setattr("routers.enhancement.validate_file_path", lambda filepath, *a, **k: _Path(filepath))
+    monkeypatch.setattr("routers.enhancement_prewarm.validate_file_path", lambda filepath, *a, **k: _Path(filepath))
 
 
 @pytest.fixture
@@ -128,7 +128,7 @@ def test_prewarm_chunk_dsp_runs_on_the_stream_executor(live_streams):
         return func(*args, **kwargs)
 
     with _run_prewarm_synchronously(), p1, p2, p3, \
-         patch("routers.enhancement.run_in_stream_executor", side_effect=_fake_stream_executor):
+         patch("routers.enhancement_prewarm.run_in_stream_executor", side_effect=_fake_stream_executor):
         _change_intensity(_client())
 
     assert calls == [processor.get_wav_chunk_path] * 3
