@@ -42,7 +42,7 @@ ProcessorCacheKey = tuple[int, str | None, float, str]
 # steady-state floor. 8 leaves room for a preset switch on both tracks without
 # thrashing. These are wrappers, not processors: the HybridProcessors behind
 # them live in the worker's own ProcessorFactory (#5311), whose cap is set in
-# processor_factory._CONSUMER_CACHE_MAX.
+# processor_registry._CONSUMER_CACHE_MAX.
 #
 # `streamlined_worker` imports this name and reads it at call time, so that
 # module stays the documented patch point for the cap.
@@ -204,7 +204,7 @@ async def get_or_build_processor(
     """
     # Import here to avoid circular dependency
     from core.chunked_processor import ChunkedAudioProcessor
-    from core.processor_factory import CACHE_WORKER_CONSUMER, get_processor_factory
+    from core.processor_registry import CACHE_WORKER_CONSUMER, get_processor_factory
 
     processor = worker._processor_cache.get(cache_key)
     if processor is not None:

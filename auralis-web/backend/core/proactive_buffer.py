@@ -55,7 +55,7 @@ async def buffer_presets_for_track(
     try:
         # Import here to avoid circular dependency
         from core.chunked_processor import ChunkedAudioProcessor
-        from core.processor_factory import PROACTIVE_BUFFER_CONSUMER, get_processor_factory
+        from core.processor_registry import PROACTIVE_BUFFER_CONSUMER, get_processor_factory
 
         # Determine how many chunks to buffer (don't exceed total chunks)
         chunks_to_buffer = PRELOAD_CHUNKS

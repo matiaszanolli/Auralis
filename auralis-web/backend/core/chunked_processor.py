@@ -48,7 +48,7 @@ from core.targets_hash import get_targets_hash
 from core.seekable_source import SeekableSource
 from core.file_signature import FileSignatureService  # Phase 5.1: File signature generation
 from core.mastering_target_service import get_mastering_target_service  # Singleton (#4749)
-from core.processor_factory import get_processor_factory  # Singleton (injected, not constructed here)
+from core.processor_registry import get_processor_factory  # Singleton (injected, not constructed here)
 
 from auralis.analysis.adaptive_mastering_engine import AdaptiveMasteringEngine, MasteringRecommendation
 

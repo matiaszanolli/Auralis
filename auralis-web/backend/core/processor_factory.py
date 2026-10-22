@@ -14,47 +14,20 @@ eliminating ~150 lines of duplicate caching logic across 2 files.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-import hashlib
-import json
 import logging
 import threading
 from collections import OrderedDict
 from copy import deepcopy
-from typing import Any, Literal, NamedTuple
+from typing import Any, Literal
 
 from .env_config import get_int_env
+from .processor_cache_key import (
+    ProcessorCacheKey,
+    build_cache_key,
+    hash_config,
+)
+from .processor_maintenance import ProcessorMaintenanceMixin
 from .targets_hash import get_targets_hash
-
-
-class ProcessorCacheKey(NamedTuple):
-    """#3733: structured cache key for `ProcessorFactory._processor_cache`.
-
-    Documenting the key shape as a NamedTuple lets introspection use
-    named-attribute access (`key.track_id`, `key.preset`) instead of
-    positional indexing (`key[0]`). Adding a new field in the future
-    (sample_rate, etc.) stays backward-compatible for callers that
-    already use the named fields; positional access would silently shift.
-
-    #4707: `intensity` is deliberately NOT a field. It was keyed on without
-    ever reaching the constructed processor — `get_or_create` applies only the
-    preset (`config.mastering_profile`) and optional mastering targets, and
-    intensity is realised downstream as a dry/wet blend on the processor's
-    OUTPUT (`core/audio_processing_pipeline.py`). Two calls differing only in
-    intensity therefore built two byte-identical processors and consumed two of
-    the 32 LRU slots, so an intensity slider sweep evicted genuinely distinct
-    (track, preset) processors and forced redundant 200-500 ms constructions,
-    each paying the full 200-500 ms HybridProcessor.__init__ (#3746 — which
-    also cited a 5-thread fingerprint executor per build; that executor is
-    gone, see #4744, but the construction cost is not).
-
-    Every field here is one the processor actually consumes, matching
-    `ProcessorPool.cache_key`. Contrast `targets_hash`, which #3720 added
-    precisely because targets DO change the constructed processor.
-    """
-    track_id: int
-    preset: str
-    config_hash: str
-    targets_hash: str
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +42,7 @@ logger = logging.getLogger(__name__)
 _PROCESSOR_CACHE_MAX = get_int_env("AURALIS_PROCESSOR_CACHE_MAX", 32)
 
 
-class ProcessorFactory:
+class ProcessorFactory(ProcessorMaintenanceMixin):
     """
     Unified processor factory for HybridProcessor instances.
 
@@ -142,54 +115,12 @@ class ProcessorFactory:
         config_hash: str,
         targets_hash: str = "none",
     ) -> ProcessorCacheKey:
-        """
-        Generate cache key for processor.
-
-        Args:
-            track_id: Track ID (use 0 for config-based caching)
-            preset: Processing preset
-            config_hash: Hash of config object (use "default" for default config)
-            targets_hash: Hash of mastering_targets dict (use "none" if absent).
-                #3720: included in the key so two callers requesting the same
-                (track_id, preset) with DIFFERENT targets get different cached
-                processors — eliminates the need to re-apply targets on cache
-                hit (which raced with in-flight processing).
-
-        Note:
-            `intensity` is intentionally absent (#4707) — see ProcessorCacheKey.
-
-        Returns:
-            Cache key tuple
-        """
-        return ProcessorCacheKey(
-            track_id=track_id,
-            preset=preset.lower(),
-            config_hash=config_hash,
-            targets_hash=targets_hash,
-        )
-
-    # #4666: this class's private targets hasher moved to
-    # core/targets_hash.get_targets_hash. The chunk caches (ChunkCacheManager
-    # keys, the WAVEncoder on-disk filename) now key on
-    # targets too, and every tier must derive the hash IDENTICALLY — so the
-    # one implementation is shared rather than copied per tier.
+        """See :func:`processor_cache_key.build_cache_key`."""
+        return build_cache_key(track_id, preset, config_hash, targets_hash)
 
     def _get_config_hash(self, config: Any | None) -> str:
-        """
-        Get hash of config object for cache key.
-
-        Args:
-            config: UnifiedConfig instance or None
-
-        Returns:
-            Config hash string
-        """
-        if config is None:
-            return "default"
-
-        # Content-based hash so equivalent configs share cache entries
-        config_str = json.dumps(config.to_dict(), sort_keys=True)
-        return hashlib.md5(config_str.encode()).hexdigest()
+        """See :func:`processor_cache_key.hash_config`."""
+        return hash_config(config)
 
     def get_or_create(
         self,
@@ -353,188 +284,3 @@ class ProcessorFactory:
             intensity=1.0,
             config=owned_config
         )
-
-    def release(self, track_id: int) -> None:
-        """
-        Release processor for a track.
-
-        Removes from active tracking but keeps in cache for fast re-acquisition.
-
-        Args:
-            track_id: Track ID to release
-        """
-        with self._lock:
-            if track_id in self._active_processors:
-                self._active_processors.pop(track_id)
-                logger.debug(f"Released processor for track {track_id}")
-
-    def invalidate(
-        self,
-        *,
-        track_id: int,
-        preset: str,
-        mastering_targets: dict[str, Any] | None = None,
-        config: Any | None = None,
-    ) -> bool:
-        """Discard a processor whose state can no longer be retried safely.
-
-        A successful stateful DSP pass followed by a failed validation or
-        durable write leaves that instance advanced. Removing the exact cache
-        entry makes a retry construct a fresh processor instead of applying
-        the same chunk twice to the advanced instance (#5274).
-        """
-        cache_key = self._get_cache_key(
-            track_id,
-            preset,
-            self._get_config_hash(config),
-            get_targets_hash(mastering_targets),
-        )
-        with self._lock:
-            processor = self._processor_cache.pop(cache_key, None)
-            if processor is None:
-                return False
-            if self._active_processors.get(track_id) is processor:
-                self._active_processors.pop(track_id, None)
-
-        # Dispose outside the factory lock, following the existing eviction
-        # ordering. HybridProcessor.close() is currently idempotent/no-op.
-        processor.close()
-        logger.warning(
-            "Invalidated advanced processor after post-DSP failure: "
-            "track_id=%s, preset=%s",
-            track_id,
-            preset,
-        )
-        return True
-
-    def cleanup_track(self, track_id: int) -> None:
-        """
-        Clean up all processors for a track.
-
-        Removes both from active tracking AND cache (full cleanup).
-
-        Args:
-            track_id: Track ID to clean up
-        """
-        with self._lock:
-            # Remove from active tracking
-            if track_id in self._active_processors:
-                self._active_processors.pop(track_id)
-
-            # #3733: named-attribute filter survives future key
-            # extensions (e.g., adding `sample_rate`) without silently
-            # shifting positional indices like `key[0]` would.
-            keys_to_remove = [
-                key for key in self._processor_cache
-                if key.track_id == track_id
-            ]
-
-            for key in keys_to_remove:
-                # Dispose before dropping the reference (#3746 set the pattern;
-                # close() releases nothing today — #4744).
-                self._processor_cache.pop(key).close()
-
-            logger.info(f"Cleaned up {len(keys_to_remove)} processor(s) for track {track_id}")
-
-    # #4618: `set_mastering_targets()` was deleted here. It was a deprecated,
-    # caller-less public method that looked up the OLD-shape cache key
-    # (targets_hash="none") and mutated that processor in place — a documented
-    # race against any concurrent `process_chunk()` on the same instance,
-    # waiting for its first caller. `get_or_create(..., mastering_targets=...)`
-    # has been the whole replacement since #3720: the targets are hashed into
-    # the cache key, so distinct targets land in distinct cache entries and no
-    # in-place mutation of a shared processor is ever needed.
-
-    def get_statistics(self) -> dict[str, Any]:
-        """
-        Get statistics about cached and active processors.
-
-        Returns:
-            Dictionary with processor statistics
-        """
-        with self._lock:
-            return {
-                "total_cached": len(self._processor_cache),
-                "total_active": len(self._active_processors),
-                "active_track_ids": list(self._active_processors.keys()),
-                "cache_keys": len(self._processor_cache),
-            }
-
-    def clear_cache(self) -> None:
-        """Clear all cached processors (for memory management)."""
-        with self._lock:
-            count = len(self._processor_cache)
-            # Dispose before dropping references (#3746 set the pattern;
-            # close() releases nothing today — #4744).
-            for processor in self._processor_cache.values():
-                processor.close()
-            self._processor_cache.clear()
-            self._active_processors.clear()
-            logger.info(f"Cleared {count} cached processor(s)")
-
-    @property
-    def active_processors(self) -> dict[int, Any]:
-        """
-        Get currently active processors for monitoring.
-
-        Returns:
-            Dictionary mapping track_id to processor
-        """
-        with self._lock:
-            return self._active_processors.copy()
-
-
-# One factory per consumer that advances a processor's cross-chunk state
-# (#5311). A HybridProcessor carries EQ gain smoothing, limiter gain reduction
-# and dynamics envelopes from one process() call to the next, and its
-# _process_lock serializes calls without ordering them. When the proactive
-# buffer or the Tier-2 cache worker resolved the same (track, preset, config,
-# targets) key as a live stream, all of them fed chunks into one instance, so
-# each inherited the others' state at its chunk seams — and the on-disk chunk
-# cache then kept those seams. Separate factories mean separate instances,
-# each seeing only its own consumer's chunks in that consumer's order.
-STREAM_CONSUMER = "stream"
-PROACTIVE_BUFFER_CONSUMER = "proactive_buffer"
-CACHE_WORKER_CONSUMER = "cache_worker"
-
-# Background consumers only need processors for the track(s) they are working
-# on now, so their LRU caps are small; the live stream keeps
-# AURALIS_PROCESSOR_CACHE_MAX. The cache worker keeps the current and previous
-# track warm (see streamlined_processor_cache._PROCESSOR_CACHE_MAX).
-_CONSUMER_CACHE_MAX: dict[str, int] = {
-    PROACTIVE_BUFFER_CONSUMER: 2,
-    CACHE_WORKER_CONSUMER: 4,
-}
-
-_processor_factories: dict[str, ProcessorFactory] = {}
-_factory_lock = threading.Lock()
-
-
-def get_processor_factory(consumer: str = STREAM_CONSUMER) -> ProcessorFactory:
-    """
-    Get the process-wide processor factory for ``consumer`` (created on first use).
-
-    Live streaming uses the default. A background builder must pass its own
-    consumer name so it never shares a stateful processor with a live
-    stream (#5311).
-
-    Returns:
-        That consumer's ProcessorFactory instance
-    """
-    factory = _processor_factories.get(consumer)
-    if factory is None:
-        with _factory_lock:
-            # Double-check locking pattern
-            factory = _processor_factories.get(consumer)
-            if factory is None:
-                factory = ProcessorFactory(max_cached=_CONSUMER_CACHE_MAX.get(consumer))
-                _processor_factories[consumer] = factory
-                logger.info(f"ProcessorFactory for consumer '{consumer}' created")
-
-    return factory
-
-
-def all_processor_factories() -> list[ProcessorFactory]:
-    """Every consumer's factory created so far (shutdown clears them all)."""
-    with _factory_lock:
-        return list(_processor_factories.values())

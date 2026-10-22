@@ -17,7 +17,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from core import processor_factory as pf
+from core import processor_registry as pf
 
 BACKGROUND = (pf.PROACTIVE_BUFFER_CONSUMER, pf.CACHE_WORKER_CONSUMER)
 

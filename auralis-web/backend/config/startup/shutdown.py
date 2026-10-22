@@ -109,7 +109,7 @@ async def _shutdown_components(globals_dict: dict[str, Any]) -> None:
         try:
             # One factory per consumer since #5311 (live stream, proactive
             # buffer, cache worker); clear every one that was created.
-            from core.processor_factory import all_processor_factories
+            from core.processor_registry import all_processor_factories
             for processor_factory in all_processor_factories():
                 processor_factory.clear_cache()
             logger.info("✅ Processor factory caches cleared (processors dropped)")
