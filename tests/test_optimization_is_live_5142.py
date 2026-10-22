@@ -56,8 +56,7 @@ def test_importing_hybrid_processor_loads_the_performance_optimizer():
 def test_optimizer_submodules_are_transitively_live():
     """The whole inventory in _audit-common.md's Optimization row is reached.
 
-    performance_optimizer imports SIMDAccelerator, SmartCache, PerformanceConfig,
-    MemoryPool and PerformanceProfiler, so a bug in any of them is on a live
+    performance_optimizer imports PerformanceProfiler, so a bug in it is on a live
     path — which is precisely what the retracted "cap severity" instruction
     denied.
     """
@@ -66,11 +65,7 @@ def test_optimizer_submodules_are_transitively_live():
         import sys
         import auralis.core.hybrid_processor  # noqa: F401
         expected = [
-            'auralis.optimization.acceleration',
-            'auralis.optimization.caching',
-            'auralis.optimization.memory',
             'auralis.optimization.profiling',
-            'auralis.optimization.config',
         ]
         missing = [m for m in expected if m not in sys.modules]
         assert not missing, f'not reached from the pipeline: {missing}'

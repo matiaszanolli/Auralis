@@ -381,10 +381,6 @@ class HybridProcessor:
         """Save user preferences to storage"""
         return self.preference_manager.save_preferences(user_id)
 
-    def get_performance_stats(self) -> dict[str, Any]:
-        """Get performance optimization statistics"""
-        return self.performance_optimizer.get_optimization_stats()
-
     def get_processing_info(self) -> dict[str, Any]:
         """Get information about current processing configuration"""
         return {

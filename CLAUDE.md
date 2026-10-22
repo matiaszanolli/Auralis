@@ -126,8 +126,7 @@ auralis/                          Core Python audio engine
 ├── optimization/                 Performance — LIVE, not test-only (#5142)
 │   ├── performance_optimizer.py    get_performance_optimizer(); applied at import
 │   │                                 time by core/hybrid_processor.py
-│   ├── config.py
-│   └── acceleration/, caching/, memory/, profiling/
+│   └── profiling/
 │                                   (parallel/ + parallel_processor.py deleted #4565;
 │                                    NO rust_integration.py — see #5168)
 ├── services/                     Background services (fingerprint, artwork)

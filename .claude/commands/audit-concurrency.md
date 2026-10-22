@@ -54,7 +54,7 @@ The engine-side parallel processor (*auralis/optimization/parallel_processor.py*
 - [ ] Rust DSP boundary — does PyO3 correctly handle GIL release during processing? Can concurrent calls corrupt shared state?
 - [ ] HybridProcessor chain — if one stage fails mid-array, is the pipeline state consistent?
 - [ ] Sample count preservation — can the chunked and whole-file paths produce different lengths?
-- [ ] Optimizer singleton — `auralis/optimization/performance_optimizer.py` wraps `AdaptiveMode.process` process-wide (#5142). Are its profiling counters and `auralis/optimization/caching/` safe when several backend chunk workers master concurrently?
+- [ ] Optimizer singleton — `auralis/optimization/performance_optimizer.py` wraps `AdaptiveMode.process` process-wide (#5142). Are its profiling counters (`auralis/optimization/profiling/`) safe when several backend chunk workers master concurrently?
 
 ### Dimension 3: Backend WebSocket & Streaming
 

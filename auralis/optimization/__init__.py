@@ -8,10 +8,6 @@ Performance optimization components for real-time audio processing
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from .acceleration import SIMDAccelerator
-from .caching import SmartCache
-from .config import PerformanceConfig
-from .memory import MemoryPool
 from .performance_optimizer import (
     PerformanceOptimizer,
     get_performance_optimizer,
@@ -19,14 +15,8 @@ from .performance_optimizer import (
 from .profiling import PerformanceProfiler
 
 __all__ = [
-    # Configuration
-    'PerformanceConfig',
-
     # Core components
     'PerformanceOptimizer',
-    'MemoryPool',
-    'SmartCache',
-    'SIMDAccelerator',
     'PerformanceProfiler',
 
     # Factory functions
