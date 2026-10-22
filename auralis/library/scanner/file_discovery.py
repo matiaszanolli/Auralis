@@ -126,36 +126,50 @@ class FileDiscovery:
                     entry_path = Path(entry.path)
 
                     if entry.is_dir(follow_symlinks=True):
-                        # Skip excluded or hidden directory names before stat
-                        if entry.name in SKIP_DIRECTORIES:
-                            continue
-                        if entry.name.startswith('.') and len(entry.name) > 1:
-                            continue
-
-                        try:
-                            real_stat = entry_path.stat()
-                            inode_key = (real_stat.st_dev, real_stat.st_ino)
-                        except OSError:
-                            continue
-
-                        if inode_key in visited_inodes:
-                            if entry.is_symlink():
-                                warning(f"Circular symlink detected, skipping: {entry_path}")
-                            continue
-
-                        visited_inodes.add(inode_key)
-                        yield from self._walk_directory(entry_path, visited_inodes, depth + 1)
+                        if self._claim_subdirectory(entry, entry_path, visited_inodes):
+                            yield from self._walk_directory(entry_path, visited_inodes, depth + 1)
 
                     elif entry.is_file(follow_symlinks=True):
-                        if entry_path.suffix.lower() not in AUDIO_EXTENSIONS:
-                            continue
-                        if not self.should_skip_path(entry_path):
+                        if self._is_wanted_file(entry_path):
                             yield str(entry_path)
 
         except PermissionError:
             warning(f"Permission denied accessing directory: {directory}")
         except OSError as e:
             error(f"Error scanning directory {directory}: {e}")
+
+    @staticmethod
+    def _claim_subdirectory(
+        entry: os.DirEntry[str], entry_path: Path, visited_inodes: set[tuple[int, int]]
+    ) -> bool:
+        """True if ``entry`` should be descended into; marks its inode visited.
+
+        Skips excluded and hidden names before the stat, directories that
+        cannot be stat'ed, and inodes already seen (a circular or duplicate
+        symlink -- warned about when the entry is a symlink).
+        """
+        if entry.name in SKIP_DIRECTORIES:
+            return False
+        if entry.name.startswith('.') and len(entry.name) > 1:
+            return False
+
+        try:
+            real_stat = entry_path.stat()
+            inode_key = (real_stat.st_dev, real_stat.st_ino)
+        except OSError:
+            return False
+
+        if inode_key in visited_inodes:
+            if entry.is_symlink():
+                warning(f"Circular symlink detected, skipping: {entry_path}")
+            return False
+
+        visited_inodes.add(inode_key)
+        return True
+
+    def _is_wanted_file(self, entry_path: Path) -> bool:
+        """An audio-extension file that is not under a skipped path."""
+        return entry_path.suffix.lower() in AUDIO_EXTENSIONS and not self.should_skip_path(entry_path)
 
     def should_skip_path(self, file_path: Path) -> bool:
         """

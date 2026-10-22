@@ -12,7 +12,7 @@ Configuration constants for library scanner
 # (auralis.io.formats) so the scanner never ingests an extension the loader
 # can't decode (#4109). Only formats with a working decode path are scanned;
 # .mp4/.m4p/.webm (video/DRM containers) are intentionally excluded.
-from auralis.io.formats import AUDIO_EXTENSIONS  # noqa: F401  (re-exported)
+from auralis.io.formats import AUDIO_EXTENSIONS as AUDIO_EXTENSIONS
 
 # Common non-music directories to skip
 SKIP_DIRECTORIES = {
