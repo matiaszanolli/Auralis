@@ -19,11 +19,11 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # getattr-fallback defaults — NOT the response contract (#4708)
 #
-# `serialize_object()` returns `obj.to_dict()` for any non-Mock object that
-# provides one, so for a real ORM row these maps are never consulted. They are
-# reached only by:
-#   * Mock/MagicMock objects in tests (the branch is explicitly skipped for
-#     them so a Mock's auto-generated `to_dict` cannot recurse), and
+# `serialize_object()` returns `obj.to_dict()` whenever it yields a dict, so for
+# a real ORM row these maps are never consulted. They are reached only by:
+#   * objects without a usable `to_dict()` -- chiefly the Mock/MagicMock rows
+#     tests pass in, whose auto-generated `to_dict()` returns a Mock, not a
+#     dict, and
 #   * the rare case where a real `to_dict()` raises, which is logged and
 #     falls through.
 #
@@ -117,8 +117,8 @@ def serialize_object(obj: Any, fallback_fields: dict[str, Any] | None = None) ->
     """
     Serialize a single object to a dictionary.
 
-    Returns ``obj.to_dict()`` whenever the object provides one and is not a
-    Mock — which is every real ORM row — and only otherwise projects ``obj``
+    Returns ``obj.to_dict()`` whenever the object provides one and it returns a
+    dict — which is every real ORM row — and only otherwise projects ``obj``
     through ``fallback_fields`` with getattr.
 
     ``fallback_fields`` therefore does NOT describe what an endpoint returns
@@ -127,8 +127,8 @@ def serialize_object(obj: Any, fallback_fields: dict[str, Any] | None = None) ->
 
     Args:
         obj: Object to serialize
-        fallback_fields: Defaults used only on the getattr path (Mocks, or a
-            real object whose to_dict() raised)
+        fallback_fields: Defaults used only on the getattr path (an object with
+            no usable to_dict(), or a real one whose to_dict() raised)
 
     Returns:
         Dictionary representation of the object
@@ -140,17 +140,19 @@ def serialize_object(obj: Any, fallback_fields: dict[str, Any] | None = None) ->
     if obj is None:
         return {}
 
-    # Prefer object's to_dict method (but not for Mock objects in tests)
-    if hasattr(obj, 'to_dict') and callable(getattr(obj, 'to_dict', None)):
-        # Skip Mock objects to avoid circular reference issues
-        obj_type_name = type(obj).__name__
-        if 'Mock' not in obj_type_name and 'MagicMock' not in obj_type_name:
-            try:
-                result = obj.to_dict()
-                if isinstance(result, dict):
-                    return result
-            except Exception as e:
-                logger.warning(f"Error calling to_dict on {obj_type_name}: {e}")
+    # Prefer the object's own to_dict(). Nothing here looks at the object's
+    # type name (#5803): this used to skip any class whose name contained
+    # "Mock", so production behaviour depended on how a test double was named.
+    # It never needed to -- a Mock's auto-generated to_dict() returns another
+    # Mock, which fails the isinstance(dict) check below and falls through to
+    # the getattr path all the same.
+    if callable(getattr(obj, 'to_dict', None)):
+        try:
+            result = obj.to_dict()
+            if isinstance(result, dict):
+                return result
+        except Exception as e:
+            logger.warning(f"Error calling to_dict on {type(obj).__name__}: {e}")
 
     # Fall back to getattr with defaults
     if fallback_fields is None:
