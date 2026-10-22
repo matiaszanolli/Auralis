@@ -3,7 +3,7 @@ Stereo-width expansion has no categorical step at the peak guard (#5108).
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ``ContinuousMode._apply_stereo_width`` — the live default path
-(``use_continuous_space=True``) — gated the whole widening operation on a bare
+(ContinuousMode) — gated the whole widening operation on a bare
 ``if pre_peak_db > -2.0 and target_width > WIDTH_FACTOR_UNITY: return audio``.
 Two masters 0.01 dB apart straddling -2.0 dBFS received either full
 ``adjust_stereo_width_multiband()`` treatment or none: an audible stereo-image

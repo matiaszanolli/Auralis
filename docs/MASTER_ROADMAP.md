@@ -26,7 +26,7 @@
 | Frontend tests | 3,405 exercised in the audit; 3,174 pass, 208 fail, 23 skip | [recovery audit](audits/AUDIT_RECOVERY_2026-07-24.md) |
 | DB schema | v16 | [`migration_manager.py`](../auralis/library/migration_manager.py) |
 | Fingerprint algo | v3 | [`auralis/__version__.py`](../auralis/__version__.py) |
-| Default mastering engine | Continuous space (`use_continuous_space=True`) | [`unified_config.py:154`](../auralis/core/config/unified_config.py) |
+| Default mastering engine | Continuous space (`ContinuousMode`) | [`continuous_mode.py`](../auralis/core/processing/continuous_mode.py) |
 | Default fingerprint strategy | Sampling (20 s interval) | [`unified_config.py`](../auralis/core/config/unified_config.py) |
 
 Tagged lines to date: `1.0.0-beta.*` → `1.1.0-beta.*` → `1.2.0-beta.*` →

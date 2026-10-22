@@ -42,8 +42,7 @@ HybridProcessor.process()            # offline, whole-signal  (hybrid_processor.
   └─ _process_impl                   # under self._process_lock (RLock)
        ├─ _process_reference_mode    # reference present      (:298)
        ├─ _process_adaptive_mode     # adaptive               (:323)
-       │    ├─ ContinuousMode.process()   # default (use_continuous_space=True)
-       │    └─ AdaptiveMode.process()     # legacy fallback
+       │    └─ ContinuousMode.process()
        └─ _process_hybrid_mode       # reference + adaptive    (:379)
 
 HybridProcessor.process_realtime_chunk()   # real-time chunk   (:406)
@@ -54,14 +53,14 @@ HybridProcessor.process_realtime_chunk()   # real-time chunk   (:406)
 
 | Mode | Class | File | Role |
 |------|-------|------|------|
-| **Continuous** (default adaptive) | `ContinuousMode` | [`continuous_mode.py:83`](../../auralis/core/processing/continuous_mode.py) | Maps the 25D fingerprint → 3D processing space → continuous `ProcessingParameters`. Selected when `config.use_continuous_space=True`. |
-| **Adaptive** (legacy) | `AdaptiveMode` | [`adaptive_mode.py:33`](../../auralis/core/processing/adaptive_mode.py) | Preset/spectrum-based path used only when `use_continuous_space=False`. |
+| **Continuous** (default adaptive) | `ContinuousMode` | [`continuous_mode.py:83`](../../auralis/core/processing/continuous_mode.py) | Maps the 25D fingerprint → 3D processing space → continuous `ProcessingParameters`. Used for the adaptive mode. |
+| **Adaptive** (legacy) | `AdaptiveMode` | [`adaptive_mode.py:33`](../../auralis/core/processing/adaptive_mode.py) | Preset/spectrum-based component of the `hybrid` and `reference` modes. |
 | **Hybrid** | `HybridMode` | [`hybrid_mode.py:21`](../../auralis/core/processing/hybrid_mode.py) | Blends reference matching with adaptive output at `adaptation_strength * 0.5`. |
 
 **Mode selection** is two orthogonal axes:
 
-- **Algorithm axis** — `config.adaptive.mode` (`reference` / `adaptive` / `hybrid`) plus
-  `config.use_continuous_space` (Continuous vs legacy Adaptive).
+- **Algorithm axis** — `config.adaptive.mode` (`reference` / `adaptive` / `hybrid`); adaptive
+  runs `ContinuousMode`.
 - **Latency axis** — offline (`process()`) vs real-time (`process_realtime_chunk()`).
 
 ### ContinuousMode internals (the default path)
@@ -308,7 +307,6 @@ There are **two separate processor caches**: the module-level convenience cache 
 | `internal_sample_rate` | 44100 | Internal processing rate |
 | `fft_size` | 4096 | Asserted power of 2 |
 | `mastering_profile` | `"adaptive"` | Named preset |
-| `use_continuous_space` | `True` | ContinuousMode vs legacy AdaptiveMode |
 | `enable_cross_dimensional_guard` | `True` | ContinuousMode per-stage compensation |
 | `quality_gate_enabled` / `quality_gate_interval` | `True` / 5 | Sampled quality gate |
 

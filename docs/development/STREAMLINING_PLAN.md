@@ -243,9 +243,9 @@ Verified: 85 targeted fingerprint/similarity/extractor tests pass; suite collect
   renaming the test-only metrics class → `SpectralMetrics` (52 metrics tests pass; production
   `utilities.SpectralOperations` untouched).
 - **2026-07-11 (#5 gate)** — After removing the `chunked_processor` usage, `AdaptiveMode` has
-  **no production caller**: the app always runs `mode="adaptive"` + `use_continuous_space=True`
+  **no production caller**: the app always runs `mode="adaptive"` (then `use_continuous_space=True`, a flag since removed, #5825)
   → `ContinuousMode`. `AdaptiveMode` survives only via `HybridMode` (which uses it as its core
-  adaptive component, not just a fallback) and the dead `use_continuous_space=False` branch —
+  adaptive component, not just a fallback) and the since-removed `use_continuous_space=False` branch —
   both reachable only through the `hybrid`/`reference` config modes the app never selects.
   **Full retirement is gated on a product decision:** keep the `hybrid`/`reference` mastering
   modes (→ `AdaptiveMode` stays, document as legacy) or drop them (→ larger refactor,

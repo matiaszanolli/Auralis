@@ -82,11 +82,6 @@ class UnifiedConfig:
         # preset_profiles.create_preset_profiles)
         self.mastering_profile = "adaptive"
 
-        # Continuous processing space (NEW - replaces discrete presets)
-        # Set to True to use continuous parameter generation based on fingerprints
-        # Set to False to use legacy preset-based processing
-        self.use_continuous_space = True  # Default: enabled
-
         # Cross-dimensional guard (Phase 8 - mastering quality framework)
         # When True, each processing stage is measured and cross-dimensional
         # side effects are detected and compensated.
@@ -98,7 +93,6 @@ class UnifiedConfig:
         self.quality_gate_interval: int = 5  # Run every Nth chunk (0 = first only)
 
         debug(f"Unified config initialized: mode={self.adaptive.mode}, "
-              f"continuous_space={self.use_continuous_space}, "
               f"SR={self.internal_sample_rate}Hz, FFT={self.fft_size}")
 
     def get_genre_profile(self, genre: str) -> GenreProfile:

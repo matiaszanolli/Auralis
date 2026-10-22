@@ -50,8 +50,8 @@ def finalize_job(
     try:
         content_profile = getattr(processor, "last_content_profile", None)
         if isinstance(content_profile, dict):
-            # Legacy AdaptiveMode path (use_continuous_space=False, or the
-            # adaptive component of hybrid/reference modes): genre lives
+            # Legacy AdaptiveMode profile (the adaptive component of
+            # hybrid/reference modes): genre lives
             # under genre_info.primary, not a top-level "genre" key.
             genre_info = content_profile.get("genre_info")
             if isinstance(genre_info, dict):
@@ -60,8 +60,7 @@ def finalize_job(
             if estimated_lufs is not None:
                 lufs = float(estimated_lufs)
 
-        # Default/production path (use_continuous_space=True, the only
-        # value the app ever sets): ContinuousMode never runs genre
+        # Default/production path: ContinuousMode never runs genre
         # classification, but its 25D fingerprint carries a real measured
         # LUFS — prefer it over the legacy estimate above when present.
         continuous_mode = getattr(processor, "continuous_mode", None)

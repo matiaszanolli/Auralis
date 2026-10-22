@@ -334,7 +334,7 @@ class TestProcessingJobProcessing:
 
     @pytest.mark.asyncio
     async def test_process_job_lufs_from_continuous_mode_fingerprint(self, temp_audio_file):
-        """The default/production path (use_continuous_space=True, #4757).
+        """The default/production path (ContinuousMode, #4757).
 
         ContinuousMode is "the default and the only value the app ever
         sets" (hybrid_processor.py's own docstring) — it never runs genre

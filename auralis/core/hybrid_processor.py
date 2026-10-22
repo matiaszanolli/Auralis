@@ -86,7 +86,6 @@ class HybridProcessor:
     adaptive_mode: "AdaptiveMode"
     continuous_mode: "ContinuousMode"
     hybrid_mode: "HybridMode"
-    current_user_id: str | None
     performance_optimizer: "PerformanceOptimizer"
     _process_lock: threading.RLock
     _closed: bool
@@ -230,34 +229,22 @@ class HybridProcessor:
         """
         info("Processing in adaptive mode")
 
-        # Choose processing mode based on config
-        if self.config.use_continuous_space:
-            debug(f"HybridProcessor: use_continuous_space={self.config.use_continuous_space}, using ContinuousMode")
-            info("Using continuous parameter space (fingerprint-based)")
+        info("Using continuous parameter space (fingerprint-based)")
 
-            # NEW (Beta.9): Use fixed targets if set (from .25d file)
-            # This bypasses expensive fingerprint extraction on every chunk
-            fixed_params = self.current_targets if self.current_targets is not None else None
+        # Use fixed targets if set (from .25d file); this bypasses expensive
+        # fingerprint extraction on every chunk
+        fixed_params = self.current_targets if self.current_targets is not None else None
 
-            # Delegate to continuous mode processor
-            processed = self.continuous_mode.process(target_audio, self.eq_processor,
-                                                    fixed_params=fixed_params)
+        # Delegate to continuous mode processor
+        processed = self.continuous_mode.process(target_audio, self.eq_processor,
+                                                fixed_params=fixed_params)
 
-            # Store fingerprint and parameters for learning/debugging
-            self.last_content_profile = {
-                'fingerprint': self.continuous_mode.last_fingerprint,
-                'coordinates': self.continuous_mode.last_coordinates,
-                'parameters': self.continuous_mode.last_parameters,
-            }
-        else:
-            info("Using legacy preset-based processing")
-            # Delegate to legacy adaptive mode processor
-            processed = self.adaptive_mode.process(target_audio, self.eq_processor)
-
-            # Store content profile for user learning
-            profile = self.adaptive_mode.get_last_content_profile()
-            if profile is not None:
-                self.last_content_profile = profile
+        # Store fingerprint and parameters for learning/debugging
+        self.last_content_profile = {
+            'fingerprint': self.continuous_mode.last_fingerprint,
+            'coordinates': self.continuous_mode.last_coordinates,
+            'parameters': self.continuous_mode.last_parameters,
+        }
 
         self.preference_manager.set_content_profile(self.last_content_profile)
 
@@ -344,14 +331,14 @@ class HybridProcessor:
             self.brick_wall_limiter.reset()
 
     def set_user(self, user_id: str) -> None:
-        """Set the current user for preference learning (#3787: locked).
-
-        Both writes (`current_user_id` AND the underlying preference
-        manager) are inside the lock so a concurrent process() reads a
-        consistent (user, preferences) pair."""
+        """Set the current user for preference learning (#3787: locked)."""
         with self._process_lock:
-            self.current_user_id = user_id
             self.preference_manager.set_user(user_id)
+
+    @property
+    def current_user_id(self) -> str | None:
+        """The user preference learning applies to (owned by the PreferenceManager)."""
+        return self.preference_manager.current_user_id
 
     def record_user_feedback(self, rating: float,
                            parameters_before: dict[str, float] | None = None,

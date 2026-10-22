@@ -118,9 +118,6 @@ def build_hybrid_components(config: UnifiedConfig, processor: "HybridProcessor")
         config, processor.content_analyzer, processor.target_generator,
         processor.adaptive_mode
     )
-    # Shared state (backwards compatibility)
-    processor.current_user_id = None
-
     # Initialize performance optimizer (optimizations applied once at module level)
     processor.performance_optimizer = get_performance_optimizer()
 
