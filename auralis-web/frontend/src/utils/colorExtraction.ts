@@ -16,15 +16,11 @@
 // Imported from the token module rather than the '@/design-system' barrel so a
 // plain utility doesn't pull the component library in with it.
 import { tokens, hexToRgb } from '@/design-system/tokens';
+import { kMeansClustering } from './kMeans';
+import { rgbToHex, rgbToHsl, type RGBColor } from './colorSpace';
 
-/**
- * RGB color representation
- */
-export interface RGBColor {
-  r: number;
-  g: number;
-  b: number;
-}
+export type { RGBColor };
+
 
 /**
  * Extended color with metadata
@@ -67,164 +63,6 @@ export interface ArtworkPalette {
  */
 const BRAND_FALLBACK_RGB = hexToRgb(tokens.colors.accent.primary) ?? { r: 115, g: 102, b: 240 };
 
-/**
- * Convert RGB to Hex
- */
-function rgbToHex(r: number, g: number, b: number): string {
-  const toHex = (n: number) => {
-    const hex = Math.round(n).toString(16);
-    return hex.length === 1 ? '0' + hex : hex;
-  };
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-}
-
-/**
- * Convert RGB to HSL
- * Returns [hue (0-360), saturation (0-100), lightness (0-100)]
- */
-function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
-  r /= 255;
-  g /= 255;
-  b /= 255;
-
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  const diff = max - min;
-
-  let h = 0;
-  let s = 0;
-  const l = (max + min) / 2;
-
-  if (diff !== 0) {
-    s = l > 0.5 ? diff / (2 - max - min) : diff / (max + min);
-
-    switch (max) {
-      case r:
-        h = ((g - b) / diff + (g < b ? 6 : 0)) / 6;
-        break;
-      case g:
-        h = ((b - r) / diff + 2) / 6;
-        break;
-      case b:
-        h = ((r - g) / diff + 4) / 6;
-        break;
-    }
-  }
-
-  return [h * 360, s * 100, l * 100];
-}
-
-/**
- * Calculate color distance (Euclidean in RGB space)
- */
-function colorDistance(c1: RGBColor, c2: RGBColor): number {
-  const dr = c1.r - c2.r;
-  const dg = c1.g - c2.g;
-  const db = c1.b - c2.b;
-  return Math.sqrt(dr * dr + dg * dg + db * db);
-}
-
-/**
- * K-means clustering for color quantization
- * Groups similar colors together to find dominant colors
- */
-function kMeansClustering(
-  pixels: RGBColor[],
-  k: number,
-  maxIterations: number = 10
-): { color: RGBColor; population: number }[] {
-  if (pixels.length === 0) return [];
-  if (k >= pixels.length) {
-    // Not enough pixels for clustering, return unique colors
-    const colorMap = new Map<string, { color: RGBColor; population: number }>();
-    pixels.forEach((p) => {
-      const key = `${p.r},${p.g},${p.b}`;
-      const existing = colorMap.get(key);
-      if (existing) {
-        existing.population++;
-      } else {
-        colorMap.set(key, { color: p, population: 1 });
-      }
-    });
-    return Array.from(colorMap.values())
-      .sort((a, b) => b.population - a.population)
-      .slice(0, k);
-  }
-
-  // Initialize centroids with k-means++ algorithm (better initial placement)
-  const centroids: RGBColor[] = [];
-  centroids.push(pixels[Math.floor(Math.random() * pixels.length)]);
-
-  while (centroids.length < k) {
-    const distances = pixels.map((p) =>
-      Math.min(...centroids.map((c) => colorDistance(p, c)))
-    );
-    const totalDistance = distances.reduce((sum, d) => sum + d * d, 0);
-    let threshold = Math.random() * totalDistance;
-
-    for (let i = 0; i < pixels.length; i++) {
-      threshold -= distances[i] * distances[i];
-      if (threshold <= 0) {
-        centroids.push(pixels[i]);
-        break;
-      }
-    }
-  }
-
-  // Iterate k-means
-  for (let iter = 0; iter < maxIterations; iter++) {
-    // Assign pixels to nearest centroid
-    const clusters: RGBColor[][] = Array.from({ length: k }, () => []);
-    pixels.forEach((p) => {
-      let minDist = Infinity;
-      let minIdx = 0;
-      centroids.forEach((c, i) => {
-        const dist = colorDistance(p, c);
-        if (dist < minDist) {
-          minDist = dist;
-          minIdx = i;
-        }
-      });
-      clusters[minIdx].push(p);
-    });
-
-    // Update centroids (average of cluster)
-    let changed = false;
-    centroids.forEach((c, i) => {
-      if (clusters[i].length === 0) return;
-      const avgR = clusters[i].reduce((sum, p) => sum + p.r, 0) / clusters[i].length;
-      const avgG = clusters[i].reduce((sum, p) => sum + p.g, 0) / clusters[i].length;
-      const avgB = clusters[i].reduce((sum, p) => sum + p.b, 0) / clusters[i].length;
-
-      if (Math.abs(c.r - avgR) > 1 || Math.abs(c.g - avgG) > 1 || Math.abs(c.b - avgB) > 1) {
-        changed = true;
-      }
-
-      c.r = avgR;
-      c.g = avgG;
-      c.b = avgB;
-    });
-
-    if (!changed) break; // Converged early
-  }
-
-  // Return centroids with population counts
-  return centroids.map((c, i) => ({
-    color: { r: Math.round(c.r), g: Math.round(c.g), b: Math.round(c.b) },
-    population: pixels.filter((p) => {
-      let minIdx = 0;
-      let minDist = Infinity;
-      centroids.forEach((centroid, idx) => {
-        const dist = colorDistance(p, centroid);
-        if (dist < minDist) {
-          minDist = dist;
-          minIdx = idx;
-        }
-      });
-      return minIdx === i;
-    }).length,
-  }));
-}
 
 /**
  * Extract dominant colors from an image URL
