@@ -1,6 +1,8 @@
 {
   "_comment": "Closed split targets and the line count each may not exceed (#5830). The ceilings only go down: split the file again instead of raising one. Lower them with: python scripts/check_loc_ratchet.py --update",
   "ceilings": {
+    "auralis-web/backend/config/bootstrap.py": 299,
+    "auralis-web/backend/config/fallback_routes.py": 299,
     "auralis-web/backend/core/chunk_cache_manager.py": 299,
     "auralis-web/backend/core/chunk_streaming.py": 299,
     "auralis-web/backend/core/chunked_processor.py": 299,
@@ -8,6 +10,7 @@
     "auralis-web/backend/core/processing_engine.py": 330,
     "auralis-web/backend/core/processor_factory.py": 299,
     "auralis-web/backend/core/streamlined_worker.py": 299,
+    "auralis-web/backend/main.py": 299,
     "auralis-web/backend/routers/albums.py": 299,
     "auralis-web/backend/routers/artists.py": 299,
     "auralis-web/backend/routers/artwork.py": 299,

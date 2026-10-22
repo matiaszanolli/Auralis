@@ -11,141 +11,25 @@ Replaces the Tkinter GUI with a professional web interface.
 """
 
 import logging
-import os
-import sys
-from collections.abc import Mapping
 from pathlib import Path
 
 import uvicorn
-from fastapi import Request, WebSocket
-from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
-from starlette import status
-from starlette.routing import Match
 
-# NOTE: logging.basicConfig was removed here once (#3537 / BE-NEW-79), then
-# reinstated (#4774). The #3537 comment that used to sit here claimed
-# uvicorn.run() "installs its own logging configuration with handlers on the
-# root logger" — checked against uvicorn's actual LOGGING_CONFIG and that's
-# not what it does: it only ever configures the "uvicorn"/"uvicorn.access"
-# loggers (both propagate=False) and "uvicorn.error" (propagate=True but no
-# handler of its own, so it stops at "uvicorn"'s handler). None of the three
-# ever reach the root logger, configured or not.
-#
-# Meanwhile every module logger in this codebase (`logging.getLogger(__name__)`
-# — this one, config/routes.py's, etc.) has no handler of its own and
-# propagates straight to that root logger. With no basicConfig, root has no
-# handler either, so `logging.lastResort` (level WARNING) silently swallowed
-# every INFO/DEBUG line for the process's entire lifetime — not just before
-# uvicorn.run() as first suspected, but always, including all 20
-# router-registration confirmations in config/routes.py.
-#
-# Reinstating basicConfig does not reopen #3537: that bug was uvicorn's OWN
-# lines being handled twice, and uvicorn's loggers never reach root either
-# way, per the above — verified with a live `python main.py` run showing no
-# duplicate "Uvicorn running on ..."-style lines after this change.
-#
-# Duplicated rather than reused from config.app.is_dev_mode(): that import
-# pulls in `auralis.version`, and this must run before the sys.path bootstrap
-# just below adds the frozen/Electron auralis_parent to sys.path — importing
-# it here would work in a normal dev venv (auralis is pip-installed there)
-# and break the PyInstaller-frozen production case.
-_dev_mode = "--dev" in sys.argv or os.environ.get("AURALIS_DEV_MODE", "").lower() in ("1", "true", "yes")
+# Bootstrap FIRST (#5834): the root logger must exist before any module logs
+# (#4774), and sys.path must reach `auralis` before anything below imports it
+# (the PyInstaller-frozen case; see config/bootstrap.py). These two imports
+# are the only ones allowed above the sys.path call.
+from config.bootstrap import configure_logging, configure_sys_path, early_dev_mode
 
-# Log level (#5065). Resolved ONCE here and applied to both basicConfig just
-# below and uvicorn.run()'s log_level at the bottom of this file.
-#
-# Passing a level to uvicorn alone cannot make `logger.debug` reachable:
-# uvicorn's configure_logging() only calls setLevel() on its own
-# "uvicorn.error"/"uvicorn.access"/"uvicorn.asgi" loggers, and its default
-# LOGGING_CONFIG has no "root" entry, so the root logger every module logger
-# here propagates to is left exactly as basicConfig left it. The basicConfig
-# level is what actually gates DEBUG for the application; uvicorn's log_level
-# only gates uvicorn's own lines. Both come from one value so they can't
-# diverge (before this, uvicorn was pinned to "info" while --dev put the root
-# logger at DEBUG).
-#
-# Default: DEBUG in dev mode, INFO otherwise. The non-dev default must stay
-# INFO -- #4366/#4778 demoted absolute paths (which embed the OS username and
-# the install layout) to DEBUG precisely so INFO output is safe to paste into a
-# public bug report, and raising the packaged default would undo that.
-# AURALIS_LOG_LEVEL is the explicit opt-in for a support session on a packaged
-# build; it is deliberately separate from AURALIS_DEV_MODE, which also enables
-# Swagger/ReDoc and widens the CORS/WebSocket origin allowlists (#4802) -- far
-# too much to turn on just to read DEBUG lines.
-_LOG_LEVELS: dict[str, int] = {
-    "critical": logging.CRITICAL,
-    "error": logging.ERROR,
-    "warning": logging.WARNING,
-    "info": logging.INFO,
-    "debug": logging.DEBUG,
-    # uvicorn's TRACE_LOG_LEVEL (below DEBUG); accepted by its log_level too.
-    "trace": 5,
-}
-
-
-def resolve_log_level(dev_mode: bool, env: Mapping[str, str] | None = None) -> str:
-    """Resolve the process-wide log level name (a valid uvicorn `log_level`).
-
-    AURALIS_LOG_LEVEL wins when it names a known level; otherwise the default is
-    "debug" in dev mode and "info" everywhere else. An unrecognized value falls
-    back to that default instead of raising -- a typo in an environment variable
-    must not stop the backend from starting.
-    """
-    environ = os.environ if env is None else env
-    requested = environ.get("AURALIS_LOG_LEVEL", "").strip().lower()
-    if requested in _LOG_LEVELS:
-        return requested
-    return "debug" if dev_mode else "info"
-
-
-_log_level = resolve_log_level(_dev_mode)
-logging.basicConfig(
-    level=_LOG_LEVELS[_log_level],
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
-
+_BACKEND_DIR = Path(__file__).parent
+_log_level = configure_logging(early_dev_mode())
 logger = logging.getLogger(__name__)
-
-_requested_log_level = os.environ.get("AURALIS_LOG_LEVEL", "").strip()
-if _requested_log_level and _requested_log_level.lower() not in _LOG_LEVELS:
-    logger.warning(
-        "Ignoring unrecognized AURALIS_LOG_LEVEL=%r (expected one of %s); using %r",
-        _requested_log_level,
-        ", ".join(sorted(_LOG_LEVELS)),
-        _log_level,
-    )
-
-# Add parent directory to path for Auralis imports
-# Detect execution context and set appropriate path
-if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
-    # Running as PyInstaller bundle (Electron AppImage)
-    # Use working directory to find resources (cwd is set to resources/backend by Electron)
-    auralis_parent = Path(os.getcwd()).parent
-    logger.info("Running as PyInstaller bundle")
-    # Absolute path (embeds OS username + install layout) kept at DEBUG only;
-    # INFO stays free of it so it's safe to paste into a public bug report
-    # (#4366 / #4778).
-    logger.debug(f"Adding to sys.path: {auralis_parent}")
-    # Append (not insert) so that _MEIPASS — which PyInstaller puts at the front — takes
-    # priority over the external resources/auralis/ copy, preventing a stale copy from
-    # shadowing the auralis version that was bundled into this executable.
-    sys.path.append(str(auralis_parent))
-elif os.environ.get('ELECTRON_MODE') == '1':
-    # Running in Electron but not frozen (shouldn't happen in production)
-    auralis_parent = Path(__file__).parent.parent
-    logger.info("Running in Electron mode (unfrozen)")
-    logger.debug(f"Adding to sys.path: {auralis_parent}")
-    sys.path.insert(0, str(auralis_parent))
-else:
-    # Running in development - auralis package is in ../../..
-    auralis_parent = Path(__file__).parent.parent.parent
-    logger.info("Running in development mode")
-    logger.debug(f"Adding to sys.path: {auralis_parent}")
-    sys.path.insert(0, str(auralis_parent))
+configure_sys_path(_BACKEND_DIR)
 
 # Import configuration modules
-from config.app import create_app, is_dev_mode as _is_dev_mode
+from config.app import create_app
+from config.bootstrap import install_log_sanitizer
+from config.fallback_routes import mount_frontend, register_fallback_routes
 from config.globals import ConnectionManager, set_component_registry
 from config.middleware import setup_middleware
 from config.origins import BACKEND_PORT
@@ -153,19 +37,7 @@ from config.routes import setup_routers
 from config.startup import create_lifespan
 from schemas import DEFAULT_PRESET
 
-# #5393: the sanitizing LogRecordFactory (auralis.utils.logging, imported at
-# config import time) covers message/args, but traceback text from
-# exc_info/logger.exception() is rendered by the handler's Formatter, which
-# basicConfig instantiated as a plain Formatter. Re-wrap those handlers so
-# attacker-controlled text inside an exception message cannot forge log
-# lines in the persisted electron-log output. This must wait until after the
-# sys.path bootstrap above — importing auralis.* before it breaks the
-# PyInstaller-frozen case, per the config.app note at the top.
-from auralis.utils.logging import install_sanitizing_formatter
-
-install_sanitizing_formatter(
-    fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+install_log_sanitizer()
 
 # Import state management
 from player_state import create_track_info
@@ -233,177 +105,12 @@ setup_middleware(app)
 # Setup routers (registers all routes with app)
 setup_routers(app, deps)
 
-# Frontend static file serving
-if os.environ.get('ELECTRON_MODE') == '1':
-    # Running inside Electron (frozen binary or script)
-    # Frontend is in resources/frontend alongside resources/backend
-    frontend_path = Path(os.getcwd()).parent / "frontend"
-    if not frontend_path.exists():
-        # Fallback: resolve relative to this script
-        frontend_path = Path(__file__).resolve().parent.parent / "frontend"
-    logger.info("Electron mode: looking for frontend")
-elif hasattr(sys, 'frozen') and hasattr(sys, '_MEIPASS'):
-    # PyInstaller bundle but not Electron - frontend might be bundled
-    meipass = getattr(sys, '_MEIPASS')
-    frontend_path = Path(meipass) / "frontend"
-    logger.info("PyInstaller mode: frontend bundled with _MEIPASS")
-else:
-    # Development mode - look in regular location
-    frontend_path = Path(__file__).parent.parent / "frontend" / "dist"
+# Catch-alls for unregistered WebSocket paths and unmatched /api paths: after
+# the real routes above, before the StaticFiles mount below (config/fallback_routes.py).
+register_fallback_routes(app)
 
-# Absolute path (embeds OS username + install layout) kept at DEBUG only;
-# INFO stays free of it so it's safe to paste into a public bug report (#4366).
-logger.debug(f"Looking for frontend at: {frontend_path}")
-
-# Body for the `/` fallback when the built frontend is missing.
-#
-# Deliberately free of `frontend_path` (#4351). The old version interpolated it
-# — HTML-escaped, so never an XSS vector, but it handed any client that can
-# reach `/` the install layout: the PyInstaller _MEIPASS temp dir, or
-# /home/<user>/... which also discloses the OS username. A stray browser tab or
-# a DNS-rebound page could read it.
-#
-# The path is still available for diagnostics from the logger.debug calls, which
-# is where #4366 put absolute paths so INFO-level output stays safe to paste
-# into a public bug report. Kept a module-level constant rather than inlined so
-# the branch is reachable from a test: which `/` handler gets registered is
-# decided at import time by conditions a test cannot easily force.
-FRONTEND_MISSING_HTML = """
-        <html>
-            <head><title>Auralis Web</title></head>
-            <body>
-                <h1>🎵 Auralis Web Backend</h1>
-                <p>FastAPI backend is running!</p>
-                <p>Frontend assets not found — the installation looks incomplete.
-                   Reinstall Auralis, or run the backend with --dev and serve the
-                   frontend with Vite.</p>
-                <p><a href="/api/docs">View API Documentation</a></p>
-            </body>
-        </html>
-        """
-
-# Catch-all for unregistered WebSocket paths (#4800). Starlette's Mount
-# matches websocket scopes just like http ones (it only special-cases the
-# path, not scope["type"]), so without this a client that upgrades to any
-# unregistered /ws* path in production falls through the single real /ws
-# route (registered above, via setup_routers) all the way to the
-# StaticFiles Mount below, whose __call__ asserts scope["type"] == "http"
-# and raises an unhandled AssertionError instead of a clean close.
-# Registered here — after setup_routers's real /ws route, before the Mount
-# — so /ws itself still matches first (Starlette checks routes in
-# registration order) and every other path gets a clean policy-violation
-# close instead.
-@app.websocket("/{path:path}")
-async def _unregistered_websocket(websocket: WebSocket) -> None:
-    await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-
-
-# Named so _methods_allowed_for can skip them. Both match *every* path, so
-# leaving them in would report each path as allowing every method: the
-# catch-all matches its own request, and the SPA Mount is what shadowed the 405
-# in the first place.
-_CATCH_ALL_ROUTE_NAMES = {"_unmatched_api_path", "frontend"}
-
-_PROBE_METHODS = ("GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS")
-
-
-def _methods_allowed_for(request: Request) -> set[str]:
-    """Methods some real route accepts for this request's path.
-
-    Empty when no route matches the path under any method — a genuine 404
-    rather than a method mismatch.
-
-    Probes each method through Starlette's own matcher rather than reading
-    `route.methods`: `app.include_router()` leaves each router as a single
-    nested `_IncludedRouter` entry in `app.routes` (children are not flattened
-    up), and those expose no `.methods` — so a direct attribute read finds no
-    API routes at all and every path looks like a 404. Asking `matches()` for a
-    FULL match per candidate method delegates to the same resolution the real
-    request would use, at any nesting depth.
-    """
-    allowed: set[str] = set()
-    probe = dict(request.scope)
-    for method in _PROBE_METHODS:
-        probe["method"] = method
-        for route in request.app.routes:
-            if getattr(route, "name", None) in _CATCH_ALL_ROUTE_NAMES:
-                continue
-            if route.matches(probe)[0] is Match.FULL:
-                allowed.add(method)
-                break
-    return allowed
-
-
-# Catch-all for unmatched /api paths (#5090). Same placement rationale as the
-# WebSocket catch-all above: after setup_routers's real routes, before the
-# StaticFiles Mount.
-#
-# Starlette returns 405 for a method mismatch only when NO route fully matches
-# the request. The SPA Mount at "/" below fully matches *every* path, so once it
-# is registered it beats the partial (path-matched, method-mismatched) match on
-# every real API route — `GET /api/files/upload` reached StaticFiles, found no
-# such file on disk, and became a 404 instead of the 405 the route shape
-# implies. That also meant every unknown /api path returned StaticFiles' error
-# rather than the app's JSON error shape.
-#
-# Because the mount only exists in production with a built frontend, and
-# `auralis-web/frontend/dist/` is gitignored and never built by
-# `backend-tests.yml`, this silently made behaviour differ between CI (no
-# mount, 405) and a developer machine that had run a frontend build (mount,
-# 404) — the same environment-dependence that makes worktree baselines report
-# phantom diffs. Handling /api explicitly here makes the response identical in
-# both, and keeps API errors in the API's own format.
-@app.api_route(
-    "/api/{path:path}",
-    methods=["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"],
-    include_in_schema=False,
-)
-async def _unmatched_api_path(request: Request, path: str) -> JSONResponse:
-    allowed = _methods_allowed_for(request)
-    if allowed:
-        return JSONResponse(
-            status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
-            content={"detail": "Method Not Allowed"},
-            headers={"Allow": ", ".join(sorted(allowed))},
-        )
-    return JSONResponse(
-        status_code=status.HTTP_404_NOT_FOUND,
-        content={"detail": "Not Found"},
-    )
-
-
-# Only mount static files in production (when not running --dev)
-# In development, Vite serves the frontend and proxies API requests
-# StaticFiles mount at "/" interferes with WebSocket routes, so we must avoid it in dev mode
-is_dev_mode = _is_dev_mode()
-
-if not is_dev_mode and frontend_path.exists():
-    logger.info("✅ Serving frontend (production mode)")
-    logger.debug(f"Serving frontend from: {frontend_path}")
-    app.mount("/", StaticFiles(directory=str(frontend_path), html=True), name="frontend")
-elif is_dev_mode:
-    logger.info("ℹ️  Development mode: Vite serves frontend, StaticFiles NOT mounted (preserves WebSocket routes)")
-
-    @app.get("/")
-    async def root() -> HTMLResponse:
-        return HTMLResponse("""
-        <html>
-            <head><title>Auralis Web</title></head>
-            <body>
-                <h1>🎵 Auralis Web Backend</h1>
-                <p>Backend API is running!</p>
-                <p>Frontend served by Vite on http://localhost:3000+</p>
-                <p><a href="/api/docs">View API Documentation</a></p>
-            </body>
-        </html>
-        """)
-else:
-    logger.warning("⚠️  Frontend not found — check installation")
-    logger.debug(f"Frontend not found at: {frontend_path}")
-
-    @app.get("/")
-    async def root() -> HTMLResponse:
-        return HTMLResponse(FRONTEND_MISSING_HTML)
+# Frontend: StaticFiles in production, a stub page in dev or when it is missing.
+mount_frontend(app, _BACKEND_DIR)
 
 
 if __name__ == "__main__":

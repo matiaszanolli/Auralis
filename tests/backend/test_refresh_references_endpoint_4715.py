@@ -130,10 +130,11 @@ class TestRouteIsRegistered:
 
     def test_endpoint_is_registered_on_the_composed_app(self):
         """`app.include_router()` leaves each router as one nested entry in
-        `app.routes` — children are not flattened up (see main.py's
-        `_allowed_methods_for` comment) — so probe the real matcher instead of
+        `app.routes` — children are not flattened up (see config/fallback_routes.py's
+        `_methods_allowed_for` comment) — so probe the real matcher instead of
         reading `.path` off the top level."""
         import main
+        from config.fallback_routes import _CATCH_ALL_ROUTE_NAMES
         from starlette.routing import Match
 
         scope = {
@@ -146,7 +147,7 @@ class TestRouteIsRegistered:
         }
         matched = [
             r for r in main.app.routes
-            if getattr(r, "name", None) not in main._CATCH_ALL_ROUTE_NAMES
+            if getattr(r, "name", None) not in _CATCH_ALL_ROUTE_NAMES
             and r.matches(scope)[0] is Match.FULL
         ]
 

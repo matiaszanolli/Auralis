@@ -3,6 +3,9 @@
 main.py configures the root logger before building the app (#4774)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+(The configuration itself lives in config/bootstrap.py since #5834; main.py
+calls it first.)
+
 #3537 removed `logging.basicConfig` from main.py on the theory that
 `uvicorn.run()` installs handlers on the root logger, and a second
 `basicConfig` call duplicated every line. Checked against uvicorn's actual
@@ -29,56 +32,60 @@ once (no #3537 regression).
 import re
 from pathlib import Path
 
-_MAIN_PY = Path(__file__).parent.parent.parent / "auralis-web" / "backend" / "main.py"
+_BACKEND = Path(__file__).parent.parent.parent / "auralis-web" / "backend"
+_MAIN_PY = _BACKEND / "main.py"
+_BOOTSTRAP_PY = _BACKEND / "config" / "bootstrap.py"
 
 
 def _source() -> str:
-    return _MAIN_PY.read_text()
+    """The module that owns the logging configuration."""
+    return _BOOTSTRAP_PY.read_text()
 
 
 class TestLoggingConfiguredBeforeAppConstruction:
     def test_basic_config_is_called(self):
         source = _source()
         assert re.search(r'logging\.basicConfig\(', source), (
-            "main.py no longer calls logging.basicConfig() -- router-registration "
-            "INFO/DEBUG logs will be silently dropped by logging.lastResort again"
+            "config/bootstrap.py no longer calls logging.basicConfig() -- "
+            "router-registration INFO/DEBUG logs will be silently dropped by "
+            "logging.lastResort again"
         )
 
-    def test_basic_config_runs_before_the_sys_path_bootstrap_logs(self):
-        """The bootstrap block's own logger.info/.debug calls (just below)
-        must not fire before basicConfig -- they were part of what #4774
-        found silently dropped."""
-        source = _source()
-        basic_config_pos = source.index('logging.basicConfig(')
-        bootstrap_pos = source.index("getattr(sys, 'frozen'")
-        assert basic_config_pos < bootstrap_pos, (
-            "logging.basicConfig() must run before the sys.path bootstrap "
-            "block's own logger.info/.debug calls"
+    def test_main_configures_logging_before_the_sys_path_bootstrap(self):
+        """The sys.path bootstrap's own logger.info/.debug calls must not fire
+        before basicConfig -- they were part of what #4774 found silently
+        dropped -- and neither may run after the first config.app import."""
+        source = _MAIN_PY.read_text()
+        logging_pos = source.index("configure_logging(")
+        path_pos = source.index("configure_sys_path(")
+        first_app_import = source.index("from config.app import")
+        assert logging_pos < path_pos < first_app_import, (
+            "main.py must call configure_logging() before configure_sys_path(), "
+            "and both before importing config.app"
         )
 
     def test_level_is_gated_on_dev_mode_not_hardcoded(self):
         """Router-registration confirmations are INFO; DEBUG detail (e.g.
         config/routes.py's 'Health router registered') should additionally
         surface in dev mode, mirroring is_dev_mode()'s own --dev/env-var check."""
-        source = _source()
-        basic_config_call = source[source.index('logging.basicConfig('):][:300]
-        assert 'AURALIS_DEV_MODE' in source, (
+        from config.bootstrap import resolve_log_level
+
+        assert 'AURALIS_DEV_MODE' in _source(), (
             "the dev-mode env var is checked nowhere near the logging bootstrap"
         )
-        assert 'logging.DEBUG' in basic_config_call and 'logging.INFO' in basic_config_call, (
-            "logging level must switch between DEBUG (dev) and INFO (prod), not "
-            "be hardcoded to one level"
-        )
+        assert resolve_log_level(True, env={}) == "debug"
+        assert resolve_log_level(False, env={}) == "info"
 
     def test_format_includes_logger_name_and_level(self):
         """A bare basicConfig() default format ('%(message)s') would make
         every propagated line indistinguishable from a bare print -- assert
         the format string carries enough to diagnose which module logged
         what at what severity."""
-        source = _source()
-        basic_config_call = source[source.index('logging.basicConfig('):][:300]
-        assert '%(name)s' in basic_config_call
-        assert '%(levelname)s' in basic_config_call
+        from config.bootstrap import _LOG_FORMAT
+
+        assert '%(name)s' in _LOG_FORMAT
+        assert '%(levelname)s' in _LOG_FORMAT
+        assert 'format=_LOG_FORMAT' in _source()
 
     def test_does_not_reintroduce_the_false_uvicorn_root_logger_claim(self):
         """The #3537 comment this replaced asserted uvicorn.run() configures
@@ -86,5 +93,5 @@ class TestLoggingConfiguredBeforeAppConstruction:
         only 'uvicorn'/'uvicorn.access'/'uvicorn.error', never ''/root) -- pin
         that the corrected rationale doesn't quietly regress back to the old
         claim on some future edit."""
-        source = _source()
-        assert 'installs its own logging configuration with handlers on the root logger' not in source
+        for source in (_source(), _MAIN_PY.read_text()):
+            assert 'installs its own logging configuration with handlers on the root logger' not in source

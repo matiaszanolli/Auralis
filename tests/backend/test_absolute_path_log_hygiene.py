@@ -142,26 +142,29 @@ async def test_auto_scan_start_log_omits_full_folder_paths(caplog):
 import re as _re
 
 
-def _main_py_source() -> str:
-    main_py = Path(__file__).parent.parent.parent / "auralis-web" / "backend" / "main.py"
-    return main_py.read_text()
+def _bootstrap_source() -> str:
+    """The sys.path bootstrap moved from main.py to config/bootstrap.py (#5834)."""
+    bootstrap_py = (
+        Path(__file__).parent.parent.parent / "auralis-web" / "backend" / "config" / "bootstrap.py"
+    )
+    return bootstrap_py.read_text()
 
 
-def test_main_py_sys_path_bootstrap_never_logs_path_at_info():
+def test_sys_path_bootstrap_never_logs_path_at_info():
     """None of the three sys.path bootstrap branches may interpolate
     auralis_parent into a logger.info(...) call."""
-    source = _main_py_source()
+    source = _bootstrap_source()
     assert not _re.search(r'logger\.info\(f?["\'][^"\']*\{auralis_parent\}', source), (
-        "logger.info(...) in main.py must not interpolate auralis_parent — "
+        "logger.info(...) in config/bootstrap.py must not interpolate auralis_parent — "
         "it embeds the OS username + install layout (#4351/#4366/#4778); "
         "log it at DEBUG only"
     )
 
 
-def test_main_py_sys_path_bootstrap_still_logs_path_at_debug():
+def test_sys_path_bootstrap_still_logs_path_at_debug():
     """The path must still be reachable for diagnostics, just at DEBUG —
     guards against the fix regressing to dropping the information entirely."""
-    source = _main_py_source()
+    source = _bootstrap_source()
     debug_calls_with_path = _re.findall(
         r'logger\.debug\(f["\'][^"\']*\{auralis_parent\}[^"\']*["\']\)', source
     )

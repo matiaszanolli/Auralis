@@ -69,8 +69,9 @@ class TestPortIsThreadedThrough:
     def test_main_py_reads_the_same_env_var_name(self):
         """CONSISTENCY: the launcher and main.py must agree on the variable
         name, or the port silently no-ops again."""
-        main_py = (REPO_ROOT / "auralis-web" / "backend" / "main.py").read_text()
-        assert 'get_int_env("AURALIS_PORT", 8765)' in main_py
+        # main.py binds config.origins.BACKEND_PORT (#5796), the one reader.
+        origins_py = (REPO_ROOT / "auralis-web" / "backend" / "config" / "origins.py").read_text()
+        assert 'get_int_env("AURALIS_PORT", 8765)' in origins_py
 
 
 class TestDevModeIsClearedForNonDevLaunches:
