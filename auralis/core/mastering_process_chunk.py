@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from ..dsp.dynamics.soft_clipper import soft_clip
+from ..dsp.utils.conversion import SILENCE_FLOOR_DB, peak_db
 from ..utils.audio_validation import sanitize_audio, validate_audio_finite
 from .mastering_branches import ContinuousMasteringBranch
 from .utils import FingerprintUnpacker, SmoothCurveUtilities
@@ -30,8 +31,7 @@ if TYPE_CHECKING:
 
 def compute_peak_db(audio: np.ndarray) -> float:
     """Calculate peak level in dB."""
-    peak = np.max(np.abs(audio))
-    return 20 * np.log10(peak) if peak > 0 else -96.0
+    return peak_db(audio, silence_db=SILENCE_FLOOR_DB)
 
 
 def calculate_intensity(base: float, lufs: float, crest_db: float) -> float:

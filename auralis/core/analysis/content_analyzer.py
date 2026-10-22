@@ -20,6 +20,7 @@ from ...dsp.utils.spectral import crest_factor, spectral_centroid, spectral_roll
 from ...dsp.utils.stereo import stereo_width_analysis
 from ...utils.logging import debug
 from ...dsp.utils.audio_info import to_mono
+from ...dsp.utils.conversion import amplitude_to_db
 
 
 class ContentAnalyzer:
@@ -174,10 +175,10 @@ class ContentAnalyzer:
         """
         # Calculate basic level metrics
         peak = np.max(np.abs(audio))
-        peak_db = 20 * np.log10(peak) if peak > 0 else -np.inf
+        peak_db = amplitude_to_db(peak)
 
         rms_value = rms(audio)
-        rms_db = 20 * np.log10(rms_value) if rms_value > 0 else -np.inf
+        rms_db = amplitude_to_db(rms_value)
 
         crest_db = peak_db - rms_db
 

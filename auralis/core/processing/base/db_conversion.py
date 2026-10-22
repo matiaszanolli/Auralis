@@ -11,6 +11,8 @@ Replaces 17+ instances of the same calculation across processing modes.
 
 import numpy as np
 
+from ....dsp.utils.conversion import amplitude_to_db
+
 
 class DBConversion:
     """
@@ -30,7 +32,7 @@ class DBConversion:
         Returns:
             Amplitude in dB (20 * log10(value)) or default if value <= 0
         """
-        return 20 * np.log10(value) if value > 0 else default
+        return amplitude_to_db(value, silence_db=default)
 
     @staticmethod
     def to_linear(db: float) -> float:

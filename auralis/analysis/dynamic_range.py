@@ -15,6 +15,7 @@ from auralis.analysis.fingerprint.metrics import (
     AudioMetrics,
     MetricUtils,
 )
+from ..dsp.utils.conversion import amplitude_to_db, peak_db
 
 _HILBERT_MAX_SECONDS = 30
 
@@ -94,19 +95,11 @@ class DynamicRangeAnalyzer:
 
     def _calculate_peak_level(self, audio: np.ndarray) -> float:
         """Calculate peak level in dBFS"""
-        peak = np.max(np.abs(audio))
-        if peak > 0:
-            return 20 * np.log10(peak)  # type: ignore[no-any-return]
-        else:
-            return -np.inf
+        return peak_db(audio)
 
     def _calculate_rms_level(self, audio: np.ndarray) -> float:
         """Calculate RMS level in dBFS"""
-        rms = np.sqrt(np.mean(audio**2))
-        if rms > 0:
-            return 20 * np.log10(rms)  # type: ignore[no-any-return]
-        else:
-            return -np.inf
+        return amplitude_to_db(np.sqrt(np.mean(audio**2)))
 
     def _calculate_dr_value(self, audio: np.ndarray) -> float:
         """
@@ -185,10 +178,9 @@ class DynamicRangeAnalyzer:
 
         for i in range(0, len(audio) - self.rms_window_size, hop_size):
             window = audio[i:i + self.rms_window_size]
-            rms = np.sqrt(np.mean(window**2))
-            if rms > 0:
-                rms_db = 20 * np.log10(rms)
-                rms_values.append(rms_db)
+            window_rms = np.sqrt(np.mean(window**2))
+            if window_rms > 0:  # silent windows are skipped, not recorded as -inf
+                rms_values.append(amplitude_to_db(window_rms))
 
         if not rms_values:
             return {
@@ -197,8 +189,8 @@ class DynamicRangeAnalyzer:
                 'rms_stability': 1.0
             }
 
-        rms_values = np.array(rms_values)  # type: ignore[assignment]
-        finite_rms = rms_values[np.isfinite(rms_values)]
+        rms_array = np.array(rms_values)
+        finite_rms = rms_array[np.isfinite(rms_array)]
 
         if len(finite_rms) == 0:
             return {

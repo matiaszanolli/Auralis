@@ -13,6 +13,7 @@ Provides AudioMeasurement and MeasurementUtilities classes.
 import numpy as np
 
 from ....dsp.basic import rms
+from ....dsp.utils.conversion import amplitude_to_db
 from ....utils.logging import debug
 
 
@@ -31,8 +32,8 @@ class AudioMeasurement:
         """
         self.peak: float = peak
         self.rms: float = rms_val
-        self.peak_db: float = peak_db if peak_db is not None else (20 * np.log10(peak) if peak > 0 else -np.inf)
-        self.rms_db: float = rms_db if rms_db is not None else (20 * np.log10(rms_val) if rms_val > 0 else -np.inf)
+        self.peak_db: float = peak_db if peak_db is not None else amplitude_to_db(peak)
+        self.rms_db: float = rms_db if rms_db is not None else amplitude_to_db(rms_val)
         self.crest: float = self.peak_db - self.rms_db
 
     def to_dict(self) -> dict[str, float]:

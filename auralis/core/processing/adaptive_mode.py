@@ -15,6 +15,7 @@ import numpy as np
 from ...dsp.basic import amplify, rms
 from ...dsp.utils.adaptive import calculate_loudness_units
 from ...dsp.utils.adaptive_loudness import AdaptiveLoudnessControl
+from ...dsp.utils.conversion import peak_db
 from ...dsp.utils.stereo import WIDTH_FACTOR_UNITY, stereo_width_analysis
 from ...utils.audio_validation import validate_audio_finite
 from ...utils.logging import debug
@@ -122,8 +123,7 @@ class AdaptiveMode:
         processed_audio = eq_processor.apply_psychoacoustic_eq(processed_audio, targets, content_profile)
 
         after_eq_lufs = calculate_loudness_units(processed_audio, self.config.internal_sample_rate)
-        peak_after_eq = np.max(np.abs(processed_audio))
-        peak_after_eq_db = 20 * np.log10(peak_after_eq) if peak_after_eq > 0 else -np.inf
+        peak_after_eq_db = peak_db(processed_audio)
         print(f"[After EQ] Peak: {peak_after_eq_db:.2f} dB")
         debug(f"[STAGE 2] After EQ: {after_eq_lufs:.2f} LUFS (change: {after_eq_lufs - before_eq_lufs:+.2f} dB)")
 

@@ -25,6 +25,7 @@ from . import mastering_diagnostics
 from .dsp import ResonanceNotcher
 from .mastering_notch_context import contextualize_notches
 from ..dsp.utils.audio_info import to_mono
+from ..dsp.utils.conversion import SILENCE_FLOOR_DB, amplitude_to_db
 
 if TYPE_CHECKING:
     from .simple_mastering import SimpleMasteringPipeline
@@ -218,9 +219,7 @@ def prepare_file(
             block_peak = float(np.max(np.abs(block)))
             if block_peak > song_peak_linear:
                 song_peak_linear = block_peak
-    pipeline._song_peak_db = (
-        20 * np.log10(song_peak_linear) if song_peak_linear > 0 else -96.0
-    )
+    pipeline._song_peak_db = amplitude_to_db(song_peak_linear, silence_db=SILENCE_FLOOR_DB)
     timings['measure_song_peak'] = time.perf_counter() - step_start
 
     return {
