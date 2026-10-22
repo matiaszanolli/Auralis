@@ -174,12 +174,6 @@ def smooth_level_transition(
             f"(RMS: {current_rms:.1f} dB)"
         )
 
-    # Update legacy history tracking for backward compatibility
-    history = processor._level_manager.history
-    gain_adjustments = processor._level_manager.gain_adjustments
-    processor.chunk_rms_history = list(history) if hasattr(history, '__iter__') else []
-    processor.chunk_gain_history = list(gain_adjustments) if hasattr(gain_adjustments, '__iter__') else []
-
     return cast(np.ndarray, chunk_adjusted)
 
 
@@ -215,11 +209,6 @@ def note_cached_chunk_level(
             gain_db=gain_db,
             rms_db=rms_db,
         )
-        # Keep the legacy history mirrors in sync (matches smooth_level_transition).
-        history = processor._level_manager.history
-        gain_adjustments = processor._level_manager.gain_adjustments
-        processor.chunk_rms_history = list(history) if hasattr(history, '__iter__') else []
-        processor.chunk_gain_history = list(gain_adjustments) if hasattr(gain_adjustments, '__iter__') else []
 
 
 def process_chunk_core(

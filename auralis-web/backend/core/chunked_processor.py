@@ -172,9 +172,6 @@ class ChunkedAudioProcessor:
         self.mastering_recommendation: MasteringRecommendation | None = None
         self.adaptive_mastering_engine: AdaptiveMasteringEngine | None = None
 
-        # Processing state tracking for smooth transitions
-        self.chunk_rms_history: list[float] = []
-        self.chunk_gain_history: list[float] = []
         # (#5056: `previous_chunk_tail` removed — assigned, never read; the
         # crossfade/tail machinery it belonged to went with #4642/#3880.)
 
@@ -183,6 +180,16 @@ class ChunkedAudioProcessor:
             f"duration={self.total_duration:.1f}s, chunks={self.total_chunks}, "
             f"preset={preset}, intensity={intensity}"
         )
+
+    @property
+    def chunk_rms_history(self) -> list[float]:
+        """RMS levels of the chunks processed so far (owned by the LevelManager)."""
+        return list(self._level_manager.history)
+
+    @property
+    def chunk_gain_history(self) -> list[float]:
+        """Gain adjustments applied to the chunks so far (owned by the LevelManager)."""
+        return list(self._level_manager.gain_adjustments)
 
     @property
     def duration(self) -> float | None:

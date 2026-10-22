@@ -124,7 +124,7 @@ def _remember_written_chunk_level(
     durably, so it must never turn a successful render into a failure.
     """
     try:
-        gain_history = getattr(processor, "chunk_gain_history", None)
+        gain_history = processor._level_manager.gain_history
         gain_db = float(gain_history[-1]) if gain_history else 0.0
         chunk_render.remember_chunk_level(
             processor._path_cache.cache_key(chunk_index),
