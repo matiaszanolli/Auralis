@@ -17,6 +17,7 @@
  */
 
 import type { Track } from '@/types/domain';
+import { formatHumanDuration } from '@/utils/timeFormat';
 import { extractTrackFormat } from './trackFormat';
 
 /**
@@ -136,7 +137,7 @@ export class QueueStatistics {
       albums,
       formats,
       isEmpty: false,
-      estimatedPlayTime: this.formatDuration(totalDuration),
+      estimatedPlayTime: formatHumanDuration(totalDuration),
     };
   }
 
@@ -230,23 +231,6 @@ export class QueueStatistics {
     // for null/undefined/empty so the distribution panel isn't always
     // 'unknown: 100%' (#4038).
     return track.genre || 'unknown';
-  }
-
-  /**
-   * Format duration in seconds to human-readable string
-   */
-  private static formatDuration(seconds: number): string {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
-
-    if (hours > 0) {
-      return `${hours}h ${minutes}m`;
-    }
-    if (minutes > 0) {
-      return `${minutes}m ${secs}s`;
-    }
-    return `${secs}s`;
   }
 
   /**

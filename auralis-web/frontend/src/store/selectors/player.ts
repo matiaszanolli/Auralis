@@ -10,17 +10,7 @@
 
 import { createSelector } from '@reduxjs/toolkit';
 import type { RootState } from '@/store/index';
-
-const formatSeconds = (seconds: number): string => {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
-
-  if (hours > 0) {
-    return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  }
-  return `${minutes}:${secs.toString().padStart(2, '0')}`;
-};
+import { formatDuration } from '@/utils/timeFormat';
 
 /**
  * Basic selectors (non-memoized, for simple properties)
@@ -53,8 +43,8 @@ export const selectPlaybackProgress = createSelector(
 export const selectFormattedTime = createSelector(
   [(state: RootState) => state.player.currentTime, (state: RootState) => state.player.duration],
   (currentTime, duration) => ({
-    current: formatSeconds(currentTime),
-    total: formatSeconds(duration),
+    current: formatDuration(currentTime),
+    total: formatDuration(duration),
   })
 );
 
@@ -83,8 +73,8 @@ export const selectPlaybackState = createSelector(
     track: currentTrack,
     isPlaying,
     progress: duration > 0 ? currentTime / duration : 0,
-    currentTime: formatSeconds(currentTime),
-    duration: formatSeconds(duration),
+    currentTime: formatDuration(currentTime),
+    duration: formatDuration(duration),
     volume,
     isMuted,
     preset,

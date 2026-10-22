@@ -11,6 +11,7 @@
 import { createSelector } from '@reduxjs/toolkit';
 import type { QueueTrack } from '@/types/domain';
 import type { RootState } from '@/store/index';
+import { formatHoursMinutes, formatHumanDuration } from '@/utils/timeFormat';
 
 export const queueSelectors = {
   selectQueueTracks: (state: RootState) => state.queue.tracks,
@@ -35,24 +36,15 @@ export const selectTotalQueueTime = createSelector(
 
 export const selectFormattedQueueTime = createSelector(
   [selectTotalQueueTime],
-  (total): string => {
-    const hours = Math.floor(total / 3600);
-    const minutes = Math.floor((total % 3600) / 60);
-    return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
-  }
+  (total): string => formatHoursMinutes(total)
 );
 
 export const selectFormattedRemainingTime = createSelector(
   [selectRemainingTime],
-  (remaining): { total: number; formatted: string } => {
-    const hours = Math.floor(remaining / 3600);
-    const minutes = Math.floor((remaining % 3600) / 60);
-    const seconds = remaining % 60;
-    return {
-      total: remaining,
-      formatted: hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m ${seconds}s`,
-    };
-  }
+  (remaining): { total: number; formatted: string } => ({
+    total: remaining,
+    formatted: formatHumanDuration(remaining),
+  })
 );
 
 export const selectQueueStats = createSelector(

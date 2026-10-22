@@ -7,6 +7,7 @@
 import { Box, Typography } from '@mui/material';
 import { tokens } from '@/design-system';
 import { themeVars } from '@/theme/semanticTheme';
+import { formatHoursMinutes } from '@/utils/timeFormat';
 
 interface AlbumMetadataProps {
   year?: number;
@@ -14,15 +15,6 @@ interface AlbumMetadataProps {
   totalDuration: number;
   genre?: string;
 }
-
-const formatTotalDuration = (seconds: number): string => {
-  const hours = Math.floor(seconds / 3600);
-  const mins = Math.floor((seconds % 3600) / 60);
-  if (hours > 0) {
-    return `${hours} hr ${mins} min`;
-  }
-  return `${mins} min`;
-};
 
 export const AlbumMetadata = ({
   year,
@@ -41,7 +33,7 @@ export const AlbumMetadata = ({
         {year && `${year} • `}
         {trackCount} {trackCount === 1 ? 'track' : 'tracks'}
         {' • '}
-        {formatTotalDuration(totalDuration)}
+        {formatHoursMinutes(totalDuration, 'long')}
       </Typography>
       {genre && (
         <Typography variant="body2" sx={{
