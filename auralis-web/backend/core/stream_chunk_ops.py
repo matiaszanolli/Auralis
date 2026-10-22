@@ -25,7 +25,7 @@ import numpy as np
 from fastapi import WebSocket
 
 from . import audio_stream_controller as _asc
-from .chunk_streaming import ChunkCancelledError, invalidate_pooled_processor
+from .chunk_stream_state import ChunkCancelledError, invalidate_pooled_processor
 
 if TYPE_CHECKING:
     from .audio_stream_controller import AudioStreamController
