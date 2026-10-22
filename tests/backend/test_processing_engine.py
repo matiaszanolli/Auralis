@@ -175,16 +175,17 @@ class TestProcessingEngine:
         assert status["queued"] >= 1
 
     @pytest.mark.asyncio
-    async def test_register_progress_callback(self, engine):
-        """Test registering progress callback"""
-        callback_called = {"called": False}
+    async def test_notify_progress_records_on_the_job(self, engine, temp_audio_file):
+        """_notify_progress is what job.progress (polled by clients) is fed from"""
+        job = await engine.create_job(
+            input_path=str(temp_audio_file),
+            settings={"mode": "adaptive"},
+        )
 
-        async def test_callback(job_id, progress, message):
-            callback_called["called"] = True
+        await engine._notify_progress(job.job_id, 42.0, "halfway")
+        await engine._notify_progress("no-such-job", 99.0)  # unknown id: no-op
 
-        await engine.register_progress_callback("test-job", test_callback)
-
-        assert "test-job" in engine.progress_callbacks
+        assert job.progress == 42.0
 
     @pytest.mark.asyncio
     async def test_cleanup_old_jobs(self, engine, temp_audio_file):
@@ -651,26 +652,6 @@ class TestJobDictBoundedMemory:
         assert queued_job.job_id in engine.jobs
         assert processing_job.job_id in engine.jobs
 
-    @pytest.mark.asyncio
-    async def test_progress_callbacks_cleaned_up_with_job(self, temp_audio_file):
-        """Evicting a job also removes its progress callback to prevent leaks"""
-        from datetime import datetime, timedelta
-
-        engine = ProcessingEngine(max_concurrent_jobs=1, completed_job_ttl_hours=0.0)
-
-        job = await engine.create_job(
-            input_path=str(temp_audio_file),
-            settings={"mode": "adaptive"},
-        )
-        await engine.register_progress_callback(job.job_id, lambda *_: None)
-        job.status = ProcessingStatus.COMPLETED
-        job.completed_at = datetime.now() - timedelta(seconds=1)
-
-        await engine.cleanup_old_jobs(max_age_hours=0.0)
-
-        assert job.job_id not in engine.jobs
-        assert job.job_id not in engine.progress_callbacks
-
 
 class TestProcessingTimeout:
     """Tests for processing timeout (issue #2747)"""
@@ -827,7 +808,6 @@ class TestResetProcessorState:
         a reset call blocks for a while (e.g. acquiring `_process_lock`),
         other coroutines scheduled on the loop keep making progress instead
         of the whole process stalling until the reset returns."""
-        import threading
         import time
 
         engine = ProcessingEngine(max_concurrent_jobs=1)

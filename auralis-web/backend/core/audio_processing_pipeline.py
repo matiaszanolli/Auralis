@@ -183,6 +183,8 @@ class AudioProcessingPipeline:
             logger.debug("No processor, returning original audio")
             return audio
 
+        processed: np.ndarray | None
+
         # Apply fixed targets if provided (Beta.9 optimization)
         if targets is not None:
             logger.debug(f"Processing with fixed targets (8x faster)")
@@ -370,26 +372,3 @@ class AudioProcessingPipeline:
         # Step 4: Return processed audio
         return processed
 
-class AudioValidationError(ValueError):
-    """Custom exception for audio validation failures"""
-
-
-def validate_audio_array(
-    audio: np.ndarray,
-    min_samples: int = MIN_SAMPLES,
-    allow_empty: bool = False,
-    allow_silence: bool = True
-) -> tuple[bool, str | None]:
-    """
-    Standalone validation function for quick checks.
-
-    Returns:
-        Tuple of (is_valid, error_message)
-        If is_valid is True, error_message is None
-        If is_valid is False, error_message describes the issue
-    """
-    try:
-        AudioProcessingPipeline.validate_audio(audio, allow_empty=allow_empty)
-        return (True, None)
-    except ValueError as e:
-        return (False, str(e))

@@ -30,7 +30,6 @@ from core.file_signature import FileSignatureService
 from core.streamlined_processor_cache import (
     _PROCESSOR_CACHE_MAX,
     ProcessorCacheKey,
-    close_dropped_processor,
     discard_timed_out_processor,
     get_or_build_processor,
     remember_processor,
@@ -101,18 +100,6 @@ class StreamlinedCacheWorker:
             processor,
             max_size=_PROCESSOR_CACHE_MAX,
         )
-
-    def _close_dropped_processor(
-        self,
-        cache_key: ProcessorCacheKey,
-        processor: Any,
-    ) -> None:
-        """Release a dropped processor's temp WAV, if it made one (#4737).
-
-        Thin facade over ``streamlined_processor_cache.close_dropped_processor``,
-        which every removal path from ``_processor_cache`` goes through.
-        """
-        close_dropped_processor(cache_key, processor)
 
     async def start(self) -> None:
         """Start the background worker."""

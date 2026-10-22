@@ -51,7 +51,7 @@ async def test_removes_expired_completed_job(tmp_path):
     }
     lock = asyncio.Lock()
 
-    removed = await cleanup_expired_jobs(jobs, lock, {}, upload_dir, max_age_hours=24)
+    removed = await cleanup_expired_jobs(jobs, lock, upload_dir, max_age_hours=24)
 
     assert removed == 1
     assert "job-1" not in jobs
@@ -73,7 +73,7 @@ async def test_leaves_fresh_job_untouched(tmp_path):
     }
     lock = asyncio.Lock()
 
-    removed = await cleanup_expired_jobs(jobs, lock, {}, upload_dir, max_age_hours=24)
+    removed = await cleanup_expired_jobs(jobs, lock, upload_dir, max_age_hours=24)
 
     assert removed == 0
     assert "job-1" in jobs
@@ -91,7 +91,7 @@ async def test_leaves_queued_and_processing_jobs_untouched_regardless_of_age(tmp
     }
     lock = asyncio.Lock()
 
-    removed = await cleanup_expired_jobs(jobs, lock, {}, upload_dir, max_age_hours=0.0)
+    removed = await cleanup_expired_jobs(jobs, lock, upload_dir, max_age_hours=0.0)
 
     assert removed == 1
     assert set(jobs) == {"queued", "processing"}
@@ -119,32 +119,11 @@ async def test_input_file_outside_upload_dir_is_not_deleted(tmp_path):
     }
     lock = asyncio.Lock()
 
-    removed = await cleanup_expired_jobs(jobs, lock, {}, upload_dir, max_age_hours=24)
+    removed = await cleanup_expired_jobs(jobs, lock, upload_dir, max_age_hours=24)
 
     assert removed == 1
     assert not output_path.exists()
     assert library_input.exists()  # not deleted — outside upload_dir
-
-
-@pytest.mark.asyncio
-async def test_progress_callbacks_removed_with_expired_job(tmp_path):
-    upload_dir = tmp_path / "uploads"
-    upload_dir.mkdir()
-    jobs = {
-        "job-1": _job(
-            ProcessingStatus.COMPLETED,
-            datetime.now() - timedelta(hours=25),
-            tmp_path / "out.wav",
-            upload_dir / "in.wav",
-        )
-    }
-    progress_callbacks = {"job-1": [lambda *_: None]}
-    lock = asyncio.Lock()
-
-    removed = await cleanup_expired_jobs(jobs, lock, progress_callbacks, upload_dir, max_age_hours=24)
-
-    assert removed == 1
-    assert "job-1" not in progress_callbacks
 
 
 @pytest.mark.asyncio
@@ -163,6 +142,6 @@ async def test_missing_files_do_not_raise(tmp_path):
     }
     lock = asyncio.Lock()
 
-    removed = await cleanup_expired_jobs(jobs, lock, {}, upload_dir, max_age_hours=24)
+    removed = await cleanup_expired_jobs(jobs, lock, upload_dir, max_age_hours=24)
 
     assert removed == 1

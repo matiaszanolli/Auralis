@@ -25,7 +25,6 @@ import logging
 import sys
 import tempfile
 import threading
-from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -54,7 +53,6 @@ from core.job_lifecycle import cancel_job as _cancel_job_impl
 from core.job_lifecycle import create_job as _create_job_impl
 from core.job_lifecycle import process_job as _process_job_impl
 from core.job_models import ProcessingJob, ProcessingStatus
-from core.job_progress import ProgressNotifier
 from core.job_store import JobStore
 from core.job_worker import JobWorker
 from core.processor_pool import ProcessorPool
@@ -103,15 +101,12 @@ class ProcessingEngine:
         # engine.job_queue directly still works.
         self.job_queue: "asyncio.Queue[ProcessingJob]" = self._worker.job_queue
 
-        # Guards concurrent access to jobs / progress_callbacks (fixes #2435)
+        # Guards concurrent access to jobs (fixes #2435)
         self._jobs_lock: asyncio.Lock = asyncio.Lock()
 
         # Temporary file management
         self.temp_dir: Path = Path(tempfile.gettempdir()) / PROCESSING_TEMP_DIRNAME
         create_secure_temp_dir(self.temp_dir)
-
-        # Progress-callback fan-out: see ProgressNotifier (#4250 follow-up).
-        self._progress: ProgressNotifier = ProgressNotifier(self.jobs, self._jobs_lock)
 
         # Per-job cooperative cancellation tokens; see job_execution.py /
         # job_lifecycle.py (#4496/#4759).
@@ -140,15 +135,6 @@ class ProcessingEngine:
     @property
     def processors(self) -> dict[str, HybridProcessor]:
         return self._pool.processors
-
-    @property
-    def progress_callbacks(self) -> dict[str, list[Callable[..., Any]]]:
-        return self._progress.callbacks
-
-    @progress_callbacks.setter
-    def progress_callbacks(self, value: dict[str, list[Callable[..., Any]]]) -> None:
-        # Some tests reset this directly between cases (#3868 test fixtures).
-        self._progress.callbacks = value
 
     async def _construct_processor(self, config: UnifiedConfig) -> HybridProcessor:
         """Factory for the ProcessorPool, kept on the engine so HybridProcessor
@@ -195,34 +181,18 @@ class ProcessingEngine:
         async with self._jobs_lock:
             return self.jobs.get(job_id)
 
-    # Thin wrappers delegating to self._progress (#4250 follow-up).
-    async def register_progress_callback(self, job_id: str, callback: Callable[..., Any]) -> None:
-        """Add a callback for job progress updates. See ProgressNotifier.register."""
-        await self._progress.register(job_id, callback)
-
-    async def unregister_progress_callback(
-        self, job_id: str, callback: Callable[..., Any] | None = None
-    ) -> None:
-        """Remove progress callbacks for `job_id`. See ProgressNotifier.unregister."""
-        await self._progress.unregister(job_id, callback)
-
     async def _notify_progress(self, job_id: str, progress: float, message: str = "") -> None:
-        """Notify every subscriber registered for this job. See ProgressNotifier.notify."""
-        await self._progress.notify(job_id, progress, message)
+        """Record *progress* on the job. Clients read it from the job-status
+        endpoints; the WS push that once carried it was retired in #5525."""
+        async with self._jobs_lock:
+            job = self.jobs.get(job_id)
+            if job:
+                job.progress = progress
 
     # Thin wrappers delegating to self._pool (#4250).
-    def _get_processor_cache_key(self, mode: str, config: UnifiedConfig) -> str:
-        return self._pool.cache_key(mode, config)
 
     async def _get_or_create_processor(self, mode: str, config: UnifiedConfig) -> HybridProcessor:
         return await self._pool.get_or_create(mode, config)
-
-    async def _return_processor(self, mode: str, config: UnifiedConfig, processor: HybridProcessor) -> None:
-        await self._pool.return_to_cache(mode, config, processor)
-
-    async def _discard_processor(self, processor: HybridProcessor) -> None:
-        """Close and drop a processor without returning it to the pool (#4727)."""
-        await self._pool.discard(processor)
 
     async def close_processor_pool(self) -> None:
         """Drain and close every cached processor on shutdown. Thin delegate;
@@ -301,7 +271,7 @@ class ProcessingEngine:
         """
         upload_dir = Path(tempfile.gettempdir()) / UPLOAD_TEMP_DIRNAME
         return await cleanup_expired_jobs(
-            self.jobs, self._jobs_lock, self.progress_callbacks, upload_dir, max_age_hours,
+            self.jobs, self._jobs_lock, upload_dir, max_age_hours,
             on_removed=self.job_store.forget,
         )
 

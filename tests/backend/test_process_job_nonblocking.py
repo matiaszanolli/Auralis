@@ -10,7 +10,7 @@ Verifies that:
 import asyncio
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
@@ -218,8 +218,8 @@ async def test_event_loop_responsive_during_processing():
 
 
 @pytest.mark.asyncio
-async def test_progress_callbacks_fire_correctly():
-    """Progress callbacks must fire at 0%, 20%, 40%, 80%, and 100%."""
+async def test_progress_milestones_are_reported():
+    """Progress must be reported at 0%, 20%, 40%, 80%, and 100%."""
     engine = _make_engine()
     job = _make_job()
 
@@ -230,14 +230,10 @@ async def test_progress_callbacks_fire_correctly():
 
     progress_log: list[float] = []
 
-    async def capture_progress(job_id: str, pct: float, msg: str):
+    async def capture_progress(job_id: str, pct: float, msg: str = ""):
         progress_log.append(pct)
 
     engine.jobs[job.job_id] = job
-    # Register via the public API: progress_callbacks holds a LIST of
-    # subscribers per job_id since #3868, so assigning a bare callable here
-    # would leave _notify_progress trying to call a list.
-    await engine.register_progress_callback(job.job_id, capture_progress)
 
     with (
         patch("core.job_execution.load_audio", return_value=(fake_audio, 44100)),
@@ -246,14 +242,15 @@ async def test_progress_callbacks_fire_correctly():
         patch.object(engine, "_get_or_create_processor", return_value=MagicMock(
             process=MagicMock(return_value=fake_result)
         )),
+        patch.object(engine, "_notify_progress", side_effect=capture_progress),
     ):
         await engine.process_job(job)
 
-    assert 0.0 in progress_log, "0% progress callback missing"
-    assert 20.0 in progress_log, "20% progress callback missing"
-    assert 40.0 in progress_log, "40% progress callback missing"
-    assert 80.0 in progress_log, "80% progress callback missing"
-    assert 100.0 in progress_log, "100% progress callback missing"
+    assert 0.0 in progress_log, "0% progress report missing"
+    assert 20.0 in progress_log, "20% progress report missing"
+    assert 40.0 in progress_log, "40% progress report missing"
+    assert 80.0 in progress_log, "80% progress report missing"
+    assert 100.0 in progress_log, "100% progress report missing"
 
 
 @pytest.mark.asyncio

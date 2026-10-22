@@ -7,7 +7,7 @@ Chunk Cache Manager
 Unified cache key generation and lookup for audio chunks.
 
 Provides a centralized service for:
-- Generating consistent cache keys for chunks, fingerprints, and WAV files
+- Generating consistent cache keys for chunks and WAV files
 - Looking up cached paths with existence validation
 - Storing cache entries
 
@@ -57,7 +57,6 @@ class ChunkCacheManager:
 
     Cache keys are structured as:
     - Chunk: {track_id}_{file_sig}_{preset}_{intensity}_{targets_hash}_chunk_{chunk_index}
-    - Fingerprint: fingerprint_{track_id}_{file_sig}
 
     ``targets_hash`` (#4666) keeps the prefix-based clear_track_cache()
     patterns intact — it sits after intensity, so both the
@@ -121,29 +120,6 @@ class ChunkCacheManager:
             f"{track_id}_{file_signature}_{preset}_{intensity_cache_key(intensity)}_"
             f"{targets_hash}_chunk_{chunk_index}"
         )
-
-    @staticmethod
-    def get_fingerprint_cache_key(track_id: int, file_signature: str) -> str:
-        """
-        Generate cache key for track-level fingerprint.
-
-        Format: fingerprint_{track_id}_{file_sig}
-
-        Fingerprints are track-specific (not chunk-specific), so the cache key
-        only includes track_id and file_signature.
-
-        Args:
-            track_id: Database track ID
-            file_signature: 8-char file signature
-
-        Returns:
-            Cache key string
-
-        Examples:
-            >>> ChunkCacheManager.get_fingerprint_cache_key(123, "a3b4c5d6")
-            'fingerprint_123_a3b4c5d6'
-        """
-        return f"fingerprint_{track_id}_{file_signature}"
 
     # Shared across all instances so the on-disk reaper throttle and the prune
     # itself are coordinated for the single /tmp/auralis_chunks directory (#3834).
@@ -360,57 +336,6 @@ class ChunkCacheManager:
             )
         return (deleted, reclaimed)
 
-    def get_cached_fingerprint(self, cache_key: str) -> dict[str, Any] | None:
-        """
-        Lookup track-level fingerprint in cache.
-
-        Args:
-            cache_key: Fingerprint cache key (from get_fingerprint_cache_key)
-
-        Returns:
-            Cached fingerprint dict or None if not cached
-
-        Examples:
-            >>> manager = ChunkCacheManager({})
-            >>> manager.cache_fingerprint("key", {"tempo": 120, "loudness": -14})
-            >>> manager.get_cached_fingerprint("key")
-            {'tempo': 120, 'loudness': -14}
-        """
-        cached_value = self._cache.get(cache_key)
-
-        # Fingerprints are stored as dicts
-        if cached_value is None:
-            return None
-
-        if not isinstance(cached_value, dict):
-            logger.warning(
-                f"Fingerprint cache key '{cache_key}' has non-dict value "
-                f"(type={type(cached_value).__name__}). Expected fingerprint dict. Ignoring."
-            )
-            return None
-
-        logger.debug(f"Fingerprint cache hit: {cache_key}")
-        return cached_value
-
-    def cache_fingerprint(self, cache_key: str, fingerprint: dict[str, Any]) -> None:
-        """
-        Store track-level fingerprint in cache.
-
-        This avoids expensive fingerprint analysis (especially librosa tempo
-        detection) for every chunk, reducing processing time by ~0.5-1s per chunk.
-
-        Args:
-            cache_key: Fingerprint cache key
-            fingerprint: Complete 25D fingerprint dictionary
-
-        Examples:
-            >>> manager = ChunkCacheManager({})
-            >>> fp = {"tempo": 120, "loudness": -14, "spectral_centroid": 2500}
-            >>> manager.cache_fingerprint("key", fp)
-        """
-        self._cache[cache_key] = fingerprint
-        logger.debug(f"Cached fingerprint: {cache_key} ({len(fingerprint)} metrics)")
-
     def clear_track_cache(
         self,
         track_id: int,
@@ -448,13 +373,10 @@ class ChunkCacheManager:
             # Clear all entries for this track
             prefix = f"{track_id}_{file_signature}_"
 
-        # Also clear fingerprint
-        fingerprint_key = self.get_fingerprint_cache_key(track_id, file_signature)
-
         # Find matching keys
         keys_to_remove = [
             key for key in self._cache.keys()
-            if key.startswith(prefix) or key == fingerprint_key
+            if key.startswith(prefix)
         ]
 
         # Remove entries
@@ -468,34 +390,3 @@ class ChunkCacheManager:
             )
 
         return len(keys_to_remove)
-
-    def get_statistics(self) -> dict[str, Any]:
-        """
-        Get cache statistics for monitoring and debugging.
-
-        Returns:
-            Dictionary with:
-            - total_entries: Total number of cached items
-            - chunk_entries: Number of cached chunk paths (process_chunk() and
-              get_wav_chunk_path() share this one key format since #4792 —
-              both address the same on-disk WAV, so there's no longer a
-              separate "wav_entries" count)
-            - fingerprint_entries: Number of cached fingerprints
-
-        Examples:
-            >>> manager = ChunkCacheManager({})
-            >>> stats = manager.get_statistics()
-            >>> stats
-            {'total_entries': 0, 'chunk_entries': 0, 'fingerprint_entries': 0}
-        """
-        total = len(self._cache)
-
-        # Count entry types by key patterns
-        chunk_count = sum(1 for key in self._cache if "_chunk_" in key)
-        fingerprint_count = sum(1 for key in self._cache if key.startswith("fingerprint_"))
-
-        return {
-            "total_entries": total,
-            "chunk_entries": chunk_count,
-            "fingerprint_entries": fingerprint_count
-        }

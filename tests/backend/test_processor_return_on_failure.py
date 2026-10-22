@@ -183,9 +183,7 @@ class TestProcessorIsAlwaysReclaimed:
         processor = MagicMock()
 
         # _cleanup_processor delegates to engine._pool.cleanup(), which calls
-        # the pool's own return_to_cache() directly (#4250 follow-up) --
-        # engine._return_processor (itself now just a thin wrapper over the
-        # same pool method) is no longer the call site cleanup actually uses.
+        # the pool's own return_to_cache() directly (#4250 follow-up).
         with _prepared(engine, processor), patch.object(
             engine, "_execute_job", AsyncMock(side_effect=ValueError("boom"))
         ), patch.object(

@@ -20,7 +20,6 @@ import logging
 from collections.abc import Awaitable, Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 from core.job_models import TERMINAL_STATUSES, ProcessingJob
 
@@ -30,7 +29,6 @@ logger = logging.getLogger(__name__)
 async def cleanup_expired_jobs(
     jobs: dict[str, ProcessingJob],
     jobs_lock: asyncio.Lock,
-    progress_callbacks: dict[str, list[Callable[..., Any]]],
     upload_dir: Path,
     max_age_hours: float,
     on_removed: Callable[[list[str]], Awaitable[None]] | None = None,
@@ -44,10 +42,7 @@ async def cleanup_expired_jobs(
 
     Args:
         jobs: The engine's live job registry (mutated in place).
-        jobs_lock: The engine's `_jobs_lock`, guarding both `jobs` and
-            `progress_callbacks`.
-        progress_callbacks: The engine's progress-subscriber map (mutated
-            in place — an expired job's subscribers are dropped too).
+        jobs_lock: The engine's `_jobs_lock`, guarding `jobs`.
         upload_dir: Directory holding uploaded input files; only input files
             under this directory are eligible for deletion, so a job whose
             input lives outside it (e.g. a library track) is left alone.
@@ -76,8 +71,6 @@ async def cleanup_expired_jobs(
 
         for job_id in jobs_to_remove:
             del jobs[job_id]
-            if job_id in progress_callbacks:
-                del progress_callbacks[job_id]
 
     # Phase 2: filesystem checks and deletions outside the lock (#3327).
     # Offloaded via asyncio.to_thread (#4754) — an unbounded per-job

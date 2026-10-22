@@ -337,10 +337,6 @@ class ChunkBoundaryManager:
         """Check if this is the last chunk."""
         return chunk_index == self.total_chunks - 1
 
-    def get_overlap_samples(self) -> int:
-        """Get the number of overlap samples between adjacent chunks."""
-        return round(OVERLAP_DURATION * self.sample_rate)
-
     def trim_context(
         self,
         audio_chunk: np.ndarray,
@@ -421,15 +417,3 @@ class ChunkBoundaryManager:
             )
 
         return audio_chunk
-
-    def log_chunk_info(self, chunk_index: int) -> None:
-        """Log information about chunk boundaries for debugging."""
-        load_start, load_end, chunk_start, chunk_end = self.get_chunk_boundaries(chunk_index)
-        is_last = self.is_last_chunk(chunk_index)
-
-        logger.debug(
-            f"Chunk {chunk_index}/{self.total_chunks}: "
-            f"load [{load_start:.1f}s-{load_end:.1f}s], "
-            f"core [{chunk_start:.1f}s-{chunk_end:.1f}s], "
-            f"duration={chunk_end - chunk_start:.1f}s{'  (LAST)' if is_last else ''}"
-        )

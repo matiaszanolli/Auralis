@@ -20,7 +20,7 @@ import logging
 import threading
 from collections import OrderedDict
 from copy import deepcopy
-from typing import Any, NamedTuple
+from typing import Any, Literal, NamedTuple
 
 from .env_config import get_int_env
 from .targets_hash import get_targets_hash
@@ -322,7 +322,7 @@ class ProcessorFactory:
     def get_or_create_from_config(
         self,
         config: Any | None = None,
-        mode: str = "adaptive"
+        mode: Literal["reference", "adaptive", "hybrid"] = "adaptive"
     ) -> Any:
         """
         Get or create processor from config (config-based caching pattern).
@@ -538,16 +538,3 @@ def all_processor_factories() -> list[ProcessorFactory]:
     """Every consumer's factory created so far (shutdown clears them all)."""
     with _factory_lock:
         return list(_processor_factories.values())
-
-
-def create_processor_factory() -> ProcessorFactory:
-    """
-    Create new processor factory instance (for testing or isolation).
-
-    Use this when you need a separate factory instance that doesn't
-    share the global cache.
-
-    Returns:
-        New ProcessorFactory instance
-    """
-    return ProcessorFactory()

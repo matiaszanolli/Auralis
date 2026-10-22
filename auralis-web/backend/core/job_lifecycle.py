@@ -229,7 +229,6 @@ async def cancel_job(engine: "ProcessingEngine", job_id: str) -> bool:
 
         job.status = ProcessingStatus.CANCELLED
         job.completed_at = datetime.now()
-        engine.progress_callbacks.pop(job_id, None)
 
     # Signal the loader to terminate any in-flight FFmpeg child (#4496).
     # task.cancel() alone injects CancelledError only at the next await, but

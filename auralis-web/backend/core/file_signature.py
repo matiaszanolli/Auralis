@@ -109,36 +109,3 @@ class FileSignatureService:
                 f"Using path-only fallback."
             )
             return hashlib.sha256(filepath.encode()).hexdigest()[:8]
-
-    @staticmethod
-    def validate_signature(filepath: str, expected_signature: str) -> bool:
-        """
-        Validate that a file's current signature matches the expected value.
-
-        This can be used to check if cached data is still valid before using it.
-
-        Args:
-            filepath: Path to the audio file
-            expected_signature: The signature to validate against
-
-        Returns:
-            True if signatures match, False otherwise
-
-        Examples:
-            >>> sig = FileSignatureService.generate("/path/to/audio.flac")
-            >>> FileSignatureService.validate_signature("/path/to/audio.flac", sig)
-            True
-            >>> # After file modification:
-            >>> FileSignatureService.validate_signature("/path/to/audio.flac", sig)
-            False
-        """
-        current_signature = FileSignatureService.generate(filepath)
-        is_valid = current_signature == expected_signature
-
-        if not is_valid:
-            logger.debug(
-                f"Signature mismatch for {Path(filepath).name}: "
-                f"expected={expected_signature}, current={current_signature}"
-            )
-
-        return is_valid

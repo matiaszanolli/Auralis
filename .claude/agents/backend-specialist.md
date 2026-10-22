@@ -39,7 +39,7 @@ There is **no** `wav_streaming` router — audio streaming goes over WebSocket v
 - `chunk_cache_manager.py`, `chunk_path_cache.py`, `chunk_mastering.py`, `chunk_operations.py` (render-with-context + trim) — chunk plumbing. Cached chunk files are **16-bit PCM WAV**, not float32.
 - `stream_enhanced.py`, `stream_normal.py`, `stream_seek.py` + their per-chunk pumps (`stream_enhanced_chunks.py` — serves both enhanced and seek streams and owns the look-ahead task; `stream_normal_chunks.py`), `stream_gates.py` (pause/flow gate), `stream_track_resolution.py`, `stream_protocol.py`, `stream_messages.py`, `stream_chunk_ops.py`, `stream_fingerprint.py` — streaming paths
 - `processing_engine.py`, `audio_processing_pipeline.py` — processing orchestration and pipeline assembly
-- `processor_factory.py`, `processor_pool.py`, `job_worker.py`, `job_models.py` — worker construction and job execution; `processing_engine.py` is a coordinator (#4250) over `job_lifecycle.py`, `job_execution.py`, `job_config.py`, `job_progress.py`, `job_finalize.py`, `job_cleanup.py`, `job_error_mapping.py`
+- `processor_factory.py`, `processor_pool.py`, `job_worker.py`, `job_models.py` — worker construction and job execution; `processing_engine.py` is a coordinator (#4250) over `job_lifecycle.py`, `job_execution.py`, `job_config.py`, `job_finalize.py`, `job_cleanup.py`, `job_error_mapping.py`
 - `streamlined_worker.py`, `streamlined_tiers.py`, `streamlined_processor_cache.py` — streamlined cache workers
 - `executors.py` — reserved stream pool (`run_in_stream_executor`, per-chunk work only) + I/O pool installed as the loop default (#5086)
 - `level_manager.py`, `mastering_target_service.py`, `state_manager.py` — playback state
