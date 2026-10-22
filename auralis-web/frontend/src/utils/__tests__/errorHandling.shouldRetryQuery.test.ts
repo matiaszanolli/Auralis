@@ -9,7 +9,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { QueryClient } from '@tanstack/react-query';
 import { APIRequestError } from '@/utils/apiRequest';
-import { MAX_QUERY_RETRIES, shouldRetryQuery } from '../errorHandling';
+import { MAX_QUERY_RETRIES, shouldRetryQuery } from '../queryRetry';
 
 const httpError = (status: number) => new APIRequestError(`HTTP ${status}`, status);
 

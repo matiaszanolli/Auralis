@@ -8,7 +8,7 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { isRetryableError } from '../errorHandling';
+import { isRetryableError } from '../queryRetry';
 import { APIRequestError } from '../apiRequest';
 
 describe('isRetryableError (#4467)', () => {

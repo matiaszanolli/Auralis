@@ -11,7 +11,7 @@ import { usePlayerStateSync } from '@/hooks/player/usePlayerStateSync';
 import { useServerRestartNotice } from '@/hooks/player/useServerRestartNotice';
 import { useWebSocketErrors } from '@/hooks/websocket/useWebSocketErrors';
 import { store } from './store';
-import { shouldRetryQuery } from '@/utils/errorHandling';
+import { shouldRetryQuery } from '@/utils/queryRetry';
 import { QUERY_STALE_TIME_MS } from '@/config/timing';
 
 // Create QueryClient instance
