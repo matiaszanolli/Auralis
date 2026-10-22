@@ -23,7 +23,7 @@ Audio streaming is WebSocket-only; no REST streaming endpoints remain.
 from collections.abc import Callable
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from player_state import PlayerState
 
@@ -115,13 +115,15 @@ def create_player_router(
     # removed in #3884: it's now called directly from stream_enhanced.py,
     # the actual play_enhanced path -- this REST router never triggers
     # streaming, so it could never have been the right place to invoke it.)
-    _deps.get_library_database = get_library_database
-    _deps.get_audio_player = get_audio_player
-    _deps.get_player_state_manager = get_player_state_manager
-    _deps.connection_manager = connection_manager
-    _deps.create_track_info_fn = create_track_info_fn
+    deps = _PlayerDeps(
+        get_library_database=get_library_database,
+        get_audio_player=get_audio_player,
+        get_player_state_manager=get_player_state_manager,
+        connection_manager=connection_manager,
+        create_track_info_fn=create_track_info_fn,
+    )
 
-    router = APIRouter(tags=["player"])
+    router = APIRouter(tags=["player"], dependencies=[Depends(_deps.bind(deps))])
 
     # PLAYBACK
     router.add_api_route("/api/player/status", get_player_status, methods=["GET"], response_model=PlayerState)

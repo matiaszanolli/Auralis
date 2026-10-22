@@ -39,7 +39,6 @@ from .dependencies import require_processing_engine, with_error_handling
 from .processing_deps import (
     _deps,
     _get_processing_engine,
-    _make_deps_binder,
     _ProcessingDeps,
 )
 from .processing_jobs import (
@@ -166,15 +165,11 @@ def create_processing_router(
         Configured ``APIRouter`` for ``/api/processing``.
     """
     deps = _ProcessingDeps(get_processing_engine, get_enhancement_settings)
-    # Keep the module-level holder pointing at the most recent call, so
-    # anything resolving outside a request still sees a wired-up getter.
-    _deps.get_processing_engine = deps.get_processing_engine
-    _deps.get_enhancement_settings = deps.get_enhancement_settings
 
     router = APIRouter(
         prefix="/api/processing",
         tags=["audio-processing"],
-        dependencies=[Depends(_make_deps_binder(deps))],
+        dependencies=[Depends(_deps.bind(deps))],
     )
 
     router.add_api_route("/process", process_audio, methods=["POST"], response_model=ProcessResponse)

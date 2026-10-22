@@ -20,6 +20,8 @@ from services import (
     RecommendationService,
 )
 
+from .dependencies import RouterDeps
+
 
 # ============================================================================
 # DEPENDENCY WIRING (#4670)
@@ -30,15 +32,13 @@ from services import (
 # call without first building the whole router. Handlers are now module
 # level; they reach the same callables through FastAPI Depends() instead.
 #
-# _PlayerDeps holds the raw callables/objects the factory receives. It is
-# populated exactly once, by create_player_router() itself -- same as the
-# old closure, which only ever ran once per process (config/routes.py calls
-# the factory a single time at startup; the test `client` fixture imports
-# the already-built `main.app` once per process too). This is a deliberate
-# simplification, not a new hazard: nothing in this codebase calls
-# create_player_router() more than once in the same process. It does NOT
-# reproduce the #4361 module-level-`APIRouter()` hazard, since the router
-# instance itself is still built fresh, per call, inside the factory.
+# _PlayerDeps holds the raw callables/objects one create_player_router() call
+# received. It is bound per router instance through RouterDeps
+# (dependencies.py): a router-level dependency publishes it for the duration of
+# a request, so a second factory call (every test that builds its own player
+# router) cannot repoint the live router at its stubs (#5262, #5762). It does
+# NOT reproduce the #4361 module-level-`APIRouter()` hazard, since the router
+# instance itself is built fresh, per call, inside the factory.
 #
 # A handler's Depends() default is only consulted when FastAPI itself
 # invokes it for a real request; a direct unit-test call passes the
@@ -47,31 +47,44 @@ from services import (
 # ============================================================================
 
 
+def _unavailable() -> Any:
+    """Getter used before any router has been built: resolves to nothing."""
+    return None
+
+
 class _PlayerDeps:
-    get_library_database: Callable[[], Any]
-    get_audio_player: Callable[[], Any]
-    get_player_state_manager: Callable[[], Any]
-    connection_manager: Any
-    create_track_info_fn: Callable[[Any], Any]
+    def __init__(
+        self,
+        get_library_database: Callable[[], Any] = _unavailable,
+        get_audio_player: Callable[[], Any] = _unavailable,
+        get_player_state_manager: Callable[[], Any] = _unavailable,
+        connection_manager: Any = None,
+        create_track_info_fn: Callable[[Any], Any] = lambda _track: None,
+    ) -> None:
+        self.get_library_database = get_library_database
+        self.get_audio_player = get_audio_player
+        self.get_player_state_manager = get_player_state_manager
+        self.connection_manager = connection_manager
+        self.create_track_info_fn = create_track_info_fn
 
 
-_deps = _PlayerDeps()
+_deps = RouterDeps("player", _PlayerDeps())
 
 
 def _get_audio_player() -> Any:
-    return _deps.get_audio_player()
+    return _deps.current().get_audio_player()
 
 
 def _get_library_database() -> Any:
-    return _deps.get_library_database()
+    return _deps.current().get_library_database()
 
 
 def _get_player_state_manager() -> Any:
-    return _deps.get_player_state_manager()
+    return _deps.current().get_player_state_manager()
 
 
 def _get_connection_manager() -> Any:
-    return _deps.connection_manager
+    return _deps.current().connection_manager
 
 
 def _get_playback_service(
@@ -99,7 +112,7 @@ def _get_queue_service(
         player_state_manager=player_state_manager,
         library_database=library_database,
         connection_manager=connection_manager,
-        create_track_info_fn=_deps.create_track_info_fn,
+        create_track_info_fn=_deps.current().create_track_info_fn,
     )
 
 
@@ -120,7 +133,7 @@ def _get_navigation_service(
         audio_player=audio_player,
         player_state_manager=player_state_manager,
         connection_manager=connection_manager,
-        create_track_info_fn=_deps.create_track_info_fn,
+        create_track_info_fn=_deps.current().create_track_info_fn,
     )
 
 

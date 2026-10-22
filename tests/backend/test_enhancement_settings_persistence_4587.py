@@ -38,32 +38,7 @@ if _BACKEND not in sys.path:
     sys.path.insert(0, _BACKEND)
 
 from routers.enhancement import create_enhancement_router  # noqa: E402
-from routers.enhancement import _deps as _enhancement_deps  # noqa: E402
 from routers.settings import create_settings_router  # noqa: E402
-
-# routers/enhancement.py binds every handler to a MODULE-LEVEL `_deps`
-# singleton (the "router-singleton test hazard" #5177 already tracks).
-# create_enhancement_router() overwrites it with no teardown, so whichever
-# call happens last "wins" for the rest of the pytest process — confirmed
-# empirically: without this fixture, test_enhancement_api.py's
-# TestGetMasteringRecommendation fails with an AttributeError against this
-# file's own mock objects when both run in the same invocation. Snapshot/
-# restore around every test here so this file's throwaway routers can never
-# leak into a file that runs afterward. Not a fix for #5177 itself (a
-# broader, separately-tracked hazard) — just this file staying isolated.
-_ENHANCEMENT_DEPS_ATTRS = (
-    "get_enhancement_settings", "connection_manager", "get_multi_tier_buffer",
-    "get_player_state_manager", "get_repository_factory",
-)
-
-
-@pytest.fixture(autouse=True)
-def _restore_enhancement_deps():
-    snapshot = {attr: getattr(_enhancement_deps, attr, None) for attr in _ENHANCEMENT_DEPS_ATTRS}
-    yield
-    for attr, value in snapshot.items():
-        setattr(_enhancement_deps, attr, value)
-
 
 # ============================================================================
 # Direction 1: PUT /api/settings / POST /api/settings/reset -> runtime dict

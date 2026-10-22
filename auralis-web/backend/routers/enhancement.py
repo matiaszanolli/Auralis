@@ -38,7 +38,7 @@ from schemas import (
 from security.path_security import PathMissingError, PathValidationError, validate_file_path
 from websocket.outbound_messages import broadcast_typed
 
-from .dependencies import require_service, with_error_handling
+from .dependencies import RouterDeps, require_service, with_error_handling
 from .errors import BadRequestError, NotFoundError
 
 logger = logging.getLogger(__name__)
@@ -106,16 +106,13 @@ class EnhancementSettingsResponse(BaseModel):
 # router. Handlers are now module level; they reach the same dependencies
 # through FastAPI Depends() instead.
 #
-# _EnhancementDeps holds the raw callables/objects the factory receives. It is
-# populated exactly once, by create_enhancement_router() itself -- same as the
-# old closure, which only ever ran once per process (config/routes.py calls
-# the factory a single time at startup; the test `client` fixture imports the
-# already-built `main.app` once per process too). This is a deliberate
-# simplification, not a new hazard: production never calls
-# create_enhancement_router() more than once in the same process. It does NOT
-# reproduce the #4361 module-level-`APIRouter()` hazard -- which this file DID
-# have until now -- since the router instance itself is built fresh, per call,
-# inside the factory below.
+# _EnhancementDeps holds the raw callables/objects one create_enhancement_router()
+# call received. It is bound per router instance through RouterDeps
+# (dependencies.py): a router-level dependency publishes it for the duration of
+# a request, so a second factory call (every test that builds its own router)
+# cannot repoint the live router at its stubs (#5262, #5762). It does NOT
+# reproduce the #4361 module-level-`APIRouter()` hazard -- the router instance
+# itself is built fresh, per call, inside the factory below.
 #
 # A handler's Depends() default is only consulted when FastAPI itself invokes
 # it for a real request; a direct unit-test call passes the dependency
@@ -129,14 +126,22 @@ class EnhancementSettingsResponse(BaseModel):
 # ============================================================================
 
 class _EnhancementDeps:
-    get_enhancement_settings: Callable[[], dict[str, Any]]
-    connection_manager: Any
-    get_multi_tier_buffer: Callable[[], Any] | None = None
-    get_player_state_manager: Callable[[], Any] | None = None
-    get_repository_factory: Callable[[], Any] | None = None
+    def __init__(
+        self,
+        get_enhancement_settings: Callable[[], dict[str, Any]] | None = None,
+        connection_manager: Any = None,
+        get_multi_tier_buffer: Callable[[], Any] | None = None,
+        get_player_state_manager: Callable[[], Any] | None = None,
+        get_repository_factory: Callable[[], Any] | None = None,
+    ) -> None:
+        self.get_enhancement_settings = get_enhancement_settings
+        self.connection_manager = connection_manager
+        self.get_multi_tier_buffer = get_multi_tier_buffer
+        self.get_player_state_manager = get_player_state_manager
+        self.get_repository_factory = get_repository_factory
 
 
-_deps = _EnhancementDeps()
+_deps = RouterDeps("enhancement", _EnhancementDeps())
 
 
 def _get_enhancement_settings() -> dict[str, Any]:
@@ -145,32 +150,29 @@ def _get_enhancement_settings() -> dict[str, Any]:
     Returned as-is, never copied: callers mutate it in place so the change
     propagates to every other holder of the same object.
     """
-    return _deps.get_enhancement_settings()
+    return require_service(_deps.current().get_enhancement_settings, "Enhancement settings")()
 
 
 def _get_connection_manager() -> Any:
-    return _deps.connection_manager
+    return _deps.current().connection_manager
 
 
 def _get_player_state_manager() -> Any:
     """Optional dependency: None when the factory got no callable for it."""
-    if _deps.get_player_state_manager is None:
-        return None
-    return _deps.get_player_state_manager()
+    getter = _deps.current().get_player_state_manager
+    return None if getter is None else getter()
 
 
 def _get_multi_tier_buffer() -> Any:
     """Optional dependency: None when the factory got no callable for it."""
-    if _deps.get_multi_tier_buffer is None:
-        return None
-    return _deps.get_multi_tier_buffer()
+    getter = _deps.current().get_multi_tier_buffer
+    return None if getter is None else getter()
 
 
 def _get_repository_factory() -> Any:
     """Optional dependency: None when the factory got no callable for it."""
-    if _deps.get_repository_factory is None:
-        return None
-    return _deps.get_repository_factory()
+    getter = _deps.current().get_repository_factory
+    return None if getter is None else getter()
 
 
 def _track_is_live_streaming(track_id: int) -> bool:
@@ -744,13 +746,15 @@ def create_enhancement_router(
     # config/routes.py but is not used by any handler above -- pre-existing
     # (its only consumer, GET /api/processing/parameters, moved to
     # routers/processing_api.py in #5073), unrelated to #4670.
-    _deps.get_enhancement_settings = get_enhancement_settings
-    _deps.connection_manager = connection_manager
-    _deps.get_multi_tier_buffer = get_multi_tier_buffer
-    _deps.get_player_state_manager = get_player_state_manager
-    _deps.get_repository_factory = get_repository_factory
+    deps = _EnhancementDeps(
+        get_enhancement_settings=get_enhancement_settings,
+        connection_manager=connection_manager,
+        get_multi_tier_buffer=get_multi_tier_buffer,
+        get_player_state_manager=get_player_state_manager,
+        get_repository_factory=get_repository_factory,
+    )
 
-    router = APIRouter(tags=["enhancement"])
+    router = APIRouter(tags=["enhancement"], dependencies=[Depends(_deps.bind(deps))])
 
     router.add_api_route("/api/player/enhancement/toggle", toggle_enhancement, methods=["POST"], response_model=EnhancementSettingsResponse)
     router.add_api_route("/api/player/enhancement/preset", set_enhancement_preset, methods=["POST"], response_model=EnhancementSettingsResponse)

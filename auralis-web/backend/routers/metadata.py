@@ -17,7 +17,6 @@ Endpoints:
 import asyncio
 import logging
 from collections.abc import Callable
-from contextvars import ContextVar
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Path
@@ -32,7 +31,7 @@ from websocket.outbound_messages import broadcast_typed
 
 from auralis.library.metadata_editor import MetadataEditor, MetadataUpdate
 
-from .dependencies import require_repository_factory, require_service, with_error_handling
+from .dependencies import RouterDeps, require_repository_factory, require_service, with_error_handling
 from .errors import BadRequestError, NotFoundError
 
 logger = logging.getLogger(__name__)
@@ -261,35 +260,19 @@ class _MetadataDeps:
         self.metadata_editor = metadata_editor
 
 
-_deps = _MetadataDeps()
-_active_deps: ContextVar[_MetadataDeps | None] = ContextVar(
-    "_metadata_active_deps", default=None
-)
-
-
-def _current_deps() -> _MetadataDeps:
-    return _active_deps.get() or _deps
-
-
-def _make_deps_binder(deps: _MetadataDeps) -> Callable[[], Any]:
-    """Publish one router instance's dependencies for its request."""
-
-    async def _bind_deps() -> None:
-        _active_deps.set(deps)
-
-    return _bind_deps
+_deps = RouterDeps("metadata", _MetadataDeps())
 
 
 def _get_repository_factory() -> Callable[[], Any]:
-    return _current_deps().get_repository_factory
+    return _deps.current().get_repository_factory
 
 
 def _get_broadcast_manager() -> Any:
-    return _current_deps().broadcast_manager
+    return _deps.current().broadcast_manager
 
 
 def _get_metadata_editor() -> MetadataEditor:
-    metadata_editor = _current_deps().metadata_editor
+    metadata_editor = _deps.current().metadata_editor
     metadata_editor = require_service(metadata_editor, "Metadata editor")
     return metadata_editor
 
@@ -650,15 +633,12 @@ def create_metadata_router(
     if metadata_editor is None:
         metadata_editor = MetadataEditor()
 
-    global _deps
-
     deps = _MetadataDeps(get_repository_factory, broadcast_manager, metadata_editor)
-    _deps = deps
 
     # Create a fresh router instance (important for testing - avoids route pollution)
     router = APIRouter(
         tags=["metadata"],
-        dependencies=[Depends(_make_deps_binder(deps))],
+        dependencies=[Depends(_deps.bind(deps))],
     )
 
     router.add_api_route("/api/metadata/tracks/{track_id}/fields", get_editable_fields, methods=["GET"], response_model=EditableFieldsResponse)

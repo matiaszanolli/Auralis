@@ -10,8 +10,10 @@ reducing boilerplate and improving consistency.
 
 import functools
 import logging
-from typing import Any, ParamSpec, TypeVar, cast
-from collections.abc import Callable
+from contextlib import contextmanager
+from contextvars import ContextVar
+from typing import Any, Generic, ParamSpec, TypeVar, cast
+from collections.abc import Awaitable, Callable, Iterator
 
 from fastapi import HTTPException
 
@@ -30,6 +32,7 @@ logger = logging.getLogger(__name__)
 # Type variables for generic decorator support
 P = ParamSpec('P')
 T = TypeVar('T')
+D = TypeVar('D')
 
 
 def require_audio_player(get_audio_player: Callable[[], Any]) -> AudioPlayer:
@@ -214,3 +217,55 @@ def with_error_handling(operation: str) -> Callable[[Callable[P, T]], Callable[P
             return cast(Callable[P, T], sync_wrapper)
 
     return decorator
+
+
+class RouterDeps(Generic[D]):
+    """One router module's injected dependencies, isolated per router instance.
+
+    Handlers are module-level functions (#4670), so they cannot close over the
+    getters a ``create_*_router()`` factory receives; they read them from here
+    instead. A plain module-level holder that each factory call overwrites is
+    last-writer-wins: a second factory call (every test that builds its own
+    router) silently repoints the live router at its stubs (#5262, #5762).
+
+    Each factory call therefore builds its own deps object and passes it to
+    :meth:`bind`, which returns the router-level dependency that publishes it
+    in a ContextVar for the duration of a request. Providers call
+    :meth:`current`, which resolves against the router that matched the request
+    and falls back to the most recently bound deps outside a request (direct
+    handler calls in tests, which pass their dependencies explicitly anyway).
+    """
+
+    def __init__(self, name: str, empty: D) -> None:
+        self._fallback: D = empty
+        self._active: ContextVar[D | None] = ContextVar(f"{name}_router_deps", default=None)
+
+    def current(self) -> D:
+        """The deps of the router serving this request, else the last bound."""
+        active = self._active.get()
+        return self._fallback if active is None else active
+
+    def bind(self, deps: D) -> Callable[[], Awaitable[None]]:
+        """Adopt *deps* as the fallback and return the router-level dependency.
+
+        Use as ``APIRouter(dependencies=[Depends(_deps.bind(deps))])``. The
+        returned dependency must be async: a sync one runs in a worker thread
+        on a *copy* of the context, so the ContextVar set would never reach
+        the handler. Router-level dependencies are solved before a handler's
+        own ``Depends()``, so every provider sees the right deps.
+        """
+        self._fallback = deps
+
+        async def _bind_deps() -> None:
+            self._active.set(deps)
+
+        return _bind_deps
+
+    @contextmanager
+    def use(self, deps: D) -> Iterator[None]:
+        """Make *deps* current for the ``with`` block (tests)."""
+        token = self._active.set(deps)
+        try:
+            yield
+        finally:
+            self._active.reset(token)

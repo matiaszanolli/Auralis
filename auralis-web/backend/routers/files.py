@@ -20,7 +20,6 @@ import asyncio
 import logging
 import shutil
 import tempfile
-from contextvars import ContextVar
 from pathlib import Path
 from typing import Any, Literal
 from collections.abc import Callable
@@ -32,7 +31,7 @@ from pydantic import BaseModel, Field
 from auralis.utils.logging import sanitize_log_value
 
 from .errors import BadRequestError, ServiceUnavailableError
-from .dependencies import require_repository_factory
+from .dependencies import RouterDeps, require_repository_factory
 from core.processing_engine import _safe_error_message
 
 
@@ -151,28 +150,12 @@ class _FilesDeps:
         self.get_repository_factory = get_repository_factory
 
 
-_deps = _FilesDeps()
-_active_deps: ContextVar[_FilesDeps | None] = ContextVar(
-    "_files_active_deps", default=None
-)
-
-
-def _current_deps() -> _FilesDeps:
-    return _active_deps.get() or _deps
-
-
-def _make_deps_binder(deps: _FilesDeps) -> Callable[[], Any]:
-    """Publish one router instance's dependencies for its request."""
-
-    async def _bind_deps() -> None:
-        _active_deps.set(deps)
-
-    return _bind_deps
+_deps = RouterDeps("files", _FilesDeps())
 
 
 def _get_repos() -> Any:
     """Get repository factory for accessing repositories."""
-    return require_repository_factory(_current_deps().get_repository_factory)
+    return require_repository_factory(_deps.current().get_repository_factory)
 
 
 def _get_repos_provider() -> Callable[[], Any]:
@@ -416,14 +399,11 @@ def create_files_router(
     Note:
         Directory scanning is handled by routers/library.py (fixes #2123).
     """
-    global _deps
-
     deps = _FilesDeps(get_repository_factory)
-    _deps = deps
 
     router = APIRouter(
         tags=["files"],
-        dependencies=[Depends(_make_deps_binder(deps))],
+        dependencies=[Depends(_deps.bind(deps))],
     )
 
     router.add_api_route("/api/files/upload", upload_files, methods=["POST"], response_model=UploadResultResponse)

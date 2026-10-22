@@ -21,7 +21,6 @@ import tempfile
 import threading
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
-from contextvars import ContextVar
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
@@ -39,7 +38,7 @@ from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 from websocket.outbound_messages import ArtworkUpdatedPayload, broadcast_typed
 
-from .dependencies import require_repository_factory, with_error_handling
+from .dependencies import RouterDeps, require_repository_factory, with_error_handling
 from .errors import NotFoundError
 
 logger = logging.getLogger(__name__)
@@ -301,27 +300,11 @@ class _ArtworkDeps:
         self.get_repository_factory = get_repository_factory
 
 
-_deps = _ArtworkDeps()
-_active_deps: ContextVar[_ArtworkDeps | None] = ContextVar(
-    "_artwork_active_deps", default=None
-)
-
-
-def _current_deps() -> _ArtworkDeps:
-    return _active_deps.get() or _deps
-
-
-def _make_deps_binder(deps: _ArtworkDeps) -> Callable[[], Any]:
-    """Publish one router instance's dependencies for its request."""
-
-    async def _bind_deps() -> None:
-        _active_deps.set(deps)
-
-    return _bind_deps
+_deps = RouterDeps("artwork", _ArtworkDeps())
 
 
 def _get_connection_manager() -> Any:
-    return _current_deps().connection_manager
+    return _deps.current().connection_manager
 
 
 async def _broadcast_artwork_updated(
@@ -344,7 +327,7 @@ async def _broadcast_artwork_updated(
 
 def _get_repos() -> Any:
     """Get repository factory for accessing repositories."""
-    return require_repository_factory(_current_deps().get_repository_factory)
+    return require_repository_factory(_deps.current().get_repository_factory)
 
 
 @with_error_handling("get artwork")
@@ -663,14 +646,11 @@ def create_artwork_router(
     Note:
         Phase 6B: Fully migrated to RepositoryFactory pattern (no LibraryManager fallback)
     """
-    global _deps
-
     deps = _ArtworkDeps(connection_manager, get_repository_factory)
-    _deps = deps
 
     router = APIRouter(
         tags=["artwork"],
-        dependencies=[Depends(_make_deps_binder(deps))],
+        dependencies=[Depends(_deps.bind(deps))],
     )
 
     # GET stays first: it is the only route on the bare `/artwork` path, and the

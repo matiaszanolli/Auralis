@@ -25,7 +25,7 @@ from schemas import (
 
 from auralis.analysis.fingerprint.schema import centroid_to_hz, rolloff_to_hz
 
-from .dependencies import require_repository_factory, with_error_handling
+from .dependencies import RouterDeps, require_repository_factory, with_error_handling
 from .errors import NotFoundError
 from .pagination import PaginationParams, compute_has_more
 from .serializers import serialize_album, serialize_albums, serialize_tracks
@@ -116,15 +116,11 @@ class AlbumFingerprintResponse(BaseModel):
 # building the whole router. Handlers are now module level; they reach the
 # same callable through FastAPI Depends() instead.
 #
-# _AlbumsDeps holds the raw callable the factory receives. It is populated
-# exactly once, by create_albums_router() itself -- same as the old closure,
-# which only ever ran once per process (config/routes.py calls the factory a
-# single time at startup; the test `client` fixture imports the already-built
-# `main.app` once per process too). This is a deliberate simplification, not a
-# new hazard: nothing in this codebase calls create_albums_router() more than
-# once in the same process. It does NOT reproduce the #4361
-# module-level-`APIRouter()` hazard, since the router instance itself is still
-# built fresh, per call, inside the factory below.
+# _AlbumsDeps holds the raw callable one create_albums_router() call received.
+# It is bound per router instance through RouterDeps (dependencies.py): a
+# router-level dependency publishes it for the duration of a request, so a
+# second factory call (every test that builds its own router) cannot repoint
+# the live router at its stubs (#5262, #5762).
 #
 # A handler's Depends() default is only consulted when FastAPI itself invokes
 # it for a real request; a direct unit-test call passes the repos explicitly
@@ -133,14 +129,15 @@ class AlbumFingerprintResponse(BaseModel):
 # ============================================================================
 
 class _AlbumsDeps:
-    get_repository_factory: Callable[[], Any]
+    def __init__(self, get_repository_factory: Callable[[], Any] = lambda: None) -> None:
+        self.get_repository_factory = get_repository_factory
 
 
-_deps = _AlbumsDeps()
+_deps = RouterDeps("albums", _AlbumsDeps())
 
 
 def _get_repository_factory() -> Callable[[], Any]:
-    return _deps.get_repository_factory
+    return _deps.current().get_repository_factory
 
 
 def _get_repos(
@@ -388,9 +385,9 @@ def create_albums_router(
     Note:
         Phase 6B: Fully migrated to RepositoryFactory pattern (no LibraryManager fallback).
     """
-    _deps.get_repository_factory = get_repository_factory
+    deps = _AlbumsDeps(get_repository_factory)
 
-    router = APIRouter()
+    router = APIRouter(dependencies=[Depends(_deps.bind(deps))])
 
     # Registration order matches the original decorator order: the literal-free
     # `/api/albums/{album_id}` must stay ahead of its `/tracks` and

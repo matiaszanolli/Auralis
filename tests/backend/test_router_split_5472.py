@@ -62,17 +62,9 @@ def _table(router):
 
 @pytest.fixture
 def player_router():
-    saved = dict(vars(player._deps))
-    router = player.create_player_router(
+    return player.create_player_router(
         lambda: None, lambda: None, lambda: None, None, None, lambda t: t
     )
-    yield router
-    # create_player_router() writes the process-wide _deps holder; put back
-    # whatever main.app's own factory call stored there.
-    for name in list(vars(player._deps)):
-        delattr(player._deps, name)
-    for name, value in saved.items():
-        setattr(player._deps, name, value)
 
 
 def test_player_route_table_is_unchanged(player_router):

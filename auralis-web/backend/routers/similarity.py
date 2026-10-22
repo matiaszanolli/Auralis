@@ -9,7 +9,6 @@ REST API endpoints for fingerprint-based music similarity
 """
 
 import asyncio
-from contextvars import ContextVar
 from typing import Annotated, Any
 from collections.abc import Callable
 
@@ -32,7 +31,7 @@ from auralis.analysis.fingerprint import (
 # silently refusing dimensions that exist (#4630).
 EXPLAINABLE_DIMENSIONS = len(FingerprintNormalizer.DIMENSION_NAMES)
 
-from .dependencies import require_repository_factory
+from .dependencies import RouterDeps, require_repository_factory
 # Shared error helpers live in similarity_common (#4270) so the similarity-graph
 # and fingerprint-queue routers can reuse them. Re-exported here for backward
 # compatibility (e.g. tests importing routers.similarity._internal_error_response).
@@ -155,42 +154,19 @@ class _SimilarityDeps:
         self.get_repository_factory = get_repository_factory
 
 
-# Fallback for direct (non-request) handler calls: the most recently built
-# router's dependencies.
-_deps = _SimilarityDeps()
-
-# Per-request binding, published by each router's own binder below.
-_active_deps: ContextVar[_SimilarityDeps | None] = ContextVar("_active_deps", default=None)
-
-
-def _current_deps() -> _SimilarityDeps:
-    """The deps of the router serving this request, or the last built one."""
-    return _active_deps.get() or _deps
-
-
-def _make_deps_binder(deps: _SimilarityDeps) -> Callable[[], Any]:
-    """Build the router-level dependency that publishes `deps` for a request.
-
-    Must be async: a sync dependency is run in a worker thread, which gets a
-    *copy* of the context, so the ContextVar set would not be visible to the
-    handler.
-    """
-    async def _bind_similarity_deps() -> None:
-        _active_deps.set(deps)
-
-    return _bind_similarity_deps
+_deps = RouterDeps("similarity", _SimilarityDeps())
 
 
 def _similarity_system_getter() -> FingerprintSimilarity:
-    return _current_deps().get_similarity_system()
+    return _deps.current().get_similarity_system()
 
 
 def _graph_builder_getter() -> KNNGraphBuilder | None:
-    return _current_deps().get_graph_builder()
+    return _deps.current().get_graph_builder()
 
 
 def _repository_factory_getter() -> Any:
-    return _current_deps().get_repository_factory()
+    return _deps.current().get_repository_factory()
 
 
 def _get_similarity_system_getter() -> Callable[[], FingerprintSimilarity]:
@@ -480,19 +456,16 @@ def create_similarity_router(
     Returns:
         Configured FastAPI router
     """
-    global _deps
-
     deps = _SimilarityDeps(
         get_similarity_system=get_similarity_system,
         get_graph_builder=get_graph_builder,
         get_repository_factory=get_repository_factory,
     )
-    _deps = deps
 
     router = APIRouter(
         prefix="/api/similarity",
         tags=["similarity"],
-        dependencies=[Depends(_make_deps_binder(deps))],
+        dependencies=[Depends(_deps.bind(deps))],
     )
 
     router.add_api_route("/tracks/{track_id}/similar", get_similar_tracks, methods=["GET"], response_model=list[SimilarTrack])

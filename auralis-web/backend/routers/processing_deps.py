@@ -10,10 +10,11 @@ processing_jobs.py and processing_parameters.py (#5472).
 """
 
 from collections.abc import Callable
-from contextvars import ContextVar
 from typing import Any
 
 from core.processing_engine import ProcessingEngine
+
+from .dependencies import RouterDeps
 
 # ============================================================================
 # DEPENDENCY WIRING (#4670)
@@ -38,13 +39,11 @@ from core.processing_engine import ProcessingEngine
 # holder would be last-writer-wins across those routers, so a later test
 # driving main.app (e.g. tests/backend/test_processing_parameters.py) would
 # silently get the mock engine and a None enhancement-settings getter.
-# Each factory call therefore also builds its own _ProcessingDeps, published
-# for the duration of a request by a router-level dependency (_bind_deps)
-# into the _current_deps ContextVar: router-level dependencies are solved
-# before the handler's own Depends(), and a ContextVar set inside an async
-# dependency stays visible for the rest of that request's task, so every
-# provider below resolves against the deps of the router that matched.
-# `_deps` stays as the fallback for anything resolved outside a request.
+# Each factory call therefore also builds its own _ProcessingDeps and binds it
+# through RouterDeps (dependencies.py): a router-level dependency publishes it
+# for the duration of a request, so every provider below resolves against the
+# deps of the router that matched. `_deps` falls back to the most recently
+# bound deps for anything resolved outside a request.
 #
 # A handler's Depends() default is only consulted when FastAPI itself invokes
 # it for a real request; a direct unit-test call passes the dependency
@@ -67,28 +66,12 @@ class _ProcessingDeps:
         self.get_enhancement_settings = get_enhancement_settings
 
 
-_deps = _ProcessingDeps()
-
-_current_deps: ContextVar[_ProcessingDeps] = ContextVar(
-    "auralis_processing_deps", default=_deps
-)
-
-
-def _make_deps_binder(deps: _ProcessingDeps) -> Callable[[], Any]:
-    """Build the router-level dependency that publishes `deps` per request.
-
-    One binder per create_processing_router() call; see the DEPENDENCY WIRING
-    note above for why the deps are not read straight off a single global.
-    """
-    async def _bind_deps() -> None:
-        _current_deps.set(deps)
-
-    return _bind_deps
+_deps = RouterDeps("processing", _ProcessingDeps())
 
 
 def _get_processing_engine() -> ProcessingEngine | None:
     """Live ProcessingEngine, or None when it has not been initialised."""
-    return _current_deps.get().get_processing_engine()
+    return _deps.current().get_processing_engine()
 
 
 def _get_enhancement_settings() -> Callable[[], dict[str, Any]] | None:
@@ -98,4 +81,4 @@ def _get_enhancement_settings() -> Callable[[], dict[str, Any]] | None:
     still tell "not wired up" (503) from "wired up and empty" (#5073), exactly
     as it did when it read the closure variable directly.
     """
-    return _current_deps.get().get_enhancement_settings
+    return _deps.current().get_enhancement_settings

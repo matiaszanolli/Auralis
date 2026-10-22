@@ -72,12 +72,9 @@ class TestRequireRepositoryFactory:
         class _Deps:
             get_repository_factory = None
 
-        token = files._active_deps.set(_Deps())
-        try:
+        with files._deps.use(_Deps()):
             with pytest.raises(ServiceUnavailableError) as exc:
                 files._get_repos()
-        finally:
-            files._active_deps.reset(token)
         assert exc.value.detail == "Repository factory not available"
 
 

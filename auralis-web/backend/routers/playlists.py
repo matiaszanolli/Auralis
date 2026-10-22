@@ -20,7 +20,6 @@ Endpoints:
 
 import asyncio
 from collections.abc import Callable
-from contextvars import ContextVar
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Path, Query
@@ -34,7 +33,7 @@ from schemas import (
 )
 from websocket.outbound_messages import broadcast_typed
 
-from .dependencies import require_repository_factory, with_error_handling
+from .dependencies import RouterDeps, require_repository_factory, with_error_handling
 from .errors import BadRequestError, NotFoundError
 from .pagination import PaginationParams, compute_has_more
 from .serializers import serialize_playlist, serialize_playlists
@@ -150,27 +149,11 @@ class _PlaylistsDeps:
         self.connection_manager = connection_manager
 
 
-_deps = _PlaylistsDeps()
-_active_deps: ContextVar[_PlaylistsDeps | None] = ContextVar(
-    "_playlists_active_deps", default=None
-)
-
-
-def _current_deps() -> _PlaylistsDeps:
-    return _active_deps.get() or _deps
-
-
-def _make_deps_binder(deps: _PlaylistsDeps) -> Callable[[], Any]:
-    """Publish one router instance's dependencies for its request."""
-
-    async def _bind_deps() -> None:
-        _active_deps.set(deps)
-
-    return _bind_deps
+_deps = RouterDeps("playlists", _PlaylistsDeps())
 
 
 def _get_connection_manager() -> Any:
-    return _current_deps().connection_manager
+    return _deps.current().connection_manager
 
 
 def _get_repos() -> Any:
@@ -181,7 +164,7 @@ def _get_repos() -> Any:
     its 503-on-unavailable guard applied) once per request, not once at
     router-construction time.
     """
-    return require_repository_factory(_current_deps().get_repository_factory)
+    return require_repository_factory(_deps.current().get_repository_factory)
 
 
 @with_error_handling("get playlists")
@@ -626,14 +609,11 @@ def create_playlists_router(
     Note:
         Phase 6B: Fully migrated to RepositoryFactory pattern (no LibraryManager fallback)
     """
-    global _deps
-
     deps = _PlaylistsDeps(get_repository_factory, connection_manager)
-    _deps = deps
 
     router = APIRouter(
         tags=["playlists"],
-        dependencies=[Depends(_make_deps_binder(deps))],
+        dependencies=[Depends(_deps.bind(deps))],
     )
 
     router.add_api_route("/api/playlists", get_playlists, methods=["GET"], response_model=PlaylistListResponse)

@@ -31,6 +31,7 @@ from websocket.outbound_messages import (
 from services.missing_tracks import prune_missing_tracks
 from services.scanner_stop import stop_scanner
 
+from .dependencies import RouterDeps
 from .errors import LibraryManagerUnavailableError, handle_query_error
 
 logger = logging.getLogger(__name__)
@@ -139,14 +140,14 @@ async def _await_scan(
 # import or call without first building the whole router. Handlers are now
 # module level; they reach the same objects through FastAPI Depends() instead.
 #
-# _LibraryScanDeps holds the raw callable/object the factory receives. It is
-# populated exactly once, by create_library_scan_router() itself -- same as the
-# old closure, which only ever ran once per process (config/routes.py calls the
-# factory a single time at startup). This is a deliberate simplification, not a
-# new hazard: nothing in production calls the factory more than once in the
-# same process. It does NOT reproduce the #4361 module-level-`APIRouter()`
-# hazard, since the router instance itself is still built fresh, per call,
-# inside the factory below.
+# _LibraryScanDeps holds the raw callable/object one create_library_scan_router()
+# call received. It is bound per router instance through RouterDeps
+# (dependencies.py): a router-level dependency publishes it for the duration of
+# a request, so a second factory call (several test files build their own scan
+# router with stub dependencies) cannot repoint the live router at those stubs
+# (#5262, #5762). It does NOT reproduce the #4361 module-level-`APIRouter()`
+# hazard, since the router instance itself is built fresh, per call, inside the
+# factory below.
 #
 # Both attributes default to None -- unlike player.py's _PlayerDeps, this
 # factory's parameters are themselves optional, so "never populated" and
@@ -161,11 +162,16 @@ async def _await_scan(
 
 
 class _LibraryScanDeps:
-    get_library_database: Callable[[], Any] | None = None
-    connection_manager: Any = None
+    def __init__(
+        self,
+        get_library_database: Callable[[], Any] | None = None,
+        connection_manager: Any = None,
+    ) -> None:
+        self.get_library_database = get_library_database
+        self.connection_manager = connection_manager
 
 
-_deps = _LibraryScanDeps()
+_deps = RouterDeps("library_scan", _LibraryScanDeps())
 
 
 def _get_library_database() -> Any:
@@ -175,11 +181,12 @@ def _get_library_database() -> Any:
     meaningful: handlers check the *resolved* manager for None, which the
     always-truthy getter callable could never expose.
     """
-    return _deps.get_library_database() if _deps.get_library_database else None
+    getter = _deps.current().get_library_database
+    return getter() if getter else None
 
 
 def _get_connection_manager() -> Any:
-    return _deps.connection_manager
+    return _deps.current().connection_manager
 
 
 # ============================================================================
@@ -501,10 +508,9 @@ def create_library_scan_router(
     connection_manager: Any | None = None,
 ) -> APIRouter:
     """Factory: library scan routes."""
-    _deps.get_library_database = get_library_database
-    _deps.connection_manager = connection_manager
+    deps = _LibraryScanDeps(get_library_database, connection_manager)
 
-    router = APIRouter(tags=["library"])
+    router = APIRouter(tags=["library"], dependencies=[Depends(_deps.bind(deps))])
     router.add_api_route(
         "/api/library/scan/status",
         get_scan_status,
