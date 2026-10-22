@@ -11,7 +11,7 @@ interface ClearQueueDialogProps {
 export const ClearQueueDialog = ({ onConfirm, onCancel }: ClearQueueDialogProps) => {
   // Shared focus trap (#3007, #5394): Tab/Shift+Tab wrap, Escape cancels,
   // focus moves to the first button (Cancel) and returns to the trigger on
-  // unmount, the same hook ConfirmationDialog and QueueSearchPanel use. The
+  // unmount, the same hook ConfirmationDialog uses. The
   // parent mounts this only while open, so the default isActive applies.
   const dialogRef = useDialogAccessibility(onCancel);
 

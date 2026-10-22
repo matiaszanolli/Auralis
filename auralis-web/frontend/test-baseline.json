@@ -2,7 +2,7 @@
   "_comment": "Known-failing vitest specs (#4640). CI fails on any failure NOT listed here. Regenerate with: pnpm run test:baseline:update #5811 hand-removed two entries for a describe block (usePlayer) that #5354 deleted; --strict-stale cannot see tests that no longer exist. #5822 hand-removed two entries for usePlayerDisplay tests of the deleted forceShowHours/showHours flag.",
   "generatedFrom": {
     "totalTests": 3349,
-    "failedTests": 97
+    "failedTests": 96
   },
   "failures": [
     "src/components/__tests__/Sidebar.test.tsx::Sidebar renders in collapsed state",
@@ -67,7 +67,6 @@
     "src/components/library/__tests__/TrackRow.test.tsx::TrackRow Selection should support shift-click for range selection",
     "src/components/library/__tests__/TrackRow.test.tsx::TrackRow Selection should toggle selection on checkbox click",
     "src/components/player/__tests__/ProgressBar.test.tsx::ProgressBar Click to Seek should call onSeek when clicked at midpoint",
-    "src/components/player/__tests__/QueueStatisticsPanel.test.tsx::QueueStatisticsPanel should display track count in summary",
     "src/components/player/__tests__/TimeDisplay.test.tsx::TimeDisplay CSS Classes and Styling should have title attribute for tooltip",
     "src/components/player/__tests__/TimeDisplay.test.tsx::TimeDisplay Long Duration Formatting should display hours even at 0 for long tracks",
     "src/components/player/__tests__/TimeDisplay.test.tsx::TimeDisplay Props Updates should update format when duration crosses hour threshold",

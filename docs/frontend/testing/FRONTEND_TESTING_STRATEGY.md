@@ -17,25 +17,13 @@ Run tests by category or specific files, never the full suite.
 
 ## Test Organization
 
-### Phase 7 Tests (Queue Management)
+### Player and queue tests
 
-**Location**: `src/components/player/__tests__`, `src/hooks/player/__tests__`, `src/utils/queue/__tests__`
+**Location**: `src/components/player/__tests__`, `src/hooks/player/__tests__`, `src/utils/__tests__`
 
-| Test File | Size | Tests | Purpose |
-|-----------|------|-------|---------|
-| `queue_recommender.test.ts` | 424 lines | 33 | Recommendation engine |
-| `queue_statistics.test.ts` | 450 lines | 31 | Analytics & quality |
-| `queue_shuffler.test.ts` | 388 lines | 28 | Shuffle algorithms |
-| `QueueSearchPanel.test.tsx` | 563 lines | 18 | Search UI component |
-| `QueueStatisticsPanel.test.tsx` | 590 lines | 18 | Statistics UI |
-| `QueueRecommendationsPanel.test.tsx` | 420 lines | 16 | Recommendations UI |
-| *ShuffleModeSelector.test.tsx* | 321 lines | 15 | Shuffle selector UI |
-| `useQueueSearch.test.ts` | 502 lines | 22 | Search hook |
-| `useQueueStatistics.test.ts` | 359 lines | 16 | Statistics hook |
-| `useQueueRecommendations.test.ts` | 392 lines | 16 | Recommendations hook |
-| `Phase7Integration.test.tsx` | 447 lines | 16 | Integration tests |
-
-**Total**: 150+ tests across 11 files (safe to run together)
+Hook and utility tests (`usePlaybackQueue.test.ts`, `usePlayerDisplay.test.ts`,
+`queueIndexReconciliation.test.ts`, ...) are small and safe to run together; the
+component tests below are larger and best run one file at a time.
 
 ### Other Player Tests
 
@@ -70,37 +58,37 @@ Run tests by category or specific files, never the full suite.
 **Run Single Utility Tests** (safest)
 ```bash
 # Run one utility test - 5-10 seconds
-npx vitest run src/utils/queue/__tests__/queue_recommender.test.ts
+npx vitest run src/utils/__tests__/apiRequest.test.ts
 
 # Run one component test - 5-10 seconds
-npx vitest run src/components/player/__tests__/ShuffleModeSelector.test.tsx
+npx vitest run src/components/player/__tests__/PlaybackControls.test.tsx
 
 # Run one hook test - 5-10 seconds
-npx vitest run src/hooks/player/__tests__/useQueueSearch.test.ts
+npx vitest run src/hooks/player/__tests__/usePlayerDisplay.test.ts
 ```
 
 **Run Related Test Group** (safe)
 ```bash
-# Run all Phase 7 utilities (~30 seconds, ~100MB memory)
-npx vitest run 'src/utils/queue/__tests__/**/*.test.ts'
+# Run all utility tests (~30 seconds, ~100MB memory)
+npx vitest run 'src/utils/__tests__/**/*.test.ts'
 
-# Run all Phase 7 components (~40 seconds, ~150MB memory)
+# Run all player component tests (~40 seconds, ~150MB memory)
 npx vitest run 'src/components/player/__tests__/**/*.test.tsx'
 
-# Run all Phase 7 hooks (~30 seconds, ~120MB memory)
+# Run all player hook tests (~30 seconds, ~120MB memory)
 npx vitest run 'src/hooks/player/__tests__/**/*.test.ts'
 
-# Run all Phase 7 tests together (~2 minutes, ~400MB memory)
+# Run utilities, components and hooks together (~2 minutes, ~400MB memory)
 npx vitest run \
-  'src/utils/queue/__tests__/**/*.test.ts' \
+  'src/utils/__tests__/**/*.test.ts' \
   'src/components/player/__tests__/**/*.test.tsx' \
   'src/hooks/player/__tests__/**/*.test.ts'
 ```
 
 **Run Integration Tests** (specific only)
 ```bash
-# Run Phase 7 integration tests alone
-npx vitest run src/components/player/__tests__/Phase7Integration.test.tsx
+# Run the player integration test alone
+npx vitest run src/components/player/__tests__/Player.test.tsx
 
 # Run performance tests alone
 npx vitest run src/tests/integration/performance/
@@ -109,10 +97,10 @@ npx vitest run src/tests/integration/performance/
 **Watch Mode** (development)
 ```bash
 # Watch single file changes
-npx vitest src/utils/queue/__tests__/queue_recommender.test.ts
+npx vitest src/utils/__tests__/apiRequest.test.ts
 
 # Watch directory changes
-npx vitest 'src/utils/queue/__tests__/**'
+npx vitest 'src/utils/__tests__/**'
 ```
 
 ### ❌ DON'T - Dangerous Approaches
@@ -166,7 +154,7 @@ ps aux | grep -E "node|vitest"
 ### For Automated Testing
 ```bash
 # Tier 1: Fast unit tests (~1 minute)
-npx vitest run src/utils/queue/__tests__/queue_*.test.ts
+npx vitest run src/utils/__tests__/*.test.ts
 
 # Tier 2: Hook tests (~1 minute)
 npx vitest run src/hooks/player/__tests__/useQueue*.test.ts
@@ -175,7 +163,7 @@ npx vitest run src/hooks/player/__tests__/useQueue*.test.ts
 npx vitest run src/components/player/__tests__/Queue*.test.tsx
 
 # Tier 4: Integration tests (~1 minute)
-npx vitest run src/components/player/__tests__/Phase7Integration.test.tsx
+npx vitest run src/components/player/__tests__/Player.test.tsx
 
 # Total: ~5 minutes, safe memory usage
 ```
@@ -184,26 +172,26 @@ npx vitest run src/components/player/__tests__/Phase7Integration.test.tsx
 ```bash
 # Quick sanity check (< 30 seconds)
 npx vitest run \
-  src/utils/queue/__tests__/queue_recommender.test.ts \
-  src/components/player/__tests__/ShuffleModeSelector.test.tsx
+  src/utils/__tests__/apiRequest.test.ts \
+  src/components/player/__tests__/PlaybackControls.test.tsx
 
-# Full Phase 7 validation (~2 minutes)
+# Full player validation (~2 minutes)
 npx vitest run \
-  'src/utils/queue/__tests__/**/*.test.ts' \
+  'src/utils/__tests__/**/*.test.ts' \
   'src/components/player/__tests__/Queue*.test.tsx' \
   'src/hooks/player/__tests__/useQueue*.test.ts'
 ```
 
 ---
 
-## Phase 7 Test Execution Times
+## Test Execution Times
 
 | Command | Time | Memory | Safety |
 |---------|------|--------|--------|
 | Single test file | ~5s | ~50MB | ✅ Safe |
 | Single category | ~20s | ~150MB | ✅ Safe |
-| Phase 7 utilities + hooks | ~40s | ~250MB | ✅ Safe |
-| Phase 7 all (utilities + hooks + components) | ~90s | ~400MB | ✅ Safe |
+| utilities + hooks | ~40s | ~250MB | ✅ Safe |
+| all (utilities + hooks + components) | ~90s | ~400MB | ✅ Safe |
 | Full player tests | ~3 min | ~800MB | ⚠️ Risky |
 | Entire suite | crash | 2GB+ | ❌ Fatal |
 
@@ -215,23 +203,17 @@ If individual test files grow beyond 600 lines, split them:
 
 ### Example: Split Large Test File
 ```
-queue_recommender.test.ts (424 lines) ✅ OK, keep as-is
-
-queue_statistics.test.ts (450 lines) ✅ OK, keep as-is
-
-QueueStatisticsPanel.test.tsx (590 lines) - CONSIDER SPLITTING:
-├── QueueStatisticsPanel.basic.test.tsx (200 lines)
+LargeComponent.test.tsx (590 lines) - CONSIDER SPLITTING:
+├── LargeComponent.basic.test.tsx (200 lines)
 │   ├── Rendering tests
 │   ├── Props handling
 │   └── Empty state
-├── QueueStatisticsPanel.analytics.test.tsx (200 lines)
-│   ├── Statistics display
-│   ├── Formatting
-│   └── Calculations
-└── QueueStatisticsPanel.quality.test.tsx (190 lines)
-    ├── Quality assessment
-    ├── Issue detection
-    └── Issue display
+├── LargeComponent.interaction.test.tsx (200 lines)
+│   ├── Click and keyboard handling
+│   └── Callbacks
+└── LargeComponent.states.test.tsx (190 lines)
+    ├── Loading and error states
+    └── Edge cases
 ```
 
 ### Split Strategy
@@ -247,22 +229,22 @@ QueueStatisticsPanel.test.tsx (590 lines) - CONSIDER SPLITTING:
 ### Run with Verbose Output
 ```bash
 # Show detailed test output
-npx vitest run --reporter=verbose src/utils/queue/__tests__/queue_recommender.test.ts
+npx vitest run --reporter=verbose src/utils/__tests__/apiRequest.test.ts
 
 # Show test names and timing
-npx vitest run --reporter=default src/components/player/__tests__/ShuffleModeSelector.test.tsx
+npx vitest run --reporter=default src/components/player/__tests__/PlaybackControls.test.tsx
 
 # Show only failures
-npx vitest run --reporter=tap src/hooks/player/__tests__/useQueueSearch.test.ts
+npx vitest run --reporter=tap src/hooks/player/__tests__/usePlayerDisplay.test.ts
 ```
 
 ### Debug Single Test
 ```bash
 # Run just one test by name
-npx vitest run -t "should calculate similarity" src/utils/queue/__tests__/queue_recommender.test.ts
+npx vitest run -t "should calculate similarity" src/utils/__tests__/apiRequest.test.ts
 
 # Run with Node inspector
-node --inspect-brk ./node_modules/.bin/vitest run src/utils/queue/__tests__/queue_recommender.test.ts
+node --inspect-brk ./node_modules/.bin/vitest run src/utils/__tests__/apiRequest.test.ts
 ```
 
 ---
@@ -270,26 +252,26 @@ node --inspect-brk ./node_modules/.bin/vitest run src/utils/queue/__tests__/queu
 ## Summary: Safe Testing Commands
 
 ```bash
-# ✅ SAFE - Run Phase 7 utilities (5 utilities × 30-40 tests each)
-npx vitest run 'src/utils/queue/__tests__/**'
+# ✅ SAFE - Run utility tests
+npx vitest run 'src/utils/__tests__/**'
 
-# ✅ SAFE - Run Phase 7 components (8 components × 15-20 tests each)
+# ✅ SAFE - Run player components
 npx vitest run 'src/components/player/__tests__/Queue*.test.tsx' \
-                'src/components/player/__tests__/ShuffleModeSelector.test.tsx'
+                'src/components/player/__tests__/PlaybackControls.test.tsx'
 
-# ✅ SAFE - Run Phase 7 hooks (8 hooks × 15-22 tests each)
+# ✅ SAFE - Run player hooks
 npx vitest run 'src/hooks/player/__tests__/useQueue*.test.ts'
 
-# ✅ SAFE - Run Phase 7 integration tests
-npx vitest run 'src/components/player/__tests__/Phase7Integration.test.tsx'
+# ✅ SAFE - Run the player integration test
+npx vitest run 'src/components/player/__tests__/Player.test.tsx'
 
-# ✅ SAFE - Run all Phase 7 (recommended before commit)
+# ✅ SAFE - Run all of the above (recommended before commit)
 npx vitest run \
-  'src/utils/queue/__tests__/**' \
+  'src/utils/__tests__/**' \
   'src/components/player/__tests__/Queue*.test.tsx' \
-  'src/components/player/__tests__/ShuffleModeSelector.test.tsx' \
+  'src/components/player/__tests__/PlaybackControls.test.tsx' \
   'src/hooks/player/__tests__/useQueue*.test.ts' \
-  'src/components/player/__tests__/Phase7Integration.test.tsx'
+  'src/components/player/__tests__/Player.test.tsx'
 
 # ❌ NEVER - System crash
 npm test
@@ -320,14 +302,14 @@ ps aux | grep node
 **Key Rules**:
 1. ✅ Always run specific test files or categories
 2. ✅ Use glob patterns for related tests
-3. ✅ Phase 7 tests (~150 tests) are safe to run together
+3. ✅ Utility, hook and player component tests are safe to run together
 4. ✅ Monitor memory before running large test suites
 5. ❌ NEVER run full suite (`npm test` or `npm run test:memory`)
 
 **Recommended Workflow**:
 - Development: Run single test file (5s)
 - Before commit: Run test category (20-40s)
-- Before push: Run Phase 7 all tests (90s)
+- Before push: Run the utility, hook and player tests (90s)
 - CI/CD: Run in tiers, separate large tests
 
 ---

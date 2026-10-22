@@ -178,8 +178,8 @@ describe('useDialogAccessibility', () => {
   // isActive toggle for stays-mounted dialogs (#4148)
   // -------------------------------------------------------------------------
 
-  describe('isActive toggle (stays-mounted dialog, e.g. QueueSearchPanel)', () => {
-    // Mirrors QueueSearchPanel: the component stays mounted and toggles the
+  describe('isActive toggle (stays-mounted dialog)', () => {
+    // A stays-mounted dialog: the component stays mounted and toggles the
     // dialog body via `return null`, so the trap must (re)create on isActive.
     function ToggleDialog({ isOpen, onClose: oc }: { isOpen: boolean; onClose: () => void }) {
       const dialogRef = useDialogAccessibility(oc, isOpen);

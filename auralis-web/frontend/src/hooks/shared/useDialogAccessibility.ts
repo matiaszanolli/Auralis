@@ -9,8 +9,7 @@
  * @param isActive Whether the dialog is currently shown. Defaults to `true`
  *   for the common pattern where the parent conditionally MOUNTS the dialog
  *   (so it only exists while open). Pass an explicit flag when the component
- *   stays mounted and toggles via an early `return null` (e.g. QueueSearchPanel,
- *   #4148): including it in the effect deps re-creates the trap when the dialog
+ *   stays mounted and toggles via an early `return null` (#4148): including it in the effect deps re-creates the trap when the dialog
  *   opens and tears it down (restoring focus) when it closes.
  */
 

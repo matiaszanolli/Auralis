@@ -12,9 +12,6 @@ export { usePlayTrack } from './usePlayTrack';
 export type { PlayableTrack } from './usePlayTrack';
 // Use Redux selectors (playerSlice / queueSlice) as the single source of
 // truth for playback state.
-export { useQueueRecommendations } from './useQueueRecommendations';
-export { useQueueSearch } from './useQueueSearch';
-export { useQueueStatistics } from './useQueueStatistics';
 
 // New hooks moved from root
 // Transport control goes through PlaybackSessionContext (contexts/
