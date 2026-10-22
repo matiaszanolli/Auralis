@@ -39,7 +39,6 @@ from collections.abc import Callable
 import numpy as np
 from core.chunked_processor import ChunkedAudioProcessor
 from fastapi import WebSocket
-from analysis.fingerprint_generator import FingerprintGenerator
 
 from auralis.library.repositories.factory import RepositoryFactory
 
@@ -186,26 +185,6 @@ class AudioStreamController:
         self._get_repository_factory: Callable[[], RepositoryFactory] | None = get_repository_factory
         self._get_enhancement_enabled = get_enhancement_enabled
 
-        # NEW (Phase 7.3): Fingerprint generator for on-demand generation
-        self.fingerprint_generator: FingerprintGenerator | None = None
-        self.fingerprint_init_error: str | None = None
-        if self._get_repository_factory:
-            try:
-                # Get session factory from the first repository factory call
-                factory = self._get_repository_factory()
-                if hasattr(factory, 'session_factory'):
-                    self.fingerprint_generator = FingerprintGenerator(
-                        session_factory=factory.session_factory,
-                        get_repository_factory=self._get_repository_factory
-                    )
-                    logger.info("✅ FingerprintGenerator initialized for on-demand fingerprint generation")
-                else:
-                    self.fingerprint_init_error = "RepositoryFactory missing session_factory attribute"
-                    logger.warning(f"Fingerprint generation unavailable: {self.fingerprint_init_error}")
-            except Exception as e:
-                self.fingerprint_init_error = str(e)
-                logger.warning(f"Failed to initialize FingerprintGenerator: {e}, proceeding without on-demand fingerprint generation")
-
         # Use the module-level semaphore shared across all instances (fixes #2469)
         self._stream_semaphore: asyncio.Semaphore = _global_stream_semaphore
 
@@ -255,13 +234,6 @@ class AudioStreamController:
         from . import stream_messages
         await stream_messages.send_fingerprint_progress(self, websocket, track_id, status, message)
 
-
-    async def _ensure_fingerprint_available(
-        self, track_id: int, filepath: str, websocket: WebSocket | None = None
-    ) -> bool:
-        from . import stream_fingerprint
-        return await stream_fingerprint.ensure_fingerprint_available(self, track_id, filepath, websocket)
-
     async def _check_or_queue_fingerprint(
         self, track_id: int, filepath: str, websocket: WebSocket | None = None
     ) -> bool:
@@ -286,18 +258,6 @@ class AudioStreamController:
         from . import stream_chunk_ops
         return await stream_chunk_ops.stream_processed_chunk(
             self, pcm_samples, chunk_index, processor, websocket
-        )
-
-    async def _process_and_stream_chunk(
-        self,
-        chunk_index: int,
-        processor: ChunkedAudioProcessor,
-        websocket: WebSocket,
-        on_progress: Callable[[int, float, str], Any] | None = None,
-    ) -> bool:
-        from . import stream_chunk_ops
-        return await stream_chunk_ops.process_and_stream_chunk(
-            self, chunk_index, processor, websocket, on_progress
         )
 
     async def stream_enhanced_audio(

@@ -6,7 +6,6 @@ Comprehensive tests for cache layer integration with standardized API endpoints.
 
 Test Coverage:
 - Cache-aware response schemas and validation
-- Cache monitoring and health tracking
 - Cache statistics and analytics
 - Integration with endpoint handlers
 - Performance impact of caching
@@ -23,7 +22,6 @@ import pytest
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web/backend"))
 
-from cache.monitoring import CacheMetrics, CacheMonitor, HealthStatus
 from schemas import (
     CacheHealthResponse,
     CacheStatsResponse,
@@ -99,188 +97,7 @@ class TestCacheSchemas:
 
 
 # ============================================================================
-# Helper Function Tests
-# ============================================================================
-
-
-
-# ============================================================================
-# Cache Monitoring Tests
-# ============================================================================
-
-class MockCacheManager:
-    """Mock cache manager for testing monitoring."""
-
-    def __init__(self):
-        self.hit_count = 0
-        self.miss_count = 0
-        self.tier1_size = 0.0
-        self.tier2_size = 0.0
-
-    def get_stats(self):
-        """Return mock stats."""
-        return {
-            "tier1": {
-                "hit_rate": self.hit_count / max(1, self.hit_count + self.miss_count),
-                "size_mb": self.tier1_size,
-                "chunks": int(self.tier1_size / 1.5) if self.tier1_size > 0 else 0
-            },
-            "tier2": {
-                "hit_rate": self.hit_count / max(1, self.hit_count + self.miss_count),
-                "size_mb": self.tier2_size,
-                "chunks": int(self.tier2_size / 1.5) if self.tier2_size > 0 else 0,
-                "tracks_cached": 2
-            },
-            "overall": {
-                "overall_hit_rate": self.hit_count / max(1, self.hit_count + self.miss_count),
-                "total_size_mb": self.tier1_size + self.tier2_size,
-                "total_hits": self.hit_count,
-                "total_misses": self.miss_count
-            }
-        }
-
-
-class TestCacheMonitor:
-    """Test cache monitoring system."""
-
-    def test_cache_monitor_initialization(self):
-        """Test monitor initialization."""
-        mock_cache = MockCacheManager()
-        monitor = CacheMonitor(mock_cache)
-
-        assert monitor.tier1_size_limit_mb == 15
-        assert monitor.tier2_size_limit_mb == 250
-        assert monitor.total_size_limit_mb == 260
-
-    def test_update_metrics(self):
-        """Test metrics update."""
-        mock_cache = MockCacheManager()
-        mock_cache.hit_count = 150
-        mock_cache.miss_count = 10
-        mock_cache.tier1_size = 6.0
-        mock_cache.tier2_size = 200.0
-
-        monitor = CacheMonitor(mock_cache)
-        metrics = monitor.update_metrics()
-
-        assert metrics.tier1_size_mb == 6.0
-        assert metrics.tier2_size_mb == 200.0
-        assert metrics.total_requests == 160
-
-    def test_metrics_history_limited(self):
-        """Test metrics history size limit."""
-        mock_cache = MockCacheManager()
-        monitor = CacheMonitor(mock_cache)
-
-        # Add more than max_history measurements
-        for i in range(150):
-            monitor.update_metrics()
-
-        assert len(monitor.metrics_history) == 100
-
-    def test_alert_tier1_size_exceeded(self):
-        """Test alert for Tier 1 size exceeded."""
-        mock_cache = MockCacheManager()
-        mock_cache.tier1_size = 20.0  # Exceeds limit of 15
-
-        monitor = CacheMonitor(mock_cache)
-        metrics = monitor.update_metrics()
-
-        health_status, alerts = monitor.get_health_status()
-        assert health_status == HealthStatus.CRITICAL
-        assert len(alerts) > 0
-        assert any("Tier 1" in alert.title for alert in alerts)
-
-    def test_alert_hit_rate_warning(self):
-        """Test alert for low hit rate."""
-        mock_cache = MockCacheManager()
-        mock_cache.hit_count = 60  # 60 hits out of 100 = 60% rate
-        mock_cache.miss_count = 40
-
-        monitor = CacheMonitor(mock_cache)
-        monitor.min_hit_rate_warning = 0.70
-
-        metrics = monitor.update_metrics()
-
-        health_status, alerts = monitor.get_health_status()
-        assert health_status == HealthStatus.WARNING
-
-    def test_alert_hit_rate_critical(self):
-        """Test alert for very low hit rate."""
-        mock_cache = MockCacheManager()
-        mock_cache.hit_count = 40  # 40% hit rate
-        mock_cache.miss_count = 60
-
-        monitor = CacheMonitor(mock_cache)
-        monitor.min_hit_rate_critical = 0.50
-
-        metrics = monitor.update_metrics()
-
-        health_status, alerts = monitor.get_health_status()
-        assert health_status == HealthStatus.CRITICAL
-
-    def test_get_trend_increasing(self):
-        """Test trend detection for increasing metric."""
-        mock_cache = MockCacheManager()
-        monitor = CacheMonitor(mock_cache)
-
-        # Simulate increasing cache size
-        for i in range(5):
-            mock_cache.tier1_size = i * 2.0
-            monitor.update_metrics()
-
-        trend = monitor.get_trend("tier1_size_mb")
-        assert trend["trend"] == "up"
-
-    def test_get_trend_decreasing(self):
-        """Test trend detection for decreasing metric."""
-        mock_cache = MockCacheManager()
-        monitor = CacheMonitor(mock_cache)
-
-        # Simulate decreasing cache size
-        for i in range(5, 0, -1):
-            mock_cache.tier1_size = i * 2.0
-            monitor.update_metrics()
-
-        trend = monitor.get_trend("tier1_size_mb")
-        assert trend["trend"] == "down"
-
-    def test_get_trend_stable(self):
-        """Test trend detection for stable metric."""
-        mock_cache = MockCacheManager()
-        monitor = CacheMonitor(mock_cache)
-
-        mock_cache.tier1_size = 5.0
-
-        for _ in range(5):
-            monitor.update_metrics()
-
-        trend = monitor.get_trend("tier1_size_mb")
-        assert trend["trend"] == "stable"
-
-    def test_get_summary(self):
-        """Test getting comprehensive summary."""
-        mock_cache = MockCacheManager()
-        mock_cache.hit_count = 150
-        mock_cache.miss_count = 10
-        mock_cache.tier1_size = 6.0
-        mock_cache.tier2_size = 200.0
-
-        monitor = CacheMonitor(mock_cache)
-        monitor.update_metrics()
-
-        summary = monitor.get_summary()
-
-        assert "health_status" in summary
-        assert "tier1" in summary
-        assert "tier2" in summary
-        assert "overall" in summary
-        assert summary["tier1"]["size_mb"] == 6.0
-        assert summary["tier2"]["size_mb"] == 200.0
-
-
-# ============================================================================
-# Integration Tests
+# Cache Integration Tests
 # ============================================================================
 
 class TestCacheIntegration:
@@ -288,15 +105,6 @@ class TestCacheIntegration:
 
     def test_cache_stats_response_structure(self):
         """Test complete cache stats response structure."""
-        mock_cache = MockCacheManager()
-        mock_cache.hit_count = 1500
-        mock_cache.miss_count = 100
-        mock_cache.tier1_size = 6.0
-        mock_cache.tier2_size = 219.0
-
-        monitor = CacheMonitor(mock_cache)
-        monitor.update_metrics()
-
         stats = {
             "tier1": {
                 "tier_name": "tier1",

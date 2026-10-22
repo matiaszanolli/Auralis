@@ -97,11 +97,6 @@ async def stream_audio(
             ),
         )
 
-        if controller.fingerprint_generator:
-            logger.info("✅ FingerprintGenerator available - on-demand fingerprint generation enabled")
-        else:
-            logger.warning("⚠️  FingerprintGenerator not available - using database/cached fingerprints only")
-
         if start_position > 0:
             # Resume from position (WS reconnect, #3185)
             await controller.stream_enhanced_audio_from_position(

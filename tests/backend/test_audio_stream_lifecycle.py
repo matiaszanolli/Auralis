@@ -76,10 +76,8 @@ def _make_processor(
 
 def _make_factory(filepath: str = FILEPATH, track_found: bool = True) -> Mock:
     """
-    Create a mock RepositoryFactory.
-
-    spec=['tracks', 'fingerprints'] prevents hasattr(factory, 'session_factory')
-    from returning True, which would trigger FingerprintGenerator initialization.
+    Create a mock RepositoryFactory restricted to the 'tracks' and
+    'fingerprints' repositories.
     """
     factory = Mock(spec=["tracks", "fingerprints"])
     if track_found:
@@ -673,58 +671,6 @@ class TestStreamStartSeekFlag:
         assert d["seek_position"] == pytest.approx(20.0)
         assert "start_chunk" in d
         assert "seek_offset" in d
-
-
-# ---------------------------------------------------------------------------
-# Regression: _ensure_fingerprint_available error sanitisation (#3847)
-# ---------------------------------------------------------------------------
-
-class TestFingerprintErrorSanitisation:
-    """
-    _ensure_fingerprint_available() must broadcast only the exception class
-    name when fingerprint generation fails, not raw str(e) which may contain
-    file paths or ffmpeg stderr (fixes #3847, same pattern as #3543/#3846).
-    """
-
-    @pytest.mark.asyncio
-    async def test_fingerprint_error_does_not_leak_raw_exception_text(self):
-        """
-        When get_or_generate raises with sensitive detail in the message,
-        the fingerprint_progress WS event must contain only the class name.
-        """
-        sensitive_msg = "OSError: [Errno 13] Permission denied: '/home/alice/music/track.mp3'"
-        ws = _make_ws()
-        proc = _make_processor()
-
-        with patch.object(Path, "exists", return_value=True):
-            ctrl = _make_controller(proc=proc)
-
-        # Replace the fingerprint generator with one that raises on demand
-        mock_gen = MagicMock()
-        mock_gen.get_or_generate = AsyncMock(
-            side_effect=OSError(sensitive_msg)
-        )
-        ctrl.fingerprint_generator = mock_gen
-
-        await ctrl._ensure_fingerprint_available(
-            track_id=TRACK_ID,
-            filepath=FILEPATH,
-            websocket=ws,
-        )
-
-        messages = _get_sent_messages(ws)
-        fp_error = next(
-            (m for m in messages if m["type"] == "fingerprint_progress"
-             and m["data"].get("status") == "error"),
-            None,
-        )
-        assert fp_error is not None, "expected a fingerprint_progress(error) message"
-        msg_text = fp_error["data"]["message"]
-
-        assert sensitive_msg not in msg_text, (
-            f"Raw exception detail leaked in fingerprint_progress: {msg_text!r}"
-        )
-        assert "OSError" in msg_text
 
 
 if __name__ == "__main__":

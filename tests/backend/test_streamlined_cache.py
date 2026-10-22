@@ -37,7 +37,6 @@ import numpy as np
 import soundfile as sf
 
 from core.chunk_boundaries import chunk_for_position, content_chunk_count
-from cache.monitoring import CacheMonitor
 from cache.manager import (
     CHUNK_DURATION,
     CHUNK_SIZE_MB,
@@ -538,10 +537,6 @@ class TestStreamlinedCacheManager:
         assert stats["tier2"]["hits"] == 2
         assert stats["tier2"]["misses"] == 3
         assert stats["tier2"]["hit_rate"] == pytest.approx(2 / 5)
-
-        # CacheMonitor consumes this exact field for live metrics/alerts.
-        metrics = CacheMonitor(cache_manager).update_metrics()
-        assert metrics.tier2_hit_rate == pytest.approx(2 / 5)
 
     @pytest.mark.asyncio
     async def test_clear_all(self, cache_manager):

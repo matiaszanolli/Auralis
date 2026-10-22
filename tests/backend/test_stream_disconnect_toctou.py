@@ -15,7 +15,7 @@ import asyncio
 import gc
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, Mock, patch, call
+from unittest.mock import AsyncMock, Mock, patch
 
 import numpy as np
 import pytest
@@ -65,11 +65,11 @@ def _make_processor(total_chunks: int = 5, sample_rate: int = 44100) -> Mock:
 
 
 # ---------------------------------------------------------------------------
-# Tests: disconnect check in _process_and_stream_chunk
+# Tests: disconnect check in _process_chunk_only
 # ---------------------------------------------------------------------------
 
 class TestProcessAndStreamChunkDisconnectGuard:
-    """Verify the disconnect guard in _process_and_stream_chunk (fixes #2076)."""
+    """Verify the disconnect guard in _process_chunk_only (fixes #2076)."""
 
     @pytest.mark.asyncio
     async def test_process_chunk_safe_skipped_when_disconnected(self):
@@ -89,7 +89,7 @@ class TestProcessAndStreamChunkDisconnectGuard:
         # is unchanged: no cache hit, so it would normally call
         # process_chunk_safe, and must not.
         with pytest.raises(ConnectionError):
-            await controller._process_and_stream_chunk(
+            await controller._process_chunk_only(
                 chunk_index=0,
                 processor=processor,
                 websocket=ws,
@@ -106,14 +106,11 @@ class TestProcessAndStreamChunkDisconnectGuard:
         processor = _make_processor(total_chunks=1)
         ws = _make_websocket(connected=True)
 
-        with patch.object(
-            controller, "_send_pcm_chunk", new_callable=AsyncMock
-        ) as mock_send:
-            await controller._process_and_stream_chunk(
-                chunk_index=0,
-                processor=processor,
-                websocket=ws,
-            )
+        await controller._process_chunk_only(
+            chunk_index=0,
+            processor=processor,
+            websocket=ws,
+        )
 
         processor.process_chunk_safe.assert_called_once()
 
@@ -155,7 +152,7 @@ class TestDisconnectStopsProcessing:
     @pytest.mark.asyncio
     async def test_process_chunk_safe_not_called_after_disconnect_detected(self):
         """
-        After disconnect is detected inside _process_and_stream_chunk,
+        After disconnect is detected inside _process_chunk_only,
         further calls do not invoke process_chunk_safe.
 
         Simulates the TOCTOU window this test is named for: the outer loop's
@@ -202,7 +199,7 @@ class TestDisconnectStopsProcessing:
             if not controller._is_websocket_connected(None):
                 break
             try:
-                await controller._process_and_stream_chunk(
+                await controller._process_chunk_only(
                     chunk_index=chunk_idx,
                     processor=processor,
                     websocket=Mock(),
@@ -236,19 +233,19 @@ class TestDisconnectStopsProcessing:
     @pytest.mark.asyncio
     async def test_no_cpu_waste_on_immediate_disconnect(self):
         """
-        If the WebSocket is already disconnected when _process_and_stream_chunk
+        If the WebSocket is already disconnected when _process_chunk_only
         is called with a cache miss, process_chunk_safe is never invoked.
         """
         controller = _make_controller()
         processor = _make_processor(total_chunks=10)
         ws = _make_websocket(connected=False)
 
-        # Call _process_and_stream_chunk directly 3 times — each should bail
+        # Call _process_chunk_only directly 3 times — each should bail
         # early by raising ConnectionError (#3874; see the sibling test above)
         # rather than returning silently.
         for chunk_idx in range(3):
             with pytest.raises(ConnectionError):
-                await controller._process_and_stream_chunk(
+                await controller._process_chunk_only(
                     chunk_index=chunk_idx,
                     processor=processor,
                     websocket=ws,

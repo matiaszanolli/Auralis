@@ -31,12 +31,6 @@ from .models import (
     CachedChunk,
     TrackCacheStatus,
 )
-from .monitoring import (
-    CacheAlert,
-    CacheMetrics,
-    CacheMonitor,
-    HealthStatus,
-)
 
 __all__ = [
     # Manager exports
@@ -51,9 +45,4 @@ __all__ = [
     "TIER1_MAX_SIZE_MB",
     "TIER2_MAX_TRACKS",
     "TIER2_MAX_SIZE_MB",
-    # Monitoring exports
-    "CacheMonitor",
-    "CacheMetrics",
-    "CacheAlert",
-    "HealthStatus",
 ]

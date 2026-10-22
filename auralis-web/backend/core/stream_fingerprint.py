@@ -4,12 +4,12 @@
 Stream Fingerprint Readiness
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Helpers used by the streaming entry points to ensure a track's fingerprint
+Helper used by the streaming entry points to check that a track's fingerprint
 is available (or queued) before/while adaptive mastering streams it.
 
-Extracted from audio_stream_controller.py (#4071). Both functions take the
-AudioStreamController instance as `controller` since they read
-controller.fingerprint_generator / controller._get_repository_factory.
+Extracted from audio_stream_controller.py (#4071). It takes the
+AudioStreamController instance as `controller` since it reads
+controller._get_repository_factory.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
@@ -25,96 +25,6 @@ if TYPE_CHECKING:
     from .audio_stream_controller import AudioStreamController
 
 logger = logging.getLogger(__name__)
-
-
-async def ensure_fingerprint_available(
-    controller: 'AudioStreamController',
-    track_id: int,
-    filepath: str,
-    websocket: WebSocket | None = None
-) -> bool:
-    """
-    Ensure fingerprint is available (cached or generated).
-
-    Attempts to load or generate a fingerprint before streaming begins.
-    If generation fails, proceeds gracefully without fingerprint.
-
-    Sends progress messages to WebSocket if provided.
-
-    Args:
-        controller: AudioStreamController instance
-        track_id: ID of the track
-        filepath: Path to audio file
-        websocket: Optional WebSocket connection for progress messages
-
-    Returns:
-        True if fingerprint was available/generated, False if not available
-    """
-    if not controller.fingerprint_generator:
-        logger.debug(f"FingerprintGenerator not available, skipping fingerprint loading")
-        return False
-
-    try:
-        logger.info(f"📊 Ensuring fingerprint available for track {track_id}...")
-
-        # Send fingerprint_progress: analyzing message
-        if websocket:
-            await controller._send_fingerprint_progress(
-                websocket,
-                track_id=track_id,
-                status="analyzing",
-                message="Analyzing audio for optimal mastering..."
-            )
-
-        fingerprint_data = await controller.fingerprint_generator.get_or_generate(
-            track_id=track_id,
-            filepath=filepath
-        )
-
-        if fingerprint_data:
-            logger.info(f"✅ Fingerprint is now available for track {track_id} (ready for adaptive mastering)")
-
-            # Send fingerprint_progress: complete message
-            if websocket:
-                await controller._send_fingerprint_progress(
-                    websocket,
-                    track_id=track_id,
-                    status="complete",
-                    message="Fingerprint analysis complete"
-                )
-
-            return True
-        else:
-            logger.warning(f"⚠️  Fingerprint unavailable for track {track_id}, proceeding without optimization")
-
-            # Send fingerprint_progress: failed message
-            if websocket:
-                await controller._send_fingerprint_progress(
-                    websocket,
-                    track_id=track_id,
-                    status="failed",
-                    message="Fingerprint generation failed, using default mastering"
-                )
-
-            return False
-
-    except Exception as e:
-        logger.warning(f"Fingerprint preparation failed for track {track_id}: {e}, proceeding without optimization")
-
-        # Send fingerprint_progress: error message
-        if websocket:
-            await controller._send_fingerprint_progress(
-                websocket,
-                track_id=track_id,
-                status="error",
-                # Surface only the exception class; full detail is in the
-                # server log above so file paths / ffmpeg stderr don't leak
-                # to every connected WS client (fixes #3847, same pattern as
-                # #3543 / #3846).
-                message=f"Fingerprint error: {type(e).__name__}"
-            )
-
-        return False
 
 
 async def check_or_queue_fingerprint(

@@ -20,7 +20,6 @@ import asyncio
 import contextlib
 import logging
 from typing import TYPE_CHECKING, Any
-from collections.abc import Callable
 
 import numpy as np
 from fastapi import WebSocket
@@ -166,20 +165,6 @@ async def stream_processed_chunk(
         pcm_samples=pcm_samples,
         chunk_index=chunk_index,
         total_chunks=processor.total_chunks,
-    )
-
-
-async def process_and_stream_chunk(
-    controller: 'AudioStreamController',
-    chunk_index: int,
-    processor: 'ChunkedAudioProcessor',
-    websocket: WebSocket,
-    on_progress: Callable[[int, float, str], Any] | None = None,
-) -> bool:
-    """Process single chunk and stream PCM samples to client (legacy entry point)."""
-    pcm_samples, _sr = await controller._process_chunk_only(chunk_index, processor, websocket)
-    return await controller._stream_processed_chunk(
-        pcm_samples, chunk_index, processor, websocket
     )
 
 
