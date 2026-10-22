@@ -98,6 +98,52 @@ def normalize_artist_name(name: str) -> str:
     return normalized
 
 
+def _split_part(part: str) -> list[str]:
+    """One featuring-split part -> its artists (a preserved duo stays whole)."""
+    # Check if the whole part is a preserved duo before splitting on & or ,
+    if part.lower() in PRESERVED_DUOS:
+        return [part]
+    return [sub.strip() for sub in re.split(MULTI_ARTIST_PATTERN, part) if sub.strip()]
+
+
+def _split_featuring(artist_string: str) -> list[str]:
+    """Artists split on the first matching FEATURING_PATTERN, or [] when none match."""
+    for pattern in FEATURING_PATTERNS:
+        if not re.search(pattern, artist_string, re.IGNORECASE):
+            continue
+        parts = re.split(pattern, artist_string, flags=re.IGNORECASE)
+        artists = [
+            artist
+            for part in (p.strip() for p in parts)
+            if part
+            for artist in _split_part(part)
+        ]
+        # Return if we found artists; otherwise try the next pattern
+        if artists:
+            return artists
+    return []
+
+
+def _split_collaboration(artist_string: str) -> list[str]:
+    """Split "Artist A & Artist B" collaborations conservatively, or [] to keep it whole.
+
+    Only splits on " & " / " and " when every part is a short name and none
+    starts with "the " -- so "Tom Petty and the Heartbreakers" stays intact.
+    """
+    if artist_string.lower() in PRESERVED_DUOS:
+        return []
+    if ' & ' not in artist_string and ' and ' not in artist_string.lower():
+        return []
+    potential_parts = re.split(r'\s+&\s+|\s+and\s+', artist_string, flags=re.IGNORECASE)
+    if len(potential_parts) <= 1:
+        return []
+    all_short = all(len(p.split()) <= 3 for p in potential_parts)
+    no_the = not any(p.lower().startswith('the ') for p in potential_parts)
+    if all_short and no_the:
+        return [p.strip() for p in potential_parts if p.strip()]
+    return []
+
+
 def parse_featured_artists(artist_string: str) -> list[str]:
     """
     Parse artist string to extract all artists (main + featured).
@@ -128,53 +174,13 @@ def parse_featured_artists(artist_string: str) -> list[str]:
     if artist_string.lower() in PRESERVED_DUOS:
         return [artist_string]
 
-    # Try each featuring pattern
-    for pattern in FEATURING_PATTERNS:
-        match = re.search(pattern, artist_string, re.IGNORECASE)
-        if match:
-            # Split on the featuring pattern
-            parts = re.split(pattern, artist_string, flags=re.IGNORECASE)
+    featured = _split_featuring(artist_string)
+    if featured:
+        return featured
 
-            artists = []
-            for part in parts:
-                part = part.strip()
-                if not part:
-                    continue
+    collaboration = _split_collaboration(artist_string)
+    if collaboration:
+        return collaboration
 
-                # Check if this part has multiple artists (& or ,)
-                # But first check if the whole part is a preserved duo
-                if part.lower() in PRESERVED_DUOS:
-                    artists.append(part)
-                else:
-                    # Split on & or , for multiple featured artists
-                    sub_artists = re.split(MULTI_ARTIST_PATTERN, part)
-                    for sub in sub_artists:
-                        sub = sub.strip()
-                        if sub:
-                            artists.append(sub)
-
-            # Return if we found artists
-            if artists:
-                return artists
-
-    # No featuring pattern found - return as single artist
-    # But check for & that might indicate collaboration
-    # Only if NOT a preserved duo
-    if artist_string.lower() not in PRESERVED_DUOS:
-        # Check for " & " or " and " that might be a collaboration
-        # Be conservative - only split on " & " surrounded by spaces
-        if ' & ' in artist_string or ' and ' in artist_string.lower():
-            # Check if any part would be a preserved duo
-            # If so, don't split
-            potential_parts = re.split(r'\s+&\s+|\s+and\s+', artist_string, flags=re.IGNORECASE)
-            if len(potential_parts) > 1:
-                # This might be a collaboration, but we'll be conservative
-                # Only split if it looks like "Artist A & Artist B" (both short names)
-                # Don't split things like "Tom Petty and the Heartbreakers"
-                all_short = all(len(p.split()) <= 3 for p in potential_parts)
-                no_the = not any(p.lower().startswith('the ') for p in potential_parts)
-
-                if all_short and no_the:
-                    return [p.strip() for p in potential_parts if p.strip()]
-
+    # No featuring pattern or collaboration found - return as a single artist
     return [artist_string]
