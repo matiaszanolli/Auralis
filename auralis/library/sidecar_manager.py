@@ -14,7 +14,6 @@ Sidecar files provide:
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-import hashlib
 import json
 import math
 from datetime import datetime, timezone
@@ -318,88 +317,3 @@ class SidecarManager:
         else:
             # Already flat format
             return cast(dict[str, float], fingerprint)
-
-    def get_processing_cache(self, audio_path: Path) -> dict[str, Any] | None:
-        """
-        Extract processing cache from sidecar file.
-
-        Args:
-            audio_path: Path to audio file
-
-        Returns:
-            Processing cache dict or None if not available
-        """
-        data = self.read(audio_path)
-        if not data:
-            return None
-
-        return data.get('processing_cache')
-
-    def update_processing_cache(self, audio_path: Path, cache_data: dict[str, Any]) -> bool:
-        """
-        Update processing cache in sidecar file.
-
-        Args:
-            audio_path: Path to audio file
-            cache_data: Processing cache data to store
-
-        Returns:
-            True if update successful
-        """
-        # Read existing sidecar data
-        existing = self.read(audio_path)
-        if not existing:
-            # No sidecar file exists, create new one
-            existing = {'fingerprint': {}, 'processing_cache': {}}
-
-        # Update processing cache
-        existing['processing_cache'].update(cache_data)
-
-        # Write back
-        return self.write(audio_path, existing)
-
-    def compute_checksum(self, audio_path: Path, algorithm: str = 'sha256') -> str | None:
-        """
-        Compute checksum of audio file.
-
-        Args:
-            audio_path: Path to audio file
-            algorithm: Hash algorithm (sha256, md5)
-
-        Returns:
-            Hex digest of checksum or None if computation fails
-        """
-        try:
-            hash_obj = hashlib.new(algorithm)
-
-            with open(audio_path, 'rb') as f:
-                # Read in chunks to handle large files
-                for chunk in iter(lambda: f.read(8192), b''):
-                    hash_obj.update(chunk)
-
-            return hash_obj.hexdigest()
-
-        except (OSError, ValueError) as e:
-            error(f"Failed to compute checksum for {audio_path}: {e}")
-            return None
-
-    def bulk_delete(self, audio_paths: list[str | Path]) -> int:
-        """
-        Delete .25d files for multiple audio files.
-
-        Args:
-            audio_paths: List of audio file paths
-
-        Returns:
-            Number of files deleted
-        """
-        count = 0
-
-        for audio_path in audio_paths:
-            if isinstance(audio_path, str):
-                audio_path = Path(audio_path)
-
-            if self.delete(audio_path):
-                count += 1
-
-        return count

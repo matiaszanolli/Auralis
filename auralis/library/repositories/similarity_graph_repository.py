@@ -82,39 +82,6 @@ class SimilarityGraphRepository(BaseRepository):
                 session.rollback()
                 raise
 
-    def add_edge(
-        self,
-        track_id: int,
-        similar_track_id: int,
-        distance: float,
-        similarity_score: float,
-        rank: int
-    ) -> None:
-        """
-        Add a single edge to the graph
-
-        Args:
-            track_id: Source track ID
-            similar_track_id: Target similar track ID
-            distance: Distance metric
-            similarity_score: Similarity score (0-1)
-            rank: Rank of this neighbor (1 = closest)
-        """
-        with self._session_scope() as session:
-            try:
-                edge = SimilarityGraph(
-                    track_id=track_id,
-                    similar_track_id=similar_track_id,
-                    distance=distance,
-                    similarity_score=similarity_score,
-                    rank=rank
-                )
-                session.add(edge)
-                session.commit()
-            except Exception:
-                session.rollback()
-                raise
-
     def get_neighbors(
         self,
         track_id: int,
@@ -140,7 +107,7 @@ class SimilarityGraphRepository(BaseRepository):
             if limit is not None:
                 stmt = stmt.limit(limit)
 
-            edges = session.execute(stmt).scalars().all()
+            edges = list(session.execute(stmt).scalars().all())
             for edge in edges:
                 session.expunge(edge)
             return edges
@@ -163,7 +130,7 @@ class SimilarityGraphRepository(BaseRepository):
             # Count unique tracks
             total_tracks = session.execute(
                 select(func.count(func.distinct(SimilarityGraph.track_id)))
-            ).scalar_one_or_none()
+            ).scalar_one()
 
             # Calculate k (average neighbors per track)
             k_neighbors = total_edges // total_tracks if total_tracks > 0 else 0
@@ -173,7 +140,7 @@ class SimilarityGraphRepository(BaseRepository):
                 func.avg(SimilarityGraph.distance),
                 func.min(SimilarityGraph.distance),
                 func.max(SimilarityGraph.distance)
-            )).first()
+            )).one()
 
             avg_distance, min_distance, max_distance = distance_stats
 
@@ -185,13 +152,3 @@ class SimilarityGraphRepository(BaseRepository):
                 float(min_distance or 0),
                 float(max_distance or 0)
             )
-
-    def count_edges(self) -> int:
-        """
-        Count total number of edges in graph
-
-        Returns:
-            Total edge count
-        """
-        with self._session_scope() as session:
-            return session.execute(select(func.count()).select_from(SimilarityGraph)).scalar_one()

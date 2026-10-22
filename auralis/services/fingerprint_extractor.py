@@ -40,59 +40,20 @@ class FingerprintExtractor:
     - Writes .25d file after extraction (for future speedup)
     """
 
-    def __init__(self, fingerprint_repository: Any, track_repository: Any = None,
-                 use_sidecar_files: bool = True) -> None:
+    def __init__(self, fingerprint_repository: Any, use_sidecar_files: bool = True) -> None:
         """
         Initialize fingerprint extractor
 
         Args:
             fingerprint_repository: FingerprintRepository instance
-            track_repository: TrackRepository instance used to delete corrupted tracks
-                              via the repository pattern (#2288).  When None, corrupted-
-                              track deletion is skipped with a warning.
             use_sidecar_files: Enable .25d sidecar file caching (default: True)
         """
         self.fingerprint_repo = fingerprint_repository
-        self.track_repo = track_repository
         self.analyzer = AudioFingerprintAnalyzer()
         self.use_sidecar_files = use_sidecar_files
         self.sidecar_manager = SidecarManager() if use_sidecar_files else None
 
         debug("FingerprintExtractor initialized")
-
-    def _delete_corrupted_track(self, track_id: int, filepath: str) -> bool:
-        """
-        Delete corrupted track from the database via the repository pattern (#2288).
-
-        Uses TrackRepository.delete() so cascading deletes (fingerprints, playlist
-        entries, stats) fire correctly via SQLAlchemy and the configured DB URL.
-
-        Args:
-            track_id: ID of the track to delete
-            filepath: Path to the audio file (for logging)
-
-        Returns:
-            True if successfully deleted, False otherwise
-        """
-        if self.track_repo is None:
-            warning(
-                f"Cannot delete corrupted track {track_id}: no track_repository "
-                f"provided to FingerprintExtractor"
-            )
-            return False
-
-        try:
-            # bool(): track_repo is an untyped `Any`, so its return would
-            # otherwise leak Any out of a `-> bool` signature.
-            deleted = bool(self.track_repo.delete(track_id))
-            if deleted:
-                info(f"Automatically deleted corrupted track {track_id} from database: {filepath}")
-            else:
-                warning(f"Track {track_id} not found in database for deletion")
-            return deleted
-        except Exception as e:
-            error(f"Failed to delete corrupted track {track_id} from database: {e}")
-            return False
 
 
     def extract_and_store(self, track_id: int, filepath: str) -> bool:
@@ -318,44 +279,6 @@ class FingerprintExtractor:
 
         info(f"Batch fingerprint extraction complete: {stats}")
         return stats
-
-    def extract_missing_fingerprints(self, limit: int | None = None) -> dict[str, int]:
-        """
-        Extract fingerprints for tracks that don't have them yet
-
-        Args:
-            limit: Maximum number of tracks to process (None = all)
-
-        Returns:
-            Dictionary with counts: {'success': N, 'failed': M}
-        """
-        # Get tracks without fingerprints
-        tracks = self.fingerprint_repo.get_missing_fingerprints(limit=limit)
-
-        if not tracks:
-            info("No tracks missing fingerprints")
-            return {'success': 0, 'failed': 0, 'skipped': 0}
-
-        info(f"Found {len(tracks)} tracks without fingerprints")
-
-        # Prepare batch
-        track_ids_paths = [(track.id, track.filepath) for track in tracks]
-
-        # Extract in batch
-        return self.extract_batch(track_ids_paths)
-
-    def update_fingerprint(self, track_id: int, filepath: str) -> bool:
-        """
-        Update an existing fingerprint (re-extract)
-
-        Args:
-            track_id: ID of the track
-            filepath: Path to the audio file
-
-        Returns:
-            True if successful, False otherwise
-        """
-        return self.extract_and_store(track_id, filepath)
 
     def get_fingerprint(self, track_id: int) -> dict[str, Any] | None:
         """

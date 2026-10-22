@@ -356,48 +356,6 @@ def test_get_fingerprint_from_invalid_file(sidecar_manager, temp_audio_file, sam
     assert fingerprint is None
 
 
-# ===== Processing Cache Tests =====
-
-def test_get_processing_cache_from_valid_file(sidecar_manager, temp_audio_file, sample_sidecar_data):
-    """Test extracting processing cache from valid sidecar file"""
-    sample_sidecar_data["processing_cache"] = {"rms_db": -18.5}
-    sidecar_manager.write(temp_audio_file, sample_sidecar_data)
-
-    cache = sidecar_manager.get_processing_cache(temp_audio_file)
-
-    assert cache is not None
-    assert cache == {"rms_db": -18.5}
-
-
-def test_update_processing_cache(sidecar_manager, temp_audio_file, sample_sidecar_data):
-    """Test updating processing cache in existing file"""
-    # Write initial file
-    sidecar_manager.write(temp_audio_file, sample_sidecar_data)
-
-    # Update cache
-    new_cache = {"rms_db": -20.0, "peak_db": -0.3}
-    success = sidecar_manager.update_processing_cache(temp_audio_file, new_cache)
-    assert success
-
-    # Verify update
-    cache = sidecar_manager.get_processing_cache(temp_audio_file)
-    assert cache == new_cache
-
-
-def test_update_processing_cache_preserves_fingerprint(sidecar_manager, temp_audio_file, sample_sidecar_data):
-    """Test that updating cache doesn't affect fingerprint"""
-    # Write initial file
-    sidecar_manager.write(temp_audio_file, sample_sidecar_data)
-    original_fingerprint = sample_sidecar_data["fingerprint"].copy()
-
-    # Update cache
-    sidecar_manager.update_processing_cache(temp_audio_file, {"test": "data"})
-
-    # Verify fingerprint unchanged
-    fingerprint = sidecar_manager.get_fingerprint(temp_audio_file)
-    assert fingerprint == original_fingerprint
-
-
 # ===== Edge Cases and Error Handling =====
 
 def test_write_with_missing_audio_file(sidecar_manager, tmp_path, sample_sidecar_data):

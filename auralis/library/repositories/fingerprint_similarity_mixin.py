@@ -30,7 +30,7 @@ from typing import Any, cast
 from sqlalchemy import and_, select
 from sqlalchemy.engine import CursorResult
 
-from ...utils.logging import error, warning
+from ...utils.logging import warning
 from ..models import TrackFingerprint
 from .base import BaseRepository
 from .fingerprint_shared import _current_fingerprint_clause
@@ -138,49 +138,6 @@ class FingerprintSimilarityMixin(BaseRepository):
             )
             session.commit()
             return int(cast(CursorResult[Any], result).rowcount or 0)
-
-    def get_by_dimension_range(
-        self,
-        dimension: str,
-        min_value: float,
-        max_value: float,
-        limit: int | None = None
-    ) -> list[TrackFingerprint]:
-        """
-        Get fingerprints within a specific dimension range
-
-        Useful for pre-filtering before distance calculation
-
-        Args:
-            dimension: Name of the dimension (e.g., 'lufs', 'tempo_bpm')
-            min_value: Minimum value for the dimension
-            max_value: Maximum value for the dimension
-            limit: Maximum number of results
-
-        Returns:
-            List of TrackFingerprint objects within range
-        """
-        with self._session_scope() as session:
-            # Verify dimension exists
-            if not hasattr(TrackFingerprint, dimension):
-                error(f"Invalid dimension: {dimension}")
-                return []
-
-            dim_attr = getattr(TrackFingerprint, dimension)
-            stmt = select(TrackFingerprint).where(
-                and_(
-                    dim_attr >= min_value,
-                    dim_attr <= max_value
-                )
-            )
-
-            if limit is not None:
-                stmt = stmt.limit(limit)
-
-            fingerprints = list(session.execute(stmt).scalars().all())
-            for fp in fingerprints:
-                session.expunge(fp)
-            return fingerprints
 
     def get_by_multi_dimension_range(
         self,

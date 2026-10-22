@@ -191,16 +191,6 @@ class AdaptiveResourceMonitor:
                     f"(RAM: {memory_percent:.1f}%)"
                 )
 
-    def get_current_worker_count(self) -> int:
-        """Get current recommended worker count"""
-        with self._lock:
-            return self.current_worker_count
-
-    def get_current_semaphore_size(self) -> int:
-        """Get current recommended semaphore size"""
-        with self._lock:
-            return self.current_semaphore_size
-
     def get_stats(self) -> dict[str, Any]:
         """Get monitoring statistics"""
         with self._lock:

@@ -158,18 +158,6 @@ class SettingsRepository(BaseRepository):
             session.expunge(settings)
             return settings
 
-    def update_scan_folders(self, folders: list[str]) -> UserSettings:
-        """
-        Update the list of scan folders
-
-        Args:
-            folders: List of folder paths to scan
-
-        Returns:
-            Updated UserSettings object
-        """
-        return self.update_settings({'scan_folders': folders})
-
     def add_scan_folder(self, folder: str) -> UserSettings:
         """Add a new folder to scan list (atomic read-modify-write, #3339, #4956)."""
         with self._settings_lock, self._session_scope() as session:
