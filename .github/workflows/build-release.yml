@@ -228,7 +228,7 @@ jobs:
           test -f "dist/Auralis-${RELEASE_VERSION}.AppImage"
           test -f "dist/auralis-desktop_${RELEASE_VERSION}_amd64.deb"
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: linux-binaries
           path: |
@@ -248,7 +248,7 @@ jobs:
           flatpaks=(dist/*.flatpak)
           test "${#flatpaks[@]}" -eq 1
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: linux-flatpak
           path: dist/*.flatpak
@@ -394,7 +394,7 @@ jobs:
             throw "Missing Windows installer: $installer"
           }
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: windows-binaries
           path: |
@@ -532,7 +532,7 @@ jobs:
           file "dist/mac-arm64/Auralis.app/Contents/Resources/backend/auralis-backend"
           file "dist/mac-arm64/Auralis.app/Contents/Resources/backend/auralis-backend" | grep -q arm64
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: macos-arm64-binary
           path: dist/Auralis-${{ needs.prepare.outputs.version }}-arm64.dmg
