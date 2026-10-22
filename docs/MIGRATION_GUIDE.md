@@ -181,7 +181,6 @@ The `RepositoryFactory` provides access to 14 repositories, each with specific m
 | `get_by_path()` | `get_by_path(filepath: str) -> Track` | Get track by filepath |
 | `get_all()` | `get_all(limit=50, offset=0, order_by='title') -> Tuple[List, int]` | Get all tracks with pagination |
 | `search()` | `search(query: str, limit=50, offset=0) -> Tuple[List, int]` | Search tracks |
-| `get_by_genre()` | `get_by_genre(genre_name: str, limit=100) -> List[Track]` | Get tracks by genre |
 | `get_by_artist()` | `get_by_artist(artist_name: str, limit=100) -> List[Track]` | Get tracks by artist |
 | `get_recent()` | `get_recent(limit=50, offset=0) -> Tuple[List, int]` | Get recently added tracks |
 | `get_popular()` | `get_popular(limit=50, offset=0) -> Tuple[List, int]` | Get most played tracks |

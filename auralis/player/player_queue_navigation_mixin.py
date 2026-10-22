@@ -236,10 +236,6 @@ class PlayerQueueNavigationMixin:
         """Add a track from the library to the queue"""
         return self.queue.add_track_from_library(track_id)
 
-    def search_and_add_to_queue(self, query: str, limit: int = 10) -> int:
-        """Search library and add results to queue"""
-        return self.queue.search_and_add(query, limit)
-
     def load_playlist(self, playlist_id: int, start_index: int = 0) -> bool:
         """Load a playlist from the library"""
         if self.queue.load_playlist(playlist_id, start_index):

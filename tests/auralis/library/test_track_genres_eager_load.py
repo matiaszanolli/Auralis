@@ -53,12 +53,6 @@ def test_search_returns_genres(track_repository, seed):
     assert 'TestRock' in _genres(t)
 
 
-def test_get_by_genre_returns_genres(track_repository, seed):
-    tracks = track_repository.get_by_genre('TestRock')
-    assert tracks, "genre-filtered query returned nothing"
-    assert 'TestRock' in _genres(tracks[0])
-
-
 def test_detached_genre_access_does_not_raise(track_repository, seed):
     """The returned Track is expunged; accessing .genres must not raise
     DetachedInstanceError now that it is eager-loaded."""

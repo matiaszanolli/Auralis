@@ -104,14 +104,6 @@ class TestStateUpdates:
             mock_stop.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_set_position(self, state_manager, mock_ws_manager):
-        """Test setting playback position"""
-        await state_manager.set_position(30.5)
-
-        state = state_manager.get_state()
-        assert state.current_time == 30.5
-
-    @pytest.mark.asyncio
     async def test_set_volume(self, state_manager, mock_ws_manager):
         """Test setting volume"""
         await state_manager.set_volume(75)

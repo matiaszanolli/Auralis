@@ -374,35 +374,6 @@ class TestSaveArtworkExtensionSniffing:
                 assert max(saved.size) <= _MAX_ARTWORK_DIMENSION
 
 
-class TestGetArtworkPath:
-    """Tests for get_artwork_path method"""
-
-    def test_get_artwork_path_exists(self):
-        """Test getting path for existing artwork"""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            extractor = ArtworkExtractor(tmpdir)
-
-            # Create a test artwork file
-            artwork_data = b'test_data'
-            album_id = 42
-            saved_path = extractor._save_artwork(artwork_data, album_id, 'image/jpeg')
-
-            # Now retrieve it
-            retrieved_path = extractor.get_artwork_path(album_id)
-
-            assert retrieved_path is not None
-            assert retrieved_path == saved_path
-
-    def test_get_artwork_path_not_exists(self):
-        """Test getting path for non-existent artwork"""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            extractor = ArtworkExtractor(tmpdir)
-
-            result = extractor.get_artwork_path(album_id=999)
-
-            assert result is None
-
-
 class TestDeleteArtwork:
     """Tests for delete_artwork method"""
 

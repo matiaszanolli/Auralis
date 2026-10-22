@@ -135,14 +135,6 @@ class UnifiedConfig:
         self.adaptive.mode = mode
         debug(f"Processing mode changed to: {mode}")
 
-    def get_chunk_size_samples(self) -> int:
-        """Get processing chunk size in samples"""
-        return int(self.adaptive.chunk_size_ms * self.internal_sample_rate / 1000)
-
-    def get_latency_budget_samples(self) -> int:
-        """Get latency budget in samples"""
-        return int(self.adaptive.latency_budget_ms * self.internal_sample_rate / 1000)
-
     def is_reference_mode(self) -> bool:
         """Check if using reference-based processing"""
         return self.adaptive.mode == "reference"

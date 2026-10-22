@@ -194,16 +194,8 @@ class TestBothBridgesSeeTheSameNumbers:
             assert "total_expected" in source, f"{rel} must prefer the pre-counted total (#4616)"
 
 
-class TestFileDiscoveryCount:
-    def test_count_matches_what_discovery_yields(self, music_dir):
-        from auralis.library.scanner.file_discovery import FileDiscovery
-
-        discovery = FileDiscovery()
-        counted = discovery.count_audio_files(str(music_dir), recursive=True)
-        yielded = len(list(discovery.discover_audio_files(str(music_dir), recursive=True)))
-        assert counted == yielded == 20
-
-    def test_count_ignores_non_audio_files(self, tmp_path):
+class TestFileDiscoveryYield:
+    def test_discovery_ignores_non_audio_files(self, tmp_path):
         from auralis.library.scanner.file_discovery import FileDiscovery
 
         root = tmp_path / "mixed"
@@ -212,4 +204,4 @@ class TestFileDiscoveryCount:
         (root / "cover.jpg").write_bytes(b"\x00")
         (root / "notes.txt").write_text("x")
 
-        assert FileDiscovery().count_audio_files(str(root), recursive=True) == 1
+        assert len(list(FileDiscovery().discover_audio_files(str(root), recursive=True))) == 1

@@ -214,24 +214,6 @@ class QueueController:
             error(f"Failed to add track from library: {e}")
             return False
 
-    def search_and_add(self, query: str, limit: int = 10) -> int:
-        """
-        Search library and add results to queue.
-
-        Returns:
-            Number of tracks added
-        """
-        try:
-            repos = self._get_repos()
-            tracks, _ = repos.tracks.search(query, limit=limit)
-            for track in tracks:
-                self.add_track(track.to_dict())
-            info(f"Added {len(tracks)} tracks to queue from search: {query}")
-            return len(tracks)
-        except Exception as e:
-            error(f"Failed to search and add: {e}")
-            return 0
-
     def load_playlist(self, playlist_id: int, start_index: int = 0) -> bool:
         """
         Load a playlist from library.

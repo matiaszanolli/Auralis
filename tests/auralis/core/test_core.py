@@ -113,8 +113,8 @@ class TestLibraryDatabaseAdvanced:
         case_results, _ = db.tracks.search('ROCK')
         assert len(case_results) >= 2
 
-    def test_genre_and_artist_queries(self, db):
-        """Test genre and artist-specific queries."""
+    def test_artist_queries(self, db):
+        """Test artist-specific queries."""
         # Add test data
         track_info = {
             'filepath': '/test/metal.mp3',
@@ -123,10 +123,6 @@ class TestLibraryDatabaseAdvanced:
             'genres': ['Metal']
         }
         db.tracks.add(track_info)
-
-        # Test genre queries
-        metal_tracks = db.tracks.get_by_genre('Metal')
-        assert len(metal_tracks) >= 1
 
         # Test artist queries
         artist_tracks = db.tracks.get_by_artist('Metal Band')

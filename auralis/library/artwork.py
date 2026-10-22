@@ -306,25 +306,6 @@ class ArtworkExtractor:
             error(f"Failed to save artwork: {e}")
             return None
 
-    def get_artwork_path(self, album_id: int) -> str | None:
-        """
-        Get artwork path for album ID
-
-        Args:
-            album_id: Album ID
-
-        Returns:
-            Path to artwork file if exists, None otherwise
-        """
-        # Search for artwork files matching the album ID
-        pattern = f"album_{album_id}_*"
-        matches = list(self.artwork_dir.glob(pattern))
-
-        if matches:
-            return str(matches[0])
-
-        return None
-
     def delete_artwork(self, artwork_path: str) -> bool:
         """
         Delete artwork file

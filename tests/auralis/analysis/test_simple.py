@@ -46,12 +46,6 @@ class TestSpectrumAnalyzerSimple:
         assert isinstance(result, dict)
         # Should have some analysis results
 
-    def test_get_frequency_band_names(self):
-        """Test frequency band names."""
-        names = self.analyzer.get_frequency_band_names()
-        assert isinstance(names, list)
-        assert len(names) > 0
-
     def test_settings_access(self):
         """Test settings functionality."""
         assert hasattr(self.analyzer, 'settings')

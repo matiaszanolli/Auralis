@@ -252,9 +252,8 @@ def test_artwork_cache_invalidation(tmp_path):
     assert extractor.delete_artwork(original_path) is True
     assert not os.path.exists(original_path), "old cache entry must be gone after invalidation"
 
-    # The new artwork remains valid and discoverable via the cache lookup.
+    # The new artwork remains valid.
     assert os.path.exists(updated_path)
-    assert extractor.get_artwork_path(1) == updated_path
 
 
 @pytest.mark.integration

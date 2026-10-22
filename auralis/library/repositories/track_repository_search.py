@@ -80,20 +80,6 @@ class TrackRepositorySearchMixin(BaseRepository):
                 session.expunge(track)
             return results, total
 
-    def get_by_genre(self, genre_name: str, limit: int = 100) -> list[Track]:
-        """Get tracks by genre"""
-        with self._session_scope() as session:
-            tracks = session.execute(
-                select(Track)
-                .join(Track.genres)
-                .options(*_track_eager_options(collections_via_selectin=True))
-                .where(Genre.name == genre_name)
-                .limit(limit)
-            ).scalars().all()
-            for track in tracks:
-                session.expunge(track)
-            return tracks
-
     def get_by_artist(self, artist_name: str, limit: int = 100) -> list[Track]:
         """Get tracks by artist"""
         with self._session_scope() as session:

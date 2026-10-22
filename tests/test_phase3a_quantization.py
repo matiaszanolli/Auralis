@@ -61,6 +61,22 @@ def sample_fingerprint() -> dict:
     }
 
 
+def _quantization_error(original, recovered):
+    """Max/mean absolute and relative (%) error between two 25D vectors."""
+    abs_errors = [abs(o - r) for o, r in zip(original, recovered)]
+    # Relative error is skipped for ~zero originals (avoids division by zero)
+    rel_errors = [
+        e / abs(o) * 100 if abs(o) > 0.001 else 0.0
+        for o, e in zip(original, abs_errors)
+    ]
+    return {
+        'absolute_max_error': max(abs_errors),
+        'absolute_mean_error': sum(abs_errors) / len(abs_errors),
+        'relative_max_error': max(rel_errors),
+        'relative_mean_error': sum(rel_errors) / len(rel_errors),
+    }
+
+
 class TestFingerprintQuantization:
     """Test fingerprint quantization and dequantization."""
 
@@ -89,7 +105,7 @@ class TestFingerprintQuantization:
         original_vector = [sample_fingerprint[dim] for dim in FingerprintQuantizer.DIMENSION_NAMES]
         recovered_vector = [recovered[dim] for dim in FingerprintQuantizer.DIMENSION_NAMES]
 
-        error_stats = FingerprintQuantizer.calculate_quantization_error(original_vector, recovered_vector)
+        error_stats = _quantization_error(original_vector, recovered_vector)
 
         print(f"\nQuantization Error Statistics:")
         print(f"  Absolute max error: {error_stats['absolute_max_error']:.6f}")
@@ -127,23 +143,6 @@ class TestFingerprintQuantization:
 
         # Verify they're different
         assert quantized_min != quantized_max
-
-    def test_vector_interface(self, sample_fingerprint):
-        """Test vector-based quantization interface."""
-        # Convert to vector
-        original_vector = [sample_fingerprint[dim] for dim in FingerprintQuantizer.DIMENSION_NAMES]
-
-        # Quantize via vector interface
-        quantized = FingerprintQuantizer.quantize_vector(original_vector)
-        assert len(quantized) == 25
-
-        # Dequantize via vector interface
-        recovered_vector = FingerprintQuantizer.dequantize_vector(quantized)
-        assert len(recovered_vector) == 25
-
-        # Verify accuracy
-        error_stats = FingerprintQuantizer.calculate_quantization_error(original_vector, recovered_vector)
-        assert error_stats['relative_max_error'] < 2.0
 
     def test_extreme_values(self):
         """Test quantization with extreme values."""
@@ -303,12 +302,10 @@ class TestQuantizationDistance:
         original_distance = math.sqrt(sum((a - b) ** 2 for a, b in zip(v1, v2)))
 
         # Quantize and recover
-        q1 = FingerprintQuantizer.dequantize_vector(
-            FingerprintQuantizer.quantize_vector(v1)
-        )
-        q2 = FingerprintQuantizer.dequantize_vector(
-            FingerprintQuantizer.quantize_vector(v2)
-        )
+        r1 = FingerprintQuantizer.dequantize(FingerprintQuantizer.quantize(fp1))
+        r2 = FingerprintQuantizer.dequantize(FingerprintQuantizer.quantize(fp2))
+        q1 = [r1[dim] for dim in FingerprintQuantizer.DIMENSION_NAMES]
+        q2 = [r2[dim] for dim in FingerprintQuantizer.DIMENSION_NAMES]
 
         quantized_distance = math.sqrt(sum((a - b) ** 2 for a, b in zip(q1, q2)))
 

@@ -378,22 +378,6 @@ class PsychoacousticEQ:
             if len(self.processing_history) > 100:
                 self.processing_history.pop(0)
 
-    def get_current_response(self) -> dict[str, Any]:
-        """
-        Get current EQ response
-
-        Returns:
-            Dictionary containing frequencies, gains, and band ranges
-        """
-        freqs = np.array([band.center_freq for band in self.critical_bands])
-        gains = self.current_gains
-
-        return {
-            'frequencies': freqs,
-            'gains_db': gains,
-            'bands': [(band.low_freq, band.high_freq) for band in self.critical_bands]
-        }
-
     def reset(self) -> None:
         """Reset EQ to flat response (#3747: locked).
 

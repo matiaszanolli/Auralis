@@ -122,24 +122,3 @@ class PipelineJournal:
     @property
     def snapshots(self) -> list[StageSnapshot]:
         return list(self._snapshots)
-
-    def get_delta(self, stage_a: str, stage_b: str) -> dict[str, float]:
-        """Compute the difference between two snapshots."""
-        a, b = self.get(stage_a), self.get(stage_b)
-        if a is None or b is None:
-            return {}
-        delta: dict[str, float] = {
-            'peak_db': b.peak_db - a.peak_db,
-            'rms_db': b.rms_db - a.rms_db,
-            'crest_db': b.crest_db - a.crest_db,
-            'bass_energy_pct': b.bass_energy_pct - a.bass_energy_pct,
-            'mid_energy_pct': b.mid_energy_pct - a.mid_energy_pct,
-            'high_energy_pct': b.high_energy_pct - a.high_energy_pct,
-        }
-        if a.lufs is not None and b.lufs is not None:
-            delta['lufs'] = b.lufs - a.lufs
-        if a.stereo_width is not None and b.stereo_width is not None:
-            delta['stereo_width'] = b.stereo_width - a.stereo_width
-        if a.phase_correlation is not None and b.phase_correlation is not None:
-            delta['phase_correlation'] = b.phase_correlation - a.phase_correlation
-        return delta

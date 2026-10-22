@@ -233,15 +233,6 @@ class SpectrumAnalyzer:
             }
         }
 
-    def get_frequency_band_names(self) -> list[str]:
-        """
-        Get human-readable frequency band names
-
-        Returns:
-            List of band name strings
-        """
-        return SpectrumOperations.get_band_names(self.frequency_bins)
-
     def reset_smoothing(self) -> None:
         """Reset smoothing buffer for new analysis session"""
         self.smoothing_buffer = None

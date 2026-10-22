@@ -129,31 +129,3 @@ class NormalizationStep:
 
         self.after_measurement = measurement
         return measurement
-
-    def log_summary(self) -> None:
-        """Log before/after summary for this step."""
-        if self.before_measurement and self.after_measurement:
-            if 'lufs' in self.before_measurement:
-                # LUFS-based logging (continuous mode)
-                lufs_delta = (self.after_measurement.get('lufs', 0) -
-                            self.before_measurement.get('lufs', 0))
-                peak_delta = (self.after_measurement['peak_db'] -
-                            self.before_measurement['peak_db'])
-                print(f"[{self.step_name}] LUFS: {self.before_measurement.get('lufs', 0):.1f} → "
-                      f"{self.after_measurement.get('lufs', 0):.1f} (Δ {lufs_delta:+.1f}), "
-                      f"Peak: {self.before_measurement['peak_db']:.2f} → "
-                      f"{self.after_measurement['peak_db']:.2f} dB (Δ {peak_delta:+.2f})")
-            else:
-                # RMS/Crest-based logging (adaptive mode)
-                peak_delta = (self.after_measurement['peak_db'] -
-                            self.before_measurement['peak_db'])
-                rms_delta = (self.after_measurement['rms_db'] -
-                           self.before_measurement['rms_db'])
-                crest_delta = (self.after_measurement['crest'] -
-                             self.before_measurement['crest'])
-                print(f"[{self.step_name}] Peak: {self.before_measurement['peak_db']:.2f} → "
-                      f"{self.after_measurement['peak_db']:.2f} dB (Δ {peak_delta:+.2f}), "
-                      f"RMS: {self.before_measurement['rms_db']:.2f} → "
-                      f"{self.after_measurement['rms_db']:.2f} dB (Δ {rms_delta:+.2f}), "
-                      f"Crest: {self.before_measurement['crest']:.2f} → "
-                      f"{self.after_measurement['crest']:.2f} dB (Δ {crest_delta:+.2f})")

@@ -262,24 +262,6 @@ class TestAudioPlayerComprehensive:
         # track_count is not in queue_info, use len(tracks) instead
         assert len(queue_info['tracks']) >= 1
 
-        # Test search_and_add_to_queue (if library exists)
-        if hasattr(enhanced_player, 'library') and enhanced_player.library:
-            # Add a track to library first
-            library_track_info = {
-                'title': 'Library Track',
-                'filepath': test_audio_files['track2'],
-                'artists': ['Test Artist'],
-                'duration': 180,
-                'sample_rate': 44100
-            }
-            library_database.tracks.add(library_track_info)
-
-            # Search and add to queue
-            enhanced_player.search_and_add_to_queue('Library Track', limit=5)
-
-            updated_queue_info = enhanced_player.get_queue_info()
-            assert len(updated_queue_info['tracks']) >= 1  # Use len(tracks) instead of track_count
-
         # Test set_shuffle
         enhanced_player.set_shuffle(True)
         assert enhanced_player.queue.shuffle_enabled is True

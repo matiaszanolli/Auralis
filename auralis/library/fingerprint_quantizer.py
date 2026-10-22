@@ -23,7 +23,6 @@ Accuracy Guarantees:
 import logging
 import math
 import struct
-from typing import Any
 
 from ..analysis.fingerprint.schema import DIMENSION_NAMES
 
@@ -174,74 +173,3 @@ class FingerprintQuantizer:
             fingerprint_dict[dim_name] = original_value
 
         return fingerprint_dict
-
-    @staticmethod
-    def quantize_vector(vector: list[float]) -> bytes:
-        """
-        Quantize 25D vector to 25-byte blob.
-
-        Args:
-            vector: List of 25 float values
-
-        Returns:
-            bytes: 25-byte quantized fingerprint
-        """
-        if len(vector) != 25:
-            raise ValueError(f"Expected 25 values, got {len(vector)}")
-
-        fingerprint_dict = dict(zip(FingerprintQuantizer.DIMENSION_NAMES, vector))
-        return FingerprintQuantizer.quantize(fingerprint_dict)
-
-    @staticmethod
-    def dequantize_vector(quantized_bytes: bytes) -> list[float]:
-        """
-        Dequantize 25-byte blob to 25D vector.
-
-        Args:
-            quantized_bytes: 25-byte quantized fingerprint
-
-        Returns:
-            list: 25 float values
-        """
-        fingerprint_dict = FingerprintQuantizer.dequantize(quantized_bytes)
-        return [fingerprint_dict[dim] for dim in FingerprintQuantizer.DIMENSION_NAMES]
-
-    @staticmethod
-    def calculate_quantization_error(original: list[float], dequantized: list[float]) -> dict[str, Any]:
-        """
-        Calculate quantization error statistics.
-
-        Args:
-            original: Original float values
-            dequantized: Dequantized float values
-
-        Returns:
-            dict: Error statistics (absolute_max, relative_max, rmse, mean_abs)
-        """
-        if len(original) != 25 or len(dequantized) != 25:
-            raise ValueError("Expected 25 values each")
-
-        errors = []
-        relative_errors = []
-
-        for i, (orig, dequant) in enumerate(zip(original, dequantized)):
-            abs_error = abs(orig - dequant)
-            errors.append(abs_error)
-
-            # Relative error (avoid division by zero)
-            if abs(orig) > 0.001:
-                rel_error = abs_error / abs(orig) * 100
-            else:
-                rel_error = 0.0
-            relative_errors.append(rel_error)
-
-        # Calculate statistics
-        abs_errors = [abs(e) for e in errors]
-
-        return {
-            'absolute_max_error': max(abs_errors),
-            'absolute_mean_error': sum(abs_errors) / len(abs_errors),
-            'relative_max_error': max(relative_errors),
-            'relative_mean_error': sum(relative_errors) / len(relative_errors),
-            'per_dimension_errors': dict(zip(FingerprintQuantizer.DIMENSION_NAMES, abs_errors)),
-        }

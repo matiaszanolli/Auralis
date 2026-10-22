@@ -329,30 +329,6 @@ class TestEQCurrentAPI:
 
         self.tearDown()
 
-    def test_get_current_response(self):
-        """Test get_current_response method"""
-        self.setUp()
-
-        eq = PsychoacousticEQ(self.settings)
-
-        # Process a chunk first
-        target_curve = np.zeros(len(eq.critical_bands))
-        eq.process_realtime_chunk(self.test_chunk, target_curve)
-
-        # Get current response (returns a dict, not just an array)
-        response = eq.get_current_response()
-
-        assert isinstance(response, (dict, np.ndarray))
-        if isinstance(response, dict):
-            # If it returns a dict, verify it has the right keys
-            assert 'gains_db' in response or 'bands' in response
-        else:
-            # If it returns an array, verify length
-            assert len(response) == len(eq.critical_bands)
-            assert np.all(np.isfinite(response))
-
-        self.tearDown()
-
     def test_reset(self):
         """Test reset method"""
         self.setUp()

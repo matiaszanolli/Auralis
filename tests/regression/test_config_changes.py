@@ -141,24 +141,12 @@ class TestParameterValidation:
         Test: 44.1k/48k/96k/192k all produce a usable config.
 
         `internal_sample_rate` is a constructor argument, not a validated
-        property — the derived values are what must stay coherent, so those are
-        what this asserts.
+        property, so this asserts it is carried through unchanged.
         """
         for rate in (44100, 48000, 96000, 192000):
             config = UnifiedConfig(internal_sample_rate=rate)
 
             assert config.internal_sample_rate == rate
-            assert config.get_chunk_size_samples() > 0, \
-                f"{rate} Hz produced a non-positive chunk size"
-            assert config.get_latency_budget_samples() > 0, \
-                f"{rate} Hz produced a non-positive latency budget"
-
-    def test_sample_rate_derivations_scale_with_the_rate(self):
-        """Chunk/latency sample counts are derived from the rate, not fixed."""
-        base = UnifiedConfig(internal_sample_rate=44100)
-        double = UnifiedConfig(internal_sample_rate=88200)
-
-        assert double.get_chunk_size_samples() == 2 * base.get_chunk_size_samples()
 
     def test_bit_depth_validation(self):
         """

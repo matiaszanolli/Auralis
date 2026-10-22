@@ -124,18 +124,6 @@ class TestPipelineJournal:
         assert snap.stereo_width is None
         assert snap.phase_correlation is None
 
-    def test_get_delta(self, stereo_noise: np.ndarray, sample_rate: int):
-        """Delta between two snapshots should reflect applied gain."""
-        from auralis.dsp.basic import amplify
-        journal = PipelineJournal(sample_rate)
-        journal.snapshot(stereo_noise, "before")
-        boosted = amplify(stereo_noise.copy(), 6.0)
-        journal.snapshot(boosted, "after")
-
-        delta = journal.get_delta("before", "after")
-        assert abs(delta['peak_db'] - 6.0) < 1.0  # ~6 dB boost
-        assert abs(delta['rms_db'] - 6.0) < 1.0
-
     def test_nonexistent_stage_returns_none(self, sample_rate: int):
         """Requesting a stage that wasn't captured returns None."""
         journal = PipelineJournal(sample_rate)

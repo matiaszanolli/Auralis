@@ -11,7 +11,7 @@ Covers all public methods:
 - set_queue / add_track / add_tracks / clear
 - get_queue_info / get_track_count / is_queue_empty
 - peek_next_track
-- Library-backed methods: add_track_from_library, search_and_add, load_playlist
+- Library-backed methods: add_track_from_library, load_playlist
 """
 
 import threading
@@ -554,29 +554,6 @@ class TestAddTrackFromLibrary:
         result = ctrl.add_track_from_library(1)
 
         assert result is False
-
-
-class TestSearchAndAdd:
-    def test_returns_count_of_added_tracks(self):
-        ctrl, factory = _make_controller()
-        mock_tracks = [MagicMock() for _ in range(3)]
-        for i, t in enumerate(mock_tracks):
-            t.to_dict.return_value = _track(i + 1)
-        factory.tracks.search.return_value = (mock_tracks, 3)
-
-        count = ctrl.search_and_add("jazz")
-
-        assert count == 3
-        assert ctrl.get_track_count() == 3
-
-    def test_returns_zero_on_exception(self):
-        ctrl, factory = _make_controller()
-        factory.tracks.search.side_effect = RuntimeError("DB error")
-
-        count = ctrl.search_and_add("jazz")
-
-        assert count == 0
-        assert ctrl.is_queue_empty()
 
 
 class TestLoadPlaylist:

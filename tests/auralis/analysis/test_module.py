@@ -112,12 +112,6 @@ class TestSpectrumAnalyzer:
         assert 'spectrum' in result1
         assert 'spectrum' in result2
 
-    def test_frequency_band_names(self):
-        """Test frequency band name functionality."""
-        band_names = self.analyzer.get_frequency_band_names()
-        assert isinstance(band_names, list)
-        assert len(band_names) > 0
-
     def test_invalid_audio_data(self):
         """Test handling of invalid audio data."""
         # Empty array (handled gracefully with padding)

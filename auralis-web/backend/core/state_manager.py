@@ -138,10 +138,6 @@ class PlayerStateManager:
             await self._stop_position_updates()
         return state_snapshot
 
-    async def set_position(self, position: float) -> None:
-        """Set playback position"""
-        await self.update_state(current_time=position)
-
     async def set_volume(self, volume: int) -> None:
         """Set volume level"""
         await self.update_state(
