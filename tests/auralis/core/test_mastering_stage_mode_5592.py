@@ -22,7 +22,11 @@ SOURCE = Path(__file__).resolve().parents[3] / "auralis/core/mastering_chunk_loo
 def _load_stage_module():
     fake_peak = types.ModuleType("auralis.core.mastering_process_chunk")
     fake_peak.compute_peak_db = lambda audio: 0.0
+    fake_assembly = types.ModuleType("auralis.core.mastering_chunk_assembly")
+    for name in ("apply_true_peak_guard", "assemble_write_region", "merge_stage_info", "read_chunk"):
+        setattr(fake_assembly, name, lambda *args, **kwargs: None)
     stubbed = {
+        "auralis.core.mastering_chunk_assembly": fake_assembly,
         "auralis": types.ModuleType("auralis"),
         "auralis.core": types.ModuleType("auralis.core"),
         "auralis.core.mastering_process_chunk": fake_peak,

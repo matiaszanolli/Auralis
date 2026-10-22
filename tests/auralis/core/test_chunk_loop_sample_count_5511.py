@@ -57,11 +57,14 @@ def _write_sine(path: Path, duration_sec: float) -> None:
 
 def test_invariants_are_raises_not_asserts():
     """Both in-loop checks must be raises (which -O cannot strip)."""
-    src = (_ROOT / "auralis/core/mastering_chunk_loop.py").read_text()
+    # The crossfade check moved with the assembly helpers (#5839).
+    loop_src = (_ROOT / "auralis/core/mastering_chunk_loop.py").read_text()
+    assembly_src = (_ROOT / "auralis/core/mastering_chunk_assembly.py").read_text()
+    src = loop_src + assembly_src
     assert "assert processed_chunk.shape[1]" not in src
     assert "assert write_region.shape[1]" not in src
-    assert 'raise RuntimeError(\n                        f"DSP sample-count violation' in src
-    assert 'raise RuntimeError(\n                                    f"Crossfade write_region mismatch' in src
+    assert 'raise RuntimeError(\n                        f"DSP sample-count violation' in loop_src
+    assert 'raise RuntimeError(\n            f"Crossfade write_region mismatch' in assembly_src
 
 
 def test_short_chunk_raises_runtime_error():
