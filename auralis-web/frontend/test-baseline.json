@@ -1,5 +1,5 @@
 {
-  "_comment": "Known-failing vitest specs (#4640). CI fails on any failure NOT listed here. Regenerate with: pnpm run test:baseline:update",
+  "_comment": "Known-failing vitest specs (#4640). CI fails on any failure NOT listed here. Regenerate with: pnpm run test:baseline:update #5811 hand-removed two entries for a describe block (usePlayer) that #5354 deleted; --strict-stale cannot see tests that no longer exist.",
   "generatedFrom": {
     "totalTests": 3349,
     "failedTests": 101
@@ -103,8 +103,6 @@
     "src/hooks/player/__tests__/usePlayerDisplay.test.ts::usePlayerDisplay Hook Long Duration Formatting should force show hours when requested",
     "src/hooks/player/__tests__/usePlayerDisplay.test.ts::usePlayerDisplay Hook Realistic Scenarios should handle podcast playback (multi-hour)",
     "src/hooks/player/__tests__/usePlayerDisplay.test.ts::usePlayerDisplay Hook Utility Functions should format with hours when requested",
-    "src/hooks/shared/__tests__/useReduxState.test.tsx::Redux State Hooks State Selectors usePlayerState should return player slice",
-    "src/hooks/shared/__tests__/useReduxState.test.tsx::Redux State Hooks usePlayer should return player state and actions",
-    "src/hooks/shared/__tests__/useReduxState.test.tsx::Redux State Hooks usePlayer should seek to position"
+    "src/hooks/shared/__tests__/useReduxState.test.tsx::Redux State Hooks State Selectors usePlayerState should return player slice"
   ]
 }

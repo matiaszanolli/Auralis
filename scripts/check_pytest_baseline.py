@@ -30,8 +30,16 @@ the test can regress and CI stays green. 69 such entries had accumulated in a
 ``--strict-stale`` makes it *fail*, and counts only tests actually present in
 the report so a scoped run cannot trip it.
 
+Phantom entries are the third kind (#5811): an entry for a test that no longer
+exists (its file was deleted, or the test or its class renamed or removed).
+``--strict-stale`` cannot see them — a test that is not in the report is
+"not run", which says nothing — so they sat in the file re-permitting a future
+test that reuses the name. They are found statically, by resolving each node id
+to a file under the repo and looking for the class and ``def`` in its source, so
+they are caught even on a scoped run.
+
 Exit codes: 0 = no new failures, 1 = new failures (or unusable input),
-1 = stale entries when ``--strict-stale`` is set.
+1 = stale or phantom entries when ``--strict-stale`` is set.
 """
 
 from __future__ import annotations
@@ -143,6 +151,36 @@ def load_baseline() -> set[str]:
     return set(payload.get("failures", []))
 
 
+def phantom_entries(baseline: set[str]) -> list[str]:
+    """Baseline entries whose test can no longer exist (#5811).
+
+    A node id looks like ``tests.pkg.module.Class::test_name[param]``. The dotted
+    left side is a module path optionally followed by class names, so resolve
+    the longest prefix that is a real ``.py`` file, then require each remaining
+    segment to be a ``class`` and the test to be a ``def`` in that file.
+    """
+    phantoms = []
+    for entry in sorted(baseline):
+        left, _, test = entry.rpartition("::")
+        test = test.split("[", 1)[0]
+        parts = left.split(".")
+        source = None
+        classes: list[str] = []
+        for cut in range(len(parts), 0, -1):
+            path = REPO_ROOT.joinpath(*parts[:cut]).with_suffix(".py")
+            if path.is_file():
+                source, classes = path.read_text(), parts[cut:]
+                break
+        if source is None:
+            phantoms.append(entry)
+            continue
+        if any(f"class {name}" not in source for name in classes):
+            phantoms.append(entry)
+        elif f"def {test}" not in source:
+            phantoms.append(entry)
+    return phantoms
+
+
 def write_baseline(current: set[str], total: int, bad: int) -> None:
     payload = {
         "_comment": (
@@ -197,6 +235,7 @@ def main() -> int:
     # one absent from the report was simply not run and says nothing.
     stale = sorted((baseline & present) - current)
     not_run = sorted(baseline - present)
+    phantom = phantom_entries(baseline)
 
     print(
         f"pytest: {total} collected, {len(current)} failing "
@@ -211,6 +250,14 @@ def main() -> int:
             "regress and CI stays green.\n"
             "  Remove them, or regenerate: "
             "python scripts/check_pytest_baseline.py <junit.xml> --update"
+        )
+
+    if phantom:
+        print(f"\n✖ {len(phantom)} baseline entry(ies) name a test that no longer exists:")
+        print(_listing(phantom))
+        print(
+            "  A phantom entry re-permits a future test that reuses the name, and "
+            "--strict-stale cannot see it (it is never in a report). Remove it."
         )
 
     if not_run:
@@ -236,6 +283,13 @@ def main() -> int:
         print(
             f"\n✖ --strict-stale: {len(stale)} baselined test(s) now pass. "
             "The ratchet may shrink, never grow — tighten it.",
+            file=sys.stderr,
+        )
+        return 1
+
+    if phantom and args.strict_stale:
+        print(
+            f"\n✖ --strict-stale: {len(phantom)} baselined test(s) no longer exist.",
             file=sys.stderr,
         )
         return 1

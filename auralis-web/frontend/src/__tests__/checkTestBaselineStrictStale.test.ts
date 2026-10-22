@@ -21,7 +21,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -36,7 +36,12 @@ interface Case {
 
 /** Build a vitest --reporter=json-shaped results file and a throwaway
  * baseline in an isolated tmp dir, then run the real script against them. */
-function run(cases: Case[], baselineFailures: string[], extraFlags: string[] = []) {
+function run(
+  cases: Case[],
+  baselineFailures: string[],
+  extraFlags: string[] = [],
+  checkPhantom = false
+) {
   const dir = mkdtempSync(join(tmpdir(), 'baseline-5344-'));
   const byFile = new Map<string, Case[]>();
   for (const c of cases) {
@@ -68,7 +73,12 @@ function run(cases: Case[], baselineFailures: string[], extraFlags: string[] = [
   try {
     const output = execFileSync('node', [SCRIPT_PATH, resultsPath, ...extraFlags], {
       encoding: 'utf8',
-      env: { ...process.env, TEST_BASELINE_PATH: baselinePath },
+      env: {
+        ...process.env,
+        TEST_BASELINE_PATH: baselinePath,
+        // The #5344 cases use invented spec names; the phantom check has its own suite below.
+        TEST_BASELINE_SKIP_PHANTOM: checkPhantom ? '0' : '1',
+      },
     });
     return { status: 0, output };
   } catch (err) {
@@ -140,5 +150,53 @@ describe('check-test-baseline.mjs --strict-stale (#5344)', () => {
     );
 
     expect(result.status).toBe(1);
+  });
+});
+
+describe('check-test-baseline.mjs phantom entries (#5811)', () => {
+  // A spec that exists, with a title that appears verbatim in its source.
+  const REAL_SPEC = 'src/__tests__/checkTestBaselineStrictStale.test.ts';
+  const REAL_ENTRY = `${REAL_SPEC}::check-test-baseline.mjs --strict-stale (#5344) still fails on a brand-new unbaselined failure regardless of --strict-stale`;
+
+  // A run that did not touch the baselined spec, so --strict-stale alone has nothing to say.
+  const unrelatedRun = [{ file: 'src/other.test.ts', name: 'unrelated', failed: false }];
+
+  it('flags an entry whose spec file no longer exists', () => {
+    const result = run(unrelatedRun, ['src/deleted.test.ts::Suite does a thing'], [], true);
+
+    expect(result.output).toContain('no longer exists');
+    expect(result.output).toContain('src/deleted.test.ts::Suite does a thing');
+  });
+
+  it('flags an entry whose test title is gone from a spec that still exists', () => {
+    // The shape of the two usePlayer entries #5354 orphaned: file present, describe deleted.
+    // Joined at runtime: written out, the title would appear in this very file and be found.
+    const goneTitle = ['Suite', 'a', 'title', 'nobody', 'wrote'].join(' ');
+    const result = run(unrelatedRun, [`${REAL_SPEC}::${goneTitle}`], [], true);
+
+    expect(result.output).toContain('no longer exists');
+  });
+
+  it('does not flag an entry whose spec and title are both present', () => {
+    const result = run(unrelatedRun, [REAL_ENTRY], ['--strict-stale'], true);
+
+    expect(result.output).not.toContain('no longer exists');
+    expect(result.status).toBe(0);
+  });
+
+  it('fails --strict-stale on a phantom entry but not otherwise', () => {
+    const phantomEntry = 'src/deleted.test.ts::Suite does a thing';
+
+    expect(run(unrelatedRun, [phantomEntry], [], true).status).toBe(0);
+    expect(run(unrelatedRun, [phantomEntry], ['--strict-stale'], true).status).toBe(1);
+  });
+
+  it('ships a baseline with no phantom entries', () => {
+    const baseline = JSON.parse(
+      readFileSync(join(FRONTEND_ROOT, 'test-baseline.json'), 'utf8')
+    ) as { failures: string[] };
+    const result = run(unrelatedRun, baseline.failures, ['--strict-stale'], true);
+
+    expect(result.output).not.toContain('no longer exists');
   });
 });

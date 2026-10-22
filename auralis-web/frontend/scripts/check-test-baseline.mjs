@@ -25,7 +25,7 @@
  * 1 = stale entries when --strict-stale is set.
  */
 
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -164,6 +164,26 @@ const added = [...current].filter((id) => !baseline.has(id)).sort();
 const stale = [...baseline].filter((id) => present.has(id) && !current.has(id)).sort();
 const notRun = [...baseline].filter((id) => !present.has(id)).sort();
 
+// Phantom entries (#5811): an entry for a test that no longer exists. A test that
+// is not in the report counts as "not run", so --strict-stale cannot see these,
+// and they re-permit a future test that reuses the name. Found statically: the
+// spec file must exist and, unless it generates titles (`it.each`), the last
+// three words of the entry must appear in its source. Entries look like
+// `src/x.test.ts::describe name test title`.
+function isPhantom(id) {
+  const [file, ...rest] = id.split('::');
+  const path = resolve(FRONTEND_ROOT, file);
+  if (!existsSync(path)) return true;
+  const source = readFileSync(path, 'utf8');
+  if (/\.each\s*[(`]/.test(source)) return false;
+  const probe = rest.join('::').split(/\s+/).slice(-3).join(' ');
+  return !source.replace(/\s+/g, ' ').includes(probe);
+}
+// Off only for tests that feed this script synthetic entries naming files that do
+// not exist (same reason as TEST_BASELINE_PATH above).
+const CHECK_PHANTOM = process.env.TEST_BASELINE_SKIP_PHANTOM !== '1';
+const phantom = CHECK_PHANTOM ? [...baseline].filter(isPhantom).sort() : [];
+
 console.log(
   `Vitest: ${results.numPassedTests} passed, ${results.numFailedTests} failed ` +
   `(baseline allows ${baseline.size}).`
@@ -176,6 +196,16 @@ if (stale.length) {
   console.log(
     '  Each one silently re-permits that exact failure: the test can regress and CI stays green.\n' +
     '  Remove them, or run `pnpm run test:baseline:update` and commit to tighten the gate.'
+  );
+}
+
+if (phantom.length) {
+  console.log(`\n✖ ${phantom.length} baseline entry(ies) name a test that no longer exists:`);
+  for (const id of phantom.slice(0, 20)) console.log(`    ${id}`);
+  if (phantom.length > 20) console.log(`    ... and ${phantom.length - 20} more`);
+  console.log(
+    '  A phantom entry re-permits a future test that reuses the name, and --strict-stale\n' +
+    '  cannot see it (it is never in a report). Remove it.'
   );
 }
 
@@ -204,6 +234,11 @@ if (stale.length && STRICT_STALE) {
     `\n✖ --strict-stale: ${stale.length} baselined test(s) now pass. ` +
     'The ratchet may shrink, never grow — tighten it.'
   );
+  process.exit(1);
+}
+
+if (phantom.length && STRICT_STALE) {
+  console.error(`\n✖ --strict-stale: ${phantom.length} baselined test(s) no longer exist.`);
   process.exit(1);
 }
 

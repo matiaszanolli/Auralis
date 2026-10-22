@@ -34,6 +34,13 @@ sys.modules["check_pytest_baseline_stale"] = gate
 _spec.loader.exec_module(gate)
 
 
+@pytest.fixture(autouse=True)
+def _no_phantom_check(monkeypatch):
+    """These cases use invented node ids ("m::x"), which are phantoms by
+    definition. Phantom detection has its own suite (#5811)."""
+    monkeypatch.setattr(gate, "phantom_entries", lambda baseline: [])
+
+
 def _junit(tmp_path, cases):
     """cases: list of (classname, name, failed)."""
     body = ""
