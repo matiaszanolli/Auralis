@@ -41,7 +41,7 @@ class QueueSetMixin(QueueServiceBase):
         Raises:
             Exception: If operation fails
         """
-        require_collaborators(audio_player=self.audio_player, player_state_manager=self.player_state_manager, library_manager=self.library_database)
+        require_collaborators(audio_player=self.audio_player, player_state_manager=self.player_state_manager, library=self.library_database)
 
         async with self._set_queue_lock:
             self._next_set_queue_generation += 1
@@ -133,9 +133,7 @@ class QueueSetMixin(QueueServiceBase):
                         if generation != self._set_queue_generation:
                             return result
                         track_snapshot = await self.player_state_manager.set_track(
-                            current_track,
-                            self.library_database,
-                            broadcast=False,
+                            current_track, broadcast=False
                         )
                     if track_snapshot is not None:
                         deferred_snapshots.append(track_snapshot)

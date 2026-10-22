@@ -14,8 +14,7 @@ Two halves, both needed:
   * :func:`atomic_save_audio` stages into a sibling temp file and
     ``os.replace()`` onto the final name. ``os.replace`` is atomic within a
     filesystem, so a reader sees either the complete file or no file — never a
-    prefix. (A raw-bytes sibling, ``atomic_write_bytes``, was removed in #5208:
-    it never acquired a production writer.)
+    prefix.
   * :func:`is_wav_complete` gates the hit path, so entries poisoned *before*
     this fix are evicted and regenerated rather than served.
   * :func:`cleanup_partial_files` sweeps staging files orphaned by a process

@@ -35,6 +35,7 @@ def _make_ws() -> Mock:
     ws.client_state = Mock()
     ws.client_state.name = "CONNECTED"
     ws.send_text = AsyncMock()
+    ws.send_bytes = AsyncMock()
     return ws
 
 

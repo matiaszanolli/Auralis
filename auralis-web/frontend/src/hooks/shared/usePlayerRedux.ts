@@ -29,8 +29,8 @@ export const usePlayerState = () => {
  * re-render on state changes. Consumers that only need callbacks (e.g. a
  * context menu's "play") should use this; anything subscribing to player
  * state should read granular fields via usePlayerState or per-field
- * useSelector (#4176 — the former usePlayer() convenience bundle re-rendered
- * on every 1Hz position tick, and was deleted with #5354).
+ * useSelector (#4176 — a convenience bundle of all player state re-rendered
+ * on every 1Hz position tick).
  */
 export const usePlayerActions = () => {
   const dispatch = useDispatch<AppDispatch>();

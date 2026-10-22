@@ -383,17 +383,5 @@ export const createAuralisTheme = (mode: ThemeMode): Theme => {
   });
 };
 
-// #4584: the `darkColors as colors` alias is gone. It was a third colour API
-// competing with `themeVars` and the raw tokens, and it silently handed callers
-// the *dark* palette regardless of the active mode.
-//
-// #5646: the parallel `darkColors`/`lightColors` palettes, the `gradients`
-// re-export and the unused `glassEffects` helper are gone too — a second
-// palette and a second per-mode glass implementation that nothing in
-// production consumed and that disagreed with the semantic layer (dark
-// `palette.info` was cyan while `themeVars.info` is blue). The MUI
-// success/error/warning/info palette is now built straight from
-// `getSemanticTheme(mode)`; use `themeVars` for theme-aware colours.
-//
-// #4645: the `auralisTheme` default export ("for backward compatibility") had
-// zero consumers — nothing imported the default or the named export.
+// Use `themeVars` for theme-aware colours; the MUI success/error/warning/info
+// palette is built from `getSemanticTheme(mode)`.

@@ -727,7 +727,6 @@ def create_enhancement_router(
     connection_manager: Any,
     get_multi_tier_buffer: Callable[[], Any] | None = None,
     get_player_state_manager: Callable[[], Any] | None = None,
-    get_processing_engine: Callable[[], Any] | None = None,
     get_repository_factory: Callable[[], Any] | None = None,
 ) -> APIRouter:
     """
@@ -737,16 +736,11 @@ def create_enhancement_router(
         get_enhancement_settings: Callable that returns enhancement settings dict
         connection_manager: WebSocket connection manager for broadcasts
         get_player_state_manager: Optional callable that returns PlayerStateManager
-        get_processing_engine: Optional callable that returns ProcessingEngine
         get_repository_factory: Optional callable that returns RepositoryFactory
 
     Returns:
         APIRouter: Configured router instance
     """
-    # get_processing_engine is accepted for call-site compatibility with
-    # config/routes.py but is not used by any handler above -- pre-existing
-    # (its only consumer, GET /api/processing/parameters, moved to
-    # routers/processing_api.py in #5073), unrelated to #4670.
     deps = _EnhancementDeps(
         get_enhancement_settings=get_enhancement_settings,
         connection_manager=connection_manager,

@@ -12,7 +12,7 @@ This utility eliminates ~300 lines of duplicate chunk handling code.
 
 Emitted chunks tile exactly — each is rendered with context and trimmed to a
 non-overlapping segment — so there is no crossfade math anywhere in the
-streaming path (#4642; the last, unused crossfade helper was deleted in #5776).
+streaming path (#4642).
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
@@ -52,7 +52,6 @@ class ChunkOperations:
         sample_rate: int,
         chunk_duration: float = CHUNK_DURATION,
         chunk_interval: float = CHUNK_INTERVAL,
-        overlap_duration: float = OVERLAP_DURATION,
         with_context: bool = True,
         total_duration: float | None = None
     ) -> tuple[np.ndarray, float, float]:
@@ -73,8 +72,6 @@ class ChunkOperations:
                 Only used when total_duration is None — see below.
             chunk_interval: Interval between chunk starts (for overlap model).
                 Only used when total_duration is None — see below.
-            overlap_duration: Overlap duration for crossfading. Unused directly;
-                kept for call-site symmetry with extract_chunk_segment().
             with_context: Include context before/after for better processing
             total_duration: Total duration of audio, if known. When provided,
                 boundaries are derived from ChunkBoundaryManager — the same

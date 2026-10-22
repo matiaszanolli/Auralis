@@ -233,7 +233,6 @@ class MasteringTargetService:
     def extract_fingerprint_from_audio(
         self,
         filepath: str,
-        sample_rate: int | None = None,
         save_to_file: bool = True
     ) -> tuple[Any, dict[str, Any] | None] | None:
         """
@@ -246,8 +245,6 @@ class MasteringTargetService:
 
         Args:
             filepath: Path to audio file
-            sample_rate: Unused (the windowed pipeline fixes its own analysis
-                rate); kept for signature compatibility
             save_to_file: If True, save extracted fingerprint to .25d file
 
         Returns:

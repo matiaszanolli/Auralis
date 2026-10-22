@@ -129,10 +129,7 @@ export const isEnhancementPreset = (value: unknown): value is EnhancementPreset 
 // Audio Fingerprint
 // ============================================================================
 // Canonical AudioFingerprint is the 25D schema defined in
-// '@/utils/fingerprintToGradient'. The old schema (trackId, loudness, crest,
-// rms, centroid, spectralFlux, mfcc, chroma, timestamp, cached,
-// computation_time_ms) has been removed to eliminate the dual-interface
-// conflict (fixes #2280). Import from '@/utils/fingerprintToGradient' instead.
+// '@/utils/fingerprintToGradient'.
 export type { AudioFingerprint } from '@/utils/fingerprintToGradient';
 
 // ============================================================================
@@ -156,24 +153,3 @@ export interface LibraryStats {
   avg_dr_rating?: number | null;
   avg_lufs?: number | null;
 }
-
-// #5371: the dead app-shell types that used to fill the rest of this file
-// (Queue, PlayerState, EnhancementSettings, ENHANCEMENT_PRESET_NAMES/
-// _DESCRIPTIONS, MasteringRecommendation, ScanProgress, AppState,
-// ConnectionStatus, AppError/AppErrorType, Selection, FilterOptions,
-// SortOptions, PaginationState, PaginatedResponse) had zero importers and
-// several shadowed same-named live types elsewhere (playerSlice's PlayerState,
-// useScanProgress's ScanProgress, websocketConnectionCore's ConnectionStatus).
-// Deleted as drift hazards; revive none of them without a real importer.
-
-// #4830: the local TrackApiResponse/transformBackendTrack pair that used to
-// live here duplicated (and diverged from) the canonical transformer at
-// @/api/transformers/trackTransformer.ts — its `genre` field never read the
-// backend's `genres` array, so useLibraryPagination always got `genre: null`.
-// Its sole consumer (useLibraryPagination.ts) now imports transformTracks
-// from '@/api/transformers' directly; nothing else referenced either symbol.
-
-// #5234: the formatDuration re-export that used to live here ("for
-// backwards compatibility") had zero consumers — every real caller already
-// imports it from its canonical location (@/utils/timeFormat) or via
-// TrackCardHelpers' own separate re-export chain.

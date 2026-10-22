@@ -215,7 +215,6 @@ class GaplessPlaybackEngine:
 
     def advance_with_prebuffer(
         self,
-        was_playing: bool,
         on_swap: Callable[[], None] | None = None,
     ) -> bool:
         """
@@ -242,7 +241,6 @@ class GaplessPlaybackEngine:
         the commit fails, so there is nothing to restore.
 
         Args:
-            was_playing: Whether playback was active before transition
             on_swap: Invoked while `_audio_lock` is held, immediately after the
                 new audio is installed. `next_track()` passes the `seek(0, …)`
                 position reset here so it is atomic with the swap (#3717,

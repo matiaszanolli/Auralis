@@ -192,9 +192,8 @@ except ImportError:
 
 # Import core components for router setup
 ProcessingEngine: Any = None
-ChunkedAudioProcessor: Any = None
 try:
-    from core.chunked_processor import ChunkedAudioProcessor
+    import core.chunked_processor as _processing_probe  # noqa: F401
 except ImportError:
     HAS_PROCESSING = False
     logger.warning("⚠️  Processing components not available")
@@ -249,7 +248,6 @@ deps = {
     'manager': manager,
     'globals': globals_dict,
     'enhancement_settings': globals_dict['enhancement_settings'],
-    'chunked_audio_processor_class': ChunkedAudioProcessor,
     'create_track_info_fn': create_track_info,
 }
 

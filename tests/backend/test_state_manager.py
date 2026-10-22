@@ -139,7 +139,7 @@ class TestTrackManagement:
     @pytest.mark.asyncio
     async def test_set_track_with_none(self, state_manager, mock_ws_manager):
         """Test setting track to None"""
-        await state_manager.set_track(None, None)
+        await state_manager.set_track(None)
 
         state = state_manager.get_state()
         assert state.current_track is None
@@ -165,7 +165,7 @@ class TestTrackManagement:
         mock_album.title = "Test Album"
         mock_track.album = mock_album
 
-        await state_manager.set_track(mock_track, None)
+        await state_manager.set_track(mock_track)
 
         state = state_manager.get_state()
         assert state.current_track is not None

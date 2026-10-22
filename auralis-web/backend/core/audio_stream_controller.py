@@ -51,7 +51,6 @@ logger = logging.getLogger(__name__)
 # stream_enhanced_audio / stream_normal_audio calls in different WebSocket
 # handler tasks cannot overwrite each other's value — unlike the instance
 # attribute it replaced, which was shared by every coroutine on the controller.
-# That dead attribute was deleted in #5425.
 _stream_type_var: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     '_stream_type', default=None
 )
@@ -235,10 +234,10 @@ class AudioStreamController:
         await stream_messages.send_fingerprint_progress(self, websocket, track_id, status, message)
 
     async def _check_or_queue_fingerprint(
-        self, track_id: int, filepath: str, websocket: WebSocket | None = None
+        self, track_id: int, websocket: WebSocket | None = None
     ) -> bool:
         from . import stream_fingerprint
-        return await stream_fingerprint.check_or_queue_fingerprint(self, track_id, filepath, websocket)
+        return await stream_fingerprint.check_or_queue_fingerprint(self, track_id, websocket)
 
 
     @staticmethod

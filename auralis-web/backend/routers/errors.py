@@ -52,10 +52,10 @@ class InternalServerError(HTTPException):
         super().__init__(status_code=500, detail=detail)
 
 
-class LibraryManagerUnavailableError(ServiceUnavailableError):
-    """Library manager service unavailable"""
+class LibraryUnavailableError(ServiceUnavailableError):
+    """Library service unavailable"""
     def __init__(self) -> None:
-        super().__init__("Library manager not available")
+        super().__init__("Library not available")
 
 
 class AudioPlayerUnavailableError(ServiceUnavailableError):

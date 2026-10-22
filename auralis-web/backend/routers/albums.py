@@ -179,7 +179,7 @@ async def get_albums(
             - has_more: Boolean indicating if more albums are available
 
     Raises:
-        HTTPException: If library manager not available or query fails
+        HTTPException: If the library is not available or query fails
     """
     # Get albums with pagination
     if search:
@@ -383,7 +383,6 @@ def create_albums_router(
         Configured APIRouter
 
     Note:
-        Phase 6B: Fully migrated to RepositoryFactory pattern (no LibraryManager fallback).
     """
     deps = _AlbumsDeps(get_repository_factory)
 

@@ -63,7 +63,7 @@ def _table(router):
 @pytest.fixture
 def player_router():
     return player.create_player_router(
-        lambda: None, lambda: None, lambda: None, None, None, lambda t: t
+        lambda: None, lambda: None, lambda: None, None, lambda t: t
     )
 
 

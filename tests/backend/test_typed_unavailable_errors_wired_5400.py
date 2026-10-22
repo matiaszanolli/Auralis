@@ -2,7 +2,7 @@
 Regression: the 4 *UnavailableError classes in routers/errors.py are now
 actually raised, not just hand-copied as literal strings (#5400).
 
-routers/errors.py defined LibraryManagerUnavailableError,
+routers/errors.py defined LibraryUnavailableError,
 AudioPlayerUnavailableError, PlayerStateUnavailableError, and
 ConnectionManagerUnavailableError, but no production code ever raised any of
 them -- call sites in dependencies.py, library_scan.py, and player.py each
@@ -27,7 +27,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "ba
 from routers.errors import (  # noqa: E402
     AudioPlayerUnavailableError,
     ConnectionManagerUnavailableError,
-    LibraryManagerUnavailableError,
+    LibraryUnavailableError,
     PlayerStateUnavailableError,
 )
 from routers.dependencies import (  # noqa: E402
@@ -89,10 +89,10 @@ class TestDependenciesRaiseTypedClasses:
         assert exc_info.value.status_code == 503
 
 
-def test_library_manager_unavailable_error_is_importable_and_used():
+def test_library_unavailable_error_is_importable_and_used():
     """Sanity: the class this test file didn't already exercise via a helper
     function (library_scan.py/player.py raise it inline, not via a
     dependencies.py require_* wrapper) still round-trips correctly."""
-    err = LibraryManagerUnavailableError()
+    err = LibraryUnavailableError()
     assert err.status_code == 503
-    assert "library manager" in err.detail.lower()
+    assert "library" in err.detail.lower()

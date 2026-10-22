@@ -356,7 +356,7 @@ async def get_album_artwork(
         FileResponse: Artwork image file (or a size-appropriate thumbnail).
 
     Raises:
-        HTTPException: If library manager/factory not available, album/artwork not found,
+        HTTPException: If the library is not available, album/artwork not found,
                      or path validation fails
     """
     # Get album to find artwork path
@@ -481,7 +481,7 @@ async def extract_album_artwork(
         dict: Success message and artwork URL
 
     Raises:
-        HTTPException: If library manager/factory not available or extraction fails
+        HTTPException: If the library is not available or extraction fails
     """
     # The superseded generation's thumbnails are keyed on the OLD source
     # path, which the extract below overwrites, so read it first (#4532).
@@ -528,7 +528,7 @@ async def delete_album_artwork(
         dict: Success message
 
     Raises:
-        HTTPException: If library manager/factory not available or artwork not found
+        HTTPException: If the library is not available or artwork not found
     """
     # Idempotent DELETE per RFC 7231 §4.3.5 — a repeat call after a
     # successful delete should NOT 404 (#3563 / BE-NEW-105). Only
@@ -575,7 +575,7 @@ async def download_album_artwork(
         dict: Success message and artwork path
 
     Raises:
-        HTTPException: If library manager/factory not available or download fails
+        HTTPException: If the library is not available or download fails
     """
     # Get album using repository (includes eager loading of artist)
     album = await asyncio.to_thread(repos.albums.get_by_id, album_id)
@@ -644,7 +644,6 @@ def create_artwork_router(
         APIRouter: Configured router instance
 
     Note:
-        Phase 6B: Fully migrated to RepositoryFactory pattern (no LibraryManager fallback)
     """
     deps = _ArtworkDeps(connection_manager, get_repository_factory)
 

@@ -107,7 +107,7 @@ class PlayerQueueNavigationMixin:
         with self.playback.defer_notifications():
             was_playing = self.playback.is_playing()
             advanced = self.gapless.advance_with_prebuffer(
-                was_playing, on_swap=_on_swap
+                on_swap=_on_swap
             )
 
         if not advanced:

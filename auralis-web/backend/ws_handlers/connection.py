@@ -209,7 +209,6 @@ async def teardown_connection(
     websocket: WebSocket,
     heartbeat_task: asyncio.Task[None],
     state: StreamState,
-    get_processing_engine: Callable[..., Any],
     manager: Any,
     rate_limiter: WebSocketRateLimiter,
 ) -> None:

@@ -39,7 +39,7 @@ class OperationFailed(ServiceError):
 _COLLABORATOR_LABELS = {
     'audio_player': 'Audio player',
     'player_state_manager': 'Player state manager',
-    'library_manager': 'Library manager',
+    'library': 'Library',
     'queue_manager': 'Queue manager',
 }
 

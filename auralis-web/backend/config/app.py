@@ -109,8 +109,6 @@ def create_app(lifespan: Any = None) -> FastAPI:
         # RuntimeError) — this is a safety net for a future REST caller that
         # forgets to, so it gets a category message instead of falling through
         # to the generic "Internal server error" below with no class context.
-        # (WebMEncoderError, the issue's other named type, no longer exists —
-        # its module was removed in #5147; only WAVEncoderError survives.)
         logger.error(f"Unhandled WAVEncoderError on {request.method} {request.url.path}: {exc}", exc_info=True)
         return JSONResponse(
             status_code=500,

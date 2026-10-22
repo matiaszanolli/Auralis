@@ -5,8 +5,7 @@ Audio Processing Pipeline
 Unified audio processing pipeline consolidating best practices from:
 - chunked_processor.py (thread-safe processing, fixed targets)
 - hybrid_processor.py (comprehensive validation)
-- auralis/player/realtime/processor.py (quick processing path; formerly
-  re-exported as realtime_processor.py, a shim deleted in #4334)
+- auralis/player/realtime/processor.py (quick processing path)
 
 This utility provides a single source of truth for audio processing orchestration,
 eliminating ~400 lines of duplicate validation and processing logic.

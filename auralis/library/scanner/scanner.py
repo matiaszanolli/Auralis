@@ -50,7 +50,7 @@ class LibraryScanner:
 
     def __init__(self, library_database: Any) -> None:
         """
-        Initialize scanner with library manager
+        Initialize scanner with the library database
 
         This scanner does NOT enqueue fingerprints. #2382 moved that to the
         caller, after `asyncio.to_thread(scan_directories)` returns, because
@@ -62,7 +62,7 @@ class LibraryScanner:
         `LibraryAutoScanner._run_scan_cycle` for the enqueue that actually runs.
 
         Args:
-            library_database: Library manager instance
+            library_database: LibraryDatabase instance
         """
         self.library_database: Any = library_database
         self.progress_callback: Callable[[dict[str, Any]], None] | None = None

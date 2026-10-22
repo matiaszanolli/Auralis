@@ -220,14 +220,17 @@ class TestWiringCompleteness:
 
     def test_frontend_consumes_the_epoch(self):
         """A stamp with no reader is the defect this issue was about."""
-        core = (
-            _REPO_ROOT
-            / "auralis-web" / "frontend" / "src" / "hooks" / "enhancement"
-            / "useAudioStreamingCore.ts"
-        )
-        if not core.exists():  # pragma: no cover - frontend not checked out
+        hooks = _REPO_ROOT / "auralis-web" / "frontend" / "src" / "hooks" / "enhancement"
+        if not hooks.exists():  # pragma: no cover - frontend not checked out
             pytest.skip("frontend not present")
-        src = core.read_text()
+        # The streaming core is split across several modules (the ref lives in
+        # useAudioStreamingCore, the readers in useStreamSubscriptions and
+        # audioChunkIngest), so look at all of them.
+        src = "\n".join(
+            path.read_text()
+            for path in hooks.glob("*.ts")
+            if not path.name.endswith(".test.ts")
+        )
 
         assert "stream_epoch" in src, "no frontend consumer of stream_epoch"
         assert "streamEpochRef" in src

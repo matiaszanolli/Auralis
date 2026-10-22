@@ -6,18 +6,9 @@ Owns the SQLite database itself: migration, engine, pragmas, session factory,
 file-permission hardening, scan-slot accounting and orderly shutdown. Hands out
 repositories through a :class:`RepositoryFactory`.
 
-This is the composition root. It replaced ``LibraryManager`` on the production
-startup path in #4619, and #4915 deleted that class outright. Historical note,
-since the name still turns up in older comments: ``LibraryManager`` had emitted
-a ``DeprecationWarning`` since v1.1.0 yet was still constructed on every backend
-boot, because the bootstrap responsibilities below lived on it and
-``RepositoryFactory`` (which only takes a ready-made session factory) could not
-stand in for it. Splitting them apart is what finally made the removal possible.
-
-#5162 then renamed the backend globals key to ``library_database``; it had gone
-on naming the deleted class for a month. The old spelling is deliberately not
-repeated here — the point of that rename was that grepping the old name should
-return nothing.
+This is the composition root: the bootstrap responsibilities above live here,
+and ``RepositoryFactory`` (which only takes a ready-made session factory) builds
+the repositories on top of it.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
@@ -234,8 +225,8 @@ class LibraryDatabase:
         self._exclusive_access: bool = False
 
         # Per-directory scan dedup (#3455 / #4509): must live here, not on
-        # LibraryScanner, because every caller (LibraryAutoScanner._do_scan,
-        # LibraryManager.scan_directories, before #4915) constructed a FRESH LibraryScanner
+        # LibraryScanner, because every caller (LibraryAutoScanner._do_scan, the
+        # scan router) constructs a FRESH LibraryScanner
         # per invocation — an instance attribute would never be shared
         # between two overlapping scans, so the guard would only ever see
         # its own empty set. This object is the one thing already shared

@@ -321,11 +321,9 @@ async def get_editable_fields(
     except HTTPException:
         raise  # Re-raise HTTPException as-is (don't wrap in 500)
     except FileNotFoundError:
-        # Deliberately kept, not deleted (#5080): with the existence check now
-        # raising PathMissingError -> 404 above, this arm covers the remaining
-        # race — the file disappearing between validation and the read/write
-        # below — and answers it with the same 404. Reaching it no longer means
-        # "unreachable dead code"; it means we lost that race.
+        # The existence check above raises PathMissingError -> 404; this arm
+        # covers the remaining race, the file disappearing between validation
+        # and the read/write below, and answers it with the same 404.
         raise NotFoundError("Audio file", detail=f"Audio file not found for track {track_id}")
 
 
@@ -371,11 +369,9 @@ async def get_track_metadata(
     except HTTPException:
         raise  # Re-raise HTTPException as-is
     except FileNotFoundError:
-        # Deliberately kept, not deleted (#5080): with the existence check now
-        # raising PathMissingError -> 404 above, this arm covers the remaining
-        # race — the file disappearing between validation and the read/write
-        # below — and answers it with the same 404. Reaching it no longer means
-        # "unreachable dead code"; it means we lost that race.
+        # The existence check above raises PathMissingError -> 404; this arm
+        # covers the remaining race, the file disappearing between validation
+        # and the read/write below, and answers it with the same 404.
         raise NotFoundError("Audio file", detail=f"Audio file not found for track {track_id}")
 
 
@@ -478,11 +474,9 @@ async def update_track_metadata(
     except HTTPException:
         raise
     except FileNotFoundError:
-        # Deliberately kept, not deleted (#5080): with the existence check now
-        # raising PathMissingError -> 404 above, this arm covers the remaining
-        # race — the file disappearing between validation and the read/write
-        # below — and answers it with the same 404. Reaching it no longer means
-        # "unreachable dead code"; it means we lost that race.
+        # The existence check above raises PathMissingError -> 404; this arm
+        # covers the remaining race, the file disappearing between validation
+        # and the read/write below, and answers it with the same 404.
         raise NotFoundError("Audio file", detail=f"Audio file not found for track {track_id}")
     except ValueError as e:
         # Invalid metadata error
@@ -506,7 +500,7 @@ async def batch_update_metadata(
         dict: Batch update results (success/failure per track)
 
     Raises:
-        HTTPException: If library manager/factory not available or validation fails
+        HTTPException: If the library is not available or validation fails
     """
     if not request.updates:
         raise BadRequestError("No updates provided")
@@ -627,7 +621,6 @@ def create_metadata_router(
         APIRouter: Configured router instance
 
     Note:
-        Phase 6B: Fully migrated to RepositoryFactory pattern (no LibraryManager fallback).
     """
     # Initialize metadata editor (shared instance) or use provided one
     if metadata_editor is None:

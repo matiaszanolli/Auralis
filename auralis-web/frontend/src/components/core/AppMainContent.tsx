@@ -23,8 +23,7 @@ export interface AppMainContentProps {
  * - Handle layout and scrolling
  *
  * Track play/queue actions are wired inside the library views themselves;
- * this wrapper takes no track callbacks (the unused onPlayTrack/onQueueTrack
- * props were removed in #5396).
+ * this wrapper takes no track callbacks.
  *
  * Layout Structure:
  * ```

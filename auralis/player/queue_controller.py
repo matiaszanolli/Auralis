@@ -23,7 +23,6 @@ class QueueController:
     Decoupled from playback state, audio I/O, and prebuffering.
     Only responsible for queue operations and track sequencing.
 
-    Phase 6C: Fully migrated to RepositoryFactory pattern (no LibraryManager fallback)
     """
 
     def __init__(

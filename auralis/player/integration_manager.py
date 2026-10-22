@@ -32,7 +32,6 @@ class IntegrationManager:
     Decoupled from playback state, file I/O, and queue operations.
     Handles library integration and effect management.
 
-    Phase 6C: Fully migrated to RepositoryFactory pattern (no LibraryManager fallback)
 
     Callback registration order (fixes #3354 / PTS-10)
     --------------------------------------------------

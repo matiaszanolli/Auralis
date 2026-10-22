@@ -40,7 +40,7 @@ class TestRequireCollaborators:
         [
             ("audio_player", "Audio player not available"),
             ("player_state_manager", "Player state manager not available"),
-            ("library_manager", "Library manager not available"),
+            ("library", "Library not available"),
             ("queue_manager", "Queue manager not available"),
         ],
     )
@@ -50,10 +50,10 @@ class TestRequireCollaborators:
 
     def test_reports_the_first_missing_in_keyword_order(self):
         with pytest.raises(ServiceUnavailable, match="Player state manager"):
-            require_collaborators(audio_player=object(), player_state_manager=None, library_manager=None)
+            require_collaborators(audio_player=object(), player_state_manager=None, library=None)
 
     def test_passes_when_everything_is_present(self):
-        require_collaborators(audio_player=object(), player_state_manager=object())
+        assert require_collaborators(audio_player=object(), player_state_manager=object()) is None
 
 
 class TestQueueGuard:
@@ -66,7 +66,7 @@ class TestQueueGuard:
             _base(audio_player=None)._require_queue()
 
     def test_player_with_a_queue_passes(self):
-        _base(audio_player=MagicMock())._require_queue()
+        assert _base(audio_player=MagicMock())._require_queue() is None
 
 
 @pytest.mark.asyncio

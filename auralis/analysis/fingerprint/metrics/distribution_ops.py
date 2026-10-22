@@ -99,7 +99,6 @@ def outlier_mask(
 def quantile_normalize(
     values: np.ndarray,
     reference: np.ndarray | None = None,
-    quantiles: np.ndarray | None = None
 ) -> np.ndarray:
     """
     Quantile normalization: Transform to match reference distribution.
@@ -115,7 +114,6 @@ def quantile_normalize(
     Args:
         values: Array of values to normalize
         reference: Reference distribution (uses uniform [0,1] if None)
-        quantiles: Pre-computed quantile positions (calculated if None)
 
     Returns:
         Quantile-normalized array

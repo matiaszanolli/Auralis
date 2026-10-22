@@ -37,14 +37,8 @@ def _init_library_database(globals_dict: dict[str, Any]) -> None:
     # #3844 demotion of the sibling path-validation logs (#4376).
     logger.debug(f"📁 Database directory ready: {music_dir}")
 
-    # Open the library database. #4619: this used to construct the
-    # deprecated LibraryManager, so every boot fired the
-    # DeprecationWarning that its own message says precedes removal
-    # in v2.0.0 — a promise that could not be kept while the class
-    # was load-bearing. LibraryDatabase owns the migration, engine,
-    # session factory, scan slots and shutdown; once it did, the facade
-    # had no callers left and #4915 deleted it. The globals key went on
-    # naming it for a month after that, until #5162.
+    # Open the library database. LibraryDatabase owns the migration, engine,
+    # session factory, scan slots and shutdown.
     globals_dict['library_database'] = LibraryDatabase()
     logger.info("✅ Auralis library database initialized")
     logger.debug(f"📊 Database location: {globals_dict['library_database'].database_path}")

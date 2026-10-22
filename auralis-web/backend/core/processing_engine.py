@@ -183,7 +183,7 @@ class ProcessingEngine:
 
     async def _notify_progress(self, job_id: str, progress: float, message: str = "") -> None:
         """Record *progress* on the job. Clients read it from the job-status
-        endpoints; the WS push that once carried it was retired in #5525."""
+        endpoints."""
         async with self._jobs_lock:
             job = self.jobs.get(job_id)
             if job:

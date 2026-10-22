@@ -22,7 +22,7 @@ from .dependencies import with_error_handling
 from .errors import (
     AudioPlayerUnavailableError,
     BadRequestError,
-    LibraryManagerUnavailableError,
+    LibraryUnavailableError,
     NotFoundError,
     raise_for_service_error,
 )
@@ -94,7 +94,7 @@ async def load_track(
     # This deref sits outside the try: below, so a None manager escaped as an
     # unhandled AttributeError rather than an actionable 503 (#4656).
     if library_database is None:
-        raise LibraryManagerUnavailableError()
+        raise LibraryUnavailableError()
 
     track = await asyncio.to_thread(library_database.tracks.get_by_id, request.track_id)
     if not track:

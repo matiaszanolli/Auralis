@@ -38,9 +38,7 @@ class FingerprintQueueManager:
         Args:
             fingerprint_extractor: Extractor used by the worker pool
             library_database: A ``LibraryDatabase`` whose ``repositories``
-                factory the workers query through. (Until #4915 this also
-                accepted the deprecated ``LibraryManager`` subclass; that
-                class no longer exists.)
+                factory the workers query through.
             num_workers: Worker pool size
         """
         # #4619: was `library_database.repository_factory` — an attribute that

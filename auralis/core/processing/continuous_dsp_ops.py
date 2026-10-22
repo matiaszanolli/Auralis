@@ -85,8 +85,7 @@ class ContinuousDSPOpsMixin:
 
         The offline path deliberately uses its OWN dynamics here
         (``CompressionStrategies.apply_clip_blend_compression``, tuned by
-        the continuous-space coordinates; the RMS-reduction expansion
-        stage was removed in #5561) rather than
+        the continuous-space coordinates) rather than
         ``HybridProcessor.dynamics_processor``. That ``DynamicsProcessor`` is the
         *realtime* streaming engine; this stage is instead integrated with the
         continuous-space ``PipelineJournal`` / ``CrossDimensionalGuard`` and the
@@ -277,9 +276,8 @@ class ContinuousDSPOpsMixin:
         else:
             debug(f"[Peak Normalization] SKIPPED - audio peak at {current_peak_db:.2f} dB is safe")
 
-        # Peak control is the Step 2 whole-buffer gain above. A later HF-aware
-        # safety limiter (deleted in #5577/#5766) could never fire: Step 2
-        # clamps the peak to -0.3 dBFS while that limiter bypassed above -0.1.
+        # Peak control is the Step 2 whole-buffer gain above, which clamps the
+        # peak to -0.3 dBFS; no later limiter stage is needed.
 
         # Final measurements
         final_peak = np.max(np.abs(audio))

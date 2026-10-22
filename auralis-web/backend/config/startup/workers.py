@@ -171,7 +171,7 @@ async def _init_streamlined_cache(HAS_STREAMLINED_CACHE: bool, globals_dict: dic
         if not HAS_STREAMLINED_CACHE:
             logger.warning("⚠️  Streamlined cache not available")
         elif not globals_dict.get('library_database'):
-            logger.warning("⚠️  Library manager not available - streamlined cache disabled")
+            logger.warning("⚠️  Library not available - streamlined cache disabled")
         return
     try:
         from cache import streamlined_cache_manager

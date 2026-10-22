@@ -51,7 +51,7 @@ class AudioPlayer(
 
     Facade coordinating the 5 components listed in the module docstring above,
     plus DSP profiles, gapless prebuffering, and RepositoryFactory-backed
-    library integration (no LibraryManager fallback).
+    library integration.
 
     File loading, queue navigation, streaming/auto-advance,
     callbacks/introspection, fingerprint-scheduling, and the

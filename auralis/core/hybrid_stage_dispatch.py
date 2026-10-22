@@ -19,7 +19,7 @@ ProcessingEngine (#4250).
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -102,7 +102,6 @@ def process_reference_mode(
     processor: "HybridProcessor",
     target_audio: np.ndarray,
     reference: np.ndarray,
-    results: Any,
 ) -> np.ndarray:
     """Process using traditional reference-based matching."""
     info("Processing in reference mode")

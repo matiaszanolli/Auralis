@@ -66,9 +66,8 @@ def _reset_processor_state(processor: HybridProcessor) -> None:
     bare synchronous calls on the event loop, since each acquires
     `_process_lock` (#3787).
 
-    `reset_realtime_eq()` was dropped with the unwired real-time EQ path in
-    #4873; `reset_psychoacoustic_eq()` below covers the EQ the live
-    adaptive/continuous path actually uses.
+    `reset_psychoacoustic_eq()` below covers the EQ the live
+    adaptive/continuous path uses.
     """
     processor.reset_dynamics()
     processor.reset_psychoacoustic_eq()

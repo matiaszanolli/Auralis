@@ -207,7 +207,6 @@ class TestCancelSignalsSetBeforeTaskCancel:
             websocket,
             heartbeat_task,
             state,
-            get_processing_engine=lambda: None,
             manager=manager,
             rate_limiter=rate_limiter,
         )

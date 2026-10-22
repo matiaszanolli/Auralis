@@ -184,7 +184,7 @@ async def get_playlists(
         dict: Page of playlists plus total/offset/limit/has_more
 
     Raises:
-        HTTPException: If library manager/factory not available or query fails
+        HTTPException: If the library is not available or query fails
 
     Note:
         #4554: this endpoint previously accepted no query parameters and
@@ -223,7 +223,7 @@ async def get_playlist(
         dict: Playlist data with full track details
 
     Raises:
-        HTTPException: If library manager/factory not available or playlist not found
+        HTTPException: If the library is not available or playlist not found
     """
     playlist = await asyncio.to_thread(repos.playlists.get_by_id, playlist_id)
     if not playlist:
@@ -252,7 +252,7 @@ async def create_playlist(
         dict: Success message and created playlist data
 
     Raises:
-        HTTPException: If library manager/factory not available or creation fails
+        HTTPException: If the library is not available or creation fails
     """
     playlist = await asyncio.to_thread(
         repos.playlists.create,
@@ -298,7 +298,7 @@ async def update_playlist(
         dict: Success message
 
     Raises:
-        HTTPException: If library manager/factory not available, no data provided, or update fails
+        HTTPException: If the library is not available, no data provided, or update fails
     """
     # Build update data dictionary
     update_data = {}
@@ -344,7 +344,7 @@ async def delete_playlist(
         dict: Success message
 
     Raises:
-        HTTPException: If library manager/factory not available or playlist not found
+        HTTPException: If the library is not available or playlist not found
     """
     # Idempotent DELETE per RFC 7231 §4.3.5 — a repeat call after a
     # successful delete should NOT 404 (#4734, matching the
@@ -386,7 +386,7 @@ async def add_tracks_to_playlist(
         dict: Success message and count of added tracks
 
     Raises:
-        HTTPException: If library manager/factory is unavailable or playlist is missing
+        HTTPException: If the library is unavailable or playlist is missing
     """
     # add_tracks() deliberately returns 0 both for a missing playlist and for
     # an idempotent all-duplicate request. Resolve existence first so only the
@@ -528,7 +528,7 @@ async def remove_track_from_playlist(
         dict: Success message
 
     Raises:
-        HTTPException: If library manager/factory not available or playlist not found
+        HTTPException: If the library is not available or playlist not found
     """
     # Idempotent DELETE per RFC 7231 §4.3.5 — a repeat call for a track
     # already removed (or never present) should NOT 404 (#4734).
@@ -572,7 +572,7 @@ async def clear_playlist(
         dict: Success message
 
     Raises:
-        HTTPException: If library manager/factory not available or playlist not found
+        HTTPException: If the library is not available or playlist not found
     """
     success = await asyncio.to_thread(repos.playlists.clear, playlist_id)
 
@@ -607,7 +607,6 @@ def create_playlists_router(
         APIRouter: Configured router instance
 
     Note:
-        Phase 6B: Fully migrated to RepositoryFactory pattern (no LibraryManager fallback)
     """
     deps = _PlaylistsDeps(get_repository_factory, connection_manager)
 

@@ -4,11 +4,7 @@
  * Decodes PCM samples from WebSocket audio_chunk messages into Float32Array
  * for playback via Web Audio API.
  *
- * Transport: raw PCM bytes via binary WebSocket frames (zero-copy). The
- * base64-in-JSON fallback (#2764/#3944) was removed in #5423 — the backend
- * has emitted binary frames exclusively for years, and Auralis ships
- * frontend and backend as one Electron bundle, so there is no
- * independently-versioned legacy client that could still send base64.
+ * Transport: raw PCM bytes via binary WebSocket frames (zero-copy).
  *
  * Handles:
  * - ArrayBuffer to Float32 PCM conversion

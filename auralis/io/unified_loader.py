@@ -33,8 +33,7 @@ from .loaders import (
 from .processing import peak_amplitude, resample_audio, validate_audio
 
 # SUPPORTED_FORMATS / FFMPEG_FORMATS live in auralis.io.formats (the single
-# source of truth) and are re-exported here for backward compatibility with
-# existing importers (#4109).
+# source of truth) and are re-exported here for existing importers.
 
 
 def load_audio(

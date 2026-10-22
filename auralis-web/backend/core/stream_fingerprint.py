@@ -30,7 +30,6 @@ logger = logging.getLogger(__name__)
 async def check_or_queue_fingerprint(
     controller: 'AudioStreamController',
     track_id: int,
-    filepath: str,
     websocket: WebSocket | None = None
 ) -> bool:
     """
@@ -44,7 +43,6 @@ async def check_or_queue_fingerprint(
     Args:
         controller: AudioStreamController instance
         track_id: ID of the track
-        filepath: Path to audio file
         websocket: Optional WebSocket connection for progress messages
 
     Returns:

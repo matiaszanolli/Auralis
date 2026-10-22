@@ -32,7 +32,7 @@ from services.missing_tracks import prune_missing_tracks
 from services.scanner_stop import stop_scanner
 
 from .dependencies import RouterDeps
-from .errors import LibraryManagerUnavailableError, handle_query_error
+from .errors import LibraryUnavailableError, handle_query_error
 
 logger = logging.getLogger(__name__)
 # Nginx's convention for "client closed the request". Nothing can read this
@@ -207,7 +207,7 @@ async def get_scan_status(
     self-heals even after a scan crashed without emitting a terminal frame.
     """
     if library_database is None:
-        raise LibraryManagerUnavailableError()
+        raise LibraryUnavailableError()
     return {"is_scanning": library_database.is_scanning()}
 
 
@@ -232,7 +232,7 @@ async def scan_library(
         # truthy, so the previous check never fired and a None manager
         # reached LibraryScanner as an opaque 500 (#4656).
         if library_database is None:
-            raise LibraryManagerUnavailableError()
+            raise LibraryUnavailableError()
 
         scanner = LibraryScanner(library_database)
 

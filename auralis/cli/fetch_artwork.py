@@ -150,10 +150,7 @@ def main():
             library_path = DEFAULT_DB_PATH
 
         # Open the library database (handles migration + engine bootstrap).
-        # #4619: this used to construct the deprecated LibraryManager purely to
-        # reach its .SessionLocal and hand it to a RepositoryFactory — the
-        # deprecated facade was never used. LibraryDatabase owns that bootstrap
-        # and exposes the factory directly.
+        # LibraryDatabase owns the bootstrap and exposes the factory directly.
         # Absolute path embeds OS username + install layout (#4351/#4366);
         # keep it at DEBUG only (#4929).
         logger.info("Loading library")

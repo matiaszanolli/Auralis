@@ -84,7 +84,6 @@ def _base_deps() -> dict:
         'HAS_AURALIS': False,
         'manager': None,
         'enhancement_settings': {},
-        'chunked_audio_processor_class': None,
         'create_track_info_fn': None,
         'buffer_presets_fn': None,
         'globals': {},

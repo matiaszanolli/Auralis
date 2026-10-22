@@ -28,7 +28,6 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from ..io.results import Result
 from ..utils.audio_validation import validate_audio_finite
 from ..utils.logging import debug, info
 from .analysis import AdaptiveTargetGenerator, ContentAnalyzer  # re-exported: tests/test_adaptive_processing.py
@@ -176,7 +175,6 @@ class HybridProcessor:
         self,
         target: np.ndarray,
         reference: np.ndarray | None = None,
-        results: str | list[str] | Result | list[Result] | None = None
     ) -> np.ndarray | None:
         """
         Main processing function supporting both reference and adaptive modes
@@ -184,19 +182,17 @@ class HybridProcessor:
         Args:
             target: Target audio array (pre-loaded NumPy array)
             reference: Reference audio array (optional for adaptive mode)
-            results: Output file path(s) or Result object(s)
 
         Returns:
             Processed audio array (if no file output specified)
         """
         with self._process_lock:
-            return self._process_impl(target, reference, results)
+            return self._process_impl(target, reference)
 
     def _process_impl(
         self,
         target: np.ndarray,
         reference: np.ndarray | None = None,
-        results: str | list[str] | Result | list[Result] | None = None
     ) -> np.ndarray | None:
         """Inner implementation called under _process_lock."""
         info(f"Starting hybrid processing in {self.config.adaptive.mode} mode")
@@ -211,28 +207,26 @@ class HybridProcessor:
 
         # Process based on mode
         if self.config.is_reference_mode() and reference is not None:
-            return self._process_reference_mode(target_audio, reference, results)
+            return self._process_reference_mode(target_audio, reference)
         elif self.config.is_adaptive_mode():
-            return self._process_adaptive_mode(target_audio, results)
+            return self._process_adaptive_mode(target_audio)
         elif self.config.is_hybrid_mode():
-            return self._process_hybrid_mode(target_audio, reference, results)
+            return self._process_hybrid_mode(target_audio, reference)
         else:
             raise ValueError(f"Invalid processing mode: {self.config.adaptive.mode}")
 
     def _process_reference_mode(self, target_audio: np.ndarray,
-                               reference: np.ndarray,
-                               results: Any) -> np.ndarray:
+                               reference: np.ndarray) -> np.ndarray:
         """Process using traditional reference-based matching. See
         hybrid_stage_dispatch.process_reference_mode() (#5463)."""
-        return process_reference_mode(self, target_audio, reference, results)
+        return process_reference_mode(self, target_audio, reference)
 
-    def _process_adaptive_mode(self, target_audio: np.ndarray, results: Any) -> np.ndarray:
+    def _process_adaptive_mode(self, target_audio: np.ndarray) -> np.ndarray:
         """
         Process using adaptive mastering without reference.
 
-        NOTE: This method still exists for backward compatibility but now uses
-        the internal processor logic directly since hybrid_processor is the
-        actual processor being called by AudioProcessingPipeline.
+        Uses the internal processor logic directly: hybrid_processor is the
+        actual processor called by AudioProcessingPipeline.
         """
         info("Processing in adaptive mode")
 
@@ -285,8 +279,7 @@ class HybridProcessor:
         return processed
 
     def _process_hybrid_mode(self, target_audio: np.ndarray,
-                            reference: np.ndarray | None,
-                            results: Any) -> np.ndarray:
+                            reference: np.ndarray | None) -> np.ndarray:
         """Process using hybrid approach combining reference and adaptive"""
         info("Processing in hybrid mode")
 

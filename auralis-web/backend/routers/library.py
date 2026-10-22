@@ -110,7 +110,6 @@ def create_library_router(
             re-insert rows the reset just deleted (#4816).
 
     Note:
-        Phase 6B: Fully migrated to RepositoryFactory pattern.
         Track / scan / fingerprint routes are registered by their own factory functions
         (create_tracks_router, create_library_scan_router, create_fingerprint_status_router).
     """
@@ -222,11 +221,9 @@ def create_library_router(
                 clear_source_artwork=True,
             )
 
-            # #4619 / #3770: no query cache to drop any more. The
-            # `@cached_query` decorators live only on the deprecated
-            # LibraryManager facade, which the backend no longer constructs —
-            # every read here goes through the repositories, straight to
-            # SQLite, so a reset cannot leave stale rows behind a cache.
+            # No query cache to drop: every read goes through the
+            # repositories, straight to SQLite, so a reset cannot leave stale
+            # rows behind a cache.
             logger.info(
                 "Library reset: all tracks, albums, artists, genres, "
                 "fingerprints, and playlists deleted"

@@ -3,17 +3,9 @@
  * - Track/album fingerprint fetching
  * - Similarity search operations
  *
- * `useFingerprintCache` was removed in #4239. It never started the Web Worker
- * its name implied — `startWorker()` called `simulateFingerprinting()`, which
- * faked a progress bar and then wrote one hardcoded 25D vector into the cache
- * for every track. Client-side fingerprinting is also redundant: the backend
- * computes real fingerprints in Rust and serves them from
- * `/api/tracks/{id}/fingerprint`, which `useTrackFingerprint` below already
- * reads. The IndexedDB layer it drove, `services/fingerprint/FingerprintCache`,
- * outlived it as a tested-but-unreachable orphan and was deleted in #5215.
- * It was correct (#4478) — it just had nothing left to serve. If client-side
- * fingerprint caching is wanted again, it should be built against the backend
- * endpoint above rather than restored.
+ * Fingerprints are computed by the backend (in Rust) and served from
+ * `/api/tracks/{id}/fingerprint`, which `useTrackFingerprint` reads; there is
+ * no client-side fingerprinting or cache.
  */
 
 export { useTrackFingerprint } from './useTrackFingerprint';

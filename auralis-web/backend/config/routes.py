@@ -54,7 +54,6 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
             - HAS_SIMILARITY: bool
             - manager: ConnectionManager
             - enhancement_settings: dict
-            - chunked_audio_processor_class: class
             - create_track_info_fn: callable
             - globals: Dict with component instances
     """
@@ -64,7 +63,6 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
     HAS_SIMILARITY: bool = deps.get('HAS_SIMILARITY', False)
     manager: Any = deps.get('manager')
     enhancement_settings: dict[str, Any] = deps.get('enhancement_settings', {})
-    chunked_audio_processor_class: Any = deps.get('chunked_audio_processor_class')
     create_track_info_fn: Any = deps.get('create_track_info_fn')
     globals_dict: dict[str, Any] = deps.get('globals', {})
 
@@ -102,7 +100,6 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
     system_router: APIRouter = create_system_router(
         manager=manager,
         get_processing_engine=get_component('processing_engine'),
-        HAS_AURALIS=deps.get('HAS_AURALIS', False),
         get_repository_factory=get_component('repository_factory'),
         get_enhancement_settings=lambda: enhancement_settings,
         get_state_manager=get_component('player_state_manager'),
@@ -137,13 +134,12 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
         connection_manager=manager,
         get_multi_tier_buffer=lambda: globals_dict.get('streamlined_cache') if HAS_STREAMLINED_CACHE else None,
         get_player_state_manager=get_component('player_state_manager'),
-        get_processing_engine=lambda: globals_dict.get('processing_engine') if HAS_PROCESSING else None,
         get_repository_factory=get_component('repository_factory'),
     )
     app.include_router(enhancement_router)
     logger.debug("✅ Enhancement router registered")
 
-    # Create and include artwork router (with Phase 6B RepositoryFactory refactoring)
+    # Create and include artwork router
     artwork_router: APIRouter = create_artwork_router(
         connection_manager=manager,
         get_repository_factory=get_component('repository_factory')
@@ -159,7 +155,7 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
     app.include_router(playlists_router)
     logger.debug("✅ Playlists router registered (Phase 2 RepositoryFactory enabled)")
 
-    # Create and include library router (stats, browse, reset — Phase 6B)
+    # Create and include library router (stats, browse, reset)
     library_router: APIRouter = create_library_router(
         get_repository_factory=get_component('repository_factory'),
         get_cache_manager=get_component('streamlined_cache'),
@@ -197,7 +193,7 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
     app.include_router(fingerprint_status_router)
     logger.debug("✅ Fingerprint status router registered")
 
-    # Create and include metadata router (with Phase 6B RepositoryFactory refactoring)
+    # Create and include metadata router
     metadata_router: APIRouter = create_metadata_router(
         get_repository_factory=get_component('repository_factory'),
         broadcast_manager=manager
@@ -205,14 +201,14 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
     app.include_router(metadata_router)
     logger.debug("✅ Metadata router registered (Phase 2 RepositoryFactory enabled)")
 
-    # Create and include albums router (with Phase 6B RepositoryFactory refactoring)
+    # Create and include albums router
     albums_router: APIRouter = create_albums_router(
         get_repository_factory=get_component('repository_factory')
     )
     app.include_router(albums_router)
     logger.debug("✅ Albums router registered (Phase 2 RepositoryFactory enabled)")
 
-    # Create and include artists router (with Phase 6B RepositoryFactory refactoring)
+    # Create and include artists router
     artists_router: APIRouter = create_artists_router(
         get_repository_factory=get_component('repository_factory')
     )
@@ -225,10 +221,7 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
         get_audio_player=get_component('audio_player'),
         get_player_state_manager=get_component('player_state_manager'),
         connection_manager=manager,
-        chunked_audio_processor_class=chunked_audio_processor_class,
         create_track_info_fn=create_track_info_fn,
-        get_multi_tier_buffer=lambda: globals_dict.get('streamlined_cache') if HAS_STREAMLINED_CACHE else None,
-        get_enhancement_settings=lambda: enhancement_settings
     )
     app.include_router(player_router)
     logger.debug("✅ Player router registered")
@@ -275,10 +268,7 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
         except Exception as e:
             logger.warning(f"⚠️  Failed to register similarity router family: {e}", exc_info=True)
 
-    # NOTE: the WAV streaming / MSE REST router (routers/wav_streaming.py,
-    # /api/stream/*) was retired (#4435). Live playback is entirely
-    # WebSocket-based (play_normal / play_enhanced); the REST/MSE chunk surface
-    # had no production frontend caller — only MSW test mocks — consistent with
-    # the app not using MSE. Retired rather than kept as dead cross-layer surface.
+    # Live playback is entirely WebSocket-based (play_normal / play_enhanced);
+    # there is no REST/MSE chunk-streaming router.
 
     logger.info("✅ All routers configured and registered")

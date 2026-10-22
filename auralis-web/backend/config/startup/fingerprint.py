@@ -35,7 +35,7 @@ async def _init_fingerprint_extraction_queue(globals_dict: dict[str, Any]) -> No
             FingerprintExtractionQueue,
         )
 
-        # Create fingerprint extractor with library manager's fingerprint repository
+        # Create fingerprint extractor with the library database's fingerprint repository
         fingerprint_extractor = FingerprintExtractor(
             fingerprint_repository=globals_dict['library_database'].fingerprints,
         )

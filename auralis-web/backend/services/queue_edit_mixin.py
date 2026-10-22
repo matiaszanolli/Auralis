@@ -42,7 +42,7 @@ class QueueEditMixin(QueueServiceBase):
             Exception: If track not found or operation fails
         """
         self._require_queue()
-        require_collaborators(library_manager=self.library_database)
+        require_collaborators(library=self.library_database)
 
         try:
             # Get track from library — sync DB call, offload (#3554).
@@ -118,7 +118,7 @@ class QueueEditMixin(QueueServiceBase):
             ResourceNotFound: If no requested track exists.
         """
         self._require_queue()
-        require_collaborators(library_manager=self.library_database)
+        require_collaborators(library=self.library_database)
         if not track_ids:
             raise InvalidRequest("track_ids must not be empty")
 
@@ -265,7 +265,7 @@ class QueueEditMixin(QueueServiceBase):
             # set_track broadcast internally by default, and #4825 requires
             # _set_queue_engine_lock never cover a broadcast.
             await self.player_state_manager.set_playing(False)
-            await self.player_state_manager.set_track(None, None)
+            await self.player_state_manager.set_track(None)
 
             # Broadcast queue update (fixes #3492)
             await self._broadcast_queue_changed(

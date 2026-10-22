@@ -136,10 +136,8 @@ def process_chunk(
 
     info['stages'].extend(path_info.get('stages', []))
 
-    # STAGE 3 (output normalization) was removed in #5245: the
-    # `needs_output_normalize` gate was permanently False — ContinuousMasteringBranch
-    # is the only branch and performs its own final normalization inside
-    # apply() (normalize(processed, adapted_peak)). Final output validation:
+    # Output normalization happens inside ContinuousMasteringBranch.apply()
+    # (normalize(processed, adapted_peak)); this is the final output validation:
 
     # Validate output for NaN/Inf (graceful handling for production resilience)
     processed = sanitize_audio(processed, context="simple mastering output")

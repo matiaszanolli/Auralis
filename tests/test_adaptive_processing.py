@@ -348,7 +348,7 @@ class TestHybridProcessor:
         """Test adaptive processing mode"""
         self.config.set_processing_mode("adaptive")
 
-        processed = self.processor._process_adaptive_mode(self.test_stereo, None)
+        processed = self.processor._process_adaptive_mode(self.test_stereo)
 
         assert processed.shape == self.test_stereo.shape
         assert not np.array_equal(processed, self.test_stereo)  # Should be modified
@@ -362,7 +362,7 @@ class TestHybridProcessor:
         reference = self.test_stereo * 0.6
 
         processed = self.processor._process_reference_mode(
-            self.test_stereo, reference, None
+            self.test_stereo, reference
         )
 
         assert processed.shape == self.test_stereo.shape
@@ -380,7 +380,7 @@ class TestHybridProcessor:
 
         reference = self.test_stereo * 0.8
         processed = self.processor._process_hybrid_mode(
-            self.test_stereo, reference, self.processor.content_analyzer.analyze_content(self.test_stereo)
+            self.test_stereo, reference
         )
 
         assert processed.shape == self.test_stereo.shape
@@ -443,7 +443,7 @@ class TestIntegration:
 
             # Process with adaptive mode
             self.config.set_processing_mode("adaptive")
-            processed = self.processor._process_adaptive_mode(stereo_signal, None)
+            processed = self.processor._process_adaptive_mode(stereo_signal)
 
             # Verify output
             assert processed.shape == stereo_signal.shape
@@ -460,7 +460,7 @@ class TestIntegration:
 
         self.config.set_processing_mode("reference")
         processed = self.processor._process_reference_mode(
-            target_stereo, reference_stereo, None
+            target_stereo, reference_stereo
         )
 
         # Should boost quiet signal towards reference level
@@ -488,7 +488,7 @@ class TestIntegration:
 
         # Time adaptive processing
         start_time = time.time()
-        processed = self.processor._process_adaptive_mode(stereo_audio, None)
+        processed = self.processor._process_adaptive_mode(stereo_audio)
         processing_time = time.time() - start_time
 
         # Should process faster than real-time
@@ -509,7 +509,7 @@ def test_system_integration():
 
     # Should work without errors
     stereo_audio = np.column_stack([test_audio, test_audio])
-    processed = processor._process_adaptive_mode(stereo_audio, None)
+    processed = processor._process_adaptive_mode(stereo_audio)
     assert processed.shape == stereo_audio.shape
 
 

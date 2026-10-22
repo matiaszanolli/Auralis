@@ -83,9 +83,9 @@ class TestNoStaleReferences:
         )
 
     def test_the_live_exception_keeps_its_name(self):
-        """`LibraryManagerUnavailableError` is a real, raised exception — not
+        """`LibraryUnavailableError` is a real, raised exception — not
         part of the retired class — and must NOT be swept up by the rename."""
-        from routers.errors import LibraryManagerUnavailableError
+        from routers.errors import LibraryUnavailableError
 
-        assert LibraryManagerUnavailableError.__name__ == "LibraryManagerUnavailableError"
-        assert issubclass(LibraryManagerUnavailableError, Exception)
+        assert LibraryUnavailableError.__name__ == "LibraryUnavailableError"
+        assert issubclass(LibraryUnavailableError, Exception)

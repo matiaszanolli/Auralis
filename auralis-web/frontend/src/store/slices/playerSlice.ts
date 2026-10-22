@@ -191,12 +191,10 @@ const playerSlice = createSlice({
     /**
      * Reset player state
      *
-     * No production dispatch sites (#4921) — kept as a store-reset helper, which components/__tests__/Integration.test.tsx:425 uses. Live WebSocket sync
+     * No production dispatch sites — kept as a store-reset helper, which
+     * components/__tests__/Integration.test.tsx uses. Live WebSocket sync
      * dispatches field-level actions from usePlayerStateSync.ts /
-     * useAPIHealthPoll.ts, which is the intended architecture; the bulk
-     * updatePlaybackState/updateStreamingInfo/updateConnectionState actions
-     * that sat beside these were deleted in #4921 because they duplicated
-     * hardening the field-level path already has.
+     * useAPIHealthPoll.ts.
      */
     resetPlayer(state) {
       Object.assign(state, {

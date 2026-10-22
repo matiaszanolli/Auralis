@@ -7,10 +7,9 @@
  *   shouldRetryQuery)
  *
  * Used by: WebSocketManager — hooks/websocket (websocketConnectionCore,
- * useWebSocketConnection); shouldRetryQuery — App.tsx's QueryClient (#5387).
- * retryWithBackoff / DEFAULT_RETRY_POLICY were deleted in #5387: they had no
- * caller, and React Query already applies exponential backoff between the
- * retries shouldRetryQuery allows.
+ * useWebSocketConnection); shouldRetryQuery — App.tsx's QueryClient.
+ * React Query applies exponential backoff between the retries
+ * shouldRetryQuery allows.
  */
 
 import { APIRequestError } from '@/utils/apiRequest';

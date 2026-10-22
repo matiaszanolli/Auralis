@@ -68,7 +68,7 @@ class TestEventLoopStaysResponsive:
         beat = asyncio.create_task(heartbeat())
         try:
             result = await check_or_queue_fingerprint(
-                _controller(exists_result=True, blocking_delay=0.2), track_id=1, filepath="/a.flac"
+                _controller(exists_result=True, blocking_delay=0.2), track_id=1
             )
         finally:
             stop.set()
@@ -83,7 +83,7 @@ class TestEventLoopStaysResponsive:
 class TestBehaviourUnchanged:
     async def test_returns_true_when_fingerprint_exists(self):
         assert await check_or_queue_fingerprint(
-            _controller(exists_result=True), track_id=7, filepath="/a.flac"
+            _controller(exists_result=True), track_id=7
         ) is True
 
     async def test_returns_false_and_enqueues_when_missing(self):
@@ -95,7 +95,7 @@ class TestBehaviourUnchanged:
 
             mp.setattr(fq, "get_fingerprint_queue", lambda: queue)
             result = await check_or_queue_fingerprint(
-                _controller(exists_result=False), track_id=7, filepath="/a.flac"
+                _controller(exists_result=False), track_id=7
             )
 
         assert result is False
@@ -106,13 +106,13 @@ class TestBehaviourUnchanged:
         controller._get_repository_factory = None
 
         assert await check_or_queue_fingerprint(
-            controller, track_id=1, filepath="/a.flac"
+            controller, track_id=1
         ) is False
 
     async def test_awaits_the_offloaded_call(self):
         """A missing `await` yields a truthy coroutine and inverts the branch."""
         result = await check_or_queue_fingerprint(
-            _controller(exists_result=False), track_id=1, filepath="/a.flac"
+            _controller(exists_result=False), track_id=1
         )
 
         assert result is False, (

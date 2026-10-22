@@ -181,13 +181,13 @@ class MetadataExtractor:
 
     def audio_info_to_track_info(self, audio_info: AudioFileInfo) -> dict[str, Any]:
         """
-        Convert AudioFileInfo to track_info dict for library manager
+        Convert AudioFileInfo to track_info dict for the library
 
         Args:
             audio_info: AudioFileInfo object
 
         Returns:
-            Dictionary in format expected by library manager
+            Dictionary in format expected by the track repository
         """
         track_info: dict[str, Any] = {
             'filepath': audio_info.filepath,

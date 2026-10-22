@@ -50,4 +50,4 @@ def test_reference_dispatch_raises_on_limiter_shape_change(monkeypatch):
     monkeypatch.setattr(dispatch, "apply_reference_matching", lambda t, r: t.copy())
 
     with pytest.raises(RuntimeError, match="Sample count mismatch after limiter"):
-        dispatch.process_reference_mode(_Processor(), target.copy(), target, results=None)
+        dispatch.process_reference_mode(_Processor(), target.copy(), target)

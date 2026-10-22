@@ -191,7 +191,7 @@ def test_library_scan_router_instances_keep_their_own_dependencies() -> None:
 def _player_router(marker: str) -> APIRouter:
     ns = SimpleNamespace(marker=marker)
     return player.create_player_router(
-        lambda: ns, lambda: ns, lambda: ns, ns, None, lambda track: track
+        lambda: ns, lambda: ns, lambda: ns, ns, lambda track: track
     )
 
 

@@ -166,12 +166,9 @@ const connectionSlice = createSlice({
     /**
      * Reset connection state
      *
-     * No production dispatch sites (#4921) — kept as an idiomatic Redux reset. Live WebSocket sync
-     * dispatches field-level actions from usePlayerStateSync.ts /
-     * useAPIHealthPoll.ts, which is the intended architecture; the bulk
-     * updatePlaybackState/updateStreamingInfo/updateConnectionState actions
-     * that sat beside these were deleted in #4921 because they duplicated
-     * hardening the field-level path already has.
+     * No production dispatch sites — kept as an idiomatic Redux reset. Live
+     * WebSocket sync dispatches field-level actions from
+     * usePlayerStateSync.ts / useAPIHealthPoll.ts.
      */
     resetConnection(state) {
       Object.assign(state, initialState);

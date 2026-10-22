@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING, cast
 import numpy as np
 
 from core.audio_processing_pipeline import AudioProcessingPipeline
-from core.chunk_boundaries import CHUNK_DURATION, CHUNK_INTERVAL, OVERLAP_DURATION
+from core.chunk_boundaries import CHUNK_DURATION, CHUNK_INTERVAL
 from core.chunk_operations import ChunkOperations
 
 if TYPE_CHECKING:
@@ -127,7 +127,6 @@ def load_chunk(
         sample_rate=processor.sample_rate,
         chunk_duration=CHUNK_DURATION,
         chunk_interval=CHUNK_INTERVAL,
-        overlap_duration=OVERLAP_DURATION,
         with_context=with_context,
         total_duration=processor.total_duration,
     )

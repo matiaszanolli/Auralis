@@ -5,7 +5,7 @@ Regression: queue endpoints map service errors by exception TYPE, not substring
 #4700 — `set_queue` decided its status with `400 if "valid" in str(e) else ...`.
 None of the three service-outage messages raised by `QueueService.set_queue`
 ("Audio player not available", "Player state manager not available",
-"Library manager not available") contains the substring `"valid"`, so every
+"Library not available") contains the substring `"valid"`, so every
 genuine service-unavailable condition was reported as 400 Bad Request with a
 flattened detail — while every sibling endpoint mapped the same conditions to
 503. `remove_from_queue` and `add_track_to_queue` used the same sniffing and
@@ -68,7 +68,7 @@ class TestServiceErrorTypes:
     @pytest.mark.parametrize("message", [
         "Audio player not available",
         "Player state manager not available",
-        "Library manager not available",
+        "Library not available",
     ])
     def test_outage_messages_do_not_contain_valid(self, message):
         """The exact reason the old substring check misfired."""

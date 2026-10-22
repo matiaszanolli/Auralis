@@ -157,8 +157,6 @@ function ComfortableApp() {
             connectionStatus={connectionStatus}
             isMobile={isMobile}
             onSearchClear={() => setSearchQuery('')}
-            // 'recent' is gone (#5620): it had no data path and rendered the whole
-            // library under a false heading.
             {...(['songs', 'favourites'].includes(currentView) ? {
               viewMode,
               onViewModeChange: setViewMode,

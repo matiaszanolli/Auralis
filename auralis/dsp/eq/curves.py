@@ -64,13 +64,11 @@ def generate_genre_eq_curve(genre: str, num_bands: int = 25) -> np.ndarray:
         curve = GENRE_CURVES[genre_lower]
         if len(curve) >= num_bands:
             # .copy() is required, not defensive style (#4923). NumPy slicing
-            # returns a VIEW, so without it every caller shared one buffer with
-            # the module-level preset table — the former `create_target_curve`
-            # (a test-only wrapper, deleted in #5201) then wrote
-            # its brightness/warmth adjustments straight into GENRE_CURVES and
-            # they ACCUMULATED across calls for the life of the process. The
-            # two branches below already build fresh arrays; this was the lone
-            # aliasing path, and it is the default one (25 bands of 25).
+            # returns a VIEW, so without it every caller would share one
+            # buffer with the module-level preset table, and any in-place
+            # adjustment would ACCUMULATE in GENRE_CURVES for the life of the
+            # process. The two branches below already build fresh arrays; this
+            # is the lone aliasing path, and the default one (25 bands of 25).
             return curve[:num_bands].copy()
         else:
             # Pad with zeros if needed

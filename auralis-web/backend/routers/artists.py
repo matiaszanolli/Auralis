@@ -153,7 +153,6 @@ def create_artists_router(
         Configured APIRouter instance
 
     Note:
-        Phase 6B: Fully migrated to RepositoryFactory pattern (no LibraryManager fallback)
     """
     router = APIRouter()
 

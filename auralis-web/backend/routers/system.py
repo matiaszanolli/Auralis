@@ -287,7 +287,6 @@ async def stream_from_position(
 def create_system_router(
     manager: Any,
     get_processing_engine: Callable[..., Any],
-    HAS_AURALIS: bool,
     get_repository_factory: Callable[..., Any] | None = None,
     get_state_manager: Callable[..., Any] | None = None,
     get_enhancement_settings: Callable[[], dict[str, Any]] | None = None,
@@ -441,8 +440,7 @@ def create_system_router(
         finally:
             if state is not None and heartbeat_task is not None:
                 await ws_connection.teardown_connection(
-                    websocket, heartbeat_task, state, get_processing_engine,
-                    manager, _rate_limiter,
+                    websocket, heartbeat_task, state, manager, _rate_limiter,
                 )
             elif heartbeat_task is not None:
                 # setup_connection() returned a heartbeat_task but raised

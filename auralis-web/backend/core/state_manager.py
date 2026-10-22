@@ -91,15 +91,12 @@ class PlayerStateManager:
         # longer blocks concurrent update_state() callers.
         await self.broadcast_state(state_snapshot)
 
-    async def set_track(
-        self, track: Any, library_database: Any, *, broadcast: bool = True
-    ) -> PlayerState:
+    async def set_track(self, track: Any, *, broadcast: bool = True) -> PlayerState:
         """
         Set current track and broadcast
 
         Args:
             track: Track object from database
-            library_database: Library manager to fetch track details
         """
         if track is None:
             state_snapshot = await self._mutate_state(

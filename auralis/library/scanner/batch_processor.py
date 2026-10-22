@@ -31,7 +31,7 @@ class BatchProcessor:
         Initialize batch processor
 
         Args:
-            library_database: Library manager instance
+            library_database: LibraryDatabase instance
             audio_analyzer: AudioAnalyzer instance
             metadata_extractor: MetadataExtractor instance
         """
@@ -108,9 +108,8 @@ class BatchProcessor:
         """
         try:
             # Check if file already exists in library (query once, reuse below)
-            # #4619: repository access, not the deprecated LibraryManager
-            # facade — the scanner is handed a LibraryDatabase now, which has
-            # `.tracks` but none of the facade's convenience wrappers.
+            # Repository access: the scanner is handed a LibraryDatabase,
+            # which has `.tracks` but no convenience wrappers.
             tracks_repo = self.library_database.tracks
             existing_track = tracks_repo.get_by_path(file_path) if skip_existing else None
             if existing_track:

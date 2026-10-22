@@ -73,7 +73,7 @@ def test_fallback_double_mutation_restores_prior_track(gapless_playback_engine):
     engine._load_track_audio = _fake_loader(new_audio)
     engine.start_prebuffering = MagicMock()  # should not be reached
 
-    result = engine.advance_with_prebuffer(was_playing=True)
+    result = engine.advance_with_prebuffer()
 
     assert result is False
     # Never mutated: audio_data still matches the un-advanced index.
@@ -105,7 +105,7 @@ def test_no_prebuffer_fallback_mutation_restores_prior_track(gapless_playback_en
     engine._load_track_audio = _fake_loader(new_audio)
     engine.start_prebuffering = MagicMock()  # should not be reached
 
-    result = engine.advance_with_prebuffer(was_playing=True)
+    result = engine.advance_with_prebuffer()
 
     assert result is False
     assert fm.audio_data is old_audio
@@ -137,7 +137,7 @@ def test_fallback_success_keeps_new_track(gapless_playback_engine):
     engine._load_track_audio = _fake_loader(new_audio)
     engine.start_prebuffering = MagicMock()
 
-    result = engine.advance_with_prebuffer(was_playing=True)
+    result = engine.advance_with_prebuffer()
 
     assert result is True
     assert fm.audio_data is new_audio
@@ -156,7 +156,7 @@ def test_load_failure_leaves_previous_track_intact(gapless_playback_engine):
     engine._load_track_audio = MagicMock(return_value=(None, None))
     engine.start_prebuffering = MagicMock()
 
-    result = engine.advance_with_prebuffer(was_playing=True)
+    result = engine.advance_with_prebuffer()
 
     assert result is False
     engine.queue.advance_if_next_matches.assert_not_called()
@@ -189,7 +189,7 @@ def test_swap_and_on_swap_share_one_audio_lock_acquisition(gapless_playback_engi
         observed["current_file"] = fm.current_file
         observed["sample_rate"] = fm.sample_rate
 
-    assert engine.advance_with_prebuffer(was_playing=True, on_swap=on_swap) is True
+    assert engine.advance_with_prebuffer(on_swap=on_swap) is True
 
     assert observed["audio_is_new"] is True, "on_swap ran before the swap"
     assert observed["current_file"] == "/next.wav"

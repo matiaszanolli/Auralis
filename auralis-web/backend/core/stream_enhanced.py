@@ -195,7 +195,6 @@ async def stream_enhanced_audio(
         # Don't wait for generation - start streaming immediately with standard mastering
         fingerprint_available = await controller._check_or_queue_fingerprint(
             track_id=track_id,
-            filepath=str(track.filepath),
             websocket=websocket
         )
         if fingerprint_available:

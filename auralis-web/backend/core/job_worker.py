@@ -137,7 +137,7 @@ class JobWorker:
         # while jobs were still mid-unwind — a job parked in
         # asyncio.to_thread(processor.process, ...) kept a worker thread and a
         # HybridProcessor alive past the point the lifespan tore down the
-        # library manager. The worker-task cancel below already did this
+        # library database. The worker-task cancel below already did this
         # correctly; only the per-job tasks were fire-and-forget.
         #
         # Bounded so a task that refuses to unwind cannot hang shutdown. On

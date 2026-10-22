@@ -74,7 +74,6 @@ class TestSystemRouterFactoryIsolation:
         return create_system_router(
             manager=MagicMock(),
             get_processing_engine=MagicMock(),
-            HAS_AURALIS=True,
         )
 
     def test_two_calls_return_distinct_router_objects(self):

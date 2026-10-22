@@ -11,22 +11,12 @@
  * - Optional `errorActions` allowlist restricting which action types are
  *   tracked (#4662)
  *
- * NOT features, despite what this block used to claim:
- * - *Recovery action suggestions* (#4933). `onRecovery` and
- *   `recoveryStrategies` were config fields nothing ever read; both were
- *   removed in #4695. There is no recovery mechanism here — a caller that
- *   wants one has to build it.
- * - *Error boundary integration* (#4933). The app's ErrorBoundary components
- *   do not import anything from this module; `store/index.ts`'s
- *   `createErrorTrackingMiddleware` call is its only consumer.
- *
- * `retryAction`, `getErrorStats` and `ErrorStore` — a real retry helper, a
- * stats calculator, and an in-memory accumulator this middleware used to
- * populate on every tracked error — had no callers outside tests and no
- * way for an external caller to even retrieve the `ErrorStore` instance
- * (#5017). All three were deleted; tracked errors are still logged
- * (`logToConsole`) and handed to `onError` at the point of detection, which
- * is the only place anything ever consumed them.
+ * Not provided: recovery action suggestions (there is no recovery mechanism
+ * here — a caller that wants one has to build it) and error-boundary
+ * integration (the app's ErrorBoundary components do not use this module;
+ * `store/index.ts`'s `createErrorTrackingMiddleware` call is its only
+ * consumer). Tracked errors are logged (`logToConsole`) and handed to
+ * `onError` at the point of detection.
  *
  * Phase C.4d: Redux Error Handling
  *

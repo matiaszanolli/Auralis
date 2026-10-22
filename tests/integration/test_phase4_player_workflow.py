@@ -364,7 +364,6 @@ def backend() -> BackendClient:
             lambda: audio_player,
             lambda: state,
             manager,
-            None,
             player_state.create_track_info,
         )
     )

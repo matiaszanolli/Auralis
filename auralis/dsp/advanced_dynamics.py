@@ -7,9 +7,8 @@ Dynamics component configuration and lifecycle management
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 
-The former chunk-processing path was retired in #5295. ContinuousMode owns
-the production dynamics algorithm; this module retains the management facade
-used by HybridProcessor and DynamicsManager.
+ContinuousMode owns the production dynamics algorithm; this module is the
+management facade used by HybridProcessor and DynamicsManager.
 """
 
 import threading
@@ -24,7 +23,6 @@ from .dynamics import (
     DynamicsSettings,
 )
 
-# Re-export for backward compatibility
 __all__ = [
     "DynamicsMode",
     "DynamicsProcessor",

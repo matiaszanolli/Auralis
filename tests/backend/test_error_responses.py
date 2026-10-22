@@ -27,7 +27,7 @@ from routers.errors import (
     BadRequestError,
     ConnectionManagerUnavailableError,
     InternalServerError,
-    LibraryManagerUnavailableError,
+    LibraryUnavailableError,
     NotFoundError,
     PlayerStateUnavailableError,
     ServiceUnavailableError,
@@ -114,10 +114,12 @@ class TestInternalServerError:
         err = InternalServerError("fetch tracks")
         assert "fetch tracks" in err.detail
 
-    def test_detail_contains_error_message_when_provided(self):
-        err = InternalServerError("fetch tracks", ValueError("db timeout"))
-        assert "db timeout" in err.detail
+    def test_error_message_is_logged_not_sent_to_the_client(self, caplog):
+        with caplog.at_level("ERROR"):
+            err = InternalServerError("fetch tracks", ValueError("db timeout"))
+        assert "db timeout" not in err.detail
         assert "fetch tracks" in err.detail
+        assert "db timeout" in caplog.text
 
     def test_detail_without_error(self):
         err = InternalServerError("delete album")
@@ -133,12 +135,12 @@ class TestInternalServerError:
 
 class TestSpecialisedUnavailableErrors:
     def test_library_database_unavailable_is_503(self):
-        err = LibraryManagerUnavailableError()
+        err = LibraryUnavailableError()
         assert err.status_code == 503
 
     def test_library_database_unavailable_detail(self):
-        err = LibraryManagerUnavailableError()
-        assert "library manager" in err.detail.lower()
+        err = LibraryUnavailableError()
+        assert "library" in err.detail.lower()
 
     def test_audio_player_unavailable_is_503(self):
         err = AudioPlayerUnavailableError()
@@ -166,7 +168,7 @@ class TestSpecialisedUnavailableErrors:
 
     def test_all_subclasses_of_service_unavailable(self):
         for cls in (
-            LibraryManagerUnavailableError,
+            LibraryUnavailableError,
             AudioPlayerUnavailableError,
             PlayerStateUnavailableError,
             ConnectionManagerUnavailableError,
@@ -176,7 +178,7 @@ class TestSpecialisedUnavailableErrors:
     def test_no_internal_detail_leakage(self):
         """Specialised errors must not include stack traces or internal paths."""
         for cls in (
-            LibraryManagerUnavailableError,
+            LibraryUnavailableError,
             AudioPlayerUnavailableError,
             PlayerStateUnavailableError,
             ConnectionManagerUnavailableError,
@@ -205,10 +207,11 @@ class TestHandleQueryError:
             handle_query_error("get tracks", RuntimeError("oops"))
         assert "get tracks" in exc_info.value.detail
 
-    def test_detail_contains_error_message(self):
-        with pytest.raises(HTTPException) as exc_info:
+    def test_error_message_is_logged_not_sent_to_the_client(self, caplog):
+        with caplog.at_level("ERROR"), pytest.raises(HTTPException) as exc_info:
             handle_query_error("delete album", ValueError("constraint violation"))
-        assert "constraint violation" in exc_info.value.detail
+        assert "constraint violation" not in exc_info.value.detail
+        assert "constraint violation" in caplog.text
 
     def test_works_with_various_exception_types(self):
         for exc_type in (ValueError, RuntimeError, OSError, KeyError):
