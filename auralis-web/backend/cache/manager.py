@@ -32,6 +32,7 @@ from pathlib import Path
 from typing import Any
 
 from config.limits import chunk_cache_dir
+from schemas import DEFAULT_PRESET
 
 # Chunk geometry comes from chunk_boundaries — the single source of truth (#4025)
 # — instead of a third local copy that would drift and cause cache-index errors.
@@ -117,7 +118,7 @@ class StreamlinedCacheManager(
         # Playback state
         self.current_track_id: int | None = None
         self.current_position: float = 0.0
-        self.current_preset: str = "adaptive"
+        self.current_preset: str = DEFAULT_PRESET
         self.intensity: float = 1.0
         self.auto_mastering_enabled: bool = True
 

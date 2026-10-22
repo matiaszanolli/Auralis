@@ -31,6 +31,13 @@ from pydantic import Field
 VALID_PRESETS = ["adaptive"]
 EnhancementPresetLiteral = Literal["adaptive"]
 
+# The preset a fresh runtime/settings dict, a WebSocket play command with no
+# preset, and every REST fallback use. It was a free string in 16 places (only the
+# WS module had a named constant), so a change of default meant a grep. core/ keeps
+# its own local constant on purpose -- it must not import schemas (see
+# core/proactive_buffer.py).
+DEFAULT_PRESET: EnhancementPresetLiteral = "adaptive"
+
 # Canonical constraint for enhancement intensity (#4600). The same quantity used
 # to be validated three different ways: the enhancement router silently CLAMPED
 # and returned 200 with a value the caller never sent, the settings route

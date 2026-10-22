@@ -152,6 +152,7 @@ from config.middleware import setup_middleware
 from config.origins import BACKEND_PORT
 from config.routes import setup_routers
 from config.startup import create_lifespan
+from schemas import DEFAULT_PRESET
 
 # #5393: the sanitizing LogRecordFactory (auralis.utils.logging, imported at
 # config import time) covers message/args, but traceback text from
@@ -227,7 +228,7 @@ globals_dict = {
     # Configuration
     'enhancement_settings': {
         "enabled": True,
-        "preset": "adaptive",
+        "preset": DEFAULT_PRESET,
         "intensity": 1.0
     },
 }

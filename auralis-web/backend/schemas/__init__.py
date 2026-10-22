@@ -21,6 +21,7 @@ A package since #5479, split by domain. Every name is re-exported here, so
 from .enhancement import (
     INTENSITY_MAX,
     INTENSITY_MIN,
+    DEFAULT_PRESET,
     VALID_PRESETS,
     EnhancementIntensity,
     EnhancementPresetLiteral,
@@ -66,6 +67,7 @@ __all__ = [
     "INTENSITY_MAX",
     "INTENSITY_MIN",
     "MAX_TRACK_ID_LIST",
+    "DEFAULT_PRESET",
     "VALID_PRESETS",
     "AlbumListResponse",
     "AlbumResponse",

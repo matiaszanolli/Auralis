@@ -15,7 +15,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from schemas import EnhancementPresetLiteral
+from schemas import DEFAULT_PRESET, EnhancementPresetLiteral
 
 
 # Minted once per backend process (#5487). The session itself (queue, current
@@ -113,7 +113,7 @@ class PlayerState(BaseModel):
     mastering_enabled: bool = True
     # #4424 made EnhancementPresetLiteral the single source of truth; the
     # response side was migrated in #4710. Same setattr caveat as above.
-    current_preset: EnhancementPresetLiteral = "adaptive"
+    current_preset: EnhancementPresetLiteral = DEFAULT_PRESET
 
     # Real-time analysis (optional)
     analysis: dict[str, Any] | None = None

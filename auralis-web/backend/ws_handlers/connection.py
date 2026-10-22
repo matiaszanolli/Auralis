@@ -21,6 +21,7 @@ from fastapi import WebSocket
 from core.audio_stream_controller import ws_id as _ws_id
 from core.stream_protocol import safe_send_text
 from helpers import spawn_background_task
+from schemas import DEFAULT_PRESET
 from websocket.websocket_protocol import HeartbeatManager
 from websocket.websocket_security import WebSocketRateLimiter
 
@@ -136,7 +137,7 @@ async def setup_connection(
                     "type": "enhancement_settings_changed",
                     "data": {
                         "enabled": _settings.get("enabled", True),
-                        "preset": _settings.get("preset", "adaptive"),
+                        "preset": _settings.get("preset", DEFAULT_PRESET),
                         "intensity": _settings.get("intensity", 1.0),
                     }
                 }))

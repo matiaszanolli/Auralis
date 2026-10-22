@@ -17,6 +17,7 @@ from typing import Any
 # projects these rather than restating them (#5220).
 from auralis.core.config.preset_profiles import PresetProfile, create_preset_profiles
 from fastapi import Depends, HTTPException
+from schemas import DEFAULT_PRESET
 
 from .dependencies import require_service
 from .processing_deps import _get_enhancement_settings
@@ -129,7 +130,7 @@ async def get_processing_parameters(
         from core.chunk_content_profile import get_last_content_profile
 
         # Get current preset
-        preset = get_enhancement_settings().get("preset", "adaptive")
+        preset = get_enhancement_settings().get("preset", DEFAULT_PRESET)
 
         # Try to get profile from ChunkedAudioProcessor global cache
         profile = get_last_content_profile(preset)

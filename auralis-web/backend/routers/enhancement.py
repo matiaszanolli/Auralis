@@ -31,6 +31,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from helpers import spawn_background_task
 from pydantic import BaseModel, field_validator
 from schemas import (
+    DEFAULT_PRESET,
     EnhancementIntensity,
     EnhancementPresetLiteral,
     MasteringRecommendationResponse,
@@ -375,7 +376,7 @@ def _maybe_prewarm_upcoming_chunks(
             track_id=state.current_track.id,
             filepath=state.current_track.filepath,
             current_time=state.current_time,
-            preset=enhancement_settings.get("preset", "adaptive"),
+            preset=enhancement_settings.get("preset", DEFAULT_PRESET),
             intensity=enhancement_settings.get("intensity", 1.0),
         ),
         name="enhancement._preprocess_upcoming_chunks",
@@ -539,7 +540,7 @@ async def set_enhancement_intensity(
     old_intensity = enhancement_settings.get("intensity")
     enhancement_settings["intensity"] = intensity
 
-    preset = enhancement_settings.get("preset", "adaptive")
+    preset = enhancement_settings.get("preset", DEFAULT_PRESET)
 
     # Notify multi-tier buffer manager so pre-buffered chunks at the old
     # intensity are replaced — mirrors the same call in set_enhancement_preset
@@ -673,7 +674,7 @@ async def get_mastering_recommendation(
             proc = ChunkedAudioProcessor(
                 track_id=_tid,
                 filepath=_fp,
-                preset="adaptive",  # Default for analysis-only mode
+                preset=DEFAULT_PRESET,  # Default for analysis-only mode
                 intensity=1.0,
                 chunk_cache={}
             )

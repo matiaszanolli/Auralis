@@ -22,6 +22,7 @@ from core.stream_protocol import safe_send_text
 from fastapi import WebSocket
 from helpers import spawn_background_task
 from schemas import (  # single source of truth (#4424, #4600)
+    DEFAULT_PRESET,
     VALID_PRESETS,
     is_valid_intensity,
 )
@@ -33,7 +34,6 @@ logger = logging.getLogger(__name__)
 
 # Fallbacks of last resort, used only when neither the client payload nor any
 # stored settings dict yields a valid value.
-DEFAULT_PRESET = "adaptive"
 DEFAULT_INTENSITY = 1.0
 
 # Sentinel distinguishing "the client omitted this key" from "the client sent

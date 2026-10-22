@@ -22,7 +22,7 @@ import asyncio
 import logging
 from typing import Any
 
-from schemas import INTENSITY_MAX, VALID_PRESETS, is_valid_intensity
+from schemas import DEFAULT_PRESET, INTENSITY_MAX, VALID_PRESETS, is_valid_intensity
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +122,7 @@ def seed_enhancement_settings(
             logger.warning(
                 f"Stored default_preset {stored_preset!r} is not one of "
                 f"{VALID_PRESETS}; keeping "
-                f"{enhancement_settings.get('preset', 'adaptive')!r}"
+                f"{enhancement_settings.get('preset', DEFAULT_PRESET)!r}"
             )
     intensity = getattr(user_settings, 'enhancement_intensity', None)
     if intensity is not None:

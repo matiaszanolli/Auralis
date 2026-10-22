@@ -14,6 +14,7 @@ from typing import Any, Protocol, cast
 
 from cache import StreamlinedCacheManager, streamlined_cache_manager
 from core import audio_stream_controller as _asc
+from schemas import DEFAULT_PRESET
 from security.path_security import PathValidationError, validate_file_path
 from websocket.outbound_messages import MasteringRecommendationPayload, broadcast_typed
 
@@ -84,7 +85,7 @@ class RecommendationService:
             processor = ChunkedAudioProcessor(
                 track_id=track_id,
                 filepath=track_path,
-                preset="adaptive",
+                preset=DEFAULT_PRESET,
                 intensity=1.0,
                 chunk_cache={},
             )

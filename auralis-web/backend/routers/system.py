@@ -18,6 +18,7 @@ from core.audio_stream_controller import AudioStreamController, ws_id as _ws_id
 from core.processing_engine import _safe_error_message
 from core.stream_gates import stream_flow_events, stream_pause_events
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from schemas import DEFAULT_PRESET
 from websocket.websocket_security import (
     WebSocketRateLimiter,
     validate_and_parse_message,
@@ -70,7 +71,7 @@ async def stream_audio(
     get_enhancement_settings: Callable[[], dict[str, Any]] | None,
     *,
     track_id: int = 0,
-    preset: str = "adaptive",
+    preset: str = DEFAULT_PRESET,
     intensity: float = 1.0,
     force: bool = False,
     start_position: float = 0.0,
@@ -218,7 +219,7 @@ async def stream_from_position(
     get_enhancement_settings: Callable[[], dict[str, Any]] | None,
     *,
     track_id: int = 0,
-    preset: str = "adaptive",
+    preset: str = DEFAULT_PRESET,
     intensity: float = 1.0,
     position: float = 0.0,
     enhancement_enabled: bool = True,
