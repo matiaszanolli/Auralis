@@ -36,7 +36,7 @@ class SpectrumPosition:
 
 
 @dataclass
-class ProcessingParameters:
+class SpectrumParameters:
     """
     Calculated processing parameters from spectrum analysis.
     These flow naturally from content, not rigid presets.

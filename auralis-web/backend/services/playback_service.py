@@ -12,7 +12,7 @@ import asyncio
 import logging
 from typing import Any, Protocol, cast
 
-from websocket.outbound_messages import broadcast_typed
+from websocket.outbound_messages import BroadcastManager, broadcast_typed
 
 from services.playback_event_sequencer import playback_event_sequencer
 from .errors import InvalidRequest, ServiceUnavailable
@@ -67,14 +67,6 @@ class PlayerStateManager(Protocol):
         ...
 
 
-class ConnectionManager(Protocol):
-    """Protocol for connection manager interface."""
-
-    async def broadcast(self, message: dict[str, Any]) -> None:
-        """Broadcast message to connected clients."""
-        ...
-
-
 class PlaybackService:
     """
     Service for managing audio playback control.
@@ -87,7 +79,7 @@ class PlaybackService:
         self,
         audio_player: AudioPlayer,
         player_state_manager: PlayerStateManager,
-        connection_manager: ConnectionManager,
+        connection_manager: BroadcastManager,
     ) -> None:
         """
         Initialize PlaybackService.
@@ -95,14 +87,14 @@ class PlaybackService:
         Args:
             audio_player: AudioPlayer instance implementing AudioPlayer protocol
             player_state_manager: PlayerStateManager instance implementing PlayerStateManager protocol
-            connection_manager: WebSocket connection manager implementing ConnectionManager protocol
+            connection_manager: WebSocket connection manager implementing BroadcastManager protocol
 
         Raises:
             ValueError: If any required component is not available
         """
         self.audio_player: AudioPlayer = audio_player
         self.player_state_manager: PlayerStateManager = player_state_manager
-        self.connection_manager: ConnectionManager = connection_manager
+        self.connection_manager: BroadcastManager = connection_manager
 
         # #3734/#5294: play/pause/stop/seek use one process-wide lock so
         # separate per-request service instances cannot interleave their

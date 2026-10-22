@@ -10,11 +10,11 @@ This ensures consistency across WebSocket and REST endpoints.
 """
 
 import uuid
-from enum import Enum
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from auralis.player.playback_controller import PlaybackState as PlaybackState  # re-exported: one enum for engine and wire
 from schemas import DEFAULT_PRESET, EnhancementPresetLiteral
 
 
@@ -23,15 +23,6 @@ from schemas import DEFAULT_PRESET, EnhancementPresetLiteral
 # client an empty snapshot; a changed id is how the client tells that apart
 # from "nothing was playing".
 SERVER_INSTANCE_ID: str = uuid.uuid4().hex
-
-
-class PlaybackState(str, Enum):
-    """Playback state enumeration"""
-    STOPPED = "stopped"
-    PLAYING = "playing"
-    PAUSED = "paused"
-    LOADING = "loading"
-    ERROR = "error"
 
 
 class TrackInfo(BaseModel):

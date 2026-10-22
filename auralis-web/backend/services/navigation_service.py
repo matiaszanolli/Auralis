@@ -22,8 +22,8 @@ from .errors import InvalidRequest, ServiceUnavailable
 from .queue_enrichment import entry_filepath
 
 if TYPE_CHECKING:
-    from config.globals import ConnectionManager
     from player_state import PlayerState
+    from websocket.outbound_messages import BroadcastManager
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +92,7 @@ class NavigationService:
         self,
         audio_player: AudioPlayer,
         player_state_manager: PlayerStateManager,
-        connection_manager: ConnectionManager,
+        connection_manager: BroadcastManager,
         create_track_info_fn: Callable[[Any], Any],
     ) -> None:
         """
@@ -109,7 +109,7 @@ class NavigationService:
         """
         self.audio_player: AudioPlayer = audio_player
         self.player_state_manager: PlayerStateManager = player_state_manager
-        self.connection_manager: ConnectionManager = connection_manager
+        self.connection_manager: BroadcastManager = connection_manager
         self.create_track_info_fn: Callable[[Any], Any] = create_track_info_fn
 
     async def _follow_engine(self, track_index: int) -> PlayerState | None:

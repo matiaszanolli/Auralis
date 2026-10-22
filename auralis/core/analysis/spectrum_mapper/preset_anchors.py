@@ -11,10 +11,10 @@ Defines preset anchor points on the processing spectrum
 """
 
 
-from .data_classes import ProcessingParameters, SpectrumPosition
+from .data_classes import SpectrumParameters, SpectrumPosition
 
 
-def get_preset_anchors() -> dict[str, tuple[SpectrumPosition, ProcessingParameters]]:
+def get_preset_anchors() -> dict[str, tuple[SpectrumPosition, SpectrumParameters]]:
     """
     Define presets as anchor points on the spectrum.
     Each preset has a position and corresponding parameters.
@@ -31,7 +31,7 @@ def get_preset_anchors() -> dict[str, tuple[SpectrumPosition, ProcessingParamete
                 energy=0.4,  # Moderate energy
                 density=0.5,  # Medium complexity
             ),
-            ProcessingParameters(
+            SpectrumParameters(
                 bass_adjustment=0.3,
                 low_mid_adjustment=0.0,
                 mid_adjustment=0.0,
@@ -58,7 +58,7 @@ def get_preset_anchors() -> dict[str, tuple[SpectrumPosition, ProcessingParamete
                 energy=0.8,  # High energy
                 density=0.7,  # Complex/busy
             ),
-            ProcessingParameters(
+            SpectrumParameters(
                 bass_adjustment=1.8,
                 low_mid_adjustment=0.5,
                 mid_adjustment=0.0,
@@ -85,7 +85,7 @@ def get_preset_anchors() -> dict[str, tuple[SpectrumPosition, ProcessingParamete
                 energy=0.7,  # High energy
                 density=0.6,  # Moderate complexity
             ),
-            ProcessingParameters(
+            SpectrumParameters(
                 bass_adjustment=0.8,
                 low_mid_adjustment=-0.8,  # Reduce mud
                 mid_adjustment=0.5,
@@ -112,7 +112,7 @@ def get_preset_anchors() -> dict[str, tuple[SpectrumPosition, ProcessingParamete
                 energy=0.5,  # Neutral
                 density=0.5,  # Neutral
             ),
-            ProcessingParameters(
+            SpectrumParameters(
                 bass_adjustment=0.0,
                 low_mid_adjustment=0.0,
                 mid_adjustment=0.0,

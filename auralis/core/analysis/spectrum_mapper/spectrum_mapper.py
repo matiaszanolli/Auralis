@@ -16,7 +16,7 @@ from typing import Any
 import numpy as np
 
 from .content_modifiers import apply_content_modifiers
-from .data_classes import ProcessingParameters, SpectrumPosition
+from .data_classes import SpectrumParameters, SpectrumPosition
 from .preset_anchors import get_preset_anchors
 
 
@@ -80,7 +80,7 @@ class SpectrumMapper:
 
     def calculate_processing_parameters(self,
                                        spectrum_position: SpectrumPosition,
-                                       user_preset_hint: str = 'adaptive') -> ProcessingParameters:
+                                       user_preset_hint: str = 'adaptive') -> SpectrumParameters:
         """
         Calculate processing parameters by interpolating on the spectrum.
 
@@ -89,7 +89,7 @@ class SpectrumMapper:
             user_preset_hint: User's preset choice provides initial weighting
 
         Returns:
-            ProcessingParameters calculated from spectrum position
+            SpectrumParameters calculated from spectrum position
         """
         # Calculate distances from each preset anchor
         weights = self._calculate_preset_weights(spectrum_position, user_preset_hint)
@@ -148,7 +148,7 @@ class SpectrumMapper:
 
         return weights
 
-    def _interpolate_parameters(self, weights: dict[str, float]) -> ProcessingParameters:
+    def _interpolate_parameters(self, weights: dict[str, float]) -> SpectrumParameters:
         """
         Interpolate processing parameters using weighted blend of presets.
 
@@ -156,10 +156,10 @@ class SpectrumMapper:
             weights: Normalized weights for each preset
 
         Returns:
-            Interpolated ProcessingParameters
+            Interpolated SpectrumParameters
         """
         # Initialize result with zeros
-        result = ProcessingParameters(
+        result = SpectrumParameters(
             bass_adjustment=0.0,
             low_mid_adjustment=0.0,
             mid_adjustment=0.0,

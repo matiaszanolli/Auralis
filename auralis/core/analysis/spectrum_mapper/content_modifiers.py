@@ -10,12 +10,12 @@ Rules for adjusting processing parameters based on content characteristics
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from .data_classes import ProcessingParameters, SpectrumPosition
+from .data_classes import SpectrumParameters, SpectrumPosition
 
 
-def apply_content_modifiers(params: ProcessingParameters,
+def apply_content_modifiers(params: SpectrumParameters,
                             position: SpectrumPosition,
-                            user_preset_hint: str = 'adaptive') -> ProcessingParameters:
+                            user_preset_hint: str = 'adaptive') -> SpectrumParameters:
     """
     Apply content-specific modifiers to interpolated parameters.
     These are rules that apply across the spectrum.
@@ -44,9 +44,9 @@ def apply_content_modifiers(params: ProcessingParameters,
     return params
 
 
-def _apply_extreme_dynamics_rule(params: ProcessingParameters,
+def _apply_extreme_dynamics_rule(params: SpectrumParameters,
                                  position: SpectrumPosition,
-                                 preset_target_lufs: float) -> ProcessingParameters:
+                                 preset_target_lufs: float) -> SpectrumParameters:
     """
     Rule 1a: Handle extreme dynamics (crest > 17 dB, DR > 0.9)
 
@@ -84,8 +84,8 @@ def _apply_extreme_dynamics_rule(params: ProcessingParameters,
     return params
 
 
-def _apply_dynamic_material_rule(params: ProcessingParameters,
-                                 position: SpectrumPosition) -> ProcessingParameters:
+def _apply_dynamic_material_rule(params: SpectrumParameters,
+                                 position: SpectrumPosition) -> SpectrumParameters:
     """
     Rule 1b: Very dynamic material (high crest) needs careful handling
     BUT: High-energy dynamic material (metal) can still handle processing
@@ -103,8 +103,8 @@ def _apply_dynamic_material_rule(params: ProcessingParameters,
     return params
 
 
-def _apply_quiet_material_rule(params: ProcessingParameters,
-                               position: SpectrumPosition) -> ProcessingParameters:
+def _apply_quiet_material_rule(params: SpectrumParameters,
+                               position: SpectrumPosition) -> SpectrumParameters:
     """
     Rule 2: Very quiet material needs input gain
     """
@@ -115,8 +115,8 @@ def _apply_quiet_material_rule(params: ProcessingParameters,
     return params
 
 
-def _apply_spectral_balance_rules(params: ProcessingParameters,
-                                  position: SpectrumPosition) -> ProcessingParameters:
+def _apply_spectral_balance_rules(params: SpectrumParameters,
+                                  position: SpectrumPosition) -> SpectrumParameters:
     """
     Rules 3-4: Adjust EQ based on spectral balance
     """
@@ -133,8 +133,8 @@ def _apply_spectral_balance_rules(params: ProcessingParameters,
     return params
 
 
-def _apply_energy_rules(params: ProcessingParameters,
-                       position: SpectrumPosition) -> ProcessingParameters:
+def _apply_energy_rules(params: SpectrumParameters,
+                       position: SpectrumPosition) -> SpectrumParameters:
     """
     Rule 5: High energy material can handle more aggressive processing
     """
@@ -145,9 +145,9 @@ def _apply_energy_rules(params: ProcessingParameters,
     return params
 
 
-def _apply_output_target_rules(params: ProcessingParameters,
+def _apply_output_target_rules(params: SpectrumParameters,
                                position: SpectrumPosition,
-                               preset_target_lufs: float) -> ProcessingParameters:
+                               preset_target_lufs: float) -> SpectrumParameters:
     """
     Rule 6: Adjust output target based on input level and dynamics
     GOAL: Better audio experience - good RMS, broader range, less compression on heavy material

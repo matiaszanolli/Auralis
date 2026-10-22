@@ -24,8 +24,13 @@ from collections.abc import Callable, Iterator
 from ..utils.logging import debug, info, warning
 
 
-class PlaybackState(Enum):
-    """Playback state enumeration"""
+class PlaybackState(str, Enum):
+    """Playback state enumeration.
+
+    A ``str`` enum so the backend can serialise it directly: the WebSocket and
+    REST payloads carry these values on the wire (the backend re-exports this
+    class from ``player_state``).
+    """
     STOPPED = "stopped"
     PLAYING = "playing"
     PAUSED = "paused"

@@ -10,23 +10,19 @@ Performs background analysis of loaded tracks to suggest optimal audio profiles.
 
 import asyncio
 import logging
-from typing import Any, Protocol, cast
+from typing import Any, cast
 
 from cache import StreamlinedCacheManager, streamlined_cache_manager
 from core import audio_stream_controller as _asc
 from schemas import DEFAULT_PRESET
 from security.path_security import PathValidationError, validate_file_path
-from websocket.outbound_messages import MasteringRecommendationPayload, broadcast_typed
+from websocket.outbound_messages import (
+    BroadcastManager,
+    MasteringRecommendationPayload,
+    broadcast_typed,
+)
 
 logger = logging.getLogger(__name__)
-
-
-class BroadcastManager(Protocol):
-    """Protocol for broadcast manager interface."""
-
-    async def broadcast(self, message: dict[str, Any]) -> None:
-        """Broadcast message to connected clients."""
-        ...
 
 
 class RecommendationService:

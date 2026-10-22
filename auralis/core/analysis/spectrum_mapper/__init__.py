@@ -11,14 +11,14 @@ Maps content analysis to processing parameters using spectrum-based approach
 """
 
 from .content_modifiers import apply_content_modifiers
-from .data_classes import ProcessingParameters, SpectrumPosition
+from .data_classes import SpectrumParameters, SpectrumPosition
 from .preset_anchors import get_preset_anchors
 from .spectrum_mapper import SpectrumMapper
 
 __all__ = [
     'SpectrumMapper',
     'SpectrumPosition',
-    'ProcessingParameters',
+    'SpectrumParameters',
     'get_preset_anchors',
     'apply_content_modifiers',
 ]
