@@ -210,7 +210,7 @@ Every agent prompt MUST include:
 - Stale `# type: ignore` comments whose underlying error no longer exists (`mypy` no longer reports there).
 - Frontend: unused exports / dead components / dead hooks (`ts-prune` or `eslint` `no-unused-vars` if configured; otherwise grep the export name across `src/`).
 - Re-exports through `__init__.py` / `index.ts` that no consumer uses.
-- Re-exports kept "so existing imports keep working" after an extraction (e.g. `chunked_processor.py` re-exporting `apply_crossfade_between_chunks` under `noqa: F401`): check whether any **non-test** importer remains.
+- Re-exports kept "so existing imports keep working" after an extraction (e.g. the `noqa: F401` re-export block in `chunked_processor.py`): check whether any **non-test** importer remains.
 - Clusters already deleted are listed under Retired Architecture in `_audit-common.md` — do not re-report their absence.
 - Rust DSP: every `#[allow(dead_code)]` — is the item actually called from the PyO3 boundary now, or still dead?
 - **Don't flag**: `if TYPE_CHECKING:` imports, `pytest` fixtures, FastAPI dependency-injection callables, public API of `auralis/` that the desktop/CLI surface consumes, PyO3 `#[pyfunction]`/`#[pymethods]` exposed to Python.

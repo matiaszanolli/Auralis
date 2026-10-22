@@ -239,17 +239,14 @@ Chunk N covers `[N*10, N*10+15]`. **Never** count chunks with naive
 ([`chunk_boundaries.py:37`](../../auralis-web/backend/core/chunk_boundaries.py), #4124). It is
 the authoritative counter.
 
-### Crossfade math
+### Chunk seams (no crossfade)
 
-`apply_crossfade_between_chunks`
-([`chunked_processor.py:904`](../../auralis-web/backend/core/chunked_processor.py)) uses
-**equal-power** sin²/cos² curves (`fade_out = cos(t)²`, `fade_in = sin(t)²`,
-`t = linspace(0, π/2, N)`) to avoid the mid-point energy dip (#2080).
-
-> **Subtle:** crossfade is applied only at the *streaming boundary*. The full-file
-> reassembly path (`get_full_processed_audio_path`) uses plain `np.concatenate` because the
-> extracted segments are already non-overlapping — crossfading there double-blended and
-> shortened output by (N−1)×5 s (#2750).
+There is no crossfade math. Each chunk is rendered with `CONTEXT_DURATION` of
+context and trimmed to a non-overlapping `CHUNK_INTERVAL` segment, so the emitted
+segments tile the timeline exactly (#4642). The full-file reassembly path
+(`get_full_processed_audio_path`) is a plain `np.concatenate` for the same reason;
+crossfading there double-blended and shortened output by (N−1)×5 s (#2750). The
+unused crossfade helper that survived #4642 was deleted in #5776.
 
 ### ProcessorFactory lifecycle
 

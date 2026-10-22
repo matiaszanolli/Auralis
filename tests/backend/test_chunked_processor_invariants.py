@@ -41,7 +41,6 @@ from core.chunked_processor import (
     OVERLAP_DURATION,
     ChunkedAudioProcessor,
 )
-from core.chunk_crossfade import apply_crossfade_between_chunks
 
 # Add root to path for auralis imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -411,78 +410,6 @@ def test_processed_chunks_concatenate_to_correct_duration(processor):
         f"got {total_duration:.2f}s (with overlaps), "
         f"expected around {rough_expected:.2f}s"
     )
-
-
-# ============================================================================
-# Crossfade Invariant Tests (P1 Priority)
-# ============================================================================
-
-@pytest.mark.unit
-def test_crossfade_preserves_total_duration():
-    """
-    INVARIANT: Crossfading two chunks should not change total duration.
-
-    Result length = len(chunk1) + len(chunk2) - overlap_samples
-    """
-    # Create two test chunks
-    chunk1 = np.random.randn(44100, 2)  # 1 second stereo
-    chunk2 = np.random.randn(44100, 2)  # 1 second stereo
-    overlap_samples = 4410  # 0.1 second overlap
-
-    result = apply_crossfade_between_chunks(chunk1, chunk2, overlap_samples)
-
-    expected_length = len(chunk1) + len(chunk2) - overlap_samples
-
-    assert len(result) == expected_length, (
-        f"Crossfade changed duration: expected {expected_length} samples, "
-        f"got {len(result)} samples"
-    )
-
-
-@pytest.mark.unit
-def test_crossfade_handles_stereo_correctly():
-    """
-    INVARIANT: Crossfade must preserve stereo channel count.
-    """
-    chunk1 = np.random.randn(44100, 2)  # Stereo
-    chunk2 = np.random.randn(44100, 2)  # Stereo
-    overlap_samples = 4410
-
-    result = apply_crossfade_between_chunks(chunk1, chunk2, overlap_samples)
-
-    assert result.ndim == 2, f"Expected 2D array (stereo), got {result.ndim}D"
-    assert result.shape[1] == 2, f"Expected 2 channels, got {result.shape[1]}"
-
-
-@pytest.mark.unit
-def test_crossfade_with_zero_overlap_concatenates():
-    """
-    INVARIANT: Zero overlap should result in simple concatenation.
-    """
-    chunk1 = np.random.randn(44100, 2)
-    chunk2 = np.random.randn(44100, 2)
-    overlap_samples = 0
-
-    result = apply_crossfade_between_chunks(chunk1, chunk2, overlap_samples)
-    expected = np.concatenate([chunk1, chunk2], axis=0)
-
-    assert len(result) == len(expected), "Zero overlap should concatenate"
-    np.testing.assert_array_equal(result, expected)
-
-
-@pytest.mark.unit
-def test_crossfade_overlap_larger_than_chunks_handles_gracefully():
-    """
-    INVARIANT: Crossfade should handle edge case where overlap > chunk length.
-    """
-    chunk1 = np.random.randn(1000, 2)
-    chunk2 = np.random.randn(1000, 2)
-    overlap_samples = 10000  # Larger than chunks
-
-    # Should not crash, should use actual available overlap
-    result = apply_crossfade_between_chunks(chunk1, chunk2, overlap_samples)
-
-    assert len(result) > 0, "Should handle excessive overlap gracefully"
 
 
 # ============================================================================

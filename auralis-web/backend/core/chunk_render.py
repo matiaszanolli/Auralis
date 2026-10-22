@@ -11,8 +11,7 @@ transitions across chunk boundaries.
 
 Each function takes the owning ``ChunkedAudioProcessor`` as its first
 argument and reads/updates its state directly — the same pattern already
-used by ``chunk_mastering.compute_mastering_recommendation`` and
-``chunk_crossfade.apply_crossfade_between_chunks``. Calls that recurse back
+used by ``chunk_mastering.compute_mastering_recommendation``. Calls that recurse back
 into another extracted concern go through ``processor.<method>`` (the
 instance's own — possibly test-patched — attribute), never straight to a
 sibling module function, so per-instance mocking (``patch.object(processor,

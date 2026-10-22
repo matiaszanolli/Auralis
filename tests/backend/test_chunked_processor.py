@@ -31,7 +31,6 @@ from core.chunked_processor import (
     OVERLAP_DURATION,
     ChunkedAudioProcessor,
 )
-from core.chunk_crossfade import apply_crossfade_between_chunks
 from core.chunk_cache_manager import ChunkCacheManager
 from core.chunk_metadata import AudioMetadata
 from config.limits import CHUNK_TEMP_DIRNAME
@@ -244,42 +243,6 @@ class TestChunkPath:
         """Chunk paths are placed inside processor.chunk_dir."""
         chunk_path = processor._get_chunk_path(0)
         assert processor.chunk_dir in chunk_path.parents
-
-
-# ---------------------------------------------------------------------------
-# Crossfade
-# ---------------------------------------------------------------------------
-
-class TestCrossfade:
-    """Tests for crossfade functionality"""
-
-    def test_apply_crossfade_basic(self):
-        """Test basic crossfade application"""
-        # Create test chunks (mono)
-        chunk1 = np.ones(44100)  # 1 second at 44.1kHz
-        chunk2 = np.zeros(44100)
-
-        # Apply crossfade
-        result = apply_crossfade_between_chunks(
-            chunk1=chunk1,
-            chunk2=chunk2,
-            overlap_samples=4410  # 0.1 seconds
-        )
-
-        assert isinstance(result, np.ndarray)
-        assert len(result) > 0
-        # Result should be shorter due to overlap
-        assert len(result) < len(chunk1) + len(chunk2)
-
-    def test_apply_crossfade_maintains_data_type(self):
-        """Test that crossfade maintains floating point data type"""
-        chunk1 = np.ones(44100, dtype=np.float32)
-        chunk2 = np.zeros(44100, dtype=np.float32)
-
-        result = apply_crossfade_between_chunks(chunk1, chunk2, 4410)
-
-        # Check that result is floating point (float32 or float64)
-        assert np.issubdtype(result.dtype, np.floating)
 
 
 # ---------------------------------------------------------------------------

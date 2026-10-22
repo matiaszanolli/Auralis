@@ -107,7 +107,7 @@ The engine-side parallel processor was deleted in #4565. Two live chunk paths re
 
 **How to verify** — backend processor (`auralis-web/backend/core/chunked_processor.py`, `auralis-web/backend/core/processor_pool.py`):
 - Chunk reassembly: ordering is index-based, not arrival-order
-- Segment tiling: each chunk is rendered with context and trimmed to a non-overlapping `CHUNK_INTERVAL` segment (`auralis-web/backend/core/chunk_operations.py`, `auralis-web/backend/core/chunk_render.py`) — no gap, overlap or repeated samples. `auralis-web/backend/core/chunk_crossfade.py` has no production caller; if one reappears, its curve must stay equal-gain sin²/cos² (#3878)
+- Segment tiling: each chunk is rendered with context and trimmed to a non-overlapping `CHUNK_INTERVAL` segment (`auralis-web/backend/core/chunk_operations.py`, `auralis-web/backend/core/chunk_render.py`) — no gap, overlap or repeated samples. *chunk_crossfade.py* was deleted in #5776; a crossfade reappearing anywhere in the emitted path is a regression of #4642 (the old helper's curve was equal-gain sin²/cos², #3878)
 - No shared mutable state between concurrent workers — mastering targets read by workers must be immutable
 - Chunk geometry comes from `auralis-web/backend/core/chunk_boundaries.py`, never a literal
 

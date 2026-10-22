@@ -47,7 +47,7 @@ output = audio.copy()                         # NEVER modify caller-owned array 
 3. **Clipping** — clamp to `[-1.0, 1.0]` before emitting PCM (`auralis/io/results.py`).
 4. **NaN/Inf** — guard every `log`, `sqrt`, division. One NaN poisons the entire downstream buffer.
 5. **Mono/stereo** — mono → stereo expansion must happen at a known stage. Inconsistent shape between stages is a bug.
-6. **Chunk handling** — chunks must be **true copies**, reassembled in order, `sum(chunk_lengths) == total_length`. The engine loop carries context between chunks; the backend renders each chunk with context and emits non-overlapping segments with **no crossfade** (#4642). The retained `chunk_crossfade.py` helper is equal-gain sin²/cos² (#3878), deliberately not equal-power.
+6. **Chunk handling** — chunks must be **true copies**, reassembled in order, `sum(chunk_lengths) == total_length`. The engine loop carries context between chunks; the backend renders each chunk with context and emits non-overlapping segments with **no crossfade** (#4642). The unused crossfade helper that survived #4642 (*chunk_crossfade.py*, equal-gain sin²/cos², #3878) was deleted in #5776.
 7. **Phase coherence** — multi-band processing must preserve phase relationships. Double-windowing (fix `cca59d9c`) and parallel sub-bass loss (fix `8bc5b217`) are the historical regressions.
 8. **PyO3 GIL** — Rust compute must `py.allow_threads(...)` or it serializes all Python callers.
 9. **EQ band mapping by frequency** — the psychoacoustic EQ maps its curve to bands **by frequency**, not by raw index (fix `2b3c5b35`). An out-of-range band index used to raise `IndexError` and silently fall back to the simple EQ.

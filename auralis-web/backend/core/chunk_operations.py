@@ -10,11 +10,9 @@ Consolidates duplicate logic from:
 
 This utility eliminates ~300 lines of duplicate chunk handling code.
 
-Crossfade math lives solely in ``chunk_crossfade.apply_crossfade_between_chunks``
-(#4245) — an `apply_crossfade` staticmethod used to be duplicated here too, but
-it was dead code (no caller anywhere in the tree) that had drifted into its own
-copy of the same sin²/cos² math; removed rather than reconciled, since nothing
-depended on it (#4245 CONSISTENCY check).
+Emitted chunks tile exactly — each is rendered with context and trimmed to a
+non-overlapping segment — so there is no crossfade math anywhere in the
+streaming path (#4642; the last, unused crossfade helper was deleted in #5776).
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
@@ -42,9 +40,6 @@ class ChunkOperations:
     Provides static methods for:
     - Loading audio chunks from files
     - Extracting segments with overlap handling
-
-    Crossfade math lives in chunk_crossfade.apply_crossfade_between_chunks
-    (#4245), not here.
 
     This class follows the Utilities Pattern (Phase 7.2) - all methods are
     static, no instance state.
