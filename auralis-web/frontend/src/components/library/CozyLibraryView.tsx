@@ -29,7 +29,7 @@ import type { ViewMode } from '@/components/navigation/ViewToggle';
 import { LibraryViewRouter } from './Views/LibraryViewRouter';
 import { ViewContainer } from './Views/ViewContainer';
 import { TrackListView } from './Views/TrackListView';
-import { EmptyState, EmptyLibrary, NoSearchResults } from '@/components/shared/ui/feedback';
+import { LibraryEmptyContent } from '@/components/CozyLibraryView/LibraryEmptyContent';
 import { AlbumCharacterPane } from './AlbumCharacterPane';
 import { useLibraryKeyboardShortcuts } from '@/components/CozyLibraryView/useLibraryKeyboardShortcuts';
 import { useBatchOperations } from './useBatchOperations';
@@ -224,23 +224,12 @@ const CozyLibraryView = memo<CozyLibraryViewProps>(({
 
         {/* Track List or Empty State */}
         {filteredTracks.length === 0 && !loading ? (
-          <>
-            {view === 'favourites' ? (
-              <EmptyState
-                icon="music"
-                title="No favorites yet"
-                description="Click the heart icon on tracks you love to add them to your favorites"
-              />
-            ) : searchQuery ? (
-              <NoSearchResults query={searchQuery} />
-            ) : (
-              <EmptyLibrary
-                onScanFolder={handleScanFolder}
-                onFolderDrop={handleScanFolder}
-                scanning={scanning}
-              />
-            )}
-          </>
+          <LibraryEmptyContent
+            view={view}
+            searchQuery={searchQuery}
+            scanning={scanning}
+            onScanFolder={handleScanFolder}
+          />
         ) : (
           <TrackListView
             tracks={filteredTracks}

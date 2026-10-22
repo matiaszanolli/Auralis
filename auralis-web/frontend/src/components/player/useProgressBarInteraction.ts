@@ -26,6 +26,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { keyboardSeekTarget, positionFromPointer, progressPercent } from './progressBarMath';
 
 export interface UseProgressBarInteractionArgs {
   currentTime: number;
@@ -75,28 +76,21 @@ export function useProgressBarInteraction({
   // playback clock — the seek only lands after release (#5625).
   const displayTime = dragPosition ?? currentTime;
 
-  // Calculate progress percentage
-  const progressPercentage = useMemo(() => {
-    if (!Number.isFinite(duration) || duration <= 0) {
-      return 0;
-    }
-    const percentage = (displayTime / duration) * 100;
-    return Math.min(Math.max(percentage, 0), 100);
-  }, [displayTime, duration]);
+  const progressPercentage = useMemo(
+    () => progressPercent(displayTime, duration),
+    [displayTime, duration]
+  );
 
   // Handle mouse/touch position calculation (stable — reads from refs)
   const getPositionFromEvent = useCallback((event: PointLike) => {
     if (!containerRef.current) return currentTimeRef.current;
 
-    const rect = containerRef.current.getBoundingClientRect();
-    // A zero-width rect (unlaid-out container, jsdom) makes x/width NaN,
-    // which previously reached onSeek as a NaN position — treat it as "no
-    // measurable position" and fall back to the current time.
-    if (rect.width <= 0) return currentTimeRef.current;
-
-    const x = event.clientX - rect.left;
-    const percentage = Math.max(0, Math.min(1, x / rect.width));
-    return percentage * durationRef.current;
+    return positionFromPointer(
+      event.clientX,
+      containerRef.current.getBoundingClientRect(),
+      durationRef.current,
+      currentTimeRef.current
+    );
   }, []);
 
   // Handle click to seek
@@ -188,35 +182,11 @@ export function useProgressBarInteraction({
         return;
       }
 
-      const STEP = 1; // 1 second per arrow key
-      let newPosition: number | null = null;
+      const newPosition = keyboardSeekTarget(event.key, currentTime, duration);
+      if (newPosition === null) return;
 
-      switch (event.key) {
-        case 'ArrowLeft':
-        case 'ArrowDown':
-          event.preventDefault();
-          newPosition = Math.max(0, currentTime - STEP);
-          break;
-        case 'ArrowRight':
-        case 'ArrowUp':
-          event.preventDefault();
-          newPosition = Math.min(duration, currentTime + STEP);
-          break;
-        case 'Home':
-          event.preventDefault();
-          newPosition = 0;
-          break;
-        case 'End':
-          event.preventDefault();
-          newPosition = duration;
-          break;
-        default:
-          return;
-      }
-
-      if (newPosition !== null) {
-        onSeek(newPosition);
-      }
+      event.preventDefault();
+      onSeek(newPosition);
     },
     [disabled, duration, currentTime, onSeek]
   );
