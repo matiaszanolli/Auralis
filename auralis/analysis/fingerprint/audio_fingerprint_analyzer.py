@@ -18,13 +18,11 @@ from typing import Any
 import numpy as np
 
 from auralis.analysis.fingerprint.rust_fingerprint import compute_fingerprint_schema
+from auralis.analysis.fingerprint.windows import FINGERPRINT_SAMPLE_RATE
 from auralis.dsp.utils.audio_info import ChannelLayout, to_mono
 
 logger = logging.getLogger(__name__)
 
-# Normalize every input to a fixed rate before analysis so the same file yields
-# the same fingerprint regardless of how it was loaded (#3657).
-_TARGET_SR = 22050
 
 
 def sanitize_non_finite(fingerprint: dict[str, Any], label: str) -> list[str]:
@@ -119,20 +117,20 @@ class AudioFingerprintAnalyzer:
             audio = np.asarray(audio, dtype=np.float32)
 
             # Normalize sample rate (#3657) before handing off to Rust.
-            if sr != _TARGET_SR:
+            if sr != FINGERPRINT_SAMPLE_RATE:
                 import librosa
                 if audio.ndim > 1:
                     ch_axis = 0 if audio.shape[0] <= 2 else 1
                     channels = [audio[c] if ch_axis == 0 else audio[:, c]
                                 for c in range(audio.shape[ch_axis])]
                     audio = np.stack(
-                        [librosa.resample(c.astype(np.float32), orig_sr=sr, target_sr=_TARGET_SR)
+                        [librosa.resample(c.astype(np.float32), orig_sr=sr, target_sr=FINGERPRINT_SAMPLE_RATE)
                          for c in channels],
                         axis=ch_axis,
                     )
                 else:
-                    audio = librosa.resample(audio, orig_sr=sr, target_sr=_TARGET_SR)
-                sr = _TARGET_SR
+                    audio = librosa.resample(audio, orig_sr=sr, target_sr=FINGERPRINT_SAMPLE_RATE)
+                sr = FINGERPRINT_SAMPLE_RATE
 
             # Minimum 0.5 s of audio for a meaningful fingerprint.
             num_samples = audio.shape[-1] if (audio.ndim > 1 and audio.shape[0] <= 2) else audio.shape[0]

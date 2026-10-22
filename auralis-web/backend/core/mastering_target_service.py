@@ -24,6 +24,7 @@ from collections.abc import Callable
 
 from auralis.__version__ import FINGERPRINT_ALGORITHM_VERSION
 from auralis.analysis.fingerprint import AudioFingerprintAnalyzer, FingerprintStorage
+from auralis.analysis.fingerprint.windows import FINGERPRINT_SAMPLE_RATE
 from auralis.analysis.mastering_fingerprint import MasteringFingerprint
 from mutagen import File as MutagenFile
 
@@ -36,14 +37,14 @@ def _probe_file_properties(filepath: str) -> tuple[float, int]:
     The windowed fingerprint pipeline never materialises the full audio, so
     there is no decoded buffer to divide for the old len(audio)/sr fallback.
     FFmpeg-only formats (m4a/aac/wma) fail the header read and get
-    (0.0, 22050); the windowed analysis itself decodes those independently.
+    (0.0, FINGERPRINT_SAMPLE_RATE); the windowed analysis itself decodes those independently.
     """
     try:
         import soundfile as sf
         with sf.SoundFile(str(filepath)) as f:
             return f.frames / f.samplerate, int(f.samplerate)
     except Exception:
-        return 0.0, 22050
+        return 0.0, FINGERPRINT_SAMPLE_RATE
 
 logger = logging.getLogger(__name__)
 

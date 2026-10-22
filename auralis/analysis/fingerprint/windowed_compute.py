@@ -38,6 +38,14 @@ from typing import Any
 import numpy as np
 
 from .audio_fingerprint_analyzer import sanitize_non_finite
+from .windows import (
+    FINGERPRINT_BODY_POSITION,
+    FINGERPRINT_BODY_WINDOW_S,
+    FINGERPRINT_PROBE_POSITIONS,
+    FINGERPRINT_PROBE_WINDOW_S,
+    FINGERPRINT_SAMPLE_RATE,
+    window_offset_s,
+)
 from ...dsp.utils.audio_info import to_mono
 
 logger = logging.getLogger(__name__)
@@ -102,9 +110,10 @@ def compute_windowed_fingerprint(
         # The body window (50 %) is used for the full spectral analysis because
         # it is most likely to represent the track's timbral character.  The 25 %
         # and 75 % probes are mono + fast — no full 25D analysis needed.
-        _target_sr = 22050
-        _probe_s   = 30.0   # length of each lightweight probe window
-        _body_s    = 90.0   # length of the full-analysis (body) window
+        # Geometry (rate, window lengths, positions) lives in .windows (#5797).
+        _target_sr = FINGERPRINT_SAMPLE_RATE
+        _probe_s = FINGERPRINT_PROBE_WINDOW_S
+        _body_s = FINGERPRINT_BODY_WINDOW_S
 
         if audio is None or sr is None:
             # Get total duration without loading audio
@@ -117,7 +126,7 @@ def compute_windowed_fingerprint(
 
             # Body window: centred on 50 % of track duration
             if _total_s is not None:
-                _body_offset = min(_total_s * 0.50, max(0.0, _total_s - _body_s))
+                _body_offset = window_offset_s(FINGERPRINT_BODY_POSITION, _total_s, _body_s)
             else:
                 _body_offset = 0.0
 
@@ -211,18 +220,16 @@ def compute_windowed_fingerprint(
                         audio = _decode_window(tmp, None, _body_s)
                         _probe_audios = []
                     else:
-                        _body_offset = min(
-                            _total_s * 0.50, max(0.0, _total_s - _body_s)
-                        )
+                        _body_offset = window_offset_s(FINGERPRINT_BODY_POSITION, _total_s, _body_s)
                         audio = _decode_window(tmp, _body_offset, _body_s)
                         # Lightweight LUFS/crest probes at 25 % and 75 %
                         _probe_audios = [
                             _decode_window(
                                 tmp,
-                                min(_frac * _total_s, max(0.0, _total_s - _probe_s)),
+                                window_offset_s(_frac, _total_s, _probe_s),
                                 _probe_s,
                             )
-                            for _frac in (0.25, 0.75)
+                            for _frac in FINGERPRINT_PROBE_POSITIONS
                         ]
 
                 # Rounding safety at the target rate (works for 1-D and 2-D).
@@ -237,8 +244,8 @@ def compute_windowed_fingerprint(
                 # Lightweight probes: mono is sufficient for LUFS/crest estimation
                 _probe_audios = []
                 if _total_s is not None:
-                    for _frac in [0.25, 0.75]:
-                        _poff = min(_frac * _total_s, max(0.0, _total_s - _probe_s))
+                    for _frac in FINGERPRINT_PROBE_POSITIONS:
+                        _poff = window_offset_s(_frac, _total_s, _probe_s)
                         try:
                             _pa, _ = librosa.load(
                                 str(audio_path), sr=_target_sr, mono=True,
@@ -276,7 +283,7 @@ def compute_windowed_fingerprint(
                 ])
 
             # Body window: centred on 50 % of duration, same as fresh-load.
-            _body_offset = min(_total_s * 0.50, max(0.0, _total_s - _body_s))
+            _body_offset = window_offset_s(FINGERPRINT_BODY_POSITION, _total_s, _body_s)
             audio = _crop_and_resample(_raw_audio, _body_offset, _body_s)
             sr = _target_sr
             # Rounding safety at the target rate (works for 1-D and 2-D).
@@ -286,8 +293,8 @@ def compute_windowed_fingerprint(
             # same pre-loaded buffer — feeds the multi-window correction
             # below exactly like the fresh-load branch's _probe_audios.
             _probe_audios = []
-            for _frac in [0.25, 0.75]:
-                _poff = min(_frac * _total_s, max(0.0, _total_s - _probe_s))
+            for _frac in FINGERPRINT_PROBE_POSITIONS:
+                _poff = window_offset_s(_frac, _total_s, _probe_s)
                 _probe_audios.append(_crop_and_resample(_raw_audio, _poff, _probe_s))
 
         # Ensure float64 for PyO3 compatibility

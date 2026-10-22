@@ -28,6 +28,8 @@ from typing import Any
 import librosa
 import numpy as np
 
+from .fingerprint.windows import FINGERPRINT_BODY_WINDOW_S
+
 from .fingerprint.metrics import AudioMetrics
 from ..io.formats import FFMPEG_FORMATS
 from ..utils.logging import warning
@@ -124,10 +126,10 @@ class MasteringFingerprint:
                         ])
                     else:
                         raw_audio = librosa.resample(raw_audio.astype(np.float32), orig_sr=raw_sr, target_sr=sr)
-                y = raw_audio[..., :int(sr * 90.0)]
+                y = raw_audio[..., :int(sr * FINGERPRINT_BODY_WINDOW_S)]
                 sr_loaded = sr
             else:
-                y, _loaded_sr = librosa.load(file_path, sr=sr, mono=False, duration=90.0)
+                y, _loaded_sr = librosa.load(file_path, sr=sr, mono=False, duration=FINGERPRINT_BODY_WINDOW_S)
                 sr_loaded = int(_loaded_sr)
 
             # Convert to mono if stereo
