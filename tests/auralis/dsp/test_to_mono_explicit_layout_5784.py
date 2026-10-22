@@ -75,7 +75,7 @@ def test_base_assessor_has_no_private_downmix_left() -> None:
 
 DOWNMIX_SITES = [
     'auralis/analysis/quality_assessors/utilities/estimation_ops.py',
-    'auralis/dsp/eq/psychoacoustic_eq.py',
+    'auralis/dsp/eq/spectrum_gains.py',  # moved out of psychoacoustic_eq.py (#5838)
     'auralis/core/analysis/content_analyzer.py',
     'auralis/core/mastering_prepare.py',
     'auralis/core/dsp/resonance_notcher.py',
