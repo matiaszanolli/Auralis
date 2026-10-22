@@ -15,7 +15,7 @@ from pathlib import Path
 import soundfile as sf
 
 from ...io.loader import oversize_probe_detail
-from ...io.loaders.ffmpeg_loader import _probe_audio
+from ...io.loaders.ffmpeg_probe import _probe_audio
 from ...utils.logging import debug, warning
 from ..scan_models import AudioFileInfo
 from .config import HASH_CHUNK_SIZE

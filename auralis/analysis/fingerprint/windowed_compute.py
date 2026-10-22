@@ -149,7 +149,7 @@ def compute_windowed_fingerprint(
                 import tempfile
 
                 from auralis.io.loaders import load_with_ffmpeg
-                from auralis.io.loaders.ffmpeg_loader import _probe_audio
+                from auralis.io.loaders.ffmpeg_probe import _probe_audio
 
                 def _decode_window(
                     tmp_dir: str, offset_s: float | None, dur_s: float | None

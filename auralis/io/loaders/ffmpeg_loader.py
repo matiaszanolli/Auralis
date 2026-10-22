@@ -4,220 +4,45 @@ FFmpeg Loader
 
 Audio loading using FFmpeg for MP3/M4A/AAC/OGG/WMA
 
+The probe layer lives in ``ffmpeg_probe.py`` and the subprocess supervision in
+``ffmpeg_process.py`` (#5835); both are re-exported here so existing import
+paths keep working.
+
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-import asyncio
-import functools
-import json
 import os
-import re
 import subprocess
 import tempfile
 import threading
-import time
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 
 from ...utils.logging import Code, ModuleError, debug, warning
+from .ffmpeg_command import build_ffmpeg_cmd, check_truncation
+from .ffmpeg_probe import (  # noqa: F401
+    _PROTOCOL_WHITELIST_ARGS,
+    MINIMUM_FFMPEG_VERSION,
+    _parse_ffmpeg_version,
+    _probe_audio,
+    check_ffmpeg,
+    check_ffprobe,
+    ffprobe_command,
+    reject_protocol_path,
+)
+from .ffmpeg_process import (  # noqa: F401
+    FFMPEG_DECODE_TIMEOUT_S,
+    FFMPEG_TERMINATE_GRACE_S,
+    FFMPEG_VERSION_CHECK_TIMEOUT_S,
+    FFPROBE_TIMEOUT_S,
+    SUBPROCESS_TEXT_KWARGS,
+    _run_ffmpeg_cancellable,
+    _terminate_process,
+    redact_subprocess_output,
+)
 from .soundfile_loader import load_with_soundfile
-
-# FFmpeg decodes untrusted media as an ambient, unversioned system binary
-# (#4344) — no minimum-version enforcement previously existed beyond a bare
-# presence probe. 4.0 (2018) predates it by enough years that we warn rather
-# than refuse: a hard refusal on an old-but-present binary would silently
-# break playback for users whose distro ships an older-but-still-patched
-# build, and this heuristic can't distinguish "old" from "old but backported
-# security fixes". Bundling a pinned FFmpeg build was considered (tracked
-# alongside SEC-M2) but deferred: per-platform binary packaging + licensing
-# review is out of scope here, so a version floor + warning is the interim
-# mitigation until (or instead of) bundling.
-MINIMUM_FFMPEG_VERSION = (4, 0, 0)
-
-# Rejects any file_path FFmpeg/libavformat would parse as a protocol
-# specifier rather than a plain filesystem path. A bare `"://" in path`
-# substring check (the guard this replaced) misses `pipe:0`, `concat:a|b`,
-# `data:...` and every other colon-only protocol, which never contain "://"
-# (#4834). Requires at least two characters before the colon so a
-# single-letter Windows drive path ("C:\\Users\\...") is never misclassified
-# as a protocol — every real FFmpeg protocol name is 2+ characters.
-_PROTOCOL_PREFIX_RE = re.compile(r'^[a-zA-Z][a-zA-Z0-9+.\-]+:')
-
-
-def reject_protocol_path(file_path_str: str) -> None:
-    """Raise ``ModuleError`` if *file_path_str* looks like an FFmpeg protocol
-    specifier (``concat:``, ``pipe:``, ``http://``, ...) instead of a plain
-    filesystem path. Shared by both ffprobe/ffmpeg call sites (#4834)."""
-    if _PROTOCOL_PREFIX_RE.match(file_path_str):
-        raise ModuleError(
-            f"{Code.ERROR_UNSUPPORTED_FORMAT}: URL/protocol inputs are not allowed",
-            path=file_path_str,
-        )
-
-
-# Pinned on every ffmpeg/ffprobe input so the only protocol FFmpeg may open is
-# a plain file (#5326). Without it, whether a content-sniffed HLS/concat
-# playlist can reach http:// or other local files rests on FFmpeg's own
-# default whitelist and extension checks, which vary by build and version.
-# The option dates from FFmpeg 3.0, so MINIMUM_FFMPEG_VERSION supports it.
-_PROTOCOL_WHITELIST_ARGS = ['-protocol_whitelist', 'file']
-
-
-# Every ffmpeg/ffprobe capture decodes with these. Bare ``text=True`` uses the
-# locale codec in strict mode, and FFmpeg echoes input metadata and the input
-# filename into stderr verbatim: an ID3v1 tag (always Latin-1) or a filename
-# with a raw non-UTF-8 byte made ``subprocess.run`` raise UnicodeDecodeError on
-# a perfectly decodable file (#5555). ``errors='replace'`` keeps the diagnostic
-# readable and the process result intact.
-SUBPROCESS_TEXT_KWARGS: dict[str, Any] = {'text': True, 'encoding': 'utf-8', 'errors': 'replace'}
-
-# Subprocess time budgets, in seconds. The ffprobe one is shared with
-# unified_loader.get_audio_info: two hand-written copies of that probe had
-# already drifted once (#5326) and their timeouts were still separate literals
-# (#5798).
-FFPROBE_TIMEOUT_S = 30           # one ffprobe call describing one file
-FFMPEG_VERSION_CHECK_TIMEOUT_S = 10   # `ffmpeg -version` / `ffprobe -version` availability probes
-FFMPEG_DECODE_TIMEOUT_S = 300    # one whole ffmpeg decode (5 minutes, regardless of file length)
-FFMPEG_TERMINATE_GRACE_S = 5     # terminate() -> kill() grace for a cancelled child
-
-
-def ffprobe_command(file_path_str: str) -> list[str]:
-    """Return the ffprobe argv for probing *file_path_str*.
-
-    The single definition both probe paths run (``_probe_audio`` here and
-    ``unified_loader._get_info_with_ffprobe``), so the protocol guard, the
-    whitelist and the ``--`` path isolation (#4826) cannot drift apart between
-    them again (#5326). Rejects a protocol-shaped path before building
-    anything, so no caller can reach ffprobe without the guard.
-    """
-    reject_protocol_path(file_path_str)
-    return [
-        'ffprobe',
-        # -v error, not quiet (#5590): quiet discards every diagnostic, so a
-        # non-zero exit arrived with empty stderr and every probe failure read
-        # "FFprobe failed: (no output)" — a missing moov atom was
-        # indistinguishable from a bad header or a directory. error level
-        # prints the one-line failure reason, which redact_subprocess_output
-        # already reduces and path-strips for user-facing messages.
-        '-v', 'error',
-        *_PROTOCOL_WHITELIST_ARGS,
-        '-print_format', 'json',
-        '-show_format',
-        '-show_streams',
-        '--',
-        file_path_str,
-    ]
-
-
-_STDERR_TAIL_MAX_CHARS = 200
-
-
-def redact_subprocess_output(
-    raw: str | None, max_chars: int = _STDERR_TAIL_MAX_CHARS, known_path: str | None = None
-) -> str:
-    """Bound a subprocess's raw stderr before it reaches a ``ModuleError`` message.
-
-    FFmpeg/ffprobe stderr always opens with a multi-line build-config banner,
-    and the actual failure reason is reliably the last non-empty line — so
-    keep only that, bounded to *max_chars*. That last line commonly reads
-    ``<input>: <reason>`` (e.g. ``/home/user/Music/track.mp3: Invalid data
-    found when processing input``), i.e. FFmpeg's own error format puts the
-    echoed input path on the SAME line as the reason, not just in the banner
-    above (#4806) — a plain last-line truncation still leaks it. Pass
-    *known_path* (the exact string handed to FFmpeg/ffprobe as the input) to
-    strip it from the tail too. Shared by both the ffmpeg conversion failure
-    and the ffprobe non-zero-exit call sites.
-    """
-    text = (raw or "").strip()
-    if not text:
-        return "(no output)"
-    if known_path:
-        text = text.replace(known_path, "<file>")
-    tail = text.splitlines()[-1].strip() or text.splitlines()[-1]
-    if len(tail) > max_chars:
-        tail = "…" + tail[-max_chars:]
-    return tail
-
-
-def _parse_ffmpeg_version(version_output: str) -> tuple[int, ...] | None:
-    """Extract the (major, minor, ...) version tuple from `ffmpeg -version` output.
-
-    First line looks like: "ffmpeg version 4.4.2-0ubuntu0.22.04.1 Copyright ..."
-    or "ffmpeg version n6.0 Copyright ...". Returns None if unparseable (e.g.
-    an unusual distro-patched version string) rather than guessing.
-    """
-    match = re.search(r"ffmpeg version n?(\d+(?:\.\d+)+)", version_output)
-    if not match:
-        return None
-    try:
-        return tuple(int(part) for part in match.group(1).split("."))
-    except ValueError:
-        return None
-
-
-def _terminate_process(proc: "subprocess.Popen[str]") -> None:
-    """Terminate an FFmpeg child promptly: SIGTERM, escalate to SIGKILL.
-
-    Best-effort — the child is going away regardless, so any error while
-    signalling it is swallowed.
-    """
-    try:
-        proc.terminate()
-        try:
-            proc.wait(timeout=FFMPEG_TERMINATE_GRACE_S)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-            proc.wait(timeout=FFMPEG_TERMINATE_GRACE_S)
-    except Exception:
-        pass
-
-
-def _run_ffmpeg_cancellable(
-    cmd: list[str],
-    timeout: float,
-    cancel_event: "threading.Event | None",
-) -> "subprocess.CompletedProcess[str]":
-    """Run an FFmpeg command, honouring a cooperative cancellation token.
-
-    With no ``cancel_event`` this is a plain blocking ``subprocess.run`` —
-    byte-for-byte the previous behaviour, so library-scan and other non-job
-    callers are unaffected.
-
-    With a ``cancel_event``, FFmpeg runs under ``Popen`` and is polled so that a
-    ``cancel_event.set()`` from another thread (``ProcessingEngine.cancel_job``)
-    terminates the child within ~100 ms instead of parking a worker thread and a
-    CPU core for up to ``timeout`` seconds (#4496). On cancel the child is
-    terminated and ``asyncio.CancelledError`` is raised so the abort surfaces as
-    a clean cancellation rather than a spurious decode failure.
-    """
-    if cancel_event is None:
-        return subprocess.run(cmd, capture_output=True, timeout=timeout, **SUBPROCESS_TEXT_KWARGS)
-
-    if cancel_event.is_set():
-        raise asyncio.CancelledError()
-
-    # FFmpeg writes the decoded WAV to a file (not stdout), so stdout stays
-    # empty and stderr carries only modest progress text — the pipe buffers
-    # never fill, so repeated poll-timeout communicate() calls cannot deadlock.
-    proc = subprocess.Popen(
-        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **SUBPROCESS_TEXT_KWARGS
-    )
-    start = time.monotonic()
-    poll_interval = 0.1
-    while True:
-        try:
-            stdout, stderr = proc.communicate(timeout=poll_interval)
-            return subprocess.CompletedProcess(cmd, proc.returncode, stdout, stderr)
-        except subprocess.TimeoutExpired:
-            if cancel_event.is_set():
-                _terminate_process(proc)
-                raise asyncio.CancelledError()
-            if time.monotonic() - start > timeout:
-                _terminate_process(proc)
-                raise  # -> ModuleError(ERROR_FFMPEG_TIMEOUT) in the caller
 
 # Upper bound on plausible audio bitrate, used only when ffprobe reports no
 # duration (e.g. true-VBR MP3 without a Xing/VBRI header, #4128). Estimating
@@ -228,155 +53,8 @@ def _run_ffmpeg_cancellable(
 _MAX_PLAUSIBLE_BITRATE_BPS = 2_000_000
 
 
-@functools.lru_cache(maxsize=1)
-def check_ffmpeg() -> bool:
-    """Check if FFmpeg is available, warning if its version is below the floor.
-
-    Memoized for the process lifetime (#4117): FFmpeg availability does not
-    change within a run, so probing once avoids forking an `ffmpeg -version`
-    subprocess on every FFmpeg-routed file load (one redundant probe per file
-    during bulk scans). Call ``check_ffmpeg.cache_clear()`` to force a re-probe
-    (e.g. in tests that toggle availability).
-
-    A version below MINIMUM_FFMPEG_VERSION only warns (#4344) — presence is
-    still all that's required to proceed, since a hard refusal on a heuristic
-    version parse would risk breaking playback on a legitimately-patched but
-    unusually-versioned system build.
-    """
-    try:
-        result = subprocess.run(
-            ['ffmpeg', '-version'],
-            capture_output=True,
-            timeout=FFMPEG_VERSION_CHECK_TIMEOUT_S,
-            **SUBPROCESS_TEXT_KWARGS,
-        )
-        if result.returncode != 0:
-            return False
-
-        version = _parse_ffmpeg_version(result.stdout)
-        if version is None:
-            warning("Could not determine FFmpeg version from `ffmpeg -version` output")
-        elif version < MINIMUM_FFMPEG_VERSION:
-            min_str = ".".join(str(p) for p in MINIMUM_FFMPEG_VERSION)
-            got_str = ".".join(str(p) for p in version)
-            warning(
-                f"FFmpeg {got_str} is older than the recommended minimum {min_str} — "
-                "older builds carry known demuxer/decoder CVEs; consider upgrading."
-            )
-        return True
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        return False
-
-
-@functools.lru_cache(maxsize=1)
-def check_ffprobe() -> bool:
-    """Check if the ffprobe binary is available.
-
-    ffprobe is a separate binary from ffmpeg (#4119): an environment may have
-    ffmpeg but not ffprobe. Memoized for the process lifetime like
-    ``check_ffmpeg`` (#4117); call ``check_ffprobe.cache_clear()`` to re-probe.
-    """
-    try:
-        result = subprocess.run(
-            ['ffprobe', '-version'],
-            capture_output=True,
-            timeout=FFMPEG_VERSION_CHECK_TIMEOUT_S,
-        )
-        return result.returncode == 0
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        return False
-
-
-def _probe_audio(file_path: Path) -> dict[str, Any]:
-    """
-    Probe audio file with ffprobe.
-
-    Returns a dict with keys:
-        duration    float | None  – total duration in seconds
-        sample_rate int  | None  – native sample rate (Hz)
-        channels    int  | None  – number of channels
-
-    Raises ``ModuleError`` for a protocol-shaped path. Callers such as the
-    scanner and windowed fingerprinting call this directly, without the guard
-    ``load_with_ffmpeg`` applies first (#5326).
-    """
-    result_dict: dict[str, Any] = {'duration': None, 'sample_rate': None, 'channels': None}
-    ffprobe_cmd = ffprobe_command(str(file_path))
-    try:
-        result = subprocess.run(
-            ffprobe_cmd,
-            capture_output=True,
-            timeout=FFPROBE_TIMEOUT_S,
-            **SUBPROCESS_TEXT_KWARGS,
-        )
-
-        if result.returncode != 0:
-            # -v error (#5590) means stderr now carries the failure reason —
-            # with the echoed input path on the same line. Route it through
-            # the shared redaction (last line, path stripped) so the WARNING
-            # doesn't leak the absolute path, the leak #4806 removed from the
-            # other stderr sites.
-            warning(
-                "ffprobe failed: "
-                f"{redact_subprocess_output(result.stderr, known_path=str(file_path))}"
-            )
-            return result_dict
-
-        probe_data = json.loads(result.stdout)
-
-        duration = probe_data.get('format', {}).get('duration')
-        if duration:
-            result_dict['duration'] = float(duration)
-
-        for stream in probe_data.get('streams', []):
-            if stream.get('codec_type') == 'audio':
-                sr = stream.get('sample_rate')
-                ch = stream.get('channels')
-                if sr:
-                    result_dict['sample_rate'] = int(sr)
-                if ch:
-                    result_dict['channels'] = int(ch)
-                break
-
-    # #4119: catch FileNotFoundError (ffprobe binary absent) so it does not
-    # escape and get mislabeled ERROR_FFMPEG_CONVERSION by the caller; degrade
-    # to the empty result_dict (load_with_ffmpeg also guards via check_ffprobe).
-    except FileNotFoundError:
-        warning("ffprobe binary not found; skipping probe (install ffprobe for accurate metadata)")
-    # Keep this tuple narrow — do NOT add a trailing `Exception` (#3697).
-    # A catch-all here swallows programming errors and mislabels every load as
-    # `Code.ERROR_CORRUPTED`.
-    except (subprocess.TimeoutExpired, json.JSONDecodeError, ValueError) as e:
-        warning(f"Could not probe audio with ffprobe: {e}")
-
-    return result_dict
-
-
-def load_with_ffmpeg(
-    file_path: Path,
-    temp_folder: str | None = None,
-    cancel_event: "threading.Event | None" = None,
-    offset: float | None = None,
-    duration: float | None = None,
-) -> tuple[np.ndarray, int]:
-    """Load audio using FFmpeg conversion to WAV.
-
-    If ``cancel_event`` is provided and set from another thread mid-decode, the
-    FFmpeg child is terminated promptly and ``asyncio.CancelledError`` is raised
-    (#4496). When it is ``None`` (the default for every non-job caller) the
-    decode runs exactly as before.
-
-    ``offset``/``duration`` (seconds) bound the decode to a window, mapping to
-    ffmpeg's ``-ss``/``-t`` (#5110). Both default to ``None``, which decodes the
-    whole file exactly as before — every existing call site is unaffected.
-
-    ``-ss`` is placed *before* ``-i`` for input seeking, which skips to the
-    window rather than decoding and discarding everything ahead of it. That is
-    the whole point: fingerprint windowing needs ~150 s out of a file that may
-    be hours long, and decoding all of it was up to ~50x the necessary CPU with
-    a peak footprint in the GB range.
-    """
-
+def _validate_input(file_path: Path) -> tuple[Path, str]:
+    """Tool availability and input-path validation; returns the path and its str form."""
     # Check if FFmpeg is available
     if not check_ffmpeg():
         raise ModuleError(f"{Code.ERROR_FFMPEG_NOT_FOUND}: FFmpeg required for {file_path.suffix}")
@@ -397,7 +75,15 @@ def load_with_ffmpeg(
     # Guard against ffmpeg protocol specifiers (http://, pipe:, concat:, data:, etc.)
     file_path_str = str(file_path)
     reject_protocol_path(file_path_str)
+    return file_path, file_path_str
 
+
+def _probe_or_fail(file_path: Path) -> tuple[float | None, int, int]:
+    """Probe the source and reject unprobeable or oversized files before decoding.
+
+    Returns ``(expected_duration, sample_rate, channels)``; the duration is
+    None when ffprobe could not report one.
+    """
     # Probe source format: duration, sample rate, and channel count
     probe = _probe_audio(file_path)
     expected_duration = probe['duration']
@@ -449,8 +135,11 @@ def load_with_ffmpeg(
                 f"{_MAX_PLAUSIBLE_BITRATE_BPS // 1000} kbps > {MAX_DURATION_SECONDS}s)",
                 path=str(file_path),
             )
+    return expected_duration, source_sample_rate, source_channels
 
-    # Create temporary WAV file
+
+def _temp_wav_path(temp_folder: str | None) -> Path:
+    """Reserve a unique temp WAV path for FFmpeg to write."""
     if temp_folder:
         temp_dir = Path(temp_folder)
         temp_dir.mkdir(exist_ok=True)
@@ -461,63 +150,43 @@ def load_with_ffmpeg(
     # threads concurrently load files with the same stem (#2908).
     fd, temp_wav_str = tempfile.mkstemp(suffix='.wav', dir=str(temp_dir), prefix='auralis_')
     os.close(fd)  # Close fd so FFmpeg can write to the path
-    temp_wav = Path(temp_wav_str)
+    return Path(temp_wav_str)
+
+
+def load_with_ffmpeg(
+    file_path: Path,
+    temp_folder: str | None = None,
+    cancel_event: "threading.Event | None" = None,
+    offset: float | None = None,
+    duration: float | None = None,
+) -> tuple[np.ndarray, int]:
+    """Load audio using FFmpeg conversion to WAV.
+
+    If ``cancel_event`` is provided and set from another thread mid-decode, the
+    FFmpeg child is terminated promptly and ``asyncio.CancelledError`` is raised
+    (#4496). When it is ``None`` (the default for every non-job caller) the
+    decode runs exactly as before.
+
+    ``offset``/``duration`` (seconds) bound the decode to a window, mapping to
+    ffmpeg's ``-ss``/``-t`` (#5110). Both default to ``None``, which decodes the
+    whole file exactly as before — every existing call site is unaffected.
+
+    ``-ss`` is placed *before* ``-i`` for input seeking, which skips to the
+    window rather than decoding and discarding everything ahead of it. That is
+    the whole point: fingerprint windowing needs ~150 s out of a file that may
+    be hours long, and decoding all of it was up to ~50x the necessary CPU with
+    a peak footprint in the GB range.
+    """
+    file_path, file_path_str = _validate_input(file_path)
+    expected_duration, source_sample_rate, source_channels = _probe_or_fail(file_path)
+    temp_wav = _temp_wav_path(temp_folder)
 
     try:
         # Convert to WAV using FFmpeg
         debug(f"Converting {file_path} to WAV using FFmpeg")
-
-        # #3672: `-ac 2` lets FFmpeg apply its proper surround downmix matrix
-        # (center → L+R at -3 dB, surround channels distributed). Previously
-        # we passed `-ac {source_channels}` and then `soundfile_loader`
-        # truncated to `[:, :2]` — which silently dropped the center channel
-        # (vocals/dialogue) for 5.1/7.1 content.
-        #
-        # #4611/#4597: that downmix is now gated on `source_channels > 2`.
-        # Applying it unconditionally also *up*-mixed genuine mono into fake
-        # stereo, which #3672 never intended: `get_audio_info()` reported the
-        # true channel count from ffprobe while `load_audio()` handed back a
-        # 2-D array, so the two disagreed about the same file and the returned
-        # dimensionality depended on file extension rather than audio content.
-        # Gating here matches `soundfile_loader`, which downmixes only when
-        # `shape[1] > 2`.
-        needs_downmix = source_channels > 2
-        ffmpeg_cmd = ['ffmpeg', *_PROTOCOL_WHITELIST_ARGS]
-        # -ss BEFORE -i is input seeking: ffmpeg jumps to the offset instead of
-        # decoding and discarding everything ahead of it (#5110).
-        if offset is not None and offset > 0:
-            ffmpeg_cmd += ['-ss', f'{offset:.6f}']
-        ffmpeg_cmd += [
-            '-i', file_path_str,
-            # 32-bit float PCM, not 16-bit (#5317): a source with more than
-            # 16 bits of real precision (24-bit ALAC-in-M4A, WMA Lossless)
-            # was being truncated to ~96 dB of dynamic range before any DSP
-            # or fingerprinting ran. load_with_soundfile() below always reads
-            # the temp WAV back as float32 regardless of its sample format,
-            # so this loses nothing and needs no bits_per_raw_sample probe.
-            '-acodec', 'pcm_f32le',
-            '-ar', str(source_sample_rate),    # Preserve native sample rate
-        ]
-        if duration is not None and duration > 0:
-            ffmpeg_cmd += ['-t', f'{duration:.6f}']
-        if needs_downmix:
-            ffmpeg_cmd += ['-ac', '2']         # Surround → stereo (#3672)
-        ffmpeg_cmd += [
-            '-y',                              # Overwrite output
-            str(temp_wav)
-        ]
-        if offset is not None or duration is not None:
-            debug(
-                f"FFmpeg: bounded decode offset={offset}s duration={duration}s "
-                f"(instead of the full file)"
-            )
-        if needs_downmix:
-            debug(f"FFmpeg: converting at {source_sample_rate} Hz, "
-                  f"downmixing {source_channels} → 2 ch")
-        else:
-            debug(f"FFmpeg: converting at {source_sample_rate} Hz, "
-                  f"preserving {source_channels} ch")
-
+        ffmpeg_cmd = build_ffmpeg_cmd(
+            file_path_str, temp_wav, source_sample_rate, source_channels, offset, duration
+        )
         result = _run_ffmpeg_cancellable(
             ffmpeg_cmd,
             timeout=FFMPEG_DECODE_TIMEOUT_S,
@@ -537,37 +206,7 @@ def load_with_ffmpeg(
 
         # Load the converted WAV file
         audio_data, sample_rate = load_with_soundfile(temp_wav)
-
-        # Validate duration against original file metadata.
-        #
-        # #5110: with a bounded decode the output is deliberately shorter than
-        # the source, so comparing against the *file's* duration would flag
-        # every windowed read as severely truncated. Compare against the span
-        # that was actually requested instead — the check still catches a decode
-        # that returned far less than asked for, which is what it is for.
-        effective_expected = expected_duration
-        if effective_expected is not None and (offset is not None or duration is not None):
-            remaining = max(0.0, effective_expected - (offset or 0.0))
-            effective_expected = min(duration, remaining) if duration else remaining
-
-        if effective_expected is not None and effective_expected > 0:
-            actual_duration = len(audio_data) / sample_rate
-            expected_duration = effective_expected
-            duration_percentage = (actual_duration / expected_duration) * 100
-
-            if duration_percentage < 10:
-                # Severely truncated - raise error
-                raise ModuleError(
-                    f"{Code.ERROR_TRUNCATED_FILE}: File is severely truncated "
-                    f"({duration_percentage:.1f}% complete, expected {expected_duration:.2f}s, got {actual_duration:.2f}s)"
-                )
-            elif duration_percentage < 90:
-                # Moderately truncated - log warning
-                warning(
-                    f"{Code.WARNING_TRUNCATED_FILE}: File appears truncated "
-                    f"({duration_percentage:.1f}% complete, expected {expected_duration:.2f}s, got {actual_duration:.2f}s)"
-                )
-
+        check_truncation(audio_data, sample_rate, expected_duration, offset, duration)
         return audio_data, sample_rate
 
     except subprocess.TimeoutExpired:

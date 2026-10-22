@@ -23,7 +23,7 @@ import time
 
 import pytest
 
-from auralis.io.loaders import ffmpeg_loader
+from auralis.io.loaders import ffmpeg_loader, ffmpeg_process
 from auralis.io.loaders.ffmpeg_loader import _run_ffmpeg_cancellable
 
 
@@ -45,13 +45,13 @@ class TestRunFfmpegCancellable:
         """Setting the token mid-run terminates the child and raises promptly,
         not after the full timeout — and the terminate path is invoked."""
         terminated: list[bool] = []
-        real_terminate = ffmpeg_loader._terminate_process
+        real_terminate = ffmpeg_process._terminate_process
 
         def _spy_terminate(proc):
             terminated.append(True)
             real_terminate(proc)
 
-        monkeypatch.setattr(ffmpeg_loader, "_terminate_process", _spy_terminate)
+        monkeypatch.setattr(ffmpeg_process, "_terminate_process", _spy_terminate)
 
         event = threading.Event()
         # Fire the cancel shortly after the child starts.

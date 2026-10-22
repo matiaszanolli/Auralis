@@ -16,7 +16,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from auralis.io.loaders import ffmpeg_loader
+from auralis.io.loaders import ffmpeg_loader, ffmpeg_probe
 
 
 @pytest.fixture(autouse=True)
@@ -57,7 +57,7 @@ class TestCheckFfmpegVersionWarning:
             patch.object(ffmpeg_loader.subprocess, "run", return_value=_mock_run(
                 "ffmpeg version 2.8.15 Copyright (c) 2000-2018 the FFmpeg developers\n"
             )),
-            patch.object(ffmpeg_loader, "warning") as mock_warning,
+            patch.object(ffmpeg_probe, "warning") as mock_warning,
         ):
             result = ffmpeg_loader.check_ffmpeg()
 
@@ -72,7 +72,7 @@ class TestCheckFfmpegVersionWarning:
             patch.object(ffmpeg_loader.subprocess, "run", return_value=_mock_run(
                 "ffmpeg version 6.1.1 Copyright (c) 2000-2023 the FFmpeg developers\n"
             )),
-            patch.object(ffmpeg_loader, "warning") as mock_warning,
+            patch.object(ffmpeg_probe, "warning") as mock_warning,
         ):
             result = ffmpeg_loader.check_ffmpeg()
 
@@ -85,7 +85,7 @@ class TestCheckFfmpegVersionWarning:
             patch.object(ffmpeg_loader.subprocess, "run", return_value=_mock_run(
                 f"ffmpeg version {min_str} Copyright (c) 2000-2018 the FFmpeg developers\n"
             )),
-            patch.object(ffmpeg_loader, "warning") as mock_warning,
+            patch.object(ffmpeg_probe, "warning") as mock_warning,
         ):
             result = ffmpeg_loader.check_ffmpeg()
 
@@ -97,7 +97,7 @@ class TestCheckFfmpegVersionWarning:
             patch.object(ffmpeg_loader.subprocess, "run", return_value=_mock_run(
                 "some unexpected output with no version string\n"
             )),
-            patch.object(ffmpeg_loader, "warning") as mock_warning,
+            patch.object(ffmpeg_probe, "warning") as mock_warning,
         ):
             result = ffmpeg_loader.check_ffmpeg()
 
