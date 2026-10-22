@@ -38,7 +38,7 @@ SQLAlchemy==2.0.51
 pillow==13.0.0
 
 # Async HTTP & Utilities
-aiohttp==3.14.3
+aiohttp==3.14.4
 psutil==7.2.2
 python-dotenv==1.2.2
 
