@@ -12,12 +12,13 @@ import { useServerRestartNotice } from '@/hooks/player/useServerRestartNotice';
 import { useWebSocketErrors } from '@/hooks/websocket/useWebSocketErrors';
 import { store } from './store';
 import { shouldRetryQuery } from '@/utils/errorHandling';
+import { QUERY_STALE_TIME_MS } from '@/config/timing';
 
 // Create QueryClient instance
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 5, // 5 minutes
+      staleTime: QUERY_STALE_TIME_MS,
       refetchOnWindowFocus: false,
       // Status-aware: transport failures, 408/429 and 5xx only (#5387).
       retry: shouldRetryQuery,

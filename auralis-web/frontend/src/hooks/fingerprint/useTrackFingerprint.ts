@@ -15,6 +15,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { AudioFingerprint } from '@/utils/fingerprintToGradient';
 import { get, APIRequestError } from '@/utils/apiRequest';
+import { QUERY_STALE_TIME_MS } from '@/config/timing';
 
 interface TrackFingerprintResponse {
   track_id: number;
@@ -84,7 +85,7 @@ export function useTrackFingerprint(
   const query = useQuery({
     queryKey: ['track-fingerprint', trackId],
     queryFn: () => trackId ? fetchTrackFingerprint(trackId) : null,
-    staleTime: 5 * 60 * 1000, // 5 minutes (fingerprints don't change)
+    staleTime: QUERY_STALE_TIME_MS, // fingerprints don't change
     gcTime: 30 * 60 * 1000,   // 30 minutes cache retention
     enabled,
     retry: false, // Don't retry on 404

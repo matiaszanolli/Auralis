@@ -15,6 +15,7 @@
 import { useQuery, useQueries } from '@tanstack/react-query';
 import type { AudioFingerprint } from '@/utils/fingerprintToGradient';
 import { get, APIRequestError } from '@/utils/apiRequest';
+import { QUERY_STALE_TIME_MS } from '@/config/timing';
 
 interface AlbumFingerprintResponse {
   album_id: number;
@@ -90,7 +91,7 @@ export function useAlbumFingerprint(
   const query = useQuery({
     queryKey: ['album-fingerprint', albumId],
     queryFn: () => fetchAlbumFingerprint(albumId),
-    staleTime: 5 * 60 * 1000, // 5 minutes (fingerprints don't change often)
+    staleTime: QUERY_STALE_TIME_MS, // fingerprints don't change often
     gcTime: 30 * 60 * 1000,   // 30 minutes cache retention
     enabled: options?.enabled ?? true,
     // Kept false, but the original rationale no longer applies: since #5122 a
@@ -148,7 +149,7 @@ export function useAlbumFingerprints(albumIds: number[]) {
       queryKey: ['album-fingerprint', albumId],
       queryFn: ({ signal }: { signal?: AbortSignal }) =>
         withFingerprintSlot(() => fetchAlbumFingerprint(albumId, signal)),
-      staleTime: 5 * 60 * 1000,
+      staleTime: QUERY_STALE_TIME_MS,
       gcTime: 30 * 60 * 1000,
       // Same settled decision as the single-album hook: album art is
       // decorative and every tile has a hash-gradient fallback.

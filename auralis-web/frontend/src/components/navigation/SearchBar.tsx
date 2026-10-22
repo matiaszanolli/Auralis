@@ -3,6 +3,7 @@ import { Box } from '@mui/material';
 import { SearchTextField } from '@/components/library/Styles/FormFields.styles';
 import { SearchInputAdornments } from './SearchInputAdornments';
 import { SearchKeyboardHint } from './SearchKeyboardHint';
+import { SEARCH_DEBOUNCE_MS } from '@/config/timing';
 
 interface SearchBarProps {
   value?: string;
@@ -19,7 +20,7 @@ export const SearchBar = ({
   value: controlledValue,
   onChange,
   placeholder = 'Search tracks, albums, artists...',
-  debounceMs = 300,
+  debounceMs = SEARCH_DEBOUNCE_MS,
   autoFocus = false,
   resultCount,
   showResultCount = false,

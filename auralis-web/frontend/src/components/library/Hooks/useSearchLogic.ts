@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { get } from '@/utils/apiRequest';
 import { ENDPOINTS } from '@/config/api';
+import { SEARCH_DEBOUNCE_MS } from '@/config/timing';
 
 interface SearchResult {
   type: 'track' | 'album' | 'artist';
@@ -60,7 +61,7 @@ export const useSearchLogic = (
 
     const timeoutId = setTimeout(() => {
       performSearch(query);
-    }, 300);
+    }, SEARCH_DEBOUNCE_MS);
 
     return () => clearTimeout(timeoutId);
   }, [query]);

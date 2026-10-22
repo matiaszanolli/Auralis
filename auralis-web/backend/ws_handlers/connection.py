@@ -114,7 +114,7 @@ async def setup_connection(
     # both hold here.
     await manager.connect(websocket)
     connection_id = _ws_id(websocket)
-    heartbeat = HeartbeatManager(interval_seconds=30, timeout_seconds=10)
+    heartbeat = HeartbeatManager()
 
     heartbeat_task = spawn_background_task(
         run_heartbeat_loop(websocket, heartbeat, connection_id),

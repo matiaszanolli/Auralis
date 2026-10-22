@@ -16,7 +16,7 @@ import { ApiErrorHandler } from '@/types/api';
 import { APIRequestError } from '@/utils/apiRequest';
 import { API_BASE_URL } from '@/config/api';
 import { httpErrorFromResponse } from '@/utils/httpError';
-const REQUEST_TIMEOUT = 30000; // 30 seconds
+import { DEFAULT_TIMEOUT_MS } from '@/utils/apiRequest';
 
 /**
  * Optional runtime shape guard for a parsed response body (#4896).
@@ -124,7 +124,7 @@ export function useRestAPI() {
       const timeoutId = setTimeout(() => {
         didTimeout = true;
         controller.abort();
-      }, REQUEST_TIMEOUT);
+      }, DEFAULT_TIMEOUT_MS);
       activeControllers.current.add(controller);
 
       try {
@@ -135,7 +135,7 @@ export function useRestAPI() {
         return response;
       } catch (err) {
         if (didTimeout) {
-          throw new APIRequestError(`Request timed out after ${REQUEST_TIMEOUT}ms`, 0);
+          throw new APIRequestError(`Request timed out after ${DEFAULT_TIMEOUT_MS}ms`, 0);
         }
         throw err;
       } finally {

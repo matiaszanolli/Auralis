@@ -20,6 +20,7 @@
 import { ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { tokens } from '@/design-system';
 import { themeVars } from '@/theme/semanticTheme';
+import { SEARCH_DEBOUNCE_MS } from '@/config/timing';
 
 interface SearchBarProps {
   /** Callback when search query changes (debounced) */
@@ -28,7 +29,7 @@ interface SearchBarProps {
   /** Placeholder text (default: "Search tracks...") */
   placeholder?: string;
 
-  /** Debounce delay in ms (default: 300) */
+  /** Debounce delay in ms (default: SEARCH_DEBOUNCE_MS) */
   debounceMs?: number;
 
   /** Auto-focus on mount */
@@ -45,7 +46,7 @@ interface SearchBarProps {
 export const SearchBar = ({
   onSearch,
   placeholder = 'Search tracks, albums, artists...',
-  debounceMs = 300,
+  debounceMs = SEARCH_DEBOUNCE_MS,
   autoFocus = false,
 }: SearchBarProps) => {
   const [query, setQuery] = useState('');

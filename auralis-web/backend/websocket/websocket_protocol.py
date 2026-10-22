@@ -11,19 +11,25 @@ Heartbeat manager for WebSocket connection health monitoring.
 import logging
 from datetime import datetime, timezone
 
+from config.limits import WS_HEARTBEAT_INTERVAL_SECONDS, WS_HEARTBEAT_TIMEOUT_SECONDS
+
 logger = logging.getLogger(__name__)
 
 
 class HeartbeatManager:
     """Manages heartbeat for WebSocket connections."""
 
-    def __init__(self, interval_seconds: int = 30, timeout_seconds: int = 10):
+    def __init__(
+        self,
+        interval_seconds: float = WS_HEARTBEAT_INTERVAL_SECONDS,
+        timeout_seconds: float = WS_HEARTBEAT_TIMEOUT_SECONDS,
+    ):
         """
         Initialize heartbeat manager.
 
         Args:
-            interval_seconds: Heartbeat interval in seconds (default 30s)
-            timeout_seconds: Timeout before considering connection dead (default 10s)
+            interval_seconds: Heartbeat interval in seconds (default WS_HEARTBEAT_INTERVAL_SECONDS)
+            timeout_seconds: Timeout before considering connection dead (default WS_HEARTBEAT_TIMEOUT_SECONDS)
         """
         self.interval_seconds = interval_seconds
         self.timeout_seconds = timeout_seconds

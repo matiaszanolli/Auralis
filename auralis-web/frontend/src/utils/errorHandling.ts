@@ -37,7 +37,7 @@ const DEFAULT_WEBSOCKET_CONFIG: WebSocketErrorConfig = {
   maxReconnectAttempts: 10,
   initialReconnectDelayMs: 1000,
   maxReconnectDelayMs: 30000,
-  backoffMultiplier: 1.5,
+  backoffMultiplier: 2,
 };
 
 /**

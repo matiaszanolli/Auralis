@@ -160,3 +160,26 @@ class TestMarkAlive:
         assert hb.is_stale(conn_id) is True, (
             "is_stale must still trigger after mark_alive — pending_pong untouched"
         )
+
+
+class TestHeartbeatDefaultsSingleSource:
+    """#5800: the 30 s / 10 s pair is defined once, in config/limits.py."""
+
+    def test_defaults_are_the_configured_limits(self):
+        from config.limits import WS_HEARTBEAT_INTERVAL_SECONDS, WS_HEARTBEAT_TIMEOUT_SECONDS
+
+        hb = HeartbeatManager()
+
+        assert hb.interval_seconds == WS_HEARTBEAT_INTERVAL_SECONDS
+        assert hb.timeout_seconds == WS_HEARTBEAT_TIMEOUT_SECONDS
+
+    def test_the_connection_handler_uses_the_defaults_instead_of_retyping_them(self):
+        from pathlib import Path
+
+        source = (
+            Path(__file__).resolve().parents[2]
+            / "auralis-web" / "backend" / "ws_handlers" / "connection.py"
+        ).read_text()
+
+        assert "HeartbeatManager()" in source
+        assert "interval_seconds=30" not in source

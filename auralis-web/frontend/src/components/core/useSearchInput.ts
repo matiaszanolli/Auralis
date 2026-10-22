@@ -1,14 +1,11 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { SEARCH_DEBOUNCE_MS } from '@/config/timing';
 
 export interface UseSearchInputProps {
   onSearch: (query: string) => void;
   onSearchClear?: () => void;
 }
 
-/** Keystrokes settle this long before onSearch fires (300ms, matching the
- *  debounce the orphaned library SearchBar used). Each keystroke re-renders
- *  the app shell and re-filters the whole loaded library (#5660). */
-const SEARCH_DEBOUNCE_MS = 300;
 
 /**
  * useSearchInput - Manages search input state and handlers

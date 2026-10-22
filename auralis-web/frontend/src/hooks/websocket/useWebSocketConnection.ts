@@ -187,10 +187,9 @@ export function useWebSocketConnection({
       // In development, limit reconnection attempts to reduce console spam.
       const maxAttempts = import.meta.env.DEV ? 3 : 10;
       const manager = new WebSocketManager(url, {
+        // Backoff delays and multiplier come from WebSocketManager's defaults
+        // (utils/errorHandling.ts); only the dev attempt cap is overridden here.
         maxReconnectAttempts: maxAttempts,
-        initialReconnectDelayMs: 1000,
-        backoffMultiplier: 2,
-        maxReconnectDelayMs: 30000,
         onReconnectAttempt: (attempt, delay) => {
           console.log(`🔄 Reconnection attempt ${attempt}/${maxAttempts} (waiting ${delay}ms)`);
         },

@@ -200,3 +200,10 @@ WS_MAX_MESSAGE_SIZE: int = 64 * 1024
 # and reopening the connection can't reset this budget).
 WS_MAX_MESSAGES_PER_SECOND: int = 10
 WS_MESSAGE_WINDOW_SECONDS: float = 1.0
+
+# Server heartbeat (websocket/websocket_protocol.HeartbeatManager): a ping every
+# WS_HEARTBEAT_INTERVAL_SECONDS, and the connection is considered dead if no pong
+# arrives within WS_HEARTBEAT_TIMEOUT_SECONDS of one. These were typed as defaults
+# in HeartbeatManager and again as arguments where the connection builds it (#5800).
+WS_HEARTBEAT_INTERVAL_SECONDS: int = 30
+WS_HEARTBEAT_TIMEOUT_SECONDS: int = 10
