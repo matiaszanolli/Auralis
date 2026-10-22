@@ -384,17 +384,12 @@ class TestAudioProcessingLimits:
         from auralis.core.hybrid_processor import HybridProcessor
         from auralis.core.config import UnifiedConfig
         from auralis.io.unified_loader import load_audio
-        from auralis.utils.logging import ModuleError
 
-        try:
-            audio_data, sr = load_audio(str(filepath))
-            config = UnifiedConfig()
-            processor = HybridProcessor(config)
-            processed = processor.process(audio_data)
-            # May fail or return minimal output
-        except (ModuleError, ValueError):
-            # Expected - too short to process
-            pass
+        audio_data, sr = load_audio(str(filepath))
+        processed = HybridProcessor(UnifiedConfig()).process(audio_data)
+
+        # Too short to master, but the sample count is still preserved
+        assert processed.shape == audio_data.shape
 
     def test_process_silent_audio(self, silent_audio, tmp_path):
         """Test processing completely silent audio."""
@@ -556,23 +551,3 @@ class TestResourceLimits:
         # Verify reasonable free space for operation
         free_gb = free / (1024 ** 3)
         assert free_gb > 0.1, f"Only {free_gb:.2f}GB free"
-
-    def test_network_timeout_handling(self):
-        """Test handling of network timeouts (if applicable)."""
-        import socket
-
-        # Test socket timeout
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(1.0)
-
-        try:
-            # Try connecting to unreachable address
-            sock.connect(('192.0.2.1', 80))  # TEST-NET-1 (unreachable)
-        except socket.timeout:
-            # Expected timeout
-            pass
-        except OSError:
-            # Other error (connection refused, etc.)
-            pass
-        finally:
-            sock.close()

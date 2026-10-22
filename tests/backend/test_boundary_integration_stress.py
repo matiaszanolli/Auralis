@@ -210,6 +210,7 @@ def test_repeated_search_operations(large_library):
     for i in range(100):
         query = search_queries[i % len(search_queries)]
         tracks, total = db.tracks.search(query)
+        assert total >= len(tracks)
         # Should complete without error
 
 

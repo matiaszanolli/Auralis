@@ -78,35 +78,6 @@ def test_artwork_dir():
     shutil.rmtree(temp_dir, ignore_errors=True)
 
 
-@pytest.fixture
-def library_with_artwork(tmp_path):
-    """Create library with tracks that have embedded artwork."""
-    db_path = tmp_path / "test_library.db"
-    db = LibraryDatabase(database_path=str(db_path))
-
-    # Create audio directory
-    audio_dir = tmp_path / "music"
-    audio_dir.mkdir()
-
-    # Create test track
-    audio = np.random.randn(441000, 2) * 0.1  # 10 seconds
-    filepath = audio_dir / "track_with_art.wav"
-    save_audio(str(filepath), audio, 44100, subtype='PCM_16')
-
-    # Add track to library
-    track_info = {
-        'filepath': str(filepath),
-        'title': 'Track With Artwork',
-        'artists': ['Test Artist'],
-        'album': 'Test Album',
-    }
-    track = db.tracks.add(track_info)
-
-    yield db, track, tmp_path
-
-    # Cleanup handled by tmp_path
-
-
 def _artwork_get_handler():
     """The GET /api/albums/{album_id}/artwork handler.
 
@@ -127,23 +98,45 @@ def _artwork_get_handler():
 # Artwork Extraction Integration Tests (P0 Priority)
 # ============================================================================
 
+def _wav_with_embedded_cover(path, size=(200, 200), color=(10, 20, 30)):
+    """Write a short WAV whose ID3 tag carries a JPEG front cover."""
+    import io
+
+    import soundfile as sf
+    from mutagen.id3 import APIC
+    from mutagen.wave import WAVE
+
+    sf.write(str(path), np.zeros((4410, 2), dtype=np.float32), 44100)
+    jpeg = io.BytesIO()
+    Image.new('RGB', size, color=color).save(jpeg, 'JPEG')
+    wave = WAVE(str(path))
+    wave.add_tags()
+    wave.tags.add(APIC(encoding=3, mime='image/jpeg', type=3, desc='cover', data=jpeg.getvalue()))
+    wave.save()
+    return str(path)
+
+
 @pytest.mark.integration
 @pytest.mark.artwork
-def test_extract_embedded_artwork(library_with_artwork):
+def test_extract_embedded_artwork(tmp_path):
     """
     INTEGRATION TEST: Extract embedded artwork from audio file.
 
     Workflow:
-    1. Add track with embedded artwork
+    1. Track with embedded artwork
     2. Extract artwork
     3. Verify artwork file created
     4. Verify artwork is valid image
     """
-    db, track, tmp_path = library_with_artwork
+    audio_path = _wav_with_embedded_cover(tmp_path / "track_with_art.wav")
+    extractor = ArtworkExtractor(str(tmp_path / "artwork"))
 
-    # Check if track has artwork path
-    # Note: This test documents expected behavior
-    # Actual implementation may vary
+    artwork_path = extractor.extract_artwork(audio_path, album_id=1)
+
+    assert artwork_path is not None
+    assert os.path.exists(artwork_path)
+    with Image.open(artwork_path) as image:
+        assert image.size == (200, 200)
 
 
 @pytest.mark.integration
@@ -154,8 +147,8 @@ def test_extract_folder_artwork(test_artwork_dir):
 
     Workflow:
     1. Place cover.jpg in music folder
-    2. Scan folder
-    3. Verify artwork associated with tracks
+    2. Extract artwork for a track in that folder
+    3. Verify artwork found and valid
     """
     artwork_dir, test_images, temp_dir = test_artwork_dir
 
@@ -164,33 +157,42 @@ def test_extract_folder_artwork(test_artwork_dir):
     os.makedirs(music_dir)
 
     cover_path = os.path.join(music_dir, "cover.jpg")
-    img = Image.new('RGB', (300, 300), color=(100, 100, 100))
-    img.save(cover_path)
+    Image.new('RGB', (300, 300), color=(100, 100, 100)).save(cover_path)
 
-    # Create test audio file
-    audio = np.random.randn(441000, 2) * 0.1
+    # Create test audio file (no embedded artwork)
+    audio = np.random.randn(44100, 2) * 0.1
     audio_path = os.path.join(music_dir, "track.wav")
     save_audio(audio_path, audio, 44100, subtype='PCM_16')
 
-    # Test would verify that artwork is found
-    assert os.path.exists(cover_path), "cover.jpg should exist"
+    artwork_path = ArtworkExtractor(artwork_dir).extract_artwork(audio_path, album_id=7)
+
+    assert artwork_path is not None
+    with Image.open(artwork_path) as image:
+        assert image.size == (300, 300)
 
 
 @pytest.mark.integration
 @pytest.mark.artwork
-def test_artwork_extraction_creates_cache(library_with_artwork):
+def test_artwork_extraction_creates_cache(tmp_path):
     """
     INTEGRATION TEST: Artwork extraction creates cached file.
 
     Workflow:
     1. Extract artwork
     2. Verify cache file created
-    3. Verify cache file is valid image
+    3. Verify a repeat extraction reuses it
     """
-    db, track, tmp_path = library_with_artwork
+    audio_path = _wav_with_embedded_cover(tmp_path / "track_with_art.wav")
+    artwork_dir = tmp_path / "artwork"
+    extractor = ArtworkExtractor(str(artwork_dir))
 
-    # Expected cache location (usually ~/.auralis/artwork/)
-    # Test would verify cache file exists and is valid
+    first = extractor.extract_artwork(audio_path, album_id=1)
+    second = extractor.extract_artwork(audio_path, album_id=1)
+
+    assert first is not None
+    assert Path(first).parent == artwork_dir
+    assert second == first
+    assert len(list(artwork_dir.iterdir())) == 1
 
 
 # ============================================================================

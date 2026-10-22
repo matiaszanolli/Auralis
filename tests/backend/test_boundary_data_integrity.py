@@ -316,17 +316,12 @@ def test_invalid_track_id_handling(integrity_library):
     """
     db, track_ids, _ = integrity_library
 
-    invalid_ids = [0, -1, 999999, None]
+    for invalid_id in (0, -1, 999999):
+        assert db.tracks.get_by_id(invalid_id) is None, invalid_id
 
-    for invalid_id in invalid_ids:
-        if invalid_id is None:
-            continue
-
-        track = db.tracks.get_by_id(invalid_id)
-        # Should return None or handle gracefully
-        if track is not None:
-            # Some implementations might not validate
-            pass
+    # Lookups did not disturb the library
+    for track_id in track_ids:
+        assert db.tracks.get_by_id(track_id) is not None
 
 
 @pytest.mark.boundary

@@ -293,19 +293,17 @@ class TestAudioPlayerComprehensive:
 
     def test_effects_and_processing(self, enhanced_player):
         """Test effects and processing controls"""
-        # Test set_effect_enabled
-        try:
-            enhanced_player.set_effect_enabled('reverb', True)
-            # Should not raise exception
-        except Exception:
-            pass  # May not be implemented
+        effects = enhanced_player.integration.processor.effects_enabled
 
-        # Test set_auto_master_profile
-        try:
-            enhanced_player.set_auto_master_profile('pop')
-            # Should not raise exception
-        except Exception:
-            pass  # May not be implemented
+        enhanced_player.set_effect_enabled('auto_mastering', False)
+        assert effects['auto_mastering'] is False
+
+        enhanced_player.set_effect_enabled('auto_mastering', True)
+        assert effects['auto_mastering'] is True
+
+        # An effect the processor does not have is ignored, not added
+        enhanced_player.set_effect_enabled('reverb', True)
+        assert 'reverb' not in effects
 
     def test_audio_chunk_retrieval(self, enhanced_player, test_audio_files):
         """Test audio chunk retrieval for streaming"""
@@ -390,11 +388,8 @@ class TestAudioPlayerComprehensive:
             assert invalid_playlist_load is False
 
         # Test queue operations with invalid data
-        try:
-            enhanced_player.add_to_queue({})  # Empty track info
-            # Should handle gracefully
-        except Exception:
-            pass  # May raise exception, which is acceptable
+        enhanced_player.add_to_queue({})  # Empty track info: accepted, not an error
+        assert isinstance(enhanced_player.get_queue_info(), dict)
 
         # Test callback with None
         try:
@@ -458,11 +453,8 @@ class TestAudioPlayerComprehensive:
         enhanced_player.cleanup()
 
         # After cleanup, basic operations should still work or fail gracefully
-        try:
-            info = enhanced_player.get_playback_info()
-            assert isinstance(info, dict)
-        except Exception:
-            pass  # May raise exception after cleanup
+        info = enhanced_player.get_playback_info()
+        assert isinstance(info, dict)
 
 
 # ============================================================================
@@ -580,10 +572,7 @@ class TestEnhancedPlayerWithFixtures:
         assert isinstance(success, bool)
 
         # Test that player doesn't crash with None
-        try:
-            enhanced_player.load_file(None)
-        except Exception:
-            pass  # May raise exception, which is acceptable
+        assert enhanced_player.load_file(None) is False
 
 
 if __name__ == '__main__':

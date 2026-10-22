@@ -329,19 +329,19 @@ def test_migration_handles_old_schema_gracefully(temp_db_dir):
     conn.commit()
     conn.close()
 
-    # Try to open with LibraryDatabase (should migrate or handle gracefully)
+    # Opening a pre-versioning file must either refuse with MigrationError or
+    # leave a library that records its schema version.
     try:
         db = LibraryDatabase(database_path=str(db_path))
-        # Should not crash
-
-    # LibraryDatabase.__init__ signals a failed migration with MigrationError
-    # (#5174, pinned by test_failed_migration_raises_migration_error), so this no
-    # longer has to enumerate a plausible family of exception types the way the
-    # #5023 narrowing did.
     except MigrationError:
-        # Some implementations may not support automatic migration
-        # That's acceptable as long as it doesn't crash silently
-        pass
+        return
+
+    # TODO(#5851): the legacy `tracks` table is stamped current without being
+    # migrated; once that is fixed, assert its columns here as well.
+    with sqlite3.connect(str(db_path)) as check:
+        versions = check.execute("SELECT version FROM schema_version").fetchall()
+    assert versions, "an opened database must record its schema version"
+    db.shutdown()
 
 
 def test_failed_migration_raises_migration_error(temp_db_dir, monkeypatch):

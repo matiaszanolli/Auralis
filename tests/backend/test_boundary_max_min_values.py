@@ -739,23 +739,22 @@ def test_sql_injection_attempt_in_search(tmp_path):
     db_path = tmp_path / "test.db"
     db = LibraryDatabase(database_path=str(db_path))
 
-    # Attempt SQL injection
+    audio_dir = tmp_path / "audio"
+    audio_dir.mkdir()
+    filepath = audio_dir / "seed.wav"
+    save_audio(str(filepath), np.zeros((4410, 2), dtype=np.float32), 44100, subtype='PCM_16')
+    db.tracks.add({'filepath': str(filepath), 'title': 'Seed', 'artists': ['Artist']})
+
+    # Attempt SQL injection: the query is data, so it matches nothing
     malicious_query = "'; DROP TABLE tracks; --"
+    results, total = db.tracks.search(malicious_query)
+    assert results == []
+    assert total == 0
 
-    try:
-        results, total = db.tracks.search(malicious_query)
-        # Should not crash or execute malicious SQL
-        # Should return empty results or sanitized search
-    # narrowed from bare Exception, #5023: TrackRepository.search() does not
-    # swallow DB errors, so a rejected/failed query surfaces as a
-    # SQLAlchemyError; app-level rejection would be a ValueError.
-    except (ValueError, SQLAlchemyError):
-        # If it raises exception, that's also acceptable
-        pass
-
-    # Verify database still intact
+    # The tracks table is still there, with the seed row in it
     tracks, total = db.tracks.get_all(limit=10)
-    # Should not raise "no such table" error
+    assert total == 1
+    assert tracks[0].title == 'Seed'
 
 
 @pytest.mark.boundary
@@ -787,10 +786,15 @@ def test_null_byte_in_string(tmp_path):
 
     try:
         track = db.tracks.add(track_info)
-        # Should handle or reject null byte
     except ValueError:
         # Rejecting null byte is acceptable
-        pass
+        return
+
+    # Accepting it means round-tripping it whole, not truncating at the NUL
+    assert track is not None
+    stored = db.tracks.get_by_id(track.id)
+    assert stored is not None
+    assert stored.title == null_title
 
 
 @pytest.mark.boundary
@@ -819,7 +823,12 @@ def test_control_characters_in_string(tmp_path):
     }
 
     track = db.tracks.add(track_info)
-    # Should preserve or sanitize control chars
+
+    # Control characters are preserved verbatim
+    assert track is not None
+    stored = db.tracks.get_by_id(track.id)
+    assert stored is not None
+    assert stored.title == control_title
 
 
 @pytest.mark.boundary
@@ -868,12 +877,12 @@ def test_repeated_processing_no_memory_leak():
 
     audio = np.random.randn(44100, 2).astype(np.float32) * 0.1
 
-    # Process 100 times
+    # Process 100 times; repeated use must not degrade or corrupt the output
+    # (a gross leak would also surface as this slow test running out of memory)
     for i in range(100):
         result = processor.process(audio.copy())
-
-    # Memory usage should be stable (no leak)
-    # This test documents expected behavior
+        assert result.shape == audio.shape, f"sample count changed on pass {i}"
+        assert np.isfinite(result).all(), f"non-finite output on pass {i}"
 
 
 @pytest.mark.boundary

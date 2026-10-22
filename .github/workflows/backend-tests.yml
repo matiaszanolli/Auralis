@@ -155,6 +155,12 @@ jobs:
       - name: Check for new weak-assertion tests
         run: python scripts/check_weak_assertions.py
 
+      # Same ratchet for tests with no assertion at all (#5807): a body that
+      # ends in "this test documents expected behavior" passes against any
+      # defect. The legitimate "does not raise" tests are baselined.
+      - name: Check for new zero-assertion tests
+        run: python scripts/check_weak_assertions.py --zero
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

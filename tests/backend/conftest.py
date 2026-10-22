@@ -176,8 +176,30 @@ def reset_rate_limits():
     return _clear_rate_limit_windows
 
 
+@pytest.fixture(scope="session")
+def _isolated_library_db(tmp_path_factory):
+    """Point the library at a throwaway database for the whole session (#5810).
+
+    ``client`` boots the real startup path, which opens
+    ``auralis.library.constants.DEFAULT_DB_PATH`` -- the developer's own
+    ``~/.auralis/library.db`` -- migrating it and writing a backup beside it,
+    and made every test that wanted "a track from the library" depend on
+    whatever that file happened to hold. ``database`` imported the constant by
+    name, so both bindings are patched.
+    """
+    import auralis.library.constants as constants
+    import auralis.library.database as database
+
+    path = tmp_path_factory.mktemp("auralis_library") / "library.db"
+    patcher = pytest.MonkeyPatch()
+    patcher.setattr(constants, "DEFAULT_DB_PATH", path)
+    patcher.setattr(database, "DEFAULT_DB_PATH", path)
+    yield path
+    patcher.undo()
+
+
 @pytest.fixture
-def client():
+def client(_isolated_library_db):
     """
     FastAPI test client for API endpoint testing.
 
@@ -191,53 +213,80 @@ def client():
 
     # Import main app
     sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'auralis-web' / 'backend'))
-    try:
-        from main import app
-        with TestClient(app) as test_client:
-            # Starlette TestClient WebSocket connections use 'testclient' as
-            # the host, which the origin-check fix in #3845 correctly rejects
-            # (non-loopback empty-Origin).  Patch websocket_connect here so
-            # every backend test automatically sends a valid listed Origin
-            # without requiring each test to specify it explicitly.
-            #
-            # #4781: this used to default to http://localhost:3000 (a Vite
-            # dev-server origin), which build_ws_origins() only allows when
-            # is_dev_mode() is true (#4350) -- and ALLOWED_WS_ORIGINS is
-            # frozen once at config.globals import time, so no per-test env
-            # var/monkeypatch can fix it up after the fact. Since pytest never
-            # runs with --dev/AURALIS_DEV_MODE (#4802), every WebSocket-connecting test using
-            # this fixture was rejected with "untrusted origin", not hanging
-            # as such but failing before any real assertion ran. Port 8765
-            # (the backend's own origin) is unconditionally allowlisted
-            # regardless of dev/prod mode, so it works no matter when
-            # config.globals first got imported this session.
-            _orig_ws_connect = test_client.websocket_connect
+    from main import app
+    with TestClient(app) as test_client:
+        # Starlette TestClient WebSocket connections use 'testclient' as
+        # the host, which the origin-check fix in #3845 correctly rejects
+        # (non-loopback empty-Origin).  Patch websocket_connect here so
+        # every backend test automatically sends a valid listed Origin
+        # without requiring each test to specify it explicitly.
+        #
+        # #4781: this used to default to http://localhost:3000 (a Vite
+        # dev-server origin), which build_ws_origins() only allows when
+        # is_dev_mode() is true (#4350) -- and ALLOWED_WS_ORIGINS is
+        # frozen once at config.globals import time, so no per-test env
+        # var/monkeypatch can fix it up after the fact. Since pytest never
+        # runs with --dev/AURALIS_DEV_MODE (#4802), every WebSocket-connecting test using
+        # this fixture was rejected with "untrusted origin", not hanging
+        # as such but failing before any real assertion ran. Port 8765
+        # (the backend's own origin) is unconditionally allowlisted
+        # regardless of dev/prod mode, so it works no matter when
+        # config.globals first got imported this session.
+        _orig_ws_connect = test_client.websocket_connect
 
-            def _ws_connect_with_origin(url: str, **kwargs):  # type: ignore[override]
-                headers = dict(kwargs.pop("headers", {}))
-                headers.setdefault("origin", "http://localhost:8765")
-                return _orig_ws_connect(url, headers=headers, **kwargs)
+        def _ws_connect_with_origin(url: str, **kwargs):  # type: ignore[override]
+            headers = dict(kwargs.pop("headers", {}))
+            headers.setdefault("origin", "http://localhost:8765")
+            return _orig_ws_connect(url, headers=headers, **kwargs)
 
-            test_client.websocket_connect = _ws_connect_with_origin  # type: ignore[method-assign]
+        test_client.websocket_connect = _ws_connect_with_origin  # type: ignore[method-assign]
 
-            # #5089: the same reasoning applies to plain HTTP verbs.
-            # OriginCheckMiddleware rejects any state-changing /api request
-            # that arrives with an empty Origin from a non-loopback host, and
-            # Starlette's TestClient reports its host as 'testclient'. Every
-            # POST/PUT/DELETE/PATCH built on this fixture therefore got a 403
-            # before the route, dependency graph, or Pydantic validator ever
-            # ran -- 131 tests across 10 files asserting against a rejection
-            # they never intended to exercise. Setting a default Origin on the
-            # client (httpx merges these into every request) restores the
-            # write-path coverage. The middleware's own enforcement stays
-            # covered by test_origin_check_middleware.py, which builds its own
-            # app and client rather than using this fixture.
-            test_client.headers.update({"origin": "http://localhost:8765"})
+        # #5089: the same reasoning applies to plain HTTP verbs.
+        # OriginCheckMiddleware rejects any state-changing /api request
+        # that arrives with an empty Origin from a non-loopback host, and
+        # Starlette's TestClient reports its host as 'testclient'. Every
+        # POST/PUT/DELETE/PATCH built on this fixture therefore got a 403
+        # before the route, dependency graph, or Pydantic validator ever
+        # ran -- 131 tests across 10 files asserting against a rejection
+        # they never intended to exercise. Setting a default Origin on the
+        # client (httpx merges these into every request) restores the
+        # write-path coverage. The middleware's own enforcement stays
+        # covered by test_origin_check_middleware.py, which builds its own
+        # app and client rather than using this fixture.
+        test_client.headers.update({"origin": "http://localhost:8765"})
 
-            yield test_client
-    except ImportError:
-        # If backend not available, skip fixture
-        pytest.skip("Backend main app not available")
+        yield test_client
+
+
+@pytest.fixture
+def library_track(client, tmp_path):
+    """A real track row in the app's (isolated) library, removed afterwards.
+
+    Gives API tests a track to act on instead of skipping when the library
+    they happen to boot against is empty (#5810). The audio file exists on
+    disk, so endpoints that read it behave as they would for a scanned track.
+    """
+    import numpy as np
+    import soundfile as sf
+    from main import globals_dict
+
+    audio_path = tmp_path / "library_track.wav"
+    sf.write(str(audio_path), np.zeros((4410, 2), dtype=np.float32), 44100)
+
+    tracks = globals_dict["library_database"].tracks
+    track = tracks.add({
+        "title": "Fixture Track",
+        "filepath": str(audio_path),
+        "artists": ["Fixture Artist"],
+        "album": "Fixture Album",
+        "format": "WAV",
+        "sample_rate": 44100,
+        "channels": 2,
+        "duration": 0.1,
+    })
+    assert track is not None, "fixture track could not be inserted"
+    yield track
+    tracks.delete(track.id)
 
 
 @pytest.fixture

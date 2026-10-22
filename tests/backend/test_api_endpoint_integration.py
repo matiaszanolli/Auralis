@@ -305,7 +305,7 @@ def test_enhancement_intensity_api(client):
 
 @pytest.mark.integration
 @pytest.mark.api
-def test_metadata_update_api(client):
+def test_metadata_update_api(client, library_track):
     """
     INTEGRATION TEST: /api/metadata/track/{id} update endpoint.
 
@@ -314,16 +314,7 @@ def test_metadata_update_api(client):
     - Changes persist
     - Returns updated data
     """
-    # First, get a track ID
-    tracks_response = client.get("/api/library/tracks?limit=1")
-    if tracks_response.status_code != 200:
-        pytest.skip("No tracks available for metadata test")
-
-    tracks_data = tracks_response.json()
-    if not tracks_data.get("tracks"):
-        pytest.skip("No tracks in library")
-
-    track_id = tracks_data["tracks"][0]["id"]
+    track_id = library_track.id
 
     # Update metadata (PUT with JSON body)
     update_response = client.put(
@@ -353,7 +344,7 @@ def test_metadata_update_api(client):
 
 @pytest.mark.integration
 @pytest.mark.api
-def test_queue_add_track_api(client):
+def test_queue_add_track_api(client, library_track):
     """
     INTEGRATION TEST: /api/player/queue/add-track endpoint (#2725).
 
@@ -361,19 +352,7 @@ def test_queue_add_track_api(client):
     - Adding track to queue via QueueService
     - Queue state updated
     """
-    # Get a track first
-    tracks_response = client.get("/api/library/tracks?limit=1")
-    if tracks_response.status_code != 200:
-        pytest.skip("No tracks available")
-
-    tracks_data = tracks_response.json()
-    if not tracks_data.get("tracks"):
-        pytest.skip("No tracks in library")
-
-    track = tracks_data["tracks"][0]
-    track_id = track.get("id")
-    if not track_id:
-        pytest.skip("Track has no id")
+    track_id = library_track.id
 
     # Add to queue using the canonical endpoint
     add_response = client.post(
@@ -388,8 +367,8 @@ def test_queue_add_track_api(client):
     queue_response = client.get("/api/player/queue")
     assert queue_response.status_code == 200, "Queue endpoint should be accessible"
 
-    queue_data = queue_response.json()
-    # Should have tracks in queue
+    queue_ids = [t["id"] for t in queue_response.json()["tracks"]]
+    assert track_id in queue_ids, f"added track {track_id} missing from queue {queue_ids}"
 
 
 @pytest.mark.integration
@@ -420,7 +399,7 @@ def test_queue_clear_api(client):
 
 @pytest.mark.integration
 @pytest.mark.api
-def test_playlist_add_tracks_api(client):
+def test_playlist_add_tracks_api(client, library_track):
     """
     INTEGRATION TEST: /api/playlists/{id}/tracks/add endpoint (ADD).
 
@@ -442,12 +421,7 @@ def test_playlist_add_tracks_api(client):
     if not playlist_id:
         pytest.skip("Could not extract playlist_id from response")
 
-    # Get a track ID
-    tracks_response = client.get("/api/library/tracks?limit=1")
-    if tracks_response.status_code != 200:
-        pytest.skip("No tracks available")
-
-    track_id = tracks_response.json()["tracks"][0]["id"]
+    track_id = library_track.id
 
     # Add track to playlist (endpoint expects track_ids list)
     add_response = client.post(
@@ -465,7 +439,7 @@ def test_playlist_add_tracks_api(client):
 
 @pytest.mark.integration
 @pytest.mark.api
-def test_favorites_toggle_api(client):
+def test_favorites_toggle_api(client, library_track):
     """
     INTEGRATION TEST: /api/library/tracks/{track_id}/favorite endpoint (toggle).
 
@@ -473,16 +447,7 @@ def test_favorites_toggle_api(client):
     - Toggling favorite status
     - Status persists
     """
-    # Get a track ID
-    tracks_response = client.get("/api/library/tracks?limit=1")
-    if tracks_response.status_code != 200:
-        pytest.skip("No tracks available")
-
-    tracks_data = tracks_response.json()
-    if not tracks_data.get("tracks"):
-        pytest.skip("No tracks in library")
-
-    track_id = tracks_data["tracks"][0]["id"]
+    track_id = library_track.id
 
     # Toggle favorite ON
     favorite_response = client.post(f"/api/library/tracks/{track_id}/favorite")
@@ -499,7 +464,7 @@ def test_favorites_toggle_api(client):
             favorite_ids = [t["id"] for t in favorites.get("tracks", [])]
         else:
             favorite_ids = [t["id"] for t in favorites]
-        # Track should be in favorites
+        assert track_id in favorite_ids, f"favorited track {track_id} missing from {favorite_ids}"
 
 
 @pytest.mark.integration

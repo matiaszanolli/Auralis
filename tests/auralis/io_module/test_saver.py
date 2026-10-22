@@ -230,14 +230,9 @@ def test_save_empty_audio(tmp_path):
     audio = np.array([], dtype=np.float32)
     output_path = tmp_path / "output_empty.wav"
 
-    # May raise error or create empty file
-    try:
-        save(str(output_path), audio, sr)
-        # If it succeeds, file should exist
-        assert output_path.exists()
-    except:
-        # If it fails, that's okay too
-        pass
+    # Saving zero samples is accepted and produces a (header-only) file
+    save(str(output_path), audio, sr)
+    assert output_path.exists()
 
 
 def test_save_very_short_audio(tmp_path):

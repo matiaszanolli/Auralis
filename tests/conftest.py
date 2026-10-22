@@ -50,16 +50,6 @@ try:
 except ImportError:
     HAS_SOUNDFILE = False
 
-try:
-    HAS_MATCHERING = True
-except ImportError:
-    HAS_MATCHERING = False
-
-try:
-    HAS_PLAYER = True
-except ImportError:
-    HAS_PLAYER = False
-
 # Pytest fixtures
 
 @pytest.fixture(scope="session")
@@ -77,30 +67,6 @@ def sample_rates():
 def bit_depths():
     """Standard bit depths for testing"""
     return ["PCM_16", "PCM_24", "FLOAT"]
-
-@pytest.fixture
-def test_config():
-    """Default test configuration"""
-    if not HAS_PLAYER:
-        pytest.skip("Matchering player not available")
-    return PlayerConfig(
-        buffer_size_ms=100.0,
-        enable_level_matching=True,
-        enable_frequency_matching=False,
-        enable_stereo_width=False
-    )
-
-@pytest.fixture
-def full_config():
-    """Full-featured test configuration"""
-    if not HAS_PLAYER:
-        pytest.skip("Matchering player not available")
-    return PlayerConfig(
-        buffer_size_ms=100.0,
-        enable_level_matching=True,
-        enable_frequency_matching=True,
-        enable_stereo_width=True
-    )
 
 @pytest.fixture
 def sine_wave():
@@ -553,12 +519,6 @@ def pytest_runtest_setup(item):
     if "files" in markers and not HAS_SOUNDFILE:
         pytest.skip("soundfile not available")
 
-    if "player" in markers and not HAS_PLAYER:
-        pytest.skip("matchering player not available")
-
-    if "core" in markers and not HAS_MATCHERING:
-        pytest.skip("matchering core library not available")
-
 def _ensure_portaudio():
     """Ensure PortAudio is properly initialized or disabled."""
     try:
@@ -621,8 +581,6 @@ def assert_rms_similar(audio1: np.ndarray, audio2: np.ndarray, tolerance=0.01):
 # Export utility functions for use in tests
 __all__ = [
     'HAS_SOUNDFILE',
-    'HAS_MATCHERING',
-    'HAS_PLAYER',
     'assert_audio_equal',
     'assert_rms_similar'
 ]

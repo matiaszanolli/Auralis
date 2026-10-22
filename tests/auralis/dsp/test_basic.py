@@ -110,14 +110,8 @@ class TestDSPBasicComprehensive:
         """Test channel_count edge cases"""
         self.setUp()
 
-        # Test empty arrays (if they don't cause errors)
-        if len(self.empty_mono) == 0:
-            # Empty array might cause issues, test carefully
-            try:
-                result = channel_count(self.empty_mono)
-                assert result == 1  # 1D array should return 1
-            except Exception:
-                pass  # Empty arrays might not be supported
+        # An empty 1D array is still mono
+        assert channel_count(self.empty_mono) == 1
 
         self.tearDown()
 

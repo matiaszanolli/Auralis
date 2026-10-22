@@ -41,22 +41,19 @@ class TestPlaybackState:
 
     def test_playback_state_enum(self):
         """Test PlaybackState enum values."""
-        try:
-            from auralis.player.enhanced_audio_player import PlaybackState
+        from auralis.player.enhanced_audio_player import PlaybackState
 
-            # Test all enum values
-            assert PlaybackState.STOPPED.value == "stopped"
-            assert PlaybackState.PLAYING.value == "playing"
-            assert PlaybackState.PAUSED.value == "paused"
-            assert PlaybackState.LOADING.value == "loading"
-            assert PlaybackState.ERROR.value == "error"
+        # Test all enum values
+        assert PlaybackState.STOPPED.value == "stopped"
+        assert PlaybackState.PLAYING.value == "playing"
+        assert PlaybackState.PAUSED.value == "paused"
+        assert PlaybackState.LOADING.value == "loading"
+        assert PlaybackState.ERROR.value == "error"
 
-            # Test enum comparison
-            assert PlaybackState.STOPPED != PlaybackState.PLAYING
-            assert PlaybackState.PAUSED == PlaybackState.PAUSED
+        # Test enum comparison
+        assert PlaybackState.STOPPED != PlaybackState.PLAYING
+        assert PlaybackState.PAUSED == PlaybackState.PAUSED
 
-        except ImportError:
-            pytest.skip("Enhanced audio player not available")
 
 
 class TestQueueManager:
@@ -112,25 +109,19 @@ class TestQueueManager:
             }
             queue_manager.add_track(track_info)
 
-        # Test navigation methods if they exist
-        nav_methods = ['next_track', 'previous_track', 'get_current_track',
-                      'set_current_index', 'clear_queue']
+        # Nothing is selected until the first next_track()
+        assert queue_manager.get_current_track() is None
 
-        for method_name in nav_methods:
-            if hasattr(queue_manager, method_name):
-                method = getattr(queue_manager, method_name)
-                if callable(method):
-                    try:
-                        if method_name in ['next_track', 'previous_track', 'clear_queue']:
-                            result = method()
-                        elif method_name == 'get_current_track':
-                            result = method()
-                        elif method_name == 'set_current_index':
-                            result = method(1)
-                        # Method executed successfully
-                    except (IndexError, RuntimeError, TypeError):
-                        # Method might need specific setup
-                        pass
+        assert queue_manager.next_track()['title'] == 'Song 0'
+        assert queue_manager.next_track()['title'] == 'Song 1'
+        assert queue_manager.previous_track()['title'] == 'Song 0'
+
+        queue_manager.current_index = 1
+        assert queue_manager.get_current_track()['title'] == 'Song 1'
+
+        queue_manager.clear_queue()
+        assert queue_manager.get_queue_size() == 0
+        assert queue_manager.current_index == -1
 
     def test_shuffle_and_repeat(self, queue_manager):
         """Test shuffle and repeat functionality."""
@@ -185,45 +176,39 @@ class TestAudioPlayerCore:
 
     def test_enhanced_player_initialization(self, mock_config, temp_db, get_repository_factory_callable):
         """Test AudioPlayer initialization."""
+        from auralis.player.enhanced_audio_player import (
+            AudioPlayer,
+            PlaybackState,
+        )
+
+        # AudioPlayer now requires a repository factory (#4141).
         try:
-            from auralis.player.enhanced_audio_player import (
-                AudioPlayer,
-                PlaybackState,
+            player = AudioPlayer(
+                config=mock_config,
+                get_repository_factory=get_repository_factory_callable,
             )
+            assert player.config == mock_config
+            assert player.state == PlaybackState.STOPPED
 
-            # AudioPlayer now requires a repository factory (#4141).
-            try:
-                player = AudioPlayer(
-                    config=mock_config,
-                    get_repository_factory=get_repository_factory_callable,
-                )
-                assert player.config == mock_config
-                assert player.state == PlaybackState.STOPPED
+            # Test basic attributes
+            assert hasattr(player, 'current_file')
+            assert hasattr(player, 'current_track')
+            assert hasattr(player, 'audio_data')
 
-                # Test basic attributes
-                assert hasattr(player, 'current_file')
-                assert hasattr(player, 'current_track')
-                assert hasattr(player, 'audio_data')
+        except Exception as e:
+            # Player might need an audio device/system unavailable in CI.
+            error_msg = str(e).lower()
+            assert any(word in error_msg for word in [
+                'audio', 'device', 'system', 'library', 'repository'
+            ])
 
-            except Exception as e:
-                # Player might need an audio device/system unavailable in CI.
-                error_msg = str(e).lower()
-                assert any(word in error_msg for word in [
-                    'audio', 'device', 'system', 'library', 'repository'
-                ])
-
-        except ImportError:
-            pytest.skip("Enhanced audio player not available")
 
     def test_player_state_management(self, mock_config, get_repository_factory_callable):
         """Test player state management against the real component surface."""
-        try:
-            from auralis.player.enhanced_audio_player import (
-                AudioPlayer,
-                PlaybackState,
-            )
-        except ImportError:
-            pytest.skip("Enhanced audio player not available")
+        from auralis.player.enhanced_audio_player import (
+            AudioPlayer,
+            PlaybackState,
+        )
 
         try:
             # AudioPlayer now requires a repository factory (#4141); these six
@@ -268,10 +253,7 @@ class TestEnhancedPlayerProcessing:
         """Test enhancement controls through the real processor surface."""
         import numpy as np
 
-        try:
-            from auralis.player.enhanced_audio_player import AudioPlayer
-        except ImportError:
-            pytest.skip("Enhanced audio player not available")
+        from auralis.player.enhanced_audio_player import AudioPlayer
 
         try:
             # AudioPlayer now requires a repository factory (#4141); until
@@ -308,10 +290,7 @@ class TestEnhancedPlayerProcessing:
         """Test real-time processor integration through the player."""
         import numpy as np
 
-        try:
-            from auralis.player.enhanced_audio_player import AudioPlayer
-        except ImportError:
-            pytest.skip("Enhanced audio player not available")
+        from auralis.player.enhanced_audio_player import AudioPlayer
 
         try:
             # AudioPlayer now requires a repository factory (#4141); until
@@ -357,53 +336,47 @@ class TestEnhancedPlayerLibraryIntegration:
 
     def test_library_integration(self, mock_config, temp_db):
         """Test library integration."""
+        from auralis.library.database import LibraryDatabase
+        from auralis.player.enhanced_audio_player import AudioPlayer
+
+        library = LibraryDatabase(temp_db)
+
         try:
-            from auralis.library.database import LibraryDatabase
-            from auralis.player.enhanced_audio_player import AudioPlayer
+            player = AudioPlayer(mock_config, library)
 
-            library = LibraryDatabase(temp_db)
+            # Test library access
+            if hasattr(player, 'library'):
+                assert player.library is not None
 
-            try:
-                player = AudioPlayer(mock_config, library)
+            # Test library methods
+            library_methods = [
+                ('load_track_by_id', 1),
+                ('load_track_by_path', '/test/song.mp3'),
+                ('get_current_track_info', None),
+                ('add_to_recent_tracks', None),
+                ('update_play_count', None)
+            ]
 
-                # Test library access
-                if hasattr(player, 'library'):
-                    assert player.library is not None
+            for method_name, param in library_methods:
+                if hasattr(player, method_name):
+                    method = getattr(player, method_name)
+                    if callable(method):
+                        try:
+                            if param is not None:
+                                result = method(param)
+                            else:
+                                result = method()
+                        except (TypeError, ValueError, KeyError, RuntimeError):
+                            # Method might need actual track data
+                            pass
 
-                # Test library methods
-                library_methods = [
-                    ('load_track_by_id', 1),
-                    ('load_track_by_path', '/test/song.mp3'),
-                    ('get_current_track_info', None),
-                    ('add_to_recent_tracks', None),
-                    ('update_play_count', None)
-                ]
+        except (ValueError, RuntimeError):
+            pass
 
-                for method_name, param in library_methods:
-                    if hasattr(player, method_name):
-                        method = getattr(player, method_name)
-                        if callable(method):
-                            try:
-                                if param is not None:
-                                    result = method(param)
-                                else:
-                                    result = method()
-                            except (TypeError, ValueError, KeyError, RuntimeError):
-                                # Method might need actual track data
-                                pass
-
-            except (ValueError, RuntimeError):
-                pass
-
-        except ImportError:
-            pytest.skip("Enhanced audio player or library not available")
 
     def test_queue_integration(self, mock_config, get_repository_factory_callable):
         """Test queue integration through the player's real QueueController."""
-        try:
-            from auralis.player.enhanced_audio_player import AudioPlayer
-        except ImportError:
-            pytest.skip("Enhanced audio player not available")
+        from auralis.player.enhanced_audio_player import AudioPlayer
 
         try:
             # AudioPlayer now requires a repository factory (#4141); until
@@ -444,10 +417,7 @@ class TestEnhancedPlayerAdvanced:
 
     def test_error_handling(self, mock_config, get_repository_factory_callable):
         """Test error handling for invalid input on the real components."""
-        try:
-            from auralis.player.enhanced_audio_player import AudioPlayer
-        except ImportError:
-            pytest.skip("Enhanced audio player not available")
+        from auralis.player.enhanced_audio_player import AudioPlayer
 
         try:
             # AudioPlayer now requires a repository factory (#4141); until

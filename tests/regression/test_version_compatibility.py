@@ -117,34 +117,36 @@ class TestDatabaseSchemaMigrations:
 
         assert success, "Index creation should be idempotent"
 
-    def test_foreign_key_constraints_preserved(self, temp_db):
+    def test_foreign_key_constraints_preserved(self, tmp_path):
         """
         REGRESSION: Schema migrations preserve foreign key constraints.
         Test: Cannot create orphaned tracks.
-        """
-        session = temp_db()
 
+        Uses a real LibraryDatabase: it is what turns SQLite's foreign-key
+        enforcement on, which a bare ``create_engine`` does not.
+        """
+        from sqlalchemy.exc import IntegrityError
+
+        from auralis.library.database import LibraryDatabase
         from auralis.library.models import Track
 
+        db = LibraryDatabase(database_path=str(tmp_path / "fk.db"))
+        session = db.SessionLocal()
+
         # Try to create track with invalid album_id
-        track = Track(
+        session.add(Track(
             filepath='/tmp/orphan.flac',
             title='Orphan Track',
             album_id=99999,  # Non-existent album
             format='FLAC',
             sample_rate=44100,
-            channels=2
-        )
+            channels=2,
+        ))
 
-        session.add(track)
-
-        # This should either fail or be allowed (depends on SQLite FK enforcement)
-        # Just verify no crash
-        try:
+        with pytest.raises(IntegrityError):
             session.commit()
-        except Exception:
-            session.rollback()
 
+        session.rollback()
         session.close()
 
     def test_composite_index_on_favorites(self, temp_db):

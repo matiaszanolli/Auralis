@@ -379,11 +379,11 @@ class TestFileHandleExhaustion:
 
         from auralis.io.unified_loader import load_audio
 
-        # Try to load corrupted file
-        try:
+        # Loading the corrupted file fails
+        from auralis.utils.logging import ModuleError
+
+        with pytest.raises(ModuleError):
             load_audio(filepath)
-        except Exception:
-            pass  # Expected to fail
 
         # Try to delete file (should succeed if handle was closed)
         try:

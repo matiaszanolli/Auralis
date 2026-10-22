@@ -19,6 +19,7 @@ import numpy as np
 import pytest
 import soundfile as sf
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 
 
 @pytest.mark.stress
@@ -230,24 +231,18 @@ class TestBoundaryConditions:
         session = db.SessionLocal()
 
         # Add same filepath twice
-        track1 = Track(filepath="/test/duplicate.mp3", title="Duplicate", duration=180.0)
-        track2 = Track(filepath="/test/duplicate.mp3", title="Duplicate", duration=180.0)
-
-        session.add(track1)
+        session.add(Track(filepath="/test/duplicate.mp3", title="Duplicate", duration=180.0))
         session.commit()
 
-        # Second should either fail or be skipped
-        try:
-            session.add(track2)
+        # The unique filepath constraint rejects the second row
+        session.add(Track(filepath="/test/duplicate.mp3", title="Duplicate", duration=180.0))
+        with pytest.raises(IntegrityError):
             session.commit()
-            # If it succeeds, check if constraint prevents it
-            from auralis.library.repositories import TrackRepository
-            repo = TrackRepository(db.SessionLocal)
-            tracks, _ = repo.get_all()
-            # May have duplicate or unique constraint
-        except Exception:
-            # Expected - unique constraint violation
-            session.rollback()
+        session.rollback()
+
+        from auralis.library.repositories import TrackRepository
+        _, total = TrackRepository(db.SessionLocal).get_all()
+        assert total == 1
 
         session.close()
 
@@ -348,20 +343,15 @@ class TestInvalidInputs:
         db = LibraryDatabase(database_path=str(tmp_path / "negative.db"))
         session = db.SessionLocal()
 
-        # Try to create track with negative duration
-        track = Track(filepath="/test/invalid.mp3", duration=-10.0)
-
-        session.add(track)
-        try:
+        # A negative duration violates the table's CHECK constraint
+        session.add(Track(filepath="/test/invalid.mp3", duration=-10.0))
+        with pytest.raises(IntegrityError):
             session.commit()
-            # If it allows, query should still work
-            from auralis.library.repositories import TrackRepository
-            repo = TrackRepository(db.SessionLocal)
-            tracks, _ = repo.get_all()
-            # May have negative duration (no validation) or fail
-        except Exception:
-            # Expected - validation failed
-            session.rollback()
+        session.rollback()
+
+        from auralis.library.repositories import TrackRepository
+        _, total = TrackRepository(db.SessionLocal).get_all()
+        assert total == 0
 
         session.close()
 
@@ -434,24 +424,6 @@ class TestInvalidInputs:
         with pytest.raises((ValueError, OSError)):
             with open(invalid_path, 'w') as f:
                 f.write("test")
-
-    def test_circular_playlist_reference(self, tmp_path):
-        """Test playlist referencing itself."""
-        from auralis.library.database import LibraryDatabase
-        from auralis.library.models import Playlist
-
-        db = LibraryDatabase(database_path=str(tmp_path / "circular.db"))
-        session = db.SessionLocal()
-
-        # Create playlist
-        playlist = Playlist(name="Circular")
-        session.add(playlist)
-        session.commit()
-
-        # Playlists shouldn't reference themselves (no field for it)
-        # This is a conceptual test - current model doesn't allow circular refs
-
-        session.close()
 
     def test_missing_album_art_file(self, tmp_path):
         """Test broken artwork references."""

@@ -687,18 +687,17 @@ def test_corrupted_audio_file_handling(tmp_path):
     corrupted_path = audio_dir / "corrupted.wav"
     corrupted_path.write_text("not valid audio")
 
-    # Should handle gracefully
-    try:
-        db.tracks.add({
-            'filepath': str(corrupted_path),
-            'title': 'Corrupted Track',
-        })
-    except Exception:
-        pass  # Expected to fail, should not crash
+    # The library records what it is told; it does not decode the file
+    track = db.tracks.add({
+        'filepath': str(corrupted_path),
+        'title': 'Corrupted Track',
+    })
+    assert track is not None
 
     # Database should still work
     tracks, total = db.tracks.get_all(limit=10)
-    assert tracks is not None
+    assert total == 1
+    assert tracks[0].title == 'Corrupted Track'
 
 
 @pytest.mark.boundary
@@ -718,17 +717,14 @@ def test_partial_batch_failure(test_library_large):
     # Try to delete mix of valid and invalid IDs
     ids_to_delete = track_ids[:5] + [999999, 999998]  # Last 2 don't exist
 
-    for track_id in ids_to_delete:
-        try:
-            db.tracks.delete(track_id)
-        except Exception:
-            pass  # Some will fail
+    # A missing id is reported as False, not raised, so the rest still run
+    results = {track_id: db.tracks.delete(track_id) for track_id in ids_to_delete}
+    assert [results[i] for i in track_ids[:5]] == [True] * 5
+    assert results[999999] is False and results[999998] is False
 
     # Valid deletes should have succeeded
     tracks, total = db.tracks.get_all(limit=200)
-    assert total <= len(track_ids) - 5, (
-        "Valid deletes should have succeeded"
-    )
+    assert total == len(track_ids) - 5
 
 
 @pytest.mark.boundary
@@ -839,13 +835,11 @@ def test_invalid_metadata_values(tmp_path):
     ]
 
     for metadata in invalid_metadata:
-        try:
-            track_info = {'filepath': str(filepath)}
-            track_info.update(metadata)
-            db.tracks.add(track_info)
-        except Exception:
-            pass  # May or may not be allowed
+        track_info = {'filepath': str(filepath)}
+        track_info.update(metadata)
+        # None of these is an error: add() is idempotent per filepath
+        assert db.tracks.add(track_info) is not None
 
-    # Database should still be functional
+    # Database should still be functional, with one row for the one filepath
     tracks, total = db.tracks.get_all(limit=10)
-    assert tracks is not None
+    assert total == 1

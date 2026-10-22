@@ -158,10 +158,13 @@ class TestLibraryDatabaseAdvanced:
 
         # Test play recording
         db.tracks.record_play(track.id)
+        assert db.tracks.get_by_id(track.id).play_count == 1
 
         # Test favoriting
         db.tracks.set_favorite(track.id, True)
+        assert db.tracks.get_by_id(track.id).favorite is True
         db.tracks.set_favorite(track.id, False)
+        assert db.tracks.get_by_id(track.id).favorite is False
 
     def test_library_stats_comprehensive(self, db):
         """Test comprehensive library statistics."""
@@ -293,33 +296,20 @@ class TestPlayerComponents:
 
     def test_player_config_functionality(self):
         """Test player configuration."""
-        try:
-            from auralis.player.config import PlayerConfig
+        from auralis.player.config import PlayerConfig
 
-            # Test basic config creation
-            config = PlayerConfig()
-            assert config is not None
+        config = PlayerConfig()
 
-        except ImportError:
-            pytest.skip("PlayerConfig not available")
-        except Exception as e:
-            # Config might require parameters
-            assert 'config' in str(e).lower() or 'required' in str(e).lower()
+        assert config.sample_rate == 44100
 
     def test_realtime_processor_functionality(self):
         """Test realtime processor."""
-        try:
-            from auralis.player.realtime import RealtimeProcessor
+        from auralis.player.config import PlayerConfig
+        from auralis.player.realtime import RealtimeProcessor
 
-            # Test basic processor creation
-            processor = RealtimeProcessor()
-            assert processor is not None
+        processor = RealtimeProcessor(PlayerConfig())
 
-        except ImportError:
-            pytest.skip("RealtimeProcessor not available")
-        except Exception as e:
-            # Processor might require audio system
-            assert any(word in str(e).lower() for word in ['audio', 'device', 'system', 'init'])
+        assert sorted(processor.effects_enabled) == ['auto_mastering', 'level_matching']
 
 
 class TestDSPComponents:
@@ -327,29 +317,17 @@ class TestDSPComponents:
 
     def test_basic_dsp_functionality(self):
         """Test basic DSP functionality."""
-        try:
-            from auralis.dsp.basic import AudioProcessor, amplify_audio, normalize_audio
+        from auralis.dsp.basic import amplify, normalize
 
-            # Test function availability
-            assert callable(normalize_audio)
-            assert callable(amplify_audio)
+        dummy_audio = np.random.default_rng(0).random((1024, 2)).astype(np.float32)
 
-            # Test with dummy audio data
-            dummy_audio = np.random.rand(1024, 2).astype(np.float32)
+        normalized = normalize(dummy_audio)
+        assert normalized.shape == dummy_audio.shape
+        assert np.max(np.abs(normalized)) == pytest.approx(1.0, abs=1e-3)
 
-            # Test normalization
-            normalized = normalize_audio(dummy_audio)
-            assert normalized.shape == dummy_audio.shape
-
-            # Test amplification
-            amplified = amplify_audio(dummy_audio, gain_db=6.0)
-            assert amplified.shape == dummy_audio.shape
-
-        except ImportError:
-            pytest.skip("DSP basic functions not available")
-        except Exception as e:
-            # Functions might require specific input format
-            assert any(word in str(e).lower() for word in ['audio', 'shape', 'dtype', 'format'])
+        amplified = amplify(dummy_audio, gain_db=6.0)
+        assert amplified.shape == dummy_audio.shape
+        np.testing.assert_allclose(amplified, dummy_audio * 10 ** (6.0 / 20), rtol=1e-5)
 
     # #4867 removed `test_dsp_stages_functionality`. It imported three class
     # names (`ProcessingStage`, `PreprocessingStage`, `MasteringStage`) that
@@ -363,57 +341,47 @@ class TestDSPComponents:
 class TestIOComponents:
     """Test I/O components for coverage."""
 
-    def test_loader_functionality(self):
+    def test_loader_functionality(self, tmp_path):
         """Test audio loader functionality."""
-        try:
-            from auralis.io.loader import AudioLoader, load_audio_file
+        from auralis.io.saver import save
+        from auralis.io.unified_loader import load_audio
 
-            # Test loader creation
-            loader = AudioLoader()
-            assert loader is not None
+        path = tmp_path / "loader.wav"
+        original = np.random.default_rng(0).uniform(-0.5, 0.5, (2048, 2)).astype(np.float32)
+        save(str(path), original, 44100, subtype='PCM_16')
 
-            # Test load function exists
-            assert callable(load_audio_file)
+        audio, sample_rate = load_audio(str(path))
 
-        except ImportError:
-            pytest.skip("AudioLoader not available")
-        except Exception as e:
-            # Might require audio libraries
-            assert any(word in str(e).lower() for word in ['audio', 'library', 'soundfile'])
+        assert sample_rate == 44100
+        assert audio.shape == original.shape
 
-    def test_saver_functionality(self):
+    def test_saver_functionality(self, tmp_path):
         """Test audio saver functionality."""
-        try:
-            from auralis.io.saver import AudioSaver, save_audio_file
+        import soundfile as sf
 
-            # Test saver creation
-            saver = AudioSaver()
-            assert saver is not None
+        from auralis.io.saver import save
 
-            # Test save function exists
-            assert callable(save_audio_file)
+        path = tmp_path / "saver.wav"
+        audio = np.zeros((1024, 2), dtype=np.float32)
 
-        except ImportError:
-            pytest.skip("AudioSaver not available")
+        save(str(path), audio, 48000, subtype='PCM_24')
 
-    def test_results_functionality(self):
+        info = sf.info(str(path))
+        assert (info.samplerate, info.channels, info.subtype) == (48000, 2, 'PCM_24')
+
+    def test_results_functionality(self, tmp_path):
         """Test processing results functionality."""
-        try:
-            from auralis.io.results import ProcessingResults, ResultsContainer
+        from auralis.io.results import pcm16, pcm24
 
-            # #5154: `assert ProcessingResults is not None` is true for any
-            # successfully imported name, so this only re-tested the import.
-            assert callable(ProcessingResults)
-            assert callable(ResultsContainer)
+        # A Result only describes the output target; it must carry the path
+        # and the PCM subtype the writer reads.
+        target = str(tmp_path / "out.wav")
 
-            # A default-constructed result set must be usable, not merely
-            # non-None.
-            results = ProcessingResults()
-            assert results is not None
-            assert isinstance(results.to_dict(), dict) if hasattr(results, 'to_dict') else True
+        assert (pcm16(target).file, pcm16(target).subtype) == (target, 'PCM_16')
+        assert (pcm24(target).file, pcm24(target).subtype) == (target, 'PCM_24')
 
-        except ImportError:
-            pytest.skip("ProcessingResults not available")
+        with pytest.raises(FileNotFoundError):
+            pcm16(str(tmp_path / "missing_dir" / "out.wav"))
 
 
 class TestUtilityComponents:

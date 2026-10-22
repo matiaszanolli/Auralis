@@ -207,21 +207,6 @@ class TestPostScanFingerprintEnqueue:
         assert count == 1   # only the first True contributes
         assert fp_queue.enqueue.call_count == 2
 
-    def test_enqueue_exception_does_not_propagate(self):
-        """
-        If get_fingerprint_queue() raises, the scan result is still returned.
-        The handler wraps this block in try/except Exception.
-        """
-        result = _make_scan_result([1, 2])
-        # Simulate the try/except wrapper in library.py
-        try:
-            raise RuntimeError("queue service unavailable")
-        except Exception:
-            pass  # scan should complete normally
-
-        # Verify result is intact (fingerprint failure is non-fatal)
-        assert result.files_added == 2
-
 
 # ---------------------------------------------------------------------------
 # Tests: FingerprintQueue.enqueue is synchronous (no await needed)

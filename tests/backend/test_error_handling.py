@@ -276,15 +276,8 @@ def test_error_delete_nonexistent_track(track_repo):
     """
     nonexistent_id = 999999
 
-    # Should not raise error, just do nothing
-    try:
-        track_repo.delete(nonexistent_id)
-    # narrowed from bare Exception, #5023: delete() returns False for a missing
-    # row; an implementation that rejects instead raises a lookup error
-    # (KeyError), a validation error (ValueError) or a DB error.
-    except (KeyError, ValueError, SQLAlchemyError):
-        # Some implementations may raise, that's ok
-        pass
+    # Does not raise; reports that nothing was deleted
+    assert track_repo.delete(nonexistent_id) is False
 
 
 # ============================================================================
@@ -357,10 +350,8 @@ def test_error_cleanup_on_exception(temp_audio_dir):
             "bitrate": 1411200,
         }
 
-        try:
-            db.tracks.add(invalid_track_info)
-        except Exception:
-            pass  # Expected
+        # Rejected without raising: add() reports the failure by returning None
+        assert db.tracks.add(invalid_track_info) is None
 
         # Verify database is still functional after error
         valid_track_info = {
@@ -413,16 +404,18 @@ def test_error_database_locked_handling():
             "bitrate": 1411200,
         }
 
-        # Should handle gracefully (either succeed or raise predictable error)
+        # Two connections adding the same filepath end with exactly one row:
+        # add() is idempotent per filepath, and a lock timeout or UNIQUE
+        # violation would be the only other acceptable outcomes.
         try:
             track1 = db1.tracks.add(track_info)
             track2 = db2.tracks.add(track_info)
-        # narrowed from bare Exception, #5023: the two outcomes this test
-        # tolerates are exactly a lock timeout (OperationalError, "database is
-        # locked") and a UNIQUE-filepath violation (IntegrityError).
         except (OperationalError, IntegrityError):
-            # Database lock or constraint violation is acceptable
-            pass
+            track1 = track2 = None
+        else:
+            assert track1.id == track2.id
+
+        assert db1.tracks.get_all()[1] == 1
 
         db1.shutdown()
         db2.shutdown()
