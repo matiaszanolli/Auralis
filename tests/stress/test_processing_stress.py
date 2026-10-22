@@ -323,13 +323,6 @@ class TestAudioProcessingLimits:
         save(str(output_path), processed, sr, subtype='PCM_16')
         assert output_path.exists()
 
-    @pytest.mark.skip(reason="Multi-channel audio not yet supported")
-    def test_process_many_channels(self, tmp_path):
-        """Test processing 7.1 surround audio."""
-        # Would test 8-channel audio processing
-        # Current implementation supports stereo only
-        pass
-
     def test_process_low_bitrate_audio(self, tmp_path):
         """Test processing low bitrate audio."""
         # Create low-quality audio (simulated)

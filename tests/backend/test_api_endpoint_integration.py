@@ -417,23 +417,6 @@ def test_queue_clear_api(client):
 # Playlist API Integration Tests (P1 Priority)
 # ============================================================================
 
-@pytest.mark.integration
-@pytest.mark.api
-def test_playlist_create_api(client):
-    """
-    INTEGRATION TEST: /api/playlists endpoint (CREATE).
-
-    Validates:
-    - Playlist creation
-    - Returns playlist ID
-    - Playlist appears in list
-
-    STATUS: Skipped - Playlist repository create() method needs refactoring for proper
-    session handling and detached object management. Requires investigation of
-    SQLAlchemy session lifecycle and eager loading strategy.
-    """
-    pytest.skip("Playlist creation endpoint requires repository session refactoring")
-
 
 @pytest.mark.integration
 @pytest.mark.api

@@ -345,12 +345,10 @@ class TestPresetEdgeCases:
         config.mastering_profile = 'adaptive'
         processor = HybridProcessor(config)
 
-        # Empty audio should either:
-        # 1. Return empty array gracefully, OR
-        # 2. Raise a clear error
-        # Currently content analyzer doesn't handle empty arrays
-        # This is expected behavior - skip this edge case
-        pytest.skip("Empty audio handling not yet implemented in content analyzer")
+        # Empty audio passes through untouched: sample count is preserved.
+        result = processor.process(np.zeros((0, 2), dtype=np.float32))
+
+        assert result.shape == (0, 2)
 
     def test_very_quiet_audio(self):
         """Test processing very quiet audio"""

@@ -948,18 +948,3 @@ def test_pagination_with_single_item(test_db):
     finally:
         import shutil
         shutil.rmtree(temp_dir, ignore_errors=True)
-
-
-@pytest.mark.integration
-def test_pagination_consistency_with_concurrent_modifications():
-    """
-    INVARIANT: Pagination should be consistent even if items are added during iteration.
-
-    NOTE: This is a known limitation - adding items during pagination can cause
-    duplicates or missing items. This test documents the expected behavior.
-
-    In production, use cursor-based pagination or snapshot isolation for true consistency.
-    """
-    # This test is intentionally marked as expected to have issues
-    # Just documenting the limitation of offset-based pagination
-    pytest.skip("Known limitation: offset-based pagination not consistent with concurrent writes")
