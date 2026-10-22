@@ -7,18 +7,13 @@ Health and version endpoints have been moved to routers/health.py.
 """
 
 import asyncio
-import json
 import logging
-import threading
 from typing import Any
 from collections.abc import Callable
 
 from config.globals import WebSocketOriginRejected
-from core.audio_stream_controller import AudioStreamController, ws_id as _ws_id
-from core.processing_engine import _safe_error_message
-from core.stream_gates import stream_flow_events, stream_pause_events
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from schemas import DEFAULT_PRESET
+from core.audio_stream_controller import ws_id as _ws_id
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from websocket.websocket_security import (
     WebSocketRateLimiter,
     validate_and_parse_message,
@@ -27,26 +22,20 @@ from websocket.websocket_security import (
 from ws_handlers import connection as ws_connection
 from ws_handlers.context import StreamState, WSDeps
 
+from .system_deps import _SystemDeps, _deps, _get_deps  # noqa: F401
+from .system_streams import (  # noqa: F401
+    _active_streaming_tasks,
+    _active_streaming_tasks_lock,
+    _active_streaming_track_ids,
+    _stream_chunk_cancel_events,
+    _stream_flow_events,
+    _stream_pause_events,
+    stream_audio,
+    stream_from_position,
+    stream_normal,
+)
+
 logger = logging.getLogger(__name__)
-
-# Track active streaming tasks per WebSocket to allow cancellation
-_active_streaming_tasks: dict[str, asyncio.Task[None]] = {}
-_active_streaming_tasks_lock = asyncio.Lock()  # Protects all _active_streaming_tasks access (fixes #2425)
-# Track which track ID is currently streaming per WS (for deduplication)
-_active_streaming_track_ids: dict[str, int] = {}
-
-# Pause/flow registries live in core.stream_gates, next to the pumps that wait
-# on them (#5761); this module only hands them to the WebSocket handlers.
-_stream_pause_events = stream_pause_events
-_stream_flow_events = stream_flow_events
-
-# Per-WebSocket cooperative-cancel signal for in-flight chunk DSP (#4815).
-# stream_enhanced.py/stream_seek.py create one threading.Event per active
-# stream and set()/pop() it in this dict; _cancel_prior_task/handle_stop
-# set() it before cancelling so an already-abandoned chunk's executor
-# thread can bail out early instead of running to completion unreferenced.
-_stream_chunk_cancel_events: dict[str, threading.Event] = {}
-
 
 # Global rate limiter for all WebSocket connections (fixes #2156)
 _rate_limiter = WebSocketRateLimiter(max_messages_per_second=10)
@@ -57,227 +46,161 @@ _rate_limiter = WebSocketRateLimiter(max_messages_per_second=10)
 # gets force-closed by the next heartbeat tick as if it had gone stale.
 _RATE_LIMIT_EXEMPT_TYPES = frozenset({"ping", "pong", "heartbeat"})
 
+
 # ============================================================================
-# Streaming task coroutines — module-level so they are independently testable.
-# The per-message locals (track_id, preset, …) are snapshotted as keyword-only
-# default args so each task owns immutable copies: a later receive-loop message
-# reassigning those names cannot leak into an in-flight task's except/finally
-# paths and misattribute an error to the wrong track (#3829).
+# WebSocket endpoint
 # ============================================================================
 
-async def stream_audio(
+async def websocket_endpoint(
     websocket: WebSocket,
-    get_repository_factory: Callable[..., Any] | None,
-    get_enhancement_settings: Callable[[], dict[str, Any]] | None,
-    *,
-    track_id: int = 0,
-    preset: str = DEFAULT_PRESET,
-    intensity: float = 1.0,
-    force: bool = False,
-    start_position: float = 0.0,
-    ws_id: str = "",
+    deps: _SystemDeps = Depends(_get_deps),
 ) -> None:
-    """Stream enhanced audio for a play_enhanced request."""
-    # Capture task identity to prevent orphaned task race (fixes #2164)
-    my_task = asyncio.current_task()
+    """WebSocket endpoint for real-time communication.
+
+    Handles heartbeat, enhancement settings sync, player state sync, and
+    streaming commands (play_enhanced, play_normal, seek, stop,
+    pause/resume). Connection lifecycle and per-message-type dispatch
+    live in ws_handlers/ (#4074); this function wires them together for
+    one connection.
+    """
+    # Populated once setup_connection() returns; guards the finally
+    # block below so a setup failure (before state/deps exist) doesn't
+    # attempt a teardown that needs them (#4771).
+    heartbeat_task: asyncio.Task[None] | None = None
+    state: StreamState | None = None
+
     try:
-        from core.chunked_processor import ChunkedAudioProcessor
-
-        controller = AudioStreamController(
-            chunked_processor_class=ChunkedAudioProcessor,
-            get_repository_factory=get_repository_factory,
-            # When the client forced enhanced playback (#3773),
-            # bypass the mid-stream "enhancement disabled" gate
-            # (#2866) too — otherwise a stored enabled=false would
-            # stop the forced stream on its first chunk.
-            get_enhancement_enabled=(
-                (lambda: get_enhancement_settings().get("enabled", True))
-                if (get_enhancement_settings is not None and not force)
-                else None
-            ),
+        # setup_connection() now runs INSIDE the try (was previously
+        # before it): if manager.connect() or the initial sync pushes
+        # ever raised after accept(), teardown_connection would never
+        # run and the spawned heartbeat_task would leak for the process
+        # lifetime. setup_connection() also self-guards by cancelling
+        # its own heartbeat_task on internal failure (#4771).
+        connection_id, heartbeat, heartbeat_task = await ws_connection.setup_connection(
+            websocket, deps.manager, deps.get_enhancement_settings, deps.get_state_manager
+        )
+        state = StreamState(
+            active_tasks=_active_streaming_tasks,
+            active_tasks_lock=_active_streaming_tasks_lock,
+            active_track_ids=_active_streaming_track_ids,
+            pause_events=_stream_pause_events,
+            flow_events=_stream_flow_events,
+            chunk_cancel_events=_stream_chunk_cancel_events,
+        )
+        ws_deps = WSDeps(
+            get_repository_factory=deps.get_repository_factory,
+            get_enhancement_settings=deps.get_enhancement_settings,
+            get_processing_engine=deps.get_processing_engine,
+            stream_audio=stream_audio,
+            stream_normal=stream_normal,
+            stream_from_position=stream_from_position,
+            # #4542: the play handlers broadcast mastering_recommendation, which
+            # goes to every client rather than just this socket.
+            broadcast_manager=deps.manager,
         )
 
-        if start_position > 0:
-            # Resume from position (WS reconnect, #3185)
-            await controller.stream_enhanced_audio_from_position(
-                track_id=track_id,
-                preset=preset,
-                intensity=intensity,
-                websocket=websocket,
-                start_position=start_position,
-            )
-        else:
-            await controller.stream_enhanced_audio(
-                track_id=track_id,
-                preset=preset,
-                intensity=intensity,
-                websocket=websocket,
-            )
-    except asyncio.CancelledError:
-        logger.info(f"Streaming task cancelled for track {track_id}")
-    except ImportError as e:
-        logger.error(f"ChunkedAudioProcessor not available: {e}")
-        try:
-            await websocket.send_text(
-                json.dumps({
-                    "type": "audio_stream_error",
-                    "data": {
-                        "track_id": track_id,
-                        "error": "Audio processing not available",
-                        "code": "PROCESSOR_UNAVAILABLE",
-                        "stream_type": "enhanced",
-                    }
-                })
-            )
-        except Exception as e:
-            # WebSocket may be closed — but also catches a send-side bug
-            # (e.g. a json.dumps failure), so log it (#4809).
-            logger.debug(f"Failed to send PROCESSOR_UNAVAILABLE error frame: {e}", exc_info=True)
+        while True:
+            # Named raw_data to avoid shadowing the inner payload dicts
+            # extracted per-message below (fixes #2312).
+            #
+            # receive_text() does `message["text"]` with no type check
+            # (#4741): a binary frame arrives as {"type": "websocket.receive",
+            # "bytes": ...} with no "text" key, so receive_text() raises a
+            # bare KeyError that falls through to the generic `except
+            # Exception` below and tears down the whole connection with no
+            # error frame sent. Call receive() directly and branch on frame
+            # type so a binary frame gets a typed error response instead.
+            frame = await websocket.receive()
+            if frame["type"] == "websocket.disconnect":
+                raise WebSocketDisconnect(frame.get("code", 1000), frame.get("reason"))
+            if "text" not in frame:
+                await send_error_response(
+                    websocket,
+                    "unsupported_frame_type",
+                    "Binary WebSocket frames are not supported; send JSON text frames",
+                )
+                continue
+            raw_data = frame["text"]
+
+            # Security: Validate message size and structure (fixes #2156).
+            # Parsed BEFORE rate-limiting (#4786) so the type is known:
+            # ping/pong/heartbeat are protocol-critical and exempt from
+            # the rate limit below. Rate-limiting on the raw text used to
+            # run first and applied uniformly to every message type,
+            # including replies to the server's own heartbeat ping — a
+            # burst of unrelated messages (e.g. buffer_full/buffer_ready
+            # during a seek-bar drag) could silently drop the client's
+            # pong, and since heartbeat.mark_pong() then never ran, the
+            # next heartbeat tick force-closed the connection as if it
+            # had gone stale.
+            message, error = await validate_and_parse_message(raw_data, websocket)
+            if error or not message:
+                continue
+
+            # Security: Check rate limit (fixes #2156), except for
+            # protocol-critical control frames (#4786).
+            if message.get("type") not in _RATE_LIMIT_EXEMPT_TYPES:
+                allowed, error_msg = _rate_limiter.check_rate_limit(websocket)
+                if not allowed:
+                    logger.warning(f"Rate limit exceeded for WebSocket {_ws_id(websocket)}: {error_msg}")
+                    # check_rate_limit types its reason as `str | None`; it
+                    # is always set when allowed is False, but fall back so
+                    # the client still gets a message either way.
+                    await send_error_response(
+                        websocket, "rate_limit_exceeded", error_msg or "Rate limit exceeded"
+                    )
+                    continue
+
+            try:
+                await ws_connection.dispatch_message(
+                    websocket, message, state, ws_deps, heartbeat, connection_id
+                )
+            except (WebSocketDisconnect, RuntimeError):
+                # Genuinely fatal transport errors — let the outer
+                # handler's dedicated branches deal with them.
+                raise
+            except Exception as e:
+                # #4771: an exception inside any single handler (e.g.
+                # handle_seek) used to unwind all the way to the outer
+                # except below, which falls into `finally:
+                # teardown_connection` and silently kills the whole
+                # connection — the client sees an abrupt close with no
+                # explanation and its reconnect path misdiagnoses it as
+                # a network drop. Report the failure and keep the
+                # connection (and any other in-flight streams) alive.
+                logger.error(
+                    f"WebSocket handler error for message type "
+                    f"{message.get('type')!r}: {e}", exc_info=True
+                )
+                await send_error_response(websocket, "internal_error", "Command failed")
+                continue
+
+    except WebSocketOriginRejected as e:
+        # #4703: the handshake was denied inside setup_connection before
+        # accept() and before the heartbeat task was spawned, so there is
+        # nothing to tear down — both `finally` branches below are already
+        # guarded by their None checks. Caught explicitly (and ahead of the
+        # generic handlers) so a policy rejection is not logged as an
+        # "Unexpected WebSocket error" with a stack trace; connect() has
+        # already logged the specific reason at warning level.
+        logger.debug(f"WebSocket handshake rejected: {e}")
+    except WebSocketDisconnect:
+        logger.info("WebSocket client disconnected normally")
+    except RuntimeError as e:
+        logger.warning(f"WebSocket runtime error: {e}")
     except Exception as e:
-        logger.error(f"Error in streaming task: {e}", exc_info=True)
-        try:
-            await websocket.send_text(
-                json.dumps({
-                    "type": "audio_stream_error",
-                    "data": {
-                        "track_id": track_id,
-                        "error": _safe_error_message(e),
-                        "code": "STREAMING_ERROR",
-                        "stream_type": "enhanced",
-                    }
-                })
-            )
-        except Exception as e:
-            # WebSocket may be closed — but also catches a send-side bug
-            # (e.g. a json.dumps failure), so log it (#4809).
-            logger.debug(f"Failed to send STREAMING_ERROR (enhanced) error frame: {e}", exc_info=True)
+        logger.error(f"Unexpected WebSocket error: {e}", exc_info=True)
     finally:
-        # Idempotent self-cleanup under lock (fixes #2425)
-        async with _active_streaming_tasks_lock:
-            if _active_streaming_tasks.get(ws_id) is my_task:
-                _active_streaming_tasks.pop(ws_id, None)
-                _active_streaming_track_ids.pop(ws_id, None)
-
-
-async def stream_normal(
-    websocket: WebSocket,
-    get_repository_factory: Callable[..., Any] | None,
-    *,
-    track_id: int = 0,
-    start_position: float = 0.0,
-    ws_id: str = "",
-) -> None:
-    """Stream original (unprocessed) audio for a play_normal request."""
-    # Capture task identity to prevent orphaned task race (fixes #2164)
-    my_task = asyncio.current_task()
-    try:
-        controller = AudioStreamController(
-            chunked_processor_class=None,
-            get_repository_factory=get_repository_factory,
-        )
-        await controller.stream_normal_audio(
-            track_id=track_id,
-            websocket=websocket,
-            start_position=start_position,
-        )
-    except asyncio.CancelledError:
-        logger.info(f"Normal streaming task cancelled for track {track_id}")
-    except Exception as e:
-        logger.error(f"Error in normal streaming task: {e}", exc_info=True)
-        try:
-            await websocket.send_text(
-                json.dumps({
-                    "type": "audio_stream_error",
-                    "data": {
-                        "track_id": track_id,
-                        "error": _safe_error_message(e),
-                        "code": "STREAMING_ERROR",
-                        "stream_type": "normal",
-                    }
-                })
+        if state is not None and heartbeat_task is not None:
+            await ws_connection.teardown_connection(
+                websocket, heartbeat_task, state, deps.manager, _rate_limiter,
             )
-        except Exception as e:
-            # WebSocket may be closed — but also catches a send-side bug
-            # (e.g. a json.dumps failure), so log it (#4809).
-            logger.debug(f"Failed to send STREAMING_ERROR (normal) error frame: {e}", exc_info=True)
-    finally:
-        # Idempotent self-cleanup under lock (fixes #2425)
-        async with _active_streaming_tasks_lock:
-            if _active_streaming_tasks.get(ws_id) is my_task:
-                _active_streaming_tasks.pop(ws_id, None)
-                _active_streaming_track_ids.pop(ws_id, None)
+        elif heartbeat_task is not None:
+            # setup_connection() returned a heartbeat_task but raised
+            # before state could be constructed — nothing else to tear
+            # down, but the task must not leak (#4771).
+            heartbeat_task.cancel()
 
-
-async def stream_from_position(
-    websocket: WebSocket,
-    get_repository_factory: Callable[..., Any] | None,
-    get_enhancement_settings: Callable[[], dict[str, Any]] | None,
-    *,
-    track_id: int = 0,
-    preset: str = DEFAULT_PRESET,
-    intensity: float = 1.0,
-    position: float = 0.0,
-    enhancement_enabled: bool = True,
-    ws_id: str = "",
-) -> None:
-    """Stream audio from a seek position for a seek request."""
-    # Capture task identity to prevent orphaned task race (fixes #2164)
-    my_task = asyncio.current_task()
-    stream_type = "enhanced" if enhancement_enabled else "normal"
-    try:
-        from core.chunked_processor import ChunkedAudioProcessor
-
-        controller = AudioStreamController(
-            chunked_processor_class=ChunkedAudioProcessor,
-            get_repository_factory=get_repository_factory,
-            get_enhancement_enabled=(
-                (lambda: get_enhancement_settings().get("enabled", True))
-                if get_enhancement_settings is not None
-                else None
-            ),
-        )
-
-        if enhancement_enabled:
-            await controller.stream_enhanced_audio_from_position(
-                track_id=track_id,
-                preset=preset,
-                intensity=intensity,
-                websocket=websocket,
-                start_position=position,
-            )
-        else:
-            # Route to normal streaming with seek offset (#3187)
-            await controller.stream_normal_audio(
-                track_id=track_id,
-                websocket=websocket,
-                start_position=position,
-            )
-    except asyncio.CancelledError:
-        logger.info(f"Seek streaming task cancelled for track {track_id}")
-    except Exception as e:
-        logger.error(f"Error in seek streaming task: {e}", exc_info=True)
-        try:
-            await websocket.send_text(
-                json.dumps({
-                    "type": "audio_stream_error",
-                    "data": {
-                        "track_id": track_id,
-                        "error": _safe_error_message(e),
-                        "code": "SEEK_ERROR",
-                        "stream_type": stream_type,
-                    }
-                })
-            )
-        except Exception as e:
-            # WebSocket may be closed — but also catches a send-side bug
-            # (e.g. a json.dumps failure), so log it (#4809).
-            logger.debug(f"Failed to send SEEK_ERROR error frame: {e}", exc_info=True)
-    finally:
-        # Idempotent self-cleanup under lock (fixes #2425)
-        async with _active_streaming_tasks_lock:
-            if _active_streaming_tasks.get(ws_id) is my_task:
-                _active_streaming_tasks.pop(ws_id, None)
-                _active_streaming_track_ids.pop(ws_id, None)
 
 
 # ============================================================================
@@ -295,157 +218,15 @@ def create_system_router(
 
     Health and version routes are registered separately via create_health_router().
     """
-    # Fresh router per factory call (#4361) — see routers/library.py's
-    # identical fix for the full rationale (metadata.py:87 is the reference
-    # pattern).
-    router = APIRouter(tags=["system"])
-
-    @router.websocket("/ws")
-    async def websocket_endpoint(websocket: WebSocket) -> None:
-        """WebSocket endpoint for real-time communication.
-
-        Handles heartbeat, enhancement settings sync, player state sync, and
-        streaming commands (play_enhanced, play_normal, seek, stop,
-        pause/resume). Connection lifecycle and per-message-type dispatch
-        live in ws_handlers/ (#4074); this function wires them together for
-        one connection.
-        """
-        # Populated once setup_connection() returns; guards the finally
-        # block below so a setup failure (before state/deps exist) doesn't
-        # attempt a teardown that needs them (#4771).
-        heartbeat_task: asyncio.Task[None] | None = None
-        state: StreamState | None = None
-
-        try:
-            # setup_connection() now runs INSIDE the try (was previously
-            # before it): if manager.connect() or the initial sync pushes
-            # ever raised after accept(), teardown_connection would never
-            # run and the spawned heartbeat_task would leak for the process
-            # lifetime. setup_connection() also self-guards by cancelling
-            # its own heartbeat_task on internal failure (#4771).
-            connection_id, heartbeat, heartbeat_task = await ws_connection.setup_connection(
-                websocket, manager, get_enhancement_settings, get_state_manager
-            )
-            state = StreamState(
-                active_tasks=_active_streaming_tasks,
-                active_tasks_lock=_active_streaming_tasks_lock,
-                active_track_ids=_active_streaming_track_ids,
-                pause_events=_stream_pause_events,
-                flow_events=_stream_flow_events,
-                chunk_cancel_events=_stream_chunk_cancel_events,
-            )
-            deps = WSDeps(
-                get_repository_factory=get_repository_factory,
-                get_enhancement_settings=get_enhancement_settings,
-                get_processing_engine=get_processing_engine,
-                stream_audio=stream_audio,
-                stream_normal=stream_normal,
-                stream_from_position=stream_from_position,
-                # #4542: the play handlers broadcast mastering_recommendation, which
-                # goes to every client rather than just this socket.
-                broadcast_manager=manager,
-            )
-
-            while True:
-                # Named raw_data to avoid shadowing the inner payload dicts
-                # extracted per-message below (fixes #2312).
-                #
-                # receive_text() does `message["text"]` with no type check
-                # (#4741): a binary frame arrives as {"type": "websocket.receive",
-                # "bytes": ...} with no "text" key, so receive_text() raises a
-                # bare KeyError that falls through to the generic `except
-                # Exception` below and tears down the whole connection with no
-                # error frame sent. Call receive() directly and branch on frame
-                # type so a binary frame gets a typed error response instead.
-                frame = await websocket.receive()
-                if frame["type"] == "websocket.disconnect":
-                    raise WebSocketDisconnect(frame.get("code", 1000), frame.get("reason"))
-                if "text" not in frame:
-                    await send_error_response(
-                        websocket,
-                        "unsupported_frame_type",
-                        "Binary WebSocket frames are not supported; send JSON text frames",
-                    )
-                    continue
-                raw_data = frame["text"]
-
-                # Security: Validate message size and structure (fixes #2156).
-                # Parsed BEFORE rate-limiting (#4786) so the type is known:
-                # ping/pong/heartbeat are protocol-critical and exempt from
-                # the rate limit below. Rate-limiting on the raw text used to
-                # run first and applied uniformly to every message type,
-                # including replies to the server's own heartbeat ping — a
-                # burst of unrelated messages (e.g. buffer_full/buffer_ready
-                # during a seek-bar drag) could silently drop the client's
-                # pong, and since heartbeat.mark_pong() then never ran, the
-                # next heartbeat tick force-closed the connection as if it
-                # had gone stale.
-                message, error = await validate_and_parse_message(raw_data, websocket)
-                if error or not message:
-                    continue
-
-                # Security: Check rate limit (fixes #2156), except for
-                # protocol-critical control frames (#4786).
-                if message.get("type") not in _RATE_LIMIT_EXEMPT_TYPES:
-                    allowed, error_msg = _rate_limiter.check_rate_limit(websocket)
-                    if not allowed:
-                        logger.warning(f"Rate limit exceeded for WebSocket {_ws_id(websocket)}: {error_msg}")
-                        # check_rate_limit types its reason as `str | None`; it
-                        # is always set when allowed is False, but fall back so
-                        # the client still gets a message either way.
-                        await send_error_response(
-                            websocket, "rate_limit_exceeded", error_msg or "Rate limit exceeded"
-                        )
-                        continue
-
-                try:
-                    await ws_connection.dispatch_message(
-                        websocket, message, state, deps, heartbeat, connection_id
-                    )
-                except (WebSocketDisconnect, RuntimeError):
-                    # Genuinely fatal transport errors — let the outer
-                    # handler's dedicated branches deal with them.
-                    raise
-                except Exception as e:
-                    # #4771: an exception inside any single handler (e.g.
-                    # handle_seek) used to unwind all the way to the outer
-                    # except below, which falls into `finally:
-                    # teardown_connection` and silently kills the whole
-                    # connection — the client sees an abrupt close with no
-                    # explanation and its reconnect path misdiagnoses it as
-                    # a network drop. Report the failure and keep the
-                    # connection (and any other in-flight streams) alive.
-                    logger.error(
-                        f"WebSocket handler error for message type "
-                        f"{message.get('type')!r}: {e}", exc_info=True
-                    )
-                    await send_error_response(websocket, "internal_error", "Command failed")
-                    continue
-
-        except WebSocketOriginRejected as e:
-            # #4703: the handshake was denied inside setup_connection before
-            # accept() and before the heartbeat task was spawned, so there is
-            # nothing to tear down — both `finally` branches below are already
-            # guarded by their None checks. Caught explicitly (and ahead of the
-            # generic handlers) so a policy rejection is not logged as an
-            # "Unexpected WebSocket error" with a stack trace; connect() has
-            # already logged the specific reason at warning level.
-            logger.debug(f"WebSocket handshake rejected: {e}")
-        except WebSocketDisconnect:
-            logger.info("WebSocket client disconnected normally")
-        except RuntimeError as e:
-            logger.warning(f"WebSocket runtime error: {e}")
-        except Exception as e:
-            logger.error(f"Unexpected WebSocket error: {e}", exc_info=True)
-        finally:
-            if state is not None and heartbeat_task is not None:
-                await ws_connection.teardown_connection(
-                    websocket, heartbeat_task, state, manager, _rate_limiter,
-                )
-            elif heartbeat_task is not None:
-                # setup_connection() returned a heartbeat_task but raised
-                # before state could be constructed — nothing else to tear
-                # down, but the task must not leak (#4771).
-                heartbeat_task.cancel()
-
+    # Fresh router per factory call (#4361); the handler reaches this call's
+    # collaborators through RouterDeps rather than closure capture (#5832).
+    deps = _SystemDeps(
+        manager,
+        get_processing_engine,
+        get_repository_factory,
+        get_state_manager,
+        get_enhancement_settings,
+    )
+    router = APIRouter(tags=["system"], dependencies=[Depends(_deps.bind(deps))])
+    router.add_api_websocket_route("/ws", websocket_endpoint)
     return router

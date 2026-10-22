@@ -1,8 +1,8 @@
 """
 Regression guard for stream-coroutine closure binding (#3829).
 
-The three inner stream coroutines in routers/system.py are defined inside the
-WS receive loop and used to close over the loop locals (`track_id`, `preset`,
+The three stream coroutines in routers/system_streams.py (split out of
+system.py, #5832) were defined inside the WS receive loop and used to close over the loop locals (`track_id`, `preset`,
 `intensity`, `force`, `start_position`/`position`, `enhancement_enabled`,
 `ws_id`) by reference. A later message reassigning those names could leak into
 an in-flight task's except/finally path and misattribute an error to the wrong
@@ -11,26 +11,26 @@ instance owns immutable copies.
 
 These coroutines are deeply-nested closures with no import seam and the race is
 impractical to drive deterministically, so this is a structural test: it parses
-system.py and asserts each coroutine declares the captured names as
+system_streams.py and asserts each coroutine declares the captured names as
 default-bound parameters. It fails if anyone reverts to a bare closure.
 """
 
 import ast
 from pathlib import Path
 
-SYSTEM_PY = (
+STREAMS_PY = (
     Path(__file__).parent.parent.parent
     / "auralis-web"
     / "backend"
     / "routers"
-    / "system.py"
+    / "system_streams.py"
 )
 
 
 def _defaulted_params(coroutine_name: str) -> set[str]:
     """Return the set of parameter names that carry a default value for the
-    named async coroutine in system.py."""
-    tree = ast.parse(SYSTEM_PY.read_text())
+    named async coroutine in system_streams.py."""
+    tree = ast.parse(STREAMS_PY.read_text())
     for node in ast.walk(tree):
         if isinstance(node, ast.AsyncFunctionDef) and node.name == coroutine_name:
             args = node.args
@@ -43,7 +43,7 @@ def _defaulted_params(coroutine_name: str) -> set[str]:
                 if d is not None:
                     defaulted.add(a.arg)
             return defaulted
-    raise AssertionError(f"coroutine {coroutine_name!r} not found in system.py")
+    raise AssertionError(f"coroutine {coroutine_name!r} not found in system_streams.py")
 
 
 def test_stream_audio_snapshots_loop_locals():

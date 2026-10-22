@@ -42,6 +42,7 @@ def test_the_ws_module_re_exports_the_schemas_constant():
         "routers/enhancement.py",
         "routers/processing_parameters.py",
         "routers/system.py",
+        "routers/system_streams.py",
         "services/recommendation_service.py",
         "ws_handlers/connection.py",
         "ws_handlers/playback_commands.py",

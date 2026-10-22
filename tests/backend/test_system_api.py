@@ -940,16 +940,18 @@ class TestWebSocketPlayNormal:
         """
         import inspect
         import routers.system as system_module
+        import routers.system_streams as streams_module
 
-        source = inspect.getsource(system_module)
+        source = inspect.getsource(streams_module)
 
         assert source.count('"error": _safe_error_message(e)') >= 3, (
             "Expected _safe_error_message(e) in the audio_stream_error 'error' "
             "field of all three streaming branches (play_enhanced, play_normal, seek)"
         )
+        source += inspect.getsource(system_module)
         for forbidden in ('"error": str(e)', "'error': str(e)", '"error": repr(e)'):
             assert forbidden not in source, (
-                f"Found raw exception interpolation {forbidden!r} in routers/system.py — "
+                f"Found raw exception interpolation {forbidden!r} in routers/system*.py — "
                 "audio_stream_error payloads must use _safe_error_message(e) instead"
             )
 
@@ -1113,7 +1115,7 @@ class TestWebSocketHandlerExceptionResilience:
         import inspect
         import routers.system as system_module
 
-        source = inspect.getsource(system_module.create_system_router)
+        source = inspect.getsource(system_module.websocket_endpoint)
         assert "except (WebSocketDisconnect, RuntimeError):" in source, (
             "dispatch_message's per-message try/except must re-raise "
             "WebSocketDisconnect/RuntimeError rather than swallow them"
