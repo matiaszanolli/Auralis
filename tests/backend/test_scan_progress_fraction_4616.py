@@ -65,9 +65,26 @@ def music_dir(tmp_path):
     return root
 
 
+class _StubDatabase:
+    """The slice of LibraryDatabase the scanner's concurrency guards call. The
+    scanner no longer tolerates a database without these (#5802)."""
+
+    def try_acquire_scan_slot(self):
+        return True, 1
+
+    def release_scan_slot(self):
+        pass
+
+    def try_reserve_scan_paths(self, paths):
+        return []
+
+    def release_scan_paths(self, paths):
+        pass
+
+
 def _run_scan(directory, batch_size=5):
     """Drive a real LibraryScanner and return every progress frame it emits."""
-    scanner = LibraryScanner(library_database=object())
+    scanner = LibraryScanner(library_database=_StubDatabase())
     scanner.batch_processor = _StubBatchProcessor()
 
     frames: list[dict] = []

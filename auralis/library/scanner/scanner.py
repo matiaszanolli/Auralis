@@ -110,23 +110,6 @@ class LibraryScanner:
         self.file_discovery.stop()
         self.batch_processor.stop()
 
-    def _release_scan_slot_safe(self) -> None:
-        """Release a scan slot, tolerating a lightweight mock library_database
-        that lacks release_scan_slot (mirrors the try_acquire guard)."""
-        try:
-            self.library_database.release_scan_slot()
-        except AttributeError:
-            pass
-
-    def _release_scan_paths_safe(self, paths: list[str]) -> None:
-        """Release reserved per-directory dedup paths (#3455 / #4509),
-        tolerating a lightweight mock library_database that lacks
-        release_scan_paths (mirrors _release_scan_slot_safe)."""
-        try:
-            self.library_database.release_scan_paths(paths)
-        except AttributeError:
-            pass
-
     def scan_directories(self, directories: list[str],
                         recursive: bool = True,
                         skip_existing: bool = True,
@@ -149,12 +132,12 @@ class LibraryScanner:
         result: ScanResult = ScanResult()
 
         # --- Concurrency guard (#2438) ---
-        _acquired: bool = True
-        _max_scans: int = 1
-        try:
-            _acquired, _max_scans = self.library_database.try_acquire_scan_slot()
-        except AttributeError:
-            pass  # library_database is a lightweight mock; skip guard
+        # No `except AttributeError` around this or the calls below (#5802): a
+        # real LibraryDatabase always has them, and swallowing the error made the
+        # guard fail OPEN -- a renamed attribute inside the method left the scan
+        # running with no slot held. Tests that hand the scanner a stand-in
+        # database give it these methods (a `MagicMock(spec=LibraryDatabase)`).
+        _acquired, _max_scans = self.library_database.try_acquire_scan_slot()
 
         if not _acquired:
             warning(
@@ -170,11 +153,7 @@ class LibraryScanner:
         # __init__: a fresh LibraryScanner per invocation means an instance
         # attribute here would never be shared between two overlapping scans.
         normalized = [os.path.normpath(os.path.abspath(d)) for d in directories]
-        already_scanning: list[str] = []
-        try:
-            already_scanning = self.library_database.try_reserve_scan_paths(normalized)
-        except AttributeError:
-            pass  # library_database is a lightweight mock; skip guard
+        already_scanning: list[str] = self.library_database.try_reserve_scan_paths(normalized)
 
         if already_scanning:
             warning(
@@ -188,7 +167,7 @@ class LibraryScanner:
             # for us on this rejection path (they belong to the OTHER,
             # already-running scan), so there is nothing of ours to release.
             if _acquired:
-                self._release_scan_slot_safe()
+                self.library_database.release_scan_slot()
             return result
         # --- End per-directory dedup guard ---
 
@@ -407,8 +386,8 @@ class LibraryScanner:
 
         finally:
             # Release per-directory dedup guard (#3455 / #4509)
-            self._release_scan_paths_safe(normalized)
-            self._release_scan_slot_safe()
+            self.library_database.release_scan_paths(normalized)
+            self.library_database.release_scan_slot()
 
             # #3479: fire scan-complete callback outside the scan-slot lock
             # so the consumer (reference cloud refresh) can do its own DB I/O
