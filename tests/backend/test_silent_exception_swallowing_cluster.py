@@ -81,7 +81,7 @@ async def test_player_state_push_failure_logs_debug(caplog):
 
 
 # ---------------------------------------------------------------------------
-# services/library_auto_scanner.py — watchdog teardown
+# services/scanner_watchdog.py — watchdog teardown (moved out of library_auto_scanner.py, #5837)
 # ---------------------------------------------------------------------------
 
 def test_watchdog_teardown_failure_logs_debug(caplog):
@@ -93,7 +93,7 @@ def test_watchdog_teardown_failure_logs_debug(caplog):
     observer.join = Mock()
     scanner._observer = observer
 
-    with caplog.at_level(logging.DEBUG, logger="services.library_auto_scanner"):
+    with caplog.at_level(logging.DEBUG, logger="services.scanner_watchdog"):
         scanner._stop_watchdog()
 
     assert scanner._observer is None, "teardown must still clear the observer"

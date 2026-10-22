@@ -29,7 +29,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from services.library_auto_scanner import LibraryAutoScanner, _DebounceHandler
+from services.library_auto_scanner import LibraryAutoScanner
+from services.scanner_watchdog import _DebounceHandler
 
 
 # ---------------------------------------------------------------------------
@@ -159,8 +160,8 @@ class TestWatchdogTeardownDoesNotBlockEventLoop:
                 await asyncio.sleep(0.01)
                 other_coro_ticks += 1
 
-        with patch("services.library_auto_scanner.HAS_WATCHDOG", True), \
-             patch("services.library_auto_scanner.Observer", MagicMock()):
+        with patch("services.scanner_watchdog.HAS_WATCHDOG", True), \
+             patch("services.scanner_watchdog.Observer", MagicMock()):
             await asyncio.gather(scanner._sync_watchdog(["/new"]), _other_coro())
 
         assert other_coro_ticks == 10
@@ -382,8 +383,8 @@ class TestSyncWatchdog:
         mock_observer_instance._watches = []
         mock_observer_cls = MagicMock(return_value=mock_observer_instance)
 
-        with patch("services.library_auto_scanner.HAS_WATCHDOG", True), \
-             patch("services.library_auto_scanner.Observer", mock_observer_cls):
+        with patch("services.scanner_watchdog.HAS_WATCHDOG", True), \
+             patch("services.scanner_watchdog.Observer", mock_observer_cls):
             await scanner._sync_watchdog(["/music"])
 
         mock_observer_cls.assert_called_once()
@@ -402,8 +403,8 @@ class TestSyncWatchdog:
         mock_observer_instance._watches = [watch]
         scanner._observer = mock_observer_instance
 
-        with patch("services.library_auto_scanner.HAS_WATCHDOG", True), \
-             patch("services.library_auto_scanner.Observer") as mock_observer_cls:
+        with patch("services.scanner_watchdog.HAS_WATCHDOG", True), \
+             patch("services.scanner_watchdog.Observer") as mock_observer_cls:
             await scanner._sync_watchdog(["/music"])
 
         mock_observer_cls.assert_not_called()
@@ -424,8 +425,8 @@ class TestSyncWatchdog:
         new_observer_instance._watches = []
         mock_observer_cls = MagicMock(return_value=new_observer_instance)
 
-        with patch("services.library_auto_scanner.HAS_WATCHDOG", True), \
-             patch("services.library_auto_scanner.Observer", mock_observer_cls):
+        with patch("services.scanner_watchdog.HAS_WATCHDOG", True), \
+             patch("services.scanner_watchdog.Observer", mock_observer_cls):
             await scanner._sync_watchdog(["/new"])
 
         old_observer.stop.assert_called_once()
@@ -438,6 +439,6 @@ class TestSyncWatchdog:
         """When HAS_WATCHDOG is False (package not installed), _sync_watchdog
         must not touch self._observer at all."""
         scanner, *_ = _make_scanner()
-        with patch("services.library_auto_scanner.HAS_WATCHDOG", False):
+        with patch("services.scanner_watchdog.HAS_WATCHDOG", False):
             await scanner._sync_watchdog(["/music"])
         assert scanner._observer is None

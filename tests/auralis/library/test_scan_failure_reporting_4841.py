@@ -269,7 +269,8 @@ class TestWireShape:
 
     @pytest.mark.parametrize("module_path", [
         "auralis-web/backend/routers/library_scan_events.py",
-        "auralis-web/backend/services/library_auto_scanner.py",
+        # the auto-scanner builds its scan_complete payload in auto_scan_events.py (#5837)
+        "auralis-web/backend/services/auto_scan_events.py",
     ])
     def test_scan_complete_broadcast_includes_failures(self, module_path):
         from pathlib import Path

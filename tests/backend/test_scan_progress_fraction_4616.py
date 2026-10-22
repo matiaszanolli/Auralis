@@ -168,7 +168,7 @@ class TestBothBridgesSeeTheSameNumbers:
     @staticmethod
     def _bridge_total(data):
         # The identical expression used by routers/library_scan.py and
-        # services/library_auto_scanner.py.
+        # services/auto_scan_events.py.
         return (
             data.get('total_expected')
             or data.get('total_found', 0)
@@ -189,7 +189,7 @@ class TestBothBridgesSeeTheSameNumbers:
     def test_both_bridge_modules_use_total_expected(self):
         """Guards against one emitter being updated and the other forgotten."""
         backend = Path(_BACKEND)
-        for rel in ("routers/library_scan_events.py", "services/library_auto_scanner.py"):
+        for rel in ("routers/library_scan_events.py", "services/auto_scan_events.py"):
             source = (backend / rel).read_text()
             assert "total_expected" in source, f"{rel} must prefer the pre-counted total (#4616)"
 
