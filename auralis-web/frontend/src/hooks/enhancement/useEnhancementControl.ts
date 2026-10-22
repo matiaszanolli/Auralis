@@ -35,32 +35,15 @@
  * @module hooks/enhancement/useEnhancementControl
  */
 
-import { useCallback, useState, useEffect, useRef } from 'react';
-import { useRestAPI } from '@/hooks/api/useRestAPI';
-import { useWebSocketMessages } from '@/hooks/websocket/useWebSocketMessages';
+import { useCallback, useState, useRef } from 'react';
+import { useEnhancementCommands } from './useEnhancementCommands';
+import { useEnhancementStatusSync } from './useEnhancementStatusSync';
+import { INITIAL_STATE, type EnhancementState } from './enhancementState';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import type { ApiError } from '@/types/api';
-import { ENHANCEMENT_PRESETS } from '@/types/domain';
 import type { EnhancementPreset } from '@/types/domain';
-import type { EnhancementSettingsChangedMessage } from '@/types/websocket';
-import { ApiErrorHandler } from '@/types/api';
 
-/**
- * Current enhancement settings state
- */
-export interface EnhancementState {
-  /** Whether enhancement is enabled */
-  enabled: boolean;
-
-  /** Current preset (only 'adaptive' is valid) */
-  preset: EnhancementPreset;
-
-  /** Enhancement intensity 0.0-1.0 */
-  intensity: number;
-
-  /** Last update timestamp */
-  lastUpdated: number;
-}
+export type { EnhancementState } from './enhancementState';
 
 /**
  * Return type for useEnhancementControl hook
@@ -100,42 +83,7 @@ export interface EnhancementControlActions {
   clearError: () => void;
 }
 
-/**
- * Initial enhancement state
- */
-const INITIAL_STATE: EnhancementState = {
-  enabled: false,
-  preset: 'adaptive',
-  intensity: 1.0,
-  lastUpdated: Date.now(),
-};
 
-// Module-level in-flight dedup so multiple consumers mounting at once
-// (EnhancementPane, Expanded, AlbumCharacterPane, ...) share a single GET to
-// /api/player/enhancement/status instead of each firing their own (#3955).
-// Only the in-flight promise is shared — it is cleared once settled, so a later
-// mount re-fetches fresh state. The WS `enhancement_settings_changed` broadcast
-// keeps every mounted consumer in sync after the initial load.
-//
-// The wire payload is EnhancementState minus lastUpdated — that field is set
-// client-side by every consumer, so typing the fetch as the full state used to
-// promise a `lastUpdated` the server never sends (#5637).
-let _sharedStatusPromise: Promise<Omit<EnhancementState, 'lastUpdated'> | null> | null = null;
-
-function _fetchEnhancementStatusOnce(
-  getter: <T>(url: string) => Promise<T | null>,
-): Promise<Omit<EnhancementState, 'lastUpdated'> | null> {
-  if (_sharedStatusPromise) {
-    return _sharedStatusPromise;
-  }
-  const promise = getter<Omit<EnhancementState, 'lastUpdated'>>('/api/player/enhancement/status')
-    .finally(() => {
-      // Clear once settled so the next (non-concurrent) mount fetches fresh.
-      if (_sharedStatusPromise === promise) _sharedStatusPromise = null;
-    });
-  _sharedStatusPromise = promise;
-  return promise;
-}
 
 /**
  * Hook for controlling audio enhancement settings
@@ -156,10 +104,6 @@ function _fetchEnhancementStatusOnce(
  * ```
  */
 export function useEnhancementControl(): EnhancementControlActions {
-  const { get, post } = useRestAPI();
-  const getRef = useRef(get);
-  getRef.current = get;
-
   // #3759 + #3763: WebSocket context exposes `reissueActiveStreamAs`,
   // which restarts the active stream from the current resume position.
   // We use it from the toggle / preset / intensity setters so live
@@ -175,59 +119,7 @@ export function useEnhancementControl(): EnhancementControlActions {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
 
-  /**
-   * Subscribe to real-time enhancement setting changes via WebSocket
-   */
-  useWebSocketMessages(
-    ['enhancement_settings_changed'],
-    (message) => {
-      const enhancementMsg = message as EnhancementSettingsChangedMessage;
-
-      setState((prevState) => ({
-        ...prevState,
-        enabled: enhancementMsg.data.enabled ?? prevState.enabled,
-        preset: enhancementMsg.data.preset ?? prevState.preset,
-        intensity: enhancementMsg.data.intensity ?? prevState.intensity,
-        lastUpdated: Date.now(),
-      }));
-    }
-  );
-
-  /**
-   * Fetch initial enhancement state on mount
-   */
-  useEffect(() => {
-    let cancelled = false;
-    const fetchInitialState = async () => {
-      try {
-        // Shared module-level fetch — concurrent consumers dedupe to one GET (#3955).
-        const response = await _fetchEnhancementStatusOnce(getRef.current);
-
-        if (response && !cancelled) {
-          setState({
-            enabled: response.enabled,
-            preset: response.preset,
-            intensity: response.intensity,
-            lastUpdated: Date.now(),
-          });
-        }
-      } catch (err) {
-        // Silently fail - user can still interact with defaults
-        console.warn('Failed to fetch initial enhancement state:', err);
-      }
-    };
-
-    fetchInitialState();
-    return () => { cancelled = true; };
-  }, []);
-
-  /**
-   * Toggle enhancement on/off
-   */
-  // Ref-based in-flight guard prevents rapid double-click from sending duplicate
-  // requests: both clicks would read the same stale state.enabled and call the
-  // API twice with the same value (fixes #2404).
-  const isTogglingRef = useRef(false);
+  useEnhancementStatusSync(setState);
 
   // Keep refs in sync with the latest enabled / preset / intensity values so
   // the toggle and setter callbacks never read a stale closure (fixes #2990 —
@@ -241,202 +133,9 @@ export function useEnhancementControl(): EnhancementControlActions {
   const intensityRef = useRef(state.intensity);
   intensityRef.current = state.intensity;
 
-  // Monotonic request ids so overlapping setPreset/setIntensity calls (rapid
-  // preset clicks / slider drags) apply state from whichever call was
-  // dispatched LAST, not whichever *resolves* last (fixes #4339 — unlike
-  // isTogglingRef, these must allow overlap, so a counter rather than a
-  // boolean guard).
-  const presetRequestIdRef = useRef(0);
-  const intensityRequestIdRef = useRef(0);
-
-  const toggleEnabled = useCallback(async (): Promise<void> => {
-    if (isTogglingRef.current) return;
-    isTogglingRef.current = true;
-    setIsLoading(true);
-    setError(null);
-
-    const newEnabled = !enabledRef.current;
-
-    try {
-      await post('/api/player/enhancement/toggle', { enabled: newEnabled });
-
-      // Optimistic update - server will broadcast confirmation via WebSocket
-      setState((prevState) => ({
-        ...prevState,
-        enabled: newEnabled,
-        lastUpdated: Date.now(),
-      }));
-
-      // #3759: re-issue the active stream as the appropriate type so the
-      // user keeps hearing audio after the toggle. The backend's
-      // `stream_enhanced_audio` loop sees enabled=false and breaks, so the
-      // old stream ends here regardless — switching stream type is required
-      // behaviour, not a workaround.
-      //
-      // #4659 re-grounded the signal this compensates for: that terminal
-      // `audio_stream_end` now carries `reason: 'stopped'` and reports the
-      // samples actually delivered, so a consumer can distinguish it from a
-      // finished track instead of seeing a success-shaped completion.
-      if (newEnabled) {
-        reissueRef.current('play_enhanced', {
-          preset: presetRef.current,
-          intensity: intensityRef.current,
-        });
-      } else {
-        reissueRef.current('play_normal');
-      }
-    } catch (err) {
-      const apiError = ApiErrorHandler.parseWithCode(err, 'TOGGLE_ERROR');
-
-      setError(apiError);
-      throw apiError;
-    } finally {
-      isTogglingRef.current = false;
-      setIsLoading(false);
-    }
-  }, [post]);
-
-  /**
-   * Set enhancement enabled/disabled explicitly
-   */
-  const setEnabled = useCallback(async (enabled: boolean): Promise<void> => {
-    // Only toggle if the requested state differs from current
-    if (enabledRef.current === enabled) return;
-    await toggleEnabled();
-  }, [toggleEnabled]);
-
-  /**
-   * Change enhancement preset
-   *
-   * @param preset New preset (only 'adaptive' is valid)
-   * @throws Error if preset change fails
-   */
-  const setPreset = useCallback(async (preset: EnhancementPreset): Promise<void> => {
-    setIsLoading(true);
-    setError(null);
-
-    // Validate preset. EnhancementPreset is now a single-member literal type
-    // ('adaptive' -- #4861 follow-up), so this can only fail for a caller
-    // that bypasses the type via `as` or an untyped source (e.g. a
-    // WebSocket message); kept as a runtime guard for exactly that case.
-    if (!ENHANCEMENT_PRESETS.includes(preset)) {
-      const apiError = {
-        message: `Invalid preset: ${preset}`,
-        code: 'INVALID_PRESET',
-        status: 400,
-      };
-      setError(apiError);
-      throw apiError;
-    }
-
-    // #4339: capture this call's id before awaiting so a later, overlapping
-    // setPreset call can supersede it.
-    const requestId = ++presetRequestIdRef.current;
-
-    try {
-      await post('/api/player/enhancement/preset', { preset });
-
-      // A newer setPreset call was dispatched while this POST was in
-      // flight — its own resolution is authoritative, not this stale one.
-      // Prevents out-of-order resolution from clobbering the UI with an
-      // older preset (#4339).
-      if (requestId !== presetRequestIdRef.current) return;
-
-      // Optimistic update - server will broadcast confirmation via WebSocket
-      setState((prevState) => ({
-        ...prevState,
-        preset,
-        lastUpdated: Date.now(),
-      }));
-
-      // #3763: ChunkedAudioProcessor binds preset/intensity at construction,
-      // so live changes need a stream restart from the current position.
-      // Only re-issue when enhancement is currently enabled — when it's
-      // off, the user is on play_normal and preset/intensity don't affect
-      // the audio path.
-      if (enabledRef.current) {
-        reissueRef.current('play_enhanced', {
-          preset,
-          intensity: intensityRef.current,
-        });
-      }
-    } catch (err) {
-      if (requestId !== presetRequestIdRef.current) return;
-
-      const apiError = ApiErrorHandler.parseWithCode(err, 'PRESET_ERROR');
-
-      setError(apiError);
-      throw apiError;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [post]);
-
-  /**
-   * Adjust enhancement intensity
-   *
-   * @param intensity Intensity level 0.0-1.0
-   * @throws Error if intensity change fails
-   */
-  const setIntensity = useCallback(async (intensity: number): Promise<void> => {
-    setIsLoading(true);
-    setError(null);
-
-    // Clamp intensity to valid range. Reject non-finite input outright (#4600):
-    // Math.max/Math.min propagate NaN rather than clamping it, so a NaN would
-    // survive to JSON.stringify — which serialises it as `null` — and come back
-    // as an opaque 422. The server rejects out-of-range values now instead of
-    // silently clamping, so the client must not send something it cannot mean.
-    if (!Number.isFinite(intensity)) {
-      const apiError: ApiError = {
-        status: 422,
-        message: 'Intensity must be a finite number between 0.0 and 1.0',
-        code: 'INVALID_INTENSITY',
-      };
-      setError(apiError);
-      setIsLoading(false);
-      throw apiError;
-    }
-    const validIntensity = Math.max(0.0, Math.min(1.0, intensity));
-
-    // #4339: capture this call's id before awaiting so a later, overlapping
-    // setIntensity call (e.g. the next tick of a slider drag) can supersede
-    // it — collapses a rapid-drag burst to a single applied value/reissue
-    // instead of one per intermediate value.
-    const requestId = ++intensityRequestIdRef.current;
-
-    try {
-      await post('/api/player/enhancement/intensity', { intensity: validIntensity });
-
-      // A newer setIntensity call was dispatched while this POST was in
-      // flight — its own resolution is authoritative, not this stale one.
-      if (requestId !== intensityRequestIdRef.current) return;
-
-      // Optimistic update - server will broadcast confirmation via WebSocket
-      setState((prevState) => ({
-        ...prevState,
-        intensity: validIntensity,
-        lastUpdated: Date.now(),
-      }));
-
-      // #3763: live intensity changes require stream restart — see setPreset.
-      if (enabledRef.current) {
-        reissueRef.current('play_enhanced', {
-          preset: presetRef.current,
-          intensity: validIntensity,
-        });
-      }
-    } catch (err) {
-      if (requestId !== intensityRequestIdRef.current) return;
-
-      const apiError = ApiErrorHandler.parseWithCode(err, 'INTENSITY_ERROR');
-
-      setError(apiError);
-      throw apiError;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [post]);
+  const { toggleEnabled, setEnabled, setPreset, setIntensity } = useEnhancementCommands({
+    setState, setIsLoading, setError, enabledRef, presetRef, intensityRef, reissueRef,
+  });
 
   /**
    * Clear error state
@@ -454,66 +153,6 @@ export function useEnhancementControl(): EnhancementControlActions {
     setEnabled,
     setPreset,
     setIntensity,
-    isLoading,
-    error,
-    clearError,
-  };
-}
-
-/**
- * Convenience hook for preset control only
- *
- * @example
- * ```typescript
- * const { preset, setPreset, isLoading } = usePresetControl();
- * ```
- */
-export function usePresetControl() {
-  const { preset, setPreset, isLoading, error, clearError } = useEnhancementControl();
-
-  return {
-    preset,
-    setPreset,
-    isLoading,
-    error,
-    clearError,
-  };
-}
-
-/**
- * Convenience hook for intensity control only
- *
- * @example
- * ```typescript
- * const { intensity, setIntensity } = useIntensityControl();
- * ```
- */
-export function useIntensityControl() {
-  const { intensity, setIntensity, isLoading, error, clearError } = useEnhancementControl();
-
-  return {
-    intensity,
-    setIntensity,
-    isLoading,
-    error,
-    clearError,
-  };
-}
-
-/**
- * Convenience hook for enhancement enabled toggle only
- *
- * @example
- * ```typescript
- * const { enabled, toggleEnabled } = useEnhancementToggle();
- * ```
- */
-export function useEnhancementToggle() {
-  const { enabled, toggleEnabled, isLoading, error, clearError } = useEnhancementControl();
-
-  return {
-    enabled,
-    toggleEnabled,
     isLoading,
     error,
     clearError,

@@ -16,12 +16,12 @@
 
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { vi } from 'vitest';
+import { useEnhancementControl } from '@/hooks/enhancement/useEnhancementControl';
 import {
-  useEnhancementControl,
   usePresetControl,
   useIntensityControl,
   useEnhancementToggle,
-} from '@/hooks/enhancement/useEnhancementControl';
+} from '@/hooks/enhancement/useEnhancementSlices';
 import { useRestAPI } from '@/hooks/api/useRestAPI';
 import { useWebSocketMessages } from '@/hooks/websocket/useWebSocketMessages';
 import * as WebSocketContextModule from '@/contexts/WebSocketContext';
