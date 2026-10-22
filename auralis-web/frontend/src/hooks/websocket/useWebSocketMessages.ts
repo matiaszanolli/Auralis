@@ -24,33 +24,62 @@ import { useEffect, useRef } from 'react';
 import { useWebSocketContext, type MessageHandler } from '@/contexts/WebSocketContext';
 import type { WebSocketMessage, WebSocketMessageType } from '@/types/websocket';
 
-export function useWebSocketMessages(
-  messageTypes: WebSocketMessageType[],
-  callback: (message: WebSocketMessage) => void
-): void {
-  const { subscribe } = useWebSocketContext();
+/** The `subscribe` function of a WebSocketContext value. */
+export type SubscribeFn = ReturnType<typeof useWebSocketContext>['subscribe'];
 
-  // Ref so an inline callback does not resubscribe on every render.
-  const callbackRef = useRef(callback);
-  callbackRef.current = callback;
+/** One handler per message type. */
+export type MessageHandlers = Partial<
+  Record<WebSocketMessageType, (message: WebSocketMessage) => void>
+>;
 
-  // Order-independent, value-stable key so inline array literals or reordering
+/**
+ * The single implementation of the subscription lifecycle: ref-held handlers,
+ * an order-independent type key, and an effect that depends only on that key
+ * and on `subscribe` (#4668, #5621).
+ *
+ * Context-free so a hook that was handed a WebSocketContext value (rather than
+ * reading it itself) can reuse it: pass that value's `subscribe`. Everything
+ * else should use useWebSocketMessages.
+ *
+ * `subscribe` is identity-stable across connect/disconnect/error status
+ * transitions, so those do not resubscribe; a genuinely new `subscribe` does.
+ * Handler identity changes never resubscribe, which is what lets a caller pass
+ * inline closures over fresh props.
+ */
+export function useMessageSubscriptions(subscribe: SubscribeFn, handlers: MessageHandlers): void {
+  // Ref so inline handlers do not resubscribe on every render.
+  const handlersRef = useRef(handlers);
+  handlersRef.current = handlers;
+
+  // Order-independent, value-stable key so inline literals or reordering
   // don't churn the subscription (mirrors the prior hook's #2487 / #3366 fixes).
-  const messageTypesKey = [...messageTypes].sort().join('\x00');
+  const messageTypesKey = Object.keys(handlers).sort().join('\x00');
 
   useEffect(() => {
-    const stable: MessageHandler = (message) =>
-      callbackRef.current(message as WebSocketMessage);
-
     // Recover the (sorted) types from the stable key so the effect depends only
     // on messageTypesKey + subscribe — no exhaustive-deps escape hatch needed.
     const unsubscribes = messageTypesKey
       .split('\x00')
       .filter(Boolean)
-      .map((type) => subscribe(type as WebSocketMessageType, stable));
+      .map((type) => {
+        const stable: MessageHandler = (message) =>
+          handlersRef.current[type as WebSocketMessageType]?.(message as WebSocketMessage);
+        return subscribe(type as WebSocketMessageType, stable);
+      });
 
     return () => {
       for (const unsubscribe of unsubscribes) unsubscribe();
     };
   }, [messageTypesKey, subscribe]);
+}
+
+export function useWebSocketMessages(
+  messageTypes: WebSocketMessageType[],
+  callback: (message: WebSocketMessage) => void
+): void {
+  const { subscribe } = useWebSocketContext();
+  useMessageSubscriptions(
+    subscribe,
+    Object.fromEntries(messageTypes.map((type) => [type, callback])) as MessageHandlers
+  );
 }

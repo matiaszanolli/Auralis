@@ -9,7 +9,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
-import { useWebSocketMessages } from '../useWebSocketMessages';
+import { useMessageSubscriptions, useWebSocketMessages } from '../useWebSocketMessages';
 import type { WebSocketMessage } from '@/types/websocket';
 
 vi.mock('@/contexts/WebSocketContext');
@@ -80,5 +80,75 @@ describe('useWebSocketMessages', () => {
     rerender({ types: ['b', 'a'] as any });
     // Same set, reordered → no teardown/rebuild.
     expect(subscribe).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('useMessageSubscriptions (the shared core, #5789)', () => {
+  const makeSubscribe = () => {
+    const unsubscribes: ReturnType<typeof vi.fn>[] = [];
+    const subscribe = vi.fn((_type: string, _handler: (m: WebSocketMessage) => void) => {
+      const unsub = vi.fn();
+      unsubscribes.push(unsub);
+      return unsub;
+    });
+    return { subscribe, unsubscribes };
+  };
+  const msg = (type: string) => ({ type, data: {} }) as unknown as WebSocketMessage;
+
+  it('subscribes once per key and routes each type to its own handler', () => {
+    const { subscribe } = makeSubscribe();
+    const a = vi.fn();
+    const b = vi.fn();
+    renderHook(() => useMessageSubscriptions(subscribe as any, { scan_progress: a, scan_complete: b } as any));
+
+    expect(subscribe).toHaveBeenCalledTimes(2);
+    for (const [type, handler] of subscribe.mock.calls) handler(msg(type));
+    expect(a).toHaveBeenCalledTimes(1);
+    expect(b).toHaveBeenCalledTimes(1);
+    expect(a.mock.calls[0][0].type).toBe('scan_progress');
+  });
+
+  it('does not resubscribe when only handler identities change, and calls the latest one', () => {
+    const { subscribe } = makeSubscribe();
+    const first = vi.fn();
+    const second = vi.fn();
+    const { rerender } = renderHook(
+      ({ h }) => useMessageSubscriptions(subscribe as any, { scan_progress: h } as any),
+      { initialProps: { h: first } }
+    );
+    rerender({ h: second });
+
+    expect(subscribe).toHaveBeenCalledTimes(1);
+    subscribe.mock.calls[0][1](msg('scan_progress'));
+    expect(first).not.toHaveBeenCalled();
+    expect(second).toHaveBeenCalledTimes(1);
+  });
+
+  it('resubscribes only when `subscribe` itself changes, and unsubscribes on unmount', () => {
+    const A = makeSubscribe();
+    const B = makeSubscribe();
+    const { rerender, unmount } = renderHook(
+      ({ sub }) => useMessageSubscriptions(sub as any, { error: () => {} } as any),
+      { initialProps: { sub: A.subscribe } }
+    );
+    rerender({ sub: B.subscribe });
+    expect(A.unsubscribes[0]).toHaveBeenCalledTimes(1);
+    expect(B.subscribe).toHaveBeenCalledTimes(1);
+
+    unmount();
+    expect(B.unsubscribes[0]).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores a message type whose handler was removed on a later render', () => {
+    const { subscribe } = makeSubscribe();
+    const a = vi.fn();
+    const { rerender } = renderHook(
+      ({ handlers }) => useMessageSubscriptions(subscribe as any, handlers as any),
+      { initialProps: { handlers: { error: a } as Record<string, () => void> } }
+    );
+    rerender({ handlers: {} });
+    // Key changed -> torn down; a stale delivery must not reach the old handler.
+    subscribe.mock.calls[0][1](msg('error'));
+    expect(a).not.toHaveBeenCalled();
   });
 });

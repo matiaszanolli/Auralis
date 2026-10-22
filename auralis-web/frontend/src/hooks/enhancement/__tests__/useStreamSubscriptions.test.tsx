@@ -45,7 +45,6 @@ function makeDeps(overrides: Partial<StreamSubscriptionDeps> = {}): StreamSubscr
   // widen them back to plain functions.
   return {
     wsContext,
-    streamType: 'enhanced',
     logPrefix: '[test]',
     streamEpochRef: { current: null },
     handleStreamStartRef: { current: () => {} },
@@ -74,7 +73,6 @@ describe('useStreamSubscriptions (#5621)', () => {
     // A WS status flicker: new context object (identity change, isConnected
     // toggled), while every dep the effect actually lists stays stable.
     const second = makeDeps({
-      streamType: first.streamType,
       logPrefix: first.logPrefix,
       streamEpochRef: first.streamEpochRef,
       handleStreamStartRef: first.handleStreamStartRef,

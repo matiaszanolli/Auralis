@@ -227,7 +227,6 @@ export function useAudioStreamingCore(
 
   useStreamSubscriptions({
     wsContext,
-    streamType,
     logPrefix,
     streamEpochRef,
     handleStreamStartRef,

@@ -18,6 +18,7 @@ const DEBUG = import.meta.env.DEV;
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
+import { useMessageSubscriptions } from '@/hooks/websocket/useWebSocketMessages';
 import type { FingerprintProgressMessage } from '@/types/websocket';
 
 type WebSocketContextValue = ReturnType<typeof useWebSocketContext>;
@@ -60,9 +61,6 @@ export function useFingerprintStatus(
 
   // Timer ref for the status auto-clear (fixes #2353).
   const fingerprintTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Latest handler kept in a ref so the mount-time subscription always calls the
-  // current closure without needing to resubscribe.
-  const handlerRef = useRef<((m: FingerprintProgressMessage) => void) | null>(null);
   // Track whose stream this status belongs to; null until a stream starts
   // (#5380). Same gate as the streaming reducers' trackId check (#4434).
   const activeTrackIdRef = useRef<number | null>(null);
@@ -108,24 +106,13 @@ export function useFingerprintStatus(
       }, 2000);
     }
   }, [cancelFingerprintTimeout]);
-  handlerRef.current = handleFingerprintProgress;
 
-  // Subscribe on mount. `subscribe` is identity-stable across WS status
-  // transitions (WebSocketContext memoizes its value over [isConnected,
-  // connectionStatus], not over `subscribe` itself), so depending on the
-  // whole `wsContext` object resubscribed on every connect/disconnect/error
-  // flicker instead of only when `subscribe` itself changes (#4668).
-  useEffect(() => {
-    const unsubscribe = wsContext.subscribe(
-      'fingerprint_progress',
-      (m: unknown) => handlerRef.current?.(m as FingerprintProgressMessage)
-    );
-    DEBUG && console.log('[useFingerprintStatus] Subscribed to fingerprint_progress on mount');
-    return () => {
-      unsubscribe?.();
-      DEBUG && console.log('[useFingerprintStatus] Unsubscribed from fingerprint_progress on unmount');
-    };
-  }, [wsContext.subscribe]);
+  // `subscribe` is identity-stable across WS status transitions, so the shared
+  // subscription hook (which depends on it alone) does not resubscribe on a
+  // connect/disconnect/error flicker (#4668).
+  useMessageSubscriptions(wsContext.subscribe, {
+    fingerprint_progress: (m) => handleFingerprintProgress(m as unknown as FingerprintProgressMessage),
+  });
 
   // Cancel a pending auto-clear timer on unmount (#2353).
   useEffect(() => cancelFingerprintTimeout, [cancelFingerprintTimeout]);

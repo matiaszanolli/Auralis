@@ -19,9 +19,10 @@
 
 const DEBUG = import.meta.env.DEV;
 
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 import type { MutableRefObject } from 'react';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
+import { useMessageSubscriptions } from '@/hooks/websocket/useWebSocketMessages';
 import type { StreamingCoreReturn } from './useAudioStreamingCore';
 import type { CurrentTrackInfo } from './useEnhancedStreamStart';
 
@@ -91,19 +92,11 @@ export function useEnhancedSeek({
     });
   }, [wsContext, currentTrackInfoRef, setIsSeeking, core.playbackEngineRef, core.pcmBufferRef, core.streamingMetadataRef, core.pendingChunksRef, core.lastReceivedChunkIndexRef]);
 
-  // Subscribe to seek_started to clear isSeeking as soon as the backend
-  // acknowledges the seek request (fallback for a lost audio_stream_start #2873).
-  // `subscribe` is identity-stable across WS status transitions — depending on
-  // the whole `wsContext` object resubscribed on every connect/disconnect/error
-  // flicker instead of only when `subscribe` itself changes (#4668).
-  useEffect(() => {
-    const unsubscribe = wsContext.subscribe('seek_started', () => setIsSeeking(false));
-    DEBUG && console.log('[usePlayEnhanced] Subscribed to seek_started on mount');
-    return () => {
-      unsubscribe?.();
-      DEBUG && console.log('[usePlayEnhanced] Unsubscribed from seek_started on unmount');
-    };
-  }, [wsContext.subscribe, setIsSeeking]);
+  // seek_started clears isSeeking as soon as the backend acknowledges the seek
+  // request (fallback for a lost audio_stream_start #2873). The shared
+  // subscription hook keys off `subscribe` only, so a status flicker does not
+  // resubscribe (#4668).
+  useMessageSubscriptions(wsContext.subscribe, { seek_started: () => setIsSeeking(false) });
 
   return { seekTo };
 }
