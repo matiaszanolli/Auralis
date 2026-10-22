@@ -20,7 +20,6 @@ from services import (
     RecommendationService,
 )
 
-from .errors import LibraryManagerUnavailableError
 
 # ============================================================================
 # DEPENDENCY WIRING (#4670)

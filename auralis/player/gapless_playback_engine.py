@@ -306,11 +306,9 @@ class GaplessPlaybackEngine:
                         self.next_track_info is not None):
                     audio_data = self.next_track_buffer
                     sample_rate = self.next_track_sample_rate
-                    prebuffered_info = self.next_track_info
                 else:
                     audio_data = None
                     sample_rate = None
-                    prebuffered_info = None
                 prebuffer_matches = self._prebuffer_matches(next_track)
 
             if prebuffer_matches:

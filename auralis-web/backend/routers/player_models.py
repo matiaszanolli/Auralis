@@ -9,7 +9,7 @@ of routers/player.py, which re-exports every name here.
 """
 
 import math
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 

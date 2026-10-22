@@ -15,7 +15,9 @@ CRUD and listing/search). All four are always mixed into
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from sqlalchemy import and_, delete, func, select, update
+from typing import Any, cast
+
+from sqlalchemy import CursorResult, and_, delete, select, update
 from sqlalchemy.orm import selectinload
 
 from ...utils.logging import debug, error, info
@@ -57,14 +59,16 @@ class PlaylistOrderingMixin(BaseRepository):
                     .where(track_playlist.c.track_id == track_id)
                 )
 
-                result = session.execute(
+                # cast(): session.execute() is typed Result, which has no
+                # rowcount; a DELETE really returns a CursorResult.
+                result = cast(CursorResult[Any], session.execute(
                     delete(track_playlist).where(
                         and_(
                             track_playlist.c.playlist_id == playlist_id,
                             track_playlist.c.track_id == track_id,
                         )
                     )
-                )
+                ))
 
                 if removed_position is not None and result.rowcount:
                     # Compact the trailing positions so we stay contiguous.
@@ -148,11 +152,11 @@ class PlaylistOrderingMixin(BaseRepository):
                 # written before that fix can carry gaps
                 # (e.g. (A,0),(C,2) after a library delete), which made
                 # from_index lookups miss and left playlists un-reorderable.
-                ordered_track_ids = session.execute(
+                ordered_track_ids = list(session.execute(
                     select(track_playlist.c.track_id)
                     .where(track_playlist.c.playlist_id == playlist_id)
                     .order_by(track_playlist.c.position, track_playlist.c.track_id)
-                ).scalars().all()
+                ).scalars().all())
 
                 size = len(ordered_track_ids)
                 if not (0 <= from_index < size):

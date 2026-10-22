@@ -8,6 +8,17 @@ repos:
       - id: check-added-large-files
       - id: check-toml
 
+  # Unused imports/locals/redefinitions (#5781). Ruff was only run by hand
+  # (#4888, #5209, #5781 were three separate sweeps of the same drift), so
+  # nothing stopped them accumulating. Scoped to the shipped Python trees and
+  # to the three rules that are always safe to fix.
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.12.12
+    hooks:
+      - id: ruff
+        args: ["--select", "F401,F811,F841"]
+        files: ^(auralis|auralis-web/backend)/
+
   - repo: https://github.com/psf/black
     rev: 26.5.1
     hooks:
