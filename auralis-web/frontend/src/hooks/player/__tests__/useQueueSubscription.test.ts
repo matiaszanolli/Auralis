@@ -146,25 +146,6 @@ describe('useQueueSubscription', () => {
     expect(queue().currentIndex).toBe(2);
   });
 
-  it('applies camelCase currentIndex as a fallback', () => {
-    renderSubscription();
-
-    deliver({ type: 'queue_changed', data: { tracks: TRACKS, currentIndex: 2 } });
-
-    expect(queue().currentIndex).toBe(2);
-  });
-
-  it('prefers snake_case when both spellings are present', () => {
-    renderSubscription();
-
-    deliver({
-      type: 'queue_changed',
-      data: { tracks: TRACKS, current_index: 1, currentIndex: 2 },
-    });
-
-    expect(queue().currentIndex).toBe(1);
-  });
-
   it('accepts current_index: 0 (not treated as absent)', () => {
     renderSubscription();
 

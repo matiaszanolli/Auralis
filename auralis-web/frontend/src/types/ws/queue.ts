@@ -35,11 +35,7 @@ export interface QueueChangedMessage extends WebSocketMessage {
     // Most emitters include the hydrated queue. The history-undo emitter only
     // carries the restored index and queue size, so this is genuinely optional.
     tracks?: TrackInfo[]; // Full queue after change
-    // Both naming conventions are accepted: the backend currently emits
-    // snake_case, but some emitters historically used camelCase; consumers
-    // (usePlaybackQueue) prefer snake_case and fall back to camelCase.
     current_index?: number;
-    currentIndex?: number;
     action?:
       | 'added'
       | 'removed'

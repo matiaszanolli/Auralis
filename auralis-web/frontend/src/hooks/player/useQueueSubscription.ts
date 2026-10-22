@@ -62,7 +62,7 @@ export function useQueueSubscription(): void {
           // and track_changed then copied such an entry into player.currentTrack.
           const data = msg.data ?? ({} as QueueChangedMessage['data']);
           const mappedTracks = data.tracks?.map(mapTrackInfoToTrack);
-          const engineIndex = data.current_index ?? data.currentIndex;
+          const engineIndex = data.current_index;
           // setQueue FIRST: setCurrentIndex's reducer silently drops any index
           // outside the current tracks array, so an empty/replaced queue must
           // land before the index does.

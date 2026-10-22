@@ -113,11 +113,11 @@ export const QUERY_TYPE_GUARD: Record<LibraryQueryType, (v: unknown) => v is Lib
  * shape (and a plain record, for tests) is callable without a cast (#5637).
  */
 export function deriveHasMore(
-  response: { has_more?: unknown; hasMore?: unknown; total?: unknown },
+  response: { has_more?: unknown; total?: unknown },
   pageOffset: number,
   pageLength: number
 ): boolean {
-  const backend = response.has_more ?? response.hasMore;
+  const backend = response.has_more;
   if (typeof backend === 'boolean') return backend;
   const total = typeof response.total === 'number' ? response.total : 0;
   return pageOffset + pageLength < total;
