@@ -28,7 +28,7 @@ class GenreClassificationMixin:
         if self.use_ml_classification and self.ml_classifier is not None:
             try:
                 # Use ML classifier
-                ml_result = self.ml_classifier.classify(audio)
+                ml_result: dict[str, Any] = self.ml_classifier.classify(audio)
                 debug(f"ML classification: {ml_result['primary']} (confidence: {ml_result['confidence']:.3f})")
                 return ml_result
             except Exception as e:

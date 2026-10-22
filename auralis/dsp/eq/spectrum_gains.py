@@ -26,7 +26,7 @@ class SpectrumGainsMixin:
     current_gains: np.ndarray
     _analysis_window: np.ndarray
     _analysis_window_gain: float
-    _state_lock: "threading.RLock"
+    _state_lock: "threading.Lock"
 
     def analyze_spectrum(self, audio_chunk: np.ndarray) -> dict[str, np.ndarray]:
         """

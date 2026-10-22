@@ -51,10 +51,10 @@ class ContentAnalyzer(GenreClassificationMixin):
                 debug("ML genre classifier initialized successfully")
             except Exception as e:
                 debug(f"Failed to initialize ML classifier, falling back to rule-based: {e}")
-                self.ml_classifier = None  # type: ignore[assignment]
+                self.ml_classifier = None
                 self.use_ml_classification = False
         else:
-            self.ml_classifier = None  # type: ignore[assignment]
+            self.ml_classifier = None
 
         # Initialize 25D audio fingerprint analyzer
         if use_fingerprint_analysis:
