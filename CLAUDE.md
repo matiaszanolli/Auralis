@@ -21,7 +21,7 @@ cd auralis-web/backend && python main.py --dev             # Backend :8765
 cd auralis-web/frontend && pnpm install && pnpm run dev   # pnpm is the only supported JS package manager (#4357)
 
 # Test — scope first, widen once. `-q` keeps passes as dots; `-v` dumps every
-# test name into context for ~6,759 tests.
+# test name into context for thousands of tests.
 python -m pytest -q -m "not slow" tests/auralis/dsp     # A domain (the normal inner loop)
 python -m pytest tests/path.py::test_name -vv -s        # Single test
 cd auralis-web/frontend && pnpm run test:memory         # Frontend (2GB heap; OOMs without it)
@@ -66,8 +66,8 @@ cd auralis-web/frontend && pnpm run test:ci && pnpm run test:baseline:update
 Generate a baseline from a **CI artifact**, not a local run — a baseline built
 against a different interpreter or dependency set reports spurious new failures.
 
-`pytest-baseline.json` **is tracked** (157 entries as of 2026-09-03 `3e78c75d`; first regenerated 2026-08-19 in
-`7c03249e`) — the "it does not exist yet" note that stood here was true when
+`pytest-baseline.json` **is tracked** (count the file — the entry count moves with every fix; first regenerated
+2026-08-19 in `7c03249e`) — the "it does not exist yet" note that stood here was true when
 written and is not any more (#4974). `backend-tests.yml` still fails, but on the
 ratchet doing its job rather than on a missing file: the ratchet rejects
 failures absent from the list. Read the failing run's *baseline* step, not the
@@ -114,13 +114,12 @@ auralis/                          Core Python audio engine
 │   ├── database.py                 LibraryDatabase (engine, migration, sessions, scan slots)
 │                                     Startup stores it under the globals key `library_database`
 │                                     (renamed in #5162; it used to name the class #4915 deleted)
-│   ├── repositories/               13 repos + base.py (BaseRepository) + factory.py
+│   ├── repositories/               12 repos + base.py (BaseRepository) + factory.py
 │   │                                 (track, album, artist, playlist, genre, stats,
 │   │                                 fingerprint, fingerprint_scheduler, fingerprint_stats,
-│   │                                 queue_history, settings, similarity_graph,
-│   │                                 processing_job)
+│   │                                 settings, similarity_graph, processing_job)
 │   ├── scanner/                    Folder scanning (a package, not a module)
-│   └── migration_manager.py        DB migrations (schema v21)
+│   └── migration_manager.py        DB migrations (schema version: __db_schema_version__)
 ├── io/                           Audio I/O
 │   ├── unified_loader.py           Unified loading (FFmpeg, SoundFile)
 │   └── results.py                  Output formats (pcm16, pcm24)
@@ -163,7 +162,7 @@ auralis-web/
 
 vendor/auralis-dsp/               Rust DSP via PyO3 (HPSS, YIN, Chroma)
 desktop/                          Electron wrapper
-tests/                            ~6,759 test functions (611 files) across 18 subdirs (auralis, backend,
+tests/                            ~7,300 test functions (706 files) across 18 subdirs (auralis, backend,
                                     integration, boundaries, concurrency, security, load_stress, regression...)
 docs/                             18 topic dirs (development, features, frontend...)
 ```

@@ -18,8 +18,8 @@ Trace a user action through all 3 layers (frontend, backend, engine) with specif
 | `enhancement` | Adjust enhancement slider | Settings change, config propagation, real-time DSP application |
 | `fingerprint` | Similarity search | Fingerprint computation, DB lookup, similarity scoring |
 | `seek` | Click progress bar | Position update, chunk selection, stream restart |
-| `gapless` | Track ends naturally | Next track preload, crossfade, seamless transition |
-| `queue` | Add/remove/reorder queue | Queue state update, persistence, playback engine sync |
+| `gapless` | Track ends naturally | Next track prebuffer, advance to the prebuffered track, tiling of emitted chunks (no boundary crossfade — see Retired Architecture in `_audit-common.md`) |
+| `queue` | Add/remove/reorder queue | Queue state update, playback engine sync (the live queue is not persisted) |
 | `artwork` | Album/artist artwork load | Artwork extraction, caching, image serving, frontend display |
 | `websocket` | WebSocket lifecycle | Connection, auth, message routing, reconnection |
 
@@ -56,7 +56,7 @@ Document each step with `file:line` references.
 
 Trace the processing through:
 
-1. **Manager**: Which manager method is called? Parameter validation.
+1. **Service / player**: Which backend service or `auralis/player/` method is called? Parameter validation.
 2. **Repository**: Which database queries run? SQL patterns.
 3. **Processor**: Which DSP pipeline stages execute? Audio transformations.
 4. **I/O**: File reads/writes? Format handling.
@@ -74,8 +74,8 @@ For EVERY boundary crossing (frontend->backend, backend->engine, etc.), document
 | Boundary | Sender | Receiver | Data Format | Transform | Error Handling |
 |----------|--------|----------|-------------|-----------|----------------|
 | FE -> BE | hook.ts:L42 | router.py:L15 | POST JSON | camelCase->snake_case | try/catch -> toast |
-| BE -> Engine | router.py:L20 | manager.py:L55 | Python dict | none | HTTPException(500) |
-| Engine -> BE | manager.py:L60 | router.py:L25 | Python obj | model_dump() | raise -> HTTPException |
+| BE -> Engine | router.py:L20 | queue_controller.py:L55 | Python dict | none | HTTPException(500) |
+| Engine -> BE | queue_controller.py:L60 | router.py:L25 | Python obj | model_dump() | raise -> HTTPException |
 | BE -> FE | router.py:L30 | hook.ts:L50 | JSON response | snake_case->camelCase | status check |
 ```
 
@@ -111,7 +111,7 @@ For each traced flow, identify:
 - **Engine Call**: `<file>:<line>` — <engine invocation>
 
 ### 3. Engine
-- **Manager**: `<file>:<line>` — <orchestration>
+- **Service / player**: `<file>:<line>` — <orchestration>
 - **Repository**: `<file>:<line>` — <database query>
 - **Processor**: `<file>:<line>` — <audio processing>
 

@@ -16,7 +16,7 @@ matchering/
 │   └── frontend/         React + TypeScript + Vite + Redux
 ├── vendor/auralis-dsp/   Rust DSP via PyO3 (+ gRPC fingerprint server)
 ├── desktop/              Electron wrapper
-├── tests/                ~5,100 test functions across 18 subdirs
+├── tests/                ~7,300 test functions across 18 subdirs
 └── docs/                 This documentation
 ```
 
@@ -45,10 +45,10 @@ auralis/
 │   └── quality/                  Quality assessment (loudness, DR, distortion)
 ├── library/                    SQLite library (~/.auralis/library.db)
 │   ├── database.py               LibraryDatabase (engine, migration, sessions, scan slots)
-│   ├── repositories/             13 repos + base.py (BaseRepository) + factory.py
+│   ├── repositories/             12 repos + base.py (BaseRepository) + factory.py
 │   ├── scanner/                  Folder scanning (a package, not a module)
 │   ├── sidecar_manager.py        Per-file .25d sidecars
-│   └── migration_manager.py      DB migrations (schema v18)
+│   └── migration_manager.py      DB migrations (schema version: __db_schema_version__)
 ├── io/                         unified_loader.py (FFmpeg/SoundFile), results.py (PCM output)
 ├── player/                     enhanced_audio_player, gapless engine, queue_controller
 ├── services/                   Background: fingerprint_queue, fingerprint_extractor, artwork

@@ -86,8 +86,11 @@ Follow project conventions from CLAUDE.md:
 
 Scope first, widen once at the end. Use `-q` (not `-v`) so passes collapse to dots
 and only failures print in full — `-v` dumps every test name into context. Scope
-both pytest and mypy to what the fix touched; run the full suite a single time as
-the final gate, not per iteration.
+both pytest and mypy to what the fix touched. The whole backend suite is a CI job,
+not an inner loop: it takes tens of minutes, `tests/backend/test_system_api.py`
+and `tests/concurrency/test_thread_safety.py` hang when run whole, and a large
+set of known failures is baselined in `pytest-baseline.json`, so a raw failure is not
+evidence of a regression (see "Test Baselines" in `_audit-common.md`).
 
 ```bash
 # Inner loop — the matching tests/ subdir (e.g. tests/backend, tests/audio,
@@ -95,14 +98,21 @@ the final gate, not per iteration.
 python -m pytest -q -m "not slow" tests/<subdir> 2>&1 | tail -30
 mypy <changed-dirs-or-files> --ignore-missing-imports 2>&1 | tail -20
 
-# Final gate — full suite, ONCE before commit:
-python -m pytest -q -m "not slow" 2>&1 | tail -30
+# Widen once, only for a fix that crosses subsystems — the slice that imports what
+# you changed, never the whole tree, and never the two hanging files:
+python -m pytest -q -m "not slow" tests/<subdir-a> tests/<subdir-b> \
+  --ignore=tests/backend/test_system_api.py \
+  --ignore=tests/concurrency/test_thread_safety.py 2>&1 | tail -30
 ```
+
+A failure is only yours if it is not listed in `pytest-baseline.json`; when in
+doubt, run the same test on an unmodified `git worktree` of `HEAD` (never
+`git stash`) and compare.
 
 For a fix confined to one domain, the scoped run is sufficient evidence — note
 that you scoped it in the commit. If frontend files were changed:
 ```bash
-cd auralis-web/frontend && npm run test:memory 2>&1 | tail -30
+cd auralis-web/frontend && pnpm run test:memory -- <test-file-or-dir> 2>&1 | tail -30
 ```
 
 If tests fail:
@@ -128,6 +138,7 @@ Before committing, verify each keyed check. Reference these tags in the commit i
 - [ ] **SCHEMA**: If a Pydantic model changed, frontend types match?
 - [ ] **TOKEN**: If frontend code touched, no raw hex colors (use `tokens`)?
 - [ ] **TEST**: Regression test added when applicable?
+- [ ] **DELETION**: If the fix deletes or renames a file or symbol — grep its name across `.claude/`, `docs/architecture`, `docs/subsystems` and `CLAUDE.md`, and run `.claude/commands/_audit-validate.sh` (strict scope must exit 0). Deletion refactors that skipped this turned the path gate red on master twice (#5526, #5642; #5818).
 - [ ] **LOC**: If this issue is a god-file/oversized-module split, re-run `wc -l` on the target file before closing (#4673) — close only when it's under the project's 300-LOC rule, otherwise re-scope the issue (update its body with the current LOC and what remains) and leave it open rather than closing on partial progress. Four issues (#4245, #4249, #4250, #4254) were closed in 2026-07 while their targets stayed 2.3-2.7x over the limit, understating the real backlog until re-audited.
 
 ## Phase 8: Commit and Close

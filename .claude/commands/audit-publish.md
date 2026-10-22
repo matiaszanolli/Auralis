@@ -39,7 +39,7 @@ Record validation status for each: **CONFIRMED**, **STALE**, or **UNVERIFIABLE**
 
 Before creating any issue:
 
-1. Run: `gh issue list --limit 200 --json number,title,state,labels`
+1. Run: `gh issue list --state all --limit 6000 --json number,title,state,labels`
 2. For each CONFIRMED finding, search for keywords in existing issue titles.
 3. Also scan `docs/audits/` for prior reports that may have covered the same finding.
 4. If a matching **open** issue exists: mark as **DUPLICATE of #NNN** and skip.

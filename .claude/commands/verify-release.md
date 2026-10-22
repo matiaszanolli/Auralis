@@ -41,7 +41,7 @@ mypy auralis/ auralis-web/backend/ --ignore-missing-imports 2>&1 | tail -20
 ### Gate 3: Frontend Type Checks
 
 ```bash
-cd auralis-web/frontend && npm run type-check 2>&1 | tail -20
+cd auralis-web/frontend && pnpm run type-check 2>&1 | tail -20
 ```
 
 **Verdict**: FAIL on any type error. WARN if command not available.
@@ -49,18 +49,25 @@ cd auralis-web/frontend && npm run type-check 2>&1 | tail -20
 ### Gate 4: Python Tests
 
 ```bash
-python -m pytest -m "not slow" -v 2>&1 | tail -40
+python -m pytest -q -m "not slow" -p no:randomly \
+  --ignore=tests/backend/test_system_api.py \
+  --ignore=tests/concurrency/test_thread_safety.py \
+  --junitxml=pytest-results.xml 2>&1 | tail -5
+python scripts/check_pytest_baseline.py pytest-results.xml --strict-stale
 ```
 
-**Verdict**: FAIL on any test failure. Report count: passed/failed/skipped.
+This is the one place the whole backend suite runs: it takes tens of minutes, and the two ignored files hang when run whole. The suite is a ratchet against `pytest-baseline.json`, so a raw failure is not a finding (see the Test Baselines section of `_audit-common.md`).
+
+**Verdict**: FAIL on any failure not listed in `pytest-baseline.json`, or on a baseline entry that ran and passed (`--strict-stale`), or if the report is missing or collected 0 tests. Report count: passed/failed/skipped.
 
 ### Gate 5: Frontend Tests
 
 ```bash
-cd auralis-web/frontend && npm run test:memory 2>&1 | tail -40
+cd auralis-web/frontend && pnpm run test:ci || true
+pnpm run test:baseline -- --strict-stale
 ```
 
-**Verdict**: FAIL on any test failure. WARN if no tests found.
+**Verdict**: FAIL on any failure not listed in `auralis-web/frontend/test-baseline.json`, or on a stale baseline entry. WARN if no tests found.
 
 ### Gate 6: DSP Invariants
 
@@ -90,7 +97,9 @@ ls -la docs/audits/AUDIT_*.md
 
 Check that regression test markers exist and pass:
 ```bash
-python -m pytest -m "regression" -v 2>&1 | tail -20
+python -m pytest -q -m "regression" \
+  --ignore=tests/backend/test_system_api.py \
+  --ignore=tests/concurrency/test_thread_safety.py 2>&1 | tail -20
 ```
 
 **Verdict**: FAIL if regression tests fail. WARN if no regression tests found.
@@ -103,7 +112,7 @@ Check for unpinned or outdated dependencies:
 cat requirements.txt | head -30
 
 # Frontend
-cd auralis-web/frontend && npm outdated 2>&1 | head -20
+cd auralis-web/frontend && pnpm outdated 2>&1 | head -20
 ```
 
 **Verdict**: WARN on unpinned deps. INFO on outdated.
@@ -119,10 +128,20 @@ cd vendor/auralis-dsp && maturin develop 2>&1 | tail -10
 ### Gate 12: Frontend Build
 
 ```bash
-cd auralis-web/frontend && npm run build 2>&1 | tail -20
+cd auralis-web/frontend && pnpm run build 2>&1 | tail -20
 ```
 
 **Verdict**: FAIL if build fails.
+
+### Gate 13: Audit-Skill Sync Age
+
+The audit skills describe the code, and nothing but `/audit-sync` re-checks their claims (the path gate only catches deleted paths). Report how far they have drifted:
+```bash
+BASE=$(cut -d' ' -f1 .claude/commands/audit-sync/BASELINE)
+git rev-list --count "$BASE"..HEAD
+```
+
+**Verdict**: WARN if more than 100 commits have landed since the sync baseline (recommend `/audit-sync`). Never FAIL.
 
 ## Step 3: Generate Verdict
 
@@ -148,6 +167,7 @@ Date: <TODAY>
 | 10 | Dependencies | PASS/WARN | |
 | 11 | Rust DSP Build | PASS/FAIL | |
 | 12 | Frontend Build | PASS/FAIL | |
+| 13 | Audit-Skill Sync Age | PASS/WARN | N commits since sync |
 
 ## Verdict: READY / NOT READY
 

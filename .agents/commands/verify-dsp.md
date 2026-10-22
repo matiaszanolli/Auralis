@@ -136,7 +136,7 @@ The engine-side parallel processor was deleted in #4565. Two live chunk paths re
 - **Issue**: <what is wrong>
 - **Evidence**: <code snippet showing the violation>
 - **Risk**: <what could go wrong — audio artifacts, corruption, crash>
-- **Existing Issue?**: Check `gh issue list` for duplicates
+- **Existing Issue?**: Check `gh issue list --state all` for duplicates (open-only hides closed regressions)
 ```
 
 ### Summary

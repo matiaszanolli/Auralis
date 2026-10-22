@@ -30,7 +30,7 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 | Chunked Mastering | `auralis/core/` | `mastering_chunk_loop.py`, `mastering_process_chunk.py`, `mastering_prepare.py`, `mastering_notch_context.py`, `mastering_diagnostics.py` — the engine-side chunk loop that replaced the deleted parallel processor (#4565) |
 | Optimization (LIVE) | `auralis/optimization/` | `performance_optimizer.py` (the `get_performance_optimizer()` singleton), `acceleration/`, `caching/`, `memory/`, `profiling/`, `config.py`. **Live engine code — audit at full severity (#5142).** `auralis/core/hybrid_processor.py` applies it at module-import time and it wraps `AdaptiveMode.process` in a profiling decorator, so it sits on every real mastering call. The production importer set is pinned by `scripts/check_optimization_importers.py`; the old "test-only, cap at LOW" instruction was false and suppressed findings. |
 | Analysis | `auralis/analysis/` | `fingerprint/` (25D system), `ml/`, `quality/`, `quality_assessors/` |
-| Library | `auralis/library/` | `database.py` (`LibraryDatabase` — the sole composition root: engine, pragmas, migration, sessions, scan slots, shutdown; the `LibraryManager` facade and its cache layer were deleted in #4915), `repositories/` (13 repos + `base.py` BaseRepository; track, playlist and fingerprint are split across mixin/helper files), `scanner/`, `models/`, `migrations/`, `migration_manager.py` (+ `migration_engine.py`, `migration_steps.py`, `migration_backup.py`, `migration_lock.py`), `sidecar_manager.py`, `resource_monitor.py`, `path_key.py`, `fingerprint_quantizer.py` |
+| Library | `auralis/library/` | `database.py` (`LibraryDatabase` — the sole composition root: engine, pragmas, migration, sessions, scan slots, shutdown; the `LibraryManager` facade and its cache layer were deleted in #4915), `repositories/` (12 repos + `base.py` BaseRepository; track, playlist and fingerprint are split across mixin/helper files), `scanner/`, `models/`, `migrations/`, `migration_manager.py` (+ `migration_engine.py`, `migration_steps.py`, `migration_backup.py`, `migration_lock.py`), `sidecar_manager.py`, `resource_monitor.py`, `path_key.py`, `fingerprint_quantizer.py` |
 | Services | `auralis/services/` | `artwork_service.py`, `fingerprint_extractor.py`, `fingerprint_queue.py` + `fingerprint_queue_manager.py` (lifecycle) / `fingerprint_queue_scaling.py` (adaptive sizing) / `fingerprint_worker.py` (execution), `resizable_semaphore.py` |
 | Rust DSP | `vendor/auralis-dsp/` | PyO3 bindings in `vendor/auralis-dsp/src/py_bindings.rs` — 11 exposed functions: hpss, yin, chroma_cqt, detect_tempo, envelope_follow, compress, limit, compute_fingerprint, apply_multiband_eq, detect_onsets, process_chunks. Rhythm/tempo/onset were ported in from the deleted standalone fingerprint server (#4533). |
 
@@ -146,7 +146,7 @@ This dimension replaced the old "Parallel Processing" one: *auralis/optimization
 **Key files**: `auralis/library/database.py`, `auralis/library/repositories/`, `auralis/library/models/`, `auralis/library/scanner/`, `auralis/library/migrations/`, `auralis/library/migration_manager.py`, `auralis/library/migration_lock.py`, `auralis/library/sidecar_manager.py`, `auralis/library/resource_monitor.py`
 
 **Check**:
-- [ ] Repository pattern — ALL database access via the 13 repository classes? No raw SQL?
+- [ ] Repository pattern — ALL database access via the 12 repository classes? No raw SQL?
 - [ ] Detached ORM instances — repositories `expunge()` what they return, so any relationship a query did not eager-load raises `DetachedInstanceError` when `to_dict()` touches it. Do read paths carry `selectinload()`, and does `to_dict()` go through `_safe_collection()` / `_safe_scalar()` in `auralis/library/models/core.py`? `refresh()` expires without re-applying query options — post-commit paths must touch the relationship while still attached.
 - [ ] `BaseRepository._session_scope()` — the context manager exists in `auralis/library/repositories/base.py`, but most call sites still hand-roll session lifecycle. Flag leaks/missing rollbacks in the hand-rolled ones (the bulk migration itself is tracked debt, not a new finding).
 - [ ] SQLite config — `check_same_thread=False`, `pool_pre_ping=True` set?
@@ -161,7 +161,7 @@ This dimension replaced the old "Parallel Processing" one: *auralis/optimization
 
 1. Parse `$ARGUMENTS` for `--focus`, `--depth`, `--limit`
 2. `mkdir -p /tmp/audit/engine`
-3. Fetch dedup baseline: `gh issue list --limit 200 --json number,title,state,labels > /tmp/audit/engine/issues.json`
+3. Fetch dedup baseline: `gh issue list --state all --limit 6000 --json number,title,state,labels > /tmp/audit/engine/issues.json`
 4. Scan `docs/audits/` for prior engine audit reports
 
 ## Phase 2: Launch Dimension Agents

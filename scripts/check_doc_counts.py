@@ -91,25 +91,69 @@ def count_repositories() -> int:
     return len(list(repo_dir.glob("*_repository.py")))
 
 
-def check_stale_repository_counts(live_count: int) -> list[str]:
-    """Flag `.claude/agents/*.md` and `.claude/commands/*.md` files whose
-    stated repository count has drifted from the live tree (#5044 — #4997
-    deleted a repository and six references across three skill/agent files
-    went stale for weeks with nothing to catch it)."""
-    pattern = re.compile(r"(\d+)\s+repositor(?:y|ies)")
-    warnings = []
-    paths = sorted((PROJECT_ROOT / ".claude/agents").glob("*.md")) + sorted(
-        (PROJECT_ROOT / ".claude/commands").glob("*.md")
+# "13 repositories" and the shorthand "13 repos" both count; the shorthand is how
+# CLAUDE.md's Codebase Map and _audit-common.md's layout table write it, and a
+# regex that only knew the long form let both go stale unnoticed (#5813).
+_REPO_COUNT_PATTERN = re.compile(r"(\d+)\s+repo(?:s|sitor(?:y|ies))\b")
+
+
+def _repo_count_doc_paths() -> list[Path]:
+    return (
+        sorted((PROJECT_ROOT / ".claude/agents").glob("*.md"))
+        + sorted((PROJECT_ROOT / ".claude/commands").glob("*.md"))
+        + [PROJECT_ROOT / "CLAUDE.md"]
+        + sorted((PROJECT_ROOT / "docs/architecture").glob("*.md"))
     )
-    for path in paths:
+
+
+def check_stale_repository_counts(live_count: int) -> list[str]:
+    """Flag docs whose stated repository count has drifted from the live tree.
+
+    Covers `.claude/agents/*.md`, `.claude/commands/*.md`, `CLAUDE.md` and
+    `docs/architecture/*.md` (#5044 — #4997 deleted a repository and six
+    references across three skill/agent files went stale for weeks with nothing
+    to catch it; #5813 — #5526 then did it again, and the CLAUDE.md copy was
+    outside this scan)."""
+    warnings = []
+    for path in _repo_count_doc_paths():
         content = path.read_text()
-        for match in pattern.finditer(content):
+        for match in _REPO_COUNT_PATTERN.finditer(content):
             stated = int(match.group(1))
             if stated != live_count:
                 line_no = content.count("\n", 0, match.start()) + 1
                 warnings.append(
                     f"{path.relative_to(PROJECT_ROOT)}:{line_no} says "
                     f"{stated} repositories, live count is {live_count}"
+                )
+    return warnings
+
+
+# "schema v21", "currently v18": a stated DB schema version. The docs now point at
+# __db_schema_version__ instead of quoting a number (#5815 — CLAUDE.md said v21,
+# module-map.md v18, overview.md v16 and _audit-common.md "through v017_to_v018"
+# against a live v22), but a number that creeps back in is caught here.
+_SCHEMA_VERSION_PATTERN = re.compile(r"(?:schema\s+v|currently\s+v)(\d+)\b", re.IGNORECASE)
+
+
+def live_schema_version() -> int:
+    source = (PROJECT_ROOT / "auralis/__version__.py").read_text()
+    match = re.search(r"^__db_schema_version__\s*=\s*(\d+)", source, re.MULTILINE)
+    assert match, "auralis/__version__.py no longer defines __db_schema_version__"
+    return int(match.group(1))
+
+
+def check_stale_schema_versions(live_version: int) -> list[str]:
+    """Flag docs that quote a DB schema version other than the live one."""
+    warnings = []
+    for path in _repo_count_doc_paths():
+        content = path.read_text()
+        for match in _SCHEMA_VERSION_PATTERN.finditer(content):
+            stated = int(match.group(1))
+            if stated != live_version:
+                line_no = content.count("\n", 0, match.start()) + 1
+                warnings.append(
+                    f"{path.relative_to(PROJECT_ROOT)}:{line_no} says schema "
+                    f"v{stated}, live is v{live_version}"
                 )
     return warnings
 
@@ -159,6 +203,7 @@ def main() -> None:
         "Test functions": test_functions,
         "docs/ topic dirs": count_docs_topic_dirs(),
         "Library repositories": repo_count,
+        "DB schema version": live_schema_version(),
     }
     width = max(len(k) for k in counts)
     print("Live structural counts — paste into CLAUDE.md and _audit-common.md:\n")
@@ -167,11 +212,19 @@ def main() -> None:
 
     stale_repos = check_stale_repository_counts(repo_count)
     if stale_repos:
-        print("\nStale repository-count references in .claude/{agents,commands}/*.md:\n")
+        print("\nStale repository-count references (.claude/{agents,commands}, CLAUDE.md, docs/architecture):\n")
         for warning in stale_repos:
             print(f"  {warning}")
     else:
-        print("\n.claude/{agents,commands}/*.md repository-count references are all current.")
+        print("\nRepository-count references are all current.")
+
+    stale_schema = check_stale_schema_versions(live_schema_version())
+    if stale_schema:
+        print("\nStale DB schema-version references:\n")
+        for warning in stale_schema:
+            print(f"  {warning}")
+    else:
+        print("\nDB schema-version references are all current.")
 
     if check_docs:
         stale_tests = check_stale_test_counts(test_files, test_functions)

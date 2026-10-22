@@ -52,7 +52,7 @@ The `meta` group also owns the following:
 - the `.claude/agents/*.md` specialists (`backend-specialist`, `dsp-specialist`, `frontend-specialist`, `library-specialist`). Their layout facts must point at `CLAUDE.md` and `docs/architecture` instead of hand-typed trees wherever possible, and `scripts/check_doc_counts.py` already warns on their repository counts;
 - the domain→audit routing table in `audit-search.md`, which is the only ownership map this repo has. A new top-level package or a split module needs a row there.
 
-Agents must not start sub-agents: a nested agent's completion notice never reaches its parent (see `/audit-suite`). Because no agent here spawns children, all groups can launch at once; the 20-concurrent-subagent limit only bites for the nested audits.
+Agents do not start sub-agents: each group's files are small enough to review flat, and a flat fan-out lets every group launch at once. (`/audit-suite` is the opposite shape — its audits are orchestrators that spawn dimension agents, which is why it launches them in batches of 4 against the concurrent-subagent limit.)
 
 ## Phase 3: Collect
 

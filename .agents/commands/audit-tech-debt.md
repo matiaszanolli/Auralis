@@ -56,11 +56,11 @@ Default every tech-debt finding to LOW unless one of the above fires. Do **not**
 ## Phase 1: Setup
 
 1. Parse `$ARGUMENTS` for `--focus`, `--depth`, `--limit`.
-2. `mkdir -p /tmp/audit/tech-debt`
+2. `mkdir -p /tmp/audit/auralis/tech-debt` — namespaced by project on purpose: `/tmp/audit/<audit-name>` is shared by every repo on the machine, and a second project's tech-debt run overwrote this one's `dim_*.md` files (#5847). Never write directly under a bare `/tmp/audit/tech-debt`.
 3. Fetch dedup baseline (see `_audit-common.md` "Deduplication"):
    ```bash
-   gh issue list --limit 200 --json number,title,state,labels > /tmp/audit/tech-debt/issues.json
-   gh issue list --limit 500 --state all --label tech-debt --json number,title,state > /tmp/audit/tech-debt/issues_tech_debt.json
+   gh issue list --state all --limit 6000 --json number,title,state,labels > /tmp/audit/auralis/tech-debt/issues.json
+   gh issue list --limit 500 --state all --label tech-debt --json number,title,state > /tmp/audit/auralis/tech-debt/issues_tech_debt.json
    ```
 4. Scan `docs/audits/` for prior tech-debt reports (`AUDIT_TECH_DEBT_*.md`).
 5. Run the path-reference gate so Dim 7 / Dim 10 can treat its output as pre-confirmed findings:
@@ -146,7 +146,7 @@ Default every tech-debt finding to LOW unless one of the above fires. Do **not**
      # Report the number and its direction; only investigate sites that are
      # NEW since the previous audit.
      echo "sample_rate=44100 defaults:  $(grep -rIn -E 'sample_rate\s*:?\s*(int)?\s*=\s*44100' auralis auralis-web/backend | wc -l)"
-   } > /tmp/audit/tech-debt/baseline.txt
+   } > /tmp/audit/auralis/tech-debt/baseline.txt
    ```
 
    **Metric notes** (#4564) — carry these labels into the report's Baseline Snapshot; do not relabel a filtered count as a raw one:
@@ -165,13 +165,13 @@ Default every tech-debt finding to LOW unless one of the above fires. Do **not**
 
 ## Phase 2: Launch Dimension Agents
 
-Launch one Agent-tool subagent per selected dimension (max 3 concurrent). Each agent writes its output to `/tmp/audit/tech-debt/dim_<N>.md`.
+Launch one Agent-tool subagent per selected dimension (max 3 concurrent). Each agent writes its output to `/tmp/audit/auralis/tech-debt/dim_<N>.md`.
 
 Every agent prompt MUST include:
 - The project root is `/mnt/data/src/matchering`.
 - The `--depth` value and the `--limit` value (if set).
-- The dedup files: `/tmp/audit/tech-debt/issues.json` and `/tmp/audit/tech-debt/issues_tech_debt.json` (apply the dedup protocol from `_audit-common.md`).
-- The baseline file `/tmp/audit/tech-debt/baseline.txt`.
+- The dedup files: `/tmp/audit/auralis/tech-debt/issues.json` and `/tmp/audit/auralis/tech-debt/issues_tech_debt.json` (apply the dedup protocol from `_audit-common.md`).
+- The baseline file `/tmp/audit/auralis/tech-debt/baseline.txt`.
 - The context-management rules from `_audit-common.md` (max 1500 lines/Read, grep-before-read, incremental writes).
 - The per-finding format below (base format + the three extra fields), and the LOW-by-default severity rule with the promotion table above.
 - A reminder: this is a **debt** audit — propose a concrete deletion/consolidation/extraction for every finding; do not re-derive correctness.
@@ -201,7 +201,7 @@ Every agent prompt MUST include:
 - Does the marker reference an issue number (`#NNNN`)? Cross-check against the dedup files — a marker citing a CLOSED issue has outlived its driver (delete or reopen).
 - `# TODO: implement` / `// TODO` markers in code paths now reachable from a shipped FastAPI route (`auralis-web/backend/routers/`) or the player pipeline (`auralis/player/`).
 - `HACK` / `XXX` around DSP math (`auralis/dsp/`, `auralis/core/`) — note but route correctness concerns to `/audit-engine` as `Related`.
-**Output**: `/tmp/audit/tech-debt/dim_1.md`
+**Output**: `/tmp/audit/auralis/tech-debt/dim_1.md`
 
 ### Dimension 2: Dead Code & Unused Surface
 **Entry points**: `auralis/` (largest: `auralis/analysis/`), `auralis-web/backend/`, `auralis-web/frontend/src/`, `vendor/auralis-dsp/src/`
@@ -214,10 +214,10 @@ Every agent prompt MUST include:
 - Clusters already deleted are listed under Retired Architecture in `_audit-common.md` — do not re-report their absence.
 - Rust DSP: every `#[allow(dead_code)]` — is the item actually called from the PyO3 boundary now, or still dead?
 - **Don't flag**: `if TYPE_CHECKING:` imports, `pytest` fixtures, FastAPI dependency-injection callables, public API of `auralis/` that the desktop/CLI surface consumes, PyO3 `#[pyfunction]`/`#[pymethods]` exposed to Python.
-**Output**: `/tmp/audit/tech-debt/dim_2.md`
+**Output**: `/tmp/audit/auralis/tech-debt/dim_2.md`
 
 ### Dimension 3: Logic Duplication
-**Entry points**: any subsystem with N>1 similar files — the Sibling Detection groups in `_audit-common.md` are the prime targets: `auralis/library/repositories/` (13 repos, each extends `BaseRepository`), `auralis-web/backend/routers/` (20 registered routers), `auralis-web/backend/core/` (the `stream_*.py` / `chunk_*.py` / `job_*.py` / `streamlined_*.py` families), `auralis/core/` (the `mastering_*.py` family), the repository mixins (`track_repository_*.py`, `playlist_*_mixin.py`, `fingerprint_*_mixin.py`), `auralis/dsp/`, `auralis-web/frontend/src/hooks/`.
+**Entry points**: any subsystem with N>1 similar files — the Sibling Detection groups in `_audit-common.md` are the prime targets: `auralis/library/repositories/` (12 repos, each extends `BaseRepository`), `auralis-web/backend/routers/` (20 registered routers), `auralis-web/backend/core/` (the `stream_*.py` / `chunk_*.py` / `job_*.py` / `streamlined_*.py` families), `auralis/core/` (the `mastering_*.py` family), the repository mixins (`track_repository_*.py`, `playlist_*_mixin.py`, `fingerprint_*_mixin.py`), `auralis/dsp/`, `auralis-web/frontend/src/hooks/`.
 **Checklist**:
 - Repeated query scaffolding across `auralis/library/repositories/` (session open → query → `selectinload` → map) — should it funnel through a base-repository helper?
 - Repeated request-validation / error-`HTTPException` / response-shaping boilerplate across `auralis-web/backend/routers/` (cross-reference `/sync-contracts` for the schema side).
@@ -225,7 +225,7 @@ Every agent prompt MUST include:
 - Repeated `useEffect` cleanup / WebSocket subscribe-unsubscribe patterns across `auralis-web/frontend/src/hooks/`.
 - Mirrored constant lists instead of imports — the enhancement preset list is the live example (the preset row in `_audit-common.md` Sibling Detection names every copy). Each local copy is a consolidation candidate onto `schemas.VALID_PRESETS` / `types/domain.ts`, except where a layering boundary forbids the import (`core/proactive_buffer.py` deliberately does not import `schemas`).
 - **Cross-reference the user policy** (CLAUDE.md): "Always prioritize improving existing code rather than duplicating logic." Every duplication finding must name a specific consolidation site.
-**Output**: `/tmp/audit/tech-debt/dim_3.md`
+**Output**: `/tmp/audit/auralis/tech-debt/dim_3.md`
 
 ### Dimension 4: Magic Numbers & Hardcoded Constants
 **Entry points**: `auralis/core/`, `auralis/dsp/`, `auralis-web/backend/`, `auralis-web/frontend/src/`
@@ -235,7 +235,7 @@ Every agent prompt MUST include:
 - Backend timeouts / TTLs / queue sizes / frame-byte budgets hardcoded inline (should be named module constants).
 - Frontend: hardcoded hex/rgb colors that bypass `auralis-web/frontend/src/design-system/` tokens (overlaps `/audit-frontend` Dim 5 — report under whichever you run; dedup at merge).
 - **Don't flag**: protocol/spec magic — WAV/audio-format header bytes, PCM bit depths (16/24), standard sample rates used as documented enum values, HTTP status codes. These are spec, not arbitrary tunables.
-**Output**: `/tmp/audit/tech-debt/dim_4.md`
+**Output**: `/tmp/audit/auralis/tech-debt/dim_4.md`
 
 ### Dimension 5: Stub & Placeholder Implementations
 **Entry points**: `auralis/`, `auralis-web/backend/`, `auralis-web/frontend/src/`
@@ -245,7 +245,7 @@ Every agent prompt MUST include:
 - Routes returning hardcoded/mock data instead of real engine/DB output.
 - Frontend components rendering placeholder/"Coming soon" content wired into a shipped route.
 - Abstract methods or Protocol stubs with no concrete implementation that any code path needs.
-**Output**: `/tmp/audit/tech-debt/dim_5.md`
+**Output**: `/tmp/audit/auralis/tech-debt/dim_5.md`
 
 ### Dimension 6: Test Hygiene
 **Entry points**: `tests/`, `auralis-web/frontend/src/test/` and co-located `*.test.ts(x)` / `*_test.py` / `test_*.py`
@@ -257,7 +257,7 @@ Every agent prompt MUST include:
 - Over-mocking: `vi.*` / `unittest.mock` mocks so broad the test no longer exercises real behavior (cross-reference the global auto-mocks in `auralis-web/frontend/src/test/`).
 - Cross-reference "must not regress" baselines named in other `audit-*.md` skills — confirm each named regression test still exists and is not skipped.
 - Note the known frontend vitest baseline (pre-existing failures) — do NOT report individual pre-existing failures as debt; report only skip/xfail rot and assertion-quality issues.
-**Output**: `/tmp/audit/tech-debt/dim_6.md`
+**Output**: `/tmp/audit/auralis/tech-debt/dim_6.md`
 
 ### Dimension 7: Stale Documentation & Comments
 **Entry points**: `docs/`, `CLAUDE.md`, `README.md`, `auralis-web/backend/WEBSOCKET_API.md`, `docs/development/TESTING_GUIDELINES.md`, `.claude/commands/audit-*.md`, doc comments / docstrings in source
@@ -269,7 +269,7 @@ Every agent prompt MUST include:
 - README / docs command examples that no longer work (changed flags, moved entry points; cross-check against the verified facts — e.g. entry point is `launch-auralis-web.py`).
 - `auralis-web/backend/WEBSOCKET_API.md` message-shape descriptions that no longer match `auralis-web/backend/schemas/` or the emitted payloads (cross-reference `/sync-contracts`).
 - **Convention**: backticked path refs in `audit-*.md` claim "this path exists now". Forward-looking or deleted refs must NOT use backticks (the validate gate enforces this).
-**Output**: `/tmp/audit/tech-debt/dim_7.md`
+**Output**: `/tmp/audit/auralis/tech-debt/dim_7.md`
 
 ### Dimension 8: Backwards-Compat Cruft & "No Variants" Violations
 **Entry points**: `auralis/`, `auralis-web/backend/`, `auralis-web/frontend/src/`
@@ -280,7 +280,7 @@ Every agent prompt MUST include:
 - `@deprecated` / `warnings.warn(DeprecationWarning)` items with no remaining consumers — delete instead of deprecate (Auralis is desktop-only with no external API consumers; see CLAUDE.md / memory).
 - Re-exports of deleted/renamed symbols kept "for compatibility" — rot, since there are no external consumers.
 - Compatibility shims for old DB schema versions already migrated past (cross-reference `auralis/library/` migrations; route correctness to `/audit-engine`).
-**Output**: `/tmp/audit/tech-debt/dim_8.md`
+**Output**: `/tmp/audit/auralis/tech-debt/dim_8.md`
 
 ### Dimension 9: File / Function / Module Complexity
 **Entry points**: `auralis/`, `auralis-web/backend/`, `auralis-web/frontend/src/`
@@ -291,28 +291,28 @@ Every agent prompt MUST include:
   find auralis-web/frontend/src \( -name '*.ts' -o -name '*.tsx' \) -exec wc -l {} + | awk '$1>300 && $2!="total"' | sort -rn | head -40
   ```
   Do NOT hardcode the offender list in this skill — re-run each audit (membership drifts). For each oversized file propose a split **axis** (by responsibility / submodule), not by line count alone.
-- Every god-file/oversized-module split issue this dimension files must carry an explicit acceptance criterion: **close only when the target file is verified under 300 LOC; otherwise re-scope and keep it open** (#4673). `fix-issue.md`'s Phase 7 **LOC** completeness check enforces this at close time — the criterion working, not a hypothetical: four issues (#4245, #4249, #4250, #4254) were closed in 2026-07 while their targets stayed 2.3-2.7x over the limit, were reopened once this criterion was adopted, and were then properly re-fixed and re-closed on 2026-08-21/22/26 — three genuinely under 300 LOC at close, one (#4250) deliberately re-scoped and closed at 365 LOC after a documented diminishing-returns call on a 6th extraction pass. **Verified 2026-09-14**: #4250's 365-LOC exception still stands; #4245 and #4249's targets have since drifted back over 300 LOC through unrelated changes (chunked_processor.py 358L, enhanced_audio_player.py 311L) without reopening either issue — re-check current LOC before citing this anecdote as settled, the same way its own history should have been re-checked.
+- Every god-file/oversized-module split issue this dimension files must carry an explicit acceptance criterion: **close only when the target file is verified under 300 LOC; otherwise re-scope and keep it open** (#4673). `fix-issue.md`'s Phase 7 **LOC** completeness check enforces this at close time — the criterion working, not a hypothetical: four issues (#4245, #4249, #4250, #4254) were closed in 2026-07 while their targets stayed 2.3-2.7x over the limit, were reopened once this criterion was adopted, and were then properly re-fixed and re-closed on 2026-08-21/22/26 — three genuinely under 300 LOC at close, one (#4250) deliberately re-scoped and closed at 365 LOC after a documented diminishing-returns call on a 6th extraction pass.
 - Functions / methods > 100 LOC — propose extraction.
 - Deeply nested conditionals (depth > 4) — often a strategy/lookup-table or early-return refactor.
 - React components with too many `useState`/`useEffect` hooks (a sign the component is doing several jobs) — propose a custom-hook extraction.
 - `__init__.py` / `index.ts` with > 20 re-exports (the module is doing two jobs).
-**Output**: `/tmp/audit/tech-debt/dim_9.md`
+**Output**: `/tmp/audit/auralis/tech-debt/dim_9.md`
 
 ### Dimension 10: Audit-Finding Rot
-**Entry points**: `.claude/commands/audit-*.md`, `docs/audits/`, `.claude/issues/`
+**Entry points**: `.claude/commands/audit-*.md` and `_audit-*.md`, `.claude/agents/*.md`, `docs/audits/`, `.claude/issues/`
 **Checklist**:
 - Run `.claude/commands/_audit-validate.sh` (done in Phase 1) — any STALE refs it reports are auto-eligible Dim 10 findings (effort: trivial). For symbol-anchor refs it can't verify (e.g. *some_module.py::function_name*), spot-check the symbol still exists.
-- "Existing: #NNN" callouts in skill files where the issue is now CLOSED — should the prose reference the closed-state baseline differently?
+- Issue references in skill and agent files whose issue is CLOSED but whose prose still says it is pending ("tracked in #N", "until #N lands", "open issue #N"). Extract every `#NNNN` from `.claude/commands/*.md` and `.claude/agents/*.md`, batch-check state with one `gh issue list --state all` dump, and read the sentence around each CLOSED one. A closed number cited as provenance ("deleted in #4565") is fine.
 - Audit reports in `docs/audits/` older than 90 days whose CRITICAL/HIGH findings are not all triaged (open or closed) on GitHub.
 - Skill files that reference dimension counts ("all 9 dimensions") that no longer match the current list — including THIS file (keep "all 10" honest).
 - **Do NOT** flag `.claude/issues/<N>/ISSUE.md` state drift — those are immutable snapshots of the issue as filed; GitHub is authoritative for current state.
-**Output**: `/tmp/audit/tech-debt/dim_10.md`
+**Output**: `/tmp/audit/auralis/tech-debt/dim_10.md`
 
 ## Phase 3: Merge
 
-1. Read all `/tmp/audit/tech-debt/dim_*.md` files.
+1. Read all `/tmp/audit/auralis/tech-debt/dim_*.md` files.
 2. Combine into `docs/audits/AUDIT_TECH_DEBT_<TODAY>.md` (YYYY-MM-DD) with structure:
-   - **Executive Summary** — total findings by severity + delta vs `/tmp/audit/tech-debt/baseline.txt`.
+   - **Executive Summary** — total findings by severity + delta vs `/tmp/audit/auralis/tech-debt/baseline.txt`.
    - **Baseline Snapshot** — the counts captured in Phase 1, so the next audit can diff direction.
    - **Top 10 Quick Wins** — trivial/small effort with immediate readability or build-time payoff.
    - **Top 5 Medium Investments** — file/function splits, duplication consolidations.
@@ -323,7 +323,7 @@ Every agent prompt MUST include:
 
 ## Phase 4: Cleanup
 
-1. `rm -rf /tmp/audit/tech-debt`
+1. `rm -rf /tmp/audit/auralis/tech-debt`
 2. Inform the user the report is ready.
 3. Suggest: `/audit-publish docs/audits/AUDIT_TECH_DEBT_<TODAY>.md`
 

@@ -101,7 +101,7 @@ Run the generated tests to confirm they pass:
 python -m pytest <test-file> -vv -s 2>&1 | tail -40
 
 # Frontend
-cd auralis-web/frontend && npx vitest run <test-file> 2>&1 | tail -40
+cd auralis-web/frontend && pnpm run test:run -- <test-file> 2>&1 | tail -40
 ```
 
 If generating a regression test, also verify it WOULD fail without the fix:

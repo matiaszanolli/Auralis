@@ -29,17 +29,16 @@ Read the `auralis-web/backend/schemas/` package and any schema files in `auralis
 
 ### WebSocket Messages (Backend sends)
 
-Scan these files for all `send_text(json.dumps({...}))` and `send_json({...})` calls:
-- `auralis-web/backend/core/audio_stream_controller.py`
-- `auralis-web/backend/routers/system.py`
-- `auralis-web/backend/services/library_auto_scanner.py`
-- Any other file that sends WebSocket messages
+The typed contract lives in `auralis-web/backend/websocket/outbound_messages.py` (one Literal/TypedDict per outbound message type, sent through `broadcast_typed`). Start there, then scan the places that build frames outside it:
+- `auralis-web/backend/core/stream_protocol.py` and `auralis-web/backend/core/stream_messages.py` (binary PCM framing and the `audio_stream_*` JSON control messages)
+- `auralis-web/backend/ws_handlers/` (inbound command handlers and their replies) and `auralis-web/backend/routers/system.py` (the connection loop)
+- Any remaining direct `send_text(json.dumps({...}))` / `send_json({...})` call: `grep -rn "send_text\|send_json" auralis-web/backend --include='*.py'`
 
 For each message, extract the `type` field value and `data` field structure.
 
 ### WebSocket Messages (Frontend sends)
 
-Scan `auralis-web/frontend/src/hooks/websocket/` and `auralis-web/frontend/src/services/` for `send()`, `ws.send()`, or `sendMessage()` calls.
+Scan `auralis-web/frontend/src/hooks/websocket/` (the sends are `manager.send(JSON.stringify(...))` in `websocketConnectionCore.ts` and `useWebSocketConnection.ts`) and `auralis-web/frontend/src/services/` for `send()` / `ws.send()` calls. The frontend's message types are in `auralis-web/frontend/src/types/ws/`.
 
 ## Step 2: Extract Frontend Contracts
 
@@ -142,5 +141,5 @@ Statuses: `OK`, `MISMATCH` (details in Notes), `ORPHAN` (one side only)
 - **Read-only**: Do NOT modify any files. Report only.
 - **Be precise**: Include file:line references for every mismatch.
 - **Case conversion awareness**: `snake_case` to `camelCase` conversion is expected at the API boundary. Only flag mismatches where the conversion is WRONG or MISSING.
-- **Deduplication**: Check `gh issue list` before reporting. Note existing issues.
+- **Deduplication**: Check `gh issue list --state all` before reporting (open-only hides closed regressions). Note existing issues.
 - **Scope respect**: If `$ARGUMENTS` is `rest`, skip WebSocket checks. If `websocket`, skip REST checks.

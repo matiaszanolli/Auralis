@@ -147,7 +147,6 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 | Queue request | Backend | `auralis-web/backend/routers/player.py` |
 | Queue service | Backend | `auralis-web/backend/services/queue_service.py`, `queue_enrichment.py`, `queue_protocols.py` |
 | Engine queue | Engine | `auralis/player/queue_controller.py` (authoritative order) |
-| Persisted queue | Engine | `auralis/library/repositories/queue_history_repository.py` (undo history + its singleton `QueueState` row; the queue itself is not persisted — #5358) |
 | State broadcast | Backend | `auralis-web/backend/core/state_manager.py` → WebSocket |
 | UI update | Frontend | Redux store |
 
@@ -167,7 +166,7 @@ For EVERY flow, systematically check:
 
 1. Parse `$ARGUMENTS` for `--flows`, `--depth`, `--limit`
 2. `mkdir -p /tmp/audit/integration`
-3. Fetch dedup baseline: `gh issue list --limit 200 --json number,title,state,labels > /tmp/audit/integration/issues.json`
+3. Fetch dedup baseline: `gh issue list --state all --limit 6000 --json number,title,state,labels > /tmp/audit/integration/issues.json`
 4. Scan `docs/audits/` for prior integration audit reports
 
 ## Phase 2: Launch Flow Agents

@@ -153,7 +153,7 @@ Out of scope: Python backend, audio engine, Rust DSP, database.
 
 1. Parse `$ARGUMENTS` for `--focus`, `--depth`, `--limit`
 2. `mkdir -p /tmp/audit/frontend`
-3. Fetch dedup baseline: `gh issue list --limit 200 --json number,title,state,labels > /tmp/audit/frontend/issues.json`
+3. Fetch dedup baseline: `gh issue list --state all --limit 6000 --json number,title,state,labels > /tmp/audit/frontend/issues.json`
 4. Scan `docs/audits/` for prior frontend audit reports
 
 ## Phase 2: Launch Dimension Agents

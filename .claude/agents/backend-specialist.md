@@ -18,8 +18,8 @@ You are the **Backend Specialist** for Auralis — a FastAPI app at `:8765` that
 - `auralis-web/backend/config/startup/__init__.py` — lifespan (a package since #5236: steps in its `components`, `fingerprint`, `workers`, `tempfiles`, `rollback` and `shutdown` submodules); `auralis-web/backend/config/background_workers.py`, `auralis-web/backend/config/globals.py`, `auralis-web/backend/config/limits.py`, `auralis-web/backend/config/origins.py` (loopback origin policy)
 - `auralis-web/backend/schemas/` — Pydantic request/response models, split by domain and re-exported from `__init__.py` (the contract with the frontend)
 
-**Routers** (`auralis-web/backend/routers/` — 36 `.py` files: 20 registered + 6 shared + 10 router siblings):
-- `player.py` — playback control; coordinator over `player_playback.py`, `player_queue.py`, `player_queue_history.py`, `player_models.py`, `player_deps.py` (#5472)
+**Routers** (`auralis-web/backend/routers/` — 20 registered routers + shared helpers + the unregistered `player_*` / `processing_*` siblings):
+- `player.py` — playback control; coordinator over `player_playback.py`, `player_queue.py`, `player_models.py`, `player_deps.py` (#5472)
 - `library.py`, `albums.py`, `artists.py`, `playlists.py`, `tracks.py` — library browse; `library_scan.py` — scan control
 - `enhancement.py` — enhancement settings & application
 - `metadata.py`, `artwork.py` — track metadata & artwork

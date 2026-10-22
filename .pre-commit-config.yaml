@@ -19,6 +19,17 @@ repos:
         args: ["--select", "F401,F811,F841"]
         files: ^(auralis|auralis-web/backend)/
 
+  # Dangling path references after a deletion or rename (#5818). Runs only when
+  # the commit deletes/renames files; see scripts/pre_commit_path_references.sh.
+  - repo: local
+    hooks:
+      - id: path-references
+        name: path references (on delete/rename)
+        entry: scripts/pre_commit_path_references.sh
+        language: script
+        pass_filenames: false
+        always_run: true
+
   - repo: https://github.com/psf/black
     rev: 26.5.1
     hooks:
