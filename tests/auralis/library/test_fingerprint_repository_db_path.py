@@ -204,21 +204,21 @@ class TestSqlInjectionGuard:
         session.execute.assert_called_once()
 
     def test_validate_fingerprint_columns_raises_on_bad_name(self):
-        from auralis.library.repositories.fingerprint_repository import (
+        from auralis.library.repositories.fingerprint_shared import (
             _validate_fingerprint_columns,
         )
         with pytest.raises(ValueError):
             _validate_fingerprint_columns(["sub_bass_pct", "DROP TABLE tracks--"])
 
     def test_validate_fingerprint_columns_passes_for_valid_names(self):
-        from auralis.library.repositories.fingerprint_repository import (
+        from auralis.library.repositories.fingerprint_shared import (
             _validate_fingerprint_columns,
         )
         # Should not raise for the 25 known dimension columns
         _validate_fingerprint_columns(list(_SAMPLE_FINGERPRINT.keys()))
 
     def test_whitelist_excludes_pk_and_timestamps(self):
-        from auralis.library.repositories.fingerprint_repository import (
+        from auralis.library.repositories.fingerprint_shared import (
             _FINGERPRINT_WRITABLE_COLS,
         )
         assert 'id' not in _FINGERPRINT_WRITABLE_COLS
@@ -226,7 +226,7 @@ class TestSqlInjectionGuard:
         assert 'updated_at' not in _FINGERPRINT_WRITABLE_COLS
 
     def test_whitelist_includes_all_25_dimensions(self):
-        from auralis.library.repositories.fingerprint_repository import (
+        from auralis.library.repositories.fingerprint_shared import (
             _FINGERPRINT_WRITABLE_COLS,
         )
         for col in _SAMPLE_FINGERPRINT:

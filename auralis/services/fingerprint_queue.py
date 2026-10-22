@@ -271,25 +271,8 @@ class FingerprintExtractionQueue(FingerprintWorkerExecution, AdaptiveScalingMixi
             return self.stats.copy()
 
 
-def __getattr__(name: str) -> Any:
-    """Lazily re-export `FingerprintQueueManager` (#5039).
-
-    The class moved to `fingerprint_queue_manager`, which imports
-    `FingerprintExtractionQueue` from here — so a module-level re-export would
-    be a circular import. Resolving it on first attribute access keeps the
-    historical `from auralis.services.fingerprint_queue import
-    FingerprintQueueManager` path working from either import order.
-    """
-    if name == "FingerprintQueueManager":
-        from auralis.services.fingerprint_queue_manager import FingerprintQueueManager
-
-        return FingerprintQueueManager
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
-
 __all__ = [
     "DEFAULT_TRACK_TIMEOUT_SECONDS",
     "FingerprintExtractionQueue",
-    "FingerprintQueueManager",
     "_default_track_timeout",
 ]

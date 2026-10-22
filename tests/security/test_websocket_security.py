@@ -29,9 +29,9 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web/backend"))
 
 from core.audio_stream_controller import ws_id as _stable_ws_id
+from config.limits import WS_MAX_MESSAGE_SIZE as MAX_MESSAGE_SIZE
+from config.limits import WS_MAX_MESSAGES_PER_SECOND as MAX_MESSAGES_PER_SECOND
 from websocket.websocket_security import (
-    MAX_MESSAGE_SIZE,
-    MAX_MESSAGES_PER_SECOND,
     WebSocketRateLimiter,
     send_error_response,
     validate_and_parse_message,

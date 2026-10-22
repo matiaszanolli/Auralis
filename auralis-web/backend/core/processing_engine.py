@@ -97,8 +97,7 @@ class ProcessingEngine:
         # Processor cache / worker loop: see ProcessorPool / JobWorker (#4250).
         self._pool: ProcessorPool = ProcessorPool(self._construct_processor)
         self._worker: JobWorker = JobWorker(self, max_concurrent_jobs, max_queue_size)
-        # Same object as self._worker.job_queue — a legacy test that assigns
-        # engine.job_queue directly still works.
+        # Same object as self._worker.job_queue.
         self.job_queue: "asyncio.Queue[ProcessingJob]" = self._worker.job_queue
 
         # Guards concurrent access to jobs (fixes #2435)

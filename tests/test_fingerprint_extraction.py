@@ -189,7 +189,7 @@ class TestFingerprintQueueManager:
     @pytest.mark.asyncio
     async def test_manager_initialization(self, fingerprint_extractor_mock, library_database_mock):
         """Test queue manager initialization"""
-        from auralis.services.fingerprint_queue import FingerprintQueueManager
+        from auralis.services.fingerprint_queue_manager import FingerprintQueueManager
 
         manager = FingerprintQueueManager(
             fingerprint_extractor=fingerprint_extractor_mock,
@@ -203,7 +203,7 @@ class TestFingerprintQueueManager:
     @pytest.mark.asyncio
     async def test_manager_startup_shutdown(self, fingerprint_extractor_mock, library_database_mock):
         """Test manager startup and shutdown"""
-        from auralis.services.fingerprint_queue import FingerprintQueueManager
+        from auralis.services.fingerprint_queue_manager import FingerprintQueueManager
 
         manager = FingerprintQueueManager(
             fingerprint_extractor=fingerprint_extractor_mock,

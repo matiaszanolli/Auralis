@@ -17,10 +17,8 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from auralis.services.fingerprint_queue import (
-    FingerprintExtractionQueue,
-    FingerprintQueueManager,
-)
+from auralis.services.fingerprint_queue import FingerprintExtractionQueue
+from auralis.services.fingerprint_queue_manager import FingerprintQueueManager
 from auralis.services.resizable_semaphore import ResizableSemaphore
 
 

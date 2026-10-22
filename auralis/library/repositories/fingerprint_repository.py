@@ -31,36 +31,11 @@ from sqlalchemy.orm import Session
 
 from .fingerprint_crud_mixin import FingerprintCrudMixin
 from .fingerprint_query_mixin import FingerprintQueryMixin
-from .fingerprint_shared import (
-    PLACEHOLDER_LUFS_SENTINEL,
-    _FINGERPRINT_WRITABLE_COLS,
-    _validate_fingerprint_columns,
-    is_current_fingerprint,
-)
 from .fingerprint_similarity_mixin import FingerprintSimilarityMixin
 from .fingerprint_stats_repository import FingerprintStatsRepository
 from .fingerprint_upsert_mixin import FingerprintUpsertMixin
 
-# Re-exported for backward compatibility — tests and other modules import
-# these directly from this module path (e.g.
-# ``from auralis.library.repositories.fingerprint_repository import
-# is_current_fingerprint``). The real definitions live in fingerprint_shared
-# so the mixin modules above can use them without importing this facade
-# module and creating a circular import.
-# The underscore-prefixed pair is re-exported too: tests/auralis/library/
-# test_fingerprint_repository_db_path.py imports both from this module path.
-# Listing them here is what makes that contract explicit — and what stops a
-# mechanical `ruff --fix F401` sweep from deleting them as unused (#5209).
-# _current_fingerprint_clause was in the import list but is NOT re-exported:
-# its only users (fingerprint_query_mixin, fingerprint_similarity_mixin) take
-# it straight from fingerprint_shared, so it was genuinely unused here.
-__all__ = [
-    "FingerprintRepository",
-    "PLACEHOLDER_LUFS_SENTINEL",
-    "is_current_fingerprint",
-    "_FINGERPRINT_WRITABLE_COLS",
-    "_validate_fingerprint_columns",
-]
+__all__ = ["FingerprintRepository"]
 
 
 class FingerprintRepository(

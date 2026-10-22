@@ -24,7 +24,7 @@ from sqlalchemy import select
 
 from auralis.__version__ import FINGERPRINT_ALGORITHM_VERSION
 from auralis.library.models import Track
-from auralis.library.repositories.fingerprint_repository import is_current_fingerprint
+from auralis.library.repositories.fingerprint_shared import is_current_fingerprint
 
 _DIMS: dict = {
     'sub_bass_pct': 0.1, 'bass_pct': 0.2, 'low_mid_pct': 0.15,

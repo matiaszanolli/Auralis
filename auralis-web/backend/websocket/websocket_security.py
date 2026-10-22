@@ -24,13 +24,9 @@ from schemas import WebSocketErrorResponse, WebSocketMessageBase
 
 logger = logging.getLogger(__name__)
 
-# Security limits (#3902: moved to config/limits.py for the documented
-# rationale; re-exported here under their original names since callers/tests
-# import them from this module).
-MAX_MESSAGE_SIZE = WS_MAX_MESSAGE_SIZE
+# The size and rate limits live in config/limits.py (#3902) with their
+# rationale; only the JSON nesting bound is local to this module.
 MAX_JSON_DEPTH = 32
-MAX_MESSAGES_PER_SECOND = WS_MAX_MESSAGES_PER_SECOND
-MESSAGE_WINDOW_SECONDS = WS_MESSAGE_WINDOW_SECONDS
 
 
 def _json_nesting_exceeds(data: str, max_depth: int) -> bool:
@@ -73,8 +69,8 @@ class WebSocketRateLimiter:
 
     def __init__(
         self,
-        max_messages_per_second: int = MAX_MESSAGES_PER_SECOND,
-        window_seconds: float = MESSAGE_WINDOW_SECONDS,
+        max_messages_per_second: int = WS_MAX_MESSAGES_PER_SECOND,
+        window_seconds: float = WS_MESSAGE_WINDOW_SECONDS,
         max_messages_per_second_per_ip: int | None = None,
     ) -> None:
         """
@@ -199,7 +195,7 @@ class WebSocketRateLimiter:
 async def validate_and_parse_message(
     data: str,
     websocket: WebSocket,
-    max_size: int = MAX_MESSAGE_SIZE
+    max_size: int = WS_MAX_MESSAGE_SIZE
 ) -> tuple[dict[str, Any] | None, str | None]:
     """
     Validate and parse a WebSocket message.
