@@ -3,136 +3,6 @@ import { tokens } from '@/design-system';
 import { getSemanticTheme, type ThemeMode } from './semanticTheme';
 
 // ============================================================================
-// AURORA GRADIENTS — derived from tokens (single source of truth, #2766)
-// ============================================================================
-// #3597: every gradient endpoint resolves to a token. Hand-tuned hex strings
-// previously fragmented the brand identity between gradient stops.
-export const gradients = {
-  aurora: tokens.gradients.aurora,
-  // #3949 / DS-12: the dark accent stop now resolves to accent.primaryDark
-  // (was a duplicated raw hex literal here and in the MUI palette below).
-  auroraReverse: `linear-gradient(135deg, ${tokens.colors.accent.primary} 100%, ${tokens.colors.accent.primaryDark} 0%)`,
-  neonSunset: `linear-gradient(135deg, ${tokens.colors.audioSemantic.harmonic} 0%, ${tokens.colors.accent.energy} 100%)`,
-  deepOcean: `linear-gradient(135deg, ${tokens.colors.semantic.info} 0%, ${tokens.colors.semantic.success} 100%)`,
-  electricPurple: `linear-gradient(135deg, ${tokens.colors.audioSemantic.harmonic} 0%, ${tokens.colors.accent.primary} 100%)`,
-  cosmicBlue: tokens.gradients.decorative.cosmicBlue,
-  // Light theme gradients (softer) — derive from semantic info / harmonic accents
-  auroraLight: `linear-gradient(135deg, ${tokens.colors.semantic.info} 0%, ${tokens.colors.audioSemantic.harmonic} 100%)`,
-  sunsetLight: `linear-gradient(135deg, ${tokens.colors.audioSemantic.harmonic} 0%, ${tokens.colors.accent.energy} 100%)`,
-};
-
-// ============================================================================
-// DARK THEME COLORS — derived from tokens (single source of truth, #2766)
-// ============================================================================
-export const darkColors = {
-  background: {
-    primary: tokens.colors.bg.level0,
-    secondary: tokens.colors.bg.level1,
-    surface: tokens.colors.bg.level2,
-    hover: tokens.colors.bg.level3,
-    glass: tokens.glass.subtle.background,
-  },
-  text: {
-    primary: tokens.colors.text.primaryFull,
-    secondary: tokens.colors.accent.tertiary,
-    disabled: tokens.colors.text.disabled,
-  },
-  accent: {
-    success: tokens.colors.semantic.success,
-    error: tokens.colors.semantic.error,
-    warning: tokens.colors.semantic.warning,
-    info: tokens.colors.accent.secondary,
-  },
-  neon: {
-    pink: tokens.colors.audioSemantic.harmonic,
-    // #3597: dark-mode purple/magenta accent — kept distinct from the
-    // primary brand violet so neon highlights have their own identity.
-    // Sourced from the harmonic palette at lower lightness (#3949).
-    purple: tokens.colors.audioSemantic.harmonicDark,
-    blue: tokens.colors.semantic.info,
-    cyan: tokens.colors.semantic.success,
-    orange: tokens.colors.accent.energy,
-  },
-  glass: {
-    border: tokens.colors.opacityScale.white.light,
-    highlight: tokens.colors.opacityScale.white.veryLight,
-  },
-};
-
-// ============================================================================
-// LIGHT THEME COLORS (#3597 — sourced from tokens.colors.lightMode)
-// ============================================================================
-// Semantic colors share hue with the dark mode (`semantic.*`) so state
-// identity is consistent across themes; surface lifts and neon dimming
-// account for the brighter canvas.
-export const lightColors = {
-  background: tokens.colors.lightMode.background,
-  text: tokens.colors.lightMode.text,
-  accent: tokens.colors.lightMode.accent,
-  neon: tokens.colors.lightMode.neon,
-  glass: {
-    border: tokens.colors.opacityScale.accent.lighter,
-    highlight: tokens.colors.opacityScale.accent.minimal,
-  },
-};
-
-// ============================================================================
-// GLASSMORPHISM UTILITIES - Auralis Design Language v1.2.0
-// Subtle glass borders catch light - depth via borders, spacing, and shadow (§4.1)
-// ============================================================================
-export const glassEffects = {
-  // Subtle glass panel (cards, sidebars) - Enhanced for glossy aesthetic
-  panel: (isDark: boolean) => ({
-    background: isDark ? tokens.glass.subtle.background : lightColors.background.glass,
-    backdropFilter: 'blur(20px) saturate(1.1)',
-    WebkitBackdropFilter: 'blur(20px) saturate(1.1)',
-    border: '1px solid ' + (isDark
-      ? tokens.colors.opacityScale.white.light
-      : tokens.colors.opacityScale.accent.light),
-    boxShadow: isDark
-      ? '0 4px 16px ' + tokens.colors.opacityScale.dark.light + ', 0 0 0 1px ' + tokens.colors.opacityScale.white.veryLight
-      : '0 4px 16px ' + tokens.colors.opacityScale.accent.ultraLight + ', 0 0 0 1px ' + tokens.colors.opacityScale.white.light,
-  }),
-
-  // Strong glass (modals, popovers) - Maximum glossy effect
-  strong: (isDark: boolean) => ({
-    // #3948: token-backed per-mode backgrounds (was raw rgba literals).
-    background: isDark
-      ? tokens.glass.strong.backgroundDark
-      : tokens.glass.strong.backgroundLight,
-    backdropFilter: 'blur(32px) saturate(1.2)',     // Maximum blur + saturation
-    WebkitBackdropFilter: 'blur(32px) saturate(1.2)',
-    border: '1px solid ' + (isDark
-      ? tokens.colors.opacityScale.white.lighter
-      : tokens.colors.opacityScale.accent.standard),
-    boxShadow: isDark
-      ? '0 16px 48px ' + tokens.colors.opacityScale.dark.standard + ', 0 0 0 1px ' + tokens.colors.opacityScale.white.light
-      : '0 16px 48px ' + tokens.colors.opacityScale.accent.light + ', 0 0 0 1px ' + tokens.colors.opacityScale.white.lighter,
-  }),
-
-  // Minimal glass (hover states, tooltips) - Medium strength
-  minimal: (isDark: boolean) => ({
-    // #3948: token-backed per-mode backgrounds (was raw rgba literals). Maps to
-    // the medium glass token — "minimal" here is medium strength per the label.
-    background: isDark
-      ? tokens.glass.medium.backgroundDark
-      : tokens.glass.medium.backgroundLight,
-    backdropFilter: 'blur(28px) saturate(1.15)',    // Stronger blur + saturation
-    WebkitBackdropFilter: 'blur(28px) saturate(1.15)',
-    border: '1px solid ' + (isDark
-      ? tokens.colors.opacityScale.white.light
-      : tokens.colors.opacityScale.accent.light),
-  }),
-
-  // Glow effect for active elements
-  glow: (isDark: boolean, color: string = tokens.colors.accent.primary) => ({
-    boxShadow: isDark
-      ? `0 0 20px ${color}66, 0 0 40px ${color}33`
-      : `0 0 20px ${color}33, 0 0 40px ${color}1a`,
-  }),
-};
-
-// ============================================================================
 // CREATE THEME FUNCTION
 // ============================================================================
 /** MUI spacing unit in px, taken from `tokens.spacing.cluster` (#5384). */
@@ -140,7 +10,6 @@ export const MUI_SPACING_UNIT_PX = Number.parseFloat(tokens.spacing.cluster);
 
 export const createAuralisTheme = (mode: ThemeMode): Theme => {
   const isDark = mode === 'dark';
-  const colors = isDark ? darkColors : lightColors;
   const semantic = getSemanticTheme(mode);
 
   // #3597/#3949: MUI light/dark variants derived from the brand accents. MUI
@@ -180,17 +49,17 @@ export const createAuralisTheme = (mode: ThemeMode): Theme => {
         disabled: semantic.textDisabled,
       },
       success: {
-        main: colors.accent.success,
+        main: semantic.success,
       },
       error: {
-        main: colors.accent.error,
+        main: semantic.error,
         contrastText: semantic.onError,
       },
       warning: {
-        main: colors.accent.warning,
+        main: semantic.warning,
       },
       info: {
-        main: colors.accent.info,
+        main: semantic.info,
       },
     },
     // #5384: MUI's numeric sx spacing (`p: 2`, `mb: 3`) and its components'
@@ -229,7 +98,7 @@ export const createAuralisTheme = (mode: ThemeMode): Theme => {
       },
       caption: {
         fontSize: tokens.typography.fontSize.xs,
-        color: colors.text.secondary,
+        color: semantic.textSecondary,
         letterSpacing: '0.5px',
       },
       button: {
@@ -468,7 +337,7 @@ export const createAuralisTheme = (mode: ThemeMode): Theme => {
               transform: 'translateX(20px)',
               color: tokens.colors.text.primaryFull,
               '& + .MuiSwitch-track': {
-                background: gradients.aurora,
+                background: tokens.gradients.aurora,
                 opacity: 1,
               },
             },
@@ -516,9 +385,15 @@ export const createAuralisTheme = (mode: ThemeMode): Theme => {
 
 // #4584: the `darkColors as colors` alias is gone. It was a third colour API
 // competing with `themeVars` and the raw tokens, and it silently handed callers
-// the *dark* palette regardless of the active mode. Use `themeVars` for
-// theme-aware colours; `darkColors`/`lightColors` remain exported under their
-// real names for building the MUI theme below, not for component use.
+// the *dark* palette regardless of the active mode.
+//
+// #5646: the parallel `darkColors`/`lightColors` palettes, the `gradients`
+// re-export and the unused `glassEffects` helper are gone too — a second
+// palette and a second per-mode glass implementation that nothing in
+// production consumed and that disagreed with the semantic layer (dark
+// `palette.info` was cyan while `themeVars.info` is blue). The MUI
+// success/error/warning/info palette is now built straight from
+// `getSemanticTheme(mode)`; use `themeVars` for theme-aware colours.
 //
 // #4645: the `auralisTheme` default export ("for backward compatibility") had
-// zero consumers too — nothing imported the default or the named export.
+// zero consumers — nothing imported the default or the named export.
