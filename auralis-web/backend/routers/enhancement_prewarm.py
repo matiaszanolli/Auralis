@@ -34,9 +34,9 @@ def _track_is_live_streaming(track_id: int) -> bool:
 
     Event-loop only (no await between read and use), so the registries need
     no lock. Imported lazily, as core/stream_enhanced.py does, because
-    routers.system pulls in the whole streaming stack.
+    routers.system_streams pulls in the whole streaming stack.
     """
-    from routers.system import _active_streaming_tasks, _active_streaming_track_ids
+    from routers.system_streams import _active_streaming_tasks, _active_streaming_track_ids
 
     for ws_id, streaming_track_id in list(_active_streaming_track_ids.items()):
         if streaming_track_id != track_id:

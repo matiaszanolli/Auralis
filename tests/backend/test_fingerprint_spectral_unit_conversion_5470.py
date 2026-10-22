@@ -64,7 +64,7 @@ class TestTrackFingerprintServesHz:
             spectral_centroid=0.5, spectral_rolloff=0.5
         )
 
-        with patch('routers.fingerprint_status.require_repository_factory', return_value=repos):
+        with patch('routers.repo_deps.require_repository_factory', return_value=repos):
             response = client.get("/api/tracks/1/fingerprint")
 
         assert response.status_code == 200
@@ -88,7 +88,7 @@ class TestTrackFingerprintServesHz:
         repos.tracks.get_by_id.return_value = track
         repos.fingerprints.get_by_track_id.return_value = _fingerprint_mock()
 
-        with patch('routers.fingerprint_status.require_repository_factory', return_value=repos):
+        with patch('routers.repo_deps.require_repository_factory', return_value=repos):
             response = client.get("/api/tracks/1/fingerprint")
 
         fp = response.json()["fingerprint"]

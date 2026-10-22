@@ -33,57 +33,140 @@ from typing import Any, cast
 
 from core.cache_cleanup import clear_all_caches
 from core.thumbnail_cache import artwork_cache_root
-from fastapi import APIRouter, Header, HTTPException
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, Header, HTTPException
 
 from .errors import BadRequestError
 from .dependencies import require_repository_factory, with_error_handling
+from .library_deps import _LibraryDeps, _deps, _get_deps  # noqa: F401
+from .library_models import (  # noqa: F401
+    LibraryResetResponse,
+    LibraryStatsResponse,
+    RefreshReferencesResponse,
+)
 
 logger = logging.getLogger(__name__)
 
 
-class RefreshReferencesResponse(BaseModel):
-    """Result of rebuilding the mastering reference cloud (#3479)."""
-    cleared: int = Field(description="Existing is_reference flags cleared")
-    selected: int = Field(description="Fingerprints newly flagged as references")
+@with_error_handling("refresh reference cloud")
+async def refresh_reference_cloud(
+    deps: _LibraryDeps = Depends(_get_deps),
+) -> dict[str, Any]:
+    """#3479: rebuild the mastering reference cloud from current library state.
 
-
-class LibraryStatsResponse(BaseModel):
-    """Library-wide statistics (`StatsRepository.get_library_stats`).
-
-    `avg_dr_rating` / `avg_lufs` are deliberate duplicates of
-    `average_dr` / `average_lufs` — the repository emits both because the
-    frontend reads the former pair. Declaring only one of each would delete
-    the other from the response.
-
-    Every counter carries a default even though the repository always
-    populates all of them. A `response_model` validates as well as filters, so
-    required fields would turn any partial payload — a stub repository, a
-    future query that stops computing one aggregate — into a 500 with an empty
-    body. Defaulting degrades to zero instead, matching the
-    `_safe_collection`/`_safe_scalar` posture the ORM layer already takes, and
-    the OpenAPI schema is equally complete either way.
+    Clears all existing ``is_reference`` flags, scores every fingerprint
+    against the seeder thresholds, and flags the top-N candidates.
+    Safe to call repeatedly — the seeder is idempotent and does no audio I/O.
     """
-    total_tracks: int = Field(default=0, description="Number of tracks")
-    total_albums: int = Field(default=0, description="Number of albums")
-    total_artists: int = Field(default=0, description="Number of artists")
-    total_genres: int = Field(default=0, description="Number of genres")
-    total_playlists: int = Field(default=0, description="Number of playlists")
-    total_duration: float = Field(default=0.0, description="Summed track duration in seconds")
-    total_duration_formatted: str = Field(default="", description="Human-readable total duration")
-    total_filesize: int = Field(default=0, description="Summed file size in bytes")
-    total_filesize_gb: float = Field(default=0.0, description="Summed file size in GB (2 dp)")
-    total_plays: int = Field(default=0, description="Summed play count")
-    favorite_count: int = Field(default=0, description="Number of favorited tracks")
-    average_dr: float | None = Field(default=None, description="Mean dynamic-range rating")
-    average_lufs: float | None = Field(default=None, description="Mean integrated loudness")
-    avg_dr_rating: float | None = Field(default=None, description="Alias of average_dr")
-    avg_lufs: float | None = Field(default=None, description="Alias of average_lufs")
+    from auralis.learning.reference_seeder import refresh_cloud
+    factory = require_repository_factory(deps.get_repository_factory)
+    cleared, selected = await asyncio.to_thread(
+        refresh_cloud, factory.fingerprints
+    )
+    logger.info(
+        f"🎯 Reference cloud refresh (manual): cleared {cleared}, selected {selected}"
+    )
+    return {"cleared": cleared, "selected": selected}
 
 
-class LibraryResetResponse(BaseModel):
-    """Confirmation returned by the destructive library reset."""
-    message: str = Field(description="Human-readable confirmation")
+@with_error_handling("get library stats")
+async def get_library_stats(
+    deps: _LibraryDeps = Depends(_get_deps),
+) -> dict[str, Any]:
+    """Get library statistics (track count, album count, etc.)."""
+    factory = require_repository_factory(deps.get_repository_factory)
+    stats = await asyncio.to_thread(factory.stats.get_library_stats)
+    return cast(dict[str, Any], stats)
+
+
+@with_error_handling("reset library")
+async def reset_library(
+    x_confirm_reset: str = Header(
+        ...,
+        alias="X-Confirm-Reset",
+        description="Must be 'RESET' to confirm the destructive operation",
+    ),
+    deps: _LibraryDeps = Depends(_get_deps),
+) -> dict[str, Any]:
+    """Reset the entire library — deletes all tracks, albums, artists, genres,
+    fingerprints, playlists, queue state, and play statistics.
+
+    Requires the ``X-Confirm-Reset: RESET`` header as a safety guard
+    against accidental or CSRF-triggered calls.
+    """
+    if x_confirm_reset != "RESET":
+        raise BadRequestError("Invalid confirmation header: X-Confirm-Reset must be 'RESET'")
+    repos = require_repository_factory(deps.get_repository_factory)
+
+    from config.background_workers import (
+        start_background_workers,
+        stop_background_workers,
+    )
+
+    # Take exclusive access to the library BEFORE pausing anything (#4816).
+    # stop_background_workers() only reaches the registered workers; a
+    # manual scan (POST /api/library/scan) is a transient LibraryScanner
+    # under no registry key at all, so it used to keep importing files
+    # straight through the reset and silently undo it. The scan-slot
+    # registry on LibraryDatabase is the one place that knows a scan is
+    # running — the same counter the scan route's own 409 arbitrates on —
+    # so this both rejects a reset that races a scan and blocks any scan
+    # that would start during one.
+    library_database = deps.get_library_database() if deps.get_library_database else None
+    exclusive_held = False
+    if library_database is not None:
+        exclusive_held = library_database.try_begin_exclusive_access()
+        if not exclusive_held:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "A library scan is in progress. Wait for it to finish "
+                    "(or cancel it) before resetting the library."
+                ),
+            )
+    else:
+        logger.warning(
+            "Library reset proceeding without the scan-slot guard: "
+            "library database unavailable (#4816)"
+        )
+
+    # Pause every background worker (auto_scanner, ondemand + batch
+    # fingerprint queues) so none can insert Track/TrackFingerprint rows
+    # between the deletes and commit, which would make the reset
+    # non-atomic (fixes #3342, #4111). Previously only the on-demand
+    # queue was paused.
+    resolve = deps.resolve_worker or (lambda _key: None)
+    stopped = await stop_background_workers(resolve)
+    try:
+        # Bulk delete runs in the repository layer (no raw session in the
+        # router) and off the event loop.
+        await asyncio.to_thread(repos.reset_library)
+
+        # One lifecycle boundary owns every backend cache tier (#5257).
+        # Run it while workers remain paused so a rescan cannot repopulate
+        # stale entries between the database reset and cache cleanup.
+        cache_manager = deps.get_cache_manager() if deps.get_cache_manager else None
+        await clear_all_caches(
+            cache_manager,
+            deps.get_artwork_cache_dir(),
+            clear_source_artwork=True,
+        )
+
+        # No query cache to drop: every read goes through the
+        # repositories, straight to SQLite, so a reset cannot leave stale
+        # rows behind a cache.
+        logger.info(
+            "Library reset: all tracks, albums, artists, genres, "
+            "fingerprints, and playlists deleted"
+        )
+    finally:
+        # Always restart the workers we paused, even if the reset failed.
+        await start_background_workers(resolve, stopped)
+        # Release exclusive access last, so scans stay blocked until the
+        # workers that could feed them are back up (#4816).
+        if exclusive_held and library_database is not None:
+            library_database.end_exclusive_access()
+
+    return {"message": "Library has been reset successfully"}
 
 
 def create_library_router(
@@ -113,129 +196,33 @@ def create_library_router(
         Track / scan / fingerprint routes are registered by their own factory functions
         (create_tracks_router, create_library_scan_router, create_fingerprint_status_router).
     """
-    # Fresh router per factory call (#4361) — a module-level router shared
-    # across calls means a second factory call (e.g. in tests) re-registers
-    # or shadows routes on the same object, and any dependency override bound
-    # on that second call silently never takes effect (FastAPI serves the
-    # first-registered handler). Matches the isolated-per-factory pattern
-    # metadata.py:87 documents.
-    router = APIRouter(tags=["library"])
-
-    @router.post("/api/library/refresh-references", response_model=RefreshReferencesResponse)
-    @with_error_handling("refresh reference cloud")
-    async def refresh_reference_cloud() -> dict[str, Any]:
-        """#3479: rebuild the mastering reference cloud from current library state.
-
-        Clears all existing ``is_reference`` flags, scores every fingerprint
-        against the seeder thresholds, and flags the top-N candidates.
-        Safe to call repeatedly — the seeder is idempotent and does no audio I/O.
-        """
-        from auralis.learning.reference_seeder import refresh_cloud
-        factory = require_repository_factory(get_repository_factory)
-        cleared, selected = await asyncio.to_thread(
-            refresh_cloud, factory.fingerprints
-        )
-        logger.info(
-            f"🎯 Reference cloud refresh (manual): cleared {cleared}, selected {selected}"
-        )
-        return {"cleared": cleared, "selected": selected}
-
-    @router.get("/api/library/stats", response_model=LibraryStatsResponse)
-    @with_error_handling("get library stats")
-    async def get_library_stats() -> dict[str, Any]:
-        """Get library statistics (track count, album count, etc.)."""
-        factory = require_repository_factory(get_repository_factory)
-        stats = await asyncio.to_thread(factory.stats.get_library_stats)
-        return cast(dict[str, Any], stats)
-
-    @router.post("/api/library/reset", response_model=LibraryResetResponse)
-    @with_error_handling("reset library")
-    async def reset_library(
-        x_confirm_reset: str = Header(
-            ...,
-            alias="X-Confirm-Reset",
-            description="Must be 'RESET' to confirm the destructive operation",
-        ),
-    ) -> dict[str, Any]:
-        """Reset the entire library — deletes all tracks, albums, artists, genres,
-        fingerprints, playlists, queue state, and play statistics.
-
-        Requires the ``X-Confirm-Reset: RESET`` header as a safety guard
-        against accidental or CSRF-triggered calls.
-        """
-        if x_confirm_reset != "RESET":
-            raise BadRequestError("Invalid confirmation header: X-Confirm-Reset must be 'RESET'")
-        repos = require_repository_factory(get_repository_factory)
-
-        from config.background_workers import (
-            start_background_workers,
-            stop_background_workers,
-        )
-
-        # Take exclusive access to the library BEFORE pausing anything (#4816).
-        # stop_background_workers() only reaches the registered workers; a
-        # manual scan (POST /api/library/scan) is a transient LibraryScanner
-        # under no registry key at all, so it used to keep importing files
-        # straight through the reset and silently undo it. The scan-slot
-        # registry on LibraryDatabase is the one place that knows a scan is
-        # running — the same counter the scan route's own 409 arbitrates on —
-        # so this both rejects a reset that races a scan and blocks any scan
-        # that would start during one.
-        library_database = get_library_database() if get_library_database else None
-        exclusive_held = False
-        if library_database is not None:
-            exclusive_held = library_database.try_begin_exclusive_access()
-            if not exclusive_held:
-                raise HTTPException(
-                    status_code=409,
-                    detail=(
-                        "A library scan is in progress. Wait for it to finish "
-                        "(or cancel it) before resetting the library."
-                    ),
-                )
-        else:
-            logger.warning(
-                "Library reset proceeding without the scan-slot guard: "
-                "library database unavailable (#4816)"
-            )
-
-        # Pause every background worker (auto_scanner, ondemand + batch
-        # fingerprint queues) so none can insert Track/TrackFingerprint rows
-        # between the deletes and commit, which would make the reset
-        # non-atomic (fixes #3342, #4111). Previously only the on-demand
-        # queue was paused.
-        resolve = resolve_worker or (lambda _key: None)
-        stopped = await stop_background_workers(resolve)
-        try:
-            # Bulk delete runs in the repository layer (no raw session in the
-            # router) and off the event loop.
-            await asyncio.to_thread(repos.reset_library)
-
-            # One lifecycle boundary owns every backend cache tier (#5257).
-            # Run it while workers remain paused so a rescan cannot repopulate
-            # stale entries between the database reset and cache cleanup.
-            cache_manager = get_cache_manager() if get_cache_manager else None
-            await clear_all_caches(
-                cache_manager,
-                get_artwork_cache_dir(),
-                clear_source_artwork=True,
-            )
-
-            # No query cache to drop: every read goes through the
-            # repositories, straight to SQLite, so a reset cannot leave stale
-            # rows behind a cache.
-            logger.info(
-                "Library reset: all tracks, albums, artists, genres, "
-                "fingerprints, and playlists deleted"
-            )
-        finally:
-            # Always restart the workers we paused, even if the reset failed.
-            await start_background_workers(resolve, stopped)
-            # Release exclusive access last, so scans stay blocked until the
-            # workers that could feed them are back up (#4816).
-            if exclusive_held and library_database is not None:
-                library_database.end_exclusive_access()
-
-        return {"message": "Library has been reset successfully"}
-
+    # Fresh router per factory call (#4361): a module-level router shared
+    # across calls would re-register or shadow routes on the same object. The
+    # handlers reach this call's collaborators through RouterDeps (#5832).
+    deps = _LibraryDeps(
+        get_repository_factory,
+        resolve_worker,
+        get_cache_manager,
+        get_artwork_cache_dir,
+        get_library_database,
+    )
+    router = APIRouter(tags=["library"], dependencies=[Depends(_deps.bind(deps))])
+    router.add_api_route(
+        "/api/library/refresh-references",
+        refresh_reference_cloud,
+        methods=["POST"],
+        response_model=RefreshReferencesResponse,
+    )
+    router.add_api_route(
+        "/api/library/stats",
+        get_library_stats,
+        methods=["GET"],
+        response_model=LibraryStatsResponse,
+    )
+    router.add_api_route(
+        "/api/library/reset",
+        reset_library,
+        methods=["POST"],
+        response_model=LibraryResetResponse,
+    )
     return router

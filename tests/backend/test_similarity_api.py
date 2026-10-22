@@ -297,7 +297,7 @@ class TestFingerprintQueueStatus:
 class TestEnqueueTrack:
     """Test POST /api/similarity/fingerprint-queue/enqueue/{track_id}"""
 
-    @patch('routers.fingerprint_queue.require_repository_factory')
+    @patch('routers.repo_deps.require_repository_factory')
     def test_enqueue_track_not_found(self, mock_require_repos, client, mock_repos):
         """Test enqueueing non-existent track"""
         mock_require_repos.return_value = mock_repos
@@ -307,7 +307,7 @@ class TestEnqueueTrack:
 
         assert response.status_code == 404
 
-    @patch('routers.fingerprint_queue.require_repository_factory')
+    @patch('routers.repo_deps.require_repository_factory')
     def test_enqueue_track_endpoint(self, mock_require_repos, client, mock_repos):
         """Test enqueueing a track for fingerprinting"""
         # This asserted 404 on the premise that "track 1 doesn't exist in the
@@ -496,7 +496,6 @@ class TestBlockingCallsOffloaded:
     @pytest.mark.asyncio
     async def test_build_graph_uses_to_thread(self):
         """build_similarity_graph calls graph_builder.build_graph via asyncio.to_thread"""
-        from routers.similarity_graph import create_similarity_graph_router
 
         mock_graph_builder = Mock()
         mock_stats = Mock()
@@ -511,23 +510,15 @@ class TestBlockingCallsOffloaded:
         }
         mock_graph_builder.build_graph.return_value = mock_stats
 
-        router = create_similarity_graph_router(
-            get_graph_builder=lambda: mock_graph_builder,
-        )
-
-        # Find the build endpoint handler
-        handler = None
-        for route in router.routes:
-            if hasattr(route, "path") and route.path == "/api/similarity/graph/build":
-                handler = route.endpoint
-                break
-
-        assert handler is not None, "Could not find /graph/build endpoint"
+        # The handler is module-level (#5832): pass the resolved builder directly.
+        from routers.similarity_graph import build_similarity_graph
 
         with patch("routers.similarity_graph.asyncio.to_thread", new_callable=AsyncMock) as mock_to_thread:
             mock_to_thread.return_value = mock_stats
 
-            await handler(k=5, clear_existing=True)
+            await build_similarity_graph(
+                k=5, clear_existing=True, graph_builder=mock_graph_builder
+            )
 
             mock_to_thread.assert_called_once_with(
                 mock_graph_builder.build_graph, k=5, clear_existing=True

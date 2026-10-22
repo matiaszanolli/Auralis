@@ -17,7 +17,7 @@ from typing import Annotated, Any
 from cache import StreamlinedCacheManager
 from core.cache_cleanup import clear_all_caches
 from core.thumbnail_cache import artwork_cache_root
-from fastapi import APIRouter, HTTPException, Path
+from fastapi import APIRouter, Depends, HTTPException, Path
 from pydantic import BaseModel, Field
 
 # The canonical, fully-typed contracts (#3548 / BE-NEW-90, #4755): this router
@@ -32,7 +32,7 @@ from schemas import CacheHealthResponse, CacheStatsResponse, TrackCacheStatusRes
 from websocket.outbound_messages import broadcast_typed
 
 from .errors import NotFoundError, ServiceUnavailableError
-from .dependencies import with_error_handling
+from .dependencies import RouterDeps, with_error_handling
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +58,150 @@ def _require_cache(
     return mgr
 
 
+class _CacheDeps:
+    def __init__(
+        self,
+        get_cache_manager: Callable[[], StreamlinedCacheManager | None] = lambda: None,
+        broadcast_manager: Any | None = None,
+        get_artwork_cache_dir: Callable[[], FilePath] = artwork_cache_root,
+    ) -> None:
+        self.get_cache_manager = get_cache_manager
+        self.broadcast_manager = broadcast_manager
+        self.get_artwork_cache_dir = get_artwork_cache_dir
+
+
+_deps = RouterDeps("cache_streamlined", _CacheDeps())
+
+
+def _get_deps() -> _CacheDeps:
+    return _deps.current()
+
+
+def _get_cache_manager(deps: _CacheDeps = Depends(_get_deps)) -> StreamlinedCacheManager:
+    """The cache manager for this request, or 503 before lifespan set it up."""
+    return _require_cache(deps.get_cache_manager)
+
+
+@with_error_handling("get cache stats")
+async def get_cache_stats(cache_manager: StreamlinedCacheManager = Depends(_get_cache_manager)) -> CacheStatsResponse:
+    """
+    Get comprehensive cache statistics.
+
+    Returns detailed statistics for both cache tiers including:
+    - Tier 1 (Hot): Current + next chunk stats
+    - Tier 2 (Warm): Full track cache stats
+    - Overall hit rates and memory usage
+    - Per-track cache completion status
+    """
+    stats = await asyncio.to_thread(cache_manager.get_stats)
+    # get_stats()'s tier1/tier2 dicts don't carry a tier_name field
+    # (there's nothing to derive it from once the two dicts are
+    # separate) — CacheTierStats requires it, so fill it in here at
+    # the one place that knows which dict is which.
+    stats["tier1"]["tier_name"] = "tier1"
+    stats["tier2"]["tier_name"] = "tier2"
+    return CacheStatsResponse(**stats)
+
+
+@with_error_handling("get track cache status")
+async def get_track_cache_status(
+    track_id: Annotated[int, Path(ge=1)],
+    cache_manager: StreamlinedCacheManager = Depends(_get_cache_manager),
+) -> TrackCacheStatusResponse:
+    """
+    Get cache status for a specific track.
+
+    Args:
+        track_id: Track ID
+
+    Returns:
+        Cache status including completion percentage and chunk counts
+    """
+    try:
+        status = await asyncio.to_thread(cache_manager.get_track_cache_status, track_id)
+
+        if status is None:
+            raise NotFoundError("Track", detail=f"Track {track_id} not found in cache")
+
+        return TrackCacheStatusResponse(
+            track_id=status.track_id,
+            total_chunks=status.total_chunks,
+            cached_original=len(status.cached_chunks_original),
+            cached_processed=len(status.cached_chunks_processed),
+            completion_percent=status.get_completion_percent(),
+            fully_cached=status.is_fully_cached()
+        )
+    except HTTPException:
+        raise
+
+
+@with_error_handling("clear track cache")
+async def clear_track_cache(
+    track_id: Annotated[int, Path(ge=1)],
+    cache_manager: StreamlinedCacheManager = Depends(_get_cache_manager),
+) -> dict[str, Any]:
+    """Clear cached data for a single track."""
+    removed = await cache_manager.clear_track(track_id)
+    return {"message": f"Cleared cache for track {track_id}", "removed": removed}
+
+
+@with_error_handling("clear cache")
+async def clear_cache(
+    cache_manager: StreamlinedCacheManager = Depends(_get_cache_manager),
+    deps: _CacheDeps = Depends(_get_deps),
+) -> dict[str, str]:
+    """
+    Clear chunk, derived-thumbnail, and analysis caches.
+
+    Use with caution - this will force re-processing of all chunks.
+    """
+    await clear_all_caches(cache_manager, deps.get_artwork_cache_dir())
+
+    # Broadcast cache cleared event using the canonical {type, data}
+    # envelope (#3545 / BE-NEW-87). Wrap the message in `data` so
+    # the frontend dispatcher does not classify it as unknown.
+    if deps.broadcast_manager:
+        await broadcast_typed(
+            deps.broadcast_manager,
+            "cache_cleared",
+            {"message": "All caches cleared"},
+        )
+
+    return {"message": "All caches cleared successfully"}
+
+
+@with_error_handling("check cache health")
+async def cache_health(cache_manager: StreamlinedCacheManager = Depends(_get_cache_manager)) -> CacheHealthResponse:
+    """
+    Get cache system health status.
+
+    Returns:
+        Health information including memory usage and worker status
+    """
+    stats = await asyncio.to_thread(cache_manager.get_stats)
+
+    overall = stats["overall"]
+    tier1 = stats["tier1"]
+    tier2 = stats["tier2"]
+
+    # Calculate health metrics
+    tier1_healthy = tier1["size_mb"] <= 15  # Should be ~12 MB
+    tier2_healthy = tier2["size_mb"] <= 250  # Max 240 MB
+    memory_healthy = overall["total_size_mb"] <= 260
+
+    return CacheHealthResponse(
+        healthy=tier1_healthy and tier2_healthy and memory_healthy,
+        tier1_size_mb=tier1["size_mb"],
+        tier1_healthy=tier1_healthy,
+        tier2_size_mb=tier2["size_mb"],
+        tier2_healthy=tier2_healthy,
+        total_size_mb=overall["total_size_mb"],
+        memory_healthy=memory_healthy,
+        tier1_hit_rate=tier1["hit_rate"],
+        overall_hit_rate=overall["overall_hit_rate"],
+    )
+
+
 def create_streamlined_cache_router(
     get_cache_manager: Callable[[], StreamlinedCacheManager | None],
     broadcast_manager: Any | None = None,
@@ -76,122 +220,13 @@ def create_streamlined_cache_router(
     Returns:
         FastAPI router with cache endpoints
     """
-    router = APIRouter(prefix="/api/cache", tags=["cache"])
-
-    @router.get("/stats", response_model=CacheStatsResponse)
-    @with_error_handling("get cache stats")
-    async def get_cache_stats() -> CacheStatsResponse:
-        """
-        Get comprehensive cache statistics.
-
-        Returns detailed statistics for both cache tiers including:
-        - Tier 1 (Hot): Current + next chunk stats
-        - Tier 2 (Warm): Full track cache stats
-        - Overall hit rates and memory usage
-        - Per-track cache completion status
-        """
-        cache_manager = _require_cache(get_cache_manager)
-        stats = await asyncio.to_thread(cache_manager.get_stats)
-        # get_stats()'s tier1/tier2 dicts don't carry a tier_name field
-        # (there's nothing to derive it from once the two dicts are
-        # separate) — CacheTierStats requires it, so fill it in here at
-        # the one place that knows which dict is which.
-        stats["tier1"]["tier_name"] = "tier1"
-        stats["tier2"]["tier_name"] = "tier2"
-        return CacheStatsResponse(**stats)
-
-    @router.get("/track/{track_id}/status", response_model=TrackCacheStatusResponse)
-    @with_error_handling("get track cache status")
-    async def get_track_cache_status(track_id: Annotated[int, Path(ge=1)]) -> TrackCacheStatusResponse:
-        """
-        Get cache status for a specific track.
-
-        Args:
-            track_id: Track ID
-
-        Returns:
-            Cache status including completion percentage and chunk counts
-        """
-        cache_manager = _require_cache(get_cache_manager)
-        try:
-            status = await asyncio.to_thread(cache_manager.get_track_cache_status, track_id)
-
-            if status is None:
-                raise NotFoundError("Track", detail=f"Track {track_id} not found in cache")
-
-            return TrackCacheStatusResponse(
-                track_id=status.track_id,
-                total_chunks=status.total_chunks,
-                cached_original=len(status.cached_chunks_original),
-                cached_processed=len(status.cached_chunks_processed),
-                completion_percent=status.get_completion_percent(),
-                fully_cached=status.is_fully_cached()
-            )
-        except HTTPException:
-            raise
-
-    @router.delete("/track/{track_id}", response_model=ClearTrackCacheResponse)
-    @with_error_handling("clear track cache")
-    async def clear_track_cache(track_id: Annotated[int, Path(ge=1)]) -> dict[str, Any]:
-        """Clear cached data for a single track."""
-        cache_manager = _require_cache(get_cache_manager)
-        removed = await cache_manager.clear_track(track_id)
-        return {"message": f"Cleared cache for track {track_id}", "removed": removed}
-
-    @router.post("/clear", response_model=ClearCacheResponse)
-    @with_error_handling("clear cache")
-    async def clear_cache() -> dict[str, str]:
-        """
-        Clear chunk, derived-thumbnail, and analysis caches.
-
-        Use with caution - this will force re-processing of all chunks.
-        """
-        cache_manager = _require_cache(get_cache_manager)
-        await clear_all_caches(cache_manager, get_artwork_cache_dir())
-
-        # Broadcast cache cleared event using the canonical {type, data}
-        # envelope (#3545 / BE-NEW-87). Wrap the message in `data` so
-        # the frontend dispatcher does not classify it as unknown.
-        if broadcast_manager:
-            await broadcast_typed(
-                broadcast_manager,
-                "cache_cleared",
-                {"message": "All caches cleared"},
-            )
-
-        return {"message": "All caches cleared successfully"}
-
-    @router.get("/health", response_model=CacheHealthResponse)
-    @with_error_handling("check cache health")
-    async def cache_health() -> CacheHealthResponse:
-        """
-        Get cache system health status.
-
-        Returns:
-            Health information including memory usage and worker status
-        """
-        cache_manager = _require_cache(get_cache_manager)
-        stats = await asyncio.to_thread(cache_manager.get_stats)
-
-        overall = stats["overall"]
-        tier1 = stats["tier1"]
-        tier2 = stats["tier2"]
-
-        # Calculate health metrics
-        tier1_healthy = tier1["size_mb"] <= 15  # Should be ~12 MB
-        tier2_healthy = tier2["size_mb"] <= 250  # Max 240 MB
-        memory_healthy = overall["total_size_mb"] <= 260
-
-        return CacheHealthResponse(
-            healthy=tier1_healthy and tier2_healthy and memory_healthy,
-            tier1_size_mb=tier1["size_mb"],
-            tier1_healthy=tier1_healthy,
-            tier2_size_mb=tier2["size_mb"],
-            tier2_healthy=tier2_healthy,
-            total_size_mb=overall["total_size_mb"],
-            memory_healthy=memory_healthy,
-            tier1_hit_rate=tier1["hit_rate"],
-            overall_hit_rate=overall["overall_hit_rate"],
-        )
-
+    deps = _CacheDeps(get_cache_manager, broadcast_manager, get_artwork_cache_dir)
+    router = APIRouter(
+        prefix="/api/cache", tags=["cache"], dependencies=[Depends(_deps.bind(deps))]
+    )
+    router.add_api_route("/stats", get_cache_stats, methods=["GET"], response_model=CacheStatsResponse)
+    router.add_api_route("/track/{track_id}/status", get_track_cache_status, methods=["GET"], response_model=TrackCacheStatusResponse)
+    router.add_api_route("/track/{track_id}", clear_track_cache, methods=["DELETE"], response_model=ClearTrackCacheResponse)
+    router.add_api_route("/clear", clear_cache, methods=["POST"], response_model=ClearCacheResponse)
+    router.add_api_route("/health", cache_health, methods=["GET"], response_model=CacheHealthResponse)
     return router

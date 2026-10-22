@@ -283,7 +283,7 @@ class TestGetArtists:
 class TestGetArtistDetails:
     """Test GET /api/artists/{artist_id} (moved from /api/library/artists/{id} in #3824)"""
 
-    @patch('routers.artists.require_repository_factory')
+    @patch('routers.repo_deps.require_repository_factory')
     def test_get_artist_not_found(self, mock_require_repos, client, mock_repos):
         """Test getting non-existent artist"""
         mock_require_repos.return_value = mock_repos

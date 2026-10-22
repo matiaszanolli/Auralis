@@ -22,7 +22,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "ba
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-import routers.system as system_module
+import routers.system_streams as system_module
 from routers.enhancement import create_enhancement_router
 from tests.backend.test_preset_intensity_prewarm_4425 import (
     _make_playing_state_manager,
@@ -41,7 +41,7 @@ def _allow_fake_paths(monkeypatch):
 
 @pytest.fixture
 def live_streams(monkeypatch):
-    """Register fake streams in system.py's real registries, restored afterwards."""
+    """Register fake streams in system_streams.py's real registries, restored afterwards."""
     monkeypatch.setattr(system_module, "_active_streaming_tasks", {})
     monkeypatch.setattr(system_module, "_active_streaming_track_ids", {})
 
