@@ -13,6 +13,7 @@ from typing import Any
 
 from ..utils.logging import error, info, warning
 from .components import QueueManager
+from .repository_access import resolve_repository_factory
 
 
 class QueueController:
@@ -63,17 +64,7 @@ class QueueController:
 
     def _get_repos(self) -> Any:
         """Get repository factory for data access."""
-        try:
-            factory = self.get_repository_factory()
-            if factory:
-                return factory
-        except (TypeError, AttributeError) as e:
-            error(f"Failed to get repository factory: {e}")
-
-        raise RuntimeError(
-            "Repository factory not available. "
-            "Ensure get_repository_factory is properly configured during startup."
-        )
+        return resolve_repository_factory(self.get_repository_factory)
 
     # #3783: route every read/write of QueueManager attributes through the
     # _lock that QueueManager itself uses for its mutators. CPython's GIL

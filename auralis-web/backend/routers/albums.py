@@ -13,7 +13,7 @@ import logging
 from typing import Annotated, Any, Literal
 from collections.abc import Callable
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from fastapi import APIRouter, Depends, Path, Query
 from pydantic import BaseModel, Field
 
 from schemas import (
@@ -298,19 +298,16 @@ async def get_album_fingerprint(album_id: Annotated[int, Path(ge=1)], repos: Any
     tracks = album.tracks if hasattr(album, 'tracks') and album.tracks else []
 
     if not tracks:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Album {album_id} has no tracks"
-        )
+        raise NotFoundError("Album tracks", detail=f"Album {album_id} has no tracks")
 
     # Get fingerprints for all tracks in a single query (#3334)
     track_ids = [track.id for track in tracks]
     fingerprints = await asyncio.to_thread(repos.fingerprints.get_by_track_ids, track_ids)
 
     if not fingerprints:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Album {album_id} has no fingerprinted tracks. Run fingerprint extraction first."
+        raise NotFoundError(
+            "Album fingerprints",
+            detail=f"Album {album_id} has no fingerprinted tracks. Run fingerprint extraction first.",
         )
 
     # Compute median for each fingerprint dimension

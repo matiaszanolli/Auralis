@@ -22,7 +22,8 @@ from pydantic import ValidationError
 
 from core.processing_engine import ProcessingEngine, ProcessingStatus
 
-from .dependencies import with_error_handling
+from .errors import BadRequestError, ServiceUnavailableError
+from .dependencies import require_processing_engine, with_error_handling
 from .processing_deps import _get_processing_engine
 from .processing_models import ProcessingSettings, ProcessResponse
 
@@ -78,8 +79,7 @@ async def upload_and_process(
     Upload an audio file and immediately submit for processing.
     Combines file upload and processing submission in one request.
     """
-    if not engine:
-        raise HTTPException(status_code=503, detail="Processing engine not available")
+    engine = require_processing_engine(engine)
 
     # Parse settings from JSON string. Malformed client input (bad
     # JSON, or a shape ProcessingSettings rejects) is a 400, not the
@@ -90,11 +90,11 @@ async def upload_and_process(
     try:
         settings_dict = json.loads(settings)
     except json.JSONDecodeError as e:
-        raise HTTPException(status_code=400, detail=f"Invalid settings JSON: {e}")
+        raise BadRequestError(f"Invalid settings JSON: {e}")
     try:
         processing_settings = ProcessingSettings(**settings_dict)
     except (TypeError, ValidationError) as e:
-        raise HTTPException(status_code=400, detail=f"Invalid processing settings: {e}")
+        raise BadRequestError(f"Invalid processing settings: {e}")
     # This endpoint takes no reference file, so a reference or hybrid job
     # could only ever run as adaptive under the wrong label (#5058). Same
     # 422 as process_audio's missing-reference rejection.
@@ -157,10 +157,7 @@ async def upload_and_process(
         try:
             job_id = await engine.submit_job(job)
         except asyncio.QueueFull:
-            raise HTTPException(
-                status_code=503,
-                detail="Processing queue is full, please try again later",
-            )
+            raise ServiceUnavailableError("Processing queue is full, please try again later")
 
         return ProcessResponse(
             job_id=job_id,

@@ -34,7 +34,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from core.processing_engine import ProcessingEngine, ProcessingStatus
 from security.path_security import PathValidationError, validate_file_path
 
-from .dependencies import with_error_handling
+from .errors import BadRequestError, ServiceUnavailableError
+from .dependencies import require_processing_engine, with_error_handling
 from .processing_deps import (
     _deps,
     _get_processing_engine,
@@ -56,7 +57,10 @@ from .processing_models import (  # noqa: F401
     JobStatusResponse,
     PresetsResponse,
     ProcessingParametersResponse,
-    ProcessingSettings,
+    # Explicit re-export: files.py imports it from here on purpose, so the audio
+    # formats endpoint degrades to "no output options" when this router fails to
+    # import (routes.py tolerates that).
+    ProcessingSettings as ProcessingSettings,
     ProcessRequest,
     ProcessResponse,
     QueueStatusResponse,
@@ -84,8 +88,7 @@ async def process_audio(
     Submit an audio file for processing.
     Returns a job ID that can be used to track progress.
     """
-    if not engine:
-        raise HTTPException(status_code=503, detail="Processing engine not available")
+    engine = require_processing_engine(engine)
 
     # Validate input path against allowed directories (#2559)
     try:
@@ -94,7 +97,7 @@ async def process_audio(
         )
     except PathValidationError:
         # validate_file_path logs it once with the context above (#4925).
-        raise HTTPException(status_code=400, detail="Invalid or inaccessible input path")
+        raise BadRequestError("Invalid or inaccessible input path")
 
     # A reference or hybrid job with no reference is not a meaningful
     # adaptive fallback — the caller asked for their reference to be matched.
@@ -114,7 +117,7 @@ async def process_audio(
             )
         except PathValidationError:
             # validate_file_path logs it once with the context above (#4925).
-            raise HTTPException(status_code=400, detail="Invalid or inaccessible reference path")
+            raise BadRequestError("Invalid or inaccessible reference path")
 
     # Create processing job
     job = await engine.create_job(
@@ -128,10 +131,7 @@ async def process_audio(
     try:
         job_id = await engine.submit_job(job)
     except asyncio.QueueFull:
-        raise HTTPException(
-            status_code=503,
-            detail="Processing queue is full, please try again later",
-        )
+        raise ServiceUnavailableError("Processing queue is full, please try again later")
 
     # Debug, not info (#3844): input_path is an absolute media-library path.
     logger.debug(f"Processing job {job_id} submitted for {request.input_path}")

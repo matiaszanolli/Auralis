@@ -23,7 +23,7 @@ from collections.abc import Callable
 from contextvars import ContextVar
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from fastapi import APIRouter, Depends, Path, Query
 from pydantic import BaseModel, Field
 from schemas import (
     PlaylistResponse,
@@ -35,7 +35,7 @@ from schemas import (
 from websocket.outbound_messages import broadcast_typed
 
 from .dependencies import require_repository_factory, with_error_handling
-from .errors import NotFoundError
+from .errors import BadRequestError, NotFoundError
 from .pagination import PaginationParams, compute_has_more
 from .serializers import serialize_playlist, serialize_playlists
 
@@ -279,7 +279,7 @@ async def create_playlist(
     )
 
     if not playlist:
-        raise HTTPException(status_code=400, detail="Failed to create playlist")
+        raise BadRequestError("Failed to create playlist")
 
     # Broadcast playlist created event
     await broadcast_typed(
@@ -325,7 +325,7 @@ async def update_playlist(
         update_data['description'] = request.description
 
     if not update_data:
-        raise HTTPException(status_code=400, detail="No update data provided")
+        raise BadRequestError("No update data provided")
 
     success = await asyncio.to_thread(repos.playlists.update, playlist_id, update_data)
 
@@ -468,7 +468,7 @@ async def add_track_to_playlist(
     )
 
     if not added:
-        raise HTTPException(status_code=400, detail="Track was not added to playlist")
+        raise BadRequestError("Track was not added to playlist")
 
     await broadcast_typed(
         connection_manager,
@@ -511,10 +511,7 @@ async def reorder_playlist_track(
     )
 
     if not reordered:
-        raise HTTPException(
-            status_code=400,
-            detail="Could not reorder track — index out of range for this playlist"
-        )
+        raise BadRequestError("Could not reorder track — index out of range for this playlist")
 
     await broadcast_typed(
         connection_manager,

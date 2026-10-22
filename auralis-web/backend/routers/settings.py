@@ -21,7 +21,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from helpers import seed_enhancement_settings
 import math
 
@@ -41,8 +41,8 @@ from security.path_security import (
 )
 from websocket.outbound_messages import broadcast_typed
 
-from .dependencies import with_error_handling
-from .errors import NotFoundError
+from .dependencies import require_service, with_error_handling
+from .errors import BadRequestError, NotFoundError
 from services.missing_tracks import prune_tracks_under_folder
 
 logger = logging.getLogger(__name__)
@@ -246,8 +246,7 @@ def create_settings_router(
 
     def _repo() -> Any:
         repo = get_settings_repo()
-        if not repo:
-            raise HTTPException(status_code=503, detail="Settings not available")
+        repo = require_service(repo, "Settings")
         return repo
 
     async def _notify_scanner() -> None:
@@ -344,7 +343,7 @@ def create_settings_router(
                 # validate_directory_list's own validator already logs the
                 # rejection once (_logs_rejections); the client gets a fixed,
                 # generic detail regardless of which check failed.
-                raise HTTPException(status_code=400, detail="One or more scan folders failed validation")
+                raise BadRequestError("One or more scan folders failed validation")
 
         # The repository returns the list stored just before this write, read
         # in the same locked transaction (#5334), so the allowlist diff below
@@ -383,14 +382,14 @@ def create_settings_router(
     async def add_scan_folder(body: _ScanFolderRequest) -> dict[str, Any]:
         """Add a folder to the list of scanned directories."""
         if not body.folder or not body.folder.strip():
-            raise HTTPException(status_code=400, detail="folder must be a non-empty path")
+            raise BadRequestError("folder must be a non-empty path")
         try:
             validated = validate_user_chosen_directory(body.folder.strip())
         except PathValidationError:
             # str(e) used to be reflected verbatim (#4807). validate_user_chosen_directory
             # already logs the rejection once (_logs_rejections); the client
             # gets a fixed, generic detail regardless of which check failed.
-            raise HTTPException(status_code=400, detail="Invalid or inaccessible folder path")
+            raise BadRequestError("Invalid or inaccessible folder path")
         settings = await asyncio.to_thread(_repo().add_scan_folder, str(validated))
         # Register so validate_file_path accepts files under this folder
         register_allowed_directory(validated)

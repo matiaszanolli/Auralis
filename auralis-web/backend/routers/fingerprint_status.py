@@ -148,10 +148,7 @@ def create_fingerprint_status_router(
                     f"Fingerprint not available for track {track_id}. "
                     "Not queued (already pending, or the background queue is full) — try again shortly."
                 )
-                raise HTTPException(
-                    status_code=404,
-                    detail=detail,
-                )
+                raise NotFoundError("Fingerprint", detail=detail)
 
             logger.info(f"✅ Returning fingerprint for track {track_id}: LUFS={fp.lufs:.1f}, tempo={fp.tempo_bpm:.1f}")
             return {

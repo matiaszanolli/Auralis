@@ -22,6 +22,7 @@ from ..utils.logging import debug, error, info, warning
 from .audio_file_manager import AudioFileManager
 from .playback_controller import PlaybackController
 from .queue_controller import QueueController
+from .repository_access import resolve_repository_factory
 
 
 class IntegrationManager:
@@ -171,17 +172,7 @@ class IntegrationManager:
 
     def _get_repos(self) -> Any:
         """Get repository factory for data access."""
-        try:
-            factory = self.get_repository_factory()
-            if factory:
-                return factory
-        except (TypeError, AttributeError) as e:
-            error(f"Failed to get repository factory: {e}")
-
-        raise RuntimeError(
-            "Repository factory not available. "
-            "Ensure get_repository_factory is properly configured during startup."
-        )
+        return resolve_repository_factory(self.get_repository_factory)
 
     def add_callback(self, callback: Callable[[dict[str, Any]], None]) -> None:
         """Register a callback for integration events.

@@ -38,8 +38,8 @@ from schemas import (
 from security.path_security import PathMissingError, PathValidationError, validate_file_path
 from websocket.outbound_messages import broadcast_typed
 
-from .dependencies import with_error_handling
-from .errors import NotFoundError
+from .dependencies import require_service, with_error_handling
+from .errors import BadRequestError, NotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -628,8 +628,7 @@ async def get_mastering_recommendation(
         HTTPException: 500 if analysis fails
     """
     # Resolve filepath from DB by track_id (fixes #2731)
-    if repos is None:
-        raise HTTPException(status_code=503, detail="Repository not available")
+    repos = require_service(repos, "Repository")
 
     track = await asyncio.to_thread(repos.tracks.get_by_id, track_id)
     if not track:
@@ -637,7 +636,7 @@ async def get_mastering_recommendation(
 
     filepath = track.filepath
     if not filepath:
-        raise HTTPException(status_code=400, detail=f"Track {track_id} has no filepath")
+        raise BadRequestError(f"Track {track_id} has no filepath")
 
     # #4817: re-check the DB-sourced path before any file I/O, as metadata.py
     # does (#2302). Deliberately generic detail: PathValidationError's text
@@ -649,10 +648,7 @@ async def get_mastering_recommendation(
         # matches the split metadata.py made in #5080.
         raise NotFoundError("Audio file", detail=f"Audio file not found for track {track_id}")
     except PathValidationError:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Track {track_id}'s file is not in an allowed location",
-        )
+        raise BadRequestError(f"Track {track_id}'s file is not in an allowed location")
 
     # Return cached result if still valid — avoids re-running full audio
     # analysis (~1-5 s CPU) on repeated calls for the same track (#3865).

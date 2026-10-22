@@ -31,6 +31,7 @@ from pydantic import BaseModel, Field
 from schemas import CacheHealthResponse, CacheStatsResponse, TrackCacheStatusResponse
 from websocket.outbound_messages import broadcast_typed
 
+from .errors import NotFoundError, ServiceUnavailableError
 from .dependencies import with_error_handling
 
 logger = logging.getLogger(__name__)
@@ -53,10 +54,7 @@ def _require_cache(
     """Return the cache manager or raise 503 if not yet initialised."""
     mgr = get_cache_manager()
     if mgr is None:
-        raise HTTPException(
-            status_code=503,
-            detail="Cache manager is not yet initialised",
-        )
+        raise ServiceUnavailableError("Cache manager is not yet initialised")
     return mgr
 
 
@@ -119,10 +117,7 @@ def create_streamlined_cache_router(
             status = await asyncio.to_thread(cache_manager.get_track_cache_status, track_id)
 
             if status is None:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Track {track_id} not found in cache"
-                )
+                raise NotFoundError("Track", detail=f"Track {track_id} not found in cache")
 
             return TrackCacheStatusResponse(
                 track_id=status.track_id,

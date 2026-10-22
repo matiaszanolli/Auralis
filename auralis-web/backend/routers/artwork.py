@@ -508,10 +508,7 @@ async def extract_album_artwork(
     artwork_path = await asyncio.to_thread(repos.albums.extract_and_save_artwork, album_id)
 
     if not artwork_path:
-        raise HTTPException(
-            status_code=404,
-            detail="No artwork found in album tracks"
-        )
+        raise NotFoundError("Artwork", detail="No artwork found in album tracks")
 
     # Purge both paths: the old one covers a move to a new file, the new one
     # covers an in-place overwrite (same path, fresh mtime — the old key
@@ -618,9 +615,8 @@ async def download_album_artwork(
     )
 
     if not artwork_path:
-        raise HTTPException(
-            status_code=404,
-            detail=f"No artwork found online for '{album_name}' by '{artist_name}'"
+        raise NotFoundError(
+            "Artwork", detail=f"No artwork found online for '{album_name}' by '{artist_name}'"
         )
 
     # Captured before update_artwork_path replaces it, so the superseded

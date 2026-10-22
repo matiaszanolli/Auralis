@@ -19,8 +19,8 @@ from fastapi.responses import FileResponse
 
 from core.processing_engine import ProcessingEngine, ProcessingJob, ProcessingStatus
 
-from .dependencies import with_error_handling
-from .errors import NotFoundError
+from .dependencies import require_processing_engine, with_error_handling
+from .errors import BadRequestError, NotFoundError
 from .processing_deps import _get_processing_engine
 from .processing_models import JobListResponse, JobStatusResponse
 
@@ -44,8 +44,7 @@ async def get_job_status(
     engine: ProcessingEngine | None = Depends(_get_processing_engine),
 ) -> JobStatusResponse:
     """Get the status of a processing job"""
-    if not engine:
-        raise HTTPException(status_code=503, detail="Processing engine not available")
+    engine = require_processing_engine(engine)
 
     job = await engine.get_job(job_id)
     if not job:
@@ -63,15 +62,14 @@ async def download_result(
     Download the processed audio file.
     Only available when job status is 'completed'.
     """
-    if not engine:
-        raise HTTPException(status_code=503, detail="Processing engine not available")
+    engine = require_processing_engine(engine)
 
     job = await engine.get_job(job_id)
     if not job:
         raise NotFoundError("Job")
 
     if job.status != ProcessingStatus.COMPLETED:
-        raise HTTPException(status_code=400, detail=f"Job not completed (status: {job.status.value})")
+        raise BadRequestError(f"Job not completed (status: {job.status.value})")
 
     # A job that reached COMPLETED without output_path set is an
     # engine-layer bug, not a client error — but Path(None) raises an
@@ -114,8 +112,7 @@ async def cancel_job(
     engine: ProcessingEngine | None = Depends(_get_processing_engine),
 ) -> dict[str, Any]:
     """Cancel a queued or processing job"""
-    if not engine:
-        raise HTTPException(status_code=503, detail="Processing engine not available")
+    engine = require_processing_engine(engine)
 
     success = await engine.cancel_job(job_id)
     if not success:
@@ -123,7 +120,7 @@ async def cancel_job(
         job = await engine.get_job(job_id)
         if not job:
             raise NotFoundError("Job")
-        raise HTTPException(status_code=400, detail="Job cannot be cancelled (already completed)")
+        raise BadRequestError("Job cannot be cancelled (already completed)")
 
     return {"message": "Job cancelled successfully", "job_id": job_id}
 
@@ -140,8 +137,7 @@ async def list_jobs(
     FastAPI now rejects an unknown value at the boundary with 422, matching
     how `limit` already behaves, and OpenAPI documents the valid values.
     """
-    if not engine:
-        raise HTTPException(status_code=503, detail="Processing engine not available")
+    engine = require_processing_engine(engine)
 
     jobs = engine.get_all_jobs()
 
@@ -164,8 +160,7 @@ async def get_queue_status(
     engine: ProcessingEngine | None = Depends(_get_processing_engine),
 ) -> dict[str, Any]:
     """Get current processing queue status"""
-    if not engine:
-        raise HTTPException(status_code=503, detail="Processing engine not available")
+    engine = require_processing_engine(engine)
 
     return engine.get_queue_status()
 
@@ -175,8 +170,7 @@ async def cleanup_old_jobs(
     engine: ProcessingEngine | None = Depends(_get_processing_engine),
 ) -> dict[str, Any]:
     """Clean up completed jobs older than specified hours"""
-    if not engine:
-        raise HTTPException(status_code=503, detail="Processing engine not available")
+    engine = require_processing_engine(engine)
 
     removed_count = await engine.cleanup_old_jobs(max_age_hours)
 

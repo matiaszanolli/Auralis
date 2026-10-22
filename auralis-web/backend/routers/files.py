@@ -31,6 +31,7 @@ from pydantic import BaseModel, Field
 
 from auralis.utils.logging import sanitize_log_value
 
+from .errors import BadRequestError, ServiceUnavailableError
 from .dependencies import require_repository_factory
 from core.processing_engine import _safe_error_message
 
@@ -76,7 +77,8 @@ def _has_valid_audio_magic(data: bytes) -> bool:
 
 # Import only if available
 try:
-    from auralis.io.unified_loader import load_audio, SUPPORTED_FORMATS
+    from auralis.io.formats import SUPPORTED_FORMATS
+    from auralis.io.unified_loader import load_audio
     HAS_LIBRARY = True
 except ImportError:
     HAS_LIBRARY = False
@@ -170,10 +172,7 @@ def _make_deps_binder(deps: _FilesDeps) -> Callable[[], Any]:
 
 def _get_repos() -> Any:
     """Get repository factory for accessing repositories."""
-    get_repository_factory = _current_deps().get_repository_factory
-    if get_repository_factory:
-        return require_repository_factory(get_repository_factory)
-    raise HTTPException(status_code=503, detail="Repository factory not available")
+    return require_repository_factory(_current_deps().get_repository_factory)
 
 
 def _get_repos_provider() -> Callable[[], Any]:
@@ -209,7 +208,7 @@ async def upload_files(
         HTTPException: If no files provided or library unavailable
     """
     if not files:
-        raise HTTPException(status_code=400, detail="No files provided")
+        raise BadRequestError("No files provided")
 
     # Cap the file count before decoding anything (#4349): reject an
     # over-large batch with 413 rather than looping over every element.
@@ -222,7 +221,7 @@ async def upload_files(
     repos = get_repos()
 
     if not HAS_LIBRARY:
-        raise HTTPException(status_code=503, detail="Audio processing library not available")
+        raise ServiceUnavailableError("Audio processing library not available")
 
     results: list[dict[str, Any]] = []
     supported_extensions = tuple(SUPPORTED_FORMATS.keys())

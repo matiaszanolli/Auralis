@@ -27,7 +27,7 @@ from typing import Any, ParamSpec, TypeVar
 
 from fastapi import HTTPException
 
-from .errors import NotFoundError
+from .errors import NotFoundError, ServiceUnavailableError
 
 # Stable logger name shared across the similarity router family so
 # correlation-id log records stay under "routers.similarity" no matter which
@@ -74,10 +74,22 @@ def require_similarity_system(get_similarity_system: Callable[[], T | None]) -> 
     """
     similarity = get_similarity_system()
     if similarity is None:
-        raise HTTPException(
-            status_code=503,
-            detail="Similarity system not available. Please wait for initialization."
-        )
+        raise ServiceUnavailableError("Similarity system not available. Please wait for initialization.")
+    return similarity
+
+
+async def require_fitted(similarity: T) -> T:
+    """503 until an already-resolved similarity system is fitted.
+
+    Three endpoints each re-spelled the ``is_fitted`` check with their own wording
+    ("not initialized. Please wait…" vs plain "not initialized"); this is the
+    one definition (#5783). It takes the system the caller got from
+    :func:`require_similarity_system` rather than resolving it again, so the
+    routers' ``require_similarity_system`` stays the single place a system is
+    obtained. ``is_fitted`` runs on a thread, as in the callers.
+    """
+    if not await asyncio.to_thread(similarity.is_fitted):  # type: ignore[attr-defined]
+        raise ServiceUnavailableError("Similarity system not initialized. Please wait for initialization.")
     return similarity
 
 

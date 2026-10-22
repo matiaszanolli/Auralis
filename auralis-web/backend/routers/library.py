@@ -36,6 +36,7 @@ from core.thumbnail_cache import artwork_cache_root
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, Field
 
+from .errors import BadRequestError
 from .dependencies import require_repository_factory, with_error_handling
 
 logger = logging.getLogger(__name__)
@@ -164,10 +165,7 @@ def create_library_router(
         against accidental or CSRF-triggered calls.
         """
         if x_confirm_reset != "RESET":
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid confirmation header: X-Confirm-Reset must be 'RESET'",
-            )
+            raise BadRequestError("Invalid confirmation header: X-Confirm-Reset must be 'RESET'")
         repos = require_repository_factory(get_repository_factory)
 
         from config.background_workers import (

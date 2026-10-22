@@ -18,6 +18,7 @@ from typing import Any
 from auralis.core.config.preset_profiles import PresetProfile, create_preset_profiles
 from fastapi import Depends, HTTPException
 
+from .dependencies import require_service
 from .processing_deps import _get_enhancement_settings
 
 logger = logging.getLogger(__name__)
@@ -122,8 +123,7 @@ async def get_processing_parameters(
     Returns:
         dict: Processing parameters including coordinates, targets, and adjustments
     """
-    if get_enhancement_settings is None:
-        raise HTTPException(status_code=503, detail="Enhancement settings not available")
+    get_enhancement_settings = require_service(get_enhancement_settings, "Enhancement settings")
 
     try:
         from core.chunk_content_profile import get_last_content_profile

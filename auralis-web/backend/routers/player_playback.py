@@ -13,7 +13,7 @@ import asyncio
 import logging
 from typing import Any
 
-from fastapi import BackgroundTasks, Depends, HTTPException
+from fastapi import BackgroundTasks, Depends
 
 from services import NavigationService, PlaybackService, RecommendationService
 from websocket.outbound_messages import broadcast_typed
@@ -21,6 +21,7 @@ from websocket.outbound_messages import broadcast_typed
 from .dependencies import with_error_handling
 from .errors import (
     AudioPlayerUnavailableError,
+    BadRequestError,
     LibraryManagerUnavailableError,
     NotFoundError,
     raise_for_service_error,
@@ -137,7 +138,7 @@ async def load_track(
 
         return {"message": "Track loaded successfully", "track_id": track.id}
     else:
-        raise HTTPException(status_code=400, detail="Failed to load track")
+        raise BadRequestError("Failed to load track")
 
 
 @with_error_handling("seek")
@@ -166,10 +167,7 @@ async def seek_position(
     if player_state_manager:
         state = player_state_manager.get_state()
         if state.duration > 0 and position > state.duration:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Position {position:.1f}s exceeds track duration {state.duration:.1f}s"
-            )
+            raise BadRequestError(f"Position {position:.1f}s exceeds track duration {state.duration:.1f}s")
 
     try:
         result = await service.seek(position)

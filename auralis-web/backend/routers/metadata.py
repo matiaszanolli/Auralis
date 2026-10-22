@@ -32,8 +32,8 @@ from websocket.outbound_messages import broadcast_typed
 
 from auralis.library.metadata_editor import MetadataEditor, MetadataUpdate
 
-from .dependencies import require_repository_factory, with_error_handling
-from .errors import NotFoundError
+from .dependencies import require_repository_factory, require_service, with_error_handling
+from .errors import BadRequestError, NotFoundError
 
 logger = logging.getLogger(__name__)
 # Note: router is created inside create_metadata_router() for better testability
@@ -218,7 +218,7 @@ def _validate_track_filepath(track_id: int, filepath: Any) -> str:
             "Audio file", detail=f"Audio file not found for track {track_id}"
         )
     except PathValidationError:
-        raise HTTPException(status_code=400, detail="Invalid track filepath")
+        raise BadRequestError("Invalid track filepath")
 
 
 # ============================================================================
@@ -290,8 +290,7 @@ def _get_broadcast_manager() -> Any:
 
 def _get_metadata_editor() -> MetadataEditor:
     metadata_editor = _current_deps().metadata_editor
-    if metadata_editor is None:
-        raise HTTPException(status_code=503, detail="Metadata editor not available")
+    metadata_editor = require_service(metadata_editor, "Metadata editor")
     return metadata_editor
 
 
@@ -433,7 +432,7 @@ async def update_track_metadata(
         }
 
         if not metadata_updates:
-            raise HTTPException(status_code=400, detail="No metadata fields provided")
+            raise BadRequestError("No metadata fields provided")
 
         # Validate DB-retrieved filepath before any file I/O (fixes #2302).
         # 404 when the file is simply gone, 400 when the path is rejected (#5080).
@@ -504,7 +503,7 @@ async def update_track_metadata(
         raise NotFoundError("Audio file", detail=f"Audio file not found for track {track_id}")
     except ValueError as e:
         # Invalid metadata error
-        raise HTTPException(status_code=400, detail=f"Invalid metadata: {e}")
+        raise BadRequestError(f"Invalid metadata: {e}")
 
 
 @with_error_handling("batch update metadata")
@@ -527,7 +526,7 @@ async def batch_update_metadata(
         HTTPException: If library manager/factory not available or validation fails
     """
     if not request.updates:
-        raise HTTPException(status_code=400, detail="No updates provided")
+        raise BadRequestError("No updates provided")
 
     repos = require_repository_factory(get_repository_factory)
 

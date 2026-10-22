@@ -15,7 +15,7 @@ from collections.abc import Callable
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 
-from .errors import NotFoundError
+from .errors import BadRequestError, NotFoundError
 from pydantic import BaseModel, Field
 
 from auralis.analysis.fingerprint import (
@@ -40,6 +40,7 @@ from .similarity_common import (  # noqa: F401
     _internal_error_response,
     _with_similarity_error_handling,
     require_fingerprinted_tracks,
+    require_fitted,
     require_similarity_system,
 )
 
@@ -283,13 +284,7 @@ async def get_similar_tracks(
 
     if graph_builder is None:
         # Real-time calculation (slower but always available)
-        similarity = require_similarity_system(get_similarity_system)
-
-        if not await asyncio.to_thread(similarity.is_fitted):
-            raise HTTPException(
-                status_code=503,
-                detail="Similarity system not initialized. Please wait for initialization."
-            )
+        similarity = await require_fitted(require_similarity_system(get_similarity_system))
 
         similarity_results: list[SimilarityResult] = await asyncio.to_thread(similarity.find_similar, track_id, n=limit)
 
@@ -344,10 +339,7 @@ async def compare_tracks(
     await require_fingerprinted_tracks(repos, track_id1, track_id2)
 
     # Calculate similarity
-    similarity = require_similarity_system(get_similarity_system)
-
-    if not await asyncio.to_thread(similarity.is_fitted):
-        raise HTTPException(status_code=503, detail="Similarity system not initialized")
+    similarity = await require_fitted(require_similarity_system(get_similarity_system))
 
     result = await asyncio.to_thread(similarity.calculate_similarity, track_id1, track_id2)
 
@@ -402,10 +394,7 @@ async def explain_similarity(
     # would have repaired itself.
     await require_fingerprinted_tracks(repos, track_id1, track_id2)
 
-    similarity = require_similarity_system(get_similarity_system)
-
-    if not await asyncio.to_thread(similarity.is_fitted):
-        raise HTTPException(status_code=503, detail="Similarity system not initialized")
+    similarity = await require_fitted(require_similarity_system(get_similarity_system))
 
     explanation = await asyncio.to_thread(similarity.get_similarity_explanation, track_id1, track_id2, top_n=top_n)
 
@@ -462,10 +451,7 @@ async def fit_similarity_system(
     fingerprint_count = await asyncio.to_thread(repos.fingerprints.get_count)
 
     if fingerprint_count < min_samples:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Insufficient fingerprints: {fingerprint_count} < {min_samples}"
-        )
+        raise BadRequestError(f"Insufficient fingerprints: {fingerprint_count} < {min_samples}")
 
     # Fit the similarity system — CPU-bound O(N²); offload to thread
     # so the event loop stays responsive (fixes #2738).

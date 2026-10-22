@@ -15,11 +15,12 @@ import logging
 from typing import Any
 from collections.abc import Callable
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 
 from auralis.analysis.fingerprint import KNNGraphBuilder
 
+from .errors import ServiceUnavailableError
 from .similarity_common import _with_similarity_error_handling
 
 logger = logging.getLogger(__name__)
@@ -78,10 +79,7 @@ def create_similarity_graph_router(
         graph_builder = get_graph_builder()
 
         if graph_builder is None:
-            raise HTTPException(
-                status_code=503,
-                detail="Similarity system not fitted. Please fit the system first using POST /api/similarity/fit"
-            )
+            raise ServiceUnavailableError("Similarity system not fitted. Please fit the system first using POST /api/similarity/fit")
 
         # CPU-bound O(N²) K-NN computation; offload to thread so the
         # event loop stays responsive (fixes #2738).

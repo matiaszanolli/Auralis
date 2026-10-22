@@ -17,11 +17,11 @@ import uuid
 from typing import Annotated, Any
 from collections.abc import Callable
 
-from fastapi import APIRouter, HTTPException, Path, Query
+from fastapi import APIRouter, Path, Query
 from pydantic import BaseModel, Field
 
 from .errors import NotFoundError
-from .dependencies import require_repository_factory
+from .dependencies import require_repository_factory, require_service
 from .similarity_common import _with_similarity_error_handling
 
 logger = logging.getLogger(__name__)
@@ -171,11 +171,7 @@ def create_fingerprint_queue_router(
         from analysis.fingerprint_queue import get_fingerprint_queue
         queue = get_fingerprint_queue()
 
-        if queue is None:
-            raise HTTPException(
-                status_code=503,
-                detail="On-demand fingerprint queue not available"
-            )
+        queue = require_service(queue, "On-demand fingerprint queue")
 
         added = await asyncio.to_thread(queue.enqueue, track_id)
         return {
@@ -222,11 +218,7 @@ def create_fingerprint_queue_router(
         from analysis.fingerprint_queue import get_fingerprint_queue
         queue = get_fingerprint_queue()
 
-        if queue is None:
-            raise HTTPException(
-                status_code=503,
-                detail="On-demand fingerprint queue not available"
-            )
+        queue = require_service(queue, "On-demand fingerprint queue")
 
         # Get tracks without fingerprints
         missing_tracks = await asyncio.to_thread(repos.fingerprints.get_missing_fingerprints, limit=limit)

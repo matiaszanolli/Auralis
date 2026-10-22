@@ -21,6 +21,7 @@ from .errors import (
     AudioPlayerUnavailableError,
     ConnectionManagerUnavailableError,
     PlayerStateUnavailableError,
+    ServiceUnavailableError,
     handle_query_error,
 )
 
@@ -87,7 +88,7 @@ def require_connection_manager(connection_manager: Any) -> Any:
     return connection_manager
 
 
-def require_repository_factory(get_repository_factory: Callable[[], Any]) -> Any:
+def require_repository_factory(get_repository_factory: Callable[[], Any] | None) -> Any:
     """
     Validate that repository factory is available.
 
@@ -97,6 +98,7 @@ def require_repository_factory(get_repository_factory: Callable[[], Any]) -> Any
 
     Args:
         get_repository_factory: Callable that returns RepositoryFactory instance
+            (or None when the dependency was never wired)
 
     Returns:
         RepositoryFactory: The repository factory instance
@@ -113,13 +115,35 @@ def require_repository_factory(get_repository_factory: Callable[[], Any]) -> Any
             return {"tracks": tracks, "total": total}
         ```
     """
-    repository_factory = get_repository_factory()
-    if not repository_factory:
-        raise HTTPException(
-            status_code=503,
-            detail="Repository factory not available"
-        )
-    return repository_factory
+    # A missing getter (deps not wired) is the same outage as a getter that
+    # returns nothing, so both take the one 503 spelling.
+    return require_service(
+        get_repository_factory() if get_repository_factory else None,
+        "Repository factory",
+    )
+
+
+
+def require_service(service: T | None, name: str) -> T:
+    """Return ``service`` or raise the canonical 503 ``"<name> not available"``.
+
+    The one spelling of "a backend service this endpoint needs is missing"
+    (#5783). Routers used to re-type the ``HTTPException(503, ...)`` inline, and
+    the wording had already drifted. Truthiness, not ``is None``, matches the
+    existing ``require_*`` helpers: an empty/falsy service is as unusable as an
+    absent one.
+
+    Raises:
+        ServiceUnavailableError: 503 with ``f"{name} not available"``
+    """
+    if not service:
+        raise ServiceUnavailableError(f"{name} not available")
+    return service
+
+
+def require_processing_engine(engine: T | None) -> T:
+    """503 unless the processing engine is up (used by the /api/processing routes)."""
+    return require_service(engine, "Processing engine")
 
 
 def with_error_handling(operation: str) -> Callable[[Callable[P, T]], Callable[P, T]]:
