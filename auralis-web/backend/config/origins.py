@@ -20,6 +20,8 @@ Adding a host must now be one edit here, not three edits in three files.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+from core.env_config import get_int_env
+
 # Both spellings of loopback. Browsers treat `localhost` and `127.0.0.1` as
 # distinct origins, so every allowlist derived from this must carry both
 # (#3539). This is deliberately NOT globals.LOOPBACK_HOSTS, which answers a
@@ -29,7 +31,12 @@ Adding a host must now be one edit here, not three edits in three files.
 LOOPBACK_ORIGIN_HOSTS: tuple[str, ...] = ("localhost", "127.0.0.1")
 
 # The backend's own port. Always allowed: it serves the SPA in packaged builds.
-BACKEND_PORT = 8765
+# Read from AURALIS_PORT, the same variable main.py binds with and
+# launch-auralis-web.py --port sets (#4805): the bind port and the allow-list
+# port used to be two literals, so `--port N` served the page from an origin
+# this module did not list and the CORS / WebSocket origin checks rejected it
+# (#5796). main.py now imports this constant rather than re-reading the variable.
+BACKEND_PORT = get_int_env("AURALIS_PORT", 8765)
 
 # Vite dev-server ports. Legitimate only in development — a packaged build never
 # serves the frontend from them (#4350).

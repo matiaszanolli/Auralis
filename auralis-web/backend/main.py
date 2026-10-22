@@ -149,9 +149,9 @@ else:
 from config.app import create_app, is_dev_mode as _is_dev_mode
 from config.globals import ConnectionManager, set_component_registry
 from config.middleware import setup_middleware
+from config.origins import BACKEND_PORT
 from config.routes import setup_routers
 from config.startup import create_lifespan
-from core.env_config import get_int_env
 
 # #5393: the sanitizing LogRecordFactory (auralis.utils.logging, imported at
 # config import time) covers message/args, but traceback text from
@@ -442,7 +442,7 @@ if __name__ == "__main__":
     # it through via this same env var, mirroring AURALIS_DEV_MODE two lines
     # below. Without this, --port silently no-op'd -- the launcher printed
     # the requested port while the backend always bound 8765.
-    _port = get_int_env("AURALIS_PORT", 8765)
+    _port = BACKEND_PORT
     print(f"🚀 Starting Auralis Web Backend on port {_port}...", flush=True)
 
     uvicorn.run(
