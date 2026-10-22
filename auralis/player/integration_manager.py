@@ -11,21 +11,21 @@ Responsibilities:
 
 import threading
 import time
-from pathlib import Path
-from typing import Any, cast
+from typing import Any
 from collections.abc import Callable
 
 from sqlalchemy.exc import SQLAlchemyError
 
 from ..library.models import Track
-from ..utils.logging import debug, error, info, warning
+from ..utils.logging import debug, info, warning
 from .audio_file_manager import AudioFileManager
 from .playback_controller import PlaybackController
+from .integration_library import LibraryLoadingMixin
+from .integration_reporting import PlaybackReportingMixin
 from .queue_controller import QueueController
-from .repository_access import resolve_repository_factory
 
 
-class IntegrationManager:
+class IntegrationManager(LibraryLoadingMixin, PlaybackReportingMixin):
     """
     Coordinates library, DSP, and external callbacks.
 
@@ -169,10 +169,6 @@ class IntegrationManager:
             warning(f"Could not snapshot current track metadata (#4552): {e}")
             return None
 
-    def _get_repos(self) -> Any:
-        """Get repository factory for data access."""
-        return resolve_repository_factory(self.get_repository_factory)
-
     def add_callback(self, callback: Callable[[dict[str, Any]], None]) -> None:
         """Register a callback for integration events.
 
@@ -228,109 +224,6 @@ class IntegrationManager:
             })
         self._notify_callbacks(state_info)
 
-    def load_track_from_library(
-        self, track_id: int, on_loaded: Callable[[], None] | None = None
-    ) -> bool:
-        """
-        Load a track from the library by ID.
-
-        Args:
-            track_id: Database ID of track
-            on_loaded: Optional callback forwarded to
-                ``file_manager.load_file`` so the caller's playback-state
-                reset runs inside the buffer-swap critical section (#5581).
-
-        Returns:
-            bool: True if successful
-        """
-        try:
-            repos = self._get_repos()
-            track = repos.tracks.get_by_id(track_id)
-            if not track:
-                error(f"Track not found in library: {track_id}")
-                return False
-
-            # Load the audio file
-            if not self.file_manager.load_file(
-                cast(str, track.filepath), on_loaded=on_loaded
-            ):
-                return False
-
-            # #3786: write `current_track` under the same lock used by
-            # `_on_playback_state_change` and `get_playback_info` to read
-            # it. Without this, a concurrent reader could see
-            # `current_track` pointing at the new track while
-            # `position_seconds` still reflected the previous one.
-            self.set_current_track(track)
-
-            # Record play count
-            repos.tracks.record_play(track_id)
-
-            # Auto-select reference if enabled
-            if self.auto_reference_selection:
-                self._auto_select_reference(track)
-
-            info(f"Loaded track from library: {track.title}")
-            self._notify_callbacks({
-                'action': 'track_loaded',
-                'track': track.to_dict()
-            })
-            return True
-
-        except Exception as e:
-            error(f"Failed to load track from library: {e}")
-            return False
-
-    def _auto_select_reference(self, track: Track) -> None:
-        """Automatically select a suitable reference track"""
-        try:
-            # Try recommended reference first
-            if track.recommended_reference and Path(track.recommended_reference).exists():
-                # The truthiness check above already narrows this to `str`, so
-                # the cast mypy used to need here is now redundant.
-                ref_data = self.file_manager.load_reference(track.recommended_reference)
-                if ref_data is not None:
-                    # #5585: wire the audio into the processor exactly as the
-                    # explicit load_reference path does. Without this the
-                    # decode fed only the broadcast — the real-time level
-                    # matcher (enabled solely by set_reference_audio) stayed
-                    # off and file_manager.reference_data had no consumer.
-                    self.processor.set_reference_audio(ref_data)
-                    info(f"Using recommended reference: {track.recommended_reference}")
-                    self._notify_callbacks({
-                        'action': 'reference_loaded',
-                        'reference_file': track.recommended_reference
-                    })
-                    return
-
-            # Find and try similar tracks as references
-            repos = self._get_repos()
-            # find_similar returns list[Track], not a 2-tuple (#4935) — the
-            # old `references, _ = ...` destructuring raised ValueError for
-            # any result count other than exactly 2, silently swallowed by
-            # the broad except below on almost every real invocation.
-            references = repos.tracks.find_similar(track, limit=3)
-
-            for ref_track in references:
-                if Path(cast(str, ref_track.filepath)).exists():
-                    ref_data = self.file_manager.load_reference(cast(str, ref_track.filepath))
-                    if ref_data is not None:
-                        # #5585: same wiring as the recommended-reference
-                        # branch above.
-                        self.processor.set_reference_audio(ref_data)
-                        ref_name = f"{ref_track.title} by {ref_track.artists[0].name if ref_track.artists else 'Unknown'}"
-                        info(f"Auto-selected reference: {ref_name}")
-                        self._notify_callbacks({
-                            'action': 'reference_loaded',
-                            'reference_file': ref_track.filepath
-                        })
-                        return
-
-            warning(f"No suitable reference found for: {track.title}")
-
-        except Exception as e:
-            warning(f"Auto reference selection failed: {e}")
-
     def set_effect_enabled(self, effect_name: str, enabled: bool) -> None:
         """Set specific DSP effect"""
         self.processor.set_effect_enabled(effect_name, enabled)
@@ -339,94 +232,6 @@ class IntegrationManager:
             'effect': effect_name,
             'enabled': enabled
         })
-
-    def get_playback_info(self) -> dict[str, Any]:
-        """Get comprehensive playback information"""
-        queue_info = self.queue.get_queue_info()
-
-        with self._position_lock:
-            # #3691: take both state.value and is_playing in a single
-            # PlaybackController._lock acquisition so a state transition
-            # between the two reads can't produce an inconsistent snapshot
-            # (e.g. state="paused" + is_playing=True).
-            state_value, is_playing = self.playback.get_state_snapshot()
-            # #3785: current_file is AudioFileManager state written under its
-            # own _audio_lock — read it under _audio_lock rather than as a
-            # raw attribute access (matches the _position_lock -> _audio_lock
-            # order already used by _get_position_seconds() just above).
-            with self.file_manager._audio_lock:
-                current_file = self.file_manager.current_file
-            playback_info = {
-                'state': state_value,
-                'position_seconds': self._get_position_seconds(),
-                'duration_seconds': self.file_manager.get_duration(),
-                'current_file': current_file,
-                'is_playing': is_playing,
-            }
-            # #4102: read current_track inside the SAME _position_lock block
-            # that took position/current_file, so the returned `playback` and
-            # `library.current_track` always describe one track. The write side
-            # is locked under _position_lock (#3786); reading it after the lock
-            # released could pair the new track's position with the old track's
-            # metadata for one WebSocket poll during a gapless/seek transition.
-            # #4552: this is the dict materialised at assignment time, so the
-            # invariant is kept without any ORM access inside the lock.
-            current_track_snapshot = self._current_track_dict
-
-        # #4552: read the session counters under _stats_lock, matching the
-        # write side in record_track_completion (#2472). Unlocked, a poll could
-        # observe a torn tracks_played / total_play_time pair mid-update.
-        # Taken after _position_lock is released, so the two never nest.
-        with self._stats_lock:
-            session_info = {
-                'tracks_played': self.tracks_played,
-                'session_duration': time.time() - self.session_start_time,
-                'total_play_time': self.total_play_time,
-            }
-
-        return {
-            'playback': playback_info,
-            'queue': queue_info,
-            'library': {
-                'current_track': current_track_snapshot,
-                'auto_reference_selection': self.auto_reference_selection,
-            },
-            'processing': self.processor.get_processing_info(),
-            'session': session_info,
-        }
-
-    def record_track_completion(self) -> None:
-        """Record that current track completed (fixes #2472: atomic increment)."""
-        with self._stats_lock:
-            self.tracks_played += 1
-            count = self.tracks_played
-        self._notify_callbacks({
-            'action': 'track_completed',
-            'tracks_played': count
-        })
-
-    def _get_position_seconds(self) -> float:
-        """Get current playback position in seconds (clamped to duration).
-
-        Reads position via PlaybackController.get_position_snapshot() which
-        holds PlaybackController._lock, then snapshots the file_manager's
-        audio state atomically under its own _audio_lock. Pre-fix (#3474)
-        the reader checked `audio_data is None` and then read `sample_rate`
-        / `get_duration()` separately — a concurrent `clear_audio()` could
-        slip between those reads, producing inconsistent state or
-        ZeroDivisionError. The dedicated snapshot helper closes that window.
-
-        _position_lock continues to guard the broader gapless-transition
-        consistency (#2899, #3363); the new helper handles audio-state
-        atomicity orthogonally so no lock-ordering concern arises.
-        """
-        with self._position_lock:
-            is_loaded, sample_rate, duration, _total = self.file_manager.get_state_snapshot()
-            if not is_loaded:
-                return 0.0
-            position_samples = self.playback.get_position_snapshot()
-            position_seconds = position_samples / sample_rate
-        return min(position_seconds, duration)
 
     def cleanup(self) -> None:
         """Clean up resources"""
