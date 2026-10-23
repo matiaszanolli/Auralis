@@ -11,7 +11,7 @@ Prevents audible volume jumps during chunk transitions.
 
 import logging
 from collections import deque
-from typing import Any, cast
+from typing import cast
 
 import numpy as np
 
@@ -338,28 +338,3 @@ class LevelManager:
         # `audio * pyfloat` would promote to float64).
         gain_linear = audio.dtype.type(10 ** (gain_db / 20))
         return cast(np.ndarray, audio * gain_linear)
-
-    def get_statistics(self) -> dict[str, Any]:
-        """
-        Get statistics about level history.
-
-        Returns:
-            Dictionary with statistics (mean RMS, max adjustment, etc.)
-        """
-        if not self.rms_history:
-            return {
-                "mean_rms": None,
-                "min_rms": None,
-                "max_rms": None,
-                "total_adjustments": 0,
-                "total_chunks": 0,
-            }
-
-        return {
-            "mean_rms": float(np.mean(self.rms_history)),
-            "min_rms": float(np.min(self.rms_history)),
-            "max_rms": float(np.max(self.rms_history)),
-            "total_adjustments": sum(1 for g in self.gain_history if abs(g) > 0.01),
-            "total_chunks": len(self.rms_history),
-            "max_gain_adjustment": float(np.max(np.abs(self.gain_history))) if self.gain_history else 0.0,
-        }

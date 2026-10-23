@@ -134,23 +134,6 @@ class RuleBasedGenreClassifier:
 
         return importance
 
-    def get_model_info(self) -> dict[str, Any]:
-        """Get information about the classifier model"""
-        return {
-            "model_type": "Linear Feature-based Classifier",
-            "num_genres": len(self.genres),
-            "genres": self.genres,
-            "confidence_threshold": self.confidence_threshold,
-            "feature_count": {
-                "basic": 4,
-                "spectral": 7,
-                "temporal": 3,
-                "harmonic": 2,
-                "energy": 3,
-                "advanced": 31  # MFCC + Chroma + Tonnetz
-            }
-        }
-
 
 
 @lru_cache(maxsize=1)

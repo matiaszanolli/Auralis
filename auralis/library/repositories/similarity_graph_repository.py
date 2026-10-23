@@ -36,28 +36,6 @@ class SimilarityGraphRepository(BaseRepository):
                 session.rollback()
                 raise
 
-    def delete_by_track_id(self, track_id: int) -> int:
-        """
-        Delete all edges for a specific track
-
-        Args:
-            track_id: Track ID to delete edges for
-
-        Returns:
-            Number of edges deleted
-        """
-        with self._session_scope() as session:
-            try:
-                count = session.execute(
-                    select(func.count()).select_from(SimilarityGraph).where(SimilarityGraph.track_id == track_id)
-                ).scalar_one()
-                session.execute(delete(SimilarityGraph).where(SimilarityGraph.track_id == track_id))
-                session.commit()
-                return count
-            except Exception:
-                session.rollback()
-                raise
-
     def add_edges(self, edges: list[dict[str, Any]]) -> int:
         """
         Add multiple edges to the graph

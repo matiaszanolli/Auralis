@@ -22,16 +22,15 @@ Key Metrics:
 
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any
 
 import librosa
 import numpy as np
 
+from ..utils.logging import warning
 from .fingerprint.windows import FINGERPRINT_BODY_WINDOW_S
 
 from .fingerprint.metrics import AudioMetrics
 from ..io.formats import FFMPEG_FORMATS
-from ..utils.logging import warning
 
 
 @dataclass
@@ -97,8 +96,7 @@ class MasteringFingerprint:
             # mastering features stabilize well within 90 s, and an uncapped
             # decode of a multi-hour file (DJ mix, audiobook) OOM-kills the
             # desktop process. Matches the cap used by every other fingerprint
-            # path (FingerprintService._compute_fingerprint). analyze_album()
-            # delegates here, so it is bounded by the same cap.
+            # path (FingerprintService._compute_fingerprint).
             #
             # librosa.load() can't decode M4A/AAC/WMA via soundfile (0.14.0's
             # available_formats() has no entry for any of them). librosa 0.x
@@ -239,62 +237,3 @@ class MasteringFingerprint:
 
         else:
             return "professional"
-
-
-def analyze_album(album_dir: str, sr: int = 44100) -> dict[str, Any]:
-    """
-    Analyze all audio files in a directory (album).
-
-    Args:
-        album_dir: Directory containing audio files
-        sr: Sample rate (default 44100 Hz)
-
-    Returns:
-        Dictionary with individual track fingerprints and album-level statistics
-    """
-    album_path = Path(album_dir)
-    audio_files = sorted(album_path.glob("*.flac")) + sorted(album_path.glob("*.wav"))
-
-    fingerprints = {}
-    stats: dict[str, list[float]] = {
-        'loudness': [],
-        'crest': [],
-        'centroid': [],
-        'rolloff': [],
-        'zcr': [],
-        'spread': [],
-    }
-
-    failed_files: list[str] = []
-    for audio_file in audio_files:
-        try:
-            fp = MasteringFingerprint.from_audio_file(str(audio_file), sr=sr)
-        except Exception as exc:
-            warning(f"Failed to analyze '{audio_file.name}': {exc}")
-            failed_files.append(audio_file.name)
-            continue
-        if fp:
-            track_name = audio_file.stem
-            fingerprints[track_name] = fp.to_dict()
-
-            # Accumulate for statistics
-            stats['loudness'].append(fp.loudness_dbfs)
-            stats['crest'].append(fp.crest_db)
-            stats['centroid'].append(fp.spectral_centroid)
-            stats['rolloff'].append(fp.spectral_rolloff)
-            stats['zcr'].append(fp.zero_crossing_rate)
-            stats['spread'].append(fp.spectral_spread)
-
-    # Calculate averages
-    avg_stats = {}
-    for key, values in stats.items():
-        if values:
-            avg_stats[f"avg_{key}"] = float(np.mean(values))
-            avg_stats[f"std_{key}"] = float(np.std(values))
-
-    return {
-        'tracks': fingerprints,
-        'statistics': avg_stats,
-        'track_count': len(fingerprints),
-        'failed_files': failed_files,
-    }

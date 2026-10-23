@@ -333,10 +333,6 @@ class ChunkBoundaryManager:
 
         return trim_start, trim_end
 
-    def is_last_chunk(self, chunk_index: int) -> bool:
-        """Check if this is the last chunk."""
-        return chunk_index == self.total_chunks - 1
-
     def trim_context(
         self,
         audio_chunk: np.ndarray,

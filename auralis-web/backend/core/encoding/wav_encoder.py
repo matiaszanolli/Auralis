@@ -10,7 +10,6 @@ Encapsulates bit depth options, file naming, and I/O operations.
 
 import logging
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 
@@ -235,28 +234,6 @@ class WAVEncoder:
 
         self.encode_and_save(audio, sample_rate, chunk_path, subtype)
         return chunk_path
-
-    def get_statistics(self) -> dict[str, Any]:
-        """
-        Get encoder statistics.
-
-        Returns:
-            Dictionary with chunk count, total size, etc.
-        """
-        # Exclude in-progress staged writes (#4576) — `*.wav` matches dotfiles,
-        # and a staged file is not a cache entry.
-        wav_files = [
-            f for f in self.chunk_dir.glob("*.wav") if not is_partial_path(f)
-        ]
-        total_size = sum(f.stat().st_size for f in wav_files)
-
-        return {
-            "chunk_count": len(wav_files),
-            "total_size_bytes": total_size,
-            "total_size_mb": total_size / (1024 * 1024),
-            "chunk_dir": str(self.chunk_dir),
-            "default_subtype": self.default_subtype,
-        }
 
     def cleanup_track_chunks(
         self,

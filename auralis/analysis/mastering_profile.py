@@ -21,12 +21,6 @@ import numpy as np
 
 from .fingerprint.metrics import MetricUtils
 
-try:
-    import yaml
-except ImportError:
-    yaml = None
-
-
 @dataclass
 class DetectionRules:
     """Rules for classifying incoming audio to this profile."""
@@ -219,32 +213,6 @@ class MasteringProfileDatabase:
         rankings.sort(key=lambda x: x[1], reverse=True)
 
         return rankings[:top_k]
-
-    def to_yaml_file(self, file_path: str) -> None:
-        """Save all profiles to a YAML file."""
-        data = {
-            'version': '1.0',
-            'generated': datetime.now().isoformat(),
-            'profile_count': len(self.profiles),
-            'profiles': [profile.to_dict() for profile in self.profiles.values()],
-        }
-
-        with open(file_path, 'w') as f:
-            yaml.dump(data, f, default_flow_style=False, sort_keys=False)
-
-    @classmethod
-    def from_yaml_file(cls, file_path: str) -> 'MasteringProfileDatabase':
-        """Load profiles from a YAML file."""
-        db = cls()
-
-        with open(file_path) as f:
-            data = yaml.safe_load(f)
-
-        for profile_data in data.get('profiles', []):
-            profile = MasteringProfile.from_dict(profile_data)
-            db.add_profile(profile)
-
-        return db
 
     def list_profiles(self) -> list[MasteringProfile]:
         """Get all profiles sorted by ID."""
