@@ -13,7 +13,6 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
-import pytest
 
 _BACKEND = Path(__file__).resolve().parents[2] / "auralis-web" / "backend"
 if str(_BACKEND) not in sys.path:
@@ -76,21 +75,6 @@ class TestSeedEnhancementSettings:
             SimpleNamespace(default_preset="adaptive", enhancement_intensity=0.3, auto_enhance=False),
         )
         assert enh["enabled"] is False
-
-    def test_retired_stored_preset_keeps_the_current_preset(self, caplog):
-        """A row still holding a pre-narrowing preset ('warm') must not be
-        seeded into the runtime dict — it degrades to the current value with a
-        warning, while the other two fields still seed normally."""
-        import logging
-
-        enh = self._base()
-        with caplog.at_level(logging.WARNING):
-            seed_enhancement_settings(
-                enh,
-                SimpleNamespace(default_preset="warm", enhancement_intensity=0.4, auto_enhance=False),
-            )
-        assert enh == {"preset": "adaptive", "intensity": 0.4, "enabled": False}
-        assert "'warm' is not one of" in caplog.text
 
     def test_out_of_range_stored_intensity_keeps_the_current_intensity(self, caplog):
         """#5271: `enhancement_intensity` is a plain Float column, so a legacy

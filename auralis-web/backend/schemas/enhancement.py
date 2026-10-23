@@ -24,10 +24,9 @@ from pydantic import Field
 # 'warm', 'bright', 'punchy') are reduced to just 'adaptive' -- start with one
 # preset rather than the five that were shipped, mirroring the sixth
 # ('live') that was already unreachable through this same surface (#4861).
-# A stored/passed value outside this list degrades to 'adaptive' at each
-# consuming site rather than erroring (see helpers.seed_enhancement_settings,
-# routers/settings.py's SettingsResponse validators) -- existing rows with an
-# old default_preset value keep working, just no longer selectable as new input.
+# Rows written before the narrowing were normalized to 'adaptive' by schema
+# migration v23 (#5824); a client-supplied value outside this list is rejected
+# (REST) or ignored with a warning (WS play commands).
 VALID_PRESETS = ["adaptive"]
 EnhancementPresetLiteral = Literal["adaptive"]
 

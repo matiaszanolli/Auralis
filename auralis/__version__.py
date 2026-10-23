@@ -8,7 +8,7 @@ independent and must only change with their respective formats.
 
 __version__ = "1.5.1"
 __version_info__ = (1, 5, 1, "", 0)
-__db_schema_version__ = 22  # tracks.file_mtime scanner watermark (#5574)
+__db_schema_version__ = 23  # user_settings.default_preset normalized to 'adaptive' (#5824)
 
 # Fingerprint algorithm version — increment this whenever the 25D extraction
 # algorithm changes in a way that produces different values for the same audio.

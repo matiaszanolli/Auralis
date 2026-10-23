@@ -7,7 +7,7 @@ Settings router bodies and the enhancement-settings field list (split from setti
 
 import logging
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-from schemas import VALID_PRESETS, EnhancementIntensity, EnhancementPresetLiteral
+from schemas import DEFAULT_PRESET, EnhancementIntensity, EnhancementPresetLiteral
 import math
 
 logger = logging.getLogger(__name__)
@@ -120,29 +120,17 @@ class SettingsResponse(BaseModel):
     mini_player_on_close: bool | None = None
     # #4647: these mirror SettingsUpdateRequest's constraints, so OpenAPI
     # advertises the same closed preset enum and 0.0-1.0 intensity on the way
-    # out as on the way in. The validators below keep that from turning a
-    # legacy or hand-edited row into a response-validation 500 on
-    # GET /api/settings: an off-list value degrades to null with a warning —
-    # the same tolerance helpers.seed_enhancement_settings applies to the
-    # stored preset (#4710).
-    default_preset: EnhancementPresetLiteral | None = None
+    # out as on the way in. The preset is always set (schema v23 normalized
+    # every row, #5824); the intensity validator below keeps a hand-edited
+    # out-of-range row from turning into a response-validation 500 on
+    # GET /api/settings.
+    default_preset: EnhancementPresetLiteral = DEFAULT_PRESET
     auto_enhance: bool | None = None
     enhancement_intensity: EnhancementIntensity | None = None
     cache_size: int | None = None
     max_concurrent_scans: int | None = None
     enable_analytics: bool | None = None
     debug_mode: bool | None = None
-
-    @field_validator("default_preset", mode="before")
-    @classmethod
-    def _degrade_unknown_preset(cls, value: object) -> object:
-        if value is None or value in VALID_PRESETS:
-            return value
-        logger.warning(
-            f"Stored default_preset {value!r} is not one of {VALID_PRESETS}; "
-            "reporting it as null"
-        )
-        return None
 
     @field_validator("enhancement_intensity", mode="before")
     @classmethod

@@ -57,7 +57,7 @@ async def stream_enhanced_audio_from_position(
     Args:
         controller: AudioStreamController instance
         track_id: Track ID to process and stream
-        preset: Processing preset (adaptive, gentle, warm, etc.)
+        preset: Processing preset (only "adaptive" exists)
         intensity: Processing intensity (0.0-1.0)
         websocket: WebSocket connection to client
         start_position: Position in seconds to start streaming from

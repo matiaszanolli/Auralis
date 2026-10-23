@@ -22,7 +22,7 @@ import asyncio
 import logging
 from typing import Any
 
-from schemas import DEFAULT_PRESET, INTENSITY_MAX, VALID_PRESETS, is_valid_intensity
+from schemas import INTENSITY_MAX, is_valid_intensity
 
 logger = logging.getLogger(__name__)
 
@@ -109,21 +109,9 @@ def seed_enhancement_settings(
         return
     stored_preset = getattr(user_settings, 'default_preset', None)
     if stored_preset:
-        # `default_preset` is a plain String column, so a legacy or
-        # hand-edited row can hold a value outside the canonical set. Since
-        # #4710 typed EnhancementSettings.preset as EnhancementPresetLiteral,
-        # seeding an off-list value here would turn every
-        # GET /api/player/enhancement/status into a response-validation 500.
-        # Degrade to the default and say so instead — the same tolerance the
-        # WS command path already applies (playback_commands.py).
-        if stored_preset in VALID_PRESETS:
-            enhancement_settings['preset'] = stored_preset
-        else:
-            logger.warning(
-                f"Stored default_preset {stored_preset!r} is not one of "
-                f"{VALID_PRESETS}; keeping "
-                f"{enhancement_settings.get('preset', DEFAULT_PRESET)!r}"
-            )
+        # Schema v23 normalized every stored row to the one remaining preset
+        # (#5824), and writes are restricted to the same Literal.
+        enhancement_settings['preset'] = stored_preset
     intensity = getattr(user_settings, 'enhancement_intensity', None)
     if intensity is not None:
         # `enhancement_intensity` is a plain Float column, so a legacy or

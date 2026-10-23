@@ -36,11 +36,12 @@ export interface UserSettings {
   show_visualizations: boolean;
   mini_player_on_close: boolean;
   // Enhancement
-  // The backend deliberately degrades an out-of-range/legacy stored value to
-  // null on the wire (SettingsResponse._degrade_unknown_preset /
-  // _degrade_invalid_intensity) instead of echoing it — callers must fall
-  // back (#5517). Derived from the canonical EnhancementPreset (#5610).
-  default_preset: EnhancementPreset | null;
+  // The preset is always set: schema v23 normalized every stored row to
+  // 'adaptive' (#5824), so the wire value is never null. The intensity is
+  // still degraded to null by SettingsResponse._degrade_invalid_intensity when
+  // a hand-edited row is out of range — callers must fall back (#5517).
+  // Derived from the canonical EnhancementPreset (#5610).
+  default_preset: EnhancementPreset;
   auto_enhance: boolean;
   enhancement_intensity: number | null;
   // Advanced

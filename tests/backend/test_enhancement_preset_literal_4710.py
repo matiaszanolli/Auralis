@@ -97,21 +97,6 @@ class TestSeedEnhancementSettingsGuard:
         assert settings['preset'] == 'adaptive'
         assert settings['intensity'] == 0.4
 
-    def test_ignores_an_off_list_stored_preset(self):
-        """The whole point: the seeded dict must stay inside the Literal."""
-        settings = {'preset': 'adaptive', 'intensity': 1.0, 'enabled': True}
-        seed_enhancement_settings(
-            settings,
-            SimpleNamespace(default_preset='legacy-mode', enhancement_intensity=0.4, auto_enhance=True),
-        )
-        assert settings['preset'] == 'adaptive'
-        # And the result is still constructible as a response model.
-        EnhancementSettings(
-            enabled=settings['enabled'],
-            preset=settings['preset'],
-            intensity=settings['intensity'],
-        )
-
     def test_none_user_settings_is_a_noop(self):
         settings = {'preset': 'gentle', 'intensity': 0.3, 'enabled': False}
         seed_enhancement_settings(settings, None)
