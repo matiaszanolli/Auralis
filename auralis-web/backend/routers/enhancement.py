@@ -50,7 +50,7 @@ from .enhancement_deps import (  # noqa: F401
     _deps,
     _get_connection_manager,
     _get_enhancement_settings,
-    _get_multi_tier_buffer,
+    _get_streamlined_cache,
     _get_player_state_manager,
     _get_repository_factory,
 )
@@ -95,7 +95,7 @@ logger = logging.getLogger(__name__)
 # explicitly as a keyword argument and never touches _EnhancementDeps at all
 # -- that's the seam #4670 asked for.
 #
-# The optional dependencies (player state manager, multi-tier buffer,
+# The optional dependencies (player state manager, streamlined cache,
 # repository factory) resolve to None when the factory was not given the
 # corresponding callable, so the handlers' original "is it wired up at all?"
 # guards become plain truthiness checks on the resolved object.
@@ -113,7 +113,7 @@ logger = logging.getLogger(__name__)
 def create_enhancement_router(
     get_enhancement_settings: Callable[[], dict[str, Any]],
     connection_manager: Any,
-    get_multi_tier_buffer: Callable[[], Any] | None = None,
+    get_streamlined_cache: Callable[[], Any] | None = None,
     get_player_state_manager: Callable[[], Any] | None = None,
     get_repository_factory: Callable[[], Any] | None = None,
 ) -> APIRouter:
@@ -132,7 +132,7 @@ def create_enhancement_router(
     deps = _EnhancementDeps(
         get_enhancement_settings=get_enhancement_settings,
         connection_manager=connection_manager,
-        get_multi_tier_buffer=get_multi_tier_buffer,
+        get_streamlined_cache=get_streamlined_cache,
         get_player_state_manager=get_player_state_manager,
         get_repository_factory=get_repository_factory,
     )

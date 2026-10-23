@@ -224,6 +224,12 @@ Cached chunk files are 16-bit PCM WAV, not float32.
 1. **DRY** — Improve existing code, never duplicate. Use utilities for shared logic.
 2. **Modular** — < 300 lines per module, single responsibility.
 3. **No variants** — No "Enhanced"/"V2"/"Advanced" copies. Refactor in-place.
+   The rule is about *copies that coexist with their base*. `Streamlined*`
+   (`StreamlinedCacheManager`, `StreamlinedCacheWorker`), `UnifiedConfig` and
+   `unified_loader` keep those names although the multi-tier buffer, `Config`/
+   `LimiterConfig` and the non-unified loaders they replaced are gone (#5829):
+   they are the only implementation and the proper names — do not re-flag them,
+   and do not add a second class next to one.
 4. **Repository pattern** — All DB via `auralis/library/repositories/`, never raw SQL.
 5. **Deferrals are greppable** — Write a deferred decision as `# TODO(#NNNN):`
    with a real issue number, not as prose ("For now, …", "Temporarily …").

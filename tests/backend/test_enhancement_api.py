@@ -517,7 +517,7 @@ class TestClearProcessingCacheRemoved:
     BE-PE-2). It operated on `processing_cache`, a dict nothing in the
     codebase ever wrote to — the endpoint always reported "0 items removed"
     regardless of real cache state, an actively misleading API surface. The
-    real invalidation path (multi-tier buffer manager) already runs from
+    real invalidation path (streamlined cache manager) already runs from
     set_enhancement_intensity/set_enhancement_preset; see #2504.
     """
 

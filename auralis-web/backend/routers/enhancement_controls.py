@@ -13,7 +13,7 @@ from websocket.outbound_messages import broadcast_typed
 import asyncio
 
 from .dependencies import with_error_handling
-from .enhancement_deps import _get_connection_manager, _get_enhancement_settings, _get_multi_tier_buffer, _get_player_state_manager, _get_repository_factory
+from .enhancement_deps import _get_connection_manager, _get_enhancement_settings, _get_streamlined_cache, _get_player_state_manager, _get_repository_factory
 from .enhancement_models import SetIntensityRequest, SetPresetRequest, ToggleEnhancementRequest
 from .enhancement_prewarm import _maybe_prewarm_upcoming_chunks
 
@@ -99,7 +99,7 @@ async def toggle_enhancement(
 async def set_enhancement_preset(
     body: SetPresetRequest,
     enhancement_settings: dict[str, Any] = Depends(_get_enhancement_settings),
-    buffer_manager: Any = Depends(_get_multi_tier_buffer),
+    buffer_manager: Any = Depends(_get_streamlined_cache),
     player_state_manager: Any = Depends(_get_player_state_manager),
     connection_manager: Any = Depends(_get_connection_manager),
     repos: Any = Depends(_get_repository_factory),
@@ -120,7 +120,7 @@ async def set_enhancement_preset(
     old_preset = enhancement_settings.get("preset")
     enhancement_settings["preset"] = preset
 
-    # Update multi-tier buffer manager for branch prediction learning
+    # Update streamlined cache manager for branch prediction learning
     if buffer_manager and player_state_manager and old_preset != preset:
         state = player_state_manager.get_state()
         # Only update if we have a current track
@@ -171,7 +171,7 @@ async def set_enhancement_preset(
 async def set_enhancement_intensity(
     body: SetIntensityRequest,
     enhancement_settings: dict[str, Any] = Depends(_get_enhancement_settings),
-    buffer_manager: Any = Depends(_get_multi_tier_buffer),
+    buffer_manager: Any = Depends(_get_streamlined_cache),
     player_state_manager: Any = Depends(_get_player_state_manager),
     connection_manager: Any = Depends(_get_connection_manager),
     repos: Any = Depends(_get_repository_factory),
@@ -194,7 +194,7 @@ async def set_enhancement_intensity(
 
     preset = enhancement_settings.get("preset", DEFAULT_PRESET)
 
-    # Notify multi-tier buffer manager so pre-buffered chunks at the old
+    # Notify streamlined cache manager so pre-buffered chunks at the old
     # intensity are replaced — mirrors the same call in set_enhancement_preset
     # (fixes #2504).
     if buffer_manager and player_state_manager and old_intensity != intensity:

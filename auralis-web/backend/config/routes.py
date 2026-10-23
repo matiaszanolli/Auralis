@@ -132,7 +132,7 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
     enhancement_router: APIRouter = create_enhancement_router(
         get_enhancement_settings=lambda: enhancement_settings,
         connection_manager=manager,
-        get_multi_tier_buffer=lambda: globals_dict.get('streamlined_cache') if HAS_STREAMLINED_CACHE else None,
+        get_streamlined_cache=lambda: globals_dict.get('streamlined_cache') if HAS_STREAMLINED_CACHE else None,
         get_player_state_manager=get_component('player_state_manager'),
         get_repository_factory=get_component('repository_factory'),
     )

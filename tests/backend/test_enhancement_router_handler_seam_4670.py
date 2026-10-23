@@ -67,8 +67,8 @@ async def test_toggle_enhancement_callable_with_bare_stubs():
 
 
 async def test_set_enhancement_preset_notifies_the_buffer_manager():
-    """The multi-tier buffer + state manager are passed in directly here --
-    the branch-prediction call the old closure reached via get_multi_tier_buffer()."""
+    """The streamlined cache + state manager are passed in directly here --
+    the branch-prediction call the old closure reached via get_streamlined_cache()."""
     # 'adaptive' is the only valid preset (#5332), so the change the buffer
     # manager learns from starts from an unseeded preset.
     settings = {"enabled": True, "preset": None, "intensity": 0.7}
