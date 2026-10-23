@@ -28,9 +28,6 @@ class PhaseCorrelationAnalyzer:
         self.correlation_history: list[float] = []
         self.max_history_length = 100  # Keep 10 seconds at 10Hz update rate
 
-        # Phase analysis settings
-        self.phase_bins = 64
-        self.phase_histogram = np.zeros(self.phase_bins)
 
     def analyze_correlation(self, stereo_audio: np.ndarray) -> dict[str, Any]:
         """

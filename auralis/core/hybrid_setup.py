@@ -138,7 +138,6 @@ def build_hybrid_components(config: UnifiedConfig, processor: "HybridProcessor")
 
     # Processing state
     processor.current_targets = None
-    processor.processing_history = []
     processor.last_content_profile = {}
 
 

@@ -88,47 +88,6 @@ def _calculate_perceptual_weight(center_freq: float) -> float:
         return 0.3  # Less important (extreme lows/highs)
 
 
-def create_perceptual_weighting(sample_rate: int, fft_size: int) -> np.ndarray:
-    """
-    Create perceptual weighting curve (A-weighting inspired).
-
-    Uses vectorized np.select() for performance (~5-10x speedup vs loop).
-
-    Args:
-        sample_rate: Audio sample rate in Hz
-        fft_size: FFT size for frequency resolution
-
-    Returns:
-        Array of perceptual weights for each FFT bin
-    """
-    freqs = np.linspace(0, sample_rate // 2, fft_size // 2 + 1)
-
-    # Vectorized conditional application using np.select
-    weights = np.select(
-        [
-            freqs < 20,
-            (freqs >= 20) & (freqs < 100),
-            (freqs >= 100) & (freqs < 1000),
-            (freqs >= 1000) & (freqs < 4000),
-            (freqs >= 4000) & (freqs < 8000),
-            (freqs >= 8000) & (freqs < 16000),
-            freqs >= 16000,
-        ],
-        [
-            0.1,  # < 20 Hz
-            0.3,  # 20-100 Hz
-            0.7 + 0.3 * (freqs - 100) / 900,  # 100-1000 Hz (linear interpolation)
-            1.0,  # 1000-4000 Hz (peak sensitivity)
-            1.0 - 0.2 * (freqs - 4000) / 4000,  # 4000-8000 Hz
-            0.8 - 0.4 * (freqs - 8000) / 8000,  # 8000-16000 Hz
-            0.4 - 0.3 * np.minimum((freqs - 16000) / 4000, 1.0),  # >= 16000 Hz
-        ],
-        default=1.0
-    )
-
-    return weights
-
-
 def create_frequency_mapping(critical_bands: list[CriticalBand],
                             sample_rate: int,
                             fft_size: int) -> np.ndarray:

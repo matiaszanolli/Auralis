@@ -38,8 +38,6 @@ class FeatureExtractor:
         """
         self.sample_rate = sample_rate
         self.n_mfcc = 13
-        self.n_chroma = 12
-        self.n_tonnetz = 6
         # Cache mel filterbank — it depends only on n_mfcc, n_fft, and
         # sample_rate which are fixed for the lifetime of this instance.
         self._mel_filterbank: list[np.ndarray] = self._create_mel_filterbank(self.n_mfcc, 2049)

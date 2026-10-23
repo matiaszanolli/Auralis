@@ -22,8 +22,6 @@ class DynamicRangeAnalyzer(DynamicsMetricsMixin):
 
         # Analysis parameters
         self.rms_window_size = int(0.05 * sample_rate)  # 50ms RMS window
-        self.peak_hold_time = int(0.5 * sample_rate)    # 500ms peak hold
-        self.gate_threshold = -70.0  # dBFS gating threshold
 
         # Crest factor analysis
         self.crest_history: list[float] = []

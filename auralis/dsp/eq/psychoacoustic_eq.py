@@ -8,10 +8,10 @@ Main orchestrator for psychoacoustic EQ processing
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-import threading
 from dataclasses import dataclass
 from typing import Any, cast
 
+import threading
 import numpy as np
 from scipy.signal.windows import hann
 
@@ -19,7 +19,6 @@ from ...utils.logging import debug
 from .critical_bands import (
     create_critical_bands,
     create_frequency_mapping,
-    create_perceptual_weighting,
 )
 from .filters import apply_eq_gains
 from .masking import MaskingThresholdCalculator
@@ -74,15 +73,11 @@ class PsychoacousticEQ(SpectrumGainsMixin):
         Args:
             settings: EQ configuration settings
         """
-        # #3747: fine-grained state-mutation lock. `_smooth_gains` writes
-        # `self.current_gains`, `_update_history` appends to
-        # `self.processing_history` (and pops on overflow — vulnerable to
-        # IndexError if a concurrent reset() clears it between the
-        # length check and the pop). HybridProcessor's `_process_lock`
-        # (#3787) bounds outer access, but the cached processor shares
-        # ONE EQ instance across the realtime path's chunk callers. A
-        # finer lock here keeps realtime latency low — `apply_eq` only
-        # holds the lock while touching the smoothed-gain buffers, not
+        # #3747: fine-grained state-mutation lock. `_smooth_gains`
+        # (SpectrumGainsMixin) read-modify-writes `self.current_gains` under
+        # it and `reset()` zeroes the gain arrays under it, so a concurrent
+        # reset on the shared cached EQ instance cannot interleave with
+        # inter-chunk smoothing. Held only around the gain buffers, never
         # for the full FFT chain.
         self._state_lock = threading.Lock()
 
@@ -110,15 +105,10 @@ class PsychoacousticEQ(SpectrumGainsMixin):
 
         # Initialize psychoacoustic models
         self.masking_calculator = MaskingThresholdCalculator()
-        self.perceptual_weighting = create_perceptual_weighting(
-            self.sample_rate,
-            self.fft_size
-        )
 
         # Processing state (0.0 dB = flat/unity gain)
         self.current_gains = np.zeros(len(self.critical_bands))
         self.target_gains = np.zeros(len(self.critical_bands))
-        self.processing_history: list[dict[str, Any]] = []
 
         # Pre-compute frequency mapping
         self.freq_to_band_map = create_frequency_mapping(
@@ -184,38 +174,15 @@ class PsychoacousticEQ(SpectrumGainsMixin):
         # Apply EQ
         processed_chunk = self.apply_eq(audio_chunk, gains)
 
-        # Store processing history for learning
-        self._update_history(gains, spectrum_analysis, content_profile)
-
         return processed_chunk
-
-    def _update_history(self,
-                       gains: np.ndarray,
-                       spectrum_analysis: dict[str, Any],
-                       content_profile: dict[str, Any] | None) -> None:
-        """Update processing history for learning (#3747: locked).
-
-        Without the lock, a concurrent `reset()` clearing
-        `processing_history` between the length check and the `pop(0)`
-        would raise `IndexError` (empty deque)."""
-        with self._state_lock:
-            self.processing_history.append({
-                'gains': gains.copy(),
-                'band_energies': spectrum_analysis['band_energies'].copy(),
-                'content_profile': content_profile
-            })
-
-            # Limit history size
-            if len(self.processing_history) > 100:
-                self.processing_history.pop(0)
 
     def reset(self) -> None:
         """Reset EQ to flat response (#3747: locked).
 
-        Clearing the deque AND zeroing the gains must be atomic with
-        respect to a concurrent process / _update_history caller that
-        otherwise sees the gains zeroed but the history mid-flight."""
+        Zeroing both gain arrays is atomic with respect to a concurrent
+        `_smooth_gains` caller on the shared cached EQ instance. (The
+        learning-era processing history this used to clear alongside the
+        gains went with the #5763 engine removal, #6202.)"""
         with self._state_lock:
             self.current_gains = np.zeros(len(self.critical_bands))
             self.target_gains = np.zeros(len(self.critical_bands))
-            self.processing_history.clear()

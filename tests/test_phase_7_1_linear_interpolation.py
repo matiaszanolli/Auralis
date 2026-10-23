@@ -19,7 +19,6 @@ import pytest
 from auralis.dsp.eq.critical_bands import (
     CriticalBand,
     create_frequency_mapping,
-    create_perceptual_weighting,
 )
 from auralis.dsp.utils.interpolation_helpers import (
     create_mel_triangular_filters,
@@ -239,79 +238,6 @@ class TestMelTriangularFilters:
         assert len(filters[0]) == 4096
 
 
-class TestPerceptualWeighting:
-    """Test vectorized perceptual weighting"""
-
-    def test_weighting_shape(self):
-        """Test weighting has correct shape"""
-        weights = create_perceptual_weighting(44100, 2048)
-        assert len(weights) == 2048 // 2 + 1
-
-    def test_weighting_values_in_range(self):
-        """Test weighting values in [0, 1]"""
-        weights = create_perceptual_weighting(44100, 2048)
-        assert np.all(weights >= 0.0)
-        assert np.all(weights <= 1.0)
-
-    def test_weighting_peak_sensitivity_range(self):
-        """Test peak sensitivity in 1kHz-4kHz range"""
-        weights = create_perceptual_weighting(44100, 4096)
-        freqs = np.linspace(0, 22050, len(weights))
-
-        # 1kHz-4kHz should have high weights (close to 1.0)
-        peak_range_mask = (freqs >= 1000) & (freqs <= 4000)
-        peak_weights = weights[peak_range_mask]
-        assert np.mean(peak_weights) > 0.8
-
-    def test_weighting_low_freq_attenuation(self):
-        """Test low frequencies attenuated"""
-        weights = create_perceptual_weighting(44100, 4096)
-        freqs = np.linspace(0, 22050, len(weights))
-
-        # < 100 Hz should be attenuated
-        low_freq_mask = freqs < 100
-        low_weights = weights[low_freq_mask]
-        assert np.mean(low_weights) < 0.5
-
-    def test_weighting_high_freq_attenuation(self):
-        """Test high frequencies attenuated"""
-        weights = create_perceptual_weighting(44100, 4096)
-        freqs = np.linspace(0, 22050, len(weights))
-
-        # > 16kHz should be attenuated
-        high_freq_mask = freqs > 16000
-        high_weights = weights[high_freq_mask]
-        assert np.mean(high_weights) < 0.6
-
-    def test_weighting_monotonic_in_peak_range(self):
-        """Test smooth monotonic behavior in peak range"""
-        weights = create_perceptual_weighting(44100, 8192)
-        freqs = np.linspace(0, 22050, len(weights))
-
-        # Get weights in speech range (300-8000 Hz)
-        speech_mask = (freqs >= 300) & (freqs <= 8000)
-        speech_weights = weights[speech_mask]
-
-        # Should be relatively smooth (no large jumps)
-        diffs = np.abs(np.diff(speech_weights))
-        assert np.max(diffs) < 0.3
-
-    def test_weighting_different_fft_sizes(self):
-        """Test weighting with different FFT sizes"""
-        w1 = create_perceptual_weighting(44100, 2048)
-        w2 = create_perceptual_weighting(44100, 4096)
-        assert len(w1) == 2048 // 2 + 1
-        assert len(w2) == 4096 // 2 + 1
-
-    def test_weighting_different_sample_rates(self):
-        """Test weighting with different sample rates"""
-        w_44 = create_perceptual_weighting(44100, 2048)
-        w_48 = create_perceptual_weighting(48000, 2048)
-        assert len(w_44) == len(w_48)
-        # Different sample rates affect frequency mapping
-        assert not np.allclose(w_44, w_48)
-
-
 class TestFrequencyMapping:
     """Test vectorized frequency to band mapping"""
 
@@ -406,14 +332,6 @@ class TestPerformanceComparison:
                 peak_idx = np.argmax(fb[i])
                 assert nonzero[0] < peak_idx < nonzero[-1]
 
-    def test_perceptual_weighting_monotonicity(self):
-        """Test perceptual weighting smooth transitions"""
-        weights = create_perceptual_weighting(44100, 4096)
-        # No sudden jumps in weighting
-        diffs = np.abs(np.diff(weights))
-        # 99th percentile of differences should be small
-        assert np.percentile(diffs, 99) < 0.5
-
     def test_frequency_mapping_correct_order(self):
         """Test frequency mapping preserves frequency order"""
         bands = [MockCriticalBand(k*200, k*200+100, (k+1)*200)
@@ -448,12 +366,6 @@ class TestEdgeCasesAndIntegration:
         fb = create_triangular_filterbank(bands, 44100, 2048)
         assert fb.shape == (1, 2048 // 2 + 1)
 
-    def test_perceptual_weighting_nyquist(self):
-        """Test weighting at Nyquist frequency"""
-        weights = create_perceptual_weighting(44100, 2048)
-        # Last element represents Nyquist (22050 Hz for 44.1kHz)
-        assert 0 <= weights[-1] <= 1.0
-
     def test_frequency_mapping_boundary_frequencies(self):
         """Test mapping at band boundaries"""
         bands = [
@@ -468,18 +380,3 @@ class TestEdgeCasesAndIntegration:
         assert np.min(mapping) >= 0
         assert np.max(mapping) < len(bands)
 
-    def test_vectorization_consistency(self):
-        """Test vectorized functions produce consistent results"""
-        weights1 = create_perceptual_weighting(44100, 2048)
-        weights2 = create_perceptual_weighting(44100, 2048)
-        assert np.allclose(weights1, weights2)
-
-    def test_integration_mel_filters_and_weighting(self):
-        """Test mel filters work well with perceptual weighting"""
-        filters = create_mel_triangular_filters(13, 4096, 44100)
-        weights = create_perceptual_weighting(44100, 4096)
-
-        # Both should have compatible dimensions
-        # (filters are sparse, weights are dense)
-        assert all(len(f) == 4096 for f in filters)
-        assert len(weights) == 4096 // 2 + 1

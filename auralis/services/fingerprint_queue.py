@@ -95,7 +95,6 @@ class FingerprintExtractionQueue(FingerprintWorkerExecution, AdaptiveScalingMixi
         self._get_repository_factory: Callable[[], RepositoryFactory] = get_repository_factory
         self.initial_num_workers: int = num_workers
         self.current_num_workers: int = num_workers
-        self.max_workers_limit: int = max_workers
         self.track_timeout: float = (
             track_timeout if track_timeout is not None else _default_track_timeout()
         )

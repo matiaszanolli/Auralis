@@ -87,7 +87,6 @@ class HybridProcessor:
     _process_lock: threading.RLock
     _closed: bool
     current_targets: dict[str, Any] | None
-    processing_history: list[Any]
     last_content_profile: dict[str, Any]
 
     def __init__(self, config: UnifiedConfig):

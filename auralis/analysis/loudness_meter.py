@@ -38,7 +38,6 @@ class LoudnessMeter(KWeightingMixin):
 
         # Measurement parameters
         self.block_size = int(0.4 * sample_rate)  # 400ms blocks
-        self.overlap_size = int(0.3 * sample_rate)  # 300ms overlap (100ms hop)
         self.short_term_blocks = 30  # 3 seconds worth of blocks
         self.momentary_blocks = 4   # 400ms worth of blocks
 
