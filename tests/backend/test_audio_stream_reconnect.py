@@ -2,8 +2,9 @@
 Regression tests for WS reconnect-mid-stream behaviour (#3861 / BE-TC-6)
 
 The WS handler in system.py maintains per-ws-id state dicts
-(_active_streaming_tasks, _active_streaming_track_ids, _stream_pause_events,
-_stream_flow_events).  The `finally` block on disconnect cleans them up so a
+(_active_streaming_tasks, _active_streaming_track_ids, plus the shared
+stream_gates pause/flow registries).  The `finally` block on disconnect
+cleans them up so a
 reconnecting client starts with fresh state.  Without this cleanup the second
 connection would be deduplicated as an already-streaming duplicate and silently
 dropped, or would observe stale flow-control / pause events.

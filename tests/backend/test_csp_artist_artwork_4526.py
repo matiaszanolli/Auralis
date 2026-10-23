@@ -28,10 +28,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from config.middleware import (  # noqa: E402
-    _ARTIST_ARTWORK_IMG_HOSTS,
-    SecurityHeadersMiddleware,
-)
+from config.middleware import SecurityHeadersMiddleware  # noqa: E402
+from config.middleware.security_headers import _ARTIST_ARTWORK_IMG_HOSTS  # noqa: E402
 
 
 def _csp() -> str:
@@ -147,7 +145,7 @@ class TestArtistArtworkContract:
         Album/Track rewrite artwork to an /api path; Artist cannot, because
         there is no local file behind it — only a third-party CDN URL.
         """
-        from auralis.library.models.core import Artist
+        from auralis.library.models import Artist
 
         artist = Artist(
             id=7,

@@ -307,7 +307,7 @@ class TestAlbumDetailSharesTheListingShape:
 
     def test_the_fixture_matches_the_real_to_dict_key_set(self):
         """Guards the mismatch above from silently returning."""
-        from auralis.library.models.core import Album
+        from auralis.library.models import Album
 
         assert set(self._make_album().to_dict()) == set(Album().to_dict())
 

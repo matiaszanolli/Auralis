@@ -37,10 +37,7 @@ from .library import (
     TrackListResponse,
     TrackResponse,
 )
-from .mastering import (
-    MasteringRecommendationResponse,
-    WeightedProfileResponse,
-)
+from .mastering import MasteringRecommendationResponse
 from .request_bounds import (
     MAX_TRACK_ID_LIST,
     QueueIndex,
@@ -94,6 +91,5 @@ __all__ = [
     "WebSocketErrorResponse",
     "WebSocketMessageBase",
     "WebSocketMessageType",
-    "WeightedProfileResponse",
     "is_valid_intensity",
 ]

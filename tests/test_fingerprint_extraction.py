@@ -263,7 +263,7 @@ class TestFingerprintDatabaseIntegration:
 
     def test_track_model_has_fingerprint_columns(self):
         """Test that Track model has fingerprint columns"""
-        from auralis.library.models.core import Track
+        from auralis.library.models import Track
 
         # Check column existence by inspecting table columns
         columns = [col.name for col in Track.__table__.columns]
@@ -275,7 +275,7 @@ class TestFingerprintDatabaseIntegration:
 
     def test_track_fingerprint_status_default(self):
         """Test fingerprint status default value"""
-        from auralis.library.models.core import Track
+        from auralis.library.models import Track
 
         # Check default value
         fingerprint_status_col = Track.__table__.columns['fingerprint_status']

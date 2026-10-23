@@ -63,7 +63,7 @@ def _to_dict_without_backstop(instance, caplog):
     coincidentally right" — which is exactly how #4500 stayed hidden.
     """
     caplog.clear()
-    with caplog.at_level(logging.WARNING, logger='auralis.library.models.core'):
+    with caplog.at_level(logging.WARNING, logger='auralis.library.models._helpers'):
         result = instance.to_dict()
     assert not caplog.records, (
         'to_dict() fell back to the detached-instance guard; the repository '

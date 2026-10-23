@@ -47,7 +47,7 @@ from schemas import (  # noqa: E402
     TrackResponse,
 )
 
-from auralis.library.models.core import Album, Artist, Playlist, Track  # noqa: E402
+from auralis.library.models import Album, Artist, Playlist, Track  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -271,7 +271,7 @@ class TestLibraryStatsCoverage:
         from sqlalchemy import create_engine
         from sqlalchemy.orm import sessionmaker
 
-        from auralis.library.models.core import Base
+        from auralis.library.models import Base
         from auralis.library.repositories.stats_repository import StatsRepository
         from routers.library import LibraryStatsResponse
 

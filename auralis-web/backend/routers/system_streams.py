@@ -15,7 +15,6 @@ from collections.abc import Callable
 
 from core.audio_stream_controller import AudioStreamController
 from core.processing_engine import _safe_error_message
-from core.stream_gates import stream_flow_events, stream_pause_events
 from fastapi import WebSocket
 from schemas import DEFAULT_PRESET
 
@@ -26,11 +25,6 @@ _active_streaming_tasks: dict[str, asyncio.Task[None]] = {}
 _active_streaming_tasks_lock = asyncio.Lock()  # Protects all _active_streaming_tasks access (fixes #2425)
 # Track which track ID is currently streaming per WS (for deduplication)
 _active_streaming_track_ids: dict[str, int] = {}
-
-# Pause/flow registries live in core.stream_gates, next to the pumps that wait
-# on them (#5761); this module only hands them to the WebSocket handlers.
-_stream_pause_events = stream_pause_events
-_stream_flow_events = stream_flow_events
 
 # Per-WebSocket cooperative-cancel signal for in-flight chunk DSP (#4815).
 # stream_enhanced.py/stream_seek.py create one threading.Event per active

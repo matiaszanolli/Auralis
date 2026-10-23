@@ -200,7 +200,7 @@ any relationship a query did not eager-load raises `DetachedInstanceError` when
 - the repository's read paths carry `selectinload(Model.rel)` (define the option
   tuple once at module scope so a new read path cannot silently omit it);
 - `to_dict()` reads relationships through `_safe_collection()` / `_safe_scalar()`
-  in `library/models/core.py`, which degrade to `[]` / `None` and log a WARNING
+  in `library/models/_helpers.py`, which degrade to `[]` / `None` and log a WARNING
   naming the missing eager-load.
 
 `refresh()` expires an instance without re-applying query options, so

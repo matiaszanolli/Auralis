@@ -13,6 +13,7 @@ from collections.abc import Callable
 
 from config.globals import WebSocketOriginRejected
 from core.audio_stream_controller import ws_id as _ws_id
+from core.stream_gates import stream_flow_events, stream_pause_events
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from websocket.websocket_security import (
     WebSocketRateLimiter,
@@ -28,8 +29,6 @@ from .system_streams import (  # noqa: F401
     _active_streaming_tasks_lock,
     _active_streaming_track_ids,
     _stream_chunk_cancel_events,
-    _stream_flow_events,
-    _stream_pause_events,
     stream_audio,
     stream_from_position,
     stream_normal,
@@ -83,8 +82,8 @@ async def websocket_endpoint(
             active_tasks=_active_streaming_tasks,
             active_tasks_lock=_active_streaming_tasks_lock,
             active_track_ids=_active_streaming_track_ids,
-            pause_events=_stream_pause_events,
-            flow_events=_stream_flow_events,
+            pause_events=stream_pause_events,
+            flow_events=stream_flow_events,
             chunk_cancel_events=_stream_chunk_cancel_events,
         )
         ws_deps = WSDeps(

@@ -51,7 +51,7 @@ from routers.serializers import (  # noqa: E402
     serialize_object,
 )
 
-from auralis.library.models.core import Artist, Track  # noqa: E402
+from auralis.library.models import Artist, Track  # noqa: E402
 
 
 class _RealishTrack:

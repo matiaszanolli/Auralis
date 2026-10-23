@@ -171,13 +171,15 @@ class RepositoryFactory:
         """
         from sqlalchemy import delete
 
-        from ..models.base import track_artist, track_genre, track_playlist
-        from ..models.core import (
+        from ..models import (
             Album,
             Artist,
             Genre,
             Playlist,
             Track,
+            track_artist,
+            track_genre,
+            track_playlist,
         )
         from ..models.fingerprint import TrackFingerprint
 

@@ -12,13 +12,11 @@ Database models for music library management
 from .base import Base, TimestampMixin, track_artist, track_genre, track_playlist
 
 # Core models
-from .core import (
-    Album,
-    Artist,
-    Genre,
-    Playlist,
-    Track,
-)
+from .album import Album
+from .artist import Artist
+from .genre import Genre
+from .playlist import Playlist
+from .track import Track
 
 # Fingerprint and similarity
 from .fingerprint import SimilarityGraph, TrackFingerprint

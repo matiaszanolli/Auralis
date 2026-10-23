@@ -112,7 +112,7 @@ class TestSerializerFilepathConsistency:
         assert "format" in DEFAULT_TRACK_FIELDS
 
     def test_orm_to_dict_and_serializer_agree_about_filepath(self):
-        from auralis.library.models.core import Track
+        from auralis.library.models import Track
         from routers.serializers import serialize_tracks
 
         track = Track(id=1, title="X", filepath="/music/a.flac", duration=10.0)
@@ -121,7 +121,7 @@ class TestSerializerFilepathConsistency:
 
     def test_serialized_track_still_carries_format(self):
         """The field the queue utilities actually need."""
-        from auralis.library.models.core import Track
+        from auralis.library.models import Track
         from routers.serializers import serialize_tracks
 
         track = Track(id=1, title="X", filepath="/music/a.flac", duration=10.0, format="flac")

@@ -14,7 +14,7 @@ from sqlalchemy import Boolean, Float, ForeignKey, Index, Integer, LargeBinary, 
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, TimestampMixin
-from .core import Track
+from .track import Track
 
 
 class TrackFingerprint(Base, TimestampMixin):

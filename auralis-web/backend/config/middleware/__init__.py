@@ -5,8 +5,7 @@ Sets up middleware for the FastAPI application including CORS, caching,
 and security headers.
 
 A package since #5479, one module per middleware. setup_middleware() is the
-single wiring point, and every name is re-exported here, so
-`from config.middleware import X` is unchanged:
+single wiring point:
 - error_response.py    shared JSON 500 for a middleware's own failure
 - no_cache.py          NoCacheMiddleware
 - security_headers.py  SecurityHeadersMiddleware and the CSP
@@ -24,20 +23,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from .error_response import _middleware_error_response  # noqa: F401
-from .hosts import (  # noqa: F401
-    _TEST_HOSTS,
-    _TRUSTED_HOSTS,
-    cors_allowed_origins,
-    trusted_hosts,
-)
+from .hosts import cors_allowed_origins, trusted_hosts
 from .no_cache import NoCacheMiddleware
 from .origin_check import OriginCheckMiddleware
 from .rate_limit import RateLimitMiddleware
-from .security_headers import (  # noqa: F401
-    _ARTIST_ARTWORK_IMG_HOSTS,
-    SecurityHeadersMiddleware,
-)
+from .security_headers import SecurityHeadersMiddleware
 
 logger = logging.getLogger(__name__)
 
