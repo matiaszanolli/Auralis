@@ -177,7 +177,6 @@ class UnifiedConfig:
             "processing_mode": self.adaptive.mode,
             "adaptation_strength": self.adaptive.adaptation_strength,
             "enable_genre_detection": self.adaptive.enable_genre_detection,
-            "enable_user_learning": self.adaptive.enable_user_learning,
             "chunk_size_ms": self.adaptive.chunk_size_ms,
             "latency_budget_ms": self.adaptive.latency_budget_ms
         }
@@ -188,7 +187,7 @@ class UnifiedConfig:
         # Extract adaptive settings
         adaptive_settings = {}
         for key in ["processing_mode", "adaptation_strength", "enable_genre_detection",
-                   "enable_user_learning", "chunk_size_ms", "latency_budget_ms"]:
+                   "chunk_size_ms", "latency_budget_ms"]:
             if key in config_dict:
                 adaptive_key = key.replace("processing_", "")
                 adaptive_settings[adaptive_key] = config_dict.pop(key)

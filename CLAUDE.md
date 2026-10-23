@@ -130,7 +130,7 @@ auralis/                          Core Python audio engine
 │                                   (parallel/ + parallel_processor.py deleted #4565;
 │                                    NO rust_integration.py — see #5168)
 ├── services/                     Background services (fingerprint, artwork)
-├── learning/                     Preference engine, reference library + seeder
+├── learning/                     Reference-cloud seeder (the preference engine was removed, #5763)
 └── utils/                        Logging, helpers, validation, atomic writes
 
 auralis-web/

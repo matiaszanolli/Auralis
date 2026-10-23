@@ -48,10 +48,6 @@ class AdaptiveConfig:
     chunk_size_ms: float = 20.0  # Processing chunk size in milliseconds
     latency_budget_ms: float = 20.0  # Maximum allowed latency
 
-    # User learning
-    enable_user_learning: bool = True
-    learning_rate: float = 0.05  # How quickly to adapt to user preferences
-
     # No `critical_bands` knob (#4613): the EQ's band layout is the fixed
     # 25-band Bark-scale table in auralis/dsp/eq/critical_bands.py, which
     # PsychoacousticEQ builds with no arguments. A validated-but-ignored field
@@ -61,13 +57,14 @@ class AdaptiveConfig:
     # switch that did nothing: enable_tempo_analysis, enable_energy_analysis,
     # parameter_smoothing (and its 0-1 assert), enable_quality_monitoring,
     # auto_quality_adjustment, min_quality_level and enable_psychoacoustic_eq.
+    # #5763 removed enable_user_learning and learning_rate with the unreachable
+    # preference-learning engine they configured.
     # Re-add one only together with the code that honours it.
 
     def __post_init__(self) -> None:
         assert 0.0 <= self.adaptation_strength <= 1.0, "Adaptation strength must be 0-1"
         assert 5.0 <= self.chunk_size_ms <= 100.0, "Chunk size must be 5-100ms"
         assert 10.0 <= self.latency_budget_ms <= 100.0, "Latency budget must be 10-100ms"
-        assert 0.0 <= self.learning_rate <= 1.0, "Learning rate must be 0-1"
 
 
 @dataclass

@@ -20,13 +20,12 @@ from ..analysis.fingerprint import AudioFingerprintAnalyzer
 from ..dsp.advanced_dynamics import DynamicsMode, create_dynamics_processor
 from ..dsp.dynamics import create_brick_wall_limiter
 from ..dsp.eq.psychoacoustic_eq import EQSettings, PsychoacousticEQ
-from ..learning.preference_engine import create_preference_engine
 from ..optimization.performance_optimizer import get_performance_optimizer
 from ..utils.logging import debug, info
 from .analysis import AdaptiveTargetGenerator, ContentAnalyzer
 from .analysis.spectrum_mapper import SpectrumMapper
 from .config import UnifiedConfig
-from .hybrid import DynamicsManager, PreferenceManager
+from .hybrid import DynamicsManager
 from .processing import AdaptiveMode, ContinuousMode, EQProcessor, HybridMode
 
 if TYPE_CHECKING:
@@ -81,12 +80,8 @@ def build_hybrid_components(config: UnifiedConfig, processor: "HybridProcessor")
         sample_rate=config.internal_sample_rate
     )
 
-    # Initialize preference learning engine
-    processor.preference_engine = create_preference_engine()
-
     # Initialize component managers
     processor.dynamics_manager = DynamicsManager(processor.dynamics_processor)
-    processor.preference_manager = PreferenceManager(processor.preference_engine)
 
     # Initialize mode processors
     processor.eq_processor = EQProcessor(processor.psychoacoustic_eq)

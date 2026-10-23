@@ -56,14 +56,6 @@ class AdaptiveTargetGenerator:
         if preset_profile:
             targets = self._apply_preset_overrides(targets, preset_profile, content_profile)
 
-        # Apply user preference learning if available
-        if self.processor and hasattr(self.processor, 'current_user_id') and self.processor.current_user_id:
-            targets = self.processor.preference_engine.get_adaptive_parameters(
-                self.processor.current_user_id,
-                content_profile,
-                targets
-            )
-
         debug(f"Generated targets for {genre} with preset '{self.config.mastering_profile}': "
               f"LUFS={targets['target_lufs']:.1f}, compression={targets['compression_ratio']:.1f}")
 

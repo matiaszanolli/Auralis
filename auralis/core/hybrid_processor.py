@@ -42,10 +42,9 @@ if TYPE_CHECKING:
     from ..dsp.advanced_dynamics import DynamicsProcessor
     from ..dsp.dynamics.brick_wall_limiter import BrickWallLimiter
     from ..dsp.eq.psychoacoustic_eq import PsychoacousticEQ
-    from ..learning.preference_engine import PreferenceLearningEngine
     from ..optimization.performance_optimizer import PerformanceOptimizer
     from .analysis.spectrum_mapper import SpectrumMapper
-    from .hybrid import DynamicsManager, PreferenceManager
+    from .hybrid import DynamicsManager
     from .processing import AdaptiveMode, ContinuousMode, EQProcessor, HybridMode
 
 
@@ -79,9 +78,7 @@ class HybridProcessor:
     psychoacoustic_eq: "PsychoacousticEQ"
     dynamics_processor: "DynamicsProcessor"
     brick_wall_limiter: "BrickWallLimiter"
-    preference_engine: "PreferenceLearningEngine"
     dynamics_manager: "DynamicsManager"
-    preference_manager: "PreferenceManager"
     eq_processor: "EQProcessor"
     adaptive_mode: "AdaptiveMode"
     continuous_mode: "ContinuousMode"
@@ -239,14 +236,12 @@ class HybridProcessor:
         processed = self.continuous_mode.process(target_audio, self.eq_processor,
                                                 fixed_params=fixed_params)
 
-        # Store fingerprint and parameters for learning/debugging
+        # Store fingerprint and parameters for debugging
         self.last_content_profile = {
             'fingerprint': self.continuous_mode.last_fingerprint,
             'coordinates': self.continuous_mode.last_coordinates,
             'parameters': self.continuous_mode.last_parameters,
         }
-
-        self.preference_manager.set_content_profile(self.last_content_profile)
 
         # Apply brick-wall limiter for final peak control
         # Ensures output never clips and stays within safe range
@@ -329,37 +324,6 @@ class HybridProcessor:
         """
         with self._process_lock:
             self.brick_wall_limiter.reset()
-
-    def set_user(self, user_id: str) -> None:
-        """Set the current user for preference learning (#3787: locked)."""
-        with self._process_lock:
-            self.preference_manager.set_user(user_id)
-
-    @property
-    def current_user_id(self) -> str | None:
-        """The user preference learning applies to (owned by the PreferenceManager)."""
-        return self.preference_manager.current_user_id
-
-    def record_user_feedback(self, rating: float,
-                           parameters_before: dict[str, float] | None = None,
-                           parameters_after: dict[str, float] | None = None) -> None:
-        """Record user feedback for learning (#3787: locked)."""
-        with self._process_lock:
-            self.preference_manager.record_feedback(rating, parameters_before, parameters_after)
-
-    def record_parameter_adjustment(self, parameter_name: str,
-                                  old_value: float, new_value: float) -> None:
-        """Record user parameter adjustment for learning (#3787: locked)."""
-        with self._process_lock:
-            self.preference_manager.record_adjustment(parameter_name, old_value, new_value)
-
-    def get_user_insights(self, user_id: str | None = None) -> dict[str, Any]:
-        """Get user preference insights"""
-        return self.preference_manager.get_insights(user_id)
-
-    def save_user_preferences(self, user_id: str | None = None) -> bool:
-        """Save user preferences to storage"""
-        return self.preference_manager.save_preferences(user_id)
 
     def get_processing_info(self) -> dict[str, Any]:
         """Get information about current processing configuration"""

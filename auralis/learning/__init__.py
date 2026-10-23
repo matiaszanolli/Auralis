@@ -2,22 +2,9 @@
 Auralis Learning Module
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-Machine learning and user preference learning components
+Reference-library seeding (``reference_seeder``). The user preference-learning
+engine that used to live here had no caller and was removed in #5763.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
-
-from .preference_engine import (  # type: ignore[attr-defined]
-    PreferenceLearningEngine,
-    UserAction,
-    UserProfile,
-    create_preference_engine,
-)
-
-__all__ = [
-    'PreferenceLearningEngine',
-    'UserProfile',
-    'UserAction',
-    'create_preference_engine'
-]
