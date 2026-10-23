@@ -9,6 +9,7 @@ Genre-specific processing profiles and defaults
 """
 
 
+from ...dsp.utils.loudness_targets import DEFAULT_TARGET_LUFS
 from ...utils.logging import debug
 from .settings import GenreProfile
 
@@ -28,7 +29,7 @@ def create_default_genre_profiles() -> dict[str, GenreProfile]:
         ),
         "pop": GenreProfile(
             name="pop",
-            target_lufs=-14.0,
+            target_lufs=DEFAULT_TARGET_LUFS,
             bass_boost_db=1.5,
             midrange_clarity_db=2.0,
             treble_enhancement_db=1.5,
@@ -103,7 +104,7 @@ def get_default_genre_profile() -> GenreProfile:
     """Get balanced default profile for unknown genres"""
     return GenreProfile(
         name="default",
-        target_lufs=-14.0,
+        target_lufs=DEFAULT_TARGET_LUFS,
         bass_boost_db=1.0,
         midrange_clarity_db=1.0,
         treble_enhancement_db=1.0,

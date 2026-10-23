@@ -20,6 +20,7 @@ namespace.
 from dataclasses import dataclass
 
 from .mastering_presets import MasteringPresetDefaults
+from ..dsp.utils.loudness_targets import LOUD_MASTER_TARGET_LUFS
 
 __all__ = ["SimpleMasteringConfig", "MasteringPresetDefaults"]
 
@@ -58,7 +59,7 @@ class SimpleMasteringConfig(MasteringPresetDefaults):
     # Target Loudness
     # =========================================================================
 
-    TARGET_LUFS: float = -11.0
+    TARGET_LUFS: float = LOUD_MASTER_TARGET_LUFS
     """Target loudness for normalized output (LUFS)"""
 
     # =========================================================================

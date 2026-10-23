@@ -10,6 +10,8 @@ Defines mastering preset configurations for different sonic characters.
 
 from dataclasses import dataclass
 
+from ...dsp.utils.loudness_targets import DEFAULT_TARGET_LUFS
+
 
 @dataclass
 class PresetProfile:
@@ -96,7 +98,7 @@ def create_preset_profiles() -> dict[str, PresetProfile]:
             dynamics_blend=0.4,      # Light compression
 
             # Moderate loudness target - noticeable but not overdone
-            target_lufs=-14.0,
+            target_lufs=DEFAULT_TARGET_LUFS,
 
             # Balanced headroom (louder output than before)
             peak_target_db=-0.50,

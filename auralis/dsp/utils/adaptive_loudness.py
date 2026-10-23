@@ -14,6 +14,8 @@ based on source loudness characteristics.
 
 import numpy as np
 
+from .loudness_targets import LOUD_MASTER_TARGET_LUFS
+
 
 class AdaptiveLoudnessControl:
     """
@@ -24,7 +26,7 @@ class AdaptiveLoudnessControl:
     """
 
     # Target loudness for masters (LUFS)
-    TARGET_LUFS = -11.0
+    TARGET_LUFS = LOUD_MASTER_TARGET_LUFS
 
     # LUFS thresholds for adaptive behavior
     VERY_LOUD_THRESHOLD = -12.0  # Already very loud

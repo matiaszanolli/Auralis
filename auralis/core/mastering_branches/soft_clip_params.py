@@ -12,6 +12,7 @@ soft clipper.
 from typing import Any
 
 from ..utils import SmoothCurveUtilities
+from ...dsp.utils.loudness_targets import LOUD_MASTER_TARGET_LUFS
 
 
 def compute_soft_clip_threshold(
@@ -33,7 +34,7 @@ def compute_soft_clip_threshold(
     Returns:
         ``(threshold_db, ceiling)`` for ``soft_clip``.
     """
-    loudness_factor = max(0.0, min(1.0, (-11.0 - unpacker.lufs) / 9.0))
+    loudness_factor = max(0.0, min(1.0, (LOUD_MASTER_TARGET_LUFS - unpacker.lufs) / 9.0))
     threshold_db = -2.0 + (1.5 * (1.0 - loudness_factor))
     ceiling = 0.92 + (0.07 * loudness_factor)
 

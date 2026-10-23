@@ -13,6 +13,8 @@ with centralized defaults and lazy evaluation.
 
 from dataclasses import dataclass
 
+from ...dsp.utils.loudness_targets import DEFAULT_TARGET_LUFS
+
 # The one table of values assumed for a dimension a fingerprint does not carry
 # (a partial or old .25d cache, a failed analyzer). Raw `fp.get('<dim>', <n>)`
 # fallbacks elsewhere re-typed these and had drifted apart (#5795): read them
@@ -21,7 +23,9 @@ from dataclasses import dataclass
 # computation (a band share that equals its ideal, a term in a sum) is not a
 # fingerprint default and keeps its local value.
 FINGERPRINT_DEFAULTS: dict[str, float] = {
-    'lufs': -14.0,
+    # A track with no measured loudness is assumed to sit at the default
+    # target (#6226) — the value downstream target-derivation expects.
+    'lufs': DEFAULT_TARGET_LUFS,
     'crest_db': 12.0,
     'bass_mid_ratio': 0.0,
     'sub_bass_pct': 0.05,
@@ -77,7 +81,7 @@ class FingerprintUnpacker:
 
     Benefits:
     - Type safety: Properties return typed values
-    - Semantic access: unpacker.lufs instead of fp.get('lufs', -14.0)
+    - Semantic access: unpacker.lufs instead of fp.get('lufs', <literal>)
     - Single source of truth for defaults
     - Lazy evaluation: Only extract what's needed
     - Better IDE autocomplete and type checking
@@ -124,7 +128,7 @@ class FingerprintUnpacker:
 
     @property
     def lufs(self) -> float:
-        """Integrated loudness (LUFS). Default: -14.0"""
+        """Integrated loudness (LUFS). Default: DEFAULT_TARGET_LUFS."""
         return self._get('lufs')
 
     @property
