@@ -1,6 +1,6 @@
 # Chunk, Cache & Streaming Architecture (Current)
 
-**Last verified**: 2026-07-09
+**Last verified**: 2026-10-23
 **Status**: Current — replaces the multi-tier-buffer / MSE / 30s-chunk designs
 
 This is a short, code-verified description of how audio is chunked, cached, and streamed today. Several older docs under `docs/archive/guides/` and `docs/features/cache-system/` describe a 30-second chunk model, an L1/L2/L3 "multi-tier buffer" with branch prediction, and browser MediaSource Extensions (MSE) streaming. **None of that was ever adopted or has since been removed** — those docs are superseded and point here.
@@ -13,10 +13,10 @@ The single source of truth is [`auralis-web/backend/core/chunk_boundaries.py`](.
 |---|---|---|
 | `CHUNK_DURATION` | **15.0 s** | actual length of each chunk |
 | `CHUNK_INTERVAL` | **10.0 s** | playback advance per chunk (`CHUNK_DURATION − OVERLAP_DURATION`) |
-| `OVERLAP_DURATION` | **5.0 s** | overlap between adjacent chunks (for equal-power crossfade) |
+| `OVERLAP_DURATION` | **5.0 s** | processing overlap between adjacent chunk windows; trimmed away — emitted segments never overlap |
 | `CONTEXT_DURATION` | **5.0 s** | extra context fed to the processor for quality |
 
-So chunk 0 = 0–15 s, chunk 1 = 10–25 s, chunk 2 = 20–35 s, … Each chunk is 15 s long and starts 10 s after the previous one, leaving a 5 s overlap.
+So chunk 0 = 0–15 s, chunk 1 = 10–25 s, chunk 2 = 20–35 s, … Each chunk is 15 s long and starts 10 s after the previous one; after processing, each is trimmed to its non-overlapping 10 s `CHUNK_INTERVAL` segment (#4642), so the emitted segments tile the timeline exactly — **there is no crossfade**.
 
 **Chunk counting is overlap-aware.** Use `content_chunk_count(total_duration)` from `chunk_boundaries.py` — chunk 0 emits `CHUNK_DURATION` of new audio and every later chunk emits `CHUNK_INTERVAL`. Naïve `ceil(duration / CHUNK_DURATION)` is wrong (see the `content_chunk_count` docstring / #4124). Chunking itself lives in `core/chunked_processor.py` (`ChunkedAudioProcessor`).
 
@@ -24,8 +24,8 @@ So chunk 0 = 0–15 s, chunk 1 = 10–25 s, chunk 2 = 20–35 s, … Each chunk 
 
 There is **no** CPU-style L1/L2/L3 hierarchy, no branch prediction, and no fixed `CHUNK_SIZE_MB` tiers. The real pieces:
 
-- **In-memory chunk cache** — `SimpleChunkCache` in [`auralis-web/backend/core/audio_stream_controller.py`](../../../auralis-web/backend/core/audio_stream_controller.py), 512 MB cap.
-- **On-disk chunk cache** — `ChunkCacheManager` in [`auralis-web/backend/core/chunk_cache_manager.py`](../../../auralis-web/backend/core/chunk_cache_manager.py): cached WAV/fingerprint chunks under `/tmp/auralis_chunks`, bounded to `MAX_CHUNK_DISK_BYTES` (512 MB) with a global reaper throttled to every `PRUNE_EVERY_N_WRITES` (32) writes (#3834). Cached chunk files are 16-bit PCM WAV, not float32.
+- **Tiered chunk cache** — `StreamlinedCacheManager` in [`auralis-web/backend/cache/manager.py`](../../../auralis-web/backend/cache/manager.py): Tier 1 (hot, ~10 MB) holds the current + next chunk for instant playback and toggle; Tier 2 (warm, 240 MB budget) holds full tracks for instant seeking. (The in-memory `SimpleChunkCache` that used to sit in `audio_stream_controller.py` was removed in #5492.)
+- **On-disk chunk cache** — `ChunkCacheManager` in [`auralis-web/backend/core/chunk_cache_manager.py`](../../../auralis-web/backend/core/chunk_cache_manager.py): cached WAV/fingerprint chunks under `/tmp/auralis_chunks`, bounded to `MAX_CHUNK_DISK_BYTES` (512 MB) with a global reaper throttled to every `PRUNE_EVERY_N_WRITES` (32) writes (`chunk_disk_prune.py`, #3834). Cached chunk files are 16-bit PCM WAV, not float32.
 - **Cache management/stats API** — `StreamlinedCacheManager` in [`auralis-web/backend/cache/manager.py`](../../../auralis-web/backend/cache/manager.py), exposed via [`auralis-web/backend/routers/cache_streamlined.py`](../../../auralis-web/backend/routers/cache_streamlined.py).
 
 ## Streaming — WebSocket binary PCM end-to-end

@@ -88,7 +88,7 @@ domain has a barrel `index.ts`.
 | `websocket/` | `useWebSocketSubscription`, `useWebSocketErrors` (#2874) |
 | `api/` | `useRestAPI` + `useQuery`/`useMutation` wrappers |
 | `app/` | `useAppLayout`, `useKeyboardShortcuts`, `useArtworkPalette` |
-| `fingerprint/` | `useTrackFingerprint`, `useSimilarTracks`, `useFingerprintCache` |
+| `fingerprint/` | `useTrackFingerprint`, `useAlbumFingerprint`(+s), `useSimilarTracks` |
 | `shared/` | `useOptimisticUpdate`, `useReduxState`, `useAPIHealthPoll`, `useDialogAccessibility` |
 
 ---
@@ -195,14 +195,16 @@ playEnhanced(trackId, preset, intensity)
 backend replies:
   audio_stream_start  → create PCMStreamBuffer + AudioContext (matched to stream sample rate!)
                         + AudioPlaybackEngine; dispatch startStreaming
-  audio_chunk (merged binary)  → decodeAudioChunkMessage (Int16→Float32) → append w/ crossfade
+  audio_chunk (merged binary)  → decodeAudioChunkMessage (Int16→Float32) → append (segments
+                                 tile — no crossfade, #4642)
   audio_stream_end
 ```
 
 - **`PCMStreamBuffer`** ([`services/audio/PCMStreamBuffer.ts`](../../auralis-web/frontend/src/services/audio/PCMStreamBuffer.ts))
   — a circular `Float32Array`, default **100 MB** (~5 min @ 44.1k stereo). On overflow it
-  **drops new data** rather than discarding unplayed audio (avoids position jumps). Applies a
-  linear crossfade blend at chunk boundaries.
+  **drops new data** rather than discarding unplayed audio (avoids position jumps). No
+  boundary crossfade: chunks arrive as non-overlapping 10 s segments (#4642), so there is
+  nothing to blend.
 - **`AudioPlaybackEngine`** ([`services/audio/AudioPlaybackEngine.ts`](../../auralis-web/frontend/src/services/audio/AudioPlaybackEngine.ts))
   — feeds Web Audio, preferring an **`AudioWorkletNode`** (`/audio-worklet-processor.js`,
   off-main-thread) and falling back to `ScriptProcessorNode`. Chain:

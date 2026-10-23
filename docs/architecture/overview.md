@@ -23,7 +23,7 @@ design decisions (no TLS, hardcoded `127.0.0.1:8765`, file-based locking, `file:
 │         REST (HTTP)                    WebSocket (/ws)                │
 │  ┌───────────────▼───────────────────────────▼───────────────────┐  │
 │  │  FastAPI backend  (auralis-web/backend/)  :8765               │  │
-│  │  19 routers · WebSocket streaming · chunked processing        │  │
+│  │  20 routers · WebSocket streaming · chunked processing        │  │
 │  └───────┬───────────────────────┬───────────────────┬───────────┘  │
 │  ┌───────▼──────────┐  ┌─────────▼─────────┐  ┌───────▼───────────┐  │
 │  │ Audio engine     │  │ Library (SQLite)  │  │ Analysis /         │  │
@@ -31,7 +31,7 @@ design decisions (no TLS, hardcoded `127.0.0.1:8765`, file-based locking, `file:
 │  │ auralis/dsp      │  │ ~/.auralis/*.db   │  │ auralis/analysis   │  │
 │  └───────┬──────────┘  └───────────────────┘  └───────┬───────────┘  │
 │  ┌───────▼─────────────────────────────────────────────▼──────────┐  │
-│  │  Rust DSP  (vendor/auralis-dsp/)  — PyO3 + gRPC fingerprint svc │  │
+│  │  Rust DSP  (vendor/auralis-dsp/)  — PyO3, in-process           │  │
 │  └────────────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -61,17 +61,19 @@ a preset. See [subsystems/dsp-engine.md](../subsystems/dsp-engine.md) and
 
 ### 2. Real-time streaming with gapless chunks
 
-Enhanced audio is processed in **15-second chunks at 10-second intervals with 5-second
-overlap**, crossfaded with equal-power curves so there are no audible seams. Chunk geometry has
-a **single source of truth** ([`chunk_boundaries.py`](../../auralis-web/backend/core/chunk_boundaries.py))
-— never hand-roll chunk counting.
+Enhanced audio is processed in **15-second chunks with 5-second context**, emitted as
+**10-second non-overlapping segments** that tile the timeline exactly — there is **no
+crossfade** (#4642). Chunk geometry has a **single source of truth**
+([`chunk_boundaries.py`](../../auralis-web/backend/core/chunk_boundaries.py)) — never hand-roll
+chunk counting.
 
-### 3. Rust for the hot path
+### 3. Rust for the fingerprint hot path
 
-The heavy analysis DSP (harmonic/percussive separation, pitch detection, chromagram, and the
-full native fingerprint) runs in Rust via PyO3, with a standalone gRPC fingerprint server as
-the primary extraction path. **There is no Python fallback** — the Rust module must be built
-(`maturin develop`) before first run.
+The 25D fingerprint DSP (chroma, rhythm, spectral features, stereo and variation analysis)
+runs in Rust via PyO3 and is called **in-process** from Python — there is no out-of-process
+fingerprint server and no Python DSP fallback. The Rust module must be built
+(`maturin develop`) before first run. (The HPSS/pitch-detection bindings were removed in
+#5764; the standalone gRPC fingerprint server was removed in #4533.)
 
 ---
 
@@ -116,7 +118,7 @@ When docs and code disagree, these win:
 | Product version | [`auralis/version.py`](../../auralis/version.py) (not `pyproject.toml`, not the frontend constant, not `create_app`'s "1.0.0") |
 | Fingerprint dimension semantics/units | [`analysis/fingerprint/schema.py`](../../auralis/analysis/fingerprint/schema.py) |
 | Chunk geometry | [`backend/core/chunk_boundaries.py`](../../auralis-web/backend/core/chunk_boundaries.py) |
-| DB schema version | [`auralis/library/migration_manager.py`](../../auralis/library/migration_manager.py) (`__db_schema_version__`) |
+| DB schema version | [`auralis/__version__.py`](../../auralis/__version__.py) (`__db_schema_version__`; applied by `auralis/library/migration_manager.py`) |
 | Fingerprint algorithm version | [`auralis/__version__.py`](../../auralis/__version__.py) (`FINGERPRINT_ALGORITHM_VERSION`) |
 
 ---

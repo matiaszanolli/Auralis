@@ -35,7 +35,7 @@ also used to exist; #4873 deleted it — see [§ Deleted paths](#deleted-paths).
 
 `HybridProcessor` is a thin orchestrator. Its constructor
 ([`hybrid_processor.py:54`](../../auralis/core/hybrid_processor.py)) wires up the analysis
-and DSP components and instantiates **four mode processors**:
+and DSP components and instantiates **three mode processors**:
 
 ```
 HybridProcessor.process()            # offline, whole-signal  (hybrid_processor.py:220)
@@ -44,9 +44,6 @@ HybridProcessor.process()            # offline, whole-signal  (hybrid_processor.
        ├─ _process_adaptive_mode     # adaptive               (:323)
        │    └─ ContinuousMode.process()
        └─ _process_hybrid_mode       # reference + adaptive    (:379)
-
-HybridProcessor.process_realtime_chunk()   # real-time chunk   (:406)
-  └─ RealtimeDSPPipeline.process_chunk()    # low-latency path
 ```
 
 ### Mode processors (`auralis/core/processing/`)
@@ -57,11 +54,11 @@ HybridProcessor.process_realtime_chunk()   # real-time chunk   (:406)
 | **Adaptive** (legacy) | `AdaptiveMode` | [`adaptive_mode.py:33`](../../auralis/core/processing/adaptive_mode.py) | Preset/spectrum-based component of the `hybrid` and `reference` modes. |
 | **Hybrid** | `HybridMode` | [`hybrid_mode.py:21`](../../auralis/core/processing/hybrid_mode.py) | Blends reference matching with adaptive output at `adaptation_strength * 0.5`. |
 
-**Mode selection** is two orthogonal axes:
-
-- **Algorithm axis** — `config.adaptive.mode` (`reference` / `adaptive` / `hybrid`); adaptive
-  runs `ContinuousMode`.
-- **Latency axis** — offline (`process()`) vs real-time (`process_realtime_chunk()`).
+**Mode selection** is one axis — `config.adaptive.mode` (`reference` / `adaptive` /
+`hybrid`); adaptive runs `ContinuousMode`. (A second, "latency" axis
+(`process_realtime_chunk()` → `RealtimeDSPPipeline`) used to exist; #4873 deleted it —
+see [§ Deleted paths](#deleted-paths). The streaming hot path calls the same
+`process()` per chunk, off the event loop via `asyncio.to_thread`.)
 
 ### ContinuousMode internals (the default path)
 
@@ -182,8 +179,8 @@ adaptive gains and fingerprint LUFS/crest errors (#3428 / #2518).
 
 ## 5. Rust DSP module (`vendor/auralis-dsp/`)
 
-Built with `maturin develop` (PyO3 0.23 + numpy 0.23, crate `auralis_dsp`). Two separate
-Rust surfaces exist:
+Built with `maturin develop` (PyO3 0.29 + numpy 0.29, crate `auralis_dsp`). Two separate
+Rust surfaces existed; one is gone:
 
 1. **In-process PyO3 module** `auralis_dsp` (the live one) — the full 25D `compute_fingerprint`
    (plus `process_chunks`, which is dead, #5738). The HPSS, YIN, tempo, envelope, compress/limit,

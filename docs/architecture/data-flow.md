@@ -21,16 +21,16 @@ What happens when a user hits play with enhancement on.
 │   → spawn stream_audio task → AudioStreamController.stream_enhanced_audio   │
 │   for each chunk N in content_chunk_count(duration):                        │
 │     ChunkedAudioProcessor.process_chunk_safe(N)                             │
-│       → asyncio.to_thread(_process_chunk_locked)         (frees event loop) │
+│       → asyncio.to_thread(process_chunk, locked=True)    (frees event loop) │
 │         → ProcessorFactory.get_or_create(track,preset,intensity)           │
-│           → HybridProcessor.process_realtime_chunk / process()              │
+│           → HybridProcessor.process()  (adaptive → ContinuousMode)          │
 │     → send audio_chunk_meta (JSON)  +  binary PCM frame                     │
 └──────────────────────────────────────┬─────────────────────────────────────┘
                                         │  WebSocket frames
 ┌── FRONTEND ────────────────────────────▼───────────────────────────────────┐
 │ WebSocketContext merges pcm_binary into meta → synthetic 'audio_chunk'      │
 │   → decodeAudioChunkMessage (Int16 → Float32)                               │
-│   → PCMStreamBuffer.write (circular Float32Array, crossfade at boundaries)  │
+│   → PCMStreamBuffer.write (circular Float32Array; segments tile, no blend)  │
 │   → AudioPlaybackEngine (AudioWorkletNode → gain → analyser → destination)  │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -41,7 +41,9 @@ Key properties:
   in `asyncio.to_thread`, long ones additionally in `asyncio.wait_for(..., timeout)`.
 - **One `HybridProcessor` instance per `(track, preset, intensity)`** persists across all
   chunks (via `ProcessorFactory`) so compressor/EQ state doesn't reset at boundaries.
-- **Crossfade** uses equal-power sin²/cos² curves; see
+- **No crossfade at chunk seams** — each chunk is rendered with context and trimmed to its
+  non-overlapping `CHUNK_INTERVAL` segment, so emitted segments tile the timeline exactly
+  (#4642); see
   [subsystems/dsp-engine.md §6](../subsystems/dsp-engine.md#6-chunked-streaming-auralis-webbackendcore).
 - **The frontend never touches MSE** — it's Web Audio all the way; see
   [subsystems/frontend.md §8](../subsystems/frontend.md#8-browser-audio-pipeline-the-real-one).
@@ -64,8 +66,8 @@ Meanwhile, background workers (FingerprintExtractionQueue, N daemon threads):
     Phase 2: claim_next_outdated_fingerprint     (version bump → re-extract)
       → FingerprintExtractor.extract_and_store(track):
           1. valid .25d sidecar?          → use it (instant)
-          2. Rust gRPC server (port 8766) → native 25D  (primary)
-          3. Python analyzer (≤300 MB)    → fallback
+          2. Python analyzer → in-process Rust compute_fingerprint (primary;
+             no out-of-process server, no librosa fallback)
       → store TrackFingerprint row + write .25d sidecar
       → (drain) refresh reference cloud, rebuild kNN similarity graph
 ```
