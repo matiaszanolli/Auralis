@@ -88,7 +88,7 @@ Protocol & feature references:
 
 - [../README.md](../README.md) — user-facing project readme and downloads
 - [../CLAUDE.md](../CLAUDE.md) — condensed technical reference and codebase map
-- [../ARCHITECTURE.md](../ARCHITECTURE.md) — processor-hierarchy summary
+- [../ARCHITECTURE.md](../ARCHITECTURE.md) — service & naming conventions (repository pattern, DI, Processor/Service/Manager/Repository/Factory)
 - [../FIRST_TIME_SETUP.md](../FIRST_TIME_SETUP.md) — end-user setup
 
 ---

@@ -1,60 +1,10 @@
-# Auralis Architecture
+# Auralis Architecture — Service & Naming Conventions
 
-This document provides an overview of Auralis' architecture, focusing on processor hierarchy, service patterns, and naming conventions.
-
-## Processor Hierarchy
-
-Auralis uses a layered processor architecture for audio processing:
-
-### 1. Core Engine Layer (`auralis/core/`)
-
-**HybridProcessor** - Main unified processor
-- Supports both reference-based and adaptive mastering
-- Delegates to specialized mode processors:
-  - `AdaptiveMode`: Spectrum-based adaptive processing
-  - `HybridMode`: Combined reference + adaptive
-  - `ContinuousMode`: Continuous learning mode
-
-**Removed**: the old `processor.py` reference-based entry point has been deleted — `HybridProcessor` is now the sole core entry point. `RealtimeDSPPipeline` and its realtime adaptive EQ were likewise deleted (#4873), as was `auralis/dsp/stages.py::main()` (#4867); see [docs/subsystems/dsp-engine.md](docs/subsystems/dsp-engine.md) § Deleted paths for why neither was wired up instead.
-
-### 2. Specialized Processing Layer (`auralis/core/processing/`)
-
-Implements the mode processors and per-stage DSP the HybridProcessor delegates to:
-- **AdaptiveMode / ContinuousMode / HybridMode** (`adaptive_mode.py`, `continuous_mode.py`, `hybrid_mode.py`): mastering modes
-- **EQProcessor** (`eq_processor.py`), delta EQ, cross-dimensional guard, target derivation
-
-### 3. Backend/Streaming Layer (`auralis-web/backend/`)
-
-**ChunkedAudioProcessor** - WebSocket streaming processor
-- Processes audio in 15-second chunks (10s intervals, 5s overlap)
-- Fast first-chunk streaming for instant playback
-- Background processing of remaining chunks
-- Crossfade between chunks for gapless playback
-
-**ProcessorFactory** - Processor lifecycle management
-- Creates and caches HybridProcessor instances
-- Maintains processor state across chunks
-- Prevents audio artifacts at chunk boundaries
-
-**Deprecated**: `ProcessorManager` - Replaced by ProcessorFactory
-
-### 4. Player Layer (`auralis/player/`)
-
-**RealtimeProcessor** - Low-latency player processing
-- Real-time chunk processing for playback
-- Minimal latency for interactive use
-
-### 5. Optimization Layer (`auralis/optimization/`)
-
-**ParallelProcessor** - Multi-threaded batch processing
-- Parallel processing for batch operations
-- Optimal CPU utilization
-
-### 6. Library/Batch Layer (`auralis/library/scanner/`)
-
-**BatchProcessor** - Library scanning
-- Bulk fingerprint extraction
-- Metadata extraction from audio files
+This document records the cross-cutting conventions every new service,
+processor, and repository must follow. For the processing-pipeline hierarchy
+and the data flow, see [docs/architecture/overview.md](docs/architecture/overview.md)
+and [docs/subsystems/dsp-engine.md](docs/subsystems/dsp-engine.md); for the
+file-level layout, see [docs/architecture/module-map.md](docs/architecture/module-map.md).
 
 ## Service Architecture
 
@@ -84,7 +34,7 @@ class MyService:
 # ❌ INCORRECT: Internal instantiation
 class MyService:
     def __init__(self):
-        self.lib_manager = LibraryManager()  # Violates repository pattern
+        self._repos = repository_factory.create()  # Violates DI
 ```
 
 ### Lazy Imports
@@ -113,11 +63,11 @@ def my_function():
   - Pattern: Stateless or thread-safe caching, focused on single domain
 
 - **Manager**: Coordinates lifecycle and resources
-  - Example: `LibraryManager` (deprecated - use RepositoryFactory)
+  - Example: `ConnectionManager` (`auralis-web/backend/config/globals.py`)
   - Pattern: Lifecycle management, resource pooling
 
 - **Repository**: Data access abstraction (CRUD operations)
-  - Example: `TrackRepository`, `AlbumRepository`, `FingerprintRepository` — all 14 extend `BaseRepository`
+  - Example: `TrackRepository`, `AlbumRepository`, `FingerprintRepository` — all 12 extend `BaseRepository`
   - Pattern: Database access only, no business logic; session lifecycle inherited from `BaseRepository`
 
 - **Factory**: Creates and configures instances
@@ -132,7 +82,7 @@ auralis/
 ├── dsp/            # Digital signal processing primitives
 ├── analysis/       # Audio analysis and fingerprinting
 ├── library/        # Database models and repositories
-├── services/       # Business logic services (CLI-focused)
+├── services/       # Business logic services
 ├── player/         # Real-time playback
 └── optimization/   # Performance optimizations
 
@@ -171,9 +121,9 @@ These are NOT duplicates - they serve different entities (artist vs album) and d
 - Pattern: 3-tier loading (database → .25d file → extract from audio)
 - Usage: Backend audio processing
 
-**FingerprintQueue** (Multiple implementations):
-- `auralis/services/fingerprint_queue.py`: Bulk scanning (4-24 worker threads)
-- `auralis-web/backend/fingerprint_queue.py`: On-demand extraction (single async worker, 404 handling)
+**FingerprintQueue** (Two implementations):
+- `auralis/services/fingerprint_queue.py`: Bulk scanning (worker threads)
+- `auralis-web/backend/analysis/fingerprint_queue.py`: On-demand extraction (single async worker, 404 handling)
 - Not duplicates - different concurrency models for different use cases
 
 ## Best Practices
@@ -185,26 +135,3 @@ These are NOT duplicates - they serve different entities (artist vs album) and d
 5. **Single Responsibility**: Each service/processor has one clear purpose
 6. **Naming Clarity**: Use consistent naming (Processor/Service/Manager/Repository/Factory)
 7. **No "Enhanced" Variants**: Refactor in-place instead of creating V2/Enhanced versions
-
-## Architecture Evolution
-
-### Phase 1 (Complete): Duplicate Elimination
-- ✅ Removed duplicate WebM encoder (234 lines)
-- ✅ Consolidated encoding module structure
-
-### Phase 2 (Complete): Repository Pattern Enforcement
-- ✅ Fixed repository pattern violations in MasteringTargetService
-- ✅ Eliminated lazy imports
-- ✅ Added dependency injection for repository access
-
-### Phase 3 (Current): Documentation & Conventions
-- ✅ Documented processor hierarchy
-- ✅ Established naming conventions
-- ✅ Clarified service patterns
-
-## Future Improvements
-
-- Consolidate WebSocket dependency management
-- Standardize async/sync service patterns
-- Improve processor factory caching strategies
-- Consider service adapter pattern for backend→core access

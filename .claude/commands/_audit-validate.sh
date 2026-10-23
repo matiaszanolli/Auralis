@@ -159,6 +159,7 @@ strict_files=(
     docs/architecture/*.md
     docs/subsystems/*.md
     docs/README.md
+    ARCHITECTURE.md
     CLAUDE.md
     README.md
     auralis-web/backend/WEBSOCKET_API.md
