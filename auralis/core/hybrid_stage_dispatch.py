@@ -59,10 +59,10 @@ def validate_and_normalize_input(
     what the empty-audio and silence branches already do, and no meaningful
     mastering decision can be made from 23ms anyway: the fingerprint stage
     alone needs 11025 samples. The raise was originally defensive against
-    Rust FFT panics on tiny audio; those are fixed at the source
-    (vendor/auralis-dsp hpss.rs short-circuits below one FFT frame, verified
-    for n=0..2048), so this guard now only blocks work the DSP layer handles
-    correctly.
+    Rust FFT panics on tiny audio; the DSP layer fixed those at the source
+    (the former `vendor/auralis-dsp` `hpss.rs` short-circuited below one FFT
+    frame, verified for n=0..2048, before the binding was deleted in #5764),
+    so the guard was demoted to returning the input untouched.
     """
     target_audio = target
 

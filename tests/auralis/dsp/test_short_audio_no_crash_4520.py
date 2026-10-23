@@ -20,9 +20,10 @@ Two separate defects hid behind one symptom here:
    invariant gapless playback depends on — and leaving callers with no option
    but to pre-check the length themselves.
 
-The original Rust HPSS overflow this issue was filed for is separately fixed
-(`hpss.rs` short-circuits below one FFT frame); `TestRustHpssShortSignal` pins
-that so it cannot silently regress.
+The original Rust HPSS overflow this issue was filed for is gone with the
+module that had it (the `hpss` bindings short-circuited below one FFT frame
+before being deleted in #5764); the Python-side early returns this module
+pins are what remains to keep short audio from regressing.
 """
 
 import numpy as np

@@ -20,8 +20,8 @@ from .audio_measurement import MeasurementUtilities
 # absence is a KeyError, not a defaulted value.
 #
 # Two independent producers build these dicts: the fixed-targets fast path in
-# `ContinuousMode._convert_targets_to_parameters` and the fingerprint path in
-# `ContinuousParameterGenerator`. Nothing tied their schemas together, so they
+# `fixed_target_params.convert_targets_to_parameters` and the fingerprint path
+# in `ContinuousParameterGenerator`. Nothing tied their schemas together, so they
 # drifted: the fast path omitted `target_crest_increase` entirely and every
 # `.25d`-sidecar track crashed here (#4856). Declared next to the readers so a
 # contract test can assert every producer satisfies them —

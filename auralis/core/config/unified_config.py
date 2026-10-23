@@ -117,9 +117,9 @@ class UnifiedConfig:
 
         Callers that already validate (`HybridProcessor.set_processing_mode`,
         the `Literal`-typed Pydantic model in `routers/processing_api.py`) were
-        not the gap; `ProcessorFactory.get_or_create_for_config` passes its
-        `mode` argument straight through. Unknown names are rejected here
-        rather than accepted silently.
+        not the gap; `ProcessorFactory.get_or_create` builds the processor from
+        the config it is handed without inspecting `mode`. Unknown names are
+        rejected here rather than accepted silently.
         """
         if mode not in PROCESSING_MODES:
             raise ValueError(

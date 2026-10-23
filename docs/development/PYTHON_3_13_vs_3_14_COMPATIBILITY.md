@@ -222,7 +222,7 @@ python -m pytest tests/ -v
 >
 > The flag lived in `vendor/auralis-dsp/.cargo/config.toml` under `[env]`, so `maturin develop` and `cargo build` both picked it up with no shell ritual. That file was deleted in #5485 (see the 2026-09-17 update below).
 >
-> Verified on 3.14.0: every array-accepting entry point (`limit`, `compress`, `envelope_follow`, …) returns normally with no `'ndarray' object is not an instance of 'ndarray'`; `tests/security` + `tests/audio` give a byte-identical 9 failed / 163 passed on 3.13.9 and 3.14 (those 9 are pre-existing); and `auto_master.py` produces the same quality-gate verdict and the same regressed metrics on both. `.python-version` now pins 3.14, matching `requires-python`.
+> Verified on 3.14.0: every array-accepting entry point (`limit`, `compress`, `envelope_follow`, …) returns normally with no `'ndarray' object is not an instance of 'ndarray'` (bindings later deleted in #5764 as caller-less — `compute_fingerprint` is the survivor); `tests/security` + `tests/audio` give a byte-identical 9 failed / 163 passed on 3.13.9 and 3.14 (those 9 are pre-existing); and `auto_master.py` produces the same quality-gate verdict and the same regressed metrics on both. `.python-version` now pins 3.14, matching `requires-python`.
 >
 > The 0.29 bump remains blocked for the reasons above, but it is no longer on the critical path for anything. Phase 2 (free-threading) is still untried.
 

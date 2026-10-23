@@ -320,16 +320,11 @@ pub fn compute_complete_fingerprint(
 /// Computes an onset-strength envelope from spectral flux, then finds the
 /// dominant periodicity via autocorrelation in the BPM range [60, 200].
 ///
-/// # Relationship to `tempo::detect_tempo` (#4599)
-///
-/// The crate has a second spectral-flux implementation in `tempo.rs`. The two
-/// are *not* interchangeable and this one is not a lazy duplicate:
-/// `detect_tempo` applies a Hann window and derives BPM from thresholded
-/// inter-onset intervals, while this one is rectangular-windowed and takes an
-/// autocorrelation argmax. Their BPM outputs differ, and this function's output
-/// is a stored fingerprint dimension, so switching would silently invalidate
-/// every fingerprint in every user's library. What the two *should* share is
-/// the transform, and now do: both plan an `rustfft` FFT once and reuse it.
+/// This is the crate's only spectral-flux tempo routine (the sibling tempo
+/// module that #4599's work was originally measured against was deleted in
+/// #5764), and its BPM output is a stored fingerprint dimension — changing
+/// the algorithm would silently invalidate every fingerprint in every user's
+/// library.
 ///
 /// This previously ran a manual O(bins x N) DFT per frame — for a 90 s buffer
 /// at 22050 Hz, ~4.1e9 transcendental calls per track. The FFT below is

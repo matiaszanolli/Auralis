@@ -491,8 +491,9 @@ def test_processing_handles_very_short_audio():
     """
     INVARIANT: Processing very short audio (< 1 frame) should work.
 
-    Fixed in #4520. The original Rust HPSS shape overflow is gone (hpss.rs
-    short-circuits below one FFT frame), but the pipeline still rejected short
+    Fixed in #4520. The original Rust HPSS shape overflow is gone (the hpss
+    bindings short-circuited below one FFT frame before being deleted in
+    #5764), but the pipeline still rejected short
     audio with a `ValueError` from a defensive MIN_SAMPLES guard, which broke
     the sample-count invariant. Such audio is now returned unprocessed, so
     length is preserved and nothing raises.

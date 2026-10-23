@@ -203,11 +203,11 @@ def tempo_estimate(audio: np.ndarray, sample_rate: int) -> float:
     so wiring the Rust call in would have been a large regression, not a
     speedup.
 
-    ``tempo.rs::detect_tempo`` is therefore an unused binding. #4599's rustfft
-    work is *not* stranded by this: it optimised the crate's **other**
-    spectral-flux tempo routine, ``fingerprint_compute.rs::estimate_tempo``,
-    which production does reach through ``auralis_dsp.compute_fingerprint``
-    (see ``analysis/fingerprint/rust_fingerprint.py``).
+    #4599's rustfft work was not stranded by that removal: it optimised the
+    crate's **other** spectral-flux tempo routine,
+    ``fingerprint_compute.rs::estimate_tempo``, which production reaches
+    through ``auralis_dsp.compute_fingerprint`` (see
+    ``analysis/fingerprint/rust_fingerprint.py``).
 
     Args:
         audio: Input audio signal

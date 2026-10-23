@@ -28,8 +28,8 @@ class Result:
 
     A ``Result`` only describes the output target (path + PCM subtype); it does
     not transform audio. There is no ``Result.write()`` — the writer
-    (``simple_mastering.process_to_file`` / ``saver.py``) reads ``file`` and
-    ``subtype`` only. Callers are responsible for clamping samples to
+    (``io/saver.py::save``) reads ``file`` and ``subtype`` only. Callers are
+    responsible for clamping samples to
     ``[-1.0, 1.0]`` before writing (saver.py also clamps before PCM encode).
 
     #4106: the former ``use_limiter`` / ``normalize`` flags were removed — they
@@ -58,7 +58,7 @@ class Result:
 
         # #3756: fail early on bad output paths. The previous behavior
         # delayed the error until `sf.SoundFile(..., mode='w')` was
-        # opened in `simple_mastering.process_to_file` — after a
+        # opened in `io/saver.py::save` — after a
         # half-hour of CPU. Check that the parent directory exists
         # and is writable before any of that work happens.
         parent = Path(file).parent
