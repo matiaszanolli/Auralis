@@ -17,9 +17,6 @@ VERSION_PATCH = 1
 VERSION_PRERELEASE = ""  # Empty string for stable releases
 VERSION_BUILD = ""  # Optional build metadata
 
-# Semantic version string
-SEMANTIC_VERSION = __version__
-
 # User-friendly display version
 DISPLAY_VERSION = f"Auralis v{__version__}"
 

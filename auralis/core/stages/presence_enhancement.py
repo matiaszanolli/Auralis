@@ -53,7 +53,7 @@ def apply(
 
     presence_factor = 1.0 - SmoothCurveUtilities.ramp_to_s_curve(presence_content, 0.0, 0.30)
 
-    max_boost_db = 2.0 * intensity
+    max_boost_db = config.MAX_PRESENCE_BOOST_DB * intensity
     boost_db = max_boost_db * presence_factor * hf_lift
 
     if boost_db < 0.3:

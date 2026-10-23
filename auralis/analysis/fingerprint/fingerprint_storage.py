@@ -32,7 +32,6 @@ class FingerprintStorage:
     """
 
     VERSION = "2.0"
-    SIGNATURE_READ_SIZE = 1024 * 1024  # Read first 1MB for signature
 
     @staticmethod
     def _get_cache_dir() -> Path:

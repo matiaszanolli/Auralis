@@ -20,11 +20,6 @@ from typing import Any
 from sqlalchemy import ScalarSelect, func, select
 from sqlalchemy.orm import Session
 
-# Backslash is the escape character every repository passes as
-# ``ilike(..., escape='\\')``.
-LIKE_ESCAPE = '\\'
-
-
 def escape_like(query: str) -> str:
     """Neutralise LIKE metacharacters in a user-supplied search string.
 

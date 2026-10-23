@@ -102,13 +102,6 @@ class SimpleMasteringConfig(MasteringPresetDefaults):
         )
 
     # =========================================================================
-    # Pre-EQ Headroom
-    # =========================================================================
-
-    PRE_EQ_HEADROOM_DB: float = -2.0
-    """Headroom reserved before EQ boosts to prevent limiter clipping"""
-
-    # =========================================================================
     # Enhancement Frequencies (Hz)
     # =========================================================================
 
@@ -160,26 +153,6 @@ class SimpleMasteringConfig(MasteringPresetDefaults):
     """Range for calculating clip severity (from threshold to max severity)"""
 
     # =========================================================================
-    # RMS Expansion Parameters
-    # =========================================================================
-
-    MAX_TARGET_CREST_INCREASE_DB: float = 2.0
-    """Maximum crest factor increase for RMS reduction expansion"""
-
-    RMS_EXPANSION_AMOUNT: float = 0.5
-    """Conservative expansion amount for RMS reduction"""
-
-    # =========================================================================
-    # Soft Clipping Curve Parameters (Quiet Branch)
-    # =========================================================================
-
-    SOFT_CLIP_BASE_KNEE: float = 0.6
-    """Base knee position for soft clipping curve"""
-
-    SOFT_CLIP_BASE_THRESHOLD: float = 0.4
-    """Base threshold position for soft clipping curve"""
-
-    # =========================================================================
     # Enhancement Boost Limits
     # =========================================================================
 
@@ -210,17 +183,11 @@ class SimpleMasteringConfig(MasteringPresetDefaults):
     BASS_TARGET_PCT: float = 0.4560661315917969
     """Median bass share measured over the deterministic 508-source corpus."""
 
-    MAX_SUB_BASS_CUT_DB: float = -1.0
-    """Maximum sub-bass cut (negative boost)"""
-
     MAX_MID_BOOST_DB: float = 1.5
-    """Maximum mid warmth boost"""
+    """Maximum mid warmth boost (mid_warmth stage cap)."""
 
     MAX_PRESENCE_BOOST_DB: float = 2.0
-    """Maximum presence boost"""
-
-    MAX_AIR_BOOST_DB: float = 2.5
-    """Maximum air enhancement boost"""
+    """Maximum presence boost (presence_enhancement stage cap)."""
 
     # =========================================================================
     # Harmonic Exciter

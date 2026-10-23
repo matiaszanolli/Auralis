@@ -53,9 +53,6 @@ class WAVEncoder:
         'PCM_32': 'Signed 32-bit PCM (float)',
     }
 
-    # Default bit depth
-    DEFAULT_SUBTYPE = 'PCM_16'
-
     # Cache version - increment when chunk processing logic OR the filename
     # key schema changes. This invalidates all disk-cached chunks when we fix
     # bugs in extraction/processing, or when the identity a filename encodes

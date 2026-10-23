@@ -46,7 +46,7 @@ def apply(
 
     body_factor = 1.0 - SmoothCurveUtilities.ramp_to_s_curve(body_content, 0.0, 0.25)
 
-    max_boost_db = 1.5 * intensity
+    max_boost_db = config.MAX_MID_BOOST_DB * intensity
     boost_db = max_boost_db * body_factor
 
     if boost_db < 0.3:

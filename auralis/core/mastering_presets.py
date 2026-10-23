@@ -125,18 +125,13 @@ class MasteringPresetDefaults:
     # =========================================================================
     # Separate from the broad presence band. Targets 1.5-3.5 kHz, where vocal
     # consonants and snare attack live. Activates when Up-Mid energy is below
-    # CLARITY_TARGET_PCT.
+    # CLARITY_TOL_LOW.
 
     CLARITY_LOW_HZ: float = 1500.0
     """Lower bound of clarity bell"""
 
     CLARITY_HIGH_HZ: float = 3500.0
     """Upper bound of clarity bell"""
-
-    CLARITY_TARGET_PCT: float = 0.055
-    """Median Up-Mid share across the 27-track reference set (was 0.12 —
-    'pop-master' fiction). Real records sit at 5.5% Up-Mid; even bright prog
-    tracks max out around 12%."""
 
     CLARITY_TOL_LOW: float = 0.015
     """Lower edge of the Up-Mid tolerance band (p25 across reference). Below
@@ -208,11 +203,6 @@ class MasteringPresetDefaults:
     # Smooth ramp from target outward. Wide range so that even bass-forward
     # live recordings (with legitimately high sub-bass content from kick and
     # upright bass fundamentals) get only modest treatment.
-
-    SUB_TARGET_PCT: float = 0.087
-    """Median sub-band share across the 27-track reference set. Higher than
-    the previous 0.07 because real records (even non-electronic genres) carry
-    more sub content than studio-pop references suggested."""
 
     SUB_TOL_HIGH: float = 0.13
     """Upper edge of the sub tolerance band (p75 across reference). Below
