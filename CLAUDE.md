@@ -89,7 +89,7 @@ auralis/                          Core Python audio engine
 ├── core/                         Processing pipeline
 │   ├── hybrid_processor.py         HybridProcessor — main DSP pipeline
 │   ├── simple_mastering.py         SimpleMastering algorithm
-│   ├── processing/                 Mode processors (adaptive, continuous, hybrid, realtime pipeline)
+│   ├── processing/                 Mode processors (adaptive, continuous, hybrid)
 │   ├── config/                     Processing configuration (UnifiedConfig)
 │   └── recording_type_detector.py  OFFLINE scripts only (rate_track, analyze_feedback); not on the
 │                                     app's audio path — kept on purpose, see #4873 / #5780
@@ -97,13 +97,12 @@ auralis/                          Core Python audio engine
 │   ├── basic.py                    DSP primitives
 │   ├── advanced_dynamics.py        Dynamics control
 │   ├── eq/                         Psychoacoustic EQ (psychoacoustic_eq.py)
-├── analysis/                     Audio analysis (largest module, 55 files)
-│   ├── fingerprint/                25D fingerprinting system
-│   │   ├── analyzers/                Batch & streaming analyzers
-│   │   ├── metrics/                  Spectral, harmonic, temporal
-│   │   └── utilities/                DSP ops, backend selection
+├── analysis/                     Audio analysis (largest module, 59 files)
+│   ├── fingerprint/                25D fingerprinting system (audio_fingerprint_analyzer,
+│   │   ├── metrics/                  rust_fingerprint, windowed_compute, schema, distance,
+│   │                                 similarity, knn_graph, normalizer)
 │   ├── quality_assessors/          Quality assessor utilities
-│   ├── ml/                         Genre classification (neural nets)
+│   ├── ml/                         RuleBasedGenreClassifier (linear, not a neural net)
 │   └── quality/                    Quality assessment (loudness, distortion, DR)
 ├── player/                       Playback engine
 │   ├── enhanced_audio_player.py    Main player with adaptive DSP
@@ -138,7 +137,9 @@ auralis-web/
 │   ├── main.py                     App entry point
 │   ├── routers/                    20 registered routers (player, library, albums,
 │   │                                 artists, playlists, enhancement, metadata,
-│   │                                 artwork, system, similarity, streaming...)
+│   │                                 artwork, files, system, settings, cache,
+│   │                                 similarity, library_scan, fingerprint_status,
+│   │                                 fingerprint_queue, processing, health)
 │   ├── core/                       Engine-facing layer. NOT top-level (#4627):
 │   │   ├── processing_engine.py      Audio processing orchestration
 │   │   ├── chunked_processor.py      15s chunks rendered w/ context, emitted as
@@ -161,7 +162,7 @@ auralis-web/
 
 vendor/auralis-dsp/               Rust DSP via PyO3 (25D fingerprint only, #5764)
 desktop/                          Electron wrapper
-tests/                            ~7,300 test functions (706 files) across 18 subdirs (auralis, backend,
+tests/                            ~7,100 test functions (709 files) across 16 subdirs (auralis, backend,
                                     integration, boundaries, concurrency, security, load_stress, regression...)
 docs/                             18 topic dirs (development, features, frontend...)
 ```

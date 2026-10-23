@@ -25,9 +25,19 @@ row (#4685, #4982, #5045) despite two prior manual fixes, because nothing
 re-checked it on a cadence; `.claude/commands/_audit-validate.sh` calls this
 mode on every run so a stale count gets surfaced without gating anything.
 
+The layout counts — registered routers, the auralis/analysis/ file count and
+the tests/ subdirectory count — are the opposite trade-off (#6250): they move
+only on a module split or a new suite, and every one of them has gone stale
+(#4401, #5815, #6250) precisely because nothing asserted them. `--check-docs`
+therefore re-parses every "N registered routers" / "largest module, N files"
+/ "across N subdirs" statement in CLAUDE.md and _audit-common.md and EXITS
+NON-ZERO on any mismatch, which turns the drift into a gate failure at the
+next docs/CI run instead of a re-audit six weeks later.
+
 Usage:
     python scripts/check_doc_counts.py               # print live counts + repo-count check
-    python scripts/check_doc_counts.py --check-docs   # also WARN on stale test counts (exit 0 always)
+    python scripts/check_doc_counts.py --check-docs   # WARN on stale test counts;
+                                                      # FAIL on stale layout counts
 """
 
 import re
@@ -48,6 +58,18 @@ TEST_COUNT_DRIFT_TOLERANCE = 0.10
 TEST_COUNT_LINE_RE = re.compile(r"~?([\d,]+)\s+test functions\s+\(([\d,]+)\s+files\)")
 
 DOCS_WITH_TEST_COUNTS = ["CLAUDE.md", ".claude/commands/_audit-common.md"]
+
+# Layout counts that must match the live tree EXACTLY: every match of these
+# patterns in the two hand-maintained count copies is compared against the
+# live value and a mismatch fails --check-docs (#6250). Two spellings per
+# count because the docs phrase them differently ("largest module, N files"
+# in CLAUDE.md's map, "Analysis: <dir> N files;" in _audit-common.md's table).
+_STRUCTURAL_COUNT_PATTERNS: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"(\d+)\s+registered routers"), "routers"),
+    (re.compile(r"largest module,\s*(\d+)\s+files"), "analysis files"),
+    (re.compile(r"Analysis:\s+\S+\s+(\d+)\s+files;"), "analysis files"),
+    (re.compile(r"across (\d+)(?: tracked)? subdirs"), "tests subdirs"),
+]
 
 
 def count_files(pattern: str, root: str) -> int:
@@ -72,6 +94,12 @@ def count_test_files() -> int:
     tests_dir = PROJECT_ROOT / "tests"
     names = {p for p in tests_dir.rglob("test_*.py")} | {p for p in tests_dir.rglob("*_test.py")}
     return len(names)
+
+
+def count_tests_subdirs() -> int:
+    """Live tests/ subdirectory count (the docs' "across N subdirs")."""
+    tests_dir = PROJECT_ROOT / "tests"
+    return len([p for p in tests_dir.iterdir() if p.is_dir() and p.name != "__pycache__"])
 
 
 def count_docs_topic_dirs() -> int:
@@ -190,6 +218,32 @@ def check_stale_test_counts(live_files: int, live_functions: int) -> list[str]:
     return warnings
 
 
+def check_stale_structural_counts(live_counts: dict[str, int]) -> list[str]:
+    """Flag every stated layout count that diverges from the live tree.
+
+    Unlike the test counts above, these are expected to be exact: they
+    describe repository layout, change only on a module split, and each one
+    has rotted at least once while nothing asserted it (#4401, #5815, #6250).
+    `--check-docs` turns the returned problems into a non-zero exit."""
+    problems = []
+    for doc in DOCS_WITH_TEST_COUNTS:
+        path = PROJECT_ROOT / doc
+        if not path.exists():
+            continue
+        content = path.read_text()
+        for pattern, label in _STRUCTURAL_COUNT_PATTERNS:
+            for match in pattern.finditer(content):
+                stated = int(match.group(1))
+                live = live_counts[label]
+                if stated != live:
+                    line_no = content.count("\n", 0, match.start()) + 1
+                    problems.append(
+                        f"{path.relative_to(PROJECT_ROOT)}:{line_no} says "
+                        f"{stated} {label}, live count is {live}"
+                    )
+    return problems
+
+
 def main() -> None:
     check_docs = "--check-docs" in sys.argv[1:]
 
@@ -234,9 +288,23 @@ def main() -> None:
                 print(f"  WARN: {warning}")
         else:
             print("\nTest-count references in CLAUDE.md/_audit-common.md are current.")
-    # Always exits 0 — this script informs, it never gates (the WARN-level
-    # contract from #5045; the hard STRICT/RATCHET gates live in
-    # _audit-validate.sh's own path-reference checks, not here).
+
+        live_layout = {
+            "routers": counts["Registered routers"],
+            "analysis files": counts["auralis/analysis/ .py files"],
+            "tests subdirs": count_tests_subdirs(),
+        }
+        stale_layout = check_stale_structural_counts(live_layout)
+        if stale_layout:
+            print("\nFAIL: stale layout-count references (must match the live tree exactly):\n")
+            for problem in stale_layout:
+                print(f"  {problem}")
+            sys.exit(1)
+        print("Layout-count references (routers / analysis files / tests subdirs) are exact.")
+
+    # The test-count WARN above never fails (--check-docs is WARN-level for
+    # fast-moving counts, the #5045 contract); only the exact-match layout
+    # counts in #6250's check exit non-zero.
 
 
 if __name__ == "__main__":

@@ -402,7 +402,13 @@ fi
 # only surfaces the drift so it doesn't sit unnoticed for weeks again.
 if command -v python3 >/dev/null 2>&1; then
     echo "=== Doc structural counts (scripts/check_doc_counts.py --check-docs) ==="
-    python3 "$(dirname "${BASH_SOURCE[0]}")/../../scripts/check_doc_counts.py" --check-docs
+    # WARN-level for the fast-moving test counts; HARD-fail for the layout
+    # counts (routers / analysis files / tests subdirs, #6250) — propagate.
+    if ! python3 "$(dirname "${BASH_SOURCE[0]}")/../../scripts/check_doc_counts.py" --check-docs; then
+        echo
+        echo "FAIL (strict): layout counts in CLAUDE.md/_audit-common.md disagree with the live tree."
+        exit 1
+    fi
     echo
 fi
 

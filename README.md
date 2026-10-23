@@ -7,7 +7,7 @@ Simple like iTunes. Smart like a mastering studio. No complicated settings.
 [![License](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows%20%7C%20macOS-lightgrey.svg)]()
 [![Release](https://img.shields.io/badge/next%20release-v1.5.1%20(recovery)-orange.svg)](docs/releases/RELEASE_NOTES_1_5_1.md)
-[![Backend Tests](https://img.shields.io/badge/backend%20tests-~5%2C400-brightgreen.svg)]()
+[![Backend Tests](https://img.shields.io/badge/backend%20tests-ratchet%20gated-blue.svg)]()
 [![Frontend Tests](https://img.shields.io/badge/frontend%20tests-~3%2C500-brightgreen.svg)]()
 [![Python](https://img.shields.io/badge/python-3.14%2B-blue.svg)]()
 [![Node](https://img.shields.io/badge/node-24%2B-blue.svg)]()
