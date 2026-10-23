@@ -65,17 +65,17 @@ def _make_job() -> ProcessingJob:
 def _make_config() -> MagicMock:
     """A config stub whose cache_key is stable.
 
-    ProcessorPool.cache_key() hashes `repr()` of several adaptive attributes, and
-    a bare MagicMock's repr embeds its object id — so two stub configs that are
-    semantically identical would hash differently and every job would get its
-    own cache slot. Pin the hashed attributes to plain values.
+    ProcessorPool.cache_key() hashes `json.dumps(config.to_dict())` (#6193),
+    and a bare MagicMock's to_dict() returns a MagicMock that json.dumps
+    rejects — pin the hashed payload to one plain dict.
     """
     config = MagicMock()
-    config.internal_sample_rate = 44100
-    config.mastering_profile = ""
-    config.adaptive.mode = "adaptive"
-    for attr in ("eq_gains", "compressor", "target_lufs", "gain", "genre_override"):
-        setattr(config.adaptive, attr, None)
+    config.to_dict.return_value = {
+        "internal_sample_rate": 44100,
+        "fft_size": 4096,
+        "processing_mode": "adaptive",
+        "adaptation_strength": 0.7,
+    }
     return config
 
 
@@ -239,7 +239,7 @@ class TestPoolEvictionClosesTheEvicted:
             processor = MagicMock()
             evicted_candidates.append(processor)
             config = _make_config()
-            config.mastering_profile = f"profile-{i}"
+            config.to_dict.return_value["profile"] = f"profile-{i}"
             await pool.return_to_cache("adaptive", config, processor)
 
         assert len(pool.processors) <= 2
@@ -261,7 +261,7 @@ class TestPoolEvictionClosesTheEvicted:
         configs, processors = [], []
         for i in range(3):
             config = _make_config()
-            config.mastering_profile = f"profile-{i}"
+            config.to_dict.return_value["profile"] = f"profile-{i}"
             configs.append(config)
             processors.append(MagicMock())
 

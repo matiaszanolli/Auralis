@@ -13,21 +13,44 @@ if str(_BACKEND) not in sys.path:
     sys.path.insert(0, str(_BACKEND))
 
 from core.processor_pool import ProcessorPool
+from core.processor_cache_key import hash_config
+
+
+def test_cache_key_follows_the_config_content_hash():
+    """#6193: the pool key is `mode|hash_config(config)` — any field of
+    UnifiedConfig.to_dict() changing must derive a new key, and identical
+    configs must share one."""
+    pool = ProcessorPool(create_processor=MagicMock())
+
+    base = {"internal_sample_rate": 44100, "fft_size": 4096, "processing_mode": "adaptive"}
+    first = SimpleNamespace(to_dict=lambda: dict(base))
+    faster_decay = dict(base, adaptation_strength=0.9)
+    second = SimpleNamespace(to_dict=lambda: faster_decay)
+
+    assert pool.cache_key("adaptive", first) == pool.cache_key("adaptive", first)
+    assert pool.cache_key("adaptive", first) != pool.cache_key("adaptive", second)
+    assert pool.cache_key("adaptive", first) != pool.cache_key("hybrid", first)
+
+
+def test_cache_key_matches_the_processor_factory_scheme():
+    """#6193: one key scheme — the pool must embed the same content hash
+    ProcessorFactory's hash_config derives, not a second hand-picked list."""
+    pool = ProcessorPool(create_processor=MagicMock())
+    config = SimpleNamespace(to_dict=lambda: {"internal_sample_rate": 44100})
+
+    assert pool.cache_key("adaptive", config) == f"adaptive|{hash_config(config)}"
 
 
 def _config(profile: str) -> SimpleNamespace:
-    adaptive = SimpleNamespace(
-        mode="adaptive",
-        eq_gains=None,
-        compressor=None,
-        target_lufs=None,
-        gain=None,
-        genre_override=None,
-    )
+    adaptive = SimpleNamespace(mode="adaptive")
     return SimpleNamespace(
         internal_sample_rate=44_100,
         mastering_profile=profile,
         adaptive=adaptive,
+        # ProcessorPool.cache_key hashes UnifiedConfig.to_dict() (#6193); the
+        # stub carries the distinguishing field there so two profiles still
+        # derive different keys.
+        to_dict=lambda: {"processing_mode": "adaptive", "profile": profile},
     )
 
 

@@ -15,12 +15,13 @@ pop-on-acquire / return-after-use lifecycle are unchanged (preserves #2218,
 """
 
 import asyncio
-import hashlib
 import logging
 from collections.abc import Awaitable, Callable
 
 from auralis.core.config import UnifiedConfig
 from auralis.core.hybrid_processor import HybridProcessor
+
+from .processor_cache_key import hash_config
 
 logger = logging.getLogger(__name__)
 
@@ -49,32 +50,15 @@ class ProcessorPool:
         """
         Generate a cache key for processor instance caching.
 
-        Processors can be reused across jobs if they have identical processing
-        mode and key configuration parameters (sample rate, EQ target, dynamics
-        params). This avoids expensive reinitialization for repeated configs.
+        `f"{mode}|{hash_config(config)}"` — the same content-hash scheme the
+        streaming ProcessorFactory uses, so a change to any field of
+        `UnifiedConfig.to_dict()` (sample rate, FFT size, adaptation strength,
+        chunk/latency budgets, ...) derives a new key instead of silently
+        reusing a processor built for a different value. The previous key
+        hand-picked five AdaptiveConfig attributes that #5302 removed and
+        covered none of the fields `to_dict()` carries (#6193).
         """
-        # Include mode, sample rate, adaptive mode, and an explicit set of
-        # the actually-relevant settings (#2218 + fixes #3528 / BE-NEW-70).
-        # Prior code hashed `vars(config)`; the @dataclass __repr__ on
-        # AdaptiveConfig only covers declared fields, so dynamically-attached
-        # attributes (eq_gains, compressor, target_lufs, gain, genre_override)
-        # were silently excluded from the hash and two jobs with different
-        # EQ settings produced identical cache keys. Also: `processing_mode`
-        # is not a UnifiedConfig attribute — that slot collapsed to
-        # 'unknown' for every key. Switched to config.adaptive.mode.
-        adaptive = getattr(config, "adaptive", None)
-        key_parts: list[str] = [
-            mode,
-            str(config.internal_sample_rate),
-            getattr(adaptive, "mode", "unknown") if adaptive else "unknown",
-            getattr(config, "mastering_profile", ""),
-            repr(getattr(adaptive, "eq_gains", None)) if adaptive else "",
-            repr(getattr(adaptive, "compressor", None)) if adaptive else "",
-            repr(getattr(adaptive, "target_lufs", None)) if adaptive else "",
-            repr(getattr(adaptive, "gain", None)) if adaptive else "",
-            repr(getattr(adaptive, "genre_override", None)) if adaptive else "",
-        ]
-        return hashlib.md5("|".join(key_parts).encode()).hexdigest()
+        return f"{mode}|{hash_config(config)}"
 
     async def get_or_create(self, mode: str, config: UnifiedConfig) -> HybridProcessor:
         """

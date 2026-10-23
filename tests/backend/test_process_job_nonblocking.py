@@ -32,11 +32,15 @@ def _make_engine() -> ProcessingEngine:
 
 
 def _make_config() -> MagicMock:
-    """A config stub whose fields survive ProcessorPool.cache_key()'s join()."""
+    """A config stub whose to_dict() payload survives the pool cache-key hash
+    (ProcessorPool.cache_key hashes json.dumps(config.to_dict()), #6193)."""
     config = MagicMock()
-    config.internal_sample_rate = 44100
-    config.mastering_profile = ""
-    config.adaptive.mode = "adaptive"
+    config.to_dict.return_value = {
+        "internal_sample_rate": 44100,
+        "fft_size": 4096,
+        "processing_mode": "adaptive",
+        "adaptation_strength": 0.7,
+    }
     return config
 
 
