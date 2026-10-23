@@ -28,7 +28,7 @@ class TestRemoveIfIndexMatchesCurrent:
     def setup_method(self) -> None:
         self.qm = QueueManager()
         self.qm.add_tracks([_make_track(i) for i in range(5)])
-        self.qm.set_track_by_index(2)
+        self.qm.current_index = 2
 
     def test_removing_the_current_track_reports_was_current_true(self) -> None:
         removed, was_current = self.qm.remove_if_index_matches_current(2)

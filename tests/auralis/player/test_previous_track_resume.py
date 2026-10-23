@@ -2,7 +2,7 @@
 Regression tests: previous_track() resumes playback (#3712, test debt #3736)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-`previous_track()` used `not self.playback.is_stopped()` as its "was the user
+`previous_track()` used a not-stopped state read as its "was the user
 playing?" signal. `load_file()` calls `playback.load_and_stop()`, which
 unconditionally writes state=STOPPED, so that guard was *always* False by the
 time it was evaluated — `play()` was unreachable and every previous-track press
@@ -106,10 +106,10 @@ class TestPreviousTrackResumesPlayback:
         assert player.playback.state is PlaybackState.STOPPED
 
     def test_load_and_stop_ran_before_the_resume_decision(self):
-        """Guard against re-introducing the is_stopped() guard.
+        """Guard against re-introducing a state-read "was playing" guard.
 
         load_file() drives the controller through STOPPED, so any future
-        implementation that reads is_stopped() as the "was playing" signal
+        implementation that reads the playback state as the "was playing" signal
         would see True here and skip the resume. Asserting the STOPPED
         transition really happened keeps that from silently passing.
         """
@@ -177,7 +177,7 @@ class TestConcurrentStopDuringPrevious:
 class TestConcurrentPauseDuringPrevious:
     """#5240: a pause() landing between the guard and play() must still win.
 
-    Mirrors TestConcurrentStopDuringPrevious — pause() has no is_stopped()-style
+    Mirrors TestConcurrentStopDuringPrevious — pause() has no state-read
     state to misread, but it has the identical timing bug: `was_playing` is
     captured before the blocking `load_file()` call, and the resume that
     follows used to be unconditional once `was_playing` was True, silently

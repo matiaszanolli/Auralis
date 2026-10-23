@@ -301,11 +301,6 @@ class PlaybackController:
         with self._lock:
             return self.state == PlaybackState.PLAYING
 
-    def is_stopped(self) -> bool:
-        """Check if stopped"""
-        with self._lock:
-            return self.state == PlaybackState.STOPPED
-
     def is_paused(self) -> bool:
         """Check if paused"""
         with self._lock:

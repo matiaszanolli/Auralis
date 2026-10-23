@@ -194,16 +194,12 @@ class QueueController(QueueLockedStateMixin, QueueLoadingMixin):
         self._notify_changed()
         info(f"Repeat {'enabled' if enabled else 'disabled'}")
 
-    def is_queue_empty(self) -> bool:
-        """Check if queue is empty"""
-        return self.queue.get_queue_size() == 0
-
     def has_next_track(self) -> bool:
         """#3692: True iff a subsequent peek_next_track() would return a
-        track. Used to gate the auto-advance thread spawn — `is_queue_empty()`
-        returns False at end-of-queue if the current (last) track is still
-        in the queue, so it can't tell us whether there's anything to
-        advance TO."""
+        track. Used to gate the auto-advance thread spawn — an
+        "is the queue empty" test returns False at end-of-queue if the
+        current (last) track is still in the queue, so it can't tell us
+        whether there's anything to advance TO."""
         return self.queue.peek_next() is not None
 
     def get_track_count(self) -> int:

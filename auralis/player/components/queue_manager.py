@@ -138,27 +138,6 @@ class QueueManager(QueueNavigationMixin, ShuffleMixin):
             removed = self._remove_track_unlocked(index)
             return removed, was_current
 
-    def remove_tracks(self, indices: list[int]) -> int:
-        """
-        Remove multiple tracks at specified indices
-
-        Args:
-            indices: List of track indices to remove
-
-        Returns:
-            Number of tracks actually removed
-        """
-        with self._lock:
-            # Sort indices in reverse order to avoid index shifting issues
-            sorted_indices = sorted(set(indices), reverse=True)
-            removed_count = 0
-
-            for index in sorted_indices:
-                if self._remove_track_unlocked(index):
-                    removed_count += 1
-
-            return removed_count
-
     def reorder_tracks(self, new_order: list[int]) -> bool:
         """
         Reorder tracks according to new index order

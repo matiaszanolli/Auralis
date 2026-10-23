@@ -31,7 +31,7 @@ class TestAdvanceIfNextMatches:
     def setup_method(self) -> None:
         self.qm = QueueManager()
         self.qm.add_tracks([_make_track(i) for i in range(5)])
-        self.qm.set_track_by_index(0)
+        self.qm.current_index = 0
 
     def test_advances_when_next_slot_matches(self) -> None:
         expected = self.qm.peek_next()
@@ -85,7 +85,7 @@ class TestAdvanceIfNextMatches:
             {"title": "a", "file_path": "/a.flac"},
             {"title": "b", "file_path": "/b.flac"},
         ])
-        qm.set_track_by_index(0)
+        qm.current_index = 0
         expected = qm.peek_next()
         assert expected is not None
 
@@ -98,7 +98,7 @@ class TestAdvanceIfNextMatches:
     def test_repeat_mode_wraps_when_matching(self) -> None:
         # At the end of the queue with repeat enabled, peek_next() returns
         # tracks[0]; advance_if_next_matches() must wrap to 0 as well.
-        self.qm.set_track_by_index(4)
+        self.qm.current_index = 4
         self.qm.repeat_enabled = True
         expected = self.qm.peek_next()
         assert expected is not None
@@ -111,7 +111,7 @@ class TestAdvanceIfNextMatches:
         assert self.qm.current_index == 0
 
     def test_no_advance_at_end_without_repeat(self) -> None:
-        self.qm.set_track_by_index(4)
+        self.qm.current_index = 4
         # Caller peeks first — peek_next() correctly returns None.
         expected = self.qm.peek_next()
         assert expected is None

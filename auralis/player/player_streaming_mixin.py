@@ -97,8 +97,8 @@ class PlayerStreamingMixin:
             end_of_track = pos + chunk_size >= total_samples
 
             if end_of_track:
-                # #3692: gate on has_next_track() instead of
-                # is_queue_empty(). is_queue_empty() returns False for
+                # #3692: gate on has_next_track() instead of an
+                # "is the queue empty" test, which returns False for
                 # "1 track in queue already playing" — we'd spawn
                 # auto-advance threads at ~21 Hz against a phantom next
                 # track. has_next_track() returns True only when

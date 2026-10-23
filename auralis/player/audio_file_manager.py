@@ -200,11 +200,6 @@ class AudioFileManager:
         with self._audio_lock:
             return self.audio_data is not None
 
-    def has_reference(self) -> bool:
-        """Check if reference audio is loaded"""
-        with self._audio_lock:
-            return self.reference_data is not None
-
     def clear_audio(self) -> None:
         """Clear loaded audio data"""
         with self._audio_lock:

@@ -69,7 +69,7 @@ def test_concurrent_end_of_track_only_spawns_one_advance(
         "id": 2,
         "duration": 0.1,
     })
-    assert not player.queue.is_queue_empty()
+    assert player.queue.get_track_count() > 0
 
     # Force the player into a state where end_of_track will fire on the next
     # get_audio_chunk: mark playing and seek to near end.

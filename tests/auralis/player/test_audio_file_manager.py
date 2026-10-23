@@ -39,7 +39,7 @@ class TestAudioFileManagerInitialization:
         assert manager.reference_data is None
         assert manager.reference_file is None
         assert not manager.is_loaded()
-        assert not manager.has_reference()
+        assert manager.reference_data is None
 
     def test_custom_sample_rate(self):
         """Test initialization with custom sample rate."""
@@ -230,7 +230,7 @@ class TestReferenceFileLoading:
         result = manager.load_reference(reference_files['valid'])
 
         assert result is not None
-        assert manager.has_reference()
+        assert manager.reference_data is not None
         assert manager.reference_file == reference_files['valid']
         assert manager.reference_data is not None
 
@@ -241,7 +241,7 @@ class TestReferenceFileLoading:
         result = manager.load_reference("/nonexistent/reference.wav")
 
         assert result is None
-        assert not manager.has_reference()
+        assert manager.reference_data is None
         assert manager.reference_data is None
         assert manager.reference_file is None
 
@@ -252,7 +252,7 @@ class TestReferenceFileLoading:
         result = manager.load_reference(reference_files['corrupt'])
 
         assert result is None
-        assert not manager.has_reference()
+        assert manager.reference_data is None
 
     def test_reference_independent_from_target(self, tmp_path):
         """Test that reference and target audio are managed independently."""
@@ -278,7 +278,7 @@ class TestReferenceFileLoading:
         manager.load_reference(str(ref_path))
 
         assert manager.is_loaded()
-        assert manager.has_reference()
+        assert manager.reference_data is not None
         assert manager.current_file == str(target_path)
         assert manager.reference_file == str(ref_path)
         # They should be different data
@@ -553,8 +553,8 @@ class TestStateManagement:
         manager.clear_audio()
         assert not manager.is_loaded()
 
-    def test_has_reference_state_transitions(self, tmp_path):
-        """Test has_reference() state transitions."""
+    def test_reference_state_transitions(self, tmp_path):
+        """Reference-loaded state transitions through load/clear."""
         sample_rate = 44100
         duration = 0.5
         samples = int(sample_rate * duration)
@@ -567,15 +567,15 @@ class TestStateManagement:
         manager = AudioFileManager()
 
         # Initially no reference
-        assert not manager.has_reference()
+        assert manager.reference_data is None
 
         # After loading reference
         manager.load_reference(str(path))
-        assert manager.has_reference()
+        assert manager.reference_data is not None
 
         # After clearing
         manager.clear_reference()
-        assert not manager.has_reference()
+        assert manager.reference_data is None
 
 
 class TestClearMethods:
@@ -617,7 +617,6 @@ class TestClearMethods:
         # Reference should remain
         assert loaded_manager.reference_data is not None
         assert loaded_manager.reference_file is not None
-        assert loaded_manager.has_reference()
 
     def test_clear_reference(self, loaded_manager):
         """Test clear_reference() clears only reference audio."""
@@ -626,7 +625,7 @@ class TestClearMethods:
         # Reference should be cleared
         assert loaded_manager.reference_data is None
         assert loaded_manager.reference_file is None
-        assert not loaded_manager.has_reference()
+        assert loaded_manager.reference_data is None
 
         # Target should remain
         assert loaded_manager.audio_data is not None
@@ -644,7 +643,7 @@ class TestClearMethods:
 
         assert loaded_manager.reference_data is None
         assert loaded_manager.reference_file is None
-        assert not loaded_manager.has_reference()
+        assert loaded_manager.reference_data is None
 
     def test_clear_when_already_empty(self):
         """Test clearing when nothing is loaded doesn't error."""
@@ -656,7 +655,7 @@ class TestClearMethods:
         manager.clear_all()
 
         assert not manager.is_loaded()
-        assert not manager.has_reference()
+        assert manager.reference_data is None
 
     def test_state_after_clear_audio(self, loaded_manager):
         """Test that helper methods return correct values after clearing."""

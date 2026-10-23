@@ -37,7 +37,7 @@ def _make_track(track_id: int) -> dict:
 
 def _populate(qm: QueueManager, n: int = INITIAL_QUEUE_SIZE) -> None:
     qm.add_tracks([_make_track(i) for i in range(n)])
-    qm.set_track_by_index(0)
+    qm.current_index = 0
 
 
 # ---------------------------------------------------------------------------
@@ -175,7 +175,7 @@ class TestConcurrentMixedOps:
     def test_concurrent_shuffle_and_remove(self):
         qm = QueueManager()
         _populate(qm, n=30)
-        qm.set_track_by_index(5)
+        qm.current_index = 5
 
         errors: list[Exception] = []
 
@@ -261,45 +261,6 @@ class TestConcurrentMixedOps:
         t1.join(timeout=10); t2.join(timeout=10)
 
         assert errors == [], f"clear/next race: {errors}"
-
-    def test_remove_tracks_batch_is_atomic(self):
-        """remove_tracks() holds the lock for the full batch, not per-item."""
-        qm = QueueManager()
-        _populate(qm, n=20)
-
-        errors: list[Exception] = []
-
-        def batch_remover():
-            for _ in range(100):
-                try:
-                    size = qm.get_queue_size()
-                    if size >= 3:
-                        indices = random.sample(range(size), 3)
-                        qm.remove_tracks(indices)
-                except Exception as exc:
-                    errors.append(exc)
-
-        def adder():
-            for i in range(300):
-                try:
-                    qm.add_track(_make_track(100 + i))
-                except Exception as exc:
-                    errors.append(exc)
-
-        t1 = threading.Thread(target=batch_remover, daemon=True)
-        t2 = threading.Thread(target=adder, daemon=True)
-        t1.start(); t2.start()
-        t1.join(timeout=10); t2.join(timeout=10)
-
-        assert errors == [], f"remove_tracks/add race: {errors}"
-
-
-# ---------------------------------------------------------------------------
-# State invariant checks
-# ---------------------------------------------------------------------------
-
-class TestStateInvariants:
-    """current_index must always be valid after concurrent operations."""
 
     def test_current_index_always_valid_after_concurrent_ops(self):
         qm = QueueManager()

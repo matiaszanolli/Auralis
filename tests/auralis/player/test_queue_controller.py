@@ -9,7 +9,7 @@ Covers all public methods:
 - reorder_tracks (valid / invalid orders, current-index tracking)
 - remove_track (index adjustment)
 - set_queue / add_track / add_tracks / clear
-- get_queue_info / get_track_count / is_queue_empty
+- get_queue_info / get_track_count
 - peek_next_track
 - Library-backed methods: add_track_from_library, load_playlist
 """
@@ -54,7 +54,7 @@ def _loaded_controller(n: int = 3) -> QueueController:
 class TestConstructor:
     def test_queue_starts_empty(self):
         ctrl, _ = _make_controller()
-        assert ctrl.is_queue_empty()
+        assert ctrl.get_track_count() == 0
 
     def test_current_index_starts_at_minus_one(self):
         ctrl, _ = _make_controller()
@@ -438,7 +438,7 @@ class TestClear:
     def test_clear_queue_empties_tracks(self):
         ctrl = _loaded_controller(5)
         ctrl.clear_queue()
-        assert ctrl.is_queue_empty()
+        assert ctrl.get_track_count() == 0
 
     def test_clear_resets_current_index(self):
         ctrl = _loaded_controller(3)
@@ -448,22 +448,22 @@ class TestClear:
     def test_clear_queue_works(self):
         ctrl = _loaded_controller(3)
         ctrl.clear_queue()
-        assert ctrl.is_queue_empty()
+        assert ctrl.get_track_count() == 0
 
 
 # ---------------------------------------------------------------------------
-# get_queue_info / is_queue_empty / get_track_count / get_queue_size
+# get_queue_info / get_track_count / get_queue_size
 # ---------------------------------------------------------------------------
 
 class TestQueueInfo:
-    def test_is_queue_empty_true_on_new_controller(self):
+    def test_queue_empty_on_new_controller(self):
         ctrl, _ = _make_controller()
-        assert ctrl.is_queue_empty() is True
+        assert ctrl.get_track_count() == 0
 
-    def test_is_queue_empty_false_after_add(self):
+    def test_queue_not_empty_after_add(self):
         ctrl, _ = _make_controller()
         ctrl.add_track(_track(1))
-        assert ctrl.is_queue_empty() is False
+        assert ctrl.get_track_count() == 1
 
     def test_get_track_count_matches_added(self):
         ctrl = _loaded_controller(4)
@@ -545,7 +545,7 @@ class TestAddTrackFromLibrary:
         result = ctrl.add_track_from_library(999)
 
         assert result is False
-        assert ctrl.is_queue_empty()
+        assert ctrl.get_track_count() == 0
 
     def test_returns_false_on_repo_exception(self):
         ctrl, factory = _make_controller()

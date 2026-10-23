@@ -167,19 +167,3 @@ class QueueNavigationMixin:
                 return False
             self.current_index = max(-1, min(saved_index, len(self.tracks) - 1))
             return True
-
-    def set_track_by_index(self, index: int) -> dict[str, Any] | None:
-        """
-        Set current track by index (jump to track in queue)
-
-        Args:
-            index: Index of track to play
-
-        Returns:
-            Track info if valid index, None otherwise
-        """
-        with self._lock:
-            if 0 <= index < len(self.tracks):
-                self.current_index = index
-                return self._get_current_track_unlocked()
-            return None

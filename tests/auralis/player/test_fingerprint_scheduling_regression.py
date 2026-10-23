@@ -71,7 +71,6 @@ class TestFingerprintScheduling:
              patch.object(player.integration, "record_track_completion"), \
              patch.object(player.playback, "seek"), \
              patch.object(player.playback, "is_playing", return_value=False), \
-             patch.object(player.playback, "is_stopped", return_value=True), \
              patch.object(player.file_manager, "get_total_samples", return_value=0):
             assert player.next_track() is True
         schedule.assert_called_once_with("/queue/track_B.flac")

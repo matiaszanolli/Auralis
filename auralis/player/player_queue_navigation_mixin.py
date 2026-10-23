@@ -126,9 +126,10 @@ class PlayerQueueNavigationMixin:
         # #3712: use `_stop_requested.is_set()` for the cancellation
         # check — identical pattern to previous_track() so the two
         # paths cannot drift. Today the gapless path is safe because
-        # it doesn't call load_and_stop (so `is_stopped()` would also
-        # be False), but a future refactor that adds a stop+load
-        # could re-introduce the previous_track regression here too.
+        # it doesn't call load_and_stop (so any state-based stopped
+        # check would also be False), but a future refactor that adds
+        # a stop+load could re-introduce the previous_track regression
+        # here too.
         # #4126: double-check after play() — stop() sets _stop_requested
         # without holding _audio_lock, so a concurrent stop() may have
         # won the race between the first check and the play() call.
@@ -168,9 +169,9 @@ class PlayerQueueNavigationMixin:
             file_path = prev_track.get('file_path') or prev_track.get('path')
             if file_path and self.load_file(file_path):
                 # #3712: use `_stop_requested.is_set()` as the cancellation
-                # signal instead of `is_stopped()`. `load_file()` calls
+                # signal instead of a state read. `load_file()` calls
                 # `playback.load_and_stop()` which unconditionally writes
-                # state=STOPPED, so the previous `not is_stopped()` guard
+                # state=STOPPED, so the previous not-stopped guard
                 # was always False after the load — `play()` was unreachable
                 # and every previous-track press silently halted playback
                 # (regression of #2684). `_stop_requested` is the explicit

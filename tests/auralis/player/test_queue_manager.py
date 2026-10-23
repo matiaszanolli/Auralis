@@ -30,7 +30,6 @@ def _queue(n: int) -> QueueManager:
         pytest.param(lambda q: q.insert_track(1, _track(99)), id="insert_track"),
         pytest.param(lambda q: q.add_tracks([_track(98), _track(99)]), id="add_tracks"),
         pytest.param(lambda q: q.remove_track(0), id="remove_track"),
-        pytest.param(lambda q: q.remove_tracks([0, 1]), id="remove_tracks"),
         pytest.param(lambda q: q.reorder_tracks(list(reversed(range(4)))), id="reorder_tracks"),
         pytest.param(lambda q: q.move_track(0, 3), id="move_track"),
         pytest.param(lambda q: q.clear(), id="clear"),

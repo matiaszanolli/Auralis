@@ -215,7 +215,7 @@ class TestPlaybackControllerStateTransitions:
 
     def test_stopped_to_playing(self):
         controller = PlaybackController()
-        assert controller.is_stopped()
+        assert controller.get_state_snapshot()[0] == "stopped"
         assert controller.play()
         assert controller.is_playing()
 
@@ -243,12 +243,12 @@ class TestPlaybackControllerStateTransitions:
     def test_pause_from_stopped_is_noop(self):
         controller = PlaybackController()
         assert not controller.pause()
-        assert controller.is_stopped()
+        assert controller.get_state_snapshot()[0] == "stopped"
 
     def test_stop_from_stopped_is_noop(self):
         controller = PlaybackController()
         assert not controller.stop()
-        assert controller.is_stopped()
+        assert controller.get_state_snapshot()[0] == "stopped"
 
     def test_load_and_stop_resets_position_when_already_stopped(self):
         """A stopped seek must not leak its position into the next load (#4945)."""
@@ -259,7 +259,7 @@ class TestPlaybackControllerStateTransitions:
 
         assert controller.position == 10_000
         assert controller.load_and_stop() is False
-        assert controller.is_stopped()
+        assert controller.get_state_snapshot()[0] == "stopped"
         assert controller.position == 0
         assert observed == []
 
