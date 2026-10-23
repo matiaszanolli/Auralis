@@ -37,11 +37,11 @@ def test_crest_history_does_not_bleed_across_tracks():
     qm = QualityMetrics(sample_rate=SR)
 
     qm.assess_quality(_high_crest_track())
-    hist_a = qm.dynamic_range_analyzer.get_crest_factor_history()
+    hist_a = list(qm.dynamic_range_analyzer.crest_history)
     assert len(hist_a) == 1  # one analyze call per assess_quality
 
     qm.assess_quality(_low_crest_track())
-    hist_b = qm.dynamic_range_analyzer.get_crest_factor_history()
+    hist_b = qm.dynamic_range_analyzer.crest_history
 
     # Reset ⇒ only track B's crest remains. Without the reset this would be 2
     # ([crestA, crestB]) and would keep growing per track.
@@ -53,10 +53,10 @@ def test_correlation_history_does_not_bleed_across_tracks():
     qm = QualityMetrics(sample_rate=SR)
 
     qm.assess_quality(_high_crest_track())
-    len_a = len(qm.phase_analyzer.get_correlation_history())
+    len_a = len(qm.phase_analyzer.correlation_history)
 
     qm.assess_quality(_low_crest_track())
-    len_b = len(qm.phase_analyzer.get_correlation_history())
+    len_b = len(qm.phase_analyzer.correlation_history)
 
     # History length after track B must not exceed its length after track A
     # (it is reset, not accumulated across tracks).
@@ -179,8 +179,8 @@ def test_compare_quality_is_symmetric():
     "attr,probe",
     [
         ("spectrum_analyzer", lambda a: a.smoothing_buffer is None),
-        ("phase_analyzer", lambda a: len(a.get_correlation_history()) == 0),
-        ("dynamic_range_analyzer", lambda a: len(a.get_crest_factor_history()) == 0),
+        ("phase_analyzer", lambda a: len(a.correlation_history) == 0),
+        ("dynamic_range_analyzer", lambda a: len(a.crest_history) == 0),
     ],
 )
 def test_every_stateful_analyzer_is_reset(attr, probe):

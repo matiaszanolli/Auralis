@@ -234,52 +234,6 @@ class FingerprintExtractor:
             },
         })
 
-    def extract_batch(self, track_ids_paths: list[tuple[int, str]], max_failures: int = 10) -> dict[str, int]:
-        """
-        Extract fingerprints for multiple tracks in batch
-
-        Args:
-            track_ids_paths: List of (track_id, filepath) tuples
-            max_failures: Maximum consecutive failures before stopping
-
-        Returns:
-            Dictionary with counts: {'success': N, 'failed': M, 'skipped': K, 'cached': L}
-        """
-        stats = {'success': 0, 'failed': 0, 'skipped': 0, 'cached': 0}
-        consecutive_failures = 0
-
-        for track_id, filepath in track_ids_paths:
-            # Check if fingerprint already exists in database
-            if self.fingerprint_repo.exists(track_id):
-                debug(f"Fingerprint already exists for track {track_id}, skipping")
-                stats['skipped'] += 1
-                continue
-
-            # Check if .25d sidecar file exists (for stats)
-            has_sidecar = False
-            if self.use_sidecar_files and self.sidecar_manager:
-                has_sidecar = self.sidecar_manager.is_valid(Path(filepath))
-
-            # Extract and store
-            success = self.extract_and_store(track_id, filepath)
-
-            if success:
-                stats['success'] += 1
-                if has_sidecar:
-                    stats['cached'] += 1
-                consecutive_failures = 0
-            else:
-                stats['failed'] += 1
-                consecutive_failures += 1
-
-                # Stop if too many consecutive failures
-                if consecutive_failures >= max_failures:
-                    warning(f"Too many consecutive failures ({max_failures}), stopping batch extraction")
-                    break
-
-        info(f"Batch fingerprint extraction complete: {stats}")
-        return stats
-
     def get_fingerprint(self, track_id: int) -> dict[str, Any] | None:
         """
         Get fingerprint for a track

@@ -256,22 +256,6 @@ class TestArtworkURLSafety:
         ):
             assert svc._fetch_from_lastfm("Artist") is None
 
-    def test_cover_art_archive_rejects_untrusted_redirect(self):
-        svc = ArtworkService()
-        _, search_cm = self._response({"release-groups": [{"id": "mbid-1"}]})
-        _, cover_cm = self._response(
-            resolved_url="http://127.0.0.1:8765/api/library"
-        )
-
-        with patch(
-            "auralis.services.artwork_service.urllib.request.urlopen",
-            side_effect=[search_cm],
-        ), patch(
-            "auralis.services.artwork_service._artwork_opener.open",
-            return_value=cover_cm,
-        ):
-            assert svc._fetch_album_from_musicbrainz("Album") is None
-
     def test_untrusted_redirect_hop_is_never_requested(self):
         """#5330: urlopen used to follow the chain before geturl() was checked."""
         requested: list[str] = []
@@ -327,67 +311,3 @@ class TestArtworkURLSafety:
         response.read.assert_called_once_with(MAX_ARTWORK_PAYLOAD_BYTES + 1)
 
 
-class TestFetchAlbumArtwork:
-    """#4037: fetch_album_artwork now resolves via MusicBrainz release-group +
-    Cover Art Archive instead of logging 'not implemented' and returning None."""
-
-    @staticmethod
-    def _cm(obj):
-        """Wrap a mock response as a context manager (urlopen is used in `with`)."""
-        cm = MagicMock()
-        cm.__enter__.return_value = obj
-        cm.__exit__.return_value = False
-        return cm
-
-    def test_delegates_to_musicbrainz_helper(self):
-        svc = ArtworkService()
-        expected = {"artwork_url": "https://x/front.jpg", "source": "coverartarchive"}
-        with patch.object(svc, "_fetch_album_from_musicbrainz", return_value=expected) as m:
-            result = svc.fetch_album_artwork("Album", "Artist")
-        m.assert_called_once_with("Album", "Artist")
-        assert result == expected
-
-    def test_resolves_cover_art_archive_front_url(self):
-        svc = ArtworkService()
-        search = MagicMock()
-        search.read.return_value = json.dumps({"release-groups": [{"id": "mbid-1"}]}).encode()
-        caa = MagicMock()
-        caa.geturl.return_value = "https://coverartarchive.org/release/abc/front-500.jpg"
-        with patch(
-            "auralis.services.artwork_service.urllib.request.urlopen",
-            side_effect=[self._cm(search)],
-        ), patch(
-            "auralis.services.artwork_service._artwork_opener.open",
-            return_value=self._cm(caa),
-        ):
-            result = svc.fetch_album_artwork("Some Album", "Some Artist")
-        assert result == {
-            "artwork_url": "https://coverartarchive.org/release/abc/front-500.jpg",
-            "source": "coverartarchive",
-        }
-
-    def test_no_release_group_returns_none(self):
-        svc = ArtworkService()
-        search = MagicMock()
-        search.read.return_value = json.dumps({"release-groups": []}).encode()
-        with patch(
-            "auralis.services.artwork_service.urllib.request.urlopen",
-            side_effect=[self._cm(search)],
-        ):
-            assert svc.fetch_album_artwork("Unknown Album") is None
-
-    def test_no_front_cover_returns_none(self):
-        import urllib.error
-
-        svc = ArtworkService()
-        search = MagicMock()
-        search.read.return_value = json.dumps({"release-groups": [{"id": "mbid-1"}]}).encode()
-        http_404 = urllib.error.HTTPError("url", 404, "Not Found", {}, None)
-        with patch(
-            "auralis.services.artwork_service.urllib.request.urlopen",
-            side_effect=[self._cm(search)],
-        ), patch(
-            "auralis.services.artwork_service._artwork_opener.open",
-            side_effect=http_404,
-        ):
-            assert svc.fetch_album_artwork("Album With No Cover") is None

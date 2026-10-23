@@ -263,10 +263,6 @@ class PhaseCorrelationAnalyzer:
             'coherence_spectrum': coherence.tolist()
         }
 
-    def get_correlation_history(self) -> list[float]:
-        """Get correlation history for temporal visualization"""
-        return self.correlation_history.copy()
-
     def reset_history(self) -> None:
         """Reset correlation history"""
         self.correlation_history.clear()

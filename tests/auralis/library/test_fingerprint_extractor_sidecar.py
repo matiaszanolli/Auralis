@@ -298,34 +298,6 @@ def test_incomplete_fingerprint_not_used(mock_compute, extractor_with_sidecar, t
 
 # ===== Batch Extraction Tests =====
 
-@patch(_COMPUTE)
-def test_batch_extraction_cache_statistics(mock_compute, extractor_with_sidecar, tmp_path, sample_fingerprint):
-    """Test batch extraction tracks cache hit statistics"""
-    # Create 3 files: 2 with cache, 1 without
-    files = [tmp_path / f"track{i}.flac" for i in range(3)]
-    for f in files:
-        f.write_text("audio data")
-
-    sidecar_data = {'fingerprint': sample_fingerprint, 'metadata': {}}
-    for f in files[:2]:
-        extractor_with_sidecar.sidecar_manager.write(f, sidecar_data)
-
-    mock_compute.return_value = sample_fingerprint
-
-    track_ids_paths = [(i + 1, str(f)) for i, f in enumerate(files)]
-
-    stats = extractor_with_sidecar.extract_batch(track_ids_paths)
-
-    assert stats['success'] == 3
-    assert stats['failed'] == 0
-    assert stats['skipped'] == 0
-    # 2 cached, 1 analyzed
-    assert stats['cached'] == 2
-
-    # Audio should only be analysed once (for the uncached file)
-    assert mock_compute.call_count == 1
-
-
 # ===== Error Handling Tests =====
 
 def test_nonexistent_audio_file_fails_gracefully(extractor_with_sidecar, tmp_path):

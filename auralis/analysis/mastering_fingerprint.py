@@ -145,7 +145,7 @@ class MasteringFingerprint:
             # these are single-element arrays, so the reference IS the value and
             # `amplitude_to_db(x, ref=x)` is identically 0.0. Every track came out
             # with loudness/peak/crest of exactly 0.0, which is also why
-            # `classify_quality()` could never reach its premium/professional/
+            # the quality arms could never reach their premium/professional/
             # commercial arms. Full scale is the correct reference here: the
             # fields are documented as dBFS.
             rms = np.sqrt(np.mean(mono ** 2))
@@ -206,34 +206,3 @@ class MasteringFingerprint:
             'spread_change_hz': other.spectral_spread - self.spectral_spread,
         }
 
-    def classify_quality(self) -> str:
-        """
-        Classify the audio quality based on metrics.
-
-        Returns:
-            One of: "premium", "professional", "commercial", "damaged", "poor"
-        """
-        # Premium: Very quiet, high crest, clean, balanced tone
-        if (self.loudness_dbfs < -18 and
-            self.crest_db > 16 and
-            self.zero_crossing_rate < 0.08):
-            return "premium"
-
-        # Professional: Quiet, good crest, clean
-        elif (self.loudness_dbfs < -16 and
-              self.crest_db > 14 and
-              self.zero_crossing_rate < 0.09):
-            return "professional"
-
-        # Commercial: Moderate loudness, reasonable dynamics
-        elif (-14 >= self.loudness_dbfs >= -16 and
-              self.crest_db > 12):
-            return "commercial"
-
-        # Damaged: Very noisy or over-compressed
-        elif (self.zero_crossing_rate > 0.095 or
-              (self.crest_db < 10 and self.loudness_dbfs > -14)):
-            return "damaged"
-
-        else:
-            return "professional"

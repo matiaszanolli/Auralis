@@ -142,29 +142,3 @@ class TestFingerprintCarriesInformation:
 
         assert loud is not None and quiet is not None
         assert loud.crest_db == pytest.approx(quiet.crest_db, abs=0.1)
-
-
-class TestQualityClassificationIsReachable:
-    def test_a_quiet_dynamic_file_is_no_longer_forced_into_the_bad_arms(self, tmp_path):
-        """`classify_quality()` branches on loudness/crest.
-
-        With both pinned at 0.0 the first three arms were unreachable — every
-        track landed in "damaged"/"poor" regardless of what it sounded like.
-        """
-        fingerprint = MasteringFingerprint.from_audio_file(
-            str(_write_tone(tmp_path / "quiet.wav", 0.05))
-        )
-
-        assert fingerprint is not None
-        assert fingerprint.classify_quality() in {"premium", "professional", "commercial"}
-
-    def test_the_classification_responds_to_level(self, tmp_path):
-        loud = MasteringFingerprint.from_audio_file(
-            str(_write_tone(tmp_path / "loud.wav", 0.95))
-        )
-        quiet = MasteringFingerprint.from_audio_file(
-            str(_write_tone(tmp_path / "quiet.wav", 0.05))
-        )
-
-        assert loud is not None and quiet is not None
-        assert loud.classify_quality() != quiet.classify_quality()

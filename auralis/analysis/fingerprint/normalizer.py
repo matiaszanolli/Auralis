@@ -212,36 +212,6 @@ class FingerprintNormalizer(NormalizerPersistenceMixin):
 
         return normalized
 
-    def denormalize(self, normalized_vector: np.ndarray) -> np.ndarray:
-        """
-        Convert normalized vector back to original scale
-
-        Useful for visualization/debugging
-
-        Args:
-            normalized_vector: Normalized vector (0-1 scale)
-
-        Returns:
-            Denormalized vector (original scale)
-        """
-        if not self.fitted:
-            raise ValueError("Normalizer not fitted. Call fit() first.")
-
-        if len(normalized_vector) != 25:
-            raise ValueError(f"Expected 25-element vector, got {len(normalized_vector)}")
-
-        denormalized = np.zeros(25, dtype=np.float32)
-
-        for i, dim_name in enumerate(self.DIMENSION_NAMES):
-            stats = self.stats[dim_name]
-            norm_value = normalized_vector[i]
-
-            # Reverse min-max normalization
-            range_val = stats.max_val - stats.min_val
-            denormalized[i] = norm_value * range_val + stats.min_val
-
-        return denormalized
-
     def is_fitted(self) -> bool:
         """Check if normalizer has been fitted"""
         return self.fitted

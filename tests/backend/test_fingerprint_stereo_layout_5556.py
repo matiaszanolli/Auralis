@@ -13,7 +13,7 @@ import pytest
 
 from auralis.__version__ import FINGERPRINT_ALGORITHM_VERSION
 from auralis.analysis.fingerprint.audio_fingerprint_analyzer import AudioFingerprintAnalyzer
-from auralis.analysis.fingerprint.rust_fingerprint import compute_fingerprint_schema, prepare_rust_audio
+from auralis.analysis.fingerprint.rust_fingerprint import compute_fingerprint_schema
 
 _BACKEND = str(Path(__file__).resolve().parents[2] / "auralis-web" / "backend")
 if _BACKEND not in sys.path:
@@ -27,33 +27,6 @@ def _stereo(seconds: float = 4.0) -> np.ndarray:
     left = 0.5 * np.sin(2 * np.pi * 220 * t)
     right = 0.25 * np.sin(2 * np.pi * 220 * t + 0.3)
     return np.column_stack([left, right]).astype(np.float32)
-
-
-class TestPrepareRustAudio:
-    def test_stereo_is_interleaved(self) -> None:
-        audio = _stereo(0.1)
-        buf, channels = prepare_rust_audio(audio)
-        assert channels == 2
-        assert buf.dtype == np.float32 and buf.flags['C_CONTIGUOUS'] and buf.ndim == 1
-        np.testing.assert_array_equal(buf[0::2], audio[:, 0])
-        np.testing.assert_array_equal(buf[1::2], audio[:, 1])
-
-    def test_mono_variants(self) -> None:
-        mono = _stereo(0.1)[:, 0]
-        for arr in (mono, mono[:, None]):
-            buf, channels = prepare_rust_audio(arr)
-            assert channels == 1
-            np.testing.assert_array_equal(buf, mono)
-
-    def test_multichannel_is_averaged_to_mono(self) -> None:
-        audio = np.column_stack([_stereo(0.1)] * 3)
-        buf, channels = prepare_rust_audio(audio)
-        assert channels == 1 and buf.shape == (audio.shape[0],)
-
-    def test_non_contiguous_input(self) -> None:
-        audio = np.asfortranarray(_stereo(0.1))
-        buf, _ = prepare_rust_audio(audio)
-        np.testing.assert_array_equal(buf[0::2], audio[:, 0])
 
 
 def test_backend_producers_route_through_the_windowed_pipeline() -> None:

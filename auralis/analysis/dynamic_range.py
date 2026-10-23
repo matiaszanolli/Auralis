@@ -274,10 +274,6 @@ class DynamicRangeAnalyzer(DynamicsMetricsMixin):
 
         return recommendations
 
-    def get_crest_factor_history(self) -> list[float]:
-        """Get crest factor history for temporal analysis"""
-        return self.crest_history.copy()
-
     def reset_history(self) -> None:
         """Reset analysis history"""
         self.crest_history.clear()
