@@ -14,12 +14,12 @@ fingerprint drives adaptive mastering, similarity search, and quality assessment
 ## 1. The 25 dimensions
 
 **Authoritative semantics/units:**
-[`fingerprint/schema.py:44`](../../auralis/analysis/fingerprint/schema.py) (`DIMENSION_SCHEMA`).
-**Canonical ordering** (vectors, weights, DB columns):
-[`fingerprint/normalizer.py:87`](../../auralis/analysis/fingerprint/normalizer.py)
-(`DIMENSION_NAMES`) and
-[`fingerprint_service.py:34`](../../auralis/analysis/fingerprint/fingerprint_service.py)
-(`_FP_KEYS`) — these agree on order.
+[`fingerprint/schema.py::DIMENSION_SCHEMA`](../../auralis/analysis/fingerprint/schema.py) (`DIMENSION_SCHEMA`).
+**Canonical ordering** (vectors, DB columns):
+[`fingerprint/schema.py::DIMENSION_NAMES`](../../auralis/analysis/fingerprint/schema.py)
+(derived from `DIMENSION_SCHEMA`) and
+[`fingerprint_service.py::_FP_KEYS`](../../auralis/analysis/fingerprint/fingerprint_service.py)
+(= `DIMENSION_NAMES`) — these agree on order.
 
 | Family | Dims | Names |
 |--------|------|-------|
@@ -32,17 +32,17 @@ fingerprint drives adaptive mastering, similarity search, and quality assessment
 | **Stereo** | 2 | `stereo_width`, `phase_correlation` |
 
 **Band edges (Hz):** 20–60 / 60–250 / 250–500 / 500–2000 / 2000–4000 / 4000–6000 / 6000–20000
-([`schema.py:87`](../../auralis/analysis/fingerprint/schema.py)).
+([`fingerprint/schema.py::DIMENSION_SCHEMA`](../../auralis/analysis/fingerprint/schema.py)).
 
 > ⚠️ **Critical unit convention.** The 7 band values are stored as **0–1 fractions that sum
 > to ~1.0**, *not* 0–100 percentages, despite the `_pct` suffix. Consumers that assumed 0–100
-> caused real bugs — hence the loud docstring at
-> [`schema.py:8`](../../auralis/analysis/fingerprint/schema.py). Spectral centroid/rolloff are
+> caused real bugs — hence the loud module docstring at
+> [`fingerprint/schema.py`](../../auralis/analysis/fingerprint/schema.py). Spectral centroid/rolloff are
 > normalized 0–1 where 1.0 = 8000 Hz (`centroid_to_hz` / `rolloff_to_hz` convert back).
 > `loudness_variation_std` is the unit outlier: dB in range 0–10.
 
 **Count is hard-enforced everywhere:** `< 25` dims are discarded, not cached
-([`fingerprint_service.py:387`](../../auralis/analysis/fingerprint/fingerprint_service.py));
+([`windowed_compute.py::compute_windowed_fingerprint`](../../auralis/analysis/fingerprint/windowed_compute.py));
 the Rust engine must return exactly 25; distance/normalize assert `len == 25`.
 
 > **Known code-level inconsistency** (real, not just doc drift — verify before relying):
@@ -108,8 +108,8 @@ per-file sidecar during scanning.
 > numbers as authoritative. Treat `schema.py` as truth.
 
 **Version gating:** fingerprints carry a version; sidecars older than
-`FINGERPRINT_ALGORITHM_VERSION` (= **3** — bumped when Rust became the source of truth,
-[`auralis/__version__.py:14`](../../auralis/__version__.py)) are rejected and re-extracted.
+`FINGERPRINT_ALGORITHM_VERSION` (= **10** — bumped when the algorithm changes,
+[`auralis/__version__.py::FINGERPRINT_ALGORITHM_VERSION`](../../auralis/__version__.py)) are rejected and re-extracted.
 Bumping that constant auto-triggers Phase-2 re-fingerprinting (see §5).
 
 ---
@@ -121,8 +121,8 @@ Pipeline: **raw 25D vector → normalize → weighted Euclidean distance → ran
 | Stage | Class / file | Notes |
 |-------|-------------|-------|
 | Normalize | `FingerprintNormalizer` ([`normalizer.py`](../../auralis/analysis/fingerprint/normalizer.py)) | robust min-max on 5th/95th percentiles; `fit()` streams `track_fingerprints` in 5000-row batches (#4115); zero-variance dim → 0.5 |
-| Distance | `FingerprintDistance` ([`distance.py:175`](../../auralis/analysis/fingerprint/distance.py)) | `sqrt(Σ wᵢ(xᵢ−yᵢ)²)`; hand-tuned per-family weights (frequency 33%, dynamics 23%, temporal 18%, spectral 12%, harmonic 9%, variation 5%, stereo 3%), renormalized in `to_array()` |
-| High-level API | `FingerprintSimilarity.find_similar` ([`similarity.py:108`](../../auralis/analysis/fingerprint/similarity.py)) | pre-filter on 4 distinctive dims (`lufs±3, crest_db±2, bass_pct±8, tempo_bpm±15`), bounded full-search fallback (`limit=5000`, #3705); `.fit()` must run first |
+| Distance | `FingerprintDistance` ([`distance.py::FingerprintDistance`](../../auralis/analysis/fingerprint/distance.py)) | `sqrt(Σ wᵢ(xᵢ−yᵢ)²)`; hand-tuned per-family weights (frequency 33%, dynamics 23%, temporal 18%, spectral 12%, harmonic 9%, variation 5%, stereo 3%), renormalized in `to_array()` |
+| High-level API | `FingerprintSimilarity.find_similar` ([`similarity.py::FingerprintSimilarity.find_similar`](../../auralis/analysis/fingerprint/similarity.py)) | pre-filter on 4 distinctive dims (`lufs±3, crest_db±2, bass_pct±8, tempo_bpm±15`), bounded full-search fallback (`limit=5000`, #3705); `.fit()` must run first |
 | kNN graph | `KNNGraphBuilder.build_graph(k=10)` ([`knn_graph.py`](../../auralis/analysis/fingerprint/knn_graph.py)) | streams fingerprints in batches (#3454); writes edges via the graph repo |
 | Graph storage | `SimilarityGraphRepository` ([`library/repositories/similarity_graph_repository.py`](../../auralis/library/repositories/similarity_graph_repository.py)) | edges: `track_id, similar_track_id, distance, similarity_score, rank` |
 
@@ -152,7 +152,7 @@ re-fingerprints **outdated-version** tracks.
 race. Outdated claims use a `version = 0` sentinel and a rowcount check.
 
 **Extractor** — `FingerprintExtractor.extract_and_store`
-([`services/fingerprint_extractor.py:264`](../../auralis/services/fingerprint_extractor.py))
+([`fingerprint_extractor.py::FingerprintExtractor.extract_and_store`](../../auralis/services/fingerprint_extractor.py))
 tries, in order:
 
 1. Valid `.25d` sidecar → instant.
@@ -166,7 +166,7 @@ It stamps `fingerprint_version`, filters to exactly the 25 keys, rejects incompl
 fingerprints, and deletes corrupted files via `TrackRepository`.
 
 **Multi-window LUFS/crest correction** — `FingerprintService.get_or_compute`
-([`fingerprint_service.py:108`](../../auralis/analysis/fingerprint/fingerprint_service.py)) is
+([`fingerprint_service.py::FingerprintService.get_or_compute`](../../auralis/analysis/fingerprint/fingerprint_service.py)) is
 the 3-tier cache (DB → `.25d` → compute). Its `_compute_fingerprint` runs the full 25D on a
 90 s body window plus two 30 s mono probes at 25%/75% and takes the **median** of lufs/crest
 (cuts LUFS RMSE from 1.96 → 1.07 dB). It rejects entries whose 7 band fractions don't sum to
@@ -177,7 +177,7 @@ the 3-tier cache (DB → `.25d` → compute). Its `_compute_fingerprint` runs th
 ## 6. Content, quality, and genre analysis
 
 - **Genre (ML)** — despite the `ml/` path, there is **no neural network**.
-  [`ml/genre_classifier.py:22`](../../auralis/analysis/ml/genre_classifier.py) is
+  [`ml/genre_classifier.py::RuleBasedGenreClassifier`](../../auralis/analysis/ml/genre_classifier.py) is
   `RuleBasedGenreClassifier`: 10 genres, hand-coded linear weights, softmax, 0.6 confidence
   threshold → falls back to "pop". Cached singleton (#2528).
 - **Content** — `ml/` is now the sole genre classifier. The former parallel content-analysis
@@ -185,7 +185,7 @@ the 3-tier cache (DB → `.25d` → compute). Its `_compute_fingerprint` runs th
   was **retired** in the 2026-07 streamlining (dead except a test-only public API). The live
   content analyzer for mastering is [`core/analysis/content_analyzer.py`](../../auralis/core/analysis/content_analyzer.py).
 - **Quality** — `QualityMetrics.assess_quality`
-  ([`quality/quality_metrics.py:79`](../../auralis/analysis/quality/quality_metrics.py))
+  ([`quality/quality_metrics.py::QualityMetrics.assess_quality`](../../auralis/analysis/quality/quality_metrics.py))
   runs 5 assessors → weighted `overall_score` 0–100 (frequency .25, dynamic .20, stereo .15,
   distortion .25, loudness .15) → Excellent/Very Good/Good/Fair/Poor. Underlying analyzers:
   `LoudnessMeter`, `PhaseCorrelationAnalyzer`, `DynamicRangeAnalyzer`, `SpectrumAnalyzer`

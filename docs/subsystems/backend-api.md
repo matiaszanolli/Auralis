@@ -21,14 +21,14 @@ create_lifespan(deps)  →  create_app(lifespan=…)  →  setup_middleware(app)
 
 Key pieces:
 
-- **`globals_dict`** ([`main.py:97`](../../auralis-web/backend/main.py)) — the central registry
+- **`globals_dict`** ([`main.py::globals_dict`](../../auralis-web/backend/main.py)) — the central registry
   of shared components, all `None` at import and populated during lifespan. A `deps` dict
   bundles feature flags + `ConnectionManager` + `globals` and threads them into lifespan and
   routers.
 - **Feature-probe flags** `HAS_AURALIS / HAS_PROCESSING / HAS_STREAMLINED_CACHE / HAS_SIMILARITY`
   are set via real import probes (#3534) — not hard-coded `True`.
 - **App factory** `create_app`
-  ([`config/app.py:28`](../../auralis-web/backend/config/app.py)): title "Auralis Web API",
+  ([`config/app.py::create_app`](../../auralis-web/backend/config/app.py)): title "Auralis Web API",
   version **"1.0.0"** — note this is *not* the product version (that's
   [`auralis/version.py`](../../auralis/version.py)). Swagger/ReDoc mount only in dev
   (`/api/docs`, `/api/redoc`). Registers three global exception handlers (`HTTPException` →
@@ -126,7 +126,7 @@ A single connection at `ws://localhost:8765/ws` multiplexes all real-time traffi
 in [`routers/system.py`](../../auralis-web/backend/routers/system.py) is a thin wrapper that
 delegates to [`ws_handlers/`](../../auralis-web/backend/ws_handlers/).
 
-**Connection setup** ([`ws_handlers/connection.py:33`](../../auralis-web/backend/ws_handlers/connection.py)):
+**Connection setup** ([`ws_handlers/connection.py::setup_connection`](../../auralis-web/backend/ws_handlers/connection.py)):
 `manager.connect()` (origin validation) → start a 30 s heartbeat loop → **immediately push
 `enhancement_settings_changed` and a `player_state` snapshot**. This is the "reconnect is the
 common case" design (#2507, #2606): a reconnecting client resyncs Redux without waiting for the
@@ -166,7 +166,7 @@ boundaries.
   task's error paths (#3829). Each task self-cleans idempotently under a lock.
 - **`AudioStreamController` is a god-file split** (#4071): its methods are thin delegates to
   `stream_*` submodules; the public/test surface is preserved.
-- **`ConnectionManager`** ([`config/globals.py:46`](../../auralis-web/backend/config/globals.py))
+- **`ConnectionManager`** ([`config/globals.py::ConnectionManager`](../../auralis-web/backend/config/globals.py))
   snapshots `active_connections` under an `asyncio.Lock`, sends outside the lock, and prunes
   stale connections. Origin enforcement on connect allows loopback + dev ports + `file://`
   (Electron).
@@ -175,7 +175,7 @@ The full protocol reference is [`WEBSOCKET_API.md`](../../auralis-web/backend/WE
 
 > ⚠️ **`WEBSOCKET_API.md` is stale on chunk size** — it says "30-second chunks", but the actual
 > constants are **15 s duration / 10 s interval / 5 s overlap**. Trust the code
-> ([`chunk_boundaries.py:19`](../../auralis-web/backend/core/chunk_boundaries.py)).
+> ([`chunk_boundaries.py`](../../auralis-web/backend/core/chunk_boundaries.py)).
 
 ---
 

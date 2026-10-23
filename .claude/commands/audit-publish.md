@@ -113,7 +113,7 @@ For each finding that is CONFIRMED + NEW (or REGRESSION), create a GitHub issue:
 <Include ONLY the checks that apply to THIS specific finding. Examples:>
 
 - [ ] **WIRING**: After adding `validate_sample_rate()`, verify it's called from `hybrid_processor.py`. Run: `grep -rn "validate_sample_rate" auralis/ --include='*.py' | grep -v "def validate_sample_rate"` — must show at least 1 caller.
-- [ ] **SIBLING**: Same bug exists in `advanced_dynamics.py:120-135`. Apply the same fix there.
+- [ ] **SIBLING**: Same bug exists in `advanced_dynamics.py::DynamicsProcessor`. Apply the same fix there.
 - [ ] **RETURN VALUE**: All callers of `<function>()` must check the return value.
 - [ ] **CONSISTENCY**: Pattern `<old_pattern>` also exists in `<file2>`, `<file3>`. Fix all or document as out of scope.
 

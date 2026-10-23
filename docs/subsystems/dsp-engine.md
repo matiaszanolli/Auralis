@@ -20,8 +20,8 @@ There are **two independent top-level engines**. They share the core invariants
 
 | Engine | Class | File | Used by |
 |--------|-------|------|---------|
-| **Streaming / real-time master** | `HybridProcessor` | [`auralis/core/hybrid_processor.py:44`](../../auralis/core/hybrid_processor.py) | Web backend, live playback |
-| **Offline / batch file master** | `SimpleMasteringPipeline` | [`auralis/core/simple_mastering.py:40`](../../auralis/core/simple_mastering.py) | CLI / batch file mastering |
+| **Streaming / real-time master** | `HybridProcessor` | [`auralis/core/hybrid_processor.py`](../../auralis/core/hybrid_processor.py) | Web backend, live playback |
+| **Offline / batch file master** | `SimpleMasteringPipeline` | [`auralis/core/simple_mastering.py`](../../auralis/core/simple_mastering.py) | CLI / batch file mastering |
 
 There is no third path. A legacy Matchering-derived reference matcher
 (*auralis/dsp/stages.py::main()*) used to sit alongside these, exported as
@@ -34,25 +34,25 @@ also used to exist; #4873 deleted it — see [§ Deleted paths](#deleted-paths).
 ## 2. HybridProcessor — the streaming engine
 
 `HybridProcessor` is a thin orchestrator. Its constructor
-([`hybrid_processor.py:54`](../../auralis/core/hybrid_processor.py)) wires up the analysis
+([`hybrid_processor.py::HybridProcessor.__init__`](../../auralis/core/hybrid_processor.py)) wires up the analysis
 and DSP components and instantiates **three mode processors**:
 
 ```
-HybridProcessor.process()            # offline, whole-signal  (hybrid_processor.py:220)
+HybridProcessor.process()            # offline, whole-signal
   └─ _process_impl                   # under self._process_lock (RLock)
-       ├─ _process_reference_mode    # reference present      (:298)
-       ├─ _process_adaptive_mode     # adaptive               (:323)
+       ├─ _process_reference_mode    # reference present
+       ├─ _process_adaptive_mode     # adaptive
        │    └─ ContinuousMode.process()
-       └─ _process_hybrid_mode       # reference + adaptive    (:379)
+       └─ _process_hybrid_mode       # reference + adaptive
 ```
 
 ### Mode processors (`auralis/core/processing/`)
 
 | Mode | Class | File | Role |
 |------|-------|------|------|
-| **Continuous** (default adaptive) | `ContinuousMode` | [`continuous_mode.py:83`](../../auralis/core/processing/continuous_mode.py) | Maps the 25D fingerprint → 3D processing space → continuous `ProcessingParameters`. Used for the adaptive mode. |
-| **Adaptive** (legacy) | `AdaptiveMode` | [`adaptive_mode.py:33`](../../auralis/core/processing/adaptive_mode.py) | Preset/spectrum-based component of the `hybrid` and `reference` modes. |
-| **Hybrid** | `HybridMode` | [`hybrid_mode.py:21`](../../auralis/core/processing/hybrid_mode.py) | Blends reference matching with adaptive output at `adaptation_strength * 0.5`. |
+| **Continuous** (default adaptive) | `ContinuousMode` | [`continuous_mode.py`](../../auralis/core/processing/continuous_mode.py) | Maps the 25D fingerprint → 3D processing space → continuous `ProcessingParameters`. Used for the adaptive mode. |
+| **Adaptive** (legacy) | `AdaptiveMode` | [`adaptive_mode.py`](../../auralis/core/processing/adaptive_mode.py) | Preset/spectrum-based component of the `hybrid` and `reference` modes. |
+| **Hybrid** | `HybridMode` | [`hybrid_mode.py`](../../auralis/core/processing/hybrid_mode.py) | Blends reference matching with adaptive output at `adaptation_strength * 0.5`. |
 
 **Mode selection** is one axis — `config.adaptive.mode` (`reference` / `adaptive` /
 `hybrid`); adaptive runs `ContinuousMode`. (A second, "latency" axis
@@ -63,7 +63,7 @@ see [§ Deleted paths](#deleted-paths). The streaming hot path calls the same
 ### ContinuousMode internals (the default path)
 
 `ContinuousMode.process()`
-([`continuous_mode.py:250`](../../auralis/core/processing/continuous_mode.py)) has:
+([`continuous_mode.py::ContinuousMode.process`](../../auralis/core/processing/continuous_mode.py)) has:
 
 - A **fast path** — if a `.25d` sidecar supplies `fixed_params`, it skips fingerprint
   extraction (~8× faster).
@@ -71,7 +71,7 @@ see [§ Deleted paths](#deleted-paths). The streaming hot path calls the same
   `map_fingerprint_to_space` → optional reference-cloud target derivation →
   `generate_parameters`.
 
-Each DSP stage (`_apply_dsp_stages`, [`:333`](../../auralis/core/processing/continuous_mode.py))
+Each DSP stage (`_apply_dsp_stages`, [`continuous_stages.py::ContinuousStagesMixin`](../../auralis/core/processing/continuous_stages.py))
 is followed by a **CrossDimensionalGuard** compensation step that caps unintended drift
 (EQ LUFS drift ±1.5 dB / hard cap ±3 dB; dynamics spectral-tilt; stereo phase-correlation;
 normalization crest-crush pullback), journaled via `PipelineJournal`. A sampled **quality
@@ -87,10 +87,10 @@ gate** runs every Nth chunk (`quality_gate_interval`).
 ## 3. SimpleMastering — the offline file masterer
 
 `SimpleMasteringPipeline.master_file()`
-([`simple_mastering.py:86`](../../auralis/core/simple_mastering.py)) processes files in
+([`simple_mastering.py::SimpleMasteringPipeline.master_file`](../../auralis/core/simple_mastering.py)) processes files in
 chunks for memory efficiency. Each chunk flows through
 `mastering_process_chunk.process_chunk`
-([`mastering_process_chunk.py:86`](../../auralis/core/mastering_process_chunk.py)):
+([`mastering_process_chunk.py::process_chunk`](../../auralis/core/mastering_process_chunk.py)):
 
 1. Unpack 25D fingerprint → `calculate_intensity` (2D crest × LUFS interpolation, clamped
    0.5–1.2).
@@ -122,16 +122,16 @@ change or an unbounded parameter.
 
 > **Gotcha.** The continuous path **self-normalizes**: it ends in a branch-local
 > `normalize` and therefore sets `needs_output_normalize = False`
-> ([`continuous.py:239`](../../auralis/core/mastering_branches/continuous.py)). Stage 3 is
+> ([`continuous.py::ContinuousMasteringBranch.apply`](../../auralis/core/mastering_branches/continuous.py)). Stage 3 is
 > consequently dormant for the only branch that exists. The Stage-3 mechanism in
-> [`mastering_process_chunk.py:138`](../../auralis/core/mastering_process_chunk.py) is
+> [`mastering_process_chunk.py`](../../auralis/core/mastering_process_chunk.py) is
 > retained for future paths — a new branch that does *not* self-normalize must set the flag
 > `True`, and one that does must not, or the output **double-normalizes**.
 
 ### Presets belong to HybridProcessor, not SimpleMastering
 
 The named presets **Adaptive / Gentle / Warm / Bright / Punchy / Live** live in
-[`auralis/core/config/preset_profiles.py:51`](../../auralis/core/config/preset_profiles.py)
+[`auralis/core/config/preset_profiles.py::create_preset_profiles`](../../auralis/core/config/preset_profiles.py)
 and are consumed by the **HybridProcessor** path. SimpleMastering is fingerprint/branch-driven
 with a single `SimpleMasteringConfig` — its knobs are LUFS targets and tolerance bands, not
 the named presets.
@@ -219,7 +219,7 @@ imported — the old librosa fallback was removed. `_validate_ffi_inputs` reject
 ### Geometry — single source of truth
 
 All chunk geometry comes from
-[`chunk_boundaries.py:19`](../../auralis-web/backend/core/chunk_boundaries.py):
+[`chunk_boundaries.py`](../../auralis-web/backend/core/chunk_boundaries.py):
 
 ```python
 CHUNK_DURATION  = 15.0   # each chunk covers 15 s
@@ -231,7 +231,7 @@ CONTEXT_DURATION = 5.0   # extra context loaded on each side
 Chunk N covers `[N*10, N*10+15]`. **Never** count chunks with naive
 `ceil(duration / CHUNK_DURATION)` — use the overlap-aware
 `content_chunk_count(total_duration) = max(1, ceil((total_duration - OVERLAP_DURATION) / CHUNK_INTERVAL))`
-([`chunk_boundaries.py:37`](../../auralis-web/backend/core/chunk_boundaries.py), #4124). It is
+([`chunk_boundaries.py::content_chunk_count`](../../auralis-web/backend/core/chunk_boundaries.py), #4124). It is
 the authoritative counter.
 
 ### Chunk seams (no crossfade)
@@ -245,7 +245,7 @@ unused crossfade helper that survived #4642 was deleted in #5776.
 
 ### ProcessorFactory lifecycle
 
-[`processor_factory.py:53`](../../auralis-web/backend/core/processor_factory.py) is a
+[`processor_factory.py::ProcessorFactory`](../../auralis-web/backend/core/processor_factory.py) is a
 singleton LRU cache (cap 32, env `AURALIS_PROCESSOR_CACHE_MAX`) keyed on a 5-tuple
 `ProcessorCacheKey(track_id, preset, intensity, config_hash, targets_hash)`. It hands the
 **same HybridProcessor instance** to every chunk of a `(track, preset, intensity)` so
@@ -260,13 +260,13 @@ calls `.close()` to release the fingerprint analyzer's 5-thread executor (#3746)
 
 | Invariant | Where enforced |
 |-----------|----------------|
-| **Sample count preserved** | Asserted after the brick-wall limiter in all offline handlers ([`hybrid_processor.py:312,368,395`](../../auralis/core/hybrid_processor.py)); realtime chunk assert (`:443`); `RealtimeAdaptiveEQ` FIFO guarantees exact length (#4216) |
+| **Sample count preserved** | `RuntimeError` (raise, not assert — #5533) after the brick-wall limiter in every mode handler: `_process_adaptive_mode` / `_process_hybrid_mode` ([`hybrid_processor.py`](../../auralis/core/hybrid_processor.py)) and `process_reference_mode` ([`hybrid_stage_dispatch.py`](../../auralis/core/hybrid_stage_dispatch.py)) |
 | **Copy before modify** | `amplify` / `normalize` copy; every branch `apply()` starts `processed = audio.copy()`; silent/empty early-returns return copies |
 | **dtype propagation** | `normalize` explicit `astype(audio.dtype)` (#3687); spectral-tilt casts back after `sosfiltfilt` upcasts to f64; zero-pad/silence fallbacks preserve dtype |
 | **No NaN/Inf** | `validate_audio_finite(repair=False)` fails fast on input and mastering output; `sanitize_audio` repairs realtime/streaming output; silence early-returns avoid `log(0)`→NaN |
 | **Clipping ceiling** | Brick-wall limiter at −0.3 dB; continuous-mode emergency peak-limit to −0.3 dBFS; PCM clamp in [`auralis/io/results.py`](../../auralis/io/results.py) |
-| **Mono → stereo** | Expanded once, explicitly, at HybridProcessor entry ([`:267`](../../auralis/core/hybrid_processor.py)) |
-| **Min buffer size** | HybridProcessor raises below `MIN_SAMPLES = 1024` to prevent Rust FFT panics |
+| **Mono → stereo** | Expanded once, explicitly, at `HybridProcessor` entry (`hybrid_stage_dispatch.py::validate_and_normalize_input`, before mode dispatch) |
+| **Min buffer size** | Audio below `MIN_SAMPLES = 1024` (`hybrid_stage_dispatch.py`) is returned unprocessed, not rejected (#4520) — no Rust FFT panics to guard against since #5764 |
 
 See [../development/verify-dsp](../../auralis/) — or run the `verify-dsp` skill — to check
 these six invariants across the pipeline.
@@ -296,7 +296,7 @@ There are **two separate processor caches**: the module-level convenience cache 
 ## 9. Configuration (`auralis/core/config/`)
 
 `UnifiedConfig`
-([`unified_config.py:22`](../../auralis/core/config/unified_config.py)) — key knobs:
+([`unified_config.py::UnifiedConfig`](../../auralis/core/config/unified_config.py)) — key knobs:
 
 | Knob | Default | Effect |
 |------|---------|--------|

@@ -39,6 +39,10 @@
 #     and each is checked.
 #   - Trailing `:NN` or `:NN-NN` line ranges are stripped before existence
 #     check (line numbers may drift; the file must still exist).
+#   - Literal `path.ext:NNN` line anchors are REJECTED in the strict set
+#     (#6248): they rot on the next edit of the referenced file — 13 of 34
+#     were already wrong, one past EOF. Cite a symbol instead
+#     (`file.py::Symbol`), which grep can find after any refactor.
 #   - Markdown `[text](target)` link targets in the strict doc set.
 #   - Backticked directory refs (tokens ending in `/`) inside .claude/** —
 #     see scan_dir_refs below.
@@ -250,6 +254,26 @@ scan_refs() {
 
 scan_refs "$strict_hits" "${strict_files[@]}"
 scan_refs "$ratchet_hits" "${ratchet_files[@]}"
+
+# --- Literal line anchors (.claude/** + authoritative docs only, #6248) -----
+#
+# `file.py:NNN` hard-codes a line number that the next edit of the referenced
+# file silently re-breaks (this batch's 11 module splits re-broke 13). The
+# existence check above deliberately tolerates a trailing `:NN`; this pass
+# rejects the shape outright in the strict set so new anchors cannot land.
+# The convention everywhere else is `file.py::Symbol`.
+scan_line_anchors() {
+    local out="$1"; shift
+    local f line_num anchor
+    for f in "$@"; do
+        [[ -f "$f" ]] || continue
+        while IFS=: read -r line_num anchor; do
+            printf '%s\tLINE-ANCHOR %s\n' "$f" "$anchor" >> "$out"
+        done < <(grep -noE '[A-Za-z0-9_./-]+\.(py|ts|tsx|rs):[0-9]+' "$f" || true)
+    done
+}
+
+scan_line_anchors "$strict_hits" "${strict_files[@]}"
 
 # --- Directory refs (.claude/** only) --------------------------------------
 #
