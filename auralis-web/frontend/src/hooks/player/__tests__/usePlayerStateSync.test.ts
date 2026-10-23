@@ -1059,12 +1059,6 @@ describe('usePlayerStateSync – track_changed (#4144)', () => {
     expect(store.getState().player.currentTrack?.id).toBe(2);
   });
 
-  it("updates state on a 'jumped' action", () => {
-    fire('track_changed', { action: 'jumped', track_index: 2 });
-    expect(store.getState().queue.currentIndex).toBe(2);
-    expect(store.getState().player.currentTrack?.id).toBe(3);
-  });
-
   it('ignores track_changed with no track_index (reconciles via player_state)', () => {
     fire('track_changed', { action: 'next', track_index: 1 });
     fire('track_changed', { action: 'next' }); // legacy/missing index
@@ -1074,7 +1068,7 @@ describe('usePlayerStateSync – track_changed (#4144)', () => {
   });
 
   it('ignores out-of-range track_index', () => {
-    fire('track_changed', { action: 'jumped', track_index: 99 });
+    fire('track_changed', { action: 'next', track_index: 99 });
     expect(store.getState().queue.currentIndex).toBe(0); // unchanged seed
     expect(store.getState().player.currentTrack).toBeNull();
   });
@@ -1084,7 +1078,7 @@ describe('usePlayerStateSync – track_changed (#4144)', () => {
 // track_changed seq guard — out-of-order drop (#4582)
 // ============================================================================
 //
-// NavigationService's next/previous/jump calls are re-instantiated per
+// NavigationService's next/previous calls are re-instantiated per
 // request and their engine-mutate-then-broadcast steps can interleave under
 // a rapid skip burst, so an older track_changed can arrive after a newer
 // one. Each broadcast now carries NavigationService's own monotonic `seq`

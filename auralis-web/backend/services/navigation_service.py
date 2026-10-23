@@ -18,7 +18,7 @@ from websocket.outbound_messages import broadcast_typed
 
 from auralis import AudioPlayer
 
-from .errors import InvalidRequest, ServiceUnavailable, require_collaborators
+from .errors import require_collaborators
 from .queue_enrichment import entry_filepath
 
 if TYPE_CHECKING:
@@ -254,88 +254,4 @@ class NavigationService:
 
         except Exception as e:
             logger.error(f"Failed to skip to previous track: {e}")
-            raise
-
-    async def jump_to_track(self, track_index: int) -> dict[str, Any]:
-        """
-        Jump to specific track in queue.
-
-        Args:
-            track_index: Index of track to jump to
-
-        Returns:
-            dict: Success message and track info
-
-        Raises:
-            ServiceUnavailable: If the audio player, player state manager, or
-                queue is not available (#5338)
-            InvalidRequest: If track_index is out of range (#5338)
-            Exception: If operation fails
-        """
-        require_collaborators(audio_player=self.audio_player, player_state_manager=self.player_state_manager)
-
-        try:
-            # Get current queue
-            if not hasattr(self.audio_player, 'queue'):
-                raise ServiceUnavailable("Queue not available")
-
-            queue_manager = self.audio_player.queue
-            queue_size = await asyncio.to_thread(queue_manager.get_queue_size)
-
-            # Validate index
-            if track_index < 0 or track_index >= queue_size:
-                raise InvalidRequest(f"Invalid track index: {track_index}")
-
-            # Serialize the same mutate-and-tag step as next/previous (#4582)
-            # — see _TrackChangeSequencer — so a Jump racing a rapid Next/
-            # Previous burst can't broadcast track_changed out of order.
-            async with _sequencer.lock:
-                # Set queue position
-                if hasattr(queue_manager, 'set_current_index'):
-                    await asyncio.to_thread(queue_manager.set_current_index, track_index)
-                else:
-                    # Fallback: manually get queue and load track
-                    queue = await asyncio.to_thread(queue_manager.get_queue)
-                    if track_index < len(queue):
-                        track_path = queue[track_index]
-                        if hasattr(self.audio_player, 'load_file'):
-                            await asyncio.to_thread(self.audio_player.load_file, track_path)  # type: ignore[arg-type]
-
-                # Start playback
-                if hasattr(self.audio_player, 'play'):
-                    await asyncio.to_thread(self.audio_player.play)
-
-                # Update state — the jumped-to track first (#5456), so the
-                # set_playing broadcast (deferred below, #5324) already
-                # carries it.
-                await self._follow_engine(track_index)
-                # #5324: broadcast=False — next_track/previous_track already
-                # broadcast only after releasing _sequencer.lock; jump_to_track
-                # was the one outlier still awaiting a broadcast (bounded by
-                # BROADCAST_SEND_TIMEOUT per client) while holding it, which
-                # could stall every other next/previous/jump behind one slow
-                # WS client. Snapshot captured here, broadcast after release.
-                state_snapshot = await self.player_state_manager.set_playing(True, broadcast=False)
-                seq = _sequencer.next_seq()
-
-            # Broadcast state and track change — both outside _sequencer.lock.
-            await self.player_state_manager.broadcast_state(state_snapshot)
-            await broadcast_typed(
-                self.connection_manager,
-                "track_changed",
-                {
-                    "action": "jumped",
-                    "track_index": track_index,
-                    "seq": seq,
-                },
-            )
-
-            logger.info(f"Jumped to track {track_index}")
-            return {
-                "message": "Jumped to track successfully",
-                "track_index": track_index
-            }
-
-        except Exception as e:
-            logger.error(f"Failed to jump to track {track_index}: {e}")
             raise

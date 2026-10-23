@@ -192,7 +192,7 @@ export function usePlayerStateSync() {
       }
     });
 
-    // track_changed carries the new queue position (#4144). next/previous/jumped
+    // track_changed carries the new queue position (#4144). next/previous
     // all include track_index now; resolve the track from the already-synced
     // queue rather than replicating backend shuffle/repeat ordering client-side.
     const unsubscribeTrackChanged = subscribe('track_changed', (message) => {
@@ -202,8 +202,8 @@ export function usePlayerStateSync() {
         return;
       }
 
-      // #4582: a rapid skip burst can interleave concurrent next/previous/
-      // jump broadcasts at the WS layer even though the backend now
+      // #4582: a rapid skip burst can interleave concurrent next/previous
+      // broadcasts at the WS layer even though the backend now
       // serializes their engine mutation (NavigationService's
       // _TrackChangeSequencer). Drop anything older than the newest seq
       // already applied instead of regressing the queue position — same
@@ -216,7 +216,7 @@ export function usePlayerStateSync() {
       const index = data.track_index;
       const tracks = store.getState().queue.tracks;
       // Deliberately NOT #5601-reconciled: track_changed is a backend-driven
-      // navigation event (NavigationService's next/previous/jumped), where the
+      // navigation event (NavigationService's next/previous), where the
       // ENGINE is the authority the client follows. Nothing emits it today
       // (PLAYER_NEXT/PREVIOUS have no frontend callers), but gating it would
       // break that contract for the day it is wired. The stale-pointer writers

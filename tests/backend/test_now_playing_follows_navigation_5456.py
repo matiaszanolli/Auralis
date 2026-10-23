@@ -111,19 +111,6 @@ async def test_previous_moves_backend_now_playing_with_the_engine(rig):
 
 
 @pytest.mark.asyncio
-async def test_jump_moves_backend_now_playing_with_the_engine(rig):
-    service, state_manager, _engine, ws_manager = rig
-
-    await service.jump_to_track(2)
-
-    state = state_manager.get_state()
-    assert state.current_track.id == 3
-    assert state.is_playing
-    # The set_playing broadcast already carries the jumped-to track.
-    assert _frames(ws_manager, "player_state")[-1]["data"]["current_track"]["id"] == 3
-
-
-@pytest.mark.asyncio
 async def test_a_natural_track_end_advances_exactly_once(rig, monkeypatch):
     """The loop reaching the end changes nothing; the one navigation call does."""
     service, state_manager, engine, _ws = rig

@@ -84,7 +84,7 @@ class TrackLoadedPayload(TypedDict):
 
 
 class TrackChangedPayload(TypedDict):
-    action: Literal["next", "previous", "jumped"]
+    action: Literal["next", "previous"]
     track_index: int
     seq: int
 

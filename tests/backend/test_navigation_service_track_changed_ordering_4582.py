@@ -82,26 +82,3 @@ async def test_concurrent_next_track_calls_get_unique_monotonic_seq():
     # early could still get a later seq (or vice versa), breaking this.
     by_seq = sorted(zip(seqs, indices))
     assert [idx for _, idx in by_seq] == list(range(10))
-
-
-@pytest.mark.asyncio
-async def test_next_and_jump_share_one_sequence_and_never_collide():
-    """next_track() and jump_to_track() must draw from the SAME counter
-    (module-level _sequencer), not independent per-method counters -- a Jump
-    racing a Next burst still needs one shared ordering to guard against.
-    """
-    index_counter = {"value": -1}
-    service = _make_service(index_counter)
-    service.audio_player.queue.get_queue_size = MagicMock(return_value=100)
-    service.audio_player.queue.set_current_index = MagicMock()
-    service.audio_player.play = MagicMock()
-
-    await asyncio.gather(
-        service.next_track(),
-        service.jump_to_track(42),
-        service.next_track(),
-    )
-
-    broadcasts = [c.args[0] for c in service.connection_manager.broadcast.await_args_list]
-    seqs = [b["data"]["seq"] for b in broadcasts]
-    assert len(set(seqs)) == len(seqs) == 3

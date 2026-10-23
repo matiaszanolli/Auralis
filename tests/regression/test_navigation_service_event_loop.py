@@ -2,7 +2,7 @@
 Regression test: NavigationService blocking AudioPlayer calls on the event loop (#4772)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Pre-fix: `next_track()`, `previous_track()`, and `jump_to_track()` called
+Pre-fix: `next_track()` and `previous_track()` called
 blocking `AudioPlayer`/`QueueController` engine methods directly on the
 FastAPI event loop, unlike the identical hazard already fixed in
 `PlaybackService` (#3716) and `QueueService` (#3554).
@@ -112,10 +112,4 @@ class TestNavigationServiceDoesNotBlockEventLoop:
     async def test_previous_track_offloads_blocking_engine_call(self):
         service = _build_service(blocking_attr="previous_track")
         canary_elapsed = await _canary_delay(service.previous_track())
-        assert canary_elapsed < _BLOCK_SECONDS / 2
-
-    @pytest.mark.asyncio
-    async def test_jump_to_track_offloads_blocking_engine_call(self):
-        service = _build_service(blocking_attr="set_current_index")
-        canary_elapsed = await _canary_delay(service.jump_to_track(2))
         assert canary_elapsed < _BLOCK_SECONDS / 2
