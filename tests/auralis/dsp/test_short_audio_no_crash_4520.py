@@ -234,21 +234,3 @@ class TestHybridProcessorShortAudio:
         assert result is not None
         assert len(result) == 1024
         assert "too short to master" not in caplog.text
-
-
-class TestRustHpssShortSignal:
-    """The Rust HPSS fix this issue was originally filed against (#4520)."""
-
-    @pytest.mark.parametrize("n", [0, 1, 10, 511, 1023, 2048])
-    def test_hpss_handles_short_signals_and_preserves_length(self, n):
-        auralis_dsp = pytest.importorskip(
-            "auralis_dsp", reason="Rust DSP module not built (maturin develop)"
-        )
-        signal = (np.random.default_rng(11).standard_normal(n) * 0.1).astype(np.float64)
-
-        harmonic, percussive = auralis_dsp.hpss(signal, SAMPLE_RATE)
-
-        assert len(harmonic) == n
-        assert len(percussive) == n
-        assert np.all(np.isfinite(harmonic))
-        assert np.all(np.isfinite(percussive))

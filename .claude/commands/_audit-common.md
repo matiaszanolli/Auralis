@@ -50,7 +50,7 @@ Frontend Services:   auralis-web/frontend/src/services/      API clients + api/,
 Frontend Types:      auralis-web/frontend/src/types/         api.ts, domain.ts, websocket.ts, ws/
 Frontend Test Utils: auralis-web/frontend/src/test/          setup.ts, test-utils.tsx, mocks/; specs also live in src/__tests__/ and src/tests/
 
-Rust DSP:            vendor/auralis-dsp/                     PyO3 module, 19 src/*.rs. Exposes 11 functions via py_bindings.rs: hpss, yin, chroma_cqt, detect_tempo, envelope_follow, compress, limit, compute_fingerprint, apply_multiband_eq, detect_onsets, process_chunks. rhythm.rs/tempo.rs/onset_detector.rs were ported in when the standalone fingerprint-server was deleted (#4533).
+Rust DSP:            vendor/auralis-dsp/                     PyO3 module, 11 src/*.rs. Exposes 2 functions via py_bindings.rs: compute_fingerprint (the only one with a production caller) and process_chunks (dead, #5738). hpss/yin/chroma_cqt/detect_tempo/envelope_follow/compress/limit/apply_multiband_eq/detect_onsets were deleted in #5764; chroma.rs and rhythm.rs remain as compute_fingerprint dependencies.
 Desktop:             desktop/                                Electron wrapper
 Scripts:             scripts/                                Dev/release tooling — check_pytest_baseline.py, check_doc_counts.py (structural counts in this file + CLAUDE.md), check_optimization_importers.py (#5142 gate), check_weak_assertions.py, validate_release_metadata.py, run_all_tests.py, development/
 Tests:               tests/                                  ~7,300 test functions (706 files) across 18 dirs

@@ -1,24 +1,19 @@
 /// Auralis DSP - High-performance audio signal processing in Rust
 ///
-/// Provides optimized implementations of librosa functions and DSP components:
-/// - HPSS: Harmonic/Percussive Source Separation
-/// - YIN: Fundamental frequency detection
+/// The only entry point with a production caller is the 25D fingerprint
+/// (`compute_fingerprint`), and this crate holds that dependency closure:
 /// - Chroma: Constant-Q chromagram features
-/// - Tempo: Spectral flux onset detection for tempo estimation
-/// - Envelope: Attack/release envelope follower for dynamics processing
-/// - Compressor: Dynamic range compressor with peak/RMS/hybrid detection
-/// - Limiter: Lookahead limiter with ISR and oversampling
+/// - Rhythm: silence ratio and rhythm stability
+/// - Frequency / spectral / variation / stereo analysis
+/// - Fingerprint: assembles the 25 dimensions
+///
+/// HPSS, YIN, tempo, envelope follower, compressor, limiter, multiband EQ and
+/// onset detection were removed in #5764: they had no production Python
+/// caller, only validation and benchmark tests. `chunk_processor` stays until
+/// #5738 decides it.
 
 // Core DSP modules
-pub mod hpss;
-pub mod yin;
 pub mod chroma;
-pub mod tempo;
-pub mod envelope;
-pub mod compressor;
-pub mod limiter;
-pub mod biquad_filter;
-pub mod onset_detector;
 pub mod rhythm;
 pub mod chunk_processor;
 
@@ -36,13 +31,7 @@ pub mod fingerprint_compute;
 pub mod py_bindings;
 
 // Re-export main functions for convenience
-pub use hpss::hpss;
-pub use yin::yin;
 pub use chroma::chroma_cqt;
-pub use tempo::detect_tempo;
-pub use envelope::{envelope_follow, EnvelopeFollower, EnvelopeConfig};
-pub use compressor::{compress, Compressor, CompressorConfig, DetectionMode, CompressionInfo};
-pub use limiter::{limit, Limiter, LimiterConfig, LimitingInfo};
 
 // Fingerprinting exports
 pub use frequency_analysis::compute_frequency_distribution;

@@ -9,8 +9,8 @@ module never existed, so the import raised ``ModuleNotFoundError`` on every
 call and the enclosing ``except Exception`` swallowed it — nothing above
 DEBUG, so it read as working.
 
-The branch was removed rather than repointed at ``auralis_dsp.detect_tempo``,
-because the premise was backwards: the Rust routine is ~25-29x *slower* than
+The branch was removed rather than repointed at ``auralis_dsp.detect_tempo``
+(later deleted outright, #5764), because the premise was backwards: the Rust routine is ~25-29x *slower* than
 the NumPy implementation (see the docstring for the measurements), and
 ``tempo_estimate`` is on the live analysis path.
 

@@ -29,7 +29,7 @@ You are the **DSP Specialist** for Auralis — a Python audio engine with a Rust
 - `auralis/player/enhanced_audio_player.py` — class `AudioPlayer` (composed from `player_*_mixin.py`); uses the RT processor under lock
 
 **Rust hot paths** (`vendor/auralis-dsp/`):
-- PyO3 bindings in `vendor/auralis-dsp/src/py_bindings.rs` for 11 functions: hpss, yin, chroma_cqt, detect_tempo, envelope_follow, compress, limit, compute_fingerprint, apply_multiband_eq, detect_onsets, process_chunks
+- PyO3 bindings in `vendor/auralis-dsp/src/py_bindings.rs` for 2 functions: compute_fingerprint (live) and process_chunks (dead, #5738); the other nine were removed in #5764
 - Built with `maturin develop` — must release the GIL on long compute
 
 ## Critical Invariants (memorize these — they drive every finding)

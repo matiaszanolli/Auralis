@@ -159,7 +159,7 @@ auralis-web/
         ├── services/                 API clients
         └── test/                     Test utilities
 
-vendor/auralis-dsp/               Rust DSP via PyO3 (HPSS, YIN, Chroma)
+vendor/auralis-dsp/               Rust DSP via PyO3 (25D fingerprint only, #5764)
 desktop/                          Electron wrapper
 tests/                            ~7,300 test functions (706 files) across 18 subdirs (auralis, backend,
                                     integration, boundaries, concurrency, security, load_stress, regression...)

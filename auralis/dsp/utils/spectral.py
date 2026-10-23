@@ -192,8 +192,9 @@ def tempo_estimate(audio: np.ndarray, sample_rate: int) -> float:
     from the day it was written and every call already ran the NumPy path
     (#5168).
 
-    The branch was removed rather than repointed at ``auralis_dsp.detect_tempo``,
-    because measuring it showed the premise backwards. On music-like input at
+    The branch was removed rather than repointed at ``auralis_dsp.detect_tempo``
+    (that binding has since been deleted, #5764), because measuring it showed the
+    premise backwards. On music-like input at
     44.1 kHz, ``auralis_dsp.detect_tempo`` is **~25-29x slower** than the NumPy
     implementation below at every buffer length tested (5 s: 98 ms vs 3.9 ms;
     60 s: 1247 ms vs 43 ms), for the same BPM to within 0.2, and it halves the

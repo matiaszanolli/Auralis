@@ -28,13 +28,6 @@ docs/deployment/GITHUB_RELEASE_GUIDE.md	latest.yml
 docs/deployment/GITHUB_RELEASE_GUIDE.md	latest.yml
 docs/deployment/VERSION_SYSTEM_IMPLEMENTATION.md	auralis/library/manager.py
 docs/deployment/VERSION_SYSTEM_IMPLEMENTATION.md	auralis/library/models.py
-docs/features/README_RUST_DSP_INTEGRATION.md	RUST_DSP_HPSS_IMPLEMENTATION_SUMMARY.md
-docs/features/README_RUST_DSP_INTEGRATION.md	RUST_DSP_HPSS_IMPLEMENTATION_SUMMARY.md
-docs/features/README_RUST_DSP_INTEGRATION.md	src/module.rs
-docs/features/RUST_DSP_EXTRACTION_PLAN.md	src/autocorrelation.rs
-docs/features/RUST_DSP_EXTRACTION_PLAN.md	src/median_filter.rs
-docs/features/RUST_DSP_EXTRACTION_PLAN.md	tests/test_hpss.rs
-docs/features/RUST_DSP_EXTRACTION_PLAN.md	tests/test_yin.rs
 docs/features/adaptive-mastering/ADAPTIVE_MASTERING_SYSTEM.md	auralis_integration.py
 docs/features/adaptive-mastering/ADAPTIVE_MASTERING_SYSTEM.md	auralis_integration.py
 docs/features/adaptive-mastering/ADAPTIVE_MASTERING_SYSTEM.md	batch_analyzer.py

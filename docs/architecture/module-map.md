@@ -124,7 +124,7 @@ frontend/src/
 
 ```
 auralis-dsp/src/
-├── py_bindings.rs             PyO3 module: hpss, yin, chroma_cqt, compute_fingerprint, …
+├── py_bindings.rs             PyO3 module: compute_fingerprint (+ dead process_chunks, #5738)
 └── fingerprint_compute.rs     Native 25D fingerprint (the ONLY fingerprint path)
 ```
 

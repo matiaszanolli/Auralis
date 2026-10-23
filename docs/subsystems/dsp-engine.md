@@ -185,8 +185,9 @@ adaptive gains and fingerprint LUFS/crest errors (#3428 / #2518).
 Built with `maturin develop` (PyO3 0.23 + numpy 0.23, crate `auralis_dsp`). Two separate
 Rust surfaces exist:
 
-1. **In-process PyO3 module** `auralis_dsp` (the live one) — HPSS, YIN pitch, Chroma, tempo,
-   envelope follower, compress/limit, and the full 25D `compute_fingerprint`. Registered in
+1. **In-process PyO3 module** `auralis_dsp` (the live one) — the full 25D `compute_fingerprint`
+   (plus `process_chunks`, which is dead, #5738). The HPSS, YIN, tempo, envelope, compress/limit,
+   multiband-EQ and onset bindings were removed in #5764 (no production caller). Registered in
    [`src/py_bindings.rs`](../../vendor/auralis-dsp/src/py_bindings.rs).
 2. **Standalone gRPC fingerprint server** — **removed** (2026-07-11, streamlining
    #12). It was abandoned and non-functional (stub compute, gRPC-vs-HTTP client
@@ -196,10 +197,8 @@ Rust surfaces exist:
 
 ### The PyO3 boundary contract
 
-- **dtype is per-function and strict.** `hpss` / `yin` / `chroma_cqt` / `detect_tempo` /
-  `apply_multiband_eq` / `detect_onsets` take **f64**; `envelope_follow` / `compress` /
-  `limit` / `compute_fingerprint` take **f32**. Mono functions take shape `(n,)`;
-  multiband/`process_chunks` take channels-first `(2, n)`.
+- **dtype is per-function and strict.** `compute_fingerprint` takes a mono **f32** `(n,)` array (the caller
+  passes the channel count); `process_chunks` takes **f64** channels-first `(channels, n)`.
 - **Every** heavy wrapper releases the GIL (`py.allow_threads(...)`, #2447) and wraps compute
   in `catch_unwind`, converting Rust panics into a readable `PyRuntimeError` (#2225) rather
   than crashing the interpreter.

@@ -47,7 +47,7 @@ linked subsystem doc.
 | **Similarity graph system** (weighted 25D distance, kNN, API, UI) | ✅ Shipped | `distance.py`, `knn_graph.py`, `similarity_graph_repository.py`, [`routers/similarity.py`](../auralis-web/backend/routers/similarity.py) (12 endpoints) |
 | **25D adaptive mastering** (fingerprint → pre-computed params, deterministic chunks) | ✅ Shipped | `ContinuousMode` maps 25D → 3D processing space; `CrossDimensionalGuard`, `PipelineJournal` |
 | **Continuous enhancement space** (replace discrete presets with interpolation) | ✅ Shipped, **default** | `ContinuousMode` is the default adaptive path; named presets remain as entry points |
-| **Rust DSP acceleration** (HPSS/YIN/Chroma, native fingerprint) | ✅ Shipped | [`vendor/auralis-dsp/`](../vendor/auralis-dsp/), PyO3 + standalone gRPC server |
+| **Rust DSP acceleration** (native 25D fingerprint; HPSS/YIN bindings removed #5764) | ✅ Shipped | [`vendor/auralis-dsp/`](../vendor/auralis-dsp/), PyO3 + standalone gRPC server |
 | **Phase 1 testing infrastructure** (boundary/invariant suites) | ✅ Shipped, far exceeded | ~5,300 backend test functions vs the old "850+ / 2,500 target" |
 | **Desktop binaries** (AppImage, Flatpak, DEB, Windows, macOS ARM64 `.dmg`) | 🟡 Prepared | CI builds require release-candidate runtime smoke and signing review |
 

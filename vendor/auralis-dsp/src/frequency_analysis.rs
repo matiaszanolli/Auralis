@@ -19,18 +19,6 @@ pub struct FrequencyBands {
 }
 
 impl FrequencyBands {
-    pub fn to_array(&self) -> [f32; 7] {
-        [
-            self.sub_bass,
-            self.bass,
-            self.low_mid,
-            self.mid,
-            self.upper_mid,
-            self.presence,
-            self.air,
-        ]
-    }
-
     pub fn sum(&self) -> f32 {
         self.sub_bass + self.bass + self.low_mid + self.mid + self.upper_mid + self.presence + self.air
     }

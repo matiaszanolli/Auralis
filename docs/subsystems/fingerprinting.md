@@ -69,8 +69,8 @@ validate → resample to 22050 Hz  (so all paths produce identical fingerprints)
 
 All 25 dimensions come from the Rust module
 `fingerprint_compute::compute_complete_fingerprint` (its own frequency / spectral /
-temporal / harmonic / variation / stereo submodules, plus HPSS / YIN / Chroma /
-tempo), exposed via PyO3 as `auralis_dsp.compute_fingerprint`. The glue layer
+temporal / harmonic / variation / stereo submodules, plus chroma and
+rhythm), exposed via PyO3 as `auralis_dsp.compute_fingerprint`. The glue layer
 [`rust_fingerprint.py`](../../auralis/analysis/fingerprint/rust_fingerprint.py)
 renames the 7 band keys → `*_pct`, normalizes centroid (÷8000) / rolloff (÷10000) /
 dynamic-range-variation (÷6 dB), converts `bass_mid_ratio` from a Rust fraction to
