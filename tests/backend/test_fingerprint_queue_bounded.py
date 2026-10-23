@@ -54,7 +54,7 @@ def _make_queue() -> FingerprintQueue:
 def test_enqueue_accepts_new_track():
     queue = _make_queue()
     assert queue.enqueue(1) is True
-    assert queue.is_queued(1) is True
+    assert 1 in queue._state.queued_set
 
 
 def test_enqueue_deduplicates_already_queued_track():
@@ -102,7 +102,7 @@ def test_enqueue_is_bounded_by_max_queue_size(caplog):
         "silently keep appending"
     )
     assert queue.get_stats()["queued"] == 5, "the queue must not grow past the bound"
-    assert queue.is_queued(999) is False, "the dropped track must not be considered queued"
+    assert 999 not in queue._state.queued_set, "the dropped track must not be considered queued"
     assert any("full" in r.message.lower() for r in caplog.records), (
         "a dropped enqueue must be logged so operators see backpressure"
     )

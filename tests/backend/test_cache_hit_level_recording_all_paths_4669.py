@@ -56,9 +56,9 @@ def _isolated_chunk_dir(tmp_path, monkeypatch):
     import tempfile
     monkeypatch.setattr(tempfile, "tempdir", str(tmp_path / "tmp"))
     (tmp_path / "tmp").mkdir(parents=True, exist_ok=True)
-    # getattr so a pre-fix tree (no registry yet) still runs the behavioural
-    # assertions below instead of erroring out in fixture setup.
-    reset = getattr(chunk_render, "reset_chunk_levels", lambda: None)
+    def reset() -> None:
+        chunk_render._chunk_levels.clear()
+
     reset()
     yield
     reset()
@@ -262,7 +262,7 @@ def test_get_wav_chunk_path_hit_without_a_remembered_level_is_a_no_op(audio_file
     documented, deliberate limit of the fix."""
     warm = _make_processor(audio_file)
     warm.get_wav_chunk_path(1)
-    chunk_render.reset_chunk_levels()  # simulate a fresh process
+    chunk_render._chunk_levels.clear()  # simulate a fresh process
 
     proc = _make_processor(audio_file)
     proc.get_wav_chunk_path(0)

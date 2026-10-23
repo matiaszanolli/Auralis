@@ -32,7 +32,7 @@ if _BACKEND not in sys.path:
 
 from core.chunk_cache_manager import ChunkCacheManager  # noqa: E402
 from core.chunk_path_cache import ChunkPathCache  # noqa: E402
-from core.encoding.wav_encoder import WAVEncoder  # noqa: E402
+from core.encoding.wav_encoder import WAVEncoder, delete_chunk_files  # noqa: E402
 from core.processor_factory import ProcessorFactory  # noqa: E402
 from core.targets_hash import NO_TARGETS, get_targets_hash  # noqa: E402
 
@@ -171,14 +171,14 @@ class TestWavChunkPath:
             f"v{WAVEncoder.CACHE_VERSION}_"
         )
 
-    def test_cleanup_track_chunks_still_matches_new_filenames(self, tmp_path):
+    def test_chunk_cleanup_still_matches_new_filenames(self, tmp_path):
         encoder = WAVEncoder(chunk_dir=tmp_path)
         for targets in (None, TARGETS_A):
             path = encoder.get_chunk_path(
                 42, "sigX", "adaptive", 1.0, 0, get_targets_hash(targets)
             )
             _write_valid_wav(path)
-        assert encoder.cleanup_track_chunks(42, "sigX") == 2
+        assert delete_chunk_files(tmp_path, 42, "sigX") == 2
 
 
 # ---------------------------------------------------------------------------

@@ -291,12 +291,12 @@ class TestGetMasteringRecommendation:
 
         # REST and playback share the singleton recommendation cache (#5280).
         # Clear it so repeated track ids in this class remain isolated.
-        streamlined_cache_manager.clear_mastering_recommendations()
+        streamlined_cache_manager.mastering_recommendations.clear()
         try:
             yield mock_repos
         finally:
             main.globals_dict['repository_factory'] = original
-            streamlined_cache_manager.clear_mastering_recommendations()
+            streamlined_cache_manager.mastering_recommendations.clear()
 
     def test_returns_404_for_nonexistent_track(self, client, repos):
         """Call with nonexistent track_id → 404"""

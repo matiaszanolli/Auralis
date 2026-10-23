@@ -66,12 +66,6 @@ class ProcessorFactory(ProcessorMaintenanceMixin):
             mastering_targets=targets
         )
 
-    Usage (config-based):
-        factory = ProcessorFactory()
-        processor = factory.get_or_create_from_config(
-            config=my_config,
-            mode="adaptive"
-        )
     """
 
     def __init__(self, max_cached: int | None = None) -> None:
@@ -82,10 +76,9 @@ class ProcessorFactory(ProcessorMaintenanceMixin):
         """
         self._max_cached = max_cached
         # Unified cache: (track_id, preset, config_hash, targets_hash) -> HybridProcessor.
-        # OrderedDict with LRU eviction (fixes #3515 / BE-NEW-57) — `cleanup_track`
-        # is never called by production code, so the unbounded dict was
-        # accumulating gigabytes of HybridProcessor state for any long-running
-        # backend session.
+        # OrderedDict with LRU eviction (fixes #3515 / BE-NEW-57) — the
+        # unbounded dict it replaced accumulated gigabytes of HybridProcessor
+        # state for any long-running backend session.
         # #3720: cache key includes targets_hash so different
         # mastering_targets for the same (track_id, preset) get distinct
         # cached processors instead of racing on a re-apply. #4707 dropped
@@ -250,37 +243,3 @@ class ProcessorFactory(ProcessorMaintenanceMixin):
         logger.info("Processor created and cached: %s total in cache", cache_size)
         return processor
 
-    def get_or_create_from_config(
-        self,
-        config: Any | None = None,
-        mode: Literal["reference", "adaptive", "hybrid"] = "adaptive"
-    ) -> Any:
-        """
-        Get or create processor from config (config-based caching pattern).
-
-        Consolidates logic from hybrid_processor_singleton._get_or_create_processor().
-        Used for non-track-based processing (e.g., CLI tools, batch processing).
-
-        Args:
-            config: Optional UnifiedConfig instance
-            mode: Processing mode (adaptive, reference, hybrid)
-
-        Returns:
-            HybridProcessor instance
-        """
-        from auralis.core.config import UnifiedConfig
-
-        # Mode selection belongs to the processor snapshot, not the caller's
-        # potentially shared config (#4827). get_or_create takes one more
-        # snapshot before constructing so all public factory paths have the
-        # same ownership guarantee.
-        owned_config = deepcopy(config) if config is not None else UnifiedConfig()
-        owned_config.set_processing_mode(mode)
-
-        # Use get_or_create with track_id=0 for config-based caching
-        return self.get_or_create(
-            track_id=0,
-            preset=owned_config.mastering_profile,
-            intensity=1.0,
-            config=owned_config
-        )

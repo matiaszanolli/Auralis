@@ -40,9 +40,9 @@ logger = logging.getLogger(__name__)
 # The staged file keeps the destination's real extension (".part.wav", not
 # ".part"): auralis.io.saver.save delegates to soundfile, which infers the
 # container format from the extension and raises on an unknown one. It is also
-# written as a dotfile, so the `track_*.wav` cleanup patterns in
-# WAVEncoder.cleanup_track_chunks cannot match it. `is_partial_path` is the
-# single predicate for "this is staging, not a cache entry".
+# written as a dotfile, so the `track_*.wav` cleanup patterns cannot match it.
+# `is_partial_path` is the single predicate for "this is staging, not a cache
+# entry".
 PARTIAL_SUFFIX = ".part"
 
 # How old a staging file must be before a sweep that does not own the directory

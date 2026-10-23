@@ -97,7 +97,3 @@ class RecommendationCacheMixin:
         self.mastering_recommendations.move_to_end(cache_key)
         return recommendation
 
-    def clear_mastering_recommendations(self) -> None:
-        """Clear all cached mastering recommendations."""
-        self.mastering_recommendations.clear()
-        logger.info("Cleared all mastering recommendations from cache")

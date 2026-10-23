@@ -75,19 +75,6 @@ def test_factory_does_not_mutate_caller_owned_config():
     assert config.mastering_profile == "gentle"
 
 
-def test_config_mode_selection_does_not_mutate_caller_owned_config():
-    factory = ProcessorFactory()
-    config = UnifiedConfig()
-
-    with patch("auralis.core.hybrid_processor.HybridProcessor") as processor_cls:
-        factory.get_or_create_from_config(config, mode="reference")
-
-    owned_config = processor_cls.call_args.args[0]
-    assert owned_config is not config
-    assert owned_config.adaptive.mode == "reference"
-    assert config.adaptive.mode == "adaptive"
-
-
 def test_different_cold_keys_construct_without_global_lock_serialization():
     factory = ProcessorFactory()
     first_started = threading.Event()
@@ -217,21 +204,6 @@ def test_lru_eviction_closes_evicted_processor():
     for surviving in mock_processors[1:]:
         surviving.close.assert_not_called()
     assert len(factory._processor_cache) == _PROCESSOR_CACHE_MAX
-
-
-def test_cleanup_track_closes_removed_processors():
-    """cleanup_track() must call close() on every processor it removes."""
-    factory = ProcessorFactory()
-    mock_processor = MagicMock()
-    key = _make_key(7)
-    factory._processor_cache[key] = mock_processor
-    factory._active_processors[7] = mock_processor
-
-    factory.cleanup_track(7)
-
-    mock_processor.close.assert_called_once()
-    assert key not in factory._processor_cache
-    assert 7 not in factory._active_processors
 
 
 def test_clear_cache_closes_all_processors():

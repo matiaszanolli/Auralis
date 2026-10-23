@@ -106,20 +106,10 @@ class TestGetRecommendationForTrack:
 
         with patch("services.recommendation_service.asyncio.to_thread", new_callable=AsyncMock) as mock_thread:
             mock_thread.return_value = rec_dict
-            result = await service.get_recommendation_for_track(7, "/music/track.mp3")
+            result = await service.generate_and_broadcast_recommendation(7, "/music/track.mp3")
 
         assert result == rec_dict
-        conn_mgr.broadcast.assert_not_awaited()  # no broadcast in this path
-
-    @pytest.mark.asyncio
-    async def test_returns_none_when_analysis_returns_none(self):
-        service, _ = _make_service()
-
-        with patch("services.recommendation_service.asyncio.to_thread", new_callable=AsyncMock) as mock_thread:
-            mock_thread.return_value = None
-            result = await service.get_recommendation_for_track(7, "/music/track.mp3")
-
-        assert result is None
+        conn_mgr.broadcast.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_second_call_hits_shared_cache_without_reanalysis(self):
@@ -131,47 +121,15 @@ class TestGetRecommendationForTrack:
             new_callable=AsyncMock,
             return_value=rec_dict,
         ) as mock_thread:
-            first = await service.get_recommendation_for_track(7, "/music/track.mp3")
-            second = await service.get_recommendation_for_track(7, "/music/track.mp3")
+            first = await service.generate_and_broadcast_recommendation(7, "/music/track.mp3")
+            second = await service.generate_and_broadcast_recommendation(7, "/music/track.mp3")
 
         assert first is rec_dict
         assert second is rec_dict
         mock_thread.assert_awaited_once()
 
-    @pytest.mark.asyncio
-    async def test_broadcast_and_query_paths_share_cached_result(self):
-        service, conn_mgr = _make_service()
-        rec_dict = {"preset": "warm", "confidence": 0.9, "track_id": 42}
-
-        with patch(
-            "services.recommendation_service.asyncio.to_thread",
-            new_callable=AsyncMock,
-            return_value=rec_dict,
-        ) as mock_thread:
-            broadcast_result = await service.generate_and_broadcast_recommendation(
-                42, "/music/track.mp3"
-            )
-            query_result = await service.get_recommendation_for_track(
-                42, "/music/track.mp3"
-            )
-
-        assert broadcast_result is rec_dict
-        assert query_result is rec_dict
-        mock_thread.assert_awaited_once()
-        conn_mgr.broadcast.assert_awaited_once()
-
-    @pytest.mark.asyncio
-    async def test_raises_on_exception(self):
-        """get_recommendation_for_track propagates exceptions (not swallowed)."""
-        service, _ = _make_service()
-
-        with patch("services.recommendation_service.asyncio.to_thread", side_effect=ValueError("bad")):
-            with pytest.raises(ValueError, match="bad"):
-                await service.get_recommendation_for_track(7, "/music/track.mp3")
-
-
 class TestAnalysisTimeout:
-    """#5248: both call sites must bound the analysis in
+    """#5248: the call site must bound the analysis in
     asyncio.wait_for(..., timeout=CHUNK_PROCESS_TIMEOUT), mirroring every
     streaming entry point's ChunkedAudioProcessor construction — otherwise a
     corrupt-header file (sf.info() has no timeout of its own for
@@ -201,19 +159,6 @@ class TestAnalysisTimeout:
         conn_mgr.broadcast.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_get_recommendation_raises_timeout_error(self):
-        """Unlike the broadcast path, this one preserves its documented
-        "raises on failure" contract — a timeout must still propagate."""
-        service, _ = _make_service()
-
-        with patch(
-            "services.recommendation_service.asyncio.to_thread",
-            side_effect=TimeoutError,
-        ):
-            with pytest.raises(TimeoutError):
-                await service.get_recommendation_for_track(7, "/music/track.mp3")
-
-    @pytest.mark.asyncio
     async def test_generate_and_broadcast_uses_chunk_process_timeout(self):
         """The bound must match the constant every streaming entry point
         uses (core.audio_stream_controller.CHUNK_PROCESS_TIMEOUT), not an
@@ -233,22 +178,6 @@ class TestAnalysisTimeout:
         # The mock intercepted wait_for before it could await its argument —
         # close the real (never-run) `asyncio.to_thread(_analyze)` coroutine
         # it was handed, so it isn't left dangling for the GC to warn about.
-        mock_wait_for.await_args.args[0].close()
-
-    @pytest.mark.asyncio
-    async def test_get_recommendation_uses_chunk_process_timeout(self):
-        from core import audio_stream_controller as _asc
-
-        service, _ = _make_service()
-
-        with patch(
-            "services.recommendation_service.asyncio.wait_for",
-            new_callable=AsyncMock,
-        ) as mock_wait_for:
-            mock_wait_for.return_value = None
-            await service.get_recommendation_for_track(7, "/music/track.mp3")
-
-        assert mock_wait_for.await_args.kwargs["timeout"] == _asc.CHUNK_PROCESS_TIMEOUT
         mock_wait_for.await_args.args[0].close()
 
 
@@ -282,20 +211,6 @@ class TestAnalyzeDoesNotMutateSysPath:
         assert result == {}
         assert after == before, "sys.path must be unchanged after repeated calls (#4745)"
 
-    @pytest.mark.asyncio
-    async def test_get_recommendation_does_not_grow_sys_path(self):
-        service, _ = _make_service()
-
-        with patch("core.chunked_processor.ChunkedAudioProcessor") as mock_cls:
-            mock_cls.return_value.get_mastering_recommendation.return_value = None
-
-            before = list(sys.path)
-            for _ in range(3):
-                result = await service.get_recommendation_for_track(1, "/music/track.mp3")
-            after = list(sys.path)
-
-        assert result is None
-        assert after == before, "sys.path must be unchanged after repeated calls (#4745)"
 
 # The recommendation/pre-warm paths re-check a DB filepath with
 # validate_file_path before any file I/O (#4817/#4818). These tests exercise
@@ -311,16 +226,16 @@ def _accept_fabricated_track_paths(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_a_stored_path_outside_allowed_directories_is_not_analysed(monkeypatch):
-    """#4817: POST /api/player/load feeds the DB filepath straight in; both
-    public methods funnel through _get_or_analyze, which now re-validates."""
+    """#4817: POST /api/player/load feeds the DB filepath straight in;
+    _get_or_analyze re-validates it before any I/O."""
     from security.path_security import validate_file_path as real_validate
 
     monkeypatch.setattr("services.recommendation_service.validate_file_path", real_validate)
     service, conn_mgr = _make_service()
 
     with patch("services.recommendation_service.asyncio.to_thread", new_callable=AsyncMock) as mock_thread:
-        result = await service.get_recommendation_for_track(7, "/definitely/not/allowed/track.mp3")
+        result = await service.generate_and_broadcast_recommendation(7, "/definitely/not/allowed/track.mp3")
 
-    assert result is None
+    assert result == {}
     mock_thread.assert_not_awaited()
 

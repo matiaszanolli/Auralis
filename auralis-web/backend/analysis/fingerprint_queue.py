@@ -147,11 +147,6 @@ class FingerprintQueue:
             "is_running": self._worker_task is not None and not self._worker_task.done(),
         }
 
-    def is_queued(self, track_id: int) -> bool:
-        """Check if a track is currently queued or being processed."""
-        with self._state_lock:
-            return track_id in self._state.queued_set or track_id == self._state.processing
-
     async def start(self) -> None:
         """Start the background worker task."""
         if self._worker_task is not None and not self._worker_task.done():

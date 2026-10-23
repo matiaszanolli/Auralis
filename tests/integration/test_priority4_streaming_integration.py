@@ -205,10 +205,6 @@ class TestStreamlinedCacheRecommendations:
         cache.set_mastering_recommendation(2, self._rec_payload())
         assert cache.get_mastering_recommendation(1) is not None
 
-        cache.clear_mastering_recommendations()
-
-        assert cache.get_mastering_recommendation(1) is None
-        assert cache.get_mastering_recommendation(2) is None
 
 
 class TestRecommendationResponseContract:

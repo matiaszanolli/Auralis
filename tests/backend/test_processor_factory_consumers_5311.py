@@ -67,7 +67,7 @@ def test_background_factories_keep_a_small_cache(fresh_factories, consumer):
     for track_id in range(1, 10):
         factory.get_or_create(track_id=track_id)
 
-    assert factory.get_statistics()["total_cached"] == pf._CONSUMER_CACHE_MAX[consumer]
+    assert len(factory._processor_cache) == pf._CONSUMER_CACHE_MAX[consumer]
 
 
 def _record_construction(monkeypatch, *, raise_after: bool) -> dict:

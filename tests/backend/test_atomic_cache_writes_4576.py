@@ -252,7 +252,7 @@ class TestPartialCleanup:
         assert is_partial_path(seen[0]), "staged file is not identifiable as a partial"
 
     def test_staged_file_is_not_matched_by_the_chunk_cleanup_patterns(self, tmp_path):
-        """WAVEncoder.cleanup_track_chunks must not see staging files."""
+        """The chunk cleanup patterns must not match staging files."""
         final = tmp_path / "track_7_sig_adaptive_1.0_0.wav"
         seen: list[Path] = []
 

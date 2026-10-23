@@ -232,24 +232,6 @@ class WAVEncoder:
         self.encode_and_save(audio, sample_rate, chunk_path, subtype)
         return chunk_path
 
-    def cleanup_track_chunks(
-        self,
-        track_id: int,
-        file_signature: str
-    ) -> int:
-        """
-        Delete all chunks for a track.
-
-        Args:
-            track_id: Track ID
-            file_signature: File signature
-
-        Returns:
-            Number of files deleted
-        """
-        return delete_chunk_files(self.chunk_dir, track_id, file_signature)
-
-
 def delete_chunk_files(
     chunk_dir: Path,
     track_id: int | None = None,

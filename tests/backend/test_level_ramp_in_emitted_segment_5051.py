@@ -48,7 +48,7 @@ SEGMENTS = [(0.0, 0.1), (13.0, 0.4), (25.0, 0.2)]
 def processor(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[ChunkedAudioProcessor]:
     monkeypatch.setattr(tempfile, "tempdir", str(tmp_path / "tmp"))
     (tmp_path / "tmp").mkdir()
-    chunk_render.reset_chunk_levels()
+    chunk_render._chunk_levels.clear()
 
     t = np.arange(int(DURATION * SR)) / SR
     level = np.zeros_like(t)
@@ -67,7 +67,7 @@ def processor(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Chunk
     with patch.object(AudioProcessingPipeline, "process_audio", side_effect=passthrough):
         yield proc
     proc.close()
-    chunk_render.reset_chunk_levels()
+    chunk_render._chunk_levels.clear()
 
 
 def _emit(proc: ChunkedAudioProcessor, chunk_index: int) -> np.ndarray:

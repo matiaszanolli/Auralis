@@ -156,35 +156,3 @@ class RecommendationService:
             # Log but don't fail - recommendations are optional
             logger.warning(f"Failed to generate mastering recommendation for track {track_id}: {e}")
             return {}
-
-    async def get_recommendation_for_track(
-        self,
-        track_id: int,
-        track_path: str,
-        confidence_threshold: float = 0.4
-    ) -> dict[str, Any] | None:
-        """
-        Get mastering recommendation for a track without broadcasting.
-
-        Useful for frontend queries about recommendations.
-
-        Args:
-            track_id: Track database ID
-            track_path: Path to audio file
-            confidence_threshold: Minimum confidence for recommendation
-
-        Returns:
-            dict: Recommendation data if available, None otherwise
-
-        Raises:
-            Exception: If analysis fails
-        """
-        try:
-            # #5248: same timeout bound as generate_and_broadcast_recommendation
-            # above — see that method's comment for why this is needed.
-            return await self._get_or_analyze(
-                track_id, track_path, confidence_threshold
-            )
-        except Exception as e:
-            logger.error(f"Failed to get mastering recommendation for track {track_id}: {e}")
-            raise

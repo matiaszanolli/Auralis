@@ -126,10 +126,10 @@ class TestRecommendationCacheBounds:
     def _clear_cache(self):
         from cache import streamlined_cache_manager
 
-        streamlined_cache_manager.clear_mastering_recommendations()
+        streamlined_cache_manager.mastering_recommendations.clear()
         self.cache = streamlined_cache_manager
         yield
-        streamlined_cache_manager.clear_mastering_recommendations()
+        streamlined_cache_manager.mastering_recommendations.clear()
 
     def test_cap_is_enforced_across_many_distinct_keys(self):
         cap = self.cache.MAX_RECOMMENDATIONS

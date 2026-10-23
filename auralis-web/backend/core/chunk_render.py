@@ -92,14 +92,6 @@ def recall_chunk_level(cache_key: str) -> tuple[float, float] | None:
         return entry
 
 
-def reset_chunk_levels() -> None:
-    """Forget every remembered chunk level. Test hook — the registry is
-    process-wide, so a test that asserts on a cache-hit recording must start
-    from a known state."""
-    with _chunk_levels_lock:
-        _chunk_levels.clear()
-
-
 def load_chunk(
     processor: "ChunkedAudioProcessor", chunk_index: int, with_context: bool = True
 ) -> tuple[np.ndarray, float, float]:

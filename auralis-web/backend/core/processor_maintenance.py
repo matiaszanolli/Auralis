@@ -78,35 +78,6 @@ class ProcessorMaintenanceMixin:
         )
         return True
 
-    def cleanup_track(self, track_id: int) -> None:
-        """
-        Clean up all processors for a track.
-
-        Removes both from active tracking AND cache (full cleanup).
-
-        Args:
-            track_id: Track ID to clean up
-        """
-        with self._lock:
-            # Remove from active tracking
-            if track_id in self._active_processors:
-                self._active_processors.pop(track_id)
-
-            # #3733: named-attribute filter survives future key
-            # extensions (e.g., adding `sample_rate`) without silently
-            # shifting positional indices like `key[0]` would.
-            keys_to_remove = [
-                key for key in self._processor_cache
-                if key.track_id == track_id
-            ]
-
-            for key in keys_to_remove:
-                # Dispose before dropping the reference (#3746 set the pattern;
-                # close() releases nothing today — #4744).
-                self._processor_cache.pop(key).close()
-
-            logger.info(f"Cleaned up {len(keys_to_remove)} processor(s) for track {track_id}")
-
     # #4618: `set_mastering_targets()` was deleted here. It was a deprecated,
     # caller-less public method that looked up the OLD-shape cache key
     # (targets_hash="none") and mutated that processor in place — a documented
@@ -115,21 +86,6 @@ class ProcessorMaintenanceMixin:
     # has been the whole replacement since #3720: the targets are hashed into
     # the cache key, so distinct targets land in distinct cache entries and no
     # in-place mutation of a shared processor is ever needed.
-
-    def get_statistics(self) -> dict[str, Any]:
-        """
-        Get statistics about cached and active processors.
-
-        Returns:
-            Dictionary with processor statistics
-        """
-        with self._lock:
-            return {
-                "total_cached": len(self._processor_cache),
-                "total_active": len(self._active_processors),
-                "active_track_ids": list(self._active_processors.keys()),
-                "cache_keys": len(self._processor_cache),
-            }
 
     def clear_cache(self) -> None:
         """Clear all cached processors (for memory management)."""

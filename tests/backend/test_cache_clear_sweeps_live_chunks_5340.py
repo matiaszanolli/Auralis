@@ -74,11 +74,11 @@ class TestDeleteChunkFiles:
     def test_missing_directory_is_nothing_to_delete(self, tmp_path):
         assert delete_chunk_files(tmp_path / "never-created") == 0
 
-    def test_cleanup_track_chunks_is_scoped_to_one_file_signature(self, chunk_dir):
+    def test_chunk_cleanup_is_scoped_to_one_file_signature(self, chunk_dir):
         current = _live_chunk(chunk_dir, 1, 0, signature="aaaa1111")
         replaced_file = _live_chunk(chunk_dir, 1, 0, signature="bbbb2222")
 
-        assert WAVEncoder(chunk_dir).cleanup_track_chunks(1, "aaaa1111") == 1
+        assert delete_chunk_files(chunk_dir, 1, "aaaa1111") == 1
 
         assert not current.exists()
         assert replaced_file.exists()
