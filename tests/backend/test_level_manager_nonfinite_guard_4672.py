@@ -19,7 +19,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from core.level_manager import LevelManager, SILENCE_FLOOR_DB
+from core.level_manager import LevelManager, LEVEL_SMOOTHING_GATE_DB
 
 
 SR = 44100
@@ -56,7 +56,7 @@ def test_calculate_rms_on_inf_falls_back_to_last_known_level():
 def test_calculate_rms_on_nan_with_no_history_uses_silence_floor():
     lm = LevelManager()
     rms = lm.calculate_rms(_nan_chunk())
-    assert rms == SILENCE_FLOOR_DB
+    assert rms == LEVEL_SMOOTHING_GATE_DB
 
 
 def test_smooth_transition_never_poisons_rms_history_with_nan():

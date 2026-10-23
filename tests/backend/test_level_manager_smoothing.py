@@ -23,7 +23,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "ba
 from core.level_manager import (
     LevelManager,
     GAIN_RAMP_SECONDS,
-    SILENCE_FLOOR_DB,
+    LEVEL_SMOOTHING_GATE_DB,
     MAX_GAIN_CORRECTION_DB,
 )
 
@@ -37,6 +37,20 @@ def _loud(n=SR, ch=2, amp=0.5):
 
 def _quiet(n=SR, ch=2, amp=0.02):
     return (np.ones((n, ch), dtype=np.float32) * amp)
+
+
+# ---------------------------------------------------------------------------
+# #6223 — the smoothing gate is its own constant, not the dsp silence floor
+# ---------------------------------------------------------------------------
+
+def test_smoothing_gate_is_not_the_dsp_silence_floor():
+    """LEVEL_SMOOTHING_GATE_DB is -60 dB and unrelated to the -96 dB
+    SILENCE_FLOOR_DB convention (auralis/dsp/utils/conversion.py): importing
+    the dsp name here would move the #4729 runaway-gain guard by 36 dB."""
+    import core.level_manager as lm_mod
+
+    assert LEVEL_SMOOTHING_GATE_DB == -60.0
+    assert not hasattr(lm_mod, "SILENCE_FLOOR_DB")
 
 
 # ---------------------------------------------------------------------------
@@ -364,11 +378,11 @@ def test_silence_does_not_poison_history_for_chunk_after_next():
 
 
 def test_silent_chunk_rms_is_below_floor_constant():
-    """Sanity check that digital silence actually trips SILENCE_FLOOR_DB, so
+    """Sanity check that digital silence actually trips LEVEL_SMOOTHING_GATE_DB, so
     the guard above is exercising the intended branch and not passing
     vacuously."""
     lm = LevelManager()
-    assert lm.calculate_rms(_silence()) <= SILENCE_FLOOR_DB
+    assert lm.calculate_rms(_silence()) <= LEVEL_SMOOTHING_GATE_DB
 
 
 def test_record_cached_level_clamps_extreme_gain():

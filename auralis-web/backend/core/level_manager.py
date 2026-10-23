@@ -23,18 +23,25 @@ MAX_LEVEL_CHANGE_DB = 1.5  # Maximum allowed level change between chunks in dB
 # chunk's gain, so the boundary stays continuous instead of stepping (#3831).
 GAIN_RAMP_SECONDS = 0.05  # 50 ms
 
-# A chunk's RMS at or below this floor carries no real level information —
+# A chunk's RMS at or below this gate carries no real level information —
 # it's effectively digital silence (or calculate_rms's log(0)-avoiding floor
 # for a truly empty/zero chunk). Treating a floored RMS as a real level to
 # smooth against produces a runaway correction (#4729): a silent chunk next
 # to a normal one computes a ~180 dB adjustment, which then gets stored and
 # ramped into the following real chunk as a full-scale burst followed by
-# near-total silence. Below this floor, level differences are ignored.
-SILENCE_FLOOR_DB = -60.0
+# near-total silence. Below this gate, level differences are ignored.
+#
+# Named *_GATE_DB, not SILENCE_FLOOR_DB: that name is the codebase-wide
+# 16-bit noise-floor convention (-96 dB, auralis/dsp/utils/conversion.py,
+# #5785). This is a different, higher threshold with a different job —
+# deciding when level smoothing may compare two chunks at all — and
+# importing the dsp constant here would silently move the #4729
+# runaway-gain guard threshold by 36 dB (#6223).
+LEVEL_SMOOTHING_GATE_DB = -60.0
 
 # Hard ceiling on any single gain correction, applied as a last-resort safety
 # net (#4729) in case a runaway value reaches this point despite the
-# SILENCE_FLOOR_DB guard above. Set far below the ~180 dB a floored-RMS
+# LEVEL_SMOOTHING_GATE_DB guard above. Set far below the ~180 dB a floored-RMS
 # pairing can otherwise produce, but well above any legitimate adjustment —
 # real adjacent-chunk level swings (loud verse to quiet bridge, etc.) stay
 # under ~30 dB in practice, so this should not clip real corrections.
@@ -110,9 +117,9 @@ class LevelManager:
             # compares against nan forever — smoothing stops applying with
             # no error. Fall back to the last known-good level so history
             # stays finite and smoothing keeps working for later chunks;
-            # SILENCE_FLOOR_DB if there is no prior level yet.
+            # LEVEL_SMOOTHING_GATE_DB if there is no prior level yet.
             logger.warning("RMS calculation received non-finite audio; using last known level")
-            return self.current_rms if self.current_rms is not None else SILENCE_FLOOR_DB
+            return self.current_rms if self.current_rms is not None else LEVEL_SMOOTHING_GATE_DB
 
         rms = np.sqrt(np.mean(audio ** 2))
         rms_db = 20 * np.log10(rms + 1e-10)  # Add epsilon to avoid log(0)
@@ -182,7 +189,7 @@ class LevelManager:
         # information worth smoothing against — treating it as one produces a
         # runaway correction that bursts the following chunk (#4729). Record
         # the true RMS so history stays accurate, but apply no gain.
-        if current_rms <= SILENCE_FLOOR_DB or previous_rms <= SILENCE_FLOOR_DB:
+        if current_rms <= LEVEL_SMOOTHING_GATE_DB or previous_rms <= LEVEL_SMOOTHING_GATE_DB:
             self.rms_history.append(current_rms)
             self.gain_history.append(0.0)
             logger.debug(
