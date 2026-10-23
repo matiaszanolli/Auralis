@@ -38,6 +38,7 @@ import numpy as np
 from ..analysis.fingerprint import AudioFingerprintAnalyzer
 from ..analysis.fingerprint.schema import centroid_to_hz
 from ..utils.logging import debug
+from .utils.fingerprint_unpacker import FingerprintUnpacker
 
 
 def _centroid_hz(
@@ -184,10 +185,11 @@ class RecordingTypeDetector:
         - Bootleg: 374-571 Hz, +13-17 dB bass-to-mid, 0.17-0.23 stereo, 4-6 CF
         - Metal: 1344 Hz, +9.58 dB bass-to-mid, 0.418 stereo, 3.54 CF
         """
-        spectral_centroid = fingerprint.get('spectral_centroid', 0.5)
-        bass_to_mid = fingerprint.get('bass_mid_ratio', 1.0)  # in dB
-        stereo_width = fingerprint.get('stereo_width', 0.5)
-        crest_factor = fingerprint.get('crest_db', 5.0)  # in dB
+        fp = FingerprintUnpacker.from_dict(fingerprint)
+        spectral_centroid = fp.spectral_centroid
+        bass_to_mid = fp.bass_mid_ratio  # in dB
+        stereo_width = fp.stereo_width
+        crest_factor = fp.crest_db  # in dB
 
         # Denormalize spectral centroid to Hz via the schema's canonical
         # constant (8 kHz, NOT 20 kHz — the fingerprint clips at 8 kHz so
@@ -391,7 +393,7 @@ class RecordingTypeDetector:
 
         # Fine-tune based on actual darkness (25D guidance)
         spectral_centroid_hz = _centroid_hz(fingerprint, default_normalized=0.3)
-        bass_to_mid = fingerprint.get('bass_mid_ratio', 15.0)
+        bass_to_mid = FingerprintUnpacker.from_dict(fingerprint).bass_mid_ratio
 
         # More aggressive correction if darker than reference
         assert spectral_centroid_hz is not None  # a default was supplied

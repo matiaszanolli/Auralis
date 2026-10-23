@@ -8,6 +8,19 @@ mastering_target_service.py, #5833). Pure functions of the fingerprint.
 
 from typing import Any
 
+from auralis.dsp.utils.loudness_targets import DEFAULT_TARGET_LUFS, STREAMING_TARGET_LUFS
+
+# Ideal share of spectral energy per band; also the "no data" fallback.
+_IDEAL_BAND_SHARE: dict[str, float] = {
+    'sub_bass': 0.05,
+    'bass': 0.15,
+    'low_mid': 0.18,
+    'mid': 0.22,
+    'upper_mid': 0.20,
+    'presence': 0.13,
+    'air': 0.07,
+}
+
 
 def generate_targets_from_fingerprint(fingerprint: Any) -> dict[str, Any]:
     """
@@ -36,8 +49,8 @@ def generate_targets_from_fingerprint(fingerprint: Any) -> dict[str, Any]:
 
     # Target loudness: nudge toward streaming standard (-14 LUFS) while
     # preserving the track's original loudness character (fixes #2726).
-    current_lufs = fp_dict.get('lufs', dynamics.get('lufs', -14.0))
-    streaming_target = -14.0
+    current_lufs = fp_dict.get('lufs', dynamics.get('lufs', DEFAULT_TARGET_LUFS))
+    streaming_target = STREAMING_TARGET_LUFS
     # Blend 60% toward streaming target, 40% original character
     target_lufs = current_lufs * 0.4 + streaming_target * 0.6
 
@@ -45,29 +58,13 @@ def generate_targets_from_fingerprint(fingerprint: Any) -> dict[str, Any]:
     current_crest = fp_dict.get('crest_db', dynamics.get('crest_db', 12.0))
     target_crest = max(10.0, current_crest * 0.85)  # Slight reduction
 
-    # EQ adjustments based on frequency balance
+    # EQ adjustments based on frequency balance. A band missing from the
+    # fingerprint falls back to its own ideal share (so it gets no adjustment).
     eq_adjustments = {
-        'sub_bass': calculate_eq_adjustment(
-            fp_dict.get('sub_bass_pct', freq.get('sub_bass_pct', 0.05)), ideal=0.05
-        ),
-        'bass': calculate_eq_adjustment(
-            fp_dict.get('bass_pct', freq.get('bass_pct', 0.15)), ideal=0.15
-        ),
-        'low_mid': calculate_eq_adjustment(
-            fp_dict.get('low_mid_pct', freq.get('low_mid_pct', 0.18)), ideal=0.18
-        ),
-        'mid': calculate_eq_adjustment(
-            fp_dict.get('mid_pct', freq.get('mid_pct', 0.22)), ideal=0.22
-        ),
-        'upper_mid': calculate_eq_adjustment(
-            fp_dict.get('upper_mid_pct', freq.get('upper_mid_pct', 0.20)), ideal=0.20
-        ),
-        'presence': calculate_eq_adjustment(
-            fp_dict.get('presence_pct', freq.get('presence_pct', 0.13)), ideal=0.13
-        ),
-        'air': calculate_eq_adjustment(
-            fp_dict.get('air_pct', freq.get('air_pct', 0.07)), ideal=0.07
-        ),
+        band: calculate_eq_adjustment(
+            fp_dict.get(f'{band}_pct', freq.get(f'{band}_pct', ideal)), ideal=ideal
+        )
+        for band, ideal in _IDEAL_BAND_SHARE.items()
     }
 
     return {

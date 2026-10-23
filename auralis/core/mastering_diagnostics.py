@@ -14,68 +14,71 @@ or state involved.
 
 from typing import Any
 
+from .utils.fingerprint_unpacker import FingerprintUnpacker
+
 
 def print_fingerprint(fp: dict[str, Any]) -> None:
     """Print key fingerprint metrics organized by measurement group."""
     print("\n📊 Fingerprint (25D):")
+    u = FingerprintUnpacker.from_dict(fp)
 
     # Dynamics (3D) - Critical for loudness/compression decisions
-    lufs = fp.get('lufs', -14.0)
-    crest_db = fp.get('crest_db', 12.0)
-    bass_mid_ratio = fp.get('bass_mid_ratio', 0.0)
+    lufs = u.lufs
+    crest_db = u.crest_db
+    bass_mid_ratio = u.bass_mid_ratio
 
     print("   🔊 Dynamics:")
     print(f"      LUFS: {lufs:.1f} dB  │  Crest: {crest_db:.1f} dB  │  Bass/Mid: {bass_mid_ratio:.2f}")
 
     # Frequency (7D) - Spectral balance
-    sub_bass_pct = fp.get('sub_bass_pct', 0.05)
-    bass_pct = fp.get('bass_pct', 0.15)
-    low_mid_pct = fp.get('low_mid_pct', 0.10)
-    mid_pct = fp.get('mid_pct', 0.20)
-    upper_mid_pct = fp.get('upper_mid_pct', 0.25)
-    presence_pct = fp.get('presence_pct', 0.15)
-    air_pct = fp.get('air_pct', 0.10)
+    sub_bass_pct = u.sub_bass_pct
+    bass_pct = u.bass_pct
+    low_mid_pct = u.low_mid_pct
+    mid_pct = u.mid_pct
+    upper_mid_pct = u.upper_mid_pct
+    presence_pct = u.presence_pct
+    air_pct = u.air_pct
 
     print("   🎚️  Frequency Balance:")
     print(f"      Sub: {sub_bass_pct:.0%}  │  Bass: {bass_pct:.0%}  │  Lo-Mid: {low_mid_pct:.0%}  │  Mid: {mid_pct:.0%}")
     print(f"      Up-Mid: {upper_mid_pct:.0%}  │  Presence: {presence_pct:.0%}  │  Air: {air_pct:.0%}")
 
     # Temporal (4D) - Rhythm and dynamics
-    tempo_bpm = fp.get('tempo_bpm', 120.0)
-    rhythm_stability = fp.get('rhythm_stability', 0.5)
-    transient_density = fp.get('transient_density', 0.5)
-    silence_ratio = fp.get('silence_ratio', 0.0)
+    tempo_bpm = u.tempo_bpm
+    rhythm_stability = u.rhythm_stability
+    transient_density = u.transient_density
+    silence_ratio = u.silence_ratio
 
     print("   🥁 Temporal:")
     print(f"      Tempo: {tempo_bpm:.0f} BPM  │  Rhythm: {rhythm_stability:.0%}  │  Transients: {transient_density:.0%}  │  Silence: {silence_ratio:.0%}")
 
     # Spectral (3D) - Brightness and noise characteristics
-    spectral_centroid = fp.get('spectral_centroid', 0.5)
-    spectral_rolloff = fp.get('spectral_rolloff', 0.5)
-    spectral_flatness = fp.get('spectral_flatness', 0.5)
+    spectral_centroid = u.spectral_centroid
+    spectral_rolloff = u.spectral_rolloff
+    spectral_flatness = u.spectral_flatness
 
     print("   ✨ Spectral:")
     print(f"      Centroid: {spectral_centroid:.0%}  │  Rolloff: {spectral_rolloff:.0%}  │  Flatness: {spectral_flatness:.0%}")
 
     # Harmonic (3D) - Tonality
-    harmonic_ratio = fp.get('harmonic_ratio', 0.5)
-    pitch_stability = fp.get('pitch_stability', 0.5)
-    chroma_energy = fp.get('chroma_energy', 0.5)
+    harmonic_ratio = u.harmonic_ratio
+    pitch_stability = u.pitch_stability
+    chroma_energy = u.chroma_energy
 
     print("   🎼 Harmonic:")
     print(f"      Harmonic: {harmonic_ratio:.0%}  │  Pitch: {pitch_stability:.0%}  │  Chroma: {chroma_energy:.0%}")
 
     # Stereo (2D)
-    stereo_width = fp.get('stereo_width', 0.5)
-    phase_correlation = fp.get('phase_correlation', 1.0)
+    stereo_width = u.stereo_width
+    phase_correlation = u.phase_correlation
 
     print("   🎧 Stereo:")
     print(f"      Width: {stereo_width:.0%}  │  Phase Corr: {phase_correlation:.2f}")
 
     # Variation (3D) - Consistency metrics
-    dynamic_range_variation = fp.get('dynamic_range_variation', 0.5)
-    loudness_variation_std = fp.get('loudness_variation_std', 0.0)
-    peak_consistency = fp.get('peak_consistency', 0.5)
+    dynamic_range_variation = u.dynamic_range_variation
+    loudness_variation_std = u.loudness_variation_std
+    peak_consistency = u.peak_consistency
 
     print("   📊 Variation:")
     print(f"      DR Var: {dynamic_range_variation:.0%}  │  Loudness σ: {loudness_variation_std:.1f}  │  Peak Cons: {peak_consistency:.0%}")

@@ -16,6 +16,7 @@ from typing import Any
 # The mastering engine's real preset definitions — the presets endpoint
 # projects these rather than restating them (#5220).
 from auralis.core.config.preset_profiles import PresetProfile, create_preset_profiles
+from auralis.dsp.utils.loudness_targets import DEFAULT_TARGET_LUFS
 from fastapi import Depends, HTTPException
 from schemas import DEFAULT_PRESET
 
@@ -32,7 +33,7 @@ _DEFAULT_PARAMETERS: dict[str, Any] = {
     "spectral_balance": 0.5,
     "dynamic_range": 0.5,
     "energy_level": 0.5,
-    "target_lufs": -14.0,
+    "target_lufs": DEFAULT_TARGET_LUFS,
     "peak_target_db": -1.0,
     "bass_boost": 0.0,
     "air_boost": 0.0,
@@ -168,7 +169,7 @@ async def get_processing_parameters(
             "spectral_balance": get_attr(coords, 'spectral_balance', 0.5),
             "dynamic_range": get_attr(coords, 'dynamic_range', 0.5),
             "energy_level": get_attr(coords, 'energy_level', 0.5),
-            "target_lufs": get_attr(params, 'target_lufs', -14.0),
+            "target_lufs": get_attr(params, 'target_lufs', DEFAULT_TARGET_LUFS),
             "peak_target_db": get_attr(params, 'peak_target_db', -1.0),
             "bass_boost": get_attr(params, 'eq_curve', {}).get('low_shelf_gain', 0.0),
             "air_boost": get_attr(params, 'eq_curve', {}).get('high_shelf_gain', 0.0),

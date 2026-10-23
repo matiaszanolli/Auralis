@@ -11,6 +11,8 @@ Configuration classes for dynamics processing
 from dataclasses import dataclass
 from enum import Enum
 
+from ..utils.loudness_targets import DEFAULT_TARGET_LUFS
+
 # Bound pairs shared by more than one field below. Promoted to named
 # constants (#5022) after two pairs were independently re-typed as identical
 # bare literals months apart with no cross-reference: CompressorSettings.ratio
@@ -77,7 +79,7 @@ class DynamicsSettings:
 
     # Adaptive settings
     adaptation_speed: float = 0.1
-    target_lufs: float = -14.0
+    target_lufs: float = DEFAULT_TARGET_LUFS
     target_lra: float = 7.0  # Loudness Range
 
     def __post_init__(self) -> None:

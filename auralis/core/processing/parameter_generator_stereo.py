@@ -15,6 +15,7 @@ from the original method it replaces.
 
 import numpy as np
 
+from ..utils.fingerprint_unpacker import FingerprintUnpacker
 from .continuous_space import PreferenceVector, ProcessingCoordinates
 
 
@@ -36,7 +37,7 @@ def calculate_stereo_width(
         Target stereo width (0.0 to 1.0)
     """
     fp = coords.fingerprint
-    current_width = fp.get('stereo_width', 0.7)
+    current_width = FingerprintUnpacker.from_dict(fp).stereo_width
 
     target_width = (
         current_width

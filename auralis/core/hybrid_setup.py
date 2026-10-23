@@ -20,6 +20,7 @@ from ..analysis.fingerprint import AudioFingerprintAnalyzer
 from ..dsp.advanced_dynamics import DynamicsMode, create_dynamics_processor
 from ..dsp.dynamics import create_brick_wall_limiter
 from ..dsp.eq.psychoacoustic_eq import EQSettings, PsychoacousticEQ
+from ..dsp.utils.loudness_targets import DEFAULT_TARGET_LUFS
 from ..optimization.performance_optimizer import get_performance_optimizer
 from ..utils.logging import debug, info
 from .analysis import AdaptiveTargetGenerator, ContentAnalyzer
@@ -67,7 +68,7 @@ def build_hybrid_components(config: UnifiedConfig, processor: "HybridProcessor")
     processor.dynamics_processor = create_dynamics_processor(
         mode=DynamicsMode.ADAPTIVE,
         sample_rate=config.internal_sample_rate,
-        target_lufs=-14.0
+        target_lufs=DEFAULT_TARGET_LUFS
     )
     processor.dynamics_processor.settings.enable_gate = False
     processor.dynamics_processor.settings.enable_compressor = True

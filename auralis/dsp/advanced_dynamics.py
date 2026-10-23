@@ -15,6 +15,7 @@ import threading
 from typing import Any
 
 from ..utils.logging import debug
+from .utils.loudness_targets import DEFAULT_TARGET_LUFS
 
 # Import from refactored modules
 from .dynamics import (
@@ -65,7 +66,7 @@ class DynamicsProcessor:
         self.adaptation_state = {
             "target_threshold": threshold_db,
             "target_ratio": ratio,
-            "current_lufs": -14.0,
+            "current_lufs": DEFAULT_TARGET_LUFS,
             "current_lra": 7.0,
         }
 
@@ -125,7 +126,7 @@ class DynamicsProcessor:
 def create_dynamics_processor(
     sample_rate: int,
     mode: DynamicsMode = DynamicsMode.ADAPTIVE,
-    target_lufs: float = -14.0,
+    target_lufs: float = DEFAULT_TARGET_LUFS,
 ) -> DynamicsProcessor:
     """
     Factory function to create dynamics processor

@@ -16,6 +16,7 @@ from the original methods they replace.
 
 import numpy as np
 
+from ..utils.fingerprint_unpacker import FingerprintUnpacker
 from .continuous_space import PreferenceVector, ProcessingCoordinates
 
 
@@ -40,7 +41,7 @@ def calculate_target_lufs(
     dynamics = coords.dynamic_range
     fp = coords.fingerprint
 
-    input_lufs = fp.get('lufs', -14.0)
+    input_lufs = FingerprintUnpacker.from_dict(fp).lufs
     reference_lufs = -12.0
     softness_db = 0.75
     loudness_gap = reference_lufs - input_lufs

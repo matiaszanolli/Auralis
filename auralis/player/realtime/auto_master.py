@@ -18,6 +18,7 @@ from ...dsp.dynamics.lowmid_transient_enhancer import LowMidTransientEnhancer
 from ...dsp.dynamics.settings import CompressorSettings
 from ...dsp.utils.adaptive_loudness import AdaptiveLoudnessControl
 from ...utils.logging import debug, info, warning
+from ...core.utils.fingerprint_unpacker import FingerprintUnpacker
 from ..config import PlayerConfig
 
 
@@ -97,10 +98,11 @@ class AutoMasterProcessor:
         Same logic as auto_master.py's generate_adaptive_parameters()
         """
         # Extract key fingerprint metrics
-        lufs = fingerprint.get('lufs', -14.0)
-        crest_db = fingerprint.get('crest_db', 12.0)
-        bass_pct = fingerprint.get('bass_pct', 0.15)
-        transient_density = fingerprint.get('transient_density', 0.5)
+        fp = FingerprintUnpacker.from_dict(fingerprint)
+        lufs = fp.lufs
+        crest_db = fp.crest_db
+        bass_pct = fp.bass_pct
+        transient_density = fp.transient_density
 
         # Calculate adaptive makeup gain using centralized logic
         makeup_gain_db, reasoning = AdaptiveLoudnessControl.calculate_adaptive_gain(

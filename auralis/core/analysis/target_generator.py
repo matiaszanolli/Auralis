@@ -10,8 +10,10 @@ Generate adaptive processing targets based on content analysis
 
 from typing import Any
 
+from ...dsp.utils.loudness_targets import DEFAULT_TARGET_LUFS
 from ...utils.logging import debug
 from ..config import GenreProfile, UnifiedConfig
+from ..utils.fingerprint_unpacker import FingerprintUnpacker
 
 
 class AdaptiveTargetGenerator:
@@ -197,7 +199,7 @@ class AdaptiveTargetGenerator:
 
         # Target loudness (LUFS) - blend towards preset target
         # But respect content characteristics (don't over-compress material)
-        adaptive_lufs = modified_targets.get("target_lufs", -14.0)
+        adaptive_lufs = modified_targets.get("target_lufs", DEFAULT_TARGET_LUFS)
         preset_lufs = preset_profile.target_lufs
 
         # Get estimated input loudness from content analysis
@@ -264,6 +266,9 @@ class AdaptiveTargetGenerator:
 
         # 1. FREQUENCY-AWARE EQ ADJUSTMENTS (7D frequency distribution)
         # Use actual frequency distribution instead of guessing from spectral centroid
+        # TODO(#5858): these are fractions in the 25D fingerprint but are compared
+        # to percent thresholds below, so every real track takes the "light" branch.
+        # The percent-scale defaults are kept as-is until that is decided.
         bass_pct = fingerprint.get("bass_pct", 15.0)
         mid_pct = fingerprint.get("mid_pct", 30.0)
         presence_pct = fingerprint.get("presence_pct", 10.0)
@@ -289,9 +294,9 @@ class AdaptiveTargetGenerator:
             enhanced["treble_enhancement_db"] = targets.get("treble_enhancement_db", 0.0) - 1.2
 
         # 2. DYNAMICS-AWARE COMPRESSION (3D dynamics characteristics)
-        lufs = fingerprint.get("lufs", -20.0)
-        crest_db = fingerprint.get("crest_db", 15.0)
-        fingerprint.get("bass_mid_ratio", 0.0)
+        fp = FingerprintUnpacker.from_dict(fingerprint)
+        lufs = fp.lufs
+        crest_db = fp.crest_db
 
         # Adjust compression based on current dynamics
         if crest_db > 16.0:  # High dynamic range (classical, live recordings)
@@ -303,16 +308,14 @@ class AdaptiveTargetGenerator:
 
         # Adjust target LUFS based on current loudness
         if lufs > -10.0:  # Already very loud
-            enhanced["target_lufs"] = max(-14.0, targets.get("target_lufs", -14.0) - 2.0)
+            enhanced["target_lufs"] = max(DEFAULT_TARGET_LUFS, targets.get("target_lufs", DEFAULT_TARGET_LUFS) - 2.0)
             debug(f"Already loud ({lufs:.1f}LUFS) - conservative target")
         elif lufs < -25.0:  # Very quiet
-            enhanced["target_lufs"] = min(-12.0, targets.get("target_lufs", -14.0) + 2.0)
+            enhanced["target_lufs"] = min(-12.0, targets.get("target_lufs", DEFAULT_TARGET_LUFS) + 2.0)
             debug(f"Quiet input ({lufs:.1f}LUFS) - boost target")
 
         # 3. TEMPORAL-AWARE PROCESSING (4D temporal characteristics)
-        fingerprint.get("tempo_bpm", 120.0)
-        fingerprint.get("rhythm_stability", 0.5)
-        transient_density = fingerprint.get("transient_density", 0.5)
+        transient_density = fp.transient_density
 
         # Adjust processing based on transient content
         if transient_density > 0.7:  # Drum-heavy, percussive
@@ -324,8 +327,8 @@ class AdaptiveTargetGenerator:
             enhanced["mastering_intensity"] = targets.get("mastering_intensity", 0.8) * 1.1
 
         # 4. HARMONIC-AWARE PROCESSING (3D harmonic characteristics)
-        harmonic_ratio = fingerprint.get("harmonic_ratio", 0.5)
-        pitch_stability = fingerprint.get("pitch_stability", 0.7)
+        harmonic_ratio = fp.harmonic_ratio
+        pitch_stability = fp.pitch_stability
 
         # Reduce processing intensity for highly harmonic content (vocals, strings)
         if harmonic_ratio > 0.7 and pitch_stability > 0.8:
@@ -333,8 +336,8 @@ class AdaptiveTargetGenerator:
             debug(f"Highly harmonic content (ratio={harmonic_ratio:.2f}) - gentle processing")
 
         # 5. STEREO-AWARE ADJUSTMENTS (2D stereo characteristics)
-        stereo_width = fingerprint.get("stereo_width", 0.5)
-        phase_correlation = fingerprint.get("phase_correlation", 1.0)
+        stereo_width = fp.stereo_width
+        phase_correlation = fp.phase_correlation
 
         # Adjust stereo width target based on current width
         if stereo_width < 0.3:  # Narrow/mono
@@ -350,8 +353,7 @@ class AdaptiveTargetGenerator:
             enhanced["stereo_width"] = min(enhanced.get("stereo_width", 0.7), 0.6)  # Reduce width
 
         # 6. VARIATION-AWARE ADJUSTMENTS (3D variation characteristics)
-        loudness_variation = fingerprint.get("loudness_variation_std", 0.5)
-        fingerprint.get("dynamic_range_variation", 0.5)
+        loudness_variation = fp.loudness_variation_std
 
         # If material has intentional loudness variation (dynamics), preserve it
         if loudness_variation > 0.7:

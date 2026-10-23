@@ -17,6 +17,7 @@ than as a method that only looked like one.
 from typing import Any
 
 from ...dsp.utils.stereo import WIDTH_FACTOR_UNITY
+from ...dsp.utils.loudness_targets import DEFAULT_TARGET_LUFS
 from .continuous_space import ProcessingParameters
 
 
@@ -82,7 +83,7 @@ def convert_targets_to_parameters(targets: dict[str, Any]) -> ProcessingParamete
     }
 
     return ProcessingParameters(
-        target_lufs=targets.get('target_lufs', -14.0),
+        target_lufs=targets.get('target_lufs', DEFAULT_TARGET_LUFS),
         peak_target_db=-1.0,  # Standard peak target
         eq_curve=eq_curve,
         eq_blend=0.7,  # Default blend

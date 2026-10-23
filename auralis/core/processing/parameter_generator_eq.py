@@ -19,6 +19,12 @@ import numpy as np
 
 from .continuous_space import PreferenceVector, ProcessingCoordinates
 
+# Corpus-calibrated band centers (see the comment in the generator below). When
+# a band is missing the fallback is its own center, i.e. a zero correction --
+# deliberately not the FingerprintUnpacker typical-track default.
+_LOW_MID_CENTER = 0.1009
+_UPPER_MID_CENTER = 0.0733
+
 
 def _signed_band_gain(
     source_fraction: float,
@@ -62,10 +68,10 @@ def generate_eq_curve(
     # smoothly instead of clipping bands into deficit/excess classes.
     low_shelf_gain = _signed_band_gain(fp['bass_pct'], 0.4561, 4.0)
     low_mid_gain = _signed_band_gain(
-        fp.get('low_mid_pct', 0.1009), 0.1009, 2.0
+        fp.get('low_mid_pct', _LOW_MID_CENTER), _LOW_MID_CENTER, 2.0
     )
     mid_gain = _signed_band_gain(fp['mid_pct'], 0.1983, 2.0)
-    high_mid_source = fp.get('upper_mid_pct', 0.0733) + fp['presence_pct']
+    high_mid_source = fp.get('upper_mid_pct', _UPPER_MID_CENTER) + fp['presence_pct']
     high_mid_gain = _signed_band_gain(high_mid_source, 0.1030, 3.0)
     high_shelf_gain = _signed_band_gain(fp['air_pct'], 0.0063, 3.0)
 
