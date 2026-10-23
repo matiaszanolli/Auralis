@@ -78,8 +78,10 @@ Protocol & feature references:
   message reference
 - [archive/guides/](archive/guides/) — feature-level design notes and integration guides
   *(historical; #4984 archived this out of the current tree — most entries predate the current
-  architecture. `UI_DESIGN_GUIDELINES.md` and `MIGRATION_GUIDE.md` are still current and live
-  at the docs root)*
+  architecture. `UI_DESIGN_GUIDELINES.md` was archived alongside them in #6255 — its
+  component inventory predated the streamlining; the live UI rules are CLAUDE.md's Patterns/
+  Principles and [UI_STYLE_GUIDE.md](UI_STYLE_GUIDE.md). `MIGRATION_GUIDE.md` is still
+  current and lives at the docs root)*
 - [features/](features/) — per-feature documentation
 
 ---

@@ -1,7 +1,11 @@
 # UI Design Guidelines - Auralis
 
 **Version**: 1.0
-**Status**: 🎯 **ACTIVE** (Mandatory for all UI development)
+**Status**: ARCHIVED (2026-10-23, #6255) — the component inventory below names
+Enhanced*/V2 components and hooks that no longer exist; it predates the
+2026-07 streamlining. The live UI rules are CLAUDE.md's Patterns/Principles,
+docs/UI_STYLE_GUIDE.md and src/design-system/. Do not follow the component
+list in this document.
 **Last Updated**: November 6, 2025
 
 ---

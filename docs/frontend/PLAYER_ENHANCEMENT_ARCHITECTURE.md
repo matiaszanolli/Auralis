@@ -1,7 +1,7 @@
 # Player & Enhancement Pane Architecture (Current)
 
 **Status:** Current as of 2026-07-09
-**Supersedes:** `ARCHITECTURE_V3.md`, `analysis/PLAYER_COMPONENT_CONSOLIDATION_PLAN.md`, `analysis/PLAYER_ANALYSIS_SUMMARY.md`, `components/player-bar/PLAYERBARV2_REFACTORING_COMPLETE.md`, `components/player-bar/PLAYERBARV2_REFACTORING_FIXES.md`
+**Supersedes:** `ARCHITECTURE_V3.md`, the former *analysis/PLAYER_COMPONENT_CONSOLIDATION_PLAN.md* (now under `docs/archive/frontend-history/`, #6255), `analysis/PLAYER_ANALYSIS_SUMMARY.md`, `components/player-bar/PLAYERBARV2_REFACTORING_COMPLETE.md`, `components/player-bar/PLAYERBARV2_REFACTORING_FIXES.md`
 
 This is a short, code-verified description of the player and enhancement UI as it exists today, replacing the "V2"/"V3" planning docs that described components deleted in `67f82aa8` (#4089). No `-v2`/`-v3`-suffixed component, `player-bar-v2/` directory, or `usePlayer()`/`useLibrary()`/`useEnhancement()` hooks exist in the current tree.
 
