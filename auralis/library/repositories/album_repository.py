@@ -39,7 +39,7 @@ def _total_duration_subquery() -> Any:
 # stale) and its own proposed fix recommended this extraction — done here so
 # a future read path can't silently omit it again.
 
-# Single-album detail reads: get_by_id/get_by_title hand the album straight
+# Single-album detail reads: get_by_id hands the album straight
 # to to_dict(), which reads both album.artist and album.tracks.
 #
 # Track relationships used by Track.to_dict() are eager-loaded too
@@ -83,21 +83,6 @@ class AlbumRepository(AlbumArtworkMixin):
                 # Expunge the album AND all eagerly-loaded related objects so
                 # callers can access album.tracks after the session closes
                 # without hitting DetachedInstanceError (fixes #2406).
-                session.expunge_all()
-            return album
-
-    def get_by_title(self, title: str) -> Album | None:
-        """Get album by title with relationships loaded"""
-        with self._session_scope() as session:
-            album = session.execute(
-                select(Album)
-                .options(*_ALBUM_DETAIL_OPTIONS)
-                .where(Album.title == title)
-            ).scalars().unique().first()
-            if album:
-                # Expunge the album AND all eagerly-loaded related objects so
-                # callers can access album.tracks after the session closes
-                # without hitting DetachedInstanceError (fixes #2406 / #4236).
                 session.expunge_all()
             return album
 

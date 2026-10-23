@@ -124,7 +124,8 @@ def seeded_album(track_repository, album_repository):
         })
         assert track is not None
 
-    album = album_repository.get_by_title('Album Detach Seed Album')
+    albums, _ = album_repository.get_all(limit=100, order_by='title')
+    album = next((a for a in albums if a.title == 'Album Detach Seed Album'), None)
     assert album is not None, "seed album was not created"
     return album
 

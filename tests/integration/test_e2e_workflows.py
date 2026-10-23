@@ -250,7 +250,6 @@ def test_load_track_apply_preset_workflow(sample_audio_file):
     # 'warm', 'bright', 'punchy') were retired on 2026-09-13 (#5405);
     # 'adaptive' is the only remaining valid name.
     config = UnifiedConfig()
-    config.set_mastering_preset("adaptive")
 
     processor = HybridProcessor(config)
 
@@ -283,18 +282,12 @@ def test_process_multiple_presets_workflow(sample_audio_file):
 
     config = UnifiedConfig()
     config.set_processing_mode("adaptive")
-    config.set_mastering_preset("adaptive")
 
     processor = HybridProcessor(config)
     processed = processor.process(audio.copy())
 
     assert len(processed) == len(audio)
     assert not np.any(np.isnan(processed))
-
-    # Retired names must be rejected at the config boundary, not accepted.
-    for retired in ("Gentle", "Warm", "Bright", "Punchy"):
-        with pytest.raises(ValueError, match="Invalid preset"):
-            UnifiedConfig().set_mastering_preset(retired)
 
 
 @pytest.mark.e2e
@@ -438,7 +431,6 @@ def test_switch_preset_workflow(sample_audio_file):
 
     config_a = UnifiedConfig()
     config_a.set_processing_mode("adaptive")
-    config_a.set_mastering_preset("adaptive")
 
     processor_a = HybridProcessor(config_a)
     processed_first = processor_a.process(first_half)
@@ -448,7 +440,6 @@ def test_switch_preset_workflow(sample_audio_file):
 
     config_b = UnifiedConfig()
     config_b.set_processing_mode("adaptive")
-    config_b.set_mastering_preset("adaptive")
 
     processor_b = HybridProcessor(config_b)
     processed_second = processor_b.process(second_half)
@@ -460,27 +451,6 @@ def test_switch_preset_workflow(sample_audio_file):
     # Verify no clipping in either half
     assert np.max(np.abs(processed_first)) <= 1.0
     assert np.max(np.abs(processed_second)) <= 1.0
-
-
-@pytest.mark.e2e
-@pytest.mark.integration
-def test_preset_list_availability():
-    """
-    E2E: The one surviving preset is accepted, retired names are rejected.
-
-    'adaptive' is the only preset since the 2026-09-13 narrowing (#5405);
-    the retired names must raise like any other unknown name, mirroring
-    tests/test_preset_system.py.
-    """
-    config = UnifiedConfig()
-
-    # The surviving preset sets cleanly.
-    config.set_mastering_preset("adaptive")
-    assert config.mastering_profile == "adaptive"
-
-    for retired in ("Gentle", "Warm", "Bright", "Punchy"):
-        with pytest.raises(ValueError, match="Invalid preset"):
-            config.set_mastering_preset(retired)
 
 
 @pytest.mark.e2e
@@ -501,13 +471,11 @@ def test_preset_switch_preserves_continuity(sample_audio_file):
 
     # First pass through a fresh processor
     config_a = UnifiedConfig()
-    config_a.set_mastering_preset("adaptive")
     processor_a = HybridProcessor(config_a)
     result_a = processor_a.process(audio)
 
     # Second pass through another fresh processor
     config_b = UnifiedConfig()
-    config_b.set_mastering_preset("adaptive")
     processor_b = HybridProcessor(config_b)
     result_b = processor_b.process(audio)
 
@@ -516,19 +484,6 @@ def test_preset_switch_preserves_continuity(sample_audio_file):
     assert not np.any(np.isnan(result_b))
     assert np.max(np.abs(result_a)) <= 1.0
     assert np.max(np.abs(result_b)) <= 1.0
-
-
-@pytest.mark.e2e
-@pytest.mark.integration
-def test_invalid_preset_handling():
-    """
-    E2E: Attempting to set invalid preset should fail gracefully.
-    """
-    config = UnifiedConfig()
-
-    # Should raise exception or return error for invalid preset
-    with pytest.raises((ValueError, KeyError, AttributeError)):
-        config.set_mastering_preset("NonExistentPreset12345")
 
 
 @pytest.mark.e2e

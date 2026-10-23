@@ -127,35 +127,6 @@ class TrackRepositorySearchMixin(BaseRepository):
                 session.expunge(track)
             return results, total
 
-    def get_popular(self, limit: int = 50, offset: int = 0) -> tuple[list[Track], int]:
-        """Get most played tracks with relationships loaded
-
-        Args:
-            limit: Maximum number of tracks to return
-            offset: Number of tracks to skip (for pagination)
-
-        Returns:
-            Tuple of (track list, total count)
-        """
-        with self._session_scope() as session:
-            # Get total count
-            total = session.execute(
-                select(func.count()).select_from(Track)
-            ).scalar_one()
-
-            # Get paginated results
-            results = session.execute(
-                select(Track)
-                .options(*_track_eager_options())
-                .order_by(Track.play_count.desc())
-                .limit(limit)
-                .offset(offset)
-            ).scalars().unique().all()
-
-            for track in results:
-                session.expunge(track)
-            return results, total
-
     def get_favorites(self, limit: int = 50, offset: int = 0) -> tuple[list[Track], int]:
         """Get favorite tracks with relationships loaded
 

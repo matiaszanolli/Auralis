@@ -21,7 +21,8 @@ import pytest
 
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.config import UnifiedConfig
-from auralis.core.config.unified_config import PROCESSING_MODES, get_available_presets
+from auralis.core.config.preset_profiles import get_available_presets
+from auralis.core.config.unified_config import PROCESSING_MODES
 from auralis.io.results import Result
 from auralis.io.unified_loader import load_audio
 
@@ -173,12 +174,8 @@ class TestParameterValidation:
         with pytest.raises(ValueError):
             config.set_processing_mode("44100")  # type: ignore[arg-type]
 
-        with pytest.raises(ValueError):
-            config.set_mastering_preset("not_a_preset")
-
-        # The rejected writes must not have landed.
+        # The rejected write must not have landed.
         assert config.adaptive.mode == "adaptive"
-        assert config.mastering_profile == "adaptive"
 
 
 @pytest.mark.regression
@@ -252,7 +249,7 @@ class TestPresetCompatibility:
 
         for preset in presets:
             config = UnifiedConfig()
-            config.set_mastering_preset(preset)
+            config.mastering_profile = preset
             assert config.get_preset_profile() is not None, \
                 f"Preset '{preset}' is registered but has no profile"
 
@@ -265,19 +262,6 @@ class TestPresetCompatibility:
                 f"Preset '{preset}' changed the sample count"
             assert np.all(np.isfinite(result)), \
                 f"Preset '{preset}' produced NaN/Inf"
-
-    def test_preset_names_case_insensitive(self):
-        """
-        REGRESSION: Preset names should be case-insensitive.
-        Test: 'Adaptive', 'adaptive' and 'ADAPTIVE' all resolve identically.
-        """
-        for variant in ("adaptive", "Adaptive", "ADAPTIVE"):
-            config = UnifiedConfig()
-            config.set_mastering_preset(variant)
-
-            assert config.mastering_profile == "adaptive", \
-                f"'{variant}' should normalise to 'adaptive'"
-
 
 @pytest.mark.regression
 class TestGenreProfileChanges:

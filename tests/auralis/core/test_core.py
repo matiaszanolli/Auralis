@@ -213,11 +213,6 @@ class TestLibraryDatabaseAdvanced:
         assert isinstance(recent, list)
         assert isinstance(recent_count, int)
 
-        # Test popular tracks
-        popular, popular_count = db.tracks.get_popular(limit=10)
-        assert isinstance(popular, list)
-        assert isinstance(popular_count, int)
-
         # Test favorite tracks
         favorites, favorites_count = db.tracks.get_favorites(limit=10)
         assert isinstance(favorites, list)

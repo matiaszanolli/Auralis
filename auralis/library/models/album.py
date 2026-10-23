@@ -56,7 +56,7 @@ class Album(Base, TimestampMixin):
     # with_expression() so a list view can report these aggregates without
     # materialising every album's whole `tracks` collection (#4777, mirrors
     # Playlist.track_count_expr/#4554). Left as None on any query that does
-    # not ask for them (e.g. get_by_id/get_by_title, which legitimately need
+    # not ask for them (e.g. get_by_id, which legitimately needs
     # the full tracks collection anyway), in which case to_dict() falls back
     # to walking `tracks`.
     track_count_expr: Mapped[int | None] = query_expression()

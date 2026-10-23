@@ -13,7 +13,7 @@ from typing import Any, Literal
 
 from ...utils.logging import debug
 from .genre_profiles import create_default_genre_profiles, get_genre_profile
-from .preset_profiles import PresetProfile, get_available_presets, get_preset_profile
+from .preset_profiles import PresetProfile, get_preset_profile
 from .settings import AdaptiveConfig, GenreProfile, LimiterConfig
 
 # The three processing modes, as one runtime-checkable source of truth.
@@ -118,8 +118,8 @@ class UnifiedConfig:
         Callers that already validate (`HybridProcessor.set_processing_mode`,
         the `Literal`-typed Pydantic model in `routers/processing_api.py`) were
         not the gap; `ProcessorFactory.get_or_create_for_config` passes its
-        `mode` argument straight through. Validating here matches
-        `set_mastering_preset` below, which has always rejected unknown names.
+        `mode` argument straight through. Unknown names are rejected here
+        rather than accepted silently.
         """
         if mode not in PROCESSING_MODES:
             raise ValueError(
@@ -149,24 +149,6 @@ class UnifiedConfig:
             PresetProfile object for the current preset, or None if invalid preset name
         """
         return get_preset_profile(self.mastering_profile)
-
-    def set_mastering_preset(self, preset_name: str) -> None:
-        """
-        Set the mastering preset.
-
-        Args:
-            preset_name: Name of the preset (only 'adaptive' is valid)
-
-        Raises:
-            ValueError: If preset name is not valid
-        """
-        available = get_available_presets()
-        if preset_name.lower() not in available:
-            raise ValueError(
-                f"Invalid preset '{preset_name}'. Available presets: {', '.join(available)}"
-            )
-        self.mastering_profile = preset_name.lower()
-        debug(f"Mastering preset changed to: {preset_name}")
 
     def to_dict(self) -> dict[str, Any]:
         """Convert configuration to dictionary for serialization"""

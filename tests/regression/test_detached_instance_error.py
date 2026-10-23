@@ -113,19 +113,6 @@ class TestTrackRepositoryDetachedAccess:
             _ = track.artists
             _ = track.album
 
-    def test_get_popular_relationships_accessible(self, track_repository, session_factory):
-        """get_popular() results must have accessible relationships"""
-        self._add_test_track(
-            track_repository, session_factory,
-            filepath='/tmp/popular_test.wav'
-        )
-
-        tracks, total = track_repository.get_popular(limit=10)
-        assert total >= 1
-        for track in tracks:
-            _ = track.artists
-            _ = track.album
-
     def test_get_favorites_relationships_accessible(self, track_repository, session_factory):
         """get_favorites() results must have accessible relationships"""
         track = self._add_test_track(
@@ -203,20 +190,6 @@ class TestAlbumRepositoryDetachedAccess:
         _ = album.tracks
         assert len(album.tracks) >= 1
 
-    def test_get_by_title_relationships_accessible(
-        self, album_repository, track_repository, session_factory
-    ):
-        """get_by_title() must return album with accessible relationships
-        (fixes #4236 — sibling of get_by_id's #2406 fix; per-item
-        session.expunge(album) does not cascade to album.tracks)."""
-        self._setup_album(track_repository, session_factory)
-
-        album = album_repository.get_by_title('Test Album For Detached')
-        assert album is not None
-        _ = album.artist
-        # Must not raise DetachedInstanceError and must actually be populated
-        assert len(album.tracks) >= 1
-
     # #4777 narrowed the eager-load contract of the three *paginated*/*list*
     # methods below (get_all/get_recent/search): they no longer selectinload
     # Album.tracks, since the serializer only ever reduced that collection to
@@ -226,7 +199,7 @@ class TestAlbumRepositoryDetachedAccess:
     # and album.track_count_expr/total_duration_expr are detached-safe;
     # album.tracks is NOT (touching it now raises DetachedInstanceError, same
     # as the ArtistRepository narrowing in #4553). The single-row lookups
-    # (get_by_id/get_by_title above) keep the full guarantee, because the
+    # (get_by_id above) keeps the full guarantee, because the
     # album-detail route genuinely reads album.tracks.
 
     def test_get_all_relationships_accessible(

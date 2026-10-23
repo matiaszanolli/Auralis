@@ -106,7 +106,8 @@ class TestExtractAndSaveArtworkUnlinksThePrevious:
             'album': title,
         })
         assert track is not None
-        album = album_repository.get_by_title(title)
+        albums, _ = album_repository.get_all(limit=100, order_by='title')
+        album = next((a for a in albums if a.title == title), None)
         assert album is not None
         return album.id
 

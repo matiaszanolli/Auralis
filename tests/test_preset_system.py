@@ -99,25 +99,6 @@ class TestUnifiedConfigPresets:
         config = UnifiedConfig()
         assert config.mastering_profile == "adaptive"
 
-    def test_set_mastering_preset(self):
-        """Test setting mastering preset"""
-        config = UnifiedConfig()
-        config.set_mastering_preset('adaptive')
-        assert config.mastering_profile == 'adaptive'
-
-    def test_set_retired_preset_raises_error(self):
-        """A preset name valid before the narrowing must now raise, exactly
-        like any other unknown name -- not silently succeed."""
-        config = UnifiedConfig()
-        with pytest.raises(ValueError, match="Invalid preset"):
-            config.set_mastering_preset('gentle')
-
-    def test_set_invalid_preset_raises_error(self):
-        """Test that invalid preset raises ValueError"""
-        config = UnifiedConfig()
-        with pytest.raises(ValueError, match="Invalid preset"):
-            config.set_mastering_preset('invalid_preset')
-
     def test_get_preset_profile_from_config(self):
         """Test getting preset profile from config"""
         config = UnifiedConfig()
@@ -128,19 +109,13 @@ class TestUnifiedConfigPresets:
         assert profile.target_lufs == -14.0
 
     def test_get_preset_profile_from_config_with_a_retired_name(self):
-        """set directly (bypassing set_mastering_preset's own validation),
+        """set directly (the profile attribute has no setter validation),
         a retired preset name must resolve to None, not a stale profile --
         both of get_preset_profile()'s real callers already handle a None
         profile gracefully (adaptive_mode.py, target_generator.py)."""
         config = UnifiedConfig()
         config.mastering_profile = 'punchy'
         assert config.get_preset_profile() is None
-
-    def test_preset_case_insensitive(self):
-        """Test that preset names are case-insensitive"""
-        config = UnifiedConfig()
-        config.set_mastering_preset('ADAPTIVE')
-        assert config.mastering_profile == 'adaptive'
 
 
 class TestAdaptiveTargetGenerator:

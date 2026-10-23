@@ -383,10 +383,10 @@ class TestAudioProcessingThreadSafety:
         Each thread should have isolated processor state.
 
         #5156: was xfail(strict) for `UnifiedConfig has no set_intensity()`.
-        True — the config API exposes set_processing_mode() and
-        set_mastering_preset(), never an intensity scalar. The test's point is
-        that concurrently-constructed processors configured *differently* stay
-        isolated, so the differing knob is now the mastering preset.
+        True — the config API exposes set_processing_mode(), never an
+        intensity scalar. The test's point is that
+        concurrently-constructed processors configured *differently* stay
+        isolated, so the differing knob is the mastering profile.
         """
         from auralis.core.hybrid_processor import HybridProcessor
         from auralis.core.config import UnifiedConfig
@@ -395,7 +395,7 @@ class TestAudioProcessingThreadSafety:
         def process_with_different_settings(filepath, preset):
             config = UnifiedConfig()
             config.set_processing_mode("adaptive")
-            config.set_mastering_preset(preset)
+            config.mastering_profile = preset
 
             audio, sr = load_audio(filepath)
             processor = HybridProcessor(config)
