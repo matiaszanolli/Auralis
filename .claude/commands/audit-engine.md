@@ -147,7 +147,7 @@ This dimension replaced the old "Parallel Processing" one: *auralis/optimization
 
 **Check**:
 - [ ] Repository pattern — ALL database access via the 12 repository classes? No raw SQL?
-- [ ] Detached ORM instances — repositories `expunge()` what they return, so any relationship a query did not eager-load raises `DetachedInstanceError` when `to_dict()` touches it. Do read paths carry `selectinload()`, and does `to_dict()` go through `_safe_collection()` / `_safe_scalar()` in `auralis/library/models/core.py`? `refresh()` expires without re-applying query options — post-commit paths must touch the relationship while still attached.
+- [ ] Detached ORM instances — repositories `expunge()` what they return, so any relationship a query did not eager-load raises `DetachedInstanceError` when `to_dict()` touches it. Do read paths carry `selectinload()`, and does `to_dict()` go through `_safe_collection()` / `_safe_scalar()` in `auralis/library/models/_helpers.py`? `refresh()` expires without re-applying query options — post-commit paths must touch the relationship while still attached.
 - [ ] `BaseRepository._session_scope()` (`auralis/library/repositories/base.py`) — every repository goes through it (migration finished in #4604/#5202), and since #5117 it rolls back on any escaping exception, so per-method `except: rollback()` is redundant. Flag a new hand-rolled `get_session()` in a repository, and a method that catches its own failure and returns objects still attached (the #2624 hazard the scope's docstring names).
 - [ ] SQLite config — `check_same_thread=False`, `pool_pre_ping=True` set?
 - [ ] N+1 queries — list operations use `selectinload()`?
