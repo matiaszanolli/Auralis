@@ -73,8 +73,7 @@ class StreamlinedCacheManager(
     - LRU eviction: whole non-current track preferred; falls back to
       per-chunk LRU within the current track when it's the only one present
       (#4793), so a single long track's budget is enforced too. Purely
-      size-driven (TIER2_MAX_SIZE_MB) — TIER2_MAX_TRACKS is not a separate
-      eviction trigger; see its definition in cache/models.py.
+      size-driven (TIER2_MAX_SIZE_MB); there is no track-count cap.
     """
 
     def __init__(self) -> None:

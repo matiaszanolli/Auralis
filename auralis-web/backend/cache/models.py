@@ -39,14 +39,9 @@ CHUNK_SIZE_MB = (
 TIER1_MAX_CHUNKS = 2   # Current + next
 TIER1_MAX_SIZE_MB = TIER1_MAX_CHUNKS * CHUNK_SIZE_MB * 2  # × 2 for original + processed (~10 MB)
 
-# Tier 2: Warm cache (full track)
-# NOTE (#4793 sibling, not fixed here): eviction is purely size-driven
-# (TIER2_MAX_SIZE_MB via _evict_tier2_lru) — this constant is exported but
-# never read, so the "keep last 2 tracks" count-based policy the class
-# docstring advertises isn't actually implemented. However many tracks fit
-# in the 240 MB budget stay cached; a 3rd track is not specifically evicted
-# just for being a 3rd track. Flagged as a separate follow-up.
-TIER2_MAX_TRACKS = 2   # Keep last 2 tracks fully cached
+# Tier 2: Warm cache (full track). Eviction is purely size-driven
+# (TIER2_MAX_SIZE_MB via _evict_tier2_lru): however many tracks fit in the
+# budget stay cached; a track is never evicted just for being the Nth (#4793).
 TIER2_MAX_SIZE_MB = 240  # Max 240 MB total (~95 chunks at the corrected CHUNK_SIZE_MB)
 
 # Shared freshness contract for mastering recommendations (#3865/#5280).
