@@ -45,16 +45,17 @@
 #
 # Path-reference convention: a path that no longer exists must not be
 # backticked. Deleted modules are named in *italics* instead (see
-# _audit-common.md:83 and docs/subsystems/dsp-engine.md's "Deleted paths"
-# table), which documents the removal without asserting the file is live.
+# _audit-common.md's "Retired Architecture" table and docs/subsystems/dsp-engine.md's
+# "Deleted paths" table), which documents the removal without asserting the file is live.
 #
 # What it skips (not real repo paths):
 #   - /tmp/...                  — runtime audit scratch
 #   - ~/.auralis/...            — runtime DB / cache
 #   - ~/.claude/...             — user-global memory / config
 #   - URLs (contain ://)
-#   - bare basenames without `/` — shorthand inside a paragraph that
-#                                  already established directory context
+#   - placeholder tokens containing `<` or `>` (per-finding templates)
+#   - bare extensions (`.test.tsx`) and CapWords `Class.sh` method calls
+#   (Bare basenames such as `chunked_processor.py` ARE checked: see path_exists.)
 #
 # Usage:
 #   .claude/commands/_audit-validate.sh                    # validate

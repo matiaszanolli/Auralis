@@ -77,9 +77,10 @@ Skill-reading checks: rerun any whose matched text was touched.
 
 | Check | Reads | Run |
 |---|---|---|
-| `check_doc_counts.py --check-docs` (warn-only, already run by the validator) | the "~N test functions (M files)" line in `CLAUDE.md` and `_audit-common.md`; every "N repositories" in `.claude/agents/*.md` and `.claude/commands/*.md` | `python3 scripts/check_doc_counts.py --check-docs` |
+| `check_doc_counts.py --check-docs` (warn-only, already run by the validator) | the "~N test functions (M files)" line in `CLAUDE.md` and `_audit-common.md`; every "N repos" / "N repositories" and "schema vNN" in `.claude/agents/*.md`, `.claude/commands/*.md`, `CLAUDE.md` and `docs/architecture/*.md` | `python3 scripts/check_doc_counts.py --check-docs` |
 | `check_optimization_importers.py` (also a step in `path-references.yml`) | the `auralis/optimization/` row in `_audit-common.md` | `python3 scripts/check_optimization_importers.py` |
 | `test_optimization_is_live_5142.py` | the same row, dynamically | `python -m pytest -q tests/test_optimization_is_live_5142.py` |
+| `test_check_doc_counts_repo_scan_5813.py` | that `check_doc_counts.py` still scans `_audit-common.md` | `python -m pytest -q tests/regression/test_check_doc_counts_repo_scan_5813.py` |
 
 To re-derive the list: `git grep -n '\.claude/commands' -- '*.py' '*.ts' '*.tsx' '*.yml' ':!.claude'`, keeping the non-comment hits.
 

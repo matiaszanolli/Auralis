@@ -17,16 +17,17 @@ grep -E "^__version__" auralis/version.py
 # If $ARGUMENTS provided, use that as target version
 ```
 
-## Step 2: Run All 12 Gates
+## Step 2: Run All 13 Gates
 
 Execute each gate and record PASS / FAIL / WARN:
 
 ### Gate 1: Version Consistency
 
-Check that version strings match across all sources:
-- `auralis/version.py` (source of truth)
-- `auralis-web/frontend/package.json`
-- Any other version references
+Check that version strings match across all sources (`auralis/version.py` is the source of truth; `sync_version.py` propagates it):
+```bash
+python scripts/validate_release_metadata.py            # add --expected <target-version> when $ARGUMENTS names one
+```
+This is the same stdlib-only check the `build-release.yml` preflight runs.
 
 **Verdict**: FAIL if versions don't match.
 
@@ -185,6 +186,6 @@ Date: <TODAY>
 
 - **FAIL on any gate failure**: A single FAIL makes the overall verdict NOT READY
 - **WARN is non-blocking**: Warnings should be reviewed but don't block release
-- **Critical/high open issues are automatic blockers**
+- **Critical open issues are automatic blockers**; open high issues are a WARN (Gate 7)
 - **Run gates sequentially**: Some gates depend on earlier ones (e.g., tests need builds)
 - **Be honest**: Don't skip gates or mark them PASS without actually checking

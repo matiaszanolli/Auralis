@@ -22,14 +22,14 @@ Determine scope from arguments:
 
 | Component | Path |
 |-----------|------|
-| Core Pipeline | `auralis/core/hybrid_processor.py`, `simple_mastering.py`, `processing/`, `stages/` (13 mastering stages) |
+| Core Pipeline | `auralis/core/hybrid_processor.py`, `processing/` (the shipped app path → `ContinuousMode`); offline CLI only (#4873, reached from `auto_master.py`): `simple_mastering.py`, `stages/` (12 stage modules + the shared `hf_budget.py` helper) |
 | Optimizer wrapper | `auralis/optimization/performance_optimizer.py` — wraps `AdaptiveMode.process` at import time (#5142), so it sits in the audio path |
 | DSP Modules | `auralis/dsp/eq/psychoacoustic_eq.py`, `auralis/dsp/advanced_dynamics.py`, `auralis/dsp/basic.py` |
 | Audio I/O | `auralis/io/unified_loader.py`, `results.py` |
 | Player RT Processing | `auralis/player/realtime/` |
-| Chunked Mastering | `auralis/core/mastering_chunk_loop.py`, `mastering_process_chunk.py` |
+| Chunked Mastering (offline CLI) | `auralis/core/mastering_chunk_loop.py`, `mastering_chunk_assembly.py`, `mastering_process_chunk.py`, `mastering_config.py` |
 | Backend Chunking | `auralis-web/backend/core/chunked_processor.py` |
-| Rust DSP Bindings | `vendor/auralis-dsp/src/*.rs` |
+| Rust DSP Bindings | `vendor/auralis-dsp/src/*.rs` — since #5764 the only live binding is `compute_fingerprint` (reads audio, emits none; adapter `auralis/analysis/fingerprint/rust_fingerprint.py`). `process_chunks` has no Python caller (#5738, open) |
 
 ## The 6 Invariants
 
@@ -96,14 +96,15 @@ Determine scope from arguments:
 
 ### INV-6: Chunk Safety
 
-**Rule**: True copies (not views), correct reassembly order, continuous carried state, exact tiling at boundaries (the backend's emitted path has had no crossfade since #4642).
+**Rule**: True copies (not views), correct reassembly order, seams free of discontinuity — exact tiling on the backend's emitted path (no crossfade since #4642), an equal-gain crossfade over a settled overlap in the offline engine loop.
 
 The engine-side parallel processor was deleted in #4565. Two live chunk paths remain — verify both:
 
-**How to verify** — engine loop (`auralis/core/mastering_chunk_loop.py`, `auralis/core/mastering_process_chunk.py`):
-- Chunks created with `.copy()`, not array slicing (views)
-- Carried context (notch state, level/gain smoothing, limiter memory) evolves continuously and is not reset per chunk
-- Final short chunk is neither zero-padded nor dropped
+**How to verify** — offline engine loop (`auralis/core/mastering_chunk_loop.py`, `auralis/core/mastering_chunk_assembly.py`, `auralis/core/mastering_process_chunk.py`):
+- Each chunk is read from the file with `CROSSFADE_DURATION_SEC` of overlap (`read_chunk`) and rendered independently; no stage mutates a buffer a later chunk reuses
+- Per-chunk envelopes (transient shaper, loudness limiter) restart fresh *by design*; the crossfade must outlast their settle time, enforced in `SimpleMasteringConfig.__post_init__` (#5339). A new per-chunk-stateful stage missing from that check is a violation
+- The seam blend in `assemble_write_region` is equal-gain raised-cosine (amplitude sum 1) for this correlated overlap; equal-power sin/cos here bulges +3 dB (#4966)
+- `sum(written) == total_frames`: the final short chunk is neither zero-padded nor dropped
 
 **How to verify** — backend processor (`auralis-web/backend/core/chunked_processor.py`, `auralis-web/backend/core/processor_pool.py`):
 - Chunk reassembly: ordering is index-based, not arrival-order

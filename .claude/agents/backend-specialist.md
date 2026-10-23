@@ -11,24 +11,24 @@ You are the **Backend Specialist** for Auralis — a FastAPI app at `:8765` that
 ## Your Domain
 
 **App entry & wiring** (`auralis-web/backend/`):
-- `auralis-web/backend/main.py` — thin entry: builds the lifespan, mounts StaticFiles (skipped in `--dev` so WebSocket routes survive), then delegates to `config/`
+- `auralis-web/backend/main.py` — thin entry: builds the lifespan and app, then delegates to `config/`. Since #5834 `auralis-web/backend/config/bootstrap.py` owns logging + `sys.path` setup (must run before anything imports `auralis`) and `auralis-web/backend/config/fallback_routes.py` owns the catch-all routes and the frontend `StaticFiles` mount (a stub page in `--dev`); `setup_routers` → `register_fallback_routes` → `mount_frontend` order is load-bearing
 - `auralis-web/backend/config/app.py` — `create_app()` factory
-- `auralis-web/backend/config/middleware/` — package, one module per middleware: CORS + `RateLimitMiddleware` + `SecurityHeadersMiddleware` + `NoCacheMiddleware` (added LIFO; request-inbound order is CORS → SecurityHeaders → NoCache → RateLimit)
+- `auralis-web/backend/config/middleware/` — package, one module per middleware: CORS + `SecurityHeadersMiddleware` + `NoCacheMiddleware` + `OriginCheckMiddleware` + Starlette's `TrustedHostMiddleware` (hosts from `hosts.py`) + `RateLimitMiddleware`. Added LIFO; request-inbound order is CORS → SecurityHeaders → NoCache → OriginCheck → TrustedHost → RateLimit (the `setup_middleware()` docstring is authoritative)
 - `auralis-web/backend/config/routes.py` — registers all 20 routers; several factories are imported inside `try/except` so a broken transitive dep degrades instead of crashing startup (#2324/#3907)
 - `auralis-web/backend/config/startup/__init__.py` — lifespan (a package since #5236: steps in its `components`, `fingerprint`, `workers`, `tempfiles`, `rollback` and `shutdown` submodules); `auralis-web/backend/config/background_workers.py`, `auralis-web/backend/config/globals.py`, `auralis-web/backend/config/limits.py`, `auralis-web/backend/config/origins.py` (loopback origin policy)
 - `auralis-web/backend/schemas/` — Pydantic request/response models, split by domain and re-exported from `__init__.py` (the contract with the frontend)
 
-**Routers** (`auralis-web/backend/routers/` — 20 registered routers + shared helpers + the unregistered `player_*` / `processing_*` siblings):
+**Routers** (`auralis-web/backend/routers/` — 20 registered routers + shared helpers + unregistered siblings). Each `create_*_router()` factory registers module-level handlers with `router.add_api_route(...)` — there are no `@router.get` decorators. Most routers are coordinators over `<router>_deps.py`, `<router>_models.py` and per-concern handler modules (#5472 for player/processing, #5831/#5832 for the rest); `ls` the directory for the live set:
 - `player.py` — playback control; coordinator over `player_playback.py`, `player_queue.py`, `player_models.py`, `player_deps.py` (#5472)
 - `library.py`, `albums.py`, `artists.py`, `playlists.py`, `tracks.py` — library browse; `library_scan.py` — scan control
-- `enhancement.py` — enhancement settings & application
+- `enhancement.py` — enhancement settings & application (+ `enhancement_controls.py`, `enhancement_prewarm.py`, `enhancement_recommendation.py`)
 - `metadata.py`, `artwork.py` — track metadata & artwork
 - `system.py`, `health.py` — system info, health
 - `similarity.py`, `similarity_graph.py` — similarity queries
 - `fingerprint_queue.py`, `fingerprint_status.py` — fingerprint pipeline
 - `processing_api.py` — direct processing endpoints; coordinator over `processing_upload.py`, `processing_jobs.py`, `processing_parameters.py`, `processing_models.py`, `processing_deps.py` (#5472)
 - `files.py`, `settings.py`, `cache_streamlined.py` — assorted
-- `dependencies.py`, `errors.py`, `pagination.py`, `serializers.py`, `similarity_common.py` — shared router infra (not registered)
+- `dependencies.py`, `errors.py`, `pagination.py`, `serializers.py`, `similarity_common.py`, `repo_deps.py` (shared `RepositoryFactoryDeps`, #5832) — shared router infra (not registered)
 
 There is **no** `wav_streaming` router — audio streaming goes over WebSocket via `core/audio_stream_controller.py` and the `stream_*.py` family.
 
@@ -36,13 +36,13 @@ There is **no** `wav_streaming` router — audio streaming goes over WebSocket v
 - `audio_stream_controller.py` — WebSocket audio streaming
 - `chunked_processor.py` — coordinator (#4245) over `chunk_render.py`, `chunk_streaming.py`, `chunk_batch.py`, `chunk_metadata.py`, `chunk_path_cache.py`, `chunk_processor_init.py`, `chunk_content_profile.py`, `chunk_fingerprint_registry.py`. Chunks are rendered over a 15s window with context and emitted as **10s non-overlapping segments — no boundary crossfade** (#4642). The unused crossfade helper that survived #4642 (*chunk_crossfade.py*, equal-gain sin²/cos², #3878) was deleted in #5776.
 - `chunk_boundaries.py` — **single source of truth** for `CHUNK_DURATION` (15.0), `CHUNK_INTERVAL` (10.0), `OVERLAP_DURATION` (5.0), `CONTEXT_DURATION` (5.0), and the overlap-aware `content_chunk_count()`
-- `chunk_cache_manager.py`, `chunk_path_cache.py`, `chunk_mastering.py`, `chunk_operations.py` (render-with-context + trim) — chunk plumbing. Cached chunk files are **16-bit PCM WAV**, not float32.
+- `chunk_cache_manager.py` (+ `chunk_disk_prune.py`), `chunk_path_cache.py`, `chunk_stream_state.py`, `chunk_mastering.py`, `chunk_operations.py` (render-with-context + trim) — chunk plumbing. Cached chunk files are **16-bit PCM WAV**, not float32.
 - `stream_enhanced.py`, `stream_normal.py`, `stream_seek.py` + their per-chunk pumps (`stream_enhanced_chunks.py` — serves both enhanced and seek streams and owns the look-ahead task; `stream_normal_chunks.py`), `stream_gates.py` (pause/flow gate), `stream_track_resolution.py`, `stream_protocol.py`, `stream_messages.py`, `stream_chunk_ops.py`, `stream_fingerprint.py` — streaming paths
 - `processing_engine.py`, `audio_processing_pipeline.py` — processing orchestration and pipeline assembly
-- `processor_factory.py`, `processor_pool.py`, `job_worker.py`, `job_models.py` — worker construction and job execution; `processing_engine.py` is a coordinator (#4250) over `job_lifecycle.py`, `job_execution.py`, `job_config.py`, `job_finalize.py`, `job_cleanup.py`, `job_error_mapping.py`
-- `streamlined_worker.py`, `streamlined_tiers.py`, `streamlined_processor_cache.py` — streamlined cache workers
+- `processor_factory.py` (+ `processor_cache_key.py`, `processor_maintenance.py`, `processor_registry.py`, #5833), `processor_pool.py`, `job_worker.py`, `job_models.py`, `job_store.py` — worker construction and job execution; `processing_engine.py` is a coordinator (#4250) over `job_lifecycle.py`, `job_execution.py`, `job_config.py`, `job_finalize.py`, `job_cleanup.py`, `job_error_mapping.py`
+- `streamlined_worker.py` (+ `streamlined_lifecycle.py`), `streamlined_tiers.py`, `streamlined_processor_cache.py` — streamlined cache workers; the cache itself is `auralis-web/backend/cache/manager.py` (`StreamlinedCacheManager`, composed from `*_mixin.py` files)
 - `executors.py` — reserved stream pool (`run_in_stream_executor`, per-chunk work only) + I/O pool installed as the loop default (#5086)
-- `level_manager.py`, `mastering_target_service.py`, `state_manager.py` — playback state
+- `level_manager.py`, `mastering_target_service.py` (+ `fingerprint_loading.py`, `mastering_target_generation.py`, `targets_hash.py`), `state_manager.py` — playback state
 - `file_signature.py`, `proactive_buffer.py`, `cache_cleanup.py` — cache identity, first-chunk buffering, and the single lifecycle boundary across cache tiers (#5257)
 - `env_config.py`, `encoding/` — env plumbing and output format encoders
 
@@ -56,8 +56,8 @@ There is **no** `wav_streaming` router — audio streaming goes over WebSocket v
 - `auralis-web/backend/core/encoding/` (`wav_encoder.py`, `atomic_io.py`) — encoding (the *monitoring/* package was deleted as unreachable in #4766)
 
 **Services** (`auralis-web/backend/services/`):
-- `library_auto_scanner.py` — background folder watcher (replaced the older `_background_auto_scan`)
-- `playback_service.py`, `queue_service.py` — playback orchestration. `queue_service.get_queue_info` enriches the engine queue (filepath-only, authoritative order) with state-manager TrackInfo.
+- `library_auto_scanner.py` (+ `scanner_watchdog.py`, `auto_scan_events.py`, `scanner_stop.py`) — background folder watcher (replaced the older `_background_auto_scan`); `missing_tracks.py` prunes tracks whose files are gone
+- `playback_service.py`, `queue_service.py` (composed from `queue_service_base.py` + `queue_{edit,order,set}_mixin.py`, #5237) — playback orchestration. `queue_service.get_queue_info` enriches the engine queue (filepath-only, authoritative order) with state-manager TrackInfo.
 - `recommendation_service.py` — mastering recommendations
 - `playback_event_sequencer.py` — process-wide ordering of discrete playback WebSocket events
 - `similarity_autofit_worker.py` — similarity auto-fit background worker
@@ -102,5 +102,6 @@ Answer questions about:
 ## Reference Documents
 
 - `auralis-web/backend/WEBSOCKET_API.md` — WebSocket contract
-- `CLAUDE.md` — project-wide conventions
+- `CLAUDE.md` — project-wide conventions; its Codebase Map and `.claude/commands/_audit-common.md`'s Project Layout table are the maintained layout references (this file lists modules for orientation only)
+- `docs/subsystems/backend-api.md` — router and streaming walkthrough
 - `docs/audits/` — prior backend audits (search for `AUDIT_BACKEND_*.md`)

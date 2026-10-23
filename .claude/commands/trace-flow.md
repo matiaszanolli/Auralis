@@ -21,7 +21,7 @@ Trace a user action through all 3 layers (frontend, backend, engine) with specif
 | `gapless` | Track ends naturally | Next track prebuffer, advance to the prebuffered track, tiling of emitted chunks (no boundary crossfade — see Retired Architecture in `_audit-common.md`) |
 | `queue` | Add/remove/reorder queue | Queue state update, playback engine sync (the live queue is not persisted) |
 | `artwork` | Album/artist artwork load | Artwork extraction, caching, image serving, frontend display |
-| `websocket` | WebSocket lifecycle | Connection, auth, message routing, reconnection |
+| `websocket` | WebSocket lifecycle | Connection and Origin check (no auth: desktop-only, loopback; the check is `ConnectionManager.connect` in `auralis-web/backend/config/globals.py`), message validation, routing, heartbeat, reconnection |
 
 If `$ARGUMENTS` doesn't match a named flow, treat it as a custom description and trace the described action.
 
@@ -35,7 +35,7 @@ Trace the action through:
 2. **Hook**: Which custom hook processes the action? State updates.
 3. **Redux**: Which action/thunk is dispatched? Reducer logic. Selector updates.
 4. **Service**: Which API client function is called? Request format.
-5. **WebSocket**: Any WebSocket messages sent? Format and handler.
+5. **WebSocket**: Any WebSocket messages sent? Format and handler. Hooks send through `wsContext.send({...})`; the low-level framing is in `auralis-web/frontend/src/hooks/websocket/` (`useOutgoingChannel.ts` outbound, `socketFrameParser.ts` inbound).
 
 Document each step with `file:line` references.
 
@@ -43,7 +43,7 @@ Document each step with `file:line` references.
 
 Trace the request through:
 
-1. **Router**: Which endpoint receives the request? Path, method, handler function.
+1. **Router**: Which endpoint receives the request? Path, method, handler function. Routes are registered with `router.add_api_route(...)` inside each router's `create_*_router()` factory, not with decorators, and the handler is often in a sibling submodule (`player_queue.py`, `player_playback.py`, ...) — grep the path string, then follow the handler name. A WebSocket command enters at `dispatch_message` in `auralis-web/backend/ws_handlers/connection.py` instead.
 2. **Validation**: How is the request validated? Pydantic model.
 3. **Service**: Which service layer processes the request? Business logic.
 4. **Engine Call**: How does the backend invoke the audio engine? Parameters.

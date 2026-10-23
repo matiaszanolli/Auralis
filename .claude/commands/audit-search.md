@@ -31,21 +31,31 @@ Categorize changed files by risk domain:
 | Audio I/O | `auralis/io/*` | `/audit-engine` |
 | Chunked Mastering | `auralis/core/mastering_*.py` | `/audit-engine`, `/audit-concurrency` |
 | Optimization (LIVE) | `auralis/optimization/*` | `/audit-engine`, `/audit-concurrency` — live engine code applied by `hybrid_processor.py` at import (#5142); also run `python3 scripts/check_optimization_importers.py` |
-| Caching | `auralis-web/backend/core/chunk_cache*`, `auralis-web/backend/core/thumbnail_cache.py`, `auralis-web/backend/core/file_signature.py`, `auralis-web/backend/cache/*` | `/audit-backend` (dim 10) |
-| Seek & buffering | `auralis-web/backend/core/stream_seek.py`, `auralis-web/backend/core/seekable_source.py`, `auralis-web/backend/core/stream_*_chunks.py`, `auralis-web/backend/core/proactive_buffer.py` | `/audit-backend` (dim 11), `/audit-integration` (flow 8) |
+| Caching | `auralis-web/backend/core/chunk_cache*`, `auralis-web/backend/core/chunk_disk_prune.py`, `auralis-web/backend/core/thumbnail_cache.py`, `auralis-web/backend/core/file_signature.py`, `auralis-web/backend/cache/*` | `/audit-backend` (dim 10) |
+| Seek & buffering | `auralis-web/backend/core/stream_seek.py`, `auralis-web/backend/core/seekable_source.py`, `auralis-web/backend/core/stream_*_chunks.py`, `auralis-web/backend/core/stream_gates.py`, `auralis-web/backend/core/proactive_buffer.py` | `/audit-backend` (dim 11), `/audit-integration` (flow 8) |
 | Analysis/Fingerprint | `auralis/analysis/*` | `/audit-engine` |
+| Engine services | `auralis/services/*` (fingerprint queue/workers, artwork) | `/audit-engine`, `/audit-concurrency` |
+| Engine support | `auralis/utils/*`, `auralis/learning/*` (reference-cloud seeder only, #5763), `auralis/cli/*` | `/audit-engine`; `auralis/utils/artwork_security.py` also `/audit-security` |
 | Library/Database | `auralis/library/*` | `/audit-engine`, `/audit-concurrency` |
-| Backend Routes | `auralis-web/backend/routers/*` | `/audit-backend` |
+| Backend Routes | `auralis-web/backend/routers/*` (coordinators + their `*_deps.py` / `*_models.py` / per-concern siblings, #5831/#5832) | `/audit-backend` |
+| Backend Schemas | `auralis-web/backend/schemas/*`, `auralis-web/backend/routers/*_models.py` | `/sync-contracts`, `/audit-backend` |
 | WebSocket/Streaming | `auralis-web/backend/core/audio_stream*`, `auralis-web/backend/core/chunked_processor*`, `auralis-web/backend/core/stream_*`, `auralis-web/backend/core/chunk_*`, `auralis-web/backend/ws_handlers/*`, `auralis-web/backend/websocket/*` | `/audit-backend`, `/audit-integration` |
-| Processing engine & executors | `auralis-web/backend/core/processing_engine.py`, `auralis-web/backend/core/job_*`, `auralis-web/backend/core/executors.py` | `/audit-backend` (dims 4, 8), `/audit-concurrency` (dim 3) |
+| Processing engine & executors | `auralis-web/backend/core/processing_engine.py`, `auralis-web/backend/core/job_*`, `auralis-web/backend/core/processor_*`, `auralis-web/backend/core/executors.py` | `/audit-backend` (dims 4, 8), `/audit-concurrency` (dim 3) |
 | Enhancement presets | `auralis-web/backend/schemas/enhancement.py`, `auralis-web/backend/core/proactive_buffer.py`, `auralis/core/config/preset_profiles.py`, `auralis-web/frontend/src/types/domain.ts`, `auralis-web/frontend/src/hooks/enhancement/*` | `/audit-integration` (flow 3), `/sync-contracts` |
 | Backend Services | `auralis-web/backend/services/*`, `auralis-web/backend/core/*`, `auralis-web/backend/analysis/*` | `/audit-backend` |
 | Frontend Components | `auralis-web/frontend/src/components/*` | `/audit-frontend` |
 | Frontend Hooks | `auralis-web/frontend/src/hooks/*` | `/audit-frontend`, `/audit-integration` |
 | Frontend Store | `auralis-web/frontend/src/store/*` | `/audit-frontend` |
+| Frontend Contexts | `auralis-web/frontend/src/contexts/*` | `/audit-frontend`, `/audit-integration` |
+| Frontend API & types | `auralis-web/frontend/src/services/*`, `auralis-web/frontend/src/api/*`, `auralis-web/frontend/src/types/*` | `/sync-contracts`, `/audit-frontend` |
+| Design system | `auralis-web/frontend/src/design-system/*` | `/audit-frontend` |
 | Rust DSP | `vendor/auralis-dsp/*` | `/audit-engine`, `/audit-security` |
 | Config/Middleware | `auralis-web/backend/config/*` (CORS, rate limit, security headers, routes, lifespan), `auralis-web/backend/main.py` | `/audit-security`, `/audit-backend` |
 | Security modules | `auralis-web/backend/security/*`, `auralis-web/backend/websocket/websocket_security.py` | `/audit-security` |
+| Desktop shell | `desktop/*` (Electron) | `/audit-deprecation` (Electron APIs). No audit checks Electron hardening (`desktop/main.js`, `desktop/preload.js`) yet — flag it as a coverage gap rather than routing it to `/audit-security`, which does not read `desktop/` |
+| Tests | `tests/*` | `/audit-regression` |
+| CI & tooling | `.github/*`, `scripts/*`, `pytest-baseline.json`, `auralis-web/frontend/test-baseline.json` | `/audit-deprecation` (workflows, gate scripts, guards), `/audit-tech-debt` (`scripts/check_loc_ratchet.py`, baselines) |
+| Audit skills | `.claude/commands/*`, `.claude/agents/*` | `/audit-sync` (re-sync claims; `_audit-validate.sh` for paths) |
 
 ## Step 2: Check Audit Coverage History
 
@@ -71,7 +81,7 @@ Freshness rules: FRESH = <5 days, OK = 5-14 days, STALE = 14-30 days, NEVER RUN 
 ## Step 3: Cross-Reference Open Issues
 
 ```bash
-gh issue list --limit 200 --state open --json labels --jq '.[].labels[].name' | sort | uniq -c | sort -rn
+gh issue list --limit 1000 --state open --json labels --jq '.[].labels[].name' | sort | uniq -c | sort -rn
 ```
 
 Identify which domains have the most open issues — high counts may indicate diminishing returns from re-auditing vs. fixing.

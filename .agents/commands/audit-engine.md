@@ -21,18 +21,18 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 
 | Component | Path | Key Files |
 |-----------|------|-----------|
-| Core Pipeline | `auralis/core/` | `hybrid_processor.py` + `hybrid/`, `simple_mastering.py` + `mastering_chunk_loop.py` / `mastering_prepare.py` / `mastering_process_chunk.py` / `mastering_notch_context.py` / `mastering_branches/` (continuous path only), `processing/`, `processors/`, `stages/` (13 named stages), `analysis/`, `dsp/`, `utils/` |
+| Core Pipeline | `auralis/core/` | The shipped app path: `hybrid_processor.py` + `hybrid_setup.py` + `hybrid/` → `processing/` (`HybridProcessor.process()` → `ContinuousMode`), plus `processors/`, `analysis/`, `dsp/`, `utils/`. The **offline CLI subsystem**: `simple_mastering.py` (+ `mastering_stage_delegates.py`, `StageDelegatesMixin`, #5838), the `mastering_*.py` modules, `mastering_branches/` and `stages/` (12 stage modules + the shared `hf_budget.py` helper). Its only non-test caller is the root `auto_master.py` CLI — kept on purpose (#4873): rate its findings as offline-tool bugs, not user-facing ones, and do not re-file it as dead code. |
 | Continuous Processing | `auralis/core/processing/` | `continuous_space.py` (`ProcessingCoordinates` — the 3D space replacing discrete presets), `continuous_mode.py`, `adaptive_mode.py`, `hybrid_mode.py`, `parameter_generator.py`, `target_derivation.py`, `delta_eq.py`, `cross_dimensional_guard.py`, `base/`. See the Retired Architecture table in `_audit-common.md` — categorical branch classification is gone; do not report its absence. |
-| Core Config | `auralis/core/config/` | `unified_config.py` (UnifiedConfig), `factory.py`, `settings.py`, `preset_profiles.py` (only an `'adaptive'` entry since 2026-09-13 — see Retired Architecture), `genre_profiles.py`. This package is now the *only* config layer — the same-named legacy module was deleted in #4918, so there is no second definition site to reconcile. |
+| Core Config | `auralis/core/config/` | `unified_config.py` (UnifiedConfig), `settings.py`, `preset_profiles.py` (only an `'adaptive'` entry since 2026-09-13 — see Retired Architecture), `genre_profiles.py`. This package is now the *only* config layer — the same-named legacy module was deleted in #4918, and the *factory.py* `create_*_config` helpers in #5770 (`d76026a4`), so there is no second construction path to reconcile. |
 | DSP Modules | `auralis/dsp/` | `basic.py`, `advanced_dynamics.py`, `eq/psychoacoustic_eq.py` + `eq/parallel_eq_processor/`, `dynamics/`, `utils/` |
-| Player | `auralis/player/` | `enhanced_audio_player.py` (class `AudioPlayer`, composed from `player_callbacks_mixin.py`, `player_file_loading_mixin.py`, `player_properties_mixin.py`, `player_queue_navigation_mixin.py`, `player_streaming_mixin.py`, `fingerprint_loader_mixin.py`), `gapless_playback_engine.py`, `queue_controller.py`, `playback_controller.py`, `integration_manager.py`, `realtime/` (`auto_master.py`, `gain_smoother.py`, `level_matcher.py`), `components/`, `audio_file_manager.py` |
-| Audio I/O | `auralis/io/` | `unified_loader.py`, `loader.py`, `loaders/`, `formats.py`, `saver.py`, `results.py` |
-| Chunked Mastering | `auralis/core/` | `mastering_chunk_loop.py`, `mastering_process_chunk.py`, `mastering_prepare.py`, `mastering_notch_context.py`, `mastering_diagnostics.py` — the engine-side chunk loop that replaced the deleted parallel processor (#4565) |
+| Player | `auralis/player/` | `enhanced_audio_player.py` (class `AudioPlayer`, composed from `player_callbacks_mixin.py`, `player_file_loading_mixin.py`, `player_properties_mixin.py`, `player_queue_navigation_mixin.py`, `player_streaming_mixin.py`, `fingerprint_loader_mixin.py`), `gapless_playback_engine.py` (+ `gapless_prebuffer.py`, `PrebufferMixin`), `queue_controller.py` (+ `queue_locked_state.py`, `queue_loading.py`), `playback_controller.py`, `integration_manager.py` (+ `integration_library.py`, `integration_reporting.py`), `realtime/` (`processor.py`, `auto_master.py`, `gain_smoother.py`, `level_matcher.py`, `performance_monitor.py`), `components/` (`queue_manager.py` + `queue_navigation.py` / `queue_shuffle.py`), `audio_file_manager.py`. The mixin splits are #5836. |
+| Audio I/O | `auralis/io/` | `unified_loader.py`, `loader.py`, `loaders/` (`ffmpeg_loader.py` orchestrates `ffmpeg_probe.py` / `ffmpeg_process.py` (subprocess supervision, cancellation) / `ffmpeg_command.py` since #5835; `soundfile_loader.py`), `formats.py`, `processing.py`, `saver.py`, `results.py` |
+| Chunked Mastering | `auralis/core/` | `mastering_chunk_loop.py`, `mastering_chunk_assembly.py` (chunk read, True Peak guard, crossfaded write region; #5839), `mastering_process_chunk.py`, `mastering_prepare.py`, `mastering_notch_context.py`, `mastering_diagnostics.py`, `mastering_config.py` — the offline-CLI chunk loop (#4873) that replaced the deleted parallel processor (#4565) |
 | Optimization (LIVE) | `auralis/optimization/` | `performance_optimizer.py` (the `get_performance_optimizer()` singleton) and `profiling/`. The cache, buffer-pool, SIMD and config pieces were deleted in #5769 (nothing drove them). **Live engine code — audit at full severity (#5142).** `auralis/core/hybrid_processor.py` applies it at module-import time and it wraps `AdaptiveMode.process` in a profiling decorator, so it sits on every real mastering call. The production importer set is pinned by `scripts/check_optimization_importers.py`; the old "test-only, cap at LOW" instruction was false and suppressed findings. |
 | Analysis | `auralis/analysis/` | `fingerprint/` (25D system), `ml/`, `quality/`, `quality_assessors/` |
-| Library | `auralis/library/` | `database.py` (`LibraryDatabase` — the sole composition root: engine, pragmas, migration, sessions, scan slots, shutdown; the `LibraryManager` facade and its cache layer were deleted in #4915), `repositories/` (12 repos + `base.py` BaseRepository; track, playlist and fingerprint are split across mixin/helper files), `scanner/`, `models/`, `migrations/`, `migration_manager.py` (+ `migration_engine.py`, `migration_steps.py`, `migration_backup.py`, `migration_lock.py`), `sidecar_manager.py`, `resource_monitor.py`, `path_key.py`, `fingerprint_quantizer.py` |
+| Library | `auralis/library/` | `database.py` (`LibraryDatabase` — the sole composition root: migration, sessions, shutdown; since #5837 it delegates engine/pragma bootstrap to `database_engine.py`, scan slots and the destructive-operation flag to `scan_coordinator.py`, and repository accessors to `database_accessors.py`; the `LibraryManager` facade and its cache layer were deleted in #4915), `repositories/` (12 repos + `base.py` BaseRepository; track, album, playlist and fingerprint are split across mixin/helper files), `scanner/` (`scanner.py` + `scan_stages.py`, `file_discovery.py`), `models/`, `migrations/`, `migration_manager.py` (+ `migration_engine.py`, `migration_steps.py`, `migration_backup.py`, `migration_lock.py`, `migration_versions.py`), `sidecar_manager.py` (+ `sidecar_validation.py`), `artwork.py` (+ `artwork_tags.py`), `metadata_editor/`, `resource_monitor.py`, `path_key.py`, `fingerprint_quantizer.py` |
 | Services | `auralis/services/` | `artwork_service.py`, `fingerprint_extractor.py`, `fingerprint_queue.py` + `fingerprint_queue_manager.py` (lifecycle) / `fingerprint_queue_scaling.py` (adaptive sizing) / `fingerprint_worker.py` (execution), `resizable_semaphore.py` |
-| Rust DSP | `vendor/auralis-dsp/` | PyO3 bindings in `vendor/auralis-dsp/src/py_bindings.rs` — 2 exposed functions: compute_fingerprint (live) and process_chunks (dead, #5738); the other nine bindings were removed in #5764. Rhythm was ported in from the deleted standalone fingerprint server (#4533). |
+| Rust DSP | `vendor/auralis-dsp/` | PyO3 bindings in `vendor/auralis-dsp/src/py_bindings.rs` — 2 exposed functions: compute_fingerprint (live; its one Python adapter is `auralis/analysis/fingerprint/rust_fingerprint.py`) and process_chunks (no Python caller, #5738 open); the other nine bindings were removed in #5764 (`44e4d433`). Rhythm was ported in from the deleted standalone fingerprint server (#4533). |
 
 Out of scope: React frontend, FastAPI backend (routing, WebSocket layer), Electron desktop. DO verify engine public API contracts.
 
@@ -62,10 +62,10 @@ Out of scope: React frontend, FastAPI backend (routing, WebSocket layer), Electr
 
 ### Dimension 2: DSP Pipeline Correctness
 
-**Key files**: `auralis/core/hybrid_processor.py` + `auralis/core/hybrid/`, `auralis/core/simple_mastering.py` + `auralis/core/mastering_process_chunk.py` / `auralis/core/mastering_chunk_loop.py` / `auralis/core/mastering_branches/`, `auralis/core/processing/continuous_space.py`, `auralis/core/processing/continuous_mode.py`, `auralis/core/stages/`, `auralis/core/dsp/`, `auralis/dsp/eq/psychoacoustic_eq.py`, `auralis/dsp/advanced_dynamics.py`
+**Key files**: `auralis/core/hybrid_processor.py` + `auralis/core/hybrid/`, `auralis/core/processing/continuous_space.py`, `auralis/core/processing/continuous_mode.py` + `auralis/core/processing/continuous_stages.py`, offline: `auralis/core/simple_mastering.py` + `auralis/core/mastering_process_chunk.py` / `auralis/core/mastering_chunk_loop.py` / `auralis/core/mastering_branches/`, `auralis/core/stages/`, `auralis/core/dsp/`, `auralis/dsp/eq/psychoacoustic_eq.py`, `auralis/dsp/advanced_dynamics.py`
 
 **Check**:
-- [ ] Processing chain order — is the sequence (EQ → dynamics → mastering) correct and documented?
+- [ ] Processing chain order — the shipped path's order is the `stages` list in `ContinuousStagesMixin._apply_dsp_stages` (`auralis/core/processing/continuous_stages.py`: input gain → EQ → dynamics → stereo width → normalization), its single source of truth. Does anything run a stage outside that list or reorder it?
 - [ ] Stage independence — does each stage receive clean input, or can a failed stage leave dirty state?
 - [ ] Parameter validation — are gain, frequency, Q factor ranges validated before DSP math?
 - [ ] Windowing — are FFT windows applied correctly? Double-windowing removed? (Fix: `cca59d9c`)
@@ -80,12 +80,12 @@ Out of scope: React frontend, FastAPI backend (routing, WebSocket layer), Electr
 - [ ] Config reachability — a parameter defined in `auralis/core/config/unified_config.py` must actually be read on the path that claims to honor it. Trace from the definition to the DSP call site; a parameter with no reader is dead config, and a DSP stage with a hardcoded value that shadows a config field is the inverse bug. (The old "legacy `config.py` vs package" duality is gone — that module was deleted in #4918.)
 - [ ] Optimizer wrapper — `auralis/optimization/performance_optimizer.py` wraps `AdaptiveMode.process` at import time. Does the wrapper preserve the return value, exceptions and sample count exactly, and are the singleton and its profiler (`auralis/optimization/profiling/`) safe when concurrent backend chunk workers call through it? This is live DSP code (#5142), not test-only tooling.
 - [ ] Preset tables — `PreferenceVector.from_preset_name` in `auralis/core/processing/continuous_space.py` and `create_preset_profiles` in `auralis/core/config/preset_profiles.py` now carry only `'adaptive'`. An unknown or legacy name must degrade to the neutral vector / `None` without raising. Flag any engine table that still defines a removed preset — except `auralis/core/analysis/spectrum_mapper/preset_anchors.py`, whose anchors are content calibration, not a user menu.
-- [ ] Rust DSP boundary — do PyO3 calls handle errors and return correct formats?
+- [ ] Rust DSP boundary — the only live binding is `compute_fingerprint` (analysis, not audio output). Does `auralis/analysis/fingerprint/rust_fingerprint.py` handle its errors and map its dict to the schema correctly?
 - [ ] GIL handling — does Rust code release the GIL during compute? Can concurrent calls corrupt state?
 
 ### Dimension 3: Player State Machine
 
-**Key files**: `auralis/player/enhanced_audio_player.py`, `auralis/player/gapless_playback_engine.py`, `auralis/player/queue_controller.py`, `auralis/player/playback_controller.py`, `auralis/player/realtime/`, `auralis/player/components/`, `auralis/player/audio_file_manager.py`
+**Key files**: `auralis/player/enhanced_audio_player.py`, `auralis/player/gapless_playback_engine.py` + `auralis/player/gapless_prebuffer.py`, `auralis/player/queue_controller.py` + `auralis/player/queue_locked_state.py`, `auralis/player/playback_controller.py`, `auralis/player/realtime/`, `auralis/player/components/`, `auralis/player/audio_file_manager.py`
 
 **Check**:
 - [ ] State transitions — are play/pause/stop/seek transitions atomic under RLock?
@@ -96,11 +96,11 @@ Out of scope: React frontend, FastAPI backend (routing, WebSocket layer), Electr
 - [ ] Resource cleanup — does stop() release file handles, audio buffers, threads?
 - [ ] Real-time processor lifecycle — started/stopped atomically with playback?
 - [ ] Can `stop()` race with `play()` leaving player in undefined state?
-- [ ] Mixin composition — `AudioPlayer` is assembled from the `player_*_mixin.py` files plus `fingerprint_loader_mixin.py`. Do all of them mutate shared state under the same RLock, or does one mixin touch position/queue fields unlocked?
+- [ ] Mixin composition — `AudioPlayer` is assembled from the `player_*_mixin.py` files plus `fingerprint_loader_mixin.py`; since #5836 `QueueController` (`QueueLockedStateMixin`, `QueueLoadingMixin`), `QueueManager` (`QueueNavigationMixin`, `ShuffleMixin`), `GaplessPlaybackEngine` (`PrebufferMixin`) and `IntegrationManager` (`LibraryLoadingMixin`, `PlaybackReportingMixin`) are mixin-composed too. Do all of them mutate shared state under their host's lock, or does one mixin touch position/queue/prebuffer fields unlocked?
 
 ### Dimension 4: Audio I/O
 
-**Key files**: `auralis/io/unified_loader.py`, `auralis/io/results.py`
+**Key files**: `auralis/io/unified_loader.py`, `auralis/io/loaders/ffmpeg_loader.py` + `auralis/io/loaders/ffmpeg_process.py` / `auralis/io/loaders/ffmpeg_probe.py` / `auralis/io/loaders/ffmpeg_command.py`, `auralis/io/results.py`
 
 **Check**:
 - [ ] Format coverage — MP3, FLAC, WAV, AAC, OGG, OPUS, M4A all tested?
@@ -114,23 +114,23 @@ Out of scope: React frontend, FastAPI backend (routing, WebSocket layer), Electr
 
 ### Dimension 5: Chunked Mastering Loop
 
-**Key files**: `auralis/core/mastering_chunk_loop.py`, `auralis/core/mastering_process_chunk.py`, `auralis/core/mastering_prepare.py`, `auralis/core/mastering_notch_context.py`, `auralis/core/simple_mastering.py`, `vendor/auralis-dsp/src/py_bindings.rs` (`process_chunks`)
+**Key files**: `auralis/core/mastering_chunk_loop.py`, `auralis/core/mastering_chunk_assembly.py`, `auralis/core/mastering_process_chunk.py`, `auralis/core/mastering_prepare.py`, `auralis/core/mastering_config.py`, `auralis/core/simple_mastering.py`
 
-This dimension replaced the old "Parallel Processing" one: *auralis/optimization/parallel_processor.py* and its *parallel/* package were deleted as unreachable in #4565. The chunk model now lives in the engine's sequential-with-carried-context mastering loop and in the backend's concurrent chunk processor (the latter belongs to `/audit-backend`, not here). Do not report the deleted processor's absence.
+This dimension replaced the old "Parallel Processing" one: *auralis/optimization/parallel_processor.py* and its *parallel/* package were deleted as unreachable in #4565. The chunk model now lives in the engine's sequential overlap-and-crossfade mastering loop and in the backend's concurrent chunk processor (the latter belongs to `/audit-backend`, not here). Do not report the deleted processor's absence. The engine loop belongs to the offline CLI subsystem (#4873): it streams `CHUNK_DURATION_SEC` chunks from the file, each read with `CROSSFADE_DURATION_SEC` of overlap, renders each independently, and joins them with an equal-gain raised-cosine crossfade (`assemble_write_region`, #4966). Severity examples above apply at offline-tool weight.
 
 **Check**:
 - [ ] Chunk independence — does each iteration get a true copy, or a view into the caller's buffer that a later stage mutates in place?
-- [ ] Carried context — state threaded between chunks (notch context, level/gain smoothing, limiter memory) must evolve continuously. Does a reset mid-stream produce an audible step at a chunk boundary?
+- [ ] Seam settling — the transient shaper and loudness limiter restart their envelopes fresh on every chunk *by design*; seam continuity relies on the crossfade outlasting their settle time, which `SimpleMasteringConfig.__post_init__` enforces (#5339, `3edbd9f2`). Flag a new per-chunk-stateful stage whose time constant is not in that check, or a switch to an equal-power (sin/cos) crossfade, which bulges +3 dB on this correlated overlap (#4966).
 - [ ] Reassembly — `sum(chunk_lengths) == total_length`, and chunks are concatenated in index order, never arrival order?
 - [ ] Boundary continuity — is the seam between consecutive chunks free of discontinuity? Two identical inputs mastered whole vs chunked should match within float tolerance.
 - [ ] Partial failure — one chunk raising must not silently drop audio or leave the carried context poisoned for the remainder.
 - [ ] Analysis scope — are per-chunk measurements (loudness, crest, spectral balance) computed against the whole-track target, not re-derived per chunk? Re-deriving makes mastering drift across a long track.
-- [ ] Rust `process_chunks` boundary — does the PyO3 path agree with the Python path on chunk length, dtype, and channel layout? Does it release the GIL?
+- [ ] Rust `process_chunks` — it has no Python caller (#5738, open: dead code that returns silent zeros or aborts when overlap ≥ chunk size). A finding against it is a duplicate of #5738 unless a caller has appeared.
 - [ ] Last chunk — a short final chunk must not be zero-padded into the output (added samples) or dropped (missing samples).
 
 ### Dimension 6: Analysis Subsystem
 
-**Key files**: `auralis/analysis/fingerprint/`, `auralis/analysis/ml/`, `auralis/analysis/quality/`, `auralis/analysis/quality_assessors/`
+**Key files**: `auralis/analysis/fingerprint/` (`rust_fingerprint.py`, `windowed_compute.py`), `auralis/analysis/ml/`, `auralis/analysis/quality/`, `auralis/analysis/quality_assessors/`, `auralis/analysis/loudness_meter.py` + `auralis/analysis/loudness_filters.py`, `auralis/analysis/dynamic_range.py` + `auralis/analysis/dynamic_range_dynamics.py`
 
 **Check**:
 - [ ] Fingerprint determinism — same file always produces same fingerprint?
@@ -143,17 +143,17 @@ This dimension replaced the old "Parallel Processing" one: *auralis/optimization
 
 ### Dimension 7: Library & Database
 
-**Key files**: `auralis/library/database.py`, `auralis/library/repositories/`, `auralis/library/models/`, `auralis/library/scanner/`, `auralis/library/migrations/`, `auralis/library/migration_manager.py`, `auralis/library/migration_lock.py`, `auralis/library/sidecar_manager.py`, `auralis/library/resource_monitor.py`
+**Key files**: `auralis/library/database.py` + `auralis/library/database_engine.py`, `auralis/library/scan_coordinator.py`, `auralis/library/repositories/`, `auralis/library/models/`, `auralis/library/scanner/`, `auralis/library/migrations/`, `auralis/library/migration_manager.py`, `auralis/library/migration_lock.py`, `auralis/library/sidecar_manager.py`, `auralis/library/resource_monitor.py`
 
 **Check**:
 - [ ] Repository pattern — ALL database access via the 12 repository classes? No raw SQL?
 - [ ] Detached ORM instances — repositories `expunge()` what they return, so any relationship a query did not eager-load raises `DetachedInstanceError` when `to_dict()` touches it. Do read paths carry `selectinload()`, and does `to_dict()` go through `_safe_collection()` / `_safe_scalar()` in `auralis/library/models/core.py`? `refresh()` expires without re-applying query options — post-commit paths must touch the relationship while still attached.
-- [ ] `BaseRepository._session_scope()` — the context manager exists in `auralis/library/repositories/base.py`, but most call sites still hand-roll session lifecycle. Flag leaks/missing rollbacks in the hand-rolled ones (the bulk migration itself is tracked debt, not a new finding).
+- [ ] `BaseRepository._session_scope()` (`auralis/library/repositories/base.py`) — every repository goes through it (migration finished in #4604/#5202), and since #5117 it rolls back on any escaping exception, so per-method `except: rollback()` is redundant. Flag a new hand-rolled `get_session()` in a repository, and a method that catches its own failure and returns objects still attached (the #2624 hazard the scope's docstring names).
 - [ ] SQLite config — `check_same_thread=False`, `pool_pre_ping=True` set?
 - [ ] N+1 queries — list operations use `selectinload()`?
 - [ ] Scanner robustness — symlinks, permission errors, Unicode filenames handled?
 - [ ] Migration safety — can run while app is serving requests? (Uses file locking)
-- [ ] Concurrent scans — two scan operations can't conflict?
+- [ ] Concurrent scans — two scan operations can't conflict? Slot and path-reservation accounting lives in `auralis/library/scan_coordinator.py`; `LibraryScanner` calls it directly, with no `except AttributeError` fail-open wrapper, since #5802 (`446edc4c`, pinned by `tests/auralis/library/test_scanner_guards_fail_closed_5802.py`). A reintroduced swallow around the guard is a regression.
 - [ ] Cleanup — `cleanup_missing_files` (`auralis/library/repositories/track_repository_maintenance.py`) handles large libraries without OOM? (Fix: `bd94fd59`)
 - [ ] Engine disposal — SQLAlchemy engine disposed on close? (Fix: `8adb8d0a`)
 

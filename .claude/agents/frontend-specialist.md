@@ -25,9 +25,10 @@ You are the **Frontend Specialist** for Auralis — a React 18 + TypeScript + Vi
 - `websocket/` — connection lifecycle, message routing
 - `api/` — REST client wrappers
 - `app/`, `audio/`, `fingerprint/`, `shared/` — assorted
+- #5778 deleted 25 `index.ts` barrels nothing imported, including the root *hooks/index.ts* — some per-domain barrels remain (`fingerprint/`, `library/`, `player/`), so check a barrel exists before flagging an import. #5840/#5841 split the large hooks (`useEnhancementControl`, `useRestAPI`, `useLibraryPagination`, queue/player-sync/WebSocket hooks) into sibling modules in the same directory — check those siblings when a hook's logic seems missing
 
 **State** (`auralis-web/frontend/src/store/`):
-- `slices/playerSlice.ts` — playback state. Note: its `preset` / `intensity` fields are **dead** — the live enhancement source is `useEnhancementControl()` local state. Don't read enhancement values from Redux. The preset union is `'adaptive'` only since 2026-09-13 (`EnhancementPreset` in `types/domain.ts`); the local copies in `types/ws/enhancement.ts`, `playerSlice.ts` and `hooks/player/usePlayerStateSync.ts` must agree.
+- `slices/playerSlice.ts` — playback state. Note: its `preset` / `intensity` fields are **dead** — the live enhancement source is `useEnhancementControl()` local state. Don't read enhancement values from Redux. The preset union is `'adaptive'` only since 2026-09-13 (`EnhancementPreset` / `ENHANCEMENT_PRESETS` in `types/domain.ts`); `types/ws/enhancement.ts` and `playerSlice.ts`'s `PresetName` derive from it (#5610), so only the `'adaptive'` initial-state literals in `playerSlice.ts` and `hooks/enhancement/enhancementState.ts` remain to keep in step. A new literal union is a regression.
 - `slices/queueSlice.ts` — queue management
 - `slices/cacheSlice.ts` — client-side cache
 - `slices/connectionSlice.ts` — WebSocket connection state
@@ -88,5 +89,6 @@ Answer questions about:
 
 - `auralis-web/frontend/src/design-system/README.md` — token system docs
 - `auralis-web/backend/WEBSOCKET_API.md` — WebSocket contract
-- `CLAUDE.md` — project-wide conventions
+- `CLAUDE.md` — project-wide conventions; its Codebase Map and `.claude/commands/_audit-common.md`'s Project Layout table are the maintained layout references
+- `docs/subsystems/frontend.md` — frontend architecture walkthrough
 - `docs/audits/` — prior frontend audits (search for `AUDIT_FRONTEND_*.md`)

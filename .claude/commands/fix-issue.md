@@ -130,7 +130,7 @@ Before committing, verify each keyed check. Reference these tags in the commit i
 - [ ] **DTYPE**: `float32` / `float64` preserved? No silent casts?
 - [ ] **NAN**: Division / log / sqrt guarded against NaN/Inf?
 - [ ] **CLIP**: Output clamped to `[-1.0, 1.0]` before PCM emission?
-- [ ] **PARALLEL**: True copies in parallel processing, correct reassembly order, equal-power crossfade?
+- [ ] **PARALLEL**: If chunked processing is touched — true copies per chunk, correct reassembly order, and emitted chunks still tile with no boundary crossfade (#4642)? A crossfade that comes back must be equal-gain sin²/cos² (#3878), not bare sin/cos equal-power.
 - [ ] **SIBLING**: Same bug pattern checked in related files (see `_audit-common.md` Sibling Detection table)?
 - [ ] **REPO**: All DB access via `auralis/library/repositories/`? No raw SQL added?
 - [ ] **LOCK**: Any new lock acquired in canonical order? No lock held across `await` or callback?
@@ -138,7 +138,7 @@ Before committing, verify each keyed check. Reference these tags in the commit i
 - [ ] **SCHEMA**: If a Pydantic model changed, frontend types match?
 - [ ] **TOKEN**: If frontend code touched, no raw hex colors (use `tokens`)?
 - [ ] **TEST**: Regression test added when applicable?
-- [ ] **DELETION**: If the fix deletes or renames a file or symbol — grep its name across `.claude/`, `docs/architecture`, `docs/subsystems` and `CLAUDE.md`, and run `.claude/commands/_audit-validate.sh` (strict scope must exit 0). Deletion refactors that skipped this turned the path gate red on master twice (#5526, #5642; #5818).
+- [ ] **DELETION**: If the fix deletes or renames a file or symbol — grep its name across `.claude/`, `docs/architecture`, `docs/subsystems` and `CLAUDE.md`, and run `.claude/commands/_audit-validate.sh` (strict scope must exit 0). Since `2030b97d` (#5818) the `path-references` pre-commit hook (`scripts/pre_commit_path_references.sh`) runs the same gate automatically on any commit that deletes or renames files, but it never fires for a deleted symbol and checks only backticked paths — the grep is still yours. Deletion refactors that skipped this turned the path gate red on master twice (#5526 in `7088915d`, #5642 in `05cbb1c1`).
 - [ ] **LOC**: If this issue is a god-file/oversized-module split, re-run `wc -l` on the target file before closing (#4673) — close only when it's under the project's 300-LOC rule, otherwise re-scope the issue (update its body with the current LOC and what remains) and leave it open rather than closing on partial progress. Four issues (#4245, #4249, #4250, #4254) were closed in 2026-07 while their targets stayed 2.3-2.7x over the limit, understating the real backlog until re-audited.
 
 ## Phase 8: Commit and Close

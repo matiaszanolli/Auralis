@@ -32,14 +32,14 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 
 | Step | Layer | File |
 |------|-------|------|
-| User clicks play | Frontend | `src/hooks/player/` hooks, `src/store/` player slice |
-| REST request | Frontend | `src/services/` API client |
-| Play endpoint | Backend | `auralis-web/backend/routers/player.py` |
+| User clicks play | Frontend | `src/hooks/player/` hooks (`usePlayTrack.ts` sets the queue over REST), `src/store/` player slice |
+| Play command | Frontend | `auralis-web/frontend/src/hooks/enhancement/useEnhancedPlayCommand.ts` — fetches the track over REST, then sends the WS `play_enhanced` / `play_normal` command (audio streaming is WebSocket-only; no REST streaming endpoint) |
+| Command handler | Backend | `auralis-web/backend/ws_handlers/connection.py` (`dispatch_message`) → `auralis-web/backend/ws_handlers/playback_commands.py` → stream tasks in `auralis-web/backend/routers/system_streams.py` |
 | Audio loading | Engine | `auralis/io/unified_loader.py` |
 | Processing | Engine | `auralis/core/hybrid_processor.py` → `simple_mastering.py` |
 | Chunking | Backend | `chunked_processor.py` (15s render windows with context, emitted as 10s non-overlapping segments — no crossfade, #4642) |
 | WebSocket stream | Backend | `audio_stream_controller.py` |
-| Audio playback | Frontend | WebSocket hook → Web Audio API |
+| Audio playback | Frontend | `auralis-web/frontend/src/hooks/websocket/socketFrameParser.ts` → `auralis-web/frontend/src/services/audio/` (`PCMStreamBuffer.ts` + `pcmRingOps.ts`, `BufferScheduler.ts`, `WorkletOutput.ts`) |
 
 **Check**: Sample rate consistency from file to playback. Chunk boundaries — do the emitted segments tile exactly, with no gap, overlap or repeated samples at the seams, both in the backend stream and in the frontend PCM buffer? WebSocket binary frame format — does the frontend decode it correctly? What happens when processing is slower than playback?
 
@@ -59,16 +59,16 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 
 | Step | Layer | File |
 |------|-------|------|
-| User adjusts settings | Frontend | `useEnhancementControl()` local state — the live source of truth (`playerSlice.preset`/`intensity` are dead) |
-| Settings API call | Frontend | `src/services/` |
-| Preset contract | Backend ↔ Frontend | `auralis-web/backend/schemas/enhancement.py` `VALID_PRESETS` ↔ `auralis-web/frontend/src/types/domain.ts` `EnhancementPreset` — `'adaptive'` only since 2026-09-13 |
-| Enhancement endpoint | Backend | `auralis-web/backend/routers/enhancement.py` |
+| User adjusts settings | Frontend | `useEnhancementControl()` local state — the live source of truth (`playerSlice.preset` is dead state; the slice has no intensity). Commands live in `auralis-web/frontend/src/hooks/enhancement/useEnhancementCommands.ts`, backend status sync in `useEnhancementStatusSync.ts` |
+| Settings API call | Frontend | `useEnhancementCommands.ts`, `src/services/` |
+| Preset contract | Backend ↔ Frontend | `auralis-web/backend/schemas/enhancement.py` `VALID_PRESETS` ↔ `auralis-web/frontend/src/types/domain.ts` `EnhancementPreset` — `'adaptive'` only since 2026-09-13; the default is the one `DEFAULT_PRESET` in `schemas/enhancement.py` (#5794) |
+| Enhancement endpoint | Backend | `auralis-web/backend/routers/enhancement.py` (factory) + `enhancement_controls.py` / `enhancement_prewarm.py` / `enhancement_recommendation.py` |
 | Runtime settings | Backend | shared `enhancement_settings` dict (mutated in place, seeded at startup from UserSettings) |
 | Processing config | Engine | `auralis/core/config/unified_config.py` (UnifiedConfig) — the only config layer since #4918 |
 | DSP pipeline | Engine | `auralis/core/hybrid_processor.py` → DSP modules |
 | Real-time application | Engine | `auralis/player/realtime/` |
 
-**Check**: Config format — do frontend slider values map correctly to engine parameters? Does the transport actually pass the *current* preset/intensity through to playback, or re-read stale Redux state? Range validation — can the frontend send out-of-range values? Preset validation — a legacy stored `default_preset` (e.g. `'warm'`) must degrade to null/`'adaptive'` on both sides rather than be echoed to the UI or passed to the engine. Real-time vs offline — is the same config used for both paths? Do the enhancement settings participate in the chunk cache key, or can a settings change serve cached audio mastered with the *previous* settings? Latency — does enhancement cause audible gaps?
+**Check**: Config format — do frontend slider values map correctly to engine parameters? Does the transport actually pass the *current* preset/intensity through to playback, or re-read stale Redux state? Range validation — can the frontend send out-of-range values? Preset validation — schema v23 rewrote every stored `default_preset` to `'adaptive'` and the read-side degrade branches were deleted (`90245885`, #5824), so `SettingsResponse.default_preset` is non-nullable and the frontend types it without `| null`; any path that can still write an off-list preset (bypassing the `EnhancementPresetLiteral` request validation) would now reach the UI and the engine unfiltered. `enhancement_intensity` still degrades to null on read, and callers must fall back (#5517). Real-time vs offline — is the same config used for both paths? Do the enhancement settings participate in the chunk cache key, or can a settings change serve cached audio mastered with the *previous* settings? Latency — does enhancement cause audible gaps?
 
 ### Flow 4: Library Scanning
 
@@ -80,8 +80,8 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 | Filesystem scan | Engine | `auralis/library/scanner/` |
 | Metadata extraction | Engine | `auralis/io/unified_loader.py` |
 | Database insert | Engine | `auralis/library/database.py` → repositories |
-| Progress updates | Backend | WebSocket or polling |
-| UI update | Frontend | Redux store |
+| Progress updates | Backend | WebSocket `library_scan_started` / `scan_progress` / `scan_complete` / `library_scan_error` frames from `auralis-web/backend/routers/library_scan_events.py` (manual scan) and `auralis-web/backend/services/auto_scan_events.py` (auto-scan) |
+| UI update | Frontend | `auralis-web/frontend/src/hooks/library/useScanProgress.ts` — a module-level store fed by one refcounted WS subscription, read via `useSyncExternalStore` (#5622), not Redux |
 
 **Check**: Progress reporting — does the frontend receive scan progress? Error handling — what happens when a file can't be read? Duplicate detection — does rescan handle already-imported tracks? Large folders — timeout or chunking?
 
@@ -90,20 +90,22 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 | Step | Layer | File |
 |------|-------|------|
 | Connection init | Frontend | `src/hooks/websocket/`, `src/contexts/WebSocketContext.tsx`, `src/contexts/PlaybackSessionContext.tsx` (shared streaming session) |
+| WS endpoint | Backend | `auralis-web/backend/routers/system.py` (module-level `websocket_endpoint`, registered with `add_api_websocket_route`, #5832); the per-connection stream task registries live in `auralis-web/backend/routers/system_streams.py` |
 | WS accept + checks | Backend | `auralis-web/backend/ws_handlers/connection.py`, `auralis-web/backend/websocket/websocket_security.py` |
 | Message routing | Backend | `auralis-web/backend/ws_handlers/messages.py`, `playback_commands.py`, `playback_control.py` |
 | Protocol contract | Backend | `auralis-web/backend/websocket/websocket_protocol.py`, `auralis-web/backend/websocket/outbound_messages.py`, `auralis-web/backend/core/stream_protocol.py`, `auralis-web/backend/core/stream_messages.py` |
 | Binary audio frames | Backend | `auralis-web/backend/core/encoding/wav_encoder.py`, `auralis-web/backend/core/audio_stream_controller.py` |
-| Frame decode | Frontend | WebSocket hook → Web Audio API |
+| Frame decode | Frontend | `auralis-web/frontend/src/hooks/websocket/socketFrameParser.ts` (binary PCM pairing, heartbeat reply, `audio_chunk_meta.seq` desync check) → `auralis-web/frontend/src/services/audio/` |
+| Timing policy | Both | heartbeat `WS_HEARTBEAT_INTERVAL_SECONDS` / `WS_HEARTBEAT_TIMEOUT_SECONDS` in `auralis-web/backend/config/limits.py`; reconnect backoff in `WebSocketManager` (`auralis-web/frontend/src/utils/errorHandling.ts`) — one definition each since #5800 |
 
-**Check**: Connection establishment — handshake protocol? Message types — are all types documented and handled on both sides? Binary vs text frames — consistent usage? Reconnection — does the frontend re-establish state after disconnect? Backpressure — what happens when the frontend can't consume frames fast enough?
+**Check**: Connection establishment — handshake protocol? Message types — are all types documented and handled on both sides? Binary vs text frames — consistent usage? Reconnection — does the frontend re-establish state after disconnect? The shared subscription lifecycle is `useMessageSubscriptions` in `auralis-web/frontend/src/hooks/websocket/useWebSocketMessages.ts` (#5789) — does any hook still hand-roll a subscribe effect that resubscribes on a status flicker (#4668)? Backpressure — what happens when the frontend can't consume frames fast enough?
 
 ### Flow 6: Fingerprint & Similarity
 
 | Step | Layer | File |
 |------|-------|------|
 | Similarity request | Frontend | Fingerprint/similarity hooks |
-| Similarity endpoints | Backend | `auralis-web/backend/routers/similarity.py`, `auralis-web/backend/routers/similarity_graph.py` (shared helpers in `auralis-web/backend/routers/similarity_common.py`) |
+| Similarity endpoints | Backend | `auralis-web/backend/routers/similarity.py` (factory; handlers in `similarity_query.py` / `similarity_explain.py`), `auralis-web/backend/routers/similarity_graph.py` (shared helpers in `auralis-web/backend/routers/similarity_common.py`) |
 | Fingerprint queue/status | Backend | `auralis-web/backend/routers/fingerprint_queue.py`, `auralis-web/backend/routers/fingerprint_status.py`, `auralis-web/backend/analysis/fingerprint_generator.py` |
 | Fingerprint engine | Engine | `auralis/analysis/fingerprint/` |
 | Database lookup | Engine | `auralis/library/repositories/` (fingerprint, similarity repos) |
@@ -116,7 +118,7 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 | Step | Layer | File |
 |------|-------|------|
 | Artwork request | Frontend | Image components, hooks |
-| Artwork endpoint | Backend | `auralis-web/backend/routers/artwork.py` |
+| Artwork endpoint | Backend | `auralis-web/backend/routers/artwork.py` (factory; handlers in `artwork_thumbnails.py` / `artwork_manage.py`) |
 | Artwork extraction | Engine | `auralis/services/artwork_service.py`, `auralis/library/artwork.py` |
 | Thumbnail cache | Backend | `auralis-web/backend/core/thumbnail_cache.py` — on-disk, content-addressed on source mtime/size (#4447) |
 | Image serving | Backend | Static file or stream response |
@@ -128,12 +130,12 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 | Step | Layer | File |
 |------|-------|------|
 | User drags the scrubber | Frontend | `auralis-web/frontend/src/hooks/player/`, player slice in `auralis-web/frontend/src/store/` |
-| Seek command | Frontend → Backend | WebSocket message → `auralis-web/backend/ws_handlers/playback_commands.py` |
+| Seek command | Frontend → Backend | `auralis-web/frontend/src/hooks/enhancement/useEnhancedSeek.ts` sends WS `seek` with `track_id` + `position` only; preset/intensity are resolved server-side from the connection's active stream settings (#5604) → `auralis-web/backend/ws_handlers/playback_commands.py` (`handle_seek`) |
 | Seek stream path | Backend | `auralis-web/backend/core/stream_seek.py`, `auralis-web/backend/core/stream_chunk_ops.py` |
 | Chunk index math | Backend | `auralis-web/backend/core/chunk_boundaries.py` (`content_chunk_count()`, overlap-aware) |
 | Source seek | Backend | `auralis-web/backend/core/seekable_source.py` (converts non-seekable sources once, #4737) |
 | Cache lookup | Backend | `auralis-web/backend/core/chunk_path_cache.py` + `chunk_cache_manager.py` + `file_signature.py` |
-| Look-ahead / buffer reset | Backend | `auralis-web/backend/core/stream_enhanced_chunks.py` (look-ahead task), `auralis-web/backend/core/proactive_buffer.py` |
+| Chunk pump / look-ahead | Backend | `auralis-web/backend/core/stream_enhanced_chunks.py` (the one pump shared by the enhanced and seek streams since #5761, plus the look-ahead task), `auralis-web/backend/core/proactive_buffer.py` |
 | Level continuity | Backend | `auralis-web/backend/core/level_manager.py` |
 | Resume playback | Frontend | WebSocket hook → Web Audio API |
 
@@ -144,13 +146,13 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 | Step | Layer | File |
 |------|-------|------|
 | User reorders / adds / removes | Frontend | Queue components, `auralis-web/frontend/src/store/` |
-| Queue request | Backend | `auralis-web/backend/routers/player.py` |
-| Queue service | Backend | `auralis-web/backend/services/queue_service.py`, `queue_enrichment.py`, `queue_protocols.py` |
+| Queue request | Frontend → Backend | `auralis-web/frontend/src/hooks/player/useQueueMutations.ts` → `auralis-web/backend/routers/player_queue.py` (registered by the `routers/player.py` factory) |
+| Queue service | Backend | `auralis-web/backend/services/queue_service.py` over `queue_service_base.py` (`_queue_mutation`, #5790) and the `queue_set_mixin.py` / `queue_edit_mixin.py` / `queue_order_mixin.py` mixins; `queue_enrichment.py`, `queue_protocols.py` |
 | Engine queue | Engine | `auralis/player/queue_controller.py` (authoritative order) |
 | State broadcast | Backend | `auralis-web/backend/core/state_manager.py` → WebSocket |
-| UI update | Frontend | Redux store |
+| UI update | Frontend | `auralis-web/frontend/src/hooks/player/useQueueSubscription.ts` → Redux queue slice |
 
-**Check**: The engine queue and the backend state manager hold *different shapes* of the same queue — the engine's is filepath-only and authoritative on order, the state manager's carries rich track info and goes stale after add/remove/move (#4374 bridged them via enrichment in `queue_service.py`). Does every mutation path re-enrich, or do some return the stale copy? Is `filepath` ever leaked to the client (it must not be — #3205; clients get `format`)? After a reorder, does the frontend's optimistic order match what the engine actually plays next? Does queue persistence survive a restart, and does the persisted index still point at the same track after a library rescan?
+**Check**: The engine queue and the backend state manager hold *different shapes* of the same queue — the engine's is filepath-only and authoritative on order, the state manager's carries rich track info and goes stale after add/remove/move (#4374 bridged them via enrichment in `queue_service.py`). Does every mutation path re-enrich, or do some return the stale copy? Is `filepath` ever leaked to the client (it must not be — #3205; clients get `format`)? After a reorder, does the frontend's optimistic order match what the engine actually plays next? The live queue is not persisted (queue history/undo was retired in `7088915d`, #5526), so after a backend restart is the frontend's queue reconciled against the empty engine queue rather than shown as if still playable? The frontend reads only the snake_case `current_index` from `queue_changed` (#5823) — does every emitter send that spelling?
 
 ## Per-Flow Verification Checklist
 

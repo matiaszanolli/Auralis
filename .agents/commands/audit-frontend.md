@@ -23,13 +23,13 @@ This audit covers ONLY the frontend code:
 
 - **Components**: `auralis-web/frontend/src/components/`
 - **Hooks**: `auralis-web/frontend/src/hooks/` (api, app, audio, enhancement, fingerprint, library, player, shared, websocket)
-- **Contexts**: `auralis-web/frontend/src/contexts/` — `ThemeContext.tsx`, `WebSocketContext.tsx`, `PlaybackSessionContext.tsx` (+ `playbackSessionContexts.ts` — the single shared enhanced-audio streaming session). There is **no** EnhancementContext; do not report against one.
+- **Contexts**: `auralis-web/frontend/src/contexts/` — `ThemeContext.tsx`, `WebSocketContext.tsx`, `PlaybackSessionContext.tsx` (+ `playbackSessionContexts.ts` — the single shared enhanced-audio streaming session — and `usePlaybackSessionHooks.ts`, the transport command gate, start-retry and auto-advance hooks the provider composes, #5840). `websocketTypeDiagnostics.ts` holds the provider's unregistered-message-type diagnostics (#5841). There is **no** EnhancementContext; do not report against one.
 - **Store**: `auralis-web/frontend/src/store/` (`slices/`, `selectors/`, `middleware/`)
 - **Services**: `auralis-web/frontend/src/services/` (API clients + `api/`, `audio/` subdirs; the *fingerprint/* subdir was deleted with `FingerprintCache` in #5215); payload mapping in `auralis-web/frontend/src/api/transformers/`
 - **Types**: `auralis-web/frontend/src/types/` (`api.ts`, `domain.ts`, `websocket.ts`, `ws/`)
-- **Design System**: `auralis-web/frontend/src/design-system/` (tokens, theme) and `auralis-web/frontend/src/theme/`
+- **Design System**: `auralis-web/frontend/src/design-system/` (tokens, theme) and `auralis-web/frontend/src/theme/` (`themeConfig.ts` composes `themePalette.ts` / `themeTypography.ts` / `themeComponents.ts`, #5841); global CSS-in-JS in `auralis-web/frontend/src/styles/globalStyles.ts` (+ `globalKeyframes.ts`, `globalUtilities.ts`). There is no *index.css* (deleted, #5642).
 - **Tests**: `auralis-web/frontend/src/test/` (utils + global setup), plus specs in `auralis-web/frontend/src/__tests__/`, `auralis-web/frontend/src/tests/`, and co-located `*.test.tsx`
-- **Other**: `auralis-web/frontend/src/a11y/` (`focusManagement.ts`), `auralis-web/frontend/src/utils/`, `auralis-web/frontend/src/api/` (`responseGuards.ts`, `transformers/`), `auralis-web/frontend/src/config/api.ts`
+- **Other**: `auralis-web/frontend/src/a11y/` (`focusManagement.ts`), `auralis-web/frontend/src/utils/`, `auralis-web/frontend/src/api/` (`responseGuards.ts`, `transformers/`), `auralis-web/frontend/src/config/api.ts`, `auralis-web/frontend/src/config/timing.ts` (shared `QUERY_STALE_TIME_MS` / `SEARCH_DEBOUNCE_MS`, #5800)
 - **Config**: `auralis-web/frontend/vite.config.mts`, `auralis-web/frontend/vitest.config.ts`, `auralis-web/frontend/tsconfig.json`, `auralis-web/frontend/package.json` (pnpm is the only supported package manager)
 
 Out of scope: Python backend, audio engine, Rust DSP, database.
@@ -48,12 +48,12 @@ Out of scope: Python backend, audio engine, Rust DSP, database.
 ### Dimension 1: Component Quality
 
 **Check**:
-- [ ] Single responsibility — does each component do ONE thing? Are any > 300 lines?
+- [ ] Single responsibility — does each component do ONE thing? Are any > 300 lines? After the #5478 / #5840 / #5841 split waves only `auralis-web/frontend/src/services/audio/AudioPlaybackEngine.ts` (308) exceeds 300 lines in shipped `src/` at 44e4d433; re-measure with `wc -l` rather than trusting this.
 - [ ] Prop drilling — are props passed through > 2 intermediate components instead of using context or Redux?
 - [ ] Conditional rendering — any branches that produce inconsistent DOM structure causing React reconciliation issues?
 - [ ] Key usage in lists — stable keys derived from data, never array indices for reorderable lists?
 - [ ] Ref usage — are refs used correctly for imperative operations (audio elements, scroll, focus)?
-- [ ] Error boundaries — are they wrapping critical subtrees (player, library, enhancement)?
+- [ ] Error boundaries — are they wrapping critical subtrees (player, library, enhancement)? There is one implementation, `auralis-web/frontend/src/components/core/ErrorBoundary.tsx` (fallback `(error, retry) => node`, `resetKeys`), with `RegionErrorFallback.tsx` as the shared fallback (#5627); the design-system duplicate is gone. A static "refresh the page" fallback that makes retry unreachable, or a second boundary class, is a finding.
 - [ ] Unmounted component updates — do async operations check component mount state before setState?
 
 ### Dimension 2: Redux State Management
@@ -75,7 +75,8 @@ Out of scope: Python backend, audio engine, Rust DSP, database.
 - [ ] `useCallback` / `useMemo` — are expensive computations memoized? Are callback identities stable for child components?
 - [ ] Custom hook return stability — do hooks return the same reference shape on every render?
 - [ ] Race conditions — can an effect fire with outdated closure values after rapid state changes?
-- [ ] WebSocket hooks (`auralis-web/frontend/src/hooks/websocket/`: `useWebSocketConnection.ts`, `useWebSocketMessages.ts`, `useWebSocketErrors.ts`, `websocketConnectionCore.ts`) — reconnection logic, message queue during disconnect, binary frame parsing. Cross-check against `auralis-web/frontend/src/contexts/WebSocketContext.tsx`.
+- [ ] WebSocket hooks (`auralis-web/frontend/src/hooks/websocket/`: `useWebSocketConnection.ts`, `websocketConnectionCore.ts`, `websocketConnectionState.ts`, `useWebSocketMessages.ts`, `useWebSocketErrors.ts`, `useOutgoingChannel.ts`, `socketFrameParser.ts`) — reconnection logic, message queue during disconnect, binary frame parsing. Cross-check against `auralis-web/frontend/src/contexts/WebSocketContext.tsx`. The reconnect policy has one definition, `DEFAULT_WEBSOCKET_CONFIG` in `auralis-web/frontend/src/utils/errorHandling.ts` (#5800).
+- [ ] Subscription lifecycle — `useMessageSubscriptions(subscribe, handlers)` in `useWebSocketMessages.ts` is the one ref-held, type-keyed subscribe effect (#5789; the #4668 / #5621 no-resubscribe guarantee lives there). A hook that hand-rolls its own subscribe/unsubscribe effect instead is a finding.
 - [ ] Player hooks (`hooks/player/`) — do they correctly synchronize with backend playback state? Stale position/duration?
 - [ ] API hooks (`hooks/api/`) — cancellation of in-flight requests on unmount? Deduplication of concurrent identical requests?
 - [ ] Streaming session ownership — `auralis-web/frontend/src/contexts/PlaybackSessionContext.tsx` holds the single shared enhanced-audio session. Does any hook or component open its own session or `AudioContext` alongside it?
@@ -90,7 +91,7 @@ Out of scope: Python backend, audio engine, Rust DSP, database.
 - [ ] Event handler types — are DOM event types correctly specified?
 - [ ] Union exhaustiveness — are switch/if chains over union types exhaustive (use `never` checks)?
 - [ ] Generic constraints — are generic hooks and utilities properly constrained?
-- [ ] Preset union — `EnhancementPreset` in `auralis-web/frontend/src/types/domain.ts` is `'adaptive'` only (2026-09-13). The copies in `types/ws/enhancement.ts`, `store/slices/playerSlice.ts`, `hooks/player/usePlayerStateSync.ts` (`VALID_PRESETS`) and `hooks/enhancement/useEnhancementControl.ts` must agree. A preset typed as bare `string`, or UI still offering a removed preset, is a finding; a single-option preset control is intended.
+- [ ] Preset union — `EnhancementPreset` in `auralis-web/frontend/src/types/domain.ts` is `'adaptive'` only (2026-09-13), with `ENHANCEMENT_PRESETS` / `isEnhancementPreset` beside it. Since #5610 every other site derives from it rather than redeclaring a union (`types/ws/enhancement.ts`, `PresetName` in `store/slices/playerSlice.ts`, `services/settingsService.ts`, `hooks/enhancement/`), and wire strings narrow through `isEnhancementPreset` (`hooks/player/playerStateSnapshot.ts`), not an `as` cast; `types/ws/streaming.ts` widens it to `EnhancementPreset | 'none'` on purpose. A redeclared preset union, a preset typed as bare `string`, an `as EnhancementPreset` cast, or UI still offering a removed preset is a finding; a single-option preset control is intended.
 
 ### Dimension 5: Design System Adherence
 
@@ -108,10 +109,11 @@ Out of scope: Python backend, audio engine, Rust DSP, database.
 - [ ] Error handling — are HTTP errors (4xx, 5xx) caught and surfaced to the UI?
 - [ ] Loading states — is there a loading indicator for every async operation?
 - [ ] Request cancellation — are fetch/axios requests cancelled on component unmount?
-- [ ] Retry logic — are transient failures (network, 503) retried? Are non-transient failures (400, 404) NOT retried?
+- [ ] Retry logic — are transient failures (network, 503) retried? Are non-transient failures (400, 404) NOT retried? The React Query policy is `shouldRetryQuery` in `auralis-web/frontend/src/utils/queryRetry.ts` (keyed on `APIRequestError`'s status, #4467); flag a call site with its own retry rule.
 - [ ] Response validation — runtime guards live in `auralis-web/frontend/src/api/responseGuards.ts`. Do the fetch paths actually route through them, or do some cast the JSON straight to a type and trust it? A guard that exists but is unused is worse than none — it implies coverage that isn't there.
 - [ ] Error normalization — are HTTP failures funnelled through `auralis-web/frontend/src/utils/httpError.ts` / `errorGuards.ts`, or does each call site re-implement error shape handling?
 - [ ] Base URL configuration — is the API base URL sourced from `auralis-web/frontend/src/config/api.ts`, not hardcoded per call site?
+- [ ] One transport — REST hooks should go through `auralis-web/frontend/src/hooks/api/restApiTransport.ts` (URL building + timeout fetch behind `useRestAPI.ts`) or `auralis-web/frontend/src/utils/apiRequest.ts`, with the timeout from `DEFAULT_TIMEOUT_MS` in `auralis-web/frontend/src/utils/apiRequestTypes.ts` and stale time / debounce from `auralis-web/frontend/src/config/timing.ts` (#5800, a test pins numeric `staleTime` literals out). A bare `fetch` with no timeout, or a re-typed timeout/stale/debounce literal, is a finding.
 - [ ] camelCase/snake_case — is the casing conversion between frontend (camelCase) and backend (snake_case) handled consistently?
 
 ### Dimension 7: Performance
@@ -141,7 +143,7 @@ Out of scope: Python backend, audio engine, Rust DSP, database.
 **Check**:
 - [ ] Critical path coverage — are player hooks, WebSocket hooks, and Redux slices tested?
 - [ ] Global auto-mocks — `auralis-web/frontend/src/test/setup.ts` mocks `contexts/WebSocketContext` for every spec. Any test claiming to exercise the real implementation must `vi.unmock()` it; flag ones that don't (they are asserting against the mock).
-- [ ] Pre-existing failures — the known-failing specs are listed explicitly in `auralis-web/frontend/test-baseline.json` (#4640). **Read that file before reporting any failing spec**; if it is listed, do not file it. Verify with `pnpm run test:ci && pnpm run test:baseline`. The gate is a ratchet (baseline may shrink, never grow), so a failure *not* in the list is a real regression. Regenerate with `pnpm run test:baseline:update`, never by hand.
+- [ ] Pre-existing failures — the known-failing specs are listed explicitly in `auralis-web/frontend/test-baseline.json` (#4640). **Read that file before reporting any failing spec**; if it is listed, do not file it. Verify with `pnpm run test:ci && pnpm run test:baseline -- --strict-stale` (what CI runs). The gate is a ratchet (baseline may shrink, never grow), so a failure *not* in the list is a real regression; under `--strict-stale` it also fails on a listed test that ran and passed (#5344) and on a phantom entry naming a test that no longer exists (#5811). Regenerate with `pnpm run test:baseline:update`; the one hand edit is removing the entries of a test you deleted, which a report cannot see.
 - [ ] Memory — the suite needs the 2GB-heap runner (`pnpm run test:memory`); flag any new spec that spins an unbounded mock loop.
 - [ ] Mock correctness — do mocks (`vi.*`) accurately represent real behavior? Over-mocking?
 - [ ] Async testing — are async operations properly awaited? Any floating promises in tests?

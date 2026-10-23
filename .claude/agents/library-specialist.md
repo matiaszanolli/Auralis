@@ -11,11 +11,11 @@ You are the **Library Specialist** for Auralis — the SQLite-backed library at 
 ## Your Domain
 
 **Top-level library** (`auralis/library/`):
-- `auralis/library/database.py` — `LibraryDatabase`, the sole composition root (engine, pragmas, migration, session factory, scan slots, shutdown). The `LibraryManager` facade was deleted in #4915; the name survives only in docstrings.
-- `auralis/library/scanner/` — folder scanning package: `scanner.py`, `file_discovery.py`, `metadata_extractor.py`, `audio_analyzer.py`, `batch_processor.py`, `config.py` (the test-only duplicate detector was deleted in #5362)
-- `auralis/library/migration_manager.py` — schema migrations (forward-only SQL, one file per version in `auralis/library/migrations/`; the current version is `__db_schema_version__` in `auralis/__version__.py`), split with `migration_engine.py`, `migration_steps.py`, `migration_backup.py` and `migration_lock.py` (file lock + same-process `threading.Lock`)
-- `auralis/library/models/` — SQLAlchemy ORM models (package: `base.py`, `core.py`, `fingerprint.py`)
-- `auralis/library/artwork.py`, `sidecar_manager.py`, `metadata_editor/` — track metadata helpers
+- `auralis/library/database.py` — `LibraryDatabase`, the sole composition root (engine, pragmas, migration, session factory, scan slots, shutdown). #5837 split out `database_engine.py` (engine + file-permission bootstrap), `database_accessors.py` (repository conveniences) and `scan_coordinator.py` (`ScanCoordinator`: scan slots, destructive-op flag and in-progress directories, each behind its own lock). `schema_indexes.py` creates model-declared indexes missing from an existing DB on open (#5321). The `LibraryManager` facade was deleted in #4915 and #5162 rewrote the docstrings, so the name appears only in past-tense comments.
+- `auralis/library/scanner/` — folder scanning package: `scanner.py`, `file_discovery.py`, `metadata_extractor.py`, `audio_analyzer.py`, `batch_processor.py`, `scan_stages.py`, `config.py` (the test-only duplicate detector was deleted in #5362)
+- `auralis/library/migration_manager.py` — schema migrations (forward-only SQL, one file per version in `auralis/library/migrations/`; the current version is `__db_schema_version__` in `auralis/__version__.py`), split with `migration_engine.py`, `migration_steps.py`, `migration_backup.py`, `migration_versions.py` (version-row read/write) and `migration_lock.py` (file lock + same-process `threading.Lock`)
+- `auralis/library/models/` — SQLAlchemy ORM models (package: `base.py` with the association tables, one module per entity, and `core.py`, which re-exports them all plus `_safe_collection()` / `_safe_scalar()` from `_helpers.py` — `ls` it)
+- `auralis/library/artwork.py` (+ `artwork_tags.py`), `sidecar_manager.py` (+ `sidecar_validation.py`), `metadata_editor/` — track metadata helpers
 - `auralis/library/fingerprint_quantizer.py` — fingerprint indexing helpers
 - `auralis/library/path_key.py` — path normalization for lookups (the library cache layer was deleted with `LibraryManager` in #4915, and its leftover empty *auralis/library/caching/* package was removed in #5148)
 - `auralis/library/resource_monitor.py` — disk/memory monitoring
@@ -24,7 +24,7 @@ You are the **Library Specialist** for Auralis — the SQLite-backed library at 
 - `auralis/library/migrations/` — versioned migration scripts
 
 **Repositories** (`auralis/library/repositories/`):
-All 12 extend `BaseRepository` in `auralis/library/repositories/base.py`. Three are split across mixin/helper files — `track_repository.py` + `track_repository_{lifecycle,lookup,maintenance,mutation,search}.py`, `playlist_repository.py` + `playlist_{crud,membership,ordering,query}_mixin.py`, `fingerprint_repository.py` + `fingerprint_{crud,query,similarity,upsert}_mixin.py` and `fingerprint_shared.py`:
+All 12 extend `BaseRepository` in `auralis/library/repositories/base.py`. Four are split across mixin/helper files — `track_repository.py` + `track_repository_{lifecycle,lookup,maintenance,mutation,search}.py` + `track_deletion.py` (the one place that deletes `tracks` rows, #5557), `album_repository.py` + `album_artwork.py` (#5837), `playlist_repository.py` + `playlist_{crud,membership,ordering,query}_mixin.py`, `fingerprint_repository.py` + `fingerprint_{crud,query,similarity,upsert}_mixin.py` and `fingerprint_shared.py`:
 - `track_repository.py` — track CRUD
 - `album_repository.py` — album CRUD
 - `artist_repository.py` — artist CRUD
@@ -33,11 +33,12 @@ All 12 extend `BaseRepository` in `auralis/library/repositories/base.py`. Three 
 - `fingerprint_repository.py` — 25D fingerprint storage
 - `fingerprint_scheduler_repository.py` — fingerprint job scheduling (reached via `factory.fingerprint_scheduler.*`)
 - `fingerprint_stats_repository.py` — fingerprint coverage stats
+- `processing_job_repository.py` — durable processing-job rows
 - `similarity_graph_repository.py` — similarity edges
 - `settings_repository.py` — user settings
 - `stats_repository.py` — playback stats
 
-Plus infrastructure (not repos): `base.py` — `BaseRepository`, including a `_session_scope()` context manager that most call sites do **not** yet use (~110 hand-rolled session lifecycles remain — that migration is tracked debt, not a fresh finding); `factory.py` — `RepositoryFactory`, Depends-injectable.
+Plus infrastructure (not repos): `base.py` — `BaseRepository`, including the `_session_scope()` context manager every repository method now goes through — only `factory.py`'s bulk clear still opens a raw `session_factory()` (it closes the session and, since #5117, rolls back when an exception escapes — a hand-rolled `session_factory()` lifecycle in a repository is a regression, and a per-method rollback is redundant); `factory.py` — `RepositoryFactory`, Depends-injectable.
 
 ## Critical Invariants
 
@@ -48,7 +49,7 @@ Plus infrastructure (not repos): `base.py` — `BaseRepository`, including a `_s
 5. **Cursor-based pagination** — `cleanup_missing_files` (`track_repository_maintenance.py`) and similar large scans use ID-cursor pagination, not `LIMIT/OFFSET` (fix `bd94fd59`).
 6. **Migration safety** — migrations use inter-process file locking (`fcntl` / `msvcrt`) + double-check pattern, **plus a same-process `threading.Lock`**: the file lock alone does not serialize threads within one process. **Fail fast on backup failure** — never proceed without a backup. Lock files use `.{db_name}.migration.lock` with guaranteed cleanup via context manager. Migrations are forward-only SQL; a failed step restores the pre-migration backup (`auralis/library/migration_backup.py`, #5316), and the current schema version is `__db_schema_version__` in `auralis/__version__.py`. Both locks live in `auralis/library/migration_lock.py`.
 7. **Scanner robustness** — symlinks, permission errors, Unicode filenames, hidden files all handled. Scanner must not crash on a single bad file.
-8. **Concurrent scans** — two scans of the same library must serialize. The `LibraryAutoScanner` service is the canonical writer.
+8. **Concurrent scans** — two scans of the same library must serialize. The `LibraryAutoScanner` service is the canonical writer; the slot counter, destructive-operation flag and in-progress directory set live in `ScanCoordinator` (`scan_coordinator.py`), one per `LibraryDatabase`, because every caller builds a fresh scanner.
 9. **Thread safety** — sessions are per-call; sharing a `Session` across threads is a bug. Use `sessionmaker` per request/scan.
 
 ## When Consulted
@@ -81,6 +82,6 @@ Answer questions about:
 
 ## Reference Documents
 
-- `CLAUDE.md` — project conventions ("Database" invariants block)
+- `CLAUDE.md` — project conventions ("Database" and "Detached ORM instances" invariants); its Codebase Map and `.claude/commands/_audit-common.md`'s Project Layout table are the maintained layout references
 - `docs/audits/` — prior library audits (search for `AUDIT_LIBRARY_*.md`, `AUDIT_BACKEND_*.md`)
 - `auralis/library/migrations/` — schema history, one file per version

@@ -35,7 +35,7 @@ Fails under realistic conditions (concurrency, large libraries, extended playbac
 - Phase cancellation in parallel/multi-band DSP
 - Deadlock or lock-ordering violation in player or library
 - RLock held across a callback (re-entrancy hazard)
-- WebSocket chunk drops at 30 s boundaries
+- WebSocket chunk drops, gaps or repeated samples at chunk seams (every 10 s `CHUNK_INTERVAL` — read `auralis-web/backend/core/chunk_boundaries.py`, don't assume)
 - Gapless transition with audible gap (>1 ms silence)
 - Memory leak that compounds during playback
 - Missing input validation on a public, network-exposed route

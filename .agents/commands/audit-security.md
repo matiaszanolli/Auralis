@@ -34,8 +34,8 @@ For each category, check the specific items listed. Do NOT limit yourself to the
 - [ ] WebSocket connections (`auralis-web/backend/ws_handlers/connection.py`, `auralis-web/backend/core/audio_stream_controller.py`) — is `auralis-web/backend/websocket/websocket_security.py` invoked on connect, and can its check be bypassed (missing/spoofed Origin, subprotocol, query param)?
 - [ ] All 20 registered routers (list them from `auralis-web/backend/config/routes.py`) — which have NO auth checks?
 - [ ] File serving endpoints (`auralis-web/backend/routers/files.py`) — can a user request files outside the music library? Do they route through `auralis-web/backend/security/path_security.py`, or hand-roll containment?
-- [ ] `path_security.py` itself — does containment survive symlinks, `..` after normalization, UNC/drive-relative paths, and case-insensitive filesystems?
-- [ ] Library scanner (`auralis/library/scanner/`) — does it follow symlinks outside allowed directories?
+- [ ] `path_security.py` itself — does containment survive symlinks, `..` after normalization, UNC/drive-relative paths, and case-insensitive filesystems? The `validate_file_path` docstring is the canonical list of who validates and who deliberately does not (the playback load path and the streamlined cache worker, #5303 / #5322). Do not re-report a listed non-caller; report a caller missing from both lists.
+- [ ] Library scanner (`auralis/library/scanner/`) — it follows symlinked subdirectories with only cycle detection, and that is a decision (#4823 closed as keep-current-behavior), not a finding. Scan roots have no allowlist either: `validate_user_chosen_directory` rejects `..` before `resolve(strict=True)` and refuses OS system trees (87b33dcb). Check that every scan-folder entry point goes through it or `validate_directory_list`: `routers/settings.py` calls them directly, and `routers/library_scan.py` relies on the `LibraryScanRequest` validator in `schemas/library.py`.
 - [ ] Artwork endpoints — path traversal via metadata manipulation?
 - [ ] Streaming endpoints — can a user stream any file on the filesystem? Stream requests resolve a track and validate its path in `auralis-web/backend/core/stream_track_resolution.py` — is every stream path (enhanced, normal, seek) routed through it?
 
@@ -64,9 +64,10 @@ For each category, check the specific items listed. Do NOT limit yourself to the
 - [ ] `SecurityHeadersMiddleware` — which headers does it actually set, and are any (CSP, X-Frame-Options) missing or permissive?
 - [ ] Middleware ordering — `add_middleware` is LIFO. Does a security middleware end up running *after* something it should gate?
 - [ ] Debug/development endpoints accessible in production?
-- [ ] `--dev` flag behavior — what security features does it disable? (It also skips the StaticFiles mount in `main.py`.)
+- [ ] `--dev` flag behavior — what security features does it disable? Dev mode is `--dev` or `AURALIS_DEV_MODE` (`is_dev_mode()` in `auralis-web/backend/config/app.py`; it re-enables Swagger/ReDoc/OpenAPI and widens the origin allow-lists, #4802). It also skips the StaticFiles mount: `mount_frontend()` in `auralis-web/backend/config/fallback_routes.py`, moved out of `main.py` in 3d69275a.
+- [ ] Catch-all routes (`register_fallback_routes()`, same file) — unmatched `/api` paths and unregistered WebSocket paths must answer before the StaticFiles mount sees them, and the frontend-missing page must not disclose the install path (#4351). Is the registration order in `main.py` (routers → fallbacks → mount) intact?
 - [ ] Default configuration values — any that are insecure?
-- [ ] Error responses (`auralis-web/backend/routers/errors.py`) — do they leak stack traces, file paths, or internal state?
+- [ ] Error responses (`auralis-web/backend/routers/errors.py` and the exception handlers in `auralis-web/backend/config/app.py`) — do they leak stack traces, file paths, or internal state?
 
 ### A06: Vulnerable and Outdated Components
 - [ ] Check `requirements.txt` for known CVEs in dependencies.
@@ -78,7 +79,7 @@ For each category, check the specific items listed. Do NOT limit yourself to the
 ### A07: Identification and Authentication Failures
 - [ ] Is there any authentication at all on the backend API? (By design there is none — Auralis is a desktop app bound to `127.0.0.1:8765`. Treat "no auth" as the documented baseline; report only where that baseline is *violated*, e.g. a surface reachable beyond localhost.)
 - [ ] WebSocket auth — `auralis-web/backend/websocket/websocket_security.py` exists: is it validated on connect AND on each message, or only at handshake?
-- [ ] Can any *local* process connect to port 8765 and control playback? Is the bind address actually `127.0.0.1` and never `0.0.0.0`?
+- [ ] Can any *local* process connect to port 8765 and control playback? Is the bind address actually `127.0.0.1` and never `0.0.0.0`? The port is `BACKEND_PORT` from `config/origins.py`, which reads `AURALIS_PORT` (f637c53e, #5796), so the bind port and the allowed origins are one value. Flag any second port literal.
 - [ ] Desktop app — does it restrict connections to localhost only?
 - [ ] Rate limiting — `RateLimitMiddleware` in `auralis-web/backend/config/middleware/rate_limit.py`: which routes does it cover, what are the limits in `auralis-web/backend/config/limits.py`, and can the window be reset or evaded?
 
@@ -92,7 +93,7 @@ For each category, check the specific items listed. Do NOT limit yourself to the
 - [ ] Are failed operations logged with sufficient detail?
 - [ ] File access attempts — are unauthorized accesses logged?
 - [ ] WebSocket connections — are connect/disconnect events logged?
-- [ ] Sensitive data in logs — are file paths, user data, or system info logged unsafely?
+- [ ] Sensitive data in logs — are file paths, user data, or system info logged unsafely? `install_log_sanitizer()` in `auralis-web/backend/config/bootstrap.py` re-wraps the root handlers with the sanitizing formatter (#5393). Does a handler or logger created after it bypass that formatter?
 
 ### A10: Server-Side Request Forgery (SSRF)
 - [ ] Artwork fetching — can user-supplied URLs cause the backend to make arbitrary requests?
@@ -108,7 +109,10 @@ For each category, check the specific items listed. Do NOT limit yourself to the
 | `auralis-web/backend/config/limits.py` | Rate-limit / request-size budgets |
 | `auralis-web/backend/config/origins.py` | Loopback origin policy — how the allowed-origin set is built |
 | `auralis-web/backend/core/stream_track_resolution.py` | Track lookup + path validation for every WebSocket stream path |
-| `auralis-web/backend/main.py` | Lifespan wiring, StaticFiles mount, `--dev` switch |
+| `auralis-web/backend/main.py` | Composition only: wires the `config/` modules in order and binds uvicorn to `127.0.0.1` |
+| `auralis-web/backend/config/app.py` | `create_app()`, exception handlers, `is_dev_mode()` |
+| `auralis-web/backend/config/fallback_routes.py` | Catch-all `/api` and WebSocket routes, StaticFiles mount (skipped in dev) |
+| `auralis-web/backend/config/bootstrap.py` | Logging bootstrap and log sanitizer, `sys.path` setup |
 | `auralis-web/backend/security/path_security.py` | Filesystem path containment |
 | `auralis-web/backend/websocket/websocket_security.py` | WebSocket connect-time checks |
 | `auralis-web/backend/ws_handlers/` | WebSocket message handling (connection, messages, playback commands) |

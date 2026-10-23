@@ -28,7 +28,7 @@ find tests/ -name "*.py" -path "*<module_name>*" | head -5
 ```
 
 Read the found test files and note:
-- Import patterns and fixtures used
+- Import patterns and fixtures used — import (and `patch()`) each symbol from the module that defines it, not a re-export: #5775 and #5827 removed the re-exports and compat shims that kept old test import paths alive, and the #5831–#5841 splits moved code into sibling modules and mixins, so a path copied from an older test can fail at collection or patch the wrong name
 - Assertion style (pytest asserts, parametrize, etc.)
 - Mock patterns (unittest.mock, monkeypatch, etc.)
 - Marker usage (`@pytest.mark.regression`, domain markers from `pytest.ini`)

@@ -1,11 +1,11 @@
 ---
-description: "Audit only code changed in a recent commit range; create GitHub issues for any new findings"
+description: "Audit only code changed in a recent commit range; write a report of new findings for /audit-publish"
 argument-hint: "[--commits <N>] [--since <date>]"
 ---
 
 # Incremental / Delta Audit
 
-Audit only the code that has changed in a recent commit range, then create GitHub issues for any new findings.
+Audit only the code that has changed in a recent commit range and write a report of any new findings. Issues are created afterwards by `/audit-publish`, not by this command.
 
 **Shared protocol**: Read `.claude/commands/_audit-common.md` first for project layout, severity framework, methodology, deduplication rules, and GitHub issue template.
 
@@ -14,6 +14,7 @@ Audit only the code that has changed in a recent commit range, then create GitHu
 This command accepts an optional commit range argument: `$ARGUMENTS`
 
 - If provided, use it as the git range (e.g., `v1.1.0..HEAD`, `HEAD~20..HEAD`, `abc123..def456`)
+- `--commits <N>` (what `/audit-suite` passes) means `HEAD~<N>..HEAD`; `--since <date>` means the range starting at the first commit after that date (`git log --since=<date> --format=%H | tail -1`, then `<that>~1..HEAD`). Translate either to a range before Step 1 — a raw flag in `RANGE` breaks `git log`
 - If empty or not provided, default to `HEAD~10..HEAD`
 
 ## Severity Examples
@@ -45,11 +46,14 @@ Group changed files by risk domain:
 | **Audio I/O** | `auralis/io/*` | HIGH |
 | **Backend Streaming** | `auralis-web/backend/core/audio_stream*`, `auralis-web/backend/core/chunked_processor*`, `auralis-web/backend/core/chunk_*`, `auralis-web/backend/core/stream_*` | HIGH |
 | **Backend WebSocket** | `auralis-web/backend/ws_handlers/*`, `auralis-web/backend/websocket/*` | HIGH |
-| **Backend Routes** | `auralis-web/backend/routers/*` | HIGH |
+| **Backend Routes** | `auralis-web/backend/routers/*` (coordinators + `*_deps.py` / `*_models.py` / per-concern siblings) | HIGH |
+| **Backend Schemas** | `auralis-web/backend/schemas/*` | HIGH |
+| **Backend Cache** | `auralis-web/backend/cache/*` | MEDIUM |
 | **Backend App Wiring** | `auralis-web/backend/config/*` (middleware, CORS, router registration, lifespan), `auralis-web/backend/main.py` | HIGH |
 | **Backend Security** | `auralis-web/backend/security/*` | HIGH |
 | **Library/Database** | `auralis/library/*` | HIGH |
 | **Analysis** | `auralis/analysis/*` | MEDIUM |
+| **Engine Services** | `auralis/services/*` | MEDIUM |
 | **Optimization** | `auralis/optimization/*` — live DSP, applied by `hybrid_processor.py` at import (#5142) | HIGH |
 | **Backend Processing** | `auralis-web/backend/core/processing_engine.py`, `auralis-web/backend/core/job_*`, `auralis-web/backend/core/processor_*`, `auralis-web/backend/core/executors.py` | HIGH |
 | **Backend Services** | `auralis-web/backend/services/*`, `auralis-web/backend/analysis/*` | MEDIUM |
@@ -58,6 +62,7 @@ Group changed files by risk domain:
 | **Frontend Hooks** | `auralis-web/frontend/src/hooks/*` | MEDIUM |
 | **Frontend Contexts** | `auralis-web/frontend/src/contexts/*` | MEDIUM |
 | **Frontend Store** | `auralis-web/frontend/src/store/*` | MEDIUM |
+| **Frontend API & Types** | `auralis-web/frontend/src/services/*`, `auralis-web/frontend/src/api/*`, `auralis-web/frontend/src/types/*` | MEDIUM |
 | **Tests** | `tests/*` | LOW |
 | **Config/CI** | `.github/*`, `*.toml`, `*.ini`, `*.cfg` | MEDIUM |
 
@@ -83,7 +88,7 @@ For each changed file that crosses a layer boundary:
 4. **WebSocket message format changed**: Are both sides in sync?
 5. **Database schema changed**: Is there a migration? Do all repositories handle the new schema?
 6. **Rust DSP changed**: Is the Python binding still correct? Do callers handle the new behavior?
-7. **Coordinator or sibling changed** (`chunked_processor.py` / `chunk_*`, `processing_engine.py` / `job_*`, `enhanced_audio_player.py` / `player_*_mixin.py`): siblings share the coordinator's instance state — re-check the other side of the split.
+7. **Coordinator or sibling changed** (`chunked_processor.py` / `chunk_*`, `processing_engine.py` / `job_*`, `processor_factory.py` / `processor_*`, `enhanced_audio_player.py` / `player_*_mixin.py`, a router module / its `*_deps.py` + per-concern siblings, a mixin-composed class such as `queue_service.py` or `cache/manager.py`): siblings share the coordinator's instance state — re-check the other side of the split.
 8. **Enhancement preset list changed**: do `auralis-web/backend/schemas/enhancement.py`, `auralis-web/backend/core/proactive_buffer.py` and `auralis-web/frontend/src/types/domain.ts` still agree?
 
 ## Phase 1: Audit
