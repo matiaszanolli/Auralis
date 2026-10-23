@@ -115,7 +115,7 @@ When docs and code disagree, these win:
 
 | Fact | Source of truth |
 |------|-----------------|
-| Product version | [`auralis/version.py`](../../auralis/version.py) (not `pyproject.toml`, not the frontend constant, not `create_app`'s "1.0.0") |
+| Product version | [`auralis/version.py`](../../auralis/version.py) (synced to every package.json / pyproject.toml by `sync_version.py`, and injected into the renderer via the `__APP_VERSION__` Vite define) |
 | Fingerprint dimension semantics/units | [`analysis/fingerprint/schema.py`](../../auralis/analysis/fingerprint/schema.py) |
 | Chunk geometry | [`backend/core/chunk_boundaries.py`](../../auralis-web/backend/core/chunk_boundaries.py) |
 | DB schema version | [`auralis/__version__.py`](../../auralis/__version__.py) (`__db_schema_version__`; applied by `auralis/library/migration_manager.py`) |

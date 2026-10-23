@@ -245,8 +245,6 @@ backend replies:
   state (`usePlaybackState` #3126, `usePlayerStreaming` #3776 were deleted).
 - **StrictMode double-mount safety** — singletons (like the WS manager) must be module-level and
   ref-counted; WS-derived Redux writes must be idempotent.
-- **Version drift** — `window.__AURALIS_DEBUG__.version` hardcodes an old string; the source of
-  truth is [`auralis/version.py`](../../auralis/version.py).
 - **Dev WS bypasses the Vite proxy** and hits `ws://localhost:8765/ws` directly; dev REST uses
   relative URLs through the proxy.
 

@@ -44,9 +44,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   platform: process.platform,
   isPackaged: process.env.NODE_ENV === 'production',
 
-  // App info
-  version: process.env.npm_package_version || '1.0.0',
-
   // Event listeners for app state
   onAppReady: (callback) => {
     ipcRenderer.on('app-ready', callback);

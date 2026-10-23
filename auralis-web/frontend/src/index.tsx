@@ -28,7 +28,7 @@ import ReactDOM from 'react-dom/client';
     window.__AURALIS_DEBUG__ = {
       commitId: commitFromMeta,
       buildMode: import.meta.env.MODE,
-      version: '1.0.0-beta.13'
+      version: __APP_VERSION__
     };
 
     const root = ReactDOM.createRoot(

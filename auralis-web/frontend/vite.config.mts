@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import path from 'node:path'
 import { execSync } from 'node:child_process'
 import { vendorChunk } from './vite.manualChunks'
+import { appVersionDefineValue } from './vite.appVersion'
 
 // Function to get current commit hash (called fresh each time in dev mode)
 function getCommitId(): string {
@@ -98,6 +99,11 @@ export default defineConfig(({ mode }) => {
     },
     define: {
       'process.env.VITE_COMMIT_ID': `"${commitIdAtBuildTime}"`,
+      // The renderer's only product-version source: index.tsx's debug blob
+      // reports this, so it tracks package.json (kept in lockstep with
+      // auralis/version.py by sync_version.py) instead of a hard-coded
+      // string (#6253).
+      __APP_VERSION__: appVersionDefineValue(path.resolve(__dirname, 'package.json')),
     },
     server: {
       port: 3000,

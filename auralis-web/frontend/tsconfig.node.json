@@ -9,6 +9,7 @@
   "include": [
     "vite.config.mts",
     "vite.manualChunks.ts",
+    "vite.appVersion.ts",
     "vitest.config.ts"
   ]
 }

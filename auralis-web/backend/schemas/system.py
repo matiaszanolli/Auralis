@@ -29,7 +29,7 @@ class HealthResponse(BaseModel):
 
 class VersionInfoResponse(BaseModel):
     """Response model for GET /api/version (matches get_version_info() shape)."""
-    version: str = Field(description="Full semantic version string (e.g. '1.2.1-beta.1')")
+    version: str = Field(description="Full semantic version string (e.g. '1.5.1')")
     major: int = Field(description="Major version number")
     minor: int = Field(description="Minor version number")
     patch: int = Field(description="Patch version number")
