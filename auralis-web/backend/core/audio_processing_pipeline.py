@@ -19,10 +19,9 @@ from typing import Any
 
 import numpy as np
 
-logger = logging.getLogger(__name__)
+from auralis.core.hybrid_stage_dispatch import MIN_SAMPLES
 
-# Minimum samples required for DSP processing (prevents Rust FFT panics)
-MIN_SAMPLES = 1024  # ~23ms at 44.1kHz
+logger = logging.getLogger(__name__)
 
 
 class AudioProcessingPipeline:
@@ -55,7 +54,13 @@ class AudioProcessingPipeline:
             allow_empty: If True, allow empty arrays (return as-is)
 
         Returns:
-            Validated and normalized audio array
+            Validated and normalized audio array. Audio shorter than
+            MIN_SAMPLES is returned unprocessed rather than rejected —
+            the same policy as the engine's
+            `hybrid_stage_dispatch.validate_and_normalize_input()` (#6194):
+            the raise broke the pipeline's `len(output) == len(input)`
+            invariant for short buffers, and the Rust FFT panics the guard
+            originally defended against are fixed at the source (#4520).
 
         Raises:
             ValueError: If audio is invalid
@@ -82,12 +87,14 @@ class AudioProcessingPipeline:
             audio = np.column_stack([audio, audio])
             logger.debug(f"Converted mono to stereo: shape now {audio.shape}")
 
-        # Check for minimum sample count (prevents Rust FFT/DSP panics)
+        # Check for minimum sample count — return unprocessed, mirroring the
+        # engine's short-buffer policy (#6194); see the docstring.
         if audio.shape[0] < MIN_SAMPLES:
-            raise ValueError(
-                f"Audio must have at least {MIN_SAMPLES} samples for DSP processing, "
-                f"got {audio.shape[0]} samples (~{audio.shape[0]/44100*1000:.1f}ms at 44.1kHz)"
+            logger.warning(
+                f"Audio too short to master ({audio.shape[0]} samples, "
+                f"need {MIN_SAMPLES}); returning it unprocessed"
             )
+            return audio
 
         # Check for NaN or infinite values
         if not np.all(np.isfinite(audio)):
@@ -338,8 +345,11 @@ class AudioProcessingPipeline:
             logger.error(f"Audio validation failed: {e}")
             raise
 
-        # Handle empty or silence after validation
-        if len(audio) == 0 or np.allclose(audio, 0.0, atol=1e-10):
+        # Return empty, too-short or silent audio unprocessed. The too-short
+        # case arrives here because validate_audio() no longer raises for it
+        # (#6194) — skipping processor selection and enhancement mirrors the
+        # engine's early_result pass-through for buffers under MIN_SAMPLES.
+        if len(audio) < MIN_SAMPLES or np.allclose(audio, 0.0, atol=1e-10):
             return audio
 
         # Step 2: Select processor (None if preset is None)
