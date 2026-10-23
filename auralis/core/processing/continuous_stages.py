@@ -26,6 +26,7 @@ import numpy as np
 from ...dsp.basic import amplify
 from ...dsp.utils.adaptive import calculate_loudness_units
 from ...utils.logging import debug
+from .base import StereoWidthProcessor
 from .continuous_dsp_ops import ContinuousDSPOpsMixin
 from .continuous_quality import ContinuousQualityMixin
 from .continuous_guards import (
@@ -195,7 +196,7 @@ class ContinuousStagesMixin(ContinuousQualityMixin, ContinuousDSPOpsMixin):
         processed_audio = self._apply_stereo_width(processed_audio, params)
         journal.snapshot(processed_audio, STAGE_STEREO)
         if self.config.enable_cross_dimensional_guard:
-            if processed_audio.ndim == 2 and processed_audio.shape[1] == 2:
+            if StereoWidthProcessor.validate_stereo(processed_audio):
                 from .stage_snapshot import _compute_phase_correlation
                 post_phase = _compute_phase_correlation(processed_audio, self.config.internal_sample_rate)
                 pre_phase = (journal.get(STAGE_DYNAMICS) or journal.get(STAGE_EQ))

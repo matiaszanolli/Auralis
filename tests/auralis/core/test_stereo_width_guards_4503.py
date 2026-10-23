@@ -48,17 +48,21 @@ def _side_gain(before: np.ndarray, after: np.ndarray) -> float:
     return float(s1 / s0) if s0 > 0 else float("nan")
 
 
-class TestConservativeGuard:
-    """"Skip widening when the peak is hot" must key on the request."""
+class TestPeakKneeGuard:
+    """Hot-peak widening is eased by the shared smooth knee (#5108), not
+    skipped or clamped — the decision keys on the request and the peak,
+    never on the material."""
 
     @pytest.mark.parametrize("audio_fn", [_decorrelated, _near_mono])
-    def test_widening_is_skipped_when_peak_is_hot(self, audio_fn):
+    def test_hot_peak_widening_converges_to_unity(self, audio_fn):
+        """A widening request at a clipping peak comes back untouched."""
         audio = audio_fn()
         out = StereoWidthProcessor.apply_stereo_width_safe(
             audio, current_width=0.9, target_width=0.8, peak_db=4.0,
-            safety_mode="conservative", sample_rate=SR,
+            sample_rate=SR,
         )
-        assert out is audio, "hot-peak widening request was not skipped"
+        assert out is not audio
+        assert _side_gain(audio, out) == pytest.approx(1.0, abs=1e-6)
 
     @pytest.mark.parametrize("audio_fn", [_decorrelated, _near_mono])
     def test_narrowing_is_allowed_when_peak_is_hot(self, audio_fn):
@@ -71,64 +75,80 @@ class TestConservativeGuard:
         audio = audio_fn()
         out = StereoWidthProcessor.apply_stereo_width_safe(
             audio, current_width=0.05, target_width=0.3, peak_db=4.0,
-            safety_mode="conservative", sample_rate=SR,
+            sample_rate=SR,
         )
         assert out is not audio, "narrowing was wrongly skipped by the peak guard"
         assert _side_gain(audio, out) < 1.0
 
     def test_guard_outcome_does_not_depend_on_the_material(self):
         """The core regression: identical request, different material."""
-        results = []
+        gains = []
         for audio in (_decorrelated(seed=2), _near_mono(seed=3)):
             out = StereoWidthProcessor.apply_stereo_width_safe(
                 audio, current_width=0.9, target_width=0.8, peak_db=4.0,
-                safety_mode="conservative", sample_rate=SR,
+                sample_rate=SR,
             )
-            results.append(out is audio)
-        assert len(set(results)) == 1, (
-            "the peak guard fired for one source and not the other, given the "
-            "same width request — the decision is keying on the material"
+            gains.append(_side_gain(audio, out))
+        assert max(gains) - min(gains) < 1e-6, (
+            f"the applied width moved with the material: {gains} — the guard "
+            "is keying on something other than the request and the peak"
         )
 
 
-class TestAdaptiveClamp:
-    def test_expansion_clamp_is_relative_to_unity(self):
+class TestKneeReplacesTheHardClamp:
+    """The old peak_db > 3.0 clamp (ceiling unity + 0.6) is gone with the
+    #6192 consolidation: the #5108 smooth knee owns clipping safety, so far
+    below it the full request is honoured and the ceiling is exactly unity."""
+
+    def test_quiet_peak_widens_fully(self):
         audio = _decorrelated(amp=0.02)
         out = StereoWidthProcessor.apply_stereo_width_safe(
-            audio, current_width=0.05, target_width=5.0, peak_db=4.0,
-            safety_mode="adaptive", sample_rate=SR,
+            audio, current_width=0.05, target_width=0.8, peak_db=-20.0,
+            sample_rate=SR,
         )
-        # Clamped to UNITY + 0.6 = 1.1 -> side gain 2.2, not 10.0.
-        assert _side_gain(audio, out) == pytest.approx(2.2, rel=0.15)
+        assert _side_gain(audio, out) > 1.0
 
-    def test_clamp_ceiling_is_independent_of_the_measurement(self):
+    def test_ceiling_is_independent_of_the_measurement(self):
         audio = _decorrelated(amp=0.02, seed=4)
         gains = []
         for reading in (0.0, 0.5, 1.0):
             out = StereoWidthProcessor.apply_stereo_width_safe(
-                audio, current_width=reading, target_width=5.0, peak_db=4.0,
-                safety_mode="adaptive", sample_rate=SR,
+                audio, current_width=reading, target_width=0.8, peak_db=-20.0,
+                sample_rate=SR,
             )
             gains.append(_side_gain(audio, out))
         assert max(gains) - min(gains) < 1e-6, (
-            f"clamp ceiling moved with the decorrelation reading: {gains}"
+            f"applied width moved with the decorrelation reading: {gains}"
         )
 
 
 class TestApplyThreshold:
-    def test_near_unity_request_is_a_no_op(self):
+    """The helper's old 0.1 dead-zone is gone (#6192): the boundary between
+    "copy" and "apply" is now adjust_stereo_width_multiband's own 0.01 no-op
+    cutoff, so small requests widen instead of stepping out of existence."""
+
+    def test_effectively_unity_request_is_a_copy(self):
+        audio = _decorrelated(seed=5)
+        out = StereoWidthProcessor.apply_stereo_width_safe(
+            audio, current_width=0.9, target_width=WIDTH_FACTOR_UNITY + 0.005,
+            peak_db=-10.0, sample_rate=SR,
+        )
+        np.testing.assert_array_equal(out, audio)
+
+    def test_small_but_meaningful_request_is_applied(self):
         audio = _decorrelated(seed=5)
         out = StereoWidthProcessor.apply_stereo_width_safe(
             audio, current_width=0.9, target_width=WIDTH_FACTOR_UNITY + 0.05,
-            peak_db=-10.0, safety_mode="adaptive", sample_rate=SR,
+            peak_db=-10.0, sample_rate=SR,
         )
-        assert out is audio
+        assert out is not audio
+        assert _side_gain(audio, out) > 1.0
 
     def test_meaningful_request_is_applied(self):
         audio = _decorrelated(seed=6)
         out = StereoWidthProcessor.apply_stereo_width_safe(
             audio, current_width=0.9, target_width=0.8,
-            peak_db=-10.0, safety_mode="adaptive", sample_rate=SR,
+            peak_db=-10.0, sample_rate=SR,
         )
         assert out is not audio
         assert _side_gain(audio, out) > 1.0
@@ -194,3 +214,10 @@ class TestSignature:
         ).parameters
         assert "sample_rate" in params
         assert params["sample_rate"].default is inspect.Parameter.empty
+
+    def test_safety_mode_is_gone(self):
+        """#6192: the two hard strategies were deleted with the consolidation
+        — a caller cannot resurrect a hard peak switch through the helper."""
+        assert "safety_mode" not in inspect.signature(
+            StereoWidthProcessor.apply_stereo_width_safe
+        ).parameters

@@ -15,7 +15,7 @@ from dataclasses import dataclass
 import numpy as np
 from scipy.fft import rfft, rfftfreq
 
-from .base import FullAudioMeasurement
+from .base import FullAudioMeasurement, StereoWidthProcessor
 from ...dsp.utils.stereo import stereo_width_analysis
 from ...utils.logging import debug
 
@@ -65,7 +65,7 @@ def _compute_phase_correlation(audio: np.ndarray, sample_rate: int) -> float | N
     sample_rate is required (#4622) — it sets the 2s truncation window, so a
     missing/wrong value silently truncates the wrong amount of audio.
     """
-    if audio.ndim != 2 or audio.shape[1] != 2:
+    if not StereoWidthProcessor.validate_stereo(audio):
         return None
     max_samples = min(len(audio), sample_rate * 2)
     left, right = audio[:max_samples, 0], audio[:max_samples, 1]
@@ -90,7 +90,7 @@ class PipelineJournal:
         m = FullAudioMeasurement(audio, self.sample_rate, label=stage_name)
         bass, mid, high = _compute_3band_energy(audio, self.sample_rate)
 
-        is_stereo = audio.ndim == 2 and audio.shape[1] == 2
+        is_stereo = StereoWidthProcessor.validate_stereo(audio)
         width = stereo_width_analysis(audio) if is_stereo else None
         phase = _compute_phase_correlation(audio, self.sample_rate) if is_stereo else None
 

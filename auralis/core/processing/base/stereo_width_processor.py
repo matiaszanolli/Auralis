@@ -2,8 +2,10 @@
 Stereo Width Processor
 ~~~~~~~~~~~~~~~~~~~~~~
 
-Unified stereo width processing with safety checks.
-Consolidates 70% duplicate logic between adaptive and continuous modes.
+Unified stereo width processing with safety checks. Both modes'
+``_apply_stereo_width`` stage methods call :meth:`StereoWidthProcessor.apply_stereo_width_safe`
+— the single implementation carrying the #5108 smooth-gate clipping knee
+(#6192).
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
@@ -13,13 +15,14 @@ import numpy as np
 
 from ....dsp.utils.stereo import WIDTH_FACTOR_UNITY, adjust_stereo_width_multiband
 from ....utils.logging import debug
+from ..continuous_guards import WIDTH_PEAK_KNEE_END, WIDTH_PEAK_KNEE_START
 from .db_conversion import DBConversion
 
 
 class StereoWidthProcessor:
     """
     Unified stereo width processing with safety checks.
-    Consolidates 70% duplicate logic between adaptive and continuous modes.
+    The one stereo-width implementation shared by adaptive and continuous modes.
     """
 
     @staticmethod
@@ -56,26 +59,40 @@ class StereoWidthProcessor:
         target_width: float,
         peak_db: float,
         sample_rate: int,
-        safety_mode: str = "adaptive",
     ) -> np.ndarray:
         """
-        Apply stereo width adjustment with safety checks to prevent peak clipping.
+        Apply stereo width adjustment with the shared clipping guard.
+
+        Widening is eased toward unity across a ``smooth_gate`` knee (#5108)
+        as the pre-adjustment peak approaches clipping, instead of switching
+        off: two masters 0.01 dB apart straddling the knee used to receive
+        either full widening or none — an audible stereo-image difference from
+        an inaudible input difference, in a peak region the pipeline's own
+        -0.3 dBFS ceiling makes common. Only widening is gated; a narrowing
+        request cannot push peaks up, so it passes through untouched.
+
+        The two hard strategies this helper used to carry are gone with the
+        consolidation (#6192): the "adaptive" clamp fired on ``peak_db > 3.0``,
+        unreachable for normalised float audio, and "conservative" had no
+        caller. The old ``abs(target_width - unity) > 0.1`` dead-zone is gone
+        too — a second hard step (0.11 side gain at the boundary) of exactly
+        the class #5108 removed;
+        :func:`adjust_stereo_width_multiband` keeps its own 0.01 no-op cutoff,
+        three orders of magnitude below a just-noticeable level difference.
 
         Args:
             audio: Input audio array (must be stereo)
             current_width: Measured DECORRELATION of the input (0 = mono). Kept
                 for logging/diagnostics only — see the scale note below.
             target_width: Target WIDTH FACTOR (side-gain axis, 0.5 = unchanged)
-            peak_db: Current peak in dB
+            peak_db: Pre-adjustment peak in dB — the quantity the knee gates on
             sample_rate: Sample rate, for the multiband crossovers. Required
                 (#4622) — passed straight through to
                 adjust_stereo_width_multiband(), where a missing/wrong value
                 silently mis-places every frequency band.
-            safety_mode: Safety strategy ("adaptive" = limit expansion for loud material,
-                                        "conservative" = skip expansion if peak > threshold)
 
         Returns:
-            Audio with adjusted stereo width
+            Audio with adjusted stereo width (sample count preserved)
 
         Scales (#4503): ``current_width`` and ``target_width`` are NOT on the
         same axis — the first is a measurement (decorrelation), the second an
@@ -86,27 +103,28 @@ class StereoWidthProcessor:
         :data:`WIDTH_FACTOR_UNITY`, the point at which a width factor leaves the
         signal untouched.
         """
-        # Strategy 1: Limit expansion for already-loud material (adaptive mode)
-        if safety_mode == "adaptive":
-            # For loud material with positive peaks, limit expansion
-            if peak_db > 3.0 and target_width > WIDTH_FACTOR_UNITY:
-                max_width_increase = 0.6
-                target_width = min(target_width, WIDTH_FACTOR_UNITY + max_width_increase)
-                debug(f"[Stereo Width] Limited expansion for loud material: target reduced to {target_width:.2f}")
+        if target_width > WIDTH_FACTOR_UNITY:
+            # Deferred import: cross_dimensional_guard imports stage_snapshot,
+            # which imports this package — module-level would cycle.
+            from ..cross_dimensional_guard import smooth_gate
 
-        # Strategy 2: Skip expansion if peak is critically high (conservative mode)
-        elif safety_mode == "conservative":
-            if peak_db > 3.0 and target_width > WIDTH_FACTOR_UNITY:
-                debug(f"[Stereo Width] SKIPPED expansion due to high peak ({peak_db:.2f} dB)")
-                return audio  # Return unmodified
+            # gate: 0 well below the knee (widen fully), 1 at/above it (unity).
+            gate = smooth_gate(
+                peak_db, WIDTH_PEAK_KNEE_START, WIDTH_PEAK_KNEE_END
+            )
+            target_width = target_width + (WIDTH_FACTOR_UNITY - target_width) * gate
+            if gate > 0.0:
+                debug(
+                    f"[Stereo Width] peak {peak_db:.2f} dB — widening eased "
+                    f"toward unity (gate={gate:.2f}, target={target_width:.3f})"
+                )
 
-        # Apply stereo width only if the requested change is meaningful, i.e.
-        # the width factor is far enough from unity to be worth the filtering.
-        if abs(target_width - WIDTH_FACTOR_UNITY) > 0.1:
-            # Multiband so sub-300 Hz stays (near-)mono (#4504).
-            audio = adjust_stereo_width_multiband(audio, target_width, sample_rate)
-            new_peak_db = StereoWidthProcessor.get_peak_db(audio)
-            debug(f"[Stereo Width] Peak: {peak_db:.2f} → {new_peak_db:.2f} dB "
-                  f"(width factor: {target_width:.2f}, decorrelation was {current_width:.2f})")
+        # Multiband so sub-300 Hz stays (near-)mono (#4504). Within 0.01 of
+        # unity adjust_stereo_width_multiband short-circuits to a copy, so
+        # near-unity requests stay cheap without a coarser gate here.
+        audio = adjust_stereo_width_multiband(audio, target_width, sample_rate)
+        new_peak_db = StereoWidthProcessor.get_peak_db(audio)
+        debug(f"[Stereo Width] Peak: {peak_db:.2f} → {new_peak_db:.2f} dB "
+              f"(width factor: {target_width:.2f}, decorrelation was {current_width:.2f})")
 
         return audio

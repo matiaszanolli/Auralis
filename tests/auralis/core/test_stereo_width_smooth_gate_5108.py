@@ -35,8 +35,9 @@ from auralis.dsp.utils.stereo import WIDTH_FACTOR_UNITY
 def _eased_width(target_width: float, pre_peak_db: float) -> float:
     """The width the stage will actually apply — mirrors the production line.
 
-    Kept in lockstep with `_apply_stereo_width`; the tests below are about the
-    shape of this curve, which is what the invariant is about.
+    Kept in lockstep with `StereoWidthProcessor.apply_stereo_width_safe`,
+    which both modes' `_apply_stereo_width` call since #6192; the tests below
+    are about the shape of this curve, which is what the invariant is about.
     """
     if target_width <= WIDTH_FACTOR_UNITY:
         return target_width

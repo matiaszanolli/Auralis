@@ -16,7 +16,7 @@ from ...dsp.basic import amplify, rms
 from ...dsp.utils.adaptive import calculate_loudness_units
 from ...dsp.utils.adaptive_loudness import AdaptiveLoudnessControl
 from ...dsp.utils.conversion import peak_db
-from ...dsp.utils.stereo import WIDTH_FACTOR_UNITY, stereo_width_analysis
+from ...dsp.utils.stereo import stereo_width_analysis
 from ...utils.audio_validation import validate_audio_finite
 from ...utils.logging import debug
 from .base import (
@@ -96,12 +96,12 @@ class AdaptiveMode:
             user_preset_hint=preset_hint
         )
 
-        print(f"[Spectrum Position] Level:{spectrum_position.input_level:.2f} "
+        debug(f"[Spectrum Position] Level:{spectrum_position.input_level:.2f} "
               f"Dynamics:{spectrum_position.dynamic_range:.2f} "
               f"Balance:{spectrum_position.spectral_balance:.2f} "
               f"Energy:{spectrum_position.energy:.2f}")
 
-        print(f"[Spectrum Params] Compression:{spectrum_params.compression_ratio:.2f}@{spectrum_params.compression_amount:.2f} "
+        debug(f"[Spectrum Params] Compression:{spectrum_params.compression_ratio:.2f}@{spectrum_params.compression_amount:.2f} "
               f"InputGain:{spectrum_params.input_gain:+.1f}dB "
               f"TargetRMS:{spectrum_params.output_target_rms:.1f}dB")
 
@@ -122,7 +122,7 @@ class AdaptiveMode:
 
         after_eq_lufs = calculate_loudness_units(processed_audio, self.config.internal_sample_rate)
         peak_after_eq_db = peak_db(processed_audio)
-        print(f"[After EQ] Peak: {peak_after_eq_db:.2f} dB")
+        debug(f"[After EQ] Peak: {peak_after_eq_db:.2f} dB")
         debug(f"[STAGE 2] After EQ: {after_eq_lufs:.2f} LUFS (change: {after_eq_lufs - before_eq_lufs:+.2f} dB)")
 
         # Apply dynamics processing
@@ -131,9 +131,7 @@ class AdaptiveMode:
         )
 
         # Apply stereo width adjustment
-        processed_audio = self._apply_stereo_width(
-            processed_audio, targets, spectrum_position
-        )
+        processed_audio = self._apply_stereo_width(processed_audio, targets)
 
         # Apply final normalization
         processed_audio = self._apply_final_normalization(
@@ -196,9 +194,14 @@ class AdaptiveMode:
             spectrum_params.expansion_amount
         )
 
-    def _apply_stereo_width(self, audio: np.ndarray, targets: dict[str, Any],
-                           spectrum_position: Any) -> np.ndarray:
-        """Apply stereo width adjustment with safety checks"""
+    def _apply_stereo_width(self, audio: np.ndarray, targets: dict[str, Any]) -> np.ndarray:
+        """Apply stereo width adjustment through the shared safety gate.
+
+        The hard ``input_level > 0.8`` clamp this stage used to run inline is
+        gone: ``StereoWidthProcessor.apply_stereo_width_safe`` is the single
+        implementation and carries #5108's smooth peak knee, so widening eases
+        off toward clipping instead of stepping (#6192).
+        """
 
         if not StereoWidthProcessor.validate_stereo(audio):
             return audio
@@ -207,25 +210,11 @@ class AdaptiveMode:
         # Measurement (decorrelation, 0 = mono) vs instruction (width factor,
         # 0.5 = unchanged) — different axes, never compare them (#4503).
         current_decorrelation = stereo_width_analysis(audio)
-        target_width = targets["stereo_width"]
 
-        # CRITICAL: Prevent stereo width expansion from creating excessive peaks
-        # Limit expansion for already-loud material. Clamped against unity, not
-        # against the decorrelation reading: untouched audio is at unity side
-        # gain by definition, so that is the only valid reference for "how much
-        # wider than the input is this asking for?".
-        if spectrum_position.input_level > 0.8 and target_width > WIDTH_FACTOR_UNITY:
-            max_width_increase = 0.6
-            target_width = min(target_width, WIDTH_FACTOR_UNITY + max_width_increase)
-            print(f"[Stereo Width] Limited expansion for loud material: target reduced to {target_width:.2f}")
-
-        # Apply stereo width with safety checks
-        audio = StereoWidthProcessor.apply_stereo_width_safe(
-            audio, current_decorrelation, target_width, peak_before_stereo_db,
-            safety_mode="adaptive", sample_rate=self.config.internal_sample_rate,
+        return StereoWidthProcessor.apply_stereo_width_safe(
+            audio, current_decorrelation, targets["stereo_width"],
+            peak_before_stereo_db, self.config.internal_sample_rate,
         )
-
-        return audio
 
     def _apply_final_normalization(self, audio: np.ndarray, spectrum_params: Any) -> np.ndarray:
         """Apply final gain boost and peak normalization using LUFS-based adaptive control"""
