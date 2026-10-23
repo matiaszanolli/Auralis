@@ -173,10 +173,6 @@ boundaries.
 
 The full protocol reference is [`WEBSOCKET_API.md`](../../auralis-web/backend/WEBSOCKET_API.md).
 
-> ⚠️ **`WEBSOCKET_API.md` is stale on chunk size** — it says "30-second chunks", but the actual
-> constants are **15 s duration / 10 s interval / 5 s overlap**. Trust the code
-> ([`chunk_boundaries.py`](../../auralis-web/backend/core/chunk_boundaries.py)).
-
 ---
 
 ## 5. Chunk orchestration — three paths

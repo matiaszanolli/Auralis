@@ -1,8 +1,5 @@
 # WebSocket API Documentation
 
-**Last Updated**: July 26, 2026
-**Status**: Phase 0.2 Complete - `playback_started` and `playback_paused` messages added
-
 ## Overview
 
 Auralis uses a single WebSocket connection for real-time communication between the backend and frontend. All WebSocket messages follow a consistent structure for easy parsing and type safety.
@@ -67,7 +64,7 @@ Complete player state snapshot (`PlayerState` in `player_state.py`, typed as
 }
 ```
 
-#### `playback_started` ✨ NEW
+#### `playback_started`
 Broadcast when playback starts.
 
 **Trigger**: `POST /api/player/play`
@@ -77,12 +74,13 @@ Broadcast when playback starts.
 {
   "type": "playback_started",
   "data": {
-    "state": "playing"
+    "state": "playing",
+    "seq": number  // monotonic ordering counter, see outbound_messages.py
   }
 }
 ```
 
-#### `playback_paused` ✨ NEW
+#### `playback_paused`
 Broadcast when playback is paused.
 
 **Trigger**: `POST /api/player/pause`
@@ -92,7 +90,8 @@ Broadcast when playback is paused.
 {
   "type": "playback_paused",
   "data": {
-    "state": "paused"
+    "state": "paused",
+    "seq": number
   }
 }
 ```
@@ -107,7 +106,8 @@ Broadcast when playback stops completely.
 {
   "type": "playback_stopped",
   "data": {
-    "state": "stopped"
+    "state": "stopped",
+    "seq": number
   }
 }
 ```
@@ -139,7 +139,9 @@ Broadcast when skipping to next/previous track.
 {
   "type": "track_changed",
   "data": {
-    "action": "next" | "previous"
+    "action": "next" | "previous",
+    "track_index": number,  // new queue position, so clients can sync immediately
+    "seq": number
   }
 }
 ```
@@ -154,7 +156,8 @@ Broadcast when playback position is seeked.
 {
   "type": "position_changed",
   "data": {
-    "position": number  // Seconds
+    "position": number,  // Seconds
+    "seq": number
   }
 }
 ```
@@ -169,7 +172,8 @@ Broadcast when volume is adjusted.
 {
   "type": "volume_changed",
   "data": {
-    "volume": number  // 0.0 - 1.0
+    "volume": number,  // 0-100 integer scale (NOT 0.0-1.0)
+    "seq": number
   }
 }
 ```
@@ -213,7 +217,7 @@ Broadcast when library content changes (scan, import, etc.).
 
 ### Metadata Messages
 
-#### `metadata_updated` ✨ NEW
+#### `metadata_updated`
 Broadcast when track metadata is updated.
 
 **Trigger**: `PUT /api/metadata/tracks/{id}`
@@ -229,7 +233,7 @@ Broadcast when track metadata is updated.
 }
 ```
 
-#### `metadata_batch_updated` ✨ NEW
+#### `metadata_batch_updated`
 Broadcast when multiple tracks are updated in a batch operation.
 
 **Trigger**: `POST /api/metadata/batch`
@@ -323,7 +327,7 @@ Broadcast when audio enhancement settings are updated.
 }
 ```
 
-#### `mastering_recommendation` ✨ NEW (Priority 4)
+#### `mastering_recommendation`
 Broadcast when a mastering profile recommendation is generated for the current track.
 
 This message contains weighted profile information for hybrid mastering scenarios.
@@ -584,7 +588,7 @@ Broadcast when playback resumes from pause. `{ "data": { "state": "playing" } }`
 Broadcast when a seek begins. `{ "data": { "position": number /* seconds */, "track_id?": number } }`
 
 #### `queue_changed`
-Broadcast when the queue is mutated. `{ "data": { "tracks": TrackInfo[], "current_index?": number, "action?": "added" | "removed" | "reordered" | "cleared" } }`
+Broadcast when the queue is mutated. `{ "data": { "tracks": TrackInfo[], "current_index?": number, "action?": "added" | "removed" | "reordered" | "shuffled" | "unshuffled" | "cleared" | "undo" } }`
 
 #### `queue_shuffled`
 Broadcast when shuffle is toggled. `{ "data": { "is_shuffled?": boolean, "tracks?": TrackInfo[] /* reordered queue */ } }`
@@ -759,21 +763,29 @@ interface WebSocketMessage {
 
 ### Subscription Example
 
+`WebSocketContext.subscribe` takes a **single** message type and returns an
+unsubscribe function; `subscribeAll` receives every message.
+
 ```typescript
 import { useWebSocketContext } from '../contexts/WebSocketContext';
 
 function MyComponent() {
-  const { subscribe } = useWebSocketContext();
+  const { subscribe, subscribeAll } = useWebSocketContext();
 
   useEffect(() => {
-    // Subscribe to specific message types
-    const unsubscribe = subscribe(['playback_started', 'playback_paused'], (message) => {
-      console.log(`Playback state changed: ${message.data.state}`);
+    // Subscribe to one message type
+    const unsubscribe = subscribe('playback_started', (message) => {
+      console.log(`Playback started: ${message.data.state}`);
+    });
+
+    // Or tap every message (debugging, logging)
+    const unsubscribeAll = subscribeAll((message) => {
+      console.log('[WS]', message);
     });
 
     // Cleanup on unmount
-    return unsubscribe;
-  }, [subscribe]);
+    return () => { unsubscribe(); unsubscribeAll(); };
+  }, [subscribe, subscribeAll]);
 }
 ```
 
@@ -783,8 +795,8 @@ function MyComponent() {
 
 | REST Endpoint | WebSocket Message | Notes |
 |--------------|-------------------|-------|
-| `POST /api/player/play` | `playback_started` | ✅ Phase 0.2 |
-| `POST /api/player/pause` | `playback_paused` | ✅ Phase 0.2 |
+| `POST /api/player/play` | `playback_started` |
+| `POST /api/player/pause` | `playback_paused` |
 | `POST /api/player/stop` | `playback_stopped` | ✅ |
 | `POST /api/player/load` | `track_loaded` | ✅ |
 | `POST /api/player/seek` | `position_changed` | ✅ |
@@ -804,48 +816,6 @@ function MyComponent() {
 
 ---
 
-## Phase 0.2 Completion Summary ✅
-
-**What Was Added**:
-- `playback_started` message when playback starts
-- `playback_paused` message when playback is paused
-
-**Files Modified**:
-- [auralis-web/backend/services/playback_service.py](services/playback_service.py) - Added `playback_started` broadcast (moved from `routers/player.py` since this was written)
-- [auralis-web/backend/services/playback_service.py](services/playback_service.py) - Added `playback_paused` broadcast (moved from `routers/player.py` since this was written)
-
-**Result**:
-- Frontend components can now reliably track all play/pause state changes
-- Consistent with existing `playback_stopped` message
-- No breaking changes (additive only)
-
----
-
-## Future Work
-
-### Phase 0.4: Message Structure Standardization (LOW PRIORITY - 1-2 days)
-
-**Goal**: Ensure ALL WebSocket messages follow consistent structure:
-
-```typescript
-{
-  "type": string,
-  "data": object,
-  "timestamp"?: number  // Unix timestamp (optional)
-}
-```
-
-**Current Status**:
-- Most messages already follow `{type, data}` pattern ✅
-- Some may have additional top-level fields (to be audited)
-- No timestamps currently included
-
-**Scope**: ~40 broadcast locations across backend
-
-**Benefit**: Improved type safety, easier debugging, future-proof structure
-
----
-
 ## Connection Manager Implementation
 
 **Location**: [auralis-web/backend/config/globals.py](config/globals.py)
@@ -854,7 +824,9 @@ function MyComponent() {
 - `connect(websocket)` - Register new WebSocket connection
 - `disconnect(websocket)` - Remove WebSocket connection
 - `broadcast(message)` - Send message to all connected clients
-- `send_personal(message, websocket)` - Send to specific client
+
+All backend→client traffic is broadcast-shaped; there is no per-client send
+surface (a targeted delivery is a broadcast the other clients ignore).
 
 **Concurrency**: Thread-safe with asyncio locks
 
@@ -862,34 +834,19 @@ function MyComponent() {
 
 ## Debugging Tips
 
-### Enable WebSocket Logging
+### Watch Every Message
 
-**Backend** (main.py):
-```python
-import logging
-logging.getLogger("auralis.websocket").setLevel(logging.DEBUG)
-```
-
-**Frontend** (browser console):
+**Frontend** (browser console or a scratch component):
 ```javascript
-// WebSocketContext logs all messages when enabled
-localStorage.setItem('debug_websocket', 'true');
+// subscribeAll receives every message, unlike subscribe (one type)
+const { subscribeAll } = useWebSocketContext();
+const unsubscribe = subscribeAll((msg) => console.log('[WS]', msg));
 ```
 
-### Monitor Messages
-
-**Backend**:
-```bash
-# Watch backend logs
-tail -f auralis-backend.log | grep "WS:"
-```
-
-**Frontend**:
-```javascript
-// Subscribe to all messages
-const { subscribe } = useWebSocketContext();
-subscribe('*', (msg) => console.log('[WS]', msg));
-```
+**Backend**: WebSocket lifecycle and dispatch log under the module loggers
+(`ws_handlers.*`, `websocket.*`); turn up the root `auralis` logger to DEBUG
+in `main.py` and watch the server's own stdout — there is no dedicated
+websocket log file.
 
 ---
 
