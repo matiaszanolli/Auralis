@@ -31,7 +31,7 @@ _BACKEND = str(Path(__file__).resolve().parents[2] / "auralis-web" / "backend")
 if _BACKEND not in sys.path:
     sys.path.insert(0, _BACKEND)
 
-from routers.enhancement import SetIntensityRequest  # noqa: E402
+from routers.enhancement_models import SetIntensityRequest  # noqa: E402
 from routers.settings import SettingsUpdateRequest  # noqa: E402
 from schemas import INTENSITY_MAX, INTENSITY_MIN, is_valid_intensity  # noqa: E402
 

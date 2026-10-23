@@ -27,33 +27,10 @@ from fastapi.responses import FileResponse, Response
 from .dependencies import with_error_handling
 from . import artwork_thumbnails
 from .errors import NotFoundError
-from .artwork_models import (  # noqa: F401
-    ArtworkDeleteResponse,
-    ArtworkDownloadResponse,
-    ArtworkExtractResponse,
-)
-from .artwork_thumbnails import (  # noqa: F401
-    _THUMB_BUCKETS,
-    _THUMB_GUARD,
-    _THUMB_LOCKS,
-    _THUMB_TMP_PREFIX,
-    _THUMB_WAITERS,
-    _artwork_dirs,
-    _bucket_size,
-    _get_or_create_thumbnail,
-    _purge_album_thumbnails,
-    _render_thumbnail,
-    _thumb_render_lock,
-    _thumb_target,
-)
-from .artwork_deps import (  # noqa: F401
-    _ArtworkDeps,
-    _broadcast_artwork_updated,
-    _deps,
-    _get_connection_manager,
-    _get_repos,
-)
-from .artwork_manage import (  # noqa: F401
+from .artwork_models import ArtworkDeleteResponse, ArtworkDownloadResponse, ArtworkExtractResponse
+from .artwork_thumbnails import _get_or_create_thumbnail
+from .artwork_deps import _ArtworkDeps, _deps, _get_repos
+from .artwork_manage import (
     delete_album_artwork,
     download_album_artwork,
     extract_album_artwork,

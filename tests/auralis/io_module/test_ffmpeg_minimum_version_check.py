@@ -32,22 +32,22 @@ def _mock_run(stdout: str) -> MagicMock:
 
 class TestParseFfmpegVersion:
     def test_parses_plain_version(self):
-        assert ffmpeg_loader._parse_ffmpeg_version(
+        assert ffmpeg_probe._parse_ffmpeg_version(
             "ffmpeg version 6.0 Copyright (c) 2000-2023 the FFmpeg developers\n"
         ) == (6, 0)
 
     def test_parses_distro_patched_version(self):
-        assert ffmpeg_loader._parse_ffmpeg_version(
+        assert ffmpeg_probe._parse_ffmpeg_version(
             "ffmpeg version 4.4.2-0ubuntu0.22.04.1 Copyright (c) 2000-2021 the FFmpeg developers\n"
         ) == (4, 4, 2)
 
     def test_parses_n_prefixed_git_version(self):
-        assert ffmpeg_loader._parse_ffmpeg_version(
+        assert ffmpeg_probe._parse_ffmpeg_version(
             "ffmpeg version n6.1 Copyright (c) 2000-2023 the FFmpeg developers\n"
         ) == (6, 1)
 
     def test_returns_none_for_unparseable_output(self):
-        assert ffmpeg_loader._parse_ffmpeg_version("garbage, no version here") is None
+        assert ffmpeg_probe._parse_ffmpeg_version("garbage, no version here") is None
 
 
 class TestCheckFfmpegVersionWarning:
@@ -80,7 +80,7 @@ class TestCheckFfmpegVersionWarning:
         mock_warning.assert_not_called()
 
     def test_exactly_minimum_version_does_not_warn(self):
-        min_str = ".".join(str(p) for p in ffmpeg_loader.MINIMUM_FFMPEG_VERSION)
+        min_str = ".".join(str(p) for p in ffmpeg_probe.MINIMUM_FFMPEG_VERSION)
         with (
             patch.object(ffmpeg_loader.subprocess, "run", return_value=_mock_run(
                 f"ffmpeg version {min_str} Copyright (c) 2000-2018 the FFmpeg developers\n"

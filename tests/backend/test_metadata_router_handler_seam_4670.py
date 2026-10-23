@@ -20,12 +20,14 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
 from routers.metadata import (  # noqa: E402
-    BatchMetadataRequest,
-    MetadataUpdateRequest,
     batch_update_metadata,
     get_editable_fields,
     get_track_metadata,
     update_track_metadata,
+)
+from routers.metadata_models import (  # noqa: E402
+    BatchMetadataRequest,
+    MetadataUpdateRequest,
 )
 
 pytestmark = pytest.mark.asyncio

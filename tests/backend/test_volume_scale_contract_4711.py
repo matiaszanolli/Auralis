@@ -42,7 +42,7 @@ if 'routers' not in sys.modules:
     sys.modules['routers'] = _stub
 
 from player_state import PlayerState  # noqa: E402
-from routers.player import SetVolumeRequest  # noqa: E402
+from routers.player_models import SetVolumeRequest  # noqa: E402
 from routers.settings import SettingsResponse, SettingsUpdateRequest  # noqa: E402
 
 

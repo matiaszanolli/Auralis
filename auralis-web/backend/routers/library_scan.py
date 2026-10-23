@@ -30,13 +30,12 @@ from .library_scan_events import (
     enqueue_added_for_fingerprinting,
     make_progress_callback,
 )
-from .library_scan_lifecycle import (  # noqa: F401
+from .library_scan_lifecycle import (
     HTTP_CLIENT_CLOSED_REQUEST,
     ScanClientGone,
     _await_scan,
-    _watch_for_disconnect,
 )
-from .library_scan_deps import (  # noqa: F401
+from .library_scan_deps import (
     _LibraryScanDeps,
     _deps,
     _get_connection_manager,

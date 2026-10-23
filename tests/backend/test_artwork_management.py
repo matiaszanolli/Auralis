@@ -200,7 +200,7 @@ def test_artwork_cache_hit_faster_than_extraction(tmp_path):
     thumb_dir = tmp_path / "thumbnails"
 
     render_calls = []
-    real_render = artwork_module._render_thumbnail
+    real_render = artwork_thumbnails._render_thumbnail
 
     def _counting_render(*args, **kwargs):
         render_calls.append(1)

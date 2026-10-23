@@ -18,7 +18,8 @@ from fastapi.testclient import TestClient
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
 from fastapi import FastAPI
-from routers.processing_api import create_processing_router, _is_valid_audio_magic
+from routers.processing_api import create_processing_router
+from routers.processing_upload import _is_valid_audio_magic
 from core.processing_engine import ProcessingEngine, ProcessingJob, ProcessingStatus
 
 

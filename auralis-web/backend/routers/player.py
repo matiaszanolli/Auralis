@@ -27,39 +27,18 @@ from fastapi import APIRouter, Depends
 
 from player_state import PlayerState
 
-from .player_deps import (  # noqa: F401
-    _deps,
-    _get_audio_player,
-    _get_connection_manager,
-    _get_library_database,
-    _get_navigation_service,
-    _get_playback_service,
-    _get_player_state_manager,
-    _get_queue_service,
-    _get_recommendation_service,
-    _PlayerDeps,
-)
-from .player_models import (  # noqa: F401
-    AddTrackToQueueRequest,
+from .player_deps import _deps, _PlayerDeps
+from .player_models import (
     AddTrackToQueueResponse,
-    AddTracksToQueueRequest,
     AddTracksToQueueResponse,
-    LoadTrackRequest,
     LoadTrackResponse,
     MessageResponse,
-    MoveQueueTrackRequest,
     MoveQueueTrackResponse,
     QueueInfoResponse,
     QueueSizeResponse,
     RemoveFromQueueResponse,
-    ReorderQueueRequest,
-    RepeatModeRequest,
-    SeekRequest,
     SeekResponse,
-    SetQueueRequest,
     SetQueueResponse,
-    SetVolumeRequest,
-    ShuffleRequest,
     VolumeResponse,
 )
 from .player_playback import (

@@ -57,7 +57,7 @@ class TestPathTraversalPrevention:
 
     def test_load_track_request_requires_track_id(self):
         """LoadTrackRequest schema must require track_id field."""
-        from routers.player import LoadTrackRequest
+        from routers.player_models import LoadTrackRequest
 
         # Check that track_id is a required field
         assert "track_id" in LoadTrackRequest.model_fields

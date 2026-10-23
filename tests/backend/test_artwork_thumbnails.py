@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from routers.artwork import (
+from routers.artwork_thumbnails import (
     _bucket_size,
     _thumb_target,
     _get_or_create_thumbnail,

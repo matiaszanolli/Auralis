@@ -24,7 +24,8 @@ import pytest
 
 from auralis.io import unified_loader
 from auralis.io.loaders import ffmpeg_loader
-from auralis.io.loaders.ffmpeg_loader import _probe_audio, ffprobe_command
+from auralis.io.loaders.ffmpeg_loader import _probe_audio
+from auralis.io.loaders.ffmpeg_probe import ffprobe_command
 from auralis.utils.logging import ModuleError
 
 needs_ffmpeg = pytest.mark.skipif(

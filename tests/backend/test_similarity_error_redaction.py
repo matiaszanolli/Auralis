@@ -28,7 +28,7 @@ from fastapi.testclient import TestClient
 # do the same locally so we can import the router module by file path.
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'auralis-web' / 'backend'))
 
-from routers.similarity import _internal_error_response  # noqa: E402
+from routers.similarity_common import _internal_error_response  # noqa: E402
 
 
 # A "sensitive" message that would leak through `str(e)` pre-fix.

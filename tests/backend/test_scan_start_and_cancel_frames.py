@@ -468,7 +468,7 @@ class TestDisconnectSurvivesTheMiddlewareStack:
 
     @pytest.mark.asyncio
     async def test_the_shipped_watcher_detects_a_disconnect(self) -> None:
-        import routers.library_scan as mod
+        import routers.library_scan_lifecycle as mod
 
         app, seen = self._probe_app(mod._watch_for_disconnect)
         await self._drive(app)

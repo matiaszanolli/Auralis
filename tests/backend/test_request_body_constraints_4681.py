@@ -29,11 +29,11 @@ _BACKEND = str(Path(__file__).resolve().parents[2] / "auralis-web" / "backend")
 if _BACKEND not in sys.path:
     sys.path.insert(0, _BACKEND)
 
-from routers.metadata import (  # noqa: E402
+from routers.metadata_models import (  # noqa: E402
     MAX_BATCH_UPDATES,
     BatchMetadataRequest,
 )
-from routers.player import (  # noqa: E402
+from routers.player_models import (  # noqa: E402
     AddTrackToQueueRequest,
     LoadTrackRequest,
     MoveQueueTrackRequest,
@@ -42,7 +42,7 @@ from routers.player import (  # noqa: E402
     SetQueueRequest,
     SetVolumeRequest,
 )
-from routers.playlists import (  # noqa: E402
+from routers.playlists_models import (  # noqa: E402
     MAX_PLAYLIST_NAME,
     AddTracksRequest,
     CreatePlaylistRequest,

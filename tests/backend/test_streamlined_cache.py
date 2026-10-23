@@ -36,14 +36,17 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "ba
 import numpy as np
 import soundfile as sf
 
-from core.chunk_boundaries import chunk_for_position, content_chunk_count
-from cache.manager import (
+from core.chunk_boundaries import (
     CHUNK_DURATION,
-    CHUNK_SIZE_MB,
+    chunk_for_position,
+    content_chunk_count,
+)
+from cache.manager import (
     CachedChunk,
     StreamlinedCacheManager,
     TrackCacheStatus,
 )
+from cache.models import CHUNK_SIZE_MB
 
 
 def _wav(path: Path) -> Path:

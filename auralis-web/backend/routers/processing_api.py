@@ -25,10 +25,6 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-# Re-exported upload allowlist (defined for processing_upload.py; tests read it here).
-from auralis.io.formats import (  # noqa: F401
-    AUDIO_EXTENSIONS as _ALLOWED_AUDIO_EXTENSIONS,
-)
 from fastapi import APIRouter, Depends, HTTPException
 
 from core.processing_engine import ProcessingEngine, ProcessingStatus
@@ -69,9 +65,7 @@ from .processing_parameters import (
     get_processing_presets,
 )
 
-# Re-exported: tests import the upload allowlist and magic sniff from here.
 from .processing_upload import (
-    _is_valid_audio_magic,  # noqa: F401
     upload_and_process,
 )
 

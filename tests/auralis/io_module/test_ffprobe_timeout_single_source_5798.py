@@ -13,6 +13,7 @@ value is now ``FFPROBE_TIMEOUT_S``; this fails if either site stops using it.
 
 from auralis.io import unified_loader
 from auralis.io.loaders import FFPROBE_TIMEOUT_S, ffmpeg_loader
+from auralis.io.loaders.ffmpeg_process import FFMPEG_VERSION_CHECK_TIMEOUT_S
 from auralis.io.unified_loader import get_audio_info
 
 
@@ -43,5 +44,5 @@ def test_both_probe_paths_pass_the_shared_timeout(tmp_path, monkeypatch):
 
 
 def test_the_shared_budgets_are_sane():
-    assert 0 < ffmpeg_loader.FFMPEG_VERSION_CHECK_TIMEOUT_S < FFPROBE_TIMEOUT_S
+    assert 0 < FFMPEG_VERSION_CHECK_TIMEOUT_S < FFPROBE_TIMEOUT_S
     assert FFPROBE_TIMEOUT_S < ffmpeg_loader.FFMPEG_DECODE_TIMEOUT_S

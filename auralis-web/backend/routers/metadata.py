@@ -22,31 +22,17 @@ from fastapi import APIRouter, Depends
 
 from auralis.library.metadata_editor import MetadataEditor
 
-from .metadata_models import (  # noqa: F401
-    BatchMetadataRequest,
+from .metadata_models import (
     BatchMetadataResponse,
-    BatchMetadataResultItem,
-    BatchMetadataUpdateRequest,
     EditableFieldsResponse,
-    MAX_BATCH_UPDATES,
-    MetadataUpdateRequest,
     MetadataUpdateResponse,
     TrackMetadataResponse,
 )
-from .metadata_deps import (  # noqa: F401
-    _METADATA_FIELD_TO_COLUMN,
-    _MetadataDeps,
-    _deps,
-    _get_broadcast_manager,
-    _get_metadata_editor,
-    _get_repository_factory,
-    _tag_dict_to_db_columns,
-    _validate_track_filepath,
-)
-from .metadata_batch import (  # noqa: F401
+from .metadata_deps import _MetadataDeps, _deps
+from .metadata_batch import (
     batch_update_metadata,
 )
-from .metadata_tracks import (  # noqa: F401
+from .metadata_tracks import (
     get_editable_fields,
     get_track_metadata,
     update_track_metadata,

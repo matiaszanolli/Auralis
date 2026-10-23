@@ -20,13 +20,15 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
 from routers.enhancement import (  # noqa: E402
-    SetIntensityRequest,
-    SetPresetRequest,
-    ToggleEnhancementRequest,
     get_enhancement_status,
     set_enhancement_intensity,
     set_enhancement_preset,
     toggle_enhancement,
+)
+from routers.enhancement_models import (  # noqa: E402
+    SetIntensityRequest,
+    SetPresetRequest,
+    ToggleEnhancementRequest,
 )
 
 pytestmark = pytest.mark.asyncio

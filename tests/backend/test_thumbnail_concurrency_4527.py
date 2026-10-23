@@ -27,7 +27,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from routers.artwork import (  # noqa: E402
+from routers.artwork_thumbnails import (  # noqa: E402
     _THUMB_LOCKS,
     _THUMB_TMP_PREFIX,
     _THUMB_WAITERS,

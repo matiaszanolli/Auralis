@@ -34,7 +34,7 @@ from core.thumbnail_cache import (  # noqa: E402
     reap_orphan_temp_files,
     thumb_path_hash,
 )
-from routers.artwork import (  # noqa: E402
+from routers.artwork_thumbnails import (  # noqa: E402
     _THUMB_BUCKETS,
     _get_or_create_thumbnail,
     _purge_album_thumbnails,

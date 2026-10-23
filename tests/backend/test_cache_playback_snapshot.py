@@ -29,7 +29,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "auralis-web" / "backend"))
 
-from cache.manager import PlaybackSnapshot, StreamlinedCacheManager
+from cache.manager import StreamlinedCacheManager
+from cache.models import PlaybackSnapshot
 from core.streamlined_worker import StreamlinedCacheWorker
 
 

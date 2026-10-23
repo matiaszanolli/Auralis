@@ -17,7 +17,7 @@ import player_state
 import pytest
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.testclient import TestClient
-from routers import player as player_router
+from routers import player_deps
 from routers.player import create_player_router
 from routers.tracks import create_tracks_router
 from ws_handlers.context import StreamState
@@ -367,14 +367,14 @@ def backend() -> BackendClient:
             player_state.create_track_info,
         )
     )
-    app.dependency_overrides[player_router._get_playback_service] = lambda: (
+    app.dependency_overrides[player_deps._get_playback_service] = lambda: (
         playback_service
     )
-    app.dependency_overrides[player_router._get_queue_service] = lambda: queue_service
-    app.dependency_overrides[player_router._get_navigation_service] = lambda: (
+    app.dependency_overrides[player_deps._get_queue_service] = lambda: queue_service
+    app.dependency_overrides[player_deps._get_navigation_service] = lambda: (
         navigation_service
     )
-    app.dependency_overrides[player_router._get_recommendation_service] = lambda: (
+    app.dependency_overrides[player_deps._get_recommendation_service] = lambda: (
         NoOpRecommendationService()
     )
 

@@ -17,7 +17,7 @@ _BACKEND = Path(__file__).resolve().parents[2] / "auralis-web" / "backend"
 if str(_BACKEND) not in sys.path:
     sys.path.insert(0, str(_BACKEND))
 
-from routers.similarity import (  # noqa: E402
+from routers.similarity_models import (  # noqa: E402
     ComparisonResult,
     DimensionContribution,
     SimilarityExplanation,

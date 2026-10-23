@@ -27,11 +27,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "ba
 
 import routers.artwork as artwork_router  # noqa: E402
 from routers.artwork import (  # noqa: E402
-    _broadcast_artwork_updated,
     delete_album_artwork,
     download_album_artwork,
     extract_album_artwork,
 )
+from routers.artwork_deps import _broadcast_artwork_updated  # noqa: E402
 
 
 def _stub_repos(album=None) -> MagicMock:

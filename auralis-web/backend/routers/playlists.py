@@ -23,34 +23,22 @@ from typing import Any
 
 from fastapi import APIRouter, Depends
 
-from .playlists_models import (  # noqa: F401
-    AddTrackRequest,
-    AddTracksRequest,
+from .playlists_models import (
     AddTracksResponse,
-    CreatePlaylistRequest,
     CreatePlaylistResponse,
-    MAX_PLAYLIST_DESCRIPTION,
-    MAX_PLAYLIST_NAME,
     PlaylistDetailResponse,
     PlaylistListResponse,
     PlaylistMessageResponse,
-    ReorderTrackRequest,
-    UpdatePlaylistRequest,
 )
-from .playlists_deps import (  # noqa: F401
-    _PlaylistsDeps,
-    _deps,
-    _get_connection_manager,
-    _get_repos,
-)
-from .playlists_tracks import (  # noqa: F401
+from .playlists_deps import _PlaylistsDeps, _deps
+from .playlists_tracks import (
     add_track_to_playlist,
     add_tracks_to_playlist,
     clear_playlist,
     remove_track_from_playlist,
     reorder_playlist_track,
 )
-from .playlists_crud import (  # noqa: F401
+from .playlists_crud import (
     create_playlist,
     delete_playlist,
     get_playlist,

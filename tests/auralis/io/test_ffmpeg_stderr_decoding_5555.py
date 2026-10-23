@@ -17,7 +17,8 @@ import numpy as np
 import pytest
 
 from auralis.io.loaders import ffmpeg_loader
-from auralis.io.loaders.ffmpeg_loader import SUBPROCESS_TEXT_KWARGS, _run_ffmpeg_cancellable
+from auralis.io.loaders.ffmpeg_loader import _run_ffmpeg_cancellable
+from auralis.io.loaders.ffmpeg_process import SUBPROCESS_TEXT_KWARGS
 from auralis.io.unified_loader import load_audio
 
 needs_ffmpeg = pytest.mark.skipif(

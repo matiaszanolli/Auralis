@@ -17,7 +17,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from routers.metadata import MetadataUpdateRequest  # noqa: E402
+from routers.metadata_models import MetadataUpdateRequest  # noqa: E402
 
 
 def test_accepts_input_by_field_name():

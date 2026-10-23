@@ -20,13 +20,12 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
 from routers.playlists import (  # noqa: E402
-    AddTracksRequest,
-    CreatePlaylistRequest,
     add_tracks_to_playlist,
     clear_playlist,
     create_playlist,
     get_playlists,
 )
+from routers.playlists_models import AddTracksRequest, CreatePlaylistRequest  # noqa: E402
 
 pytestmark = pytest.mark.asyncio
 

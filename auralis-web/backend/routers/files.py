@@ -29,22 +29,9 @@ from fastapi import APIRouter, Depends
 # bounds how many files one multipart request may carry so a single request can't
 # monopolise the backend / bloat the DB (#4349); MAX_UPLOAD_BYTES is the per-file
 # byte cap enforced at the read site below.
-from .files_models import (  # noqa: F401
-    SupportedFormatsResponse,
-    UploadResultItem,
-    UploadResultResponse,
-)
-from .files_validation import (  # noqa: F401
-    _AUDIO_MAGIC,
-    _has_valid_audio_magic,
-)
-from .files_deps import (  # noqa: F401
-    _FilesDeps,
-    _deps,
-    _get_repos,
-    _get_repos_provider,
-)
-from .files_upload import (  # noqa: F401
+from .files_models import SupportedFormatsResponse, UploadResultResponse
+from .files_deps import _FilesDeps, _deps
+from .files_upload import (
     upload_files,
 )
 

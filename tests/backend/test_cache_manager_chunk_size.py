@@ -25,12 +25,12 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
 from cache.manager import (  # noqa: E402
-    CHUNK_DURATION,
-    CHUNK_SIZE_MB,
     TIER1_MAX_SIZE_MB,
     TIER2_MAX_SIZE_MB,
     StreamlinedCacheManager,
 )
+from cache.models import CHUNK_SIZE_MB  # noqa: E402
+from core.chunk_boundaries import CHUNK_DURATION  # noqa: E402
 
 
 def _expected_chunk_size_mb() -> float:

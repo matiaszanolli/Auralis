@@ -34,30 +34,15 @@ from typing import Any
 from config.limits import chunk_cache_dir
 from schemas import DEFAULT_PRESET
 
-# Chunk geometry comes from chunk_boundaries — the single source of truth (#4025)
-# — instead of a third local copy that would drift and cause cache-index errors.
-# Re-exported (cache/__init__.py forwards these) so callers keep resolving them.
 from core.encoding.atomic_io import is_wav_complete
-from core.chunk_boundaries import (  # noqa: F401
-    CHUNK_DURATION,
-    CHUNK_INTERVAL,
-    chunk_for_position,
-    content_chunk_count,
-)
 
 from .clearing_mixin import CacheClearingMixin
 
-# Re-exported: callers and tests import the tier budgets and record types from
-# cache.manager, where they lived before #5238.
-from .models import (  # noqa: F401
-    CHUNK_SIZE_MB,
-    RECOMMENDATION_TTL_S,
+from .models import (
     TIER1_MAX_CHUNKS,
     TIER1_MAX_SIZE_MB,
     TIER2_MAX_SIZE_MB,
-    TIER2_MAX_TRACKS,
     CachedChunk,
-    PlaybackSnapshot,
     TrackCacheStatus,
 )
 from .playback_mixin import CachePlaybackMixin

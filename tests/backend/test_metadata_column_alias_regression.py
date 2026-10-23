@@ -154,7 +154,7 @@ class TestTagDictToDbColumnsHelper:
     """Direct unit coverage of the translation helper itself."""
 
     def test_maps_aliased_fields_and_passes_through_the_rest(self):
-        from routers.metadata import _tag_dict_to_db_columns
+        from routers.metadata_deps import _tag_dict_to_db_columns
 
         result = _tag_dict_to_db_columns(
             {"track": 5, "disc": 1, "comment": "hi", "artist": "Someone", "title": "T"}
@@ -169,6 +169,6 @@ class TestTagDictToDbColumnsHelper:
         }
 
     def test_empty_dict_passthrough(self):
-        from routers.metadata import _tag_dict_to_db_columns
+        from routers.metadata_deps import _tag_dict_to_db_columns
 
         assert _tag_dict_to_db_columns({}) == {}

@@ -15,7 +15,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from routers.files import _has_valid_audio_magic
+from routers.files_validation import _has_valid_audio_magic
 from auralis.io.formats import SUPPORTED_FORMATS
 
 # A minimal valid leading header for one representative encoding per extension.

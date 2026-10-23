@@ -22,24 +22,15 @@ import numpy as np
 
 from ...utils.logging import Code, ModuleError, debug, warning
 from .ffmpeg_command import build_ffmpeg_cmd, check_truncation
-from .ffmpeg_probe import (  # noqa: F401
-    _PROTOCOL_WHITELIST_ARGS,
-    MINIMUM_FFMPEG_VERSION,
-    _parse_ffmpeg_version,
+from .ffmpeg_probe import (
     _probe_audio,
     check_ffmpeg,
     check_ffprobe,
-    ffprobe_command,
     reject_protocol_path,
 )
-from .ffmpeg_process import (  # noqa: F401
+from .ffmpeg_process import (
     FFMPEG_DECODE_TIMEOUT_S,
-    FFMPEG_TERMINATE_GRACE_S,
-    FFMPEG_VERSION_CHECK_TIMEOUT_S,
-    FFPROBE_TIMEOUT_S,
-    SUBPROCESS_TEXT_KWARGS,
     _run_ffmpeg_cancellable,
-    _terminate_process,
     redact_subprocess_output,
 )
 from .soundfile_loader import load_with_soundfile

@@ -21,39 +21,19 @@ from auralis.analysis.fingerprint import (
 
 
 # Shared error helpers live in similarity_common (#4270) so the similarity-graph
-# and fingerprint-queue routers can reuse them. Re-exported here for backward
-# compatibility (e.g. tests importing routers.similarity._internal_error_response).
-from .similarity_common import (  # noqa: F401
-    _internal_error_response,
-    _with_similarity_error_handling,
-    require_fingerprinted_tracks,
-    require_fitted,
-    require_similarity_system,
-)
-from .similarity_models import (  # noqa: F401
+# and fingerprint-queue routers can reuse them.
+from .similarity_models import (
     ComparisonResult,
-    DimensionContribution,
-    EXPLAINABLE_DIMENSIONS,
     FitSimilarityResponse,
     SimilarTrack,
     SimilarityExplanation,
 )
-from .similarity_deps import (  # noqa: F401
-    _SimilarityDeps,
-    _deps,
-    _get_graph_builder_getter,
-    _get_repository_factory_getter,
-    _get_similarity_system_getter,
-    _graph_builder_getter,
-    _repository_factory_getter,
-    _similarity_system_getter,
-    _unavailable,
-)
-from .similarity_query import (  # noqa: F401
+from .similarity_deps import _SimilarityDeps, _deps
+from .similarity_query import (
     compare_tracks,
     get_similar_tracks,
 )
-from .similarity_explain import (  # noqa: F401
+from .similarity_explain import (
     explain_similarity,
     fit_similarity_system,
 )

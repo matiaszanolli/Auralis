@@ -25,10 +25,9 @@ from routers.player import (  # noqa: E402
     next_track,
     previous_track,
     seek_position,
-    SeekRequest,
     set_volume,
-    SetVolumeRequest,
 )
+from routers.player_models import SeekRequest, SetVolumeRequest  # noqa: E402
 from services.errors import InvalidRequest, ServiceUnavailable  # noqa: E402
 
 pytestmark = pytest.mark.asyncio

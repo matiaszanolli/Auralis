@@ -12,7 +12,8 @@ _BACKEND = Path(__file__).resolve().parents[2] / "auralis-web" / "backend"
 if str(_BACKEND) not in sys.path:
     sys.path.insert(0, str(_BACKEND))
 
-from cache.manager import RECOMMENDATION_TTL_S, StreamlinedCacheManager  # noqa: E402
+from cache.manager import StreamlinedCacheManager  # noqa: E402
+from cache.models import RECOMMENDATION_TTL_S  # noqa: E402
 
 
 class TestRecommendationCache:

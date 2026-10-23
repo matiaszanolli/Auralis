@@ -46,7 +46,7 @@ from auralis.library.database import LibraryDatabase
 
 # tests/backend/conftest.py puts auralis-web/backend on sys.path, which is
 # where these live.
-from routers.artwork import _bucket_size, _get_or_create_thumbnail, _THUMB_BUCKETS
+from routers.artwork_thumbnails import _bucket_size, _get_or_create_thumbnail, _THUMB_BUCKETS
 
 # ============================================================================
 # Fixtures

@@ -135,14 +135,14 @@ class TestBatchRequestModelRejectsExtras:
     """Layer 1: the request model forbids non-tag keys (#4555)."""
 
     def test_structural_keys_rejected(self):
-        from routers.metadata import BatchMetadataUpdateRequest
+        from routers.metadata_models import BatchMetadataUpdateRequest
 
         for key, value in STRUCTURAL_FIELDS.items():
             with pytest.raises(ValidationError):
                 BatchMetadataUpdateRequest(track_id=1, metadata={key: value})
 
     def test_tag_keys_accepted(self):
-        from routers.metadata import BatchMetadataUpdateRequest
+        from routers.metadata_models import BatchMetadataUpdateRequest
 
         req = BatchMetadataUpdateRequest(
             track_id=1, metadata={"title": "OK", "year": 2024}
@@ -152,7 +152,7 @@ class TestBatchRequestModelRejectsExtras:
 
     def test_batch_and_single_track_routes_accept_the_same_shape(self):
         """The two routes must not drift apart again (#4555)."""
-        from routers.metadata import BatchMetadataUpdateRequest, MetadataUpdateRequest
+        from routers.metadata_models import BatchMetadataUpdateRequest, MetadataUpdateRequest
 
         batch_field = BatchMetadataUpdateRequest.model_fields["metadata"]
         assert batch_field.annotation is MetadataUpdateRequest

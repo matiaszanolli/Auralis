@@ -18,16 +18,24 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "ba
 
 from routers import (  # noqa: E402
     albums,
+    albums_deps,
     artwork,
+    artwork_deps,
     enhancement,
+    enhancement_deps,
     files,
+    files_deps,
     library_scan,
     metadata,
+    metadata_deps,
     player,
+    player_deps,
     playlists,
+    playlists_deps,
     processing_api,
     processing_deps,
     similarity,
+    similarity_deps,
 )
 from routers.dependencies import RouterDeps  # noqa: E402
 
@@ -64,8 +72,8 @@ def test_playlists_router_instances_keep_their_own_dependencies() -> None:
     second_router = playlists.create_playlists_router(lambda: second, second_manager)
 
     async def probe(
-        repos: Any = Depends(playlists._get_repos),
-        manager: Any = Depends(playlists._get_connection_manager),
+        repos: Any = Depends(playlists_deps._get_repos),
+        manager: Any = Depends(playlists_deps._get_connection_manager),
     ) -> dict[str, str]:
         assert repos.marker == manager.marker
         return {"marker": repos.marker}
@@ -84,7 +92,7 @@ def test_artwork_router_instances_keep_their_own_dependencies() -> None:
 
     async def probe(
         repos: Any = Depends(artwork._get_repos),
-        manager: Any = Depends(artwork._get_connection_manager),
+        manager: Any = Depends(artwork_deps._get_connection_manager),
     ) -> dict[str, str]:
         assert repos.marker == manager.marker
         return {"marker": repos.marker}
@@ -108,9 +116,9 @@ def test_metadata_router_instances_keep_their_own_dependencies() -> None:
     )
 
     async def probe(
-        get_repos: Callable[[], Any] = Depends(metadata._get_repository_factory),
-        manager: Any = Depends(metadata._get_broadcast_manager),
-        editor: Any = Depends(metadata._get_metadata_editor),
+        get_repos: Callable[[], Any] = Depends(metadata_deps._get_repository_factory),
+        manager: Any = Depends(metadata_deps._get_broadcast_manager),
+        editor: Any = Depends(metadata_deps._get_metadata_editor),
     ) -> dict[str, str]:
         repos = get_repos()
         assert repos.marker == manager.marker == editor.marker
@@ -125,7 +133,7 @@ def test_files_router_instances_keep_their_own_dependencies() -> None:
     first_router = files.create_files_router(lambda: first)
     second_router = files.create_files_router(lambda: second)
 
-    async def probe(repos: Any = Depends(files._get_repos)) -> dict[str, str]:
+    async def probe(repos: Any = Depends(files_deps._get_repos)) -> dict[str, str]:
         return {"marker": repos.marker}
 
     _assert_isolated(first_router, second_router, probe)
@@ -138,7 +146,7 @@ def test_albums_router_instances_keep_their_own_dependencies() -> None:
     second_router = albums.create_albums_router(lambda: second)
 
     async def probe(
-        get_repos: Callable[[], Any] = Depends(albums._get_repository_factory),
+        get_repos: Callable[[], Any] = Depends(albums_deps._get_repository_factory),
     ) -> dict[str, str]:
         return {"marker": get_repos().marker}
 
@@ -159,9 +167,9 @@ def test_enhancement_router_instances_keep_their_own_dependencies() -> None:
     )
 
     async def probe(
-        settings: Any = Depends(enhancement._get_enhancement_settings),
-        manager: Any = Depends(enhancement._get_connection_manager),
-        repos: Any = Depends(enhancement._get_repository_factory),
+        settings: Any = Depends(enhancement_deps._get_enhancement_settings),
+        manager: Any = Depends(enhancement_deps._get_connection_manager),
+        repos: Any = Depends(enhancement_deps._get_repository_factory),
     ) -> dict[str, str]:
         assert settings["marker"] == manager.marker == repos.marker
         return {"marker": repos.marker}
@@ -200,9 +208,9 @@ def test_player_router_instances_keep_their_own_dependencies() -> None:
     second_router = _player_router("second")
 
     async def probe(
-        audio_player: Any = Depends(player._get_audio_player),
-        database: Any = Depends(player._get_library_database),
-        manager: Any = Depends(player._get_connection_manager),
+        audio_player: Any = Depends(player_deps._get_audio_player),
+        database: Any = Depends(player_deps._get_library_database),
+        manager: Any = Depends(player_deps._get_connection_manager),
     ) -> dict[str, str]:
         assert audio_player.marker == database.marker == manager.marker
         return {"marker": audio_player.marker}
@@ -217,8 +225,8 @@ def test_similarity_router_instances_keep_their_own_dependencies() -> None:
     second_router = similarity.create_similarity_router(lambda: second, lambda: None, lambda: second)
 
     async def probe(
-        system: Any = Depends(similarity._similarity_system_getter),
-        repos: Any = Depends(similarity._repository_factory_getter),
+        system: Any = Depends(similarity_deps._similarity_system_getter),
+        repos: Any = Depends(similarity_deps._repository_factory_getter),
     ) -> dict[str, str]:
         assert system.marker == repos.marker
         return {"marker": system.marker}

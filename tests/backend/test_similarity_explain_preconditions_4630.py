@@ -37,7 +37,7 @@ _BACKEND = Path(__file__).resolve().parents[2] / "auralis-web" / "backend"
 sys.path.insert(0, str(_BACKEND))
 
 from routers import similarity as similarity_module  # noqa: E402
-from routers.similarity import EXPLAINABLE_DIMENSIONS  # noqa: E402
+from routers.similarity_models import EXPLAINABLE_DIMENSIONS  # noqa: E402
 from routers.similarity_common import (  # noqa: E402
     enqueue_for_fingerprinting,
     require_fingerprinted_tracks,

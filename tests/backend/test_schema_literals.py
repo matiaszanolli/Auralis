@@ -28,7 +28,8 @@ if str(_BACKEND) not in sys.path:
 
 from core.job_models import ProcessingStatus  # noqa: E402
 from player_state import create_track_info  # noqa: E402
-from routers.player import QueueInfoResponse, SetVolumeRequest  # noqa: E402
+from routers.player import QueueInfoResponse  # noqa: E402
+from routers.player_models import SetVolumeRequest  # noqa: E402
 from routers.processing_api import JobStatusResponse, ProcessResponse  # noqa: E402
 from services.queue_service import QueueService  # noqa: E402
 

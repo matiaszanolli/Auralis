@@ -73,7 +73,7 @@ class TestFormatListConsistency:
         backend = str(Path(__file__).resolve().parents[2] / "auralis-web" / "backend")
         if backend not in sys.path:
             sys.path.insert(0, backend)
-        from routers.processing_api import _ALLOWED_AUDIO_EXTENSIONS
+        from routers.processing_upload import _ALLOWED_AUDIO_EXTENSIONS
 
         assert _ALLOWED_AUDIO_EXTENSIONS == AUDIO_EXTENSIONS
 

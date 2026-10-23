@@ -33,36 +33,16 @@ from schemas import (
     MasteringRecommendationResponse,
 )
 
-from .enhancement_models import (  # noqa: F401
-    EnhancementSettings,
-    EnhancementSettingsResponse,
-    SetIntensityRequest,
-    SetPresetRequest,
-    ToggleEnhancementRequest,
-)
-from .enhancement_prewarm import (  # noqa: F401
-    _maybe_prewarm_upcoming_chunks,
-    _preprocess_upcoming_chunks,
-    _track_is_live_streaming,
-)
-from .enhancement_deps import (  # noqa: F401
-    _EnhancementDeps,
-    _deps,
-    _get_connection_manager,
-    _get_enhancement_settings,
-    _get_streamlined_cache,
-    _get_player_state_manager,
-    _get_repository_factory,
-)
-from .enhancement_recommendation import (  # noqa: F401
+from .enhancement_models import EnhancementSettings, EnhancementSettingsResponse
+from .enhancement_deps import _EnhancementDeps, _deps
+from .enhancement_recommendation import (
     get_mastering_recommendation,
 )
-from .enhancement_controls import (  # noqa: F401
+from .enhancement_controls import (
     get_enhancement_status,
     set_enhancement_intensity,
     set_enhancement_preset,
     toggle_enhancement,
-    _persist_enhancement_setting,
 )
 
 logger = logging.getLogger(__name__)

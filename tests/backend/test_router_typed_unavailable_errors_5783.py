@@ -67,14 +67,14 @@ class TestRequireRepositoryFactory:
         assert (exc.value.status_code, exc.value.detail) == (503, "Repository factory not available")
 
     def test_files_router_uses_the_same_guard(self) -> None:
-        from routers import files
+        from routers import files_deps
 
         class _Deps:
             get_repository_factory = None
 
-        with files._deps.use(_Deps()):
+        with files_deps._deps.use(_Deps()):
             with pytest.raises(ServiceUnavailableError) as exc:
-                files._get_repos()
+                files_deps._get_repos()
         assert exc.value.detail == "Repository factory not available"
 
 

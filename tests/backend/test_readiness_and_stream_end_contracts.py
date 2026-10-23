@@ -245,7 +245,7 @@ class TestPlaylistDragDropRoutes:
             assert (f"/api/playlists/{{playlist_id}}/{suffix}", method) in self._paths()
 
     def test_reorder_request_rejects_negative_indices(self):
-        from routers.playlists import ReorderTrackRequest
+        from routers.playlists_models import ReorderTrackRequest
         from pydantic import ValidationError
 
         ReorderTrackRequest(from_index=0, to_index=3)  # valid
@@ -256,7 +256,7 @@ class TestPlaylistDragDropRoutes:
             ReorderTrackRequest(from_index=0, to_index=-2)
 
     def test_add_track_request_allows_absent_position(self):
-        from routers.playlists import AddTrackRequest
+        from routers.playlists_models import AddTrackRequest
         from pydantic import ValidationError
 
         assert AddTrackRequest(track_id=7).position is None
