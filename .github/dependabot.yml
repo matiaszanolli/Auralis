@@ -6,11 +6,16 @@
 # Dependabot is the other half of that trade: it opens a PR when a newer release
 # exists, rewriting both the SHA and the version comment together.
 #
-# Scope is deliberately narrow — github-actions only. The Python/npm/cargo
-# manifests here are governed by their own guards (requirements-pin-guard.yml,
-# lockfile-guard.yml, rust-audit.yml) and by the deliberate `numpy<2.5` ceiling,
-# so letting Dependabot raise those would fight existing policy rather than
-# support it.
+# Scope is deliberately narrow — github-actions for version updates. The
+# Python/npm/cargo manifests here are governed by their own guards
+# (requirements-pin-guard.yml, lockfile-guard.yml, rust-audit.yml) and by the
+# deliberate `numpy<2.5` ceiling, so letting Dependabot raise those would fight
+# existing policy rather than support it.
+#
+# The one exception is /desktop, security updates only: Electron ships Chromium
+# and the update channel, and an advisory against it (GHSA-jr5w-w6x2-84p9) sat
+# unflagged because nothing watched that manifest (#6152). `open-pull-requests-limit: 0`
+# is Dependabot's way of disabling version updates while keeping security-update PRs.
 version: 2
 updates:
   - package-ecosystem: "github-actions"
@@ -25,3 +30,15 @@ updates:
     labels:
       - "dependencies"
       - "ci"
+
+  - package-ecosystem: "npm"
+    directory: "/desktop"
+    schedule:
+      interval: "weekly"
+    # 0 = no version-update PRs; security-update PRs are still opened (#6152).
+    open-pull-requests-limit: 0
+    commit-message:
+      prefix: "fix(desktop)"
+    labels:
+      - "dependencies"
+      - "security"
