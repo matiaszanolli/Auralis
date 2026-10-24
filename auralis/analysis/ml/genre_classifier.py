@@ -18,6 +18,10 @@ from .feature_extractor import FeatureExtractor
 from .features import AudioFeatures
 from .genre_weights import initialize_genre_weights
 
+# Rate the default extractor is built for — the historical fixed rate and
+# still the fallback when classify() gets no explicit rate.
+DEFAULT_CLASSIFIER_SAMPLE_RATE = 44100
+
 
 class RuleBasedGenreClassifier:
     """
@@ -26,9 +30,15 @@ class RuleBasedGenreClassifier:
     Uses extracted audio features to classify music genres.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize genre classifier"""
-        self.feature_extractor = FeatureExtractor()
+        # One extractor per distinct sample rate seen (#5244): the mel
+        # filterbank is built once at construction from the configured rate,
+        # so a single hardcoded 44100 extractor silently mis-scaled every
+        # Hz-based feature when the pipeline runs at another rate. Extractors
+        # are immutable after construction, so cached ones can be shared.
+        self._feature_extractors: dict[int, FeatureExtractor] = {}
+        self.feature_extractor = self._extractor_for(DEFAULT_CLASSIFIER_SAMPLE_RATE)
         self.genres = [
             "classical", "rock", "electronic", "jazz", "pop",
             "hip_hop", "acoustic", "ambient", "metal", "country"
@@ -41,12 +51,29 @@ class RuleBasedGenreClassifier:
 
         debug(f"ML Genre Classifier initialized with {len(self.genres)} genres")
 
-    def classify(self, audio: np.ndarray) -> dict[str, Any]:
+    def _extractor_for(self, sample_rate: int) -> FeatureExtractor:
+        """Return a FeatureExtractor configured for ``sample_rate``.
+
+        The cache holds at most one entry per distinct rate, and the rate is
+        a per-process config value in practice, so it stays tiny. A benign
+        race exists if two threads first request the same rate concurrently
+        (one extractor is discarded); extract_features never mutates the
+        extractor, so sharing the winner is safe.
+        """
+        extractor = self._feature_extractors.get(sample_rate)
+        if extractor is None:
+            extractor = FeatureExtractor(sample_rate=sample_rate)
+            self._feature_extractors[sample_rate] = extractor
+        return extractor
+
+    def classify(self, audio: np.ndarray, sample_rate: int | None = None) -> dict[str, Any]:
         """
         Classify audio genre using ML model
 
         Args:
             audio: Audio signal to classify
+            sample_rate: Sample rate of ``audio`` in Hz. When omitted, the
+                default 44100 Hz extractor is used (historical behavior).
 
         Returns:
             Dictionary with classification results
@@ -54,7 +81,11 @@ class RuleBasedGenreClassifier:
         debug("Running ML genre classification")
 
         # Extract features
-        features = self.feature_extractor.extract_features(audio)
+        if sample_rate is None:
+            extractor = self.feature_extractor
+        else:
+            extractor = self._extractor_for(sample_rate)
+        features = extractor.extract_features(audio)
 
         # Calculate scores for each genre
         scores = {}

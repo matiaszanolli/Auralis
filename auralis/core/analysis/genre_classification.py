@@ -27,8 +27,14 @@ class GenreClassificationMixin:
 
         if self.use_ml_classification and self.ml_classifier is not None:
             try:
-                # Use ML classifier
-                ml_result: dict[str, Any] = self.ml_classifier.classify(audio)
+                # Use ML classifier. Thread the configured rate through
+                # (#5244): every other feature call in this class already
+                # receives it, and the classifier caches one extractor per
+                # rate so a non-44100 pipeline no longer gets silently
+                # mis-scaled features.
+                ml_result: dict[str, Any] = self.ml_classifier.classify(
+                    audio, self.sample_rate
+                )
                 debug(f"ML classification: {ml_result['primary']} (confidence: {ml_result['confidence']:.3f})")
                 return ml_result
             except Exception as e:
