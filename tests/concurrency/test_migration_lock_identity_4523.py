@@ -10,10 +10,10 @@ Two defects, one context manager:
    (now unreachable) inode and a fresh arrival that creates a brand-new inode
    both end up "holding" the lock.
 
-2. The same-process thread lock lived in ``LibraryDatabase.__init__``, so the
-   second migration entry point — ``migrations.normalize_existing_artists`` —
-   had inter-process serialization only. On Windows, where ``msvcrt`` byte-range
-   locks are per-process, that route serialized nothing at all.
+2. The same-process thread lock lived in ``LibraryDatabase.__init__``, so any
+   migration path that did not pass through that constructor had inter-process
+   serialization only. On Windows, where ``msvcrt`` byte-range locks are
+   per-process, such a path serialized nothing at all.
 
 True parallelism is exercised with ``multiprocessing.Process`` + ``Queue`` per
 the project's concurrency-testing pattern.

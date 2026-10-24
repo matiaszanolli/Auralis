@@ -7,8 +7,6 @@
 -- Used for matching variations like AC/DC, ACDC, AC-DC
 -- Note: SQLite doesn't support IF NOT EXISTS for ADD COLUMN, so this migration
 -- should be run after checking if the column exists in the MigrationManager.
--- If the column was already added by normalize_existing_artists.py, this migration
--- should be skipped (schema version already set to 11).
 ALTER TABLE artists ADD COLUMN normalized_name VARCHAR;
 
 -- Create index for fast lookups by normalized name

@@ -35,10 +35,9 @@ __all__ = ['migration_lock']
 # both acquire it, and `msvcrt.locking` byte-range locks are per-process, so on
 # Windows nothing serializes same-process threads at all.
 #
-# This lives here rather than at the caller (#4523) so BOTH entry points get it
-# — `check_and_migrate_database` and `migrations.normalize_existing_artists`.
-# It used to live in `LibraryDatabase.__init__`, which meant the second entry
-# point had process serialization only. Global rather than per-path: migrations
+# This lives here rather than at the caller (#4523) so every migration entry
+# point gets it, not just the ones that pass through `LibraryDatabase.__init__`
+# (where it used to live, #4232). Global rather than per-path: migrations
 # run at startup against a single database, and a global lock is strictly
 # stronger than a per-path one.
 _thread_lock = threading.Lock()

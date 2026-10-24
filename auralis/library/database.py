@@ -36,10 +36,9 @@ from .scan_coordinator import ScanCoordinator
 
 # #4523: the same-process thread lock that used to live here (#4232) moved into
 # `migration_manager.migration_lock`, which now acquires thread *and* process
-# exclusion together. Holding a second lock here would deadlock against it, and
-# keeping it here only ever covered one of the two migration entry points —
-# `migrations.normalize_existing_artists` takes `migration_lock` directly and
-# never passed through this constructor.
+# exclusion together. Do not re-add a thread lock here: holding a second lock
+# in this constructor would deadlock against it, and any entry point that
+# bypasses this constructor would be left unserialized anyway.
 
 
 class LibraryDatabase(RepositoryAccessorsMixin):

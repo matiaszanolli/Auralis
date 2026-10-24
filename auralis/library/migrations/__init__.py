@@ -3,8 +3,6 @@ Database migrations for Auralis library.
 
 This package contains:
 - SQL migration files (migration_vXXX_to_vYYY.sql)
-- Python migration scripts for data transformations, run as modules
-  (e.g. ``python -m auralis.library.migrations.normalize_existing_artists``)
 
 The migration logic (MigrationManager, check_and_migrate_database,
 backup_database) lives in ``auralis.library.migration_manager``; import it from
