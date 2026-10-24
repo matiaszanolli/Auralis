@@ -5,7 +5,9 @@ Responsibilities:
 - Loading audio files (target and reference)
 - Managing loaded audio data
 - Providing audio chunks for playback
-- Auto-resampling to target sample rate
+- Tracking the loaded file's native sample rate (``self.sample_rate``
+  follows the file; no resampling — consumers that need rate-derived
+  timing read it per chunk, #5729)
 """
 
 import threading

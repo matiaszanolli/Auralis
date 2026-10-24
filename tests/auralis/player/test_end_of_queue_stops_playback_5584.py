@@ -46,7 +46,8 @@ def _make_player(total_samples: int, has_next: bool) -> AudioPlayer:
     player.integration = integration
 
     player.processor = MagicMock()
-    player.processor.process_chunk.side_effect = lambda chunk: chunk
+    # get_audio_chunk passes the file's rate as a second arg (#5729).
+    player.processor.process_chunk.side_effect = lambda chunk, sample_rate=None: chunk
 
     player.auto_advance = True
     player._auto_advancing = threading.Event()

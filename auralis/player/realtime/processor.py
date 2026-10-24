@@ -144,8 +144,13 @@ class RealtimeProcessor:
         if level_matching_enabled and self.level_matcher:
             processed = self.level_matcher.process(processed)
 
-        # Apply auto-mastering
+        # Apply auto-mastering. set_sample_rate() is a no-op unless the
+        # chunk's rate differs from the DSP chain's current rate (#5729),
+        # so a 48/96 kHz track gets correctly-scaled attack/release and
+        # transient windows after load or a gapless swap.
         if auto_mastering_enabled and self.auto_master:
+            if sample_rate is not None:
+                self.auto_master.set_sample_rate(sample_rate)
             processed = self.auto_master.process(processed)
 
         # Final safety limiting — linear gain reduction to target_peak.

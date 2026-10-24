@@ -40,26 +40,54 @@ class AutoMasterProcessor:
         self.fingerprint: dict[str, Any] | None = None
         self.adaptive_params: dict[str, Any] | None = None
 
-        # Initialize proper stateful compressor to prevent gain pumping
-        # Settings prioritize transient preservation to avoid kick/bass harmonic overlap
-        # Use very gentle compression to avoid compressing kick drums into bass range
-        comp_settings = CompressorSettings(
-            threshold_db=-24.0,  # Higher threshold = only compress very loud peaks
-            ratio=1.3,           # Very gentle ratio (1.3:1) to preserve transient punch
-            attack_ms=20.0,      # Slower attack (20ms) lets transients breathe through
-            release_ms=200.0,    # Longer release for smooth recovery
-            knee_db=10.0,        # Very wide soft knee for ultra-smooth compression curve
-            makeup_gain_db=0.0,  # No makeup gain (applied separately)
-            enable_lookahead=False  # No lookahead for real-time
-        )
-        self.compressor = AdaptiveCompressor(comp_settings, config.sample_rate)
-
-        # Initialize optional transient enhancer for low-mid punch restoration
-        # Used for quiet, dynamic material (< -13 LUFS with crest > 14 dB)
-        self.transient_enhancer = LowMidTransientEnhancer(sample_rate=config.sample_rate)
+        # DSP components are built for the configured rate and rebuilt by
+        # set_sample_rate() when a loaded track's actual rate differs
+        # (#5729) — the timing constants (attack/release, transient
+        # window) are sample-rate-derived and silently mis-scaled at any
+        # other rate.
+        self._sample_rate = config.sample_rate
+        self.compressor = self._build_compressor(self._sample_rate)
+        self.transient_enhancer = LowMidTransientEnhancer(sample_rate=self._sample_rate)
         self.use_transient_enhancement = True
 
         debug("AutoMasterProcessor initialized")
+
+    def _build_compressor(self, sample_rate: int) -> AdaptiveCompressor:
+        """Build the stateful compressor that prevents gain pumping.
+
+        Settings prioritize transient preservation to avoid kick/bass
+        harmonic overlap: high threshold and very gentle ratio so only very
+        loud peaks are compressed, slow attack to let transients breathe
+        through, long release for smooth recovery, and a wide soft knee
+        for an ultra-smooth curve. No lookahead (real-time).
+        """
+        comp_settings = CompressorSettings(
+            threshold_db=-24.0,
+            ratio=1.3,
+            attack_ms=20.0,
+            release_ms=200.0,
+            knee_db=10.0,
+            makeup_gain_db=0.0,
+            enable_lookahead=False
+        )
+        return AdaptiveCompressor(comp_settings, sample_rate)
+
+    def set_sample_rate(self, sample_rate: int) -> None:
+        """Reconfigure the DSP chain for a track's actual sample rate.
+
+        Called with every processed chunk's rate; a no-op unless the rate
+        actually changed (e.g. after load or a gapless swap to a track at
+        another rate). Rebuilds the compressor and transient enhancer —
+        their envelopes re-adapt within one attack/release cycle (~220 ms).
+        """
+        with self._lock:
+            if sample_rate == self._sample_rate:
+                return
+            info(f"Auto-master sample rate changed: {self._sample_rate} -> {sample_rate} Hz; "
+                 "rebuilding compressor and transient enhancer")
+            self._sample_rate = sample_rate
+            self.compressor = self._build_compressor(sample_rate)
+            self.transient_enhancer = LowMidTransientEnhancer(sample_rate=sample_rate)
 
     def set_enabled(self, enabled: bool) -> None:
         """Thread-safe setter for enabled flag (#3356)."""
@@ -191,7 +219,9 @@ class AutoMasterProcessor:
                 try:
                     # Use moderate intensity for real-time (not aggressive like batch)
                     transient_intensity = 0.35  # Subtle, not overwhelming
-                    attack_samples = int(self.config.sample_rate * 0.05)  # 50ms window
+                    # 50 ms window at the track's actual rate (#5729), not
+                    # the configured one.
+                    attack_samples = int(self._sample_rate * 0.05)
                     processed = self.transient_enhancer.enhance_transients(
                         processed,
                         intensity=transient_intensity,

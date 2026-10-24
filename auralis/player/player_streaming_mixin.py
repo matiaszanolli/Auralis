@@ -23,6 +23,7 @@ of #4141 / #3735 / #5105.
 
 import threading
 from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 
@@ -56,6 +57,9 @@ class PlayerStreamingMixin:
     # assignment) — see PlayerQueueNavigationMixin for why this must not
     # become a real attribute in this class's __dict__.
     next_track: Callable[[], bool]
+    # Provided by the integration-manager mixin; bare annotation for the
+    # type checker, same rule as next_track above.
+    integration: Any
 
     def get_audio_chunk(self, chunk_size: int | None = None) -> np.ndarray:
         """
@@ -138,8 +142,14 @@ class PlayerStreamingMixin:
             })
 
         # Apply advanced real-time processing (outside the lock — pure CPU
-        # work on the captured chunk, no shared state touched).
-        processed_chunk = self.processor.process_chunk(chunk)
+        # work on the captured chunk, no shared state touched). The file
+        # manager's rate follows the loaded file (no resampling), so pass it
+        # through: the chain's timing constants are rate-derived and a
+        # non-config-rate track would get mis-scaled attack/release and
+        # transient windows (#5729). Read after the lock is released — a
+        # concurrent load swapping the rate costs at most one chunk before
+        # the next call reconfigures back.
+        processed_chunk = self.processor.process_chunk(chunk, self.file_manager.sample_rate)
 
         return processed_chunk
 
