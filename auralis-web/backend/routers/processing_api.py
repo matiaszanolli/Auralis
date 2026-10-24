@@ -45,17 +45,13 @@ from .processing_jobs import (
     get_queue_status,
     list_jobs,
 )
-from .processing_models import (  # noqa: F401
+from .processing_models import (
     CancelJobResponse,
     CleanupResponse,
     JobListResponse,
     JobStatusResponse,
     PresetsResponse,
     ProcessingParametersResponse,
-    # Explicit re-export: files.py imports it from here on purpose, so the audio
-    # formats endpoint degrades to "no output options" when this router fails to
-    # import (routes.py tolerates that).
-    ProcessingSettings as ProcessingSettings,
     ProcessRequest,
     ProcessResponse,
     QueueStatusResponse,
@@ -64,6 +60,10 @@ from .processing_parameters import (
     get_processing_parameters,
     get_processing_presets,
 )
+# Deliberate re-export: files.py imports ProcessingSettings from here on
+# purpose, so the audio formats endpoint degrades to "no output options"
+# when this router fails to import (routes.py tolerates that).
+from .processing_models import ProcessingSettings as ProcessingSettings  # noqa: F401
 
 from .processing_upload import (
     upload_and_process,
