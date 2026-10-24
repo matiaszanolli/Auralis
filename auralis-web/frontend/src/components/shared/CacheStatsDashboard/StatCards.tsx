@@ -6,7 +6,7 @@
  * component under the 300-line rule (#4187).
  */
 
-import { tokens } from '@/design-system';
+import { tokens, withOpacity } from '@/design-system';
 import { themeVars } from '@/theme/semanticTheme';
 import { CacheStats } from '@/services/api/cacheShapeGuards';
 
@@ -30,13 +30,15 @@ export function PercentageDisplay({ value, threshold = 70 }: { value: number; th
         gap: tokens.spacing.sm,
       }}
     >
-      {/* Use hex-alpha background instead of opacity so the text remains visible (#3990) */}
+      {/* Alpha-tinted background instead of element opacity so the text
+          remains fully visible (#3990); withOpacity is the token-aware way
+          to build it (#6234). */}
       <div
         style={{
           width: '24px',
           height: '24px',
           borderRadius: '50%',
-          background: `${color}33`,
+          background: withOpacity(color, 0.2),
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',

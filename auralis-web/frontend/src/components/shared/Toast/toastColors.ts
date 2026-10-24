@@ -17,7 +17,7 @@ export const getToastBackgroundColor = (severity: AlertColor): string => {
     case 'warning':
       return withOpacity(tokens.colors.semantic.warning, 0.15);
     case 'info':
-      return tokens.colors.opacityScale.accent.veryLight; // replaces deprecated #667eea (fixes #2356)
+      return tokens.colors.opacityScale.accent.veryLight; // #2356
     default:
       return themeVars.surfacePrimary;
   }
@@ -37,7 +37,7 @@ export const getToastBorderColor = (severity: AlertColor): string => {
     case 'warning':
       return tokens.colors.semantic.warning;
     case 'info':
-      return tokens.colors.accent.primary; // replaces deprecated #667eea (fixes #2356)
+      return tokens.colors.accent.primary; // #2356
     default:
       return themeVars.textDisabled;
   }

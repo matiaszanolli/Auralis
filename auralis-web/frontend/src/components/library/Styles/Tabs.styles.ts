@@ -8,7 +8,7 @@
  * - DialogTabs: Compact tabs for dialog interfaces (minHeight: 48)
  * - DetailViewTabs: Larger tabs for detail view interfaces (fontSize: 1rem, marginBottom: 3)
  *
- * Both use aurora gradient color (#667eea) for selected state and indicator.
+ * Both use the aurora gradient for selected state and indicator.
  */
 
 import { Tabs, styled } from '@mui/material';

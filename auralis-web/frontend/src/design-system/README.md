@@ -189,10 +189,10 @@ tokens.colors.bg.tertiary   // #252a47 - Card backgrounds
 tokens.colors.bg.elevated   // #2d3350 - Hover/active
 
 // Aurora Accents
-tokens.colors.accent.primary   // #667eea - Primary purple
-tokens.colors.accent.secondary // #764ba2 - Secondary purple
-tokens.colors.accent.success   // #00d4aa - Turquoise
-tokens.colors.accent.error     // #ef4444 - Red
+tokens.colors.accent.primary   // #7366F0 - Soft violet
+tokens.colors.accent.secondary // #47D6FF - Teal/cyan
+tokens.colors.accent.success   // #10B981 - Success green
+tokens.colors.accent.error     // #EF4444 - Error red
 
 // Text
 tokens.colors.text.primary   // #ffffff - White
@@ -342,7 +342,7 @@ import { tokens, Button, Card } from '@/design-system';
 **Step 2**: Replace hardcoded values
 ```typescript
 // Before
-<Button sx={{ background: '#667eea', padding: '16px' }}>
+<Button sx={{ background: tokens.colors.accent.primary, padding: '16px' }}>
 
 // After
 <Button sx={{ background: tokens.gradients.aurora, padding: tokens.spacing.md }}>

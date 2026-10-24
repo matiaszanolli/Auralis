@@ -59,6 +59,9 @@ const defaultConfig: LoggerConfig = {
 // Console Styling
 // ============================================================================
 
+// Dev-tooling palette for the browser console only (redux-logger labels).
+// Deliberately NOT app design tokens: these are Material-palette hues chosen
+// for console readability, never rendered in the UI (#6234).
 const colors = {
   action: '#03A9F4',
   prevState: '#9C27B0',

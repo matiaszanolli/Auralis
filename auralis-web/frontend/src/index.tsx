@@ -1,6 +1,9 @@
 import { StrictMode } from 'react';
 import ReactDOM from 'react-dom/client';
 
+import { colors } from '@/design-system/tokens/colors';
+import { buildFatalInitHtml } from '@/components/core/fatalInitScreen';
+
 // Async IIFE to defer all component imports until dependencies are initialized
 (async () => {
   try {
@@ -22,8 +25,9 @@ import ReactDOM from 'react-dom/client';
     // Log commit ID for debugging
     const commitMeta = document.querySelector('meta[name="commit-id"]');
     const commitFromMeta = commitMeta?.getAttribute('content') || 'unknown';
-    console.log(`%c🎵 Auralis ${import.meta.env.MODE} build`, 'color: #00d4ff; font-weight: bold; font-size: 14px;');
-    console.log(`%cCommit: ${commitFromMeta}`, 'color: #00d4ff; font-weight: bold;');
+    const banner = `color: ${colors.accent.secondary}; font-weight: bold; font-size: 14px;`;
+    console.log(`%c🎵 Auralis ${import.meta.env.MODE} build`, banner);
+    console.log(`%cCommit: ${commitFromMeta}`, banner);
     // Make commit info accessible globally for debugging
     window.__AURALIS_DEBUG__ = {
       commitId: commitFromMeta,
@@ -50,7 +54,6 @@ import ReactDOM from 'react-dom/client';
     console.error('[app] Failed to initialize application:', err);
     const msg = (err instanceof Error) ? err.message : String(err);
     const stack = (err instanceof Error && err.stack) ? err.stack : 'No stack trace available';
-    const escapedMsg = msg.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    document.documentElement.innerHTML = '<body style="background:#1a1a1a;color:#fff;font-family:sans-serif;margin:0;padding:0;display:flex;align-items:center;justify-content:center;height:100vh"><div style="text-align:center;max-width:700px;padding:40px"><h1 style="color:#ff6b6b;margin:0 0 20px;font-size:28px">Initialization Error</h1><p style="color:#ccc;margin:0 0 20px;font-size:16px">Failed to initialize application</p><p style="color:#999;margin:0 0 20px;font-size:14px;font-family:monospace">' + escapedMsg + '</p><details style="text-align:left;margin:30px 0;padding:20px;background:#222;border:1px solid #444;border-radius:6px"><summary style="color:#667eea;cursor:pointer;font-weight:bold;margin-bottom:10px">Stack Trace</summary><pre style="color:#888;font-size:11px;overflow-x:auto;margin:0;white-space:pre-wrap;word-break:break-word;line-height:1.4">' + stack.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</pre></details></div></body>';
+    document.documentElement.innerHTML = buildFatalInitHtml(msg, stack);
   }
 })();
