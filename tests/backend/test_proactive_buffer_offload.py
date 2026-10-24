@@ -26,7 +26,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from core.proactive_buffer import AVAILABLE_PRESETS, buffer_presets_for_track
+from core.proactive_buffer import buffer_presets_for_track
 
 
 def _fake_processor_factory(record_threads, block_seconds=0.0):
@@ -64,7 +64,7 @@ class TestProactiveBufferOffload:
         await buffer_presets_for_track(track_id=1, filepath="/fake.wav", total_chunks=1)
 
         # One construction per preset, all off the main (event-loop) thread.
-        assert len(seen_threads) == len(AVAILABLE_PRESETS)
+        assert len(seen_threads) == 1
         assert all(t is not main_thread for t in seen_threads), (
             "ChunkedAudioProcessor must be constructed via asyncio.to_thread, "
             "not directly on the event-loop thread"
@@ -74,14 +74,9 @@ class TestProactiveBufferOffload:
     async def test_event_loop_stays_responsive_during_construction(self, monkeypatch):
         """A concurrent coroutine keeps ticking while constructors block."""
         seen_threads: list[threading.Thread] = []
-        # block_seconds is deliberately independent of len(AVAILABLE_PRESETS):
-        # this used to read block_seconds=0.1 on the assumption of 5 presets
-        # (~0.5s of blocking work total), which silently shrank to ~0.1s when
-        # the preset system was narrowed to one (#4861 follow-up) and started
-        # failing the tick-count floor below on ordinary scheduling jitter.
-        # Scaling by AVAILABLE_PRESETS restores the original ~0.5s total
-        # regardless of how many presets exist now or in the future.
-        block_seconds = 0.5 / max(len(AVAILABLE_PRESETS), 1)
+        # ~0.5s of blocking work total: long enough for the tick-count floor
+        # below to detect event-loop starvation without making the test slow.
+        block_seconds = 0.5
         monkeypatch.setattr(
             "core.chunked_processor.ChunkedAudioProcessor",
             _fake_processor_factory(seen_threads, block_seconds=block_seconds),

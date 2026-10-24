@@ -16,21 +16,17 @@ import pytest
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from core.proactive_buffer import AVAILABLE_PRESETS, PRELOAD_CHUNKS
+from core.proactive_buffer import BUFFER_PRESET, PRELOAD_CHUNKS
 
 
 class TestProactiveBufferConstants:
     """Tests for module constants"""
 
-    def test_available_presets(self):
-        """Test AVAILABLE_PRESETS constant.
-
-        Only 'adaptive' ships now (#4861 follow-up narrowed the enhancement
+    def test_buffer_preset(self):
+        """Only 'adaptive' ships (#4861 follow-up narrowed the enhancement
         preset system to a single preset); 'gentle'/'warm'/'bright'/'punchy'
-        are gone, not just unlisted.
-        """
-        assert isinstance(AVAILABLE_PRESETS, list)
-        assert AVAILABLE_PRESETS == ["adaptive"]
+        are gone, not just unlisted."""
+        assert BUFFER_PRESET == "adaptive"
 
     def test_preload_chunks(self):
         """Test PRELOAD_CHUNKS constant"""

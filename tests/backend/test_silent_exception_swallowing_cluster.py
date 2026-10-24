@@ -121,7 +121,6 @@ async def test_proactive_buffer_processor_close_failure_logs_debug(caplog):
 
     with (
         caplog.at_level(logging.DEBUG, logger="core.proactive_buffer"),
-        patch.object(pb, "AVAILABLE_PRESETS", ["adaptive"]),
         patch("core.chunked_processor.ChunkedAudioProcessor", return_value=processor),
     ):
         await pb.buffer_presets_for_track(

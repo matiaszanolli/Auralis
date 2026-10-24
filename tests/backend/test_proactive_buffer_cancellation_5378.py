@@ -39,7 +39,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
 from core.audio_stream_controller import AudioStreamController, ws_id as _ws_id
-from core.proactive_buffer import AVAILABLE_PRESETS, buffer_presets_for_track
+from core.proactive_buffer import buffer_presets_for_track
 
 TRACK_ID = 42
 PRESET = "adaptive"
@@ -342,7 +342,7 @@ class TestBufferPresetsForTrackHonoursTheEvent:
             track_id=1, filepath="/fake.wav", total_chunks=1, cancel_event=cancel_event
         )
 
-        assert len(built) == len(AVAILABLE_PRESETS)
+        assert len(built) == 1
         assert all(kw.get("cancel_event") is cancel_event for kw in built), (
             "in-flight chunk DSP can only abort if the processor holds the "
             "stream's cancel event (#4815)"
@@ -372,4 +372,4 @@ class TestBufferPresetsForTrackHonoursTheEvent:
 
         await buffer_presets_for_track(track_id=1, filepath="/fake.wav", total_chunks=2)
 
-        assert processed == [0, 1] * len(AVAILABLE_PRESETS)
+        assert processed == [0, 1]

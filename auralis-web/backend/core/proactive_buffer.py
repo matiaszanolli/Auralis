@@ -19,10 +19,8 @@ logger = logging.getLogger(__name__)
 
 # The preset to buffer. Mirrors schemas.DEFAULT_PRESET -- not imported directly
 # to avoid this streaming-core module depending on the REST schemas module.
-# Narrowed to a single preset (#4861 follow-up), so there is no per-preset loop;
-# AVAILABLE_PRESETS stays as the list form other code and tests count against.
+# Narrowed to a single preset (#4861 follow-up), so there is no per-preset loop.
 BUFFER_PRESET = "adaptive"
-AVAILABLE_PRESETS = [BUFFER_PRESET]
 PRELOAD_CHUNKS = 3  # Buffer first 45 seconds (3 x 15s chunks)
 
 
