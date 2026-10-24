@@ -106,8 +106,10 @@ class TestOnQueueChanged:
         eng, queue, loaded = setup
 
         gate = {"release": False}
+        entered: list[str] = []
 
         def gated_load(file_path: str, file_type: str = "audio"):
+            entered.append(file_path)  # the worker has reached load()
             # Hold the first load until the queue edit has landed.
             while not gate["release"]:
                 time.sleep(0.01)
@@ -116,7 +118,15 @@ class TestOnQueueChanged:
 
         with patch.object(gapless_playback_engine, "load", side_effect=gated_load):
             eng.start_prebuffering()  # worker peeks track 2, blocks in load
-            assert _wait_until(lambda: len(loaded) > 0 or eng._shutdown.is_set()) or True
+            # `loaded` only grows after the gate releases (three lines down),
+            # so the reachable-here signal is `entered`. The original wait
+            # watched `loaded`, a predicate that could never fire, and a
+            # short-circuiting truthy operand hid both facts (#6237).
+            assert _wait_until(
+                lambda: len(entered) > 0 or eng._shutdown.is_set()
+            ), (
+                "prebuffer worker never reached load() before the queue change"
+            )
 
             queue.remove_track(0)  # next track is now track 3, not 2
             gate["release"] = True

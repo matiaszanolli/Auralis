@@ -3,7 +3,9 @@
 
 Two defects, one script, one baseline each:
 
-* default mode — tests whose *only* assertions are ``X is not None`` (#5154);
+* default mode — tests whose *only* assertions are ``X is not None`` (#5154),
+  plus, since #6237, tests carrying any assertion that cannot fail:
+  ``assert True``, ``... or True``, ``len(X) >= 0``;
 * ``--zero`` mode — ``test_*`` functions with no assertion of any kind (#5807):
   no ``assert``, no ``pytest.raises``/``warns``, no ``assert*``/``check*``/
   ``verify*``/``expect*`` call. A body that ends in a comment ("this test
@@ -66,6 +68,40 @@ def _is_not_none_assert(node: ast.Assert) -> bool:
     )
 
 
+def _is_len_call(node: ast.expr) -> bool:
+    return (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "len"
+    )
+
+
+def _is_tautological_assert(node: ast.Assert) -> bool:
+    """True for assertions that cannot fail (#6237).
+
+    ``assert True`` (with or without a message), ``assert X ... or True``
+    (the ``or True`` operand short-circuits the whole test to true), and
+    ``assert len(X) >= 0`` (a length is never negative). Each shape passes
+    against any behaviour while reading as coverage.
+    """
+    test = node.test
+    if isinstance(test, ast.Constant) and test.value is True:
+        return True
+    if isinstance(test, ast.BoolOp) and isinstance(test.op, ast.Or):
+        if any(isinstance(o, ast.Constant) and o.value is True for o in test.values):
+            return True
+    if (
+        isinstance(test, ast.Compare)
+        and len(test.ops) == 1
+        and isinstance(test.ops[0], ast.GtE)
+        and isinstance(test.comparators[0], ast.Constant)
+        and test.comparators[0].value == 0
+        and _is_len_call(test.left)
+    ):
+        return True
+    return False
+
+
 def scan_file(path: Path) -> dict[str, int]:
     """Map ``path::test_name`` -> assertion count for one test module.
 
@@ -93,7 +129,12 @@ def scan_file(path: Path) -> dict[str, int]:
         if not node.name.startswith("test"):
             continue
         asserts = [n for n in ast.walk(node) if isinstance(n, ast.Assert)]
-        if asserts and all(_is_not_none_assert(a) for a in asserts):
+        if asserts and (
+            all(_is_not_none_assert(a) for a in asserts)
+            # A single tautological assert taints the test even when its
+            # siblings are real (#6237).
+            or any(_is_tautological_assert(a) for a in asserts)
+        ):
             offenders[f"{rel}::{node.name}"] = len(asserts)
     return offenders
 

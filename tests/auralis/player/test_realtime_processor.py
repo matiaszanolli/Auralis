@@ -256,11 +256,17 @@ class TestRealtimeProcessorComprehensive:
         assert matcher.reference_rms > 0  # Should have calculated RMS
 
         # Test setting different reference
+        old_rms = matcher.reference_rms
         matcher.set_reference_audio(self.quiet_audio)
         new_rms = matcher.reference_rms
 
         assert new_rms is not None
-        assert new_rms != matcher.reference_rms or True  # RMS should be different or at least valid
+        # quiet_audio (0.1 amplitude) must measure quieter than
+        # reference_audio (0.5 amplitude).
+        assert new_rms != old_rms, (
+            f"set_reference_audio() did not recompute RMS: {new_rms} == {old_rms}"
+        )
+        assert new_rms < old_rms
 
         self.tearDown()
 

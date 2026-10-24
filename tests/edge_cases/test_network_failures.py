@@ -91,27 +91,6 @@ class TestConnectionFailures:
         # INVARIANT: Should fail cleanly (not resolve or hang)
         assert not resolved, "Non-existent domain should not resolve"
 
-    def test_network_unreachable(self):
-        """
-        INVARIANT: Network unreachable errors should be handled gracefully.
-        Test: Simulate network unreachable condition.
-        """
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(2)
-
-        try:
-            # Try to connect to link-local address (may be unreachable)
-            sock.connect(('169.254.1.1', 80))
-            connected = True
-        except (OSError, socket.timeout):
-            connected = False
-        finally:
-            sock.close()
-
-        # INVARIANT: Should handle unreachable network gracefully
-        # (Either connect fails or times out, but doesn't crash)
-        assert True, "Network unreachable handled"
-
     def test_local_operations_work_offline(self, temp_db, temp_audio_dir):
         """
         INVARIANT: Core local operations should work without network.

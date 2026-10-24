@@ -124,7 +124,7 @@ def integration_manager(
     Example:
         def test_track_loading(integration_manager):
             success = integration_manager.load_track_from_library(track_id=1)
-            assert isinstance(success, bool)
+            assert success is True
     """
     from auralis.player.integration_manager import IntegrationManager
 

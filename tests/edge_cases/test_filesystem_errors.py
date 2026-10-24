@@ -258,6 +258,7 @@ class TestCorruptedFiles:
         with open(filepath, 'r+b') as f:
             f.truncate(1000)  # Cut off most of file
 
+        result_audio = None
         try:
             result_audio, sr = load_audio(filepath)
             # May load partially or fail
@@ -265,9 +266,11 @@ class TestCorruptedFiles:
         except (ValueError, RuntimeError, EOFError, Exception):
             failed = True
 
-        # INVARIANT: Should either fail or return partial data
-        # (Both are acceptable behaviors)
-        assert True, "Handled truncated file"
+        # INVARIANT: loader must either raise or return some data — silent
+        # success with nothing is the corruption-masking outcome (#6237).
+        assert failed or result_audio is not None, (
+            "load_audio() neither raised nor returned data for a truncated WAV"
+        )
 
     def test_wrong_file_extension(self, temp_audio_dir):
         """
@@ -556,8 +559,14 @@ class TestFileLocking:
         finally:
             read_handle.close()
 
-        # INVARIANT: Behavior is OS-dependent but should not crash
-        assert True, "File locking handled (OS-dependent behavior)"
+        # INVARIANT (OS-dependent outcome, fixed postcondition): whether or
+        # not the write was permitted, the file content afterwards is one of
+        # the two legitimate states — untouched, or the attempted write.
+        with open(filepath, 'rb') as f:
+            content_after = f.read()
+        assert content_after in (b'test', b'new content'), (
+            f"file mangled by a concurrent write attempt: {content_after!r}"
+        )
 
     def test_delete_open_file(self, temp_audio_dir):
         """
@@ -586,8 +595,11 @@ class TestFileLocking:
             except:
                 pass
 
-        # INVARIANT: Should handle attempt gracefully (Unix allows, Windows blocks)
-        assert True, "Delete open file handled (OS-dependent)"
+        # INVARIANT (OS-dependent outcome, fixed postcondition): the path's
+        # existence must agree with whether the unlink reported success.
+        assert os.path.exists(filepath) == (not delete_succeeded), (
+            "unlink outcome and on-disk state disagree"
+        )
 
 
 @pytest.mark.edge_case

@@ -592,11 +592,15 @@ def test_search_unicode_characters(track_repo):
     track_info = create_test_track(0, title="Track 日本語 🎵")
     track_repo.add(track_info)
 
-    # Search for unicode
-    results = track_repo.search("日本語", limit=100, offset=0)
+    # Search for unicode (search() answers (tracks, total))
+    tracks, total = track_repo.search("日本語", limit=100, offset=0)
 
-    # Should find the track
-    assert len(results) >= 0, "Should handle unicode search"
+    # The track added above must actually be found — the old `len(results)
+    # >= 0` measured the *tuple* length and passed even when the search
+    # matched nothing (#6237).
+    assert total == 1, f"unicode search should find the track, got {total}"
+    assert len(tracks) == 1
+    assert tracks[0].title == "Track 日本語 🎵"
 
 
 @pytest.mark.boundary

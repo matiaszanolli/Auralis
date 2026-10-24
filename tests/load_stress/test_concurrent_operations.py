@@ -457,9 +457,11 @@ class TestThreadSafety:
         for thread in threads:
             thread.join()
 
-        # May or may not be thread-safe (depends on implementation)
-        # Just verify no crashes
-        assert True, "Processor thread safety test completed"
+        # Every thread must have reported exactly one outcome — a result
+        # length or an exception — with none lost by unsynchronized appends.
+        assert len(results) + len(errors) == 5, (
+            f"expected 5 outcomes, saw {len(results)} results + {len(errors)} errors"
+        )
 
         print(f"✓ Processor thread safety: {len(results)} successes, {len(errors)} errors")
 

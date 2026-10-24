@@ -85,3 +85,48 @@ def test_shipped_baseline_has_no_stale_entries():
 
     assert baseline - current == set(), "shrink it: scripts/check_weak_assertions.py --zero --update"
     assert current - baseline == set(), "a new zero-assertion test: assert something"
+
+
+# --- #6237: tautological assertions the assertion-count ratchets cannot see ---
+
+def _scan_default(tmp_path, source):
+    path = tmp_path / "test_sample.py"
+    path.write_text(source)
+    return sorted(name.split("::")[1] for name in gate.scan_file(path))
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "    assert True\n",
+        "    assert True, 'Handled'\n",
+        "    assert result or True\n",
+        "    assert new_rms != old_rms or True  # different or at least valid\n",
+        "    assert len(results) >= 0\n",
+        "    assert len(album.tracks) >= 0, 'should have tracks'\n",
+    ],
+)
+def test_tautological_assertions_are_reported(tmp_path, body):
+    """A test whose assertion cannot fail is fake coverage (#6237)."""
+    offenders = _scan_default(
+        tmp_path, f"def test_tautology():\n{body}"
+    )
+    assert offenders == ["test_tautology"]
+
+
+def test_a_tautology_taints_a_test_with_real_assertions(tmp_path):
+    offenders = _scan_default(tmp_path, (
+        "def test_mixed():\n"
+        "    assert compute() == 4\n"
+        "    assert True, 'no crash'\n"
+    ))
+    assert offenders == ["test_mixed"]
+
+
+def test_real_assertions_still_pass(tmp_path):
+    assert _scan_default(tmp_path, (
+        "def test_real():\n"
+        "    assert compute() == 4\n"
+        "    assert len(results) >= 1\n"
+        "    assert flag or other\n"
+    )) == []

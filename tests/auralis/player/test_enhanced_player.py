@@ -232,7 +232,10 @@ class TestAudioPlayerComprehensive:
 
         # Test seek
         seek_success = enhanced_player.seek(1.0)  # Seek to 1 second
-        assert isinstance(seek_success, bool)
+        # The player records the target position even while stopped (no
+        # audio needed), so seek reports success — pin the actual contract
+        # rather than a bare bool shape (#6237).
+        assert seek_success is True
 
     def test_track_navigation_without_library(self, enhanced_player):
         """Test track navigation without library integration"""
@@ -363,7 +366,8 @@ class TestAudioPlayerComprehensive:
             )
             if playlist:
                 playlist_success = enhanced_player.load_playlist(playlist.id, start_index=0)
-                assert isinstance(playlist_success, bool)
+                # A just-created playlist with two tracks must load.
+                assert playlist_success is True
 
     def test_error_handling_and_edge_cases(self, enhanced_player):
         """Test error handling and edge cases"""
@@ -569,7 +573,7 @@ class TestEnhancedPlayerWithFixtures:
         # Try loading a non-existent file (should fail gracefully)
         success = enhanced_player.load_file('/nonexistent/file.wav')
         # Should return False for non-existent file
-        assert isinstance(success, bool)
+        assert success is False
 
         # Test that player doesn't crash with None
         assert enhanced_player.load_file(None) is False

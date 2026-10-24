@@ -303,8 +303,10 @@ class TestArtistRepositoryDetachedAccess:
         _ = artist.tracks
         assert len(artist.albums) >= 1
         for album in artist.albums:
-            # Must not raise DetachedInstanceError
-            assert len(album.tracks) >= 0
+            # Must not raise DetachedInstanceError, and the eager-loaded
+            # collection is real: the setup seeds tracks under the album
+            # (>= 0 passed for an empty list too, #6237).
+            assert len(album.tracks) >= 1
 
     # #4553, then #5084, narrowed the eager-load contract of the two
     # *paginated* methods.

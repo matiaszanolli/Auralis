@@ -35,6 +35,13 @@ class _StubExtractor:
         return self._behaviour(track_id, filepath)
 
 
+def _block_then_succeed(release: threading.Event):
+    """Block on the gate, then report extraction success (the queue counts
+    the return as success/failure of extract_and_store)."""
+    release.wait(30)
+    return True
+
+
 def _make_queue(extractor, track_timeout: float) -> FingerprintExtractionQueue:
     return FingerprintExtractionQueue(
         fingerprint_extractor=extractor,
@@ -74,7 +81,7 @@ class TestPerTrackTimeout:
     def test_semaphore_slot_is_released_after_a_timeout(self):
         release = threading.Event()
         queue = _make_queue(
-            _StubExtractor(lambda track_id, filepath: release.wait(30) or True),
+            _StubExtractor(lambda track_id, filepath: _block_then_succeed(release)),
             track_timeout=0.2,
         )
         try:
@@ -113,7 +120,7 @@ class TestPerTrackTimeout:
     def test_progress_reports_the_timeout_as_an_error(self):
         release = threading.Event()
         queue = _make_queue(
-            _StubExtractor(lambda track_id, filepath: release.wait(30) or True),
+            _StubExtractor(lambda track_id, filepath: _block_then_succeed(release)),
             track_timeout=0.2,
         )
         reports: list[dict] = []
