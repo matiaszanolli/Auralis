@@ -3,12 +3,8 @@ Hybrid Processor Stage Dispatch
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Input validation and the reference-mode processing path, split out of
-hybrid_processor.py (#5463). `_process_adaptive_mode()` / `_process_hybrid_mode()`
-stay inline in hybrid_processor.py rather than moving here:
-tests/regression/test_sample_count_invariant.py asserts on
-`inspect.getsource(HybridProcessor._process_adaptive_mode)` /
-`._process_hybrid_mode` directly, so the sample-count assertion has to remain
-in the source of those bound methods themselves, not a helper they call.
+hybrid_processor.py (#5463). The adaptive/hybrid mode bodies live in
+processing/mode_dispatch.py (#6272), not here.
 
 Each function takes the owning `HybridProcessor` as its first argument and
 reads its collaborators (`processor.brick_wall_limiter`, etc.) directly —

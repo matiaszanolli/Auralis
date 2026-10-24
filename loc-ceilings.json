@@ -71,7 +71,7 @@
     "auralis/core/analysis/genre_classification.py": 124,
     "auralis/core/analysis/target_fingerprint_adjustments.py": 147,
     "auralis/core/analysis/target_preset_overrides.py": 125,
-    "auralis/core/hybrid_processor.py": 291,
+    "auralis/core/hybrid_processor.py": 285,
     "auralis/core/mastering_stage_delegates.py": 118,
     "auralis/core/processing/adaptive_normalization.py": 137,
     "auralis/core/processing/continuous_space_types.py": 139,

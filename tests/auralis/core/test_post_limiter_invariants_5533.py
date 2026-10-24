@@ -17,10 +17,10 @@ import pytest
 
 _ROOT = Path(__file__).resolve().parents[3]
 
-# (file, mode label) for each converted site.
+# (file, mode label) for each converted site. The adaptive and hybrid
+# guards live in auralis/core/processing/mode_dispatch.py (#6272) and are
+# exercised behaviorally by tests/regression/test_sample_count_invariant.py.
 _SITES = [
-    ("auralis/core/hybrid_processor.py", "adaptive"),
-    ("auralis/core/hybrid_processor.py", "hybrid"),
     ("auralis/core/hybrid_stage_dispatch.py", "reference"),
 ]
 

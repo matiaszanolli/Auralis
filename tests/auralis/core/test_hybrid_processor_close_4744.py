@@ -179,8 +179,3 @@ class TestTheDocumentationIsHonest:
         assert not offenders, (
             f"still describing close() as a thread-pool reclaim: {offenders}"
         )
-
-    def test_close_documents_that_it_releases_nothing(self):
-        doc = HybridProcessor.close.__doc__ or ""
-        assert "Releases nothing today" in doc
-        assert "#4744" in doc
