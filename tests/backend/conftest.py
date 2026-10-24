@@ -484,28 +484,6 @@ def mock_repository_factory_callable(mock_repository_factory):
     return _get_factory
 
 
-@pytest.fixture(params=["library_database", "repository_factory"])
-def mock_data_source(request, mock_library_database, mock_repository_factory):
-    """
-    Parametrized fixture for dual-mode backend testing.
-
-    Automatically provides both LibraryManager and RepositoryFactory mocks,
-    allowing router tests to validate both access patterns work correctly.
-
-    Phase 5C: Enables automatic dual-mode validation of all router endpoints.
-
-    Example:
-        def test_get_artists_both_modes(client, mock_data_source):
-            # Test automatically runs with both patterns
-            mode, source = mock_data_source
-            # Can check which mode and handle accordingly
-    """
-    if request.param == "library_database":
-        return ("library_database", mock_library_database)
-    else:
-        return ("repository_factory", mock_repository_factory)
-
-
 @pytest.fixture
 def mock_track_repository():
     """Get mock TrackRepository for testing."""
@@ -553,7 +531,4 @@ def pytest_configure(config):
     """Configure pytest with asyncio settings"""
     config.addinivalue_line(
         "markers", "asyncio: mark test as an asyncio test"
-    )
-    config.addinivalue_line(
-        "markers", "phase5c: Phase 5C dual-mode backend tests"
     )

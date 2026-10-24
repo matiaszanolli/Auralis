@@ -21,10 +21,6 @@ Coverage:
 (written for the pre-#4270 single-router shape; skipped for requiring a
 real app + a library pre-seeded with fingerprints, neither of which this
 mocked-router style needs). Before deleting it:
-  - Ported TestFingerprintRepositoryDualModeParametrized verbatim — despite
-    living under the old file's module-level skip, it never touched the
-    real app/DB (it exercises the already-mocked `mock_data_source`
-    fixture), so it ran cleanly once moved here.
   - test_negative_limit / test_zero_k_neighbors / test_missing_track_comparison
     are already covered in spirit by this file's
     test_get_similar_tracks_limit_validation and
@@ -565,60 +561,3 @@ class TestBlockingCallsOffloaded:
             mock_to_thread.assert_any_call(mock_similarity.fit)
 
 
-@pytest.mark.phase5c
-class TestFingerprintRepositoryDualModeParametrized:
-    """Parametrized dual-mode tests for the fingerprints repository interface,
-    ported from the retired test_similarity_api.py (#4716).
-
-    Unlike the rest of that file, these never needed a real app/DB — they
-    exercise `mock_data_source` (already mocked for both LibraryManager and
-    RepositoryFactory) and were caught by the file's blanket module-level
-    skip only because they lived alongside the genuinely DB-dependent
-    integration tests, not because they needed one themselves.
-    """
-
-    def test_fingerprint_repository_interface(self, mock_data_source):
-        """Both LibraryManager and RepositoryFactory expose a fingerprints
-        repository with get_all/get_by_id."""
-        mode, source = mock_data_source
-
-        assert hasattr(source, 'fingerprints'), f"{mode} missing fingerprints repository"
-        assert hasattr(source.fingerprints, 'get_all'), f"{mode}.fingerprints missing get_all"
-        assert hasattr(source.fingerprints, 'get_by_id'), f"{mode}.fingerprints missing get_by_id"
-
-    def test_fingerprint_stats_operation(self, mock_data_source):
-        """Both modes support fingerprint stats retrieval with the same shape."""
-        mode, source = mock_data_source
-
-        stats = {
-            'total': 100,
-            'fingerprinted': 75,
-            'pending': 25,
-            'progress_percent': 75
-        }
-        source.fingerprints.get_fingerprint_stats = Mock(return_value=stats)
-
-        result = source.fingerprints.get_fingerprint_stats()
-
-        assert result['total'] == 100, f"{mode}: Total count mismatch"
-        assert result['fingerprinted'] == 75, f"{mode}: Fingerprinted count mismatch"
-        assert result['pending'] == 25, f"{mode}: Pending count mismatch"
-        assert result['progress_percent'] == 75, f"{mode}: Progress percent mismatch"
-        source.fingerprints.get_fingerprint_stats.assert_called_once()
-
-    def test_fingerprint_get_by_id_interface(self, mock_data_source):
-        """Both modes return fingerprint data consistently from get_by_id."""
-        mode, source = mock_data_source
-
-        fingerprint = Mock()
-        fingerprint.id = 1
-        fingerprint.track_id = 100
-        fingerprint.fingerprint_data = b"test_fingerprint"
-
-        source.fingerprints.get_by_id = Mock(return_value=fingerprint)
-
-        result = source.fingerprints.get_by_id(1)
-
-        assert result.id == 1, f"{mode}: Fingerprint ID mismatch"
-        assert result.track_id == 100, f"{mode}: Track ID mismatch"
-        assert result.fingerprint_data == b"test_fingerprint", f"{mode}: Fingerprint data mismatch"

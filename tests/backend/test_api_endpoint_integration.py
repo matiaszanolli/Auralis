@@ -412,14 +412,16 @@ def test_playlist_add_tracks_api(client, library_track):
         "/api/playlists",
         json={"name": "Test Playlist 2"}
     )
-    if create_response.status_code not in [200, 201]:
-        pytest.skip("Playlist creation failed")
+    assert create_response.status_code in (200, 201), (
+        f"playlist creation broke: {create_response.status_code} {create_response.text}"
+    )
 
     # Extract playlist_id from nested response structure
     response_data = create_response.json()
     playlist_id = response_data.get("playlist", {}).get("id") or response_data.get("id") or response_data.get("playlist_id")
-    if not playlist_id:
-        pytest.skip("Could not extract playlist_id from response")
+    assert playlist_id, (
+        f"playlist id missing from create response: {response_data!r}"
+    )
 
     track_id = library_track.id
 
@@ -532,40 +534,3 @@ def test_version_info_api(client):
 # ============================================================
 # Following the same pattern as Phase 5C.1 API tests.
 
-@pytest.mark.phase5c
-class TestAPIEndpointDualMode:
-    """Phase 5C.2: Dual-mode tests using mock fixtures from conftest.py"""
-
-    def test_mock_library_database_fixture_interface(self, mock_library_database):
-        """Test that mock_library_database has required interface."""
-        assert hasattr(mock_library_database, 'library')
-        assert hasattr(mock_library_database.library, 'get_all')
-        assert hasattr(mock_library_database.library, 'get_by_id')
-
-    def test_mock_repository_factory_fixture_interface(self, mock_repository_factory):
-        """Test that mock_repository_factory has required interface."""
-        assert hasattr(mock_repository_factory, 'library')
-        assert hasattr(mock_repository_factory.library, 'get_all')
-        assert hasattr(mock_repository_factory.library, 'get_by_id')
-
-    def test_dual_mode_interface_equivalence(self, mock_library_database, mock_repository_factory):
-        """Test that both mocks implement equivalent interfaces."""
-        from unittest.mock import Mock
-
-        # Create test data
-        item = Mock()
-        item.id = 1
-        item.name = "Test"
-
-        # Test LibraryManager pattern
-        mock_library_database.library.get_by_id = Mock(return_value=item)
-        lib_result = mock_library_database.library.get_by_id(1)
-        assert lib_result.id == 1
-
-        # Test RepositoryFactory pattern
-        mock_repository_factory.library.get_by_id = Mock(return_value=item)
-        repo_result = mock_repository_factory.library.get_by_id(1)
-        assert repo_result.id == 1
-
-        # Both should return same result
-        assert lib_result.name == repo_result.name

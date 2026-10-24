@@ -37,16 +37,6 @@ def mock_track(tmp_path):
     return track
 
 
-@pytest.fixture(autouse=True)
-def patch_track_repository(mock_track):
-    """Auto-patch TrackRepository for all tests in this module"""
-    with patch('auralis.library.repositories.TrackRepository') as MockTrackRepo:
-        repo_instance = Mock()
-        repo_instance.get_by_id.return_value = mock_track
-        MockTrackRepo.return_value = repo_instance
-        yield MockTrackRepo
-
-
 # Phase 5B.1: Migration to conftest.py fixtures
 # Removed local mock_library_database fixture - now using conftest.py fixture
 # This fixture was shadowing conftest.py - tests now use parent fixture
@@ -521,74 +511,3 @@ if __name__ == "__main__":
 # ============================================================
 # Following the same pattern as Phase 5C.1 API tests.
 
-@pytest.mark.phase5c
-class TestMetadataDualModeParametrized:
-    """Phase 5C.3: Parametrized dual-mode tests for metadata operations.
-
-    These tests automatically run with both LibraryManager and RepositoryFactory
-    via the parametrized mock_data_source fixture.
-    """
-
-    def test_metadata_tracks_interface(self, mock_data_source):
-        """
-        Parametrized test: Validate tracks repository for metadata operations.
-
-        Both modes must support track metadata retrieval and editing.
-        """
-        mode, source = mock_data_source
-
-        assert hasattr(source, 'tracks'), f"{mode} missing tracks repository"
-        assert hasattr(source.tracks, 'get_all'), f"{mode}.tracks missing get_all"
-        assert hasattr(source.tracks, 'get_by_id'), f"{mode}.tracks missing get_by_id"
-
-    def test_metadata_get_all_returns_tuple(self, mock_data_source):
-        """
-        Parametrized test: Validate tracks.get_all returns (items, total) for both modes.
-
-        Metadata editing requires track list pagination to work with both patterns.
-        """
-        mode, source = mock_data_source
-
-        # Create mock tracks with metadata
-        track1 = Mock()
-        track1.id = 1
-        track1.title = "Track 1"
-        track1.artist = "Artist 1"
-
-        track2 = Mock()
-        track2.id = 2
-        track2.title = "Track 2"
-        track2.artist = "Artist 2"
-
-        test_tracks = [track1, track2]
-        source.tracks.get_all = Mock(return_value=(test_tracks, 2))
-
-        # Test with both modes
-        tracks, total = source.tracks.get_all(limit=50, offset=0)
-
-        assert len(tracks) == 2, f"{mode}: Expected 2 tracks"
-        assert total == 2, f"{mode}: Expected total=2"
-        assert tracks[0].title == "Track 1", f"{mode}: First track title mismatch"
-        assert tracks[1].title == "Track 2", f"{mode}: Second track title mismatch"
-
-    def test_metadata_get_by_id_interface(self, mock_data_source):
-        """
-        Parametrized test: Validate tracks.get_by_id works with both modes.
-
-        Track metadata editing depends on retrieving track by ID.
-        """
-        mode, source = mock_data_source
-
-        track = Mock()
-        track.id = 1
-        track.title = "Test Track"
-        track.artist = "Test Artist"
-
-        source.tracks.get_by_id = Mock(return_value=track)
-
-        result = source.tracks.get_by_id(1)
-
-        assert result.id == 1, f"{mode}: Track ID mismatch"
-        assert result.title == "Test Track", f"{mode}: Track title mismatch"
-        assert result.artist == "Test Artist", f"{mode}: Track artist mismatch"
-        source.tracks.get_by_id.assert_called_once_with(1)
