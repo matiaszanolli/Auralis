@@ -30,7 +30,8 @@ import numpy as np
 
 from core.audio_processing_pipeline import AudioProcessingPipeline
 from core.chunk_boundaries import CHUNK_DURATION, CHUNK_INTERVAL
-from core.chunk_operations import ChunkOperations
+from core.chunk_file_loading import load_chunk_from_file
+from core.chunk_segment_extraction import extract_chunk_segment
 
 if TYPE_CHECKING:
     from core.chunked_processor import ChunkedAudioProcessor
@@ -98,7 +99,7 @@ def load_chunk(
     """
     Load a single chunk from audio file with optional context.
 
-    DELEGATES TO: ChunkOperations.load_chunk_from_file() (Phase 3 refactoring)
+    DELEGATES TO: load_chunk_from_file() in chunk_file_loading.py (#6270 split)
 
     Returns:
         Tuple of (audio_chunk, chunk_start_time, chunk_end_time)
@@ -113,7 +114,7 @@ def load_chunk(
     # path and pay only a header open, so nothing regresses for them.
     seekable_path = processor._source.resolve()
 
-    return ChunkOperations.load_chunk_from_file(
+    return load_chunk_from_file(
         filepath=seekable_path,
         chunk_index=chunk_index,
         sample_rate=processor.sample_rate,
@@ -262,7 +263,7 @@ def process_chunk_core(
     # head extraction discards, so the heard boundary was a hard step. It also
     # makes a cache MISS record RMS over the same bytes a cache HIT does.
     assert processor.total_chunks is not None and processor.total_duration is not None
-    processed_chunk = ChunkOperations.extract_chunk_segment(
+    processed_chunk = extract_chunk_segment(
         processed_chunk=processed_chunk,
         chunk_index=chunk_index,
         sample_rate=processor.sample_rate,  # geometry: chunk_boundaries defaults

@@ -8,7 +8,7 @@ CONTEXT: ``ChunkBoundaryManager.trim_context()`` used a ``max_trim_fraction=0.25
 safety cap that limited the trim to 25% of the *chunk's own* buffer length. For a
 short track, the last chunk's loaded (pre-DSP) buffer is itself short, so 25% of
 it can be far less than the CONTEXT_DURATION (5s) trim that
-``ChunkOperations.extract_chunk_segment`` assumes was fully applied. The cap
+``extract_chunk_segment (chunk_segment_extraction.py)`` assumes was fully applied. The cap
 silently under-trimmed the start of the buffer, desyncing extract_chunk_segment's
 fixed ``overlap_samples`` skip-offset — the final seconds of short tracks were
 dropped and earlier content was duplicated in their place.
@@ -31,8 +31,10 @@ import pytest
 backend_path = Path(__file__).parent.parent.parent / "auralis-web" / "backend"
 sys.path.insert(0, str(backend_path))
 
-from core.chunk_boundaries import ChunkBoundaryManager, content_chunk_count
-from core.chunk_operations import ChunkOperations
+from core.chunk_boundary_manager import ChunkBoundaryManager
+from core.chunk_boundaries import content_chunk_count
+from core.chunk_file_loading import load_chunk_from_file
+from core.chunk_segment_extraction import extract_chunk_segment
 from core.chunk_boundaries import (
     CHUNK_DURATION,
     CHUNK_INTERVAL,
@@ -68,7 +70,7 @@ def _reconstruct_via_real_trim_context(total_duration: float) -> np.ndarray:
 
         trimmed = manager.trim_context(loaded.copy(), chunk_index)
 
-        extracted = ChunkOperations.extract_chunk_segment(
+        extracted = extract_chunk_segment(
             processed_chunk=trimmed,
             chunk_index=chunk_index,
             sample_rate=SR,

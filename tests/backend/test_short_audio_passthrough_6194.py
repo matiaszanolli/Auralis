@@ -23,10 +23,9 @@ if str(_BACKEND) not in sys.path:
     sys.path.insert(0, str(_BACKEND))
 
 import auralis.core.hybrid_stage_dispatch as stage_dispatch  # noqa: E402
-from core.audio_processing_pipeline import (  # noqa: E402
-    MIN_SAMPLES,
-    AudioProcessingPipeline,
-)
+from auralis.core.hybrid_stage_dispatch import MIN_SAMPLES  # noqa: E402
+from core.audio_processing_pipeline import AudioProcessingPipeline  # noqa: E402
+from core.audio_validation import validate_audio  # noqa: E402
 
 
 def test_backend_imports_the_engine_constant():
@@ -40,7 +39,7 @@ def test_validate_audio_returns_short_buffer_instead_of_raising():
     behaviour: unprocessed, sample count preserved."""
     short_stereo = np.ones((512, 2), dtype=np.float32)
 
-    result = AudioProcessingPipeline.validate_audio(short_stereo)
+    result = validate_audio(short_stereo)
 
     assert isinstance(result, np.ndarray)
     assert result.shape == (512, 2)
@@ -52,7 +51,7 @@ def test_validate_audio_still_converts_short_mono_to_stereo():
     so even a short mono buffer keeps the (N, 2) shape callers index into."""
     short_mono = np.linspace(-0.5, 0.5, 512, dtype=np.float32)
 
-    result = AudioProcessingPipeline.validate_audio(short_mono)
+    result = validate_audio(short_mono)
 
     assert result.shape == (512, 2)
 

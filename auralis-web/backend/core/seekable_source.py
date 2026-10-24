@@ -5,7 +5,8 @@ Seekable Audio Source
 Gives chunk readers a path that libsndfile can *seek*, converting the source
 exactly once when it cannot.
 
-Why this exists (#4737): `ChunkOperations.load_chunk_from_file` opened the raw
+Why this exists (#4737): the loader (now `load_chunk_from_file` in
+`chunk_file_loading.py`) opened the raw
 track path with `sf.SoundFile(...)` and, on failure, fell back to decoding the
 WHOLE file via `load_audio()` and slicing out the 25 s it wanted. libsndfile
 cannot open `.m4a`/`.aac`/`.wma` at all, so for those formats that fallback ran

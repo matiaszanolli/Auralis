@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Regression tests for ChunkOperations.extract_chunk_segment overlap handling.
+Regression tests for extract_chunk_segment (chunk_segment_extraction.py) overlap handling.
 
 CONTEXT (BE-CP-1 / #3803): For middle chunks, the context-trimmed buffer
 represents source time ``[chunk_start, chunk_start + CHUNK_DURATION]`` (~15 s).
@@ -27,7 +27,8 @@ import numpy as np
 backend_path = Path(__file__).parent.parent.parent / "auralis-web" / "backend"
 sys.path.insert(0, str(backend_path))
 
-from core.chunk_operations import ChunkOperations
+from core.chunk_file_loading import load_chunk_from_file
+from core.chunk_segment_extraction import extract_chunk_segment
 from core.chunk_boundaries import (
     CHUNK_DURATION,
     CHUNK_INTERVAL,
@@ -53,7 +54,7 @@ def _post_trim_buffer(chunk_index: int, channels: int = 2) -> np.ndarray:
 
 
 def _extract(chunk_index: int, total_chunks: int, total_duration: float) -> np.ndarray:
-    return ChunkOperations.extract_chunk_segment(
+    return extract_chunk_segment(
         processed_chunk=_post_trim_buffer(chunk_index),
         chunk_index=chunk_index,
         sample_rate=SR,
@@ -135,7 +136,7 @@ def test_old_offset_zero_would_have_duplicated_overlap():
 # ---------------------------------------------------------------------------
 
 def _extract_mono(buf_1d, chunk_index=0, total_chunks=10, total_duration=100.0):
-    return ChunkOperations.extract_chunk_segment(
+    return extract_chunk_segment(
         processed_chunk=buf_1d,
         chunk_index=chunk_index,
         sample_rate=SR,

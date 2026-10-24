@@ -161,7 +161,7 @@ async def stream_enhanced_audio_from_position(
         # `seek_offset = start_position - idx * chunk_interval`, which maps onto
         # the chunk *core* timeline — but the buffer the offset is trimmed from
         # has already had OVERLAP_DURATION skipped by
-        # ChunkOperations.extract_chunk_segment, so every seek to >= 10s landed
+        # extract_chunk_segment (chunk_segment_extraction.py), so every seek to >= 10s landed
         # exactly 5s past the requested point and the transport read 5s ahead of
         # the audio for the rest of the stream.
         #

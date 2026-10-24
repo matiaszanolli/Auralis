@@ -17,7 +17,8 @@ import soundfile as sf
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from core.chunk_operations import ChunkOperations
+from core.chunk_file_loading import load_chunk_from_file
+from core.chunk_segment_extraction import extract_chunk_segment
 
 SR = 44100
 
@@ -34,7 +35,7 @@ def test_primary_path_returns_float32(tmp_path):
     wav_path = tmp_path / "chunk_source.wav"
     _write_wav(wav_path)
 
-    audio, _start, _end = ChunkOperations.load_chunk_from_file(
+    audio, _start, _end = load_chunk_from_file(
         filepath=str(wav_path),
         chunk_index=0,
         sample_rate=SR,
@@ -52,7 +53,7 @@ def test_primary_and_fallback_paths_agree_on_dtype(tmp_path):
     wav_path = tmp_path / "chunk_source.wav"
     _write_wav(wav_path)
 
-    primary_audio, _, _ = ChunkOperations.load_chunk_from_file(
+    primary_audio, _, _ = load_chunk_from_file(
         filepath=str(wav_path),
         chunk_index=0,
         sample_rate=SR,
@@ -67,7 +68,7 @@ def test_primary_and_fallback_paths_agree_on_dtype(tmp_path):
 
     with patch("soundfile.SoundFile", side_effect=RuntimeError("forced fallback")), \
          patch("auralis.io.unified_loader.load_audio", return_value=(full_audio, SR)):
-        fallback_audio, _, _ = ChunkOperations.load_chunk_from_file(
+        fallback_audio, _, _ = load_chunk_from_file(
             filepath=str(wav_path),
             chunk_index=0,
             sample_rate=SR,

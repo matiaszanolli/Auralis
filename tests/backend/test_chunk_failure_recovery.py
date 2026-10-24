@@ -104,7 +104,7 @@ class TestChunkFailureRecovery:
 
         #4557 corrected the value. Recovery position is where the client should
         resume, which is the failed chunk's EMITTED start — not its core start
-        (chunk_idx * CHUNK_INTERVAL). ChunkOperations.extract_chunk_segment
+        (chunk_idx * CHUNK_INTERVAL). extract_chunk_segment (chunk_segment_extraction.py)
         skips OVERLAP_DURATION from the head of every chunk >= 1, so by the time
         chunk N fails the client has already heard up to
         N * CHUNK_INTERVAL + OVERLAP_DURATION; resuming at the core start would

@@ -135,7 +135,7 @@ async def stream_processed_chunk(
     """
     Stream already-processed PCM samples to client.
 
-    No boundary crossfade is applied, and none is needed: ChunkOperations
+    No boundary crossfade is applied, and none is needed: the extractor
     renders each chunk WITH 5 s of context on each side and then trims it to
     its non-overlapping CHUNK_INTERVAL segment (#3514), so the DSP state —
     compressor envelope, EQ filters — is already continuous across the

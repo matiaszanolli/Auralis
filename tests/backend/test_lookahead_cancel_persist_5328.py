@@ -24,7 +24,7 @@ from tests.backend.test_chunk_dsp_cancellation_4815 import _make_processor
 @pytest.fixture(autouse=True)
 def _identity_segment_extraction(monkeypatch):
     monkeypatch.setattr(
-        "core.chunk_operations.ChunkOperations.extract_chunk_segment",
+        "core.chunk_segment_extraction.extract_chunk_segment",
         lambda **kw: kw["processed_chunk"],
     )
 

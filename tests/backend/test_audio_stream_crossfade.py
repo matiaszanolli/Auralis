@@ -8,7 +8,7 @@ storage that fed it. Both are gone (#4642).
 History, so the removal is not re-litigated: #2183 added a server-side
 boundary crossfade; #3186 removed the tail *mix* to avoid pre-echo, leaving a
 bare 200 ms fade-in that produced an audible periodic volume dip; #3514 made
-`apply_boundary_crossfade` a no-op because `ChunkOperations` already renders
+`apply_boundary_crossfade` a no-op because the extractor already renders
 each chunk with 5 s of context and trims it to a non-overlapping
 `CHUNK_INTERVAL` segment — DSP state is continuous across the boundary and
 adjacent chunks share no samples, so there is nothing to blend. #4642 deleted

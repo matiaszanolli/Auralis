@@ -91,6 +91,12 @@
     "auralis/player/integration_reporting.py": 127,
     "auralis/player/queue_controller.py": 269,
     "auralis/player/queue_loading.py": 135,
-    "auralis/player/queue_locked_state.py": 58
+    "auralis/player/queue_locked_state.py": 58,
+    "auralis-web/backend/core/chunk_boundary_manager.py": 237,
+    "auralis-web/backend/core/audio_validation.py": 119,
+    "auralis-web/backend/core/level_transition.py": 211,
+    "auralis-web/backend/core/level_constants.py": 51,
+    "auralis-web/backend/core/chunk_file_loading.py": 162,
+    "auralis-web/backend/core/chunk_segment_extraction.py": 166
   }
 }

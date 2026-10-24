@@ -99,7 +99,7 @@ class ChunkedAudioProcessor:
 
         # (#5056: the old `self.chunk_interval` exposure was removed — no
         # production reader; chunk position math goes through
-        # chunk_boundaries.emitted_chunk_start(), and chunk_operations
+        # chunk_boundaries.emitted_chunk_start(), and the chunk loaders
         # defaults its own `chunk_interval` parameter from CHUNK_INTERVAL
         # directly.)
 

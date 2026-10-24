@@ -95,7 +95,7 @@ class TestProcessChunkChecksTheCancelEvent:
 
         with pytest.MonkeyPatch.context() as mp:
             mp.setattr(
-                "core.chunk_operations.ChunkOperations.extract_chunk_segment",
+                "core.chunk_segment_extraction.extract_chunk_segment",
                 lambda **kw: kw["processed_chunk"],
             )
             chunk_streaming.process_chunk(processor, chunk_index=0, locked=False)
@@ -114,7 +114,7 @@ class TestProcessChunkChecksTheCancelEvent:
 
         with pytest.MonkeyPatch.context() as mp:
             mp.setattr(
-                "core.chunk_operations.ChunkOperations.extract_chunk_segment",
+                "core.chunk_segment_extraction.extract_chunk_segment",
                 lambda **kw: kw["processed_chunk"],
             )
             chunk_streaming.process_chunk(processor, chunk_index=0, locked=False)

@@ -21,7 +21,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from core.chunk_operations import ChunkOperations
+from core.chunk_file_loading import load_chunk_from_file
+from core.chunk_segment_extraction import extract_chunk_segment
 from auralis.io.saver import save as save_audio
 
 SR = 44100
@@ -40,7 +41,7 @@ class TestLoadChunkFromFileBailsOutEarly:
         inverted; load_audio (the full-file decode) must never be invoked."""
         with patch("auralis.io.unified_loader.load_audio") as mock_load_audio, \
              patch("soundfile.SoundFile") as mock_soundfile:
-            audio, _start, _end = ChunkOperations.load_chunk_from_file(
+            audio, _start, _end = load_chunk_from_file(
                 filepath="/tmp/whatever.wav",
                 chunk_index=10_000,  # grossly beyond any real track
                 sample_rate=SR,
@@ -58,7 +59,7 @@ class TestLoadChunkFromFileBailsOutEarly:
             mock_file = mock_soundfile.return_value.__enter__.return_value
             mock_file.read.return_value = np.zeros((44100, 2), dtype=np.float32)
 
-            ChunkOperations.load_chunk_from_file(
+            load_chunk_from_file(
                 filepath="/tmp/whatever.wav",
                 chunk_index=0,
                 sample_rate=SR,
@@ -136,7 +137,7 @@ class TestAllChunkProcessingRejectsOutOfRange:
     @pytest.mark.parametrize("chunk_index", [-1, 3])
     def test_extract_chunk_segment_rejects_out_of_range(self, chunk_index):
         with pytest.raises(ValueError, match="out of range"):
-            ChunkOperations.extract_chunk_segment(
+            extract_chunk_segment(
                 processed_chunk=np.zeros((SR, 2), dtype=np.float32),
                 chunk_index=chunk_index,
                 sample_rate=SR,

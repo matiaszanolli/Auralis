@@ -17,7 +17,8 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from core.chunk_operations import ChunkOperations
+from core.chunk_file_loading import load_chunk_from_file
+from core.chunk_segment_extraction import extract_chunk_segment
 
 SR = 44100
 
@@ -29,7 +30,7 @@ def test_fallback_start_beyond_eof_returns_float32():
 
     with patch("soundfile.SoundFile", side_effect=RuntimeError("forced fallback")), \
          patch("auralis.io.unified_loader.load_audio", return_value=(short, SR)):
-        audio, _start, _end = ChunkOperations.load_chunk_from_file(
+        audio, _start, _end = load_chunk_from_file(
             filepath="/tmp/whatever.wav",
             chunk_index=10,          # start ≈ 95 s ≫ 100 samples → beyond EOF
             sample_rate=SR,
@@ -47,7 +48,7 @@ def test_fallback_empty_audio_returns_float32():
 
     with patch("soundfile.SoundFile", side_effect=RuntimeError("forced fallback")), \
          patch("auralis.io.unified_loader.load_audio", return_value=(short, SR)):
-        audio, _start, _end = ChunkOperations.load_chunk_from_file(
+        audio, _start, _end = load_chunk_from_file(
             filepath="/tmp/whatever.wav",
             chunk_index=0,
             sample_rate=SR,

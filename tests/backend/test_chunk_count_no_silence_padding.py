@@ -31,7 +31,8 @@ backend_path = Path(__file__).parent.parent.parent / "auralis-web" / "backend"
 sys.path.insert(0, str(backend_path))
 
 from core.chunk_boundaries import content_chunk_count
-from core.chunk_operations import ChunkOperations
+from core.chunk_file_loading import load_chunk_from_file
+from core.chunk_segment_extraction import extract_chunk_segment
 from core.chunk_boundaries import (
     CHUNK_DURATION,
     CHUNK_INTERVAL,
@@ -60,7 +61,7 @@ def _trimmed_buffer(chunk_index: int, total_chunks: int, total_duration: float,
 
 
 def _extract(chunk_index: int, total_chunks: int, total_duration: float) -> np.ndarray:
-    return ChunkOperations.extract_chunk_segment(
+    return extract_chunk_segment(
         processed_chunk=_trimmed_buffer(chunk_index, total_chunks, total_duration),
         chunk_index=chunk_index,
         sample_rate=SR,

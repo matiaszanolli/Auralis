@@ -70,7 +70,7 @@ class TestGetWavChunkPathRejectsNonFiniteAudio:
 
         with patch.object(processor, "_process_chunk_core", return_value=nan_chunk), \
              patch(
-                 "core.chunk_operations.ChunkOperations.extract_chunk_segment",
+                 "core.chunk_segment_extraction.extract_chunk_segment",
                  return_value=nan_chunk,
              ):
             with pytest.raises(ValueError, match="non-finite"):
@@ -87,7 +87,7 @@ class TestGetWavChunkPathRejectsNonFiniteAudio:
 
         with patch.object(processor, "_process_chunk_core", return_value=inf_chunk), \
              patch(
-                 "core.chunk_operations.ChunkOperations.extract_chunk_segment",
+                 "core.chunk_segment_extraction.extract_chunk_segment",
                  return_value=inf_chunk,
              ):
             with pytest.raises(ValueError, match="non-finite"):
@@ -103,7 +103,7 @@ class TestGetWavChunkPathRejectsNonFiniteAudio:
 
         with patch.object(processor, "_process_chunk_core", return_value=nan_chunk), \
              patch(
-                 "core.chunk_operations.ChunkOperations.extract_chunk_segment",
+                 "core.chunk_segment_extraction.extract_chunk_segment",
                  return_value=nan_chunk,
              ):
             with pytest.raises(ValueError, match="non-finite"):

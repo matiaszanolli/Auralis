@@ -1,5 +1,5 @@
 """
-Regression tests: ChunkOperations.load_chunk_from_file() boundaries must
+Regression tests: load_chunk_from_file() boundaries must
 match ChunkBoundaryManager exactly (#5055)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -27,8 +27,9 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from core.chunk_boundaries import ChunkBoundaryManager
-from core.chunk_operations import ChunkOperations
+from core.chunk_boundary_manager import ChunkBoundaryManager
+from core.chunk_file_loading import load_chunk_from_file
+from core.chunk_segment_extraction import extract_chunk_segment
 
 SAMPLE_RATE_48K = 48000
 
@@ -62,7 +63,7 @@ class TestLoadChunkBoundariesMatchChunkBoundaryManager:
                     expected_load_start, expected_load_end, sample_rate
                 )
 
-                _audio, chunk_start, chunk_end = ChunkOperations.load_chunk_from_file(
+                _audio, chunk_start, chunk_end = load_chunk_from_file(
                     filepath="/tmp/whatever.wav",
                     chunk_index=chunk_index,
                     sample_rate=sample_rate,
@@ -101,7 +102,7 @@ class TestLoadChunkBoundariesMatchChunkBoundaryManager:
                 expected_load_start, expected_load_end, sample_rate
             )
 
-            _audio, chunk_start, chunk_end = ChunkOperations.load_chunk_from_file(
+            _audio, chunk_start, chunk_end = load_chunk_from_file(
                 filepath="/tmp/whatever.wav",
                 chunk_index=chunk_index,
                 sample_rate=sample_rate,
@@ -129,7 +130,7 @@ class TestLoadChunkBoundariesMatchChunkBoundaryManager:
             mock_file = mock_soundfile.return_value.__enter__.return_value
             mock_file.read.return_value = np.zeros((1, 2), dtype=np.float32)
 
-            _audio, chunk_start, chunk_end = ChunkOperations.load_chunk_from_file(
+            _audio, chunk_start, chunk_end = load_chunk_from_file(
                 filepath="/tmp/whatever.wav",
                 chunk_index=chunk_index,
                 sample_rate=sample_rate,

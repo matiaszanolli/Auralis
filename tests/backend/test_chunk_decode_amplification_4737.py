@@ -1,7 +1,7 @@
 """
 Per-chunk full-file decode amplification — issue #4737.
 
-`ChunkOperations.load_chunk_from_file` opened the raw track path with
+`load_chunk_from_file (chunk_file_loading.py)` opened the raw track path with
 `sf.SoundFile(...)` and, on failure, fell back to decoding the WHOLE file via
 `load_audio()` and slicing out the ~25 s it wanted. libsndfile cannot open
 `.m4a`/`.aac`/`.wma` at all, so for those formats that fallback ran on *every*

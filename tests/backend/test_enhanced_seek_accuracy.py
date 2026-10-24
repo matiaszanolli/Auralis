@@ -3,7 +3,7 @@
 The seek math computed ``int(position / CHUNK_INTERVAL)`` and trimmed
 ``position - index * CHUNK_INTERVAL`` off the front of the delivered buffer.
 That maps onto the chunk *core* timeline — but the buffer it trims has already
-had ``OVERLAP_DURATION`` removed by ``ChunkOperations.extract_chunk_segment``,
+had ``OVERLAP_DURATION`` removed by ``extract_chunk_segment (chunk_segment_extraction.py)``,
 because the previous chunk emitted that audio. So every enhanced seek to a
 position >= CHUNK_INTERVAL started exactly OVERLAP_DURATION past the requested
 point, and the transport read 5s ahead of the audio for the rest of the stream.

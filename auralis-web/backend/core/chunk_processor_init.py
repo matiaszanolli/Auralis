@@ -33,7 +33,7 @@ from typing import Any, NamedTuple
 
 from auralis.core.config import UnifiedConfig
 
-from core.chunk_boundaries import ChunkBoundaryManager
+from core.chunk_boundary_manager import ChunkBoundaryManager
 from core.chunk_cache_manager import ChunkCacheManager
 from core.chunk_path_cache import ChunkPathCache
 from core.encoding import WAVEncoder
@@ -149,7 +149,7 @@ def init_fingerprint_and_processor(
 
     if preset is not None:
         # #5306: the chunk loader decodes at the file's REAL rate
-        # (chunk_operations.load_chunk) and nothing resamples to 44.1 kHz, so
+        # (chunk_file_loading.load_chunk_from_file) and nothing resamples to 44.1 kHz, so
         # the processor's config must carry that rate or every stage reading
         # `internal_sample_rate` — psychoacoustic EQ band -> FFT bin, K-weighted
         # LUFS, ContinuousMode's fingerprint
