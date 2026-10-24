@@ -14,6 +14,7 @@ from scripts.validate_release_metadata import validate_release_metadata
 compatibility_version_module = importlib.import_module("auralis.__version__")
 
 
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 PACKAGE_FILES = (
     PROJECT_ROOT / "package.json",
@@ -34,7 +35,10 @@ def test_dependency_free_release_preflight_rejects_wrong_version() -> None:
 def test_all_release_metadata_matches_product_version() -> None:
     expected = product_version.__version__
 
-    assert compatibility_version_module.__version__ == expected
+    # The compatibility mirror in auralis/__version__.py is gone (#6262);
+    # only the schema/fingerprint versions live there now.
+    assert not hasattr(compatibility_version_module, "__version__")
+    assert not hasattr(compatibility_version_module, "__version_info__")
     for package_file in PACKAGE_FILES:
         package = json.loads(package_file.read_text())
         assert package["version"] == expected, package_file
@@ -71,7 +75,6 @@ def test_version_components_match_semantic_version() -> None:
     major, minor, patch, prerelease_type, prerelease_number = match.groups()
     expected_core = (int(major), int(minor), int(patch))
     assert product_version.__version_info__[:3] == expected_core
-    assert compatibility_version_module.__version_info__[:3] == expected_core
     assert (
         product_version.VERSION_MAJOR,
         product_version.VERSION_MINOR,

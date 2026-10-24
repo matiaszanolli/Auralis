@@ -50,7 +50,7 @@ def update_package_json(file_path: Path, new_version: str):
 
 
 def update_version_py(new_version: str, build_date: str):
-    """Update the canonical product version and compatibility mirror."""
+    """Update the canonical product version."""
     version_file = PROJECT_ROOT / "auralis/version.py"
     if not version_file.exists():
         print(f"❌ Version file not found: {version_file}")
@@ -108,22 +108,6 @@ def update_version_py(new_version: str, build_date: str):
     version_file.write_text(content)
     print(f"✅ Updated {version_file}")
 
-    compatibility_file = PROJECT_ROOT / "auralis/__version__.py"
-    compatibility = compatibility_file.read_text()
-    compatibility = re.sub(
-        r'__version__\s*=\s*"[^"]*"',
-        f'__version__ = "{new_version}"',
-        compatibility,
-        count=1,
-    )
-    compatibility = re.sub(
-        r'__version_info__\s*=\s*\([^)]+\)',
-        f'__version_info__ = {version_info}',
-        compatibility,
-        count=1,
-    )
-    compatibility_file.write_text(compatibility)
-    print("✅ Updated auralis/__version__.py compatibility mirror")
     return True
 
 

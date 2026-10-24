@@ -80,7 +80,6 @@ def validate_release_metadata(expected: str | None = None) -> list[str]:
     """Return validation errors; an empty list means the metadata is coherent."""
     errors: list[str] = []
     canonical = _literal_assignments(Path("auralis/version.py"))
-    compatibility = _literal_assignments(Path("auralis/__version__.py"))
 
     version = canonical.get("__version__")
     if not isinstance(version, str):
@@ -124,15 +123,6 @@ def validate_release_metadata(expected: str | None = None) -> list[str]:
         if actual != expected_value:
             errors.append(
                 f"auralis/version.py: {name} is {actual!r}, expected {expected_value!r}"
-            )
-
-    for name in ("__version__", "__version_info__"):
-        actual = compatibility.get(name)
-        expected_value = expected_assignments[name]
-        if actual != expected_value:
-            errors.append(
-                f"auralis/__version__.py: {name} is {actual!r}, "
-                f"expected {expected_value!r}"
             )
 
     for relative_path in PACKAGE_FILES:

@@ -368,7 +368,8 @@ $ python -m pytest tests/backend/ -v
 
 ### Checking Current Version
 ```python
-from auralis.__version__ import __version__, __db_schema_version__
+from auralis.version import __version__
+from auralis.__version__ import __db_schema_version__
 print(f"App version: {__version__}")
 print(f"DB schema version: {__db_schema_version__}")
 ```

@@ -1,13 +1,10 @@
-"""Compatibility version exports and independent data-format versions.
+"""Independent data-format versions.
 
-The product version is authored in :mod:`auralis.version`.  The two product
-constants below are retained for older importers and are updated by
-``sync_version.py``.  Database schema and fingerprint algorithm versions are
-independent and must only change with their respective formats.
+The product version is authored in :mod:`auralis.version`.  Database schema
+and fingerprint algorithm versions are independent and must only change with
+their respective formats.
 """
 
-__version__ = "1.5.1"
-__version_info__ = (1, 5, 1, "", 0)
 __db_schema_version__ = 23  # user_settings.default_preset normalized to 'adaptive' (#5824)
 
 # Fingerprint algorithm version — increment this whenever the 25D extraction
