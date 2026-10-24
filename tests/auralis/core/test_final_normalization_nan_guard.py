@@ -10,7 +10,11 @@ _apply_final_normalization() only guarded the narrower silence-induced -inf
 LUFS case (#4104), not a general NaN/Inf already present in the audio itself.
 
 Both now guard with validate_audio_finite(repair=True) at the top of their
-final-normalization method, matching HybridMode.
+final-normalization method, matching HybridMode. Since #6105 that repair is
+bounded: a stray non-finite fraction is zeroed, but a mostly non-finite
+buffer raises ModuleError instead of being zeroed into a silent chunk that
+pre-empts the fail-fast guards and the pipeline's unprocessed-audio
+fallback.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
@@ -20,10 +24,12 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import numpy as np
+import pytest
 
 from auralis.core.config import UnifiedConfig
 from auralis.core.processing.adaptive_mode import AdaptiveMode
 from auralis.core.processing.continuous_mode import ContinuousMode
+from auralis.utils.logging import ModuleError
 
 
 def _adaptive_mode() -> AdaptiveMode:
@@ -71,15 +77,17 @@ class TestAdaptiveModeFinalNormalizationNaNGuard:
         # that it's still a float dtype, not exact-match with the input.
         assert out.dtype in (np.float32, np.float64)
 
-    def test_all_nan_input_repaired_to_finite(self):
-        """Worst case: every sample is NaN — must not crash, must self-heal."""
+    def test_all_nan_input_raises_instead_of_zeroing(self):
+        """Worst case: every sample is NaN — a broken stage's whole output,
+        not stray samples. Since #6105 the guard refuses to zero such a
+        buffer (that shipped a silent chunk and pre-empted the fail-fast
+        guards and the pipeline's unprocessed-audio fallback); it raises
+        ModuleError instead."""
         mode = _adaptive_mode()
         audio = np.full((4096, 2), np.nan, dtype=np.float32)
 
-        out = mode._apply_final_normalization(audio, self._params())
-
-        assert np.all(np.isfinite(out))
-        assert out.shape == audio.shape
+        with pytest.raises(ModuleError):
+            mode._apply_final_normalization(audio, self._params())
 
     def test_clean_audio_still_normalized_finite(self):
         """The guard must not break the normal (finite) path."""

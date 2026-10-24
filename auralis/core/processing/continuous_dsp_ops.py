@@ -30,7 +30,7 @@ from ...dsp.utils.stereo import (
     WIDTH_FACTOR_UNITY,
     stereo_width_analysis,
 )
-from ...utils.audio_validation import validate_audio_finite
+from ...utils.audio_validation import MAX_IN_STAGE_REPAIR_FRACTION, validate_audio_finite
 from ...utils.logging import debug
 from ..config import UnifiedConfig
 from .base import (
@@ -192,7 +192,15 @@ class ContinuousDSPOpsMixin:
         # case — an arbitrary NaN/Inf already present in `audio` itself
         # (e.g. from an upstream DSP bug) would otherwise reach
         # calculate_loudness_units/amplify unguarded.
-        audio = validate_audio_finite(audio, context="continuous_mode final normalization", repair=True)
+        # The repair is bounded (#6105): a mostly non-finite buffer raises
+        # instead of being zeroed, so the HybridProcessor fail-fast guard
+        # and the pipeline's unprocessed-audio fallback still fire.
+        audio = validate_audio_finite(
+            audio,
+            context="continuous_mode final normalization",
+            repair=True,
+            repair_max_fraction=MAX_IN_STAGE_REPAIR_FRACTION,
+        )
 
         # Step 1: LUFS-based normalization to target loudness.
         # #3665 moved this off raw RMS, which diverged 3-6 dB with spectral

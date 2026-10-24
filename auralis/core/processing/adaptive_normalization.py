@@ -9,12 +9,12 @@ peak/LUFS normalization pass, as a function over the mode processor.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from ...dsp.utils.conversion import SILENCE_FLOOR_DB
-from ...utils.audio_validation import validate_audio_finite
+from ...utils.audio_validation import MAX_IN_STAGE_REPAIR_FRACTION, validate_audio_finite
 from ...utils.logging import debug, info
 from ...dsp.basic import rms
 from ...dsp.utils.adaptive import calculate_loudness_units
@@ -25,8 +25,11 @@ from .base.db_conversion import DBConversion
 from .base.peak_management import PeakNormalizer
 from .base.processing_logger import ProcessingLogger
 
+if TYPE_CHECKING:
+    from .adaptive_mode import AdaptiveMode
 
-def apply_final_normalization(mode, audio: np.ndarray, spectrum_params: Any) -> np.ndarray:
+
+def apply_final_normalization(mode: "AdaptiveMode", audio: np.ndarray, spectrum_params: Any) -> np.ndarray:
     """Apply final gain boost and peak normalization using LUFS-based adaptive control"""
 
     # Catch NaN/Inf before any of the below computations — an unguarded
@@ -35,8 +38,15 @@ def apply_final_normalization(mode, audio: np.ndarray, spectrum_params: Any) -> 
     # failure class #3429 fixed for HybridMode's reference-blend path.
     # This method is HybridMode's own no-reference fallback (reachable
     # directly whenever no reference track is set — the common case),
-    # so it needed the same guard (fixes #4237).
-    audio = validate_audio_finite(audio, context="adaptive_mode final normalization", repair=True)
+    # so it needed the same guard (fixes #4237). The repair is bounded
+    # (#6105): a mostly non-finite buffer raises instead of being zeroed,
+    # so the mode-output fail-fast guard and the pipeline's fallback fire.
+    audio = validate_audio_finite(
+        audio,
+        context="adaptive_mode final normalization",
+        repair=True,
+        repair_max_fraction=MAX_IN_STAGE_REPAIR_FRACTION,
+    )
 
     # Step 0: Calculate source LUFS and crest factor for adaptive loudness control
     source_lufs = calculate_loudness_units(audio, mode.config.internal_sample_rate)

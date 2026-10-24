@@ -199,6 +199,14 @@ class HybridProcessor:
         if early_result is not None:
             return early_result
 
+        # A non-finite reference fails fast at the same boundary `target` is
+        # validated (#6105). Hybrid mode used to carry a NaN reference into
+        # the blend, where the old unconditional repair zeroed whole buffers
+        # into silent chunks; reference mode already raised from its own
+        # output guard, later and with a vaguer message.
+        if reference is not None:
+            reference = validate_audio_finite(reference, context="reference audio", repair=False)
+
         # Process based on mode
         if self.config.is_reference_mode() and reference is not None:
             return self._process_reference_mode(target_audio, reference)

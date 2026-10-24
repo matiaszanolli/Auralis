@@ -13,7 +13,7 @@ from typing import Any, cast
 import numpy as np
 
 from ...dsp.basic import normalize
-from ...utils.audio_validation import validate_audio_finite
+from ...utils.audio_validation import MAX_IN_STAGE_REPAIR_FRACTION, validate_audio_finite
 from ...utils.logging import debug, info
 from ..processors.reference_mode import apply_reference_matching
 
@@ -95,8 +95,16 @@ class HybridMode:
                         adaptive_processed * adaptation_strength)
 
         # Catch NaN/Inf before normalization — normalize() would propagate
-        # them silently into the output (#3429).
-        blended_audio = validate_audio_finite(blended_audio, context="hybrid_mode blend", repair=True)
+        # them silently into the output (#3429). The repair is bounded
+        # (#6105): a mostly non-finite blend raises instead of being zeroed,
+        # so the mode-output fail-fast guard and the pipeline's fallback
+        # fire rather than shipping a silent chunk.
+        blended_audio = validate_audio_finite(
+            blended_audio,
+            context="hybrid_mode blend",
+            repair=True,
+            repair_max_fraction=MAX_IN_STAGE_REPAIR_FRACTION,
+        )
 
         # Normalize to -0.1 dB peak (matching Matchering behavior)
         return normalize(blended_audio, 0.9886)
