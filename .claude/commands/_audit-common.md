@@ -181,8 +181,13 @@ All audit scratch I/O lives under **`/tmp/audit/auralis/`** (e.g. `/tmp/audit/au
 
 Before reporting ANY finding:
 
-1. Run: `gh issue list --state all --limit 6000 --json number,title,state,labels > /tmp/audit/auralis/issues.json`
-   `--state all` is load-bearing: `gh issue list` defaults to open issues only, so without it every row says `OPEN` and the CLOSED branch below can never fire (#5843). The `--limit` must exceed the highest issue number, or the dump is silently truncated.
+1. Run the canonical dump (defined HERE — every other audit skill references this step, #6278):
+   ```bash
+   gh issue list --state all --limit 100000 --json number,title,state,labels > /tmp/audit/auralis/issues.json
+   gh issue list --state all --limit 1 --json number > /tmp/audit/auralis/highest.json
+   ```
+   `--state all` is load-bearing: `gh issue list` defaults to open issues only, so without it every row says `OPEN` and the CLOSED branch below can never fire (#5843). `--limit 100000` exceeds any realistic issue count (PRs consume numbers too, so the constraint is the issue COUNT, not the highest number — the 6000 literal sat ~55 issues from truncating when retired). The second command is the assertion: the dump must contain an issue whose number equals that highest number, or it silently truncated — check with
+   `jq 'map(.number)|max' /tmp/audit/auralis/issues.json` vs `jq '.[0].number' /tmp/audit/auralis/highest.json` before deduping.
 2. Search for keywords from your finding in existing issue titles.
 3. Scan `docs/audits/` for prior reports covering the same issue.
 4. Scan `.claude/issues/` for local snapshots of prior fixes.

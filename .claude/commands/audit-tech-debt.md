@@ -59,7 +59,8 @@ Default every tech-debt finding to LOW unless one of the above fires. Do **not**
 2. `mkdir -p /tmp/audit/auralis/tech-debt` — namespaced by project on purpose: `/tmp/audit/<audit-name>` is shared by every repo on the machine, and a second project's tech-debt run overwrote this one's `dim_*.md` files (#5847). Never write directly under a bare `/tmp/audit/tech-debt`.
 3. Fetch dedup baseline (see `_audit-common.md` "Deduplication"):
    ```bash
-   gh issue list --state all --limit 6000 --json number,title,state,labels > /tmp/audit/auralis/tech-debt/issues.json
+   # canonical dump defined in _audit-common.md Deduplication step 1 (--limit 100000 + truncation assertion)
+   gh issue list --state all --limit 100000 --json number,title,state,labels > /tmp/audit/auralis/tech-debt/issues.json
    gh issue list --limit 500 --state all --label tech-debt --json number,title,state > /tmp/audit/auralis/tech-debt/issues_tech_debt.json
    ```
 4. Scan `docs/audits/` for prior tech-debt reports (`AUDIT_TECH_DEBT_*.md`).

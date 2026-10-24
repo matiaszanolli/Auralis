@@ -140,7 +140,7 @@ Trace how user-controlled data flows through the system:
 
 1. Parse `$ARGUMENTS` for `--focus`, `--depth`, `--limit`
 2. `mkdir -p /tmp/audit/auralis/security`
-3. Fetch dedup baseline: `gh issue list --state all --limit 6000 --json number,title,state,labels > /tmp/audit/auralis/security/issues.json`
+3. Fetch dedup baseline: the canonical dump from `_audit-common.md` Deduplication step 1 (`--limit 100000` + truncation assertion), redirected to `/tmp/audit/auralis/security/issues.json`
 4. Scan `docs/audits/` for prior security audit reports
 
 ## Phase 2: Launch Category Agents
