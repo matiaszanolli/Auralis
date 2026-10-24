@@ -12,6 +12,7 @@ with centralized defaults and lazy evaluation.
 """
 
 from dataclasses import dataclass
+from typing import Any
 
 from ...dsp.utils.loudness_targets import DEFAULT_TARGET_LUFS
 
@@ -53,6 +54,15 @@ FINGERPRINT_DEFAULTS: dict[str, float] = {
 }
 
 
+# The 25 dimension accessors are generated from this table by
+# FingerprintUnpacker.__getattr__ (#6272) — one definition instead of 25
+# hand-written property blocks, and a new dimension means adding one entry.
+_DIMENSION_KEYS: dict[str, str] = {}
+
+
+
+
+
 @dataclass
 class FingerprintUnpacker:
     """
@@ -92,6 +102,13 @@ class FingerprintUnpacker:
     def _get(self, key: str) -> float:
         return self._fp.get(key, FINGERPRINT_DEFAULTS[key])
 
+    def __getattr__(self, name: str) -> float:
+        key = _DIMENSION_KEYS.get(name)
+        if key is None:
+            raise AttributeError(name)
+        return self._get(key)
+
+
     def as_dict(self) -> dict[str, float]:
         """Return the complete defaulted 25D numeric fingerprint."""
         return {
@@ -126,154 +143,29 @@ class FingerprintUnpacker:
     # Dynamics (3D)
     # =========================================================================
 
-    @property
-    def lufs(self) -> float:
-        """Integrated loudness (LUFS). Default: DEFAULT_TARGET_LUFS."""
-        return self._get('lufs')
-
-    @property
-    def crest_db(self) -> float:
-        """Crest factor in dB (peak-to-RMS ratio). Default: 12.0"""
-        return self._get('crest_db')
-
-    @property
-    def bass_mid_ratio(self) -> float:
-        """Bass to mid-range energy ratio. Default: 0.0"""
-        return self._get('bass_mid_ratio')
-
     # =========================================================================
     # Frequency (7D) - all bands
     # =========================================================================
-
-    @property
-    def sub_bass_pct(self) -> float:
-        """Sub-bass energy percentage (< 60 Hz). Default: 0.05"""
-        return self._get('sub_bass_pct')
-
-    @property
-    def bass_pct(self) -> float:
-        """Bass energy percentage (60-200 Hz). Default: 0.15"""
-        return self._get('bass_pct')
-
-    @property
-    def low_mid_pct(self) -> float:
-        """Low-mid energy percentage (200-500 Hz). Default: 0.10"""
-        return self._get('low_mid_pct')
-
-    @property
-    def mid_pct(self) -> float:
-        """Mid energy percentage (500-2000 Hz). Default: 0.20"""
-        return self._get('mid_pct')
-
-    @property
-    def upper_mid_pct(self) -> float:
-        """Upper-mid energy percentage (2-4 kHz). Default: 0.25"""
-        return self._get('upper_mid_pct')
-
-    @property
-    def presence_pct(self) -> float:
-        """Presence energy percentage (4-8 kHz). Default: 0.15"""
-        return self._get('presence_pct')
-
-    @property
-    def air_pct(self) -> float:
-        """Air energy percentage (> 8 kHz). Default: 0.10"""
-        return self._get('air_pct')
 
     # =========================================================================
     # Temporal (4D)
     # =========================================================================
 
-    @property
-    def tempo_bpm(self) -> float:
-        """Estimated tempo in BPM. Default: 120.0"""
-        return self._get('tempo_bpm')
-
-    @property
-    def rhythm_stability(self) -> float:
-        """Rhythm stability metric 0.0-1.0. Default: 0.5"""
-        return self._get('rhythm_stability')
-
-    @property
-    def transient_density(self) -> float:
-        """Transient density metric 0.0-1.0. Default: 0.5"""
-        return self._get('transient_density')
-
-    @property
-    def silence_ratio(self) -> float:
-        """Silence ratio 0.0-1.0. Default: 0.0"""
-        return self._get('silence_ratio')
-
     # =========================================================================
     # Spectral (3D) - brightness indicators
     # =========================================================================
-
-    @property
-    def spectral_centroid(self) -> float:
-        """Spectral centroid (brightness) 0.0-1.0. Default: 0.5"""
-        return self._get('spectral_centroid')
-
-    @property
-    def spectral_rolloff(self) -> float:
-        """Spectral rolloff frequency 0.0-1.0. Default: 0.5"""
-        return self._get('spectral_rolloff')
-
-    @property
-    def spectral_flatness(self) -> float:
-        """Spectral flatness (noisiness) 0.0-1.0. Default: 0.5"""
-        return self._get('spectral_flatness')
 
     # =========================================================================
     # Harmonic (3D)
     # =========================================================================
 
-    @property
-    def harmonic_ratio(self) -> float:
-        """Harmonic content ratio 0.0-1.0. Default: 0.5"""
-        return self._get('harmonic_ratio')
-
-    @property
-    def pitch_stability(self) -> float:
-        """Pitch stability metric 0.0-1.0. Default: 0.5"""
-        return self._get('pitch_stability')
-
-    @property
-    def chroma_energy(self) -> float:
-        """Chroma energy distribution 0.0-1.0. Default: 0.5"""
-        return self._get('chroma_energy')
-
     # =========================================================================
     # Variation (3D)
     # =========================================================================
 
-    @property
-    def dynamic_range_variation(self) -> float:
-        """Dynamic range variation 0.0-1.0. Default: 0.5"""
-        return self._get('dynamic_range_variation')
-
-    @property
-    def loudness_variation_std(self) -> float:
-        """Loudness variation standard deviation. Default: 0.0"""
-        return self._get('loudness_variation_std')
-
-    @property
-    def peak_consistency(self) -> float:
-        """Peak consistency metric 0.0-1.0. Default: 0.5"""
-        return self._get('peak_consistency')
-
     # =========================================================================
     # Stereo (2D)
     # =========================================================================
-
-    @property
-    def stereo_width(self) -> float:
-        """Stereo width metric 0.0-1.0. Default: 0.5"""
-        return self._get('stereo_width')
-
-    @property
-    def phase_correlation(self) -> float:
-        """Phase correlation -1.0 to +1.0. Default: 1.0"""
-        return self._get('phase_correlation')
 
     # =========================================================================
     # Factory Method
@@ -306,3 +198,32 @@ class FingerprintUnpacker:
 def fingerprint_default(dimension: str) -> float:
     """The assumed value of ``dimension`` when a fingerprint does not carry it."""
     return FINGERPRINT_DEFAULTS[dimension]
+
+
+_DIMENSION_KEYS.update({
+    'lufs': 'lufs',
+    'crest_db': 'crest_db',
+    'bass_mid_ratio': 'bass_mid_ratio',
+    'sub_bass_pct': 'sub_bass_pct',
+    'bass_pct': 'bass_pct',
+    'low_mid_pct': 'low_mid_pct',
+    'mid_pct': 'mid_pct',
+    'upper_mid_pct': 'upper_mid_pct',
+    'presence_pct': 'presence_pct',
+    'air_pct': 'air_pct',
+    'tempo_bpm': 'tempo_bpm',
+    'rhythm_stability': 'rhythm_stability',
+    'transient_density': 'transient_density',
+    'silence_ratio': 'silence_ratio',
+    'spectral_centroid': 'spectral_centroid',
+    'spectral_rolloff': 'spectral_rolloff',
+    'spectral_flatness': 'spectral_flatness',
+    'harmonic_ratio': 'harmonic_ratio',
+    'pitch_stability': 'pitch_stability',
+    'chroma_energy': 'chroma_energy',
+    'dynamic_range_variation': 'dynamic_range_variation',
+    'loudness_variation_std': 'loudness_variation_std',
+    'peak_consistency': 'peak_consistency',
+    'stereo_width': 'stereo_width',
+    'phase_correlation': 'phase_correlation',
+})

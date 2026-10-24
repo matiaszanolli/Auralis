@@ -33,7 +33,12 @@ from ..utils.logging import debug, info
 from .analysis import AdaptiveTargetGenerator, ContentAnalyzer  # re-exported: tests/test_adaptive_processing.py
 from .config import UnifiedConfig
 from .hybrid_setup import apply_module_optimizations, build_hybrid_components
-from .hybrid_stage_dispatch import process_reference_mode, validate_and_normalize_input
+from .hybrid_stage_dispatch import validate_and_normalize_input
+from .processing.mode_dispatch import (
+    process_adaptive_mode as _dispatch_adaptive,
+    process_hybrid_mode as _dispatch_hybrid,
+    process_reference_mode as _dispatch_reference,
+)
 
 if TYPE_CHECKING:
     # Only needed for the class-level attribute annotations below — the
@@ -212,91 +217,19 @@ class HybridProcessor:
 
     def _process_reference_mode(self, target_audio: np.ndarray,
                                reference: np.ndarray) -> np.ndarray:
-        """Process using traditional reference-based matching. See
-        hybrid_stage_dispatch.process_reference_mode() (#5463)."""
-        return process_reference_mode(self, target_audio, reference)
+        """Reference-based matching; body in processing/mode_dispatch.py (#6272)."""
+        return _dispatch_reference(self, target_audio, reference)
 
     def _process_adaptive_mode(self, target_audio: np.ndarray) -> np.ndarray:
-        """
-        Process using adaptive mastering without reference.
-
-        Uses the internal processor logic directly: hybrid_processor is the
-        actual processor called by AudioProcessingPipeline.
-        """
-        info("Processing in adaptive mode")
-
-        info("Using continuous parameter space (fingerprint-based)")
-
-        # Use fixed targets if set (from .25d file); this bypasses expensive
-        # fingerprint extraction on every chunk
-        fixed_params = self.current_targets if self.current_targets is not None else None
-
-        # Delegate to continuous mode processor
-        processed = self.continuous_mode.process(target_audio, self.eq_processor,
-                                                fixed_params=fixed_params)
-
-        # Store fingerprint and parameters for debugging
-        self.last_content_profile = {
-            'fingerprint': self.continuous_mode.last_fingerprint,
-            'coordinates': self.continuous_mode.last_coordinates,
-            'parameters': self.continuous_mode.last_parameters,
-        }
-
-        # Apply brick-wall limiter for final peak control
-        # Ensures output never clips and stays within safe range
-        processed = self.brick_wall_limiter.process(processed)
-        # Sample-count invariant: limiter must preserve length (fixes #2519).
-        # raise, not assert — asserts vanish under python -O (#5533, cf. #5511).
-        if processed.shape != target_audio.shape:
-            raise RuntimeError(
-                f"Sample count mismatch after limiter (adaptive): "
-                f"expected {target_audio.shape}, got {processed.shape}"
-            )
-
-        # Fail fast on NaN/Inf in mastering output — surface DSP bugs rather than
-        # silently masking them with zero-replacement (fixes #2520).
-        processed = validate_audio_finite(processed, context="adaptive mode output", repair=False)
-
-        return processed
+        """Adaptive mastering; body in processing/mode_dispatch.py (#6272)."""
+        return _dispatch_adaptive(self, target_audio)
 
     def _process_hybrid_mode(self, target_audio: np.ndarray,
                             reference: np.ndarray | None) -> np.ndarray:
-        """Process using hybrid approach combining reference and adaptive"""
-        info("Processing in hybrid mode")
-
-        # Reference, if provided, is a pre-loaded NumPy array (#4035).
-        reference_audio = reference
-
-        # Delegate to hybrid mode processor
-        processed = self.hybrid_mode.process(target_audio, reference_audio, self.eq_processor)
-
-        # Apply brick-wall limiter for final peak control
-        # Ensures output never clips and stays within safe range
-        processed = self.brick_wall_limiter.process(processed)
-        # Sample-count invariant: limiter must preserve length (fixes #2519).
-        # raise, not assert — asserts vanish under python -O (#5533, cf. #5511).
-        if processed.shape != target_audio.shape:
-            raise RuntimeError(
-                f"Sample count mismatch after limiter (hybrid): "
-                f"expected {target_audio.shape}, got {processed.shape}"
-            )
-
-        # Fail fast on NaN/Inf in mastering output — surface DSP bugs rather than
-        # silently masking them with zero-replacement (fixes #2520).
-        processed = validate_audio_finite(processed, context="hybrid mode output", repair=False)
-
-        return processed
+        """Hybrid reference+adaptive; body in processing/mode_dispatch.py (#6272)."""
+        return _dispatch_hybrid(self, target_audio, reference)
 
     # Delegation methods for component managers
-
-    def get_dynamics_info(self) -> dict[str, Any]:
-        """Get dynamics processing information"""
-        return self.dynamics_manager.get_info()
-
-    def set_dynamics_mode(self, mode: str) -> None:
-        """Set dynamics processing mode (#3787: locked)."""
-        with self._process_lock:
-            self.dynamics_manager.set_mode(mode)
 
     def reset_dynamics(self) -> None:
         """Reset dynamics processing state (#3787: locked)."""
