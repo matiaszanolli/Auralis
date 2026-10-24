@@ -57,11 +57,17 @@ class FeatureExtractor:
         """
         debug("Extracting ML features for genre classification")
 
-        # Convert to mono if stereo.
-        # The codebase convention is (channels, samples), so axis=0 averages
-        # across channels and produces the expected (n_samples,) mono signal.
-        # axis=1 would average across samples, yielding only a 2-element array (#2452).
-        mono_audio = to_mono(audio, 'channels_samples')
+        # Downmix with the engine's (samples, channels) layout — the same
+        # default to_mono() gives every analyzer (#5746). The previous
+        # 'channels_samples' call treated an (N, 2) track as 2 samples of
+        # N channels, zero-padded that to 1 s, and classified near-silence.
+        if audio.ndim == 2 and audio.shape[0] <= 8:
+            raise ValueError(
+                "FeatureExtractor expects (samples, channels) audio; got a "
+                f"2-D array with only {audio.shape[0]} rows — downmix "
+                "channels-first input before calling extract_features"
+            )
+        mono_audio = to_mono(audio)
 
         # Ensure minimum length
         if len(mono_audio) < self.sample_rate:

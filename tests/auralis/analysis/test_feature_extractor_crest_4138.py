@@ -18,10 +18,11 @@ def test_crest_factor_matches_padded_mono_for_short_stereo():
     sr = fe.sample_rate
 
     rng = np.random.RandomState(0)
-    audio = (rng.randn(2, 1000) * 0.2).astype(np.float32)  # short stereo (< 1 s)
+    audio = (rng.randn(1000, 2) * 0.2).astype(np.float32)  # short stereo (< 1 s)
 
-    # Reproduce the function's mono + min-length padding.
-    mono = np.mean(audio, axis=0)
+    # Reproduce the function's mono + min-length padding. Engine layout is
+    # (samples, channels) (#5746), so the channel axis is 1.
+    mono = np.mean(audio, axis=1)
     padded = np.zeros(sr)
     padded[: len(mono)] = mono
     expected = crest_factor(padded)
@@ -34,7 +35,7 @@ def test_crest_factor_differs_from_raw_stereo_for_short_clip():
     """Guard: the value should no longer equal crest_factor(original stereo)."""
     fe = FeatureExtractor()
     rng = np.random.RandomState(1)
-    audio = (rng.randn(2, 1000) * 0.2).astype(np.float32)
+    audio = (rng.randn(1000, 2) * 0.2).astype(np.float32)
 
     feats = fe.extract_features(audio)
     raw_stereo = float(crest_factor(audio))
