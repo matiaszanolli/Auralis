@@ -47,9 +47,9 @@ def _globals(**overrides):
 def _quiet_externals():
     """Patch the three module-level imports the shutdown path reaches for."""
     return (
-        patch("core.processor_registry.get_processor_factory", MagicMock()),
+        patch("core.processor_registry.all_processor_factories", MagicMock(return_value=[])),
         patch("services.artwork_downloader.close_artwork_downloader", AsyncMock()),
-        patch("analysis.fingerprint_generator.shutdown_fingerprint_executor_bounded", AsyncMock()),
+        patch("analysis.fingerprint_executor.shutdown_fingerprint_executor_bounded", AsyncMock()),
     )
 
 
@@ -178,7 +178,7 @@ class TestFingerprintExecutorShutdown:
         factory, artwork, _ = _quiet_externals()
         fingerprint_mock = AsyncMock(side_effect=lambda **kw: order.append("fingerprint"))
         with factory, artwork, patch(
-            "analysis.fingerprint_generator.shutdown_fingerprint_executor_bounded",
+            "analysis.fingerprint_executor.shutdown_fingerprint_executor_bounded",
             fingerprint_mock,
         ):
             await _shutdown_components(g)
@@ -192,7 +192,7 @@ class TestFingerprintExecutorShutdown:
         g = _globals()
         factory, artwork, _ = _quiet_externals()
         with factory, artwork, patch(
-            "analysis.fingerprint_generator.shutdown_fingerprint_executor_bounded",
+            "analysis.fingerprint_executor.shutdown_fingerprint_executor_bounded",
             new_callable=AsyncMock,
         ) as fingerprint_mock:
             await _shutdown_components(g)
@@ -205,7 +205,7 @@ class TestFingerprintExecutorShutdown:
         g = _globals()
         factory, artwork, _ = _quiet_externals()
         with factory, artwork, patch(
-            "analysis.fingerprint_generator.shutdown_fingerprint_executor_bounded",
+            "analysis.fingerprint_executor.shutdown_fingerprint_executor_bounded",
             AsyncMock(side_effect=RuntimeError("executor wedged")),
         ):
             await _shutdown_components(g)  # must not raise

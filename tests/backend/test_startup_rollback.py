@@ -242,7 +242,7 @@ class TestRollbackReallyTearsDownOwnedResources:
         }
 
         with (
-            patch("core.processor_registry.get_processor_factory", Mock()),
+            patch("core.processor_registry.all_processor_factories", Mock(return_value=[])),
             patch("services.artwork_downloader.close_artwork_downloader", AsyncMock()),
             patch("analysis.fingerprint_executor.shutdown_fingerprint_executor_bounded", AsyncMock()),
         ):

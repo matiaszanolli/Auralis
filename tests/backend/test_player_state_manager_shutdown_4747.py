@@ -41,9 +41,9 @@ def _globals(**overrides):
 
 async def _run(globals_dict):
     with (
-        patch("core.processor_registry.get_processor_factory", MagicMock()),
+        patch("core.processor_registry.all_processor_factories", MagicMock(return_value=[])),
         patch("services.artwork_downloader.close_artwork_downloader", AsyncMock()),
-        patch("analysis.fingerprint_generator.shutdown_fingerprint_executor_bounded", AsyncMock()),
+        patch("analysis.fingerprint_executor.shutdown_fingerprint_executor_bounded", AsyncMock()),
     ):
         await _shutdown_components(globals_dict)
 

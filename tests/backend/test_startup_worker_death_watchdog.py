@@ -202,9 +202,9 @@ class TestShutdownComponentsAwaitsWatchdogTeardown:
 
     def _quiet_externals(self):
         return (
-            patch("core.processor_registry.get_processor_factory", MagicMock()),
+            patch("core.processor_registry.all_processor_factories", MagicMock(return_value=[])),
             patch("services.artwork_downloader.close_artwork_downloader", AsyncMock()),
-            patch("analysis.fingerprint_generator.shutdown_fingerprint_executor_bounded", AsyncMock()),
+            patch("analysis.fingerprint_executor.shutdown_fingerprint_executor_bounded", AsyncMock()),
         )
 
     async def _run(self, globals_dict):
