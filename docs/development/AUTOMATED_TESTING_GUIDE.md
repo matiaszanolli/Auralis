@@ -56,7 +56,7 @@ First, install dependencies:
 
 ```bash
 cd /mnt/data/src/matchering/auralis-web/frontend
-npm install
+pnpm install
 ```
 
 This will install:
@@ -72,24 +72,24 @@ This will install:
 
 **Run all tests once**:
 ```bash
-npm run test:run
+pnpm run test:run
 ```
 
 **Run tests in watch mode** (re-runs on file changes):
 ```bash
-npm test
+pnpm test
 # or
-npm run test:watch
+pnpm run test:watch
 ```
 
 **Run tests with UI** (interactive browser interface):
 ```bash
-npm run test:ui
+pnpm run test:ui
 ```
 
 **Run with coverage report**:
 ```bash
-npm run test:coverage
+pnpm run test:coverage
 ```
 
 **Run specific test file**:
@@ -106,7 +106,7 @@ npx vitest run --grep "AlbumArt"
 
 ## 📊 Test Coverage Report
 
-After running `npm run test:coverage`, you'll see:
+After running `pnpm run test:coverage`, you'll see:
 
 ```
 File                               | % Stmts | % Branch | % Funcs | % Lines
@@ -352,7 +352,7 @@ Provides custom `render` function that wraps components with:
 **Solution**: Install dependencies first
 ```bash
 cd auralis-web/frontend
-npm install
+pnpm install
 ```
 
 ---
@@ -497,17 +497,17 @@ jobs:
       - name: Install dependencies
         run: |
           cd auralis-web/frontend
-          npm install
+          pnpm install
 
       - name: Run tests
         run: |
           cd auralis-web/frontend
-          npm run test:run
+          pnpm run test:run
 
       - name: Generate coverage
         run: |
           cd auralis-web/frontend
-          npm run test:coverage
+          pnpm run test:coverage
 
       - name: Upload coverage
         uses: codecov/codecov-action@v3
@@ -609,4 +609,4 @@ jobs:
 
 **Happy Testing! 🧪**
 
-Run `npm run test:ui` for an interactive testing experience!
+Run `pnpm run test:ui` for an interactive testing experience!

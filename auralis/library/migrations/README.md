@@ -4,12 +4,12 @@ This directory contains SQL migration scripts for the Auralis database schema.
 
 ## Migration File Naming
 
-Format: `migration_vXXX_to_vYYY_description.sql`
+Format: `migration_vXXX_to_vYYY.sql`
 
 Examples:
-- `migration_v000_to_v001_initial_schema.sql` - Initial schema (documented but not used)
-- `migration_v001_to_v002_add_processing_history.sql` - Add processing history tracking
-- `migration_v002_to_v003_add_user_preferences.sql` - Add user preferences
+- `migration_v000_to_v001_initial_schema.sql` - Initial schema (the only file with a description suffix)
+- `migration_v001_to_v002.sql` - Adds lyrics column to tracks and artwork_path to albums
+- `migration_v022_to_v023.sql` - Current schema version
 
 ## How Migrations Work
 

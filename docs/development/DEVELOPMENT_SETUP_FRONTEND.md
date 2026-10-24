@@ -14,10 +14,10 @@ For experienced Node.js developers, here's the fastest path:
 ```bash
 # 1. Install dependencies
 cd auralis-web/frontend
-npm install
+pnpm install
 
 # 2. Start development server
-npm run dev
+pnpm run dev
 
 # 3. Open in browser
 # Visit: http://localhost:3000
@@ -30,7 +30,7 @@ npm run dev
 ### System Requirements
 - **OS**: Linux, macOS, or Windows (WSL2 recommended)
 - **Node.js**: 24+ LTS (check with `node --version`)
-- **npm**: 10+ (check with `npm --version`)
+- **pnpm**: 10+ (check with `pnpm --version`)
 - **Git**: Latest version (check with `git --version`)
 - **RAM**: 2GB minimum, 4GB recommended for comfortable development
 - **Disk**: 2GB free space for node_modules
@@ -50,7 +50,7 @@ brew link node@24 --force
 
 # Verify installation
 node --version  # v24.x.x
-npm --version   # 10.x.x
+pnpm --version   # 10.x.x
 ```
 
 #### Ubuntu/Debian
@@ -64,7 +64,7 @@ sudo apt install -y nodejs
 
 # Verify installation
 node --version  # v24.x.x
-npm --version   # 10.x.x
+pnpm --version   # 10.x.x
 ```
 
 #### Windows (WSL2)
@@ -75,7 +75,7 @@ sudo apt install -y nodejs
 
 # Verify
 node --version
-npm --version
+pnpm --version
 ```
 
 ---
@@ -100,11 +100,11 @@ ls -la
 ## Step 2: Install Dependencies
 
 **What does this do?**
-Installs all npm packages the project needs (React, TypeScript, Vite, etc.).
+Installs all packages the project needs (React, TypeScript, Vite, etc.).
 
 ```bash
 # Install dependencies (creates node_modules/ folder)
-npm install
+pnpm install
 
 # This will take 2-5 minutes depending on internet speed
 # You'll see output like:
@@ -117,25 +117,25 @@ npm install
 ls -la node_modules | head -10
 
 # List installed packages
-npm list --depth=0
+pnpm list --depth=0
 # Should show: react, vite, typescript, @mui/material, etc.
 
 # Verify key packages
-npm list react vite typescript
+pnpm list react vite typescript
 # Should show versions for each
 ```
 
-**Troubleshooting npm install:**
+**Troubleshooting pnpm install:**
 ```bash
-# If npm install fails, try:
+# If pnpm install fails, try:
 # 1. Clear cache
-npm cache clean --force
+pnpm store prune
 
 # 2. Delete node_modules and package-lock.json
 rm -rf node_modules package-lock.json
 
 # 3. Reinstall
-npm install
+pnpm install
 
 # 4. Check Node.js version (must be 24+)
 node --version
@@ -218,7 +218,7 @@ Starts Vite development server with hot module replacement (HMR). Changes to cod
 
 ```bash
 # Start development server
-npm run dev
+pnpm run dev
 
 # You should see output like:
 # ➜  Local:   http://localhost:3000/
@@ -242,7 +242,7 @@ This is the core development experience—make changes, see results immediately.
 ### Stop Development Server
 
 ```bash
-# Press Ctrl+C in the terminal running `npm run dev`
+# Press Ctrl+C in the terminal running `pnpm run dev`
 # You should see:
 # SIGINT received, shutting down gracefully...
 ```
@@ -258,12 +258,12 @@ Run this verification checklist:
 node --version
 # ✅ Should be v24+
 
-# 2. Check npm version
-npm --version
+# 2. Check pnpm version
+pnpm --version
 # ✅ Should be 10+
 
 # 3. Check dependencies installed
-npm list react vite typescript
+pnpm list react vite typescript
 # ✅ Should show versions
 
 # 4. Check environment file exists
@@ -271,12 +271,12 @@ ls -la .env.local
 # ✅ Should exist and be readable
 
 # 5. Build the frontend (verify no errors)
-npm run build
+pnpm run build
 # ✅ Should complete with 0 errors
 # Output will show: "built in 3.45s"
 
 # 6. Start dev server and test
-npm run dev &
+pnpm run dev &
 sleep 3
 
 # Test API connection
@@ -299,7 +299,7 @@ fg  # Bring to foreground
 cd auralis-web/frontend
 
 # 2. Start development server (in one terminal)
-npm run dev
+pnpm run dev
 
 # 3. In another terminal, make code changes
 # - Edit files in src/
@@ -314,27 +314,27 @@ npm run dev
 
 ```bash
 # Run all tests
-npm run test
+pnpm run test
 
 # Watch mode (re-run on file changes)
-npm run test -- --watch
+pnpm run test -- --watch
 
 # With coverage report
-npm run test -- --coverage
+pnpm run test -- --coverage
 
 # Run specific test file
-npm run test src/components/Player.test.tsx
+pnpm run test src/components/Player.test.tsx
 
 # Run tests matching pattern
-npm run test -- -t "Player"
+pnpm run test -- -t "Player"
 
 # IMPORTANT: Run with memory management for CI
-npm run test:memory
+pnpm run test:memory
 # This sets 2GB heap to prevent OOM
 
 # Run tests from backend (Phase 5 fixtures)
 # Frontend tests can use backend fixtures for integration testing
-pytest tests/ -v  # Backend includes Phase 5 fixture patterns
+python -m pytest -q -m "not slow" tests/<subdir>  # scoped backend run (whole tree takes tens of minutes)
 ```
 
 ### Phase 5: Frontend & Backend Test Integration
@@ -361,12 +361,12 @@ See [DEVELOPMENT_SETUP_BACKEND.md](DEVELOPMENT_SETUP_BACKEND.md#testing-with-pha
 
 ```bash
 # Build optimized bundle
-npm run build
+pnpm run build
 
 # Output in: auralis-web/frontend/dist/ (vite.config.mts sets build.outDir to 'dist', not 'build')
 
 # Preview production build locally
-npm run preview
+pnpm run preview
 
 # Visit: http://localhost:4173
 ```
@@ -375,18 +375,18 @@ npm run preview
 
 ```bash
 # Check TypeScript types
-npm run type-check
+pnpm run type-check
 
 # Or use tsc directly
 npx tsc --noEmit
 
 # Fix common issues
-npm run type-check 2>&1 | head -20
+pnpm run type-check 2>&1 | head -20
 ```
 
 ### Linting & Formatting
 
-> **Note (2026-07-08)**: There are currently no `lint` or `format` scripts in `package.json`, and neither ESLint nor Prettier are in `devDependencies` — this tooling has been removed from the project. Rely on `npm run type-check` (below) and the test suite instead.
+> **Note (2026-07-08)**: There are currently no `lint` or `format` scripts in `package.json`, and neither ESLint nor Prettier are in `devDependencies` — this tooling has been removed from the project. Rely on `pnpm run type-check` (below) and the test suite instead.
 
 ---
 
@@ -507,7 +507,7 @@ export function PlayerDisplay(): JSX.Element {
 
 ## Troubleshooting
 
-### Problem: "npm: command not found"
+### Problem: "pnpm: command not found"
 
 **Solution**: Install Node.js or check PATH
 
@@ -516,8 +516,8 @@ export function PlayerDisplay(): JSX.Element {
 which node
 # If not found, install Node.js 24+
 
-# Check npm
-which npm
+# Check pnpm
+which pnpm
 
 # If installed but not found, add to PATH
 # See Node.js installation guide above
@@ -537,7 +537,7 @@ kill -9 <PID>  # macOS/Linux
 taskkill /PID <PID> /F  # Windows
 
 # Or start on different port
-npm run dev -- --port 3001
+pnpm run dev -- --port 3001
 ```
 
 ### Problem: "Cannot find module '@/...'"
@@ -553,7 +553,7 @@ npm run dev -- --port 3001
 # }
 
 # If not present, add it and restart dev server
-npm run dev
+pnpm run dev
 ```
 
 ### Problem: "WebSocket connection failed"
@@ -580,7 +580,7 @@ grep VITE_WS_URL .env.local
 
 ```bash
 # Use built-in memory management
-npm run test:memory
+pnpm run test:memory
 
 # This sets NODE_OPTIONS="--max-old-space-size=2048"
 # Prevents OOM on CI systems with limited memory
@@ -593,13 +593,13 @@ npm run test:memory
 ```bash
 # Delete lock file and reinstall
 rm package-lock.json
-npm install
+pnpm install
 
 # Or update specific package
-npm install --save react@latest
+pnpm install --save react@latest
 
 # Check for outdated packages
-npm outdated
+pnpm outdated
 ```
 
 ---
@@ -634,9 +634,9 @@ npm outdated
 
 1. Open Project → auralis-web/frontend
 2. Mark src/ as Sources Root (right-click → Mark Directory as)
-3. Configure → Project → Node.js and npm
+3. Configure → Project → Node.js and pnpm
 4. Set Node interpreter to 24 LTS
-5. Run → Edit Configurations → Add npm:
+5. Run → Edit Configurations → Add pnpm:
    - Command: run
    - Scripts: dev
 
@@ -650,8 +650,8 @@ Then click Run to start dev server.
 
 ```bash
 # Lighthouse report (requires backend running)
-npm run build
-npm run preview
+pnpm run build
+pnpm run preview
 
 # Visit http://localhost:4173 in Chrome
 # Open DevTools → Lighthouse
@@ -668,27 +668,27 @@ npm run preview
 
 ```bash
 # Run tests with memory tracking
-npm run test -- --reporter=verbose
+pnpm run test -- --reporter=verbose
 
 # Monitor test process
 top -o MEM -p $(pgrep -f "vitest")
 
 # Check for memory growth in multiple runs
-npm run test -- --runs 3
+pnpm run test -- --runs 3
 ```
 
 ### Bundle Analysis
 
 ```bash
 # Install bundle analyzer
-npm install --save-dev rollup-plugin-visualizer
+pnpm install --save-dev rollup-plugin-visualizer
 
 # Add to vite.config.ts:
 # import { visualizer } from 'rollup-plugin-visualizer';
 # plugins: [visualizer()]
 
 # Build and analyze
-npm run build
+pnpm run build
 # Opens visualization in browser
 ```
 
@@ -712,7 +712,7 @@ export const handlers = [
 ];
 
 # Run tests with mocked API:
-npm run test
+pnpm run test
 ```
 
 ### Connecting to Production Backend
@@ -723,10 +723,10 @@ VITE_API_URL=https://api.example.com/api
 VITE_WS_URL=wss://api.example.com/ws
 
 # Rebuild
-npm run build
+pnpm run build
 
 # Test with preview
-npm run preview
+pnpm run preview
 ```
 
 ### Enabling Offline Mode
@@ -755,14 +755,14 @@ rm -rf node_modules
 # Remove lock file (forces fresh install)
 rm package-lock.json
 
-# Clear npm cache
-npm cache clean --force
+# Clear pnpm cache
+pnpm store prune
 
 # Reinstall
-npm install
+pnpm install
 
 # Restart dev server
-npm run dev
+pnpm run dev
 ```
 
 ### Reset Build Artifacts
@@ -775,7 +775,7 @@ rm -rf dist/
 rm -rf test-results/
 
 # Rebuild
-npm run build
+pnpm run build
 ```
 
 ---
@@ -804,7 +804,7 @@ pnpm run dev
 **Terminal 3 - Tests:**
 ```bash
 cd auralis-web/frontend
-npm run test:memory -- --watch
+pnpm run test:memory -- --watch
 ```
 
 ### Testing Full Stack
@@ -828,7 +828,7 @@ npm run test:memory -- --watch
 
 1. ✅ Frontend running locally with hot reload
 2. ✅ Dev server accessible at http://localhost:3000
-3. ✅ Tests passing (run `npm test` to verify)
+3. ✅ Tests passing (run `pnpm test` to verify)
 4. ✅ Backend accessible at http://localhost:8765
 
 ### Start Phase B (Backend Foundation)
@@ -851,7 +851,7 @@ Then Phase C (Frontend Foundation):
 **Cannot start dev server?**
 - Check Node version: `node --version` (must be 20+)
 - Check port is free: `lsof -i :3000` should be empty
-- Check dependencies: `npm list` should show 1000+ packages
+- Check dependencies: `pnpm list` should show 1000+ packages
 - Check env file: `cat .env.local | head -5`
 
 **Backend not connecting?**
@@ -861,14 +861,14 @@ Then Phase C (Frontend Foundation):
 - Check network: DevTools → Network tab, click API calls
 
 **Tests failing?**
-- Run with verbose output: `npm run test -- --reporter=verbose`
-- Run single test: `npm run test -- PlayerControls.test.tsx`
+- Run with verbose output: `pnpm run test -- --reporter=verbose`
+- Run single test: `pnpm run test -- PlayerControls.test.tsx`
 - Check for timeout: Default is 30s, some tests might need more
-- Use memory management: `npm run test:memory`
+- Use memory management: `pnpm run test:memory`
 
 **Performance issues?**
-- Check bundle size: `npm run build` shows sizes
-- Check for console errors: `npm run dev` shows errors as they happen
+- Check bundle size: `pnpm run build` shows sizes
+- Check for console errors: `pnpm run dev` shows errors as they happen
 - Run Lighthouse: Build and preview, check performance metrics
 - Profile with DevTools: Open DevTools → Performance tab
 

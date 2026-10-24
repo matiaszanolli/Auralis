@@ -108,23 +108,24 @@ Full guidance: [development/TESTING_GUIDELINES.md](development/TESTING_GUIDELINE
 reading) and [development/TEST_EXECUTION_GUIDE.md](development/TEST_EXECUTION_GUIDE.md).
 
 ```bash
-# Python
-python -m pytest tests/ -v                        # all (~2–3 min)
-python -m pytest -m "not slow" -v                  # fast subset (PR gate)
+# Python — scope every run: the whole tree takes tens of minutes and two
+# files hang whole (see the known-suites note below); the full backend
+# suite is a CI job, not an inner loop.
+python -m pytest -q -m "not slow" tests/<subdir>   # e.g. tests/auralis/dsp
 python -m pytest tests/path.py::test_name -vv -s   # single test
 
 # Frontend (needs 2 GB heap — the full suite OOMs otherwise)
-cd auralis-web/frontend && npm run test:memory
+cd auralis-web/frontend && pnpm run test:memory -- <test-file-or-dir>
 
 # Type checks
 mypy auralis/ auralis-web/backend/ --ignore-missing-imports
-cd auralis-web/frontend && npm run type-check
+cd auralis-web/frontend && pnpm run type-check
 ```
 
 **Known-flaky / non-green suites** (don't be alarmed, and don't gate on them):
 
-- The full `tests/backend` suite never goes fully green (broken v15→v16 migration cascades) —
-  gate on **targeted domain tests**, not the whole suite.
+- The full `tests/backend` suite never goes fully green (a set of known failures is baselined in
+  `pytest-baseline.json`) — gate on **targeted domain tests**, not the whole suite.
 - `tests/backend/test_system_api.py` and `tests/concurrency/test_thread_safety.py` **hang** when
   run as whole files — run scoped classes/tests.
 - The frontend suite has a set of pre-existing failures; compare against a clean baseline using

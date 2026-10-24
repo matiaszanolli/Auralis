@@ -425,8 +425,6 @@ This section is a brief summary — **[MASTER_ROADMAP.md](docs/MASTER_ROADMAP.md
 ### 🔄 Open Backlog
 
 - [ ] macOS code signing for Gatekeeper (binaries currently unsigned)
-- [ ] `response_model=` coverage for ~28 backend endpoints (#3838)
-- [ ] Rust LUFS measurement → full BS.1770 K-weighting (#4123)
 - [ ] Export enhanced audio to file (playback enhancement is real-time only today)
 
 ### 📋 Planned

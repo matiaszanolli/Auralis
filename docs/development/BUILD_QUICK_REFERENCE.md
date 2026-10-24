@@ -4,21 +4,21 @@
 
 ```bash
 # Development
-npm run dev                    # Run app in dev mode (hot reload)
+pnpm run dev                    # Run app in dev mode (hot reload)
 
 # Building
-npm run build                  # Build frontend + backend
-npm run package                # Create standalone app for current platform
-npm run package:win            # Windows installer (.exe)
-npm run package:mac            # macOS disk image (.dmg)
-npm run package:linux          # Linux AppImage + deb
+pnpm run build                  # Build frontend + backend
+pnpm run package                # Create standalone app for current platform
+pnpm run package:win            # Windows installer (.exe)
+pnpm run package:mac            # macOS disk image (.dmg)
+pnpm run package:linux          # Linux AppImage + deb
 
-# Testing
-python -m pytest tests/ -v     # Run Python tests
-npm test                       # Run JavaScript tests (if configured)
+# Testing (scope Python runs — the whole tree takes tens of minutes; see CONTRIBUTING.md)
+python -m pytest -q -m "not slow" tests/<subdir>   # e.g. tests/auralis/dsp
+cd auralis-web/frontend && pnpm run test:memory -- <test-file-or-dir>
 
 # Cleaning
-npm run clean                  # Remove all build artifacts
+pnpm run clean                  # Remove all build artifacts
 ```
 
 ## 📁 Key Files
@@ -61,11 +61,11 @@ dist/
 ## 🔄 Build Workflow
 
 ```
-1. npm run build
+1. pnpm run build
    ├─> Builds React (auralis-web/frontend/build/)
    └─> Bundles Python (auralis-web/backend/dist/)
 
-2. npm run package
+2. pnpm run package
    ├─> Copies builds to desktop/resources/
    ├─> Runs electron-builder
    └─> Creates installer in dist/
@@ -115,4 +115,4 @@ dist/
 
 ---
 
-**TL;DR:** Run `npm run package` and you get a distributable app!
+**TL;DR:** Run `pnpm run package` and you get a distributable app!
