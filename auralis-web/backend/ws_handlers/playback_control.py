@@ -82,9 +82,12 @@ async def handle_stop(websocket: WebSocket, state: StreamState) -> None:
     #   * `playback_control` does not import from `playback_commands`, and
     #     reaching for a sibling module's private helper to save six lines
     #     would couple the two for less than it costs.
-    # Consolidating all three teardown sites behind one shared module is a
-    # reasonable follow-up, but it is a behaviour change for this handler and
-    # is out of scope for a consistency fix.
+    # TODO(#6292): consolidate the three teardown sites (this handler,
+    #   playback_commands._cancel_prior_task, connection.teardown_connection)
+    #   behind one shared cancel_stream() helper with the deliberate
+    #   differences above as parameters. Until then this stays a hand-synced
+    #   copy: any new per-ws registry or cancel-token step must be applied at
+    #   all three sites (#4364/#4742/#4815 each were).
     async with playback_event_sequencer.transition_lock:
         async with state.active_tasks_lock:
             task = state.active_tasks.pop(ws_id, None)
