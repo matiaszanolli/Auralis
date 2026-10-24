@@ -31,10 +31,14 @@ class Album(Base, TimestampMixin):
     year: Mapped[int | None] = mapped_column(Integer)
 
     # migration_v002_to_v003.sql, declared so fresh databases (create_all)
-    # match upgraded ones (#5321).
+    # match upgraded ones (#5321). idx_albums_artist_id arrives later, via
+    # migration_v024_to_v025.sql (#6103): albums.artist_id had no index, so
+    # correlated artist album counts and Artist.albums selectin loads
+    # scanned the whole table.
     __table_args__ = (
         Index('idx_albums_title', collate(title, 'NOCASE')),
         Index('idx_albums_year', year),
+        Index('idx_albums_artist_id', artist_id),
     )
 
     total_tracks: Mapped[int | None] = mapped_column(Integer)

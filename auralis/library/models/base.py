@@ -21,16 +21,28 @@ class Base(DeclarativeBase):
 
 
 # Association tables for many-to-many relationships
+#
+# SQLite FOREIGN KEY constraints index only the parent key, never the child
+# column, so both association tables carry their own indexes on each side
+# (#6103) — without them every Track.artists/Track.genres join, selectinload
+# and .any() EXISTS is a full-table scan, and find_similar (run on every
+# library track load while auto_reference_selection is on) took 20-40 s at
+# 50k tracks. Fresh create_all databases get these declarations;
+# migration v024→v025 adds them to databases upgraded from older versions.
 track_artist = Table(
     'track_artist', Base.metadata,
     Column('track_id', Integer, ForeignKey('tracks.id')),
-    Column('artist_id', Integer, ForeignKey('artists.id'))
+    Column('artist_id', Integer, ForeignKey('artists.id')),
+    Index('ix_track_artist_track_id', 'track_id'),
+    Index('ix_track_artist_artist_id', 'artist_id'),
 )
 
 track_genre = Table(
     'track_genre', Base.metadata,
     Column('track_id', Integer, ForeignKey('tracks.id')),
-    Column('genre_id', Integer, ForeignKey('genres.id'))
+    Column('genre_id', Integer, ForeignKey('genres.id')),
+    Index('ix_track_genre_track_id', 'track_id'),
+    Index('ix_track_genre_genre_id', 'genre_id'),
 )
 
 # #3724 + #3725: composite PK on (track_id, playlist_id) gives us the
