@@ -16,7 +16,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { apiRequest, get, post, del, APIRequestError } from '../apiRequest';
+import { apiRequest, get, post, del, getOrNullOn404, APIRequestError } from '../apiRequest';
 
 // ----------------------------------------------------------------------------
 // Fetch mocking helpers
@@ -268,5 +268,50 @@ describe('apiRequest timeout (#4442)', () => {
     expect(error).toBeInstanceOf(APIRequestError);
     expect(error.statusCode).toBe(0);
     expect(error.message).not.toMatch(/timed out/i);
+  });
+});
+
+// ----------------------------------------------------------------------------
+// getOrNullOn404 (#6221) — the one shared "404 means null" mapping
+// ----------------------------------------------------------------------------
+
+describe('getOrNullOn404 (#6221)', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn());
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  const mockedFetch = () => vi.mocked(globalThis.fetch);
+
+  it('resolves null on a 404', async () => {
+    mockedFetch().mockResolvedValue(
+      makeResponse({ ok: false, status: 404, statusText: 'Not Found' })
+    );
+    await expect(getOrNullOn404('/api/tracks/1/fingerprint')).resolves.toBeNull();
+  });
+
+  it('returns the parsed body on a 200', async () => {
+    const payload = { id: 1 };
+    mockedFetch().mockResolvedValue(
+      makeResponse({ ok: true, status: 200, json: async () => payload })
+    );
+    await expect(getOrNullOn404('/api/tracks/1/fingerprint')).resolves.toEqual(payload);
+  });
+
+  it('rejects on a 500 instead of swallowing it to null', async () => {
+    mockedFetch().mockResolvedValue(
+      makeResponse({ ok: false, status: 500, statusText: 'Internal Server Error' })
+    );
+    // The #4847/#5122 failure mode was every non-2xx becoming null; only 404 maps.
+    await expect(getOrNullOn404('/api/tracks/1/fingerprint')).rejects.toBeInstanceOf(APIRequestError);
+  });
+
+  it('rejects on a network-level failure', async () => {
+    mockedFetch().mockRejectedValue(new TypeError('Failed to fetch'));
+    await expect(getOrNullOn404('/api/tracks/1/fingerprint')).rejects.toBeInstanceOf(APIRequestError);
   });
 });

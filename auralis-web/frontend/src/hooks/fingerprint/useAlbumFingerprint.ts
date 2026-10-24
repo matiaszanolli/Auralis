@@ -14,8 +14,8 @@
 
 import { useQuery, useQueries } from '@tanstack/react-query';
 import type { AudioFingerprint } from '@/utils/fingerprintToGradient';
-import { get, APIRequestError } from '@/utils/apiRequest';
-import { QUERY_STALE_TIME_MS } from '@/config/timing';
+import { getOrNullOn404 } from '@/utils/apiRequest';
+import { QUERY_GC_TIME_MS, QUERY_STALE_TIME_MS } from '@/config/timing';
 
 interface AlbumFingerprintResponse {
   album_id: number;
@@ -29,8 +29,9 @@ interface AlbumFingerprintResponse {
  * Fetch album fingerprint from backend.
  *
  * A 404 is the one expected non-error outcome (no fingerprint yet), so it
- * resolves to `null` and the caller falls back to the hash gradient. Everything
- * else — a non-2xx status or a network-level failure — rejects.
+ * resolves to `null` via `getOrNullOn404` (#6221) and the caller falls back
+ * to the hash gradient. Everything else — a non-2xx status or a network-level
+ * failure — rejects.
  *
  * This used to wrap its own `throw` in a `try/catch` that turned every failure
  * back into `null` (#5122), which made a broken endpoint indistinguishable from
@@ -42,27 +43,16 @@ interface AlbumFingerprintResponse {
  * `useTrackFingerprint`; this is the half that sweep missed, and it converges on
  * that hook's shape rather than inventing a third.
  */
-const fetchAlbumFingerprint = async (
+const fetchAlbumFingerprint = (
   albumId: number,
   signal?: AbortSignal
-): Promise<AudioFingerprint | null> => {
-  try {
-    // #5019: shared transport, which bounds the request at DEFAULT_TIMEOUT_MS.
-    // The bare fetch() this replaces had no signal and no timeout, and a grid
-    // of album tiles issues one of these per tile. The caller's query signal
-    // is forwarded so unmount/invalidation aborts in-flight requests (#5611).
-    const data = await get<AlbumFingerprintResponse>(`/api/albums/${albumId}/fingerprint`, { signal });
-    return data.fingerprint;
-  } catch (err) {
-    // Album doesn't have fingerprints yet, return null (will use hash fallback)
-    if (err instanceof APIRequestError && err.statusCode === 404) {
-      return null;
-    }
-    // get() already surfaces the backend's `detail` rather than a bare
-    // `statusText`, which is empty over HTTP/2 (#4626).
-    throw err;
-  }
-};
+): Promise<AudioFingerprint | null> =>
+  // #5019: shared transport, which bounds the request at DEFAULT_TIMEOUT_MS.
+  // The bare fetch() this replaces had no signal and no timeout, and a grid
+  // of album tiles issues one of these per tile. The caller's query signal
+  // is forwarded so unmount/invalidation aborts in-flight requests (#5611).
+  getOrNullOn404<AlbumFingerprintResponse>(`/api/albums/${albumId}/fingerprint`, { signal })
+    .then((data) => (data === null ? null : data.fingerprint));
 
 /**
  * Hook to fetch album fingerprint with caching
@@ -90,9 +80,11 @@ export function useAlbumFingerprint(
 ) {
   const query = useQuery({
     queryKey: ['album-fingerprint', albumId],
-    queryFn: () => fetchAlbumFingerprint(albumId),
+    // { signal } forwarded so unmount/invalidation aborts the in-flight
+    // request (#5650's gap, same as the batch hook below already did).
+    queryFn: ({ signal }) => fetchAlbumFingerprint(albumId, signal),
     staleTime: QUERY_STALE_TIME_MS, // fingerprints don't change often
-    gcTime: 30 * 60 * 1000,   // 30 minutes cache retention
+    gcTime: QUERY_GC_TIME_MS,   // 30 minutes cache retention
     enabled: options?.enabled ?? true,
     // Kept false, but the original rationale no longer applies: since #5122 a
     // 404 resolves to `null` rather than throwing, so it was never going to be
@@ -150,7 +142,7 @@ export function useAlbumFingerprints(albumIds: number[]) {
       queryFn: ({ signal }: { signal?: AbortSignal }) =>
         withFingerprintSlot(() => fetchAlbumFingerprint(albumId, signal)),
       staleTime: QUERY_STALE_TIME_MS,
-      gcTime: 30 * 60 * 1000,
+      gcTime: QUERY_GC_TIME_MS,
       // Same settled decision as the single-album hook: album art is
       // decorative and every tile has a hash-gradient fallback.
       retry: false,

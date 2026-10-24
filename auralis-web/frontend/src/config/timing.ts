@@ -11,5 +11,13 @@
 /** How long React Query treats fetched data as fresh. Fingerprints and the app default use it. */
 export const QUERY_STALE_TIME_MS = 5 * 60 * 1000;
 
+/**
+ * How long React Query keeps an inactive query's cache before garbage
+ * collecting it (the fingerprint hooks each re-typed 30 minutes, #6221).
+ * Named to match #6064's proposal so that sweep and this constant converge
+ * on one name.
+ */
+export const QUERY_GC_TIME_MS = 30 * 60 * 1000;
+
 /** Keystrokes settle this long before a search request fires. */
 export const SEARCH_DEBOUNCE_MS = 300;

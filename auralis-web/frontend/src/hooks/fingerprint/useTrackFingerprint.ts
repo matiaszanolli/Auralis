@@ -14,8 +14,8 @@
 
 import { useQuery } from '@tanstack/react-query';
 import type { AudioFingerprint } from '@/utils/fingerprintToGradient';
-import { get, APIRequestError } from '@/utils/apiRequest';
-import { QUERY_STALE_TIME_MS } from '@/config/timing';
+import { getOrNullOn404 } from '@/utils/apiRequest';
+import { QUERY_GC_TIME_MS, QUERY_STALE_TIME_MS } from '@/config/timing';
 
 interface TrackFingerprintResponse {
   track_id: number;
@@ -29,29 +29,18 @@ interface TrackFingerprintResponse {
  * Fetch track fingerprint from backend.
  *
  * A 404 is the one expected non-error outcome (fingerprint queued but not
- * ready yet), so it resolves to `null`. Everything else — a non-2xx status
- * or a network-level failure — rejects instead of being swallowed to `null`
- * (#4847): a 404 and "the endpoint is broken" used to be indistinguishable,
- * both driving refetchInterval's indefinite 5s poll and leaving
- * `query.error` permanently empty.
+ * ready yet), so it resolves to `null` via `getOrNullOn404` (#6221).
+ * Everything else — a non-2xx status or a network-level failure — rejects
+ * instead of being swallowed to `null` (#4847): a 404 and "the endpoint is
+ * broken" used to be indistinguishable, both driving refetchInterval's
+ * indefinite 5s poll and leaving `query.error` permanently empty.
  */
-const fetchTrackFingerprint = async (trackId: number): Promise<TrackFingerprintResponse | null> => {
-  try {
-    // #5019: shared transport, which bounds the request at DEFAULT_TIMEOUT_MS.
-    // The bare fetch() this replaces had no signal and no timeout, so a stalled
-    // backend left the query loading forever with `refetchInterval` unable to
-    // reach a terminal state.
-    return await get<TrackFingerprintResponse>(`/api/tracks/${trackId}/fingerprint`);
-  } catch (err) {
-    // Track doesn't have fingerprint yet (queued for generation)
-    if (err instanceof APIRequestError && err.statusCode === 404) {
-      return null;
-    }
-    // get() already surfaces the backend's `detail` rather than a bare
-    // `statusText`, which is empty over HTTP/2 (#4626).
-    throw err;
-  }
-};
+const fetchTrackFingerprint = (trackId: number): Promise<TrackFingerprintResponse | null> =>
+  // #5019: shared transport, which bounds the request at DEFAULT_TIMEOUT_MS.
+  // The bare fetch() this replaces had no signal and no timeout, so a stalled
+  // backend left the query loading forever with `refetchInterval` unable to
+  // reach a terminal state.
+  getOrNullOn404<TrackFingerprintResponse>(`/api/tracks/${trackId}/fingerprint`);
 
 /**
  * Hook to fetch track fingerprint with caching
@@ -86,7 +75,7 @@ export function useTrackFingerprint(
     queryKey: ['track-fingerprint', trackId],
     queryFn: () => trackId ? fetchTrackFingerprint(trackId) : null,
     staleTime: QUERY_STALE_TIME_MS, // fingerprints don't change
-    gcTime: 30 * 60 * 1000,   // 30 minutes cache retention
+    gcTime: QUERY_GC_TIME_MS,   // 30 minutes cache retention
     enabled,
     retry: false, // Don't retry on 404
     // Re-fetch periodically if fingerprint not ready (queued for generation)

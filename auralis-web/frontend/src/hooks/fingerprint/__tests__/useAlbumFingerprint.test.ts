@@ -362,3 +362,39 @@ describe('request timeout (#5019)', () => {
     }
   });
 });
+
+// ----------------------------------------------------------------------------
+// Single-hook query signal forwarding (#6221 / #5650)
+// ----------------------------------------------------------------------------
+
+describe('useAlbumFingerprint signal forwarding (#6221)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('aborts the in-flight fetch when the hook unmounts', async () => {
+    // A fetch that never resolves on its own: only an abort can end it.
+    let captured: AbortSignal | null | undefined;
+    global.fetch = vi.fn().mockImplementation((_url: string, init?: RequestInit) => {
+      captured = init?.signal;
+      return new Promise<Response>((_resolve, reject) => {
+        captured?.addEventListener('abort', () =>
+          reject(new DOMException('Aborted', 'AbortError'))
+        );
+      });
+    });
+
+    const { unmount } = renderHook(() => useAlbumFingerprint(42), {
+      wrapper: createWrapper(),
+    });
+
+    // The queryFn must have forwarded its signal to the transport by now.
+    await waitFor(() => expect(captured).toBeDefined());
+    expect(captured!.aborted).toBe(false);
+
+    unmount();
+
+    // React Query aborts the query on unmount; the forwarded signal must trip.
+    await waitFor(() => expect(captured!.aborted).toBe(true));
+  });
+});

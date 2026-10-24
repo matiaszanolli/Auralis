@@ -184,6 +184,32 @@ export async function get<T = unknown>(endpoint: string, options?: RequestOption
 }
 
 /**
+ * GET that resolves `null` when the endpoint answers 404, rejects otherwise.
+ *
+ * The "404 means not-ready/absent, everything else is an error" pattern was
+ * copy-pasted per hook (#4847 fixed the track copy, #5122 the album copy a
+ * month later — the copies had diverged). One expected-non-error status is a
+ * transport concern, so the mapping lives here (#6221): a fetcher is now a
+ * one-liner and cannot drift back to swallowing 5xx/network errors into
+ * `null`.
+ *
+ * @example const fp = await getOrNullOn404<TrackFingerprintResponse>(`/api/tracks/${id}/fingerprint`);
+ */
+export async function getOrNullOn404<T>(
+  endpoint: string,
+  options?: RequestOptions<T>
+): Promise<T | null> {
+  try {
+    return await get<T>(endpoint, options);
+  } catch (err) {
+    if (err instanceof APIRequestError && err.statusCode === 404) {
+      return null;
+    }
+    throw err;
+  }
+}
+
+/**
  * Make a POST request
  * @example await post('/playlists', { name: 'My Playlist' });
  */
