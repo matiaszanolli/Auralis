@@ -547,6 +547,53 @@ class TestMigrationConcurrency:
         backup_files = list(Path(temp_db).parent.glob("*.backup_*"))
         assert len(backup_files) == 0, "No backup should be created for up-to-date database"
 
+    def test_v023_to_v024_drops_vestigial_profile_columns(self, temp_db):
+        """#6261: a v23 database with data migrates to v24 losing only the two
+        vestigial columns; every remaining row and column is intact."""
+        from sqlalchemy import text
+
+        from auralis.library.migration_manager import MigrationManager as MM
+
+        manager = MM(temp_db)
+        manager.migrate_to_latest()
+        manager.close()
+
+        engine = MM(temp_db).engine
+        with engine.begin() as conn:
+            # Recreate a v23 database: re-add the two dropped columns (with
+            # data) and pin the version row back to 23.
+            conn.execute(text(
+                "ALTER TABLE playlists ADD COLUMN mastering_profile VARCHAR DEFAULT 'balanced'"
+            ))
+            conn.execute(text(
+                "ALTER TABLE genres ADD COLUMN preferred_profile VARCHAR DEFAULT 'balanced'"
+            ))
+            conn.execute(text(
+                "INSERT INTO playlists (name, is_smart, auto_master_enabled, normalize_levels, mastering_profile)"
+                " VALUES ('Mix', 0, 1, 1, 'warm')"
+            ))
+            conn.execute(text("INSERT INTO genres (name, preferred_profile) VALUES ('Jazz', 'bright')"))
+            conn.execute(text("UPDATE schema_version SET version = 23"))
+        engine.dispose()
+
+        assert check_and_migrate_database(temp_db, auto_backup=False) is True
+
+        engine = MM(temp_db).engine
+        with engine.begin() as conn:
+            playlist_cols = {r[1] for r in conn.execute(text("PRAGMA table_info(playlists)"))}
+            genre_cols = {r[1] for r in conn.execute(text("PRAGMA table_info(genres)"))}
+            assert "mastering_profile" not in playlist_cols
+            assert "preferred_profile" not in genre_cols
+            # Rows and surviving columns survived the DROP COLUMNs.
+            assert conn.execute(text("SELECT name FROM playlists")).scalars().all() == ["Mix"]
+            assert conn.execute(text("SELECT name FROM genres")).scalars().all() == ["Jazz"]
+            version = conn.execute(text("SELECT MAX(version) FROM schema_version")).scalar()
+        engine.dispose()
+        assert version == __db_schema_version__
+
+
+
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

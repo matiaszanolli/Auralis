@@ -155,13 +155,12 @@ class GenreRepository(BaseRepository):
 
             return list(tracks), total
 
-    def create(self, name: str, preferred_profile: str | None = None, **kwargs: Any) -> Genre:
+    def create(self, name: str, **kwargs: Any) -> Genre:
         """
         Create a new genre.
 
         Args:
             name: Genre name
-            preferred_profile: Preferred mastering profile
             **kwargs: Additional genre fields
 
         Returns:
@@ -172,7 +171,7 @@ class GenreRepository(BaseRepository):
         """
         with self._session_scope() as session:
             try:
-                genre = Genre(name=name, preferred_profile=preferred_profile)
+                genre = Genre(name=name)
 
                 # Set additional fields
                 for key, value in kwargs.items():

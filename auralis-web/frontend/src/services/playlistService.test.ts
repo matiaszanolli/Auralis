@@ -137,7 +137,6 @@ describe('PlaylistService', () => {
         ...mockPlaylist,
         description: null,
         auto_master_enabled: false,
-        mastering_profile: 'adaptive',
         normalize_levels: true,
         smart_criteria: null,
         is_smart: false,

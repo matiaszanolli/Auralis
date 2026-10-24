@@ -302,7 +302,6 @@ export const handlers = [
         is_smart: false,
         smart_criteria: null,
         auto_master_enabled: false,
-        mastering_profile: 'adaptive',
         normalize_levels: false,
         updated_at: new Date().toISOString(),
       });
@@ -932,7 +931,6 @@ export const handlers = [
         is_smart: false,
         smart_criteria: null,
         auto_master_enabled: false,
-        mastering_profile: 'adaptive',
         normalize_levels: false,
         updated_at: new Date().toISOString(),
       });
@@ -953,7 +951,6 @@ export const handlers = [
         is_smart: false,
         smart_criteria: null,
         auto_master_enabled: false,
-        mastering_profile: 'adaptive',
         normalize_levels: false,
         total_duration: 0,
         updated_at: new Date().toISOString(),

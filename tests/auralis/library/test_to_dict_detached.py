@@ -97,13 +97,13 @@ def test_search_track_count(genre_repository, seeded_genre, caplog):
 
 
 def test_create_and_update_track_count(genre_repository, caplog):
-    created = genre_repository.create('FreshDetachGenre', preferred_profile='warm')
+    created = genre_repository.create('FreshDetachGenre')
     assert _to_dict_without_backstop(created, caplog)['track_count'] == 0
 
-    updated = genre_repository.update(created.id, preferred_profile='bright')
+    updated = genre_repository.update(created.id, name='FreshDetachGenreRenamed')
     assert updated is not None
     result = _to_dict_without_backstop(updated, caplog)
-    assert result['preferred_profile'] == 'bright'
+    assert result['name'] == 'FreshDetachGenreRenamed'
     assert result['track_count'] == 0
 
 

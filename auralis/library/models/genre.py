@@ -28,7 +28,6 @@ class Genre(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
 
     # Genre characteristics for auto-mastering
-    preferred_profile: Mapped[str | None] = mapped_column(String, default='balanced')  # warm, bright, punchy, balanced
     typical_dr_range: Mapped[str | None] = mapped_column(String)  # "8-12" for example
     typical_lufs_range: Mapped[str | None] = mapped_column(String)  # "-14 to -10" for example
 
@@ -52,7 +51,6 @@ class Genre(Base, TimestampMixin):
         return {
             'id': self.id,
             'name': self.name,
-            'preferred_profile': self.preferred_profile,
             'typical_dr_range': self.typical_dr_range,
             'typical_lufs_range': self.typical_lufs_range,
             'track_count': track_count,

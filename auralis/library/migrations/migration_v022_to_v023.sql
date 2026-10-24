@@ -14,7 +14,7 @@
 -- as always set.
 --
 -- playlists.mastering_profile and genres.preferred_profile (vestigial, default
--- 'balanced') are left for the column-removal migration tracked in #5755.
+-- 'balanced') are dropped by migration_v023_to_v024.sql (#6261).
 
 UPDATE user_settings SET default_preset = 'adaptive'
  WHERE default_preset IS NULL OR default_preset != 'adaptive';

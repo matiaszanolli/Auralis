@@ -189,7 +189,6 @@ class PlaylistResponse(BaseModel):
     is_smart: bool = Field(default=False, description="True for rule-driven smart playlists")
     smart_criteria: str | None = Field(default=None, description="Smart-playlist rules (JSON string)")
     auto_master_enabled: bool | None = Field(default=None, description="Auto-mastering enabled")
-    mastering_profile: str | None = Field(default=None, description="Playlist mastering profile")
     normalize_levels: bool | None = Field(default=None, description="Level normalization enabled")
     track_count: int | None = Field(default=None, description="Number of tracks held")
     total_duration: float | None = Field(default=None, description="Summed track duration in seconds")

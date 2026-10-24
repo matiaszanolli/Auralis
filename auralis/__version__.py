@@ -5,7 +5,7 @@ and fingerprint algorithm versions are independent and must only change with
 their respective formats.
 """
 
-__db_schema_version__ = 23  # user_settings.default_preset normalized to 'adaptive' (#5824)
+__db_schema_version__ = 24  # playlists.mastering_profile / genres.preferred_profile dropped (#6261)
 
 # Fingerprint algorithm version — increment this whenever the 25D extraction
 # algorithm changes in a way that produces different values for the same audio.
@@ -84,3 +84,6 @@ FINGERPRINT_ALGORITHM_VERSION = 10
 # Schema v19 - Backfill albums.artist_id for albums created without one by the rescan paths (2026-09-13)
 # Schema v20 - Added processing_jobs: durable job records survive a backend restart (#5278) (2026-09-16)
 # Schema v21 - Drop queue_state/queue_history: queue undo retired unwired (#5526)
+# Schema v22 - (see migration_v021_to_v022.sql)
+# Schema v23 - user_settings.default_preset normalized to 'adaptive' (#5824)
+# Schema v24 - Drop playlists.mastering_profile / genres.preferred_profile (#6261)

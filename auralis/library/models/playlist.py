@@ -32,7 +32,6 @@ class Playlist(Base, TimestampMixin):
 
     # Playlist-level mastering settings
     auto_master_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
-    mastering_profile: Mapped[str | None] = mapped_column(String, default='balanced')
     normalize_levels: Mapped[bool] = mapped_column(Boolean, default=True)
 
     # Relationships
@@ -74,7 +73,6 @@ class Playlist(Base, TimestampMixin):
             'is_smart': self.is_smart,
             'smart_criteria': self.smart_criteria,
             'auto_master_enabled': self.auto_master_enabled,
-            'mastering_profile': self.mastering_profile,
             'normalize_levels': self.normalize_levels,
             'track_count': track_count,
             'total_duration': total_duration,

@@ -28,7 +28,6 @@ export interface Playlist {
   is_smart: boolean;
   smart_criteria: string | null;
   auto_master_enabled: boolean;
-  mastering_profile: string;
   normalize_levels: boolean;
   track_count: number;
   total_duration: number;
