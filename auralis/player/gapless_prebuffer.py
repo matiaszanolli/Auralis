@@ -12,6 +12,7 @@ Lock order (unchanged): ``update_lock`` is always the outer lock, and
 
 import threading
 from typing import Any
+from collections.abc import Callable
 
 import numpy as np
 
@@ -32,8 +33,8 @@ class PrebufferMixin:
     _thread_lock: "threading.Lock"
     _shutdown: threading.Event
 
-    def _load_audio(self, file_path: str) -> tuple[np.ndarray, int]:
-        raise NotImplementedError
+    # Provided by GaplessPlaybackEngine (io.loader.load).
+    _load_audio: "Callable[[str], tuple[np.ndarray, int]]"
 
     def start_prebuffering(self) -> None:
         """

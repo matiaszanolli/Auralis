@@ -25,15 +25,9 @@ class LibraryLoadingMixin:
     get_repository_factory: Callable[[], Any]
     auto_reference_selection: bool
 
-    def set_current_track(self, track: "Track | None") -> None:
-        raise NotImplementedError
-
-    def _notify_callbacks(self, state_info: dict[str, Any]) -> None:
-        raise NotImplementedError
-
-    def _get_repos(self) -> Any:
-        """Get repository factory for data access."""
-        return resolve_repository_factory(self.get_repository_factory)
+    # Provided by IntegrationManager's own body / IntegrationReportingMixin's host wiring.
+    set_current_track: "Callable[[Track | None], None]"
+    _notify_callbacks: "Callable[[dict[str, Any]], None]"
 
     def load_track_from_library(
         self, track_id: int, on_loaded: Callable[[], None] | None = None
@@ -51,7 +45,7 @@ class LibraryLoadingMixin:
             bool: True if successful
         """
         try:
-            repos = self._get_repos()
+            repos = resolve_repository_factory(self.get_repository_factory)
             track = repos.tracks.get_by_id(track_id)
             if not track:
                 error(f"Track not found in library: {track_id}")
@@ -111,7 +105,7 @@ class LibraryLoadingMixin:
                     return
 
             # Find and try similar tracks as references
-            repos = self._get_repos()
+            repos = resolve_repository_factory(self.get_repository_factory)
             # find_similar returns list[Track], not a 2-tuple (#4935) — the
             # old `references, _ = ...` destructuring raised ValueError for
             # any result count other than exactly 2, silently swallowed by

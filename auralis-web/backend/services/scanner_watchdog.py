@@ -10,6 +10,7 @@ start/stop that follow the configured scan folders.
 import asyncio
 import logging
 from typing import Any
+from collections.abc import Callable, Coroutine
 
 from config.limits import OBSERVER_JOIN_TIMEOUT_S
 
@@ -75,8 +76,8 @@ class WatchdogMixin:
 
     _observer: Any
 
-    async def reload_config(self) -> None:
-        raise NotImplementedError
+    # Provided by LibraryAutoScanner (async).
+    reload_config: "Callable[[], Coroutine[Any, Any, None]]"
 
     async def _sync_watchdog(self, scan_folders: list[str]) -> None:
         """Start or restart the watchdog observer for the given folders."""

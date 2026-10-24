@@ -22,20 +22,14 @@ class QueueLoadingMixin:
     queue: QueueManager
     get_repository_factory: Callable[[], Any]
 
-    def add_track(self, track_info: dict[str, Any]) -> None:
-        raise NotImplementedError
-
-    def _notify_changed(self) -> None:
-        raise NotImplementedError
+    # Provided by QueueController.
+    add_track: "Callable[[dict[str, Any]], None]"
+    _notify_changed: "Callable[[], None]"
 
     def add_tracks(self, track_list: list[dict[str, Any]]) -> None:
         """Add multiple tracks to queue"""
         for track_info in track_list:
             self.add_track(track_info)
-
-    def _get_repos(self) -> Any:
-        """Get repository factory for data access."""
-        return resolve_repository_factory(self.get_repository_factory)
 
     def add_track_from_library(self, track_id: int) -> bool:
         """
@@ -45,7 +39,7 @@ class QueueLoadingMixin:
             bool: True if successful
         """
         try:
-            repos = self._get_repos()
+            repos = resolve_repository_factory(self.get_repository_factory)
             track = repos.tracks.get_by_id(track_id)
             if track:
                 self.add_track(track.to_dict())
@@ -67,7 +61,7 @@ class QueueLoadingMixin:
             bool: True if successful
         """
         try:
-            repos = self._get_repos()
+            repos = resolve_repository_factory(self.get_repository_factory)
             playlist = repos.playlists.get_by_id(playlist_id)
             if not playlist:
                 error(f"Playlist not found: {playlist_id}")

@@ -8,6 +8,7 @@ validate, back up everything, apply, and roll the whole set back on any failure.
 
 from pathlib import Path
 from typing import Any
+from collections.abc import Callable
 
 from ...utils.logging import info
 from .backup import BackupManager, lock_files
@@ -19,8 +20,8 @@ class BatchUpdateMixin:
 
     backup_manager: BackupManager
 
-    def write_metadata(self, filepath: str, metadata: dict[str, Any], backup: bool = True) -> bool:
-        raise NotImplementedError
+    # Provided by MetadataEditor.
+    write_metadata: "Callable[..., bool]"
 
     def batch_update(self, updates: list[MetadataUpdate]) -> dict[str, Any]:
         """

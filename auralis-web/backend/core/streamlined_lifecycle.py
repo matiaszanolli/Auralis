@@ -9,6 +9,9 @@ start/stop, the liveness accessors lifecycle watchers read, and the 1 s loop.
 import asyncio
 import logging
 
+from collections.abc import Callable, Coroutine
+from typing import Any
+
 from helpers import spawn_background_task
 
 logger = logging.getLogger(__name__)
@@ -20,8 +23,9 @@ class WorkerLifecycleMixin:
     running: bool
     _worker_task: asyncio.Task[None] | None
 
-    async def _process_priorities(self) -> None:
-        raise NotImplementedError
+    # Provided by StreamlinedCacheWorker (bound to streamlined_tiers.
+    # process_priorities); async.
+    _process_priorities: "Callable[[], Coroutine[Any, Any, None]]"
 
     async def start(self) -> None:
         """Start the background worker."""

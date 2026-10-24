@@ -14,6 +14,7 @@ Lock order is unchanged: ``_position_lock`` -> ``_audio_lock`` /
 import threading
 import time
 from typing import Any
+from collections.abc import Callable
 
 from .audio_file_manager import AudioFileManager
 from .playback_controller import PlaybackController
@@ -35,8 +36,9 @@ class PlaybackReportingMixin:
     _position_lock: "threading.RLock"
     _stats_lock: "threading.Lock"
 
-    def _notify_callbacks(self, state_info: dict[str, Any]) -> None:
-        raise NotImplementedError
+    # Provided by IntegrationManager's own body (also annotated in
+    # IntegrationLibraryMixin — one runtime definition, two typing sites).
+    _notify_callbacks: "Callable[[dict[str, Any]], None]"
 
     def get_playback_info(self) -> dict[str, Any]:
         """Get comprehensive playback information"""

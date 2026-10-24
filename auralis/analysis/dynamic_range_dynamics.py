@@ -5,6 +5,7 @@ the loudness-war assessment.
 """
 
 from typing import Any
+from collections.abc import Callable
 
 import numpy as np
 from scipy import signal
@@ -23,8 +24,8 @@ class DynamicsMetricsMixin:
 
     sample_rate: int
 
-    def _get_dynamic_range_recommendations(self, crest_factor: float, dr_value: float) -> list[str]:
-        raise NotImplementedError
+    # Provided by DynamicRangeAnalyzer.
+    _get_dynamic_range_recommendations: "Callable[[float, float], list[str]]"
 
     def _estimate_compression_ratio(self, audio: np.ndarray) -> float:
         """Estimate compression ratio from audio analysis"""

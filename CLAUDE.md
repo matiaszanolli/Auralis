@@ -220,6 +220,8 @@ Cached chunk files are 16-bit PCM WAV, not float32.
 
 **Audio DSP**: Load metadata (sample rate, channels) BEFORE processing. Vectorize with NumPy (chunks, not samples). Copy before modify.
 
+**Mixin host hooks**: A split mixin that calls a method its composed host provides types it as a bare class-level annotation (`load_file: Callable[[str], bool]` with a `# Provided by X.` comment — see `player_queue_navigation_mixin.py`), never as a `raise NotImplementedError` method: a runtime stub occupies the MRO ahead of sibling mixins and reads as fake debt (#6235).
+
 ## Principles
 
 1. **DRY** — Improve existing code, never duplicate. Use utilities for shared logic.

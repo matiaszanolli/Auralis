@@ -9,6 +9,7 @@ takes ``_lock`` for its whole read-modify-write.
 
 import threading
 from typing import Any
+from collections.abc import Callable
 
 
 def _track_matches(candidate: dict[str, Any], expected: dict[str, Any]) -> bool:
@@ -30,8 +31,8 @@ class QueueNavigationMixin:
     repeat_enabled: bool
     _lock: "threading.RLock"
 
-    def _get_current_track_unlocked(self) -> dict[str, Any] | None:
-        raise NotImplementedError
+    # Provided by QueueManager itself; shared with QueueShuffleMixin's host.
+    _get_current_track_unlocked: "Callable[[], dict[str, Any] | None]"
 
     def peek_next(self) -> dict[str, Any] | None:
         """

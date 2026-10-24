@@ -25,6 +25,7 @@ import numpy as np
 import pytest
 
 from auralis.player.integration_manager import IntegrationManager
+from auralis.player.repository_access import resolve_repository_factory
 
 
 # ---------------------------------------------------------------------------
@@ -213,25 +214,28 @@ class TestCallbacks:
 # ---------------------------------------------------------------------------
 
 class TestGetRepos:
+    """The resolver behind both mixins' repository access (#6235 folded the
+    duplicate _get_repos wrappers into calls to it directly)."""
+
     def test_returns_factory_when_available(self):
         factory = MagicMock()
         m = _make_manager(factory_returns=factory)
-        assert m._get_repos() is factory
+        assert resolve_repository_factory(m.get_repository_factory) is factory
 
     def test_raises_when_factory_returns_none(self):
         m = _make_manager(factory_returns=None)
         with pytest.raises(RuntimeError, match="Repository factory not available"):
-            m._get_repos()
+            resolve_repository_factory(m.get_repository_factory)
 
     def test_raises_when_factory_raises_type_error(self):
         m = _make_manager(factory_raises=TypeError("bad"))
         with pytest.raises(RuntimeError, match="Repository factory not available"):
-            m._get_repos()
+            resolve_repository_factory(m.get_repository_factory)
 
     def test_raises_when_factory_raises_attribute_error(self):
         m = _make_manager(factory_raises=AttributeError("missing"))
         with pytest.raises(RuntimeError, match="Repository factory not available"):
-            m._get_repos()
+            resolve_repository_factory(m.get_repository_factory)
 
 
 # ---------------------------------------------------------------------------

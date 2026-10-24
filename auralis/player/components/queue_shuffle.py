@@ -9,6 +9,7 @@ pre-shuffle snapshot and the one place that invalidates it.
 import random
 import threading
 from typing import Any
+from collections.abc import Callable
 
 
 class ShuffleMixin:
@@ -20,8 +21,8 @@ class ShuffleMixin:
     _pre_shuffle_tracks: list[dict[str, Any]] | None
     _pre_shuffle_index: int
 
-    def _get_current_track_unlocked(self) -> dict[str, Any] | None:
-        raise NotImplementedError
+    # Provided by QueueManager itself; shared with QueueNavigationMixin's host.
+    _get_current_track_unlocked: "Callable[[], dict[str, Any] | None]"
 
     def _invalidate_shuffle_snapshot_unlocked(self) -> None:
         """
