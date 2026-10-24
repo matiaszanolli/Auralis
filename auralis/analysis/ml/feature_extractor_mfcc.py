@@ -2,22 +2,24 @@
 MFCC / Chroma / Tonnetz / Mel Features
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The librosa-based spectral-description half of FeatureExtractor (#6273);
+The spectral-description half of FeatureExtractor (#6273);
 each function takes the extractor (sample_rate, n_mfcc…) as first argument.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import numpy as np
 
-try:
-    import librosa
-except ImportError:
-    librosa = None
+if TYPE_CHECKING:
+    from .feature_extractor import FeatureExtractor
 
 
-def _extract_mfcc(extractor, self, audio: np.ndarray) -> list[float]:
+def _extract_mfcc(extractor: FeatureExtractor, audio: np.ndarray) -> list[float]:
     """Extract MFCC features (simplified)"""
     spectrum = np.fft.fft(audio[:4096])
     magnitude = np.abs(spectrum[:2049])
@@ -40,7 +42,7 @@ def _extract_mfcc(extractor, self, audio: np.ndarray) -> list[float]:
 
     return mfcc
 
-def _extract_chroma(extractor, self, audio: np.ndarray) -> list[float]:
+def _extract_chroma(extractor: FeatureExtractor, audio: np.ndarray) -> list[float]:
     """Extract chroma features"""
     spectrum = np.fft.fft(audio[:4096])
     magnitude = np.abs(spectrum[:2049])
@@ -60,7 +62,7 @@ def _extract_chroma(extractor, self, audio: np.ndarray) -> list[float]:
 
     return chroma.tolist()
 
-def _extract_tonnetz(extractor, self, audio: np.ndarray) -> list[float]:
+def _extract_tonnetz(extractor: FeatureExtractor, audio: np.ndarray) -> list[float]:
     """Extract tonnetz features"""
     chroma = np.array(extractor._extract_chroma(audio))
     tonnetz = np.zeros(6)

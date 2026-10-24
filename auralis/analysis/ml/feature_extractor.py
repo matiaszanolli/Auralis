@@ -261,11 +261,15 @@ class FeatureExtractor:
 
         return energy_low, energy_mid, energy_high
 
-    def _extract_mfcc(self, audio: np.ndarray):
+    def _extract_mfcc(self, audio: np.ndarray) -> list[float]:
         return _extract_mfcc(self, audio)
 
-    def _extract_chroma(self, audio: np.ndarray):
+    def _extract_chroma(self, audio: np.ndarray) -> list[float]:
         return _extract_chroma(self, audio)
 
-    def _extract_tonnetz(self, audio: np.ndarray):
+    def _extract_tonnetz(self, audio: np.ndarray) -> list[float]:
         return _extract_tonnetz(self, audio)
+
+    def _create_mel_filterbank(self, n_filters: int, n_fft: int) -> list[np.ndarray]:
+        """Create mel-scale filter bank using vectorized helper"""
+        return create_mel_triangular_filters(n_filters, n_fft, self.sample_rate)
