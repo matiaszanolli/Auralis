@@ -12,7 +12,7 @@ import asyncio
 
 from .dependencies import with_error_handling
 from .errors import BadRequestError, NotFoundError
-from .pagination import PaginationParams, compute_has_more
+from .pagination import limit_query, offset_query, paginated
 from .playlists_deps import _get_connection_manager, _get_repos
 from .playlists_models import CreatePlaylistRequest, UpdatePlaylistRequest
 from .serializers import serialize_playlist, serialize_playlists
@@ -20,8 +20,8 @@ from .serializers import serialize_playlist, serialize_playlists
 
 @with_error_handling("get playlists")
 async def get_playlists(
-    limit: int = Query(PaginationParams.DEFAULT_LIMIT, ge=PaginationParams.MIN_LIMIT, le=PaginationParams.MAX_LIMIT, description="Number of playlists to return"),
-    offset: int = Query(PaginationParams.DEFAULT_OFFSET, ge=PaginationParams.MIN_OFFSET, description="Number of playlists to skip"),
+    limit: int = limit_query("Number of playlists to return"),
+    offset: int = offset_query("Number of playlists to skip"),
     repos: Any = Depends(_get_repos),
 ) -> dict[str, Any]:
     """
@@ -49,14 +49,7 @@ async def get_playlists(
     playlists, total = await asyncio.to_thread(
         repos.playlists.get_all, limit=limit, offset=offset
     )
-    serialized = serialize_playlists(playlists)
-    return {
-        "playlists": serialized,
-        "total": total,
-        "offset": offset,
-        "limit": limit,
-        "has_more": compute_has_more(offset, len(serialized), total),
-    }
+    return paginated("playlists", serialize_playlists(playlists), total, offset, limit)
 
 
 @with_error_handling("get playlist")

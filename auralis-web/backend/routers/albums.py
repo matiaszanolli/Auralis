@@ -23,7 +23,7 @@ from schemas import (
 
 from .dependencies import with_error_handling
 from .errors import NotFoundError
-from .pagination import PaginationParams, compute_has_more
+from .pagination import limit_query, offset_query, paginated
 from .serializers import serialize_album, serialize_albums, serialize_tracks
 from .albums_models import AlbumFingerprintResponse, AlbumTracksResponse
 from .albums_deps import _AlbumsDeps, _deps, _get_repos
@@ -89,8 +89,8 @@ def _derive_album_genre(tracks_data: list[dict[str, Any]]) -> str | None:
 
 @with_error_handling("get albums")
 async def get_albums(
-    limit: int = Query(PaginationParams.DEFAULT_LIMIT, ge=PaginationParams.MIN_LIMIT, le=PaginationParams.MAX_LIMIT),
-    offset: int = Query(PaginationParams.DEFAULT_OFFSET, ge=PaginationParams.MIN_OFFSET),
+    limit: int = limit_query(),
+    offset: int = offset_query(),
     search: str | None = None,
     order_by: Literal['title', 'year', 'created_at'] = 'title',
     repos: Any = Depends(_get_repos),
@@ -120,15 +120,7 @@ async def get_albums(
         albums, total = await asyncio.to_thread(repos.albums.search, search, limit=limit, offset=offset, order_by=order_by)
     else:
         albums, total = await asyncio.to_thread(repos.albums.get_all, limit=limit, offset=offset, order_by=order_by)
-    has_more = compute_has_more(offset, len(albums), total)
-
-    return {
-        "albums": serialize_albums(albums),
-        "total": total,
-        "offset": offset,
-        "limit": limit,
-        "has_more": has_more
-    }
+    return paginated("albums", serialize_albums(albums), total, offset, limit)
 
 
 @with_error_handling("get album")

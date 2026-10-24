@@ -24,7 +24,13 @@ if 'routers' not in sys.modules:
     _stub.__package__ = 'routers'
     sys.modules['routers'] = _stub
 
-from routers.pagination import PaginationParams, compute_has_more
+from routers.pagination import (
+    PaginationParams,
+    compute_has_more,
+    limit_query,
+    offset_query,
+    paginated,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -97,11 +103,14 @@ class TestPaginationParamsConstants:
 
 
 class TestRouterQueryReferencesTheCanonicalCap:
-    """#4761 regression guard: routers must reference PaginationParams.MAX_LIMIT,
-    not a bare literal that happens to match today and can silently drift
-    tomorrow. schemas.PaginationParams (a second, incompatible class capped at
-    500) was deleted for the same reason — two definitions of "the" pagination
-    cap is exactly how a drift like that goes unnoticed."""
+    """#4761/#6222 regression guard: routers must build their limit/offset
+    Query parameters through pagination.limit_query()/offset_query(), not
+    spell Query(PaginationParams.DEFAULT_LIMIT, ge=..., le=...) inline — a
+    spelled-out copy can silently drift from the canonical bounds (and did:
+    five copies across four routers). schemas.PaginationParams (a second,
+    incompatible class capped at 500) was deleted for the same reason — two
+    definitions of "the" pagination cap is exactly how a drift like that
+    goes unnoticed."""
 
     @pytest.mark.parametrize("router_module", ["albums", "artists", "tracks", "playlists_crud"])
     def test_query_declarations_reference_max_limit_by_name(self, router_module):
@@ -109,7 +118,75 @@ class TestRouterQueryReferencesTheCanonicalCap:
         import importlib
 
         source = inspect.getsource(importlib.import_module(f"routers.{router_module}"))
-        assert "PaginationParams.MAX_LIMIT" in source, (
-            f"routers/{router_module}.py must reference PaginationParams.MAX_LIMIT "
-            "in its Query(...) declarations rather than a hardcoded literal"
+        assert "PaginationParams.MAX_LIMIT" not in source, (
+            f"routers/{router_module}.py spells pagination bounds inline — use "
+            "pagination.limit_query()/offset_query() instead (#6222)"
         )
+        assert "PaginationParams." not in source, (
+            f"routers/{router_module}.py references PaginationParams directly — the "
+            "canonical entry points are pagination.limit_query()/offset_query() (#6222)"
+        )
+
+
+class TestLimitOffsetQueryFactories:
+    """#6222: the factories produce exactly the Query parameters the five
+    paginated endpoints previously spelled inline — same defaults, same
+    bounds, optional description preserved. Asserted through the OpenAPI
+    schema because that is the wire contract (and FastAPI's Query stores
+    ge/le as metadata, not attributes)."""
+
+    def _param_schema(self, app, path, name):
+        schema = app.openapi()["paths"][path]["get"]
+        return next(p for p in schema["parameters"] if p["name"] == name)
+
+    def test_factory_bounds_and_default(self):
+        from fastapi import FastAPI
+
+        app = FastAPI()
+
+        @app.get("/probe")
+        async def probe(
+            limit: int = limit_query(),
+            offset: int = offset_query(),
+        ):
+            return {}
+
+        limit_p = self._param_schema(app, "/probe", "limit")
+        offset_p = self._param_schema(app, "/probe", "offset")
+        assert limit_p["schema"] == {"default": 50, "minimum": 1, "maximum": 200, "type": "integer", "title": "Limit"}
+        assert offset_p["schema"]["default"] == 0 and offset_p["schema"]["minimum"] == 0
+        assert "maximum" not in offset_p["schema"] or offset_p["schema"].get("maximum") is None
+        assert "description" not in limit_p and "description" not in offset_p
+
+    def test_factory_description_passthrough(self):
+        from fastapi import FastAPI
+
+        app = FastAPI()
+
+        @app.get("/probe")
+        async def probe(
+            limit: int = limit_query("Number of artists to return"),
+            offset: int = offset_query("Number of artists to skip"),
+        ):
+            return {}
+
+        assert self._param_schema(app, "/probe", "limit")["description"] == "Number of artists to return"
+        assert self._param_schema(app, "/probe", "offset")["description"] == "Number of artists to skip"
+
+
+class TestPaginatedEnvelope:
+    """#6222: one spelling of the page envelope, with has_more from
+    compute_has_more so partial last pages work."""
+
+    def test_envelope_keys_and_has_more(self):
+        env = paginated("tracks", [1, 2, 3], total=10, offset=0, limit=3)
+        assert env == {
+            "tracks": [1, 2, 3],
+            "total": 10,
+            "offset": 0,
+            "limit": 3,
+            "has_more": True,
+        }
+
+    def test_partial_last_page_has_more_false(self):
+        assert paginated("albums", [1, 2], total=5, offset=3, limit=3)["has_more"] is False

@@ -28,7 +28,7 @@ from schemas import TrackListResponse, TrackResponse
 
 from .repo_deps import RepositoryFactoryDeps
 from .errors import NotFoundError, handle_query_error
-from .pagination import PaginationParams, compute_has_more
+from .pagination import limit_query, offset_query, paginated
 from .serializers import serialize_tracks
 
 logger = logging.getLogger(__name__)
@@ -58,8 +58,8 @@ class TrackLyricsResponse(BaseModel):
 
 
 async def get_tracks(
-    limit: int = Query(PaginationParams.DEFAULT_LIMIT, ge=PaginationParams.MIN_LIMIT, le=PaginationParams.MAX_LIMIT),
-    offset: int = Query(PaginationParams.DEFAULT_OFFSET, ge=PaginationParams.MIN_OFFSET),
+    limit: int = limit_query(),
+    offset: int = offset_query(),
     search: str | None = None,
     # #2727: Literal type makes FastAPI reject unknown values with
     # 422 at the route layer instead of silently coercing to 'title'.
@@ -77,14 +77,7 @@ async def get_tracks(
             )
         else:
             tracks, total = await asyncio.to_thread(repos.tracks.get_all, limit=limit, offset=offset, order_by=order_by)
-        has_more = compute_has_more(offset, len(tracks), total)
-        return {
-            "tracks": serialize_tracks(tracks),
-            "total": total,
-            "offset": offset,
-            "limit": limit,
-            "has_more": has_more,
-        }
+        return paginated("tracks", serialize_tracks(tracks), total, offset, limit)
     except HTTPException:
         raise
     except Exception as e:
@@ -92,21 +85,14 @@ async def get_tracks(
 
 
 async def get_favorite_tracks(
-    limit: int = Query(PaginationParams.DEFAULT_LIMIT, ge=PaginationParams.MIN_LIMIT, le=PaginationParams.MAX_LIMIT),
-    offset: int = Query(PaginationParams.DEFAULT_OFFSET, ge=PaginationParams.MIN_OFFSET),
+    limit: int = limit_query(),
+    offset: int = offset_query(),
     repos: Any = Depends(_repo_deps.get_repos),
 ) -> dict[str, Any]:
     """Get all favorite tracks with pagination."""
     try:
         tracks, total = await asyncio.to_thread(repos.tracks.get_favorites, limit=limit, offset=offset)
-        has_more = compute_has_more(offset, len(tracks), total)
-        return {
-            "tracks": serialize_tracks(tracks),
-            "total": total,
-            "limit": limit,
-            "offset": offset,
-            "has_more": has_more,
-        }
+        return paginated("tracks", serialize_tracks(tracks), total, offset, limit)
     except HTTPException:
         raise
     except Exception as e:

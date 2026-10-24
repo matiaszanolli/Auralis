@@ -8,6 +8,10 @@ reducing boilerplate and ensuring consistency.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+from typing import Any
+
+from fastapi import Query
+
 
 def compute_has_more(offset: int, item_count: int, total: int) -> bool:
     """
@@ -46,8 +50,8 @@ class PaginationParams:
         ```python
         @router.get("/api/artists")
         async def get_artists(
-            limit: int = Query(50, ge=1, le=200),
-            offset: int = Query(0, ge=0)
+            limit: int = limit_query(),
+            offset: int = offset_query(),
         ):
             # Use limit and offset directly
             artists, total = repos.artists.get_all(limit=limit, offset=offset)
@@ -58,3 +62,54 @@ class PaginationParams:
     MIN_LIMIT = 1
     DEFAULT_OFFSET = 0
     MIN_OFFSET = 0
+
+
+def limit_query(description: str | None = None) -> Any:
+    """The standard ``limit`` Query parameter (#6222).
+
+    Every paginated handler spelled ``Query(PaginationParams.DEFAULT_LIMIT,
+    ge=..., le=...)`` inline — five copies across four routers — so changing
+    a bound was a five-file edit. Pass an endpoint-specific ``description``
+    where the OpenAPI docs want one; the bounds are identical everywhere.
+    """
+    if description is not None:
+        return Query(
+            PaginationParams.DEFAULT_LIMIT,
+            ge=PaginationParams.MIN_LIMIT,
+            le=PaginationParams.MAX_LIMIT,
+            description=description,
+        )
+    return Query(
+        PaginationParams.DEFAULT_LIMIT,
+        ge=PaginationParams.MIN_LIMIT,
+        le=PaginationParams.MAX_LIMIT,
+    )
+
+
+def offset_query(description: str | None = None) -> Any:
+    """The standard ``offset`` Query parameter; see :func:`limit_query`."""
+    if description is not None:
+        return Query(
+            PaginationParams.DEFAULT_OFFSET,
+            ge=PaginationParams.MIN_OFFSET,
+            description=description,
+        )
+    return Query(PaginationParams.DEFAULT_OFFSET, ge=PaginationParams.MIN_OFFSET)
+
+
+def paginated(key: str, items: Any, total: int, offset: int, limit: int) -> dict[str, Any]:
+    """Build the ``{<key>: items, total, offset, limit, has_more}`` envelope.
+
+    One spelling of the page envelope so the key order cannot drift between
+    endpoints again (#6222 — the two tracks handlers already disagreed).
+    ``has_more`` comes from :func:`compute_has_more` with the actual page
+    length, handling partial last pages.
+    """
+    item_count = len(items) if hasattr(items, "__len__") else 0
+    return {
+        key: items,
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+        "has_more": compute_has_more(offset, item_count, total),
+    }

@@ -17,7 +17,7 @@ from fastapi import APIRouter, Depends, Path, Query
 from .dependencies import with_error_handling
 from .errors import NotFoundError
 from .repo_deps import RepositoryFactoryDeps
-from .pagination import PaginationParams, compute_has_more
+from .pagination import compute_has_more, limit_query, offset_query
 from .serializers import serialize_album, serialize_artist
 from .artists_models import (  # noqa: F401
     AlbumInArtist,
@@ -77,8 +77,8 @@ _repo_deps = RepositoryFactoryDeps("artists")
 
 @with_error_handling("fetch artists")
 async def get_artists(
-    limit: int = Query(PaginationParams.DEFAULT_LIMIT, ge=PaginationParams.MIN_LIMIT, le=PaginationParams.MAX_LIMIT, description="Number of artists to return"),
-    offset: int = Query(PaginationParams.DEFAULT_OFFSET, ge=PaginationParams.MIN_OFFSET, description="Number of artists to skip"),
+    limit: int = limit_query("Number of artists to return"),
+    offset: int = offset_query("Number of artists to skip"),
     search: str | None = Query(None, description="Search query for artist name"),
     order_by: Literal['name', 'album_count', 'track_count'] = Query(
         'name', description="Sort by: name, album_count, track_count"
