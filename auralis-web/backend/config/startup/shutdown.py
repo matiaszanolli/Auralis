@@ -15,6 +15,7 @@ import logging
 from typing import Any
 
 from config.background_workers import stop_background_workers
+from config.limits import SHUTDOWN_STEP_TIMEOUT_S
 
 from .rollback import (
     _clear_module_level_fingerprint_queue,
@@ -51,7 +52,7 @@ async def _shutdown_components(globals_dict: dict[str, Any]) -> None:
         pending_watchdog_teardowns = globals_dict.pop('_watchdog_teardown_tasks', None)
         if pending_watchdog_teardowns:
             try:
-                await asyncio.wait(pending_watchdog_teardowns, timeout=10.0)
+                await asyncio.wait(pending_watchdog_teardowns, timeout=SHUTDOWN_STEP_TIMEOUT_S)
                 logger.info(
                     f"✅ Awaited {len(pending_watchdog_teardowns)} watchdog-scheduled "
                     f"teardown task(s)"

@@ -18,6 +18,8 @@ library in sync:
 import asyncio
 import json
 import logging
+
+from config.limits import SHUTDOWN_STEP_TIMEOUT_S
 from typing import Any
 
 from helpers import spawn_background_task
@@ -87,13 +89,13 @@ class LibraryAutoScanner(WatchdogMixin):
         """Signal the scanner to stop and wait for it to finish."""
         self._stop_event.set()
         self._trigger_event.set()  # wake up any sleeping wait
-        # Observer.join(timeout=5) blocks; offload so shutdown doesn't stall
+        # Observer.join() blocks up to OBSERVER_JOIN_TIMEOUT_S; offload so shutdown doesn't stall
         # the event loop for up to 5s (#4775).
         await asyncio.to_thread(self._stop_watchdog)
         if self._task and not self._task.done():
             self._task.cancel()
             try:
-                await asyncio.wait_for(self._task, timeout=10.0)
+                await asyncio.wait_for(self._task, timeout=SHUTDOWN_STEP_TIMEOUT_S)
             except (asyncio.CancelledError, TimeoutError):
                 pass
         logger.info("✅ LibraryAutoScanner stopped")

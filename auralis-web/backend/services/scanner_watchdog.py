@@ -11,6 +11,8 @@ import asyncio
 import logging
 from typing import Any
 
+from config.limits import OBSERVER_JOIN_TIMEOUT_S
+
 logger = logging.getLogger(__name__)
 
 # Optional watchdog for real-time filesystem events
@@ -90,7 +92,7 @@ class WatchdogMixin:
         if current_dirs == new_dirs:
             return  # No change
 
-        # Observer.join(timeout=5) blocks; offload so a scan-folder settings
+        # Observer.join() blocks up to OBSERVER_JOIN_TIMEOUT_S; offload so a scan-folder settings
         # change doesn't stall the event loop for up to 5s (#4775).
         await asyncio.to_thread(self._stop_watchdog)
         if not scan_folders:
@@ -113,7 +115,7 @@ class WatchdogMixin:
         if self._observer is not None:
             try:
                 self._observer.stop()
-                self._observer.join(timeout=5)
+                self._observer.join(timeout=OBSERVER_JOIN_TIMEOUT_S)
             except Exception:
                 # Best-effort teardown (#4368 — was a bare pass, hiding
                 # genuine watchdog-thread failures from debugging).

@@ -1,4 +1,4 @@
-"""Centralised request/upload limits (#4033).
+"""Centralised request/upload/shutdown-budget constants (#4033, #6233).
 
 Single source of truth for the size and count caps enforced across the upload
 routers. Previously ``_MAX_UPLOAD_BYTES`` was defined independently in
@@ -207,3 +207,18 @@ WS_MESSAGE_WINDOW_SECONDS: float = 1.0
 # in HeartbeatManager and again as arguments where the connection builds it (#5800).
 WS_HEARTBEAT_INTERVAL_SECONDS: int = 30
 WS_HEARTBEAT_TIMEOUT_SECONDS: int = 10
+
+# Graceful-shutdown budgets (seconds). The lifespan's teardown steps each wait
+# at most SHUTDOWN_STEP_TIMEOUT_S (scanner task cancel, watchdog teardown await,
+# fingerprint executor drain); the observer join under them waits
+# OBSERVER_JOIN_TIMEOUT_S. Worst case the backend's teardown spends
+# OBSERVER_JOIN_TIMEOUT_S + 3 x SHUTDOWN_STEP_TIMEOUT_S = 35 s — the Electron
+# wrapper's kill grace (desktop/main.js BACKEND_KILL_GRACE_MS) must be read
+# against that sum; see auralis-web/backend/CONFIG.md. Env-tunable like the
+# scanner grace (services/scanner_stop.py).
+SHUTDOWN_STEP_TIMEOUT_S: float = float(
+    get_int_env("AURALIS_SHUTDOWN_STEP_TIMEOUT_SECONDS", 10)
+)
+OBSERVER_JOIN_TIMEOUT_S: float = float(
+    get_int_env("AURALIS_OBSERVER_JOIN_TIMEOUT_SECONDS", 5)
+)

@@ -7,6 +7,15 @@ const fs = require('node:fs');
 const { isSafeExternalUrl, isAllowedAppNavigation, DEV_ORIGIN_FLAG } = require('./url-safety');
 const { buildBackendEnv } = require('./backend-env');
 
+// Grace period between SIGTERM and SIGKILL for the Python backend. The
+// backend's own teardown steps are budgeted in
+// auralis-web/backend/config/limits.py (OBSERVER_JOIN_TIMEOUT_S +
+// 3 x SHUTDOWN_STEP_TIMEOUT_S = 35 s worst case); this grace only decides
+// how long the wrapper is willing to wait before forcing the issue — the
+// two numbers must be read against each other, and the WAL checkpoint the
+// lifespan reworked for (#4569, #4801) only happens if teardown beats this.
+const BACKEND_KILL_GRACE_MS = 2000;
+
 // Configure logging for auto-updater
 log.transports.file.level = 'info';
 
@@ -484,7 +493,8 @@ class AuralisApp {
       // Try graceful shutdown first
       this.pythonProcess.kill('SIGTERM');
 
-      // Force kill after 2 seconds (reduced from 5)
+      // Force kill after the grace period (reduced from 5 s once backend
+      // teardown was bounded — see BACKEND_KILL_GRACE_MS above).
       setTimeout(() => {
         if (this.pythonProcess && !this.pythonProcess.killed) {
           console.log('Backend still running, sending SIGKILL...');
@@ -500,7 +510,7 @@ class AuralisApp {
             }
           }
         }
-      }, 2000);
+      }, BACKEND_KILL_GRACE_MS);
     }
 
     this.pythonProcess = null;

@@ -22,6 +22,8 @@ from typing import Any
 from auralis.analysis.fingerprint.windowed_compute import compute_windowed_fingerprint
 from core.env_config import get_int_env
 
+from config.limits import SHUTDOWN_STEP_TIMEOUT_S
+
 logger = logging.getLogger(__name__)
 
 # Number of worker threads for fingerprinting. Override via
@@ -64,7 +66,9 @@ def shutdown_fingerprint_executor() -> None:
         _fingerprint_executor = None
 
 
-async def shutdown_fingerprint_executor_bounded(timeout: float = 10.0) -> None:
+async def shutdown_fingerprint_executor_bounded(
+    timeout: float = SHUTDOWN_STEP_TIMEOUT_S,
+) -> None:
     """Bounded-wait shutdown for the FastAPI lifespan (#4756).
 
     Every other worker/pool in config/startup.py's _shutdown_components()
