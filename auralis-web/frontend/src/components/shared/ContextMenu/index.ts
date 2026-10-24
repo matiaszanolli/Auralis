@@ -12,7 +12,6 @@ export { useContextMenu } from './useContextMenu';
 
 export {
   getTrackContextActions,
-  getAlbumContextActions,
   getArtistContextActions,
   getPlaylistContextActions,
 } from './contextMenuActions';

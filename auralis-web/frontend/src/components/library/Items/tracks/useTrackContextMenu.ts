@@ -121,7 +121,7 @@ export const useTrackContextMenu = ({
 
   const contextActions = useMemo(
     () =>
-      getTrackContextActions(track.id, track.favorite || false, {
+      getTrackContextActions(track.favorite || false, {
         onPlay: () => {
           onPlay(track.id);
         },

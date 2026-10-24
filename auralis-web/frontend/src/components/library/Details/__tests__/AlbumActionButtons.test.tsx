@@ -18,7 +18,6 @@ const baseProps = {
   isFavorite: false,
   savingFavorite: false,
   firstTrackId: 1,
-  albumId: 1,
   onPlay: vi.fn(),
   onToggleFavorite: vi.fn(),
   onAddToQueue: vi.fn(),

@@ -110,7 +110,7 @@ export const useContextMenuActions = ({
     }
 
     return {
-      actions: getArtistContextActions(artist.id, {
+      actions: getArtistContextActions({
         onPlayAll: handlePlayAll,
         onAddToQueue: handleAddToQueue,
         onShowAlbums: () => {

@@ -46,7 +46,7 @@ const TrackTableRowItemImpl = ({
     contextActions,
   } = useTrackContextMenu({
     track,
-    onPlay: (_trackId) => onTrackClick(track),
+    onPlay: () => onTrackClick(track),
     onFindSimilar,
   });
 

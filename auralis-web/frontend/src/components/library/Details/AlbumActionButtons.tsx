@@ -20,7 +20,6 @@ interface AlbumActionButtonsProps {
   isFavorite: boolean;
   savingFavorite: boolean;
   firstTrackId?: number;
-  albumId?: number;
   onPlay: () => void;
   onToggleFavorite: () => void;
   onAddToQueue?: () => void;
@@ -32,7 +31,6 @@ export const AlbumActionButtons = ({
   isFavorite,
   savingFavorite,
   firstTrackId,
-  albumId: _albumId,
   onPlay,
   onToggleFavorite,
   onAddToQueue,

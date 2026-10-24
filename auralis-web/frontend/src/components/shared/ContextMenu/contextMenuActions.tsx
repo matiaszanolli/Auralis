@@ -3,7 +3,6 @@
  *
  * Predefined action configurations for different context menu types:
  * - Track context menu
- * - Album context menu
  * - Artist context menu
  * - Playlist context menu
  */
@@ -35,7 +34,6 @@ export interface ContextMenuAction {
  * Generate track context menu actions
  */
 export const getTrackContextActions = (
-  _trackId: number,
   isLoved: boolean,
   callbacks: {
     onPlay?: () => void;
@@ -126,49 +124,9 @@ export const getTrackContextActions = (
 ];
 
 /**
- * Generate album context menu actions
- */
-export const getAlbumContextActions = (
-  _albumId: number,
-  callbacks: {
-    onPlay?: () => void;
-    onAddToQueue?: () => void;
-    onShowArtist?: () => void;
-    onEdit?: () => void;
-  }
-): ContextMenuAction[] => [
-  {
-    id: 'play',
-    label: 'Play Album',
-    icon: <PlayArrow fontSize="small" />,
-    onClick: callbacks.onPlay || (() => {}),
-  },
-  {
-    id: 'queue',
-    label: 'Add to Queue',
-    icon: <QueueMusic fontSize="small" />,
-    onClick: callbacks.onAddToQueue || (() => {}),
-    divider: true,
-  },
-  {
-    id: 'artist',
-    label: 'Go to Artist',
-    icon: <Person fontSize="small" />,
-    onClick: callbacks.onShowArtist || (() => {}),
-  },
-  {
-    id: 'edit',
-    label: 'Edit Album',
-    icon: <Edit fontSize="small" />,
-    onClick: callbacks.onEdit || (() => {}),
-  },
-];
-
-/**
  * Generate artist context menu actions
  */
 export const getArtistContextActions = (
-  _artistId: number,
   callbacks: {
     onPlayAll?: () => void;
     onAddToQueue?: () => void;
@@ -207,7 +165,6 @@ export const getArtistContextActions = (
  * Generate playlist context menu actions
  */
 export const getPlaylistContextActions = (
-  _playlistId: string,
   callbacks: {
     onPlay?: () => void;
     onEdit?: () => void;

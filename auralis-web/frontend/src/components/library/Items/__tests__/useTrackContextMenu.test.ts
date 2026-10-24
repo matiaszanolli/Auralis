@@ -128,7 +128,7 @@ describe('useTrackContextMenu', () => {
       );
 
       const calls = vi.mocked(getTrackContextActions).mock.calls;
-      const callbacks = calls[calls.length - 1]?.[2];
+      const callbacks = calls[calls.length - 1]?.[1];
       expect(callbacks).toBeDefined();
       callbacks!.onPlay!();
 
@@ -489,7 +489,7 @@ describe('useTrackContextMenu', () => {
       renderHook(() => useTrackContextMenu({ track: mockTrack, onPlay: mockOnPlay }), { wrapper });
       // `.at(-1)` needs lib es2022; the tsconfig targets es2020 (#5640).
       const calls = vi.mocked(getTrackContextActions).mock.calls;
-      const handlers = calls[calls.length - 1]![2];
+      const handlers = calls[calls.length - 1]![1];
       return { store, onAddToQueue: handlers.onAddToQueue as () => Promise<void> };
     };
 

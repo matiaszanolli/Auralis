@@ -31,7 +31,7 @@ export const usePlaylistContextActions = ({
   return useMemo(() => {
     if (!playlist) return [];
 
-    return getPlaylistContextActions(playlist.id.toString(), {
+    return getPlaylistContextActions({
       onPlay: async () => {
         try {
           // Fetch the playlist's tracks, replace the queue, then start the

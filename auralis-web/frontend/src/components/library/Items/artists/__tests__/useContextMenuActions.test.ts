@@ -36,7 +36,7 @@ vi.mock('@/services/libraryService', () => ({
 }));
 // Passthrough so we can invoke the registered handlers directly.
 vi.mock('@/components/shared/ContextMenu', () => ({
-  getArtistContextActions: (_id: number, handlers: Record<string, () => void>) => handlers,
+  getArtistContextActions: (handlers: Record<string, () => void>) => handlers,
 }));
 
 import { getArtistTracks } from '@/services/libraryService';
