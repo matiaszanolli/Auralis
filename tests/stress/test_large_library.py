@@ -68,13 +68,6 @@ class TestDatabasePerformanceUnderLoad:
         finally:
             session.close()
 
-    @pytest.mark.skip(reason="Very slow test (~3-5 minutes)")
-    def test_library_scan_10k_files(self, tmp_path):
-        """Test library scan performance with 10,000 files (skipped by default)."""
-        # Similar to above but with 10k files
-        # Expected: < 3 minutes for 10k files
-        pass
-
     def test_query_performance_1k_tracks(self, large_library_db):
         """Test query performance with 1,000 tracks."""
         from auralis.library.repositories import TrackRepository
@@ -464,13 +457,6 @@ class TestMemoryManagement:
 @pytest.mark.slow
 class TestLongRunningOperations:
     """Tests for long-running operations and durability."""
-
-    @pytest.mark.skip(reason="Very long test (simulates 24 hours)")
-    def test_24_hour_playback_session(self):
-        """Test continuous playback for 24 hours (simulated)."""
-        # Would simulate long playback session
-        # Check for memory leaks, state corruption, etc.
-        pass
 
     def test_1000_track_queue(self, tmp_path):
         """Test queue with 1,000 tracks."""

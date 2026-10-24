@@ -71,13 +71,6 @@ class TestHighVolumeProcessing:
         # Verify outputs exist
         assert len(list(output_dir.glob("*.wav"))) == 100
 
-    @pytest.mark.skip(reason="Very slow test (~10-15 minutes)")
-    def test_batch_process_1000_files(self, tmp_path):
-        """Test processing 1,000 files (simulated, skipped by default)."""
-        # Would process 1000 files
-        # Expected: < 30 minutes for 1000 files
-        pass
-
     def test_concurrent_processing_saturation(self, tmp_path, cpu_monitor):
         """Test CPU saturation with concurrent processing."""
         from auralis.core.hybrid_processor import HybridProcessor
