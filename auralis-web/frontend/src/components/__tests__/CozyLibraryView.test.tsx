@@ -56,6 +56,13 @@ vi.mock('../library/Views/TrackListView', () => ({
     );
   },
 }));
+// #6007: the playlist detail view owns its own fetch; mock it so the routing
+// tests assert WHICH view renders without coupling to its data layer.
+vi.mock('../library/Details/PlaylistDetailView', () => ({
+  default: function MockPlaylistDetailView({ playlistId }: any) {
+    return <div data-testid="playlist-detail-view">playlist-{playlistId}</div>;
+  },
+}));
 vi.mock('../shared/ui/feedback', () => ({
   EmptyState: function MockEmptyState({ title }: any) {
     return <div data-testid="empty-state">{title}</div>;
@@ -175,6 +182,7 @@ describe('CozyLibraryView', () => {
       expect(useLibraryWithStats).toHaveBeenCalledWith({
         view: 'favourites',
         includeStats: false,
+        autoLoad: true,
       });
     });
 
@@ -197,6 +205,52 @@ describe('CozyLibraryView', () => {
       render(<CozyLibraryView searchQuery="albumless" />);
 
       expect(screen.getByTestId('track-1')).toBeInTheDocument();
+    });
+  });
+
+  // #6007: sidebar playlist clicks set `playlist-<id>` view ids. Before the
+  // routing branch existed they fell through to the Songs config and the
+  // paginated full-library fetch under a "Songs" heading.
+  describe('Playlist Detail Routing (#6007)', () => {
+    it('routes playlist-<id> views to the playlist detail view', () => {
+      render(<CozyLibraryView view="playlist-7" />);
+
+      expect(screen.getByTestId('playlist-detail-view')).toBeInTheDocument();
+      expect(screen.getByText('playlist-7')).toBeInTheDocument();
+      // The full-library track list must not render behind the detail view.
+      expect(screen.queryByTestId('track-list-view')).not.toBeInTheDocument();
+    });
+
+    it('does not auto-load the library tracks endpoint for playlist views', () => {
+      render(<CozyLibraryView view="playlist-7" />);
+
+      expect(useLibraryWithStats).toHaveBeenCalledWith({
+        view: 'playlist-7',
+        includeStats: false,
+        autoLoad: false,
+      });
+    });
+
+    it('still auto-loads for track list views', () => {
+      render(<CozyLibraryView />);
+
+      expect(useLibraryWithStats).toHaveBeenCalledWith({
+        view: 'songs',
+        includeStats: false,
+        autoLoad: true,
+      });
+    });
+
+    it('falls back to Songs for malformed playlist view ids (#5620 policy)', () => {
+      render(<CozyLibraryView view="playlist-notanumber" />);
+
+      expect(screen.queryByTestId('playlist-detail-view')).not.toBeInTheDocument();
+      expect(screen.getByTestId('track-list-view')).toBeInTheDocument();
+      expect(useLibraryWithStats).toHaveBeenCalledWith({
+        view: 'playlist-notanumber',
+        includeStats: false,
+        autoLoad: true,
+      });
     });
   });
 

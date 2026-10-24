@@ -184,6 +184,7 @@ function ComfortableApp() {
                   view={currentView}
                   searchQuery={searchQuery}
                   viewMode={viewMode}
+                  onNavigate={handleSidebarNavigation}
                 />
               </Suspense>
             </ErrorBoundary>

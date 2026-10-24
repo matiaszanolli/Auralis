@@ -29,6 +29,7 @@ import type { ViewMode } from '@/components/navigation/ViewToggle';
 import { LibraryViewRouter } from './Views/LibraryViewRouter';
 import { ViewContainer } from './Views/ViewContainer';
 import { TrackListView } from './Views/TrackListView';
+import PlaylistDetailView from './Details/PlaylistDetailView';
 import { LibraryEmptyContent } from '@/components/CozyLibraryView/LibraryEmptyContent';
 import { AlbumCharacterPane } from './AlbumCharacterPane';
 import { useLibraryKeyboardShortcuts } from '@/components/CozyLibraryView/useLibraryKeyboardShortcuts';
@@ -46,6 +47,12 @@ interface CozyLibraryViewProps {
   searchQuery?: string;
   /** Grid or list view mode */
   viewMode?: ViewMode;
+  /**
+   * Navigate to another view id. Only PlaylistDetailView uses it today (its
+   * Back button), because album/artist details are selection state local to
+   * this component while a playlist detail IS the view id (#6007).
+   */
+  onNavigate?: (view: string) => void;
 }
 
 // View title and icon based on current view — static, so it lives at module
@@ -59,11 +66,27 @@ const VIEW_CONFIG: Record<string, { icon: string; title: string; subtitle: strin
   favourites: { icon: '❤️', title: 'Favorites', subtitle: 'Your favorite tracks' },
 };
 
+/**
+ * `playlist-<id>` view ids come from the sidebar's PlaylistList (#6007).
+ * Returns the numeric id, or null for any other view — including malformed
+ * playlist ids (a stale `playlist-`, `playlist-abc`), which fall through to
+ * the honest Songs config like every other unknown view (#5620).
+ */
+export function parsePlaylistViewId(view: string): number | null {
+  if (!view.startsWith('playlist-')) return null;
+  const id = parseInt(view.slice('playlist-'.length), 10);
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
+
 const CozyLibraryView = memo<CozyLibraryViewProps>(({
   view = 'songs',
   searchQuery = '',
   viewMode = 'grid',
+  onNavigate,
 }) => {
+  // Sidebar playlist clicks set `playlist-<id>` view ids (#6007).
+  const playlistId = parsePlaylistViewId(view);
+
   // ── DATA LAYER ──
   const {
     tracks,
@@ -75,7 +98,7 @@ const CozyLibraryView = memo<CozyLibraryViewProps>(({
     totalTracks,
     isLoadingMore,
     loadMore,
-  } = useLibraryWithStats({ view, includeStats: false });
+  } = useLibraryWithStats({ view, includeStats: false, autoLoad: playlistId === null });
 
   // Filtered tracks (search)
   const filteredTracks = useMemo(() => {
@@ -167,6 +190,18 @@ const CozyLibraryView = memo<CozyLibraryViewProps>(({
   });
 
   // ── RENDER - View Routing ──
+
+  // Playlist detail (#6007): the view id itself carries the playlist id, so
+  // route it before the track-list fall-through — that fall-through used to
+  // paginate the entire library under a "Songs" heading for these ids.
+  if (playlistId !== null) {
+    return (
+      <PlaylistDetailView
+        playlistId={playlistId}
+        onBack={onNavigate ? () => onNavigate('songs') : undefined}
+      />
+    );
+  }
 
   // Render routed view for albums/artists or when navigating album/artist details
   if (view === 'albums' || view === 'artists' || selectedAlbumId !== null || selectedArtistId !== null) {

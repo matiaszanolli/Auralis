@@ -61,7 +61,11 @@ export const SidebarContent = ({ selectedItem, onItemClick }: SidebarContentProp
       <Box sx={{ marginTop: tokens.spacing.group }}> {/* 16px group spacing before playlists (the playlists live here, not as a main view — #5620) */}
         <PlaylistList
           selectedPlaylistId={selectedItem.startsWith('playlist-') ? parseInt(selectedItem.replace('playlist-', '')) : undefined}
-          onPlaylistSelect={(playlistId) => onItemClick(`playlist-${playlistId}`)}
+          onPlaylistSelect={(playlistId) =>
+            // -1 is usePlaylistOperations' "selected playlist was deleted"
+            // sentinel: navigate to songs, never `playlist--1` (#6007).
+            onItemClick(playlistId === -1 ? 'songs' : `playlist-${playlistId}`)
+          }
           hideHeader={true}
         />
       </Box>
