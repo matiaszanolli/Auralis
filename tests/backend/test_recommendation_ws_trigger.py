@@ -229,11 +229,19 @@ class TestWiring:
     """The finding was a function with no reachable caller — pin that it has one."""
 
     def test_live_ws_path_calls_the_service(self):
-        source = Path(_BACKEND) / "ws_handlers" / "playback_commands.py"
-        text = source.read_text()
-        assert "generate_and_broadcast_recommendation" in text, (
-            "the WS play path must call the recommendation service (#4542)"
-        )
+        # _generate_mastering_recommendation moved to enhancement_params.py
+        # in #6269; the play handlers in playback_commands.py still trigger it.
+        for source_name in ("enhancement_params.py", "playback_commands.py"):
+            source = Path(_BACKEND) / "ws_handlers" / source_name
+            text = source.read_text()
+            if source_name == "enhancement_params.py":
+                assert "generate_and_broadcast_recommendation" in text, (
+                    "the WS play path must call the recommendation service (#4542)"
+                )
+            else:
+                assert "_generate_mastering_recommendation" in text, (
+                    "both play handlers must trigger the recommendation (#4542)"
+                )
 
     def test_both_play_handlers_dispatch(self):
         import inspect

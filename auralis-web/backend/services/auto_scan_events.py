@@ -12,11 +12,8 @@ from collections.abc import Callable
 from typing import Any, cast
 
 from helpers import log_task_exception, scan_progress_percentage
-from websocket.outbound_messages import (
-    ScanCompletePayload,
-    ScanFailurePayload,
-    broadcast_typed,
-)
+from websocket.outbound.library import ScanCompletePayload, ScanFailurePayload
+from websocket.outbound_messages import broadcast_typed
 
 logger = logging.getLogger(__name__)
 

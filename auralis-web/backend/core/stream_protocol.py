@@ -7,9 +7,10 @@ Stream Protocol (Wire Layer)
 Low-level WebSocket send primitives and the binary PCM chunk framing
 protocol.
 
-Extracted from audio_stream_controller.py (#4071). See stream_messages.py
-for the higher-level JSON control-message helpers (stream_start,
-stream_end, error, fingerprint_progress) built on top of safe_send here.
+Extracted from audio_stream_controller.py (#4071). See stream_lifecycle.py
+(start/end/completion) and stream_notifications.py (error,
+fingerprint_progress) for the higher-level JSON control-message helpers
+built on top of safe_send here.
 
 is_websocket_connected is a pure function of the websocket. safe_send,
 safe_send_bytes, and send_pcm_chunk take `controller` and route their

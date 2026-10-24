@@ -22,7 +22,7 @@ sys.path.insert(0, str(BACKEND))
 
 from core.state_manager import PlayerStateManager
 from player_state import SERVER_INSTANCE_ID, PlayerState
-from websocket.outbound_messages import PlayerStatePayload
+from websocket.outbound.player import PlayerStatePayload
 
 
 def test_snapshot_carries_the_process_instance_id():

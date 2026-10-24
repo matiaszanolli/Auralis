@@ -93,7 +93,7 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 | WS endpoint | Backend | `auralis-web/backend/routers/system.py` (module-level `websocket_endpoint`, registered with `add_api_websocket_route`, #5832); the per-connection stream task registries live in `auralis-web/backend/routers/system_streams.py` |
 | WS accept + checks | Backend | `auralis-web/backend/ws_handlers/connection.py`, `auralis-web/backend/websocket/websocket_security.py` |
 | Message routing | Backend | `auralis-web/backend/ws_handlers/messages.py`, `playback_commands.py`, `playback_control.py` |
-| Protocol contract | Backend | `auralis-web/backend/websocket/websocket_protocol.py`, `auralis-web/backend/websocket/outbound_messages.py`, `auralis-web/backend/core/stream_protocol.py`, `auralis-web/backend/core/stream_messages.py` |
+| Protocol contract | Backend | `auralis-web/backend/websocket/websocket_protocol.py`, `auralis-web/backend/websocket/outbound_messages.py`, `auralis-web/backend/core/stream_protocol.py`, `auralis-web/backend/core/stream_lifecycle.py` / `stream_notifications.py` |
 | Binary audio frames | Backend | `auralis-web/backend/core/encoding/wav_encoder.py`, `auralis-web/backend/core/audio_stream_controller.py` |
 | Frame decode | Frontend | `auralis-web/frontend/src/hooks/websocket/socketFrameParser.ts` (binary PCM pairing, heartbeat reply, `audio_chunk_meta.seq` desync check) → `auralis-web/frontend/src/services/audio/` |
 | Timing policy | Both | heartbeat `WS_HEARTBEAT_INTERVAL_SECONDS` / `WS_HEARTBEAT_TIMEOUT_SECONDS` in `auralis-web/backend/config/limits.py`; reconnect backoff in `WebSocketManager` (`auralis-web/frontend/src/utils/errorHandling.ts`) — one definition each since #5800 |

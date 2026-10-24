@@ -16,11 +16,8 @@ from cache import StreamlinedCacheManager, streamlined_cache_manager
 from core import audio_stream_controller as _asc
 from schemas import DEFAULT_PRESET
 from security.path_security import PathValidationError, validate_file_path
-from websocket.outbound_messages import (
-    BroadcastManager,
-    MasteringRecommendationPayload,
-    broadcast_typed,
-)
+from websocket.outbound.enhancement import MasteringRecommendationPayload
+from websocket.outbound_messages import BroadcastManager, broadcast_typed
 
 logger = logging.getLogger(__name__)
 

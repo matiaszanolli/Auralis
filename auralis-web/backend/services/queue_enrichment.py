@@ -22,7 +22,7 @@ from collections.abc import Callable
 from typing import Any
 
 from player_state import TrackInfo
-from websocket.outbound_messages import TrackPayload
+from websocket.outbound.player import TrackPayload
 
 logger = logging.getLogger(__name__)
 

@@ -242,7 +242,7 @@ async def stream_enhanced_audio(
 
         # Report whether the loop ran to the end and how much audio actually
         # reached the client — shared with stream_normal.py/stream_seek.py
-        # (#5032), see stream_messages.send_stream_completion for the
+        # (#5032), see stream_lifecycle.send_stream_completion for the
         # reason= rules (#4659/#4790).
         await controller._send_stream_completion(
             websocket,

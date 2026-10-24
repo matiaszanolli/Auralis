@@ -31,7 +31,8 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT / "auralis-web" / "backend"))
 
 from core import audio_stream_controller as asc  # noqa: E402
-from core import stream_messages, stream_protocol  # noqa: E402
+from core import stream_lifecycle as stream_messages  # noqa: E402
+from core import stream_protocol  # noqa: E402
 
 pytestmark = pytest.mark.asyncio
 
@@ -192,7 +193,7 @@ class TestWiringCompleteness:
     """#4563 WIRING/CONSISTENCY checks."""
 
     def test_both_producers_stamp_the_epoch(self):
-        start_src = (_BACKEND_CORE / "stream_messages.py").read_text()
+        start_src = (_BACKEND_CORE / "stream_lifecycle.py").read_text()
         chunk_src = (_BACKEND_CORE / "stream_protocol.py").read_text()
 
         assert "stream_epoch" in start_src
@@ -207,7 +208,7 @@ class TestWiringCompleteness:
         """
         offenders = []
         for path in _BACKEND_CORE.glob("*.py"):
-            if path.name == "stream_messages.py":
+            if path.name == "stream_lifecycle.py":
                 continue
             for lineno, line in enumerate(path.read_text().splitlines(), 1):
                 if re.search(r"""["']is_seek["']\s*[:=]""", line):

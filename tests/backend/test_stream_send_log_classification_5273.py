@@ -17,7 +17,7 @@ from starlette.websockets import WebSocketState
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from core.stream_messages import send_error, send_fingerprint_progress  # noqa: E402
+from core.stream_notifications import send_error, send_fingerprint_progress  # noqa: E402
 
 
 class _FakeController:

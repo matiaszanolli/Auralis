@@ -276,7 +276,7 @@ class TestStreamEndReason:
     @staticmethod
     async def _capture(**kwargs):
         """Invoke send_stream_end and return the emitted message payload."""
-        from core import stream_messages
+        from core import stream_lifecycle as stream_messages
 
         sent: list[dict] = []
 
@@ -319,7 +319,7 @@ class TestStreamEndReason:
 
     @pytest.mark.asyncio
     async def test_completed_seek_reports_only_delivered_length(self):
-        from core import stream_messages
+        from core import stream_lifecycle as stream_messages
 
         sent: list[dict] = []
 
@@ -396,7 +396,7 @@ class TestStreamEndReason:
 
         import re
 
-        shared_source = (_BACKEND / "core" / "stream_messages.py").read_text()
+        shared_source = (_BACKEND / "core" / "stream_lifecycle.py").read_text()
         assert re.search(r'reason\s*=\s*"stopped"', shared_source), (
             "stream_messages.py's send_stream_completion never reports a stopped stream"
         )

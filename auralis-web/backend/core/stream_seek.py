@@ -246,7 +246,7 @@ async def stream_enhanced_audio_from_position(
 
         # Distinguish a truncated seek stream from a completed one and report
         # what was actually delivered — shared with stream_normal.py/
-        # stream_enhanced.py (#5032), see stream_messages.send_stream_completion
+        # stream_enhanced.py (#5032), see stream_lifecycle.send_stream_completion
         # for the reason= rules (#4659/#4790).
         await controller._send_stream_completion(
             websocket,

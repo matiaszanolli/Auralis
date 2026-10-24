@@ -37,7 +37,7 @@ from fastapi import WebSocket
 from . import audio_stream_controller as _asc
 from .executors import run_in_stream_executor
 from .stream_gates import wait_for_stream_gates
-from .stream_messages import ChunkPumpResult
+from .stream_lifecycle import ChunkPumpResult
 
 logger = logging.getLogger(__name__)
 

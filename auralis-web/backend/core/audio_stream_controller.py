@@ -9,7 +9,7 @@ Unified architecture: single WebSocket endpoint for all audio streaming.
 
 This module holds the AudioStreamController orchestrator plus the shared
 module-level state (contextvars, timeouts, semaphore) the extracted
-streaming submodules key off of: stream_protocol.py (wire send + PCM framing), stream_messages.py (JSON
+streaming submodules key off of: stream_protocol.py (wire send + PCM framing), stream_lifecycle.py / stream_notifications.py (JSON
 control messages), stream_fingerprint.py (fingerprint readiness),
 stream_chunk_ops.py (per-chunk helpers), and stream_enhanced.py /
 stream_normal.py / stream_seek.py (the three entry points).
@@ -65,7 +65,7 @@ _stream_type_var: contextvars.ContextVar[str | None] = contextvars.ContextVar(
 # (cell[0] += 1) rather than rebind the var with .set() — only mutation is
 # visible back in the parent stream task. That is what lets `seq` stay
 # monotonic ACROSS chunk boundaries for the whole stream, as the client
-# contract (AudioChunkMetaMessage JSDoc) promises. stream_messages.send_stream_start
+# contract (AudioChunkMetaMessage JSDoc) promises. stream_lifecycle.send_stream_start
 # resets the cell to [0] at every audio_stream_start boundary.
 _frame_seq_var: contextvars.ContextVar[list[int] | None] = contextvars.ContextVar(
     '_frame_seq', default=None
@@ -212,26 +212,26 @@ class AudioStreamController:
         )
 
     async def _send_stream_start(self, websocket: WebSocket, **kwargs: Any) -> bool:
-        from . import stream_messages
-        return await stream_messages.send_stream_start(self, websocket, **kwargs)
+        from . import stream_lifecycle
+        return await stream_lifecycle.send_stream_start(self, websocket, **kwargs)
 
     async def _send_stream_end(self, websocket: WebSocket, **kwargs: Any) -> bool:
-        from . import stream_messages
-        return await stream_messages.send_stream_end(self, websocket, **kwargs)
+        from . import stream_lifecycle
+        return await stream_lifecycle.send_stream_end(self, websocket, **kwargs)
 
     async def _send_stream_completion(self, websocket: WebSocket, **kwargs: Any) -> bool:
-        from . import stream_messages
-        return await stream_messages.send_stream_completion(self, websocket, **kwargs)
+        from . import stream_lifecycle
+        return await stream_lifecycle.send_stream_completion(self, websocket, **kwargs)
 
     async def _send_error(self, websocket: WebSocket, track_id: int, error_message: str, **kwargs: Any) -> None:
-        from . import stream_messages
-        await stream_messages.send_error(self, websocket, track_id, error_message, **kwargs)
+        from . import stream_notifications
+        await stream_notifications.send_error(self, websocket, track_id, error_message, **kwargs)
 
     async def _send_fingerprint_progress(
         self, websocket: WebSocket, track_id: int, status: str, message: str
     ) -> None:
-        from . import stream_messages
-        await stream_messages.send_fingerprint_progress(self, websocket, track_id, status, message)
+        from . import stream_notifications
+        await stream_notifications.send_fingerprint_progress(self, websocket, track_id, status, message)
 
     async def _check_or_queue_fingerprint(
         self, track_id: int, websocket: WebSocket | None = None

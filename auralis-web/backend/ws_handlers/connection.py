@@ -200,7 +200,7 @@ async def dispatch_message(
     elif msg_type == "stop":
         await playback_control.handle_stop(websocket, state)
     elif msg_type == "seek":
-        await playback_commands.handle_seek(websocket, message, state, deps)
+        await seek_command.handle_seek(websocket, message, state, deps)
     else:
         await msg_handlers.handle_unknown(websocket, message)
 

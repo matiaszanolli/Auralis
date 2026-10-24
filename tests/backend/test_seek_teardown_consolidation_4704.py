@@ -26,7 +26,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from ws_handlers import playback_commands  # noqa: E402
+from ws_handlers import playback_commands, seek_command  # noqa: E402
 
 _HANDLERS = Path(__file__).parent.parent.parent / "auralis-web" / "backend" / "ws_handlers"
 
@@ -43,14 +43,14 @@ def _func_source(module_path: Path, name: str) -> str:
 
 class TestSeekDelegatesToTheHelper:
     def test_handle_seek_calls_cancel_prior_task(self):
-        src = _func_source(_HANDLERS / "playback_commands.py", "handle_seek")
+        src = _func_source(_HANDLERS / "seek_command.py", "handle_seek")
         assert "_cancel_prior_task(" in src, (
             "handle_seek no longer routes its teardown through the shared "
             "helper — the divergent copy is back"
         )
 
     def test_handle_seek_does_not_open_code_the_teardown(self):
-        src = _func_source(_HANDLERS / "playback_commands.py", "handle_seek")
+        src = _func_source(_HANDLERS / "seek_command.py", "handle_seek")
         # `active_tasks[ws_id] = task` (re-registration) is expected; a `.pop`
         # on the registries is the open-coded teardown this issue removed.
         offenders = [r for r in _REGISTRIES if f"{r}.pop(" in src]

@@ -30,7 +30,7 @@ Read the `auralis-web/backend/schemas/` package (shared contracts: `enhancement.
 ### WebSocket Messages (Backend sends)
 
 The typed contract lives in `auralis-web/backend/websocket/outbound_messages.py` (one Literal/TypedDict per outbound message type, sent through `broadcast_typed`). Start there, then scan the places that build frames outside it:
-- `auralis-web/backend/core/stream_protocol.py` and `auralis-web/backend/core/stream_messages.py` (binary PCM framing and the `audio_stream_*` JSON control messages)
+- `auralis-web/backend/core/stream_protocol.py` and `auralis-web/backend/core/stream_lifecycle.py` / `stream_notifications.py` (the `audio_stream_*` JSON control messages)
 - `auralis-web/backend/ws_handlers/` (inbound command handlers and their replies; `connection.py` `dispatch_message` is the inbound type switch), `auralis-web/backend/routers/system.py` (the module-level `websocket_endpoint` connection loop) and `auralis-web/backend/routers/system_streams.py` (the stream tasks it launches, split out in #5832)
 - Any remaining direct `send_text(json.dumps({...}))` / `send_json({...})` call: `grep -rn "send_text\|send_json" auralis-web/backend --include='*.py'`
 

@@ -7,7 +7,8 @@ Artwork router dependency plumbing and the artwork_updated broadcast (split from
 
 from collections.abc import Callable
 from typing import Any, Literal
-from websocket.outbound_messages import ArtworkUpdatedPayload, broadcast_typed
+from websocket.outbound.library import ArtworkUpdatedPayload
+from websocket.outbound_messages import broadcast_typed
 
 from .dependencies import RouterDeps, require_repository_factory
 

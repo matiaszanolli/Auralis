@@ -1,17 +1,13 @@
 #!/usr/bin/env python3
 
 """
-Stream Control Messages
-~~~~~~~~~~~~~~~~~~~~~~~
+Stream Lifecycle Messages
+~~~~~~~~~~~~~~~~~~~~~~
 
-JSON control-message senders for the audio streaming protocol:
-audio_stream_start, audio_stream_end, audio_stream_error, and
-fingerprint_progress. Built on top of controller._safe_send
-(stream_protocol.safe_send) — see stream_protocol.py's module docstring
-for why these route through the controller rather than calling
-stream_protocol functions directly.
-
-Extracted from audio_stream_controller.py (#4071).
+The lifecycle half of the stream_messages split (#6269): audio_stream_start,
+audio_stream_end, the completion message and the ChunkPumpResult contract
+they consume. Notifications (errors, fingerprint progress) live in
+stream_notifications.py.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
@@ -31,7 +27,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-@dataclass
+
 class ChunkPumpResult:
     """What a chunk-pump loop delivered, for the caller's completion message.
 
@@ -170,40 +166,6 @@ async def send_stream_end(
     return False
 
 
-async def send_error(
-    controller: 'AudioStreamController',
-    websocket: WebSocket,
-    track_id: int,
-    error_message: str,
-    recovery_position: float | None = None,
-    error_code: str = "STREAMING_ERROR",
-) -> None:
-    """Send audio_stream_error message to client.
-
-    Args:
-        websocket: WebSocket connection to send the error to
-        track_id: ID of the track that failed
-        error_message: Human-readable error description
-        recovery_position: Seconds into the track from which the client may
-            seek/retry (set when a specific chunk fails, issue #2085).
-        error_code: Machine-readable error code for frontend recovery logic
-    """
-    if not controller._is_websocket_connected(websocket):
-        return
-
-    data: dict[str, Any] = {
-        "track_id": track_id,
-        "error": error_message,
-        "code": error_code,
-        "stream_type": _asc._stream_type_var.get(),
-    }
-    if recovery_position is not None:
-        data["recovery_position"] = recovery_position
-    message: dict[str, Any] = {"type": "audio_stream_error", "data": data}
-    # safe_send classifies the outcome by connection state (#5273): a client
-    # disconnect racing the send logs at debug, a genuine failure at warning —
-    # never at ERROR, which triaged as a server-side fault.
-    await controller._safe_send(websocket, message)
 
 
 async def send_stream_completion(
@@ -283,33 +245,3 @@ async def send_stream_completion(
     )
 
 
-async def send_fingerprint_progress(
-    controller: 'AudioStreamController',
-    websocket: WebSocket,
-    track_id: int,
-    status: str,
-    message: str
-) -> None:
-    """
-    Send fingerprint_progress message to client.
-
-    Args:
-        controller: AudioStreamController instance — the send routes through
-            ``controller._safe_send`` so a benign client disconnect racing
-            the progress update logs at debug, not ERROR (#5273).
-        websocket: WebSocket connection
-        track_id: Track ID being analyzed
-        status: Progress status (analyzing, complete, failed, error)
-        message: Human-readable progress message
-    """
-    progress_message: dict[str, Any] = {
-        "type": "fingerprint_progress",
-        "data": {
-            "track_id": track_id,
-            "status": status,
-            "message": message,
-            "stream_type": _asc._stream_type_var.get(),
-        },
-    }
-    if await controller._safe_send(websocket, progress_message):
-        logger.debug(f"Sent fingerprint_progress: track={track_id}, status={status}")

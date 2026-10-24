@@ -16,13 +16,13 @@ from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from typing import Any, Unpack
 
-from websocket.outbound_messages import (
+from websocket.outbound.player import TrackPayload
+from websocket.outbound.queue import (
     QueueChangeAction,
     QueueChangedExtras,
     QueueChangedPayload,
-    TrackPayload,
-    broadcast_typed,
 )
+from websocket.outbound_messages import broadcast_typed
 
 from .errors import ServiceUnavailable
 from .queue_enrichment import QueueEnricher, to_track_payload
