@@ -41,6 +41,14 @@ class FeatureExtractor:
     FFT_SIZE: int = 4096
     N_BINS: int = FFT_SIZE // 2 + 1
     AC_SIZE: int = 2 * FFT_SIZE
+    # Analysis frames spread evenly across the whole track (#6142), so a
+    # fade-in or silent head can no longer decide the genre: spectral
+    # features average the magnitude spectrum over SPECTRAL_FRAMES frames,
+    # autocorrelation features over AC_FRAMES (fewer — np.correlate is
+    # quadratic in frame length). Counts are a cost/coverage trade-off,
+    # not part of the feature contract.
+    SPECTRAL_FRAMES: int = 16
+    AC_FRAMES: int = 8
 
     def __init__(self, sample_rate: int = 44100):
         """
@@ -141,10 +149,52 @@ class FeatureExtractor:
             tonnetz=tonnetz_features
         )
 
+    def _frame_offsets(self, n_samples: int, frame_len: int, n_frames: int) -> list[int]:
+        """Start offsets of ``n_frames`` frames evenly spread over the track.
+
+        Deterministic: the same input always yields the same offsets, so
+        repeated classification of one track is stable. The last offset is
+        clamped so every frame is exactly ``frame_len`` long.
+        """
+        if n_samples <= frame_len or n_frames <= 1:
+            return [0]
+        step = (n_samples - frame_len) / (n_frames - 1)
+        last = n_samples - frame_len
+        return [min(int(round(i * step)), last) for i in range(n_frames)]
+
+    def _averaged_magnitude(self, audio: np.ndarray) -> np.ndarray:
+        """Mean one-sided magnitude spectrum over frames spread across the
+        whole track (#6142 — was: the first FFT_SIZE samples only)."""
+        total = np.zeros(self.N_BINS)
+        offsets = self._frame_offsets(len(audio), self.FFT_SIZE, self.SPECTRAL_FRAMES)
+        for off in offsets:
+            frame = audio[off:off + self.FFT_SIZE]
+            if len(frame) < self.FFT_SIZE:
+                padded = np.zeros(self.FFT_SIZE)
+                padded[:len(frame)] = frame
+                frame = padded
+            total += np.abs(np.fft.fft(frame)[:self.N_BINS])
+        return total / len(offsets)
+
+    def _averaged_autocorr(self, audio: np.ndarray) -> np.ndarray:
+        """Mean one-sided autocorrelation over frames spread across the
+        whole track (#6142 — was: the first AC_SIZE samples only)."""
+        n_lags = self.AC_SIZE
+        total = np.zeros(n_lags)
+        offsets = self._frame_offsets(len(audio), self.AC_SIZE, self.AC_FRAMES)
+        for off in offsets:
+            frame = audio[off:off + self.AC_SIZE]
+            if len(frame) < self.AC_SIZE:
+                padded = np.zeros(self.AC_SIZE)
+                padded[:len(frame)] = frame
+                frame = padded
+            corr = np.correlate(frame, frame, mode='full')
+            total += corr[len(corr)//2:]
+        return total / len(offsets)
+
     def _spectral_bandwidth(self, audio: np.ndarray) -> float:
         """Calculate spectral bandwidth"""
-        spectrum = np.fft.fft(audio[:self.FFT_SIZE])
-        magnitude = np.abs(spectrum[:self.N_BINS])
+        magnitude = self._averaged_magnitude(audio)
         freqs = np.fft.fftfreq(self.FFT_SIZE, 1/self.sample_rate)[:self.N_BINS]
 
         # Use SafeOperations for safe division
@@ -160,8 +210,7 @@ class FeatureExtractor:
 
     def _spectral_contrast(self, audio: np.ndarray, n_bands: int = 6) -> list[float]:
         """Calculate spectral contrast across frequency bands"""
-        spectrum = np.fft.fft(audio[:self.FFT_SIZE])
-        magnitude = np.abs(spectrum[:self.N_BINS])
+        magnitude = self._averaged_magnitude(audio)
 
         band_edges = np.logspace(np.log10(80), np.log10(self.sample_rate/2), n_bands + 1)
         contrasts = []
@@ -182,8 +231,7 @@ class FeatureExtractor:
 
     def _spectral_flatness(self, audio: np.ndarray) -> float:
         """Calculate spectral flatness"""
-        spectrum = np.fft.fft(audio[:self.FFT_SIZE])
-        magnitude = np.abs(spectrum[:self.N_BINS]) + 1e-10
+        magnitude = self._averaged_magnitude(audio) + 1e-10
 
         geometric_mean = np.exp(np.mean(np.log(magnitude)))
         arithmetic_mean = np.mean(magnitude)
@@ -233,8 +281,7 @@ class FeatureExtractor:
 
     def _harmonic_ratio(self, audio: np.ndarray) -> float:
         """Estimate harmonic to non-harmonic ratio"""
-        autocorr = np.correlate(audio[:self.AC_SIZE], audio[:self.AC_SIZE], mode='full')
-        autocorr = autocorr[len(autocorr)//2:]
+        autocorr = self._averaged_autocorr(audio)
 
         peak_threshold = np.max(autocorr) * 0.3
         peaks = autocorr > peak_threshold
@@ -246,8 +293,7 @@ class FeatureExtractor:
 
     def _fundamental_frequency(self, audio: np.ndarray) -> float:
         """Estimate fundamental frequency"""
-        autocorr = np.correlate(audio[:self.AC_SIZE], audio[:self.AC_SIZE], mode='full')
-        autocorr = autocorr[len(autocorr)//2:]
+        autocorr = self._averaged_autocorr(audio)
 
         min_lag = int(self.sample_rate / 800)
         max_lag = int(self.sample_rate / 80)
@@ -262,8 +308,18 @@ class FeatureExtractor:
 
     def _energy_distribution(self, audio: np.ndarray) -> tuple[float, float, float]:
         """Calculate energy distribution across frequency bands"""
-        spectrum = np.fft.fft(audio[:self.FFT_SIZE])
-        magnitude = np.abs(spectrum[:self.N_BINS]) ** 2
+        # Average the per-frame power spectra (mean of |X|^2, not the
+        # square of the mean magnitude) over the same spread frames.
+        total = np.zeros(self.N_BINS)
+        offsets = self._frame_offsets(len(audio), self.FFT_SIZE, self.SPECTRAL_FRAMES)
+        for off in offsets:
+            frame = audio[off:off + self.FFT_SIZE]
+            if len(frame) < self.FFT_SIZE:
+                padded = np.zeros(self.FFT_SIZE)
+                padded[:len(frame)] = frame
+                frame = padded
+            total += np.abs(np.fft.fft(frame)[:self.N_BINS]) ** 2
+        magnitude = total / len(offsets)
         freqs = np.fft.fftfreq(self.FFT_SIZE, 1/self.sample_rate)[:self.N_BINS]
 
         low_mask = freqs <= 250

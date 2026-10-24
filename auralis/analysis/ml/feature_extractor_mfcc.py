@@ -21,8 +21,7 @@ if TYPE_CHECKING:
 
 def _extract_mfcc(extractor: FeatureExtractor, audio: np.ndarray) -> list[float]:
     """Extract MFCC features (simplified)"""
-    spectrum = np.fft.fft(audio[:extractor.FFT_SIZE])
-    magnitude = np.abs(spectrum[:extractor.N_BINS])
+    magnitude = extractor._averaged_magnitude(audio)
 
     mel_filters = extractor._mel_filterbank
 
@@ -44,8 +43,7 @@ def _extract_mfcc(extractor: FeatureExtractor, audio: np.ndarray) -> list[float]
 
 def _extract_chroma(extractor: FeatureExtractor, audio: np.ndarray) -> list[float]:
     """Extract chroma features"""
-    spectrum = np.fft.fft(audio[:extractor.FFT_SIZE])
-    magnitude = np.abs(spectrum[:extractor.N_BINS])
+    magnitude = extractor._averaged_magnitude(audio)
     freqs = np.fft.fftfreq(extractor.FFT_SIZE, 1/extractor.sample_rate)[:extractor.N_BINS]
 
     chroma = np.zeros(12)
