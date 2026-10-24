@@ -13,6 +13,14 @@ A listed file that grows fails the gate; one that shrinks is reported so the
 ceiling can be lowered. The ceilings only go down: a split target that needs
 more room should be split again, not given a higher number.
 
+New entries are ALWAYS written at the file's current size (#6268), never the
+blanket 299: a ratchet must hold each file where it closed, or a 58-line file
+can quadruple before the gate notices. When a split creates a new target, run
+``--update`` (or add the entry at its measured size) in the same commit. The
+one documented exception shape: a not-yet-split offender (e.g. hybrid_processor
+before #6272) may hold an above-300 ceiling at its exact current size until
+its own split lands.
+
 Usage:
     python scripts/check_loc_ratchet.py             # verify
     python scripts/check_loc_ratchet.py --update    # lower ceilings to current size
