@@ -3,7 +3,7 @@
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
  * `API_BASE_URL` / `WS_BASE_URL` were hardcoded with no env-var escape hatch,
- * while `services/api/standardizedAPIClient.ts` had always read
+ * while the retired standardized client (now `services/api/cacheShapeGuards.ts`) always read
  * `import.meta.env.VITE_API_URL ?? API_BASE_URL`. With port 8765 hardcoded
  * there was no way to move the backend if that port was already taken.
  *
@@ -49,7 +49,7 @@ describe('config/api – env overrides (#4468)', () => {
     expect(getApiUrl('api/tracks')).toBe('http://example.test:1234/api/tracks');
   });
 
-  it('matches the pattern standardizedAPIClient already used', async () => {
+  it('matches the pattern the retired standardized client already used', async () => {
     // CONSISTENCY: that client resolves `VITE_API_URL ?? API_BASE_URL`, so with
     // the override set the two layers must agree on the same origin rather than
     // one talking to 8765 and the other to the override.

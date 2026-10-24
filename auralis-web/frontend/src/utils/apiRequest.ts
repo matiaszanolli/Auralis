@@ -17,7 +17,7 @@
  * message substrings instead of status codes) would otherwise need fixing in
  * three places.
  *
- * `services/api/standardizedAPIClient.ts` was retired by #4693; only its cache
+ * The retired standardized client (#4693) survives as `services/api/cacheShapeGuards.ts`, its cache
  * telemetry types and shape guards remain, and its two endpoints now come
  * through here.
  *
@@ -42,7 +42,7 @@ export { DEFAULT_TIMEOUT_MS, APIRequestError, type RequestOptions } from './apiR
 /**
  * fetch() wrapper that aborts after `timeoutMs` and composes an internal
  * timeout AbortController with any caller-supplied signal (#4442). Mirrors the
- * pattern in standardizedAPIClient so all HTTP layers behave the same.
+ * pattern in the retired standardized client so all HTTP layers behave the same.
  *
  * On timeout it throws an {@link APIRequestError} (status 0); a caller-triggered
  * abort propagates as the underlying AbortError for the caller-visible catch.

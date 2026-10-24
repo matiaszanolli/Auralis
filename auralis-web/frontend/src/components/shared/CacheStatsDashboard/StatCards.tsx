@@ -8,7 +8,7 @@
 
 import { tokens } from '@/design-system';
 import { themeVars } from '@/theme/semanticTheme';
-import { CacheStats } from '@/services/api/standardizedAPIClient';
+import { CacheStats } from '@/services/api/cacheShapeGuards';
 
 /**
  * Formats percentage values with color coding

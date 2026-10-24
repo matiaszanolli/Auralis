@@ -19,7 +19,7 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { isCacheStatsShape, isCacheHealthShape } from '../standardizedAPIClient';
+import { isCacheStatsShape, isCacheHealthShape } from '../cacheShapeGuards';
 
 const bareStats = {
   tier1: { chunks: 4, size_mb: 6, hits: 150, misses: 10, hit_rate: 0.938 },

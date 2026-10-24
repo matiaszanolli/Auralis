@@ -11,7 +11,7 @@
 //
 // VITE_API_URL / VITE_WS_URL override both (#4468). Without an escape hatch
 // there was no way to move off port 8765 when it is already taken, and this
-// module disagreed with services/api/standardizedAPIClient.ts, which has always
+// module disagreed with the retired services/api client (now cacheShapeGuards.ts), which always
 // read `import.meta.env.VITE_API_URL ?? API_BASE_URL`. Same `??` semantics as
 // that client: only an undefined override falls through to the default, so an
 // explicit empty string still selects the dev-style relative URL.

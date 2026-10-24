@@ -14,7 +14,7 @@
  * on every response.
  *
  * Extends the `isCacheStatsShape`/`isCacheHealthShape` pattern established for
- * #4440 in services/api/standardizedAPIClient.ts.
+ * #4440 in what is now services/api/cacheShapeGuards.ts.
  *
  * Every guard is a type predicate tied to its wire type (#5637): passing a
  * guard to a call typed with a different response shape is a compile error,

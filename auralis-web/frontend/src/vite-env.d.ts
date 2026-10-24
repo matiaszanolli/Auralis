@@ -2,7 +2,7 @@
 
 interface ImportMetaEnv {
   readonly VITE_COMMIT_ID: string
-  /** Overrides API_BASE_URL in config/api.ts and standardizedAPIClient (#4468). */
+  /** Overrides API_BASE_URL in config/api.ts (#4468). */
   readonly VITE_API_URL?: string
   /** Overrides WS_BASE_URL in config/api.ts (#4468). */
   readonly VITE_WS_URL?: string

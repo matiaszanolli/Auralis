@@ -14,7 +14,7 @@
  */
 
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import type { CacheStats, CacheHealth } from '@/services/api/standardizedAPIClient';
+import type { CacheStats, CacheHealth } from '@/services/api/cacheShapeGuards';
 
 export interface CacheState {
   stats: CacheStats | null;

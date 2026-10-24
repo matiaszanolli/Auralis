@@ -56,7 +56,7 @@ const ALLOWED_ANY_FILES: Record<string, string> = {
   'api/responseGuards.ts': 'documents that Response.json() is Promise<any>',
   'components/player/QueuePanel/QueuePanelExpanded.tsx': 'virtualizer ref interop',
 
-  // The 'services/api/standardizedAPIClient.ts' entry that stood here named the
+  // The retired client module's entry (now cacheShapeGuards.ts) named the
   // client's internal response cache map. #4693 retired the client, so the file
   // holds only types and guards and contains no `any` at all.
 };
@@ -94,7 +94,7 @@ describe('the remaining any usage is a recorded set, not a growing one (#4664)',
     // check that does, and it is why it exists. Repointed by #4693 from
     // isSuccessResponse/isErrorResponse, which were removed with the client,
     // onto the two guards that outlived it.
-    const source = (await import('../standardizedAPIClient?raw')).default as string;
+    const source = (await import('../cacheShapeGuards?raw')).default as string;
 
     for (const guard of ['isCacheStatsShape', 'isCacheHealthShape']) {
       const signature = source
@@ -112,6 +112,6 @@ describe('the remaining any usage is a recorded set, not a growing one (#4664)',
     // #4693 deleted. With the file down to types and guards there is nothing
     // to pre-approve, so a future `any` there must be caught by the sweep above
     // rather than found already permitted.
-    expect(ALLOWED_ANY_FILES['services/api/standardizedAPIClient.ts']).toBeUndefined();
+    expect(ALLOWED_ANY_FILES['services/api/cacheShapeGuards.ts']).toBeUndefined();
   });
 });

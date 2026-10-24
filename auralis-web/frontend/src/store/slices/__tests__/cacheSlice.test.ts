@@ -13,7 +13,7 @@ import reducer, {
   selectCacheHealth,
 } from '../cacheSlice';
 import type { CacheState } from '../cacheSlice';
-import type { CacheStats, CacheHealth } from '@/services/api/standardizedAPIClient';
+import type { CacheStats, CacheHealth } from '@/services/api/cacheShapeGuards';
 
 const initialState: CacheState = {
   stats: null,

@@ -17,9 +17,8 @@
  * only exercise was a test asserting they take `unknown` rather than `any`
  * (#4664), which is a property of code that no longer exists.
  *
- * The file keeps its name because six modules import `CacheStats` /
- * `CacheHealth` from this path. Renaming it to match its contents is a
- * mechanical follow-up, not part of the retirement.
+ * Renamed from the retired client's old filename in #6197, two months after the
+ * retirement, once the last "rename it later" had stood untracked.
  *
  * New guards belong in `@/api/responseGuards`, which generalised this
  * #4440 pattern for every other endpoint.

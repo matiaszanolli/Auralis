@@ -37,7 +37,7 @@ import {
   CacheHealth,
   isCacheStatsShape,
   isCacheHealthShape,
-} from '@/services/api/standardizedAPIClient';
+} from '@/services/api/cacheShapeGuards';
 import { get } from '@/utils/apiRequest';
 import { useWebSocketMessages } from '@/hooks/websocket/useWebSocketMessages';
 import type { WebSocketMessageType } from '@/types/websocket';

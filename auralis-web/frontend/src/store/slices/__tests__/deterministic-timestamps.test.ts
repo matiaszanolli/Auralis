@@ -12,7 +12,7 @@ import playerReducer, { setIsPlaying, setVolume } from '../playerSlice';
 import cacheReducer, { setCacheStats } from '../cacheSlice';
 import connectionReducer, { setWSConnected } from '../connectionSlice';
 import type { Track } from '@/types/domain';
-import type { CacheStats } from '@/services/api/standardizedAPIClient';
+import type { CacheStats } from '@/services/api/cacheShapeGuards';
 
 describe('Deterministic Timestamps (fixes #2232)', () => {
   describe('Queue Slice', () => {
