@@ -101,10 +101,12 @@ Two REST paths coexist:
    timeout via `AbortController`, **counter-based `isLoading`** (`inflightCount`, #2489),
    per-endpoint **sequence counters** to discard stale responses (#2439/#3055), and aborts all
    in-flight requests on unmount (#2467).
-2. **`services/api/standardizedAPIClient.ts`** — class-based client for the standardized
-   `{status, data, message, cache_source, processing_time_ms}` envelope. Type guards
-   (`isSuccessResponse`/…), an LRU response cache (200 entries / 60 s TTL), and **retries only
-   idempotent (GET) methods** by default. Singleton via `getAPIClient()`.
+2. **`utils/apiRequest.ts`** — the shared transport every endpoint goes through (#4693 retired
+   the third parallel layer, the old standardized client; what survived it is
+   `services/api/cacheShapeGuards.ts`, holding the `CacheStats`/`CacheHealth` types and shape
+   guards). Timeout via a composed `AbortController` with caller-signal forwarding, optional
+   `validate` shape guards at the boundary (#4607), and `getOrNullOn404()` for the
+   "404 means absent" endpoints (#6221).
 
 Domain service modules (`libraryService`, `playlistService`, `queueService`,
 `processingService`, `similarityService`, `artworkService`, …) wrap the endpoints.
