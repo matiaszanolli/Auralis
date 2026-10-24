@@ -13,6 +13,8 @@ that frequency range, especially after aggressive compression/limiting.
 import numpy as np
 from scipy import signal
 
+from .soft_clipper import soft_clip
+
 
 class LowMidTransientEnhancer:
     """
@@ -77,20 +79,17 @@ class LowMidTransientEnhancer:
         if intensity <= 0.0:
             return audio.copy()
 
-        # Handle stereo vs mono
-        is_stereo = audio.ndim > 1 and audio.shape[1] == 2
-
-        if is_stereo:
-            # Process each channel separately
-            left = audio[:, 0].copy()
-            right = audio[:, 1].copy()
-
-            left_enhanced = self._enhance_channel(left, intensity, attack_samples)
-            right_enhanced = self._enhance_channel(right, intensity, attack_samples)
-
-            return np.column_stack([left_enhanced, right_enhanced])
-        else:
+        # 1-D mono and 2-D [samples, channels] are both processed per
+        # channel; the input shape (including (n, 1)) is returned unchanged
+        # (#6104) — the old stereo-only branch squeezed (n, 1) down to (n,).
+        if audio.ndim == 1:
             return self._enhance_channel(audio, intensity, attack_samples)
+        if audio.ndim != 2:
+            raise ValueError(f"Expected 1-D or 2-D audio, got shape {audio.shape}")
+        return np.column_stack([
+            self._enhance_channel(audio[:, ch], intensity, attack_samples)
+            for ch in range(audio.shape[1])
+        ])
 
     def _enhance_channel(
         self,
@@ -136,49 +135,70 @@ class LowMidTransientEnhancer:
         # Apply expansion around transient onsets
         expansion_ratio = 1.0 + (2.0 * intensity)  # 1.0-3.0x expansion
 
+        # A window wider than the buffer spans the whole buffer for every
+        # peak. The realtime call site passes 50 ms at 44.1 kHz (2205
+        # samples) against 1024-sample buffers (#6104), so clamp to the
+        # buffer length to keep the window meaningful at any chunk size.
+        attack = min(attack_samples, len(audio))
+
+        # Per-peak windows overlapping on the same sample used to be summed,
+        # so a buffer with K detected peaks got K stacked boosts — ~+20 dB
+        # of low-mid and hard clipping per realtime buffer (#6104). Each
+        # sample now receives at most one window's worth of expansion: the
+        # strongest window wins. Uncovered samples stay at 0 (untouched),
+        # which also preserves the single-window behaviour exactly.
+        contribution = np.full(len(audio), -np.inf, dtype=low_mid.dtype)
+
         for peak_idx in peaks:
             # Window around transient
-            start = max(0, peak_idx - attack_samples)
-            end = min(len(audio), peak_idx + attack_samples)
+            start = max(0, peak_idx - attack)
+            end = min(len(audio), peak_idx + attack)
 
             # Apply gentle expansion to low-mid in this window
             # Expansion: boost quieter parts more, preserve loud parts
             low_mid_window = low_mid[start:end]
             rms_level = np.sqrt(np.mean(low_mid_window ** 2))
 
-            if rms_level > 1e-6:  # Avoid division by very small numbers
-                # Calculate expansion envelope (level-dependent gain)
-                relative_level = np.abs(low_mid_window) / rms_level
-                expansion_env = np.power(relative_level, 1.0 - intensity)
+            if rms_level <= 1e-6:  # Avoid division by very small numbers
+                continue
 
-                window_len = end - start
-                if window_len > 0:
-                    # Crossfade ramps for smooth attack/release at window edges
-                    ramp_len = min(20, window_len)
-                    fade_in = np.linspace(0, 1, ramp_len)
-                    fade_out = np.linspace(1, 0, ramp_len)
+            # Calculate expansion envelope (level-dependent gain)
+            relative_level = np.abs(low_mid_window) / rms_level
+            expansion_env = np.power(relative_level, 1.0 - intensity)
 
-                    # Build blend envelope: ramp up at start, ramp down at end
-                    blend = np.ones(window_len)
-                    blend[:ramp_len] = np.minimum(blend[:ramp_len], fade_in)
-                    blend[window_len - ramp_len:] = np.minimum(
-                        blend[window_len - ramp_len:], fade_out
-                    )
+            window_len = end - start
+            if window_len <= 0:
+                continue
 
-                    # Apply shaped expansion with smooth blend
-                    output[start:end] += (
-                        low_mid[start:end]
-                        * (expansion_env * expansion_ratio - 1.0)
-                        * blend
-                    )
+            # Crossfade ramps for smooth attack/release at window edges
+            ramp_len = min(20, window_len)
+            fade_in = np.linspace(0, 1, ramp_len)
+            fade_out = np.linspace(1, 0, ramp_len)
 
-        # Prevent clipping — clip to [-1, 1] so only samples that actually
-        # exceed the range are affected.  The old approach divided the entire
-        # signal by max_val, which reduced the level of untouched regions
-        # whenever a single expanded transient exceeded 1.0 (fixes #2682).
-        np.clip(output, -1.0, 1.0, out=output)
+            # Build blend envelope: ramp up at start, ramp down at end
+            blend = np.ones(window_len)
+            blend[:ramp_len] = np.minimum(blend[:ramp_len], fade_in)
+            blend[window_len - ramp_len:] = np.minimum(
+                blend[window_len - ramp_len:], fade_out
+            )
 
-        return output
+            np.maximum(
+                contribution[start:end],
+                (expansion_env * expansion_ratio - 1.0) * blend,
+                out=contribution[start:end],
+            )
+
+        contribution[~np.isfinite(contribution)] = 0.0
+
+        # One bounded expansion per sample, never K stacked ones
+        output += low_mid * contribution
+
+        # Soft saturation as the safety net instead of a hard clip (#6104):
+        # tanh above the threshold leaves sub-threshold samples bit-exact
+        # and bounds the peak below the ceiling without the discontinuity
+        # of np.clip. The old hard clip was the only thing capping the
+        # stacked windows (fixes #2682's clip; see also #2202).
+        return soft_clip(output)
 
 
 __all__ = ['LowMidTransientEnhancer']

@@ -159,3 +159,126 @@ def test_dtype_preserved():
     audio = _with_transient(_sine(300), SR // 4).astype(np.float32)
     enhanced = ENHANCER.enhance_transients(audio, intensity=0.5)
     assert enhanced.dtype == np.float32
+
+
+# ---------------------------------------------------------------------------
+# Issue #6104: stacked overlapping peak windows
+# ---------------------------------------------------------------------------
+
+def _band_filter(audio: np.ndarray) -> np.ndarray:
+    """Extract the 150-1500 Hz low-mid band the enhancer targets."""
+    from scipy import signal as _signal
+    b, a = _signal.butter(4, [150 / (SR / 2), 1500 / (SR / 2)], btype='band')
+    return _signal.filtfilt(b, a, audio, axis=0)
+
+
+def test_production_buffer_band_gain_bounded():
+    """The realtime call (1024-sample buffers, intensity=0.35,
+    attack_samples=2205) must not stack overlapping peak windows.
+
+    Before #6104 every detected peak added a whole-buffer boost (the 2205
+    sample window exceeds the 1024-sample chunk), measured at ~+20 dB of
+    low-mid and heavy hard clipping. The combined-window expansion must
+    stay within a single expansion's worth of band gain.
+    """
+    from scipy import signal as _signal
+
+    rng = np.random.default_rng(6104)
+    t = np.arange(1024 * 40) / SR
+    # Music-like stereo: low + mid tones plus broadband noise, peak ~0.23
+    left = 0.12 * np.sin(2 * np.pi * 110 * t) + 0.08 * np.sin(2 * np.pi * 440 * t)
+    left += 0.04 * rng.standard_normal(len(t))
+    audio = np.column_stack([left, np.roll(left, 97)])
+    audio = audio / np.max(np.abs(audio)) * 0.23
+
+    enhancer = LowMidTransientEnhancer(sample_rate=SR)
+    buf_len = 1024
+    worst_gain_db = -np.inf
+    any_peaks = False
+
+    for start in range(0, len(audio) - buf_len + 1, buf_len):
+        chunk = audio[start:start + buf_len]
+        out = enhancer.enhance_transients(
+            chunk.copy(), intensity=0.35, attack_samples=int(SR * 0.05)
+        )
+        assert out.shape == chunk.shape
+        assert np.max(np.abs(out)) < 1.0, (
+            "hard-clipped output for a 0.23-peak input at production parameters"
+        )
+        band_in = _band_filter(chunk)
+        band_out = _band_filter(out)
+        energy_in = np.mean(band_in ** 2)
+        energy_out = np.mean(band_out ** 2)
+        if energy_in < 1e-10 or np.allclose(chunk, out):
+            continue  # no transient detected in this buffer
+        any_peaks = True
+        gain_db = 10 * np.log10(energy_out / energy_in)
+        worst_gain_db = max(worst_gain_db, gain_db)
+
+    assert any_peaks, "no transient detected — test precondition not met"
+    # One expansion at intensity=0.35 (ratio 1.7, env = rel^0.65) measures
+    # ~5-6.5 dB of band gain on tone+noise content — the exact figure
+    # depends on the band's crest distribution. The pre-fix stacking
+    # measured ~+20 dB (median +22.1 dB, and two stacked windows already
+    # clear 12 dB), so 8 dB bounds "one expansion" while still failing
+    # loudly on any reintroduced per-peak accumulation.
+    assert worst_gain_db < 8.0, (
+        f"low-mid band gain {worst_gain_db:.1f} dB exceeds one expansion "
+        "— overlapping peak windows are stacking again (#6104)"
+    )
+
+
+def test_overlapping_peak_windows_do_not_stack():
+    """A buffer where find_peaks detects several peaks gets ONE bounded
+    boost, not one per peak. Directly compares the enhanced output against
+    a single-peak reference: multi-peak gain must not exceed it by the
+    stacking factor."""
+    rng = np.random.default_rng(6104)
+    t = np.arange(2048) / SR
+    base = 0.2 * np.sin(2 * np.pi * 300 * t) + 0.05 * rng.standard_normal(len(t))
+
+    # Same low-mid content; one signal has a single HF click, the other has
+    # five. If windows stacked, five clicks would add ~5x the boost.
+    single = base.copy()
+    single[1024:1074] += 0.5 * hann(50)
+    multi = base.copy()
+    for pos in (700, 900, 1100, 1300, 1500):
+        multi[pos:pos + 50] += 0.5 * hann(50)
+
+    intensity, attack = 0.35, 256  # windows overlap heavily around center
+    out_single = ENHANCER.enhance_transients(single, intensity=intensity, attack_samples=attack)
+    out_multi = ENHANCER.enhance_transients(multi, intensity=intensity, attack_samples=attack)
+
+    boost_single = np.max(np.abs(out_single - single))
+    boost_multi = np.max(np.abs(out_multi - multi))
+    # With stacking, boost_multi approached 5 * boost_single (~+14 dB over
+    # the bounded result). Allow generous headroom over the single-peak
+    # reference but far below the stacked multiple.
+    assert boost_multi <= 2.0 * boost_single + 1e-9, (
+        f"multi-peak boost {boost_multi:.4f} vs single {boost_single:.4f} "
+        "— overlapping windows are stacking (#6104)"
+    )
+
+
+def test_column_input_shape_preserved():
+    """(n, 1) input must return (n, 1) — the old stereo-only branch
+    squeezed it to (n,) (#6104)."""
+    mono = _with_transient(_sine(300), SR // 4)
+    column = mono.reshape(-1, 1)
+    enhanced = ENHANCER.enhance_transients(column, intensity=0.5)
+    assert enhanced.shape == column.shape
+    assert enhanced.ndim == 2
+
+
+def test_attack_window_clamped_to_buffer():
+    """An attack window larger than the buffer must not change the result
+    relative to a window of exactly the buffer length — both span the whole
+    buffer for every peak, and neither may stack."""
+    audio = _with_transient(_sine(300, amp=0.25), 1024)[:2048].copy()
+    oversized = ENHANCER.enhance_transients(
+        audio, intensity=0.35, attack_samples=2205
+    )
+    clamped = ENHANCER.enhance_transients(
+        audio, intensity=0.35, attack_samples=2048
+    )
+    np.testing.assert_allclose(oversized, clamped, atol=1e-12)
