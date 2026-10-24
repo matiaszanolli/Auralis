@@ -193,19 +193,19 @@ Three independent caches now exist, each with its own key derivation, eviction p
 ## Phase 1: Setup
 
 1. Parse `$ARGUMENTS` for `--focus`, `--depth`, `--limit`
-2. `mkdir -p /tmp/audit/backend`
-3. Fetch dedup baseline: `gh issue list --state all --limit 6000 --json number,title,state,labels > /tmp/audit/backend/issues.json`
+2. `mkdir -p /tmp/audit/auralis/backend`
+3. Fetch dedup baseline: `gh issue list --state all --limit 6000 --json number,title,state,labels > /tmp/audit/auralis/backend/issues.json`
 4. Scan `docs/audits/` for prior backend audit reports
 
 ## Phase 2: Launch Dimension Agents
 
-Launch one Agent-tool subagent per dimension (max 3 concurrent). Each agent writes its output to `/tmp/audit/backend/dim_<N>.md`.
+Launch one Agent-tool subagent per dimension (max 3 concurrent). Each agent writes its output to `/tmp/audit/auralis/backend/dim_<N>.md`.
 
 Every agent prompt MUST include:
 - The project root is `/mnt/data/src/matchering`
 - The depth parameter value
 - The limit parameter value (if set)
-- Reference to dedup file: `/tmp/audit/backend/issues.json`
+- Reference to dedup file: `/tmp/audit/auralis/backend/issues.json`
 - The context management rules from `_audit-common.md`
 - The per-finding format below
 
@@ -224,21 +224,21 @@ Every agent prompt MUST include:
 ```
 
 Dimension → Output mapping:
-- Dimension 1 (Route Handlers) → `/tmp/audit/backend/dim_1.md`
-- Dimension 2 (WebSocket Streaming) → `/tmp/audit/backend/dim_2.md`
-- Dimension 3 (Chunked Processing) → `/tmp/audit/backend/dim_3.md`
-- Dimension 4 (Processing Engine) → `/tmp/audit/backend/dim_4.md`
-- Dimension 5 (Schema Consistency) → `/tmp/audit/backend/dim_5.md`
-- Dimension 6 (Middleware & Config) → `/tmp/audit/backend/dim_6.md`
-- Dimension 7 (Error Handling) → `/tmp/audit/backend/dim_7.md`
-- Dimension 8 (Performance) → `/tmp/audit/backend/dim_8.md`
-- Dimension 9 (Test Coverage) → `/tmp/audit/backend/dim_9.md`
-- Dimension 10 (Caching & Invalidation) → `/tmp/audit/backend/dim_10.md`
-- Dimension 11 (Seek & Buffering) → `/tmp/audit/backend/dim_11.md`
+- Dimension 1 (Route Handlers) → `/tmp/audit/auralis/backend/dim_1.md`
+- Dimension 2 (WebSocket Streaming) → `/tmp/audit/auralis/backend/dim_2.md`
+- Dimension 3 (Chunked Processing) → `/tmp/audit/auralis/backend/dim_3.md`
+- Dimension 4 (Processing Engine) → `/tmp/audit/auralis/backend/dim_4.md`
+- Dimension 5 (Schema Consistency) → `/tmp/audit/auralis/backend/dim_5.md`
+- Dimension 6 (Middleware & Config) → `/tmp/audit/auralis/backend/dim_6.md`
+- Dimension 7 (Error Handling) → `/tmp/audit/auralis/backend/dim_7.md`
+- Dimension 8 (Performance) → `/tmp/audit/auralis/backend/dim_8.md`
+- Dimension 9 (Test Coverage) → `/tmp/audit/auralis/backend/dim_9.md`
+- Dimension 10 (Caching & Invalidation) → `/tmp/audit/auralis/backend/dim_10.md`
+- Dimension 11 (Seek & Buffering) → `/tmp/audit/auralis/backend/dim_11.md`
 
 ## Phase 3: Merge
 
-1. Read all `/tmp/audit/backend/dim_*.md` files
+1. Read all `/tmp/audit/auralis/backend/dim_*.md` files
 2. Combine into `docs/audits/AUDIT_BACKEND_<TODAY>.md` with structure:
    - **Executive Summary** — Total findings by severity, key themes, most impactful issues
    - **Route Coverage Matrix** — Table of all 20 registered routers with validation status
@@ -249,7 +249,7 @@ Dimension → Output mapping:
 
 ## Phase 4: Cleanup
 
-1. `rm -rf /tmp/audit/backend`
+1. `rm -rf /tmp/audit/auralis/backend`
 2. Inform user the report is ready
 3. Suggest: `/audit-publish docs/audits/AUDIT_BACKEND_<TODAY>.md`
 

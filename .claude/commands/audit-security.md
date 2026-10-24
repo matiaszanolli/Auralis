@@ -139,19 +139,19 @@ Trace how user-controlled data flows through the system:
 ## Phase 1: Setup
 
 1. Parse `$ARGUMENTS` for `--focus`, `--depth`, `--limit`
-2. `mkdir -p /tmp/audit/security`
-3. Fetch dedup baseline: `gh issue list --state all --limit 6000 --json number,title,state,labels > /tmp/audit/security/issues.json`
+2. `mkdir -p /tmp/audit/auralis/security`
+3. Fetch dedup baseline: `gh issue list --state all --limit 6000 --json number,title,state,labels > /tmp/audit/auralis/security/issues.json`
 4. Scan `docs/audits/` for prior security audit reports
 
 ## Phase 2: Launch Category Agents
 
-Launch one Agent-tool subagent per OWASP category (max 3 concurrent). Each agent writes its output to `/tmp/audit/security/a<NN>.md`.
+Launch one Agent-tool subagent per OWASP category (max 3 concurrent). Each agent writes its output to `/tmp/audit/auralis/security/a<NN>.md`.
 
 Every agent prompt MUST include:
 - The project root is `/mnt/data/src/matchering`
 - The depth parameter value
 - The limit parameter value (if set)
-- Reference to dedup file: `/tmp/audit/security/issues.json`
+- Reference to dedup file: `/tmp/audit/auralis/security/issues.json`
 - The key security files table and data flow security traces from this file
 - The context management rules from `_audit-common.md`
 - The per-finding format below
@@ -172,20 +172,20 @@ Every agent prompt MUST include:
 ```
 
 Category → Output mapping:
-- A01 (Broken Access Control) → `/tmp/audit/security/a01.md`
-- A02 (Cryptographic Failures) → `/tmp/audit/security/a02.md`
-- A03 (Injection) → `/tmp/audit/security/a03.md`
-- A04 (Insecure Design) → `/tmp/audit/security/a04.md`
-- A05 (Security Misconfiguration) → `/tmp/audit/security/a05.md`
-- A06 (Vulnerable Components) → `/tmp/audit/security/a06.md`
-- A07 (Auth Failures) → `/tmp/audit/security/a07.md`
-- A08 (Data Integrity Failures) → `/tmp/audit/security/a08.md`
-- A09 (Logging Failures) → `/tmp/audit/security/a09.md`
-- A10 (SSRF) → `/tmp/audit/security/a10.md`
+- A01 (Broken Access Control) → `/tmp/audit/auralis/security/a01.md`
+- A02 (Cryptographic Failures) → `/tmp/audit/auralis/security/a02.md`
+- A03 (Injection) → `/tmp/audit/auralis/security/a03.md`
+- A04 (Insecure Design) → `/tmp/audit/auralis/security/a04.md`
+- A05 (Security Misconfiguration) → `/tmp/audit/auralis/security/a05.md`
+- A06 (Vulnerable Components) → `/tmp/audit/auralis/security/a06.md`
+- A07 (Auth Failures) → `/tmp/audit/auralis/security/a07.md`
+- A08 (Data Integrity Failures) → `/tmp/audit/auralis/security/a08.md`
+- A09 (Logging Failures) → `/tmp/audit/auralis/security/a09.md`
+- A10 (SSRF) → `/tmp/audit/auralis/security/a10.md`
 
 ## Phase 3: Merge
 
-1. Read all `/tmp/audit/security/a*.md` files
+1. Read all `/tmp/audit/auralis/security/a*.md` files
 2. Combine into `docs/audits/AUDIT_SECURITY_<TODAY>.md` with structure:
    - **Executive Summary** — Total findings by severity, key themes, most exploitable issues
    - **Data Flow Security Matrix** — Which flows are safe, which have gaps
@@ -196,7 +196,7 @@ Category → Output mapping:
 
 ## Phase 4: Cleanup
 
-1. `rm -rf /tmp/audit/security`
+1. `rm -rf /tmp/audit/auralis/security`
 2. Inform user the report is ready
 3. Suggest: `/audit-publish docs/audits/AUDIT_SECURITY_<TODAY>.md`
 

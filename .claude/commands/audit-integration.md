@@ -167,20 +167,20 @@ For EVERY flow, systematically check:
 ## Phase 1: Setup
 
 1. Parse `$ARGUMENTS` for `--flows`, `--depth`, `--limit`
-2. `mkdir -p /tmp/audit/integration`
-3. Fetch dedup baseline: `gh issue list --state all --limit 6000 --json number,title,state,labels > /tmp/audit/integration/issues.json`
+2. `mkdir -p /tmp/audit/auralis/integration`
+3. Fetch dedup baseline: `gh issue list --state all --limit 6000 --json number,title,state,labels > /tmp/audit/auralis/integration/issues.json`
 4. Scan `docs/audits/` for prior integration audit reports
 
 ## Phase 2: Launch Flow Agents
 
-Launch one Agent-tool subagent per flow (max 3 concurrent). Each agent writes its output to `/tmp/audit/integration/flow_<N>.md`.
+Launch one Agent-tool subagent per flow (max 3 concurrent). Each agent writes its output to `/tmp/audit/auralis/integration/flow_<N>.md`.
 
 Every agent prompt MUST include:
 - The project root is `/mnt/data/src/matchering`
 - The depth parameter value
 - The limit parameter value (if set)
 - The per-flow verification checklist from this file
-- Reference to dedup file: `/tmp/audit/integration/issues.json`
+- Reference to dedup file: `/tmp/audit/auralis/integration/issues.json`
 - The context management rules from `_audit-common.md`
 - The per-finding format below
 
@@ -200,19 +200,19 @@ Every agent prompt MUST include:
 ```
 
 Flow → Output mapping:
-- Flow 1 (Track Playback) → `/tmp/audit/integration/flow_1.md`
-- Flow 2 (Library Browsing) → `/tmp/audit/integration/flow_2.md`
-- Flow 3 (Audio Enhancement) → `/tmp/audit/integration/flow_3.md`
-- Flow 4 (Library Scanning) → `/tmp/audit/integration/flow_4.md`
-- Flow 5 (WebSocket Lifecycle) → `/tmp/audit/integration/flow_5.md`
-- Flow 6 (Fingerprint & Similarity) → `/tmp/audit/integration/flow_6.md`
-- Flow 7 (Artwork) → `/tmp/audit/integration/flow_7.md`
-- Flow 8 (Seek & Rebuffer) → `/tmp/audit/integration/flow_8.md`
-- Flow 9 (Queue & Playback State) → `/tmp/audit/integration/flow_9.md`
+- Flow 1 (Track Playback) → `/tmp/audit/auralis/integration/flow_1.md`
+- Flow 2 (Library Browsing) → `/tmp/audit/auralis/integration/flow_2.md`
+- Flow 3 (Audio Enhancement) → `/tmp/audit/auralis/integration/flow_3.md`
+- Flow 4 (Library Scanning) → `/tmp/audit/auralis/integration/flow_4.md`
+- Flow 5 (WebSocket Lifecycle) → `/tmp/audit/auralis/integration/flow_5.md`
+- Flow 6 (Fingerprint & Similarity) → `/tmp/audit/auralis/integration/flow_6.md`
+- Flow 7 (Artwork) → `/tmp/audit/auralis/integration/flow_7.md`
+- Flow 8 (Seek & Rebuffer) → `/tmp/audit/auralis/integration/flow_8.md`
+- Flow 9 (Queue & Playback State) → `/tmp/audit/auralis/integration/flow_9.md`
 
 ## Phase 3: Merge
 
-1. Read all `/tmp/audit/integration/flow_*.md` files
+1. Read all `/tmp/audit/auralis/integration/flow_*.md` files
 2. Combine into `docs/audits/AUDIT_INTEGRATION_<TODAY>.md` with structure:
    - **Executive Summary** — Total findings by severity, key themes, most impactful boundary mismatches
    - **Flow Coverage Matrix** — Table of all 9 flows with boundary-check status
@@ -223,7 +223,7 @@ Flow → Output mapping:
 
 ## Phase 4: Cleanup
 
-1. `rm -rf /tmp/audit/integration`
+1. `rm -rf /tmp/audit/auralis/integration`
 2. Inform user the report is ready
 3. Suggest: `/audit-publish docs/audits/AUDIT_INTEGRATION_<TODAY>.md`
 

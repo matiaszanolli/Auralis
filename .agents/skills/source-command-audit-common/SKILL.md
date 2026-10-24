@@ -181,11 +181,15 @@ For complex investigations, the orchestrator audits (`audit-engine`, `audit-back
 
 Invoke via the **Agent** tool with `subagent_type: <name>` (the tool formerly called Task). Dimension/flow fan-out agents use `subagent_type: general-purpose`.
 
+## Scratch paths
+
+All audit scratch I/O lives under **`/tmp/audit/auralis/`** (e.g. `/tmp/audit/auralis/backend/dim_1.md`, `/tmp/audit/auralis/issues.json`) — never a bare `/tmp/audit/<name>/`, which every repo on the machine shares: a second project's audit run overwrites this one's `dim_*.md` / `issues.json` and its cleanup `rm -rf` deletes the other run's inputs mid-flight (#5847, #6277). A new audit skill copies the `/tmp/audit/auralis/` prefix, not the bare one.
+
 ## Deduplication (MANDATORY)
 
 Before reporting ANY finding:
 
-1. Run: `gh issue list --state all --limit 6000 --json number,title,state,labels > /tmp/audit/issues.json`
+1. Run: `gh issue list --state all --limit 6000 --json number,title,state,labels > /tmp/audit/auralis/issues.json`
    `--state all` is load-bearing: `gh issue list` defaults to open issues only, so without it every row says `OPEN` and the CLOSED branch below can never fire (#5843). The `--limit` must exceed the highest issue number, or the dump is silently truncated.
 2. Search for keywords from your finding in existing issue titles.
 3. Scan `docs/audits/` for prior reports covering the same issue.

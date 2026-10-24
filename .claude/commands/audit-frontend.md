@@ -154,19 +154,19 @@ Out of scope: Python backend, audio engine, Rust DSP, database.
 ## Phase 1: Setup
 
 1. Parse `$ARGUMENTS` for `--focus`, `--depth`, `--limit`
-2. `mkdir -p /tmp/audit/frontend`
-3. Fetch dedup baseline: `gh issue list --state all --limit 6000 --json number,title,state,labels > /tmp/audit/frontend/issues.json`
+2. `mkdir -p /tmp/audit/auralis/frontend`
+3. Fetch dedup baseline: `gh issue list --state all --limit 6000 --json number,title,state,labels > /tmp/audit/auralis/frontend/issues.json`
 4. Scan `docs/audits/` for prior frontend audit reports
 
 ## Phase 2: Launch Dimension Agents
 
-Launch one Agent-tool subagent per dimension (max 3 concurrent). Each agent writes its output to `/tmp/audit/frontend/dim_<N>.md`.
+Launch one Agent-tool subagent per dimension (max 3 concurrent). Each agent writes its output to `/tmp/audit/auralis/frontend/dim_<N>.md`.
 
 Every agent prompt MUST include:
 - The project root is `/mnt/data/src/matchering`
 - The depth parameter value
 - The limit parameter value (if set)
-- Reference to dedup file: `/tmp/audit/frontend/issues.json`
+- Reference to dedup file: `/tmp/audit/auralis/frontend/issues.json`
 - The context management rules from `_audit-common.md`
 - The per-finding format below
 
@@ -185,19 +185,19 @@ Every agent prompt MUST include:
 ```
 
 Dimension → Output mapping:
-- Dimension 1 (Component Quality) → `/tmp/audit/frontend/dim_1.md`
-- Dimension 2 (Redux State) → `/tmp/audit/frontend/dim_2.md`
-- Dimension 3 (Hook Correctness) → `/tmp/audit/frontend/dim_3.md`
-- Dimension 4 (Type Safety) → `/tmp/audit/frontend/dim_4.md`
-- Dimension 5 (Design System) → `/tmp/audit/frontend/dim_5.md`
-- Dimension 6 (API Client) → `/tmp/audit/frontend/dim_6.md`
-- Dimension 7 (Performance) → `/tmp/audit/frontend/dim_7.md`
-- Dimension 8 (Accessibility) → `/tmp/audit/frontend/dim_8.md`
-- Dimension 9 (Test Coverage) → `/tmp/audit/frontend/dim_9.md`
+- Dimension 1 (Component Quality) → `/tmp/audit/auralis/frontend/dim_1.md`
+- Dimension 2 (Redux State) → `/tmp/audit/auralis/frontend/dim_2.md`
+- Dimension 3 (Hook Correctness) → `/tmp/audit/auralis/frontend/dim_3.md`
+- Dimension 4 (Type Safety) → `/tmp/audit/auralis/frontend/dim_4.md`
+- Dimension 5 (Design System) → `/tmp/audit/auralis/frontend/dim_5.md`
+- Dimension 6 (API Client) → `/tmp/audit/auralis/frontend/dim_6.md`
+- Dimension 7 (Performance) → `/tmp/audit/auralis/frontend/dim_7.md`
+- Dimension 8 (Accessibility) → `/tmp/audit/auralis/frontend/dim_8.md`
+- Dimension 9 (Test Coverage) → `/tmp/audit/auralis/frontend/dim_9.md`
 
 ## Phase 3: Merge
 
-1. Read all `/tmp/audit/frontend/dim_*.md` files
+1. Read all `/tmp/audit/auralis/frontend/dim_*.md` files
 2. Combine into `docs/audits/AUDIT_FRONTEND_<TODAY>.md` with structure:
    - **Executive Summary** — Total findings by severity, key themes, most impactful issues
    - **Findings** — Grouped by severity (CRITICAL first), deduplicated across dimensions
@@ -207,7 +207,7 @@ Dimension → Output mapping:
 
 ## Phase 4: Cleanup
 
-1. `rm -rf /tmp/audit/frontend`
+1. `rm -rf /tmp/audit/auralis/frontend`
 2. Inform user the report is ready
 3. Suggest: `/audit-publish docs/audits/AUDIT_FRONTEND_<TODAY>.md`
 

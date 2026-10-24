@@ -147,7 +147,7 @@ This dimension replaced the old "Parallel Processing" one: *auralis/optimization
 
 **Check**:
 - [ ] Repository pattern — ALL database access via the 12 repository classes? No raw SQL?
-- [ ] Detached ORM instances — repositories `expunge()` what they return, so any relationship a query did not eager-load raises `DetachedInstanceError` when `to_dict()` touches it. Do read paths carry `selectinload()`, and does `to_dict()` go through `_safe_collection()` / `_safe_scalar()` in `auralis/library/models/core.py`? `refresh()` expires without re-applying query options — post-commit paths must touch the relationship while still attached.
+- [ ] Detached ORM instances — repositories `expunge()` what they return, so any relationship a query did not eager-load raises `DetachedInstanceError` when `to_dict()` touches it. Do read paths carry `selectinload()`, and does `to_dict()` go through `_safe_collection()` / `_safe_scalar()` in `auralis/library/models/_helpers.py`? `refresh()` expires without re-applying query options — post-commit paths must touch the relationship while still attached.
 - [ ] `BaseRepository._session_scope()` (`auralis/library/repositories/base.py`) — every repository goes through it (migration finished in #4604/#5202), and since #5117 it rolls back on any escaping exception, so per-method `except: rollback()` is redundant. Flag a new hand-rolled `get_session()` in a repository, and a method that catches its own failure and returns objects still attached (the #2624 hazard the scope's docstring names).
 - [ ] SQLite config — `check_same_thread=False`, `pool_pre_ping=True` set?
 - [ ] N+1 queries — list operations use `selectinload()`?
@@ -160,19 +160,19 @@ This dimension replaced the old "Parallel Processing" one: *auralis/optimization
 ## Phase 1: Setup
 
 1. Parse `$ARGUMENTS` for `--focus`, `--depth`, `--limit`
-2. `mkdir -p /tmp/audit/engine`
-3. Fetch dedup baseline: `gh issue list --state all --limit 6000 --json number,title,state,labels > /tmp/audit/engine/issues.json`
+2. `mkdir -p /tmp/audit/auralis/engine`
+3. Fetch dedup baseline: `gh issue list --state all --limit 6000 --json number,title,state,labels > /tmp/audit/auralis/engine/issues.json`
 4. Scan `docs/audits/` for prior engine audit reports
 
 ## Phase 2: Launch Dimension Agents
 
-Launch one Agent-tool subagent per dimension (max 3 concurrent). Each agent writes its output to `/tmp/audit/engine/dim_<N>.md`.
+Launch one Agent-tool subagent per dimension (max 3 concurrent). Each agent writes its output to `/tmp/audit/auralis/engine/dim_<N>.md`.
 
 Every agent prompt MUST include:
 - The project root is `/mnt/data/src/matchering`
 - The depth parameter value
 - The limit parameter value (if set)
-- Reference to dedup file: `/tmp/audit/engine/issues.json`
+- Reference to dedup file: `/tmp/audit/auralis/engine/issues.json`
 - The context management rules from `_audit-common.md`
 - The per-finding format below
 
@@ -191,17 +191,17 @@ Every agent prompt MUST include:
 ```
 
 Dimension → Output mapping:
-- Dimension 1 (Sample Integrity) → `/tmp/audit/engine/dim_1.md`
-- Dimension 2 (DSP Pipeline) → `/tmp/audit/engine/dim_2.md`
-- Dimension 3 (Player State) → `/tmp/audit/engine/dim_3.md`
-- Dimension 4 (Audio I/O) → `/tmp/audit/engine/dim_4.md`
-- Dimension 5 (Chunked Mastering) → `/tmp/audit/engine/dim_5.md`
-- Dimension 6 (Analysis) → `/tmp/audit/engine/dim_6.md`
-- Dimension 7 (Library & Database) → `/tmp/audit/engine/dim_7.md`
+- Dimension 1 (Sample Integrity) → `/tmp/audit/auralis/engine/dim_1.md`
+- Dimension 2 (DSP Pipeline) → `/tmp/audit/auralis/engine/dim_2.md`
+- Dimension 3 (Player State) → `/tmp/audit/auralis/engine/dim_3.md`
+- Dimension 4 (Audio I/O) → `/tmp/audit/auralis/engine/dim_4.md`
+- Dimension 5 (Chunked Mastering) → `/tmp/audit/auralis/engine/dim_5.md`
+- Dimension 6 (Analysis) → `/tmp/audit/auralis/engine/dim_6.md`
+- Dimension 7 (Library & Database) → `/tmp/audit/auralis/engine/dim_7.md`
 
 ## Phase 3: Merge
 
-1. Read all `/tmp/audit/engine/dim_*.md` files
+1. Read all `/tmp/audit/auralis/engine/dim_*.md` files
 2. Combine into `docs/audits/AUDIT_ENGINE_<TODAY>.md` with structure:
    - **Executive Summary** — Total findings by severity, key themes, most impactful issues
    - **Findings** — Grouped by severity (CRITICAL first), deduplicated across dimensions
@@ -211,7 +211,7 @@ Dimension → Output mapping:
 
 ## Phase 4: Cleanup
 
-1. `rm -rf /tmp/audit/engine`
+1. `rm -rf /tmp/audit/auralis/engine`
 2. Inform user the report is ready
 3. Suggest: `/audit-publish docs/audits/AUDIT_ENGINE_<TODAY>.md`
 

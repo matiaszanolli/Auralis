@@ -108,19 +108,19 @@ The engine-side parallel processor (*auralis/optimization/parallel_processor.py*
 ## Phase 1: Setup
 
 1. Parse `$ARGUMENTS` for `--focus`, `--depth`, `--limit`
-2. `mkdir -p /tmp/audit/concurrency`
-3. Fetch dedup baseline: `gh issue list --state all --limit 6000 --json number,title,state,labels > /tmp/audit/concurrency/issues.json`
+2. `mkdir -p /tmp/audit/auralis/concurrency`
+3. Fetch dedup baseline: `gh issue list --state all --limit 6000 --json number,title,state,labels > /tmp/audit/auralis/concurrency/issues.json`
 4. Scan `docs/audits/` for prior concurrency audit reports
 
 ## Phase 2: Launch Dimension Agents
 
-Launch one Agent-tool subagent per dimension (max 3 concurrent). Each agent writes its output to `/tmp/audit/concurrency/dim_<N>.md`.
+Launch one Agent-tool subagent per dimension (max 3 concurrent). Each agent writes its output to `/tmp/audit/auralis/concurrency/dim_<N>.md`.
 
 Every agent prompt MUST include:
 - The project root is `/mnt/data/src/matchering`
 - The depth parameter value
 - The limit parameter value (if set)
-- Reference to dedup file: `/tmp/audit/concurrency/issues.json`
+- Reference to dedup file: `/tmp/audit/auralis/concurrency/issues.json`
 - The context management rules from `_audit-common.md`
 - The per-finding format below
 
@@ -139,15 +139,15 @@ Every agent prompt MUST include:
 ```
 
 Dimension → Output mapping:
-- Dimension 1 (Player Thread Safety) → `/tmp/audit/concurrency/dim_1.md`
-- Dimension 2 (Audio Processing) → `/tmp/audit/concurrency/dim_2.md`
-- Dimension 3 (Backend Streaming) → `/tmp/audit/concurrency/dim_3.md`
-- Dimension 4 (Library & Database) → `/tmp/audit/concurrency/dim_4.md`
-- Dimension 5 (Frontend State) → `/tmp/audit/concurrency/dim_5.md`
+- Dimension 1 (Player Thread Safety) → `/tmp/audit/auralis/concurrency/dim_1.md`
+- Dimension 2 (Audio Processing) → `/tmp/audit/auralis/concurrency/dim_2.md`
+- Dimension 3 (Backend Streaming) → `/tmp/audit/auralis/concurrency/dim_3.md`
+- Dimension 4 (Library & Database) → `/tmp/audit/auralis/concurrency/dim_4.md`
+- Dimension 5 (Frontend State) → `/tmp/audit/auralis/concurrency/dim_5.md`
 
 ## Phase 3: Merge
 
-1. Read all `/tmp/audit/concurrency/dim_*.md` files
+1. Read all `/tmp/audit/auralis/concurrency/dim_*.md` files
 2. Combine into `docs/audits/AUDIT_CONCURRENCY_<TODAY>.md` with structure:
    - **Executive Summary** — Total findings by severity, key themes, most impactful races
    - **Concurrency Matrix** — Components, lock types, thread-safety status
@@ -158,7 +158,7 @@ Dimension → Output mapping:
 
 ## Phase 4: Cleanup
 
-1. `rm -rf /tmp/audit/concurrency`
+1. `rm -rf /tmp/audit/auralis/concurrency`
 2. Inform user the report is ready
 3. Suggest: `/audit-publish docs/audits/AUDIT_CONCURRENCY_<TODAY>.md`
 
