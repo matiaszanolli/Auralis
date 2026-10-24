@@ -23,7 +23,8 @@ import pytest
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT / "auralis-web" / "backend"))
 
-from routers.serializers import DEFAULT_TRACK_FIELDS, serialize_tracks
+from routers.serializers import DEFAULT_TRACK_FIELDS
+from routers.serializers_library import serialize_tracks
 
 _TRANSFORMER = (
     _REPO_ROOT / "auralis-web" / "frontend" / "src" / "api" / "transformers" / "trackTransformer.ts"

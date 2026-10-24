@@ -18,7 +18,7 @@ from .dependencies import with_error_handling
 from .errors import NotFoundError
 from .repo_deps import RepositoryFactoryDeps
 from .pagination import compute_has_more, limit_query, offset_query
-from .serializers import serialize_album, serialize_artist
+from .serializers_library import serialize_album, serialize_artist
 from .artists_models import (  # noqa: F401
     AlbumInArtist,
     ArtistDetailResponse,

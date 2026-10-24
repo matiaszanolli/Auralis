@@ -1147,7 +1147,7 @@ class TestSettingsEndpoints:
     def test_remove_scan_folder_unregisters_allowed_directory(self, client):
         """Removing a scan folder must revoke it from validate_file_path()'s
         allowlist immediately, not just on next backend restart (fixes #3842)."""
-        from security.path_security import _extra_allowed_dirs, register_allowed_directory
+        from security.path_allowlist import _extra_allowed_dirs, register_allowed_directory
 
         mock_repo = Mock()
         mock_repo.remove_scan_folder.return_value = self._mock_settings()
@@ -1174,7 +1174,7 @@ class TestSettingsEndpoints:
     def test_reset_settings_clears_extra_allowed_directories(self, client):
         """Reset wipes the configured scan_folders list, so no previously
         registered extra directory should remain trusted (fixes #3842)."""
-        from security.path_security import _extra_allowed_dirs, register_allowed_directory
+        from security.path_allowlist import _extra_allowed_dirs, register_allowed_directory
 
         mock_repo = Mock()
         mock_repo.reset_to_defaults.return_value = self._mock_settings()

@@ -24,7 +24,7 @@ from schemas import (
 from .dependencies import with_error_handling
 from .errors import NotFoundError
 from .pagination import limit_query, offset_query, paginated
-from .serializers import serialize_album, serialize_albums, serialize_tracks
+from .serializers_library import serialize_album, serialize_albums, serialize_tracks
 from .albums_models import AlbumFingerprintResponse, AlbumTracksResponse
 from .albums_deps import _AlbumsDeps, _deps, _get_repos
 from .albums_fingerprint import (

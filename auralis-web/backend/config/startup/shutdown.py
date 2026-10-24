@@ -142,7 +142,7 @@ async def _shutdown_components(globals_dict: dict[str, Any]) -> None:
         # engine dispose (#4756). Ordered before the database step, bounded
         # so a slow computation can't stall shutdown indefinitely.
         try:
-            from analysis.fingerprint_generator import shutdown_fingerprint_executor_bounded
+            from analysis.fingerprint_executor import shutdown_fingerprint_executor_bounded
             await shutdown_fingerprint_executor_bounded()
             logger.info("✅ Fingerprint executor shutdown step complete")
         except Exception as fp_err:

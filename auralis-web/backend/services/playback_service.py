@@ -10,64 +10,19 @@ Coordinates with PlayerStateManager to keep single source of truth.
 
 import asyncio
 import logging
-from typing import Any, Protocol, cast
+from typing import Any, cast
 
 from websocket.outbound_messages import BroadcastManager, broadcast_typed
 
 from services.playback_event_sequencer import playback_event_sequencer
 from .errors import InvalidRequest, require_collaborators
+from .playback_protocols import AudioPlayer, PlayerStateManager
+from .playback_service_base import PlaybackServiceBase
 
 logger = logging.getLogger(__name__)
 
 
-class AudioPlayer(Protocol):
-    """Protocol for audio player interface."""
-
-    def play(self) -> None:
-        """Start playback."""
-        ...
-
-    def pause(self) -> None:
-        """Pause playback."""
-        ...
-
-    def stop(self) -> None:
-        """Stop playback."""
-        ...
-
-    def seek(self, position: float) -> None:
-        """Seek to position in seconds."""
-        ...
-
-    # #3722: deliberately NO set_volume method. Volume is applied
-    # client-side via Web Audio API GainNode; the /api/player/volume
-    # route exists only to broadcast volume state for cross-client
-    # mirroring. The engine never mixes audio for playback.
-
-
-class PlayerStateManager(Protocol):
-    """Protocol for player state manager interface."""
-
-    async def set_playing(
-        self, playing: bool, *, broadcast: bool = True
-    ) -> Any:
-        """Update playing state."""
-        ...
-
-    async def broadcast_state(self, state: Any) -> None:
-        """Broadcast a previously sequenced state snapshot."""
-        ...
-
-    async def set_track(self, track: Any) -> None:
-        """Set current track."""
-        ...
-
-    def get_state(self) -> Any:
-        """Get current state."""
-        ...
-
-
-class PlaybackService:
+class PlaybackService(PlaybackServiceBase):
     """
     Service for managing audio playback control.
 
@@ -81,17 +36,8 @@ class PlaybackService:
         player_state_manager: PlayerStateManager,
         connection_manager: BroadcastManager,
     ) -> None:
-        """
-        Initialize PlaybackService.
-
-        Args:
-            audio_player: AudioPlayer instance implementing AudioPlayer protocol
-            player_state_manager: PlayerStateManager instance implementing PlayerStateManager protocol
-            connection_manager: WebSocket connection manager implementing BroadcastManager protocol
-
-        Raises:
-            ValueError: If any required component is not available
-        """
+        """Initialize with the three collaborators (each typed by its Protocol;
+        see playback_protocols.py)."""
         self.audio_player: AudioPlayer = audio_player
         self.player_state_manager: PlayerStateManager = player_state_manager
         self.connection_manager: BroadcastManager = connection_manager
@@ -111,47 +57,6 @@ class PlaybackService:
         # their order still matches the engine transitions. The resulting
         # snapshot is broadcast after release, and clients use seq to discard
         # a late older snapshot.
-
-    @property
-    def _playback_lock(self) -> asyncio.Lock:
-        """Compatibility name for the process-wide transition lock.
-
-        A setter-backed override preserves the lightweight ``__new__`` test
-        seam used by the broadcast-timeout regression suite. Normal service
-        construction never sets it and always resolves the shared lock.
-        """
-        override: asyncio.Lock | None = getattr(self, "_playback_lock_override", None)
-        if override is not None:
-            return override
-        return playback_event_sequencer.transition_lock
-
-    @_playback_lock.setter
-    def _playback_lock(self, lock: asyncio.Lock) -> None:
-        self._playback_lock_override = lock
-
-    async def _broadcast_state_snapshot(self, snapshot: Any) -> None:
-        """Send a deferred state snapshot when the collaborator returned one."""
-        if snapshot is not None:
-            await self.player_state_manager.broadcast_state(snapshot)
-
-    async def get_status(self) -> dict[str, Any]:
-        """
-        Get current player status.
-
-        Returns:
-            dict: Player state with track info, playback status, queue
-
-        Raises:
-            Exception: If unable to retrieve status
-        """
-        require_collaborators(player_state_manager=self.player_state_manager)
-
-        try:
-            state = self.player_state_manager.get_state()
-            return cast(dict[str, Any], state.model_dump())
-        except Exception as e:
-            logger.error(f"Failed to get player status: {e}")
-            raise
 
     async def play(self) -> dict[str, Any]:
         """

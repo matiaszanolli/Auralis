@@ -29,7 +29,7 @@ from schemas import TrackListResponse, TrackResponse
 from .repo_deps import RepositoryFactoryDeps
 from .errors import NotFoundError, handle_query_error
 from .pagination import limit_query, offset_query, paginated
-from .serializers import serialize_tracks
+from .serializers_library import serialize_tracks
 
 logger = logging.getLogger(__name__)
 

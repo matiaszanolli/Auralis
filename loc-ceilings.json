@@ -97,6 +97,15 @@
     "auralis-web/backend/core/level_transition.py": 211,
     "auralis-web/backend/core/level_constants.py": 51,
     "auralis-web/backend/core/chunk_file_loading.py": 162,
-    "auralis-web/backend/core/chunk_segment_extraction.py": 166
+    "auralis-web/backend/core/chunk_segment_extraction.py": 166,
+    "auralis-web/backend/services/artwork_providers/musicbrainz.py": 104,
+    "auralis-web/backend/services/artwork_providers/itunes.py": 102,
+    "auralis-web/backend/services/artwork_providers/trust.py": 64,
+    "auralis-web/backend/services/playback_protocols.py": 61,
+    "auralis-web/backend/services/playback_service_base.py": 73,
+    "auralis-web/backend/security/path_allowlist.py": 115,
+    "auralis-web/backend/security/path_errors.py": 144,
+    "auralis-web/backend/analysis/fingerprint_executor.py": 141,
+    "auralis-web/backend/routers/serializers_library.py": 160
   }
 }

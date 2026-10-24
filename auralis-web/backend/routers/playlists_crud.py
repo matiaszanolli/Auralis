@@ -15,7 +15,7 @@ from .errors import BadRequestError, NotFoundError
 from .pagination import limit_query, offset_query, paginated
 from .playlists_deps import _get_connection_manager, _get_repos
 from .playlists_models import CreatePlaylistRequest, UpdatePlaylistRequest
-from .serializers import serialize_playlist, serialize_playlists
+from .serializers_library import serialize_playlist, serialize_playlists
 
 
 @with_error_handling("get playlists")

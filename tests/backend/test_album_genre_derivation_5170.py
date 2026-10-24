@@ -112,7 +112,7 @@ class TestAlbumDetailEagerLoadsTrackGenres:
 
     def test_derivation_over_a_real_album_row(self, seeded):
         """End to end: ORM rows -> serialized tracks -> derived genre."""
-        from routers.serializers import serialize_tracks
+        from routers.serializers_library import serialize_tracks
 
         album_repo, album_id = seeded
         album = album_repo.get_by_id(album_id)

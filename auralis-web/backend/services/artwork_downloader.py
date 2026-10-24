@@ -24,6 +24,8 @@ from urllib.parse import urljoin
 
 import aiohttp
 
+from .artwork_providers.itunes import try_itunes
+from .artwork_providers.musicbrainz import try_musicbrainz
 from auralis.utils.artwork_security import (
     MAX_ARTWORK_PAYLOAD_BYTES as _MAX_ARTWORK_BYTES,
 )
@@ -54,43 +56,6 @@ _REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
 # Cover Art Archive needs two hops (coverartarchive.org -> archive.org ->
 # an ia*.us.archive.org mirror); anything far past that is not a CDN.
 _MAX_ARTWORK_REDIRECTS = 5
-
-
-@asynccontextmanager
-async def _get_trusted_artwork(
-    session: aiohttp.ClientSession,
-    url: str,
-    source: str,
-    headers: dict[str, str] | None = None,
-) -> AsyncIterator[aiohttp.ClientResponse | None]:
-    """GET an artwork image, validating each redirect hop before requesting it.
-
-    aiohttp follows redirects by default, so the old check on the final
-    ``resp.url`` ran only after every intermediate hop had already been sent a
-    real request, loopback and LAN addresses included (#5330). Redirects are
-    followed here one hop at a time instead. Yields the 200 response, or None
-    when a hop is untrusted, the chain is too long, or the final status is not
-    200.
-    """
-    for _ in range(_MAX_ARTWORK_REDIRECTS + 1):
-        if not _validate_artwork_url(url):
-            logger.warning(f"Rejecting untrusted {source} artwork URL: {url!r}")
-            break
-        async with session.get(url, headers=headers, allow_redirects=False) as resp:
-            location = (
-                resp.headers.get("Location")
-                if resp.status in _REDIRECT_STATUSES
-                else None
-            )
-            if location is None:
-                yield resp if resp.status == 200 else None
-                return
-        url = urljoin(url, location)
-    else:
-        logger.warning(
-            f"{source} artwork exceeded {_MAX_ARTWORK_REDIRECTS} redirects"
-        )
-    yield None
 
 
 class ArtworkDownloader:
@@ -202,151 +167,14 @@ class ArtworkDownloader:
         return None
 
     async def _try_musicbrainz(
-        self,
-        artist: str,
-        album: str,
-        album_id: int
+        self, artist: str, album: str, album_id: int
     ) -> str | None:
-        """
-        Try to download artwork from MusicBrainz Cover Art Archive.
-
-        Args:
-            artist: Artist name
-            album: Album name
-            album_id: Album ID
-
-        Returns:
-            str: Path to downloaded artwork, or None if not found
-        """
-        try:
-            session = self._get_session()
-            # Search for release
-            search_url = f"{self.musicbrainz_api}/release/"
-            params: dict[str, str | int] = {
-                "query": f'artist:"{artist}" AND release:"{album}"',
-                "fmt": "json",
-                "limit": 1
-            }
-            headers = {
-                "User-Agent": "Auralis/1.0 (https://github.com/matiaszanolli/Auralis)"
-            }
-
-            async with session.get(
-                search_url, params=params, headers=headers, allow_redirects=False
-            ) as resp:
-                if resp.status != 200:
-                    return None
-
-                data = await resp.json()
-                releases = data.get("releases", [])
-
-                if not releases:
-                    return None
-
-                release_id = releases[0]["id"]
-
-            # Get cover art
-            coverart_url = f"{self.coverart_api}/release/{release_id}/front"
-
-            # Every redirect hop is validated before it is requested (#2576, #5330).
-            async with _get_trusted_artwork(
-                session, coverart_url, "MusicBrainz", headers
-            ) as resp:
-                if resp is None:
-                    return None
-
-                # Size-limited read to prevent memory exhaustion (#2576)
-                content_length = resp.content_length or 0
-                if content_length > _MAX_ARTWORK_BYTES:
-                    logger.warning(f"MusicBrainz artwork too large: {content_length} bytes")
-                    return None
-                artwork_data = await resp.content.read(_MAX_ARTWORK_BYTES + 1)
-                if len(artwork_data) > _MAX_ARTWORK_BYTES:
-                    logger.warning(f"MusicBrainz artwork exceeded {_MAX_ARTWORK_BYTES} byte limit")
-                    return None
-                return await self._save_artwork(artwork_data, album_id, "jpg")
-
-        except TimeoutError:
-            # #4686: hit _ARTWORK_REQUEST_TIMEOUT. WARNING, not the debug level
-            # other lookup failures use, so a black-holing host is visible.
-            logger.warning("MusicBrainz artwork request timed out")
-            return None
-        except Exception as e:
-            logger.debug(f"MusicBrainz lookup failed: {e}")
-            return None
+        return await try_musicbrainz(self, artist, album, album_id)
 
     async def _try_itunes(
-        self,
-        artist: str,
-        album: str,
-        album_id: int
+        self, artist: str, album: str, album_id: int
     ) -> str | None:
-        """
-        Try to download artwork from iTunes Search API.
-
-        Args:
-            artist: Artist name
-            album: Album name
-            album_id: Album ID
-
-        Returns:
-            str: Path to downloaded artwork, or None if not found
-        """
-        try:
-            session = self._get_session()
-            # Search iTunes
-            params: dict[str, str | int] = {
-                "term": f"{artist} {album}",
-                "media": "music",
-                "entity": "album",
-                "limit": 1
-            }
-
-            async with session.get(
-                self.itunes_api, params=params, allow_redirects=False
-            ) as resp:
-                if resp.status != 200:
-                    return None
-
-                data = await resp.json()
-                results = data.get("results", [])
-
-                if not results:
-                    return None
-
-                # Get high-res artwork URL (replace 100x100 with larger size)
-                artwork_url = results[0].get("artworkUrl100", "")
-                if not artwork_url:
-                    return None
-
-                # Request larger artwork (600x600)
-                artwork_url = artwork_url.replace("100x100", "600x600")
-
-            # Download artwork (size-limited, #2576). The response-supplied URL
-            # and every redirect hop are validated before being requested
-            # (#2416, #5330).
-            async with _get_trusted_artwork(session, artwork_url, "iTunes") as resp:
-                if resp is None:
-                    return None
-
-                content_length = resp.content_length or 0
-                if content_length > _MAX_ARTWORK_BYTES:
-                    logger.warning(f"iTunes artwork too large: {content_length} bytes")
-                    return None
-                artwork_data = await resp.content.read(_MAX_ARTWORK_BYTES + 1)
-                if len(artwork_data) > _MAX_ARTWORK_BYTES:
-                    logger.warning(f"iTunes artwork exceeded {_MAX_ARTWORK_BYTES} byte limit")
-                    return None
-                return await self._save_artwork(artwork_data, album_id, "jpg")
-
-        except TimeoutError:
-            # #4686: hit _ARTWORK_REQUEST_TIMEOUT. WARNING, not the debug level
-            # other lookup failures use, so a black-holing host is visible.
-            logger.warning("iTunes artwork request timed out")
-            return None
-        except Exception as e:
-            logger.debug(f"iTunes lookup failed: {e}")
-            return None
+        return await try_itunes(self, artist, album, album_id)
 
     async def _save_artwork(self, data: bytes, album_id: int, ext: str = "jpg") -> str:
         """

@@ -23,11 +23,13 @@ from typing import Any
 
 from fastapi import APIRouter, Depends
 
-from security.path_security import (
-    PathValidationError,
+from security.path_allowlist import (
     clear_extra_allowed_directories,
     register_allowed_directory,
     unregister_allowed_directory,
+)
+from security.path_security import (
+    PathValidationError,
     validate_directory_list,
     validate_user_chosen_directory,
 )

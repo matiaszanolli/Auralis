@@ -21,7 +21,7 @@ if _BACKEND not in sys.path:
     sys.path.insert(0, _BACKEND)
 
 from routers.settings import create_settings_router
-from security.path_security import _extra_allowed_dirs, register_allowed_directory
+from security.path_allowlist import _extra_allowed_dirs, register_allowed_directory
 from tests.backend.test_scan_start_and_cancel_frames import _CapturingManager
 
 

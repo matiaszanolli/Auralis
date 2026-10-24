@@ -87,7 +87,7 @@ def _register_scan_folders(globals_dict: dict[str, Any]) -> None:
     validate_file_path accepts files from custom locations."""
     try:
         import json
-        from security.path_security import register_allowed_directory
+        from security.path_allowlist import register_allowed_directory
         settings = globals_dict['settings_repository'].get_settings()
         if settings and settings.scan_folders:
             folders = json.loads(settings.scan_folders) if isinstance(settings.scan_folders, str) else settings.scan_folders
