@@ -20,8 +20,10 @@ def _read_connection_setup_source() -> str:
         pathlib.Path(__file__).resolve().parents[2]
         / "auralis-web" / "backend" / "ws_handlers" / "connection.py"
     )
-    if not connection_handler.exists():
-        pytest.skip(f"Could not locate {connection_handler}")
+    # Monorepo: a missing backend file is a rename to fail on (#6241).
+    assert connection_handler.exists(), (
+        f"ws_handlers/connection.py moved or renamed: {connection_handler}"
+    )
     return connection_handler.read_text()
 
 

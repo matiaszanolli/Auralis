@@ -230,8 +230,10 @@ class TestPlaylistDragDropRoutes:
             Path(__file__).resolve().parents[2]
             / "auralis-web" / "frontend" / "src" / "hooks" / "app" / "useAppDragDrop.ts"
         )
-        if not hook.exists():  # pragma: no cover - frontend not checked out
-            pytest.skip("frontend hook not present")
+        # Monorepo: a missing frontend file is a rename to fail on (#6241).
+        assert hook.exists(), (
+            "frontend useEnhancedStreamStart.ts moved or renamed — update this path"
+        )
 
         source = hook.read_text()
         registered = {path for path, _ in self._paths()}

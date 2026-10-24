@@ -55,8 +55,11 @@ class _FakeTrack:
 
 
 def _transformer_source() -> str:
-    if not _TRANSFORMER.exists():  # pragma: no cover - frontend not checked out
-        pytest.skip("frontend transformer not present")
+    # The frontend lives in this monorepo; a missing file is a rename the
+    # contract must fail on, not skip over (#6241).
+    assert _TRANSFORMER.exists(), (
+        "frontend transformer moved or renamed — update this contract test's path"
+    )
     return _TRANSFORMER.read_text()
 
 

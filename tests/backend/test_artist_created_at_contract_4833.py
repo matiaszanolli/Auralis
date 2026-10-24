@@ -99,8 +99,11 @@ class TestFrontendTransformerMatchesContract:
     """Static guard: the transformer must read the key the backend sends."""
 
     def test_transformer_reads_created_at_not_date_added(self):
-        if not _FRONTEND_TRANSFORMER.exists():  # pragma: no cover - frontend not checked out
-            pytest.skip("frontend artistTransformer.ts not present")
+        # The frontend lives in this monorepo; a missing file is a rename the
+        # contract must fail on, not skip over (#6241).
+        assert _FRONTEND_TRANSFORMER.exists(), (
+            "frontend artistTransformer.ts moved or renamed — update this contract test's path"
+        )
         src = _FRONTEND_TRANSFORMER.read_text()
 
         assert "dateAdded: apiArtist.created_at" in src, (

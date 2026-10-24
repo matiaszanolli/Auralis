@@ -74,8 +74,11 @@ class TestFrontendTypeMatchesContract:
     unrelated 8-field AlbumApiResponse shape."""
 
     def test_artist_detail_albums_use_the_dedicated_type(self):
-        if not _FRONTEND_TYPES.exists():  # pragma: no cover - frontend not checked out
-            pytest.skip("frontend types.ts not present")
+        # The frontend lives in this monorepo; a missing file is a rename the
+        # contract must fail on, not skip over (#6241).
+        assert _FRONTEND_TYPES.exists(), (
+            "frontend types.ts moved or renamed — update this contract test's path"
+        )
         src = _FRONTEND_TYPES.read_text()
 
         assert "albums: AlbumInArtistApiResponse[];" in src, (
@@ -85,8 +88,11 @@ class TestFrontendTypeMatchesContract:
         )
 
     def test_album_in_artist_type_has_no_fields_the_backend_never_sends(self):
-        if not _FRONTEND_TYPES.exists():  # pragma: no cover - frontend not checked out
-            pytest.skip("frontend types.ts not present")
+        # The frontend lives in this monorepo; a missing file is a rename the
+        # contract must fail on, not skip over (#6241).
+        assert _FRONTEND_TYPES.exists(), (
+            "frontend types.ts moved or renamed — update this contract test's path"
+        )
         src = _FRONTEND_TYPES.read_text()
 
         start = src.index("interface AlbumInArtistApiResponse")

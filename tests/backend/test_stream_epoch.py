@@ -222,8 +222,10 @@ class TestWiringCompleteness:
     def test_frontend_consumes_the_epoch(self):
         """A stamp with no reader is the defect this issue was about."""
         hooks = _REPO_ROOT / "auralis-web" / "frontend" / "src" / "hooks" / "enhancement"
-        if not hooks.exists():  # pragma: no cover - frontend not checked out
-            pytest.skip("frontend not present")
+        # Monorepo: a missing frontend file is a rename to fail on (#6241).
+        assert hooks.exists(), (
+            "frontend useStreamMessageHandlers.ts moved or renamed — update this path"
+        )
         # The streaming core is split across several modules (the ref lives in
         # useAudioStreamingCore, the readers in useStreamSubscriptions and
         # audioChunkIngest), so look at all of them.

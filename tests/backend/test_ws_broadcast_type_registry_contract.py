@@ -73,10 +73,13 @@ def _backend_broadcast_types() -> dict[str, list[str]]:
     return found
 
 
-@pytest.mark.skipif(not _REGISTRY.exists(), reason="frontend registry not present")
 class TestBroadcastTypeRegistryContract:
 
     def test_every_backend_broadcast_type_is_registered_on_the_frontend(self):
+        # Monorepo: a missing frontend registry is a rename to fail on (#6241).
+        assert _REGISTRY.exists(), (
+            "frontend types/ws/registry.ts moved or renamed — update this path"
+        )
         registered = _frontend_registered_types()
         emitted = _backend_broadcast_types()
 

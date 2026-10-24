@@ -401,7 +401,7 @@ def test_album_pagination_completeness(populated_db, album_repo):
     _, total = album_repo.get_all(limit=1, offset=0)
 
     if total == 0:
-        pytest.skip("No albums in test database")
+        assert total > 0, "fixture must seed albums for pagination tests"
 
     # Paginate through all albums
     all_album_ids = set()
@@ -435,7 +435,7 @@ def test_album_pagination_ordering(populated_db, album_repo):
     _, total = album_repo.get_all(limit=1, offset=0)
 
     if total == 0:
-        pytest.skip("No albums in test database")
+        assert total > 0, "fixture must seed albums for pagination tests"
 
     # Paginate through all albums ordered by title
     page_size = 5
@@ -470,7 +470,7 @@ def test_artist_pagination_completeness(populated_db, artist_repo):
     _, total = artist_repo.get_all(limit=1, offset=0)
 
     if total == 0:
-        pytest.skip("No artists in test database")
+        assert total > 0, "fixture must seed artists for pagination tests"
 
     # Paginate through all artists
     all_artist_ids = set()
@@ -511,7 +511,7 @@ def test_search_pagination_completeness(populated_db):
     all_results, total = track_repo.search(query, limit=1000, offset=0)
 
     if total == 0:
-        pytest.skip("No search results to test")
+        assert len(results) > 0, "fixture must seed searchable tracks"
 
     # Now paginate through results
     all_ids = set()
@@ -572,7 +572,7 @@ def test_search_respects_order_by(populated_db):
 
     by_title, total = track_repo.search(query, limit=1000, offset=0, order_by='title')
     if total == 0:
-        pytest.skip("No search results to test")
+        assert len(results) > 0, "fixture must seed searchable tracks"
     titles = [t.title for t in by_title]
     assert titles == sorted(titles)
 
@@ -607,7 +607,7 @@ def test_favorites_pagination_completeness(populated_db):
     _, total = track_repo.get_favorites(limit=1, offset=0)
 
     if total == 0:
-        pytest.skip("No favorites to test")
+        assert len(favorites) > 0, "fixture must seed favorite tracks"
 
     # Paginate through favorites
     all_fav_ids = set()
@@ -647,7 +647,7 @@ def test_recent_tracks_pagination_completeness(populated_db):
     _, total = track_repo.get_recent(limit=1, offset=0)
 
     if total == 0:
-        pytest.skip("No recent tracks to test")
+        assert len(recent) > 0, "fixture must seed recent tracks"
 
     # Paginate through recent tracks
     all_recent_ids = set()
@@ -740,7 +740,7 @@ def test_offset_at_last_item_returns_one_item(populated_db):
     _, total = track_repo.get_all(limit=1, offset=0)
 
     if total == 0:
-        pytest.skip("No tracks in database")
+        assert total > 0, "fixture must seed tracks for pagination tests"
 
     # Query at exactly the last item
     tracks, _ = track_repo.get_all(limit=10, offset=total - 1)
@@ -767,7 +767,7 @@ def test_total_count_is_consistent_across_pages(populated_db):
     _, total_page1 = track_repo.get_all(limit=10, offset=0)
 
     if total_page1 == 0:
-        pytest.skip("No tracks in database")
+        assert total > 0, "fixture must seed tracks for pagination tests"
 
     # Get subsequent pages and verify total is always the same
     for offset in [10, 20, 30, 50, 100]:
@@ -794,7 +794,7 @@ def test_total_count_matches_actual_item_count(populated_db):
     _, total = track_repo.get_all(limit=1, offset=0)
 
     if total == 0:
-        pytest.skip("No tracks in database")
+        assert total > 0, "fixture must seed tracks for pagination tests"
 
     # Paginate through ALL items
     all_ids = set()
