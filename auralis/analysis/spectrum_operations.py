@@ -16,6 +16,7 @@ from typing import Any, cast
 import numpy as np
 from scipy import signal
 
+from ..dsp.constants import DEFAULT_FFT_SIZE
 from .fingerprint.metrics import AggregationUtils, AudioMetrics
 from .spectrum_weighting import WeightingMixin
 
@@ -46,7 +47,7 @@ class SpectrumOperations(WeightingMixin):
 
     @staticmethod
     def create_window(window_type: str = 'hann',
-                     fft_size: int = 4096) -> np.ndarray:
+                     fft_size: int = DEFAULT_FFT_SIZE) -> np.ndarray:
         """
         Create analysis window function
 

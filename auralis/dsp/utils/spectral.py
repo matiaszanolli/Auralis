@@ -11,6 +11,8 @@ Spectral feature extraction and analysis functions
 import numpy as np
 from scipy.signal.windows import hann
 
+from ..constants import DEFAULT_FFT_SIZE
+
 
 def frames_for_seconds(sample_rate: int, seconds: float, *, power_of_two: bool = True) -> int:
     """
@@ -59,12 +61,12 @@ def spectral_centroid(audio: np.ndarray, sample_rate: int) -> float:
         audio = np.mean(audio, axis=1)
 
     # Use a window to focus on the middle part of the signal
-    if len(audio) > 4096:
+    if len(audio) > DEFAULT_FFT_SIZE:
         start = len(audio) // 4
         end = 3 * len(audio) // 4
         audio_segment = audio[start:end]
         # Use a power-of-2 size for FFT efficiency
-        fft_size = min(4096, len(audio_segment))
+        fft_size = min(DEFAULT_FFT_SIZE, len(audio_segment))
         audio_segment = audio_segment[:fft_size]
     else:
         audio_segment = audio

@@ -15,6 +15,7 @@ import threading
 import numpy as np
 from scipy.signal.windows import hann
 
+from ...dsp.constants import DEFAULT_FFT_SIZE
 from ...utils.logging import debug
 from .critical_bands import (
     create_critical_bands,
@@ -37,7 +38,10 @@ except ImportError:
 class EQSettings:
     """Psychoacoustic EQ settings"""
     sample_rate: int = 44100
-    fft_size: int = 4096
+    # Shadow default eliminated (#6229): reads the same canonical constant
+    # as UnifiedConfig.fft_size, which the pipeline passes explicitly
+    # (hybrid_setup); a bare construction can no longer disagree with it.
+    fft_size: int = DEFAULT_FFT_SIZE
     smoothing_factor: float = 0.1
     masking_threshold_db: float = -60.0
     adaptation_speed: float = 0.2

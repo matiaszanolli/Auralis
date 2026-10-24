@@ -32,6 +32,16 @@ from .feature_extractor_mfcc import _extract_mfcc, _extract_chroma, _extract_ton
 class FeatureExtractor:
     """Extract comprehensive audio features for ML classification"""
 
+    # The classifier's feature contract (#6229): FFT frame length, its
+    # one-sided bin count, and the (double-length) autocorrelation frame.
+    # These are model-input constants — changing them rescales every
+    # extracted feature, not just a window. Distinct from
+    # dsp.constants.DEFAULT_FFT_SIZE, which owns the processing pipeline's
+    # FFT size.
+    FFT_SIZE: int = 4096
+    N_BINS: int = FFT_SIZE // 2 + 1
+    AC_SIZE: int = 2 * FFT_SIZE
+
     def __init__(self, sample_rate: int = 44100):
         """
         Initialize feature extractor
@@ -43,7 +53,7 @@ class FeatureExtractor:
         self.n_mfcc = 13
         # Cache mel filterbank — it depends only on n_mfcc, n_fft, and
         # sample_rate which are fixed for the lifetime of this instance.
-        self._mel_filterbank: list[np.ndarray] = self._create_mel_filterbank(self.n_mfcc, 2049)
+        self._mel_filterbank: list[np.ndarray] = self._create_mel_filterbank(self.n_mfcc, self.N_BINS)
 
     def extract_features(self, audio: np.ndarray) -> AudioFeatures:
         """
@@ -133,9 +143,9 @@ class FeatureExtractor:
 
     def _spectral_bandwidth(self, audio: np.ndarray) -> float:
         """Calculate spectral bandwidth"""
-        spectrum = np.fft.fft(audio[:4096])
-        magnitude = np.abs(spectrum[:2049])
-        freqs = np.fft.fftfreq(4096, 1/self.sample_rate)[:2049]
+        spectrum = np.fft.fft(audio[:self.FFT_SIZE])
+        magnitude = np.abs(spectrum[:self.N_BINS])
+        freqs = np.fft.fftfreq(self.FFT_SIZE, 1/self.sample_rate)[:self.N_BINS]
 
         # Use SafeOperations for safe division
         magnitude_sum = np.sum(magnitude)
@@ -150,15 +160,15 @@ class FeatureExtractor:
 
     def _spectral_contrast(self, audio: np.ndarray, n_bands: int = 6) -> list[float]:
         """Calculate spectral contrast across frequency bands"""
-        spectrum = np.fft.fft(audio[:4096])
-        magnitude = np.abs(spectrum[:2049])
+        spectrum = np.fft.fft(audio[:self.FFT_SIZE])
+        magnitude = np.abs(spectrum[:self.N_BINS])
 
         band_edges = np.logspace(np.log10(80), np.log10(self.sample_rate/2), n_bands + 1)
         contrasts = []
 
         for i in range(n_bands):
-            low_idx = int(band_edges[i] * 4096 / self.sample_rate)
-            high_idx = int(band_edges[i+1] * 4096 / self.sample_rate)
+            low_idx = int(band_edges[i] * self.FFT_SIZE / self.sample_rate)
+            high_idx = int(band_edges[i+1] * self.FFT_SIZE / self.sample_rate)
 
             band_mag = magnitude[low_idx:high_idx]
             if len(band_mag) > 0:
@@ -172,8 +182,8 @@ class FeatureExtractor:
 
     def _spectral_flatness(self, audio: np.ndarray) -> float:
         """Calculate spectral flatness"""
-        spectrum = np.fft.fft(audio[:4096])
-        magnitude = np.abs(spectrum[:2049]) + 1e-10
+        spectrum = np.fft.fft(audio[:self.FFT_SIZE])
+        magnitude = np.abs(spectrum[:self.N_BINS]) + 1e-10
 
         geometric_mean = np.exp(np.mean(np.log(magnitude)))
         arithmetic_mean = np.mean(magnitude)
@@ -223,7 +233,7 @@ class FeatureExtractor:
 
     def _harmonic_ratio(self, audio: np.ndarray) -> float:
         """Estimate harmonic to non-harmonic ratio"""
-        autocorr = np.correlate(audio[:8192], audio[:8192], mode='full')
+        autocorr = np.correlate(audio[:self.AC_SIZE], audio[:self.AC_SIZE], mode='full')
         autocorr = autocorr[len(autocorr)//2:]
 
         peak_threshold = np.max(autocorr) * 0.3
@@ -236,7 +246,7 @@ class FeatureExtractor:
 
     def _fundamental_frequency(self, audio: np.ndarray) -> float:
         """Estimate fundamental frequency"""
-        autocorr = np.correlate(audio[:8192], audio[:8192], mode='full')
+        autocorr = np.correlate(audio[:self.AC_SIZE], audio[:self.AC_SIZE], mode='full')
         autocorr = autocorr[len(autocorr)//2:]
 
         min_lag = int(self.sample_rate / 800)
@@ -252,9 +262,9 @@ class FeatureExtractor:
 
     def _energy_distribution(self, audio: np.ndarray) -> tuple[float, float, float]:
         """Calculate energy distribution across frequency bands"""
-        spectrum = np.fft.fft(audio[:4096])
-        magnitude = np.abs(spectrum[:2049]) ** 2
-        freqs = np.fft.fftfreq(4096, 1/self.sample_rate)[:2049]
+        spectrum = np.fft.fft(audio[:self.FFT_SIZE])
+        magnitude = np.abs(spectrum[:self.N_BINS]) ** 2
+        freqs = np.fft.fftfreq(self.FFT_SIZE, 1/self.sample_rate)[:self.N_BINS]
 
         low_mask = freqs <= 250
         mid_mask = (freqs > 250) & (freqs <= 4000)

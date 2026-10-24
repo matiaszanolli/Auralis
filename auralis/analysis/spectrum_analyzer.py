@@ -18,6 +18,7 @@ from typing import Any
 
 import numpy as np
 
+from ..dsp.constants import DEFAULT_FFT_SIZE
 from .fingerprint.metrics import AggregationUtils
 from .spectrum_operations import SpectrumOperations
 
@@ -25,7 +26,9 @@ from .spectrum_operations import SpectrumOperations
 @dataclass
 class SpectrumSettings:
     """Configuration for spectrum analysis"""
-    fft_size: int = 4096
+    # Reads the same canonical constant as UnifiedConfig.fft_size (#6229);
+    # the one production construction (quality_metrics) overrides it.
+    fft_size: int = DEFAULT_FFT_SIZE
     window_type: str = 'hann'
     overlap: float = 0.75
     sample_rate: int = 44100

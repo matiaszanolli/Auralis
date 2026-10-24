@@ -11,6 +11,7 @@ Main configuration class for audio processing
 import math
 from typing import Any, Literal
 
+from ...dsp.constants import DEFAULT_FFT_SIZE
 from ...utils.logging import debug
 from .genre_profiles import create_default_genre_profiles, get_genre_profile
 from .preset_profiles import PresetProfile, get_preset_profile
@@ -37,7 +38,7 @@ class UnifiedConfig:
         # Core audio settings
         internal_sample_rate: int = 44100,
         max_length: float = 15 * 60,  # 15 minutes
-        fft_size: int = 4096,
+        fft_size: int = DEFAULT_FFT_SIZE,
 
         # System settings
         temp_folder: str | None = None,
