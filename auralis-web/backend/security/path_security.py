@@ -17,9 +17,8 @@ deliberately do NOT restrict to a fixed allowlist — the user's choice is
 trusted. Registering a folder via ``register_allowed_directory()`` then
 widens the allowlist ``validate_file_path()`` consults for the rest of the
 session. There is intentionally no separate allowlist-enforcing directory
-validator in this module — an earlier one (``validate_scan_path``) existed
-unused alongside this posture and was removed as dead code rather than left
-implying a containment guarantee the app doesn't actually enforce.
+validator in this module: an allowlist validator here would imply a
+containment guarantee the app doesn't actually enforce. Do not re-add one.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)

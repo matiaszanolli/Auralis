@@ -172,10 +172,10 @@ const Player = () => {
           />
 
           {/* Queue Button - Compact with glass effects. No keyboard shortcut:
-              the advertised "(Q)" was removed (#5632) — no Q handler exists
-              anywhere, and wiring one means lifting this component-local
-              queuePanelOpen into the app shell. Re-add the hint only together
-              with a real handler registered in ComfortableApp's table. */}
+              there is no Q handler anywhere, and wiring one means lifting this
+              component-local queuePanelOpen into the app shell. Advertise a
+              hint only together with a real handler in ComfortableApp's
+              table (#5632). */}
           <Box
             component="button"
             onClick={handleQueueToggle}

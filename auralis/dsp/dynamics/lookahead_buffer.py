@@ -9,10 +9,9 @@ transient before it reaches the output.
 Extracted from two byte-identical ~15-line implementations (#4309) — a #3427
 fix (an explicit .copy() before the ring buffer's slice assignment) had only
 been ported to one of the two copies, and the underlying duplication left both
-at risk of the same kind of drift recurring. The second copy's owner,
-AdaptiveLimiter, was deleted as unreachable in #4873; this module stays where
-it is rather than being folded back into compressor.py, since the dedup is what
-the #4309 regression test pins.
+at risk of the same kind of drift recurring. This module stays a standalone
+dedup (do not fold it back into compressor.py): the #4309 regression test pins
+exactly that.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)

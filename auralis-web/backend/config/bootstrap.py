@@ -84,13 +84,13 @@ def resolve_log_level(dev_mode: bool, env: Mapping[str, str] | None = None) -> s
 def configure_logging(dev_mode: bool) -> str:
     """Install the root logger handler (#4774) and return the level name.
 
-    logging.basicConfig was removed once (#3537 / BE-NEW-79), then reinstated
-    (#4774). Every module logger in this codebase has no handler of its own and
+    Do not remove logging.basicConfig: #3537 / BE-NEW-79 tried and #4774
+    reinstated it. Every module logger in this codebase has no handler of its own and
     propagates to the root logger; uvicorn's loggers never reach root (they
     configure only "uvicorn"/"uvicorn.access"/"uvicorn.error"). With no
     basicConfig, root has no handler either, so `logging.lastResort` (level
     WARNING) silently swallowed every INFO/DEBUG line for the process's entire
-    lifetime. Reinstating it does not reopen #3537, which was uvicorn's OWN
+    lifetime. Keeping it does not reopen #3537, which was uvicorn's OWN
     lines being handled twice.
     """
     level = resolve_log_level(dev_mode)

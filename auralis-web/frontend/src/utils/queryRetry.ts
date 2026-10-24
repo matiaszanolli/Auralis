@@ -41,10 +41,8 @@ export function isRetryableError(error: Error): boolean {
     .some((pattern) => message.includes(pattern));
 }
 
-// #5388: classifyErrorSeverity, createTimeoutPromise, ErrorLogger and
-// globalErrorLogger were deleted, along with the ErrorSeverity / ErrorContext /
-// ErrorRecoveryStrategy types only they used. None had a caller in src/, tests
-// included; errors are reported through console + toasts, not a logger store.
+// #5388: no severity/logger layer here — errors are reported through
+// console + toasts, not a logger store. Do not add one without a consumer.
 
 /** Retries React Query allows after the first failure (#5387). */
 export const MAX_QUERY_RETRIES = 1;

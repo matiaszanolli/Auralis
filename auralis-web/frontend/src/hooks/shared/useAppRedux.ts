@@ -32,6 +32,6 @@ export const useAppState = () => {
   };
 };
 
-// #5354: useIsLoading()/useAppErrors() were deleted — zero production callers,
-// reading player/queue/cache isLoading/error fields that nothing ever
-// dispatched, so they could only ever report "idle, no errors".
+// No useIsLoading()/useAppErrors() hooks (#5354): the player/queue/cache
+// loading/error fields they would read never change, so they could only
+// report "idle, no errors".

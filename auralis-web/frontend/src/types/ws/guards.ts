@@ -3,12 +3,10 @@
  * Split from the former monolithic types/websocket.ts (#4081); consumers import
  * via the '@/types/websocket' barrel.
  *
- * #5219: the ~29 per-message-type guards that used to live here were deleted.
- * The frontend never dispatched through them — WebSocketContext routes by
+ * Only the two guards with real consumers live here (#5219): routing is by
  * message-type literal (`subscribe('playback_started', …)`), so a guard per
- * type was scaffolding that no call site ever reached. Only the two guards
- * with real consumers remain; a handler that needs narrowing should compare
- * `msg.type` inline rather than reviving the factory.
+ * type is scaffolding no call site reaches. A handler that needs narrowing
+ * should compare `msg.type` inline rather than add a guard.
  */
 
 

@@ -252,9 +252,8 @@ export const selectVolume = (state: { player: PlayerState }) => state.player.vol
 export const selectIsMuted = (state: { player: PlayerState }) => state.player.isMuted;
 export const selectPreset = (state: { player: PlayerState }) => state.player.preset;
 
-// #5354: selectIsLoading/selectError and the isLoading/error state they read
-// were deleted — no production code ever dispatched the actions that would
-// change them, so they could never leave their initial values.
+// No isLoading/error selectors or state here (#5354): nothing dispatches
+// actions that would change them.
 
 /**
  * Convert Redux player volume/mute into the AudioPlaybackEngine gain (0-1)
@@ -271,18 +270,13 @@ export function engineGainFromPlayerState(player: {
 
 // Streaming selectors (Phase 2.2)
 //
-// #5211: nine of the eleven selectors that used to live here had zero
-// references anywhere, tests included. They duplicated a layer that already
-// exists — `store/selectors/player.ts` carries the canonical `selectStreaming`
-// / `selectEnhancedStreamingState` — so nothing ever reached for these.
-// Real readers of raw streaming state (useAudioVisualization.ts,
-// usePlayEnhanced.ts) read `state.player.streaming.enhanced` directly via
-// this selector -- the #5211 comment that used to stand here named
-// hooks/enhancement/useEnhancedPlaybackShortcuts.ts as "the one production
-// reader", which was already wrong when written (it was never actually
-// called anywhere, and has since been deleted entirely -- #4861 follow-up).
-//
-// Only the selector with a real consumer is kept.
+// Streaming state has no selector layer of its own beyond this one (#5211):
+// `store/selectors/player.ts` carries the canonical `selectStreaming` /
+// `selectEnhancedStreamingState`, and real readers of raw streaming state
+// (useAudioVisualization.ts, usePlayEnhanced.ts) read
+// `state.player.streaming.enhanced` directly via this selector. Do not grow
+// selectors here without a consumer — the file's earlier #5211 sweep found
+// nine of eleven with zero references.
 export const selectEnhancedStreaming = (state: { player: PlayerState }) => state.player.streaming.enhanced;
 
 export default playerSlice.reducer;

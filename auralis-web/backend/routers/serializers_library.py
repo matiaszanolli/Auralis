@@ -66,7 +66,7 @@ def serialize_album(album: Any) -> dict[str, Any]:
     # DetachedInstanceError a real ORM instance raises on an unloaded
     # relationship (DetachedInstanceError is not an AttributeError, so
     # hasattr() lets it propagate) — touching `album.tracks` here would
-    # crash the endpoint the moment that eager-load was dropped.
+    # crash the endpoint, since nothing eager-loads it anymore.
     return album_dict
 
 

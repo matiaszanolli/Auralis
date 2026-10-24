@@ -108,7 +108,7 @@ PROFILE_HOLY_DIVER = MasteringProfile(
     era_estimate=1986,
 )
 
-# NEW PROFILES FOR PRIORITY 1-3 IMPROVEMENTS
+# BUILT-IN PROFILES FOR PRIORITY 1-3 IMPROVEMENTS
 
 PROFILE_HIRES_MASTERS = MasteringProfile(
     profile_id="hires-masters-modernization-v1",

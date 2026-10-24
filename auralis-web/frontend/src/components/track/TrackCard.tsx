@@ -1,12 +1,8 @@
 /**
- * TrackCard Component (Unified)
- * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ * TrackCard Component
+ * ~~~~~~~~~~~~~~~~~~~
  *
  * Thin wrapper around MediaCard for track display.
- * Maintains backwards compatibility while using unified MediaCard internally.
- *
- * Migration: Refactored from 92 lines to 40 lines by delegating to MediaCard.
- * Eliminates duplication with AlbumCard.
  */
 
 import { memo } from 'react';

@@ -53,7 +53,7 @@ class AdaptiveTargetGenerator:
         # Adapt targets based on content characteristics
         targets = self._adapt_targets_to_content(genre_profile, content_profile)
 
-        # NEW: Apply fingerprint-driven enhancements if available
+        # Apply fingerprint-driven enhancements if available
         if "fingerprint" in content_profile and content_profile["fingerprint"] is not None:
             targets = self._apply_fingerprint_enhancements(targets, content_profile["fingerprint"])
 

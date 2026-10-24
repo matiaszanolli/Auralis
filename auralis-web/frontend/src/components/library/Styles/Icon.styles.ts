@@ -19,12 +19,7 @@
  */
 
 // No exports - all icon styles consolidated into component-specific style files
-//
-// Consolidation Reference:
-// - SmallIconButton (32px) → Inlined in TrackRow.styles.ts (PlayButton, MoreButton)
-// - MediumIconButton (40px) → No longer needed after consolidation
-// - LargeIconButton (56px) → No longer needed after consolidation
-// - IconBox → No longer needed after consolidation
-// - iconSizes → Replaced with direct sx prop usage in components
+// (SmallIconButton's sizes live in TrackRow.styles.ts; everything else uses
+// direct sx props). Do not grow shared icon style presets ahead of consumers.
 
 export {};

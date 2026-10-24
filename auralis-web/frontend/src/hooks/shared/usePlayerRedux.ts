@@ -67,6 +67,5 @@ export const usePlayerActions = () => {
   }), [play, pause, togglePlay, seek, setVolume, setMuted, toggleMute, setPreset]);
 };
 
-// #5354: usePlayer() was deleted — it had zero production callers, and the
-// isLoading/error fields it surfaced could never leave their initial values
-// (nothing dispatched the actions that would change them).
+// No usePlayer() umbrella hook (#5354): the isLoading/error fields it would
+// surface never change, because nothing dispatches actions that change them.

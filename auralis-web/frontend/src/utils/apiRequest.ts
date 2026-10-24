@@ -17,9 +17,9 @@
  * message substrings instead of status codes) would otherwise need fixing in
  * three places.
  *
- * The retired standardized client (#4693) survives as `services/api/cacheShapeGuards.ts`, its cache
- * telemetry types and shape guards remain, and its two endpoints now come
- * through here.
+ * The standardized client is retired (#4693): its cache telemetry types
+ * and shape guards survive as `services/api/cacheShapeGuards.ts`, and its
+ * two endpoints come through here.
  *
  * One duplicate is left: `hooks/api/useRestAPI.ts`, which reimplements the
  * transport rather than wrapping it. The end state is for it to keep its React

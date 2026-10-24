@@ -2,20 +2,15 @@
  * Cache telemetry types and shape guards
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
- * What remains of the former `StandardizedAPIClient`, the app's third parallel
- * HTTP layer, retired by #4693. The client, `CacheAwareAPIClient`, the
- * singleton accessors and the `SuccessResponse`/`ErrorResponse` envelope all
- * went with it; `hooks/shared/useStandardizedAPI.ts` now calls
+ * The cache-telemetry types and shape guards of the retired third HTTP
+ * layer (#4693): `hooks/shared/useStandardizedAPI.ts` calls
  * `utils/apiRequest.ts` directly and passes the two guards below as its
  * `validate` step.
  *
- * The envelope types and their `isSuccessResponse`/`isErrorResponse` guards
- * were dropped rather than ported. #4693's completeness check asks that they
- * be carried over, but there was nothing to carry: no production code ever
- * called them, and the client's own comment recorded the envelope as
- * "currently unused" because these endpoints return their payload bare. Their
- * only exercise was a test asserting they take `unknown` rather than `any`
- * (#4664), which is a property of code that no longer exists.
+ * There is deliberately no `SuccessResponse`/`ErrorResponse` envelope here:
+ * these endpoints return their payload bare, and no production code ever
+ * called the envelope guards. Do not add envelope types ahead of a caller
+ * that needs them.
  *
  * Renamed from the retired client's old filename in #6197, two months after the
  * retirement, once the last "rename it later" had stood untracked.

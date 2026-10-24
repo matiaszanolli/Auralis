@@ -2,11 +2,10 @@
  * useAudioStreamingCore Hook
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
- * Shared WebSocket PCM streaming machinery, originally factored out for
- * usePlayNormal and usePlayEnhanced (fixes #4019 — the two hooks had drifted
- * into ~500 lines of duplicated buffer/flow-control/subscription logic with
- * no shared implementation). usePlayNormal was removed (#4541 — zero
- * production importers); usePlayEnhanced is the sole current consumer.
+ * Shared WebSocket PCM streaming machinery, factored out when the normal
+ * and enhanced playback hooks had drifted into ~500 lines of duplicated
+ * buffer/flow-control/subscription logic (fixes #4019). usePlayEnhanced is
+ * the sole consumer; there is no normal-playback hook anymore (#4541).
  *
  * Owns: PCM buffer/engine/context refs, the buffer-fill flow-control handshake,
  * chunk decoding + append, stream-end/error handling, playback transport

@@ -32,9 +32,8 @@ class Result:
     responsible for clamping samples to
     ``[-1.0, 1.0]`` before writing (saver.py also clamps before PCM encode).
 
-    #4106: the former ``use_limiter`` / ``normalize`` flags were removed — they
-    were stored but never read by any code path, advertising a false
-    auto-limit / normalize contract.
+    #4106: do not add ``use_limiter`` / ``normalize`` style flags — anything
+    stored here but never read by the writer advertises a false contract.
     """
 
     def __init__(

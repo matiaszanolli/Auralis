@@ -76,12 +76,11 @@ export interface ErrorTrackingConfig {
   errorActions?: string[];
   onError?: (error: TrackedError) => void;
   logToConsole?: boolean;
-  // #4695: `logToServer`, `captureErrorToServer`, `onRecovery` and
-  // `recoveryStrategies` were removed here. The first posted to `/api/errors`,
-  // a route that has never existed; the other three were declared (and two of
-  // them defaulted) but never read by anything. A config field with no
-  // implementation is a promise the middleware does not keep — see #4453 for
-  // the same defect in `enabled`, and #4662 for `errorActions`.
+  // Do not add config fields this middleware does not implement (#4695:
+  // `logToServer` posted to /api/errors, a route that never existed; three
+  // others were declared and defaulted but never read). A config field with
+  // no implementation is a promise the middleware does not keep — see #4453
+  // for the same defect in `enabled`, and #4662 for `errorActions`.
 }
 
 // ============================================================================
@@ -278,9 +277,7 @@ export function createErrorTrackingMiddleware(
 // way. It stays a module-private function, still called at the two dispatch
 // sites above.
 //
-// #5017: retryAction, getErrorStats and the ErrorStore class (plus its two
-// `.add()` call sites above) were deleted here — a real retry helper, a
-// stats calculator, and an in-memory accumulator with no callers outside
-// tests and no way for an external caller to even retrieve the ErrorStore
-// instance. Tracked errors are still logged and handed to onError at the
-// point of detection; only the unread accumulation was removed.
+// #5017: this middleware deliberately has no retry/stats/ErrorStore layer.
+// Tracked errors are logged and handed to onError at the point of detection;
+// anything more needs an external retrieval surface first, not an
+// accumulator nothing reads.

@@ -152,9 +152,7 @@ describe('dark-only token leak (#4877)', () => {
     expect(dark.surfaceOverlay).toBe(tokens.colors.bg.level4);
 
     // The alias relied on for `.tertiary`: identical strings, so that
-    // rewrite was value-preserving too. (The `bg` backwards-compat aliases
-    // this comment used to also cover were deleted in #5420 — zero
-    // production consumers.)
+    // rewrite was value-preserving too.
     expect(tokens.colors.text.tertiary).toBe(tokens.colors.text.metadata);
   });
 });

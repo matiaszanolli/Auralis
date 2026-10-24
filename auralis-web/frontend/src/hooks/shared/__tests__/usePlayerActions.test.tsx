@@ -5,8 +5,8 @@
  * a new object on every 1Hz position tick — re-rendering action-only
  * consumers (e.g. a context menu's "play") during playback. usePlayerActions()
  * returns only stable callbacks, so it does NOT change identity when
- * currentTime ticks. (usePlayer was deleted in #5354 — zero production
- * callers — so only the stability half of the #4176 contract remains here.)
+ * currentTime ticks — the stability half of the #4176 contract (there is no
+ * usePlayer umbrella hook anymore, #5354).
  */
 
 import { describe, it, expect } from 'vitest';

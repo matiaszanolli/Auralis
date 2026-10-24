@@ -32,8 +32,8 @@ class TrackInfo(BaseModel):
     the frontend TrackInfo type in src/types/websocket.ts:
       - `filepath` (not file_path)
       - `artwork_url` (not album_art)
-    Fixes #3505 / BE-NEW-47. The `is_enhanced` field has been removed;
-    it was never set true anywhere and wasn't on the frontend type.
+    There is deliberately no `is_enhanced` field: nothing ever set it true
+    and the frontend type never carried it (#3505 / BE-NEW-47).
     """
     id: int
     title: str

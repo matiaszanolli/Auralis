@@ -19,6 +19,5 @@ export const useCacheState = () => {
   return useSelector((state: RootState) => state.cache, shallowEqual);
 };
 
-// #5354: useCache() was deleted — it had zero production callers, and the
-// isLoading/error/clearError surface it exposed could never change from its
-// initial values (nothing dispatched those actions in production).
+// No useCache() umbrella hook (#5354): the isLoading/error/clearError
+// surface it would expose never changes in production.

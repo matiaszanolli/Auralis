@@ -18,12 +18,9 @@ export type QueueMessageType =
 // Queue Messages
 // ============================================================================
 
-// `queue_updated` was removed here in #4680. Its backend emitter went away with
-// #3492 — `routers/player.py` and `services/queue_service.py` still carry the
-// comments recording the removal — but the four frontend declarations stayed,
-// leaving a subscription key that could never fire and that a future author
-// would reasonably subscribe to and then debug at length. `queue_changed`
-// below is the live replacement.
+// No `queue_updated` message type exists — its backend emitter is gone
+// (#3492/#4680), so a subscription key here could never fire. Subscribe to
+// `queue_changed` below.
 
 
 /**

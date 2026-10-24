@@ -111,14 +111,12 @@ export interface ScanProgressMessage extends WebSocketMessage {
     percentage: number | null;
     current_file?: string;
     /**
-     * #4648: `'fingerprinting'` was removed. The only emitter of
-     * `{'stage': 'fingerprinting'}` on this channel was
-     * `LibraryScanner._enqueue_fingerprints`, which had zero call sites and is
-     * now deleted. `services/fingerprint_worker.py` still emits that stage, but
-     * to `FingerprintQueue.set_progress_callback` — a different channel this
-     * bridge never subscribes to. Re-adding the member therefore needs bridge
-     * wiring plus `processed`/`total_found` in the payload, not just a union
-     * edit: without those the bridge computes `current: 0, total: 0` and the UI
+     * No `'fingerprinting'` stage exists on this channel (#4648): nothing
+     * emits it here (`services/fingerprint_worker.py` emits it to
+     * `FingerprintQueue.set_progress_callback`, a channel this bridge never
+     * subscribes to). Re-adding the member needs bridge wiring plus
+     * `processed`/`total_found` in the payload, not just a union edit:
+     * without those the bridge computes `current: 0, total: 0` and the UI
      * snaps back to "0 of 0" after a completed scan.
      */
     phase?: ScanPhase;

@@ -63,13 +63,12 @@ class ChunkCacheManager(ChunkDiskPruneMixin):
     "{track}_{sig}_" and "{track}_{sig}_{preset}_{intensity}_" prefixes
     still match every chunk of a track.
 
-    A chunk and its WAV encoding used to have separate key formats
-    (get_chunk_cache_key / get_wav_cache_key), but both process_chunk() and
+    One key format, deliberately: both process_chunk() and
     get_wav_chunk_path() in ChunkedAudioProcessor resolve to the exact same
-    on-disk file via WAVEncoder.get_chunk_path() — the split key meant a hit
-    recorded by one caller was invisible to the other, leaving the on-disk
-    tier write-only from process_chunk()'s side (#4792). get_wav_cache_key
-    was removed; both callers now share get_chunk_cache_key.
+    on-disk file via WAVEncoder.get_chunk_path(), so a second WAV-specific
+    key would make a hit recorded by one caller invisible to the other and
+    leave the on-disk tier write-only from process_chunk()'s side (#4792).
+    Do not split get_chunk_cache_key.
 
     The cache dictionary is shared across instances and typically lives in
     ChunkedAudioProcessor or a global cache service.

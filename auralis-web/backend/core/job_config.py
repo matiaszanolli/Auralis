@@ -77,12 +77,9 @@ def create_processor_config(job: ProcessingJob, sample_rate: int) -> UnifiedConf
     # submitted with default settings failed with "unexpected error").
     fingerprint_settings = job.settings.get("fingerprint")
     if fingerprint_settings and fingerprint_settings.get("enabled"):
-        # The 25D-fingerprint-to-mastering-parameter mapper this once fed
-        # (auralis/analysis/fingerprint/parameter_mapper.py) was deleted
-        # as dead code (#4926) — superseded by the continuous-parameter-
-        # space mastering path (auralis/core/processing/continuous_space.py).
-        # No frontend control sends this setting; kept defensive in case a
-        # client still submits it.
+        # Superseded by the continuous-parameter-space mastering path
+        # (auralis/core/processing/continuous_space.py). No frontend control
+        # sends this setting; kept defensive in case a client still submits it.
         unsupported.append("fingerprint (superseded by continuous-space mastering)")
     eq_settings = job.settings.get("eq")
     if eq_settings and eq_settings.get("enabled"):

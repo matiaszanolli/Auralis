@@ -13,10 +13,7 @@
  */
 
 // No exports - all empty state styles consolidated into component-specific style files
-//
-// Consolidation Reference:
-// - EmptyStateContainer (Paper-based) → Inlined in ArtistDetailView.tsx
-// - SearchEmptyState (Box-based) → Inlined in GlobalSearch.tsx
-// - NoResultsBox (Box-based) → No longer needed after consolidation
+// No exports - empty-state containers are inlined where they render
+// (ArtistDetailView.tsx, GlobalSearch.tsx).
 
 export {};

@@ -4,11 +4,10 @@ WebSocket Misc Message Handlers
 
 Handlers for message types that don't touch streaming-task state: ping,
 pong, heartbeat, and the unknown-type fallback. Extracted verbatim from the
-websocket_endpoint dispatch loop in routers/system.py (#4074). The
-subscribe_job_progress handler lived here too until #5525 retired it: no
-frontend ever sent the frame or consumed `job_progress`, so the whole
-per-connection subscription surface was removed rather than carried as dead
-protocol.
+websocket_endpoint dispatch loop in routers/system.py (#4074). There is
+deliberately no subscribe_job_progress handler: no frontend sends the frame
+or consumes `job_progress` (#5525) — do not re-add a per-connection
+subscription surface without a consumer.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)

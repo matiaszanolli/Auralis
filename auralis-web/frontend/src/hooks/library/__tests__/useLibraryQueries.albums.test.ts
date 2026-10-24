@@ -1,9 +1,8 @@
 /**
  * useAlbumsQuery Hook Tests
  *
- * Tests for the convenience wrapper around useLibraryQuery('albums'). The hook
- * has one definition, in useLibraryQueries.ts (the second copy that lived in
- * useAlbumsQuery.ts was removed in #5788).
+ * Tests for the convenience wrapper around useLibraryQuery('albums'). The
+ * hook's one definition lives in useLibraryQueries.ts.
  *
  * @module hooks/library/__tests__/useLibraryQueries.albums.test
  */

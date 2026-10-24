@@ -1,13 +1,9 @@
 /**
- * AlbumCard Component (Unified)
- * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ * AlbumCard Component
+ * ~~~~~~~~~~~~~~~~~~~
  *
- * Thin wrapper around MediaCard for album display.
- * Maintains backwards compatibility while using unified MediaCard internally.
- *
- * Migration: Refactored from 109 lines to 60 lines by delegating to MediaCard.
- * Eliminates duplication with TrackCard. Artwork management (display plus the
- * `onArtworkUpdated` cache-bust hook) is owned by MediaCard.
+ * Thin wrapper around MediaCard for album display. Artwork management (display
+ * plus the `onArtworkUpdated` cache-bust hook) is owned by MediaCard.
  *
  * Fingerprint Support:
  * - Accepts optional fingerprint prop (median of album tracks)

@@ -10,10 +10,8 @@
  * - ArrayBuffer to Float32 PCM conversion
  * - Sample rate and channel metadata
  *
- * #5392: monoToStereo, stereoInterleavedToChannels, resamplePCM,
- * durationToSampleCount, sampleCountToDuration, validatePCMSamples and
- * clipPCMSamples were deleted — only their own tests called them. No
- * client-side validate/clip pass was wired in instead: the backend is the
+ * #5392: decode helpers only — no mono/stereo conversion, resampling,
+ * duration conversion or validate/clip pass here. The backend is the
  * sample-integrity authority, and its realtime chain already replaces
  * non-finite output before emission (#5313).
  */

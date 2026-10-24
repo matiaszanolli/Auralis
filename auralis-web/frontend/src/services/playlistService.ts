@@ -249,19 +249,13 @@ export async function addTracksToPlaylist(
   return data.added_count;
 }
 
-// #5395: addTrackToPlaylist() and removeTrackFromPlaylist() were deleted —
-// neither had a caller outside tests. Single adds go through
-// addTracksToPlaylist([id]) (context menu) or the positional
-// /tracks/add route (drag-drop). Removal has no UI to wire into: selecting a
-// playlist in the sidebar still shows the library track list, because no
-// view renders a playlist's own tracks yet. Re-add the wrapper with that view.
-//
-// #5214: clearPlaylist() was deleted — tested, backed by a working
-// DELETE /api/playlists/{id}/tracks, but never called from any UI. Nothing
-// offers the user a "clear all tracks" action, so the wrapper sat unreachable.
-// ENDPOINTS.PLAYLIST_TRACKS is deliberately left in config/api.ts: that map is
-// a catalog of the backend surface and already carries nine other entries with
-// no client caller, so pruning this one alone would be arbitrary.
+// No single-track add/remove or clearPlaylist wrappers here (#5395/#5214):
+// single adds go through addTracksToPlaylist([id]) (context menu) or the
+// positional /tracks/add route (drag-drop), and no view renders a playlist's
+// own tracks yet, so removal/clear wrappers would have no UI to wire into —
+// add them together with that view. ENDPOINTS.PLAYLIST_TRACKS stays in
+// config/api.ts: that map is a catalog of the backend surface and carries
+// other caller-less entries too.
 
 export default {
   getPlaylists,

@@ -6,15 +6,11 @@
  * without re-registering on every render (#4692).
  *
  * #5231: this used to also accept a `KeyboardShortcutsConfig` object (a
- * fixed set of named handlers like `onPlayPause`/`onNext`) as a "V1
- * backward-compatible" input alongside the array form. That branch had zero
- * production callers — the sole call site (ComfortableApp.tsx) always
- * passed the array form — and was exercised only by this hook's own test
- * suite, so it was deleted along with the sibling `KeyboardShortcutsConfig`
- * config-map machinery in keyboardShortcutDefinitions.ts (also deleted
- * wholesale, including its `PRESET_SHORTCUTS`/`PRESET_NAMES`, which turned
- * out to be reachable only through the dead V1 path — not the live
- * keyboard-shortcut path a prior audit assumed).
+ * fixed set of named handlers like `onPlayPause`/`onNext`) — the array
+ * form is the only input; the sole call site (ComfortableApp.tsx) has
+ * never passed anything else, and there is no config-map/preset machinery
+ * behind it. Do not add a "V1 back-compat" branch without a second call
+ * site that needs it.
  */
 
 import { useEffect, useLayoutEffect, useCallback, useState, useRef } from 'react';

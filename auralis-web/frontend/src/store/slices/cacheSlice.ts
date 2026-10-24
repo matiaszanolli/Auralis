@@ -115,16 +115,12 @@ export const {
 // Selectors
 export const selectCacheStats = (state: { cache: CacheState }) => state.cache.stats;
 export const selectCacheHealth = (state: { cache: CacheState }) => state.cache.health;
-// #5354: selectIsLoading/selectError and the isLoading/error state they read
-// were deleted — no production code ever dispatched the actions that would
-// change them, so they could never leave their initial values.
+// No isLoading/error selectors or state here (#5354): nothing dispatches
+// actions that would change them.
 
-// #5212: selectOverallHitRate / selectTotalCacheSize / selectTotalChunks /
-// selectTracksCached were deleted — no useSelector anywhere, only same-named
-// assertions in this slice's own test. That was the second such batch in this
-// file after #4395 cleared the first, so read this as a standing note: these
-// slices have a habit of growing selectors ahead of any UI that needs them.
-// Every field they projected is one property off `selectCacheStats`, which a
-// component can read directly.
+// Standing note (#4395, #5212): these slices grow selectors ahead of any UI
+// that needs them — two batches had no useSelector anywhere, only same-named
+// assertions in this slice's own test. Every projected field is one property
+// off `selectCacheStats`, which a component can read directly.
 
 export default cacheSlice.reducer;

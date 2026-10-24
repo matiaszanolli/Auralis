@@ -89,7 +89,7 @@ class StreamlinedCacheManager(
         # Track cache status
         self.track_status: dict[int, TrackCacheStatus] = {}
 
-        # NEW (Priority 4): Mastering recommendations cache.
+        # Mastering recommendations cache (Priority 4).
         # OrderedDict so we can LRU-evict at MAX_RECOMMENDATIONS — prior
         # code used a plain dict and the singleton instance accumulated
         # entries for the entire backend lifetime, growing 1-5 KB per

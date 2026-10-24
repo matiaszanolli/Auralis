@@ -245,10 +245,7 @@ export function createLoggerMiddleware(config: LoggerConfig = {}): Middleware {
 
 // LoggerConfig and createLoggerMiddleware are exported above.
 //
-// #5213: getDevToolsConfig() was deleted rather than wired in. It documented
-// itself as intended for configureStore()'s devTools option but had no
-// reference anywhere, not even in its own test, and store/index.ts has always
-// passed the plain `devTools: import.meta.env.DEV`. Adopting its config is not
-// a no-op — `trace: true` captures a stack trace for every dispatched action —
-// so turning that on is a DX decision to make deliberately, not a side effect
-// of clearing dead code.
+// #5213: store/index.ts deliberately passes the plain
+// `devTools: import.meta.env.DEV`. A richer devTools config (e.g.
+// `trace: true`, which captures a stack trace for every dispatched action) is
+// a DX decision to make deliberately, not something to grow in passing.

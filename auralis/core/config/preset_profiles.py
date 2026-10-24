@@ -54,15 +54,13 @@ def create_preset_profiles() -> dict[str, PresetProfile]:
     """
     Create all mastering preset profiles.
 
-    A single preset, 'adaptive', ships today. The 'gentle'/'warm'/'bright'/
-    'punchy'/'live' profiles that used to live here were removed rather than
-    kept as dead entries: config.mastering_profile can only ever be set to
-    'adaptive' now (schemas.VALID_PRESETS/EnhancementPresetLiteral narrowed
-    the same way, and processor_factory.py's ProcessorFactory.get_or_create
-    is the only place that writes mastering_profile, always from that same
-    API-gated value), so the other five were exactly as unreachable as 'live'
-    already was (#4861) -- just via this profile table instead of
-    PreferenceVector.from_preset_name's bias table. get_preset_profile()
+    A single preset, 'adaptive', ships today; config.mastering_profile can
+    only ever be set to 'adaptive' (schemas.VALID_PRESETS/
+    EnhancementPresetLiteral allow nothing else, and processor_factory.py's
+    ProcessorFactory.get_or_create is the only place that writes
+    mastering_profile, always from that same API-gated value). Do not add
+    profiles ahead of a caller that can select them — unreachable entries
+    here are dead weight. get_preset_profile()
     already returns None (not a fallback profile) for any name not in this
     dict, and both of its call sites (adaptive_mode.py, target_generator.py)
     already handle a None profile gracefully, so removing the five entries

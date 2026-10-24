@@ -1,15 +1,12 @@
 /**
  * REST API Error Types
  *
- * #4398 deleted 33 request/response interfaces (player/library/metadata/
- * enhancement/playlist/artwork/search/fingerprint/similarity/health/cache/
- * streaming) plus `buildQueryParams` and `QueryParamValue` from this file —
- * every one had zero runtime consumers (`services/*.ts` use ad-hoc inline
- * shapes instead; several were already partially cleaned up in #4372/#3894/
- * #4674, but this was the block those passes left behind). What survives is
- * the one part of the original "REST API Types" contract that real code
- * actually imports: the generic error shape and its helpers, used by
- * useRestAPI.ts and the hooks/components built on it.
+ * This file deliberately holds only the generic error shape and its
+ * helpers — the one part of the original "REST API Types" contract real
+ * code imports (useRestAPI.ts and the hooks/components built on it). Do not
+ * grow request/response interfaces here ahead of consumers (#4398): the
+ * services use ad-hoc inline shapes, and a types file nothing imports from
+ * is dead weight.
  */
 
 export interface ApiError {

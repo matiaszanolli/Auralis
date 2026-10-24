@@ -3,7 +3,8 @@
 /// Exposes Rust DSP functions to Python
 ///
 /// Only `compute_fingerprint` has a production caller. `process_chunks` is
-/// dead and tracked in #5738; the other bindings were removed in #5764.
+/// dead and tracked in #5738. Do not add bindings without a production
+/// Python caller.
 
 use pyo3::prelude::*;
 use pyo3::types::{PyModule, PyDict};

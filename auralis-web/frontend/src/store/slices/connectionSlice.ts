@@ -198,9 +198,9 @@ export const selectLatency = (state: { connection: ConnectionState }) =>
 export const selectReconnectAttempts = (state: { connection: ConnectionState }) =>
   state.connection.reconnectAttempts;
 
-// #5212: selectIsFullyConnected and selectCanReconnect were deleted — test-only,
-// like the #4395 batch before them. selectConnectionHealth below is equally
-// unconsumed but belongs to #5129 and is deliberately left in place.
+// Only selectors with consumers live here (#4395/#5212 sweeps removed
+// test-only ones). selectConnectionHealth below is equally unconsumed but
+// belongs to #5129 and is deliberately left in place.
 
 /**
  * Select connection health status

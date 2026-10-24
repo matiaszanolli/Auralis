@@ -18,7 +18,7 @@ export const ListContainer = styled(Box)({
 });
 
 /**
- * StyledListItem - Wrapper for artist card (renamed for backwards compat)
+ * StyledListItem - Wrapper for artist card
  */
 export const StyledListItem = styled(Box)({
   marginBottom: tokens.spacing.md,

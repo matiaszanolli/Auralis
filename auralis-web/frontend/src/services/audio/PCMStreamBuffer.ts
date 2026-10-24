@@ -35,10 +35,8 @@ export interface BufferMetadata {
  * No boundary crossfade (#4642): ChunkOperations.extract_chunk_segment trims
  * every processed chunk to its non-overlapping CHUNK_INTERVAL segment before
  * it reaches the streaming layer, so adjacent chunks share no samples and
- * there is nothing to blend. The server's apply_boundary_crossfade was made a
- * no-op for the same reason in #3514; the client-side linear-fade
- * implementation that used to live here was permanently unreachable and has
- * been removed along with the crossfade_samples wire field.
+ * there is nothing to blend — do not add boundary crossfade here or a
+ * crossfade_samples wire field for it (#3514, #4642).
  */
 export class PCMStreamBuffer {
   /** Ceiling: ~5 minutes @ 44.1kHz stereo. Long tracks cap here like before. */

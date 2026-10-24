@@ -24,10 +24,9 @@ import cacheReducer from '@/store/slices/cacheSlice'
 import connectionReducer from '@/store/slices/connectionSlice'
 
 // NOTE: the WebSocket context is mocked globally via vi.mock('@/contexts/
-// WebSocketContext') in src/test/setup.ts. The former MockWebSocketProvider
-// here wrapped a *different*, private context that no production component read,
-// so it was dead code and has been removed (#3964). Components under test pull
-// the real (mocked) useWebSocketContext from the actual module.
+// WebSocketContext') in src/test/setup.ts — components under test pull the
+// real (mocked) useWebSocketContext from the actual module. Do not add a
+// MockWebSocketProvider here wrapping some private context; nothing reads it.
 
 /**
  * Wrapper component that provides all necessary context providers

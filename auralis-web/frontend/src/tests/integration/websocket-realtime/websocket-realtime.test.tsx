@@ -293,11 +293,9 @@ describe('WebSocket & Real-time Updates Integration Tests', () => {
       unsubscribe();
     });
 
-    // Retargeted from 'queue_updated' to 'queue_changed' (#4680). The backend
-    // emitter for 'queue_updated' was removed by #3492 while the frontend
-    // declarations stayed, so this test subscribed to a key that production
-    // can never deliver — it passed only because the mock socket happily
-    // emits anything. 'queue_changed' is what the backend actually sends.
+    // 'queue_changed' is what the backend actually sends; there is no
+    // 'queue_updated' key in production (#3492/#4680), so subscribing to it
+    // would only ever see mock-socket emissions.
     it('should receive queue updates', async () => {
       // Arrange
       const { result } = renderHook(() => useWebSocketContext(), {

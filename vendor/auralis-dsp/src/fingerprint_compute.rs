@@ -320,9 +320,8 @@ pub fn compute_complete_fingerprint(
 /// Computes an onset-strength envelope from spectral flux, then finds the
 /// dominant periodicity via autocorrelation in the BPM range [60, 200].
 ///
-/// This is the crate's only spectral-flux tempo routine (the sibling tempo
-/// module that #4599's work was originally measured against was deleted in
-/// #5764), and its BPM output is a stored fingerprint dimension — changing
+/// This is the crate's only spectral-flux tempo routine, and its BPM output
+/// is a stored fingerprint dimension — changing
 /// the algorithm would silently invalidate every fingerprint in every user's
 /// library.
 ///

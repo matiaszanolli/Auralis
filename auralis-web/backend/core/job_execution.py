@@ -124,8 +124,7 @@ async def execute_job(
     # Reset EQ state before each job so cached processors don't bleed
     # the previous track's psychoacoustic EQ curve into the new track (fixes #2400).
     # The adaptive/continuous path's main psychoacoustic EQ is the one that
-    # matters here; the separate real-time EQ path this used to also reset
-    # was deleted as unreachable in #4873.
+    # matters here; it is the only psychoacoustic EQ reset there is.
     # reset_limiter() clears the brick-wall limiter's cross-call gain-reduction
     # state so a loud track doesn't leave the next one starting pre-attenuated
     # (fixes #4811).

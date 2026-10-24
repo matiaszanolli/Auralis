@@ -20,11 +20,9 @@
  * `cache_cleared` invalidation below (#4585) was partly defeated because
  * invalidating the React Query entry still hit the stale inner cache.
  *
- * History: this module used to also host a generic fetch-on-mount hook (#4300,
- * migrated to `useRestAPI`) plus `usePaginatedAPI` / `useBatchOperations` /
- * `useInitializeAPI`, which had no production consumers and were removed
- * (streamlining #7). The pagination/batch surface of `StandardizedAPIClient`
- * went with them; only the cache-telemetry path remains.
+ * This module hosts only the cache-telemetry path; the generic fetch hook
+ * lives in `useRestAPI` (#4300) and there is no pagination/batch hook layer —
+ * do not add one ahead of consumers.
  *
  * @copyright (C) 2024 Auralis Team
  * @license AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)

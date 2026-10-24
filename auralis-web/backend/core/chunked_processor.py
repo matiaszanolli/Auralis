@@ -97,11 +97,11 @@ class ChunkedAudioProcessor:
         self.channels: int | None = None
         self._load_metadata()
 
-        # (#5056: the old `self.chunk_interval` exposure was removed — no
+        # #5056: `self.chunk_interval` is deliberately not exposed — no
         # production reader; chunk position math goes through
         # chunk_boundaries.emitted_chunk_start(), and the chunk loaders
-        # defaults its own `chunk_interval` parameter from CHUNK_INTERVAL
-        # directly.)
+        # default their own `chunk_interval` parameter from CHUNK_INTERVAL
+        # directly.
 
         self.chunk_dir = chunk_cache_dir()
         create_secure_temp_dir(self.chunk_dir)

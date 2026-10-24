@@ -14,11 +14,6 @@ control messages), stream_fingerprint.py (fingerprint readiness),
 stream_chunk_ops.py (per-chunk helpers), and stream_enhanced.py /
 stream_normal.py / stream_seek.py (the three entry points).
 
-stream_prefetch.py (next-track prefetch) was deleted (#3879): its only
-caller, _prefetch_next_track, was unreachable dead code (prefetch disabled
-since #3513/#3884) with zero test coverage despite a docstring claiming
-otherwise.
-
 AudioStreamController's methods are thin delegates to these submodules so
 the public/test-facing surface (`controller._send_error(...)`,
 `patch.object(controller, "_send_stream_start", ...)`, etc.) is unchanged

@@ -78,14 +78,12 @@ class ProcessorMaintenanceMixin:
         )
         return True
 
-    # #4618: `set_mastering_targets()` was deleted here. It was a deprecated,
-    # caller-less public method that looked up the OLD-shape cache key
-    # (targets_hash="none") and mutated that processor in place — a documented
-    # race against any concurrent `process_chunk()` on the same instance,
-    # waiting for its first caller. `get_or_create(..., mastering_targets=...)`
-    # has been the whole replacement since #3720: the targets are hashed into
-    # the cache key, so distinct targets land in distinct cache entries and no
-    # in-place mutation of a shared processor is ever needed.
+    # #4618/#3720: do not add a set_mastering_targets()-style mutator that
+    # looks up a cache entry and mutates the processor in place — that races
+    # any concurrent `process_chunk()` on the same instance. Mastering
+    # targets go through `get_or_create(..., mastering_targets=...)`: the
+    # targets are hashed into the cache key, so distinct targets land in
+    # distinct cache entries and no in-place mutation is ever needed.
 
     def clear_cache(self) -> None:
         """Clear all cached processors (for memory management)."""

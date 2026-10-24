@@ -31,8 +31,7 @@ pub(crate) fn compute_rms(signal: &[f32]) -> f32 {
 /// path, whose output is a reported *absolute* LUFS value. The variation path
 /// only takes the standard deviation of per-frame results
 /// (`compute_loudness_variation`), which is invariant to a constant offset, so
-/// unifying on this constant leaves both callers' behaviour unchanged. The
-/// old variation-path `sample_rate` parameter was unused and has been dropped.
+/// unifying on this constant leaves both callers' behaviour unchanged.
 pub(crate) fn estimate_lufs(signal: &[f32]) -> f32 {
     let rms = compute_rms(signal);
     if rms < 1e-10 {

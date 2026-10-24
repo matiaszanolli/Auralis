@@ -8,15 +8,10 @@
 
 import { API_BASE_URL } from '@/config/api';
 
-// #5214: extractArtwork / downloadArtwork / deleteArtwork were deleted, along
-// with the ArtworkResponse/ArtworkRequest types and the createCrudService()
-// wiring that existed only to back them. All three had tests but no caller —
-// no component or hook ever invoked them, so the artwork-management UI they
-// were built for was never wired up. The backend endpoints
-// (/api/albums/{id}/artwork/{extract,download} and DELETE) are untouched, so
-// re-adding a three-line wrapper is trivial if that UI is ever built.
-//
-// What remains here are the two URL builders, which do have real callers.
+// Only the two URL builders live here — they have real callers. There are
+// no extract/download/delete wrappers (#5214): the artwork-management UI
+// they were built for was never wired up, so add them only together with
+// that UI (the backend endpoints are untouched).
 
 export interface ArtworkUrlOptions {
   /**

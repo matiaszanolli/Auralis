@@ -278,10 +278,9 @@ export const selectIsShuffled = (state: { queue: QueueState }) => state.queue.is
 export const selectRepeatMode = (state: { queue: QueueState }) => state.queue.repeatMode;
 // selectCurrentQueueTrack: use the memoized version from store/selectors/index.ts (#3382)
 export const selectLastUpdated = (state: { queue: QueueState }) => state.queue.lastUpdated;
-// #5354: selectIsLoading/selectError and the isLoading/error state they read
-// were deleted — no production code ever dispatched the actions that would
-// change them, so they could never leave their initial values.
-// selectQueueState is exported from store/selectors/index.ts (memoized).
+// No isLoading/error selectors or state here (#5354): nothing dispatches
+// actions that would change them. selectQueueState is exported from
+// store/selectors/index.ts (memoized).
 
 // Derived selectors (selectRemainingTime, selectTotalQueueTime) are memoized
 // via createSelector in store/selectors/index.ts — import from there.

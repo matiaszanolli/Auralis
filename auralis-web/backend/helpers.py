@@ -8,11 +8,11 @@ Small shared utilities used across the backend:
 - library-scan progress computation (#4409, #4411)
 - enhancement-settings seeding (#4409)
 
-#4606: the pagination / batch-operation / filter-search / cache-response
-cluster that previously lived here (14 functions) was deleted — it had zero
-production callers and was exercised only by tests, while routers shipped
-ad-hoc dict literals for the same concepts. `routers/pagination.py` is a
-separate dead pagination implementation, tracked by #3892.
+Do not grow helper clusters ahead of production callers: a pagination /
+batch-operation / filter-search / cache-response cluster here once had zero
+production callers (tests only) while routers shipped ad-hoc dict literals
+for the same concepts (#4606). `routers/pagination.py` is a separate dead
+pagination implementation, tracked by #3892.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)

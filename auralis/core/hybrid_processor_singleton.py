@@ -3,8 +3,7 @@ Hybrid Processor Convenience API
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Process-wide cached ``process_adaptive`` / ``process_reference`` free
-functions, re-exported from the ``auralis`` package. A ``process_hybrid``
-sibling had no caller and was never re-exported; it was deleted (#5203).
+functions, re-exported from the ``auralis`` package.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)

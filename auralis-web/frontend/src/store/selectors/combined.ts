@@ -37,9 +37,8 @@ export const selectAppSnapshot = createSelector(
     cache,
     connection,
   })
-  // #5354: the isLoading/hasErrors aggregation was dropped along with the
-  // player/queue/cache isLoading/error state it read — those fields could
-  // never leave their initial values, so the flags were constant.
+  // #5354: no isLoading/hasErrors aggregation — the underlying state never
+  // changes, so the flags would be constant.
 );
 
 export const selectors = {
