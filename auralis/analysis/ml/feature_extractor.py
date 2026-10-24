@@ -19,7 +19,7 @@ from ...dsp.utils.spectral import (
     tempo_estimate,
     zero_crossing_rate,
 )
-from ...dsp.utils import create_mel_triangular_filters
+from ...dsp.utils.interpolation_helpers import create_mel_triangular_filters
 from ...utils.logging import debug
 from ..fingerprint.metrics import SafeOperations
 from .features import AudioFeatures

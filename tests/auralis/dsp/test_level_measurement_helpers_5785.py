@@ -15,7 +15,7 @@ from auralis.core.analysis.content_analyzer import ContentAnalyzer
 from auralis.core.mastering_process_chunk import compute_peak_db
 from auralis.core.processing.base.audio_measurement import AudioMeasurement
 from auralis.core.processing.base.db_conversion import DBConversion
-from auralis.dsp.utils import SILENCE_FLOOR_DB, amplitude_to_db, peak_db, rms_db, to_db
+from auralis.dsp.utils.conversion import SILENCE_FLOOR_DB, amplitude_to_db, peak_db, rms_db, to_db
 
 
 class TestAmplitudeToDb:
