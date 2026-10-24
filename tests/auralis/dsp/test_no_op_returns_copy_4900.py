@@ -138,7 +138,6 @@ class TestHarmonicExciterStageRoutesThroughNoOp:
         # lands <= -60 — the deeper bypass this issue's evidence describes.
         result, stage_info = harmonic_exciter_stage.apply(
             audio,
-            presence_pct=0.0, air_pct=0.0, spectral_rolloff=0.0,
             intensity=1e-4, sample_rate=44100, verbose=False,
             config=config, hf_lift=1e-4,
         )
@@ -155,7 +154,6 @@ class TestHarmonicExciterStageRoutesThroughNoOp:
 
         result, stage_info = harmonic_exciter_stage.apply(
             audio,
-            presence_pct=0.0, air_pct=0.0, spectral_rolloff=0.0,
             intensity=1.0, sample_rate=44100, verbose=False,
             config=config, hf_lift=1.0,
         )
@@ -172,7 +170,6 @@ class TestHarmonicExciterStageRoutesThroughNoOp:
 
         result, stage_info = harmonic_exciter_stage.apply(
             audio,
-            presence_pct=0.0, air_pct=0.0, spectral_rolloff=0.0,
             intensity=1.0, sample_rate=44100, verbose=False,
             config=config, hf_lift=1.0,
         )

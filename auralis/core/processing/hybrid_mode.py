@@ -23,19 +23,15 @@ class HybridMode:
     Hybrid processing mode - combines reference matching with adaptive enhancements
     """
 
-    def __init__(self, config: Any, content_analyzer: Any, target_generator: Any, adaptive_processor: Any) -> None:
+    def __init__(self, config: Any, adaptive_processor: Any) -> None:
         """
         Initialize hybrid mode processor
 
         Args:
             config: UnifiedConfig instance
-            content_analyzer: ContentAnalyzer instance
-            target_generator: AdaptiveTargetGenerator instance
             adaptive_processor: AdaptiveMode instance
         """
         self.config = config
-        self.content_analyzer = content_analyzer
-        self.target_generator = target_generator
         self.adaptive_processor = adaptive_processor
 
     def process(self, target_audio: np.ndarray,
@@ -54,13 +50,10 @@ class HybridMode:
         """
         info("Processing in hybrid mode")
 
-        # Always analyze content for hybrid mode
-        content_profile = self.content_analyzer.analyze_content(target_audio)
-
         if reference_audio is not None:
             # Use reference with adaptive enhancement
             return self._apply_hybrid_processing(
-                target_audio, reference_audio, content_profile, eq_processor
+                target_audio, reference_audio, eq_processor
             )
         else:
             # Fall back to pure adaptive mode
@@ -69,7 +62,6 @@ class HybridMode:
 
     def _apply_hybrid_processing(self, target_audio: np.ndarray,
                                 reference_audio: np.ndarray,
-                                content_profile: dict[str, Any],
                                 eq_processor: Any) -> np.ndarray:
         """
         Apply hybrid processing combining reference and adaptive approaches
@@ -77,7 +69,6 @@ class HybridMode:
         Args:
             target_audio: Audio to process
             reference_audio: Reference audio
-            content_profile: Content analysis profile
             eq_processor: EQ processor instance
 
         Returns:
@@ -88,11 +79,10 @@ class HybridMode:
         # Start with reference matching
         reference_matched = apply_reference_matching(target_audio, reference_audio)
 
-        # NOTE: hybrid mode does not currently consume AdaptiveTargetGenerator output
-        # (self.target_generator remains injected for a future adaptive-targets pass).
-        # A prior call here computed targets and discarded the result — a no-op that
-        # was removed. Wiring the targets into the blend below is a behavior change,
-        # deferred pending a mastering-quality decision.
+        # NOTE: hybrid mode deliberately does not consume AdaptiveTargetGenerator
+        # output. Wiring adaptive targets into the blend below is a behavior
+        # change, deferred pending a mastering-quality decision; do not inject
+        # the generator "for a future pass" without one (#6258).
 
         # Apply adaptive enhancements with reduced intensity
         adaptation_strength = self.config.adaptive.adaptation_strength * 0.5  # Reduced for hybrid

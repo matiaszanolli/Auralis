@@ -55,7 +55,7 @@ class AdaptiveTargetGenerator:
 
         # NEW: Apply fingerprint-driven enhancements if available
         if "fingerprint" in content_profile and content_profile["fingerprint"] is not None:
-            targets = self._apply_fingerprint_enhancements(targets, content_profile["fingerprint"], content_profile)
+            targets = self._apply_fingerprint_enhancements(targets, content_profile["fingerprint"])
 
         # Apply preset overrides (blend with adaptive targets)
         preset_profile = self.config.get_preset_profile()
@@ -146,6 +146,5 @@ class AdaptiveTargetGenerator:
         return apply_preset_overrides(self, targets, preset_profile, content_profile)
 
     def _apply_fingerprint_enhancements(self, targets: dict[str, Any],
-                                         fingerprint: dict[str, float],
-                                         content_profile: dict[str, Any]) -> dict[str, Any]:
-        return apply_fingerprint_enhancements(self, targets, fingerprint, content_profile)
+                                         fingerprint: dict[str, float]) -> dict[str, Any]:
+        return apply_fingerprint_enhancements(self, targets, fingerprint)

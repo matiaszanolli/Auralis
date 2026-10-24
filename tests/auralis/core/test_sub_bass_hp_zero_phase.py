@@ -40,7 +40,7 @@ def _make_signal() -> np.ndarray:
 def _apply_hp(audio: np.ndarray) -> np.ndarray:
     cfg = SimpleMasteringConfig()
     # sub_bass_pct 0.5 = full HP depth (#5580 ramp), intensity 0 → HP only, no shelf.
-    out, info = sub_bass_control.apply(audio, 0.5, 0.3, 0.0, SR, False, cfg)
+    out, info = sub_bass_control.apply(audio, 0.5, 0.0, SR, False, cfg)
     assert info is not None and info['hp_applied'] is True
     return out
 
@@ -108,7 +108,7 @@ def test_hp_depth_ramps_continuously_with_sub_bass_pct():
     full = np.asarray(sosfiltfilt(sos, sig), dtype=np.float32)
 
     def rumble_level(pct: float):
-        out, info = sub_bass_control.apply(sig.copy(), pct, 0.3, 0.0, SR, False, cfg)
+        out, info = sub_bass_control.apply(sig.copy(), pct, 0.0, SR, False, cfg)
         return out, info
 
     raw_rms = float(np.sqrt(np.mean(sig.astype(np.float64) ** 2)))

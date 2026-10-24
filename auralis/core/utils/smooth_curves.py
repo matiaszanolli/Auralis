@@ -176,37 +176,3 @@ class SmoothCurveUtilities:
         # S-curve applied to inverted distance for smooth falloff
         return SmoothCurveUtilities.s_curve(1.0 - distance)
 
-    @staticmethod
-    def bipolar_s_curve(value: float, min_val: float, max_val: float, center: float = 0.0) -> float:
-        """
-        Bidirectional S-curve mapping to [-1.0, 1.0] range.
-
-        Maps input range to bipolar output with smooth S-curve transitions,
-        useful for stereo width adjustments and other bidirectional parameters.
-
-        Args:
-            value: Input value in arbitrary range
-            min_val: Minimum value (maps to -1.0)
-            max_val: Maximum value (maps to +1.0)
-            center: Center value (maps to 0.0, default 0.0)
-
-        Returns:
-            Smoothed curve value -1.0 to +1.0
-
-        Examples:
-            >>> SmoothCurveUtilities.bipolar_s_curve(0.5, 0.0, 1.0, 0.5)
-            0.0  # Center maps to 0.0
-            >>> SmoothCurveUtilities.bipolar_s_curve(0.0, 0.0, 1.0, 0.5)
-            -1.0  # Min maps to -1.0
-            >>> SmoothCurveUtilities.bipolar_s_curve(1.0, 0.0, 1.0, 0.5)
-            +1.0  # Max maps to +1.0
-
-        Notes:
-            - Automatically handles normalization and centering
-            - Clamps to [-1.0, +1.0] range
-            - Useful for stereo width, pan, and balance parameters
-        """
-        # Normalize to [0, 1]
-        normalized = SmoothCurveUtilities.ramp_to_s_curve(value, min_val, max_val)
-        # Map to [-1, 1] via center point
-        return 2.0 * normalized - 1.0

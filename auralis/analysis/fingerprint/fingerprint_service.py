@@ -101,7 +101,6 @@ class FingerprintService:
         else:
             self._engine = None
 
-        self._session_factory = session_factory
         self._fingerprint_repo = FingerprintRepository(session_factory)
         self._track_repo = TrackRepository(session_factory)
 

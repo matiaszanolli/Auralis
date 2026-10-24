@@ -99,8 +99,7 @@ class SpectrumOperations(WeightingMixin):
     @staticmethod
     def map_to_bands(frequencies: np.ndarray,
                     magnitude: np.ndarray,
-                    frequency_bins: np.ndarray,
-                    sample_rate: int) -> np.ndarray:
+                    frequency_bins: np.ndarray) -> np.ndarray:
         """
         Map FFT bins to frequency bands
 
@@ -108,7 +107,6 @@ class SpectrumOperations(WeightingMixin):
             frequencies: Frequency array from FFT
             magnitude: Magnitude spectrum from FFT
             frequency_bins: Target frequency bin centers
-            sample_rate: Sample rate used for FFT
 
         Returns:
             Spectrum mapped to frequency bands (in dB)

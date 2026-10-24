@@ -123,7 +123,7 @@ class ContinuousMasteringBranch:
 
         # Sub-bass control - tighten rumble (with HP for bursty rumble)
         processed, sub_bass_info = self.pipeline._apply_sub_bass_control(
-            processed, unpacker.sub_bass_pct, unpacker.bass_pct,
+            processed, unpacker.sub_bass_pct,
             effective_intensity, sample_rate, verbose
         )
         recorder.add(sub_bass_info)
@@ -168,8 +168,7 @@ class ContinuousMasteringBranch:
         exciter_intensity = effective_intensity * exciter_factor
 
         processed, exciter_info = self.pipeline._apply_harmonic_exciter(
-            processed, unpacker.presence_pct, unpacker.air_pct, unpacker.spectral_rolloff,
-            exciter_intensity, sample_rate, verbose, hf_lift
+            processed, exciter_intensity, sample_rate, verbose, hf_lift
         )
         recorder.add(exciter_info)
 

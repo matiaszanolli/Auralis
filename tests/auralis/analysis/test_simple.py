@@ -81,7 +81,7 @@ class TestSpectrumAnalyzerSimple:
         freqs = np.array([100, 1000, 10000])
         magnitude = np.array([0.1, 0.5, 0.2])
         bands = SpectrumOperations.map_to_bands(
-            freqs, magnitude, self.analyzer.frequency_bins, self.analyzer.settings.sample_rate
+            freqs, magnitude, self.analyzer.frequency_bins
         )
         assert len(bands) > 0
 

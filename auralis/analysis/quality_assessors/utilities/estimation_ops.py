@@ -21,7 +21,7 @@ class EstimationOperations:
     """Common signal estimation patterns"""
 
     @staticmethod
-    def estimate_thd(audio: np.ndarray, sr: int | None = None,
+    def estimate_thd(audio: np.ndarray,
                      fundamental_idx: int | None = None) -> float:
         """
         Estimate Total Harmonic Distortion
@@ -31,7 +31,6 @@ class EstimationOperations:
 
         Args:
             audio: Audio data (mono or stereo)
-            sr: Sample rate (not required for THD estimation)
             fundamental_idx: Optional pre-computed fundamental frequency index
 
         Returns:

@@ -110,10 +110,7 @@ def build_hybrid_components(config: UnifiedConfig, processor: "HybridProcessor")
         config, processor.content_analyzer, processor.fingerprint_analyzer,
         fingerprint_repository=fingerprint_repository,
     )
-    processor.hybrid_mode = HybridMode(
-        config, processor.content_analyzer, processor.target_generator,
-        processor.adaptive_mode
-    )
+    processor.hybrid_mode = HybridMode(config, processor.adaptive_mode)
     # Initialize performance optimizer (optimizations applied once at module level)
     processor.performance_optimizer = get_performance_optimizer()
 

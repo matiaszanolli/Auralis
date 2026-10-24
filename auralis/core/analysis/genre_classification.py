@@ -45,14 +45,13 @@ class GenreClassificationMixin:
 
         # Extract basic features
         centroid = spectral_centroid(mono_audio, self.sample_rate)
-        rolloff = spectral_rolloff(mono_audio, self.sample_rate)
         zcr = zero_crossing_rate(mono_audio)
         tempo = tempo_estimate(mono_audio, self.sample_rate) if self.use_tempo_detection else 120.0
         crest_factor_db = crest_factor(audio)
 
-        return self._classify_genre(centroid, rolloff, zcr, tempo, crest_factor_db)
+        return self._classify_genre(centroid, zcr, tempo, crest_factor_db)
 
-    def _classify_genre(self, centroid: float, rolloff: float, zcr: float,
+    def _classify_genre(self, centroid: float, zcr: float,
                        tempo: float, crest_factor_db: float) -> dict[str, Any]:
         """Simple genre classification based on audio features"""
 

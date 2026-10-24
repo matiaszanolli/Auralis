@@ -13,9 +13,6 @@ if TYPE_CHECKING:
 
 def apply(
     audio: np.ndarray,
-    presence_pct: float,
-    air_pct: float,
-    spectral_rolloff: float,
     intensity: float,
     sample_rate: int,
     verbose: bool,
@@ -37,9 +34,6 @@ def apply(
 
     Args:
         audio: Audio array [channels, samples]
-        presence_pct: Retained for the stable stage-call interface.
-        air_pct: Retained for the stable stage-call interface.
-        spectral_rolloff: Retained for the stable stage-call interface.
         intensity: Processing intensity 0.0-1.0
         sample_rate: Audio sample rate in Hz
         verbose: Print progress
@@ -48,8 +42,6 @@ def apply(
     Returns:
         (processed_audio, stage_info) or (audio, None) if exciter did not engage
     """
-    del presence_pct, air_pct, spectral_rolloff
-
     intensity = float(np.clip(intensity, 0.0, 1.0))
     spectral_need = float(np.clip(hf_lift, 0.0, 1.0))
     wet_mix = intensity * spectral_need

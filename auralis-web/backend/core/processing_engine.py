@@ -180,7 +180,7 @@ class ProcessingEngine:
         async with self._jobs_lock:
             return self.jobs.get(job_id)
 
-    async def _notify_progress(self, job_id: str, progress: float, message: str = "") -> None:
+    async def _notify_progress(self, job_id: str, progress: float) -> None:
         """Record *progress* on the job. Clients read it from the job-status
         endpoints."""
         async with self._jobs_lock:

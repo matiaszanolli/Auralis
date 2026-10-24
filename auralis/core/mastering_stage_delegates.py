@@ -87,10 +87,10 @@ class StageDelegatesMixin:
         )
 
     def _apply_sub_bass_control(
-        self, audio: np.ndarray, sub_bass_pct: float, bass_pct: float,
+        self, audio: np.ndarray, sub_bass_pct: float,
         intensity: float, sample_rate: int, verbose: bool,
     ) -> tuple[np.ndarray, dict[str, Any] | None]:
-        return sub_bass_control.apply(audio, sub_bass_pct, bass_pct, intensity, sample_rate, verbose, self.config)
+        return sub_bass_control.apply(audio, sub_bass_pct, intensity, sample_rate, verbose, self.config)
 
     def _apply_mid_warmth(
         self, audio: np.ndarray, low_mid_pct: float, mid_pct: float,
@@ -105,11 +105,11 @@ class StageDelegatesMixin:
         return presence_enhancement.apply(audio, presence_pct, upper_mid_pct, intensity, sample_rate, verbose, self.config, hf_lift)
 
     def _apply_harmonic_exciter(
-        self, audio: np.ndarray, presence_pct: float, air_pct: float,
-        spectral_rolloff: float, intensity: float, sample_rate: int, verbose: bool,
+        self, audio: np.ndarray,
+        intensity: float, sample_rate: int, verbose: bool,
         hf_lift: float = 1.0,
     ) -> tuple[np.ndarray, dict[str, Any] | None]:
-        return harmonic_exciter.apply(audio, presence_pct, air_pct, spectral_rolloff, intensity, sample_rate, verbose, self.config, hf_lift)
+        return harmonic_exciter.apply(audio, intensity, sample_rate, verbose, self.config, hf_lift)
 
     def _apply_air_enhancement(
         self, audio: np.ndarray, air_pct: float, spectral_rolloff: float,

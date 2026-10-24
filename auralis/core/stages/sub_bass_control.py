@@ -18,7 +18,6 @@ if TYPE_CHECKING:
 def apply(
     audio: np.ndarray,
     sub_bass_pct: float,
-    bass_pct: float,
     intensity: float,
     sample_rate: int,
     verbose: bool,
@@ -33,7 +32,6 @@ def apply(
     Args:
         audio: Audio array [channels, samples]
         sub_bass_pct: Fingerprint sub-bass percentage (0-1)
-        bass_pct: Fingerprint bass percentage (0-1)
         intensity: Processing intensity 0.0-1.0
         sample_rate: Audio sample rate in Hz
         verbose: Print progress

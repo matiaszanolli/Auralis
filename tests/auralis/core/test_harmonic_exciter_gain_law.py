@@ -36,9 +36,6 @@ def _apply(
 ) -> tuple[np.ndarray, dict[str, Any] | None]:
     return harmonic_exciter.apply(
         audio,
-        presence_pct=0.0,
-        air_pct=0.0,
-        spectral_rolloff=0.0,
         intensity=intensity,
         sample_rate=48_000,
         verbose=False,

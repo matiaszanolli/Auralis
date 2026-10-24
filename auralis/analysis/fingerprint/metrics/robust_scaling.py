@@ -141,8 +141,7 @@ def robust_scale(
 def robust_scale_with_winsorization(
     values: np.ndarray,
     lower_percentile: float = 5.0,
-    upper_percentile: float = 95.0,
-    epsilon: float = SafeOperations.EPSILON
+    upper_percentile: float = 95.0
 ) -> np.ndarray:
     """
     Robust scaling with Winsorization (clip outliers before scaling).

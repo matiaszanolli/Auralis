@@ -143,7 +143,7 @@ async def process_job(engine: "ProcessingEngine", job: ProcessingJob) -> None:
         job.completed_at = datetime.now()
 
         await engine._notify_progress(
-            job.job_id, 100.0, job.error_message
+            job.job_id, 100.0
         )
 
     except asyncio.CancelledError:
@@ -170,7 +170,7 @@ async def process_job(engine: "ProcessingEngine", job: ProcessingJob) -> None:
         job.completed_at = datetime.now()
 
         await engine._notify_progress(
-            job.job_id, 100.0, f"Processing failed: {job.error_message}"
+            job.job_id, 100.0
         )
     finally:
         # Return the processor here rather than per-branch (#4567).

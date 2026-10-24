@@ -85,7 +85,7 @@ async def prepare_job(
     job.started_at = datetime.now()
     await persist(engine, job)  # durable "running" state (#5278)
 
-    await engine._notify_progress(job.job_id, 0.0, "Loading audio file...")
+    await engine._notify_progress(job.job_id, 0.0)
 
     # Register a cooperative cancellation token so cancel_job() can abort an
     # in-flight FFmpeg decode running in the to_thread worker (#4496).
@@ -96,7 +96,7 @@ async def prepare_job(
         load_audio, job.input_path, cancel_event=cancel_event
     )
 
-    await engine._notify_progress(job.job_id, 20.0, "Analyzing audio content...")
+    await engine._notify_progress(job.job_id, 20.0)
 
     # Create processor config. The decoded audio's REAL rate has to reach it
     # (#5306): nothing between here and the DSP resamples, so a config left at
@@ -119,7 +119,7 @@ async def execute_job(
 ) -> np.ndarray:
     """Reset processor state, run the timeout-guarded DSP process, and save
     the output. Returns the processed audio array (#4250)."""
-    await engine._notify_progress(job.job_id, 40.0, "Processing audio...")
+    await engine._notify_progress(job.job_id, 40.0)
 
     # Reset EQ state before each job so cached processors don't bleed
     # the previous track's psychoacoustic EQ curve into the new track (fixes #2400).
@@ -204,7 +204,7 @@ async def execute_job(
             timeout=timeout,
         )
 
-    await engine._notify_progress(job.job_id, 80.0, "Saving processed audio...")
+    await engine._notify_progress(job.job_id, 80.0)
 
     # Save output audio (output_format is recorded in finalize_job).
     bit_depth = job.settings.get("bit_depth", 16)
@@ -236,6 +236,6 @@ async def execute_job(
         subtype=subtype,
     )
 
-    await engine._notify_progress(job.job_id, 100.0, "Processing complete!")
+    await engine._notify_progress(job.job_id, 100.0)
 
     return audio_data

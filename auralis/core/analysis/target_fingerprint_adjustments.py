@@ -20,8 +20,7 @@ from ...utils.logging import debug
 
 def apply_fingerprint_enhancements(
     generator, targets: dict[str, Any],
-                                   fingerprint: dict[str, float],
-                                   content_profile: dict[str, Any]) -> dict[str, Any]:
+                                   fingerprint: dict[str, float]) -> dict[str, Any]:
     """
     Apply intelligent enhancements based on 25D audio fingerprint.
 
@@ -31,7 +30,6 @@ def apply_fingerprint_enhancements(
     Args:
         targets: Base processing targets
         fingerprint: 25D audio fingerprint
-        content_profile: Full content analysis
 
     Returns:
         Enhanced targets with fingerprint-driven adjustments

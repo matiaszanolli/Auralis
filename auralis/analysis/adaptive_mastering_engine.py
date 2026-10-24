@@ -68,7 +68,7 @@ class AdaptiveMasteringEngine:
 
         if not rankings:
             # Fallback: recommend based on loudness alone
-            return self._fallback_recommendation(fingerprint)
+            return self._fallback_recommendation()
 
         # Primary profile is top match
         primary_profile, confidence = rankings[0]
@@ -87,7 +87,7 @@ class AdaptiveMasteringEngine:
         )
 
         # Generate reasoning
-        rec.reasoning = self._generate_reasoning(fingerprint, primary_profile, confidence)
+        rec.reasoning = self._generate_reasoning(fingerprint, confidence)
 
         return rec
 
@@ -110,7 +110,7 @@ class AdaptiveMasteringEngine:
         rankings = self.profile_db.rank_profiles(fingerprint, top_k=top_k)
 
         if not rankings:
-            return self._fallback_recommendation(fingerprint)
+            return self._fallback_recommendation()
 
         primary_profile, confidence = rankings[0]
         alternatives = [profile for profile, _ in rankings[1:]] if len(rankings) > 1 else []
@@ -125,7 +125,7 @@ class AdaptiveMasteringEngine:
                 predicted_crest_change=primary_profile.processing_targets.crest_change_db,
                 predicted_centroid_change=primary_profile.processing_targets.centroid_change_hz,
             )
-            rec.reasoning = self._generate_reasoning(fingerprint, primary_profile, confidence)
+            rec.reasoning = self._generate_reasoning(fingerprint, confidence)
             return rec
 
         # Low confidence: create weighted blend from top N profiles
@@ -165,7 +165,7 @@ class AdaptiveMasteringEngine:
 
         return rec
 
-    def _fallback_recommendation(self, fingerprint: MasteringFingerprint | None) -> MasteringRecommendation:
+    def _fallback_recommendation(self) -> MasteringRecommendation:
         """Fallback when no profiles match."""
         # Default to quiet-reference profile for safety
         profile = self.profile_db.get_profile("quiet-reference-modernization-v1")
@@ -182,7 +182,7 @@ class AdaptiveMasteringEngine:
         )
 
     def _generate_reasoning(self, fingerprint: MasteringFingerprint,
-                           profile: MasteringProfile, confidence: float) -> str:
+                           confidence: float) -> str:
         """Generate human-readable explanation."""
         reasons = []
 

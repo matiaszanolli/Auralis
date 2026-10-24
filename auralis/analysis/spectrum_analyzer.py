@@ -195,7 +195,7 @@ class SpectrumAnalyzer:
 
         # Map to frequency bands
         spectrum = SpectrumOperations.map_to_bands(
-            frequencies, magnitude, self.frequency_bins, sample_rate
+            frequencies, magnitude, self.frequency_bins
         )
 
         # Apply frequency weighting

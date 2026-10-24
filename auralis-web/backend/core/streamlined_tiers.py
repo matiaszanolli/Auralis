@@ -85,7 +85,7 @@ async def process_priorities(worker: Any) -> None:
 
     # Priority 2: Build full track cache in background (Tier 2)
     if not worker.cache_manager.is_track_fully_cached(track_id):
-        await worker._build_tier2_cache(track, track_id, current_chunk, preset, intensity)
+        await worker._build_tier2_cache(track, track_id, preset, intensity)
 
 
 async def ensure_tier1_chunk(
@@ -165,7 +165,6 @@ async def build_tier2_cache(
     worker: Any,
     track: Any,
     track_id: int,
-    current_chunk: int,
     preset: str,
     intensity: float
 ) -> None:

@@ -20,10 +20,6 @@ import numpy as np
 class BaseAssessor(ABC):
     """Abstract base class for quality assessors"""
 
-    def __init__(self) -> None:
-        """Initialize base assessor"""
-        self._cached_analysis: dict[str, Any] | None = None
-
     @abstractmethod
     def assess(self, audio_data: np.ndarray, **kwargs: Any) -> float:
         """
@@ -50,6 +46,3 @@ class BaseAssessor(ABC):
             Dictionary with detailed metrics and sub-scores
         """
 
-    def clear_cache(self) -> None:
-        """Clear any cached analysis results"""
-        self._cached_analysis = None

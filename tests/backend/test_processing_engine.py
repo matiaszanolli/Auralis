@@ -182,7 +182,7 @@ class TestProcessingEngine:
             settings={"mode": "adaptive"},
         )
 
-        await engine._notify_progress(job.job_id, 42.0, "halfway")
+        await engine._notify_progress(job.job_id, 42.0)
         await engine._notify_progress("no-such-job", 99.0)  # unknown id: no-op
 
         assert job.progress == 42.0

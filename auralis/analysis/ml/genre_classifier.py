@@ -81,7 +81,7 @@ class RuleBasedGenreClassifier:
             "primary": primary_genre,
             "confidence": float(confidence),
             "probabilities": {k: float(v) for k, v in genre_probs.items()},
-            "features_used": self._get_feature_importance(features, primary_genre)
+            "features_used": self._get_feature_importance(primary_genre)
         }
 
     def _calculate_genre_score(self, features: AudioFeatures, genre: str) -> float:
@@ -114,7 +114,7 @@ class RuleBasedGenreClassifier:
         probabilities = exp_scores / np.sum(exp_scores)
         return cast(list[float], probabilities.tolist())
 
-    def _get_feature_importance(self, features: AudioFeatures, genre: str) -> dict[str, float]:
+    def _get_feature_importance(self, genre: str) -> dict[str, float]:
         """Get feature importance for the classified genre"""
         weights = self.weights[genre]
 

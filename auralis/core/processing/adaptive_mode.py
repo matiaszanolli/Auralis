@@ -129,9 +129,7 @@ class AdaptiveMode:
         debug(f"[STAGE 2] After EQ: {after_eq_lufs:.2f} LUFS (change: {after_eq_lufs - before_eq_lufs:+.2f} dB)")
 
         # Apply dynamics processing
-        processed_audio = self._apply_dynamics_processing(
-            processed_audio, spectrum_params, spectrum_position
-        )
+        processed_audio = self._apply_dynamics_processing(processed_audio, spectrum_params)
 
         # Apply stereo width adjustment
         processed_audio = self._apply_stereo_width(processed_audio, targets)
@@ -144,7 +142,7 @@ class AdaptiveMode:
         return processed_audio
 
     def _apply_dynamics_processing(self, audio: np.ndarray,
-                                   spectrum_params: Any, spectrum_position: Any) -> np.ndarray:
+                                   spectrum_params: Any) -> np.ndarray:
         """Apply continuously weighted compression and expansion."""
 
         source_lufs = calculate_loudness_units(audio, self.config.internal_sample_rate)

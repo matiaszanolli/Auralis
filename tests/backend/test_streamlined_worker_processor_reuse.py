@@ -184,7 +184,7 @@ class TestProcessorReuse:
             worker.cache_manager.get_track_cache_status = Mock(return_value=status)
             worker.cache_manager.is_track_fully_cached = Mock(return_value=False)
 
-            await worker._build_tier2_cache(track, track_id=2, current_chunk=0,
+            await worker._build_tier2_cache(track, track_id=2,
                                             preset="balanced", intensity=0.5)
 
             # Old track's processor should be evicted
@@ -229,7 +229,7 @@ class TestProcessorReuse:
             worker.cache_manager.is_track_fully_cached = Mock(return_value=False)
 
             # Must not raise despite the failing close().
-            await worker._build_tier2_cache(track, track_id=2, current_chunk=0,
+            await worker._build_tier2_cache(track, track_id=2,
                                             preset="balanced", intensity=0.5)
 
             assert (1, "balanced", 0.5, sig) not in worker._processor_cache

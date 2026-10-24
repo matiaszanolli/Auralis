@@ -51,7 +51,7 @@ def _stage_calls(cfg: SimpleMasteringConfig):
         # notches=[] -> no-op
         "resonance_notches": lambda a: resonance_notches.apply(a, SR, [], False)[0],
         # intensity=0 and sub_bass below HP-activate -> no reduction, no HP
-        "sub_bass_control": lambda a: sub_bass_control.apply(a, 0.0, 0.3, 0.0, SR, False, cfg)[0],
+        "sub_bass_control": lambda a: sub_bass_control.apply(a, 0.0, 0.0, SR, False, cfg)[0],
         # peak < ceiling -> no limiting
         "safety_limiter": lambda a: safety_limiter.apply(a, False),
         # intensity=0 -> nothing applied
@@ -61,7 +61,7 @@ def _stage_calls(cfg: SimpleMasteringConfig):
         # neutral presence + intensity=0 -> no boost
         "presence_enhancement": lambda a: presence_enhancement.apply(a, 0.0, 0.0, 0.0, SR, False, cfg)[0],
         # bright source (presence/air maxed) -> exciter does not engage
-        "harmonic_exciter": lambda a: harmonic_exciter.apply(a, 1.0, 1.0, 1.0, 0.0, SR, False, cfg)[0],
+        "harmonic_exciter": lambda a: harmonic_exciter.apply(a, 0.0, SR, False, cfg)[0],
         # neutral body + intensity=0 -> no boost
         "mid_warmth": lambda a: mid_warmth.apply(a, 0.0, 0.0, 0.0, SR, False, cfg)[0],
         # bright source -> darkness_factor below activation
