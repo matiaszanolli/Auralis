@@ -1,6 +1,6 @@
 {
   "_comment": "Tests whose only assertions are `X is not None` (#5154). A test listed here is known-weak; CI fails on any offender NOT listed. The list may shrink, never grow. Regenerate with: python scripts/check_weak_assertions.py --update",
-  "count": 37,
+  "count": 33,
   "offenders": [
     "tests/auralis/analysis/test_mastering_fingerprint_duration_cap.py::test_ffmpeg_routed_result_is_still_cropped_to_ninety_seconds",
     "tests/auralis/analysis/test_simple.py::test_weighting_filters",
@@ -11,15 +11,11 @@
     "tests/auralis/library/test_fingerprint_repository_db_path.py::test_accepts_session_factory_only",
     "tests/auralis/library/test_metadata_editor.py::test_initialization_with_mutagen",
     "tests/auralis/player/test_enhanced_player_detailed.py::test_library_integration",
-    "tests/backend/test_boundary_advanced_scenarios.py::test_corrupted_audio_file_handling",
-    "tests/backend/test_boundary_advanced_scenarios.py::test_invalid_metadata_values",
     "tests/backend/test_boundary_empty_single.py::test_create_playlist_empty_name",
     "tests/backend/test_boundary_integration_stress.py::test_rapid_filter_changes",
-    "tests/backend/test_error_handling.py::test_error_cleanup_on_exception",
     "tests/backend/test_fingerprint_service_close.py::test_del_safety_net_disposes",
     "tests/backend/test_metadata_operations.py::test_metadata_track_number_validation",
     "tests/backend/test_playlist_operations.py::test_playlist_delete_playlist_removes_tracks",
-    "tests/backend/test_similarity_api.py::test_build_graph_uses_to_thread",
     "tests/backend/test_similarity_api.py::test_fit_uses_to_thread",
     "tests/backend/test_stream_epoch.py::test_stream_start_carries_an_epoch",
     "tests/backend/test_string_input_boundaries.py::test_newlines_in_title",

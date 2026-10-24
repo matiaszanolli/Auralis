@@ -199,11 +199,16 @@ class TestStreamlinedCacheRecommendations:
     def test_missing_track_returns_none(self):
         assert StreamlinedCacheManager().get_mastering_recommendation(track_id=999) is None
 
-    def test_clear_removes_every_recommendation(self):
+    async def test_clear_removes_every_recommendation(self):
         cache = StreamlinedCacheManager()
         cache.set_mastering_recommendation(1, self._rec_payload())
         cache.set_mastering_recommendation(2, self._rec_payload())
         assert cache.get_mastering_recommendation(1) is not None
+
+        await cache.clear_all()
+
+        assert cache.get_mastering_recommendation(1) is None
+        assert cache.get_mastering_recommendation(2) is None
 
 
 

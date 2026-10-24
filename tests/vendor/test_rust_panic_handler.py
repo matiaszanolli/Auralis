@@ -101,15 +101,27 @@ class TestProcessStability:
 
     def test_fingerprint_nan_audio_no_process_crash(self):
         nan_audio = np.full(44100, np.nan, dtype=np.float32)
-        _call_and_catch(lambda: auralis_dsp.compute_fingerprint(nan_audio, 44100, 1))
+        _, exc = _call_and_catch(lambda: auralis_dsp.compute_fingerprint(nan_audio, 44100, 1))
+        assert exc is None or isinstance(exc, RuntimeError), (
+            "degenerate audio must not crash the process (#2225) and any "
+            "failure must surface as RuntimeError, not another type"
+        )
 
     def test_fingerprint_inf_audio_no_process_crash(self):
         inf_audio = np.full(44100, np.inf, dtype=np.float32)
-        _call_and_catch(lambda: auralis_dsp.compute_fingerprint(inf_audio, 44100, 1))
+        _, exc = _call_and_catch(lambda: auralis_dsp.compute_fingerprint(inf_audio, 44100, 1))
+        assert exc is None or isinstance(exc, RuntimeError), (
+            "degenerate audio must not crash the process (#2225) and any "
+            "failure must surface as RuntimeError, not another type"
+        )
 
     def test_fingerprint_empty_audio_no_process_crash(self):
         empty = np.array([], dtype=np.float32)
-        _call_and_catch(lambda: auralis_dsp.compute_fingerprint(empty, 44100, 1))
+        _, exc = _call_and_catch(lambda: auralis_dsp.compute_fingerprint(empty, 44100, 1))
+        assert exc is None or isinstance(exc, RuntimeError), (
+            "degenerate audio must not crash the process (#2225) and any "
+            "failure must surface as RuntimeError, not another type"
+        )
 
 
 @requires_dsp

@@ -1,6 +1,6 @@
 {
   "_comment": "Tests with no assertion of any kind (#5807). A test listed here is known-weak; CI fails on any offender NOT listed. The list may shrink, never grow. Regenerate with: python scripts/check_weak_assertions.py --zero --update",
-  "count": 32,
+  "count": 31,
   "offenders": [
     "tests/auralis/core/test_cross_dimensional_interactions.py::test_value_error_in_compare_quality_is_swallowed",
     "tests/auralis/core/test_hybrid_processor_close_4744.py::test_components_without_close_are_skipped",
@@ -32,7 +32,6 @@
     "tests/backend/test_stream_disconnect_toctou.py::test_drain_suppresses_inner_errors_but_not_caller_cancellation",
     "tests/backend/test_system_api.py::test_multiple_concurrent_connections",
     "tests/backend/test_system_api.py::test_websocket_disconnect_cleanup",
-    "tests/regression/test_playback_service_concurrency.py::test_set_volume_does_not_take_the_playback_lock",
-    "tests/test_hpss_rust_validation.py::test_audio_file"
+    "tests/regression/test_playback_service_concurrency.py::test_set_volume_does_not_take_the_playback_lock"
   ]
 }
