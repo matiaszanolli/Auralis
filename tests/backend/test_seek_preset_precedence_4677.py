@@ -30,13 +30,16 @@ if _BACKEND not in sys.path:
 from core.audio_stream_controller import ws_id as _ws_id  # noqa: E402
 from ws_handlers import playback_commands  # noqa: E402
 from ws_handlers.context import StreamState, WSDeps  # noqa: E402
-from ws_handlers.playback_commands import (  # noqa: E402
+from schemas import DEFAULT_PRESET  # noqa: E402
+from ws_handlers.enhancement_params import (  # noqa: E402
     DEFAULT_INTENSITY,
-    DEFAULT_PRESET,
-    handle_play_enhanced,
-    handle_seek,
     resolve_enhancement_params,
 )
+from ws_handlers import enhancement_params  # noqa: E402
+from ws_handlers.playback_commands import handle_play_enhanced  # noqa: E402
+from ws_handlers import playback_commands  # noqa: E402
+from ws_handlers import seek_command  # noqa: E402
+from ws_handlers.seek_command import handle_seek  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -46,7 +49,7 @@ def _several_valid_presets(monkeypatch):
     ['adaptive'] (2026-09-13), so these tests inject a wider set into the resolver
     instead of depending on the product's current preset menu."""
     monkeypatch.setattr(
-        playback_commands, "VALID_PRESETS", ["adaptive", "gentle", "warm", "bright", "punchy"]
+        enhancement_params, "VALID_PRESETS", ["adaptive", "gentle", "warm", "bright", "punchy"]
     )
 
 
@@ -342,13 +345,21 @@ class TestPlayEnhancedUnchanged:
 
 def test_no_handler_open_codes_the_resolution_any_more():
     """Both handlers go through the helper — a re-divergence would show here."""
-    source = Path(playback_commands.__file__).read_text()
-    # Comments quote the old expressions verbatim to explain what changed, so
-    # strip them — otherwise this asserts against the explanation, not the code.
-    code = "\n".join(
-        line for line in source.splitlines() if not line.lstrip().startswith("#")
-    )
-    body = code.split("async def handle_play_enhanced", 1)[1]
+    # #6269 moved handle_seek to seek_command.py; the old count of 2 here
+    # was handle_play_enhanced + handle_seek. It is now 1 (play) + 1 (seek).
+    def code_of(module_file: Path) -> str:
+        source = module_file.read_text()
+        # Comments quote the old expressions verbatim to explain what changed,
+        # so strip them — otherwise this asserts against the explanation.
+        return "\n".join(
+            line for line in source.splitlines() if not line.lstrip().startswith("#")
+        )
+
+    play_code = code_of(Path(playback_commands.__file__))
+    body = play_code.split("async def handle_play_enhanced", 1)[1]
     assert 'settings.get("preset"' not in body
     assert 'settings.get("intensity"' not in body
-    assert body.count("resolve_enhancement_params(") == 2
+    assert body.count("resolve_enhancement_params(") == 1
+    seek_code = code_of(Path(seek_command.__file__))
+    assert seek_code.count("resolve_enhancement_params(") == 1
+    assert 'settings.get("preset"' not in seek_code

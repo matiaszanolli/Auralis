@@ -13,6 +13,7 @@ if _BACKEND not in sys.path:
 
 from ws_handlers import playback_commands  # noqa: E402
 from ws_handlers.context import StreamState, WSDeps  # noqa: E402
+from ws_handlers import enhancement_params  # noqa: E402
 from ws_handlers.playback_commands import handle_play_enhanced  # noqa: E402
 
 pytestmark = pytest.mark.asyncio
@@ -24,7 +25,7 @@ def _several_valid_presets(monkeypatch):
     """The reissue is observable only if the preset can change, and VALID_PRESETS
     is narrowed to ['adaptive']; inject a wider set rather than depend on the
     product's current menu (same approach as test_seek_preset_precedence_4677)."""
-    monkeypatch.setattr(playback_commands, "VALID_PRESETS", ["adaptive", "warm", "bright"])
+    monkeypatch.setattr(enhancement_params, "VALID_PRESETS", ["adaptive", "warm", "bright"])
 
 
 def _ws():

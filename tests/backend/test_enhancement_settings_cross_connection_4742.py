@@ -31,7 +31,8 @@ if _BACKEND not in sys.path:
 
 from core.audio_stream_controller import ws_id as _ws_id  # noqa: E402
 from ws_handlers.context import StreamState, WSDeps  # noqa: E402
-from ws_handlers.playback_commands import handle_play_enhanced, handle_seek  # noqa: E402
+from ws_handlers.playback_commands import handle_play_enhanced  # noqa: E402
+from ws_handlers.seek_command import handle_seek  # noqa: E402
 
 pytestmark = pytest.mark.asyncio
 
