@@ -183,7 +183,7 @@ Invoke via the **Agent** tool with `subagent_type: <name>` (the tool formerly ca
 
 ## Scratch paths
 
-All audit scratch I/O lives under **`/tmp/audit/auralis/`** (e.g. `/tmp/audit/auralis/backend/dim_1.md`, `/tmp/audit/auralis/issues.json`) — never a bare `/tmp/audit/<name>/`, which every repo on the machine shares: a second project's audit run overwrites this one's `dim_*.md` / `issues.json` and its cleanup `rm -rf` deletes the other run's inputs mid-flight (#5847, #6277). A new audit skill copies the `/tmp/audit/auralis/` prefix, not the bare one.
+All audit scratch I/O lives under **`/tmp/audit/auralis/`** (e.g. `/tmp/audit/auralis/backend/dim_1.md`, `/tmp/audit/auralis/issues.json`) — never a bare `/tmp/audit/<name>/`, which every repo on the machine shares: a second project's audit run overwrites this one's dim files and dedup dump, and its cleanup `rm -rf` deletes the other run's inputs mid-flight (#5847, #6277). A new audit skill copies the `/tmp/audit/auralis/` prefix, not the bare one.
 
 ## Deduplication (MANDATORY)
 
