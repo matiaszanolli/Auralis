@@ -23,6 +23,9 @@ from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
 )
 from auralis.core.recording_type_detector import RecordingType, RecordingTypeDetector
 
+# Personal-library validation (#6242): runs only with AURALIS_LOCAL_LIBRARY_TESTS=1.
+pytestmark = pytest.mark.local_library
+
 
 class TestPhase6RealWorldAudioValidation:
     """Validate detector on actual reference audio materials."""

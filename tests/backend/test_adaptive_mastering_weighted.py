@@ -12,13 +12,14 @@ from pathlib import Path
 import pytest
 
 from auralis.analysis.adaptive_mastering_engine import AdaptiveMasteringEngine
+# Local-library tests (#6242): they read /tmp/multistyle_mastering_results.json,
+# written by `python tools/validation/multistyle_mastering_validation.py` (the
+# moved test_adaptive_mastering_multistyle.py script, which needs the personal
+# MJ remaster library). Run with AURALIS_LOCAL_LIBRARY_TESTS=1 after the script.
 from auralis.analysis.mastering_fingerprint import MasteringFingerprint
 
 
-@pytest.mark.skipif(
-    not Path("/tmp/multistyle_mastering_results.json").exists(),
-    reason="Requires multistyle mastering results. Run test_adaptive_mastering_multistyle.py first"
-)
+@pytest.mark.local_library
 def test_weighted_recommendation_why_you_wanna_trip():
     """
     Test weighted recommendation for 'Why You Wanna Trip On Me'.
@@ -89,10 +90,7 @@ def test_weighted_recommendation_why_you_wanna_trip():
     print(f"\n✅ Test passed: Weighted recommendation created for hybrid mastering scenario")
 
 
-@pytest.mark.skipif(
-    not Path("/tmp/multistyle_mastering_results.json").exists(),
-    reason="Requires multistyle mastering results. Run test_adaptive_mastering_multistyle.py first"
-)
+@pytest.mark.local_library
 def test_weighted_recommendation_remember_the_time():
     """
     Test weighted recommendation for 'Remember The Time'.
@@ -157,10 +155,7 @@ def test_weighted_recommendation_remember_the_time():
     print(f"\n✅ Test completed: Analyzed hybrid mastering in Remember The Time")
 
 
-@pytest.mark.skipif(
-    not Path("/tmp/multistyle_mastering_results.json").exists(),
-    reason="Requires multistyle mastering results. Run test_adaptive_mastering_multistyle.py first"
-)
+@pytest.mark.local_library
 def test_weighted_high_confidence_no_blend():
     """
     Test that high-confidence tracks don't get weighted.
@@ -199,10 +194,7 @@ def test_weighted_high_confidence_no_blend():
     print(f"✅ Test passed: High-confidence track uses single profile (no blending)")
 
 
-@pytest.mark.skipif(
-    not Path("/tmp/multistyle_mastering_results.json").exists(),
-    reason="Requires multistyle mastering results. Run test_adaptive_mastering_multistyle.py first"
-)
+@pytest.mark.local_library
 def test_weighted_output_format():
     """Test that weighted recommendations serialize correctly."""
     results_path = Path("/tmp/multistyle_mastering_results.json")

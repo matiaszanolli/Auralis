@@ -584,3 +584,24 @@ __all__ = [
     'assert_audio_equal',
     'assert_rms_similar'
 ]
+
+
+def pytest_collection_modifyitems(config, items):
+    """Skip `local_library` tests unless the developer opted in (#6242).
+
+    These tests read personal music libraries (and one a side-effect file
+    from a validation script); on CI or any other machine they are skipped
+    by declaration — the registered marker plus this env gate — rather than
+    by ambient path-sniffing skips inside each test.
+    """
+    if config.getoption("--collect-only", default=False):
+        return
+    opted_in = os.environ.get("AURALIS_LOCAL_LIBRARY_TESTS", "") == "1"
+    if opted_in:
+        return
+    skip = pytest.mark.skip(
+        reason="local-library test: set AURALIS_LOCAL_LIBRARY_TESTS=1 to run (#6242)"
+    )
+    for item in items:
+        if "local_library" in item.keywords:
+            item.add_marker(skip)

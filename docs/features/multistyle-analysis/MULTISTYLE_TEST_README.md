@@ -22,7 +22,7 @@
 
 ## 🧪 Test Code
 
-**[tests/backend/test_adaptive_mastering_multistyle.py](tests/backend/test_adaptive_mastering_multistyle.py)**
+**[multistyle_mastering_validation.py](../../../tools/validation/multistyle_mastering_validation.py)**
 - Runnable test suite with real audio files
 - Uses your Michael Jackson audio from Downloads
 - Runtime: ~90 seconds
@@ -30,7 +30,7 @@
 
 **To run:**
 ```bash
-python3 tests/backend/test_adaptive_mastering_multistyle.py
+python3 tools/validation/multistyle_mastering_validation.py
 ```
 
 ## 📊 Test Data
@@ -111,7 +111,7 @@ Project Root/
 ├── MULTISTYLE_TEST_README.md              ← This file
 ├── ADAPTIVE_MASTERING_SYSTEM.md           ← System documentation
 └── tests/backend/
-    ├── test_adaptive_mastering_multistyle.py
+    ├── multistyle_mastering_validation.py
     └── test_adaptive_mastering_multistyle_results.md
 ```
 
@@ -129,7 +129,7 @@ Project Root/
 
 1. **For a quick overview:** Read `MULTISTYLE_TEST_SUMMARY.md` (5 min)
 2. **For detailed analysis:** Read `MULTISTYLE_REMASTER_ANALYSIS.md` (15 min)
-3. **For code reference:** Check `test_adaptive_mastering_multistyle.py`
+3. **For code reference:** Check `multistyle_mastering_validation.py`
 4. **To validate improvements:** Re-run the test and compare results
 
 ## 📞 Questions?

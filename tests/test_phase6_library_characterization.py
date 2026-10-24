@@ -22,6 +22,10 @@ from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
 )
 
 
+# Personal-library characterization (#6242): runs only with AURALIS_LOCAL_LIBRARY_TESTS=1.
+pytestmark = pytest.mark.local_library
+
+
 class TestPhase6LibraryCharacterization:
     """Characterize audio from the library to build accurate profiles."""
 
