@@ -32,7 +32,7 @@
 
 import type { AlbumsApiResponse, ArtistsApiResponse, TracksApiResponse } from '@/api/transformers';
 import type { ArtistTracksResponse } from '@/services/libraryService';
-import type { Playlist, PlaylistWire, PlaylistsResponse } from '@/services/playlistService';
+import type { PlaylistWire, PlaylistsResponse } from '@/services/playlistService';
 import type { QueueResponse } from '@/services/queueService';
 import type { UserSettings } from '@/services/settingsService';
 
@@ -60,16 +60,17 @@ function isItemArray(v: unknown): boolean {
 /**
  * Shape of a paginated library list response under a given collection key.
  *
- * The backend returns `{ tracks: [...], total, offset }` (or `albums`/`artists`),
- * and `useLibraryQuery` also accepts a generic `items` key. Accepts either, so a
- * guard failure means a genuinely unexpected payload, not a naming variant.
+ * The backend returns `{ tracks: [...], total, offset }` (or `albums`/`artists`)
+ * and never a generic `items` key (routers/pagination.py deliberately does not
+ * emit one), so the guard reads its one real collection key — a payload
+ * carrying anything else fails loudly rather than passing as a naming variant.
  */
 function makeListGuard(collectionKey: string) {
   return function isListShape(v: unknown): boolean {
     const o = asObject(v);
     if (!o) return false;
 
-    const collection = o[collectionKey] ?? o.items;
+    const collection = o[collectionKey];
     if (!isItemArray(collection)) return false;
 
     // `total` is optional across these endpoints, but must be numeric when present.
@@ -142,17 +143,14 @@ export function isPlaylistShape(v: unknown): v is PlaylistWire {
 /**
  * `GET /api/playlists`.
  *
- * Accepts a bare array or a `{ playlists: [...] }` envelope — several endpoints
- * changed their envelope shape over the app's life, and the runtime tolerance
- * is pinned by playlistService's own tests. The asserted union mirrors that:
- * callers narrowing with `Array.isArray` get both halves typed (#5637).
+ * `GET /api/playlists` answers only the `{ playlists: [...] }` paginated
+ * envelope (routers/playlists_crud.py); a bare array or a generic `items`
+ * key fails the guard rather than passing as an older serializer.
  */
-export function isPlaylistsListShape(v: unknown): v is PlaylistsResponse | Playlist[] {
-  if (Array.isArray(v)) return v.every(isPlaylistShape);
+export function isPlaylistsListShape(v: unknown): v is PlaylistsResponse {
   const o = asObject(v);
   if (!o) return false;
-  const collection = o.playlists ?? o.items;
-  return Array.isArray(collection) && collection.every(isPlaylistShape);
+  return Array.isArray(o.playlists) && o.playlists.every(isPlaylistShape);
 }
 
 /**

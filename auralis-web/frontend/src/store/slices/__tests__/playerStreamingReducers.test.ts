@@ -111,7 +111,7 @@ describe('streaming sub-state transitions (#5042)', () => {
 
   it('completeStreaming still accepts a bare streamType', () => {
     // Back-compat branch in the prepare callback.
-    const done = reducer(base(), completeStreaming('normal'));
+    const done = reducer(base(), completeStreaming({ streamType: 'normal' }));
     expect(done.streaming.normal).toMatchObject({ state: 'complete', progress: 100 });
   });
 

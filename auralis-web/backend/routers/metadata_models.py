@@ -18,8 +18,8 @@ class MetadataUpdateRequest(BaseModel):
     albumartist: str | None = None
     year: int | None = None
     genre: str | None = None
-    track: int | None = Field(None, alias="track_number")
-    disc: int | None = Field(None, alias="disc_number")
+    track: int | None = None
+    disc: int | None = None
     comment: str | None = None
     bpm: int | None = None
     composer: str | None = None
@@ -27,7 +27,10 @@ class MetadataUpdateRequest(BaseModel):
     lyrics: str | None = None
     copyright: str | None = None
 
-    model_config = {"extra": "forbid", "validate_by_name": True, "validate_by_alias": True}
+    # One name per field: the app's only payload builder (the metadata editor)
+    # sends the mutagen tag names ``track``/``disc``, and the alias spelling
+    # (``track_number``) was accepted by no producer (#6260).
+    model_config = {"extra": "forbid"}
 
 
 class BatchMetadataUpdateRequest(BaseModel):

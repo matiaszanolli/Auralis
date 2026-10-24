@@ -11,7 +11,7 @@ describe('PCMStreamBuffer', () => {
   let buffer: PCMStreamBuffer;
 
   beforeEach(() => {
-    buffer = new PCMStreamBuffer();
+    buffer = new PCMStreamBuffer(PCMStreamBuffer.MAX_CAPACITY_BYTES);
   });
 
   describe('initialization', () => {
@@ -65,7 +65,7 @@ describe('PCMStreamBuffer', () => {
 
     it('should handle wrap-around correctly', () => {
       // Create a buffer large enough to test wrap-around (3072 bytes = 768 samples + 1)
-      const smallBuffer = new PCMStreamBuffer();
+      const smallBuffer = new PCMStreamBuffer(3072);
       smallBuffer.initialize(48000, 2, 3072);
 
       // Fill to near capacity
@@ -401,7 +401,7 @@ describe('PCMStreamBuffer', () => {
     });
 
     it('keeps data integrity through append-reset-append across a wrap boundary', () => {
-      const smallBuffer = new PCMStreamBuffer();
+      const smallBuffer = new PCMStreamBuffer(1024);
       smallBuffer.initialize(48000, 2, 1024); // 256 samples
 
       smallBuffer.append(new Float32Array(200).fill(0.5));

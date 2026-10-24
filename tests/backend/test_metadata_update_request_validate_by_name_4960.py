@@ -3,10 +3,11 @@ Regression test for #4960
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ``MetadataUpdateRequest.model_config`` used the deprecated ``populate_by_name``
-key. Pydantic 2.11 supersedes it with ``validate_by_name``/``validate_by_alias``.
-This asserts the model still accepts input both by field name (``track``) and
-by alias (``track_number``) after the config was updated, preserving the
-original dual-input behavior.
+key. Pydantic 2.11 supersedes it with ``validate_by_name``/``validate_by_alias``
+(#4960); the dual-name tolerance itself (``track``/``track_number``) later went
+with #6260 — the app's only payload builder sends the tag names ``track``/
+``disc``, so the model now accepts one name per field and rejects the alias
+spelling as an unknown key.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
@@ -26,12 +27,17 @@ def test_accepts_input_by_field_name():
     assert model.disc == 1
 
 
-def test_accepts_input_by_alias():
-    model = MetadataUpdateRequest.model_validate(
-        {"track_number": 5, "disc_number": 1, "title": "T"}
-    )
-    assert model.track == 5
-    assert model.disc == 1
+def test_rejects_the_alias_spelling_no_producer_sends():
+    import pydantic
+
+    try:
+        MetadataUpdateRequest.model_validate(
+            {"track_number": 5, "disc_number": 1, "title": "T"}
+        )
+    except pydantic.ValidationError:
+        pass
+    else:
+        raise AssertionError("expected the alias spelling to be rejected")
 
 
 def test_extra_fields_still_forbidden():

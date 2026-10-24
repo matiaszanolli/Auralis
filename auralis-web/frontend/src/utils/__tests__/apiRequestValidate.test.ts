@@ -152,9 +152,9 @@ describe('responseGuards (#4607)', () => {
     expect(isQueueResponseShape({ tracks: [] })).toBe(true);
   });
 
-  it('isTracksListShape accepts either the named key or the generic items key', () => {
+  it('isTracksListShape accepts the named key and rejects the generic items key', () => {
     expect(isTracksListShape({ tracks: [{ id: 1 }] })).toBe(true);
-    expect(isTracksListShape({ items: [{ id: 1 }] })).toBe(true);
+    expect(isTracksListShape({ items: [{ id: 1 }] })).toBe(false);
   });
 
   it('isTracksListShape rejects entries missing a numeric id', () => {
@@ -167,18 +167,18 @@ describe('responseGuards (#4607)', () => {
 
   // #5026: isAlbumsListShape/isArtistsListShape existed but were never wired
   // to a real fetch call — now wired in useLibraryQuery.ts's QUERY_TYPE_GUARD.
-  it('isAlbumsListShape accepts either the named key or the generic items key', () => {
+  it('isAlbumsListShape accepts the named key and rejects the generic items key', () => {
     expect(isAlbumsListShape({ albums: [{ id: 1 }] })).toBe(true);
-    expect(isAlbumsListShape({ items: [{ id: 1 }] })).toBe(true);
+    expect(isAlbumsListShape({ items: [{ id: 1 }] })).toBe(false);
   });
 
   it('isAlbumsListShape rejects entries missing a numeric id', () => {
     expect(isAlbumsListShape({ albums: [{ title: 'no id' }] })).toBe(false);
   });
 
-  it('isArtistsListShape accepts either the named key or the generic items key', () => {
+  it('isArtistsListShape accepts the named key and rejects the generic items key', () => {
     expect(isArtistsListShape({ artists: [{ id: 1 }] })).toBe(true);
-    expect(isArtistsListShape({ items: [{ id: 1 }] })).toBe(true);
+    expect(isArtistsListShape({ items: [{ id: 1 }] })).toBe(false);
   });
 
   it('isArtistsListShape rejects a non-numeric total', () => {
@@ -193,9 +193,11 @@ describe('responseGuards (#4607)', () => {
     expect(isArtistTracksResponseShape({ name: 'A', tracks: [] })).toBe(false);
   });
 
-  it('isPlaylistsListShape accepts both a bare array and an envelope', () => {
-    expect(isPlaylistsListShape([{ id: 1, name: 'p' }])).toBe(true);
+  it('isPlaylistsListShape accepts only the paginated envelope', () => {
     expect(isPlaylistsListShape({ playlists: [{ id: 1, name: 'p' }] })).toBe(true);
+    // Shapes the backend never emits must fail loudly (#6260).
+    expect(isPlaylistsListShape([{ id: 1, name: 'p' }])).toBe(false);
+    expect(isPlaylistsListShape({ items: [{ id: 1, name: 'p' }] })).toBe(false);
     expect(isPlaylistsListShape({ playlists: [{ id: 1 }] })).toBe(false);
   });
 

@@ -27,8 +27,8 @@ export interface BufferMetadata {
  * PCMStreamBuffer - Circular buffer for streaming audio
  *
  * Design:
- * - Capacity sized from the stream's own length (see capacityForStream);
- *   the default constructor argument is only a legacy fallback
+ * - Capacity sized from the stream's own length (see capacityForStream) and
+ *   passed explicitly to the constructor
  * - Circular write/read pointers with wrap-around
  * - Thread-safe (single-threaded via event loop)
  *
@@ -60,11 +60,10 @@ export class PCMStreamBuffer {
 
   /**
    * Create a new PCMStreamBuffer
-   * @param capacity - Buffer capacity in bytes. Prefer sizing with
-   *   capacityForStream() from the stream-start metadata; the 100MB default
-   *   was a blanket cost on every stream regardless of its length (#5663).
+   * @param capacity - Buffer capacity in bytes. Size it with
+   *   capacityForStream() from the stream-start metadata (#5663).
    */
-  constructor(capacity: number = PCMStreamBuffer.MAX_CAPACITY_BYTES) {
+  constructor(capacity: number) {
     this.capacity = capacity;
   }
 

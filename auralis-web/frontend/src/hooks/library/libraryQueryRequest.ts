@@ -94,14 +94,14 @@ export function extractItemsFromResponse<T extends Track | Album | Artist>(
       // (artworkUrl/sampleRate/bitDepth/dateAdded/...) came back undefined
       // against the backend's snake_case payload — silently, with a passing
       // type-check. #4418 added transformers here but skipped 'tracks' (#4611).
-      return transformTracks((r.tracks ?? r.items ?? []) as TrackApiResponse[]) as T[];
+      return transformTracks((r.tracks ?? []) as TrackApiResponse[]) as T[];
     case 'albums':
       // Canonical transformer is the single source of truth for snake→camel
       // album mapping (incl. artworkUrl/artistId); no inline variant (#4418).
-      return transformAlbums((r.albums ?? r.items ?? []) as AlbumApiResponse[]) as T[];
+      return transformAlbums((r.albums ?? []) as AlbumApiResponse[]) as T[];
     case 'artists':
       // Canonical transformer maps every field incl. artworkUrl/dateAdded (#4418).
-      return transformArtists((r.artists ?? r.items ?? []) as ArtistApiResponse[]) as T[];
+      return transformArtists((r.artists ?? []) as ArtistApiResponse[]) as T[];
     default: {
       const _exhaustive: never = queryType;
       throw new Error(`Unhandled LibraryQueryType: ${String(_exhaustive)}`);

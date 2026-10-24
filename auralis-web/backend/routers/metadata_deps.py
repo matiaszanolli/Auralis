@@ -15,9 +15,8 @@ from .errors import BadRequestError, NotFoundError
 
 
 # MetadataUpdateRequest fields whose Pydantic name is a mutagen tag name, not
-# the Track DB column name (#4731). ``track``/``disc`` have an explicit
-# ``alias=`` already; ``comment`` has none, since it doubles as the file-tag
-# name in write_metadata's tag dict and only diverges for the DB column.
+# the Track DB column name (#4731). ``comment`` doubles as the file-tag name
+# in write_metadata's tag dict and only diverges for the DB column.
 _METADATA_FIELD_TO_COLUMN: dict[str, str] = {
     'track': 'track_number',
     'disc': 'disc_number',

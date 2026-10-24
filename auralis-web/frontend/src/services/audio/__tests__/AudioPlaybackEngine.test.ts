@@ -53,7 +53,7 @@ function createMockAudioContext() {
 
 /** A real, initialized PCMStreamBuffer with `seconds` worth of silence. */
 function makeBuffer(seconds: number): PCMStreamBuffer {
-  const buffer = new PCMStreamBuffer();
+  const buffer = new PCMStreamBuffer(PCMStreamBuffer.MAX_CAPACITY_BYTES);
   buffer.initialize(SAMPLE_RATE, CHANNELS);
   const sampleCount = Math.floor(seconds * SAMPLE_RATE * CHANNELS);
   buffer.append(new Float32Array(sampleCount));
@@ -307,7 +307,7 @@ describe('AudioPlaybackEngine', () => {
 
     it('reads and de-interleaves stereo samples, advancing samplesPlayed by frame count', async () => {
       const { ctx, scriptNode } = createMockAudioContext();
-      const buffer = new PCMStreamBuffer();
+      const buffer = new PCMStreamBuffer(PCMStreamBuffer.MAX_CAPACITY_BYTES);
       buffer.initialize(SAMPLE_RATE, CHANNELS);
       // Well above the 5s low water mark so handleAudioProcess reads real data.
       const seconds = 10;

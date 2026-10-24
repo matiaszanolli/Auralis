@@ -231,7 +231,7 @@ describe('playerSlice', () => {
         initialState,
         startStreaming({ streamType: 'enhanced', trackId: 1, totalChunks: 3 }),
       );
-      state = reducer(state, completeStreaming('enhanced'));
+      state = reducer(state, completeStreaming({ streamType: 'enhanced' }));
       expect(state.streaming.enhanced.state).toBe('complete');
       expect(state.streaming.enhanced.progress).toBe(100);
     });

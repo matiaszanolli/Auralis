@@ -62,7 +62,7 @@ describe('useLibraryQuery', () => {
   describe('initial state and fetching', () => {
     it('should fetch tracks on mount', async () => {
       const mockGet = vi.fn().mockResolvedValue({
-        items: [mockTrack],
+        tracks: [mockTrack],
         total: 1,
         offset: 0,
         limit: 50,
@@ -114,7 +114,7 @@ describe('useLibraryQuery', () => {
 
     it('should return empty data initially', () => {
       const mockGet = vi.fn().mockResolvedValue({
-        items: [],
+        tracks: [],
         total: 0,
         offset: 0,
         limit: 50,
@@ -142,7 +142,7 @@ describe('useLibraryQuery', () => {
   describe('pagination', () => {
     it('should track offset and limit correctly', async () => {
       const mockGet = vi.fn().mockResolvedValue({
-        items: [mockTrack],
+        tracks: [mockTrack],
         total: 200,
         offset: 0,
         limit: 50,
@@ -174,7 +174,7 @@ describe('useLibraryQuery', () => {
 
     it('should calculate hasMore correctly', async () => {
       const mockGet = vi.fn().mockResolvedValue({
-        items: [mockTrack, mockTrack],
+        tracks: [mockTrack, mockTrack],
         total: 100,
         offset: 0,
         limit: 50,
@@ -206,7 +206,7 @@ describe('useLibraryQuery', () => {
 
     it('should know when at end of results', async () => {
       const mockGet = vi.fn().mockResolvedValue({
-        items: [mockTrack],
+        tracks: [mockTrack],
         total: 1,
         offset: 0,
         limit: 50,
@@ -244,14 +244,14 @@ describe('useLibraryQuery', () => {
       const mockGet = vi
         .fn()
         .mockResolvedValueOnce({
-          items: firstPageTracks,
+          tracks: firstPageTracks,
           total: 200,
           offset: 0,
           limit: 50,
           hasMore: true,
         })
         .mockResolvedValueOnce({
-          items: secondPageTracks,
+          tracks: secondPageTracks,
           total: 200,
           offset: 50,
           limit: 50,
@@ -297,7 +297,7 @@ describe('useLibraryQuery', () => {
       const mockGet = vi
         .fn()
         .mockResolvedValueOnce({
-          items: [mockTrack],
+          tracks: [mockTrack],
           total: 200,
           offset: 0,
           limit: 50,
@@ -346,7 +346,7 @@ describe('useLibraryQuery', () => {
 
       await act(async () => {
         resolveFetchMore({
-          items: [mockTrack],
+          tracks: [mockTrack],
           total: 200,
           offset: 50,
           limit: 50,
@@ -358,7 +358,7 @@ describe('useLibraryQuery', () => {
 
     it('should not fetch more when hasMore is false', async () => {
       const mockGet = vi.fn().mockResolvedValue({
-        items: [mockTrack],
+        tracks: [mockTrack],
         total: 1,
         offset: 0,
         limit: 50,
@@ -401,7 +401,7 @@ describe('useLibraryQuery', () => {
       // page-local length, not the cumulative array, so scroll reaches the end.
       // The backend flag is deliberately absent to exercise the fallback path.
       const page = (offset: number) => ({
-        items: Array.from({ length: 50 }, (_, i) => ({ ...mockTrack, id: offset + i })),
+        tracks: Array.from({ length: 50 }, (_, i) => ({ ...mockTrack, id: offset + i })),
         total: 200,
         offset,
         limit: 50,
@@ -460,7 +460,7 @@ describe('useLibraryQuery', () => {
         .fn()
         // Initial load, old search term.
         .mockResolvedValueOnce({
-          items: oldSearchPage1,
+          tracks: oldSearchPage1,
           total: 200,
           offset: 0,
           limit: 50,
@@ -471,7 +471,7 @@ describe('useLibraryQuery', () => {
         .mockImplementationOnce(() => fetchMoreResponse)
         // executeQuery() fired by the new search term — resolves immediately.
         .mockResolvedValueOnce({
-          items: newSearchPage1,
+          tracks: newSearchPage1,
           total: 1,
           offset: 0,
           limit: 50,
@@ -507,7 +507,7 @@ describe('useLibraryQuery', () => {
       // Now let the superseded fetchMore response resolve.
       act(() => {
         resolveFetchMore({
-          items: oldSearchPage2,
+          tracks: oldSearchPage2,
           total: 200,
           offset: 50,
           limit: 50,
@@ -528,8 +528,8 @@ describe('useLibraryQuery', () => {
 
       const mockGet = vi
         .fn()
-        .mockResolvedValueOnce({ items: firstPage, total: 200, offset: 0, limit: 50, hasMore: true })
-        .mockResolvedValueOnce({ items: secondPage, total: 200, offset: 50, limit: 50, hasMore: true });
+        .mockResolvedValueOnce({ tracks: firstPage, total: 200, offset: 0, limit: 50, hasMore: true })
+        .mockResolvedValueOnce({ tracks: secondPage, total: 200, offset: 50, limit: 50, hasMore: true });
 
       vi.mocked(useRestAPI).mockReturnValue({
         get: mockGet,
@@ -554,7 +554,7 @@ describe('useLibraryQuery', () => {
       const mockGet = vi
         .fn()
         .mockResolvedValueOnce({
-          items: [mockTrack],
+          tracks: [mockTrack],
           total: 200,
           offset: 0,
           limit: 50,
@@ -592,7 +592,7 @@ describe('useLibraryQuery', () => {
   describe('search functionality', () => {
     it('should include search query in endpoint', async () => {
       const mockGet = vi.fn().mockResolvedValue({
-        items: [{ ...mockTrack, title: 'Beatles Song' }],
+        tracks: [{ ...mockTrack, title: 'Beatles Song' }],
         total: 1,
         offset: 0,
         limit: 50,
@@ -622,7 +622,7 @@ describe('useLibraryQuery', () => {
 
     it('should encode search query properly', async () => {
       const mockGet = vi.fn().mockResolvedValue({
-        items: [],
+        tracks: [],
         total: 0,
         offset: 0,
         limit: 50,
@@ -659,14 +659,14 @@ describe('useLibraryQuery', () => {
       const mockGet = vi
         .fn()
         .mockResolvedValueOnce({
-          items: firstLoad,
+          tracks: firstLoad,
           total: 100,
           offset: 0,
           limit: 50,
           hasMore: true,
         })
         .mockResolvedValueOnce({
-          items: secondLoad,
+          tracks: secondLoad,
           total: 100,
           offset: 0,
           limit: 50,
@@ -702,7 +702,7 @@ describe('useLibraryQuery', () => {
 
     it('should clear offset on refetch', async () => {
       const mockGet = vi.fn().mockResolvedValue({
-        items: [mockTrack],
+        tracks: [mockTrack],
         total: 100,
         offset: 0,
         limit: 50,
@@ -807,7 +807,7 @@ describe('useLibraryQuery', () => {
         .fn()
         .mockRejectedValueOnce(new Error('API error'))
         .mockResolvedValueOnce({
-          items: [mockTrack],
+          tracks: [mockTrack],
           total: 1,
           offset: 0,
           limit: 50,
@@ -842,7 +842,7 @@ describe('useLibraryQuery', () => {
   describe('query types', () => {
     it('should fetch tracks with correct endpoint', async () => {
       const mockGet = vi.fn().mockResolvedValue({
-        items: [mockTrack],
+        tracks: [mockTrack],
         total: 1,
         offset: 0,
         limit: 50,
@@ -872,7 +872,7 @@ describe('useLibraryQuery', () => {
       // (issue #2379: /api/library/albums belongs to the library router but
       //  /api/albums is the canonical albums-router endpoint)
       const mockGet = vi.fn().mockResolvedValue({
-        items: [mockAlbum],
+        albums: [mockAlbum],
         total: 1,
         offset: 0,
         limit: 50,
@@ -903,7 +903,7 @@ describe('useLibraryQuery', () => {
       // (issue #2379: /api/library/artists belongs to the library router but
       //  /api/artists is the canonical artists-router endpoint)
       const mockGet = vi.fn().mockResolvedValue({
-        items: [mockArtist],
+        artists: [mockArtist],
         total: 1,
         offset: 0,
         limit: 50,
@@ -933,7 +933,7 @@ describe('useLibraryQuery', () => {
   describe('convenience hooks', () => {
     it('should use useTracksQuery for tracks', async () => {
       const mockGet = vi.fn().mockResolvedValue({
-        items: [mockTrack],
+        tracks: [mockTrack],
         total: 1,
         offset: 0,
         limit: 50,
@@ -960,7 +960,7 @@ describe('useLibraryQuery', () => {
     it('should use useAlbumsQuery for albums', async () => {
       // Backend sends snake_case; the hook runs it through transformAlbums (#4418).
       const mockGet = vi.fn().mockResolvedValue({
-        items: [{
+        albums: [{
           id: 1, title: 'Test Album', artist: 'Test Artist', year: 2023, track_count: 10,
         }],
         total: 1,
@@ -990,7 +990,7 @@ describe('useLibraryQuery', () => {
 
     it('should use useArtistsQuery for artists', async () => {
       const mockGet = vi.fn().mockResolvedValue({
-        items: [{ id: 1, name: 'Test Artist', track_count: 25, album_count: 3 }],
+        artists: [{ id: 1, name: 'Test Artist', track_count: 25, album_count: 3 }],
         total: 1,
         offset: 0,
         limit: 50,
@@ -1046,7 +1046,7 @@ describe('useLibraryQuery', () => {
 
     it('should use useInfiniteScroll for infinite scroll pattern', async () => {
       const mockGet = vi.fn().mockResolvedValue({
-        items: [mockTrack],
+        tracks: [mockTrack],
         total: 200,
         offset: 0,
         limit: 50,
@@ -1081,7 +1081,7 @@ describe('useLibraryQuery', () => {
           new Promise((resolve) => {
             setTimeout(() => {
               resolve({
-                items: [mockTrack],
+                tracks: [mockTrack],
                 total: 1,
                 offset: 0,
                 limit: 50,
@@ -1120,7 +1120,7 @@ describe('useLibraryQuery', () => {
   describe('orderBy parameter', () => {
     it('should include orderBy in endpoint', async () => {
       const mockGet = vi.fn().mockResolvedValue({
-        items: [mockTrack],
+        tracks: [mockTrack],
         total: 1,
         offset: 0,
         limit: 50,
@@ -1151,7 +1151,7 @@ describe('useLibraryQuery', () => {
   describe('custom endpoint', () => {
     it('should use custom endpoint if provided', async () => {
       const mockGet = vi.fn().mockResolvedValue({
-        items: [mockTrack],
+        tracks: [mockTrack],
         total: 1,
         offset: 0,
         limit: 50,
@@ -1335,7 +1335,7 @@ describe('useLibraryQuery', () => {
       expect(track).not.toHaveProperty('track_number');
     });
 
-    it('maps tracks arriving under the generic items key too', async () => {
+    it('does not map a payload carrying only the generic items key (#6260)', async () => {
       mockRest({
         items: [{ id: 4, title: 'T2', artist: 'A', album: 'B', duration: 10, filepath: '/b.wav', sample_rate: 48000 }],
         total: 1, offset: 0, limit: 50, hasMore: false,
@@ -1344,7 +1344,9 @@ describe('useLibraryQuery', () => {
       const { result } = renderHook(() => useLibraryQuery('tracks'));
       await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-      expect((result.current.data[0] as unknown as Track).sampleRate).toBe(48000);
+      // The backend never emits `items`; a payload that carries only it maps
+      // to nothing rather than half-working through a legacy fallback.
+      expect(result.current.data).toEqual([]);
     });
   });
 
@@ -1436,7 +1438,7 @@ describe('useLibraryQuery', () => {
       // offset(0) + items(2) < total(100) would compute hasMore=true, but the
       // backend says there is no more — the backend wins.
       mockRest({
-        items: [mockTrack, mockTrack], total: 100, offset: 0, limit: 50, has_more: false,
+        tracks: [mockTrack, mockTrack], total: 100, offset: 0, limit: 50, has_more: false,
       });
 
       const { result } = renderHook(() => useLibraryQuery('tracks', { limit: 50 }));
@@ -1448,7 +1450,7 @@ describe('useLibraryQuery', () => {
     it('trusts backend has_more=true even when offset math would say false', async () => {
       // offset(0) + items(1) >= total(1) would compute hasMore=false.
       mockRest({
-        items: [mockTrack], total: 1, offset: 0, limit: 50, has_more: true,
+        tracks: [mockTrack], total: 1, offset: 0, limit: 50, has_more: true,
       });
 
       const { result } = renderHook(() => useLibraryQuery('tracks', { limit: 50 }));

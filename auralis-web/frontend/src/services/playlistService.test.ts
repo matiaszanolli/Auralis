@@ -97,15 +97,6 @@ describe('PlaylistService', () => {
       })
     })
 
-    it('falls back to the page length when the response is a bare array', async () => {
-      vi.mocked(apiRequest.get).mockResolvedValue([mockPlaylist])
-
-      const result = await playlistService.getPlaylists()
-
-      expect(result.playlists).toEqual([mockPlaylist])
-      expect(result.total).toBe(1)
-    })
-
     it('throws error on fetch failure', async () => {
       vi.mocked(apiRequest.get).mockRejectedValue(new Error('Failed to get playlists'))
 

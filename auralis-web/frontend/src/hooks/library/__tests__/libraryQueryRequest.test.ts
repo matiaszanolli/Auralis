@@ -83,11 +83,10 @@ describe('extractItemsFromResponse', () => {
     expect(artist).toMatchObject({ id: 4, name: 'Band', trackCount: 12, albumCount: 2, dateAdded: '2024-01-01' });
   });
 
-  it('falls back to a generic `items` field', () => {
+  it('maps nothing from a generic `items` field the backend never emits', () => {
     const items = extractItemsFromResponse<Artist>({ items: [{ id: 5, name: 'Solo' }] }, 'artists');
 
-    expect(items).toHaveLength(1);
-    expect(items[0].name).toBe('Solo');
+    expect(items).toEqual([]);
   });
 
   it('takes only the field for the requested type', () => {

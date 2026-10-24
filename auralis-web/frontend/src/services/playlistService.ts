@@ -86,12 +86,9 @@ export interface UpdatePlaylistRequest {
 
 // Create base CRUD service using factory
 //
-// TList = PlaylistsResponse | Playlist[]: GET /api/playlists answers the
-// paginated envelope; the bare-array shape is the legacy serializer the
-// runtime tolerance (and the service's own tests) still accept. Declaring the
-// union is what lets fetchPlaylistsPage narrow with Array.isArray instead of
-// casting (#4554/#5637).
-const crudService = createCrudService<PlaylistWire, CreatePlaylistRequest, number, PlaylistListParams, PlaylistsResponse | Playlist[]>({
+// TList = PlaylistsResponse: GET /api/playlists answers only the paginated
+// envelope (the bare-array legacy serializer tolerance went with #6260).
+const crudService = createCrudService<PlaylistWire, CreatePlaylistRequest, number, PlaylistListParams, PlaylistsResponse>({
   list: (params) => {
     const search = new URLSearchParams({
       limit: String(params?.limit ?? PLAYLISTS_PAGE_LIMIT),
@@ -116,24 +113,18 @@ async function fetchPlaylistsPage(
   signal: AbortSignal | undefined,
 ): Promise<PlaylistsResponse> {
   const response = await crudService.list(params, { signal });
-  // Runtime shape tolerance — the wire may be a bare array (older serializer)
-  // or the `{playlists: [...]}` envelope; the TList union types both halves,
-  // so Array.isArray narrows instead of casting (#5637).
-  const [playlistsArray, envelope] = Array.isArray(response)
-    ? [response, null]
-    : [response.playlists, response];
 
   // Prefer the server's COUNT — with pagination the page length is no longer
-  // the collection size (#4554). Fall back to the page length only when the
-  // response is a bare array (older backend) or omits `total`.
-  const total = envelope && typeof envelope.total === 'number' ? envelope.total : playlistsArray.length;
+  // the collection size (#4554). Fall back to the page length only if the
+  // envelope ever omits `total`.
+  const total = typeof response.total === 'number' ? response.total : response.playlists.length;
 
   return {
-    playlists: playlistsArray,
+    playlists: response.playlists,
     total,
-    offset: envelope?.offset,
-    limit: envelope?.limit,
-    has_more: envelope?.has_more,
+    offset: response.offset,
+    limit: response.limit,
+    has_more: response.has_more,
   };
 }
 

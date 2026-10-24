@@ -179,10 +179,8 @@ export const streamingReducers = {
       s.progress = 100;
       state.lastUpdated = action.meta.timestamp;
     },
-    prepare(params: StreamType | { streamType: StreamType; trackId?: number }) {
-      // Back-compat: accept a bare streamType or a { streamType, trackId } object.
-      const payload = typeof params === 'string' ? { streamType: params } : params;
-      return { payload, meta: { timestamp: Date.now() } };
+    prepare(params: { streamType: StreamType; trackId?: number }) {
+      return { payload: params, meta: { timestamp: Date.now() } };
     },
   },
 

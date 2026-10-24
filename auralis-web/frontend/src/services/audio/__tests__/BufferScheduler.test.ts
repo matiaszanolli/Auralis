@@ -17,7 +17,7 @@ const SAMPLE_RATE = 48000;
 const CHANNELS = 2;
 
 function makeBuffer(seconds: number, channels = CHANNELS): PCMStreamBuffer {
-  const buffer = new PCMStreamBuffer();
+  const buffer = new PCMStreamBuffer(PCMStreamBuffer.MAX_CAPACITY_BYTES);
   buffer.initialize(SAMPLE_RATE, channels);
   buffer.append(new Float32Array(Math.floor(seconds * SAMPLE_RATE * channels)));
   return buffer;
@@ -141,7 +141,7 @@ describe('BufferScheduler', () => {
       it('copies mono samples to every output channel', async () => {
         const { ctx, gainNode, scriptNode } = createScriptOnlyContext();
         const callbacks = makeCallbacks();
-        const buffer = new PCMStreamBuffer();
+        const buffer = new PCMStreamBuffer(PCMStreamBuffer.MAX_CAPACITY_BYTES);
         buffer.initialize(SAMPLE_RATE, 1);
         const totalFrames = 10 * SAMPLE_RATE;
         const mono = new Float32Array(totalFrames);
