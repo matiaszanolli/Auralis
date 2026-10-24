@@ -10,7 +10,7 @@ from typing import Any
 import numpy as np
 from scipy import signal
 
-from ..dsp.utils.spectral import frames_for_seconds
+from ..dsp.utils.spectral import ANALYSIS_WINDOW_S, frames_for_seconds
 from .fingerprint.metrics import MetricUtils, SafeOperations
 
 _HILBERT_MAX_SECONDS = 30
@@ -225,9 +225,9 @@ class PhaseCorrelationAnalyzer:
         """Calculate frequency-dependent phase coherence"""
         # Anchor the analysis window in time, not a bare sample-count literal,
         # so the coherence metric is comparable across sample rates (#5418,
-        # the one sample-rate-dependent window site #4308 missed — see
-        # feature_extractor.py for the same pattern).
-        nperseg = frames_for_seconds(self.sample_rate, 1024 / 44100)
+        # the one sample-rate-dependent window site #4308 missed — shares
+        # ANALYSIS_WINDOW_S with the onset analysis and ML extractor).
+        nperseg = frames_for_seconds(self.sample_rate, ANALYSIS_WINDOW_S)
 
         # Use welch method for frequency domain analysis
         f, left_psd = signal.welch(left, self.sample_rate, nperseg=nperseg)

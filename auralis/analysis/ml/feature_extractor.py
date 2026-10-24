@@ -12,6 +12,8 @@ Extract comprehensive audio features for ML genre classification
 import numpy as np
 
 from ...dsp.utils.spectral import (
+    ANALYSIS_HOP_S,
+    ANALYSIS_WINDOW_S,
     crest_factor,
     frames_for_seconds,
     spectral_centroid,
@@ -261,8 +263,8 @@ class FeatureExtractor:
         # Window/hop anchored in time, not bare sample counts, so onset
         # detection resolution doesn't silently drift with sample rate
         # (#4308) — 1024/512 samples at 44.1kHz.
-        window_size = frames_for_seconds(self.sample_rate, 1024 / 44100)
-        hop_size = frames_for_seconds(self.sample_rate, 512 / 44100)
+        window_size = frames_for_seconds(self.sample_rate, ANALYSIS_WINDOW_S)
+        hop_size = frames_for_seconds(self.sample_rate, ANALYSIS_HOP_S)
         onsets = 0
         prev_spectrum = None
 

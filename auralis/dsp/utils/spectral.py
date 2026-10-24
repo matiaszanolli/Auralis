@@ -13,6 +13,14 @@ from scipy.signal.windows import hann
 
 from ..constants import DEFAULT_FFT_SIZE
 
+# The time-anchored analysis window/hop shared by onset analysis, the ML
+# feature extractor and phase-correlation analysis (#6228): 1024/512
+# samples at the 44.1kHz reference rate, held in TIME so the resolution
+# doesn't drift with sample rate (#4308). Retuning the analysis window
+# means changing these two definitions, not copying the ratio.
+ANALYSIS_WINDOW_S: float = 1024 / 44100
+ANALYSIS_HOP_S: float = 512 / 44100
+
 
 def frames_for_seconds(sample_rate: int, seconds: float, *, power_of_two: bool = True) -> int:
     """
@@ -236,8 +244,8 @@ def _tempo_estimate_python(audio: np.ndarray, sample_rate: int) -> float:
     # Simple onset detection using spectral flux. Window/hop are anchored in
     # time, not bare sample counts, so resolution doesn't silently drift with
     # sample rate (#4308) — 1024/512 samples at 44.1kHz.
-    window_size = frames_for_seconds(sample_rate, 1024 / 44100)
-    hop_size = frames_for_seconds(sample_rate, 512 / 44100)
+    window_size = frames_for_seconds(sample_rate, ANALYSIS_WINDOW_S)
+    hop_size = frames_for_seconds(sample_rate, ANALYSIS_HOP_S)
 
     # Calculate spectral flux
     flux_values = []
