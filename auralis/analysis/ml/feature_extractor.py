@@ -26,6 +26,9 @@ from .features import AudioFeatures
 from ...dsp.utils.audio_info import to_mono
 
 
+from .feature_extractor_mfcc import _extract_mfcc, _extract_chroma, _extract_tonnetz
+
+
 class FeatureExtractor:
     """Extract comprehensive audio features for ML classification"""
 
@@ -258,63 +261,11 @@ class FeatureExtractor:
 
         return energy_low, energy_mid, energy_high
 
-    def _extract_mfcc(self, audio: np.ndarray) -> list[float]:
-        """Extract MFCC features (simplified)"""
-        spectrum = np.fft.fft(audio[:4096])
-        magnitude = np.abs(spectrum[:2049])
+    def _extract_mfcc(self, audio: np.ndarray):
+        return _extract_mfcc(self, audio)
 
-        mel_filters = self._mel_filterbank
+    def _extract_chroma(self, audio: np.ndarray):
+        return _extract_chroma(self, audio)
 
-        mel_energies = []
-        for filt in mel_filters:
-            energy = np.sum(magnitude * filt)
-            mel_energies.append(max(energy, 1e-10))
-
-        log_energies = np.log(mel_energies)
-
-        mfcc = []
-        for i in range(self.n_mfcc):
-            component = 0.0
-            for j, log_energy in enumerate(log_energies):
-                component += log_energy * np.cos(np.pi * i * (j + 0.5) / len(log_energies))
-            mfcc.append(float(component))
-
-        return mfcc
-
-    def _extract_chroma(self, audio: np.ndarray) -> list[float]:
-        """Extract chroma features"""
-        spectrum = np.fft.fft(audio[:4096])
-        magnitude = np.abs(spectrum[:2049])
-        freqs = np.fft.fftfreq(4096, 1/self.sample_rate)[:2049]
-
-        chroma = np.zeros(12)
-
-        for i, freq in enumerate(freqs):
-            if freq > 80:
-                midi_note = 12 * np.log2(freq / 440.0) + 69
-                chroma_bin = int(midi_note) % 12
-                chroma[chroma_bin] += magnitude[i]
-
-        total_energy = np.sum(chroma)
-        if total_energy > 0:
-            chroma = chroma / total_energy
-
-        return chroma.tolist()
-
-    def _extract_tonnetz(self, audio: np.ndarray) -> list[float]:
-        """Extract tonnetz features"""
-        chroma = np.array(self._extract_chroma(audio))
-        tonnetz = np.zeros(6)
-
-        tonnetz[0] = np.sum(chroma * np.cos(np.arange(12) * 7 * np.pi / 6))
-        tonnetz[1] = np.sum(chroma * np.sin(np.arange(12) * 7 * np.pi / 6))
-        tonnetz[2] = np.sum(chroma * np.cos(np.arange(12) * 3 * np.pi / 2))
-        tonnetz[3] = np.sum(chroma * np.sin(np.arange(12) * 3 * np.pi / 2))
-        tonnetz[4] = np.sum(chroma * np.cos(np.arange(12) * 2 * np.pi / 3))
-        tonnetz[5] = np.sum(chroma * np.sin(np.arange(12) * 2 * np.pi / 3))
-
-        return tonnetz.tolist()
-
-    def _create_mel_filterbank(self, n_filters: int, n_fft: int) -> list[np.ndarray]:
-        """Create mel-scale filter bank using vectorized helper"""
-        return create_mel_triangular_filters(n_filters, n_fft, self.sample_rate)
+    def _extract_tonnetz(self, audio: np.ndarray):
+        return _extract_tonnetz(self, audio)

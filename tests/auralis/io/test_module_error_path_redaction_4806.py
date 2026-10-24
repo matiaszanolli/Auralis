@@ -130,8 +130,8 @@ class TestFfprobeRawStderrRaiseSite:
 
         fake_result = MagicMock(returncode=1, stderr=_fake_stderr(str(target)))
         with (
-            patch("auralis.io.unified_loader.check_ffprobe", return_value=True),
-            patch("auralis.io.unified_loader.subprocess.run", return_value=fake_result),
+            patch("auralis.io.audio_probe.check_ffprobe", return_value=True),
+            patch("auralis.io.audio_probe.subprocess.run", return_value=fake_result),
             _captured_logs() as logs,
         ):
             with pytest.raises(ModuleError) as exc_info:
