@@ -8,11 +8,11 @@ their arguments; the loop owns all state.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from auralis.dsp.utils.conversion import db_to_amplitude
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from ..dsp.utils.conversion import db_to_amplitude
 from ..utils.logging import warning
 
 if TYPE_CHECKING:
@@ -198,3 +198,22 @@ def assemble_write_region(
             f"samples, got {write_region.shape[1]}"
         )
     return write_region, processed_chunk[:, core_samples:].copy()
+
+
+def two_pass_correction_gain(
+    measured_sample_peak: float, measured_true_peak: float, verbose: bool
+) -> float:
+    """The one uniform gain (<= 1.0) that brings the measured pass's final
+    signal under 0.99 full scale and the -0.5 dBTP ceiling (#5694)."""
+    correction_gain = min(
+        1.0,
+        0.99 / max(measured_sample_peak, 1e-9),
+        db_to_amplitude(-0.5) / max(measured_true_peak, 1e-9),
+    )
+    if verbose and correction_gain < 1.0:
+        print(
+            f"   Two-pass peak correction: {20 * np.log10(correction_gain):+.2f} dB "
+            f"(measured sample peak {measured_sample_peak:.3f}, "
+            f"true peak {measured_true_peak:.3f})"
+        )
+    return correction_gain

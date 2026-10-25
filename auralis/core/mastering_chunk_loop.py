@@ -13,9 +13,6 @@ Extracted from simple_mastering.py's _master_file_impl "Step 3" (#4072).
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from auralis.dsp.utils.conversion import db_to_amplitude
-import os
-import tempfile
 from contextlib import nullcontext
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -23,12 +20,14 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import soundfile as sf
 
+from ..utils.atomic_write import publish_atomically
 from .mastering_chunk_assembly import (
     apply_true_peak_guard,
     assemble_write_region,
     merge_stage_info,
     read_chunk,
     true_peak_4x,
+    two_pass_correction_gain,
 )
 from .mastering_process_chunk import compute_peak_db
 
@@ -43,11 +42,11 @@ def process_chunks(
     output_path: str,
     sr: int,
     total_frames: int,
-    fingerprint: dict,
+    fingerprint: dict[str, Any],
     intensity: float,
     config: 'SimpleMasteringConfig',
     verbose: bool,
-) -> tuple[dict, int]:
+) -> tuple[dict[str, Any], int]:
     """
     Process the whole file in chunks and write the result to output_path.
 
@@ -76,28 +75,6 @@ def process_chunks(
     # crashed with a shape mismatch on the first stereo write (#4494).
     out_channels = 2
 
-    # Stage on the same filesystem, then os.replace() onto the final name only
-    # after every chunk is written (#5109).
-    #
-    # The loop below has no per-chunk try/except, so any raise — the
-    # validate_audio_finite(..., repair=False) in mastering_process_chunk.py, an
-    # _assert_finite in mastering_branches/continuous.py, a DSP stage — used to
-    # propagate while sf.SoundFile's __exit__ still finalised a syntactically
-    # valid header over whatever had been written. The result was a truncated
-    # but perfectly readable file sitting at the exact requested output path,
-    # indistinguishable from a finished master. Neither caller in auto_master.py
-    # removed it: master_folder appends to failed_files and moves on, leaving
-    # the partial file among its successful neighbours under the expected name.
-    #
-    # os.replace is atomic within a filesystem, so a reader sees the complete
-    # file or no file — never a prefix. The temp lives in the destination
-    # directory to keep the rename on one filesystem (a cross-device rename is
-    # not atomic and raises), and keeps the real extension because soundfile
-    # infers the container format from it. Same shape as the backend's
-    # encoding/atomic_io.py (#4576), reimplemented rather than imported:
-    # auralis-web is not an importable package from the engine, and depending
-    # on the web backend from auralis/ would invert the layering.
-
     # #5694: measurement pre-pass. The chain's file-level gain is keyed to the
     # INPUT peak (prepare_file's _song_peak_db), but the stages in between
     # (makeup gain, EQ shelves, exciter, loudness maximizer) do NOT preserve
@@ -113,46 +90,21 @@ def process_chunks(
         intensity, config, verbose, crossfade_samples, chunk_size,
         out_channels,
     )
-    _tp_ceiling = db_to_amplitude(-0.5)
-    correction_gain = min(
-        1.0,
-        0.99 / max(measured_sample_peak, 1e-9),
-        _tp_ceiling / max(measured_true_peak, 1e-9),
+    correction_gain = two_pass_correction_gain(
+        measured_sample_peak, measured_true_peak, verbose
     )
-    if verbose and correction_gain < 1.0:
-        print(
-            f"   Two-pass peak correction: {20 * np.log10(correction_gain):+.2f} dB "
-            f"(measured sample peak {measured_sample_peak:.3f}, "
-            f"true peak {measured_true_peak:.3f})"
-        )
 
-    final_path = Path(output_path)
-    final_path.parent.mkdir(parents=True, exist_ok=True)
-    # mkstemp always makes its inode mode 0600. Since os.replace preserves that
-    # inode, published masters also become owner-only regardless of umask
-    # (#5592). Create the file at 0666 inside a private 0700 stage directory:
-    # os.open applies the current process umask atomically, without reading or
-    # temporarily changing the process-wide (and thread-sensitive) umask.
-    with tempfile.TemporaryDirectory(
-        dir=str(final_path.parent), prefix=f".{final_path.stem}."
-    ) as stage_dir:
-        tmp_path = Path(stage_dir) / f"render.part{final_path.suffix}"
-        tmp_fd = os.open(tmp_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666)
-        os.close(tmp_fd)
+    # Render into a staging file, published onto output_path only once complete
+    # (#5109).
+    def render_to(tmp_path: Path) -> tuple[dict[str, Any], int]:
         info, chunks_processed, _, _ = _render_to_sink(
             pipeline, input_path, tmp_path, sr, total_frames, fingerprint,
             intensity, config, verbose, crossfade_samples, chunk_size,
             out_channels, correction_gain=correction_gain,
         )
-        # The renderer has closed SoundFile by now. Flush the complete staged
-        # bytes before replacing the visible destination (cf. #4576).
-        with tmp_path.open("rb") as staged:
-            os.fsync(staged.fileno())
-        os.replace(tmp_path, final_path)
-        # TemporaryDirectory also removes staged files on all exceptions,
-        # including KeyboardInterrupt, while leaving an earlier master intact.
+        return info, chunks_processed
 
-    return info, chunks_processed
+    return publish_atomically(Path(output_path), render_to)
 
 
 def _render_to_sink(

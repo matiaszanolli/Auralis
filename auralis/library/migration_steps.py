@@ -151,6 +151,27 @@ def validate_migration_sql(sql: str, migration_file: str) -> bool:
     return True
 
 
+def _execute_tolerating_replays(cursor: Any, statement: str) -> None:
+    """Run one migration statement, skipping the replay-only failures.
+
+    Tolerates "duplicate column" errors from ADD COLUMN on databases where the
+    column was added outside the migration system, and the mirror image for
+    DROP COLUMN: "no such column" on databases where the column was never
+    created -- fresh ORM-built schemas replayed across the chain already lack
+    dropped columns (#6261). Drop-if-present, like DROP TABLE IF EXISTS.
+    """
+    try:
+        cursor.execute(statement)
+    except Exception as stmt_err:
+        err_lower = str(stmt_err).lower()
+        if "duplicate column" in err_lower:
+            logger.warning(f"Column already exists, skipping: {statement[:80]}")
+        elif "no such column" in err_lower and "drop column" in statement.lower():
+            logger.warning(f"Column already absent, skipping: {statement[:80]}")
+        else:
+            raise
+
+
 def apply_migration_sql(
     engine: Any,
     sql: str,
@@ -182,31 +203,9 @@ def apply_migration_sql(
             cursor.execute("BEGIN")
 
             # Apply DDL statements, split where SQLite itself ends them.
-            statements = split_sql_statements(sql)
-            for statement in statements:
+            for statement in split_sql_statements(sql):
                 if statement:
-                    try:
-                        cursor.execute(statement)
-                    except Exception as stmt_err:
-                        # Tolerate "duplicate column" errors from ADD COLUMN
-                        # on databases where the column was added outside
-                        # the migration system, and the mirror image for DROP
-                        # COLUMN: "no such column" on databases where the
-                        # column was never created — fresh ORM-built schemas
-                        # replayed across the chain already lack dropped
-                        # columns (#6261). Drop-if-present, like DROP TABLE
-                        # IF EXISTS.
-                        err_lower = str(stmt_err).lower()
-                        if "duplicate column" in err_lower:
-                            logger.warning(
-                                f"Column already exists, skipping: {statement[:80]}"
-                            )
-                        elif "no such column" in err_lower and "drop column" in statement.lower():
-                            logger.warning(
-                                f"Column already absent, skipping: {statement[:80]}"
-                            )
-                        else:
-                            raise
+                    _execute_tolerating_replays(cursor, statement)
 
             # Record the migration in the same transaction
             cursor.execute(

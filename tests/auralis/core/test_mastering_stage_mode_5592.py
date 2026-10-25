@@ -17,6 +17,9 @@ from unittest import mock
 
 
 SOURCE = Path(__file__).resolve().parents[3] / "auralis/core/mastering_chunk_loop.py"
+# The publication step lives in this stdlib-only module (moved out of the loop
+# in #5839); loading it by path keeps the real implementation under test.
+ATOMIC_SOURCE = Path(__file__).resolve().parents[3] / "auralis/utils/atomic_write.py"
 
 
 def _load_stage_module():
@@ -28,7 +31,17 @@ def _load_stage_module():
     # #5694: the loop's measurement pass reads the 4x-oversampled peak from
     # here as well.
     fake_assembly.true_peak_4x = lambda *args, **kwargs: 0.0
+    fake_assembly.two_pass_correction_gain = lambda *args, **kwargs: 1.0
+    atomic_spec = importlib.util.spec_from_file_location(
+        "auralis.utils.atomic_write", ATOMIC_SOURCE,
+    )
+    if atomic_spec is None or atomic_spec.loader is None:
+        raise RuntimeError("cannot load atomic_write")
+    atomic_write = importlib.util.module_from_spec(atomic_spec)
+    atomic_spec.loader.exec_module(atomic_write)
     stubbed = {
+        "auralis.utils": types.ModuleType("auralis.utils"),
+        "auralis.utils.atomic_write": atomic_write,
         "auralis.core.mastering_chunk_assembly": fake_assembly,
         "auralis": types.ModuleType("auralis"),
         "auralis.core": types.ModuleType("auralis.core"),
@@ -107,8 +120,8 @@ class MasteringStageModeTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as root:
             output = Path(root) / "published.wav"
-            with mock.patch.object(module.os, "fsync", side_effect=synced), mock.patch.object(
-                module.os, "replace", side_effect=replaced
+            with mock.patch.object(os, "fsync", side_effect=synced), mock.patch.object(
+                os, "replace", side_effect=replaced
             ):
                 _publish(module, output)
             self.assertEqual(order, ["fsync", "replace"])
