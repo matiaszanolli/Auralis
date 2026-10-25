@@ -427,5 +427,50 @@ describe('playerSlice', () => {
       expect(dispatched).toHaveLength(1);
       expect(dispatched[0].type).toBe('player/setCurrentTrack');
     });
+
+    // #5600 / #5673: findIndex-by-id always resolved to the FIRST slot, so
+    // with duplicate ids in the queue Next/Previous could never reach the
+    // second copy — the queue appeared stuck looping on one entry.
+    it('resolves the duplicate-id slot nearest the current index, not the first match (#5600)', () => {
+      const { dispatched, dispatch } = makeRecordingDispatch();
+      const getState = () => ({
+        queue: {
+          tracks: [
+            { id: 10, title: 'A' },
+            { id: 20, title: 'B' },
+            { id: 10, title: 'A' }, // duplicate of slot 0
+            { id: 30, title: 'C' },
+          ],
+          currentIndex: 2, // the second A is playing
+        },
+      });
+      const track = { id: 10, title: 'A', duration: 100 };
+
+      setCurrentTrackAndSyncQueue(track as unknown as Track)(dispatch, getState);
+
+      expect(dispatched[1].type).toBe('queue/setCurrentIndex');
+      // Slot 2 (the playing copy), not slot 0 — later wins the distance tie
+      // from the anchor.
+      expect(dispatched[1].payload).toBe(2);
+    });
+
+    it('keeps the caller-provided index when that slot really holds the track', () => {
+      const { dispatched, dispatch } = makeRecordingDispatch();
+      const getState = () => ({
+        queue: {
+          tracks: [
+            { id: 10, title: 'A' },
+            { id: 20, title: 'B' },
+            { id: 10, title: 'A' },
+          ],
+          currentIndex: 2,
+        },
+      });
+      const track = { id: 10, title: 'A', duration: 100 };
+
+      setCurrentTrackAndSyncQueue(track as unknown as Track, 0)(dispatch, getState);
+
+      expect(dispatched[1].payload).toBe(0);
+    });
   });
 });

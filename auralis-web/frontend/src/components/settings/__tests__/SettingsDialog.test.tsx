@@ -98,19 +98,32 @@ describe('SettingsDialog', () => {
       }
     });
 
-    it('should call onClose when Cancel is clicked', async () => {
+    it('calls onClose on Cancel, and a cancelled edit does not survive a reopen (#5618, #5673)', async () => {
       const user = userEvent.setup();
       const onClose = vi.fn();
 
-      render(
+      const { rerender } = render(
         <SettingsDialog open={true} onClose={onClose} />
       );
 
-      const cancelButtons = screen.queryAllByRole('button', { name: /cancel|close/i });
-      if (cancelButtons.length > 0) {
-        await user.click(cancelButtons[0]);
-        // onClose may or may not be called depending on implementation
-      }
+      // The saved value (mocked service) is ON.
+      const autoScan = await screen.findByRole('switch', { name: /auto-scan library/i });
+      expect(autoScan).toBeChecked();
+
+      // A pending, unsaved edit…
+      await user.click(autoScan);
+      expect(autoScan).not.toBeChecked();
+
+      // …must be discarded by Cancel (the dialog stays mounted across the
+      // close in the app, so the discard is what the reopen shows)…
+      await user.click(screen.getByRole('button', { name: 'Cancel' }));
+      expect(onClose).toHaveBeenCalledTimes(1);
+
+      // …and reopening shows the stored value, not the cancelled edit.
+      rerender(<SettingsDialog open={false} onClose={onClose} />);
+      rerender(<SettingsDialog open={true} onClose={onClose} />);
+      const reopened = await screen.findByRole('switch', { name: /auto-scan library/i });
+      expect(reopened).toBeChecked();
     });
   });
 
