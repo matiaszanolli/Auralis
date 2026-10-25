@@ -97,6 +97,23 @@ if (typeof Blob === 'undefined' || typeof Blob.prototype.text !== 'function') {
   (globalThis as { Blob: typeof Blob }).Blob = NodeBlob as unknown as typeof Blob;
 }
 
+// jsdom 30 (#6008): when focus moves off every element (a modal's trigger
+// button unmounting while focused, cleanup() unmounting mid-focus), jsdom 30
+// reports the focusout relatedTarget as `document`, where jsdom 27 reported
+// null. MUI's TrapFocus stores that node and calls `.focus()` on it when the
+// Modal unmounts — `document` has no `focus()` in jsdom (nor in browsers,
+// which never produce a Document as relatedTarget), so every Dialog/Menu
+// spec that unmounted after a focus move died with
+// "nodeToRestore.current.focus is not a function" (~36 CI failures across
+// SimilarTracksModal / AddToPlaylistMenu / SettingsDialog / ArtistInfoModal
+// / PlaylistList / a11y / EditMetadataDialog / CozyArtistList; reproduced
+// only under jsdom 30, which is why the jsdom 27 baseline never saw them).
+// Restoring focus to "the document" is semantically a no-op — there was no
+// element to restore — so define exactly that no-op.
+if (typeof document.focus !== 'function') {
+  (Document.prototype as unknown as { focus: () => void }).focus = function focus() {};
+}
+
 // Mock window.matchMedia (used by MUI components for responsive design)
 // Using vi.stubGlobal to ensure proper initialization before tests run
 vi.stubGlobal('matchMedia', vi.fn((query: string) => {

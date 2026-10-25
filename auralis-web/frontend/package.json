@@ -37,7 +37,7 @@
     "test:coverage:memory": "NODE_ENV=test node --max-old-space-size=2048 --expose-gc node_modules/vitest/vitest.mjs run --coverage",
     "test:ci": "NODE_ENV=test node --max-old-space-size=2048 --expose-gc node_modules/vitest/vitest.mjs run --reporter=json --outputFile=test-results/ci-results.json",
     "test:baseline": "node scripts/check-test-baseline.mjs test-results/ci-results.json",
-    "test:baseline:update": "node scripts/check-test-baseline.mjs test-results/ci-results.json --update",
+    "test:baseline:update": "node scripts/check-installed-deps.mjs && node scripts/check-test-baseline.mjs test-results/ci-results.json --update",
     "test:watch": "NODE_ENV=test vitest watch",
     "test:library": "NODE_ENV=test vitest run src/tests/integration/library-management/",
     "test:websocket": "NODE_ENV=test vitest run src/tests/integration/websocket-realtime/",
