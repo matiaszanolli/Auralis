@@ -13,6 +13,7 @@ audio file has gone missing.
 
 from pathlib import Path
 from typing import Any, cast
+import os
 
 from sqlalchemy import CursorResult, func, select, update
 
@@ -21,6 +22,46 @@ from ..models import Track
 from ..path_key import make_filepath_key
 from .base import BaseRepository
 from .track_deletion import delete_tracks_by_ids
+
+
+def _file_is_definitely_missing(path: Path) -> bool:
+    """True only when ``path`` is provably gone (#5698).
+
+    ``Path.exists()`` swallows every OSError, so an unreadable folder
+    (EACCES — a permissions change, macOS TCC revocation, a sandbox), a
+    dead mount (EIO/ESTALE) or any other I/O failure all read as "file
+    deleted" — and ``cleanup_missing_files()`` then destroyed tracks along
+    with their playlist rows, favourites and play counts. ``os.stat``
+    separates the cases: only ENOENT/ENOTDIR prove the file is really
+    gone; any other error means "cannot tell", which must skip, not
+    delete.
+    """
+    try:
+        os.stat(path)
+        return False
+    except (FileNotFoundError, NotADirectoryError):
+        return True
+    except OSError as e:
+        debug(f"Cannot stat {path}: {e.strerror} ({e.errno}) — not treating as missing (#5698)")
+        return False
+
+
+def _track_file_is_missing(filepath: str | Path) -> bool:
+    """The one missing-decision both cleanup passes share (#5698, #2525).
+
+    A track whose parent directory is itself provably gone is treated as
+    NOT missing — the volume is likely unmounted (NFS/SMB), and skipping
+    beats deleting (#2525). Residual ambiguity, deliberately left: a
+    track directly inside an empty *mount-point* directory on an
+    unmounted volume stats as ENOENT and cannot be distinguished from a
+    genuinely deleted file without scan-root readability context, which
+    this repository layer does not have.
+    """
+    path = Path(filepath)
+    if _file_is_definitely_missing(path.parent):
+        debug(f"Parent directory gone (volume unmounted?), skipping: {path.parent}")
+        return False
+    return _file_is_definitely_missing(path)
 
 
 class TrackRepositoryMaintenanceMixin(BaseRepository):
@@ -155,20 +196,17 @@ class TrackRepositoryMaintenanceMixin(BaseRepository):
 
                     missing_ids = []
                     for row in rows:
-                        filepath_path = Path(str(row.filepath))
-                        # If the parent directory itself is absent the volume is
-                        # likely unmounted (NFS/SMB). Skip this file rather than
-                        # permanently deleting it from the library (fixes #2525).
-                        if not filepath_path.parent.exists():
-                            debug(f"Parent directory inaccessible, skipping: {filepath_path.parent}")
-                            continue
-                        if not filepath_path.exists():
+                        # One shared decision for both passes (#5698): stat
+                        # errors that are not ENOENT/ENOTDIR (unreadable
+                        # folder, dead mount) must skip, not delete; a gone
+                        # parent means an unmounted volume (#2525).
+                        if _track_file_is_missing(str(row.filepath)):
                             missing_ids.append(row.id)
 
                     if missing_ids:
                         # Re-verify paths immediately before deletion to narrow the
                         # TOCTOU window (a file could reappear between the initial
-                        # exists() check and this point). Fixes #3310.
+                        # check and this point). Fixes #3310.
                         # Batch-fetch filepaths in a single IN query rather than one
                         # session.get() per id, keeping re-verification O(batches)
                         # instead of O(missing tracks) (fixes #4223).
@@ -179,7 +217,7 @@ class TrackRepositoryMaintenanceMixin(BaseRepository):
                         still_missing = [
                             row.id
                             for row in recheck_rows
-                            if not Path(str(row.filepath)).exists()
+                            if _track_file_is_missing(str(row.filepath))
                         ]
                         if still_missing:
                             deleted = delete_tracks_by_ids(session, still_missing)
