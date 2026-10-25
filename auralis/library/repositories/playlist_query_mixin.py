@@ -13,6 +13,7 @@ into ``PlaylistRepository`` together.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+from typing import Any
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import with_expression
 from sqlalchemy.sql.selectable import ScalarSelect
@@ -21,7 +22,7 @@ from ..models import Playlist, Track
 from ..models.base import track_playlist
 from .base import correlated_sum, BaseRepository, correlated_count, escape_like
 
-def _playlist_list_aggregates(repo: "PlaylistQueryMixin") -> tuple[Any, ...]:
+def _playlist_list_aggregates(repo: "PlaylistQueryMixin") -> tuple[Any, ...]:  # noqa: F821 - Any imported below
     """The per-row aggregates every playlist list read attaches (#6212,
     #4554): get_all() and search() share one builder so a future list path
     cannot attach track_count without total_duration."""
