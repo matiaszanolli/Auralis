@@ -197,6 +197,17 @@ export class AudioPlaybackEngine {
   }
 
   /**
+   * Clear the BufferHealth streamEnded latch (#5862). A previous stream's
+   * terminal `audio_stream_end` latches it (disabling the 5s/8s low-water
+   * hysteresis so the buffered tail can play out); an accepted NEW stream
+   * must clear it or the rest of the track degrades to hard underruns. Only
+   * stopPlayback used to, which re-issues and reconnects never call.
+   */
+  resetStreamEnded(): void {
+    this.bufferScheduler.resetStreamEnded();
+  }
+
+  /**
    * Stop playback completely
    */
   stopPlayback(): void {

@@ -222,6 +222,7 @@ function setupMocks() {
     onStallChange: vi.fn(),
     getCurrentPlaybackTime: vi.fn().mockReturnValue(0),
     setSeekOffset: vi.fn(),
+    resetStreamEnded: vi.fn(),
     // 2s threshold @ 44100Hz stereo = 176400 samples — matches the auto-start
     // assertions below (buffer >= threshold ⇒ startPlayback).
     getMinBufferSamples: vi.fn().mockReturnValue(176400),
@@ -906,7 +907,7 @@ describe('usePlayEnhanced – fingerprint_progress', () => {
 describe('usePlayEnhanced – seekTo', () => {
   let store: TestStore;
 
-  async function setupWithStream() {
+  async function setupWithStream(startOverrides: Record<string, any> = {}) {
     store = createTestStore();
     const { result } = renderHook(() => usePlayEnhanced(), {
       wrapper: makeWrapper(store),
@@ -918,7 +919,7 @@ describe('usePlayEnhanced – seekTo', () => {
     });
 
     // Simulate stream_start so buffer/engine refs are populated
-    fireHandler('audio_stream_start', makeStreamStartMsg({ track_id: 42, stream_type: 'enhanced' }));
+    fireHandler('audio_stream_start', makeStreamStartMsg({ track_id: 42, stream_type: 'enhanced', ...startOverrides }));
 
     return result;
   }
@@ -930,6 +931,32 @@ describe('usePlayEnhanced – seekTo', () => {
   afterEach(() => {
     vi.clearAllMocks();
     vi.unstubAllGlobals();
+  });
+
+  it('stops the engine and clears the streamEnded latch when a re-issue opens a new epoch (#5862)', async () => {
+    await setupWithStream({ stream_epoch: 5 });
+    const engine = vi.mocked(AudioPlaybackEngine).mock.results[
+      vi.mocked(AudioPlaybackEngine).mock.results.length - 1
+    ].value as typeof mockEngineInstance;
+    engine.stopPlayback.mockClear();
+
+    // The previous stream ended (latching streamEnded), then an enhancement
+    // re-issue / reconnect opens a NEW stream from the playhead.
+    fireHandler('audio_stream_end', makeStreamEndMsg({ reason: 'completed' }));
+    expect(engine.markStreamEnded).toHaveBeenCalled();
+
+    act(() => {
+      fireHandler('audio_stream_start', makeStreamStartMsg({
+        track_id: 42, is_seek: true, seek_position: 10, stream_epoch: 99,
+      }));
+    });
+
+    // The superseded buffer is discarded INCLUDING the worklet queue (the
+    // engine is stopped), and the latch from the old stream's end is cleared
+    // so low-water hysteresis works for the rest of the track.
+    expect(engine.stopPlayback).toHaveBeenCalledTimes(1);
+    expect(engine.resetStreamEnded).toHaveBeenCalled();
+    expect(engine.setSeekOffset).toHaveBeenCalledWith(10); // clock re-armed at the resume position
   });
 
   it('applies the backend seek_position to the playback clock on the resume path (#5860)', async () => {

@@ -102,9 +102,19 @@ export function useEnhancedStreamStart({
         // ingested after that reset and before this start arrived.
         if (shouldDiscardSupersededBuffer(message.data.stream_epoch, core.bufferEpochRef.current)) {
           DEBUG && console.log('[usePlayEnhanced] New stream epoch — discarding superseded buffer content');
+          // Stop the engine too (#5862): the worklet's ~3 s look-ahead queue
+          // still holds superseded-stream audio that a ring reset alone
+          // leaves playing (0-3 s of replayed, old-settings audio on every
+          // re-issue/reconnect). stopPlayback also resets the tracker, whose
+          // seek offset is re-armed right below.
+          core.playbackEngineRef.current?.stopPlayback();
           core.pcmBufferRef.current.reset();
           core.lastReceivedChunkIndexRef.current = -1;
         }
+        // #5862: the previous stream's terminal end latched streamEnded
+        // (killing the low-water hysteresis); the accepted new stream clears
+        // it. A no-op on a fresh engine.
+        core.playbackEngineRef.current?.resetStreamEnded?.();
         // #5860/#2259: seekTo stopped the engine, which RESETS the tracker —
         // including the old seek offset. The backend's seek_position ack is
         // the authoritative new position; without re-arming it here the
