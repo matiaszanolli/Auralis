@@ -57,6 +57,36 @@ def correlated_count(source: Any, fk_column: Any, parent: Any) -> ScalarSelect[i
     )
 
 
+def correlated_sum(
+    source: Any,
+    value_column: Any,
+    link_column: Any,
+    parent: Any,
+    join_model: Any = None,
+) -> ScalarSelect[float]:
+    """Per-row SUM of *value_column* over the rows of *source* tied to *parent*.
+
+    The SUM twin of :func:`correlated_count` (#6212), replacing the two
+    private ``_total_duration_subquery`` copies:
+
+    - direct FK (album durations)::
+
+        correlated_sum(Track, Track.duration, Track.album_id, Album)
+
+    - through an association table (playlist durations)::
+
+        correlated_sum(track_playlist, Track.duration,
+                       track_playlist.c.playlist_id, Playlist, join_model=Track)
+
+    COALESCE because SUM over zero rows is NULL, unlike COUNT (#4777).
+    """
+    stmt = select(func.coalesce(func.sum(value_column), 0.0)).select_from(source)
+    if join_model is not None:
+        stmt = stmt.join(join_model, join_model.id == source.c.track_id)
+    stmt = stmt.where(link_column == parent.id).correlate(parent)
+    return stmt.scalar_subquery()
+
+
 class BaseRepository:
     """Base class providing session-factory storage and session lifecycle.
 

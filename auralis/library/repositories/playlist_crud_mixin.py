@@ -23,6 +23,16 @@ from ..models import Playlist, Track
 from ..models.base import track_playlist
 from .base import BaseRepository
 
+# Named eager-load constants (#5028's rule, extended to playlists by #6212):
+# module scope so a future playlist read path can't silently omit the tuple —
+# inline copies are how #4236's DetachedInstanceError happened elsewhere.
+_PLAYLIST_DETAIL_OPTIONS = (
+    selectinload(Playlist.tracks).selectinload(Track.artists),
+    selectinload(Playlist.tracks).selectinload(Track.genres),
+    selectinload(Playlist.tracks).selectinload(Track.album),
+)
+
+
 
 class PlaylistCrudMixin(BaseRepository):
     """Single-playlist create/get/update/delete, sharing the repository's session factory.
@@ -106,11 +116,8 @@ class PlaylistCrudMixin(BaseRepository):
         """Get playlist by ID with eager loading"""
         with self._session_scope() as session:
             playlist = session.execute(
-                select(Playlist).options(
-                    selectinload(Playlist.tracks).selectinload(Track.artists),
-                    selectinload(Playlist.tracks).selectinload(Track.genres),
-                    selectinload(Playlist.tracks).selectinload(Track.album)
-                ).where(Playlist.id == playlist_id)
+                select(Playlist).options(*_PLAYLIST_DETAIL_OPTIONS)
+                .where(Playlist.id == playlist_id)
             ).scalars().first()
 
             if playlist:

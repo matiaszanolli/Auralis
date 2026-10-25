@@ -19,7 +19,20 @@ from sqlalchemy.sql.selectable import ScalarSelect
 
 from ..models import Playlist, Track
 from ..models.base import track_playlist
-from .base import BaseRepository, correlated_count, escape_like
+from .base import correlated_sum, BaseRepository, correlated_count, escape_like
+
+def _playlist_list_aggregates(repo: "PlaylistQueryMixin") -> tuple[Any, ...]:
+    """The per-row aggregates every playlist list read attaches (#6212,
+    #4554): get_all() and search() share one builder so a future list path
+    cannot attach track_count without total_duration."""
+    return (
+        with_expression(
+            Playlist.track_count_expr,
+            correlated_count(track_playlist, track_playlist.c.playlist_id, Playlist),
+        ),
+        with_expression(Playlist.total_duration_expr, repo._total_duration_subquery()),
+    )
+
 
 
 class PlaylistQueryMixin(BaseRepository):
@@ -58,15 +71,9 @@ class PlaylistQueryMixin(BaseRepository):
             # Correlated subqueries, shared with search() so both paths
             # attach identical per-row aggregates. Mirrors the pattern already
             # used in ArtistRepository.get_all().
-            track_count = correlated_count(track_playlist, track_playlist.c.playlist_id, Playlist)
-            total_duration = self._total_duration_subquery()
-
             playlists = session.execute(
                 select(Playlist)
-                .options(
-                    with_expression(Playlist.track_count_expr, track_count),
-                    with_expression(Playlist.total_duration_expr, total_duration),
-                )
+                .options(*_playlist_list_aggregates(self))
                 .order_by(Playlist.name)
                 .limit(limit)
                 .offset(offset)
@@ -82,17 +89,12 @@ class PlaylistQueryMixin(BaseRepository):
             return list(playlists), total
 
     def _total_duration_subquery(self) -> ScalarSelect[float]:
-        """Correlated SUM of a playlist's track durations.
-
-        COALESCE because SUM over zero rows is NULL, unlike COUNT.
-        """
-        return (
-            select(func.coalesce(func.sum(Track.duration), 0.0))
-            .select_from(track_playlist)
-            .join(Track, Track.id == track_playlist.c.track_id)
-            .where(track_playlist.c.playlist_id == Playlist.id)
-            .correlate(Playlist)
-            .scalar_subquery()
+        """Correlated SUM of a playlist's track durations — base.correlated_sum
+        (the association-table shape via join_model), one builder shared with
+        albums (#6212)."""
+        return correlated_sum(
+            track_playlist, Track.duration,
+            track_playlist.c.playlist_id, Playlist, join_model=Track,
         )
 
     def search(self, query: str, limit: int = 50, offset: int = 0) -> tuple[list[Playlist], int]:
@@ -132,10 +134,7 @@ class PlaylistQueryMixin(BaseRepository):
             # to_dict() reports track_count 0 for search hits (#4554).
             playlists = session.execute(
                 select(Playlist)
-                .options(
-                    with_expression(Playlist.track_count_expr, correlated_count(track_playlist, track_playlist.c.playlist_id, Playlist)),
-                    with_expression(Playlist.total_duration_expr, self._total_duration_subquery()),
-                )
+                .options(*_playlist_list_aggregates(self))
                 .where(search_filter)
                 # Playlist.name is not unique, so id is the stable tiebreaker
                 # that keeps LIMIT/OFFSET pages from overlapping (cf. #4796).

@@ -18,18 +18,13 @@ from sqlalchemy.orm import Session, joinedload, selectinload, with_expression
 from ..artwork import create_artwork_extractor
 from ..models import Album, Artist, Track
 from .album_artwork import AlbumArtworkMixin
-from .base import correlated_count, escape_like
+from .base import correlated_count, correlated_sum, escape_like
 
 
 def _total_duration_subquery() -> Any:
-    """Correlated SUM of an album's track durations. COALESCE because SUM
-    over zero rows is NULL, unlike COUNT (#4777)."""
-    return (
-        select(func.coalesce(func.sum(Track.duration), 0.0))
-        .where(Track.album_id == Album.id)
-        .correlate(Album)
-        .scalar_subquery()
-    )
+    """Correlated SUM of an album's track durations — base.correlated_sum
+    (the direct-FK shape), one builder shared with playlists (#6212)."""
+    return correlated_sum(Track, Track.duration, Track.album_id, Album)
 
 
 # Named eager-load constants (#5028), mirroring track_repository.py's
