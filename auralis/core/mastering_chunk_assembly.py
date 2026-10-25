@@ -107,6 +107,21 @@ def apply_true_peak_guard(pipeline: 'SimpleMasteringPipeline', processed_chunk: 
     return processed_chunk
 
 
+def true_peak_4x(write_region: np.ndarray) -> float:
+    """4x-oversampled peak of a final (samples, channels) signal (#5694).
+
+    Same measurement the guard's no-pre-scan branch uses; on a resampler
+    failure the sample peak times the #4970 overshoot ratio is the
+    conservative fallback (it slightly over-estimates, which only makes a
+    correction derived from it safer).
+    """
+    try:
+        from scipy.signal import resample_poly as _rsp
+        return float(np.max(np.abs(_rsp(write_region, 4, 1, axis=0))))
+    except Exception:
+        return float(np.max(np.abs(write_region))) * _TRUE_PEAK_OVERSHOOT_RATIO
+
+
 def merge_stage_info(info: dict[str, Any] | None, chunk_info: dict[str, Any]) -> dict[str, Any]:
     """Retain the first chunk's metadata, but report every stage that ran anywhere in the file.
 

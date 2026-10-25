@@ -15,6 +15,7 @@ Extracted from simple_mastering.py's _master_file_impl "Step 3" (#4072).
 
 import os
 import tempfile
+from contextlib import nullcontext
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -26,6 +27,7 @@ from .mastering_chunk_assembly import (
     assemble_write_region,
     merge_stage_info,
     read_chunk,
+    true_peak_4x,
 )
 from .mastering_process_chunk import compute_peak_db
 
@@ -94,6 +96,35 @@ def process_chunks(
     # encoding/atomic_io.py (#4576), reimplemented rather than imported:
     # auralis-web is not an importable package from the engine, and depending
     # on the web backend from auralis/ would invert the layering.
+
+    # #5694: measurement pre-pass. The chain's file-level gain is keyed to the
+    # INPUT peak (prepare_file's _song_peak_db), but the stages in between
+    # (makeup gain, EQ shelves, exciter, loudness maximizer) do NOT preserve
+    # the peak: for quiet sources the chain already lifts the peak toward the
+    # ceiling and the input-keyed gain is applied on top, leaving the final
+    # np.clip as the only protection — hard clipping. Instead of assuming a
+    # peak-transfer ratio, run the identical render once with no sink, measure
+    # the actual final signal, and derive ONE uniform correction from it.
+    # Constant, so #5559's macro-dynamics invariant (a quiet movement is not
+    # raised to the loudest section's level) is untouched.
+    _, _, measured_sample_peak, measured_true_peak = _render_to_sink(
+        pipeline, input_path, None, sr, total_frames, fingerprint,
+        intensity, config, verbose, crossfade_samples, chunk_size,
+        out_channels,
+    )
+    _tp_ceiling = 10 ** (-0.5 / 20)
+    correction_gain = min(
+        1.0,
+        0.99 / max(measured_sample_peak, 1e-9),
+        _tp_ceiling / max(measured_true_peak, 1e-9),
+    )
+    if verbose and correction_gain < 1.0:
+        print(
+            f"   Two-pass peak correction: {20 * np.log10(correction_gain):+.2f} dB "
+            f"(measured sample peak {measured_sample_peak:.3f}, "
+            f"true peak {measured_true_peak:.3f})"
+        )
+
     final_path = Path(output_path)
     final_path.parent.mkdir(parents=True, exist_ok=True)
     # mkstemp always makes its inode mode 0600. Since os.replace preserves that
@@ -107,10 +138,10 @@ def process_chunks(
         tmp_path = Path(stage_dir) / f"render.part{final_path.suffix}"
         tmp_fd = os.open(tmp_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666)
         os.close(tmp_fd)
-        info, chunks_processed = _render_to_sink(
+        info, chunks_processed, _, _ = _render_to_sink(
             pipeline, input_path, tmp_path, sr, total_frames, fingerprint,
             intensity, config, verbose, crossfade_samples, chunk_size,
-            out_channels,
+            out_channels, correction_gain=correction_gain,
         )
         # The renderer has closed SoundFile by now. Flush the complete staged
         # bytes before replacing the visible destination (cf. #4576).
@@ -126,7 +157,7 @@ def process_chunks(
 def _render_to_sink(
     pipeline: 'SimpleMasteringPipeline',
     input_path: Path,
-    output_path: Path,
+    output_path: Path | None,
     sr: int,
     total_frames: int,
     fingerprint: dict[str, Any],
@@ -136,20 +167,41 @@ def _render_to_sink(
     crossfade_samples: int,
     chunk_size: int,
     out_channels: int,
-) -> tuple[dict[str, Any], int]:
+    correction_gain: float = 1.0,
+) -> tuple[dict[str, Any], int, float, float]:
     """Render every chunk into ``output_path``. Raises if the render is short.
 
     Split out of process_chunks so the staging/rename lives in one place and
     this stays the pure render (#5109).
+
+    ``output_path=None`` is the measurement pass of the two-pass render
+    (#5694): identical processing, nothing written; instead the maximum
+    sample peak and 4x-oversampled true peak of the would-be output (the
+    post-assembly, PRE-clip signal) are accumulated and returned alongside
+    the info, so process_chunks can derive one uniform correction gain.
+
+    ``correction_gain`` (#5694) is a constant multiplier applied after the
+    True Peak guard; constant so macro-dynamics (#5559) are untouched, and
+    linear so it commutes with the crossfade assembly.
     """
     info: dict[str, Any] | None = None
+    measured_sample_peak = 0.0
+    measured_true_peak = 0.0
+
+    # The pipeline is deterministic per chunk for a given file (no cross-chunk
+    # DSP state; `_notches` is written once per file by prepare and only
+    # read), so the measurement pass reproduces this render's outputs
+    # exactly — that is what makes a two-pass gain correction sound.
     with sf.SoundFile(str(input_path)) as audio_file:
-        with sf.SoundFile(
-            str(output_path),
-            mode='w',
-            samplerate=sr,
-            channels=out_channels,
-            subtype='PCM_24'
+        with (
+            nullcontext(None) if output_path is None
+            else sf.SoundFile(
+                str(output_path),
+                mode='w',
+                samplerate=sr,
+                channels=out_channels,
+                subtype='PCM_24'
+            )
         ) as output_file:
             chunks_processed = 0
             total_chunks = int(np.ceil(total_frames / chunk_size))
@@ -178,6 +230,11 @@ def _render_to_sink(
                 )
                 processed_chunk = apply_true_peak_guard(pipeline, processed_chunk)
 
+                # #5694: the uniform two-pass correction (1.0 in the
+                # measurement pass itself).
+                if correction_gain != 1.0:
+                    processed_chunk = processed_chunk * correction_gain
+
                 # #3700: sample-count invariant — crossfade slice arithmetic
                 # below assumes _process() preserves the time axis. A future
                 # DSP regression (resampling, time-stretch, IIR padding bug)
@@ -200,16 +257,30 @@ def _render_to_sink(
                 # so unconditional transpose is correct here too (issue #2292).
                 write_region = write_region.T
 
-                # #3660: explicit clamp to [-1.0, 1.0] before PCM_24 encode —
-                # mirrors the saver.py fix from #3471. Crossfade
-                # constructive interference at chunk boundaries can push
-                # samples slightly out of range; libsndfile's implicit
-                # clipping behaviour varies across builds.
-                write_region = np.clip(write_region, -1.0, 1.0)
+                if output_file is None:
+                    # Measurement pass (#5694): record the final pre-clip
+                    # signal's peaks. Post-assembly so crossfade constructive
+                    # interference (#3660) is included; pre-clip so the number
+                    # is what the write clamp would see.
+                    measured_sample_peak = max(
+                        measured_sample_peak, float(np.max(np.abs(write_region)))
+                    )
+                    measured_true_peak = max(
+                        measured_true_peak, true_peak_4x(write_region)
+                    )
+                else:
+                    # #3660: explicit clamp to [-1.0, 1.0] before PCM_24 encode —
+                    # mirrors the saver.py fix from #3471. Crossfade
+                    # constructive interference at chunk boundaries can push
+                    # samples slightly out of range; libsndfile's implicit
+                    # clipping behaviour varies across builds.
+                    write_region = np.clip(write_region, -1.0, 1.0)
 
-                output_file.write(write_region)
-                # Commit new tail only after write succeeds: if concatenate or
-                # write raises, prev_tail retains the last-good value (#2429).
+                    output_file.write(write_region)
+                # Commit new tail only after the write succeeds (or, in the
+                # measurement pass, after the equivalent bookkeeping): if
+                # anything raises, prev_tail retains the last-good value
+                # (#2429).
                 prev_tail = new_tail
 
                 chunks_processed += 1
@@ -233,4 +304,10 @@ def _render_to_sink(
             f"yielding samples before {total_frames} frames were read."
         )
 
-    return info if info is not None else {'stages': []}, chunks_processed
+    return (
+        info if info is not None else {'stages': []},
+        chunks_processed,
+        measured_sample_peak,
+        measured_true_peak,
+    )
+

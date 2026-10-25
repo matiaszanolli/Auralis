@@ -25,6 +25,9 @@ def _load_stage_module():
     fake_assembly = types.ModuleType("auralis.core.mastering_chunk_assembly")
     for name in ("apply_true_peak_guard", "assemble_write_region", "merge_stage_info", "read_chunk"):
         setattr(fake_assembly, name, lambda *args, **kwargs: None)
+    # #5694: the loop's measurement pass reads the 4x-oversampled peak from
+    # here as well.
+    fake_assembly.true_peak_4x = lambda *args, **kwargs: 0.0
     stubbed = {
         "auralis.core.mastering_chunk_assembly": fake_assembly,
         "auralis": types.ModuleType("auralis"),
@@ -47,11 +50,16 @@ def _load_stage_module():
 def _publish(module, output: Path, payload: bytes = b"completed master"):
     config = types.SimpleNamespace(CROSSFADE_DURATION_SEC=0.1, CHUNK_DURATION_SEC=1)
 
-    def render(*args):
+    def render(*args, **kwargs):
         # The real renderer reopens the precreated inode and closes it before
         # publication; replace it with a deterministic write to that same path.
-        Path(args[2]).write_bytes(payload)
-        return {"stages": ["test"]}, 1
+        # #5694: _render_to_sink returns (info, chunks, sample_peak, true_peak)
+        # — measured peaks under the ceilings so no correction engages and
+        # this test stays focused on publication semantics. The measurement
+        # pass passes output_path=None and must not write anything.
+        if args[2] is not None:
+            Path(args[2]).write_bytes(payload)
+        return {"stages": ["test"]}, 1, 0.5, 0.5
 
     with mock.patch.object(module, "_render_to_sink", side_effect=render):
         return module.process_chunks(None, Path("unused.wav"), str(output), 8000,
