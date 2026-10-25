@@ -18,6 +18,8 @@ export type { LibraryStats };
 
 export interface UseLibraryWithStatsOptions {
   view: string;
+  /** Debounced server-side search, forwarded to pagination (#5866). */
+  search?: string;
   autoLoad?: boolean;
   includeStats?: boolean;
 }
@@ -47,6 +49,7 @@ export interface UseLibraryWithStatsReturn {
 
 export const useLibraryWithStats = ({
   view,
+  search,
   autoLoad = true,
   includeStats = true,
 }: UseLibraryWithStatsOptions): UseLibraryWithStatsReturn => {
@@ -54,7 +57,7 @@ export const useLibraryWithStats = ({
   // return; each sub-hook owns its own abort lifecycle (it aborts its previous
   // request on every new call AND on unmount), so the parent no longer aborts
   // them (#4193 — the old parent cleanup was a redundant double-abort).
-  const { fetchTracks, refreshTracks, loadMore, fetchAbortRef: _fetchAbortRef, ...paginationState } = useLibraryPagination({ view });
+  const { fetchTracks, refreshTracks, loadMore, fetchAbortRef: _fetchAbortRef, ...paginationState } = useLibraryPagination({ view, search });
   const { refetchStats, statsAbortRef: _statsAbortRef, ...statsState } = useLibraryStats({ includeStats });
   const { handleScanFolder, scanAbortRef: _scanAbortRef, ...scanState } = useLibraryScan({
     includeStats,
@@ -71,7 +74,7 @@ export const useLibraryWithStats = ({
       fetchTracks();
       if (includeStats) refetchStats();
     }
-  }, [view, autoLoad, includeStats, fetchTracks, refetchStats]);
+  }, [view, search, autoLoad, includeStats, fetchTracks, refetchStats]);
 
   // Refresh library data when backend broadcasts library_updated (#2871).
   // #5626: in-place — a scan finishing elsewhere must not skeleton-tear the

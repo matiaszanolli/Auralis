@@ -16,7 +16,7 @@
  * - Component composition
  */
 
-import { memo, useMemo, lazy, Suspense } from 'react';
+import { memo, useMemo, useState, useEffect, lazy, Suspense } from 'react';
 import { Box } from '@mui/material';
 import BatchActionsToolbar from './Controls/BatchActionsToolbar';
 // Lazy-load the on-demand dialogs so their (~760 LOC + transitive deps) bundle
@@ -70,6 +70,15 @@ const CozyLibraryView = memo<CozyLibraryViewProps>(({
   // Sidebar playlist clicks set `playlist-<id>` view ids (#6007).
   const playlistId = parsePlaylistViewId(view);
 
+  // #5866: debounce the top-bar query before it hits the backend, so typing
+  // does not fire a request per keystroke. The client-side filter below still
+  // runs on the un-debounced value for instant feedback over loaded pages.
+  const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery), 250);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
   // ── DATA LAYER ──
   const {
     tracks,
@@ -81,7 +90,12 @@ const CozyLibraryView = memo<CozyLibraryViewProps>(({
     totalTracks,
     isLoadingMore,
     loadMore,
-  } = useLibraryWithStats({ view, includeStats: false, autoLoad: playlistId === null });
+  } = useLibraryWithStats({
+    view,
+    search: debouncedSearch,
+    includeStats: false,
+    autoLoad: playlistId === null,
+  });
 
   // Filtered tracks (search)
   const filteredTracks = useMemo(() => {
@@ -181,6 +195,7 @@ const CozyLibraryView = memo<CozyLibraryViewProps>(({
     return (
       <LibraryViewRouter
         view={view}
+        searchQuery={debouncedSearch}
         playlistId={playlistId}
         onBackToSongs={onNavigate ? () => onNavigate('songs') : undefined}
         selectedAlbumId={selectedAlbumId}

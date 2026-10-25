@@ -35,6 +35,8 @@ const ALBUM_SORT_OPTIONS = [
 
 export interface LibraryViewRouterProps {
   view: string;
+  /** Debounced top-bar query; forwarded to the albums/artists backend search (#5866). */
+  searchQuery?: string;
   selectedAlbumId: number | null;
   selectedArtistId: number | null;
   selectedArtistName: string;
@@ -58,6 +60,7 @@ export interface LibraryViewRouterProps {
  */
 export const LibraryViewRouter = ({
   view,
+  searchQuery = '',
   selectedAlbumId,
   selectedArtistId,
   selectedArtistName,
@@ -89,7 +92,7 @@ export const LibraryViewRouter = ({
   // unconditionally — calling them inside this `if` branch was a Rules-of-Hooks
   // violation that corrupted fiber state slots on view transitions (#3924).
   if (view === 'albums') {
-    return <AlbumsView onAlbumClick={onAlbumClick} />;
+    return <AlbumsView onAlbumClick={onAlbumClick} search={searchQuery} />;
   }
 
   // Artists view
@@ -109,7 +112,7 @@ export const LibraryViewRouter = ({
     // Artist list view
     return (
       <ViewContainer icon="🎤" title="Artists" subtitle="Browse artists in your music library">
-        <CozyArtistList onArtistClick={onArtistClick} />
+        <CozyArtistList onArtistClick={onArtistClick} search={searchQuery} />
       </ViewContainer>
     );
   }
@@ -126,9 +129,10 @@ export const LibraryViewRouter = ({
  */
 interface AlbumsViewProps {
   onAlbumClick: (albumId: number) => void;
+  search?: string;
 }
 
-const AlbumsView = ({ onAlbumClick }: AlbumsViewProps) => {
+const AlbumsView = ({ onAlbumClick, search }: AlbumsViewProps) => {
   const [hoveredAlbumId, setHoveredAlbumId] = useState<number | null>(null);
   const [hoveredAlbumTitle, setHoveredAlbumTitle] = useState<string | undefined>(undefined);
   const [sortBy, setSortBy] = useState<AlbumSortOption>('az');
@@ -202,6 +206,7 @@ const AlbumsView = ({ onAlbumClick }: AlbumsViewProps) => {
         {/* Main Album Grid */}
         <CozyAlbumGrid
           sortBy={sortBy}
+          search={search}
           onAlbumClick={handleAlbumClick}
           onAlbumHover={handleAlbumHover}
           onAlbumHoverEnd={handleAlbumHoverEnd}

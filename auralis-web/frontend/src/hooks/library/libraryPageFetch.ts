@@ -31,10 +31,16 @@ export interface TracksPage {
   rawCount: number;
 }
 
-export function tracksEndpoint(view: string, offset: number): string {
-  return view === 'favourites'
-    ? `/api/library/tracks/favorites?limit=${PAGE_LIMIT}&offset=${offset}`
-    : `/api/library/tracks?limit=${PAGE_LIMIT}&offset=${offset}`;
+export function tracksEndpoint(view: string, offset: number, search = ''): string {
+  const params = new URLSearchParams({ limit: String(PAGE_LIMIT), offset: String(offset) });
+  // #5866: server-side search (title/artist/album ILIKE) — the client-side
+  // filter only ever saw the already-loaded pages, so anything outside them
+  // showed as a false "no results" in a large library.
+  if (search.trim()) params.set('search', search.trim());
+  const path = view === 'favourites'
+    ? '/api/library/tracks/favorites'
+    : '/api/library/tracks';
+  return `${path}?${params.toString()}`;
 }
 
 /**
@@ -45,9 +51,10 @@ export function tracksEndpoint(view: string, offset: number): string {
 export async function fetchTracksPage(
   view: string,
   offset: number,
-  signal: AbortSignal
+  signal: AbortSignal,
+  search = ''
 ): Promise<TracksPage> {
-  const data = await get<TracksPageResponse>(tracksEndpoint(view, offset), {
+  const data = await get<TracksPageResponse>(tracksEndpoint(view, offset, search), {
     signal,
     validate: isTracksListShape,
   });

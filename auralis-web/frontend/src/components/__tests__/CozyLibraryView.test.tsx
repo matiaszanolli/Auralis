@@ -181,6 +181,7 @@ describe('CozyLibraryView', () => {
 
       expect(useLibraryWithStats).toHaveBeenCalledWith({
         view: 'favourites',
+        search: '',
         includeStats: false,
         autoLoad: true,
       });
@@ -211,6 +212,35 @@ describe('CozyLibraryView', () => {
   // #6007: sidebar playlist clicks set `playlist-<id>` view ids. Before the
   // routing branch existed they fell through to the Songs config and the
   // paginated full-library fetch under a "Songs" heading.
+  describe('Backend-driven search (#5866)', () => {
+    it('passes the debounced query to the data layer as server-side search', async () => {
+      vi.useFakeTimers();
+      try {
+        const { rerender } = render(<CozyLibraryView view="songs" searchQuery="radiohead" />);
+        // The debounce seeds from the initial query, so the first render
+        // already searches (no blank first page).
+        expect(useLibraryWithStats).toHaveBeenLastCalledWith(
+          expect.objectContaining({ view: 'songs', search: 'radiohead' })
+        );
+
+        // A changed query holds the OLD server search until the debounce fires…
+        rerender(<CozyLibraryView view="songs" searchQuery="beatles" />);
+        expect(useLibraryWithStats).toHaveBeenLastCalledWith(
+          expect.objectContaining({ search: 'radiohead' })
+        );
+
+        // …then the data layer is re-keyed with the new term.
+        vi.advanceTimersByTime(250);
+        rerender(<CozyLibraryView view="songs" searchQuery="beatles" />);
+        expect(useLibraryWithStats).toHaveBeenLastCalledWith(
+          expect.objectContaining({ view: 'songs', search: 'beatles' })
+        );
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
+
   describe('Playlist Detail Routing (#6007)', () => {
     it('routes playlist-<id> views to the playlist detail view', () => {
       render(<CozyLibraryView view="playlist-7" />);
@@ -226,6 +256,7 @@ describe('CozyLibraryView', () => {
 
       expect(useLibraryWithStats).toHaveBeenCalledWith({
         view: 'playlist-7',
+        search: '',
         includeStats: false,
         autoLoad: false,
       });
@@ -236,6 +267,7 @@ describe('CozyLibraryView', () => {
 
       expect(useLibraryWithStats).toHaveBeenCalledWith({
         view: 'songs',
+        search: '',
         includeStats: false,
         autoLoad: true,
       });
@@ -248,6 +280,7 @@ describe('CozyLibraryView', () => {
       expect(screen.getByTestId('track-list-view')).toBeInTheDocument();
       expect(useLibraryWithStats).toHaveBeenCalledWith({
         view: 'playlist-notanumber',
+        search: '',
         includeStats: false,
         autoLoad: true,
       });

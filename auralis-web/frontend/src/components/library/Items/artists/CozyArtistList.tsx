@@ -38,9 +38,11 @@ import type { Artist } from '@/types/domain';
 
 interface CozyArtistListProps {
   onArtistClick?: (artistId: number, artistName: string) => void;
+  /** Server-side search term (#5866). */
+  search?: string;
 }
 
-export const CozyArtistList = ({ onArtistClick }: CozyArtistListProps) => {
+export const CozyArtistList = ({ onArtistClick, search }: CozyArtistListProps) => {
   const [contextMenuArtist, setContextMenuArtist] = useState<Artist | null>(null);
 
   // Data fetching with pagination
@@ -51,7 +53,7 @@ export const CozyArtistList = ({ onArtistClick }: CozyArtistListProps) => {
     total: totalArtists,
     hasMore,
     fetchMore,
-  } = useArtistsQuery({ limit: 50 });
+  } = useArtistsQuery({ limit: 50, search });
 
   // Artist grouping by first letter
   const { groupedArtists, sortedLetters } = useGroupedArtists(artists);

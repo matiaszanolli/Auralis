@@ -7,6 +7,8 @@ import { PAGE_LIMIT, fetchTracksPage, friendlyFetchError } from './libraryPageFe
 
 export interface UseLibraryPaginationOptions {
   view: string;
+  /** Server-side search (#5866); changing it re-keys the fetch callbacks. */
+  search?: string;
 }
 
 export interface UseLibraryPaginationReturn {
@@ -24,7 +26,7 @@ export interface UseLibraryPaginationReturn {
   fetchAbortRef: React.MutableRefObject<AbortController | null>;
 }
 
-export const useLibraryPagination = ({ view }: UseLibraryPaginationOptions): UseLibraryPaginationReturn => {
+export const useLibraryPagination = ({ view, search = '' }: UseLibraryPaginationOptions): UseLibraryPaginationReturn => {
   const [tracks, setTracks] = useState<LibraryTrack[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -91,7 +93,7 @@ export const useLibraryPagination = ({ view }: UseLibraryPaginationOptions): Use
         controller = new AbortController();
         fetchAbortRef.current = controller;
 
-        const page = await fetchTracksPage(view, currentOffset, controller.signal);
+        const page = await fetchTracksPage(view, currentOffset, controller.signal, search);
         if (isStale()) return;
 
         setHasMore(page.hasMore);
@@ -129,7 +131,7 @@ export const useLibraryPagination = ({ view }: UseLibraryPaginationOptions): Use
       }
     },
     // Toast fns read via toastRef, so only 'view' affects identity (#3943 / #3378).
-    [view]
+    [view, search]
   );
 
   /**
@@ -171,7 +173,7 @@ export const useLibraryPagination = ({ view }: UseLibraryPaginationOptions): Use
         controller = new AbortController();
         fetchAbortRef.current = controller;
 
-        const page = await fetchTracksPage(view, newOffset, controller.signal);
+        const page = await fetchTracksPage(view, newOffset, controller.signal, search);
         if (isStale()) return;
 
         refreshed.push(...page.tracks);
@@ -225,7 +227,7 @@ export const useLibraryPagination = ({ view }: UseLibraryPaginationOptions): Use
 
       // Same guard as fetchTracks (#5346) — this is the loadMore call site
       // the issue's WIRING check named explicitly.
-      const page = await fetchTracksPage(view, newOffset, controller.signal);
+      const page = await fetchTracksPage(view, newOffset, controller.signal, search);
       if (isStale()) return;
 
       // Commit offset advance only after successful fetch
@@ -249,7 +251,7 @@ export const useLibraryPagination = ({ view }: UseLibraryPaginationOptions): Use
       setIsLoadingMore(false);
       loadMoreInProgressRef.current = false;
     }
-  }, [view]);
+  }, [view, search]);
 
   return { tracks, loading, error, hasMore, totalTracks, offset, isLoadingMore, fetchTracks, refreshTracks, loadMore, fetchAbortRef };
 };

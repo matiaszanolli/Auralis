@@ -39,6 +39,8 @@ interface CozyAlbumGridProps {
   onAlbumHoverEnd?: () => void;
   /** Sort mode: 'az' (alphabetical), 'year' (newest first), 'era' (grouped by era) */
   sortBy?: AlbumSortOption;
+  /** Server-side search term (#5866). */
+  search?: string;
 }
 
 /**
@@ -55,6 +57,7 @@ export const CozyAlbumGrid = ({
   onAlbumHover,
   onAlbumHoverEnd,
   sortBy = 'az',
+  search,
 }: CozyAlbumGridProps) => {
   // Infinite query with TanStack Query
   const {
@@ -63,7 +66,7 @@ export const CozyAlbumGrid = ({
     error,
     fetchNextPage,
     hasNextPage,
-  } = useInfiniteAlbums({ limit: 50 });
+  } = useInfiniteAlbums({ limit: 50, search });
 
   // Flatten all pages into single array
   const albums = useMemo(() => data?.pages.flatMap(page => page.albums) ?? [], [data?.pages]);
