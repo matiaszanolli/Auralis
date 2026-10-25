@@ -15,6 +15,8 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
+from auralis.library.models import Album, Artist, Track
+
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
@@ -115,13 +117,10 @@ class TestLibraryEndpoints:
 
     def test_get_tracks_with_mock(self, client):
         """Test getting tracks with mocked data"""
-        # Create a mock track with proper attribute values to avoid serialization issues
-        mock_track = Mock()
-        mock_track.id = 1
-        mock_track.title = "Test Song"
-        mock_track.filepath = "/path/to/song.mp3"
-        mock_track.duration = 180
-        mock_track.format = "mp3"
+        # A real (transient) Track: serialize_tracks() calls its to_dict().
+        # favorite is set because the column default only applies at flush.
+        mock_track = Track(id=1, title="Test Song", filepath="/path/to/song.mp3",
+                           duration=180, format="mp3", favorite=False)
 
         mock_factory = Mock()
         # tracks.get_all returns (tracks, total) tuple
@@ -145,13 +144,8 @@ class TestLibraryEndpoints:
 
     def test_get_tracks_with_search_mock(self, client):
         """Test track search with mocked data"""
-        # Create a mock track with proper attribute values to avoid serialization issues
-        mock_track = Mock()
-        mock_track.id = 2
-        mock_track.title = "Test Result"
-        mock_track.filepath = "/path/to/result.wav"
-        mock_track.duration = 0  # Default from DEFAULT_TRACK_FIELDS
-        mock_track.format = "Unknown"  # Default from DEFAULT_TRACK_FIELDS
+        mock_track = Track(id=2, title="Test Result", filepath="/path/to/result.wav",
+                           duration=0, format="Unknown", favorite=False)
 
         mock_factory = Mock()
         # search returns (list, total) tuple
@@ -907,20 +901,10 @@ class TestFavoritesEndpoints:
 
     def test_get_favorites_success(self, client):
         """Test getting favorite tracks"""
-        # Create mock tracks with proper attribute values to avoid serialization issues
-        mock_track1 = Mock()
-        mock_track1.id = 1
-        mock_track1.title = "Track 1"
-        mock_track1.filepath = "/path/to/track1.wav"
-        mock_track1.duration = 180
-        mock_track1.format = "Unknown"
-
-        mock_track2 = Mock()
-        mock_track2.id = 2
-        mock_track2.title = "Track 2"
-        mock_track2.filepath = "/path/to/track2.wav"
-        mock_track2.duration = 200
-        mock_track2.format = "Unknown"
+        mock_track1 = Track(id=1, title="Track 1", filepath="/path/to/track1.wav",
+                            duration=180, format="Unknown", favorite=True)
+        mock_track2 = Track(id=2, title="Track 2", filepath="/path/to/track2.wav",
+                            duration=200, format="Unknown", favorite=True)
 
         mock_factory = Mock()
         # Endpoint calls repos.tracks.get_favorites(), which returns (tracks, total)
@@ -1235,22 +1219,9 @@ class TestAlbumArtistEndpoints:
 
     def test_get_album_detail_success(self, client):
         """Test getting album details"""
-        # Create mock album with spec to prevent infinite Mock recursion
-        # Use a dict-like object instead of Mock to avoid JSON serialization issues
-        from types import SimpleNamespace
-
-        album_data = {
-            'id': 1,
-            'title': 'Test Album',
-            # routers/albums.py's get_album accesses album.artist.name (an ORM
-            # relationship), not a plain string.
-            'artist': SimpleNamespace(name='Test Artist'),
-            'year': 2024,
-            'artwork_path': None,
-            'tracks': []
-        }
-        # Convert dict to object-like mock with attributes
-        mock_album = SimpleNamespace(**album_data)
+        # A real (transient) Album: serialize_album() calls its to_dict().
+        mock_album = Album(id=1, title='Test Album', artist=Artist(name='Test Artist'),
+                           year=2024, artwork_path=None)
 
         # Router uses repository_factory (not library_database) via get_repository_factory
         mock_factory = Mock()
@@ -1275,26 +1246,10 @@ class TestAlbumArtistEndpoints:
 
     def test_get_albums_list(self, client):
         """Test getting albums list (moved to /api/albums in #2509)"""
-        # Use SimpleNamespace instead of Mock to avoid JSON serialization recursion issues
-        from types import SimpleNamespace
-
-        mock_album1 = SimpleNamespace(
-            id=1,
-            title="Album 1",
-            artist="Artist 1",
-            year=2023,
-            artwork_path=None,
-            tracks=[]
-        )
-
-        mock_album2 = SimpleNamespace(
-            id=2,
-            title="Album 2",
-            artist="Artist 2",
-            year=2024,
-            artwork_path=None,
-            tracks=[]
-        )
+        mock_album1 = Album(id=1, title="Album 1", artist=Artist(name="Artist 1"),
+                            year=2023, artwork_path=None)
+        mock_album2 = Album(id=2, title="Album 2", artist=Artist(name="Artist 2"),
+                            year=2024, artwork_path=None)
 
         # Router uses repository_factory (not library_database) via get_repository_factory
         # get_all returns (albums, total) tuple for pagination support
@@ -1371,10 +1326,7 @@ class TestPlaylistEndpoints:
 
     def test_get_playlist_by_id_success(self, client):
         """Test getting playlist by ID"""
-        # Raw attributes, not to_dict.return_value: serialize_playlist()
-        # (routers/serializers.py) deliberately skips to_dict() for Mock
-        # objects and falls back to getattr() per DEFAULT_PLAYLIST_FIELDS
-        # (fixes #4306 — matches the existing artist/album mock convention).
+        # serialize_playlist() returns the row's own to_dict() (#5803).
         mock_playlist = Mock()
         mock_playlist.id = 1
         mock_playlist.name = "My Playlist"

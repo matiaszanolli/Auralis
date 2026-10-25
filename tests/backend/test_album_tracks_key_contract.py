@@ -23,7 +23,7 @@ import pytest
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT / "auralis-web" / "backend"))
 
-from routers.serializers import DEFAULT_TRACK_FIELDS
+from auralis.library.models import Track
 from routers.serializers_library import serialize_tracks
 
 _TRANSFORMER = (
@@ -37,21 +37,12 @@ _REQUIRED_WIRE_KEYS = {
 }
 
 
-class _FakeTrack:
-    """A track without to_dict(), exercising the getattr fallback path."""
-
-    def __init__(self):
-        self.id = 1
-        self.title = "Angel of Death"
-        self.artist = "Slayer"
-        self.album = "Reign in Blood"
-        self.duration = 286.0
-        self.format = "flac"
-        self.artwork_url = "/api/albums/1/artwork"
-        self.album_id = 1
-        self.track_number = 3
-        self.disc_number = 2
-        self.favorite = True
+def _real_track() -> Track:
+    """A transient ORM row; serialize_tracks goes through its to_dict()."""
+    return Track(
+        id=1, title="Angel of Death", duration=286.0, format="flac",
+        album_id=1, track_number=3, disc_number=2, favorite=True,
+    )
 
 
 def _transformer_source() -> str:
@@ -64,21 +55,20 @@ def _transformer_source() -> str:
 
 
 class TestEmittedKeys:
-    def test_fallback_serializer_emits_every_required_key(self):
-        data = serialize_tracks([_FakeTrack()])[0]
+    def test_serializer_emits_every_required_key(self):
+        data = serialize_tracks([_real_track()])[0]
 
         missing = _REQUIRED_WIRE_KEYS - set(data)
         assert not missing, f"album-detail keys missing from the payload: {sorted(missing)}"
 
-    def test_default_fields_are_all_snake_case(self):
+    def test_emitted_keys_are_all_snake_case(self):
         """No camelCase key may creep into this endpoint's payload."""
-        camel = [k for k in DEFAULT_TRACK_FIELDS if re.search(r"[a-z][A-Z]", k)]
-        assert not camel, f"camelCase keys in DEFAULT_TRACK_FIELDS: {camel}"
+        camel = [k for k in serialize_tracks([_real_track()])[0] if re.search(r"[a-z][A-Z]", k)]
+        assert not camel, f"camelCase keys in the track payload: {camel}"
 
     def test_filepath_is_not_emitted(self):
         """#3205/#4586: the server-side path stays server-side."""
-        assert "filepath" not in DEFAULT_TRACK_FIELDS
-        assert "filepath" not in serialize_tracks([_FakeTrack()])[0]
+        assert "filepath" not in serialize_tracks([_real_track()])[0]
 
 
 class TestTransformerReadsWhatBackendEmits:
@@ -94,9 +84,12 @@ class TestTransformerReadsWhatBackendEmits:
             )
 
     def test_transformer_does_not_read_keys_the_backend_never_sends(self):
-        """`artist`/`genre` singular are tolerated fallbacks, but the array forms
-        are what Track.to_dict() actually emits and must be read first."""
+        """Track.to_dict() emits the array forms only (#5823); the transformer
+        must read those and none of the singular/aliased twins."""
         src = _transformer_source()
 
         assert "apiTrack.artists?.[0]" in src
         assert "apiTrack.genres?.[0]" in src
+        for twin in ("apiTrack.artist ", "apiTrack.genre ", "apiTrack.date_added",
+                     "apiTrack.date_modified", "apiTrack.loudness"):
+            assert twin not in src, f"transformTrack() still reads the twin `{twin.strip()}`"

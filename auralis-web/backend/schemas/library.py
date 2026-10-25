@@ -25,7 +25,8 @@ class LibraryScanRequest(BaseModel):
         Shared with PUT /api/settings' scan_folders handling via
         validate_directory_list (#4765) — see its docstring.
         """
-        from security.path_security import PathValidationError, validate_directory_list
+        from security.path_errors import PathValidationError
+        from security.path_security import validate_directory_list
 
         try:
             return validate_directory_list(v)
@@ -66,15 +67,12 @@ class ScanResultResponse(BaseModel):
 # Library Domain Response Models (#3838)
 # ============================================================================
 #
-# These mirror what the API actually emits, which is the union of two shapes:
-# the ORM `Model.to_dict()` (preferred by `routers/serializers.serialize_object`)
-# and the `DEFAULT_*_FIELDS` getattr fallback it uses for Mocks and detached
-# objects. Both paths are live, and they do NOT agree — `DEFAULT_TRACK_FIELDS`
-# carries `artist`/`genre`/`date_added`/`date_modified`, which `Track.to_dict()`
-# never emits, while `to_dict()` carries a dozen analysis fields the fallback
-# omits. A `response_model` FILTERS anything it does not declare, so a model
-# built from only one of the two would silently delete fields from responses.
-# `tests/backend/test_response_model_coverage.py` pins the union mechanically.
+# These mirror what the API actually emits: the ORM `Model.to_dict()` output
+# that `routers/serializers.serialize_object` returns verbatim. A
+# `response_model` FILTERS anything it does not declare, so a field missing here
+# is silently deleted from responses;
+# `tests/backend/test_response_model_coverage.py` pins each model to the key set
+# its `to_dict()` emits.
 #
 # Every field is optional with a default for the same reason: `Track.to_dict()`
 # has an except-branch that returns only 11 of its 36 keys for a detached
@@ -83,10 +81,10 @@ class ScanResultResponse(BaseModel):
 
 
 class TrackResponse(BaseModel):
-    """A serialized library track (`serializers.serialize_tracks`).
+    """A serialized library track (`serializers_library.serialize_tracks`).
 
     `filepath` is deliberately absent — #3205 made the server-side path
-    server-only, and neither serialization path emits it.
+    server-only, and `Track.to_dict()` does not emit it.
     """
 
     # Core identity
@@ -108,16 +106,13 @@ class TrackResponse(BaseModel):
     dr_rating: float | None = Field(default=None, description="Dynamic range rating")
     lufs_level: float | None = Field(default=None, description="Integrated loudness (LUFS)")
     mastering_quality: float | None = Field(default=None, description="Quality score (0–1)")
-    loudness: float | None = Field(default=None, description="Loudness (fallback path)")
     recommended_reference: str | None = Field(default=None, description="Best reference track")
     processing_profile: str | None = Field(default=None, description="Optimal mastering profile")
 
     # Metadata / navigation
     album_id: int | None = Field(default=None, description="Owning album ID")
     album: str | None = Field(default=None, description="Album title")
-    artist: str | None = Field(default=None, description="Primary artist name (fallback path)")
     artists: list[str] = Field(default_factory=list, description="All artist names")
-    genre: str | None = Field(default=None, description="Primary genre name (fallback path)")
     genres: list[str] = Field(default_factory=list, description="All genre names")
     track_number: int | None = Field(default=None, description="Track number within the disc")
     disc_number: int | None = Field(default=None, description="Disc number")
@@ -132,12 +127,9 @@ class TrackResponse(BaseModel):
     skip_count: int | None = Field(default=None, description="Times skipped")
     favorite: bool = Field(default=False, description="Favorite flag")
 
-    # Timestamps. `created_at`/`updated_at` come from to_dict(); the
-    # `date_added`/`date_modified` aliases come from the getattr fallback.
+    # Timestamps
     created_at: str | None = Field(default=None, description="Row creation timestamp (ISO 8601)")
     updated_at: str | None = Field(default=None, description="Row update timestamp (ISO 8601)")
-    date_added: str | None = Field(default=None, description="Alias of created_at (fallback path)")
-    date_modified: str | None = Field(default=None, description="Alias of updated_at (fallback path)")
 
 
 class TrackListResponse(BaseModel):

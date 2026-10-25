@@ -12,8 +12,8 @@ from pydantic import BaseModel
 class ArtistResponse(BaseModel):
     """Artist information response.
 
-    Covers the union of `Artist.to_dict()` and `DEFAULT_ARTIST_FIELDS` — the
-    two shapes `serialize_artist()` can return. The five fields below the
+    Covers the key set of `Artist.to_dict()`, which `serialize_artist()`
+    returns. The five fields below the
     artwork pair were missing until #3838: `response_model` filters anything
     it does not declare, so `/api/artists` was silently stripping them from
     every response with no error and no log line. Pinned by
@@ -52,8 +52,8 @@ class TrackInArtist(BaseModel):
     track_number: int | None = None
     disc_number: int | None = None
     # #4586: every other track-returning endpoint ships `format` (it is in
-    # DEFAULT_TRACK_FIELDS and Track.to_dict()); this model was the one that
-    # did not, so artist-sourced queue entries lost format-aware handling.
+    # Track.to_dict()); this model was the one that did not, so
+    # artist-sourced queue entries lost format-aware handling.
     format: str | None = None
 
 

@@ -19,6 +19,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from auralis.analysis.fingerprint.schema import CENTROID_NORMALIZATION_HZ, ROLLOFF_NORMALIZATION_HZ
+from auralis.library.models import Album, Artist, Track
 
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
@@ -29,67 +30,40 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "ba
 
 
 @pytest.fixture
-def mock_album():
-    """Create a mock album object"""
-    album = Mock(spec=['id', 'title', 'artist', 'artist_id', 'year', 'tracks', 'total_tracks', 'total_discs',
-                       'artwork_path', 'avg_dr_rating', 'avg_lufs', 'mastering_consistency',
-                       'created_at', 'updated_at', 'track_count', 'total_duration'])
-    album.id = 1
-    album.title = "Test Album"
-
-    # Create artist mock without circular references
-    artist = Mock(spec=['name'])
-    artist.name = "Test Artist"
-    album.artist = artist
-    album.artist_id = 1
-
-    album.year = 2024
-    album.total_tracks = 2
-    album.total_discs = 1
-    album.artwork_path = None
-    album.avg_dr_rating = 12.0
-    album.avg_lufs = -14.0
-    album.mastering_consistency = 0.85
-    album.created_at = datetime.now(timezone.utc)
-    album.updated_at = datetime.now(timezone.utc)
-
-    # Create track mocks without circular album references
-    track1 = Mock(spec=['duration'])
-    track1.duration = 180
-    track2 = Mock(spec=['duration'])
-    track2.duration = 200
-    album.tracks = [track1, track2]
-
-    # #4777: serialize_album() no longer re-derives these from `.tracks` (the
-    # real Album.to_dict() computes them via the repository's SQL aggregates
-    # or, absent those, its own `tracks` walk — either way, upstream of
-    # serialize_album). Since this Mock deliberately skips to_dict() (see
-    # serialize_object's Mock guard) and falls back to plain getattr(), set
-    # the values directly so the fallback path matches what a real
-    # Album.to_dict() output would already carry.
-    album.track_count = len(album.tracks)
-    album.total_duration = sum(t.duration for t in album.tracks)
-
-    return album
+def album_row():
+    """A real (transient) Album: serialize_object() calls its own to_dict()."""
+    return Album(
+        id=1,
+        title="Test Album",
+        artist=Artist(name="Test Artist"),
+        artist_id=1,
+        year=2024,
+        total_tracks=2,
+        total_discs=1,
+        artwork_path=None,
+        avg_dr_rating=12.0,
+        avg_lufs=-14.0,
+        mastering_consistency=0.85,
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+        # Album.to_dict() derives track_count/total_duration from `tracks` when
+        # the query supplied no SQL aggregates (#4777).
+        tracks=[Track(duration=180), Track(duration=200)],
+    )
 
 
 @pytest.fixture
-def mock_track():
-    """Create a mock track object"""
-    track = Mock(spec=['id', 'title', 'album', 'duration', 'track_number', 'disc_number'])
-    track.id = 1
-    track.title = "Test Track"
-
-    # Create album mock without circular track references
-    album_mock = Mock(spec=['title', 'id'])
-    album_mock.title = "Test Album"
-    album_mock.id = 1
-    track.album = album_mock
-
-    track.duration = 180
-    track.track_number = 1
-    track.disc_number = 1
-    return track
+def track_row():
+    """A real (transient) Track belonging to its own album."""
+    return Track(
+        id=1,
+        title="Test Track",
+        album=Album(id=1, title="Test Album"),
+        duration=180,
+        track_number=1,
+        disc_number=1,
+        favorite=False,  # column default applies only at flush
+    )
 
 
 @pytest.fixture
@@ -189,9 +163,9 @@ class TestGetAlbums:
         # the framework level before the handler ever runs.
         assert response.status_code == 422
 
-    def test_get_albums_with_mocked_data(self, client, mock_album, mock_repos):
+    def test_get_albums_with_mocked_data(self, client, album_row, mock_repos):
         """Test albums endpoint with mocked repository factory"""
-        mock_repos.albums.get_all.return_value = ([mock_album], 1)
+        mock_repos.albums.get_all.return_value = ([album_row], 1)
 
         with patch('routers.albums_deps.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums?limit=50&offset=0")
@@ -206,10 +180,10 @@ class TestGetAlbums:
             assert data["albums"][0]["track_count"] == 2
             assert data["has_more"] == False
 
-    def test_get_albums_pagination_has_more(self, client, mock_album, mock_repos):
+    def test_get_albums_pagination_has_more(self, client, album_row, mock_repos):
         """Test has_more flag in pagination"""
         # Return 50 albums, total 100
-        mock_albums = [mock_album] * 50
+        mock_albums = [album_row] * 50
         mock_repos.albums.get_all.return_value = (mock_albums, 100)
 
         with patch('routers.albums_deps.require_repository_factory', return_value=mock_repos):
@@ -225,9 +199,9 @@ class TestGetAlbums:
 class TestGetAlbumById:
     """Test GET /api/albums/{album_id} endpoint"""
 
-    def test_get_album_by_id_success(self, client, mock_album, mock_repos):
+    def test_get_album_by_id_success(self, client, album_row, mock_repos):
         """Test getting a specific album by ID"""
-        mock_repos.albums.get_by_id.return_value = mock_album
+        mock_repos.albums.get_by_id.return_value = album_row
 
         with patch('routers.albums_deps.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/1")
@@ -274,10 +248,10 @@ class TestGetAlbumById:
 class TestGetAlbumTracks:
     """Test GET /api/albums/{album_id}/tracks endpoint"""
 
-    def test_get_album_tracks_success(self, client, mock_album, mock_track, mock_repos):
+    def test_get_album_tracks_success(self, client, album_row, track_row, mock_repos):
         """Test getting tracks for an album"""
-        mock_album.tracks = [mock_track, mock_track]
-        mock_repos.albums.get_by_id.return_value = mock_album
+        album_row.tracks = [track_row, track_row]
+        mock_repos.albums.get_by_id.return_value = album_row
 
         with patch('routers.albums_deps.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/1/tracks")
@@ -292,10 +266,10 @@ class TestGetAlbumTracks:
             assert len(data["tracks"]) == 2
             assert "year" in data
 
-    def test_get_album_tracks_empty(self, client, mock_album, mock_repos):
+    def test_get_album_tracks_empty(self, client, album_row, mock_repos):
         """Test getting tracks for album with no tracks"""
-        mock_album.tracks = []
-        mock_repos.albums.get_by_id.return_value = mock_album
+        album_row.tracks = []
+        mock_repos.albums.get_by_id.return_value = album_row
 
         with patch('routers.albums_deps.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/1/tracks")
@@ -315,26 +289,15 @@ class TestGetAlbumTracks:
 
             assert response.status_code == 404
 
-    def test_get_album_tracks_sorted(self, client, mock_album, mock_repos):
+    def test_get_album_tracks_sorted(self, client, album_row, mock_repos):
         """Test that tracks are sorted by disc and track number"""
-        track1 = Mock(spec=['id', 'title', 'album', 'duration', 'track_number', 'disc_number'])
-        track1.id = 1
-        track1.title = "Track 1"
-        track1.album = mock_album
-        track1.duration = 180
-        track1.track_number = 2
-        track1.disc_number = 1
+        track1 = Track(id=1, title="Track 1", album=album_row, duration=180,
+                       track_number=2, disc_number=1, favorite=False)
+        track2 = Track(id=2, title="Track 2", album=album_row, duration=200,
+                       track_number=1, disc_number=1, favorite=False)
 
-        track2 = Mock(spec=['id', 'title', 'album', 'duration', 'track_number', 'disc_number'])
-        track2.id = 2
-        track2.title = "Track 2"
-        track2.album = mock_album
-        track2.duration = 200
-        track2.track_number = 1
-        track2.disc_number = 1
-
-        mock_album.tracks = [track1, track2]
-        mock_repos.albums.get_by_id.return_value = mock_album
+        album_row.tracks = [track1, track2]
+        mock_repos.albums.get_by_id.return_value = album_row
 
         with patch('routers.albums_deps.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/1/tracks")
@@ -349,13 +312,13 @@ class TestGetAlbumTracks:
 class TestAlbumsAPIIntegration:
     """Integration tests for albums API"""
 
-    def test_albums_workflow(self, client, mock_album, mock_track, mock_repos):
+    def test_albums_workflow(self, client, album_row, track_row, mock_repos):
         """Test complete workflow: list albums -> get album -> get tracks"""
-        mock_album.tracks = [mock_track]
+        album_row.tracks = [track_row]
 
         # Configure mock for all steps
-        mock_repos.albums.get_all.return_value = ([mock_album], 1)
-        mock_repos.albums.get_by_id.return_value = mock_album
+        mock_repos.albums.get_all.return_value = ([album_row], 1)
+        mock_repos.albums.get_by_id.return_value = album_row
 
         with patch('routers.albums_deps.require_repository_factory', return_value=mock_repos):
             # Step 1: List albums
@@ -376,9 +339,9 @@ class TestAlbumsAPIIntegration:
                 tracks_data = response.json()
                 assert "tracks" in tracks_data
 
-    def test_albums_search_and_retrieve(self, client, mock_album, mock_repos):
+    def test_albums_search_and_retrieve(self, client, album_row, mock_repos):
         """Test searching for album and retrieving it"""
-        mock_repos.albums.search.return_value = ([mock_album], 1)
+        mock_repos.albums.search.return_value = ([album_row], 1)
 
         with patch('routers.albums_deps.require_repository_factory', return_value=mock_repos):
             # Search for album
@@ -418,13 +381,13 @@ class TestAlbumsErrorHandling:
 class TestGetAlbumFingerprint:
     """Test GET /api/albums/{id}/fingerprint endpoint"""
 
-    def test_fingerprint_success(self, client, mock_album, mock_repos):
+    def test_fingerprint_success(self, client, album_row, mock_repos):
         """Known album with fingerprinted tracks returns 200 with fingerprint"""
         # Album with tracks that have fingerprints
-        track = Mock(spec=['id'])
+        track = Track(id=1)
         track.id = 1
-        mock_album.tracks = [track]
-        mock_repos.albums.get_by_id.return_value = mock_album
+        album_row.tracks = [track]
+        mock_repos.albums.get_by_id.return_value = album_row
 
         fp = Mock()
         # Set all 25 DB columns to known values
@@ -469,12 +432,12 @@ class TestGetAlbumFingerprint:
 
         assert response.status_code == 404
 
-    def test_fingerprint_no_fingerprints(self, client, mock_album, mock_repos):
+    def test_fingerprint_no_fingerprints(self, client, album_row, mock_repos):
         """Album with tracks but no fingerprints returns 404"""
-        track = Mock(spec=['id'])
+        track = Track(id=1)
         track.id = 1
-        mock_album.tracks = [track]
-        mock_repos.albums.get_by_id.return_value = mock_album
+        album_row.tracks = [track]
+        mock_repos.albums.get_by_id.return_value = album_row
 
         mock_repos.fingerprints = Mock()
         mock_repos.fingerprints.get_by_track_ids.return_value = []

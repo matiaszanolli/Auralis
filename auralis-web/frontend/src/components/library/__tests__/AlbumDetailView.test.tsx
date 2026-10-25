@@ -51,9 +51,9 @@ const mockAlbumData = {
   genre: 'Rock',
   total_tracks: 3,
   tracks: [
-    { id: 1, title: 'Come Together', artist: 'The Beatles', duration: 259, track_number: 1 },
-    { id: 2, title: 'Something', artist: 'The Beatles', duration: 183, track_number: 2 },
-    { id: 3, title: 'Here Comes the Sun', artist: 'The Beatles', duration: 185, track_number: 3 },
+    { id: 1, title: 'Come Together', artists: ['The Beatles'], duration: 259, track_number: 1 },
+    { id: 2, title: 'Something', artists: ['The Beatles'], duration: 183, track_number: 2 },
+    { id: 3, title: 'Here Comes the Sun', artists: ['The Beatles'], duration: 185, track_number: 3 },
   ],
 };
 
@@ -755,7 +755,7 @@ describe('AlbumDetailView', () => {
           ...mockAlbumData,
           tracks: [
             ...mockAlbumData.tracks,
-            { id: 4, title: 'Long Track', artist: 'The Beatles', duration: 3600 },
+            { id: 4, title: 'Long Track', artists: ['The Beatles'], duration: 3600 },
           ],
         }),
       });
@@ -978,7 +978,7 @@ describe('AlbumDetailView', () => {
         json: async () => ({
           ...mockAlbumData,
           tracks: [
-            { id: 1, title: 'Come Together', artist: 'The Beatles', duration: 259 },
+            { id: 1, title: 'Come Together', artists: ['The Beatles'], duration: 259 },
           ],
         }),
       });
@@ -1005,7 +1005,7 @@ describe('AlbumDetailView', () => {
             {
               id: 1,
               title: longTitle,
-              artist: 'The Beatles',
+              artists: ['The Beatles'],
               duration: 259,
               track_number: 1,
             },
@@ -1050,7 +1050,7 @@ describe('AlbumDetailView', () => {
       const manyTracks = Array.from({ length: 100 }, (_, i) => ({
         id: i,
         title: `Track ${i}`,
-        artist: 'The Beatles',
+        artists: ['The Beatles'],
         duration: 180,
         track_number: i + 1,
       }));

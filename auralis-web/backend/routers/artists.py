@@ -34,10 +34,10 @@ def _artist_genres(artist: Any, artist_data: dict[str, Any]) -> list[str] | None
 
     Prefers `Artist.genre_names`, which ArtistRepository's list reads populate
     from one grouped query (#5084). Falls back to walking `tracks -> genres`
-    for artists that did not come from a list read — test doubles and
-    detail-loaded instances — reading the collection defensively, since a
-    detached instance without that eager-load raises DetachedInstanceError
-    (not AttributeError, so `hasattr` would not contain it).
+    for artists that did not come from a list read (detail-loaded instances),
+    reading the collection defensively, since a detached instance without
+    that eager-load raises DetachedInstanceError (not AttributeError, so
+    `hasattr` would not contain it).
     """
     from_repo = artist_data.get('genres')
     if from_repo is not None:
@@ -59,17 +59,6 @@ def _artist_genres(artist: Any, artist_data: dict[str, Any]) -> list[str] | None
             if isinstance(name, str):
                 genres.add(name)
     return sorted(genres) if genres else None
-
-
-def _track_format(track: Any) -> str | None:
-    """Read a track's audio format defensively (#4586).
-
-    The attribute is absent on partially-populated rows and on spec'd test
-    doubles, and a bare `Mock` yields a Mock rather than a string — none of
-    which should fail response validation over an informational field.
-    """
-    value = getattr(track, 'format', None)
-    return value if isinstance(value, str) else None
 
 
 _repo_deps = RepositoryFactoryDeps("artists")
@@ -108,8 +97,7 @@ async def get_artists(
         # Genres come from the repository's single grouped query (#5084).
         # Walking artist.tracks -> track.genres here is what forced the
         # repository to hydrate every Track row on the page; it is now the
-        # fallback for objects that never went through a list read (test
-        # doubles, and any future caller passing a detail-loaded artist).
+        # fallback for objects that never went through a list read.
         artist_data = serialize_artist(artist)
         genres_list = _artist_genres(artist, artist_data)
 
@@ -216,7 +204,7 @@ async def get_artist_tracks(
             duration=track.duration or 0,
             track_number=track.track_number,
             disc_number=track.disc_number,
-            format=_track_format(track),
+            format=track.format,
         ))
 
     # Sort tracks by album, disc number, then track number

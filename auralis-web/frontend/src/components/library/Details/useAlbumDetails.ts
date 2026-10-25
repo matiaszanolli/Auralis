@@ -98,7 +98,7 @@ export const useAlbumDetails = (albumId: number) => {
         };
         setAlbum(albumData);
         // #5118: seed the heart from the server rather than leaving it false.
-        // `favorite` is on the wire for every track (DEFAULT_TRACK_FIELDS, #2851)
+        // `favorite` is on the wire for every track (Track.to_dict(), #2851)
         // and survives transformTracks, so the control no longer misrepresents
         // stored state before the first click.
         setIsFavorite(tracks[0]?.favorite ?? false);

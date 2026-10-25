@@ -95,22 +95,6 @@ class TestArtistTrackCarriesFormat:
 
 class TestSerializerFilepathConsistency:
 
-    def test_default_track_fields_omits_filepath(self):
-        """Both serializer paths must agree that no path is emitted (#4586).
-
-        `serialize_object` prefers `to_dict()` (which omits it) and falls back
-        to `getattr` over these defaults; listing `filepath` here made the two
-        paths disagree for Mocks and detached instances.
-        """
-        from routers.serializers import DEFAULT_TRACK_FIELDS
-
-        assert "filepath" not in DEFAULT_TRACK_FIELDS
-
-    def test_default_track_fields_includes_format(self):
-        from routers.serializers import DEFAULT_TRACK_FIELDS
-
-        assert "format" in DEFAULT_TRACK_FIELDS
-
     def test_orm_to_dict_and_serializer_agree_about_filepath(self):
         from auralis.library.models import Track
         from routers.serializers_library import serialize_tracks

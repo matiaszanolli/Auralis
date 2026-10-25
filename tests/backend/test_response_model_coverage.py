@@ -12,14 +12,11 @@ Two distinct failure modes are pinned here, because the fix for the first one
 2. **Silent field deletion.** `response_model` FILTERS the response — any key
    the model does not declare is stripped before it reaches the client, with
    no error and no log line. That makes an incomplete model strictly worse
-   than no model at all. The serializers here have *two* live output shapes
-   that do not agree — `Model.to_dict()` and the `DEFAULT_*_FIELDS` getattr
-   fallback `serialize_object()` uses for Mocks and detached instances — so a
-   model derived from either one alone silently deletes the other's extra
-   keys. The `*_covers_*` tests below compute the union from the real code and
-   assert the model is a superset.
+   than no model at all. The `*_covers_to_dict` tests below compute the key set
+   a model's `to_dict()` emits from the real code and assert the response
+   model is a superset.
 
-The union is computed, never hand-listed: hand-listing would reintroduce
+The key set is computed, never hand-listed: hand-listing would reintroduce
 exactly the drift this is meant to catch.
 """
 
@@ -34,12 +31,6 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 _BACKEND = _REPO_ROOT / "auralis-web" / "backend"
 sys.path.insert(0, str(_BACKEND))
 
-from routers.serializers import (  # noqa: E402
-    DEFAULT_ALBUM_FIELDS,
-    DEFAULT_ARTIST_FIELDS,
-    DEFAULT_PLAYLIST_FIELDS,
-    DEFAULT_TRACK_FIELDS,
-)
 from schemas import (  # noqa: E402
     AlbumResponse,
     FingerprintVectorResponse,
@@ -147,7 +138,7 @@ class TestRouteCoverage:
 
 
 # ---------------------------------------------------------------------------
-# Field coverage: models must be a superset of every live serializer shape
+# Field coverage: models must be a superset of the to_dict() key set
 # ---------------------------------------------------------------------------
 
 
@@ -168,31 +159,31 @@ def _to_dict_keys(instance) -> set[str]:
 
 
 class TestDomainModelFieldCoverage:
-    """Union of (to_dict, DEFAULT_*_FIELDS) ⊆ model fields, for each domain type."""
+    """Every key a to_dict() emits ⊆ the response model fields, per domain type."""
 
-    def test_track_response_covers_both_serializer_paths(self):
-        emitted = _to_dict_keys(Track()) | set(DEFAULT_TRACK_FIELDS)
+    def test_track_response_covers_to_dict(self):
+        emitted = _to_dict_keys(Track())
         dropped = emitted - _fields(TrackResponse)
         assert not dropped, (
             f"TrackResponse would silently delete these keys from every track "
             f"payload: {sorted(dropped)}"
         )
 
-    def test_album_response_covers_both_serializer_paths(self):
-        emitted = _to_dict_keys(Album()) | set(DEFAULT_ALBUM_FIELDS)
+    def test_album_response_covers_to_dict(self):
+        emitted = _to_dict_keys(Album())
         dropped = emitted - _fields(AlbumResponse)
         assert not dropped, f"AlbumResponse would silently delete: {sorted(dropped)}"
 
-    def test_playlist_response_covers_both_serializer_paths(self):
-        emitted = _to_dict_keys(Playlist()) | set(DEFAULT_PLAYLIST_FIELDS)
+    def test_playlist_response_covers_to_dict(self):
+        emitted = _to_dict_keys(Playlist())
         dropped = emitted - _fields(PlaylistResponse)
         assert not dropped, f"PlaylistResponse would silently delete: {sorted(dropped)}"
 
-    def test_artist_response_covers_both_serializer_paths(self):
-        """artists.py predates #3838 but shares the same two-shape hazard."""
+    def test_artist_response_covers_to_dict(self):
+        """artists.py predates #3838 but shares the same filtering hazard."""
         from routers.artists import ArtistResponse
 
-        emitted = _to_dict_keys(Artist()) | set(DEFAULT_ARTIST_FIELDS)
+        emitted = _to_dict_keys(Artist())
         dropped = emitted - _fields(ArtistResponse)
         assert not dropped, f"ArtistResponse would silently delete: {sorted(dropped)}"
 

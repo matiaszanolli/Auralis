@@ -21,6 +21,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from auralis.library.models import Album, Artist, Track
+
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT / "auralis-web" / "backend"))
 
@@ -33,21 +35,10 @@ _EXPECTED_ALBUM_KEYS = {"id", "title", "year", "track_count", "total_duration"}
 
 @pytest.fixture
 def mock_artist_with_album():
-    artist = Mock(spec=['id', 'name', 'albums', 'tracks', 'artwork_url', 'artwork_source'])
-    artist.id = 1
-    artist.name = "Test Artist"
-    artist.artwork_url = None
-    artist.artwork_source = None
-
-    album = Mock(spec=['id', 'title', 'year', 'tracks'])
-    album.id = 1
-    album.title = "Test Album"
-    album.year = 2024
-    album.tracks = [Mock(spec=['duration'], duration=180.0)]
-
-    artist.albums = [album]
-    artist.tracks = []
-    return artist
+    """A real (transient) Artist with one album holding one track."""
+    album = Album(id=1, title="Test Album", year=2024, tracks=[Track(duration=180.0)])
+    return Artist(id=1, name="Test Artist", artwork_url=None, artwork_source=None,
+                  albums=[album])
 
 
 class TestArtistDetailAlbumKeys:

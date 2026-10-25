@@ -24,14 +24,7 @@ if 'routers' not in sys.modules:
     _stub.__package__ = 'routers'
     sys.modules['routers'] = _stub
 
-from routers.serializers import (
-    DEFAULT_ALBUM_FIELDS,
-    DEFAULT_ARTIST_FIELDS,
-    DEFAULT_PLAYLIST_FIELDS,
-    DEFAULT_TRACK_FIELDS,
-    serialize_object,
-    serialize_objects,
-)
+from routers.serializers import serialize_object, serialize_objects
 from routers.serializers_library import (
     serialize_album,
     serialize_albums,
@@ -43,9 +36,7 @@ from routers.serializers_library import (
 
 
 # ---------------------------------------------------------------------------
-# Helper: real Python object with to_dict() (not a Mock)
-# serialize_object skips to_dict() on Mock/MagicMock to avoid circular refs,
-# so tests that need to_dict() must use real objects.
+# Helper: lightweight object with a fixed to_dict()
 # ---------------------------------------------------------------------------
 
 class _FakeModel:
@@ -63,79 +54,45 @@ _UNSET = object()  # sentinel: "don't set this attribute at all" vs. "set it to 
 
 
 # ---------------------------------------------------------------------------
-# DEFAULT_TRACK_FIELDS — sensitive field exclusion
-# ---------------------------------------------------------------------------
-
-class TestDefaultTrackFields:
-    def test_filepath_not_in_default_track_fields(self):
-        assert 'filepath' not in DEFAULT_TRACK_FIELDS
-
-    def test_required_safe_fields_present(self):
-        assert 'id' in DEFAULT_TRACK_FIELDS
-        assert 'title' in DEFAULT_TRACK_FIELDS
-        assert 'duration' in DEFAULT_TRACK_FIELDS
-        assert 'format' in DEFAULT_TRACK_FIELDS
-
-    def test_default_id_is_none(self):
-        assert DEFAULT_TRACK_FIELDS['id'] is None
-
-    def test_default_title_is_unknown(self):
-        assert DEFAULT_TRACK_FIELDS['title'] == 'Unknown'
-
-    def test_default_duration_is_zero(self):
-        assert DEFAULT_TRACK_FIELDS['duration'] == 0
-
-
-# ---------------------------------------------------------------------------
-# serialize_object — to_dict preference and fallback
+# serialize_object — to_dict() is the only source of the response shape (#5803)
 # ---------------------------------------------------------------------------
 
 class TestSerializeObject:
-    def test_uses_to_dict_when_available(self):
+    def test_uses_to_dict(self):
         obj = _FakeModel({"id": 42, "title": "Song"})
-        result = serialize_object(obj)
-        assert result == {"id": 42, "title": "Song"}
-
-    def test_falls_back_to_getattr_when_no_to_dict(self):
-        obj = Mock(spec=[])  # no to_dict attribute
-        obj.id = 7
-        obj.title = "Fallback"
-        result = serialize_object(obj, {'id': None, 'title': 'Unknown'})
-        assert result['id'] == 7
-        assert result['title'] == "Fallback"
-
-    def test_uses_fallback_default_for_missing_attr(self):
-        obj = Mock(spec=[])  # no attributes
-        result = serialize_object(obj, {'id': None, 'duration': 0})
-        assert result['id'] is None
-        assert result['duration'] == 0
+        assert serialize_object(obj) == {"id": 42, "title": "Song"}
 
     def test_returns_empty_dict_for_none(self):
-        result = serialize_object(None)
-        assert result == {}
+        assert serialize_object(None) == {}
 
-    def test_skips_to_dict_for_mock_objects(self):
-        """Mock objects must not use to_dict (circular reference risk)."""
-        mock_obj = MagicMock()
-        mock_obj.id = 1
-        mock_obj.title = "Mock Track"
-        # serialize_object should NOT call to_dict on a MagicMock
-        result = serialize_object(mock_obj, {'id': None, 'title': 'Unknown'})
-        assert result['id'] == 1
+    def test_does_not_merge_attributes_into_to_dict(self):
+        """Attributes that to_dict() does not emit stay out of the response."""
+        obj = _FakeModel({"id": 1}, title="Not in to_dict", genre="Doom")
+        assert serialize_object(obj) == {"id": 1}
 
-    def test_falls_back_when_to_dict_raises(self):
+    def test_a_raising_to_dict_propagates_and_is_logged(self, caplog):
         class _BrokenModel:
-            id = 5
             def to_dict(self):
-                raise Exception("detached session")
+                raise RuntimeError("detached session")
 
-        result = serialize_object(_BrokenModel(), {'id': None})
-        assert result['id'] == 5
+        with caplog.at_level("ERROR", logger="routers.serializers"):
+            with pytest.raises(RuntimeError, match="detached session"):
+                serialize_object(_BrokenModel())
+        assert "_BrokenModel" in caplog.text
 
-    def test_empty_fallback_fields_returns_empty_dict(self):
-        obj = Mock(spec=[])
-        result = serialize_object(obj, {})
-        assert result == {}
+    def test_an_object_without_to_dict_is_rejected(self):
+        with pytest.raises(AttributeError):
+            serialize_object(object())
+
+    def test_a_non_dict_to_dict_result_is_rejected(self):
+        """An unconfigured Mock's to_dict() returns another Mock; it must not
+        be silently projected into a response."""
+        with pytest.raises(TypeError, match="not dict"):
+            serialize_object(MagicMock())
+
+    def test_serialize_objects_maps_over_the_list(self):
+        objs = [_FakeModel({"id": 1}), _FakeModel({"id": 2})]
+        assert serialize_objects(objs) == [{"id": 1}, {"id": 2}]
 
 
 # ---------------------------------------------------------------------------
@@ -167,15 +124,18 @@ class TestSerializeTrack:
         assert result['id'] == 1
         assert result['title'] == 'Test Track'
 
-    def test_fallback_does_not_include_filepath(self):
-        """Fallback path (no to_dict) must also exclude filepath."""
-        obj = Mock(spec=['id', 'title', 'duration', 'format'])
-        obj.id = 2
-        obj.title = "Fallback Track"
-        obj.duration = 200.0
-        obj.format = "MP3"
-        result = serialize_tracks([obj])[0]
+    def test_real_track_to_dict_has_no_filepath_or_fallback_twins(self):
+        """The real key set: no server-side path (#3205) and one spelling per
+        field (#5823) -- `artists`/`genres`/`lufs_level`/`created_at`/
+        `updated_at`, never the singular or aliased twins."""
+        from auralis.library.models import Track
+
+        result = serialize_tracks([Track(title="T")])[0]
         assert 'filepath' not in result
+        for twin in ('artist', 'genre', 'loudness', 'date_added', 'date_modified'):
+            assert twin not in result
+        for key in ('artists', 'genres', 'lufs_level', 'created_at', 'updated_at'):
+            assert key in result
 
     def test_serialize_tracks_list(self):
         tracks = [self._make_track(id=i) for i in range(3)]
@@ -188,9 +148,8 @@ class TestSerializeTrack:
         assert serialize_tracks([]) == []
 
     def test_serialize_objects_delegates_to_serialize_object(self):
-        objs = [Mock(spec=[]), Mock(spec=[])]
-        results = serialize_objects(objs, {'id': None})
-        assert len(results) == 2
+        objs = [self._make_track(id=1), self._make_track(id=2)]
+        assert [r['id'] for r in serialize_objects(objs)] == [1, 2]
 
 
 # ---------------------------------------------------------------------------
@@ -439,21 +398,35 @@ class TestSerializeArtist:
 # ---------------------------------------------------------------------------
 
 class TestSerializePlaylist:
+    """Playlist.to_dict() owns track_count/total_duration: the SQL aggregates
+    when the query supplied them (#4554), else the guarded tracks read."""
+
     def _make_playlist(self, track_count=0):
-        dict_result = {'id': 20, 'name': 'Chill Mix', 'track_count': 0, 'created_at': None, 'updated_at': None}
-        return _FakeModel(dict_result, tracks=[object() for _ in range(track_count)])
+        from auralis.library.models import Playlist, Track
+
+        return Playlist(
+            id=20, name='Chill Mix',
+            tracks=[Track(duration=60.0) for _ in range(track_count)],
+        )
 
     def test_track_count_derived_from_tracks(self):
-        playlist = self._make_playlist(track_count=5)
-        result = serialize_playlist(playlist)
+        result = serialize_playlist(self._make_playlist(track_count=5))
         assert result['track_count'] == 5
+        assert result['total_duration'] == 300.0
+
+    def test_sql_aggregate_wins_over_the_tracks_collection(self):
+        playlist = self._make_playlist(track_count=2)
+        playlist.track_count_expr = 9
+        playlist.total_duration_expr = 540.0
+        result = serialize_playlist(playlist)
+        assert result['track_count'] == 9
+        assert result['total_duration'] == 540.0
 
     def test_serialize_playlists_list(self):
         playlists = [self._make_playlist(track_count=i) for i in range(3)]
         results = serialize_playlists(playlists)
-        assert len(results) == 3
+        assert [r['track_count'] for r in results] == [0, 1, 2]
 
     def test_serialize_playlist_empty_tracks(self):
-        playlist = self._make_playlist(track_count=0)
-        result = serialize_playlist(playlist)
+        result = serialize_playlist(self._make_playlist(track_count=0))
         assert result['track_count'] == 0

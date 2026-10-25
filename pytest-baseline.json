@@ -24,8 +24,6 @@
     "tests.auralis.core.test_cross_dimensional_interactions.TestQualityGateInterval::test_interval_zero_runs_first_call_only",
     "tests.auralis.core.test_cross_dimensional_interactions.TestQualityGateInterval::test_monitor_records_continuous_measurements",
     "tests.auralis.services.test_fingerprint_queue_lifecycle.TestGracefulShutdown::test_stats_accurate_after_full_run",
-    "tests.backend.test_artists_api.TestGetArtistById::test_get_artist_by_id_success",
-    "tests.backend.test_artists_api.TestGetArtistTracks::test_get_artist_tracks_success",
     "tests.backend.test_main_api.TestPlayerEndpoints::test_set_volume",
     "tests.backend.test_player_api_comprehensive.TestAddTrackToQueue::test_add_track_valid",
     "tests.backend.test_player_api_comprehensive.TestSetQueue::test_set_queue_with_tracks",

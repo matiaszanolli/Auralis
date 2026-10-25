@@ -68,10 +68,9 @@ export interface TrackApiResponse {
   [key: string]: unknown;
   id: number;
   title: string;
-  // Backend to_dict() returns arrays; singular forms kept for backward compat (fixes #2263)
-  artists?: string[];   // backend primary field
-  genres?: string[];    // backend primary field
-  artist?: string;      // singular fallback (some serializer paths)
+  // Track.to_dict() returns arrays only (#2263, #5823)
+  artists?: string[];
+  genres?: string[];
   album: string | null;
   duration: number; // seconds
   /**
@@ -82,11 +81,10 @@ export interface TrackApiResponse {
 
   // Optional metadata — backend sends null for missing values (Python None → JSON null)
   artwork_url?: string | null;
-  genre?: string | null;       // singular fallback
   year?: number | null;
 
-  // Navigation and favourites — present in both Track.to_dict() and
-  // DEFAULT_TRACK_FIELDS since #2851; the transformer dropped them until #4568.
+  // Navigation and favourites — in Track.to_dict() since #2851; the
+  // transformer dropped them until #4568.
   album_id?: number | null;
   track_number?: number | null;
   disc_number?: number | null;
@@ -101,15 +99,9 @@ export interface TrackApiResponse {
   filesize?: number | null; // → fileSize
 
   // Analysis properties
-  loudness?: number | null;
+  lufs_level?: number | null; // → loudness
 
-  /**
-   * Timestamps. `Track.to_dict()` (the real ORM path) emits created_at /
-   * updated_at; date_added / date_modified only appear on the
-   * DEFAULT_TRACK_FIELDS getattr fallback. Both are accepted (#4568).
-   */
-  date_added?: string | null; // snake_case
-  date_modified?: string | null; // snake_case
+  // Timestamps
   created_at?: string | null;
   updated_at?: string | null;
 }

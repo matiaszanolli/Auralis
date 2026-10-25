@@ -12,20 +12,20 @@ describe('trackTransformer', () => {
       const apiTrack: TrackApiResponse = {
         id: 1,
         title: 'Angel of Death',
-        artist: 'Slayer',
+        artists: ['Slayer'],
         album: 'Reign in Blood',
         duration: 286,
         filepath: '/music/slayer/reign_in_blood/01_angel_of_death.flac',
         artwork_url: '/artwork/slayer_reign_in_blood.jpg',
-        genre: 'Thrash Metal',
+        genres: ['Thrash Metal'],
         year: 1986,
         bitrate: 1411,
         sample_rate: 48000,
         bit_depth: 24,
         format: 'flac',
-        loudness: -8.5,
-        date_added: '2023-01-15T10:30:00Z',
-        date_modified: '2023-02-20T14:15:00Z',
+        lufs_level: -8.5,
+        created_at: '2023-01-15T10:30:00Z',
+        updated_at: '2023-02-20T14:15:00Z',
       };
 
       const result = transformTrack(apiTrack);
@@ -56,22 +56,22 @@ describe('trackTransformer', () => {
       const apiTrack: TrackApiResponse = {
         id: 2,
         title: 'Unknown Track',
-        artist: 'Unknown Artist',
+        artists: ['Unknown Artist'],
         album: 'Unknown Album',
         duration: 180,
         filepath: '/music/unknown.mp3',
         artwork_url: null,
-        genre: null,
+        genres: [],
         year: null,
         bitrate: null,
         sample_rate: null,
         bit_depth: null,
         format: null,
-        loudness: null,
+        lufs_level: null,
         crest_factor: null,
         centroid: null,
-        date_added: null,
-        date_modified: null,
+        created_at: null,
+        updated_at: null,
       };
 
       const result = transformTrack(apiTrack);
@@ -92,7 +92,7 @@ describe('trackTransformer', () => {
       const result = transformTrack({
         id: 6,
         title: 'Albumless Track',
-        artist: 'Artist',
+        artists: ['Artist'],
         album: null,
         duration: 120,
       });
@@ -104,22 +104,22 @@ describe('trackTransformer', () => {
       const apiTrack: TrackApiResponse = {
         id: 3,
         title: 'Simple Track',
-        artist: 'Simple Artist',
+        artists: ['Simple Artist'],
         album: 'Simple Album',
         duration: 120,
         filepath: '/simple.mp3',
         artwork_url: null,
-        genre: null,
+        genres: [],
         year: null,
         bitrate: null,
         sample_rate: null,
         bit_depth: null,
         format: null,
-        loudness: null,
+        lufs_level: null,
         crest_factor: null,
         centroid: null,
-        date_added: null,
-        date_modified: null,
+        created_at: null,
+        updated_at: null,
       };
 
       const result = transformTrack(apiTrack);
@@ -133,22 +133,22 @@ describe('trackTransformer', () => {
       const apiTrack: TrackApiResponse = {
         id: 4,
         title: 'HiRes Track',
-        artist: 'HiRes Artist',
+        artists: ['HiRes Artist'],
         album: 'HiRes Album',
         duration: 300,
         filepath: '/hires.flac',
         artwork_url: '/hires.jpg',
-        genre: null,
+        genres: [],
         year: null,
         bitrate: 2822,
         sample_rate: 96000,
         bit_depth: 32,
         format: 'flac',
-        loudness: null,
+        lufs_level: null,
         crest_factor: null,
         centroid: null,
-        date_added: null,
-        date_modified: null,
+        created_at: null,
+        updated_at: null,
       };
 
       const result = transformTrack(apiTrack);
@@ -163,22 +163,22 @@ describe('trackTransformer', () => {
       const apiTrack: TrackApiResponse = {
         id: 5,
         title: 'Test',
-        artist: 'Test',
+        artists: ['Test'],
         album: 'Test',
         duration: 100,
         filepath: '/test.mp3',
         artwork_url: null,
-        genre: null,
+        genres: [],
         year: null,
         bitrate: null,
         sample_rate: null,
         bit_depth: null,
         format: null,
-        loudness: null,
+        lufs_level: null,
         crest_factor: null,
         centroid: null,
-        date_added: null,
-        date_modified: null,
+        created_at: null,
+        updated_at: null,
       };
 
       const result = transformTrack(apiTrack);
@@ -195,7 +195,7 @@ describe('trackTransformer', () => {
 
   /**
    * #4568: album_id / track_number / disc_number / favorite are emitted by
-   * Track.to_dict() and DEFAULT_TRACK_FIELDS alike, but the transformer dropped
+   * Track.to_dict(), but the transformer dropped
    * them — so every consumer reading track.trackNumber or track.albumId got
    * undefined, and album-detail rows rendered with no track number and no way
    * to navigate back to the album.
@@ -247,14 +247,27 @@ describe('trackTransformer', () => {
       expect(result.dateModified).toBe('2026-02-02T00:00:00Z');
     });
 
-    it('prefers date_added/date_modified when the fallback serializer supplies them', () => {
+    it('maps lufs_level (what Track.to_dict() emits) to loudness (#5823)', () => {
+      const result = transformTrack({ ...base, lufs_level: -9.5 } as TrackApiResponse);
+
+      expect(result.loudness).toBe(-9.5);
+    });
+
+    it('ignores the twin spellings the backend never emits (#5823)', () => {
       const result = transformTrack({
         ...base,
+        artist: 'Singular',
+        genre: 'Singular',
+        loudness: -1,
         date_added: '2020-01-01T00:00:00Z',
-        created_at: '2026-01-01T00:00:00Z',
+        date_modified: '2020-01-02T00:00:00Z',
       } as TrackApiResponse);
 
-      expect(result.dateAdded).toBe('2020-01-01T00:00:00Z');
+      expect(result.artist).toBe('');
+      expect(result.genre).toBeUndefined();
+      expect(result.loudness).toBeUndefined();
+      expect(result.dateAdded).toBeUndefined();
+      expect(result.dateModified).toBeUndefined();
     });
 
     it('leaves the new fields undefined when the payload omits them', () => {
@@ -274,42 +287,42 @@ describe('trackTransformer', () => {
         {
           id: 1,
           title: 'Track 1',
-          artist: 'Artist 1',
+          artists: ['Artist 1'],
           album: 'Album 1',
           duration: 180,
           filepath: '/track1.mp3',
           artwork_url: '/art1.jpg',
-          genre: 'Rock',
+          genres: ['Rock'],
           year: 2023,
           bitrate: 320,
           sample_rate: 44100,
           bit_depth: 16,
           format: 'mp3',
-          loudness: -10.0,
+          lufs_level: -10.0,
           crest_factor: 10.5,
           centroid: 2000,
-          date_added: '2023-01-01T00:00:00Z',
-          date_modified: null,
+          created_at: '2023-01-01T00:00:00Z',
+          updated_at: null,
         },
         {
           id: 2,
           title: 'Track 2',
-          artist: 'Artist 2',
+          artists: ['Artist 2'],
           album: 'Album 2',
           duration: 200,
           filepath: '/track2.flac',
           artwork_url: null,
-          genre: null,
+          genres: [],
           year: null,
           bitrate: null,
           sample_rate: null,
           bit_depth: null,
           format: null,
-          loudness: null,
+          lufs_level: null,
           crest_factor: null,
           centroid: null,
-          date_added: null,
-          date_modified: null,
+          created_at: null,
+          updated_at: null,
         },
       ];
 
@@ -330,22 +343,22 @@ describe('trackTransformer', () => {
         {
           id: 1,
           title: 'Solo Track',
-          artist: 'Solo',
+          artists: ['Solo'],
           album: 'Solo',
           duration: 150,
           filepath: '/solo.mp3',
           artwork_url: null,
-          genre: null,
+          genres: [],
           year: null,
           bitrate: null,
           sample_rate: null,
           bit_depth: null,
           format: null,
-          loudness: null,
+          lufs_level: null,
           crest_factor: null,
           centroid: null,
-          date_added: null,
-          date_modified: null,
+          created_at: null,
+          updated_at: null,
         },
       ];
 
@@ -361,22 +374,22 @@ describe('trackTransformer', () => {
       const apiTrack: TrackApiResponse = {
         id: 1,
         title: 'Test',
-        artist: 'Test',
+        artists: ['Test'],
         album: 'Test',
         duration: 100,
         filepath: '/test.mp3',
         artwork_url: '/test.jpg',
-        genre: null,
+        genres: [],
         year: null,
         bitrate: null,
         sample_rate: null,
         bit_depth: null,
         format: null,
-        loudness: null,
+        lufs_level: null,
         crest_factor: null,
         centroid: null,
-        date_added: null,
-        date_modified: null,
+        created_at: null,
+        updated_at: null,
       };
 
       const result = transformTrack(apiTrack);
@@ -389,22 +402,22 @@ describe('trackTransformer', () => {
       const apiTrack: TrackApiResponse = {
         id: 1,
         title: 'Test',
-        artist: 'Test',
+        artists: ['Test'],
         album: 'Test',
         duration: 100,
         filepath: '/test.mp3',
         artwork_url: null,
-        genre: null,
+        genres: [],
         year: null,
         bitrate: null,
         sample_rate: 48000,
         bit_depth: null,
         format: null,
-        loudness: null,
+        lufs_level: null,
         crest_factor: null,
         centroid: null,
-        date_added: null,
-        date_modified: null,
+        created_at: null,
+        updated_at: null,
       };
 
       const result = transformTrack(apiTrack);
@@ -417,22 +430,22 @@ describe('trackTransformer', () => {
       const apiTrack: TrackApiResponse = {
         id: 1,
         title: 'Test',
-        artist: 'Test',
+        artists: ['Test'],
         album: 'Test',
         duration: 100,
         filepath: '/test.mp3',
         artwork_url: null,
-        genre: null,
+        genres: [],
         year: null,
         bitrate: null,
         sample_rate: null,
         bit_depth: 24,
         format: null,
-        loudness: null,
+        lufs_level: null,
         crest_factor: null,
         centroid: null,
-        date_added: null,
-        date_modified: null,
+        created_at: null,
+        updated_at: null,
       };
 
       const result = transformTrack(apiTrack);
@@ -445,22 +458,22 @@ describe('trackTransformer', () => {
       const apiTrack: TrackApiResponse = {
         id: 1,
         title: 'Test',
-        artist: 'Test',
+        artists: ['Test'],
         album: 'Test',
         duration: 100,
         filepath: '/test.mp3',
         artwork_url: null,
-        genre: null,
+        genres: [],
         year: null,
         bitrate: null,
         sample_rate: null,
         bit_depth: null,
         format: null,
-        loudness: null,
+        lufs_level: null,
         crest_factor: 15.2,
         centroid: null,
-        date_added: null,
-        date_modified: null,
+        created_at: null,
+        updated_at: null,
       };
 
       const result = transformTrack(apiTrack);
@@ -473,22 +486,22 @@ describe('trackTransformer', () => {
       const apiTrack: TrackApiResponse = {
         id: 1,
         title: 'Test',
-        artist: 'Test',
+        artists: ['Test'],
         album: 'Test',
         duration: 100,
         filepath: '/test.mp3',
         artwork_url: null,
-        genre: null,
+        genres: [],
         year: null,
         bitrate: null,
         sample_rate: null,
         bit_depth: null,
         format: null,
-        loudness: null,
+        lufs_level: null,
         crest_factor: null,
         centroid: null,
-        date_added: '2023-12-25T12:00:00Z',
-        date_modified: null,
+        created_at: '2023-12-25T12:00:00Z',
+        updated_at: null,
       };
 
       const result = transformTrack(apiTrack);
@@ -501,22 +514,22 @@ describe('trackTransformer', () => {
       const apiTrack: TrackApiResponse = {
         id: 1,
         title: 'Test',
-        artist: 'Test',
+        artists: ['Test'],
         album: 'Test',
         duration: 100,
         filepath: '/test.mp3',
         artwork_url: null,
-        genre: null,
+        genres: [],
         year: null,
         bitrate: null,
         sample_rate: null,
         bit_depth: null,
         format: null,
-        loudness: null,
+        lufs_level: null,
         crest_factor: null,
         centroid: null,
-        date_added: null,
-        date_modified: '2024-01-15T08:30:00Z',
+        created_at: null,
+        updated_at: '2024-01-15T08:30:00Z',
       };
 
       const result = transformTrack(apiTrack);
@@ -531,22 +544,22 @@ describe('trackTransformer', () => {
       const apiTrack: TrackApiResponse = {
         id: 1,
         title: 'Test Track',
-        artist: 'Test Artist',
+        artists: ['Test Artist'],
         album: 'Test Album',
         duration: 180,
         filepath: '/test.mp3',
         artwork_url: '/test.jpg',
-        genre: 'Rock',
+        genres: ['Rock'],
         year: 2023,
         bitrate: 320,
         sample_rate: 44100,
         bit_depth: 16,
         format: 'mp3',
-        loudness: -10.0,
+        lufs_level: -10.0,
         crest_factor: 12.0,
         centroid: 2000,
-        date_added: '2023-01-01T00:00:00Z',
-        date_modified: null,
+        created_at: '2023-01-01T00:00:00Z',
+        updated_at: null,
       };
 
       const result: Track = transformTrack(apiTrack);
@@ -560,22 +573,22 @@ describe('trackTransformer', () => {
         {
           id: 1,
           title: 'Test',
-          artist: 'Test',
+          artists: ['Test'],
           album: 'Test',
           duration: 100,
           filepath: '/test.mp3',
           artwork_url: null,
-          genre: null,
+          genres: [],
           year: null,
           bitrate: null,
           sample_rate: null,
           bit_depth: null,
           format: null,
-          loudness: null,
+          lufs_level: null,
           crest_factor: null,
           centroid: null,
-          date_added: null,
-          date_modified: null,
+          created_at: null,
+          updated_at: null,
         },
       ];
 

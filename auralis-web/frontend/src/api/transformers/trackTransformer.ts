@@ -11,16 +11,16 @@ import type { Track } from '@/types/domain';
  * Transform a single track from API response to domain model
  *
  * Backend contract (snake_case):
- * - sample_rate, bit_depth, date_added, date_modified
+ * - sample_rate, bit_depth, created_at, updated_at
  *
  * Frontend domain (camelCase):
  * - sampleRate, bitDepth, dateAdded, dateModified
  */
 export function transformTrack(apiTrack: TrackApiResponse): Track {
-  // Backend sends artists/genres as arrays; fall back to singular fields if present.
-  // Fixes #2263: previously read apiTrack.artist which was always undefined.
-  const artist = apiTrack.artists?.[0] ?? apiTrack.artist ?? '';
-  const genre = apiTrack.genres?.[0] ?? apiTrack.genre;
+  // Track.to_dict() sends artists/genres as arrays and no singular twin (#2263,
+  // #5823): the first entry is the display value.
+  const artist = apiTrack.artists?.[0] ?? '';
+  const genre = apiTrack.genres?.[0];
 
   return {
     id: apiTrack.id,
@@ -57,14 +57,13 @@ export function transformTrack(apiTrack: TrackApiResponse): Track {
     format: apiTrack.format ?? undefined,
     fileSize: apiTrack.filesize ?? undefined,
 
-    // Analysis properties (null → undefined)
-    loudness: apiTrack.loudness ?? undefined,
+    // Analysis properties (null → undefined). Track.to_dict() names the
+    // integrated loudness lufs_level; there is no `loudness` key (#5823).
+    loudness: apiTrack.lufs_level ?? undefined,
 
-    // Timestamps (snake → camel, null → undefined). Track.to_dict() — the real
-    // ORM path — emits created_at/updated_at; date_added/date_modified come from
-    // the DEFAULT_TRACK_FIELDS getattr fallback. Accept either (#4568).
-    dateAdded: apiTrack.date_added ?? apiTrack.created_at ?? undefined,
-    dateModified: apiTrack.date_modified ?? apiTrack.updated_at ?? undefined
+    // Timestamps (snake → camel, null → undefined)
+    dateAdded: apiTrack.created_at ?? undefined,
+    dateModified: apiTrack.updated_at ?? undefined
   };
 }
 
