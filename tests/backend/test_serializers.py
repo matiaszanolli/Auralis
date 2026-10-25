@@ -29,11 +29,13 @@ from routers.serializers import (
     DEFAULT_ARTIST_FIELDS,
     DEFAULT_PLAYLIST_FIELDS,
     DEFAULT_TRACK_FIELDS,
+    serialize_object,
+    serialize_objects,
+)
+from routers.serializers_library import (
     serialize_album,
     serialize_albums,
     serialize_artist,
-    serialize_object,
-    serialize_objects,
     serialize_playlist,
     serialize_playlists,
     serialize_tracks,

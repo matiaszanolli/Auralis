@@ -139,7 +139,7 @@ class TestSqlAggregates:
     def test_serialization_never_touches_the_tracks_collection(self):
         """The returned playlists are expunged and tracks were never loaded, so
         any read of `.tracks` would raise rather than degrade."""
-        from routers.serializers import serialize_playlists
+        from routers.serializers_library import serialize_playlists
 
         repo = _make_repo()
         _seed(repo, playlist_count=3, tracks_each=6)

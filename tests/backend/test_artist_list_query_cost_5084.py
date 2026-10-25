@@ -24,7 +24,7 @@ from sqlalchemy import event
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from routers.serializers import serialize_artist  # noqa: E402
+from routers.serializers_library import serialize_artist  # noqa: E402
 
 
 def _seed_artist(track_repository, artist_name: str, tracks: int, genres: list[str]) -> None:
