@@ -60,8 +60,9 @@ def apply(
     # that will do nothing reports it honestly via no_op() (stage_info=None)
     # instead of returning a stage_info dict claiming wet_db/drive_db applied
     # when the exciter never ran (#4900). The eps guard above only rejects
-    # wet_mix <= 0; any wet_mix below ~1e-3 still lands wet_db <= -60 here.
-    if wet_db <= -60.0:
+    # wet_mix <= 0; any wet_mix below ~1e-3 still lands wet_db at/below
+    # HarmonicExciter.BYPASS_WET_DB here.
+    if HarmonicExciter.will_bypass(wet_db):
         return no_op(audio)
     nyquist = sample_rate / 2.0
     low_norm = min(0.99, max(0.01, config.EXCITER_DONOR_LOW_HZ / nyquist))

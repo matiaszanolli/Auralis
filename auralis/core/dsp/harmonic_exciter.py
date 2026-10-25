@@ -39,6 +39,16 @@ from scipy.signal import butter, sosfiltfilt
 
 
 class HarmonicExciter:
+
+    #: Wet level at or below which the exciter returns the input unchanged.
+    #: The pipeline stage mirrors this to report `no_op` (#4900) — always
+    #: through will_bypass()/BYPASS_WET_DB, never a retyped literal (#6224).
+    BYPASS_WET_DB: float = -60.0
+
+    @staticmethod
+    def will_bypass(wet_db: float) -> bool:
+        """True when apply() returns the input unchanged for this wet level."""
+        return wet_db <= HarmonicExciter.BYPASS_WET_DB
     """
     Generate upper-octave harmonics from a donor midrange band.
 
@@ -70,7 +80,8 @@ class HarmonicExciter:
             sample_rate: Sample rate in Hz
             wet_db: Level of the generated harmonics relative to dry, in dB
                 (e.g. -18 dB ≈ subtle, -12 dB ≈ noticeable, -6 dB ≈ obvious).
-                If wet_db <= -60 the input is returned unchanged.
+                If wet_db <= BYPASS_WET_DB (-60 dB) the input is returned
+                unchanged.
             drive_db: Pre-gain into the saturator. Higher drive = richer / more
                 harmonics, but also more intermodulation. Typical range 6–18 dB.
             donor_low_hz: Lower bound of the donor bandpass
@@ -95,7 +106,7 @@ class HarmonicExciter:
               transients, which an exciter would then turn into upper-harmonic
               ringing — exactly the artifact we want to avoid.
         """
-        if wet_db <= -60.0:
+        if HarmonicExciter.will_bypass(wet_db):
             return audio.copy()
 
         nyquist = sample_rate / 2.0
