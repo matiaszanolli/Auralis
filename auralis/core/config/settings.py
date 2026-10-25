@@ -9,7 +9,7 @@ Configuration dataclasses for audio processing
 """
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, get_args
 
 
 @dataclass
@@ -32,11 +32,17 @@ class LimiterConfig:
         assert self.release_filter_order > 0, "Release filter order must be positive"
 
 
+#: The processing-mode vocabulary, defined once (#6218): every Literal copy,
+#: validation list and job-builder dispatch imports these two names.
+ProcessingMode = Literal["reference", "adaptive", "hybrid"]
+PROCESSING_MODES: tuple[str, ...] = get_args(ProcessingMode)
+
+
 @dataclass
 class AdaptiveConfig:
     """Configuration for adaptive processing features"""
     # Processing mode
-    mode: Literal["reference", "adaptive", "hybrid"] = "adaptive"
+    mode: ProcessingMode = "adaptive"
 
     # Content analysis settings
     enable_genre_detection: bool = True

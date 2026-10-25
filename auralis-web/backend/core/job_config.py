@@ -56,13 +56,9 @@ def create_processor_config(job: ProcessingJob, sample_rate: int) -> UnifiedConf
 
     config = UnifiedConfig(internal_sample_rate=sample_rate)
 
-    # Set processing mode
-    if job.mode == "adaptive":
-        config.set_processing_mode("adaptive")
-    elif job.mode == "reference":
-        config.set_processing_mode("reference")
-    elif job.mode == "hybrid":
-        config.set_processing_mode("hybrid")
+    # Set processing mode — one call; the old if/elif chain silently
+    # skipped an unknown mode where set_processing_mode raises (#6218, #4735).
+    config.set_processing_mode(job.mode)
 
     # Log (don't silently drop) any UI settings the engine cannot consume.
     # The frontend should hide these controls until the engine reads them

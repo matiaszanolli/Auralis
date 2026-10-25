@@ -18,6 +18,7 @@ Main processing engine that bridges Matchering and Auralis systems
 """
 
 import threading
+from .config.settings import PROCESSING_MODES
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -280,7 +281,9 @@ class HybridProcessor:
         cache-shared caller swapping modes mid-process would otherwise
         send chunks down the wrong pipeline.
         """
-        if mode not in ["reference", "adaptive", "hybrid"]:
+        # Validation lives in config.set_processing_mode (PROCESSING_MODES,
+        # settings.py) — re-typing the list here could drift from it (#6218).
+        if mode not in PROCESSING_MODES:
             raise ValueError(f"Invalid processing mode: {mode}")
         with self._process_lock:
             self.config.set_processing_mode(mode)  # type: ignore[arg-type]

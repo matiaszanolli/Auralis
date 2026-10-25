@@ -25,7 +25,9 @@ from .settings import AdaptiveConfig, GenreProfile, LimiterConfig
 # `is_hybrid_mode` predicates below. Adding a fourth mode means adding it here,
 # adding a predicate, and widening the `Literal` — all three, or a mode becomes
 # settable that no dispatch branch recognises.
-PROCESSING_MODES: tuple[str, ...] = ("reference", "adaptive", "hybrid")
+# The vocabulary lives in settings.py (#6218); re-exported here because
+# set_processing_mode()'s error message and validators read it.
+from .settings import PROCESSING_MODES, ProcessingMode  # noqa: F401 (re-export)
 
 
 class UnifiedConfig:
@@ -100,7 +102,7 @@ class UnifiedConfig:
         """Get processing profile for a specific genre"""
         return get_genre_profile(genre, self.genre_profiles)
 
-    def set_processing_mode(self, mode: Literal["reference", "adaptive", "hybrid"]) -> None:
+    def set_processing_mode(self, mode: ProcessingMode) -> None:
         """
         Change the processing mode.
 

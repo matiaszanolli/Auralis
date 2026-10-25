@@ -8,6 +8,7 @@ out of routers/processing_api.py, which re-exports every name here.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+from auralis.core.config.settings import ProcessingMode
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
@@ -21,7 +22,9 @@ class ProcessingSettings(BaseModel):
     # if/elif chain that has no else, so an unrecognised value silently skipped
     # set_processing_mode() entirely and ran adaptive under whatever mode the
     # config defaulted to. Now a 422 at the route boundary.
-    mode: Literal["adaptive", "reference", "hybrid"] = "adaptive"
+    # The vocabulary is the engine's ProcessingMode (settings.py) — one
+    # definition, imported (#6218).
+    mode: ProcessingMode = "adaptive"
     # Literal, not a bare str (#4746): output_format is interpolated straight
     # into the output filename extension, and bit_depth is mapped through a
     # subtype table (core/processing_engine.py) with a silent PCM_16

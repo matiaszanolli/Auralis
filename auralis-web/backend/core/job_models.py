@@ -14,6 +14,7 @@ ProcessingStatus` keeps working.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+from auralis.core.config.settings import ProcessingMode
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
@@ -50,13 +51,13 @@ class ProcessingJob:
         input_path: str,
         output_path: str,
         settings: dict[str, Any],
-        mode: str = "adaptive"
+        mode: ProcessingMode = "adaptive"
     ):
         self.job_id = job_id
         self.input_path = input_path
         self.output_path = output_path
         self.settings = settings
-        self.mode = mode  # "adaptive", "reference", "hybrid"
+        self.mode = mode  # ProcessingMode (#6218)
 
         self.status = ProcessingStatus.QUEUED
         self.progress = 0.0
