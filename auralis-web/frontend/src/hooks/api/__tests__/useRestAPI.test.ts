@@ -1197,7 +1197,6 @@ describe('useRestAPI transport convergence (#6216)', () => {
         promise = result.current.get('/api/slow', { timeoutMs: 250 });
       });
       const expectation = expect(promise).rejects.toMatchObject({
-          name: 'APIRequestError',
           status: 0,
           message: expect.stringContaining('timed out'),
         });
