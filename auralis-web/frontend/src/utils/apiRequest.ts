@@ -21,13 +21,11 @@
  * and shape guards survive as `services/api/cacheShapeGuards.ts`, and its
  * two endpoints come through here.
  *
- * One duplicate is left: `hooks/api/useRestAPI.ts`, which reimplements the
- * transport rather than wrapping it. The end state is for it to keep its React
- * surface — loading/error state, per-hook AbortController, stale-request
- * filtering — as a thin wrapper over `apiRequest`, holding no fetch logic of
- * its own. That was left out of #4693 deliberately: it has six production
- * consumers and roughly ten test files that mock its current shape, so it is
- * its own piece of work.
+ * The former duplicate is gone (#6216): `hooks/api/useRestAPI.ts` keeps only
+ * its React surface — loading/error state, per-hook AbortControllers,
+ * stale-request filtering — as a thin wrapper over the `fetchWithTimeout` /
+ * `buildUrl` exported here, holding no fetch logic of its own.
+ * `restApiTransport.ts` (its private copy of the transport) is deleted.
  *
  * Do not add a third transport. New endpoints go through this module, or
  * through `useRestAPI` when a component needs the React state surface.
@@ -39,6 +37,30 @@ import { DEFAULT_TIMEOUT_MS, APIRequestError, type RequestOptions } from './apiR
 
 export { DEFAULT_TIMEOUT_MS, APIRequestError, type RequestOptions } from './apiRequestTypes';
 
+// null/undefined entries are skipped — the useRestAPI param-filtering
+// contract (#5640). Values must be primitive.
+export type QueryParams = Record<string, string | number | boolean | null | undefined>;
+
+/**
+ * Absolute-URL passthrough, otherwise getApiUrl (slash-normalising
+ * API_BASE_URL join). Query params are appended in insertion order — the
+ * single URL builder for both apiRequest's `params` option and useRestAPI's
+ * queryParams (#6216; replaces restApiTransport.buildUrl).
+ */
+export function buildUrl(endpoint: string, queryParams?: QueryParams): string {
+  let url = endpoint.startsWith('http') ? endpoint : getApiUrl(endpoint);
+  if (queryParams && Object.keys(queryParams).length > 0) {
+    const params = new URLSearchParams();
+    Object.entries(queryParams).forEach(([key, value]) => {
+      if (value !== null && value !== undefined) {
+        params.append(key, String(value));
+      }
+    });
+    url += `?${params.toString()}`;
+  }
+  return url;
+}
+
 /**
  * fetch() wrapper that aborts after `timeoutMs` and composes an internal
  * timeout AbortController with any caller-supplied signal (#4442). Mirrors the
@@ -47,7 +69,7 @@ export { DEFAULT_TIMEOUT_MS, APIRequestError, type RequestOptions } from './apiR
  * On timeout it throws an {@link APIRequestError} (status 0); a caller-triggered
  * abort propagates as the underlying AbortError for the caller-visible catch.
  */
-async function fetchWithTimeout(
+export async function fetchWithTimeout(
   url: string,
   init: RequestInit,
   timeoutMs: number,

@@ -1153,3 +1153,51 @@ describe('useRestAPI Hook', () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// #6216: one transport — caller AbortSignal + per-request timeout forwarding
+// ---------------------------------------------------------------------------
+
+describe('useRestAPI transport convergence (#6216)', () => {
+  it('has no second transport module', async () => {
+    // restApiTransport.ts is deleted (absence on disk); the shared transport
+    // exports what useRestAPI wraps.
+    const fs = await import('fs');
+    const path = await import('path');
+    const transport = path.resolve(__dirname, '..', 'restApiTransport.ts');
+    expect(fs.existsSync(transport)).toBe(false);
+    const apiRequest = await import('@/utils/apiRequest');
+    expect(typeof apiRequest.fetchWithTimeout).toBe('function');
+    expect(typeof apiRequest.buildUrl).toBe('function');
+  });
+
+  it('forwards a caller AbortSignal (get resolves silent-cancel like before, #5650)', async () => {
+    const { result } = renderHook(() => useRestAPI());
+    const caller = new AbortController();
+    const promise = result.current.get('/api/anything', { signal: caller.signal });
+    caller.abort();
+    await expect(promise).rejects.toMatchObject({ name: 'AbortError' });
+  });
+
+  it('per-request timeoutMs overrides the default', async () => {
+    vi.useFakeTimers();
+    const originalFetch = globalThis.fetch;
+    // A fetch that never settles: only the transport's timeout can end it.
+    globalThis.fetch = (() => new Promise<Response>(() => {})) as typeof fetch;
+    try {
+      const { result } = renderHook(() => useRestAPI());
+      let promise!: Promise<unknown>;
+      act(() => {
+        promise = result.current.get('/api/slow', { timeoutMs: 250 });
+      });
+      const expectation = expect(promise).rejects.toMatchObject({ statusCode: 0 });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(300);
+      });
+      await expectation;
+    } finally {
+      globalThis.fetch = originalFetch;
+      vi.useRealTimers();
+    }
+  });
+});

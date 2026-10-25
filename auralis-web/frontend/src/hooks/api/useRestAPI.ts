@@ -13,7 +13,12 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { ApiError } from '@/types/api';
 import { ApiErrorHandler } from '@/types/api';
-import { buildUrl, fetchWithTimeout as fetchWithTimeoutImpl, type QueryParams } from './restApiTransport';
+import {
+  DEFAULT_TIMEOUT_MS,
+  buildUrl,
+  fetchWithTimeout as fetchWithTimeoutImpl,
+  type QueryParams,
+} from '@/utils/apiRequest';
 import { httpErrorFromResponse } from '@/utils/httpError';
 
 /**
@@ -37,6 +42,10 @@ import { httpErrorFromResponse } from '@/utils/httpError';
  */
 export interface ResponseValidationOptions<T = unknown> {
   validate?: (value: unknown) => value is T;
+  /** Caller AbortSignal, composed with the hook's unmount abort (#6216/#5650). */
+  signal?: AbortSignal;
+  /** Per-request timeout; DEFAULT_TIMEOUT_MS when omitted, 0 disables (#6216). */
+  timeoutMs?: number;
 }
 
 /**
@@ -94,6 +103,18 @@ export function useRestAPI() {
       const { method, payload, queryParams, options, skipBody } = spec;
       const url = buildUrl(endpoint, queryParams);
 
+      // #6216/#5650: one per-request controller, still tracked for unmount
+      // abort, whose signal is COMPOSED with any caller-supplied signal —
+      // the shared transport aborts on whichever fires first.
+      const controller = new AbortController();
+      activeControllers.current.add(controller);
+      const onCallerAbort = () => controller.abort();
+      if (options?.signal?.aborted) {
+        controller.abort();
+      } else {
+        options?.signal?.addEventListener('abort', onCallerAbort, { once: true });
+      }
+
       // Stale-response detection is a GET-only concern (#2439): a newer GET
       // to the same URL supersedes the older in-flight response. When the
       // verbs merged into this shared lifecycle (#5198), the guard silently
@@ -112,13 +133,21 @@ export function useRestAPI() {
       setError(null);
 
       try {
-        const response = await fetchWithTimeoutImpl(activeControllers.current, url, {
-          method,
-          headers: {
-            'Content-Type': 'application/json',
+        // #6216: the shared transport (utils/apiRequest.fetchWithTimeout) —
+        // timeout-to-APIRequestError mapping, caller-signal composition,
+        // timeoutMs<=0 handling all live there now, once.
+        const response = await fetchWithTimeoutImpl(
+          url,
+          {
+            method,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            ...(payload ? { body: JSON.stringify(payload) } : {}),
           },
-          ...(payload ? { body: JSON.stringify(payload) } : {}),
-        });
+          options?.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+          controller.signal,
+        );
 
         if (!response.ok) {
           // Read the backend's `detail` before discarding the body (#4831).
@@ -157,6 +186,8 @@ export function useRestAPI() {
         setError(apiError);
         throw apiError;
       } finally {
+        options?.signal?.removeEventListener('abort', onCallerAbort);
+        activeControllers.current.delete(controller);
         if ((inflightCount.current -= 1) <= 0) { inflightCount.current = 0; setIsLoading(false); }
       }
     },
