@@ -43,7 +43,10 @@ _rate_limiter = WebSocketRateLimiter(max_messages_per_second=10)
 # are small, fixed-size, and a dropped one has an outsized effect: a
 # rate-limited pong never reaches heartbeat.mark_pong(), so the connection
 # gets force-closed by the next heartbeat tick as if it had gone stale.
-_RATE_LIMIT_EXEMPT_TYPES = frozenset({"ping", "pong", "heartbeat"})
+# buffer_full/buffer_ready are exempt (#5863): they are the flow-control
+# pair that gates audio delivery itself — a dropped resume signal parks
+# the stream (the client sends them at most a few times per track).
+_RATE_LIMIT_EXEMPT_TYPES = frozenset({"ping", "pong", "heartbeat", "buffer_full", "buffer_ready"})
 
 
 # ============================================================================

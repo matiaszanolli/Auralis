@@ -38,6 +38,7 @@ import PCMStreamBuffer from '@/services/audio/PCMStreamBuffer';
 import AudioPlaybackEngine from '@/services/audio/AudioPlaybackEngine';
 import { setStreamingError } from '@/store/slices/playerSlice';
 import { useStreamMessageHandlers } from './useStreamMessageHandlers';
+import { startFlowDrainWatch } from './flowDrainWatch';
 import { useStreamSubscriptions } from './useStreamSubscriptions';
 import { usePlaybackTransport } from './usePlaybackTransport';
 import { STREAM_START_WATCHDOG_MS, useStreamStartWatchdog } from './useStreamStartWatchdog';
@@ -199,6 +200,18 @@ export function useAudioStreamingCore(
       setIsPaused(false);
     }
   }, []);
+
+  // #5863: the resume half of flow control cannot wait for the next chunk
+  // (the server parks on its flow gate after buffer_full and sends nothing).
+  // The drain watch polls the fill level from the playback side and emits
+  // buffer_ready when it drops below the resume threshold.
+  useEffect(() => {
+    return startFlowDrainWatch({
+      flowPausedRef,
+      pcmBufferRef,
+      send: wsContext.send,
+    });
+  }, [flowPausedRef, pcmBufferRef, wsContext]);
 
   // Chunk/end/error handling + the four stream-message subscriptions. Called
   // exactly where these sections used to live — effect order is behavior.
