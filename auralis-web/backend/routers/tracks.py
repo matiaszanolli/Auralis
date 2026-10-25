@@ -171,8 +171,7 @@ async def get_track_lyrics(
             from security.path_security import validate_file_path
             validate_file_path(str(track.filepath))
             import mutagen
-            # mutagen ships no py.typed marker: File is exported at runtime only.
-            audio_file = await asyncio.to_thread(mutagen.File, track.filepath)  # type: ignore[attr-defined]
+            audio_file = await asyncio.to_thread(mutagen.File, track.filepath)
             lyrics_text = None
 
             if audio_file:

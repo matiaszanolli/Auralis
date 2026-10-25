@@ -16,7 +16,7 @@ from typing import Any
 from auralis.__version__ import FINGERPRINT_ALGORITHM_VERSION
 from auralis.analysis.fingerprint import AudioFingerprintAnalyzer, FingerprintStorage
 from auralis.analysis.fingerprint.windows import FINGERPRINT_SAMPLE_RATE
-from mutagen import File as MutagenFile  # type: ignore[attr-defined]
+from mutagen import File as MutagenFile
 
 logger = logging.getLogger(__name__)
 

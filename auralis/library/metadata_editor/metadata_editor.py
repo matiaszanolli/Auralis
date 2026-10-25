@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 try:
-    from mutagen import File as MutagenFile  # type: ignore[attr-defined]
+    from mutagen import File as MutagenFile
     from mutagen.asf import ASF
     from mutagen.flac import FLAC
     from mutagen.mp4 import MP4
