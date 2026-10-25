@@ -165,7 +165,31 @@ class FingerprintService:
             if fingerprint:
                 # Cache to both database and .25d file
                 self._save_to_database(str(audio_path), fingerprint)
-                FingerprintStorage.save(audio_path, fingerprint, {})
+                # #6231: the sidecar records the analysed file's real
+                # sample_rate/duration (save() refuses fabricated values).
+                # audio/sr are in scope when the caller pre-loaded them; a
+                # header probe covers the load-internally case.
+                try:
+                    if audio is not None and sr:
+                        meta_sr, meta_duration = int(sr), len(audio) / sr
+                    else:
+                        import soundfile as _sf
+                        info = _sf.info(str(audio_path))
+                        meta_sr, meta_duration = int(info.samplerate), float(info.duration)
+                    fingerprint.setdefault('_metadata', {})['sample_rate'] = meta_sr
+                    fingerprint['_metadata']['duration'] = meta_duration
+                except Exception as e:  # noqa: BLE001
+                    logger.warning(f"Could not stamp sidecar metadata for {audio_path.name}: {e}")
+                # Skip the sidecar rather than let save() fabricate values
+                # (#6231): the DB cache and the returned fingerprint are
+                # unaffected; a real file always probes.
+                if fingerprint.get('_metadata', {}).get('sample_rate') is not None:
+                    FingerprintStorage.save(audio_path, fingerprint, {})
+                else:
+                    logger.warning(
+                        f"Skipping .25d sidecar for {audio_path.name}: no real "
+                        f"sample_rate/duration available (#6231)"
+                    )
                 logger.debug(f"Fingerprint cached for: {audio_path.name}")
                 return fingerprint
 

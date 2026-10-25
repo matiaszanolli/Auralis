@@ -65,7 +65,7 @@ def test_load_returns_fingerprint_with_empty_targets(
     cache_dir, audio_file, sample_fingerprint
 ):
     """The fingerprint_service path saves targets as {}; load() must still hit."""
-    FingerprintStorage.save(audio_file, sample_fingerprint, {})
+    FingerprintStorage.save(audio_file, sample_fingerprint, {}, sample_rate=44100, duration=30.0)
 
     result = FingerprintStorage.load(audio_file)
     assert result is not None, "load() must accept empty targets dict"
@@ -79,7 +79,7 @@ def test_load_returns_fingerprint_with_real_targets(
 ):
     """Mastering-target service saves real targets; round-trip preserves them."""
     real_targets = {"target_lufs": -14.0, "target_crest_db": 10.0}
-    FingerprintStorage.save(audio_file, sample_fingerprint, real_targets)
+    FingerprintStorage.save(audio_file, sample_fingerprint, real_targets, sample_rate=44100, duration=30.0)
 
     result = FingerprintStorage.load(audio_file)
     assert result is not None
@@ -152,5 +152,33 @@ def test_load_normalizes_missing_targets_to_empty_dict(
 
 def test_is_valid_true_for_empty_targets(cache_dir, audio_file, sample_fingerprint):
     """`is_valid` mirrors `load() is not None` — empty targets must qualify."""
-    FingerprintStorage.save(audio_file, sample_fingerprint, {})
+    FingerprintStorage.save(audio_file, sample_fingerprint, {}, sample_rate=44100, duration=30.0)
     assert FingerprintStorage.is_valid(audio_file) is True
+
+
+# ---------------------------------------------------------------------------
+# #6231: no fabricated sample_rate/duration
+# ---------------------------------------------------------------------------
+
+def test_save_without_any_metadata_raises_instead_of_fabricating(cache_dir, audio_file, sample_fingerprint):
+    """save() used to write sample_rate=44100 / duration=0.0 whenever
+    _metadata was absent — every FingerprintService sidecar lied about the
+    analysed file. Now the call is refused (#6231)."""
+    import pytest as _pytest
+
+    with _pytest.raises(ValueError, match="6231"):
+        FingerprintStorage.save(audio_file, sample_fingerprint, {})
+
+
+def test_save_explicit_params_win_over_metadata(cache_dir, audio_file, sample_fingerprint):
+    sample_fingerprint['_metadata'] = {'sample_rate': 44100, 'duration': 10.0}
+
+    FingerprintStorage.save(audio_file, sample_fingerprint, {}, sample_rate=96000, duration=42.5)
+
+    loaded = FingerprintStorage.load(audio_file)
+    assert loaded is not None
+    import json
+    cache_key = FingerprintStorage._get_cache_key(audio_file)
+    raw = json.loads((cache_dir / f"{cache_key}.25d").read_text())
+    assert raw['sample_rate'] == 96000
+    assert raw['duration_seconds'] == 42.5

@@ -81,7 +81,14 @@ class FingerprintStorage:
         return cache_key
 
     @staticmethod
-    def save(audio_path: Path, fingerprint: dict[str, Any], targets: dict[str, Any], strategy: str = "sampling") -> Path:
+    def save(
+        audio_path: Path,
+        fingerprint: dict[str, Any],
+        targets: dict[str, Any],
+        strategy: str = "sampling",
+        sample_rate: int | None = None,
+        duration: float | None = None,
+    ) -> Path:
         """
         Save fingerprint and mastering targets to cache.
 
@@ -104,10 +111,22 @@ class FingerprintStorage:
         cache_key = FingerprintStorage._get_cache_key(audio_path, strategy)
         cache_path = cache_dir / f"{cache_key}.25d"
 
-        # Get duration from fingerprint if available
-        # (Could be extracted from audio metadata during analysis)
-        duration = fingerprint.get('_metadata', {}).get('duration', 0.0)
-        sample_rate = fingerprint.get('_metadata', {}).get('sample_rate', 44100)
+        # #6231: the sidecar's sample_rate/duration must describe the actual
+        # file. save() used to fabricate 44100/0.0 whenever _metadata was
+        # absent — and the engine's FingerprintService never supplied it, so
+        # every sidecar it wrote lied about the analysed file. Explicit
+        # parameters win; _metadata (stamped by the backend extract path) is
+        # the fallback; a caller with neither is refused rather than allowed
+        # to write wrong data.
+        meta = fingerprint.get('_metadata', {})
+        resolved_sample_rate = sample_rate if sample_rate is not None else meta.get('sample_rate')
+        resolved_duration = duration if duration is not None else meta.get('duration')
+        if resolved_sample_rate is None or resolved_duration is None:
+            raise ValueError(
+                f"Refusing to write {cache_path.name}: no real sample_rate/"
+                f"duration for {audio_path.name} — pass them explicitly or "
+                f"stamp fingerprint['_metadata'] (#6231)"
+            )
 
         # Remove metadata from fingerprint before saving (not part of 25D)
         fingerprint_clean = {k: v for k, v in fingerprint.items() if not k.startswith('_')}
@@ -126,8 +145,8 @@ class FingerprintStorage:
             "source_file": str(audio_path.resolve()),  # Store original path for reference
             "cache_key": cache_key,
             "extracted_at": datetime.now(timezone.utc).isoformat(),
-            "duration_seconds": duration,
-            "sample_rate": sample_rate,
+            "duration_seconds": resolved_duration,
+            "sample_rate": resolved_sample_rate,
             "fingerprint": fingerprint_clean,
             "mastering_targets": targets
         }

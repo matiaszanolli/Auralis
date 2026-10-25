@@ -77,7 +77,7 @@ def test_save_stamps_algorithm_version(cache_dir, audio_file):
     fp = _valid_fingerprint()
     assert "fingerprint_version" not in fp
 
-    FingerprintStorage.save(audio_file, fp, {})
+    FingerprintStorage.save(audio_file, fp, {}, sample_rate=44100, duration=30.0)
 
     loaded = FingerprintStorage.load(audio_file)
     assert loaded is not None
@@ -104,7 +104,7 @@ def test_old_algorithm_sidecar_is_rejected(cache_dir, audio_file):
 def test_round_trip_does_not_recompute(cache_dir, audio_file):
     """save() -> load() must round-trip, or every fresh compute is thrown
     away on the next access (a recompute loop)."""
-    FingerprintStorage.save(audio_file, _valid_fingerprint(), {})
+    FingerprintStorage.save(audio_file, _valid_fingerprint(), {}, sample_rate=44100, duration=30.0)
 
     assert FingerprintStorage.load(audio_file) is not None
 
@@ -137,7 +137,7 @@ def test_get_or_compute_recomputes_instead_of_serving_stale(cache_dir, audio_fil
 
 def test_get_or_compute_tier2_hit_avoids_recompute(cache_dir, audio_file):
     """A current-version sidecar is still served from the file cache."""
-    FingerprintStorage.save(audio_file, _valid_fingerprint(), {})
+    FingerprintStorage.save(audio_file, _valid_fingerprint(), {}, sample_rate=44100, duration=30.0)
 
     service = FingerprintService(db_path=cache_dir / "missing.db")
     with patch.object(
