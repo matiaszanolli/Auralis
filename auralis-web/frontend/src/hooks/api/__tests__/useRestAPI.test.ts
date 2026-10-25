@@ -1182,15 +1182,25 @@ describe('useRestAPI transport convergence (#6216)', () => {
   it('per-request timeoutMs overrides the default', async () => {
     vi.useFakeTimers();
     const originalFetch = globalThis.fetch;
-    // A fetch that never settles: only the transport's timeout can end it.
-    globalThis.fetch = (() => new Promise<Response>(() => {})) as typeof fetch;
+    // A fetch that hangs until its signal aborts (as real fetch does):
+    // only the transport's timeout can end it.
+    globalThis.fetch = ((_url: string, init?: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => {
+          reject(Object.assign(new Error('The operation was aborted'), { name: 'AbortError' }));
+        });
+      })) as typeof fetch;
     try {
       const { result } = renderHook(() => useRestAPI());
       let promise!: Promise<unknown>;
       act(() => {
         promise = result.current.get('/api/slow', { timeoutMs: 250 });
       });
-      const expectation = expect(promise).rejects.toMatchObject({ statusCode: 0 });
+      const expectation = expect(promise).rejects.toMatchObject({
+          name: 'APIRequestError',
+          status: 0,
+          message: expect.stringContaining('timed out'),
+        });
       await act(async () => {
         await vi.advanceTimersByTimeAsync(300);
       });
