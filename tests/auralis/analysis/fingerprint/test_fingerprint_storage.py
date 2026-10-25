@@ -18,7 +18,11 @@ import json
 
 import pytest
 
+from auralis.__version__ import FINGERPRINT_ALGORITHM_VERSION
 from auralis.analysis.fingerprint.fingerprint_storage import FingerprintStorage
+
+# save() stamps the algorithm version into the stored fingerprint (#5697)
+STAMPED = {**{}, 'fingerprint_version': FINGERPRINT_ALGORITHM_VERSION}
 
 
 @pytest.fixture
@@ -66,7 +70,7 @@ def test_load_returns_fingerprint_with_empty_targets(
     result = FingerprintStorage.load(audio_file)
     assert result is not None, "load() must accept empty targets dict"
     fp, targets = result
-    assert fp == sample_fingerprint
+    assert fp == {**sample_fingerprint, **STAMPED}
     assert targets == {}
 
 
@@ -80,7 +84,7 @@ def test_load_returns_fingerprint_with_real_targets(
     result = FingerprintStorage.load(audio_file)
     assert result is not None
     fp, targets = result
-    assert fp == sample_fingerprint
+    assert fp == {**sample_fingerprint, **STAMPED}
     assert targets == real_targets
 
 
@@ -135,14 +139,14 @@ def test_load_normalizes_missing_targets_to_empty_dict(
     cache_path.write_text(json.dumps({
         "version": FingerprintStorage.VERSION,
         "cache_key": cache_key,
-        "fingerprint": sample_fingerprint,
+        "fingerprint": {**sample_fingerprint, **STAMPED},
         # mastering_targets intentionally omitted
     }))
 
     result = FingerprintStorage.load(audio_file)
     assert result is not None
     fp, targets = result
-    assert fp == sample_fingerprint
+    assert fp == {**sample_fingerprint, **STAMPED}
     assert targets == {}, "missing targets key should normalize to empty dict, not None"
 
 

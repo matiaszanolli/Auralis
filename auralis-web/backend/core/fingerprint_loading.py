@@ -133,19 +133,10 @@ def load_from_file(
         cached_data = FingerprintStorage.load(Path(filepath))
         if cached_data:
             fingerprint, mastering_targets = cached_data
-            # Sidecars from an older fingerprint algorithm (or from before
-            # the version was stamped) measured different signals, e.g. the
-            # [all L, all R] stereo layout of #5556: re-extract instead.
-            stored_version = (
-                int(fingerprint.get('fingerprint_version', 1))
-                if isinstance(fingerprint, dict) else 1
-            )
-            if stored_version < FINGERPRINT_ALGORITHM_VERSION:
-                logger.info(
-                    f".25d fingerprint for {Path(filepath).name} is v{stored_version} "
-                    f"(current v{FINGERPRINT_ALGORITHM_VERSION}), re-extracting"
-                )
-                return None
+            # Old-algorithm sidecars never reach here: FingerprintStorage.load
+            # itself rejects a missing/old fingerprint_version stamp (#5697),
+            # the one shared rule — this private copy of the check drifted
+            # from the engine's tier-2 loader, which had none at all.
             # Targets are a pure function of the fingerprint, so re-derive them
             # rather than trusting the persisted copy. Sidecars written before
             # #5554 hold EQ targets computed with percent-scaled ideals (every

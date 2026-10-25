@@ -14,12 +14,16 @@ using content-based hashing for cache keys.
 
 import hashlib
 import json
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from ...__version__ import FINGERPRINT_ALGORITHM_VERSION
 from ...utils.atomic_write import write_json_atomic
 from .schema import DIMENSION_SCHEMA
+
+logger = logging.getLogger(__name__)
 
 
 class FingerprintStorage:
@@ -108,6 +112,14 @@ class FingerprintStorage:
         # Remove metadata from fingerprint before saving (not part of 25D)
         fingerprint_clean = {k: v for k, v in fingerprint.items() if not k.startswith('_')}
 
+        # #5697: stamp the ALGORITHM version (not the file-format version
+        # above) into the stored fingerprint. `load()` refuses entries whose
+        # stamp is missing or older than FINGERPRINT_ALGORITHM_VERSION, so a
+        # writer that forgets this creates files its own reader rejects —
+        # every .25d writer goes through here, which is what keeps the pair
+        # in lock-step.
+        fingerprint_clean['fingerprint_version'] = FINGERPRINT_ALGORITHM_VERSION
+
         # Create .25d file content
         content = {
             "version": FingerprintStorage.VERSION,
@@ -183,6 +195,23 @@ class FingerprintStorage:
                 not isinstance(fingerprint, dict)
                 or not set(DIMENSION_SCHEMA).issubset(fingerprint)
             ):
+                return None
+
+            # #5697: refuse fingerprints from an older algorithm (or from
+            # before the stamp existed). The "2.0" file-format check above
+            # says nothing about WHICH algorithm measured the values: the
+            # pre-stamp central cache holds thousands of .25d files computed
+            # before fixes like #5556's stereo layout, and serving them let
+            # get_or_compute()'s upsert() persist them as current-version
+            # rows that the stale-row sweep then never revisits. This is the
+            # ONE shared rule; loaders must not keep private copies.
+            stored_version = fingerprint.get('fingerprint_version')
+            if not isinstance(stored_version, int) or stored_version < FINGERPRINT_ALGORITHM_VERSION:
+                logger.info(
+                    f".25d cache for {audio_path.name} is from fingerprint "
+                    f"algorithm v{stored_version!r} (current "
+                    f"v{FINGERPRINT_ALGORITHM_VERSION}); ignoring (#5697)"
+                )
                 return None
 
             return (fingerprint, targets or {})

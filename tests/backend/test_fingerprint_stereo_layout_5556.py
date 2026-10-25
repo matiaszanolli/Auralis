@@ -85,16 +85,45 @@ def test_algorithm_version_was_bumped_for_the_layout_fix() -> None:
 
 
 def test_stale_sidecar_is_rejected_and_current_one_accepted(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    import json
+
     import core.mastering_target_service as mts
     from auralis.analysis.fingerprint import FingerprintStorage
 
-    base = {'lufs': -20.0}
-    targets = {'target_lufs': -16.0}
+    # #5697: the version rule lives in FingerprintStorage.load itself (the
+    # backend's private copy was collapsed onto it), so this goes through
+    # the REAL load on real .25d files instead of mocking the check away.
+    cache = tmp_path / 'fp-cache'
+    cache.mkdir()
+    monkeypatch.setattr(FingerprintStorage, '_get_cache_dir', staticmethod(lambda: cache))
+    wav = tmp_path / 'a.flac'
+    wav.write_bytes(b'fake audio' * 64)
+
+    full = {k: 0.1 for k in (
+        'sub_bass_pct', 'bass_pct', 'low_mid_pct', 'mid_pct', 'upper_mid_pct',
+        'presence_pct', 'air_pct', 'lufs', 'crest_db', 'bass_mid_ratio',
+        'tempo_bpm', 'rhythm_stability', 'transient_density', 'silence_ratio',
+        'spectral_centroid', 'spectral_rolloff', 'spectral_flatness',
+        'harmonic_ratio', 'pitch_stability', 'chroma_energy',
+        'dynamic_range_variation', 'loudness_variation_std', 'peak_consistency',
+        'stereo_width', 'phase_correlation',
+    )}
+    full['lufs'] = -20.0
+
+    def _write_sidecar(fp: dict) -> None:
+        key = FingerprintStorage._get_cache_key(wav)
+        (cache / f'{key}.25d').write_text(json.dumps({
+            'version': FingerprintStorage.VERSION,
+            'cache_key': key,
+            'fingerprint': fp,
+            'mastering_targets': {},
+        }))
+
     svc = mts.MasteringTargetService()
     for fp, expected_loaded in (
-        ({**base}, False),  # unstamped (pre-#5556 producer)
-        ({**base, 'fingerprint_version': FINGERPRINT_ALGORITHM_VERSION - 1}, False),
-        ({**base, 'fingerprint_version': FINGERPRINT_ALGORITHM_VERSION}, True),
+        (dict(full), False),  # unstamped (pre-#5556 producer)
+        ({**full, 'fingerprint_version': FINGERPRINT_ALGORITHM_VERSION - 1}, False),
+        ({**full, 'fingerprint_version': FINGERPRINT_ALGORITHM_VERSION}, True),
     ):
-        monkeypatch.setattr(FingerprintStorage, 'load', staticmethod(lambda _p, fp=fp: (fp, dict(targets))))
-        assert (svc.load_fingerprint_from_file(str(tmp_path / 'a.flac')) is not None) is expected_loaded
+        _write_sidecar(fp)
+        assert (svc.load_fingerprint_from_file(str(wav)) is not None) is expected_loaded
