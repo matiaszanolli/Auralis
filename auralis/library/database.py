@@ -16,7 +16,6 @@ the repositories on top of it.
 
 import atexit
 import threading
-from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.engine import Engine

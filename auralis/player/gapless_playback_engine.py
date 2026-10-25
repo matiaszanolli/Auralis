@@ -16,7 +16,7 @@ from collections.abc import Callable
 import numpy as np
 
 from ..io.loader import load
-from ..utils.logging import debug, error, info, warning
+from ..utils.logging import error, info, warning
 from .audio_file_manager import AudioFileManager
 from .gapless_prebuffer import PrebufferMixin
 from .queue_controller import QueueController

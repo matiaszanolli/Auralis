@@ -27,7 +27,6 @@ except ImportError:
 from ...utils.logging import debug, error, info
 from .backup import BackupManager, lock_files
 from .batch import BatchUpdateMixin
-from .models import MetadataUpdate
 from .readers import MetadataReaders
 from .tag_mappings import STANDARD_FIELDS, TAG_MAPPINGS, get_format_key
 from .writers import MetadataWriters

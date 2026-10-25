@@ -21,7 +21,7 @@ from typing import Any, cast
 
 from ..__version__ import FINGERPRINT_ALGORITHM_VERSION
 from ..utils.atomic_write import write_json_atomic
-from ..utils.logging import debug, error, info, warning
+from ..utils.logging import debug, error, info
 from ..version import __version__
 from .sidecar_validation import sidecar_matches_audio
 

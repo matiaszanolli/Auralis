@@ -10,7 +10,6 @@ Album artwork extraction and management for music library
 
 import hashlib
 from pathlib import Path
-from typing import Any
 
 from mutagen import File as MutagenFile
 from mutagen.flac import FLAC
