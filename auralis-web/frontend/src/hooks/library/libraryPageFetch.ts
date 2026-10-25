@@ -10,12 +10,13 @@
  * @license AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
  */
 
+import { ENDPOINTS, LIBRARY_PAGE_LIMIT } from '@/config/api';
 import { transformTracks, type TrackApiResponse } from '@/api/transformers';
 import type { LibraryTrack } from '@/types/domain';
 import { get, APIRequestError } from '@/utils/apiRequest';
 import { isTracksListShape } from '@/api/responseGuards';
 
-export const PAGE_LIMIT = 50;
+export const PAGE_LIMIT = LIBRARY_PAGE_LIMIT;
 
 interface TracksPageResponse {
   tracks?: TrackApiResponse[];
@@ -38,8 +39,8 @@ export function tracksEndpoint(view: string, offset: number, search = ''): strin
   // showed as a false "no results" in a large library.
   if (search.trim()) params.set('search', search.trim());
   const path = view === 'favourites'
-    ? '/api/library/tracks/favorites'
-    : '/api/library/tracks';
+    ? ENDPOINTS.LIBRARY_TRACKS_FAVORITES
+    : ENDPOINTS.LIBRARY_TRACKS;
   return `${path}?${params.toString()}`;
 }
 

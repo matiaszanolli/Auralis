@@ -12,6 +12,7 @@
  * @module hooks/library/libraryQueryRequest
  */
 
+import { ENDPOINTS, LIBRARY_PAGE_LIMIT } from '@/config/api';
 import type { Track, Album, Artist } from '@/types/domain';
 import { transformAlbums, transformArtists, transformTracks } from '@/api/transformers';
 import type { AlbumApiResponse, ArtistApiResponse, TrackApiResponse } from '@/api/transformers';
@@ -31,9 +32,11 @@ import type {
  * - artists → /api/artists        (artists router — NOT /api/library/artists)
  */
 export const QUERY_TYPE_ENDPOINT: Record<LibraryQueryType, string> = {
-  tracks: '/api/library/tracks',
-  albums: '/api/albums',
-  artists: '/api/artists',
+  // Derived from ENDPOINTS (#6217) — the paths were re-typed here and could
+  // drift from the catalog in config/api.ts.
+  tracks: ENDPOINTS.LIBRARY_TRACKS,
+  albums: ENDPOINTS.LIBRARY_ALBUMS,
+  artists: ENDPOINTS.LIBRARY_ARTISTS,
 };
 
 /** The query options that shape the request URL. */
@@ -54,7 +57,7 @@ export function buildEndpoint(
   if (options.endpoint) return options.endpoint;
 
   const params = new URLSearchParams();
-  params.append('limit', String(options.limit || 50));
+  params.append('limit', String(options.limit || LIBRARY_PAGE_LIMIT));
   params.append('offset', String(offset ?? 0));
 
   if (options.search) {

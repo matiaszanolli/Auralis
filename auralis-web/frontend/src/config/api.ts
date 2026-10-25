@@ -71,6 +71,7 @@ export const ENDPOINTS = {
   // Library
   LIBRARY_STATS: '/api/library/stats',
   LIBRARY_TRACKS: '/api/library/tracks',
+  LIBRARY_TRACKS_FAVORITES: '/api/library/tracks/favorites',
   LIBRARY_ALBUMS: '/api/albums',
   LIBRARY_ARTISTS: '/api/artists',
   ARTIST_TRACKS: (artistId: number) => `/api/artists/${artistId}/tracks`,
@@ -93,3 +94,11 @@ export const ENDPOINTS = {
   PLAYER_SEEK: '/api/player/seek',
   PLAYER_VOLUME: '/api/player/volume',
 } as const;
+
+/**
+ * Library list page size (#6217): the default `limit` every library query
+ * path uses — was hand-typed in six places (libraryPageFetch,
+ * libraryQueryRequest, useInfiniteAlbums x2, useLibraryQuery, playlistService
+ * has its own PLAYLISTS_PAGE_LIMIT for a different endpoint).
+ */
+export const LIBRARY_PAGE_LIMIT = 50;

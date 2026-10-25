@@ -9,6 +9,7 @@
  * @module hooks/library/useInfiniteAlbums
  */
 
+import { LIBRARY_PAGE_LIMIT } from '@/config/api';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { transformAlbumsResponse } from '@/api/transformers';
 import type { AlbumsApiResponse } from '@/api/transformers';
@@ -26,7 +27,7 @@ interface UseInfiniteAlbumsOptions {
  */
 async function fetchAlbums({
   pageParam = 0,
-  limit = 50,
+  limit = LIBRARY_PAGE_LIMIT,
   search,
 }: {
   pageParam?: number;
@@ -76,7 +77,7 @@ async function fetchAlbums({
  * ```
  */
 export function useInfiniteAlbums(options: UseInfiniteAlbumsOptions = {}) {
-  const { limit = 50, search, enabled = true } = options;
+  const { limit = LIBRARY_PAGE_LIMIT, search, enabled = true } = options;
 
   return useInfiniteQuery({
     queryKey: ['albums', { search, limit }],

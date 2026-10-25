@@ -17,6 +17,7 @@
  * @module hooks/library/useLibraryQuery
  */
 
+import { LIBRARY_PAGE_LIMIT } from '@/config/api';
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { useRestAPI } from '@/hooks/api/useRestAPI';
 import type { ApiError } from '@/types/api';
@@ -96,7 +97,7 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
   const requestIdRef = useRef<number>(0);
 
   // Constants
-  const limit = options.limit || 50;
+  const limit = options.limit || LIBRARY_PAGE_LIMIT;
   const skip = options.skip || false;
 
   // The option list is exactly what buildQueryEndpoint shapes the URL from,
