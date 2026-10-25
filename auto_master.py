@@ -25,7 +25,7 @@ import argparse
 import shutil
 import sys
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from auralis.core.simple_mastering import SimpleMasteringPipeline
 
@@ -80,7 +80,9 @@ def master_single_file(
         verbose=not quiet,
         time_metrics=time_metrics
     )
-    return cast(dict[str, Any], result)
+    # master_file is annotated dict[str, Any]; the old cast() here was
+    # redundant (flagged by mypy while touching this file for #5696).
+    return result
 
 
 def master_folder(
