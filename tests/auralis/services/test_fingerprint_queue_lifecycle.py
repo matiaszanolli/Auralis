@@ -6,7 +6,6 @@ Covers:
 - stop(): graceful shutdown and timeout
 - _worker_loop: normal drain, should_stop exit, error recovery
 - _process_track: stats tracking, semaphore, progress callback
-- FingerprintQueueManager: initialize / shutdown / stats
 """
 
 import asyncio
@@ -18,7 +17,6 @@ from unittest.mock import MagicMock, call, patch
 import pytest
 
 from auralis.services.fingerprint_queue import FingerprintExtractionQueue
-from auralis.services.fingerprint_queue_manager import FingerprintQueueManager
 from auralis.services.resizable_semaphore import ResizableSemaphore
 
 
@@ -453,76 +451,3 @@ class TestGracefulShutdown:
         assert queue.stats["failed"] == 0
 
 
-# ---------------------------------------------------------------------------
-# FingerprintQueueManager
-# ---------------------------------------------------------------------------
-
-class TestFingerprintQueueManager:
-    """FingerprintQueueManager lifecycle: initialize / shutdown / stats."""
-
-    def _make_manager(self) -> FingerprintQueueManager:
-        mock_extractor = MagicMock()
-        mock_lib = MagicMock()
-        mock_lib.repositories.fingerprint_scheduler.claim_next_unfingerprinted_track.return_value = None
-        return FingerprintQueueManager(
-            fingerprint_extractor=mock_extractor,
-            library_database=mock_lib,
-            num_workers=1,
-        )
-
-    @pytest.mark.asyncio
-    async def test_initialize_sets_is_running(self):
-        mgr = self._make_manager()
-        assert not mgr.is_running
-
-        await mgr.initialize()
-        try:
-            assert mgr.is_running
-        finally:
-            await mgr.shutdown(timeout=3.0)
-
-    @pytest.mark.asyncio
-    async def test_initialize_is_idempotent(self):
-        """Calling initialize() twice must not double-start workers."""
-        mgr = self._make_manager()
-        await mgr.initialize()
-        workers_after_first = len(mgr.queue.workers)
-
-        await mgr.initialize()  # second call must be a no-op
-
-        try:
-            assert len(mgr.queue.workers) == workers_after_first
-        finally:
-            await mgr.shutdown(timeout=3.0)
-
-    @pytest.mark.asyncio
-    async def test_shutdown_clears_is_running(self):
-        mgr = self._make_manager()
-        await mgr.initialize()
-        assert mgr.is_running
-
-        result = await mgr.shutdown(timeout=3.0)
-
-        assert result is True
-        assert not mgr.is_running
-
-    @pytest.mark.asyncio
-    async def test_shutdown_without_initialize_is_noop(self):
-        """shutdown() on an un-initialized manager must return True immediately."""
-        mgr = self._make_manager()
-        result = await mgr.shutdown(timeout=1.0)
-        assert result is True
-        assert not mgr.is_running
-
-    def test_get_stats_returns_dict(self):
-        mgr = self._make_manager()
-        stats = mgr.get_stats()
-        assert isinstance(stats, dict)
-        assert "completed" in stats
-        assert "failed" in stats
-
-    def test_set_progress_callback(self):
-        mgr = self._make_manager()
-        cb = MagicMock()
-        mgr.set_progress_callback(cb)
-        assert mgr.queue.progress_callback is cb

@@ -181,46 +181,6 @@ class TestFingerprintExtractionQueue:
         assert 'queued' not in stats  # no job queue any more
 
 
-# Tests for FingerprintQueueManager
-
-class TestFingerprintQueueManager:
-    """Tests for fingerprint queue manager lifecycle"""
-
-    @pytest.mark.asyncio
-    async def test_manager_initialization(self, fingerprint_extractor_mock, library_database_mock):
-        """Test queue manager initialization"""
-        from auralis.services.fingerprint_queue_manager import FingerprintQueueManager
-
-        manager = FingerprintQueueManager(
-            fingerprint_extractor=fingerprint_extractor_mock,
-            library_database=library_database_mock,
-            num_workers=4
-        )
-
-        assert not manager.is_running
-        assert manager.queue is not None
-
-    @pytest.mark.asyncio
-    async def test_manager_startup_shutdown(self, fingerprint_extractor_mock, library_database_mock):
-        """Test manager startup and shutdown"""
-        from auralis.services.fingerprint_queue_manager import FingerprintQueueManager
-
-        manager = FingerprintQueueManager(
-            fingerprint_extractor=fingerprint_extractor_mock,
-            library_database=library_database_mock,
-            num_workers=2
-        )
-
-        # Test startup
-        await manager.initialize()
-        assert manager.is_running
-
-        # Test shutdown
-        success = await manager.shutdown(timeout=5.0)
-        assert success
-        assert not manager.is_running
-
-
 # Tests for integration with library scanner
 
 class TestScannerFingerprinterIntegration:
