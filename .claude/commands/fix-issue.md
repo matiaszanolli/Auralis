@@ -82,6 +82,8 @@ Follow project conventions from CLAUDE.md:
 - **Python backend**: `async def` handlers, errors via `HTTPException`, `RLock` for shared state.
 - **React frontend**: `@/` imports only, colors from `tokens`, components < 300 lines.
 
+**Inner loop = `mypy <changed-files> --ignore-missing-imports`** (or `pnpm run type-check` for frontend) while iterating — the fastest signal. Do *not* run pytest on every edit; save it for Phase 6.
+
 ## Phase 6: Run Tests
 
 Scope first, widen once at the end. Use `-q` (not `-v`) so passes collapse to dots
