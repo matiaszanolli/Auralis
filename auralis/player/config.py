@@ -17,11 +17,11 @@ class PlayerConfig:
     def __init__(
         self,
         sample_rate: int = 44100,
-        # #5421: matches the only production construction site's explicit
-        # override (config/startup.py) — the previous 4410 (100ms) default
-        # was latent (harmless only because that caller always overrode it)
-        # and would have silently grown the realtime buffer 4x if the
-        # explicit argument were ever dropped.
+        # #5421: matches the only production construction site
+        # (auralis-web/backend/config/startup/components.py, which now
+        # constructs PlayerConfig() bare — #6227) — the previous 4410
+        # (100ms) default was latent and would have silently grown the
+        # realtime buffer 4x if a caller relied on it.
         buffer_size: int = 1024,
         enable_level_matching: bool = True,
         enable_frequency_matching: bool = False,

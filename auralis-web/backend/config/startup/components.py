@@ -170,17 +170,11 @@ def _init_audio_player(manager: Any, globals_dict: dict[str, Any]) -> None:
     from auralis.player import AudioPlayer
     from core.state_manager import PlayerStateManager
 
-    # Initialize enhanced audio player with optimized config
-    player_config = PlayerConfig(
-        buffer_size=1024,
-        sample_rate=44100,
-        enable_level_matching=True,
-        enable_frequency_matching=False,
-        enable_stereo_width=False,
-        enable_auto_mastering=False,
-        enable_advanced_smoothing=True,
-        max_db_change_per_second=2.0
-    )
+    # #6227: the constructor defaults ARE the shipped values — restating all
+    # eight of them made every default look deliberately configured when it
+    # was just repetition (and made default changes silently no-op for the
+    # app). An override belongs here only when it differs from the default.
+    player_config = PlayerConfig()
     globals_dict['audio_player'] = AudioPlayer(
         player_config,
         get_repository_factory=lambda: globals_dict.get('repository_factory')
