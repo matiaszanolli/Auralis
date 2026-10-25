@@ -79,6 +79,24 @@ export function classifyChunk({
 }
 
 /**
+ * #5861: should the resume-into-existing-buffer path discard the ring's
+ * content before appending? The per-chunk epoch filter cannot catch the
+ * frames #4563 was written for — they arrive while the client still holds
+ * the OLD epoch and pass — so the new audio_stream_start itself is the
+ * discard boundary: a changed epoch means the buffer was filling under a
+ * superseded stream. `bufferEpoch` is the epoch the ring's CONTENT belongs
+ * to (lags the adopted stream epoch by design), not the just-adopted one.
+ */
+export function shouldDiscardSupersededBuffer(
+  incomingEpoch: number | undefined,
+  bufferEpoch: number | null,
+): boolean {
+  // Either side missing an epoch degrades to the pre-#5861 keep-the-buffer
+  // behaviour, same degradation philosophy as the per-chunk filter (#4563).
+  return incomingEpoch != null && bufferEpoch != null && incomingEpoch !== bufferEpoch;
+}
+
+/**
  * Decide whether an incoming chunk index indicates a stream restart.
  *
  * A chunk index that jumps *backwards* by more than one means a new stream

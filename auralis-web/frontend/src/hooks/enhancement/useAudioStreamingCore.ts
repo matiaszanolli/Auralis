@@ -108,6 +108,8 @@ export function useAudioStreamingCore(
   const lastReceivedChunkIndexRef = useRef<number>(-1);
   /** Epoch of the stream the current audio_stream_start opened (#4563). */
   const streamEpochRef = useRef<number | null>(null);
+  /** Epoch the ring's current content belongs to (#5861). */
+  const bufferEpochRef = useRef<number | null>(null);
   const lastDispatchedProgressRef = useRef<number>(-1);
   /** Bounds handleStreamError's auto-resume to one attempt per distinct
    *  (trackId, recovery_position) pair, so a chunk that keeps failing at the
@@ -164,6 +166,7 @@ export function useAudioStreamingCore(
     pendingChunksRef.current = [];
     lastReceivedChunkIndexRef.current = -1;
     streamEpochRef.current = null;
+    bufferEpochRef.current = null;
 
     if (closeContextOnCleanup) {
       audioContextRef.current?.close();
@@ -230,6 +233,7 @@ export function useAudioStreamingCore(
     lastReceivedChunkIndexRef,
     lastDispatchedProgressRef,
     streamEpochRef,
+
     lastRecoveryAttemptRef,
     acceptsStreamType,
     startPlaybackWhenBuffered,
@@ -241,6 +245,7 @@ export function useAudioStreamingCore(
     wsContext,
     logPrefix,
     streamEpochRef,
+    bufferEpochRef,
     handleStreamStartRef,
     acceptsStreamType,
     clearStreamStartWatchdog,
@@ -275,6 +280,7 @@ export function useAudioStreamingCore(
 
   return {
     handleStreamStartRef,
+    bufferEpochRef,
     pcmBufferRef,
     playbackEngineRef,
     audioContextRef,

@@ -52,6 +52,9 @@ async def send_error(
         "error": error_message,
         "code": error_code,
         "stream_type": _asc._stream_type_var.get(),
+        # #5861: same rationale as send_stream_end — a late error from a
+        # superseded stream must not tear down the live one.
+        "stream_epoch": _asc._stream_epoch_var.get(),
     }
     if recovery_position is not None:
         data["recovery_position"] = recovery_position

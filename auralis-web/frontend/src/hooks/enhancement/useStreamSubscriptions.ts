@@ -34,6 +34,8 @@ export interface StreamSubscriptionDeps {
 
   /** Epoch of the stream the current audio_stream_start opened (#4563). */
   streamEpochRef: React.MutableRefObject<number | null>;
+  /** Epoch the ring's current content belongs to (#5861). */
+  bufferEpochRef: React.MutableRefObject<number | null>;
   /** Populated by the caller of useAudioStreamingCore each render. */
   handleStreamStartRef: React.MutableRefObject<(message: AudioStreamStartMessage) => void>;
 
@@ -50,6 +52,7 @@ export function useStreamSubscriptions(deps: StreamSubscriptionDeps) {
     wsContext,
     logPrefix,
     streamEpochRef,
+    bufferEpochRef,
     handleStreamStartRef,
     acceptsStreamType,
     clearStreamStartWatchdog,
@@ -57,6 +60,16 @@ export function useStreamSubscriptions(deps: StreamSubscriptionDeps) {
     handleStreamEnd,
     handleStreamError,
   } = deps;
+
+  /**
+   * True when a terminal frame's epoch names a stream the client has already
+   * moved past (#5861). Older backends send no epoch — keep the frame (the
+   * pre-fix behavior) rather than dropping every terminal message.
+   */
+  const isSupersededEpoch = (frameEpoch: number | undefined): boolean => {
+    const current = bufferEpochRef.current;
+    return frameEpoch != null && current != null && frameEpoch !== current;
+  };
 
   // Handler identity changes never resubscribe (the shared hook holds them in a
   // ref, #3588/#2532). handleStreamStartRef is populated by the caller
@@ -103,10 +116,24 @@ export function useStreamSubscriptions(deps: StreamSubscriptionDeps) {
       }
       streamEpochRef.current = incomingEpoch ?? null;
       handleStreamStartRef.current?.(start);
+      // #5861: the ring now fills under the adopted epoch — either freshly
+      // created on the recreate path or reset by the start handler when it
+      // detected superseded content.
+      bufferEpochRef.current = incomingEpoch ?? null;
     },
     audio_chunk: (m) => { clearStreamStartWatchdog(); handleChunk(m as unknown as AudioChunkMessage); },
-    audio_stream_end: (m) => { clearStreamStartWatchdog(); handleStreamEnd(m as unknown as AudioStreamEndMessage); },
-    audio_stream_error: (m) => { clearStreamStartWatchdog(); handleStreamError(m as unknown as AudioStreamErrorMessage); },
+    audio_stream_end: (m) => {
+      // #5861: end/error now carry stream_epoch; a late frame from the
+      // superseded stream must not finalize (or kill) the live one.
+      if (isSupersededEpoch((m as { data?: { stream_epoch?: number } }).data?.stream_epoch)) return;
+      clearStreamStartWatchdog();
+      handleStreamEnd(m as unknown as AudioStreamEndMessage);
+    },
+    audio_stream_error: (m) => {
+      if (isSupersededEpoch((m as { data?: { stream_epoch?: number } }).data?.stream_epoch)) return;
+      clearStreamStartWatchdog();
+      handleStreamError(m as unknown as AudioStreamErrorMessage);
+    },
   });
 
   // The next connection may reach a restarted backend whose epoch count starts

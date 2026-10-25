@@ -156,6 +156,10 @@ async def send_stream_end(
             "duration": duration,
             "stream_type": _asc._stream_type_var.get(),
             "reason": reason,
+            # #5861: a late end from a superseded stream (seek/re-issue
+            # cancelled it mid-flight) must be distinguishable from the live
+            # stream's end, or it tears down / finalizes the new one.
+            "stream_epoch": _asc._stream_epoch_var.get(),
         },
     }
     if await controller._safe_send(websocket, message):

@@ -60,6 +60,9 @@ export interface StreamingCoreReturn {
   pendingChunksRef: React.MutableRefObject<AudioChunkMessage[]>;
   streamingMetadataRef: React.MutableRefObject<StreamingMetadata | null>;
   flowPausedRef: React.MutableRefObject<boolean>;
+  /** Epoch the ring's CURRENT content belongs to (#5861) — lags the
+   * adopted stream epoch so a start can detect superseded buffer content. */
+  bufferEpochRef: React.MutableRefObject<number | null>;
   lastReceivedChunkIndexRef: React.MutableRefObject<number>;
   lastDispatchedProgressRef: React.MutableRefObject<number>;
   /** Set by a user pause; while set, buffered audio never starts on its own (#5459).

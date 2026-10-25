@@ -26,6 +26,7 @@ import {
   useAudioStreamingCore,
   type StreamingCoreOptions,
 } from '../useAudioStreamingCore';
+import { shouldDiscardSupersededBuffer } from '../audioChunkIngest';
 
 vi.mock('@/utils/audio/pcmDecoding', () => ({
   decodeAudioChunkMessage: (message: any) => ({
@@ -162,6 +163,95 @@ describe('useAudioStreamingCore stream epoch (#4563)', () => {
     act(() => { result.current.handleChunk(chunk(1, 4) as never); });
 
     expect(buffer.append).toHaveBeenCalledTimes(1);
+  });
+
+  // #5861: the reachable ordering. The per-chunk epoch filter cannot fire for
+  // the frames #4563 was written for: the backend cancels the old task BEFORE
+  // sending the new start, so every superseded frame arrives while the client
+  // still holds the OLD epoch and passes. The discard boundary is the new
+  // audio_stream_start itself: a changed epoch means the ring's content is
+  // from a superseded stream.
+  it('discards pre-seek frames that pass the chunk filter and land before the new start (#5861)', () => {
+    // The resume guard needs a live engine as well as a live buffer, so both
+    // fakes are attached before the starts (this harness never invokes the
+    // start handler itself — useEnhancedStreamStart is not rendered).
+    const hook = render();
+    hook.result.current.playbackEngineRef.current = { dispose: vi.fn() } as never;
+    const buffer = (hook.result.current.pcmBufferRef.current as unknown as ReturnType<typeof makeFakeBuffer>);
+
+    act(() => { ws.emit('audio_stream_start', streamStart(1)); });
+
+    // Seek-side reset happens in seekTo; stale epoch-1 frames then arrive and
+    // are appended — the client still holds epoch 1, so the filter passes them.
+    buffer.append.mockClear();
+    buffer.reset.mockClear();
+    act(() => { hook.result.current.handleChunk(chunk(1, 2) as never); });
+    expect(buffer.append).toHaveBeenCalledTimes(1);
+
+    // The new start arrives LAST (the reachable ordering): new epoch + is_seek.
+    // The guard that resets the ring lives in useEnhancedStreamStart (not
+    // rendered in this harness), so assert the two facts it decides on: the
+    // pure discard decision, and that bufferEpochRef adopted the buffer's
+    // OLD epoch before the start flipped it.
+    expect(hook.result.current.bufferEpochRef.current).toBe(1);
+    expect(shouldDiscardSupersededBuffer(2, 1)).toBe(true); // -> guard resets the ring
+    act(() => { ws.emit('audio_stream_start', streamStart(2, true)); });
+    expect(hook.result.current.bufferEpochRef.current).toBe(2); // ring now fills under the new epoch
+    expect(shouldDiscardSupersededBuffer(2, 2)).toBe(false); // -> same-epoch appends are kept
+
+    // Only post-reset (new-epoch) content is in the ring.
+    act(() => { hook.result.current.handleChunk(chunk(2, 3) as never); });
+    expect(buffer.append).toHaveBeenCalledTimes(2);
+  });
+
+  it('shouldDiscardSupersededBuffer keeps un-stamped starts behaving as before', () => {
+    expect(shouldDiscardSupersededBuffer(undefined, 1)).toBe(false);
+    expect(shouldDiscardSupersededBuffer(1, null)).toBe(false);
+  });
+
+  it('keeps the append path when the seek start carries the SAME epoch (no superseded content)', () => {
+    const hook = render();
+    hook.result.current.playbackEngineRef.current = { dispose: vi.fn() } as never;
+    const buffer = (hook.result.current.pcmBufferRef.current as unknown as ReturnType<typeof makeFakeBuffer>);
+
+    act(() => { ws.emit('audio_stream_start', streamStart(1)); });
+    buffer.reset.mockClear();
+
+    act(() => { ws.emit('audio_stream_start', streamStart(1, true)); });
+    expect(buffer.reset).not.toHaveBeenCalled();
+  });
+
+  it('ignores a late stream end from a superseded epoch (#5861)', () => {
+    // Track dispatched actions: a superseded end must dispatch nothing. The
+    // override must happen BEFORE render — react-redux hands useDispatch the
+    // store's dispatch at render time.
+    const dispatched: string[] = [];
+    const originalDispatch = store.dispatch.bind(store);
+    store.dispatch = ((action: { type: string }) => {
+      dispatched.push(action.type);
+      return originalDispatch(action as never);
+    }) as never;
+    const hook = render();
+
+    act(() => { ws.emit('audio_stream_start', streamStart(2)); });
+    dispatched.length = 0;
+
+    act(() => {
+      ws.emit('audio_stream_end', {
+        type: 'audio_stream_end',
+        data: { track_id: 1, total_samples: 1, duration: 1, stream_type: 'enhanced', reason: 'completed', stream_epoch: 1 },
+      });
+    });
+    expect(dispatched).toEqual([]);
+
+    // The live stream's own end still lands.
+    act(() => {
+      ws.emit('audio_stream_end', {
+        type: 'audio_stream_end',
+        data: { track_id: 1, total_samples: 1, duration: 1, stream_type: 'enhanced', reason: 'completed', stream_epoch: 2 },
+      });
+    });
+    expect(dispatched.length).toBeGreaterThan(0);
   });
 
   it('accepts chunks from the current stream after the seek', () => {

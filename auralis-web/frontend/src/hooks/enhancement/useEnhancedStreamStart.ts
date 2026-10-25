@@ -22,6 +22,7 @@ import type { AppDispatch } from '@/store';
 import { engineGainFromPlayerState } from '@/store/slices/playerSlice';
 import PCMStreamBuffer from '@/services/audio/PCMStreamBuffer';
 import AudioPlaybackEngine from '@/services/audio/AudioPlaybackEngine';
+import { shouldDiscardSupersededBuffer } from './audioChunkIngest';
 import {
   startStreaming,
   setStreamingError,
@@ -92,6 +93,18 @@ export function useEnhancedStreamStart({
       // Resume guard: if we already have a live engine+buffer (e.g. after WS
       // reconnect), skip recreation and let new chunks append seamlessly (#3185).
       if (isSeek && core.playbackEngineRef.current && core.pcmBufferRef.current) {
+        // #5861: a changed epoch means the ring was filling under a
+        // superseded stream. The stale frames it may hold (already
+        // queued/sent when the seek landed) PASS the per-chunk epoch filter —
+        // the client still holds the old epoch until this very message — so
+        // the only reliable discard boundary is here: reset before appending.
+        // seekTo already reset the ring, but stale frames can have been
+        // ingested after that reset and before this start arrived.
+        if (shouldDiscardSupersededBuffer(message.data.stream_epoch, core.bufferEpochRef.current)) {
+          DEBUG && console.log('[usePlayEnhanced] New stream epoch — discarding superseded buffer content');
+          core.pcmBufferRef.current.reset();
+          core.lastReceivedChunkIndexRef.current = -1;
+        }
         DEBUG && console.log('[usePlayEnhanced] Resuming stream into existing buffer');
         if (core.streamingMetadataRef.current) {
           core.streamingMetadataRef.current.totalChunks = message.data.total_chunks;
