@@ -24,7 +24,13 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 
-export const STREAM_START_WATCHDOG_MS = 45000;
+// #6232: derived from the mirrored backend chunk timing (30 s chunk
+// processing + 5 s stream semaphore + one 10 s chunk interval = 45 s), not a
+// bare literal — when the backend budget changes, the mirror in
+// audioConstants.BACKEND_STREAM_TIMING moves this with it.
+import { STREAM_START_WATCHDOG_DERIVED_MS } from '@/services/audio/audioConstants';
+
+export const STREAM_START_WATCHDOG_MS = STREAM_START_WATCHDOG_DERIVED_MS;
 
 export interface StreamStartWatchdog {
   /** Start (or restart) the timer. Called right after a play command is sent. */

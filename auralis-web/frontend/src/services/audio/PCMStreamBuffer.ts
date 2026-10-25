@@ -10,6 +10,7 @@
  * @license AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
  */
 
+import { DEFAULT_STREAM_SAMPLE_RATE } from './audioConstants';
 import { MAX_CAPACITY_BYTES, MIN_CAPACITY_BYTES, capacityForStream, readRing, writeRing } from './pcmRingOps';
 
 export interface BufferMetadata {
@@ -47,7 +48,7 @@ export class PCMStreamBuffer {
   private buffer: Float32Array | null = null;
   private writePos: number = 0;
   private readPos: number = 0;
-  private sampleRate: number = 48000;
+  private sampleRate: number = DEFAULT_STREAM_SAMPLE_RATE;
   private channels: number = 2;
   private capacity: number = 0;
   private isInitialized: boolean = false;

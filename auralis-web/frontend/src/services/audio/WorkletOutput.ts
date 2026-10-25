@@ -15,7 +15,7 @@
 
 import type { BufferHealth } from './bufferHealth';
 import type PCMStreamBuffer from './PCMStreamBuffer';
-import { PLAYBACK_ENGINE_CONFIG } from './audioConstants';
+import { PLAYBACK_ENGINE_CONFIG , DEFAULT_STREAM_SAMPLE_RATE } from './audioConstants';
 
 export interface WorkletOutputCallbacks {
   /** Worklet reports an absolute samples-played count. */
@@ -163,7 +163,7 @@ export class WorkletOutput {
       if (!this.node) return;
 
       const { sampleRate: rate, channels: ch } = this.buffer.getMetadata();
-      const sampleRate = rate || 44100;
+      const sampleRate = rate || DEFAULT_STREAM_SAMPLE_RATE;
       const bufferChannels = ch || 2;
       const lookaheadFrames = this.getLookaheadFrames();
       const ringFrames = this.buffer.getAvailableSamples() / bufferChannels;

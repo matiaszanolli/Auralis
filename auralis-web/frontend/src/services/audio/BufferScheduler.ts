@@ -16,7 +16,7 @@
  */
 
 import PCMStreamBuffer from './PCMStreamBuffer';
-import { PLAYBACK_ENGINE_CONFIG } from './audioConstants';
+import { DEFAULT_STREAM_SAMPLE_RATE, PLAYBACK_ENGINE_CONFIG } from './audioConstants';
 import { BufferHealth } from './bufferHealth';
 import { deinterleaveToOutput } from './deinterleaveToOutput';
 import { WorkletOutput } from './WorkletOutput';
@@ -49,7 +49,14 @@ export class BufferScheduler {
 
   // Configuration (centralised in audioConstants.ts — #4031)
   private bufferSize: number = PLAYBACK_ENGINE_CONFIG.bufferSize; // samples per process callback
-  private minBufferSamples: number = PLAYBACK_ENGINE_CONFIG.minBufferSamples; // ~1s at 48kHz stereo — start playback quickly; water marks handle recovery
+  // #6232: derived per query from the stream's own metadata — see
+  // getMinBufferSamples().
+  private get minBufferSamples(): number {
+    const meta = this.buffer.getMetadata();
+    const rate = meta.sampleRate || DEFAULT_STREAM_SAMPLE_RATE;
+    const channels = meta.channels || 2;
+    return Math.ceil(PLAYBACK_ENGINE_CONFIG.minBufferSeconds * rate * channels);
+  }
 
   constructor(
     audioContext: AudioContext,
@@ -226,7 +233,7 @@ export class BufferScheduler {
     // For stereo audio, we need framesNeeded * 2 interleaved samples
     // For mono, we need framesNeeded samples
     const bufferChannels = this.buffer.getMetadata().channels || 2;
-    const sampleRate = this.buffer.getMetadata().sampleRate || 44100;
+    const sampleRate = this.buffer.getMetadata().sampleRate || DEFAULT_STREAM_SAMPLE_RATE;
     const samplesNeeded = framesNeeded * bufferChannels;
 
     // Check buffer health BEFORE reading

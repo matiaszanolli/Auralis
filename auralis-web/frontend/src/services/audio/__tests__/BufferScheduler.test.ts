@@ -64,10 +64,17 @@ describe('BufferScheduler', () => {
     vi.unstubAllGlobals();
   });
 
-  it('getMinBufferSamples returns the configured constant', () => {
+  it('getMinBufferSamples derives from seconds x the stream rate/channels (#6232)', () => {
     const { ctx, gainNode } = createScriptOnlyContext();
     const scheduler = new BufferScheduler(ctx, makeBuffer(10), gainNode as any, makeCallbacks());
-    expect(scheduler.getMinBufferSamples()).toBe(PLAYBACK_ENGINE_CONFIG.minBufferSamples);
+    const meta = scheduler['buffer'].getMetadata();
+    const expected = Math.ceil(
+      PLAYBACK_ENGINE_CONFIG.minBufferSeconds * meta.sampleRate * meta.channels
+    );
+    expect(scheduler.getMinBufferSamples()).toBe(expected);
+    // The shipped geometry is unchanged for the calibrated case
+    // (1 s at 48 kHz stereo == the old raw 96000).
+    expect(PLAYBACK_ENGINE_CONFIG.minBufferSeconds * 48000 * 2).toBe(96000);
   });
 
   describe('ScriptProcessorNode fallback', () => {
