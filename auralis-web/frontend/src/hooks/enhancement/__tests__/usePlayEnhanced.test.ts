@@ -221,6 +221,7 @@ function setupMocks() {
     onUnderrun: vi.fn(),
     onStallChange: vi.fn(),
     getCurrentPlaybackTime: vi.fn().mockReturnValue(0),
+    setSeekOffset: vi.fn(),
     // 2s threshold @ 44100Hz stereo = 176400 samples — matches the auto-start
     // assertions below (buffer >= threshold ⇒ startPlayback).
     getMinBufferSamples: vi.fn().mockReturnValue(176400),
@@ -929,6 +930,30 @@ describe('usePlayEnhanced – seekTo', () => {
   afterEach(() => {
     vi.clearAllMocks();
     vi.unstubAllGlobals();
+  });
+
+  it('applies the backend seek_position to the playback clock on the resume path (#5860)', async () => {
+    const result = await setupWithStream();
+    const engine = vi.mocked(AudioPlaybackEngine).mock.results[
+      vi.mocked(AudioPlaybackEngine).mock.results.length - 1
+    ].value as typeof mockEngineInstance;
+
+    act(() => {
+      result.current.seekTo(60);
+    });
+    // seekTo stopped the engine (which resets the tracker, old offset gone).
+    expect(engine.stopPlayback).toHaveBeenCalled();
+
+    act(() => {
+      fireHandler('audio_stream_start', makeStreamStartMsg({
+        track_id: 42, is_seek: true, seek_position: 60, stream_epoch: 7,
+      }));
+    });
+
+    // The ack's seek_position is re-armed on the clock: without this the
+    // position restarted at ~0 after every seek (#5860).
+    expect(engine.setSeekOffset).toHaveBeenCalledWith(60);
+    expect(result.current.isSeeking).toBe(false);
   });
 
   it('sets isSeeking to true', async () => {

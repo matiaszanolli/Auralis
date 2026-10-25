@@ -141,3 +141,39 @@ describe('PlaybackPositionTracker', () => {
     });
   });
 });
+
+  describe('stopped-state seek offset (#5860)', () => {
+    it('reports the held seek offset while stopped between ack and startPlayback', () => {
+      const tracker = new PlaybackPositionTracker();
+      tracker.setState('playing');
+      tracker.setState('stopped');
+      tracker.setSeekOffset(60); // the ack re-arms after stopPlayback's reset
+
+      expect(tracker.getCurrentPlaybackTime(48000)).toBe(60);
+    });
+
+    it('reports 0 for a plain stop (offset zeroed by reset, never re-armed)', () => {
+      const tracker = new PlaybackPositionTracker();
+      tracker.setState('playing');
+      tracker.setSeekOffset(60);
+      tracker.setState('stopped');
+      tracker.reset(); // what stopPlayback() runs
+
+      expect(tracker.getCurrentPlaybackTime(48000)).toBe(0);
+    });
+
+    it('playing time is offset + samplesPlayed/rate', () => {
+      const tracker = new PlaybackPositionTracker();
+      tracker.setState('playing');
+      tracker.setSeekOffset(60);
+      tracker.addSamplesPlayed(48000 * 3); // 3 s since the seek
+
+      expect(tracker.getCurrentPlaybackTime(48000)).toBe(63);
+    });
+
+    it('idle still reports 0 regardless of any offset', () => {
+      const tracker = new PlaybackPositionTracker();
+      tracker.setSeekOffset(60);
+      expect(tracker.getCurrentPlaybackTime(48000)).toBe(0);
+    });
+  });

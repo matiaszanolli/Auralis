@@ -105,6 +105,15 @@ export function useEnhancedStreamStart({
           core.pcmBufferRef.current.reset();
           core.lastReceivedChunkIndexRef.current = -1;
         }
+        // #5860/#2259: seekTo stopped the engine, which RESETS the tracker —
+        // including the old seek offset. The backend's seek_position ack is
+        // the authoritative new position; without re-arming it here the
+        // clock restarts at 0 after every seek (auto-advance, keyboard seek
+        // and the reconnect resume getter all read the wrong base). Same
+        // call the engine-rebuild path below has always made.
+        if (seekPosition > 0) {
+          core.playbackEngineRef.current?.setSeekOffset(seekPosition);
+        }
         DEBUG && console.log('[usePlayEnhanced] Resuming stream into existing buffer');
         if (core.streamingMetadataRef.current) {
           core.streamingMetadataRef.current.totalChunks = message.data.total_chunks;

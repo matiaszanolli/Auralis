@@ -77,8 +77,18 @@ export class PlaybackPositionTracker {
    * Get current playback time in seconds, given the stream's sample rate.
    */
   getCurrentPlaybackTime(sampleRate: number): number {
-    if (this.state === 'idle' || this.state === 'stopped') {
+    if (this.state === 'idle') {
       return 0;
+    }
+
+    if (this.state === 'stopped') {
+      // #5860: a seek stops the engine (stopPlayback resets the bookkeeping)
+      // and then re-arms the offset from the backend's seek_position ack, so
+      // 'stopped' between the ack and startPlayback must report the HELD
+      // offset, not 0 — the UI clock, keyboard-seek base and the reconnect
+      // resume getter all read this. A plain stop reports 0 as before,
+      // because reset() zeroed the offset and nobody re-armed it.
+      return this.seekOffsetSeconds + this.samplesPlayed / sampleRate;
     }
 
     if (this.state === 'paused') {
