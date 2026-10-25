@@ -117,9 +117,6 @@ class Track(Base, TimestampMixin):
         Index('idx_tracks_last_played', desc(last_played)),
         Index('idx_tracks_album_id', album_id),
         Index('idx_tracks_year', year),
-        Index('idx_tracks_fingerprint_status', fingerprint_status),
-        Index('idx_tracks_fingerprint_queue', fingerprint_status, 'created_at'),
-        Index('idx_tracks_fingerprint_computed_at', desc(fingerprint_computed_at)),
     )
 
     # Relationships

@@ -5,7 +5,7 @@ and fingerprint algorithm versions are independent and must only change with
 their respective formats.
 """
 
-__db_schema_version__ = 25  # track_artist/track_genre + albums.artist_id indexes (#6103)
+__db_schema_version__ = 26  # drop the unread tracks.fingerprint_* indexes + library_stats (#5755)
 
 # Fingerprint algorithm version — increment this whenever the 25D extraction
 # algorithm changes in a way that produces different values for the same audio.

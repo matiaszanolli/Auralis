@@ -85,4 +85,3 @@ class AudioFileInfo:
     channels: int | None = None
     format: str | None = None
     metadata: dict[str, Any] | None = None
-    file_hash: str | None = None

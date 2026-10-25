@@ -23,6 +23,3 @@ SKIP_DIRECTORIES = {
 
 # Batch processing configuration
 DEFAULT_BATCH_SIZE = 50
-
-# File hash configuration
-HASH_CHUNK_SIZE = 8192  # 8KB chunks for hash calculation

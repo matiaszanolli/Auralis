@@ -20,7 +20,6 @@ from .batch_processor import BatchProcessor
 # Configuration
 from .config import (
     DEFAULT_BATCH_SIZE,
-    HASH_CHUNK_SIZE,
     SKIP_DIRECTORIES,
 )
 
@@ -46,5 +45,4 @@ __all__ = [
     'AUDIO_EXTENSIONS',
     'SKIP_DIRECTORIES',
     'DEFAULT_BATCH_SIZE',
-    'HASH_CHUNK_SIZE',
 ]

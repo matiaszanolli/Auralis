@@ -107,7 +107,6 @@ def test_collation_order_and_partial_clauses_are_kept(fresh_db):
     assert "NOCASE" in sql["idx_tracks_title"].upper()
     assert "NOCASE" in sql["idx_albums_title"].upper()
     assert "DESC" in sql["idx_tracks_last_played"].upper()
-    assert "DESC" in sql["idx_tracks_fingerprint_computed_at"].upper()
     favorite_title = sql["idx_tracks_favorite_title"].upper()
     assert "WHERE" in favorite_title and "NOCASE" in favorite_title
 

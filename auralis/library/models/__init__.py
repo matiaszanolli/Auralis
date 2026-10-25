@@ -31,7 +31,6 @@ from .schema import SchemaVersion
 from .settings import UserSettings
 
 # Statistics
-from .statistics import LibraryStats
 
 __all__ = [
     # Base
@@ -48,7 +47,6 @@ __all__ = [
     'Genre',
     'Playlist',
     # Statistics
-    'LibraryStats',
     # Settings
     'UserSettings',
     # Fingerprint

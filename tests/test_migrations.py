@@ -154,7 +154,7 @@ class TestMigrationManager:
         expected_tables = [
             'tracks', 'albums', 'artists', 'genres', 'playlists',
             'track_artist', 'track_genre', 'track_playlist',
-            'library_stats', 'schema_version'
+            'schema_version'
         ]
 
         for table in expected_tables:

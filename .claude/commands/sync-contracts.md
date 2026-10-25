@@ -44,7 +44,7 @@ Two send paths: the raw `manager.send(JSON.stringify(...))` calls in `auralis-we
 
 ### API Client Calls
 
-Most calls go through `auralis-web/frontend/src/utils/apiRequest.ts` (`get` / `post` / `put` / `patch` / `del`; options and timeouts in `apiRequestTypes.ts`, retry policy in `queryRetry.ts`) with paths from `ENDPOINTS` in `auralis-web/frontend/src/config/api.ts`. Scan all service files in `auralis-web/frontend/src/services/`, plus `useRestAPI` (`auralis-web/frontend/src/hooks/api/useRestAPI.ts` over `restApiTransport.ts`) and the direct `fetch(` calls still scattered across `src/hooks/` and `src/components/`. For each API call, extract:
+Most calls go through `auralis-web/frontend/src/utils/apiRequest.ts` (`get` / `post` / `put` / `patch` / `del`; options and timeouts in `apiRequestTypes.ts`, retry policy in `queryRetry.ts`) with paths from `ENDPOINTS` in `auralis-web/frontend/src/config/api.ts`. Scan all service files in `auralis-web/frontend/src/services/`, plus `useRestAPI` (`auralis-web/frontend/src/hooks/api/useRestAPI.ts` over the shared `fetchWithTimeout`) and the direct `fetch(` calls still scattered across `src/hooks/` and `src/components/`. For each API call, extract:
 - HTTP method, URL path
 - Request body shape (TypeScript interface or inline object)
 - Expected response shape
