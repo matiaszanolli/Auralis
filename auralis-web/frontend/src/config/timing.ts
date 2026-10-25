@@ -21,3 +21,14 @@ export const QUERY_GC_TIME_MS = 30 * 60 * 1000;
 
 /** Keystrokes settle this long before a search request fires. */
 export const SEARCH_DEBOUNCE_MS = 300;
+
+/**
+ * The WebSocket reconnect budget every layer agrees on (#6220): the
+ * WebSocketManager default (utils/errorHandling.ts), the production cap in
+ * useWebSocketConnection, and the Redux slice's initial state (whose value
+ * feeds canReconnect in selectors/connection.ts). Production slices and
+ * manager must match or canReconnect lies about when the manager gives up;
+ * DEV uses a smaller cap to reduce console spam.
+ */
+export const DEFAULT_MAX_RECONNECT_ATTEMPTS = 10;
+export const DEV_MAX_RECONNECT_ATTEMPTS = 3;

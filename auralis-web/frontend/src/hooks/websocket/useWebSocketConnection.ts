@@ -17,6 +17,7 @@
  * 605-line WebSocketContext so the reconnect path can be reviewed alone (#4297).
  */
 
+import { DEFAULT_MAX_RECONNECT_ATTEMPTS, DEV_MAX_RECONNECT_ATTEMPTS } from '@/config/timing';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { WebSocketManager } from '@/utils/errorHandling';
 import {
@@ -186,7 +187,9 @@ export function useWebSocketConnection({
     try {
       // Create WebSocketManager with Phase 3c error handling.
       // In development, limit reconnection attempts to reduce console spam.
-      const maxAttempts = import.meta.env.DEV ? 3 : 10;
+      const maxAttempts = import.meta.env.DEV
+        ? DEV_MAX_RECONNECT_ATTEMPTS
+        : DEFAULT_MAX_RECONNECT_ATTEMPTS;
       const manager = new WebSocketManager(url, {
         // Backoff delays and multiplier come from WebSocketManager's defaults
         // (utils/errorHandling.ts); only the dev attempt cap is overridden here.

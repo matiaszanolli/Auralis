@@ -21,13 +21,14 @@ import reducer, {
   selectConnectionHealth,
 } from '../connectionSlice';
 import type { ConnectionState } from '../connectionSlice';
+import { DEFAULT_MAX_RECONNECT_ATTEMPTS } from '@/config/timing';
 
 const initialState: ConnectionState = {
   wsConnected: false,
   apiConnected: false,
   latency: 0,
   reconnectAttempts: 0,
-  maxReconnectAttempts: 5,
+  maxReconnectAttempts: DEFAULT_MAX_RECONNECT_ATTEMPTS,
   lastError: null,
   lastReconnectTime: 0,
   lastUpdated: 0,
@@ -39,6 +40,13 @@ describe('connectionSlice', () => {
     expect(state.wsConnected).toBe(false);
     expect(state.apiConnected).toBe(false);
     expect(state.reconnectAttempts).toBe(0);
+  });
+
+  // #6220: the slice's budget must equal the WebSocketManager default, or
+  // canReconnect gives up before the manager does.
+  it('initial reconnect budget equals the shared manager default (#6220)', () => {
+    const state = reducer(undefined, { type: 'unknown' });
+    expect(state.maxReconnectAttempts).toBe(DEFAULT_MAX_RECONNECT_ATTEMPTS);
   });
 
   // ─── Connection status ────────────────────────────────────────
@@ -93,9 +101,12 @@ describe('connectionSlice', () => {
   });
 
   it('incrementReconnectAttempts caps at maxReconnectAttempts', () => {
-    let state: ConnectionState = { ...initialState, reconnectAttempts: 5 };
+    let state: ConnectionState = {
+      ...initialState,
+      reconnectAttempts: DEFAULT_MAX_RECONNECT_ATTEMPTS,
+    };
     state = reducer(state, incrementReconnectAttempts());
-    expect(state.reconnectAttempts).toBe(5);
+    expect(state.reconnectAttempts).toBe(DEFAULT_MAX_RECONNECT_ATTEMPTS);
   });
 
   it('resetReconnectAttempts resets to zero', () => {

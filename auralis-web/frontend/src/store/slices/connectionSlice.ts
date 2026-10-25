@@ -14,6 +14,7 @@
  * @license AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
  */
 
+import { DEFAULT_MAX_RECONNECT_ATTEMPTS } from '@/config/timing';
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 export interface ConnectionState {
@@ -32,7 +33,9 @@ const initialState: ConnectionState = {
   apiConnected: false,
   latency: 0,
   reconnectAttempts: 0,
-  maxReconnectAttempts: 5,
+  // #6220: one budget with the WebSocketManager default — the previous
+  // hardcoded 5 made canReconnect give up before the manager did.
+  maxReconnectAttempts: DEFAULT_MAX_RECONNECT_ATTEMPTS,
   lastError: null,
   lastReconnectTime: 0,
   lastUpdated: 0,

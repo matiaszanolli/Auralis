@@ -11,6 +11,8 @@
  * useWebSocketConnection).
  */
 
+import { DEFAULT_MAX_RECONNECT_ATTEMPTS } from '@/config/timing';
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -29,7 +31,7 @@ export interface WebSocketErrorConfig {
 // ============================================================================
 
 const DEFAULT_WEBSOCKET_CONFIG: WebSocketErrorConfig = {
-  maxReconnectAttempts: 10,
+  maxReconnectAttempts: DEFAULT_MAX_RECONNECT_ATTEMPTS,
   initialReconnectDelayMs: 1000,
   maxReconnectDelayMs: 30000,
   backoffMultiplier: 2,
