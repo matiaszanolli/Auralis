@@ -19,6 +19,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ...utils.logging import debug, error
+from .fingerprint_shared import PLACEHOLDER_LUFS_SENTINEL
 from ...__version__ import FINGERPRINT_ALGORITHM_VERSION
 from ..models import Track, TrackFingerprint
 from .base import BaseRepository
@@ -42,7 +43,9 @@ def release_claims(session: Session, track_id: int | None = None) -> tuple[int, 
     """
     # #3711: ORM delete()/update() rather than raw text(), so a table rename
     # via migrations is caught here.
-    placeholders = delete(TrackFingerprint).where(TrackFingerprint.lufs == -100.0)
+    placeholders = delete(TrackFingerprint).where(
+        TrackFingerprint.lufs == PLACEHOLDER_LUFS_SENTINEL
+    )
     claimed = update(TrackFingerprint).where(TrackFingerprint.fingerprint_version == 0)
     if track_id is not None:
         placeholders = placeholders.where(TrackFingerprint.track_id == track_id)
@@ -144,7 +147,8 @@ class FingerprintSchedulerRepository(BaseRepository):
                         # Initialize all 25 dimensions with zeros (will be overwritten)
                         sub_bass_pct=0.0, bass_pct=0.0, low_mid_pct=0.0, mid_pct=0.0,
                         upper_mid_pct=0.0, presence_pct=0.0, air_pct=0.0,
-                        lufs=-100.0, crest_db=0.0, bass_mid_ratio=0.0,
+                        lufs=PLACEHOLDER_LUFS_SENTINEL, crest_db=0.0,
+                        bass_mid_ratio=0.0,
                         tempo_bpm=0.0, rhythm_stability=0.0, transient_density=0.0, silence_ratio=0.0,
                         spectral_centroid=0.0, spectral_rolloff=0.0, spectral_flatness=0.0,
                         harmonic_ratio=0.0, pitch_stability=0.0, chroma_energy=0.0,
@@ -218,13 +222,19 @@ class FingerprintSchedulerRepository(BaseRepository):
                             JOIN tracks t ON t.id = tf.track_id
                             WHERE +tf.fingerprint_version > 0
                               AND +tf.fingerprint_version < :current_ver
-                              AND tf.lufs != -100.0
+                              AND tf.lufs != :sentinel
                               AND t.filepath IS NOT NULL
                               AND tf.track_id > :after_id
                             ORDER BY tf.track_id
                             LIMIT 1
                         """),
-                        {'current_ver': current_version, 'after_id': after_id},
+                        {
+                            'current_ver': current_version,
+                            'after_id': after_id,
+                            # #6225: the sentinel is bound, not inlined — a
+                            # change to the constant reaches the raw SQL too.
+                            'sentinel': PLACEHOLDER_LUFS_SENTINEL,
+                        },
                     ).first()
 
                 row = self._find_after_cursor(self._OUTDATED, find)

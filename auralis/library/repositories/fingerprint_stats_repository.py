@@ -15,6 +15,7 @@ from sqlalchemy import func, select, update
 
 from ...utils.logging import error, info
 from ...__version__ import FINGERPRINT_ALGORITHM_VERSION
+from .fingerprint_shared import PLACEHOLDER_LUFS_SENTINEL
 from ..models import Track, TrackFingerprint
 from .base import BaseRepository
 from .fingerprint_scheduler_repository import release_claims
@@ -100,7 +101,9 @@ class FingerprintStatsRepository(BaseRepository):
             current_count = session.execute(
                 select(func.count(TrackFingerprint.id))
                 .where(
-                    TrackFingerprint.lufs != -100.0,
+                    # Sentinel exclusion is _current_fingerprint_clause()'s
+                    # first condition (#6225) — one home for the predicate.
+                    TrackFingerprint.lufs != PLACEHOLDER_LUFS_SENTINEL,
                     TrackFingerprint.fingerprint_version == FINGERPRINT_ALGORITHM_VERSION,
                 )
             ).scalar_one_or_none() or 0
@@ -109,7 +112,7 @@ class FingerprintStatsRepository(BaseRepository):
             outdated_count = session.execute(
                 select(func.count(TrackFingerprint.id))
                 .where(
-                    TrackFingerprint.lufs != -100.0,
+                    TrackFingerprint.lufs != PLACEHOLDER_LUFS_SENTINEL,
                     TrackFingerprint.fingerprint_version > 0,
                     TrackFingerprint.fingerprint_version < FINGERPRINT_ALGORITHM_VERSION,
                 )
