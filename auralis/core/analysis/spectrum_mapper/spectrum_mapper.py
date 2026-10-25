@@ -11,6 +11,7 @@ Presets act as anchor points rather than rigid configurations.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+from auralis.core.utils import fingerprint_default
 from typing import Any
 
 import numpy as np
@@ -43,9 +44,9 @@ class SpectrumMapper:
         # Extract relevant metrics
         input_level_info = content_profile.get('input_level_info', {})
         rms_db = input_level_info.get('rms_db', -15.0)
-        crest_db = input_level_info.get('crest_db', 12.0)
+        crest_db = input_level_info.get('crest_db', fingerprint_default('crest_db'))
 
-        spectral_centroid = content_profile.get('spectral_centroid', 2000)
+        spectral_centroid = content_profile.get('spectral_centroid', fingerprint_default('spectral_centroid_hz'))
         energy_level = content_profile.get('energy_level', 'medium')
         content_profile.get('dynamic_range', 20.0)
 

@@ -6,6 +6,7 @@ mastering_target_service.py, #5833). Pure functions of the fingerprint.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+from auralis.core.utils import fingerprint_default
 from typing import Any
 
 from auralis.dsp.constants import CORPUS_BAND_CENTERS
@@ -56,7 +57,9 @@ def generate_targets_from_fingerprint(fingerprint: Any) -> dict[str, Any]:
     target_lufs = current_lufs * 0.4 + streaming_target * 0.6
 
     # Target crest factor (preserve dynamic range character)
-    current_crest = fp_dict.get('crest_db', dynamics.get('crest_db', 12.0))
+    current_crest = fp_dict.get(
+            'crest_db', dynamics.get('crest_db', fingerprint_default('crest_db'))
+        )
     target_crest = max(10.0, current_crest * 0.85)  # Slight reduction
 
     # EQ adjustments based on frequency balance. A band missing from the

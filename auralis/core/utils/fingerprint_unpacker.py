@@ -11,6 +11,7 @@ with centralized defaults and lazy evaluation.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+from auralis.dsp.constants import SPECTRAL_CENTROID_HZ_DEFAULT
 from dataclasses import dataclass
 from typing import Any
 
@@ -41,6 +42,11 @@ FINGERPRINT_DEFAULTS: dict[str, float] = {
     'transient_density': 0.5,
     'silence_ratio': 0.0,
     'spectral_centroid': 0.5,
+    # The SAME name in hertz, for the consumers that adapt EQ curves from a
+    # raw centroid (#6219): the normalised 0.5 above and this value describe
+    # the same default centre through two unit conventions. The hertz value
+    # lives in dsp/constants.py so dsp-layer consumers need not import core.
+    'spectral_centroid_hz': SPECTRAL_CENTROID_HZ_DEFAULT,
     'spectral_rolloff': 0.5,
     'spectral_flatness': 0.5,
     'harmonic_ratio': 0.5,

@@ -8,6 +8,7 @@ Automatic mastering with genre-aware processing
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+from auralis.core.utils import fingerprint_default
 import threading
 from typing import Any
 
@@ -106,8 +107,8 @@ class AutoMasterProcessor:
         with self._lock:
             self.fingerprint = fingerprint
             self.adaptive_params = params
-        info(f"Auto-master fingerprint set: LUFS {fingerprint.get('lufs', 0):.1f}, "
-             f"crest {fingerprint.get('crest_db', 0):.1f} dB")
+        info(f"Auto-master fingerprint set: LUFS {fingerprint.get('lufs', fingerprint_default('lufs')):.1f}, "
+             f"crest {fingerprint.get('crest_db', fingerprint_default('crest_db')):.1f} dB")
 
     def clear_fingerprint(self) -> None:
         """Clear track-specific adaptive state and use profile mastering."""
@@ -210,8 +211,11 @@ class AutoMasterProcessor:
         # Optional: Apply low-mid transient enhancement for quiet, dynamic material
         # This restores punch to bass, piano, vocals after compression
         if self.use_transient_enhancement and self.fingerprint is not None:
-            lufs = self.fingerprint.get('lufs', 0)
-            crest_db = self.fingerprint.get('crest_db', 0)
+            # #6219: a partial fingerprint falls back to the table defaults
+            # (-14 LUFS / 12 dB crest), not 0 — with 0 the quiet-and-dynamic
+            # gate below could never fire for missing keys.
+            lufs = self.fingerprint.get('lufs', fingerprint_default('lufs'))
+            crest_db = self.fingerprint.get('crest_db', fingerprint_default('crest_db'))
 
             # Enhance for quiet + dynamic material (1990s style)
             if lufs < -13.0 and crest_db > 14.0:

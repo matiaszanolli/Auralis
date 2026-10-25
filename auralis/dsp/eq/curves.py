@@ -8,6 +8,7 @@ Genre-specific and content-aware EQ curve generation
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+from auralis.dsp.constants import SPECTRAL_CENTROID_HZ_DEFAULT
 from typing import Any
 
 import numpy as np
@@ -101,7 +102,9 @@ def apply_content_adaptation(gains: np.ndarray,
     # Extract content characteristics
     genre = content_profile.get('genre', 'unknown')
     energy_level = content_profile.get('energy_level', 'medium')
-    spectral_centroid = content_profile.get('spectral_centroid', 2000)
+    spectral_centroid = content_profile.get(
+        'spectral_centroid', SPECTRAL_CENTROID_HZ_DEFAULT
+    )
 
     # Apply genre-specific adaptations
     adapted_gains = _apply_genre_adaptation(adapted_gains, genre, critical_bands)

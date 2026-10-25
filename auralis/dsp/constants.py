@@ -41,3 +41,10 @@ CORPUS_BAND_CENTERS: dict[str, float] = {
     'presence': 0.0297,
     'air': 0.0063,
 }
+
+#: Default spectral centroid in hertz for consumers that adapt EQ curves from
+#: a raw centroid (#6219). The fingerprint table's normalised 'spectral_centroid'
+#: (0.5) and this value describe the same default centre through two unit
+#: conventions; FINGERPRINT_DEFAULTS['spectral_centroid_hz'] aliases this so
+#: neither is retyped at call sites (and dsp/ never imports core/ for it).
+SPECTRAL_CENTROID_HZ_DEFAULT: float = 2000.0

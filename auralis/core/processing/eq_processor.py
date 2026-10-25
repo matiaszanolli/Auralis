@@ -8,6 +8,7 @@ Psychoacoustic EQ integration and processing
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+from auralis.core.utils import fingerprint_default
 from typing import Any
 
 import numpy as np
@@ -122,7 +123,9 @@ class EQProcessor:
             Adjusted EQ curve
         """
         # Adjust based on spectral characteristics
-        centroid = content_profile.get("spectral_centroid", 2000)
+        centroid = content_profile.get(
+            "spectral_centroid", fingerprint_default("spectral_centroid_hz")
+        )
         if centroid > 3500:  # Very bright content
             eq_curve['treble_boost'] *= 0.7  # Reduce treble boost
             eq_curve['high_mid_boost'] *= 0.8
