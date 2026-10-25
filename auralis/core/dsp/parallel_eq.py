@@ -12,6 +12,7 @@ enabling precise spectral shaping.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+from auralis.dsp.utils.conversion import db_to_amplitude
 import numpy as np
 from scipy.signal import butter
 from ...dsp.utils.filters import sosfiltfilt_safe
@@ -58,7 +59,7 @@ class ParallelEQUtilities:
         # boost_linear = 1.0 -> no change; 2.0 -> +6 dB. boost_diff is what
         # gets ADDED. A Python float never promotes an array's dtype (NEP 50),
         # so the add stays audio.dtype.
-        boost_diff = 10 ** (boost_db / 20) - 1.0
+        boost_diff = db_to_amplitude(boost_db) - 1.0
         return (audio + band * boost_diff).astype(audio.dtype)
 
     @staticmethod

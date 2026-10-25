@@ -8,6 +8,7 @@ their arguments; the loop owns all state.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+from auralis.dsp.utils.conversion import db_to_amplitude
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -20,7 +21,7 @@ if TYPE_CHECKING:
 # Measured 4x-oversample reconstruction overshoot the TP guard absorbs
 # (#4970). The June 2026 study measured outputs averaging +0.77 dBTP when
 # unguarded; ~0.27 dB of headroom above the -0.5 dBFS ceiling covers it.
-_TRUE_PEAK_OVERSHOOT_RATIO = 10 ** (0.27 / 20)
+_TRUE_PEAK_OVERSHOOT_RATIO = db_to_amplitude(0.27)
 
 
 def read_chunk(
@@ -85,10 +86,10 @@ def apply_true_peak_guard(pipeline: 'SimpleMasteringPipeline', processed_chunk: 
     gain = song_ceiling / (song_peak * 4x overshoot ratio), constant across
     all chunks.
     """
-    _tp_ceiling = 10 ** (-0.5 / 20)     # −0.5 dBFS = 0.9441
+    _tp_ceiling = db_to_amplitude(-0.5)  # −0.5 dBFS = 0.9441
     _tp_overshoot = _TRUE_PEAK_OVERSHOOT_RATIO
     if pipeline._song_peak_db is not None:
-        _song_peak_linear = 10 ** (pipeline._song_peak_db / 20)
+        _song_peak_linear = db_to_amplitude(pipeline._song_peak_db)
         _tp_gain = _tp_ceiling / (_song_peak_linear * _tp_overshoot)
         if _tp_gain < 1.0:
             processed_chunk = processed_chunk * _tp_gain

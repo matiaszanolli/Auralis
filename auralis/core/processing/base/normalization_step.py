@@ -10,11 +10,11 @@ Consolidates the measure-adjust-remeasure pattern.
 """
 
 
+from auralis.dsp.utils.conversion import amplitude_to_db, db_to_amplitude
 import numpy as np
 
 from ....dsp.basic import amplify, rms
 from ....dsp.utils.adaptive import calculate_loudness_units
-from .db_conversion import DBConversion
 from .processing_logger import ProcessingLogger
 
 
@@ -52,9 +52,9 @@ class NormalizationStep:
             Dictionary with measurements (peak_db, rms_db, crest, [lufs])
         """
         peak = np.max(np.abs(audio))
-        peak_db = DBConversion.to_db(peak)
+        peak_db = amplitude_to_db(peak)
         rms_val = rms(audio)
-        rms_db = DBConversion.to_db(rms_val)
+        rms_db = amplitude_to_db(rms_val)
         crest = peak_db - rms_db
 
         measurement = {
@@ -110,9 +110,9 @@ class NormalizationStep:
             Dictionary with measurements
         """
         peak = np.max(np.abs(audio))
-        peak_db = DBConversion.to_db(peak)
+        peak_db = amplitude_to_db(peak)
         rms_val = rms(audio)
-        rms_db = DBConversion.to_db(rms_val)
+        rms_db = amplitude_to_db(rms_val)
         crest = peak_db - rms_db
 
         measurement: dict[str, float] = {

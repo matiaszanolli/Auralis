@@ -10,10 +10,10 @@ Consolidates safety checks and peak normalization across pipelines.
 """
 
 
+from auralis.dsp.utils.conversion import amplitude_to_db, db_to_amplitude
 import numpy as np
 
 from ....dsp.dynamics.soft_clipper import soft_clip
-from .db_conversion import DBConversion
 from .processing_logger import ProcessingLogger
 
 
@@ -41,7 +41,7 @@ class SafetyLimiter:
             Tuple of (processed audio, was_limiter_applied: bool)
         """
         final_peak = np.max(np.abs(audio))
-        final_peak_db = DBConversion.to_db(final_peak)
+        final_peak_db = amplitude_to_db(final_peak)
 
         if final_peak_db > SafetyLimiter.SAFETY_THRESHOLD_DB:
             ProcessingLogger.safety_check("Safety Limiter", final_peak_db)
@@ -49,7 +49,7 @@ class SafetyLimiter:
 
             # Measure result
             final_peak = np.max(np.abs(audio))
-            final_peak_db = DBConversion.to_db(final_peak)
+            final_peak_db = amplitude_to_db(final_peak)
             ProcessingLogger.safety_check("Safety Limiter (post)", final_peak_db)
 
             return audio, True
@@ -84,13 +84,13 @@ class PeakNormalizer:
             Tuple of (normalized audio, previous_peak_db)
         """
         peak = np.max(np.abs(audio))
-        peak_db = DBConversion.to_db(peak)
+        peak_db = amplitude_to_db(peak)
 
         if preset_name:
             ProcessingLogger.post_stage("Peak Normalization", 0.0, target_peak_db, f"Preset: {preset_name}")
 
         if peak > 0.001:  # Avoid division by zero
-            target_peak = DBConversion.to_linear(target_peak_db)
+            target_peak = db_to_amplitude(target_peak_db)
             # float() the scalar before scaling. NumPy promotes
             # float32_array * np.float64_scalar to float64, and callers do
             # hand np.float64 targets through here — e.g.

@@ -30,6 +30,16 @@ def amplitude_to_db(value: float, silence_db: float = -np.inf) -> float:
     return float(20 * np.log10(value)) if value > 0 else silence_db
 
 
+def db_to_amplitude(db: float) -> float:
+    """
+    Convert dB to linear amplitude: ``10 ** (db / 20)`` — the exact inverse
+    of :func:`amplitude_to_db` for positive values. The one definition
+    (#6213); the ~29 inline ``10 ** (x / 20)`` sites it replaces were the
+    re-entry point for the silence-convention disagreement #5785 removed.
+    """
+    return float(10 ** (db / 20))
+
+
 def peak_db(audio: np.ndarray, silence_db: float = -np.inf) -> float:
     """Peak level of ``audio`` in dBFS (``silence_db`` if it is all zeros/empty-peak)."""
     return amplitude_to_db(np.max(np.abs(audio)), silence_db)
@@ -40,21 +50,6 @@ def rms_db(audio: np.ndarray, silence_db: float = -np.inf) -> float:
     from ..basic import rms
 
     return amplitude_to_db(rms(audio), silence_db)
-
-
-def to_db(linear_value: float) -> float:
-    """
-    Convert linear amplitude value to decibels, flooring the input at 1e-10
-    (about -200 dB) so silence maps to a finite value. Use :func:`amplitude_to_db`
-    when you need an explicit silence convention.
-
-    Args:
-        linear_value: Linear amplitude value
-
-    Returns:
-        Value in decibels (dB)
-    """
-    return float(20 * np.log10(max(linear_value, 1e-10)))
 
 
 #: Amplitude epsilon / dB floor for array conversions (#6230). The scalar

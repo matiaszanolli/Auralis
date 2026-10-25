@@ -14,8 +14,8 @@ from auralis.analysis.dynamic_range import DynamicRangeAnalyzer
 from auralis.core.analysis.content_analyzer import ContentAnalyzer
 from auralis.core.mastering_process_chunk import compute_peak_db
 from auralis.core.processing.base.audio_measurement import AudioMeasurement
-from auralis.core.processing.base.db_conversion import DBConversion
-from auralis.dsp.utils.conversion import SILENCE_FLOOR_DB, amplitude_to_db, peak_db, rms_db, to_db
+from auralis.dsp.utils.conversion import amplitude_to_db as _atdb
+from auralis.dsp.utils.conversion import SILENCE_FLOOR_DB, amplitude_to_db, db_to_amplitude, peak_db, rms_db
 
 
 class TestAmplitudeToDb:
@@ -53,14 +53,17 @@ class TestPeakAndRms:
 
 
 class TestLegacyHelpersAgree:
-    def test_dbconversion_delegates_with_its_default(self) -> None:
-        assert DBConversion.to_db(0.5) == amplitude_to_db(0.5)
-        assert DBConversion.to_db(0.0) == -math.inf
-        assert DBConversion.to_db(0.0, default=-12.0) == -12.0
+    """#6213: DBConversion and the floored to_db are RETIRED — the module
+    functions are the only helpers. These pin the surviving contracts."""
 
-    def test_floored_to_db_keeps_its_finite_floor(self) -> None:
-        assert to_db(0.0) == pytest.approx(-200.0)
-        assert to_db(0.5) == pytest.approx(amplitude_to_db(0.5))
+    def test_amplitude_to_db_silence_default_is_neg_inf(self):
+        assert amplitude_to_db(0.5) == amplitude_to_db(0.5)
+        assert amplitude_to_db(0.0) == -math.inf
+        assert amplitude_to_db(0.0, silence_db=-12.0) == -12.0
+
+    def test_db_to_amplitude_inverts(self):
+        assert db_to_amplitude(amplitude_to_db(0.5)) == pytest.approx(0.5)
+
 
 
 class TestMigratedSitesKeepTheirConventions:
@@ -100,7 +103,6 @@ def test_sites_no_longer_inline_the_conversion() -> None:
         'core/mastering_prepare.py',
         'core/analysis/content_analyzer.py',
         'core/processing/base/audio_measurement.py',
-        'core/processing/base/db_conversion.py',
         'core/processing/adaptive_mode.py',
         'analysis/dynamic_range.py',
     ):

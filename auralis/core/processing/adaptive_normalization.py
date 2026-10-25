@@ -9,6 +9,7 @@ peak/LUFS normalization pass, as a function over the mode processor.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+from auralis.dsp.utils.conversion import amplitude_to_db, db_to_amplitude
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -21,7 +22,6 @@ from ...dsp.utils.adaptive import calculate_loudness_units
 from ...dsp.utils.adaptive_loudness import AdaptiveLoudnessControl
 from .base.normalization_step import NormalizationStep
 from .base.peak_management import SafetyLimiter
-from .base.db_conversion import DBConversion
 from .base.peak_management import PeakNormalizer
 from .base.processing_logger import ProcessingLogger
 
@@ -53,9 +53,9 @@ def apply_final_normalization(mode: "AdaptiveMode", audio: np.ndarray, spectrum_
 
     # Calculate crest factor (peak-to-RMS ratio) for transient preservation
     current_peak = np.max(np.abs(audio))
-    current_peak_db = DBConversion.to_db(current_peak)
+    current_peak_db = amplitude_to_db(current_peak)
     current_rms = rms(audio)
-    current_rms_db = DBConversion.to_db(current_rms)
+    current_rms_db = amplitude_to_db(current_rms)
     crest_factor_db = current_peak_db - current_rms_db
 
     debug(f"[Adaptive Loudness] Source LUFS: {source_lufs:.2f} dB, Crest: {crest_factor_db:.2f} dB")
@@ -112,7 +112,7 @@ def apply_final_normalization(mode: "AdaptiveMode", audio: np.ndarray, spectrum_
 
     # Check current peak before normalizing
     current_peak = np.max(np.abs(audio))
-    current_peak_db = DBConversion.to_db(current_peak)
+    current_peak_db = amplitude_to_db(current_peak)
 
     # Only normalize if peak is significantly below adaptive target (> 1.5 dB headroom)
     # This prevents over-boosting material that's already at reasonable levels
@@ -126,9 +126,9 @@ def apply_final_normalization(mode: "AdaptiveMode", audio: np.ndarray, spectrum_
 
     # Log final pre-limiter metrics
     final_peak = np.max(np.abs(audio))
-    final_peak_db = DBConversion.to_db(final_peak)
+    final_peak_db = amplitude_to_db(final_peak)
     final_rms = rms(audio)
-    final_rms_db = DBConversion.to_db(final_rms)
+    final_rms_db = amplitude_to_db(final_rms)
     final_crest = final_peak_db - final_rms_db
     ProcessingLogger.pre_stage("Final", final_peak_db, final_rms_db, final_crest)
 
@@ -137,9 +137,9 @@ def apply_final_normalization(mode: "AdaptiveMode", audio: np.ndarray, spectrum_
 
     # Final metrics
     final_peak = np.max(np.abs(audio))
-    final_peak_db = DBConversion.to_db(final_peak)
+    final_peak_db = amplitude_to_db(final_peak)
     final_rms = rms(audio)
-    final_rms_db = DBConversion.to_db(final_rms)
+    final_rms_db = amplitude_to_db(final_rms)
     final_crest = final_peak_db - final_rms_db
 
     debug(f"[Final Result] Peak: {final_peak_db:.2f} dB, RMS: {final_rms_db:.2f} dB, Crest: {final_crest:.2f} dB")

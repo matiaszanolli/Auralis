@@ -27,7 +27,7 @@ import pytest
 
 from auralis.core.config import UnifiedConfig
 from auralis.core.hybrid_processor import HybridProcessor
-from auralis.core.processing.base.db_conversion import DBConversion
+from auralis.dsp.utils.conversion import amplitude_to_db
 from auralis.core.processing.continuous_mode import ContinuousMode
 from auralis.utils.audio_validation import (
     MAX_IN_STAGE_REPAIR_FRACTION,
@@ -151,4 +151,4 @@ def test_hybrid_mode_clean_reference_still_processes():
     assert result.shape == target.shape
     assert np.all(np.isfinite(result))
     # Silence stays finite through the pipeline (guard for the guard).
-    assert np.isfinite(DBConversion.to_db(1.0))
+    assert np.isfinite(amplitude_to_db(1.0))

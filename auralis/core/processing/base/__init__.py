@@ -11,7 +11,6 @@ Extracted from base_processing_mode.py for better maintainability.
 
 from .audio_measurement import AudioMeasurement, MeasurementUtilities
 from .compression_expansion import CompressionStrategies, ExpansionStrategies
-from .db_conversion import DBConversion
 from .full_audio_measurement import FullAudioMeasurement
 from .normalization_step import NormalizationStep
 from .peak_management import PeakNormalizer, SafetyLimiter
@@ -26,7 +25,6 @@ __all__ = [
     'CompressionStrategies',
     'ExpansionStrategies',
     # DB Conversion
-    'DBConversion',
     # Full Audio Measurement
     'FullAudioMeasurement',
     # Normalization

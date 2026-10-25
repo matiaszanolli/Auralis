@@ -17,7 +17,6 @@ from auralis.dsp.utils.conversion import (
     AMPLITUDE_EPS,
     SILENCE_STD_THRESHOLD,
     amplitude_to_db_array,
-    to_db,
 )
 
 
@@ -26,7 +25,7 @@ def test_amplitude_to_db_array_matches_the_scalar_convention():
     out = amplitude_to_db_array(x)
     np.testing.assert_allclose(out, 20 * np.log10(x + AMPLITUDE_EPS))
     # On silence it matches the scalar to_db() floor (both -200 dB).
-    assert out[0] == to_db(0.0)
+    assert out[0] == -200.0  # the -inf-silence scalar is amplitude_to_db; the array form floors at AMPLITUDE_EPS
 
 
 def test_amplitude_to_db_array_is_value_identical_to_the_old_inline_form():

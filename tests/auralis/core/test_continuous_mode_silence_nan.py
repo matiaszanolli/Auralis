@@ -18,7 +18,7 @@ from unittest.mock import MagicMock
 import numpy as np
 
 from auralis.core.config import UnifiedConfig
-from auralis.core.processing.base.db_conversion import DBConversion
+from auralis.dsp.utils.conversion import amplitude_to_db
 from auralis.core.processing.continuous_mode import ContinuousMode
 
 
@@ -34,7 +34,7 @@ def _mode() -> ContinuousMode:
 
 def test_to_db_zero_is_neg_inf():
     """Pins the upstream behavior that makes the guard necessary."""
-    assert DBConversion.to_db(0.0) == -np.inf
+    assert amplitude_to_db(0.0) == -np.inf
 
 
 def test_silence_produces_finite_output():

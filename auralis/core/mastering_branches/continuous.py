@@ -8,6 +8,7 @@ One measurement-driven processing path for every source.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+from auralis.dsp.utils.conversion import db_to_amplitude
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -262,7 +263,7 @@ class ContinuousMasteringBranch:
         # (direct _process() test path).
         song_peak_db = getattr(self.pipeline, '_song_peak_db', None)
         if song_peak_db is not None:
-            song_peak_linear = 10 ** (song_peak_db / 20)
+            song_peak_linear = db_to_amplitude(song_peak_db)
             file_gain = adapted_peak / song_peak_linear \
                 if song_peak_linear > 0 else 1.0
         else:

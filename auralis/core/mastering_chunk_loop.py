@@ -13,6 +13,7 @@ Extracted from simple_mastering.py's _master_file_impl "Step 3" (#4072).
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+from auralis.dsp.utils.conversion import db_to_amplitude
 import os
 import tempfile
 from contextlib import nullcontext
@@ -112,7 +113,7 @@ def process_chunks(
         intensity, config, verbose, crossfade_samples, chunk_size,
         out_channels,
     )
-    _tp_ceiling = 10 ** (-0.5 / 20)
+    _tp_ceiling = db_to_amplitude(-0.5)
     correction_gain = min(
         1.0,
         0.99 / max(measured_sample_peak, 1e-9),

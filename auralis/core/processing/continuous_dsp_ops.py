@@ -16,6 +16,7 @@ processor state and must stay individually callable, which several regression
 tests (#4104, #4237, #4503, #5108) do directly.
 """
 
+from auralis.dsp.utils.conversion import amplitude_to_db, db_to_amplitude
 from typing import Any
 
 import numpy as np
@@ -35,7 +36,6 @@ from ...utils.logging import debug
 from ..config import UnifiedConfig
 from .base import (
     CompressionStrategies,
-    DBConversion,
     StereoWidthProcessor,
 )
 from .cross_dimensional_guard import smooth_gate
@@ -239,7 +239,7 @@ class ContinuousDSPOpsMixin:
         # changed the peak-to-RMS relationship. LUFS normalization is more
         # perceptually meaningful and is already applied in step 1.
         # Only apply peak limiting if absolutely necessary to prevent clipping.
-        current_peak_db = DBConversion.to_db(np.max(np.abs(audio)))
+        current_peak_db = amplitude_to_db(np.max(np.abs(audio)))
 
         # -0.3 dBFS ceiling preserves headroom for inter-sample peaks
         SAFE_CEILING_DB = -0.3
@@ -257,10 +257,10 @@ class ContinuousDSPOpsMixin:
 
         # Final measurements
         final_peak = np.max(np.abs(audio))
-        final_peak_db = DBConversion.to_db(final_peak)
+        final_peak_db = amplitude_to_db(final_peak)
         final_lufs = calculate_loudness_units(audio, self.config.internal_sample_rate)
         final_rms = rms(audio)
-        final_rms_db = DBConversion.to_db(final_rms)
+        final_rms_db = amplitude_to_db(final_rms)
         final_crest = final_peak_db - final_rms_db
 
         debug(f"[Final] Peak: {final_peak_db:.2f} dB, RMS: {final_rms_db:.2f} dB, "

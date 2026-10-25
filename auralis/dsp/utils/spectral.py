@@ -175,13 +175,15 @@ def crest_factor(audio: np.ndarray) -> float:
         Crest factor in dB
     """
     from ..basic import rms
-    from .conversion import to_db
+    from .conversion import amplitude_to_db
 
     peak = np.max(np.abs(audio))
     rms_value = rms(audio)
 
     if rms_value > 0:
-        return to_db(peak / rms_value)
+        # rms_value > 0 is guarded above, so amplitude_to_db's -inf
+        # non-positive branch never fires here; identical value (#6213).
+        return amplitude_to_db(peak / rms_value)
     else:
         return 0.0
 

@@ -8,6 +8,7 @@ Spectrum-based adaptive processing without reference tracks
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+from auralis.dsp.utils.conversion import amplitude_to_db, db_to_amplitude
 from typing import Any
 
 import numpy as np
@@ -21,7 +22,6 @@ from ...utils.audio_validation import validate_audio_finite
 from ...utils.logging import debug
 from .base import (
     CompressionStrategies,
-    DBConversion,
     ExpansionStrategies,
     NormalizationStep,
     PeakNormalizer,
@@ -147,9 +147,9 @@ class AdaptiveMode:
 
         source_lufs = calculate_loudness_units(audio, self.config.internal_sample_rate)
         current_peak = np.max(np.abs(audio))
-        current_peak_db = DBConversion.to_db(current_peak)
+        current_peak_db = amplitude_to_db(current_peak)
         current_rms = rms(audio)
-        current_rms_db = DBConversion.to_db(current_rms)
+        current_rms_db = amplitude_to_db(current_rms)
         crest_factor_db = current_peak_db - current_rms_db
 
         loudness_coordinate = 0.5 + 0.5 * np.tanh(
