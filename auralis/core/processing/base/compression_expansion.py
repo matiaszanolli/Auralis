@@ -29,6 +29,9 @@ from .audio_measurement import MeasurementUtilities
 COMPRESSION_REQUIRED_KEYS = frozenset({'ratio', 'amount'})
 EXPANSION_REQUIRED_KEYS = frozenset({'target_crest_increase', 'amount'})
 
+# Peaks below this are treated as silence by the clip-blend compressor.
+_SILENCE_PEAK = 1e-6
+
 
 class CompressionStrategies:
     """
@@ -95,6 +98,20 @@ class CompressionStrategies:
         Apply compression using soft_clip() with blend formula.
         Used by continuous_mode - reduces crest through library soft clipping + blending.
 
+        The soft-clip threshold and ceiling are fractions of the input's own
+        peak, so the effect depends on the material's dynamics rather than on
+        how loud the file happens to be (#5576): this stage runs before
+        normalization, where the level is simply the source's, and the former
+        absolute threshold (~0.72 at 1.8:1) left material peaking below it
+        untouched. Scaling the input down scales the output down by the same
+        factor and the crest-factor reduction is unchanged. A peak at or above
+        full scale (over-range after EQ) is referenced to 1.0, so such
+        material is still pulled under the 0.95 ceiling.
+
+        ``comp_params`` carries ``threshold``/``attack``/``release`` as well
+        (reporting values, see ``generate_compression``); this stage is an
+        instantaneous waveshaper and reads only ``ratio`` and ``amount``.
+
         Args:
             audio: Input audio array
             comp_params: Dictionary with 'ratio' and 'amount' keys
@@ -110,10 +127,17 @@ class CompressionStrategies:
         ratio = comp_params['ratio']
         amount = comp_params['amount']
 
-        # Calculate soft clip threshold based on ratio
-        # Lower threshold = more compression, higher ratio = lower ceiling
-        threshold = 0.8 - (ratio - 1.0) * 0.1  # 1.5:1 → 0.75, 2.0:1 → 0.70
-        ceiling = 0.95
+        peak = float(np.max(np.abs(audio))) if audio.size else 0.0
+        if not np.isfinite(peak) or peak < _SILENCE_PEAK:
+            # Silence (nothing to compress) or non-finite samples (not this
+            # stage's to repair; soft_clip would only spread the NaN).
+            return audio
+        reference = min(peak, 1.0)
+
+        # Lower threshold = more compression, higher ratio = lower ceiling.
+        # Fractions of the reference level: 1.5:1 -> 0.75, 2.0:1 -> 0.70.
+        threshold = reference * (0.8 - (ratio - 1.0) * 0.1)
+        ceiling = reference * 0.95
 
         compressed = soft_clip(audio, threshold=threshold, ceiling=ceiling)
 

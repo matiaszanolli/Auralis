@@ -15,7 +15,7 @@ from ...dsp.constants import DEFAULT_FFT_SIZE
 from ...utils.logging import debug
 from .genre_profiles import create_default_genre_profiles, get_genre_profile
 from .preset_profiles import PresetProfile, get_preset_profile
-from .settings import AdaptiveConfig, GenreProfile, LimiterConfig
+from .settings import AdaptiveConfig, GenreProfile
 
 # The three processing modes, as one runtime-checkable source of truth.
 #
@@ -44,7 +44,6 @@ class UnifiedConfig:
 
         # System settings
         temp_folder: str | None = None,
-        limiter: LimiterConfig | None = None,
 
         # New adaptive settings
         adaptive: AdaptiveConfig | None = None,
@@ -65,11 +64,6 @@ class UnifiedConfig:
 
         # System settings
         self.temp_folder = temp_folder
-
-        # Limiter configuration
-        if limiter is None:
-            limiter = LimiterConfig()
-        self.limiter = limiter
 
         # Adaptive processing configuration
         if adaptive is None:

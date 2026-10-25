@@ -15,11 +15,10 @@ from .preset_profiles import (
     get_available_presets,
     get_preset_profile,
 )
-from .settings import AdaptiveConfig, GenreProfile, LimiterConfig
+from .settings import AdaptiveConfig, GenreProfile
 from .unified_config import UnifiedConfig
 
 __all__ = [
-    'LimiterConfig',
     'AdaptiveConfig',
     'GenreProfile',
     'create_default_genre_profiles',

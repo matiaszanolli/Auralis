@@ -35,12 +35,29 @@ class ProcessingCoordinates:
                 f"energy={self.energy_level:.2f})")
 
 
+#: ProcessingParameters fields no DSP stage consumes (#5576). Anything else
+#: added to the dataclass must be read by a ContinuousMode stage.
+REPORTING_ONLY_FIELDS = frozenset({
+    'peak_target_db', 'dynamics_blend', 'limiter_params', 'expansion_params',
+})
+
+
 @dataclass
 class ProcessingParameters:
     """
     Complete set of DSP processing parameters.
 
     Generated from processing space coordinates and user preferences.
+
+    Reporting-only fields (#5576): ``peak_target_db``, ``dynamics_blend``,
+    ``limiter_params`` and ``expansion_params`` are produced for display and
+    for the fixed-target schema contract but are not read by any DSP stage --
+    the ContinuousMode chain takes its peak from ``AdaptiveLoudnessControl``,
+    builds its limiter from constants, and no longer runs an expansion stage
+    (#5561). Tuning them does not change the audio. Likewise only ``ratio`` and
+    ``amount`` of ``compression_params`` and the gains/blend of ``eq_curve``
+    are applied. ``REPORTING_ONLY_FIELDS`` names the set; a test pins that every
+    other field has a reader.
     """
     # Loudness normalization
     target_lufs: float          # Target integrated loudness (LUFS)

@@ -63,7 +63,7 @@ def test_the_composed_class_still_exposes_every_moved_method() -> None:
     """Splitting into mixins must not change ContinuousMode's own surface."""
     from auralis.core.processing.continuous_mode import ContinuousMode
 
-    for method in ("_apply_dsp_stages", "_stage_input_gain", "_stage_eq",
+    for method in ("_apply_dsp_stages", "_stage_eq",
                    "_stage_dynamics", "_stage_stereo_width", "_stage_normalization",
                    "_record_quality_measurements", "_apply_eq", "_apply_dynamics",
                    "_apply_compression", "_apply_stereo_width",

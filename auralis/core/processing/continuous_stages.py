@@ -48,7 +48,6 @@ from .cross_dimensional_guard import (
     STAGE_DYNAMICS,
     STAGE_EQ,
     STAGE_INPUT,
-    STAGE_INPUT_GAIN,
     STAGE_NORMALIZATION,
     STAGE_STEREO,
     CrossDimensionalGuard,
@@ -80,8 +79,8 @@ class ContinuousStagesMixin(ContinuousQualityMixin, ContinuousDSPOpsMixin):
     ) -> np.ndarray:
         """Apply all DSP processing stages to ``processed_audio``.
 
-        Runs steps 5a-5e (input gain, EQ, dynamics, stereo width, normalization,
-        each with its cross-dimensional guard), then the final side-effect report
+        Runs steps 5b-5e (EQ, dynamics, stereo width, normalization, each with
+        its cross-dimensional guard), then the final side-effect report
         and the sampled advisory quality measurements. ``target_audio`` is the
         unmodified original, used only by the before/after comparison.
 
@@ -92,9 +91,10 @@ class ContinuousStagesMixin(ContinuousQualityMixin, ContinuousDSPOpsMixin):
         journal = PipelineJournal(self.config.internal_sample_rate)
         journal.snapshot(processed_audio, STAGE_INPUT)
 
-        # Ordered DSP stages (steps 5a-5e). Single source of truth for order.
+        # Ordered DSP stages (steps 5b-5e; 5a, an input-gain stage keyed on a
+        # `params.input_gain` that ProcessingParameters never had, was removed in
+        # #5576). Single source of truth for order.
         stages: list[Callable[[np.ndarray], np.ndarray]] = [
-            lambda a: self._stage_input_gain(a, params, journal),
             lambda a: self._stage_eq(a, eq_processor, params, journal),
             lambda a: self._stage_dynamics(a, params, journal),
             lambda a: self._stage_stereo_width(a, params, journal),
@@ -110,16 +110,6 @@ class ContinuousStagesMixin(ContinuousQualityMixin, ContinuousDSPOpsMixin):
         self.last_side_effects = side_effects
 
         self._record_quality_measurements(target_audio, processed_audio)
-        return processed_audio
-
-    def _stage_input_gain(
-        self, processed_audio: np.ndarray, params: Any, journal: PipelineJournal
-    ) -> np.ndarray:
-        """5a. Apply input gain if the generated parameters call for it."""
-        if hasattr(params, 'input_gain') and abs(params.input_gain or 0) > 0.5:
-            processed_audio = amplify(processed_audio, params.input_gain)
-            debug(f"[Continuous Space] Applied input gain: {params.input_gain:+.2f} dB")
-            journal.snapshot(processed_audio, STAGE_INPUT_GAIN)
         return processed_audio
 
     def _stage_eq(

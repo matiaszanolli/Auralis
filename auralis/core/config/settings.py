@@ -12,26 +12,6 @@ from dataclasses import dataclass
 from typing import Literal, get_args
 
 
-@dataclass
-class LimiterConfig:
-    """Configuration for the audio limiter"""
-    attack: float = 1.0
-    hold: float = 1.0
-    release: float = 3000.0
-    attack_filter_coefficient: float = -2.0
-    hold_filter_order: int = 1
-    hold_filter_coefficient: float = 7.0
-    release_filter_order: int = 1
-    release_filter_coefficient: float = 800.0
-
-    def __post_init__(self) -> None:
-        assert self.attack > 0, "Attack time must be positive"
-        assert self.hold > 0, "Hold time must be positive"
-        assert self.release > 0, "Release time must be positive"
-        assert self.hold_filter_order > 0, "Hold filter order must be positive"
-        assert self.release_filter_order > 0, "Release filter order must be positive"
-
-
 #: The processing-mode vocabulary, defined once (#6218): every Literal copy,
 #: validation list and job-builder dispatch imports these two names.
 ProcessingMode = Literal["reference", "adaptive", "hybrid"]

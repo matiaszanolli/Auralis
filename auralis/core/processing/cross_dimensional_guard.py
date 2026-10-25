@@ -18,7 +18,6 @@ from .stage_snapshot import PipelineJournal, StageSnapshot
 
 # Stage names used by the journal (constants to avoid typos)
 STAGE_INPUT = "input"
-STAGE_INPUT_GAIN = "input_gain"
 STAGE_EQ = "eq"
 STAGE_DYNAMICS = "dynamics"
 STAGE_STEREO = "stereo"
@@ -204,11 +203,8 @@ class CrossDimensionalGuard:
         stereo_snap = journal.get(STAGE_STEREO)
         norm_snap = journal.get(STAGE_NORMALIZATION)
 
-        # Pre-EQ baseline is input_gain if it exists, otherwise input
-        pre_eq = journal.get(STAGE_INPUT_GAIN) or input_snap
-
-        if pre_eq and eq_snap:
-            all_effects.extend(self.check_eq_side_effects(pre_eq, eq_snap))
+        if input_snap and eq_snap:
+            all_effects.extend(self.check_eq_side_effects(input_snap, eq_snap))
         if eq_snap and dynamics_snap:
             all_effects.extend(self.check_dynamics_side_effects(eq_snap, dynamics_snap))
         if dynamics_snap and stereo_snap:

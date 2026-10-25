@@ -17,7 +17,7 @@ from the original methods they replace.
 import numpy as np
 
 from ..utils.fingerprint_unpacker import FingerprintUnpacker
-from .continuous_space import PreferenceVector, ProcessingCoordinates
+from .continuous_space_types import PreferenceVector, ProcessingCoordinates
 
 
 def calculate_target_lufs(
@@ -117,7 +117,11 @@ def generate_compression(
         preference: Optional user preference
 
     Returns:
-        Compression parameters dictionary
+        Compression parameters dictionary. ``ratio`` and ``amount`` drive
+        ``CompressionStrategies.apply_clip_blend_compression``; ``threshold``
+        (dBFS), ``attack`` and ``release`` (ms) describe the intended
+        compressor character for reporting and are not read by the DSP (the
+        stage is an instantaneous, peak-relative waveshaper, #5576).
     """
     dynamics = coords.dynamic_range
 

@@ -252,8 +252,6 @@ class TestProcessorInitializationLatency:
 
         with timer() as t:
             config.set_processing_mode('adaptive')
-            config.limiter.threshold_db = -1.0
-            config.limiter.release_ms = 100
 
         latency_ms = t.elapsed_ms
 

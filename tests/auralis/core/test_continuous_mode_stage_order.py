@@ -29,7 +29,7 @@ def _mode() -> ContinuousMode:
 
 
 def test_dsp_stages_execute_in_documented_order(monkeypatch):
-    """The ordered stage list must run input_gain → eq → dynamics → stereo → norm."""
+    """The ordered stage list must run eq → dynamics → stereo → norm."""
     mode = _mode()
     # Quality gate compares against a QualityMetrics model — irrelevant here.
     mode.config.quality_gate_enabled = False
@@ -44,7 +44,7 @@ def test_dsp_stages_execute_in_documented_order(monkeypatch):
             return audio
         return _stage
 
-    for name in ("input_gain", "eq", "dynamics", "stereo_width", "normalization"):
+    for name in ("eq", "dynamics", "stereo_width", "normalization"):
         monkeypatch.setattr(mode, f"_stage_{name}", _spy(name))
 
     audio = (
@@ -55,22 +55,7 @@ def test_dsp_stages_execute_in_documented_order(monkeypatch):
         audio.copy(), audio.copy(), eq_processor=MagicMock(), params=SimpleNamespace()
     )
 
-    assert calls == ["input_gain", "eq", "dynamics", "stereo_width", "normalization"]
+    assert calls == ["eq", "dynamics", "stereo_width", "normalization"]
     # Sample-count / dtype invariants preserved through the loop (CLAUDE.md).
     assert len(out) == len(audio)
-    assert out.dtype == audio.dtype
-
-
-def test_each_stage_helper_is_individually_callable():
-    """Each extracted stage preserves sample count when called in isolation."""
-    from auralis.core.processing.stage_snapshot import PipelineJournal
-
-    mode = _mode()
-    params = SimpleNamespace(input_gain=0.0, target_lufs=-14.0)
-    journal = PipelineJournal(mode.config.internal_sample_rate)
-    audio = np.zeros((8192, 2), dtype=np.float32)
-
-    # input_gain is a pure pass-through for |gain| <= 0.5; verifies wiring.
-    out = mode._stage_input_gain(audio, params, journal)
-    assert out.shape == audio.shape
     assert out.dtype == audio.dtype

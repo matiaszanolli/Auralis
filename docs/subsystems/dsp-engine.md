@@ -81,6 +81,10 @@ gate** runs every Nth chunk (`quality_gate_interval`).
 > (`CompressionStrategies.apply_clip_blend_compression`), *not* the real-time
 > `DynamicsProcessor`. Routing the real-time processor (which targets −14 LUFS with makeup
 > gain) into the offline chain would double-compress and fight the LUFS target (#2897).
+> The clip-blend threshold/ceiling are fractions of the chunk's own peak (referenced to 1.0 for
+> over-range peaks), so the compression follows the material's dynamics rather than the file's
+> level (#5576); only `ratio` and `amount` drive it — the generated `threshold`/`attack`/`release`
+> are reporting values.
 
 ---
 
