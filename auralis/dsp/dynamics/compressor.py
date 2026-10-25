@@ -8,6 +8,7 @@ Content-aware compressor with a linked peak envelope
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+from auralis.dsp.utils.conversion import AMPLITUDE_EPS, amplitude_to_db_array
 import numpy as np
 
 from ...utils.logging import debug
@@ -115,7 +116,7 @@ class AdaptiveCompressor:
             sample_levels = np.max(np.abs(audio), axis=1)
 
         # Convert to dB
-        sample_levels_db = 20 * np.log10(sample_levels + 1e-10)
+        sample_levels_db = amplitude_to_db_array(sample_levels)
 
         # Pure NumPy vectorized gain reduction per sample (fixes #2596)
         target_gain_reduction = self._calculate_gain_reduction_vectorized(sample_levels_db)

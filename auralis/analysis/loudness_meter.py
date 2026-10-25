@@ -5,6 +5,7 @@ LUFS Loudness Measurement
 ITU-R BS.1770-4 compliant loudness measurement implementation.
 """
 
+from auralis.dsp.utils.conversion import AMPLITUDE_EPS, amplitude_to_db_array
 from dataclasses import dataclass
 from typing import Any
 
@@ -263,8 +264,8 @@ class LoudnessMeter(KWeightingMixin):
             momentary_lufs=float(momentary) if np.isfinite(momentary) else -np.inf,
             short_term_lufs=float(short_term) if np.isfinite(short_term) else -np.inf,
             loudness_range=float(loudness_range),
-            peak_level_dbfs=float(20 * np.log10(self._peak + 1e-10)),
-            true_peak_dbfs=float(20 * np.log10(self._true_peak + 1e-10)),
+            peak_level_dbfs=float(amplitude_to_db_array(self._peak)),
+            true_peak_dbfs=float(amplitude_to_db_array(self._true_peak)),
             gating_blocks_used=len(final_gated_blocks) if 'final_gated_blocks' in locals() else 0,
             # Derive duration from actual samples fed (#3307). Prior code
             # multiplied call count by 0.1 s which assumed a 100 ms hop —

@@ -28,6 +28,7 @@ ask "does this instruction widen the signal?", compare the width factor against
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+from auralis.dsp.utils.conversion import SILENCE_STD_THRESHOLD  # noqa: F401 (re-exported guard constant)
 import numpy as np
 from scipy.signal import butter
 
@@ -65,7 +66,10 @@ def stereo_width_analysis(stereo_audio: np.ndarray) -> float:
 
     # Guard: constant/silent channels have zero variance — np.corrcoef returns NaN.
     # Treat them as perfectly correlated (mono) → width = 0.0 (fixes #2611).
-    if np.std(left) < 1e-9 or np.std(right) < 1e-9:
+    # #6230: one named digital-silence threshold for the stereo-correlation
+    # guard — the identical line used to live here and in
+    # core/processing/stage_snapshot.py.
+    if np.std(left) < SILENCE_STD_THRESHOLD or np.std(right) < SILENCE_STD_THRESHOLD:
         return 0.0
 
     # Calculate correlation

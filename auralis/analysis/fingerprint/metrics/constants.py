@@ -9,6 +9,7 @@ Single source of truth for all fingerprint-related constants.
 """
 
 
+from auralis.dsp.utils.conversion import AMPLITUDE_EPS
 from ..schema import DIMENSION_NAMES
 
 # The 25 fingerprint dimensions, by name. Lives beside
@@ -33,7 +34,8 @@ class FingerprintConstants:
 
     # Core fingerprint dimensions
     FINGERPRINT_DIMENSIONS = 25
-    EPSILON = 1e-10  # Safe epsilon for division/log operations
+    # Aliases the one amplitude epsilon (#6230) — dsp/utils/conversion.py.
+    EPSILON = AMPLITUDE_EPS
 
     # Stability/consistency scaling factors
     CV_DEFAULT_SCALE = 1.0    # Standard coefficient of variation scaling

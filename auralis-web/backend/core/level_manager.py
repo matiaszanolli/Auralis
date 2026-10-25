@@ -9,6 +9,7 @@ Prevents audible volume jumps during chunk transitions.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+from auralis.dsp.utils.conversion import AMPLITUDE_EPS, amplitude_to_db_array
 import logging
 from collections import deque
 from typing import cast
@@ -94,7 +95,7 @@ class LevelManager(LevelTransitionMixin):
             return self.current_rms if self.current_rms is not None else LEVEL_SMOOTHING_GATE_DB
 
         rms = np.sqrt(np.mean(audio ** 2))
-        rms_db = 20 * np.log10(rms + 1e-10)  # Add epsilon to avoid log(0)
+        rms_db = float(amplitude_to_db_array(rms))  # #6230: AMPLITUDE_EPS guard
 
         return float(rms_db)
 

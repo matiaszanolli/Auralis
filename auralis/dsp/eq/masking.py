@@ -9,6 +9,7 @@ Masking threshold calculations based on psychoacoustic models
 """
 
 
+from auralis.dsp.utils.conversion import AMPLITUDE_EPS, amplitude_to_db_array
 import numpy as np
 
 from .critical_bands import CriticalBand
@@ -55,7 +56,7 @@ class MaskingThresholdCalculator:
                     # Calculate masking threshold (simplified)
                     # In reality, this would involve complex psychoacoustic modeling
                     # including simultaneous and temporal masking
-                    threshold_db = 20 * np.log10(peak_magnitude + 1e-10) - 20
+                    threshold_db = amplitude_to_db_array(peak_magnitude) - 20
                     thresholds[i] = max(threshold_db, -80.0)
 
         return thresholds

@@ -10,6 +10,7 @@ without adding significant latency (~2ms per snapshot).
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+from auralis.dsp.utils.conversion import SILENCE_STD_THRESHOLD
 from dataclasses import dataclass
 
 import numpy as np
@@ -69,7 +70,8 @@ def _compute_phase_correlation(audio: np.ndarray, sample_rate: int) -> float | N
         return None
     max_samples = min(len(audio), sample_rate * 2)
     left, right = audio[:max_samples, 0], audio[:max_samples, 1]
-    if np.std(left) < 1e-9 or np.std(right) < 1e-9:
+    # #6230: the same named threshold dsp/utils/stereo.py's guard uses.
+    if np.std(left) < SILENCE_STD_THRESHOLD or np.std(right) < SILENCE_STD_THRESHOLD:
         return 1.0  # mono/silence → perfect correlation
     return float(np.corrcoef(left, right)[0, 1])
 

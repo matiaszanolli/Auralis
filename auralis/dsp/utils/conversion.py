@@ -55,3 +55,22 @@ def to_db(linear_value: float) -> float:
         Value in decibels (dB)
     """
     return float(20 * np.log10(max(linear_value, 1e-10)))
+
+
+#: Amplitude epsilon / dB floor for array conversions (#6230). The scalar
+#: to_db() below floors at the same value via max(); this named constant is
+#: the one home for the ARRAY form's `+ eps` guard that #5785 left inline at
+#: every call site. FingerprintConstants.EPSILON aliases it.
+AMPLITUDE_EPS = 1e-10
+
+
+def amplitude_to_db_array(x: "np.ndarray | float") -> "np.ndarray":
+    """20*log10(x + AMPLITUDE_EPS) over an array — the guarded array form of
+    to_db() (#5785 unified the scalar half; #6230 the array half). Returns
+    float64 for float32 input, like any log-scale conversion."""
+    return 20 * np.log10(np.asarray(x, dtype=float) + AMPLITUDE_EPS)
+
+#: RMS/std level below which a channel counts as digital silence for the
+#: stereo-correlation guard (#6230) — shared by dsp/utils/stereo.py and
+#: core/processing/stage_snapshot.py, which used to type it twice.
+SILENCE_STD_THRESHOLD = 1e-9

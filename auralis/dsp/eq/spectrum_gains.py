@@ -10,6 +10,7 @@ from typing import Any
 import numpy as np
 
 from ..utils.adaptive import smooth_parameter_transition
+from ..utils.conversion import amplitude_to_db_array
 from ..utils.audio_info import to_mono
 from .curves import apply_content_adaptation
 
@@ -71,7 +72,7 @@ class SpectrumGainsMixin:
         spectrum = fft(windowed)
         magnitude = np.abs(spectrum[:self.fft_size // 2 + 1])
 
-        magnitude_db = 20 * np.log10(magnitude + 1e-10)
+        magnitude_db = amplitude_to_db_array(magnitude)
 
         # Calculate energy in each critical band
         band_energies = self._calculate_band_energies(magnitude_db)
