@@ -90,6 +90,25 @@ export const useLibraryScan = ({
     const controller = new AbortController();
     scanAbortRef.current = controller;
     try {
+      // #5865: register the folder in the path allowlist. The manual scan
+      // route accepts any readable directory but never touches the
+      // allowlist, so tracks imported from outside the default roots
+      // (~Music/~Documents) listed fine and then streamed as "Audio file
+      // not found". Routing through the settings endpoint — the same one
+      // Settings > Scan folders uses — keeps ONE registration code path,
+      // and it also persists the folder to scan_folders so startup
+      // re-seeds it and wakes the auto-scanner. Dispatched alongside the
+      // scan (bounded, failure non-fatal): registration is a millisecond
+      // endpoint and streaming needs it only after the scan completes.
+      const registration = post(
+        '/api/settings/scan-folders',
+        { folder: folderPath },
+        { signal: controller.signal, timeoutMs: 5_000 }
+      ).catch(() => {
+        // Already registered or the backend rejected the add — the scan
+        // below surfaces whatever actually matters to the user.
+      });
+
       // #5019: routed through the shared transport, which composes a timeout
       // with the cancellation signal below. The raw fetch() this replaces had
       // no upper bound, so a hung backend left `scanning` true (and the button
@@ -100,6 +119,7 @@ export const useLibraryScan = ({
         { directories: [folderPath] },
         { signal: controller.signal, timeoutMs: SCAN_TIMEOUT_MS }
       );
+      await registration;
 
       // Guard post-success work against unmount (#3987).
       if (!mountedRef.current) return;

@@ -79,6 +79,40 @@ describe('useLibraryScan (#4185)', () => {
     expect(result.current.scanning).toBe(false);
   });
 
+  it('registers the folder in the allowlist before scanning (#5865)', async () => {
+    mockFetch.mockResolvedValue({ ok: true, json: async () => ({ files_added: 3 }) });
+
+    const { result } = setup(true);
+    act(() => result.current.setWebFolderPath('/mnt/data/music'));
+    await act(async () => {
+      await result.current.handleScanFolder();
+    });
+
+    const urls = mockFetch.mock.calls.map((c) => c[0]);
+    const registerIdx = urls.indexOf('/api/settings/scan-folders');
+    const scanIdx = urls.indexOf('/api/library/scan');
+    expect(registerIdx).toBeGreaterThanOrEqual(0);
+    expect(scanIdx).toBeGreaterThan(registerIdx);
+    expect(mockFetch.mock.calls[registerIdx][1]).toMatchObject({ method: 'POST' });
+  });
+
+  it('still scans when the allowlist registration fails (folder already allowed, #5865)', async () => {
+    mockFetch.mockImplementation((url: string) =>
+      url === '/api/settings/scan-folders'
+        ? Promise.resolve({ ok: false, json: async () => ({ detail: 'duplicate' }) })
+        : Promise.resolve({ ok: true, json: async () => ({ files_added: 2 }) })
+    );
+
+    const { result } = setup(true);
+    act(() => result.current.setWebFolderPath('/music'));
+    await act(async () => {
+      await result.current.handleScanFolder();
+    });
+
+    expect(mockFetch).toHaveBeenCalledWith('/api/library/scan', expect.anything());
+    expect(mockSuccess).toHaveBeenCalledWith(expect.stringContaining('2'));
+  });
+
   it('does not refetch stats when includeStats is false', async () => {
     mockFetch.mockResolvedValue({ ok: true, json: async () => ({ files_added: 1 }) });
 
@@ -187,9 +221,14 @@ describe('useLibraryScan (#4185)', () => {
       void result.current.handleScanFolder();
     });
 
-    expect(signals).toHaveLength(2);
-    expect(signals[0].aborted).toBe(true); // superseded
-    expect(signals[1].aborted).toBe(false);
+    // Two calls per scan since #5865 (allowlist registration + scan), so a
+    // superseded scan aborts both of its requests and the new one aborts
+    // neither.
+    expect(signals).toHaveLength(4);
+    expect(signals[0].aborted).toBe(true); // superseded registration
+    expect(signals[1].aborted).toBe(true); // superseded scan
+    expect(signals[2].aborted).toBe(false); // new registration
+    expect(signals[3].aborted).toBe(false); // new scan
   });
 
   it('does not use the shared 30s timeout, which would now kill real scans (#4820)', async () => {
