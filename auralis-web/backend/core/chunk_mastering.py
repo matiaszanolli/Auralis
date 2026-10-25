@@ -55,19 +55,27 @@ def compute_mastering_recommendation(
         if processor.adaptive_mastering_engine is None:
             processor.adaptive_mastering_engine = AdaptiveMasteringEngine()
 
-        # Get or extract fingerprint
-        if processor.fingerprint is None:
+        # The recommendation engine consumes the 7-field MasteringFingerprint;
+        # processor.fingerprint holds the 25D dict from whichever tier loaded
+        # it (#5938 — now including the DB tier, which used to be dead and is
+        # the common case for library-fingerprinted tracks). Extract the
+        # 7-field object from the file rather than feeding the dict to
+        # recommend_weighted (AttributeError) or overwriting the 25D source.
+        rec_fingerprint: MasteringFingerprint | None = None
+        if isinstance(processor.fingerprint, MasteringFingerprint):
+            rec_fingerprint = processor.fingerprint
+        else:
             logger.info("📊 Extracting mastering fingerprint for recommendation analysis...")
             try:
-                processor.fingerprint = MasteringFingerprint.from_audio_file(processor.filepath)
+                rec_fingerprint = MasteringFingerprint.from_audio_file(processor.filepath)
             except Exception as e:
                 logger.warning(f"Failed to extract fingerprint for recommendations: {e}")
                 return None
 
         # Get weighted recommendation
-        if processor.fingerprint is not None and processor.adaptive_mastering_engine is not None:
+        if rec_fingerprint is not None and processor.adaptive_mastering_engine is not None:
             recommendation = processor.adaptive_mastering_engine.recommend_weighted(
-                processor.fingerprint,
+                rec_fingerprint,
                 confidence_threshold=confidence_threshold
             )
             processor.mastering_recommendation = recommendation

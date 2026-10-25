@@ -139,7 +139,10 @@ def init_fingerprint_and_processor(
         result = mastering_target_service.load_fingerprint(
             track_id=track_id,
             filepath=filepath,
-            extract_if_missing=False,  # Don't extract on init, only on first chunk playback
+            extract_if_missing=False,  # DB row or .25d only — no decode on init
+            # (#5938: Tier-3 extraction was never wired here despite the old
+            # 'first chunk playback' comment; fixed targets come from Tiers
+            # 1/2 or per-chunk analysis otherwise).
             save_extracted=True,
             file_signature=file_signature,
         )

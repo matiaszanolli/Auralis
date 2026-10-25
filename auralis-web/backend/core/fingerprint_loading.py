@@ -16,12 +16,11 @@ from typing import Any
 from auralis.__version__ import FINGERPRINT_ALGORITHM_VERSION
 from auralis.analysis.fingerprint import AudioFingerprintAnalyzer, FingerprintStorage
 from auralis.analysis.fingerprint.windows import FINGERPRINT_SAMPLE_RATE
-from auralis.analysis.mastering_fingerprint import MasteringFingerprint
 from mutagen import File as MutagenFile  # type: ignore[attr-defined]
 
 logger = logging.getLogger(__name__)
 
-# Maps a fingerprint (record, dict or MasteringFingerprint) to mastering targets.
+# Maps a fingerprint (record or dict) to mastering targets.
 TargetDeriver = Callable[[Any], dict[str, Any]]
 
 
@@ -56,7 +55,7 @@ def load_from_database(
         track_id: Track ID to look up
 
     Returns:
-        MasteringFingerprint instance or None if not found
+        The 25D fingerprint dict (same shape as the file/extract tiers), or None
     """
     # Require repository factory (dependency injection pattern)
     if get_fingerprints_repository is None:
@@ -71,7 +70,7 @@ def load_from_database(
         fp_record = fingerprints_repo.get_by_track_id(track_id)
 
         if fp_record:
-            # Convert database record to MasteringFingerprint
+            # Convert the TrackFingerprint row's 25 columns to the dict shape
             fp_dict = {
                 'sub_bass_pct': fp_record.sub_bass_pct,
                 'bass_pct': fp_record.bass_pct,
@@ -100,18 +99,26 @@ def load_from_database(
                 'phase_correlation': fp_record.phase_correlation,
             }
 
-            fingerprint = MasteringFingerprint(**fp_dict)
+            # Return the 25D dict itself — the same shape Tier 2 (.25d file)
+            # and Tier 3 (extract) return and that
+            # generate_targets_from_fingerprint consumes. Constructing a
+            # MasteringFingerprint here raised TypeError (25 kwargs vs 7
+            # unrelated fields), which the blanket except below swallowed at
+            # DEBUG, so the DB tier always missed silently (#5938).
             logger.info(
                 f"✅ Loaded fingerprint from database for track {track_id} "
                 f"(LUFS: {fp_record.lufs:.1f}, Crest: {fp_record.crest_db:.1f})"
             )
-            return fingerprint
+            return fp_dict
         else:
             logger.debug(f"No fingerprint in database for track {track_id}")
             return None
 
     except Exception as e:
-        logger.debug(f"Database fingerprint lookup failed for track {track_id}: {e}")
+        # WARNING, not DEBUG: a Tier-1 miss silently degrades every
+        # DB-fingerprinted track to per-chunk analysis (#5938) — it must be
+        # visible in logs.
+        logger.warning(f"Database fingerprint lookup failed for track {track_id}: {e}")
         return None
 
 
@@ -152,7 +159,9 @@ def load_from_file(
             return None
 
     except Exception as e:
-        logger.debug(f".25d file loading failed for {filepath}: {e}")
+        # WARNING per #5938: a swallowed tier failure silently degrades to
+        # per-chunk analysis / re-extraction.
+        logger.warning(f".25d file loading failed for {filepath}: {e}")
         return None
 
 
