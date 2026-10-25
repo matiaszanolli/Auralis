@@ -119,19 +119,37 @@ export function useEnhancementControl(): EnhancementControlActions {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
 
-  useEnhancementStatusSync(setState);
-
   // Keep refs in sync with the latest enabled / preset / intensity values so
   // the toggle and setter callbacks never read a stale closure (fixes #2990 —
   // WS race overwrites correct state; #3759 + #3763 — re-issued stream command
   // needs latest values). Direct assignment in the render body is sufficient
   // and avoids three single-field useEffect synchronizers (#3969).
+  // Declared before useEnhancementStatusSync so the broadcast re-issue
+  // callback below can read the live values (#5864).
   const enabledRef = useRef(state.enabled);
   enabledRef.current = state.enabled;
   const presetRef = useRef(state.preset);
   presetRef.current = state.preset;
   const intensityRef = useRef(state.intensity);
   intensityRef.current = state.intensity;
+
+  // #5864: Settings-originated enabled changes reach the client only as the
+  // enhancement_settings_changed broadcast; the running stream loop stops
+  // itself when it re-reads enabled=false, so this re-issues as the
+  // appropriate type — same shape as toggleEnabled's own re-issue.
+  const handleExternalEnabledChange = useCallback((enabled: boolean) => {
+    if (enabled === enabledRef.current) return; // already in the target mode
+    if (enabled) {
+      reissueRef.current('play_enhanced', {
+        preset: presetRef.current,
+        intensity: intensityRef.current,
+      });
+    } else {
+      reissueRef.current('play_normal');
+    }
+  }, [reissueRef, enabledRef, presetRef, intensityRef]);
+
+  useEnhancementStatusSync(setState, handleExternalEnabledChange);
 
   const { toggleEnabled, setEnabled, setPreset, setIntensity } = useEnhancementCommands({
     setState, setIsLoading, setError, enabledRef, presetRef, intensityRef, reissueRef,

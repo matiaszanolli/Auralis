@@ -13,6 +13,7 @@
 import { useCallback, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
 import { useRestAPI } from '@/hooks/api/useRestAPI';
 import type { ApiError } from '@/types/api';
+import { markLocalEnhancementCommand } from './enhancementBroadcastReissue';
 import { ApiErrorHandler } from '@/types/api';
 import { ENHANCEMENT_PRESETS } from '@/types/domain';
 import type { EnhancementPreset } from '@/types/domain';
@@ -88,11 +89,13 @@ export function useEnhancementCommands({
       // samples actually delivered, so a consumer can distinguish it from a
       // finished track instead of seeing a success-shaped completion.
       if (newEnabled) {
+        markLocalEnhancementCommand();
         reissueRef.current('play_enhanced', {
           preset: presetRef.current,
           intensity: intensityRef.current,
         });
       } else {
+        markLocalEnhancementCommand();
         reissueRef.current('play_normal');
       }
     } catch (err) {
@@ -165,6 +168,7 @@ export function useEnhancementCommands({
       // off, the user is on play_normal and preset/intensity don't affect
       // the audio path.
       if (enabledRef.current) {
+        markLocalEnhancementCommand();
         reissueRef.current('play_enhanced', {
           preset,
           intensity: intensityRef.current,
@@ -231,6 +235,7 @@ export function useEnhancementCommands({
 
       // #3763: live intensity changes require stream restart — see setPreset.
       if (enabledRef.current) {
+        markLocalEnhancementCommand();
         reissueRef.current('play_enhanced', {
           preset: presetRef.current,
           intensity: validIntensity,

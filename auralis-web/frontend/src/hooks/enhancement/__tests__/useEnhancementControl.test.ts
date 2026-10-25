@@ -35,6 +35,82 @@ describe('useEnhancementControl', () => {
     vi.clearAllMocks();
   });
 
+  // #5864: Settings-originated enabled changes arrive only as the
+  // enhancement_settings_changed broadcast; the hook must re-issue the active
+  // stream (the backend loop stops itself when it re-reads enabled=false).
+  describe('external enhancement_settings_changed re-issue (#5864)', () => {
+    function setupWsCapture() {
+      const reissue = vi.fn().mockReturnValue(false);
+      vi.mocked(WebSocketContextModule, true);
+      // The hook reads useWebSocketContext(); provide the reissue spy.
+      vi.spyOn(WebSocketContextModule, 'useWebSocketContext').mockReturnValue({
+        reissueActiveStreamAs: reissue,
+      } as any);
+      const mockGet = vi.fn().mockResolvedValue({ enabled: true, preset: 'adaptive', intensity: 0.8 });
+      vi.mocked(useRestAPI).mockReturnValue({
+        get: mockGet, post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn(),
+      } as any);
+      let handler: ((m: unknown) => void) | undefined;
+      vi.mocked(useWebSocketMessages).mockImplementation(((types: string[], fn: (m: unknown) => void) => {
+        if (types.includes('enhancement_settings_changed')) handler = fn;
+      }) as any);
+      return { reissue, getHandler: () => handler! };
+    }
+
+    it('re-issues play_normal once when the broadcast disables enhancement', async () => {
+      const { reissue, getHandler } = setupWsCapture();
+      renderHook(() => useEnhancementControl());
+      await act(async () => {}); // initial fetch settles
+
+      act(() => {
+        getHandler()({
+          type: 'enhancement_settings_changed',
+          data: { enabled: false, preset: 'adaptive', intensity: 0.8 },
+        });
+      });
+      await act(async () => {});
+
+      expect(reissue).toHaveBeenCalledTimes(1);
+      expect(reissue).toHaveBeenCalledWith('play_normal');
+    });
+
+    it('does not re-issue when the same broadcast is handled by a second subscriber', async () => {
+      const { reissue, getHandler } = setupWsCapture();
+      renderHook(() => useEnhancementControl());
+      await act(async () => {});
+
+      const message = {
+        type: 'enhancement_settings_changed',
+        data: { enabled: false, preset: 'adaptive', intensity: 0.8 },
+      };
+      act(() => { getHandler()(message); });
+      act(() => { getHandler()(message); }); // another mounted consumer
+      await act(async () => {});
+
+      expect(reissue).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not re-issue on top of a local command (toggle already re-issued)', async () => {
+      const { reissue, getHandler } = setupWsCapture();
+      const { result } = renderHook(() => useEnhancementControl());
+      await act(async () => {}); // initial fetch: enabled=true
+
+      await act(async () => { await result.current.toggleEnabled(); }); // local: re-issues itself
+      reissue.mockClear();
+
+      act(() => {
+        getHandler()({
+          type: 'enhancement_settings_changed',
+          data: { enabled: false, preset: 'adaptive', intensity: 0.8 },
+        });
+      });
+      await act(async () => {});
+
+      expect(reissue).not.toHaveBeenCalled();
+    });
+  });
+
+
   describe('initial state and fetching', () => {
     it('should start with default state', () => {
       const mockGet = vi.fn().mockResolvedValue(null);

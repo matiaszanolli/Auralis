@@ -12,6 +12,7 @@ import { useEffect, useRef, type Dispatch, type SetStateAction } from 'react';
 import { useRestAPI } from '@/hooks/api/useRestAPI';
 import { useWebSocketMessages } from '@/hooks/websocket/useWebSocketMessages';
 import type { EnhancementSettingsChangedMessage } from '@/types/websocket';
+import { isExternalChange, oncePerMessage } from './enhancementBroadcastReissue';
 import type { EnhancementState } from './enhancementState';
 
 // Module-level in-flight dedup so multiple consumers mounting at once
@@ -41,8 +42,16 @@ function _fetchEnhancementStatusOnce(
   return promise;
 }
 
+/**
+ * `onExternalEnabledChange` (#5864): invoked when the broadcast flips
+ * `enabled` and the change did NOT originate from this client's own REST
+ * commands (Settings saves, another client). The stream loop stops when
+ * `enabled` flips false, so without a re-issue the audio silently dies
+ * after the buffer plays out.
+ */
 export function useEnhancementStatusSync(
-  setState: Dispatch<SetStateAction<EnhancementState>>
+  setState: Dispatch<SetStateAction<EnhancementState>>,
+  onExternalEnabledChange?: (enabled: boolean) => void,
 ): void {
   const { get } = useRestAPI();
   const getRef = useRef(get);
@@ -55,6 +64,21 @@ export function useEnhancementStatusSync(
     ['enhancement_settings_changed'],
     (message) => {
       const enhancementMsg = message as EnhancementSettingsChangedMessage;
+
+      // #5864: an externally-originated enabled flip (Settings save) must
+      // re-issue the active stream — the running loop stops itself when it
+      // re-reads enabled=false. Local commands re-issue on their own, so
+      // their confirmation broadcast is suppressed; several mounted
+      // subscribers share one message instance, so the guard is once-per-
+      // message. Runs BEFORE setState so the callback can read the prior
+      // state through its own refs if needed.
+      if (
+        onExternalEnabledChange &&
+        enhancementMsg.data.enabled !== undefined &&
+        isExternalChange()
+      ) {
+        oncePerMessage(message, () => onExternalEnabledChange(enhancementMsg.data.enabled!));
+      }
 
       setState((prevState) => ({
         ...prevState,
