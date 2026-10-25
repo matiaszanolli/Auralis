@@ -17,13 +17,15 @@ original methods they replace.
 
 import numpy as np
 
+from ...dsp.constants import CORPUS_BAND_CENTERS
 from .continuous_space import PreferenceVector, ProcessingCoordinates
 
-# Corpus-calibrated band centers (see the comment in the generator below). When
-# a band is missing the fallback is its own center, i.e. a zero correction --
+# Corpus-calibrated band centers live in dsp/constants.CORPUS_BAND_CENTERS —
+# the single table shared with the fixed-target path (#5695). When a band is
+# missing the fallback is its own center, i.e. a zero correction --
 # deliberately not the FingerprintUnpacker typical-track default.
-_LOW_MID_CENTER = 0.1009
-_UPPER_MID_CENTER = 0.0733
+_LOW_MID_CENTER = CORPUS_BAND_CENTERS['low_mid']
+_UPPER_MID_CENTER = CORPUS_BAND_CENTERS['upper_mid']
 
 
 def _signed_band_gain(
@@ -66,14 +68,24 @@ def generate_eq_curve(
     # define the origin of a signed continuous correction, not an ideal
     # profile or a pass/fail range. ``tanh`` approaches the DSP envelope
     # smoothly instead of clipping bands into deficit/excess classes.
-    low_shelf_gain = _signed_band_gain(fp['bass_pct'], 0.4561, 4.0)
+    low_shelf_gain = _signed_band_gain(
+        fp['bass_pct'], CORPUS_BAND_CENTERS['bass'], 4.0
+    )
     low_mid_gain = _signed_band_gain(
         fp.get('low_mid_pct', _LOW_MID_CENTER), _LOW_MID_CENTER, 2.0
     )
-    mid_gain = _signed_band_gain(fp['mid_pct'], 0.1983, 2.0)
+    mid_gain = _signed_band_gain(fp['mid_pct'], CORPUS_BAND_CENTERS['mid'], 2.0)
     high_mid_source = fp.get('upper_mid_pct', _UPPER_MID_CENTER) + fp['presence_pct']
-    high_mid_gain = _signed_band_gain(high_mid_source, 0.1030, 3.0)
-    high_shelf_gain = _signed_band_gain(fp['air_pct'], 0.0063, 3.0)
+    high_mid_gain = _signed_band_gain(
+        high_mid_source,
+        # Combined center: the corpus pins 0.1030 for the SUM of the two
+        # bands (presence alone has no separate measurement).
+        CORPUS_BAND_CENTERS['upper_mid'] + CORPUS_BAND_CENTERS['presence'],
+        3.0,
+    )
+    high_shelf_gain = _signed_band_gain(
+        fp['air_pct'], CORPUS_BAND_CENTERS['air'], 3.0
+    )
 
     # Apply user preference adjustments
     if preference:
@@ -172,9 +184,9 @@ def calculate_eq_blend(coords: ProcessingCoordinates) -> float:
 
     epsilon = 1e-8
     deviations = (
-        abs(np.log((fp['bass_pct'] + epsilon) / 0.4561)),
-        abs(np.log((fp['air_pct'] + epsilon) / 0.0063)),
-        abs(np.log((fp['mid_pct'] + epsilon) / 0.1983)),
+        abs(np.log((fp['bass_pct'] + epsilon) / CORPUS_BAND_CENTERS['bass'])),
+        abs(np.log((fp['air_pct'] + epsilon) / CORPUS_BAND_CENTERS['air'])),
+        abs(np.log((fp['mid_pct'] + epsilon) / CORPUS_BAND_CENTERS['mid'])),
     )
     mean_deviation = float(np.mean(deviations))
     eq_blend = 0.35 + 0.55 * (1.0 - np.exp(-mean_deviation))

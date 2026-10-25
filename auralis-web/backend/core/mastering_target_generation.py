@@ -8,18 +8,19 @@ mastering_target_service.py, #5833). Pure functions of the fingerprint.
 
 from typing import Any
 
+from auralis.dsp.constants import CORPUS_BAND_CENTERS
 from auralis.dsp.utils.loudness_targets import DEFAULT_TARGET_LUFS, STREAMING_TARGET_LUFS
 
-# Ideal share of spectral energy per band; also the "no data" fallback.
-_IDEAL_BAND_SHARE: dict[str, float] = {
-    'sub_bass': 0.05,
-    'bass': 0.15,
-    'low_mid': 0.18,
-    'mid': 0.22,
-    'upper_mid': 0.20,
-    'presence': 0.13,
-    'air': 0.07,
-}
+# The corpus medians are the calibration, not hand-set "ideal" shares
+# (#5695): the previous table (sub 0.05, bass 0.15, low-mid 0.18, mid 0.22,
+# upper-mid 0.20, presence 0.13, air 0.07) described nothing the fingerprint
+# band fractions look like (energy falls steeply with frequency), so a
+# corpus-MEDIAN track still got bass clamped at -6 dB, upper-mid +6 and a
+# +9.5 dB summed high shelf — a content-independent bass-cut/treble-boost
+# tilt on every fixed-target render. Shared with the per-chunk fingerprint
+# EQ path (parameter_generator_eq.py) via dsp/constants, so the two cannot
+# drift again.
+_IDEAL_BAND_SHARE = CORPUS_BAND_CENTERS
 
 
 def generate_targets_from_fingerprint(fingerprint: Any) -> dict[str, Any]:
