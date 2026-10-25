@@ -19,6 +19,7 @@ import { RecentlyTouchedSection } from '@/components/library/Items/albums/Recent
 import { CozyArtistList } from '@/components/library/Items/artists/CozyArtistList';
 import AlbumDetailView from '@/components/library/Details/AlbumDetailView';
 import ArtistDetailView from '@/components/library/Details/ArtistDetailView';
+import PlaylistDetailView from '@/components/library/Details/PlaylistDetailView';
 import { ViewContainer } from './ViewContainer';
 import { AlbumCharacterPane } from '@/components/library/AlbumCharacterPane';
 import { SegmentedControl } from '@/design-system';
@@ -37,10 +38,14 @@ export interface LibraryViewRouterProps {
   selectedAlbumId: number | null;
   selectedArtistId: number | null;
   selectedArtistName: string;
+  /** Parsed `playlist-<id>` view id (parsePlaylistViewId), null when absent. */
+  playlistId?: number | null;
 
   // Navigation callbacks
   onBackFromAlbum: () => void;
   onBackFromArtist: () => void;
+  /** Playlist detail's back navigation (#6007). */
+  onBackToSongs?: () => void;
   onAlbumClick: (albumId: number) => void;
   onArtistClick: (artistId: number, artistName: string) => void;
 }
@@ -56,11 +61,19 @@ export const LibraryViewRouter = ({
   selectedAlbumId,
   selectedArtistId,
   selectedArtistName,
+  playlistId = null,
   onBackFromAlbum,
   onBackFromArtist,
+  onBackToSongs,
   onAlbumClick,
   onArtistClick,
 }: LibraryViewRouterProps) => {
+  // Playlist detail (#6007): the view id itself carries the playlist id —
+  // the sidebar's PlaylistList navigates to `playlist-<id>`.
+  if (playlistId !== null) {
+    return <PlaylistDetailView playlistId={playlistId} onBack={onBackToSongs} />;
+  }
+
   // Album detail view (from albums or artists view)
   if (selectedAlbumId !== null) {
     return (
