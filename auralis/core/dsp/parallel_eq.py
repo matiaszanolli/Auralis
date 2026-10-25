@@ -38,6 +38,29 @@ class ParallelEQUtilities:
     All methods are static for easy reuse across modules.
     """
 
+
+    @staticmethod
+    def _parallel_add(
+        audio: np.ndarray, sos: np.ndarray, boost_db: float, context: str
+    ) -> np.ndarray:
+        """Filter out a band and add a boosted copy of it back (parallel EQ).
+
+        The extract-plus-parallel-add tail the three shelf/bandpass boosts
+        shared as three copies (#6215; #5116 previously had to edit all
+        three by hand). axis=-1 is the sample axis for both 1-D input and
+        the (channels, samples) chunk layout, so the ndim branch the copies
+        carried is unnecessary. sosfiltfilt_safe returns the input dtype
+        contract with the #2158 cast and degrades to passthrough on chunks
+        shorter than padlen (#5116). Never modifies `audio` in place.
+        """
+        band = sosfiltfilt_safe(sos, audio, axis=-1, context=context).astype(audio.dtype)
+
+        # boost_linear = 1.0 -> no change; 2.0 -> +6 dB. boost_diff is what
+        # gets ADDED. A Python float never promotes an array's dtype (NEP 50),
+        # so the add stays audio.dtype.
+        boost_diff = 10 ** (boost_db / 20) - 1.0
+        return (audio + band * boost_diff).astype(audio.dtype)
+
     @staticmethod
     def apply_low_shelf_boost(
         audio: np.ndarray,
@@ -103,27 +126,9 @@ class ParallelEQUtilities:
         # mastering for the whole file. The band shapes the signal in place,
         # so too-short degrades to passthrough ("no shaping applied"); the
         # cast keeps the #2158 float32 contract.
-        if audio.ndim == 1:
-            band = sosfiltfilt_safe(sos_filter, audio, context="parallel_eq band").astype(audio.dtype)
-        else:
-            band = sosfiltfilt_safe(sos_filter, audio, axis=1, context="parallel_eq band").astype(audio.dtype)
-
-        # Calculate parallel boost amount
-        # boost_linear = 1.0 means no change
-        # boost_linear = 2.0 means +6dB boost
-        # boost_diff is the amount to ADD to original
-        boost_linear = 10 ** (boost_db / 20)
-        boost_diff = boost_linear - 1.0
-
-        # Add boosted band to original (parallel processing).
-        # `band` is already audio.dtype (cast above, right after sosfiltfilt).
-        # boost_diff is a Python float, which NEP 50 treats as a "weak" scalar
-        # that never promotes an array's dtype — band * boost_diff and the
-        # subsequent add both stay audio.dtype without this cast. It is kept
-        # as a redundant no-op guard, not because scalar multiply promotes;
-        # the real (and only) float64 source in this method is sosfiltfilt()
-        # above (#2158), already handled by the earlier .astype(audio.dtype).
-        return (audio + band * boost_diff).astype(audio.dtype)
+        return ParallelEQUtilities._parallel_add(
+            audio, sos_filter, boost_db, context="parallel_eq band"
+        )
 
     @staticmethod
     def apply_high_shelf_boost(
@@ -179,17 +184,9 @@ class ParallelEQUtilities:
         # Extract high-frequency band; cast for dtype preservation (issue #2158).
         # #5116 sibling: sosfiltfilt_safe, same padlen rationale as the band
         # extraction above.
-        if audio.ndim == 1:
-            band = sosfiltfilt_safe(sos_filter, audio, context="parallel_eq HP band").astype(audio.dtype)
-        else:
-            band = sosfiltfilt_safe(sos_filter, audio, axis=1, context="parallel_eq HP band").astype(audio.dtype)
-
-        # Calculate parallel boost amount
-        boost_linear = 10 ** (boost_db / 20)
-        boost_diff = boost_linear - 1.0
-
-        # Add boosted band to original (parallel processing).
-        return (audio + band * boost_diff).astype(audio.dtype)
+        return ParallelEQUtilities._parallel_add(
+            audio, sos_filter, boost_db, context="parallel_eq HP band"
+        )
 
     @staticmethod
     def apply_bandpass_boost(
@@ -257,14 +254,6 @@ class ParallelEQUtilities:
 
         # Extract mid-range band; cast for dtype preservation (issue #2158).
         # #5116 sibling: sosfiltfilt_safe, same padlen rationale as above.
-        if audio.ndim == 1:
-            band = sosfiltfilt_safe(sos_filter, audio, context="parallel_eq bandpass").astype(audio.dtype)
-        else:
-            band = sosfiltfilt_safe(sos_filter, audio, axis=1, context="parallel_eq bandpass").astype(audio.dtype)
-
-        # Calculate parallel boost amount
-        boost_linear = 10 ** (boost_db / 20)
-        boost_diff = boost_linear - 1.0
-
-        # Add boosted band to original (parallel processing).
-        return (audio + band * boost_diff).astype(audio.dtype)
+        return ParallelEQUtilities._parallel_add(
+            audio, sos_filter, boost_db, context="parallel_eq bandpass"
+        )
