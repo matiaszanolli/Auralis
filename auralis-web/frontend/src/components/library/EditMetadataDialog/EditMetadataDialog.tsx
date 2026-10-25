@@ -28,7 +28,7 @@ import { MetadataDialogAlerts } from './MetadataDialogAlerts';
 import {
   MetadataDialogActions,
   SaveButton,
-  CancelButtonForDialog,
+  CancelButton,
   DialogPaperProps,
 } from '@/components/library/Styles/Dialog.styles';
 import { useMetadataForm, MetadataFields } from './useMetadataForm';
@@ -93,9 +93,9 @@ export const EditMetadataDialog = ({
       </DialogContent>
 
       <MetadataDialogActions>
-        <CancelButtonForDialog onClick={handleClose} disabled={saving} startIcon={<CloseIcon />}>
+        <CancelButton onClick={handleClose} disabled={saving} startIcon={<CloseIcon />}>
           Cancel
-        </CancelButtonForDialog>
+        </CancelButton>
         <SaveButton
           onClick={handleSave}
           disabled={saving || loading}

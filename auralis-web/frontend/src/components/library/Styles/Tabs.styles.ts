@@ -58,8 +58,3 @@ export const DetailViewTabs = styled(Tabs)({
     backgroundColor: tokens.colors.accent.primary
   }
 });
-
-/**
- * NOTE: StyledTabs is exported from ArtistDetail.styles.ts as a re-export of DetailViewTabs
- * Use DialogTabs or DetailViewTabs directly, or import StyledTabs from ArtistDetail.styles
- */

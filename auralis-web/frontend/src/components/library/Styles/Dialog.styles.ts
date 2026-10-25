@@ -4,14 +4,14 @@
  * Consolidates dialog styling patterns used across SettingsDialog,
  * CreatePlaylistDialog, EditPlaylistDialog, and KeyboardShortcutsHelp.
  *
- * Tab components (StyledTabs, DialogTabs) are imported from Tabs.styles.ts
+ * Tab components (DialogTabs) are imported from Tabs.styles.ts
  */
 
 import { Dialog, DialogTitle, DialogActions, Box, styled } from '@mui/material';
 import { tokens } from '@/design-system';
 import { themeVars } from '@/theme/semanticTheme';
-export { DialogTabs as StyledTabs, DetailViewTabs } from './Tabs.styles';
-export { SaveButton, CancelButtonForDialog } from './Button.styles';
+export { DialogTabs } from './Tabs.styles';
+export { SaveButton, CancelButton } from './Button.styles';
 export { SectionLabel, SectionDescription } from './Typography.styles';
 
 /**

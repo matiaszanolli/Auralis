@@ -5,13 +5,12 @@
  * and reusability across artist-related components.
  *
  * Avatar components (ArtistAvatarCircle) are imported from Avatar.styles.ts
- * Tab components (StyledTabs, DetailViewTabs) are imported from Tabs.styles.ts
+ * Tab components are imported from Tabs.styles.ts
  */
 
 import { TableContainer, styled } from '@mui/material';
 import { tokens } from '@/design-system';
 export { ArtistAvatarCircle } from './Avatar.styles';
-export { DetailViewTabs as StyledTabs } from './Tabs.styles';
 
 /*
  * Album cards: use the unified `components/album/AlbumCard` (-> MediaCard). A

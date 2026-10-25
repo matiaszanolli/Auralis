@@ -99,9 +99,3 @@ export const SaveButton = styled(Button)(({ theme: _theme }) => ({
 
   transition: `${tokens.transitions.all}, backdrop-filter ${tokens.transitions.base}`,
 }));
-
-/**
- * CancelButtonForDialog - Cancel button with secondary styling
- * Alias for CancelButton, used in EditMetadataDialog and other dialogs
- */
-export const CancelButtonForDialog = CancelButton;

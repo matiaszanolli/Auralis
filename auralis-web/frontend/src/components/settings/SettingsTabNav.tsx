@@ -7,7 +7,7 @@ import PaletteIcon from '@mui/icons-material/Palette';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import BuildIcon from '@mui/icons-material/Build';
 import ScanDotIcon from '@mui/icons-material/FiberManualRecord';
-import { StyledTabs } from '@/components/library/Styles/Dialog.styles';
+import { DialogTabs } from '@/components/library/Styles/Dialog.styles';
 import { tokens } from '@/design-system';
 
 interface SettingsTabNavProps {
@@ -48,14 +48,14 @@ export const SettingsTabNav = ({
 
   return (
     <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-      <StyledTabs value={activeTab} onChange={onTabChange}>
+      <DialogTabs value={activeTab} onChange={onTabChange}>
         <Tab icon={<LibraryMusicIcon fontSize="small" />} iconPosition="start" label={libraryLabel} />
         <Tab icon={<PlayArrowIcon fontSize="small" />} iconPosition="start" label="Playback" />
         <Tab icon={<TuneIcon fontSize="small" />} iconPosition="start" label="Audio" />
         <Tab icon={<PaletteIcon fontSize="small" />} iconPosition="start" label="Interface" />
         <Tab icon={<AutoAwesomeIcon fontSize="small" />} iconPosition="start" label="Enhancement" />
         <Tab icon={<BuildIcon fontSize="small" />} iconPosition="start" label="Advanced" />
-      </StyledTabs>
+      </DialogTabs>
     </Box>
   );
 };

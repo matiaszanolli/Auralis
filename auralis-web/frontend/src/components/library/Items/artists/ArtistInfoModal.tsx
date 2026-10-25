@@ -16,7 +16,7 @@
 import { DialogContent, DialogActions, Box } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { tokens } from '@/design-system';
-import { StyledDialog, StyledDialogTitle, CancelButtonForDialog } from '@/components/library/Styles/Dialog.styles';
+import { StyledDialog, StyledDialogTitle, CancelButton } from '@/components/library/Styles/Dialog.styles';
 import type { Artist } from '@/types/domain';
 import { themeVars } from '@/theme/semanticTheme';
 
@@ -69,12 +69,12 @@ export const ArtistInfoModal = ({
       </DialogContent>
 
       <DialogActions sx={styles.actions}>
-        <CancelButtonForDialog
+        <CancelButton
           onClick={onClose}
           startIcon={<CloseIcon />}
         >
           Close
-        </CancelButtonForDialog>
+        </CancelButton>
       </DialogActions>
     </StyledDialog>
   );
