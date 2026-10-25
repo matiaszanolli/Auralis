@@ -19,7 +19,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from auralis.library.models import Base, Track
-from auralis.library.repositories.fingerprint_repository import FingerprintRepository
+from auralis.library.repositories.fingerprint_stats_repository import FingerprintStatsRepository
 
 
 @pytest.fixture
@@ -35,7 +35,7 @@ def repo_and_factory():
     seed.commit()
     seed.close()
 
-    repo = FingerprintRepository(SessionLocal)
+    repo = FingerprintStatsRepository(SessionLocal)
     try:
         yield repo, SessionLocal
     finally:
@@ -67,8 +67,3 @@ def test_failed_writes_status_to_tracks(repo_and_factory):
     s.close()
 
 
-def test_facade_delegates_update_status(repo_and_factory):
-    """The facade (what production/extractor holds) must expose update_status."""
-    repo, _ = repo_and_factory
-    assert callable(repo.update_status)
-    assert callable(repo.get_fingerprint_stats)

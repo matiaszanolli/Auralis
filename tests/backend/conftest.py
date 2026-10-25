@@ -397,6 +397,7 @@ def mock_repository_factory():
     factory.genres = Mock()
     factory.playlists = Mock()
     factory.fingerprints = Mock()
+    factory.fingerprint_stats = Mock()
     factory.stats = Mock()
     factory.settings = Mock()
 
@@ -436,7 +437,7 @@ def mock_repository_factory():
     factory.albums.get_by_artist = Mock(return_value=[])
 
     # Mock stats/fingerprint operations
-    factory.fingerprints.get_fingerprint_stats = Mock(
+    factory.fingerprint_stats.get_fingerprint_stats = Mock(
         return_value={
             'total': 0,
             'fingerprinted': 0,
@@ -444,8 +445,8 @@ def mock_repository_factory():
             'progress_percent': 0
         }
     )
-    factory.fingerprints.get_fingerprint_status = Mock(return_value=None)
-    factory.fingerprints.cleanup_incomplete_fingerprints = Mock(return_value=0)
+    factory.fingerprint_stats.get_fingerprint_status = Mock(return_value=None)
+    factory.fingerprint_stats.cleanup_incomplete_fingerprints = Mock(return_value=0)
 
     # Mock settings operations
     factory.settings.get_all = Mock(return_value={})

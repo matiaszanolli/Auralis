@@ -14,17 +14,15 @@ Public facade (#4511) composing four per-concern mixins:
   dimension-range pre-filtering for similarity search
 
 Status/stats/crash-recovery queries were already split out to
-``FingerprintStatsRepository`` (#4108); scheduler-claim queries live in the
-separate, pre-existing ``FingerprintSchedulerRepository``. This class keeps
-only thin delegators to the stats repo so existing callers that hold a
-``FingerprintRepository`` (the fingerprint extractor, similarity/fingerprint
-routers) keep working unchanged.
+``FingerprintStatsRepository``, and scheduler-claim queries to
+``FingerprintSchedulerRepository`` (#4108). The "so callers keep working"
+delegators that used to bridge the split are gone (#6264): callers hold
+``repository_factory.fingerprint_stats`` for those operations directly.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from typing import Any
 from collections.abc import Callable
 
 from sqlalchemy.orm import Session
@@ -32,7 +30,6 @@ from sqlalchemy.orm import Session
 from .fingerprint_crud_mixin import FingerprintCrudMixin
 from .fingerprint_query_mixin import FingerprintQueryMixin
 from .fingerprint_similarity_mixin import FingerprintSimilarityMixin
-from .fingerprint_stats_repository import FingerprintStatsRepository
 from .fingerprint_upsert_mixin import FingerprintUpsertMixin
 
 __all__ = ["FingerprintRepository"]
@@ -57,30 +54,4 @@ class FingerprintRepository(
             session_factory: SQLAlchemy session factory used for all DB access.
         """
         super().__init__(session_factory)
-        # Status/stats methods were split into FingerprintStatsRepository; the
-        # facade composes one and delegates (see bottom of class) so callers that
-        # hold this repo (FingerprintExtractor, fingerprint/similarity routers)
-        # keep working (#4108).
-        self._stats = FingerprintStatsRepository(session_factory)
 
-    # ------------------------------------------------------------------
-    # Status / stats — delegated to FingerprintStatsRepository (#4108).
-    # These were moved out of this class but callers still hold the facade,
-    # so thin delegators keep the contract (and routes/extractor) intact.
-    # ------------------------------------------------------------------
-
-    def update_status(self, track_id: int, status: str, completed_at: str | None = None) -> bool:
-        """Update fingerprint processing status (delegates to stats repo)."""
-        return self._stats.update_status(track_id, status, completed_at)
-
-    def get_fingerprint_status(self, track_id: int) -> dict[str, Any] | None:
-        """Get fingerprint status for a track (delegates to stats repo)."""
-        return self._stats.get_fingerprint_status(track_id)
-
-    def get_fingerprint_stats(self) -> dict[str, int]:
-        """Get overall fingerprint statistics (delegates to stats repo)."""
-        return self._stats.get_fingerprint_stats()
-
-    def cleanup_incomplete_fingerprints(self) -> int:
-        """Reset stuck/incomplete fingerprint rows (delegates to stats repo)."""
-        return self._stats.cleanup_incomplete_fingerprints()

@@ -308,7 +308,7 @@ class TestFingerprintRepository:
         fp_repo = repository_factory.fingerprints
         fp_repo.add(track_id=added.id, fingerprint_data=_SAMPLE_FP)
 
-        status = fp_repo.get_fingerprint_status(added.id)
+        status = repository_factory.fingerprint_stats.get_fingerprint_status(added.id)
 
         assert status is not None
         assert status['track_id'] == added.id
@@ -319,7 +319,7 @@ class TestFingerprintRepository:
         tracks = repository_factory.tracks
         added = _add_track(tracks, filepath="/music/g.flac", title="G")
 
-        status = repository_factory.fingerprints.get_fingerprint_status(added.id)
+        status = repository_factory.fingerprint_stats.get_fingerprint_status(added.id)
 
         assert status is None
 
@@ -329,7 +329,7 @@ class TestFingerprintRepository:
         for i in range(3):
             _add_track(tracks, filepath=f"/music/stat_{i}.flac", title=f"S{i}")
 
-        stats = repository_factory.fingerprints.get_fingerprint_stats()
+        stats = repository_factory.fingerprint_stats.get_fingerprint_stats()
 
         assert 'total' in stats
         assert 'fingerprinted' in stats
@@ -343,7 +343,7 @@ class TestFingerprintRepository:
     def test_cleanup_incomplete_fingerprints_returns_count(self, repository_factory):
         """Test cleanup returns number of deleted fingerprints (0 on a
         freshly seeded, fully-consistent database — no incomplete rows)."""
-        count = repository_factory.fingerprints.cleanup_incomplete_fingerprints()
+        count = repository_factory.fingerprint_stats.cleanup_incomplete_fingerprints()
 
         assert isinstance(count, int)
         assert count == 0

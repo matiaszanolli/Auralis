@@ -141,7 +141,7 @@ async def enqueue_all_missing_fingerprints(
         Statistics about the enqueue operation
     """
     # Get fingerprint stats
-    stats = await asyncio.to_thread(repos.fingerprints.get_fingerprint_stats)
+    stats = await asyncio.to_thread(repos.fingerprint_stats.get_fingerprint_stats)
     total_tracks = stats['total']
     already_fingerprinted = stats['fingerprinted']
     pending = stats['pending']
@@ -197,7 +197,7 @@ async def get_fingerprint_stats(repos: Any = Depends(_repo_deps.get_repos)) -> d
     Returns:
         Statistics including total tracks, fingerprinted count, and progress
     """
-    stats = await asyncio.to_thread(repos.fingerprints.get_fingerprint_stats)
+    stats = await asyncio.to_thread(repos.fingerprint_stats.get_fingerprint_stats)
 
     return {
         "total_tracks": stats['total'],

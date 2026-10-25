@@ -22,6 +22,7 @@ import pytest
 from unittest.mock import MagicMock, call
 
 from auralis.library.repositories.fingerprint_repository import FingerprintRepository
+from auralis.library.repositories.fingerprint_stats_repository import FingerprintStatsRepository
 
 
 _SAMPLE_FINGERPRINT: dict = {
@@ -49,6 +50,13 @@ def session():
 def repo(session):
     factory = MagicMock(return_value=session)
     return FingerprintRepository(factory), session
+
+
+@pytest.fixture
+def stats_repo(session):
+    """#6264: status/stats operations live on FingerprintStatsRepository —
+    the facade delegators are gone."""
+    return FingerprintStatsRepository(MagicMock(return_value=session)), session
 
 
 # ---------------------------------------------------------------------------
@@ -154,22 +162,22 @@ class TestStoreFingerprintUsesSession:
 # ---------------------------------------------------------------------------
 
 class TestUpdateStatusUsesSession:
-    def test_completed_calls_execute_and_commit(self, repo):
-        r, session = repo
+    def test_completed_calls_execute_and_commit(self, stats_repo):
+        r, session = stats_repo
         result = r.update_status(track_id=3, status='completed', completed_at='2026-01-01T00:00:00')
         assert result is True
         session.execute.assert_called_once()
         session.commit.assert_called_once()
 
-    def test_failed_calls_execute_and_commit(self, repo):
-        r, session = repo
+    def test_failed_calls_execute_and_commit(self, stats_repo):
+        r, session = stats_repo
         result = r.update_status(track_id=3, status='failed')
         assert result is True
         session.execute.assert_called_once()
         session.commit.assert_called_once()
 
-    def test_returns_false_on_failure(self, repo):
-        r, session = repo
+    def test_returns_false_on_failure(self, stats_repo):
+        r, session = stats_repo
         session.execute.side_effect = RuntimeError("db error")
         result = r.update_status(track_id=3, status='completed')
         assert result is False
