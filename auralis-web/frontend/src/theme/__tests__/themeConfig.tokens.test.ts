@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { tokens } from '@/design-system';
+import { tokens, mediaBelow } from '@/design-system';
 import { createAuralisTheme } from '../themeConfig';
 import { getSemanticTheme, getSemanticCssVariables } from '../semanticTheme';
 import * as themeConfigModule from '../themeConfig';
@@ -65,5 +65,39 @@ describe('MUI numeric spacing derives from tokens.spacing (#5384)', () => {
 
   it('keeps the rendered 8px unit (no visual change)', () => {
     expect(createAuralisTheme('dark').spacing(3)).toBe('24px');
+  });
+});
+
+describe('MUI breakpoints derive from tokens.breakpoints (#6059)', () => {
+  it.each(['dark', 'light'] as const)('%s theme breakpoint values equal the numeric tokens', (mode) => {
+    const { values } = createAuralisTheme(mode).breakpoints;
+    expect(values).toEqual({
+      xs: Number.parseFloat(tokens.breakpoints.xs),
+      sm: Number.parseFloat(tokens.breakpoints.sm),
+      md: Number.parseFloat(tokens.breakpoints.md),
+      lg: Number.parseFloat(tokens.breakpoints.lg),
+      xl: Number.parseFloat(tokens.breakpoints.xl),
+    });
+  });
+
+  it.each(['sm', 'md', 'lg', 'xl'] as const)(
+    'mediaBelow(%s) is byte-identical to theme.breakpoints.down()',
+    (key) => {
+      expect(mediaBelow(key)).toBe(createAuralisTheme('dark').breakpoints.down(key));
+    },
+  );
+
+  it('no production source uses an inclusive max-width on a breakpoint token', () => {
+    const sources = import.meta.glob('../../**/*.{ts,tsx}', {
+      query: '?raw',
+      import: 'default',
+      eager: true,
+    }) as Record<string, string>;
+    const offenders = Object.entries(sources)
+      .filter(([path]) => !path.includes('__tests__') && !/\.test\.tsx?$/.test(path))
+      .filter(([, source]) => /max-width:\s*\$\{tokens\.breakpoints\./.test(source))
+      .map(([path]) => path);
+
+    expect(offenders).toEqual([]);
   });
 });

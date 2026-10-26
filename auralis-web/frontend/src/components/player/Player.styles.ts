@@ -9,7 +9,7 @@
  * Organic Spacing: Cluster (8px), Group (16px), Section (32px) for natural rhythm
  */
 
-import { tokens } from '@/design-system';
+import { tokens, mediaBelow } from '@/design-system';
 import { themeVars } from '@/theme/semanticTheme';
 
 export const styles = {
@@ -43,7 +43,7 @@ export const styles = {
     padding: `${tokens.spacing.md} ${tokens.spacing.lg}`,
     minHeight: '64px',
 
-    [`@media (max-width: ${tokens.breakpoints.md})`]: {
+    [mediaBelow('md')]: {
       flexDirection: 'column' as const,
       alignItems: 'stretch',
       padding: tokens.spacing.md,
@@ -59,7 +59,7 @@ export const styles = {
     minWidth: '200px',
     flex: '1 1 auto',
 
-    [`@media (max-width: ${tokens.breakpoints.md})`]: {
+    [mediaBelow('md')]: {
       minWidth: 'auto',
       width: '100%',
     },
@@ -72,7 +72,7 @@ export const styles = {
     flex: '1 1 auto',
     justifyContent: 'flex-end',
 
-    [`@media (max-width: ${tokens.breakpoints.md})`]: {
+    [mediaBelow('md')]: {
       width: '100%',
       justifyContent: 'space-between',
     },

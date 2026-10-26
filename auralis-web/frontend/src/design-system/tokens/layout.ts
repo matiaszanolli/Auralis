@@ -127,3 +127,14 @@ export const breakpoints = {
     lg: '1200px',    // Desktop
     xl: '1536px',    // Large desktop / Wide screens
 } as const;
+
+/**
+ * Media query for viewports strictly narrower than a breakpoint.
+ *
+ * Matches MUI's `theme.breakpoints.down(key)` boundary (`width - 0.05px`), so
+ * the CSS-in-JS rules and `useMediaQuery(theme.breakpoints.down(key))` flip at
+ * the same pixel; a bare `max-width: <bp>` is inclusive and disagrees with MUI
+ * at exactly the breakpoint width (#6059).
+ */
+export const mediaBelow = (key: keyof typeof breakpoints): string =>
+  `@media (max-width:${Number.parseFloat(breakpoints[key]) - 0.05}px)`;

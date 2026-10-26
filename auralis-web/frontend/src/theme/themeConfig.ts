@@ -26,6 +26,17 @@ export const createAuralisTheme = (mode: ThemeMode): Theme => {
     // scales are one: spacing(1) = cluster, (2) = group, (4) = section,
     // (0.5) = xs, (1.5) = md. The value is unchanged, so rendering is too.
     spacing: MUI_SPACING_UNIT_PX,
+    // #6059: MUI's own defaults happen to equal tokens.breakpoints; derive them
+    // so retuning the tokens moves useMediaQuery(down('md')) with the CSS rules.
+    breakpoints: {
+      values: {
+        xs: Number.parseFloat(tokens.breakpoints.xs),
+        sm: Number.parseFloat(tokens.breakpoints.sm),
+        md: Number.parseFloat(tokens.breakpoints.md),
+        lg: Number.parseFloat(tokens.breakpoints.lg),
+        xl: Number.parseFloat(tokens.breakpoints.xl),
+      },
+    },
     typography: createTypography(semantic),
     shape: {
       borderRadius: parseInt(tokens.borderRadius.sm),

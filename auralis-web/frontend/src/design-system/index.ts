@@ -11,7 +11,7 @@
  */
 
 // Design tokens
-export { tokens, withOpacity, hexToRgb } from './tokens';
+export { tokens, withOpacity, hexToRgb, mediaBelow } from './tokens';
 export type { DesignTokens, ColorToken, SpacingToken, TypographyToken, RgbChannels } from './tokens';
 
 // Primitive components

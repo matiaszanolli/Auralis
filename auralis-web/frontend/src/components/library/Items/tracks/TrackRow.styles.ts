@@ -1,5 +1,5 @@
 
-import { tokens } from '@/design-system';
+import { tokens, mediaBelow } from '@/design-system';
 import { themeVars } from '@/theme/semanticTheme';
 import { IconButton } from '@/design-system';
 import { Box, Typography, styled } from '@mui/material';
@@ -221,7 +221,7 @@ export const TrackAlbum = styled(Typography)(
     marginRight: tokens.spacing.md,
   },
   {
-    [`@media (max-width: ${tokens.breakpoints.md})`]: {
+    [mediaBelow('md')]: {
       display: 'none',
     },
   }

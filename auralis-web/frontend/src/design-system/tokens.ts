@@ -24,6 +24,7 @@ export const tokens = {
   zIndex, breakpoints, components, gradients, glass, animations,
 } as const;
 
+export { mediaBelow } from './tokens/layout';
 export { withOpacity, hexToRgb } from './tokens/with-opacity';
 export type { RgbChannels } from './tokens/with-opacity';
 

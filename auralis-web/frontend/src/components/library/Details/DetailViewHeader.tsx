@@ -6,7 +6,7 @@
  */
 
 import { ReactNode } from 'react';
-import { tokens } from '@/design-system';
+import { tokens, mediaBelow } from '@/design-system';
 import { Box, Typography, styled } from '@mui/material';
 import { themeVars } from '@/theme/semanticTheme';
 
@@ -51,7 +51,7 @@ const HeaderSection = styled(Box)<{ isplaying?: string }>(({ isplaying }) => ({
   opacity: isplaying === 'true' ? 0.85 : 1,
   transition: `opacity ${tokens.transitions.base}`,      // 400ms smooth fade
 
-  [`@media (max-width: ${tokens.breakpoints.md})`]: {
+  [mediaBelow('md')]: {
     flexDirection: 'column',
     gap: tokens.spacing.group,                            // 16px - tighter on mobile
     padding: tokens.spacing.lg,
@@ -63,7 +63,7 @@ const ArtworkWrapper = styled(Box)({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  [`@media (max-width: ${tokens.breakpoints.md})`]: {
+  [mediaBelow('md')]: {
     alignSelf: 'center',
   },
 });
