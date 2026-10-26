@@ -800,6 +800,7 @@ class TestResetProcessorState:
             assert job.status == ProcessingStatus.COMPLETED
             mock_proc.reset_psychoacoustic_eq.assert_called_once()
             mock_proc.reset_limiter.assert_called_once()
+            mock_proc.reset_run_state.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_slow_reset_does_not_block_the_event_loop(self, temp_audio_file):

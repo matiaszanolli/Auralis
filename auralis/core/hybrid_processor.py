@@ -96,30 +96,18 @@ class HybridProcessor:
     def close(self) -> None:
         """Disposal hook for an evicted processor. **Releases nothing today.**
 
-        Called by every cache eviction path (the module-level
-        `_processor_cache` here, `ProcessorFactory` and `ProcessorPool` in
-        auralis-web/backend) so a processor being dropped gets a chance to let
-        go of anything it owns.
+        Called by every cache eviction path (the module-level `_processor_cache`
+        here, `ProcessorFactory` and `ProcessorPool` in auralis-web/backend) so a
+        dropped processor can let go of anything it owns. It has nothing to let
+        go of (#4744): #3746 added it for `fingerprint_analyzer`'s 5-thread
+        executor, since rewritten into a thin Rust facade whose `close()` is a
+        documented no-op. Kept so the next resource needn't plumb a new hook.
 
-        Right now it has nothing to let go of, and saying so is the point
-        (#4744). #3746 added this because `fingerprint_analyzer` owned a
-        5-thread executor (up to 50 idle threads across a 10-entry cache)
-        that was later rewritten into a thin Rust facade whose `close()` is a
-        documented no-op — kept rather than deleted so the *next* resource
-        that needs releasing doesn't also need a new hook plumbed through
-        seven eviction sites.
-
-        The forwarding is deliberately generic (every *owned* attribute
-        exposing a callable `close()` is closed, not `fingerprint_analyzer`
-        by name) so a future sub-component can't silently inherit a no-op
-        release path. Sub-component failures are logged and swallowed:
-        eviction runs on shutdown/cache-clear paths where one bad component
-        must not abort the rest.
-
-        Idempotent — `_closed` makes a second call a no-op and makes the
-        first observable. Set *before* the loop so a sub-component holding a
-        back-reference (``target_generator`` is built with ``self``) can't
-        recurse.
+        Forwarding is generic (every *owned* attribute with a callable `close()`
+        is closed, not `fingerprint_analyzer` by name); sub-component failures
+        are logged and swallowed because eviction runs on shutdown/cache-clear
+        paths. Idempotent: `_closed` is set *before* the loop so a sub-component
+        holding a back-reference (``target_generator`` gets ``self``) can't recurse.
         """
         if self._closed:
             return
@@ -239,6 +227,18 @@ class HybridProcessor:
         the only psychoacoustic-EQ reset left."""
         with self._process_lock:
             self.psychoacoustic_eq.reset()
+
+    def reset_run_state(self) -> None:
+        """Forget the previous run's analysis at a job boundary (#6088).
+
+        An empty/short/silent input returns before any analysis, so its job
+        would report the previous job's profile. Job paths only: the streaming
+        fast path reuses ``last_*`` across chunks.
+        """
+        with self._process_lock:
+            self.last_content_profile = {}
+            self.adaptive_mode.last_content_profile = None
+            self.continuous_mode.reset_run_state()
 
     def reset_limiter(self) -> None:
         """Reset the brick-wall limiter's cross-call gain-reduction state (#3787: locked).

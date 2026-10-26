@@ -23,11 +23,8 @@ import numpy as np
 from auralis.core.analysis import ContentAnalyzer
 
 from ...utils.logging import debug
-from .continuous_space import (
-    PreferenceVector,
-    ProcessingParameters,
-    ProcessingSpaceMapper,
-)
+from .continuous_space import ProcessingSpaceMapper
+from .continuous_space_types import PreferenceVector, ProcessingParameters
 from .continuous_stages import ContinuousStagesMixin
 from .fixed_target_params import convert_targets_to_parameters
 from .parameter_generator import ContinuousParameterGenerator
@@ -144,6 +141,12 @@ class ContinuousMode(ContinuousStagesMixin):
             self._distance_stats = DistanceStats.from_references(self._reference_cloud)
 
         return self._reference_cloud, self._distance_stats
+
+    def reset_run_state(self) -> None:
+        """Clear the last run's fingerprint, coordinates and parameters (#6088)."""
+        self.last_fingerprint = None
+        self.last_coordinates = None
+        self.last_parameters = None
 
     def process(self, target_audio: np.ndarray, eq_processor: Any,
                 fixed_params: dict[str, Any] | None = None) -> np.ndarray:

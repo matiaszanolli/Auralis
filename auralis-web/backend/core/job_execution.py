@@ -67,10 +67,13 @@ def _reset_processor_state(processor: HybridProcessor) -> None:
     `_process_lock` (#3787).
 
     `reset_psychoacoustic_eq()` below covers the EQ the live
-    adaptive/continuous path uses.
+    adaptive/continuous path uses. `reset_run_state()` drops the previous job's
+    profile so an empty/short/silent input reports no loudness rather than that
+    job's (#6088).
     """
     processor.reset_psychoacoustic_eq()
     processor.reset_limiter()
+    processor.reset_run_state()
 
 
 async def prepare_job(
