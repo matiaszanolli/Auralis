@@ -16,7 +16,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { CozyArtistList } from '../Items/artists/CozyArtistList';
 
 // Mock context menu and toast hooks
-vi.mock('../../shared/ContextMenu', () => ({
+vi.mock('@/components/shared/ContextMenu', () => ({
   useContextMenu: () => ({
     contextMenuState: { isOpen: false, mousePosition: null },
     handleContextMenu: vi.fn(),
@@ -26,7 +26,7 @@ vi.mock('../../shared/ContextMenu', () => ({
   getArtistContextActions: vi.fn(() => []),
 }));
 
-vi.mock('../../shared/Toast', () => ({
+vi.mock('@/components/shared/Toast', () => ({
   useToast: () => ({
     success: vi.fn(),
     info: vi.fn(),

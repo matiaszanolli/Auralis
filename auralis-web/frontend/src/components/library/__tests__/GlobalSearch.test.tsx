@@ -14,7 +14,7 @@ import { act } from 'react';
 import GlobalSearch from '../Search/GlobalSearch';
 
 // Mock AlbumArt component to avoid image loading issues
-vi.mock('../../album/AlbumArt', () => ({
+vi.mock('@/components/album/AlbumArt', () => ({
   default: function MockAlbumArt({ albumId, size }: any) {
     return (
       <div data-testid={`album-art-${albumId}`} style={{ width: size, height: size }}>

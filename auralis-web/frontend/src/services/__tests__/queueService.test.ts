@@ -8,7 +8,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-vi.mock('../../utils/apiRequest', () => ({
+vi.mock('@/utils/apiRequest', () => ({
   post: vi.fn(),
   APIRequestError: class APIRequestError extends Error {
     constructor(message: string, public statusCode: number, public detail?: string) {

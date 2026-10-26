@@ -12,7 +12,7 @@ import { renderHook, act } from '@testing-library/react';
 import { useMetadataEditing } from '../useMetadataEditing';
 
 // Mock dependencies
-vi.mock('../../shared/Toast', () => ({
+vi.mock('@/components/shared/Toast', () => ({
   useToast: vi.fn(() => ({
     showToast: vi.fn(),
     success: vi.fn(),

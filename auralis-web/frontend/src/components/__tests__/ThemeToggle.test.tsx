@@ -11,8 +11,8 @@ import { useTheme } from '@/contexts/ThemeContext'
 import ThemeToggle from '../shared/ui/ThemeToggle'
 
 // Mock the useTheme hook while preserving other exports
-vi.mock('../../contexts/ThemeContext', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../contexts/ThemeContext')>()
+vi.mock('@/contexts/ThemeContext', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/contexts/ThemeContext')>()
   return {
     ...actual,
     useTheme: vi.fn(),

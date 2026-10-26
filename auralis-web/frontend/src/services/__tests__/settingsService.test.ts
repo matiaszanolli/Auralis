@@ -8,7 +8,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-vi.mock('../../utils/apiRequest', () => ({
+vi.mock('@/utils/apiRequest', () => ({
   get: vi.fn(),
   post: vi.fn(),
   put: vi.fn(),

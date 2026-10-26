@@ -22,7 +22,7 @@ vi.unmock('../WebSocketContext');
 
 // Mock only the transport layer (WebSocketManager) so we can control
 // connection events without touching the network.
-vi.mock('../../utils/errorHandling', () => ({
+vi.mock('@/utils/errorHandling', () => ({
   WebSocketManager: vi.fn(),
 }));
 

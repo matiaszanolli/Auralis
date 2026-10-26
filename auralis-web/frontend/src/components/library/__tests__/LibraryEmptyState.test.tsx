@@ -13,7 +13,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { LibraryEmptyState } from '../LibraryEmptyState';
 
 // Mock the shared EmptyState components
-vi.mock('../../shared/EmptyState', () => ({
+vi.mock('@/components/shared/EmptyState', () => ({
   EmptyLibrary: ({ onScanFolder, scanning }: any) => (
     <div data-testid="empty-library">
       <p>Library Empty</p>

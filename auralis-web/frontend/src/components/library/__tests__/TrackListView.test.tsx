@@ -43,7 +43,7 @@ vi.mock('../Views/TrackListViewContent', () => ({
 
 
 // Mock skeleton loaders
-vi.mock('../../shared/ui/loaders', () => ({
+vi.mock('@/components/shared/ui/loaders', () => ({
   LibraryGridSkeleton: function MockGridSkeleton() {
     return <div data-testid="grid-skeleton" role="main">Loading grid...</div>;
   },

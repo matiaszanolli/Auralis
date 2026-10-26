@@ -18,7 +18,7 @@
 vi.unmock('../WebSocketContext');
 
 // Mock only the transport layer (WebSocketManager).
-vi.mock('../../utils/errorHandling', () => ({
+vi.mock('@/utils/errorHandling', () => ({
   WebSocketManager: vi.fn(),
 }));
 

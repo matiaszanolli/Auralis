@@ -28,7 +28,7 @@ vi.mock('@/hooks/player', async (importOriginal) => ({
 const mockFetch = vi.fn();
 
 // Mock the AlbumArt component
-vi.mock('../../album/AlbumArt', () => ({
+vi.mock('@/components/album/AlbumArt', () => ({
   default: function MockAlbumArt({ albumId, size }: any) {
     return (
       <div data-testid="album-artwork">

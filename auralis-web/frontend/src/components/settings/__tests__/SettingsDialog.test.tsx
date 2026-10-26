@@ -14,7 +14,7 @@ import SettingsDialog from '../SettingsDialog';
 import SettingsDialogContent from '../SettingsDialogContent';
 
 // Mock the settings service
-vi.mock('../../../services/settingsService', () => ({
+vi.mock('@/services/settingsService', () => ({
   settingsService: {
     getSettings: vi.fn(async () => ({
       scan_folders: ['/music/library'],

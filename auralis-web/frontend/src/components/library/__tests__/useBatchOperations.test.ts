@@ -17,7 +17,7 @@ import { server } from '@/test/mocks/server';
 import { http, HttpResponse } from 'msw';
 
 // Mock dependencies
-vi.mock('../../shared/Toast', () => ({
+vi.mock('@/components/shared/Toast', () => ({
   useToast: vi.fn(() => ({
     showToast: vi.fn(),
     success: vi.fn(),

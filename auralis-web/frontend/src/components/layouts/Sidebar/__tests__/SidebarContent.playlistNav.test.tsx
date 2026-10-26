@@ -14,8 +14,7 @@ import SidebarContent from '../SidebarContent';
 // PlaylistList is where the sentinel originates (usePlaylistOperations'
 // handleDelete calls onPlaylistSelect(-1)); mock it so this spec asserts
 // SidebarContent's translation in isolation.
-const mockOnPlaylistSelect = vi.fn();
-vi.mock('../../../playlist/PlaylistList', () => ({
+vi.mock('@/components/playlist/PlaylistList', () => ({
   default: function MockPlaylistList({ onPlaylistSelect, selectedPlaylistId }: any) {
     return (
       <div>

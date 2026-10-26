@@ -19,7 +19,7 @@ import { useTrackSelection } from '@/hooks/library/useTrackSelection';
 
 // Mock hooks and components
 vi.mock('@/hooks/library/useTrackSelection');
-vi.mock('../../shared/ContextMenu', () => {
+vi.mock('@/components/shared/ContextMenu', () => {
   return {
     ContextMenu: function MockContextMenu({ open, onClose }: any) {
       return open ? (
@@ -32,7 +32,7 @@ vi.mock('../../shared/ContextMenu', () => {
     useContextMenu: vi.fn(),
   };
 });
-vi.mock('../../shared/Toast', () => {
+vi.mock('@/components/shared/Toast', () => {
   return {
     useToast: () => ({
       success: vi.fn(),
@@ -42,18 +42,18 @@ vi.mock('../../shared/Toast', () => {
     }),
     // AllProviders (via @/test/test-utils) wraps every render in the real
     // ToastProvider -- omitting it here breaks the module resolution vitest
-    // shares with this test's '../../shared/Toast' mock, crashing every test
+    // shares with this test's '@/components/shared/Toast' mock, crashing every test
     // that uses `render()` with "No ToastProvider export is defined".
     ToastProvider: ({ children }: any) => children,
   };
 });
-vi.mock('../../../services/playlistService', () => {
+vi.mock('@/services/playlistService', () => {
   return {
     getPlaylists: vi.fn(() => Promise.resolve({ playlists: [] })),
     addTracksToPlaylist: vi.fn(() => Promise.resolve()),
   };
 });
-vi.mock('../../album/AlbumArt', () => {
+vi.mock('@/components/album/AlbumArt', () => {
   return function MockAlbumArt({ track }: any) {
     return <div data-testid="track-artwork">Art: {track.title}</div>;
   };
