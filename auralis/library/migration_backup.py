@@ -16,9 +16,10 @@ import logging
 import os
 import sqlite3
 from contextlib import closing
-from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+from .migration_backup_retention import backup_filename
 
 if TYPE_CHECKING:
     from .migration_manager import MigrationManager
@@ -53,8 +54,7 @@ def backup_database(db_path: str, backup_dir: str | None = None) -> str:
     backup_path.mkdir(parents=True, exist_ok=True)
 
     # Create timestamped backup filename
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_file = backup_path / f"{db_path_obj.stem}.backup_{timestamp}{db_path_obj.suffix}"
+    backup_file = backup_path / backup_filename(db_path_obj)
 
     # Use sqlite3.Connection.backup() (SQLite Online Backup API) instead of
     # shutil.copy2().  shutil.copy2 copies only the .db file and silently

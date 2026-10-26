@@ -12,6 +12,9 @@ kept apart from the migration driver so that function reads as guard clauses.
 import logging
 
 from .migration_backup import backup_database
+from .migration_backup_retention import prune_old_backups
+
+__all__ = ['backup_before_migration', 'prune_old_backups']
 
 logger = logging.getLogger(__name__)
 

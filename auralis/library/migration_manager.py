@@ -30,7 +30,7 @@ from .migration_engine import create_migration_engine
 from .migration_lock import migration_lock  # re-exported (#4511)
 from .migration_steps import run_migration_step
 from .migration_versions import SchemaVersionStoreMixin
-from .pre_migration_backup import backup_before_migration
+from .pre_migration_backup import backup_before_migration, prune_old_backups
 
 logger = logging.getLogger(__name__)
 
@@ -214,7 +214,6 @@ def check_and_migrate_database(db_path: str, auto_backup: bool = True) -> bool:
                     logger.info(f"Database already migrated by another process (v{current_version})")
                     return True
 
-                # Backup before migration
                 backed_up, backup_path = (
                     backup_before_migration(db_path)
                     if auto_backup and current_version > 0
@@ -235,6 +234,7 @@ def check_and_migrate_database(db_path: str, auto_backup: bool = True) -> bool:
 
                 if success:
                     logger.info("✅ Database migration completed successfully")
+                    prune_old_backups(db_path, protect=backup_path)
                 else:
                     logger.error("❌ Database migration failed")
                     restore_pre_migration_backup(manager, backup_path, db_path)
