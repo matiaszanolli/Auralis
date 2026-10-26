@@ -112,8 +112,6 @@ class TrackResponse(BaseModel):
     track_number: int | None = Field(default=None, description="Track number within the disc")
     disc_number: int | None = Field(default=None, description="Disc number")
     year: int | None = Field(default=None, description="Release year")
-    comments: str | None = Field(default=None, description="Free-text comments")
-    lyrics: str | None = Field(default=None, description="Plain-text or LRC lyrics")
     artwork_url: str | None = Field(default=None, description="Album artwork API URL")
 
     # Playback statistics

@@ -30,13 +30,16 @@ finish defining them first.
 from collections.abc import Callable, Iterator
 from typing import Any
 
-from sqlalchemy.orm import Session, joinedload, selectinload
+from sqlalchemy.orm import Session, defer, joinedload, selectinload
+from sqlalchemy.orm.strategy_options import _AbstractLoad
 
 from ...utils.logging import error
 from ..models import Track
 
 
-def _track_eager_options(*, collections_via_selectin: bool = False) -> tuple:
+def _track_eager_options(
+    *, collections_via_selectin: bool = False, list_read: bool = False
+) -> tuple[_AbstractLoad, ...]:
     """Standard eager-loads for every Track read path (#4500).
 
     ``artists`` and ``album`` load inline (joined) by default, or via a separate
@@ -47,9 +50,20 @@ def _track_eager_options(*, collections_via_selectin: bool = False) -> tuple:
     ``to_dict()`` raises ``DetachedInstanceError`` (swallowed, yielding
     ``genres: []``). Centralised here so no read path can silently drop it again
     (extends the get_by_artist fix in #2523).
+
+    ``list_read=True`` also defers the unbounded ``lyrics`` / ``comments`` Text
+    columns (#5906): ``Track.to_dict()`` no longer emits them, so a list page
+    has no reader and should not pull them out of SQLite. Single-track reads
+    (``get_by_id``, which serves the lyrics endpoint) leave them loaded; a
+    deferred column read on an expunged Track raises ``DetachedInstanceError``.
     """
     loader = selectinload if collections_via_selectin else joinedload
-    return (loader(Track.artists), loader(Track.album), selectinload(Track.genres))
+    options: tuple[_AbstractLoad, ...] = (
+        loader(Track.artists), loader(Track.album), selectinload(Track.genres)
+    )
+    if list_read:
+        options += (defer(Track.lyrics), defer(Track.comments))
+    return options
 
 
 # Track columns a *metadata* code path is allowed to write (#4555).

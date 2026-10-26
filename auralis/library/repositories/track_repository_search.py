@@ -68,7 +68,7 @@ class TrackRepositorySearchMixin(BaseRepository):
                 select(Track)
                 .join(Track.artists, isouter=True)
                 .join(Track.album, isouter=True)
-                .options(*_track_eager_options(collections_via_selectin=True))
+                .options(*_track_eager_options(collections_via_selectin=True, list_read=True))
                 .where(search_filter)
                 .distinct()
                 .order_by(order_column.asc(), Track.id.asc())
@@ -88,7 +88,7 @@ class TrackRepositorySearchMixin(BaseRepository):
                 select(Track).join(Track.artists).where(
                     Artist.name == artist_name
                 ).options(
-                    *_track_eager_options()  # includes selectinload(genres) — #2523/#4500
+                    *_track_eager_options(list_read=True)  # includes selectinload(genres) — #2523/#4500
                 ).limit(limit)
             ).scalars().unique().all()
 
@@ -117,7 +117,7 @@ class TrackRepositorySearchMixin(BaseRepository):
             # Get paginated results
             results = session.execute(
                 select(Track)
-                .options(*_track_eager_options())
+                .options(*_track_eager_options(list_read=True))
                 .order_by(Track.created_at.desc(), Track.id.desc())
                 .limit(limit)
                 .offset(offset)
@@ -147,7 +147,7 @@ class TrackRepositorySearchMixin(BaseRepository):
             # Get paginated results
             results = session.execute(
                 select(Track)
-                .options(*_track_eager_options())
+                .options(*_track_eager_options(list_read=True))
                 .where(Track.favorite == True)
                 .order_by(Track.title.asc(), Track.id.asc())
                 .limit(limit)
@@ -181,7 +181,7 @@ class TrackRepositorySearchMixin(BaseRepository):
             order_column = getattr(Track, order_by, Track.title)
             tracks = session.execute(
                 select(Track)
-                .options(*_track_eager_options())
+                .options(*_track_eager_options(list_read=True))
                 .order_by(order_column.asc(), Track.id.asc())
                 .limit(limit)
                 .offset(offset)
@@ -212,7 +212,7 @@ class TrackRepositorySearchMixin(BaseRepository):
             if track.artists:
                 artist_tracks = session.execute(
                     select(Track)
-                    .options(*_track_eager_options(collections_via_selectin=True))
+                    .options(*_track_eager_options(collections_via_selectin=True, list_read=True))
                     .where(Track.artists.any(Artist.id.in_([a.id for a in track.artists])))
                     .where(Track.id != track.id)
                     .limit(limit)
@@ -232,7 +232,7 @@ class TrackRepositorySearchMixin(BaseRepository):
                     genre_filters.append(~Track.id.in_(seen_ids))
                 genre_tracks = session.execute(
                     select(Track)
-                    .options(*_track_eager_options(collections_via_selectin=True))
+                    .options(*_track_eager_options(collections_via_selectin=True, list_read=True))
                     .where(*genre_filters)
                     .limit(limit - len(similar_tracks))
                 ).scalars().all()
