@@ -20,21 +20,43 @@ from ....dsp.utils.audio_info import to_mono
 class EstimationOperations:
     """Common signal estimation patterns"""
 
+    # estimate_thd: what counts as a dominant fundamental (#5714)
+    _THD_PEAK_HALF_WIDTH = 2          # Hann main lobe is +/-2 bins
+    _THD_MIN_FUNDAMENTAL_SHARE = 0.10  # of total spectral power
+    _THD_MIN_PEAK_TO_MEDIAN_DB = 30.0  # white noise peaks only ~12 dB up
+
+    # estimate_noise_floor / estimate_snr_db
+    _NOISE_FFT = 4096
+    _SILENT_SNR_DB = 120.0
+
     @staticmethod
     def estimate_thd(audio: np.ndarray,
-                     fundamental_idx: int | None = None) -> float:
+                     fundamental_idx: int | None = None) -> float | None:
         """
-        Estimate Total Harmonic Distortion
+        Estimate Total Harmonic Distortion of a tonal signal
 
-        Simplified THD estimation using high-frequency energy analysis
-        based on fundamental and harmonic power ratios.
+        THD is only defined when the signal has a dominant fundamental whose
+        harmonics can be told apart from the rest of the spectrum. Programme
+        material has no such fundamental: the largest FFT bin of a mix is an
+        arbitrary partial, and the power at 2f..5f is other instruments, so
+        the ratio measures nothing (white Gaussian noise "scored" 0.36, #5714).
+        The ratio is therefore reported only when the strongest spectral peak
+        holds at least ``_THD_MIN_FUNDAMENTAL_SHARE`` of the spectral power
+        and stands ``_THD_MIN_PEAK_TO_MEDIAN_DB`` above the median bin;
+        otherwise the result is ``None`` ("not applicable") and callers leave
+        the term out of their score instead of rating it 0.
+
+        Peak power is integrated over +/- ``_THD_PEAK_HALF_WIDTH`` bins of a
+        Hann-windowed spectrum so a tone that falls between bins is not
+        under-counted.
 
         Args:
             audio: Audio data (mono or stereo)
             fundamental_idx: Optional pre-computed fundamental frequency index
 
         Returns:
-            Estimated THD as ratio (0-1)
+            THD as ratio (0-1+), or ``None`` when not applicable (degenerate
+            length, no dominant tone, or no harmonic inside the spectrum)
         """
         audio_mono = to_mono(audio)
 
@@ -45,49 +67,55 @@ class EstimationOperations:
 
         # #4996: len(audio_mono) in {0, 1} yields an empty middle section,
         # and np.fft.rfft raises ValueError on a 0-length array. THD is
-        # undefined for degenerate input — same sentinel as the "no valid
-        # harmonics in range" case below.
-        if len(audio_segment) == 0:
-            return 0.0
+        # undefined for degenerate input.
+        if len(audio_segment) < 2:
+            return None
 
-        # Compute spectrum
-        fft_result = np.fft.rfft(audio_segment)
-        magnitude = np.abs(fft_result)
+        magnitude = np.abs(np.fft.rfft(audio_segment * np.hanning(len(audio_segment))))
+        n_bins = len(magnitude)
+        search_lo, search_hi = 10, n_bins // 2
+        if search_hi <= search_lo:
+            return None
 
         # Estimate fundamental frequency if not provided
         if fundamental_idx is None:
-            fundamental_idx = int(np.argmax(magnitude[10:len(magnitude)//2]) + 10)
+            fundamental_idx = int(np.argmax(magnitude[search_lo:search_hi]) + search_lo)
 
-        fundamental_power = magnitude[fundamental_idx] ** 2
+        power = magnitude ** 2
+        total_power = float(np.sum(power[1:]))
+        median_power = float(np.median(power[1:]))
+        half = EstimationOperations._THD_PEAK_HALF_WIDTH
+
+        def peak_power(idx: int) -> float:
+            return float(np.sum(power[max(idx - half, 0):idx + half + 1]))
+
+        fundamental_power = peak_power(fundamental_idx)
+        if total_power <= 0 or fundamental_power <= 0:
+            return None
+        if fundamental_power / total_power < EstimationOperations._THD_MIN_FUNDAMENTAL_SHARE:
+            return None
+        peak_db = 10 * np.log10(power[fundamental_idx] / max(median_power, 1e-30))
+        if peak_db < EstimationOperations._THD_MIN_PEAK_TO_MEDIAN_DB:
+            return None
 
         # Estimate harmonic power (2nd to 5th harmonics).
-        # #3678: previously all out-of-range harmonic indices were clamped
-        # to `len(magnitude) - 1` (the Nyquist bin), so for a fundamental
-        # in the upper half of the spectrum harmonic_power collapsed to
-        # `(n_harmonics_out_of_range) * magnitude[Nyquist]^2` — meaningless
-        # for bright content (cymbals, distorted guitar) and dominating
-        # the DistortionAssessor weight (40% of quality score).
-        # Fix: only include harmonics whose theoretical index falls
-        # within the valid spectrum (≤ len(magnitude) - 1).
-        max_bin = len(magnitude) - 1
+        # #3678: only include harmonics whose theoretical index falls within
+        # the valid spectrum — clamping to the Nyquist bin made harmonic
+        # power meaningless for bright content.
+        max_bin = n_bins - 1
         harmonic_power = 0.0
         n_harmonics_used = 0
         for i in range(2, 6):  # 2nd to 5th harmonics
             harmonic_idx = fundamental_idx * i
             if harmonic_idx <= max_bin:
-                harmonic_power += magnitude[harmonic_idx] ** 2
+                harmonic_power += peak_power(harmonic_idx)
                 n_harmonics_used += 1
 
-        # Calculate THD.
-        # If no harmonics are within range (fundamental near Nyquist),
-        # return 0 — THD is undefined when the spectrum cannot contain
-        # any harmonics of the detected fundamental.
-        if fundamental_power > 0 and n_harmonics_used > 0:
-            thd = float(np.sqrt(harmonic_power / fundamental_power))
-        else:
-            thd = 0.0
+        # No harmonic fits below Nyquist: THD is undefined.
+        if n_harmonics_used == 0:
+            return None
 
-        return float(thd)
+        return float(np.sqrt(harmonic_power / fundamental_power))
 
     @staticmethod
     def detect_clipping(audio: np.ndarray,
@@ -116,32 +144,73 @@ class EstimationOperations:
                             silence_threshold: float = 1e-6,
                             percentile: int = 10) -> float:
         """
-        Estimate noise floor
+        Estimate the spectral noise floor
 
-        Uses quiet sections of audio to estimate background noise level.
+        Returns the level (dBFS) of the white noise whose power spectral
+        density equals the ``percentile``-th lowest bin of the long-term
+        spectrum. Tonal and band-limited programme occupies only part of the
+        spectrum, so the quiet bins expose the background underneath it; the
+        previous estimate (mean of the lowest 10 % of ``|x|``) was just the
+        near-zero-crossing part of the programme's own amplitude distribution
+        and tracked its level 1:1 (#5714).
+
+        The result is an absolute level, so it moves with gain like the signal
+        does. Use :meth:`estimate_snr_db` for a level-independent figure.
 
         Args:
             audio: Audio data (mono or stereo)
-            silence_threshold: Minimum level considered (default 1e-6)
-            percentile: Percentile of amplitude distribution for noise (default 10)
+            silence_threshold: Minimum amplitude considered (default 1e-6)
+            percentile: Percentile of the long-term spectrum (default 10)
 
         Returns:
-            Noise floor in dB
+            Noise floor in dBFS
         """
         audio_mono = to_mono(audio)
+        if len(audio_mono) == 0:
+            return -90.0
 
-        # Find quiet sections (bottom percentile by amplitude)
-        sorted_abs = np.sort(np.abs(audio_mono))
-        noise_samples = sorted_abs[:max(1, len(sorted_abs) // (100 // percentile))]
+        n_fft = EstimationOperations._NOISE_FFT
+        window = np.hanning(n_fft)
+        hop = n_fft // 2
+        padded = audio_mono
+        if len(padded) < n_fft:
+            padded = np.pad(padded, (0, n_fft - len(padded)))
+        n_frames = 1 + (len(padded) - n_fft) // hop
 
-        if len(noise_samples) > 0:
-            noise_level = np.mean(noise_samples)
-            noise_level = max(noise_level, silence_threshold)
-            noise_floor_db = 20 * np.log10(noise_level)
-        else:
-            noise_floor_db = -90.0
+        # Accumulate the Welch PSD in batches so a full-length track never
+        # materialises every frame at once.
+        psd_sum = np.zeros(n_fft // 2 + 1)
+        batch = 256
+        for first in range(0, n_frames, batch):
+            idx = np.arange(first, min(first + batch, n_frames))
+            frames = padded[idx[:, None] * hop + np.arange(n_fft)] * window
+            psd_sum += np.sum(np.abs(np.fft.rfft(frames, axis=1)) ** 2, axis=0)
 
-        return float(noise_floor_db)
+        # Normalised so a white signal of variance s^2 reads s^2 in every bin.
+        psd = psd_sum / (n_frames * float(np.sum(window ** 2)))
+        floor_power = float(np.percentile(psd[1:], percentile))
+        noise_level = max(float(np.sqrt(floor_power)), silence_threshold)
+        return float(20 * np.log10(noise_level))
+
+    @staticmethod
+    def estimate_snr_db(audio: np.ndarray,
+                        silence_threshold: float = 1e-6) -> float:
+        """
+        Programme level over the spectral noise floor, in dB
+
+        Both terms scale with gain, so the difference does not: the same
+        recording at -20 dBFS and -6 dBFS reports the same SNR. Digital
+        silence has nothing to measure noise against and reports
+        ``_SILENT_SNR_DB``.
+        """
+        audio_mono = to_mono(audio)
+        rms = float(np.sqrt(np.mean(audio_mono ** 2))) if len(audio_mono) else 0.0
+        if rms <= silence_threshold:
+            return EstimationOperations._SILENT_SNR_DB
+        noise_floor_db = EstimationOperations.estimate_noise_floor(
+            audio_mono, silence_threshold
+        )
+        return float(max(20 * np.log10(rms) - noise_floor_db, 0.0))
 
     @staticmethod
     def compute_stereo_correlation(left: np.ndarray,

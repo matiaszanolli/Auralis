@@ -35,39 +35,37 @@ class DistortionAssessor(BaseAssessor):
         Returns:
             Quality score (0-100, higher is better)
         """
-        # Estimate distortion metrics using utilities
         thd = EstimationOperations.estimate_thd(audio_data)
         clipping_factor = EstimationOperations.detect_clipping(audio_data)
-        noise_floor = EstimationOperations.estimate_noise_floor(audio_data)
-
-        # Score individual components
-        thd_score = ScoringOperations.band_score(thd, [
-            (0.0, 100.0),
-            (0.001, 100.0),  # < 0.1%
-            (0.01, 80.0),    # < 1%
-            (0.05, 40.0),    # < 5%
-            (0.1, 0.0)       # Critical
-        ])
+        snr_db = EstimationOperations.estimate_snr_db(audio_data)
 
         clipping_score = ScoringOperations.exponential_penalty(
             clipping_factor, 0.0, steepness=1000.0
         )
 
-        snr_db = -noise_floor
+        # SNR (programme level over the spectral floor) is gain-independent;
+        # the absolute floor it replaced made a louder master score worse on
+        # identical content (#5714).
         noise_score = ScoringOperations.band_score(snr_db, [
             (0.0, 0.0),
             (60.0, 70.0),
             (90.0, 100.0)
         ])
 
-        # Combined score (weighted average)
-        total_score = ScoringOperations.weighted_score([
-            (thd_score, 0.4),
-            (clipping_score, 0.3),
-            (noise_score, 0.3)
-        ])
+        terms = [(clipping_score, 0.3), (noise_score, 0.3)]
+        # THD is "not applicable" for anything without a dominant tone; the
+        # term is left out and the others re-weighted, never scored as 0.
+        if thd is not None:
+            thd_score = ScoringOperations.band_score(thd, [
+                (0.0, 100.0),
+                (0.001, 100.0),  # < 0.1%
+                (0.01, 80.0),    # < 1%
+                (0.05, 40.0),    # < 5%
+                (0.1, 0.0)       # Critical
+            ])
+            terms.append((thd_score, 0.4))
 
-        return float(total_score)
+        return float(ScoringOperations.weighted_score(terms))
 
     def detailed_analysis(self, audio_data: np.ndarray) -> dict[str, Any]:  # type: ignore[override]
         """
@@ -77,20 +75,22 @@ class DistortionAssessor(BaseAssessor):
             audio_data: Audio data to analyze
 
         Returns:
-            Dictionary with detailed distortion metrics
+            Dictionary with detailed distortion metrics (``thd`` is ``None``
+            when the signal has no dominant tone to measure it on)
         """
         thd = EstimationOperations.estimate_thd(audio_data)
         clipping_factor = EstimationOperations.detect_clipping(audio_data)
         noise_floor = EstimationOperations.estimate_noise_floor(audio_data)
+        snr_db = EstimationOperations.estimate_snr_db(audio_data)
 
         return {
-            'thd': float(thd),
-            'thd_percent': float(thd * 100),
+            'thd': None if thd is None else float(thd),
+            'thd_percent': None if thd is None else float(thd * 100),
             'clipping_factor': float(clipping_factor),
             'clipping_percent': float(clipping_factor * 100),
             'noise_floor_db': float(noise_floor),
-            'snr_db': float(-noise_floor),
+            'snr_db': float(snr_db),
             'has_clipping': clipping_factor > AssessmentConstants.ACCEPTABLE_CLIPPING_FACTOR,
-            'excessive_distortion': thd > AssessmentConstants.ACCEPTABLE_THD,
-            'high_noise': noise_floor > AssessmentConstants.ACCEPTABLE_NOISE_FLOOR
+            'excessive_distortion': thd is not None and thd > AssessmentConstants.ACCEPTABLE_THD,
+            'high_noise': snr_db < AssessmentConstants.ACCEPTABLE_SNR_DB
         }

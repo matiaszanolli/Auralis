@@ -57,7 +57,7 @@ class AssessmentConstants:
 
     # ========== NOISE LEVELS ==========
 
-    ACCEPTABLE_NOISE_FLOOR = -60
+    ACCEPTABLE_SNR_DB = 60  # programme level over the spectral noise floor
 
     # ========== UTILITY METHODS ==========
 

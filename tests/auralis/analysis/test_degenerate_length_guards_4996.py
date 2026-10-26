@@ -31,7 +31,7 @@ class TestEstimateThdDegenerateInput:
     @pytest.mark.parametrize("n", [0, 1])
     def test_degenerate_length_returns_sentinel_not_raise(self, n):
         audio = np.zeros(n, dtype=np.float64)
-        assert EstimationOperations.estimate_thd(audio) == 0.0
+        assert EstimationOperations.estimate_thd(audio) is None
 
     def test_normal_length_unaffected(self):
         audio = _sine(1.0)

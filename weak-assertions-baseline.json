@@ -1,8 +1,7 @@
 {
   "_comment": "Tests whose only assertions are `X is not None` (#5154). A test listed here is known-weak; CI fails on any offender NOT listed. The list may shrink, never grow. Regenerate with: python scripts/check_weak_assertions.py --update",
-  "count": 33,
+  "count": 32,
   "offenders": [
-    "tests/auralis/analysis/test_mastering_fingerprint_duration_cap.py::test_ffmpeg_routed_result_is_still_cropped_to_ninety_seconds",
     "tests/auralis/analysis/test_simple.py::test_weighting_filters",
     "tests/auralis/core/test_core.py::test_duplicate_handling",
     "tests/auralis/core/test_target_derivation.py::test_works_with_orm_like_attribute_access",
