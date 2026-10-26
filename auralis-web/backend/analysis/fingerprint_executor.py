@@ -17,6 +17,7 @@ import logging
 import os
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from typing import Any
 
 from auralis.analysis.fingerprint.windowed_compute import compute_windowed_fingerprint

@@ -121,8 +121,11 @@ class TestDiscogsAuth:
     def test_discogs_uses_auth_header(self):
         """Token must be sent in Authorization header, not query parameter."""
         import inspect
-        svc = ArtworkService(discogs_token="test_token")
-        source = inspect.getsource(svc._fetch_from_discogs)
+
+        from auralis.services.artwork_sources.discogs import fetch_from_discogs
+
+        # _fetch_from_discogs is a thin delegator since the #6273 split.
+        source = inspect.getsource(fetch_from_discogs)
 
         # Must use header, not embed in URL
         assert "Authorization" in source or "authorization" in source, (

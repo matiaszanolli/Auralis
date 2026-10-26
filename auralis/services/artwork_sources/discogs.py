@@ -10,7 +10,22 @@ web backend has its own stack under ``auralis-web/backend/services/``.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-def fetch_from_discogs(service, self, artist_name: str) -> dict[str, Any] | None:
+import logging
+import urllib.parse
+import urllib.request
+from typing import TYPE_CHECKING, Any
+
+from auralis.utils.logging import sanitize_log_value
+
+from ._common import _read_json_response, _validated_artwork_result
+
+if TYPE_CHECKING:
+    from ..artwork_service import ArtworkService
+
+logger = logging.getLogger(__name__)
+
+
+def fetch_from_discogs(service: "ArtworkService", artist_name: str) -> dict[str, Any] | None:
     """
     Fetch artist artwork from Discogs API.
 

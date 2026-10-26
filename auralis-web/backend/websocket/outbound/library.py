@@ -10,7 +10,7 @@ discriminators.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from typing import Any, Literal, TypedDict
+from typing import Any, Literal, NotRequired, TypedDict
 
 PlaylistUpdateAction = Literal[
     "renamed", "track_added", "track_removed", "reordered", "cleared"

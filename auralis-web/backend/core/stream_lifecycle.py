@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-
+@dataclass
 class ChunkPumpResult:
     """What a chunk-pump loop delivered, for the caller's completion message.
 

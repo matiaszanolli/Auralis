@@ -121,7 +121,7 @@ async def test_stream_normal_accepts_valid_in_library_path(monkeypatch, tmp_path
     """Regression: a legitimate in-library filepath still streams normally."""
     _restore_real_validate_file_path(monkeypatch)
 
-    from security.path_security import register_allowed_directory, unregister_allowed_directory
+    from security.path_allowlist import register_allowed_directory, unregister_allowed_directory
 
     music_dir = tmp_path / "Music"
     music_dir.mkdir()

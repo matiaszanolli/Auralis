@@ -22,7 +22,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from analysis import fingerprint_generator as fg
+from analysis import fingerprint_executor as fg
 
 pytestmark = pytest.mark.asyncio
 

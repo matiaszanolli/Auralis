@@ -26,7 +26,7 @@ from websocket.websocket_protocol import HeartbeatManager
 from websocket.websocket_security import WebSocketRateLimiter
 
 from . import messages as msg_handlers
-from . import playback_commands, playback_control
+from . import playback_commands, playback_control, seek_command
 from .context import StreamState, WSDeps
 
 logger = logging.getLogger(__name__)

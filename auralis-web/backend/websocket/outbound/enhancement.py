@@ -10,7 +10,7 @@ discriminators.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 from schemas import EnhancementPresetLiteral as EnhancementPreset
 

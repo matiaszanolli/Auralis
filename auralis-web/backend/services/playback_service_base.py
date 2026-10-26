@@ -16,6 +16,7 @@ import asyncio
 import logging
 from typing import Any, cast
 
+from services.playback_event_sequencer import playback_event_sequencer
 from websocket.outbound_messages import BroadcastManager
 
 from .errors import require_collaborators
