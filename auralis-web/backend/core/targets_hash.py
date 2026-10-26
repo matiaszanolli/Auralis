@@ -36,14 +36,16 @@ NO_TARGETS = "none"
 def get_targets_hash(mastering_targets: dict[str, Any] | None) -> str:
     """Content hash of ``mastering_targets`` for use in a cache key.
 
-    Returns :data:`NO_TARGETS` when targets are absent.
+    Returns :data:`NO_TARGETS` when targets are absent or empty: an empty dict
+    carries no targets and is never applied as fixed targets (#5951), so it must
+    key the same processor and chunk cache as ``None``.
 
     ``sort_keys=True`` is load-bearing: two dicts with equal content but
     different key insertion order MUST hash identically, or the chunk cache
     would miss on every request and the on-disk tier would fill with
     duplicate-content WAVs.
     """
-    if mastering_targets is None:
+    if not mastering_targets:
         return NO_TARGETS
     try:
         payload = json.dumps(mastering_targets, sort_keys=True, default=str)

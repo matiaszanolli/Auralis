@@ -70,7 +70,9 @@ class ProcessorLeaseMixin:
             owned_config.mastering_profile = preset.lower()
             processor = HybridProcessor(owned_config)
 
-            if mastering_targets is not None:
+            # Falsy, not `is not None`: `{}` as fixed targets would replace
+            # adaptive mastering with all-default parameters (#5951).
+            if mastering_targets:
                 processor.set_fixed_mastering_targets(deepcopy(mastering_targets))
                 logger.debug("Applied fixed mastering targets to processor")
         except Exception as error:

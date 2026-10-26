@@ -148,12 +148,14 @@ def load_from_file(
             # rather than trusting the persisted copy. Sidecars written before
             # #5554 hold EQ targets computed with percent-scaled ideals (every
             # band saturated at the clamp), and those written before #5552
-            # lack source_lufs. An empty dict means "not derived yet" and is
-            # left for callers to fill.
-            if mastering_targets and isinstance(fingerprint, dict):
+            # lack source_lufs. The player's FingerprintService writes sidecars
+            # with `{}` targets, which used to pass through as "fixed targets"
+            # and master the track with all-default parameters; derive them
+            # (#5951). Whatever cannot be derived is None, never `{}`.
+            if isinstance(fingerprint, dict):
                 mastering_targets = derive_targets(fingerprint)
             logger.info(f"✅ Loaded fingerprint from .25d file for {Path(filepath).name}")
-            return (fingerprint, mastering_targets)
+            return (fingerprint, mastering_targets or None)
         else:
             logger.debug(f"No .25d file found for {Path(filepath).name}")
             return None
