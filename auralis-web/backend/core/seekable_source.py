@@ -40,6 +40,7 @@ when a different file converts or the app shuts down.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+import asyncio
 import logging
 import shutil
 import tempfile
@@ -220,6 +221,39 @@ class ConvertedWavRegistry:
 converted_wavs = ConvertedWavRegistry()
 
 
+def _release_late_acquire(registry: ConvertedWavRegistry, task: "asyncio.Future[tuple[ConversionKey, str]]") -> None:
+    """Give back a hold whose awaiting coroutine was cancelled before it arrived."""
+    if task.cancelled() or task.exception() is not None:
+        return  # acquire releases its own hold when it fails
+    key, _path = task.result()
+    # release() can delete a full decoded WAV, so it stays off the event loop.
+    asyncio.get_running_loop().run_in_executor(None, registry.release, key)
+
+
+async def acquire_conversion(
+    registry: ConvertedWavRegistry, filepath: str, *, prefix: str = SEEKABLE_TEMP_PREFIX
+) -> tuple[ConversionKey, str]:
+    """`registry.acquire` off the event loop, without leaking the hold on cancel (#5946).
+
+    A bare ``await asyncio.to_thread(registry.acquire, ...)`` cancelled mid-decode
+    leaves the worker thread running: it finishes the acquire, takes the hold and
+    returns the key to nobody, so the conversion's refs never reach zero and the
+    full-track WAV is never evicted. Here the thread is shielded from the
+    cancellation and a done-callback releases whatever it eventually returns.
+    The caller still owns exactly one ``release(key)`` when this returns normally.
+    """
+    task = asyncio.ensure_future(asyncio.to_thread(registry.acquire, filepath, prefix=prefix))
+    try:
+        return await asyncio.shield(task)
+    except asyncio.CancelledError:
+        task.add_done_callback(lambda t: _release_late_acquire(registry, t))
+        raise
+
+
+class SeekableSourceClosed(RuntimeError):
+    """`SeekableSource.close()` ran while a `resolve()` was still converting."""
+
+
 class SeekableSource:
     """Resolves a track path to something seekable, holding any conversion it uses.
 
@@ -233,6 +267,11 @@ class SeekableSource:
         self._registry = registry if registry is not None else converted_wavs
         self._resolved: str | None = None
         self._key: ConversionKey | None = None
+        # resolve() converts in a worker thread while close() may run from the
+        # cancelled stream's finally. `_epoch` lets close() invalidate an
+        # in-flight resolve so the late acquire releases itself (#5946).
+        self._state_lock = threading.Lock()
+        self._epoch = 0
 
     @property
     def converted(self) -> bool:
@@ -252,16 +291,46 @@ class SeekableSource:
             self._resolved = self._filepath
             return self._resolved
 
-        self._key, self._resolved = self._registry.acquire(self._filepath)
-        return self._resolved
+        with self._state_lock:
+            epoch = self._epoch
+        key, path = self._registry.acquire(self._filepath)
+
+        superseded, redundant, path = self._install(epoch, key, path)
+        if superseded:
+            self._registry.release(key)
+            raise SeekableSourceClosed(f"closed while converting {Path(self._filepath).name}")
+        if redundant:
+            self._registry.release(key)
+        return path
+
+    def _install(self, epoch: int, key: ConversionKey, path: str) -> tuple[bool, bool, str]:
+        """Record a finished acquire as this source's hold.
+
+        Returns ``(superseded, redundant, path)``: *superseded* when `close()`
+        ran since *epoch*, *redundant* when a concurrent `resolve()` already
+        installed its own hold (then *path* is theirs). Either way the caller
+        releases *key*; otherwise it is now held by this source.
+        """
+        with self._state_lock:
+            if self._epoch != epoch:
+                return True, False, path
+            if self._key is not None and self._resolved is not None:
+                return False, True, self._resolved
+            self._key, self._resolved = key, path
+            return False, False, path
 
     def close(self) -> None:
-        """Release the conversion this source holds, if any. Safe to call twice."""
-        if self._key is None:
-            return
-        key, self._key = self._key, None
-        self._resolved = None
-        self._registry.release(key)
+        """Release the conversion this source holds, if any. Safe to call twice.
+
+        Also invalidates a `resolve()` that is still converting: its late
+        `acquire` releases itself instead of installing a hold nobody will close.
+        """
+        with self._state_lock:
+            self._epoch += 1
+            key, self._key = self._key, None
+            self._resolved = None
+        if key is not None:
+            self._registry.release(key)
 
     def __enter__(self) -> SeekableSource:
         return self

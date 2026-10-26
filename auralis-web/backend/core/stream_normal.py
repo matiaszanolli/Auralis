@@ -28,7 +28,7 @@ from fastapi.websockets import WebSocketDisconnect
 from . import audio_stream_controller as _asc
 from .job_error_mapping import _safe_error_message
 from .stream_normal_chunks import pump_normal_chunks
-from .seekable_source import ConversionKey, converted_wavs
+from .seekable_source import ConversionKey, acquire_conversion, converted_wavs
 from .stream_track_resolution import resolve_and_validate_track
 from security.path_security import validate_file_path
 
@@ -114,7 +114,7 @@ async def stream_normal_audio(
 
         streaming_filepath = validated_filepath
 
-        from auralis.io.unified_loader import FFMPEG_FORMATS
+        from auralis.io.formats import FFMPEG_FORMATS
         file_ext = Path(validated_filepath).suffix.lower()
         if file_ext in FFMPEG_FORMATS:
             # Shares the decode-once-to-temp-WAV mechanics with the enhanced
@@ -129,8 +129,10 @@ async def stream_normal_audio(
 
             # PID-tagged so the startup sweep can tell a live instance's temp
             # WAV from a genuinely orphaned one (#4713).
-            conversion_key, streaming_filepath = await asyncio.to_thread(
-                converted_wavs.acquire, validated_filepath, prefix=stream_temp_prefix()
+            # acquire_conversion releases the hold itself if this task is
+            # cancelled while the decode is still running (#5946).
+            conversion_key, streaming_filepath = await acquire_conversion(
+                converted_wavs, validated_filepath, prefix=stream_temp_prefix()
             )
             logger.info(f"Streaming {file_ext} from a temp WAV for normal streaming")
 

@@ -211,6 +211,6 @@ class TestNormalStreamSharesTheRegistry:
         from core import stream_normal
 
         source = inspect.getsource(stream_normal.stream_normal_audio)
-        assert "converted_wavs.acquire" in source
+        assert "acquire_conversion(" in source and "converted_wavs" in source
         assert "converted_wavs.release" in source
         assert "convert_to_temp_wav" not in source
