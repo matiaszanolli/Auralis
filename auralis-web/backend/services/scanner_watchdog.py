@@ -75,7 +75,7 @@ class WatchdogMixin:
     """Observer lifecycle; ``_observer`` and ``reload_config`` belong to LibraryAutoScanner."""
 
     _observer: Any
-
+    _stop_event: asyncio.Event  # Provided by LibraryAutoScanner.
     # Provided by LibraryAutoScanner (async).
     reload_config: "Callable[[], Coroutine[Any, Any, None]]"
 
@@ -93,10 +93,10 @@ class WatchdogMixin:
         if current_dirs == new_dirs:
             return  # No change
 
-        # Observer.join() blocks up to OBSERVER_JOIN_TIMEOUT_S; offload so a scan-folder settings
-        # change doesn't stall the event loop for up to 5s (#4775).
+        # join() blocks up to OBSERVER_JOIN_TIMEOUT_S, so offload it (#4775). stop() can land
+        # during that await; it sets _stop_event first, so re-check or the Observer leaks (#6098).
         await asyncio.to_thread(self._stop_watchdog)
-        if not scan_folders:
+        if not scan_folders or self._stop_event.is_set():
             return
 
         try:
