@@ -223,9 +223,7 @@ class BatchFeeder:
             'total_found': result.files_found,
             'total_expected': self.total_expected,
             'progress': self.progress_fraction(),
-            # The last file of the batch just finished: the frame is sent after
-            # the whole batch, so batch[0] named a file 49 files stale (#5913).
-            'current_file': batch[-1] if batch else None,
+            'current_file': batch[-1] if batch else None,  # last of the finished batch (#5913)
         })
 
 
