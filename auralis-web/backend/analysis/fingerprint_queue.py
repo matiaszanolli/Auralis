@@ -160,7 +160,14 @@ class FingerprintQueue:
         logger.info("🚀 Fingerprint queue background worker started")
 
     async def stop(self) -> None:
-        """Stop the background worker gracefully."""
+        """Stop the background worker gracefully.
+
+        Also drops everything pending (#6094). Stopping is how the library
+        reset pauses this queue, and track ids restart from 1 on a fresh
+        library, so a queued or in-flight id from before the reset would
+        otherwise be fingerprinted (or refused as "already processing") against
+        a different track after ``start()``.
+        """
         self._shutdown = True
         if self._worker_task is not None:
             self._worker_task.cancel()
@@ -169,6 +176,10 @@ class FingerprintQueue:
             except asyncio.CancelledError:
                 pass
             self._worker_task = None
+        with self._state_lock:
+            self._state.processing = None
+            self._state.queue.clear()
+            self._state.queued_set.clear()
         logger.info("🛑 Fingerprint queue background worker stopped")
 
     async def _generate_one(self, track_id: int, filepath: str) -> None:
@@ -236,6 +247,8 @@ class FingerprintQueue:
 
             except asyncio.CancelledError:
                 logger.info("Fingerprint queue worker cancelled")
+                with self._state_lock:
+                    self._state.processing = None  # the cancelled track is no longer in flight
                 break
             except Exception as e:
                 logger.error(f"Unexpected error in fingerprint queue worker: {e}")
