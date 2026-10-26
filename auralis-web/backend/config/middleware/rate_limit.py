@@ -27,6 +27,8 @@ from ..limits import (
     RATE_LIMIT_RECOMMENDATION_MAX,
     RATE_LIMIT_RECOMMENDATION_WINDOW,
     RATE_LIMIT_SCAN_MAX,
+    RATE_LIMIT_SCAN_STATUS_MAX,
+    RATE_LIMIT_SCAN_STATUS_WINDOW,
     RATE_LIMIT_SCAN_WINDOW,
     RATE_LIMIT_SIMILARITY_MAX,
     RATE_LIMIT_SIMILARITY_WINDOW,
@@ -53,6 +55,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         "/api/files/upload": (RATE_LIMIT_UPLOAD_MAX, RATE_LIMIT_UPLOAD_WINDOW),
         "/api/processing": (RATE_LIMIT_PROCESSING_MAX, RATE_LIMIT_PROCESSING_WINDOW),
         "/api/library/scan": (RATE_LIMIT_SCAN_MAX, RATE_LIMIT_SCAN_WINDOW),
+        "/api/library/scan/status": (RATE_LIMIT_SCAN_STATUS_MAX, RATE_LIMIT_SCAN_STATUS_WINDOW),
         "/api/similarity": (RATE_LIMIT_SIMILARITY_MAX, RATE_LIMIT_SIMILARITY_WINDOW),
         "/api/player/mastering/recommendation": (
             RATE_LIMIT_RECOMMENDATION_MAX,
@@ -146,14 +149,15 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         try:
             path = request.url.path
 
-            # Find matching rate-limit rule
+            # Find matching rate-limit rule. Longest matching prefix wins, so a
+            # more specific rule (/api/library/scan/status) is not swallowed by
+            # its parent (#5911).
             limit_rule: tuple[int, int] | None = None
-            matched_prefix: str | None = None
-            for prefix, rule in self._RATE_LIMITS.items():
-                if path.startswith(prefix):
-                    limit_rule = rule
-                    matched_prefix = prefix
-                    break
+            matched_prefix: str | None = max(
+                (p for p in self._RATE_LIMITS if path.startswith(p)), key=len, default=None
+            )
+            if matched_prefix is not None:
+                limit_rule = self._RATE_LIMITS[matched_prefix]
 
             if limit_rule is not None and matched_prefix is not None:
                 max_requests, window_sec = limit_rule

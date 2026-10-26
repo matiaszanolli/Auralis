@@ -178,6 +178,11 @@ RATE_LIMIT_PROCESSING_MAX: int = get_int_env("AURALIS_RATE_LIMIT_PROCESSING_MAX"
 RATE_LIMIT_PROCESSING_WINDOW: int = get_int_env("AURALIS_RATE_LIMIT_PROCESSING_WINDOW", 60)
 RATE_LIMIT_SCAN_MAX: int = get_int_env("AURALIS_RATE_LIMIT_SCAN_MAX", 2)
 RATE_LIMIT_SCAN_WINDOW: int = get_int_env("AURALIS_RATE_LIMIT_SCAN_WINDOW", 60)
+# GET /api/library/scan/status is the read-only resync the frontend runs on every
+# WebSocket (re)connect (#4821). It must not share the 2/min budget of the scan
+# POST: flapping reconnects would 429 the resync and leave "Scanning…" stuck (#5911).
+RATE_LIMIT_SCAN_STATUS_MAX: int = get_int_env("AURALIS_RATE_LIMIT_SCAN_STATUS_MAX", 30)
+RATE_LIMIT_SCAN_STATUS_WINDOW: int = get_int_env("AURALIS_RATE_LIMIT_SCAN_STATUS_WINDOW", 60)
 RATE_LIMIT_SIMILARITY_MAX: int = get_int_env("AURALIS_RATE_LIMIT_SIMILARITY_MAX", 20)
 RATE_LIMIT_SIMILARITY_WINDOW: int = get_int_env("AURALIS_RATE_LIMIT_SIMILARITY_WINDOW", 60)
 # GET /api/player/mastering/recommendation/{id}: each uncached call runs a 1-5 s
