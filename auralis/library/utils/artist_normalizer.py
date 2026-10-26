@@ -11,6 +11,12 @@ Provides utilities for normalizing and parsing artist names:
 import re
 import unicodedata
 
+# Longest artist string parse_featured_artists will look at (#6154). Tag frames
+# can be megabytes, and the \s+-led patterns below are quadratic on a long
+# whitespace run while holding the GIL; no real artist credit is anywhere near
+# this, and the repository truncates each name to 200 characters anyway.
+MAX_ARTIST_STRING_CHARS = 500
+
 # Patterns that indicate featured/collaborative artists
 # Order matters - more specific patterns first
 FEATURING_PATTERNS = [
@@ -168,7 +174,10 @@ def parse_featured_artists(artist_string: str) -> list[str]:
     if not artist_string or not artist_string.strip():
         return ['Unknown Artist']
 
-    artist_string = artist_string.strip()
+    # Bound the input before any regex sees it, then collapse whitespace runs so
+    # the \s+-led patterns stay linear (#6154). strip() first: it is linear and
+    # keeps a leading run of blanks from eating the whole budget.
+    artist_string = re.sub(r'\s+', ' ', artist_string.strip()[:MAX_ARTIST_STRING_CHARS]).strip()
 
     # Check if this is a preserved duo/group name
     if artist_string.lower() in PRESERVED_DUOS:

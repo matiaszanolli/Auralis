@@ -22,6 +22,10 @@ from ...utils.logging import debug, warning
 from ..scan_models import AudioFileInfo
 from ..utils.artist_normalizer import parse_featured_artists
 
+# One cap on every string tag (title/artist/album/genre/comment) before any
+# regex or the repository sees it: frames can be megabytes (#6154).
+MAX_TAG_TEXT_CHARS = 1000
+
 # #3757: log once at module import if mutagen is missing. Previously each
 # per-file extraction emitted a `debug()` line, so users investigating
 # "why is my library scan missing artist/title/album" couldn't easily
@@ -173,7 +177,7 @@ class MetadataExtractor:
                 # String fields
                 if isinstance(value, (bool, bytes, bytearray)):
                     return None
-                val_str = str(value).strip()
+                val_str = str(value).strip()[:MAX_TAG_TEXT_CHARS]
                 return val_str if val_str else None
 
         except (ValueError, TypeError):
