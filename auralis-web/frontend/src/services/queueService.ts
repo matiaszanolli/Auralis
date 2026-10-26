@@ -1,19 +1,14 @@
 /**
- * Queue Management Service (Phase 5a)
+ * Queue Service
  *
- * Provides API functions for manipulating the playback queue:
- * - Remove tracks from queue
- * - Reorder queue
- * - Shuffle queue
- * - Clear queue
- *
- * Refactored using Service Factory Pattern (Phase 5a) to reduce code duplication.
+ * The engine-queue calls that have a production caller: replace the queue and
+ * append one or several tracks. Removing, reordering, shuffling and clearing go
+ * through useQueueMutations (optimistic Redux update + rollback), and the
+ * initial fetch through useQueueFetch, so this module carries none of them.
  */
 
 import { ENDPOINTS } from '@/config/api';
 import { post } from '@/utils/apiRequest';
-import { createCrudService } from '@/utils/serviceFactory';
-import { isQueueResponseShape } from '@/api/responseGuards';
 import type { TrackInfo } from '@/types/websocket';
 
 /**
@@ -26,9 +21,8 @@ export interface QueueResponse {
   // #5018: this used to declare its own local QueueTrack — filepath required,
   // artist/album optional, the exact inverse of the real backend contract
   // (player_state.py's TrackInfo: artist/album always present, filepath
-  // Field(exclude=True) so it's never actually sent). Currently dead either
-  // way (getQueue() has no caller outside this file's own tests), but using
-  // the canonical TrackInfo means a future caller doesn't inherit a landmine.
+  // Field(exclude=True) so it's never actually sent). Using the canonical
+  // TrackInfo means a caller doesn't inherit a landmine.
   tracks: TrackInfo[];
   current_index: number;
   track_count: number | null;
@@ -42,74 +36,13 @@ export interface QueueResponse {
   repeat_mode?: 'off' | 'all' | 'one' | null;
 }
 
-export interface SetQueueRequest {
-  tracks: number[];
-  start_index?: number;
-}
-
-// Create base CRUD service using factory
-//
-// TList = QueueResponse: GET /api/player/queue returns a single
-// QueueInfoResponse object, never an array — the old `Promise<QueueResponse[]>`
-// declaration is what made getQueue() cast around and, before that, discard
-// every real response for a hardcoded empty queue (#4441/#5637).
-const crudService = createCrudService<QueueResponse, SetQueueRequest>({
-  list: ENDPOINTS.QUEUE,
-  // Guard the exact drift that caused #4441 — a response-shape mismatch here
-  // silently produced an empty queue instead of an error (#4607).
-  guards: { list: isQueueResponseShape },
-  delete: (index) => ENDPOINTS.QUEUE_TRACK(index),
-  custom: {
-    reorder: ENDPOINTS.QUEUE_REORDER,
-    shuffle: ENDPOINTS.QUEUE_SHUFFLE,
-    clear: ENDPOINTS.QUEUE_CLEAR,
-    set: ENDPOINTS.QUEUE,
-  },
-});
-
-/**
- * Get current queue
- */
-export async function getQueue(): Promise<QueueResponse> {
-  return crudService.list();
-}
-
-/**
- * Remove track from queue at specified index
- */
-export async function removeTrackFromQueue(index: number): Promise<void> {
-  await crudService.delete(index);
-}
-
-/**
- * Reorder the queue
- * @param newOrder Array of indices in new order
- */
-export async function reorderQueue(newOrder: number[]): Promise<void> {
-  await crudService.custom('reorder', 'put', { new_order: newOrder });
-}
-
-/**
- * Shuffle the queue (keeps current track in place)
- */
-export async function shuffleQueue(): Promise<void> {
-  await crudService.custom('shuffle', 'post', {});
-}
-
-/**
- * Clear the entire queue
- */
-export async function clearQueue(): Promise<void> {
-  await crudService.custom('clear', 'post', {});
-}
-
 /**
  * Set the queue with new tracks
  * @param trackIds Array of track IDs
  * @param startIndex Index to start playing from (default: 0)
  */
 export async function setQueue(trackIds: number[], startIndex: number = 0): Promise<void> {
-  await crudService.custom('set', 'post', {
+  await post(ENDPOINTS.QUEUE, {
     tracks: trackIds,
     start_index: startIndex,
   });
@@ -140,14 +73,3 @@ export async function addTrackToQueue(trackId: number, position?: number): Promi
 export async function addTracksToQueue(trackIds: number[]): Promise<{ added_count: number; requested_count: number; queue_size: number }> {
   return post(ENDPOINTS.QUEUE_ADD_TRACKS, { track_ids: trackIds });
 }
-
-export default {
-  getQueue,
-  removeTrackFromQueue,
-  reorderQueue,
-  shuffleQueue,
-  clearQueue,
-  setQueue,
-  addTrackToQueue,
-  addTracksToQueue,
-};

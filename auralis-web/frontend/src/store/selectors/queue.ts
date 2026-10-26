@@ -9,9 +9,8 @@
  */
 
 import { createSelector } from '@reduxjs/toolkit';
-import type { QueueTrack } from '@/types/domain';
 import type { RootState } from '@/store/index';
-import { formatHoursMinutes, formatHumanDuration } from '@/utils/timeFormat';
+import { formatHumanDuration } from '@/utils/timeFormat';
 
 export const queueSelectors = {
   selectQueueTracks: (state: RootState) => state.queue.tracks,
@@ -32,11 +31,6 @@ export const selectRemainingTime = createSelector(
 export const selectTotalQueueTime = createSelector(
   [(state: RootState) => state.queue.tracks],
   (tracks): number => tracks.reduce((sum, track) => sum + track.duration, 0)
-);
-
-export const selectFormattedQueueTime = createSelector(
-  [selectTotalQueueTime],
-  (total): string => formatHoursMinutes(total)
 );
 
 export const selectFormattedRemainingTime = createSelector(
@@ -88,37 +82,3 @@ export const selectQueueState = createSelector(
     };
   }
 );
-
-// ============================================================================
-// Factory Selectors (for dynamic parameters — must use useMemo in components)
-// ============================================================================
-
-/**
- * Select track at specific index.
- * Usage: const selector = useMemo(() => makeSelectTrackAtIndex(idx), [idx]);
- */
-export const makeSelectTrackAtIndex = (index: number) =>
-  createSelector([(state: RootState) => state.queue.tracks], (tracks) => tracks[index] || null);
-
-/**
- * Select tracks in range.
- * Usage: const selector = useMemo(() => makeSelectTracksInRange(s, e), [s, e]);
- */
-export const makeSelectTracksInRange = (start: number, end: number) =>
-  createSelector([(state: RootState) => state.queue.tracks], (tracks) => tracks.slice(start, end));
-
-/**
- * Filter tracks by criteria.
- * Usage: const selector = useMemo(() => makeSelectFilteredTracks(pred), [pred]);
- */
-export const makeSelectFilteredTracks = (predicate: (track: QueueTrack) => boolean) =>
-  createSelector([(state: RootState) => state.queue.tracks], (tracks) => tracks.filter(predicate));
-
-/**
- * Select tracks by duration range.
- * Usage: const selector = useMemo(() => makeSelectTracksByDuration(min, max), [min, max]);
- */
-export const makeSelectTracksByDuration = (minSeconds: number, maxSeconds: number) =>
-  createSelector([(state: RootState) => state.queue.tracks], (tracks) =>
-    tracks.filter((track) => track.duration >= minSeconds && track.duration <= maxSeconds)
-  );

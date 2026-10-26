@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { formatDuration, formatHoursMinutes, formatHumanDuration } from '@/utils/timeFormat';
-import { selectFormattedQueueTime, selectFormattedRemainingTime } from '@/store/selectors';
+import { selectFormattedRemainingTime } from '@/store/selectors';
 import { playerSelectors, selectFormattedTime } from '@/store/selectors';
 import type { RootState } from '@/store/index';
 
@@ -50,11 +50,6 @@ describe('selectors share the timeFormat helpers (#5787)', () => {
     expect(out.current).toBe(formatDuration(NaN));
     expect(out.current).not.toContain('NaN');
     expect(out.total).toBe('3:45');
-  });
-
-  it('selectFormattedQueueTime formats the total with formatHoursMinutes', () => {
-    const s = state({ queue: { tracks: [{ duration: 3000 }, { duration: 1200 }] } });
-    expect(selectFormattedQueueTime(s)).toBe('1h 10m');
   });
 
   it('selectFormattedRemainingTime floors fractional seconds', () => {

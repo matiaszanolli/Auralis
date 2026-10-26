@@ -31,17 +31,11 @@ import {
   selectCurrentQueueTrack,
   selectRemainingTime,
   selectTotalQueueTime,
-  selectFormattedQueueTime,
   selectQueueStats,
   selectConnectionStatus,
   selectPlaybackState,
   selectQueueState,
   selectAppSnapshot,
-  // Factory selectors
-  makeSelectTrackAtIndex,
-  makeSelectTracksInRange,
-  makeSelectFilteredTracks,
-  makeSelectTracksByDuration,
   optimizedSelectors,
 } from '../index';
 import type { RootState } from '@/store/index';
@@ -369,7 +363,7 @@ describe('selectRemainingTime – correctness', () => {
   });
 });
 
-describe('selectTotalQueueTime / selectFormattedQueueTime – correctness', () => {
+describe('selectTotalQueueTime – correctness', () => {
   let store: TestStore;
 
   beforeEach(() => {
@@ -379,15 +373,6 @@ describe('selectTotalQueueTime / selectFormattedQueueTime – correctness', () =
 
   it('selectTotalQueueTime returns sum of all durations', () => {
     expect(selectTotalQueueTime(store.getState() as RootState)).toBe(180);
-  });
-
-  it('selectFormattedQueueTime returns "3m" for 180 seconds', () => {
-    expect(selectFormattedQueueTime(store.getState() as RootState)).toBe('3m');
-  });
-
-  it('selectFormattedQueueTime includes hours when >= 3600s', () => {
-    store.dispatch(setQueue([mockTrack(1, 3600), mockTrack(2, 600)]));
-    expect(selectFormattedQueueTime(store.getState() as RootState)).toBe('1h 10m');
   });
 });
 
@@ -414,82 +399,6 @@ describe('selectConnectionStatus – correctness', () => {
     store.dispatch(setAPIConnected(true));
     expect(selectConnectionStatus(store.getState() as RootState).health).toBe('healthy');
     expect(selectConnectionStatus(store.getState() as RootState).connected).toBe(true);
-  });
-});
-
-// ============================================================================
-// Factory selectors
-// ============================================================================
-
-describe('Factory selectors – makeSelectTrackAtIndex', () => {
-  let store: TestStore;
-
-  beforeEach(() => {
-    store = createTestStore();
-    store.dispatch(setQueue([mockTrack(1), mockTrack(2), mockTrack(3)]));
-  });
-
-  it('returns the track at the given index', () => {
-    const selector = makeSelectTrackAtIndex(1);
-    expect(selector(store.getState() as RootState)?.id).toBe(2);
-  });
-
-  it('returns null for out-of-bounds index', () => {
-    const selector = makeSelectTrackAtIndex(99);
-    expect(selector(store.getState() as RootState)).toBeNull();
-  });
-
-  it('memoizes when wrapped in a stable selector instance', () => {
-    const selector = makeSelectTrackAtIndex(0);
-    const state = store.getState() as RootState;
-    const a = selector(state);
-    const b = selector(state);
-    expect(a).toBe(b); // same Reselect instance, same reference
-  });
-});
-
-describe('Factory selectors – makeSelectTracksInRange', () => {
-  let store: TestStore;
-
-  beforeEach(() => {
-    store = createTestStore();
-    store.dispatch(setQueue([mockTrack(1), mockTrack(2), mockTrack(3), mockTrack(4)]));
-  });
-
-  it('returns the correct slice', () => {
-    const selector = makeSelectTracksInRange(1, 3);
-    const result = selector(store.getState() as RootState);
-    expect(result.map((t) => t.id)).toEqual([2, 3]);
-  });
-});
-
-describe('Factory selectors – makeSelectFilteredTracks', () => {
-  let store: TestStore;
-
-  beforeEach(() => {
-    store = createTestStore();
-    store.dispatch(setQueue([mockTrack(1, 60), mockTrack(2, 300), mockTrack(3, 120)]));
-  });
-
-  it('filters tracks by predicate', () => {
-    const selector = makeSelectFilteredTracks((t) => t.duration > 100);
-    const result = selector(store.getState() as RootState);
-    expect(result.map((t) => t.id)).toEqual([2, 3]);
-  });
-});
-
-describe('Factory selectors – makeSelectTracksByDuration', () => {
-  let store: TestStore;
-
-  beforeEach(() => {
-    store = createTestStore();
-    store.dispatch(setQueue([mockTrack(1, 60), mockTrack(2, 180), mockTrack(3, 300)]));
-  });
-
-  it('returns tracks within duration range', () => {
-    const selector = makeSelectTracksByDuration(100, 250);
-    const result = selector(store.getState() as RootState);
-    expect(result.map((t) => t.id)).toEqual([2]);
   });
 });
 

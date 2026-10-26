@@ -6,7 +6,6 @@
  *
  * This factory is used by:
  * - playlistService
- * - queueService
  * - settingsService
  * - artworkService
  * - And other similar REST API wrapper services

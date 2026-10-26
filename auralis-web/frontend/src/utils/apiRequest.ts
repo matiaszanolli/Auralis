@@ -274,39 +274,3 @@ export async function patch<T = unknown>(
 export async function del<T = unknown>(endpoint: string, options?: RequestOptions<T>): Promise<T> {
   return apiRequest<T>(endpoint, { ...options, method: 'DELETE' });
 }
-
-/**
- * Make a GET request and return the raw Blob response (for file downloads).
- * Throws APIRequestError on non-OK responses.
- * @example const blob = await getBlob('/api/processing/job/123/download');
- */
-export async function getBlob(endpoint: string, options?: Omit<RequestOptions, 'body'>): Promise<Blob> {
-  const url = getApiUrl(endpoint);
-  const { headers = {}, signal, timeoutMs = DEFAULT_TIMEOUT_MS, ...fetchOptions } = options ?? {};
-
-  try {
-    const response = await fetchWithTimeout(
-      url,
-      {
-        ...fetchOptions,
-        method: 'GET',
-        headers: { ...headers },
-      },
-      timeoutMs,
-      signal
-    );
-
-    if (response.ok) {
-      return response.blob();
-    }
-
-    const { detail: errorDetail, parsed } = await readHttpErrorBody(response);
-    const errorMessage = errorDetail
-      ?? (parsed ? `Request failed with status ${response.status}` : `${response.status} ${response.statusText}`);
-    throw new APIRequestError(errorMessage, response.status, errorDetail);
-  } catch (error) {
-    if (error instanceof APIRequestError) throw error;
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    throw new APIRequestError(`Network error: ${message}`, 0, message);
-  }
-}
