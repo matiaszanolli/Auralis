@@ -64,18 +64,6 @@ class AudioPlayerUnavailableError(ServiceUnavailableError):
         super().__init__("Audio player not available")
 
 
-class PlayerStateUnavailableError(ServiceUnavailableError):
-    """Player state manager service unavailable"""
-    def __init__(self) -> None:
-        super().__init__("Player state manager not available")
-
-
-class ConnectionManagerUnavailableError(ServiceUnavailableError):
-    """Connection manager service unavailable"""
-    def __init__(self) -> None:
-        super().__init__("Connection manager not available")
-
-
 def raise_for_service_error(error: ValueError, operation: str) -> NoReturn:
     """
     Map a service-layer failure to its HTTP status by exception TYPE (#4700).

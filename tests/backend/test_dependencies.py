@@ -8,7 +8,7 @@ both sync and async endpoints.
 import sys
 import types
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, Mock
+from unittest.mock import Mock
 
 import pytest
 
@@ -28,9 +28,6 @@ import routers.errors  # noqa: F401 — ensure routers.errors is in sys.modules 
 from fastapi import HTTPException
 
 from routers.dependencies import (
-    require_audio_player,
-    require_connection_manager,
-    require_player_state_manager,
     require_repository_factory,
     with_error_handling,
 )
@@ -49,64 +46,6 @@ def test_require_library_database_is_gone():
     from routers import dependencies
 
     assert not hasattr(dependencies, "require_library_database")
-
-
-# ---------------------------------------------------------------------------
-# require_audio_player
-# ---------------------------------------------------------------------------
-
-class TestRequireAudioPlayer:
-    def test_returns_player_when_available(self):
-        player = Mock()
-        result = require_audio_player(lambda: player)
-        assert result is player
-
-    def test_raises_503_when_none(self):
-        with pytest.raises(HTTPException) as exc_info:
-            require_audio_player(lambda: None)
-        assert exc_info.value.status_code == 503
-
-    def test_503_detail_mentions_audio_player(self):
-        with pytest.raises(HTTPException) as exc_info:
-            require_audio_player(lambda: None)
-        assert "audio player" in exc_info.value.detail.lower()
-
-
-# ---------------------------------------------------------------------------
-# require_player_state_manager
-# ---------------------------------------------------------------------------
-
-class TestRequirePlayerStateManager:
-    def test_returns_manager_when_available(self):
-        state_mgr = Mock()
-        result = require_player_state_manager(lambda: state_mgr)
-        assert result is state_mgr
-
-    def test_raises_503_when_none(self):
-        with pytest.raises(HTTPException) as exc_info:
-            require_player_state_manager(lambda: None)
-        assert exc_info.value.status_code == 503
-
-
-# ---------------------------------------------------------------------------
-# require_connection_manager
-# ---------------------------------------------------------------------------
-
-class TestRequireConnectionManager:
-    def test_returns_manager_when_available(self):
-        conn_mgr = Mock()
-        result = require_connection_manager(conn_mgr)
-        assert result is conn_mgr
-
-    def test_raises_503_when_none(self):
-        with pytest.raises(HTTPException) as exc_info:
-            require_connection_manager(None)
-        assert exc_info.value.status_code == 503
-
-    def test_raises_503_when_falsy(self):
-        with pytest.raises(HTTPException) as exc_info:
-            require_connection_manager(0)
-        assert exc_info.value.status_code == 503
 
 
 # ---------------------------------------------------------------------------

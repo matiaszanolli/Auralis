@@ -17,12 +17,7 @@ from collections.abc import Awaitable, Callable, Iterator
 
 from fastapi import HTTPException
 
-from auralis import AudioPlayer
-
 from .errors import (
-    AudioPlayerUnavailableError,
-    ConnectionManagerUnavailableError,
-    PlayerStateUnavailableError,
     ServiceUnavailableError,
     handle_query_error,
 )
@@ -33,62 +28,6 @@ logger = logging.getLogger(__name__)
 P = ParamSpec('P')
 T = TypeVar('T')
 D = TypeVar('D')
-
-
-def require_audio_player(get_audio_player: Callable[[], Any]) -> AudioPlayer:
-    """
-    Validate that audio player is available.
-
-    Args:
-        get_audio_player: Callable that returns AudioPlayer instance
-
-    Returns:
-        AudioPlayer: The audio player instance
-
-    Raises:
-        HTTPException: 503 if audio player is not available
-    """
-    audio_player = get_audio_player()
-    if not audio_player:
-        raise AudioPlayerUnavailableError()
-    return cast(AudioPlayer, audio_player)
-
-
-def require_player_state_manager(get_player_state_manager: Callable[[], Any]) -> Any:
-    """
-    Validate that player state manager is available.
-
-    Args:
-        get_player_state_manager: Callable that returns PlayerStateManager instance
-
-    Returns:
-        PlayerStateManager: The player state manager instance
-
-    Raises:
-        HTTPException: 503 if player state manager is not available
-    """
-    state_manager = get_player_state_manager()
-    if not state_manager:
-        raise PlayerStateUnavailableError()
-    return state_manager
-
-
-def require_connection_manager(connection_manager: Any) -> Any:
-    """
-    Validate that WebSocket connection manager is available.
-
-    Args:
-        connection_manager: WebSocket connection manager instance
-
-    Returns:
-        ConnectionManager: The connection manager instance
-
-    Raises:
-        HTTPException: 503 if connection manager is not available
-    """
-    if not connection_manager:
-        raise ConnectionManagerUnavailableError()
-    return connection_manager
 
 
 def require_repository_factory(get_repository_factory: Callable[[], Any] | None) -> Any:

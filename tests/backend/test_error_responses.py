@@ -25,11 +25,9 @@ from fastapi import HTTPException
 from routers.errors import (
     AudioPlayerUnavailableError,
     BadRequestError,
-    ConnectionManagerUnavailableError,
     InternalServerError,
     LibraryUnavailableError,
     NotFoundError,
-    PlayerStateUnavailableError,
     ServiceUnavailableError,
     handle_query_error,
 )
@@ -150,29 +148,11 @@ class TestSpecialisedUnavailableErrors:
         err = AudioPlayerUnavailableError()
         assert "audio player" in err.detail.lower()
 
-    def test_player_state_unavailable_is_503(self):
-        err = PlayerStateUnavailableError()
-        assert err.status_code == 503
-
-    def test_player_state_unavailable_detail(self):
-        err = PlayerStateUnavailableError()
-        assert "player state manager" in err.detail.lower()
-
-    def test_connection_manager_unavailable_is_503(self):
-        err = ConnectionManagerUnavailableError()
-        assert err.status_code == 503
-
-    def test_connection_manager_unavailable_detail(self):
-        err = ConnectionManagerUnavailableError()
-        assert "connection manager" in err.detail.lower()
-
     def test_all_subclasses_of_service_unavailable(self):
         for cls in (
             LibraryUnavailableError,
             AudioPlayerUnavailableError,
-            PlayerStateUnavailableError,
-            ConnectionManagerUnavailableError,
-        ):
+                        ):
             assert issubclass(cls, ServiceUnavailableError)
 
     def test_no_internal_detail_leakage(self):
@@ -180,9 +160,7 @@ class TestSpecialisedUnavailableErrors:
         for cls in (
             LibraryUnavailableError,
             AudioPlayerUnavailableError,
-            PlayerStateUnavailableError,
-            ConnectionManagerUnavailableError,
-        ):
+                        ):
             err = cls()
             assert "traceback" not in err.detail.lower()
             assert "/" not in err.detail  # no file paths
