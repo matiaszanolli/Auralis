@@ -12,13 +12,15 @@ from typing import Any
 from collections.abc import Callable
 
 from config.globals import WebSocketOriginRejected
+from config.limits import WS_MAX_MESSAGES_PER_SECOND
 from core.audio_stream_controller import ws_id as _ws_id
 from core.stream_gates import stream_flow_events, stream_pause_events
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from websocket.websocket_security import (
     WebSocketRateLimiter,
-    validate_and_parse_message,
+    receive_text_frame,
     send_error_response,
+    validate_and_parse_message,
 )
 from ws_handlers import connection as ws_connection
 from ws_handlers.context import StreamState, WSDeps
@@ -37,7 +39,7 @@ from .system_streams import (  # noqa: F401
 logger = logging.getLogger(__name__)
 
 # Global rate limiter for all WebSocket connections (fixes #2156)
-_rate_limiter = WebSocketRateLimiter(max_messages_per_second=10)
+_rate_limiter = WebSocketRateLimiter(max_messages_per_second=WS_MAX_MESSAGES_PER_SECOND)
 
 # Protocol-critical control frames, exempt from rate limiting (#4786). They
 # are small, fixed-size, and a dropped one has an outsized effect: a
@@ -101,28 +103,18 @@ async def websocket_endpoint(
             broadcast_manager=deps.manager,
         )
 
+        # A frame that fails validation is charged to the rate limiter and, once
+        # it is exhausted, dropped without a reply: an unmetered error response
+        # per bad frame was a free request/response loop (#5915).
+        def _may_reply() -> bool:
+            return _rate_limiter.check_rate_limit(websocket)[0]
+
         while True:
-            # Named raw_data to avoid shadowing the inner payload dicts
-            # extracted per-message below (fixes #2312).
-            #
-            # receive_text() does `message["text"]` with no type check
-            # (#4741): a binary frame arrives as {"type": "websocket.receive",
-            # "bytes": ...} with no "text" key, so receive_text() raises a
-            # bare KeyError that falls through to the generic `except
-            # Exception` below and tears down the whole connection with no
-            # error frame sent. Call receive() directly and branch on frame
-            # type so a binary frame gets a typed error response instead.
-            frame = await websocket.receive()
-            if frame["type"] == "websocket.disconnect":
-                raise WebSocketDisconnect(frame.get("code", 1000), frame.get("reason"))
-            if "text" not in frame:
-                await send_error_response(
-                    websocket,
-                    "unsupported_frame_type",
-                    "Binary WebSocket frames are not supported; send JSON text frames",
-                )
+            # receive_text() KeyErrors on a binary frame and tears the whole
+            # connection down (#4741); receive_text_frame answers it instead.
+            raw_data = await receive_text_frame(websocket, _may_reply)
+            if raw_data is None:
                 continue
-            raw_data = frame["text"]
 
             # Security: Validate message size and structure (fixes #2156).
             # Parsed BEFORE rate-limiting (#4786) so the type is known:
@@ -135,7 +127,7 @@ async def websocket_endpoint(
             # pong, and since heartbeat.mark_pong() then never ran, the
             # next heartbeat tick force-closed the connection as if it
             # had gone stale.
-            message, error = await validate_and_parse_message(raw_data, websocket)
+            message, error = await validate_and_parse_message(raw_data, websocket, may_reply=_may_reply)
             if error or not message:
                 continue
 

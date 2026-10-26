@@ -31,6 +31,7 @@ from config.app import create_app
 from config.bootstrap import install_log_sanitizer
 from config.fallback_routes import mount_frontend, register_fallback_routes
 from config.globals import ConnectionManager, set_component_registry
+from config.limits import WS_MAX_MESSAGE_SIZE
 from config.middleware import setup_middleware
 from config.origins import BACKEND_PORT
 from config.routes import setup_routers
@@ -125,6 +126,10 @@ if __name__ == "__main__":
         app,  # Pass app directly instead of "main:app" to avoid module duplication
         host="127.0.0.1",
         port=_port,
+        # Bound inbound frames at the transport, before they are buffered: the
+        # app-level size check runs on text already fully received, and the
+        # library default is 16 MB (#5915).
+        ws_max_size=WS_MAX_MESSAGE_SIZE,
         # Same value the root logger was configured with at import time (#5065).
         log_level=_log_level,
     )
