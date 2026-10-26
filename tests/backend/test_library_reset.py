@@ -412,3 +412,59 @@ class TestResetScanExclusion:
         assert src.count("try_begin_exclusive_access") == 1
         assert src.count("end_exclusive_access") == 1
         assert "get_library_database" in inspect.signature(create_library_router).parameters
+
+
+class TestResetRefusedWhileAWorkerIsStillBusy:
+    """#6095 — a fingerprint worker that outlives stop(timeout) may still be
+    mid-write (its extraction can finish after the delete and upsert for an id
+    a rescan has since reused). FingerprintExtractionQueue.stop() reports that
+    by returning False; the reset must not run under it."""
+
+    def _workers(self, *, stuck: str | None):
+        for key in ("auto_scanner", "ondemand_fingerprint_queue", "fingerprint_queue"):
+            worker = MagicMock()
+            worker.stop = AsyncMock(return_value=(key != stuck))
+            worker.start = AsyncMock()
+            _workers_box[key] = worker
+
+    def test_reset_is_refused_with_409_and_deletes_nothing(self):
+        repos = _mock_repos()
+        _factory_box[0] = repos
+        self._workers(stuck="fingerprint_queue")
+
+        response = _client.post("/api/library/reset", headers=CONFIRM_HEADERS)
+
+        assert response.status_code == 409
+        assert "fingerprint_queue" in response.json()["detail"]
+        repos.reset_library.assert_not_called()
+
+    def test_cleanly_stopped_workers_restart_but_the_stuck_one_does_not(self):
+        _factory_box[0] = _mock_repos()
+        self._workers(stuck="fingerprint_queue")
+
+        _client.post("/api/library/reset", headers=CONFIRM_HEADERS)
+
+        _workers_box["auto_scanner"].start.assert_awaited_once()
+        _workers_box["ondemand_fingerprint_queue"].start.assert_awaited_once()
+        _workers_box["fingerprint_queue"].start.assert_not_awaited()
+
+    def test_refused_reset_releases_exclusive_access(self):
+        _factory_box[0] = _mock_repos()
+        db = FakeLibraryDatabase()
+        _db_box[0] = db
+        self._workers(stuck="fingerprint_queue")
+
+        _client.post("/api/library/reset", headers=CONFIRM_HEADERS)
+
+        assert db.exclusive is False
+        assert db.end_calls == 1
+
+    def test_reset_proceeds_when_every_worker_stops(self):
+        repos = _mock_repos()
+        _factory_box[0] = repos
+        self._workers(stuck=None)
+
+        response = _client.post("/api/library/reset", headers=CONFIRM_HEADERS)
+
+        assert response.status_code == 200
+        repos.reset_library.assert_called_once()

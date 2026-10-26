@@ -22,11 +22,12 @@ class" check when composed together on the facade.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import text
+from sqlalchemy.engine import CursorResult
 
-from ...utils.logging import info
+from ...utils.logging import info, warning
 from ...__version__ import FINGERPRINT_ALGORITHM_VERSION
 from ..fingerprint_quantizer import FingerprintQuantizer
 from ..models import TrackFingerprint
@@ -37,7 +38,12 @@ from .fingerprint_shared import _validate_fingerprint_columns
 class FingerprintUpsertMixin(BaseRepository):
     """Single-round-trip upsert operations for fingerprint rows."""
 
-    def upsert(self, track_id: int, fingerprint_data: dict[str, float]) -> TrackFingerprint | None:
+    def upsert(
+        self,
+        track_id: int,
+        fingerprint_data: dict[str, float],
+        expected_filepath: str | None = None,
+    ) -> TrackFingerprint | None:
         """
         Insert or update a fingerprint (upsert operation)
 
@@ -46,9 +52,16 @@ class FingerprintUpsertMixin(BaseRepository):
         Args:
             track_id: ID of the track
             fingerprint_data: Dictionary with all 25 fingerprint dimensions
+            expected_filepath: The filepath the fingerprint was computed from.
+                When given, the write happens only if ``track_id`` still has
+                that filepath (checked in the same statement). A slow
+                extraction can outlive a library reset, after which the id may
+                belong to a different, rescanned file; storing there would
+                attach this file's 25D fingerprint to the wrong track (#6095).
 
         Returns:
-            TrackFingerprint object if successful, None if failed
+            TrackFingerprint object if successful, None if failed or if the
+            track's filepath no longer matches ``expected_filepath``
         """
         # Validate column names before acquiring a session so ValueError
         # propagates to the caller instead of being swallowed (#2286).
@@ -90,16 +103,32 @@ class FingerprintUpsertMixin(BaseRepository):
                 **fingerprint_data,
             }
 
-            session.execute(
+            values = f":track_id, :fp_version, :is_reference, :reference_weight, {named_placeholders}"
+            if expected_filepath is None:
+                source = f"VALUES ({values})"
+            else:
+                # INSERT ... SELECT ... WHERE (the WHERE also keeps SQLite from
+                # reading ON CONFLICT as part of the SELECT).
+                source = f"SELECT {values} FROM tracks WHERE id = :track_id AND filepath = :expected_filepath"
+                params['expected_filepath'] = expected_filepath
+
+            # cast(): session.execute() is typed Result, which has no rowcount.
+            result = cast(CursorResult[Any], session.execute(
                 text(
                     f"INSERT INTO track_fingerprints "
                     f"(track_id, fingerprint_version, is_reference, reference_weight, {cols_str}) "
-                    f"VALUES (:track_id, :fp_version, :is_reference, :reference_weight, {named_placeholders}) "
+                    f"{source} "
                     f"ON CONFLICT (track_id) DO UPDATE SET {update_clause}"
                 ),
                 params,
-            )
+            ))
             session.commit()
+            if expected_filepath is not None and result.rowcount == 0:
+                warning(
+                    f"Fingerprint for track {track_id} not stored: the track is gone "
+                    f"or no longer at {expected_filepath}"
+                )
+                return None
 
             fingerprint = TrackFingerprint(track_id=track_id, **fingerprint_data)
             info(f"Upserted fingerprint for track {track_id}")

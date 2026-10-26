@@ -99,7 +99,7 @@ class FingerprintExtractor:
             if fingerprint is None:
                 return False
 
-            if not self.fingerprint_repo.upsert(track_id, fingerprint):
+            if not self.fingerprint_repo.upsert(track_id, fingerprint, expected_filepath=filepath):
                 error(f"Failed to store fingerprint for track {track_id}")
                 return False
 

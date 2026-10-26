@@ -130,7 +130,9 @@ def test_cache_hit_skips_audio_analysis(mock_compute, extractor_with_sidecar, te
     mock_compute.assert_not_called()
 
     # Should store in repository
-    extractor_with_sidecar.fingerprint_repo.upsert.assert_called_once_with(1, sample_fingerprint)
+    extractor_with_sidecar.fingerprint_repo.upsert.assert_called_once_with(
+        1, sample_fingerprint, expected_filepath=str(temp_audio_file)
+    )
 
 
 @patch(_COMPUTE)
@@ -165,7 +167,9 @@ def test_cache_miss_performs_analysis(mock_compute, extractor_with_sidecar, temp
     _analyzer, analysed_path = mock_compute.call_args[0]
     assert analysed_path == temp_audio_file
 
-    extractor_with_sidecar.fingerprint_repo.upsert.assert_called_once_with(1, sample_fingerprint)
+    extractor_with_sidecar.fingerprint_repo.upsert.assert_called_once_with(
+        1, sample_fingerprint, expected_filepath=str(temp_audio_file)
+    )
 
 
 @patch(_COMPUTE)

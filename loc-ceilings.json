@@ -31,7 +31,7 @@
     "auralis-web/backend/routers/fingerprint_queue.py": 252,
     "auralis-web/backend/routers/fingerprint_status.py": 208,
     "auralis-web/backend/routers/health.py": 111,
-    "auralis-web/backend/routers/library.py": 228,
+    "auralis-web/backend/routers/library.py": 227,
     "auralis-web/backend/routers/library_scan.py": 273,
     "auralis-web/backend/routers/metadata.py": 109,
     "auralis-web/backend/routers/playlists.py": 110,

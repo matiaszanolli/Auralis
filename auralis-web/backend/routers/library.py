@@ -100,17 +100,17 @@ async def reset_library(
     from config.background_workers import (
         start_background_workers,
         stop_background_workers,
+        unstopped_workers_detail,
     )
 
     # Take exclusive access to the library BEFORE pausing anything (#4816).
-    # stop_background_workers() only reaches the registered workers; a
-    # manual scan (POST /api/library/scan) is a transient LibraryScanner
-    # under no registry key at all, so it used to keep importing files
-    # straight through the reset and silently undo it. The scan-slot
-    # registry on LibraryDatabase is the one place that knows a scan is
-    # running — the same counter the scan route's own 409 arbitrates on —
-    # so this both rejects a reset that races a scan and blocks any scan
-    # that would start during one.
+    # stop_background_workers() only reaches the registered workers; a manual
+    # scan (POST /api/library/scan) is a transient LibraryScanner under no
+    # registry key, so it used to keep importing files straight through the
+    # reset and silently undo it. The scan-slot registry on LibraryDatabase is
+    # the one place that knows a scan is running (the counter the scan route's
+    # own 409 arbitrates on), so this rejects a reset that races a scan and
+    # blocks any scan that would start during one.
     library_database = deps.get_library_database() if deps.get_library_database else None
     exclusive_held = False
     if library_database is not None:
@@ -132,18 +132,19 @@ async def reset_library(
     # Pause every background worker (auto_scanner, ondemand + batch
     # fingerprint queues) so none can insert Track/TrackFingerprint rows
     # between the deletes and commit, which would make the reset
-    # non-atomic (fixes #3342, #4111). Previously only the on-demand
-    # queue was paused.
+    # non-atomic (#3342, #4111). One that outlives its stop timeout may still
+    # be writing, so the reset is refused rather than run under it (#6095).
     resolve = deps.resolve_worker or (lambda _key: None)
-    stopped = await stop_background_workers(resolve)
+    unstopped: list[str] = []
+    stopped = await stop_background_workers(resolve, unstopped)
     try:
-        # Bulk delete runs in the repository layer (no raw session in the
-        # router) and off the event loop.
+        if unstopped:
+            raise HTTPException(status_code=409, detail=unstopped_workers_detail(unstopped))
+        # Bulk delete runs in the repository layer, off the event loop.
         await asyncio.to_thread(repos.reset_library)
 
-        # One lifecycle boundary owns every backend cache tier (#5257).
-        # Run it while workers remain paused so a rescan cannot repopulate
-        # stale entries between the database reset and cache cleanup.
+        # One lifecycle boundary owns every backend cache tier (#5257), run
+        # while workers stay paused so a rescan cannot repopulate stale entries.
         cache_manager = deps.get_cache_manager() if deps.get_cache_manager else None
         await clear_all_caches(
             cache_manager,
@@ -151,9 +152,7 @@ async def reset_library(
             clear_source_artwork=True,
         )
 
-        # No query cache to drop: every read goes through the
-        # repositories, straight to SQLite, so a reset cannot leave stale
-        # rows behind a cache.
+        # No query cache to drop: every read goes straight to SQLite.
         logger.info(
             "Library reset: all tracks, albums, artists, genres, "
             "fingerprints, and playlists deleted"

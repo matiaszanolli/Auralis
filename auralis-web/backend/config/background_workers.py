@@ -48,19 +48,28 @@ WORKER_STOP_KWARGS: dict[str, dict[str, Any]] = {
 Resolve = Callable[[str], Any]
 
 
-async def stop_background_workers(resolve: Resolve) -> list[str]:
+async def stop_background_workers(
+    resolve: Resolve, unstopped: list[str] | None = None
+) -> list[str]:
     """Stop every registered background worker, best-effort.
 
     Each ``stop()`` is individually guarded: one worker failing must not
     prevent the rest of the fleet — or the caller's remaining shutdown steps —
     from running (#4569).
 
+    A ``stop()`` that returns ``False`` (``FingerprintExtractionQueue.stop`` on
+    its timeout) means the worker is still alive, possibly mid-write. It is not
+    reported as stopped, and is not restarted by a caller that restarts the
+    returned keys (#6095).
+
     Args:
         resolve: ``resolve(key)`` returns the worker instance or ``None``.
+        unstopped: When given, receives the keys whose ``stop()`` returned
+            ``False``, so a destructive caller can refuse to proceed.
 
     Returns:
-        The keys of the workers that were actually stopped (existed and were
-        asked to stop), so the caller can restart exactly that set.
+        The keys of the workers that stopped cleanly, so the caller can
+        restart exactly that set.
     """
     stopped: list[str] = []
     for key in BACKGROUND_WORKER_KEYS:
@@ -68,12 +77,21 @@ async def stop_background_workers(resolve: Resolve) -> list[str]:
         if worker is None:
             continue
         try:
-            await _maybe_await(worker.stop(**WORKER_STOP_KWARGS.get(key, {})))
+            if await _maybe_await(worker.stop(**WORKER_STOP_KWARGS.get(key, {}))) is False:
+                logger.warning("Background worker %s did not stop within its timeout", key)
+                if unstopped is not None:
+                    unstopped.append(key)
+                continue
             stopped.append(key)
             logger.debug("Background worker stopped: %s", key)
         except Exception as e:  # pragma: no cover - defensive
             logger.warning("Failed to stop background worker %s: %s", key, e)
     return stopped
+
+
+def unstopped_workers_detail(keys: list[str]) -> str:
+    """409 detail for a destructive operation refused because workers kept running (#6095)."""
+    return f"Background worker(s) still busy: {', '.join(keys)}. Library not reset; retry in a moment."
 
 
 async def start_background_workers(resolve: Resolve, keys: list[str]) -> None:
@@ -89,7 +107,8 @@ async def start_background_workers(resolve: Resolve, keys: list[str]) -> None:
             logger.warning("Failed to start background worker %s: %s", key, e)
 
 
-async def _maybe_await(result: Awaitable[Any] | Any) -> None:
+async def _maybe_await(result: Awaitable[Any] | Any) -> Any:
     """Await ``result`` if it is awaitable (start/stop may be sync or async)."""
     if hasattr(result, "__await__"):
-        await result
+        return await result
+    return result

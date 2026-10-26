@@ -113,3 +113,37 @@ def test_upsert_promotes_an_old_version_row(repo):
     row = repo.get_by_track_id(1)
     assert row is not None, "upserted fingerprint invisible to reads"
     assert row.fingerprint_version == FINGERPRINT_ALGORITHM_VERSION
+
+
+def test_upsert_with_expected_filepath_stores_when_the_track_still_matches(repo):
+    """#6095: the guarded write is a normal upsert while the id still points at
+    the file the fingerprint was computed from."""
+    assert repo.upsert(1, dict(_DIMENSIONS), expected_filepath="/tmp/track_1.flac") is not None
+
+    row = repo.get_by_track_id(1)
+    assert row is not None
+    assert row.lufs == _DIMENSIONS['lufs']
+
+
+def test_upsert_with_expected_filepath_refuses_a_reused_track_id(repo):
+    """#6095: an extraction that outlived a library reset must not attach its
+    file's fingerprint to whichever different file a rescan gave the id."""
+    assert repo.upsert(1, dict(_DIMENSIONS), expected_filepath="/tmp/the_old_file.flac") is None
+
+    assert repo.get_by_track_id(1) is None
+    assert repo.exists(1) is False
+
+
+def test_upsert_with_expected_filepath_refuses_a_deleted_track(repo):
+    assert repo.upsert(999, dict(_DIMENSIONS), expected_filepath="/tmp/track_1.flac") is None
+
+
+def test_guarded_upsert_still_updates_an_existing_row(repo):
+    """The ON CONFLICT arm keeps working through INSERT ... SELECT."""
+    repo.add(1, dict(_DIMENSIONS))
+    changed = {**_DIMENSIONS, 'lufs': -9.0}
+
+    assert repo.upsert(1, changed, expected_filepath="/tmp/track_1.flac") is not None
+
+    row = repo.get_by_track_id(1)
+    assert row is not None and row.lufs == -9.0

@@ -100,3 +100,34 @@ async def test_handles_synchronous_stop_start():
     await start_background_workers(lambda k: registry.get(k), stopped)
 
     assert calls == ["stop", "start"]
+
+
+async def test_stop_reporting_false_is_unstopped_and_not_restartable():
+    """A stop() that returns False (FingerprintExtractionQueue on its timeout)
+    left the worker alive: it is reported as unstopped, not as stopped (#6095)."""
+    stuck = MagicMock()
+    stuck.stop = AsyncMock(return_value=False)
+    fine = MagicMock()
+    fine.stop = AsyncMock(return_value=True)
+    sync_none = MagicMock()
+    sync_none.stop = MagicMock(return_value=None)
+    registry = {
+        "auto_scanner": sync_none,
+        "ondemand_fingerprint_queue": stuck,
+        "fingerprint_queue": fine,
+    }
+
+    unstopped: list[str] = []
+    stopped = await stop_background_workers(lambda k: registry.get(k), unstopped)
+
+    assert unstopped == ["ondemand_fingerprint_queue"]
+    # None (a stop() with no verdict) still counts as stopped; the others
+    # keep stopping after the stuck one.
+    assert stopped == ["auto_scanner", "fingerprint_queue"]
+
+
+async def test_unstopped_list_is_optional():
+    stuck = MagicMock()
+    stuck.stop = AsyncMock(return_value=False)
+
+    assert await stop_background_workers(lambda k: stuck if k == "fingerprint_queue" else None) == []
