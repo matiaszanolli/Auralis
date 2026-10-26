@@ -164,3 +164,54 @@ async def test_close_all_tolerates_individual_close_failures():
     exploding.close.assert_called_once()
     fine.close.assert_called_once()
     assert pool.processors == {}
+
+
+@pytest.mark.asyncio
+async def test_overlapping_same_key_returns_leave_the_key_most_recently_used():
+    """#6089: two same-key jobs that each built their own instance both come
+    back; the second return must move the key to the MRU end, not leave it at
+    the first return's position where the next eviction would drop it."""
+    pool = ProcessorPool(MagicMock(), max_cached=2)
+    shared, other, newcomer = _config("shared"), _config("other"), _config("newcomer")
+    first_lease, second_lease = MagicMock(name="lease-1"), MagicMock(name="lease-2")
+    other_processor, newcomer_processor = MagicMock(name="other"), MagicMock(name="newcomer")
+
+    await pool.return_to_cache("adaptive", shared, first_lease)
+    await pool.return_to_cache("adaptive", other, other_processor)
+    # The overlapping job returns its own instance for the key that is already cached.
+    await pool.return_to_cache("adaptive", shared, second_lease)
+
+    assert list(pool.processors)[-1] == pool.cache_key("adaptive", shared)
+
+    # A third key forces one eviction: `other` is now the least recently used.
+    await pool.return_to_cache("adaptive", newcomer, newcomer_processor)
+
+    other_processor.close.assert_called_once()
+    second_lease.close.assert_not_called()
+    assert pool.processors[pool.cache_key("adaptive", shared)] is second_lease
+
+
+@pytest.mark.asyncio
+async def test_replaced_same_key_duplicate_is_still_closed():
+    pool = ProcessorPool(MagicMock(), max_cached=4)
+    config = _config("shared")
+    first_lease, second_lease = MagicMock(name="lease-1"), MagicMock(name="lease-2")
+
+    await pool.return_to_cache("adaptive", config, first_lease)
+    await pool.return_to_cache("adaptive", config, second_lease)
+
+    first_lease.close.assert_called_once()
+    second_lease.close.assert_not_called()
+    assert len(pool.processors) == 1
+
+
+@pytest.mark.asyncio
+async def test_returning_the_same_instance_twice_does_not_close_it():
+    pool = ProcessorPool(MagicMock(), max_cached=4)
+    config = _config("shared")
+    lease = MagicMock(name="lease")
+
+    await pool.return_to_cache("adaptive", config, lease)
+    await pool.return_to_cache("adaptive", config, lease)
+
+    lease.close.assert_not_called()

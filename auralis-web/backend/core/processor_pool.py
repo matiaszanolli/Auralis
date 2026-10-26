@@ -98,7 +98,10 @@ class ProcessorPool:
         to_close: list[HybridProcessor] = []
         async with self._lock:
             key = self.cache_key(mode, config)
-            replaced = self.processors.get(key)
+            # pop(), not get(): re-assigning an existing key keeps its OLD dict
+            # position, and two same-key jobs that each built their own instance
+            # both come back here (#6089).
+            replaced = self.processors.pop(key, None)
             if replaced is not None and replaced is not processor:
                 to_close.append(replaced)
             self.processors[key] = processor
@@ -117,12 +120,11 @@ class ProcessorPool:
             # Evicting `cache_keys[0]` IS least-recently-used here, despite
             # looking like plain insertion-order FIFO — #4370 read it as FIFO
             # from the pre-#4250 inline version, where a cache *hit* left the
-            # entry in place. get_or_create() now POPS on hit (#3201), so the key
-            # is always absent when it comes back through this method and the
-            # assignment above appends it. Insertion order therefore tracks
-            # last-return order, and the oldest key is the least recently used.
-            # Do not "fix" this into an OrderedDict + move_to_end without first
-            # re-checking that invariant — see test_lru_not_fifo_eviction.
+            # entry in place. get_or_create() POPS on hit (#3201) and the pop
+            # above removes any same-key entry a concurrent lease already
+            # returned, so the assignment always appends. Insertion order
+            # therefore tracks last-return order, and the oldest key is the
+            # least recently used — see test_lru_not_fifo_eviction.
             if len(self.processors) > self._max_cached:
                 cache_keys = list(self.processors)
                 if cache_keys:
