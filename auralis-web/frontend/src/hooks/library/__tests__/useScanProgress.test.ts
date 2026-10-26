@@ -497,9 +497,38 @@ describe('useScanProgress', () => {
       return { ok: true, json: async () => body } as Response;
     }
 
+    /** Mount while disconnected; `reconnect()` flips to connected, firing the resync. */
+    function renderDisconnected() {
+      vi.mocked(useWebSocketContext).mockReturnValue({
+        subscribe: manager.subscribe,
+        connectionStatus: 'disconnected',
+      } as any);
+      const hook = renderHook(() => useScanProgress());
+      return {
+        ...hook,
+        reconnect: () => {
+          vi.mocked(useWebSocketContext).mockReturnValue({
+            subscribe: manager.subscribe,
+            connectionStatus: 'connected',
+          } as any);
+          hook.rerender();
+        },
+      };
+    }
+
+    /** A GET whose response the test releases by hand. */
+    function deferredStatus() {
+      let release!: (body: unknown) => void;
+      const pending = new Promise<Response>((resolve) => {
+        release = (body) => resolve(jsonResponse(body));
+      });
+      mockConnected((async () => pending) as unknown as typeof fetch);
+      return { release };
+    }
+
     it('clears a stuck isScanning when the server reports no active scan', async () => {
       mockConnected(async () => jsonResponse({ is_scanning: false }));
-      const { result } = renderHook(() => useScanProgress());
+      const { result, reconnect } = renderDisconnected();
 
       // Simulate having missed the terminal frame while disconnected: the
       // last thing this client heard was library_scan_started.
@@ -508,6 +537,7 @@ describe('useScanProgress', () => {
       });
       expect(result.current.isScanning).toBe(true);
 
+      reconnect();
       await waitFor(() => expect(result.current.isScanning).toBe(false));
       expect(global.fetch).toHaveBeenCalledWith(
         '/api/library/scan/status',
@@ -517,7 +547,7 @@ describe('useScanProgress', () => {
 
     it('preserves lastResult when clearing a stuck isScanning', async () => {
       mockConnected(async () => jsonResponse({ is_scanning: false }));
-      const { result } = renderHook(() => useScanProgress());
+      const { result, reconnect } = renderDisconnected();
 
       act(() => {
         manager.deliver({
@@ -530,6 +560,7 @@ describe('useScanProgress', () => {
       });
       expect(result.current.isScanning).toBe(true);
 
+      reconnect();
       await waitFor(() => expect(result.current.isScanning).toBe(false));
       // The resync endpoint has no knowledge of file counts — it must not
       // clobber the real result from the scan before the missed one.
@@ -551,6 +582,48 @@ describe('useScanProgress', () => {
       await waitFor(() => expect(global.fetch).toHaveBeenCalled());
       expect(result.current.isScanning).toBe(false);
       expect(result.current.lastResult).toBeNull();
+    });
+
+    it('discards a stale is_scanning:true resolved after scan_complete (#6101)', async () => {
+      const status = deferredStatus();
+      const { result } = renderHook(() => useScanProgress());
+      await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+
+      // scan_complete lands while the GET (evaluated server-side mid-scan) is in flight.
+      act(() => {
+        manager.deliver({
+          type: 'scan_complete',
+          data: { files_added: 3, duration: 1 },
+        } as unknown as WebSocketMessage);
+      });
+      await act(async () => {
+        status.release({ is_scanning: true });
+      });
+
+      expect(result.current.isScanning).toBe(false);
+      expect(result.current.lastResult?.filesAdded).toBe(3);
+    });
+
+    it("discards a stale is_scanning:false resolved after library_scan_started (#6101)", async () => {
+      const status = deferredStatus();
+      const { result } = renderHook(() => useScanProgress());
+      await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+
+      act(() => {
+        manager.deliver({ type: 'library_scan_started' } as WebSocketMessage);
+      });
+      act(() => {
+        manager.deliver({
+          type: 'scan_progress',
+          data: { current: 5, total: 10, percentage: 50, current_file: 'a.flac' },
+        } as unknown as WebSocketMessage);
+      });
+      await act(async () => {
+        status.release({ is_scanning: false });
+      });
+
+      expect(result.current.isScanning).toBe(true);
+      expect(result.current.current).toBe(5);
     });
 
     it('does not fetch when not connected', () => {

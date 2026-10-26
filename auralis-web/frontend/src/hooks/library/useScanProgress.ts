@@ -86,6 +86,12 @@ const statusListeners = new Set<() => void>();
  *  with the shared state so two consumers cannot disagree. */
 let removedReceivedInScan = false;
 
+/** Bumped by every scan WS frame. resyncScanStatus snapshots it when it issues
+ *  its GET and discards the response if a frame landed meanwhile — the HTTP
+ *  answer was computed before that frame, so applying it would resurrect
+ *  isScanning after scan_complete or wipe a new scan's state (#6101). */
+let scanFrameEpoch = 0;
+
 function getSnapshot(): ScanStatus {
   return sharedState;
 }
@@ -108,6 +114,8 @@ function setSharedState(update: (prev: ScanStatus) => ScanStatus): void {
 // AnyWebSocketMessage (MessageHandler's union), not the narrower
 // WebSocketMessage — the shared subscription delivers any dispatched type.
 function handleScanMessage(raw: AnyWebSocketMessage | WebSocketMessage): void {
+  // Any scan frame is newer than a resync request still in flight (#6101).
+  scanFrameEpoch += 1;
   if (raw.type === 'library_scan_started') {
     removedReceivedInScan = false;
     setSharedState((prev) => ({
@@ -187,13 +195,14 @@ function resyncScanStatus(): void {
   resyncController?.abort();
   const controller = new AbortController();
   resyncController = controller;
+  const epochAtRequest = scanFrameEpoch;
   // #5019: shared transport, so the resync inherits DEFAULT_TIMEOUT_MS on top
   // of the disconnect/unmount signal. get() rejects on a non-2xx rather than
   // resolving to null, which the .catch() below already treats as "leave
   // local state alone".
   get<{ is_scanning?: boolean }>('/api/library/scan/status', { signal: controller.signal })
     .then((data) => {
-      if (!data) return;
+      if (!data || epochAtRequest !== scanFrameEpoch) return;
       setSharedState((prev) => {
         if (data.is_scanning) {
           // A scan is active that this client may not know about yet
