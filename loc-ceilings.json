@@ -99,7 +99,7 @@
     "auralis/library/repositories/album_repository.py": 190,
     "auralis/library/scan_coordinator.py": 143,
     "auralis/library/scanner/scan_stages.py": 291,
-    "auralis/library/scanner/scanner.py": 294,
+    "auralis/library/scanner/scanner.py": 293,
     "auralis/library/sidecar_manager.py": 237,
     "auralis/library/sidecar_validation.py": 106,
     "auralis/player/components/queue_manager.py": 237,

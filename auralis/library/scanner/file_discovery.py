@@ -9,6 +9,7 @@ Recursive directory scanning and audio file discovery
 """
 
 import os
+import threading
 from pathlib import Path
 from collections.abc import Generator
 
@@ -30,12 +31,19 @@ class FileDiscovery:
     - Permission error handling
     """
 
-    def __init__(self) -> None:
-        self.should_stop = False
+    def __init__(self, should_stop: threading.Event | None = None) -> None:
+        """
+        Args:
+            should_stop: Cancellation Event, shared with the owning scanner so
+                one set() stops every stage. A private Event when omitted
+                (#6100: a plain bool is an unsynchronised cross-thread publish
+                under free-threaded CPython).
+        """
+        self.should_stop = should_stop if should_stop is not None else threading.Event()
 
     def stop(self) -> None:
         """Signal discovery to stop"""
-        self.should_stop = True
+        self.should_stop.set()
 
     def discover_audio_files(self, directory: str, recursive: bool = True) -> Generator[str]:
         """
@@ -69,7 +77,7 @@ class FileDiscovery:
                 yield from self._walk_directory(directory_path, visited_inodes, depth=0)
             else:
                 for file_path in directory_path.iterdir():
-                    if self.should_stop:
+                    if self.should_stop.is_set():
                         return
                     if (
                         file_path.is_file()
@@ -120,7 +128,7 @@ class FileDiscovery:
         try:
             with os.scandir(directory) as it:
                 for entry in it:
-                    if self.should_stop:
+                    if self.should_stop.is_set():
                         return
                     yield from self._walk_entry(entry, visited_inodes, depth)
 

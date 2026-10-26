@@ -81,12 +81,10 @@ class LibraryScanner:
         # I/O. Used by the backend to fire `reference_seeder.refresh_cloud()`.
         self.on_scan_complete: Callable[[ScanResult], None] | None = None
         # #3728: threading.Event instead of plain bool. Cross-thread
-        # cancellation now goes through a proper synchronisation
-        # primitive — under default CPython the GIL kept plain-bool
-        # reads atomic, but free-threaded Python (PEP 703 / `python -X
-        # gil=0`) would race on the bare attribute. Event is the
-        # idiomatic choice and matches the scanner cancellation
-        # pattern (#3710 / library_auto_scanner).
+        # cancellation goes through a proper synchronisation primitive — the
+        # GIL kept plain-bool reads atomic, but free-threaded Python (PEP 703 /
+        # `python -X gil=0`) would race on the bare attribute. Shared with
+        # FileDiscovery and BatchProcessor below (#6100); matches #3710.
         self.should_stop: threading.Event = threading.Event()
 
         # Per-directory deduplication (#3455) lives on library_database, not
@@ -96,13 +94,14 @@ class LibraryScanner:
         # attribute here would never be shared between two overlapping scans.
 
         # Initialize components
-        self.file_discovery: Any = FileDiscovery()
+        self.file_discovery: Any = FileDiscovery(self.should_stop)
         self.audio_analyzer: Any = AudioAnalyzer()
         self.metadata_extractor: Any = MetadataExtractor()
         self.batch_processor: Any = BatchProcessor(
             library_database,
             self.audio_analyzer,
-            self.metadata_extractor
+            self.metadata_extractor,
+            self.should_stop,
         )
 
     def set_progress_callback(self, callback: Callable[[dict[str, Any]], None]) -> None:

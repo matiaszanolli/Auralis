@@ -8,6 +8,7 @@ Batch processing of audio files for library scanning
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -26,7 +27,8 @@ class BatchProcessor:
     - Error handling per file
     """
 
-    def __init__(self, library_database: Any, audio_analyzer: Any, metadata_extractor: Any) -> None:
+    def __init__(self, library_database: Any, audio_analyzer: Any, metadata_extractor: Any,
+                 should_stop: threading.Event | None = None) -> None:
         """
         Initialize batch processor
 
@@ -34,15 +36,17 @@ class BatchProcessor:
             library_database: LibraryDatabase instance
             audio_analyzer: AudioAnalyzer instance
             metadata_extractor: MetadataExtractor instance
+            should_stop: Cancellation Event shared with the owning scanner; a
+                private one when omitted (#6100)
         """
         self.library_database = library_database
         self.audio_analyzer = audio_analyzer
         self.metadata_extractor = metadata_extractor
-        self.should_stop = False
+        self.should_stop = should_stop if should_stop is not None else threading.Event()
 
     def stop(self) -> None:
         """Signal processor to stop"""
-        self.should_stop = True
+        self.should_stop.set()
 
     def process_file_batch(self, file_paths: list[str],
                           skip_existing: bool,
@@ -61,7 +65,7 @@ class BatchProcessor:
         result = ScanResult()
 
         for file_path in file_paths:
-            if self.should_stop:
+            if self.should_stop.is_set():
                 break
 
             try:
