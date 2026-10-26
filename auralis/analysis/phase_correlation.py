@@ -122,13 +122,11 @@ class PhaseCorrelationAnalyzer:
         # Phase difference
         phase_diff = left_phase - right_phase
 
-        # Unwrap phase differences
-        phase_diff_unwrapped = np.unwrap(phase_diff)
-
-        # Calculate phase correlation
-        phase_corr = np.abs(np.mean(np.exp(1j * phase_diff_unwrapped)))
-
-        return float(phase_corr)
+        # Mean cosine of the phase difference: +1 in phase, 0 in quadrature, -1
+        # in anti-phase. The magnitude of the mean phasor (what this returned,
+        # with a no-op np.unwrap in front of it, #5743) scored a
+        # polarity-inverted pair a perfect 1.0.
+        return float(np.mean(np.cos(phase_diff)))
 
     def _calculate_stereo_width(self, left: np.ndarray, right: np.ndarray) -> float:
         """Calculate apparent stereo width"""

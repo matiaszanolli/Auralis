@@ -42,7 +42,8 @@ class StereoImagingAssessor(BaseAssessor):
             (1.0, 50.0)       # Too high = narrow image
         ])
 
-        phase_score = phase_correlation * 100
+        # Signed in [-1, 1]; anti-phase is not rewarded (#5743).
+        phase_score = max(phase_correlation, 0.0) * 100
 
         # Score stereo width using band scoring
         width_score = ScoringOperations.band_score(stereo_width, [
