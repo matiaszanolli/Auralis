@@ -27,6 +27,7 @@ from websocket.outbound_messages import broadcast_typed
 from .errors import ServiceUnavailable
 from .queue_enrichment import QueueEnricher, to_track_payload
 from .queue_protocols import AudioPlayerWithQueue
+from .queue_set_sequencer import queue_set_sequencer
 
 logger = logging.getLogger(__name__)
 
@@ -66,23 +67,37 @@ class QueueServiceBase:
         self._enricher = QueueEnricher(
             player_state_manager, library_database, create_track_info_fn
         )
-        # #3721: serialise concurrent set_queue() calls. set_queue runs
-        # 7 awaitable steps with WS broadcasts and engine I/O; without
-        # a service-level lock two near-simultaneous POSTs (double-click
-        # "Play album", rapid playlist switch within RTT) can interleave
-        # so the state-manager publishes track-B while the engine ends
-        # up loaded+playing track-A. Resolution requires manual user
-        # intervention. The lock only serialises set_queue; the other
-        # mutating methods (add/remove/clear/reorder) each take their
-        # own narrow snapshot under the existing audio_player.queue
-        # _lock and are not in the same race class.
-        self._set_queue_lock = asyncio.Lock()
-        self._next_set_queue_generation = 0
-        self._set_queue_generation = 0
-        # Player calls still need ordered execution to preserve the original
-        # #3721 engine consistency guarantee, but this lock never covers a WS
-        # broadcast and does not block queue-state mutation (#4825).
-        self._set_queue_engine_lock = asyncio.Lock()
+
+    # #3721: concurrent set_queue() calls are serialised, and a later one (or a
+    # queue-shape mutator, #5320) supersedes an in-flight one, through a
+    # process-wide sequencer. FastAPI builds a fresh QueueService per request, so
+    # a lock or counter on `self` would never contend across requests (#5944).
+    # These names stay as the service's own view of that shared state.
+    @property
+    def _set_queue_lock(self) -> asyncio.Lock:
+        """Generation bookkeeping and the sequenced state mutation (#4825)."""
+        return queue_set_sequencer.state_lock
+
+    @property
+    def _set_queue_engine_lock(self) -> asyncio.Lock:
+        """Ordered player calls; never covers a WS broadcast (#4825)."""
+        return queue_set_sequencer.engine_lock
+
+    @property
+    def _next_set_queue_generation(self) -> int:
+        return queue_set_sequencer.next_generation
+
+    @_next_set_queue_generation.setter
+    def _next_set_queue_generation(self, value: int) -> None:
+        queue_set_sequencer.next_generation = value
+
+    @property
+    def _set_queue_generation(self) -> int:
+        return queue_set_sequencer.generation
+
+    @_set_queue_generation.setter
+    def _set_queue_generation(self, value: int) -> None:
+        queue_set_sequencer.generation = value
 
     async def _invalidate_set_queue_generation(self) -> None:
         """Supersede any in-flight set_queue request (#5320).

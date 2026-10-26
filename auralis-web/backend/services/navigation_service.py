@@ -19,6 +19,7 @@ from websocket.outbound_messages import broadcast_typed
 from auralis import AudioPlayer
 
 from .errors import require_collaborators
+from .loop_bound_lock import LoopBoundLock
 from .queue_enrichment import entry_filepath
 
 if TYPE_CHECKING:
@@ -49,28 +50,13 @@ class _TrackChangeSequencer:
     """
 
     def __init__(self) -> None:
-        self._lock: asyncio.Lock | None = None
-        self._lock_loop: asyncio.AbstractEventLoop | None = None
+        self._lock = LoopBoundLock()
         self._seq = 0
 
     @property
     def lock(self) -> asyncio.Lock:
-        """Lazily (re)bind the lock to the current running loop.
-
-        `asyncio.Lock` binds to whatever loop is running at its first
-        `acquire()`, not at construction — reusing it from a *different*
-        loop later raises "bound to a different event loop". This module-
-        level singleton is created at import time, before any loop
-        necessarily exists, and outlives any one loop in test contexts
-        (each pytest-asyncio test gets a fresh loop). A long-running server
-        process has exactly one loop for its whole lifetime, so this only
-        ever (re)creates the lock once there in practice.
-        """
-        loop = asyncio.get_running_loop()
-        if self._lock is None or self._lock_loop is not loop:
-            self._lock = asyncio.Lock()
-            self._lock_loop = loop
-        return self._lock
+        """The process-wide lock, rebound to the current running loop."""
+        return self._lock.get()
 
     def next_seq(self) -> int:
         self._seq += 1
