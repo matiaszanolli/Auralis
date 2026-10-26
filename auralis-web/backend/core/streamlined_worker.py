@@ -151,7 +151,7 @@ class StreamlinedCacheWorker(WorkerLifecycleMixin):
             # track the user is still playing. See validate_file_path's
             # "Deliberate non-callers" note.
             if not await asyncio.to_thread(Path(track.filepath).exists):
-                logger.error(f"File not found: {track.filepath}")
+                logger.error(f"File not found: {Path(track.filepath).name}")
                 return None
 
             # Reuse processor across chunks so DSP state (compressor envelope,

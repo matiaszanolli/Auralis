@@ -161,7 +161,7 @@ def load_from_file(
     except Exception as e:
         # WARNING per #5938: a swallowed tier failure silently degrades to
         # per-chunk analysis / re-extraction.
-        logger.warning(f".25d file loading failed for {filepath}: {e}")
+        logger.warning(f".25d file loading failed for {Path(filepath).name}: {e}")
         return None
 
 
@@ -238,6 +238,6 @@ def extract_from_audio(
         return (fingerprint_data, mastering_targets)
 
     except Exception as e:
-        logger.error(f"Fingerprint extraction failed for {filepath}: {e}")
+        logger.error(f"Fingerprint extraction failed for {Path(filepath).name}: {e}")
         logger.debug(traceback.format_exc())
         return None

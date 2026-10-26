@@ -85,7 +85,7 @@ async def download_result(
     try:
         output_path.relative_to(allowed_output_base)
     except ValueError:
-        logger.error(f"Job {job_id} output path outside expected directory: {output_path}")
+        logger.error(f"Job {job_id} output path outside expected directory: {output_path.name}")
         raise HTTPException(status_code=500, detail="Output path configuration error")
 
     if not output_path.exists():

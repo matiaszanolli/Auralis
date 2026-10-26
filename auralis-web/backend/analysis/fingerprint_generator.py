@@ -198,7 +198,7 @@ class FingerprintGenerator:
             return fingerprint
 
         except FileNotFoundError:
-            logger.error(f"Audio file not found: {filepath}")
+            logger.error(f"Audio file not found: {Path(filepath).name}")
             return None
         except TimeoutError:
             logger.error(f"Fingerprint generation timeout (>{self.TIMEOUT}s) for track {track_id}")

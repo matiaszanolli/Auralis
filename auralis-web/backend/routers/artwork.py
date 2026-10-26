@@ -117,7 +117,7 @@ async def get_album_artwork(
     try:
         requested_path = Path(album.artwork_path).resolve(strict=False)
     except (OSError, RuntimeError, ValueError) as e:
-        logger.warning(f"Invalid artwork path for album {album_id}: {album.artwork_path} - {e}")
+        logger.warning(f"Invalid artwork path for album {album_id}: {Path(album.artwork_path).name} - {e}")
         raise HTTPException(status_code=403, detail="Access denied: invalid path")
 
     # Security: Check that resolved path is within allowed directory

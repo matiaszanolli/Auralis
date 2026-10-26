@@ -12,6 +12,7 @@ anyone rescanning by hand after reorganising files — kept dead entries forever
 
 import asyncio
 import logging
+from pathlib import Path
 from typing import Any
 
 from websocket.outbound_messages import broadcast_typed
@@ -66,11 +67,13 @@ async def prune_tracks_under_folder(
             await asyncio.to_thread(library_database.tracks.remove_tracks_under_folder, folder)
         )
     except Exception as exc:
-        logger.error(f"remove_tracks_under_folder failed for {folder}: {exc}")
+        logger.error(f"remove_tracks_under_folder failed for {Path(folder).name}: {exc}")
+        logger.debug(f"remove_tracks_under_folder failed for full path {folder}")
         return 0
 
     if removed:
-        logger.info(f"🗑️  Removed {removed} tracks under removed scan folder {folder}")
+        logger.info(f"🗑️  Removed {removed} tracks under removed scan folder {Path(folder).name}")
+        logger.debug(f"Removed scan folder path: {folder}")
         if connection_manager is not None:
             await broadcast_typed(
                 connection_manager,
