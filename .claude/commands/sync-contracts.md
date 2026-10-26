@@ -29,22 +29,22 @@ Read the `auralis-web/backend/schemas/` package (shared contracts: `enhancement.
 
 ### WebSocket Messages (Backend sends)
 
-The typed contract lives in `auralis-web/backend/websocket/outbound_messages.py` (one Literal/TypedDict per outbound message type, sent through `broadcast_typed`). Start there, then scan the places that build frames outside it:
+The typed contract lives in `auralis-web/backend/websocket/outbound_messages.py` (the `broadcast_typed` overloads, one Literal discriminator per outbound message type) and its payload TypedDicts in `auralis-web/backend/websocket/outbound/` (`player.py`, `queue.py`, `library.py`, `enhancement.py`; split out in #6269). Start there, then scan the places that build frames outside it:
 - `auralis-web/backend/core/stream_protocol.py` and `auralis-web/backend/core/stream_lifecycle.py` / `stream_notifications.py` (the `audio_stream_*` JSON control messages)
-- `auralis-web/backend/ws_handlers/` (inbound command handlers and their replies; `connection.py` `dispatch_message` is the inbound type switch), `auralis-web/backend/routers/system.py` (the module-level `websocket_endpoint` connection loop) and `auralis-web/backend/routers/system_streams.py` (the stream tasks it launches, split out in #5832)
+- `auralis-web/backend/ws_handlers/` (inbound command handlers and their replies — `playback_commands.py`, `seek_command.py`, `playback_control.py`, `messages.py`; `connection.py` `dispatch_message` is the inbound type switch), `auralis-web/backend/routers/system.py` (the module-level `websocket_endpoint` connection loop) and `auralis-web/backend/routers/system_streams.py` (the stream tasks it launches, split out in #5832)
 - Any remaining direct `send_text(json.dumps({...}))` / `send_json({...})` call: `grep -rn "send_text\|send_json" auralis-web/backend --include='*.py'`
 
 For each message, extract the `type` field value and `data` field structure.
 
 ### WebSocket Messages (Frontend sends)
 
-Two send paths: the raw `manager.send(JSON.stringify(...))` calls in `auralis-web/frontend/src/hooks/websocket/` (`websocketConnectionCore.ts`, `useOutgoingChannel.ts`, and the heartbeat `pong` in `socketFrameParser.ts` — split out of the connection core in #5840), and `wsContext.send({...})` from hooks, chiefly `auralis-web/frontend/src/hooks/enhancement/` (`play_enhanced` / `play_normal` in `useEnhancedPlayCommand.ts`, `seek` in `useEnhancedSeek.ts`, `buffer_full` / `buffer_ready` in `useStreamMessageHandlers.ts`): `grep -rn "\.send(" auralis-web/frontend/src --include='*.ts' --include='*.tsx'`. Check each sent `type` against the backend's `dispatch_message` switch and the inbound `WebSocketMessageType` enum. The frontend's message types are in `auralis-web/frontend/src/types/ws/`.
+Two send paths: the raw `manager.send(JSON.stringify(...))` calls in `auralis-web/frontend/src/hooks/websocket/` (`websocketConnectionCore.ts`, `useOutgoingChannel.ts`, and the heartbeat `pong` in `socketFrameParser.ts` — split out of the connection core in #5840), and `wsContext.send({...})` from hooks, chiefly `auralis-web/frontend/src/hooks/enhancement/` (`play_enhanced` / `play_normal` in `useEnhancedPlayCommand.ts`, `seek` in `useEnhancedSeek.ts`, `buffer_full` / `buffer_ready` in `useStreamMessageHandlers.ts`, and the drain-triggered `buffer_ready` in `flowDrainWatch.ts`): `grep -rn "\.send(" auralis-web/frontend/src --include='*.ts' --include='*.tsx'`. Check each sent `type` against the backend's `dispatch_message` switch and the inbound `WebSocketMessageType` enum. The frontend's message types are in `auralis-web/frontend/src/types/ws/`.
 
 ## Step 2: Extract Frontend Contracts
 
 ### API Client Calls
 
-Most calls go through `auralis-web/frontend/src/utils/apiRequest.ts` (`get` / `post` / `put` / `patch` / `del`; options and timeouts in `apiRequestTypes.ts`, retry policy in `queryRetry.ts`) with paths from `ENDPOINTS` in `auralis-web/frontend/src/config/api.ts`. Scan all service files in `auralis-web/frontend/src/services/`, plus `useRestAPI` (`auralis-web/frontend/src/hooks/api/useRestAPI.ts` over the shared `fetchWithTimeout`) and the direct `fetch(` calls still scattered across `src/hooks/` and `src/components/`. For each API call, extract:
+Most calls go through `auralis-web/frontend/src/utils/apiRequest.ts` (`get` / `post` / `put` / `patch` / `del`; options and timeouts in `apiRequestTypes.ts`, retry policy in `queryRetry.ts`) with paths from `ENDPOINTS` in `auralis-web/frontend/src/config/api.ts`. Scan all service files in `auralis-web/frontend/src/services/`, plus `useRestAPI` (`auralis-web/frontend/src/hooks/api/useRestAPI.ts`, a React wrapper over the shared `fetchWithTimeout` / `buildUrl` exported by `apiRequest.ts` since #6216 — there is no second transport) and the direct `fetch(` calls still scattered across `src/hooks/` and `src/components/`. For each API call, extract:
 - HTTP method, URL path
 - Request body shape (TypeScript interface or inline object)
 - Expected response shape

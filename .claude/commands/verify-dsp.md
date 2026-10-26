@@ -22,9 +22,9 @@ Determine scope from arguments:
 
 | Component | Path |
 |-----------|------|
-| Core Pipeline | `auralis/core/hybrid_processor.py`, `processing/` (the shipped app path → `ContinuousMode`); offline CLI only (#4873, reached from `auto_master.py`): `simple_mastering.py`, `stages/` (12 stage modules + the shared `hf_budget.py` helper) |
+| Core Pipeline | `auralis/core/hybrid_processor.py`, `processing/` (the shipped app path → `mode_dispatch.py` → `ContinuousMode`); offline CLI only (#4873, reached from `auto_master.py`): `simple_mastering.py`, `stages/` (12 stage modules + the shared `hf_budget.py` helper) |
 | Optimizer wrapper | `auralis/optimization/performance_optimizer.py` — wraps `AdaptiveMode.process` at import time (#5142), so it sits in the audio path |
-| DSP Modules | `auralis/dsp/eq/psychoacoustic_eq.py`, `auralis/dsp/dynamics/`, `auralis/dsp/basic.py` |
+| DSP Modules | `auralis/dsp/eq/psychoacoustic_eq.py`, `auralis/dsp/dynamics/`, `auralis/dsp/basic.py` (the old *advanced_dynamics.py* was deleted in #6201) |
 | Audio I/O | `auralis/io/unified_loader.py`, `results.py` |
 | Player RT Processing | `auralis/player/realtime/` |
 | Chunked Mastering (offline CLI) | `auralis/core/mastering_chunk_loop.py`, `mastering_chunk_assembly.py`, `mastering_process_chunk.py`, `mastering_config.py` |
@@ -79,6 +79,8 @@ Determine scope from arguments:
 - Find all sqrt operations: `np.sqrt()`
 - Check for guards: `np.maximum(x, epsilon)` before division, `np.clip(x, min_val, ...)` before log, `np.abs(x)` before sqrt
 - Check for NaN propagation: does any stage check `np.isnan()` or `np.isinf()` in output?
+- In-stage `validate_audio_finite(..., repair=True)` must pass `repair_max_fraction=MAX_IN_STAGE_REPAIR_FRACTION` (`auralis/utils/audio_validation.py`, #6105): a mostly-non-finite buffer raises `ModuleError` instead of being zeroed into silence. Only the last-boundary writers (`io/saver.py`, `player/realtime/processor.py`) repair unconditionally
+- Epsilon guards use the named `AMPLITUDE_EPS` / `SILENCE_STD_THRESHOLD` in `auralis/dsp/utils/conversion.py` (#6230), not retyped literals
 
 **Pass criteria**: Every potentially NaN/Inf-producing operation has a guard. No stage can pass NaN/Inf to the next.
 
@@ -92,6 +94,8 @@ Determine scope from arguments:
 - Inter-stage clipping: check if intermediate stages can produce values > 1.0 that accumulate
 - Watch for: gain application without subsequent limiting, additive mixing without normalization
 
+- Offline CLI: `process_chunks` measures the real post-guard, post-crossfade peaks in a first render pass and applies one uniform `two_pass_correction_gain` (≤ 1, targets 0.99 sample peak and -0.5 dBTP) in the second (#5694), so the final write clamp is a backstop, not the only guard
+
 **Pass criteria**: Final output is always clamped. Intermediate stages that can exceed [-1.0, 1.0] have downstream clamping.
 
 ### INV-6: Chunk Safety
@@ -104,7 +108,7 @@ The engine-side parallel processor was deleted in #4565. Two live chunk paths re
 - Each chunk is read from the file with `CROSSFADE_DURATION_SEC` of overlap (`read_chunk`) and rendered independently; no stage mutates a buffer a later chunk reuses
 - Per-chunk envelopes (transient shaper, loudness limiter) restart fresh *by design*; the crossfade must outlast their settle time, enforced in `SimpleMasteringConfig.__post_init__` (#5339). A new per-chunk-stateful stage missing from that check is a violation
 - The seam blend in `assemble_write_region` is equal-gain raised-cosine (amplitude sum 1) for this correlated overlap; equal-power sin/cos here bulges +3 dB (#4966)
-- `sum(written) == total_frames`: the final short chunk is neither zero-padded nor dropped
+- `sum(written) == total_frames`: the final short chunk is neither zero-padded nor dropped, in the measurement pass and the render pass alike (#5694: the two passes must stay identical, and the correction one constant per file)
 
 **How to verify** — backend processor (`auralis-web/backend/core/chunked_processor.py`, `auralis-web/backend/core/processor_pool.py`):
 - Chunk reassembly: ordering is index-based, not arrival-order
