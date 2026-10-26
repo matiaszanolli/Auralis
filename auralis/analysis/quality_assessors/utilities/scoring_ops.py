@@ -167,6 +167,11 @@ class ScoringOperations:
         if not bands:
             return 50.0
 
+        # NaN (a silent window, a failed measurement) compares False against
+        # every threshold and fell through to the top band's score (#5744).
+        if np.isnan(value):
+            return 0.0
+
         bands = sorted(bands, key=lambda x: x[0])
 
         # Below lowest threshold

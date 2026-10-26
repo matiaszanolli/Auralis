@@ -34,18 +34,23 @@ class DynamicsMetricsMixin:
 
         # Calculate envelope (cap to avoid multi-GB allocation on long tracks)
         _cap = int(self.sample_rate * _HILBERT_MAX_SECONDS)
-        envelope = np.abs(signal.hilbert(audio[:_cap]))
+        audio = audio[:_cap]
+
+        # Too short to characterise — and filtfilt raises below its padlen (300),
+        # so this guard has to come before the smoothing (#5744).
+        if len(audio) < 1000:
+            return 1.0
+
+        envelope = np.abs(signal.hilbert(audio))
 
         # Smooth envelope
         envelope_smooth = signal.filtfilt([1/100]*100, [1], envelope)
 
         # Look for compression characteristics
-        # Compressed audio tends to have less dynamic variation in the envelope
-
-        if len(envelope_smooth) < 1000:
-            return 1.0
-
-        # Calculate ratio of envelope variation to input variation
+        # Compressed audio tends to have less dynamic variation in the envelope.
+        # Calculate ratio of envelope variation to input variation, both over the
+        # same (capped) span — whole-file input variance against a first-30-s
+        # envelope disagreed for long audio (#5744).
         input_variation = np.var(np.abs(audio))
         envelope_variation = np.var(envelope_smooth)
 

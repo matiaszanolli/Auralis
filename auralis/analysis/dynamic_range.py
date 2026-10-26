@@ -38,20 +38,33 @@ class DynamicRangeAnalyzer(DynamicsMetricsMixin):
             Dictionary with dynamic range metrics
         """
         if audio_data.ndim == 2:
-            # For stereo, ravel all channel samples to compute true stereo RMS
-            # instead of averaging channels first (which underestimates by up
-            # to 3 dB for uncorrelated content — see #2579).
-            audio_mono = audio_data.ravel()
+            # Channels are laid end to end (channel-major), not interleaved: the
+            # RMS is still the true stereo RMS rather than a pre-averaged mix,
+            # which underestimates by up to 3 dB for uncorrelated content
+            # (#2579), but a window of N samples now spans N samples of time,
+            # not N/2, and a dual-mono signal measures like its mono twin
+            # (#5744).
+            channels = [audio_data[:, c] for c in range(audio_data.shape[1])]
+            audio_mono = np.concatenate(channels) if channels else audio_data.ravel()
         else:
+            channels = [audio_data]
             audio_mono = audio_data
+
+        if audio_mono.size < 2:  # nothing to difference or window
+            return self._empty_result()
 
         # Basic level measurements
         peak_level = self._calculate_peak_level(audio_mono)
         rms_level = self._calculate_rms_level(audio_mono)
-        crest_factor = peak_level - rms_level
+        # Digital silence has no finite level: -inf - -inf is NaN, which the
+        # assessors scored as the best crest-factor band (#5744).
+        crest_factor = (
+            peak_level - rms_level if np.isfinite(peak_level) and np.isfinite(rms_level) else 0.0
+        )
 
-        # Dynamic range measurements
-        dr_value = self._calculate_dr_value(audio_mono)
+        # Dynamic range measurements. DR is defined per channel and averaged,
+        # as the DR meter does.
+        dr_value = float(np.mean([self._calculate_dr_value(ch) for ch in channels]))
         plr = self._calculate_plr(audio_mono)
 
         # Temporal analysis
@@ -83,6 +96,23 @@ class DynamicRangeAnalyzer(DynamicsMetricsMixin):
             'envelope_stats': envelope_stats,
             'dynamic_range_category': self._categorize_dynamic_range(dr_value),
             'loudness_war_indicator': self._assess_loudness_war(crest_factor, dr_value)
+        }
+
+    def _empty_result(self) -> dict[str, Any]:
+        """Neutral result for input with no samples (nothing to measure)."""
+        return {
+            'peak_level_dbfs': float(-np.inf),
+            'rms_level_dbfs': float(-np.inf),
+            'crest_factor_db': 0.0,
+            'dr_value': 0.0,
+            'peak_to_loudness_ratio': 0.0,
+            'rms_variation': self._analyze_rms_variation(np.zeros(0)),
+            'peak_distribution': self._analyze_peak_distribution(np.zeros(0)),
+            'compression_ratio': 1.0,
+            'estimated_attack_time_ms': 10.0,
+            'envelope_stats': {},
+            'dynamic_range_category': self._categorize_dynamic_range(0.0),
+            'loudness_war_indicator': self._assess_loudness_war(0.0, 0.0),
         }
 
     def _calculate_peak_level(self, audio: np.ndarray) -> float:
