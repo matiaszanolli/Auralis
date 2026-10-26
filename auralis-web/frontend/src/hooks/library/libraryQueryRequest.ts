@@ -13,12 +13,12 @@
  */
 
 import { ENDPOINTS, LIBRARY_PAGE_LIMIT } from '@/config/api';
-import type { Track, Album, Artist } from '@/types/domain';
 import { transformAlbums, transformArtists, transformTracks } from '@/api/transformers';
 import type { AlbumApiResponse, ArtistApiResponse, TrackApiResponse } from '@/api/transformers';
 import { ApiErrorHandler } from '@/types/api';
 import type { ApiError } from '@/types/api';
 import type {
+  LibraryItemByQuery,
   LibraryQueryOptions,
   LibraryQueryResponse,
   LibraryQueryType,
@@ -72,44 +72,46 @@ export function buildEndpoint(
 }
 
 /**
+ * Per-type extractor. The mapped type makes the table exhaustive (a new
+ * LibraryQueryType without an entry is a TS error, #3631) and ties each
+ * extractor's result to `LibraryItemByQuery`, so no `as T[]` is needed (#6054).
+ * Each arm reads the collection key its own guard has already verified at the
+ * boundary (#5637); the `as XApiResponse[]` casts are that wire boundary.
+ */
+const EXTRACT_ITEMS: {
+  [Q in LibraryQueryType]: (r: Record<string, unknown>) => LibraryItemByQuery[Q][];
+} = {
+  // Canonical transformer, matching albums/artists below. Previously a
+  // raw cast with zero field conversion, so every camelCase-only field
+  // (artworkUrl/sampleRate/bitDepth/dateAdded/...) came back undefined
+  // against the backend's snake_case payload — silently, with a passing
+  // type-check. #4418 added transformers here but skipped 'tracks' (#4611).
+  tracks: (r) => transformTracks((r.tracks ?? []) as TrackApiResponse[]),
+  // Canonical transformer is the single source of truth for snake→camel
+  // album mapping (incl. artworkUrl/artistId); no inline variant (#4418).
+  albums: (r) => transformAlbums((r.albums ?? []) as AlbumApiResponse[]),
+  // Canonical transformer maps every field incl. artworkUrl/dateAdded (#4418).
+  artists: (r) => transformArtists((r.artists ?? []) as ArtistApiResponse[]),
+};
+
+/**
  * Extract items from a list response based on query type.
  *
  * The backend returns type-specific field names (`tracks`, `albums`,
- * `artists`), with `items` as the fallback, and every list goes through its
- * canonical snake→camel transformer.
- *
- * #3631: the switch is exhaustive via a `never` assertion, so adding a new
- * LibraryQueryType is a TS error here instead of silently falling through to
- * `response.items`. The response is the wire union (#5637); each arm reads
- * the collection key its own guard has already verified at the boundary.
+ * `artists`) and every list goes through its canonical snake→camel
+ * transformer; there is no generic `items` fallback. The result type follows
+ * `queryType` through `LibraryItemByQuery`.
  */
-export function extractItemsFromResponse<T extends Track | Album | Artist>(
+export function extractItemsFromResponse<Q extends LibraryQueryType>(
   response: LibraryQueryResponse | Record<string, unknown>,
-  queryType: LibraryQueryType
-): T[] {
-  // Narrow to a record so the `items` fallback key reads uniformly; the union
-  // includes Record<string, unknown>, so this cast is a member extraction.
-  const r = response as Record<string, unknown>;
-  switch (queryType) {
-    case 'tracks':
-      // Canonical transformer, matching albums/artists below. Previously a
-      // raw cast with zero field conversion, so every camelCase-only field
-      // (artworkUrl/sampleRate/bitDepth/dateAdded/...) came back undefined
-      // against the backend's snake_case payload — silently, with a passing
-      // type-check. #4418 added transformers here but skipped 'tracks' (#4611).
-      return transformTracks((r.tracks ?? []) as TrackApiResponse[]) as T[];
-    case 'albums':
-      // Canonical transformer is the single source of truth for snake→camel
-      // album mapping (incl. artworkUrl/artistId); no inline variant (#4418).
-      return transformAlbums((r.albums ?? []) as AlbumApiResponse[]) as T[];
-    case 'artists':
-      // Canonical transformer maps every field incl. artworkUrl/dateAdded (#4418).
-      return transformArtists((r.artists ?? []) as ArtistApiResponse[]) as T[];
-    default: {
-      const _exhaustive: never = queryType;
-      throw new Error(`Unhandled LibraryQueryType: ${String(_exhaustive)}`);
-    }
+  queryType: Q
+): LibraryItemByQuery[Q][] {
+  const extract = EXTRACT_ITEMS[queryType];
+  if (!extract) {
+    throw new Error(`Unhandled LibraryQueryType: ${String(queryType)}`);
   }
+  // The union includes Record<string, unknown>, so this cast is a member extraction.
+  return extract(response as Record<string, unknown>);
 }
 
 /**

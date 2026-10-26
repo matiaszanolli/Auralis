@@ -21,7 +21,6 @@ import { LIBRARY_PAGE_LIMIT } from '@/config/api';
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { useRestAPI } from '@/hooks/api/useRestAPI';
 import type { ApiError } from '@/types/api';
-import type { Track, Album, Artist } from '@/types/domain';
 import {
   buildEndpoint as buildQueryEndpoint,
   extractItemsFromResponse,
@@ -30,6 +29,7 @@ import {
 import {
   QUERY_TYPE_GUARD,
   deriveHasMore,
+  type LibraryItemByQuery,
   type LibraryQueryOptions,
   type LibraryQueryType,
   type UseLibraryQueryResult,
@@ -42,6 +42,7 @@ export type {
   LibraryQueryOptions,
   LibraryQueryResponse,
   UseLibraryQueryResult,
+  LibraryItemByQuery,
 } from '@/hooks/library/libraryQueryTypes';
 
 
@@ -57,10 +58,10 @@ export type {
  * const { data: tracks, isLoading, hasMore, fetchMore } = useLibraryQuery('tracks');
  * ```
  */
-export function useLibraryQuery<T extends Track | Album | Artist = Track>(
-  queryType: LibraryQueryType = 'tracks',
+export function useLibraryQuery<Q extends LibraryQueryType>(
+  queryType: Q,
   options: LibraryQueryOptions = {}
-): UseLibraryQueryResult<T> {
+): UseLibraryQueryResult<LibraryItemByQuery[Q]> {
   // Destructure the stable `get` from useRestAPI's stableMethods. The api
   // wrapper object itself is re-memoized on every isLoading/error change, so
   // depending on the whole object churned executeQuery/fetchMore each fetch
@@ -69,7 +70,7 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
   const { get } = useRestAPI();
 
   // State
-  const [data, setData] = useState<T[]>([]);
+  const [data, setData] = useState<LibraryItemByQuery[Q][]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(options.offset || 0);
   const [isLoading, setIsLoading] = useState(!options.skip);
@@ -159,7 +160,7 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
 
         const response = result.response;
         if (!response) return; // unreachable with requireResponse (null became an error above)
-        const items = extractItemsFromResponse<T>(response, queryType);
+        const items = extractItemsFromResponse(response, queryType);
         const newOffset = typeof response.offset === 'number' ? response.offset : 0;
         setTotal(response.total || 0);
         setOffset(newOffset);
@@ -227,7 +228,7 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
       if (result.kind !== 'ok' || !result.response) return; // stale/aborted/no page
 
       const response = result.response;
-      const items = extractItemsFromResponse<T>(response, queryType);
+      const items = extractItemsFromResponse(response, queryType);
       // Only advance the offset when the page actually returned rows.
       // An empty response must not advance the cursor or it permanently
       // skips `limit` records on the next fetchMore (#3973 / HC-10).

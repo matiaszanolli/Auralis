@@ -14,7 +14,6 @@ import {
   buildEndpoint,
   extractItemsFromResponse,
 } from '@/hooks/library/libraryQueryRequest';
-import type { Album, Artist, Track } from '@/types/domain';
 
 describe('buildEndpoint', () => {
   it('uses each query type’s canonical router, not /api/library/* for all (#2379)', () => {
@@ -56,7 +55,7 @@ describe('buildEndpoint', () => {
 
 describe('extractItemsFromResponse', () => {
   it('reads tracks from the type-specific field and maps snake_case to camelCase', () => {
-    const [track] = extractItemsFromResponse<Track>(
+    const [track] = extractItemsFromResponse(
       { tracks: [{ id: 1, title: 'Song', artwork_url: '/art/1.jpg', album_id: 7 }] },
       'tracks'
     );
@@ -65,7 +64,7 @@ describe('extractItemsFromResponse', () => {
   });
 
   it('reads albums through the canonical album transformer', () => {
-    const [album] = extractItemsFromResponse<Album>(
+    const [album] = extractItemsFromResponse(
       { albums: [{ id: 2, title: 'Record', artist_id: 3, artwork_url: null, track_count: 9 }] },
       'albums'
     );
@@ -75,7 +74,7 @@ describe('extractItemsFromResponse', () => {
   });
 
   it('reads artists through the canonical artist transformer', () => {
-    const [artist] = extractItemsFromResponse<Artist>(
+    const [artist] = extractItemsFromResponse(
       { artists: [{ id: 4, name: 'Band', track_count: 12, album_count: 2, created_at: '2024-01-01' }] },
       'artists'
     );
@@ -84,7 +83,7 @@ describe('extractItemsFromResponse', () => {
   });
 
   it('maps nothing from a generic `items` field the backend never emits', () => {
-    const items = extractItemsFromResponse<Artist>({ items: [{ id: 5, name: 'Solo' }] }, 'artists');
+    const items = extractItemsFromResponse({ items: [{ id: 5, name: 'Solo' }] }, 'artists');
 
     expect(items).toEqual([]);
   });
@@ -92,11 +91,11 @@ describe('extractItemsFromResponse', () => {
   it('takes only the field for the requested type', () => {
     const response = { tracks: [{ id: 1, title: 'Song' }], albums: [{ id: 2, title: 'Record' }] };
 
-    expect(extractItemsFromResponse<Album>(response, 'albums').map((a) => a.id)).toEqual([2]);
+    expect(extractItemsFromResponse(response, 'albums').map((a) => a.id)).toEqual([2]);
   });
 
   it('returns an empty list when the response carries no items', () => {
-    expect(extractItemsFromResponse<Track>({}, 'tracks')).toEqual([]);
+    expect(extractItemsFromResponse({}, 'tracks')).toEqual([]);
   });
 
   it('throws on a query type it does not know, rather than guessing a field', () => {

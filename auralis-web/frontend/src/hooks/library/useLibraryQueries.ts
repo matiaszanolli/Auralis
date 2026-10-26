@@ -8,7 +8,6 @@
  * @module hooks/library/useLibraryQueries
  */
 
-import type { Track, Album, Artist } from '@/types/domain';
 import { useLibraryQuery, type LibraryQueryOptions, type LibraryQueryType } from './useLibraryQuery';
 
 /**
@@ -23,7 +22,7 @@ import { useLibraryQuery, type LibraryQueryOptions, type LibraryQueryType } from
  * ```
  */
 export function useTracksQuery(options?: LibraryQueryOptions) {
-  return useLibraryQuery<Track>('tracks', options);
+  return useLibraryQuery('tracks', options);
 }
 
 /**
@@ -35,7 +34,7 @@ export function useTracksQuery(options?: LibraryQueryOptions) {
  * ```
  */
 export function useAlbumsQuery(options?: LibraryQueryOptions) {
-  return useLibraryQuery<Album>('albums', options);
+  return useLibraryQuery('albums', options);
 }
 
 /**
@@ -47,7 +46,7 @@ export function useAlbumsQuery(options?: LibraryQueryOptions) {
  * ```
  */
 export function useArtistsQuery(options?: LibraryQueryOptions) {
-  return useLibraryQuery<Artist>('artists', options);
+  return useLibraryQuery('artists', options);
 }
 
 /**
@@ -70,11 +69,11 @@ export function useArtistsQuery(options?: LibraryQueryOptions) {
  * };
  * ```
  */
-export function useInfiniteScroll<T extends Track | Album | Artist = Track>(
-  queryType: LibraryQueryType,
+export function useInfiniteScroll<Q extends LibraryQueryType>(
+  queryType: Q,
   options?: LibraryQueryOptions
 ) {
-  const { data, isLoading, isLoadingMore, error, hasMore, fetchMore, clearError } = useLibraryQuery<T>(
+  const { data, isLoading, isLoadingMore, error, hasMore, fetchMore, clearError } = useLibraryQuery(
     queryType,
     { ...options, skip: options?.skip ?? false }
   );

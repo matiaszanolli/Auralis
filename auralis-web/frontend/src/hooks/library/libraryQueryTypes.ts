@@ -8,6 +8,7 @@
  */
 
 import type { ApiError } from '@/types/api';
+import type { Track, Album, Artist } from '@/types/domain';
 import type { AlbumsApiResponse, ArtistsApiResponse, TracksApiResponse } from '@/api/transformers';
 import { isAlbumsListShape, isArtistsListShape, isTracksListShape } from '@/api/responseGuards';
 
@@ -15,6 +16,17 @@ import { isAlbumsListShape, isArtistsListShape, isTracksListShape } from '@/api/
  * Query type for library queries
  */
 export type LibraryQueryType = 'tracks' | 'albums' | 'artists';
+
+/**
+ * The domain item each query type yields. The hooks take the query type as
+ * their only type parameter and look the item type up here, so a result can
+ * never be typed as an entity the query did not fetch (#6054).
+ */
+export interface LibraryItemByQuery {
+  tracks: Track;
+  albums: Album;
+  artists: Artist;
+}
 
 /**
  * Query options for library queries
