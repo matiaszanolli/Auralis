@@ -20,6 +20,8 @@ from fastapi.responses import JSONResponse
 from auralis.version import __version__ as AURALIS_VERSION
 from core.encoding import WAVEncoderError
 
+from .middleware.error_response import unhandled_exception_response
+
 logger = logging.getLogger(__name__)
 
 
@@ -115,12 +117,11 @@ def create_app(lifespan: Any = None) -> FastAPI:
             content={"detail": "Audio encoding failed"},
         )
 
+    # Last resort: UnhandledExceptionMiddleware answers route exceptions inside
+    # the stack (#5986); this one only sees an exception raised by a middleware
+    # outside it, which has no CORS/security headers to lose.
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-        logger.error(f"Unhandled exception on {request.method} {request.url.path}: {exc}", exc_info=True)
-        return JSONResponse(
-            status_code=500,
-            content={"detail": "Internal server error"},
-        )
+        return unhandled_exception_response(request, exc)
 
     return app

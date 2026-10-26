@@ -1,6 +1,7 @@
 """
-Integration regression: a route handler's unhandled exception reaches
-config/app.py's registered @app.exception_handler(Exception), not whichever
+Integration regression: a route handler's unhandled exception is answered by
+the shared unhandled-exception 500 (UnhandledExceptionMiddleware since #5986;
+config/app.py's @app.exception_handler(Exception) before it), not by whichever
 middleware happens to be innermost (#4808)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

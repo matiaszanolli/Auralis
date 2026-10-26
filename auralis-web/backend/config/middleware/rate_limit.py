@@ -138,7 +138,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # handler's exception at its call site, so wrapping it here caught
         # every unhandled route exception and misattributed it as
         # "Unhandled exception in RateLimitMiddleware" instead of letting it
-        # reach config/app.py's registered `@app.exception_handler(Exception)`.
+        # reach UnhandledExceptionMiddleware, which answers it (#5986).
         # This used to be two call sites (an early-return fast path plus the
         # final one); collapsing to one after the bookkeeping block achieves
         # the same fast-path behavior (nothing below runs when no rule

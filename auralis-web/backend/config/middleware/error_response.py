@@ -10,6 +10,7 @@ Split out of config/middleware.py (#5479).
 
 import logging
 
+from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
@@ -24,12 +25,23 @@ def _middleware_error_response(exc: Exception, where: str) -> JSONResponse:
     so ``@app.exception_handler(Exception)`` does not cover it — a raise here
     would otherwise reach Starlette's ``ServerErrorMiddleware`` and return a
     generic error response rather than one this codebase's own callers
-    construct (#4378). #4808 found that ServerErrorMiddleware's response
-    shape is no longer actually different — ``config/app.py``'s registered
-    ``@app.exception_handler(Exception)`` produces the identical
-    ``{"detail": "Internal server error"}`` / 500 shape — but this helper
-    stays: it's still the right place to log which middleware's own
-    bookkeeping failed, distinct from a route handler's exception.
+    construct (#4378). The two now share the ``{"detail": "Internal server
+    error"}`` / 500 shape, but this helper stays: it's still the right place to
+    log which middleware's own bookkeeping failed, distinct from a route
+    handler's exception (see ``unhandled_exception_response``).
     """
     logger.error(f"Unhandled exception in {where}: {exc}", exc_info=True)
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+
+
+def unhandled_exception_response(request: Request, exc: Exception) -> JSONResponse:
+    """The 500 for a route exception nothing mapped to a status code.
+
+    One ERROR log with the traceback and a generic body that never echoes the
+    exception text. Shared by UnhandledExceptionMiddleware and config/app.py's
+    last-resort ``@app.exception_handler(Exception)`` so both answer alike (#5986).
+    """
+    logger.error(
+        f"Unhandled exception on {request.method} {request.url.path}: {exc}", exc_info=True
+    )
     return JSONResponse(status_code=500, content={"detail": "Internal server error"})

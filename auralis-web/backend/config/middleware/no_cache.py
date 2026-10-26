@@ -32,7 +32,7 @@ class NoCacheMiddleware(BaseHTTPMiddleware):
         # exception at this call site, so catching Exception around it would
         # swallow that exception here and misattribute every unhandled route
         # error to NoCacheMiddleware instead of letting it reach
-        # config/app.py's registered `@app.exception_handler(Exception)`.
+        # UnhandledExceptionMiddleware, which answers it (#5986).
         response = await call_next(request)
 
         try:

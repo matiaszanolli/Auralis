@@ -10,6 +10,7 @@ single wiring point:
 - no_cache.py          NoCacheMiddleware
 - security_headers.py  SecurityHeadersMiddleware and the CSP
 - rate_limit.py        RateLimitMiddleware
+- unhandled_exception.py  UnhandledExceptionMiddleware
 - origin_check.py      OriginCheckMiddleware
 - hosts.py             cors_allowed_origins(), trusted_hosts()
 
@@ -28,6 +29,7 @@ from .no_cache import NoCacheMiddleware
 from .origin_check import OriginCheckMiddleware
 from .rate_limit import RateLimitMiddleware
 from .security_headers import SecurityHeadersMiddleware
+from .unhandled_exception import UnhandledExceptionMiddleware
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +45,9 @@ def setup_middleware(app: FastAPI) -> None:
     3. NoCacheMiddleware - no-cache headers for frontend assets
     4. OriginCheckMiddleware - CSRF-shaped request rejection (#4893)
     5. TrustedHostMiddleware - Host header validation (#4353)
-    6. RateLimitMiddleware - rate limiting for expensive endpoints (#2575), innermost
+    6. RateLimitMiddleware - rate limiting for expensive endpoints (#2575)
+    7. UnhandledExceptionMiddleware - generic 500 for escaped route exceptions
+       (#5986), innermost, so that 500 still gets every header above
 
     See the registration order below (reverse of the above) for why each
     middleware is placed where it is.
@@ -57,8 +61,14 @@ def setup_middleware(app: FastAPI) -> None:
     # run and is returned without the documented security headers (#3843).
     #
     # Resulting request-inbound order: CORS → SecurityHeaders → NoCache →
-    # OriginCheck → TrustedHost → RateLimit → app; a 403/429/400 bubbles back
-    # up through SecurityHeaders/NoCache.
+    # OriginCheck → TrustedHost → RateLimit → UnhandledException → app; a
+    # 403/429/400 bubbles back up through SecurityHeaders/NoCache, and so does
+    # the 500 for a route exception (#5986).
+
+    # Generic 500 for a route exception nothing mapped to a status — innermost,
+    # so the exception never escapes past SecurityHeaders/NoCache/CORS into
+    # ServerErrorMiddleware, which sits outside all of them (#5986).
+    app.add_middleware(UnhandledExceptionMiddleware)
 
     # Rate limiting for expensive endpoints (#2575) — innermost
     app.add_middleware(RateLimitMiddleware)
@@ -114,6 +124,6 @@ def setup_middleware(app: FastAPI) -> None:
     )
 
     logger.debug(
-        "✅ Middleware configured: TrustedHostMiddleware, RateLimitMiddleware, "
+        "✅ Middleware configured: UnhandledExceptionMiddleware, TrustedHostMiddleware, RateLimitMiddleware, "
         "OriginCheckMiddleware, NoCacheMiddleware, SecurityHeadersMiddleware, CORSMiddleware"
     )
