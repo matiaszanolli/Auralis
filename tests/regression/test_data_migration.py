@@ -78,7 +78,6 @@ class TestTrackSchemaMigration:
             'sample_rate': 44100,
             'channels': 2,
             'duration': 245.5,
-            'bitrate': 1411
         }
 
         track = track_repo.add(track_info)
@@ -94,7 +93,6 @@ class TestTrackSchemaMigration:
         assert retrieved.sample_rate == 44100
         assert retrieved.channels == 2
         assert retrieved.duration == 245.5
-        assert retrieved.bitrate == 1411
 
     def test_track_artist_relationship_preserved(self, temp_db):
         """

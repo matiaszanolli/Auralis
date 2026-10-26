@@ -26,11 +26,13 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
+from security.path_allowlist import (  # noqa: E402
+    register_allowed_directory,
+    unregister_allowed_directory,
+)
 from security.path_security import (  # noqa: E402
     PathMissingError,
     PathValidationError,
-    register_allowed_directory,
-    unregister_allowed_directory,
     validate_file_path,
 )
 

@@ -329,11 +329,11 @@ class TestGetMasteringRecommendation:
         must be inside an allowed directory (so containment isn't what
         rejects it) but not actually exist on disk."""
         from unittest.mock import Mock, patch
-        from security.path_security import (
+        from security.path_allowlist import (
             register_allowed_directory,
             unregister_allowed_directory,
-            validate_file_path as real_validate,
         )
+        from security.path_security import validate_file_path as real_validate
 
         allowed_dir = tmp_path / "Music"
         allowed_dir.mkdir()

@@ -58,8 +58,6 @@ class Track(Base, TimestampMixin):
     filepath_key: Mapped[str | None] = mapped_column(String, unique=True, index=True)
     duration: Mapped[float | None] = mapped_column(Float)
     sample_rate: Mapped[int | None] = mapped_column(Integer)
-    bit_depth: Mapped[int | None] = mapped_column(Integer)
-    bitrate: Mapped[int | None] = mapped_column(Integer)  # kbps; matches the field listed in TrackRepository.update (fixes #2411)
     channels: Mapped[int | None] = mapped_column(Integer)
     format: Mapped[str | None] = mapped_column(String)
     filesize: Mapped[int | None] = mapped_column(Integer)
@@ -70,10 +68,7 @@ class Track(Base, TimestampMixin):
     file_mtime: Mapped[float | None] = mapped_column(Float)
 
     # Audio analysis data
-    peak_level: Mapped[float | None] = mapped_column(Float)
-    rms_level: Mapped[float | None] = mapped_column(Float)
     dr_rating: Mapped[float | None] = mapped_column(Float)  # Dynamic Range rating
-    lufs_level: Mapped[float | None] = mapped_column(Float)  # LUFS loudness
 
     # Auralis-specific analysis
     mastering_quality: Mapped[float | None] = mapped_column(Float)  # Quality score 0-1
@@ -155,15 +150,10 @@ class Track(Base, TimestampMixin):
                 'title': self.title,
                 'duration': self.duration,
                 'sample_rate': self.sample_rate,
-                'bit_depth': self.bit_depth,
-                'bitrate': self.bitrate,
                 'channels': self.channels,
                 'format': self.format,
                 'filesize': self.filesize,
-                'peak_level': self.peak_level,
-                'rms_level': self.rms_level,
                 'dr_rating': self.dr_rating,
-                'lufs_level': self.lufs_level,
                 'mastering_quality': self.mastering_quality,
                 'recommended_reference': self.recommended_reference,
                 'processing_profile': self.processing_profile,

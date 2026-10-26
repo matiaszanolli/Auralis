@@ -83,10 +83,9 @@ class TrackRepositoryMutationMixin(BaseRepository):
                     return None
 
                 # Update basic fields
-                for key in ['title', 'duration', 'sample_rate', 'bit_depth', 'channels',
-                           'format', 'filesize', 'file_mtime', 'peak_level', 'rms_level',
-                           'dr_rating', 'lufs_level', 'track_number', 'disc_number',
-                           'year', 'comments']:
+                for key in ['title', 'duration', 'sample_rate', 'channels',
+                           'format', 'filesize', 'file_mtime', 'dr_rating',
+                           'track_number', 'disc_number', 'year', 'comments']:
                     if key in track_info:
                         setattr(track, key, track_info[key])
 
@@ -136,7 +135,7 @@ class TrackRepositoryMutationMixin(BaseRepository):
                     return None
 
                 # Update simple fields
-                for field in ['title', 'duration', 'bitrate', 'sample_rate', 'year', 'track_number', 'disc_number']:
+                for field in ['title', 'duration', 'sample_rate', 'year', 'track_number', 'disc_number']:
                     if field in track_info:
                         setattr(track, field, track_info[field])
 

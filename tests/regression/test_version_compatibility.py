@@ -338,7 +338,6 @@ class TestAPIVersionCompatibility:
             'sample_rate': 44100,
             'channels': 2,
             'duration': 180.5,
-            'bitrate': 1411
         }
 
         track = track_repo.add(track_info)
@@ -354,7 +353,6 @@ class TestAPIVersionCompatibility:
         assert hasattr(track, 'sample_rate')
         assert hasattr(track, 'channels')
         assert hasattr(track, 'duration')
-        assert hasattr(track, 'bitrate')
 
     def test_repository_method_signatures_unchanged(self, temp_db):
         """

@@ -35,7 +35,6 @@ class StatsRepository(BaseRepository):
                 func.coalesce(func.sum(Track.play_count), 0).label('total_plays'),
                 func.count(Track.id).filter(Track.favorite == True).label('favorite_count'),
                 func.avg(Track.dr_rating).filter(Track.dr_rating.isnot(None)).label('avg_dr'),
-                func.avg(Track.lufs_level).filter(Track.lufs_level.isnot(None)).label('avg_lufs'),
             )).one()
 
             # Single query for entity counts (albums, artists, genres, playlists)
@@ -59,13 +58,10 @@ class StatsRepository(BaseRepository):
             }
 
             avg_dr = track_stats_row.avg_dr
-            avg_lufs = track_stats_row.avg_lufs
             stats['average_dr'] = float(avg_dr) if avg_dr else None
-            stats['average_lufs'] = float(avg_lufs) if avg_lufs else None
 
             # Derived fields expected by frontend
             stats['avg_dr_rating'] = stats['average_dr']
-            stats['avg_lufs'] = stats['average_lufs']
 
             # Format total duration as human-readable string
             total_secs = int(stats['total_duration'])

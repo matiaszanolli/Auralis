@@ -126,7 +126,7 @@ class TestSerializeTrack:
 
     def test_real_track_to_dict_has_no_filepath_or_fallback_twins(self):
         """The real key set: no server-side path (#3205) and one spelling per
-        field (#5823) -- `artists`/`genres`/`lufs_level`/`created_at`/
+        field (#5823) -- `artists`/`genres`/`created_at`/
         `updated_at`, never the singular or aliased twins."""
         from auralis.library.models import Track
 
@@ -134,7 +134,7 @@ class TestSerializeTrack:
         assert 'filepath' not in result
         for twin in ('artist', 'genre', 'loudness', 'date_added', 'date_modified'):
             assert twin not in result
-        for key in ('artists', 'genres', 'lufs_level', 'created_at', 'updated_at'):
+        for key in ('artists', 'genres', 'created_at', 'updated_at'):
             assert key in result
 
     def test_serialize_tracks_list(self):

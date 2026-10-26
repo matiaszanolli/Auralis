@@ -34,15 +34,10 @@ export interface Track {
   favorite?: boolean; // Backend: favorite
 
   // Audio properties
-  bitrate?: number | null; // kbps
   sampleRate?: number | null; // Hz (camelCase)
-  bitDepth?: number | null; // bits (camelCase)
   channels?: number | null;
   format?: string | null; // wav, flac, mp3, etc.
   fileSize?: number | null; // Backend: filesize
-
-  // Analysis properties
-  loudness?: number | null; // LUFS
 
   // Timestamps
   dateAdded?: string | null; // ISO 8601 (camelCase)
@@ -148,7 +143,5 @@ export interface LibraryStats {
   total_plays: number;
   favorite_count: number;
   average_dr?: number | null;
-  average_lufs?: number | null;
   avg_dr_rating?: number | null;
-  avg_lufs?: number | null;
 }

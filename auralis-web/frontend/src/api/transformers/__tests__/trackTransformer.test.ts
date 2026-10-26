@@ -19,11 +19,8 @@ describe('trackTransformer', () => {
         artwork_url: '/artwork/slayer_reign_in_blood.jpg',
         genres: ['Thrash Metal'],
         year: 1986,
-        bitrate: 1411,
         sample_rate: 48000,
-        bit_depth: 24,
         format: 'flac',
-        lufs_level: -8.5,
         created_at: '2023-01-15T10:30:00Z',
         updated_at: '2023-02-20T14:15:00Z',
       };
@@ -40,11 +37,8 @@ describe('trackTransformer', () => {
         artworkUrl: '/artwork/slayer_reign_in_blood.jpg',
         genre: 'Thrash Metal',
         year: 1986,
-        bitrate: 1411,
         sampleRate: 48000,
-        bitDepth: 24,
         format: 'flac',
-        loudness: -8.5,
         dateAdded: '2023-01-15T10:30:00Z',
         dateModified: '2023-02-20T14:15:00Z',
       };
@@ -63,11 +57,8 @@ describe('trackTransformer', () => {
         artwork_url: null,
         genres: [],
         year: null,
-        bitrate: null,
         sample_rate: null,
-        bit_depth: null,
         format: null,
-        lufs_level: null,
         crest_factor: null,
         centroid: null,
         created_at: null,
@@ -79,11 +70,8 @@ describe('trackTransformer', () => {
       expect(result.artworkUrl).toBeUndefined();
       expect(result.genre).toBeUndefined();
       expect(result.year).toBeUndefined();
-      expect(result.bitrate).toBeUndefined();
       expect(result.sampleRate).toBeUndefined();
-      expect(result.bitDepth).toBeUndefined();
       expect(result.format).toBeUndefined();
-      expect(result.loudness).toBeUndefined();
       expect(result.dateAdded).toBeUndefined();
       expect(result.dateModified).toBeUndefined();
     });
@@ -111,11 +99,8 @@ describe('trackTransformer', () => {
         artwork_url: null,
         genres: [],
         year: null,
-        bitrate: null,
         sample_rate: null,
-        bit_depth: null,
         format: null,
-        lufs_level: null,
         crest_factor: null,
         centroid: null,
         created_at: null,
@@ -140,11 +125,8 @@ describe('trackTransformer', () => {
         artwork_url: '/hires.jpg',
         genres: [],
         year: null,
-        bitrate: 2822,
         sample_rate: 96000,
-        bit_depth: 32,
         format: 'flac',
-        lufs_level: null,
         crest_factor: null,
         centroid: null,
         created_at: null,
@@ -154,8 +136,6 @@ describe('trackTransformer', () => {
       const result = transformTrack(apiTrack);
 
       expect(result.sampleRate).toBe(96000);
-      expect(result.bitDepth).toBe(32);
-      expect(result.bitrate).toBe(2822);
       expect(result.format).toBe('flac');
     });
 
@@ -170,11 +150,8 @@ describe('trackTransformer', () => {
         artwork_url: null,
         genres: [],
         year: null,
-        bitrate: null,
         sample_rate: null,
-        bit_depth: null,
         format: null,
-        lufs_level: null,
         crest_factor: null,
         centroid: null,
         created_at: null,
@@ -247,25 +224,17 @@ describe('trackTransformer', () => {
       expect(result.dateModified).toBe('2026-02-02T00:00:00Z');
     });
 
-    it('maps lufs_level (what Track.to_dict() emits) to loudness (#5823)', () => {
-      const result = transformTrack({ ...base, lufs_level: -9.5 } as TrackApiResponse);
-
-      expect(result.loudness).toBe(-9.5);
-    });
-
     it('ignores the twin spellings the backend never emits (#5823)', () => {
       const result = transformTrack({
         ...base,
         artist: 'Singular',
         genre: 'Singular',
-        loudness: -1,
         date_added: '2020-01-01T00:00:00Z',
         date_modified: '2020-01-02T00:00:00Z',
       } as TrackApiResponse);
 
       expect(result.artist).toBe('');
       expect(result.genre).toBeUndefined();
-      expect(result.loudness).toBeUndefined();
       expect(result.dateAdded).toBeUndefined();
       expect(result.dateModified).toBeUndefined();
     });
@@ -294,11 +263,8 @@ describe('trackTransformer', () => {
           artwork_url: '/art1.jpg',
           genres: ['Rock'],
           year: 2023,
-          bitrate: 320,
           sample_rate: 44100,
-          bit_depth: 16,
           format: 'mp3',
-          lufs_level: -10.0,
           crest_factor: 10.5,
           centroid: 2000,
           created_at: '2023-01-01T00:00:00Z',
@@ -314,11 +280,8 @@ describe('trackTransformer', () => {
           artwork_url: null,
           genres: [],
           year: null,
-          bitrate: null,
           sample_rate: null,
-          bit_depth: null,
           format: null,
-          lufs_level: null,
           crest_factor: null,
           centroid: null,
           created_at: null,
@@ -350,11 +313,8 @@ describe('trackTransformer', () => {
           artwork_url: null,
           genres: [],
           year: null,
-          bitrate: null,
           sample_rate: null,
-          bit_depth: null,
           format: null,
-          lufs_level: null,
           crest_factor: null,
           centroid: null,
           created_at: null,
@@ -381,11 +341,8 @@ describe('trackTransformer', () => {
         artwork_url: '/test.jpg',
         genres: [],
         year: null,
-        bitrate: null,
         sample_rate: null,
-        bit_depth: null,
         format: null,
-        lufs_level: null,
         crest_factor: null,
         centroid: null,
         created_at: null,
@@ -409,11 +366,8 @@ describe('trackTransformer', () => {
         artwork_url: null,
         genres: [],
         year: null,
-        bitrate: null,
         sample_rate: 48000,
-        bit_depth: null,
         format: null,
-        lufs_level: null,
         crest_factor: null,
         centroid: null,
         created_at: null,
@@ -424,34 +378,6 @@ describe('trackTransformer', () => {
 
       expect(result.sampleRate).toBe(48000);
       expect(result).not.toHaveProperty('sample_rate');
-    });
-
-    it('should convert bit_depth to bitDepth', () => {
-      const apiTrack: TrackApiResponse = {
-        id: 1,
-        title: 'Test',
-        artists: ['Test'],
-        album: 'Test',
-        duration: 100,
-        filepath: '/test.mp3',
-        artwork_url: null,
-        genres: [],
-        year: null,
-        bitrate: null,
-        sample_rate: null,
-        bit_depth: 24,
-        format: null,
-        lufs_level: null,
-        crest_factor: null,
-        centroid: null,
-        created_at: null,
-        updated_at: null,
-      };
-
-      const result = transformTrack(apiTrack);
-
-      expect(result.bitDepth).toBe(24);
-      expect(result).not.toHaveProperty('bit_depth');
     });
 
     it('does not expose analysis fields absent from the track API contract', () => {
@@ -465,11 +391,8 @@ describe('trackTransformer', () => {
         artwork_url: null,
         genres: [],
         year: null,
-        bitrate: null,
         sample_rate: null,
-        bit_depth: null,
         format: null,
-        lufs_level: null,
         crest_factor: 15.2,
         centroid: null,
         created_at: null,
@@ -493,11 +416,8 @@ describe('trackTransformer', () => {
         artwork_url: null,
         genres: [],
         year: null,
-        bitrate: null,
         sample_rate: null,
-        bit_depth: null,
         format: null,
-        lufs_level: null,
         crest_factor: null,
         centroid: null,
         created_at: '2023-12-25T12:00:00Z',
@@ -521,11 +441,8 @@ describe('trackTransformer', () => {
         artwork_url: null,
         genres: [],
         year: null,
-        bitrate: null,
         sample_rate: null,
-        bit_depth: null,
         format: null,
-        lufs_level: null,
         crest_factor: null,
         centroid: null,
         created_at: null,
@@ -551,11 +468,8 @@ describe('trackTransformer', () => {
         artwork_url: '/test.jpg',
         genres: ['Rock'],
         year: 2023,
-        bitrate: 320,
         sample_rate: 44100,
-        bit_depth: 16,
         format: 'mp3',
-        lufs_level: -10.0,
         crest_factor: 12.0,
         centroid: 2000,
         created_at: '2023-01-01T00:00:00Z',
@@ -580,11 +494,8 @@ describe('trackTransformer', () => {
           artwork_url: null,
           genres: [],
           year: null,
-          bitrate: null,
           sample_rate: null,
-          bit_depth: null,
           format: null,
-          lufs_level: null,
           crest_factor: null,
           centroid: null,
           created_at: null,

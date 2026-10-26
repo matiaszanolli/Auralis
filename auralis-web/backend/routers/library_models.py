@@ -17,10 +17,10 @@ class RefreshReferencesResponse(BaseModel):
 class LibraryStatsResponse(BaseModel):
     """Library-wide statistics (`StatsRepository.get_library_stats`).
 
-    `avg_dr_rating` / `avg_lufs` are deliberate duplicates of
-    `average_dr` / `average_lufs` — the repository emits both because the
-    frontend reads the former pair. Declaring only one of each would delete
-    the other from the response.
+    `avg_dr_rating` is a deliberate duplicate of `average_dr` — the repository
+    emits both because the frontend reads the former. Declaring only one would
+    delete the other from the response. (There is no loudness average: tracks
+    never carried one, #5755.)
 
     Every counter carries a default even though the repository always
     populates all of them. A `response_model` validates as well as filters, so
@@ -42,9 +42,7 @@ class LibraryStatsResponse(BaseModel):
     total_plays: int = Field(default=0, description="Summed play count")
     favorite_count: int = Field(default=0, description="Number of favorited tracks")
     average_dr: float | None = Field(default=None, description="Mean dynamic-range rating")
-    average_lufs: float | None = Field(default=None, description="Mean integrated loudness")
     avg_dr_rating: float | None = Field(default=None, description="Alias of average_dr")
-    avg_lufs: float | None = Field(default=None, description="Alias of average_lufs")
 
 
 class LibraryResetResponse(BaseModel):

@@ -94,17 +94,12 @@ class TrackResponse(BaseModel):
 
     # Audio format
     sample_rate: int | None = Field(default=None, description="Sample rate in Hz")
-    bit_depth: int | None = Field(default=None, description="Bit depth")
-    bitrate: int | None = Field(default=None, description="Bitrate in kbps")
     channels: int | None = Field(default=None, description="Channel count")
     format: str | None = Field(default=None, description="Container/codec format")
     filesize: int | None = Field(default=None, description="File size in bytes")
 
     # Audio analysis
-    peak_level: float | None = Field(default=None, description="Peak level")
-    rms_level: float | None = Field(default=None, description="RMS level")
     dr_rating: float | None = Field(default=None, description="Dynamic range rating")
-    lufs_level: float | None = Field(default=None, description="Integrated loudness (LUFS)")
     mastering_quality: float | None = Field(default=None, description="Quality score (0–1)")
     recommended_reference: str | None = Field(default=None, description="Best reference track")
     processing_profile: str | None = Field(default=None, description="Optimal mastering profile")

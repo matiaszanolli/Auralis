@@ -27,6 +27,8 @@ DROPPED_COLUMNS = {
     'fingerprint_vector',
 }
 
+DROPPED_AUDIO_COLUMNS = {'bit_depth', 'bitrate', 'peak_level', 'rms_level', 'lufs_level'}
+
 DROPPED_INDEXES = {
     'idx_tracks_fingerprint_status',
     'idx_tracks_fingerprint_queue',
@@ -47,6 +49,15 @@ def _add_legacy_fingerprint_columns(conn) -> None:
         "fingerprint_computed_at DATETIME",
         "fingerprint_error_message TEXT",
         "fingerprint_vector TEXT",
+    ):
+        conn.execute(text(f"ALTER TABLE tracks ADD COLUMN {ddl}"))
+
+
+def _add_legacy_audio_columns(conn) -> None:
+    """Give a freshly built (post-v28) schema the columns a v27 DB has."""
+    for ddl in (
+        "bit_depth INTEGER", "bitrate INTEGER", "peak_level FLOAT",
+        "rms_level FLOAT", "lufs_level FLOAT",
     ):
         conn.execute(text(f"ALTER TABLE tracks ADD COLUMN {ddl}"))
 
@@ -177,3 +188,41 @@ def test_track_orm_and_stats_repository_no_longer_carry_the_status_api():
     assert not DROPPED_COLUMNS & {a.key for a in sa_inspect(Track).column_attrs}
     assert not hasattr(FingerprintStatsRepository, 'update_status')
     assert not hasattr(FingerprintStatsRepository, 'get_fingerprint_status')
+
+
+def test_fresh_database_has_no_audio_property_columns(tmp_path):
+    with MigrationManager(str(tmp_path / "fresh_audio.db")) as manager:
+        assert manager.initialize_fresh_database()
+        assert not DROPPED_AUDIO_COLUMNS & _track_column_names(manager.engine)
+
+
+def test_v027_to_v028_migration_drops_the_audio_columns(tmp_path):
+    """A v27 database with the always-NULL audio columns migrates forward,
+    loses them, and keeps its tracks and the columns that are populated."""
+    db_path = str(tmp_path / "v27.db")
+    with MigrationManager(db_path) as manager:
+        assert manager.initialize_fresh_database()
+        with manager.engine.begin() as conn:
+            _add_legacy_audio_columns(conn)
+            conn.execute(text(
+                "INSERT INTO tracks (title, filepath, filepath_key, sample_rate, "
+                "skip_count, play_count, favorite, bitrate) "
+                "VALUES ('t', '/a/t.wav', '/a/t.wav', 44100, 0, 0, 0, 320)"))
+            conn.execute(text("UPDATE schema_version SET version = 27"))
+        assert DROPPED_AUDIO_COLUMNS <= _track_column_names(manager.engine)
+
+    with MigrationManager(db_path) as manager:
+        assert manager.get_current_version() == 27
+        assert manager.migrate_to_latest()
+        assert not DROPPED_AUDIO_COLUMNS & _track_column_names(manager.engine)
+        with manager.engine.connect() as conn:
+            row = conn.execute(text("SELECT title, sample_rate FROM tracks")).one()
+        assert tuple(row) == ('t', 44100)
+
+
+def test_track_dict_and_stats_no_longer_carry_the_audio_fields(tmp_path):
+    from auralis.library.models import Track
+
+    d = Track(title="T").to_dict()
+    assert not DROPPED_AUDIO_COLUMNS & set(d)
+    assert 'sample_rate' in d and 'dr_rating' in d

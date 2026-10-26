@@ -57,11 +57,8 @@ export interface TrackInfo {
   artwork_url?: string;
   genre?: string;
   year?: number;
-  bitrate?: number;
   sample_rate?: number;
-  bit_depth?: number;
   format?: string;
-  loudness?: number;
   date_added?: string;
   date_modified?: string;
 }

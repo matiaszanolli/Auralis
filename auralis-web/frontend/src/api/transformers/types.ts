@@ -91,15 +91,10 @@ export interface TrackApiResponse {
   favorite?: boolean;
 
   // Audio properties
-  bitrate?: number | null;
   sample_rate?: number | null; // snake_case
-  bit_depth?: number | null; // snake_case
   channels?: number | null;
   format?: string | null;
   filesize?: number | null; // → fileSize
-
-  // Analysis properties
-  lufs_level?: number | null; // → loudness
 
   // Timestamps
   created_at?: string | null;

@@ -5,7 +5,7 @@ and fingerprint algorithm versions are independent and must only change with
 their respective formats.
 """
 
-__db_schema_version__ = 27  # drop the unread tracks.fingerprint_* columns (#5755)
+__db_schema_version__ = 28  # drop the never-populated tracks bit_depth/bitrate/level columns (#5755)
 
 # Fingerprint algorithm version — increment this whenever the 25D extraction
 # algorithm changes in a way that produces different values for the same audio.
@@ -90,3 +90,4 @@ FINGERPRINT_ALGORITHM_VERSION = 10
 # Schema v25 - Index track_artist/track_genre (both columns) and albums.artist_id (#6103)
 # Schema v26 - Drop the unread tracks.fingerprint_* indexes and the library_stats table (#5755)
 # Schema v27 - Drop the unread tracks.fingerprint_status/_computed_at/_error_message/_vector columns (#5755)
+# Schema v28 - Drop the never-populated tracks.bit_depth/bitrate/peak_level/rms_level/lufs_level columns (#5755)

@@ -11,10 +11,10 @@ import type { Track } from '@/types/domain';
  * Transform a single track from API response to domain model
  *
  * Backend contract (snake_case):
- * - sample_rate, bit_depth, created_at, updated_at
+ * - sample_rate, created_at, updated_at
  *
  * Frontend domain (camelCase):
- * - sampleRate, bitDepth, dateAdded, dateModified
+ * - sampleRate, dateAdded, dateModified
  */
 export function transformTrack(apiTrack: TrackApiResponse): Track {
   // Track.to_dict() sends artists/genres as arrays and no singular twin (#2263,
@@ -50,16 +50,10 @@ export function transformTrack(apiTrack: TrackApiResponse): Track {
     favorite: apiTrack.favorite ?? undefined,
 
     // Audio properties (snake → camel, null → undefined)
-    bitrate: apiTrack.bitrate ?? undefined,
     sampleRate: apiTrack.sample_rate ?? undefined,
-    bitDepth: apiTrack.bit_depth ?? undefined,
     channels: apiTrack.channels ?? undefined,
     format: apiTrack.format ?? undefined,
     fileSize: apiTrack.filesize ?? undefined,
-
-    // Analysis properties (null → undefined). Track.to_dict() names the
-    // integrated loudness lufs_level; there is no `loudness` key (#5823).
-    loudness: apiTrack.lufs_level ?? undefined,
 
     // Timestamps (snake → camel, null → undefined)
     dateAdded: apiTrack.created_at ?? undefined,

@@ -277,11 +277,13 @@ class TestLibraryStatsCoverage:
         )
 
     def test_the_duplicate_average_aliases_are_all_kept(self):
-        """The repository emits average_dr AND avg_dr_rating; both are consumed."""
+        """The repository emits average_dr AND avg_dr_rating; both are consumed.
+        There is no loudness average: tracks carry no lufs_level (#5755)."""
         from routers.library import LibraryStatsResponse
 
         fields = _fields(LibraryStatsResponse)
-        assert {"average_dr", "avg_dr_rating", "average_lufs", "avg_lufs"} <= fields
+        assert {"average_dr", "avg_dr_rating"} <= fields
+        assert not {"average_lufs", "avg_lufs"} & fields
 
 
 if __name__ == "__main__":

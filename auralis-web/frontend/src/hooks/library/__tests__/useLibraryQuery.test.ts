@@ -1315,7 +1315,6 @@ describe('useLibraryQuery', () => {
           filepath: '/a.wav',
           artwork_url: '/api/tracks/3/artwork',
           sample_rate: 44100,
-          bit_depth: 24,
           created_at: '2026-01-01',
           updated_at: '2026-02-02',
           crest_factor: 8.5,
@@ -1335,7 +1334,6 @@ describe('useLibraryQuery', () => {
       const track = result.current.data[0] as unknown as Track;
       expect(track.artworkUrl).toBe('/api/tracks/3/artwork');
       expect(track.sampleRate).toBe(44100);
-      expect(track.bitDepth).toBe(24);
       expect(track.dateAdded).toBe('2026-01-01');
       expect(track.dateModified).toBe('2026-02-02');
       expect(track.albumId).toBe(7);

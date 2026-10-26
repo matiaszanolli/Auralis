@@ -270,7 +270,6 @@ class TestAPIContractCompliance:
             album_id=album.id,
             duration=200.0,
             sample_rate=44100,
-            bit_depth=16,
             format="MP3"
         )
         db_session.add(track)
@@ -283,11 +282,12 @@ class TestAPIContractCompliance:
         track_dict = track.to_dict()
 
         # TrackApiResponse expects these snake_case fields
-        # Note: Track model returns 'artists' (plural list), not 'artist' (singular)
+        # Note: Track model returns 'artists' (plural list), not 'artist' (singular),
+        # and never the server-side `filepath` (#3205)
         expected_fields = [
-            'id', 'title', 'album', 'duration', 'filepath',
+            'id', 'title', 'album', 'duration',
             'artwork_url',  # KEY FIELD - standardized name
-            'sample_rate', 'bit_depth', 'format',
+            'sample_rate', 'format',
             'artists'  # plural list of artist names
         ]
 

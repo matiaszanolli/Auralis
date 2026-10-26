@@ -121,7 +121,7 @@ def client(mock_track, mock_broadcast_manager, mock_metadata_editor, monkeypatch
         monkeypatch.setitem(sys.modules, 'config.routes', routes_stub)
 
     from routers.metadata import create_metadata_router
-    from security.path_security import (
+    from security.path_allowlist import (
         register_allowed_directory,
         unregister_allowed_directory,
     )
