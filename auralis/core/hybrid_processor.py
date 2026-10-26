@@ -39,12 +39,10 @@ if TYPE_CHECKING:
     # Only needed for the class-level attribute annotations below — the
     # attributes themselves are constructed in hybrid_setup.py (#5463).
     from ..analysis.fingerprint import AudioFingerprintAnalyzer
-    from ..dsp.advanced_dynamics import DynamicsProcessor
     from ..dsp.dynamics.brick_wall_limiter import BrickWallLimiter
     from ..dsp.eq.psychoacoustic_eq import PsychoacousticEQ
     from ..optimization.performance_optimizer import PerformanceOptimizer
     from .analysis.spectrum_mapper import SpectrumMapper
-    from .hybrid import DynamicsManager
     from .processing import AdaptiveMode, ContinuousMode, EQProcessor, HybridMode
 
 
@@ -76,9 +74,7 @@ class HybridProcessor:
     spectrum_mapper: "SpectrumMapper"
     fingerprint_analyzer: "AudioFingerprintAnalyzer"
     psychoacoustic_eq: "PsychoacousticEQ"
-    dynamics_processor: "DynamicsProcessor"
     brick_wall_limiter: "BrickWallLimiter"
-    dynamics_manager: "DynamicsManager"
     eq_processor: "EQProcessor"
     adaptive_mode: "AdaptiveMode"
     continuous_mode: "ContinuousMode"
@@ -233,11 +229,6 @@ class HybridProcessor:
         return _dispatch_hybrid(self, target_audio, reference)
 
     # Delegation methods for component managers
-
-    def reset_dynamics(self) -> None:
-        """Reset dynamics processing state (#3787: locked)."""
-        with self._process_lock:
-            self.dynamics_manager.reset()
 
     def reset_psychoacoustic_eq(self) -> None:
         """Reset the adaptive/continuous psychoacoustic EQ's gain-smoothing

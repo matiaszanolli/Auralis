@@ -39,7 +39,6 @@ auralis/
 │   └── config/                   UnifiedConfig, preset_profiles, genre_profiles
 ├── dsp/                        Signal processing primitives
 │   ├── basic.py                  rms, normalize, amplify, mid/side
-│   ├── advanced_dynamics.py      DynamicsProcessor (gate/comp/limit)
 │   ├── dynamics/                 Compressor, brick-wall limiter, envelope, soft clipper
 │   ├── eq/                       PsychoacousticEQ (26 Bark bands, WOLA)
 │   └── utils/                    Loudness targets, filters, conversion, audio_info

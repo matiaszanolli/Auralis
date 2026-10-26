@@ -78,9 +78,9 @@ normalization crest-crush pullback), journaled via `PipelineJournal`. A sampled 
 gate** runs every Nth chunk (`quality_gate_interval`).
 
 > **Intentional divergence.** ContinuousMode uses its **own** offline dynamics
-> (`CompressionStrategies.apply_clip_blend_compression`), *not* the real-time
-> `DynamicsProcessor`. Routing the real-time processor (which targets −14 LUFS with makeup
-> gain) into the offline chain would double-compress and fight the LUFS target (#2897).
+> (`CompressionStrategies.apply_clip_blend_compression`), *not* a separate
+> dynamics processor. The real-time `DynamicsProcessor` (which targeted −14 LUFS with makeup
+> gain) would have double-compressed and fought the LUFS target (#2897); it is deleted (#6201).
 > The clip-blend threshold/ceiling are fractions of the chunk's own peak (referenced to 1.0 for
 > over-range peaks), so the compression follows the material's dynamics rather than the file's
 > level (#5576); only `ratio` and `amount` drive it — the generated `threshold`/`attack`/`release`
@@ -165,7 +165,6 @@ In `QuietBranch`, the loudness maximizer is the load-bearing tuning surface. Con
 | Module | Provides |
 |--------|----------|
 | [`basic.py`](../../auralis/dsp/basic.py) | `rms`, `normalize` (dtype-preserving), `amplify` (always `.copy()` first), `mid_side_encode` / `mid_side_decode` |
-| [`advanced_dynamics.py`](../../auralis/dsp/advanced_dynamics.py) | `DynamicsProcessor` (gate + compressor + limiter, content-aware, RLock-guarded chain). Auto makeup-gain = `-threshold/ratio` capped at 12 dB |
 | [`eq/psychoacoustic_eq.py`](../../auralis/dsp/eq/psychoacoustic_eq.py) | `PsychoacousticEQ` — 26 Bark-scale critical bands, masking model, adaptive gains clipped ±12 dB |
 
 ### The WOLA / COLA constraint (read before touching the EQ)
@@ -286,8 +285,7 @@ Because `ProcessorFactory` shares one `HybridProcessor` across concurrent stream
 - The chunked path additionally acquires `processor._process_lock` when toggling
   `content_analyzer.use_fingerprint_analysis` because that flag is shared across
   `ChunkedAudioProcessor` instances (#3808).
-- Inner components carry their own locks: `DynamicsProcessor._lock` (#3789),
-  `PsychoacousticEQ._state_lock` (#3747), `RealtimeAdaptiveEQ._lock` (#3788).
+- Inner components carry their own locks: `PsychoacousticEQ._state_lock` (#3747), `RealtimeAdaptiveEQ._lock` (#3788).
 - `SimpleMasteringPipeline._notches` is per-file mutable instance state, guarded by an RLock
   to prevent cross-file contamination between concurrent `master_file` calls (#3715).
 
@@ -332,14 +330,14 @@ move on each.
 
 | Path | Removed by | Why not wired up instead |
 |---|---|---|
-| `RealtimeDSPPipeline` + `RealtimeAdaptiveEQ` + `AdaptiveLimiter` (*auralis/dsp/realtime_adaptive_eq/*, *auralis/core/processing/realtime_dsp_pipeline.py*, *auralis/core/hybrid/realtime_manager.py*, *auralis/dsp/dynamics/limiter.py*) | #4873 | Its EQ applied block FFT gain with **no window and no overlap-add** (#4615) — never WOLA-safe, so it could not simply be switched on. See the COLA constraint above. |
+| `RealtimeDSPPipeline` + `RealtimeAdaptiveEQ` + `AdaptiveLimiter` (*auralis/dsp/realtime_adaptive_eq/*, *auralis/core/processing/realtime_dsp_pipeline.py*, *auralis/dsp/dynamics/limiter.py*) | #4873 | Its EQ applied block FFT gain with **no window and no overlap-add** (#4615) — never WOLA-safe, so it could not simply be switched on. See the COLA constraint above. |
 | *auralis/dsp/stages.py::main()*, exported as `auralis.dsp.main` | #4867 | A Matchering-2.0-lineage reference matcher with zero callers in the app, the offline CLI, the scripts, or any test. Its only would-be test imported three class names that never existed in the file, so it skipped on every run. |
 
 Deleting the realtime pipeline left `HybridProcessor.dynamics_processor` with no
-`process()` caller — it survives only behind `reset_dynamics()` /
-`set_dynamics_mode()` / `get_dynamics_info()`. Do **not** "fix" that by inserting
-it into `ContinuousMode`: that would double-compress and fight the
-continuous-space LUFS target. Guarded by
+`process()` caller; the management facade around it (`DynamicsManager`,
+`DynamicsProcessor`, `reset_dynamics()`) was deleted in #6201. Do **not** add a
+second dynamics stage to `ContinuousMode`: that would double-compress and fight the
+continuous-space LUFS target (wiring dynamics settings in is #5098). Guarded by
 `tests/regression/test_dynamics_processor_wiring.py`.
 
 ---

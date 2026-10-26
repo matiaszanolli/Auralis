@@ -69,7 +69,6 @@ def _reset_processor_state(processor: HybridProcessor) -> None:
     `reset_psychoacoustic_eq()` below covers the EQ the live
     adaptive/continuous path uses.
     """
-    processor.reset_dynamics()
     processor.reset_psychoacoustic_eq()
     processor.reset_limiter()
 

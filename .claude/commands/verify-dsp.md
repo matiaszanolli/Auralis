@@ -24,7 +24,7 @@ Determine scope from arguments:
 |-----------|------|
 | Core Pipeline | `auralis/core/hybrid_processor.py`, `processing/` (the shipped app path → `ContinuousMode`); offline CLI only (#4873, reached from `auto_master.py`): `simple_mastering.py`, `stages/` (12 stage modules + the shared `hf_budget.py` helper) |
 | Optimizer wrapper | `auralis/optimization/performance_optimizer.py` — wraps `AdaptiveMode.process` at import time (#5142), so it sits in the audio path |
-| DSP Modules | `auralis/dsp/eq/psychoacoustic_eq.py`, `auralis/dsp/advanced_dynamics.py`, `auralis/dsp/basic.py` |
+| DSP Modules | `auralis/dsp/eq/psychoacoustic_eq.py`, `auralis/dsp/dynamics/`, `auralis/dsp/basic.py` |
 | Audio I/O | `auralis/io/unified_loader.py`, `results.py` |
 | Player RT Processing | `auralis/player/realtime/` |
 | Chunked Mastering (offline CLI) | `auralis/core/mastering_chunk_loop.py`, `mastering_chunk_assembly.py`, `mastering_process_chunk.py`, `mastering_config.py` |

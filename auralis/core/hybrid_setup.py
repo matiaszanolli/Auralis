@@ -17,16 +17,13 @@ import threading
 from typing import TYPE_CHECKING
 
 from ..analysis.fingerprint import AudioFingerprintAnalyzer
-from ..dsp.advanced_dynamics import DynamicsMode, create_dynamics_processor
 from ..dsp.dynamics import create_brick_wall_limiter
 from ..dsp.eq.psychoacoustic_eq import EQSettings, PsychoacousticEQ
-from ..dsp.utils.loudness_targets import DEFAULT_TARGET_LUFS
 from ..optimization.performance_optimizer import get_performance_optimizer
 from ..utils.logging import debug, info
 from .analysis import AdaptiveTargetGenerator, ContentAnalyzer
 from .analysis.spectrum_mapper import SpectrumMapper
 from .config import UnifiedConfig
-from .hybrid import DynamicsManager
 from .processing import AdaptiveMode, ContinuousMode, EQProcessor, HybridMode
 
 if TYPE_CHECKING:
@@ -52,27 +49,6 @@ def build_hybrid_components(config: UnifiedConfig, processor: "HybridProcessor")
     )
     processor.psychoacoustic_eq = PsychoacousticEQ(eq_settings)
 
-    # Dynamics management facade.
-    #
-    # #4873 deleted RealtimeDSPPipeline, the only caller of the old
-    # DynamicsProcessor execution chain. #5295 retired that dead chain;
-    # this object survives only for
-    # the `reset_dynamics()`/`set_dynamics_mode()`/`get_dynamics_info()`
-    # public API (`processing_engine._reset_processor_state` calls the
-    # first). Do NOT insert it into the offline chain to "make it live":
-    # ContinuousMode.process runs its own full-signal, fingerprint-driven
-    # continuous-space dynamics (ContinuousMode._apply_dynamics), and adding
-    # this on top would double-compress, fight the continuous-space LUFS
-    # target with its own -14 LUFS makeup gain, and confound the
-    # cross-dimensional guards.
-    processor.dynamics_processor = create_dynamics_processor(
-        mode=DynamicsMode.ADAPTIVE,
-        sample_rate=config.internal_sample_rate,
-        target_lufs=DEFAULT_TARGET_LUFS
-    )
-    processor.dynamics_processor.settings.enable_gate = False
-    processor.dynamics_processor.settings.enable_compressor = True
-
     # Initialize brick-wall limiter for final peak control
     processor.brick_wall_limiter = create_brick_wall_limiter(
         threshold_db=-0.3,
@@ -80,9 +56,6 @@ def build_hybrid_components(config: UnifiedConfig, processor: "HybridProcessor")
         release_ms=50.0,
         sample_rate=config.internal_sample_rate
     )
-
-    # Initialize component managers
-    processor.dynamics_manager = DynamicsManager(processor.dynamics_processor)
 
     # Initialize mode processors
     processor.eq_processor = EQProcessor(processor.psychoacoustic_eq)
