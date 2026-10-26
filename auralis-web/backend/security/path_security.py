@@ -96,7 +96,9 @@ def validate_file_path(
 
     try:
         resolved_path = path.resolve()
-    except (OSError, RuntimeError) as e:
+    except (OSError, RuntimeError, ValueError) as e:
+        # ValueError: an embedded NUL byte ("embedded null character in path"),
+        # which would otherwise escape every `except PathValidationError` as a 500 (#6159).
         raise PathValidationError(f"Failed to resolve path: {e}")
 
     if ".." in Path(filepath).parts:
@@ -190,7 +192,9 @@ def validate_user_chosen_directory(directory: str) -> Path:
         resolved_path = path.resolve(strict=True)
     except FileNotFoundError:
         raise PathValidationError(f"Directory does not exist: {path}")
-    except (OSError, RuntimeError) as e:
+    except (OSError, RuntimeError, ValueError) as e:
+        # ValueError: an embedded NUL byte ("embedded null character in path"),
+        # which would otherwise escape every `except PathValidationError` as a 500 (#6159).
         raise PathValidationError(f"Failed to resolve path: {e}")
 
     if _is_system_directory(resolved_path):
