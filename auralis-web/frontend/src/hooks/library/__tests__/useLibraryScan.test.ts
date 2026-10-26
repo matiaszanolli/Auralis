@@ -138,6 +138,23 @@ describe('useLibraryScan (#4185)', () => {
     expect(mockError).toHaveBeenCalledWith(expect.stringContaining('boom'));
   });
 
+  it('treats "scan already in progress" (409) as information, not a failure (#5914)', async () => {
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 409,
+      json: async () => ({ detail: 'Scan already in progress' }),
+    });
+
+    const { result } = setup();
+    act(() => result.current.setWebFolderPath('/music'));
+    await act(async () => {
+      await result.current.handleScanFolder();
+    });
+
+    expect(mockInfo).toHaveBeenCalledWith('Scan already in progress');
+    expect(mockError).not.toHaveBeenCalled();
+  });
+
   it('surfaces failed/skipped counts in the completion toast (#4412)', async () => {
     mockFetch.mockResolvedValue({
       ok: true,

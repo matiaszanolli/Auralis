@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { settingsService, UserSettings, SettingsUpdate } from '@/services/settingsService';
 import { getElectronAPI } from '@/utils/electron';
+import { describeScanError } from '@/utils/scanErrors';
 
 export interface UseSettingsDialogProps {
   open: boolean;
@@ -162,8 +163,11 @@ export const useSettingsDialog = ({ open, onSettingsChange, onSettingsReset }: U
     try {
       await settingsService.triggerLibraryScan(folders);
     } catch (err) {
-      console.error('Failed to trigger scan:', err);
-      setError('Failed to start scan');
+      // Keep the backend's reason (already scanning, rate limited, timed out…)
+      // instead of one generic failure (#5914); "already scanning" is not a fault.
+      const { message, informational } = describeScanError(err);
+      if (!informational) console.error('Failed to trigger scan:', err);
+      setError(message);
     }
   }, []);
 

@@ -3,9 +3,10 @@ import { useToast } from '@/components/shared/Toast';
 import { SCAN_TIMEOUT_MS } from '@/config/api';
 import { isElectron, getElectronAPI } from '@/utils/electron';
 import type { ScanFailure } from '@/types/ws/library';
-import { post, APIRequestError } from '@/utils/apiRequest';
+import { post } from '@/utils/apiRequest';
 import { isAbortError } from '@/utils/errorGuards';
 import { describeFailures } from '@/utils/scanFailures';
+import { describeScanError } from '@/utils/scanErrors';
 
 /** Wire shape of POST /api/library/scan's summary. */
 interface ScanSummary {
@@ -146,14 +147,13 @@ export const useLibraryScan = ({
       // AbortError's `.name`, so the signal is checked first.
       if (controller.signal.aborted || isAbortError(err)) return;
       // post() throws on non-2xx instead of returning a response to branch on.
-      // A real HTTP status keeps the backend's `detail` (the old `else` arm);
-      // statusCode 0 is a network/timeout failure (the old outer catch).
-      if (err instanceof APIRequestError && err.statusCode !== 0) {
-        toastRef.current.toastError(`Scan failed: ${err.detail || 'Unknown error'}`);
+      const { message, informational } = describeScanError(err);
+      if (informational) {
+        toastRef.current.info(message);
         return;
       }
       console.error('Scan error:', err);
-      toastRef.current.toastError('Error scanning folder — check the backend is reachable');
+      toastRef.current.toastError(message);
     } finally {
       if (mountedRef.current) {
         setScanning(false);

@@ -13,6 +13,7 @@ import { renderHook, act } from '@testing-library/react';
 import { useSettingsDialog } from '../useSettingsDialog';
 import { settingsService } from '@/services/settingsService';
 import type { UserSettings } from '@/services/settingsService';
+import { APIRequestError } from '@/utils/apiRequestTypes';
 
 vi.mock('@/services/settingsService', () => ({
   settingsService: {
@@ -169,5 +170,58 @@ describe('useSettingsDialog save vs reset notifications (#5804)', () => {
 
     expect(onSettingsReset).toHaveBeenCalledWith(mockSettings);
     expect(onSettingsChange).not.toHaveBeenCalled();
+  });
+});
+
+describe('useSettingsDialog Scan Now errors (#5914)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(settingsService.getSettings).mockResolvedValue(mockSettings);
+  });
+
+  const scanNowWith = async (rejection: unknown) => {
+    vi.mocked(settingsService.triggerLibraryScan).mockRejectedValue(rejection);
+    const { result } = renderHook(() => useSettingsDialog({ open: true }));
+    await act(async () => {});
+    await act(async () => {
+      await result.current.handleScanNow(['/music']);
+    });
+    return result.current.error;
+  };
+
+  it('reports a 409 as "Scan already in progress"', async () => {
+    expect(await scanNowWith(new APIRequestError('x', 409, 'Scan already in progress'))).toBe(
+      'Scan already in progress'
+    );
+  });
+
+  it('shows the backend detail for other rejections', async () => {
+    expect(await scanNowWith(new APIRequestError('x', 429, 'Rate limit exceeded'))).toBe(
+      'Scan failed: Rate limit exceeded'
+    );
+  });
+
+  it('reports a transport failure as an unreachable backend', async () => {
+    expect(await scanNowWith(new APIRequestError('timeout', 0))).toBe(
+      'Error scanning folder — check the backend is reachable'
+    );
+  });
+
+  it('clears the error when the next scan starts', async () => {
+    vi.mocked(settingsService.triggerLibraryScan).mockRejectedValueOnce(
+      new APIRequestError('x', 409, 'Scan already in progress')
+    );
+    vi.mocked(settingsService.triggerLibraryScan).mockResolvedValueOnce(undefined);
+    const { result } = renderHook(() => useSettingsDialog({ open: true }));
+    await act(async () => {});
+
+    await act(async () => {
+      await result.current.handleScanNow(['/music']);
+    });
+    expect(result.current.error).toBe('Scan already in progress');
+    await act(async () => {
+      await result.current.handleScanNow(['/music']);
+    });
+    expect(result.current.error).toBeNull();
   });
 });
