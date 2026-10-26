@@ -23,6 +23,7 @@ from pydantic import ValidationError
 from core.processing_engine import ProcessingEngine, ProcessingStatus
 
 from .errors import BadRequestError, ServiceUnavailableError
+from .files_validation import _has_valid_audio_magic
 from .dependencies import require_processing_engine, with_error_handling
 from .processing_deps import _get_processing_engine
 from .processing_models import ProcessingSettings, ProcessResponse
@@ -48,25 +49,6 @@ def _write_upload(temp_dir: Path, input_path: Path, content: bytes) -> None:
     create_secure_temp_dir(temp_dir)
     with open(input_path, "xb") as f:
         f.write(content)
-
-
-def _is_valid_audio_magic(data: bytes) -> bool:
-    """Return True if data starts with a known audio format magic signature."""
-    if len(data) < 8:
-        return False
-    if data[:4] == b"RIFF":                          # WAV
-        return True
-    if data[:4] == b"fLaC":                          # FLAC
-        return True
-    if data[:4] == b"OggS":                          # OGG/Opus
-        return True
-    if data[:3] == b"ID3":                           # MP3 with ID3v2 tag
-        return True
-    if data[:2] in (b"\xff\xfb", b"\xff\xf3", b"\xff\xf2", b"\xff\xfa"):  # MP3 sync word
-        return True
-    if data[4:8] == b"ftyp":                         # M4A/MP4 (MPEG-4 container)
-        return True
-    return data[:4] in (b"FORM", b"AIFF")            # AIFF
 
 
 @with_error_handling("upload and process")
@@ -122,7 +104,7 @@ async def upload_and_process(
         )
 
     # Reject files whose magic bytes don't match a known audio format (#2560)
-    if not _is_valid_audio_magic(content):
+    if not _has_valid_audio_magic(content):
         raise HTTPException(
             status_code=415,
             detail="Unsupported or invalid audio file format"

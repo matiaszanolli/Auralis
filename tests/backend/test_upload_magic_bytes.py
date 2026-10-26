@@ -15,6 +15,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
+import routers.files_upload as files_upload
+import routers.processing_upload as processing_upload
 from routers.files_validation import _has_valid_audio_magic
 from auralis.io.formats import SUPPORTED_FORMATS
 
@@ -61,3 +63,22 @@ def test_garbage_still_rejected():
     """The gate must not turn into a pass-all — random bytes are rejected."""
     assert not _has_valid_audio_magic(b"not audio at all!!" + _PAD)
     assert not _has_valid_audio_magic(b"")
+
+
+def test_both_upload_routes_share_one_magic_function():
+    """#5943: the processing route kept a drifted private copy of the sniff."""
+    assert processing_upload._has_valid_audio_magic is _has_valid_audio_magic
+    assert files_upload._has_valid_audio_magic is _has_valid_audio_magic
+    assert not hasattr(processing_upload, "_is_valid_audio_magic")
+
+
+def test_mp3_sync_variant_0xfffa_accepted():
+    """The processing copy accepted 0xFFFA; merging the lists must not drop it."""
+    assert _has_valid_audio_magic(b"\xff\xfa\x90\x00" + _PAD)
+
+
+def test_bare_form_and_bare_aiff_prefix_rejected():
+    """FORM needs an AIFF/AIFC form type; no real file starts with a bare 'AIFF'."""
+    assert not _has_valid_audio_magic(b"FORM\x00\x00\x00\x00ILBM" + _PAD)
+    assert not _has_valid_audio_magic(b"FORM\x00\x00\x00\x00" )
+    assert not _has_valid_audio_magic(b"AIFF\x00\x00\x00\x00" + _PAD)

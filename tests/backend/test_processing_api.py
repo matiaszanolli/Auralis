@@ -19,7 +19,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "ba
 
 from fastapi import FastAPI
 from routers.processing_api import create_processing_router
-from routers.processing_upload import _is_valid_audio_magic
 from core.processing_engine import ProcessingEngine, ProcessingJob, ProcessingStatus
 
 
@@ -223,6 +222,30 @@ class TestJobSubmission:
         assert "job_id" in result
         assert result["job_id"] == "test-job-123"
         assert mock_engine.submit_job.called
+
+    @pytest.mark.parametrize("header,desc", [
+        (b"\x30\x26\xb2\x75\x8e\x66\xcf\x11\xa6\xd9\x00\xaa\x00\x62\xce\x6c", "WMA"),
+        (b".snd\x00\x00\x00\x18", "AU"),
+        (b"\xff\xf1\x50\x80\x00\x1f\xfc", "ADTS AAC"),
+        (b"FORM\x00\x00\x00\x00AIFF", "AIFF"),
+    ])
+    def test_upload_accepts_formats_the_loader_decodes(self, client, mock_engine, header, desc):
+        """#5943: the processing route used its own shorter magic list and 415'd these."""
+        response = client.post(
+            "/api/processing/upload-and-process",
+            files={"file": ("test.bin", io.BytesIO(header + b"\x00" * 40), "application/octet-stream")},
+            data={"settings": json.dumps({"mode": "adaptive"})},
+        )
+        assert response.status_code == 200, desc
+
+    def test_upload_rejects_bare_form_header(self, client, mock_engine):
+        """#5943: 'FORM' alone is not AIFF/AIFC (e.g. an IFF ILBM image)."""
+        response = client.post(
+            "/api/processing/upload-and-process",
+            files={"file": ("test.aiff", io.BytesIO(b"FORM\x00\x00\x00\x00ILBM" + b"\x00" * 40), "audio/aiff")},
+            data={"settings": json.dumps({"mode": "adaptive"})},
+        )
+        assert response.status_code == 415
 
     def test_upload_without_file(self, client, mock_engine):
         """Test upload endpoint without file"""
@@ -858,38 +881,3 @@ class TestQueueBackpressureAPI:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-
-class TestIsValidAudioMagic:
-    """Tests for the magic-byte validation gate."""
-
-    @pytest.mark.parametrize("header,desc", [
-        (b"RIFF\x00\x00\x00\x00", "WAV"),
-        (b"fLaC\x00\x00\x00\x00", "FLAC"),
-        (b"OggS\x00\x00\x00\x00", "OGG"),
-        (b"ID3\x00\x00\x00\x00\x00", "MP3 ID3v2"),
-        (b"\xff\xfb\x00\x00\x00\x00\x00\x00", "MP3 sync 0xfffb"),
-        (b"\x00\x00\x00\x1cftyp", "M4A/MP4"),
-        (b"FORM\x00\x00\x00\x00", "AIFF FORM"),
-    ])
-    def test_accepts_valid_audio_magic(self, header: bytes, desc: str):
-        assert _is_valid_audio_magic(header) is True, f"Should accept {desc}"
-
-    def test_rejects_mime_valid_but_magic_invalid(self):
-        """Primary defence: file claims audio MIME but has non-audio magic bytes.
-
-        Regression test for issue #3232.
-        """
-        # PNG header — a file that might be served as audio/mpeg by a
-        # misconfigured client but is clearly not audio.
-        png_header = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
-        assert _is_valid_audio_magic(png_header) is False
-
-    def test_rejects_pdf_magic(self):
-        pdf_header = b"%PDF-1.4" + b"\x00" * 100
-        assert _is_valid_audio_magic(pdf_header) is False
-
-    def test_rejects_too_short(self):
-        assert _is_valid_audio_magic(b"\xff\xfb") is False
-
-    def test_rejects_empty(self):
-        assert _is_valid_audio_magic(b"") is False

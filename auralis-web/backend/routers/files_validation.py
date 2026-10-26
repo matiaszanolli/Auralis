@@ -13,9 +13,10 @@ Uploaded-file content sniffing (split from files.py, #5831).
 # formats with a fixed leading signature; AIFF (FORM…AIFF/AIFC) and MP4/M4A/AAC
 # (ftyp at offset 4) need the two-part checks in _has_valid_audio_magic().
 # tests/backend/test_upload_magic_bytes.py::test_every_supported_format_is_recognised
-# guards this against future drift.
+# guards this against future drift. Both upload routes (/api/files/upload and
+# /api/processing/upload-and-process) call this one function (#5943).
 _AUDIO_MAGIC: tuple[bytes, ...] = (
-    b'\xff\xfb', b'\xff\xf3', b'\xff\xf2',  # MP3 (sync word variants)
+    b'\xff\xfb', b'\xff\xf3', b'\xff\xf2', b'\xff\xfa',  # MP3 (sync word variants)
     b'\xff\xf1', b'\xff\xf9',                # AAC (ADTS, MPEG-4 / MPEG-2)
     b'ID3',                                  # MP3 with ID3 tag
     b'RIFF',                                 # WAV
