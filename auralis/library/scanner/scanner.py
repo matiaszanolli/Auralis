@@ -184,9 +184,9 @@ class LibraryScanner:
                 check_modifications=check_modifications,
             )
 
-            # The counting pass emits no frames, so the UI stays on the
-            # indeterminate state seeded by `stage: 'started'` for its
-            # duration. Every frame from here on carries a real fraction —
+            # The counting pass above reports only a running tally (#4840:
+            # `stage: 'counting'`, no fraction), so the UI stays indeterminate
+            # for its duration. Every frame from here on carries a real fraction —
             # including the leading 0.0, which is a truthful "nothing
             # processed yet", not an unknown.
             self._report_progress({

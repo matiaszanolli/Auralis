@@ -75,4 +75,32 @@ describe('ScanStatusCard', () => {
     render(<ScanStatusCard onScanNow={vi.fn()} />);
     expect(screen.getByText('No scans yet')).toBeInTheDocument();
   });
+
+  describe('scan progress label', () => {
+    it('shows the running tally while the counting pass runs (#5910)', () => {
+      mockUseScanProgress.mockReturnValue(
+        scanStatus({ isScanning: true, phase: 'counting', current: 0, total: 500 })
+      );
+      render(<ScanStatusCard onScanNow={vi.fn()} />);
+
+      expect(screen.getByText('Counting… 500 files found')).toBeInTheDocument();
+      expect(screen.queryByText('0 files')).not.toBeInTheDocument();
+    });
+
+    it('shows N / total once a real fraction exists', () => {
+      mockUseScanProgress.mockReturnValue(
+        scanStatus({ isScanning: true, current: 50, total: 500, percentage: 10 })
+      );
+      render(<ScanStatusCard onScanNow={vi.fn()} />);
+
+      expect(screen.getByText('50 / 500')).toBeInTheDocument();
+    });
+
+    it('shows the climbing count when the total is unknown', () => {
+      mockUseScanProgress.mockReturnValue(scanStatus({ isScanning: true, current: 7 }));
+      render(<ScanStatusCard onScanNow={vi.fn()} />);
+
+      expect(screen.getByText('7 files')).toBeInTheDocument();
+    });
+  });
 });

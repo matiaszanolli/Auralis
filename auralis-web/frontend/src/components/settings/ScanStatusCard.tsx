@@ -27,7 +27,7 @@ interface ScanStatusCardProps {
 }
 
 export const ScanStatusCard = ({ disabled = false, onScanNow }: ScanStatusCardProps) => {
-  const { isScanning, current, total, percentage, currentFile, lastResult } = useScanProgress();
+  const { isScanning, current, total, percentage, currentFile, phase, lastResult } = useScanProgress();
 
   // --- No folders configured ---
   if (disabled) {
@@ -83,8 +83,14 @@ export const ScanStatusCard = ({ disabled = false, onScanNow }: ScanStatusCardPr
             <Typography variant="caption" sx={{ color: themeVars.textMuted }}>
               {/* Only show "N / total" when the percentage is a real fraction;
                   in the streaming scan model total is not yet known, so show the
-                  climbing count instead of a misleading N / N (#4411). */}
-              {percentage != null && total > 0 ? `${current} / ${total}` : `${current} files`}
+                  climbing count instead of a misleading N / N (#4411). While the
+                  counting pass runs, `total` is its running tally and `current`
+                  is 0, so show the tally rather than "0 files" (#5910). */}
+              {phase === 'counting'
+                ? `Counting… ${total} files found`
+                : percentage != null && total > 0
+                  ? `${current} / ${total}`
+                  : `${current} files`}
             </Typography>
           </Box>
           <LinearProgress
