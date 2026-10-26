@@ -103,4 +103,16 @@ describe('ScanStatusCard', () => {
       expect(screen.getByText('7 files')).toBeInTheDocument();
     });
   });
+
+  describe('current file label', () => {
+    it.each([
+      ['C:\\a\\b.mp3', 'b.mp3'],
+      ['/music/a/b.mp3', 'b.mp3'],
+    ])('shows the basename of %s (#5913)', (currentFile, expected) => {
+      mockUseScanProgress.mockReturnValue(scanStatus({ isScanning: true, currentFile }));
+      render(<ScanStatusCard onScanNow={vi.fn()} />);
+
+      expect(screen.getByText(expected)).toBeInTheDocument();
+    });
+  });
 });

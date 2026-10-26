@@ -109,7 +109,8 @@ export interface ScanProgressMessage extends WebSocketMessage {
     // 0-100 once the scanner's counting pass has established a total (#4616);
     // null while that pass is still running. 0 means 0% processed, not unknown.
     percentage: number | null;
-    current_file?: string;
+    // Always present: the backend sends null when no file applies (ScanProgressPayload).
+    current_file: string | null;
     /**
      * No `'fingerprinting'` stage exists on this channel (#4648): nothing
      * emits it here (`services/fingerprint_worker.py` emits it to

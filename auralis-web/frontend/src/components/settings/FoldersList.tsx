@@ -12,6 +12,7 @@ import { IconButton } from '@/design-system/primitives/IconButton';
 import { List } from '@/design-system/primitives/List';
 import { tokens } from '@/design-system/tokens';
 import { themeVars } from '@/theme/semanticTheme';
+import { pathBasename } from '@/utils/pathBasename';
 import { Box, ListItem, ListItemText, ListItemSecondaryAction, Typography } from '@mui/material';
 
 interface FoldersListProps {
@@ -46,7 +47,7 @@ export const FoldersList = ({
           </ListItem>
         )}
         {scanFolders.map((folder: string) => {
-          const basename = folder.split('/').filter(Boolean).pop() ?? folder;
+          const basename = pathBasename(folder);
           return (
             <ListItem key={folder} sx={{ px: 0, py: 1 }}>
               <FolderIcon sx={{ mr: 2, flexShrink: 0, color: themeVars.accent }} />

@@ -18,6 +18,7 @@ import { Button } from '@/design-system';
 import { tokens } from '@/design-system';
 import { useScanProgress } from '@/hooks/library/useScanProgress';
 import { describeFailures } from '@/utils/scanFailures';
+import { pathBasename } from '@/utils/pathBasename';
 import { themeVars } from '@/theme/semanticTheme';
 
 interface ScanStatusCardProps {
@@ -120,7 +121,7 @@ export const ScanStatusCard = ({ disabled = false, onScanNow }: ScanStatusCardPr
                   maxWidth: '100%',
                 }}
               >
-                {currentFile.split('/').pop() ?? currentFile}
+                {pathBasename(currentFile)}
               </Typography>
             </Tooltip>
           )}
