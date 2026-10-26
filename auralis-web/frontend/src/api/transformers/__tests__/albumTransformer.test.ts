@@ -37,6 +37,21 @@ describe('albumTransformer', () => {
       expect(result).toEqual(expected);
     });
 
+    it('labels an album with no artist (null on the wire) as Unknown Artist (#5905)', () => {
+      const apiAlbum: AlbumApiResponse = {
+        id: 3,
+        title: 'Orphan',
+        artist: null,
+        artist_id: null,
+        year: null,
+        artwork_url: null,
+        track_count: 1,
+        total_duration: 0,
+      };
+
+      expect(transformAlbum(apiAlbum).artist).toBe('Unknown Artist');
+    });
+
     it('should convert null to undefined for optional fields', () => {
       const apiAlbum: AlbumApiResponse = {
         id: 2,

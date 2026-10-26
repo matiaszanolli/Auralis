@@ -7,17 +7,20 @@
 
 import type { AlbumApiResponse, AlbumsApiResponse } from './types';
 import type { Album } from '@/types/domain';
+import { UNKNOWN_ARTIST_LABEL } from '@/utils/unknownLabels';
 
 /**
  * Transform a single album from API response to domain model
  *
  * Backend contract (snake_case):
+ * - artist (string | null)
  * - artist_id (number | null)
  * - artwork_url (string | null)
  * - track_count (number)
  * - total_duration (number)
  *
  * Frontend domain (camelCase):
+ * - artist (string, 'Unknown Artist' when the backend sends null)
  * - artistId (number | undefined)
  * - artworkUrl (string | undefined)
  * - trackCount (number)
@@ -27,7 +30,7 @@ export function transformAlbum(apiAlbum: AlbumApiResponse): Album {
   return {
     id: apiAlbum.id,
     title: apiAlbum.title,
-    artist: apiAlbum.artist,
+    artist: apiAlbum.artist ?? UNKNOWN_ARTIST_LABEL, // null → display label (#5905)
     artistId: apiAlbum.artist_id ?? undefined, // snake → camel, null → undefined
     year: apiAlbum.year ?? undefined,
     artworkUrl: apiAlbum.artwork_url ?? undefined, // snake → camel, null → undefined

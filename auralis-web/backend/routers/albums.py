@@ -186,7 +186,7 @@ async def get_album_tracks(album_id: Annotated[int, Path(ge=1)], repos: Any = De
     return {
         "album_id": album_id,
         "album_title": album.title,
-        "artist": album.artist.name if album.artist else 'Unknown Artist',
+        "artist": album.artist.name if album.artist else None,
         "year": album.year,
         "genre": _derive_album_genre(tracks_data),
         "artwork_url": f"/api/albums/{album_id}/artwork" if album.artwork_path else None,

@@ -375,8 +375,8 @@ def test_to_dict_degrades_on_unloaded_relationship(key, unloaded_rows):
     if key == 'artist':
         assert result['album_count'] == 0
     if key == 'album':
-        # The frontend's non-nullable `artist: string` placeholder (#5457).
-        assert result['artist'] == 'Unknown Artist'
+        # An absent artist is null on the wire; the frontend labels it (#5905).
+        assert result['artist'] is None
         assert result['total_duration'] == 0
     if key == 'playlist':
         assert result['total_duration'] == 0

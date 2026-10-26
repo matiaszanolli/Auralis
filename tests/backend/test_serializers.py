@@ -246,7 +246,7 @@ class TestAlbumDetailSharesTheListingShape:
             'artist': 'Artist B',
             'artist_id': 7,
             'year': 2020,
-            'total_tracks': None,
+            'declared_track_count': None,
             'total_discs': None,
             # Album.to_dict() converts artwork_path to an API URL and emits
             # `artwork_url`. The pre-#4679 fixture spelled this `artwork_path`

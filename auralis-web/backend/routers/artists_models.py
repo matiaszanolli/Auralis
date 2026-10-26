@@ -46,8 +46,10 @@ class TrackInArtist(BaseModel):
     """Track information in artist context"""
     id: int
     title: str
-    album: str
-    album_id: int
+    # null for a track with no album, as on every other track-shaped
+    # response (#5905, #5049).
+    album: str | None = None
+    album_id: int | None = None
     duration: float
     track_number: int | None = None
     disc_number: int | None = None

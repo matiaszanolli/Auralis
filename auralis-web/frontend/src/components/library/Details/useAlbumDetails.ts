@@ -18,6 +18,7 @@ import { ENDPOINTS } from '@/config/api';
 import { get, post, del } from '@/utils/apiRequest';
 import { isAbortError } from '@/utils/errorGuards';
 import { useToast } from '@/components/shared/Toast';
+import { UNKNOWN_ARTIST_LABEL } from '@/utils/unknownLabels';
 
 export interface Album {
   id: number;
@@ -35,7 +36,7 @@ export interface Album {
 interface AlbumTracksResponse {
   album_id: number;
   album_title: string;
-  artist: string;
+  artist: string | null; // null when the album has no artist (#5905)
   year?: number;
   genre?: string;
   total_tracks: number;
@@ -85,8 +86,8 @@ export const useAlbumDetails = (albumId: number) => {
         const albumData: Album = {
           id: data.album_id,
           title: data.album_title,
-          artist: data.artist,
-          artist_name: data.artist,
+          artist: data.artist ?? UNKNOWN_ARTIST_LABEL,
+          artist_name: data.artist ?? UNKNOWN_ARTIST_LABEL,
           year: data.year,
           // #5170: genre is derived server-side (modal genre across the
           // album's tracks — Album has no genre column). Without this line

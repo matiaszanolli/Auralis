@@ -99,16 +99,18 @@ class Album(Base, TimestampMixin):
             'title': self.title,
             'artist_id': self.artist_id,
             'year': self.year,
-            'total_tracks': self.total_tracks,
+            # The tag-declared count; `track_count` below is the real row count,
+            # which is what `total_tracks` means on the sibling responses (#5905).
+            'declared_track_count': self.total_tracks,
             'total_discs': self.total_discs,
             'artwork_url': artwork_url,  # API URL, not filesystem path
             'avg_dr_rating': self.avg_dr_rating,
             'avg_lufs': self.avg_lufs,
             'mastering_consistency': self.mastering_consistency,
-            # 'Unknown Artist', not None (#5457): the same representation as
-            # GET /api/albums/{id}/tracks and the routers' serializer defaults,
-            # and what the frontend's non-nullable `artist: string` expects.
-            'artist': artist.name if artist else 'Unknown Artist',
+            # null when absent, as on GET /api/albums/{id}/tracks; the frontend
+            # supplies the 'Unknown Artist' label at its API boundary (#5905,
+            # which replaces the server-side string #5457 introduced).
+            'artist': artist.name if artist else None,
             'track_count': track_count,
             'total_duration': total_duration,
             'created_at': self.created_at.isoformat() if self.created_at else None,

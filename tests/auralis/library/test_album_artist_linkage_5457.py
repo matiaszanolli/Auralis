@@ -7,7 +7,8 @@ an album no artist page lists (serialized as `artist: null` against the
 frontend's non-nullable type), and could attach the track to another artist's
 album that merely shared the title. Both paths now resolve albums the way the
 first scan does, a v018->v019 migration repairs existing orphans, and
-Album.to_dict() reports a genuinely unknown artist as 'Unknown Artist'.
+Album.to_dict() reports a genuinely unknown artist as null (#5905; it was
+the string 'Unknown Artist' until then).
 """
 
 from pathlib import Path
@@ -89,8 +90,8 @@ class TestRescanAlbumCreation:
 
 
 class TestUnknownArtistRepresentation:
-    def test_album_without_an_artist_serializes_as_unknown_artist(self):
-        assert Album(title='No Owner').to_dict()['artist'] == 'Unknown Artist'
+    def test_album_without_an_artist_serializes_as_null(self):
+        assert Album(title='No Owner').to_dict()['artist'] is None
 
 
 class TestOrphanBackfillMigration:

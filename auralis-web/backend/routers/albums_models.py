@@ -19,7 +19,7 @@ class AlbumTracksResponse(BaseModel):
     """
     album_id: int = Field(description="Album database ID")
     album_title: str | None = Field(default=None, description="Album title")
-    artist: str = Field(default="Unknown Artist", description="Album artist name")
+    artist: str | None = Field(default=None, description="Album artist name, or null when the album has none")
     year: int | None = Field(default=None, description="Release year")
     genre: str | None = Field(
         default=None,

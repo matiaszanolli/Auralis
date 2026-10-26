@@ -15,7 +15,7 @@
 export interface AlbumApiResponse {
   id: number;
   title: string;
-  artist: string;
+  artist: string | null; // null when the album has no artist (#5905)
   artist_id: number | null; // FK to artists table (snake_case)
   year: number | null;
   artwork_url: string | null; // Backend field name

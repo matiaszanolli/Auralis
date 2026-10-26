@@ -19,8 +19,9 @@ import { isArtistTracksResponseShape } from '@/api/responseGuards';
 export interface TrackInArtist {
   id: number;
   title: string;
-  album: string;
-  album_id: number;
+  /** null for a track with no album (#5905, #5049). */
+  album: string | null;
+  album_id: number | null;
   duration: number;
   track_number?: number;
   disc_number?: number;

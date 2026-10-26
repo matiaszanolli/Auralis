@@ -145,7 +145,7 @@ class AlbumResponse(BaseModel):
     artist: str | None = Field(default=None, description="Album artist name")
     artist_id: int | None = Field(default=None, description="Album artist ID")
     year: int | None = Field(default=None, description="Release year")
-    total_tracks: int | None = Field(default=None, description="Track count declared by tags")
+    declared_track_count: int | None = Field(default=None, description="Track count declared by tags (the actual count is track_count)")
     total_discs: int | None = Field(default=None, description="Disc count declared by tags")
     artwork_url: str | None = Field(default=None, description="Artwork API URL")
     avg_dr_rating: float | None = Field(default=None, description="Mean dynamic-range rating")

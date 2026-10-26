@@ -81,13 +81,7 @@ async def get_artists(
     """
     if search:
         # Search artists by name (now returns tuple with count)
-        artists, total = await asyncio.to_thread(
-            repos.artists.search,
-            search,
-            limit=limit,
-            offset=offset,
-            order_by=order_by,
-        )
+        artists, total = await asyncio.to_thread(repos.artists.search, search, limit=limit, offset=offset, order_by=order_by)
     else:
         # Get paginated artists
         artists, total = await asyncio.to_thread(
@@ -205,8 +199,8 @@ async def get_artist_tracks(
         tracks.append(TrackInArtist(
             id=track.id,
             title=track.title,
-            album=track.album.title if track.album else "Unknown Album",
-            album_id=track.album.id if track.album else 0,
+            album=track.album.title if track.album else None,
+            album_id=track.album.id if track.album else None,
             duration=track.duration or 0,
             track_number=track.track_number,
             disc_number=track.disc_number,
@@ -215,7 +209,7 @@ async def get_artist_tracks(
 
     # Sort tracks by album, disc number, then track number
     tracks.sort(key=lambda t: (
-        t.album,
+        t.album or "",  # album-less tracks first
         t.disc_number or 1,
         t.track_number or 999
     ))
