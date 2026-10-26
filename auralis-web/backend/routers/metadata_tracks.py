@@ -6,7 +6,7 @@ Single-track metadata handlers: editable fields, read, update (split from metada
 """
 
 import logging
-from auralis.library.metadata_editor import MetadataEditor
+from auralis.library.metadata_editor import MetadataEditor, UnreadableAudioFileError
 from collections.abc import Callable
 from fastapi import Depends, HTTPException, Path
 from typing import Annotated, Any
@@ -15,7 +15,7 @@ import asyncio
 
 from . import dependencies
 from .dependencies import with_error_handling
-from .errors import BadRequestError, NotFoundError
+from .errors import BadRequestError, NotFoundError, UnprocessableAudioFileError
 from .metadata_deps import _get_broadcast_manager, _get_metadata_editor, _get_repository_factory, _tag_dict_to_db_columns, _validate_track_filepath
 from .metadata_models import MetadataUpdateRequest
 
@@ -70,6 +70,10 @@ async def get_editable_fields(
         # covers the remaining race, the file disappearing between validation
         # and the read/write below, and answers it with the same 404.
         raise NotFoundError("Audio file", detail=f"Audio file not found for track {track_id}")
+    except UnreadableAudioFileError:
+        # Same fixed 422 on every route and extension; never the exception
+        # text, which names the file (#5993).
+        raise UnprocessableAudioFileError() from None
 
 
 @with_error_handling("get track metadata")
@@ -118,6 +122,10 @@ async def get_track_metadata(
         # covers the remaining race, the file disappearing between validation
         # and the read/write below, and answers it with the same 404.
         raise NotFoundError("Audio file", detail=f"Audio file not found for track {track_id}")
+    except UnreadableAudioFileError:
+        # Same fixed 422 on every route and extension; never the exception
+        # text, which names the file (#5993).
+        raise UnprocessableAudioFileError() from None
 
 
 @with_error_handling("update track metadata")
@@ -223,6 +231,10 @@ async def update_track_metadata(
         # covers the remaining race, the file disappearing between validation
         # and the read/write below, and answers it with the same 404.
         raise NotFoundError("Audio file", detail=f"Audio file not found for track {track_id}")
+    except UnreadableAudioFileError:
+        # Same fixed 422 on every route and extension; never the exception
+        # text, which names the file (#5993).
+        raise UnprocessableAudioFileError() from None
     except ValueError as e:
-        # Invalid metadata error
+        # Request-value validation only; an unreadable file is the arm above.
         raise BadRequestError(f"Invalid metadata: {e}")

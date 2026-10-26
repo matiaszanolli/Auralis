@@ -26,6 +26,7 @@ except ImportError:
 
 from ...utils.logging import debug, error, info
 from .backup import BackupManager, lock_files
+from .errors import open_audio_file
 from .batch import BatchUpdateMixin
 from .readers import MetadataReaders
 from .tag_mappings import STANDARD_FIELDS, TAG_MAPPINGS, get_format_key
@@ -94,15 +95,13 @@ class MetadataEditor(BatchUpdateMixin):
 
         Raises:
             FileNotFoundError: If file doesn't exist
-            ValueError: If file format not supported
+            UnreadableAudioFileError: If mutagen cannot identify or parse the file
         """
         if not Path(filepath).exists():
             raise FileNotFoundError(f"File not found: {filepath}")
 
         try:
-            audio_file = MutagenFile(filepath)
-            if audio_file is None:
-                raise ValueError(f"Unsupported or invalid audio file: {filepath}")
+            audio_file = open_audio_file(MutagenFile, filepath)
 
             metadata = {}
             ext = Path(filepath).suffix.lower().lstrip('.')
@@ -151,7 +150,7 @@ class MetadataEditor(BatchUpdateMixin):
 
         Raises:
             FileNotFoundError: If file doesn't exist
-            ValueError: If file format not supported
+            UnreadableAudioFileError: If mutagen cannot identify or parse the file
         """
         if not Path(filepath).exists():
             raise FileNotFoundError(f"File not found: {filepath}")
@@ -169,9 +168,7 @@ class MetadataEditor(BatchUpdateMixin):
                     raise OSError(f"Failed to create backup of {filepath}; metadata not written")
 
             try:
-                audio_file = MutagenFile(filepath)
-                if audio_file is None:
-                    raise ValueError(f"Unsupported or invalid audio file: {filepath}")
+                audio_file = open_audio_file(MutagenFile, filepath)
 
                 ext = Path(filepath).suffix.lower().lstrip('.')
 

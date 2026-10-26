@@ -8,6 +8,7 @@ Audio file metadata editing and management
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+from .errors import UnreadableAudioFileError
 from .factory import create_metadata_editor
 from .metadata_editor import MUTAGEN_AVAILABLE, MetadataEditor
 from .models import MetadataUpdate
@@ -20,6 +21,7 @@ except ImportError:
 __all__ = [
     'MetadataUpdate',
     'MetadataEditor',
+    'UnreadableAudioFileError',
     'create_metadata_editor',
     'MUTAGEN_AVAILABLE',
     'MutagenFile',

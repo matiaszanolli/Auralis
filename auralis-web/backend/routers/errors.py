@@ -41,6 +41,15 @@ class BadRequestError(HTTPException):
         super().__init__(status_code=400, detail=detail)
 
 
+class UnprocessableAudioFileError(HTTPException):
+    """The track's file exists but mutagen cannot read it (422 Unprocessable Entity).
+
+    The detail is fixed: exception text names the absolute file path (#5993).
+    """
+    def __init__(self) -> None:
+        super().__init__(status_code=422, detail="Unreadable or unsupported audio file")
+
+
 class InternalServerError(HTTPException):
     """Internal server error (500 Internal Server Error)"""
     def __init__(self, operation: str, error: Exception | None = None) -> None:
