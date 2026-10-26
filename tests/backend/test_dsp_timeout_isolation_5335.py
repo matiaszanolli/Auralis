@@ -98,6 +98,7 @@ def _hung_processor(preset: str | None = "adaptive") -> Mock:
     processor.intensity = 1.0
     processor.mastering_targets = {"target_lufs": -14.0}
     processor.processor_config = Mock(name="processor_config")
+    processor.processor = Mock(name="leased-hybrid-processor") if preset is not None else None
 
     async def _hang(*_a, **_k):
         await asyncio.sleep(10)
@@ -118,16 +119,16 @@ class TestChunkTimeoutInvalidatesTheProcessor:
     async def test_timed_out_chunk_drops_the_pooled_processor(self, monkeypatch):
         monkeypatch.setattr(asc, "CHUNK_PROCESS_TIMEOUT", 0.05)
         processor = _hung_processor()
+        leased = processor.processor
 
         with pytest.raises(TimeoutError):
             await AudioStreamController()._process_chunk_only(0, processor, _connected_ws())
 
-        processor._processor_factory.invalidate.assert_called_once_with(
-            track_id=7,
-            preset="adaptive",
-            mastering_targets={"target_lufs": -14.0},
-            config=processor.processor_config,
-        )
+        # The stream leases its HybridProcessor (#6091): a timed-out one is
+        # discarded, not returned to the cache, and the handle is dropped so the
+        # next chunk leases a fresh instance.
+        processor._processor_factory.discard_lease.assert_called_once_with(leased, track_id=7)
+        assert processor.processor is None
 
     @pytest.mark.asyncio
     async def test_unprocessed_stream_has_no_pooled_processor_to_drop(self, monkeypatch):
@@ -137,7 +138,7 @@ class TestChunkTimeoutInvalidatesTheProcessor:
         with pytest.raises(TimeoutError):
             await AudioStreamController()._process_chunk_only(0, processor, _connected_ws())
 
-        processor._processor_factory.invalidate.assert_not_called()
+        processor._processor_factory.discard_lease.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_a_failing_invalidate_does_not_mask_the_timeout(self, monkeypatch):

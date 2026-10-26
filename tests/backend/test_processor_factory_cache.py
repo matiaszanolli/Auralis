@@ -151,21 +151,92 @@ def test_different_mastering_targets_get_distinct_processors():
     assert len(factory._processor_cache) == 2
 
 
-def test_invalidate_forces_retry_to_use_fresh_processor():
-    factory = ProcessorFactory()
-    first = MagicMock(name="advanced-processor")
-    second = MagicMock(name="fresh-processor")
+def _factory_building(*processors):
+    """A ProcessorFactory whose HybridProcessor constructor yields ``processors`` in order."""
+    return ProcessorFactory(), patch(
+        "auralis.core.hybrid_processor.HybridProcessor", side_effect=list(processors)
+    )
 
-    with patch(
-        "auralis.core.hybrid_processor.HybridProcessor",
-        side_effect=[first, second],
-    ):
-        assert factory.get_or_create(track_id=7, preset="warm") is first
-        assert factory.invalidate(track_id=7, preset="warm") is True
-        assert factory.get_or_create(track_id=7, preset="warm") is second
 
-    first.close.assert_called_once()
-    second.close.assert_not_called()
+def test_two_unreleased_leases_of_one_key_are_distinct_instances():
+    """#6091: two live streams of the same track must not share a HybridProcessor."""
+    first, second = MagicMock(name="stream-a"), MagicMock(name="stream-b")
+    factory, builder = _factory_building(first, second)
+
+    with builder:
+        assert factory.acquire(track_id=7, preset="adaptive") is first
+        assert factory.acquire(track_id=7, preset="adaptive") is second
+
+
+def test_a_released_lease_is_reused_by_the_next_stream():
+    """A single stream keeps one instance, and a later stream of the same track
+    gets the warm one back once the first has released it."""
+    first = MagicMock(name="stream-a")
+    factory, builder = _factory_building(first)
+
+    with builder:
+        leased = factory.acquire(track_id=7, preset="adaptive")
+        factory.release_lease(leased, track_id=7, preset="adaptive")
+        assert factory.acquire(track_id=7, preset="adaptive") is first
+
+    first.close.assert_not_called()
+
+
+def test_a_lease_is_exclusive_while_held():
+    first = MagicMock(name="stream-a")
+    factory, builder = _factory_building(first)
+
+    with builder:
+        factory.acquire(track_id=7, preset="adaptive")
+
+    assert factory._processor_cache == {}
+    assert factory.active_processors == {7: first}
+
+
+def test_discarded_lease_is_closed_and_never_returned_to_the_cache():
+    """Replaces the old invalidate(): an advanced processor (#5274, DSP timeout
+    #5335) is dropped, so the retry's lease is a fresh instance."""
+    advanced, fresh = MagicMock(name="advanced-processor"), MagicMock(name="fresh-processor")
+    factory, builder = _factory_building(advanced, fresh)
+
+    with builder:
+        leased = factory.acquire(track_id=7, preset="warm")
+        factory.discard_lease(leased, track_id=7)
+        assert factory.acquire(track_id=7, preset="warm") is fresh
+
+    advanced.close.assert_called_once()
+    fresh.close.assert_not_called()
+    assert factory._processor_cache == {}
+
+
+def test_overlapping_same_key_releases_keep_the_last_and_close_the_other():
+    a, b = MagicMock(name="stream-a"), MagicMock(name="stream-b")
+    factory, builder = _factory_building(a, b)
+
+    with builder:
+        lease_a = factory.acquire(track_id=7, preset="adaptive")
+        lease_b = factory.acquire(track_id=7, preset="adaptive")
+        factory.release_lease(lease_a, track_id=7, preset="adaptive")
+        factory.release_lease(lease_b, track_id=7, preset="adaptive")
+
+    assert len(factory._processor_cache) == 1
+    assert list(factory._processor_cache.values()) == [b]
+    a.close.assert_called_once()
+    b.close.assert_not_called()
+
+
+def test_release_respects_the_lru_cap_and_closes_the_evicted():
+    procs = [MagicMock(name=f"p{i}") for i in range(3)]
+    factory = ProcessorFactory(max_cached=2)
+
+    with patch("auralis.core.hybrid_processor.HybridProcessor", side_effect=procs):
+        leases = [factory.acquire(track_id=i + 1, preset="adaptive") for i in range(3)]
+        for i, leased in enumerate(leases):
+            factory.release_lease(leased, track_id=i + 1, preset="adaptive")
+
+    assert len(factory._processor_cache) == 2
+    procs[0].close.assert_called_once()
+    procs[2].close.assert_not_called()
 
 
 def test_racy_set_mastering_targets_setter_is_gone():

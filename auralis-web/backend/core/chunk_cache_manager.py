@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from core.encoding.atomic_io import is_wav_complete
+from core.intensity_key import INTENSITY_KEY_DECIMALS, intensity_cache_key  # noqa: F401  (re-exported)
 from core.targets_hash import NO_TARGETS
 
 from .chunk_disk_prune import (  # noqa: F401
@@ -31,21 +32,6 @@ from .chunk_disk_prune import (  # noqa: F401
 )
 
 logger = logging.getLogger(__name__)
-
-
-# Canonical intensity precision for every chunk-cache key and on-disk filename
-# (#5474). Each tier used to format intensity at its own precision — .1f in
-# cache/models.py, the raw float in the on-disk key and WAV filename — so two
-# requests in the same 0.1 bucket could be served audio rendered for a
-# different off-grid intensity, and float noise (0.30000000000000004) minted
-# its own unreachable disk entries. Quantise once here; every consumer imports
-# this function rather than formatting intensity itself.
-INTENSITY_KEY_DECIMALS = 1
-
-
-def intensity_cache_key(intensity: float) -> float:
-    """Bucket an intensity to the chunk cache's canonical 0.1 granularity."""
-    return round(float(intensity), INTENSITY_KEY_DECIMALS)
 
 
 class ChunkCacheManager(ChunkDiskPruneMixin):

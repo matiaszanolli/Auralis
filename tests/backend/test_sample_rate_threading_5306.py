@@ -13,12 +13,13 @@ either pipeline resamples to 44.1 kHz, so the buffers really are at the file's
 rate while the config claims otherwise.
 
 The subtle half of this fix, and the reason for `test_per_chunk_render_*`
-below: the streaming path re-queries ProcessorFactory on EVERY chunk via
+below: the streaming path used to re-query ProcessorFactory on EVERY chunk via
 chunk_render -> AudioProcessingPipeline.process_audio -> select_processor.
-Passing a rate-aware config only at init time (chunk_processor_init) creates an
-orphan cache entry and leaves every chunk rendered by the separate
-`config_hash="default"` — i.e. 44.1 kHz — processor. A test that only checks
-the init site cannot tell the real fix from the inert one.
+Passing a rate-aware config only at init time (chunk_processor_init) created an
+orphan cache entry and left every chunk rendered by the separate
+`config_hash="default"` — i.e. 44.1 kHz — processor. Since #6091 each stream
+holds a lease taken with that config, and the only later lookup is the re-lease
+after a discarded processor (`hybrid_processor()`), which must pass it again.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
@@ -53,7 +54,7 @@ class _PassthroughProcessor:
 
 
 class _SpyFactory:
-    """Records every get_or_create/invalidate call's config."""
+    """Records every get_or_create/acquire call's config."""
 
     def __init__(self) -> None:
         self.calls: list[dict] = []
@@ -62,6 +63,8 @@ class _SpyFactory:
     def get_or_create(self, **kwargs):
         self.calls.append(kwargs)
         return self.processor
+
+    acquire = get_or_create  # a stream's lease (#6091) is looked up with the same kwargs
 
     @property
     def rates(self) -> list[int | None]:
@@ -110,8 +113,8 @@ def test_job_config_48k_is_not_the_44100_default():
 
 @pytest.mark.parametrize("rate", [44100, 48000, 96000])
 def test_chunk_processor_init_passes_rate_aware_config_to_factory(rate: int):
-    """WIRING check: the config must reach get_or_create as `config=`, not be
-    built and dropped."""
+    """WIRING check: the config must reach the factory's lease as `config=`, not
+    be built and dropped."""
     factory = _SpyFactory()
     target_service = SimpleNamespace(load_fingerprint=lambda **_kw: None)
 
@@ -166,29 +169,32 @@ def test_per_chunk_render_resolves_the_rate_aware_processor(rate: int):
     assert factory.calls[0]["config"] is config
 
 
-def test_per_chunk_render_passes_the_same_config_instance_as_init():
-    """Both factory lookups for one track must produce the SAME cache key.
-    Equal-but-distinct configs are fine (the hash is content-based); a missing
-    one is not."""
+def test_init_lease_and_re_lease_use_the_same_config():
+    """Init's lease and the re-lease after a discard (#5274/#5335) must produce
+    the SAME cache key. Equal-but-distinct configs are fine (the hash is
+    content-based); a missing one is not."""
+    from core.chunk_processor_lease import StreamProcessorLeaseMixin
+
     factory = _SpyFactory()
     target_service = SimpleNamespace(load_fingerprint=lambda **_kw: None)
 
-    _fp, _t, _p, init_config = init_fingerprint_and_processor(
+    _fp, targets, leased, init_config = init_fingerprint_and_processor(
         target_service, factory, 7, "track.flac", "adaptive", 1.0, 48000
     )
-    AudioProcessingPipeline.process_audio(
-        audio=np.random.uniform(-0.5, 0.5, (8192, 2)).astype(np.float32),
-        preset="adaptive",
-        intensity=1.0,
-        processor_factory=factory,
-        track_id=7,
-        config=init_config,
-    )
+
+    class _Stream(StreamProcessorLeaseMixin):
+        pass
+
+    stream = _Stream()
+    stream.track_id, stream.preset, stream.intensity = 7, "adaptive", 1.0
+    stream.processor, stream.processor_config = None, init_config  # discarded
+    stream.mastering_targets, stream._processor_factory = targets, factory
+    assert stream.hybrid_processor() is factory.processor
 
     real_factory = ProcessorFactory()
     hashes = {real_factory._get_config_hash(c["config"]) for c in factory.calls}
     assert len(factory.calls) == 2
-    assert len(hashes) == 1, "init and per-chunk lookups must share one cache key"
+    assert len(hashes) == 1, "init and re-lease must share one cache key"
     assert "default" not in hashes
 
 
@@ -226,15 +232,20 @@ def test_48k_config_reaches_the_dsp_stages_that_read_it():
         processor.close()
 
 
-def test_chunk_render_forwards_the_processors_own_config():
-    """Pins the chunk_render.py half of the wiring: `process_chunk_core` must
-    hand `ChunkedAudioProcessor.processor_config` to the pipeline. Dropping
-    this one kwarg silently reverts the whole streaming path to 44.1 kHz."""
+def test_chunk_render_renders_on_the_streams_own_lease():
+    """Pins the chunk_render.py half of the wiring: `process_chunk_core` must run
+    the DSP on `ChunkedAudioProcessor.hybrid_processor()` (the stream's lease,
+    taken with the rate-aware config) rather than re-selecting from the shared
+    factory, where a second stream of the same track would get the same
+    instance (#6091)."""
     from core import chunk_render
 
     factory = _SpyFactory()
     config = UnifiedConfig(internal_sample_rate=48000)
     audio = np.random.uniform(-0.5, 0.5, (4096, 2)).astype(np.float32)
+    leased = _PassthroughProcessor()
+    processed: list[int] = []
+    leased.process = lambda a, *_x, **_k: processed.append(len(a)) or np.asarray(a).copy()  # type: ignore[method-assign]
 
     fake = SimpleNamespace(
         track_id=7,
@@ -248,6 +259,7 @@ def test_chunk_render_forwards_the_processors_own_config():
         mastering_targets=None,
         processor_config=config,
         _processor_factory=factory,
+        hybrid_processor=lambda: leased,
         _dsp_state_advanced=False,
         _validate_chunk_index=lambda _i: None,
         load_chunk=lambda _i, with_context=True: (audio, 0.0, 1.0),
@@ -257,6 +269,6 @@ def test_chunk_render_forwards_the_processors_own_config():
 
     out = chunk_render.process_chunk_core(fake, 0)
 
-    assert factory.rates == [48000]
-    assert factory.calls[0]["config"] is config
+    assert processed == [len(audio)]
+    assert factory.calls == [], "the render must not re-select a processor from the factory"
     assert len(out) == len(audio)  # sample-count invariant

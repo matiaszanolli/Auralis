@@ -37,25 +37,26 @@ if project_root not in sys.path:
 from config.limits import chunk_cache_dir, create_secure_temp_dir
 
 # Chunk geometry lives in chunk_boundaries and is imported, never redeclared
-# (#4024); tests import the constants (and the other helpers this module used
-# to re-export) from where they are defined (#5775).
+# (#4024); tests import constants and helpers from where they are defined (#5775).
 from core.chunk_boundaries import CHUNK_DURATION
 from core import chunk_batch, chunk_render, chunk_streaming
 from core.chunk_metadata import load_audio_metadata
 from core.chunk_mastering import compute_mastering_recommendation
 from core.chunk_processor_init import build_collaborators, init_fingerprint_and_processor
+from core.chunk_processor_lease import StreamProcessorLeaseMixin
 from core.targets_hash import get_targets_hash
 from core.seekable_source import SeekableSource
 from core.file_signature import FileSignatureService  # Phase 5.1: File signature generation
 from core.mastering_target_service import get_mastering_target_service  # Singleton (#4749)
 from core.processor_registry import get_processor_factory  # Singleton (injected, not constructed here)
 
-from auralis.analysis.adaptive_mastering_engine import AdaptiveMasteringEngine, MasteringRecommendation
+from auralis.analysis.adaptive_mastering_engine import AdaptiveMasteringEngine
+from auralis.analysis.mastering_recommendation import MasteringRecommendation
 
 logger = logging.getLogger(__name__)
 
 
-class ChunkedAudioProcessor:
+class ChunkedAudioProcessor(StreamProcessorLeaseMixin):
     """
     Process audio in chunks for fast streaming: fast-starting first chunk,
     background processing of the rest, and smart caching of processed chunks.
@@ -97,11 +98,9 @@ class ChunkedAudioProcessor:
         self.channels: int | None = None
         self._load_metadata()
 
-        # #5056: `self.chunk_interval` is deliberately not exposed — no
-        # production reader; chunk position math goes through
-        # chunk_boundaries.emitted_chunk_start(), and the chunk loaders
-        # default their own `chunk_interval` parameter from CHUNK_INTERVAL
-        # directly.
+        # #5056: `self.chunk_interval` is deliberately not exposed — no production
+        # reader; position math goes through chunk_boundaries.emitted_chunk_start(),
+        # and the chunk loaders default `chunk_interval` from CHUNK_INTERVAL.
 
         self.chunk_dir = chunk_cache_dir()
         create_secure_temp_dir(self.chunk_dir)
@@ -111,8 +110,8 @@ class ChunkedAudioProcessor:
         )
         self._mastering_target_service: Any = get_mastering_target_service()
 
-        # Fingerprint/targets (DB -> .25d file -> extract-on-first-play) and the
-        # shared HybridProcessor, whose state persists across chunks.
+        # Fingerprint/targets (DB -> .25d file -> extract-on-first-play) and this
+        # stream's leased HybridProcessor (#6091), whose state persists across chunks.
         # #4666: MUST precede build_collaborators() — the chunk cache identity
         # (memory key and WAV filename) hashes these targets.
         # `or 44100` only narrows `int | None`; metadata is already loaded.
@@ -121,9 +120,8 @@ class ChunkedAudioProcessor:
             self.fingerprint,
             self.mastering_targets,
             self.processor,
-            # #5306: every later factory lookup for this track (chunk_render,
-            # chunk_streaming's #5274 invalidate) MUST pass this same config, or
-            # it hashes to a different, 44.1 kHz-assuming cache entry.
+            # #5306: every later lease (hybrid_processor(), release_lease) MUST pass
+            # this same config or it keys a different, 44.1 kHz-assuming entry.
             self.processor_config,
         ) = init_fingerprint_and_processor(
             self._mastering_target_service,
@@ -269,7 +267,8 @@ class ChunkedAudioProcessor:
         return await chunk_streaming.process_chunk_safe(self, chunk_index, fast_start)
 
     def close(self) -> None:
-        """Release the seekable-source temp WAV (#4737), never the shared ``self.processor``. Idempotent."""
+        """Return the leased HybridProcessor (#6091); release the temp WAV (#4737)."""
+        self._release_processor()
         self._source.close()
 
     def get_mastering_recommendation(self, confidence_threshold: float = 0.4) -> Any | None:

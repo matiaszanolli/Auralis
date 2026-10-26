@@ -108,7 +108,7 @@ async def stream_enhanced_audio(
     # playback_commands._cancel_prior_task / playback_control.handle_stop
     # before they call task.cancel(); checked by
     # chunk_streaming.process_chunk before starting DSP.
-    from routers.system import _stream_chunk_cancel_events
+    from routers.system_streams import _stream_chunk_cancel_events
     chunk_cancel_event = threading.Event()
     _stream_chunk_cancel_events[_asc.ws_id(websocket)] = chunk_cancel_event
 
@@ -287,8 +287,8 @@ async def stream_enhanced_audio(
         # #4737) — a non-natively-seekable format (m4a/aac/wma) converts once
         # per ChunkedAudioProcessor instance, and since a new instance is
         # constructed per stream, nothing ever reclaimed it before this fix.
-        # Never self.processor — that's the *shared* HybridProcessor owned by
-        # ProcessorFactory's own lifecycle (see ChunkedAudioProcessor.close()).
+        # close() also returns this stream's leased HybridProcessor to the
+        # factory (#6091).
         if processor is not None:
             await asyncio.to_thread(processor.close)
         # #4815: only remove OUR OWN registration — a reissued stream on the

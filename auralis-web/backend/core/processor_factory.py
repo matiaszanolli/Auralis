@@ -17,8 +17,7 @@ eliminating ~150 lines of duplicate caching logic across 2 files.
 import logging
 import threading
 from collections import OrderedDict
-from copy import deepcopy
-from typing import Any, Literal
+from typing import Any
 
 from .env_config import get_int_env
 from .processor_cache_key import (
@@ -26,6 +25,7 @@ from .processor_cache_key import (
     build_cache_key,
     hash_config,
 )
+from .processor_lease import ProcessorLeaseMixin
 from .processor_maintenance import ProcessorMaintenanceMixin
 from .targets_hash import get_targets_hash
 
@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 _PROCESSOR_CACHE_MAX = get_int_env("AURALIS_PROCESSOR_CACHE_MAX", 32)
 
 
-class ProcessorFactory(ProcessorMaintenanceMixin):
+class ProcessorFactory(ProcessorLeaseMixin, ProcessorMaintenanceMixin):
     """
     Unified processor factory for HybridProcessor instances.
 
@@ -146,9 +146,6 @@ class ProcessorFactory(ProcessorMaintenanceMixin):
         Returns:
             HybridProcessor instance
         """
-        from auralis.core.config import UnifiedConfig
-        from auralis.core.hybrid_processor import HybridProcessor
-
         # #3720: include the targets content in the cache key so two
         # callers with different targets land on different cached
         # processors. Eliminates the previous race where the cache-hit
@@ -172,27 +169,7 @@ class ProcessorFactory(ProcessorMaintenanceMixin):
                 )
                 return cached
 
-        # Construction takes 200-500 ms and does not touch cache state. Keep it
-        # outside the global factory lock so unrelated cold keys can construct
-        # concurrently (#4689). The processor receives its own config snapshot;
-        # factory preset changes must never mutate caller-owned state (#4827).
-        logger.info(
-            "Creating new processor: track_id=%s, preset=%s, intensity=%s",
-            track_id,
-            preset,
-            intensity,
-        )
-        try:
-            owned_config = deepcopy(config) if config is not None else UnifiedConfig()
-            owned_config.mastering_profile = preset.lower()
-            processor = HybridProcessor(owned_config)
-
-            if mastering_targets is not None:
-                processor.set_fixed_mastering_targets(deepcopy(mastering_targets))
-                logger.debug("Applied fixed mastering targets to processor")
-        except Exception as error:
-            logger.error("Failed to create processor for track %s: %s", track_id, error)
-            raise
+        processor = self._build_processor(track_id, preset, intensity, config, mastering_targets)
 
         evicted: list[tuple[ProcessorCacheKey, Any]] = []
         with self._lock:

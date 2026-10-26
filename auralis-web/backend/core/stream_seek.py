@@ -104,7 +104,7 @@ async def stream_enhanced_audio_from_position(
     # rationale. Registered before track lookup/processor construction so
     # _cancel_prior_task can find and set() it for this task's whole
     # lifetime.
-    from routers.system import _stream_chunk_cancel_events
+    from routers.system_streams import _stream_chunk_cancel_events
     chunk_cancel_event = threading.Event()
     _stream_chunk_cancel_events[_asc.ws_id(websocket)] = chunk_cancel_event
 
@@ -280,8 +280,8 @@ async def stream_enhanced_audio_from_position(
         # #4737) — a non-natively-seekable format (m4a/aac/wma) converts once
         # per ChunkedAudioProcessor instance, and since a new instance is
         # constructed per seek, nothing ever reclaimed it before this fix.
-        # Never self.processor — that's the *shared* HybridProcessor owned by
-        # ProcessorFactory's own lifecycle (see ChunkedAudioProcessor.close()).
+        # close() also returns this stream's leased HybridProcessor to the
+        # factory (#6091).
         if processor is not None:
             await asyncio.to_thread(processor.close)
         # #4815: only remove OUR OWN registration — a reissued stream on the

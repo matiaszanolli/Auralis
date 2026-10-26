@@ -240,22 +240,31 @@ class TestProcessorIntegration:
             "per-chunk amplification is back"
         )
 
-    def test_close_does_not_touch_the_shared_hybrid_processor(self, wav_file):
-        """close() must release only the temp dir — self.processor is shared."""
+    def test_close_hands_back_the_leased_hybrid_processor_without_closing_it(self, wav_file):
+        """close() releases the temp dir and RETURNS the stream's lease (#6091);
+        it never closes the HybridProcessor, which the factory's cache may hand
+        to the next stream."""
+        from unittest.mock import MagicMock
+
         from core.chunked_processor import ChunkedAudioProcessor
 
         proc = ChunkedAudioProcessor.__new__(ChunkedAudioProcessor)
         proc._source = SeekableSource(wav_file)
-
-        sentinel = object()
-        proc.processor = sentinel
+        factory = MagicMock()
+        leased = MagicMock(name="leased")
+        proc._processor_factory = factory
+        proc.processor = leased
+        proc.track_id, proc.preset = 1, "adaptive"
+        proc.processor_config, proc.mastering_targets = None, None
 
         proc.close()
+        proc.close()  # idempotent
 
-        assert proc.processor is sentinel, (
-            "close() tore down the shared HybridProcessor — the ProcessorFactory "
-            "LRU owns that, and another live ChunkedAudioProcessor may hold it"
+        factory.release_lease.assert_called_once_with(
+            leased, track_id=1, preset="adaptive", config=None, mastering_targets=None
         )
+        leased.close.assert_not_called()
+        assert proc.processor is None
 
 
 class TestEvictionClosesProcessors:

@@ -222,7 +222,8 @@ class AudioProcessingPipeline:
         fast_start: bool = False,
         chunk_index: int | None = None,
         allow_empty: bool = False,
-        config: Any | None = None
+        config: Any | None = None,
+        processor: Any | None = None,
     ) -> np.ndarray:
         """
         Main unified processing entry point.
@@ -245,6 +246,8 @@ class AudioProcessingPipeline:
             allow_empty: Allow empty audio arrays
             config: Optional UnifiedConfig carrying the track's REAL sample
                 rate (#5306) — forwarded to select_processor
+            processor: A processor the caller already holds (a stream's lease,
+                #6091). When given, nothing is selected from the factory.
 
         Returns:
             Processed audio array
@@ -267,7 +270,9 @@ class AudioProcessingPipeline:
             return audio
 
         # Step 2: Select processor (None if preset is None)
-        if processor_factory is None:
+        if processor is not None:
+            pass  # the caller's own lease
+        elif processor_factory is None:
             # If no processor factory provided and preset is specified, we can't process
             if preset is not None:
                 raise ValueError("processor_factory required when preset is specified")

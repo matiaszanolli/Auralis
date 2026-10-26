@@ -160,7 +160,9 @@ def init_fingerprint_and_processor(
         # this into the processor it owns (#4827); the cache key already varies
         # with the rate via `UnifiedConfig.to_dict()`, so no invalidation work.
         processor_config = UnifiedConfig(internal_sample_rate=sample_rate)
-        processor = processor_factory.get_or_create(
+        # Leased, not shared (#6091): this stream is the only holder until its
+        # ChunkedAudioProcessor.close() hands the instance back.
+        processor = processor_factory.acquire(
             track_id=track_id,
             preset=preset,  # narrowed to str by the guard (#4028)
             intensity=intensity,

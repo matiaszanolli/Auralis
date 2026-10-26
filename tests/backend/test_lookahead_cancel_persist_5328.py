@@ -39,7 +39,7 @@ def _rendering_processor(event: threading.Event, *, cancel_during_dsp: bool) -> 
     processor._wav_encoder.encode_and_save_from_path = Mock(return_value="/tmp/chunk_1.wav")
     processor._wav_encoder.encode_and_save = Mock()
     processor._path_cache.store = Mock()
-    processor._processor_factory.invalidate = Mock()
+    processor._processor_factory.discard_lease = Mock()
 
     def _dsp(chunk_index, fast_start=False):
         processor._dsp_state_advanced = True
@@ -75,7 +75,7 @@ class TestProcessChunk:
         with pytest.raises(ChunkCancelledError):
             chunk_streaming.process_chunk(processor, chunk_index=1, locked=False)
 
-        processor._processor_factory.invalidate.assert_not_called()
+        processor._processor_factory.discard_lease.assert_not_called()
         assert processor._dsp_state_advanced is False
 
     def test_uncancelled_render_is_still_persisted(self):
@@ -95,7 +95,7 @@ class TestGetWavChunkPath:
             chunk_streaming.get_wav_chunk_path(processor, chunk_index=1)
 
         _assert_nothing_persisted(processor)
-        processor._processor_factory.invalidate.assert_not_called()
+        processor._processor_factory.discard_lease.assert_not_called()
 
     def test_already_cancelled_stream_skips_dsp(self):
         event = threading.Event()

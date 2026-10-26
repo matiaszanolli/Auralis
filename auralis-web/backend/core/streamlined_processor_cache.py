@@ -20,7 +20,7 @@ import logging
 from collections import OrderedDict
 from typing import Any
 
-from core.chunk_cache_manager import intensity_cache_key
+from core.intensity_key import intensity_cache_key
 
 
 logger = logging.getLogger(__name__)
@@ -97,13 +97,10 @@ def remember_processor(
     owns a temp WAV — dropping such an entry without closing it leaks that
     file for the process lifetime.
 
-    ``ChunkedAudioProcessor.close()`` releases *only* that temp dir. The
-    original caution still holds and is honoured there: ``self.processor``
-    is a *shared* ``HybridProcessor`` owned by the ``ProcessorFactory``
-    singleton, which runs its own LRU with ``close()``
-    (``processor_factory.py:250-264``). Closing that from here would tear
-    down a processor another live ``ChunkedAudioProcessor`` — or the
-    factory's own cache — is still using.
+    ``ChunkedAudioProcessor.close()`` releases that temp dir and hands its
+    leased ``HybridProcessor`` back to the ``ProcessorFactory`` (#6091), which
+    keeps it warm in its own LRU; it never closes the processor itself, which
+    the factory's cache may hand to the next lease.
     """
     cache[cache_key] = processor
     cache.move_to_end(cache_key)

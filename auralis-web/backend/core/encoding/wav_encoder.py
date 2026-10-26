@@ -15,7 +15,7 @@ import numpy as np
 
 from auralis.io.saver import save as save_audio
 
-from ..chunk_cache_manager import intensity_cache_key
+from ..intensity_key import intensity_cache_key
 from ..targets_hash import NO_TARGETS
 from .atomic_io import atomic_save_audio, is_partial_path
 

@@ -70,28 +70,17 @@ def invalidate_pooled_processor(
 ) -> None:
     """Discard the pooled HybridProcessor this chunk rendered on.
 
-    ProcessorFactory hands one cached instance to every stream of a track, so
-    an instance left in an unknown state must be dropped for the next stream
-    to build a fresh one. Used after a post-DSP failure (#5274) and after a
+    The stream leases its HybridProcessor (#6091), so an instance left in an
+    unknown state is discarded rather than returned to the cache, and the next
+    chunk leases a fresh one. Used after a post-DSP failure (#5274) and after a
     chunk DSP timeout (#5335), where the abandoned executor thread may still
     be advancing the instance.
     """
-    if processor.preset is None:
-        return
-    processor._processor_factory.invalidate(
-        track_id=processor.track_id,
-        preset=processor.preset,
-        mastering_targets=processor.mastering_targets,
-        # #5306: `invalidate` rebuilds the cache key, and `_get_config_hash`
-        # maps None to "default". Once this track's processor is keyed on a
-        # rate-aware config, omitting it here pops nothing and leaves the
-        # DSP-advanced instance cached for the retry — exactly the #5274
-        # failure this function exists to prevent.
-        config=processor.processor_config,
-    )
-    # Processing selects from the factory on every call; this is only an
-    # observational handle to the instance created during initialization.
+    leased = processor.processor
     processor.processor = None
+    if leased is None:
+        return
+    processor._processor_factory.discard_lease(leased, track_id=processor.track_id)
     logger.error(
         "Chunk %s %s; invalidated the cached processor so a retry starts fresh",
         chunk_index,

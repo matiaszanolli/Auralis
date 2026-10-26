@@ -230,13 +230,11 @@ def process_chunk_core(
         audio=audio_chunk,
         preset=processor.preset,
         intensity=processor.intensity,
-        processor_factory=processor._processor_factory,  # Phase 2: Use ProcessorFactory
-        track_id=processor.track_id,
-        # #5306: this is the call that actually resolves the processor doing the
-        # DSP — the factory is re-queried per chunk, so passing the rate-aware
-        # config ONLY at init time (chunk_processor_init) would have left every
-        # chunk rendered by a separate, 44.1 kHz-assuming cache entry.
-        config=processor.processor_config,
+        # The stream's own leased HybridProcessor (#6091) -- not re-selected from
+        # the shared factory per chunk, where two streams of one track would be
+        # handed the same instance. Its lease was taken with the rate-aware
+        # config (#5306), see ChunkedAudioProcessor.hybrid_processor().
+        processor=processor.hybrid_processor(),
         targets=processor.mastering_targets,
         fast_start=fast_start,
         chunk_index=chunk_index,
