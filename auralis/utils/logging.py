@@ -92,38 +92,49 @@ class ModuleError(Exception):
         super().__init__(f"Module error: {code}")
 
 
-# Global log handler
+# Global log handler. When none is installed the facade bridges to the stdlib
+# "auralis" logger instead of discarding every event (#6156): no production code
+# ever called set_log_handler, so the failure paths of the scanner, database,
+# loaders and metadata backup were invisible in the persisted log.
 _log_handler: Callable[[str], None] | None = None
+_stdlib_logger = _stdlib_logging.getLogger("auralis")
 
 
 def set_log_handler(handler: Callable[[str], None] | None) -> None:
-    """Set the global log handler function"""
+    """Install a custom handler, or ``None`` to restore the stdlib bridge."""
     global _log_handler
     _log_handler = handler
 
 
+def _emit(level: int, label: str, message: str) -> None:
+    """Route one facade message to the custom handler, else the "auralis" logger."""
+    text = sanitize_log_value(message)
+    if _log_handler:
+        _log_handler(f"{label}: {text}")
+        return
+    if _stdlib_logger.isEnabledFor(level):
+        # stacklevel=3 attributes the record to the facade's caller, not to _emit.
+        _stdlib_logger.log(level, "%s", text, stacklevel=3)
+
+
 def debug(message: str) -> None:
     """Log a debug message"""
-    if _log_handler:
-        _log_handler(f"DEBUG: {sanitize_log_value(message)}")
+    _emit(_stdlib_logging.DEBUG, "DEBUG", message)
 
 
 def info(message: str) -> None:
     """Log an info message"""
-    if _log_handler:
-        _log_handler(f"INFO: {sanitize_log_value(message)}")
+    _emit(_stdlib_logging.INFO, "INFO", message)
 
 
 def warning(message: str) -> None:
     """Log a warning message"""
-    if _log_handler:
-        _log_handler(f"WARNING: {sanitize_log_value(message)}")
+    _emit(_stdlib_logging.WARNING, "WARNING", message)
 
 
 def error(message: str) -> None:
     """Log an error message"""
-    if _log_handler:
-        _log_handler(f"ERROR: {sanitize_log_value(message)}")
+    _emit(_stdlib_logging.ERROR, "ERROR", message)
 
 
 # #4828: the explicit sanitize_log_value() call sites from #4363 (4 files) left
