@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from ...__version__ import FINGERPRINT_ALGORITHM_VERSION
+from ...library.data_dir import fingerprints_dir
 from ...utils.atomic_write import write_json_atomic
 from .schema import DIMENSION_SCHEMA
 
@@ -31,7 +32,8 @@ class FingerprintStorage:
     Storage and retrieval of audio fingerprints with validation.
 
     File Format: JSON files with .25d extension
-    Location: Centralized cache in ~/.auralis/fingerprints/
+    Location: Centralized cache in fingerprints_dir() (~/.auralis/fingerprints/
+    by default; beside the library database when that lives elsewhere, #5751)
     Cache Key: MD5 hash of (file_path + file_signature)
     """
 
@@ -40,7 +42,7 @@ class FingerprintStorage:
     @staticmethod
     def _get_cache_dir() -> Path:
         """Get or create the centralized fingerprint cache directory."""
-        cache_dir = Path.home() / ".auralis" / "fingerprints"
+        cache_dir = fingerprints_dir()
         cache_dir.mkdir(parents=True, exist_ok=True)
         return cache_dir
 

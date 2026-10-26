@@ -23,12 +23,8 @@ from sqlalchemy.orm import sessionmaker
 
 from ..utils.logging import error, info, warning
 from .database_accessors import RepositoryAccessorsMixin
-from .database_engine import (
-    create_library_engine,
-    create_schema,
-    resolve_database_path,
-    restrict_wal_sidecars,
-)
+from .data_dir import register_database_location
+from .database_engine import create_library_engine, create_schema, resolve_database_path, restrict_wal_sidecars
 from .migration_manager import MigrationError, check_and_migrate_database
 from .repositories import RepositoryFactory
 from .scan_coordinator import ScanCoordinator
@@ -78,6 +74,7 @@ class LibraryDatabase(RepositoryAccessorsMixin):
         """
         database_path = resolve_database_path(database_path)
         self.database_path = database_path
+        register_database_location(database_path)  # artwork / fingerprint caches follow the DB (#5751)
 
         # Check and migrate database before initializing engine. `migration_lock`
         # (in migration_manager) now serializes both same-process threads and

@@ -25,6 +25,8 @@ import logging
 import time
 from pathlib import Path
 
+from auralis.library.data_dir import artwork_dir
+
 logger = logging.getLogger(__name__)
 
 __all__ = [
@@ -59,7 +61,7 @@ TEMP_FILE_MAX_AGE_SECONDS = 300.0
 
 def artwork_cache_root() -> Path:
     """Return the canonical source-artwork cache root."""
-    return Path.home() / ".auralis" / "artwork"
+    return artwork_dir()
 
 
 def artwork_cache_dirs() -> tuple[Path, Path]:

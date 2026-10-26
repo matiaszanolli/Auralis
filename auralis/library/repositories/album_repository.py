@@ -8,7 +8,6 @@ Data access layer for album operations
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from pathlib import Path
 from collections.abc import Callable
 from typing import Any
 
@@ -16,6 +15,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload, with_expression
 
 from ..artwork import create_artwork_extractor
+from ..data_dir import artwork_dir
 from ..models import Album, Artist, Track
 from .album_artwork import AlbumArtworkMixin
 from .base import correlated_count, correlated_sum, escape_like
@@ -63,8 +63,7 @@ class AlbumRepository(AlbumArtworkMixin):
         super().__init__(session_factory)
 
         # Initialize artwork extractor
-        artwork_dir = Path.home() / ".auralis" / "artwork"
-        self.artwork_extractor = create_artwork_extractor(str(artwork_dir))
+        self.artwork_extractor = create_artwork_extractor(str(artwork_dir()))
 
     def get_by_id(self, album_id: int) -> Album | None:
         """Get album by ID with relationships loaded"""

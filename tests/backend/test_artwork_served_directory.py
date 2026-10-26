@@ -16,28 +16,33 @@ _BACKEND = Path(__file__).resolve().parents[2] / "auralis-web" / "backend"
 if str(_BACKEND) not in sys.path:
     sys.path.insert(0, str(_BACKEND))
 
+from auralis.library import data_dir  # noqa: E402
+from core.thumbnail_cache import artwork_cache_root  # noqa: E402
 from services.artwork_downloader import ArtworkDownloader  # noqa: E402
-
-# The directory the GET endpoint hard-codes as allowed (routers/artwork.py:163).
-SERVED_DIR = (Path.home() / ".auralis" / "artwork").resolve()
 
 _PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 16
 
 
-def test_default_cache_dir_is_the_served_directory():
+@pytest.fixture
+def scratch_profile(tmp_path, monkeypatch):
+    """A throwaway profile: HOME in tmp, no open library redirecting the data dir."""
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setattr(data_dir, "_database_data_dir", None)
+    return tmp_path
+
+
+def test_default_cache_dir_is_the_served_directory(scratch_profile):
     # The independently-derived download target and serve target must agree,
     # or the router's is_relative_to guard rejects every downloaded image.
     downloader = ArtworkDownloader()
-    assert downloader.cache_dir.resolve() == SERVED_DIR
+    assert downloader.cache_dir.resolve() == artwork_cache_root().resolve()
 
 
 @pytest.mark.asyncio
-async def test_saved_artwork_passes_the_serving_guard(tmp_path, monkeypatch):
-    # Redirect HOME (what both `~` expansion and Path.home() read on POSIX) so
-    # the default target lands under a temp served dir, then replay the exact
+async def test_saved_artwork_passes_the_serving_guard(scratch_profile):
+    # The default target lands under the (temp) served dir; replay the exact
     # guard the GET endpoint applies to album.artwork_path.
-    monkeypatch.setenv("HOME", str(tmp_path))
-    served = (Path("~/.auralis/artwork").expanduser()).resolve()
+    served = artwork_cache_root().resolve()
 
     downloader = ArtworkDownloader()  # default cache_dir -> served dir
     saved = await downloader._save_artwork(_PNG, album_id=42, ext="jpg")

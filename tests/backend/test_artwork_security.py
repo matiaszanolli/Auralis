@@ -25,6 +25,8 @@ import pytest
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
+from core.thumbnail_cache import artwork_cache_root  # noqa: E402  (follows the open library, #5751)
+
 
 class TestArtworkPathTraversalProtection:
     """Test path traversal protection in GET /api/albums/{album_id}/artwork"""
@@ -33,7 +35,7 @@ class TestArtworkPathTraversalProtection:
         """Test that valid artwork paths within allowed directory are served"""
         # Create mock album with valid artwork path
         mock_album = Mock()
-        artwork_dir = Path.home() / ".auralis" / "artwork"
+        artwork_dir = artwork_cache_root()
         artwork_dir.mkdir(parents=True, exist_ok=True)
 
         # Create a test artwork file
@@ -81,7 +83,7 @@ class TestArtworkPathTraversalProtection:
         """Test that relative path traversal (../../) is blocked"""
         # Create mock album with relative path traversal
         mock_album = Mock()
-        artwork_dir = Path.home() / ".auralis" / "artwork"
+        artwork_dir = artwork_cache_root()
 
         mock_album.id = 1
         # Attempt to traverse up and access /etc/passwd
@@ -102,7 +104,7 @@ class TestArtworkPathTraversalProtection:
         """Test that symlinks pointing outside artwork directory are blocked"""
         # Create mock album with symlink to /etc/passwd
         mock_album = Mock()
-        artwork_dir = Path.home() / ".auralis" / "artwork"
+        artwork_dir = artwork_cache_root()
         artwork_dir.mkdir(parents=True, exist_ok=True)
 
         # Create symlink to /etc/passwd
@@ -134,7 +136,7 @@ class TestArtworkPathTraversalProtection:
         """Test that nonexistent files within allowed directory return 404"""
         # Create mock album with path to nonexistent file
         mock_album = Mock()
-        artwork_dir = Path.home() / ".auralis" / "artwork"
+        artwork_dir = artwork_cache_root()
 
         mock_album.id = 1
         mock_album.artwork_path = str(artwork_dir / "nonexistent.jpg")
@@ -183,7 +185,7 @@ class TestArtworkPathTraversalProtection:
         """Test that cache headers are set for valid artwork"""
         # Create mock album with valid artwork path
         mock_album = Mock()
-        artwork_dir = Path.home() / ".auralis" / "artwork"
+        artwork_dir = artwork_cache_root()
         artwork_dir.mkdir(parents=True, exist_ok=True)
 
         # Create a test artwork file
