@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from core.chunk_content_profile import store_content_profile
-from core.encoding import WAVEncoderError
+from core.encoding import WAVEncoderError, read_chunk_wav
 
 from .chunk_stream_state import (
     ChunkCancelledError,
@@ -83,10 +83,9 @@ def process_chunk(
     if cached_path is not None:
         assert processor.total_chunks is not None
         logger.info(f"Serving cached chunk {chunk_index}/{processor.total_chunks}")
-        # Load from disk only if cached (for subsequent requests)
-        # For initial streaming, audio array is already in memory cache
-        from auralis.io.unified_loader import load_audio
-        audio, _ = load_audio(str(cached_path))
+        # Same shape as the miss path (native channels, always 2-D) - not
+        # load_audio's whole-file downmix contract (#5947).
+        audio = read_chunk_wav(cached_path)
         # #4669: this hit bypasses _process_chunk_core, so without the line
         # below the LevelManager never sees this chunk and the NEXT cache-MISS
         # chunk smooths against a stale, non-adjacent RMS.

@@ -14,14 +14,13 @@ class _RotatingFactory:
         self.current = object()
         self.invalidations = 0
 
-    def invalidate(self, **kwargs) -> bool:
-        # #5306: the key `invalidate` rebuilds includes the config hash, so
-        # the caller must hand back the same config the processor was created
-        # with — omitting it pops nothing and defeats #5274 entirely.
-        assert "config" in kwargs, "invalidate() must be given the processor's config"
+    def discard_lease(self, leased: object, *, track_id: int) -> None:
+        # #6091: a stream leases its HybridProcessor, so a post-DSP failure
+        # discards the leased instance (#5274) and the next chunk leases a new one.
+        assert leased is self.current, "must discard the instance this chunk rendered on"
+        assert track_id == 7
         self.invalidations += 1
         self.current = object()
-        return True
 
 
 def test_retry_uses_fresh_processor_after_post_dsp_write_failure(tmp_path: Path):
@@ -41,7 +40,7 @@ def test_retry_uses_fresh_processor_after_post_dsp_write_failure(tmp_path: Path)
         fingerprint=object(),
         mastering_targets=None,
         targets_hash="none",  # #4666: completes the chunk cache identity
-        processor=object(),
+        processor=factory.current,
         # #5306: the rate-aware config this track's processor is keyed on.
         # `invalidate` must receive it or it addresses a different cache entry.
         processor_config=object(),

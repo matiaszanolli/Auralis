@@ -12,6 +12,7 @@ import logging
 from pathlib import Path
 
 import numpy as np
+import soundfile as sf
 
 from auralis.io.saver import save as save_audio
 
@@ -231,6 +232,20 @@ class WAVEncoder:
 
         self.encode_and_save(audio, sample_rate, chunk_path, subtype)
         return chunk_path
+
+def read_chunk_wav(path: str | Path) -> np.ndarray:
+    """Read a cached chunk WAV back exactly as it was rendered (#5947).
+
+    Chunk WAVs are our own flat PCM files, written with the source's native
+    channel count. ``load_audio()`` is the whole-file contract (FFmpeg routing,
+    layout-aware downmix of >2 channels, mono as 1-D), so a cache hit read
+    through it came back with a different shape than the cache miss of the same
+    chunk. This returns ``(frames, channels)`` float32 — always 2-D — like the
+    miss path's source read.
+    """
+    audio: np.ndarray = sf.read(str(path), dtype='float32', always_2d=True)[0]
+    return audio
+
 
 def delete_chunk_files(
     chunk_dir: Path,

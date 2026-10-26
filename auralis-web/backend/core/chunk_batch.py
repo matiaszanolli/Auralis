@@ -22,9 +22,9 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from core.chunk_stream_state import fast_start_for
+from core.encoding import read_chunk_wav
 from core.encoding.atomic_io import atomic_save_audio, is_wav_complete
 from auralis.io.saver import save as save_audio
-from auralis.io.unified_loader import load_audio
 
 if TYPE_CHECKING:
     from core.chunked_processor import ChunkedAudioProcessor
@@ -110,7 +110,7 @@ async def get_full_processed_audio_path(processor: "ChunkedAudioProcessor") -> s
 
     for chunk_idx in range(processor.total_chunks):
         chunk_path = processor._get_chunk_path(chunk_idx)
-        chunk_audio, _ = load_audio(str(chunk_path))
+        chunk_audio = read_chunk_wav(chunk_path)
         all_chunks.append(chunk_audio)
 
     # Chunks are stored as contiguous, non-overlapping segments — simple
