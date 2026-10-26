@@ -18,6 +18,7 @@ from scipy import signal
 
 from ..dsp.constants import DEFAULT_FFT_SIZE
 from .fingerprint.metrics import AggregationUtils, AudioMetrics
+from .spectrum_bands import band_masks
 from .spectrum_weighting import WeightingMixin
 
 
@@ -114,20 +115,10 @@ class SpectrumOperations(WeightingMixin):
         """
         spectrum = np.zeros(len(frequency_bins))
 
-        for i in range(len(frequency_bins) - 1):
-            # Find FFT bins in this frequency band
-            start_freq = frequency_bins[i]
-            end_freq = frequency_bins[i + 1]
-
-            mask = (frequencies >= start_freq) & (frequencies < end_freq)
+        for i, mask in enumerate(band_masks(frequencies, frequency_bins)):
             if np.any(mask):
-                # Average magnitude in this band
+                # Average magnitude of the FFT bins in this band
                 spectrum[i] = np.mean(magnitude[mask])
-
-        # Handle last band
-        mask = frequencies >= frequency_bins[-1]
-        if np.any(mask):
-            spectrum[-1] = np.mean(magnitude[mask])
 
         # Convert to dB using safe log conversion
         spectrum = AudioMetrics.rms_to_db(spectrum)

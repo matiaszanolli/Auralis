@@ -76,7 +76,9 @@ class QualityMetrics:
 
         # Initialize assessors
         self.frequency_assessor = FrequencyResponseAssessor(
-            self.spectrum_analyzer.frequency_bins
+            self.spectrum_analyzer.frequency_bins,
+            sample_rate=sample_rate,
+            fft_size=self.spectrum_analyzer.settings.fft_size,
         )
         self.dynamic_assessor = DynamicRangeAssessor()
         self.stereo_assessor = StereoImagingAssessor()
