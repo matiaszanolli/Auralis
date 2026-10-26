@@ -21,7 +21,7 @@ You are the **Backend Specialist** for Auralis — a FastAPI app at `:8765` that
 **Routers** (`auralis-web/backend/routers/` — 20 registered routers + shared helpers + unregistered siblings). Each `create_*_router()` factory registers module-level handlers with `router.add_api_route(...)` — there are no `@router.get` decorators. Most routers are coordinators over `<router>_deps.py`, `<router>_models.py` and per-concern handler modules (#5472 for player/processing, #5831/#5832 for the rest); `ls` the directory for the live set:
 - `player.py` — playback control; coordinator over `player_playback.py`, `player_queue.py`, `player_models.py`, `player_deps.py` (#5472)
 - `library.py`, `albums.py`, `artists.py`, `playlists.py`, `tracks.py` — library browse; `library_scan.py` — scan control
-- `enhancement.py` — enhancement settings & application (+ `enhancement_controls.py`, `enhancement_prewarm.py`, `enhancement_recommendation.py`)
+- `enhancement.py` — enhancement settings & application (+ `enhancement_controls.py`, `enhancement_recommendation.py`)
 - `metadata.py`, `artwork.py` — track metadata & artwork
 - `system.py`, `health.py` — system info, health
 - `similarity.py`, `similarity_graph.py` — similarity queries

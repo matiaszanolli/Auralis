@@ -109,15 +109,13 @@ async def handle_play_enhanced(
             intensity = DEFAULT_INTENSITY
         # Write the accepted values back (#4601). The payload is authoritative
         # here, but nothing ever recorded that, so the REST global kept the OLD
-        # preset while the stream ran on the new one. Two readers key off the
-        # global and silently went wrong when they diverged:
-        #   * GET /api/processing/parameters looks up _last_content_profiles by
-        #     preset, a map the running ChunkedAudioProcessor writes under the
-        #     STREAM's preset — so it missed and returned hardcoded
-        #     `is_default: True` placeholders as though no processing were
-        #     happening, which reads as "engine idle" while it is in fact busy;
-        #   * _preprocess_upcoming_chunks pre-warmed cache entries for the
-        #     global preset/intensity, so every pre-warmed chunk missed.
+        # preset while the stream ran on the new one. GET
+        # /api/processing/parameters keys off the global: it looks up
+        # _last_content_profiles by preset, a map the running
+        # ChunkedAudioProcessor writes under the STREAM's preset — so it missed
+        # and returned hardcoded `is_default: True` placeholders as though no
+        # processing were happening, which reads as "engine idle" while it is
+        # in fact busy.
         # Mutated in place: the dict is shared by reference with the routers
         # (#4409), so rebinding here would be invisible to them.
         settings["preset"] = preset

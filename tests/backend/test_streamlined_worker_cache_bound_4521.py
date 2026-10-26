@@ -36,7 +36,6 @@ from core.file_signature import FileSignatureService  # noqa: E402
 def mock_cache_manager():
     cm = Mock()
     cm.current_track_id = 1
-    cm.auto_mastering_enabled = True
     # The regression: a fully-cached track never reaches _build_tier2_cache,
     # which is where the ONLY eviction used to live.
     cm.is_track_fully_cached = Mock(return_value=True)

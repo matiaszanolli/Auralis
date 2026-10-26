@@ -3,17 +3,13 @@
 `handle_play_enhanced` treats the WS payload as authoritative for
 `preset`/`intensity` and falls back to the stored setting only when the payload
 omits or fails to validate them — but it never wrote the accepted values back
-into `enhancement_settings`. Two readers key off that global and went silently
-wrong whenever the two diverged:
-
-* ``GET /api/processing/parameters`` resolves the content profile from the
-  global preset, but ``_last_content_profiles`` is written by the running
-  ``ChunkedAudioProcessor`` under the STREAM's preset. A miss returns hardcoded
-  ``is_default: True`` placeholders — the visualiser reads as "nothing is
-  happening" while processing is in fact under way, which is worse than a blank
-  panel.
-* ``_preprocess_upcoming_chunks`` pre-warms cache entries for the global
-  preset/intensity, so every pre-warmed chunk missed.
+into `enhancement_settings`. ``GET /api/processing/parameters`` keys off that
+global and went silently wrong whenever the two diverged: it resolves the
+content profile from the global preset, but ``_last_content_profiles`` is
+written by the running ``ChunkedAudioProcessor`` under the STREAM's preset. A
+miss returns hardcoded ``is_default: True`` placeholders — the visualiser reads
+as "nothing is happening" while processing is in fact under way, which is worse
+than a blank panel.
 
 The normal UI path keeps the two aligned only by convention (``setPreset`` POSTs
 before re-issuing the stream); the `force` path from #3773 exists precisely to
@@ -144,18 +140,3 @@ class TestFallbacksUnchanged:
             "the profile map is keyed by lowercased preset, so the stored value "
             "must be lowercased too or the lookup misses"
         )
-
-
-class TestPreWarmReadsTheSameValues:
-    """SIBLING: _preprocess_upcoming_chunks reads the global too."""
-
-    async def test_global_reflects_the_stream_after_play(self):
-        settings = {"enabled": True, "preset": "adaptive", "intensity": 1.0}
-
-        await _run(settings, {"preset": "adaptive", "intensity": 0.6})
-
-        # This is exactly what routers/enhancement.py passes to the pre-warm.
-        assert (
-            settings.get("preset", "adaptive"),
-            settings.get("intensity", 1.0),
-        ) == ("adaptive", 0.6)

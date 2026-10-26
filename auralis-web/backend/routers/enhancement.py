@@ -17,7 +17,6 @@ dependency_overrides keyed on routers.enhancement providers keep working.
 - enhancement_models.py          request/response bodies
 - enhancement_deps.py            per-router dependency binding + Depends() providers
 - enhancement_controls.py        toggle / preset / intensity / status handlers
-- enhancement_prewarm.py         upcoming-chunk pre-warming
 - enhancement_recommendation.py  mastering-recommendation handler
 
 :copyright: (C) 2024 Auralis Team

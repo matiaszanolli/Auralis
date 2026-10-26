@@ -32,7 +32,6 @@ def mock_cache_manager():
     cm.current_position = 0.0
     cm.current_preset = "balanced"
     cm.intensity = 0.5
-    cm.auto_mastering_enabled = True
     cm._get_current_chunk = Mock(return_value=0)
     cm.is_track_fully_cached = Mock(return_value=False)
     cm.add_chunk = AsyncMock(return_value=True)

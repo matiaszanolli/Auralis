@@ -208,7 +208,6 @@ class TestStreamlinedCacheManager:
         assert cache_manager.current_position == 0.0
         assert cache_manager.current_preset == "adaptive"
         assert cache_manager.intensity == 1.0
-        assert cache_manager.auto_mastering_enabled is True
         assert len(cache_manager.tier1_cache) == 0
         assert len(cache_manager.tier2_cache) == 0
 

@@ -56,7 +56,6 @@ async def test_toggle_enhancement_callable_with_bare_stubs():
     result = await toggle_enhancement(
         ToggleEnhancementRequest(enabled=True),
         enhancement_settings=settings,
-        player_state_manager=None,
         connection_manager=cm,
     )
 
@@ -68,36 +67,21 @@ async def test_toggle_enhancement_callable_with_bare_stubs():
     assert cm.broadcast.await_args[0][0]["type"] == "enhancement_settings_changed"
 
 
-async def test_set_enhancement_preset_notifies_the_buffer_manager():
-    """The streamlined cache + state manager are passed in directly here --
-    the branch-prediction call the old closure reached via get_streamlined_cache()."""
-    # 'adaptive' is the only valid preset (#5332), so the change the buffer
-    # manager learns from starts from an unseeded preset.
+async def test_set_enhancement_preset_callable_with_bare_stubs():
+    # 'adaptive' is the only valid preset (#5332), so the change starts from an
+    # unseeded preset.
     settings = {"enabled": True, "preset": None, "intensity": 0.7}
     cm = _connection_manager()
-
-    buffer_manager = MagicMock()
-    buffer_manager.update_position = AsyncMock()
-
-    state = MagicMock()
-    state.current_track.id = 7
-    state.current_time = 12.5
-    player_state_manager = MagicMock()
-    player_state_manager.get_state = MagicMock(return_value=state)
 
     result = await set_enhancement_preset(
         SetPresetRequest(preset="ADAPTIVE"),  # lowercased by the request model
         enhancement_settings=settings,
-        buffer_manager=buffer_manager,
-        player_state_manager=player_state_manager,
         connection_manager=cm,
     )
 
     assert settings["preset"] == "adaptive"
     assert result["message"] == "Preset changed to adaptive"
-    buffer_manager.update_position.assert_awaited_once_with(
-        track_id=7, position=12.5, preset="adaptive", intensity=0.7
-    )
+    assert cm.broadcast.await_args[0][0]["data"]["preset"] == "adaptive"
 
 
 async def test_set_preset_request_rejects_a_retired_preset():
@@ -110,17 +94,14 @@ async def test_set_preset_request_rejects_a_retired_preset():
             SetPresetRequest(preset=retired)
 
 
-async def test_set_enhancement_intensity_skips_buffer_when_unwired():
-    """With no buffer manager (the optional dependency resolving to None),
-    the handler still mutates + broadcasts rather than raising."""
+async def test_set_enhancement_intensity_callable_with_bare_stubs():
+    """The handler mutates the shared settings dict and broadcasts."""
     settings = {"enabled": True, "preset": "adaptive", "intensity": 1.0}
     cm = _connection_manager()
 
     result = await set_enhancement_intensity(
         SetIntensityRequest(intensity=0.25),
         enhancement_settings=settings,
-        buffer_manager=None,
-        player_state_manager=None,
         connection_manager=cm,
     )
 

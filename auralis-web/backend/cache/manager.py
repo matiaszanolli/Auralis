@@ -104,7 +104,6 @@ class StreamlinedCacheManager(
         self.current_position: float = 0.0
         self.current_preset: str = DEFAULT_PRESET
         self.intensity: float = 1.0
-        self.auto_mastering_enabled: bool = True
 
         # Statistics
         self.tier1_hits: int = 0

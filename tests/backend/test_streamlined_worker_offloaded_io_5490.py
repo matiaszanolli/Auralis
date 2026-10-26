@@ -38,7 +38,6 @@ async def test_ensure_tier1_chunk_hashes_off_the_loop():
     threads: list[threading.Thread] = []
     worker = Mock()
     worker.cache_manager.get_chunk = AsyncMock(return_value=(None, None))
-    worker.cache_manager.auto_mastering_enabled = False
     worker.cache_manager.warm_tier1_immediately = AsyncMock()
     worker._process_chunk = AsyncMock(return_value=None)
 

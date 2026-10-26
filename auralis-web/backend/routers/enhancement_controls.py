@@ -7,15 +7,13 @@ Enhancement toggle / preset / intensity / status handlers (split from enhancemen
 
 import logging
 from fastapi import Depends
-from schemas import DEFAULT_PRESET
 from typing import Any
 from websocket.outbound_messages import broadcast_typed
 import asyncio
 
 from .dependencies import with_error_handling
-from .enhancement_deps import _get_connection_manager, _get_enhancement_settings, _get_streamlined_cache, _get_player_state_manager, _get_repository_factory
+from .enhancement_deps import _get_connection_manager, _get_enhancement_settings, _get_repository_factory
 from .enhancement_models import SetIntensityRequest, SetPresetRequest, ToggleEnhancementRequest
-from .enhancement_prewarm import _maybe_prewarm_upcoming_chunks
 
 logger = logging.getLogger(__name__)
 
@@ -43,15 +41,14 @@ async def _persist_enhancement_setting(repos: Any, fields: dict[str, Any]) -> No
 async def toggle_enhancement(
     body: ToggleEnhancementRequest,
     enhancement_settings: dict[str, Any] = Depends(_get_enhancement_settings),
-    player_state_manager: Any = Depends(_get_player_state_manager),
     connection_manager: Any = Depends(_get_connection_manager),
     repos: Any = Depends(_get_repository_factory),
 ) -> dict[str, Any]:
     """
     Enable or disable real-time audio enhancement.
 
-    When enabling mid-playback, automatically pre-processes upcoming chunks
-    in the background to prevent audio stopping.
+    The client re-issues its stream after this returns, and that stream renders
+    the upcoming chunks with the new settings (#5908).
 
     Args:
         enabled: Boolean to enable/disable enhancement
@@ -65,11 +62,6 @@ async def toggle_enhancement(
     old_enabled = enhancement_settings.get("enabled")
     enabled = body.enabled
     enhancement_settings["enabled"] = enabled
-
-    # If enabling enhancement mid-playback, pre-process upcoming chunks in
-    # background (#2296) so the client doesn't hit an on-demand processing gap.
-    if enabled:
-        _maybe_prewarm_upcoming_chunks(enhancement_settings, player_state_manager)
 
     # #4587: persist so an Enhancement Panel change survives a backend
     # restart — this endpoint previously only mutated the runtime dict, so
@@ -99,8 +91,6 @@ async def toggle_enhancement(
 async def set_enhancement_preset(
     body: SetPresetRequest,
     enhancement_settings: dict[str, Any] = Depends(_get_enhancement_settings),
-    buffer_manager: Any = Depends(_get_streamlined_cache),
-    player_state_manager: Any = Depends(_get_player_state_manager),
     connection_manager: Any = Depends(_get_connection_manager),
     repos: Any = Depends(_get_repository_factory),
 ) -> dict[str, Any]:
@@ -119,26 +109,6 @@ async def set_enhancement_preset(
     preset = body.preset  # already validated and lowercased by SetPresetRequest
     old_preset = enhancement_settings.get("preset")
     enhancement_settings["preset"] = preset
-
-    # Update streamlined cache manager for branch prediction learning
-    if buffer_manager and player_state_manager and old_preset != preset:
-        state = player_state_manager.get_state()
-        # Only update if we have a current track
-        if state.current_track:
-            await buffer_manager.update_position(
-                track_id=state.current_track.id,
-                position=state.current_time,
-                preset=preset,
-                intensity=enhancement_settings["intensity"]
-            )
-            logger.info(f"🎯 Buffer manager learned preset switch: {old_preset} → {preset}")
-
-    # Pre-process upcoming chunks at the new preset so a mid-playback preset
-    # change doesn't hit an on-demand processing gap — same treatment
-    # toggle_enhancement's enable path already gets (#4425). Only when
-    # enhancement is the active audio path and the preset actually changed.
-    if enhancement_settings.get("enabled") and old_preset != preset:
-        _maybe_prewarm_upcoming_chunks(enhancement_settings, player_state_manager)
 
     # NOTE: We keep the old preset cached for instant toggling back
     # Proactive buffering will handle caching the new preset in background
@@ -171,8 +141,6 @@ async def set_enhancement_preset(
 async def set_enhancement_intensity(
     body: SetIntensityRequest,
     enhancement_settings: dict[str, Any] = Depends(_get_enhancement_settings),
-    buffer_manager: Any = Depends(_get_streamlined_cache),
-    player_state_manager: Any = Depends(_get_player_state_manager),
     connection_manager: Any = Depends(_get_connection_manager),
     repos: Any = Depends(_get_repository_factory),
 ) -> dict[str, Any]:
@@ -191,29 +159,6 @@ async def set_enhancement_intensity(
     intensity = body.intensity  # already clamped by SetIntensityRequest
     old_intensity = enhancement_settings.get("intensity")
     enhancement_settings["intensity"] = intensity
-
-    preset = enhancement_settings.get("preset", DEFAULT_PRESET)
-
-    # Notify streamlined cache manager so pre-buffered chunks at the old
-    # intensity are replaced — mirrors the same call in set_enhancement_preset
-    # (fixes #2504).
-    if buffer_manager and player_state_manager and old_intensity != intensity:
-        state = player_state_manager.get_state()
-        if state.current_track:
-            await buffer_manager.update_position(
-                track_id=state.current_track.id,
-                position=state.current_time,
-                preset=preset,
-                intensity=intensity
-            )
-            logger.info(f"🎯 Buffer manager updated for intensity switch: {old_intensity} → {intensity}")
-
-    # Pre-process upcoming chunks at the new intensity so a mid-playback
-    # intensity change doesn't hit an on-demand processing gap — same
-    # treatment toggle_enhancement's enable path already gets (#4425). Only
-    # when enhancement is the active audio path and intensity actually changed.
-    if enhancement_settings.get("enabled") and old_intensity != intensity:
-        _maybe_prewarm_upcoming_chunks(enhancement_settings, player_state_manager)
 
     # #4587: persist so this survives a backend restart — see toggle_enhancement.
     if repos is not None and old_intensity != intensity:

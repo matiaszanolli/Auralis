@@ -134,22 +134,21 @@ async def ensure_tier1_chunk(
         from pathlib import Path
         tier1_chunks_to_warm.append((chunk_idx, Path(original_path), None))
 
-    # Check if processed chunk is cached (only if auto-mastering enabled)
-    if worker.cache_manager.auto_mastering_enabled:
-        processed_path, tier = await worker.cache_manager.get_chunk(
-            track_id, chunk_idx, preset=preset, intensity=intensity, file_signature=file_signature
+    # Check if processed chunk is cached
+    processed_path, tier = await worker.cache_manager.get_chunk(
+        track_id, chunk_idx, preset=preset, intensity=intensity, file_signature=file_signature
+    )
+
+    if processed_path is None:
+        # Process with current preset
+        processed_path = await worker._process_chunk(
+            track, track_id, chunk_idx, preset=preset, intensity=intensity, tier="tier1"
         )
 
-        if processed_path is None:
-            # Process with current preset
-            processed_path = await worker._process_chunk(
-                track, track_id, chunk_idx, preset=preset, intensity=intensity, tier="tier1"
-            )
-
-        # Add to warming list if we have the path
-        if processed_path:
-            from pathlib import Path
-            tier1_chunks_to_warm.append((chunk_idx, Path(processed_path), preset))
+    # Add to warming list if we have the path
+    if processed_path:
+        from pathlib import Path
+        tier1_chunks_to_warm.append((chunk_idx, Path(processed_path), preset))
 
     # Immediately warm Tier 1 with these chunks
     if tier1_chunks_to_warm:
@@ -213,14 +212,13 @@ async def build_tier2_cache(
             worker._building_chunk_idx = chunk_idx + 1
             return  # Process one chunk per iteration
 
-        # Check if processed chunk is cached (only if auto-mastering enabled)
-        if worker.cache_manager.auto_mastering_enabled:
-            if chunk_idx not in status.cached_chunks_processed:
-                await worker._process_chunk(
-                    track, track_id, chunk_idx, preset=preset, intensity=intensity, tier="tier2"
-                )
-                worker._building_chunk_idx = chunk_idx + 1
-                return  # Process one chunk per iteration
+        # Check if processed chunk is cached
+        if chunk_idx not in status.cached_chunks_processed:
+            await worker._process_chunk(
+                track, track_id, chunk_idx, preset=preset, intensity=intensity, tier="tier2"
+            )
+            worker._building_chunk_idx = chunk_idx + 1
+            return  # Process one chunk per iteration
 
     # All chunks processed
     if not worker.cache_manager.is_track_fully_cached(track_id):

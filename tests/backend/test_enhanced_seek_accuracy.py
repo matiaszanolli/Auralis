@@ -262,19 +262,17 @@ class TestSeekMathUsesSharedConstants:
         # manager.py would not see it (it stopped re-exporting
         # chunk_for_position in #6198).
         "cache/playback_mixin.py",
-        "routers/enhancement_prewarm.py",
     ])
     def test_position_to_chunk_derivations_use_chunk_for_position(self, module_path):
-        """#4791: the cache's _get_current_chunk and routers/
-        enhancement.py's pre-fetch chunk index used to derive the chunk
+        """#4791: the cache's _get_current_chunk used to derive the chunk
         index via the naive core-timeline
         ``position // CHUNK_INTERVAL``/``position / CHUNK_INTERVAL`` —
         off by one for roughly the first half of every emitted chunk
         window, same root cause #4557 fixed in stream_seek.py. Extends
-        test_stream_seek_imports_the_helper's guard to these two files.
+        test_stream_seek_imports_the_helper's guard to this file.
 
         Checks for the exact prior expressions rather than banning the
-        ``CHUNK_INTERVAL`` substring generally — both files legitimately
+        ``CHUNK_INTERVAL`` substring generally — the file legitimately
         reference it elsewhere (re-exports, an unrelated total-chunk-COUNT
         formula in a #4124 docstring), same rationale as
         test_stream_seek_imports_the_helper's own "checked against code

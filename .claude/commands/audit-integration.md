@@ -62,7 +62,7 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 | User adjusts settings | Frontend | `useEnhancementControl()` local state — the live source of truth (`playerSlice.preset` is dead state; the slice has no intensity). Commands live in `auralis-web/frontend/src/hooks/enhancement/useEnhancementCommands.ts`, backend status sync in `useEnhancementStatusSync.ts` |
 | Settings API call | Frontend | `useEnhancementCommands.ts`, `src/services/` |
 | Preset contract | Backend ↔ Frontend | `auralis-web/backend/schemas/enhancement.py` `VALID_PRESETS` ↔ `auralis-web/frontend/src/types/domain.ts` `EnhancementPreset` — `'adaptive'` only since 2026-09-13; the default is the one `DEFAULT_PRESET` in `schemas/enhancement.py` (#5794) |
-| Enhancement endpoint | Backend | `auralis-web/backend/routers/enhancement.py` (factory) + `enhancement_controls.py` / `enhancement_prewarm.py` / `enhancement_recommendation.py` |
+| Enhancement endpoint | Backend | `auralis-web/backend/routers/enhancement.py` (factory) + `enhancement_controls.py` / `enhancement_recommendation.py` |
 | Runtime settings | Backend | shared `enhancement_settings` dict (mutated in place, seeded at startup from UserSettings) |
 | Processing config | Engine | `auralis/core/config/unified_config.py` (UnifiedConfig) — the only config layer since #4918 |
 | DSP pipeline | Engine | `auralis/core/hybrid_processor.py` → DSP modules |
