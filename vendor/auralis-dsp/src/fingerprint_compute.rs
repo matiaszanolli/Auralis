@@ -384,33 +384,113 @@ fn estimate_tempo(audio: &[f32], sample_rate: u32) -> f32 {
         return 120.0;
     }
 
-    // Autocorrelation of onset envelope to find dominant period
-    let onset_sr = sample_rate as f32 / hop as f32; // frames per second
-    let min_lag = (onset_sr * 60.0 / 200.0).ceil() as usize; // 200 BPM
-    let max_lag = (onset_sr * 60.0 / 60.0).floor() as usize;  // 60 BPM
-    let max_lag = max_lag.min(onset_env.len() / 2);
+    tempo_from_onset_envelope(&onset_env, sample_rate as f32 / hop as f32)
+}
 
-    if min_lag >= max_lag {
-        return 120.0;
+/// Tempo search range, in BPM. The result is clamped to it.
+const MIN_BPM: f32 = 60.0;
+const MAX_BPM: f32 = 200.0;
+/// Log-Gaussian tempo prior: centre and width (in octaves). It breaks ties
+/// between a period and its multiples toward typical musical tempi (#5742).
+const TEMPO_PRIOR_BPM: f32 = 120.0;
+const TEMPO_PRIOR_SIGMA_OCTAVES: f32 = 1.0;
+/// Below this normalised autocorrelation (1.0 = the envelope's own energy) the
+/// onset envelope has no periodicity worth reporting: white noise peaks around
+/// 0.05, real rhythm well above 0.2. Such input gets the neutral 120 BPM.
+const MIN_PEAK_CORRELATION: f64 = 0.1;
+/// A half-period lag whose correlation is at least this fraction of the winner's
+/// is the same beat one octave up (a periodic signal correlates equally at every
+/// multiple of its period), so the shorter lag is the fundamental.
+const OCTAVE_TIE_RATIO: f64 = 0.9;
+
+/// Dominant tempo of a spectral-flux onset envelope sampled at `onset_sr` Hz.
+///
+/// Autocorrelation of the mean-removed envelope, normalised by the number of
+/// overlapping samples (so long lags are not penalised) and by the envelope's
+/// energy (so the peak is comparable across tracks). The previous argmax of the
+/// raw sum favoured the shortest lag for noise (~199 BPM) and could not tell a
+/// period from its multiples (an accented 120 BPM click track reported 60).
+fn tempo_from_onset_envelope(onset_env: &[f32], onset_sr: f32) -> f32 {
+    const FALLBACK_BPM: f32 = 120.0;
+    if onset_env.len() < 4 {
+        return FALLBACK_BPM;
     }
 
-    let mut best_lag = min_lag;
-    let mut best_corr = f32::NEG_INFINITY;
+    let min_lag = (onset_sr * 60.0 / MAX_BPM).ceil() as usize;
+    let max_lag = ((onset_sr * 60.0 / MIN_BPM).floor() as usize).min(onset_env.len() / 2);
+    if min_lag < 1 || min_lag >= max_lag {
+        return FALLBACK_BPM;
+    }
 
+    let n = onset_env.len();
+    let mean = onset_env.iter().map(|&x| x as f64).sum::<f64>() / n as f64;
+    let centred: Vec<f64> = onset_env.iter().map(|&x| x as f64 - mean).collect();
+    let energy = centred.iter().map(|x| x * x).sum::<f64>() / n as f64;
+    if energy <= f64::EPSILON {
+        return FALLBACK_BPM;
+    }
+
+    let normalised_corr = |lag: usize| -> f64 {
+        let overlap = n - lag;
+        let sum: f64 = (0..overlap).map(|i| centred[i] * centred[i + lag]).sum();
+        sum / overlap as f64 / energy
+    };
+    let corr: Vec<f64> = (min_lag..=max_lag).map(normalised_corr).collect();
+    let corr_at = |lag: usize| corr[lag - min_lag];
+
+    let prior = |lag: usize| -> f64 {
+        let octaves = (onset_sr as f64 * 60.0 / lag as f64 / TEMPO_PRIOR_BPM as f64).log2();
+        (-0.5 * (octaves / TEMPO_PRIOR_SIGMA_OCTAVES as f64).powi(2)).exp()
+    };
+
+    let mut best_lag = min_lag;
+    let mut best_score = f64::NEG_INFINITY;
     for lag in min_lag..=max_lag {
-        let mut corr = 0.0f32;
-        let n = onset_env.len() - lag;
-        for i in 0..n {
-            corr += onset_env[i] * onset_env[i + lag];
-        }
-        if corr > best_corr {
-            best_corr = corr;
+        let score = corr_at(lag) * prior(lag);
+        if score > best_score {
+            best_score = score;
             best_lag = lag;
         }
     }
+    if corr_at(best_lag) < MIN_PEAK_CORRELATION {
+        return FALLBACK_BPM;
+    }
 
-    let bpm = 60.0 * onset_sr / best_lag as f32;
-    bpm.clamp(60.0, 200.0)
+    // Octave promotion: walk down to the fundamental while the half lag is as
+    // strong as the current one. A beat period that is not a whole number of
+    // frames smears its peak over two adjacent lags while its multiple can land
+    // on one, so strengths are compared as three-lag neighbourhood sums.
+    let strength = |lag: usize| -> f64 {
+        (lag.saturating_sub(1).max(min_lag)..=(lag + 1).min(max_lag)).map(corr_at).sum()
+    };
+    loop {
+        let half = (best_lag as f64 / 2.0).round() as usize;
+        if half < min_lag || half > max_lag {
+            break;
+        }
+        if strength(half) < OCTAVE_TIE_RATIO * strength(best_lag) {
+            break;
+        }
+        let lo = half.saturating_sub(1).max(min_lag);
+        let hi = (half + 1).min(max_lag);
+        best_lag = (lo..=hi)
+            .max_by(|&a, &b| corr_at(a).partial_cmp(&corr_at(b)).unwrap_or(std::cmp::Ordering::Equal))
+            .unwrap_or(half);
+    }
+
+    // Parabolic interpolation: integer lags are coarse at high tempi (at 22.05 kHz
+    // one frame of lag is ~13 BPM at 180 BPM).
+    let mut lag = best_lag as f64;
+    if best_lag > min_lag && best_lag < max_lag {
+        let (y0, y1, y2) = (corr_at(best_lag - 1), corr_at(best_lag), corr_at(best_lag + 1));
+        let denom = y0 - 2.0 * y1 + y2;
+        if denom < 0.0 {
+            lag += (0.5 * (y0 - y2) / denom).clamp(-0.5, 0.5);
+        }
+    }
+
+    let bpm = 60.0 * onset_sr / lag as f32;
+    bpm.clamp(MIN_BPM, MAX_BPM)
 }
 
 // #4533: estimate_rhythm_stability() removed. It derived stability from an
@@ -553,7 +633,10 @@ mod tests {
     use super::*;
     use std::f32::consts::PI;
 
-    /// The pre-#4599 implementation, kept verbatim as an equivalence oracle.
+    /// The pre-#4599 spectral-flux transform (a manual DFT per frame), kept as an
+    /// equivalence oracle for the FFT envelope. It feeds the same
+    /// `tempo_from_onset_envelope` scoring, so a divergence can only come from
+    /// the transform.
     ///
     /// `estimate_tempo` now plans an FFT instead of accumulating a manual
     /// O(bins x N) DFT per frame. That is only a legitimate swap if the tempo
@@ -602,36 +685,8 @@ mod tests {
             prev_mag = mag;
         }
 
-        if onset_env.len() < 4 {
-            return 120.0;
-        }
-
-        let onset_sr = sample_rate as f32 / hop as f32;
-        let min_lag = (onset_sr * 60.0 / 200.0).ceil() as usize;
-        let max_lag = (onset_sr * 60.0 / 60.0).floor() as usize;
-        let max_lag = max_lag.min(onset_env.len() / 2);
-
-        if min_lag >= max_lag {
-            return 120.0;
-        }
-
-        let mut best_lag = min_lag;
-        let mut best_corr = f32::NEG_INFINITY;
-
-        for lag in min_lag..=max_lag {
-            let mut corr = 0.0f32;
-            let n = onset_env.len() - lag;
-            for i in 0..n {
-                corr += onset_env[i] * onset_env[i + lag];
-            }
-            if corr > best_corr {
-                best_corr = corr;
-                best_lag = lag;
-            }
-        }
-
-        let bpm = 60.0 * onset_sr / best_lag as f32;
-        bpm.clamp(60.0, 200.0)
+        // Only the transform is an oracle; the scoring is shared (#5742).
+        tempo_from_onset_envelope(&onset_env, sample_rate as f32 / hop as f32)
     }
 
     /// Click track: an impulse every `60 / bpm` seconds over a quiet bed.
@@ -691,21 +746,69 @@ mod tests {
         }
     }
 
+    /// Click track with every 4th click louder, as in a bar of 4/4.
+    fn accented_click_track(bpm: f32, seconds: f32, sample_rate: u32) -> Vec<f32> {
+        let n = (seconds * sample_rate as f32) as usize;
+        let period = (sample_rate as f32 * 60.0 / bpm) as usize;
+        let mut audio = vec![0.0f32; n];
+        let (mut i, mut beat) = (0, 0usize);
+        while i < n {
+            let level = if beat % 4 == 0 { 0.9 } else { 0.3 };
+            for d in 0..64.min(n - i) {
+                audio[i + d] = (1.0 - d as f32 / 64.0) * level;
+            }
+            i += period;
+            beat += 1;
+        }
+        audio
+    }
+
     #[test]
-    fn estimate_tempo_reports_a_stable_period_for_a_click_track() {
-        // Characterization, not accuracy: on a 120 BPM click track this
-        // algorithm reports ~60 BPM — the half-tempo. Its autocorrelation
-        // argmax is unnormalized, so it does not discriminate between a period
-        // and its multiples. That octave error predates #4599 (the naive-DFT
-        // reference above returns the same value) and is deliberately NOT
-        // fixed here: this dimension is stored in every existing fingerprint,
-        // so changing it is a separate, migration-bearing decision.
-        let audio = click_track(120.0, 12.0, 22050);
+    fn estimate_tempo_returns_the_beat_for_accented_click_tracks() {
+        // #5742: the unnormalised argmax reported 60 for 120 and 180 BPM and
+        // 69.8 for 140, because an accent pattern correlates as strongly at two
+        // beats as at one.
+        for bpm in [120.0f32, 140.0, 180.0] {
+            let audio = accented_click_track(bpm, 60.0, 44100);
 
-        let bpm = estimate_tempo(&audio, 22050);
+            let estimate = estimate_tempo(&audio, 44100);
 
-        assert!((bpm - estimate_tempo_naive_dft(&audio, 22050)).abs() < 0.01);
-        assert!((bpm - 60.0).abs() < 6.0, "expected the ~60 BPM half-tempo, got {}", bpm);
+            assert!(
+                (estimate - bpm).abs() <= 2.0,
+                "accented {} BPM clicks estimated as {}", bpm, estimate
+            );
+        }
+    }
+
+    #[test]
+    fn estimate_tempo_keeps_plain_click_track_estimates() {
+        for bpm in [90.0f32, 100.0, 150.0] {
+            let audio = click_track(bpm, 60.0, 44100);
+
+            let estimate = estimate_tempo(&audio, 44100);
+
+            assert!(
+                (estimate - bpm).abs() <= 2.0,
+                "plain {} BPM clicks estimated as {}", bpm, estimate
+            );
+        }
+    }
+
+    #[test]
+    fn estimate_tempo_does_not_report_the_shortest_lag_for_noise() {
+        // #5742: white noise has no periodicity; the argmax of the raw sum landed
+        // on the minimum lag, ~199 BPM. It now gets the neutral value.
+        // A linear congruential generator: the sin-hash noise the other tests use
+        // is not white at this length (f32 precision gives it periodic structure).
+        let mut state = 12345u32;
+        let noise: Vec<f32> = (0..44100 * 60)
+            .map(|_| {
+                state = state.wrapping_mul(1664525).wrapping_add(1013904223);
+                (state >> 8) as f32 / (1u32 << 23) as f32 - 1.0
+            })
+            .collect();
+
+        assert_eq!(estimate_tempo(&noise, 44100), 120.0);
     }
 
     #[test]

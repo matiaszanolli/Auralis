@@ -60,7 +60,12 @@ __db_schema_version__ = 28  # drop the never-populated tracks bit_depth/bitrate/
 #             (spectral bands, tempo, stereo_width, phase_correlation). Rows
 #             written by them are not comparable to v9 rows and must be
 #             recomputed.
-FINGERPRINT_ALGORITHM_VERSION = 10
+# v11 (#5742): tempo_bpm. The onset-envelope autocorrelation is now normalised
+#             and octave-aware: accented 120/140/180 BPM material no longer
+#             reads as half tempo, and aperiodic input reports the neutral 120
+#             instead of the shortest lag (~199). Every stored tempo_bpm from
+#             v10 or earlier must be recomputed.
+FINGERPRINT_ALGORITHM_VERSION = 11
 
 # Version history
 # 1.0.0 - Initial release with adaptive mastering, web UI, and desktop app
