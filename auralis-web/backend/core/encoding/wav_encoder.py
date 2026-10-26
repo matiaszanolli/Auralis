@@ -58,9 +58,12 @@ class WAVEncoder:
     # key schema changes. This invalidates all disk-cached chunks when we fix
     # bugs in extraction/processing, or when the identity a filename encodes
     # changes shape.
+    # v5 (#5948): the file holds the RAW emitted segment; level smoothing moved to
+    #     serve time. v4 files have a gain baked in relative to whichever chunk
+    #     the writing processor rendered before them, so they must not be served.
     # v4 (#4666): filename now includes the mastering-targets hash
     # v3: Added _extract_chunk_segment to process_chunk for proper overlap handling
-    CACHE_VERSION = 4
+    CACHE_VERSION = 5
 
     def __init__(self, chunk_dir: Path, default_subtype: str = 'PCM_16'):
         """

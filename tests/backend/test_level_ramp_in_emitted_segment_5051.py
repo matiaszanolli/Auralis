@@ -30,7 +30,6 @@ import soundfile as sf
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from core import chunk_render
 from core.audio_processing_pipeline import AudioProcessingPipeline
 from core.chunked_processor import ChunkedAudioProcessor
 from core.level_manager import GAIN_RAMP_SECONDS, LevelManager
@@ -48,8 +47,6 @@ SEGMENTS = [(0.0, 0.1), (13.0, 0.4), (25.0, 0.2)]
 def processor(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[ChunkedAudioProcessor]:
     monkeypatch.setattr(tempfile, "tempdir", str(tmp_path / "tmp"))
     (tmp_path / "tmp").mkdir()
-    chunk_render._chunk_levels.clear()
-
     t = np.arange(int(DURATION * SR)) / SR
     level = np.zeros_like(t)
     for start, value in SEGMENTS:
@@ -67,7 +64,6 @@ def processor(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Chunk
     with patch.object(AudioProcessingPipeline, "process_audio", side_effect=passthrough):
         yield proc
     proc.close()
-    chunk_render._chunk_levels.clear()
 
 
 def _emit(proc: ChunkedAudioProcessor, chunk_index: int) -> np.ndarray:

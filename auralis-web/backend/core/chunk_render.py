@@ -22,8 +22,6 @@ sibling module function, so per-instance mocking (``patch.object(processor,
 """
 
 import logging
-import threading
-from collections import OrderedDict
 from typing import TYPE_CHECKING, cast
 
 import numpy as np
@@ -37,60 +35,6 @@ if TYPE_CHECKING:
     from core.chunked_processor import ChunkedAudioProcessor
 
 logger = logging.getLogger("core.chunked_processor")
-
-
-# ---------------------------------------------------------------------------
-# Cache-hit level registry (#4669)
-# ---------------------------------------------------------------------------
-#
-# A chunk served straight from the path cache (the in-memory dict tier or the
-# on-disk WAV tier) never goes through process_chunk_core, so the LevelManager
-# would never see it — see note_cached_chunk_level below for why that breaks
-# the next cache-MISS chunk. Recording it needs two numbers the cached bytes
-# alone don't carry cheaply:
-#
-#   * the RMS of the emitted segment (a decode away, which the path-only
-#     caller get_wav_chunk_path must not pay on a per-chunk path), and
-#   * the trailing gain smooth_transition baked into those samples — #4367
-#     established that recording 0.0 when the real gain is known desyncs the
-#     following chunk's ramp.
-#
-# Both are known at the instant the WAV is written, so chunk_streaming records
-# them here keyed by the collapsed chunk cache key (#4792), which already
-# encodes track / file signature / preset / intensity / targets hash / chunk
-# index — i.e. exactly the identity of the bytes on disk.
-#
-# Process-wide rather than per-processor on purpose: the numbers describe the
-# FILE, while every stream of a track builds its own ChunkedAudioProcessor with
-# its own LevelManager. A per-instance map would miss precisely the
-# cross-stream hits (back-seeks, a second play of the same track) that #4669 is
-# about. Entries are small (two floats) and LRU-bounded.
-#
-# A hit with no remembered entry — the WAV survives on disk from an earlier run
-# of the process — degrades to "unity trailing gain", the same default
-# note_cached_chunk_level has always carried, never to "skip the recording".
-_MAX_REMEMBERED_LEVELS = 4096
-_chunk_levels: "OrderedDict[str, tuple[float, float]]" = OrderedDict()
-_chunk_levels_lock = threading.Lock()
-
-
-def remember_chunk_level(cache_key: str, rms_db: float, gain_db: float) -> None:
-    """Record the level a just-written chunk WAV was encoded at (#4669)."""
-    with _chunk_levels_lock:
-        _chunk_levels[cache_key] = (rms_db, gain_db)
-        _chunk_levels.move_to_end(cache_key)
-        while len(_chunk_levels) > _MAX_REMEMBERED_LEVELS:
-            _chunk_levels.popitem(last=False)
-
-
-def recall_chunk_level(cache_key: str) -> tuple[float, float] | None:
-    """``(rms_db, gain_db)`` for a cached chunk, or None if this process never
-    wrote it (#4669)."""
-    with _chunk_levels_lock:
-        entry = _chunk_levels.get(cache_key)
-        if entry is not None:
-            _chunk_levels.move_to_end(cache_key)
-        return entry
 
 
 def load_chunk(
@@ -170,40 +114,6 @@ def smooth_level_transition(
     return cast(np.ndarray, chunk_adjusted)
 
 
-def note_cached_chunk_level(
-    processor: "ChunkedAudioProcessor",
-    chunk: np.ndarray | None,
-    chunk_index: int,
-    gain_db: float = 0.0,
-    rms_db: float | None = None,
-) -> None:
-    """Record a cache-hit chunk's level into the LevelManager (#3832).
-
-    A cached chunk is returned without going through process_chunk_core, so
-    the LevelManager would otherwise never see it — leaving rms_history out
-    of chronological sync, so a later cache-MISS chunk smooths against the
-    wrong previous RMS. We RECORD the cached chunk's RMS and its true
-    trailing gain (`gain_db`, captured when the chunk was originally cached)
-    without re-adjusting the already-smoothed audio, under the same
-    _processor_lock the processing path uses so the history deque is never
-    touched concurrently. Using the true gain instead of unconditionally
-    recording 0.0 keeps a subsequent cache-MISS chunk's ramp baseline
-    correct (#4367).
-
-    ``rms_db`` (#4669) lets a caller that already knows the cached chunk's
-    level — from the registry above — record it without decoding the WAV, for
-    the path-only cache-hit branch in get_wav_chunk_path. When it is None the
-    RMS is computed from ``chunk``, which must then be present.
-    """
-    with processor._processor_lock:
-        processor._level_manager.record_cached_level(
-            chunk=chunk,
-            chunk_index=chunk_index,
-            gain_db=gain_db,
-            rms_db=rms_db,
-        )
-
-
 def process_chunk_core(
     processor: "ChunkedAudioProcessor", chunk_index: int, fast_start: bool = False
 ) -> np.ndarray:
@@ -214,10 +124,14 @@ def process_chunk_core(
     This is a thin wrapper that:
     1. Loads chunk with context
     2. Delegates to unified pipeline for processing
-    3. Trims context, extracts the emitted segment, and smooths levels
+    3. Trims context and extracts the emitted segment
 
     Returns:
-        The emitted segment: context trimmed, overlap skipped, levels smoothed
+        The emitted segment: context trimmed, overlap skipped. NOT level
+        smoothed: this is what the durable chunk cache stores, and it must not
+        depend on which chunk this processor happened to render before (#5948).
+        Smoothing is a per-stream, serve-time step - see `smooth_level_transition`
+        and `chunk_streaming.process_chunk`.
     """
     processor._validate_chunk_index(chunk_index)
     assert processor.sample_rate is not None
@@ -256,10 +170,8 @@ def process_chunk_core(
         # sibling) so the fallback matches a float64 pipeline if present.
         processed_chunk = np.zeros((processor.sample_rate // 10, num_channels), dtype=audio_chunk.dtype)  # 100ms silence
 
-    # Extract the emitted segment BEFORE smoothing (#5051): LevelManager ramps
-    # from sample 0, and on the trimmed buffer that ramp fell in the overlap
-    # head extraction discards, so the heard boundary was a hard step. It also
-    # makes a cache MISS record RMS over the same bytes a cache HIT does.
+    # Extract the emitted segment (#5051). Serve-time smoothing ramps from sample
+    # 0 of exactly these bytes, so the heard boundary is the one that is measured.
     assert processor.total_chunks is not None and processor.total_duration is not None
     processed_chunk = extract_chunk_segment(
         processed_chunk=processed_chunk,
@@ -268,8 +180,5 @@ def process_chunk_core(
         total_chunks=processor.total_chunks,
         total_duration=processor.total_duration,
     )
-
-    # Limit the RMS change across the boundary (gain ramped in, #3831).
-    processed_chunk = processor._smooth_level_transition(processed_chunk, chunk_index)
 
     return processed_chunk

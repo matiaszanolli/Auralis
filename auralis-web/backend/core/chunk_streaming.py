@@ -32,8 +32,6 @@ from .chunk_stream_state import (
     ChunkCancelledError,
     _invalidate_after_post_dsp_failure,
     _raise_if_cancelled,
-    _record_cache_hit_level,
-    _remember_written_chunk_level,
 )
 
 if TYPE_CHECKING:
@@ -83,14 +81,13 @@ def process_chunk(
     if cached_path is not None:
         assert processor.total_chunks is not None
         logger.info(f"Serving cached chunk {chunk_index}/{processor.total_chunks}")
-        # Same shape as the miss path (native channels, always 2-D) - not
-        # load_audio's whole-file downmix contract (#5947).
+        # The cache holds the raw emitted segment, same shape as the miss path
+        # (native channels, always 2-D; not load_audio's whole-file downmix
+        # contract, #5947). Smoothing it is this stream's step, exactly as for
+        # a miss: smooth_transition then compares it to the chunk this
+        # processor served before it, in stream order (#5948).
         audio = read_chunk_wav(cached_path)
-        # #4669: this hit bypasses _process_chunk_core, so without the line
-        # below the LevelManager never sees this chunk and the NEXT cache-MISS
-        # chunk smooths against a stale, non-adjacent RMS.
-        _record_cache_hit_level(processor, chunk_index, audio=audio)
-        return (str(cached_path), audio)
+        return (str(cached_path), processor._smooth_level_transition(audio, chunk_index))
 
     # #4815: bail out before the expensive DSP call if the owning stream was
     # already cancelled (seek/track-change/disconnect) — cheap to check, and
@@ -118,12 +115,9 @@ def process_chunk(
         extracted_chunk = processor._process_chunk_core(chunk_index, fast_start)
         assert processor.sample_rate is not None
 
-        # #5328: a seek can land while this DSP is in flight — look-ahead
-        # renders are mid-DSP for most of the pump loop — and the check above
-        # has long passed. The durable cache key carries no stream identity
-        # and a later disk hit is never re-smoothed (#4669), so an abandoned
-        # render written here would bake in gain smoothed against a stream
-        # nobody hears.
+        # #5328: a seek can land while this DSP is in flight - look-ahead
+        # renders are mid-DSP for most of the pump loop - and the check above
+        # has long passed. Never persist a render its stream abandoned.
         _raise_if_cancelled(processor, chunk_index)
 
         # Saved for durability/caching; the array avoids an immediate readback.
@@ -141,9 +135,6 @@ def process_chunk(
             targets_hash=processor.targets_hash,
         )
         processor._path_cache.store(chunk_index, chunk_path)
-        # #4669: remember the level these bytes carry so a later hit on them
-        # can be recorded without a decode.
-        _remember_written_chunk_level(processor, chunk_index, extracted_chunk)
     except ChunkCancelledError:
         # Not a failed retry (#5274): nothing re-requests this chunk from the
         # cancelled stream, and the seek that cancelled it already breaks
@@ -156,8 +147,10 @@ def process_chunk(
     processor._dsp_state_advanced = False
 
     logger.info(f"Chunk {chunk_index} processed and saved to {Path(chunk_path).name}")
-    # Return both path (for caching) and audio array (for immediate streaming)
-    return (str(chunk_path), extracted_chunk)
+    # The durable file holds the raw segment, so it is the same whichever chunk
+    # this processor rendered before it. What this stream hears is that segment
+    # smoothed against the chunk it just heard (#5948) - a separate array.
+    return (str(chunk_path), processor._smooth_level_transition(extracted_chunk, chunk_index))
 
 
 async def process_chunk_safe(
@@ -215,10 +208,6 @@ def get_wav_chunk_path(processor: "ChunkedAudioProcessor", chunk_index: int) -> 
         cached_path = processor._lookup_cached_chunk(chunk_index)
         if cached_path is not None:
             logger.info(f"Serving cached WAV chunk {chunk_index}")
-            # #4669 SIBLING of the process_chunk branch above. Decode-free:
-            # this path never loads the samples, so the level comes from the
-            # registry populated when the WAV was written.
-            _record_cache_hit_level(processor, chunk_index)
             return str(cached_path)
 
         # Get WAV output path
@@ -232,7 +221,7 @@ def get_wav_chunk_path(processor: "ChunkedAudioProcessor", chunk_index: int) -> 
         processor._dsp_state_advanced = False
         try:
             # Use shared core processing logic (eliminates duplicate code)
-            # The emitted segment, extracted before smoothing (#5051).
+            # The raw emitted segment: the durable file is never level-smoothed (#5948).
             extracted_chunk = processor._process_chunk_core(chunk_index, fast_start=False)
 
             # #5328: never persist a render its stream abandoned mid-DSP.
@@ -252,8 +241,6 @@ def get_wav_chunk_path(processor: "ChunkedAudioProcessor", chunk_index: int) -> 
 
             # Cache under the same collapsed key process_chunk() uses.
             processor._path_cache.store(chunk_index, wav_chunk_path)
-            # #4669: see process_chunk's matching call.
-            _remember_written_chunk_level(processor, chunk_index, extracted_chunk)
         except ChunkCancelledError:
             processor._dsp_state_advanced = False  # see process_chunk
             raise

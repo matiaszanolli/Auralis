@@ -65,8 +65,9 @@ async def process_chunk_only(
     )
 
     # Cache hits are served inside processor.process_chunk_safe() by the
-    # on-disk chunk tier, which also restores level history (#5492 removed
-    # the in-memory SimpleChunkCache that used to sit in front of it).
+    # on-disk chunk tier (#5492 removed the in-memory SimpleChunkCache that
+    # used to sit in front of it). The cache holds the raw segment; the level
+    # smoothing the client hears is applied here per stream (#5948).
     #
     # Guard: don't waste CPU on DSP if the client disconnected (fixes #2076)
     if websocket is not None and not controller._is_websocket_connected(websocket):

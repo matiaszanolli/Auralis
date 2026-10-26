@@ -21,7 +21,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from auralis.io.saver import save as save_audio  # noqa: E402
 
-from core import chunk_render  # noqa: E402
 from core.chunk_boundaries import CHUNK_DURATION  # noqa: E402
 from core.chunked_processor import ChunkedAudioProcessor  # noqa: E402
 from core.encoding import read_chunk_wav  # noqa: E402
@@ -36,9 +35,7 @@ def _isolated(tmp_path, monkeypatch):
 
     monkeypatch.setattr(tempfile, "tempdir", str(tmp_path / "tmp"))
     (tmp_path / "tmp").mkdir(parents=True, exist_ok=True)
-    chunk_render._chunk_levels.clear()
     yield
-    chunk_render._chunk_levels.clear()
 
 
 def _source(tmp_path, channels: int) -> str:

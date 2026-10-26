@@ -9,7 +9,7 @@ Prevents audible volume jumps during chunk transitions.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from auralis.dsp.utils.conversion import AMPLITUDE_EPS, amplitude_to_db_array
+from auralis.dsp.utils.conversion import amplitude_to_db_array
 import logging
 from collections import deque
 from typing import cast
@@ -23,7 +23,6 @@ from .level_constants import (  # noqa: E402  (body-used below; see level_consta
     LEVEL_SMOOTHING_GATE_DB,
     MAX_GAIN_CORRECTION_DB,
     MAX_LEVEL_CHANGE_DB,
-    _clamp_gain_db,
 )
 from .level_transition import LevelTransitionMixin
 class LevelManager(LevelTransitionMixin):
@@ -98,40 +97,6 @@ class LevelManager(LevelTransitionMixin):
         rms_db = float(amplitude_to_db_array(rms))  # #6230: AMPLITUDE_EPS guard
 
         return float(rms_db)
-
-    def record_cached_level(
-        self,
-        chunk: np.ndarray | None,
-        chunk_index: int,
-        gain_db: float = 0.0,
-        rms_db: float | None = None,
-    ) -> None:
-        """Record a cache-hit chunk's true RMS and trailing gain (#4367).
-
-        smooth_transition(apply_adjustment=False) always appends 0.0 to
-        gain_history regardless of the gain actually baked into the cached
-        samples, desyncing gain_history from what was really emitted — a
-        subsequent cache-MISS chunk would then ramp from unity even though
-        the cached chunk it followed ended at a non-zero gain. `gain_db` is
-        the trailing gain captured when the chunk was originally processed
-        and cached, so gain_history stays truthful.
-
-        `rms_db` (#4669) is the cached chunk's already-known RMS, for callers
-        that hold only a path to the cached WAV and must not pay a decode just
-        to record a level. When it is None the RMS is computed from `chunk`,
-        which must then be supplied.
-        """
-        if rms_db is None:
-            if chunk is None:
-                raise ValueError(
-                    "record_cached_level requires either `chunk` or a precomputed `rms_db`"
-                )
-            rms_db = self.calculate_rms(chunk)
-        current_rms = rms_db
-        is_baseline = chunk_index == 0 or len(self.rms_history) == 0
-        self.rms_history.append(current_rms)
-        # Clamped (#4729) so a stale/unclamped legacy gain can't poison history.
-        self.gain_history.append(0.0 if is_baseline else _clamp_gain_db(gain_db))
 
     def apply_gain(self, audio: np.ndarray, gain_db: float) -> np.ndarray:
         """

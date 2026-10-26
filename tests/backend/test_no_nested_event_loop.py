@@ -78,7 +78,6 @@ async def test_get_full_processed_audio_path_calls_process_chunk_safe():
     proc._get_chunk_path = fake_get_chunk_path  # type: ignore[method-assign]
 
     with (
-        patch("core.chunk_batch.load_audio", return_value=(fake_audio, 44100)),
         patch("core.chunk_batch.save_audio"),
         patch.object(Path, "exists", return_value=False),
     ):
@@ -121,7 +120,6 @@ async def test_get_full_processed_audio_path_no_nested_loop():
 
     with (
         patch("asyncio.run", patched_asyncio_run),
-        patch("core.chunk_batch.load_audio", return_value=(fake_audio, 44100)),
         patch("core.chunk_batch.save_audio"),
         patch.object(Path, "exists", return_value=False),
     ):
