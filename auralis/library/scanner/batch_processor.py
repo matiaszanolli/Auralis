@@ -16,6 +16,10 @@ from ...utils.logging import error, warning
 from ..scan_models import ScanResult
 
 
+# Float-precision slack for comparing a stored REAL mtime with a fresh stat().
+_MTIME_TOLERANCE_SEC = 1e-3
+
+
 class BatchProcessor:
     """
     Processes batches of audio files
@@ -112,7 +116,16 @@ class BatchProcessor:
         scanner_watermark = existing_track.file_mtime
         if scanner_watermark is None:
             return False
-        return bool(Path(file_path).stat().st_mtime <= scanner_watermark)  # not modified
+        stat = Path(file_path).stat()
+        # Equality, not <=: a replaced file restored with an OLDER mtime (backup
+        # restore, `cp -p`, `rsync -t`, an earlier master swapped back in) is
+        # just as changed as a newer one (#5748). The size catches a rewrite
+        # that kept the mtime; a NULL stored size means "unknown" and defers to
+        # the mtime alone.
+        if abs(stat.st_mtime - scanner_watermark) > _MTIME_TOLERANCE_SEC:
+            return False
+        stored_size = getattr(existing_track, 'filesize', None)
+        return stored_size is None or stored_size == stat.st_size
 
     def process_single_file(self, file_path: str,
                            skip_existing: bool,
