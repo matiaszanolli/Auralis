@@ -73,10 +73,13 @@ export function useFingerprintStatus(
   }, []);
 
   const resetFingerprint = useCallback((trackId: number | null = null) => {
+    // The previous track's 2 s auto-clear must not fire over this stream's
+    // status (#6102).
+    cancelFingerprintTimeout();
     activeTrackIdRef.current = trackId;
     setFingerprintStatus('idle');
     setFingerprintMessage(null);
-  }, []);
+  }, [cancelFingerprintTimeout]);
 
   const handleFingerprintProgress = useCallback((message: FingerprintProgressMessage) => {
     const { track_id: trackId, status, message: progressMessage } = message.data || {};
@@ -95,10 +98,12 @@ export function useFingerprintStatus(
     setFingerprintStatus(status || 'idle');
     setFingerprintMessage(progressMessage || null);
 
+    // Any new status supersedes a pending auto-clear (#6102).
+    cancelFingerprintTimeout();
+
     // Auto-clear success message after 2 seconds; store handle so it can be
     // cancelled on unmount to avoid setState on a dead component (fixes #2353).
     if (status === 'complete') {
-      cancelFingerprintTimeout();
       fingerprintTimeoutRef.current = setTimeout(() => {
         fingerprintTimeoutRef.current = null;
         setFingerprintStatus('idle');

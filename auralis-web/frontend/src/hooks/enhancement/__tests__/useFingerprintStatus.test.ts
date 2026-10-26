@@ -6,7 +6,7 @@
  * memoized identity changes on every connect/disconnect/reconnect/error).
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 import { useFingerprintStatus } from '../useFingerprintStatus';
 
@@ -104,5 +104,51 @@ describe('useFingerprintStatus', () => {
     });
     expect(result.current.fingerprintStatus).toBe('cached');
     expect(result.current.fingerprintMessage).toBe('Track 2 cached');
+  });
+
+  describe('complete auto-clear timer (#6102)', () => {
+    function setup() {
+      let handler: ((m: unknown) => void) | undefined;
+      const subscribe = vi.fn((_type: string, h: (m: unknown) => void) => {
+        handler = h;
+        return vi.fn();
+      });
+      const hook = renderHook(() => useFingerprintStatus(makeWsContext(true, subscribe)));
+      return { ...hook, send: (data: object) => act(() => handler?.({ data })) };
+    }
+
+    beforeEach(() => vi.useFakeTimers());
+    afterEach(() => vi.useRealTimers());
+
+    it("A's timer does not clear B's analyzing status after resetFingerprint", () => {
+      const { result, send } = setup();
+      act(() => result.current.resetFingerprint(1));
+      send({ track_id: 1, status: 'complete', message: 'A done' });
+
+      act(() => result.current.resetFingerprint(2));
+      send({ track_id: 2, status: 'analyzing', message: 'Analyzing B' });
+      act(() => vi.advanceTimersByTime(2000));
+
+      expect(result.current.fingerprintStatus).toBe('analyzing');
+      expect(result.current.fingerprintMessage).toBe('Analyzing B');
+    });
+
+    it('a non-complete progress frame cancels a pending auto-clear', () => {
+      const { result, send } = setup();
+      send({ status: 'complete', message: 'done' });
+      send({ status: 'analyzing', message: 'next' });
+      act(() => vi.advanceTimersByTime(2000));
+
+      expect(result.current.fingerprintStatus).toBe('analyzing');
+    });
+
+    it('still auto-clears a complete status after 2 s', () => {
+      const { result, send } = setup();
+      send({ status: 'complete', message: 'done' });
+      act(() => vi.advanceTimersByTime(2000));
+
+      expect(result.current.fingerprintStatus).toBe('idle');
+      expect(result.current.fingerprintMessage).toBeNull();
+    });
   });
 });
