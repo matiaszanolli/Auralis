@@ -126,13 +126,17 @@ def true_peak_4x(write_region: np.ndarray) -> float:
 def merge_stage_info(info: dict[str, Any] | None, chunk_info: dict[str, Any]) -> dict[str, Any]:
     """Retain the first chunk's metadata, but report every stage that ran anywhere in the file.
 
-    Stages are de-duplicated in execution order so a stage run on several
-    chunks is still represented once in this diagnostic summary.
+    Stages are de-duplicated by name in execution order, keeping the first
+    occurrence: a stage run on several chunks is represented once even though
+    its per-chunk numbers (e.g. peak_reduction's target/result) differ (#5740).
     """
     if info is None:
         return chunk_info
+    seen = {stage.get('stage') for stage in info['stages']}
     for stage in chunk_info.get('stages', []):
-        if stage not in info['stages']:
+        name = stage.get('stage')
+        if name not in seen:
+            seen.add(name)
             info['stages'].append(stage)
     return info
 
