@@ -84,27 +84,9 @@ export const globalStyles = css`
       color ${tokens.transitions.state_inOut};
   }
 
-  /* Custom scrollbar */
-  ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
-  }
-
-  ::-webkit-scrollbar-track {
-    background: ${themeVars.surfacePrimary};
-  }
-
-  ::-webkit-scrollbar-thumb {
-    background: ${themeVars.surfaceRaised};
-    border-radius: ${tokens.borderRadius.full};
-    border: 2px solid ${themeVars.surfacePrimary};
-  }
-
-  ::-webkit-scrollbar-thumb:hover {
-    background: ${themeVars.accent};
-  }
-
-  /* Firefox scrollbar */
+  /* Scrollbars use the standard properties only: Chromium >= 121 (Electron)
+     ignores the webkit scrollbar pseudo-elements once scrollbar-width or
+     scrollbar-color is non-auto, so a webkit block here would be dead (#6058). */
   * {
     scrollbar-width: thin;
     scrollbar-color: ${themeVars.surfaceRaised} ${themeVars.surfacePrimary};

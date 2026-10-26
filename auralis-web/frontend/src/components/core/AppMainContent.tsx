@@ -1,6 +1,5 @@
 import { ReactNode } from 'react';
 import { Box } from '@mui/material';
-import { tokens } from '@/design-system';
 import { themeVars } from '@/theme/semanticTheme';
 
 /**
@@ -68,20 +67,9 @@ export const AppMainContent = ({ children }: AppMainContentProps) => {
         sx={{
           flex: 1,
           overflow: 'auto',
-          // Custom scrollbar styling (Design Language v1.2.0 §4.4)
-          '&::-webkit-scrollbar': {
-            width: '8px',
-          },
-          '&::-webkit-scrollbar-track': {
-            background: 'transparent',
-          },
-          '&::-webkit-scrollbar-thumb': {
-            background: themeVars.surfaceRaised,
-            borderRadius: tokens.borderRadius.sm,              // 8px - organic curves
-            '&:hover': {
-              background: themeVars.accent,
-            },
-          },
+          // Standard scrollbar properties; the webkit pseudo-elements are ignored once
+          // the global `*` rule sets scrollbar-color (#6058).
+          scrollbarColor: `${themeVars.surfaceRaised} transparent`,
         }}
       >
         {children}

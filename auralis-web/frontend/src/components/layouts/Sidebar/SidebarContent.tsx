@@ -8,6 +8,7 @@ import Album from '@mui/icons-material/Album';
 import Person from '@mui/icons-material/Person';
 import Favorite from '@mui/icons-material/Favorite';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 import { SectionLabel } from './SidebarStyles';
 import NavigationSection from './NavigationSection';
 import PlaylistList from '@/components/playlist/PlaylistList';
@@ -31,21 +32,9 @@ export const SidebarContent = ({ selectedItem, onItemClick }: SidebarContentProp
       flex: 1,
       overflowY: 'auto',
       overflowX: 'hidden',
-      // Custom scrollbar for organic feel
-      '&::-webkit-scrollbar': {
-        width: '6px',
-      },
-      '&::-webkit-scrollbar-track': {
-        background: 'transparent',
-      },
-      '&::-webkit-scrollbar-thumb': {
-        background: tokens.colors.accent.primary,
-        opacity: 0.3,
-        borderRadius: tokens.borderRadius.sm,
-        '&:hover': {
-          opacity: 0.5,
-        },
-      },
+      // Standard scrollbar properties; the webkit pseudo-elements are ignored once the
+      // global `*` rule sets scrollbar-color (#6058).
+      scrollbarColor: `color-mix(in srgb, ${themeVars.accent} 30%, transparent) transparent`,
     }}>
       {/* Library Section - Natural cluster */}
       <SectionLabel>Library</SectionLabel>

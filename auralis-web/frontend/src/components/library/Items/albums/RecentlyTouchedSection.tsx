@@ -126,22 +126,10 @@ export const RecentlyTouchedSection = ({
           gap: tokens.spacing.md,
           overflowX: 'auto',
           pb: tokens.spacing.sm, // Space for scrollbar
-          // Hide scrollbar but keep functionality
+          // Standard scrollbar properties; the webkit pseudo-elements are ignored once the
+          // global `*` rule sets scrollbar-color (#6058).
           scrollbarWidth: 'thin',
-          '&::-webkit-scrollbar': {
-            height: '6px',
-          },
-          '&::-webkit-scrollbar-track': {
-            background: themeVars.surfaceSecondary,
-            borderRadius: tokens.borderRadius.full,
-          },
-          '&::-webkit-scrollbar-thumb': {
-            background: tokens.colors.border.light,
-            borderRadius: tokens.borderRadius.full,
-            '&:hover': {
-              background: tokens.colors.accent.primary,
-            },
-          },
+          scrollbarColor: `${themeVars.borderStrong} transparent`,
         }}
       >
         {displayedAlbums.map((album) => (
