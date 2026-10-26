@@ -12,6 +12,7 @@ Also collects the HTTP rate-limit and WebSocket-message-limit constants
 """
 
 import os
+import stat
 import tempfile
 from pathlib import Path
 
@@ -93,8 +94,16 @@ def create_secure_temp_dir(path: Path) -> None:
     directory from before this fix must be re-restricted explicitly, not
     just newly-created ones.
 
+    ``mkdir(exist_ok=True)`` also adopts ANY existing directory, including one
+    another local account pre-created with a permissive mode in a shared
+    ``/tmp``, and the chmod on a directory we do not own would fail. After the
+    mkdir the path is therefore re-checked with ``lstat`` (a regular directory
+    owned by the current user) and the chmod is no longer allowed to fail
+    silently (#6155).
+
     Raises:
-        RuntimeError: `path` already exists as a symlink.
+        RuntimeError: `path` is a symlink, is not a directory, is owned by
+            another user, or cannot be restricted to 0o700.
     """
     if path.is_symlink():
         raise RuntimeError(
@@ -102,10 +111,21 @@ def create_secure_temp_dir(path: Path) -> None:
             "a directory (possible local symlink attack, #4855)"
         )
     path.mkdir(parents=True, exist_ok=True, mode=0o700)
+    # lstat, not stat: a symlink swapped in after the is_symlink() check above
+    # must read as a non-directory here rather than be followed.
+    info = os.lstat(path)
+    if not stat.S_ISDIR(info.st_mode):
+        raise RuntimeError(f"Refusing to use {path} for temp storage: it is not a directory (#6155)")
+    # getuid is absent on Windows, where the temp root is per-user already.
+    if hasattr(os, "getuid") and info.st_uid != os.getuid():
+        raise RuntimeError(
+            f"Refusing to use {path} for temp storage: it is owned by another "
+            "user (possible pre-planted directory, #6155)"
+        )
     try:
         os.chmod(path, 0o700)
-    except OSError:
-        pass
+    except OSError as exc:
+        raise RuntimeError(f"Cannot restrict {path} to owner-only access: {exc}") from exc
 
 
 def stream_temp_prefix(pid: int | None = None) -> str:

@@ -78,3 +78,41 @@ def test_refuses_a_pre_planted_symlink(tmp_path):
 
     # Must not have chmod'd (or otherwise touched) the symlink's target.
     assert _mode(real_target) != 0o700
+
+
+# --- #6155: ownership of a pre-existing directory ---------------------------
+
+def test_directory_owned_by_another_user_is_refused(tmp_path, monkeypatch):
+    """A fixed-name dir another account pre-created must not be adopted; the
+    chmod on it would raise PermissionError, which used to be swallowed."""
+    import os
+
+    target = tmp_path / "auralis_chunks"
+    target.mkdir()
+    target.chmod(0o777)
+    monkeypatch.setattr(os, "getuid", lambda: target.stat().st_uid + 1)
+
+    with pytest.raises(RuntimeError, match="owned by another user"):
+        create_secure_temp_dir(target)
+
+    assert _mode(target) == 0o777  # left untouched, not adopted
+
+
+def test_regular_file_at_the_path_is_refused(tmp_path):
+    target = tmp_path / "auralis_uploads"
+    target.write_bytes(b"x")
+
+    with pytest.raises((RuntimeError, FileExistsError)):
+        create_secure_temp_dir(target)
+
+
+def test_chmod_failure_is_no_longer_swallowed(tmp_path, monkeypatch):
+    import os
+
+    def _deny(*_args, **_kwargs):
+        raise PermissionError("not permitted")
+
+    monkeypatch.setattr(os, "chmod", _deny)
+
+    with pytest.raises(RuntimeError, match="owner-only"):
+        create_secure_temp_dir(tmp_path / "auralis_processing")
