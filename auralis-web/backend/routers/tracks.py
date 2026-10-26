@@ -21,13 +21,14 @@ import logging
 from typing import Annotated, Any, Literal
 from collections.abc import Callable
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from fastapi import APIRouter, Depends, Path
 from pydantic import BaseModel, Field
 
 from schemas import TrackListResponse, TrackResponse
 
+from .dependencies import with_error_handling
+from .errors import NotFoundError
 from .repo_deps import RepositoryFactoryDeps
-from .errors import NotFoundError, handle_query_error
 from .pagination import limit_query, offset_query, paginated
 from .serializers_library import serialize_tracks
 
@@ -57,6 +58,7 @@ class TrackLyricsResponse(BaseModel):
     )
 
 
+@with_error_handling("get tracks")
 async def get_tracks(
     limit: int = limit_query(),
     offset: int = offset_query(),
@@ -70,152 +72,127 @@ async def get_tracks(
     repos: Any = Depends(_repo_deps.get_repos),
 ) -> dict[str, Any]:
     """Get tracks from library with optional search and pagination."""
-    try:
-        if search:
-            tracks, total = await asyncio.to_thread(
-                repos.tracks.search, search, limit=limit, offset=offset, order_by=order_by
-            )
-        else:
-            tracks, total = await asyncio.to_thread(repos.tracks.get_all, limit=limit, offset=offset, order_by=order_by)
-        return paginated("tracks", serialize_tracks(tracks), total, offset, limit)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise handle_query_error("get tracks", e)
+    if search:
+        tracks, total = await asyncio.to_thread(
+            repos.tracks.search, search, limit=limit, offset=offset, order_by=order_by
+        )
+    else:
+        tracks, total = await asyncio.to_thread(repos.tracks.get_all, limit=limit, offset=offset, order_by=order_by)
+    return paginated("tracks", serialize_tracks(tracks), total, offset, limit)
 
 
+@with_error_handling("get favorite tracks")
 async def get_favorite_tracks(
     limit: int = limit_query(),
     offset: int = offset_query(),
     repos: Any = Depends(_repo_deps.get_repos),
 ) -> dict[str, Any]:
     """Get all favorite tracks with pagination."""
-    try:
-        tracks, total = await asyncio.to_thread(repos.tracks.get_favorites, limit=limit, offset=offset)
-        return paginated("tracks", serialize_tracks(tracks), total, offset, limit)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise handle_query_error("get favorite tracks", e)
+    tracks, total = await asyncio.to_thread(repos.tracks.get_favorites, limit=limit, offset=offset)
+    return paginated("tracks", serialize_tracks(tracks), total, offset, limit)
 
 
+@with_error_handling("get track")
 async def get_track(
     track_id: Annotated[int, Path(ge=1)],
     repos: Any = Depends(_repo_deps.get_repos),
 ) -> dict[str, Any]:
     """Get a single track by ID."""
-    try:
-        track = await asyncio.to_thread(repos.tracks.get_by_id, track_id)
-        if not track:
-            raise NotFoundError("Track", track_id)
-        return serialize_tracks([track])[0]
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise handle_query_error("get track", e)
+    track = await asyncio.to_thread(repos.tracks.get_by_id, track_id)
+    if not track:
+        raise NotFoundError("Track", track_id)
+    return serialize_tracks([track])[0]
 
 
+@with_error_handling("set track favorite")
 async def set_track_favorite(
     track_id: Annotated[int, Path(ge=1)],
     repos: Any = Depends(_repo_deps.get_repos),
 ) -> dict[str, Any]:
     """Mark track as favorite."""
-    try:
-        found = await asyncio.to_thread(repos.tracks.set_favorite, track_id, True)
-        if not found:
-            raise NotFoundError("Track", track_id)
-        logger.info(f"Track {track_id} marked as favorite")
-        return {"message": "Track marked as favorite", "track_id": track_id, "favorite": True}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise handle_query_error("set track favorite", e)
+    found = await asyncio.to_thread(repos.tracks.set_favorite, track_id, True)
+    if not found:
+        raise NotFoundError("Track", track_id)
+    logger.info(f"Track {track_id} marked as favorite")
+    return {"message": "Track marked as favorite", "track_id": track_id, "favorite": True}
 
 
+@with_error_handling("remove track favorite")
 async def remove_track_favorite(
     track_id: Annotated[int, Path(ge=1)],
     repos: Any = Depends(_repo_deps.get_repos),
 ) -> dict[str, Any]:
     """Remove track from favorites."""
-    try:
-        found = await asyncio.to_thread(repos.tracks.set_favorite, track_id, False)
-        if not found:
-            raise NotFoundError("Track", track_id)
-        logger.info(f"Track {track_id} removed from favorites")
-        return {"message": "Track removed from favorites", "track_id": track_id, "favorite": False}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise handle_query_error("remove track favorite", e)
+    found = await asyncio.to_thread(repos.tracks.set_favorite, track_id, False)
+    if not found:
+        raise NotFoundError("Track", track_id)
+    logger.info(f"Track {track_id} removed from favorites")
+    return {"message": "Track removed from favorites", "track_id": track_id, "favorite": False}
 
 
+@with_error_handling("get track lyrics")
 async def get_track_lyrics(
     track_id: Annotated[int, Path(ge=1)],
     repos: Any = Depends(_repo_deps.get_repos),
 ) -> dict[str, Any]:
     """Get lyrics for a track, from DB or extracted from file."""
+    track = await asyncio.to_thread(repos.tracks.get_by_id, track_id)
+    if not track:
+        raise NotFoundError("Track", track_id)
+
+    if track.lyrics:
+        return {
+            "track_id": track_id,
+            "lyrics": track.lyrics,
+            "format": "lrc" if "[" in track.lyrics and "]" in track.lyrics else "plain",
+        }
+
+    # Try to extract from file
     try:
-        track = await asyncio.to_thread(repos.tracks.get_by_id, track_id)
-        if not track:
-            raise NotFoundError("Track", track_id)
+        from security.path_security import validate_file_path
+        validate_file_path(str(track.filepath))
+        import mutagen
+        audio_file = await asyncio.to_thread(mutagen.File, track.filepath)
+        lyrics_text = None
 
-        if track.lyrics:
-            return {
-                "track_id": track_id,
-                "lyrics": track.lyrics,
-                "format": "lrc" if "[" in track.lyrics and "]" in track.lyrics else "plain",
-            }
-
-        # Try to extract from file
-        try:
-            from security.path_security import validate_file_path
-            validate_file_path(str(track.filepath))
-            import mutagen
-            audio_file = await asyncio.to_thread(mutagen.File, track.filepath)
-            lyrics_text = None
-
-            if audio_file:
-                from mutagen.mp4 import MP4
-                if isinstance(audio_file, MP4):
-                    # MP4/M4A: iTunes '©lyr' atom — must check before Vorbis branch
-                    # because MP4Tags implements .get() and would match incorrectly
-                    # (fixes #2383).
-                    try:
-                        lyrics_text = audio_file.get('\xa9lyr', [None])[0]  # type: ignore[no-untyped-call]
-                    except Exception as _lyr_exc:
-                        logger.debug("Failed to read MP4 lyrics tag: %s", _lyr_exc)
-                elif hasattr(audio_file, 'tags') and audio_file.tags:
-                    if 'USLT::eng' in audio_file.tags:
-                        lyrics_text = str(audio_file.tags['USLT::eng'])
-                    elif 'USLT' in audio_file.tags:
-                        lyrics_text = str(audio_file.tags['USLT'])
-                    elif 'LYRICS' in audio_file.tags:
-                        lyrics_text = str(audio_file.tags['LYRICS'])
-                elif hasattr(audio_file, 'get'):
-                    lyrics_text = audio_file.get('LYRICS', [None])[0] or audio_file.get('UNSYNCEDLYRICS', [None])[0]
-
-            if lyrics_text:
-                result = {
-                    "track_id": track_id,
-                    "lyrics": lyrics_text,
-                    "format": "lrc" if "[" in lyrics_text and "]" in lyrics_text else "plain",
-                }
+        if audio_file:
+            from mutagen.mp4 import MP4
+            if isinstance(audio_file, MP4):
+                # MP4/M4A: iTunes '©lyr' atom — must check before Vorbis branch
+                # because MP4Tags implements .get() and would match incorrectly
+                # (fixes #2383).
                 try:
-                    await asyncio.to_thread(repos.tracks.update_metadata, track_id, lyrics=lyrics_text)
-                except Exception as persist_exc:
-                    # Extraction already succeeded — a persistence failure should not
-                    # discard a result already computed in this request (#4730).
-                    logger.error(f"Failed to persist extracted lyrics for track {track_id}: {persist_exc}")
-                return result
-        except Exception as e:
-            logger.error(f"Failed to extract lyrics from file: {e}")
+                    lyrics_text = audio_file.get('\xa9lyr', [None])[0]  # type: ignore[no-untyped-call]
+                except Exception as _lyr_exc:
+                    logger.debug("Failed to read MP4 lyrics tag: %s", _lyr_exc)
+            elif hasattr(audio_file, 'tags') and audio_file.tags:
+                if 'USLT::eng' in audio_file.tags:
+                    lyrics_text = str(audio_file.tags['USLT::eng'])
+                elif 'USLT' in audio_file.tags:
+                    lyrics_text = str(audio_file.tags['USLT'])
+                elif 'LYRICS' in audio_file.tags:
+                    lyrics_text = str(audio_file.tags['LYRICS'])
+            elif hasattr(audio_file, 'get'):
+                lyrics_text = audio_file.get('LYRICS', [None])[0] or audio_file.get('UNSYNCEDLYRICS', [None])[0]
 
-        return {"track_id": track_id, "lyrics": None, "format": None}
-
-    except HTTPException:
-        raise
+        if lyrics_text:
+            result = {
+                "track_id": track_id,
+                "lyrics": lyrics_text,
+                "format": "lrc" if "[" in lyrics_text and "]" in lyrics_text else "plain",
+            }
+            try:
+                await asyncio.to_thread(repos.tracks.update_metadata, track_id, lyrics=lyrics_text)
+            except Exception as persist_exc:
+                # Extraction already succeeded — a persistence failure should not
+                # discard a result already computed in this request (#4730).
+                logger.error(f"Failed to persist extracted lyrics for track {track_id}: {persist_exc}")
+            return result
     except Exception as e:
-        raise handle_query_error("get track lyrics", e)
+        logger.error(f"Failed to extract lyrics from file: {e}")
+
+    return {"track_id": track_id, "lyrics": None, "format": None}
+
 
 
 def create_tracks_router(
