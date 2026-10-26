@@ -8,6 +8,7 @@ Builds and maintains pre-computed similarity graph for fast queries
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+import threading
 from dataclasses import dataclass
 from time import perf_counter
 from typing import Any
@@ -42,6 +43,10 @@ class GraphStats:
         }
 
 
+class GraphBuildInProgress(RuntimeError):
+    """A graph build or clear is already running; a second one would corrupt it."""
+
+
 class KNNGraphBuilder:
     """
     Builds K-nearest neighbors similarity graph
@@ -58,6 +63,16 @@ class KNNGraphBuilder:
         # Build graph for all tracks
         stats = builder.build_graph(k=10)
     """
+
+    # Single-flight for build_graph and clear_graph (#5945). A build takes
+    # minutes and a closed HTTP request does not cancel it, so a client retry
+    # used to start a second build whose edges were inserted on top of the first
+    # (duplicates on fresh installs, an IntegrityError mid-way on upgraded ones).
+    # Class-level: every builder writes the one similarity_graph table, and a
+    # refit may replace the builder instance while a build is still running.
+    # Acquired without blocking, so the second caller is told immediately
+    # instead of queueing behind a multi-minute build.
+    _busy = threading.Lock()
 
     def __init__(
         self,
@@ -95,6 +110,14 @@ class KNNGraphBuilder:
         Returns:
             GraphStats with build statistics
         """
+        if not self._busy.acquire(blocking=False):
+            raise GraphBuildInProgress("A similarity graph build or clear is already running")
+        try:
+            return self._build_graph_locked(k, batch_size, clear_existing)
+        finally:
+            self._busy.release()
+
+    def _build_graph_locked(self, k: int, batch_size: int, clear_existing: bool) -> GraphStats:
         info(f"Building K-NN similarity graph (k={k})...")
         start_time = perf_counter()
 
@@ -244,6 +267,8 @@ class KNNGraphBuilder:
         Returns:
             Number of edges deleted
         """
+        if not self._busy.acquire(blocking=False):
+            raise GraphBuildInProgress("A similarity graph build or clear is already running")
         try:
             count = self.graph_repo.clear_all()
             info(f"Cleared {count} edges from similarity graph")
@@ -252,3 +277,5 @@ class KNNGraphBuilder:
         except Exception as e:
             error(f"Failed to clear graph: {e}")
             raise
+        finally:
+            self._busy.release()

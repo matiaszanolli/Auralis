@@ -15,10 +15,11 @@ import logging
 from typing import Any
 from collections.abc import Callable
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from auralis.analysis.fingerprint import KNNGraphBuilder
+from auralis.analysis.fingerprint.knn_graph import GraphBuildInProgress
 
 from .dependencies import RouterDeps
 from .errors import ServiceUnavailableError
@@ -82,9 +83,14 @@ async def build_similarity_graph(
 
     # CPU-bound O(N²) K-NN computation; offload to thread so the
     # event loop stays responsive (fixes #2738).
-    stats = await asyncio.to_thread(
-        graph_builder.build_graph, k=k, clear_existing=clear_existing
-    )
+    try:
+        stats = await asyncio.to_thread(
+            graph_builder.build_graph, k=k, clear_existing=clear_existing
+        )
+    except GraphBuildInProgress as e:
+        # A closed fetch does not cancel the running build, so a retry after the
+        # client timeout lands here (#5945); 409 tells it to wait, not rebuild.
+        raise HTTPException(status_code=409, detail=str(e))
 
     return GraphStatsResponse(**stats.to_dict())
 
@@ -121,7 +127,10 @@ async def clear_similarity_graph(
     if graph_builder is None:
         return {"edges_deleted": 0}
 
-    count = await asyncio.to_thread(graph_builder.clear_graph)
+    try:
+        count = await asyncio.to_thread(graph_builder.clear_graph)
+    except GraphBuildInProgress as e:
+        raise HTTPException(status_code=409, detail=str(e))
     return {"edges_deleted": count}
 
 

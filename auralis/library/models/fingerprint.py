@@ -244,6 +244,11 @@ class SimilarityGraph(Base, TimestampMixin):
         Index('idx_similarity_graph_similar_track_id', 'similar_track_id'),
         Index('idx_similarity_graph_distance', 'distance'),
         Index('idx_similarity_graph_track_rank', 'track_id', 'rank', 'distance'),
+        # migration_v004_to_v005.sql declared UNIQUE(track_id, similar_track_id)
+        # in the table, so only fresh create_all databases lacked it (#5945).
+        # Declared here so they have it; create_missing_declared_indexes()
+        # dedupes and adds it to the ones already created without it.
+        Index('ux_similarity_graph_edge', 'track_id', 'similar_track_id', unique=True),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
