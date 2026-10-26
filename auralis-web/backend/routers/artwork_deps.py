@@ -5,24 +5,20 @@ Artwork router dependency plumbing and the artwork_updated broadcast (split from
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from collections.abc import Callable
 from typing import Any, Literal
 from websocket.outbound.library import ArtworkUpdatedPayload
 from websocket.outbound_messages import broadcast_typed
 
-from .dependencies import RouterDeps, require_repository_factory
+from .dependencies import RouterDeps
+from .repo_deps import RepositoryFactoryDeps
 
 
 class _ArtworkDeps:
-    def __init__(
-        self,
-        connection_manager: Any = None,
-        get_repository_factory: Callable[[], Any] = lambda: None,
-    ) -> None:
+    def __init__(self, connection_manager: Any = None) -> None:
         self.connection_manager = connection_manager
-        self.get_repository_factory = get_repository_factory
 
 
+_repo_deps = RepositoryFactoryDeps("artwork")
 _deps = RouterDeps("artwork", _ArtworkDeps())
 
 
@@ -46,8 +42,3 @@ async def _broadcast_artwork_updated(
     if artwork_url is not None:
         data["artwork_url"] = artwork_url
     await broadcast_typed(connection_manager, "artwork_updated", data)
-
-
-def _get_repos() -> Any:
-    """Get repository factory for accessing repositories."""
-    return require_repository_factory(_deps.current().get_repository_factory)

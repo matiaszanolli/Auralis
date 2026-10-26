@@ -67,7 +67,7 @@ class TestArtworkDownloadEndpoint:
         mock_downloader.download_artwork.return_value = "/home/user/.auralis/artwork/1.jpg"
 
         with (
-            patch('routers.artwork_deps.require_repository_factory', return_value=repos),
+            patch('routers.repo_deps.require_repository_factory', return_value=repos),
             patch('services.artwork_downloader.get_artwork_downloader',
                   return_value=mock_downloader),
         ):
@@ -98,7 +98,7 @@ class TestArtworkDownloadEndpoint:
         mock_downloader.download_artwork.return_value = "/home/user/.auralis/artwork/1.jpg"
 
         with (
-            patch('routers.artwork_deps.require_repository_factory', return_value=repos),
+            patch('routers.repo_deps.require_repository_factory', return_value=repos),
             patch('services.artwork_downloader.get_artwork_downloader',
                   return_value=mock_downloader),
         ):
@@ -117,7 +117,7 @@ class TestArtworkDownloadEndpoint:
         """Return 404 when album does not exist."""
         repos = self._make_mock_repos(album=None)
 
-        with patch('routers.artwork_deps.require_repository_factory', return_value=repos):
+        with patch('routers.repo_deps.require_repository_factory', return_value=repos):
             response = client.post("/api/albums/999/artwork/download")
 
         assert response.status_code == 404
@@ -132,7 +132,7 @@ class TestArtworkDownloadEndpoint:
         mock_downloader.download_artwork.return_value = None  # No artwork found
 
         with (
-            patch('routers.artwork_deps.require_repository_factory', return_value=repos),
+            patch('routers.repo_deps.require_repository_factory', return_value=repos),
             patch('services.artwork_downloader.get_artwork_downloader',
                   return_value=mock_downloader),
         ):
@@ -153,7 +153,7 @@ class TestArtworkDownloadEndpoint:
         mock_downloader.download_artwork.return_value = "/home/user/.auralis/artwork/1.jpg"
 
         with (
-            patch('routers.artwork_deps.require_repository_factory', return_value=repos),
+            patch('routers.repo_deps.require_repository_factory', return_value=repos),
             patch('services.artwork_downloader.get_artwork_downloader',
                   return_value=mock_downloader),
         ):
@@ -168,7 +168,7 @@ class TestArtworkDownloadEndpoint:
 
     def test_download_artwork_repository_unavailable(self, client):
         """Return 503 when repository factory is not initialised."""
-        with patch('routers.artwork_deps.require_repository_factory',
+        with patch('routers.repo_deps.require_repository_factory',
                    side_effect=__import__('fastapi').HTTPException(
                        status_code=503, detail="Repository factory not available")):
             response = client.post("/api/albums/1/artwork/download")
@@ -189,7 +189,7 @@ class TestArtworkDownloadEndpoint:
         mock_downloader.download_artwork.side_effect = RuntimeError("Connection refused")
 
         with (
-            patch('routers.artwork_deps.require_repository_factory', return_value=repos),
+            patch('routers.repo_deps.require_repository_factory', return_value=repos),
             patch('services.artwork_downloader.get_artwork_downloader',
                   return_value=mock_downloader),
         ):

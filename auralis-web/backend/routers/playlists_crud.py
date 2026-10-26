@@ -5,7 +5,7 @@ Playlist list / read / create / update / delete handlers (split from playlists.p
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from fastapi import Depends, Path, Query
+from fastapi import Depends, Path
 from typing import Annotated, Any
 from websocket.outbound_messages import broadcast_typed
 import asyncio
@@ -13,7 +13,7 @@ import asyncio
 from .dependencies import with_error_handling
 from .errors import BadRequestError, NotFoundError
 from .pagination import limit_query, offset_query, paginated
-from .playlists_deps import _get_connection_manager, _get_repos
+from .playlists_deps import _get_connection_manager, _repo_deps
 from .playlists_models import CreatePlaylistRequest, UpdatePlaylistRequest
 from .serializers_library import serialize_playlist, serialize_playlists
 
@@ -22,7 +22,7 @@ from .serializers_library import serialize_playlist, serialize_playlists
 async def get_playlists(
     limit: int = limit_query("Number of playlists to return"),
     offset: int = offset_query("Number of playlists to skip"),
-    repos: Any = Depends(_get_repos),
+    repos: Any = Depends(_repo_deps.get_repos),
 ) -> dict[str, Any]:
     """
     Get a paginated list of playlists.
@@ -55,7 +55,7 @@ async def get_playlists(
 @with_error_handling("get playlist")
 async def get_playlist(
     playlist_id: Annotated[int, Path(ge=1)],
-    repos: Any = Depends(_get_repos),
+    repos: Any = Depends(_repo_deps.get_repos),
 ) -> dict[str, Any]:
     """
     Get playlist by ID with all tracks.
@@ -83,7 +83,7 @@ async def get_playlist(
 @with_error_handling("create playlist")
 async def create_playlist(
     request: CreatePlaylistRequest,
-    repos: Any = Depends(_get_repos),
+    repos: Any = Depends(_repo_deps.get_repos),
     connection_manager: Any = Depends(_get_connection_manager),
 ) -> dict[str, Any]:
     """
@@ -128,7 +128,7 @@ async def create_playlist(
 async def update_playlist(
     playlist_id: Annotated[int, Path(ge=1)],
     request: UpdatePlaylistRequest,
-    repos: Any = Depends(_get_repos),
+    repos: Any = Depends(_repo_deps.get_repos),
     connection_manager: Any = Depends(_get_connection_manager),
 ) -> dict[str, Any]:
     """
@@ -175,7 +175,7 @@ async def update_playlist(
 @with_error_handling("delete playlist")
 async def delete_playlist(
     playlist_id: Annotated[int, Path(ge=1)],
-    repos: Any = Depends(_get_repos),
+    repos: Any = Depends(_repo_deps.get_repos),
     connection_manager: Any = Depends(_get_connection_manager),
 ) -> dict[str, Any]:
     """

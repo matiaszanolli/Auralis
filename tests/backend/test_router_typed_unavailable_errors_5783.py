@@ -69,12 +69,11 @@ class TestRequireRepositoryFactory:
     def test_files_router_uses_the_same_guard(self) -> None:
         from routers import files_deps
 
-        class _Deps:
-            get_repository_factory = None
+        from routers import files
 
-        with files_deps._deps.use(_Deps()):
-            with pytest.raises(ServiceUnavailableError) as exc:
-                files_deps._get_repos()
+        files.create_files_router(lambda: None)  # binds a getter that yields no factory
+        with pytest.raises(ServiceUnavailableError) as exc:
+            files_deps._repo_deps.get_repos()
         assert exc.value.detail == "Repository factory not available"
 
 

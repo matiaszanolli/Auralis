@@ -10,7 +10,7 @@ from fastapi import Path as PathParam
 from typing import Annotated, Any
 import asyncio
 
-from .artwork_deps import _broadcast_artwork_updated, _get_connection_manager, _get_repos
+from .artwork_deps import _broadcast_artwork_updated, _get_connection_manager, _repo_deps
 from .artwork_thumbnails import _purge_album_thumbnails
 from .dependencies import with_error_handling
 from .errors import NotFoundError
@@ -19,7 +19,7 @@ from .errors import NotFoundError
 @with_error_handling("extract artwork")
 async def extract_album_artwork(
     album_id: Annotated[int, PathParam(ge=1)],
-    repos: Any = Depends(_get_repos),
+    repos: Any = Depends(_repo_deps.get_repos),
     connection_manager: Any = Depends(_get_connection_manager),
 ) -> dict[str, Any]:
     """
@@ -68,7 +68,7 @@ async def extract_album_artwork(
 @with_error_handling("delete artwork")
 async def delete_album_artwork(
     album_id: Annotated[int, PathParam(ge=1)],
-    repos: Any = Depends(_get_repos),
+    repos: Any = Depends(_repo_deps.get_repos),
     connection_manager: Any = Depends(_get_connection_manager),
 ) -> dict[str, Any]:
     """
@@ -113,7 +113,7 @@ async def delete_album_artwork(
 @with_error_handling("download artwork")
 async def download_album_artwork(
     album_id: Annotated[int, PathParam(ge=1)],
-    repos: Any = Depends(_get_repos),
+    repos: Any = Depends(_repo_deps.get_repos),
     connection_manager: Any = Depends(_get_connection_manager),
 ) -> dict[str, Any]:
     """

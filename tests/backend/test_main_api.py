@@ -1420,7 +1420,7 @@ class TestPlaylistEndpoints:
         mock_repos.playlists.get_by_id.return_value = Mock()
         mock_repos.playlists.add_tracks.return_value = 0
 
-        with patch('routers.playlists_deps.require_repository_factory', return_value=mock_repos):
+        with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
             response = _with_trusted_origin(
                 client, "post", "/api/playlists/1/tracks", json={"track_ids": [5]}
             )
@@ -1433,7 +1433,7 @@ class TestPlaylistEndpoints:
         mock_repos = Mock()
         mock_repos.playlists.get_by_id.return_value = None
 
-        with patch('routers.playlists_deps.require_repository_factory', return_value=mock_repos):
+        with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
             response = _with_trusted_origin(
                 client, "post", "/api/playlists/999/tracks", json={"track_ids": [5]}
             )
@@ -1460,7 +1460,7 @@ class TestPlaylistEndpoints:
         mock_repos.playlists.get_by_id.return_value = Mock()
         mock_repos.playlists.delete.return_value = False
 
-        with patch('routers.playlists_deps.require_repository_factory', return_value=mock_repos):
+        with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
             response = _with_trusted_origin(client, "delete", "/api/playlists/1")
 
             assert response.status_code == 200
@@ -1471,7 +1471,7 @@ class TestPlaylistEndpoints:
         mock_repos = Mock()
         mock_repos.playlists.get_by_id.return_value = None
 
-        with patch('routers.playlists_deps.require_repository_factory', return_value=mock_repos):
+        with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
             response = _with_trusted_origin(client, "delete", "/api/playlists/999")
 
             assert response.status_code == 404
@@ -1484,7 +1484,7 @@ class TestPlaylistEndpoints:
         mock_repos.playlists.get_by_id.return_value = Mock()
         mock_repos.playlists.remove_track.return_value = True
 
-        with patch('routers.playlists_deps.require_repository_factory', return_value=mock_repos):
+        with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
             response = _with_trusted_origin(client, "delete", "/api/playlists/1/tracks/5")
 
             assert response.status_code == 200
@@ -1495,7 +1495,7 @@ class TestPlaylistEndpoints:
         mock_repos = Mock()
         mock_repos.playlists.get_by_id.return_value = None
 
-        with patch('routers.playlists_deps.require_repository_factory', return_value=mock_repos):
+        with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
             response = _with_trusted_origin(client, "delete", "/api/playlists/999/tracks/5")
 
             assert response.status_code == 404
@@ -1582,7 +1582,7 @@ class TestAlbumArtworkEndpoints:
         mock_repos = Mock()
         mock_repos.albums.get_by_id.return_value = None
 
-        with patch('routers.artwork_deps.require_repository_factory', return_value=mock_repos):
+        with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/999/artwork")
             assert response.status_code == 404
 
@@ -1594,7 +1594,7 @@ class TestAlbumArtworkEndpoints:
         mock_repos = Mock()
         mock_repos.albums.get_by_id.return_value = mock_album
 
-        with patch('routers.artwork_deps.require_repository_factory', return_value=mock_repos):
+        with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/1/artwork")
             assert response.status_code == 404
 
@@ -1627,7 +1627,7 @@ class TestAlbumArtworkEndpoints:
             "/tmp/auralis-test-extracted-artwork-5089.jpg"
         )
 
-        with patch('routers.artwork_deps.require_repository_factory', return_value=mock_repos):
+        with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
             response = client.post("/api/albums/1/artwork/extract")
 
             assert response.status_code == 200
@@ -1645,7 +1645,7 @@ class TestAlbumArtworkEndpoints:
         mock_repos = Mock()
         mock_repos.albums.get_by_id.return_value = mock_album
 
-        with patch('routers.artwork_deps.require_repository_factory', return_value=mock_repos):
+        with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
             response = client.delete("/api/albums/1/artwork")
 
             assert response.status_code == 200

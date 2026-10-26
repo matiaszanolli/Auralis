@@ -13,7 +13,7 @@ import logging
 from typing import Annotated, Any, Literal
 from collections.abc import Callable
 
-from fastapi import APIRouter, Depends, Path, Query
+from fastapi import APIRouter, Depends, Path
 
 from schemas import (
     AlbumListResponse,
@@ -26,7 +26,7 @@ from .errors import NotFoundError
 from .pagination import limit_query, offset_query, paginated
 from .serializers_library import serialize_album, serialize_albums, serialize_tracks
 from .albums_models import AlbumFingerprintResponse, AlbumTracksResponse
-from .albums_deps import _AlbumsDeps, _deps, _get_repos
+from .albums_deps import _repo_deps
 from .albums_fingerprint import (
     get_album_fingerprint,
 )
@@ -74,15 +74,15 @@ def _derive_album_genre(tracks_data: list[dict[str, Any]]) -> str | None:
 # building the whole router. Handlers are now module level; they reach the
 # same callable through FastAPI Depends() instead.
 #
-# _AlbumsDeps holds the raw callable one create_albums_router() call received.
-# It is bound per router instance through RouterDeps (dependencies.py): a
+# _repo_deps (a RepositoryFactoryDeps, repo_deps.py) holds the raw callable one
+# create_albums_router() call received. It is bound per router instance: a
 # router-level dependency publishes it for the duration of a request, so a
 # second factory call (every test that builds its own router) cannot repoint
 # the live router at its stubs (#5262, #5762).
 #
 # A handler's Depends() default is only consulted when FastAPI itself invokes
 # it for a real request; a direct unit-test call passes the repos explicitly
-# as a keyword argument and never touches _AlbumsDeps at all -- that's the
+# as a keyword argument and never touches _repo_deps at all -- that's the
 # seam #4670 asked for.
 # ============================================================================
 
@@ -93,7 +93,7 @@ async def get_albums(
     offset: int = offset_query(),
     search: str | None = None,
     order_by: Literal['title', 'year', 'created_at'] = 'title',
-    repos: Any = Depends(_get_repos),
+    repos: Any = Depends(_repo_deps.get_repos),
 ) -> Any:
     """
     Get albums from library with optional search and pagination.
@@ -124,7 +124,7 @@ async def get_albums(
 
 
 @with_error_handling("get album")
-async def get_album(album_id: Annotated[int, Path(ge=1)], repos: Any = Depends(_get_repos)) -> Any:
+async def get_album(album_id: Annotated[int, Path(ge=1)], repos: Any = Depends(_repo_deps.get_repos)) -> Any:
     """
     Get album details by ID.
 
@@ -159,7 +159,7 @@ async def get_album(album_id: Annotated[int, Path(ge=1)], repos: Any = Depends(_
 
 
 @with_error_handling("get album tracks")
-async def get_album_tracks(album_id: Annotated[int, Path(ge=1)], repos: Any = Depends(_get_repos)) -> Any:
+async def get_album_tracks(album_id: Annotated[int, Path(ge=1)], repos: Any = Depends(_repo_deps.get_repos)) -> Any:
     """
     Get all tracks for a specific album.
 
@@ -209,9 +209,7 @@ def create_albums_router(
 
     Note:
     """
-    deps = _AlbumsDeps(get_repository_factory)
-
-    router = APIRouter(dependencies=[Depends(_deps.bind(deps))])
+    router = APIRouter(dependencies=[Depends(_repo_deps.bind(get_repository_factory))])
 
     # Registration order matches the original decorator order: the literal-free
     # `/api/albums/{album_id}` must stay ahead of its `/tracks` and

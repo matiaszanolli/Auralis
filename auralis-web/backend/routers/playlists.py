@@ -30,7 +30,7 @@ from .playlists_models import (
     PlaylistListResponse,
     PlaylistMessageResponse,
 )
-from .playlists_deps import _PlaylistsDeps, _deps
+from .playlists_deps import _PlaylistsDeps, _deps, _repo_deps
 from .playlists_tracks import (
     add_track_to_playlist,
     add_tracks_to_playlist,
@@ -85,11 +85,14 @@ def create_playlists_router(
 
     Note:
     """
-    deps = _PlaylistsDeps(get_repository_factory, connection_manager)
+    deps = _PlaylistsDeps(connection_manager)
 
     router = APIRouter(
         tags=["playlists"],
-        dependencies=[Depends(_deps.bind(deps))],
+        dependencies=[
+            Depends(_repo_deps.bind(get_repository_factory)),
+            Depends(_deps.bind(deps)),
+        ],
     )
 
     router.add_api_route("/api/playlists", get_playlists, methods=["GET"], response_model=PlaylistListResponse)

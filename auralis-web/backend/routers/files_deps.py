@@ -8,23 +8,9 @@ Files router dependency plumbing (split from files.py, #5831).
 from collections.abc import Callable
 from typing import Any
 
-from .dependencies import RouterDeps, require_repository_factory
+from .repo_deps import RepositoryFactoryDeps
 
-
-class _FilesDeps:
-    def __init__(
-        self,
-        get_repository_factory: Callable[[], Any] | None = None,
-    ) -> None:
-        self.get_repository_factory = get_repository_factory
-
-
-_deps = RouterDeps("files", _FilesDeps())
-
-
-def _get_repos() -> Any:
-    """Get repository factory for accessing repositories."""
-    return require_repository_factory(_deps.current().get_repository_factory)
+_repo_deps = RepositoryFactoryDeps("files")
 
 
 def _get_repos_provider() -> Callable[[], Any]:
@@ -38,4 +24,4 @@ def _get_repos_provider() -> Callable[[], Any]:
     no repositories, so the handler keeps calling it itself at the original
     point.
     """
-    return _get_repos
+    return _repo_deps.get_repos

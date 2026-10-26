@@ -348,7 +348,7 @@ class TestGetAlbums:
 class TestGetAlbumDetails:
     """Test GET /api/albums/{album_id} (moved from /api/library/albums/{id} in #3824)"""
 
-    @patch('routers.albums_deps.require_repository_factory')
+    @patch('routers.repo_deps.require_repository_factory')
     def test_get_album_not_found(self, mock_require_repos, client, mock_repos):
         """Test getting non-existent album"""
         mock_require_repos.return_value = mock_repos

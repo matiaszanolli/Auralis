@@ -72,7 +72,7 @@ def test_playlists_router_instances_keep_their_own_dependencies() -> None:
     second_router = playlists.create_playlists_router(lambda: second, second_manager)
 
     async def probe(
-        repos: Any = Depends(playlists_deps._get_repos),
+        repos: Any = Depends(playlists_deps._repo_deps.get_repos),
         manager: Any = Depends(playlists_deps._get_connection_manager),
     ) -> dict[str, str]:
         assert repos.marker == manager.marker
@@ -91,7 +91,7 @@ def test_artwork_router_instances_keep_their_own_dependencies() -> None:
     second_router = artwork.create_artwork_router(second_manager, lambda: second)
 
     async def probe(
-        repos: Any = Depends(artwork._get_repos),
+        repos: Any = Depends(artwork_deps._repo_deps.get_repos),
         manager: Any = Depends(artwork_deps._get_connection_manager),
     ) -> dict[str, str]:
         assert repos.marker == manager.marker
@@ -133,7 +133,7 @@ def test_files_router_instances_keep_their_own_dependencies() -> None:
     first_router = files.create_files_router(lambda: first)
     second_router = files.create_files_router(lambda: second)
 
-    async def probe(repos: Any = Depends(files_deps._get_repos)) -> dict[str, str]:
+    async def probe(repos: Any = Depends(files_deps._repo_deps.get_repos)) -> dict[str, str]:
         return {"marker": repos.marker}
 
     _assert_isolated(first_router, second_router, probe)
@@ -145,10 +145,8 @@ def test_albums_router_instances_keep_their_own_dependencies() -> None:
     first_router = albums.create_albums_router(lambda: first)
     second_router = albums.create_albums_router(lambda: second)
 
-    async def probe(
-        get_repos: Callable[[], Any] = Depends(albums_deps._get_repository_factory),
-    ) -> dict[str, str]:
-        return {"marker": get_repos().marker}
+    async def probe(repos: Any = Depends(albums_deps._repo_deps.get_repos)) -> dict[str, str]:
+        return {"marker": repos.marker}
 
     _assert_isolated(first_router, second_router, probe)
 

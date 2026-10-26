@@ -30,7 +30,7 @@ from fastapi import APIRouter, Depends
 # monopolise the backend / bloat the DB (#4349); MAX_UPLOAD_BYTES is the per-file
 # byte cap enforced at the read site below.
 from .files_models import SupportedFormatsResponse, UploadResultResponse
-from .files_deps import _FilesDeps, _deps
+from .files_deps import _repo_deps
 from .files_upload import (
     upload_files,
 )
@@ -55,7 +55,7 @@ logger = logging.getLogger(__name__)
 #
 # A handler's Depends() default is only consulted when FastAPI itself invokes
 # it for a real request; a direct unit-test call passes the dependency
-# explicitly as a keyword argument and never touches _FilesDeps at all --
+# explicitly as a keyword argument and never touches _repo_deps at all --
 # that's the seam #4670 asked for.
 # ============================================================================
 
@@ -118,11 +118,9 @@ def create_files_router(
     Note:
         Directory scanning is handled by routers/library.py (fixes #2123).
     """
-    deps = _FilesDeps(get_repository_factory)
-
     router = APIRouter(
         tags=["files"],
-        dependencies=[Depends(_deps.bind(deps))],
+        dependencies=[Depends(_repo_deps.bind(get_repository_factory))],
     )
 
     router.add_api_route("/api/files/upload", upload_files, methods=["POST"], response_model=UploadResultResponse)

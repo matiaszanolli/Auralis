@@ -167,7 +167,7 @@ class TestGetAlbums:
         """Test albums endpoint with mocked repository factory"""
         mock_repos.albums.get_all.return_value = ([album_row], 1)
 
-        with patch('routers.albums_deps.require_repository_factory', return_value=mock_repos):
+        with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums?limit=50&offset=0")
 
             assert response.status_code == 200
@@ -186,7 +186,7 @@ class TestGetAlbums:
         mock_albums = [album_row] * 50
         mock_repos.albums.get_all.return_value = (mock_albums, 100)
 
-        with patch('routers.albums_deps.require_repository_factory', return_value=mock_repos):
+        with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums?limit=50&offset=0")
 
             assert response.status_code == 200
@@ -203,7 +203,7 @@ class TestGetAlbumById:
         """Test getting a specific album by ID"""
         mock_repos.albums.get_by_id.return_value = album_row
 
-        with patch('routers.albums_deps.require_repository_factory', return_value=mock_repos):
+        with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/1")
 
             assert response.status_code == 200
@@ -232,7 +232,7 @@ class TestGetAlbumById:
         """Test getting non-existent album"""
         mock_repos.albums.get_by_id.return_value = None
 
-        with patch('routers.albums_deps.require_repository_factory', return_value=mock_repos):
+        with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/9999")
 
             assert response.status_code == 404
@@ -253,7 +253,7 @@ class TestGetAlbumTracks:
         album_row.tracks = [track_row, track_row]
         mock_repos.albums.get_by_id.return_value = album_row
 
-        with patch('routers.albums_deps.require_repository_factory', return_value=mock_repos):
+        with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/1/tracks")
 
             assert response.status_code == 200
@@ -271,7 +271,7 @@ class TestGetAlbumTracks:
         album_row.tracks = []
         mock_repos.albums.get_by_id.return_value = album_row
 
-        with patch('routers.albums_deps.require_repository_factory', return_value=mock_repos):
+        with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/1/tracks")
 
             assert response.status_code == 200
@@ -284,7 +284,7 @@ class TestGetAlbumTracks:
         """Test getting tracks for non-existent album"""
         mock_repos.albums.get_by_id.return_value = None
 
-        with patch('routers.albums_deps.require_repository_factory', return_value=mock_repos):
+        with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/9999/tracks")
 
             assert response.status_code == 404
@@ -299,7 +299,7 @@ class TestGetAlbumTracks:
         album_row.tracks = [track1, track2]
         mock_repos.albums.get_by_id.return_value = album_row
 
-        with patch('routers.albums_deps.require_repository_factory', return_value=mock_repos):
+        with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/1/tracks")
 
             assert response.status_code == 200
@@ -320,7 +320,7 @@ class TestAlbumsAPIIntegration:
         mock_repos.albums.get_all.return_value = ([album_row], 1)
         mock_repos.albums.get_by_id.return_value = album_row
 
-        with patch('routers.albums_deps.require_repository_factory', return_value=mock_repos):
+        with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
             # Step 1: List albums
             response = client.get("/api/albums")
             assert response.status_code == 200
@@ -343,7 +343,7 @@ class TestAlbumsAPIIntegration:
         """Test searching for album and retrieving it"""
         mock_repos.albums.search.return_value = ([album_row], 1)
 
-        with patch('routers.albums_deps.require_repository_factory', return_value=mock_repos):
+        with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
             # Search for album
             response = client.get("/api/albums?search=Test")
             assert response.status_code == 200
@@ -360,7 +360,7 @@ class TestAlbumsErrorHandling:
         """Test handling of database errors"""
         mock_repos.albums.get_all.side_effect = Exception("Database connection error")
 
-        with patch('routers.albums_deps.require_repository_factory', return_value=mock_repos):
+        with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums")
 
             assert response.status_code == 500
@@ -369,7 +369,7 @@ class TestAlbumsErrorHandling:
         """Test handling of database errors when getting album by ID"""
         mock_repos.albums.get_by_id.side_effect = Exception("Database error")
 
-        with patch('routers.albums_deps.require_repository_factory', return_value=mock_repos):
+        with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/1")
 
             assert response.status_code == 500
@@ -408,7 +408,7 @@ class TestGetAlbumFingerprint:
         # test throwing a 500 before it ever reached the assertions below.
         mock_repos.fingerprints.get_by_track_ids.return_value = [fp]
 
-        with patch('routers.albums_deps.require_repository_factory', return_value=mock_repos):
+        with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/1/fingerprint")
 
         assert response.status_code == 200
@@ -427,7 +427,7 @@ class TestGetAlbumFingerprint:
         """Unknown album ID returns 404"""
         mock_repos.albums.get_by_id.return_value = None
 
-        with patch('routers.albums_deps.require_repository_factory', return_value=mock_repos):
+        with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/999/fingerprint")
 
         assert response.status_code == 404
@@ -442,7 +442,7 @@ class TestGetAlbumFingerprint:
         mock_repos.fingerprints = Mock()
         mock_repos.fingerprints.get_by_track_ids.return_value = []
 
-        with patch('routers.albums_deps.require_repository_factory', return_value=mock_repos):
+        with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/1/fingerprint")
 
         assert response.status_code == 404

@@ -29,7 +29,7 @@ from . import artwork_thumbnails
 from .errors import NotFoundError
 from .artwork_models import ArtworkDeleteResponse, ArtworkDownloadResponse, ArtworkExtractResponse
 from .artwork_thumbnails import _get_or_create_thumbnail
-from .artwork_deps import _ArtworkDeps, _deps, _get_repos
+from .artwork_deps import _ArtworkDeps, _deps, _repo_deps
 from .artwork_manage import (
     delete_album_artwork,
     download_album_artwork,
@@ -78,7 +78,7 @@ async def get_album_artwork(
             "up to a cache bucket; omit for the full-resolution image (#4447)."
         ),
     ),
-    repos: Any = Depends(_get_repos),
+    repos: Any = Depends(_repo_deps.get_repos),
 ) -> Response:
     """
     Get album artwork file (with path traversal protection).
@@ -214,11 +214,14 @@ def create_artwork_router(
 
     Note:
     """
-    deps = _ArtworkDeps(connection_manager, get_repository_factory)
+    deps = _ArtworkDeps(connection_manager)
 
     router = APIRouter(
         tags=["artwork"],
-        dependencies=[Depends(_deps.bind(deps))],
+        dependencies=[
+            Depends(_repo_deps.bind(get_repository_factory)),
+            Depends(_deps.bind(deps)),
+        ],
     )
 
     # GET stays first: it is the only route on the bare `/artwork` path, and the

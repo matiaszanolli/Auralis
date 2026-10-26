@@ -10,13 +10,13 @@ from fastapi import Depends, Path
 from typing import Annotated, Any
 import asyncio
 
-from .albums_deps import _get_repos
+from .albums_deps import _repo_deps
 from .dependencies import with_error_handling
 from .errors import NotFoundError
 
 
 @with_error_handling("get album fingerprint")
-async def get_album_fingerprint(album_id: Annotated[int, Path(ge=1)], repos: Any = Depends(_get_repos)) -> Any:
+async def get_album_fingerprint(album_id: Annotated[int, Path(ge=1)], repos: Any = Depends(_repo_deps.get_repos)) -> Any:
     """
     Get median fingerprint for an album (aggregated from all tracks).
 

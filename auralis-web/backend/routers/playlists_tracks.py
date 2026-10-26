@@ -12,7 +12,7 @@ import asyncio
 
 from .dependencies import with_error_handling
 from .errors import BadRequestError, NotFoundError
-from .playlists_deps import _get_connection_manager, _get_repos
+from .playlists_deps import _get_connection_manager, _repo_deps
 from .playlists_models import AddTrackRequest, AddTracksRequest, ReorderTrackRequest
 
 
@@ -20,7 +20,7 @@ from .playlists_models import AddTrackRequest, AddTracksRequest, ReorderTrackReq
 async def add_tracks_to_playlist(
     playlist_id: Annotated[int, Path(ge=1)],
     request: AddTracksRequest,
-    repos: Any = Depends(_get_repos),
+    repos: Any = Depends(_repo_deps.get_repos),
     connection_manager: Any = Depends(_get_connection_manager),
 ) -> dict[str, Any]:
     """
@@ -72,7 +72,7 @@ async def add_tracks_to_playlist(
 async def add_track_to_playlist(
     playlist_id: Annotated[int, Path(ge=1)],
     request: AddTrackRequest,
-    repos: Any = Depends(_get_repos),
+    repos: Any = Depends(_repo_deps.get_repos),
     connection_manager: Any = Depends(_get_connection_manager),
 ) -> dict[str, Any]:
     """
@@ -117,7 +117,7 @@ async def add_track_to_playlist(
 async def reorder_playlist_track(
     playlist_id: Annotated[int, Path(ge=1)],
     request: ReorderTrackRequest,
-    repos: Any = Depends(_get_repos),
+    repos: Any = Depends(_repo_deps.get_repos),
     connection_manager: Any = Depends(_get_connection_manager),
 ) -> dict[str, Any]:
     """
@@ -162,7 +162,7 @@ async def reorder_playlist_track(
 async def remove_track_from_playlist(
     playlist_id: Annotated[int, Path(ge=1)],
     track_id: Annotated[int, Path(ge=1)],
-    repos: Any = Depends(_get_repos),
+    repos: Any = Depends(_repo_deps.get_repos),
     connection_manager: Any = Depends(_get_connection_manager),
 ) -> dict[str, Any]:
     """
@@ -207,7 +207,7 @@ async def remove_track_from_playlist(
 @with_error_handling("clear playlist")
 async def clear_playlist(
     playlist_id: Annotated[int, Path(ge=1)],
-    repos: Any = Depends(_get_repos),
+    repos: Any = Depends(_repo_deps.get_repos),
     connection_manager: Any = Depends(_get_connection_manager),
 ) -> dict[str, Any]:
     """
