@@ -10,6 +10,7 @@ Data access layer for user settings operations
 
 import json
 import threading
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy import delete, select
@@ -180,8 +181,29 @@ class SettingsRepository(BaseRepository):
                 session.rollback()
                 raise
 
-    def remove_scan_folder(self, folder: str) -> UserSettings:
-        """Remove a folder from scan list (atomic read-modify-write, #3339, #4956)."""
+    @staticmethod
+    def _find_scan_folder(folders: list[str], folder: str) -> str | None:
+        """The stored entry that ``folder`` names: the exact string, else the
+        entry resolving to the same path (trailing slash, symlinked spelling)."""
+        if folder in folders:
+            return folder
+
+        def resolved(value: str) -> str:
+            try:
+                return str(Path(value).resolve())
+            except (OSError, RuntimeError, ValueError):  # ValueError: embedded NUL
+                return value
+
+        target = resolved(folder)
+        return next((entry for entry in folders if resolved(entry) == target), None)
+
+    def remove_scan_folder(self, folder: str) -> tuple[UserSettings, str | None]:
+        """Remove a folder from scan list (atomic read-modify-write, #3339, #4956).
+
+        Returns the settings and the stored entry that was removed, or ``None``
+        when ``folder`` names nothing in the list, so callers revoke and prune
+        only what was really configured (#5941).
+        """
         with self._settings_lock, self._session_scope() as session:
             try:
                 settings = session.execute(select(UserSettings)).scalars().first()
@@ -190,14 +212,15 @@ class SettingsRepository(BaseRepository):
                     session.add(settings)
 
                 folders = self._scan_folder_list(settings)
-                if folder in folders:
-                    folders.remove(folder)
+                removed = self._find_scan_folder(folders, folder)
+                if removed is not None:
+                    folders.remove(removed)
                     settings.scan_folders = json.dumps(folders)
 
                 session.commit()
                 session.refresh(settings)
                 session.expunge(settings)
-                return settings
+                return settings, removed
             except Exception:
                 session.rollback()
                 raise

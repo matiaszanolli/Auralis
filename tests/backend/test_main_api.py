@@ -1117,7 +1117,7 @@ class TestSettingsEndpoints:
     def test_remove_scan_folder_success(self, client):
         """POST /api/settings/scan-folders/delete removes folder."""
         mock_repo = Mock()
-        mock_repo.remove_scan_folder.return_value = self._mock_settings()
+        mock_repo.remove_scan_folder.side_effect = lambda folder: (self._mock_settings(), folder)
 
         with patch.dict('main.globals_dict', {'settings_repository': mock_repo}):
             response = _with_trusted_origin(
@@ -1134,7 +1134,7 @@ class TestSettingsEndpoints:
         from security.path_allowlist import _extra_allowed_dirs, register_allowed_directory
 
         mock_repo = Mock()
-        mock_repo.remove_scan_folder.return_value = self._mock_settings()
+        mock_repo.remove_scan_folder.side_effect = lambda folder: (self._mock_settings(), folder)
 
         removed_dir = Path("/tmp/removed_scan_folder")
         register_allowed_directory(removed_dir)

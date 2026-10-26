@@ -75,7 +75,7 @@ def test_put_dropping_a_folder_prunes_its_tracks(tmp_path):
         )
 
         assert response.status_code == 200
-        remove_tracks_under_folder.assert_called_once_with(str(removed_dir))
+        remove_tracks_under_folder.assert_called_once_with(str(removed_dir), keep_folders=[str(kept)])
         assert manager.frames == [
             {"type": "library_tracks_removed", "data": {"count": 6}},
             {"type": "library_updated", "data": {"action": "update", "track_count": 0}},

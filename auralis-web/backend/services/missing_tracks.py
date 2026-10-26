@@ -12,6 +12,7 @@ anyone rescanning by hand after reorganising files — kept dead entries forever
 
 import asyncio
 import logging
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -50,21 +51,28 @@ async def prune_missing_tracks(library_database: Any, connection_manager: Any | 
 
 
 async def prune_tracks_under_folder(
-    library_database: Any, folder: str, connection_manager: Any | None
+    library_database: Any,
+    folder: str,
+    connection_manager: Any | None,
+    keep_folders: Sequence[str] = (),
 ) -> int:
     """Delete tracks under a removed scan folder and broadcast the removal (#5467).
 
     Sibling of `prune_missing_tracks`, same best-effort/broadcast shape: a
     removed scan folder revokes path trust for its files
     (`unregister_allowed_directory`), and this keeps the library's Track
-    rows in sync with that instead of leaving them visible-but-broken.
+    rows in sync with that instead of leaving them visible-but-broken. Tracks
+    under a scan folder that is still configured (``keep_folders``) are kept,
+    so removing a parent does not delete a nested folder's library (#5941).
 
     Returns:
         Number of tracks removed
     """
     try:
         removed = int(
-            await asyncio.to_thread(library_database.tracks.remove_tracks_under_folder, folder)
+            await asyncio.to_thread(
+                library_database.tracks.remove_tracks_under_folder, folder, keep_folders=keep_folders
+            )
         )
     except Exception as exc:
         logger.error(f"remove_tracks_under_folder failed for {Path(folder).name}: {exc}")

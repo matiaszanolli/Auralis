@@ -35,7 +35,8 @@ def _mock_settings():
 
 def _client(remove_tracks_under_folder, get_library_database=True):
     settings_repo = Mock()
-    settings_repo.remove_scan_folder.return_value = _mock_settings()
+    # The repository reports the stored entry it removed (#5941).
+    settings_repo.remove_scan_folder.side_effect = lambda folder: (_mock_settings(), folder)
 
     library_database = Mock()
     library_database.tracks.remove_tracks_under_folder = remove_tracks_under_folder
@@ -77,7 +78,7 @@ def test_removes_tracks_under_the_removed_folder(tmp_path):
             "/api/settings/scan-folders/delete", json={"folder": str(removed_dir)}
         )
         assert response.status_code == 200
-        remove_tracks_under_folder.assert_called_once_with(str(removed_dir))
+        remove_tracks_under_folder.assert_called_once_with(str(removed_dir), keep_folders=[])
         assert manager.frames == [
             {"type": "library_tracks_removed", "data": {"count": 4}},
             # #5515: the library view refetches on library_updated.

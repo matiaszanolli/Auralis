@@ -17,7 +17,7 @@ Endpoints:
 
 import asyncio
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -28,8 +28,8 @@ from security.path_allowlist import (
     register_allowed_directory,
     unregister_allowed_directory,
 )
+from security.path_errors import PathValidationError
 from security.path_security import (
-    PathValidationError,
     validate_directory_list,
     validate_user_chosen_directory,
 )
@@ -60,18 +60,18 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 
 
-async def _revoke_folder(deps: _SettingsDeps, folder: str) -> None:
+async def _revoke_folder(deps: _SettingsDeps, folder: str, remaining: Sequence[str] = ()) -> None:
     """Unregister a folder's path trust and prune its Track rows.
 
     Shared by remove_scan_folder and update_settings' scan_folders diff:
     the two routes must behave identically for this column, and revoking
     trust without the prune leaves the folder's rows visible-but-broken
-    (#5467 fixed the dedicated endpoint only; #5523 is the generic one).
+    (#5467, #5523). ``remaining`` scan folders keep their tracks (#5941).
     """
     unregister_allowed_directory(Path(folder))
     library_database = deps.get_library_database() if deps.get_library_database else None
     if library_database is not None:
-        await prune_tracks_under_folder(library_database, folder, deps.connection_manager)
+        await prune_tracks_under_folder(library_database, folder, deps.connection_manager, remaining)
 
 
 # ============================================================================
@@ -139,11 +139,9 @@ async def update_settings(
         for added in new_folders - previous_folders:
             register_allowed_directory(Path(added))
         for removed in previous_folders - new_folders:
-            # Same revoke+prune as the dedicated delete endpoint (#5523):
-            # unregistering trust alone left the removed folder's tracks
-            # in the library while every path-validated endpoint started
-            # rejecting their files with an unexplained 400.
-            await _revoke_folder(deps, removed)
+            # Same revoke+prune as the dedicated delete endpoint (#5523): trust
+            # revoked alone left the tracks behind, rejected with a 400.
+            await _revoke_folder(deps, removed, sorted(new_folders))
 
     await _notify_scanner(deps)
 
@@ -186,13 +184,13 @@ async def remove_scan_folder(
     deps: _SettingsDeps = Depends(_get_deps),
 ) -> dict[str, Any]:
     """Remove a folder from the list of scanned directories."""
-    settings = await asyncio.to_thread(repo.remove_scan_folder, body.folder)
-    # Undo the registration made in add_scan_folder so validate_file_path()
-    # stops trusting this folder for the rest of the session (fixes #3842),
-    # instead of only reverting on the next backend restart, and prune the
-    # folder's Track rows (#5467) — revoke+prune is one shared step so this
-    # endpoint and PUT /api/settings' scan_folders diff can't drift (#5523).
-    await _revoke_folder(deps, body.folder)
+    settings, removed = await asyncio.to_thread(repo.remove_scan_folder, body.folder)
+    # Revoke trust (#3842) and prune (#5467) only for a folder that really was
+    # configured — the repository matches equivalent spellings and reports the
+    # stored entry — so a mistyped or crafted path can't delete tracks (#5941).
+    # One shared step with PUT /api/settings' scan_folders diff (#5523).
+    if removed is not None:
+        await _revoke_folder(deps, removed, settings.to_dict().get("scan_folders") or [])
     await _notify_scanner(deps)
     return {"message": f"Scan folder removed: {body.folder}", "settings": settings.to_dict()}
 

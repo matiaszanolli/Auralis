@@ -31,7 +31,7 @@ async def test_broadcasts_when_tracks_removed():
     removed = await prune_tracks_under_folder(library_database, "/music/old", manager)
 
     assert removed == 3
-    library_database.tracks.remove_tracks_under_folder.assert_called_once_with("/music/old")
+    library_database.tracks.remove_tracks_under_folder.assert_called_once_with("/music/old", keep_folders=())
     assert manager.frames == [
         {"type": "library_tracks_removed", "data": {"count": 3}},
         # #5515: the library view refetches on library_updated, not on

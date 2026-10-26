@@ -36,7 +36,7 @@
     "auralis-web/backend/routers/metadata.py": 109,
     "auralis-web/backend/routers/playlists.py": 110,
     "auralis-web/backend/routers/serializers_library.py": 57,
-    "auralis-web/backend/routers/settings.py": 285,
+    "auralis-web/backend/routers/settings.py": 283,
     "auralis-web/backend/routers/similarity.py": 109,
     "auralis-web/backend/routers/similarity_graph.py": 164,
     "auralis-web/backend/routers/system.py": 231,

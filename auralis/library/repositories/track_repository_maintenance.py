@@ -26,6 +26,11 @@ from .base import BaseRepository
 from .track_deletion import delete_tracks_by_ids
 
 
+def _under_removed_folder(track_path: Path, removed: Path, kept: Sequence[Path]) -> bool:
+    """True when ``track_path`` is under ``removed`` and under no folder still configured."""
+    return track_path.is_relative_to(removed) and not any(track_path.is_relative_to(k) for k in kept)
+
+
 def _file_is_definitely_missing(path: Path) -> bool:
     """True only when ``path`` is provably gone (#5698).
 
@@ -227,7 +232,9 @@ class TrackRepositoryMaintenanceMixin(BaseRepository):
                 error(f"Failed to cleanup missing files: {e}")
                 raise
 
-    def remove_tracks_under_folder(self, folder: str, batch_size: int = 1000) -> int:
+    def remove_tracks_under_folder(
+        self, folder: str, batch_size: int = 1000, keep_folders: Sequence[str] = ()
+    ) -> int:
         """
         Remove tracks whose file lives under `folder` (#5467).
 
@@ -248,6 +255,9 @@ class TrackRepositoryMaintenanceMixin(BaseRepository):
         Args:
             folder: The removed scan folder (absolute path)
             batch_size: Number of tracks to load per batch
+            keep_folders: Scan folders that remain configured; a track under
+                one of them is kept even when it is also under ``folder``
+                (a nested scan folder outlives its removed parent, #5941)
 
         Returns:
             Number of tracks removed
@@ -256,6 +266,7 @@ class TrackRepositoryMaintenanceMixin(BaseRepository):
             Exception: If removal fails
         """
         folder_path = Path(folder).resolve()
+        kept = [Path(k).resolve() for k in keep_folders]
 
         with self._session_scope() as session:
             try:
@@ -274,7 +285,7 @@ class TrackRepositoryMaintenanceMixin(BaseRepository):
 
                     matching_ids = [
                         row.id for row in rows
-                        if Path(str(row.filepath)).resolve().is_relative_to(folder_path)
+                        if _under_removed_folder(Path(str(row.filepath)).resolve(), folder_path, kept)
                     ]
                     if matching_ids:
                         deleted = delete_tracks_by_ids(session, matching_ids)
