@@ -25,6 +25,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from core.job_models import ProcessingJob, ProcessingStatus
+from core.task_cancellation import await_cancelled_task
 
 if TYPE_CHECKING:
     from core.processing_engine import ProcessingEngine
@@ -171,10 +172,7 @@ class JobWorker:
         # Cancel the worker task itself
         if self._worker_task and not self._worker_task.done():
             self._worker_task.cancel()
-            try:
-                await self._worker_task
-            except asyncio.CancelledError:
-                pass
+            await await_cancelled_task(self._worker_task, logger)
 
         # Drop the finished task so a later `if worker._worker_task:` check
         # can't read a stopped worker as running (#4577).

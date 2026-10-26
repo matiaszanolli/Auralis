@@ -26,6 +26,7 @@ from fastapi import WebSocket
 
 from . import audio_stream_controller as _asc
 from .chunk_stream_state import ChunkCancelledError, invalidate_pooled_processor
+from .task_cancellation import caller_is_being_cancelled
 
 if TYPE_CHECKING:
     from .audio_stream_controller import AudioStreamController
@@ -207,19 +208,8 @@ async def drain_cancelled_task(task: asyncio.Task[Any] | None) -> None:
     try:
         await task
     except asyncio.CancelledError:
-        if _caller_is_being_cancelled():
+        if caller_is_being_cancelled():
             raise
     except Exception:
         # Teardown errors from the drained task are not the caller's problem.
         pass
-
-
-def _caller_is_being_cancelled() -> bool:
-    """Whether the *current* task has a cancellation of its own pending (#5083).
-
-    Returns False outside a task context, where there is no caller cancellation
-    to preserve — that keeps the pre-#5083 suppress-everything behaviour for
-    any caller not running inside a Task.
-    """
-    current = asyncio.current_task()
-    return current is not None and current.cancelling() > 0

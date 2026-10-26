@@ -20,6 +20,8 @@ from typing import TYPE_CHECKING, Any
 from helpers import spawn_background_task
 from websocket.outbound_messages import broadcast_typed
 
+from .task_cancellation import await_cancelled_task
+
 if TYPE_CHECKING:
     from player_state import PlayerState
 
@@ -57,10 +59,7 @@ class PositionTickerMixin:
         self._position_update_task = None
         if task and not task.done():
             task.cancel()
-            try:
-                await task
-            except asyncio.CancelledError:
-                pass
+            await await_cancelled_task(task)
 
     async def _advance_position(self, elapsed: float) -> tuple[float | None, int]:
         """Advance ``current_time`` by *elapsed*: ``(new_time, seq)``, new_time

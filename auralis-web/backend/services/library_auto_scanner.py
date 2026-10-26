@@ -94,10 +94,8 @@ class LibraryAutoScanner(WatchdogMixin):
         await asyncio.to_thread(self._stop_watchdog)
         if self._task and not self._task.done():
             self._task.cancel()
-            try:
-                await asyncio.wait_for(self._task, timeout=SHUTDOWN_STEP_TIMEOUT_S)
-            except (asyncio.CancelledError, TimeoutError):
-                pass
+            # wait(), not wait_for(): it never raises the task's own cancellation (#6092).
+            await asyncio.wait({self._task}, timeout=SHUTDOWN_STEP_TIMEOUT_S)
         logger.info("✅ LibraryAutoScanner stopped")
 
     async def reload_config(self) -> None:

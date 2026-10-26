@@ -20,11 +20,12 @@ caller reads the (possibly patched) module global once per connection.
 """
 
 import asyncio
-import logging
 import threading
 from dataclasses import dataclass, field
 from typing import Any
 from collections.abc import Callable
+
+from core.task_cancellation import await_cancelled_task  # noqa: F401  (re-exported for the handlers)
 
 
 @dataclass
@@ -71,27 +72,3 @@ class WSDeps:
     # (mastering_recommendation, #4542). Optional/defaulted so existing
     # constructions — including those in tests — keep working.
     broadcast_manager: Any = None
-
-
-async def await_cancelled_task(task: "asyncio.Task[None]", logger: logging.Logger) -> None:
-    """Await a task the caller has already called ``.cancel()`` on, swallowing
-    the OLD task's own teardown exceptions (including its own CancelledError)
-    — but re-raising if the CURRENT task is itself being cancelled (#4809).
-
-    ``except (asyncio.CancelledError, Exception): pass`` around a bare
-    ``await old_task`` cannot tell "the awaited task finished handling its
-    own cancellation" from "something (shutdown, client disconnect) is
-    cancelling the caller too" — both surface as ``CancelledError`` at this
-    await point. Swallowing the latter lets the receive loop run one more
-    iteration after being told to stop. ``Task.cancelling()`` (3.11+)
-    distinguishes them: it is nonzero only when a cancellation request
-    targets the current task.
-    """
-    try:
-        await task
-    except asyncio.CancelledError:
-        current = asyncio.current_task()
-        if current is not None and current.cancelling():
-            raise
-    except Exception:
-        logger.debug("Prior task raised while awaiting its cancellation", exc_info=True)

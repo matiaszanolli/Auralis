@@ -14,6 +14,8 @@ from typing import Any
 
 from helpers import spawn_background_task
 
+from .task_cancellation import await_cancelled_task
+
 logger = logging.getLogger(__name__)
 
 
@@ -39,10 +41,7 @@ class WorkerLifecycleMixin:
         self.running = False
         if self._worker_task:
             self._worker_task.cancel()
-            try:
-                await self._worker_task
-            except asyncio.CancelledError:
-                pass
+            await await_cancelled_task(self._worker_task, logger)
             # Drop the finished task (#4577) — leaving it in place lets a
             # health probe landing between stop() and the next start() read a
             # done task, or a plain truthiness check report a stopped worker
