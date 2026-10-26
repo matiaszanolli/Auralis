@@ -4,8 +4,8 @@ Regression test: FingerprintNormalizer.fit() batched reads (#4115)
 
 fit() used to load the entire track_fingerprints table as ORM objects via
 get_all() (no limit) and build a dense N x 25 array alongside it. It now reads
-in bounded batches via get_all(limit, offset), retaining only the compact
-numeric vectors, so peak ORM memory is O(batch_size). The resulting statistics
+in bounded keyset batches via get_batch_after_id(after_id, limit) (#5747; it
+was OFFSET paging), retaining only the compact numeric vectors, so peak ORM memory is O(batch_size). The resulting statistics
 must be numerically identical to the previous full-table computation, and
 independent of the batch size.
 
@@ -28,19 +28,21 @@ from auralis.analysis.fingerprint.normalizer import (
 class _FakeFingerprint:
     """Minimal stand-in exposing to_vector() like TrackFingerprint."""
 
-    def __init__(self, vector):
+    def __init__(self, vector, row_id):
         self._vector = list(vector)
+        self.id = row_id
 
     def to_vector(self):
         return list(self._vector)
 
 
 class _FakeFingerprintRepository:
-    """In-memory repo implementing the get_count / get_all(limit, offset) API."""
+    """In-memory repo implementing get_count / get_batch_after_id(after_id, limit)."""
 
     def __init__(self, vectors):
-        self._fps = [_FakeFingerprint(v) for v in vectors]
+        self._fps = [_FakeFingerprint(v, i + 1) for i, v in enumerate(vectors)]
         self.get_all_calls = []
+        self.batch_calls = []
 
     def get_count(self):
         return len(self._fps)
@@ -50,6 +52,10 @@ class _FakeFingerprintRepository:
         if limit is None:
             return list(self._fps)
         return self._fps[offset:offset + limit]
+
+    def get_batch_after_id(self, after_id, limit):
+        self.batch_calls.append((after_id, limit))
+        return [fp for fp in self._fps if fp.id > after_id][:limit]
 
 
 def _synthetic_vectors(n, dims, seed=1234):
@@ -84,7 +90,7 @@ def test_min_samples_short_circuit_returns_false(dims):
     assert normalizer.fit(repo, min_samples=10) is False
     assert normalizer.fitted is False
     # Short-circuited on get_count() without reading rows.
-    assert repo.get_all_calls == []
+    assert repo.batch_calls == [] and repo.get_all_calls == []
 
 
 def test_batched_fit_matches_full_computation(dims):
@@ -135,12 +141,13 @@ def test_non_robust_uses_absolute_min_max(dims):
 
 
 def test_does_not_call_unbounded_get_all(dims):
-    """fit() must page with a limit, never call get_all() unbounded (#4115)."""
+    """fit() must page with a limit, never call get_all() unbounded (#4115),
+    and by keyset: each batch resumes after the last id of the previous one (#5747)."""
     repo = _FakeFingerprintRepository(_synthetic_vectors(130, dims))
     FingerprintNormalizer().fit(repo, min_samples=10, batch_size=50)
 
-    assert repo.get_all_calls, "expected paged get_all calls"
-    assert all(limit is not None for limit, _offset in repo.get_all_calls)
+    assert repo.get_all_calls == []
+    assert repo.batch_calls == [(0, 50), (50, 50), (100, 50)]
 
 
 def test_stop_event_set_before_first_batch_aborts_immediately(dims):
@@ -155,7 +162,7 @@ def test_stop_event_set_before_first_batch_aborts_immediately(dims):
     result = FingerprintNormalizer().fit(repo, min_samples=10, batch_size=50, stop_event=stop_event)
 
     assert result is False
-    assert repo.get_all_calls == [], "must not read any batch once already stopped"
+    assert repo.batch_calls == [], "must not read any batch once already stopped"
 
 
 def test_stop_event_set_mid_fit_aborts_before_remaining_batches(dims):
@@ -166,19 +173,19 @@ def test_stop_event_set_mid_fit_aborts_before_remaining_batches(dims):
 
     # Set the event after the first batch read completes, simulating a
     # stop() call arriving mid-fit.
-    real_get_all = repo.get_all
+    real_get_batch = repo.get_batch_after_id
 
-    def _get_all_then_stop(limit=None, offset=0):
-        result = real_get_all(limit=limit, offset=offset)
+    def _get_batch_then_stop(after_id, limit):
+        result = real_get_batch(after_id, limit)
         stop_event.set()
         return result
 
-    repo.get_all = _get_all_then_stop
+    repo.get_batch_after_id = _get_batch_then_stop
 
     result = FingerprintNormalizer().fit(repo, min_samples=10, batch_size=50, stop_event=stop_event)
 
     assert result is False
-    assert len(repo.get_all_calls) == 1, "must not proceed past the batch where the stop was observed"
+    assert len(repo.batch_calls) == 1, "must not proceed past the batch where the stop was observed"
 
 
 def test_fit_still_succeeds_when_stop_event_never_set(dims):

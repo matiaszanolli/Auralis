@@ -109,18 +109,18 @@ class FingerprintNormalizer(NormalizerPersistenceMixin):
         # of ORM objects becomes collectable when reassigned on the next
         # iteration, so the whole table is never held in RAM at once.
         batch_arrays: list[np.ndarray] = []
-        offset = 0
+        last_id = 0  # keyset paging: OFFSET shifts under concurrent inserts (#5747)
         while True:
             if stop_event is not None and stop_event.is_set():
                 info("Similarity fit stopped before completing (#4682)")
                 return False
-            batch = fingerprint_repository.get_all(limit=batch_size, offset=offset)
+            batch = fingerprint_repository.get_batch_after_id(last_id, batch_size)
             if not batch:
                 break
             batch_arrays.append(
                 np.asarray([fp.to_vector() for fp in batch], dtype=np.float64)
             )
-            offset += len(batch)
+            last_id = batch[-1].id
             if len(batch) < batch_size:
                 break
 

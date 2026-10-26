@@ -8,12 +8,17 @@ Data access layer for similarity graph operations
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import delete, func, select
+from sqlalchemy.engine import CursorResult
 
-from ..models import SimilarityGraph
+from ..models import SimilarityGraph, TrackFingerprint
 from .base import BaseRepository
+from .fingerprint_shared import _current_fingerprint_clause
+
+# Stay well under SQLite's bound-variable limit for IN (...).
+_IN_BATCH = 500
 
 
 class SimilarityGraphRepository(BaseRepository):
@@ -32,6 +37,45 @@ class SimilarityGraphRepository(BaseRepository):
                 session.execute(delete(SimilarityGraph))
                 session.commit()
                 return count
+            except Exception:
+                session.rollback()
+                raise
+
+    def replace_edges(self, track_ids: list[int], edges: list[dict[str, Any]]) -> int:
+        """Atomically swap the outgoing edges of ``track_ids`` for ``edges``.
+
+        A rebuild replaces the graph a batch at a time instead of clearing it
+        first, so readers keep a usable graph while it is rebuilt (#5747).
+        Returns the number of edges added.
+        """
+        with self._session_scope() as session:
+            try:
+                for start in range(0, len(track_ids), _IN_BATCH):
+                    session.execute(delete(SimilarityGraph).where(
+                        SimilarityGraph.track_id.in_(track_ids[start:start + _IN_BATCH])
+                    ))
+                session.add_all([SimilarityGraph(**edge) for edge in edges])
+                session.commit()
+                return len(edges)
+            except Exception:
+                session.rollback()
+                raise
+
+    def prune_untracked(self) -> int:
+        """Delete edges whose source track no longer has a current fingerprint.
+
+        The tail of a replace-in-place rebuild: tracks that were deleted or
+        went stale since the previous build were never revisited, so their old
+        edges would otherwise stay. Returns the number deleted.
+        """
+        with self._session_scope() as session:
+            try:
+                current = select(TrackFingerprint.track_id).where(_current_fingerprint_clause())
+                result = session.execute(
+                    delete(SimilarityGraph).where(SimilarityGraph.track_id.not_in(current))
+                )
+                session.commit()
+                return int(cast(CursorResult[Any], result).rowcount or 0)
             except Exception:
                 session.rollback()
                 raise

@@ -105,7 +105,8 @@ class KNNGraphBuilder:
         Args:
             k: Number of nearest neighbors per track
             batch_size: Number of tracks to process per batch
-            clear_existing: Clear existing graph before building
+            clear_existing: Also drop edges of tracks no longer fingerprinted. The
+                graph is replaced batch by batch either way, never emptied first
 
         Returns:
             GraphStats with build statistics
@@ -122,18 +123,13 @@ class KNNGraphBuilder:
         start_time = perf_counter()
 
         try:
-            # Clear existing graph if requested
-            if clear_existing:
-                debug("Clearing existing similarity graph...")
-                self.graph_repo.clear_all()
-
-            # Stream fingerprints in batches via cursor pagination to avoid
-            # loading the entire fingerprint matrix into RAM (#3454).
+            # Stream fingerprints in batches via keyset pagination to avoid
+            # loading the entire fingerprint matrix into RAM (#3454). Keyset
+            # (id > last), not OFFSET: a fingerprint inserted or re-versioned
+            # while the build runs cannot shift a later page (#5747).
             repo = self.similarity.fingerprint_repo
 
-            # Fetch the first processing batch directly. The previous
-            # single-row "peek" repeated the first database query.
-            batch = repo.get_all(limit=batch_size, offset=0)
+            batch = repo.get_batch_after_id(0, batch_size)
             if not batch:
                 warning("No fingerprints found, cannot build graph")
                 return GraphStats(0, 0, k, 0, 0, 0, 0)
@@ -144,7 +140,6 @@ class KNNGraphBuilder:
             min_distance = float('inf')
             max_distance = float('-inf')
             processed = 0
-            offset = 0
 
             while batch:
                 batch_edges_data = []
@@ -172,18 +167,22 @@ class KNNGraphBuilder:
                         min_distance = min(min_distance, distance)
                         max_distance = max(max_distance, distance)
 
-                # Add batch of edges to database
-                if batch_edges_data:
-                    batch_edges = self.graph_repo.add_edges(batch_edges_data)
-                    total_edges += batch_edges
+                # Swap this batch's edges in place: the existing graph is never
+                # cleared up front, so readers see no empty graph mid-build (#5747).
+                total_edges += self.graph_repo.replace_edges(
+                    [fp.track_id for fp in batch], batch_edges_data
+                )
 
                 processed += len(batch)
                 debug(
                     f"Progress: {processed} tracks processed, "
                     f"{len(batch_edges_data)} edges in batch"
                 )
-                offset += len(batch)
-                batch = repo.get_all(limit=batch_size, offset=offset)
+                batch = repo.get_batch_after_id(batch[-1].id, batch_size)
+
+            if clear_existing:
+                # Drop edges of tracks that vanished since the previous build.
+                self.graph_repo.prune_untracked()
 
             total_tracks = processed
             info(f"Processed {total_tracks} tracks in batches of {batch_size}")

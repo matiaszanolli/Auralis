@@ -97,7 +97,9 @@ class FingerprintQueryMixin(BaseRepository):
             stmt = (
                 select(TrackFingerprint)
                 .where(_current_fingerprint_clause())
-                .order_by(TrackFingerprint.created_at.desc())
+                # id breaks created_at ties (rows from one raw upsert batch, or
+                # NULL created_at on fresh installs) so OFFSET paging is total (#5747).
+                .order_by(TrackFingerprint.created_at.desc(), TrackFingerprint.id.desc())
             )
 
             # #3683: `if limit is not None` so `limit=0` returns an empty
@@ -109,6 +111,25 @@ class FingerprintQueryMixin(BaseRepository):
                 stmt = stmt.limit(limit).offset(offset)
 
             fingerprints = session.execute(stmt).scalars().all()
+            for fp in fingerprints:
+                session.expunge(fp)
+            return list(fingerprints)
+
+    def get_batch_after_id(self, after_id: int, limit: int) -> list[TrackFingerprint]:
+        """Keyset page: current rows with ``id > after_id``, ascending by id.
+
+        For whole-table sweeps (graph build, normalizer fit). Unlike OFFSET
+        paging, rows inserted or re-versioned while the sweep runs cannot shift
+        a later page, so no row is visited twice or skipped (#5747). Resume with
+        the last returned row's ``id``.
+        """
+        with self._session_scope() as session:
+            fingerprints = list(session.execute(
+                select(TrackFingerprint)
+                .where(_current_fingerprint_clause(), TrackFingerprint.id > after_id)
+                .order_by(TrackFingerprint.id.asc())
+                .limit(limit)
+            ).scalars().all())
             for fp in fingerprints:
                 session.expunge(fp)
             return fingerprints
@@ -135,7 +156,7 @@ class FingerprintQueryMixin(BaseRepository):
                 select(TrackFingerprint, Track.play_count, Track.favorite)
                 .join(Track, Track.id == TrackFingerprint.track_id)
                 .where(_current_fingerprint_clause())
-                .order_by(TrackFingerprint.created_at.desc())
+                .order_by(TrackFingerprint.created_at.desc(), TrackFingerprint.id.desc())
             )
             if limit is not None:
                 stmt = stmt.limit(limit).offset(offset)
@@ -215,4 +236,4 @@ class FingerprintQueryMixin(BaseRepository):
             # CRITICAL: Clear session to free memory
             session.expunge_all()
 
-            return tracks
+            return list(tracks)
