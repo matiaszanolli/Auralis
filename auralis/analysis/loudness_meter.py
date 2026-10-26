@@ -13,7 +13,7 @@ import numpy as np
 from scipy import signal
 
 from .loudness_filters import KWeightingMixin
-from .loudness_range import loudness_range_lu
+from .loudness_range import LoudnessRangeTracker
 
 
 @dataclass
@@ -52,10 +52,8 @@ class LoudnessMeter(KWeightingMixin):
         # truncated buffer (#3466).
         self.block_buffer: list[float] = []
         self.integrated_buffer: list[float] = []
-        # Samples behind each integrated_buffer entry: the loudness range is a
-        # function of time, and callers may feed blocks of any length (#5741).
-        self._block_samples: list[int] = []
-        self.gated_blocks: list[float] = []
+        # EBU Tech 3342 LRA needs block durations, not just levels (#5741).
+        self._lra = LoudnessRangeTracker(sample_rate)
 
         # Peak tracking across all chunks
         self._peak: float = 0.0
@@ -129,7 +127,7 @@ class LoudnessMeter(KWeightingMixin):
         # and integrated buffer (unbounded for ITU-R BS.1770 integrated).
         self.block_buffer.append(block_loudness)
         self.integrated_buffer.append(block_loudness)
-        self._block_samples.append(len(audio_chunk))
+        self._lra.add(block_loudness, len(audio_chunk))
 
         # Maintain buffer size for short-term measurement
         if len(self.block_buffer) > self.short_term_blocks:
@@ -251,11 +249,7 @@ class LoudnessMeter(KWeightingMixin):
                     sum(10**(b/10) for b in final_gated_blocks) / len(final_gated_blocks)
                 )
 
-                # EBU Tech 3342 LRA over 3 s short-term windows, not over the
-                # BS.1770 gated blocks (#5741).
-                loudness_range = loudness_range_lu(
-                    self.integrated_buffer, self._block_samples, self.sample_rate
-                )
+                loudness_range = self._lra.loudness_range()
             else:
                 integrated_lufs = ungated_integrated
                 loudness_range = 0.0
@@ -283,8 +277,7 @@ class LoudnessMeter(KWeightingMixin):
         """Reset the meter for a new measurement"""
         self.block_buffer.clear()
         self.integrated_buffer.clear()
-        self._block_samples.clear()
-        self.gated_blocks.clear()
+        self._lra.reset()
         self._peak = 0.0
         self._true_peak = 0.0
         self._total_samples = 0

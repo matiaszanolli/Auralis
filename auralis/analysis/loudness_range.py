@@ -66,3 +66,23 @@ def loudness_range_lu(block_lufs: list[float], block_samples: list[int], sample_
 
     low, high = np.percentile(gated, [LOW_PERCENTILE, HIGH_PERCENTILE])
     return float(high - low)
+
+
+class LoudnessRangeTracker:
+    """Accumulates (loudness, sample count) per measured block for ``loudness_range_lu``."""
+
+    def __init__(self, sample_rate: int) -> None:
+        self.sample_rate = sample_rate
+        self._lufs: list[float] = []
+        self._samples: list[int] = []
+
+    def add(self, block_lufs: float, n_samples: int) -> None:
+        self._lufs.append(block_lufs)
+        self._samples.append(n_samples)
+
+    def reset(self) -> None:
+        self._lufs.clear()
+        self._samples.clear()
+
+    def loudness_range(self) -> float:
+        return loudness_range_lu(self._lufs, self._samples, self.sample_rate)
