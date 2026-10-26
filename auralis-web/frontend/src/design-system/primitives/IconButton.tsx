@@ -57,7 +57,7 @@ const StyledIconButton = styled(MuiIconButton as ComponentType<Omit<MuiIconButto
       case 'small': return 'sm';
       case 'medium': return 'md';
       case 'large': return 'lg';
-      default: return size as 'sm' | 'md' | 'lg';
+      default: return size;
     }
   })();
 

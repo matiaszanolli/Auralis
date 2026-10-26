@@ -80,7 +80,7 @@ export const useAlbumDetails = (albumId: number) => {
         //
         // NOTE: the album-level fields below are genuinely snake_case on this
         // endpoint and are correct as-is — do not "normalise" them.
-        const tracks = transformTracks(data.tracks ?? []) as DetailTrack[];
+        const tracks = transformTracks(data.tracks ?? []);
 
         const albumData: Album = {
           id: data.album_id,

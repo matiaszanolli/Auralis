@@ -85,7 +85,7 @@ const StyledButton = styled(MuiButton as ComponentType<Omit<MuiButtonProps, 'var
       case 'small': return 'sm';
       case 'medium': return 'md';
       case 'large': return 'lg';
-      default: return size as 'sm' | 'md' | 'lg';
+      default: return size;
     }
   })();
 

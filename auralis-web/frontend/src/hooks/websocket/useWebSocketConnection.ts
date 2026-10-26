@@ -98,9 +98,9 @@ export function useWebSocketConnection({
   const attachHandlers = useCallback((manager: WebSocketManager) => {
     // Inbound frames (text JSON + binary PCM) — parsing/pairing/ping lives in
     // the core helper; it dispatches via the latest provider callback.
-    manager.on('message', ((event: MessageEvent) => {
+    manager.on('message', (event) => {
       handleSocketFrame(event, manager, dispatchRef.current);
-    }) as (event: MessageEvent | Event) => void);
+    });
 
     manager.on('open', () => {
       console.log('✅ WebSocket connected (singleton)');

@@ -10,7 +10,6 @@
 
 import { useCallback, useRef, useState } from 'react';
 import { useStore } from 'react-redux';
-import type { Store } from '@reduxjs/toolkit';
 import {
   selectQueueTracks,
   selectCurrentIndex,
@@ -33,7 +32,7 @@ export function useQueueMutationGuards() {
   // Same pattern as usePlayerStateSync: bare useStore() types getState() as
   // unknown, which the `{ queue: QueueState }`-typed selectors reject — the
   // call-time snapshot (#5624) shipped without this and broke type-check:prod.
-  const store = useStore() as Store<RootState>;
+  const store = useStore<RootState>();
 
   // In-flight count, not a boolean (#5624): one shared boolean was cleared by
   // whichever mutation finished first, so with two overlapping mutations the

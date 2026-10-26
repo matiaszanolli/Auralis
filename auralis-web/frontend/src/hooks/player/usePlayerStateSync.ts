@@ -32,7 +32,6 @@
 
 import { useEffect, useRef } from 'react';
 import { useDispatch, useStore } from 'react-redux';
-import type { Store } from '@reduxjs/toolkit';
 import type { AppDispatch, RootState } from '@/store';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import { setCurrentTrack, setIsPlaying, setCurrentTime, setVolume } from '@/store/slices/playerSlice';
@@ -50,7 +49,7 @@ export function usePlayerStateSync() {
   // Read-only access to current state inside WS callbacks (e.g. to resolve a
   // track_changed index against the synced queue) without re-subscribing on
   // every state change.
-  const store = useStore() as Store<RootState>;
+  const store = useStore<RootState>();
   const { subscribe, connectionStatus } = useWebSocketContext();
   // Highest `seq` applied so far (fixes #3732). The backend broadcasts
   // player_state outside its update lock, so concurrent update_state() calls
