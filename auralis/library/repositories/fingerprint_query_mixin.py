@@ -220,7 +220,7 @@ class FingerprintQueryMixin(BaseRepository):
                 Track.id == TrackFingerprint.track_id
             ).where(
                 TrackFingerprint.id == None
-            )
+            ).order_by(Track.id)  # deterministic under LIMIT (#5715)
 
             if limit is not None:
                 stmt = stmt.limit(limit)

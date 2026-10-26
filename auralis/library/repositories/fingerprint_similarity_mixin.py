@@ -27,7 +27,7 @@ class" check when composed together on the facade.
 
 from typing import Any, cast
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.engine import CursorResult
 
 from ...utils.logging import warning
@@ -158,6 +158,13 @@ class FingerprintSimilarityMixin(BaseRepository):
         in-progress claim placeholders and stale-algorithm-version rows
         (#4822), same as every other read on this repository.
 
+        Rows come back closest-first: ordered by the L1 distance from the
+        centre of the box, each dimension scaled by its half-width so a
+        +/-15 BPM tolerance and a +/-0.08 bass fraction weigh the same, with
+        ``track_id`` as the tie-break. Without an ORDER BY, ``limit`` kept the
+        lowest rowids -- the oldest fingerprints -- and dropped the true
+        nearest neighbours of any box holding more than ``limit`` rows (#5715).
+
         Args:
             ranges: Dictionary mapping dimension names to (min, max) tuples
                    e.g., {'lufs': (-20, -10), 'tempo_bpm': (100, 140)}
@@ -169,6 +176,7 @@ class FingerprintSimilarityMixin(BaseRepository):
         with self._session_scope() as session:
             # Build filter conditions
             conditions = [_current_fingerprint_clause()]
+            distance_terms = []
             for dimension, (min_val, max_val) in ranges.items():
                 # Column names only: hasattr() also accepted relationships and methods.
                 if dimension not in _FINGERPRINT_WRITABLE_COLS:
@@ -180,12 +188,21 @@ class FingerprintSimilarityMixin(BaseRepository):
                     dim_attr >= min_val,
                     dim_attr <= max_val
                 ))
+                half_width = (max_val - min_val) / 2.0
+                if half_width > 0:
+                    distance_terms.append(
+                        func.abs(dim_attr - (min_val + max_val) / 2.0) / half_width
+                    )
 
             if len(conditions) == 1:
                 warning("No valid dimension ranges provided")
                 return []
 
             stmt = select(TrackFingerprint).where(and_(*conditions))
+
+            if distance_terms:
+                stmt = stmt.order_by(sum(distance_terms[1:], distance_terms[0]))
+            stmt = stmt.order_by(TrackFingerprint.track_id)
 
             if limit is not None:
                 stmt = stmt.limit(limit)
