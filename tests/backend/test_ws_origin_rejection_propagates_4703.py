@@ -59,13 +59,13 @@ class TestConnectRaisesOnRejection:
             await manager.connect(ws)
 
     @pytest.mark.asyncio
-    async def test_rejection_closes_with_1008_and_never_accepts(self):
+    async def test_rejection_accepts_then_closes_with_1008(self):
         manager = ConnectionManager()
         ws = _ws("http://evil.example.com")
         with pytest.raises(WebSocketOriginRejected):
             await manager.connect(ws)
         ws.close.assert_awaited_once_with(code=1008)
-        ws.accept.assert_not_awaited()
+        ws.accept.assert_awaited_once()  # accept-then-close so 1008 reaches the browser (#5883)
 
     @pytest.mark.asyncio
     async def test_rejected_socket_is_not_registered(self):
@@ -87,7 +87,7 @@ class TestConnectRaisesOnRejection:
         with pytest.raises(WebSocketOriginRejected):
             await manager.connect(ws)
         ws.close.assert_awaited_once_with(code=1008)
-        ws.accept.assert_not_awaited()
+        ws.accept.assert_awaited_once()  # accept-then-close so 1008 reaches the browser (#5883)
 
 
 class TestAcceptedHandshakeUnchanged:

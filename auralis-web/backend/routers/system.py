@@ -170,8 +170,8 @@ async def websocket_endpoint(
                 continue
 
     except WebSocketOriginRejected as e:
-        # #4703: the handshake was denied inside setup_connection before
-        # accept() and before the heartbeat task was spawned, so there is
+        # #4703: the handshake was refused inside setup_connection before
+        # the heartbeat task was spawned, so there is
         # nothing to tear down — both `finally` branches below are already
         # guarded by their None checks. Caught explicitly (and ahead of the
         # generic handlers) so a policy rejection is not logged as an

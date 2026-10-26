@@ -277,7 +277,7 @@ class TestOriginCheck:
         with pytest.raises(WebSocketOriginRejected):
             await manager.connect(ws)
         ws.close.assert_awaited_once_with(code=1008)
-        ws.accept.assert_not_awaited()
+        ws.accept.assert_awaited_once()  # accept-then-close so 1008 reaches the browser (#5883)
 
     @pytest.mark.asyncio
     async def test_empty_origin_loopback_accepted(self):
@@ -308,7 +308,7 @@ class TestOriginCheck:
         with pytest.raises(WebSocketOriginRejected):
             await manager.connect(ws)
         ws.close.assert_awaited_once_with(code=1008)
-        ws.accept.assert_not_awaited()
+        ws.accept.assert_awaited_once()  # accept-then-close so 1008 reaches the browser (#5883)
 
     @pytest.mark.asyncio
     async def test_empty_origin_null_client_rejected(self):
@@ -319,7 +319,7 @@ class TestOriginCheck:
         with pytest.raises(WebSocketOriginRejected):
             await manager.connect(ws)
         ws.close.assert_awaited_once_with(code=1008)
-        ws.accept.assert_not_awaited()
+        ws.accept.assert_awaited_once()  # accept-then-close so 1008 reaches the browser (#5883)
 
 
 class TestConnectionLifecycleLogLevels:

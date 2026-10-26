@@ -11,7 +11,7 @@ These are initialized during application startup and used throughout the backend
 import asyncio
 import json
 import logging
-from typing import Any
+from typing import Any, NoReturn
 
 from fastapi import WebSocket
 
@@ -73,8 +73,9 @@ class WebSocketOriginRejected(Exception):
     a spawned heartbeat task that sleeps up to 30 s before its first send
     fails, two swallowed initial pushes, and a whole teardown pass.
 
-    Not an auth bypass — the handshake is denied before `accept()`, so no client
-    message can ever be exchanged. The cost is wasted work plus the latent
+    Not an auth bypass — the socket is closed with 1008 immediately after a bare
+    `accept()` (#5883), and nothing is ever read from it, so no client message
+    can be exchanged. The cost is wasted work plus the latent
     hazard that the single authoritative origin check had no way to stop the
     handler, so anything added between `setup_connection` and the receive loop
     would have run for rejected origins too.
@@ -97,6 +98,21 @@ class ConnectionManager:
         self.active_connections: list[WebSocket] = []
         self._lock = asyncio.Lock()
 
+    @staticmethod
+    async def _reject_origin(websocket: WebSocket, reason: str) -> NoReturn:
+        """Complete the handshake, then close with 1008 (Policy Violation), and raise.
+
+        A close *before* accept() is answered as an HTTP 403 handshake failure,
+        which a browser reports as close code 1006 -- indistinguishable from a
+        network drop, so the client retried a refusal that can never succeed
+        (#5883, regression of #5469). Accepting first lets 1008 reach the
+        client. Nothing is registered and no message is ever read from the
+        socket, so accepting here grants no access.
+        """
+        await websocket.accept()
+        await websocket.close(code=1008)
+        raise WebSocketOriginRejected(reason)
+
     async def connect(self, websocket: WebSocket) -> None:
         """
         Register a new WebSocket connection.
@@ -108,9 +124,9 @@ class ConnectionManager:
             websocket: WebSocket connection to register
 
         Raises:
-            WebSocketOriginRejected: the handshake was denied and the socket
-                closed with 1008. Both rejection branches signal identically,
-                and neither reaches `accept()` (#4703).
+            WebSocketOriginRejected: the socket was closed with 1008 (after a
+                bare accept, #5883). Both rejection branches signal identically
+                and neither registers the connection (#4703).
         """
         # Check Origin header for security (CORS does not apply to WebSocket upgrades).
         origin = websocket.headers.get("origin", "").lower()
@@ -118,8 +134,7 @@ class ConnectionManager:
             # Non-empty Origin: must be in the allowlist (fixes #2413).
             if origin not in ALLOWED_WS_ORIGINS:
                 logger.warning(f"WebSocket connection rejected: untrusted origin {origin!r}")
-                await websocket.close(code=1008)  # Policy Violation
-                raise WebSocketOriginRejected(f"untrusted origin {origin!r}")
+                await self._reject_origin(websocket, f"untrusted origin {origin!r}")
         else:
             # Empty Origin: allow only from loopback so non-browser processes
             # on non-loopback interfaces cannot bypass the check (fixes #3845).
@@ -128,9 +143,8 @@ class ConnectionManager:
                 logger.warning(
                     f"WebSocket connection rejected: empty Origin from non-loopback host {client_host!r}"
                 )
-                await websocket.close(code=1008)  # Policy Violation
-                raise WebSocketOriginRejected(
-                    f"empty Origin from non-loopback host {client_host!r}"
+                await self._reject_origin(
+                    websocket, f"empty Origin from non-loopback host {client_host!r}"
                 )
 
         await websocket.accept()
