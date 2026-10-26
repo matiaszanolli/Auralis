@@ -2,7 +2,7 @@
 import LightMode from '@mui/icons-material/LightMode';
 import DarkMode from '@mui/icons-material/DarkMode';
 import { ThemeToggleIconContainer } from './ThemeToggle.styles';
-import { tokens } from '@/design-system';
+import { tokens, withOpacity } from '@/design-system';
 
 interface ThemeToggleIconProps {
   isDark: boolean;
@@ -25,7 +25,7 @@ export const ThemeToggleIcon = ({ isDark, iconSize }: ThemeToggleIconProps) => {
           sx={{
             fontSize: iconSize,
             color: tokens.colors.semantic.warning,
-            filter: `drop-shadow(0 0 8px ${tokens.colors.semantic.warning}99)`,
+            filter: `drop-shadow(0 0 8px ${withOpacity(tokens.colors.semantic.warning, 0.6)})`,
             transition: tokens.transitions.state_inOut,
           }}
         />

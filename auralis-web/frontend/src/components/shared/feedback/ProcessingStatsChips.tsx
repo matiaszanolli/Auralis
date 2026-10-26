@@ -8,7 +8,7 @@ import { Stack } from '@mui/material';
 import TrendingUp from '@mui/icons-material/TrendingUp';
 import Speed from '@mui/icons-material/Speed';
 import Memory from '@mui/icons-material/Memory';
-import { Chip, tokens } from '@/design-system';
+import { Chip, tokens, withOpacity } from '@/design-system';
 import { themeVars } from '@/theme/semanticTheme';
 
 interface ProcessingStatsChipsProps {
@@ -39,7 +39,7 @@ export const ProcessingStatsChips = ({
           size="small"
           sx={{
             height: '22px',
-            backgroundColor: `${tokens.colors.semantic.success}1A`,
+            backgroundColor: withOpacity(tokens.colors.semantic.success, 0.1),
             color: tokens.colors.semantic.success,
             fontSize: tokens.typography.fontSize.xs,
             '& .MuiChip-icon': {
@@ -55,7 +55,7 @@ export const ProcessingStatsChips = ({
           size="small"
           sx={{
             height: '22px',
-            backgroundColor: `${tokens.colors.accent.primary}1A`,
+            backgroundColor: tokens.colors.opacityScale.accent.veryLight,
             color: tokens.colors.accent.primary,
             fontSize: tokens.typography.fontSize.xs,
             '& .MuiChip-icon': {
@@ -71,7 +71,7 @@ export const ProcessingStatsChips = ({
           size="small"
           sx={{
             height: '22px',
-            backgroundColor: `${themeVars.textSecondary}1A`,
+            backgroundColor: `color-mix(in srgb, ${themeVars.textSecondary} 10%, transparent)`,
             color: themeVars.textSecondary,
             fontSize: tokens.typography.fontSize.xs,
             '& .MuiChip-icon': {

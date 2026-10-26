@@ -92,7 +92,7 @@ const StyledTextField = styled(MuiTextField as React.ComponentType<Omit<MuiTextF
         '&.Mui-focused': {
           borderColor: error ? themeVars.error : themeVars.accent,
           boxShadow: error
-            ? `0 0 12px ${themeVars.error}20`
+            ? `0 0 12px color-mix(in srgb, ${themeVars.error} 12.5%, transparent)`
             : tokens.shadows.glowSoft,
         },
       },

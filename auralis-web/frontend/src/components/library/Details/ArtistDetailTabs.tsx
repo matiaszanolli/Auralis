@@ -5,7 +5,7 @@
  */
 
 import { Box, Tab, Tabs } from '@mui/material';
-import { tokens } from '@/design-system';
+import { tokens, withOpacity } from '@/design-system';
 import AlbumsTab from '@/components/library/Views/AlbumsTab';
 import TracksTab from '@/components/library/Views/TracksTab';
 import type { DetailTrack as Track } from '@/types/domain';
@@ -41,7 +41,7 @@ export const ArtistDetailTabsSection = ({
             background: tokens.gradients.aurora,
             height: '4px',                                    // Active indicator strength
             borderRadius: tokens.borderRadius.full,           // 9999px - pill shape
-            boxShadow: `0 0 8px ${tokens.colors.accent.primary}40`,  // 40% glow
+            boxShadow: `0 0 8px ${withOpacity(tokens.colors.accent.primary, 0.25)}`,  // 25% glow
           },
           '& .MuiTab-root': {
             color: themeVars.textSecondary,

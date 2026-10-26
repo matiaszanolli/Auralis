@@ -47,7 +47,7 @@ export const LibrarySearchControls = ({
       sx={{
         p: tokens.spacing.lg,
         mb: tokens.spacing.xl,
-        background: `${themeVars.surfaceRaised}80`,
+        background: `color-mix(in srgb, ${themeVars.surfaceRaised} 50%, transparent)`,
         backdropFilter: 'blur(10px)',
         borderRadius: tokens.borderRadius.lg
       }}

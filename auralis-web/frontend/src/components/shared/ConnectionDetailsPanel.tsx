@@ -8,7 +8,7 @@
  */
 
 import Box from '@mui/material/Box';
-import { tokens } from '@/design-system';
+import { tokens, withOpacity } from '@/design-system';
 import { themeVars } from '@/theme/semanticTheme';
 
 interface ConnectionDetailsPanelProps {
@@ -212,7 +212,7 @@ export function ConnectionDetailsPanel({
             padding: tokens.spacing.sm,
             background: tokens.colors.utility.errorBg,
             borderRadius: '4px',
-            border: `1px solid ${tokens.colors.semantic.error}20`,
+            border: `1px solid ${withOpacity(tokens.colors.semantic.error, 0.125)}`,
           }}
         >
           <div
