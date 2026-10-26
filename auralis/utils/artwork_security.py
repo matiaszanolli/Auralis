@@ -1,5 +1,6 @@
 """Shared safety limits for external artwork URLs and payloads."""
 
+from typing import Any
 from urllib.parse import urlparse
 
 # Keep external artwork responses bounded before parsing or persisting them.
@@ -73,31 +74,69 @@ def detect_image_extension(data: bytes, default: str = "jpg") -> str:
 # at full resolution.
 MAX_ARTWORK_DIMENSION = 2048
 
+# Pixel budget for any artwork image we decode (8192 x 8192). Pillow only
+# *warns* between ~89 and ~179 Mpx and raises DecompressionBombError above that,
+# and either way a 1-bit PNG of that size is a few hundred KB on disk but
+# hundreds of MB decoded. Real covers are well under 20 Mpx (#6153).
+MAX_ARTWORK_PIXELS = 8192 * 8192
 
-def bound_artwork_dimensions(data: bytes) -> bytes:
+# Ceiling on one local cover (embedded APIC / FLAC picture / MP4 covr, or a folder
+# image) read at scan time; the 5 MiB payload cap above only ever applied to
+# downloads.
+MAX_LOCAL_ARTWORK_BYTES = 16 * 1024 * 1024
+
+
+class ArtworkRejectedError(ValueError):
+    """The image is refused outright (decompression bomb); it must not be stored or served."""
+
+
+def open_bounded_image(source: Any) -> Any:
+    """``Image.open(source)`` that refuses images over ``MAX_ARTWORK_PIXELS``.
+
+    ``Image.open`` is lazy (header only), so the pixel count is checked before a
+    single pixel is decoded. Pillow's own ``DecompressionBombError`` is folded
+    into ``ArtworkRejectedError`` so callers have one rejection to handle.
+    Shared by the dimension bound and the thumbnail renderer (#6153).
+    """
+    from PIL import Image
+
+    try:
+        image = Image.open(source)
+    except Image.DecompressionBombError as exc:
+        raise ArtworkRejectedError("image exceeds Pillow's decompression-bomb limit") from exc
+    width, height = image.size
+    if width * height > MAX_ARTWORK_PIXELS:
+        image.close()
+        raise ArtworkRejectedError(f"image is {width}x{height}, over the artwork pixel budget")
+    return image
+
+
+def bound_artwork_dimensions(data: bytes) -> bytes | None:
     """Downscale artwork whose largest side exceeds MAX_ARTWORK_DIMENSION.
 
     Shared by both artwork write paths (#5522): online downloads
     (``auralis-web/backend/services/artwork_downloader.py``) and
     embedded/folder extraction (``auralis/library/artwork.py``). Bounds
     oversized images so they are neither stored nor later streamed at full
-    resolution. Best-effort: any failure (Pillow missing, unsupported or
-    corrupt image) returns the original bytes unchanged so artwork is never
-    dropped.
+    resolution.
+
+    A decompression bomb (over ``MAX_ARTWORK_PIXELS``, or Pillow's own limit) is
+    *rejected* rather than passed through: returning the original bytes there
+    stored and served exactly the image this function exists to stop (#6153).
+    Any other failure (Pillow missing, unsupported or corrupt image) still
+    returns the original bytes unchanged so ordinary artwork is never dropped.
 
     Args:
         data: Raw image bytes.
 
     Returns:
-        Downscaled image bytes, or the original bytes if no resize was needed
-        or possible.
+        Downscaled image bytes, the original bytes if no resize was needed or
+        possible, or ``None`` if the image must be dropped.
     """
     import io
 
-    from PIL import Image
-
     try:
-        with Image.open(io.BytesIO(data)) as image:
+        with open_bounded_image(io.BytesIO(data)) as image:
             if max(image.size) <= MAX_ARTWORK_DIMENSION:
                 return data
             # thumbnail() preserves aspect ratio and only ever downsizes.
@@ -114,5 +153,7 @@ def bound_artwork_dimensions(data: bytes) -> bytes:
             buffer = io.BytesIO()
             image.save(buffer, format=fmt)
             return buffer.getvalue()
+    except ArtworkRejectedError:
+        return None
     except Exception:
         return data

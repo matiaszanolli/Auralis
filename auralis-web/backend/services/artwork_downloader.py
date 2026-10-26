@@ -176,7 +176,7 @@ class ArtworkDownloader:
     ) -> str | None:
         return await try_itunes(self, artist, album, album_id)
 
-    async def _save_artwork(self, data: bytes, album_id: int, ext: str = "jpg") -> str:
+    async def _save_artwork(self, data: bytes, album_id: int, ext: str = "jpg") -> str | None:
         """
         Save artwork data to cache directory.
 
@@ -187,7 +187,8 @@ class ArtworkDownloader:
                 the real extension is sniffed from magic bytes (#4419).
 
         Returns:
-            str: Path to saved artwork file
+            Path to the saved artwork file, or ``None`` if the image was rejected
+            as a decompression bomb (#6153).
         """
         # Sniff the true format from magic bytes so a downloaded PNG/WebP is not
         # mislabelled .jpg and later served with the wrong Content-Type (#4419).
@@ -202,10 +203,16 @@ class ArtworkDownloader:
         # shared helper since #5522): the 5 MiB payload cap does not bound
         # pixel size, and the un-parameterised GET serves this file at full
         # resolution. Runs inside the same off-loop call as the write (#3915).
-        def _bound_and_write() -> None:
-            filepath.write_bytes(_bound_artwork_dimensions(data))
+        def _bound_and_write() -> bool:
+            bounded = _bound_artwork_dimensions(data)
+            if bounded is None:
+                return False
+            filepath.write_bytes(bounded)
+            return True
 
-        await asyncio.to_thread(_bound_and_write)
+        if not await asyncio.to_thread(_bound_and_write):
+            logger.warning(f"Rejected oversized artwork for album {album_id} (decompression bomb)")
+            return None
 
         return str(filepath)
 

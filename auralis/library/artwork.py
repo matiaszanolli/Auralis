@@ -16,8 +16,11 @@ from mutagen.flac import FLAC
 from mutagen.id3 import ID3
 from mutagen.mp4 import MP4
 
-from ..utils.artwork_security import bound_artwork_dimensions
-from ..utils.artwork_security import detect_image_extension
+from ..utils.artwork_security import (
+    MAX_LOCAL_ARTWORK_BYTES,
+    bound_artwork_dimensions,
+    detect_image_extension,
+)
 from ..utils.logging import debug, error, info
 from .artwork_tags import TagArtworkReadersMixin
 
@@ -86,8 +89,10 @@ class ArtworkExtractor(TagArtworkReadersMixin):
                     artwork_data, mime_type = self._extract_from_generic(audio_file)
 
                 if artwork_data:
-                    # Save artwork to file
-                    return self._save_artwork(artwork_data, album_id, mime_type)
+                    # A rejected embedded cover (#6153) falls through to folder art.
+                    saved_path = self._save_artwork(artwork_data, album_id, mime_type)
+                    if saved_path:
+                        return saved_path
 
             # Fallback: Look for folder artwork if no embedded artwork found
             folder_artwork = self._find_folder_artwork(audio_filepath, album_id)
@@ -146,7 +151,7 @@ class ArtworkExtractor(TagArtworkReadersMixin):
 
             for artwork_name in artwork_names:
                 artwork_file = album_dir / artwork_name
-                if artwork_file.exists():
+                if artwork_file.exists() and artwork_file.stat().st_size <= MAX_LOCAL_ARTWORK_BYTES:
                     # Read the artwork file
                     with open(artwork_file, 'rb') as f:
                         artwork_data = f.read()
@@ -165,24 +170,6 @@ class ArtworkExtractor(TagArtworkReadersMixin):
 
         return None
 
-    def _bound_dimensions(self, artwork_data: bytes) -> bytes:
-        """Downscale artwork whose largest side exceeds the shared dimension cap.
-
-        Bounds arbitrarily large embedded/folder covers (#4439) so oversized
-        images are neither stored nor later streamed at full resolution. The
-        logic lives in ``auralis.utils.artwork_security`` so the online-download
-        writer shares the exact same policy (#5522); this thin delegate keeps
-        the extractor's call sites (and tests) unchanged.
-        """
-        bounded = bound_artwork_dimensions(artwork_data)
-        if bounded is not artwork_data:
-            debug(
-                f"Downscaled oversized artwork to <= {_MAX_ARTWORK_DIMENSION}px"
-            )
-        else:
-            debug("Artwork dimension-bounding skipped or not needed")
-        return bounded
-
     def _save_artwork(self, artwork_data: bytes, album_id: int, mime_type: str | None) -> str | None:
         """
         Save artwork data to file
@@ -196,10 +183,19 @@ class ArtworkExtractor(TagArtworkReadersMixin):
             Path to saved artwork file
         """
         try:
+            # Skip an oversized picture before anything decodes it (#6153).
+            if len(artwork_data) > MAX_LOCAL_ARTWORK_BYTES:
+                debug(f"Skipping artwork of {len(artwork_data)} bytes (over the local artwork cap)")
+                return None
+
             # Bound the stored image to a sane maximum dimension (#4439) so an
             # oversized embedded/folder cover isn't persisted and later streamed
             # at full resolution. Best-effort — falls back to the original bytes.
-            artwork_data = self._bound_dimensions(artwork_data)
+            bounded = bound_artwork_dimensions(artwork_data)
+            if bounded is None:  # decompression bomb: drop it (#6153)
+                debug("Dropped artwork that exceeds the pixel budget")
+                return None
+            artwork_data = bounded
 
             # Sniff the real extension from the (possibly re-encoded) bytes
             # rather than trusting the tag's declared mime_type (#4849) —

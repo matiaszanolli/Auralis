@@ -20,7 +20,6 @@ import aiohttp
 from auralis.utils.artwork_security import (
     MAX_ARTWORK_PAYLOAD_BYTES as _MAX_ARTWORK_BYTES,
 )
-from auralis.utils.artwork_security import bound_artwork_dimensions as _bound_artwork_dimensions
 from services.artwork_providers.trust import _get_trusted_artwork
 
 if TYPE_CHECKING:

@@ -148,7 +148,10 @@ class TestSaveArtworkOffloadsWrite:
             await downloader._save_artwork(b"data", album_id=1, ext="jpg")
 
         mock_to_thread.assert_awaited_once()
-        write_fn, written_data = mock_to_thread.call_args.args
-        assert write_fn.__name__ == "write_bytes"
-        assert written_data == b"data"
+        # Since #5522 the offloaded callable is the bound-and-write closure, not
+        # a bare Path.write_bytes; running it must produce the file.
+        (write_fn,) = mock_to_thread.call_args.args
+        assert write_fn() is True
+        (written,) = tmp_path.glob("album_1_*.jpg")
+        assert written.read_bytes() == b"data"
         await downloader.close()

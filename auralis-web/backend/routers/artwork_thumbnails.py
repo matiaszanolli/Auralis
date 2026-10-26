@@ -8,8 +8,10 @@ Album-artwork thumbnail cache: size buckets, per-file render locks, rendering, e
 import logging
 from collections.abc import Iterator
 from contextlib import contextmanager
+from auralis.utils.artwork_security import ArtworkRejectedError, open_bounded_image
 from core.thumbnail_cache import THUMB_TMP_PREFIX, artwork_cache_dirs, prune_thumbnail_cache, purge_thumbnails, reap_orphan_temp_files, thumb_path_hash
 from pathlib import Path
+from .errors import NotFoundError
 import os
 import tempfile
 import threading
@@ -92,17 +94,15 @@ def _render_thumbnail(
     Raises on failure, having removed its own temp file; the caller converts
     that to ``None``.
     """
-    # Imported here rather than at module scope to preserve the original lazy
-    # import: this router is constructed at startup and PIL is not cheap.
-    from PIL import Image
-
     fd, tmp_name = tempfile.mkstemp(
         dir=thumb_dir, prefix=_THUMB_TMP_PREFIX, suffix=ext
     )
     tmp = Path(tmp_name)
     try:
         with os.fdopen(fd, "wb") as handle:
-            with Image.open(src) as image:
+            # Refuses a decompression bomb before decoding it (#6153); PIL itself
+            # stays lazily imported inside open_bounded_image.
+            with open_bounded_image(src) as image:
                 # thumbnail() preserves aspect ratio and only ever downsizes, so
                 # a small source is served as-is rather than upscaled.
                 image.thumbnail((bucket, bucket))
@@ -179,7 +179,9 @@ def _get_or_create_thumbnail(
     Blocking (PIL + disk IO) — call via ``asyncio.to_thread``. The cache key
     includes the source path hash, bucketed size, and source mtime/size so an
     artwork edit produces a new file and stale thumbnails are never served.
-    Returns ``None`` on any failure so the caller can fall back to the original.
+    Returns ``None`` on any failure so the caller can fall back to the original,
+    except a decompression bomb, which raises a 404: the original is exactly the
+    image that must not be served (#6153).
     """
     try:
         bucket = _bucket_size(requested_size)
@@ -212,6 +214,9 @@ def _get_or_create_thumbnail(
                     prune_thumbnail_cache(thumb_dir, keep=dst)
 
         return dst, resp_type
+    except ArtworkRejectedError:
+        logger.warning("Refused to thumbnail an artwork image over the pixel budget: %s", src.name)
+        raise NotFoundError("Artwork") from None
     except Exception:
         logger.exception("Thumbnail generation failed for %s", src)
         return None
