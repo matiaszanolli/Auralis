@@ -21,6 +21,10 @@ from typing import Any
 MAX_RECORDED_FAILURES = 50
 
 
+def _wire_safe(text: str) -> str:
+    return text.encode('utf-8', 'backslashreplace').decode('utf-8')
+
+
 @dataclass
 class ScanFailure:
     """One file that could not be scanned, and why (#4841).
@@ -42,7 +46,10 @@ class ScanFailure:
         the path too, so it is redacted to the same name.
         """
         filename = os.path.basename(os.path.normpath(self.filepath))
-        return {'filename': filename, 'reason': self.reason.replace(self.filepath, filename)}
+        reason = self.reason.replace(self.filepath, filename)
+        # A name that is not valid UTF-8 arrives as lone surrogates, which the
+        # JSON/WebSocket encoder cannot send (#5749); show them as \udcXX escapes.
+        return {'filename': _wire_safe(filename), 'reason': _wire_safe(reason)}
 
 
 @dataclass

@@ -146,6 +146,14 @@ class BatchProcessor:
             to receive a bare 'failed' with nothing to tell the user).
         """
         try:
+            # Names that are not valid UTF-8 (old latin-1 rips, media from other
+            # locales) reach us as surrogate escapes and fail at the first DB
+            # bind with an opaque codec error; say what is wrong instead (#5749).
+            try:
+                file_path.encode('utf-8')
+            except UnicodeEncodeError:
+                return 'failed', None, 'File name is not valid UTF-8; rename the file to import it'
+
             # Check if file already exists in library (query once, reuse below)
             # Repository access: the scanner is handed a LibraryDatabase,
             # which has `.tracks` but no convenience wrappers.
