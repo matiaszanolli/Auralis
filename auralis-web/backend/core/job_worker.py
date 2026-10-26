@@ -22,6 +22,7 @@ get_queue_status) keep working unchanged.
 import asyncio
 import logging
 from datetime import datetime
+from functools import partial
 from typing import TYPE_CHECKING
 
 from core.job_models import ProcessingJob, ProcessingStatus
@@ -61,11 +62,20 @@ class JobWorker:
 
         # Per-job asyncio Tasks so cancel_job() can stop them (fixes #2217)
         self._tasks: dict[str, asyncio.Task[None]] = {}
+        # Dispatched jobs whose task has not yet run its first step; they own a
+        # slot that only the done-callback can return if the task is cancelled
+        # before it starts (#5950).
+        self._unstarted: set[str] = set()
         self._stopping: bool = False
         self._worker_task: asyncio.Task[None] | None = None
 
-    async def _run_job(self, job: ProcessingJob) -> None:
+    async def _run_job(self, job: ProcessingJob, *, slot_held: bool = False) -> None:
         """Run a single job inside a concurrency slot, then clean up.
+
+        ``slot_held`` is set by the dispatcher in :meth:`start`, which takes the
+        slot *before* it dequeues the job (#5949); this coroutine then owns that
+        slot and releases it in its ``finally``. Called without it, the job
+        waits for a slot itself.
 
         Slot lifecycle is tracked via the local `acquired` flag so a
         CancelledError raised inside `acquire()` (queue full, then task
@@ -75,10 +85,12 @@ class JobWorker:
         max_concurrent_jobs on every cancel-during-acquire (#3531 /
         BE-NEW-73).
         """
-        acquired = False
+        self._unstarted.discard(job.job_id)
+        acquired = slot_held
         try:
-            await self._concurrency_semaphore.acquire()
-            acquired = True
+            if not slot_held:
+                await self._concurrency_semaphore.acquire()
+                acquired = True
             self.active_job_count += 1
 
             task = asyncio.current_task()
@@ -122,14 +134,22 @@ class JobWorker:
         self._stopping = True
         logger.info("Stopping processing engine worker...")
 
-        # Cancel all in-progress tasks
+        # Stop the dispatcher BEFORE unwinding the running jobs (#5950): their
+        # finally blocks free slots, and a still-live dispatcher would take each
+        # freed slot and start the next queued job during shutdown.
+        if self._worker_task and not self._worker_task.done():
+            self._worker_task.cancel()
+            await await_cancelled_task(self._worker_task, logger)
+
+        # Cancel all in-progress tasks, including dispatched ones that have not
+        # taken their first step yet (they are registered at spawn).
         cancelled: list[asyncio.Task[None]] = []
         for job_id, task in list(self._tasks.items()):
             if not task.done():
                 task.cancel()
                 cancelled.append(task)
                 job = self._engine.jobs.get(job_id)
-                if job and job.status == ProcessingStatus.PROCESSING:
+                if job and job.status in (ProcessingStatus.QUEUED, ProcessingStatus.PROCESSING):
                     job.status = ProcessingStatus.CANCELLED
                     job.completed_at = datetime.now()
 
@@ -169,11 +189,6 @@ class JobWorker:
             except asyncio.QueueEmpty:
                 break
 
-        # Cancel the worker task itself
-        if self._worker_task and not self._worker_task.done():
-            self._worker_task.cancel()
-            await await_cancelled_task(self._worker_task, logger)
-
         # Drop the finished task so a later `if worker._worker_task:` check
         # can't read a stopped worker as running (#4577).
         self._worker_task = None
@@ -201,18 +216,48 @@ class JobWorker:
 
         while not self._stopping:
             try:
-                job = await self.job_queue.get()
-                # Fire-and-forget: _run_job acquires a semaphore slot and
-                # cleans up after itself.  The loop immediately returns to
-                # dequeue the next job.  spawn_background_task attaches a
-                # done-callback so an unhandled exception inside _run_job is
-                # logged rather than silently swallowed (fixes #3512 / BE-NEW-54).
-                spawn_background_task(
-                    self._run_job(job), name=f"_run_job:{job.job_id}"
-                )
+                # Take a slot BEFORE dequeuing (#5949). Dequeuing first drained
+                # the bounded queue as fast as the loop turned and parked one
+                # task per job on the semaphore, so max_queue_size bounded
+                # nothing and QueueFull / the 503 path was unreachable. Now the
+                # queue holds the backlog.
+                await self._concurrency_semaphore.acquire()
+                try:
+                    job = await self.job_queue.get()
+                    # Fire-and-forget: the task owns the slot from here and
+                    # cleans up after itself. spawn_background_task attaches a
+                    # done-callback so an unhandled exception inside _run_job is
+                    # logged rather than silently swallowed (fixes #3512 /
+                    # BE-NEW-54). Registered in _tasks now, not after the task
+                    # first runs, so stop()/cancel_task() can see it (#5950).
+                    self._unstarted.add(job.job_id)
+                    task = spawn_background_task(
+                        self._run_job(job, slot_held=True), name=f"_run_job:{job.job_id}"
+                    )
+                except BaseException:
+                    self._concurrency_semaphore.release()
+                    raise
+                self._tasks[job.job_id] = task
+                task.add_done_callback(partial(self._on_job_task_done, job))
             except Exception as e:
                 logger.exception(f"Worker error: {e}")
                 await asyncio.sleep(1)
+
+    def _on_job_task_done(self, job: ProcessingJob, task: "asyncio.Task[None]") -> None:
+        """Return the slot of a job whose task was cancelled before its first step.
+
+        A coroutine cancelled before it starts never enters its try/finally, so
+        the slot the dispatcher handed it would leak (#5950).
+        """
+        if self._tasks.get(job.job_id) is task:
+            self._tasks.pop(job.job_id, None)
+        if job.job_id not in self._unstarted:
+            return
+        self._unstarted.discard(job.job_id)
+        self._concurrency_semaphore.release()
+        if job.status == ProcessingStatus.QUEUED:
+            job.status = ProcessingStatus.CANCELLED
+            job.completed_at = datetime.now()
 
     def cancel_task(self, job_id: str) -> None:
         """Cancel the in-flight task for a job, if any.
