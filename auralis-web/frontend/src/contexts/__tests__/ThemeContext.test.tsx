@@ -6,6 +6,8 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { renderHook, act } from '@/test/test-utils'
+import { render } from '@testing-library/react'
+import { useLayoutEffect } from 'react'
 import { ReactNode } from 'react'
 import { ThemeProvider, useTheme } from '../ThemeContext'
 import { getSemanticTheme } from '@/theme/semanticTheme'
@@ -397,5 +399,33 @@ describe('ThemeContext', () => {
     for (const dead of ['--bg-primary', '--bg-surface', '--text-primary', '--glass-border']) {
       expect(root.style.getPropertyValue(dead)).toBe('')
     }
+  })
+
+  it('publishes the saved theme before first paint (#6057)', () => {
+    // A layout effect in a later sibling runs after ThemeProvider's layout
+    // effect but before its passive effects, so this sees what the first frame
+    // is painted with.
+    localStorageMock.setItem('auralis-theme', 'light')
+    const seen: Array<string | undefined> = []
+    const Probe = () => {
+      useLayoutEffect(() => {
+        seen.push(document.documentElement.dataset.theme)
+      }, [])
+      return null
+    }
+
+    render(
+      <>
+        <ThemeProvider>
+          <div />
+        </ThemeProvider>
+        <Probe />
+      </>
+    )
+
+    expect(seen).toEqual(['light'])
+    expect(document.documentElement.style.getPropertyValue('--app-canvas')).toBe(
+      getSemanticTheme('light').canvas
+    )
   })
 })

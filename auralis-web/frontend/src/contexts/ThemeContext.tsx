@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState, useEffect, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState, useLayoutEffect, ReactNode } from 'react';
 import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
 import { CssBaseline } from '@mui/material';
 import { createAuralisTheme } from '@/theme/themeConfig';
@@ -39,8 +39,9 @@ export const ThemeProvider = ({ children }: ThemeProviderProps) => {
   // Theme creation is relatively expensive. Rebuild only when mode changes.
   const theme = useMemo(() => createAuralisTheme(mode), [mode]);
 
-  // Save theme preference to localStorage
-  useEffect(() => {
+  // Persist the preference and publish the theme to the DOM. A layout effect
+  // runs before the first paint, so a saved light theme never flashes dark (#6057).
+  useLayoutEffect(() => {
     localStorage.setItem('auralis-theme', mode);
 
     // Keep MUI, Emotion, and plain DOM controls on one semantic color contract.

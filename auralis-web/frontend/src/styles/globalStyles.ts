@@ -1,10 +1,14 @@
 import { css } from '@emotion/react';
 import { tokens } from '@/design-system/tokens';
-import { getSemanticTheme, themeVars } from '@/theme/semanticTheme';
+import { getSemanticCssVariables, themeVars } from '@/theme/semanticTheme';
 import { keyframeStyles } from './globalKeyframes';
 import { utilityStyles } from './globalUtilities';
 
-const defaultTheme = getSemanticTheme('dark');
+// Dark defaults for every --app-* variable, generated from the same contract
+// ThemeProvider writes so a newly added role cannot be missing here (#6057).
+const darkRootVariables = Object.entries(getSemanticCssVariables('dark'))
+  .map(([property, value]) => `${property}: ${value};`)
+  .join('\n    ');
 
 /**
  * Global Styles
@@ -15,45 +19,7 @@ const defaultTheme = getSemanticTheme('dark');
 export const globalStyles = css`
   :root {
     color-scheme: dark;
-    --app-canvas: ${defaultTheme.canvas};
-    --app-surface-primary: ${defaultTheme.surfacePrimary};
-    --app-surface-secondary: ${defaultTheme.surfaceSecondary};
-    --app-surface-raised: ${defaultTheme.surfaceRaised};
-    --app-surface-overlay: ${defaultTheme.surfaceOverlay};
-    --app-surface-translucent: ${defaultTheme.surfaceTranslucent};
-    --app-text-primary: ${defaultTheme.textPrimary};
-    --app-text-strong: ${defaultTheme.textStrong};
-    --app-text-secondary: ${defaultTheme.textSecondary};
-    --app-text-muted: ${defaultTheme.textMuted};
-    --app-text-disabled: ${defaultTheme.textDisabled};
-    --app-border-subtle: ${defaultTheme.borderSubtle};
-    --app-border-default: ${defaultTheme.borderDefault};
-    --app-border-strong: ${defaultTheme.borderStrong};
-    --app-accent: ${defaultTheme.accent};
-    --app-accent-hover: ${defaultTheme.accentHover};
-    --app-accent-soft: ${defaultTheme.accentSoft};
-    --app-on-accent: ${defaultTheme.onAccent};
-    --app-focus-ring: ${defaultTheme.focusRing};
-    --app-success: ${defaultTheme.success};
-    --app-warning: ${defaultTheme.warning};
-    --app-error: ${defaultTheme.error};
-    --app-info: ${defaultTheme.info};
-    --app-error-soft: ${defaultTheme.errorSoft};
-    --app-on-error: ${defaultTheme.onError};
-    --app-backdrop: ${defaultTheme.backdrop};
-    --app-shadow-raised: ${defaultTheme.shadowRaised};
-    --app-shadow-overlay: ${defaultTheme.shadowOverlay};
-
-    /* Gradient variables - from tokens */
-    --gradient-aurora: ${tokens.gradients.aurora};
-    --gradient-aqua: ${tokens.gradients.aqua};
-
-    /* Glow shadow variables — single source for keyframe animations so a
-       brand-color change propagates to all glow/pulse animations (#3982). */
-    --glow-accent-medium: ${tokens.shadows.glowAccentMedium};
-    --glow-accent-strong: ${tokens.shadows.glowAccentStrong};
-    --glow-aqua-medium: ${tokens.shadows.glowAquaMedium};
-    --glow-aqua-strong: ${tokens.shadows.glowAquaStrong};
+    ${darkRootVariables}
 
     /* Accent color RGB channels (accent.primary #7366F0) so keyframes can use
        rgba(var(--accent-rgb), <opacity>) and inherit brand-color changes (#3982). */

@@ -24,6 +24,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { getSemanticCssVariables } from '../semanticTheme';
+import { globalStyles } from '@/styles/globalStyles';
 
 // Every CSS module in the app, keyed by path. `eager` so this stays synchronous.
 const cssModules = import.meta.glob('../../**/*.module.css', {
@@ -86,5 +87,14 @@ describe('CSS custom property producers (#4535)', () => {
     expect(Object.keys(getSemanticCssVariables('light')).sort()).toEqual(
       Object.keys(getSemanticCssVariables('dark')).sort(),
     );
+  });
+
+  it('the :root defaults in globalStyles are generated from the contract, not hand-typed (#6057)', () => {
+    // A hand-typed list drifted by six roles once; anything rendering before
+    // ThemeProvider's layout effect resolved those to `unset`.
+    const rootBlock = /:root\s*\{([\s\S]*?)\n  \}/.exec(globalStyles.styles)![1];
+    const declared = [...rootBlock.matchAll(/(--app-[a-z0-9-]+)\s*:/g)].map((m) => m[1]).sort();
+
+    expect(declared).toEqual(Object.keys(getSemanticCssVariables('dark')).sort());
   });
 });
