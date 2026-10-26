@@ -5,13 +5,13 @@ Tests for FingerprintRepository SQLAlchemy-only DB access (issue #2298)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Previously these tests verified that raw sqlite3 writes respected a custom
-db_path.  After the fix (#2431 / #2298) all three write methods (upsert,
-store_fingerprint, update_status) use the SQLAlchemy session exclusively.
+db_path.  After the fix (#2431 / #2298) the write methods (upsert,
+store_fingerprint) use the SQLAlchemy session exclusively.
 
 Key invariants verified:
 - No db_path parameter accepted (would raise TypeError)
 - No _db_path attribute on the repository instance
-- upsert, store_fingerprint, update_status all call session.execute() + commit()
+- upsert and store_fingerprint call session.execute() + commit()
 - No hardcoded ~/.auralis path can be reached by any method
 
 :copyright: (C) 2024 Auralis Team
@@ -19,10 +19,9 @@ Key invariants verified:
 """
 
 import pytest
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock
 
 from auralis.library.repositories.fingerprint_repository import FingerprintRepository
-from auralis.library.repositories.fingerprint_stats_repository import FingerprintStatsRepository
 
 
 _SAMPLE_FINGERPRINT: dict = {
@@ -50,13 +49,6 @@ def session():
 def repo(session):
     factory = MagicMock(return_value=session)
     return FingerprintRepository(factory), session
-
-
-@pytest.fixture
-def stats_repo(session):
-    """#6264: status/stats operations live on FingerprintStatsRepository —
-    the facade delegators are gone."""
-    return FingerprintStatsRepository(MagicMock(return_value=session)), session
 
 
 # ---------------------------------------------------------------------------
@@ -154,33 +146,6 @@ class TestStoreFingerprintUsesSession:
         r, session = repo
         session.execute.side_effect = RuntimeError("db error")
         self._call(r)
-        session.rollback.assert_called_once()
-
-
-# ---------------------------------------------------------------------------
-# update_status — uses SQLAlchemy session
-# ---------------------------------------------------------------------------
-
-class TestUpdateStatusUsesSession:
-    def test_completed_calls_execute_and_commit(self, stats_repo):
-        r, session = stats_repo
-        result = r.update_status(track_id=3, status='completed', completed_at='2026-01-01T00:00:00')
-        assert result is True
-        session.execute.assert_called_once()
-        session.commit.assert_called_once()
-
-    def test_failed_calls_execute_and_commit(self, stats_repo):
-        r, session = stats_repo
-        result = r.update_status(track_id=3, status='failed')
-        assert result is True
-        session.execute.assert_called_once()
-        session.commit.assert_called_once()
-
-    def test_returns_false_on_failure(self, stats_repo):
-        r, session = stats_repo
-        session.execute.side_effect = RuntimeError("db error")
-        result = r.update_status(track_id=3, status='completed')
-        assert result is False
         session.rollback.assert_called_once()
 
 

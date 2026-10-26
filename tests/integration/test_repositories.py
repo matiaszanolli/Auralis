@@ -301,28 +301,6 @@ class TestGenreRepository:
 class TestFingerprintRepository:
     """Test FingerprintRepository operations."""
 
-    def test_get_fingerprint_status_structure(self, repository_factory):
-        """A seeded fingerprint row round-trips through get_fingerprint_status."""
-        tracks = repository_factory.tracks
-        added = _add_track(tracks, filepath="/music/f.flac", title="F")
-        fp_repo = repository_factory.fingerprints
-        fp_repo.add(track_id=added.id, fingerprint_data=_SAMPLE_FP)
-
-        status = repository_factory.fingerprint_stats.get_fingerprint_status(added.id)
-
-        assert status is not None
-        assert status['track_id'] == added.id
-        assert status['has_fingerprint'] is True
-        assert status['created_at'] is not None
-
-    def test_get_fingerprint_status_none_for_track_without_fingerprint(self, repository_factory):
-        tracks = repository_factory.tracks
-        added = _add_track(tracks, filepath="/music/g.flac", title="G")
-
-        status = repository_factory.fingerprint_stats.get_fingerprint_status(added.id)
-
-        assert status is None
-
     def test_get_fingerprint_stats_structure(self, repository_factory):
         """Test fingerprint stats returns expected fields with real counts."""
         tracks = repository_factory.tracks

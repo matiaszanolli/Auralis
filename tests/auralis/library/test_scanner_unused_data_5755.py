@@ -12,7 +12,6 @@ columns that no production code queries or writes.
 """
 
 import numpy as np
-import pytest
 import soundfile as sf
 from sqlalchemy import text
 
@@ -21,11 +20,35 @@ from auralis.library.scan_models import AudioFileInfo
 from auralis.library.schema_indexes import create_missing_declared_indexes
 from auralis.library.scanner.audio_analyzer import AudioAnalyzer
 
+DROPPED_COLUMNS = {
+    'fingerprint_status',
+    'fingerprint_computed_at',
+    'fingerprint_error_message',
+    'fingerprint_vector',
+}
+
 DROPPED_INDEXES = {
     'idx_tracks_fingerprint_status',
     'idx_tracks_fingerprint_queue',
     'idx_tracks_fingerprint_computed_at',
 }
+
+
+def _track_column_names(engine) -> set[str]:
+    with engine.connect() as conn:
+        rows = conn.execute(text("PRAGMA table_info(tracks)")).fetchall()
+    return {row[1] for row in rows}
+
+
+def _add_legacy_fingerprint_columns(conn) -> None:
+    """Give a freshly built (post-v27) schema the columns a v25/v26 DB has."""
+    for ddl in (
+        "fingerprint_status TEXT DEFAULT 'pending'",
+        "fingerprint_computed_at DATETIME",
+        "fingerprint_error_message TEXT",
+        "fingerprint_vector TEXT",
+    ):
+        conn.execute(text(f"ALTER TABLE tracks ADD COLUMN {ddl}"))
 
 
 def _track_index_names(engine) -> set[str]:
@@ -61,6 +84,7 @@ def test_v025_to_v026_migration_drops_the_indexes(tmp_path):
     with MigrationManager(db_path) as manager:
         assert manager.initialize_fresh_database()
         with manager.engine.begin() as conn:
+            _add_legacy_fingerprint_columns(conn)
             conn.execute(text(
                 "CREATE INDEX idx_tracks_fingerprint_status "
                 "ON tracks(fingerprint_status)"))
@@ -110,3 +134,46 @@ def test_migration_is_idempotent(tmp_path):
             conn.execute(text("UPDATE schema_version SET version = 25"))
         assert manager.migrate_to_latest()
         assert not DROPPED_INDEXES & _track_index_names(manager.engine)
+
+
+def test_fresh_database_has_no_fingerprint_columns(tmp_path):
+    with MigrationManager(str(tmp_path / "fresh_cols.db")) as manager:
+        assert manager.initialize_fresh_database()
+        assert not DROPPED_COLUMNS & _track_column_names(manager.engine)
+
+
+def test_v026_to_v027_migration_drops_the_columns(tmp_path):
+    """A v26 database that still carries the columns (with data) migrates
+    forward, loses them, and keeps its tracks and their other columns."""
+    db_path = str(tmp_path / "v26.db")
+    with MigrationManager(db_path) as manager:
+        assert manager.initialize_fresh_database()
+        with manager.engine.begin() as conn:
+            _add_legacy_fingerprint_columns(conn)
+            conn.execute(text(
+                "INSERT INTO tracks (title, filepath, filepath_key, skip_count, "
+                "play_count, favorite, fingerprint_status) "
+                "VALUES ('t', '/a/t.wav', '/a/t.wav', 0, 0, 0, 'pending')"))
+            conn.execute(text("UPDATE schema_version SET version = 26"))
+        assert DROPPED_COLUMNS <= _track_column_names(manager.engine)
+
+    with MigrationManager(db_path) as manager:
+        assert manager.get_current_version() == 26
+        assert manager.migrate_to_latest()
+        assert not DROPPED_COLUMNS & _track_column_names(manager.engine)
+        with manager.engine.connect() as conn:
+            row = conn.execute(text("SELECT title, filepath FROM tracks")).one()
+        assert tuple(row) == ('t', '/a/t.wav')
+
+
+def test_track_orm_and_stats_repository_no_longer_carry_the_status_api():
+    from sqlalchemy import inspect as sa_inspect
+
+    from auralis.library.models import Track
+    from auralis.library.repositories.fingerprint_stats_repository import (
+        FingerprintStatsRepository,
+    )
+
+    assert not DROPPED_COLUMNS & {a.key for a in sa_inspect(Track).column_attrs}
+    assert not hasattr(FingerprintStatsRepository, 'update_status')
+    assert not hasattr(FingerprintStatsRepository, 'get_fingerprint_status')

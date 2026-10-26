@@ -55,7 +55,8 @@ def _with_registered_dir(tmp_path, fn):
     """Register+unregister a real removed_dir around `fn(removed_dir)`,
     matching test_main_api.py's TestSettingsEndpoints cleanup pattern so
     this test doesn't leak global allowlist state into others."""
-    from security.path_security import _extra_allowed_dirs, register_allowed_directory
+    from security.path_security import _extra_allowed_dirs
+    from security.path_allowlist import register_allowed_directory
 
     removed_dir = tmp_path / "removed"
     removed_dir.mkdir()

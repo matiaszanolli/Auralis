@@ -80,12 +80,6 @@ class Track(Base, TimestampMixin):
     recommended_reference: Mapped[str | None] = mapped_column(String)  # Best reference track path
     processing_profile: Mapped[str | None] = mapped_column(String)  # Optimal mastering profile
 
-    # 25D Fingerprint analysis
-    fingerprint_status: Mapped[str | None] = mapped_column(String, default='pending')  # pending, processing, complete, error
-    fingerprint_computed_at: Mapped[datetime | None] = mapped_column(DateTime)  # When fingerprint was last computed
-    fingerprint_error_message: Mapped[str | None] = mapped_column(Text)  # Error message if extraction failed
-    fingerprint_vector: Mapped[str | None] = mapped_column(Text)  # Serialized 25D fingerprint (JSON)
-
     # Metadata
     album_id: Mapped[int | None] = mapped_column(Integer, ForeignKey('albums.id'))
     track_number: Mapped[int | None] = mapped_column(Integer)

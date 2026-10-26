@@ -2,18 +2,16 @@
 Fingerprint Stats Repository
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Statistics, status tracking, and crash-recovery cleanup for fingerprints.
+Statistics and crash-recovery cleanup for fingerprints.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from typing import Any
-from datetime import datetime
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select
 
-from ...utils.logging import error, info
+from ...utils.logging import info
 from ...__version__ import FINGERPRINT_ALGORITHM_VERSION
 from .fingerprint_shared import PLACEHOLDER_LUFS_SENTINEL
 from ..models import Track, TrackFingerprint
@@ -22,66 +20,7 @@ from .fingerprint_scheduler_repository import release_claims
 
 
 class FingerprintStatsRepository(BaseRepository):
-    """Statistics, status tracking, and startup cleanup for fingerprints."""
-
-    def update_status(self, track_id: int, status: str, completed_at: str | None = None) -> bool:
-        """Update fingerprint processing status for a track.
-
-        Args:
-            track_id: Track ID
-            status: Status ('completed' or 'failed')
-            completed_at: ISO timestamp when processing completed
-
-        Returns:
-            True if successful, False otherwise
-        """
-        with self._session_scope() as session:
-            try:
-                # Fingerprint status/computed_at live on the tracks table (Track
-                # model), not track_fingerprints. The previous raw SQL targeted
-                # track_fingerprints — which has none of these columns — so the
-                # UPDATE failed and the method always returned False (#4108). It also
-                # referenced a non-existent `fingerprint_started_at` column. Use the
-                # ORM update() against Track so column names stay in sync with the
-                # model and a future rename fails at type-check, not silently.
-                values: dict[Any, Any] = {Track.fingerprint_status: status}
-                if status == 'completed' and completed_at:
-                    # fingerprint_computed_at is a DateTime column; convert the ISO
-                    # string callers pass so SQLite's DateTime bind processor accepts it.
-                    values[Track.fingerprint_computed_at] = datetime.fromisoformat(completed_at)
-                session.execute(
-                    update(Track).where(Track.id == track_id).values(values)
-                )
-                session.commit()
-                return True
-            except Exception as e:
-                session.rollback()
-                error(f"Failed to update status for track {track_id}: {e}")
-                return False
-            finally:
-                session.expunge_all()
-
-    def get_fingerprint_status(self, track_id: int) -> dict[str, Any] | None:
-        """Get fingerprint status for a specific track.
-
-        Returns:
-            Dict with fingerprint status details or None if not found.
-        """
-        with self._session_scope() as session:
-            fingerprint = session.execute(
-                select(TrackFingerprint).where(TrackFingerprint.track_id == track_id)
-            ).scalars().first()
-
-            if not fingerprint:
-                return None
-
-            return {
-                'track_id': fingerprint.track_id,
-                'status': getattr(fingerprint, 'status', 'unknown'),
-                'created_at': fingerprint.created_at,
-                'updated_at': getattr(fingerprint, 'updated_at', None),
-                'has_fingerprint': fingerprint is not None,
-            }
+    """Statistics and startup cleanup for fingerprints."""
 
     def get_fingerprint_stats(self) -> dict[str, int]:
         """Get overall fingerprint statistics.

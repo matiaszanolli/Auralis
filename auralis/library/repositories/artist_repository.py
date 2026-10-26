@@ -24,8 +24,8 @@ def _attach_genre_names(session: Session, artists: Sequence[Artist]) -> None:
     The list endpoint needs the distinct genre names across each artist's
     tracks — and nothing else off those tracks. Eager-loading
     `Artist.tracks -> Track.genres` to get them hydrated every full Track row
-    on the page, including the unbounded `lyrics` and `fingerprint_vector`
-    Text columns, so cost scaled with tracks-per-artist rather than page size.
+    on the page, including the unbounded `lyrics` Text column, so cost scaled
+    with tracks-per-artist rather than page size.
 
     This is one grouped SELECT over the association tables returning only
     (artist_id, genre name) pairs, so its row count is bounded by

@@ -14,7 +14,6 @@ Tests the 25D fingerprint extraction pipeline, including:
 """
 
 import json
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -92,7 +91,6 @@ def library_database_mock():
                 def __init__(self, filepath, track_id=1):
                     self.id = track_id
                     self.filepath = filepath
-                    self.fingerprint_status = 'pending'
 
             track = MockTrack(track_info.get('filepath', ''))
             self.tracks[track_info.get('filepath', '')] = track
@@ -221,25 +219,19 @@ class TestScannerFingerprinterIntegration:
 class TestFingerprintDatabaseIntegration:
     """Tests for fingerprint database schema"""
 
-    def test_track_model_has_fingerprint_columns(self):
-        """Test that Track model has fingerprint columns"""
+    def test_track_model_has_no_per_track_fingerprint_columns(self):
+        """The fingerprint lives in track_fingerprints; the four never-written
+        tracks.fingerprint_* columns were dropped in schema v27 (#5755)."""
         from auralis.library.models import Track
 
-        # Check column existence by inspecting table columns
-        columns = [col.name for col in Track.__table__.columns]
+        columns = {col.name for col in Track.__table__.columns}
 
-        assert 'fingerprint_status' in columns
-        assert 'fingerprint_computed_at' in columns
-        assert 'fingerprint_error_message' in columns
-        assert 'fingerprint_vector' in columns
-
-    def test_track_fingerprint_status_default(self):
-        """Test fingerprint status default value"""
-        from auralis.library.models import Track
-
-        # Check default value
-        fingerprint_status_col = Track.__table__.columns['fingerprint_status']
-        assert fingerprint_status_col.default.arg == 'pending'
+        assert not {
+            'fingerprint_status',
+            'fingerprint_computed_at',
+            'fingerprint_error_message',
+            'fingerprint_vector',
+        } & columns
 
 
 # Tests for fingerprint data format

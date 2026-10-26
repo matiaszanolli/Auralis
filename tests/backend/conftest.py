@@ -445,7 +445,6 @@ def mock_repository_factory():
             'progress_percent': 0
         }
     )
-    factory.fingerprint_stats.get_fingerprint_status = Mock(return_value=None)
     factory.fingerprint_stats.cleanup_incomplete_fingerprints = Mock(return_value=0)
 
     # Mock settings operations
