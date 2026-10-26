@@ -52,7 +52,7 @@ export const AlbumsTab = ({
         sx={{
           padding: 4,
           textAlign: 'center',
-          background: tokens.colors.opacityScale.white.ultraLight, // #3950
+          background: themeVars.panelFill, // #3950, #6056
           borderRadius: 2,
         }}
       >

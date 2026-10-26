@@ -23,7 +23,7 @@ export const StyledListItemButton = styled(ListItemButton, {
       ? tokens.colors.opacityScale.accent.light
       : selected
         ? tokens.colors.opacityScale.accent.lighter
-        : tokens.colors.opacityScale.white.veryLight,
+        : themeVars.hoverFill,
   },
 }));
 

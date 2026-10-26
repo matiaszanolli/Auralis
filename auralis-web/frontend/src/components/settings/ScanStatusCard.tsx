@@ -34,7 +34,12 @@ export const ScanStatusCard = ({ disabled = false, onScanNow }: ScanStatusCardPr
     return (
       <Box
         sx={{
-          ...tokens.glass.subtle,
+          // #6056: glass.subtle.background is a dark tint with no light-mode variant
+        // (secondary text fell to 3.5:1 on it); surfaceTranslucent resolves per mode (#4534).
+        background: themeVars.surfaceTranslucent,
+        backdropFilter: tokens.glass.subtle.backdropFilter,
+        border: tokens.glass.subtle.border,
+        boxShadow: tokens.glass.subtle.boxShadow,
           borderRadius: tokens.borderRadius.sm,
           p: tokens.spacing.md,
           display: 'flex',
@@ -58,7 +63,12 @@ export const ScanStatusCard = ({ disabled = false, onScanNow }: ScanStatusCardPr
       aria-live="polite"
       role="status"
       sx={{
-        ...tokens.glass.subtle,
+        // #6056: glass.subtle.background is a dark tint with no light-mode variant
+        // (secondary text fell to 3.5:1 on it); surfaceTranslucent resolves per mode (#4534).
+        background: themeVars.surfaceTranslucent,
+        backdropFilter: tokens.glass.subtle.backdropFilter,
+        border: tokens.glass.subtle.border,
+        boxShadow: tokens.glass.subtle.boxShadow,
         borderRadius: tokens.borderRadius.sm,
         overflow: 'hidden',
       }}

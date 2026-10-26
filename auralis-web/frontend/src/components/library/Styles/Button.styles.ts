@@ -42,7 +42,7 @@ export const GradientButton = styled(Button)({
 
   '&:disabled': {
     background: tokens.colors.opacityScale.accent.strong,
-    color: tokens.colors.opacityScale.white.veryStrong,
+    color: themeVars.onAccentDisabled,
   },
 
   transition: `${tokens.transitions.all}, backdrop-filter ${tokens.transitions.base}`,
@@ -94,7 +94,7 @@ export const SaveButton = styled(Button)(({ theme: _theme }) => ({
 
   '&:disabled': {
     background: tokens.colors.opacityScale.accent.strong,
-    color: tokens.colors.opacityScale.white.veryStrong,
+    color: themeVars.onAccentDisabled,
   },
 
   transition: `${tokens.transitions.all}, backdrop-filter ${tokens.transitions.base}`,

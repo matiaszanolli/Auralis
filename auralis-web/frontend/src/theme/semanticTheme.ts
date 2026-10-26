@@ -29,6 +29,20 @@ export interface SemanticTheme {
   switchThumb: string;
   /** Two-state switch track, off state. */
   switchTrack: string;
+  /**
+   * Fills for controls and containers on a themed surface (#6056). Dark is a
+   * faint white wash and light a faint dark/accent wash: a white-alpha fill is
+   * invisible on the light palette, so none of these may be built from
+   * `opacityScale.white` in component code.
+   */
+  /** Quiet container behind a control group or empty state. */
+  panelFill: string;
+  /** Hover tint for rows and unselected segments. */
+  hoverFill: string;
+  /** Selected row/segment; must stay distinguishable from `hoverFill` and `panelFill`. */
+  selectedFill: string;
+  /** Label on a disabled accent-filled button. */
+  onAccentDisabled: string;
   textPrimary: string;
   textStrong: string;
   textSecondary: string;
@@ -69,6 +83,10 @@ const darkSemanticTheme: SemanticTheme = {
   glassFillHover: tokens.glass.starfield.sharp,
   switchThumb: tokens.colors.opacityScale.white.veryStrong,
   switchTrack: tokens.colors.opacityScale.white.lighter,
+  panelFill: tokens.colors.opacityScale.white.ultraLight,
+  hoverFill: tokens.colors.opacityScale.white.micro,
+  selectedFill: tokens.colors.opacityScale.white.subtle,
+  onAccentDisabled: tokens.colors.opacityScale.white.veryStrong,
   textPrimary: tokens.colors.text.primary,
   textStrong: tokens.colors.text.primaryFull,
   textSecondary: tokens.colors.text.secondary,
@@ -112,6 +130,12 @@ const lightSemanticTheme: SemanticTheme = {
   glassFillHover: tokens.glass.strong.backgroundLight,
   switchThumb: tokens.colors.opacityScale.dark.nearOpaque,
   switchTrack: tokens.colors.opacityScale.dark.lighter,
+  // #6056: the dark-ink partners of the white-alpha fills above. Selected takes
+  // the accent so it differs from hover/panel by fill, not only by text colour.
+  panelFill: tokens.colors.opacityScale.dark.veryLight,
+  hoverFill: tokens.colors.opacityScale.dark.veryLight,
+  selectedFill: tokens.colors.opacityScale.accent.lighter,
+  onAccentDisabled: tokens.colors.lightMode.text.secondary,
   textPrimary: tokens.colors.lightMode.text.primary,
   textStrong: tokens.colors.lightMode.text.primary,
   textSecondary: tokens.colors.lightMode.text.secondary,
@@ -156,6 +180,10 @@ export const themeVars = {
   glassFillHover: 'var(--app-glass-fill-hover)',
   switchThumb: 'var(--app-switch-thumb)',
   switchTrack: 'var(--app-switch-track)',
+  panelFill: 'var(--app-panel-fill)',
+  hoverFill: 'var(--app-hover-fill)',
+  selectedFill: 'var(--app-selected-fill)',
+  onAccentDisabled: 'var(--app-on-accent-disabled)',
   textPrimary: 'var(--app-text-primary)',
   textStrong: 'var(--app-text-strong)',
   textSecondary: 'var(--app-text-secondary)',
@@ -196,6 +224,10 @@ export const getSemanticCssVariables = (mode: ThemeMode): Record<string, string>
     '--app-glass-fill-hover': theme.glassFillHover,
     '--app-switch-thumb': theme.switchThumb,
     '--app-switch-track': theme.switchTrack,
+    '--app-panel-fill': theme.panelFill,
+    '--app-hover-fill': theme.hoverFill,
+    '--app-selected-fill': theme.selectedFill,
+    '--app-on-accent-disabled': theme.onAccentDisabled,
     '--app-text-primary': theme.textPrimary,
     '--app-text-strong': theme.textStrong,
     '--app-text-secondary': theme.textSecondary,

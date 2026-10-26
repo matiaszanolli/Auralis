@@ -71,6 +71,36 @@ function isProductionSource(path: string): boolean {
 
 const DARK_ONLY = /tokens\.colors\.(?:text|bg)\.[A-Za-z0-9]+/g;
 
+/**
+ * White-alpha primitives, and the `glass.subtle` members that are not
+ * theme-agnostic (`.background` and the bare object, as in a spread).
+ */
+const WHITE_ALPHA_FILL =
+  /tokens\.colors\.opacityScale\.white\.\w+|tokens\.glass\.subtle\b(?!\.(?:backdropFilter|border|boxShadow)\b)/g;
+
+/**
+ * Files whose white-alpha / glass.subtle use is deliberate and not a themed
+ * fill: glow rings and inner highlights on accent-gradient or artwork-backed
+ * elements, which are dark in both modes. Matched by basename. This list may
+ * only shrink; the test below fails on an entry that no longer matches.
+ *
+ * - Button.styles.ts, PlaybackControlsStyles.ts, MediaCard.tsx,
+ *   WaveformVisualization.tsx, CharacterTags.tsx: rings/highlights on gradient
+ *   buttons and artwork-coloured chips.
+ * - TrackRowAlbumArt.tsx: glyph on the dark artwork placeholder tile.
+ * - PlaylistList.styles.ts, PlaybackControlsStyles.ts: `glass.subtle.background`
+ *   as a hover wash - the same defect class, not in #6056's scope.
+ */
+const DARK_BY_DESIGN = new Set([
+  'Button.styles.ts',
+  'PlaybackControlsStyles.ts',
+  'MediaCard.tsx',
+  'WaveformVisualization.tsx',
+  'CharacterTags.tsx',
+  'TrackRowAlbumArt.tsx',
+  'PlaylistList.styles.ts',
+]);
+
 describe('dark-only token leak (#4877)', () => {
   it('no production source reads a dark-only text/bg primitive', () => {
     const offenders: string[] = [];
@@ -84,6 +114,34 @@ describe('dark-only token leak (#4877)', () => {
     // Named explicitly rather than counted: the failure message should tell you
     // which file and which token, not just that a number moved.
     expect(offenders).toEqual([]);
+  });
+
+  it('no themed component builds a fill from opacityScale.white or tokens.glass.subtle (#6056)', () => {
+    // White-alpha (3-15% white) is invisible on the light palette and
+    // glass.subtle's 25% navy turns into a grey wash under dark ink. Use the
+    // panelFill / hoverFill / selectedFill / borderSubtle / surfaceTranslucent
+    // roles. The theme-agnostic glass.subtle.{backdropFilter,border,boxShadow}
+    // members are fine.
+    const offenders: string[] = [];
+
+    for (const [path, source] of Object.entries(sources)) {
+      if (!isProductionSource(path) || DARK_BY_DESIGN.has(basename(path))) continue;
+      const hits = stripComments(source).match(WHITE_ALPHA_FILL);
+      if (hits) offenders.push(`${path}: ${[...new Set(hits)].join(', ')}`);
+    }
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('every DARK_BY_DESIGN exemption still has a hit (the list only shrinks)', () => {
+    for (const exempt of DARK_BY_DESIGN) {
+      const entry = Object.entries(sources).find(([path]) => basename(path) === exempt);
+      expect(entry, `${exempt} no longer exists - drop it from DARK_BY_DESIGN`).toBeDefined();
+      expect(
+        stripComments(entry![1]).match(WHITE_ALPHA_FILL),
+        `${exempt} no longer uses a white-alpha / glass.subtle fill - drop it from DARK_BY_DESIGN`
+      ).not.toBeNull();
+    }
   });
 
   it('the sweep actually inspects the tree (guards against a broken glob)', () => {

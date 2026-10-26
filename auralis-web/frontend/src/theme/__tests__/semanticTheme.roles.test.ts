@@ -15,6 +15,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { tokens } from '@/design-system/tokens';
 import { getSemanticTheme, type SemanticTheme, type ThemeMode } from '../semanticTheme';
 
 /** Parse `#rgb`/`#rrggbb`/`rgb()`/`rgba()` into [r, g, b, a] (0-255 / 0-1). */
@@ -139,5 +140,72 @@ describe('glass/menu/switch semantic roles (#5641)', () => {
     // The switch sits on the album pane — the themed canvas, not artwork.
     const canvas = toChannels(light.canvas);
     expect(contrast(light.switchThumb, light.switchTrack, canvas)).toBeGreaterThanOrEqual(3);
+  });
+});
+
+/** Dark-mode pin for the fill roles: the white-alphas the components used before (#6056). */
+const FILL_DARK_PIN: Record<string, string> = {
+  panelFill: 'rgba(255, 255, 255, 0.03)',
+  hoverFill: 'rgba(255, 255, 255, 0.04)',
+  selectedFill: 'rgba(255, 255, 255, 0.08)',
+  onAccentDisabled: 'rgba(255, 255, 255, 0.50)',
+};
+
+describe('fill and disabled-label semantic roles (#6056)', () => {
+  const light = getSemanticTheme('light');
+  const canvas = toChannels(light.canvas);
+  const raised = toChannels(light.surfaceRaised);
+
+  it('dark mode keeps the exact white-alpha values the components used', () => {
+    const dark = getSemanticTheme('dark');
+    for (const [role, expected] of Object.entries(FILL_DARK_PIN)) {
+      expect(dark[role as keyof SemanticTheme]).toBe(expected);
+    }
+  });
+
+  it('both modes define every role, and light never reuses a white-alpha', () => {
+    for (const role of Object.keys(FILL_DARK_PIN) as (keyof SemanticTheme)[]) {
+      for (const mode of ['light', 'dark'] as ThemeMode[]) {
+        expect(getSemanticTheme(mode)[role].length).toBeGreaterThan(0);
+      }
+      // White-alpha on the #FFFFFF / #F8F9FD palette is invisible - the bug.
+      expect(light[role]).not.toMatch(/rgba\(255, 255, 255/);
+    }
+  });
+
+  it.each(['panelFill', 'hoverFill', 'selectedFill'] as const)(
+    'light mode %s is visible on the canvas and raised surfaces and keeps text >= 4.5:1',
+    (role) => {
+      for (const backdrop of [canvas, raised]) {
+        const opaque = `rgb(${backdrop.map((c) => Math.round(c * 255)).join(', ')})`;
+        // Distinguishable from the surface it sits on.
+        expect(contrast(light[role], opaque, backdrop)).toBeGreaterThanOrEqual(1.05);
+        // Text on the fill.
+        expect(contrast(light.textPrimary, light[role], backdrop)).toBeGreaterThanOrEqual(4.5);
+        expect(contrast(light.textSecondary, light[role], backdrop)).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  );
+
+  it('light mode selected segments differ from hover and panel by fill, not only by text colour', () => {
+    expect(contrast(light.selectedFill, light.hoverFill, canvas)).toBeGreaterThanOrEqual(1.05);
+    expect(contrast(light.selectedFill, light.panelFill, canvas)).toBeGreaterThanOrEqual(1.05);
+  });
+
+  it('light mode disabled accent-button label meets 3:1 on the disabled fill', () => {
+    // Button.styles' :disabled state: accent.strong fill, over the themed canvas.
+    for (const backdrop of [canvas, raised]) {
+      expect(
+        contrast(light.onAccentDisabled, tokens.colors.opacityScale.accent.strong, backdrop)
+      ).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it('light mode secondary and muted text meet 4.5:1 on the settings-card surface', () => {
+    // ScanStatusCard / FingerprintCoverageCard sit on surfaceTranslucent over the canvas.
+    for (const backdrop of [canvas, raised]) {
+      expect(contrast(light.textSecondary, light.surfaceTranslucent, backdrop)).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(light.textMuted, light.surfaceTranslucent, backdrop)).toBeGreaterThanOrEqual(4.5);
+    }
   });
 });
