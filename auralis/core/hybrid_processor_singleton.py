@@ -25,6 +25,7 @@ import numpy as np
 
 from ..utils.logging import debug
 from .config import UnifiedConfig
+from .config.config_hash import hash_config
 from .hybrid_processor import HybridProcessor
 
 
@@ -48,9 +49,10 @@ def _get_or_create_processor(config: UnifiedConfig | None, mode: str) -> HybridP
     Returns:
         Cached or newly created HybridProcessor instance
     """
-    # Preserve identity-based cache compatibility while giving each cached
-    # processor its own config snapshot below (#4827).
-    cache_key = f"{id(config)}_{mode}" if config is not None else f"default_{mode}"
+    # Content hash, not id(config): the cached processor is built from a deep
+    # copy (#4827), so the caller's config can be freed while its entry stays,
+    # and CPython then hands the address to an unrelated config (#6087).
+    cache_key = f"{hash_config(config)}_{mode}"
 
     with _processor_cache_lock:
         cached = _processor_cache.get(cache_key)
@@ -99,6 +101,24 @@ def _get_or_create_processor(config: UnifiedConfig | None, mode: str) -> HybridP
     return processor
 
 
+def _process_from_clean_state(
+    processor: HybridProcessor, target: np.ndarray, reference: np.ndarray | None = None
+) -> np.ndarray | None:
+    """Process on a shared cached processor as if it were freshly built (#6087).
+
+    The limiter's gain reduction and the EQ's smoothing persist across
+    ``process()`` calls for intra-track continuity, so an unrelated second input
+    would start from the first one's leftovers. Resetting and processing under
+    one hold of the (re-entrant) lock keeps a concurrent caller from running
+    between the two.
+    """
+    with processor._process_lock:
+        processor.reset_psychoacoustic_eq()
+        processor.reset_limiter()
+        processor.reset_run_state()
+        return processor.process(target, reference)
+
+
 def process_adaptive(target: np.ndarray,
                     config: UnifiedConfig | None = None) -> np.ndarray:
     """
@@ -108,7 +128,7 @@ def process_adaptive(target: np.ndarray,
     First call initializes components (~500ms), subsequent calls are instant.
     """
     processor = _get_or_create_processor(config, "adaptive")
-    result = processor.process(target)
+    result = _process_from_clean_state(processor, target)
     if result is None:
         # raise, not assert: asserts vanish under python -O (#5511)
         raise RuntimeError("HybridProcessor.process() returned None in adaptive mode")
@@ -125,7 +145,7 @@ def process_reference(target: np.ndarray,
     First call initializes components (~500ms), subsequent calls are instant.
     """
     processor = _get_or_create_processor(config, "reference")
-    result = processor.process(target, reference)
+    result = _process_from_clean_state(processor, target, reference)
     if result is None:
         # raise, not assert: asserts vanish under python -O (#5511)
         raise RuntimeError("HybridProcessor.process() returned None in reference mode")

@@ -9,9 +9,9 @@ both the factory and its maintenance mixin can depend on it.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-import hashlib
-import json
-from typing import Any, NamedTuple
+from typing import NamedTuple
+
+from auralis.core.config.config_hash import hash_config as hash_config
 
 
 class ProcessorCacheKey(NamedTuple):
@@ -81,22 +81,5 @@ def build_cache_key(
 # #4666: the targets hasher lives in core/targets_hash.get_targets_hash. The
 # chunk caches (ChunkCacheManager keys, the WAVEncoder on-disk filename) key on
 # targets too, and every tier must derive the hash IDENTICALLY — so the one
-# implementation is shared rather than copied per tier.
-
-
-def hash_config(config: Any | None) -> str:
-    """
-    Get hash of config object for cache key.
-
-    Args:
-        config: UnifiedConfig instance or None
-
-    Returns:
-        Config hash string
-    """
-    if config is None:
-        return "default"
-
-    # Content-based hash so equivalent configs share cache entries
-    config_str = json.dumps(config.to_dict(), sort_keys=True)
-    return hashlib.md5(config_str.encode()).hexdigest()
+# implementation is shared rather than copied per tier. hash_config itself lives
+# in auralis.core.config.config_hash so the library API keys on it too (#6087).

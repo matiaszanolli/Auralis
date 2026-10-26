@@ -77,9 +77,11 @@ class TestCacheEviction:
         with patch.object(hp_module, 'HybridProcessor', return_value=mock_processor), \
              patch.object(hp_module, 'UnifiedConfig') as MockConfig:
             MockConfig.return_value = MagicMock()
-            for _ in range(total):
-                # Retain each object so CPython cannot reuse its identity.
+            for i in range(total):
+                # The cache keys on config content (#6087), so each fake config
+                # needs distinct content, not just a distinct identity.
                 cfg = MagicMock()
+                cfg.to_dict.return_value = {"n": i}
                 configs.append(cfg)
                 hp_module._get_or_create_processor(cfg, "adaptive")
 
@@ -298,8 +300,9 @@ class TestEvictedProcessorIsClosed:
 
         with patch.object(hp_module, 'HybridProcessor', side_effect=mock_processors), \
              patch.object(hp_module, 'UnifiedConfig', return_value=MagicMock()):
-            for _ in range(_PROCESSOR_CACHE_MAX_SIZE + 1):
+            for i in range(_PROCESSOR_CACHE_MAX_SIZE + 1):
                 cfg = MagicMock()
+                cfg.to_dict.return_value = {"n": i}  # distinct content (#6087)
                 configs.append(cfg)
                 hp_module._get_or_create_processor(cfg, "adaptive")
 
