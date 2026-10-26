@@ -1,6 +1,6 @@
 ---
 description: "Recommend which audit(s) to run based on recent changes and audit history — the starting point, not an audit itself"
-argument-hint: "[--since <date>] [--limit <N>]"
+argument-hint: "[--since <ref>] [--full]"
 ---
 
 # Audit Advisor & Orchestrator
@@ -47,14 +47,15 @@ Categorize changed files by risk domain:
 | Frontend Hooks | `auralis-web/frontend/src/hooks/*` | `/audit-frontend`, `/audit-integration` |
 | Frontend Store | `auralis-web/frontend/src/store/*` | `/audit-frontend` |
 | Frontend Contexts | `auralis-web/frontend/src/contexts/*` | `/audit-frontend`, `/audit-integration` |
-| Frontend API & types | `auralis-web/frontend/src/services/*`, `auralis-web/frontend/src/api/*`, `auralis-web/frontend/src/types/*` | `/sync-contracts`, `/audit-frontend` |
+| Frontend API & types | `auralis-web/frontend/src/services/*`, `auralis-web/frontend/src/api/*`, `auralis-web/frontend/src/utils/*` (`apiRequest.ts`, `httpError.ts`, `queryRetry.ts`), `auralis-web/frontend/src/types/*` | `/sync-contracts`, `/audit-frontend` |
 | Design system | `auralis-web/frontend/src/design-system/*` | `/audit-frontend` |
 | Rust DSP | `vendor/auralis-dsp/*` | `/audit-engine`, `/audit-security` |
 | Config/Middleware | `auralis-web/backend/config/*` (CORS, rate limit, security headers, routes, lifespan), `auralis-web/backend/main.py` | `/audit-security`, `/audit-backend` |
 | Security modules | `auralis-web/backend/security/*`, `auralis-web/backend/websocket/websocket_security.py` | `/audit-security` |
 | Desktop shell | `desktop/*` (Electron) | `/audit-deprecation` (Electron APIs). No audit checks Electron hardening (`desktop/main.js`, `desktop/preload.js`) yet — flag it as a coverage gap rather than routing it to `/audit-security`, which does not read `desktop/` |
 | Tests | `tests/*` | `/audit-regression` |
-| CI & tooling | `.github/*`, `scripts/*`, `pytest-baseline.json`, `auralis-web/frontend/test-baseline.json` | `/audit-deprecation` (workflows, gate scripts, guards), `/audit-tech-debt` (`scripts/check_loc_ratchet.py`, baselines) |
+| CI & tooling | `.github/*`, `scripts/*`, `pytest-baseline.json`, `auralis-web/frontend/test-baseline.json`, `loc-ceilings.json` | `/audit-deprecation` (workflows, gate scripts, guards), `/audit-tech-debt` (`scripts/check_loc_ratchet.py`, `scripts/check_breadcrumbs.py`, `scripts/check_weak_assertions.py`, baselines) |
+| Docs & contributor guides | `CLAUDE.md`, `AGENTS.md`, `docs/*`, `README.md`, `auralis-web/backend/WEBSOCKET_API.md` | `/audit-tech-debt` (doc rot); `python3 scripts/check_doc_counts.py --check-docs` for the shared counts |
 | Audit skills | `.claude/commands/*`, `.claude/agents/*` | `/audit-sync` (re-sync claims; `_audit-validate.sh` for paths) |
 
 ## Step 2: Check Audit Coverage History
@@ -125,6 +126,7 @@ Based on changes, coverage freshness, and open issues, output a concrete audit p
 - Do NOT create GitHub issues. That's for `/audit-publish`.
 - Base recommendations on evidence (git log, file diffs, audit history), not assumptions.
 - If `--full` is passed, recommend the full suite: `/audit-suite --preset comprehensive`.
+- Recommend `/audit-sync` when the audit skills have drifted: `git rev-list --count "$(cut -d' ' -f1 .claude/commands/audit-sync/BASELINE)"..HEAD` above ~100 commits (the `/verify-release` Gate 13 threshold), or when any "Audit skills" row above matched.
 - Always recommend `/audit-incremental` as a quick win if there are unaudited commits.
 - Recommend `/audit-tech-debt` (or `/audit-suite --preset tech-debt-deep`) when a milestone just closed, after a large refactor, or when `AUDIT_TECH_DEBT_*.md` has never run / is >90 days stale — it targets debt (markers, dead code, duplication, oversized files), not correctness, so it complements rather than overlaps the bug-hunting audits.
 - **Note**: Deep audits now use subagent architecture internally — they will not exhaust the context window.

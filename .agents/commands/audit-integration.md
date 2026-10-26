@@ -34,14 +34,14 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 |------|-------|------|
 | User clicks play | Frontend | `src/hooks/player/` hooks (`usePlayTrack.ts` sets the queue over REST), `src/store/` player slice |
 | Play command | Frontend | `auralis-web/frontend/src/hooks/enhancement/useEnhancedPlayCommand.ts` — fetches the track over REST, then sends the WS `play_enhanced` / `play_normal` command (audio streaming is WebSocket-only; no REST streaming endpoint) |
-| Command handler | Backend | `auralis-web/backend/ws_handlers/connection.py` (`dispatch_message`) → `auralis-web/backend/ws_handlers/playback_commands.py` → stream tasks in `auralis-web/backend/routers/system_streams.py` |
+| Command handler | Backend | `auralis-web/backend/ws_handlers/connection.py` (`dispatch_message`) → `auralis-web/backend/ws_handlers/playback_commands.py` (play) / `auralis-web/backend/ws_handlers/seek_command.py` (seek, #6269) → stream tasks in `auralis-web/backend/routers/system_streams.py` |
 | Audio loading | Engine | `auralis/io/unified_loader.py` |
 | Processing | Engine | `auralis/core/hybrid_processor.py` → `simple_mastering.py` |
 | Chunking | Backend | `chunked_processor.py` (15s render windows with context, emitted as 10s non-overlapping segments — no crossfade, #4642) |
 | WebSocket stream | Backend | `audio_stream_controller.py` |
 | Audio playback | Frontend | `auralis-web/frontend/src/hooks/websocket/socketFrameParser.ts` → `auralis-web/frontend/src/services/audio/` (`PCMStreamBuffer.ts` + `pcmRingOps.ts`, `BufferScheduler.ts`, `WorkletOutput.ts`) |
 
-**Check**: Sample rate consistency from file to playback. Chunk boundaries — do the emitted segments tile exactly, with no gap, overlap or repeated samples at the seams, both in the backend stream and in the frontend PCM buffer? WebSocket binary frame format — does the frontend decode it correctly? What happens when processing is slower than playback?
+**Check**: Sample rate consistency from file to playback. Chunk boundaries — do the emitted segments tile exactly, with no gap, overlap or repeated samples at the seams, both in the backend stream and in the frontend PCM buffer? WebSocket binary frame format — does the frontend decode it correctly? What happens when processing is slower than playback? Flow control: after `buffer_full` the server parks on its gate and sends nothing, so resume cannot wait for the next chunk — `auralis-web/frontend/src/hooks/enhancement/flowDrainWatch.ts` polls the ring and sends `buffer_ready`, bounded server-side in `auralis-web/backend/core/stream_gates.py` (regression guard: fixed in `3a1ab313`, #5863, pinned by `tests/backend/test_flow_gate_bound_5863.py`). Is the frontend start gate expressed in seconds, with the watchdog derived from `BACKEND_STREAM_TIMING` in `auralis-web/frontend/src/services/audio/audioConstants.ts` (#6232, `a3488cff`)?
 
 ### Flow 2: Library Browsing
 
@@ -68,7 +68,7 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 | DSP pipeline | Engine | `auralis/core/hybrid_processor.py` → DSP modules |
 | Real-time application | Engine | `auralis/player/realtime/` |
 
-**Check**: Config format — do frontend slider values map correctly to engine parameters? Does the transport actually pass the *current* preset/intensity through to playback, or re-read stale Redux state? Range validation — can the frontend send out-of-range values? Preset validation — schema v23 rewrote every stored `default_preset` to `'adaptive'` and the read-side degrade branches were deleted (`90245885`, #5824), so `SettingsResponse.default_preset` is non-nullable and the frontend types it without `| null`; any path that can still write an off-list preset (bypassing the `EnhancementPresetLiteral` request validation) would now reach the UI and the engine unfiltered. `enhancement_intensity` still degrades to null on read, and callers must fall back (#5517). Real-time vs offline — is the same config used for both paths? Do the enhancement settings participate in the chunk cache key, or can a settings change serve cached audio mastered with the *previous* settings? Latency — does enhancement cause audible gaps?
+**Check**: Config format — do frontend slider values map correctly to engine parameters? Does the transport actually pass the *current* preset/intensity through to playback, or re-read stale Redux state? Range validation — can the frontend send out-of-range values? Preset validation — the v23 migration rewrote every stored `default_preset` to `'adaptive'` and the read-side degrade branches were deleted (`90245885`, #5824), so `SettingsResponse.default_preset` is non-nullable and the frontend types it without `| null`; any path that can still write an off-list preset (bypassing the `EnhancementPresetLiteral` request validation) would now reach the UI and the engine unfiltered. `enhancement_intensity` still degrades to null on read, and callers must fall back (#5517). Real-time vs offline — is the same config used for both paths? Do the enhancement settings participate in the chunk cache key, or can a settings change serve cached audio mastered with the *previous* settings? Latency — does enhancement cause audible gaps?
 
 ### Flow 4: Library Scanning
 
@@ -83,7 +83,7 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 | Progress updates | Backend | WebSocket `library_scan_started` / `scan_progress` / `scan_complete` / `library_scan_error` frames from `auralis-web/backend/routers/library_scan_events.py` (manual scan) and `auralis-web/backend/services/auto_scan_events.py` (auto-scan) |
 | UI update | Frontend | `auralis-web/frontend/src/hooks/library/useScanProgress.ts` — a module-level store fed by one refcounted WS subscription, read via `useSyncExternalStore` (#5622), not Redux |
 
-**Check**: Progress reporting — does the frontend receive scan progress? Error handling — what happens when a file can't be read? Duplicate detection — does rescan handle already-imported tracks? Large folders — timeout or chunking?
+**Check**: Progress reporting — does the frontend receive scan progress? Error handling — what happens when a file can't be read? Duplicate detection — does rescan handle already-imported tracks? Streaming allowlist — a manual scan of a folder outside the default roots must also register it via `/api/settings/scan-folders` (`useLibraryScan.ts`, fixed in `4cbd2e4c`, #5865), or its tracks list fine and then stream as "Audio file not found"? Large folders — timeout or chunking?
 
 ### Flow 5: WebSocket Lifecycle
 
@@ -92,11 +92,11 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 | Connection init | Frontend | `src/hooks/websocket/`, `src/contexts/WebSocketContext.tsx`, `src/contexts/PlaybackSessionContext.tsx` (shared streaming session) |
 | WS endpoint | Backend | `auralis-web/backend/routers/system.py` (module-level `websocket_endpoint`, registered with `add_api_websocket_route`, #5832); the per-connection stream task registries live in `auralis-web/backend/routers/system_streams.py` |
 | WS accept + checks | Backend | `auralis-web/backend/ws_handlers/connection.py`, `auralis-web/backend/websocket/websocket_security.py` |
-| Message routing | Backend | `auralis-web/backend/ws_handlers/messages.py`, `playback_commands.py`, `playback_control.py` |
-| Protocol contract | Backend | `auralis-web/backend/websocket/websocket_protocol.py`, `auralis-web/backend/websocket/outbound_messages.py`, `auralis-web/backend/core/stream_protocol.py`, `auralis-web/backend/core/stream_lifecycle.py` / `stream_notifications.py` |
+| Message routing | Backend | `auralis-web/backend/ws_handlers/messages.py`, `playback_commands.py`, `seek_command.py`, `playback_control.py` (shared bundles in `context.py`; preset/intensity resolution in `enhancement_params.py`) |
+| Protocol contract | Backend | `auralis-web/backend/websocket/websocket_protocol.py`, `auralis-web/backend/websocket/outbound_messages.py` (`broadcast_typed` overloads) with its payload TypedDicts in `auralis-web/backend/websocket/outbound/` (player, queue, library, enhancement; split out in #6269), `auralis-web/backend/core/stream_protocol.py`, `auralis-web/backend/core/stream_lifecycle.py` / `stream_notifications.py` |
 | Binary audio frames | Backend | `auralis-web/backend/core/encoding/wav_encoder.py`, `auralis-web/backend/core/audio_stream_controller.py` |
 | Frame decode | Frontend | `auralis-web/frontend/src/hooks/websocket/socketFrameParser.ts` (binary PCM pairing, heartbeat reply, `audio_chunk_meta.seq` desync check) → `auralis-web/frontend/src/services/audio/` |
-| Timing policy | Both | heartbeat `WS_HEARTBEAT_INTERVAL_SECONDS` / `WS_HEARTBEAT_TIMEOUT_SECONDS` in `auralis-web/backend/config/limits.py`; reconnect backoff in `WebSocketManager` (`auralis-web/frontend/src/utils/errorHandling.ts`) — one definition each since #5800 |
+| Timing policy | Both | heartbeat `WS_HEARTBEAT_INTERVAL_SECONDS` / `WS_HEARTBEAT_TIMEOUT_SECONDS` in `auralis-web/backend/config/limits.py`; reconnect backoff in `WebSocketManager` (`auralis-web/frontend/src/utils/errorHandling.ts`) — one definition each since #5800; the reconnect budget is `DEFAULT_MAX_RECONNECT_ATTEMPTS` / `DEV_MAX_RECONNECT_ATTEMPTS` in `auralis-web/frontend/src/config/timing.ts`, shared by the manager, `useWebSocketConnection.ts` and the connection slice's `canReconnect` (#6220) |
 
 **Check**: Connection establishment — handshake protocol? Message types — are all types documented and handled on both sides? Binary vs text frames — consistent usage? Reconnection — does the frontend re-establish state after disconnect? The shared subscription lifecycle is `useMessageSubscriptions` in `auralis-web/frontend/src/hooks/websocket/useWebSocketMessages.ts` (#5789) — does any hook still hand-roll a subscribe effect that resubscribes on a status flicker (#4668)? Backpressure — what happens when the frontend can't consume frames fast enough?
 
@@ -130,7 +130,7 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 | Step | Layer | File |
 |------|-------|------|
 | User drags the scrubber | Frontend | `auralis-web/frontend/src/hooks/player/`, player slice in `auralis-web/frontend/src/store/` |
-| Seek command | Frontend → Backend | `auralis-web/frontend/src/hooks/enhancement/useEnhancedSeek.ts` sends WS `seek` with `track_id` + `position` only; preset/intensity are resolved server-side from the connection's active stream settings (#5604) → `auralis-web/backend/ws_handlers/playback_commands.py` (`handle_seek`) |
+| Seek command | Frontend → Backend | `auralis-web/frontend/src/hooks/enhancement/useEnhancedSeek.ts` sends WS `seek` with `track_id` + `position` only; preset/intensity are resolved server-side from the connection's active stream settings (#5604) → `auralis-web/backend/ws_handlers/seek_command.py` (`handle_seek`) |
 | Seek stream path | Backend | `auralis-web/backend/core/stream_seek.py`, `auralis-web/backend/core/stream_chunk_ops.py` |
 | Chunk index math | Backend | `auralis-web/backend/core/chunk_boundaries.py` (`content_chunk_count()`, overlap-aware) |
 | Source seek | Backend | `auralis-web/backend/core/seekable_source.py` (converts non-seekable sources once, #4737) |
@@ -139,7 +139,7 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 | Level continuity | Backend | `auralis-web/backend/core/level_manager.py` |
 | Resume playback | Frontend | WebSocket hook → Web Audio API |
 
-**Check**: Position units — does the frontend send seconds where the backend expects samples (or ms)? Does the reported position after seek match what was requested, or drift by an overlap width? Are stale pre-seek chunks drained from both the backend buffer and the frontend audio queue, or does the user hear pre-seek audio after the jump? Rapid consecutive seeks — does the last one win, or do two streams interleave? Seek past end / to 0 — clamped consistently on both sides? Does the first post-seek chunk arrive at the right level, given it has no predecessor context?
+**Check**: Position units — does the frontend send seconds where the backend expects samples (or ms)? Does the reported position after seek match what was requested, or drift by an overlap width? Are stale pre-seek chunks drained from both the backend buffer and the frontend audio queue, or does the user hear pre-seek audio after the jump? Rapid consecutive seeks — does the last one win, or do two streams interleave? Seek past end / to 0 — clamped consistently on both sides? Does the first post-seek chunk arrive at the right level, given it has no predecessor context? Regression guards on the resume path: the frontend applies the backend `seek_position` to the playback clock (`e562e0d1`, #5860), discards buffer content superseded by the new stream's `audio_stream_start` epoch (`0fa8abbe`, #5861) and tears down the worklet queue and `streamEnded` latch when a new epoch replaces the buffer (`eb7f6e0c`, #5862).
 
 ### Flow 9: Queue & Playback State
 

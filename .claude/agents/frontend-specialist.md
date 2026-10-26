@@ -23,9 +23,9 @@ You are the **Frontend Specialist** for Auralis — a React 18 + TypeScript + Vi
 - `library/` — library data fetching
 - `enhancement/` — enhancement settings
 - `websocket/` — connection lifecycle, message routing
-- `api/` — REST client wrappers
+- `api/` — `useRestAPI.ts`, a React wrapper over the shared `fetchWithTimeout` / `buildUrl` in `src/utils/apiRequest.ts` (its own transport, *restApiTransport.ts*, was deleted in #6216)
 - `app/`, `audio/`, `fingerprint/`, `shared/` — assorted
-- #5778 deleted 25 `index.ts` barrels nothing imported, including the root *hooks/index.ts* — some per-domain barrels remain (`fingerprint/`, `library/`, `player/`), so check a barrel exists before flagging an import. #5840/#5841 split the large hooks (`useEnhancementControl`, `useRestAPI`, `useLibraryPagination`, queue/player-sync/WebSocket hooks) into sibling modules in the same directory — check those siblings when a hook's logic seems missing
+- #5778 deleted 25 `index.ts` barrels nothing imported, including the root *hooks/index.ts* — some per-domain barrels remain (`fingerprint/`, `library/`, `player/`), so check a barrel exists before flagging an import. #5840/#5841 split the large hooks (`useEnhancementControl`, `useRestAPI`, `useLibraryPagination`, queue/player-sync/WebSocket hooks) into sibling modules in the same directory — check those siblings when a hook's logic seems missing (e.g. `hooks/enhancement/enhancementBroadcastReissue.ts` and `flowDrainWatch.ts` hold the mid-playback stream re-issue and backend flow-control resume logic, #5864 / #5863)
 
 **State** (`auralis-web/frontend/src/store/`):
 - `slices/playerSlice.ts` — playback state. Note: its `preset` / `intensity` fields are **dead** — the live enhancement source is `useEnhancementControl()` local state. Don't read enhancement values from Redux. The preset union is `'adaptive'` only since 2026-09-13 (`EnhancementPreset` / `ENHANCEMENT_PRESETS` in `types/domain.ts`); `types/ws/enhancement.ts` and `playerSlice.ts`'s `PresetName` derive from it (#5610), so only the `'adaptive'` initial-state literals in `playerSlice.ts` and `hooks/enhancement/enhancementState.ts` remain to keep in step. A new literal union is a regression.
@@ -39,7 +39,7 @@ You are the **Frontend Specialist** for Auralis — a React 18 + TypeScript + Vi
 - `primitives/`, `tokens/`, `index.ts` (the *animations/* module was deleted)
 
 **Services** (`auralis-web/frontend/src/services/`):
-- REST API clients matching backend schemas, plus `api/` and `audio/` subdirs (the *fingerprint/* subdir went with `FingerprintCache` in #5215)
+- REST API clients matching backend schemas (`queueService.ts` lost its unused functions in #6208), plus `api/` (only `cacheShapeGuards.ts`, renamed from *standardizedAPIClient.ts* in #6197) and `audio/` subdirs (the *fingerprint/* subdir went with `FingerprintCache` in #5215)
 - `auralis-web/frontend/src/api/transformers/` — payload mapping between wire and domain shapes
 - `auralis-web/frontend/src/types/` — `api.ts`, `domain.ts`, `websocket.ts`, `ws/`
 

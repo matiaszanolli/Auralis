@@ -85,6 +85,8 @@ Audit the entire Auralis codebase for deprecated APIs, libraries, patterns, and 
 
 **Key locations**: `auralis-web/frontend/src/`
 
+**Current pins** (`auralis-web/frontend/package.json`): React 18.2 (`^18.2.0`), `@mui/material` 9, Redux Toolkit 2 / react-redux 9, Vite 8, Vitest 4, jsdom 30, TypeScript 5.9. MUI is on v9, so anything deprecated in v5-v8 may already be removed rather than merely deprecated.
+
 **Check**:
 - [ ] `ReactDOM.render()` — removed in React 18, use `createRoot()`
 - [ ] `componentWillMount`, `componentWillReceiveProps`, `componentWillUpdate` — deprecated since React 16.3
@@ -111,7 +113,7 @@ Audit the entire Auralis codebase for deprecated APIs, libraries, patterns, and 
 - [ ] `node:` protocol — are Node.js built-ins imported with the `node:` prefix where applicable?
 - [ ] Deprecated Node.js APIs (`fs.exists`, `url.parse` → `new URL()`, `querystring` → `URLSearchParams`)
 - [ ] `package.json` deprecated fields (`main` without `exports`, `engines` mismatches)
-- [ ] Deprecated ESLint config format (`.eslintrc.*` → flat config in *eslint.config.js*)
+- [ ] Deprecated ESLint config format (`.eslintrc.*` → flat config in *eslint.config.js*). ESLint is not installed or configured in this repo today; flag only if a legacy config reappears.
 - [ ] Deprecated testing library APIs (`cleanup` auto-behavior, `waitFor` patterns)
 - [ ] Deprecated Vitest configuration options
 - [ ] Electron deprecated APIs (if using older Electron patterns in `desktop/`)
@@ -120,7 +122,7 @@ Audit the entire Auralis codebase for deprecated APIs, libraries, patterns, and 
 
 **Key locations**: `vendor/auralis-dsp/`
 
-**Current pins** (`vendor/auralis-dsp/Cargo.toml`): edition 2024, `pyo3 = 0.29`, `numpy = 0.29`, `ndarray = 0.16`.
+**Current pins** (`vendor/auralis-dsp/Cargo.toml`): edition 2024, `pyo3 = 0.29`, `numpy = 0.29`, `ndarray = 0.16`, `rustfft = 6.1`, `rust-version = "1.85"`. The unused `realfft`/`criterion` deps were dropped in #6206 (`13b7d284`); flag one reappearing without a caller.
 
 **Check**:
 - [ ] Deprecated Rust standard library APIs (the crate is on edition 2024 since #5443)

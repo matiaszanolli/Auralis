@@ -31,7 +31,7 @@ Read the found test files and note:
 - Import patterns and fixtures used — import (and `patch()`) each symbol from the module that defines it, not a re-export: #5775 and #5827 removed the re-exports and compat shims that kept old test import paths alive, and the #5831–#5841 splits moved code into sibling modules and mixins, so a path copied from an older test can fail at collection or patch the wrong name
 - Assertion style (pytest asserts, parametrize, etc.)
 - Mock patterns (unittest.mock, monkeypatch, etc.)
-- Marker usage (`@pytest.mark.regression`, domain markers from `pytest.ini`)
+- Marker usage (`@pytest.mark.regression`, domain markers from `pytest.ini`; `--strict-markers` is on, so an unregistered marker is a collection error, and a test that needs the developer's personal library takes `local_library`, not an ambient skip, #6242)
 - Setup/teardown patterns
 
 ## Step 3: Generate Tests
@@ -73,6 +73,8 @@ assert np.all(output >= -1.0) and np.all(output <= 1.0), "Output exceeds [-1.0, 
 - MUST fail if the fix is reverted — test the exact condition that caused the bug
 - Reference the issue number in test name and docstring
 - Include the minimal reproduction case from the issue
+- Assert the specific value or behaviour, never only `is not None`, `assert True` or `len(x) >= 0`, and never leave a `test_*` with no assertion: `scripts/check_weak_assertions.py` (default and `--zero` modes, run in `backend-tests.yml`) fails on new offenders, and a baseline only shrinks (#5154, #5807, #6237)
+- Do not pin behaviour by reading source text (`inspect.getsource`, grep of a module) or by asserting on a `Mock` you configured yourself; call the real code (#6244, #6238)
 
 ### Frontend Tests (Vitest)
 

@@ -2,9 +2,10 @@
 WebSocket Playback Command Handlers
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Handlers for the three message types that create a new background streaming
-task: play_enhanced, play_normal, seek. Extracted verbatim from the
-websocket_endpoint dispatch loop in routers/system.py (#4074).
+Handlers for the message types that create a new background streaming
+task: play_enhanced and play_normal. Extracted verbatim from the
+websocket_endpoint dispatch loop in routers/system.py (#4074); the seek
+handler lives in seek_command.py (#6269).
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)

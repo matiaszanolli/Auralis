@@ -28,7 +28,7 @@ You are the **Backend Specialist** for Auralis — a FastAPI app at `:8765` that
 - `fingerprint_queue.py`, `fingerprint_status.py` — fingerprint pipeline
 - `processing_api.py` — direct processing endpoints; coordinator over `processing_upload.py`, `processing_jobs.py`, `processing_parameters.py`, `processing_models.py`, `processing_deps.py` (#5472)
 - `files.py`, `settings.py`, `cache_streamlined.py` — assorted
-- `dependencies.py`, `errors.py`, `pagination.py`, `serializers.py`, `similarity_common.py`, `repo_deps.py` (shared `RepositoryFactoryDeps`, #5832) — shared router infra (not registered)
+- `dependencies.py`, `errors.py`, `pagination.py`, `serializers.py` (+ `serializers_library.py`, the per-entity serializers, #6271), `similarity_common.py`, `repo_deps.py` (shared `RepositoryFactoryDeps`, #5832; albums / files / playlists / artwork resolve their factory through it, #6211) — shared router infra (not registered)
 
 There is **no** `wav_streaming` router — audio streaming goes over WebSocket via `core/audio_stream_controller.py` and the `stream_*.py` family.
 
@@ -36,32 +36,32 @@ There is **no** `wav_streaming` router — audio streaming goes over WebSocket v
 - `audio_stream_controller.py` — WebSocket audio streaming
 - `chunked_processor.py` — coordinator (#4245) over `chunk_render.py`, `chunk_streaming.py`, `chunk_batch.py`, `chunk_metadata.py`, `chunk_path_cache.py`, `chunk_processor_init.py`, `chunk_content_profile.py`, `chunk_fingerprint_registry.py`. Chunks are rendered over a 15s window with context and emitted as **10s non-overlapping segments — no boundary crossfade** (#4642). The unused crossfade helper that survived #4642 (*chunk_crossfade.py*, equal-gain sin²/cos², #3878) was deleted in #5776.
 - `chunk_boundaries.py` — **single source of truth** for `CHUNK_DURATION` (15.0), `CHUNK_INTERVAL` (10.0), `OVERLAP_DURATION` (5.0), `CONTEXT_DURATION` (5.0), and the overlap-aware `content_chunk_count()`
-- `chunk_cache_manager.py` (+ `chunk_disk_prune.py`), `chunk_path_cache.py`, `chunk_stream_state.py`, `chunk_mastering.py`, `chunk_file_loading.py` / `chunk_segment_extraction.py` (render-with-context + trim) — chunk plumbing. Cached chunk files are **16-bit PCM WAV**, not float32.
-- `stream_enhanced.py`, `stream_normal.py`, `stream_seek.py` + their per-chunk pumps (`stream_enhanced_chunks.py` — serves both enhanced and seek streams and owns the look-ahead task; `stream_normal_chunks.py`), `stream_gates.py` (pause/flow gate), `stream_track_resolution.py`, `stream_protocol.py`, `stream_lifecycle.py` / `stream_notifications.py`, `stream_chunk_ops.py`, `stream_fingerprint.py` — streaming paths
-- `processing_engine.py`, `audio_processing_pipeline.py` — processing orchestration and pipeline assembly
+- `chunk_cache_manager.py` (+ `chunk_disk_prune.py`), `chunk_path_cache.py`, `chunk_stream_state.py`, `chunk_mastering.py`, `chunk_file_loading.py` (on-disk chunk reader) / `chunk_segment_extraction.py` (trim to the non-overlapping `CHUNK_INTERVAL` segment) — the two halves of the old *chunk_operations.py* (#6270); `chunk_boundary_manager.py` — the stateful boundary/context helper over `chunk_boundaries.py`'s pure geometry. Chunk plumbing. Cached chunk files are **16-bit PCM WAV**, not float32.
+- `stream_enhanced.py`, `stream_normal.py`, `stream_seek.py` + their per-chunk pumps (`stream_enhanced_chunks.py` — serves both enhanced and seek streams and owns the look-ahead task; `stream_normal_chunks.py` with its bounded disk reads in `stream_normal_reads.py`), `stream_gates.py` (pause/flow gate), `stream_track_resolution.py`, `stream_protocol.py`, `stream_lifecycle.py` (start / end / completion messages) / `stream_notifications.py` (error and fingerprint-progress messages) — the two halves of the old *stream_messages.py* (#6269), `stream_chunk_ops.py`, `stream_fingerprint.py` — streaming paths
+- `processing_engine.py`, `audio_processing_pipeline.py` (+ `audio_validation.py`, input normalisation, #6270) — processing orchestration and pipeline assembly
 - `processor_factory.py` (+ `processor_cache_key.py`, `processor_maintenance.py`, `processor_registry.py`, #5833), `processor_pool.py`, `job_worker.py`, `job_models.py`, `job_store.py` — worker construction and job execution; `processing_engine.py` is a coordinator (#4250) over `job_lifecycle.py`, `job_execution.py`, `job_config.py`, `job_finalize.py`, `job_cleanup.py`, `job_error_mapping.py`
 - `streamlined_worker.py` (+ `streamlined_lifecycle.py`), `streamlined_tiers.py`, `streamlined_processor_cache.py` — streamlined cache workers; the cache itself is `auralis-web/backend/cache/manager.py` (`StreamlinedCacheManager`, composed from `*_mixin.py` files)
 - `executors.py` — reserved stream pool (`run_in_stream_executor`, per-chunk work only) + I/O pool installed as the loop default (#5086)
-- `level_manager.py`, `mastering_target_service.py` (+ `fingerprint_loading.py`, `mastering_target_generation.py`, `targets_hash.py`), `state_manager.py` — playback state
+- `level_manager.py` (+ `level_constants.py`, `level_transition.py` mixin), `mastering_target_service.py` (+ `fingerprint_loading.py`, `mastering_target_generation.py`, `targets_hash.py`), `state_manager.py` (+ `position_ticker.py` mixin) — playback state
 - `file_signature.py`, `proactive_buffer.py`, `cache_cleanup.py` — cache identity, first-chunk buffering, and the single lifecycle boundary across cache tiers (#5257)
 - `env_config.py`, `encoding/` — env plumbing and output format encoders
 
 **WebSocket layer**:
-- `auralis-web/backend/ws_handlers/` — `connection.py`, `context.py`, `messages.py`, `playback_commands.py`, `playback_control.py`
-- `auralis-web/backend/websocket/` — `websocket_protocol.py` (message contract), `websocket_security.py` (connect-time checks), `outbound_messages.py` (typed broadcast contracts)
+- `auralis-web/backend/ws_handlers/` — `connection.py`, `context.py`, `messages.py`, `playback_commands.py` (+ `seek_command.py`, `enhancement_params.py`, #6269), `playback_control.py`
+- `auralis-web/backend/websocket/` — `websocket_protocol.py` (message contract), `websocket_security.py` (connect-time checks), `outbound_messages.py` (`broadcast_typed`, the single typed broadcast entry) over the `outbound/` payload modules (`player.py`, `queue.py`, `library.py`, `enhancement.py`, #6269)
 
 **Security / support**:
-- `auralis-web/backend/security/path_security.py` — filesystem path containment for file-serving routes
-- `auralis-web/backend/analysis/` — `fingerprint_generator.py`, `fingerprint_queue.py` (per-track fingerprint/target caching is `core/mastering_target_service.py`, #5085)
+- `auralis-web/backend/security/path_security.py` — filesystem path containment for file-serving routes; `path_allowlist.py` (allowed-directory registry; manually scanned folders register there, #5865) and `path_errors.py` (validation errors) were split out in #6271
+- `auralis-web/backend/analysis/` — `fingerprint_generator.py` (+ `fingerprint_executor.py`, the thread-pool lifecycle, #6271), `fingerprint_queue.py` (per-track fingerprint/target caching is `core/mastering_target_service.py`, #5085)
 - `auralis-web/backend/core/encoding/` (`wav_encoder.py`, `atomic_io.py`) — encoding (the *monitoring/* package was deleted as unreachable in #4766)
 
 **Services** (`auralis-web/backend/services/`):
 - `library_auto_scanner.py` (+ `scanner_watchdog.py`, `auto_scan_events.py`, `scanner_stop.py`) — background folder watcher (replaced the older `_background_auto_scan`); `missing_tracks.py` prunes tracks whose files are gone
-- `playback_service.py`, `queue_service.py` (composed from `queue_service_base.py` + `queue_{edit,order,set}_mixin.py`, #5237) — playback orchestration. `queue_service.get_queue_info` enriches the engine queue (filepath-only, authoritative order) with state-manager TrackInfo.
+- `playback_service.py` (+ `playback_service_base.py`, `playback_protocols.py`, #6271), `queue_service.py` (composed from `queue_service_base.py` + `queue_{edit,order,set}_mixin.py`, #5237) — playback orchestration. `queue_service.get_queue_info` enriches the engine queue (filepath-only, authoritative order) with state-manager TrackInfo.
 - `recommendation_service.py` — mastering recommendations
 - `playback_event_sequencer.py` — process-wide ordering of discrete playback WebSocket events
 - `similarity_autofit_worker.py` — similarity auto-fit background worker
-- `artwork_downloader.py`, `navigation_service.py`, `errors.py` — utilities and service-layer error types
+- `artwork_downloader.py` (+ `artwork_providers/` — `itunes.py`, `musicbrainz.py`, `trust.py`, the SSRF-guarded redirect follower, #6271), `navigation_service.py`, `errors.py` — utilities and service-layer error types
 
 ## Critical Invariants
 
@@ -71,7 +71,7 @@ There is **no** `wav_streaming` router — audio streaming goes over WebSocket v
 4. **Schemas are the contract** — every response must match a Pydantic model exported from `schemas`. Mismatches break the frontend silently.
 5. **WebSocket lifetime** — connections survive backend reloads in `--dev` mode. Treat reconnect as the common case; idempotent message handling required.
 6. **Rate limiting** — `RateLimitMiddleware` uses sliding window; safe in asyncio because there's no `await` between the read-time check and the write-back.
-7. **Streaming semaphore** — the enhanced and normal streaming paths (`core/stream_enhanced.py`, `core/stream_normal.py`) release their semaphores in `finally` blocks; all early-exit paths must remain accounted for.
+7. **Streaming semaphore** — the enhanced, normal and seek streaming paths (`core/stream_enhanced.py`, `core/stream_normal.py`, `core/stream_seek.py`) release their semaphores in `finally` blocks; all early-exit paths must remain accounted for.
 8. **Chunk constants come from one place** — `core/chunk_boundaries.py`: 15s chunks, 10s interval, 5s overlap, 5s context. Never quote or hardcode different numbers, and count chunks with `content_chunk_count()`, not `ceil(duration / CHUNK_DURATION)`.
 9. **Localhost only** — Auralis is desktop-only; the backend binds to `127.0.0.1:8765`. Don't flag missing TLS/CORS for remote origins.
 10. **Enhancement settings are shared by reference** — the runtime `enhancement_settings` dict is seeded at startup from UserSettings and mutated in place. Callers hold the same object; replacing it rather than mutating it breaks propagation.

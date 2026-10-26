@@ -42,10 +42,13 @@ mypy auralis/ auralis-web/backend/ --ignore-missing-imports 2>&1 | tail -20
 ### Gate 3: Frontend Type Checks
 
 ```bash
-cd auralis-web/frontend && pnpm run type-check 2>&1 | tail -20
+cd auralis-web/frontend && pnpm run type-check:prod 2>&1 | tail -20   # production sources
+pnpm run type-check 2>&1 | tail -20        # all sources, spec files included (#5640)
 ```
 
-**Verdict**: FAIL on any type error. WARN if command not available.
+Both are blocking steps in `.github/workflows/frontend-typecheck.yml`.
+
+**Verdict**: FAIL on any type error from either command. WARN if the command is not available.
 
 ### Gate 4: Python Tests
 
@@ -55,11 +58,15 @@ python -m pytest -q -m "not slow" -p no:randomly \
   --ignore=tests/concurrency/test_thread_safety.py \
   --junitxml=pytest-results.xml 2>&1 | tail -5
 python scripts/check_pytest_baseline.py pytest-results.xml --strict-stale
+# static ratchets backend-tests.yml runs after the baseline step
+python scripts/check_weak_assertions.py && python scripts/check_weak_assertions.py --zero
+python scripts/check_loc_ratchet.py
+python scripts/check_breadcrumbs.py
 ```
 
 This is the one place the whole backend suite runs: it takes tens of minutes, and the two ignored files hang when run whole. The suite is a ratchet against `pytest-baseline.json`, so a raw failure is not a finding (see the Test Baselines section of `_audit-common.md`).
 
-**Verdict**: FAIL on any failure not listed in `pytest-baseline.json`, or on a baseline entry that ran and passed (`--strict-stale`), or if the report is missing or collected 0 tests. Report count: passed/failed/skipped.
+**Verdict**: FAIL on any failure not listed in `pytest-baseline.json`, or on a baseline entry that ran and passed (`--strict-stale`), or if the report is missing or collected 0 tests, or if any of the four static-ratchet commands exits non-zero. Report count: passed/failed/skipped.
 
 ### Gate 5: Frontend Tests
 

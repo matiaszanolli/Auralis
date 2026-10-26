@@ -68,7 +68,8 @@
 #
 # Exit codes:
 #   0  clean (strict clean, ratchet at or below baseline)
-#   1  strict-scope stale reference — always a regression
+#   1  strict-scope stale reference, or a layout count (routers / analysis
+#      files / tests subdirs) that disagrees with the live tree — always a regression
 #   2  ratchet-scope regression — a docs/ stale ref not in the baseline
 
 set -euo pipefail
@@ -395,11 +396,13 @@ if (( new_count > 0 )); then
     echo
 fi
 
-# WARN-level, non-blocking (#5045): CLAUDE.md/_audit-common.md's test-count
-# line is the fastest-moving number this file checks and drifted three times
-# in a row (#4685, #4982, #5045) despite manual fixes each time. This never
-# affects this script's exit code — check_doc_counts.py always exits 0 — it
-# only surfaces the drift so it doesn't sit unnoticed for weeks again.
+# Two tiers (#5045, #6250). CLAUDE.md/_audit-common.md's test-count line is the
+# fastest-moving number this file checks and drifted three times in a row
+# (#4685, #4982, #5045) despite manual fixes each time, so a stale test count is
+# only WARNed about and never changes this script's exit code. The layout counts
+# (registered routers, analysis files, tests subdirs) only move on a module
+# split and are held exact: check_doc_counts.py --check-docs exits non-zero on a
+# mismatch and this script propagates it as exit 1.
 if command -v python3 >/dev/null 2>&1; then
     echo "=== Doc structural counts (scripts/check_doc_counts.py --check-docs) ==="
     # WARN-level for the fast-moving test counts; HARD-fail for the layout

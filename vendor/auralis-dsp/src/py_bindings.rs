@@ -172,7 +172,7 @@ fn compute_fingerprint_wrapper(
 /// same-named Python function in auralis/core/mastering_chunk_loop.py, and
 /// the only Python caller of this binding is a PyO3 boundary smoke test
 /// (tests/test_pyo3_channel_axis_guards_4502.py) — noted earlier in #4989.
-/// TODO(#5537): either wire this into the engine (it takes f64 while the
+/// TODO(#5738): either wire this into the engine (it takes f64 while the
 /// engine's chunk loop works in f32, so a caller needs an explicit cast) or
 /// remove the binding, chunk_processor.rs, and the smoke-test cases together.
 ///

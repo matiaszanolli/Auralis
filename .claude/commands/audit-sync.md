@@ -71,13 +71,13 @@ bash scripts/sync_agent_commands.sh --check || bash scripts/sync_agent_commands.
 git diff --stat -- .claude .agents
 ```
 
-The validator's `Doc structural counts` section is warn-only, but read it: it is the cheapest check on the counts the agents just re-measured. The sync script's `--check` fails when a `.claude/commands` edit was not re-mirrored; re-running it without the flag refreshes `.agents/commands/` and the skill wrappers — review that diff before committing.
+The validator's `Doc structural counts` section warns on a stale test count and fails on a stale router / analysis-file / tests-subdir count (#6250); read it either way, it is the cheapest check on the counts the agents just re-measured. The validator also rejects literal *path.ext:NNN* line anchors in `.claude/**` (#6248): cite a symbol instead. The sync script's `--check` fails when a `.claude/commands` edit was not re-mirrored; re-running it without the flag refreshes `.agents/commands/` and the skill wrappers — review that diff before committing.
 
 Skill-reading checks: rerun any whose matched text was touched.
 
 | Check | Reads | Run |
 |---|---|---|
-| `check_doc_counts.py --check-docs` (warn-only, already run by the validator) | the "~N test functions (M files)" line in `CLAUDE.md` and `_audit-common.md`; every "N repos" / "N repositories" and "schema vNN" in `.claude/agents/*.md`, `.claude/commands/*.md`, `CLAUDE.md` and `docs/architecture/*.md` | `python3 scripts/check_doc_counts.py --check-docs` |
+| `check_doc_counts.py --check-docs` (already run by the validator; the test-count line only warns, but a stale router / analysis-file / tests-subdir count exits non-zero and fails the validator, #6250) | the "~N test functions (M files)" line, the "N registered routers", "Analysis: <dir> N files;" and "across N subdirs" statements in `CLAUDE.md` and `_audit-common.md`; every "N repos" / "N repositories" and "schema vNN" in `.claude/agents/*.md`, `.claude/commands/*.md`, `CLAUDE.md` and `docs/architecture/*.md` | `python3 scripts/check_doc_counts.py --check-docs` |
 | `check_optimization_importers.py` (also a step in `path-references.yml`) | the `auralis/optimization/` row in `_audit-common.md` | `python3 scripts/check_optimization_importers.py` |
 | `test_optimization_is_live_5142.py` | the same row, dynamically | `python -m pytest -q tests/test_optimization_is_live_5142.py` |
 | `test_check_doc_counts_repo_scan_5813.py` | that `check_doc_counts.py` still scans `_audit-common.md` | `python -m pytest -q tests/regression/test_check_doc_counts_repo_scan_5813.py` |

@@ -31,10 +31,10 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 For each category, check the specific items listed. Do NOT limit yourself to these — they are starting points.
 
 ### A01: Broken Access Control
-- [ ] WebSocket connections (`auralis-web/backend/ws_handlers/connection.py`, `auralis-web/backend/core/audio_stream_controller.py`) — is `auralis-web/backend/websocket/websocket_security.py` invoked on connect, and can its check be bypassed (missing/spoofed Origin, subprotocol, query param)?
+- [ ] WebSocket connections — the connect-time Origin check is `ConnectionManager.connect()` in `auralis-web/backend/config/globals.py` (`ALLOWED_WS_ORIGINS`, built from `config/origins.py`; an empty Origin is accepted only from a loopback client host, #3845; a denial raises `WebSocketOriginRejected` before `accept()`, #4703). `ws_handlers/connection.py:setup_connection` only delegates to it. Can it be bypassed (missing/spoofed Origin, subprotocol, query param, a proxied non-loopback `client.host`)? `auralis-web/backend/websocket/websocket_security.py` is NOT a connect check: it is the per-message rate limiter and size/JSON-depth validator, called from `routers/system.py` (see A07).
 - [ ] All 20 registered routers (list them from `auralis-web/backend/config/routes.py`) — which have NO auth checks?
-- [ ] File serving endpoints (`auralis-web/backend/routers/files.py`) — can a user request files outside the music library? Do they route through `auralis-web/backend/security/path_security.py`, or hand-roll containment?
-- [ ] `path_security.py` itself — does containment survive symlinks, `..` after normalization, UNC/drive-relative paths, and case-insensitive filesystems? The `validate_file_path` docstring is the canonical list of who validates and who deliberately does not (the playback load path and the streamlined cache worker, #5303 / #5322). Do not re-report a listed non-caller; report a caller missing from both lists.
+- [ ] File-reading endpoints — `routers/files.py` is upload + formats only (`files_upload.py`: file-count and byte caps, extension and magic-byte checks, `uuid4` destination). The routes that serve a file back are `routers/artwork.py` (`FileResponse`) and `routers/processing_jobs.py` `download_result` (hand-rolled containment under `tempfile.gettempdir()`, #2561); lyrics/metadata routes (`routers/tracks.py`, `metadata_deps.py`, `metadata_batch.py`) call `validate_file_path`. Can a user request files outside the music library? Does each route use `auralis-web/backend/security/path_security.py`, or hand-roll containment correctly?
+- [ ] `path_security.py` itself (the allowlist registry is `path_allowlist.py` and the error types plus `@_logs_rejections` are `path_errors.py`, split out in #6271) — does containment survive symlinks, `..` after normalization, UNC/drive-relative paths, and case-insensitive filesystems? The `validate_file_path` docstring is the canonical list of who validates and who deliberately does not (the playback load path and the streamlined cache worker, #5303 / #5322). Do not re-report a listed non-caller; report a caller missing from both lists.
 - [ ] Library scanner (`auralis/library/scanner/`) — it follows symlinked subdirectories with only cycle detection, and that is a decision (#4823 closed as keep-current-behavior), not a finding. Scan roots have no allowlist either: `validate_user_chosen_directory` rejects `..` before `resolve(strict=True)` and refuses OS system trees (87b33dcb). Check that every scan-folder entry point goes through it or `validate_directory_list`: `routers/settings.py` calls them directly, and `routers/library_scan.py` relies on the `LibraryScanRequest` validator in `schemas/library.py`.
 - [ ] Artwork endpoints — path traversal via metadata manipulation?
 - [ ] Streaming endpoints — can a user stream any file on the filesystem? Stream requests resolve a track and validate its path in `auralis-web/backend/core/stream_track_resolution.py` — is every stream path (enhanced, normal, seek) routed through it?
@@ -62,7 +62,7 @@ For each category, check the specific items listed. Do NOT limit yourself to the
 ### A05: Security Misconfiguration
 - [ ] CORS settings in `auralis-web/backend/config/middleware/` (`__init__.py` wires CORSMiddleware, `hosts.py` builds the list; NOT `main.py` — it moved), with the allowed origins built by `auralis-web/backend/config/origins.py` (loopback origin policy) — `allow_credentials=True` with `["*"]` origins? Does the allow-origins builder widen the set more than the localhost/dev-port case requires?
 - [ ] `SecurityHeadersMiddleware` — which headers does it actually set, and are any (CSP, X-Frame-Options) missing or permissive?
-- [ ] Middleware ordering — `add_middleware` is LIFO. Does a security middleware end up running *after* something it should gate?
+- [ ] Middleware ordering — `add_middleware` is LIFO. The documented inbound order in `setup_middleware()` is CORS → SecurityHeaders → NoCache → OriginCheck → TrustedHost → RateLimit. Does a security middleware end up running *after* something it should gate, and does a short-circuit 400/403/429 still carry the security headers?
 - [ ] Debug/development endpoints accessible in production?
 - [ ] `--dev` flag behavior — what security features does it disable? Dev mode is `--dev` or `AURALIS_DEV_MODE` (`is_dev_mode()` in `auralis-web/backend/config/app.py`; it re-enables Swagger/ReDoc/OpenAPI and widens the origin allow-lists, #4802). It also skips the StaticFiles mount: `mount_frontend()` in `auralis-web/backend/config/fallback_routes.py`, moved out of `main.py` in 3d69275a.
 - [ ] Catch-all routes (`register_fallback_routes()`, same file) — unmatched `/api` paths and unregistered WebSocket paths must answer before the StaticFiles mount sees them, and the frontend-missing page must not disclose the install path (#4351). Is the registration order in `main.py` (routers → fallbacks → mount) intact?
@@ -78,7 +78,7 @@ For each category, check the specific items listed. Do NOT limit yourself to the
 
 ### A07: Identification and Authentication Failures
 - [ ] Is there any authentication at all on the backend API? (By design there is none — Auralis is a desktop app bound to `127.0.0.1:8765`. Treat "no auth" as the documented baseline; report only where that baseline is *violated*, e.g. a surface reachable beyond localhost.)
-- [ ] WebSocket auth — `auralis-web/backend/websocket/websocket_security.py` exists: is it validated on connect AND on each message, or only at handshake?
+- [ ] WebSocket auth — the Origin check runs at handshake only (`config/globals.py`); `websocket_security.py` (`WebSocketRateLimiter`, `validate_and_parse_message`) runs per message from `routers/system.py`. Is anything trusted after the handshake that should be re-checked per message?
 - [ ] Can any *local* process connect to port 8765 and control playback? Is the bind address actually `127.0.0.1` and never `0.0.0.0`? The port is `BACKEND_PORT` from `config/origins.py`, which reads `AURALIS_PORT` (f637c53e, #5796), so the bind port and the allowed origins are one value. Flag any second port literal.
 - [ ] Desktop app — does it restrict connections to localhost only?
 - [ ] Rate limiting — `RateLimitMiddleware` in `auralis-web/backend/config/middleware/rate_limit.py`: which routes does it cover, what are the limits in `auralis-web/backend/config/limits.py`, and can the window be reset or evaded?
@@ -113,8 +113,9 @@ For each category, check the specific items listed. Do NOT limit yourself to the
 | `auralis-web/backend/config/app.py` | `create_app()`, exception handlers, `is_dev_mode()` |
 | `auralis-web/backend/config/fallback_routes.py` | Catch-all `/api` and WebSocket routes, StaticFiles mount (skipped in dev) |
 | `auralis-web/backend/config/bootstrap.py` | Logging bootstrap and log sanitizer, `sys.path` setup |
-| `auralis-web/backend/security/path_security.py` | Filesystem path containment |
-| `auralis-web/backend/websocket/websocket_security.py` | WebSocket connect-time checks |
+| `auralis-web/backend/security/path_security.py` | Filesystem path containment (validators); allowlist registry in `path_allowlist.py`, error types in `path_errors.py` |
+| `auralis-web/backend/config/globals.py` | `ConnectionManager.connect()`: the WebSocket Origin allowlist and loopback rule |
+| `auralis-web/backend/websocket/websocket_security.py` | Per-message WebSocket rate limiter and size/JSON-depth validation |
 | `auralis-web/backend/ws_handlers/` | WebSocket message handling (connection, messages, playback commands) |
 | `auralis-web/backend/routers/` | All 20 registered route handlers + `errors.py` (error-shape leakage) |
 | `auralis-web/backend/core/audio_stream_controller.py` | WebSocket streaming |
@@ -133,7 +134,7 @@ Trace how user-controlled data flows through the system:
 
 1. **File paths**: Frontend search → Backend router → `security/path_security.py` → `LibraryDatabase` / repositories → unified_loader → FFmpeg — is the path validated at each boundary, and does every route actually go through `path_security`? Include the cache paths: a chunk or thumbnail cache key derived from a user-influenced path must not be able to write outside its cache directory.
 2. **Audio metadata**: File on disk → unified_loader → ID3/metadata parser → database → API response → Frontend render — is metadata sanitized?
-3. **WebSocket messages**: Frontend → `websocket/websocket_security.py` → `ws_handlers/connection.py` → `ws_handlers/messages.py` → `core/audio_stream_controller.py` → processing_engine → chunked_processor → audio engine — are messages validated at the handler boundary, or trusted after handshake?
+3. **WebSocket messages**: Frontend → `config/globals.py` (`ConnectionManager.connect`, Origin) → `routers/system.py` (`websocket/websocket_security.py` rate limit and message validation) → `ws_handlers/connection.py` → `ws_handlers/messages.py` → `core/audio_stream_controller.py` → processing_engine → chunked_processor → audio engine — are messages validated at the handler boundary, or trusted after handshake?
 4. **Library scan paths**: User adds folder → `routers/library_scan.py` → `scanner/` → filesystem walk → database insert — can symlinks or special paths escape?
 
 ## Phase 1: Setup

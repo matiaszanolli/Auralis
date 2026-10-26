@@ -56,7 +56,7 @@ For each CONFIRMED finding, check which risk patterns apply:
 |---------|-----------|--------------------------|
 | **Dead code risk** | Fix requires adding a new function, validator, or decorator | `WIRING: Verify <function> is called from <expected caller>.` |
 | **Sibling divergence risk** | Fix touches a file that has a sibling with similar logic (e.g., multiple DSP modules, multiple repository files) | `SIBLING: Apply same fix to <sibling_file>.` |
-| **Migration chain risk** | Fix creates or modifies a database migration | `MIGRATION: Verify the new auralis/library/migrations/migration_vNNN_to_vNNN+1.sql continues the chain with no gap, __db_schema_version__ in auralis/__version__.py matches the highest file, and a failed step restores the backup (migrations are forward-only SQL — there is no down-migration or Alembic head).` |
+| **Migration chain risk** | Fix creates or modifies a database migration | `MIGRATION: Verify the new auralis/library/migrations/migration_vNNN_to_vNNN+1.sql continues the chain with no gap, __db_schema_version__ in auralis/__version__.py matches the highest file, and a failed step restores the backup (migrations are forward-only SQL — there is no down-migration or Alembic head). If the fix drops a column, the model attribute, `to_dict()` / serializer field and frontend type must go in the same change (the #5755 pattern: v26-v28).` |
 | **Return value risk** | Fix adds a guard/check that returns a sentinel (None, False, error) | `RETURN VALUE: Verify all callers of <function> check the return value.` |
 | **Cross-file consistency risk** | Fix applies a pattern change that exists in multiple files (same DSP pattern, same repository method, same hook pattern) | `CONSISTENCY: Same pattern exists in <file1>, <file2>, ... — fix ALL or note as out of scope.` |
 
@@ -113,7 +113,7 @@ For each finding that is CONFIRMED + NEW (or REGRESSION), create a GitHub issue:
 <Include ONLY the checks that apply to THIS specific finding. Examples:>
 
 - [ ] **WIRING**: After adding `validate_sample_rate()`, verify it's called from `hybrid_processor.py`. Run: `grep -rn "validate_sample_rate" auralis/ --include='*.py' | grep -v "def validate_sample_rate"` — must show at least 1 caller.
-- [ ] **SIBLING**: Same bug exists in `advanced_dynamics.py::DynamicsProcessor`. Apply the same fix there.
+- [ ] **SIBLING**: Same bug exists in the sibling DSP module (e.g. `dsp/dynamics/compressor.py::AdaptiveCompressor`). Apply the same fix there.
 - [ ] **RETURN VALUE**: All callers of `<function>()` must check the return value.
 - [ ] **CONSISTENCY**: Pattern `<old_pattern>` also exists in `<file2>`, `<file3>`. Fix all or document as out of scope.
 

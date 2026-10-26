@@ -62,9 +62,9 @@ Group changed files by risk domain:
 | **Frontend Hooks** | `auralis-web/frontend/src/hooks/*` | MEDIUM |
 | **Frontend Contexts** | `auralis-web/frontend/src/contexts/*` | MEDIUM |
 | **Frontend Store** | `auralis-web/frontend/src/store/*` | MEDIUM |
-| **Frontend API & Types** | `auralis-web/frontend/src/services/*`, `auralis-web/frontend/src/api/*`, `auralis-web/frontend/src/types/*` | MEDIUM |
+| **Frontend API & Types** | `auralis-web/frontend/src/services/*`, `auralis-web/frontend/src/api/*`, `auralis-web/frontend/src/utils/*`, `auralis-web/frontend/src/types/*` | MEDIUM |
 | **Tests** | `tests/*` | LOW |
-| **Config/CI** | `.github/*`, `*.toml`, `*.ini`, `*.cfg` | MEDIUM |
+| **Config/CI & tooling** | `.github/*`, `scripts/*`, `*.toml`, `*.ini`, `*.cfg`, `pytest-baseline.json`, `loc-ceilings.json` | MEDIUM |
 
 ## Step 3: Audit Each Changed File
 
@@ -86,9 +86,9 @@ For each changed file that crosses a layer boundary:
 2. **Backend route changed**: Does the frontend API client match the new contract?
 3. **Backend schema changed**: Does the frontend consume the new format correctly?
 4. **WebSocket message format changed**: Are both sides in sync?
-5. **Database schema changed**: Is there a migration? Do all repositories handle the new schema?
+5. **Database schema changed**: Is there a forward-only `migration_vNNN_to_vNNN+1.sql` step in `auralis/library/migrations/`, with `__db_schema_version__` in `auralis/__version__.py` bumped to match? Do the ORM models, `to_dict()` and every repository/API field that read a dropped column (#5755) agree with the new schema?
 6. **Rust DSP changed**: Is the Python binding still correct? Do callers handle the new behavior?
-7. **Coordinator or sibling changed** (`chunked_processor.py` / `chunk_*`, `processing_engine.py` / `job_*`, `processor_factory.py` / `processor_*`, `enhanced_audio_player.py` / `player_*_mixin.py`, a router module / its `*_deps.py` + per-concern siblings, a mixin-composed class such as `queue_service.py` or `cache/manager.py`): siblings share the coordinator's instance state — re-check the other side of the split.
+7. **Coordinator or sibling changed** (`chunked_processor.py` / `chunk_*`, `processing_engine.py` / `job_*`, `processor_factory.py` / `processor_*`, `enhanced_audio_player.py` / `player_*_mixin.py`, a router module / its `*_deps.py` + per-concern siblings, a mixin-composed class such as `queue_service.py`, `playback_service.py` or `cache/manager.py`, `state_manager.py` + `position_ticker.py`, `level_manager.py` + `level_transition.py`, `playback_commands.py` + `seek_command.py` / `enhancement_params.py`, `path_security.py` + `path_allowlist.py` / `path_errors.py`; the #6269-#6273 god-file splits made most of these): siblings share the coordinator's instance state — re-check the other side of the split.
 8. **Enhancement preset list changed**: do `auralis-web/backend/schemas/enhancement.py`, `auralis-web/backend/core/proactive_buffer.py` and `auralis-web/frontend/src/types/domain.ts` still agree?
 
 ## Phase 1: Audit
