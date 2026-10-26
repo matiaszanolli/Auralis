@@ -75,7 +75,7 @@ class PlaylistQueryMixin(BaseRepository):
             playlists = session.execute(
                 select(Playlist)
                 .options(*_playlist_list_aggregates(self))
-                .order_by(Playlist.name)
+                .order_by(Playlist.name, Playlist.id)
                 .limit(limit)
                 .offset(offset)
             ).scalars().all()

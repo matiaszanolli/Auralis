@@ -78,7 +78,7 @@ class TrackRepositorySearchMixin(BaseRepository):
 
             for track in results:
                 session.expunge(track)
-            return results, total
+            return list(results), total
 
     def get_by_artist(self, artist_name: str, limit: int = 100) -> list[Track]:
         """Get tracks by artist"""
@@ -96,7 +96,7 @@ class TrackRepositorySearchMixin(BaseRepository):
             for track in tracks:
                 session.expunge(track)
 
-            return tracks
+            return list(tracks)
 
     def get_recent(self, limit: int = 50, offset: int = 0) -> tuple[list[Track], int]:
         """Get recently added tracks with relationships loaded
@@ -118,14 +118,14 @@ class TrackRepositorySearchMixin(BaseRepository):
             results = session.execute(
                 select(Track)
                 .options(*_track_eager_options())
-                .order_by(Track.created_at.desc())
+                .order_by(Track.created_at.desc(), Track.id.desc())
                 .limit(limit)
                 .offset(offset)
             ).scalars().unique().all()
 
             for track in results:
                 session.expunge(track)
-            return results, total
+            return list(results), total
 
     def get_favorites(self, limit: int = 50, offset: int = 0) -> tuple[list[Track], int]:
         """Get favorite tracks with relationships loaded
@@ -149,14 +149,14 @@ class TrackRepositorySearchMixin(BaseRepository):
                 select(Track)
                 .options(*_track_eager_options())
                 .where(Track.favorite == True)
-                .order_by(Track.title.asc())
+                .order_by(Track.title.asc(), Track.id.asc())
                 .limit(limit)
                 .offset(offset)
             ).scalars().unique().all()
 
             for track in results:
                 session.expunge(track)
-            return results, total
+            return list(results), total
 
     def get_all(self, limit: int = 50, offset: int = 0, order_by: str = 'title') -> tuple[list[Track], int]:
         """Get all tracks with pagination and total count
@@ -182,14 +182,14 @@ class TrackRepositorySearchMixin(BaseRepository):
             tracks = session.execute(
                 select(Track)
                 .options(*_track_eager_options())
-                .order_by(order_column.asc())
+                .order_by(order_column.asc(), Track.id.asc())
                 .limit(limit)
                 .offset(offset)
             ).scalars().unique().all()
 
             for track in tracks:
                 session.expunge(track)
-            return tracks, total
+            return list(tracks), total
 
     def find_similar(self, track: Track, limit: int = 5) -> list[Track]:
         """

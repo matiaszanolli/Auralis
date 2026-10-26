@@ -20,27 +20,34 @@ from .base import BaseRepository, correlated_count, escape_like
 
 
 def _artist_order_by(order_by: str) -> tuple[ColumnElement[Any], ...]:
-    """ORDER BY clause shared by get_all() and search() (#5904)."""
+    """ORDER BY clause shared by get_all() and search() (#5904).
+
+    Ends with Artist.id so equal sort keys (every artist with the same count)
+    keep a total order across LIMIT/OFFSET pages (#5907).
+    """
+    primary: ColumnElement[Any]
     if order_by == 'album_count':
         # Correlated subquery: no JOIN needed — evaluated per row by the DB engine.
         # Artists with no albums yield COUNT=0 (not NULL), so no COALESCE required.
-        return (
+        primary = (
             select(func.count(Album.id))
             .where(Album.artist_id == Artist.id)
             .correlate(Artist)
             .scalar_subquery()
-            .desc(),
+            .desc()
         )
-    if order_by == 'track_count':
-        return (
+    elif order_by == 'track_count':
+        primary = (
             select(func.count())
             .select_from(track_artist)
             .where(track_artist.c.artist_id == Artist.id)
             .correlate(Artist)
             .scalar_subquery()
-            .desc(),
+            .desc()
         )
-    return (Artist.name.asc(),)
+    else:
+        primary = Artist.name.asc()
+    return (primary, Artist.id.asc())
 
 
 def _attach_genre_names(session: Session, artists: Sequence[Artist]) -> None:

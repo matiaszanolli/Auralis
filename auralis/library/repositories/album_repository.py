@@ -104,7 +104,7 @@ class AlbumRepository(AlbumArtworkMixin):
                 session,
                 select(Album)
                 .options(*_ALBUM_LIST_OPTIONS)
-                .order_by(order_column.asc())
+                .order_by(order_column.asc(), Album.id.asc())
                 .limit(limit)
                 .offset(offset),
             )
@@ -124,7 +124,7 @@ class AlbumRepository(AlbumArtworkMixin):
                 session,
                 select(Album)
                 .options(*_ALBUM_LIST_OPTIONS)
-                .order_by(Album.created_at.desc())
+                .order_by(Album.created_at.desc(), Album.id.desc())
                 .limit(limit)
                 .offset(offset),
             )
@@ -182,7 +182,7 @@ class AlbumRepository(AlbumArtworkMixin):
                     with_expression(Album.track_count_expr, correlated_count(Track, Track.album_id, Album)),
                     with_expression(Album.total_duration_expr, _total_duration_subquery()),
                 )
-                .order_by(order_column.asc())
+                .order_by(order_column.asc(), Album.id.asc())
                 .limit(limit)
                 .offset(offset),
             )
