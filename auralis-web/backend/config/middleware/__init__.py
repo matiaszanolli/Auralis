@@ -100,7 +100,17 @@ def setup_middleware(app: FastAPI) -> None:
         # Explicit lists instead of wildcards — allow_credentials=True with "*"
         # violates the CORS spec and overly broadens the attack surface (#2224).
         allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-        allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept", "X-Session-Id"],
+        # X-Confirm-Reset is the library-reset guard routers/library.py requires
+        # and settingsService.ts sends, so a cross-origin page needs it preflighted
+        # (#5989). Keep this in step with the custom headers the frontend sends.
+        allow_headers=[
+            "Content-Type",
+            "Authorization",
+            "X-Requested-With",
+            "Accept",
+            "X-Session-Id",
+            "X-Confirm-Reset",
+        ],
     )
 
     logger.debug(
