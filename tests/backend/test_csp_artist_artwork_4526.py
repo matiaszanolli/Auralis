@@ -22,6 +22,7 @@ pin the host allowlist to the sources that actually populate the field.
 
 import re
 import sys
+from types import SimpleNamespace
 from pathlib import Path
 
 import pytest
@@ -44,7 +45,7 @@ def _csp() -> str:
         return _Resp()
 
     middleware = SecurityHeadersMiddleware.__new__(SecurityHeadersMiddleware)
-    response = asyncio.run(middleware.dispatch(None, call_next))
+    response = asyncio.run(middleware.dispatch(SimpleNamespace(url=SimpleNamespace(path="/")), call_next))
     return response.headers["Content-Security-Policy"]
 
 

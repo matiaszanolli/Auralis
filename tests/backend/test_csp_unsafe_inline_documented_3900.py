@@ -31,6 +31,7 @@ this tradeoff is caught.
 
 import inspect
 import sys
+from types import SimpleNamespace
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
@@ -51,7 +52,7 @@ def _csp() -> str:
         return _Resp()
 
     middleware = SecurityHeadersMiddleware.__new__(SecurityHeadersMiddleware)
-    response = asyncio.run(middleware.dispatch(None, call_next))
+    response = asyncio.run(middleware.dispatch(SimpleNamespace(url=SimpleNamespace(path="/")), call_next))
     return response.headers["Content-Security-Policy"]
 
 

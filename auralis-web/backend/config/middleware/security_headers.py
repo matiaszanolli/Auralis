@@ -57,6 +57,23 @@ _ARTIST_ARTWORK_IMG_HOSTS = (
 )
 
 
+# FastAPI's built-in Swagger UI and ReDoc pages load their bundles from this CDN
+# (and the favicon from fastapi.tiangolo.com), and ReDoc spawns a blob: worker.
+# The pages exist only under --dev (config/app.py), so the CSP is widened for
+# exactly those two paths and only then; every other response, and every
+# response in a packaged build, keeps the strict policy (#5987).
+_DEV_DOCS_PATHS = ("/api/docs", "/api/redoc")
+_DEV_DOCS_CDN = "https://cdn.jsdelivr.net"
+_DEV_DOCS_FAVICON_HOST = "https://fastapi.tiangolo.com"
+
+
+def _is_dev_docs_page(request: Request) -> bool:
+    """True for the dev-only Swagger/ReDoc pages whose CSP needs the CDN host."""
+    from ..app import is_dev_mode  # lazy: config.app imports this package
+
+    return request.url.path in _DEV_DOCS_PATHS and is_dev_mode()
+
+
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """
     Middleware to add browser security headers to all responses.
@@ -76,6 +93,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
             response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
             img_src = " ".join(("'self'", "data:", "blob:", *_ARTIST_ARTWORK_IMG_HOSTS))
+            dev_docs = _is_dev_docs_page(request)
+            if dev_docs:
+                img_src += f" {_DEV_DOCS_FAVICON_HOST}"
+            script_cdn = f" {_DEV_DOCS_CDN}" if dev_docs else ""
+            worker_src = "worker-src 'self' blob:; " if dev_docs else ""
             # `'unsafe-inline'` on both directives is intentional, not an
             # oversight (#3900) -- each was investigated for a hash/nonce
             # replacement and rejected for a concrete, checkable reason:
@@ -106,10 +128,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             # styling, out of scope for a backend CSP header fix.
             response.headers["Content-Security-Policy"] = (
                 "default-src 'self'; "
-                "script-src 'self' 'unsafe-inline'; "
-                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+                f"script-src 'self' 'unsafe-inline'{script_cdn}; "
+                f"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com{script_cdn}; "
                 "font-src 'self' https://fonts.gstatic.com; "
                 f"img-src {img_src}; "
+                f"{worker_src}"
                 # Derived from config/origins.py so it cannot drift from the
                 # CORS and WebSocket allowlists again (#4712) — it listed only
                 # `localhost`, blocking the WS for a page opened via 127.0.0.1.
