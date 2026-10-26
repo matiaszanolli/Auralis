@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from core.chunk_stream_state import fast_start_for
 from core.encoding.atomic_io import atomic_save_audio, is_wav_complete
 from auralis.io.saver import save as save_audio
 from auralis.io.unified_loader import load_audio
@@ -101,7 +102,7 @@ async def get_full_processed_audio_path(processor: "ChunkedAudioProcessor") -> s
     # Calling process_chunk_safe() directly avoids the nested-event-loop
     # antipattern that process_chunk_synchronized() created via asyncio.run().
     for chunk_idx in range(processor.total_chunks):
-        await processor.process_chunk_safe(chunk_idx, fast_start=(chunk_idx == 0))
+        await processor.process_chunk_safe(chunk_idx, fast_start=fast_start_for(chunk_idx))
 
     # Concatenate contiguous, non-overlapping chunks without crossfading.
     logger.info("Concatenating all processed chunks")

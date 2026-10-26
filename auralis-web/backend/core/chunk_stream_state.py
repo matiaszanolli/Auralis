@@ -31,6 +31,14 @@ class ChunkCancelledError(Exception):
     observed by a live caller."""
 
 
+def fast_start_for(chunk_index: int) -> bool:
+    """Whether ``chunk_index`` is rendered with ``fast_start`` (skips the fingerprint
+    analysis, which would block the first chunk). The durable chunk cache key carries
+    no renderer identity, so every writer -- live stream, proactive buffer, batch
+    render -- must apply this one rule or the stored bytes depend on who won (#6090)."""
+    return chunk_index == 0
+
+
 def _raise_if_cancelled(processor: "ChunkedAudioProcessor", chunk_index: int) -> None:
     """Abandon a chunk whose owning stream was cancelled (#4815, #5328).
 

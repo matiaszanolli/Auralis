@@ -25,7 +25,7 @@ import numpy as np
 from fastapi import WebSocket
 
 from . import audio_stream_controller as _asc
-from .chunk_stream_state import ChunkCancelledError, invalidate_pooled_processor
+from .chunk_stream_state import ChunkCancelledError, fast_start_for, invalidate_pooled_processor
 from .task_cancellation import caller_is_being_cancelled
 
 if TYPE_CHECKING:
@@ -57,7 +57,7 @@ async def process_chunk_only(
     Returns:
         Tuple of (pcm_samples, sample_rate)
     """
-    fast_start: bool = chunk_index == 0
+    fast_start: bool = fast_start_for(chunk_index)
 
     logger.debug(
         f"Processing chunk {chunk_index}/{processor.total_chunks} "

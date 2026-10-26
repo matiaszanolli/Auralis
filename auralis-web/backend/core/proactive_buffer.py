@@ -15,6 +15,8 @@ from typing import Any, cast
 
 import numpy as np
 
+from core.chunk_stream_state import fast_start_for
+
 logger = logging.getLogger(__name__)
 
 # The preset to buffer. Mirrors schemas.DEFAULT_PRESET -- not imported directly
@@ -27,19 +29,18 @@ PRELOAD_CHUNKS = 3  # Buffer first 45 seconds (3 x 15s chunks)
 async def _buffer_chunk(
     processor: Any, preset: str, chunk_idx: int, chunks_to_buffer: int, cancelled: Callable[[], bool]
 ) -> bool:
-    """Render one chunk if it is not already cached; False means the stream was cancelled."""
+    """Render one chunk, or serve it from the cache; False means the stream was cancelled."""
     try:
-        # Check if already cached
-        chunk_path = processor._get_chunk_path(chunk_idx)
-
-        if chunk_path.exists():
-            logger.debug(f"✓ Already cached: {preset} chunk {chunk_idx}")
-            return True
-
-        # Process chunk with thread-safe locking
         logger.info(f"🔄 Buffering: {preset} chunk {chunk_idx}/{chunks_to_buffer-1}")
-        # process_chunk_safe returns (path, audio_array)
-        chunk_path, audio_array = cast(tuple[Path, np.ndarray], await processor.process_chunk_safe(chunk_idx))
+        # Always through process_chunk_safe, never an .exists() shortcut: it serves a
+        # cache hit from disk AND records that chunk's level (#4669), so chunk N+1 is
+        # smoothed against its real neighbour instead of a cold baseline. The live
+        # stream may have written this chunk first; fast_start follows the same rule as
+        # the live stream, so the durable bytes do not depend on who won (#6090).
+        chunk_path, audio_array = cast(
+            tuple[Path, np.ndarray],
+            await processor.process_chunk_safe(chunk_idx, fast_start=fast_start_for(chunk_idx)),
+        )
         logger.info(f"✅ Buffered: {preset} chunk {chunk_idx}")
 
         # Small delay to avoid CPU saturation
