@@ -10,12 +10,37 @@ Data access layer for artist operations
 
 from collections.abc import Sequence
 from datetime import datetime, timezone
+from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.orm import Session, selectinload, with_expression
 
 from ..models import Album, Artist, Genre, Track, track_artist, track_genre
 from .base import BaseRepository, correlated_count, escape_like
+
+
+def _artist_order_by(order_by: str) -> tuple[ColumnElement[Any], ...]:
+    """ORDER BY clause shared by get_all() and search() (#5904)."""
+    if order_by == 'album_count':
+        # Correlated subquery: no JOIN needed — evaluated per row by the DB engine.
+        # Artists with no albums yield COUNT=0 (not NULL), so no COALESCE required.
+        return (
+            select(func.count(Album.id))
+            .where(Album.artist_id == Artist.id)
+            .correlate(Artist)
+            .scalar_subquery()
+            .desc(),
+        )
+    if order_by == 'track_count':
+        return (
+            select(func.count())
+            .select_from(track_artist)
+            .where(track_artist.c.artist_id == Artist.id)
+            .correlate(Artist)
+            .scalar_subquery()
+            .desc(),
+        )
+    return (Artist.name.asc(),)
 
 
 def _attach_genre_names(session: Session, artists: Sequence[Artist]) -> None:
@@ -135,36 +160,13 @@ class ArtistRepository(BaseRepository):
             # Get total count
             total = session.execute(select(func.count()).select_from(Artist)).scalar_one()
 
-            # Determine sort column
-            if order_by == 'album_count':
-                # Correlated subquery: no JOIN needed — evaluated per row by the DB engine.
-                # Artists with no albums yield COUNT=0 (not NULL), so no COALESCE required.
-                order_column = (
-                    select(func.count(Album.id))
-                    .where(Album.artist_id == Artist.id)
-                    .correlate(Artist)
-                    .scalar_subquery()
-                    .desc()
-                )
-            elif order_by == 'track_count':
-                order_column = (
-                    select(func.count())
-                    .select_from(track_artist)
-                    .where(track_artist.c.artist_id == Artist.id)
-                    .correlate(Artist)
-                    .scalar_subquery()
-                    .desc()
-                )
-            else:  # Default to name
-                order_column = Artist.name.asc()
-
             # Eager-load exactly what the serializer reads, and nothing more
             # (#4553) — see _ARTIST_LIST_OPTIONS' docstring for what/why.
             artists = (
                 session.execute(
                     select(Artist)
                     .options(*_ARTIST_LIST_OPTIONS)
-                    .order_by(order_column)
+                    .order_by(*_artist_order_by(order_by))
                     .limit(limit)
                     .offset(offset)
                 ).scalars().all()
@@ -176,13 +178,16 @@ class ArtistRepository(BaseRepository):
                 session.expunge(artist)
             return list(artists), total
 
-    def search(self, query: str, limit: int = 50, offset: int = 0) -> tuple[list[Artist], int]:
+    def search(
+        self, query: str, limit: int = 50, offset: int = 0, order_by: str = 'name'
+    ) -> tuple[list[Artist], int]:
         """Search artists by name with pagination
 
         Args:
             query: Search string to match against artist name
             limit: Maximum number of results
             offset: Number of results to skip
+            order_by: Field to sort by, same values as get_all() (#5904)
 
         Returns:
             Tuple of (artists list, total count of matching artists)
@@ -206,7 +211,7 @@ class ArtistRepository(BaseRepository):
                     select(Artist)
                     .options(*_ARTIST_LIST_OPTIONS)
                     .where(Artist.name.ilike(search_term, escape='\\'))
-                    .order_by(Artist.name)
+                    .order_by(*_artist_order_by(order_by))
                     .limit(limit)
                     .offset(offset)
                 ).scalars().all()

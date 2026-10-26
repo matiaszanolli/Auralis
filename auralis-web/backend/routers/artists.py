@@ -81,7 +81,13 @@ async def get_artists(
     """
     if search:
         # Search artists by name (now returns tuple with count)
-        artists, total = await asyncio.to_thread(repos.artists.search, search, limit=limit, offset=offset)
+        artists, total = await asyncio.to_thread(
+            repos.artists.search,
+            search,
+            limit=limit,
+            offset=offset,
+            order_by=order_by,
+        )
     else:
         # Get paginated artists
         artists, total = await asyncio.to_thread(
