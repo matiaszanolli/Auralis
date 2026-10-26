@@ -1,0 +1,18 @@
+# Tools that BUILD the shipped desktop artifacts (.github/workflows/build-release.yml).
+#
+# requirements-lock.txt hash-locks what the app imports at runtime, but pip,
+# setuptools, wheel, maturin (builds the bundled PyO3 wheel) and PyInstaller
+# (freezes auralis-backend and embeds its bootloader) used to be installed
+# unpinned on every tag build, so a hijacked PyPI release of any of them -- or of
+# pefile, altgraph, pyinstaller-hooks-contrib -- would have been baked into all
+# three installers, with SHA256SUMS generated from the already-tainted output
+# (#6151).
+#
+# Compile (shared packages are held at the runtime lock's versions via -c):
+#   uv pip compile requirements-build.in --generate-hashes --universal \
+#     --python-version 3.14 -c requirements-lock.txt -o requirements-build.txt
+pip
+setuptools
+wheel
+maturin
+pyinstaller

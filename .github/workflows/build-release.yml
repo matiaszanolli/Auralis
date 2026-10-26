@@ -144,20 +144,27 @@ jobs:
 
       - name: Install Python dependencies
         run: |
-          pip install --upgrade pip setuptools wheel maturin
+          # #6151: the tools that BUILD the artifacts (pip, setuptools, wheel,
+          # maturin, PyInstaller and its transitives) come from a hash-locked
+          # file too, installed first. They used to be `pip install --upgrade`d
+          # and `pip install pyinstaller`ed unpinned, so a hijacked PyPI release
+          # of any of them was baked into every installer and SHA256SUMS,
+          # generated from that output, could not notice.
+          pip install --require-hashes -r requirements-build.txt
           # #4871: install the hash-locked file, not requirements.txt. The
           # manifest pins direct dependencies only, so `pip install -r
           # requirements.txt` still resolved every TRANSITIVE afresh at build
           # time — each release shipped whatever satisfied the ranges that day,
-          # unverified by any CI run. --require-hashes makes the shipped set
-          # byte-identical to what backend-tests.yml tested.
+          # unverified by any CI run. --require-hashes makes the shipped RUNTIME
+          # set the one backend-tests.yml installed; the build layer is
+          # requirements-build.txt above (#6151).
           pip install --require-hashes -r requirements-lock.txt
 
       - name: Build Rust DSP module
         run: |
           cd vendor/auralis-dsp
           maturin build --release --locked
-          pip install target/wheels/*.whl
+          pip install --no-deps target/wheels/*.whl
 
       - name: Assert Rust DSP module built against the full CPython 3.14 API (#5485)
         # Cargo.toml requests no pyo3 `abi3` feature, and since pyo3 0.29 the
@@ -202,7 +209,6 @@ jobs:
 
       - name: Build backend with PyInstaller
         run: |
-          pip install pyinstaller
           cd auralis-web/backend
           pyinstaller --clean --noconfirm auralis-backend.spec
 
@@ -303,13 +309,20 @@ jobs:
 
       - name: Install Python dependencies
         run: |
-          pip install --upgrade pip setuptools wheel maturin
+          # #6151: the tools that BUILD the artifacts (pip, setuptools, wheel,
+          # maturin, PyInstaller and its transitives) come from a hash-locked
+          # file too, installed first. They used to be `pip install --upgrade`d
+          # and `pip install pyinstaller`ed unpinned, so a hijacked PyPI release
+          # of any of them was baked into every installer and SHA256SUMS,
+          # generated from that output, could not notice.
+          pip install --require-hashes -r requirements-build.txt
           # #4871: install the hash-locked file, not requirements.txt. The
           # manifest pins direct dependencies only, so `pip install -r
           # requirements.txt` still resolved every TRANSITIVE afresh at build
           # time — each release shipped whatever satisfied the ranges that day,
-          # unverified by any CI run. --require-hashes makes the shipped set
-          # byte-identical to what backend-tests.yml tested.
+          # unverified by any CI run. --require-hashes makes the shipped RUNTIME
+          # set the one backend-tests.yml installed; the build layer is
+          # requirements-build.txt above (#6151).
           pip install --require-hashes -r requirements-lock.txt
 
       - name: Build Rust DSP module
@@ -318,7 +331,7 @@ jobs:
           cd vendor/auralis-dsp
           maturin build --release --locked
           $wheel = Get-ChildItem target/wheels/*.whl | Select-Object -First 1
-          pip install $wheel.FullName
+          pip install --no-deps $wheel.FullName
 
       - name: Assert Rust DSP module built against the full CPython 3.14 API (#5485)
         # Cargo.toml requests no pyo3 `abi3` feature, and since pyo3 0.29 the
@@ -367,7 +380,6 @@ jobs:
       - name: Build backend with PyInstaller
         shell: pwsh
         run: |
-          pip install pyinstaller
           Set-Location auralis-web/backend
           pyinstaller --clean --noconfirm auralis-backend.spec
 
@@ -449,20 +461,27 @@ jobs:
 
       - name: Install Python dependencies
         run: |
-          pip install --upgrade pip setuptools wheel maturin
+          # #6151: the tools that BUILD the artifacts (pip, setuptools, wheel,
+          # maturin, PyInstaller and its transitives) come from a hash-locked
+          # file too, installed first. They used to be `pip install --upgrade`d
+          # and `pip install pyinstaller`ed unpinned, so a hijacked PyPI release
+          # of any of them was baked into every installer and SHA256SUMS,
+          # generated from that output, could not notice.
+          pip install --require-hashes -r requirements-build.txt
           # #4871: install the hash-locked file, not requirements.txt. The
           # manifest pins direct dependencies only, so `pip install -r
           # requirements.txt` still resolved every TRANSITIVE afresh at build
           # time — each release shipped whatever satisfied the ranges that day,
-          # unverified by any CI run. --require-hashes makes the shipped set
-          # byte-identical to what backend-tests.yml tested.
+          # unverified by any CI run. --require-hashes makes the shipped RUNTIME
+          # set the one backend-tests.yml installed; the build layer is
+          # requirements-build.txt above (#6151).
           pip install --require-hashes -r requirements-lock.txt
 
       - name: Build Rust DSP module
         run: |
           cd vendor/auralis-dsp
           maturin build --release --locked
-          pip install target/wheels/*.whl
+          pip install --no-deps target/wheels/*.whl
 
       - name: Assert Rust DSP module built against the full CPython 3.14 API (#5485)
         # Cargo.toml requests no pyo3 `abi3` feature, and since pyo3 0.29 the
@@ -507,7 +526,6 @@ jobs:
 
       - name: Build backend with PyInstaller
         run: |
-          pip install pyinstaller
           cd auralis-web/backend
           pyinstaller --clean --noconfirm auralis-backend.spec
 

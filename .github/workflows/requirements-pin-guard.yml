@@ -165,3 +165,19 @@ jobs:
             exit 1
           fi
           echo "OK: numpy/scipy/soundfile/mutagen are all ==-pinned in the shipped manifest."
+
+  build-tools-locked:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+
+      # #6151: requirements-lock.txt hash-locks what the app imports, but the
+      # tools that build the installers (pip, setuptools, wheel, maturin,
+      # PyInstaller) were installed unpinned on every tag build. SHA256SUMS is
+      # generated from the built artifacts, so it cannot detect a tainted tool.
+      - name: Verify the release build tooling is hash-locked
+        run: python .github/scripts/check_build_tools_locked.py
