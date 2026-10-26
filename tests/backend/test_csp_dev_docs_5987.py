@@ -59,6 +59,9 @@ async def test_dev_docs_pages_allow_the_cdn(monkeypatch, path):
     assert _CDN in _directive(csp, "script-src")
     assert _CDN in _directive(csp, "style-src")
     assert "blob:" in _directive(csp, "worker-src")
+    # ReDoc's own web fonts (the app bundles its fonts, #6060).
+    assert "https://fonts.googleapis.com" in _directive(csp, "style-src")
+    assert "https://fonts.gstatic.com" in _directive(csp, "font-src")
 
 
 @pytest.mark.asyncio
@@ -70,6 +73,9 @@ async def test_non_dev_csp_never_names_the_cdn(monkeypatch, path):
 
     assert _CDN not in csp
     assert "worker-src" not in csp
+    # The app bundles Asap and JetBrains Mono (#6060): no font CDN is allowlisted.
+    assert "fonts.googleapis.com" not in csp
+    assert "fonts.gstatic.com" not in csp
 
 
 @pytest.mark.asyncio

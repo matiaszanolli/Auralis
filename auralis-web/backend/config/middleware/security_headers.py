@@ -64,6 +64,10 @@ _ARTIST_ARTWORK_IMG_HOSTS = (
 # response in a packaged build, keeps the strict policy (#5987).
 _DEV_DOCS_PATHS = ("/api/docs", "/api/redoc")
 _DEV_DOCS_CDN = "https://cdn.jsdelivr.net"
+# ReDoc pulls its Montserrat/Roboto faces from Google Fonts; the app itself
+# bundles its fonts (#6060), so these hosts exist only on the dev docs pages.
+_DEV_DOCS_STYLE_HOSTS = f"{_DEV_DOCS_CDN} https://fonts.googleapis.com"
+_DEV_DOCS_FONT_HOST = "https://fonts.gstatic.com"
 _DEV_DOCS_FAVICON_HOST = "https://fastapi.tiangolo.com"
 
 
@@ -97,6 +101,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             if dev_docs:
                 img_src += f" {_DEV_DOCS_FAVICON_HOST}"
             script_cdn = f" {_DEV_DOCS_CDN}" if dev_docs else ""
+            style_hosts = f" {_DEV_DOCS_STYLE_HOSTS}" if dev_docs else ""
+            font_host = f" {_DEV_DOCS_FONT_HOST}" if dev_docs else ""
             worker_src = "worker-src 'self' blob:; " if dev_docs else ""
             # `'unsafe-inline'` on both directives is intentional, not an
             # oversight (#3900) -- each was investigated for a hash/nonce
@@ -129,8 +135,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             response.headers["Content-Security-Policy"] = (
                 "default-src 'self'; "
                 f"script-src 'self' 'unsafe-inline'{script_cdn}; "
-                f"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com{script_cdn}; "
-                "font-src 'self' https://fonts.gstatic.com; "
+                f"style-src 'self' 'unsafe-inline'{style_hosts}; "
+                f"font-src 'self'{font_host}; "
                 f"img-src {img_src}; "
                 f"{worker_src}"
                 # Derived from config/origins.py so it cannot drift from the

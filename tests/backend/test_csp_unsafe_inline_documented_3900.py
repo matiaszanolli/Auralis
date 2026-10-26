@@ -2,8 +2,8 @@
 CSP `'unsafe-inline'` is a documented, investigated decision (#3900)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-`script-src 'self' 'unsafe-inline'` and `style-src 'self' 'unsafe-inline'
-https://fonts.googleapis.com` weaken CSP's XSS backstop. The audit flagged
+`script-src 'self' 'unsafe-inline'` and `style-src 'self' 'unsafe-inline'`
+weaken CSP's XSS backstop. The audit flagged
 this as looking like an unexamined default rather than a deliberate choice.
 
 Both directives were investigated for a hash/nonce replacement:

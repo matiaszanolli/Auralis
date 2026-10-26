@@ -7,14 +7,14 @@
 
   /**
    * Typography System (Design Language §3)
-   * Asap (Google Fonts) - clean, modern sans-serif for all UI text
+   * Asap (bundled via @fontsource-variable/asap, #6060) - clean, modern sans-serif for all UI text
    * Typography should disappear when listening.
    */
 export const typography = {
     fontFamily: {
-      primary: 'Asap, "Segoe UI", sans-serif',                                     // Primary UI font for all text
-      header: 'Asap, Arial, sans-serif',                                           // Headers, titles (same family, heavier weights)
-      mono: "'JetBrains Mono', 'Courier New', monospace",                          // Technical readouts (dB, Hz, LUFS)
+      primary: '"Asap Variable", Asap, "Segoe UI", sans-serif',                                  // Primary UI font for all text
+      header: '"Asap Variable", Asap, Arial, sans-serif',                                         // Headers, titles (same family, heavier weights)
+      mono: "'JetBrains Mono Variable', 'JetBrains Mono', 'Courier New', monospace",                       // Technical readouts (dB, Hz, LUFS)
       system: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif',
     },
 

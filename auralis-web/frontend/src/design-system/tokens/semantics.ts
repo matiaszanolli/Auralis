@@ -31,7 +31,7 @@ export const numbersPolicy = {
     revealed: {
       opacity: 0.7,
       fontSize: '11px',
-      fontFamily: "'JetBrains Mono', monospace",
+      fontFamily: "'JetBrains Mono Variable', 'JetBrains Mono', monospace",
     },
 } as const;
 

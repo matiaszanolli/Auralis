@@ -108,7 +108,7 @@ class TestOtherDirectivesUnchanged:
         [
             ("default-src", ["'self'"]),
             ("media-src", ["'self'", "blob:"]),
-            ("font-src", ["'self'", "https://fonts.gstatic.com"]),
+            ("font-src", ["'self'"]),  # fonts are bundled since #6060
         ],
     )
     def test_directive_intact(self, directive: str, expected: list[str]):

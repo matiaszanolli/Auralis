@@ -1,6 +1,11 @@
 import { StrictMode } from 'react';
 import ReactDOM from 'react-dom/client';
 
+// Bundled fonts (#6060): the app is a local desktop app and must render in its
+// design-language faces offline, so nothing is fetched from a font CDN.
+import '@fontsource-variable/asap';
+import '@fontsource-variable/jetbrains-mono';
+
 import { colors } from '@/design-system/tokens/colors';
 import { buildFatalInitHtml } from '@/components/core/fatalInitScreen';
 
