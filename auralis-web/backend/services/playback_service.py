@@ -8,10 +8,10 @@ Coordinates with PlayerStateManager to keep single source of truth.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-import asyncio
 import logging
-from typing import Any, cast
+from typing import Any
 
+from core.executors import run_in_transport_executor
 from websocket.outbound_messages import BroadcastManager, broadcast_typed
 
 from services.playback_event_sequencer import playback_event_sequencer
@@ -79,7 +79,7 @@ class PlaybackService(PlaybackServiceBase):
                 # The call stays inside the transition lock on purpose: the
                 # seq assigned below must match the order in which the engine
                 # actually transitioned (#4751).
-                await asyncio.to_thread(self.audio_player.play)
+                await run_in_transport_executor(self.audio_player.play)
 
                 # Mutate state and assign seq under the transition lock, but
                 # defer the potentially slow WebSocket send (#4751).
@@ -122,7 +122,7 @@ class PlaybackService(PlaybackServiceBase):
         try:
             async with self._playback_lock:  # #3734
                 # #3716: offload the sync engine call.
-                await asyncio.to_thread(self.audio_player.pause)
+                await run_in_transport_executor(self.audio_player.pause)
 
                 state_snapshot = await self.player_state_manager.set_playing(
                     False, broadcast=False
@@ -161,7 +161,7 @@ class PlaybackService(PlaybackServiceBase):
             state_snapshot: Any = None
             async with self._playback_lock:  # #3734
                 # #3716: offload the sync engine call.
-                await asyncio.to_thread(self.audio_player.stop)
+                await run_in_transport_executor(self.audio_player.stop)
 
                 # Update state to stopped and clear
                 if self.player_state_manager:
@@ -223,7 +223,7 @@ class PlaybackService(PlaybackServiceBase):
                 # seek from interleaving with a concurrent stop/play/pause
                 # engine transition.
                 if hasattr(self.audio_player, 'seek'):
-                    await asyncio.to_thread(self.audio_player.seek, position)
+                    await run_in_transport_executor(self.audio_player.seek, position)
 
             logger.info(f"⏩ Seeked to {position:.1f}s")
             return {

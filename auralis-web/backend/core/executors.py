@@ -31,6 +31,11 @@ than the status quo. Splitting resolves both without compromise:
   `to_thread` site (repository calls in routers, PIL thumbnailing, the
   shielded library scan) at a size that cannot starve the DB pool.
 
+A small `TRANSPORT_EXECUTOR` runs the audio engine's play/pause/stop/seek calls
+while the playback lock is held (#6093): on the I/O pool those queued behind a
+library scan, and every WS transport handler waiting on that lock in its receive
+loop stalled behind them (flow control, pongs).
+
 A third, small `JOB_EXECUTOR` runs full-track mastering-job DSP (#5335). A job
 DSP call is bounded by `asyncio.wait_for`, but that cancels only the asyncio
 wrapper — the OS thread keeps running the hung call. On the default pool each
@@ -100,7 +105,12 @@ JOB_POOL_SIZE: int = get_int_env("AURALIS_JOB_POOL_WORKERS", 2)
 
 _stream_executor: ThreadPoolExecutor | None = None
 _io_executor: ThreadPoolExecutor | None = None
+# Transport engine calls (#6093). Serialised by the playback lock already, so more
+# than a couple of workers could only ever serve threads a stuck call abandoned.
+TRANSPORT_POOL_SIZE: int = get_int_env("AURALIS_TRANSPORT_POOL_WORKERS", 2)
+
 _job_executor: ThreadPoolExecutor | None = None
+_transport_executor: ThreadPoolExecutor | None = None
 _lock = threading.Lock()
 
 
@@ -139,6 +149,11 @@ def get_job_executor() -> ThreadPoolExecutor | None:
     return _job_executor
 
 
+def get_transport_executor() -> ThreadPoolExecutor | None:
+    """The transport pool, or None if `install_executors()` has not run."""
+    return _transport_executor
+
+
 async def _run_in(
     executor: ThreadPoolExecutor | None, func: Callable[..., T], /, *args: Any, **kwargs: Any
 ) -> T:
@@ -174,8 +189,16 @@ async def run_in_job_executor(func: Callable[..., T], /, *args: Any, **kwargs: A
     return await _run_in(_job_executor, func, *args, **kwargs)
 
 
+async def run_in_transport_executor(func: Callable[..., T], /, *args: Any, **kwargs: Any) -> T:
+    """`asyncio.to_thread`, but on the dedicated transport pool (#6093).
+
+    Same fallback as `run_in_stream_executor` when no pool is installed.
+    """
+    return await _run_in(_transport_executor, func, *args, **kwargs)
+
+
 def install_executors() -> tuple[ThreadPoolExecutor, ThreadPoolExecutor]:
-    """Create both pools and install the I/O pool as the loop's default.
+    """Create the pools and install the I/O pool as the loop's default.
 
     Idempotent: calling twice returns the existing pools rather than orphaning
     the first pair (the lifespan can run more than once in a test process).
@@ -184,13 +207,14 @@ def install_executors() -> tuple[ThreadPoolExecutor, ThreadPoolExecutor]:
     is per-loop, and installing it against the wrong loop is the silent
     wiring failure #4810's WIRING check warns about.
     """
-    global _stream_executor, _io_executor, _job_executor
+    global _stream_executor, _io_executor, _job_executor, _transport_executor
 
     with _lock:
         if (
             _stream_executor is not None
             and _io_executor is not None
             and _job_executor is not None
+            and _transport_executor is not None
         ):
             return _stream_executor, _io_executor
 
@@ -205,18 +229,23 @@ def install_executors() -> tuple[ThreadPoolExecutor, ThreadPoolExecutor]:
             max_workers=JOB_POOL_SIZE, thread_name_prefix="auralis-job"
         )
 
+        _transport_executor = ThreadPoolExecutor(
+            max_workers=TRANSPORT_POOL_SIZE, thread_name_prefix="auralis-transport"
+        )
+
         asyncio.get_running_loop().set_default_executor(_io_executor)
 
         logger.info(
             f"Thread pools installed: streaming={stream_workers} workers "
             f"(2 x MAX_CONCURRENT_STREAMS), default/IO={IO_POOL_SIZE} workers "
-            f"(<= the 10-connection DB pool), jobs={JOB_POOL_SIZE} workers"
+            f"(<= the 10-connection DB pool), jobs={JOB_POOL_SIZE} workers, "
+            f"transport={TRANSPORT_POOL_SIZE} workers"
         )
         return _stream_executor, _io_executor
 
 
 def shutdown_executors(wait: bool = False) -> None:
-    """Tear both pools down and clear the module state.
+    """Tear the pools down and clear the module state.
 
     `wait=False` by default so shutdown is not held hostage by a worker stuck
     in a blocking read on unreachable storage — precisely the orphaned-thread
@@ -224,7 +253,7 @@ def shutdown_executors(wait: bool = False) -> None:
     that abandoned it. Python's interpreter shutdown joins non-daemon pool
     threads regardless; this just avoids blocking the lifespan on them.
     """
-    global _stream_executor, _io_executor, _job_executor
+    global _stream_executor, _io_executor, _job_executor, _transport_executor
 
     with _lock:
         # Detach the IO pool from the loop BEFORE shutting it down. Leaving a
@@ -253,6 +282,7 @@ def shutdown_executors(wait: bool = False) -> None:
             ("streaming", _stream_executor),
             ("IO", _io_executor),
             ("job", _job_executor),
+            ("transport", _transport_executor),
         ):
             if executor is None:
                 continue
@@ -266,3 +296,4 @@ def shutdown_executors(wait: bool = False) -> None:
         _stream_executor = None
         _io_executor = None
         _job_executor = None
+        _transport_executor = None
