@@ -56,7 +56,7 @@ There is **no** `wav_streaming` router — audio streaming goes over WebSocket v
 - `auralis-web/backend/core/encoding/` (`wav_encoder.py`, `atomic_io.py`) — encoding (the *monitoring/* package was deleted as unreachable in #4766)
 
 **Services** (`auralis-web/backend/services/`):
-- `library_auto_scanner.py` (+ `scanner_watchdog.py`, `auto_scan_events.py`, `scanner_stop.py`) — background folder watcher (replaced the older `_background_auto_scan`); `missing_tracks.py` prunes tracks whose files are gone
+- `library_auto_scanner.py` (+ `scanner_watchdog.py`, `scan_events.py`, `scanner_stop.py`) — background folder watcher (replaced the older `_background_auto_scan`); `missing_tracks.py` prunes tracks whose files are gone
 - `playback_service.py` (+ `playback_service_base.py`, `playback_protocols.py`, #6271), `queue_service.py` (composed from `queue_service_base.py` + `queue_{edit,order,set}_mixin.py`, #5237) — playback orchestration. `queue_service.get_queue_info` enriches the engine queue (filepath-only, authoritative order) with state-manager TrackInfo.
 - `recommendation_service.py` — mastering recommendations
 - `playback_event_sequencer.py` — process-wide ordering of discrete playback WebSocket events

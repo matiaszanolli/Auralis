@@ -265,21 +265,18 @@ class TestScannerCarriesFailuresUp:
 
 
 class TestWireShape:
-    """Both emitters must carry the field, or the UI sees it on one path only."""
+    """The scan_complete payload carries the field on every path."""
 
-    @pytest.mark.parametrize("module_path", [
-        "auralis-web/backend/routers/library_scan_events.py",
-        # the auto-scanner builds its scan_complete payload in auto_scan_events.py (#5837)
-        "auralis-web/backend/services/auto_scan_events.py",
-    ])
-    def test_scan_complete_broadcast_includes_failures(self, module_path):
+    def test_scan_complete_broadcast_includes_failures(self):
         from pathlib import Path
 
+        # The manual route and the auto-scanner build one payload (#5912).
+        module_path = "auralis-web/backend/services/scan_events.py"
         source = Path(module_path).read_text()
 
         assert '"failures"' in source, (
-            f"{module_path} broadcasts scan_complete without the failures list, "
-            "so that path still reports only a count (#4841)"
+            f"{module_path} builds scan_complete without the failures list, "
+            "so both paths report only a count (#4841)"
         )
 
     def test_rest_response_model_declares_failures(self):

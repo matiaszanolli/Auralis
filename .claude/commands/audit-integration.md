@@ -80,7 +80,7 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 | Filesystem scan | Engine | `auralis/library/scanner/` |
 | Metadata extraction | Engine | `auralis/io/unified_loader.py` |
 | Database insert | Engine | `auralis/library/database.py` → repositories |
-| Progress updates | Backend | WebSocket `library_scan_started` / `scan_progress` / `scan_complete` / `library_scan_error` frames from `auralis-web/backend/routers/library_scan_events.py` (manual scan) and `auralis-web/backend/services/auto_scan_events.py` (auto-scan) |
+| Progress updates | Backend | WebSocket `library_scan_started` / `scan_progress` / `scan_complete` / `library_scan_error` frames from `auralis-web/backend/routers/library_scan_events.py` (manual scan) and `auralis-web/backend/services/scan_events.py` (auto-scan) |
 | UI update | Frontend | `auralis-web/frontend/src/hooks/library/useScanProgress.ts` — a module-level store fed by one refcounted WS subscription, read via `useSyncExternalStore` (#5622), not Redux |
 
 **Check**: Progress reporting — does the frontend receive scan progress? Error handling — what happens when a file can't be read? Duplicate detection — does rescan handle already-imported tracks? Streaming allowlist — a manual scan of a folder outside the default roots must also register it via `/api/settings/scan-folders` (`useLibraryScan.ts`, fixed in `4cbd2e4c`, #5865), or its tracks list fine and then stream as "Audio file not found"? Large folders — timeout or chunking?

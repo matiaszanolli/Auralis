@@ -65,10 +65,9 @@ class LibraryScanner:
         its thread raised `RuntimeError: no running event loop`. The
         `fingerprint_queue` parameter this used to accept went with the dead
         `_enqueue_fingerprints` it fed (#4648) — it was being passed in and
-        silently ignored. See `routers/library_scan.py` (which imports the
-        enqueue from `library_scan_events.py`) and
-        `LibraryAutoScanner._do_scan` ->
-        `auto_scan_events.enqueue_added_for_fingerprinting` for the enqueue
+        silently ignored. See `routers/library_scan.py` and
+        `LibraryAutoScanner._do_scan`, which both call
+        `services/scan_events.enqueue_added_for_fingerprinting` for the enqueue
         that actually runs.
 
         Args:

@@ -1,130 +1,118 @@
-"""
-Regression tests for scan_library _progress_callback robustness (#3864 / BE-RH-19)
+"""The scan progress bridge shared by the manual and auto scan paths (#5912).
 
-The closure previously had no try/except, so a scanner bug that emits
-a non-dict progress_data would raise AttributeError inside the callback.
-That exception is silently swallowed by asyncio.run_coroutine_threadsafe's
-future, leaving operators with no error trail.  The fix wraps the broadcast
-logic in try/except Exception with a logger.warning().
-
-We test the callback by constructing it the same way the router does and
-calling it directly — no need to drive the full HTTP endpoint.
+Replaces an older copy-of-the-closure test (#3864) that exercised its own
+re-implementation rather than the code in production. These drive the real
+``services.scan_events.make_progress_callback`` on a live loop.
 """
 
 import asyncio
 import logging
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
+from services.scan_events import make_progress_callback  # noqa: E402
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-def _make_progress_callback(loop: asyncio.AbstractEventLoop) -> object:
-    """
-    Build the same _progress_callback closure that scan_library creates,
-    using a real event loop and a mock connection manager.
-    """
-    connection_manager = MagicMock()
-    connection_manager.broadcast = AsyncMock()
-
-    # Replicate the closure construction from library.py:538-558
-    def _progress_callback(progress_data):
-        try:
-            total = progress_data.get('total_found', 0) or progress_data.get('processed', 0)
-            processed = progress_data.get('processed', 0)
-            progress_frac = progress_data.get('progress', 0)
-            percentage = round(progress_frac * 100) if progress_frac else (
-                round(processed / total * 100) if total > 0 else 0
-            )
-            stage = progress_data.get('stage', 'processing')
-            asyncio.run_coroutine_threadsafe(
-                connection_manager.broadcast({
-                    "type": "scan_progress",
-                    "data": {
-                        "current": processed,
-                        "total": total,
-                        "percentage": percentage if stage != 'discovering' else None,
-                        "current_file": progress_data.get('current_file') or progress_data.get('file'),
-                        "phase": stage,
-                    }
-                }),
-                loop,
-            )
-        except Exception:
-            logging.getLogger("routers.library").warning(
-                "scan_library progress callback failed — malformed progress_data",
-                exc_info=True,
-            )
-
-    return _progress_callback
+pytestmark = pytest.mark.asyncio
 
 
-# ---------------------------------------------------------------------------
-# Tests
-# ---------------------------------------------------------------------------
+async def _settle() -> None:
+    # The callback hops onto the loop via call_soon_threadsafe, then creates a
+    # task: two yields run both, a few more let the done-callback fire.
+    for _ in range(5):
+        await asyncio.sleep(0)
 
-class TestProgressCallbackRobustness:
-    """_progress_callback must log on malformed input, not silently crash (#3864)."""
 
-    # Named `loop`, not `loop`: that name belonged to pytest-asyncio's
-    # own (since-removed) fixture, and shadowing it made this plain loop for
-    # the callback's run_coroutine_threadsafe target look like async plumbing
-    # (#4332).
-    @pytest.fixture
-    def loop(self):
-        loop = asyncio.new_event_loop()
-        yield loop
-        loop.close()
+def _bridge(fallback_dirs=("/music",)):
+    manager = MagicMock()
+    manager.broadcast = AsyncMock()
+    callback = make_progress_callback(asyncio.get_running_loop(), manager, list(fallback_dirs))
+    return callback, manager
 
-    def test_callback_with_valid_dict_does_not_raise(self, loop):
-        """Normal progress_data dict must be processed without error."""
-        cb = _make_progress_callback(loop)
 
-        with patch("asyncio.run_coroutine_threadsafe"):
-            # Must not raise
-            cb({
-                "total_found": 10,
-                "processed": 5,
-                "progress": 0.5,
-                "stage": "processing",
-                "current_file": "/music/track.mp3",
-            })
+def _frames(manager) -> list[dict]:
+    return [call.args[0] for call in manager.broadcast.await_args_list]
 
-    def test_callback_with_non_dict_logs_warning_not_raise(self, loop, caplog):
-        """Non-dict progress_data must be caught and logged, not crash (#3864)."""
-        cb = _make_progress_callback(loop)
 
-        with caplog.at_level(logging.WARNING, logger="routers.library"):
-            with patch("asyncio.run_coroutine_threadsafe"):
-                cb("not a dict")  # type: ignore[arg-type]
+class TestProgressFrames:
+    async def test_started_event_becomes_library_scan_started_with_the_fallback_dirs(self):
+        callback, manager = _bridge(["/music", "/more"])
 
-        assert any("progress callback failed" in r.message for r in caplog.records), (
-            "Expected a warning about malformed progress_data (#3864)"
+        callback({"stage": "started"})
+        await _settle()
+
+        assert _frames(manager) == [
+            {"type": "library_scan_started", "data": {"directories": ["/music", "/more"]}}
+        ]
+
+    async def test_started_event_prefers_the_directories_the_scanner_reports(self):
+        callback, manager = _bridge()
+
+        callback({"stage": "started", "directories": ["/resolved"]})
+        await _settle()
+
+        assert _frames(manager)[0]["data"] == {"directories": ["/resolved"]}
+
+    async def test_progress_prefers_the_pre_counted_total_and_real_fraction(self):
+        callback, manager = _bridge()
+
+        callback({
+            "stage": "processing", "processed": 50, "total_found": 60,
+            "total_expected": 200, "progress": 0.25, "current_file": "/music/a.mp3",
+        })
+        await _settle()
+
+        assert _frames(manager) == [{
+            "type": "scan_progress",
+            "data": {
+                "current": 50, "total": 200, "percentage": 25,
+                "current_file": "/music/a.mp3", "phase": "processing",
+            },
+        }]
+
+    async def test_counting_frame_names_its_directory_when_it_has_no_file(self):
+        """Both scan paths share this fallback (#5912): the manual one used to send null."""
+        callback, manager = _bridge()
+
+        callback({
+            "stage": "counting", "directory": "/music/rock",
+            "total_found": 500, "processed": 0, "progress": None,
+        })
+        await _settle()
+
+        data = _frames(manager)[0]["data"]
+        assert data["current_file"] == "/music/rock"
+        assert data["total"] == 500
+        assert data["percentage"] is None
+        assert data["phase"] == "counting"
+
+
+class TestFailuresAreLogged:
+    """A failure on the bridge must leave a trail, not vanish (#3864, #5912)."""
+
+    @pytest.mark.parametrize("malformed", ["not a dict", None, 42])
+    async def test_malformed_progress_data_is_logged(self, malformed, caplog):
+        callback, _ = _bridge()
+
+        with caplog.at_level(logging.ERROR):
+            callback(malformed)  # type: ignore[arg-type]
+            await _settle()
+
+        assert any("Background task" in r.getMessage() for r in caplog.records)
+
+    async def test_a_failed_broadcast_is_logged(self, caplog):
+        callback, manager = _bridge()
+        manager.broadcast.side_effect = RuntimeError("socket closed")
+
+        with caplog.at_level(logging.ERROR):
+            callback({"stage": "processing", "processed": 1})
+            await _settle()
+
+        assert any(
+            "Background task" in r.getMessage() and r.exc_info and "socket closed" in str(r.exc_info[1])
+            for r in caplog.records
         )
-
-    def test_callback_with_none_logs_warning_not_raise(self, loop, caplog):
-        """None progress_data must also be caught and logged."""
-        cb = _make_progress_callback(loop)
-
-        with caplog.at_level(logging.WARNING, logger="routers.library"):
-            with patch("asyncio.run_coroutine_threadsafe"):
-                cb(None)  # type: ignore[arg-type]
-
-        assert any("progress callback failed" in r.message for r in caplog.records)
-
-    def test_callback_with_integer_logs_warning_not_raise(self, loop, caplog):
-        """Integer progress_data (another malformed type) is caught and logged."""
-        cb = _make_progress_callback(loop)
-
-        with caplog.at_level(logging.WARNING, logger="routers.library"):
-            with patch("asyncio.run_coroutine_threadsafe"):
-                cb(42)  # type: ignore[arg-type]
-
-        assert any("progress callback failed" in r.message for r in caplog.records)

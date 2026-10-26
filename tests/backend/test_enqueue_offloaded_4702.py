@@ -22,7 +22,10 @@ from pathlib import Path
 
 import pytest
 
-_ROUTERS = Path(__file__).parent.parent.parent / "auralis-web" / "backend" / "routers"
+_BACKEND = Path(__file__).parent.parent.parent / "auralis-web" / "backend"
+_ROUTERS = _BACKEND / "routers"
+# The fingerprint enqueue shared by the manual and auto scan paths (#5912).
+_SHARED_ENQUEUE_MODULES = [_BACKEND / "services" / "scan_events.py"]
 
 
 def _async_function_ranges(tree: ast.AST) -> list[tuple[int, int, str]]:
@@ -64,7 +67,8 @@ def _enqueue_references(path: Path):
 
 
 def _router_modules():
-    return sorted(p for p in _ROUTERS.glob("*.py") if p.name != "__init__.py")
+    routers = sorted(p for p in _ROUTERS.glob("*.py") if p.name != "__init__.py")
+    return routers + _SHARED_ENQUEUE_MODULES
 
 
 class TestNoSyncEnqueueOnTheLoop:
@@ -118,7 +122,7 @@ class TestTheKnownCallSitesAreCovered:
             p.name for p in _router_modules() if any(_enqueue_references(p))
         }
         assert "fingerprint_status.py" in with_calls
-        assert "library_scan_events.py" in with_calls
+        assert "scan_events.py" in with_calls
         assert "fingerprint_queue.py" in with_calls
 
     def test_offloaded_sites_use_await(self):
