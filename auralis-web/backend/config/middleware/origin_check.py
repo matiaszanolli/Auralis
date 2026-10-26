@@ -1,7 +1,8 @@
 """
 Origin Check Middleware
 
-Rejects cross-origin state-changing REST requests (#4893). Split out of
+Rejects cross-origin state-changing REST requests (#4893), and cross-site GETs
+(#6158). Split out of
 config/middleware.py (#5479).
 
 :copyright: (C) 2024 Auralis Team
@@ -11,6 +12,7 @@ config/middleware.py (#5479).
 import logging
 from collections.abc import Callable
 from typing import Any, cast
+from urllib.parse import urlsplit
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -55,9 +57,32 @@ class OriginCheckMiddleware(BaseHTTPMiddleware):
     list once at app-construction time (setup_middleware() in __init__.py);
     this just brings `OriginCheckMiddleware` in line with that existing
     convention instead of inventing a new one.
+
+    #6158: a few GET routes are not safe either (the mastering-recommendation
+    analysis, the fingerprint enqueue, lyrics persistence), and a hostile page
+    can fire any GET blind with `<img src>` or a no-cors fetch. A GET under
+    /api is therefore refused when the browser marks it `Sec-Fetch-Site:
+    cross-site` or `same-site` (a page on another port counts) and neither its
+    Origin nor its Referer names a trusted origin. Requests that carry no
+    Sec-Fetch-Site (curl, the Electron main process, tests) are unaffected, and
+    a hostile page cannot forge Sec-Fetch-Site or Referer.
     """
 
     _STATE_CHANGING_METHODS = frozenset({"POST", "PUT", "DELETE", "PATCH"})
+    # GET/HEAD only: OPTIONS must reach CORSMiddleware to answer preflights.
+    _READ_METHODS = frozenset({"GET", "HEAD"})
+    _FOREIGN_FETCH_SITES = frozenset({"cross-site", "same-site"})
+
+    def _foreign_fetch_untrusted(self, request: Request) -> bool:
+        """True for a browser-marked cross-site/same-site GET with no trusted Origin or Referer."""
+        if request.headers.get("sec-fetch-site", "").lower() not in self._FOREIGN_FETCH_SITES:
+            return False
+        origin = request.headers.get("origin", "").lower()
+        if origin:
+            return origin not in self._cached_origins
+        referer = urlsplit(request.headers.get("referer", ""))
+        referer_origin = f"{referer.scheme}://{referer.netloc}".lower() if referer.netloc else ""
+        return referer_origin not in self._cached_origins
 
     def __init__(self, app: Any) -> None:
         super().__init__(app)
@@ -69,6 +94,13 @@ class OriginCheckMiddleware(BaseHTTPMiddleware):
         # bottom of this method — same reasoning as RateLimitMiddleware's
         # dispatch() comment in rate_limit.py (#4808).
         try:
+            if (
+                request.method in self._READ_METHODS
+                and request.url.path.startswith("/api")
+                and self._foreign_fetch_untrusted(request)
+            ):
+                logger.warning(f"Rejected cross-site {request.method} {request.url.path}")
+                return JSONResponse(status_code=403, content={"detail": "Untrusted origin"})
             if request.method in self._STATE_CHANGING_METHODS and request.url.path.startswith("/api"):
                 from ..globals import LOOPBACK_HOSTS
 
