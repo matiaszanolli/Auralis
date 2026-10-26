@@ -17,6 +17,8 @@ passes `duration=90.0`, matching every other fingerprint path.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+import shutil
+import subprocess
 from unittest.mock import patch
 
 import numpy as np
@@ -87,25 +89,61 @@ class TestFFmpegRoutedFormats:
         mock_load.assert_not_called()
         assert fp is not None
 
-    def test_ffmpeg_routed_result_is_still_cropped_to_ninety_seconds(self):
-        """load_with_ffmpeg() has no duration param (it decodes the whole
-        file), so the 90 s cap must be applied to its result afterward —
-        otherwise a long m4a/aac/wma reintroduces #4116's unbounded-decode
-        risk for exactly the formats this fix touches."""
-        fake = _fake_stereo(120.0)  # longer than the 90 s cap
+    def test_ffmpeg_decode_is_bounded_to_ninety_seconds(self):
+        """The 90 s window is forwarded to ffmpeg itself (-t), so the decode is
+        bounded before any buffer exists (#5713) — not cropped afterwards."""
+        fake = _fake_stereo(5.0)
         with patch(
             "auralis.io.loaders.load_with_ffmpeg",
             return_value=(fake.T, 44100),
-        ):
+        ) as mock_ffmpeg:
             fp = MasteringFingerprint.from_audio_file("long_track.aac", sr=44100)
 
         assert fp is not None
-        # No direct sample-count assertion (from_audio_file returns derived
-        # metrics, not the array) — the crop is exercised via the mocked
-        # length; a regression here would show up as anomalous spectral
-        # metrics rather than a crash, so this test's real value is pinning
-        # that from_audio_file() completes without raising on an oversized
-        # ffmpeg-routed buffer.
+        _, kwargs = mock_ffmpeg.call_args
+        assert kwargs.get("duration") == 90.0
+
+    def test_ffmpeg_result_longer_than_window_is_still_cropped(self):
+        """Safety net: a buffer longer than the window (resampling rounding)
+        is sliced to 90 s before analysis."""
+        fake = _fake_stereo(120.0)
+        seen = {}
+        real_stft = __import__("librosa").stft
+
+        def spy_stft(mono, *a, **kw):
+            seen["n"] = len(mono)
+            return real_stft(mono, *a, **kw)
+
+        with patch(
+            "auralis.io.loaders.load_with_ffmpeg",
+            return_value=(fake.T, 44100),
+        ), patch("auralis.analysis.mastering_fingerprint.librosa.stft", spy_stft):
+            fp = MasteringFingerprint.from_audio_file("long_track.aac", sr=44100)
+
+        assert fp is not None
+        assert seen["n"] == 90 * 44100
+
+    @pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg not installed")
+    def test_real_ffmpeg_decode_hands_analyzer_at_most_ninety_seconds(self, tmp_path):
+        """End to end: a 100 s mp3 reaches the analyzer as <= 90 s of audio."""
+        src = tmp_path / "long.mp3"
+        subprocess.run(
+            ["ffmpeg", "-v", "error", "-f", "lavfi", "-i", "sine=frequency=220:duration=100",
+             "-ac", "2", str(src)],
+            check=True,
+        )
+        seen = {}
+        real_stft = __import__("librosa").stft
+
+        def spy_stft(mono, *a, **kw):
+            seen["n"] = len(mono)
+            return real_stft(mono, *a, **kw)
+
+        with patch("auralis.analysis.mastering_fingerprint.librosa.stft", spy_stft):
+            fp = MasteringFingerprint.from_audio_file(str(src), sr=44100)
+
+        assert fp is not None
+        assert 85 * 44100 <= seen["n"] <= 90 * 44100
 
     @pytest.mark.parametrize("suffix", [".mp3", ".m4a", ".aac", ".ogg", ".wma", ".opus"])
     def test_every_ffmpeg_format_extension_is_routed(self, suffix):

@@ -103,14 +103,18 @@ class MasteringFingerprint:
             # fell through to audioread (#4890); librosa 1.0 removed that
             # backend and raises instead (#5414). Route those extensions
             # through the same FFmpeg loader windowed_compute.py's
-            # fingerprint path already uses.
+            # fingerprint path already uses, bounded with ``duration=`` so
+            # ffmpeg transcodes only the window rather than the whole file
+            # (#5713).
             audio_path = Path(file_path)
             if audio_path.suffix.lower() in FFMPEG_FORMATS:
                 import tempfile
 
                 from auralis.io.loaders import load_with_ffmpeg
                 with tempfile.TemporaryDirectory() as tmp:
-                    raw_audio, raw_sr = load_with_ffmpeg(audio_path, tmp)
+                    raw_audio, raw_sr = load_with_ffmpeg(
+                        audio_path, tmp, duration=FINGERPRINT_BODY_WINDOW_S
+                    )
                 # (samples, channels) or (samples,) -> (channels, samples),
                 # matching librosa.load(mono=False)'s convention.
                 if raw_audio.ndim == 2:
