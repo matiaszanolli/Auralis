@@ -33,7 +33,7 @@ from sqlalchemy.engine import CursorResult
 from ...utils.logging import warning
 from ..models import TrackFingerprint
 from .base import BaseRepository
-from .fingerprint_shared import _current_fingerprint_clause
+from .fingerprint_shared import _FINGERPRINT_WRITABLE_COLS, _current_fingerprint_clause
 
 
 class FingerprintSimilarityMixin(BaseRepository):
@@ -45,9 +45,16 @@ class FingerprintSimilarityMixin(BaseRepository):
         Used by the soft k-NN mastering target derivation to build the
         continuous reference manifold. Indexed via ix_fingerprints_is_reference
         so the lookup is fast even on large libraries.
+
+        Only complete, current-version rows: a stale-version or claim-placeholder
+        point would sit in the mastering-target manifold until the next
+        refresh_cloud (#5752).
         """
         with self._session_scope() as session:
-            stmt = select(TrackFingerprint).where(TrackFingerprint.is_reference == True)  # noqa: E712
+            stmt = select(TrackFingerprint).where(and_(
+                TrackFingerprint.is_reference == True,  # noqa: E712
+                _current_fingerprint_clause(),
+            ))
             fingerprints = list(session.execute(stmt).scalars().all())
             for fp in fingerprints:
                 session.expunge(fp)
@@ -163,7 +170,8 @@ class FingerprintSimilarityMixin(BaseRepository):
             # Build filter conditions
             conditions = [_current_fingerprint_clause()]
             for dimension, (min_val, max_val) in ranges.items():
-                if not hasattr(TrackFingerprint, dimension):
+                # Column names only: hasattr() also accepted relationships and methods.
+                if dimension not in _FINGERPRINT_WRITABLE_COLS:
                     warning(f"Invalid dimension: {dimension}, skipping")
                     continue
 

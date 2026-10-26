@@ -120,6 +120,33 @@ def test_is_reference_index_was_created(fresh_db_with_session):
 # Repository methods
 # ---------------------------------------------------------------------------
 
+def test_reference_cloud_excludes_stale_and_placeholder_rows(fresh_db_with_session):
+    """A reference-flagged row with an old fingerprint_version, or the claim
+    placeholder lufs, must not reach the mastering manifold (#5752)."""
+    _db_path, session_factory = fresh_db_with_session
+    with session_factory() as session:
+        _seed_track_and_fp(session, 1, is_reference=True)
+        _seed_track_and_fp(session, 2, is_reference=True, fingerprint_version=0)
+        _seed_track_and_fp(session, 3, is_reference=True, lufs=-100.0)
+
+    repo = FingerprintRepository(session_factory)
+
+    assert [fp.track_id for fp in repo.get_reference_cloud()] == [1]
+
+
+def test_multi_dimension_range_rejects_non_column_attributes(fresh_db_with_session):
+    """`hasattr` accepted relationships (``track``) and methods as dimensions (#5752)."""
+    _db_path, session_factory = fresh_db_with_session
+    with session_factory() as session:
+        _seed_track_and_fp(session, 1)
+
+    repo = FingerprintRepository(session_factory)
+
+    assert repo.get_by_multi_dimension_range({'track': (0, 1)}) == []
+    assert repo.get_by_multi_dimension_range({'to_dict': (0, 1)}) == []
+    assert [fp.track_id for fp in repo.get_by_multi_dimension_range({'lufs': (-20, -10)})] == [1]
+
+
 def test_get_reference_cloud_returns_only_flagged(fresh_db_with_session):
     _db_path, session_factory = fresh_db_with_session
     with session_factory() as session:
