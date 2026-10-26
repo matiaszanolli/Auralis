@@ -40,6 +40,8 @@ def _init_library_database(globals_dict: dict[str, Any]) -> None:
     # Open the library database. LibraryDatabase owns the migration, engine,
     # session factory, scan slots and shutdown.
     globals_dict['library_database'] = LibraryDatabase()
+    # Crash recovery for fingerprint claims is the backend's job alone (#6099).
+    globals_dict['library_database'].cleanup_incomplete_fingerprints()
     logger.info("✅ Auralis library database initialized")
     logger.debug(f"📊 Database location: {globals_dict['library_database'].database_path}")
 

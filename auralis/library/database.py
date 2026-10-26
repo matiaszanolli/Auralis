@@ -118,9 +118,6 @@ class LibraryDatabase(RepositoryAccessorsMixin):
         # scanner per invocation, and this is the one thing they share.
         self._scans = ScanCoordinator(lambda: self.settings.get_settings())
 
-        # Clean up incomplete fingerprints from interrupted sessions (crash recovery)
-        self._cleanup_incomplete_fingerprints()
-
         # Register cleanup handler for graceful shutdown (#2066)
         atexit.register(self.shutdown)
 
@@ -232,7 +229,7 @@ class LibraryDatabase(RepositoryAccessorsMixin):
         except Exception:
             pass  # Suppress errors during garbage collection
 
-    def _cleanup_incomplete_fingerprints(self) -> None:
+    def cleanup_incomplete_fingerprints(self) -> None:
         """
         Clean up incomplete fingerprints from interrupted fingerprinting sessions.
 
@@ -241,7 +238,10 @@ class LibraryDatabase(RepositoryAccessorsMixin):
         these placeholders remain in the database and must be cleaned up on restart
         so those tracks can be re-processed.
 
-        This is CRITICAL for resumable large-scale fingerprinting jobs.
+        CRITICAL for resumable large-scale fingerprinting jobs. It releases EVERY
+        claim in the table, so only the long-lived backend calls it, at startup
+        before its workers run -- never ``__init__``, or a second process on the
+        same library (e.g. ``fetch_artwork``) would wipe the live claims (#6099).
         """
         try:
             count = self.fingerprint_stats.cleanup_incomplete_fingerprints()
