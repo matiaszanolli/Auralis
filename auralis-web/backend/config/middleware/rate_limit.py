@@ -24,6 +24,8 @@ from ..limits import (
     RATE_LIMIT_MAX_WINDOW_ENTRIES,
     RATE_LIMIT_PROCESSING_MAX,
     RATE_LIMIT_PROCESSING_WINDOW,
+    RATE_LIMIT_RECOMMENDATION_MAX,
+    RATE_LIMIT_RECOMMENDATION_WINDOW,
     RATE_LIMIT_SCAN_MAX,
     RATE_LIMIT_SCAN_WINDOW,
     RATE_LIMIT_SIMILARITY_MAX,
@@ -52,6 +54,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         "/api/processing": (RATE_LIMIT_PROCESSING_MAX, RATE_LIMIT_PROCESSING_WINDOW),
         "/api/library/scan": (RATE_LIMIT_SCAN_MAX, RATE_LIMIT_SCAN_WINDOW),
         "/api/similarity": (RATE_LIMIT_SIMILARITY_MAX, RATE_LIMIT_SIMILARITY_WINDOW),
+        "/api/player/mastering/recommendation": (
+            RATE_LIMIT_RECOMMENDATION_MAX,
+            RATE_LIMIT_RECOMMENDATION_WINDOW,
+        ),
     }
 
     # Evict stale keys every N rate-limited requests, and the hard cap on live

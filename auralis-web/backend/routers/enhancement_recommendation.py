@@ -1,5 +1,5 @@
 """
-GET /api/enhancement/mastering-recommendation handler (split from enhancement.py, #5831).
+GET /api/player/mastering/recommendation/{track_id} handler (split from enhancement.py, #5831).
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
@@ -7,10 +7,12 @@ GET /api/enhancement/mastering-recommendation handler (split from enhancement.py
 
 import logging
 from cache import streamlined_cache_manager
+from cache.models import RECOMMENDATION_THRESHOLD_STEP
 from core import audio_stream_controller as _asc
 from fastapi import Depends, HTTPException, Path, Query
 from schemas import DEFAULT_PRESET
-from security.path_security import PathMissingError, PathValidationError, validate_file_path
+from security.path_errors import PathMissingError, PathValidationError
+from security.path_security import validate_file_path
 from typing import Annotated, Any
 import asyncio
 
@@ -53,6 +55,11 @@ async def get_mastering_recommendation(
         HTTPException: 503 if repository unavailable
         HTTPException: 500 if analysis fails
     """
+    # Snap to the cache's step so lookup, store and analysis all use one key (#5956).
+    confidence_threshold = round(
+        round(confidence_threshold / RECOMMENDATION_THRESHOLD_STEP) * RECOMMENDATION_THRESHOLD_STEP, 2
+    )
+
     # Resolve filepath from DB by track_id (fixes #2731)
     repos = require_service(repos, "Repository")
 

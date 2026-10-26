@@ -53,6 +53,8 @@ def _reload_limits_after_test():
         ("AURALIS_RATE_LIMIT_SCAN_WINDOW", "RATE_LIMIT_SCAN_WINDOW", 60),
         ("AURALIS_RATE_LIMIT_SIMILARITY_MAX", "RATE_LIMIT_SIMILARITY_MAX", 20),
         ("AURALIS_RATE_LIMIT_SIMILARITY_WINDOW", "RATE_LIMIT_SIMILARITY_WINDOW", 60),
+        ("AURALIS_RATE_LIMIT_RECOMMENDATION_MAX", "RATE_LIMIT_RECOMMENDATION_MAX", 20),
+        ("AURALIS_RATE_LIMIT_RECOMMENDATION_WINDOW", "RATE_LIMIT_RECOMMENDATION_WINDOW", 60),
     ],
 )
 class TestEachRateLimitIsEnvOverridable:
@@ -91,4 +93,5 @@ class TestRateLimitMiddlewareSourcesFromLimitsModule:
             "/api/processing": (10, 60),
             "/api/library/scan": (2, 60),
             "/api/similarity": (20, 60),
+            "/api/player/mastering/recommendation": (20, 60),
         }

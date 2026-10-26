@@ -46,6 +46,10 @@ TIER2_MAX_SIZE_MB = 240  # Max 240 MB total (~95 chunks at the corrected CHUNK_S
 
 # Shared freshness contract for mastering recommendations (#3865/#5280).
 RECOMMENDATION_TTL_S = 60.0
+# confidence_threshold is quantised to this step before it keys the
+# recommendation cache, so a client sweeping 0.401, 0.402, ... cannot miss the
+# cache on every call (#5956).
+RECOMMENDATION_THRESHOLD_STEP = 0.05
 
 
 @dataclass

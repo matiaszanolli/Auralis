@@ -160,6 +160,10 @@ RATE_LIMIT_SCAN_MAX: int = get_int_env("AURALIS_RATE_LIMIT_SCAN_MAX", 2)
 RATE_LIMIT_SCAN_WINDOW: int = get_int_env("AURALIS_RATE_LIMIT_SCAN_WINDOW", 60)
 RATE_LIMIT_SIMILARITY_MAX: int = get_int_env("AURALIS_RATE_LIMIT_SIMILARITY_MAX", 20)
 RATE_LIMIT_SIMILARITY_WINDOW: int = get_int_env("AURALIS_RATE_LIMIT_SIMILARITY_WINDOW", 60)
+# GET /api/player/mastering/recommendation/{id}: each uncached call runs a 1-5 s
+# analysis on the shared IO_EXECUTOR (#5956).
+RATE_LIMIT_RECOMMENDATION_MAX: int = get_int_env("AURALIS_RATE_LIMIT_RECOMMENDATION_MAX", 20)
+RATE_LIMIT_RECOMMENDATION_WINDOW: int = get_int_env("AURALIS_RATE_LIMIT_RECOMMENDATION_WINDOW", 60)
 
 # Evict rate-limit keys with only expired timestamps every N rate-limited
 # requests (#2630, #3902). This bounds growth BETWEEN windows — once every

@@ -83,7 +83,7 @@ This ordering is deliberate: a 429 from the rate limiter still gets security hea
 | **CORS** | Explicit origin allowlist over `{localhost,127.0.0.1} × ports[3000–3006, 8765]`; `allow_credentials=True`, no wildcards |
 | **SecurityHeaders** | `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`, CSP allowing `ws://localhost:*` / `http://localhost:*` in `connect-src` |
 | **NoCache** | Disables caching only for frontend static assets (`.html/.js/.css`, `/`); never touches `/api` or `/ws` |
-| **RateLimit** | Per-`{client_ip}:{path}` sliding window guarded by an `asyncio.Lock`. Limits: upload 5/60s, processing 10/60s, scan 2/60s, similarity 20/60s. Returns 429 + `Retry-After` |
+| **RateLimit** | Per-`{client_ip}:{path}` sliding window guarded by an `asyncio.Lock`. Limits: upload 5/60s, processing 10/60s, scan 2/60s, similarity 20/60s, mastering recommendation 20/60s. Returns 429 + `Retry-After` |
 
 > **Two separate origin allowlists.** WS upgrades are not covered by CORS, so there is a
 > distinct WS origin allowlist in `config/globals.py`. **Add new origins to both.**
