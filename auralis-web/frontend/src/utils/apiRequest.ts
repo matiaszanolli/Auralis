@@ -237,7 +237,7 @@ export async function getOrNullOn404<T>(
  */
 export async function post<T = unknown>(
   endpoint: string,
-  body?: Record<string, any>,
+  body?: Record<string, unknown>,
   options?: RequestOptions<T>
 ): Promise<T> {
   return apiRequest<T>(endpoint, { ...options, method: 'POST', body });
@@ -249,7 +249,7 @@ export async function post<T = unknown>(
  */
 export async function put<T = unknown>(
   endpoint: string,
-  body?: Record<string, any>,
+  body?: Record<string, unknown>,
   options?: RequestOptions<T>
 ): Promise<T> {
   return apiRequest<T>(endpoint, { ...options, method: 'PUT', body });
@@ -261,7 +261,7 @@ export async function put<T = unknown>(
  */
 export async function patch<T = unknown>(
   endpoint: string,
-  body?: Record<string, any>,
+  body?: Record<string, unknown>,
   options?: RequestOptions<T>
 ): Promise<T> {
   return apiRequest<T>(endpoint, { ...options, method: 'PATCH', body });

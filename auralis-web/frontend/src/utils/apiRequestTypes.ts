@@ -23,7 +23,7 @@ export class APIRequestError extends Error {
 }
 
 export interface RequestOptions<T = unknown> extends Omit<RequestInit, 'body'> {
-  body?: Record<string, any>;
+  body?: Record<string, unknown>;
   /**
    * AbortSignal for cancelling in-flight requests (e.g. on component unmount).
    *

@@ -62,6 +62,11 @@ function requestOptions<T>(
  * `{playlists: [...]}`, `GET /api/settings` a single settings object, and
  * `GET /api/player/queue` a single queue snapshot. Declaring the real shape
  * beats the old `Promise<T[]>` lie that every such service had to cast around.
+ *
+ * `C` maps each custom endpoint name to the shape it resolves to (#6052). It
+ * keys `custom`, `guards.custom` and the `custom()` method, so a guard for the
+ * wrong type — or a name that is not configured — fails to compile. The default
+ * leaves every name `unknown` for services without custom endpoints.
  */
 export interface CrudEndpoints<
   ID = number,
@@ -69,6 +74,7 @@ export interface CrudEndpoints<
   U = unknown,
   T = unknown,
   TList = T,
+  C extends Record<string, unknown> = Record<string, unknown>,
 > {
   list?: string | ((params?: P) => string);
   get?: string | ((id: ID) => string);
@@ -79,7 +85,7 @@ export interface CrudEndpoints<
   create?: string | ((data?: Partial<U>) => string);
   update?: string | ((id: ID, data?: Partial<U>) => string);
   delete?: string | ((id: ID) => string);
-  custom?: Record<string, string | ((params?: P) => string)>;
+  custom?: { [K in keyof C]?: string | ((params?: P) => string) };
 
   /**
    * Optional runtime shape guards for each endpoint (#4607, #5123).
@@ -91,9 +97,7 @@ export interface CrudEndpoints<
    *
    * Each guard is a type predicate tied to that endpoint's result type
    * (#5637), so a guard asserting the wrong shape doesn't compile. The
-   * `custom` guards can't be tied to a type here — `custom()`'s result type
-   * is chosen per call — so they stay predicates on the widest type and are
-   * checked against the caller's `R` at the boundary.
+   * `custom` guards are tied to `C[name]` the same way (#6052).
    *
    * Services without guards behave exactly as before, so adoption is incremental.
    * See `@/api/responseGuards` for the available guards.
@@ -106,7 +110,7 @@ export interface CrudEndpoints<
     // DELETE resolves to `void` and never reads a body (204 by contract), so
     // no meaningful guard exists — typed for symmetry only.
     delete?: (value: unknown) => value is void;
-    custom?: Record<string, (value: unknown) => value is any>;
+    custom?: { [K in keyof C]?: (value: unknown) => value is C[K] };
   };
 }
 
@@ -122,7 +126,8 @@ export function createCrudService<
   ID = number,
   P extends Record<string, unknown> = Record<string, unknown>,
   TList = T,
->(endpoints: CrudEndpoints<ID, P, U, T, TList>) {
+  C extends Record<string, unknown> = Record<string, unknown>,
+>(endpoints: CrudEndpoints<ID, P, U, T, TList, C>) {
   return {
     /**
      * GET list of items
@@ -200,36 +205,33 @@ export function createCrudService<
      * Custom endpoint call
      * Useful for actions that don't fit standard CRUD
      */
-    async custom<R = unknown>(
-      name: string,
+    async custom<K extends keyof C & string>(
+      name: K,
       method: 'get' | 'post' | 'put' | 'delete',
       data?: P,
       options?: CrudRequestOptions,
-    ): Promise<R> {
-      if (!endpoints.custom || !endpoints.custom[name]) {
+    ): Promise<C[K]> {
+      // Annotated: indexing `custom` by the generic `K` does not narrow on its own.
+      const endpointDef: string | ((params?: P) => string) | undefined = endpoints.custom?.[name];
+      if (!endpointDef) {
         throw new Error(`custom endpoint "${name}" not configured`);
       }
-      const endpointDef = endpoints.custom[name];
       const endpoint = typeof endpointDef === 'function'
         ? endpointDef(data)
         : endpointDef;
-      // The custom guard's predicate is `value is any` (per-call `R` can't be
-      // named in the guards record), so `opts` here carries `any` — the
-      // boundary still runs it, but the result keeps `custom()`'s own
-      // compile-time-only `R`.
       const opts = requestOptions(endpoints.guards?.custom?.[name], options);
 
       const body = (data ?? {}) as Record<string, unknown>;
 
       switch (method) {
         case 'get':
-          return opts ? get<R>(endpoint, opts) : get<R>(endpoint);
+          return opts ? get<C[K]>(endpoint, opts) : get<C[K]>(endpoint);
         case 'post':
-          return opts ? post<R>(endpoint, body, opts) : post<R>(endpoint, body);
+          return opts ? post<C[K]>(endpoint, body, opts) : post<C[K]>(endpoint, body);
         case 'put':
-          return opts ? put<R>(endpoint, body, opts) : put<R>(endpoint, body);
+          return opts ? put<C[K]>(endpoint, body, opts) : put<C[K]>(endpoint, body);
         case 'delete':
-          return opts ? del<R>(endpoint, opts) : del<R>(endpoint);
+          return opts ? del<C[K]>(endpoint, opts) : del<C[K]>(endpoint);
         default:
           throw new Error(`Unknown HTTP method: ${method}`);
       }

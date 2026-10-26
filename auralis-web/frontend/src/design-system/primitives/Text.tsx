@@ -1,4 +1,4 @@
-import { CSSProperties, ReactNode, forwardRef } from 'react';
+import { CSSProperties, ReactNode, createElement, forwardRef } from 'react';
 import { tokens } from '@/design-system/tokens';
 
 export interface TextProps {
@@ -98,11 +98,10 @@ export const Text = forwardRef<HTMLElement, TextProps>(
       ...style,
     };
 
-    return (
-      <Component ref={ref as any} style={styles} className={className}>
-        {children}
-      </Component>
-    );
+    // createElement rather than JSX: `Component` is a union of tag names, and
+    // JSX would intersect their ref types (HTMLHeadingElement & HTMLParagraphElement
+    // & ...), which the forwarded HTMLElement ref cannot satisfy without a cast (#6052).
+    return createElement(Component, { ref, style: styles, className }, children);
   }
 );
 
