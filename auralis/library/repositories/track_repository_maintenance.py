@@ -11,11 +11,13 @@ audio file has gone missing.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, cast
 import os
 
 from sqlalchemy import CursorResult, func, select, update
+from sqlalchemy.orm import Session
 
 from ...utils.logging import debug, error, info
 from ..models import Track
@@ -62,6 +64,26 @@ def _track_file_is_missing(filepath: str | Path) -> bool:
         debug(f"Parent directory gone (volume unmounted?), skipping: {path.parent}")
         return False
     return _file_is_definitely_missing(path)
+
+
+def _confirmed_missing_ids(session: Session, rows: Sequence[Any]) -> list[int]:
+    """Ids from *rows* (``id``/``filepath``) whose file is missing on two checks.
+
+    One shared decision for both passes (#5698): stat errors that are not
+    ENOENT/ENOTDIR (unreadable folder, dead mount) must skip, not delete; a gone
+    parent means an unmounted volume (#2525). The second pass re-verifies the
+    paths immediately before deletion to narrow the TOCTOU window (a file could
+    reappear between the first check and the delete, #3310), batch-fetching the
+    filepaths in a single IN query rather than one ``session.get()`` per id so
+    re-verification stays O(batches), not O(missing tracks) (#4223).
+    """
+    missing_ids = [row.id for row in rows if _track_file_is_missing(str(row.filepath))]
+    if not missing_ids:
+        return []
+    recheck_rows = session.execute(
+        select(Track.id, Track.filepath).where(Track.id.in_(missing_ids))
+    ).all()
+    return [row.id for row in recheck_rows if _track_file_is_missing(str(row.filepath))]
 
 
 class TrackRepositoryMaintenanceMixin(BaseRepository):
@@ -190,35 +212,11 @@ class TrackRepositoryMaintenanceMixin(BaseRepository):
                     if not rows:
                         break
 
-                    missing_ids = []
-                    for row in rows:
-                        # One shared decision for both passes (#5698): stat
-                        # errors that are not ENOENT/ENOTDIR (unreadable
-                        # folder, dead mount) must skip, not delete; a gone
-                        # parent means an unmounted volume (#2525).
-                        if _track_file_is_missing(str(row.filepath)):
-                            missing_ids.append(row.id)
-
-                    if missing_ids:
-                        # Re-verify paths immediately before deletion to narrow the
-                        # TOCTOU window (a file could reappear between the initial
-                        # check and this point). Fixes #3310.
-                        # Batch-fetch filepaths in a single IN query rather than one
-                        # session.get() per id, keeping re-verification O(batches)
-                        # instead of O(missing tracks) (fixes #4223).
-                        recheck_rows = session.execute(
-                            select(Track.id, Track.filepath)
-                            .where(Track.id.in_(missing_ids))
-                        ).all()
-                        still_missing = [
-                            row.id
-                            for row in recheck_rows
-                            if _track_file_is_missing(str(row.filepath))
-                        ]
-                        if still_missing:
-                            deleted = delete_tracks_by_ids(session, still_missing)
-                            session.commit()
-                            removed_count += deleted
+                    still_missing = _confirmed_missing_ids(session, rows)
+                    if still_missing:
+                        deleted = delete_tracks_by_ids(session, still_missing)
+                        session.commit()
+                        removed_count += deleted
 
                     last_id = rows[-1].id  # advance cursor past this batch
 

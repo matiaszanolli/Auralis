@@ -88,6 +88,28 @@ class BatchProcessor:
 
         return result
 
+    @staticmethod
+    def _skip_existing_track(
+        existing_track: Any, file_path: str, check_modifications: bool
+    ) -> bool:
+        """True when a file already in the library needs no re-scan."""
+        if not check_modifications:
+            return True  # Skip existing files
+
+        # #5574: compare against the SCANNER's watermark
+        # (tracks.file_mtime, written on every add/update), not
+        # tracks.updated_at — the latter carries an `onupdate` bump from every
+        # repository write (record_play, set_favorite, fingerprint-status
+        # updates), so a file edited after its last scan but played afterwards
+        # was skipped forever. A NULL watermark (pre-v22 rows) means
+        # "unknown": proceed, so the row is refreshed exactly once and the
+        # watermark takes over. Epoch seconds on both sides — no naive-datetime
+        # tz hazards (#4881).
+        scanner_watermark = existing_track.file_mtime
+        if scanner_watermark is None:
+            return False
+        return bool(Path(file_path).stat().st_mtime <= scanner_watermark)  # not modified
+
     def process_single_file(self, file_path: str,
                            skip_existing: bool,
                            check_modifications: bool) -> tuple[str, Any, str | None]:
@@ -112,24 +134,10 @@ class BatchProcessor:
             # which has `.tracks` but no convenience wrappers.
             tracks_repo = self.library_database.tracks
             existing_track = tracks_repo.get_by_path(file_path) if skip_existing else None
-            if existing_track:
-                if check_modifications:
-                    # #5574: compare against the SCANNER's watermark
-                    # (tracks.file_mtime, written below on every add/update),
-                    # not tracks.updated_at — the latter carries an `onupdate`
-                    # bump from every repository write (record_play,
-                    # set_favorite, fingerprint-status updates), so a file
-                    # edited after its last scan but played afterwards was
-                    # skipped forever. A NULL watermark (pre-v22 rows) means
-                    # "unknown": proceed, so the row is refreshed exactly
-                    # once and the watermark takes over. Epoch seconds on
-                    # both sides — no naive-datetime tz hazards (#4881).
-                    scanner_watermark = existing_track.file_mtime
-                    if scanner_watermark is not None:
-                        if Path(file_path).stat().st_mtime <= scanner_watermark:
-                            return 'skipped', None, None  # File hasn't been modified
-                else:
-                    return 'skipped', None, None  # Skip existing files
+            if existing_track and self._skip_existing_track(
+                existing_track, file_path, check_modifications
+            ):
+                return 'skipped', None, None
 
             # Extract file information
             audio_info = self.audio_analyzer.extract_audio_info(file_path)

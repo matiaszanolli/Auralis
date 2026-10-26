@@ -91,6 +91,14 @@ def _recovery_position(
     return emitted_chunk_start(chunk_idx)
 
 
+async def _await_lookahead(task: "asyncio.Task[Any]") -> Any:
+    """Await the armed look-ahead chunk; None if the client disconnected."""
+    try:
+        return await task
+    except ConnectionError:
+        return None
+
+
 async def pump_chunks(
     controller: '_asc.AudioStreamController',
     websocket: WebSocket,
@@ -145,15 +153,16 @@ async def pump_chunks(
             try:
                 # Get processed chunk: from look-ahead task or process now
                 if lookahead_task is not None:
-                    try:
-                        pcm_samples, _sr = await lookahead_task
-                    except ConnectionError:
-                        # Client disconnected during look-ahead processing
-                        stopped_early = True
-                        break
-                    lookahead_task = None
+                    chunk = await _await_lookahead(lookahead_task)
                 else:
-                    pcm_samples, _sr = await controller._process_chunk_only(chunk_idx, processor, websocket)
+                    chunk = await controller._process_chunk_only(chunk_idx, processor, websocket)
+                if chunk is None:
+                    # Client disconnected during look-ahead processing. The
+                    # finished task stays in its slot for the finally's drain.
+                    stopped_early = True
+                    break
+                pcm_samples, _sr = chunk
+                lookahead_task = None
 
                 # Trim the first chunk to the exact seek position
                 if chunk_idx == start_chunk_idx and seek_offset > 0:

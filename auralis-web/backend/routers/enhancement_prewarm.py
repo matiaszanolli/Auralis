@@ -10,7 +10,8 @@ from core.chunk_boundaries import chunk_for_position, content_chunk_count
 from core.executors import run_in_stream_executor
 from helpers import spawn_background_task
 from schemas import DEFAULT_PRESET
-from security.path_security import PathValidationError, validate_file_path
+from security.path_errors import PathValidationError
+from security.path_security import validate_file_path
 from typing import Any
 import asyncio
 import os
@@ -45,6 +46,42 @@ def _track_is_live_streaming(track_id: int) -> bool:
         if task is not None and not task.done():
             return True
     return False
+
+
+async def _render_upcoming_chunks(
+    processor: Any, track_id: int, chunks_to_process: list[int], total_chunks: int
+) -> int:
+    """Render each of *chunks_to_process* into the cache; return how many landed."""
+    processed_count = 0
+    for chunk_idx in chunks_to_process:
+        if chunk_idx >= total_chunks:
+            break  # Don't process chunks beyond the track
+        # #5323: a stream for this track can start while pre-warm is
+        # probing or rendering (the frontend re-issues it right after
+        # the settings POST returns). From then on it owns these chunks.
+        if _track_is_live_streaming(track_id):
+            logger.info(
+                f"🎯 Stopping pre-processing for track {track_id}: "
+                "a live stream now covers the upcoming chunks"
+            )
+            break
+
+        try:
+            # Process chunk (this will cache the WAV file).
+            # get_wav_chunk_path does CPU-bound audio processing; run it
+            # off the event loop (fixes #2330) on the streaming pool, not
+            # the default I/O pool, like all other chunk DSP (#5086).
+            wav_chunk_path = await run_in_stream_executor(processor.get_wav_chunk_path, chunk_idx)
+        except Exception as e:
+            logger.error(f"❌ Pre-processing failed for chunk {chunk_idx}: {e}")
+            continue
+
+        if os.path.exists(wav_chunk_path):
+            processed_count += 1
+            logger.info(f"✅ Pre-processed chunk {chunk_idx} ({processed_count}/{len(chunks_to_process)})")
+        else:
+            logger.warning(f"⚠️ Pre-processing failed for chunk {chunk_idx}: output file not found")
+    return processed_count
 
 
 async def _preprocess_upcoming_chunks(track_id: int, filepath: str, current_time: float, preset: str, intensity: float) -> None:
@@ -126,37 +163,9 @@ async def _preprocess_upcoming_chunks(track_id: int, filepath: str, current_time
             chunk_cache={},
         )
         try:
-            # Process each chunk
-            processed_count = 0
-            for chunk_idx in chunks_to_process:
-                if chunk_idx >= total_chunks:
-                    break  # Don't process chunks beyond the track
-                # #5323: a stream for this track can start while pre-warm is
-                # probing or rendering (the frontend re-issues it right after
-                # the settings POST returns). From then on it owns these chunks.
-                if _track_is_live_streaming(track_id):
-                    logger.info(
-                        f"🎯 Stopping pre-processing for track {track_id}: "
-                        "a live stream now covers the upcoming chunks"
-                    )
-                    break
-
-                try:
-                    # Process chunk (this will cache the WAV file).
-                    # get_wav_chunk_path does CPU-bound audio processing; run it
-                    # off the event loop (fixes #2330) on the streaming pool, not
-                    # the default I/O pool, like all other chunk DSP (#5086).
-                    wav_chunk_path = await run_in_stream_executor(processor.get_wav_chunk_path, chunk_idx)
-
-                    if os.path.exists(wav_chunk_path):
-                        processed_count += 1
-                        logger.info(f"✅ Pre-processed chunk {chunk_idx} ({processed_count}/{len(chunks_to_process)})")
-                    else:
-                        logger.warning(f"⚠️ Pre-processing failed for chunk {chunk_idx}: output file not found")
-
-                except Exception as e:
-                    logger.error(f"❌ Pre-processing failed for chunk {chunk_idx}: {e}")
-                    continue
+            processed_count = await _render_upcoming_chunks(
+                processor, track_id, chunks_to_process, total_chunks
+            )
 
             logger.info(f"🎯 Pre-processing complete: {processed_count} chunks ready")
         finally:

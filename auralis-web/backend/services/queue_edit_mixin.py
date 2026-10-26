@@ -168,6 +168,18 @@ class QueueEditMixin(QueueServiceBase):
             logger.error(f"Failed to add tracks to queue: {e}")
             raise
 
+    async def _follow_up_after_removing_current(self, queue_manager: Any) -> None:
+        """Load the new current track, or stop playback if the queue emptied."""
+        new_current = queue_manager.get_current_track()
+        if new_current and hasattr(self.audio_player, 'load_file'):
+            file_path = new_current.get('filepath') or new_current.get('file_path')
+            if file_path:
+                await asyncio.to_thread(self.audio_player.load_file, file_path)
+                logger.info(f"Removed current track; loaded next: {new_current.get('id')}")
+        elif hasattr(self.audio_player, 'playback') and hasattr(self.audio_player.playback, 'stop'):
+            await asyncio.to_thread(self.audio_player.playback.stop)
+            logger.info("Removed only/last track; stopped playback")
+
     async def remove_track_from_queue(self, index: int) -> dict[str, Any]:
         """
         Remove track from queue at specified index.
@@ -206,15 +218,7 @@ class QueueEditMixin(QueueServiceBase):
                 # If the removed track was playing, stop current audio and load the
                 # new current track (or stop entirely if the queue is now empty).
                 if was_current and self.audio_player:
-                    new_current = queue_manager.get_current_track()
-                    if new_current and hasattr(self.audio_player, 'load_file'):
-                        file_path = new_current.get('filepath') or new_current.get('file_path')
-                        if file_path:
-                            await asyncio.to_thread(self.audio_player.load_file, file_path)
-                            logger.info(f"Removed current track; loaded next: {new_current.get('id')}")
-                    elif hasattr(self.audio_player, 'playback') and hasattr(self.audio_player.playback, 'stop'):
-                        await asyncio.to_thread(self.audio_player.playback.stop)
-                        logger.info("Removed only/last track; stopped playback")
+                    await self._follow_up_after_removing_current(queue_manager)
 
                 # Get updated queue
                 updated_queue = queue_manager.get_queue()

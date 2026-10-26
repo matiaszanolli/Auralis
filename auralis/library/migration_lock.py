@@ -43,6 +43,19 @@ __all__ = ['migration_lock']
 _thread_lock = threading.Lock()
 
 
+def _try_lock(fd: int) -> bool:
+    """One non-blocking attempt at the OS file lock (msvcrt on Windows,
+    fcntl.flock elsewhere); False if another process holds it."""
+    try:
+        if platform.system() == "Windows":
+            msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+        else:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return True
+    except OSError:
+        return False
+
+
 @contextmanager
 def migration_lock(db_path: str, timeout: float = 30.0):
     """
@@ -89,32 +102,14 @@ def migration_lock(db_path: str, timeout: float = 30.0):
         # Open lock file
         lock_fd = open(lock_file, 'w')
 
-        if platform.system() == "Windows":
-            # Windows: Use msvcrt.locking with retry loop
-            while True:
-                try:
-                    msvcrt.locking(lock_fd.fileno(), msvcrt.LK_NBLCK, 1)
-                    break
-                except OSError:
-                    if time.monotonic() >= deadline:
-                        raise TimeoutError(
-                            f"Could not acquire migration lock within {timeout}s. "
-                            "Another process may be migrating the database."
-                        )
-                    time.sleep(0.1)
-        else:
-            # Linux/macOS: Use fcntl.flock with timeout
-            while True:
-                try:
-                    fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-                    break
-                except OSError:
-                    if time.monotonic() >= deadline:
-                        raise TimeoutError(
-                            f"Could not acquire migration lock within {timeout}s. "
-                            "Another process may be migrating the database."
-                        )
-                    time.sleep(0.1)
+        # Retry the non-blocking OS lock until the shared deadline.
+        while not _try_lock(lock_fd.fileno()):
+            if time.monotonic() >= deadline:
+                raise TimeoutError(
+                    f"Could not acquire migration lock within {timeout}s. "
+                    "Another process may be migrating the database."
+                )
+            time.sleep(0.1)
 
         logger.debug(f"Acquired migration lock: {lock_file}")
         yield

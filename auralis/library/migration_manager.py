@@ -30,6 +30,7 @@ from .migration_engine import create_migration_engine
 from .migration_lock import migration_lock  # re-exported (#4511)
 from .migration_steps import run_migration_step
 from .migration_versions import SchemaVersionStoreMixin
+from .pre_migration_backup import backup_before_migration
 
 logger = logging.getLogger(__name__)
 
@@ -214,17 +215,13 @@ def check_and_migrate_database(db_path: str, auto_backup: bool = True) -> bool:
                     return True
 
                 # Backup before migration
-                if auto_backup and current_version > 0:
-                    try:
-                        # backup_database() already logs "✅ Database backed
-                        # up" at INFO; the path itself stays at DEBUG only
-                        # (#4929).
-                        backup_path = backup_database(db_path)
-                        logger.debug(f"Pre-migration backup location: {backup_path}")
-                    except Exception as e:
-                        logger.error(f"Failed to create backup: {e}")
-                        logger.error("❌ Aborting migration - backup failed")
-                        return False
+                backed_up, backup_path = (
+                    backup_before_migration(db_path)
+                    if auto_backup and current_version > 0
+                    else (True, None)
+                )
+                if not backed_up:
+                    return False
 
                 # Perform migration. Steps are applied one at a time, each
                 # atomically (#2905), so a failure partway leaves the file at an

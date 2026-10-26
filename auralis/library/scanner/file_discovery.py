@@ -122,21 +122,28 @@ class FileDiscovery:
                 for entry in it:
                     if self.should_stop:
                         return
-
-                    entry_path = Path(entry.path)
-
-                    if entry.is_dir(follow_symlinks=True):
-                        if self._claim_subdirectory(entry, entry_path, visited_inodes):
-                            yield from self._walk_directory(entry_path, visited_inodes, depth + 1)
-
-                    elif entry.is_file(follow_symlinks=True):
-                        if self._is_wanted_file(entry_path):
-                            yield str(entry_path)
+                    yield from self._walk_entry(entry, visited_inodes, depth)
 
         except PermissionError:
             warning(f"Permission denied accessing directory: {directory}")
         except OSError as e:
             error(f"Error scanning directory {directory}: {e}")
+
+    def _walk_entry(
+        self,
+        entry: os.DirEntry[str],
+        visited_inodes: set[tuple[int, int]],
+        depth: int,
+    ) -> Generator[str]:
+        """Yield the audio paths under one scandir entry (recursing into
+        directories). Stat errors propagate to ``_walk_directory``'s handlers."""
+        entry_path = Path(entry.path)
+
+        if entry.is_dir(follow_symlinks=True):
+            if self._claim_subdirectory(entry, entry_path, visited_inodes):
+                yield from self._walk_directory(entry_path, visited_inodes, depth + 1)
+        elif entry.is_file(follow_symlinks=True) and self._is_wanted_file(entry_path):
+            yield str(entry_path)
 
     @staticmethod
     def _claim_subdirectory(

@@ -25,6 +25,20 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _first_trusted_image(relations: list[dict[str, Any]]) -> dict[str, str] | None:
+    """First 'image' relation whose URL passes the trusted-host check."""
+    for relation in relations:
+        if relation.get('type') != 'image':
+            continue
+        image_url = relation.get('url', {}).get('resource')
+        if not image_url:
+            continue
+        result = _validated_artwork_result(image_url, "musicbrainz")
+        if result:
+            return result
+    return None
+
+
 def fetch_from_musicbrainz(service: "ArtworkService", artist_name: str) -> dict[str, Any] | None:
     """
     Fetch artist artwork from MusicBrainz.
@@ -78,17 +92,7 @@ def fetch_from_musicbrainz(service: "ArtworkService", artist_name: str) -> dict[
             relations_data = _read_json_response(response)
 
         # Look for image URLs in relations
-        relations = relations_data.get('relations', [])
-        for relation in relations:
-            if relation.get('type') == 'image':
-                url_data = relation.get('url', {})
-                image_url = url_data.get('resource')
-                if image_url:
-                    result = _validated_artwork_result(image_url, "musicbrainz")
-                    if result:
-                        return result
-
-        return None
+        return _first_trusted_image(relations_data.get('relations', []))
 
     except Exception as e:
         logger.debug(f"MusicBrainz fetch failed for {sanitize_log_value(artist_name)}: {e}")

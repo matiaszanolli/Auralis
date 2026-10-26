@@ -11,7 +11,7 @@ Coordinates with AudioPlayer and PlayerStateManager for state synchronization.
 import asyncio
 import logging
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from core.state_manager import PlayerStateManager
 from websocket.outbound_messages import broadcast_typed
@@ -145,55 +145,7 @@ class NavigationService:
             ServiceUnavailable: If the audio player is not available (#5338)
             Exception: If operation fails
         """
-        require_collaborators(audio_player=self.audio_player)
-
-        try:
-            # Check if player has next_track method
-            if hasattr(self.audio_player, 'next_track'):
-                # Serialize the engine mutation + index read + seq assignment
-                # (#4582) — see _TrackChangeSequencer. Broadcast stays outside
-                # the lock so one slow WS client can't stall the next command.
-                async with _sequencer.lock:
-                    success = await asyncio.to_thread(self.audio_player.next_track)
-                    track_index = None
-                    seq = None
-                    state_snapshot = None
-                    if success and self.player_state_manager and hasattr(self.audio_player, 'queue'):
-                        if hasattr(self.audio_player.queue, 'current_index'):
-                            track_index = self.audio_player.queue.current_index
-                            state_snapshot = await self._follow_engine(track_index)
-                            seq = _sequencer.next_seq()
-
-                if success:
-                    if state_snapshot is not None:
-                        await self.player_state_manager.broadcast_state(state_snapshot)
-                    if track_index is not None:
-                        assert seq is not None
-                        # Include the new index so clients can sync
-                        # currentTrack/currentIndex immediately instead of
-                        # waiting for the next player_state snapshot (#4144).
-                        await broadcast_typed(
-                            self.connection_manager,
-                            "track_changed",
-                            {
-                                "action": "next",
-                                "track_index": track_index,
-                                "seq": seq,
-                            },
-                        )
-
-                    logger.info("⏭️  Skipped to next track")
-                    return {"message": "Skipped to next track"}
-                else:
-                    logger.info("ℹ️  No next track available")
-                    return {"message": "No next track available"}
-            else:
-                logger.warning("Next track function not available")
-                return {"message": "Next track function not available"}
-
-        except Exception as e:
-            logger.error(f"Failed to skip to next track: {e}")
-            raise
+        return await self._navigate("next")
 
     async def previous_track(self) -> dict[str, Any]:
         """
@@ -206,52 +158,69 @@ class NavigationService:
             ServiceUnavailable: If the audio player is not available (#5338)
             Exception: If operation fails
         """
+        return await self._navigate("previous")
+
+    async def _navigate(self, action: Literal["next", "previous"]) -> dict[str, Any]:
+        """Shared body of next_track / previous_track.
+
+        The two commands share one sequencer so they cannot interleave against
+        each other either (#4582).
+        """
         require_collaborators(audio_player=self.audio_player)
+        method_name = f"{action}_track"
+        emoji = "⏭️ " if action == "next" else "⏮️ "
 
         try:
-            # Check if player has previous_track method
-            if hasattr(self.audio_player, 'previous_track'):
-                # Serialize the engine mutation + index read + seq assignment
-                # (#4582) — see _TrackChangeSequencer, shared with next_track
-                # so the two can't interleave against each other either.
-                async with _sequencer.lock:
-                    success = await asyncio.to_thread(self.audio_player.previous_track)
-                    track_index = None
-                    seq = None
-                    state_snapshot = None
-                    if success and self.player_state_manager and hasattr(self.audio_player, 'queue'):
-                        if hasattr(self.audio_player.queue, 'current_index'):
-                            track_index = self.audio_player.queue.current_index
-                            state_snapshot = await self._follow_engine(track_index)
-                            seq = _sequencer.next_seq()
+            # Check if the player has the engine method
+            if not hasattr(self.audio_player, method_name):
+                message = f"{action.capitalize()} track function not available"
+                logger.warning(message)
+                return {"message": message}
 
-                if success:
-                    if state_snapshot is not None:
-                        await self.player_state_manager.broadcast_state(state_snapshot)
-                    if track_index is not None:
-                        assert seq is not None
-                        # Include the new index so clients can sync
-                        # currentTrack/currentIndex immediately instead of
-                        # waiting for the next player_state snapshot (#4144).
-                        await broadcast_typed(
-                            self.connection_manager,
-                            "track_changed",
-                            {
-                                "action": "previous",
-                                "track_index": track_index,
-                                "seq": seq,
-                            },
-                        )
+            # Serialize the engine mutation + index read + seq assignment
+            # (#4582) — see _TrackChangeSequencer. Broadcast stays outside
+            # the lock so one slow WS client can't stall the next command.
+            async with _sequencer.lock:
+                success = await asyncio.to_thread(getattr(self.audio_player, method_name))
+                track_index = None
+                seq = None
+                state_snapshot = None
+                if (
+                    success
+                    and self.player_state_manager
+                    and hasattr(self.audio_player, 'queue')
+                    and hasattr(self.audio_player.queue, 'current_index')
+                ):
+                    track_index = self.audio_player.queue.current_index
+                    state_snapshot = await self._follow_engine(track_index)
+                    seq = _sequencer.next_seq()
 
-                    logger.info("⏮️  Skipped to previous track")
-                    return {"message": "Skipped to previous track"}
-                else:
-                    logger.info("ℹ️  No previous track available")
-                    return {"message": "No previous track available"}
-            else:
-                logger.warning("Previous track function not available")
-                return {"message": "Previous track function not available"}
+            if not success:
+                message = f"No {action} track available"
+                logger.info(f"ℹ️  {message}")
+                return {"message": message}
+
+            if state_snapshot is not None:
+                await self.player_state_manager.broadcast_state(state_snapshot)
+            if track_index is not None:
+                assert seq is not None
+                # Include the new index so clients can sync
+                # currentTrack/currentIndex immediately instead of
+                # waiting for the next player_state snapshot (#4144).
+                await broadcast_typed(
+                    self.connection_manager,
+                    "track_changed",
+                    {
+                        "action": action,
+                        "track_index": track_index,
+                        "seq": seq,
+                    },
+                )
+
+            message = f"Skipped to {action} track"
+            logger.info(f"{emoji} {message}")
+            return {"message": message}
 
         except Exception as e:
-            logger.error(f"Failed to skip to previous track: {e}")
+            logger.error(f"Failed to skip to {action} track: {e}")
             raise

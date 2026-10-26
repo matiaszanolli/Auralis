@@ -12,6 +12,7 @@ Part of QueueService, split out of services/queue_service.py (#5237).
 
 import asyncio
 import logging
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from .errors import InvalidRequest, require_collaborators
@@ -47,6 +48,29 @@ class QueueSetMixin(QueueServiceBase):
             self._next_set_queue_generation += 1
             generation = self._next_set_queue_generation
         return await self._set_queue_impl(track_ids, start_index, generation)
+
+    async def _superseded(self, generation: int) -> bool:
+        """True when a later set-queue request has superseded *generation*.
+
+        The check takes ``_set_queue_lock`` for the comparison only; it is a
+        read, not part of any state mutation.
+        """
+        async with self._set_queue_lock:
+            return generation != self._set_queue_generation
+
+    async def _if_current_generation(
+        self, generation: int, operation: Callable[[], Awaitable[Any]]
+    ) -> tuple[bool, Any]:
+        """Run *operation* under ``_set_queue_lock`` iff *generation* is current.
+
+        Returns ``(True, result)``, or ``(False, None)`` when superseded. The
+        check and the state mutation share one lock hold, exactly as the
+        inlined ``async with lock: if stale: return`` blocks did.
+        """
+        async with self._set_queue_lock:
+            if generation != self._set_queue_generation:
+                return False, None
+            return True, await operation()
 
     async def _set_queue_impl(
         self, track_ids: list[int], start_index: int, generation: int
@@ -109,9 +133,8 @@ class QueueSetMixin(QueueServiceBase):
 
             deferred_snapshots: list[Any] = []
             async with self._set_queue_engine_lock:
-                async with self._set_queue_lock:
-                    if generation != self._set_queue_generation:
-                        return result
+                if await self._superseded(generation):
+                    return result
 
                 # Sync player calls remain ordered, but never hold the state
                 # mutation lock or a lock that also covers a broadcast.
@@ -122,19 +145,20 @@ class QueueSetMixin(QueueServiceBase):
                         start_index,
                     )
 
-                async with self._set_queue_lock:
-                    if generation != self._set_queue_generation:
-                        return result
+                if await self._superseded(generation):
+                    return result
 
                 if start_index >= 0 and start_index < len(db_tracks):
                     current_track = db_tracks[start_index]
 
-                    async with self._set_queue_lock:
-                        if generation != self._set_queue_generation:
-                            return result
-                        track_snapshot = await self.player_state_manager.set_track(
+                    current, track_snapshot = await self._if_current_generation(
+                        generation,
+                        lambda: self.player_state_manager.set_track(
                             current_track, broadcast=False
-                        )
+                        ),
+                    )
+                    if not current:
+                        return result
                     if track_snapshot is not None:
                         deferred_snapshots.append(track_snapshot)
 
@@ -147,17 +171,16 @@ class QueueSetMixin(QueueServiceBase):
                     await asyncio.to_thread(
                         self.audio_player.load_file, current_track.filepath
                     )
-                    async with self._set_queue_lock:
-                        if generation != self._set_queue_generation:
-                            return result
+                    if await self._superseded(generation):
+                        return result
 
                     await asyncio.to_thread(self.audio_player.play)
-                    async with self._set_queue_lock:
-                        if generation != self._set_queue_generation:
-                            return result
-                        playing_snapshot = await self.player_state_manager.set_playing(
-                            True, broadcast=False
-                        )
+                    current, playing_snapshot = await self._if_current_generation(
+                        generation,
+                        lambda: self.player_state_manager.set_playing(True, broadcast=False),
+                    )
+                    if not current:
+                        return result
                     if playing_snapshot is not None:
                         deferred_snapshots.append(playing_snapshot)
 

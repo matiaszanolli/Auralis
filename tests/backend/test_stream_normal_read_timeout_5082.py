@@ -36,7 +36,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from core import stream_normal, stream_normal_chunks
+from core import stream_normal, stream_normal_reads
 from core.audio_stream_controller import AudioStreamController
 
 SAMPLE_RATE = 8000
@@ -125,11 +125,12 @@ async def _run_stream(controller, ws, release, reads, block_reads=True):
     fake_sf = MagicMock()
     fake_sf.SoundFile = _make_soundfile_class(release, reads, block_reads)
 
-    # #5032 split the per-chunk read out into stream_normal_chunks; the
+    # #5032 split the per-chunk read out of stream_normal (the reader now lives in
+    # stream_normal_reads, #5839); the
     # metadata read stayed behind. Both need the fake, and both modules'
     # CHUNK_PROCESS_TIMEOUT view is the same _asc attribute.
     with patch.object(stream_normal, "sf", fake_sf), \
-         patch.object(stream_normal_chunks, "sf", fake_sf), \
+         patch.object(stream_normal_reads, "sf", fake_sf), \
          patch.object(stream_normal._asc, "CHUNK_PROCESS_TIMEOUT", FAST_TIMEOUT), \
          patch.object(stream_normal, "validate_file_path",
                       side_effect=lambda p, **_kwargs: p):
@@ -300,11 +301,12 @@ class TestBothReadSitesAreBounded:
     even if the behavioural tests above happen not to cover that path."""
 
     def test_no_unbounded_read_audio_chunk_call_remains(self):
-        # #5032 moved the read loop into pump_normal_chunks. The guard follows
-        # the code: what it protects is that neither chunk producer calls the
-        # blocking reader without a wait_for around it, and both producers now
-        # live in that function.
-        src = inspect.getsource(stream_normal_chunks.pump_normal_chunks)
+        # #5032 moved the read loop into stream_normal_chunks, and #5839 moved
+        # its two chunk producers into stream_normal_reads (await_lookahead_read
+        # / read_chunk_now). The guard follows the code: what it protects is
+        # that neither producer calls the blocking reader without a wait_for
+        # around it, and both now live in that module.
+        src = inspect.getsource(stream_normal_reads)
         code = "\n".join(
             line for line in src.splitlines() if not line.strip().startswith("#")
         )
@@ -316,7 +318,7 @@ class TestBothReadSitesAreBounded:
         # hot path onto its own pool; either spelling satisfies #5082.
         assert re.search(
             r"wait_for\(\s*\n?\s*(asyncio\.to_thread|run_in_stream_executor)"
-            r"\(\s*\n?\s*_read_audio_chunk", code
+            r"\(\s*\n?\s*_?read_audio_chunk", code
         ), "the inline _read_audio_chunk read is not wrapped in asyncio.wait_for"
 
         assert re.search(

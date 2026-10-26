@@ -31,13 +31,18 @@ from typing import Any
 from collections.abc import Callable
 
 import numpy as np
-import soundfile as sf
 from fastapi import WebSocket
 
 from . import audio_stream_controller as _asc
 from .executors import run_in_stream_executor
 from .stream_gates import wait_for_stream_gates
 from .stream_lifecycle import ChunkPumpResult
+from .stream_normal_reads import (
+    ReadTimeout,
+    await_lookahead_read,
+    read_audio_chunk,
+    read_chunk_now,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -82,18 +87,6 @@ async def pump_normal_chunks(
     lookahead_read: asyncio.Task[np.ndarray] | None = None
 
     try:
-        # Helper: open → seek → read → close for a single chunk (#2121).
-        # Uses streaming_filepath (temp WAV for compressed formats, original for PCM).
-        def _read_audio_chunk(filepath: str, start: int, frames: int) -> np.ndarray:
-            with sf.SoundFile(filepath) as audio_file:
-                audio_file.seek(start)
-                # always_2d=True: mono returned as (N, 1) matching stereo shape
-                # Do NOT use fill_value: send the last chunk at its actual
-                # length to avoid appending silence (#2124).
-                return audio_file.read(
-                    frames=frames, dtype='float32', always_2d=True
-                )
-
         # Look-ahead variant: short-circuits the disk read if the client
         # vanished during the previous chunk's send (#3874). Runs in a
         # worker thread concurrently with send_pcm_chunk; mirrors the
@@ -101,7 +94,7 @@ async def pump_normal_chunks(
         def _read_audio_chunk_lookahead(filepath: str, start: int, frames: int) -> np.ndarray:
             if not controller._is_websocket_connected(websocket):
                 raise ConnectionError("WebSocket disconnected before look-ahead read")
-            return _read_audio_chunk(filepath, start, frames)
+            return read_audio_chunk(filepath, start, frames)
 
         # Stream chunks with look-ahead: read chunk N+1 from disk while
         # streaming chunk N to eliminate I/O gaps.
@@ -119,33 +112,10 @@ async def pump_normal_chunks(
             try:
                 # Get chunk audio: from look-ahead task or read now
                 if lookahead_read is not None:
-                    try:
-                        # Bounded like every sibling path's chunk producer
-                        # (#5082) — see the inline read below for why.
-                        # Timed here rather than at create_task() time: the
-                        # pause/flow-control waits above sit between the two,
-                        # so a legitimately long client pause would otherwise
-                        # burn the budget and time out a healthy read.
-                        chunk_audio = await asyncio.wait_for(
-                            lookahead_read, timeout=_asc.CHUNK_PROCESS_TIMEOUT
-                        )
-                    except ConnectionError:
-                        # Client disconnected during the look-ahead read (#3874).
-                        # Clean exit — not a chunk failure, so don't log it as one.
-                        stopped_early = True
-                        break
-                    except TimeoutError:
-                        logger.error(
-                            f"Look-ahead read for chunk {chunk_idx} timed out after "
-                            f"{_asc.CHUNK_PROCESS_TIMEOUT}s (track {track_id})"
-                        )
-                        read_timeouts += 1
-                        raise
-                    finally:
-                        # wait_for already cancelled the task on timeout, and
-                        # the recovery branch drains it; either way this slot
-                        # must not be re-awaited next iteration.
-                        lookahead_read = None
+                    # The slot is consumed whatever the outcome, so a failed
+                    # look-ahead is never re-awaited next iteration.
+                    armed, lookahead_read = lookahead_read, None
+                    chunk_audio = await await_lookahead_read(armed, chunk_idx, track_id)
                 else:
                     # #4560: on the first chunk of a seek, start the read at the
                     # requested position rather than at the chunk boundary, and
@@ -154,33 +124,17 @@ async def pump_normal_chunks(
                     # always reads a full chunk at a boundary, and it is only
                     # ever primed after this first read.
                     trim = first_chunk_trim_samples if chunk_idx == start_chunk else 0
-                    start_sample = chunk_idx * interval_samples + trim
-                    # Bound the disk read the same way every sibling chunk
-                    # producer bounds its worker-thread call (#5082;
-                    # stream_chunk_ops/stream_enhanced/stream_seek all use
-                    # CHUNK_PROCESS_TIMEOUT). sf.SoundFile open/seek/read on a
-                    # stalled network mount or a yanked external drive neither
-                    # returns nor raises, so without this the stream hangs
-                    # forever holding a MAX_CONCURRENT_STREAMS permit.
-                    # TimeoutError is an Exception subclass, so it falls into
-                    # the skip-failed-chunk recovery branch below.
-                    try:
-                        chunk_audio = await asyncio.wait_for(
-                            run_in_stream_executor(
-                                _read_audio_chunk,
-                                streaming_filepath,
-                                start_sample,
-                                chunk_samples - trim,
-                            ),
-                            timeout=_asc.CHUNK_PROCESS_TIMEOUT,
-                        )
-                    except TimeoutError:
-                        logger.error(
-                            f"Disk read for chunk {chunk_idx} timed out after "
-                            f"{_asc.CHUNK_PROCESS_TIMEOUT}s (track {track_id})"
-                        )
-                        read_timeouts += 1
-                        raise
+                    chunk_audio = await read_chunk_now(
+                        streaming_filepath,
+                        chunk_idx,
+                        chunk_idx * interval_samples + trim,
+                        chunk_samples - trim,
+                        track_id,
+                    )
+                if chunk_audio is None:
+                    # Client disconnected during the look-ahead read (#3874).
+                    stopped_early = True
+                    break
 
                 # Start look-ahead: read next chunk while we stream current one
                 if chunk_idx + 1 < total_chunks:
@@ -224,6 +178,8 @@ async def pump_normal_chunks(
                     await on_progress(track_id, progress, f"Streamed chunk {chunk_idx + 1}")
 
             except Exception as chunk_error:
+                if isinstance(chunk_error, ReadTimeout):
+                    read_timeouts += 1
                 # Drain the cancelled look-ahead so the next iteration
                 # doesn't trip on its CancelledError (#3493).
                 await controller._drain_cancelled_task(lookahead_read)

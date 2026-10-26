@@ -500,7 +500,7 @@ class TestMigrationConcurrency:
             )
 
         # Mock backup_database to raise an exception
-        with patch('auralis.library.migration_manager.backup_database', side_effect=IOError("Disk full")):
+        with patch('auralis.library.pre_migration_backup.backup_database', side_effect=IOError("Disk full")):
             success = check_and_migrate_database(temp_db, auto_backup=True)
 
             # Migration should FAIL, not proceed

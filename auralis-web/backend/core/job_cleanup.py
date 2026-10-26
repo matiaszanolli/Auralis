@@ -62,12 +62,12 @@ async def cleanup_expired_jobs(
 
     async with jobs_lock:
         for job_id, job in jobs.items():
-            if job.status in TERMINAL_STATUSES:
-                if job.completed_at is not None:
-                    age_hours = (now - job.completed_at).total_seconds() / 3600
-                    if age_hours > max_age_hours:
-                        candidate_paths.append((Path(job.output_path), Path(job.input_path)))
-                        jobs_to_remove.append(job_id)
+            if job.status not in TERMINAL_STATUSES or job.completed_at is None:
+                continue
+            age_hours = (now - job.completed_at).total_seconds() / 3600
+            if age_hours > max_age_hours:
+                candidate_paths.append((Path(job.output_path), Path(job.input_path)))
+                jobs_to_remove.append(job_id)
 
         for job_id in jobs_to_remove:
             del jobs[job_id]

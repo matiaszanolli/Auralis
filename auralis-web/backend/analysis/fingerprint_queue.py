@@ -171,6 +171,25 @@ class FingerprintQueue:
             self._worker_task = None
         logger.info("🛑 Fingerprint queue background worker stopped")
 
+    async def _generate_one(self, track_id: int, filepath: str) -> None:
+        """Generate one fingerprint and count the outcome as completed/failed."""
+        try:
+            result = await self._generator.get_or_generate(track_id, filepath)
+        except Exception as e:
+            with self._state_lock:
+                self._state.failed += 1
+            logger.error(f"❌ Error generating fingerprint for track {track_id}: {e}")
+            return
+
+        if result is not None:
+            with self._state_lock:
+                self._state.completed += 1
+            logger.info(f"✅ Fingerprint generated for track {track_id}")
+        else:
+            with self._state_lock:
+                self._state.failed += 1
+            logger.warning(f"⚠️  Fingerprint generation failed for track {track_id}")
+
     async def _worker_loop(self) -> None:
         """
         Background worker loop that processes queued tracks.
@@ -210,21 +229,7 @@ class FingerprintQueue:
                         self._state.processing = None
                     continue
 
-                # Generate fingerprint
-                try:
-                    result = await self._generator.get_or_generate(track_id, filepath)
-                    if result is not None:
-                        with self._state_lock:
-                            self._state.completed += 1
-                        logger.info(f"✅ Fingerprint generated for track {track_id}")
-                    else:
-                        with self._state_lock:
-                            self._state.failed += 1
-                        logger.warning(f"⚠️  Fingerprint generation failed for track {track_id}")
-                except Exception as e:
-                    with self._state_lock:
-                        self._state.failed += 1
-                    logger.error(f"❌ Error generating fingerprint for track {track_id}: {e}")
+                await self._generate_one(track_id, filepath)
 
                 with self._state_lock:
                     self._state.processing = None

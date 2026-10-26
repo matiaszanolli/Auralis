@@ -62,6 +62,31 @@ class PositionTickerMixin:
             except asyncio.CancelledError:
                 pass
 
+    async def _advance_position(self, elapsed: float) -> tuple[float | None, int]:
+        """Advance ``current_time`` by *elapsed*: ``(new_time, seq)``, new_time
+        None when there is nothing to broadcast (not playing / held at the end)."""
+        async with self._lock:
+            if not (self.state.is_playing and self.state.current_track):
+                return None, 0
+
+            # Advance by actual elapsed wall-clock time, not a fixed 1.0s
+            previous_time = self.state.current_time
+            new_time = min(previous_time + elapsed, self.state.duration)
+            self.state.current_time = new_time
+
+            # Read the CURRENT generation without bumping it (#4544): this tick
+            # refines the last state, not a new generation, so it must not
+            # advance _update_seq — but it carries a stamp so the frontend can
+            # drop it if a newer player_state is already applied. Read inside
+            # the lock that computed new_time so the stamp describes its value.
+            tick_seq = self._update_seq
+
+            # Held at the track end (#5456): nothing new to report until
+            # navigation moves to another track; the loop stays alive (#4545).
+            if new_time == previous_time:
+                return None, tick_seq
+            return new_time, tick_seq
+
     async def _position_update_loop(self) -> None:
         """Update position every second while playing, corrected for event-loop drift.
 
@@ -84,33 +109,7 @@ class PositionTickerMixin:
                 elapsed = now - last_tick
                 last_tick = now
 
-                new_time: float | None = None
-                tick_seq: int = 0
-
-                async with self._lock:
-                    if self.state.is_playing and self.state.current_track:
-                        # Advance by actual elapsed wall-clock time, not a fixed 1.0s
-                        previous_time = self.state.current_time
-                        new_time = min(
-                            previous_time + elapsed,
-                            self.state.duration
-                        )
-                        self.state.current_time = new_time
-
-                        # Read the CURRENT generation without bumping it (#4544).
-                        # This tick is a refinement of the last state, not a new
-                        # generation, so it must not advance _update_seq — but it
-                        # must carry a stamp so the frontend can drop it if a
-                        # newer player_state has already been applied. Read here,
-                        # inside the same lock that computed new_time, so the
-                        # stamp always describes the value it travels with.
-                        tick_seq = self._update_seq
-
-                        # Held at the track end (#5456): nothing new to report
-                        # until navigation moves to another track. The loop
-                        # stays alive (#4545) so that track keeps ticking.
-                        if new_time == previous_time:
-                            new_time = None
+                new_time, tick_seq = await self._advance_position(elapsed)
 
                 # Broadcast lightweight position update (fixes #2570) — avoids
                 # serialising the full queue + track info every second.

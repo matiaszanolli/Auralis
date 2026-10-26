@@ -44,28 +44,28 @@ class AlbumArtworkMixin(BaseRepository):
             if not album or not album.tracks:
                 return None
 
-            # Try to extract artwork from the first track
-            for track in album.tracks:
-                if track.filepath and Path(track.filepath).exists():
-                    artwork_path = self.artwork_extractor.extract_artwork(
-                        track.filepath, album_id
-                    )
+            for track in album.tracks:  # first track with a readable file
+                if not (track.filepath and Path(track.filepath).exists()):
+                    continue
+                artwork_path = self.artwork_extractor.extract_artwork(
+                    track.filepath, album_id
+                )
+                if not artwork_path:
+                    continue
 
-                    if artwork_path:
-                        # Update album with artwork path
-                        previous_path = album.artwork_path
-                        album.artwork_path = artwork_path
-                        session.commit()
-                        session.refresh(album)
-                        # Remove the superseded file now that the new path is
-                        # committed (mirrors delete_artwork below; #4850).
-                        # Every write generates a unique
-                        # album_{id}_{content_hash}.ext filename, so leaving
-                        # this unlinked orphaned one more file on every
-                        # re-extract with no sweeper anywhere to reclaim it.
-                        if previous_path and previous_path != artwork_path:
-                            self.artwork_extractor.delete_artwork(previous_path)
-                        return artwork_path
+                # Update album with artwork path
+                previous_path = album.artwork_path
+                album.artwork_path = artwork_path
+                session.commit()
+                session.refresh(album)
+                # Remove the superseded file now that the new path is committed
+                # (mirrors delete_artwork below; #4850). Every write generates a
+                # unique album_{id}_{content_hash}.ext filename, so leaving this
+                # unlinked orphaned one more file on every re-extract with no
+                # sweeper anywhere to reclaim it.
+                if previous_path and previous_path != artwork_path:
+                    self.artwork_extractor.delete_artwork(previous_path)
+                return artwork_path
 
             return None
 

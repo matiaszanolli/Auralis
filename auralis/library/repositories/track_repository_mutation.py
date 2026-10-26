@@ -23,6 +23,13 @@ from .base import BaseRepository
 from .track_repository import _filter_metadata_fields, _track_eager_options
 
 
+def _apply_metadata_fields(track: Track, track_id: int, fields: dict[str, Any]) -> None:
+    """Set the editable, non-None entries of *fields* on *track* (#4555)."""
+    for key, value in _filter_metadata_fields(track_id, fields).items():
+        if hasattr(track, key) and value is not None:
+            setattr(track, key, value)
+
+
 class TrackRepositoryMutationMixin(BaseRepository):
     """Update an existing track's fields, relationships, or metadata."""
 
@@ -183,9 +190,7 @@ class TrackRepositoryMutationMixin(BaseRepository):
 
                 # Update only provided fields, and only ones that are actually
                 # editable metadata — never structural columns (#4555).
-                for key, value in _filter_metadata_fields(track_id, fields).items():
-                    if hasattr(track, key) and value is not None:
-                        setattr(track, key, value)
+                _apply_metadata_fields(track, track_id, fields)
 
                 session.commit()
                 # Re-query with eager loading before detaching from session
@@ -238,9 +243,7 @@ class TrackRepositoryMutationMixin(BaseRepository):
                         continue
                     # Same allowlist as update_metadata — structural columns are
                     # not writable through a metadata path (#4555).
-                    for key, value in _filter_metadata_fields(track_id, fields).items():
-                        if hasattr(track, key) and value is not None:
-                            setattr(track, key, value)
+                    _apply_metadata_fields(track, track_id, fields)
                     successful.append(track_id)
 
                 session.commit()
