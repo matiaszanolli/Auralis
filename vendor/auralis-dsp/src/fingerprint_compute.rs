@@ -255,7 +255,7 @@ pub fn compute_complete_fingerprint(
 
     // 5. Harmonic (3D)
     let harmonic_ratio = estimate_harmonic_ratio(&mono_audio, sample_rate);
-    let pitch_stability = estimate_pitch_stability(&mono_audio, sample_rate);
+    let pitch_stability = estimate_pitch_stability(&mono_audio);
     let chroma_energy = estimate_chroma_energy(&mono_audio, sample_rate);
 
     // 6. Variation (3D)
@@ -422,7 +422,7 @@ fn estimate_tempo(audio: &[f32], sample_rate: u32) -> f32 {
 ///
 /// Stable pitch → consistent ZCR → value near 1.0.
 /// Varying pitch → varying ZCR → value near 0.0.
-fn estimate_pitch_stability(audio: &[f32], sample_rate: u32) -> f32 {
+fn estimate_pitch_stability(audio: &[f32]) -> f32 {
     let frame_size = 2048usize;
     let hop = 1024usize;
 
