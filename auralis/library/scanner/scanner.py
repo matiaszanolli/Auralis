@@ -15,6 +15,7 @@ from collections.abc import Callable
 
 from ...utils.logging import info, warning
 from ..scan_models import ScanResult
+from ..scan_paths import scan_roots
 from .audio_analyzer import AudioAnalyzer
 from .batch_processor import BatchProcessor
 from .config import DEFAULT_BATCH_SIZE
@@ -140,6 +141,7 @@ class LibraryScanner:
         start_time: float = time.time()
         result: ScanResult = ScanResult()
 
+        directories = scan_roots(directories, recursive)  # #6097
         normalized = claim_scan(self.library_database, directories, result)
         if normalized is None:
             return result
@@ -148,13 +150,11 @@ class LibraryScanner:
 
         # Announce the start from HERE — after both rejection guards have passed
         # (#4602). Callers used to broadcast `library_scan_started` on entry,
-        # before `rejected` could possibly be known, so a second scan request
-        # that ended up 409'd had already told the UI a scan had begun; its
-        # handler resets every counter, wiping the live progress of the scan that
-        # was actually running. Routing it through the progress callback means
-        # the frame can only be emitted once the slot is genuinely owned, and
-        # fixes both emitters (manual route + auto-scanner) at once, since both
-        # bridge this callback to the WebSocket.
+        # before `rejected` was known, so a 409'd second request had already
+        # told the UI a scan began; its handler resets every counter, wiping the
+        # live progress of the scan that was actually running. Emitting through
+        # the progress callback fixes both emitters (manual route + auto-scanner)
+        # at once, since both bridge it to the WebSocket.
         self._report_progress({
             'stage': 'started',
             'directories': normalized,

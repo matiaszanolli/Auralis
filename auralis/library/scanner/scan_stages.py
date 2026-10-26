@@ -12,13 +12,13 @@ patchable there.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-import os
 import threading
 from collections.abc import Callable
 from typing import Any, NamedTuple
 
 from ...utils.logging import debug, warning
 from ..scan_models import MAX_RECORDED_FAILURES, ScanResult
+from ..scan_paths import reservation_key
 
 ProgressReporter = Callable[[dict[str, Any]], None]
 
@@ -48,7 +48,7 @@ def claim_scan(library_database: Any, directories: list[str], result: ScanResult
     # Reserved on library_database, not on self — see the #4509 note in
     # __init__: a fresh LibraryScanner per invocation means an instance
     # attribute here would never be shared between two overlapping scans.
-    normalized = [os.path.normpath(os.path.abspath(d)) for d in directories]
+    normalized = [reservation_key(d) for d in directories]
     already_scanning: list[str] = library_database.try_reserve_scan_paths(normalized)
 
     if already_scanning:

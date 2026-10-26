@@ -20,6 +20,8 @@ import threading
 from collections.abc import Callable
 from typing import Any
 
+from .scan_paths import paths_overlap
+
 
 class ScanCoordinator:
     """Slot, path-reservation and exclusive-access accounting for library scans."""
@@ -32,14 +34,12 @@ class ScanCoordinator:
                 ``max_concurrent_scans`` applies to the next scan.
         """
         self._get_settings = get_settings
-        # Scan concurrency tracking (#2438)
         self._scan_slots_lock = threading.Lock()
         self._active_scans: int = 0
         # Destructive-operation exclusion (#4816): POST /api/library/reset holds
         # this while it deletes every content row.
         self._exclusive_access: bool = False
-        # Per-directory scan dedup (#3455 / #4509).
-        self._active_scan_paths_lock = threading.Lock()
+        self._active_scan_paths_lock = threading.Lock()  # per-directory dedup (#3455 / #4509)
         self._active_scan_paths: set[str] = set()
 
     def try_acquire_scan_slot(self) -> tuple[bool, int]:
@@ -79,17 +79,17 @@ class ScanCoordinator:
         Atomically reserve directory paths for an exclusive scan (#3455 / #4509).
 
         Args:
-            paths: Normalized (os.path.normpath(os.path.abspath(...))) directory
-                paths the caller is about to scan.
+            paths: Symlink-resolved directory paths the caller is about to scan
+                (``scan_paths.reservation_key``).
 
         Returns:
-            The subset of `paths` already reserved by another in-flight scan.
-            Empty means none clashed and all of `paths` are now reserved for
-            the caller — who must call `release_scan_paths(paths)` when done,
-            success or failure alike.
+            The subset of `paths` that is, contains, or lies inside a directory
+            reserved by another in-flight scan (#6097). Empty means all of
+            `paths` are now reserved for the caller, who must call
+            `release_scan_paths(paths)` when done, success or failure alike.
         """
         with self._active_scan_paths_lock:
-            clashing = [p for p in paths if p in self._active_scan_paths]
+            clashing = [p for p in paths if any(paths_overlap(p, a) for a in self._active_scan_paths)]
             if clashing:
                 return clashing
             self._active_scan_paths.update(paths)
