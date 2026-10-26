@@ -11,7 +11,10 @@ renormalization), split from distance.py (#6273).
 
 from dataclasses import dataclass
 
+import numpy as np
 
+
+@dataclass
 class DimensionWeights:
     """Weights for fingerprint dimensions in similarity calculation"""
 

@@ -9,14 +9,11 @@ Calculates weighted Euclidean distance between fingerprints for similarity ranki
 """
 
 import math
-from dataclasses import dataclass
 
 import numpy as np
 
+from .dimension_weights import DimensionWeights
 from .metrics import MetricUtils
-
-
-from .dimension_weights import DimensionWeights  # noqa: E402  (split #6273)
 
 
 class FingerprintDistance:

@@ -14,7 +14,8 @@ from typing import Any
 import numpy as np
 
 from ...utils.logging import debug, error, info, warning
-from .distance import DimensionWeights, FingerprintDistance
+from .dimension_weights import DimensionWeights
+from .distance import FingerprintDistance
 from .similarity_explanation import get_prefiltered_candidates, get_similarity_explanation
 from .normalizer import FingerprintNormalizer
 
@@ -228,8 +229,12 @@ class FingerprintSimilarity:
 
         return SimilarityResult(track_id2, distance, similarity_score)
 
-    def get_similarity_explanation(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+    def is_fitted(self) -> bool:
+        """Check if similarity system is fitted and ready"""
+        return self.fitted
+
+    def get_similarity_explanation(self, *args: Any, **kwargs: Any) -> dict[str, Any] | None:
         return get_similarity_explanation(self, *args, **kwargs)
 
-    def _get_prefiltered_candidates(self, *args: Any, **kwargs: Any):
+    def _get_prefiltered_candidates(self, *args: Any, **kwargs: Any) -> list[tuple[int, np.ndarray]]:
         return get_prefiltered_candidates(self, *args, **kwargs)

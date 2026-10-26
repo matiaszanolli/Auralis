@@ -14,12 +14,16 @@ is unchanged.
 
 from typing import TYPE_CHECKING, Any
 
+import numpy as np
+
+from ...utils.logging import debug, error
+
 if TYPE_CHECKING:
     from .similarity import FingerprintSimilarity
 
 
-def get_similarity_explanation(similarity, 
-    self,
+def get_similarity_explanation(
+    similarity: "FingerprintSimilarity",
     track_id1: int,
     track_id2: int,
     top_n: int = 5
@@ -90,8 +94,8 @@ def get_similarity_explanation(similarity,
     }
 
 
-def get_prefiltered_candidates(similarity, 
-    self,
+def get_prefiltered_candidates(
+    similarity: "FingerprintSimilarity",
     target_fp: Any,
     max_candidates: int = 100
 ) -> list[tuple[int, np.ndarray]]:
@@ -132,7 +136,3 @@ def get_prefiltered_candidates(similarity,
 
     debug(f"Pre-filtering: {len(candidates)} candidates (from ranges)")
     return candidates
-
-def is_fitted(self) -> bool:
-    """Check if similarity system is fitted and ready"""
-    return similarity.fitted
