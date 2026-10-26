@@ -24,13 +24,12 @@ class TrackRepositoryLookupMixin(BaseRepository):
     def get_by_id(self, track_id: int) -> Track | None:
         """Get track by ID with relationships loaded"""
         with self._session_scope() as session:
-            track = session.execute(
+            track = self._first_detached(
+                session,
                 select(Track)
                 .options(*_track_eager_options())
-                .where(Track.id == track_id)
-            ).scalars().unique().first()
-            if track:
-                session.expunge(track)
+                .where(Track.id == track_id),
+            )
             return track
 
     def get_by_ids(self, track_ids: list[int]) -> dict[int, Track]:
@@ -57,13 +56,12 @@ class TrackRepositoryLookupMixin(BaseRepository):
     def get_by_path(self, filepath: str) -> Track | None:
         """Get track by file path with relationships loaded"""
         with self._session_scope() as session:
-            track = session.execute(
+            track = self._first_detached(
+                session,
                 select(Track)
                 .options(*_track_eager_options())
-                .where(Track.filepath_key == make_filepath_key(filepath))
-            ).scalars().unique().first()
-            if track:
-                session.expunge(track)
+                .where(Track.filepath_key == make_filepath_key(filepath)),
+            )
             return track
 
     def get_by_paths(self, filepaths: list[str]) -> dict[str, Track]:

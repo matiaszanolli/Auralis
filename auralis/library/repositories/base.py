@@ -15,10 +15,14 @@ instead of a per-repository sweep.
 
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager, suppress
-from typing import Any
+from typing import Any, TypeVar
 
-from sqlalchemy import ScalarSelect, func, select
+from sqlalchemy import ScalarSelect, Select, func, select
 from sqlalchemy.orm import Session
+
+from ...utils.logging import error
+
+_T = TypeVar("_T")
 
 def escape_like(query: str) -> str:
     """Neutralise LIKE metacharacters in a user-supplied search string.
@@ -132,3 +136,83 @@ class BaseRepository:
             raise
         finally:
             session.close()
+
+    def _guarded(self, failure_message: str) -> "_GuardedScope":
+        """:meth:`_session_scope` that swallows a failure and logs it once.
+
+        The write paths that report failure through their return value
+        (``None`` / ``False`` / ``0``) used to repeat::
+
+            with self._session_scope() as session:
+                try:
+                    ...
+                except Exception as e:
+                    session.rollback()
+                    error(f"Failed to X: {e}")
+                    return None
+
+        and now read::
+
+            with self._guarded("Failed to X") as session:
+                ...
+            return None
+
+        An exception leaving the block is rolled back by :meth:`_session_scope`
+        (#5117), logged here as ``"<failure_message>: <error>"`` at ERROR, and
+        swallowed, so execution continues after the ``with`` -- the line that
+        returns the method's failure default. A ``return`` inside the block is
+        untouched, so a method still hands back the object it detached before
+        returning (the #2624 hazard: detach *before* the commit-expired
+        instance leaves the session; close() then has nothing left to expire).
+
+        The failure is not distinguishable from "not found" by the caller; that
+        is the existing contract (#5940 tracks changing it) and this helper
+        deliberately preserves it.
+        """
+        return _GuardedScope(self._session_scope(), failure_message)
+
+    def _first_detached(self, session: Session, stmt: Select[tuple[_T]]) -> _T | None:
+        """First row of *stmt* (or None), detached together with everything
+        eager-loaded under it.
+
+        ``expunge_all()``, not ``expunge(obj)``: a per-item expunge does not
+        cascade to related objects, leaving them ``DetachedInstanceError``-prone
+        (#2406, #4236). One place owns that policy for the get-one read paths.
+        """
+        row = session.execute(stmt).scalars().unique().first()
+        session.expunge_all()
+        return row
+
+    def _all_detached(self, session: Session, stmt: Select[tuple[_T]]) -> list[_T]:
+        """All rows of *stmt*, detached together with their eager-loaded
+        relatives. The list twin of :meth:`_first_detached`."""
+        rows = list(session.execute(stmt).scalars().unique().all())
+        session.expunge_all()
+        return rows
+
+
+class _GuardedScope:
+    """Context manager behind :meth:`BaseRepository._guarded`.
+
+    A class rather than ``@contextmanager`` because its ``__exit__`` is typed
+    ``-> bool``: that is how mypy learns the block can swallow an exception, so
+    the ``return <default>`` after a ``with`` whose body returns on every path
+    is not flagged unreachable.
+    """
+
+    def __init__(self, scope: Any, failure_message: str) -> None:
+        self._scope = scope
+        self._failure_message = failure_message
+
+    def __enter__(self) -> Session:
+        session: Session = self._scope.__enter__()
+        return session
+
+    def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> bool:
+        # _session_scope rolls back and closes; for an escaping exception it
+        # reports "not suppressed", and we decide here whether to swallow it.
+        self._scope.__exit__(exc_type, exc, tb)
+        if exc_type is not None and issubclass(exc_type, Exception):
+            error(f"{self._failure_message}: {exc}")
+            return True
+        return False

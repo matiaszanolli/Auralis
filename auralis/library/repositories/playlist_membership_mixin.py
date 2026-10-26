@@ -99,7 +99,7 @@ class PlaylistMembershipMixin(BaseRepository):
             position (or any position when ``position is None``), False
             on lookup miss or DB failure.
         """
-        with self._session_scope() as session:
+        with self._guarded("Failed to add track to playlist") as session:
             try:
                 # Verify playlist + track exist BEFORE the insert so FK
                 # violations surface as a clean False/log instead of an
@@ -210,10 +210,7 @@ class PlaylistMembershipMixin(BaseRepository):
                 session.rollback()
                 error(f"Unexpected IntegrityError adding track to playlist: {e}")
                 return True
-            except Exception as e:
-                session.rollback()
-                error(f"Failed to add track to playlist: {e}")
-                return False
+        return False
 
     def add_tracks(self, playlist_id: int, track_ids: list[int]) -> int:
         """Add multiple tracks to a playlist in a single transaction.
@@ -239,47 +236,42 @@ class PlaylistMembershipMixin(BaseRepository):
         if not track_ids:
             return 0
 
-        with self._session_scope() as session:
-            try:
-                # Verify the playlist exists once rather than per track.
-                playlist = session.execute(
-                    select(Playlist).where(Playlist.id == playlist_id)
-                ).scalars().first()
-                if not playlist:
-                    return 0
-
-                added = 0
-                for track_id in track_ids:
-                    # Skip if the track row doesn't exist in the library.
-                    if not session.execute(
-                        select(Track.id).where(Track.id == track_id)
-                    ).scalar_one_or_none():
-                        continue
-
-                    # Skip if already in the playlist (idempotent).
-                    already_present = session.scalar(
-                        select(track_playlist.c.position)
-                        .where(track_playlist.c.playlist_id == playlist_id)
-                        .where(track_playlist.c.track_id == track_id)
-                    )
-                    if already_present is not None:
-                        continue
-
-                    # Append at next free position.  Because we are inside a
-                    # single session, MAX(position) already sees the rows we
-                    # inserted for previous track_ids in this loop — SQLite's
-                    # read-your-own-writes guarantee closes the position-race
-                    # that the per-call version had between sessions.
-                    self._insert_track_at_next_position(session, playlist_id, track_id)
-                    added += 1
-
-                session.commit()
-                debug(
-                    f"Batch-added {added}/{len(track_ids)} tracks to playlist {playlist.name}"
-                )
-                return added
-
-            except Exception as e:
-                session.rollback()
-                error(f"Failed to batch-add tracks to playlist {playlist_id}: {e}")
+        with self._guarded(f"Failed to batch-add tracks to playlist {playlist_id}") as session:
+            # Verify the playlist exists once rather than per track.
+            playlist = session.execute(
+                select(Playlist).where(Playlist.id == playlist_id)
+            ).scalars().first()
+            if not playlist:
                 return 0
+
+            added = 0
+            for track_id in track_ids:
+                # Skip if the track row doesn't exist in the library.
+                if not session.execute(
+                    select(Track.id).where(Track.id == track_id)
+                ).scalar_one_or_none():
+                    continue
+
+                # Skip if already in the playlist (idempotent).
+                already_present = session.scalar(
+                    select(track_playlist.c.position)
+                    .where(track_playlist.c.playlist_id == playlist_id)
+                    .where(track_playlist.c.track_id == track_id)
+                )
+                if already_present is not None:
+                    continue
+
+                # Append at next free position.  Because we are inside a
+                # single session, MAX(position) already sees the rows we
+                # inserted for previous track_ids in this loop — SQLite's
+                # read-your-own-writes guarantee closes the position-race
+                # that the per-call version had between sessions.
+                self._insert_track_at_next_position(session, playlist_id, track_id)
+                added += 1
+
+            session.commit()
+            debug(
+                f"Batch-added {added}/{len(track_ids)} tracks to playlist {playlist.name}"
+            )
+            return added
+        return 0

@@ -130,103 +130,98 @@ class TrackRepositoryLifecycleMixin(BaseRepository):
             return None
         self._validate_and_normalize_track_info(track_info)
 
-        with self._session_scope() as session:
-            try:
-                # Check if track already exists
-                existing = session.execute(
-                    select(Track).options(
-                        *_track_eager_options()
-                    ).where(Track.filepath_key == make_filepath_key(track_info['filepath']))
-                ).scalars().unique().first()
-                if existing:
-                    session.expunge(existing)
-                    warning(f"Track already exists: {track_info['filepath']}")
-                    return existing
+        with self._guarded("Failed to add track") as session:
+            # Check if track already exists
+            existing = session.execute(
+                select(Track).options(
+                    *_track_eager_options()
+                ).where(Track.filepath_key == make_filepath_key(track_info['filepath']))
+            ).scalars().unique().first()
+            if existing:
+                session.expunge(existing)
+                warning(f"Track already exists: {track_info['filepath']}")
+                return existing
 
-                # Auto-extract basic audio info if not provided
-                if 'format' not in track_info or 'sample_rate' not in track_info or 'channels' not in track_info:
-                    try:
-                        import soundfile as sf
-                        sf_info = sf.info(track_info['filepath'])
-                        if 'format' not in track_info:
-                            track_info['format'] = sf_info.format
-                        if 'sample_rate' not in track_info:
-                            track_info['sample_rate'] = sf_info.samplerate
-                        if 'channels' not in track_info:
-                            track_info['channels'] = sf_info.channels
-                        if 'duration' not in track_info:
-                            track_info['duration'] = sf_info.duration
-                    except Exception as e:
-                        debug(f"Failed to auto-extract audio info: {e}")
+            # Auto-extract basic audio info if not provided
+            if 'format' not in track_info or 'sample_rate' not in track_info or 'channels' not in track_info:
+                try:
+                    import soundfile as sf
+                    sf_info = sf.info(track_info['filepath'])
+                    if 'format' not in track_info:
+                        track_info['format'] = sf_info.format
+                    if 'sample_rate' not in track_info:
+                        track_info['sample_rate'] = sf_info.samplerate
+                    if 'channels' not in track_info:
+                        track_info['channels'] = sf_info.channels
+                    if 'duration' not in track_info:
+                        track_info['duration'] = sf_info.duration
+                except Exception as e:
+                    debug(f"Failed to auto-extract audio info: {e}")
 
-                artists = self._get_or_create_artists(session, track_info.get('artists', []))
-                album = None
-                if track_info.get('album'):
-                    album = self._get_or_create_album(
-                        session, track_info['album'], track_info.get('year'),
-                        artists[0].id if artists else None
-                    )
-                genres = self._get_or_create_genres(session, track_info.get('genres', []))
-
-                # Create track
-                track = Track(
-                    title=track_info.get('title', 'Unknown'),
-                    filepath=track_info['filepath'],
-                    filepath_key=make_filepath_key(track_info['filepath']),
-                    duration=track_info.get('duration'),
-                    sample_rate=track_info.get('sample_rate'),
-                    channels=track_info.get('channels'),
-                    format=track_info.get('format'),
-                    filesize=track_info.get('filesize'),
-                    file_mtime=track_info.get('file_mtime'),
-                    dr_rating=track_info.get('dr_rating'),
-                    album=album,
-                    track_number=track_info.get('track_number'),
-                    disc_number=track_info.get('disc_number'),
-                    year=track_info.get('year'),
-                    comments=track_info.get('comments'),
+            artists = self._get_or_create_artists(session, track_info.get('artists', []))
+            album = None
+            if track_info.get('album'):
+                album = self._get_or_create_album(
+                    session, track_info['album'], track_info.get('year'),
+                    artists[0].id if artists else None
                 )
+            genres = self._get_or_create_genres(session, track_info.get('genres', []))
 
-                # Add relationships
-                track.artists = artists
-                track.genres = genres
+            # Create track
+            track = Track(
+                title=track_info.get('title', 'Unknown'),
+                filepath=track_info['filepath'],
+                filepath_key=make_filepath_key(track_info['filepath']),
+                duration=track_info.get('duration'),
+                sample_rate=track_info.get('sample_rate'),
+                channels=track_info.get('channels'),
+                format=track_info.get('format'),
+                filesize=track_info.get('filesize'),
+                file_mtime=track_info.get('file_mtime'),
+                dr_rating=track_info.get('dr_rating'),
+                album=album,
+                track_number=track_info.get('track_number'),
+                disc_number=track_info.get('disc_number'),
+                year=track_info.get('year'),
+                comments=track_info.get('comments'),
+            )
 
-                session.add(track)
-                session.commit()
-                session.refresh(track)
-                session.refresh(album) if album else None
+            # Add relationships
+            track.artists = artists
+            track.genres = genres
 
-                info(f"Added track: {track.title}")
+            session.add(track)
+            session.commit()
+            session.refresh(track)
+            session.refresh(album) if album else None
 
-                # Extract artwork if album doesn't have artwork yet and album_repository is available
-                if album and self.album_repository and not album.artwork_path:
-                    try:
-                        debug(f"Extracting artwork for album: {album.title}")
-                        artwork_path = self.album_repository.artwork_extractor.extract_artwork(
-                            track_info['filepath'], album.id
-                        )
-                        if artwork_path:
-                            album.artwork_path = artwork_path
-                            session.commit()
-                            info(f"Extracted artwork for album: {album.title}")
-                    except Exception as artwork_error:
-                        warning(f"Failed to extract artwork for album {album.title}: {artwork_error}")
+            info(f"Added track: {track.title}")
 
-                # Re-query with eager loading before detaching from session
-                reloaded = session.execute(
-                    select(Track)
-                    .options(*_track_eager_options())
-                    .where(Track.id == track.id)
-                ).scalars().unique().first()
-                if reloaded is None:
-                    raise LookupError(f"Track {track.id} disappeared before it could be reloaded")
-                session.expunge(reloaded)
-                return reloaded
+            # Extract artwork if album doesn't have artwork yet and album_repository is available
+            if album and self.album_repository and not album.artwork_path:
+                try:
+                    debug(f"Extracting artwork for album: {album.title}")
+                    artwork_path = self.album_repository.artwork_extractor.extract_artwork(
+                        track_info['filepath'], album.id
+                    )
+                    if artwork_path:
+                        album.artwork_path = artwork_path
+                        session.commit()
+                        info(f"Extracted artwork for album: {album.title}")
+                except Exception as artwork_error:
+                    warning(f"Failed to extract artwork for album {album.title}: {artwork_error}")
 
-            except Exception as e:
-                session.rollback()
-                error(f"Failed to add track: {e}")
-                return None
+            # Re-query with eager loading before detaching from session
+            reloaded = session.execute(
+                select(Track)
+                .options(*_track_eager_options())
+                .where(Track.id == track.id)
+            ).scalars().unique().first()
+            if reloaded is None:
+                raise LookupError(f"Track {track.id} disappeared before it could be reloaded")
+            session.expunge(reloaded)
+            return reloaded
+        return None
 
     def delete(self, track_id: int) -> bool:
         """
@@ -243,7 +238,7 @@ class TrackRepositoryLifecycleMixin(BaseRepository):
         passive_deletes=True so SQLAlchemy does not try to NULL their
         non-nullable track_id first (#4598).
         """
-        with self._session_scope() as session:
+        with self._guarded("Failed to delete track") as session:
             try:
                 # A single conditional DELETE makes the return value atomic:
                 # concurrent callers cannot all observe the row and report
@@ -268,7 +263,4 @@ class TrackRepositoryLifecycleMixin(BaseRepository):
                     f"A child relationship likely lacks passive_deletes=True: {e}"
                 )
                 return False
-            except Exception as e:
-                session.rollback()
-                error(f"Failed to delete track: {e}")
-                return False
+        return False

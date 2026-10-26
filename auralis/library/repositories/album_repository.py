@@ -69,16 +69,12 @@ class AlbumRepository(AlbumArtworkMixin):
     def get_by_id(self, album_id: int) -> Album | None:
         """Get album by ID with relationships loaded"""
         with self._session_scope() as session:
-            album = session.execute(
+            album = self._first_detached(
+                session,
                 select(Album)
                 .options(*_ALBUM_DETAIL_OPTIONS)
-                .where(Album.id == album_id)
-            ).scalars().unique().first()
-            if album:
-                # Expunge the album AND all eagerly-loaded related objects so
-                # callers can access album.tracks after the session closes
-                # without hitting DetachedInstanceError (fixes #2406).
-                session.expunge_all()
+                .where(Album.id == album_id),
+            )
             return album
 
     def get_all(self, limit: int = 50, offset: int = 0, order_by: str = 'title') -> tuple[list[Album], int]:
@@ -104,36 +100,34 @@ class AlbumRepository(AlbumArtworkMixin):
             if order_by not in VALID_ORDER_COLUMNS:
                 order_by = 'title'
             order_column = getattr(Album, order_by, Album.title)
-            albums = list(session.execute(
+            albums = self._all_detached(
+                session,
                 select(Album)
                 .options(*_ALBUM_LIST_OPTIONS)
                 .order_by(order_column.asc())
                 .limit(limit)
-                .offset(offset)
-            ).scalars().unique().all())
+                .offset(offset),
+            )
 
             # Expunge every album AND its eagerly-loaded artist (fixes #2406 /
             # #4236 — a per-item expunge(album) does not cascade to related
             # objects, leaving them DetachedInstanceError-prone). tracks is no
             # longer eager-loaded here (#4777) — track_count_expr/
             # total_duration_expr cover what the serializer actually needs.
-            if albums:
-                session.expunge_all()
 
             return albums, total
 
     def get_recent(self, limit: int = 50, offset: int = 0) -> list[Album]:
         """Get recently added albums with pagination"""
         with self._session_scope() as session:
-            albums = list(session.execute(
+            albums = self._all_detached(
+                session,
                 select(Album)
                 .options(*_ALBUM_LIST_OPTIONS)
                 .order_by(Album.created_at.desc())
                 .limit(limit)
-                .offset(offset)
-            ).scalars().unique().all())
-            if albums:
-                session.expunge_all()
+                .offset(offset),
+            )
             return albums
 
     def search(self, query: str, limit: int = 50, offset: int = 0, order_by: str = 'title') -> tuple[list[Album], int]:
@@ -172,7 +166,8 @@ class AlbumRepository(AlbumArtworkMixin):
                 order_by = 'title'
             order_column = getattr(Album, order_by, Album.title)
 
-            results = list(session.execute(
+            results = self._all_detached(
+                session,
                 select(Album)
                 .join(Album.artist, isouter=True)
                 .where(search_filter)
@@ -189,9 +184,7 @@ class AlbumRepository(AlbumArtworkMixin):
                 )
                 .order_by(order_column.asc())
                 .limit(limit)
-                .offset(offset)
-            ).scalars().unique().all())
+                .offset(offset),
+            )
 
-            if results:
-                session.expunge_all()
             return results, total

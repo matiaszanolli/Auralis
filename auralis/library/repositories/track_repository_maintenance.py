@@ -82,24 +82,20 @@ class TrackRepositoryMaintenanceMixin(BaseRepository):
         A missing ``track_id`` is a no-op (rowcount 0), matching the previous
         behaviour; nothing is returned so callers keep their current contract.
         """
-        with self._session_scope() as session:
-            try:
-                # cast(): session.execute() is typed Result, which has no
-                # rowcount; the UPDATE path really returns a CursorResult.
-                result = cast(CursorResult[Any], session.execute(
-                    update(Track)
-                    .where(Track.id == track_id)
-                    .values(
-                        play_count=func.coalesce(Track.play_count, 0) + 1,
-                        last_played=func.now(),
-                    )
-                ))
-                session.commit()
-                if result.rowcount:
-                    debug(f"Recorded play for track id={track_id}")
-            except Exception as e:
-                session.rollback()
-                error(f"Failed to record play: {e}")
+        with self._guarded("Failed to record play") as session:
+            # cast(): session.execute() is typed Result, which has no
+            # rowcount; the UPDATE path really returns a CursorResult.
+            result = cast(CursorResult[Any], session.execute(
+                update(Track)
+                .where(Track.id == track_id)
+                .values(
+                    play_count=func.coalesce(Track.play_count, 0) + 1,
+                    last_played=func.now(),
+                )
+            ))
+            session.commit()
+            if result.rowcount:
+                debug(f"Recorded play for track id={track_id}")
 
     def set_favorite(self, track_id: int, favorite: bool = True) -> bool:
         """Set track favorite status

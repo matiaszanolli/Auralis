@@ -67,14 +67,13 @@ class FingerprintQueryMixin(BaseRepository):
             TrackFingerprint object if found and current, None otherwise
         """
         with self._session_scope() as session:
-            fingerprint = session.execute(
+            fingerprint = self._first_detached(
+                session,
                 select(TrackFingerprint).where(
                     TrackFingerprint.track_id == track_id,
                     _current_fingerprint_clause(),
-                )
-            ).scalars().first()
-            if fingerprint:
-                session.expunge(fingerprint)
+                ),
+            )
             return fingerprint
 
     def get_all(self, limit: int | None = None, offset: int = 0) -> list[TrackFingerprint]:

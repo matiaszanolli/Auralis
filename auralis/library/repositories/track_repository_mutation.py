@@ -73,49 +73,44 @@ class TrackRepositoryMutationMixin(BaseRepository):
         Returns:
             Updated Track object if successful, None if failed
         """
-        with self._session_scope() as session:
-            try:
-                track = session.execute(
-                    select(Track).where(Track.filepath_key == make_filepath_key(filepath))
-                ).scalars().first()
-                if not track:
-                    warning(f"Track not found: {filepath}")
-                    return None
-
-                # Update basic fields
-                for key in ['title', 'duration', 'sample_rate', 'channels',
-                           'format', 'filesize', 'file_mtime', 'dr_rating',
-                           'track_number', 'disc_number', 'year', 'comments']:
-                    if key in track_info:
-                        setattr(track, key, track_info[key])
-
-                # Update artists
-                if 'artists' in track_info:
-                    self._update_artists(session, track, track_info['artists'])
-
-                # Update genres
-                if 'genres' in track_info:
-                    self._update_genres(session, track, track_info['genres'])
-
-                # Update album (after artists, so it resolves for the new artist)
-                if track_info.get('album'):
-                    self._assign_album(session, track, track_info['album'], track_info.get('year'))
-
-                session.commit()
-                # Re-query with eager loading before detaching from session
-                track = session.execute(
-                    select(Track)
-                    .options(*_track_eager_options())
-                    .where(Track.filepath_key == make_filepath_key(filepath))
-                ).scalars().unique().first()
-                info(f"Updated track: {track.title}")
-                session.expunge(track)
-                return track
-
-            except Exception as e:
-                session.rollback()
-                error(f"Failed to update track: {e}")
+        with self._guarded("Failed to update track") as session:
+            track = session.execute(
+                select(Track).where(Track.filepath_key == make_filepath_key(filepath))
+            ).scalars().first()
+            if not track:
+                warning(f"Track not found: {filepath}")
                 return None
+
+            # Update basic fields
+            for key in ['title', 'duration', 'sample_rate', 'channels',
+                       'format', 'filesize', 'file_mtime', 'dr_rating',
+                       'track_number', 'disc_number', 'year', 'comments']:
+                if key in track_info:
+                    setattr(track, key, track_info[key])
+
+            # Update artists
+            if 'artists' in track_info:
+                self._update_artists(session, track, track_info['artists'])
+
+            # Update genres
+            if 'genres' in track_info:
+                self._update_genres(session, track, track_info['genres'])
+
+            # Update album (after artists, so it resolves for the new artist)
+            if track_info.get('album'):
+                self._assign_album(session, track, track_info['album'], track_info.get('year'))
+
+            session.commit()
+            # Re-query with eager loading before detaching from session
+            track = session.execute(
+                select(Track)
+                .options(*_track_eager_options())
+                .where(Track.filepath_key == make_filepath_key(filepath))
+            ).scalars().unique().first()
+            info(f"Updated track: {track.title}")
+            session.expunge(track)
+            return track
+        return None
 
     def update(self, track_id: int, track_info: dict[str, Any]) -> Track | None:
         """
@@ -128,47 +123,43 @@ class TrackRepositoryMutationMixin(BaseRepository):
         Returns:
             Updated track or None if not found
         """
-        with self._session_scope() as session:
-            try:
-                track = session.execute(select(Track).where(Track.id == track_id)).scalars().first()
-                if not track:
-                    return None
-
-                # Update simple fields
-                for field in ['title', 'duration', 'sample_rate', 'year', 'track_number', 'disc_number']:
-                    if field in track_info:
-                        setattr(track, field, track_info[field])
-
-                # Update artists if provided
-                if 'artist' in track_info or 'artists' in track_info:
-                    artists = track_info.get('artists', [track_info.get('artist')] if track_info.get('artist') else [])
-                    if artists:
-                        self._update_artists(session, track, artists)
-
-                # Update genres if provided
-                if 'genre' in track_info or 'genres' in track_info:
-                    genres = track_info.get('genres', [track_info.get('genre')] if track_info.get('genre') else [])
-                    if genres:
-                        self._update_genres(session, track, genres)
-
-                # Update album if provided (after artists — see _assign_album)
-                if track_info.get('album'):
-                    self._assign_album(session, track, track_info['album'], track_info.get('year'))
-
-                session.commit()
-                # Re-query with eager loading before detaching from session
-                track = session.execute(
-                    select(Track)
-                    .options(*_track_eager_options())
-                    .where(Track.id == track_id)
-                ).scalars().unique().first()
-                debug(f"Updated track: {track.title}")
-                session.expunge(track)
-                return track
-            except Exception as e:
-                session.rollback()
-                error(f"Failed to update track: {e}")
+        with self._guarded("Failed to update track") as session:
+            track = session.execute(select(Track).where(Track.id == track_id)).scalars().first()
+            if not track:
                 return None
+
+            # Update simple fields
+            for field in ['title', 'duration', 'sample_rate', 'year', 'track_number', 'disc_number']:
+                if field in track_info:
+                    setattr(track, field, track_info[field])
+
+            # Update artists if provided
+            if 'artist' in track_info or 'artists' in track_info:
+                artists = track_info.get('artists', [track_info.get('artist')] if track_info.get('artist') else [])
+                if artists:
+                    self._update_artists(session, track, artists)
+
+            # Update genres if provided
+            if 'genre' in track_info or 'genres' in track_info:
+                genres = track_info.get('genres', [track_info.get('genre')] if track_info.get('genre') else [])
+                if genres:
+                    self._update_genres(session, track, genres)
+
+            # Update album if provided (after artists — see _assign_album)
+            if track_info.get('album'):
+                self._assign_album(session, track, track_info['album'], track_info.get('year'))
+
+            session.commit()
+            # Re-query with eager loading before detaching from session
+            track = session.execute(
+                select(Track)
+                .options(*_track_eager_options())
+                .where(Track.id == track_id)
+            ).scalars().unique().first()
+            debug(f"Updated track: {track.title}")
+            session.expunge(track)
+            return track
+        return None
 
     def update_metadata(self, track_id: int, **fields: Any) -> Track | None:
         """

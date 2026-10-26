@@ -49,69 +49,59 @@ class PlaylistOrderingMixin(BaseRepository):
         holds. Without compaction, reorder_track's index validation
         becomes ambiguous and add_track's MAX+1 path leaves gaps.
         """
-        with self._session_scope() as session:
-            try:
-                # Capture the deleted row's position first; we need it for
-                # the position-shift UPDATE below.
-                removed_position = session.scalar(
-                    select(track_playlist.c.position)
+        with self._guarded("Failed to remove track from playlist") as session:
+            # Capture the deleted row's position first; we need it for
+            # the position-shift UPDATE below.
+            removed_position = session.scalar(
+                select(track_playlist.c.position)
+                .where(track_playlist.c.playlist_id == playlist_id)
+                .where(track_playlist.c.track_id == track_id)
+            )
+
+            # cast(): session.execute() is typed Result, which has no
+            # rowcount; a DELETE really returns a CursorResult.
+            result = cast(CursorResult[Any], session.execute(
+                delete(track_playlist).where(
+                    and_(
+                        track_playlist.c.playlist_id == playlist_id,
+                        track_playlist.c.track_id == track_id,
+                    )
+                )
+            ))
+
+            if removed_position is not None and result.rowcount:
+                # Compact the trailing positions so we stay contiguous.
+                session.execute(
+                    update(track_playlist)
                     .where(track_playlist.c.playlist_id == playlist_id)
-                    .where(track_playlist.c.track_id == track_id)
+                    .where(track_playlist.c.position > removed_position)
+                    .values(position=track_playlist.c.position - 1)
                 )
 
-                # cast(): session.execute() is typed Result, which has no
-                # rowcount; a DELETE really returns a CursorResult.
-                result = cast(CursorResult[Any], session.execute(
-                    delete(track_playlist).where(
-                        and_(
-                            track_playlist.c.playlist_id == playlist_id,
-                            track_playlist.c.track_id == track_id,
-                        )
-                    )
-                ))
-
-                if removed_position is not None and result.rowcount:
-                    # Compact the trailing positions so we stay contiguous.
-                    session.execute(
-                        update(track_playlist)
-                        .where(track_playlist.c.playlist_id == playlist_id)
-                        .where(track_playlist.c.position > removed_position)
-                        .values(position=track_playlist.c.position - 1)
-                    )
-
-                session.commit()
-                if result.rowcount:
-                    debug(f"Removed track {track_id} from playlist {playlist_id}")
-                return True
-
-            except Exception as e:
-                session.rollback()
-                error(f"Failed to remove track from playlist: {e}")
-                return False
+            session.commit()
+            if result.rowcount:
+                debug(f"Removed track {track_id} from playlist {playlist_id}")
+            return True
+        return False
 
     def clear(self, playlist_id: int) -> bool:
         """Remove all tracks from playlist"""
-        with self._session_scope() as session:
-            try:
-                # #3707: eager-load tracks so `playlist.tracks = []` doesn't
-                # trigger an implicit lazy SELECT first.
-                playlist = session.execute(
-                    select(Playlist)
-                    .options(selectinload(Playlist.tracks))
-                    .where(Playlist.id == playlist_id)
-                ).scalars().first()
-                if not playlist:
-                    return False
-
-                playlist.tracks = []
-                session.commit()
-                info(f"Cleared playlist: {playlist.name}")
-                return True
-
-            except Exception as e:
-                session.rollback()
-                error(f"Failed to clear playlist: {e}")
+        with self._guarded("Failed to clear playlist") as session:
+            # #3707: eager-load tracks so `playlist.tracks = []` doesn't
+            # trigger an implicit lazy SELECT first.
+            playlist = session.execute(
+                select(Playlist)
+                .options(selectinload(Playlist.tracks))
+                .where(Playlist.id == playlist_id)
+            ).scalars().first()
+            if not playlist:
                 return False
+
+            playlist.tracks = []
+            session.commit()
+            info(f"Cleared playlist: {playlist.name}")
+            return True
+        return False
 
     def reorder_track(self, playlist_id: int, from_index: int, to_index: int) -> bool:
         """Reorder a track within a playlist.
@@ -144,50 +134,45 @@ class PlaylistOrderingMixin(BaseRepository):
         if from_index == to_index:
             return True
 
-        with self._session_scope() as session:
-            try:
-                # #5581/#5573: resolve rows by LOGICAL index in position
-                # order instead of matching position == from_index exactly.
-                # Writers now keep positions contiguous, but playlists
-                # written before that fix can carry gaps
-                # (e.g. (A,0),(C,2) after a library delete), which made
-                # from_index lookups miss and left playlists un-reorderable.
-                ordered_track_ids = list(session.execute(
-                    select(track_playlist.c.track_id)
-                    .where(track_playlist.c.playlist_id == playlist_id)
-                    .order_by(track_playlist.c.position, track_playlist.c.track_id)
-                ).scalars().all())
+        with self._guarded("Failed to reorder track in playlist") as session:
+            # #5581/#5573: resolve rows by LOGICAL index in position
+            # order instead of matching position == from_index exactly.
+            # Writers now keep positions contiguous, but playlists
+            # written before that fix can carry gaps
+            # (e.g. (A,0),(C,2) after a library delete), which made
+            # from_index lookups miss and left playlists un-reorderable.
+            ordered_track_ids = list(session.execute(
+                select(track_playlist.c.track_id)
+                .where(track_playlist.c.playlist_id == playlist_id)
+                .order_by(track_playlist.c.position, track_playlist.c.track_id)
+            ).scalars().all())
 
-                size = len(ordered_track_ids)
-                if not (0 <= from_index < size):
-                    error(f"Invalid from_index: {from_index} (playlist size {size})")
-                    return False
-                if not (0 <= to_index < size):
-                    error(f"Invalid to_index: {to_index} (playlist size {size})")
-                    return False
-
-                moving_track_id = ordered_track_ids[from_index]
-                # Pop the mover from the logical order and re-insert at the
-                # target slot; the resulting order is written back as
-                # contiguous positions 0..N-1 (also healing legacy gaps).
-                ordered_track_ids.insert(to_index, ordered_track_ids.pop(from_index))
-
-                for new_position, track_id in enumerate(ordered_track_ids):
-                    session.execute(
-                        update(track_playlist)
-                        .where(track_playlist.c.playlist_id == playlist_id)
-                        .where(track_playlist.c.track_id == track_id)
-                        .values(position=new_position)
-                    )
-
-                session.commit()
-                debug(
-                    f"Reordered track {moving_track_id} in playlist {playlist_id} "
-                    f"from {from_index} to {to_index}"
-                )
-                return True
-
-            except Exception as e:
-                session.rollback()
-                error(f"Failed to reorder track in playlist: {e}")
+            size = len(ordered_track_ids)
+            if not (0 <= from_index < size):
+                error(f"Invalid from_index: {from_index} (playlist size {size})")
                 return False
+            if not (0 <= to_index < size):
+                error(f"Invalid to_index: {to_index} (playlist size {size})")
+                return False
+
+            moving_track_id = ordered_track_ids[from_index]
+            # Pop the mover from the logical order and re-insert at the
+            # target slot; the resulting order is written back as
+            # contiguous positions 0..N-1 (also healing legacy gaps).
+            ordered_track_ids.insert(to_index, ordered_track_ids.pop(from_index))
+
+            for new_position, track_id in enumerate(ordered_track_ids):
+                session.execute(
+                    update(track_playlist)
+                    .where(track_playlist.c.playlist_id == playlist_id)
+                    .where(track_playlist.c.track_id == track_id)
+                    .values(position=new_position)
+                )
+
+            session.commit()
+            debug(
+                f"Reordered track {moving_track_id} in playlist {playlist_id} "
+                f"from {from_index} to {to_index}"
+            )
+            return True
+        return False

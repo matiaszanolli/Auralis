@@ -18,7 +18,7 @@ from sqlalchemy.engine import CursorResult
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from ...utils.logging import debug, error
+from ...utils.logging import debug
 from .fingerprint_shared import PLACEHOLDER_LUFS_SENTINEL
 from ...__version__ import FINGERPRINT_ALGORITHM_VERSION
 from ..models import Track, TrackFingerprint
@@ -113,75 +113,68 @@ class FingerprintSchedulerRepository(BaseRepository):
         Returns:
             Track object if successfully claimed, None if none available or race lost.
         """
-        with self._session_scope() as session:
-            try:
-                # Next unfingerprinted track after the cursor, via LEFT JOIN.
-                # Only id and filepath are needed, so no Track row is loaded.
-                def find(after_id: int) -> Any:
-                    return session.execute(
-                        select(Track.id, Track.filepath).outerjoin(
-                            TrackFingerprint,
-                            Track.id == TrackFingerprint.track_id
-                        ).where(
-                            TrackFingerprint.id == None,  # noqa: E711 — SQL IS NULL
-                            Track.filepath.isnot(None),
-                            Track.id > after_id,
-                        ).order_by(Track.id).limit(1)
-                    ).first()
+        with self._guarded("Error claiming next unfingerprinted track") as session:
+            # Next unfingerprinted track after the cursor, via LEFT JOIN.
+            # Only id and filepath are needed, so no Track row is loaded.
+            def find(after_id: int) -> Any:
+                return session.execute(
+                    select(Track.id, Track.filepath).outerjoin(
+                        TrackFingerprint,
+                        Track.id == TrackFingerprint.track_id
+                    ).where(
+                        TrackFingerprint.id == None,  # noqa: E711 — SQL IS NULL
+                        Track.filepath.isnot(None),
+                        Track.id > after_id,
+                    ).order_by(Track.id).limit(1)
+                ).first()
 
-                unfingerprinted = self._find_after_cursor(self._UNFINGERPRINTED, find)
+            unfingerprinted = self._find_after_cursor(self._UNFINGERPRINTED, find)
 
-                if not unfingerprinted:
-                    return None
-
-                # Save track ID and filepath BEFORE creating placeholder (minimize transaction time)
-                track_id = int(unfingerprinted[0])
-                filepath = unfingerprinted[1]
-
-                # Try to "claim" this track by creating a placeholder fingerprint.
-                # Minimal initialization — only required fields set, rest will be
-                # overwritten during upsert.
-                try:
-                    placeholder = TrackFingerprint(
-                        track_id=track_id,
-                        # Initialize all 25 dimensions with zeros (will be overwritten)
-                        sub_bass_pct=0.0, bass_pct=0.0, low_mid_pct=0.0, mid_pct=0.0,
-                        upper_mid_pct=0.0, presence_pct=0.0, air_pct=0.0,
-                        lufs=PLACEHOLDER_LUFS_SENTINEL, crest_db=0.0,
-                        bass_mid_ratio=0.0,
-                        tempo_bpm=0.0, rhythm_stability=0.0, transient_density=0.0, silence_ratio=0.0,
-                        spectral_centroid=0.0, spectral_rolloff=0.0, spectral_flatness=0.0,
-                        harmonic_ratio=0.0, pitch_stability=0.0, chroma_energy=0.0,
-                        dynamic_range_variation=0.0, loudness_variation_std=0.0, peak_consistency=0.0,
-                        stereo_width=0.0, phase_correlation=0.0,
-                        fingerprint_version=FINGERPRINT_ALGORITHM_VERSION,
-                    )
-                    session.add(placeholder)
-                    session.commit()
-                    session.expunge_all()  # Clear session immediately after commit
-                    self._advance_cursor(self._UNFINGERPRINTED, track_id)
-
-                    # Create a simple Track object with just the essential fields
-                    # (avoid keeping session references that slow down claiming)
-                    claimed_track = Track()
-                    claimed_track.id = track_id
-                    claimed_track.filepath = filepath
-
-                    debug(f"Track {track_id} claimed by worker")
-                    return claimed_track
-
-                except IntegrityError:
-                    # Another worker already claimed this track (UNIQUE constraint)
-                    session.rollback()
-                    debug(f"Track {track_id} already claimed by another worker")
-                    return None
-
-            except Exception as e:
-                session.rollback()
-                error(f"Error claiming next unfingerprinted track: {e}")
+            if not unfingerprinted:
                 return None
-            finally:
-                session.expunge_all()
+
+            # Save track ID and filepath BEFORE creating placeholder (minimize transaction time)
+            track_id = int(unfingerprinted[0])
+            filepath = unfingerprinted[1]
+
+            # Try to "claim" this track by creating a placeholder fingerprint.
+            # Minimal initialization — only required fields set, rest will be
+            # overwritten during upsert.
+            try:
+                placeholder = TrackFingerprint(
+                    track_id=track_id,
+                    # Initialize all 25 dimensions with zeros (will be overwritten)
+                    sub_bass_pct=0.0, bass_pct=0.0, low_mid_pct=0.0, mid_pct=0.0,
+                    upper_mid_pct=0.0, presence_pct=0.0, air_pct=0.0,
+                    lufs=PLACEHOLDER_LUFS_SENTINEL, crest_db=0.0,
+                    bass_mid_ratio=0.0,
+                    tempo_bpm=0.0, rhythm_stability=0.0, transient_density=0.0, silence_ratio=0.0,
+                    spectral_centroid=0.0, spectral_rolloff=0.0, spectral_flatness=0.0,
+                    harmonic_ratio=0.0, pitch_stability=0.0, chroma_energy=0.0,
+                    dynamic_range_variation=0.0, loudness_variation_std=0.0, peak_consistency=0.0,
+                    stereo_width=0.0, phase_correlation=0.0,
+                    fingerprint_version=FINGERPRINT_ALGORITHM_VERSION,
+                )
+                session.add(placeholder)
+                session.commit()
+                session.expunge_all()  # Clear session immediately after commit
+                self._advance_cursor(self._UNFINGERPRINTED, track_id)
+
+                # Create a simple Track object with just the essential fields
+                # (avoid keeping session references that slow down claiming)
+                claimed_track = Track()
+                claimed_track.id = track_id
+                claimed_track.filepath = filepath
+
+                debug(f"Track {track_id} claimed by worker")
+                return claimed_track
+
+            except IntegrityError:
+                # Another worker already claimed this track (UNIQUE constraint)
+                session.rollback()
+                debug(f"Track {track_id} already claimed by another worker")
+                return None
+        return None
 
     def claim_next_outdated_fingerprint(self, current_version: int) -> Track | None:
         """Atomically claim the next fingerprint whose algorithm version is stale.
@@ -207,77 +200,70 @@ class FingerprintSchedulerRepository(BaseRepository):
             # (version 0 is only the crash-recovery sentinel, not a real version).
             return None
 
-        with self._session_scope() as session:
-            try:
-                # The unary `+` on fingerprint_version keeps SQLite off
-                # idx_fingerprints_version. With that index the planner reads
-                # every eligible row and sorts them by track_id on each claim,
-                # which is O(N) again. Without it, it walks the track_id index
-                # from the cursor and stops at the first match (#5310).
-                def find(after_id: int) -> Any:
-                    return session.execute(
-                        text("""
-                            SELECT tf.track_id, t.filepath
-                            FROM track_fingerprints tf
-                            JOIN tracks t ON t.id = tf.track_id
-                            WHERE +tf.fingerprint_version > 0
-                              AND +tf.fingerprint_version < :current_ver
-                              AND tf.lufs != :sentinel
-                              AND t.filepath IS NOT NULL
-                              AND tf.track_id > :after_id
-                            ORDER BY tf.track_id
-                            LIMIT 1
-                        """),
-                        {
-                            'current_ver': current_version,
-                            'after_id': after_id,
-                            # #6225: the sentinel is bound, not inlined — a
-                            # change to the constant reaches the raw SQL too.
-                            'sentinel': PLACEHOLDER_LUFS_SENTINEL,
-                        },
-                    ).first()
-
-                row = self._find_after_cursor(self._OUTDATED, find)
-
-                if not row:
-                    return None
-
-                track_id: int = row[0]
-                filepath: str = row[1]
-
-                # Claim atomically: set version=0 only if it still has the old version
-                result = session.execute(
+        with self._guarded("Error claiming outdated fingerprint") as session:
+            # The unary `+` on fingerprint_version keeps SQLite off
+            # idx_fingerprints_version. With that index the planner reads
+            # every eligible row and sorts them by track_id on each claim,
+            # which is O(N) again. Without it, it walks the track_id index
+            # from the cursor and stops at the first match (#5310).
+            def find(after_id: int) -> Any:
+                return session.execute(
                     text("""
-                        UPDATE track_fingerprints
-                        SET fingerprint_version = 0
-                        WHERE track_id = :tid
-                          AND fingerprint_version > 0
-                          AND fingerprint_version < :current_ver
+                        SELECT tf.track_id, t.filepath
+                        FROM track_fingerprints tf
+                        JOIN tracks t ON t.id = tf.track_id
+                        WHERE +tf.fingerprint_version > 0
+                          AND +tf.fingerprint_version < :current_ver
+                          AND tf.lufs != :sentinel
+                          AND t.filepath IS NOT NULL
+                          AND tf.track_id > :after_id
+                        ORDER BY tf.track_id
+                        LIMIT 1
                     """),
-                    {'tid': track_id, 'current_ver': current_version},
-                )
-                session.commit()
+                    {
+                        'current_ver': current_version,
+                        'after_id': after_id,
+                        # #6225: the sentinel is bound, not inlined — a
+                        # change to the constant reaches the raw SQL too.
+                        'sentinel': PLACEHOLDER_LUFS_SENTINEL,
+                    },
+                ).first()
 
-                # A text() UPDATE types as a plain Result; at runtime it is a
-                # CursorResult, which is what carries rowcount.
-                if cast(CursorResult[Any], result).rowcount != 1:
-                    # Another worker got there first
-                    debug(f"Track {track_id} outdated fingerprint already claimed")
-                    return None
+            row = self._find_after_cursor(self._OUTDATED, find)
 
-                self._advance_cursor(self._OUTDATED, track_id)
-                claimed = Track()
-                claimed.id = track_id
-                claimed.filepath = filepath
-                debug(f"Track {track_id} outdated fingerprint claimed for re-extraction")
-                return claimed
-
-            except Exception as e:
-                session.rollback()
-                error(f"Error claiming outdated fingerprint: {e}")
+            if not row:
                 return None
-            finally:
-                session.expunge_all()
+
+            track_id: int = row[0]
+            filepath: str = row[1]
+
+            # Claim atomically: set version=0 only if it still has the old version
+            result = session.execute(
+                text("""
+                    UPDATE track_fingerprints
+                    SET fingerprint_version = 0
+                    WHERE track_id = :tid
+                      AND fingerprint_version > 0
+                      AND fingerprint_version < :current_ver
+                """),
+                {'tid': track_id, 'current_ver': current_version},
+            )
+            session.commit()
+
+            # A text() UPDATE types as a plain Result; at runtime it is a
+            # CursorResult, which is what carries rowcount.
+            if cast(CursorResult[Any], result).rowcount != 1:
+                # Another worker got there first
+                debug(f"Track {track_id} outdated fingerprint already claimed")
+                return None
+
+            self._advance_cursor(self._OUTDATED, track_id)
+            claimed = Track()
+            claimed.id = track_id
+            claimed.filepath = filepath
+            debug(f"Track {track_id} outdated fingerprint claimed for re-extraction")
+            return claimed
+        return None
 
     def release_claim(self, track_id: int) -> bool:
         """Release this track's claim after its extraction failed (#5308).

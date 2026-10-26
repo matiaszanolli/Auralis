@@ -24,7 +24,7 @@ class" check when composed together on the facade.
 
 from sqlalchemy import select
 
-from ...utils.logging import debug, error, info, warning
+from ...utils.logging import debug, info, warning
 from ...__version__ import FINGERPRINT_ALGORITHM_VERSION
 from ..models import TrackFingerprint
 from .base import BaseRepository
@@ -44,46 +44,38 @@ class FingerprintCrudMixin(BaseRepository):
         Returns:
             TrackFingerprint object if successful, None if failed
         """
-        with self._session_scope() as session:
-            try:
-                # Check if fingerprint already exists
-                existing = session.execute(
-                    select(TrackFingerprint).where(TrackFingerprint.track_id == track_id)
-                ).scalars().first()
+        with self._guarded(f"Failed to add fingerprint for track {track_id}") as session:
+            # Check if fingerprint already exists
+            existing = session.execute(
+                select(TrackFingerprint).where(TrackFingerprint.track_id == track_id)
+            ).scalars().first()
 
-                if existing:
-                    debug(f"Fingerprint already exists for track {track_id}, updating")
-                    return self.update(track_id, fingerprint_data)
+            if existing:
+                debug(f"Fingerprint already exists for track {track_id}, updating")
+                return self.update(track_id, fingerprint_data)
 
-                # Create new fingerprint. #5572: stamp the current
-                # algorithm version — reads (get_by_track_id/exists) treat a
-                # row as usable only when fingerprint_version >=
-                # FINGERPRINT_ALGORITHM_VERSION, so an unstamped row (ORM
-                # default 1) was freshly computed but permanently invisible
-                # to the cache. The dict may override explicitly.
-                fingerprint = TrackFingerprint(
-                    track_id=track_id,
-                    fingerprint_version=FINGERPRINT_ALGORITHM_VERSION,
-                    **fingerprint_data
-                )
+            # Create new fingerprint. #5572: stamp the current
+            # algorithm version — reads (get_by_track_id/exists) treat a
+            # row as usable only when fingerprint_version >=
+            # FINGERPRINT_ALGORITHM_VERSION, so an unstamped row (ORM
+            # default 1) was freshly computed but permanently invisible
+            # to the cache. The dict may override explicitly.
+            fingerprint = TrackFingerprint(
+                track_id=track_id,
+                fingerprint_version=FINGERPRINT_ALGORITHM_VERSION,
+                **fingerprint_data
+            )
 
-                session.add(fingerprint)
-                session.commit()
-                session.refresh(fingerprint)
+            session.add(fingerprint)
+            session.commit()
+            session.refresh(fingerprint)
 
-                # CRITICAL: Detach object from session before returning
-                session.expunge(fingerprint)
+            # CRITICAL: Detach object from session before returning
+            session.expunge(fingerprint)
 
-                info(f"Added fingerprint for track {track_id}")
-                return fingerprint
-
-            except Exception as e:
-                session.rollback()
-                error(f"Failed to add fingerprint for track {track_id}: {e}")
-                return None
-            finally:
-                # CRITICAL: Explicitly clear session to free memory
-                session.expunge_all()
+            info(f"Added fingerprint for track {track_id}")
+            return fingerprint
+        return None
 
     def update(self, track_id: int, fingerprint_data: dict[str, float]) -> TrackFingerprint | None:
         """
@@ -96,43 +88,35 @@ class FingerprintCrudMixin(BaseRepository):
         Returns:
             Updated TrackFingerprint object if successful, None if failed
         """
-        with self._session_scope() as session:
-            try:
-                fingerprint = session.execute(
-                    select(TrackFingerprint).where(TrackFingerprint.track_id == track_id)
-                ).scalars().first()
+        with self._guarded(f"Failed to update fingerprint for track {track_id}") as session:
+            fingerprint = session.execute(
+                select(TrackFingerprint).where(TrackFingerprint.track_id == track_id)
+            ).scalars().first()
 
-                if not fingerprint:
-                    warning(f"Fingerprint not found for track {track_id}")
-                    return None
-
-                # Update all provided fields
-                for key, value in fingerprint_data.items():
-                    if hasattr(fingerprint, key):
-                        setattr(fingerprint, key, value)
-
-                # #5572: promote the row to the current algorithm version so
-                # the freshly written dimensions are visible to reads (same
-                # rationale as add() above). A stale-version row rewritten
-                # here used to stay stale forever.
-                fingerprint.fingerprint_version = FINGERPRINT_ALGORITHM_VERSION
-
-                session.commit()
-                session.refresh(fingerprint)
-
-                # CRITICAL: Detach object from session before returning
-                session.expunge(fingerprint)
-
-                info(f"Updated fingerprint for track {track_id}")
-                return fingerprint
-
-            except Exception as e:
-                session.rollback()
-                error(f"Failed to update fingerprint for track {track_id}: {e}")
+            if not fingerprint:
+                warning(f"Fingerprint not found for track {track_id}")
                 return None
-            finally:
-                # CRITICAL: Explicitly clear session to free memory
-                session.expunge_all()
+
+            # Update all provided fields
+            for key, value in fingerprint_data.items():
+                if hasattr(fingerprint, key):
+                    setattr(fingerprint, key, value)
+
+            # #5572: promote the row to the current algorithm version so
+            # the freshly written dimensions are visible to reads (same
+            # rationale as add() above). A stale-version row rewritten
+            # here used to stay stale forever.
+            fingerprint.fingerprint_version = FINGERPRINT_ALGORITHM_VERSION
+
+            session.commit()
+            session.refresh(fingerprint)
+
+            # CRITICAL: Detach object from session before returning
+            session.expunge(fingerprint)
+
+            info(f"Updated fingerprint for track {track_id}")
+            return fingerprint
+        return None
 
     def delete(self, track_id: int) -> bool:
         """
@@ -144,23 +128,18 @@ class FingerprintCrudMixin(BaseRepository):
         Returns:
             True if successful, False otherwise
         """
-        with self._session_scope() as session:
-            try:
-                fingerprint = session.execute(
-                    select(TrackFingerprint).where(TrackFingerprint.track_id == track_id)
-                ).scalars().first()
+        with self._guarded(f"Failed to delete fingerprint for track {track_id}") as session:
+            fingerprint = session.execute(
+                select(TrackFingerprint).where(TrackFingerprint.track_id == track_id)
+            ).scalars().first()
 
-                if not fingerprint:
-                    warning(f"Fingerprint not found for track {track_id}")
-                    return False
-
-                session.delete(fingerprint)
-                session.commit()
-
-                info(f"Deleted fingerprint for track {track_id}")
-                return True
-
-            except Exception as e:
-                session.rollback()
-                error(f"Failed to delete fingerprint for track {track_id}: {e}")
+            if not fingerprint:
+                warning(f"Fingerprint not found for track {track_id}")
                 return False
+
+            session.delete(fingerprint)
+            session.commit()
+
+            info(f"Deleted fingerprint for track {track_id}")
+            return True
+        return False

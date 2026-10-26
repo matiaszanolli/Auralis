@@ -18,7 +18,7 @@ from typing import Any
 from sqlalchemy import insert, select
 from sqlalchemy.orm import selectinload
 
-from ...utils.logging import error, info
+from ...utils.logging import info
 from ..models import Playlist, Track
 from ..models.base import track_playlist
 from .base import BaseRepository
@@ -54,74 +54,68 @@ class PlaylistCrudMixin(BaseRepository):
         Returns:
             Playlist object if successful
         """
-        with self._session_scope() as session:
-            try:
-                playlist = Playlist(name=name, description=description)
-                session.add(playlist)
-                session.flush()  # Flush to get the ID without committing yet
-                playlist_id = playlist.id  # Capture ID before expunging
+        with self._guarded("Failed to create playlist") as session:
+            playlist = Playlist(name=name, description=description)
+            session.add(playlist)
+            session.flush()  # Flush to get the ID without committing yet
+            playlist_id = playlist.id  # Capture ID before expunging
 
-                # #3731: explicit-position bulk insert. The prior implementation
-                # did `playlist.tracks = tracks`, which generated an INSERT per
-                # row with no `position` value, so SQLAlchemy applied the
-                # column default (0) to every row — `reorder_track` then
-                # silently no-op'd on the freshly-created playlist because its
-                # `position > from_index` WHERE clauses matched nothing.
-                #
-                # Resolving the track ids inside a single SELECT keeps unknown
-                # ids out of the INSERT; enumerating the caller-supplied
-                # `track_ids` order in Python gives deterministic positions
-                # 0..N-1 matching the caller's intent. Duplicates in the input
-                # are collapsed (first occurrence wins) — the composite PK
-                # would reject them anyway.
-                if track_ids:
-                    existing_ids = set(
-                        session.execute(
-                            select(Track.id).where(Track.id.in_(track_ids))
-                        ).scalars().all()
-                    )
-                    rows: list[dict[str, Any]] = []
-                    seen: set[int] = set()
-                    position = 0
-                    for tid in track_ids:
-                        if tid in seen or tid not in existing_ids:
-                            continue
-                        seen.add(tid)
-                        rows.append({
-                            "playlist_id": playlist_id,
-                            "track_id": tid,
-                            "position": position,
-                        })
-                        position += 1
-                    if rows:
-                        session.execute(insert(track_playlist), rows)
+            # #3731: explicit-position bulk insert. The prior implementation
+            # did `playlist.tracks = tracks`, which generated an INSERT per
+            # row with no `position` value, so SQLAlchemy applied the
+            # column default (0) to every row — `reorder_track` then
+            # silently no-op'd on the freshly-created playlist because its
+            # `position > from_index` WHERE clauses matched nothing.
+            #
+            # Resolving the track ids inside a single SELECT keeps unknown
+            # ids out of the INSERT; enumerating the caller-supplied
+            # `track_ids` order in Python gives deterministic positions
+            # 0..N-1 matching the caller's intent. Duplicates in the input
+            # are collapsed (first occurrence wins) — the composite PK
+            # would reject them anyway.
+            if track_ids:
+                existing_ids = set(
+                    session.execute(
+                        select(Track.id).where(Track.id.in_(track_ids))
+                    ).scalars().all()
+                )
+                rows: list[dict[str, Any]] = []
+                seen: set[int] = set()
+                position = 0
+                for tid in track_ids:
+                    if tid in seen or tid not in existing_ids:
+                        continue
+                    seen.add(tid)
+                    rows.append({
+                        "playlist_id": playlist_id,
+                        "track_id": tid,
+                        "position": position,
+                    })
+                    position += 1
+                if rows:
+                    session.execute(insert(track_playlist), rows)
 
-                session.commit()
+            session.commit()
 
-                # Refresh playlist and eager-load tracks to avoid DetachedInstanceError
-                session.refresh(playlist)
-                # Access tracks to ensure they're loaded before session closes
-                _ = playlist.tracks
+            # Refresh playlist and eager-load tracks to avoid DetachedInstanceError
+            session.refresh(playlist)
+            # Access tracks to ensure they're loaded before session closes
+            _ = playlist.tracks
 
-                session.expunge(playlist)
-                info(f"Created playlist: {name}")
-                return playlist
-
-            except Exception as e:
-                session.rollback()
-                error(f"Failed to create playlist: {e}")
-                return None
+            session.expunge(playlist)
+            info(f"Created playlist: {name}")
+            return playlist
+        return None
 
     def get_by_id(self, playlist_id: int) -> Playlist | None:
         """Get playlist by ID with eager loading"""
         with self._session_scope() as session:
-            playlist = session.execute(
+            playlist = self._first_detached(
+                session,
                 select(Playlist).options(*_PLAYLIST_DETAIL_OPTIONS)
-                .where(Playlist.id == playlist_id)
-            ).scalars().first()
+                .where(Playlist.id == playlist_id),
+            )
 
-            if playlist:
-                session.expunge(playlist)
             return playlist
 
     def update(self, playlist_id: int, update_data: dict[str, Any]) -> bool:
@@ -135,25 +129,20 @@ class PlaylistCrudMixin(BaseRepository):
         Returns:
             True if successful, False otherwise
         """
-        with self._session_scope() as session:
-            try:
-                playlist = session.execute(select(Playlist).where(Playlist.id == playlist_id)).scalars().first()
-                if not playlist:
-                    return False
-
-                # Update allowed fields
-                for key in ['name', 'description']:
-                    if key in update_data:
-                        setattr(playlist, key, update_data[key])
-
-                session.commit()
-                info(f"Updated playlist: {playlist.name}")
-                return True
-
-            except Exception as e:
-                session.rollback()
-                error(f"Failed to update playlist: {e}")
+        with self._guarded("Failed to update playlist") as session:
+            playlist = session.execute(select(Playlist).where(Playlist.id == playlist_id)).scalars().first()
+            if not playlist:
                 return False
+
+            # Update allowed fields
+            for key in ['name', 'description']:
+                if key in update_data:
+                    setattr(playlist, key, update_data[key])
+
+            session.commit()
+            info(f"Updated playlist: {playlist.name}")
+            return True
+        return False
 
     def delete(self, playlist_id: int) -> bool:
         """
@@ -165,18 +154,13 @@ class PlaylistCrudMixin(BaseRepository):
         Returns:
             True if successful, False otherwise
         """
-        with self._session_scope() as session:
-            try:
-                playlist = session.execute(select(Playlist).where(Playlist.id == playlist_id)).scalars().first()
-                if not playlist:
-                    return False
-
-                session.delete(playlist)
-                session.commit()
-                info(f"Deleted playlist: {playlist.name}")
-                return True
-
-            except Exception as e:
-                session.rollback()
-                error(f"Failed to delete playlist: {e}")
+        with self._guarded("Failed to delete playlist") as session:
+            playlist = session.execute(select(Playlist).where(Playlist.id == playlist_id)).scalars().first()
+            if not playlist:
                 return False
+
+            session.delete(playlist)
+            session.commit()
+            info(f"Deleted playlist: {playlist.name}")
+            return True
+        return False

@@ -101,29 +101,23 @@ class ArtistRepository(BaseRepository):
     def get_by_id(self, artist_id: int) -> Artist | None:
         """Get artist by ID with relationships loaded"""
         with self._session_scope() as session:
-            artist = (
-                session.execute(
-                    select(Artist)
-                    .options(*_ARTIST_DETAIL_OPTIONS)
-                    .where(Artist.id == artist_id)
-                ).scalars().first()
+            artist = self._first_detached(
+                session,
+                select(Artist)
+                .options(*_ARTIST_DETAIL_OPTIONS)
+                .where(Artist.id == artist_id),
             )
-            if artist:
-                session.expunge(artist)
             return artist
 
     def get_by_name(self, name: str) -> Artist | None:
         """Get artist by name with relationships loaded"""
         with self._session_scope() as session:
-            artist = (
-                session.execute(
-                    select(Artist)
-                    .options(*_ARTIST_DETAIL_OPTIONS)
-                    .where(Artist.name == name)
-                ).scalars().first()
+            artist = self._first_detached(
+                session,
+                select(Artist)
+                .options(*_ARTIST_DETAIL_OPTIONS)
+                .where(Artist.name == name),
             )
-            if artist:
-                session.expunge(artist)
             return artist
 
     def get_all(self, limit: int = 50, offset: int = 0, order_by: str = 'name') -> tuple[list[Artist], int]:
