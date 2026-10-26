@@ -44,6 +44,7 @@ from core.chunk_metadata import load_audio_metadata
 from core.chunk_mastering import compute_mastering_recommendation
 from core.chunk_processor_init import build_collaborators, init_fingerprint_and_processor
 from core.chunk_processor_lease import StreamProcessorLeaseMixin
+from core.intensity_key import intensity_cache_key
 from core.targets_hash import get_targets_hash
 from core.seekable_source import SeekableSource
 from core.file_signature import FileSignatureService  # Phase 5.1: File signature generation
@@ -79,6 +80,9 @@ class ChunkedAudioProcessor(StreamProcessorLeaseMixin):
         cancel_event: set when the owning stream is torn down so chunk_streaming
         skips DSP for an abandoned chunk (#4815); None disables the check.
         """
+        # Quantised once, before anything reads it: the DSP blends with the same
+        # value every cache key carries, so a bucket never holds other audio (#5909).
+        intensity = intensity_cache_key(intensity)
         self.track_id = track_id
         self.filepath = filepath
         self.preset = preset
