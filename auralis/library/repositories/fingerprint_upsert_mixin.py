@@ -92,7 +92,7 @@ class FingerprintUpsertMixin(BaseRepository):
         # reference-cloud membership).
         update_clause = ', '.join(
             f"{col} = excluded.{col}" for col in cols
-        ) + ', fingerprint_version = excluded.fingerprint_version'
+        ) + ', fingerprint_version = excluded.fingerprint_version, updated_at = CURRENT_TIMESTAMP'
 
         with self._guarded(f"Failed to upsert fingerprint for track {track_id}") as session:
             params: dict[str, Any] = {
@@ -103,7 +103,10 @@ class FingerprintUpsertMixin(BaseRepository):
                 **fingerprint_data,
             }
 
-            values = f":track_id, :fp_version, :is_reference, :reference_weight, {named_placeholders}"
+            values = (
+                ":track_id, :fp_version, :is_reference, :reference_weight, "
+                f"CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, {named_placeholders}"
+            )
             if expected_filepath is None:
                 source = f"VALUES ({values})"
             else:
@@ -116,7 +119,8 @@ class FingerprintUpsertMixin(BaseRepository):
             result = cast(CursorResult[Any], session.execute(
                 text(
                     f"INSERT INTO track_fingerprints "
-                    f"(track_id, fingerprint_version, is_reference, reference_weight, {cols_str}) "
+                    f"(track_id, fingerprint_version, is_reference, reference_weight, "
+                    f"created_at, updated_at, {cols_str}) "
                     f"{source} "
                     f"ON CONFLICT (track_id) DO UPDATE SET {update_clause}"
                 ),
@@ -186,7 +190,7 @@ class FingerprintUpsertMixin(BaseRepository):
         # reference_weight are INSERT-only (#5530): a store must not clobber
         # reference-cloud membership set by the seeder.
         all_cols = cols + ['fingerprint_blob', 'fingerprint_version']
-        update_clause = ', '.join(f"{col} = excluded.{col}" for col in all_cols)
+        update_clause = ', '.join(f"{col} = excluded.{col}" for col in all_cols) + ', updated_at = CURRENT_TIMESTAMP'
 
         with self._guarded(f"Failed to store fingerprint for track {track_id}") as session:
             # Quantize fingerprint
@@ -204,8 +208,10 @@ class FingerprintUpsertMixin(BaseRepository):
             session.execute(
                 text(f"""
                     INSERT INTO track_fingerprints
-                    (track_id, {cols_str}, fingerprint_blob, fingerprint_version, is_reference, reference_weight)
-                    VALUES (:track_id, {named_placeholders}, :fingerprint_blob, :fp_version, :is_reference, :reference_weight)
+                    (track_id, {cols_str}, fingerprint_blob, fingerprint_version, is_reference, reference_weight,
+                     created_at, updated_at)
+                    VALUES (:track_id, {named_placeholders}, :fingerprint_blob, :fp_version, :is_reference, :reference_weight,
+                            CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                     ON CONFLICT (track_id) DO UPDATE SET {update_clause}
                 """),
                 params,

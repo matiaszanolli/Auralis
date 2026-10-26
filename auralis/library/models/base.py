@@ -10,7 +10,7 @@ Base classes, association tables, and mixins for database models
 
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, PrimaryKeyConstraint, Table
+from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, PrimaryKeyConstraint, Table, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -66,6 +66,16 @@ track_playlist = Table(
 
 
 class TimestampMixin:
-    """Mixin to add creation and modification timestamps."""
-    created_at: Mapped[datetime | None] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    """Mixin to add creation and modification timestamps.
+
+    Python-side ``default=`` covers ORM writes; ``server_default`` covers raw SQL
+    that omits the columns, and makes a ``create_all`` database declare the same
+    ``DEFAULT CURRENT_TIMESTAMP`` the migrated ones do (#5753). Both are UTC.
+    """
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc), server_default=func.current_timestamp()
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc),
+        server_default=func.current_timestamp(),
+    )
