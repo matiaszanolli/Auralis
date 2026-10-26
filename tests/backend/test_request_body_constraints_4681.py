@@ -153,6 +153,15 @@ class TestDeliberateNonChanges:
         assert SetVolumeRequest(volume=150).volume == 100.0
         assert SetVolumeRequest(volume=-50).volume == 0.0
 
+    def test_volume_rejects_non_finite_instead_of_clamping_to_max(self):
+        """#5942: min(100.0, nan) is 100.0, so NaN used to become full volume."""
+        for bad in ("NaN", "Infinity", "-Infinity"):
+            with pytest.raises(ValidationError):
+                SetVolumeRequest.model_validate_json('{"volume": %s}' % bad)
+        for bad in (float("nan"), float("inf"), float("-inf")):
+            with pytest.raises(ValidationError):
+                SetVolumeRequest(volume=bad)
+
     def test_seek_has_no_upper_bound(self):
         """The only real ceiling is track duration, checked at the route."""
         assert SeekRequest(position=999999999.0).position == 999999999.0

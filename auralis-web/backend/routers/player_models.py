@@ -91,14 +91,21 @@ class SetVolumeRequest(BaseModel):
     # test_volume_out_of_range sends 150 and -50 and asserts a SUCCESSFUL
     # response with a clamped value. Clamping is the intended contract, so the
     # range is documented instead of enforced.
+    # Finite out-of-range values clamp; NaN/±Infinity are rejected (#5942):
+    # `min(100.0, nan)` is 100.0, so a NaN used to become full-scale volume, and
+    # a non-finite value has no meaningful clamp target. Same rule as
+    # SeekRequest above.
     volume: float = Field(
-        description="Playback volume on a 0-100 scale. Values outside the "
-                    "range are clamped, not rejected.",
+        description="Playback volume on a 0-100 scale. Finite values outside "
+                    "the range are clamped, not rejected; NaN and Infinity "
+                    "are rejected.",
     )
 
     @field_validator('volume')
     @classmethod
     def clamp_volume(cls, v: float) -> float:
+        if not math.isfinite(v):
+            raise ValueError("Volume must be a finite number")
         return max(0.0, min(100.0, v))
 
 
