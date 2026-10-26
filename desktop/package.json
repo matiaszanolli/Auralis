@@ -49,6 +49,7 @@
       "preload.js",
       "url-safety.js",
       "backend-env.js",
+      "port-cleanup.js",
       "assets/**/*",
       "error.html"
     ],

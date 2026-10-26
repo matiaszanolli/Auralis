@@ -6,6 +6,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { isSafeExternalUrl, isAllowedAppNavigation, DEV_ORIGIN_FLAG } = require('./url-safety');
 const { buildBackendEnv } = require('./backend-env');
+const { findListeners, stopProcess } = require('./port-cleanup');
 
 // Grace period between SIGTERM and SIGKILL for the Python backend. The
 // backend's own teardown steps are budgeted in
@@ -61,87 +62,32 @@ class AuralisApp {
   }
 
   /**
-   * Check if port is in use and kill any process using it
-   * Cross-platform: works on Linux, macOS, and Windows
+   * Free the backend port if a stale Auralis backend is still listening on it.
+   *
+   * Only a process LISTENING on the port whose command line is the Auralis
+   * backend is stopped (SIGTERM, then SIGKILL after a grace period). Clients
+   * of the port -- a browser tab, the Vite proxy, curl -- and unrelated
+   * listeners are left alone (#6157). A second launch never gets this far: the
+   * single-instance lock below quits it first.
    */
   async cleanupPort() {
-    return new Promise((resolve) => {
-      console.log(`Checking if port ${this.backendPort} is available...`);
+    const options = { exec, platform: process.platform, port: this.backendPort };
+    console.log(`Checking if port ${this.backendPort} is available...`);
 
-      const isWindows = process.platform === 'win32';
-      const findCommand = isWindows
-        ? `netstat -ano | findstr :${this.backendPort}`
-        : `lsof -ti:${this.backendPort}`;
+    const { backend, foreign } = await findListeners(options);
+    if (foreign.length > 0) {
+      console.warn(`⚠️ Port ${this.backendPort} is held by a non-Auralis process (${foreign.join(', ')}); not touching it`);
+    }
+    if (backend.length === 0) {
+      console.log(`✓ No stale Auralis backend on port ${this.backendPort}`);
+      return;
+    }
 
-      exec(findCommand, (error, stdout, stderr) => {
-        if (error || !stdout.trim()) {
-          console.log(`✓ Port ${this.backendPort} is available`);
-          resolve();
-          return;
-        }
-
-        let pids = [];
-        if (isWindows) {
-          const lines = stdout.trim().split('\n');
-          pids = lines
-            .map(line => {
-              const match = line.trim().match(/\s+(\d+)\s*$/);
-              return match ? match[1] : null;
-            })
-            .filter(pid => pid);
-          pids = [...new Set(pids)];
-        } else {
-          pids = stdout.trim().split('\n').filter(pid => pid);
-        }
-
-        if (pids.length === 0) {
-          console.log(`✓ Port ${this.backendPort} is available`);
-          resolve();
-          return;
-        }
-
-        console.log(`⚠️ Found ${pids.length} process(es) using port ${this.backendPort}: ${pids.join(', ')}`);
-
-        // Force-kill all processes (SIGKILL) for reliable cleanup
-        const killPromises = pids.map(pid => {
-          return new Promise((killResolve) => {
-            const killCommand = isWindows ? `taskkill /F /PID ${pid}` : `kill -9 ${pid}`;
-            exec(killCommand, (killError) => {
-              if (killError) {
-                console.error(`Failed to kill process ${pid}:`, killError.message);
-              } else {
-                console.log(`✓ Killed process ${pid}`);
-              }
-              killResolve();
-            });
-          });
-        });
-
-        Promise.all(killPromises).then(() => {
-          // Poll until port is actually free (up to 5 seconds)
-          const startTime = Date.now();
-          const pollInterval = 250;
-          const maxWait = 5000;
-
-          const checkPort = () => {
-            exec(findCommand, (err, out) => {
-              if (err || !out.trim()) {
-                console.log(`✓ Port ${this.backendPort} is free`);
-                resolve();
-              } else if (Date.now() - startTime > maxWait) {
-                console.warn(`⚠️ Port ${this.backendPort} still in use after ${maxWait}ms, proceeding anyway`);
-                resolve();
-              } else {
-                setTimeout(checkPort, pollInterval);
-              }
-            });
-          };
-
-          // Give initial kill a moment then start polling
-          setTimeout(checkPort, 500);
-        });
-      });
-    });
+    console.log(`⚠️ Stopping stale Auralis backend (${backend.join(', ')}) on port ${this.backendPort}`);
+    for (const pid of backend) {
+      const exited = await stopProcess(pid);
+      console[exited ? 'log' : 'error'](exited ? `✓ Stopped process ${pid}` : `Failed to stop process ${pid}`);
+    }
   }
 
   async startPythonBackend() {
@@ -646,8 +592,25 @@ ipcMain.handle('check-for-updates', async () => {
   }
 });
 
+// Single-instance lock (#6157): a second launch used to SIGKILL the first
+// instance's live backend while "freeing" the port. Quit it instead and
+// bring the first window forward.
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+if (!hasSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    const win = auralisApp.mainWindow;
+    if (win) {
+      if (win.isMinimized()) win.restore();
+      win.focus();
+    }
+  });
+}
+
 // App lifecycle events
 app.whenReady().then(() => {
+  if (!hasSingleInstanceLock) return; // quitting: another instance owns the backend
   console.log('Electron app ready');
   auralisApp.initialize();
 
